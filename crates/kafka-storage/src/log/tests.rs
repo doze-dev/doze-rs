@@ -2,7 +2,11 @@
 
 mod append;
 mod durability;
+mod open;
+mod read;
 mod recovery;
+mod retention;
+mod tickets;
 mod trim;
 
 use std::path::PathBuf;
@@ -11,7 +15,7 @@ use kafka_wire::batch::{Batch, TimestampType};
 use kafka_wire::ids::TimestampMs;
 
 use super::*;
-use crate::sim::SimFs;
+use crate::sim::{Op, SimFs};
 use crate::testutil::{batch, disk};
 
 pub(super) fn config(segment_bytes: u64) -> LogConfig {
@@ -74,4 +78,60 @@ pub(super) fn all(reader: &LogReader<SimFs>) -> bytes::Bytes {
             .unwrap();
         out.extend_from_slice(&got);
     }
+}
+
+fn names(fs: &SimFs, dir: &std::path::Path) -> Vec<String> {
+    fs.names(dir)
+        .into_iter()
+        .filter(|n| n.ends_with(".log"))
+        .collect()
+}
+
+/// Six one-record batches in segments of two: 0, 2, 4 (the last active).
+fn three_segments(ts: i64) -> (SimFs, std::path::PathBuf, PartitionLog<SimFs>) {
+    let (fs, dir, mut log) = fresh(2 * one());
+    for _ in 0..6 {
+        log.append(&ones(1, ts), NOW, TimestampType::Create)
+            .unwrap();
+    }
+    (fs, dir, log)
+}
+
+/// A log with `n` one-record batches, flushed, then "killed": the disk the next process starts from.
+fn written(n: usize, segment_bytes: u64) -> (SimFs, std::path::PathBuf) {
+    let (fs, dir, mut log) = fresh(segment_bytes);
+    for _ in 0..n {
+        log.append(&ones(1, 5), NOW, TimestampType::Create).unwrap();
+    }
+    log.sync().unwrap();
+    drop(log);
+    (fs.process_restart(), dir)
+}
+
+fn reopen(fs: &SimFs, dir: &std::path::Path) -> PartitionLog<SimFs> {
+    open(fs, dir, NEVER, Trust::Unvouched)
+}
+
+/// Runs a future to its end, or fails the test after five seconds: a ticket that waits for ever is a bug, and a
+/// test that waits for ever with it is no way to find out.
+fn block_on<T>(f: impl std::future::Future<Output = T>) -> T {
+    tokio::runtime::Builder::new_current_thread()
+        .enable_time()
+        .build()
+        .unwrap()
+        .block_on(async {
+            tokio::time::timeout(std::time::Duration::from_secs(5), f)
+                .await
+                .expect("waited five seconds: the future never finishes")
+        })
+}
+
+pub(super) const LOG0: &str = "00000000000000000000.log";
+pub(super) const INDEX0: &str = "00000000000000000000.index";
+
+pub(super) fn fsyncs(fs: &SimFs) -> usize {
+    fs.trace()
+        .iter()
+        .filter(|(op, _)| matches!(op, Op::Fsync | Op::DirSync))
+        .count()
 }

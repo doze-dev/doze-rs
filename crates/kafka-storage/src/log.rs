@@ -47,6 +47,7 @@ impl Default for LogConfig {
 /// Whether the previous run vouches that a partition's files were flushed (it stopped cleanly after flushing
 /// them). Without it nothing read back at open is taken to be on disk until this run has flushed it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum Trust {
     /// The last stop was clean and covered this partition.
     Vouched,

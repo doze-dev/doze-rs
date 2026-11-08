@@ -117,6 +117,12 @@ impl SimFs {
         self.lock().control.counted()
     }
 
+    /// How many operations of kind `op` have run (reads included).
+    #[must_use]
+    pub fn count(&self, op: Op) -> u64 {
+        self.lock().control.count(op)
+    }
+
     /// Every counted operation so far, in order.
     #[must_use]
     pub fn trace(&self) -> Vec<(Op, PathBuf)> {
@@ -135,14 +141,20 @@ impl SimFs {
         }
     }
 
-    /// The disk after the process is killed (`kill -9`): the page cache survives, so nothing is lost.
+    /// The disk after the process is killed (`kill -9`) and started again. The kernel survives, so the page
+    /// cache does: every byte and name the process had written is still there, and still not known to be on
+    /// disk. A power cut after the restart takes unflushed data and names exactly as it would have before it.
     #[must_use]
     pub fn process_restart(&self) -> SimFs {
-        self.power_cut(Cut {
-            data: DataCut::Keep,
-            names: NameCut::Volatile,
-            seed: 0,
-        })
+        let (state, now_ms) = {
+            let g = self.lock();
+            (g.state.clone(), g.control.now_ms)
+        };
+        let mut control = Control::default();
+        control.now_ms = now_ms;
+        SimFs {
+            inner: Arc::new(Mutex::new(Inner { state, control })),
+        }
     }
 
     /// The bytes of a file as the process sees them now, if there is one.
@@ -151,6 +163,14 @@ impl SimFs {
         let g = self.lock();
         let id = g.state.volatile.files.get(path)?;
         g.state.inodes.get(*id).map(|i| i.data.clone())
+    }
+
+    /// The bytes of a file a power cut would certainly keep: as of its last flush.
+    #[must_use]
+    pub fn durable_contents(&self, path: &Path) -> Option<Vec<u8>> {
+        let g = self.lock();
+        let id = g.state.volatile.files.get(path)?;
+        g.state.inodes.get(*id).map(|i| i.durable.clone())
     }
 
     /// The names in a directory as the process sees them now.

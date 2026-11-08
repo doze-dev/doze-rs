@@ -12,16 +12,10 @@ use crate::error::{Doing, StorageError};
 use crate::fs::Fs;
 use crate::fs::FsFile;
 use crate::logstart;
-use crate::scan::scan;
+use crate::scan::{scan, scan_tail};
 use crate::segment::{
     ActiveSegment, SealedSegment, base_of_index, base_of_log, log_path, remove_files,
 };
-
-/// How much of the active segment's tail has every batch's checksum verified when the previous stop vouches
-/// for it. Without that vouching the whole segment is verified: what was written and not flushed is not
-/// bounded by a window, and pages reach the disk in any order, so a batch whose header made it and whose body
-/// did not can sit well before the tail.
-const VOUCHED_CRC_WINDOW: u64 = 8 << 20;
 
 /// What a directory held.
 struct Found {
@@ -102,7 +96,12 @@ impl<F: Fs> PartitionLog<F> {
     ///
     /// Nothing read back is taken to be on disk unless `trust` vouches for it: the previous process may have
     /// been killed with these bytes in the page cache, where they read back perfectly and a power cut would
-    /// take them. What is not vouched for starts dirty, so the first [`PartitionLog::sync`] covers it.
+    /// take them. What is not vouched for starts dirty, so the first [`PartitionLog::sync`] covers it. A
+    /// vouched log was flushed whole, so only its end is walked.
+    ///
+    /// If the recorded log start is beyond the end of the records that survived (DeleteRecords is recorded
+    /// durably, the records it covered were not), the log carries on from the recorded start: offsets below it
+    /// are never handed out again.
     ///
     /// # Errors
     /// A failed file operation.
@@ -116,8 +115,9 @@ impl<F: Fs> PartitionLog<F> {
         let mut found = tidy(&fs, &dir)?;
         let interval = config.index_interval_bytes;
         drop_stale_tail(&fs, &dir, &mut found, interval)?;
+        let recorded = logstart::read(&fs, &dir);
         let Some((last, earlier)) = found.bases.split_last() else {
-            return Self::fresh(fs, dir, config, found.tidied);
+            return Self::fresh(fs, dir, config, found.tidied, recorded);
         };
         let sealed = earlier
             .iter()
@@ -125,33 +125,12 @@ impl<F: Fs> PartitionLog<F> {
             .collect::<Result<Vec<_>, _>>()?;
         let (mut active, _) =
             ActiveSegment::open(&fs, &dir, *last, interval).doing("opening a segment")?;
-        let size = active.size();
-        let crc_from = match trust {
-            Trust::Vouched => size.saturating_sub(VOUCHED_CRC_WINDOW),
-            Trust::Unvouched => 0,
-        };
-        let scanned = scan(
-            active.view().log_file().as_ref(),
-            size,
-            *last,
-            interval,
-            crc_from,
-        )
-        .doing("scanning the active segment")?;
-        active
-            .adopt(&scanned)
-            .doing("recovering the active segment")?;
-
-        let end = scanned.next_offset;
+        let end = recover_active(&mut active, *last, interval, trust)?;
         let first = sealed.first().map_or(*last, SealedSegment::base);
-        let start = first.max(logstart::read(&fs, &dir).min(end));
-        let mut log = Self::assemble(fs, dir, config, sealed, active, (start, end));
+        let mut log = Self::assemble(fs, dir, config, sealed, active, (first, end));
         log.dir_dirty = found.tidied;
-        // A crash between recording a new start and removing the segments below it leaves them on disk,
-        // invisible. Finish the job.
-        while !log.sealed.is_empty() && log.second_base() <= start {
-            log.drop_oldest()?;
-        }
+        log.carry_on_from(recorded)?;
+        log.finish_interrupted_deletes()?;
         if trust == Trust::Unvouched {
             log.active.mark_unflushed();
             log.dir_dirty = true;
@@ -160,22 +139,54 @@ impl<F: Fs> PartitionLog<F> {
         Ok(log)
     }
 
-    /// A partition with no segments yet: nothing to recover and nothing to doubt.
-    fn fresh(fs: F, dir: PathBuf, config: LogConfig, tidied: bool) -> Result<Self, StorageError> {
-        let (active, _) = ActiveSegment::open(&fs, &dir, Offset::ZERO, config.index_interval_bytes)
+    /// A partition with no segments yet: nothing to recover and nothing to doubt. If DeleteRecords had recorded
+    /// a start, the first segment begins there.
+    fn fresh(
+        fs: F,
+        dir: PathBuf,
+        config: LogConfig,
+        tidied: bool,
+        recorded: Offset,
+    ) -> Result<Self, StorageError> {
+        let (active, _) = ActiveSegment::open(&fs, &dir, recorded, config.index_interval_bytes)
             .doing("creating the first segment")?;
-        let mut log = Self::assemble(
-            fs,
-            dir,
-            config,
-            Vec::new(),
-            active,
-            (Offset::ZERO, Offset::ZERO),
-        );
+        let mut log = Self::assemble(fs, dir, config, Vec::new(), active, (recorded, recorded));
         // Its name is not flushed here: the flush that an acknowledgement waits for flushes it too.
         log.dir_dirty = true;
         log.dir_dirty |= tidied;
         Ok(log)
+    }
+
+    /// Makes the log begin no earlier than `recorded` and end no earlier: a start recorded durably can outlive
+    /// the records it covered (they were never flushed), and the log must not hand out those offsets again. The
+    /// segment holding what survived is flushed and sealed, its name too, and a new one begins at `recorded`.
+    fn carry_on_from(&mut self, recorded: Offset) -> Result<(), StorageError> {
+        if recorded > self.end {
+            self.flush_active()?;
+            self.flush_directory()?;
+            self.end = recorded;
+            self.start_segment()?;
+            self.shared.end.send_replace(recorded);
+        }
+        if recorded > self.start {
+            self.start = recorded;
+            self.shared.set_start(recorded);
+        }
+        Ok(())
+    }
+
+    /// A crash between recording a new start and removing the segments below it leaves them on disk, invisible.
+    /// Finish the job. The start is recorded again first: this process read it from the page cache, and a power
+    /// cut after the removals must not bring back a start that does not cover the hole they leave.
+    fn finish_interrupted_deletes(&mut self) -> Result<(), StorageError> {
+        if self.sealed.is_empty() || self.second_base() > self.start {
+            return Ok(());
+        }
+        logstart::write(&self.fs, &self.dir, self.start).doing("recording the log start")?;
+        while !self.sealed.is_empty() && self.second_base() <= self.start {
+            self.drop_oldest()?;
+        }
+        Ok(())
     }
 
     fn assemble(
@@ -204,4 +215,38 @@ impl<F: Fs> PartitionLog<F> {
             offline: None,
         }
     }
+}
+
+/// Brings the active segment to a consistent state and returns the offset after its last good batch.
+///
+/// Not vouched for, the whole segment is walked and every batch's checksum checked. Vouched for, it was flushed
+/// whole by the stop that vouches, so only the stretch from the last index entry to the end is walked (checksums
+/// and all); if that stretch is not whole after all, nothing is trusted and the whole segment is walked.
+fn recover_active<F: Fs>(
+    active: &mut ActiveSegment<F>,
+    base: Offset,
+    interval: u64,
+    trust: Trust,
+) -> Result<Offset, StorageError> {
+    let size = active.size();
+    let log = active.view().log_file().clone();
+    if trust == Trust::Vouched && size > 0 {
+        let last = active.last_index_entry().doing("reading the index")?;
+        let tail = match last {
+            Some(entry) => {
+                scan_tail(log.as_ref(), size, entry).doing("scanning the active segment")?
+            }
+            None => None,
+        };
+        if let Some(tail) = tail {
+            active.adopt_tail(&tail);
+            return Ok(tail.next_offset);
+        }
+    }
+    let scanned =
+        scan(log.as_ref(), size, base, interval, 0).doing("scanning the active segment")?;
+    active
+        .adopt(&scanned)
+        .doing("recovering the active segment")?;
+    Ok(scanned.next_offset)
 }

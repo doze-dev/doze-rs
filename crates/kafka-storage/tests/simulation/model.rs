@@ -49,6 +49,9 @@ pub(crate) struct Model {
     pub(crate) durable_start: i64,
     /// The end offset the workload last saw.
     pub(crate) end: i64,
+    /// The highest log start the running process ever reported: a reopened log cannot start higher, unless a
+    /// head-loss bug removed records nobody asked to remove.
+    pub(crate) start_seen: i64,
 }
 
 /// Checks a log (reopened after a stop or a cut) against the model:
@@ -60,6 +63,18 @@ pub(crate) struct Model {
 pub(crate) fn verify(log: &PartitionLog<SimFs>, m: &Model, strict: bool) -> Result<(), String> {
     let reader = log.reader();
     let (start, end) = (reader.start_offset().get(), reader.end_offset().get());
+    if start > m.start_seen.max(m.durable_start) {
+        return Err(format!(
+            "start {start} is above any start the process ever reported ({})",
+            m.start_seen
+        ));
+    }
+    if end < m.durable_start {
+        return Err(format!(
+            "end {end} is below a recorded start {}: offsets would be reissued",
+            m.durable_start
+        ));
+    }
     if start < m.durable_start.min(end) {
         return Err(format!(
             "start {start} is before the recorded start {}",

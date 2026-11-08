@@ -72,7 +72,8 @@ fn memory_does_not_follow_the_data() {
         "open cost grew with the log: {gross_small} for 8 MiB, {gross_large} for 64 MiB"
     );
 
-    // A fetch costs about the bytes it returns: one buffer, no copies of it.
+    // A fetch costs about the bytes it returns: one buffer, no copies of it. (It asks the file for 16 KiB more
+    // than it was asked to return, to step over the batches before the offset in the same read.)
     let reader = log_large.reader();
     let from = Offset::new(100).unwrap();
     let (got, gross, _) = cost(|| reader.read(from, 256 << 10, None).unwrap());
@@ -82,7 +83,7 @@ fn memory_does_not_follow_the_data() {
         got.len()
     );
     assert!(
-        gross < got.len() + (16 << 10),
+        gross < got.len() + (20 << 10),
         "a {}-byte read allocated {gross} bytes",
         got.len()
     );

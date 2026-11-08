@@ -10,7 +10,7 @@ const THROUGH_LAST_OFFSET_DELTA: usize = 27;
 pub(super) const MAX_TIMESTAMP: usize = 35;
 
 /// The whole v2 header, through the record count.
-pub(super) const HEADER_LEN: usize = 61;
+pub const HEADER_LEN: usize = 61;
 /// `baseOffset` and `batchLength` are not counted by `batchLength`.
 pub(super) const LENGTH_OVERHEAD: i64 = 12;
 /// The only record batch format this broker stores.

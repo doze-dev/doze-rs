@@ -25,3 +25,10 @@ binary (946 KB against 339 KB for an empty main); idle RSS is 3.6 to 3.9 MB agai
 per commit and bbolt twice (both use `F_FULLFSYNC` on macOS). The disk's flush time drifts between 3 and 12 ms from
 run to run, so absolute times are good to about 2x; only the ratio is reliable. These are an input to the Phase 3
 baseline, not part of it.
+
+## Partition log (kafka-storage, measured by the Phase 2 audit, 2026-11-08)
+
+An open partition holds about 1.7 KB and 12 allocations, plus about 300 B and 4 allocations per extra segment; nothing
+grows with the bytes of data (the index is read from the file, not held). Each segment holds two file descriptors: 5,000
+partitions of 10 segments each is about 22 MB of heap and **100,000 descriptors**, which is beyond common limits and so
+a Phase 3 design item (lazy open, or a descriptor cache). A fetch allocates the bytes it returns plus up to 16 KiB.

@@ -12,8 +12,7 @@ use kafka_wire::ids::{Offset, TimestampMs};
 use crate::fs::FsFile;
 use crate::index::Entry;
 
-/// The bytes of a batch header: enough to find the batch's extent.
-const HEADER: usize = 61;
+const HEADER: usize = kafka_wire::batch::HEADER_LEN;
 /// How much a scan reads at a time: a read per batch header and another per body would be two system calls a
 /// batch, which over a segment is most of the time it takes.
 const WINDOW: usize = 1 << 20;
@@ -37,7 +36,10 @@ pub(crate) struct Scanned {
 struct Window<'a, L: FsFile> {
     file: &'a L,
     size: u64,
+    /// The buffer, kept at the largest size it has needed: a refill reads over it without zeroing it again.
     buf: Vec<u8>,
+    /// How much of `buf` holds file bytes, and where in the file they begin.
+    valid: usize,
     at: u64,
 }
 
@@ -47,6 +49,7 @@ impl<'a, L: FsFile> Window<'a, L> {
             file,
             size,
             buf: Vec::new(),
+            valid: 0,
             at: 0,
         }
     }
@@ -54,29 +57,29 @@ impl<'a, L: FsFile> Window<'a, L> {
     /// Up to `n` bytes at `pos`, fewer at the end of the file.
     fn read(&mut self, pos: u64, n: usize) -> io::Result<&[u8]> {
         let end = pos + n as u64;
-        let held = self.at..self.at + self.buf.len() as u64;
+        let held = self.at..self.at + self.valid as u64;
         if !(held.contains(&pos) && end <= held.end) {
             let want = n
                 .max(WINDOW)
                 .min(usize::try_from(self.size.saturating_sub(pos)).unwrap_or(usize::MAX));
-            self.buf.resize(want, 0);
+            if self.buf.len() < want {
+                self.buf.resize(want, 0);
+            }
             let mut filled = 0;
             while filled < want {
-                let got = self.file.read_at(
-                    self.buf.get_mut(filled..).unwrap_or_default(),
-                    pos + filled as u64,
-                )?;
+                let dst = self.buf.get_mut(filled..want).unwrap_or_default();
+                let got = self.file.read_at(dst, pos + filled as u64)?;
                 if got == 0 {
                     break;
                 }
                 filled += got;
             }
-            self.buf.truncate(filled);
+            self.valid = filled;
             self.at = pos;
         }
         let from = usize::try_from(pos - self.at).unwrap_or(usize::MAX);
-        let slice = self.buf.get(from..).unwrap_or_default();
-        Ok(slice.get(..n).unwrap_or(slice))
+        let held = self.buf.get(from..self.valid).unwrap_or_default();
+        Ok(held.get(..n).unwrap_or(held))
     }
 }
 
@@ -151,6 +154,49 @@ fn next_good<L: FsFile>(
         }
     }
     Ok(Some(peek))
+}
+
+/// What a walk of only the end of a log found.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct Tail {
+    /// The offset after the last batch.
+    pub next_offset: Offset,
+    /// Bytes since the last index entry.
+    pub since_index: u64,
+}
+
+/// Walks only from the last index entry to the end of a log, checking every batch's shape and checksum, for a
+/// log the last stop vouches for: it was flushed whole, so there is no need to read all of it again. `None` if
+/// the tail is not whole after all (the caller then walks the whole log, trusting nothing).
+pub(crate) fn scan_tail<L: FsFile>(log: &L, size: u64, last: Entry) -> io::Result<Option<Tail>> {
+    // An entry is the start of a batch, so it lies before the end: one at or past it (a damaged index) vouches for
+    // nothing, and walking from it would find nothing to walk and call that whole.
+    if last.position >= size {
+        return Ok(None);
+    }
+    let mut window = Window::new(log, size);
+    let (mut pos, mut next, mut since) = (last.position, last.offset, 0u64);
+    let mut first = true;
+    while pos < size {
+        let Some(offset) = Offset::new(next) else {
+            return Ok(None);
+        };
+        let Some(peek) = next_good(&mut window, pos, size, offset, 0)? else {
+            return Ok(None);
+        };
+        // The batch the entry is for does not count towards the next entry: it is the entry.
+        if !first {
+            since += peek.total_len;
+        }
+        first = false;
+        next = peek.base_offset + i64::from(peek.record_count);
+        pos += peek.total_len;
+    }
+    let next_offset = Offset::new(next).unwrap_or(Offset::ZERO);
+    Ok((pos == size).then_some(Tail {
+        next_offset,
+        since_index: since,
+    }))
 }
 
 /// The offset after the last batch of a log, found by walking forward from the last index entry (no need to read

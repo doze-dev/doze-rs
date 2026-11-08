@@ -157,6 +157,11 @@ impl<F: Fs> IndexWriter<F> {
         self.dirty
     }
 
+    /// Marks the index as holding entries nobody knows to be on disk (read back at open).
+    pub(crate) fn mark_dirty(&mut self) {
+        self.dirty = true;
+    }
+
     /// Writes an entry. It becomes visible to readers at [`IndexWriter::publish`].
     pub(crate) fn append(&mut self, entry: Entry) -> io::Result<()> {
         // Dirty before the write: a write that fails part-way may still have changed the file.
@@ -182,13 +187,23 @@ impl<F: Fs> IndexWriter<F> {
         }
     }
 
-    /// Replaces every entry (recovery: the log wins).
+    /// Replaces every entry (recovery: the log wins). Written a few kilobytes at a time: the entries are already in
+    /// memory once, and a second copy of them as bytes would double it.
     pub(crate) fn rewrite(&mut self, entries: &[Entry]) -> io::Result<()> {
         self.dirty = true;
         self.view.file.set_len(0)?;
-        let raw: Vec<u8> = entries.iter().flat_map(|e| e.encode()).collect();
-        if !raw.is_empty() {
-            self.view.file.write_all_at(&raw, 0)?;
+        let mut chunk = [0u8; 4096];
+        let per_chunk = chunk.len() / ENTRY_BYTES as usize;
+        for (n, group) in entries.chunks(per_chunk).enumerate() {
+            let mut filled = 0;
+            for (slot, entry) in chunk.as_chunks_mut::<16>().0.iter_mut().zip(group) {
+                slot.copy_from_slice(&entry.encode());
+                filled += slot.len();
+            }
+            let at = (n * per_chunk) as u64 * ENTRY_BYTES;
+            self.view
+                .file
+                .write_all_at(chunk.get(..filled).unwrap_or_default(), at)?;
         }
         self.written = entries.len() as u64;
         self.publish();

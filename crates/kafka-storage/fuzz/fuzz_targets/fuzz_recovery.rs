@@ -50,6 +50,19 @@ fuzz_target!(|data: &[u8]| {
     let Some((split, rest)) = data.split_first() else { return };
     let at = (usize::from(*split) * rest.len()) / 256;
     let (log, index) = rest.split_at(at);
+    // A log the last stop vouches for is opened by walking only its end, and is trusted not to be damaged before it
+    // (that is what vouching means), so a read may meet damage and say so. Whatever the bytes are, it must not panic.
+    let (vfs, vdir) = disk(log, index);
+    if let Ok(vouched) = PartitionLog::open(vfs, vdir, CONFIG, Trust::Vouched) {
+        let reader = vouched.reader();
+        let mut from = reader.start_offset();
+        while from < reader.end_offset() {
+            let Ok(got) = reader.read(from, usize::MAX, None) else { break };
+            let Some(last) = Batches::new(got).map_while(Result::ok).last() else { break };
+            let Some(next) = last.base_offset().and_then(|b| b.checked_add(last.record_count())) else { break };
+            from = next;
+        }
+    }
     let (fs, dir) = disk(log, index);
     let Ok(mut opened) = PartitionLog::open(fs.clone(), dir.clone(), CONFIG, Trust::Unvouched) else { return };
     let first = served(&opened);

@@ -57,7 +57,7 @@ Test: `log::tests::append::a_read_starts_at_the_batch_that_holds_the_offset`, `l
 ### S7. A reader never sees a partial append and never blocks the writer
 Only fully appended payloads are visible. Reads are positioned reads of the file: the log is never pulled into the
 heap, so idle memory does not grow with data.
-Test: `segment::tests::nothing_is_visible_to_a_reader_until_it_is_published`, `tests/real_disk.rs::readers_never_see_a_partial_append_while_the_writer_writes_and_rolls`, `tests/flat_memory.rs`
+Test: `segment::tests::nothing_is_visible_to_a_reader_until_it_is_published`, `tests/real_disk/main.rs::readers_never_see_a_partial_append_while_the_writer_writes_and_rolls`, `tests/flat_memory.rs`
 
 ### S8. A reader can wait for the log to grow
 A reader can subscribe to the LEO and be woken when it changes, with no missed wake-up between reading and waiting.
@@ -80,6 +80,11 @@ Test: `log::tests::durability::one_sync_covers_every_append_before_it`
 ### S11. A failed fsync is never retried
 The partition goes offline until restart: appends, syncs and `DeleteBefore` answer an offline error that names the
 first failure; reads continue. The kernel may have dropped the pages and report success the second time.
+
+A limit no code can remove: after a failed fsync the kernel has marked the dropped pages clean, so a new *process* on the
+same machine finds them in the page cache and a later fsync of them succeeds without writing anything. Only the
+machine starting again clears it. The broker's answer to an offline partition has to say so (restart the machine, or at
+least do not trust the process restart), and the simulation models an offline log's restart as a reboot.
 Test: `log::tests::durability::a_failed_fsync_takes_the_partition_offline_and_is_never_retried`, `log::tests::durability::a_failed_directory_flush_takes_the_partition_offline_too`, `log::tests::durability::a_retry_that_would_have_succeeded_proves_nothing_and_so_is_not_made`, simulation `a_failed_flush_is_never_retried_and_nothing_it_covered_is_lost_that_was_acknowledged`
 
 ### S12. A failed write is refused and nothing is left behind
@@ -88,18 +93,22 @@ resume when space returns. No offset is consumed by a refused write.
 Test: `log::tests::append::a_payload_is_appended_whole_or_not_at_all`, `log::tests::append::a_full_disk_refuses_writes_and_they_resume_when_there_is_room`
 
 ### S13. What is read back at open is not known to be on disk
-Unless the last stop vouches for the partition (S19), the active segment and the directory start dirty, so the first
-sync of the partition flushes them, whatever this process wrote.
-Test: `log::tests::durability::what_is_read_back_at_open_is_flushed_by_the_first_sync_unless_the_last_stop_vouches`
+Unless the last stop vouches for the partition (S21), the active segment's log, its index and the directory each start
+dirty, so the first sync of the partition flushes all three, whatever this process wrote. (They are three claims: a
+process that restarts before it flushed the index it rewrote must still flush it, or a power cut after the next roll
+leaves a sealed segment with a stale index. Found by the simulation.)
+Test: `log::tests::durability::what_is_read_back_at_open_is_flushed_by_the_first_sync_unless_the_last_stop_vouches`, `log::tests::durability::what_is_read_back_at_open_is_flushed_log_index_and_directory_each_by_itself`
 
 ## Recovery (open)
 
 ### S14. The active segment is scanned and cut at the first bad batch
 A batch is good when its header is whole, magic 2, it fits in the file, its count is positive, its shape and CRC
-check out. The CRC of every batch is verified unless the partition is vouched for, when only the last 8 MiB is. The
-cut covers an interrupted append, a zero-filled tail after a power cut, and a body that never fully reached the disk.
+check out. The CRC of every batch is verified unless the partition is vouched for. A vouched log was flushed whole by
+the stop that vouches, so only the stretch from the last index entry to the end is walked (checksums and all, and the
+index is taken as it is); if that stretch is not whole after all, nothing is trusted and the whole segment is walked.
+The cut covers an interrupted append, a zero-filled tail after a power cut, and a body that never fully reached the disk.
 The cut is flushed before open returns, so a second crash does not bring the torn bytes back.
-Test: `log::tests::recovery::a_torn_tail_is_cut_and_the_cut_is_flushed`, `log::tests::recovery::a_zero_filled_tail_after_a_power_cut_is_cut`, `log::tests::recovery::a_damaged_batch_in_the_middle_ends_the_log_there`, `scan::tests::*`, `segment::tests::adopting_a_scan_cuts_the_log_durably_and_rebuilds_the_index`
+Test: `log::tests::recovery::a_torn_tail_is_cut_and_the_cut_is_flushed`, `log::tests::recovery::a_zero_filled_tail_after_a_power_cut_is_cut`, `log::tests::recovery::a_damaged_batch_in_the_middle_ends_the_log_there`, `log::tests::open::a_vouched_open_walks_only_the_end_of_the_log_and_an_unvouched_one_checks_all_of_it`, `log::tests::open::a_vouched_open_that_finds_the_end_not_whole_falls_back_to_checking_everything`, `scan::tests::*`, `segment::tests::adopting_a_scan_cuts_the_log_durably_and_rebuilds_the_index`
 
 ### S15. The index follows the log
 After the scan the index is compared with what the log should have and rewritten if they differ: an entry can outlive
@@ -123,18 +132,23 @@ Test: `log::tests::recovery::leftovers_of_interrupted_operations_are_removed`, `
 ## Log start and DeleteRecords
 
 ### S18. The log start is the larger of the first segment and a recorded value
-The recorded value (file `log-start`) is capped at the LEO. The file is replaced atomically and durably: a temporary
-file is written and flushed, renamed over the name, and the directory flushed; a crash leaves the old value or the
-new, never a torn file.
-Test: `log::tests::recovery::a_recorded_start_past_the_end_is_not_believed`, `fs::tests` (the durable write), `log::tests::trim::the_new_start_survives_a_restart`
+The recorded value (file `log-start`) is replaced atomically and durably: a temporary file is written and flushed, renamed
+over the name, and the directory flushed; a crash leaves the old value or the new, never a torn file. A recorded start
+beyond the end of the records that survived (DeleteRecords is durable, the records it covered were not) is not capped
+and not forgotten: the log carries on from it, with a new segment beginning there, so an offset below a start that
+was recorded is never handed out again. (Found by the audit; the simulation had hidden it by capping.)
+Test: `log::tests::open::a_recorded_start_beyond_the_records_that_survived_is_carried_on_from_never_reissued`, `log::tests::open::a_directory_with_only_a_recorded_start_begins_its_first_segment_there`, `fs::tests` (the durable write), `log::tests::trim::the_new_start_survives_a_restart`
 
 ### S19. DeleteBefore moves the start, then deletes
 `-1` means the LEO. At or below the start is a no-op; above the LEO or below -1 is out of range; an offline partition
 refuses it before anything is recorded. Emptying a partition with data in its active segment starts a new segment at
 the LEO so the old one can go. The new start is recorded durably before any file is removed, so a crash leaves
 segments that are only invisible and the next open finishes the job. A segment that cannot be removed now does not
-fail the call.
-Test: `log::tests::trim::delete_before_moves_the_start_and_removes_whole_segments_below_it`, `log::tests::trim::deleting_to_the_end_empties_the_partition_and_starts_a_fresh_segment`, `log::tests::trim::the_start_is_recorded_before_any_file_is_removed`
+fail the call. The next open records the start again before it removes anything on its account: it read the value
+from the page cache, where a flush that failed or was interrupted left it, and a power cut after the removals must not
+take the start back and leave a hole. (The new segment's name is not flushed by the delete: a power cut that loses it
+is the case the carry-on rule of S18 covers, and the simulation agrees that a flush there is not needed.)
+Test: `log::tests::trim::delete_before_moves_the_start_and_removes_whole_segments_below_it`, `log::tests::trim::deleting_to_the_end_empties_the_partition_and_starts_a_fresh_segment`, `log::tests::trim::the_start_is_recorded_before_any_file_is_removed`, `log::tests::trim::deleting_to_the_end_starts_by_flushing_and_a_failure_there_changes_nothing`, `log::tests::trim::a_start_that_reached_only_the_page_cache_is_made_durable_before_segments_are_removed_on_its_account`
 
 ## Retention
 
@@ -154,7 +168,7 @@ Test: `log::tests::trim::retention_by_size_deletes_the_oldest_whole_segments_and
 The last act of a stop that flushed and closed every open partition is to write (durably) a marker file naming the
 partitions it did not cover; the first act of the next start is to remove it (durably). Found, it vouches for every
 partition not named; not found (killed, power cut, a failed flush on the way out), nothing is vouched for.
-Test: `marker::tests::*`, `tests/real_disk.rs::the_clean_stop_marker_works_on_the_real_disk`
+Test: `marker::tests::*`, `tests/real_disk/main.rs::the_clean_stop_marker_works_on_the_real_disk`
 
 ## Invariants the simulation checks
 
@@ -177,8 +191,31 @@ what makes it a batch. Looking at a header while reading, and comparing an index
 about the bytes it returns. Test: `kafka-wire batch::tests::stamping_does_not_copy_the_body`, `tests/flat_memory.rs`,
 `log::tests::append::a_log_append_time_topic_stamps_the_brokers_clock_and_keeps_the_batches_valid`.
 
+### S25. A read is one range of the file, and damage is an error
+A read asks the file for the bytes it will return (and up to 16 KiB before them, to step over the batches ahead of the
+offset) in one read, walks the headers in memory, and cuts the answer out of that buffer without copying it. Committed
+bytes that are not a batch are damage and an error, never a gap to read past (sealed segments are not re-checked at
+open). If retention moved the start past the offset while the bytes were being read, the reader is told it is out of
+range rather than handed what follows.
+Test: `log::tests::read::a_read_of_many_small_batches_asks_the_file_for_a_few_ranges_not_one_per_batch`, `log::tests::read::damage_in_committed_bytes_is_an_error_and_never_a_gap_to_read_past`, `tests/real_disk/main.rs::readers_never_see_a_partial_append_while_the_writer_writes_and_rolls`
+
+### S26. Only canonical names are segments
+A segment's files are twenty digits and `.log` or `.index`. `5.log`, `+5.log` or `007.log` are not segments (parsing them
+loosely would name a file that the canonical path does not reach, and the partition would not open).
+Test: `segment::tests::names_are_twenty_digits_and_round_trip`
+
+### S27. A ticket never waits for ever
+If the log is dropped, or a flush fails, a ticket that was not covered learns it (an error), even while a reader still
+holds the shared state; one that was covered stays good.
+Test: `log::tests::tickets::a_ticket_does_not_wait_for_ever_for_a_log_that_is_gone`, `log::tests::durability::a_failed_fsync_takes_the_partition_offline_and_is_never_retried`
+
 ## Deferred, and to whom
 
 - Timestamp lookup (offset for a time) and the time index: Phase 3 (ListOffsets).
 - Compaction and the cleaner's swap: Phase 7. Producer and transaction state in the log: Phase 6.
-- Lazily opened files for thousands of partitions (Go keeps two descriptors per segment open): measured in Phase 3.
+- Lazily opened files for thousands of partitions. Each segment holds two descriptors (5,000 partitions of 10 segments
+  each would need 100,000), which Phase 3 must bound with lazy open or a descriptor cache.
+- Go behaviours not built yet, because Phase 3 is what needs them: a closed partition's start and end without opening it
+  (`boundsFromDisk`: ListOffsets, DescribeLogDirs, the console), destroying a partition (DeleteTopics: `Fs` has no
+  `remove_dir`), changing `segment.bytes` at runtime, and the broker's own reading of `max_bytes` of 0 (here it means
+  "the first batch", where Go returned the whole remainder).

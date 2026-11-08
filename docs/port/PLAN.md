@@ -315,3 +315,29 @@ test-only knobs in `internal/config`.
   fix is held by it and by a unit test; breaking the log flush, the roll's directory flush, or the start-first rule
   each fails every sweep. Dropped from the Go design on purpose (fresh data): the `unvalidated` list, and the
   per-segment "unsynced" bookkeeping, because a segment is flushed, name included, before its successor exists.
+- **2026-11-08, Phase 2 audit and fixes.** The first independent audit said **not done** (fidelity 6, rules 8, idiom and
+  zero-copy 6, tests 5; 47 of 75 mutants killed) and found two blockers. Fixed:
+  (B1) after DeleteRecords-to-the-end and a power cut the log end could go backwards, reissuing offsets: the log now
+  carries on from a recorded start that outlived its records (a new segment begins there), and the open re-records the
+  start before removing segments on its account. (B2) the simulation was too kind: its restart made unflushed data
+  durable and every cut used one seed. `process_restart` now keeps the page cache and the pending state, cut seeds vary
+  per workload, the live log is verified after every step, clean stops exercise the vouched path, and the model bounds
+  the reopened start above (by the highest start the process reported, or retention's active-segment bound). With the
+  stricter model it found, besides B1: the unvouched open marked the log dirty but not the index (a stale sealed index
+  after restart then power cut); and a harness bug of mine (reading "offline" before the close that made it so).
+  Also fixed: `Ticket::durable` hung for ever if the log was dropped while a reader lived (the log now says it is
+  gone); a damaged committed header was silently skipped (now an error); stray names like `5.log` bricked a partition
+  (only canonical 20-digit names count); `enforce_closed` did not record the start first or flush after; size-only
+  retention read every segment (ages are now worked out only when an age bound is set, and only up to the first
+  segment that is not too old); the flaky Phase 1 allocator test (the guard now covers a test's whole run).
+  **Copies and allocations removed:** a fetch now reads one range (the bytes it returns plus 16 KiB of headroom) and walks
+  headers in memory (15,435 preads for 1 MB became about a dozen, most of them the index's binary search); a vouched
+  open walks only from the last index entry instead of reading the whole active segment; the scan window no longer
+  re-zeroes its buffer on every refill; the index is rewritten and compared 4 KiB at a time. Left as a stated trade-off:
+  two pwrites per batch (body, then header), because std has no stable positioned gather write and joining them would
+  copy the body; revisit with a vectored write if profiling in Phase 3 shows it matters.
+  **Dropped as unneeded:** an extra directory flush in DeleteRecords that the carry-on rule made redundant.
+  **Known limit, documented (S11):** after a failed fsync only a machine restart clears the dropped pages; a process
+  restart finds them in the page cache. Mutation check after the fixes: 13 of 13 sampled mutants of the new rules are
+  killed (the audit's 28 survivors were closed with direct tests or by the stricter simulation); 109 unit tests, the
+  simulation at 600 seeds per sweep (about 9 s in release), 5 real-disk tests, the flat-memory test, and a recovery fuzzer.

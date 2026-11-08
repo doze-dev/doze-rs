@@ -12,7 +12,7 @@ use kafka_wire::ids::{Offset, TimestampMs};
 use super::{SealedSegment, SegmentView, index_path, log_path};
 use crate::fs::{Fs, FsFile};
 use crate::index::{Entry, IndexWriter};
-use crate::scan::Scanned;
+use crate::scan::{Scanned, Tail};
 
 /// Where an active segment's appends stood, to take back a payload that failed part-way.
 #[derive(Debug, Clone, Copy)]
@@ -36,6 +36,8 @@ pub(crate) struct ActiveSegment<F: Fs> {
     log_dirty: bool,
     modified_ms: i64,
     max_timestamp: Option<TimestampMs>,
+    /// Whether `max_timestamp` covers the whole segment: not after a vouched open that walked only its end.
+    max_timestamp_known: bool,
 }
 
 impl<F: Fs> ActiveSegment<F> {
@@ -75,6 +77,7 @@ impl<F: Fs> ActiveSegment<F> {
             log_dirty: false,
             modified_ms,
             max_timestamp: None,
+            max_timestamp_known: size == 0,
         };
         Ok((segment, made_log || made_index))
     }
@@ -99,6 +102,7 @@ impl<F: Fs> ActiveSegment<F> {
     /// stop), so the first sync flushes them.
     pub(crate) fn mark_unflushed(&mut self) {
         self.log_dirty = true;
+        self.index.mark_dirty();
     }
 
     pub(crate) fn mark(&self) -> Mark {
@@ -196,14 +200,29 @@ impl<F: Fs> ActiveSegment<F> {
         }
         self.since_index = scanned.since_index;
         self.max_timestamp = scanned.max_timestamp;
+        self.max_timestamp_known = true;
         self.publish();
         Ok(())
+    }
+
+    /// Brings the segment in line with a walk of only its end (a log the last stop vouches for): the log and the
+    /// index are taken as they are.
+    pub(crate) fn adopt_tail(&mut self, tail: &Tail) {
+        self.since_index = tail.since_index;
+        self.publish();
+    }
+
+    /// The last entry of the index, if any.
+    pub(crate) fn last_index_entry(&self) -> io::Result<Option<Entry>> {
+        self.index.view().last()
     }
 
     /// The segment, no longer written: from here it is immutable. The caller has flushed it.
     pub(crate) fn into_sealed(self) -> SealedSegment<F> {
         let max_timestamp = OnceLock::new();
-        let _ = max_timestamp.set(self.max_timestamp);
+        if self.max_timestamp_known {
+            let _ = max_timestamp.set(self.max_timestamp);
+        }
         SealedSegment::from_parts(self.view, self.size, self.modified_ms, max_timestamp)
     }
 }
@@ -214,9 +233,10 @@ fn known(t: TimestampMs) -> Option<TimestampMs> {
 }
 
 impl<F: Fs> ActiveSegment<F> {
-    /// Writes a stamped batch at `pos`: the body, then the header. The header goes last because it is what
-    /// makes the batch a batch (its length, its checksum, its offset): a stop between the two leaves a body with
-    /// no header in front of it, which recovery cuts, and never a header promising a body that is not there.
+    /// Writes a stamped batch at `pos`: the body, then the header. Two writes because `std` has no stable positioned
+    /// gather write, and joining them would copy the body; the order does not matter to recovery (a stop between
+    /// the two leaves a batch whose length or checksum does not fit, which the scan cuts, either way), the header
+    /// goes last so that what is half written never looks like a batch for even a moment.
     fn write_batch(&self, batch: &Stamped<'_>, pos: u64) -> io::Result<()> {
         let log = self.view.log_file();
         let header = batch.header();

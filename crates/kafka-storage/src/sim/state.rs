@@ -122,7 +122,7 @@ pub(super) fn parent(path: &Path) -> PathBuf {
 }
 
 /// The whole simulated disk.
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, Default)]
 pub(super) struct State {
     pub inodes: Vec<Inode>,
     pub volatile: Namespace,

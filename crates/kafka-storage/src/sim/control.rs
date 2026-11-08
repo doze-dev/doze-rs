@@ -121,6 +121,10 @@ impl Control {
         self.halt_after = Some(self.counted + ops);
     }
 
+    pub(super) fn count(&self, op: Op) -> u64 {
+        self.per_op.get(&op).copied().unwrap_or(0)
+    }
+
     pub(super) fn counted(&self) -> u64 {
         self.counted
     }

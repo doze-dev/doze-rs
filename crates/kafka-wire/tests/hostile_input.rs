@@ -33,15 +33,19 @@ fn uvarint(mut v: u64, out: &mut BytesMut) {
     }
 }
 
-/// The allocator counts every thread, so the tests take turns: one test's allocations are not another's.
+/// The allocator counts every thread, so a test holds this for as long as it runs: while one measures, no other
+/// test of the file may be building its input or running its checks. (Taking the turn only around the measured
+/// part left the others free to allocate meanwhile, and the tests failed about one run in three.)
 static ONE_AT_A_TIME: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
-/// Bytes allocated while `decode` runs over `body`.
-fn allocated(body: Bytes, decode: impl FnOnce(&mut Bytes)) -> usize {
-    let _turn = ONE_AT_A_TIME
+fn serial() -> std::sync::MutexGuard<'static, ()> {
+    ONE_AT_A_TIME
         .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner);
-    let mut body = body;
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+}
+
+/// Bytes allocated while `decode` runs over `body`.
+fn allocated(mut body: Bytes, decode: impl FnOnce(&mut Bytes)) -> usize {
     let region = Region::new(GLOBAL);
     decode(&mut body);
     region.change().bytes_allocated
@@ -49,6 +53,7 @@ fn allocated(body: Bytes, decode: impl FnOnce(&mut Bytes)) -> usize {
 
 #[test]
 fn a_plain_array_count_the_buffer_cannot_hold_allocates_nothing_much() {
+    let _turn = serial();
     let mut body = BytesMut::new();
     body.put_i32(i32::MAX); // Metadata v4: topics, claimed 2^31-1 times
     let used = allocated(body.freeze(), |b| {
@@ -59,6 +64,7 @@ fn a_plain_array_count_the_buffer_cannot_hold_allocates_nothing_much() {
 
 #[test]
 fn a_compact_array_count_the_buffer_cannot_hold_allocates_nothing_much() {
+    let _turn = serial();
     let mut body = BytesMut::new();
     uvarint(u64::from(u32::MAX), &mut body); // Metadata v12: topics, claimed 2^32-2 times
     let used = allocated(body.freeze(), |b| {
@@ -69,6 +75,7 @@ fn a_compact_array_count_the_buffer_cannot_hold_allocates_nothing_much() {
 
 #[test]
 fn a_nested_array_count_the_buffer_cannot_hold_allocates_nothing_much() {
+    let _turn = serial();
     let mut body = BytesMut::new();
     // JoinGroup v9: group id "g", timeouts, member id "", no instance id, protocol type "c",
     // then the protocols array claiming 2^32-2 elements.
@@ -92,6 +99,7 @@ fn a_nested_array_count_the_buffer_cannot_hold_allocates_nothing_much() {
 /// asked for 137 GB; the input is kept to prove the whole read path no longer does.
 #[test]
 fn the_input_the_fuzzer_found_allocates_nothing_much() {
+    let _turn = serial();
     use kafka_wire::incoming;
     use kafka_wire::profile::{Features, KafkaMajor, Profile};
 
@@ -115,6 +123,7 @@ fn the_input_the_fuzzer_found_allocates_nothing_much() {
 /// it has really decoded.
 #[test]
 fn a_count_equal_to_the_bytes_left_allocates_about_the_body() {
+    let _turn = serial();
     const BODY: usize = 1 << 20;
     let mut body = BytesMut::with_capacity(BODY);
     uvarint((BODY - 4) as u64, &mut body); // Metadata v12: topics, claimed once per byte left

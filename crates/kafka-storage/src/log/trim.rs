@@ -6,7 +6,7 @@ use super::PartitionLog;
 use crate::error::{Doing, StorageError};
 use crate::fs::Fs;
 use crate::logstart;
-use crate::retention::{self, Candidate};
+use crate::retention;
 use crate::segment::{SealedSegment, remove_files};
 
 /// Bounds on a partition's disk use. Each is optional; the active segment is never deleted.
@@ -63,6 +63,8 @@ impl<F: Fs> PartitionLog<F> {
         if empties {
             // The start has moved, durably, and that is the answer whatever happens to the files below it:
             // the old segment stays on disk, invisible, until the partition rolls or is opened.
+            // Its name is not flushed here. A power cut that kept the removals and lost the new name leaves a log
+            // that ends below the start it recorded, and `open` carries on from the recorded start in that case.
             if self.start_segment().is_err() {
                 return Ok(self.start);
             }
@@ -92,19 +94,13 @@ impl<F: Fs> PartitionLog<F> {
         if !policy.is_set() {
             return Ok(0);
         }
-        let candidates: Vec<Candidate> = self
-            .sealed
-            .iter()
-            .map(|s| Candidate {
-                size: s.size(),
-                age_ms: s
-                    .max_timestamp()
-                    .ok()
-                    .flatten()
-                    .map_or(s.modified_ms(), TimestampMs::get),
-            })
-            .collect();
-        let drop = retention::count_to_drop(&candidates, self.active.size(), policy, now);
+        let sizes: Vec<u64> = self.sealed.iter().map(SealedSegment::size).collect();
+        let age_of = |i: usize| match self.sealed.get(i) {
+            Some(s) => Ok(s.max_timestamp()?.map_or(s.modified_ms(), TimestampMs::get)),
+            None => Ok(i64::MAX),
+        };
+        let drop = retention::count_to_drop(&sizes, age_of, self.active.size(), policy, now)
+            .doing("judging the age of a segment")?;
         if drop == 0 {
             return Ok(0);
         }

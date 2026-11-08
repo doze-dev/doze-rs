@@ -27,20 +27,25 @@ pub(crate) fn index_path(dir: &Path, base: Offset) -> PathBuf {
     dir.join(format!("{}.index", stem(base)))
 }
 
+/// The base offset a file name stands for, if it is exactly what [`log_path`] and [`index_path`] write: twenty
+/// digits and the suffix. Anything else (`5.log`, `+5.log`, `007.log`) is not ours and is left alone: parsing
+/// it loosely would name a file that the canonical path does not reach, and the partition would not open.
+fn base_of(name: &str, suffix: &str) -> Option<Offset> {
+    let stem = name.strip_suffix(suffix)?;
+    if stem.len() != 20 || !stem.bytes().all(|b| b.is_ascii_digit()) {
+        return None;
+    }
+    stem.parse().ok().and_then(Offset::new)
+}
+
 /// The base offset a `.log` file name stands for, if it is one of ours.
 pub(crate) fn base_of_log(name: &str) -> Option<Offset> {
-    name.strip_suffix(".log")?
-        .parse()
-        .ok()
-        .and_then(Offset::new)
+    base_of(name, ".log")
 }
 
 /// The base offset a `.index` file name stands for, if it is one of ours.
 pub(crate) fn base_of_index(name: &str) -> Option<Offset> {
-    name.strip_suffix(".index")?
-        .parse()
-        .ok()
-        .and_then(Offset::new)
+    base_of(name, ".index")
 }
 
 /// Deletes a segment's files; ones that are not there are not an error.

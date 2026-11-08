@@ -141,3 +141,13 @@ impl<F: Fs> PartitionLog<F> {
         self.sync()
     }
 }
+
+impl<F: Fs> Drop for PartitionLog<F> {
+    /// A ticket waits on a channel that outlives the log if a reader does. When the log goes, so does the
+    /// chance that an append it has not flushed ever will be: say so, instead of leaving the ticket waiting.
+    fn drop(&mut self) {
+        self.shared.sync.send_modify(|s| {
+            s.failed.get_or_insert_with(|| "the log was closed".into());
+        });
+    }
+}

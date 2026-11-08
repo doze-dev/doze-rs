@@ -2,6 +2,8 @@
 
 use std::sync::Arc;
 
+use std::io;
+
 use bytes::Bytes;
 use kafka_wire::batch::Peek;
 use kafka_wire::ids::Offset;
@@ -13,7 +15,7 @@ use crate::fs::Fs;
 use crate::segment::SegmentView;
 
 /// The bytes of a batch header: what a read needs to step from one batch to the next.
-const HEADER: usize = 61;
+const HEADER: usize = kafka_wire::batch::HEADER_LEN;
 
 /// A reader of one partition's log. Cloning is cheap. Readers see only fully appended payloads and never wait
 /// for the writer; the log is never pulled into the heap, so memory does not grow with the data.
@@ -101,75 +103,139 @@ impl<F: Fs> LogReader<F> {
             if let Some(found) =
                 read_segment(segment, at, max_bytes, limit).doing("reading the log")?
             {
-                return Ok(found);
+                return self.still_held(from, found);
             }
         }
         Ok(Bytes::new())
     }
 }
 
+/// How much more than `max_bytes` a read asks the file for at first: the batches before the offset that it has to
+/// step over (the index puts it within one interval and one batch of them), so that one read usually does it all.
+const HEADROOM: usize = 16 << 10;
+
+/// A stretch of a segment read in one go. Headers are looked at in it, and the answer is cut out of it, without
+/// reading or copying again.
+struct Chunk {
+    at: u64,
+    bytes: Bytes,
+}
+
+impl Chunk {
+    fn read<F: Fs>(segment: &SegmentView<F>, pos: u64, len: usize) -> io::Result<Self> {
+        Ok(Self {
+            at: pos,
+            bytes: segment.read(pos, len)?,
+        })
+    }
+
+    /// The part of the chunk from `pos`, if `len` bytes of it are there.
+    fn get(&self, pos: u64, len: usize) -> Option<Bytes> {
+        let from = usize::try_from(pos.checked_sub(self.at)?).ok()?;
+        let to = from.checked_add(len)?;
+        (to <= self.bytes.len()).then(|| self.bytes.slice(from..to))
+    }
+}
+
+fn not_a_batch(pos: u64) -> io::Error {
+    io::Error::new(
+        io::ErrorKind::InvalidData,
+        format!("the committed bytes at position {pos} of a segment are not a record batch"),
+    )
+}
+
 /// The batches of one segment from the first that holds an offset at or after `from`; `None` if it has none.
+///
+/// The file is read once for the batches asked for (and a little before them), and headers are walked in memory.
+/// Bytes that are committed and are not a batch are damage, and an error: never a gap to read past.
 fn read_segment<F: Fs>(
     segment: &SegmentView<F>,
     from: Offset,
     max_bytes: usize,
     limit: Option<Offset>,
-) -> std::io::Result<Option<Bytes>> {
+) -> io::Result<Option<Bytes>> {
     let committed = segment.committed();
     let mut pos = segment.seek(from.get())?;
-    while pos < committed {
-        let Some(peek) = header_at(segment, pos, committed)? else {
-            break;
-        };
+    let ask = |pos: u64| {
+        usize::try_from(committed.saturating_sub(pos)).map_or(usize::MAX, |room| {
+            room.min(max_bytes.saturating_add(HEADROOM))
+        })
+    };
+    let mut chunk = Chunk::read(segment, pos, ask(pos))?;
+    // Step over the batches that end before the offset.
+    let first = loop {
+        if pos >= committed {
+            return Ok(None);
+        }
+        let peek = peek_at(segment, &mut chunk, pos, committed, ask(pos))?;
         if peek
             .base_offset
             .saturating_add(i64::from(peek.record_count))
-            <= from.get()
+            > from.get()
         {
-            pos += peek.total_len; // this batch ends before the offset
-            continue;
+            break peek;
         }
-        let len = whole_batches(segment, pos, committed, max_bytes, limit)?;
-        return Ok(Some(segment.read(pos, len)?));
-    }
-    Ok(None)
-}
-
-/// The header at `pos`, if a whole batch is committed there.
-fn header_at<F: Fs>(
-    segment: &SegmentView<F>,
-    pos: u64,
-    committed: u64,
-) -> std::io::Result<Option<Peek>> {
-    // On the stack: stepping from batch to batch looks at a header each time, and allocates nothing.
-    let mut header = [0u8; HEADER];
-    let got = segment.read_into(pos, &mut header)?;
-    let Ok(peek) = Peek::read(header.get(..got).unwrap_or_default()) else {
-        return Ok(None);
+        pos += peek.total_len;
     };
-    Ok((pos + peek.total_len <= committed).then_some(peek))
-}
-
-/// How many bytes from `pos` make whole batches within `max_bytes` (at least the first) and below `limit`.
-fn whole_batches<F: Fs>(
-    segment: &SegmentView<F>,
-    pos: u64,
-    committed: u64,
-    max_bytes: usize,
-    limit: Option<Offset>,
-) -> std::io::Result<usize> {
-    let mut total: u64 = 0;
-    while pos + total < committed {
-        let Some(peek) = header_at(segment, pos + total, committed)? else {
-            break;
-        };
-        if limit.is_some_and(|l| peek.base_offset >= l.get()) {
-            break;
-        }
-        if total > 0 && total + peek.total_len > max_bytes as u64 {
+    // Take whole batches while they fit, but always the first.
+    let (start, mut total, mut peek) = (pos, 0u64, first);
+    loop {
+        if limit.is_some_and(|l| peek.base_offset >= l.get())
+            || (total > 0 && total + peek.total_len > max_bytes as u64)
+        {
             break;
         }
         total += peek.total_len;
+        if start + total >= committed {
+            break;
+        }
+        peek = peek_at(
+            segment,
+            &mut chunk,
+            start + total,
+            committed,
+            ask(start + total),
+        )?;
     }
-    Ok(usize::try_from(total).unwrap_or(usize::MAX))
+    let len = usize::try_from(total).unwrap_or(usize::MAX);
+    match chunk.get(start, len) {
+        Some(inside) => Ok(Some(inside)),
+        None => segment.read(start, len).map(Some), // the first batch is bigger than what was asked for
+    }
+}
+
+/// The header of the whole batch committed at `pos`, looked up in `chunk` (read again from `pos` if it is not
+/// there).
+fn peek_at<F: Fs>(
+    segment: &SegmentView<F>,
+    chunk: &mut Chunk,
+    pos: u64,
+    committed: u64,
+    ask: usize,
+) -> io::Result<Peek> {
+    if chunk.get(pos, HEADER).is_none() {
+        *chunk = Chunk::read(segment, pos, ask.max(HEADER))?;
+    }
+    let header = chunk.get(pos, HEADER).ok_or_else(|| not_a_batch(pos))?;
+    let peek = Peek::read(&header).map_err(|_| not_a_batch(pos))?;
+    if pos + peek.total_len > committed {
+        return Err(not_a_batch(pos));
+    }
+    Ok(peek)
+}
+
+impl<F: Fs> LogReader<F> {
+    /// Retention may have moved the start past `from` while the bytes were being read: then they are not
+    /// the offset asked for any more, and the reader is told so rather than handed what follows.
+    fn still_held(&self, from: Offset, found: Bytes) -> Result<Bytes, StorageError> {
+        let start = self.start_offset();
+        if from < start {
+            return Err(StorageError::OutOfRange {
+                requested: from.get(),
+                start: start.get(),
+                end: self.end_offset().get(),
+            });
+        }
+        Ok(found)
+    }
 }

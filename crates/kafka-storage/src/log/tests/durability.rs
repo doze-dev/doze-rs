@@ -4,56 +4,6 @@ use crate::fs::Fs;
 use crate::sim::{Cut, DataCut, Failure, NameCut, Op, SimFs};
 use crate::testutil::offset;
 
-fn fsyncs(fs: &SimFs) -> usize {
-    fs.trace()
-        .iter()
-        .filter(|(op, _)| matches!(op, Op::Fsync | Op::DirSync))
-        .count()
-}
-
-fn block_on<T>(f: impl std::future::Future<Output = T>) -> T {
-    tokio::runtime::Builder::new_current_thread()
-        .build()
-        .unwrap()
-        .block_on(f)
-}
-
-#[test]
-fn a_ticket_is_durable_once_a_sync_covers_it() {
-    let (_fs, _dir, mut log) = fresh(NEVER);
-    let first = log.append(&ones(1, 0), NOW, TimestampType::Create).unwrap();
-    assert!(!first.ticket.is_durable());
-    log.sync().unwrap();
-    assert!(first.ticket.is_durable());
-    let second = log.append(&ones(1, 0), NOW, TimestampType::Create).unwrap();
-    assert!(!second.ticket.is_durable() && first.ticket.is_durable());
-    block_on(async {
-        log.sync().unwrap();
-        second.ticket.durable().await.unwrap();
-    });
-}
-
-#[test]
-fn one_sync_covers_every_append_before_it() {
-    let (fs, _dir, mut log) = fresh(NEVER);
-    log.sync().unwrap(); // the new partition's own names
-    let before = fsyncs(&fs);
-    let tickets: Vec<_> = (0..3)
-        .map(|_| {
-            log.append(&ones(2, 0), NOW, TimestampType::Create)
-                .unwrap()
-                .ticket
-        })
-        .collect();
-    log.sync().unwrap();
-    assert_eq!(
-        fsyncs(&fs) - before,
-        2,
-        "the log and its index, once, for all three"
-    );
-    assert!(tickets.iter().all(Ticket::is_durable));
-}
-
 #[test]
 fn a_sync_with_nothing_dirty_makes_no_system_call() {
     let (fs, _dir, mut log) = fresh(NEVER);
@@ -230,4 +180,62 @@ fn close_flushes_everything() {
     let _ = fs
         .open_existing(&dir.join("00000000000000000000.log"))
         .unwrap();
+}
+
+fn fsynced(fs: &SimFs, suffix: &str) -> bool {
+    fs.trace()
+        .iter()
+        .any(|(op, p)| *op == Op::Fsync && p.to_string_lossy().ends_with(suffix))
+}
+
+#[test]
+fn what_is_read_back_at_open_is_flushed_log_index_and_directory_each_by_itself() {
+    // The two files and the directory are three separate claims: a process that restarts before it flushed
+    // the index it rewrote must still flush it, or a power cut after the next roll leaves a stale sealed index.
+    let (fs, dir, mut log) = fresh(NEVER);
+    log.append(&ones(2, 0), NOW, TimestampType::Create).unwrap();
+    log.sync().unwrap();
+    drop(log);
+    let fs = fs.process_restart();
+    let mut log = open(&fs, &dir, NEVER, Trust::Unvouched);
+    let before = fs.ops();
+    log.sync().unwrap();
+    let trace = fs.trace();
+    let flushed: Vec<_> = trace
+        .iter()
+        .skip(before as usize)
+        .map(|(op, p)| (*op, p.file_name().unwrap().to_string_lossy().into_owned()))
+        .collect();
+    assert!(
+        flushed.contains(&(Op::Fsync, "00000000000000000000.log".into())),
+        "{flushed:?}"
+    );
+    assert!(
+        flushed.contains(&(Op::Fsync, "00000000000000000000.index".into())),
+        "{flushed:?}"
+    );
+    assert!(
+        flushed.contains(&(Op::DirSync, "t-0".into())),
+        "{flushed:?}"
+    );
+    // A vouched open owes none of it.
+    let fs2 = fs.process_restart();
+    let mut vouched = open(&fs2, &dir, NEVER, Trust::Vouched);
+    let before = fs2.ops();
+    vouched.sync().unwrap();
+    assert_eq!(fs2.ops(), before);
+    assert!(!fsynced(&fs2, ".index"));
+}
+
+#[test]
+fn a_sync_after_a_failed_write_still_flushes_the_cut_that_took_it_back() {
+    let (fs, _dir, mut log) = fresh(NEVER);
+    log.append(&ones(1, 0), NOW, TimestampType::Create).unwrap();
+    log.sync().unwrap();
+    fs.fail(Op::Write, 1, Failure::Io);
+    assert!(log.append(&ones(1, 0), NOW, TimestampType::Create).is_err());
+    // Nothing was acknowledged since the last sync, but the taken-back bytes must reach the disk too.
+    let before = fs.ops();
+    log.sync().unwrap();
+    assert!(fs.ops() > before, "the cut was never flushed");
 }
