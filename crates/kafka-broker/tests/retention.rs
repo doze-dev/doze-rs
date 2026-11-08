@@ -256,3 +256,17 @@ async fn a_join_that_is_refused_does_not_keep_an_emptied_groups_offsets_for_ever
         "the group stayed empty, so its offsets went"
     );
 }
+
+#[tokio::test]
+async fn a_group_recorded_as_having_members_is_not_forgotten_by_the_first_sweep_after_a_restart() {
+    let rig = rig(RETENTION).await;
+    member(&rig, "g", &["t"]).await; // no offsets
+    let after = open_on_with(rig.fs.process_restart(), config(RETENTION));
+    past_the_retention().await;
+    after.broker.check_offsets().await;
+    // Its member may still come back: it is listed, as the empty group it is taken to be, until their session has run out.
+    assert_eq!(
+        after.list_groups(&[], &[]).await,
+        [("g".into(), "Empty".into(), "consumer".into())]
+    );
+}

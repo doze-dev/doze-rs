@@ -154,8 +154,9 @@ oracle `offsets-retention-members` (Apache Kafka 4.3.1's recording) passes
 ### R2. What is recorded, and when
 A group's record (`live`, the longest session, when it emptied, its protocol type) is written *before* a first member is
 seated, and only for a join that will seat one (a refused join, or one told to come back with an id, writes nothing: it
-would pin the group's offsets for ever). A failed write is COORDINATOR_NOT_AVAILABLE, 15, and nobody is seated and when the last member goes (a failed write
-is tried again every 500 ms). A group the broker has restarted since, recorded as having members, is taken to have them until
+would pin the group's offsets for ever). A failed write is COORDINATOR_NOT_AVAILABLE, 15, and nobody is seated. The record
+is written again when the last member goes (a failed write is tried again every 500 ms; the store refuses every write after
+a failed commit until the broker starts again, so in practice the retry does not succeed). A group the broker has restarted since, recorded as having members, is taken to have them until
 their session has run out after the start, and to have lost them then. Such a group is listed, and described, as the empty
 group it is, with the kind it was, until the retention forgets it.
 Test: `retention::a_member_is_not_seated_when_the_record_*`, `a_restart_changes_none_of_this_*`,
@@ -163,10 +164,14 @@ Test: `retention::a_member_is_not_seated_when_the_record_*`, `a_restart_changes_
 `kafka-meta` crash sweep (commits, the topic cascade, every delete, and the records, in the random workload)
 
 ### R3. A group with no members and no offsets is forgotten at the sweep
-It is Dead, and its id used again is a new group. Not so a group that has only just been told the id to come back with:
-forgetting it would lose that id (found by the oracle: `offsets-retention`, `join-g-late`).
+It is Dead, and its id used again is a new group. Not so a group that may yet have members: one in memory whose record says
+it will, or one the broker started after whose recorded session has not run out (listed, as Empty, until then). Each group is
+looked at as it is when its turn comes (described and its record read again just before anything is expired), so a member
+that joined and committed since the sweep began is not judged by what the group was. (Issued ids are not the group's: see C1.)
+A JoinGroup with a member id nobody gave the client, to a group that is not there, is answered UNKNOWN_MEMBER_ID and makes no
+group.
 Test: `retention::a_retention_of_zero_keeps_offsets_for_ever_but_a_group_with_nothing_is_still_forgotten`,
-`a_group_that_has_only_issued_an_id_is_not_forgotten_*`
+`a_group_recorded_as_having_members_is_not_forgotten_by_the_first_sweep_after_a_restart`; `groups::a_join_with_an_id_nobody_gave_it_*`
 
 ### R4. The test control
 `DOZE_KAFKA_TEST_CONTROL`, if set, names a unix socket; the line `check-offsets` applies the retention now and is answered
@@ -199,5 +204,7 @@ scenarios with the keep-alive skipping that request and found no classic step th
 
 ## Not done (recorded)
 KIP-848 groups and the migration between protocols (Phase 5); transactional offset commits (Phase 6); ACLs (Phase 8); the
-Java client (no JDK on the machine); the peer address in DescribeGroups (a fixed `/127.0.0.1`); a group that has only issued an id
-and whose client never returns stays in memory until the broker restarts.
+Java client (no JDK on the machine); the peer address in DescribeGroups (a fixed `/127.0.0.1`); a command queued behind a group's
+deletion is put again only for a JoinGroup (any other is dropped, and the connection closed); the issued-id table has one
+global cap (a single client can use it all up, and v4+ newcomers then get COORDINATOR_NOT_AVAILABLE until entries pass
+their five minutes), and the time an id lasts is five minutes, not the request's session timeout.

@@ -14,6 +14,7 @@ use super::machine::{
 };
 
 /// A request for the group.
+#[derive(Clone)]
 pub(crate) enum Req {
     Join(JoinRequest),
     Sync(SyncRequest),

@@ -1,29 +1,25 @@
 //! The groups that exist: found by id, started by their first JoinGroup, retired by DeleteGroups.
 
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex as StdMutex, PoisonError};
-use std::time::Duration;
+use std::sync::{Arc, Mutex as StdMutex};
 
 use kafka_meta::{GroupLife, MetaStore};
 use kafka_wire::ResponseError;
-use kafka_wire::ids::{GroupId, InstanceId, MemberId};
+use kafka_wire::ids::{GroupId, MemberId};
 use tokio::sync::{Mutex, mpsc, oneshot};
 use tokio::time::Instant;
 
+mod issued;
+
 use super::actor::{self, Command, Records, Req};
 use super::machine::{
-    Answer, Description, GroupMachine, IdSource, JoinAnswer, LeaveResult, SyncAnswer,
-    commit_to_no_group, refusal,
+    Answer, Description, GroupMachine, JoinAnswer, LeaveResult, SyncAnswer, commit_to_no_group,
+    refusal,
 };
+use issued::{Issued, member_ids};
 
 /// How many requests may wait for a group's task before the next sender waits.
 const QUEUE: usize = 64;
-/// How long a member id handed to a client that has not yet come back with it is good for.
-const ISSUED_FOR: Duration = Duration::from_secs(300);
-/// The most ids handed out and not yet come back with. A client that only ever asks for an id costs an entry here, not a
-/// group.
-const MOST_ISSUED: usize = 100_000;
-
 /// What became of a request to delete a group.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Deleted {
@@ -45,7 +41,7 @@ pub(crate) struct Groups {
     open: Mutex<HashMap<GroupId, mpsc::Sender<Command>>>,
     /// Ids handed to clients (JoinGroup v4 and later tells a client without one to come back with the one it is given),
     /// kept here and not in the group so that a client that never comes back leaves no group behind.
-    issued: StdMutex<HashMap<(GroupId, MemberId), Instant>>,
+    issued: StdMutex<Issued>,
 }
 
 impl Groups {
@@ -54,7 +50,10 @@ impl Groups {
             initial_delay_ms,
             meta,
             open: Mutex::new(HashMap::new()),
-            issued: StdMutex::new(HashMap::new()),
+            issued: StdMutex::new(Issued {
+                ids: HashMap::new(),
+                purged: Instant::now(),
+            }),
         }
     }
 
@@ -89,48 +88,18 @@ impl Groups {
         answer
     }
 
-    fn issued(&self) -> std::sync::MutexGuard<'_, HashMap<(GroupId, MemberId), Instant>> {
-        self.issued.lock().unwrap_or_else(PoisonError::into_inner)
-    }
-
-    /// Hands a client without an id one to come back with (MEMBER_ID_REQUIRED).
-    fn issue(&self, group: &GroupId) -> Answer {
-        let now = Instant::now();
-        let mut issued = self.issued();
-        issued.retain(|_, at| now.duration_since(*at) < ISSUED_FOR);
-        if issued.len() >= MOST_ISSUED {
-            return Answer::Join(JoinAnswer::refused(
-                ResponseError::CoordinatorNotAvailable,
-                None,
-            ));
-        }
-        let id = new_member_id(None);
-        issued.insert((group.clone(), id.clone()), now);
-        Answer::Join(JoinAnswer::refused(
-            ResponseError::MemberIdRequired,
-            Some(id),
-        ))
-    }
-
-    fn is_issued(&self, group: &GroupId, id: &MemberId) -> bool {
-        self.issued()
-            .get(&(group.clone(), id.clone()))
-            .is_some_and(|at| Instant::now().duration_since(*at) < ISSUED_FOR)
-    }
-
-    fn spend(&self, group: &GroupId, id: &MemberId) {
-        self.issued().remove(&(group.clone(), id.clone()));
-    }
-
     /// Puts the request to the group's task.
     async fn put(&self, group: &GroupId, mut req: Req) -> Option<Answer> {
         // A group retired between the lookup and the send is found gone, and a join makes it again.
-        for _ in 0..2 {
+        for _ in 0..3 {
             let sender = {
                 let mut open = self.open.lock().await;
                 match open.get(group) {
                     Some(sender) => sender.clone(),
-                    None if matches!(req, Req::Join(_)) => {
+                    // A group is made by a join that could be the first member's: from a client with no id, or with one
+                    // the broker gave it. One with an id nobody gave it is told so without making anything (or an
+                    // id-only client would leave a group behind for each id it made up).
+                    None if can_begin(&req) => {
                         let sender = self.start(group);
                         open.insert(group.clone(), sender.clone());
                         sender
@@ -138,16 +107,25 @@ impl Groups {
                     None => return unknown(&req),
                 }
             };
+            // Kept to put again if the group is retired with this request queued behind its deletion.
+            let again = matches!(req, Req::Join(_)).then(|| req.clone());
             let (reply, answer) = oneshot::channel();
             match sender.send(Command { req, reply }).await {
-                Ok(()) => return answer.await.ok(),
-                Err(gone) => {
-                    req = gone.0.req;
-                    let mut open = self.open.lock().await;
-                    if open.get(group).is_some_and(|s| s.same_channel(&sender)) {
-                        open.remove(group);
-                    }
-                }
+                Ok(()) => match answer.await {
+                    Ok(answered) => return Some(answered),
+                    // Dropped without an answer: replaced by a later join (the sender is still open), or the group went
+                    // while this was queued (it is closed): a join is put again, to a group made afresh.
+                    Err(_) if sender.is_closed() => match again {
+                        Some(next) => req = next,
+                        None => return None,
+                    },
+                    Err(_) => return None,
+                },
+                Err(gone) => req = gone.0.req,
+            }
+            let mut open = self.open.lock().await;
+            if open.get(group).is_some_and(|s| s.same_channel(&sender)) {
+                open.remove(group);
             }
         }
         None
@@ -183,33 +161,43 @@ impl Groups {
         out
     }
 
-    /// Deletes a group that has no members.
-    pub(crate) async fn delete(&self, group: &GroupId) -> Deleted {
+    /// Deletes a group that has no members, and runs `cleanup` (forgetting what is stored of it) before any join can make
+    /// the group again: a group made meanwhile would have its record wiped by it. Not run if the group has members.
+    pub(crate) async fn delete_with<R>(
+        &self,
+        group: &GroupId,
+        cleanup: impl FnOnce() -> R,
+    ) -> (Deleted, Option<R>) {
         // Held for the whole of it: a join that arrives meanwhile waits, and then makes a new group.
         let mut open = self.open.lock().await;
-        let Some(sender) = open.get(group).cloned() else {
-            return Deleted::NoSuchGroup;
-        };
-        let (reply, answer) = oneshot::channel();
-        let command = Command {
-            req: Req::Delete,
-            reply,
-        };
-        if sender.send(command).await.is_err() {
-            open.remove(group);
-            return Deleted::NoSuchGroup;
+        let mut outcome = Deleted::NoSuchGroup;
+        if let Some(sender) = open.get(group).cloned() {
+            let (reply, answer) = oneshot::channel();
+            let command = Command {
+                req: Req::Delete,
+                reply,
+            };
+            // A group whose queue is full is busy, so it has members: this is not the place to wait with the lock.
+            outcome = match sender.try_send(command) {
+                Err(mpsc::error::TrySendError::Full(_)) => return (Deleted::NotEmpty, None),
+                Err(mpsc::error::TrySendError::Closed(_)) => {
+                    open.remove(group);
+                    Deleted::NoSuchGroup
+                }
+                Ok(()) => match answer.await {
+                    Ok(Answer::Delete(None)) => {
+                        open.remove(group);
+                        Deleted::Gone
+                    }
+                    Ok(Answer::Delete(Some(_))) => return (Deleted::NotEmpty, None),
+                    _ => {
+                        open.remove(group);
+                        Deleted::NoSuchGroup
+                    }
+                },
+            };
         }
-        match answer.await {
-            Ok(Answer::Delete(None)) => {
-                open.remove(group);
-                Deleted::Gone
-            }
-            Ok(Answer::Delete(Some(_))) => Deleted::NotEmpty,
-            _ => {
-                open.remove(group);
-                Deleted::NoSuchGroup
-            }
-        }
+        (outcome, Some(cleanup()))
     }
 
     fn start(&self, group: &GroupId) -> mpsc::Sender<Command> {
@@ -262,6 +250,11 @@ impl Records for StoreRecords {
     }
 }
 
+/// Whether a request may make a group that is not there: a JoinGroup from a client with no id, or with one it was given.
+fn can_begin(req: &Req) -> bool {
+    matches!(req, Req::Join(j) if j.member_id.is_none() || j.issued)
+}
+
 /// What a group that does not exist says to anything but a join: it has no such member. (A request to describe or
 /// delete one is not put at all.)
 fn unknown(req: &Req) -> Option<Answer> {
@@ -282,17 +275,4 @@ fn unknown(req: &Req) -> Option<Answer> {
         ),
         Req::Describe | Req::Delete => return None,
     })
-}
-
-/// Member ids: `doze-` and 32 hex digits, behind the instance id for a static member.
-fn member_ids() -> IdSource {
-    Box::new(new_member_id)
-}
-
-fn new_member_id(instance: Option<&InstanceId>) -> MemberId {
-    let mut bytes = [0_u8; 16];
-    // Without randomness ids repeat, which a group notices as a member that is not itself; there is nothing better
-    // to do than carry on.
-    let _ = getrandom::fill(&mut bytes);
-    MemberId::issued(bytes, instance)
 }

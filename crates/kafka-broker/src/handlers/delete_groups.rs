@@ -33,25 +33,28 @@ impl<F: Fs> Broker<F> {
         let Ok(group) = GroupId::parse(name) else {
             return Some(ResponseError::InvalidGroupId);
         };
-        let existed = match self.groups.delete(&group).await {
-            Deleted::NotEmpty => return Some(ResponseError::NonEmptyGroup),
-            Deleted::Gone => true,
-            // Not in memory, but recorded as having had members (the broker has started since): it is there.
-            Deleted::NoSuchGroup => {
-                blocking::run(|| self.meta.group_life(&group)).is_ok_and(|l| l.is_some())
-            }
-        };
-        let forgotten = blocking::run(|| {
-            let removed = self.meta.delete_group_offsets(&group)?;
-            self.meta.forget_group_life(&group)?;
-            Ok::<usize, kafka_meta::MetaError>(removed)
-        });
-        match forgotten {
-            Ok(removed) if existed || removed > 0 => None,
-            Ok(_) => Some(ResponseError::GroupIdNotFound),
-            Err(e) => {
+        // Done with the registry held, so that a join cannot make the group again between the deleting and the forgetting.
+        let (outcome, cleaned) = self
+            .groups
+            .delete_with(&group, || {
+                blocking::run(|| {
+                    let removed = self.meta.delete_group_offsets(&group)?;
+                    let had_record = self.meta.group_life(&group)?.is_some();
+                    self.meta.forget_group_life(&group)?;
+                    Ok::<_, kafka_meta::MetaError>((removed, had_record))
+                })
+            })
+            .await;
+        match (outcome, cleaned) {
+            (Deleted::NotEmpty, _) | (_, None) => Some(ResponseError::NonEmptyGroup),
+            (_, Some(Err(e))) => {
                 tracing::error!(%group, error = %e, "deleting a group's offsets failed");
                 Some(ResponseError::KafkaStorageError)
+            }
+            // Gone from memory, recorded as having had members (the broker has started since), or with offsets: it was there.
+            (outcome, Some(Ok((removed, had_record)))) => {
+                (outcome != Deleted::Gone && !had_record && removed == 0)
+                    .then_some(ResponseError::GroupIdNotFound)
             }
         }
     }

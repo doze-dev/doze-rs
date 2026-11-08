@@ -44,8 +44,9 @@ every joined member with the same generation and protocol.
 of commands is gone. The handler is `async fn`: send the command, await the oneshot. A connection that drops
 leaves its request parked until the rebalance or the session ends, as in Go and Kafka.
 
-**A registry** (`groups/registry.rs`): `GroupId → handle`, opened by the first JoinGroup that would seat a member (a client
-only asking for an id leaves a bounded entry in the registry's table of issued ids, not a group), with a claim slot per group id for
+**A registry** (`groups/registry.rs`): `GroupId → handle`, opened by a JoinGroup from a client with no id or with one it was
+given (a client only asking for an id leaves a bounded entry in the registry's table of issued ids, not a group; one with
+an id made up is told so), with a claim slot per group id for
 Phase 5 (a group is classic or consumer-protocol, never both). Phase 4 only ever claims classic.
 
 **Offsets** live in `kafka-meta` (redb): `offsets` keyed `(group, topic, partition)` with offset, metadata, commit time;

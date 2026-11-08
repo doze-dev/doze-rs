@@ -1,10 +1,9 @@
 //! Offsets that have outlived their retention are forgotten, and with them the groups that have nothing left.
 
-use std::collections::{BTreeSet, HashMap};
+use std::collections::BTreeSet;
 use std::sync::Arc;
 use std::time::Duration;
 
-use kafka_meta::GroupLife;
 use kafka_storage::fs::Fs;
 use kafka_wire::ids::GroupId;
 
@@ -42,10 +41,11 @@ impl<F: Fs> Broker<F> {
         let now_ms = clock::now().get();
         let retention_ms =
             i64::try_from(self.config.offsets_retention.as_millis()).unwrap_or(i64::MAX);
-        // Held still for the whole look: one view of the groups and their records.
-        let described: HashMap<GroupId, _> = self.groups.list().await.into_iter().collect();
-        let lives: HashMap<GroupId, GroupLife> = match blocking::run(|| self.meta.group_lives()) {
-            Ok(lives) => lives.into_iter().collect(),
+        // Which groups to look at is taken once; each is then looked at as it is when its turn comes, so that a member
+        // that has joined and committed since is seen and not judged by what the group was.
+        let in_memory = self.groups.list().await.into_iter().map(|(id, _)| id);
+        let lives = match blocking::run(|| self.meta.group_lives()) {
+            Ok(lives) => lives,
             Err(e) => {
                 tracing::warn!(error = %e, "offsets retention: the groups' records could not be read");
                 return;
@@ -54,33 +54,21 @@ impl<F: Fs> Broker<F> {
         let with_offsets = blocking::run(|| self.meta.groups_with_offsets()).unwrap_or_default();
         let ids: BTreeSet<GroupId> = with_offsets
             .into_iter()
-            .chain(lives.keys().cloned())
-            .chain(described.keys().cloned())
+            .chain(lives.into_iter().map(|(id, _)| id))
+            .chain(in_memory)
             .collect();
         for id in ids {
-            self.check_group(
-                &id,
-                described.get(&id),
-                lives.get(&id),
-                now_ms,
-                retention_ms,
-            )
-            .await;
+            self.check_group(&id, now_ms, retention_ms).await;
         }
     }
 
-    async fn check_group(
-        &self,
-        id: &GroupId,
-        described: Option<&crate::groups::Description>,
-        life: Option<&GroupLife>,
-        now_ms: i64,
-        retention_ms: i64,
-    ) {
+    async fn check_group(&self, id: &GroupId, now_ms: i64, retention_ms: i64) {
+        let described = self.groups.describe(id).await;
+        let life = blocking::run(|| self.meta.group_life(id)).ok().flatten();
         let Ok(offsets) = blocking::run(|| self.meta.group_offsets(id)) else {
             return;
         };
-        let members = match described {
+        let members = match &described {
             Some(d) if !d.members.is_empty() => Members::Running {
                 rebalancing: matches!(
                     d.state,
@@ -93,13 +81,18 @@ impl<F: Fs> Broker<F> {
             None => Members::NotInMemory,
         };
         let running = matches!(members, Members::Running { .. });
-        // A group in memory that has just been asked to join, and been told the id to come back with, has no member
-        // yet and a record that says it will: forgetting it would lose that id. It stays until it has been emptied, or
-        // the broker has started again.
-        let waiting = matches!(members, Members::Empty) && life.is_none_or(|l| l.live);
+        // Not forgotten while members may yet come: a group in memory whose record says they will, or one that the
+        // broker started after, recorded as having members whose session has not yet run out.
+        let waiting = match (&members, &life) {
+            (Members::Empty, life) => life.as_ref().is_none_or(|l| l.live),
+            (Members::NotInMemory, Some(l)) => {
+                l.live && now_ms < self.started_ms.saturating_add(i64::from(l.session_ms))
+            }
+            _ => false,
+        };
         let view = View {
             members,
-            life,
+            life: life.as_ref(),
             offsets: &offsets,
         };
         let gone = expired(&view, now_ms, retention_ms, self.started_ms);
@@ -114,10 +107,11 @@ impl<F: Fs> Broker<F> {
         }
         // Nothing left and nobody there: the group is gone, as a real Kafka forgets it.
         if gone.len() == offsets.len() && !running && !waiting {
-            if let Deleted::NotEmpty = self.groups.delete(id).await {
-                return;
-            }
-            if let Err(e) = blocking::run(|| self.meta.forget_group_life(id)) {
+            let (outcome, cleaned) = self
+                .groups
+                .delete_with(id, || blocking::run(|| self.meta.forget_group_life(id)))
+                .await;
+            if let (Deleted::Gone | Deleted::NoSuchGroup, Some(Err(e))) = (outcome, cleaned) {
                 tracing::error!(group = %id, error = %e, "forgetting a group's record failed");
             }
         }
