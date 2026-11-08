@@ -398,3 +398,15 @@ test-only knobs in `internal/config`.
   checks the connection is gone at 48 s, and a new test covers a partial request left in the buffer); one
   (`Outcome::Close` ending the connection) cannot be reached until a handler can answer Close, so it waits for 3c.
   Catalogue: `behaviours/server.md` (V1-V7).
+- **2026-11-08, Phase 3 slice 3c (topics).** `Fs::remove_dir` (real and simulated: a removed directory takes files
+  a cut kept without it), `kafka-storage::topic_dirs` (partition directory names, make, remove, stray clearing),
+  `Broker<F: Fs>` (generic, as the server now is, so the broker runs on the simulated disk) with `Metadata`,
+  `CreateTopics` and `DeleteTopics` handlers, one file each. The topic configs are a data table
+  (`topic_config/table.rs`: key, kind, default) with Kafka's refusal wording from the recordings, and the
+  configuration in force is answered on create. `Listener` carries the advertised address into a handler (a loopback
+  listener advertises itself, a wildcard `localhost`, port 0 the bound port). The recordings drove the messages; four
+  deliberate differences from Kafka are in `behaviours/topics.md` (case-only collisions, replication factor above one,
+  `segment.bytes` floor, and nothing else). A power-cut test found a real defect: the data directory was created
+  without flushing its parent, so a cut took the directory, the database and every topic with it
+  (`create_dirs_durably`). Mutation check (13 mutants): 12 killed, one (partition limit) killed by a new
+  boundary test. Catalogue: `behaviours/topics.md` (T1-T9).

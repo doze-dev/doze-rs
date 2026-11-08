@@ -62,3 +62,20 @@ fn write_and_sync<F: Fs>(fs: &F, tmp: &Path, data: &[u8]) -> io::Result<()> {
     file.write_all_at(data, 0)?;
     file.sync_data()
 }
+
+/// Makes `path` and any missing parents, and flushes the parent of each directory it made, so that all of them are
+/// there after a power cut.
+///
+/// # Errors
+/// Anything the system refuses.
+pub fn create_dirs_durably<F: Fs>(fs: &F, path: &Path) -> io::Result<()> {
+    let mut so_far = PathBuf::new();
+    for part in path.components() {
+        let parent = so_far.clone();
+        so_far.push(part);
+        if fs.create_dir(&so_far)? && !parent.as_os_str().is_empty() {
+            fs.sync_dir(&parent)?;
+        }
+    }
+    Ok(())
+}

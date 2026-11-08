@@ -3,6 +3,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use kafka_storage::fs::Fs;
 use tokio::net::TcpListener;
 use tokio::sync::Semaphore;
 use tokio::time::sleep;
@@ -14,9 +15,9 @@ use crate::connection::{self, Context};
 
 /// Accepts connections until `stop`, each served on its own task of `tasks`. A connection past the limit is
 /// closed as it arrives.
-pub(crate) async fn run(
+pub(crate) async fn run<F: Fs>(
     listener: TcpListener,
-    ctx: Arc<Context>,
+    ctx: Arc<Context<F>>,
     limit: Arc<Semaphore>,
     stop: CancellationToken,
     tasks: TaskTracker,

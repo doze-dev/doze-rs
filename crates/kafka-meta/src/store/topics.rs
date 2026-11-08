@@ -35,7 +35,7 @@ impl MetaStore {
         }
         let topic = Arc::new(Topic {
             name: name.clone(),
-            id: new_id()?,
+            id: random_topic_id()?,
             partitions,
             config,
         });
@@ -98,7 +98,11 @@ impl MetaStore {
     }
 }
 
-fn new_id() -> Result<TopicId, MetaError> {
+/// A new, random topic id (for a topic being made, and for the one a validate-only request is told).
+///
+/// # Errors
+/// The system has no randomness to give.
+pub fn random_topic_id() -> Result<TopicId, MetaError> {
     let mut bytes = [0; 16];
     getrandom::fill(&mut bytes).map_err(|e| std::io::Error::other(e.to_string()))?;
     Ok(TopicId::from_bytes(bytes))

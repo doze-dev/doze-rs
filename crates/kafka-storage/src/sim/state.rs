@@ -78,13 +78,17 @@ pub(super) enum NsOp {
     Remove { path: PathBuf },
     Rename { from: PathBuf, to: PathBuf },
     Mkdir { path: PathBuf },
+    Rmdir { path: PathBuf },
 }
 
 impl NsOp {
     /// The directory whose flush makes this change durable.
     pub(super) fn dir(&self) -> PathBuf {
         let path = match self {
-            Self::Create { path, .. } | Self::Remove { path } | Self::Mkdir { path } => path,
+            Self::Create { path, .. }
+            | Self::Remove { path }
+            | Self::Mkdir { path }
+            | Self::Rmdir { path } => path,
             Self::Rename { to, .. } => to,
         };
         parent(path)
@@ -111,6 +115,11 @@ impl NsOp {
                 if ns.dirs.contains(&parent(path)) {
                     ns.dirs.insert(path.clone());
                 }
+            }
+            Self::Rmdir { path } => {
+                // What an earlier removal inside it left behind goes with it: a file needs its directory.
+                ns.dirs.remove(path);
+                ns.files.retain(|file, _| parent(file) != *path);
             }
         }
     }

@@ -11,9 +11,10 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use bytes::Bytes;
-use kafka_broker::Broker;
+use kafka_broker::{Broker, Config as BrokerConfig};
 use kafka_protocol::protocol::{Decodable, StrBytes};
 use kafka_server::{Config, Running, Server};
+use kafka_storage::sim::SimFs;
 use kafka_wire::messages::{ApiKey, ApiVersionsRequest, ApiVersionsResponse};
 use kafka_wire::testing::{framed, request_payload};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -26,7 +27,8 @@ async fn start(max_connections: usize) -> Running {
         max_connections,
         ..Config::default()
     };
-    Server::bind(config, Arc::new(Broker::new())).await.unwrap()
+    let broker = Broker::open(SimFs::new(), BrokerConfig::new("/data".into())).unwrap();
+    Server::bind(config, Arc::new(broker)).await.unwrap()
 }
 
 /// Asks ApiVersions and returns the keys listed, or `None` if the connection was closed instead.
@@ -50,9 +52,15 @@ async fn ask(socket: &mut TcpStream) -> Option<Vec<i16>> {
 async fn a_client_on_a_socket_gets_its_answer() {
     let server = start(10).await;
     let mut socket = TcpStream::connect(server.local_addr()).await.unwrap();
+    let served = [
+        ApiKey::Metadata,
+        ApiKey::ApiVersions,
+        ApiKey::CreateTopics,
+        ApiKey::DeleteTopics,
+    ];
     assert_eq!(
         ask(&mut socket).await,
-        Some(vec![ApiKey::ApiVersions as i16])
+        Some(served.map(|k| k as i16).to_vec())
     );
     server.shutdown().await;
 }

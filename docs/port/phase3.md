@@ -63,7 +63,7 @@ binary accepts them as hidden no-ops until their phase, so the unmodified scenar
 |---|---|---|
 | 3a | Domain types (`TopicName`, `TopicId`, `PartitionId`); `kafka-meta` over redb on `Fs` | round-trip, crash simulation of the metadata (acknowledged topics survive any cut) |
 | 3b | `kafka-server`: listener, connection loop, codec, gate, `Server` builder/handle, shutdown; ApiVersions served | a raw client gets ApiVersions; recorded ApiVersions scenarios pass |
-| 3c | Broker core: topic registry, partition manager and actors; Metadata, CreateTopics, DeleteTopics | createtopics-*, metadata-autocreate scenarios |
+| 3c | Broker core: topic lifecycle (registry and directories); Metadata, CreateTopics, DeleteTopics. (The partition manager and actors move to 3d, where there is a writer to own.) | createtopics-*, metadata-autocreate scenarios |
 | 3d | Produce and InitProducerId (layer 7 first half); acks 0/1/all, group commit, fsync timer | produce-acks-zero, produce-validation (non-record parts), full-disk scenarios |
 | 3e | Fetch (long-poll over the end-offset channel) and ListOffsets (incl. by timestamp) | listoffsets, fetch-above-the-end |
 | 3f | Codecs and record validation; descriptor budget; idle close | produce-inflated-size, produce-decompressed-size |

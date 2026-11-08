@@ -4,7 +4,8 @@ use std::io;
 use std::sync::Arc;
 
 use bytes::BytesMut;
-use kafka_broker::{Broker, Outcome};
+use kafka_broker::{Broker, Listener, Outcome};
+use kafka_storage::fs::Fs;
 use kafka_wire::WireError;
 use kafka_wire::api::Response;
 use kafka_wire::api_versions;
@@ -27,8 +28,9 @@ const KEEP: usize = 64 << 10;
 
 /// What every connection of a server shares.
 #[derive(Debug)]
-pub(crate) struct Context {
-    pub(crate) broker: Arc<Broker>,
+pub(crate) struct Context<F: Fs> {
+    pub(crate) broker: Arc<Broker<F>>,
+    pub(crate) listener: Listener,
     pub(crate) profile: Profile,
     pub(crate) features: Features,
     pub(crate) timeouts: Timeouts,
@@ -56,9 +58,9 @@ pub(crate) enum End {
 }
 
 /// Serves `stream` until the client goes, something is wrong with it, or `stop` is cancelled.
-pub(crate) async fn serve<S: AsyncRead + AsyncWrite + Unpin>(
+pub(crate) async fn serve<S: AsyncRead + AsyncWrite + Unpin, F: Fs>(
     mut stream: S,
-    ctx: &Context,
+    ctx: &Context<F>,
     stop: &CancellationToken,
 ) -> End {
     let mut buf = BytesMut::with_capacity(BUFFER);
@@ -79,9 +81,9 @@ pub(crate) async fn serve<S: AsyncRead + AsyncWrite + Unpin>(
 }
 
 /// One request, from its frame to the end of its answer.
-async fn exchange<S: AsyncWrite + Unpin>(
+async fn exchange<S: AsyncWrite + Unpin, F: Fs>(
     stream: &mut S,
-    ctx: &Context,
+    ctx: &Context<F>,
     frame: bytes::Bytes,
     stop: &CancellationToken,
 ) -> Result<(), End> {
@@ -96,7 +98,7 @@ async fn exchange<S: AsyncWrite + Unpin>(
         Incoming::Request { head, request } => {
             // A handler may wait a long time (a long-poll Fetch): stopping the server does not wait for it.
             let outcome = tokio::select! {
-                o = ctx.broker.handle(&head, request) => o,
+                o = ctx.broker.handle(&ctx.listener, &head, request) => o,
                 () = stop.cancelled() => return Err(End::Stopped),
             };
             match outcome {

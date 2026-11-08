@@ -5,6 +5,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use kafka_broker::Broker;
+use kafka_storage::fs::Fs;
 use kafka_wire::profile::Features;
 use tokio::net::TcpListener;
 use tokio::sync::Semaphore;
@@ -25,10 +26,11 @@ impl Server {
     ///
     /// # Errors
     /// The address cannot be bound.
-    pub async fn bind(config: Config, broker: Arc<Broker>) -> io::Result<Running> {
+    pub async fn bind<F: Fs>(config: Config, broker: Arc<Broker<F>>) -> io::Result<Running> {
         let listener = TcpListener::bind(config.listen).await?;
         let addr = listener.local_addr()?;
         let ctx = Arc::new(Context {
+            listener: config.advertise(addr),
             profile: config.profile,
             features: Features {
                 served: broker.served(),

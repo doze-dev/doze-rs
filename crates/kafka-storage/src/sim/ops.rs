@@ -78,6 +78,24 @@ impl Fs for SimFs {
         Ok(true)
     }
 
+    fn remove_dir(&self, path: &Path) -> io::Result<bool> {
+        let path = absolute(path)?;
+        let mut g = self.lock();
+        if !g.state.volatile.dirs.contains(&path) {
+            return Ok(false);
+        }
+        g.gate(Op::Remove, &path).map_err(io_err)?;
+        let ns = &g.state.volatile;
+        let busy = ns.files.keys().any(|f| parent(f) == path)
+            || ns.dirs.iter().any(|d| parent(d) == path && *d != path);
+        if busy {
+            return Err(io::ErrorKind::DirectoryNotEmpty.into());
+        }
+        g.state.volatile.dirs.remove(&path);
+        g.state.ns_log.push(NsOp::Rmdir { path });
+        Ok(true)
+    }
+
     fn list_dir(&self, path: &Path) -> io::Result<Vec<DirEntry>> {
         let path = absolute(path)?;
         let mut g = self.lock();

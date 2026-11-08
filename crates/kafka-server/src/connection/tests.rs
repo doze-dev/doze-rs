@@ -1,18 +1,24 @@
 use std::time::Duration;
 
 use bytes::Bytes;
+use kafka_broker::Config as BrokerConfig;
 use kafka_protocol::protocol::{Decodable, StrBytes};
+use kafka_storage::sim::SimFs;
 use kafka_wire::WireError;
-use kafka_wire::messages::{ApiKey, ApiVersionsRequest, ApiVersionsResponse, MetadataRequest};
+use kafka_wire::messages::{ApiKey, ApiVersionsRequest, ApiVersionsResponse, FetchRequest};
 use kafka_wire::testing::{framed, request_payload};
 use tokio::io::{AsyncReadExt, AsyncWriteExt, DuplexStream, duplex};
 use tokio::time::sleep;
 
 use super::*;
 
-fn context(timeouts: Timeouts) -> Context {
-    let broker = Arc::new(Broker::new());
+fn context(timeouts: Timeouts) -> Context<SimFs> {
+    let broker = Arc::new(Broker::open(SimFs::new(), BrokerConfig::new("/data".into())).unwrap());
     Context {
+        listener: Listener {
+            advertised_host: "localhost".into(),
+            advertised_port: 9092,
+        },
         profile: Profile::new(kafka_wire::profile::KafkaMajor::DEFAULT),
         features: Features {
             served: broker.served(),
@@ -74,7 +80,14 @@ async fn api_versions_lists_only_what_the_broker_serves() {
     client.write_all(&api_versions(7)).await.unwrap();
     let (id, error, keys) = read_answer(&mut client).await;
     assert_eq!((id, error), (7, 0));
-    assert_eq!(keys, [ApiKey::ApiVersions as i16]);
+    // The topic APIs, by key; not Fetch or Produce, which this broker has no handler for yet.
+    let served = [
+        ApiKey::Metadata,
+        ApiKey::ApiVersions,
+        ApiKey::CreateTopics,
+        ApiKey::DeleteTopics,
+    ];
+    assert_eq!(keys, served.map(|k| k as i16));
 }
 
 #[tokio::test]
@@ -94,12 +107,12 @@ async fn requests_are_answered_in_order_whether_they_arrive_together_or_a_byte_a
 #[tokio::test]
 async fn an_api_the_broker_does_not_serve_closes_the_connection_without_an_answer() {
     let (mut client, task, _stop) = start(Timeouts::default(), 4096);
-    let metadata = request_payload(ApiKey::Metadata, 12, 1, None, &MetadataRequest::default());
-    client.write_all(&framed(&metadata)).await.unwrap();
+    let fetch = request_payload(ApiKey::Fetch, 12, 1, None, &FetchRequest::default());
+    client.write_all(&framed(&fetch)).await.unwrap();
     assert!(matches!(
         task.await.unwrap(),
         End::Wire(WireError::NotAdvertised {
-            key: ApiKey::Metadata,
+            key: ApiKey::Fetch,
             ..
         })
     ));

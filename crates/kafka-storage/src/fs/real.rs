@@ -56,6 +56,14 @@ impl Fs for RealFs {
         }
     }
 
+    fn remove_dir(&self, path: &Path) -> io::Result<bool> {
+        match std::fs::remove_dir(path) {
+            Ok(()) => Ok(true),
+            Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(false),
+            Err(e) => Err(e),
+        }
+    }
+
     fn list_dir(&self, path: &Path) -> io::Result<Vec<DirEntry>> {
         let mut out = Vec::new();
         for entry in std::fs::read_dir(path)? {

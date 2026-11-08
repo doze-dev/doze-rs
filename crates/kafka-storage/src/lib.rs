@@ -14,6 +14,7 @@ mod scan;
 mod segment;
 #[cfg(any(test, feature = "sim"))]
 pub mod sim;
+pub mod topic_dirs;
 
 pub use error::StorageError;
 pub use log::{Appended, LogConfig, LogReader, PartitionLog, Retention, Ticket, Trust};

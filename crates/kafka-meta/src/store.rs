@@ -4,6 +4,8 @@ mod producer_ids;
 mod registry;
 mod topics;
 
+pub use topics::random_topic_id;
+
 use std::path::Path;
 use std::sync::{Mutex, MutexGuard, PoisonError};
 

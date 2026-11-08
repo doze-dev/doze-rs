@@ -12,7 +12,7 @@ mod real;
 use std::io;
 use std::path::Path;
 
-pub use durable::{read_file, write_durably};
+pub use durable::{create_dirs_durably, read_file, write_durably};
 pub use real::RealFs;
 
 /// An entry in a directory listing.
@@ -59,6 +59,13 @@ pub trait Fs: Clone + Send + Sync + 'static {
     /// # Errors
     /// Anything the system refuses, including a path where a file is.
     fn create_dir(&self, path: &Path) -> io::Result<bool>;
+
+    /// Removes an empty directory; says whether it was there. Like a created name, the removal is only in
+    /// memory until the parent directory is flushed.
+    ///
+    /// # Errors
+    /// A directory that is not empty, or anything else the system refuses other than a missing directory.
+    fn remove_dir(&self, path: &Path) -> io::Result<bool>;
 
     /// The entries of a directory, in no particular order.
     ///

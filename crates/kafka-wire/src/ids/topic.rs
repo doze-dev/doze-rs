@@ -93,6 +93,18 @@ impl TopicId {
     pub const fn as_bytes(&self) -> &[u8; 16] {
         &self.0
     }
+
+    /// The id as the generated messages hold it.
+    #[must_use]
+    pub const fn to_uuid(self) -> uuid::Uuid {
+        uuid::Uuid::from_bytes(self.0)
+    }
+
+    /// The id in a message, or `None` for the zero id that means "no topic id".
+    #[must_use]
+    pub fn from_uuid(id: uuid::Uuid) -> Option<Self> {
+        (!id.is_nil()).then(|| Self(*id.as_bytes()))
+    }
 }
 
 /// A partition's number within its topic.

@@ -16,6 +16,7 @@ bytes = "1"
 crc32c = "0.6"
 kafka-protocol = { version = "0.18", default-features = false, features = ["broker"] }
 thiserror = "2"
+uuid = { version = "1", default-features = false }
 
 [dev-dependencies]
 # The integration tests use the crate's own test helpers, so they need them on by default.

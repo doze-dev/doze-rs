@@ -1,27 +1,42 @@
 //! The broker: one decoded request in, one outcome out.
 
-use kafka_wire::api::Request;
+use kafka_meta::MetaStore;
+use kafka_storage::fs::{Fs, RealFs};
+use kafka_wire::api::{Request, Response};
 use kafka_wire::header::RequestHead;
 use kafka_wire::messages::ApiKey;
 use kafka_wire::profile::ApiSet;
 
-use crate::Outcome;
+use crate::{BrokerError, Config, Listener, Outcome, blocking};
 
 /// The APIs this broker has a handler for. ApiVersions advertises exactly these (and only those the Kafka
 /// version being stood for offers), and a request for any other is not accepted. A phase adds the APIs it
 /// serves here and a handler for each in [`Broker::handle`]; the `match` there has no wildcard, so a new API
 /// that is neither handled nor listed as unserved does not compile.
-const SERVED: &[ApiKey] = &[ApiKey::ApiVersions];
+const SERVED: &[ApiKey] = &[
+    ApiKey::ApiVersions,
+    ApiKey::Metadata,
+    ApiKey::CreateTopics,
+    ApiKey::DeleteTopics,
+];
 
-/// The broker. (State arrives with the handlers that need it.)
-#[derive(Debug, Default)]
-pub struct Broker {}
+/// The broker, over a file system (the real one, or a simulated disk in tests).
+#[derive(Debug)]
+pub struct Broker<F: Fs = RealFs> {
+    pub(crate) fs: F,
+    pub(crate) config: Config,
+    pub(crate) meta: MetaStore,
+}
 
-impl Broker {
-    /// A broker.
-    #[must_use]
-    pub fn new() -> Self {
-        Self {}
+impl<F: Fs> Broker<F> {
+    /// Opens the broker's state under `config.data_dir`, making it if it is not there.
+    ///
+    /// # Errors
+    /// The data directory or the metadata database cannot be made or read.
+    pub fn open(fs: F, config: Config) -> Result<Self, BrokerError> {
+        kafka_storage::fs::create_dirs_durably(&fs, &config.data_dir)?;
+        let meta = MetaStore::open(&fs, &config.data_dir)?;
+        Ok(Self { fs, config, meta })
     }
 
     /// The APIs this broker serves.
@@ -32,14 +47,27 @@ impl Broker {
 
     /// Handles one request. ApiVersions never gets here: the connection answers it from the version profile,
     /// before the connection is known to be allowed anything else.
-    pub async fn handle(&self, _head: &RequestHead, request: Request) -> Outcome {
+    pub async fn handle(
+        &self,
+        listener: &Listener,
+        head: &RequestHead,
+        request: Request,
+    ) -> Outcome {
         match request {
+            Request::Metadata(r) => respond(Response::Metadata(blocking::run(|| {
+                self.metadata(listener, &r, head.version)
+            }))),
+            Request::CreateTopics(r) => respond(Response::CreateTopics(blocking::run(|| {
+                self.create_topics(&r)
+            }))),
+            Request::DeleteTopics(r) => respond(Response::DeleteTopics(blocking::run(|| {
+                self.delete_topics(&r)
+            }))),
             // Not served yet. Each moves out of this arm into a handler when its phase lands.
             Request::ApiVersions(_)
             | Request::Produce(_)
             | Request::Fetch(_)
             | Request::ListOffsets(_)
-            | Request::Metadata(_)
             | Request::OffsetCommit(_)
             | Request::OffsetFetch(_)
             | Request::FindCoordinator(_)
@@ -50,8 +78,6 @@ impl Broker {
             | Request::DescribeGroups(_)
             | Request::ListGroups(_)
             | Request::SaslHandshake(_)
-            | Request::CreateTopics(_)
-            | Request::DeleteTopics(_)
             | Request::DeleteRecords(_)
             | Request::InitProducerId(_)
             | Request::AddPartitionsToTxn(_)
@@ -78,4 +104,8 @@ impl Broker {
             | Request::PushTelemetry(_) => Outcome::Close,
         }
     }
+}
+
+fn respond(response: Response) -> Outcome {
+    Outcome::Respond(response)
 }

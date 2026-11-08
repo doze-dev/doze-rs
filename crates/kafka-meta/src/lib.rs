@@ -13,4 +13,4 @@ mod store;
 pub use error::MetaError;
 pub use names::Collision;
 pub use record::Topic;
-pub use store::MetaStore;
+pub use store::{MetaStore, random_topic_id};

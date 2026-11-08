@@ -19,4 +19,6 @@ pub mod testing;
 pub use error::WireError;
 /// The generated message types and error codes, re-exported so that no other crate names `kafka-protocol`: its
 /// version is chosen in one place.
+pub use kafka_protocol::protocol::StrBytes;
 pub use kafka_protocol::{ResponseError, messages};
+pub use uuid::Uuid;
