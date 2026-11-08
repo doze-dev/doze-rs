@@ -467,3 +467,25 @@ test-only knobs in `internal/config`.
   idle 4.4 MB against 26.8 and 3 threads against 12, throughput the same or better, and the one number that goes the
   wrong way (resident after a heavy produce: freed large buffers cached by macOS's allocator, plateau, reclaimable;
   Linux not yet measured).
+
+- **2026-11-09, Phase 3 closed.** Audit round 1 (NOT DONE) found a delete/re-create race, a Fetch spin, the clean-stop
+  marker vouching for a failed close, descriptor exhaustion. Round 2 (NOT DONE) found the new frame pool deadlocking (two
+  locks taken in opposite orders: found by the auditor in a real server under load) and a produce that resolved a topic
+  before a delete+re-create opening a second log on the new topic's directory. All fixed with tests that fail on the old
+  code (a watchdog thread test for the pool; a stale-topic test that watches for any file operation). Round 3 judged the
+  Phase 3 fixes DONE. The frame pool (`kafka-server/src/pool.rs`, 119 lines, safe) took the resident memory after a
+  200 MB produce on macOS from 200 MB to 24 MB; `weight.md` has the measurements against the system allocator and
+  jemalloc/mimalloc. The librdkafka lz4 note above is closed: FindCoordinator is served, and all four codecs produce and
+  read back through kcat.
+- **2026-11-09, Phase 4 (classic consumer groups) built, slices 4a to 4g** (`phase4.md`, `behaviours/groups.md`): committed
+  offsets and group records in `kafka-meta`; the group as a pure state machine with an actor per group; JoinGroup,
+  SyncGroup, Heartbeat, LeaveGroup, FindCoordinator, OffsetCommit/Fetch/Delete, DescribeGroups, ListGroups, DeleteGroups;
+  Kafka's answer order ported and checked against 13 recorded orders; offsets retention with a test-control socket for the
+  oracle. Nine classic oracle scenarios pass against recorded Apache Kafka 4.3.1; the rest differ only in KIP-848 steps.
+  kcat -G (librdkafka) and franz-go (two members, a rebalance, resuming from committed offsets) work. Audit round 1
+  (NOT DONE) found a refused or first-contact join pinning a group's offsets for ever, unbounded group actors from clients
+  that only ask for ids, and a crash simulation that did not cover the delete paths; fixed by moving issued member ids to
+  a bounded table in the registry, writing a group record only for a join that would seat a member, conditional expiry,
+  and the simulation now power-cuts every write the groups make. The real clients and the oracle found four more bugs
+  that unit tests had not (FindCoordinator v4 encoding, the first joiner leads, an empty instance id is a static member,
+  the sweeper forgetting a group mid-handshake); the test rig now encodes every response it is given.
