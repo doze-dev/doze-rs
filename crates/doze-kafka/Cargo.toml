@@ -1,0 +1,14 @@
+[package]
+name = "doze-kafka"
+version = "0.0.0"
+description = "A Kafka broker for local development: one binary, single node, disk-backed (Rust port)"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]

@@ -1,0 +1,22 @@
+# doze in Rust: one workspace, each part its own crate. doze-kafka is ported
+# first (docs/kafka-port.md); doze, doze-aws and the modules follow.
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
+edition = "2024"
+license = "Apache-2.0"
+repository = "https://github.com/doze-dev/doze-rs"
+rust-version = "1.99"
+
+[workspace.lints.rust]
+unsafe_code = "deny"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true
