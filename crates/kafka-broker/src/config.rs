@@ -57,6 +57,11 @@ pub struct Config {
     /// How long the first rebalance of an empty consumer group waits for more members to arrive, so that members
     /// starting together share a generation. Zero: not at all.
     pub group_initial_rebalance_delay: Duration,
+    /// How long committed offsets are kept after their group has gone, or after they were committed if it never had
+    /// members. Zero: for ever.
+    pub offsets_retention: Duration,
+    /// How often the offsets are looked at; `None`: a hundredth of the retention, between 50 ms and ten minutes.
+    pub offsets_check_every: Option<Duration>,
 }
 
 impl Config {
@@ -74,6 +79,8 @@ impl Config {
             defaults: Defaults::default(),
             fsync_interval: Duration::from_millis(500),
             group_initial_rebalance_delay: Duration::from_millis(200),
+            offsets_retention: Duration::from_secs(7 * 24 * 3600),
+            offsets_check_every: None,
         }
     }
 }

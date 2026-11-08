@@ -33,6 +33,8 @@ pub(crate) async fn serve(settings: Settings) -> Result<()> {
         .await
         .with_context(|| format!("listening on {}", server.listen))?;
     tracing::info!(addr = %running.local_addr(), "listening");
+    let _sweeper = broker.start_offsets_sweeper();
+    let _control = crate::control::serve(&broker);
     stopped().await;
     tracing::info!("stopping");
     running.shutdown().await;

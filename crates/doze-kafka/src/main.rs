@@ -1,6 +1,7 @@
 //! doze-kafka: a Kafka broker for local development.
 
 mod cli;
+mod control;
 mod descriptors;
 mod duration;
 mod lock;

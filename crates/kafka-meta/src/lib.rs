@@ -6,12 +6,14 @@
 
 mod backend;
 mod error;
+mod life;
 mod names;
 mod offsets;
 mod record;
 mod store;
 
 pub use error::MetaError;
+pub use life::GroupLife;
 pub use names::Collision;
 pub use offsets::{Committed, GroupOffset, OffsetCommit, StoredOffset};
 pub use record::Topic;

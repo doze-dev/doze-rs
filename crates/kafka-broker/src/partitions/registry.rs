@@ -3,14 +3,15 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use kafka_meta::Topic;
+use kafka_meta::{MetaStore, Topic};
 use kafka_storage::fs::Fs;
 use kafka_storage::marker::StopState;
 use kafka_storage::topic_dirs::partition_dir;
 use kafka_storage::{LogConfig, PartitionLog, StorageError, Trust};
 use kafka_wire::ids::{PartitionId, TopicId};
 use tokio::sync::{OnceCell, mpsc};
-use tokio::task::JoinSet;
+
+mod closing;
 
 use super::{Partition, QUEUE, actor};
 use crate::{Config, blocking, topic_config};
@@ -47,13 +48,16 @@ pub(crate) struct Partitions<F: Fs> {
     registry: Mutex<Registry<F>>,
     /// What the last stop vouched for.
     stop: StopState,
+    /// Which topics there are now: a partition is opened only for the topic that has its name at the time.
+    meta: Arc<MetaStore>,
 }
 
 impl<F: Fs> Partitions<F> {
-    pub(crate) fn new(fs: F, config: Config, stop: StopState) -> Self {
+    pub(crate) fn new(fs: F, config: Config, stop: StopState, meta: Arc<MetaStore>) -> Self {
         Self {
             fs,
             config,
+            meta,
             registry: Mutex::new(Registry {
                 open: HashMap::new(),
                 clock: 0,
@@ -88,6 +92,12 @@ impl<F: Fs> Partitions<F> {
         partition: PartitionId,
     ) -> Result<Arc<Partition<F>>, StorageError> {
         let key = (topic.id, partition);
+        // A request that looked a topic up before it was deleted must not open it again: the directory is named for
+        // the topic and may by now belong to a topic of the same name made since. Checked before the open, and after
+        // it, since the delete can come between (it changes the metadata first and closes the partitions after).
+        if !self.is_current(topic) {
+            return Err(super::gone());
+        }
         loop {
             let slot = {
                 let mut registry = self.registry();
@@ -108,8 +118,19 @@ impl<F: Fs> Partitions<F> {
             };
             slot.get_or_try_init(|| async { self.open_one(topic, partition) })
                 .await?;
+            if !self.is_current(topic) {
+                self.discard(key).await;
+                return Err(super::gone());
+            }
             self.evict(key).await;
         }
+    }
+
+    /// Whether `topic` is still the topic with its name.
+    fn is_current(&self, topic: &Topic) -> bool {
+        self.meta
+            .topic(&topic.name)
+            .is_some_and(|t| t.id == topic.id)
     }
 
     /// The partition, unless it has never been written to: a partition that is not open and whose directory is empty
@@ -170,103 +191,6 @@ impl<F: Fs> Partitions<F> {
         let (commands, queue) = mpsc::channel(QUEUE);
         tokio::spawn(actor::run(log, queue, self.config.fsync_interval));
         Ok(Arc::new(Partition { reader, commands }))
-    }
-
-    /// Closes the partitions over the limit, least recently used first, except `keep` and any that something holds.
-    async fn evict(&self, keep: Key) {
-        let max = self.config.max_open_partitions;
-        if max == 0 {
-            return;
-        }
-        let victims: Vec<(String, Arc<Partition<F>>)> = {
-            let mut registry = self.registry();
-            let open = registry
-                .open
-                .values()
-                .filter(|e| e.slot.get().is_some())
-                .count();
-            if open <= max {
-                return;
-            }
-            let mut idle: Vec<_> = registry
-                .open
-                .iter()
-                .filter(|(k, e)| {
-                    **k != keep && e.slot.get().is_some_and(|p| Arc::strong_count(p) == 1)
-                })
-                .map(|(k, e)| (e.used, *k))
-                .collect();
-            idle.sort_unstable();
-            let take: Vec<Key> = idle.into_iter().take(open - max).map(|(_, k)| k).collect();
-            take.iter()
-                .filter_map(|k| registry.open.remove(k))
-                .filter_map(|e| Some((e.name, e.slot.get()?.clone())))
-                .collect()
-        };
-        for (name, partition) in victims {
-            let trust = if partition.close().await {
-                Trust::Vouched
-            } else {
-                Trust::Unvouched
-            };
-            self.registry().closed.insert(name, trust);
-        }
-    }
-
-    /// Closes every open partition of `topic`, each after it has flushed, so that its files can be removed.
-    pub(crate) async fn close_topic(&self, topic: TopicId) {
-        let entries: Vec<Entry<F>> = {
-            let mut registry = self.registry();
-            let keys: Vec<_> = registry
-                .open
-                .keys()
-                .filter(|(t, _)| *t == topic)
-                .copied()
-                .collect();
-            let entries: Vec<_> = keys
-                .iter()
-                .filter_map(|k| registry.open.remove(k))
-                .collect();
-            // The directories are about to go: what was known of them goes too.
-            for e in &entries {
-                registry.closed.remove(&e.name);
-            }
-            entries
-        };
-        for e in entries {
-            if let Some(partition) = e.slot.get() {
-                let _ = partition.close().await;
-            }
-        }
-    }
-
-    /// Closes every open partition after it has flushed, and says, for each partition this run opened, whether its
-    /// last close left files the next start can trust. A partition this run never opened is not in the answer.
-    pub(crate) async fn close_all(&self) -> HashMap<String, Trust> {
-        let entries: Vec<Entry<F>> = self.registry().open.drain().map(|(_, e)| e).collect();
-        let mut closing = JoinSet::new();
-        for e in entries {
-            if let Some(partition) = e.slot.get().cloned() {
-                closing.spawn(async move {
-                    let flushed = partition.close().await;
-                    let trust = if flushed {
-                        Trust::Vouched
-                    } else {
-                        Trust::Unvouched
-                    };
-                    (e.name, trust)
-                });
-            }
-        }
-        let mut verdicts: HashMap<String, Trust> = self.registry().closed.clone();
-        while let Some(done) = closing.join_next().await {
-            // A close that panicked is a partition nobody can vouch for; its name went with it, and the directories
-            // the last stop did not vouch for stay unvouched.
-            if let Ok((name, trust)) = done {
-                verdicts.insert(name, trust);
-            }
-        }
-        verdicts
     }
 }
 

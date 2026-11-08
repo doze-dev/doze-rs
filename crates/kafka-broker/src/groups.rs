@@ -4,6 +4,7 @@ mod actor;
 mod machine;
 mod order;
 mod registry;
+mod retention;
 mod subscription;
 
 pub(crate) use actor::Req;
@@ -14,3 +15,4 @@ pub(crate) use machine::{
 };
 pub(crate) use order::kafka_order;
 pub(crate) use registry::{Deleted, Groups};
+pub(crate) use retention::{Members, View, expired};

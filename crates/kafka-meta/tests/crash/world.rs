@@ -9,6 +9,7 @@ use kafka_storage::fs::Fs;
 use kafka_storage::sim::{Cut, DataCut, NameCut, SimFs};
 use kafka_wire::ids::{PartitionCount, TopicName};
 
+mod lives;
 mod offsets;
 
 pub(crate) const STEPS: usize = 40;
@@ -51,6 +52,8 @@ pub(crate) struct Model {
     pub(crate) last_id: Option<i64>,
     /// The committed offsets.
     pub(crate) offsets: offsets::Offsets,
+    /// The group records.
+    pub(crate) lives: lives::Lives,
 }
 
 impl Model {
@@ -76,7 +79,8 @@ impl Model {
                 return Err(format!("{} is not found by its id", topic.name));
             }
         }
-        self.check_offsets(store)
+        self.check_offsets(store)?;
+        self.check_lives(store)
     }
 }
 
@@ -108,12 +112,13 @@ impl World {
             if self.store.is_none() {
                 return;
             }
-            let what = match self.rng.below(13) {
+            let what = match self.rng.below(15) {
                 0..=3 => self.create(),
                 4..=5 => self.delete(),
                 6..=8 => self.producer_id(),
                 9..=11 => self.commit(),
-                12 if self.rng.below(2) == 0 => self.shutdown(),
+                12..=13 => self.life(),
+                14 if self.rng.below(2) == 0 => self.shutdown(),
                 _ => self.restart(),
             };
             self.trail.push(what);

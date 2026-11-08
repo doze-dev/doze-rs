@@ -1,5 +1,7 @@
 //! The broker: one decoded request in, one outcome out.
 
+use std::sync::Arc;
+
 use kafka_meta::MetaStore;
 use kafka_storage::Trust;
 use kafka_storage::fs::{Fs, RealFs};
@@ -44,9 +46,11 @@ const SERVED: &[ApiKey] = &[
 pub struct Broker<F: Fs = RealFs> {
     pub(crate) fs: F,
     pub(crate) config: Config,
-    pub(crate) meta: MetaStore,
+    pub(crate) meta: Arc<MetaStore>,
     pub(crate) partitions: Partitions<F>,
     pub(crate) groups: Groups,
+    /// When this run began, in milliseconds since the epoch.
+    pub(crate) started_ms: i64,
     /// Counts changes to the set of topics that a waiting fetch must notice (a deletion).
     pub(crate) topics_changed: tokio::sync::watch::Sender<u64>,
     /// What the last stop vouched for.
@@ -63,13 +67,15 @@ impl<F: Fs> Broker<F> {
     /// The data directory or the metadata database cannot be made or read.
     pub fn open(fs: F, config: Config) -> Result<Self, BrokerError> {
         kafka_storage::fs::create_dirs_durably(&fs, &config.data_dir)?;
-        let meta = MetaStore::open(&fs, &config.data_dir)?;
+        let meta = Arc::new(MetaStore::open(&fs, &config.data_dir)?);
         // Read, and removed before anything is written: a marker that came back after a power cut would vouch for a
         // log this run was in the middle of writing.
         let stop = StopState::begin(&fs, &config.data_dir)?;
-        let partitions = Partitions::new(fs.clone(), config.clone(), stop.clone());
+        let partitions =
+            Partitions::new(fs.clone(), config.clone(), stop.clone(), Arc::clone(&meta));
         let groups = Groups::new(
             u64::try_from(config.group_initial_rebalance_delay.as_millis()).unwrap_or(u64::MAX),
+            Arc::clone(&meta),
         );
         Ok(Self {
             fs,
@@ -77,6 +83,7 @@ impl<F: Fs> Broker<F> {
             meta,
             partitions,
             groups,
+            started_ms: crate::clock::now().get(),
             topics_changed: tokio::sync::watch::channel(0).0,
             stop,
             topic_admin: tokio::sync::Mutex::new(()),

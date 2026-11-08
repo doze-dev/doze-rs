@@ -1,6 +1,6 @@
 # Phase 4: classic consumer groups
 
-Status: plan, 2026-11-09. Goal: a Kafka client (franz-go, librdkafka, kcat -G, later the Java client) joins a group,
+Status: 4a to 4g built and committed 2026-11-09; 4h (real clients: done for kcat and franz-go; audit) is what is left. Catalogue: behaviours/groups.md. Goal: a Kafka client (franz-go, librdkafka, kcat -G, later the Java client) joins a group,
 is assigned partitions, heartbeats, commits and fetches offsets, rebalances when members come and go, and sees the
 same answers as real Apache Kafka 4.3.1 in the recorded classic-group scenarios. KIP-848 (ConsumerGroupHeartbeat) is
 Phase 5; transactions (TxnOffsetCommit, AddOffsetsToTxn) are Phase 6. Both stay out.

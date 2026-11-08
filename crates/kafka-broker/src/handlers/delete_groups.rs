@@ -36,9 +36,17 @@ impl<F: Fs> Broker<F> {
         let existed = match self.groups.delete(&group).await {
             Deleted::NotEmpty => return Some(ResponseError::NonEmptyGroup),
             Deleted::Gone => true,
-            Deleted::NoSuchGroup => false,
+            // Not in memory, but recorded as having had members (the broker has started since): it is there.
+            Deleted::NoSuchGroup => {
+                blocking::run(|| self.meta.group_life(&group)).is_ok_and(|l| l.is_some())
+            }
         };
-        match blocking::run(|| self.meta.delete_group_offsets(&group)) {
+        let forgotten = blocking::run(|| {
+            let removed = self.meta.delete_group_offsets(&group)?;
+            self.meta.forget_group_life(&group)?;
+            Ok::<usize, kafka_meta::MetaError>(removed)
+        });
+        match forgotten {
             Ok(removed) if existed || removed > 0 => None,
             Ok(_) => Some(ResponseError::GroupIdNotFound),
             Err(e) => {

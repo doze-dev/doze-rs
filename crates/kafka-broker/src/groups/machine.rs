@@ -158,6 +158,12 @@ impl GroupMachine {
         self.generation
     }
 
+    /// How many members there are.
+    #[must_use]
+    pub(crate) fn member_count(&self) -> usize {
+        self.members.len()
+    }
+
     /// The members' ids, in order.
     #[must_use]
     pub(crate) fn member_ids(&self) -> Vec<MemberId> {

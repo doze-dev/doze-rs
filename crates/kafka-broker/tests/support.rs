@@ -36,7 +36,14 @@ pub fn rig() -> Rig {
 }
 
 pub fn open_on(fs: SimFs) -> Rig {
-    let broker = Broker::open(fs.clone(), Config::new(DATA.into())).unwrap();
+    open_on_with(fs, |_| {})
+}
+
+/// A broker on `fs` with its configuration changed by `tweak`.
+pub fn open_on_with(fs: SimFs, tweak: impl FnOnce(&mut Config)) -> Rig {
+    let mut config = Config::new(DATA.into());
+    tweak(&mut config);
+    let broker = Broker::open(fs.clone(), config).unwrap();
     Rig { fs, broker }
 }
 

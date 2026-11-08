@@ -19,17 +19,21 @@ const CLASSES: usize = (MAX.trailing_zeros() - MIN.trailing_zeros() + 1) as usiz
 const PER_CLASS: usize = 16;
 const KEPT_BYTES: usize = 64 << 20;
 
-/// The shelves, one per size class.
-pub(crate) struct Pool {
-    shelves: [Mutex<Vec<Vec<u8>>>; CLASSES],
-    kept: Mutex<usize>,
+/// The shelves, one per size class, and how many bytes are on them. One lock covers both: two locks taken in two
+/// orders by `take` and `give_back` hung the broker (found by the Phase 3 re-audit).
+#[derive(Default)]
+struct Shelves {
+    classes: [Vec<Vec<u8>>; CLASSES],
+    kept: usize,
 }
 
 /// The pool every connection shares.
-pub(crate) static POOL: LazyLock<Pool> = LazyLock::new(|| Pool {
-    shelves: std::array::from_fn(|_| Mutex::new(Vec::new())),
-    kept: Mutex::new(0),
-});
+pub(crate) struct Pool {
+    shelves: Mutex<Shelves>,
+}
+
+/// The pool every connection shares.
+pub(crate) static POOL: LazyLock<Pool> = LazyLock::new(Pool::new);
 
 fn lock<T>(m: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
     m.lock().unwrap_or_else(PoisonError::into_inner)
@@ -42,28 +46,39 @@ fn shelf_of(capacity: usize) -> Option<usize> {
 }
 
 impl Pool {
+    fn new() -> Self {
+        Self {
+            shelves: Mutex::new(Shelves::default()),
+        }
+    }
+
     /// An empty buffer with room for `len` bytes.
     pub(crate) fn take(&'static self, len: usize) -> Vec<u8> {
         let class = len.next_power_of_two().max(MIN);
-        if let Some(shelf) = shelf_of(class).and_then(|s| self.shelves.get(s))
-            && let Some(buf) = lock(shelf).pop()
-        {
-            *lock(&self.kept) -= buf.capacity();
-            return buf;
-        }
-        Vec::with_capacity(if class <= MAX { class } else { len })
+        let kept = shelf_of(class).and_then(|s| {
+            let mut shelves = lock(&self.shelves);
+            let buf = shelves.classes.get_mut(s)?.pop()?;
+            shelves.kept -= buf.capacity();
+            Some(buf)
+        });
+        kept.unwrap_or_else(|| Vec::with_capacity(if class <= MAX { class } else { len }))
     }
 
     fn give_back(&self, mut buf: Vec<u8>) {
-        let Some(shelf) = shelf_of(buf.capacity()).and_then(|s| self.shelves.get(s)) else {
+        let Some(s) = shelf_of(buf.capacity()) else {
             return;
         };
-        let mut kept = lock(&self.kept);
-        let mut on_shelf = lock(shelf);
-        if on_shelf.len() < PER_CLASS && *kept + buf.capacity() <= KEPT_BYTES {
+        let mut shelves = lock(&self.shelves);
+        let capacity = buf.capacity();
+        if shelves.kept + capacity > KEPT_BYTES {
+            return;
+        }
+        if let Some(shelf) = shelves.classes.get_mut(s)
+            && shelf.len() < PER_CLASS
+        {
             buf.clear();
-            *kept += buf.capacity();
-            on_shelf.push(buf);
+            shelf.push(buf);
+            shelves.kept += capacity;
         }
     }
 
@@ -94,26 +109,70 @@ impl Drop for Pooled {
 mod tests {
     use super::*;
 
+    /// A pool of the test's own, so that tests running side by side do not take each other's buffers.
+    fn pool() -> &'static Pool {
+        Box::leak(Box::new(Pool::new()))
+    }
+
+    fn on_shelf(pool: &Pool, class: usize) -> usize {
+        lock(&pool.shelves).classes[class].len()
+    }
+
     #[test]
     fn a_buffer_given_back_is_the_one_taken_next_and_the_shelves_stay_bounded() {
-        let first = POOL.take(100_000);
+        let pool = pool();
+        let first = pool.take(100_000);
         assert_eq!(first.capacity(), 1 << 17, "rounded up to its class");
         let at = first.as_ptr();
-        drop(POOL.share(first));
-        let again = POOL.take(70_000);
+        drop(pool.share(first));
+        let again = pool.take(70_000);
         assert_eq!(again.as_ptr(), at, "same class, same buffer");
         // Buffers past the shelf's count are freed, not kept.
-        let many: Vec<_> = (0..PER_CLASS + 4).map(|_| POOL.take(MIN)).collect();
-        drop(many.into_iter().map(|b| POOL.share(b)).collect::<Vec<_>>());
-        assert!(lock(&POOL.shelves[0]).len() <= PER_CLASS);
-        assert!(*lock(&POOL.kept) <= KEPT_BYTES);
+        let many: Vec<_> = (0..PER_CLASS + 4).map(|_| pool.take(MIN)).collect();
+        drop(many.into_iter().map(|b| pool.share(b)).collect::<Vec<_>>());
+        assert!(on_shelf(pool, 0) <= PER_CLASS);
+        assert!(lock(&pool.shelves).kept <= KEPT_BYTES);
     }
 
     #[test]
     fn a_frame_too_big_for_any_class_is_not_kept() {
-        let big = POOL.take(MAX + 1);
+        let pool = pool();
+        let big = pool.take(MAX + 1);
         assert!(shelf_of(big.capacity()).is_none());
-        drop(POOL.share(big));
-        assert!(*lock(&POOL.kept) <= KEPT_BYTES);
+        drop(pool.share(big));
+        assert!(lock(&pool.shelves).kept <= KEPT_BYTES);
+    }
+
+    #[test]
+    fn what_is_kept_is_bounded_by_bytes_as_well_as_by_count() {
+        let pool = pool();
+        // 16 buffers of 16 MiB would be 256 MiB: the byte bound stops the shelf at four.
+        let big: Vec<_> = (0..PER_CLASS).map(|_| pool.take(MAX)).collect();
+        drop(big.into_iter().map(|b| pool.share(b)).collect::<Vec<_>>());
+        assert!(lock(&pool.shelves).kept <= KEPT_BYTES);
+        assert!(on_shelf(pool, CLASSES - 1) <= KEPT_BYTES / MAX);
+    }
+
+    #[test]
+    fn many_threads_taking_and_giving_back_do_not_hang() {
+        let pool = pool();
+        // Two locks taken in two orders once froze exactly this. A watchdog turns a hang into a failure.
+        let (done, finished) = std::sync::mpsc::channel();
+        for t in 0..8 {
+            let done = done.clone();
+            std::thread::spawn(move || {
+                for i in 0..20_000 {
+                    let len = MIN << ((t + i) % 4);
+                    let buf = pool.take(len);
+                    drop(pool.share(buf));
+                }
+                let _ = done.send(());
+            });
+        }
+        for _ in 0..8 {
+            finished
+                .recv_timeout(std::time::Duration::from_secs(60))
+                .expect("a thread finished: the pool did not deadlock");
+        }
     }
 }

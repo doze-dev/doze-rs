@@ -28,6 +28,11 @@ impl<F: Fs> Broker<F> {
                 tracing::warn!(error = %e, "listing groups: committed offsets could not be read")
             }
         }
+        // A group that had members and is not in memory (the broker has started since) is listed as the empty group it
+        // is, with the kind it was, until the retention forgets it.
+        for (id, life) in blocking::run(|| self.meta.group_lives()).unwrap_or_default() {
+            all.insert(id.to_string(), (life.protocol_type, "Empty"));
+        }
         for (id, d) in self.groups.list().await {
             all.insert(
                 id.to_string(),

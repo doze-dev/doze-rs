@@ -136,6 +136,36 @@ subscribes to is GROUP_SUBSCRIBED_TO_TOPIC (86), an unknown topic or partition 3
 Subscriptions are read from the consumer protocol (versions 0-3); an unreadable one subscribes to nothing assumed.
 Test: `group_admin::offsets_are_deleted_unless_*`, `offset_delete_of_a_group_with_nothing_*`, `groups::subscription::tests`
 
+## Retention
+
+### R1. Committed offsets expire (`--offsets-retention`, 168 h; 0 keeps them for ever)
+Looked at every retention/100 (between 50 ms and ten minutes), and at once when the test control asks (below). A group that
+never had a member loses each offset a retention after its own commit. A group that had members and has none loses all of
+them a retention after it *became* empty, however late the last commit (a commit into an empty group does not extend
+it). A group with members keeps what it subscribes to and loses the rest by age; a group in a rebalance, of another
+protocol type than `consumer`, or whose members' subscriptions cannot be read, is not looked at.
+Test: `groups::retention::tests::*` (the rules, with times given); `retention::*` (the broker, with a real 80 ms retention);
+oracle `offsets-retention-members` (Apache Kafka 4.3.1's recording) passes
+
+### R2. What is recorded, and when
+A group's record (`live`, the longest session, when it emptied, its protocol type) is written *before* a first member is
+seated (a failed write is COORDINATOR_NOT_AVAILABLE, 15, and nobody is seated) and when the last member goes (a failed write
+is tried again every 500 ms). A group the broker has restarted since, recorded as having members, is taken to have them until
+their session has run out after the start, and to have lost them then. Such a group is listed, and described, as the empty
+group it is, with the kind it was, until the retention forgets it.
+Test: `retention::a_member_is_not_seated_when_the_record_*`, `a_restart_changes_none_of_this_*`,
+`a_group_that_had_members_when_the_broker_stopped_*`; `kafka-meta` crash sweep (records in the random workload)
+
+### R3. A group with no members and no offsets is forgotten at the sweep
+It is Dead, and its id used again is a new group. Not so a group that has only just been told the id to come back with:
+forgetting it would lose that id (found by the oracle: `offsets-retention`, `join-g-late`).
+Test: `retention::a_group_with_nothing_*`, `a_group_that_has_only_issued_an_id_is_not_forgotten_*`
+
+### R4. The test control
+`DOZE_KAFKA_TEST_CONTROL`, if set, names a unix socket; the line `check-offsets` applies the retention now and is answered
+`ok` once it has. Unix only, and only when the variable is set.
+Test: by the oracle (`offsets-retention-members`); not covered by a Rust test.
+
 ## By hand
 
 - `kcat -G` (librdkafka): a group consumed 10 messages and committed; a second run of the same group got only the one
@@ -146,6 +176,16 @@ Test: `group_admin::offsets_are_deleted_unless_*`, `offset_delete_of_a_group_wit
 - Found by the client, not by a test, and then covered: FindCoordinator v4 answered at the top of the message as well as in
   `coordinators`, which the encoder refuses; the test rig now encodes every response it receives.
 
+## Oracle (recorded Apache Kafka 4.3.1, through the Go harness)
+Pass: `findcoordinator`, `offsetcommit-generations`, `joingroup-session-timeout`, `group-requests-answers`,
+`classic-join-flow`, `classic-rebalance-generations`, `classic-rebalance-timeout`, `classic-initial-rebalance-delay`,
+`offsets-retention-members`. The rest (`describe-groups-order`, `group-requests-refused`, `offsets-retention`,
+`offsets-retention-restart`, `offsets-retention-recreate`, `groups-listed-after-restart`, `offset-delete-subscribed`) differ
+only in KIP-848 steps (ConsumerGroupHeartbeat is not served until Phase 5), and in the member-id numbering and listings those
+steps shift. The remaining diffs were read by hand and are all of that kind, but only Phase 5, which serves those steps,
+will show a full pass.
+
 ## Not done (recorded)
-Offsets retention and the group liveness record (slice 4g); KIP-848 groups and the migration between protocols
-(Phase 5); transactional offset commits (Phase 6); ACLs (Phase 8); the Java client (no JDK on the machine).
+KIP-848 groups and the migration between protocols (Phase 5); transactional offset commits (Phase 6); ACLs (Phase 8); the
+Java client (no JDK on the machine); the peer address in DescribeGroups (a fixed `/127.0.0.1`); a group that has only issued an id
+and whose client never returns stays in memory until the broker restarts.

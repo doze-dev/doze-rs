@@ -37,7 +37,15 @@ impl<F: Fs> Broker<F> {
             let has_offsets = group.as_ref().is_some_and(|g| {
                 blocking::run(|| self.meta.group_offsets(g)).is_ok_and(|o| !o.is_empty())
             });
-            out.group_state = StrBytes::from_static_str(if has_offsets { "Empty" } else { "Dead" });
+            // Known by its offsets or by a record of having had members: Empty, not Dead.
+            let life = group
+                .as_ref()
+                .and_then(|g| blocking::run(|| self.meta.group_life(g)).ok().flatten());
+            let known = has_offsets || life.is_some();
+            out.group_state = StrBytes::from_static_str(if known { "Empty" } else { "Dead" });
+            if let Some(life) = life {
+                out.protocol_type = StrBytes::from_string(life.protocol_type);
+            }
             return out;
         };
         fill(&mut out, d);

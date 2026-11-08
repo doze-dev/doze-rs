@@ -1,12 +1,14 @@
 //! The groups that exist: found by id, started by their first JoinGroup, retired by DeleteGroups.
 
 use std::collections::HashMap;
+use std::sync::Arc;
 
+use kafka_meta::{GroupLife, MetaStore};
 use kafka_wire::ResponseError;
 use kafka_wire::ids::{GroupId, InstanceId, MemberId};
 use tokio::sync::{Mutex, mpsc, oneshot};
 
-use super::actor::{self, Command, Req};
+use super::actor::{self, Command, Records, Req};
 use super::machine::{
     Answer, Description, GroupMachine, IdSource, JoinAnswer, LeaveResult, SyncAnswer,
     commit_to_no_group,
@@ -30,15 +32,17 @@ pub(crate) enum Deleted {
 #[derive(Debug)]
 pub(crate) struct Groups {
     initial_delay_ms: u64,
+    meta: Arc<MetaStore>,
     /// Held while a group is looked up, made or retired; never while a request waits for its answer, except a
     /// deletion, so that a group is never made again while the old one is going.
     open: Mutex<HashMap<GroupId, mpsc::Sender<Command>>>,
 }
 
 impl Groups {
-    pub(crate) fn new(initial_delay_ms: u64) -> Self {
+    pub(crate) fn new(initial_delay_ms: u64, meta: Arc<MetaStore>) -> Self {
         Self {
             initial_delay_ms,
+            meta,
             open: Mutex::new(HashMap::new()),
         }
     }
@@ -56,7 +60,7 @@ impl Groups {
                 match open.get(group) {
                     Some(sender) => sender.clone(),
                     None if matches!(req, Req::Join(_)) => {
-                        let sender = self.start();
+                        let sender = self.start(group);
                         open.insert(group.clone(), sender.clone());
                         sender
                     }
@@ -137,11 +141,53 @@ impl Groups {
         }
     }
 
-    fn start(&self) -> mpsc::Sender<Command> {
+    fn start(&self, group: &GroupId) -> mpsc::Sender<Command> {
         let (sender, commands) = mpsc::channel(QUEUE);
         let machine = GroupMachine::new(self.initial_delay_ms, member_ids());
-        tokio::spawn(actor::run(machine, commands));
+        let records = StoreRecords {
+            meta: Arc::clone(&self.meta),
+            group: group.clone(),
+        };
+        tokio::spawn(actor::run(machine, commands, records));
         sender
+    }
+}
+
+/// A group's records, in the metadata database.
+struct StoreRecords {
+    meta: Arc<MetaStore>,
+    group: GroupId,
+}
+
+impl StoreRecords {
+    fn write(&self, life: &GroupLife) -> bool {
+        match crate::blocking::run(|| self.meta.set_group_life(&self.group, life)) {
+            Ok(()) => true,
+            Err(e) => {
+                tracing::error!(group = %self.group, error = %e, "writing what is known of a group's members failed");
+                false
+            }
+        }
+    }
+}
+
+impl Records for StoreRecords {
+    fn live(&self, session_ms: u32, protocol_type: &str) -> bool {
+        self.write(&GroupLife {
+            live: true,
+            session_ms,
+            empty_since_ms: None,
+            protocol_type: protocol_type.to_owned(),
+        })
+    }
+
+    fn empty(&self, protocol_type: &str, now_ms: i64) -> bool {
+        self.write(&GroupLife {
+            live: false,
+            session_ms: 0,
+            empty_since_ms: Some(now_ms),
+            protocol_type: protocol_type.to_owned(),
+        })
     }
 }
 
