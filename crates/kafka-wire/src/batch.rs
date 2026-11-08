@@ -11,6 +11,7 @@ mod error;
 mod header;
 mod iter;
 mod layout;
+mod peek;
 mod produce;
 mod stamp;
 
@@ -21,6 +22,7 @@ pub use error::{BatchError, Refusal};
 use header::Header;
 pub use iter::Batches;
 use layout::{HEADER_LEN, LENGTH_OVERHEAD, MAGIC_V2};
+pub use peek::Peek;
 pub use produce::ProduceError;
 
 use crate::ids::{Offset, ProducerEpoch, ProducerId, TimestampMs};

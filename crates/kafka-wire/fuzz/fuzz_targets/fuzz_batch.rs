@@ -9,6 +9,7 @@ use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|data: &[u8]| {
     let bytes = Bytes::copy_from_slice(data);
+    let _ = kafka_wire::batch::Peek::read(data);
     let _ = Batch::from_produce(&bytes);
     let _ = Batches::new(bytes.clone()).count();
     if let Ok(batch) = Batch::parse(bytes) {

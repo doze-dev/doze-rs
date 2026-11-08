@@ -79,7 +79,7 @@ pub struct TimestampMs(i64);
 impl TimestampMs {
     /// A time as read from the wire.
     #[must_use]
-    pub fn from_wire(v: i64) -> Self {
+    pub const fn from_wire(v: i64) -> Self {
         Self(v)
     }
 

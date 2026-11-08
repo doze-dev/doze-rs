@@ -13,7 +13,17 @@ workspace = true
 
 [dependencies]
 kafka-wire = { path = "../kafka-wire" }
+bytes = "1"
+thiserror = "2"
+arc-swap = "1"
+# Only its channels (no runtime): a log announces its end offset and its flushes through them.
+tokio = { version = "1", default-features = false, features = ["sync"] }
 
 [features]
 # A deterministic in-memory disk with crash points and injected faults, for tests.
 sim = []
+
+[dev-dependencies]
+# Builds valid batches for the tests.
+kafka-wire = { path = "../kafka-wire", features = ["test-support"] }
+tokio = { version = "1", default-features = false, features = ["rt", "macros", "time"] }
