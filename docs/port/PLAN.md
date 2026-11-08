@@ -453,3 +453,17 @@ test-only knobs in `internal/config`.
   the text for nonsense after a batch, the value length in a message. After fixing them: 8 pass outright; the other two
   differ only in steps that belong to later phases (idempotent sequence checks, IncrementalAlterConfigs). Table in
   `oracle.md`.
+- **2026-11-08, Phase 3 real clients and the weight baseline.** Real clients, by hand against the release binary:
+  kcat (librdkafka): metadata, produce to an auto-created topic, consume from the start and from the end, ListOffsets
+  (-Q), keys, headers, gzip/snappy/zstd batches, idempotent and acks=0 producers, an 800 KB message;
+  franz-go (default idempotent producer, zstd): 2,000 keyed records with headers to a 3-partition topic, consumed back
+  by partition, kadm create/list-start/list-end/list-after-time/delete. All passed first time. (librdkafka does not
+  compress with lz4 yet: it asks for FindCoordinator to allow it, which is Phase 4. The Java client needs consumer
+  groups for its usual flows and no JDK is installed here: Java is checked when the groups exist.) The scale
+  measurement (3,000 partitions) found what the Phase 2 audit predicted: every ListOffsets opened its partition, 6,016
+  descriptors and 30 MB. Fixed: `--max-open-partitions` (512) closes the least recently used idle partition (flushed,
+  and trusted again when reopened), and a ListOffsets for a partition never written to does not open it:
+  16 descriptors, 7.7 MB, 58 ms. `docs/port/weight.md` has the baseline against Go: binary 3.0 MB against 28.4,
+  idle 4.4 MB against 26.8 and 3 threads against 12, throughput the same or better, and the one number that goes the
+  wrong way (resident after a heavy produce: freed large buffers cached by macOS's allocator, plateau, reclaimable;
+  Linux not yet measured).

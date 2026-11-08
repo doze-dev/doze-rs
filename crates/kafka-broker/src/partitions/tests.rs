@@ -5,26 +5,33 @@ use kafka_storage::sim::SimFs;
 use kafka_wire::batch::build::BatchBuilder;
 use kafka_wire::ids::{PartitionCount, PartitionId, TopicName};
 
+use std::sync::Arc;
+
+use kafka_meta::Topic;
+use kafka_wire::batch::{Batch, TimestampType};
+use kafka_wire::ids::TimestampMs;
+
 use super::*;
+use crate::Config;
 
 fn setup() -> (Partitions<SimFs>, Arc<Topic>) {
+    setup_with(|_| {}, 2)
+}
+
+fn setup_with(tweak: impl FnOnce(&mut Config), partitions: i32) -> (Partitions<SimFs>, Arc<Topic>) {
     let fs = SimFs::new();
     kafka_storage::fs::create_dirs_durably(&fs, Path::new("/data")).unwrap();
     let meta = MetaStore::open(&fs, Path::new("/data")).unwrap();
     let name = TopicName::parse("t").unwrap();
-    let parts = PartitionCount::new(2).unwrap();
+    let parts = PartitionCount::new(partitions).unwrap();
     let topic = meta
         .create_topic(&name, parts, Default::default(), &Default::default())
         .unwrap();
-    for p in parts.ids() {
-        kafka_storage::topic_dirs::create_partition_dirs(&fs, Path::new("/data"), &name, parts)
-            .unwrap();
-        let _ = p;
-    }
-    (
-        Partitions::new(fs, Config::new("/data".into()), Default::default()),
-        topic,
-    )
+    kafka_storage::topic_dirs::create_partition_dirs(&fs, Path::new("/data"), &name, parts)
+        .unwrap();
+    let mut config = Config::new("/data".into());
+    tweak(&mut config);
+    (Partitions::new(fs, config, Default::default()), topic)
 }
 
 #[tokio::test]
@@ -57,4 +64,27 @@ async fn a_topic_closed_leaves_no_partition_open_and_no_writer_that_takes_an_app
         late.is_err(),
         "the writer is gone, and a late append is told so"
     );
+}
+
+#[tokio::test]
+async fn past_the_limit_the_least_recently_used_idle_partition_is_closed_and_one_in_use_is_not() {
+    let (partitions, topic) = setup_with(|c| c.max_open_partitions = 2, 4);
+    let id = |n| PartitionId::new(n).unwrap();
+    let held = partitions.get(&topic, id(0)).await.unwrap();
+    for n in 1..4 {
+        drop(partitions.get(&topic, id(n)).await.unwrap());
+        assert!(
+            partitions.len() <= 2,
+            "after opening partition {n}: {} open",
+            partitions.len()
+        );
+    }
+    // Partition 0 was the oldest but something holds it; so it stayed, and the idle ones went.
+    assert!(Arc::ptr_eq(
+        &held,
+        &partitions.get(&topic, id(0)).await.unwrap()
+    ));
+    // One that was closed opens again, and works.
+    let again = partitions.get(&topic, id(1)).await.unwrap();
+    assert_eq!(again.reader().end_offset().get(), 0);
 }

@@ -79,8 +79,16 @@ impl<F: Fs> Broker<F> {
         if p.timestamp < MAX_TIMESTAMP || (p.timestamp == MAX_TIMESTAMP && version < 7) {
             return refuse(r, ResponseError::UnsupportedVersion);
         }
-        let partition = match self.partitions.get(topic, id).await {
-            Ok(partition) => partition,
+        let partition = match self.partitions.get_unless_empty(topic, id).await {
+            Ok(Some(partition)) => partition,
+            // Nothing was ever written: it starts and ends at 0, and has no record at any time.
+            Ok(None) => {
+                if matches!(p.timestamp, LATEST | EARLIEST) {
+                    r.offset = 0;
+                    r.leader_epoch = 0;
+                }
+                return r;
+            }
             Err(e) => {
                 tracing::error!(error = %e, topic = %topic.name, partition = p.partition_index, "list offsets could not open a partition");
                 return refuse(r, ResponseError::KafkaStorageError);

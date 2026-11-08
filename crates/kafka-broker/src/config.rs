@@ -46,6 +46,9 @@ pub struct Config {
     pub default_partitions: i32,
     /// The most partitions one topic may have: each is a directory and, in use, open files.
     pub max_partitions: i32,
+    /// How many partitions stay open at once (each holds files open): past it the least recently used are closed,
+    /// and open again when asked for. Zero keeps every partition open once opened.
+    pub max_open_partitions: usize,
     /// Broker-wide values that topics override.
     pub defaults: Defaults,
     /// Appends that did not ask to be durable (`acks=1`) are flushed this long after the first of them. Zero
@@ -64,6 +67,7 @@ impl Config {
             auto_create_topics: true,
             default_partitions: 1,
             max_partitions: 1000,
+            max_open_partitions: 512,
             defaults: Defaults::default(),
             fsync_interval: Duration::from_millis(500),
         }

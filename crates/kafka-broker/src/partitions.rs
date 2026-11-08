@@ -6,24 +6,19 @@
 //! files directly.
 
 mod actor;
+mod registry;
 
-use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
-
-use kafka_meta::Topic;
 use kafka_storage::fs::Fs;
-use kafka_storage::marker::StopState;
-use kafka_storage::topic_dirs::partition_dir;
-use kafka_storage::{Appended, LogConfig, LogReader, PartitionLog, StorageError};
+use kafka_storage::{Appended, LogReader, StorageError};
 use kafka_wire::batch::{Batch, TimestampType};
-use kafka_wire::ids::{PartitionId, TimestampMs, TopicId};
-use tokio::sync::{OnceCell, mpsc, oneshot};
+use kafka_wire::ids::TimestampMs;
+use tokio::sync::{mpsc, oneshot};
 
-use crate::{Config, blocking, topic_config};
 use actor::{Append, Command};
+pub(crate) use registry::Partitions;
 
 /// How many appends may wait for a partition's writer before the next sender waits.
-const QUEUE: usize = 32;
+pub(super) const QUEUE: usize = 32;
 
 /// One open partition.
 #[derive(Debug)]
@@ -69,7 +64,7 @@ impl<F: Fs> Partition<F> {
     }
 
     /// Stops the writer after it has flushed what it has, and waits until it has. Says whether the flush worked.
-    async fn close(&self) -> bool {
+    pub(super) async fn close(&self) -> bool {
         let (done, closed) = oneshot::channel();
         if self.commands.send(Command::Close(done)).await.is_err() {
             return false;
@@ -82,121 +77,6 @@ impl<F: Fs> Partition<F> {
 pub(crate) fn gone() -> StorageError {
     StorageError::Offline {
         cause: "the partition was closed".into(),
-    }
-}
-
-type Slot<F> = Arc<OnceCell<Arc<Partition<F>>>>;
-
-/// An entry of the open partitions: the name of its directory, and its slot.
-type Entry<F> = (String, Slot<F>);
-
-/// Every partition that has been opened, by topic id (so a topic deleted and made again is not the old one) and
-/// number.
-#[derive(Debug)]
-pub(crate) struct Partitions<F: Fs> {
-    fs: F,
-    config: Config,
-    open: Mutex<HashMap<(TopicId, PartitionId), Entry<F>>>,
-    /// What the last stop vouched for.
-    stop: StopState,
-}
-
-impl<F: Fs> Partitions<F> {
-    pub(crate) fn new(fs: F, config: Config, stop: StopState) -> Self {
-        Self {
-            fs,
-            config,
-            open: Mutex::new(HashMap::new()),
-            stop,
-        }
-    }
-
-    /// The partition, opened if it is not yet. Two callers that arrive together share one open.
-    ///
-    /// # Errors
-    /// The files cannot be opened.
-    pub(crate) async fn get(
-        &self,
-        topic: &Topic,
-        partition: PartitionId,
-    ) -> Result<Arc<Partition<F>>, StorageError> {
-        let slot = {
-            let mut open = self
-                .open
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner);
-            let name = format!("{}-{partition}", topic.name);
-            let entry = open
-                .entry((topic.id, partition))
-                .or_insert_with(|| (name, Slot::default()));
-            Arc::clone(&entry.1)
-        };
-        let opened = slot
-            .get_or_try_init(|| async { self.open_one(topic, partition) })
-            .await?;
-        Ok(Arc::clone(opened))
-    }
-
-    fn open_one(
-        &self,
-        topic: &Topic,
-        partition: PartitionId,
-    ) -> Result<Arc<Partition<F>>, StorageError> {
-        let dir = partition_dir(&self.config.data_dir, &topic.name, partition);
-        let log_config: LogConfig = topic_config::log_config(&self.config.defaults, &topic.config);
-        // The last stop vouches for the files, or does not: see the clean-stop marker.
-        let trust = self.stop.trust(&format!("{}-{partition}", topic.name));
-        let log = blocking::run(|| PartitionLog::open(self.fs.clone(), dir, log_config, trust))?;
-        let reader = log.reader();
-        let (commands, queue) = mpsc::channel(QUEUE);
-        tokio::spawn(actor::run(log, queue, self.config.fsync_interval));
-        Ok(Arc::new(Partition { reader, commands }))
-    }
-
-    /// Closes every open partition of `topic`, each after it has flushed, so that its files can be removed.
-    pub(crate) async fn close_topic(&self, topic: TopicId) {
-        let slots: Vec<Entry<F>> = {
-            let mut open = self
-                .open
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner);
-            let keys: Vec<_> = open.keys().filter(|(t, _)| *t == topic).copied().collect();
-            keys.iter().filter_map(|k| open.remove(k)).collect()
-        };
-        for (_, slot) in slots {
-            if let Some(partition) = slot.get() {
-                let _ = partition.close().await;
-            }
-        }
-    }
-}
-
-impl<F: Fs> Partitions<F> {
-    /// Closes every open partition after it has flushed, and returns the directories of those that closed cleanly.
-    pub(crate) async fn close_all(&self) -> Vec<String> {
-        let entries: Vec<Entry<F>> = {
-            let mut open = self
-                .open
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner);
-            open.drain().map(|(_, entry)| entry).collect()
-        };
-        let mut clean = Vec::new();
-        for (name, slot) in entries {
-            if let Some(partition) = slot.get()
-                && partition.close().await
-            {
-                clean.push(name);
-            }
-        }
-        clean
-    }
-}
-
-#[cfg(test)]
-impl<F: Fs> Partitions<F> {
-    fn len(&self) -> usize {
-        self.open.lock().unwrap().len()
     }
 }
 

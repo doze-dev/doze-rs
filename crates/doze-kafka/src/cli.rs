@@ -67,6 +67,10 @@ pub(crate) struct Args {
     /// Most partitions one topic may have (each is a directory and, in use, open files).
     #[arg(long, default_value_t = 1000)]
     max_partitions: i32,
+    /// How many partitions stay open at once (each holds files open); past it the least recently used are closed
+    /// and open again when asked for (0 = never closed).
+    #[arg(long, default_value_t = 512)]
+    max_open_partitions: usize,
     /// Largest record batch a topic accepts unless it sets max.message.bytes.
     #[arg(long, default_value_t = 1_048_588)]
     message_max_bytes: i64,
@@ -161,6 +165,7 @@ impl Args {
         broker.default_partitions = self.default_partitions;
         broker.max_partitions = self.max_partitions;
         broker.fsync_interval = self.fsync_interval;
+        broker.max_open_partitions = self.max_open_partitions;
         broker.defaults = Defaults {
             segment_bytes: self.segment_bytes,
             index_interval_bytes: self.index_interval_bytes,

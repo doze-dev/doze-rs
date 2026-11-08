@@ -94,3 +94,23 @@ async fn list_offsets_holds_the_isolation_level_and_the_leader_epoch_to_what_a_s
         "an epoch from the future"
     );
 }
+
+#[tokio::test]
+async fn asking_the_offsets_of_a_partition_never_written_to_does_not_open_it() {
+    let rig = rig();
+    rig.create(vec![topic("t", 2)], false).await;
+    let dir = std::path::Path::new(support::DATA).join("t-0");
+    for (timestamp, offset) in [(-1, 0), (-2, 0), (-3, -1), (1_000, -1)] {
+        let r = rig.list_offset(7, "t", 0, timestamp).await;
+        assert_eq!(
+            (r.error_code, r.offset),
+            (0, offset),
+            "timestamp {timestamp}"
+        );
+    }
+    let made = kafka_storage::fs::Fs::list_dir(&rig.fs, &dir).unwrap();
+    assert!(made.is_empty(), "no segment was made by asking: {made:?}");
+    // Once it has data it is opened and answered from the log.
+    rig.produce(1, "t", 0, support::records(3)).await;
+    assert_eq!(rig.list_offset(7, "t", 0, -1).await.offset, 3);
+}
