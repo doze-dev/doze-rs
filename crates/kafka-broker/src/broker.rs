@@ -7,6 +7,7 @@ use kafka_wire::header::RequestHead;
 use kafka_wire::messages::ApiKey;
 use kafka_wire::profile::ApiSet;
 
+use crate::partitions::Partitions;
 use crate::{BrokerError, Config, Listener, Outcome, blocking};
 
 /// The APIs this broker has a handler for. ApiVersions advertises exactly these (and only those the Kafka
@@ -18,6 +19,8 @@ const SERVED: &[ApiKey] = &[
     ApiKey::Metadata,
     ApiKey::CreateTopics,
     ApiKey::DeleteTopics,
+    ApiKey::Produce,
+    ApiKey::InitProducerId,
 ];
 
 /// The broker, over a file system (the real one, or a simulated disk in tests).
@@ -26,6 +29,7 @@ pub struct Broker<F: Fs = RealFs> {
     pub(crate) fs: F,
     pub(crate) config: Config,
     pub(crate) meta: MetaStore,
+    pub(crate) partitions: Partitions<F>,
 }
 
 impl<F: Fs> Broker<F> {
@@ -36,7 +40,13 @@ impl<F: Fs> Broker<F> {
     pub fn open(fs: F, config: Config) -> Result<Self, BrokerError> {
         kafka_storage::fs::create_dirs_durably(&fs, &config.data_dir)?;
         let meta = MetaStore::open(&fs, &config.data_dir)?;
-        Ok(Self { fs, config, meta })
+        let partitions = Partitions::new(fs.clone(), config.clone());
+        Ok(Self {
+            fs,
+            config,
+            meta,
+            partitions,
+        })
     }
 
     /// The APIs this broker serves.
@@ -60,12 +70,15 @@ impl<F: Fs> Broker<F> {
             Request::CreateTopics(r) => respond(Response::CreateTopics(blocking::run(|| {
                 self.create_topics(&r)
             }))),
-            Request::DeleteTopics(r) => respond(Response::DeleteTopics(blocking::run(|| {
-                self.delete_topics(&r)
+            Request::DeleteTopics(r) => {
+                respond(Response::DeleteTopics(self.delete_topics(&r).await))
+            }
+            Request::Produce(r) => self.produce(head.version, r).await,
+            Request::InitProducerId(r) => respond(Response::InitProducerId(blocking::run(|| {
+                self.init_producer_id(&r)
             }))),
             // Not served yet. Each moves out of this arm into a handler when its phase lands.
             Request::ApiVersions(_)
-            | Request::Produce(_)
             | Request::Fetch(_)
             | Request::ListOffsets(_)
             | Request::OffsetCommit(_)
@@ -79,7 +92,6 @@ impl<F: Fs> Broker<F> {
             | Request::ListGroups(_)
             | Request::SaslHandshake(_)
             | Request::DeleteRecords(_)
-            | Request::InitProducerId(_)
             | Request::AddPartitionsToTxn(_)
             | Request::AddOffsetsToTxn(_)
             | Request::EndTxn(_)

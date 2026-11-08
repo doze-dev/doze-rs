@@ -295,6 +295,7 @@ dependencies = [
 name = "kafka-broker"
 version = "0.0.0"
 dependencies = [
+ "bytes",
  "kafka-meta",
  "kafka-storage",
  "kafka-wire",

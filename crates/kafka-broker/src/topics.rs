@@ -51,25 +51,18 @@ impl<F: Fs> Broker<F> {
         Ok(topic)
     }
 
-    /// Removes a topic from the registry and then its data from disk. Returns the topic, or `None` if there was
-    /// none. A failure to clear the disk is logged and not reported: the topic is gone, and what is left is below
-    /// no one's reach (the next topic of the name clears it).
-    ///
-    /// # Errors
-    /// The registry could not be written; the topic is then still there.
-    pub(crate) fn remove_topic(&self, name: &TopicName) -> Result<Option<Arc<Topic>>, BrokerError> {
-        let removed = self.meta.delete_topic(name)?;
-        if let Some(topic) = &removed {
-            let cleared = topic_dirs::remove_topic_dirs(
-                &self.fs,
-                &self.config.data_dir,
-                name,
-                topic.partitions,
-            );
-            if let Err(e) = cleared {
-                warn!(topic = %name, error = %e, "removing a deleted topic's partitions failed");
-            }
+    /// Removes a topic's partition directories with everything in them. A failure is logged and not reported: the
+    /// topic is already gone from the registry, and what is left is out of anyone's reach (a topic of the same
+    /// name later clears it).
+    pub(crate) fn clear_topic_data(&self, topic: &Topic) {
+        let cleared = topic_dirs::remove_topic_dirs(
+            &self.fs,
+            &self.config.data_dir,
+            &topic.name,
+            topic.partitions,
+        );
+        if let Err(e) = cleared {
+            warn!(topic = %topic.name, error = %e, "removing a deleted topic's partitions failed");
         }
-        Ok(removed)
     }
 }

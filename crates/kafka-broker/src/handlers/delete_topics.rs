@@ -10,7 +10,7 @@ use kafka_wire::ids::{TopicId, TopicName};
 use kafka_wire::messages::delete_topics_response::DeletableTopicResult;
 use kafka_wire::messages::{DeleteTopicsRequest, DeleteTopicsResponse, TopicName as WireName};
 
-use crate::Broker;
+use crate::{Broker, blocking};
 
 /// A topic a request names, by name (every version) or by id (v6 and later).
 struct Target<'a> {
@@ -20,7 +20,7 @@ struct Target<'a> {
 
 impl<F: Fs> Broker<F> {
     /// Deletes each named topic: out of the registry first, then its data from disk.
-    pub(crate) fn delete_topics(&self, req: &DeleteTopicsRequest) -> DeleteTopicsResponse {
+    pub(crate) async fn delete_topics(&self, req: &DeleteTopicsRequest) -> DeleteTopicsResponse {
         let by_name = req.topic_names.iter().map(|n| Target {
             name: Some(&n.0),
             id: kafka_wire::Uuid::nil(),
@@ -31,12 +31,12 @@ impl<F: Fs> Broker<F> {
         });
         let mut resp = DeleteTopicsResponse::default();
         for target in by_name.chain(by_state) {
-            resp.responses.push(self.delete_one(&target));
+            resp.responses.push(self.delete_one(&target).await);
         }
         resp
     }
 
-    fn delete_one(&self, target: &Target<'_>) -> DeletableTopicResult {
+    async fn delete_one(&self, target: &Target<'_>) -> DeletableTopicResult {
         let found = self.resolve(target);
         let mut r = DeletableTopicResult::default();
         r.topic_id = found.as_ref().map_or(target.id, |t| t.id.to_uuid());
@@ -49,10 +49,15 @@ impl<F: Fs> Broker<F> {
             r.error_code = ResponseError::UnknownTopicOrPartition.code();
             return r;
         };
-        if let Err(e) = self.remove_topic(&topic.name) {
+        // The registry first, so that nothing new opens the topic's partitions; then the partitions that are open
+        // finish and close; then their files can go.
+        if let Err(e) = blocking::run(|| self.meta.delete_topic(&topic.name)) {
             r.error_code = ResponseError::KafkaStorageError.code();
             r.error_message = Some(StrBytes::from_string(e.to_string()));
+            return r;
         }
+        self.partitions.close_topic(topic.id).await;
+        blocking::run(|| self.clear_topic_data(&topic));
         r
     }
 

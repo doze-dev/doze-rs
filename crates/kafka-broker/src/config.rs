@@ -1,6 +1,7 @@
 //! What the broker is told at start.
 
 use std::path::PathBuf;
+use std::time::Duration;
 
 /// The broker-wide values that a topic's own config overrides. Retention uses Kafka's way of saying "no limit":
 /// -1.
@@ -47,6 +48,9 @@ pub struct Config {
     pub max_partitions: i32,
     /// Broker-wide values that topics override.
     pub defaults: Defaults,
+    /// Appends that did not ask to be durable (`acks=1`) are flushed this long after the first of them. Zero
+    /// flushes each group at once.
+    pub fsync_interval: Duration,
 }
 
 impl Config {
@@ -61,6 +65,7 @@ impl Config {
             default_partitions: 1,
             max_partitions: 1000,
             defaults: Defaults::default(),
+            fsync_interval: Duration::from_millis(500),
         }
     }
 }

@@ -24,7 +24,7 @@ pub use iter::Batches;
 pub use layout::HEADER_LEN;
 use layout::{LENGTH_OVERHEAD, MAGIC_V2};
 pub use peek::Peek;
-pub use produce::ProduceError;
+pub use produce::{ProduceError, ProduceRules};
 pub use stamp::Stamped;
 
 use crate::ids::{Offset, ProducerEpoch, ProducerId, TimestampMs};

@@ -410,3 +410,15 @@ test-only knobs in `internal/config`.
   without flushing its parent, so a cut took the directory, the database and every topic with it
   (`create_dirs_durably`). Mutation check (13 mutants): 12 killed, one (partition limit) killed by a new
   boundary test. Catalogue: `behaviours/topics.md` (T1-T9).
+- **2026-11-08, Phase 3 slice 3d (Produce, InitProducerId).** `Partitions` (opened on first use, one slot per
+  topic id and partition, concurrent opens share one) and a writer task per partition that drains its queue, appends,
+  and flushes once for the group if any append asked for it (the producer then waits on the append's ticket); appends
+  that did not ask are flushed `fsync_interval` after the first, with a timer armed only while there is something to
+  flush. Produce checks follow Kafka's order: request-level first (acks, every partition's first batch, transactional
+  without an id), then per partition (`Batch::from_produce` with `ProduceRules`: zstd before v7 and the size limit now
+  sit where Kafka puts them, and the two refusals Kafka words are worded). `ProduceError::before_log` tells which
+  refusals carry a log start offset. DeleteTopics closes the topic's partitions after removing the registration and
+  before the files. Mutation check (22 mutants): 19 killed at first; the survivors were the durable flag (an
+  acks=all produce could have waited for the timer: test now sets the timer to an hour), two formatting misses
+  re-run and killed, and a timer left armed after a flush (harmless, one extra no-op flush; left). Catalogue:
+  `behaviours/produce.md` (P1-P10). Idempotence is accepted without sequence checks, as planned for Phase 6.

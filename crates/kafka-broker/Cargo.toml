@@ -18,8 +18,10 @@ kafka-meta = { path = "../kafka-meta" }
 thiserror = "2"
 tracing = "0.1"
 # Blocking file work in a handler must not stall the runtime thread it runs on.
-tokio = { version = "1", default-features = false, features = ["rt", "rt-multi-thread"] }
+tokio = { version = "1", default-features = false, features = ["rt", "rt-multi-thread", "sync", "time", "macros"] }
 
 [dev-dependencies]
-tokio = { version = "1", default-features = false, features = ["rt", "macros"] }
+tokio = { version = "1", default-features = false, features = ["rt", "macros", "test-util"] }
 kafka-storage = { path = "../kafka-storage", features = ["sim"] }
+kafka-wire = { path = "../kafka-wire", features = ["test-support"] }
+bytes = "1"

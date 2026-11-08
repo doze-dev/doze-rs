@@ -80,12 +80,14 @@ async fn api_versions_lists_only_what_the_broker_serves() {
     client.write_all(&api_versions(7)).await.unwrap();
     let (id, error, keys) = read_answer(&mut client).await;
     assert_eq!((id, error), (7, 0));
-    // The topic APIs, by key; not Fetch or Produce, which this broker has no handler for yet.
+    // What the broker has a handler for, by key; not Fetch, which it has none for yet.
     let served = [
+        ApiKey::Produce,
         ApiKey::Metadata,
         ApiKey::ApiVersions,
         ApiKey::CreateTopics,
         ApiKey::DeleteTopics,
+        ApiKey::InitProducerId,
     ];
     assert_eq!(keys, served.map(|k| k as i16));
 }

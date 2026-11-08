@@ -9,6 +9,8 @@ mod table;
 
 use std::collections::BTreeMap;
 
+use kafka_storage::LogConfig;
+
 use crate::Defaults;
 use table::{Fallback, Kind, SETTINGS, Setting};
 
@@ -87,6 +89,21 @@ pub(crate) fn effective(defaults: &Defaults, own: &BTreeMap<String, String>) -> 
         .collect();
     all.sort_by(|a, b| a.name.cmp(b.name));
     all
+}
+
+/// How a partition's log is sized: the topic's own `segment.bytes` and `index.interval.bytes`, else the broker's.
+pub(crate) fn log_config(defaults: &Defaults, own: &BTreeMap<String, String>) -> LogConfig {
+    let pick = |key: &str, default: i64| {
+        let n = own
+            .get(key)
+            .and_then(|v| v.parse::<i64>().ok())
+            .unwrap_or(default);
+        u64::try_from(n).ok().filter(|n| *n > 0).unwrap_or(1)
+    };
+    LogConfig {
+        segment_bytes: pick("segment.bytes", defaults.segment_bytes),
+        index_interval_bytes: pick("index.interval.bytes", defaults.index_interval_bytes),
+    }
 }
 
 fn lookup(name: &str) -> Option<&'static Setting> {

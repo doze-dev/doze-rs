@@ -5,8 +5,13 @@ fn one() -> Vec<u8> {
     BatchBuilder::new().records(2).build().to_vec()
 }
 
+const RULES: ProduceRules = ProduceRules {
+    version: 9,
+    max_batch_bytes: 1 << 20,
+};
+
 fn from(bytes: Vec<u8>) -> Result<Batch, ProduceError> {
-    Batch::from_produce(&Bytes::from(bytes))
+    Batch::from_produce(&Bytes::from(bytes), RULES)
 }
 
 fn refusal(bytes: Vec<u8>) -> Refusal {
@@ -135,4 +140,70 @@ fn the_request_layer_can_ask_whether_a_first_batch_is_transactional() {
     let mut small = one();
     small[8..12].copy_from_slice(&1i32.to_be_bytes());
     assert_eq!(tx(small), Err(ProduceError::DeclaredSize(1)));
+}
+
+#[test]
+fn zstd_needs_produce_v7_and_is_judged_before_what_follows_the_first_batch() {
+    // Attribute bits 0-2 are the codec; 4 is zstd. The body is not a zstd stream, which the checks that
+    // would read it come after.
+    let zstd = BatchBuilder::new()
+        .records(1)
+        .attributes(4)
+        .build()
+        .to_vec();
+    let old = Batch::from_produce(
+        &Bytes::from(zstd.clone()),
+        ProduceRules {
+            version: 6,
+            ..RULES
+        },
+    );
+    assert_eq!(old.unwrap_err(), ProduceError::Zstd(6));
+    assert_eq!(
+        ProduceError::Zstd(6).refusal(),
+        Refusal::UnsupportedCompression
+    );
+    assert!(
+        Batch::from_produce(
+            &Bytes::from(zstd),
+            ProduceRules {
+                version: 7,
+                ..RULES
+            }
+        )
+        .is_ok()
+    );
+}
+
+#[test]
+fn a_batch_over_the_limit_is_too_large_whatever_else_is_wrong_with_it() {
+    let mut bad_crc = one();
+    let last = bad_crc.len() - 1;
+    bad_crc[last] ^= 0xff; // the checksum no longer matches, which is judged after the size
+    let tiny = ProduceRules {
+        max_batch_bytes: 10,
+        ..RULES
+    };
+    let err = Batch::from_produce(&Bytes::from(bad_crc.clone()), tiny).unwrap_err();
+    assert!(matches!(err, ProduceError::TooLarge { limit: 10, .. }));
+    assert_eq!(err.refusal(), Refusal::MessageTooLarge);
+    // Within the limit it is the checksum.
+    assert_eq!(refusal(bad_crc), Refusal::CorruptMessage);
+}
+
+#[test]
+fn kafka_words_a_batch_that_is_not_a_batch_in_its_own_text() {
+    let mut size = one();
+    size[8..12].copy_from_slice(&5i32.to_be_bytes());
+    assert_eq!(
+        from(size).unwrap_err().kafka_message().as_deref(),
+        Some("Record size 5 is less than the minimum record overhead (14)")
+    );
+    let mut magic = one();
+    magic[16] = 9;
+    assert_eq!(
+        from(magic).unwrap_err().kafka_message().as_deref(),
+        Some("Invalid magic found in record: 9")
+    );
+    assert_eq!(ProduceError::MoreThanOne.kafka_message(), None);
 }

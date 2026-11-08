@@ -12,6 +12,10 @@ pub enum Refusal {
     InvalidRecord,
     /// `UNKNOWN_SERVER_ERROR`: a compression codec this broker does not know.
     UnknownServerError,
+    /// `MESSAGE_TOO_LARGE`: over `max.message.bytes`.
+    MessageTooLarge,
+    /// `UNSUPPORTED_COMPRESSION_TYPE`: zstd in a request older than v7.
+    UnsupportedCompression,
 }
 
 /// Why a batch was refused.

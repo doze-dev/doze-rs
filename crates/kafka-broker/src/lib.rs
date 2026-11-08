@@ -3,11 +3,13 @@
 
 mod blocking;
 mod broker;
+mod clock;
 mod config;
 mod error;
 mod handlers;
 mod listener;
 mod outcome;
+mod partitions;
 mod topic_config;
 mod topics;
 

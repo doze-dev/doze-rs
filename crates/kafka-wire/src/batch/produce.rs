@@ -7,8 +7,17 @@
 use bytes::Bytes;
 
 use super::layout::{self, LENGTH_OVERHEAD, MAGIC_V2};
-use super::{Batch, BatchError, Refusal};
+use super::{Batch, BatchError, Compression, Refusal};
 use crate::ids::Offset;
+
+/// What a topic and the request's version add to the rules every batch is held to.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ProduceRules {
+    /// The version of the Produce request: zstd came with v7.
+    pub version: i16,
+    /// The most bytes a batch may have (`max.message.bytes`).
+    pub max_batch_bytes: u64,
+}
 
 /// The smallest size a batch may declare: Kafka's reader refuses less whatever the format.
 const MIN_DECLARED: i32 = 14;
@@ -34,6 +43,17 @@ pub enum ProduceError {
     /// More than one batch: a Produce request carries exactly one per partition.
     #[error("more than one record batch for a partition; a Produce request carries exactly one")]
     MoreThanOne,
+    /// zstd in a request older than v7.
+    #[error("zstd needs Produce version 7 or later, and this is version {0}")]
+    Zstd(i16),
+    /// A batch over `max.message.bytes`.
+    #[error("a record batch of {size} bytes is larger than max.message.bytes ({limit})")]
+    TooLarge {
+        /// The batch's size.
+        size: usize,
+        /// The limit.
+        limit: u64,
+    },
     /// A producer writes base offset 0; the broker assigns the real one.
     #[error("the batch's base offset is {0}; a producer writes 0")]
     BaseOffset(i64),
@@ -54,8 +74,48 @@ impl ProduceError {
     pub fn refusal(&self) -> Refusal {
         match self {
             Self::DeclaredSize(_) | Self::UnknownFormat(_) => Refusal::CorruptMessage,
+            Self::Zstd(_) => Refusal::UnsupportedCompression,
+            Self::TooLarge { .. } => Refusal::MessageTooLarge,
             Self::Batch(e) => e.refusal(),
             _ => Refusal::InvalidRecord,
+        }
+    }
+}
+
+impl ProduceError {
+    /// Whether Kafka refuses this before it has asked the partition anything, so that its answer carries no
+    /// log start offset (-1). A refusal about the batch's header or contents is made with the log in hand.
+    #[must_use]
+    pub fn before_log(&self) -> bool {
+        match self {
+            Self::NoWholeBatch(_)
+            | Self::DeclaredSize(_)
+            | Self::UnknownFormat(_)
+            | Self::OldFormat(_)
+            | Self::MoreThanOne
+            | Self::Zstd(_)
+            | Self::TooLarge { .. } => true,
+            Self::Batch(e) => matches!(
+                e,
+                BatchError::TooShort(_)
+                    | BatchError::Length { .. }
+                    | BatchError::Magic(_)
+                    | BatchError::Crc { .. }
+                    | BatchError::Truncated(_)
+            ),
+            _ => false,
+        }
+    }
+
+    /// The text Kafka's answer carries for this refusal, where it has one.
+    #[must_use]
+    pub fn kafka_message(&self) -> Option<String> {
+        match self {
+            Self::DeclaredSize(n) => Some(format!(
+                "Record size {n} is less than the minimum record overhead ({MIN_DECLARED})"
+            )),
+            Self::UnknownFormat(m) => Some(format!("Invalid magic found in record: {m}")),
+            _ => None,
         }
     }
 }
@@ -88,11 +148,14 @@ impl Batch {
     ///
     /// # Errors
     /// The first rule broken, in the order Kafka checks them.
-    pub fn from_produce(records: &Bytes) -> Result<Self, ProduceError> {
+    pub fn from_produce(records: &Bytes, rules: ProduceRules) -> Result<Self, ProduceError> {
         let (batch, rest) = first(records)?.ok_or(ProduceError::NoWholeBatch(records.len()))?;
         let magic = batch.get(16).copied().map_or(0, |b| b as i8);
         if magic != MAGIC_V2 {
             return Err(ProduceError::OldFormat(magic));
+        }
+        if rules.version < 7 && declared_compression(&batch) == Some(Compression::Zstd) {
+            return Err(ProduceError::Zstd(rules.version));
         }
         if first(&rest)?.is_some() {
             return Err(ProduceError::MoreThanOne);
@@ -103,6 +166,12 @@ impl Batch {
             .map_or(0, i64::from_be_bytes);
         if Offset::new(base) != Some(Offset::ZERO) {
             return Err(ProduceError::BaseOffset(base));
+        }
+        if u64::try_from(batch.len()).is_ok_and(|n| n > rules.max_batch_bytes) {
+            return Err(ProduceError::TooLarge {
+                size: batch.len(),
+                limit: rules.max_batch_bytes,
+            });
         }
         let batch = Self::parse(batch)?;
         if batch.attributes().is_control() {
@@ -132,6 +201,17 @@ impl Batch {
                     super::Attributes::from_bits(u16::from_be_bytes(b)).is_transactional()
                 }))
     }
+}
+
+/// The codec a batch's attributes name, if the batch is long enough to have them.
+fn declared_compression(batch: &Bytes) -> Option<Compression> {
+    if batch.len() < super::HEADER_LEN {
+        return None;
+    }
+    let bits = batch
+        .get(layout::ATTRIBUTES..layout::ATTRIBUTES + 2)
+        .and_then(|b| <[u8; 2]>::try_from(b).ok())?;
+    Some(super::Attributes::from_bits(u16::from_be_bytes(bits)).compression())
 }
 
 #[cfg(test)]

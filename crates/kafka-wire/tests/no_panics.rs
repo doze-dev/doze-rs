@@ -44,7 +44,7 @@ proptest! {
             }
         }
         let _ = Batch::parse(frame.clone());
-        let _ = Batch::from_produce(&frame);
+        let _ = Batch::from_produce(&frame, kafka_wire::batch::ProduceRules { version: 9, max_batch_bytes: 1 << 20 });
         let _ = Batches::new(frame.clone()).count();
         let mut src = BytesMut::from(&bytes[..]);
         let mut d = FrameDecoder::new(Trust::Authenticated);

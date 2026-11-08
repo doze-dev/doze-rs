@@ -53,10 +53,12 @@ async fn a_client_on_a_socket_gets_its_answer() {
     let server = start(10).await;
     let mut socket = TcpStream::connect(server.local_addr()).await.unwrap();
     let served = [
+        ApiKey::Produce,
         ApiKey::Metadata,
         ApiKey::ApiVersions,
         ApiKey::CreateTopics,
         ApiKey::DeleteTopics,
+        ApiKey::InitProducerId,
     ];
     assert_eq!(
         ask(&mut socket).await,
