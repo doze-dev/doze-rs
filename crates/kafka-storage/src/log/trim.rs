@@ -7,7 +7,7 @@ use crate::error::{Doing, StorageError};
 use crate::fs::Fs;
 use crate::logstart;
 use crate::retention::{self, Candidate};
-use crate::segment::remove_files;
+use crate::segment::{SealedSegment, remove_files};
 
 /// Bounds on a partition's disk use. Each is optional; the active segment is never deleted.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -105,6 +105,21 @@ impl<F: Fs> PartitionLog<F> {
             })
             .collect();
         let drop = retention::count_to_drop(&candidates, self.active.size(), policy, now);
+        if drop == 0 {
+            return Ok(0);
+        }
+        self.check_online()?;
+        // The new start is recorded before any file is removed, as for DeleteRecords. Removals are only in
+        // memory until the directory is flushed, and a power cut may keep a later one and lose an earlier
+        // one, which would leave a hole in the log; with the start recorded, whatever comes back is below it
+        // and the next open removes it.
+        let survivor = self
+            .sealed
+            .get(drop)
+            .map_or(self.active.base(), SealedSegment::base);
+        if survivor > self.start {
+            logstart::write(&self.fs, &self.dir, survivor).doing("recording the log start")?;
+        }
         for _ in 0..drop {
             self.drop_oldest()?;
         }

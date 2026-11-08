@@ -2,7 +2,7 @@ use super::*;
 use crate::fs::{Fs, FsFile};
 use crate::scan::scan;
 use crate::sim::{Failure, Op, SimFs};
-use crate::testutil::{disk, offset, raw, stamped};
+use crate::testutil::{batch, disk, offset, raw};
 
 const INTERVAL: u64 = 4096;
 
@@ -52,7 +52,8 @@ fn nothing_is_visible_to_a_reader_until_it_is_published() {
     let (fs, dir) = disk();
     let mut seg = active(&fs, &dir, 0, INTERVAL);
     let view = seg.view();
-    seg.append(&stamped(0, 1, 5), 100).unwrap();
+    seg.append(&batch(1, 5).stamped(offset(0), None), 100)
+        .unwrap();
     assert_eq!((view.committed(), seg.size()), (0, one()));
     assert!(view.read(0, 1000).unwrap().is_empty());
     seg.publish();
@@ -69,15 +70,21 @@ fn the_index_gets_the_first_batch_and_then_one_per_interval() {
     let (fs, dir) = disk();
     let mut seg = active(&fs, &dir, 10, 2 * one());
     for i in 0..5 {
-        seg.append(&stamped(10 + i, 1, 0), 0).unwrap();
+        seg.append(&batch(1, 0).stamped(offset(10 + i), None), 0)
+            .unwrap();
     }
     seg.publish();
-    let entries = seg.view().index().entries().unwrap();
-    let got: Vec<_> = entries
-        .iter()
-        .map(|e| (e.offset, e.position / one()))
-        .collect();
-    assert_eq!(got, vec![(10, 0), (12, 2), (14, 4)]);
+    let at = |offset, batches| crate::index::Entry {
+        offset,
+        position: batches * one(),
+    };
+    let index = seg.view().index().clone();
+    assert!(index.matches(&[at(10, 0), at(12, 2), at(14, 4)]).unwrap());
+    assert!(!index.matches(&[at(10, 0), at(12, 2)]).unwrap(), "fewer");
+    assert!(
+        !index.matches(&[at(10, 0), at(12, 2), at(14, 5)]).unwrap(),
+        "different"
+    );
     let view = seg.view();
     assert_eq!(
         view.seek(9).unwrap(),
@@ -94,14 +101,19 @@ fn the_index_gets_the_first_batch_and_then_one_per_interval() {
 fn a_failed_write_leaves_no_trace() {
     let (fs, dir) = disk();
     let mut seg = active(&fs, &dir, 0, INTERVAL);
-    seg.append(&stamped(0, 1, 7), 1).unwrap();
+    seg.append(&batch(1, 7).stamped(offset(0), None), 1)
+        .unwrap();
     seg.publish();
     let mark = (seg.size(), seg.view().index().len());
     fs.fail(Op::Write, 1, Failure::Io);
-    assert!(seg.append(&stamped(1, 1, 9), 2).is_err());
+    assert!(
+        seg.append(&batch(1, 9).stamped(offset(1), None), 2)
+            .is_err()
+    );
     assert_eq!((seg.size(), seg.view().index().len()), mark);
     // The next append goes where the failed one would have, once.
-    seg.append(&stamped(1, 1, 9), 3).unwrap();
+    seg.append(&batch(1, 9).stamped(offset(1), None), 3)
+        .unwrap();
     seg.publish();
     let scanned = scan(
         seg.view().log_file().as_ref(),
@@ -121,10 +133,13 @@ fn a_failed_write_leaves_no_trace() {
 fn a_write_cut_short_by_a_full_disk_is_taken_back() {
     let (fs, dir) = disk();
     let mut seg = active(&fs, &dir, 0, INTERVAL);
-    seg.append(&stamped(0, 1, 0), 1).unwrap();
+    seg.append(&batch(1, 0).stamped(offset(0), None), 1)
+        .unwrap();
     seg.publish();
     fs.set_capacity(Some(one() + 16 + 20)); // the first batch, its index entry, and part of the next
-    let err = seg.append(&stamped(1, 1, 0), 2).unwrap_err();
+    let err = seg
+        .append(&batch(1, 0).stamped(offset(1), None), 2)
+        .unwrap_err();
     assert_eq!(err.kind(), std::io::ErrorKind::StorageFull);
     fs.set_capacity(None);
     assert_eq!(
@@ -132,7 +147,8 @@ fn a_write_cut_short_by_a_full_disk_is_taken_back() {
         one(),
         "the partial bytes were cut off"
     );
-    seg.append(&stamped(1, 1, 0), 3).unwrap();
+    seg.append(&batch(1, 0).stamped(offset(1), None), 3)
+        .unwrap();
 }
 
 #[test]
@@ -140,10 +156,14 @@ fn a_failed_index_write_takes_back_the_batch_it_belonged_to() {
     let (fs, dir) = disk();
     let mut seg = active(&fs, &dir, 0, INTERVAL);
     fs.fail(Op::Write, 2, Failure::Io); // the batch is the first write; the first index entry is the second
-    assert!(seg.append(&stamped(0, 1, 0), 1).is_err());
+    assert!(
+        seg.append(&batch(1, 0).stamped(offset(0), None), 1)
+            .is_err()
+    );
     assert_eq!(seg.size(), 0);
     assert_eq!(fs.contents(&log_path(&dir, offset(0))).unwrap().len(), 0);
-    seg.append(&stamped(0, 1, 0), 2).unwrap();
+    seg.append(&batch(1, 0).stamped(offset(0), None), 2)
+        .unwrap();
     assert_eq!(seg.view().index().len(), 0, "not published, but written");
     seg.publish();
     assert_eq!(seg.view().index().len(), 1);
@@ -153,10 +173,13 @@ fn a_failed_index_write_takes_back_the_batch_it_belonged_to() {
 fn a_mark_takes_back_a_run_of_appends() {
     let (fs, dir) = disk();
     let mut seg = active(&fs, &dir, 0, one());
-    seg.append(&stamped(0, 1, 5), 1).unwrap();
+    seg.append(&batch(1, 5).stamped(offset(0), None), 1)
+        .unwrap();
     let mark = seg.mark();
-    seg.append(&stamped(1, 1, 50), 2).unwrap();
-    seg.append(&stamped(2, 1, 500), 3).unwrap();
+    seg.append(&batch(1, 50).stamped(offset(1), None), 2)
+        .unwrap();
+    seg.append(&batch(1, 500).stamped(offset(2), None), 3)
+        .unwrap();
     seg.rewind(mark);
     seg.publish();
     assert_eq!(seg.size(), one());
@@ -180,7 +203,8 @@ fn sync_flushes_only_what_changed() {
     let fsyncs = |fs: &SimFs| fs.trace().iter().filter(|(op, _)| *op == Op::Fsync).count();
     seg.sync().unwrap();
     assert_eq!(fsyncs(&fs), 0, "nothing written: no system call");
-    seg.append(&stamped(0, 1, 0), 1).unwrap();
+    seg.append(&batch(1, 0).stamped(offset(0), None), 1)
+        .unwrap();
     assert!(seg.is_dirty());
     seg.sync().unwrap();
     assert_eq!(
@@ -188,7 +212,8 @@ fn sync_flushes_only_what_changed() {
         2,
         "the log and the index it gained an entry in"
     );
-    seg.append(&stamped(1, 1, 0), 1).unwrap(); // no new index entry
+    seg.append(&batch(1, 0).stamped(offset(1), None), 1)
+        .unwrap(); // no new index entry
     seg.sync().unwrap();
     assert_eq!(fsyncs(&fs), 3, "only the log");
     seg.sync().unwrap();
@@ -200,9 +225,12 @@ fn sync_flushes_only_what_changed() {
 fn a_sealed_segment_keeps_what_the_active_one_knew() {
     let (fs, dir) = disk();
     let mut seg = active(&fs, &dir, 0, INTERVAL);
-    seg.append(&stamped(0, 1, 20), 1_000).unwrap();
-    seg.append(&stamped(1, 1, -1), 2_000).unwrap(); // -1: no timestamp
-    seg.append(&stamped(2, 1, 30), 3_000).unwrap();
+    seg.append(&batch(1, 20).stamped(offset(0), None), 1_000)
+        .unwrap();
+    seg.append(&batch(1, -1).stamped(offset(1), None), 2_000)
+        .unwrap(); // -1: no timestamp
+    seg.append(&batch(1, 30).stamped(offset(2), None), 3_000)
+        .unwrap();
     seg.publish();
     seg.sync().unwrap();
     let sealed = seg.into_sealed();
@@ -221,8 +249,10 @@ fn a_sealed_segment_keeps_what_the_active_one_knew() {
 fn a_sealed_segment_read_back_finds_its_newest_timestamp_when_asked() {
     let (fs, dir) = disk();
     let mut seg = active(&fs, &dir, 0, INTERVAL);
-    seg.append(&stamped(0, 1, 20), 1).unwrap();
-    seg.append(&stamped(1, 1, 40), 2).unwrap();
+    seg.append(&batch(1, 20).stamped(offset(0), None), 1)
+        .unwrap();
+    seg.append(&batch(1, 40).stamped(offset(1), None), 2)
+        .unwrap();
     seg.publish();
     seg.sync().unwrap();
     drop(seg);
@@ -237,7 +267,8 @@ fn adopting_a_scan_cuts_the_log_durably_and_rebuilds_the_index() {
     let (fs, dir) = disk();
     let mut seg = active(&fs, &dir, 0, one());
     for i in 0..3 {
-        seg.append(&stamped(i, 1, 0), 1).unwrap();
+        seg.append(&batch(1, 0).stamped(offset(i), None), 1)
+            .unwrap();
     }
     seg.publish();
     seg.sync().unwrap();

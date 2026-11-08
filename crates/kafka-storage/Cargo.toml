@@ -27,3 +27,5 @@ sim = []
 # Builds valid batches for the tests.
 kafka-wire = { path = "../kafka-wire", features = ["test-support"] }
 tokio = { version = "1", default-features = false, features = ["rt", "macros", "time"] }
+# The simulation suite (tests/simulation) uses the crate with its simulated disk.
+kafka-storage = { path = ".", features = ["sim"] }

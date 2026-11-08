@@ -161,9 +161,10 @@ fn differing(a: &Bytes, b: &Bytes) -> Vec<usize> {
 #[test]
 fn stamping_the_base_offset_changes_only_the_base_offset() {
     let before = parse(&ok()).unwrap();
-    let after = before.clone().with_base_offset(Offset::new(1234).unwrap());
+    let stamped = before.stamped(Offset::new(1234).unwrap(), None);
+    assert_eq!(stamped.base_offset().get(), 1234);
+    let after = Batch::parse(stamped.to_bytes()).unwrap();
     assert_eq!(after.base_offset(), Offset::new(1234));
-    assert!(Batch::parse(after.as_bytes().clone()).is_ok());
     assert!(
         differing(before.as_bytes(), after.as_bytes())
             .iter()
@@ -172,11 +173,23 @@ fn stamping_the_base_offset_changes_only_the_base_offset() {
 }
 
 #[test]
+fn stamping_does_not_copy_the_body() {
+    let before = parse(&ok()).unwrap();
+    let stamped = before.stamped(Offset::ZERO, Some(TimestampMs::from_wire(1)));
+    let original_body = before.as_bytes().get(HEADER_LEN..).unwrap();
+    assert!(
+        std::ptr::eq(stamped.body(), original_body),
+        "the body is borrowed, not duplicated"
+    );
+    assert_eq!(stamped.len(), before.len());
+}
+
+#[test]
 fn log_append_time_changes_only_the_clock_bit_the_max_timestamp_and_the_crc() {
     let before = parse(&ok()).unwrap();
-    let after = before
-        .clone()
-        .with_log_append_time(TimestampMs::from_wire(9_000));
+    let stamped = before.stamped(Offset::ZERO, Some(TimestampMs::from_wire(9_000)));
+    assert_eq!(stamped.max_timestamp().get(), 9_000);
+    let after = Batch::parse(stamped.to_bytes()).expect("the CRC was recomputed");
     assert_eq!(
         after.attributes().timestamp_type(),
         TimestampType::LogAppend
@@ -184,10 +197,6 @@ fn log_append_time_changes_only_the_clock_bit_the_max_timestamp_and_the_crc() {
     assert_eq!(after.max_timestamp().get(), 9_000);
     assert_eq!(after.first_timestamp(), before.first_timestamp());
     assert_eq!(after.producer(), before.producer());
-    assert!(
-        Batch::parse(after.as_bytes().clone()).is_ok(),
-        "the CRC was recomputed"
-    );
     // Byte for byte: the CRC (17..21), the attributes (21..23) and the max timestamp (35..43).
     let changed = differing(before.as_bytes(), after.as_bytes());
     assert!(

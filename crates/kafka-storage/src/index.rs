@@ -86,9 +86,40 @@ impl<F: Fs> IndexView<F> {
         }
     }
 
-    /// Every visible entry.
-    pub(crate) fn entries(&self) -> io::Result<Vec<Entry>> {
-        (0..self.len()).map(|i| self.get(i)).collect()
+    /// The last visible entry, if there is one.
+    pub(crate) fn last(&self) -> io::Result<Option<Entry>> {
+        match self.len().checked_sub(1) {
+            Some(i) => self.get(i).map(Some),
+            None => Ok(None),
+        }
+    }
+
+    /// Whether the visible entries are exactly `expected`. It reads the file a few kilobytes at a time and
+    /// compares as it goes, so checking an index never holds it in memory.
+    pub(crate) fn matches(&self, expected: &[Entry]) -> io::Result<bool> {
+        if self.len() != expected.len() as u64 {
+            return Ok(false);
+        }
+        let mut chunk = [0u8; 4096];
+        let per_chunk = chunk.len() / ENTRY_BYTES as usize;
+        for (n, entries) in expected.chunks(per_chunk).enumerate() {
+            let want = entries.len() * ENTRY_BYTES as usize;
+            let pos = (n * per_chunk) as u64 * ENTRY_BYTES;
+            let got = chunk.get_mut(..want).unwrap_or_default();
+            if self.file.read_at(got, pos)? < want {
+                return Ok(false);
+            }
+            let same = got
+                .as_chunks::<16>()
+                .0
+                .iter()
+                .zip(entries)
+                .all(|(raw, e)| Entry::decode(raw) == *e);
+            if !same {
+                return Ok(false);
+            }
+        }
+        Ok(true)
     }
 }
 

@@ -10,9 +10,12 @@ use super::shared::Shared;
 use super::{LogConfig, PartitionLog, Trust};
 use crate::error::{Doing, StorageError};
 use crate::fs::Fs;
+use crate::fs::FsFile;
 use crate::logstart;
 use crate::scan::scan;
-use crate::segment::{ActiveSegment, SealedSegment, base_of_index, base_of_log};
+use crate::segment::{
+    ActiveSegment, SealedSegment, base_of_index, base_of_log, log_path, remove_files,
+};
 
 /// How much of the active segment's tail has every batch's checksum verified when the previous stop vouches
 /// for it. Without that vouching the whole segment is verified: what was written and not flushed is not
@@ -48,6 +51,38 @@ fn tidy<F: Fs>(fs: &F, dir: &Path) -> Result<Found, StorageError> {
     Ok(Found { bases, tidied })
 }
 
+/// Removes the newest segment if it is an empty leftover that begins inside the one before it. A roll that
+/// failed half way (the log created, the index could not be) cleans up after itself, but the removal is only in
+/// memory until the directory is flushed, and a power cut can bring the empty file back while the old segment
+/// went on taking appends. Left alone it would make the log end at the leftover's base and hide the records
+/// after it. Only an empty segment can be such a leftover: appends never go to a segment that failed to start.
+fn drop_stale_tail<F: Fs>(
+    fs: &F,
+    dir: &Path,
+    found: &mut Found,
+    interval: u64,
+) -> Result<(), StorageError> {
+    while let [.., previous, last] = found.bases.as_slice() {
+        let (previous, last) = (*previous, *last);
+        let empty = fs
+            .open_existing(&log_path(dir, last))
+            .and_then(|f| f.size())
+            .doing("checking a segment")?
+            == 0;
+        if !empty {
+            return Ok(());
+        }
+        let before = SealedSegment::open(fs, dir, previous, interval).doing("opening a segment")?;
+        if before.end_offset().doing("checking a segment")? <= last {
+            return Ok(());
+        }
+        remove_files(fs, dir, last).doing("removing a stale segment")?;
+        found.bases.pop();
+        found.tidied = true;
+    }
+    Ok(())
+}
+
 fn make_dir<F: Fs>(fs: &F, dir: &Path) -> Result<(), StorageError> {
     let made = fs
         .create_dir(dir)
@@ -78,8 +113,9 @@ impl<F: Fs> PartitionLog<F> {
         trust: Trust,
     ) -> Result<Self, StorageError> {
         make_dir(&fs, &dir)?;
-        let found = tidy(&fs, &dir)?;
+        let mut found = tidy(&fs, &dir)?;
         let interval = config.index_interval_bytes;
+        drop_stale_tail(&fs, &dir, &mut found, interval)?;
         let Some((last, earlier)) = found.bases.split_last() else {
             return Self::fresh(fs, dir, config, found.tidied);
         };

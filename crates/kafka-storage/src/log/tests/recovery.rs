@@ -2,6 +2,7 @@ use super::*;
 use crate::fs::{Fs, FsFile};
 use crate::sim::{Cut, DataCut, NameCut, SimFs};
 use crate::testutil::{offset, raw};
+use kafka_wire::batch::TimestampType;
 
 const LOG0: &str = "00000000000000000000.log";
 const INDEX0: &str = "00000000000000000000.index";
@@ -10,7 +11,7 @@ const INDEX0: &str = "00000000000000000000.index";
 fn written(n: usize, segment_bytes: u64) -> (SimFs, std::path::PathBuf) {
     let (fs, dir, mut log) = fresh(segment_bytes);
     for _ in 0..n {
-        log.append(ones(1, 5), NOW).unwrap();
+        log.append(&ones(1, 5), NOW, TimestampType::Create).unwrap();
     }
     log.sync().unwrap();
     drop(log);
@@ -31,7 +32,12 @@ fn reopening_restores_the_log_byte_for_byte_and_appends_continue() {
         (offset(0), offset(5))
     );
     assert_eq!(all(&log.reader()), before);
-    assert_eq!(log.append(ones(1, 0), NOW).unwrap().first_offset, offset(5));
+    assert_eq!(
+        log.append(&ones(1, 0), NOW, TimestampType::Create)
+            .unwrap()
+            .first_offset,
+        offset(5)
+    );
     assert_eq!(bases(&all(&log.reader())), vec![0, 1, 2, 3, 4, 5]);
 }
 
@@ -60,9 +66,9 @@ fn a_torn_tail_is_cut_and_the_cut_is_flushed() {
 #[test]
 fn a_zero_filled_tail_after_a_power_cut_is_cut() {
     let (fs, dir, mut log) = fresh(NEVER);
-    log.append(ones(2, 0), NOW).unwrap();
+    log.append(&ones(2, 0), NOW, TimestampType::Create).unwrap();
     log.sync().unwrap();
-    log.append(ones(3, 0), NOW).unwrap();
+    log.append(&ones(3, 0), NOW, TimestampType::Create).unwrap();
     let after = fs.power_cut(Cut {
         data: DataCut::Zero,
         names: NameCut::Durable,
@@ -144,7 +150,12 @@ fn a_roll_that_died_after_creating_the_next_segment_leaves_an_empty_active_segme
         .unwrap();
     let mut log = reopen(&fs, &dir);
     assert_eq!(log.end_offset(), offset(2));
-    assert_eq!(log.append(ones(1, 0), NOW).unwrap().first_offset, offset(2));
+    assert_eq!(
+        log.append(&ones(1, 0), NOW, TimestampType::Create)
+            .unwrap()
+            .first_offset,
+        offset(2)
+    );
     assert_eq!(bases(&all(&log.reader())), vec![0, 1, 2]);
 }
 
@@ -172,4 +183,46 @@ fn a_recorded_start_past_the_end_is_not_believed() {
     crate::logstart::write(&fs, &dir, offset(50)).unwrap();
     let log = reopen(&fs, &dir);
     assert_eq!(log.start_offset(), offset(3), "capped at the end");
+}
+
+#[test]
+fn an_empty_segment_a_failed_roll_left_behind_cannot_hide_the_records_that_followed_it() {
+    // The simulation found this: a roll created the next segment's log, could not create its index, and removed
+    // the log again, and none of that was flushed. Appends went on in the old segment. A power cut then brought
+    // the empty log back, and the reopened log believed it ended where the leftover began.
+    let (fs, dir) = written(3, NEVER);
+    let mut log = reopen(&fs, &dir);
+    log.append(&ones(2, 5), NOW, TimestampType::Create).unwrap(); // records 3 and 4 live in segment 0
+    log.sync().unwrap();
+    drop(log);
+    // The leftover: an empty segment that begins inside the one before it.
+    fs.open_or_create(&dir.join("00000000000000000004.log"))
+        .unwrap();
+    fs.open_or_create(&dir.join("00000000000000000004.index"))
+        .unwrap();
+    let log = reopen(&fs, &dir);
+    assert_eq!(
+        log.end_offset(),
+        offset(5),
+        "the records after the leftover's base are not hidden"
+    );
+    assert_eq!(bases(&all(&log.reader())), vec![0, 1, 2, 3, 4]);
+    assert_eq!(
+        fs.names(&dir),
+        vec![INDEX0, LOG0],
+        "and the leftover is removed"
+    );
+}
+
+#[test]
+fn a_segment_that_starts_exactly_where_the_one_before_ends_is_not_a_leftover() {
+    let (fs, dir) = written(4, 2 * one());
+    let log = reopen(&fs, &dir);
+    assert_eq!(log.end_offset(), offset(4));
+    assert_eq!(
+        fs.names(&dir).len(),
+        4,
+        "two segments, each with its index: {:?}",
+        fs.names(&dir)
+    );
 }

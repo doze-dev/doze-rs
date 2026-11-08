@@ -1,50 +1,113 @@
-//! What a broker may change inside a batch: its base offset, and under LogAppendTime its timestamp.
-//! Nothing else in a batch is ever touched.
-
-use bytes::{Bytes, BytesMut};
+//! What a broker changes in a batch as it takes it: the base offset, and under LogAppendTime the timestamp type,
+//! the maximum timestamp and (because they are covered by it) the checksum. Nothing else is ever touched.
+//!
+//! Nothing is changed in place and the batch is not copied. The changes are made to a copy of the 61-byte
+//! header, on the stack, and the body is borrowed from the batch as it arrived; a writer puts the two down one
+//! after the other. For LogAppendTime the new checksum is the old header region's CRC extended over the body,
+//! so the body is read once and not written to memory a second time.
 
 use super::Batch;
-use super::layout::{ATTRIBUTES, BASE_OFFSET, CRC, MAX_TIMESTAMP, crc_of};
+use super::layout::{ATTRIBUTES, BASE_OFFSET, CRC, HEADER_LEN, MAX_TIMESTAMP};
 use crate::ids::{Offset, TimestampMs};
 
-/// Owned, writable bytes of a batch: the same allocation when nothing else shares it, else a copy.
-fn writable(bytes: Bytes) -> BytesMut {
-    bytes
-        .try_into_mut()
-        .unwrap_or_else(|shared| BytesMut::from(&shared[..]))
+/// A batch as the log will hold it: the header with the broker's changes, and the body as it arrived.
+#[derive(Debug, Clone, Copy)]
+pub struct Stamped<'a> {
+    header: [u8; HEADER_LEN],
+    body: &'a [u8],
+    base: Offset,
+    max_timestamp: TimestampMs,
+    record_count: u32,
 }
 
-fn put(buf: &mut BytesMut, at: usize, value: &[u8]) {
-    if let Some(dst) = buf.get_mut(at..at + value.len()) {
+impl Batch {
+    /// The batch stamped with `base`; with `log_append_time`, also marked as carrying the broker's clock, with
+    /// that time as its newest timestamp.
+    #[must_use]
+    pub fn stamped(&self, base: Offset, log_append_time: Option<TimestampMs>) -> Stamped<'_> {
+        let bytes = self.as_bytes();
+        let mut header = bytes
+            .first_chunk::<HEADER_LEN>()
+            .copied()
+            .unwrap_or([0; HEADER_LEN]);
+        let body = bytes.get(HEADER_LEN..).unwrap_or_default();
+        put(&mut header, BASE_OFFSET, &base.get().to_be_bytes());
+        let mut max_timestamp = self.max_timestamp();
+        if let Some(now) = log_append_time {
+            let attributes = self.attributes().with_log_append_time();
+            put(&mut header, ATTRIBUTES, &attributes.bits().to_be_bytes());
+            put(&mut header, MAX_TIMESTAMP, &now.get().to_be_bytes());
+            let covered = header.get(ATTRIBUTES..).unwrap_or_default();
+            let crc = crc32c::crc32c_append(crc32c::crc32c(covered), body);
+            put(&mut header, CRC, &crc.to_be_bytes());
+            max_timestamp = now;
+        }
+        Stamped {
+            header,
+            body,
+            base,
+            max_timestamp,
+            record_count: self.record_count(),
+        }
+    }
+}
+
+fn put(header: &mut [u8; HEADER_LEN], at: usize, value: &[u8]) {
+    if let Some(dst) = header.get_mut(at..at + value.len()) {
         dst.copy_from_slice(value);
     }
 }
 
-impl Batch {
-    /// This batch with the base offset the log assigned. The base offset is not covered by the CRC.
+impl Stamped<'_> {
+    /// The header with the changes applied.
     #[must_use]
-    pub fn with_base_offset(mut self, offset: Offset) -> Self {
-        let mut buf = writable(self.bytes);
-        put(&mut buf, BASE_OFFSET, &offset.get().to_be_bytes());
-        self.header.base_offset = offset.get();
-        self.bytes = buf.freeze();
-        self
+    pub fn header(&self) -> &[u8] {
+        &self.header
     }
 
-    /// This batch marked as carrying the broker's time rather than the producer's: the timestamp type is
-    /// LogAppendTime and the maximum timestamp is `now`. Both are covered by the CRC, which is recomputed.
+    /// The records, as they arrived.
     #[must_use]
-    pub fn with_log_append_time(mut self, now: TimestampMs) -> Self {
-        let attributes = self.header.attributes.with_log_append_time();
-        let mut buf = writable(self.bytes);
-        put(&mut buf, ATTRIBUTES, &attributes.bits().to_be_bytes());
-        put(&mut buf, MAX_TIMESTAMP, &now.get().to_be_bytes());
-        let crc = crc_of(&buf);
-        put(&mut buf, CRC, &crc.to_be_bytes());
-        self.header.attributes = attributes;
-        self.header.max_timestamp = now;
-        self.header.crc = crc;
-        self.bytes = buf.freeze();
-        self
+    pub fn body(&self) -> &[u8] {
+        self.body
+    }
+
+    /// The whole batch's size in bytes.
+    #[must_use]
+    pub fn len(&self) -> usize {
+        HEADER_LEN + self.body.len()
+    }
+
+    /// Whether the batch is empty: never, a batch has a header.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        false
+    }
+
+    /// The offset of its first record.
+    #[must_use]
+    pub fn base_offset(&self) -> Offset {
+        self.base
+    }
+
+    /// The newest timestamp in the batch, after stamping.
+    #[must_use]
+    pub fn max_timestamp(&self) -> TimestampMs {
+        self.max_timestamp
+    }
+
+    /// How many records it holds.
+    #[must_use]
+    pub fn record_count(&self) -> u32 {
+        self.record_count
+    }
+
+    /// The batch as one buffer. This copies; it exists for tests and fuzzing, which want to look at the whole.
+    #[cfg(any(test, feature = "test-support"))]
+    #[must_use]
+    pub fn to_bytes(&self) -> bytes::Bytes {
+        let mut out = Vec::with_capacity(self.len());
+        out.extend_from_slice(&self.header);
+        out.extend_from_slice(self.body);
+        bytes::Bytes::from(out)
     }
 }

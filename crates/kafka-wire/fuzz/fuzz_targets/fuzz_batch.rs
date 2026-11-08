@@ -13,9 +13,7 @@ fuzz_target!(|data: &[u8]| {
     let _ = Batch::from_produce(&bytes);
     let _ = Batches::new(bytes.clone()).count();
     if let Ok(batch) = Batch::parse(bytes) {
-        let stamped = batch
-            .with_base_offset(Offset::ZERO)
-            .with_log_append_time(TimestampMs::from_wire(1));
-        assert!(Batch::parse(stamped.into_bytes()).is_ok());
+        let stamped = batch.stamped(Offset::ZERO, Some(TimestampMs::from_wire(1)));
+        assert!(Batch::parse(stamped.to_bytes()).is_ok());
     }
 });

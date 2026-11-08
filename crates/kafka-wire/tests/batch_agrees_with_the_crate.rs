@@ -89,10 +89,10 @@ fn transactional_and_control_bits_are_read() {
 fn stamping_survives_the_crates_view() {
     // What we stamp, the crate's decoder still reads as a valid batch with the same records.
     let original = encode(&records(3, 1, 0, 0, 10), Compression::None);
-    let stamped = Batch::parse(original)
-        .unwrap()
-        .with_base_offset(kafka_wire::ids::Offset::new(500).unwrap());
-    let mut bytes = stamped.into_bytes();
+    let batch = Batch::parse(original).unwrap();
+    let mut bytes = batch
+        .stamped(kafka_wire::ids::Offset::new(500).unwrap(), None)
+        .to_bytes();
     let decoded = kafka_protocol::records::RecordBatchDecoder::decode(&mut bytes).unwrap();
     assert_eq!(
         decoded.records.iter().map(|r| r.offset).collect::<Vec<_>>(),

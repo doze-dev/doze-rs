@@ -136,7 +136,10 @@ fn header_at<F: Fs>(
     pos: u64,
     committed: u64,
 ) -> std::io::Result<Option<Peek>> {
-    let Ok(peek) = Peek::read(&segment.read(pos, HEADER)?) else {
+    // On the stack: stepping from batch to batch looks at a header each time, and allocates nothing.
+    let mut header = [0u8; HEADER];
+    let got = segment.read_into(pos, &mut header)?;
+    let Ok(peek) = Peek::read(header.get(..got).unwrap_or_default()) else {
         return Ok(None);
     };
     Ok((pos + peek.total_len <= committed).then_some(peek))

@@ -19,7 +19,8 @@ fn names(fs: &SimFs, dir: &std::path::Path) -> Vec<String> {
 fn three_segments(ts: i64) -> (SimFs, std::path::PathBuf, PartitionLog<SimFs>) {
     let (fs, dir, mut log) = fresh(2 * one());
     for _ in 0..6 {
-        log.append(ones(1, ts), NOW).unwrap();
+        log.append(&ones(1, ts), NOW, TimestampType::Create)
+            .unwrap();
     }
     (fs, dir, log)
 }
@@ -76,7 +77,7 @@ fn the_new_start_survives_a_restart() {
 #[test]
 fn deleting_to_the_end_empties_the_partition_and_starts_a_fresh_segment() {
     let (fs, dir, mut log) = fresh(NEVER);
-    log.append(ones(4, 0), NOW).unwrap();
+    log.append(&ones(4, 0), NOW, TimestampType::Create).unwrap();
     assert_eq!(log.delete_before(None).unwrap(), offset(4));
     assert_eq!(
         (log.start_offset(), log.end_offset()),
@@ -88,7 +89,12 @@ fn deleting_to_the_end_empties_the_partition_and_starts_a_fresh_segment() {
         "the old segment does not wait to roll"
     );
     assert!(log.reader().read(offset(4), 100, None).unwrap().is_empty());
-    assert_eq!(log.append(ones(1, 0), NOW).unwrap().first_offset, offset(4));
+    assert_eq!(
+        log.append(&ones(1, 0), NOW, TimestampType::Create)
+            .unwrap()
+            .first_offset,
+        offset(4)
+    );
     drop(log);
     let log = open(&fs.process_restart(), &dir, NEVER, Trust::Unvouched);
     assert_eq!(
@@ -169,8 +175,12 @@ fn a_segment_with_no_timestamps_is_as_old_as_its_last_write() {
     fs.set_now_ms(1_000);
     let mut log = open(&fs, &dir, 2 * one(), Trust::Unvouched);
     for _ in 0..4 {
-        log.append(ones(1, -1), TimestampMs::from_wire(1_000))
-            .unwrap();
+        log.append(
+            &ones(1, -1),
+            TimestampMs::from_wire(1_000),
+            TimestampType::Create,
+        )
+        .unwrap();
     }
     let policy = Retention {
         max_bytes: None,

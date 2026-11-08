@@ -48,8 +48,3 @@ pub(crate) fn run(base: i64, counts: &[u32]) -> Vec<u8> {
     }
     out
 }
-
-/// A batch stamped with `base` as the log would stamp it.
-pub(crate) fn stamped(base: i64, records: u32, max_ts: i64) -> Batch {
-    Batch::parse(raw(base, records, max_ts)).unwrap()
-}

@@ -10,7 +10,7 @@ cargo-fuzz = true
 [dependencies]
 libfuzzer-sys = "0.4"
 bytes = "1"
-kafka-wire = { path = ".." }
+kafka-wire = { path = "..", features = ["test-support"] }
 
 # Not part of the main workspace: fuzzing needs a nightly toolchain.
 [workspace]

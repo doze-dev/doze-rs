@@ -106,12 +106,7 @@ impl<F: Fs> PartitionLog<F> {
             return Ok(());
         }
         self.flush_active()?;
-        if self.dir_dirty {
-            if let Err(e) = self.fs.sync_dir(&self.dir) {
-                return Err(self.fail("flushing the partition directory", e));
-            }
-            self.dir_dirty = false;
-        }
+        self.flush_directory()?;
         self.synced_seq = upto;
         self.shared.sync.send_modify(|s| s.synced = upto);
         Ok(())
@@ -123,6 +118,19 @@ impl<F: Fs> PartitionLog<F> {
             Ok(()) => Ok(()),
             Err(e) => Err(self.fail("flushing the active segment", e)),
         }
+    }
+
+    /// Flushes the directory's entries if they changed: until then a segment created, or removed, is so only
+    /// in memory, and a power cut can take a fully flushed segment away with its name.
+    pub(super) fn flush_directory(&mut self) -> Result<(), StorageError> {
+        if !self.dir_dirty {
+            return Ok(());
+        }
+        if let Err(e) = self.fs.sync_dir(&self.dir) {
+            return Err(self.fail("flushing the partition directory", e));
+        }
+        self.dir_dirty = false;
+        Ok(())
     }
 
     /// A graceful stop: flush everything. The log is not usable afterwards.

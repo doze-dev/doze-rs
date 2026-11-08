@@ -2,7 +2,7 @@
 
 use bytes::Bytes;
 use kafka_protocol::messages::{ApiKey, RequestHeader};
-use kafka_protocol::protocol::Decodable;
+use kafka_protocol::protocol::{Decodable, StrBytes};
 
 use crate::error::WireError;
 
@@ -15,8 +15,9 @@ pub struct RequestHead {
     pub version: i16,
     /// What the answer must echo, so a client can match it to its request.
     pub correlation_id: i32,
-    /// The client's own name for itself, if it sent one.
-    pub client_id: Option<String>,
+    /// The client's own name for itself, if it sent one. It is a slice of the frame, not a copy of it: a
+    /// connection that keeps the name beyond the request copies it once, and says so.
+    pub client_id: Option<StrBytes>,
 }
 
 /// Splits one frame's payload into its header and the body after it.
@@ -40,7 +41,7 @@ pub fn split(mut frame: Bytes) -> Result<(RequestHead, Bytes), WireError> {
         key,
         version,
         correlation_id: h.correlation_id,
-        client_id: h.client_id.map(|s| s.to_string()),
+        client_id: h.client_id,
     };
     Ok((head, frame))
 }

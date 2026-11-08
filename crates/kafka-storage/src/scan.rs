@@ -152,6 +152,37 @@ fn next_good<L: FsFile>(
     Ok(Some(peek))
 }
 
+/// The offset after the last batch of a log, found by walking forward from the last index entry (no need to read
+/// the whole segment) and judging batches by their headers alone.
+pub(crate) fn tail_end<L: FsFile>(
+    log: &L,
+    size: u64,
+    last_entry: Option<Entry>,
+    base: Offset,
+) -> io::Result<Offset> {
+    let (mut pos, mut next) = match last_entry {
+        Some(e) => (e.position, Offset::new(e.offset).unwrap_or(base)),
+        None => (0, base),
+    };
+    let mut window = Window::new(log, size);
+    while pos < size {
+        let Ok(peek) = Peek::read(window.read(pos, HEADER)?) else {
+            break;
+        };
+        let Some(after) =
+            Offset::new(peek.base_offset).and_then(|o| o.checked_add(peek.record_count))
+        else {
+            break;
+        };
+        if pos.saturating_add(peek.total_len) > size {
+            break;
+        }
+        next = after;
+        pos += peek.total_len;
+    }
+    Ok(next)
+}
+
 /// The newest timestamp of any record in a log, read from batch headers alone.
 pub(crate) fn max_timestamp<L: FsFile>(log: &L, size: u64) -> io::Result<Option<TimestampMs>> {
     let scanned = scan(log, size, Offset::ZERO, u64::MAX, u64::MAX)?;

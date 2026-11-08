@@ -21,11 +21,11 @@ fn block_on<T>(f: impl std::future::Future<Output = T>) -> T {
 #[test]
 fn a_ticket_is_durable_once_a_sync_covers_it() {
     let (_fs, _dir, mut log) = fresh(NEVER);
-    let first = log.append(ones(1, 0), NOW).unwrap();
+    let first = log.append(&ones(1, 0), NOW, TimestampType::Create).unwrap();
     assert!(!first.ticket.is_durable());
     log.sync().unwrap();
     assert!(first.ticket.is_durable());
-    let second = log.append(ones(1, 0), NOW).unwrap();
+    let second = log.append(&ones(1, 0), NOW, TimestampType::Create).unwrap();
     assert!(!second.ticket.is_durable() && first.ticket.is_durable());
     block_on(async {
         log.sync().unwrap();
@@ -39,7 +39,11 @@ fn one_sync_covers_every_append_before_it() {
     log.sync().unwrap(); // the new partition's own names
     let before = fsyncs(&fs);
     let tickets: Vec<_> = (0..3)
-        .map(|_| log.append(ones(2, 0), NOW).unwrap().ticket)
+        .map(|_| {
+            log.append(&ones(2, 0), NOW, TimestampType::Create)
+                .unwrap()
+                .ticket
+        })
         .collect();
     log.sync().unwrap();
     assert_eq!(
@@ -53,7 +57,7 @@ fn one_sync_covers_every_append_before_it() {
 #[test]
 fn a_sync_with_nothing_dirty_makes_no_system_call() {
     let (fs, _dir, mut log) = fresh(NEVER);
-    log.append(ones(1, 0), NOW).unwrap();
+    log.append(&ones(1, 0), NOW, TimestampType::Create).unwrap();
     log.sync().unwrap();
     let before = fs.ops();
     log.sync().unwrap();
@@ -65,7 +69,7 @@ fn a_sync_with_nothing_dirty_makes_no_system_call() {
 fn what_is_read_back_at_open_is_flushed_by_the_first_sync_unless_the_last_stop_vouches() {
     for (trust, flushes) in [(Trust::Unvouched, true), (Trust::Vouched, false)] {
         let (fs, dir, mut log) = fresh(NEVER);
-        log.append(ones(2, 0), NOW).unwrap();
+        log.append(&ones(2, 0), NOW, TimestampType::Create).unwrap();
         log.sync().unwrap();
         drop(log);
         let fs = fs.process_restart();
@@ -86,7 +90,10 @@ fn what_is_read_back_at_open_is_flushed_by_the_first_sync_unless_the_last_stop_v
 #[test]
 fn a_failed_fsync_takes_the_partition_offline_and_is_never_retried() {
     let (fs, _dir, mut log) = fresh(NEVER);
-    let ticket = log.append(ones(1, 0), NOW).unwrap().ticket;
+    let ticket = log
+        .append(&ones(1, 0), NOW, TimestampType::Create)
+        .unwrap()
+        .ticket;
     fs.fail(Op::Fsync, 1, Failure::Io);
     let err = log.sync().unwrap_err();
     assert!(matches!(err, StorageError::Io { .. }));
@@ -98,7 +105,8 @@ fn a_failed_fsync_takes_the_partition_offline_and_is_never_retried() {
         StorageError::Offline { .. }
     ));
     assert!(matches!(
-        log.append(ones(1, 0), NOW).unwrap_err(),
+        log.append(&ones(1, 0), NOW, TimestampType::Create)
+            .unwrap_err(),
         StorageError::Offline { .. }
     ));
     assert!(matches!(
@@ -119,7 +127,7 @@ fn a_failed_fsync_takes_the_partition_offline_and_is_never_retried() {
 #[test]
 fn a_failed_directory_flush_takes_the_partition_offline_too() {
     let (fs, _dir, mut log) = fresh(NEVER);
-    log.append(ones(1, 0), NOW).unwrap();
+    log.append(&ones(1, 0), NOW, TimestampType::Create).unwrap();
     fs.fail(Op::DirSync, 1, Failure::Io);
     assert!(log.sync().is_err());
     assert!(log.is_offline());
@@ -131,9 +139,12 @@ fn a_retry_that_would_have_succeeded_proves_nothing_and_so_is_not_made() {
     // of the file succeeds. A log that retried would acknowledge records that a power cut then takes.
     let (fs, dir, mut log) = fresh(NEVER);
     fs.lose_pages_on_failed_fsync(true);
-    log.append(ones(1, 0), NOW).unwrap();
+    log.append(&ones(1, 0), NOW, TimestampType::Create).unwrap();
     log.sync().unwrap();
-    let doomed = log.append(ones(1, 0), NOW).unwrap().ticket;
+    let doomed = log
+        .append(&ones(1, 0), NOW, TimestampType::Create)
+        .unwrap()
+        .ticket;
     fs.fail(Op::Fsync, 1, Failure::Io);
     assert!(log.sync().is_err());
     assert!(
@@ -153,9 +164,9 @@ fn a_retry_that_would_have_succeeded_proves_nothing_and_so_is_not_made() {
 #[test]
 fn a_power_cut_keeps_what_was_synced_and_may_lose_the_rest() {
     let (fs, dir, mut log) = fresh(NEVER);
-    log.append(ones(2, 0), NOW).unwrap();
+    log.append(&ones(2, 0), NOW, TimestampType::Create).unwrap();
     log.sync().unwrap();
-    log.append(ones(3, 0), NOW).unwrap(); // acknowledged to nobody
+    log.append(&ones(3, 0), NOW, TimestampType::Create).unwrap(); // acknowledged to nobody
     for (data, names) in [
         (DataCut::Drop, NameCut::Durable),
         (DataCut::Zero, NameCut::Durable),
@@ -179,9 +190,9 @@ fn a_power_cut_keeps_what_was_synced_and_may_lose_the_rest() {
 #[test]
 fn a_new_segments_name_reaches_the_disk_with_the_sync_that_acknowledges_something_in_it() {
     let (fs, dir, mut log) = fresh(2 * one());
-    log.append(ones(2, 0), NOW).unwrap();
+    log.append(&ones(2, 0), NOW, TimestampType::Create).unwrap();
     log.sync().unwrap();
-    log.append(ones(1, 0), NOW).unwrap(); // rolls: the new segment's name is only in memory
+    log.append(&ones(1, 0), NOW, TimestampType::Create).unwrap(); // rolls: the new segment's name is only in memory
     let cut = |fs: &SimFs| {
         fs.power_cut(Cut {
             data: DataCut::Drop,
@@ -205,7 +216,7 @@ fn a_new_segments_name_reaches_the_disk_with_the_sync_that_acknowledges_somethin
 #[test]
 fn close_flushes_everything() {
     let (fs, dir, mut log) = fresh(NEVER);
-    log.append(ones(4, 0), NOW).unwrap();
+    log.append(&ones(4, 0), NOW, TimestampType::Create).unwrap();
     log.close().unwrap();
     let after = fs.power_cut(Cut {
         data: DataCut::Drop,

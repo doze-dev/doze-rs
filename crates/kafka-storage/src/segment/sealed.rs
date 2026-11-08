@@ -77,3 +77,12 @@ impl<F: Fs> SealedSegment<F> {
         Ok(*self.max_timestamp.get_or_init(|| found))
     }
 }
+
+impl<F: Fs> SealedSegment<F> {
+    /// The offset after the segment's last batch: found by walking forward from the last index entry, not by
+    /// reading the whole segment.
+    pub(crate) fn end_offset(&self) -> io::Result<Offset> {
+        let last = self.view.index().last()?;
+        scan::tail_end(self.view.log_file().as_ref(), self.size, last, self.base())
+    }
+}

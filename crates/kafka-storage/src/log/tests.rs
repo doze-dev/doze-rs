@@ -7,7 +7,7 @@ mod trim;
 
 use std::path::PathBuf;
 
-use kafka_wire::batch::Batch;
+use kafka_wire::batch::{Batch, TimestampType};
 use kafka_wire::ids::TimestampMs;
 
 use super::*;

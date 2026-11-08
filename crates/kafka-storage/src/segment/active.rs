@@ -6,7 +6,7 @@ use std::sync::Arc;
 use std::sync::OnceLock;
 use std::sync::atomic::AtomicU64;
 
-use kafka_wire::batch::Batch;
+use kafka_wire::batch::Stamped;
 use kafka_wire::ids::{Offset, TimestampMs};
 
 use super::{SealedSegment, SegmentView, index_path, log_path};
@@ -112,26 +112,21 @@ impl<F: Fs> ActiveSegment<F> {
     }
 
     /// Writes a batch at the end of the log and, on crossing the index interval (and for a segment's first
-    /// batch), an index entry. The batch carries the offset it was stamped with. Nothing is visible to readers
-    /// until [`ActiveSegment::publish`]. A failure leaves no trace: the bytes are cut off and the counts
-    /// restored.
+    /// batch), an index entry. The batch is written from the buffers it already is: its stamped header (built on
+    /// the stack) and its body (borrowed from the request), with no copy made to put them together. Nothing is
+    /// visible to readers until [`ActiveSegment::publish`]. A failure leaves no trace: the bytes are cut off and
+    /// the counts restored.
     ///
     /// # Errors
-    /// A failed write, or a batch that has not been given an offset.
-    pub(crate) fn append(&mut self, batch: &Batch, now_ms: i64) -> io::Result<()> {
-        let offset = batch.base_offset().ok_or_else(|| {
-            io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "the batch has no assigned offset",
-            )
-        })?;
-        let (pos, bytes) = (self.size, batch.as_bytes());
-        let len = bytes.len() as u64;
+    /// A failed write.
+    pub(crate) fn append(&mut self, batch: &Stamped<'_>, now_ms: i64) -> io::Result<()> {
+        let pos = self.size;
+        let len = batch.len() as u64;
         let before = self.mark();
         // Dirty before the write: a write that fails part-way has still changed the file, and the cut that
         // undoes it has to reach the disk.
         self.log_dirty = true;
-        if let Err(e) = self.view.log_file().write_all_at(bytes, pos) {
+        if let Err(e) = self.write_batch(batch, pos) {
             self.cut_to(pos);
             return Err(e);
         }
@@ -141,7 +136,7 @@ impl<F: Fs> ActiveSegment<F> {
         self.max_timestamp = self.max_timestamp.max(known(batch.max_timestamp()));
         if self.index.len() == 0 || self.since_index >= self.interval {
             let entry = Entry {
-                offset: offset.get(),
+                offset: batch.base_offset().get(),
                 position: pos,
             };
             if let Err(e) = self.index.append(entry) {
@@ -196,7 +191,7 @@ impl<F: Fs> ActiveSegment<F> {
             log.sync_data()?;
             self.size = scanned.valid_end;
         }
-        if self.index.view().entries()? != scanned.index {
+        if !self.index.view().matches(&scanned.index)? {
             self.index.rewrite(&scanned.index)?;
         }
         self.since_index = scanned.since_index;
@@ -216,4 +211,16 @@ impl<F: Fs> ActiveSegment<F> {
 /// A timestamp that is one: -1 means a batch has none.
 fn known(t: TimestampMs) -> Option<TimestampMs> {
     (t.get() >= 0).then_some(t)
+}
+
+impl<F: Fs> ActiveSegment<F> {
+    /// Writes a stamped batch at `pos`: the body, then the header. The header goes last because it is what
+    /// makes the batch a batch (its length, its checksum, its offset): a stop between the two leaves a body with
+    /// no header in front of it, which recovery cuts, and never a header promising a body that is not there.
+    fn write_batch(&self, batch: &Stamped<'_>, pos: u64) -> io::Result<()> {
+        let log = self.view.log_file();
+        let header = batch.header();
+        log.write_all_at(batch.body(), pos + header.len() as u64)?;
+        log.write_all_at(header, pos)
+    }
 }

@@ -58,27 +58,32 @@ impl<F: Fs> SegmentView<F> {
         self.committed.store(len, Ordering::Release);
     }
 
-    #[cfg(test)]
     pub(crate) fn index(&self) -> &IndexView<F> {
         &self.index
     }
 
-    /// Up to `len` committed bytes at `pos`; fewer at the end of what is committed, none past it.
-    pub(crate) fn read(&self, pos: u64, len: usize) -> io::Result<Bytes> {
-        let room = self.committed().saturating_sub(pos);
-        let want = usize::try_from(room).unwrap_or(usize::MAX).min(len);
-        let mut buf = vec![0; want];
+    /// Fills `buf` with committed bytes at `pos` and says how many: fewer at the end of what is committed,
+    /// none past it. Nothing is allocated; this is how a header is looked at.
+    pub(crate) fn read_into(&self, pos: u64, buf: &mut [u8]) -> io::Result<usize> {
+        let room = usize::try_from(self.committed().saturating_sub(pos)).unwrap_or(usize::MAX);
+        let want = buf.len().min(room);
         let mut filled = 0;
         while filled < want {
-            let got = self.log.read_at(
-                buf.get_mut(filled..).unwrap_or_default(),
-                pos + filled as u64,
-            )?;
+            let dst = buf.get_mut(filled..want).unwrap_or_default();
+            let got = self.log.read_at(dst, pos + filled as u64)?;
             if got == 0 {
                 break;
             }
             filled += got;
         }
+        Ok(filled)
+    }
+
+    /// Up to `len` committed bytes at `pos`, in a buffer that is handed on as it is (no copy into `Bytes`).
+    pub(crate) fn read(&self, pos: u64, len: usize) -> io::Result<Bytes> {
+        let room = self.committed().saturating_sub(pos);
+        let mut buf = vec![0; usize::try_from(room).unwrap_or(usize::MAX).min(len)];
+        let filled = self.read_into(pos, &mut buf)?;
         buf.truncate(filled);
         Ok(Bytes::from(buf))
     }

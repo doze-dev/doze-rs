@@ -1,6 +1,6 @@
 //! A deterministic in-memory disk for tests (feature `sim`).
 //!
-//! It implements [`Fs`] and adds what a real disk will not do on request: fail the Nth operation of a kind,
+//! It implements [`Fs`](crate::fs::Fs) and adds what a real disk will not do on request: fail the Nth operation of a kind,
 //! fill up, stop the process after any operation, drop the pages of a file whose flush failed, and rebuild
 //! what the disk holds if the power goes at that moment ([`SimFs::power_cut`]). Everything replays from a seed.
 //!
@@ -101,8 +101,7 @@ impl SimFs {
         self.lock().control.capacity = bytes;
     }
 
-    /// Whether a failed flush leaves the file's pages unflushable (see [`Control`]); on by default in tests
-    /// that want the kernel's worst case.
+    /// Whether a failed flush leaves the file's pages unflushable (the kernel's worst case); off by default.
     pub fn lose_pages_on_failed_fsync(&self, on: bool) {
         self.lock().control.lose_on_failed_fsync = on;
     }
