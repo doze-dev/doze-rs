@@ -12,6 +12,20 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
+kafka-wire = { path = "../kafka-wire" }
+kafka-storage = { path = "../kafka-storage" }
+kafka-broker = { path = "../kafka-broker" }
 kafka-server = { path = "../kafka-server" }
 kafka-console = { path = "../kafka-console" }
 kafka-registry = { path = "../kafka-registry" }
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "env-filter", "json", "ansi"] }
+# Two worker threads by default (weight is a feature), and the signals a stop arrives by.
+tokio = { version = "1", default-features = false, features = ["rt", "rt-multi-thread", "signal", "net", "time", "macros"] }
+
+[dev-dependencies]
+kafka-wire = { path = "../kafka-wire", features = ["test-support"] }
+kafka-protocol = { version = "0.18", default-features = false, features = ["client"] }
+bytes = "1"

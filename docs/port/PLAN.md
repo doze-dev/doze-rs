@@ -434,3 +434,15 @@ test-only knobs in `internal/config`.
   dependency, tiny). A second was found in review of the same test: a deleted topic's closing did not drop the
   watch sender (readers hold it), so the broker counts deletions for waiting fetches instead. Catalogue:
   `behaviours/fetch.md` (F1-F8, L1-L2).
+- **2026-11-08, Phase 3 slice 3f part 1 and 3g (validation, codecs, the binary).** `Batch::scan` reads every record
+  through its codec as a stream (gzip incl. multi-member, snappy in xerial or plain framing, lz4 frames, zstd with a
+  window cap before the decoder allocates), pure Rust, each a cargo feature; keys on compacted topics, timestamps
+  against the clock, trailing bytes, compressed numbering, Kafka's texts; the header's newest timestamp is now the
+  records' (`Batch::with_max_timestamp`, carried into the stamped header and CRC without copying the body).
+  `Broker::shutdown` flushes and closes every partition and writes the clean-stop marker; opens are Vouched when the
+  last stop covered them (shown by damage only a full scan would find). The `doze-kafka` binary: clap flags (the Go
+  edition's, Go-syntax durations, the oracle's flags hidden and ignored, authentication refused), a data-directory lock,
+  two worker threads, SIGTERM/SIGINT clean stop, `listening addr=` readiness line; black-box tests spawn it and speak
+  the protocol over a socket, including SIGTERM within ten seconds and a SIGKILL. Mutation checks on both. Deferred and
+  recorded: rewriting a batch into the topic's `compression.type`; the descriptor budget (3f part 2). Catalogues:
+  `behaviours/produce.md` P11-P14, `behaviours/binary.md`.

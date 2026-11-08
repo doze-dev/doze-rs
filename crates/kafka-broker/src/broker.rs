@@ -1,7 +1,9 @@
 //! The broker: one decoded request in, one outcome out.
 
 use kafka_meta::MetaStore;
+use kafka_storage::Trust;
 use kafka_storage::fs::{Fs, RealFs};
+use kafka_storage::marker::{StopState, record_clean_stop};
 use kafka_wire::api::{Request, Response};
 use kafka_wire::header::RequestHead;
 use kafka_wire::messages::ApiKey;
@@ -34,6 +36,8 @@ pub struct Broker<F: Fs = RealFs> {
     pub(crate) partitions: Partitions<F>,
     /// Counts changes to the set of topics that a waiting fetch must notice (a deletion).
     pub(crate) topics_changed: tokio::sync::watch::Sender<u64>,
+    /// What the last stop vouched for.
+    stop: StopState,
 }
 
 impl<F: Fs> Broker<F> {
@@ -44,14 +48,39 @@ impl<F: Fs> Broker<F> {
     pub fn open(fs: F, config: Config) -> Result<Self, BrokerError> {
         kafka_storage::fs::create_dirs_durably(&fs, &config.data_dir)?;
         let meta = MetaStore::open(&fs, &config.data_dir)?;
-        let partitions = Partitions::new(fs.clone(), config.clone());
+        // Read, and removed before anything is written: a marker that came back after a power cut would vouch for a
+        // log this run was in the middle of writing.
+        let stop = StopState::begin(&fs, &config.data_dir)?;
+        let partitions = Partitions::new(fs.clone(), config.clone(), stop.clone());
         Ok(Self {
             fs,
             config,
             meta,
             partitions,
             topics_changed: tokio::sync::watch::channel(0).0,
+            stop,
         })
+    }
+
+    /// Stops cleanly: every open partition is flushed and closed, and the stop is recorded so that the next start
+    /// need not distrust what it finds. The caller has stopped the server first, so nothing new is opening.
+    ///
+    /// # Errors
+    /// The record of the stop could not be written; the next start then distrusts every partition, which is slower
+    /// and safe.
+    pub async fn shutdown(&self) -> Result<(), BrokerError> {
+        let closed = self.partitions.close_all().await;
+        let data = &self.config.data_dir;
+        // What this stop cannot vouch for: partition directories the last stop did not, and that this run did not
+        // open and close cleanly.
+        let not_covered: Vec<String> = blocking::run(|| self.fs.list_dir(data))?
+            .into_iter()
+            .filter(|e| e.is_dir)
+            .map(|e| e.name)
+            .filter(|n| self.stop.trust(n) == Trust::Unvouched && !closed.contains(n))
+            .collect();
+        blocking::run(|| record_clean_stop(&self.fs, data, &not_covered))?;
+        Ok(())
     }
 
     /// The APIs this broker serves.

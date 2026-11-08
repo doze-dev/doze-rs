@@ -21,7 +21,10 @@ fn setup() -> (Partitions<SimFs>, Arc<Topic>) {
             .unwrap();
         let _ = p;
     }
-    (Partitions::new(fs, Config::new("/data".into())), topic)
+    (
+        Partitions::new(fs, Config::new("/data".into()), Default::default()),
+        topic,
+    )
 }
 
 #[tokio::test]

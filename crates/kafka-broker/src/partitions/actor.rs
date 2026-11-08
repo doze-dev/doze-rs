@@ -16,7 +16,8 @@ const GROUP: usize = 64;
 
 pub(super) enum Command {
     Append(Append),
-    Close(oneshot::Sender<()>),
+    /// Flush and close; answers whether that worked.
+    Close(oneshot::Sender<bool>),
 }
 
 pub(super) struct Append {
@@ -68,8 +69,8 @@ pub(super) async fn run<F: Fs>(
             Flushed::NothingWritten => {}
         }
         if let Some(done) = closing {
-            let _ = blocking::run(|| log.close());
-            let _ = done.send(());
+            let clean = blocking::run(|| log.close()).is_ok();
+            let _ = done.send(clean);
             return;
         }
     }
@@ -89,7 +90,7 @@ enum Flushed {
 fn work<F: Fs>(
     log: &mut PartitionLog<F>,
     group: Vec<Command>,
-) -> (Option<oneshot::Sender<()>>, Flushed) {
+) -> (Option<oneshot::Sender<bool>>, Flushed) {
     let (mut wrote, mut wants_flush, mut closing) = (false, false, None);
     for command in group {
         match command {

@@ -1,0 +1,64 @@
+//! Starting the broker, and stopping it when asked.
+
+use std::sync::Arc;
+
+use anyhow::{Context, Result};
+use kafka_broker::Broker;
+use kafka_server::Server;
+use kafka_storage::fs::RealFs;
+use tracing_subscriber::EnvFilter;
+
+use crate::cli::{Args, LogFormat, Settings};
+
+/// Sets up logging to stderr.
+pub(crate) fn logging(args: &Args) {
+    let filter =
+        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(&args.log_level));
+    let builder = tracing_subscriber::fmt()
+        .with_env_filter(filter)
+        .with_ansi(std::io::IsTerminal::is_terminal(&std::io::stderr()))
+        .with_writer(std::io::stderr);
+    match args.log_format {
+        LogFormat::Text => builder.init(),
+        LogFormat::Json => builder.json().init(),
+    }
+}
+
+/// Opens the broker, serves until told to stop, then stops cleanly: the server first, so nothing new arrives, then
+/// the broker, which flushes every partition and records that it did.
+pub(crate) async fn serve(settings: Settings) -> Result<()> {
+    let Settings { broker, server } = settings;
+    let broker = Arc::new(Broker::open(RealFs, broker).context("opening the broker's data")?);
+    let running = Server::bind(server.clone(), Arc::clone(&broker))
+        .await
+        .with_context(|| format!("listening on {}", server.listen))?;
+    tracing::info!(addr = %running.local_addr(), "listening");
+    stopped().await;
+    tracing::info!("stopping");
+    running.shutdown().await;
+    broker.shutdown().await.context("stopping the broker")?;
+    tracing::info!("stopped");
+    Ok(())
+}
+
+/// Resolves when the process is asked to stop (SIGINT or SIGTERM).
+async fn stopped() {
+    #[cfg(unix)]
+    {
+        use tokio::signal::unix::{SignalKind, signal};
+        let (Ok(mut term), Ok(mut int)) = (
+            signal(SignalKind::terminate()),
+            signal(SignalKind::interrupt()),
+        ) else {
+            return std::future::pending().await;
+        };
+        tokio::select! {
+            _ = term.recv() => {}
+            _ = int.recv() => {}
+        }
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = tokio::signal::ctrl_c().await;
+    }
+}
