@@ -89,6 +89,13 @@ impl<F: Fs> Broker<F> {
         Ok(())
     }
 
+    /// How many partitions have their files open now (never more than `max_open_partitions` plus those a request
+    /// is holding).
+    #[must_use]
+    pub fn open_partitions(&self) -> usize {
+        self.partitions.open_count()
+    }
+
     /// The APIs this broker serves.
     #[must_use]
     pub fn served(&self) -> ApiSet {

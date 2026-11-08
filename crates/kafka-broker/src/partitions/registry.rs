@@ -69,6 +69,15 @@ impl<F: Fs> Partitions<F> {
             .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 
+    /// How many partitions are open now.
+    pub(crate) fn open_count(&self) -> usize {
+        self.registry()
+            .open
+            .values()
+            .filter(|e| e.slot.get().is_some())
+            .count()
+    }
+
     /// The partition, opened if it is not yet. Two callers that arrive together share one open.
     ///
     /// # Errors

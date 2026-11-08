@@ -59,3 +59,33 @@ async fn a_clean_stop_covers_the_partitions_that_were_closed_on_the_way() {
         "the header and no partition left unvouched"
     );
 }
+
+#[tokio::test]
+async fn no_more_than_the_limit_stay_open_and_a_limit_that_fits_them_all_closes_none() {
+    let tight = rig_with(|c| c.max_open_partitions = 2);
+    tight.create(vec![topic("t", 6)], false).await;
+    for p in 0..6 {
+        tight.produce(1, "t", p, records(1)).await;
+        assert_eq!(tight.broker.open_partitions(), (p as usize + 1).min(2));
+    }
+    let roomy = rig_with(|c| c.max_open_partitions = 6);
+    roomy.create(vec![topic("t", 6)], false).await;
+    for p in 0..6 {
+        roomy.produce(1, "t", p, records(1)).await;
+    }
+    assert_eq!(roomy.broker.open_partitions(), 6);
+}
+
+#[tokio::test]
+async fn deleting_a_topic_closes_its_partitions_before_removing_their_files() {
+    let rig = rig_with(|c| c.max_open_partitions = 0);
+    rig.create(vec![topic("t", 3), topic("keep", 1)], false)
+        .await;
+    for p in 0..3 {
+        rig.produce(1, "t", p, records(1)).await;
+    }
+    rig.produce(1, "keep", 0, records(1)).await;
+    assert_eq!(rig.broker.open_partitions(), 4);
+    rig.delete_by_name(&["t"]).await;
+    assert_eq!(rig.broker.open_partitions(), 1, "only the other topic's");
+}

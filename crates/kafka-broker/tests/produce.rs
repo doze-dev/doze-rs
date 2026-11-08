@@ -234,3 +234,38 @@ async fn an_acks_all_produce_is_flushed_when_it_arrives_and_does_not_wait_for_th
     );
     assert_eq!(stored(&rig.fs.power_cut(drop_unflushed()), "t", 0).len(), 1);
 }
+
+#[tokio::test]
+async fn producer_ids_stay_unique_and_rising_across_the_blocks_they_are_reserved_in_and_a_crash() {
+    // Ids are reserved a thousand at a time; 2100 cross two boundaries.
+    let rig = rig();
+    let first = futures_seq(&rig, 2100).await;
+    assert!(first.windows(2).all(|w| w[0] < w[1]), "rising, no repeats");
+    // A power cut loses nothing that was handed out: the next id is past the last.
+    let after = support::open_on(rig.fs.power_cut(drop_unflushed()));
+    let next = futures_seq(&after, 1).await[0];
+    assert!(next > *first.last().unwrap(), "{next} after {first:?}");
+}
+
+#[tokio::test(start_paused = true)]
+async fn the_acks_one_flush_comes_a_full_interval_after_the_first_write_not_the_last() {
+    let rig = support::rig_with(|c| c.fsync_interval = Duration::from_millis(500));
+    rig.create(vec![topic("t", 1)], false).await;
+    rig.produce(1, "t", 0, records(1)).await;
+    tokio::time::sleep(Duration::from_millis(400)).await;
+    rig.produce(1, "t", 0, records(1)).await;
+    assert!(
+        stored(&rig.fs.power_cut(drop_unflushed()), "t", 0).is_empty(),
+        "400 ms in, nothing is flushed yet"
+    );
+    // 501 ms after the first write, 101 after the second: the timer runs from the first.
+    tokio::time::sleep(Duration::from_millis(101)).await;
+    for _ in 0..10 {
+        tokio::task::yield_now().await;
+    }
+    assert_eq!(
+        stored(&rig.fs.power_cut(drop_unflushed()), "t", 0).len(),
+        2,
+        "both writes were flushed at the one timer"
+    );
+}
