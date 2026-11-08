@@ -84,16 +84,6 @@ fn a_limit_hides_the_batches_that_begin_at_or_after_it() {
 }
 
 #[test]
-fn a_reader_sees_only_appended_payloads_and_a_clone_sees_the_same() {
-    let (_fs, _dir, mut log) = fresh(NEVER);
-    let (a, b) = (log.reader(), log.reader().clone());
-    log.append(&ones(2, 0), NOW, TimestampType::Create).unwrap();
-    assert_eq!(bases(&all(&a)), vec![0, 1]);
-    assert_eq!(bases(&all(&b)), vec![0, 1]);
-    assert_eq!((a.end_offset(), b.start_offset()), (offset(2), offset(0)));
-}
-
-#[test]
 fn a_reader_can_wait_for_the_end_to_move() {
     let rt = tokio::runtime::Builder::new_current_thread()
         .enable_time()

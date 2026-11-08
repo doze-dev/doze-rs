@@ -40,19 +40,6 @@ fn delete_before_moves_the_start_and_removes_whole_segments_below_it() {
 }
 
 #[test]
-fn the_new_start_survives_a_restart() {
-    let (fs, dir, mut log) = three_segments(0);
-    log.delete_before(Some(offset(3))).unwrap();
-    log.sync().unwrap();
-    drop(log);
-    let log = open(&fs.process_restart(), &dir, 2 * one(), Trust::Unvouched);
-    assert_eq!(
-        (log.start_offset(), log.end_offset()),
-        (offset(3), offset(6))
-    );
-}
-
-#[test]
 fn deleting_to_the_end_empties_the_partition_and_starts_a_fresh_segment() {
     let (fs, dir, mut log) = fresh(NEVER);
     log.append(&ones(4, 0), NOW, TimestampType::Create).unwrap();
@@ -78,40 +65,6 @@ fn deleting_to_the_end_empties_the_partition_and_starts_a_fresh_segment() {
     assert_eq!(
         (log.start_offset(), log.end_offset()),
         (offset(4), offset(5))
-    );
-}
-
-#[test]
-fn the_start_is_recorded_before_any_file_is_removed() {
-    let (fs, dir, mut log) = three_segments(0);
-    log.sync().unwrap();
-    // Stop the process after the start is recorded (a temporary file, its flush, the rename, the directory
-    // flush: four operations) and before the first removal.
-    fs.halt_after(5);
-    let _ = log.delete_before(Some(offset(5)));
-    let after = fs.power_cut(Cut {
-        data: DataCut::Drop,
-        names: NameCut::Durable,
-        seed: 1,
-    });
-    let reopened = open(&after, &dir, 2 * one(), Trust::Unvouched);
-    assert!(reopened.start_offset() >= offset(0));
-    // Whatever the stop caught, the log that opens is consistent: start <= end and all of it reads.
-    let r = reopened.reader();
-    assert!(reopened.start_offset() <= reopened.end_offset());
-    r.read(reopened.start_offset(), usize::MAX, None).unwrap();
-}
-
-#[test]
-fn deleting_to_the_end_starts_by_flushing_and_a_failure_there_changes_nothing() {
-    let (fs, dir, mut log) = fresh(NEVER);
-    log.append(&ones(4, 0), NOW, TimestampType::Create).unwrap();
-    fs.fail(Op::Fsync, 1, Failure::Io);
-    assert!(log.delete_before(None).is_err());
-    assert_eq!(log.start_offset(), offset(0), "the start did not move");
-    assert!(
-        fs.contents(&dir.join("log-start")).is_none(),
-        "and nothing was recorded"
     );
 }
 

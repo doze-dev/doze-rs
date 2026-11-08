@@ -73,12 +73,6 @@ fn a_segment_with_no_timestamps_is_as_old_as_its_last_write() {
     assert_eq!(log.enforce_retention(policy, early).unwrap(), 0);
 }
 
-#[test]
-fn no_bounds_deletes_nothing() {
-    let (_fs, _dir, mut log) = three_segments(0);
-    assert_eq!(log.enforce_retention(Retention::default(), NOW).unwrap(), 0);
-}
-
 /// The decision for sealed segments of the given sizes and ages, and how many ages it had to work out.
 fn decide(sizes: &[u64], ages: &[i64], active: u64, policy: Retention, now: i64) -> (usize, usize) {
     let looked_at = std::cell::Cell::new(0);
@@ -138,44 +132,6 @@ fn an_age_is_only_worked_out_when_it_is_needed() {
         "up to the first that is not expired"
     );
     assert_eq!(decide(&sizes, &ages, 0, by(None, None), 500), (0, 0));
-}
-
-#[test]
-fn a_partition_that_is_not_open_is_trimmed_the_same_way() {
-    let (fs, dir, mut log) = three_segments(0);
-    log.sync().unwrap();
-    let open_result = {
-        let (fs2, dir2, mut log2) = three_segments(0);
-        log2.sync().unwrap();
-        drop(log2);
-        let r = crate::enforce_closed(
-            &fs2,
-            &dir2,
-            Retention {
-                max_bytes: Some(4 * one()),
-                max_age_ms: None,
-            },
-            NOW,
-        )
-        .unwrap();
-        (r, names(&fs2, &dir2))
-    };
-    drop(log);
-    let removed = crate::enforce_closed(
-        &fs,
-        &dir,
-        Retention {
-            max_bytes: Some(4 * one()),
-            max_age_ms: None,
-        },
-        NOW,
-    )
-    .unwrap();
-    assert_eq!((removed, names(&fs, &dir)), open_result);
-    assert_eq!(removed, 1);
-    // The start follows from the first segment left, the next time it is opened.
-    let log = open(&fs, &dir, 2 * one(), Trust::Unvouched);
-    assert_eq!(log.start_offset(), offset(2));
 }
 
 #[test]

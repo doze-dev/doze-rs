@@ -106,6 +106,13 @@ is natural in Rust rather than a transliteration of the Go.
    are green, and an independent audit (a separate agent, not the author) has
    scored it against the behaviour catalogue and these rules. (Memory: a
    self-judged 21/21 was 3/19 to an audit.)
+10. **Tests earn their place; the Go suite's size is a warning, not a model.** A test is kept if it is (a) an oracle
+   that finds bugs by itself (a simulation, a fuzz target, a real-concurrency or measurement test), (b) a regression
+   for a bug that was actually found and that no oracle reaches cheaply, or (c) the only check of a behaviour that
+   defines the contract. It is not a test per mutant, per branch or per getter, nor one that re-checks what a type
+   or another test pins. Method: mutate the code, record which tests catch each mutant, and cut the tests that are never
+   the only catcher unless they define a contract. An audit's surviving mutants are questions ("does this behaviour
+   matter, and does an oracle already reach it?"), not a to-do list of tests to add.
 
 ## Workspace and crates
 
@@ -341,3 +348,11 @@ test-only knobs in `internal/config`.
   restart finds them in the page cache. Mutation check after the fixes: 13 of 13 sampled mutants of the new rules are
   killed (the audit's 28 survivors were closed with direct tests or by the stricter simulation); 109 unit tests, the
   simulation at 600 seeds per sweep (about 9 s in release), 5 real-disk tests, the flat-memory test, and a recovery fuzzer.
+- **2026-11-08, Phase 2 test diet.** The owner's note, "I think [I] overdid tests in go cos of fear and possibly bad
+  methodology. Do not overdo the same with rust", applied to my own work: after the audit I had written a test for each
+  surviving mutant and the crate had 120 tests around a 40-line simulation. The method now in quality rule 10 was run:
+  28 mutants across the crate, the tests that fail for each recorded, then every test that was not an oracle, the
+  only catcher of some mutant, a regression for a bug actually found, or the only check of a contract behaviour was
+  deleted. 120 tests became 61 (54 unit, 2 real-disk, 1 flat-memory, 4 simulation sweeps); the same 28 mutants were run
+  again and none escaped. The behaviour catalogue names only tests that exist; a behaviour the simulation exercises
+  says so. Phase 1 (`kafka-wire`, 88 tests, written before this rule) gets the same treatment next.

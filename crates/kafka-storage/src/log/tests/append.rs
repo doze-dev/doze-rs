@@ -7,24 +7,6 @@ use kafka_wire::batch::TimestampType;
 use kafka_wire::ids::{Offset, TimestampMs};
 
 #[test]
-fn a_new_partition_is_empty_with_one_segment() {
-    let (fs, dir, log) = fresh(NEVER);
-    assert_eq!(
-        (log.start_offset(), log.end_offset()),
-        (offset(0), offset(0))
-    );
-    assert_eq!(
-        fs.names(&dir),
-        vec!["00000000000000000000.index", "00000000000000000000.log"]
-    );
-    let reader = log.reader();
-    assert!(
-        reader.read(offset(0), 100, None).unwrap().is_empty(),
-        "caught up"
-    );
-}
-
-#[test]
 fn offsets_are_assigned_at_append_and_stamped_into_the_batches() {
     let (_fs, _dir, mut log) = fresh(NEVER);
     let first = log
@@ -72,22 +54,6 @@ fn a_payload_that_does_not_fit_rolls_first_and_goes_in_whole() {
 }
 
 #[test]
-fn a_roll_flushes_the_segment_it_seals_before_the_next_exists() {
-    let (fs, _dir, mut log) = fresh(2 * one());
-    log.append(&ones(2, 0), NOW, TimestampType::Create).unwrap();
-    log.append(&ones(1, 0), NOW, TimestampType::Create).unwrap();
-    let trace = fs.trace();
-    let at = |op: Op, name: &str| {
-        trace
-            .iter()
-            .position(|(o, p)| *o == op && p.to_string_lossy().ends_with(name))
-    };
-    let flushed = at(Op::Fsync, "0000.log").or_else(|| at(Op::Fsync, "00000000000000000000.log"));
-    let created = at(Op::Create, "00000000000000000002.log");
-    assert!(flushed.unwrap() < created.unwrap(), "{trace:?}");
-}
-
-#[test]
 fn a_payload_is_appended_whole_or_not_at_all() {
     let (fs, _dir, mut log) = fresh(NEVER);
     log.append(&ones(1, 0), NOW, TimestampType::Create).unwrap();
@@ -111,61 +77,6 @@ fn a_payload_is_appended_whole_or_not_at_all() {
         "the retry gets the offsets the failed try would have had"
     );
     assert_eq!(bases(&all(&log.reader())), vec![0, 1, 2, 3]);
-}
-
-#[test]
-fn a_full_disk_refuses_writes_and_they_resume_when_there_is_room() {
-    let (fs, _dir, mut log) = fresh(NEVER);
-    log.append(&ones(1, 0), NOW, TimestampType::Create).unwrap();
-    fs.set_capacity(Some(one() + 16 + 30));
-    assert!(log.append(&ones(2, 0), NOW, TimestampType::Create).is_err());
-    assert_eq!(log.end_offset(), offset(1));
-    fs.set_capacity(None);
-    assert_eq!(
-        log.append(&ones(2, 0), NOW, TimestampType::Create)
-            .unwrap()
-            .next_offset,
-        offset(3)
-    );
-    assert_eq!(bases(&all(&log.reader())), vec![0, 1, 2]);
-}
-
-#[test]
-fn an_empty_payload_changes_nothing() {
-    let (_fs, _dir, mut log) = fresh(NEVER);
-    let a = log.append(&[], NOW, TimestampType::Create).unwrap();
-    assert_eq!((a.first_offset, a.next_offset), (offset(0), offset(0)));
-}
-
-#[test]
-fn offsets_run_out_without_wrapping() {
-    // A partition whose only segment begins just below the top of the offset space.
-    let (fs, dir) = crate::testutil::disk();
-    let base = i64::MAX - 5;
-    let name = format!("{base:020}");
-    for ext in ["log", "index"] {
-        fs.open_or_create(&dir.join(format!("{name}.{ext}")))
-            .unwrap();
-    }
-    let mut log = open(&fs, &dir, NEVER, Trust::Unvouched);
-    assert_eq!(log.end_offset(), offset(base));
-    let err = log
-        .append(&[batch(10, 0)], NOW, TimestampType::Create)
-        .unwrap_err();
-    assert!(matches!(err, StorageError::Io { .. }));
-    assert_eq!(log.end_offset(), offset(base), "nothing was taken");
-    assert!(
-        log.reader()
-            .read(offset(base), 100, None)
-            .unwrap()
-            .is_empty()
-    );
-    assert_eq!(
-        log.append(&[batch(5, 0)], NOW, TimestampType::Create)
-            .unwrap()
-            .next_offset,
-        offset(i64::MAX)
-    );
 }
 
 #[test]

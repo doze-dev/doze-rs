@@ -33,24 +33,6 @@ fn segments_below_the_recorded_start_are_removed_at_open() {
 }
 
 #[test]
-fn a_roll_that_died_after_creating_the_next_segment_leaves_an_empty_active_segment() {
-    let (fs, dir) = written(2, NEVER);
-    fs.open_or_create(&dir.join("00000000000000000002.log"))
-        .unwrap();
-    fs.open_or_create(&dir.join("00000000000000000002.index"))
-        .unwrap();
-    let mut log = reopen(&fs, &dir);
-    assert_eq!(log.end_offset(), offset(2));
-    assert_eq!(
-        log.append(&ones(1, 0), NOW, TimestampType::Create)
-            .unwrap()
-            .first_offset,
-        offset(2)
-    );
-    assert_eq!(bases(&all(&log.reader())), vec![0, 1, 2]);
-}
-
-#[test]
 fn an_empty_segment_a_failed_roll_left_behind_cannot_hide_the_records_that_followed_it() {
     // The simulation found this: a roll created the next segment's log, could not create its index, and removed
     // the log again, and none of that was flushed. Appends went on in the old segment. A power cut then brought
@@ -76,19 +58,6 @@ fn an_empty_segment_a_failed_roll_left_behind_cannot_hide_the_records_that_follo
         fs.names(&dir),
         vec![INDEX0, LOG0],
         "and the leftover is removed"
-    );
-}
-
-#[test]
-fn a_segment_that_starts_exactly_where_the_one_before_ends_is_not_a_leftover() {
-    let (fs, dir) = written(4, 2 * one());
-    let log = reopen(&fs, &dir);
-    assert_eq!(log.end_offset(), offset(4));
-    assert_eq!(
-        fs.names(&dir).len(),
-        4,
-        "two segments, each with its index: {:?}",
-        fs.names(&dir)
     );
 }
 
@@ -136,18 +105,6 @@ fn a_recorded_start_beyond_the_records_that_survived_is_carried_on_from_never_re
 }
 
 #[test]
-fn a_directory_with_only_a_recorded_start_begins_its_first_segment_there() {
-    let (fs, dir) = crate::testutil::disk();
-    fs.create_dir(&dir).ok();
-    crate::logstart::write(&fs, &dir, offset(40)).unwrap();
-    let log = reopen(&fs, &dir);
-    assert_eq!(
-        (log.start_offset(), log.end_offset()),
-        (offset(40), offset(40))
-    );
-}
-
-#[test]
 fn a_vouched_open_walks_only_the_end_of_the_log_and_an_unvouched_one_checks_all_of_it() {
     // The last stop flushed a vouched log whole, so only the stretch after the last index entry is looked at (with
     // its checksums). A damaged batch before it is not found; that is the point, and what vouching means. Without
@@ -167,72 +124,6 @@ fn a_vouched_open_walks_only_the_end_of_the_log_and_an_unvouched_one_checks_all_
     assert_eq!(
         open(&fs, &dir, NEVER, Trust::Vouched).end_offset(),
         offset(6)
-    );
-}
-
-#[test]
-fn a_vouched_open_that_finds_the_end_not_whole_falls_back_to_checking_everything() {
-    let (fs, dir) = written(5, NEVER);
-    let whole = fs.contents(&dir.join(LOG0)).unwrap().len() as u64;
-    let file = fs.open_existing(&dir.join(LOG0)).unwrap();
-    file.write_all_at(&raw_batch(5)[..30], whole).unwrap(); // a torn sixth batch, which a clean stop cannot leave
-    let log = open(&fs, &dir, NEVER, Trust::Vouched);
-    assert_eq!(log.end_offset(), offset(5));
-    assert_eq!(
-        fs.contents(&dir.join(LOG0)).unwrap().len() as u64,
-        whole,
-        "and it is cut"
-    );
-}
-
-fn raw_batch(base: i64) -> bytes::Bytes {
-    crate::testutil::raw(base, 1, 0)
-}
-
-#[test]
-fn a_vouched_open_still_owes_a_flush_of_the_names_it_removed() {
-    let (fs, dir) = written(2, NEVER);
-    fs.open_or_create(&dir.join("log-start.tmp")).unwrap();
-    let mut log = open(&fs, &dir, NEVER, Trust::Vouched);
-    let before = fs.ops();
-    log.sync().unwrap();
-    let flushed: Vec<_> = fs
-        .trace()
-        .into_iter()
-        .skip(before as usize)
-        .map(|t| t.0)
-        .collect();
-    assert!(
-        flushed.contains(&crate::sim::Op::DirSync),
-        "the removal of the leftover was never flushed"
-    );
-}
-
-#[test]
-fn a_leftover_segment_is_removed_only_if_it_begins_inside_the_one_before_it() {
-    let leftover = |base: i64| {
-        let (fs, dir) = written(3, NEVER); // records 0..2, end 3
-        for ext in ["log", "index"] {
-            fs.open_or_create(&dir.join(format!("{base:020}.{ext}")))
-                .unwrap();
-        }
-        let log = reopen(&fs, &dir);
-        (log.end_offset(), fs.names(&dir).len())
-    };
-    assert_eq!(
-        leftover(2),
-        (offset(3), 2),
-        "begins one offset inside: removed"
-    );
-    assert_eq!(
-        leftover(3),
-        (offset(3), 4),
-        "begins exactly at the end: a real, empty, next segment"
-    );
-    assert_eq!(
-        leftover(4),
-        (offset(4), 4),
-        "begins past the end: the log carries on from it"
     );
 }
 

@@ -23,13 +23,6 @@ fn write_raw(fs: &SimFs, bytes: &[u8]) {
 }
 
 #[test]
-fn with_no_marker_nothing_is_vouched_for() {
-    let state = StopState::begin(&disk(), Path::new(DATA)).unwrap();
-    assert!(!state.was_clean());
-    assert_eq!(state.trust("orders-0"), Trust::Unvouched);
-}
-
-#[test]
 fn a_clean_stop_vouches_for_every_partition_it_does_not_name() {
     let fs = disk();
     record_clean_stop(&fs, Path::new(DATA), &["slow-0".into(), "slow-1".into()]).unwrap();
@@ -63,22 +56,6 @@ fn the_marker_is_gone_for_good_before_anything_else_is_written() {
     assert!(marker(&after).is_none());
     assert!(
         !StopState::begin(&after, Path::new(DATA))
-            .unwrap()
-            .was_clean()
-    );
-}
-
-#[test]
-fn a_recorded_stop_survives_a_power_cut() {
-    let fs = disk();
-    record_clean_stop(&fs, Path::new(DATA), &[]).unwrap();
-    let after = fs.power_cut(Cut {
-        data: DataCut::Drop,
-        names: NameCut::Durable,
-        seed: 1,
-    });
-    assert!(
-        StopState::begin(&after, Path::new(DATA))
             .unwrap()
             .was_clean()
     );

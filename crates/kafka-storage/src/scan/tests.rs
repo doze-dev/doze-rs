@@ -1,5 +1,3 @@
-use std::path::Path;
-
 use kafka_wire::batch::build::BatchBuilder;
 
 use super::*;
@@ -20,48 +18,6 @@ fn walk(bytes: &[u8], base: i64, interval: u64, crc_from: u64) -> Scanned {
 }
 
 #[test]
-fn an_empty_log_ends_at_its_base() {
-    let s = walk(&[], 40, 4096, 0);
-    assert_eq!(
-        (s.valid_end, s.next_offset, s.index.len()),
-        (0, offset(40), 0)
-    );
-    assert_eq!(s.max_timestamp, None);
-}
-
-#[test]
-fn a_clean_log_is_walked_to_its_end() {
-    let log = run(10, &[2, 5, 1]);
-    let s = walk(&log, 10, 1 << 20, 0);
-    assert_eq!(s.valid_end, log.len() as u64);
-    assert_eq!(s.next_offset, offset(18));
-    assert_eq!(s.max_timestamp.map(|t| t.get()), Some(1_017));
-    // One entry, for the first batch; the rest are within the interval.
-    assert_eq!(
-        s.index,
-        vec![Entry {
-            offset: 10,
-            position: 0
-        }]
-    );
-}
-
-#[test]
-fn the_index_gets_an_entry_each_time_the_interval_is_reached() {
-    let one = raw(0, 1, 0).len() as u64;
-    let log = run(0, &[1; 10]);
-    let s = walk(&log, 0, 3 * one, 0);
-    let at: Vec<_> = s
-        .index
-        .iter()
-        .map(|e| (e.offset, e.position / one))
-        .collect();
-    // The first batch, then every third: an entry resets the count, so the batch it is for does not count.
-    assert_eq!(at, vec![(0, 0), (3, 3), (6, 6), (9, 9)]);
-    assert_eq!(s.since_index, 0);
-}
-
-#[test]
 fn a_torn_tail_is_cut_at_the_last_whole_batch() {
     let log = run(0, &[1, 1, 1]);
     let one = log.len() / 3;
@@ -76,15 +32,6 @@ fn a_torn_tail_is_cut_at_the_last_whole_batch() {
         assert_eq!(s.valid_end, 2 * one as u64, "cut at {cut}");
         assert_eq!(s.next_offset, offset(2));
     }
-}
-
-#[test]
-fn a_zero_filled_tail_after_a_power_cut_is_cut() {
-    let mut log = run(0, &[1, 1]);
-    let whole = log.len() as u64;
-    log.extend_from_slice(&[0; 10_000]);
-    let s = walk(&log, 0, 4096, 0);
-    assert_eq!((s.valid_end, s.next_offset), (whole, offset(2)));
 }
 
 #[test]
@@ -166,33 +113,4 @@ fn a_batch_bigger_than_the_read_window_is_walked() {
     log.extend_from_slice(&raw(1, 1, 0));
     let s = walk(&log, 0, 4096, 0);
     assert_eq!((s.valid_end, s.next_offset), (log.len() as u64, offset(2)));
-}
-
-#[test]
-fn many_small_batches_cross_the_window_boundary_correctly() {
-    let counts = vec![1u32; 20_000]; // about 1.4 MB: more than one window
-    let log = run(0, &counts);
-    assert!(log.len() > WINDOW);
-    let s = walk(&log, 0, 1 << 30, 0);
-    assert_eq!(
-        (s.valid_end, s.next_offset),
-        (log.len() as u64, offset(20_000))
-    );
-}
-
-#[test]
-fn the_newest_timestamp_is_read_from_headers_alone() {
-    let (file, size) = log_of(&run(0, &[1, 1, 1]));
-    assert_eq!(
-        max_timestamp(&file, size).unwrap().map(|t| t.get()),
-        Some(1_002)
-    );
-    let none = BatchBuilder::new().timestamps(-1, -1).build();
-    let (file, size) = log_of(&none);
-    assert_eq!(
-        max_timestamp(&file, size).unwrap(),
-        None,
-        "-1 means no timestamp"
-    );
-    let _ = Path::new("");
 }
