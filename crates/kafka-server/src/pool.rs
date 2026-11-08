@@ -19,6 +19,11 @@ const CLASSES: usize = (MAX.trailing_zeros() - MIN.trailing_zeros() + 1) as usiz
 const PER_CLASS: usize = 16;
 const KEPT_BYTES: usize = 64 << 20;
 
+/// Whether a frame of `len` bytes is read into a pooled buffer: from `MIN` to `MAX`, both included.
+pub(crate) fn pooled(len: usize) -> bool {
+    (MIN..=MAX).contains(&len)
+}
+
 /// The shelves, one per size class, and how many bytes are on them. One lock covers both: two locks taken in two
 /// orders by `take` and `give_back` hung the broker (found by the Phase 3 re-audit).
 #[derive(Default)]
@@ -132,6 +137,18 @@ mod tests {
         drop(many.into_iter().map(|b| pool.share(b)).collect::<Vec<_>>());
         assert!(on_shelf(pool, 0) <= PER_CLASS);
         assert!(lock(&pool.shelves).kept <= KEPT_BYTES);
+    }
+
+    #[test]
+    fn frames_from_the_smallest_class_to_the_largest_are_pooled_and_none_others() {
+        assert!(!pooled(MIN - 1) && pooled(MIN) && pooled(MIN + 1));
+        assert!(pooled(MAX - 1) && pooled(MAX) && !pooled(MAX + 1));
+        assert!(!pooled(0) && !pooled(usize::MAX));
+        // Every length that is pooled has a class, and the buffer is as big as the class.
+        let pool = pool();
+        for len in [MIN, MIN + 1, 1 << 20, MAX] {
+            assert!(shelf_of(pool.take(len).capacity()).is_some(), "{len}");
+        }
     }
 
     #[test]

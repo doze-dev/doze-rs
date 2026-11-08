@@ -28,7 +28,7 @@ pub(crate) async fn next<S: AsyncRead + Unpin>(
     let mut deadline = (!buf.is_empty()).then(|| Instant::now() + timeouts.frame);
     loop {
         if let Some(len) = decoder.length(buf).map_err(End::Wire)?
-            && (pool::MIN..=pool::MAX).contains(&(len as usize))
+            && pool::pooled(len as usize)
             && buf.len() < 4 + len as usize
         {
             // A big frame is read straight into a buffer that is kept for the next one.

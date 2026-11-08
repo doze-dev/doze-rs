@@ -36,6 +36,7 @@ Test: `a_fetch_waiting_on_a_topic_that_is_deleted_is_told_it_is_unknown_at_once`
 
 ### F7. Fetch sessions are not kept
 A request that continues one is FETCH_SESSION_ID_NOT_FOUND; every response says session 0.
+Test: `fetch::a_request_that_continues_a_fetch_session_is_told_there_is_none_*`
 
 ### F8. Read-committed
 Carries an empty list of aborted transactions (null for read-uncommitted); the last stable offset is the end until
@@ -65,7 +66,9 @@ default), so a request for "everything" does not build a response the size of th
 partition with data still comes back if it alone is larger.
 Test: `round::tests::a_request_is_held_to_what_it_asks_and_to_the_most_a_response_may_hold`
 
-### F10. A long poll wakes on a topic made or deleted, once
-The wait for records re-subscribes to the topic-change signal before it looks again, so a change that has been seen is
-not seen again (a receiver kept from before the change reports it on every look, and the poll spins).
-Test: `fetch::tests::*`, `tests/races`
+### F10. A long poll notices a topic deleted, once
+Only a deletion changes what a waiting fetch is watching (a topic made is not one it asked for), and the broker counts
+them. The wait re-subscribes to that count before it looks again, so a deletion that has been seen is not seen again (a
+receiver kept from before it reports it on every look, and the poll spins).
+Test: `fetch::tests::*` (the wait does not spin); `tests/races` (a delete and a create racing). Removing the
+re-subscribe is *not* caught by a test: `from_changes` also consumes each change, which prevents the spin on its own.

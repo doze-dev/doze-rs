@@ -219,3 +219,27 @@ async fn a_read_committed_fetch_carries_an_empty_list_of_aborted_transactions_an
             .is_none()
     );
 }
+
+#[tokio::test]
+async fn a_request_that_continues_a_fetch_session_is_told_there_is_none_and_a_full_fetch_is_not() {
+    const FETCH_SESSION_ID_NOT_FOUND: i16 = 70;
+    let rig = rig();
+    rig.create(vec![topic("t", 1)], false).await;
+    let fetch = |session_id: i32, session_epoch: i32| {
+        let mut req = fetch_request(&[("t", 0, 0, 100)], 0, 1, 1 << 20);
+        req.session_id = session_id;
+        req.session_epoch = session_epoch;
+        req
+    };
+    for (id, epoch, ok) in [(0, 0, true), (0, -1, true), (5, 3, false), (5, 1, false)] {
+        let kafka_wire::api::Response::Fetch(r) = rig
+            .ask(12, kafka_wire::api::Request::Fetch(fetch(id, epoch)))
+            .await
+        else {
+            panic!("not Fetch")
+        };
+        let want = if ok { 0 } else { FETCH_SESSION_ID_NOT_FOUND };
+        assert_eq!(r.error_code, want, "session {id}, epoch {epoch}");
+        assert_eq!(r.session_id, 0, "every response says there is no session");
+    }
+}

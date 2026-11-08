@@ -269,3 +269,22 @@ async fn the_acks_one_flush_comes_a_full_interval_after_the_first_write_not_the_
         "both writes were flushed at the one timer"
     );
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn an_acks_all_produce_is_durable_the_moment_it_is_answered_even_with_the_writer_running_beside_the_handler()
+ {
+    // The writer flushes before it replies, so the handler's wait on the ticket only matters when the flush fails (a
+    // failed flush has its own test). This is the property itself, with the writer on another thread: a power cut taken
+    // at once after each answer finds the batch.
+    let rig = rig();
+    rig.create(vec![topic("t", 1)], false).await;
+    for n in 1..=150 {
+        let r = rig.produce(-1, "t", 0, records(1)).await;
+        assert_eq!(r.error_code, 0);
+        let kept = stored(&rig.fs.power_cut(drop_unflushed()), "t", 0).len();
+        assert_eq!(
+            kept, n,
+            "the {n}th answer came before its batch was on disk"
+        );
+    }
+}

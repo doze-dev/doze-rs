@@ -62,3 +62,53 @@ async fn a_topic_made_again_while_its_old_self_is_being_deleted_is_not_damaged_b
         );
     }
 }
+
+/// The same race, with the new topic made by a Metadata request (auto-creation) instead of CreateTopics: that path
+/// has its own lock to take.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_topic_made_by_a_metadata_request_while_its_old_self_is_being_deleted_is_not_damaged_by_the_delete()
+ {
+    for round in 0..12 {
+        let rig = Arc::new(support::rig_with(|c| c.default_partitions = 150));
+        rig.create(vec![topic("t", 150)], false).await;
+        for p in 0..150 {
+            rig.produce(1, "t", p, records(1)).await;
+        }
+        let old_id = rig.metadata(12, Some(&["t"]), false).await.topics[0].topic_id;
+        let deleting = {
+            let rig = Arc::clone(&rig);
+            tokio::spawn(async move { rig.delete_by_name(&["t"]).await })
+        };
+        let making = {
+            let rig = Arc::clone(&rig);
+            tokio::spawn(async move {
+                loop {
+                    let answer = rig.metadata(12, Some(&["t"]), true).await;
+                    let t = &answer.topics[0];
+                    if t.error_code == 0 && t.topic_id != old_id {
+                        return rig.produce(-1, "t", 1, records(1)).await;
+                    }
+                    tokio::task::yield_now().await;
+                }
+            })
+        };
+        let (gone, acked) = tokio::join!(deleting, making);
+        assert_eq!(gone.unwrap()[0].error_code, 0, "round {round}");
+        let acked = acked.unwrap();
+        assert_eq!(
+            (acked.error_code, acked.base_offset),
+            (0, 0),
+            "round {round}"
+        );
+        let cut = rig.fs.power_cut(Cut {
+            data: DataCut::Drop,
+            names: NameCut::Durable,
+            seed: round,
+        });
+        assert_eq!(
+            stored(&cut, "t", 1).len(),
+            1,
+            "round {round}: what was acknowledged survived"
+        );
+    }
+}

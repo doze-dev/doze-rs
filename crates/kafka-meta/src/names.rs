@@ -93,7 +93,8 @@ impl NameIndex {
                 case_only: true,
             });
         }
-        // Of several topics a name collides with, Kafka names the one created last.
+        // Of several topics a name collides with, Kafka names the one created last; names that collide cannot coexist
+        // except when one request made them together, so this is the last by name.
         let metric = self.by_metric.get(&metric_key(name)).into_iter().flatten();
         let existing = metric.rev().find(|e| *e != name && !beside.contains(*e))?;
         Some(Collision {

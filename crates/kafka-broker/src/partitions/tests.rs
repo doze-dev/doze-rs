@@ -125,3 +125,29 @@ async fn a_request_that_knew_a_topic_before_it_was_deleted_and_made_again_does_n
     assert_eq!(partitions.len(), 1);
     drop(served);
 }
+
+#[tokio::test]
+async fn a_partition_being_closed_is_not_opened_again_until_it_is_closed() {
+    let (partitions, topic) = setup();
+    let id = PartitionId::new(0).unwrap();
+    let open = partitions.get(&topic, id).await.unwrap();
+    drop(open);
+    let closing = partitions.pretend_closing((topic.id, id));
+    let wait = std::time::Duration::from_millis(50);
+    assert!(
+        tokio::time::timeout(wait, partitions.get(&topic, id))
+            .await
+            .is_err(),
+        "two logs on the same files would be worse than waiting"
+    );
+    // Another partition of the topic is not held up.
+    partitions
+        .get(&topic, PartitionId::new(1).unwrap())
+        .await
+        .unwrap();
+    let (got, ()) = tokio::join!(partitions.get(&topic, id), async {
+        tokio::time::sleep(wait).await;
+        drop(closing);
+    });
+    assert!(got.is_ok(), "and once it is closed, it is opened");
+}

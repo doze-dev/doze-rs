@@ -10,7 +10,30 @@ use tokio::task::JoinSet;
 
 use super::{Entry, Key, Partition, Partitions};
 
+/// A partition's close, in progress: ends, and wakes whoever waits to open it again, however it is left.
+struct Closing<'a, F: Fs> {
+    partitions: &'a Partitions<F>,
+    key: Key,
+}
+
+impl<F: Fs> Drop for Closing<'_, F> {
+    fn drop(&mut self) {
+        self.partitions.registry().closing.remove(&self.key);
+        self.partitions.closing_done.notify_waiters();
+    }
+}
+
 impl<F: Fs> Partitions<F> {
+    /// Pretends the partition at `key` is being closed, until the returned value is dropped.
+    #[cfg(test)]
+    pub(in crate::partitions) fn pretend_closing(&self, key: Key) -> impl Drop + '_ {
+        self.registry().closing.insert(key);
+        Closing {
+            partitions: self,
+            key,
+        }
+    }
+
     /// Closes a partition that was opened for a topic that has gone, and forgets it.
     pub(super) async fn discard(&self, key: Key) {
         let entry = self.registry().open.remove(&key);
@@ -25,7 +48,7 @@ impl<F: Fs> Partitions<F> {
         if max == 0 {
             return;
         }
-        let victims: Vec<(String, Arc<Partition<F>>)> = {
+        let victims: Vec<(Key, String, Arc<Partition<F>>)> = {
             let mut registry = self.registry();
             let open = registry
                 .open
@@ -45,18 +68,39 @@ impl<F: Fs> Partitions<F> {
                 .collect();
             idle.sort_unstable();
             let take: Vec<Key> = idle.into_iter().take(open - max).map(|(_, k)| k).collect();
-            take.iter()
-                .filter_map(|k| registry.open.remove(k))
-                .filter_map(|e| Some((e.name, e.slot.get()?.clone())))
-                .collect()
+            let mut victims = Vec::new();
+            for k in take {
+                if let Some(e) = registry.open.remove(&k)
+                    && let Some(p) = e.slot.get()
+                {
+                    // Not vouched for until the close says so: if this future is dropped half way (a stop), the
+                    // partition's files are not known to be whole.
+                    registry.closed.insert(e.name.clone(), Trust::Unvouched);
+                    registry.closing.insert(k);
+                    victims.push((k, e.name, Arc::clone(p)));
+                }
+            }
+            victims
         };
-        for (name, partition) in victims {
-            let trust = if partition.close().await {
-                Trust::Vouched
-            } else {
-                Trust::Unvouched
-            };
-            self.registry().closed.insert(name, trust);
+        // Every guard exists before the first close begins, so that dropping this future part way releases them all.
+        let work: Vec<_> = victims
+            .into_iter()
+            .map(|(key, name, partition)| {
+                (
+                    Closing {
+                        partitions: self,
+                        key,
+                    },
+                    name,
+                    partition,
+                )
+            })
+            .collect();
+        for (done, name, partition) in work {
+            if partition.close().await {
+                self.registry().closed.insert(name, Trust::Vouched);
+            }
+            drop(done);
         }
     }
 

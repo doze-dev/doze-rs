@@ -27,7 +27,8 @@ Test: `cli::tests::*`, `duration::tests::*`, `tests/process::authentication_flag
 
 ### B5. Descriptors
 At start the soft limit on open files is raised toward the hard one (to 65,536 at most; macOS allows 10,240), and the
-number of open partitions is lowered to what the limit allows: `(limit - 256) / 4`, never under 8. An open partition
+number of open partitions is lowered to what the limit allows: `(limit - 256 - max connections) / 4`, never under 8
+(every connection that may be open holds one). An open partition
 holds a log and an index, one more while its directory is flushed, and one of headroom. A flush of a directory that finds
 no free descriptor (`EMFILE`, `ENFILE`) waits up to ten times 20 ms for one; it is not a failed flush and does not take
 the partition offline. One request that needs more partitions than the limit allows (a consumer of 300 partitions at a

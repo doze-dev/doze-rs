@@ -15,7 +15,11 @@ fn main() -> Result<()> {
     run::logging(&args);
     let mut settings = args.settings()?;
     let descriptors = descriptors::raise();
-    let open = descriptors::open_partitions(settings.broker.max_open_partitions, descriptors);
+    let open = descriptors::open_partitions(
+        settings.broker.max_open_partitions,
+        descriptors,
+        settings.server.max_connections,
+    );
     if open != settings.broker.max_open_partitions {
         tracing::info!(
             "keeping at most {open} partitions open (the limit on open files is {descriptors})"

@@ -12,7 +12,8 @@ Test: `kafka-wire::ids::topic::tests::a_name_is_what_kafka_allows_and_nothing_th
 
 ### M2. Names that would share a metric name or a directory may not both exist
 `a.b` against `a_b` (Kafka's rule) and names that differ only in letter case (ours: a case-insensitive file system
-would give them one directory). Of several collisions, the one created last is named. A request's own earlier topics
+would give them one directory). Letter case is judged first; of several names that collide under the dot rule, the one that sorts last is named (Kafka
+names the one created last, which only differs for names made by one request, since the others cannot coexist). A request's own earlier topics
 are let off the dot rule and not the case rule (Kafka checks each name of a request against the topics that existed
 before it). The same name is "already exists", not a collision. Deleting a topic frees its spellings.
 Test: `store::tests::a_name_may_not_live_beside_one_that_differs_only_in_case_or_in_dot_for_underscore`

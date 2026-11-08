@@ -3,7 +3,7 @@
 /// The most descriptors worth asking for. macOS refuses a soft limit above 10240 whatever the hard limit says; the
 /// `rlimit` crate lowers the ask there.
 const WANTED: u64 = 65_536;
-/// Kept back for connections, the lock, the metadata store, the log and everything else the process opens.
+/// Kept back for the lock, the metadata store, the log and everything else the process opens besides connections.
 const RESERVED: u64 = 256;
 /// Descriptors an open partition may hold: its log, its index, one more while a directory is flushed, and one of
 /// headroom.
@@ -17,10 +17,12 @@ pub(crate) fn raise() -> u64 {
     })
 }
 
-/// How many partitions may stay open at `limit` descriptors, given the `configured` number (0: no bound of its own).
-/// Never fewer than eight, so that a broker with a tiny limit still works, one partition at a time.
-pub(crate) fn open_partitions(configured: usize, limit: u64) -> usize {
-    let fit = usize::try_from(limit.saturating_sub(RESERVED) / PER_PARTITION)
+/// How many partitions may stay open at `limit` descriptors, given the `configured` number (0: no bound of its own)
+/// and that `connections` may be open as well, each holding one. Never fewer than eight, so that a broker with a tiny
+/// limit still works, one partition at a time.
+pub(crate) fn open_partitions(configured: usize, limit: u64, connections: usize) -> usize {
+    let spoken_for = RESERVED.saturating_add(u64::try_from(connections).unwrap_or(u64::MAX));
+    let fit = usize::try_from(limit.saturating_sub(spoken_for) / PER_PARTITION)
         .unwrap_or(usize::MAX)
         .max(8);
     if configured == 0 {
@@ -36,17 +38,28 @@ mod tests {
 
     #[test]
     fn the_configured_number_stands_when_the_limit_has_room_for_it() {
-        assert_eq!(open_partitions(512, 65_536), 512);
+        assert_eq!(open_partitions(512, 65_536, 0), 512);
     }
 
     #[test]
     fn a_low_limit_lowers_it_and_leaves_room_for_everything_else() {
-        assert_eq!(open_partitions(512, 1024), 192, "(1024 - 256) / 4");
-        assert_eq!(open_partitions(512, 256), 8, "never below eight");
+        assert_eq!(open_partitions(512, 1024, 0), 192, "(1024 - 256) / 4");
+        assert_eq!(open_partitions(512, 256, 0), 8, "never below eight");
+    }
+
+    #[test]
+    fn every_connection_that_may_be_open_is_a_descriptor_too() {
+        // 10,240 less 256 less 2,048 connections, a quarter of what is left.
+        assert_eq!(open_partitions(100_000, 10_240, 2_048), 1_984);
+        assert_eq!(
+            open_partitions(100_000, 1_000, 2_048),
+            8,
+            "and never below eight"
+        );
     }
 
     #[test]
     fn unbounded_is_bounded_by_the_limit() {
-        assert_eq!(open_partitions(0, 10_240), 2496);
+        assert_eq!(open_partitions(0, 10_240, 0), 2496);
     }
 }

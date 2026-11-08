@@ -180,6 +180,10 @@ mod tests {
     #[test]
     fn a_request_is_held_to_what_it_asks_and_to_the_most_a_response_may_hold() {
         assert_eq!(Budget::new(1000).remaining, 1000);
+        assert_eq!(
+            MOST_PER_REQUEST, 52_428_800,
+            "Kafka's fetch.max.bytes default"
+        );
         assert_eq!(Budget::new(i32::MAX).remaining, MOST_PER_REQUEST);
         assert_eq!(Budget::new(0).remaining, MOST_PER_REQUEST, "no limit asked");
         assert_eq!(Budget::new(-1).remaining, MOST_PER_REQUEST);
@@ -202,5 +206,35 @@ mod tests {
             64 << 20,
             "a client's limit is not a promise of that much to read"
         );
+    }
+
+    fn took(budget: &mut Budget, size: usize) -> usize {
+        take(
+            &mut PartitionData::default(),
+            Bytes::from(vec![0; size]),
+            budget,
+        )
+    }
+
+    #[test]
+    fn the_first_batch_comes_back_even_if_it_alone_is_over_the_limit_and_a_later_one_that_does_not_fit_does_not()
+     {
+        let mut budget = Budget::new(100);
+        assert_eq!(took(&mut budget, 150), 150, "the one oversize allowance");
+        assert_eq!(
+            took(&mut budget, 10),
+            0,
+            "nothing is left, and the allowance is spent"
+        );
+        // Nothing was given before it: a batch that does not fit is not the allowance either, once data was given.
+        let mut budget = Budget::new(100);
+        assert_eq!(took(&mut budget, 60), 60);
+        assert_eq!(took(&mut budget, 50), 0, "40 are left");
+        assert_eq!(
+            took(&mut budget, 40),
+            40,
+            "and a batch that fits exactly does"
+        );
+        assert_eq!(took(&mut budget, 1), 0);
     }
 }

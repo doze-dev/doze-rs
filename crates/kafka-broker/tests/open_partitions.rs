@@ -89,3 +89,29 @@ async fn deleting_a_topic_closes_its_partitions_before_removing_their_files() {
     rig.delete_by_name(&["t"]).await;
     assert_eq!(rig.broker.open_partitions(), 1, "only the other topic's");
 }
+
+#[tokio::test]
+async fn a_partition_whose_flush_failed_when_it_was_closed_to_make_room_is_not_vouched_for_at_the_stop()
+ {
+    use kafka_storage::sim::{Failure, Op};
+    // Which flush is the one closing t-0 is not fixed by anything here, so every one in turn is made to fail, and
+    // at least one of them must be that one; where it was, the stop has to say t-0 is not whole.
+    let mut named = Vec::new();
+    for nth in 1..=8 {
+        let rig = rig_with(|c| c.max_open_partitions = 1);
+        rig.create(vec![topic("t", 2)], false).await;
+        rig.produce(1, "t", 0, records(1)).await; // acks=1: not flushed yet
+        rig.fs.fail(Op::Fsync, nth, Failure::Io);
+        rig.produce(1, "t", 1, records(1)).await; // opens t-1 and closes t-0
+        let _ = rig.broker.shutdown().await;
+        let marker = rig
+            .fs
+            .contents(&std::path::Path::new("/data").join("clean-shutdown"))
+            .map(|m| String::from_utf8(m).unwrap())
+            .unwrap_or_default();
+        if marker.lines().any(|l| l == "t-0") {
+            named.push(nth);
+        }
+    }
+    assert!(!named.is_empty(), "no failed flush was reported as t-0's");
+}

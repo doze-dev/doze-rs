@@ -1,6 +1,6 @@
 //! The registry of open partitions, and the limit on how many stay open.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
 use kafka_meta::{MetaStore, Topic};
@@ -29,12 +29,24 @@ struct Entry<F: Fs> {
     used: u64,
 }
 
+/// What `Partitions::find` found.
+enum Found<'a, F: Fs> {
+    /// Open, and held.
+    Open(Arc<Partition<F>>),
+    /// Being closed: wait for that to be over.
+    Closing(tokio::sync::futures::Notified<'a>),
+    /// Not open yet; the slot to open it in.
+    Unopened(Slot<F>),
+}
+
 #[derive(Debug)]
 struct Registry<F: Fs> {
     open: HashMap<Key, Entry<F>>,
     clock: u64,
     /// What this run knows of a partition it has closed: flushed whole (so the next open can trust it) or not.
     closed: HashMap<String, Trust>,
+    /// Partitions being closed now. Not opened again until the close is over, or two logs would be on the same files.
+    closing: HashSet<Key>,
 }
 
 /// Every partition that has been opened, by topic id (so a topic deleted and made again is not the old one) and
@@ -48,6 +60,8 @@ pub(crate) struct Partitions<F: Fs> {
     registry: Mutex<Registry<F>>,
     /// What the last stop vouched for.
     stop: StopState,
+    /// Woken when a partition has finished closing.
+    closing_done: tokio::sync::Notify,
     /// Which topics there are now: a partition is opened only for the topic that has its name at the time.
     meta: Arc<MetaStore>,
 }
@@ -58,10 +72,12 @@ impl<F: Fs> Partitions<F> {
             fs,
             config,
             meta,
+            closing_done: tokio::sync::Notify::new(),
             registry: Mutex::new(Registry {
                 open: HashMap::new(),
                 clock: 0,
                 closed: HashMap::new(),
+                closing: HashSet::new(),
             }),
             stop,
         }
@@ -99,22 +115,13 @@ impl<F: Fs> Partitions<F> {
             return Err(super::gone());
         }
         loop {
-            let slot = {
-                let mut registry = self.registry();
-                registry.clock += 1;
-                let tick = registry.clock;
-                let entry = registry.open.entry(key).or_insert_with(|| Entry {
-                    name: format!("{}-{partition}", topic.name),
-                    slot: Slot::default(),
-                    used: 0,
-                });
-                entry.used = tick;
-                // Taken under the lock that eviction also takes, so a partition cannot be closed between being found
-                // and being held.
-                if let Some(open) = entry.slot.get() {
-                    return Ok(Arc::clone(open));
+            let slot = match self.find(topic, partition) {
+                Found::Open(open) => return Ok(open),
+                Found::Closing(done) => {
+                    done.await;
+                    continue;
                 }
-                Arc::clone(&entry.slot)
+                Found::Unopened(slot) => slot,
             };
             slot.get_or_try_init(|| async { self.open_one(topic, partition) })
                 .await?;
@@ -123,6 +130,29 @@ impl<F: Fs> Partitions<F> {
                 return Err(super::gone());
             }
             self.evict(key).await;
+        }
+    }
+
+    /// Where the partition stands, taken under the lock that eviction also takes, so that it cannot be closed between
+    /// being found and being held. (No `await` here: the guard is not held across one.)
+    fn find(&self, topic: &Topic, partition: PartitionId) -> Found<'_, F> {
+        let key = (topic.id, partition);
+        let mut registry = self.registry();
+        if registry.closing.contains(&key) {
+            // Made before the lock is let go, so that the wake-up cannot be missed.
+            return Found::Closing(self.closing_done.notified());
+        }
+        registry.clock += 1;
+        let tick = registry.clock;
+        let entry = registry.open.entry(key).or_insert_with(|| Entry {
+            name: format!("{}-{partition}", topic.name),
+            slot: Slot::default(),
+            used: 0,
+        });
+        entry.used = tick;
+        match entry.slot.get() {
+            Some(open) => Found::Open(Arc::clone(open)),
+            None => Found::Unopened(Arc::clone(&entry.slot)),
         }
     }
 
