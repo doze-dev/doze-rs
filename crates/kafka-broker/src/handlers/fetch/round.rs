@@ -39,13 +39,17 @@ pub(super) struct Budget {
     gave_data: bool,
 }
 
+/// The most one Fetch response holds whatever the client asks for (Kafka's `fetch.max.bytes`), so that a request for
+/// "everything" cannot make the broker build a response the size of the log.
+const MOST_PER_REQUEST: i64 = 50 << 20;
+
 impl Budget {
     pub(super) fn new(max_bytes: i32) -> Self {
         Self {
             remaining: if max_bytes > 0 {
-                i64::from(max_bytes)
+                i64::from(max_bytes).min(MOST_PER_REQUEST)
             } else {
-                i64::MAX
+                MOST_PER_REQUEST
             },
             gave_data: false,
         }
@@ -172,6 +176,14 @@ fn take(data: &mut PartitionData, records: Bytes, budget: &mut Budget) -> usize 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_request_is_held_to_what_it_asks_and_to_the_most_a_response_may_hold() {
+        assert_eq!(Budget::new(1000).remaining, 1000);
+        assert_eq!(Budget::new(i32::MAX).remaining, MOST_PER_REQUEST);
+        assert_eq!(Budget::new(0).remaining, MOST_PER_REQUEST, "no limit asked");
+        assert_eq!(Budget::new(-1).remaining, MOST_PER_REQUEST);
+    }
 
     #[test]
     fn a_partition_reads_up_to_its_own_limit_else_the_requests_else_a_default_and_never_more_than_is_left()

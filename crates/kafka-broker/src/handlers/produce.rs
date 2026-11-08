@@ -17,7 +17,7 @@ use kafka_wire::messages::{ProduceRequest, ProduceResponse};
 use kafka_wire::{ResponseError, StrBytes};
 
 use crate::partitions::{Partition, Pending, gone};
-use crate::{Broker, Outcome, clock};
+use crate::{Broker, Outcome, blocking, clock};
 use check::Accepted;
 
 /// A partition's answer, or what it is waiting for.
@@ -123,7 +123,7 @@ impl<F: Fs> Broker<F> {
         let Accepted {
             batch,
             log_append_time,
-        } = match check::check(&self.config, version, topic, id, &records, now) {
+        } = match blocking::run(|| check::check(&self.config, version, topic, id, &records, now)) {
             Ok(accepted) => accepted,
             Err(refused) => return Stage::Done(self.refused(topic, id, refused).await),
         };
