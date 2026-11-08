@@ -43,4 +43,6 @@ connections once ready; stderr/stdout go to `broker.log` in the scenario's direc
 ## Per-phase scope
 
 The Go suite has scenarios for every area. A Rust phase is checked against only its area's scenarios:
-a `CONFORMANCE_ONLY` selection (scenario-name prefixes) is added to the harness at the start of Phase 1.
+a `CONFORMANCE_ONLY` selection (scenario-name prefixes) is added to the harness in Phase 3, when there is a
+binary to run it against. Until then the wire is checked by its own suites, including the recorded ApiVersions
+of real brokers (copied into `crates/kafka-wire/tests/data`).

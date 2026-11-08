@@ -28,9 +28,29 @@ jobs:
       - run: cargo test --workspace
       # No file grows past the hard size limit (docs/port/PLAN.md, quality rule 1).
       - run: cargo xtask lint-size
+      # Every parser has a fuzz target (a `// fuzz:parser` marker with no target fails).
+      - run: cargo xtask fuzz-check
+      # Public docs build without broken links.
+      - run: cargo doc --workspace --no-deps
+        env:
+          RUSTDOCFLAGS: -D warnings
 
   supply-chain:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: EmbarkStudios/cargo-deny-action@v2
+
+  # A short fuzz run of each parser on nightly; longer runs are for a person at a terminal.
+  fuzz:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+      - run: cargo install cargo-fuzz --locked
+      - name: Fuzz each target for 30 seconds
+        working-directory: crates/kafka-wire/fuzz
+        run: |
+          for target in fuzz_frame fuzz_request fuzz_batch; do
+            cargo fuzz run "$target" "corpus/$target" "seeds/$target" -- -max_total_time=30 -max_len=1048576
+          done

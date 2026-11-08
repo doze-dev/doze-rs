@@ -1,0 +1,39 @@
+[package]
+name = "kafka-wire-fuzz"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+bytes = "1"
+kafka-wire = { path = ".." }
+
+# Not part of the main workspace: fuzzing needs a nightly toolchain.
+[workspace]
+
+# This workspace is separate, so the main one's patch does not reach it: without this line the fuzzers
+# run the stock crate and rediscover the allocation bug that vendor/kafka-protocol/PATCHES.md fixes.
+[patch.crates-io]
+kafka-protocol = { path = "../../../vendor/kafka-protocol" }
+
+[[bin]]
+name = "fuzz_frame"
+path = "fuzz_targets/fuzz_frame.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_request"
+path = "fuzz_targets/fuzz_request.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_batch"
+path = "fuzz_targets/fuzz_batch.rs"
+test = false
+doc = false

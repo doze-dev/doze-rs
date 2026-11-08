@@ -197,7 +197,7 @@ estimates, not calendar time.
 | # | Phase | Gate | Sessions |
 |---|---|---|---|
 | 0 | **Rails.** Nine empty crates; `xtask lint-size`; clippy/fmt/deny config; CI; `docs/port/PLAN.md` (replacing `docs/kafka-port.md`); behaviour-catalogue skeleton. **Go branch of doze-kafka:** `processTarget` for the conformance harness, test knobs for what no flag covers, as environment variables behind a `testknobs` build (see `oracle.md`). | conformance runs through `processTarget` against the **Go** binary and passes; Rust CI green | 2–3 |
-| 1 | **Wire.** Spike (crate coverage/hardening), then `kafka-wire`: `KafkaCodec` with size caps, the four profiles as const tables, `ApiVersions`, `ValidBatch` (parse, CRC32C, stamp), codecs with inflate caps, `ErrorCode` + Kafka's wording. | fuzz targets clean; round-trip vs Kafka's specs; `apiversions` recordings match | 3–4 |
+| 1 | **Wire.** Spike (crate coverage/hardening), then `kafka-wire`: `FrameDecoder` with size caps, the one `served_apis!` table (four profiles), `ApiVersions`, `Batch` (parse, CRC32C, stamp). **Moved to Phase 3:** codecs with inflate caps (nothing needs them until a produce is validated) and `ErrorCode` wording (the crate has the codes; handlers own the messages). | fuzz targets clean; round-trip vs Kafka's specs; `apiversions` recordings match | 3–4 |
 | 2 | **Storage.** `kafka-storage` + its `SimFs` first: `Fs` trait, typestate segments, sparse index, `PartitionLog` writer/readers/`Ticket`, recovery plan, retention. | simulation suite (power cuts, torn writes, ENOSPC, EIO) passes; real-disk smoke; flat-memory check | 5–7 |
 | 3 | **Minimum broker.** `kafka-meta` (topics, producer ids), broker core (Metadata, CreateTopics, DeleteTopics, ListOffsets, Produce, Fetch with the `watch` long-poll), `kafka-server` (`Server` builder, connection, shutdown), `doze-kafka` CLI/config. Real clients produce and consume. **First weight baseline.** | produce/consume/metadata conformance via `processTarget`; franz-go, librdkafka, Java by hand | 5–7 |
 | 4 | **Groups, classic.** `GroupMachine` + actor; join/sync/heartbeat/leave; offsets; expiry; coordinator and group admin APIs. | classic consumer-group conformance; property tests | 5–7 |
@@ -258,3 +258,40 @@ test-only knobs in `internal/config`.
   behind a `testknobs` build (not flags); the contract the Rust binary implements is `docs/port/oracle.md`.
   Note for the Go repo: `cmd/doze-kafka/main.go` gains two nil hooks, which moves the exact-bytes lightness
   baseline; do not merge that branch without regenerating it.
+- **2026-11-08, Phase 1 done.** Spike result: `kafka-protocol` 0.18 covers all 41 served APIs (the Go table has
+  41 rows, not 42 as first counted) at every offered maximum version; its minimum versions for nine APIs are
+  higher than Go advertised at majors 1 to 3 (it dropped what Kafka 4.0 removed), so profiles never advertise
+  below what the crate can decode. It has no keys 4 to 7 (inter-broker), which is right: they read as unknown.
+  **Defect found and fixed:** the crate sized `Vec::with_capacity` from the wire count, so a 5-byte request
+  asked the allocator for ~144 GiB (measured). It is vendored with a two-line patch (`vendor/kafka-protocol/PATCHES.md`),
+  held by `tests/hostile_input.rs`, which fails on the unpatched crate. Design: one `served_apis!` macro table
+  generates `Request`, `Response`, decode, encode and the version rows. The version table is checked against
+  the recorded ApiVersions of real brokers of each major (`tests/data/api-versions.json`); those brokers list no
+  telemetry APIs, so the two telemetry APIs are pinned as the only extension. Fuzz targets for the three parsers
+  (`cargo xtask fuzz-check` fails a marked parser with no target).
+- **2026-11-08, Phase 1 audit and fixes.** An independent audit (a separate agent, scored 6/6/7/5 of 10 on
+  fidelity, quality rules, idiom and test quality) found four blocking defects and the phase was not done.
+  Fixed: (1) CI could not compile its own tests, because integration tests used a helper behind a feature;
+  the crate now lists itself as a dev-dependency with the feature on. (2) The "Produce payload is whole batches"
+  rule contradicted recorded Kafka (a partition carries exactly one batch; trailing bytes are dropped); it is now
+  `Batch::from_produce`, with Kafka's check order and a `Refusal` class (`CORRUPT_MESSAGE` / `INVALID_RECORD` /
+  `UNKNOWN_SERVER_ERROR`), and `Batches` walks a segment lazily. (3) The vendored allocation patch capped
+  reservations at the bytes left, which still allowed 76 MB for a 1 MiB body and about 9.7 GiB for a 100 MiB Produce;
+  it is now a flat 1024 elements, held by a test that fails when loosened. (4) Seven of sixteen mutants survived the
+  tests, including "every response uses header v1"; the response, frame-cap, count-limit and stamping tests now
+  read frames back with the crate's decoders, pin the literal sizes and diff bytes, and the mutants are killed.
+  Also: the header is read once into typed fields (`Producer` is an `Option`, not a `-1` sentinel), the header and
+  body of a request are separate steps so a server can refuse before decoding, `FrameDecoder` takes a `Trust`
+  enum, a frame's length is signed, all 31 recorded ApiVersions exchanges and all offered (major, API, version)
+  triples are replayed, fuzzing runs at 1 MiB inputs from a seed corpus, and `cargo doc` is a CI gate. Known and
+  left for later phases: the three ACL APIs are not offered at `--kafka-version 1` (the crate cannot decode their
+  only version there; pinned by a test), and the broker-level Produce rules (size limit, zstd version, CreateTime
+  normalisation, recompression) belong to Phase 3.
+- **2026-11-08, storage choice for metadata: redb confirmed.** Three independent investigations (ecosystem,
+  measurement on this Mac, crash-safety source read). redb 4.5.0 commits in one fsync (bbolt needs two), idles at
+  about 4 MB against 7 MB, spawns no threads and does not mmap. Conditions for `kafka-meta`: create the file under
+  a temporary name, commit, sync, rename and sync the directory (redb does neither the directory sync nor survives a
+  kill during the first create: 118 of 300 trials left an unopenable file); treat any commit or I/O error as fatal
+  and restart; always `Durability::Immediate`; set the cache explicitly; pin the version and store our own
+  versioned bytes; funnel commits through one writer task (redb's writer lock is unfair); retry `DatabaseAlreadyOpen`
+  with backoff. Power loss is untested and needs a crash-injecting backend before 1.0.
