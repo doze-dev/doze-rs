@@ -19,7 +19,12 @@ type Refusal = (ResponseError, String);
 impl<F: Fs> Broker<F> {
     /// Creates each topic of the request, and answers once per name. One refused topic does not stop the
     /// others.
-    pub(crate) fn create_topics(&self, req: &CreateTopicsRequest) -> CreateTopicsResponse {
+    pub(crate) async fn create_topics(&self, req: &CreateTopicsRequest) -> CreateTopicsResponse {
+        let _one_change_at_a_time = self.topic_admin.lock().await;
+        crate::blocking::run(|| self.create_each(req))
+    }
+
+    fn create_each(&self, req: &CreateTopicsRequest) -> CreateTopicsResponse {
         // A name listed twice is a malformed request: neither entry is acted on, and Kafka answers once per name.
         let mut counts: HashMap<&str, usize> = HashMap::new();
         for t in &req.topics {

@@ -38,6 +38,9 @@ pub struct Broker<F: Fs = RealFs> {
     pub(crate) topics_changed: tokio::sync::watch::Sender<u64>,
     /// What the last stop vouched for.
     stop: StopState,
+    /// Held for the whole of a topic's creation or deletion: a name freed by a delete is not made again until the
+    /// delete has cleared the old topic's partitions, which are named the same.
+    pub(crate) topic_admin: tokio::sync::Mutex<()>,
 }
 
 impl<F: Fs> Broker<F> {
@@ -59,6 +62,7 @@ impl<F: Fs> Broker<F> {
             partitions,
             topics_changed: tokio::sync::watch::channel(0).0,
             stop,
+            topic_admin: tokio::sync::Mutex::new(()),
         })
     }
 
@@ -98,12 +102,14 @@ impl<F: Fs> Broker<F> {
         request: Request,
     ) -> Outcome {
         match request {
-            Request::Metadata(r) => respond(Response::Metadata(blocking::run(|| {
-                self.metadata(listener, &r, head.version)
-            }))),
-            Request::CreateTopics(r) => respond(Response::CreateTopics(blocking::run(|| {
-                self.create_topics(&r)
-            }))),
+            Request::Metadata(r) => {
+                let (answer, wanted) = blocking::run(|| self.metadata(listener, &r, head.version));
+                self.create_wanted(wanted).await;
+                respond(Response::Metadata(answer))
+            }
+            Request::CreateTopics(r) => {
+                respond(Response::CreateTopics(self.create_topics(&r).await))
+            }
             Request::DeleteTopics(r) => {
                 respond(Response::DeleteTopics(self.delete_topics(&r).await))
             }

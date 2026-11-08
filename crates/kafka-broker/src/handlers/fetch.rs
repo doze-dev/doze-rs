@@ -47,11 +47,7 @@ impl<F: Fs> Broker<F> {
             resp.error_code = ResponseError::FetchSessionIdNotFound.code();
             return Outcome::Respond(Response::Fetch(resp));
         }
-        // Subscribed before the first read, and before the topics are looked at: a produce between the read and the
-        // wait would otherwise be missed, and this fetch would sleep its whole wait with data already there.
-        let topics = self.topics_changed.subscribe();
-        let mut wanted = self.resolve_all(version, &req).await;
-        let mut watching = wait::Watching::new(&wanted, topics.clone());
+        let (mut wanted, mut watching) = self.resolve_and_watch(version, &req).await;
         let min_bytes = usize::try_from(req.min_bytes.max(1)).unwrap_or(1);
         let waits =
             Duration::from_millis(u64::try_from(req.max_wait_ms).unwrap_or(0)).min(MAX_WAIT);
@@ -71,10 +67,24 @@ impl<F: Fs> Broker<F> {
             // A change, or the deadline, then read again. A topic that changed means what was resolved is out of
             // date (a deleted one now answers as unknown).
             if let Ok(wait::Woke::Topics) = timeout_at(deadline, watching.changed()).await {
-                wanted = self.resolve_all(version, &req).await;
-                watching = wait::Watching::new(&wanted, topics.clone());
+                (wanted, watching) = self.resolve_and_watch(version, &req).await;
             }
         }
+    }
+
+    /// Finds the partitions the request names and starts watching them and the topics. The watch is made before the
+    /// topics are looked at, and anew each time: a produce between the read and the wait would otherwise be missed
+    /// (this fetch would sleep its whole wait with data already there), and a receiver kept from before a change
+    /// would find that change again at once, every time, and spin.
+    async fn resolve_and_watch<'a>(
+        &self,
+        version: i16,
+        req: &'a FetchRequest,
+    ) -> (Vec<Wanted<'a, F>>, wait::Watching) {
+        let topics = self.topics_changed.subscribe();
+        let wanted = self.resolve_all(version, req).await;
+        let watching = wait::Watching::new(&wanted, topics);
+        (wanted, watching)
     }
 
     /// Finds every partition the request names, opening those that exist.
@@ -128,3 +138,6 @@ fn blocking_round<F: Fs>(
 ) -> round::Round {
     crate::blocking::run(|| round::read(wanted, req, budget))
 }
+
+#[cfg(test)]
+mod tests;

@@ -21,6 +21,8 @@ struct Target<'a> {
 impl<F: Fs> Broker<F> {
     /// Deletes each named topic: out of the registry first, then its data from disk.
     pub(crate) async fn delete_topics(&self, req: &DeleteTopicsRequest) -> DeleteTopicsResponse {
+        // Until its partitions are cleared the name is not to be made again: the new topic's would be named the same.
+        let _one_change_at_a_time = self.topic_admin.lock().await;
         let by_name = req.topic_names.iter().map(|n| Target {
             name: Some(&n.0),
             id: kafka_wire::Uuid::nil(),

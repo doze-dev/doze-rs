@@ -18,12 +18,15 @@ use crate::{Broker, Listener};
 impl<F: Fs> Broker<F> {
     /// Describes the single-node cluster: this broker is every partition's leader, the controller, and the only
     /// replica. A request that names no topics asks for all of them (a null list; before v1, an empty one).
+    ///
+    /// Topics a client asked for that do not exist and may be created are returned beside the answer: they are made
+    /// after it, and under the lock that serializes topic creation and deletion (see [`Broker::create_wanted`]).
     pub(crate) fn metadata(
         &self,
         at: &Listener,
         req: &MetadataRequest,
         version: i16,
-    ) -> MetadataResponse {
+    ) -> (MetadataResponse, Vec<TopicName>) {
         let mut resp = MetadataResponse::default();
         let mut me = MetadataResponseBroker::default();
         me.node_id = BrokerId(self.config.node_id);
@@ -44,17 +47,24 @@ impl<F: Fs> Broker<F> {
                 .iter()
                 .map(|t| self.described(t))
                 .collect();
-            return resp;
+            return (resp, Vec::new());
         }
         // Kafka before v4 never said whether a client wanted a topic created: it always did.
         let may_create = req.allow_auto_topic_creation || version < 4;
+        let mut wanted = Vec::new();
         for asked in req.topics.iter().flatten() {
-            resp.topics.push(self.one_topic(asked, may_create));
+            resp.topics
+                .push(self.one_topic(asked, may_create, &mut wanted));
         }
-        resp
+        (resp, wanted)
     }
 
-    fn one_topic(&self, asked: &MetadataRequestTopic, may_create: bool) -> MetadataResponseTopic {
+    fn one_topic(
+        &self,
+        asked: &MetadataRequestTopic,
+        may_create: bool,
+        wanted: &mut Vec<TopicName>,
+    ) -> MetadataResponseTopic {
         let Some(raw) = asked.name.as_ref().map(|n| &*n.0) else {
             return self.topic_by_id(asked);
         };
@@ -70,7 +80,7 @@ impl<F: Fs> Broker<F> {
             return self.described(&topic);
         }
         if may_create && self.config.auto_create_topics {
-            self.auto_create(&name);
+            wanted.push(name);
         }
         // Kafka creates the topic after it has answered: the request that asked for it is told it does not exist
         // and the next one finds it. Answering with the new topic would hide, from a client that cannot cope
@@ -90,14 +100,24 @@ impl<F: Fs> Broker<F> {
         }
     }
 
-    fn auto_create(&self, name: &TopicName) {
+    /// Makes the topics that Metadata requests asked for and found missing, one at a time, under the topic lock. One that
+    /// exists by now (a request for it raced) is left as it is.
+    pub(crate) async fn create_wanted(&self, names: Vec<TopicName>) {
+        if names.is_empty() {
+            return;
+        }
         let Some(partitions) = kafka_wire::ids::PartitionCount::new(self.config.default_partitions)
         else {
             return;
         };
-        let made = self.make_topic(name, partitions, Default::default(), &Default::default());
-        if let Err(e) = made {
-            warn!(topic = %name, error = %e, "creating a topic a client asked for failed");
+        let _one_change_at_a_time = self.topic_admin.lock().await;
+        for name in names {
+            let made = crate::blocking::run(|| {
+                self.make_topic(&name, partitions, Default::default(), &Default::default())
+            });
+            if let Err(e) = made {
+                warn!(topic = %name, error = %e, "creating a topic a client asked for failed");
+            }
         }
     }
 
