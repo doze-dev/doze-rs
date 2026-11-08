@@ -71,10 +71,14 @@ async fn a_client_on_a_socket_gets_its_answer() {
         ApiKey::Heartbeat,
         ApiKey::LeaveGroup,
         ApiKey::SyncGroup,
+        ApiKey::DescribeGroups,
+        ApiKey::ListGroups,
         ApiKey::ApiVersions,
         ApiKey::CreateTopics,
         ApiKey::DeleteTopics,
         ApiKey::InitProducerId,
+        ApiKey::DeleteGroups,
+        ApiKey::OffsetDelete,
     ];
     assert_eq!(
         ask(&mut socket).await,

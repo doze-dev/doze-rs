@@ -10,7 +10,12 @@ use crate::groups::{Answer, JoinAnswer, JoinRequest, Protocol, Req};
 use crate::{Broker, Outcome};
 
 impl<F: Fs> Broker<F> {
-    pub(crate) async fn join_group(&self, version: i16, req: &JoinGroupRequest) -> Outcome {
+    pub(crate) async fn join_group(
+        &self,
+        version: i16,
+        client_id: &str,
+        req: &JoinGroupRequest,
+    ) -> Outcome {
         let Ok(group) = GroupId::parse(req.group_id.as_str()) else {
             return respond(
                 version,
@@ -23,6 +28,7 @@ impl<F: Fs> Broker<F> {
                 .group_instance_id
                 .as_ref()
                 .and_then(|i| InstanceId::new(i.as_str())),
+            client_id: client_id.to_owned(),
             protocol_type: req.protocol_type.as_str().to_owned(),
             protocols: req
                 .protocols

@@ -33,6 +33,10 @@ const SERVED: &[ApiKey] = &[
     ApiKey::LeaveGroup,
     ApiKey::OffsetCommit,
     ApiKey::OffsetFetch,
+    ApiKey::OffsetDelete,
+    ApiKey::DescribeGroups,
+    ApiKey::ListGroups,
+    ApiKey::DeleteGroups,
 ];
 
 /// The broker, over a file system (the real one, or a simulated disk in tests).
@@ -143,19 +147,24 @@ impl<F: Fs> Broker<F> {
             Request::FindCoordinator(r) => respond(Response::FindCoordinator(
                 self.find_coordinator(head.version, listener, &r),
             )),
-            Request::JoinGroup(r) => self.join_group(head.version, &r).await,
+            Request::JoinGroup(r) => {
+                self.join_group(head.version, head.client_id.as_deref().unwrap_or(""), &r)
+                    .await
+            }
             Request::SyncGroup(r) => self.sync_group(&r).await,
             Request::Heartbeat(r) => self.heartbeat(&r).await,
             Request::LeaveGroup(r) => self.leave_group(head.version, &r).await,
             Request::OffsetCommit(r) => self.offset_commit(&r).await,
             Request::OffsetFetch(r) => self.offset_fetch(&r),
+            Request::OffsetDelete(r) => self.offset_delete(&r).await,
+            Request::DescribeGroups(r) => self.describe_groups(&r).await,
+            Request::ListGroups(r) => self.list_groups(&r).await,
+            Request::DeleteGroups(r) => self.delete_groups(&r).await,
             Request::InitProducerId(r) => respond(Response::InitProducerId(blocking::run(|| {
                 self.init_producer_id(&r)
             }))),
             // Not served yet. Each moves out of this arm into a handler when its phase lands.
             Request::ApiVersions(_)
-            | Request::DescribeGroups(_)
-            | Request::ListGroups(_)
             | Request::SaslHandshake(_)
             | Request::DeleteRecords(_)
             | Request::AddPartitionsToTxn(_)
@@ -169,9 +178,7 @@ impl<F: Fs> Broker<F> {
             | Request::AlterConfigs(_)
             | Request::SaslAuthenticate(_)
             | Request::CreatePartitions(_)
-            | Request::DeleteGroups(_)
             | Request::IncrementalAlterConfigs(_)
-            | Request::OffsetDelete(_)
             | Request::DescribeCluster(_)
             | Request::DescribeProducers(_)
             | Request::DescribeTransactions(_)

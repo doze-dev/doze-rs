@@ -93,10 +93,14 @@ async fn api_versions_lists_only_what_the_broker_serves() {
         ApiKey::Heartbeat,
         ApiKey::LeaveGroup,
         ApiKey::SyncGroup,
+        ApiKey::DescribeGroups,
+        ApiKey::ListGroups,
         ApiKey::ApiVersions,
         ApiKey::CreateTopics,
         ApiKey::DeleteTopics,
         ApiKey::InitProducerId,
+        ApiKey::DeleteGroups,
+        ApiKey::OffsetDelete,
     ];
     assert_eq!(keys, served.map(|k| k as i16));
 }

@@ -51,6 +51,8 @@ pub(crate) struct JoinRequest {
     pub(crate) session_ms: i32,
     /// How long a rebalance waits for this member to rejoin.
     pub(crate) rebalance_ms: i32,
+    /// The client software's name for itself, as DescribeGroups shows it.
+    pub(crate) client_id: String,
     /// JoinGroup v4 and later: a client without an id is given one and told to come back with it.
     pub(crate) id_first: bool,
 }
@@ -81,6 +83,30 @@ pub(crate) struct HeartbeatRequest {
     pub(crate) instance: Option<InstanceId>,
     /// The generation it believes it is in.
     pub(crate) generation: i32,
+}
+
+/// A member as DescribeGroups shows it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct MemberDescription {
+    pub(crate) id: MemberId,
+    pub(crate) instance: Option<InstanceId>,
+    pub(crate) client_id: String,
+    /// Its metadata under the protocol chosen.
+    pub(crate) metadata: Bytes,
+    /// What the leader assigned it.
+    pub(crate) assignment: Bytes,
+}
+
+/// A group as DescribeGroups and ListGroups show it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct Description {
+    pub(crate) state: super::State,
+    pub(crate) protocol_type: Option<String>,
+    pub(crate) protocol: Option<String>,
+    pub(crate) members: Vec<MemberDescription>,
+    /// The topics its members subscribe to; `None` if that cannot be said (not a consumer group, or a member's
+    /// subscription is unreadable).
+    pub(crate) subscribed: Option<std::collections::BTreeSet<String>>,
 }
 
 /// An OffsetCommit, as far as the group is concerned: may it be stored?
@@ -195,6 +221,10 @@ pub(crate) enum Answer {
     Leave(Vec<LeaveResult>),
     /// To a commit's fence: why it may not be stored, if it may not.
     Commit(Option<ResponseError>),
+    /// To a request to describe the group.
+    Describe(Description),
+    /// To a request to delete the group: why not, if not.
+    Delete(Option<ResponseError>),
 }
 
 /// Which clock a timer is.
@@ -230,6 +260,10 @@ pub(crate) enum Event {
     Leave(Token, Vec<LeaveTarget>),
     /// An OffsetCommit wants to know if it may be stored.
     Commit(Token, CommitRequest),
+    /// Someone wants to see the group.
+    Describe(Token),
+    /// Someone wants the group gone.
+    Delete(Token),
     /// A timer ran out.
     Timer(TimerKey),
 }

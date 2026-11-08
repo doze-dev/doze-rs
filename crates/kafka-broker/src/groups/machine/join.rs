@@ -245,6 +245,7 @@ fn new_member(id: &MemberId, req: &JoinRequest) -> Member {
     Member {
         id: id.clone(),
         instance: req.instance.clone(),
+        client_id: req.client_id.clone(),
         session_ms: to_ms(req.session_ms),
         rebalance_ms: to_ms(req.rebalance_ms),
         protocols: req.protocols.clone(),

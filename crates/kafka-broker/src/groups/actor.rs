@@ -19,6 +19,8 @@ pub(crate) enum Req {
     Heartbeat(HeartbeatRequest),
     Leave(Vec<LeaveTarget>),
     Commit(CommitRequest),
+    Describe,
+    Delete,
 }
 
 /// A request and where its answer goes. If the sender is dropped without an answer the request was replaced by a
@@ -71,7 +73,12 @@ pub(super) async fn run(mut machine: GroupMachine, mut commands: mpsc::Receiver<
     let mut waiting: HashMap<Token, oneshot::Sender<Answer>> = HashMap::new();
     let mut timers = Timers::default();
     let mut tokens = 0_u64;
+    // A group deleted while empty is gone: the registry has taken it out, and nothing is left to run.
+    let mut deleted = false;
     loop {
+        if deleted {
+            break;
+        }
         let wake = timers.next().map(|at| start + Duration::from_millis(at.0));
         let event = tokio::select! {
             command = commands.recv() => {
@@ -89,6 +96,7 @@ pub(super) async fn run(mut machine: GroupMachine, mut commands: mpsc::Receiver<
         for effect in machine.step(event, now()) {
             match effect {
                 Effect::Reply(token, answer) => {
+                    deleted |= matches!(answer, Answer::Delete(None));
                     if let Some(reply) = waiting.remove(&token) {
                         // A client that went away is not told, and the group does not mind.
                         let _ = reply.send(answer);
@@ -118,5 +126,7 @@ fn event_of(token: Token, req: Req) -> Event {
         Req::Heartbeat(r) => Event::Heartbeat(token, r),
         Req::Leave(t) => Event::Leave(token, t),
         Req::Commit(r) => Event::Commit(token, r),
+        Req::Describe => Event::Describe(token),
+        Req::Delete => Event::Delete(token),
     }
 }

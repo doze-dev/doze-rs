@@ -69,6 +69,7 @@ pub(super) fn join_request(member: Option<&str>, names: &[&str]) -> JoinRequest 
         instance: None,
         protocol_type: "consumer".into(),
         protocols: protocols(names),
+        client_id: "test".into(),
         session_ms: 10_000,
         rebalance_ms: 30_000,
         id_first: false,

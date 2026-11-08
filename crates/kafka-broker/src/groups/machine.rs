@@ -8,6 +8,7 @@
 //! The states and their transitions are Kafka's: a group is `Empty`, `PreparingRebalance` (waiting for the members
 //! to rejoin), `CompletingRebalance` (waiting for the leader's assignment) or `Stable`.
 
+mod admin;
 mod commit;
 mod join;
 mod leave;
@@ -26,9 +27,9 @@ use kafka_wire::ids::{InstanceId, MemberId};
 
 pub(crate) use commit::commit_to_no_group;
 pub(crate) use types::{
-    Answer, CommitRequest, Effect, Event, HeartbeatRequest, JoinAnswer, JoinMember, JoinRequest,
-    LeaveResult, LeaveTarget, Millis, Protocol, SyncAnswer, SyncRequest, TimerKey, TimerKind,
-    Token,
+    Answer, CommitRequest, Description, Effect, Event, HeartbeatRequest, JoinAnswer, JoinMember,
+    JoinRequest, LeaveResult, LeaveTarget, MemberDescription, Millis, Protocol, SyncAnswer,
+    SyncRequest, TimerKey, TimerKind, Token,
 };
 
 /// The shortest and longest session a member may ask for (Kafka's `group.min.session.timeout.ms` and
@@ -55,6 +56,7 @@ pub(crate) enum State {
 struct Member {
     id: MemberId,
     instance: Option<InstanceId>,
+    client_id: String,
     session_ms: u64,
     rebalance_ms: u64,
     protocols: Vec<Protocol>,
@@ -133,6 +135,8 @@ impl GroupMachine {
             Event::Heartbeat(token, request) => self.heartbeat(token, &request, now, &mut out),
             Event::Leave(token, targets) => self.leave(token, &targets, now, &mut out),
             Event::Commit(token, request) => self.commit(token, &request, &mut out),
+            Event::Describe(token) => self.describe(token, &mut out),
+            Event::Delete(token) => self.delete(token, &mut out),
             Event::Timer(key) => self.timer(&key, now, &mut out),
         }
         out
