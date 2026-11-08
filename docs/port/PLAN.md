@@ -196,7 +196,7 @@ estimates, not calendar time.
 
 | # | Phase | Gate | Sessions |
 |---|---|---|---|
-| 0 | **Rails.** Nine empty crates; `xtask lint-size`; clippy/fmt/deny config; CI; `docs/port/PLAN.md` (replacing `docs/kafka-port.md`); behaviour-catalogue skeleton. **Go branch of doze-kafka:** `processTarget` for the conformance harness, test-only flags for the knobs scenarios close over (retention check interval, assignment interval, rebalance delay, session timeout, ACL seed, offsets retention), a check-offsets equivalent. | conformance runs through `processTarget` against the **Go** binary and passes; Rust CI green | 2–3 |
+| 0 | **Rails.** Nine empty crates; `xtask lint-size`; clippy/fmt/deny config; CI; `docs/port/PLAN.md` (replacing `docs/kafka-port.md`); behaviour-catalogue skeleton. **Go branch of doze-kafka:** `processTarget` for the conformance harness, test knobs for what no flag covers, as environment variables behind a `testknobs` build (see `oracle.md`). | conformance runs through `processTarget` against the **Go** binary and passes; Rust CI green | 2–3 |
 | 1 | **Wire.** Spike (crate coverage/hardening), then `kafka-wire`: `KafkaCodec` with size caps, the four profiles as const tables, `ApiVersions`, `ValidBatch` (parse, CRC32C, stamp), codecs with inflate caps, `ErrorCode` + Kafka's wording. | fuzz targets clean; round-trip vs Kafka's specs; `apiversions` recordings match | 3–4 |
 | 2 | **Storage.** `kafka-storage` + its `SimFs` first: `Fs` trait, typestate segments, sparse index, `PartitionLog` writer/readers/`Ticket`, recovery plan, retention. | simulation suite (power cuts, torn writes, ENOSPC, EIO) passes; real-disk smoke; flat-memory check | 5–7 |
 | 3 | **Minimum broker.** `kafka-meta` (topics, producer ids), broker core (Metadata, CreateTopics, DeleteTopics, ListOffsets, Produce, Fetch with the `watch` long-poll), `kafka-server` (`Server` builder, connection, shutdown), `doze-kafka` CLI/config. Real clients produce and consume. **First weight baseline.** | produce/consume/metadata conformance via `processTarget`; franz-go, librdkafka, Java by hand | 5–7 |
@@ -253,3 +253,8 @@ test-only knobs in `internal/config`.
   depends on storage, which gives Cargo two copies of the crate. `kafka-testkit` enables the
   feature for everyone else. The domain newtypes (`Offset`, `TopicName`, …) live in `kafka-wire`,
   which storage, meta and broker already depend on.
+- **2026-11-08, Phase 0 done.** Rails committed (`05b3421`); Go branch `rust-oracle` (`259140f`) runs the
+  conformance replay as a process, passing against the Go binary. The test knobs are environment variables
+  behind a `testknobs` build (not flags); the contract the Rust binary implements is `docs/port/oracle.md`.
+  Note for the Go repo: `cmd/doze-kafka/main.go` gains two nil hooks, which moves the exact-bytes lightness
+  baseline; do not merge that branch without regenerating it.
