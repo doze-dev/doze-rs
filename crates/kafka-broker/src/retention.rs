@@ -4,6 +4,7 @@ use std::collections::BTreeSet;
 use std::sync::Arc;
 use std::time::Duration;
 
+use kafka_meta::GroupLife;
 use kafka_storage::fs::Fs;
 use kafka_wire::ids::GroupId;
 
@@ -24,6 +25,24 @@ fn check_every(retention: Duration, set: Option<Duration>) -> Duration {
             (retention / 100).clamp(LEAST_EVERY, MOST_EVERY)
         }
     })
+}
+
+/// Whether a group that is not running with members may yet have them, and so is not forgotten: one in memory whose record
+/// says it will (a write behind), or one the broker started after, recorded as having members whose session has not yet
+/// run out. A group in memory with no record says nothing of the kind: ids handed to clients are not the group's.
+fn may_have_members(
+    members: &Members<'_>,
+    life: Option<&GroupLife>,
+    now_ms: i64,
+    started_ms: i64,
+) -> bool {
+    match (members, life) {
+        (Members::Empty, Some(l)) => l.live,
+        (Members::NotInMemory, Some(l)) => {
+            l.live && now_ms < started_ms.saturating_add(i64::from(l.session_ms))
+        }
+        _ => false,
+    }
 }
 
 impl<F: Fs> Broker<F> {
@@ -63,11 +82,14 @@ impl<F: Fs> Broker<F> {
     }
 
     async fn check_group(&self, id: &GroupId, now_ms: i64, retention_ms: i64) {
-        let described = self.groups.describe(id).await;
-        let life = blocking::run(|| self.meta.group_life(id)).ok().flatten();
+        // In this order: what a group has committed is read first, its record next and its members last, so that a member
+        // that joins and commits while this is going on has its commit left out of `offsets` (and so never expired),
+        // never judged by a record read before it came.
         let Ok(offsets) = blocking::run(|| self.meta.group_offsets(id)) else {
             return;
         };
+        let life = blocking::run(|| self.meta.group_life(id)).ok().flatten();
+        let described = self.groups.describe(id).await;
         let members = match &described {
             Some(d) if !d.members.is_empty() => Members::Running {
                 rebalancing: matches!(
@@ -81,15 +103,7 @@ impl<F: Fs> Broker<F> {
             None => Members::NotInMemory,
         };
         let running = matches!(members, Members::Running { .. });
-        // Not forgotten while members may yet come: a group in memory whose record says they will, or one that the
-        // broker started after, recorded as having members whose session has not yet run out.
-        let waiting = match (&members, &life) {
-            (Members::Empty, life) => life.as_ref().is_none_or(|l| l.live),
-            (Members::NotInMemory, Some(l)) => {
-                l.live && now_ms < self.started_ms.saturating_add(i64::from(l.session_ms))
-            }
-            _ => false,
-        };
+        let waiting = may_have_members(&members, life.as_ref(), now_ms, self.started_ms);
         let view = View {
             members,
             life: life.as_ref(),
@@ -139,6 +153,41 @@ impl<F: Fs> Broker<F> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn life(live: bool, session_ms: u32) -> GroupLife {
+        GroupLife {
+            live,
+            session_ms,
+            empty_since_ms: (!live).then_some(1),
+            protocol_type: "consumer".into(),
+        }
+    }
+
+    #[test]
+    fn a_group_may_have_members_if_its_record_says_so_and_nothing_else_does() {
+        let (now, started) = (1_000_000, 900_000);
+        let may = |members: &Members<'_>, l: Option<&GroupLife>| {
+            may_have_members(members, l, now, started)
+        };
+        // In memory with none: only a record that says live (a write behind) keeps it.
+        assert!(may(&Members::Empty, Some(&life(true, 10_000))));
+        assert!(!may(&Members::Empty, Some(&life(false, 10_000))));
+        assert!(
+            !may(&Members::Empty, None),
+            "an id given to a client is not the group's"
+        );
+        // Not in memory, recorded as having members: until the session has run out after the start.
+        assert!(
+            may(&Members::NotInMemory, Some(&life(true, 200_000))),
+            "started + 200 s is after now"
+        );
+        assert!(
+            !may(&Members::NotInMemory, Some(&life(true, 50_000))),
+            "started + 50 s is before now"
+        );
+        assert!(!may(&Members::NotInMemory, Some(&life(false, 200_000))));
+        assert!(!may(&Members::NotInMemory, None));
+    }
 
     #[test]
     fn the_time_between_looks_is_a_hundredth_of_the_retention_within_bounds() {

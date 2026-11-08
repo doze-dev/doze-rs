@@ -13,12 +13,12 @@ use super::Groups;
 use crate::groups::machine::{Answer, IdSource, JoinAnswer};
 
 /// How long a member id handed to a client that has not yet come back with it is good for.
-const ISSUED_FOR: Duration = Duration::from_secs(300);
+pub(super) const ISSUED_FOR: Duration = Duration::from_secs(300);
 /// How often the table of ids is gone through for the ones past their time (and always when it is full).
-const PURGE_EVERY: Duration = Duration::from_secs(10);
+pub(super) const PURGE_EVERY: Duration = Duration::from_secs(10);
 /// The most ids handed out and not yet come back with. A client that only ever asks for an id costs an entry here, not a
 /// group.
-const MOST_ISSUED: usize = 100_000;
+pub(super) const MOST_ISSUED: usize = 100_000;
 
 /// The ids handed out, and when the table was last gone through for the stale ones.
 #[derive(Debug)]
@@ -38,13 +38,13 @@ impl Groups {
         let mut issued = self.issued();
         // Looking through every id each time would make a flood of them quadratic; at the cap the room is made, and
         // otherwise now and then.
-        if issued.ids.len() >= MOST_ISSUED || now.duration_since(issued.purged) > PURGE_EVERY {
+        if issued.ids.len() >= self.most_issued || now.duration_since(issued.purged) > PURGE_EVERY {
             issued
                 .ids
                 .retain(|_, at| now.duration_since(*at) < ISSUED_FOR);
             issued.purged = now;
         }
-        if issued.ids.len() >= MOST_ISSUED {
+        if issued.ids.len() >= self.most_issued {
             return Answer::Join(JoinAnswer::refused(
                 ResponseError::CoordinatorNotAvailable,
                 None,

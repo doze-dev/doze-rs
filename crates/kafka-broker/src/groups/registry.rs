@@ -16,7 +16,7 @@ use super::machine::{
     Answer, Description, GroupMachine, JoinAnswer, LeaveResult, SyncAnswer, commit_to_no_group,
     refusal,
 };
-use issued::{Issued, member_ids};
+use issued::{Issued, MOST_ISSUED, member_ids};
 
 /// How many requests may wait for a group's task before the next sender waits.
 const QUEUE: usize = 64;
@@ -36,6 +36,8 @@ pub(crate) enum Deleted {
 pub(crate) struct Groups {
     initial_delay_ms: u64,
     meta: Arc<MetaStore>,
+    /// The most ids that may be outstanding at once.
+    most_issued: usize,
     /// Held while a group is looked up, made or retired; never while a request waits for its answer, except a
     /// deletion, so that a group is never made again while the old one is going.
     open: Mutex<HashMap<GroupId, mpsc::Sender<Command>>>,
@@ -49,6 +51,7 @@ impl Groups {
         Self {
             initial_delay_ms,
             meta,
+            most_issued: MOST_ISSUED,
             open: Mutex::new(HashMap::new()),
             issued: StdMutex::new(Issued {
                 ids: HashMap::new(),
@@ -252,7 +255,7 @@ impl Records for StoreRecords {
 
 /// Whether a request may make a group that is not there: a JoinGroup from a client with no id, or with one it was given.
 fn can_begin(req: &Req) -> bool {
-    matches!(req, Req::Join(j) if j.member_id.is_none() || j.issued)
+    matches!(req, Req::Join(j) if j.member_id.is_none() || (j.issued && j.instance.is_none()))
 }
 
 /// What a group that does not exist says to anything but a join: it has no such member. (A request to describe or
@@ -276,3 +279,6 @@ fn unknown(req: &Req) -> Option<Answer> {
         Req::Describe | Req::Delete => return None,
     })
 }
+
+#[cfg(test)]
+mod tests;

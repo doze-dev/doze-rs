@@ -166,10 +166,12 @@ Test: `retention::a_member_is_not_seated_when_the_record_*`, `a_restart_changes_
 ### R3. A group with no members and no offsets is forgotten at the sweep
 It is Dead, and its id used again is a new group. Not so a group that may yet have members: one in memory whose record says
 it will, or one the broker started after whose recorded session has not run out (listed, as Empty, until then). Each group is
-looked at as it is when its turn comes (described and its record read again just before anything is expired), so a member
-that joined and committed since the sweep began is not judged by what the group was. (Issued ids are not the group's: see C1.)
-A JoinGroup with a member id nobody gave the client, to a group that is not there, is answered UNKNOWN_MEMBER_ID and makes no
-group.
+looked at as it is when its turn comes: what it has committed is read first, then its record, then its members, and an
+offset is forgotten only if it has not been committed again since it was read, so a commit made while the sweep is going
+on is never lost to it. A group in memory with no members and no record is not waited for: it is forgotten (ids handed
+to clients are not the group's). (Issued ids are not the group's: see C1.)
+A JoinGroup with a member id nobody gave the client, or an issued id sent with an instance id (not a flow the broker has),
+to a group that is not there, is answered UNKNOWN_MEMBER_ID and makes no group.
 Test: `retention::a_retention_of_zero_keeps_offsets_for_ever_but_a_group_with_nothing_is_still_forgotten`,
 `a_group_recorded_as_having_members_is_not_forgotten_by_the_first_sweep_after_a_restart`; `groups::a_join_with_an_id_nobody_gave_it_*`
 
@@ -205,6 +207,7 @@ scenarios with the keep-alive skipping that request and found no classic step th
 ## Not done (recorded)
 KIP-848 groups and the migration between protocols (Phase 5); transactional offset commits (Phase 6); ACLs (Phase 8); the
 Java client (no JDK on the machine); the peer address in DescribeGroups (a fixed `/127.0.0.1`); a command queued behind a group's
-deletion is put again only for a JoinGroup (any other is dropped, and the connection closed); the issued-id table has one
+deletion is put again only for a JoinGroup (a SyncGroup or Heartbeat is dropped and the connection closed; an
+OffsetCommit is answered UNKNOWN_MEMBER_ID); the issued-id table has one
 global cap (a single client can use it all up, and v4+ newcomers then get COORDINATOR_NOT_AVAILABLE until entries pass
 their five minutes), and the time an id lasts is five minutes, not the request's session timeout.
