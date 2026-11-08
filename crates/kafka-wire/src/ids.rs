@@ -2,6 +2,12 @@
 
 use std::fmt;
 
+mod topic;
+
+pub use topic::{
+    MAX_TOPIC_NAME_LEN, PartitionCount, PartitionId, TopicId, TopicName, TopicNameError,
+};
+
 /// A position in a partition's log.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub struct Offset(i64);

@@ -372,3 +372,16 @@ test-only knobs in `internal/config`.
   injects one-shot failures) and the rebuild of a missing sealed index. Deliberately not done: no test for a log file
   cut under an open reader (outside what is guaranteed; the check is four lines), none for the mtime fallback of
   `enforce_closed` (real clients always send timestamps), and none per surviving mutant on purpose (rule 10).
+- **2026-11-08, Phase 3 slice 3a (domain types, `kafka-meta`).** `TopicName`, `TopicId`, `PartitionId`,
+  `PartitionCount` in `kafka-wire::ids`; `kafka-meta` is one concrete `MetaStore` (no trait) over redb 4.5.0 pinned
+  with `=`, running on our `Fs` through a `StorageBackend` adapter, so the Phase 2 simulated disk crash-tests the
+  metadata. Topics are held in memory after a commit; producer ids are reserved in durable blocks of 1000. Catalogue:
+  `behaviours/meta.md` (M1-M7). Three sweeps (power cut after each step in six ways, process stopped after every file
+  operation, every single failing operation with and without lost pages) at 200 seeds pass. The sweeps found one real
+  defect: the database made at first start was closed by dropping it, and redb's close flushes once more; that flush's
+  failure was swallowed and, under the kernel's lost-pages behaviour, the file then reported success for every later
+  flush while writing nothing. Fixed by closing by name and failing the open (M5); the same hazard in the model is why
+  `kill -9` forgets the store rather than dropping it (a kill runs no destructor) and a failed clean shutdown is
+  followed by a reboot, as for logs. Mutation check (11 mutants): 10 killed at first; the survivors were an id table
+  that nothing read (removed) and a version test whose record was malformed anyway (now a good record with its
+  version byte changed). Locking is deferred: redb is given none, the binary will hold a data-directory lock (3g).

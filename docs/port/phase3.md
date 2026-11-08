@@ -31,8 +31,9 @@ written for that (a long-poll Fetch holds its connection). So a connection is a 
 header, gate it, decode the body, handle, encode, write. The loop is generic over `AsyncRead + AsyncWrite`, so TCP,
 unix sockets (Phase 11) and in-memory test streams share it.
 
-**5. The metadata store sits behind a trait of our own.** `kafka-meta` exposes `MetaStore` (topics, topic ids,
-producer-id blocks). The redb implementation follows the conditions the research set: the file is created under a
+**5. The metadata store is one concrete type, `MetaStore`** (decided in 3a: no trait, because nothing else would
+implement it; the simulated disk is what tests swap, and it sits under the type). It holds topics, producer-id
+blocks, and in later phases offsets and the rest. Reads come from an in-memory registry updated after a commit. The redb implementation follows the conditions the research set: the file is created under a
 temporary name, committed, flushed, renamed and its directory flushed; any commit error is fatal to the store; always
 `Durability::Immediate`; cache set explicitly; one writer; our own versioned bytes (postcard + a version byte). redb
 runs over an adapter that implements its `StorageBackend` on our `Fs`, so the same simulated disk that crash-tests the

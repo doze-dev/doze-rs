@@ -27,7 +27,7 @@ jobs:
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace
       # The storage simulation (random workloads, a disk that fails and loses power at every file operation).
-      - run: cargo test -p kafka-storage --features sim --release
+      - run: cargo test -p kafka-storage -p kafka-meta --features kafka-storage/sim --release
         env:
           SIM_SEEDS: "200"
       # No file grows past the hard size limit (docs/port/PLAN.md, quality rule 1).
