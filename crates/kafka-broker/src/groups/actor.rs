@@ -8,8 +8,8 @@ use tokio::sync::{mpsc, oneshot};
 use tokio::time::{Instant, sleep_until};
 
 use super::machine::{
-    Answer, Effect, Event, GroupMachine, HeartbeatRequest, JoinRequest, LeaveTarget, Millis,
-    SyncRequest, TimerKey, TimerKind, Token,
+    Answer, CommitRequest, Effect, Event, GroupMachine, HeartbeatRequest, JoinRequest, LeaveTarget,
+    Millis, SyncRequest, TimerKey, TimerKind, Token,
 };
 
 /// A request for the group.
@@ -18,6 +18,7 @@ pub(crate) enum Req {
     Sync(SyncRequest),
     Heartbeat(HeartbeatRequest),
     Leave(Vec<LeaveTarget>),
+    Commit(CommitRequest),
 }
 
 /// A request and where its answer goes. If the sender is dropped without an answer the request was replaced by a
@@ -116,5 +117,6 @@ fn event_of(token: Token, req: Req) -> Event {
         Req::Sync(r) => Event::Sync(token, r),
         Req::Heartbeat(r) => Event::Heartbeat(token, r),
         Req::Leave(t) => Event::Leave(token, t),
+        Req::Commit(r) => Event::Commit(token, r),
     }
 }

@@ -8,6 +8,7 @@
 //! The states and their transitions are Kafka's: a group is `Empty`, `PreparingRebalance` (waiting for the members
 //! to rejoin), `CompletingRebalance` (waiting for the leader's assignment) or `Stable`.
 
+mod commit;
 mod join;
 mod leave;
 mod rebalance;
@@ -23,9 +24,11 @@ use std::collections::{BTreeMap, HashMap};
 use bytes::Bytes;
 use kafka_wire::ids::{InstanceId, MemberId};
 
+pub(crate) use commit::commit_to_no_group;
 pub(crate) use types::{
-    Answer, Effect, Event, HeartbeatRequest, JoinAnswer, JoinMember, JoinRequest, LeaveResult,
-    LeaveTarget, Millis, Protocol, SyncAnswer, SyncRequest, TimerKey, TimerKind, Token,
+    Answer, CommitRequest, Effect, Event, HeartbeatRequest, JoinAnswer, JoinMember, JoinRequest,
+    LeaveResult, LeaveTarget, Millis, Protocol, SyncAnswer, SyncRequest, TimerKey, TimerKind,
+    Token,
 };
 
 /// The shortest and longest session a member may ask for (Kafka's `group.min.session.timeout.ms` and
@@ -129,6 +132,7 @@ impl GroupMachine {
             Event::Sync(token, request) => self.sync(token, request, now, &mut out),
             Event::Heartbeat(token, request) => self.heartbeat(token, &request, now, &mut out),
             Event::Leave(token, targets) => self.leave(token, &targets, now, &mut out),
+            Event::Commit(token, request) => self.commit(token, &request, &mut out),
             Event::Timer(key) => self.timer(&key, now, &mut out),
         }
         out

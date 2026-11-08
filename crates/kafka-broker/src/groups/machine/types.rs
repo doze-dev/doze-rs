@@ -83,6 +83,17 @@ pub(crate) struct HeartbeatRequest {
     pub(crate) generation: i32,
 }
 
+/// An OffsetCommit, as far as the group is concerned: may it be stored?
+#[derive(Debug, Clone)]
+pub(crate) struct CommitRequest {
+    /// Who commits, if it says.
+    pub(crate) member_id: Option<MemberId>,
+    /// Its static instance id, if it has one.
+    pub(crate) instance: Option<InstanceId>,
+    /// The generation it believes it is in; negative if it names none.
+    pub(crate) generation: i32,
+}
+
 /// One member a LeaveGroup names, by id or by static instance.
 #[derive(Debug, Clone)]
 pub(crate) struct LeaveTarget {
@@ -182,6 +193,8 @@ pub(crate) enum Answer {
     Heartbeat(Option<ResponseError>),
     /// To a LeaveGroup, one result per member named.
     Leave(Vec<LeaveResult>),
+    /// To a commit's fence: why it may not be stored, if it may not.
+    Commit(Option<ResponseError>),
 }
 
 /// Which clock a timer is.
@@ -215,6 +228,8 @@ pub(crate) enum Event {
     Heartbeat(Token, HeartbeatRequest),
     /// A LeaveGroup arrived.
     Leave(Token, Vec<LeaveTarget>),
+    /// An OffsetCommit wants to know if it may be stored.
+    Commit(Token, CommitRequest),
     /// A timer ran out.
     Timer(TimerKey),
 }

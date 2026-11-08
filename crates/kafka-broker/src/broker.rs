@@ -31,6 +31,8 @@ const SERVED: &[ApiKey] = &[
     ApiKey::SyncGroup,
     ApiKey::Heartbeat,
     ApiKey::LeaveGroup,
+    ApiKey::OffsetCommit,
+    ApiKey::OffsetFetch,
 ];
 
 /// The broker, over a file system (the real one, or a simulated disk in tests).
@@ -145,13 +147,13 @@ impl<F: Fs> Broker<F> {
             Request::SyncGroup(r) => self.sync_group(&r).await,
             Request::Heartbeat(r) => self.heartbeat(&r).await,
             Request::LeaveGroup(r) => self.leave_group(head.version, &r).await,
+            Request::OffsetCommit(r) => self.offset_commit(&r).await,
+            Request::OffsetFetch(r) => self.offset_fetch(&r),
             Request::InitProducerId(r) => respond(Response::InitProducerId(blocking::run(|| {
                 self.init_producer_id(&r)
             }))),
             // Not served yet. Each moves out of this arm into a handler when its phase lands.
             Request::ApiVersions(_)
-            | Request::OffsetCommit(_)
-            | Request::OffsetFetch(_)
             | Request::DescribeGroups(_)
             | Request::ListGroups(_)
             | Request::SaslHandshake(_)

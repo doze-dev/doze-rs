@@ -6,6 +6,7 @@ mod registry;
 
 pub(crate) use actor::Req;
 pub(crate) use machine::{
-    Answer, HeartbeatRequest, JoinAnswer, JoinRequest, LeaveTarget, Protocol, SyncRequest,
+    Answer, CommitRequest, HeartbeatRequest, JoinAnswer, JoinRequest, LeaveTarget, Protocol,
+    SyncRequest,
 };
 pub(crate) use registry::Groups;

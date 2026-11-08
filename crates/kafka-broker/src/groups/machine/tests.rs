@@ -1,5 +1,6 @@
 //! The group machine, driven by a number for a clock and a map for timers: no sleeps, no tasks.
 
+mod commit;
 mod membership;
 mod properties;
 mod rebalance;
@@ -165,6 +166,23 @@ impl Group {
             generation,
         };
         self.send(|t| Event::Heartbeat(t, req))
+    }
+
+    pub(super) fn commit(
+        &mut self,
+        member: Option<&str>,
+        generation: i32,
+    ) -> Option<ResponseError> {
+        let req = CommitRequest {
+            member_id: member.map(id),
+            instance: None,
+            generation,
+        };
+        let t = self.send(|t| Event::Commit(t, req));
+        match self.answer(t) {
+            Some(Answer::Commit(e)) => e,
+            other => panic!("expected a commit answer, found {other:?}"),
+        }
     }
 
     pub(super) fn leave(&mut self, members: &[&str]) -> Token {

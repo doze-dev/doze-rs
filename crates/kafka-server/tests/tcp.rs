@@ -64,6 +64,8 @@ async fn a_client_on_a_socket_gets_its_answer() {
         ApiKey::Fetch,
         ApiKey::ListOffsets,
         ApiKey::Metadata,
+        ApiKey::OffsetCommit,
+        ApiKey::OffsetFetch,
         ApiKey::FindCoordinator,
         ApiKey::JoinGroup,
         ApiKey::Heartbeat,

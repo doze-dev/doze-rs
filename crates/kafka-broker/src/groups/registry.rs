@@ -8,7 +8,9 @@ use kafka_wire::ids::{GroupId, InstanceId, MemberId};
 use tokio::sync::{mpsc, oneshot};
 
 use super::actor::{self, Command, Req};
-use super::machine::{Answer, GroupMachine, IdSource, JoinAnswer, LeaveResult, SyncAnswer};
+use super::machine::{
+    Answer, GroupMachine, IdSource, JoinAnswer, LeaveResult, SyncAnswer, commit_to_no_group,
+};
 
 /// How many requests may wait for a group's task before the next sender waits.
 const QUEUE: usize = 64;
@@ -65,6 +67,7 @@ fn unknown(req: &Req) -> Answer {
         Req::Join(_) => Answer::Join(JoinAnswer::refused(ResponseError::UnknownMemberId, None)),
         Req::Sync(_) => Answer::Sync(SyncAnswer::refused(ResponseError::UnknownMemberId)),
         Req::Heartbeat(_) => Answer::Heartbeat(Some(ResponseError::UnknownMemberId)),
+        Req::Commit(c) => Answer::Commit(commit_to_no_group(c.generation)),
         Req::Leave(targets) => Answer::Leave(
             targets
                 .iter()

@@ -10,5 +10,7 @@ mod join_group;
 mod leave_group;
 mod list_offsets;
 mod metadata;
+mod offset_commit;
+mod offset_fetch;
 mod produce;
 mod sync_group;

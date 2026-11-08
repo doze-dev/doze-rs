@@ -86,6 +86,8 @@ async fn api_versions_lists_only_what_the_broker_serves() {
         ApiKey::Fetch,
         ApiKey::ListOffsets,
         ApiKey::Metadata,
+        ApiKey::OffsetCommit,
+        ApiKey::OffsetFetch,
         ApiKey::FindCoordinator,
         ApiKey::JoinGroup,
         ApiKey::Heartbeat,
