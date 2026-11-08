@@ -385,3 +385,16 @@ test-only knobs in `internal/config`.
   followed by a reboot, as for logs. Mutation check (11 mutants): 10 killed at first; the survivors were an id table
   that nothing read (removed) and a version test whose record was malformed anyway (now a good record with its
   version byte changed). Locking is deferred: redb is given none, the binary will hold a data-directory lock (3g).
+- **2026-11-08, Phase 3 slice 3b (server, ApiVersions).** `kafka-wire::profile::ApiSet` and `Features.served`: the
+  APIs a broker has a handler for are neither advertised nor accepted, so "advertised == enforced" stays in one
+  place (the profile). `kafka-broker::Broker` is a skeleton with an exhaustive `match` over `Request` (no
+  wildcard; the unserved variants share one arm and move out one phase at a time) and `Outcome`
+  (`Respond`/`NoResponse`/`Close`). `kafka-server`: `Server::bind(Config, Arc<Broker>) -> Running`
+  (`local_addr`, `shutdown`), an accept loop with a connection limit (2048) and accept backoff, and a connection
+  that is a generic `AsyncRead + AsyncWrite` loop (one request at a time, idle 10 min, 30 s for a started frame
+  counted once, 30 s to write, a stop interrupts a waiting handler). `kafka-wire` re-exports `messages` and
+  `ResponseError` so no other crate names `kafka-protocol`. Mutation check (8 mutants): 5 killed, two hung the
+  suite (a hang is a failure for CI), two survived and were killed by strengthened tests (the trickle test now
+  checks the connection is gone at 48 s, and a new test covers a partial request left in the buffer); one
+  (`Outcome::Close` ending the connection) cannot be reached until a handler can answer Close, so it waits for 3c.
+  Catalogue: `behaviours/server.md` (V1-V7).

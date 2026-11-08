@@ -2,7 +2,7 @@
 
 use kafka_protocol::messages::ApiKey;
 
-use crate::api::API_TABLE;
+use crate::api::{API_TABLE, ApiRow};
 use crate::error::WireError;
 
 /// The versions an API is offered at in one profile: `Some((min, max))`, or `None` when not offered.
@@ -28,22 +28,67 @@ pub enum Condition {
     Telemetry,
 }
 
+/// A set of APIs, by key.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ApiSet(u128);
+
+impl ApiSet {
+    /// Every API.
+    pub const ALL: ApiSet = ApiSet(u128::MAX);
+
+    /// Exactly these APIs.
+    #[must_use]
+    pub const fn of(mut keys: &[ApiKey]) -> Self {
+        let mut bits = 0;
+        while let [key, rest @ ..] = keys {
+            bits |= Self::bit(*key);
+            keys = rest;
+        }
+        Self(bits)
+    }
+
+    /// Whether `key` is in the set.
+    #[must_use]
+    pub const fn contains(self, key: ApiKey) -> bool {
+        self.0 & Self::bit(key) != 0
+    }
+
+    const fn bit(key: ApiKey) -> u128 {
+        let k = key as i16;
+        if k >= 0 && k < 128 { 1 << k } else { 0 }
+    }
+}
+
 /// What the running broker has switched on, which some APIs wait for.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Features {
     /// SASL authentication is configured.
     pub sasl: bool,
     /// Client telemetry (KIP-714) is on.
     pub telemetry: bool,
+    /// The APIs the broker has a handler for. The rest are neither advertised nor accepted, so a client never
+    /// negotiates an API it will be refused. Everything, unless narrowed.
+    pub served: ApiSet,
+}
+
+impl Default for Features {
+    fn default() -> Self {
+        Self {
+            sasl: false,
+            telemetry: false,
+            served: ApiSet::ALL,
+        }
+    }
 }
 
 impl Features {
-    fn allows(self, when: Condition) -> bool {
-        match when {
-            Condition::Always => true,
-            Condition::Sasl => self.sasl,
-            Condition::Telemetry => self.telemetry,
-        }
+    fn allows(self, row: &ApiRow) -> bool {
+        self.served.contains(row.key)
+            && match row.when {
+                Condition::Always => true,
+                Condition::Sasl => self.sasl,
+                Condition::Telemetry => self.telemetry,
+            }
     }
 }
 
@@ -120,7 +165,7 @@ impl Profile {
     pub fn advertised(self, features: Features) -> Vec<Advertised> {
         let mut out: Vec<Advertised> = API_TABLE
             .iter()
-            .filter(|row| features.allows(row.when))
+            .filter(|row| features.allows(row))
             .filter_map(|row| {
                 self.range(row.key).map(|(min, max)| Advertised {
                     key: row.key,
@@ -144,9 +189,7 @@ impl Profile {
     /// # Errors
     /// [`WireError::NotAdvertised`] for anything the profile does not serve.
     pub fn check(self, key: ApiKey, version: i16, features: Features) -> Result<(), WireError> {
-        let offered = API_TABLE
-            .iter()
-            .any(|r| r.key == key && features.allows(r.when));
+        let offered = API_TABLE.iter().any(|r| r.key == key && features.allows(r));
         match self.range(key) {
             Some((min, max)) if offered && (min..=max).contains(&version) => Ok(()),
             _ => Err(WireError::NotAdvertised { key, version }),

@@ -13,7 +13,7 @@ use kafka_protocol::protocol::{Decodable, StrBytes};
 use kafka_wire::api::Response;
 use kafka_wire::api_versions::answer;
 use kafka_wire::incoming::{self, Incoming};
-use kafka_wire::profile::{Features, KafkaMajor, Profile};
+use kafka_wire::profile::{ApiSet, Features, KafkaMajor, Profile};
 use kafka_wire::{response, testing::request_payload};
 use serde_json::Value;
 
@@ -26,6 +26,7 @@ const RECORDED: [&str; 2] = [
 const AS_RECORDED: Features = Features {
     sasl: true,
     telemetry: false,
+    served: ApiSet::ALL,
 };
 
 fn payload(step: &Value) -> Bytes {

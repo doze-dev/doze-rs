@@ -9,6 +9,7 @@ fn profile(major: u8) -> Profile {
 const ALL: Features = Features {
     sasl: true,
     telemetry: true,
+    served: ApiSet::ALL,
 };
 
 #[test]
@@ -97,4 +98,21 @@ fn the_apis_dropped_because_the_crate_cannot_decode_them_are_known() {
             (1, ApiKey::DeleteAcls)
         ]
     );
+}
+
+#[test]
+fn only_the_served_apis_are_advertised_and_accepted() {
+    let features = Features {
+        served: ApiSet::of(&[ApiKey::ApiVersions, ApiKey::Metadata]),
+        ..Features::default()
+    };
+    let keys: Vec<_> = profile(4)
+        .advertised(features)
+        .iter()
+        .map(|a| a.key)
+        .collect();
+    assert_eq!(keys, [ApiKey::Metadata, ApiKey::ApiVersions]);
+    assert!(profile(4).check(ApiKey::Metadata, 12, features).is_ok());
+    // Offered by the profile, but not served: refused as if never offered.
+    assert!(profile(4).check(ApiKey::Fetch, 12, features).is_err());
 }

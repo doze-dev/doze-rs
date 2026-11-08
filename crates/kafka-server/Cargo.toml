@@ -14,3 +14,14 @@ workspace = true
 [dependencies]
 kafka-wire = { path = "../kafka-wire" }
 kafka-broker = { path = "../kafka-broker" }
+bytes = "1"
+thiserror = "2"
+tracing = "0.1"
+# The runtime flavour is the binary's choice; this crate needs the pieces, not the threads.
+tokio = { version = "1", default-features = false, features = ["rt", "net", "time", "io-util", "sync", "macros"] }
+tokio-util = { version = "0.7", default-features = false, features = ["rt"] }
+
+[dev-dependencies]
+kafka-protocol = { version = "0.18", default-features = false, features = ["client"] }
+kafka-wire = { path = "../kafka-wire", features = ["test-support"] }
+tokio = { version = "1", default-features = false, features = ["rt", "net", "time", "io-util", "sync", "macros", "test-util"] }

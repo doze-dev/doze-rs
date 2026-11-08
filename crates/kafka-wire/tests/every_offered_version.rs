@@ -13,13 +13,14 @@ use kafka_protocol::messages::*;
 use kafka_protocol::protocol::Decodable;
 use kafka_wire::api::Response;
 use kafka_wire::incoming::{self, Incoming};
-use kafka_wire::profile::{Features, KafkaMajor, Profile};
+use kafka_wire::profile::{ApiSet, Features, KafkaMajor, Profile};
 use kafka_wire::testing::request_payload;
 use kafka_wire::{profile::Advertised, response};
 
 const ALL: Features = Features {
     sasl: true,
     telemetry: true,
+    served: ApiSet::ALL,
 };
 
 /// Builds, for every served API, the default request payload and the default response, by name.

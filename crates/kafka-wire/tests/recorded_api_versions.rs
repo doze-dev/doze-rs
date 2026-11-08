@@ -6,7 +6,7 @@
     clippy::panic
 )]
 
-use kafka_wire::profile::{Features, KafkaMajor, Profile};
+use kafka_wire::profile::{ApiSet, Features, KafkaMajor, Profile};
 
 fn recording() -> serde_json::Value {
     serde_json::from_str(include_str!("data/api-versions.json")).expect("the recording is JSON")
@@ -39,6 +39,7 @@ fn real(major: u64) -> Vec<(i64, i64, i64)> {
 const AS_RECORDED: Features = Features {
     sasl: true,
     telemetry: false,
+    served: ApiSet::ALL,
 };
 
 #[test]
@@ -80,6 +81,7 @@ fn telemetry_apis_are_the_only_extension() {
     let with = major4.advertised(Features {
         sasl: true,
         telemetry: true,
+        served: ApiSet::ALL,
     });
     let without = major4.advertised(AS_RECORDED);
     let extra: Vec<_> = with
@@ -100,7 +102,8 @@ fn telemetry_apis_are_the_only_extension() {
         assert_eq!(
             p.advertised(Features {
                 sasl: true,
-                telemetry: true
+                telemetry: true,
+                served: ApiSet::ALL,
             }),
             p.advertised(AS_RECORDED)
         );

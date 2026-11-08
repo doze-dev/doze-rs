@@ -12,7 +12,7 @@ use kafka_wire::api::API_TABLE;
 use kafka_wire::batch::{Batch, Batches};
 use kafka_wire::frame::{FrameDecoder, Trust};
 use kafka_wire::incoming;
-use kafka_wire::profile::{Features, KafkaMajor, Profile};
+use kafka_wire::profile::{ApiSet, Features, KafkaMajor, Profile};
 use proptest::prelude::*;
 
 fn profiles() -> impl Iterator<Item = Profile> {
@@ -23,10 +23,12 @@ const FEATURES: [Features; 2] = [
     Features {
         sasl: false,
         telemetry: false,
+        served: ApiSet::ALL,
     },
     Features {
         sasl: true,
         telemetry: true,
+        served: ApiSet::ALL,
     },
 ];
 
