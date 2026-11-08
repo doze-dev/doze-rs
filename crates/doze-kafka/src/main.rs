@@ -1,8 +1,8 @@
-//! doze-kafka, the Rust port. Nothing is ported yet: see docs/kafka-port.md.
+//! doze-kafka: a Kafka broker for local development. Nothing is ported yet; see docs/port/PLAN.md.
 
 fn main() {
     println!(
-        "doze-kafka {} (Rust port, not functional yet)",
+        "doze-kafka {} (Rust edition, not functional yet)",
         env!("CARGO_PKG_VERSION")
     );
 }

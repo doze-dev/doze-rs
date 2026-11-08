@@ -5,3 +5,71 @@ version = 4
 [[package]]
 name = "doze-kafka"
 version = "0.0.0"
+dependencies = [
+ "kafka-console",
+ "kafka-registry",
+ "kafka-server",
+]
+
+[[package]]
+name = "kafka-broker"
+version = "0.0.0"
+dependencies = [
+ "kafka-meta",
+ "kafka-storage",
+ "kafka-wire",
+]
+
+[[package]]
+name = "kafka-console"
+version = "0.0.0"
+dependencies = [
+ "kafka-broker",
+ "kafka-wire",
+]
+
+[[package]]
+name = "kafka-meta"
+version = "0.0.0"
+dependencies = [
+ "kafka-wire",
+]
+
+[[package]]
+name = "kafka-registry"
+version = "0.0.0"
+dependencies = [
+ "kafka-meta",
+ "kafka-wire",
+]
+
+[[package]]
+name = "kafka-server"
+version = "0.0.0"
+dependencies = [
+ "kafka-broker",
+ "kafka-wire",
+]
+
+[[package]]
+name = "kafka-storage"
+version = "0.0.0"
+dependencies = [
+ "kafka-wire",
+]
+
+[[package]]
+name = "kafka-testkit"
+version = "0.0.0"
+dependencies = [
+ "kafka-storage",
+ "kafka-wire",
+]
+
+[[package]]
+name = "kafka-wire"
+version = "0.0.0"
+
+[[package]]
+name = "xtask"
+version = "0.0.0"

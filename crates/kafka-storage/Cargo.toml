@@ -1,0 +1,19 @@
+[package]
+name = "kafka-storage"
+version = "0.0.0"
+description = "Partition logs on disk: segments, index, recovery, retention, compaction"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+kafka-wire = { path = "../kafka-wire" }
+
+[features]
+# A deterministic in-memory disk with crash points and injected faults, for tests.
+sim = []

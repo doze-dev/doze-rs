@@ -1,0 +1,16 @@
+[package]
+name = "kafka-registry"
+version = "0.0.0"
+description = "Confluent-compatible schema registry"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+kafka-wire = { path = "../kafka-wire" }
+kafka-meta = { path = "../kafka-meta" }

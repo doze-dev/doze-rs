@@ -1,22 +1,43 @@
 # doze in Rust: one workspace, each part its own crate. doze-kafka is ported
-# first (docs/kafka-port.md); doze, doze-aws and the modules follow.
+# first; the plan is docs/port/PLAN.md.
 [workspace]
 resolver = "3"
-members = ["crates/*"]
+members = ["crates/*", "xtask"]
 
 [workspace.package]
 edition = "2024"
 license = "Apache-2.0"
 repository = "https://github.com/doze-dev/doze-rs"
 rust-version = "1.99"
+publish = false
 
+# One set of rules for every crate (`[lints] workspace = true`). The port's
+# quality rules live here and in clippy.toml, not in anyone's head.
 [workspace.lints.rust]
-unsafe_code = "deny"
+unsafe_code = "forbid"
+missing_debug_implementations = "warn"
+unreachable_pub = "warn"
 
 [workspace.lints.clippy]
 all = { level = "warn", priority = -1 }
+# No panics in production code (clippy.toml allows them in tests).
+unwrap_used = "deny"
+expect_used = "deny"
+indexing_slicing = "deny"
+panic = "deny"
+todo = "deny"
+unimplemented = "deny"
+dbg_macro = "deny"
+# Ownership over locks: never hold a lock across an await.
+await_holding_lock = "deny"
+await_holding_refcell_ref = "deny"
+# Small functions, few arguments.
+too_many_lines = "deny"
+cognitive_complexity = "deny"
+too_many_arguments = "deny"
 
 [profile.release]
 lto = "thin"
 codegen-units = 1
 strip = true
+panic = "abort"

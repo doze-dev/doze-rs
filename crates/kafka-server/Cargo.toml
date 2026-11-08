@@ -1,0 +1,16 @@
+[package]
+name = "kafka-server"
+version = "0.0.0"
+description = "Listener, TLS, connection tasks, sessions and shutdown: the Server handle"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+kafka-wire = { path = "../kafka-wire" }
+kafka-broker = { path = "../kafka-broker" }

@@ -1,0 +1,15 @@
+[package]
+name = "kafka-meta"
+version = "0.0.0"
+description = "Broker metadata store: topics, offsets, producer ids, transactions, ACLs"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+kafka-wire = { path = "../kafka-wire" }

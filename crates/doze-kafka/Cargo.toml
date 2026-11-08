@@ -1,14 +1,17 @@
 [package]
 name = "doze-kafka"
 version = "0.0.0"
-description = "A Kafka broker for local development: one binary, single node, disk-backed (Rust port)"
+description = "A Kafka broker for local development: one binary, single node, disk-backed"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
-publish = false
+publish.workspace = true
 
 [lints]
 workspace = true
 
 [dependencies]
+kafka-server = { path = "../kafka-server" }
+kafka-console = { path = "../kafka-console" }
+kafka-registry = { path = "../kafka-registry" }
