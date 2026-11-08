@@ -489,3 +489,12 @@ test-only knobs in `internal/config`.
   and the simulation now power-cuts every write the groups make. The real clients and the oracle found four more bugs
   that unit tests had not (FindCoordinator v4 encoding, the first joiner leads, an empty instance id is a static member,
   the sweeper forgetting a group mid-handshake); the test rig now encodes every response it is given.
+
+- **2026-11-09, Phase 4 closed.** Five audit rounds (3 MAJOR, then 1, then 1, then none). What kept being found was one
+  class: state that a client could make the broker keep for ever (a "live" record from a join that was refused, a group per
+  id-only client, a group per made-up id). The fix that ended it was structural, not another special case: issued member
+  ids moved out of the group into a bounded table in the registry, a record is written only for a join that would seat a
+  member, and the sweeper retires any empty group with no record. Also learned: a real client and the recorded-Kafka oracle
+  found four bugs that unit tests did not; the test rig now encodes every response; `cargo clippy` goes before every
+  commit (a test function over the length limit was committed once without it). Open and recorded in
+  `behaviours/groups.md`: the Java client; KIP-848 and the migration (Phase 5, which needs the owner's go-ahead).
