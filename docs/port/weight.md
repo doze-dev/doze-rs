@@ -5,8 +5,8 @@ darwin/arm64 with `cargo build --release` and compared with the Go build.
 
 | | Go doze-kafka (4081fa6) | Rust (Phase 3, f7fcf18 and after) |
 |---|---|---|
-| Binary (release, stripped) | 28,415,122 B | 3,049,696 B |
-| Crates / modules linked | 422 Go modules | 89 crates (about half are macro and build-time only) |
+| Binary (release, stripped) | 28,415,122 B | 3,099,968 B |
+| Crates / modules linked | 422 Go modules | 105 unique packages in `cargo tree` (7 ours; many are macro and build-time only) |
 | Idle RSS, empty broker | 26.8 MB, 12 threads | 4.4 MB, 3 threads |
 | Ready, fresh data directory | 25 ms | 55 ms (the first start makes and flushes the metadata database) |
 | Restart with 3,000 partitions | 33 ms, 25 MB | 32 ms, 4.3 MB |
@@ -15,20 +15,33 @@ darwin/arm64 with `cargo build --release` and compared with the Go build.
 | ... resident, descriptors | 33.6 MB, 17 | 7.7 MB, 16 |
 | 200k x 1000 B random records, 3 partitions, acks=1, produce / consume | 1.26M / 1.88M records/s | 1.81M / 2.07M records/s |
 | same, acks=all (flush per group) | 130k records/s | 176k records/s |
-| Resident after that load | 47 MB | 200 MB (see below) |
+| Resident after that load | 47 MB | 23 MB with the frame pool (200 MB before it; see below) |
 
 Measured 2026-11-08 on an M5 Max, darwin/arm64, release builds, the broker and a franz-go client on loopback (so the
 client shares the machine and the rates are a comparison, not a benchmark). Scripts were throwaway; the method is in
 the PLAN log. Rust: `--worker-threads 2` (the default), `--max-open-partitions 512` (the default).
 
-**The one number that goes the wrong way: resident memory after a heavy produce.** Producing 100 MB in requests of about
-1 MiB leaves the Rust broker at about 110 MB resident and 200 MB after 200 MB, and then it stops growing (a second and a
-third run add nothing). `vmmap` shows it is freed memory the allocator keeps: "Malloc Large (empty)", 67 regions of
-about 1.4 MiB, 95 MB resident, while the live heap is 253 KB. Each request is read into a buffer of its own (the
-batch is then written from that buffer without a copy), and macOS's allocator caches the freed large blocks instead of
-returning them. It is reclaimed under memory pressure and costs nothing at idle, but it is not flat. Not yet measured on
-Linux (glibc returns large blocks at once, so it is expected to be much lower). Candidates if it matters: reuse of
-request buffers per connection, or a different allocator (none that is pure Rust and production grade).
+**Resident memory after a heavy produce, and the frame pool (2026-11-09).** Before the pool, producing 200 MB in
+requests of about 1 MiB left the Rust broker at 200 MB resident on macOS and then it stopped growing. `vmmap` showed
+freed memory the allocator keeps ("Malloc Large (empty)"); the live heap was 253 KB. Each request was read into a
+buffer of its own and macOS's allocator caches freed large blocks instead of returning them. Linux (glibc) returned them
+at once: 43 MB.
+
+What was tried, on the same 200k x 1000 B load:
+
+| | macOS after load | Linux after load | Cost |
+|---|---|---|---|
+| system allocator, no pool | 200 MB | 43 MB | none |
+| jemalloc / mimalloc as `#[global_allocator]` | 43 MB | not needed | a C dependency, a build step |
+| **pool of kept frame buffers (kafka-server/src/pool.rs)** | **22 to 24 MB** (acks=1 and acks=all) | 38 MB (peak 48) | 119 lines, no dependency, no unsafe |
+
+Throughput is unchanged (acks=1 1.66M to 1.83M records/s against 1.62M to 1.72M; acks=all 172k either way). The pool
+is the `Bytes::from_owner` shape: a frame of 64 KiB to 16 MiB is read straight into a `Vec` taken from a shelf for its
+size class (powers of two), travels as `Bytes`, and goes back to the shelf when the last copy is dropped. The shelves
+hold at most 16 buffers per class and 64 MiB in all, so the broker's worst resident cost is that plus what is in flight.
+Frames over 16 MiB are read in chunks as before, so a peer's claimed length is not allocated before it sends the bytes.
+No published crate fit: zeropool's buffer borrows its pool and cannot be `'static` (needed for `from_owner`), and
+buffer-pool pulls in a heavy dependency (survey in the PLAN log).
 
 What the numbers are not: a durability comparison. The Rust broker flushes metadata once per commit; the Go broker's
 metadata store flushes twice. Both flush partitions per group of acks=all producers.
