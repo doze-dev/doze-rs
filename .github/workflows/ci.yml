@@ -39,6 +39,29 @@ jobs:
         env:
           RUSTDOCFLAGS: -D warnings
 
+  # Weight is a feature (docs/port/weight.md): numbers may only rise with a written reason, so the limits below sit a
+  # little above the measured values and a change that crosses one has to move the limit and say why.
+  weight:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - run: cargo build --release -p doze-kafka
+      - name: Binary size, crates, idle memory
+        run: |
+          size=$(stat -c %s target/release/doze-kafka)
+          crates=$(cargo tree -p doze-kafka --prefix none --edges normal | sort -u | wc -l)
+          dir=$(mktemp -d)
+          target/release/doze-kafka --listen 127.0.0.1:19092 --data-dir "$dir" &
+          pid=$!
+          sleep 3
+          rss=$(awk '/VmRSS/ {print $2}' /proc/$pid/status)
+          kill $pid
+          echo "binary $size B, $crates packages, idle $rss KB"
+          [ "$size" -le 4200000 ] || { echo "binary over 4.2 MB"; exit 1; }
+          [ "$crates" -le 115 ] || { echo "more than 115 packages"; exit 1; }
+          [ "$rss" -le 8192 ] || { echo "idle resident memory over 8 MB"; exit 1; }
+
   supply-chain:
     runs-on: ubuntu-24.04
     steps:
