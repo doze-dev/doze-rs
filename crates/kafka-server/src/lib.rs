@@ -9,6 +9,7 @@ mod accept;
 mod config;
 mod connection;
 mod frames;
+mod pool;
 mod server;
 
 pub use config::{Config, Timeouts};

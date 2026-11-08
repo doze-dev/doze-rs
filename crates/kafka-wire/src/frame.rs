@@ -65,13 +65,12 @@ impl FrameDecoder {
         self.trust = Trust::Authenticated;
     }
 
-    // fuzz:parser fuzz_frame
-    /// Takes one complete frame off the front of `src`, returning its payload without the length prefix.
+    /// The length of the frame at the front of `src`, once enough of it has arrived to judge: how much a frame
+    /// will weigh is known, and held to its cap, before any of its body is waited for.
     ///
     /// # Errors
-    /// A frame that is empty, too short for a key, or over its cap. The length is judged before any of
-    /// the body is waited for.
-    pub fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Bytes>, WireError> {
+    /// A frame that is empty, too short for a key, or over its cap.
+    pub fn length(&self, src: &[u8]) -> Result<Option<u32>, WireError> {
         let Some(len) = src.first_chunk::<4>().map(|b| u32::from_be_bytes(*b)) else {
             return Ok(None);
         };
@@ -96,6 +95,19 @@ impl FrameDecoder {
         if len > limit {
             return Err(WireError::FrameTooLarge { len, limit });
         }
+        Ok(Some(len))
+    }
+
+    // fuzz:parser fuzz_frame
+    /// Takes one complete frame off the front of `src`, returning its payload without the length prefix.
+    ///
+    /// # Errors
+    /// A frame that is empty, too short for a key, or over its cap. The length is judged before any of
+    /// the body is waited for.
+    pub fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Bytes>, WireError> {
+        let Some(len) = self.length(src)? else {
+            return Ok(None);
+        };
         let total = 4 + len as usize;
         if src.len() < total {
             src.reserve((total - src.len()).min(CHUNK));

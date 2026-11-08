@@ -213,3 +213,67 @@ async fn a_partial_request_left_in_the_buffer_has_the_frame_budget_not_the_idle_
     assert_eq!(read_answer(&mut client).await.0, 1);
     assert!(matches!(task.await.unwrap(), End::Slow));
 }
+
+/// A Produce request with a `size`-byte body for a topic that does not exist: answered, with an error.
+fn big_produce(correlation_id: i32, size: usize) -> Bytes {
+    use kafka_wire::messages::produce_request::{PartitionProduceData, TopicProduceData};
+    let mut partition = PartitionProduceData::default();
+    partition.index = 0;
+    partition.records = Some(Bytes::from(vec![0; size]));
+    let mut topic = TopicProduceData::default();
+    topic.name = kafka_wire::messages::TopicName(kafka_wire::StrBytes::from_static_str("nope"));
+    topic.partition_data.push(partition);
+    let mut req = kafka_wire::messages::ProduceRequest::default();
+    req.acks = 1;
+    req.topic_data.push(topic);
+    framed(&request_payload(
+        ApiKey::Produce,
+        9,
+        correlation_id,
+        None,
+        &req,
+    ))
+}
+
+async fn read_correlation(client: &mut DuplexStream) -> i32 {
+    let mut len = [0; 4];
+    client.read_exact(&mut len).await.unwrap();
+    let mut payload = vec![0; u32::from_be_bytes(len) as usize];
+    client.read_exact(&mut payload).await.unwrap();
+    i32::from_be_bytes(payload[..4].try_into().unwrap())
+}
+
+#[tokio::test]
+async fn a_big_frame_is_read_whole_however_it_arrives_and_the_request_behind_it_is_not_lost() {
+    let (mut client, _task, _stop) = start(Timeouts::default(), 4096);
+    // 200 KB: past the size from which frames are read into kept buffers.
+    let both = [
+        big_produce(1, 200_000),
+        api_versions(2),
+        big_produce(3, 200_000),
+    ]
+    .concat();
+    for piece in both.chunks(7_001) {
+        client.write_all(piece).await.unwrap();
+    }
+    for want in [1, 2, 3] {
+        assert_eq!(read_correlation(&mut client).await, want);
+    }
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_big_frame_that_trickles_in_has_the_frame_budget_too() {
+    let timeouts = Timeouts {
+        frame: Duration::from_secs(30),
+        ..Timeouts::default()
+    };
+    let (mut client, task, _stop) = start(timeouts, 4096);
+    let request = big_produce(1, 200_000);
+    // Enough to be known as a big frame, then a trickle.
+    client.write_all(&request[..100]).await.unwrap();
+    for byte in request[100..].iter().take(4) {
+        let _ = client.write_all(&[*byte]).await;
+        sleep(Duration::from_secs(12)).await;
+    }
+    assert!(matches!(task.await.unwrap(), End::Slow));
+}
