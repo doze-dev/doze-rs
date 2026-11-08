@@ -194,3 +194,23 @@ fn a_full_disk_refuses_writes_leaves_nothing_behind_and_they_resume_when_there_i
     assert_eq!(again.next_offset, offset(3));
     assert_eq!(bases(&all(&log.reader())), vec![0, 1, 2]);
 }
+
+#[test]
+fn a_directory_flush_that_finds_no_free_descriptor_waits_and_does_not_take_the_partition_offline() {
+    let (fs, _dir, mut log) = fresh(NEVER);
+    log.append(&ones(1, 0), NOW, TimestampType::Create).unwrap();
+    let before = fs.count(Op::DirSync);
+    fs.fail(Op::DirSync, 1, Failure::TooManyFiles);
+    log.sync().unwrap();
+    assert!(!log.is_offline());
+    assert_eq!(
+        fs.count(Op::DirSync) - before,
+        2,
+        "tried again, and the second flush held"
+    );
+    // Any other failure of the same flush is still the end of the partition.
+    log.append(&ones(1, 0), NOW, TimestampType::Create).unwrap();
+    fs.fail(Op::Fsync, 1, Failure::Io);
+    assert!(log.sync().is_err());
+    assert!(log.is_offline());
+}

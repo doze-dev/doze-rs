@@ -34,6 +34,8 @@ pub enum Failure {
     Io,
     /// No space left on the device (`ENOSPC`).
     Full,
+    /// The process or the system has no file descriptor to give (`EMFILE`): a file cannot be opened right now.
+    TooManyFiles,
 }
 
 impl Failure {
@@ -41,6 +43,8 @@ impl Failure {
         match self {
             Self::Io => io::Error::other("simulated I/O error"),
             Self::Full => io::Error::from(io::ErrorKind::StorageFull),
+            // EMFILE is 24 on every Unix this runs on.
+            Self::TooManyFiles => io::Error::from_raw_os_error(24),
         }
     }
 }

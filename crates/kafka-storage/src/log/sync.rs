@@ -53,6 +53,15 @@ impl Ticket {
     }
 }
 
+/// How many times a directory flush that finds no free descriptor is tried again, and how long it waits before each.
+const DESCRIPTOR_RETRIES: u32 = 10;
+const DESCRIPTOR_WAIT: std::time::Duration = std::time::Duration::from_millis(20);
+
+/// `EMFILE` (this process has no descriptor left) or `ENFILE` (the system has none): 24 and 23 on Linux and macOS.
+fn out_of_descriptors(e: &std::io::Error) -> bool {
+    cfg!(unix) && matches!(e.raw_os_error(), Some(23 | 24))
+}
+
 impl<F: Fs> PartitionLog<F> {
     /// A claim on everything appended so far, including what was read back when the log was opened.
     #[must_use]
@@ -126,7 +135,19 @@ impl<F: Fs> PartitionLog<F> {
         if !self.dir_dirty {
             return Ok(());
         }
-        if let Err(e) = self.fs.sync_dir(&self.dir) {
+        // Flushing a directory opens it, and with every descriptor in use that open is refused: not a failed flush,
+        // since nothing was flushed or lost. Descriptors come back as other partitions close, so wait for one.
+        let mut tries = 0;
+        let flushed = loop {
+            match self.fs.sync_dir(&self.dir) {
+                Err(e) if out_of_descriptors(&e) && tries < DESCRIPTOR_RETRIES => {
+                    tries += 1;
+                    std::thread::sleep(DESCRIPTOR_WAIT);
+                }
+                other => break other,
+            }
+        };
+        if let Err(e) = flushed {
             return Err(self.fail("flushing the partition directory", e));
         }
         self.dir_dirty = false;
