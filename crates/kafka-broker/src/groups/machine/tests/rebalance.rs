@@ -199,3 +199,23 @@ fn a_member_who_leaves_while_its_join_waits_has_that_join_told_it_is_unknown() {
     g.leave(&["m1"]);
     assert_eq!(g.joined(leading).error, Some(E::UnknownMemberId));
 }
+
+#[test]
+fn the_first_member_to_join_an_empty_group_leads_it_whatever_its_id_sorts_as() {
+    let mut g = Group::named(100, &["z", "a", "m"]);
+    let tokens: Vec<_> = (0..3)
+        .map(|_| g.join(join_request(None, &["range"])))
+        .collect();
+    g.advance(500);
+    let answers: Vec<_> = tokens.into_iter().map(|t| g.joined(t)).collect();
+    assert!(
+        answers.iter().all(|a| a.leader == Some(id("z"))),
+        "z came first"
+    );
+    assert_eq!(
+        answers[0].members.len(),
+        3,
+        "and z is the one told the members"
+    );
+    assert!(answers[1].members.is_empty() && answers[2].members.is_empty());
+}

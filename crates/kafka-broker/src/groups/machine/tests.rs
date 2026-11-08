@@ -49,7 +49,7 @@ pub(super) fn id(s: &str) -> MemberId {
 }
 
 pub(super) fn instance(s: &str) -> InstanceId {
-    InstanceId::new(s).unwrap()
+    InstanceId::new(s)
 }
 
 pub(super) fn protocols(names: &[&str]) -> Vec<Protocol> {

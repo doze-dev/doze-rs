@@ -145,6 +145,8 @@ impl GroupMachine {
         self.pending.remove(&id);
         if self.members.is_empty() {
             self.protocol_type = Some(req.protocol_type.clone());
+            // The first member to join an empty group leads it (as in Kafka), whatever its id sorts as.
+            self.leader = Some(id.clone());
         }
         if let Some(inst) = &req.instance {
             self.statics.insert(inst.clone(), id.clone());

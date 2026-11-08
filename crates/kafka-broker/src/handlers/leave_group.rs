@@ -25,7 +25,7 @@ impl<F: Fs> Broker<F> {
                     instance: m
                         .group_instance_id
                         .as_ref()
-                        .and_then(|i| InstanceId::new(i.as_str())),
+                        .map(|i| InstanceId::new(i.as_str())),
                 })
                 .collect()
         } else {

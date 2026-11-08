@@ -27,7 +27,7 @@ impl<F: Fs> Broker<F> {
             instance: req
                 .group_instance_id
                 .as_ref()
-                .and_then(|i| InstanceId::new(i.as_str())),
+                .map(|i| InstanceId::new(i.as_str())),
             client_id: client_id.to_owned(),
             protocol_type: req.protocol_type.as_str().to_owned(),
             protocols: req
@@ -50,8 +50,14 @@ impl<F: Fs> Broker<F> {
         };
         match self.groups.ask(&group, Req::Join(join)).await {
             Some(Answer::Join(answer)) => respond(version, &answer),
-            // Replaced by a later JoinGroup of the same member: the client has moved on from this connection.
-            _ => Outcome::Close,
+            // Replaced by a later JoinGroup of the same member. Kafka drops the earlier request and never answers it,
+            // and the connection stays as it was; the client gives up on it in its own time. Held here for as long
+            // as the member's session would have run (so that a connection nobody closes does not hold on for ever).
+            _ => {
+                let held = u64::try_from(req.session_timeout_ms).unwrap_or(0);
+                tokio::time::sleep(std::time::Duration::from_millis(held)).await;
+                Outcome::Close
+            }
         }
     }
 }

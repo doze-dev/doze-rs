@@ -135,3 +135,18 @@ fn a_static_member_can_leave_by_instance_alone_and_the_instance_is_then_free() {
     assert!(g.answer(t).is_none(), "a new member: a rebalance begins");
     assert_eq!(g.machine.member_ids().len(), 2);
 }
+
+#[test]
+fn an_empty_instance_id_still_names_a_static_member() {
+    let mut g = Group::new(0);
+    let t = g.join(static_request(None, ""));
+    let told = g.joined(t);
+    assert!(
+        told.error.is_none(),
+        "joined in one step, not told to come back with an id"
+    );
+    assert_eq!(told.members[0].instance, Some(instance("")));
+    // And it holds the instance: another member claiming it with another id is fenced.
+    let t = g.join(static_request(Some("stranger"), ""));
+    assert_eq!(g.joined(t).error, Some(E::FencedInstanceId));
+}

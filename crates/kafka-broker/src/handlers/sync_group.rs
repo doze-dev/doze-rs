@@ -21,7 +21,7 @@ impl<F: Fs> Broker<F> {
             instance: req
                 .group_instance_id
                 .as_ref()
-                .and_then(|i| InstanceId::new(i.as_str())),
+                .map(|i| InstanceId::new(i.as_str())),
             generation: req.generation_id,
             protocol_type: req.protocol_type.as_ref().map(|t| t.as_str().to_owned()),
             protocol: req.protocol_name.as_ref().map(|t| t.as_str().to_owned()),

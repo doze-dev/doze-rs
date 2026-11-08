@@ -105,15 +105,16 @@ impl fmt::Display for MemberId {
     }
 }
 
-/// A static member's `group.instance.id`: it names a member across restarts. Any text; empty is not one.
+/// A static member's `group.instance.id`: it names a member across restarts. Any text, the empty string too: a client
+/// that sends one at all (not null) is a static member, and Kafka takes it as that.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct InstanceId(Arc<str>);
 
 impl InstanceId {
-    /// An instance id, or `None` for the wire's empty string.
+    /// An instance id.
     #[must_use]
-    pub fn new(id: &str) -> Option<Self> {
-        (!id.is_empty()).then(|| Self(id.into()))
+    pub fn new(id: &str) -> Self {
+        Self(id.into())
     }
 
     /// The id.
@@ -158,7 +159,7 @@ mod tests {
             MemberId::issued(bytes, None).as_str(),
             format!("doze-{}", "ab".repeat(16))
         );
-        let inst = InstanceId::new("pod-7").unwrap();
+        let inst = InstanceId::new("pod-7");
         assert_eq!(
             MemberId::issued([0; 16], Some(&inst)).as_str(),
             format!("pod-7-doze-{}", "00".repeat(16))

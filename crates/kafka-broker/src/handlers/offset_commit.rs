@@ -86,7 +86,7 @@ impl<F: Fs> Broker<F> {
             instance: req
                 .group_instance_id
                 .as_ref()
-                .and_then(|i| InstanceId::new(i.as_str())),
+                .map(|i| InstanceId::new(i.as_str())),
             generation: req.generation_id_or_member_epoch,
         };
         match self.groups.ask(&group, Req::Commit(check)).await {
