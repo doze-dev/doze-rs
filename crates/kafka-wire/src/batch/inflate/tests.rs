@@ -16,6 +16,7 @@ fn rules(max_inflated: u64) -> ScanRules {
         before_max_ms: i64::MAX,
         after_max_ms: i64::MAX,
         max_inflated,
+        renumbering: false,
     }
 }
 
@@ -217,4 +218,15 @@ fn rec_of(delta: i64) -> Rec {
         value: Some(vec![1]),
         headers: vec![],
     }
+}
+
+#[test]
+fn bytes_after_the_last_gzip_member_that_do_not_begin_another_are_not_read() {
+    let mut stream = gzip(&encode_records(&recs(10)));
+    stream.extend_from_slice(b"trailing garbage, not a member");
+    assert!(batch(1, stream, 10).scan(&rules(1 << 20), &"t-0").is_ok());
+    // But a second member that begins and is cut off is a fault.
+    let mut cut = gzip(&encode_records(&recs(10)));
+    cut.extend_from_slice(&gzip(b"more")[..6]);
+    assert!(batch(1, cut, 10).scan(&rules(1 << 20), &"t-0").is_err());
 }

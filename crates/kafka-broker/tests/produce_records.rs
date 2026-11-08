@@ -189,3 +189,77 @@ async fn a_topic_with_no_bounds_of_its_own_refuses_a_record_stamped_more_than_an
         0
     );
 }
+
+#[tokio::test]
+async fn a_topic_that_stores_another_codec_has_the_batch_written_again_in_it_and_held_to_the_limit_as_stored()
+ {
+    use std::io::Write;
+    let rig = rig();
+    let uncompressed = with_config(topic("plain", 1), "compression.type", "uncompressed");
+    let small = with_config(
+        with_config(topic("small", 1), "compression.type", "uncompressed"),
+        "max.message.bytes",
+        "2000",
+    );
+    rig.create(vec![uncompressed, small], false).await;
+    // Five records of a thousand bytes, gzip'd (a few hundred bytes), numbered with gaps as a producer may.
+    let recs: Vec<_> = (0..5)
+        .map(|i| kafka_wire::batch::build::Rec {
+            timestamp_delta: i,
+            offset_delta: Some(i * 4),
+            key: Some(b"k".to_vec()),
+            value: Some(vec![b'v'; 1000]),
+            headers: vec![],
+        })
+        .collect();
+    let mut gz = flate2_encoder();
+    gz.write_all(&kafka_wire::batch::build::encode_records(&recs))
+        .unwrap();
+    let batch = BatchBuilder::new()
+        .records(5)
+        .attributes(1)
+        .timestamps(now_ms(), now_ms() + 4)
+        .body(gz.finish().unwrap())
+        .build();
+    assert!(batch.len() < 2000, "it is within the limit as it arrives");
+
+    let r = rig.produce(-1, "plain", 0, batch.clone()).await;
+    assert_eq!((r.error_code, r.base_offset), (0, 0));
+    let held = kafka_wire::batch::Batch::parse(stored(&rig.fs, "plain", 0)[0].clone()).unwrap();
+    assert_eq!(
+        held.attributes().compression(),
+        kafka_wire::batch::Compression::None,
+        "stored as the topic says"
+    );
+    let deltas: Vec<_> = held
+        .record_times()
+        .unwrap()
+        .map(|t| t.unwrap().offset_delta)
+        .collect();
+    assert_eq!(deltas, [0, 1, 2, 3, 4], "and numbered again");
+
+    // Over the limit as the topic keeps it: refused before anything is stored.
+    let r = rig.produce(1, "small", 0, batch).await;
+    assert_eq!((r.error_code, r.base_offset), (10, -1));
+    assert!(stored(&rig.fs, "small", 0).is_empty());
+}
+
+#[tokio::test]
+async fn a_transactional_bit_on_a_batch_with_no_producer_is_stored_like_any_other() {
+    let rig = rig();
+    rig.create(vec![topic("t", 1)], false).await;
+    let batch = BatchBuilder::from_records(now_ms(), &[rec(0, true)])
+        .attributes(0x10)
+        .build();
+    // (With a transactional id: without one the request is refused whole, as Kafka does.)
+    let mut req = support::produce_request(1, "t", &[(0, batch)]);
+    req.transactional_id = Some(kafka_wire::messages::TransactionalId(
+        kafka_wire::StrBytes::from_static_str("x"),
+    ));
+    let kafka_wire::api::Response::Produce(r) =
+        rig.ask(9, kafka_wire::api::Request::Produce(req)).await
+    else {
+        panic!()
+    };
+    assert_eq!(r.responses[0].partition_responses[0].error_code, 0);
+}

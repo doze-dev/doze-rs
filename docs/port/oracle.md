@@ -46,3 +46,32 @@ The Go suite has scenarios for every area. A Rust phase is checked against only 
 a `CONFORMANCE_ONLY` selection (scenario-name prefixes) is added to the harness in Phase 3, when there is a
 binary to run it against. Until then the wire is checked by its own suites, including the recorded ApiVersions
 of real brokers (copied into `crates/kafka-wire/tests/data`).
+
+## Phase 3 result (2026-11-08)
+
+`CONFORMANCE_ONLY` (comma-separated scenario-name prefixes) selects scenarios; a foreign binary's stale
+"known difference" entries are not reported (they are the Go edition's own list). Against the Rust binary:
+
+```sh
+CONFORMANCE_BIN=target/release/doze-kafka \
+CONFORMANCE_ONLY="createtopics-,metadata-autocreate,listoffsets,produce-,fetch-above" \
+  go test ./conformance -run 'TestReplay$' -count=1 -v        # in the oracle worktree, GOWORK=off
+```
+
+| Scenario | Result |
+|---|---|
+| createtopics-validation (41 steps) | pass |
+| createtopics-collisions | pass |
+| listoffsets | pass |
+| fetch-above-the-end | pass |
+| produce-acks-zero | pass |
+| produce-mixed-partition-errors | pass |
+| produce-decompressed-size | pass |
+| produce-inflated-size | pass |
+| produce-validation (about 130 steps) | pass except the idempotent-producer sequence steps (`unknown-pid-seq-*`: OUT_OF_ORDER_SEQUENCE_NUMBER, INVALID_PRODUCER_EPOCH, duplicate answers), which are Phase 6 |
+| metadata-autocreate | pass except its one `IncrementalAlterConfigs` step (Phase 7) |
+
+Found by the oracle and not by the broker's own tests (each now has one): gzip with bytes after its last member is
+accepted; zstd windows past 128 MiB are unreadable and under it are too large only past this broker's cap; a topic's
+`compression.type` makes the broker write the batch again (renumbered, size held as stored); a transactional bit with no
+producer id is stored; nonsense after the batch fails it without Kafka's text; the value length is in the timestamp-type text.

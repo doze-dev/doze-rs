@@ -12,6 +12,7 @@ fn rules() -> ScanRules {
         before_max_ms: i64::MAX,
         after_max_ms: 3_600_000,
         max_inflated: 1 << 20,
+        renumbering: false,
     }
 }
 

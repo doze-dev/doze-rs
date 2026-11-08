@@ -127,8 +127,9 @@ impl<F: Fs> Broker<F> {
             Ok(accepted) => accepted,
             Err(refused) => return Stage::Done(self.refused(topic, id, refused).await),
         };
-        if batch.attributes().is_transactional() {
-            // Transactions are Phase 6; a producer that is not in one has no business sending these.
+        if batch.attributes().is_transactional() && batch.producer().is_some() {
+            // A transaction needs a producer; transactions are Phase 6. (A transactional bit on a batch with no
+            // producer is stored as any other: Kafka does.)
             return Stage::Done(failed(p.index, ResponseError::InvalidTxnState, None));
         }
         let partition = match self.partitions.get(topic, id).await {

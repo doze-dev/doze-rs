@@ -36,6 +36,9 @@ pub struct ScanRules {
     pub after_max_ms: i64,
     /// The most a batch may inflate to.
     pub max_inflated: u64,
+    /// The batch will be written out again (its topic stores another codec), which numbers its records 0, 1, 2: so
+    /// offsets that skip are no fault.
+    pub renumbering: bool,
 }
 
 /// What a scan found out about a batch that passed.
@@ -43,6 +46,8 @@ pub struct ScanRules {
 pub struct Scanned {
     /// The latest of the records' timestamps (a producer may write anything in the header's), or -1 if none has one.
     pub max_timestamp: TimestampMs,
+    /// How many bytes the records come to once inflated.
+    pub inflated_bytes: u64,
 }
 
 /// One record's fault, as the answer lists it.
@@ -70,7 +75,7 @@ pub struct RecordsRefused {
 }
 
 impl RecordsRefused {
-    fn new(refusal: Refusal, before_log: bool, reason: impl Into<String>) -> Self {
+    pub(super) fn new(refusal: Refusal, before_log: bool, reason: impl Into<String>) -> Self {
         Self {
             refusal,
             before_log,
@@ -112,6 +117,7 @@ struct Record {
     timestamp_delta: i64,
     offset_delta: i64,
     key_length: i64,
+    value_length: i64,
 }
 
 /// Reads one record's fields inside the length it gives itself: nothing may be read past where it stops.
@@ -152,6 +158,7 @@ fn read_record<R: BufRead>(
         timestamp_delta,
         offset_delta,
         key_length,
+        value_length,
     })
 }
 
@@ -228,7 +235,7 @@ impl Batch {
             let record = read_record(&mut cursor, index, count).map_err(|f| refusal_of(f, len))?;
             sequential &= record.offset_delta == i64::from(index);
             let timestamp = first.saturating_add(record.timestamp_delta);
-            judge.record(index, timestamp, record.key_length);
+            judge.record(index, timestamp, (record.key_length, record.value_length));
         }
         // Nothing may follow the last record the header counts.
         match cursor.byte() {
@@ -242,14 +249,19 @@ impl Batch {
         }
         // Offsets inside the batch that are not 0, 1, 2: Kafka keeps an uncompressed batch like that as it came, and
         // fails on a compressed one it would have kept as it came.
-        if !sequential && self.attributes().compression() != Compression::None {
+        let max_timestamp = judge.finish()?;
+        if !sequential && !rules.renumbering && self.attributes().compression() != Compression::None
+        {
             return Err(RecordsRefused::new(
                 Refusal::UnknownServerError,
                 false,
                 "the records of a compressed batch are not numbered 0, 1, 2, ...",
             ));
         }
-        judge.finish()
+        Ok(Scanned {
+            max_timestamp,
+            inflated_bytes: cursor.taken,
+        })
     }
 }
 

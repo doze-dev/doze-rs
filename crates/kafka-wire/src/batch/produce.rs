@@ -66,6 +66,9 @@ pub enum ProduceError {
     /// A producer id with no sequence number.
     #[error("a batch with a producer id ({0}) and no sequence number")]
     NoSequence(i64),
+    /// A fault found while looking for a second batch after the first, which Kafka answers without its text.
+    #[error("after the first batch: {0}")]
+    AfterTheBatch(Box<ProduceError>),
 }
 
 impl ProduceError {
@@ -77,6 +80,7 @@ impl ProduceError {
             Self::Zstd(_) => Refusal::UnsupportedCompression,
             Self::TooLarge { .. } => Refusal::MessageTooLarge,
             Self::Batch(e) => e.refusal(),
+            Self::AfterTheBatch(inner) => inner.refusal(),
             _ => Refusal::InvalidRecord,
         }
     }
@@ -95,6 +99,7 @@ impl ProduceError {
             | Self::MoreThanOne
             | Self::Zstd(_)
             | Self::TooLarge { .. } => true,
+            Self::AfterTheBatch(inner) => inner.before_log(),
             Self::Batch(e) => matches!(
                 e,
                 BatchError::TooShort(_)
@@ -157,7 +162,10 @@ impl Batch {
         if rules.version < 7 && declared_compression(&batch) == Some(Compression::Zstd) {
             return Err(ProduceError::Zstd(rules.version));
         }
-        if first(&rest)?.is_some() {
+        if first(&rest)
+            .map_err(|e| ProduceError::AfterTheBatch(Box::new(e)))?
+            .is_some()
+        {
             return Err(ProduceError::MoreThanOne);
         }
         let base = batch

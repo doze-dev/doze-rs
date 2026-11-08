@@ -446,3 +446,10 @@ test-only knobs in `internal/config`.
   the protocol over a socket, including SIGTERM within ten seconds and a SIGKILL. Mutation checks on both. Deferred and
   recorded: rewriting a batch into the topic's `compression.type`; the descriptor budget (3f part 2). Catalogues:
   `behaviours/produce.md` P11-P14, `behaviours/binary.md`.
+- **2026-11-08, Phase 3 oracle run.** `CONFORMANCE_ONLY` added to the Go harness (oracle branch, local). First run
+  against the release binary (2.9 MB): 5 of 10 Phase 3 scenarios passed. The differences were real fidelity gaps that
+  the broker's own tests had not caught: gzip with trailing bytes, zstd window classes, rewriting a batch into the
+  topic's codec (now `Batch::recode`, with encoders for all four codecs), a transactional bit without a producer,
+  the text for nonsense after a batch, the value length in a message. After fixing them: 8 pass outright; the other two
+  differ only in steps that belong to later phases (idempotent sequence checks, IncrementalAlterConfigs). Table in
+  `oracle.md`.

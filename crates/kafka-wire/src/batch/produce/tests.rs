@@ -207,3 +207,17 @@ fn kafka_words_a_batch_that_is_not_a_batch_in_its_own_text() {
     );
     assert_eq!(ProduceError::MoreThanOne.kafka_message(), None);
 }
+
+#[test]
+fn bytes_after_the_batch_that_are_nonsense_fail_it_without_kafkas_text() {
+    let mut zeros = one();
+    zeros.extend_from_slice(&[0; 20]);
+    let err = from(zeros).unwrap_err();
+    assert_eq!(err.refusal(), Refusal::CorruptMessage);
+    assert!(err.before_log());
+    assert_eq!(
+        err.kafka_message(),
+        None,
+        "found while looking for a second batch, Kafka's answer has no text"
+    );
+}

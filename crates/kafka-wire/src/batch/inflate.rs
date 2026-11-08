@@ -68,7 +68,9 @@ pub(super) fn open<'a>(
     let stream: Box<dyn Read + 'a> = match codec {
         Compression::None => Box::new(body),
         #[cfg(feature = "gzip")]
-        Compression::Gzip => Box::new(flate2::read::MultiGzDecoder::new(body)),
+        Compression::Gzip => Box::new(GzipMembers {
+            member: Some(flate2::bufread::GzDecoder::new(body)),
+        }),
         #[cfg(feature = "snappy")]
         Compression::Snappy => snappy(body, limit)?,
         #[cfg(feature = "lz4")]
@@ -81,6 +83,37 @@ pub(super) fn open<'a>(
         inner: stream,
         left: limit,
     }))
+}
+
+/// The members of a gzip stream, one after another: when a member ends, another follows only if the next bytes begin
+/// one, and anything else after the last member is not read (Kafka stops there too, and so a batch with bytes after its
+/// stream is accepted).
+#[cfg(feature = "gzip")]
+struct GzipMembers<'a> {
+    member: Option<flate2::bufread::GzDecoder<&'a [u8]>>,
+}
+
+#[cfg(feature = "gzip")]
+impl Read for GzipMembers<'_> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        loop {
+            let Some(member) = self.member.as_mut() else {
+                return Ok(0);
+            };
+            let got = member.read(buf)?;
+            if got > 0 || buf.is_empty() {
+                return Ok(got);
+            }
+            // This member is done; what is left of the input is whatever it did not take.
+            let rest = self
+                .member
+                .take()
+                .map(flate2::bufread::GzDecoder::into_inner);
+            self.member = rest
+                .filter(|r| r.starts_with(&[0x1f, 0x8b]))
+                .map(flate2::bufread::GzDecoder::new);
+        }
+    }
 }
 
 /// The magic that begins a snappy stream in the framing the Java client's snappy-java writes: eight bytes, then
@@ -187,9 +220,20 @@ fn zstd_declared_window(frame: &[u8]) -> Option<u64> {
 fn zstd<'a>(body: &'a [u8], limit: u64) -> Result<Box<dyn Read + 'a>, InflateError> {
     const MIN_WINDOW: u64 = 2 << 20;
     const MAX_WINDOW: u64 = 8 << 20;
+    /// The largest window Apache Kafka's zstd decoder takes.
+    const KAFKA_MAX_WINDOW: u64 = 128 << 20;
     let allowed = limit.saturating_mul(4).clamp(MIN_WINDOW, MAX_WINDOW);
-    if zstd_declared_window(body).is_some_and(|w| w > allowed) {
-        return Err(InflateError::TooLarge);
+    if let Some(window) = zstd_declared_window(body) {
+        // Past what Kafka's own decoder takes, Kafka cannot read the frame at all; past what this broker will
+        // allocate, it is too large for this broker.
+        if window > KAFKA_MAX_WINDOW {
+            return Err(InflateError::Corrupt(format!(
+                "a zstd frame that declares a window of {window} bytes"
+            )));
+        }
+        if window > allowed {
+            return Err(InflateError::TooLarge);
+        }
     }
     let decoder = ruzstd::decoding::StreamingDecoder::new(body)
         .map_err(|e| InflateError::Corrupt(format!("zstd: {e}")))?;

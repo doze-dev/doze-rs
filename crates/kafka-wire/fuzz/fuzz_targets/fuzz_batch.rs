@@ -27,6 +27,7 @@ fuzz_target!(|data: &[u8]| {
             before_max_ms: i64::MAX,
             after_max_ms: 1_000,
             max_inflated: 1 << 20,
+            renumbering: false,
         };
         let _ = batch.scan(&rules, &"t-0");
         let stamped = batch.stamped(Offset::ZERO, Some(TimestampMs::from_wire(1)));

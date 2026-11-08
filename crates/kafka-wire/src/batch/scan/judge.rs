@@ -3,7 +3,7 @@
 use std::fmt::Display;
 
 use super::super::Refusal;
-use super::{RecordError, RecordsRefused, ScanRules, Scanned};
+use super::{RecordError, RecordsRefused, ScanRules};
 use crate::ids::TimestampMs;
 
 /// A record with no timestamp (Kafka's `NO_TIMESTAMP`): it is not held to the clock.
@@ -35,7 +35,13 @@ impl<'a> Judge<'a> {
         }
     }
 
-    pub(super) fn record(&mut self, index: i32, timestamp: i64, key_length: i64) {
+    /// Judges one record, given its key and value lengths (negative: none).
+    pub(super) fn record(
+        &mut self,
+        index: i32,
+        timestamp: i64,
+        (key_length, value_length): (i64, i64),
+    ) {
         self.max_timestamp = self.max_timestamp.max(timestamp);
         let rules = self.rules;
         if rules.require_keys && key_length < 0 {
@@ -64,14 +70,16 @@ impl<'a> Judge<'a> {
             self.bad_time.push(RecordError {
                 index,
                 message: format!(
-                    "Invalid timestamp type in message DefaultRecord(offset={index}, timestamp={timestamp}, key={} bytes, value=? bytes). Producer should not set timestamp type to LogAppendTime.",
-                    key_length.max(0)
+                    "Invalid timestamp type in message DefaultRecord(offset={index}, timestamp={timestamp}, key={} bytes, value={} bytes). Producer should not set timestamp type to LogAppendTime.",
+                    key_length.max(0),
+                    value_length.max(0)
                 ),
             });
         }
     }
 
-    pub(super) fn finish(mut self) -> Result<Scanned, RecordsRefused> {
+    /// The newest timestamp, or why the records are refused.
+    pub(super) fn finish(mut self) -> Result<TimestampMs, RecordsRefused> {
         if !self.bad_time.is_empty() {
             let mut all = std::mem::take(&mut self.keyless);
             all.append(&mut self.bad_time);
@@ -111,8 +119,6 @@ impl<'a> Judge<'a> {
                 reason: "records without keys on a compacted topic".to_owned(),
             });
         }
-        Ok(Scanned {
-            max_timestamp: TimestampMs::from_wire(self.max_timestamp),
-        })
+        Ok(TimestampMs::from_wire(self.max_timestamp))
     }
 }

@@ -86,3 +86,11 @@ Test: `produce_records::the_newest_timestamp_a_log_keeps_*`, `batch::tests::a_co
 ### Not done (recorded)
 Rewriting a batch into the topic's `compression.type` when it differs from the producer's: batches are stored in the codec
 they came in. It arrives with compaction (Phase 7), the other reader that needs the writers.
+
+### P15. A topic's `compression.type` writes the batch again
+When a topic stores a codec other than the producer's (`uncompressed`, `gzip`, `snappy`, `lz4`, `zstd`), the records are
+read, numbered 0, 1, 2, and written out in the topic's codec, and the size limit is held to the batch as stored (an
+uncompressed target is refused from the inflated size before anything is built). Offsets that skip are then no fault; in
+the producer's own codec a compressed batch whose records skip is unreadable. Pure Rust encoders; the compressed sizes
+are those of these encoders (recorded steps have a wide margin).
+Test: `kafka-wire::batch::recode::tests::*`, `tests/produce_records::a_topic_that_stores_another_codec_*`; the oracle's `produce-inflated-size` and `produce-decompressed-size`

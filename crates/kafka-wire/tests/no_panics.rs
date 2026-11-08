@@ -71,6 +71,7 @@ proptest! {
                 before_max_ms: i64::MAX,
                 after_max_ms: 1_000,
                 max_inflated: 1 << 16,
+                renumbering: false,
             };
             let _ = batch.scan(&rules, &"t-0");
             let _ = batch.record_times().map(Iterator::count);

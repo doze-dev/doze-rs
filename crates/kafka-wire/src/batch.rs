@@ -14,6 +14,7 @@ mod iter;
 mod layout;
 mod peek;
 mod produce;
+mod recode;
 mod records;
 mod scan;
 mod stamp;
