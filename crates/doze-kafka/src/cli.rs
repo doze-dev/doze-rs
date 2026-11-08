@@ -55,6 +55,9 @@ pub(crate) struct Args {
     /// How soon after a write that did not ask to be durable (acks=1) it is flushed (0 = at once).
     #[arg(long, default_value = "500ms", value_parser = duration::parse)]
     fsync_interval: Duration,
+    /// How long the first rebalance of an empty consumer group waits for more members to join (0 = not at all).
+    #[arg(long, default_value = "200ms", value_parser = duration::parse)]
+    group_initial_rebalance_delay: Duration,
     /// Kafka major version to stand for (1-4).
     #[arg(long, default_value_t = 4)]
     kafka_version: u8,
@@ -87,8 +90,6 @@ pub(crate) struct Args {
     // Accepted and ignored until the phase that has them.
     #[arg(long, hide = true)]
     meta_db: Option<String>,
-    #[arg(long, hide = true)]
-    group_initial_rebalance_delay: Option<String>,
     #[arg(long, hide = true)]
     consumer_session_timeout: Option<String>,
     #[arg(long, hide = true)]
@@ -165,6 +166,7 @@ impl Args {
         broker.default_partitions = self.default_partitions;
         broker.max_partitions = self.max_partitions;
         broker.fsync_interval = self.fsync_interval;
+        broker.group_initial_rebalance_delay = self.group_initial_rebalance_delay;
         broker.max_open_partitions = self.max_open_partitions;
         broker.defaults = Defaults {
             segment_bytes: self.segment_bytes,

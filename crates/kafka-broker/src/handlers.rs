@@ -3,7 +3,12 @@
 mod create_topics;
 mod delete_topics;
 mod fetch;
+mod find_coordinator;
+mod heartbeat;
 mod init_producer_id;
+mod join_group;
+mod leave_group;
 mod list_offsets;
 mod metadata;
 mod produce;
+mod sync_group;

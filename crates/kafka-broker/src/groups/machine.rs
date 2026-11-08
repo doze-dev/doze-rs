@@ -74,7 +74,6 @@ struct Rebalance {
 }
 
 struct Hold {
-    until: Millis,
     /// A member that was not in the group joined during this window.
     new_member: bool,
     generation: u64,
@@ -134,7 +133,11 @@ impl GroupMachine {
         }
         out
     }
+}
 
+/// What DescribeGroups and ListGroups ask of a group (slice 4f); until then only the tests do.
+#[allow(dead_code, reason = "used by DescribeGroups in slice 4f")]
+impl GroupMachine {
     /// Where the group is.
     #[must_use]
     pub(crate) fn state(&self) -> State {
@@ -170,7 +173,9 @@ impl GroupMachine {
     pub(crate) fn protocol(&self) -> Option<&str> {
         self.protocol.as_deref()
     }
+}
 
+impl GroupMachine {
     fn next_arming(&mut self) -> u64 {
         self.next_generation += 1;
         self.next_generation

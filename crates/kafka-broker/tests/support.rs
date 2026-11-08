@@ -210,6 +210,9 @@ pub fn rig_with(tweak: impl FnOnce(&mut Config)) -> Rig {
 // (Explicit paths: this file is a test target of its own as well as a module of the others.)
 #[path = "support/fetch.rs"]
 mod fetch;
+#[path = "support/groups.rs"]
+mod groups;
+pub use groups::join_request;
 #[path = "support/produce.rs"]
 mod produce;
 

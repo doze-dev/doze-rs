@@ -69,7 +69,6 @@ impl GroupMachine {
             at: until,
         });
         Hold {
-            until,
             new_member,
             generation,
         }

@@ -1,6 +1,6 @@
 //! Consumer groups: the names a client may give one.
 
-use std::fmt;
+use std::fmt::{self, Write};
 use std::sync::Arc;
 
 /// The longest group id the broker keeps. Kafka has no limit of its own; this one keeps a key in the metadata
@@ -75,6 +75,23 @@ impl MemberId {
         (!id.is_empty()).then(|| Self(id.into()))
     }
 
+    /// An id the broker makes: `doze-` and the 16 bytes in hex, behind the instance id and a dash for a static
+    /// member. It is never empty.
+    #[must_use]
+    pub fn issued(entropy: [u8; 16], instance: Option<&InstanceId>) -> Self {
+        let mut text = String::new();
+        if let Some(i) = instance {
+            text.push_str(i.as_str());
+            text.push('-');
+        }
+        text.push_str("doze-");
+        for b in entropy {
+            // Writing to a string cannot fail.
+            let _ = write!(text, "{b:02x}");
+        }
+        Self(text.into())
+    }
+
     /// The id.
     #[must_use]
     pub fn as_str(&self) -> &str {
@@ -131,6 +148,20 @@ mod tests {
         assert_eq!(
             GroupId::parse(&"é".repeat(MAX_GROUP_ID_LEN / 2 + 1)),
             Err(GroupIdError::TooLong)
+        );
+    }
+
+    #[test]
+    fn an_issued_member_id_is_doze_and_hex_behind_the_instance_for_a_static_member() {
+        let bytes = [0xab; 16];
+        assert_eq!(
+            MemberId::issued(bytes, None).as_str(),
+            format!("doze-{}", "ab".repeat(16))
+        );
+        let inst = InstanceId::new("pod-7").unwrap();
+        assert_eq!(
+            MemberId::issued([0; 16], Some(&inst)).as_str(),
+            format!("pod-7-doze-{}", "00".repeat(16))
         );
     }
 }

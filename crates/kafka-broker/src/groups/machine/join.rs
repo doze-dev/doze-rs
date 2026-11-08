@@ -197,7 +197,9 @@ impl GroupMachine {
             if let Some(member) = self.members.get_mut(id) {
                 member.protocols.clone_from(&req.protocols);
                 // A join sent again replaces the one waiting; the earlier is never answered.
-                member.joined = Some(token);
+                if let Some(old) = member.joined.replace(token) {
+                    out.push(Effect::Forget(old));
+                }
             }
             self.begin_rebalance(now, false, out);
         }

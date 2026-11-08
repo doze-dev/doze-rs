@@ -9,6 +9,7 @@ use kafka_wire::header::RequestHead;
 use kafka_wire::messages::ApiKey;
 use kafka_wire::profile::ApiSet;
 
+use crate::groups::Groups;
 use crate::partitions::Partitions;
 use crate::{BrokerError, Config, Listener, Outcome, blocking};
 
@@ -25,6 +26,11 @@ const SERVED: &[ApiKey] = &[
     ApiKey::InitProducerId,
     ApiKey::Fetch,
     ApiKey::ListOffsets,
+    ApiKey::FindCoordinator,
+    ApiKey::JoinGroup,
+    ApiKey::SyncGroup,
+    ApiKey::Heartbeat,
+    ApiKey::LeaveGroup,
 ];
 
 /// The broker, over a file system (the real one, or a simulated disk in tests).
@@ -34,6 +40,7 @@ pub struct Broker<F: Fs = RealFs> {
     pub(crate) config: Config,
     pub(crate) meta: MetaStore,
     pub(crate) partitions: Partitions<F>,
+    pub(crate) groups: Groups,
     /// Counts changes to the set of topics that a waiting fetch must notice (a deletion).
     pub(crate) topics_changed: tokio::sync::watch::Sender<u64>,
     /// What the last stop vouched for.
@@ -55,11 +62,15 @@ impl<F: Fs> Broker<F> {
         // log this run was in the middle of writing.
         let stop = StopState::begin(&fs, &config.data_dir)?;
         let partitions = Partitions::new(fs.clone(), config.clone(), stop.clone());
+        let groups = Groups::new(
+            u64::try_from(config.group_initial_rebalance_delay.as_millis()).unwrap_or(u64::MAX),
+        );
         Ok(Self {
             fs,
             config,
             meta,
             partitions,
+            groups,
             topics_changed: tokio::sync::watch::channel(0).0,
             stop,
             topic_admin: tokio::sync::Mutex::new(()),
@@ -127,6 +138,13 @@ impl<F: Fs> Broker<F> {
             Request::ListOffsets(r) => respond(Response::ListOffsets(
                 self.list_offsets(head.version, &r).await,
             )),
+            Request::FindCoordinator(r) => respond(Response::FindCoordinator(
+                self.find_coordinator(head.version, listener, &r),
+            )),
+            Request::JoinGroup(r) => self.join_group(head.version, &r).await,
+            Request::SyncGroup(r) => self.sync_group(&r).await,
+            Request::Heartbeat(r) => self.heartbeat(&r).await,
+            Request::LeaveGroup(r) => self.leave_group(head.version, &r).await,
             Request::InitProducerId(r) => respond(Response::InitProducerId(blocking::run(|| {
                 self.init_producer_id(&r)
             }))),
@@ -134,11 +152,6 @@ impl<F: Fs> Broker<F> {
             Request::ApiVersions(_)
             | Request::OffsetCommit(_)
             | Request::OffsetFetch(_)
-            | Request::FindCoordinator(_)
-            | Request::JoinGroup(_)
-            | Request::Heartbeat(_)
-            | Request::LeaveGroup(_)
-            | Request::SyncGroup(_)
             | Request::DescribeGroups(_)
             | Request::ListGroups(_)
             | Request::SaslHandshake(_)

@@ -54,6 +54,9 @@ pub struct Config {
     /// Appends that did not ask to be durable (`acks=1`) are flushed this long after the first of them. Zero
     /// flushes each group at once.
     pub fsync_interval: Duration,
+    /// How long the first rebalance of an empty consumer group waits for more members to arrive, so that members
+    /// starting together share a generation. Zero: not at all.
+    pub group_initial_rebalance_delay: Duration,
 }
 
 impl Config {
@@ -70,6 +73,7 @@ impl Config {
             max_open_partitions: 512,
             defaults: Defaults::default(),
             fsync_interval: Duration::from_millis(500),
+            group_initial_rebalance_delay: Duration::from_millis(200),
         }
     }
 }

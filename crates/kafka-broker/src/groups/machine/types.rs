@@ -123,7 +123,7 @@ pub(crate) struct JoinAnswer {
 }
 
 impl JoinAnswer {
-    pub(super) fn refused(error: ResponseError, member_id: Option<MemberId>) -> Self {
+    pub(crate) fn refused(error: ResponseError, member_id: Option<MemberId>) -> Self {
         Self {
             error: Some(error),
             generation: -1,
@@ -150,7 +150,7 @@ pub(crate) struct SyncAnswer {
 }
 
 impl SyncAnswer {
-    pub(super) fn refused(error: ResponseError) -> Self {
+    pub(crate) fn refused(error: ResponseError) -> Self {
         Self {
             error: Some(error),
             protocol_type: None,
@@ -233,4 +233,7 @@ pub(crate) enum Effect {
     },
     /// Forget the timer of this kind.
     Disarm(TimerKind),
+    /// A request is replaced by a later one (a JoinGroup sent again) and will never be answered: whoever waits for
+    /// it can stop.
+    Forget(Token),
 }

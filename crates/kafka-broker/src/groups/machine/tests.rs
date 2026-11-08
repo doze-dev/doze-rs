@@ -26,6 +26,8 @@ pub(super) struct Group {
     /// Requests other than a JoinGroup that have not been answered. (A JoinGroup sent again replaces the one
     /// waiting, which is never answered; every other request is answered once.)
     pub(super) unanswered: HashSet<Token>,
+    /// Requests the machine said would never be answered.
+    pub(super) forgotten: HashSet<Token>,
 }
 
 /// Makes ids `m1`, `m2`, ... (and `i-<instance>-n` for a static member).
@@ -92,6 +94,7 @@ impl Group {
             answers: HashMap::new(),
             timers: HashMap::new(),
             unanswered: HashSet::new(),
+            forgotten: HashSet::new(),
         }
     }
 
@@ -120,6 +123,9 @@ impl Group {
                 }
                 Effect::Arm { key, at } => {
                     self.timers.insert(key.kind.clone(), (at, key));
+                }
+                Effect::Forget(token) => {
+                    self.forgotten.insert(token);
                 }
                 Effect::Disarm(kind) => {
                     self.timers.remove(&kind);
@@ -226,15 +232,6 @@ impl Group {
             Some(Answer::Heartbeat(e)) => e,
             other => panic!("expected a heartbeat answer, found {other:?}"),
         }
-    }
-
-    /// `members` join together under `names` and the rebalance completes; returns the answers in order.
-    pub(super) fn form(&mut self, members: &[&str], names: &[&str]) -> Vec<JoinAnswer> {
-        let tokens: Vec<_> = members
-            .iter()
-            .map(|m| self.join(join_request(Some(m), names)))
-            .collect();
-        tokens.into_iter().map(|t| self.joined(t)).collect()
     }
 }
 

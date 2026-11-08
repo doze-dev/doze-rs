@@ -154,6 +154,10 @@ fn a_join_sent_again_replaces_the_one_waiting() {
         g.answer(first).is_none(),
         "the replaced request is not answered"
     );
+    assert!(
+        g.forgotten.contains(&first),
+        "and whoever waits for it is told so"
+    );
     assert!(g.joined(again).error.is_none());
 }
 
