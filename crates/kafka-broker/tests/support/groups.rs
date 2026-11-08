@@ -61,7 +61,14 @@ impl Rig {
 
     pub async fn join(&self, version: i16, req: JoinGroupRequest) -> JoinGroupResponse {
         match self.join_outcome(version, req).await {
-            Outcome::Respond(Response::JoinGroup(r)) => r,
+            Outcome::Respond(response @ Response::JoinGroup(_)) => {
+                kafka_wire::response::encode(1, version, &response)
+                    .unwrap_or_else(|e| panic!("JoinGroup v{version} cannot be encoded: {e}"));
+                let Response::JoinGroup(r) = response else {
+                    unreachable!("matched above")
+                };
+                r
+            }
             other => panic!("no join response: {other:?}"),
         }
     }

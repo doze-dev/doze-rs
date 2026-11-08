@@ -31,19 +31,23 @@ impl<F: Fs> Broker<F> {
             c.port = at.advertised_port;
         };
         let mut resp = FindCoordinatorResponse::default();
-        // v0 to v3: one coordinator in the response itself. A success reads "NONE" from v1 to v3, as Kafka puts it.
-        if known {
-            resp.node_id = BrokerId(self.config.node_id);
-            resp.host = StrBytes::from_string(at.advertised_host.clone());
-            resp.port = at.advertised_port;
-            if (1..=3).contains(&version) {
-                resp.error_message = Some(StrBytes::from_static_str("NONE"));
+        // v0 to v3: one coordinator in the response itself (a later version has none there: the fields are not
+        // in the message, and setting them would stop it being written). A success reads "NONE" from v1 to v3, as
+        // Kafka puts it.
+        if version < 4 {
+            if known {
+                resp.node_id = BrokerId(self.config.node_id);
+                resp.host = StrBytes::from_string(at.advertised_host.clone());
+                resp.port = at.advertised_port;
+                if (1..=3).contains(&version) {
+                    resp.error_message = Some(StrBytes::from_static_str("NONE"));
+                }
+            } else {
+                resp.error_code = ResponseError::InvalidRequest.code();
+                resp.error_message = invalid_message(req.key_type);
+                resp.node_id = BrokerId(-1);
+                resp.port = -1;
             }
-        } else {
-            resp.error_code = ResponseError::InvalidRequest.code();
-            resp.error_message = invalid_message(req.key_type);
-            resp.node_id = BrokerId(-1);
-            resp.port = -1;
         }
         // v4 and later: one entry per key.
         for key in &req.coordinator_keys {

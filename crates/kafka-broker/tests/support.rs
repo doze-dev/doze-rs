@@ -61,7 +61,13 @@ impl Rig {
     pub async fn ask(&self, version: i16, request: Request) -> Response {
         let head = head(request.api_key(), version);
         match self.broker.handle(&at(), &head, request).await {
-            kafka_broker::Outcome::Respond(response) => response,
+            kafka_broker::Outcome::Respond(response) => {
+                // What the broker answers must be writable at the version it was asked at: a field set that the
+                // version does not have closes the connection.
+                kafka_wire::response::encode(1, version, &response)
+                    .unwrap_or_else(|e| panic!("{:?} v{version} cannot be encoded: {e}", head.key));
+                response
+            }
             other => panic!("no response: {other:?}"),
         }
     }
