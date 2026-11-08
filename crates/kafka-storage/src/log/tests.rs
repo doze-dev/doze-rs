@@ -7,6 +7,7 @@ mod read;
 mod recovery;
 mod retention;
 mod tickets;
+mod times;
 mod trim;
 
 use std::path::PathBuf;

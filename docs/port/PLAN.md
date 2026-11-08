@@ -422,3 +422,15 @@ test-only knobs in `internal/config`.
   acks=all produce could have waited for the timer: test now sets the timer to an hour), two formatting misses
   re-run and killed, and a timer left armed after a flush (harmless, one extra no-op flush; left). Catalogue:
   `behaviours/produce.md` (P1-P10). Idempotence is accepted without sequence checks, as planned for Phase 6.
+- **2026-11-08, Phase 3 slice 3e (Fetch, ListOffsets).** `Batch::record_times` (kafka-wire, fuzzed under
+  `fuzz_batch`): offset deltas and timestamps of an uncompressed batch without reading keys and values.
+  `LogReader::offset_for_timestamp` and `offset_of_max_timestamp` (no time index: they walk batches from the log
+  start and read only the answering batch's records; checked against a list of every record). Fetch: partitions
+  resolved and opened once, then rounds of reads under a request-wide byte budget, between rounds a wait on the end
+  offsets of the partitions and on a broker-wide count of topic deletions. Mutation check (about 30 mutants over 3d
+  and 3e): all killed after tests were added for the survivors. One real defect found by a test: the first waiter
+  built its futures afresh on every poll and dropped them, and a dropped `watch` waiter is no longer woken, so a
+  fetch slept its whole wait; the waiter now keeps `tokio-stream` `WatchStream`s alive between polls (the one new
+  dependency, tiny). A second was found in review of the same test: a deleted topic's closing did not drop the
+  watch sender (readers hold it), so the broker counts deletions for waiting fetches instead. Catalogue:
+  `behaviours/fetch.md` (F1-F8, L1-L2).

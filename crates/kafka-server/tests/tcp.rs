@@ -54,6 +54,8 @@ async fn a_client_on_a_socket_gets_its_answer() {
     let mut socket = TcpStream::connect(server.local_addr()).await.unwrap();
     let served = [
         ApiKey::Produce,
+        ApiKey::Fetch,
+        ApiKey::ListOffsets,
         ApiKey::Metadata,
         ApiKey::ApiVersions,
         ApiKey::CreateTopics,

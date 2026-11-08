@@ -11,6 +11,7 @@ mod open;
 mod read;
 mod shared;
 mod sync;
+mod times;
 mod trim;
 
 use std::path::PathBuf;
@@ -20,6 +21,7 @@ use kafka_wire::ids::Offset;
 
 pub use read::LogReader;
 pub use sync::Ticket;
+pub use times::OffsetAt;
 pub use trim::Retention;
 
 use crate::fs::Fs;

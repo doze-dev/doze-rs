@@ -21,6 +21,8 @@ const SERVED: &[ApiKey] = &[
     ApiKey::DeleteTopics,
     ApiKey::Produce,
     ApiKey::InitProducerId,
+    ApiKey::Fetch,
+    ApiKey::ListOffsets,
 ];
 
 /// The broker, over a file system (the real one, or a simulated disk in tests).
@@ -30,6 +32,8 @@ pub struct Broker<F: Fs = RealFs> {
     pub(crate) config: Config,
     pub(crate) meta: MetaStore,
     pub(crate) partitions: Partitions<F>,
+    /// Counts changes to the set of topics that a waiting fetch must notice (a deletion).
+    pub(crate) topics_changed: tokio::sync::watch::Sender<u64>,
 }
 
 impl<F: Fs> Broker<F> {
@@ -46,6 +50,7 @@ impl<F: Fs> Broker<F> {
             config,
             meta,
             partitions,
+            topics_changed: tokio::sync::watch::channel(0).0,
         })
     }
 
@@ -74,13 +79,15 @@ impl<F: Fs> Broker<F> {
                 respond(Response::DeleteTopics(self.delete_topics(&r).await))
             }
             Request::Produce(r) => self.produce(head.version, r).await,
+            Request::Fetch(r) => self.fetch(head.version, r).await,
+            Request::ListOffsets(r) => respond(Response::ListOffsets(
+                self.list_offsets(head.version, &r).await,
+            )),
             Request::InitProducerId(r) => respond(Response::InitProducerId(blocking::run(|| {
                 self.init_producer_id(&r)
             }))),
             // Not served yet. Each moves out of this arm into a handler when its phase lands.
             Request::ApiVersions(_)
-            | Request::Fetch(_)
-            | Request::ListOffsets(_)
             | Request::OffsetCommit(_)
             | Request::OffsetFetch(_)
             | Request::FindCoordinator(_)

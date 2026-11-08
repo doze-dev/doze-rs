@@ -58,6 +58,8 @@ impl<F: Fs> Broker<F> {
         }
         self.partitions.close_topic(topic.id).await;
         blocking::run(|| self.clear_topic_data(&topic));
+        // Fetches waiting on the topic have an answer now: it is gone.
+        self.topics_changed.send_modify(|n| *n += 1);
         r
     }
 

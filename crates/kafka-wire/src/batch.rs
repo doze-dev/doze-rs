@@ -13,6 +13,7 @@ mod iter;
 mod layout;
 mod peek;
 mod produce;
+mod records;
 mod stamp;
 
 use bytes::Bytes;
@@ -25,6 +26,7 @@ pub use layout::HEADER_LEN;
 use layout::{LENGTH_OVERHEAD, MAGIC_V2};
 pub use peek::Peek;
 pub use produce::{ProduceError, ProduceRules};
+pub use records::{RecordTime, RecordTimes};
 pub use stamp::Stamped;
 
 use crate::ids::{Offset, ProducerEpoch, ProducerId, TimestampMs};

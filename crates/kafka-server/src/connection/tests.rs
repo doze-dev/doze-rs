@@ -5,7 +5,7 @@ use kafka_broker::Config as BrokerConfig;
 use kafka_protocol::protocol::{Decodable, StrBytes};
 use kafka_storage::sim::SimFs;
 use kafka_wire::WireError;
-use kafka_wire::messages::{ApiKey, ApiVersionsRequest, ApiVersionsResponse, FetchRequest};
+use kafka_wire::messages::{ApiKey, ApiVersionsRequest, ApiVersionsResponse, JoinGroupRequest};
 use kafka_wire::testing::{framed, request_payload};
 use tokio::io::{AsyncReadExt, AsyncWriteExt, DuplexStream, duplex};
 use tokio::time::sleep;
@@ -80,9 +80,11 @@ async fn api_versions_lists_only_what_the_broker_serves() {
     client.write_all(&api_versions(7)).await.unwrap();
     let (id, error, keys) = read_answer(&mut client).await;
     assert_eq!((id, error), (7, 0));
-    // What the broker has a handler for, by key; not Fetch, which it has none for yet.
+    // What the broker has a handler for, by key; not the group APIs, which it has none for yet.
     let served = [
         ApiKey::Produce,
+        ApiKey::Fetch,
+        ApiKey::ListOffsets,
         ApiKey::Metadata,
         ApiKey::ApiVersions,
         ApiKey::CreateTopics,
@@ -109,12 +111,12 @@ async fn requests_are_answered_in_order_whether_they_arrive_together_or_a_byte_a
 #[tokio::test]
 async fn an_api_the_broker_does_not_serve_closes_the_connection_without_an_answer() {
     let (mut client, task, _stop) = start(Timeouts::default(), 4096);
-    let fetch = request_payload(ApiKey::Fetch, 12, 1, None, &FetchRequest::default());
+    let fetch = request_payload(ApiKey::JoinGroup, 7, 1, None, &JoinGroupRequest::default());
     client.write_all(&framed(&fetch)).await.unwrap();
     assert!(matches!(
         task.await.unwrap(),
         End::Wire(WireError::NotAdvertised {
-            key: ApiKey::Fetch,
+            key: ApiKey::JoinGroup,
             ..
         })
     ));
