@@ -63,6 +63,8 @@ impl MetaStore {
         {
             txn.open_table(TOPICS)?.remove(name.as_str())?;
         }
+        // Its offsets go with it, in the same commit.
+        super::offsets::remove_topic(&txn, name)?;
         txn.commit()?;
         self.shared.write().remove(name);
         Ok(Some(topic))

@@ -9,7 +9,10 @@ use kafka_storage::fs::Fs;
 use kafka_storage::sim::{Cut, DataCut, NameCut, SimFs};
 use kafka_wire::ids::{PartitionCount, TopicName};
 
+mod offsets;
+
 pub(crate) const STEPS: usize = 40;
+const GROUPS: [&str; 3] = ["g", "g2", "other"];
 const NAMES: [&str; 6] = ["a.b", "a_b", "A.b", "orders", "Orders", "x-1"];
 
 /// SplitMix64: a failing run replays from its seed.
@@ -46,6 +49,8 @@ pub(crate) struct Model {
     pub(crate) maybe_deleted: HashSet<TopicName>,
     /// The largest producer id handed out.
     pub(crate) last_id: Option<i64>,
+    /// The committed offsets.
+    pub(crate) offsets: offsets::Offsets,
 }
 
 impl Model {
@@ -71,7 +76,7 @@ impl Model {
                 return Err(format!("{} is not found by its id", topic.name));
             }
         }
-        Ok(())
+        self.check_offsets(store)
     }
 }
 
@@ -103,11 +108,12 @@ impl World {
             if self.store.is_none() {
                 return;
             }
-            let what = match self.rng.below(10) {
+            let what = match self.rng.below(13) {
                 0..=3 => self.create(),
                 4..=5 => self.delete(),
                 6..=8 => self.producer_id(),
-                9 if self.rng.below(2) == 0 => self.shutdown(),
+                9..=11 => self.commit(),
+                12 if self.rng.below(2) == 0 => self.shutdown(),
                 _ => self.restart(),
             };
             self.trail.push(what);
@@ -152,6 +158,8 @@ impl World {
             Ok(_) => {
                 self.model.acked.remove(&name);
                 self.model.maybe_deleted.remove(&name);
+                self.model.offsets.acked.retain(|k, _| k.1 != name);
+                self.model.offsets.maybe.retain(|k, _| k.1 != name);
             }
             Err(_) => {
                 self.model.maybe_deleted.insert(name);

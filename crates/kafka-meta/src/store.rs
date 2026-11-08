@@ -1,5 +1,6 @@
 //! The metadata database: one redb file, opened over the file seam.
 
+mod offsets;
 mod producer_ids;
 mod registry;
 mod topics;
@@ -18,6 +19,8 @@ use registry::Shared;
 
 /// Topic name to its record.
 pub(super) const TOPICS: TableDefinition<'static, &str, &[u8]> = TableDefinition::new("topics");
+/// A group's committed offsets: see `offsets.rs` for the key.
+pub(super) const OFFSETS: TableDefinition<'static, &[u8], &[u8]> = TableDefinition::new("offsets");
 /// Named counters.
 pub(super) const COUNTERS: TableDefinition<'static, &str, u64> = TableDefinition::new("counters");
 
@@ -101,6 +104,7 @@ fn make<F: Fs>(fs: &F, dir: &Path, path: &Path) -> Result<(), MetaError> {
     let txn = db.begin_write()?;
     txn.open_table(TOPICS)?;
     txn.open_table(COUNTERS)?;
+    txn.open_table(OFFSETS)?;
     txn.commit()?;
     // Closed by name, not by dropping: closing flushes once more, and a flush that fails must stop the
     // file being put in place (a dropped database would swallow it, and the file's later flushes may
