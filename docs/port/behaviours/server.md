@@ -38,7 +38,9 @@ Stopping the server closes every connection, including one waiting on a handler 
 once their tasks are gone; nothing listens afterwards.
 Test: `tests/tcp::shutdown_closes_idle_connections_and_returns`, `connection::tests::stopping_the_server_ends_a_connection_that_is_waiting_for_a_request`
 
-### Deferred inside this phase
-A handler that waits (Fetch, 3e) must be interrupted by a stop: the `select!` on `stop` around the handler is in
-place and is tested when a handler that waits exists. `Outcome::NoResponse` (Produce `acks=0`, 3d) likewise. The
-read buffer shrinks back after a large request (weight; measured in 3h, not asserted by a test).
+### Long polls, acks=0 and big frames
+A stop interrupts a handler that waits: `tcp::stopping_the_server_does_not_wait_out_a_fetch_that_is_waiting_for_records`.
+`Outcome::NoResponse` (Produce `acks=0`) writes nothing and the next answer is the next request's:
+`tcp::an_acks_zero_produce_gets_no_answer_and_the_connection_goes_on_in_order`.
+A frame of 64 KiB to 16 MiB is read into a buffer kept for the next one (`pool.rs`; numbers in weight.md); bigger frames
+are read in chunks. Tests: `connection::tests::a_big_frame_*`.

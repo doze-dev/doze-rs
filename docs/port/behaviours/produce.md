@@ -83,10 +83,6 @@ The header's newest timestamp is rewritten to the latest of the records' (a prod
 ListOffsets and the time lookups read it), and the checksum with it, without copying the body.
 Test: `produce_records::the_newest_timestamp_a_log_keeps_*`, `batch::tests::a_corrected_newest_timestamp_*`
 
-### Not done (recorded)
-Rewriting a batch into the topic's `compression.type` when it differs from the producer's: batches are stored in the codec
-they came in. It arrives with compaction (Phase 7), the other reader that needs the writers.
-
 ### P15. A topic's `compression.type` writes the batch again
 When a topic stores a codec other than the producer's (`uncompressed`, `gzip`, `snappy`, `lz4`, `zstd`), the records are
 read, numbered 0, 1, 2, and written out in the topic's codec, and the size limit is held to the batch as stored (an

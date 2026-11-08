@@ -56,5 +56,16 @@ Test: `list_offsets_refuses_*`, `list_offsets_holds_the_isolation_level_and_the_
 
 ### Known cost
 A timestamp lookup reads the log from its start (no time index). Fine for a development broker's logs; a time index is
-a Phase 7 candidate if the weight baseline shows it matters. ListOffsets opens a partition to ask its bounds; reading the
-bounds without opening arrives with the descriptor budget (3f).
+a Phase 7 candidate if the weight baseline shows it matters. ListOffsets does not open a partition whose directory is empty. A response is held to 50 MiB whatever the client asks
+(Kafka's `fetch.max.bytes`).
+
+### F9. A response is held to 50 MiB
+Whatever `max_bytes` says (zero or negative included), a Fetch response holds at most 50 MiB (Kafka's `fetch.max.bytes`
+default), so a request for "everything" does not build a response the size of the log. The first batch of the first
+partition with data still comes back if it alone is larger.
+Test: `round::tests::a_request_is_held_to_what_it_asks_and_to_the_most_a_response_may_hold`
+
+### F10. A long poll wakes on a topic made or deleted, once
+The wait for records re-subscribes to the topic-change signal before it looks again, so a change that has been seen is
+not seen again (a receiver kept from before the change reports it on every look, and the poll spins).
+Test: `fetch::tests::*`, `tests/races`

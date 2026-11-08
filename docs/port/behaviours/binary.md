@@ -24,3 +24,19 @@ New: `--worker-threads` (default 2; idle threads are weight). Accepted and ignor
 --console --console-addr`, so that the conformance harness, which passes them all, can run the scenarios of the parts
 that exist. **Refused** (the broker would otherwise be open): `--sasl-mechanisms --sasl-user --tls-cert --tls-key`.
 Test: `cli::tests::*`, `duration::tests::*`, `tests/process::authentication_flags_stop_the_start_and_say_why`
+
+### B5. Descriptors
+At start the soft limit on open files is raised toward the hard one (to 65,536 at most; macOS allows 10,240), and the
+number of open partitions is lowered to what the limit allows: `(limit - 256) / 4`, never under 8. An open partition
+holds a log and an index, one more while its directory is flushed, and one of headroom. A flush of a directory that finds
+no free descriptor (`EMFILE`, `ENFILE`) waits up to ten times 20 ms for one; it is not a failed flush and does not take
+the partition offline. One request that needs more partitions than the limit allows (a consumer of 300 partitions at a
+256 limit) is answered with storage errors for what could not open, and the broker stays up and serves the next request.
+Test: `descriptors::tests::*`, `kafka-storage log::tests::append::a_directory_flush_that_finds_no_free_descriptor_*`;
+by hand: 400 acks=all produces at a hard limit of 256 all succeed, 32 descriptors held at the end.
+
+### B6. The clean-stop marker names what the stop cannot vouch for
+For every partition this run opened, the verdict is its last close: flushed whole (vouched) or not. A partition this run
+never opened keeps what the last stop said of it. A partition that was closed well to make room, reopened, written to,
+and closed badly at the stop is therefore not vouched for.
+Test: `shutdown::a_partition_whose_close_fails_*`, `shutdown::a_partition_closed_well_when_evicted_but_badly_at_the_stop_*`

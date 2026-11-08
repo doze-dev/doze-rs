@@ -1,6 +1,7 @@
 //! The partitions that are open: each one a log with a task that owns its writer.
 //!
-//! A partition is opened the first time something needs it, and stays open. Its writer is a task that takes
+//! A partition is opened the first time something needs it, and stays open until the least-recently-used limit
+//! (`max_open_partitions`) closes it, flushed, to make room. Its writer is a task that takes
 //! appends from a queue, writes everything that has queued, flushes once if any of it asked to be durable, and
 //! so commits a group of producers with one flush. Readers do not go through it: a [`LogReader`] reads the
 //! files directly.

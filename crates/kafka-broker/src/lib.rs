@@ -1,5 +1,5 @@
-//! Request handlers and the pure state machines: groups, transactions, idempotency, ACLs, SCRAM. No sockets
-//! here: the server hands a decoded request in and gets an [`Outcome`] back.
+//! Request handlers and the state they keep: topics, partitions and their writers, producer ids (groups,
+//! transactions, ACLs and SCRAM arrive in later phases). No sockets here: the server hands a decoded request in and gets an [`Outcome`] back.
 
 mod blocking;
 mod broker;

@@ -51,7 +51,7 @@ batch is accepted on its header and CRC alone.
 
 **8. Descriptors are budgeted, not assumed.** Storage holds two descriptors per segment, which is 100,000 for 5,000
 partitions of ten segments. The fix lands in this phase: sealed segments open their files on first read and keep a
-bounded number; a partition idle for a minute is closed (flushed, and reopened vouched).
+bounded number; open partitions are capped (`--max-open-partitions`, 512 by default, lowered to fit the process's descriptor limit) and the least recently used past the cap are closed, flushed, and reopened vouched. This replaces closing a partition after a minute idle: a cap bounds descriptors under any pattern of use, an idle timer does not. A single request that touches more partitions than the limit allows (about two descriptors each) is answered with storage errors and the broker stays up.
 
 **9. Flags are the oracle's flags.** The conformance harness starts the binary with flags for later phases
 (`--group-initial-rebalance-delay`, `--consumer-session-timeout`, `--offsets-retention`, `--acl-default`, ...); the
@@ -66,7 +66,7 @@ binary accepts them as hidden no-ops until their phase, so the unmodified scenar
 | 3c | Broker core: topic lifecycle (registry and directories); Metadata, CreateTopics, DeleteTopics. (The partition manager and actors move to 3d, where there is a writer to own.) | createtopics-*, metadata-autocreate scenarios |
 | 3d | Produce and InitProducerId (layer 7 first half); acks 0/1/all, group commit, fsync timer | produce-acks-zero, produce-validation (non-record parts), full-disk scenarios |
 | 3e | Fetch (long-poll over the end-offset channel) and ListOffsets (incl. by timestamp) | listoffsets, fetch-above-the-end |
-| 3f | Codecs and record validation; descriptor budget; idle close | produce-inflated-size, produce-decompressed-size |
+| 3f | Codecs and record validation; descriptor budget (open-partition cap) | produce-inflated-size, produce-decompressed-size |
 | 3g | `doze-kafka` binary: config, logging, clean stop, the oracle's flags | the process target runs the Phase 3 scenarios |
 | 3h | franz-go, librdkafka and Java clients by hand; weight baseline; independent audit | the checkpoint |
 
