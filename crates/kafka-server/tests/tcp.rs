@@ -200,7 +200,23 @@ async fn an_acks_zero_produce_gets_no_answer_and_the_connection_goes_on_in_order
     req.timeout_ms = 5000;
     req.topic_data.push(topic);
     send(&mut socket, ApiKey::Produce, 9, 9, &req).await;
-    // The next thing on the wire is the answer to the next request; `ask` decodes it as ApiVersions.
-    assert!(ask(&mut socket).await.is_some());
+    // The first thing on the wire is the answer to the next request (correlation id 1), not to the Produce (9).
+    send(
+        &mut socket,
+        ApiKey::ApiVersions,
+        3,
+        1,
+        &ApiVersionsRequest::default(),
+    )
+    .await;
+    let mut len = [0; 4];
+    socket.read_exact(&mut len).await.unwrap();
+    let mut payload = vec![0; u32::from_be_bytes(len) as usize];
+    socket.read_exact(&mut payload).await.unwrap();
+    assert_eq!(
+        payload[..4],
+        1_i32.to_be_bytes(),
+        "answered out of order, or a Produce was answered"
+    );
     server.shutdown().await;
 }
