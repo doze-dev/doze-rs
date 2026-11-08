@@ -10,6 +10,7 @@ use kafka_storage::topic_dirs::partition_dir;
 use kafka_storage::{LogConfig, PartitionLog, StorageError, Trust};
 use kafka_wire::ids::{PartitionId, TopicId};
 use tokio::sync::{OnceCell, mpsc};
+use tokio::task::JoinSet;
 
 use super::{Partition, QUEUE, actor};
 use crate::{Config, blocking, topic_config};
@@ -230,27 +231,33 @@ impl<F: Fs> Partitions<F> {
         }
     }
 
-    /// Closes every open partition after it has flushed, and returns the directories of all that this run closed
-    /// cleanly, now and before.
-    pub(crate) async fn close_all(&self) -> Vec<String> {
+    /// Closes every open partition after it has flushed, and says, for each partition this run opened, whether its
+    /// last close left files the next start can trust. A partition this run never opened is not in the answer.
+    pub(crate) async fn close_all(&self) -> HashMap<String, Trust> {
         let entries: Vec<Entry<F>> = self.registry().open.drain().map(|(_, e)| e).collect();
-        let mut clean: Vec<String> = Vec::new();
+        let mut closing = JoinSet::new();
         for e in entries {
-            if let Some(partition) = e.slot.get()
-                && partition.close().await
-            {
-                clean.push(e.name);
+            if let Some(partition) = e.slot.get().cloned() {
+                closing.spawn(async move {
+                    let flushed = partition.close().await;
+                    let trust = if flushed {
+                        Trust::Vouched
+                    } else {
+                        Trust::Unvouched
+                    };
+                    (e.name, trust)
+                });
             }
         }
-        let earlier = self
-            .registry()
-            .closed
-            .iter()
-            .filter(|(_, t)| **t == Trust::Vouched)
-            .map(|(n, _)| n.clone())
-            .collect::<Vec<_>>();
-        clean.extend(earlier);
-        clean
+        let mut verdicts: HashMap<String, Trust> = self.registry().closed.clone();
+        while let Some(done) = closing.join_next().await {
+            // A close that panicked is a partition nobody can vouch for; its name went with it, and the directories
+            // the last stop did not vouch for stay unvouched.
+            if let Ok((name, trust)) = done {
+                verdicts.insert(name, trust);
+            }
+        }
+        verdicts
     }
 }
 

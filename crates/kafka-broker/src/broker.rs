@@ -75,13 +75,15 @@ impl<F: Fs> Broker<F> {
     pub async fn shutdown(&self) -> Result<(), BrokerError> {
         let closed = self.partitions.close_all().await;
         let data = &self.config.data_dir;
-        // What this stop cannot vouch for: partition directories the last stop did not, and that this run did not
-        // open and close cleanly.
+        // What this stop cannot vouch for. A partition this run opened is as its last close left it, whatever the
+        // last stop said of it; one this run never opened is as the last stop left it.
         let not_covered: Vec<String> = blocking::run(|| self.fs.list_dir(data))?
             .into_iter()
             .filter(|e| e.is_dir)
             .map(|e| e.name)
-            .filter(|n| self.stop.trust(n) == Trust::Unvouched && !closed.contains(n))
+            .filter(|n| {
+                closed.get(n).copied().unwrap_or_else(|| self.stop.trust(n)) == Trust::Unvouched
+            })
             .collect();
         blocking::run(|| record_clean_stop(&self.fs, data, &not_covered))?;
         Ok(())

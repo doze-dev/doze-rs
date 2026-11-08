@@ -11,7 +11,7 @@ mod support;
 use std::path::Path;
 
 use kafka_storage::fs::{Fs, FsFile};
-use kafka_storage::sim::{Cut, DataCut, NameCut, SimFs};
+use kafka_storage::sim::{Cut, DataCut, Failure, NameCut, Op, SimFs};
 use support::{DATA, open_on, records, rig, stored, topic};
 
 fn lose_what_was_not_flushed(fs: &SimFs) -> SimFs {
@@ -111,4 +111,39 @@ async fn a_stop_does_not_vouch_for_a_partition_it_never_opened_after_an_unclean_
         !text.lines().any(|l| l == "a-0"),
         "a-0 was flushed and closed: {text:?}"
     );
+}
+
+fn marker_lines(fs: &SimFs) -> Vec<String> {
+    let text = fs
+        .contents(&Path::new(DATA).join("clean-shutdown"))
+        .map(|m| String::from_utf8(m).unwrap())
+        .expect("the stop wrote a marker");
+    text.lines().skip(1).map(str::to_owned).collect()
+}
+
+#[tokio::test]
+async fn a_partition_whose_close_fails_is_not_vouched_for_even_if_the_last_stop_vouched_for_it() {
+    let rig = rig();
+    rig.create(vec![topic("t", 1)], false).await;
+    rig.produce(1, "t", 0, records(1)).await;
+    rig.broker.shutdown().await.unwrap();
+    // Started on a vouched stop, written to with acks=1 (so unflushed), and the flush at the stop fails.
+    let second = open_on(rig.fs.process_restart());
+    second.produce(1, "t", 0, records(1)).await;
+    second.fs.fail(Op::Fsync, 1, Failure::Io);
+    second.broker.shutdown().await.unwrap();
+    assert_eq!(marker_lines(&second.fs), ["t-0"]);
+}
+
+#[tokio::test]
+async fn a_partition_closed_well_when_evicted_but_badly_at_the_stop_is_not_vouched_for() {
+    let rig = support::rig_with(|c| c.max_open_partitions = 1);
+    rig.create(vec![topic("t", 2)], false).await;
+    rig.produce(1, "t", 0, records(1)).await;
+    // Opening t-1 closes t-0 well; opening t-0 again closes t-1 well and writes to t-0 afresh.
+    rig.produce(1, "t", 1, records(1)).await;
+    rig.produce(1, "t", 0, records(1)).await;
+    rig.fs.fail(Op::Fsync, 1, Failure::Io);
+    rig.broker.shutdown().await.unwrap();
+    assert_eq!(marker_lines(&rig.fs), ["t-0"]);
 }
