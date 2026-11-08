@@ -5,7 +5,7 @@ use std::fmt;
 mod group;
 mod topic;
 
-pub use group::{GroupId, GroupIdError, MAX_GROUP_ID_LEN};
+pub use group::{GroupId, GroupIdError, InstanceId, MAX_GROUP_ID_LEN, MemberId};
 
 pub use topic::{
     MAX_TOPIC_NAME_LEN, PartitionCount, PartitionId, TopicId, TopicName, TopicNameError,

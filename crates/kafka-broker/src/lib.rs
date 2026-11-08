@@ -6,6 +6,7 @@ mod broker;
 mod clock;
 mod config;
 mod error;
+mod groups;
 mod handlers;
 mod listener;
 mod outcome;

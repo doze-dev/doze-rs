@@ -63,6 +63,55 @@ impl AsRef<str> for GroupId {
     }
 }
 
+/// A member's id within a group: the broker makes them (`doze-` and 32 hex digits), and a client sends back what it was
+/// given. Any text; an empty one on the wire means "none yet" and is not a `MemberId`.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct MemberId(Arc<str>);
+
+impl MemberId {
+    /// A member id, or `None` for the wire's empty string.
+    #[must_use]
+    pub fn new(id: &str) -> Option<Self> {
+        (!id.is_empty()).then(|| Self(id.into()))
+    }
+
+    /// The id.
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl fmt::Display for MemberId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+/// A static member's `group.instance.id`: it names a member across restarts. Any text; empty is not one.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct InstanceId(Arc<str>);
+
+impl InstanceId {
+    /// An instance id, or `None` for the wire's empty string.
+    #[must_use]
+    pub fn new(id: &str) -> Option<Self> {
+        (!id.is_empty()).then(|| Self(id.into()))
+    }
+
+    /// The id.
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl fmt::Display for InstanceId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
