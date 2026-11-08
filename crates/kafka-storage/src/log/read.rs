@@ -156,6 +156,11 @@ fn read_segment<F: Fs>(
 ) -> io::Result<Option<Bytes>> {
     let committed = segment.committed();
     let mut pos = segment.seek(from.get())?;
+    // An index entry is the start of a batch, so before the end of the log: one at or past it is a damaged index,
+    // and reading on from the next segment would silently skip every record in between.
+    if pos > 0 && pos >= committed {
+        return Err(not_a_batch(pos));
+    }
     let ask = |pos: u64| {
         usize::try_from(committed.saturating_sub(pos)).map_or(usize::MAX, |room| {
             room.min(max_bytes.saturating_add(HEADROOM))
@@ -200,7 +205,15 @@ fn read_segment<F: Fs>(
     let len = usize::try_from(total).unwrap_or(usize::MAX);
     match chunk.get(start, len) {
         Some(inside) => Ok(Some(inside)),
-        None => segment.read(start, len).map(Some), // the first batch is bigger than what was asked for
+        None => {
+            // The first batch is bigger than what was asked for. A file that turns out shorter than the headers
+            // promised has been cut under us: that is damage, and not a short answer to hand on as a batch.
+            let bytes = segment.read(start, len)?;
+            if bytes.len() < len {
+                return Err(not_a_batch(start));
+            }
+            Ok(Some(bytes))
+        }
     }
 }
 

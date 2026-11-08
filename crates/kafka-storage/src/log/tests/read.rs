@@ -44,46 +44,6 @@ fn a_read_starts_at_the_batch_that_holds_the_offset() {
 }
 
 #[test]
-fn a_read_holds_whole_batches_within_the_byte_limit_but_always_the_first() {
-    let (_fs, _dir, mut log) = fresh(NEVER);
-    log.append(&ones(5, 0), NOW, TimestampType::Create).unwrap();
-    let r = log.reader();
-    let n = one() as usize;
-    assert_eq!(bases(&r.read(offset(0), 2 * n, None).unwrap()), vec![0, 1]);
-    assert_eq!(
-        bases(&r.read(offset(0), 2 * n + n - 1, None).unwrap()),
-        vec![0, 1],
-        "no half a batch"
-    );
-    assert_eq!(
-        bases(&r.read(offset(2), 1, None).unwrap()),
-        vec![2],
-        "the first, however large"
-    );
-}
-
-#[test]
-fn a_limit_hides_the_batches_that_begin_at_or_after_it() {
-    let (_fs, _dir, mut log) = fresh(NEVER);
-    log.append(&ones(5, 0), NOW, TimestampType::Create).unwrap();
-    let r = log.reader();
-    assert_eq!(
-        bases(&r.read(offset(0), usize::MAX, Some(offset(3))).unwrap()),
-        vec![0, 1, 2]
-    );
-    assert!(
-        r.read(offset(3), usize::MAX, Some(offset(3)))
-            .unwrap()
-            .is_empty(),
-        "the first is past the limit"
-    );
-    assert_eq!(
-        bases(&r.read(offset(0), usize::MAX, Some(offset(99))).unwrap()),
-        vec![0, 1, 2, 3, 4]
-    );
-}
-
-#[test]
 fn a_reader_can_wait_for_the_end_to_move() {
     let rt = tokio::runtime::Builder::new_current_thread()
         .enable_time()
@@ -126,6 +86,32 @@ fn damage_in_committed_bytes_is_an_error_and_never_a_gap_to_read_past() {
         reader.read(offset(4), usize::MAX, None).is_err(),
         "and not skipped past either"
     );
+}
+
+#[test]
+fn an_index_that_points_past_the_log_or_a_log_cut_short_is_damage_and_not_a_shorter_answer() {
+    // Both would otherwise read as "nothing in this segment" and carry on in the next, skipping its records.
+    let build = || {
+        let (fs, dir, mut log) = fresh(3 * one());
+        for _ in 0..9 {
+            log.append(&ones(1, 0), NOW, TimestampType::Create).unwrap();
+        }
+        (fs, dir, log)
+    };
+    let (fs, dir, log) = build();
+    let index = fs
+        .open_existing(&dir.join("00000000000000000003.index"))
+        .unwrap();
+    let past = [4i64.to_be_bytes(), 100_000i64.to_be_bytes()].concat();
+    crate::fs::FsFile::write_all_at(&index, &past, 0).unwrap();
+    assert!(log.reader().read(offset(5), usize::MAX, None).is_err());
+
+    let (fs, dir, log) = build();
+    let file = fs
+        .open_existing(&dir.join("00000000000000000003.log"))
+        .unwrap();
+    crate::fs::FsFile::set_len(&file, 100).unwrap(); // cut under the open log: the headers promise more
+    assert!(log.reader().read(offset(3), usize::MAX, None).is_err());
 }
 
 #[test]

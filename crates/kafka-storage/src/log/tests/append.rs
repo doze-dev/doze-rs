@@ -172,3 +172,25 @@ fn a_failed_segment_start_leaves_the_directory_to_be_flushed_by_the_next_sync() 
         "the create and the removal were never flushed"
     );
 }
+
+#[test]
+fn a_full_disk_refuses_writes_leaves_nothing_behind_and_they_resume_when_there_is_room() {
+    // The disk fills in the middle of a write: the part that fitted is taken back, no offset is used, the
+    // partition stays online, and the very same append succeeds once there is room. (The simulation injects
+    // one-shot failures; it never fills the disk or cuts a write short.)
+    let (fs, dir, mut log) = fresh(NEVER);
+    log.append(&ones(1, 0), NOW, TimestampType::Create).unwrap();
+    fs.set_capacity(Some(one() + 16 + 30));
+    assert!(log.append(&ones(2, 0), NOW, TimestampType::Create).is_err());
+    assert!(!log.is_offline());
+    assert_eq!(log.end_offset(), offset(1));
+    assert_eq!(
+        fs.contents(&dir.join(LOG0)).unwrap().len() as u64,
+        one(),
+        "the part of the write that fitted was cut off"
+    );
+    fs.set_capacity(None);
+    let again = log.append(&ones(2, 0), NOW, TimestampType::Create).unwrap();
+    assert_eq!(again.next_offset, offset(3));
+    assert_eq!(bases(&all(&log.reader())), vec![0, 1, 2]);
+}

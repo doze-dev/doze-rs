@@ -179,10 +179,14 @@ pub(crate) fn contents(log: &PartitionLog<SimFs>) -> Vec<(i64, Bytes)> {
 }
 
 impl Model {
-    /// A log was reopened. It may hold whole batches that a call reported as failed, because the process
-    /// stopped between writing one and taking it back; recovery cannot tell them from the rest, so they are
-    /// the log's now, and what the workload knows grows to include them.
+    /// A log was reopened, and what it holds is the truth now. Below what a flush acknowledged it must hold exactly
+    /// what the workload wrote (`verify` checks that, so those entries stay). Above it, records may have been lost
+    /// by a power cut, and the log may hold whole batches that a call reported as failed (the process stopped
+    /// between writing one and taking it back; recovery cannot tell them from the rest): there the log decides,
+    /// and what the workload knows is rebuilt from it.
     pub(crate) fn adopt(&mut self, log: &PartitionLog<SimFs>) {
+        let flushed = self.synced_end;
+        self.acked.retain(|base, _| *base < flushed);
         for (base, bytes) in contents(log) {
             if self.acked.contains_key(&base) {
                 continue;
@@ -195,6 +199,6 @@ impl Model {
                 self.acked.insert(base, rec);
             }
         }
-        self.end = self.end.max(log.end_offset().get());
+        self.end = log.end_offset().get();
     }
 }

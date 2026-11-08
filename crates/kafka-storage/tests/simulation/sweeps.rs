@@ -177,7 +177,14 @@ fn replay() {
     if halt {
         fs.halt_after(n);
     } else {
-        fs.fail_any(n, Failure::Io);
+        fs.fail_any(
+            n,
+            if flag == Some("full") {
+                Failure::Full
+            } else {
+                Failure::Io
+            },
+        );
     }
     let mut world = World::new(seed, fs.clone());
     world.run(STEPS);

@@ -29,7 +29,7 @@ pub(crate) struct World {
     pub(crate) earlier: Vec<Vec<(kafka_storage::sim::Op, std::path::PathBuf)>>,
     /// The seed this world was made from.
     pub(crate) seed: u64,
-    rng: Rng,
+    pub(crate) rng: Rng,
 }
 
 pub(crate) fn offset(n: i64) -> Offset {
@@ -254,24 +254,6 @@ impl World {
             .unwrap_or(0);
         self.model.start_seen = self.model.start_seen.max(active_base);
         let _ = log.enforce_retention(policy, NOW);
-    }
-
-    fn read(&mut self) {
-        let Some(log) = self.log.as_ref() else { return };
-        let (start, end) = (log.start_offset().get(), log.end_offset().get());
-        let from = start + self.rng.below((end - start) as u64 + 1) as i64;
-        if let Ok(got) = log
-            .reader()
-            .read(offset(from), 1 + self.rng.below(400) as usize, None)
-        {
-            for batch in kafka_wire::batch::Batches::new(got) {
-                let base = batch.unwrap().base_offset().unwrap().get();
-                assert!(
-                    base >= start.min(from).saturating_sub(5),
-                    "a read returned {base} for {from}"
-                );
-            }
-        }
     }
 }
 

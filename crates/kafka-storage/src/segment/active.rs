@@ -118,8 +118,9 @@ impl<F: Fs> ActiveSegment<F> {
     /// Writes a batch at the end of the log and, on crossing the index interval (and for a segment's first
     /// batch), an index entry. The batch is written from the buffers it already is: its stamped header (built on
     /// the stack) and its body (borrowed from the request), with no copy made to put them together. Nothing is
-    /// visible to readers until [`ActiveSegment::publish`]. A failure leaves no trace: the bytes are cut off and
-    /// the counts restored.
+    /// visible to readers until [`ActiveSegment::publish`]. A failed index write takes the batch back (the bytes are
+    /// cut off and the counts restored); a failed write of the batch itself leaves its partial bytes for the caller's
+    /// `rewind`, which is how a whole payload is taken back.
     ///
     /// # Errors
     /// A failed write.
@@ -130,10 +131,9 @@ impl<F: Fs> ActiveSegment<F> {
         // Dirty before the write: a write that fails part-way has still changed the file, and the cut that
         // undoes it has to reach the disk.
         self.log_dirty = true;
-        if let Err(e) = self.write_batch(batch, pos) {
-            self.cut_to(pos);
-            return Err(e);
-        }
+        // A write that fails part-way leaves bytes past the size the segment counts. The caller takes the whole
+        // payload back to its mark, which cuts them (`rewind`): doing it here as well would be the same cut twice.
+        self.write_batch(batch, pos)?;
         self.size += len;
         self.since_index += len;
         self.modified_ms = now_ms;

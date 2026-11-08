@@ -199,14 +199,15 @@ pub(crate) fn scan_tail<L: FsFile>(log: &L, size: u64, last: Entry) -> io::Resul
     }))
 }
 
-/// The offset after the last batch of a log, found by walking forward from the last index entry (no need to read
-/// the whole segment) and judging batches by their headers alone.
+/// The offset after the last batch of a log, and where in the file its last whole batch ends, found by walking
+/// forward from the last index entry (no need to read the whole segment) and judging batches by their headers alone.
+/// A log whose second number is less than its size has bytes after its last batch that are not one.
 pub(crate) fn tail_end<L: FsFile>(
     log: &L,
     size: u64,
     last_entry: Option<Entry>,
     base: Offset,
-) -> io::Result<Offset> {
+) -> io::Result<(Offset, u64)> {
     let (mut pos, mut next) = match last_entry {
         Some(e) => (e.position, Offset::new(e.offset).unwrap_or(base)),
         None => (0, base),
@@ -227,7 +228,7 @@ pub(crate) fn tail_end<L: FsFile>(
         next = after;
         pos += peek.total_len;
     }
-    Ok(next)
+    Ok((next, pos))
 }
 
 /// The newest timestamp of any record in a log, read from batch headers alone.

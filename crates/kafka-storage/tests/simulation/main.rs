@@ -13,6 +13,7 @@
 )]
 
 mod model;
+mod reads;
 mod rng;
 mod sweeps;
 mod world;

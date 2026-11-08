@@ -79,9 +79,10 @@ impl<F: Fs> SealedSegment<F> {
 }
 
 impl<F: Fs> SealedSegment<F> {
-    /// The offset after the segment's last batch: found by walking forward from the last index entry, not by
-    /// reading the whole segment.
-    pub(crate) fn end_offset(&self) -> io::Result<Offset> {
+    /// The offset after the segment's last batch and the position where that batch ends, found by walking forward
+    /// from the last index entry, not by reading the whole segment. A position short of the segment's size means
+    /// bytes after the last batch that are not a batch.
+    pub(crate) fn tail(&self) -> io::Result<(Offset, u64)> {
         let last = self.view.index().last()?;
         scan::tail_end(self.view.log_file().as_ref(), self.size, last, self.base())
     }

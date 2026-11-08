@@ -215,6 +215,10 @@ Test: `log::tests::tickets::a_ticket_does_not_wait_for_ever_for_a_log_that_is_go
 - Compaction and the cleaner's swap: Phase 7. Producer and transaction state in the log: Phase 6.
 - Lazily opened files for thousands of partitions. Each segment holds two descriptors (5,000 partitions of 10 segments
   each would need 100,000), which Phase 3 must bound with lazy open or a descriptor cache.
+- A read asks the file for `max_bytes` plus 16 KiB before it knows the offset limit or the end will cut the answer short, and
+  its answer pins that buffer. Phase 3 must cap `max_bytes` at the fetch limits (`usize::MAX` would read the rest of the
+  segment), and Phase 6 (read-committed, last stable offset below the end) should clamp that first read by the limit.
+  Measured by the second audit: 7.5 MiB read and pinned to return 8 KiB with a 50 MiB `max_bytes` and a limit just ahead.
 - Go behaviours not built yet, because Phase 3 is what needs them: a closed partition's start and end without opening it
   (`boundsFromDisk`: ListOffsets, DescribeLogDirs, the console), destroying a partition (DeleteTopics: `Fs` has no
   `remove_dir`), changing `segment.bytes` at runtime, and the broker's own reading of `max_bytes` of 0 (here it means

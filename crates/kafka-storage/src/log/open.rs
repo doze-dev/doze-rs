@@ -45,7 +45,8 @@ fn tidy<F: Fs>(fs: &F, dir: &Path) -> Result<Found, StorageError> {
     Ok(Found { bases, tidied })
 }
 
-/// Removes the newest segment if it is an empty leftover that begins inside the one before it. A roll that
+/// Removes the newest segment if it is an empty leftover of a roll that failed: one that begins inside the one before it,
+/// or that follows one with a torn tail. A roll that
 /// failed half way (the log created, the index could not be) cleans up after itself, but the removal is only in
 /// memory until the directory is flushed, and a power cut can bring the empty file back while the old segment
 /// went on taking appends. Left alone it would make the log end at the leftover's base and hide the records
@@ -67,7 +68,11 @@ fn drop_stale_tail<F: Fs>(
             return Ok(());
         }
         let before = SealedSegment::open(fs, dir, previous, interval).doing("opening a segment")?;
-        if before.end_offset().doing("checking a segment")? <= last {
+        let (end, valid_to) = before.tail().doing("checking a segment")?;
+        // A real successor is only made after its predecessor was flushed whole. So an empty one is a leftover if
+        // the predecessor goes on past where it begins, or if the predecessor has bytes that are not a batch after
+        // its last: appends went on in it after the roll failed, and a power cut tore the last of them.
+        if end <= last && valid_to == before.size() {
             return Ok(());
         }
         remove_files(fs, dir, last).doing("removing a stale segment")?;

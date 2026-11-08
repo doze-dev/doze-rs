@@ -1,8 +1,9 @@
 # doze-aws in Rust: a ground-up implementation
 
-Status: **draft for approval** (written 2026-11-08, after four feasibility spikes). Nothing here is
-built yet. Items marked **PROPOSED** are my recommendation and need the owner's yes; items marked
-**SETTLED** come from the owner's own words.
+Status: **approved in part, 2026-11-08** (written after four feasibility spikes; the owner answered
+the open decisions the same day, see "Decisions"). Nothing here is built yet. Items marked
+**PROPOSED** are my recommendation and still need the owner's yes; items marked **SETTLED** come from
+the owner's own words. Still open: the allocator exception and the console's direction.
 
 Target: this workspace (`~/Code/doze-dev/doze-rs`), beside the doze-kafka port (`../PLAN.md`).
 Domain reference: `~/Code/doze-dev/doze-aws` (Go, 17 services, about 138k lines of production Go,
@@ -18,16 +19,22 @@ structure Rust. Nothing is translated line by line, and Go's tests are not trans
   and on what is offered. Numbers may only rise with a written reason (`docs/port/aws/weight.md`).
 - **SETTLED. Tests are only the ones truly needed.** The Go suite grew excessive; see "Testing".
 - **SETTLED (in principle). redb for metadata**, as in the kafka port.
+- **SETTLED. IP and port only.** No doze-names, no name registry, as doze-kafka.
+- **SETTLED. Windows and x86 are in scope** (CI matrix from A0; see Risks).
+- **SETTLED. Go is frozen; the port is the way forward.** Go doze-aws stays in service until the A17
+  cutover but receives no fidelity work; the 951 open findings become the Rust behaviour catalogue.
+- **SETTLED. A real AWS account exists** (root only so far; recorder credentials follow, see
+  Decisions), so the evidence tags can become `recorded` from A5 on.
 - **PROPOSED. Fresh data.** The Rust edition owns its layout and never reads a Go data directory
   (as doze-kafka decided).
-- **PROPOSED. Protocols by service, not by history.** Query (form body, XML reply) for IAM, STS,
+- **SETTLED. Protocols by service, not by history.** Query (form body, XML reply) for IAM, STS,
   SNS and CloudFormation, which have no other protocol. SQS: awsJson1_0 only. CloudWatch: awsJson1_0
   *and* Smithy RPC v2 CBOR (boto3 and the CLI send JSON, only the Rust SDK sends CBOR). A client old
   enough to send Query to SQS or CloudWatch gets a clear refusal telling it to upgrade.
 - **PROPOSED. Refused, not built:** SigV2, SigV4a, `Date`-header auth, HTTP/2. A refused operation
   answers HTTP 501 `NotImplemented` with `X-Doze-Not-Built` (the Go plan's D5).
 - **PROPOSED. AWS facts carry evidence tags** (`model`, `recorded`, `doc`, `memory`), as in the Go
-  plan; nothing is fixed on `memory`. With no AWS account yet, everything is unverified.
+  plan; nothing is fixed on `memory`. Until recordings exist, everything is unverified.
 - Go stays the reference until parity; fidelity fixes that are pure AWS knowledge are written down
   once (in the behaviour catalogue) and apply to both.
 
@@ -186,7 +193,8 @@ occasionally on the core crates, not as a gate. The Rust SDK is a test-only clie
 Runtime and web: `tokio` 1.54 (`rt`, `net`, `time`, `sync`, `signal`; `current_thread` by default),
 `tokio-util` 0.7.20, `hyper` 1.12, `hyper-util` 0.1.21, `http-body-util` 0.1.5, `bytes` 1.12. No axum
 and no tower for the API (spike B: +78 KB, and our dispatch keys on header, `Action`, `X-Amz-Target`,
-Host and signing scope, not path alone). Console routing: see Open decisions.
+Host and signing scope, not path alone). The console is its own `axum` router (owner's choice: more
+readable), mounted behind the gateway as a tower service; the kafka console keeps its own.
 
 Formats: `serde_json` 1.0.154, `quick-xml` 0.42, `minicbor` 2.3, `form_urlencoded` 1.2, `postcard`
 1.1.3 (storage only).
@@ -218,12 +226,12 @@ calendar time. "Console" is that service's pages built to the dream-design board
 
 | # | Phase | Gate | API | Console |
 |---|---|---|---|---|
-| A0 | **Rails.** `docs/port/aws/` (this plan, `weight.md`, `oracle.md`), xtask additions (`codegen`, `weight`, `conformance`), CI for the new crates, Go-side `CONFORMANCE_BIN` use for doze-aws scenarios | conformance harness runs the boto3 scenarios against the **Go** doze-aws binary through the process target | 2 to 3 | 0 |
+| A0 | **Rails.** `docs/port/aws/` (this plan, `weight.md`, `oracle.md`), xtask additions (`codegen`, `weight`, `conformance`), CI for the new crates on Linux x86_64 and aarch64, macOS arm64 and Windows x86_64, Go-side `CONFORMANCE_BIN` use for doze-aws scenarios | conformance harness runs the boto3 scenarios against the **Go** doze-aws binary through the process target; CI green on all four targets | 2 to 3 | 0 |
 | A1 | **Shared kit.** Extract `doze-fs`, `doze-store`, `doze-runtime` from the kafka crates; decide whether `doze-log` generalises (small spike first). Kafka stays green and its weight unchanged | kafka gates pass unchanged; the lifecycle pattern has the spike's tests | 4 to 6 | 0 |
 | A2 | **Model and codegen.** `xtask codegen` (IR, types, newtypes, `Operation`, schema tables), overlays, the table-driven decoder proved on **SSM and S3 first** (the two largest) | a use-everything build of all 18 models, decode tables included, has a stated size ceiling (target 3 MiB at fat LTO); `--check` clean; clippy clean under the workspace lints | 5 to 8 | 0 |
 | A3 | **Wire and auth.** `aws-wire` (five codecs, fuzzed), `aws-auth` (SigV4 headers, presigned, chunked and trailer payloads, clock skew, typed `Principal`), `aws-gateway` (router, dispatch, limits, `Expect: 100-continue`) | spike B's client matrix (Rust SDK, boto3, CLI) passes against stub services; fuzz targets clean; 1 GiB upload peak RSS flat | 8 to 12 | 0 |
 | A4 | **Core domain.** `aws-core` types, `aws-iam-policy` evaluator (identity, boundary, session, SCP, resource, variables, all condition operators), `aws-peers`, config, the service host | evaluator passes its case table (start from spike D's 53, add the Go gaps); host passes lifecycle tests | 6 to 9 | 0 |
-| A5 | **SQS** (the calibration). JSON only. Visibility, delay, FIFO, redrive, move tasks, DLQ, long polling. Console **kit** (shell, components, htmx, route export) built here with SQS's pages | boto3 scenarios; machine properties; weight table vs Go (first honest comparison); **re-estimate everything from the actual sessions** | 5 to 7 | 5 to 7 |
+| A5 | **SQS** (the calibration). JSON only. Visibility, delay, FIFO, redrive, move tasks, DLQ, long polling. Console **kit** (shell, components, htmx, route export) built here with SQS's pages, **after the console redesign is approved** (see Open decisions) | boto3 scenarios; machine properties; weight table vs Go (first honest comparison); **re-estimate everything from the actual sessions** | 5 to 7 | 5 to 7 |
 | A6 | **SSM, Secrets Manager, KMS.** Simple JSON services; KMS brings the crypto and key import | scenarios; known-answer crypto tests; ring/aws-lc cross-checks kept | 8 to 11 | 4 to 6 |
 | A7 | **IAM and STS.** Query protocol, users/roles/policies, STS tokens, enforcement across all existing services | second-identity pass: every service under a non-default account and region | 6 to 9 | 3 to 4 |
 | A8 | **SNS.** Fan-out to SQS through the bus, filter policies, raw delivery | scenarios incl. SNS to SQS under non-default identity | 3 to 5 | 2 to 3 |
@@ -267,25 +275,38 @@ in every service, so it is last and doubles as the integration test.
   these must be built lazily or the budget is missed.
 - **Fidelity cannot be proven without the AWS account.** Auth error codes, DynamoDB error text,
   JSONata edge cases and IAM expectations are unverified.
+- **Windows and x86 (now in scope).** Nothing in the spikes ran on Windows. Known exposure: file
+  sync and rename semantics behind `Fs`, child-process supervision for Lambda, the unix-socket `serve`
+  mode doze uses, and `rsa`/crypto speed on x86. Rough extra cost 4 to 8 sessions, a guess to be
+  re-based in A1 when `Fs` is extracted.
 - **redb close cost.** Closing a database costs two to three fsyncs (about 12 ms on this Mac) on each
   reap; it is off the request path and accepted.
 - **Scope.** Longest project yet. A5 is the checkpoint; A0 to A4 must not grow.
 
-## Open decisions (the owner's)
+## Decisions (2026-11-08) and what is still open
 
-1. **Identity of the instance.** Does the Rust edition drop `doze-names` and use IP and port only, as
-   doze-kafka did?
-2. **Protocol cuts** above (Query only for IAM/STS/SNS/CloudFormation; SQS JSON only; CloudWatch JSON
-   and CBOR): yes or no?
-3. **Console routing.** Kafka's console uses axum; the AWS gateway uses raw hyper. One router for both
-   (migrate kafka later) or two?
-4. **Allocator exception.** Allow a tiny `doze-alloc` crate that holds the one `unsafe` call, use
-   mimalloc, or accept that memory is not returned to the OS on macOS?
-5. **Windows and x86.** Go ships none for Windows today. Are they in scope?
-6. **Go fidelity work.** About 300 Go days of fidelity findings are open. Freeze Go to bug fixes, or
-   keep going, with findings applying to both?
-7. **AWS account timing.** It turns "unverified" into "verified" for the whole catalogue.
-8. **Where the spike code lives.** About 15k lines across four spikes sit in the scratchpad.
+Decided by the owner: (1) IP and port only, no doze-names. (2) The protocol cuts. (3) Two separate
+routers: the API gateway on raw hyper, the AWS console on `axum`. (5) Windows and x86 are in scope.
+(6) Go is frozen; the port is the way forward. (7) An AWS account exists (root only); the owner will
+set up recorder keys later this week, with help (least-privilege IAM user or Identity Center, MFA on
+root, no root access keys, a budget alert, a `doze-rec-` naming prefix and a teardown script).
+(8) The spike code stays in the scratchpad (temporary; the findings are in this plan and in memory).
+
+(9) Allocator: left to my judgement. Allow a tiny `doze-alloc` crate holding the one `unsafe` call
+(`malloc_trim` on glibc); default to the system allocator; decide macOS (mimalloc) and Windows on real
+service numbers at A5.
+
+Console requirement added 2026-11-08: when run by doze, the console shows **both** the `.doze`
+endpoint and the plain IP-and-port endpoint for every service, copyable, with SDK and CLI snippets for
+each. Standalone (and on Windows, where `.doze` setup is Unix-only) it shows the IP form. Doze tells
+the service its names at start; doze-aws itself no longer owns names. Virtual-hosted S3 and
+region-qualified service hostnames work only on a `.doze` name, so the console says so.
+
+Still open:
+
+- **The console direction (blocks the A5 console kit).** The owner wants a full rethink, to the
+  standard of the doze app and website. The design comes first and the Rust console second; no console
+  code before the boards are approved.
 
 ## Verification
 
@@ -311,3 +332,4 @@ Spike reports: `scratchpad/spike-{a-codegen,b-wire,c-weight,d-libs}` (see Open d
   types); spike B settled hand-written SigV4 and raw hyper; spike C settled the runtime and lifecycle
   pattern; spike D settled the language libraries and reversed the JSONata pick (`seuil` to
   `jlens-core`).
+- **2026-11-08, decisions.** Owner answered the open decisions: IP and port only, protocol cuts accepted, console on its own axum router, Windows and x86 in scope (+4 to 8 sessions, a guess), Go frozen, AWS account available (keys later this week), spikes stay in the scratchpad. The allocator and the console redesign remain open.

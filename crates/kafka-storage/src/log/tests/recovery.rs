@@ -48,3 +48,13 @@ fn an_index_that_disagrees_with_the_log_is_rebuilt() {
         vec![5]
     );
 }
+
+#[test]
+fn the_index_of_a_sealed_segment_is_rebuilt_when_it_is_gone() {
+    let (fs, dir) = written(6, 2 * one());
+    let want = fs.contents(&dir.join(INDEX0)).unwrap();
+    fs.remove_file(&dir.join(INDEX0)).unwrap();
+    let log = reopen(&fs, &dir);
+    assert_eq!(fs.contents(&dir.join(INDEX0)).unwrap(), want);
+    assert_eq!(bases(&all(&log.reader())), vec![0, 1, 2, 3, 4, 5]);
+}

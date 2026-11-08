@@ -356,3 +356,19 @@ test-only knobs in `internal/config`.
   deleted. 120 tests became 61 (54 unit, 2 real-disk, 1 flat-memory, 4 simulation sweeps); the same 28 mutants were run
   again and none escaped. The behaviour catalogue names only tests that exist; a behaviour the simulation exercises
   says so. Phase 1 (`kafka-wire`, 88 tests, written before this rule) gets the same treatment next.
+- **2026-11-08, Phase 2 second audit: done on evidence, no blockers.** It wrote its own checks, independent of the
+  simulation: 6000 seeds of DeleteRecords (to the end and mid-offset, with and without unflushed records) under
+  every data and name cut and chained restarts, never a log end below a recorded start or a reissued offset; 6000
+  seeds of reads against a model (max_bytes 0 to `usize::MAX`, limits, index intervals from 1 to 2^30), no mismatch;
+  a vouched/unvouched open matrix over damaged logs and indexes, always the exact prefix or an error, never wrong
+  bytes; the simulation at 1000 seeds, the recovery fuzzer (1.3M runs) and the concurrent-reader test (20 of 20).
+  Measured copies: an append of 8 x 4 KiB batches allocates 512 B and copies no data; LogAppendTime allocates nothing.
+  Acted on: a seek past the log, and a log file cut under an open reader, are now damage (an error) and not a silent
+  skip; the flush in DeleteRecords-to-the-end (of data about to be deleted) and the segment's duplicate cut after a
+  failed write (the payload's rewind does it) are removed; the simulation's read step now checks every read against
+  the model (the batch holding the offset, whole batches in order, within max_bytes and the limit, stopping early
+  only at a segment boundary, the end or a limit), which replaced two example tests; one more redundant scan test
+  went. Restored after the diet because nothing else reached them: a full disk mid-write (the simulation only
+  injects one-shot failures) and the rebuild of a missing sealed index. Deliberately not done: no test for a log file
+  cut under an open reader (outside what is guaranteed; the check is four lines), none for the mtime fallback of
+  `enforce_closed` (real clients always send timestamps), and none per surviving mutant on purpose (rule 10).

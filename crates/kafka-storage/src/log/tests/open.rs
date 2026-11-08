@@ -144,3 +144,32 @@ fn a_vouched_open_does_not_believe_an_index_entry_that_points_at_the_end_of_the_
     );
     assert_eq!(bases(&all(&log.reader())), vec![0, 1, 2]);
 }
+
+#[test]
+fn an_empty_segment_that_follows_a_torn_tail_is_a_leftover_and_not_a_successor() {
+    // Found by the simulation at a larger seed count: a roll failed after creating the next segment's log, appends
+    // went on in the old segment, and a power cut tore the last of them. The old segment's end (offset 3) then
+    // equals the leftover's base, so the leftover looked like a real successor and the torn tail was kept as sealed.
+    let (fs, dir) = written(3, NEVER);
+    let whole = fs.contents(&dir.join(LOG0)).unwrap().len() as u64;
+    let log = fs.open_existing(&dir.join(LOG0)).unwrap();
+    crate::fs::FsFile::write_all_at(&log, &crate::testutil::raw(3, 1, 0)[..30], whole).unwrap();
+    for ext in ["log", "index"] {
+        fs.open_or_create(&dir.join(format!("{:020}.{ext}", 3)))
+            .unwrap();
+    }
+    let mut log = reopen(&fs, &dir);
+    assert_eq!(log.end_offset(), offset(3));
+    assert_eq!(
+        fs.names(&dir),
+        vec![INDEX0, LOG0],
+        "the leftover is removed and the torn tail cut"
+    );
+    assert_eq!(
+        log.append(&ones(1, 0), NOW, TimestampType::Create)
+            .unwrap()
+            .first_offset,
+        offset(3)
+    );
+    assert_eq!(bases(&all(&log.reader())), vec![0, 1, 2, 3]);
+}

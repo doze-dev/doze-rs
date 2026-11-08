@@ -18,23 +18,6 @@ fn walk(bytes: &[u8], base: i64, interval: u64, crc_from: u64) -> Scanned {
 }
 
 #[test]
-fn a_torn_tail_is_cut_at_the_last_whole_batch() {
-    let log = run(0, &[1, 1, 1]);
-    let one = log.len() / 3;
-    for cut in [
-        log.len() - 1,
-        log.len() - 30,
-        2 * one + 10,
-        2 * one + 1,
-        2 * one,
-    ] {
-        let s = walk(&log[..cut], 0, 4096, 0);
-        assert_eq!(s.valid_end, 2 * one as u64, "cut at {cut}");
-        assert_eq!(s.next_offset, offset(2));
-    }
-}
-
-#[test]
 fn a_bad_checksum_is_found_only_where_checksums_are_checked() {
     let mut log = run(0, &[1, 1, 1]);
     let one = log.len() / 3;

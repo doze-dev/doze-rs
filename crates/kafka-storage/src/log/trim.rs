@@ -52,11 +52,9 @@ impl<F: Fs> PartitionLog<F> {
         self.check_online()?;
         // Emptying a partition with records in its active segment: a fresh segment is started at the end so
         // the old one can go too, rather than holding what was deleted until the segment happens to roll. The
-        // old one is flushed first, while failing still leaves nothing changed.
+        // old one is not flushed first: it is about to be deleted, and if that fails it lies below the recorded
+        // start, where the next open removes it.
         let empties = target == self.end && self.active.size() > 0;
-        if empties {
-            self.flush_active()?;
-        }
         logstart::write(&self.fs, &self.dir, target).doing("recording the log start")?;
         self.start = target;
         self.shared.set_start(target);
