@@ -14,12 +14,6 @@ impl Millis {
     pub(crate) fn plus(self, ms: u64) -> Self {
         Self(self.0.saturating_add(ms))
     }
-
-    /// Milliseconds from `earlier` to this moment (zero if it is not earlier).
-    #[must_use]
-    pub(crate) fn since(self, earlier: Self) -> u64 {
-        self.0.saturating_sub(earlier.0)
-    }
 }
 
 /// Names a request that is waiting for its answer. The machine never holds the channel the answer goes down: the
@@ -53,6 +47,9 @@ pub(crate) struct JoinRequest {
     pub(crate) rebalance_ms: i32,
     /// The client software's name for itself, as DescribeGroups shows it.
     pub(crate) client_id: String,
+    /// The id was issued to this client by the broker and is still good: it is a new member's, not an unknown one's.
+    /// Set by whoever keeps the ids issued; the machine only reads it.
+    pub(crate) issued: bool,
     /// JoinGroup v4 and later: a client without an id is given one and told to come back with it.
     pub(crate) id_first: bool,
 }

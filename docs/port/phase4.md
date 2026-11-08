@@ -39,12 +39,13 @@ member; every parked request is answered exactly once (or dropped by a retry, as
 nothing; no member in a Stable group has an empty assignment slot it was not given; a rebalance that completes answers
 every joined member with the same generation and protocol.
 
-**An actor per group** (`groups/actor.rs`): owns a machine, receives `Command`s over an mpsc, turns `Arm` into a
-`tokio_util::time::DelayQueue` entry, `Reply` into a `oneshot::send`. It stops when the group is deleted or has been
-Empty with nothing stored. The handler is `async fn`: send the command, await the oneshot. A connection that drops
+**An actor per group** (`groups/actor.rs`): owns a machine, receives `Command`s over an mpsc, turns `Arm` into an entry of its own ordered timer map
+(no extra dependency), `Reply` into a `oneshot::send`. It stops when the group is deleted or every sender
+of commands is gone. The handler is `async fn`: send the command, await the oneshot. A connection that drops
 leaves its request parked until the rebalance or the session ends, as in Go and Kafka.
 
-**A registry** (`groups/registry.rs`): `GroupId → handle`, opened on first use, with a claim slot per group id for
+**A registry** (`groups/registry.rs`): `GroupId → handle`, opened by the first JoinGroup that would seat a member (a client
+only asking for an id leaves a bounded entry in the registry's table of issued ids, not a group), with a claim slot per group id for
 Phase 5 (a group is classic or consumer-protocol, never both). Phase 4 only ever claims classic.
 
 **Offsets** live in `kafka-meta` (redb): `offsets` keyed `(group, topic, partition)` with offset, metadata, commit time;

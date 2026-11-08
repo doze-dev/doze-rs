@@ -10,11 +10,13 @@ Where the Rust edition differs from the Go edition on purpose, it follows Kafka:
 ## The machine
 
 ### C1. A client without a member id is given one and comes back with it (JoinGroup v4+)
-The answer is MEMBER_ID_REQUIRED (79) with a fresh id and generation -1. The id waits five minutes; a join refused for
-another reason does not spend it. Before v4 the client is given an id and joins in one step. An id that was never issued
-is UNKNOWN_MEMBER_ID (25).
-Test: `membership::a_client_that_joins_without_an_id_*`, `an_older_client_*`, `an_id_that_was_never_issued_*`,
-`an_issued_id_is_not_spent_by_a_refused_join_*`
+The answer is MEMBER_ID_REQUIRED (79) with a fresh id and generation -1. The registry keeps the id for five minutes (at
+most 100,000 are outstanding; a client that only ever asks costs a table entry and no group); a join refused for another
+reason does not use it up, one that is taken does. Before v4 the client is given an id and joins in one step. An id that
+was never issued is UNKNOWN_MEMBER_ID (25).
+Test: `groups::an_issued_id_is_used_up_by_a_join_*`, `an_issued_id_is_forgotten_after_five_minutes`,
+`a_client_that_only_ever_asks_for_ids_leaves_no_group_behind`; machine: `membership::a_client_with_an_id_the_broker_issued_*`,
+`an_older_client_*`, `an_id_that_was_never_issued_*`, `a_join_that_would_not_seat_anyone_is_known_not_to_*`
 
 ### C2. Check order of a JoinGroup
 Session bounds (6000..=1800000 ms, 26) before an id is handed out; no protocols or no protocol type (23); a static
@@ -25,7 +27,8 @@ Test: `membership::the_session_bounds_are_checked_*`, `a_member_with_another_pro
 ### C3. Members who join together share a generation; only the leader is told the members
 The first rebalance of an empty group waits the initial delay (default 200 ms), and another window for each latecomer,
 cut short by the rebalance deadline. The protocol is the one every member supports that most members put first (ties by
-name); the lowest id leads a new group and a leader that is still a member keeps leading.
+name); the first member to join an empty group leads it, a leader that is still a member keeps leading (otherwise the
+lowest id).
 Test: `membership::members_who_join_together_*`, `timers::the_first_member_of_an_empty_group_*`,
 `timers::a_member_arriving_during_the_delay_*`, `timers::the_delay_is_cut_short_*`,
 `rebalance::a_leader_that_is_still_a_member_keeps_leading_*`
@@ -139,7 +142,8 @@ Test: `group_admin::offsets_are_deleted_unless_*`, `offset_delete_of_a_group_wit
 ## Retention
 
 ### R1. Committed offsets expire (`--offsets-retention`, 168 h; 0 keeps them for ever)
-Looked at every retention/100 (between 50 ms and ten minutes), and at once when the test control asks (below). A group that
+An offset is forgotten only if it has not been committed again since the sweep saw it (`expire_offsets`). Looked at every
+retention/100 (between 50 ms and ten minutes), and at once when the test control asks (below). A group that
 never had a member loses each offset a retention after its own commit. A group that had members and has none loses all of
 them a retention after it *became* empty, however late the last commit (a commit into an empty group does not extend
 it). A group with members keeps what it subscribes to and loses the rest by age; a group in a rebalance, of another
@@ -149,17 +153,20 @@ oracle `offsets-retention-members` (Apache Kafka 4.3.1's recording) passes
 
 ### R2. What is recorded, and when
 A group's record (`live`, the longest session, when it emptied, its protocol type) is written *before* a first member is
-seated (a failed write is COORDINATOR_NOT_AVAILABLE, 15, and nobody is seated) and when the last member goes (a failed write
+seated, and only for a join that will seat one (a refused join, or one told to come back with an id, writes nothing: it
+would pin the group's offsets for ever). A failed write is COORDINATOR_NOT_AVAILABLE, 15, and nobody is seated and when the last member goes (a failed write
 is tried again every 500 ms). A group the broker has restarted since, recorded as having members, is taken to have them until
 their session has run out after the start, and to have lost them then. Such a group is listed, and described, as the empty
 group it is, with the kind it was, until the retention forgets it.
 Test: `retention::a_member_is_not_seated_when_the_record_*`, `a_restart_changes_none_of_this_*`,
-`a_group_that_had_members_when_the_broker_stopped_*`; `kafka-meta` crash sweep (records in the random workload)
+`a_group_that_had_members_when_the_broker_stopped_*`, `a_join_that_is_refused_does_not_keep_an_emptied_groups_offsets_for_ever`;
+`kafka-meta` crash sweep (commits, the topic cascade, every delete, and the records, in the random workload)
 
 ### R3. A group with no members and no offsets is forgotten at the sweep
 It is Dead, and its id used again is a new group. Not so a group that has only just been told the id to come back with:
 forgetting it would lose that id (found by the oracle: `offsets-retention`, `join-g-late`).
-Test: `retention::a_group_with_nothing_*`, `a_group_that_has_only_issued_an_id_is_not_forgotten_*`
+Test: `retention::a_retention_of_zero_keeps_offsets_for_ever_but_a_group_with_nothing_is_still_forgotten`,
+`a_group_that_has_only_issued_an_id_is_not_forgotten_*`
 
 ### R4. The test control
 `DOZE_KAFKA_TEST_CONTROL`, if set, names a unix socket; the line `check-offsets` applies the retention now and is answered
@@ -184,6 +191,11 @@ Pass: `findcoordinator`, `offsetcommit-generations`, `joingroup-session-timeout`
 only in KIP-848 steps (ConsumerGroupHeartbeat is not served until Phase 5), and in the member-id numbering and listings those
 steps shift. The remaining diffs were read by hand and are all of that kind, but only Phase 5, which serves those steps,
 will show a full pass.
+
+A stock run looks worse than it is, for a reason that is not the broker's: the harness's idle keep-alive (`Quiet()`) sends a
+ConsumerGroupHeartbeat on the connection a scenario is using, the broker (which does not serve it yet) closes the
+connection, and the next *classic* step on it is recorded as "closed by the broker". An independent audit re-ran those
+scenarios with the keep-alive skipping that request and found no classic step that differs.
 
 ## Not done (recorded)
 KIP-848 groups and the migration between protocols (Phase 5); transactional offset commits (Phase 6); ACLs (Phase 8); the

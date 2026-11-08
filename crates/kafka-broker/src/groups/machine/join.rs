@@ -7,21 +7,49 @@ use kafka_wire::ResponseError;
 use kafka_wire::ids::MemberId;
 
 use super::{
-    Answer, Effect, GroupMachine, JoinAnswer, JoinRequest, Member, Millis, PENDING_TTL_MS,
-    SESSION_MS, State, Token,
+    Answer, Effect, GroupMachine, JoinAnswer, JoinRequest, Member, Millis, SESSION_MS, State, Token,
 };
 
 /// Who a JoinGroup comes from, once the id and instance it carries are understood.
 enum Who {
     /// A member the group has.
     Known(MemberId),
-    /// Someone the group does not have yet, under this id.
-    New(MemberId),
-    /// A static member that restarted: the new id takes the place of the old.
-    Replace { old: MemberId, new: MemberId },
+    /// A client with an id the broker issued it earlier and the group has not yet seated.
+    Issued(MemberId),
+    /// Someone new, to be given an id.
+    Fresh,
+    /// A static member that restarted: the new id takes the place of this old one.
+    Replace(MemberId),
 }
 
 type Refused = (ResponseError, Option<MemberId>);
+
+impl Who {
+    /// The member to leave out when counting the others in the group.
+    fn except(&self) -> Option<&MemberId> {
+        match self {
+            Who::Known(id) | Who::Issued(id) | Who::Replace(id) => Some(id),
+            Who::Fresh => None,
+        }
+    }
+
+    /// The id to tell a client it is refused under, if it has one.
+    fn known_id(&self) -> Option<MemberId> {
+        self.except().cloned()
+    }
+}
+
+/// Why a JoinGroup is refused before anything is asked of the group. The order is Kafka's, as recorded: the session
+/// bounds come before an id is handed out.
+pub(crate) fn refusal(req: &JoinRequest) -> Option<ResponseError> {
+    if !SESSION_MS.contains(&req.session_ms) {
+        Some(ResponseError::InvalidSessionTimeout)
+    } else if req.protocols.is_empty() || req.protocol_type.is_empty() {
+        Some(ResponseError::InconsistentGroupProtocol)
+    } else {
+        None
+    }
+}
 
 impl GroupMachine {
     pub(super) fn join(
@@ -37,81 +65,73 @@ impl GroupMachine {
                 Answer::Join(JoinAnswer::refused(error, id)),
             ));
         };
-        // The order is Kafka's, as recorded: the session bounds come before an id is handed out.
-        if !SESSION_MS.contains(&req.session_ms) {
-            return refuse(out, (ResponseError::InvalidSessionTimeout, None));
+        if let Some(error) = refusal(req) {
+            return refuse(out, (error, None));
         }
-        if req.protocols.is_empty() || req.protocol_type.is_empty() {
-            return refuse(out, (ResponseError::InconsistentGroupProtocol, None));
-        }
-        let who = match self.identify(req, now) {
+        let who = match self.classify(req) {
             Ok(who) => who,
             Err(refused) => return refuse(out, refused),
         };
-        let except = match &who {
-            Who::Known(id) | Who::New(id) => Some(id),
-            Who::Replace { old, .. } => Some(old),
-        };
-        if !self.compatible(req, except) {
-            let id = match &who {
-                Who::Known(id) | Who::New(id) | Who::Replace { new: id, .. } => id.clone(),
-            };
-            return refuse(out, (ResponseError::InconsistentGroupProtocol, Some(id)));
+        if !self.compatible(req, who.except()) {
+            return refuse(
+                out,
+                (ResponseError::InconsistentGroupProtocol, who.known_id()),
+            );
         }
         match who {
-            Who::New(id) => self.seat(token, id, req, now, out),
             Who::Known(id) => self.rejoin(token, &id, req, now, out),
-            Who::Replace { old, new } => {
+            Who::Issued(id) => self.seat(token, id, req, now, out),
+            Who::Fresh => {
+                let id = (self.new_id)(req.instance.as_ref());
+                self.seat(token, id, req, now, out);
+            }
+            Who::Replace(old) => {
+                let new = (self.new_id)(req.instance.as_ref());
                 self.replace_static(&old, &new, out);
                 self.rejoin(token, &new, req, now, out);
             }
         }
     }
 
+    /// Whether this join would put a member in the group: it is not refused for any reason. Changes nothing.
+    #[must_use]
+    pub(crate) fn would_seat(&self, req: &JoinRequest) -> bool {
+        refusal(req).is_none()
+            && self
+                .classify(req)
+                .is_ok_and(|who| self.compatible(req, who.except()))
+    }
+
     /// Reads the member id and instance id of a request.
-    fn identify(&mut self, req: &JoinRequest, now: Millis) -> Result<Who, Refused> {
+    fn classify(&self, req: &JoinRequest) -> Result<Who, Refused> {
         use ResponseError as E;
         match (&req.instance, &req.member_id) {
-            (Some(inst), given) => match (self.statics.get(inst).cloned(), given) {
-                (Some(held), Some(id)) if *id != held => {
+            (Some(inst), given) => match (self.statics.get(inst), given) {
+                (Some(held), Some(id)) if id != held => {
                     Err((E::FencedInstanceId, Some(id.clone())))
                 }
-                (Some(held), Some(_)) => Ok(Who::Known(held)),
-                (Some(old), None) => Ok(Who::Replace {
-                    old,
-                    new: (self.new_id)(Some(inst)),
-                }),
+                (Some(held), Some(_)) => Ok(Who::Known(held.clone())),
+                (Some(old), None) => Ok(Who::Replace(old.clone())),
                 (None, Some(id)) => Err((E::UnknownMemberId, Some(id.clone()))),
-                (None, None) => Ok(Who::New((self.new_id)(Some(inst)))),
+                (None, None) => Ok(Who::Fresh),
             },
-            (None, Some(id)) => {
-                self.forget_stale_pending(now);
-                if self.members.contains_key(id) {
-                    Ok(Who::Known(id.clone()))
-                } else if self.pending.contains_key(id) {
-                    Ok(Who::New(id.clone()))
-                } else {
-                    Err((E::UnknownMemberId, Some(id.clone())))
-                }
-            }
-            (None, None) if req.id_first => {
-                self.forget_stale_pending(now);
-                let id = (self.new_id)(None);
-                self.pending.insert(id.clone(), now);
-                Err((E::MemberIdRequired, Some(id)))
-            }
-            (None, None) => Ok(Who::New((self.new_id)(None))),
+            (None, Some(id)) if self.members.contains_key(id) => Ok(Who::Known(id.clone())),
+            (None, Some(id)) if req.issued => Ok(Who::Issued(id.clone())),
+            (None, Some(id)) => Err((E::UnknownMemberId, Some(id.clone()))),
+            (None, None) => Ok(Who::Fresh),
         }
     }
 
-    fn forget_stale_pending(&mut self, now: Millis) {
-        self.pending
-            .retain(|_, issued| now.since(*issued) < PENDING_TTL_MS);
-    }
-
-    /// Whether the group can take a member offering these protocols: the type is the group's and some protocol is
-    /// one every member already in the group offers. (A rejoining member is not counted among the others.)
+    /// Whether the group can take a member offering these protocols: an empty group takes any; otherwise the type is
+    /// the group's, and (if there are other members) some protocol is one all of them offer. The member rejoining is
+    /// not counted among the others, but the type is held to even when it is the only member.
     fn compatible(&self, req: &JoinRequest, except: Option<&MemberId>) -> bool {
+        if self.members.is_empty() {
+            return true;
+        }
+        if self.protocol_type.as_deref() != Some(req.protocol_type.as_str()) {
+            return false;
+        }
         let mut others = self
             .members
             .values()
@@ -126,11 +146,9 @@ impl GroupMachine {
             return true;
         };
         let common = others.fold(first, |acc, s| acc.intersection(&s).copied().collect());
-        self.protocol_type.as_deref() == Some(req.protocol_type.as_str())
-            && req
-                .protocols
-                .iter()
-                .any(|p| common.contains(p.name.as_str()))
+        req.protocols
+            .iter()
+            .any(|p| common.contains(p.name.as_str()))
     }
 
     /// A member the group did not have is added, and its arrival starts or joins a rebalance.
@@ -142,7 +160,6 @@ impl GroupMachine {
         now: Millis,
         out: &mut Vec<Effect>,
     ) {
-        self.pending.remove(&id);
         if self.members.is_empty() {
             self.protocol_type = Some(req.protocol_type.clone());
             // The first member to join an empty group leads it (as in Kafka), whatever its id sorts as.

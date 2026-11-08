@@ -15,16 +15,25 @@ use crate::{Broker, blocking, clock};
 const LEAST_EVERY: Duration = Duration::from_millis(50);
 const MOST_EVERY: Duration = Duration::from_secs(600);
 
+/// How long between looks: what the configuration says, else a hundredth of the retention within bounds (and the longest
+/// when nothing ever expires).
+fn check_every(retention: Duration, set: Option<Duration>) -> Duration {
+    set.unwrap_or_else(|| {
+        if retention.is_zero() {
+            MOST_EVERY
+        } else {
+            (retention / 100).clamp(LEAST_EVERY, MOST_EVERY)
+        }
+    })
+}
+
 impl<F: Fs> Broker<F> {
     /// How long between looks: a hundredth of the retention, within bounds, unless the configuration says.
     fn offsets_check_every(&self) -> Duration {
-        self.config.offsets_check_every.unwrap_or_else(|| {
-            if self.config.offsets_retention.is_zero() {
-                MOST_EVERY
-            } else {
-                (self.config.offsets_retention / 100).clamp(LEAST_EVERY, MOST_EVERY)
-            }
-        })
+        check_every(
+            self.config.offsets_retention,
+            self.config.offsets_check_every,
+        )
     }
 
     /// Looks at every group's committed offsets once, now: those that have outlived the retention are forgotten, and a
@@ -95,7 +104,7 @@ impl<F: Fs> Broker<F> {
         };
         let gone = expired(&view, now_ms, retention_ms, self.started_ms);
         if !gone.is_empty() {
-            match blocking::run(|| self.meta.delete_offsets(id, &gone)) {
+            match blocking::run(|| self.meta.expire_offsets(id, &gone)) {
                 Ok(n) => tracing::info!(group = %id, offsets = n, "committed offsets expired"),
                 Err(e) => {
                     tracing::error!(group = %id, error = %e, "forgetting expired offsets failed");
@@ -130,5 +139,36 @@ impl<F: Fs> Broker<F> {
                 broker.check_offsets().await;
             }
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_time_between_looks_is_a_hundredth_of_the_retention_within_bounds() {
+        let secs = Duration::from_secs;
+        assert_eq!(
+            check_every(secs(168 * 3600), None),
+            MOST_EVERY,
+            "a week is 1.7 h: capped"
+        );
+        assert_eq!(check_every(secs(600), None), secs(6));
+        assert_eq!(
+            check_every(secs(1), None),
+            LEAST_EVERY,
+            "10 ms is raised to 50 ms"
+        );
+        assert_eq!(
+            check_every(Duration::ZERO, None),
+            MOST_EVERY,
+            "nothing expires"
+        );
+        assert_eq!(
+            check_every(secs(600), Some(secs(1))),
+            secs(1),
+            "what is set wins"
+        );
     }
 }

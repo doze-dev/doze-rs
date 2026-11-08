@@ -143,3 +143,38 @@ fn the_deadline_of_a_rebalance_that_has_finished_does_nothing() {
     assert_eq!(g.machine.generation(), 1);
     assert_eq!(g.machine.state(), State::CompletingRebalance);
 }
+
+#[test]
+fn a_member_waiting_in_a_sync_for_the_leader_is_not_expired_for_being_silent() {
+    let mut g = Group::new(100);
+    let tokens: Vec<_> = (0..2)
+        .map(|_| g.join(join_request(None, &["range"])))
+        .collect();
+    g.advance(500);
+    for t in tokens {
+        g.joined(t);
+    }
+    let waiting = g.sync("m2", 1, &[]);
+    // The leader is alive but has not synced; the follower's session (10 s) runs out twice over.
+    for _ in 0..3 {
+        g.advance(5_000);
+        let hb = g.heartbeat("m1", 1);
+        assert_eq!(g.heartbeat_answer(hb), None);
+    }
+    assert!(g.machine.member_ids().contains(&id("m2")));
+    assert!(g.answer(waiting).is_none());
+}
+
+#[test]
+fn a_sync_to_a_stable_group_renews_the_session() {
+    let mut g = stable(1);
+    g.advance(9_000);
+    let t = g.sync("m1", 1, &[]);
+    g.synced(t);
+    g.advance(9_000);
+    assert_eq!(
+        g.machine.member_ids().len(),
+        1,
+        "18 s after the join, 9 after the sync"
+    );
+}

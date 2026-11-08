@@ -202,6 +202,40 @@ impl MetaStore {
         Ok(removed)
     }
 
+    /// Forgets the offsets of `group` that have not been committed again since they were seen to have expired: each is
+    /// given with the commit time it was seen with, and kept if a newer commit has replaced it. Returns how many went.
+    ///
+    /// # Errors
+    /// A failed write, in which case none was forgotten.
+    pub fn expire_offsets(
+        &self,
+        group: &GroupId,
+        seen: &[(TopicName, PartitionId, i64)],
+    ) -> Result<usize, MetaError> {
+        let _one_at_a_time = lock(&self.write);
+        let txn = self.begin()?;
+        let mut removed = 0;
+        {
+            let mut table = txn.open_table(OFFSETS)?;
+            for (topic, partition, committed_ms) in seen {
+                let k = key(group, topic, *partition);
+                let current = table
+                    .get(k.as_slice())?
+                    .map(|v| StoredOffset::decode(v.value()))
+                    .transpose()?;
+                if current.is_some_and(|c| c.committed_ms == *committed_ms) {
+                    table.remove(k.as_slice())?;
+                    removed += 1;
+                }
+            }
+        }
+        if removed == 0 {
+            return Ok(0);
+        }
+        txn.commit()?;
+        Ok(removed)
+    }
+
     /// Forgets every offset of `group`; returns how many there were.
     ///
     /// # Errors

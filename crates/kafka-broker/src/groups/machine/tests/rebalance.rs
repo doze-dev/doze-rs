@@ -219,3 +219,36 @@ fn the_first_member_to_join_an_empty_group_leads_it_whatever_its_id_sorts_as() {
     );
     assert!(answers[1].members.is_empty() && answers[2].members.is_empty());
 }
+
+#[test]
+fn a_protocol_two_members_rank_differently_is_decided_by_votes_and_a_tie_by_the_lower_name() {
+    let mut g = Group::new(100);
+    let a = g.join(join_request(None, &["range", "sticky"]));
+    let b = g.join(join_request(None, &["sticky", "range"]));
+    g.advance(500);
+    // One vote each: the lower name wins.
+    assert_eq!(g.joined(a).protocol.as_deref(), Some("range"));
+    assert_eq!(g.joined(b).protocol.as_deref(), Some("range"));
+}
+
+#[test]
+fn what_the_leader_assigned_is_cleared_when_the_group_rebalances() {
+    let mut g = stable(2);
+    let s = g.sync("m1", 1, &[("m1", "a"), ("m2", "b")]);
+    g.synced(s);
+    let (a, b) = (
+        g.join(join_request(Some("m1"), &["range"])),
+        g.join(join_request(Some("m2"), &["range"])),
+    );
+    g.joined(a);
+    g.joined(b);
+    assert!(g.machine.members.values().all(|m| m.assignment.is_empty()));
+}
+
+#[test]
+fn the_generation_wraps_to_zero_and_is_never_negative() {
+    let mut g = Group::new(0);
+    g.machine.generation = i32::MAX;
+    let t = g.join(join_request(None, &["range"]));
+    assert_eq!(g.joined(t).generation, 0);
+}

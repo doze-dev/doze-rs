@@ -20,6 +20,10 @@ use std::collections::BTreeSet;
 use kafka_meta::{GroupLife, GroupOffset};
 use kafka_wire::ids::{PartitionId, TopicName};
 
+/// An offset that has expired: where it is, and the time it was committed at when it was seen (so that one committed
+/// again since is not taken).
+pub(crate) type Expired = (TopicName, PartitionId, i64);
+
 /// What is known of a group's members right now.
 pub(crate) enum Members<'a> {
     /// The group is running with members.
@@ -52,7 +56,7 @@ pub(crate) fn expired(
     now_ms: i64,
     retention_ms: i64,
     started_ms: i64,
-) -> Vec<(TopicName, PartitionId)> {
+) -> Vec<Expired> {
     if retention_ms <= 0 {
         return Vec::new();
     }
@@ -62,13 +66,13 @@ pub(crate) fn expired(
             .iter()
             .filter(|o| o.offset.committed_ms < cutoff)
             .filter(|o| subscribed.is_none_or(|s| !s.contains(o.topic.as_str())))
-            .map(|o| (o.topic.clone(), o.partition))
+            .map(|o| (o.topic.clone(), o.partition, o.offset.committed_ms))
             .collect::<Vec<_>>()
     };
     let all = || {
         view.offsets
             .iter()
-            .map(|o| (o.topic.clone(), o.partition))
+            .map(|o| (o.topic.clone(), o.partition, o.offset.committed_ms))
             .collect::<Vec<_>>()
     };
     match (&view.members, view.life) {
@@ -140,8 +144,8 @@ mod tests {
         }
     }
 
-    fn names(list: Vec<(TopicName, PartitionId)>) -> Vec<String> {
-        let mut out: Vec<_> = list.iter().map(|(t, p)| format!("{t}-{p}")).collect();
+    fn names(list: Vec<Expired>) -> Vec<String> {
+        let mut out: Vec<_> = list.iter().map(|(t, p, _)| format!("{t}-{p}")).collect();
         out.sort();
         out
     }

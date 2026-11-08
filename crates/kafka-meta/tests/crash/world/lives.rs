@@ -14,6 +14,8 @@ pub(crate) struct Lives {
     pub(crate) acked: HashMap<&'static str, GroupLife>,
     /// What writes that failed part-way may have left.
     pub(crate) maybe: HashMap<&'static str, Vec<GroupLife>>,
+    /// Groups in `acked` whose record a forget that failed part-way may have removed.
+    pub(crate) maybe_gone: HashSet<&'static str>,
 }
 
 impl Model {
@@ -40,6 +42,7 @@ impl Model {
                         "record of {group} came back as {life:?}, was {want:?}"
                     ));
                 }
+                None if self.lives.maybe_gone.contains(group) => {}
                 None => {
                     return Err(format!(
                         "the record of {group} was acknowledged and is gone"
@@ -74,11 +77,32 @@ impl World {
             .set_group_life(&GroupId::parse(group).unwrap(), &life)
             .is_ok()
         {
+            self.model.lives.maybe_gone.remove(group);
             self.model.lives.acked.insert(group, life);
         } else {
             self.model.lives.maybe.entry(group).or_default().push(life);
             self.store = None;
         }
         "life"
+    }
+
+    /// Forgets a group's record.
+    pub(super) fn forget_life(&mut self) -> &'static str {
+        let group = GROUPS[self.rng.below(GROUPS.len() as u64) as usize];
+        let Some(store) = &self.store else {
+            return "forget_life";
+        };
+        if store
+            .forget_group_life(&GroupId::parse(group).unwrap())
+            .is_ok()
+        {
+            self.model.lives.acked.remove(group);
+            self.model.lives.maybe.remove(group);
+            self.model.lives.maybe_gone.remove(group);
+        } else {
+            self.model.lives.maybe_gone.insert(group);
+            self.store = None;
+        }
+        "forget_life"
     }
 }

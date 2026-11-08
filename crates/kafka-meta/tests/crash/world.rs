@@ -112,13 +112,16 @@ impl World {
             if self.store.is_none() {
                 return;
             }
-            let what = match self.rng.below(15) {
+            let what = match self.rng.below(18) {
                 0..=3 => self.create(),
                 4..=5 => self.delete(),
                 6..=8 => self.producer_id(),
                 9..=11 => self.commit(),
                 12..=13 => self.life(),
-                14 if self.rng.below(2) == 0 => self.shutdown(),
+                14 => self.delete_offsets(),
+                15 => self.delete_group_offsets(),
+                16 => self.forget_life(),
+                17 if self.rng.below(2) == 0 => self.shutdown(),
                 _ => self.restart(),
             };
             self.trail.push(what);

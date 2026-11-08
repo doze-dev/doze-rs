@@ -17,6 +17,8 @@ pub(crate) struct Offsets {
     pub(crate) acked: HashMap<Place, i64>,
     /// What commits that failed part-way may have left in a place.
     pub(crate) maybe: HashMap<Place, HashSet<i64>>,
+    /// Places in `acked` that a delete which failed part-way may have removed.
+    pub(crate) maybe_gone: HashSet<Place>,
 }
 
 impl Model {
@@ -42,7 +44,11 @@ impl Model {
                         o.offset
                     ));
                 }
-                None if self.maybe_deleted.contains(topic) => {}
+                None if self.maybe_deleted.contains(topic)
+                    || self
+                        .offsets
+                        .maybe_gone
+                        .contains(&(group, topic.clone(), *partition)) => {}
                 None => {
                     return Err(format!(
                         "{group}/{topic}/{partition} was acknowledged and is gone"
@@ -112,6 +118,7 @@ impl World {
             .commit_offsets(&GroupId::parse(group).unwrap(), &[commit])
             .is_ok()
         {
+            self.model.offsets.maybe_gone.remove(&place);
             self.model.offsets.acked.insert(place, value);
         } else {
             self.model
@@ -123,5 +130,59 @@ impl World {
             self.store = None;
         }
         "commit"
+    }
+
+    /// Forgets one offset the workload knows of.
+    pub(super) fn delete_offsets(&mut self) -> &'static str {
+        let mut places: Vec<Place> = self.model.offsets.acked.keys().cloned().collect();
+        places.sort();
+        let Some(store) = &self.store else {
+            return "delete_offsets";
+        };
+        if places.is_empty() {
+            return "delete_offsets";
+        }
+        let place = places[self.rng.below(places.len() as u64) as usize].clone();
+        let which = [(place.1.clone(), PartitionId::new(place.2).unwrap())];
+        match store.delete_offsets(&GroupId::parse(place.0).unwrap(), &which) {
+            Ok(_) => {
+                self.model.offsets.acked.remove(&place);
+                self.model.offsets.maybe.remove(&place);
+                self.model.offsets.maybe_gone.remove(&place);
+            }
+            Err(_) => {
+                self.model.offsets.maybe_gone.insert(place);
+                self.store = None;
+            }
+        }
+        "delete_offsets"
+    }
+
+    /// Forgets everything a group has committed.
+    pub(super) fn delete_group_offsets(&mut self) -> &'static str {
+        let group = GROUPS[self.rng.below(GROUPS.len() as u64) as usize];
+        let Some(store) = &self.store else {
+            return "delete_group_offsets";
+        };
+        let offsets = &mut self.model.offsets;
+        match store.delete_group_offsets(&GroupId::parse(group).unwrap()) {
+            Ok(_) => {
+                offsets.acked.retain(|k, _| k.0 != group);
+                offsets.maybe.retain(|k, _| k.0 != group);
+                offsets.maybe_gone.retain(|k| k.0 != group);
+            }
+            Err(_) => {
+                let places: Vec<Place> = offsets
+                    .acked
+                    .keys()
+                    .chain(offsets.maybe.keys())
+                    .filter(|k| k.0 == group)
+                    .cloned()
+                    .collect();
+                offsets.maybe_gone.extend(places);
+                self.store = None;
+            }
+        }
+        "delete_group_offsets"
     }
 }

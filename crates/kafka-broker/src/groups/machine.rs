@@ -26,6 +26,7 @@ use bytes::Bytes;
 use kafka_wire::ids::{InstanceId, MemberId};
 
 pub(crate) use commit::commit_to_no_group;
+pub(crate) use join::refusal;
 pub(crate) use types::{
     Answer, CommitRequest, Description, Effect, Event, HeartbeatRequest, JoinAnswer, JoinMember,
     JoinRequest, LeaveResult, LeaveTarget, MemberDescription, Millis, Protocol, SyncAnswer,
@@ -37,8 +38,6 @@ pub(crate) use types::{
 pub(crate) const SESSION_MS: std::ops::RangeInclusive<i32> = 6_000..=1_800_000;
 /// A rebalance that no member gave a timeout for waits this long.
 const DEFAULT_REBALANCE_MS: u64 = 30_000;
-/// How long an id handed out to a client that has not come back with it is remembered.
-const PENDING_TTL_MS: u64 = 300_000;
 
 /// Where a group is in its life.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -99,8 +98,6 @@ pub(crate) struct GroupMachine {
     members: BTreeMap<MemberId, Member>,
     /// Static members: instance id to the member id it holds.
     statics: HashMap<InstanceId, MemberId>,
-    /// Ids handed out to clients that have not yet come back with them, and when.
-    pending: HashMap<MemberId, Millis>,
     rebalance: Option<Rebalance>,
     next_generation: u64,
 }
@@ -120,7 +117,6 @@ impl GroupMachine {
             leader: None,
             members: BTreeMap::new(),
             statics: HashMap::new(),
-            pending: HashMap::new(),
             rebalance: None,
             next_generation: 0,
         }
@@ -143,8 +139,8 @@ impl GroupMachine {
     }
 }
 
-/// What DescribeGroups and ListGroups ask of a group (slice 4f); until then only the tests do.
-#[allow(dead_code, reason = "used by DescribeGroups in slice 4f")]
+/// What the tests ask of a group.
+#[cfg(test)]
 impl GroupMachine {
     /// Where the group is.
     #[must_use]
@@ -156,12 +152,6 @@ impl GroupMachine {
     #[must_use]
     pub(crate) fn generation(&self) -> i32 {
         self.generation
-    }
-
-    /// How many members there are.
-    #[must_use]
-    pub(crate) fn member_count(&self) -> usize {
-        self.members.len()
     }
 
     /// The members' ids, in order.
@@ -176,12 +166,6 @@ impl GroupMachine {
         self.leader.as_ref()
     }
 
-    /// The protocol type the members share.
-    #[must_use]
-    pub(crate) fn protocol_type(&self) -> Option<&str> {
-        self.protocol_type.as_deref()
-    }
-
     /// The protocol chosen for this generation.
     #[must_use]
     pub(crate) fn protocol(&self) -> Option<&str> {
@@ -190,6 +174,18 @@ impl GroupMachine {
 }
 
 impl GroupMachine {
+    /// How many members there are.
+    #[must_use]
+    pub(crate) fn member_count(&self) -> usize {
+        self.members.len()
+    }
+
+    /// The protocol type the members share.
+    #[must_use]
+    pub(crate) fn protocol_type(&self) -> Option<&str> {
+        self.protocol_type.as_deref()
+    }
+
     fn next_arming(&mut self) -> u64 {
         self.next_generation += 1;
         self.next_generation

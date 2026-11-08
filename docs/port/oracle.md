@@ -23,9 +23,11 @@ harness cannot pass **fails loudly** instead of being replayed against a differe
 The Rust edition does not need `--meta-db` or the console flags until it has those parts; the harness
 is told which scenarios to skip by phase (see below).
 
-## The test knobs (Rust: cargo feature `test-knobs`; Go: build tag `testknobs`)
+## The test knobs (Go: build tag `testknobs`; Rust: the control socket below, compiled into every build)
 
-Three things no flag covers, passed as environment variables:
+Things no flag covers, passed as environment variables. The Rust edition has only the last: its retention check
+interval is derived from `--offsets-retention` (a hundredth of it, between 50 ms and ten minutes), and KIP-848's assignment
+interval does not exist yet.
 
 | Variable | Meaning |
 |---|---|
@@ -33,7 +35,8 @@ Three things no flag covers, passed as environment variables:
 | `DOZE_KAFKA_TEST_OFFSETS_CHECK_INTERVAL` | Go duration: how often offsets retention runs (`1h` means "only when told") |
 | `DOZE_KAFKA_TEST_CONTROL` | path of a unix socket; the line `check-offsets\n` applies the retention now and is answered `ok\n` once it has |
 
-A default build compiles none of this.
+The Rust edition's socket is only opened when the variable is set; it removes a file already at that path only if it is
+a socket.
 
 ## Process contract
 

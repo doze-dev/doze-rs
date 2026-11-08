@@ -237,3 +237,11 @@ async fn offset_delete_of_a_group_with_nothing_is_not_found_and_an_unusable_id_i
         .await;
     assert_eq!(rig.offset_delete("old", &[("t", 0)]).await, (0, vec![0]));
 }
+
+#[tokio::test(start_paused = true)]
+async fn offset_delete_of_a_group_with_members_and_no_offsets_is_not_not_found() {
+    let rig = rig().await;
+    stable(&rig, "g", &["t"]).await;
+    // A topic it does not subscribe to, with nothing committed: nothing to forget, and no complaint.
+    assert_eq!(rig.offset_delete("g", &[("u", 0)]).await, (0, vec![0]));
+}

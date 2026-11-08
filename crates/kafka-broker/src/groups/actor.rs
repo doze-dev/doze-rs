@@ -91,6 +91,10 @@ impl<R: Records> Keeper<R> {
     /// A member is not seated before the group's record says it has members, or its commits could be stored under a
     /// record that says nobody is there and be expired as an empty group's. `false`: the record could not be written.
     fn may_seat(&mut self, machine: &GroupMachine, req: &JoinRequest) -> bool {
+        // A join that will be refused seats nobody and so needs no record (one would pin the group's offsets for ever).
+        if !machine.would_seat(req) {
+            return true;
+        }
         let session = u32::try_from(req.session_ms).unwrap_or(0);
         if (machine.member_count() == 0 || session > self.session)
             && !self

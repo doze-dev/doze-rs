@@ -181,6 +181,35 @@ fn groups_with_offsets_lists_each_once_in_order_and_forgetting_the_last_offset_r
 }
 
 #[test]
+fn an_offset_committed_again_after_it_was_seen_to_have_expired_is_not_expired() {
+    let (_fs, store) = store();
+    store
+        .commit_offsets(&group("g"), &[at("t", 0, 1), at("t", 1, 2)])
+        .unwrap();
+    let t = TopicName::parse("t").unwrap();
+    let p = |n| PartitionId::new(n).unwrap();
+    // at(): committed_ms is 1000 + offset. Partition 0 is seen as committed at 1001, and then committed again.
+    store
+        .commit_offsets(&group("g"), &[at("t", 0, 50)])
+        .unwrap();
+    let gone = store
+        .expire_offsets(
+            &group("g"),
+            &[(t.clone(), p(0), 1001), (t.clone(), p(1), 1002)],
+        )
+        .unwrap();
+    assert_eq!(gone, 1, "only the one that has not been committed since");
+    assert_eq!(read(&store, "g", "t", 0), Some(50));
+    assert_eq!(read(&store, "g", "t", 1), None);
+    assert_eq!(
+        store
+            .expire_offsets(&group("g"), &[(t, p(0), 1001)])
+            .unwrap(),
+        0
+    );
+}
+
+#[test]
 fn deleting_a_topic_takes_its_offsets_and_a_topic_made_again_starts_clean() {
     let (_fs, store) = store();
     store

@@ -39,13 +39,9 @@ impl<F: Fs> Broker<F> {
                 })
                 .collect(),
             session_ms: req.session_timeout_ms,
-            // Version 0 has no rebalance timeout: the session's stands in for it.
-            rebalance_ms: if version >= 1 {
-                req.rebalance_timeout_ms
-            } else {
-                req.session_timeout_ms
-            },
+            rebalance_ms: rebalance_timeout(version, req),
             // From version 4 a client with no member id is given one and comes back with it.
+            issued: false,
             id_first: version >= 4,
         };
         match self.groups.ask(&group, Req::Join(join)).await {
@@ -59,6 +55,15 @@ impl<F: Fs> Broker<F> {
                 Outcome::Close
             }
         }
+    }
+}
+
+/// Version 0 has no rebalance timeout: the session's stands in for it.
+fn rebalance_timeout(version: i16, req: &JoinGroupRequest) -> i32 {
+    if version >= 1 {
+        req.rebalance_timeout_ms
+    } else {
+        req.session_timeout_ms
     }
 }
 
@@ -101,4 +106,19 @@ fn respond(version: i16, a: &JoinAnswer) -> Outcome {
         })
         .collect();
     Outcome::Respond(kafka_wire::api::Response::JoinGroup(resp))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_rebalance_timeout_is_the_requests_from_version_one_and_the_sessions_before() {
+        let mut req = JoinGroupRequest::default();
+        req.session_timeout_ms = 10_000;
+        req.rebalance_timeout_ms = 60_000;
+        assert_eq!(rebalance_timeout(0, &req), 10_000);
+        assert_eq!(rebalance_timeout(1, &req), 60_000);
+        assert_eq!(rebalance_timeout(9, &req), 60_000);
+    }
 }

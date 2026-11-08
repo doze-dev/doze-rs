@@ -225,3 +225,34 @@ async fn a_group_that_has_only_issued_an_id_is_not_forgotten_before_the_client_c
         .await;
     assert_eq!(joined.error_code, 0, "the id is still good after a sweep");
 }
+
+/// A group whose member has left and committed; returns nothing but leaves it empty with an offset.
+async fn emptied(rig: &support::Rig, group: &str) {
+    let id = member(rig, group, &["t"]).await;
+    rig.commit_offsets(8, group, &id, 1, &[("t", 0, 1, None)])
+        .await;
+    rig.leave(3, group, &[&id]).await;
+}
+
+#[tokio::test]
+async fn a_join_that_is_refused_does_not_keep_an_emptied_groups_offsets_for_ever() {
+    let rig = rig(RETENTION).await;
+    emptied(&rig, "g").await;
+    let meta = subscription(&["t"]);
+    // Refused for its session; and told to come back with an id it never does.
+    let mut quick = join_request("g", "", None, &[("range", &meta)]);
+    quick.session_timeout_ms = 5;
+    assert_eq!(rig.join(3, quick).await.error_code, 26);
+    assert_eq!(
+        rig.join(4, join_request("g", "", None, &[("range", &meta)]))
+            .await
+            .error_code,
+        79
+    );
+    past_the_retention().await;
+    rig.broker.check_offsets().await;
+    assert!(
+        committed(&rig, "g").await.is_empty(),
+        "the group stayed empty, so its offsets went"
+    );
+}

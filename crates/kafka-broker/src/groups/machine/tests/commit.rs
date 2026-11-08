@@ -74,3 +74,10 @@ fn a_static_members_instance_is_checked_as_well() {
     req.instance = Some(instance("other"));
     assert_eq!(ask(&mut g, &req), Some(E::UnknownMemberId));
 }
+
+#[test]
+fn a_commit_to_a_group_that_does_not_exist_names_a_generation_only_if_it_is_negative() {
+    assert_eq!(commit_to_no_group(-1), None);
+    assert_eq!(commit_to_no_group(0), Some(E::IllegalGeneration));
+    assert_eq!(commit_to_no_group(5), Some(E::IllegalGeneration));
+}

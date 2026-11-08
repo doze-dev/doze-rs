@@ -14,8 +14,15 @@ pub(crate) fn serve(broker: &Arc<Broker<RealFs>>) -> Option<tokio::task::JoinHan
     use tokio::net::UnixListener;
 
     let path = std::env::var_os("DOZE_KAFKA_TEST_CONTROL")?;
-    // A socket left by an earlier run would refuse the bind.
-    let _ = std::fs::remove_file(&path);
+    // A socket left by an earlier run would refuse the bind; anything else at the path is not ours to remove.
+    if let Ok(found) = std::fs::symlink_metadata(&path) {
+        if std::os::unix::fs::FileTypeExt::is_socket(&found.file_type()) {
+            let _ = std::fs::remove_file(&path);
+        } else {
+            tracing::warn!("the test control path exists and is not a socket; not listening");
+            return None;
+        }
+    }
     let listener = match UnixListener::bind(&path) {
         Ok(l) => l,
         Err(e) => {

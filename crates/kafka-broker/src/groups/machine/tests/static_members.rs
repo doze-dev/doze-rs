@@ -150,3 +150,37 @@ fn an_empty_instance_id_still_names_a_static_member() {
     let t = g.join(static_request(Some("stranger"), ""));
     assert_eq!(g.joined(t).error, Some(E::FencedInstanceId));
 }
+
+#[test]
+fn a_restarted_static_member_fences_the_sync_its_old_incarnation_was_waiting_with() {
+    let mut g = Group::new(100);
+    let (a, b) = (
+        g.join(static_request(None, "i")),
+        g.join(static_request(None, "j")),
+    );
+    g.advance(500);
+    let (a, b) = (g.joined(a), g.joined(b));
+    let (lead, follow) = (a.member_id.unwrap(), b.member_id.unwrap());
+    let waiting = g.sync(follow.as_str(), 1, &[]); // waits for the leader's assignment
+    assert!(g.answer(waiting).is_none());
+    g.join(static_request(None, "j")); // the follower restarts
+    assert_eq!(g.synced(waiting).error, Some(E::FencedInstanceId));
+    let _ = lead;
+}
+
+#[test]
+fn leaving_names_the_instance_as_well_as_the_id() {
+    let (mut g, lead, _) = with_statics();
+    let wrong = |instance: &str| LeaveTarget {
+        member_id: Some(lead.clone()),
+        instance: Some(self::instance(instance)),
+    };
+    for (instance, want) in [("j", E::FencedInstanceId), ("nobody", E::UnknownMemberId)] {
+        let t = g.send(|t| Event::Leave(t, vec![wrong(instance)]));
+        let Some(Answer::Leave(r)) = g.answer(t) else {
+            panic!("a leave answer");
+        };
+        assert_eq!(r[0].error, Some(want), "instance {instance}");
+    }
+    assert_eq!(g.machine.member_ids().len(), 2, "and nobody left");
+}
