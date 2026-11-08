@@ -15,7 +15,14 @@ use kafka_broker::{Broker, Config as BrokerConfig};
 use kafka_protocol::protocol::{Decodable, StrBytes};
 use kafka_server::{Config, Running, Server};
 use kafka_storage::sim::SimFs;
-use kafka_wire::messages::{ApiKey, ApiVersionsRequest, ApiVersionsResponse};
+use kafka_wire::batch::build::BatchBuilder;
+use kafka_wire::messages::fetch_request::{FetchPartition, FetchTopic};
+use kafka_wire::messages::metadata_request::MetadataRequestTopic;
+use kafka_wire::messages::produce_request::{PartitionProduceData, TopicProduceData};
+use kafka_wire::messages::{
+    ApiKey, ApiVersionsRequest, ApiVersionsResponse, FetchRequest, MetadataRequest, ProduceRequest,
+    TopicName,
+};
 use kafka_wire::testing::{framed, request_payload};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
@@ -108,4 +115,92 @@ async fn shutdown_closes_idle_connections_and_returns() {
         TcpStream::connect(addr).await.is_err(),
         "nothing is listening any more"
     );
+}
+
+/// Sends one request and returns the answer's payload after its correlation id.
+async fn exchange<R: kafka_protocol::protocol::Encodable>(
+    socket: &mut TcpStream,
+    key: ApiKey,
+    version: i16,
+    correlation_id: i32,
+    body: &R,
+) -> Bytes {
+    send(socket, key, version, correlation_id, body).await;
+    let mut len = [0; 4];
+    socket.read_exact(&mut len).await.unwrap();
+    let mut payload = vec![0; u32::from_be_bytes(len) as usize];
+    socket.read_exact(&mut payload).await.unwrap();
+    Bytes::from(payload).split_off(4)
+}
+
+async fn send<R: kafka_protocol::protocol::Encodable>(
+    socket: &mut TcpStream,
+    key: ApiKey,
+    version: i16,
+    correlation_id: i32,
+    body: &R,
+) {
+    let request = framed(&request_payload(key, version, correlation_id, None, body));
+    socket.write_all(&request).await.unwrap();
+}
+
+/// Makes topic "t" (one partition) by asking about it.
+async fn make_topic(socket: &mut TcpStream) {
+    let mut topic = MetadataRequestTopic::default();
+    topic.name = Some(TopicName(StrBytes::from_static_str("t")));
+    let mut req = MetadataRequest::default();
+    req.topics = Some(vec![topic]);
+    req.allow_auto_topic_creation = true;
+    exchange(socket, ApiKey::Metadata, 12, 7, &req).await;
+}
+
+#[tokio::test]
+async fn stopping_the_server_does_not_wait_out_a_fetch_that_is_waiting_for_records() {
+    let server = start(10).await;
+    let mut socket = TcpStream::connect(server.local_addr()).await.unwrap();
+    make_topic(&mut socket).await;
+    let mut partition = FetchPartition::default();
+    partition.partition = 0;
+    partition.fetch_offset = 0;
+    partition.partition_max_bytes = 1 << 20;
+    let mut topic = FetchTopic::default();
+    topic.topic = TopicName(StrBytes::from_static_str("t"));
+    topic.partitions.push(partition);
+    let mut req = FetchRequest::default();
+    req.max_wait_ms = 60_000;
+    req.min_bytes = 1;
+    req.max_bytes = 1 << 20;
+    req.topics.push(topic);
+    send(&mut socket, ApiKey::Fetch, 12, 8, &req).await;
+    tokio::time::sleep(Duration::from_millis(200)).await; // the Fetch is now waiting for a record
+    let stopped = std::time::Instant::now();
+    timeout(Duration::from_secs(10), server.shutdown())
+        .await
+        .expect("a stop is not held up by a long poll");
+    assert!(
+        stopped.elapsed() < Duration::from_secs(5),
+        "the Fetch had a minute to wait: {:?}",
+        stopped.elapsed()
+    );
+}
+
+#[tokio::test]
+async fn an_acks_zero_produce_gets_no_answer_and_the_connection_goes_on_in_order() {
+    let server = start(10).await;
+    let mut socket = TcpStream::connect(server.local_addr()).await.unwrap();
+    make_topic(&mut socket).await;
+    let mut partition = PartitionProduceData::default();
+    partition.index = 0;
+    partition.records = Some(BatchBuilder::new().records(1).build());
+    let mut topic = TopicProduceData::default();
+    topic.name = TopicName(StrBytes::from_static_str("t"));
+    topic.partition_data.push(partition);
+    let mut req = ProduceRequest::default();
+    req.acks = 0;
+    req.timeout_ms = 5000;
+    req.topic_data.push(topic);
+    send(&mut socket, ApiKey::Produce, 9, 9, &req).await;
+    // The next thing on the wire is the answer to the next request; `ask` decodes it as ApiVersions.
+    assert!(ask(&mut socket).await.is_some());
+    server.shutdown().await;
 }
