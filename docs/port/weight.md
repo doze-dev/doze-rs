@@ -5,8 +5,8 @@ darwin/arm64 with `cargo build --release` and compared with the Go build.
 
 | | Go doze-kafka (4081fa6) | Rust (Phase 3, f7fcf18 and after) |
 |---|---|---|
-| Binary (release, stripped) | 28,415,122 B | 3,099,968 B |
-| Crates / modules linked | 422 Go modules | 105 unique packages in `cargo tree` (7 ours; many are macro and build-time only) |
+| Binary (release, stripped) | 28,415,122 B | 3,386,544 B (3,099,968 B before classic groups) |
+| Crates / modules linked | 422 Go modules | 106 unique packages in `cargo tree` (7 ours; many are macro and build-time only; `rlimit` and `getrandom` added since Phase 3) |
 | Idle RSS, empty broker | 26.8 MB, 12 threads | 4.4 MB, 3 threads |
 | Ready, fresh data directory | 25 ms | 55 ms (the first start makes and flushes the metadata database) |
 | Restart with 3,000 partitions | 33 ms, 25 MB | 32 ms, 4.3 MB |
