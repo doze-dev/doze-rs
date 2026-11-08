@@ -17,6 +17,10 @@ crc32c = "0.6"
 kafka-protocol = { version = "0.18", default-features = false, features = ["broker"] }
 thiserror = "2"
 uuid = { version = "1", default-features = false }
+flate2 = { version = "1", optional = true }
+snap = { version = "1", optional = true }
+lz4_flex = { version = "0.14", optional = true, default-features = false, features = ["std", "frame"] }
+ruzstd = { version = "0.9", optional = true }
 
 [dev-dependencies]
 # The integration tests use the crate's own test helpers, so they need them on by default.
@@ -29,6 +33,13 @@ serde_json = "1"
 # Counts allocations, so a test can say how much a hostile request may ask for.
 stats_alloc = "0.1"
 
+# The codecs a produced batch may be compressed with, each its own switch (a broker that serves none of them is
+# smaller, and a client that asks for one it lacks is told so). All are pure Rust.
 [features]
+default = ["gzip", "snappy", "lz4", "zstd"]
+gzip = ["dep:flate2"]
+snappy = ["dep:snap"]
+lz4 = ["dep:lz4_flex"]
+zstd = ["dep:ruzstd"]
 # Helpers that build requests and batches, for tests in this and other crates.
 test-support = ["kafka-protocol/client"]

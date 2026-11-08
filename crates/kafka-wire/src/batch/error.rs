@@ -14,6 +14,8 @@ pub enum Refusal {
     UnknownServerError,
     /// `MESSAGE_TOO_LARGE`: over `max.message.bytes`.
     MessageTooLarge,
+    /// `INVALID_TIMESTAMP`: a record stamped outside the topic's bounds of the clock.
+    InvalidTimestamp,
     /// `UNSUPPORTED_COMPRESSION_TYPE`: zstd in a request older than v7.
     UnsupportedCompression,
 }

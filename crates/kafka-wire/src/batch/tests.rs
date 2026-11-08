@@ -208,6 +208,33 @@ fn log_append_time_changes_only_the_clock_bit_the_max_timestamp_and_the_crc() {
 }
 
 #[test]
+fn a_corrected_newest_timestamp_reaches_the_stored_header_and_the_crc_and_nothing_else() {
+    let before = parse(&ok()).unwrap();
+    let fixed = before
+        .clone()
+        .with_max_timestamp(TimestampMs::from_wire(7_777));
+    let stamped = fixed.stamped(Offset::ZERO, None);
+    assert_eq!(stamped.max_timestamp().get(), 7_777);
+    let after = Batch::parse(stamped.to_bytes()).expect("the CRC was recomputed");
+    assert_eq!(after.max_timestamp().get(), 7_777);
+    assert_eq!(
+        after.attributes(),
+        before.attributes(),
+        "the clock bit is not touched"
+    );
+    let changed = differing(before.as_bytes(), after.as_bytes());
+    assert!(
+        changed
+            .iter()
+            .all(|i| (17..21).contains(i) || (35..43).contains(i)),
+        "bytes changed at {changed:?}"
+    );
+    // A batch whose header was already right is not rewritten.
+    let same = before.stamped(Offset::ZERO, None).to_bytes();
+    assert_eq!(&same, before.as_bytes());
+}
+
+#[test]
 fn a_run_of_batches_is_walked_one_at_a_time() {
     let one = BatchBuilder::new().records(2).build();
     let two = BatchBuilder::new().records(5).build();

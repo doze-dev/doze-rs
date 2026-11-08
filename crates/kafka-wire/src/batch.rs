@@ -9,11 +9,13 @@ mod attributes;
 pub mod build;
 mod error;
 mod header;
+mod inflate;
 mod iter;
 mod layout;
 mod peek;
 mod produce;
 mod records;
+mod scan;
 mod stamp;
 
 use bytes::Bytes;
@@ -27,6 +29,7 @@ use layout::{LENGTH_OVERHEAD, MAGIC_V2};
 pub use peek::Peek;
 pub use produce::{ProduceError, ProduceRules};
 pub use records::{RecordTime, RecordTimes};
+pub use scan::{RecordError, RecordsRefused, ScanRules, Scanned};
 pub use stamp::Stamped;
 
 use crate::ids::{Offset, ProducerEpoch, ProducerId, TimestampMs};

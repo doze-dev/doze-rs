@@ -51,6 +51,32 @@ proptest! {
         while let Ok(Some(_)) = d.decode(&mut src) {}
     }
 
+    /// A valid batch header in front of arbitrary bytes as its records, under every codec: reading the records
+    /// (and walking them for their times) is a parser of whatever a producer sends.
+    #[test]
+    fn arbitrary_records_never_panic_the_scan(
+        body in proptest::collection::vec(any::<u8>(), 0..300),
+        codec in 0u16..=4,
+        count in 1u32..8,
+    ) {
+        use kafka_wire::batch::build::BatchBuilder;
+        use kafka_wire::batch::ScanRules;
+        use kafka_wire::ids::TimestampMs;
+        let built = BatchBuilder::new().records(count).attributes(codec).body(body).build();
+        if let Ok(batch) = Batch::parse(built) {
+            let rules = ScanRules {
+                require_keys: false,
+                log_append_time: false,
+                now: TimestampMs::from_wire(1_000),
+                before_max_ms: i64::MAX,
+                after_max_ms: 1_000,
+                max_inflated: 1 << 16,
+            };
+            let _ = batch.scan(&rules, &"t-0");
+            let _ = batch.record_times().map(Iterator::count);
+        }
+    }
+
     /// A well-formed header in front of arbitrary bytes, for every served API at every version it is
     /// offered at: the decoder of each message meets hostile bodies.
     #[test]

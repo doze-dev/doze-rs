@@ -1,19 +1,24 @@
 //! Produce.
 
+mod check;
+
 use std::sync::Arc;
 
 use kafka_meta::Topic;
 use kafka_storage::fs::Fs;
 use kafka_wire::api::Response;
-use kafka_wire::batch::{Batch, ProduceError, ProduceRules, Refusal, TimestampType};
+use kafka_wire::batch::{Batch, ProduceError, Refusal, TimestampType};
 use kafka_wire::ids::{PartitionId, TimestampMs, TopicId, TopicName};
 use kafka_wire::messages::produce_request::PartitionProduceData;
-use kafka_wire::messages::produce_response::{PartitionProduceResponse, TopicProduceResponse};
+use kafka_wire::messages::produce_response::{
+    BatchIndexAndErrorMessage, PartitionProduceResponse, TopicProduceResponse,
+};
 use kafka_wire::messages::{ProduceRequest, ProduceResponse};
 use kafka_wire::{ResponseError, StrBytes};
 
 use crate::partitions::{Partition, Pending, gone};
 use crate::{Broker, Outcome, clock};
+use check::Accepted;
 
 /// A partition's answer, or what it is waiting for.
 enum Stage<F: Fs> {
@@ -113,14 +118,14 @@ impl<F: Fs> Broker<F> {
         if id.get() >= topic.partitions.get() {
             return unknown();
         }
-        let rules = ProduceRules {
-            version,
-            max_batch_bytes: self.max_batch_bytes(topic),
-        };
+        let now = clock::now();
         let records = p.records.clone().unwrap_or_default();
-        let batch = match Batch::from_produce(&records, rules) {
-            Ok(batch) => batch,
-            Err(e) => return Stage::Done(self.refused_batch(topic, id, &e).await),
+        let Accepted {
+            batch,
+            log_append_time,
+        } = match check::check(&self.config, version, topic, id, &records, now) {
+            Ok(accepted) => accepted,
+            Err(refused) => return Stage::Done(self.refused(topic, id, refused).await),
         };
         if batch.attributes().is_transactional() {
             // Transactions are Phase 6; a producer that is not in one has no business sending these.
@@ -130,54 +135,42 @@ impl<F: Fs> Broker<F> {
             Ok(partition) => partition,
             Err(e) => return Stage::Done(storage_fault(p.index, &e)),
         };
-        let log_append = topic
-            .config
-            .get("message.timestamp.type")
-            .is_some_and(|v| v == "LogAppendTime");
-        let (clock_kind, now) = (
-            if log_append {
-                TimestampType::LogAppend
-            } else {
-                TimestampType::Create
-            },
-            clock::now(),
-        );
+        let clock_kind = if log_append_time {
+            TimestampType::LogAppend
+        } else {
+            TimestampType::Create
+        };
         match partition.submit(batch, now, clock_kind, durable).await {
             Ok(pending) => Stage::Waiting {
                 answer: blank(p.index),
                 partition,
                 pending,
-                appended_at: log_append.then_some(now),
+                appended_at: log_append_time.then_some(now),
             },
             Err(e) => Stage::Done(storage_fault(p.index, &e)),
         }
     }
 
-    fn max_batch_bytes(&self, topic: &Topic) -> u64 {
-        let own = topic
-            .config
-            .get("max.message.bytes")
-            .and_then(|v| v.parse::<i64>().ok());
-        u64::try_from(own.unwrap_or(self.config.defaults.message_max_bytes)).unwrap_or(0)
-    }
-
     /// The answer for a batch that was refused. Kafka's carries the partition's log start offset once the log has
     /// been asked, and -1 for a refusal made before that.
-    async fn refused_batch(
+    async fn refused(
         &self,
         topic: &Topic,
         id: PartitionId,
-        e: &ProduceError,
+        why: check::Refused,
     ) -> PartitionProduceResponse {
-        let code = match e.refusal() {
-            Refusal::CorruptMessage => ResponseError::CorruptMessage,
-            Refusal::InvalidRecord => ResponseError::InvalidRecord,
-            Refusal::MessageTooLarge => ResponseError::MessageTooLarge,
-            Refusal::UnsupportedCompression => ResponseError::UnsupportedCompressionType,
-            _ => ResponseError::UnknownServerError,
-        };
-        let mut r = failed(id.get(), code, e.kafka_message());
-        if !e.before_log()
+        let mut r = failed(id.get(), why.code, why.message);
+        r.record_errors = why
+            .records
+            .into_iter()
+            .map(|e| {
+                let mut one = BatchIndexAndErrorMessage::default();
+                one.batch_index = e.index;
+                one.batch_index_error_message = Some(StrBytes::from_string(e.message));
+                one
+            })
+            .collect();
+        if !why.before_log
             && let Ok(partition) = self.partitions.get(topic, id).await
         {
             r.log_start_offset = partition.reader().start_offset().get();

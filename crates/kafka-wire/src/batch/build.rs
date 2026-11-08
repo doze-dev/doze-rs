@@ -145,3 +145,64 @@ fn minimal_records(n: u32) -> Vec<u8> {
     }
     out
 }
+
+/// A record to put in a batch.
+#[derive(Debug, Clone, Default)]
+pub struct Rec {
+    /// Written this long after the batch's first timestamp.
+    pub timestamp_delta: i64,
+    /// Its offset within the batch, if not its place in it.
+    pub offset_delta: Option<i64>,
+    /// Its key, or none.
+    pub key: Option<Vec<u8>>,
+    /// Its value, or none.
+    pub value: Option<Vec<u8>>,
+    /// Its headers.
+    pub headers: Vec<(Vec<u8>, Vec<u8>)>,
+}
+
+/// The records section for `recs`, numbered 0, 1, 2, ...
+#[must_use]
+pub fn encode_records(recs: &[Rec]) -> Vec<u8> {
+    let mut out = Vec::new();
+    for (i, r) in recs.iter().enumerate() {
+        let mut rec = vec![0u8];
+        zigzag(r.timestamp_delta, &mut rec);
+        zigzag(r.offset_delta.unwrap_or(i as i64), &mut rec);
+        for field in [&r.key, &r.value] {
+            match field {
+                Some(bytes) => {
+                    zigzag(bytes.len() as i64, &mut rec);
+                    rec.extend_from_slice(bytes);
+                }
+                None => zigzag(-1, &mut rec),
+            }
+        }
+        zigzag(r.headers.len() as i64, &mut rec);
+        for (k, v) in &r.headers {
+            zigzag(k.len() as i64, &mut rec);
+            rec.extend_from_slice(k);
+            zigzag(v.len() as i64, &mut rec);
+            rec.extend_from_slice(v);
+        }
+        zigzag(rec.len() as i64, &mut out);
+        out.extend_from_slice(&rec);
+    }
+    out
+}
+
+impl BatchBuilder {
+    /// A batch of exactly these records, written from `first` on, with the header's newest timestamp the records'.
+    #[must_use]
+    pub fn from_records(first: i64, recs: &[Rec]) -> Self {
+        let newest = recs
+            .iter()
+            .map(|r| r.timestamp_delta)
+            .max()
+            .map_or(first, |d| first + d);
+        Self::new()
+            .records(u32::try_from(recs.len()).unwrap_or(u32::MAX))
+            .timestamps(first, newest)
+            .body(encode_records(recs))
+    }
+}

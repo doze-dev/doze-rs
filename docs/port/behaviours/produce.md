@@ -54,3 +54,35 @@ Test: `a_topic_deleted_while_open_*`, `a_topic_made_but_never_given_its_director
 ### P10. InitProducerId
 A fresh id (epoch 0) from a durable block; a transactional id is refused until Phase 6.
 Test: `producer_ids_are_handed_out_once_each_*`; `kafka-meta` (blocks survive restarts)
+
+## Inside the batch (slice 3f)
+
+### P11. Every record is read before a batch is stored
+The records are read through the batch's codec as a stream (gzip incl. multi-member, snappy in the Java client's xerial
+framing or one plain block, lz4 frames, zstd), and nothing inflated is held. The count in the header is the count there is,
+every record is exactly as long as it says (INVALID_RECORD, no text), nothing follows the last, and a compressed batch's
+records are numbered 0, 1, 2 (UNKNOWN_SERVER_ERROR). A codec that cannot be read is UNKNOWN_SERVER_ERROR; one this build
+does not have is UNSUPPORTED_COMPRESSION_TYPE.
+Test: `kafka-wire::batch::scan::tests::*`, `batch::inflate::tests::*`; fuzzed (`fuzz_batch`, `no_panics`)
+
+### P12. Limits on inflating
+A batch that inflates past 64 MiB is MESSAGE_TOO_LARGE (real Kafka has no bound; recorded difference). A zstd frame may not
+declare a window past four times the limit or 8 MiB (the decoder allocates the window first), and no window under 2 MiB is
+refused (real compressors declare that for small payloads).
+Test: `inflate::tests::what_inflates_past_the_limit_*`, `a_zstd_frame_may_not_ask_*`
+
+### P13. Keys and times
+A topic that compacts refuses a record with no key (INVALID_RECORD, with Kafka's text and a per-record list, the first three
+shown). A CreateTime record is held to `message.timestamp.before/after.max.ms` of the clock (default: no bound behind, an hour
+ahead) (INVALID_TIMESTAMP, Kafka's text and list); a record with no timestamp is not judged; a producer may not claim the
+broker's clock (LogAppendTime bit). A topic that stamps ignores producer times.
+Test: `tests/produce_records::*`, `scan::tests::*`
+
+### P14. The newest timestamp is the broker's to say
+The header's newest timestamp is rewritten to the latest of the records' (a producer may write anything there; retention,
+ListOffsets and the time lookups read it), and the checksum with it, without copying the body.
+Test: `produce_records::the_newest_timestamp_a_log_keeps_*`, `batch::tests::a_corrected_newest_timestamp_*`
+
+### Not done (recorded)
+Rewriting a batch into the topic's `compression.type` when it differs from the producer's: batches are stored in the codec
+they came in. It arrives with compaction (Phase 7), the other reader that needs the writers.

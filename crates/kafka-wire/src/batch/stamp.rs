@@ -21,6 +21,15 @@ pub struct Stamped<'a> {
 }
 
 impl Batch {
+    /// The batch with its newest timestamp said to be `max`: what a broker sets from the records it has read, since a
+    /// producer may write anything in the header. The bytes are not touched; the header copy that [`Batch::stamped`]
+    /// makes carries the change, and the checksum with it.
+    #[must_use]
+    pub fn with_max_timestamp(mut self, max: TimestampMs) -> Self {
+        self.header.max_timestamp = max;
+        self
+    }
+
     /// The batch stamped with `base`; with `log_append_time`, also marked as carrying the broker's clock, with
     /// that time as its newest timestamp.
     #[must_use]
@@ -33,14 +42,26 @@ impl Batch {
         let body = bytes.get(HEADER_LEN..).unwrap_or_default();
         put(&mut header, BASE_OFFSET, &base.get().to_be_bytes());
         let mut max_timestamp = self.max_timestamp();
+        let as_sent = header
+            .get(MAX_TIMESTAMP..MAX_TIMESTAMP + 8)
+            .and_then(|b| <[u8; 8]>::try_from(b).ok())
+            .map(i64::from_be_bytes);
+        let mut changed = as_sent != Some(max_timestamp.get());
         if let Some(now) = log_append_time {
             let attributes = self.attributes().with_log_append_time();
             put(&mut header, ATTRIBUTES, &attributes.bits().to_be_bytes());
-            put(&mut header, MAX_TIMESTAMP, &now.get().to_be_bytes());
+            max_timestamp = now;
+            changed = true;
+        }
+        if changed {
+            put(
+                &mut header,
+                MAX_TIMESTAMP,
+                &max_timestamp.get().to_be_bytes(),
+            );
             let covered = header.get(ATTRIBUTES..).unwrap_or_default();
             let crc = crc32c::crc32c_append(crc32c::crc32c(covered), body);
             put(&mut header, CRC, &crc.to_be_bytes());
-            max_timestamp = now;
         }
         Stamped {
             header,

@@ -20,6 +20,15 @@ fuzz_target!(|data: &[u8]| {
     let _ = Batches::new(bytes.clone()).count();
     if let Ok(batch) = Batch::parse(bytes) {
         let _ = batch.record_times().map(Iterator::count);
+        let rules = kafka_wire::batch::ScanRules {
+            require_keys: true,
+            log_append_time: false,
+            now: TimestampMs::from_wire(1_000),
+            before_max_ms: i64::MAX,
+            after_max_ms: 1_000,
+            max_inflated: 1 << 20,
+        };
+        let _ = batch.scan(&rules, &"t-0");
         let stamped = batch.stamped(Offset::ZERO, Some(TimestampMs::from_wire(1)));
         assert!(Batch::parse(stamped.to_bytes()).is_ok());
     }
