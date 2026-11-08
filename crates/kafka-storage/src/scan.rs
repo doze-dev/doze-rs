@@ -80,6 +80,7 @@ impl<'a, L: FsFile> Window<'a, L> {
     }
 }
 
+// fuzz:parser fuzz_recovery
 /// Walks the log of `size` bytes whose first offset is `base`. A batch is good when its header is whole, it is
 /// format v2, it fits in the file, it holds at least one record, its offsets do not go backwards, and its shape
 /// is consistent; its checksum is verified too if it starts at or after `crc_from`. The walk stops at the first

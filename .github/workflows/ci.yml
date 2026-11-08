@@ -26,6 +26,10 @@ jobs:
       - run: cargo fmt --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace
+      # The storage simulation (random workloads, a disk that fails and loses power at every file operation).
+      - run: cargo test -p kafka-storage --features sim --release
+        env:
+          SIM_SEEDS: "200"
       # No file grows past the hard size limit (docs/port/PLAN.md, quality rule 1).
       - run: cargo xtask lint-size
       # Every parser has a fuzz target (a `// fuzz:parser` marker with no target fails).
@@ -54,3 +58,8 @@ jobs:
           for target in fuzz_frame fuzz_request fuzz_batch; do
             cargo fuzz run "$target" "corpus/$target" "seeds/$target" -- -max_total_time=30 -max_len=1048576
           done
+      - name: Fuzz recovery for 30 seconds
+        working-directory: crates/kafka-storage/fuzz
+        run: |
+          mkdir -p corpus/fuzz_recovery
+          cargo fuzz run fuzz_recovery corpus/fuzz_recovery seeds/fuzz_recovery -- -max_total_time=30 -max_len=65536

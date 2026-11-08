@@ -1,0 +1,27 @@
+[package]
+name = "kafka-storage-fuzz"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+bytes = "1"
+kafka-storage = { path = "..", features = ["sim"] }
+kafka-wire = { path = "../../kafka-wire", features = ["test-support"] }
+
+# Not part of the main workspace: fuzzing needs a nightly toolchain.
+[workspace]
+
+# See kafka-wire/fuzz/Cargo.toml: the main workspace's patch does not reach here.
+[patch.crates-io]
+kafka-protocol = { path = "../../../vendor/kafka-protocol" }
+
+[[bin]]
+name = "fuzz_recovery"
+path = "fuzz_targets/fuzz_recovery.rs"
+test = false
+doc = false

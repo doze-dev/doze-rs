@@ -295,3 +295,23 @@ test-only knobs in `internal/config`.
   and restart; always `Durability::Immediate`; set the cache explicitly; pin the version and store our own
   versioned bytes; funnel commits through one writer task (redb's writer lock is unfair); retry `DatabaseAlreadyOpen`
   with backoff. Power loss is untested and needs a crash-injecting backend before 1.0.
+- **2026-11-08, Phase 2 (storage), design as built.** `kafka-storage` is synchronous and runtime-free: a partition is a
+  value, `PartitionLog<F: Fs>`, whose writes take `&mut self` (no lock), and the one writer task that owns it is
+  Phase 3's (the broker). The only async-adjacent thing in the crate is `tokio::sync` channels (feature `sync`, no
+  runtime): the end offset (`watch`, so a long-poll cannot miss a wake-up) and the flush state a `Ticket` waits on.
+  Group commit falls out of it: the writer appends everything queued, calls `sync()` once, and every ticket is
+  satisfied. Readers (`LogReader`, cloneable) read straight off the files up to what the writer has published, so
+  a fetch never waits for an append; the segment list is an `ArcSwap` replaced whole on a roll. Active and sealed
+  segments are different types. The sparse index is never in memory: a lookup is a binary search of preads, so a
+  sealed segment costs the heap nothing and open costs the same for a log eight times the size (measured,
+  `tests/flat_memory.rs`). `SimFs` lives in this crate behind `sim`, as planned.
+  **Zero copy, on purpose:** a batch is written as its 61-byte header, rebuilt on the stack with the base offset (and
+  under LogAppendTime the clock bit, newest timestamp and a CRC extended over the unchanged body), followed by the
+  body borrowed from the request; nothing is copied to patch it. The wire crate's copy-on-write stamping API was removed.
+  **The simulation** (`tests/simulation`) runs random workloads and, after the process is stopped or fails at every
+  file operation, or the power is cut six ways, checks that every flush-acknowledged record is there in order byte for
+  byte and the rest is a prefix of what was tried. It found three real defects (a hole in the log from names
+  persisting out of order; a resurrected empty segment hiding records; a model gap about adopted batches) and each
+  fix is held by it and by a unit test; breaking the log flush, the roll's directory flush, or the start-first rule
+  each fails every sweep. Dropped from the Go design on purpose (fresh data): the `unvalidated` list, and the
+  per-segment "unsynced" bookkeeping, because a segment is flushed, name included, before its successor exists.

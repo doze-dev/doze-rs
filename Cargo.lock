@@ -312,6 +312,7 @@ dependencies = [
  "bytes",
  "kafka-storage",
  "kafka-wire",
+ "stats_alloc",
  "thiserror",
  "tokio",
 ]

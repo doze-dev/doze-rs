@@ -85,6 +85,11 @@ impl<F: Fs> LogReader<F> {
         if from == end {
             return Ok(Bytes::new());
         }
+        // The end offset is the one answer to what is in the log. The writer makes a payload's bytes readable a
+        // moment before it announces the new end, so a read could otherwise return batches the end has not
+        // reached yet, and the reader's next request (for the offset after them) would be past the end it sees.
+        // Never return a batch that begins at or after the end observed here.
+        let limit = Some(limit.map_or(end, |l| l.min(end)));
         let segments = self.shared.segments.load();
         let first = segments
             .partition_point(|s| s.base() <= from)
