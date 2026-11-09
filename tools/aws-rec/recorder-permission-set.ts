@@ -121,14 +121,8 @@ const policy = {
       Sid: "IamPrefixedPrincipals",
       Effect: "Allow",
       Action: "iam:*",
-      Resource: [
-        `${A}:iam::*:role/${P}*`,
-        `${A}:iam::*:user/${P}*`,
-        `${A}:iam::*:group/${P}*`,
-        `${A}:iam::*:policy/${P}*`,
-        `${A}:iam::*:instance-profile/${P}*`,
-        `${A}:iam::*:saml-provider/${P}*`,
-      ],
+      // IAM ARNs carry the path before the name (user/apps/doze-rec-x), so each kind is allowed with and without a path.
+      Resource: ["role", "user", "group", "policy", "instance-profile", "saml-provider"].flatMap((k) => [`${A}:iam::*:${k}/${P}*`, `${A}:iam::*:${k}/*/${P}*`]),
     },
     {
       Sid: "NeverTheseEvenIfAnotherPolicyAllowsThem",

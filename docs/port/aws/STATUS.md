@@ -36,7 +36,7 @@ Recorded (2026-11-09): sqs, ssm, secretsmanager, sns, sts, dynamodb, cloudwatch,
 
 Scenarios that still need work (the oracle contradicted them or the policy did):
 
-- `iam::test_user_group_and_access_key` failed during recording (read `tools/aws-rec/logs/record-iam.log`).
+- `iam::test_user_group_and_access_key` was denied: it creates users under the path `/apps/`, and the policy matched only `user/doze-rec-*`. The generator now also allows `kind/*/doze-rec-*`; **the owner must paste the regenerated policy (`bun tools/aws-rec/recorder-permission-set.ts`, then copy `recorder-permission-set.min.json`) before IAM is re-recorded**.
 - `cloudformation::test_a_failed_update_goes_back_to_the_previous_template`: the scenario asserts the stack is out of an `*_IN_PROGRESS` state, but AWS reports
   `UPDATE_ROLLBACK_COMPLETE_CLEANUP_IN_PROGRESS`; it needs a wait.
 - `cloudformation::test_a_failed_create_can_be_left_or_deleted` errored at cleanup, and its template names an SSM parameter `/dzc/has space` outside the `doze-rec-` prefix, so the role
