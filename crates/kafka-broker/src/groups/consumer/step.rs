@@ -51,6 +51,9 @@ impl ConsumerGroup {
     /// and later, the first to carry it as such); with nobody in the group only a commit that names no member may go
     /// ahead; otherwise the member must be there, at its own epoch.
     fn commit_fence(&self, req: &CommitRequest) -> Option<E> {
+        if req.transactional && req.names_nobody() {
+            return None;
+        }
         let member = req.member_id.as_ref().and_then(|id| self.members.get(id));
         if req.version < 9 && member.is_some_and(|m| m.classic.is_none()) {
             return Some(E::UnsupportedVersion);
@@ -64,8 +67,8 @@ impl ConsumerGroup {
         if req.generation == member.epoch {
             return None;
         }
-        // A classic member's epoch is its generation.
-        Some(if member.classic.is_some() {
+        // A classic member's epoch is its generation; a transaction's offsets are refused as a wrong generation by either.
+        Some(if member.classic.is_some() || req.transactional {
             E::IllegalGeneration
         } else {
             E::StaleMemberEpoch

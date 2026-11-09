@@ -26,12 +26,12 @@ use std::collections::{BTreeMap, HashMap};
 use bytes::Bytes;
 use kafka_wire::ids::{InstanceId, MemberId};
 
-pub(crate) use commit::commit_to_no_group;
+pub(crate) use commit::{CommitRequest, commit_to_no_group};
 pub(crate) use join::refusal;
 pub(crate) use types::{
-    Answer, CommitRequest, Description, Effect, Event, HeartbeatRequest, JoinAnswer, JoinMember,
-    JoinRequest, LeaveResult, LeaveTarget, MemberDescription, Millis, Protocol, SyncAnswer,
-    SyncRequest, TimerKey, TimerKind, Token,
+    Answer, Description, Effect, Event, HeartbeatRequest, JoinAnswer, JoinMember, JoinRequest,
+    LeaveResult, LeaveTarget, MemberDescription, Millis, Protocol, SyncAnswer, SyncRequest,
+    TimerKey, TimerKind, Token,
 };
 
 /// The shortest and longest session a member may ask for (Kafka's `group.min.session.timeout.ms` and

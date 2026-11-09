@@ -89,14 +89,26 @@ impl<F: Fs> Broker<F> {
                 .as_ref()
                 .map(|i| InstanceId::new(i.as_str())),
             generation: req.generation_id_or_member_epoch,
+            transactional: false,
         };
-        let fenced = match self.groups.ask(&group, Req::Commit(check)).await {
+        self.ask_group_to_commit(&group, check).await
+    }
+
+    /// What the group says to a committer: `None`, or why its offsets may not be written.
+    pub(crate) async fn ask_group_to_commit(
+        &self,
+        group: &GroupId,
+        check: CommitRequest,
+    ) -> Option<ResponseError> {
+        let (member, generation, version) =
+            (check.member_id.clone(), check.generation, check.version);
+        let fenced = match self.groups.ask(group, Req::Commit(check)).await {
             Some(Answer::Commit(error)) => error,
             // The group has gone while asking: nothing is known of the committer.
             _ => Some(ResponseError::UnknownMemberId),
         };
         if let Some(error) = fenced {
-            tracing::debug!(%group, member = req.member_id.as_str(), generation = req.generation_id_or_member_epoch, version, ?error, "an offset commit was refused by its group");
+            tracing::debug!(%group, member = member.as_ref().map(MemberId::as_str), generation, version, ?error, "an offset commit was refused by its group");
         }
         fenced
     }

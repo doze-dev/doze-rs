@@ -2,7 +2,32 @@
 
 use kafka_wire::ResponseError;
 
-use super::{Answer, CommitRequest, Effect, GroupMachine, State, Token};
+use kafka_wire::ids::{InstanceId, MemberId};
+
+use super::{Answer, Effect, GroupMachine, State, Token};
+
+/// An OffsetCommit, as far as the group is concerned: may it be stored?
+#[derive(Debug, Clone)]
+pub(crate) struct CommitRequest {
+    /// The version of the OffsetCommit.
+    pub(crate) version: i16,
+    /// Who commits, if it says.
+    pub(crate) member_id: Option<MemberId>,
+    /// Its static instance id, if it has one.
+    pub(crate) instance: Option<InstanceId>,
+    /// The generation it believes it is in; negative if it names none.
+    pub(crate) generation: i32,
+    /// A transaction's offsets (TxnOffsetCommit): the producer need not be a member at all, and a group waiting for its
+    /// leader's assignment does not refuse them.
+    pub(crate) transactional: bool,
+}
+
+impl CommitRequest {
+    /// It names no generation, no member and no instance: a producer committing offsets for a group it is not in.
+    pub(crate) fn names_nobody(&self) -> bool {
+        self.generation < 0 && self.member_id.is_none() && self.instance.is_none()
+    }
+}
 
 impl GroupMachine {
     /// Kafka's rules for a commit to a group that exists: with no generation (a simple consumer, or a tool resetting
@@ -13,6 +38,9 @@ impl GroupMachine {
     }
 
     fn commit_fence(&self, req: &CommitRequest) -> Option<ResponseError> {
+        if req.transactional && req.names_nobody() {
+            return None;
+        }
         if req.generation < 0 && self.members.is_empty() {
             return None;
         }
@@ -25,7 +53,8 @@ impl GroupMachine {
         if req.generation != self.generation {
             return Some(ResponseError::IllegalGeneration);
         }
-        (self.state == State::CompletingRebalance).then_some(ResponseError::RebalanceInProgress)
+        (!req.transactional && self.state == State::CompletingRebalance)
+            .then_some(ResponseError::RebalanceInProgress)
     }
 }
 

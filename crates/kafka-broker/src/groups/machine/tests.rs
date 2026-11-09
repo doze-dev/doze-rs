@@ -180,6 +180,7 @@ impl Group {
             member_id: member.map(id),
             instance: None,
             generation,
+            transactional: false,
         };
         let t = self.send(|t| Event::Commit(t, req));
         match self.answer(t) {

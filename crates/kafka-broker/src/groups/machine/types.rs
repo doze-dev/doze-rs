@@ -108,19 +108,6 @@ pub(crate) struct Description {
     pub(crate) consumer: Option<crate::groups::consumer::ConsumerView>,
 }
 
-/// An OffsetCommit, as far as the group is concerned: may it be stored?
-#[derive(Debug, Clone)]
-pub(crate) struct CommitRequest {
-    /// The version of the OffsetCommit.
-    pub(crate) version: i16,
-    /// Who commits, if it says.
-    pub(crate) member_id: Option<MemberId>,
-    /// Its static instance id, if it has one.
-    pub(crate) instance: Option<InstanceId>,
-    /// The generation it believes it is in; negative if it names none.
-    pub(crate) generation: i32,
-}
-
 /// One member a LeaveGroup names, by id or by static instance.
 #[derive(Debug, Clone)]
 pub(crate) struct LeaveTarget {
@@ -264,7 +251,7 @@ pub(crate) enum Event {
     /// A LeaveGroup arrived.
     Leave(Token, Vec<LeaveTarget>),
     /// An OffsetCommit wants to know if it may be stored.
-    Commit(Token, CommitRequest),
+    Commit(Token, super::commit::CommitRequest),
     /// Someone wants to see the group.
     Describe(Token),
     /// Someone wants the group gone.

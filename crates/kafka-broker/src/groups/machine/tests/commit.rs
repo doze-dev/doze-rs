@@ -60,6 +60,7 @@ fn a_static_members_instance_is_checked_as_well() {
         member_id: Some(member.clone()),
         instance: Some(instance("i")),
         generation: 1,
+        transactional: false,
     };
     let sync = g.sync(member.as_str(), 1, &[]);
     g.synced(sync);

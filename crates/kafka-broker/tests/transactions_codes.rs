@@ -195,3 +195,37 @@ async fn a_producer_that_says_what_it_holds_is_bumped_asked_again_it_is_answered
     );
     assert_eq!(init_with(&rig, 4, (-1, 2)).await.0, INVALID_REQUEST);
 }
+
+#[tokio::test]
+async fn a_transactions_offsets_are_fenced_by_the_committers_place_in_the_group_and_by_nothing_if_it_names_none()
+ {
+    const ILLEGAL_GENERATION: i16 = 22;
+    const UNKNOWN_MEMBER_ID: i16 = 25;
+    let (rig, t) = started().await;
+    let joined = rig
+        .heartbeat_848(0, support::join_848("g", "m", &["t"]))
+        .await;
+    let epoch = joined.member_epoch;
+    assert_eq!(rig.add_offsets("tx", t, "g").await, 0);
+    let commit = |committer: (&'static str, i32), offset: i64| {
+        rig.txn_offset_as("tx", t, "g", committer, ("t", 0, offset))
+    };
+    // The member at its epoch; at another (a consumer group's wrong epoch is a wrong generation here); not a member.
+    assert_eq!(commit(("m", epoch), 1).await, 0);
+    assert_eq!(commit(("m", epoch + 1), 2).await, ILLEGAL_GENERATION);
+    assert_eq!(commit(("ghost", epoch), 3).await, UNKNOWN_MEMBER_ID);
+    // A producer that names no member and no generation is not asked for either, though the group has a member.
+    assert_eq!(commit(("", -1), 4).await, 0);
+    // A group that does not exist is found for no generation, and not for one.
+    assert_eq!(rig.add_offsets("tx", t, "nobody").await, 0);
+    assert_eq!(
+        rig.txn_offset_as("tx", t, "nobody", ("m", 3), ("t", 0, 5))
+            .await,
+        ILLEGAL_GENERATION
+    );
+    assert_eq!(
+        rig.txn_offset_as("tx", t, "nobody", ("", -1), ("t", 0, 5))
+            .await,
+        0
+    );
+}

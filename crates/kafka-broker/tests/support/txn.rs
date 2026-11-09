@@ -99,7 +99,20 @@ impl Rig {
         at: (&str, i32),
         offset: i64,
     ) -> i16 {
-        let (topic, partition) = at;
+        self.txn_offset_as(id, t, group, ("", -1), (at.0, at.1, offset))
+            .await
+    }
+
+    /// TxnOffsetCommit by a committer that names its member id and generation (or epoch).
+    pub async fn txn_offset_as(
+        &self,
+        id: &str,
+        t: Txn,
+        group: &str,
+        committer: (&str, i32),
+        at: (&str, i32, i64),
+    ) -> i16 {
+        let (topic, partition, offset) = at;
         use kafka_wire::messages::txn_offset_commit_request::{
             TxnOffsetCommitRequestPartition, TxnOffsetCommitRequestTopic,
         };
@@ -108,7 +121,8 @@ impl Rig {
         req.group_id = GroupId(text(group));
         req.producer_id = ProducerId(t.producer);
         req.producer_epoch = t.epoch;
-        req.generation_id = -1;
+        req.member_id = text(committer.0);
+        req.generation_id = committer.1;
         let mut p = TxnOffsetCommitRequestPartition::default();
         p.partition_index = partition;
         p.committed_offset = offset;
