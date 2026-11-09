@@ -11,6 +11,7 @@ use kafka_wire::ids::{PartitionCount, TopicName};
 
 mod lives;
 mod offsets;
+mod txns;
 
 pub(crate) const STEPS: usize = 40;
 const GROUPS: [&str; 3] = ["g", "g2", "other"];
@@ -54,6 +55,8 @@ pub(crate) struct Model {
     pub(crate) offsets: offsets::Offsets,
     /// The group records.
     pub(crate) lives: lives::Lives,
+    /// The transaction records.
+    pub(crate) txns: txns::Txns,
 }
 
 impl Model {
@@ -80,7 +83,8 @@ impl Model {
             }
         }
         self.check_offsets(store)?;
-        self.check_lives(store)
+        self.check_lives(store)?;
+        self.check_txns(store)
     }
 }
 
@@ -112,7 +116,7 @@ impl World {
             if self.store.is_none() {
                 return;
             }
-            let what = match self.rng.below(18) {
+            let what = match self.rng.below(20) {
                 0..=3 => self.create(),
                 4..=5 => self.delete(),
                 6..=8 => self.producer_id(),
@@ -121,6 +125,7 @@ impl World {
                 14 => self.delete_offsets(),
                 15 => self.delete_group_offsets(),
                 16 => self.forget_life(),
+                18..=19 => self.txn(),
                 17 if self.rng.below(2) == 0 => self.shutdown(),
                 _ => self.restart(),
             };
