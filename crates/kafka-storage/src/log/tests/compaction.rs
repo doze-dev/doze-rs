@@ -8,6 +8,7 @@ use kafka_wire::batch::build::{BatchBuilder, Rec};
 
 use super::*;
 use crate::compact::{AbortedTxn, Cleaned, LastOf, Params};
+use crate::sim::Failure;
 use crate::testutil::offset;
 
 pub(super) const PARAMS: Params = Params {
@@ -285,4 +286,129 @@ fn a_round_put_in_place_twice_changes_nothing_the_second_time_and_leaves_no_file
     );
     assert_eq!(records(&log), once);
     assert!(!fs.names(&dir).iter().any(|n| n.ends_with(".tmp")));
+}
+
+/// A one-record batch stamped `ts`.
+fn kv_at(key: &str, value: &str, ts: i64) -> Batch {
+    let rec = Rec {
+        key: Some(key.as_bytes().to_vec()),
+        value: Some(value.as_bytes().to_vec()),
+        ..Rec::default()
+    };
+    Batch::parse(BatchBuilder::from_records(ts, &[rec]).build()).unwrap()
+}
+
+#[test]
+fn the_newest_timestamp_is_of_a_record_that_is_left_not_of_a_batch_cleaning_has_emptied() {
+    let seg = kv("a", Some("v")).len() as u64;
+    let (_fs, _dir, mut log) = fresh(3 * seg);
+    // Offset 2 has the newest timestamp and is superseded by offset 3 (older), where it ends its segment and stays as an
+    // empty batch with its header as it was.
+    append_all(
+        &mut log,
+        &[
+            kv_at("b", "1", 200),
+            kv_at("c", "0", 150),
+            kv_at("a", "1", 9_000),
+            kv_at("a", "2", 100),
+            kv_at("c", "1", 300),
+            kv_at("d", "1", 400),
+            kv_at("e", "1", 500),
+            kv_at("f", "1", 600),
+        ],
+    );
+    assert_eq!(
+        log.reader().offset_of_max_timestamp().unwrap().map(|(o, t)| (o.get(), t.get())),
+        Some((2, 9_000))
+    );
+    plain(&mut log).expect("due");
+    assert_eq!(
+        log.reader().offset_of_max_timestamp().unwrap().map(|(o, t)| (o.get(), t.get())),
+        Some((7, 600)),
+        "the records left: {:?}",
+        records(&log)
+    );
+}
+
+#[test]
+fn a_checkpoint_beyond_the_end_of_the_log_is_begun_again_from_the_start() {
+    let seg = kv("a", Some("v")).len() as u64;
+    let (fs, dir, mut log) = fresh(3 * seg);
+    let batches: Vec<_> = (0..60).map(|i| kv(&format!("k{}", i % 4), Some("v"))).collect();
+    append_all(&mut log, &batches);
+    crate::fs::write_durably(&fs, &dir.join("cleaner-checkpoint"), b"5000\n").unwrap();
+    let before = records(&log).len();
+    plain(&mut log).expect("a checkpoint past the end does not stop cleaning");
+    assert!(records(&log).len() < before);
+}
+
+#[test]
+fn a_stale_temporary_file_of_an_earlier_round_does_not_get_into_a_new_one() {
+    let seg = kv("a", Some("v")).len() as u64;
+    let (fs, dir, mut log) = fresh(3 * seg);
+    let batches: Vec<_> = (0..30).map(|i| kv(&format!("k{}", i % 3), Some("v"))).collect();
+    append_all(&mut log, &batches);
+    let want = {
+        let (fs2, dir2, mut twin) = fresh(3 * seg);
+        append_all(&mut twin, &batches);
+        plain(&mut twin).expect("due");
+        std::mem::forget((fs2, dir2));
+        records(&twin)
+    };
+    // What a round that was stopped left behind: longer than the file it would make, and not a log at all.
+    crate::fs::write_durably(&fs, &dir.join("00000000000000000000.log.tmp"), &[0xAB; 4096]).unwrap();
+    plain(&mut log).expect("due");
+    assert_eq!(records(&log), want);
+    assert!(
+        fs.names(&dir).iter().all(|n| !n.ends_with(".tmp")),
+        "no temporary file is left: {:?}",
+        fs.names(&dir)
+    );
+}
+
+#[test]
+fn a_round_that_cannot_read_a_segment_leaves_no_temporary_file() {
+    let seg = kv("a", Some("v")).len() as u64;
+    let (fs, dir, mut log) = fresh(3 * seg);
+    let batches: Vec<_> = (0..30).map(|i| kv(&format!("k{}", i % 3), Some("v"))).collect();
+    append_all(&mut log, &batches);
+    let job = log
+        .clean_job(&PARAMS, log.end_offset(), vec![], HashMap::new())
+        .unwrap()
+        .expect("due");
+    // The map is read first; the walk that writes comes after, and fails on its first read.
+    fs.fail(Op::Read, 40, Failure::Io);
+    let outcome = job.run();
+    fs.clear_faults();
+    assert!(outcome.is_err(), "the round did not fail");
+    assert!(
+        fs.names(&dir).iter().all(|n| !n.ends_with(".tmp")),
+        "a failed round leaves nothing: {:?}",
+        fs.names(&dir)
+    );
+}
+
+#[test]
+fn a_segment_that_cannot_be_opened_again_after_it_was_put_in_place_does_not_take_the_partition_offline() {
+    let seg = kv("a", Some("v")).len() as u64;
+    let (fs, dir, mut log) = fresh(3 * seg);
+    let batches: Vec<_> = (0..30).map(|i| kv(&format!("k{}", i % 3), Some("v"))).collect();
+    append_all(&mut log, &batches);
+    let job = log
+        .clean_job(&PARAMS, log.end_offset(), vec![], HashMap::new())
+        .unwrap()
+        .expect("due");
+    let cleaned = job.run().unwrap();
+    // The files are swapped; opening the new segment fails for want of a descriptor (it may well work a moment later).
+    fs.fail(Op::Read, 1, Failure::TooManyFiles);
+    assert!(log.install_cleaned(&cleaned).is_err());
+    fs.clear_faults();
+    log.append(&[kv("k0", Some("after"))], NOW, TimestampType::Create)
+        .expect("the partition is still online");
+    log.sync().unwrap();
+    // What is on disk is whole, and is what a restart finds.
+    drop(log);
+    let again = reopen(&fs.process_restart(), &dir);
+    let latest: Vec<_> = records(&again).into_iter().filter(|r| r.1 == "k0").collect();
+    assert_eq!(latest.last().map(|r| r.0), Some(30), "{latest:?}");
 }

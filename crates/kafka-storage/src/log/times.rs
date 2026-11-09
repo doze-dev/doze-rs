@@ -48,6 +48,10 @@ impl<F: Fs> LogReader<F> {
         let start = self.start_offset();
         let mut best: Option<(TimestampMs, Batch)> = None;
         self.walk(|batch| {
+            // A batch cleaning has emptied keeps the header it had: its timestamp is of records that are gone.
+            if batch.record_count() == 0 {
+                return false;
+            }
             if best
                 .as_ref()
                 .is_none_or(|(t, _)| batch.max_timestamp() > *t)

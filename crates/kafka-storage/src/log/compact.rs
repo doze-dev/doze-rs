@@ -60,7 +60,14 @@ impl<F: Fs> PartitionLog<F> {
                 oldest_ms,
             });
         }
-        let checkpoint = read_checkpoint(&self.fs, &self.dir).max(self.start);
+        // A checkpoint past the end of the log (the log was cut back, or the file is not this log's) is no place to go on from:
+        // cleaning begins again from the start (source: `LogCleanerManager.cleanableOffsets`).
+        let recorded = read_checkpoint(&self.fs, &self.dir);
+        let checkpoint = if recorded > self.end {
+            self.start
+        } else {
+            recorded.max(self.start)
+        };
         let Some(plan) = plan::judge(
             &facts,
             checkpoint.get(),
@@ -165,7 +172,16 @@ impl<F: Fs> PartitionLog<F> {
                 }
                 self.publish_segments();
             }
-            Err(e) => return Err(self.fail("opening a cleaned segment", e)),
+            // The segment the partition holds is still whole (it reads the file it was opened on, which is as it was), so
+            // the partition stays online: a failure to open, for want of a descriptor say, may pass. The next open of the
+            // log reads the new file.
+            Err(e) => {
+                self.dir_dirty = true;
+                return Err(StorageError::Io {
+                    doing: "opening a cleaned segment",
+                    source: e,
+                });
+            }
         }
         swapped.doing("putting a cleaned segment in place")?;
         Ok(true)
