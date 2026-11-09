@@ -47,12 +47,12 @@ Each has a hypothesis, a measurement, and a fallback if it fails. Code stays in 
 
 | # | Hypothesis | Measurement | Fallback if false | Result |
 |---|---|---|---|---|
-| S1 | Types and schema tables for all 18 models fit in 3 MiB at fat LTO | stripped size of a use-everything build | cargo feature per service, `opt-level = "z"` on model crates | |
+| S1 | Types and schema tables for all 18 models fit in 3 MiB at fat LTO | stripped size of a use-everything build | cargo feature per service, `opt-level = "z"` on model crates | **FAIL** (`spikes/S1.md`): typed decode + encode of all 18 is 6.61 MiB at opt 3 (4.21 at opt z); the tables alone are a 2.25 MiB floor. Gating fits about 11 of 18 services in 3 MiB. **S1b queued** |
 | S2 | `Fs`, redb, child supervision and the `serve` mode work on Windows or have a named substitute | **Deferred 2026-11-09: no Windows machine.** Until one exists: the Windows and x86 targets must at least compile (`cargo check --target x86_64-pc-windows-msvc` or `-gnu`, no run), and nothing may assume Unix paths, signals or sockets outside a `cfg` gate | named pipe or TCP `serve`, document the gap | Windows is assumed workable, not proven |
 | S3 | A host-process runtime runs CDK's Node custom-resource handler | one real CDK handler under the Lambda runtime API | D6 stays native-first; built-in custom resources only | |
 | S4 | `jlens-core` passes a corpus of ASL/JSONata cases recorded from Step Functions `TestState` | pass rate on the corpus | `seuil`, or an own subset evaluator (S to M) | |
-| S5 | The system allocator returns memory after a 1 GiB upload and after a burst of invocations; the frame-pool pattern suffices | RSS before, peak, and 10 s after | `doze-alloc` crate (one `unsafe`), mimalloc on macOS | |
-| S6 | redb on `SimFs` with a group-commit flusher meets the write-latency prediction for SQS-shaped load | p50 and p99 per send, fsyncs per second | kafka-style append log for hot queues only | |
+| S5 | The system allocator returns memory after a 1 GiB upload and after a burst of invocations; the frame-pool pattern suffices | RSS before, peak, and 10 s after | `doze-alloc` crate (one `unsafe`), mimalloc on macOS | **Half true** (`spikes/S5.md`): the upload holds (+0 to 2 MiB); a 10k x 64 KiB burst leaves glibc at 823 MiB and the frame pool does not help. Fix: cap bodies in flight in the gateway (A3), system allocator on macOS and Windows, idle `malloc_trim` in a small `doze-alloc` on Linux; no jemalloc |
+| S6 | redb on `SimFs` with a group-commit flusher meets the write-latency prediction for SQS-shaped load | p50 and p99 per send, fsyncs per second | kafka-style append log for hot queues only | **Holds** (`spikes/S6.md`): grouped commits give send p50 about 6.4 ms, p99 9 to 13 ms at 1k and 10k msg/s (durable, macOS), 5 to 14% of a core. `kafka-meta` has no group-commit flusher: write one in A1 (fail every waiter on a failed commit). Open costs 1 sync, clean close 4. The append log is not needed |
 
 Note for S6: `PLAN.md` puts a group-commit flusher in `doze-store`; it was not found in `crates/kafka-meta` on 2026-11-09, so it may have to be written,
 not extracted.
@@ -112,3 +112,7 @@ tagging in the harness), iam, lambda, cloudformation, apigateway, stepfunctions.
 No Windows machine is available, so S2 and the Windows rows of 0.5 wait. Windows stays in scope as an assumption, not a claim: the design keeps
 Unix specifics behind `cfg` and the `Fs` trait, the Windows targets are compile-checked where the toolchain allows, and no release note says Windows
 works until it has run on one. Revisit when a machine or a hosted runner is available.
+
+### S1b (queued, 2026-11-09)
+
+S1 failed its 3 MiB target, but the target was ours, set before measuring; for scale the Go binary is 30 MiB and the whole Rust port must still be far lighter. S1b measures the two cheaper designs the spike suggested: (a) typed glue only for tier-F operations, everything else decoded and validated on a schema-driven dynamic tree; (b) the fully dynamic validator for all operations. Prediction and the restated whole-binary budget are written before measuring.

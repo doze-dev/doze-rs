@@ -259,8 +259,9 @@ in every service, so it is last and doubles as the integration test.
 
 ## Risks
 
-- **Decoder size (A2).** The table-driven decoder is unproven at scale; if all 18 models exceed the
-  ceiling, fall back to cargo features per service and `opt-level = "z"` on the model crates.
+- **Decoder size (A2). Measured 2026-11-09 (spike S1): FAIL.** Typed decode and encode for all 18 models is 6.61 MiB at opt 3 against a 3 MiB ceiling; tables alone are 2.25 MiB. Cargo features fit about 11 of 18 in 3 MiB. A2 therefore waits on spike S1b (typed glue for tier-F operations only, or a schema-driven dynamic validator) and a restated whole-binary budget. Compiling every constraint regex eagerly costs 23 MiB, so patterns stay lazy.
+- **Memory after load (spike S5).** The gateway caps request bodies in flight (A3); a burst of small requests otherwise leaves glibc holding hundreds of MiB. Linux gets an idle `malloc_trim` in `doze-alloc`; macOS and Windows keep the system allocator.
+- **Store (spike S6).** redb needs a group-commit flusher, which kafka-meta does not have (write it in A1); without grouping a durable send path collapses to about 240 ops/s.
 - **Overlays are the hidden work.** Models under-constrain; the overlay for each service is real
   research, tagged by evidence. The 52 uncompilable patterns need hand predicates.
 - **The partition log may not generalise (A1).** Kafka's log stores Kafka record batches. If a
