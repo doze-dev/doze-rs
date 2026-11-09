@@ -16,7 +16,7 @@ use crate::compact::{AbortedTxn, CleanJob, Cleaned, Input, LastOf, Replacement, 
 use crate::compact::{read_checkpoint, write_checkpoint};
 use crate::error::{Doing, StorageError};
 use crate::fs::Fs;
-use crate::segment::{SealedSegment, index_path, log_path};
+use crate::segment::{SealedSegment, index_path, log_path, remove_files};
 
 impl<F: Fs> PartitionLog<F> {
     /// A round of cleaning, if the log is due one. `last_stable` is the first offset still open to a transaction;
@@ -153,6 +153,9 @@ impl<F: Fs> PartitionLog<F> {
             self.discard(r);
             return Ok(false);
         };
+        if r.vanish {
+            return self.remove_emptied(at);
+        }
         let (log_tmp, index_tmp) = temporary(&self.dir, r.base);
         let dir = self.dir.clone();
         let swapped = (|| -> std::io::Result<()> {
@@ -184,6 +187,23 @@ impl<F: Fs> PartitionLog<F> {
             }
         }
         swapped.doing("putting a cleaned segment in place")?;
+        Ok(true)
+    }
+
+    /// Removes a sealed segment that cleaning left with nothing the log needs. The offsets it covered are a gap, as
+    /// they are inside a cleaned segment: a read there goes on to the next batch. The first segment is never taken (it
+    /// is where the log starts, and may have become the first since the round was planned). A file that cannot be
+    /// removed stays on disk, whole and harmless: the next open finds an empty segment and the next round removes it.
+    fn remove_emptied(&mut self, at: usize) -> Result<bool, StorageError> {
+        if at == 0 {
+            return Ok(false);
+        }
+        let gone = self.sealed.remove(at);
+        let base = gone.base();
+        drop(gone);
+        self.publish_segments();
+        self.dir_dirty = true;
+        remove_files(&self.fs, &self.dir, base).doing("removing an emptied segment")?;
         Ok(true)
     }
 }

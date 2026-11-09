@@ -58,7 +58,12 @@ interop `compaction` (franz-go, sarama, librdkafka agree).
 
 ## Decided differences
 - **CMP-D1.** Each segment is rewritten under its own name, and segments are not merged into fewer; the last batch of every cleaned
-  segment stays (Kafka keeps the last of the round and deletes a segment left empty). Reads skip the empty ones (CMP-6).
+  segment stays, emptied, so that the segment ends where it did (Kafka keeps the last of the round). Reads skip the empty ones (CMP-6).
+  **A segment left with nothing but that ending batch, and no producer's last batch, is removed** (Kafka deletes a segment left
+  empty), so a hot key does not leave a file for every segment it ever filled (audit N3: 150 segments for 3 live records). The
+  offsets it covered are a gap, as inside a cleaned segment. Two limits: the first segment is never taken (it is where the log
+  starts; one empty file at most), and a file that cannot be removed stays whole and is taken by the next round. Tests:
+  `log/tests/compaction_segments.rs`; the stop sweeps (`tests/compaction`) run it at every operation.
 - **CMP-D2.** The offset map keeps the keys themselves (bounded to 16 MiB, `Config.cleaner_map_bytes`; the rest is cleaned in a
   later round), not a 16-byte digest in a 128 MiB buffer.
 - **CMP-D3.** One cleaner for the broker, a segment at a time, with no I/O throttle and no `log.cleaner.threads`; the checkpoint is

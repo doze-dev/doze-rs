@@ -150,12 +150,14 @@ impl<F: Fs> CleanJob<F> {
         let mut source = Source::new(&input.view, 0);
         let size = source.size();
         let mut last_next = input.base.get();
+        let mut needed = false;
         let walked = (|| -> Result<(), StorageError> {
             while let Some(found) = source.next().doing("reading a segment to clean it")? {
                 stopped(stop)?;
                 last_next = found.peek.next_offset().unwrap_or(last_next);
                 let last_in_segment = found.position + found.peek.total_len >= size;
-                let fate = self.fate(&found, last_in_segment, map, txns, done)?;
+                let (fate, wanted) = self.fate(&found, last_in_segment, map, txns, done)?;
+                needed |= wanted;
                 match fate {
                     Fate::Same => {}
                     Fate::Drop => out
@@ -172,6 +174,18 @@ impl<F: Fs> CleanJob<F> {
             out.abandon();
             return Err(e);
         }
+        // A segment left with nothing but the empty batch that ended it is not kept (source: the cleaner deletes a segment
+        // left empty), or a hot key would leave a file for every segment it ever filled. The first segment stays: it is
+        // where the log starts.
+        let first = self.segments.first().is_some_and(|s| s.base == input.base);
+        if !needed && !first {
+            out.abandon();
+            return Ok(Some(Replacement {
+                base: input.base,
+                from_size: size,
+                vanish: true,
+            }));
+        }
         let Some(new_size) = out.finish(size).doing("writing a cleaned segment")? else {
             return Ok(None);
         };
@@ -183,10 +197,12 @@ impl<F: Fs> CleanJob<F> {
         Ok(Some(Replacement {
             base: input.base,
             from_size: size,
+            vanish: false,
         }))
     }
 
-    /// What is to be done with a batch: left as it is, written changed, or left out.
+    /// What is to be done with a batch: left as it is, written changed, or left out; and whether the segment needs it (it
+    /// holds records, or is a producer's last), as against an emptied batch kept only so that the segment ends where it did.
     fn fate(
         &self,
         found: &Found,
@@ -194,7 +210,7 @@ impl<F: Fs> CleanJob<F> {
         map: &OffsetMap,
         txns: &mut CleanedTxns,
         done: &mut Cleaned,
-    ) -> Result<Fate, StorageError> {
+    ) -> Result<(Fate, bool), StorageError> {
         let peek = &found.peek;
         let control = peek.attributes.is_control();
         let last_offset = peek.next_offset().unwrap_or(i64::MAX) - 1;
@@ -213,7 +229,8 @@ impl<F: Fs> CleanJob<F> {
         } else {
             can_discard
         };
-        let retain_empty = last_in_segment || self.is_a_producers_last(found, control);
+        let producers_last = self.is_a_producers_last(found, control);
+        let retain_empty = last_in_segment || producers_last;
         let rules = Rules {
             max_inflated: MOST_INFLATED,
             horizon: now.saturating_add(self.params.delete_retention_ms),
@@ -226,13 +243,15 @@ impl<F: Fs> CleanJob<F> {
             .map_err(|e| unreadable(&e.reason))?;
         done.records_read += u64::from(peek.record_count);
         done.records_kept += u64::from(filtered.kept);
-        Ok(if filtered.kept == 0 && !retain_empty {
+        let wanted = filtered.kept > 0 || producers_last;
+        let fate = if filtered.kept == 0 && !retain_empty {
             Fate::Drop
         } else if filtered.changed {
             Fate::Replace(filtered.batch.into_bytes())
         } else {
             Fate::Same
-        })
+        };
+        Ok((fate, wanted))
     }
 
     fn is_a_producers_last(&self, found: &Found, control: bool) -> bool {

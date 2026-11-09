@@ -45,6 +45,9 @@ pub struct Replacement {
     pub(crate) base: Offset,
     /// The size of the segment this was made from: the writer puts it in place only if that is what it still has.
     pub(crate) from_size: u64,
+    /// The segment holds nothing the log needs (only an emptied batch that ended it, no producer's last): it is removed,
+    /// not rewritten, and the offsets it covered become a gap like the ones inside a cleaned segment.
+    pub(crate) vanish: bool,
 }
 
 /// What a round did.
@@ -116,6 +119,7 @@ mod tests {
                 .map(|i| Replacement {
                     base: Offset::new(i * 10).unwrap(),
                     from_size: 1,
+                    vanish: false,
                 })
                 .collect(),
             clean_to: 77,
