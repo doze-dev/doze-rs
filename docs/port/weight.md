@@ -65,8 +65,9 @@ a Phase 3 design item (lazy open, or a descriptor cache). A fetch allocates the 
 
 **Phase 3 answer to the descriptor item:** at most `--max-open-partitions` (512) partitions are open; one over the limit closes
 the least recently used that nothing holds, after flushing it, and it opens again when asked. A ListOffsets for a
-partition that was never written to answers without opening it. Left: sealed segments of an open partition still
-hold two descriptors each (lazy opening of sealed segments is not done): a partition with 100 segments holds 200.
+partition that was never written to answers without opening it. A partition with many segments
+holds two descriptors for each, so open partitions are also bounded by the files they hold between them (a budget taken from
+the limit on descriptors; debt D1, 2026-11-09).
 
 ## Phase 6 (transactions), measured 2026-11-09, release, darwin/arm64
 

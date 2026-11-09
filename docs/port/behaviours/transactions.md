@@ -33,7 +33,8 @@ A producer silent for a day is forgotten (`producer.id.expiration.ms`), and the 
 A producer whose newest remembered batch is below the log start is forgotten too (Kafka drops a producer's state with its
 batches) and starts afresh. After a restart the state is rebuilt from the last 16 MiB of the log, so a batch whose
 acknowledgement was lost in the stop is still recognised. A transaction marker raises the producer's epoch on the partition
-and its sequences start at 0 again, so a fenced producer is refused by the partition as well as by the coordinator. Test:
+and its sequences start at 0 again, so a fenced producer is refused by the partition as well as by the coordinator; the epoch is read
+back from the markers in the log when the partition is opened again. Test:
 `producers::tests::producers_silent_for_a_day_are_forgotten_and_the_ceiling_holds`,
 `a_producer_whose_batches_are_all_below_the_log_start_is_forgotten`, `a_marker_raises_the_producers_epoch_and_its_sequences_start_again`,
 `idempotence::a_retry_after_a_restart_is_still_recognised`, `history::*`,
@@ -44,13 +45,17 @@ InitProducerId with a transactional id makes the caller the owner: a new produce
 goes up and the previous owner is fenced; what it left open is aborted (markers at the raised epoch) before the answer. An
 empty transactional id is INVALID_REQUEST; a timeout over 15 minutes (or not positive) is INVALID_TRANSACTION_TIMEOUT.
 From version 3 a producer may say the producer id and epoch it holds (KIP-360) (source): they must be the id's, or the
-epoch before the last bump (then the answer is the one it already got, not another bump), else PRODUCER_FENCED
+epoch before the last bump (then the answer is the one it already got, not another bump, and the id is made ready as for any
+InitProducerId), else PRODUCER_FENCED; a fence by the broker (a timeout, or a new owner taking an open transaction) raises the
+epoch and leaves the epoch before the last bump alone, so the producer that was fenced cannot take the id back by saying the
+epoch it had
 (INVALID_PRODUCER_EPOCH below version 4); half a pair is INVALID_REQUEST; when the epochs run out (32,766) the producer id is
 replaced, and the old one with its last epoch is still recognised as a retry. Test:
 `transactions::a_new_owner_of_the_id_fences_the_old_and_aborts_what_it_left_open`,
 `transactions_codes::a_producer_that_says_what_it_holds_is_bumped_asked_again_it_is_answered_alike_and_a_stranger_is_fenced`,
 `rules::a_producer_says_the_producer_id_and_epoch_it_holds_and_is_fenced_if_they_are_not_the_ids`,
-`rules::when_the_epochs_are_used_up_the_producer_id_is_replaced_and_the_old_one_is_still_known_for_a_retry`.
+`rules::when_the_epochs_are_used_up_the_producer_id_is_replaced_and_the_old_one_is_still_known_for_a_retry`,
+`transactions_fence::*`.
 
 ## TX-6. A transactional batch needs an open transaction that has the partition
 A Produce with a transactional id is accepted only if the producer and epoch own the id, a transaction is open and the
@@ -62,9 +67,10 @@ waiting for the first, and neither goes on. That was a deadlock.) Test:
 `transactions::a_batch_needs_an_open_transaction_that_the_partition_was_added_to`,
 `rules::a_batch_may_be_written_only_by_the_owner_to_a_partition_of_the_open_transaction`,
 `transactions_race::a_new_owner_arriving_while_a_produce_spans_two_partitions_neither_waits_for_ever_nor_is_waited_for`,
-`a_transaction_is_not_ended_in_the_middle_of_a_produce_request_that_writes_to_it`. (A mutant that holds a stale copy of the
-record and not the lock survives on one thread: a log's queue is first in, first out, which already keeps a marker behind the
-batch it follows. The hold is what rules out the gap between check and queue on several.)
+`a_transaction_is_not_ended_in_the_middle_of_a_produce_request_that_writes_to_it`. A mutant that holds a stale copy of the
+record and not the lock is killed by the schedule on which it matters: the request lists its partitions in the opposite order
+to the one they were added in, with the first listed one's queue full, so the end of the transaction could otherwise mark the
+second before the request has reached it (`a_transaction_is_not_ended_in_the_middle_of_a_produce_request_that_lists_its_partitions_the_other_way`).
 
 ## TX-7. EndTxn [endtxn-decisions, endtxn-while-preparing]
 | state | the same decision | the other |
@@ -103,13 +109,14 @@ a_transactional_batch_is_not_visible_to_a_reader_before_the_index_knows_it_is_op
 AddOffsetsToTxn names the group; TxnOffsetCommit stores the offsets with the transaction. They are applied to the group when
 it commits and forgotten when it aborts. A group that was not added to the open transaction is INVALID_TXN_STATE. The
 committer's place in the group is checked as KIP-447 says (source): no generation, no member and no instance is accepted
-whatever the group; a member must be in the group (UNKNOWN_MEMBER_ID) at its generation or epoch (ILLEGAL_GENERATION, for a
+whatever the group (`transactions_offsets`: and a classic group waiting for its leader does not refuse them either); a member must be in the group (UNKNOWN_MEMBER_ID) at its generation or epoch (ILLEGAL_GENERATION, for a
 consumer group's member as well: STALE_MEMBER_EPOCH is never answered here); a group that does not exist is found for no
 generation and not for one; the group waiting for its leader does not refuse them. The order is Kafka's: a partition that is
 not there is UNKNOWN_TOPIC_OR_PARTITION whatever else is wrong; then the group id, the producer's right to the transaction (an
 id nobody owns, including the empty one, is INVALID_PRODUCER_ID_MAPPING; a replaced producer INVALID_PRODUCER_EPOCH), then the
 place in the group. Test: `transactions::the_offsets_a_transaction_carries_are_stored_if_it_commits_and_forgotten_if_it_aborts`,
-`transactions_codes::a_transactions_offsets_are_fenced_by_the_committers_place_in_the_group_and_by_nothing_if_it_names_none`.
+`transactions_codes::a_transactions_offsets_are_fenced_by_the_committers_place_in_the_group_and_by_nothing_if_it_names_none`,
+`transactions_offsets::*` (the producer's right to the transaction, and a classic group).
 
 ## TX-10. Reading
 `read_committed` Fetch is capped at the last stable offset and lists the aborted transactions in range; a plain fetch sees
@@ -136,7 +143,8 @@ The coordinator's record is written before the broker acts. At start, before the
 was stored is finished (markers, offsets, Complete); one still open is left open, its producer may be alive. A stop at every
 operation of an EndTxn, by a kill or a power cut, for a commit and for an abort, leaves the transaction open or decided
 everywhere, never half, never the other decision, and the producer asking again finishes it once; one failed operation
-(disk full, device error) anywhere in it is survived the same way. Test: `transactions_crash::{a_stop_at_any_point_of_a_commit_leaves_the_transaction_open_or_committed_everywhere,
+(disk full, device error) anywhere in it is survived the same way, and with a power cut after a failed flush that loses its
+pages an answer of success holds only because a marker is waited for until it is on disk. Test: `transactions_crash::{a_stop_at_any_point_of_a_commit_leaves_the_transaction_open_or_committed_everywhere,
 a_stop_at_any_point_of_an_abort_leaves_the_transaction_open_or_aborted_everywhere, one_operation_failing_anywhere_in_a_commit_is_survived}`,
 `transactions::an_open_transaction_is_left_open_by_a_restart_and_a_committed_one_stays_committed`, the metadata crash sweep
 (`kafka-meta/tests/crash`, which writes and forgets transaction records).
@@ -144,7 +152,8 @@ a_stop_at_any_point_of_an_abort_leaves_the_transaction_open_or_aborted_everywher
 ## TX-13. Describing
 DescribeProducers (per partition: the producers, their epoch and where their open transaction began), DescribeTransactions
 (by id, or TRANSACTIONAL_ID_NOT_FOUND; the topics include the offsets partition of each group the transaction commits for)
-and ListTransactions (filters by state, producer id and, from version 1, how long it has run) answer at every served version.
+and ListTransactions (v0 to v1: filters by state, producer id and, from version 1, how long it has run; a transaction that is not
+open counts as begun at -1, Kafka's way, so it is listed whatever the duration) answer at every served version.
 Test: `transactions_describe::*`, `versions_txn::a_transaction_is_run_through_every_version_of_each_api`.
 
 ## TX-14. Transactional ids that are not used again

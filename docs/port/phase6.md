@@ -1,6 +1,6 @@
 # Phase 6: idempotent producers and transactions
 
-Status: BUILT 2026-11-09, awaiting its independent audit (slices 6a to 6f done; 6g is the audit). Catalogue:
+Status: audited twice (2026-11-09): the first said NOT DONE (a deadlock and six majors; `debt.md` A), the second NOT DONE (three majors, small); both sets fixed. See the closure entry in `PLAN.md`. Catalogue:
 behaviours/transactions.md (written as slices land). Goal: an idempotent producer's retried batch is recognised and not
 written twice; a transactional producer (franz-go, librdkafka, sarama, the Java client's classic protocol) writes to several
 partitions and commits consumer offsets atomically; a `read_committed` consumer sees all of a transaction or none of it;
@@ -32,12 +32,12 @@ scanned.
 
 **The coordinator** (`kafka-broker/src/txn/`): one record per `transactional.id` in `kafka-meta` (producer id, epoch,
 timeout, state, partitions, offsets groups), written *before* the broker acts, so a stop in the middle of ending a
-transaction is finished on the next start. A pure `TxnMachine::step(event, now) -> Vec<Effect>` (states Empty, Ongoing,
-PrepareCommit, PrepareAbort, CompleteCommit, CompleteAbort; effects Persist, WriteMarkers, ApplyOffsets, Reply, Arm) and an
-actor per transactional id, like the groups. EndTxn answers success only when every marker is flushed and, for a commit,
-the offsets are stored; while a decided transaction's markers are being written the other decision is
-CONCURRENT_TRANSACTIONS, afterwards INVALID_TXN_STATE, and a repeat of the same decision succeeds (recorded). A transaction
-still open at a restart is left open (its producer may be alive), its timeout counted again from the start. A transaction
+transaction is finished on the next start. The states are Empty, Ongoing, PrepareCommit, PrepareAbort, CompleteCommit and CompleteAbort. What a record allows is decided by pure
+functions (`txn::rules`), and each id has an entry behind a lock of its own, not an actor. EndTxn answers success only when every marker is flushed and, for a commit,
+the offsets are stored; a request that comes while a decided transaction's markers are being written waits for them (Kafka answers
+CONCURRENT_TRANSACTIONS for those milliseconds), and is then answered INVALID_TXN_STATE for the other decision or success
+for a repeat of the same. A transaction
+still open at a restart is left open (its producer may be alive), its timeout counted from when it began, as before the stop. A transaction
 that outlives `transaction.timeout.ms` (at most 15 minutes) is aborted by the broker and the producer fenced (epoch raised).
 
 **APIs:** InitProducerId (with a transactional id: becomes the owner, fences the previous owner and aborts what it left
