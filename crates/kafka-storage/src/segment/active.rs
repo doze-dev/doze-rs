@@ -21,6 +21,7 @@ pub(crate) struct Mark {
     since_index: u64,
     entries: u64,
     modified_ms: i64,
+    born_ms: Option<i64>,
     max_timestamp: Option<TimestampMs>,
 }
 
@@ -35,6 +36,9 @@ pub(crate) struct ActiveSegment<F: Fs> {
     interval: u64,
     log_dirty: bool,
     modified_ms: i64,
+    /// When the first batch of the segment was written, as the broker's clock had it: what `segment.ms` counts from. A
+    /// segment found with data at open is taken to date from its last write.
+    born_ms: Option<i64>,
     max_timestamp: Option<TimestampMs>,
     /// Whether `max_timestamp` covers the whole segment: not after a vouched open that walked only its end.
     max_timestamp_known: bool,
@@ -76,6 +80,7 @@ impl<F: Fs> ActiveSegment<F> {
             interval,
             log_dirty: false,
             modified_ms,
+            born_ms: (size > 0).then_some(modified_ms),
             max_timestamp: None,
             max_timestamp_known: size == 0,
         };
@@ -111,8 +116,25 @@ impl<F: Fs> ActiveSegment<F> {
             since_index: self.since_index,
             entries: self.index.len(),
             modified_ms: self.modified_ms,
+            born_ms: self.born_ms,
             max_timestamp: self.max_timestamp,
         }
+    }
+
+    /// When the segment's first batch was written, if it has one.
+    pub(crate) fn born_ms(&self) -> Option<i64> {
+        self.born_ms
+    }
+
+    /// When the segment is judged to date from, for retention: the newest timestamp of its records or, if none has one,
+    /// when it was last written.
+    pub(crate) fn newest_ms(&self) -> io::Result<i64> {
+        let found = if self.max_timestamp_known {
+            self.max_timestamp
+        } else {
+            crate::scan::max_timestamp(self.view.log_file().as_ref(), self.size)?
+        };
+        Ok(found.map_or(self.modified_ms, TimestampMs::get))
     }
 
     /// Writes a batch at the end of the log and, on crossing the index interval (and for a segment's first
@@ -137,6 +159,7 @@ impl<F: Fs> ActiveSegment<F> {
         self.size += len;
         self.since_index += len;
         self.modified_ms = now_ms;
+        self.born_ms.get_or_insert(now_ms);
         self.max_timestamp = self.max_timestamp.max(known(batch.max_timestamp()));
         if self.index.len() == 0 || self.since_index >= self.interval {
             let entry = Entry {
@@ -158,6 +181,7 @@ impl<F: Fs> ActiveSegment<F> {
         self.size = mark.size;
         self.since_index = mark.since_index;
         self.modified_ms = mark.modified_ms;
+        self.born_ms = mark.born_ms;
         self.max_timestamp = mark.max_timestamp;
         self.index.truncate(mark.entries);
         self.cut_to(mark.size);

@@ -38,6 +38,9 @@ pub struct LogConfig {
     pub segment_bytes: u64,
     /// An index entry is written about every this many bytes of log.
     pub index_interval_bytes: u64,
+    /// The active segment rolls, at the next append, once its first batch is older than this (`segment.ms`); `None` is
+    /// never.
+    pub segment_ms: Option<i64>,
 }
 
 impl Default for LogConfig {
@@ -45,6 +48,7 @@ impl Default for LogConfig {
         Self {
             segment_bytes: 128 << 20,
             index_interval_bytes: 4096,
+            segment_ms: None,
         }
     }
 }

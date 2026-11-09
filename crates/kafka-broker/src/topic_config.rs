@@ -160,6 +160,9 @@ pub(crate) fn retention(defaults: &Defaults, own: &BTreeMap<String, String>) -> 
     }
 }
 
+/// Kafka's default `segment.ms`: a week.
+const DEFAULT_SEGMENT_MS: i64 = 604_800_000;
+
 /// How a partition's log is sized: the topic's own `segment.bytes` and `index.interval.bytes`, else the broker's.
 pub(crate) fn log_config(defaults: &Defaults, own: &BTreeMap<String, String>) -> LogConfig {
     let pick = |key: &str, default: i64| {
@@ -169,9 +172,16 @@ pub(crate) fn log_config(defaults: &Defaults, own: &BTreeMap<String, String>) ->
             .unwrap_or(default);
         u64::try_from(n).ok().filter(|n| *n > 0).unwrap_or(1)
     };
+    // `segment.ms` is a topic's own or Kafka's default of a week (`log.roll.ms`, `log.roll.hours`: not set on a broker here).
+    let segment_ms = own
+        .get("segment.ms")
+        .and_then(|v| v.parse::<i64>().ok())
+        .filter(|n| *n > 0)
+        .unwrap_or(DEFAULT_SEGMENT_MS);
     LogConfig {
         segment_bytes: pick("segment.bytes", defaults.segment_bytes),
         index_interval_bytes: pick("index.interval.bytes", defaults.index_interval_bytes),
+        segment_ms: Some(segment_ms),
     }
 }
 

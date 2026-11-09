@@ -46,7 +46,8 @@ async fn two_clients_changing_different_configs_of_one_topic_keep_both_changes()
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-async fn two_clients_changing_different_configs_of_the_broker_keep_both_changes_here_and_after_a_restart() {
+async fn two_clients_changing_different_configs_of_the_broker_keep_both_changes_here_and_after_a_restart()
+ {
     for i in 0..ROUNDS {
         let rig = Arc::new(rig());
         let (a, b) = (Arc::clone(&rig), Arc::clone(&rig));

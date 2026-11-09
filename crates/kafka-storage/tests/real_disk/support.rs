@@ -40,6 +40,7 @@ pub(crate) fn open(dir: &Path, segment_bytes: u64, trust: Trust) -> PartitionLog
     let config = LogConfig {
         segment_bytes,
         index_interval_bytes: 4096,
+        segment_ms: None,
     };
     PartitionLog::open(RealFs, dir.to_path_buf(), config, trust).unwrap()
 }

@@ -28,6 +28,7 @@ pub(super) fn config(segment_bytes: u64) -> LogConfig {
     LogConfig {
         segment_bytes,
         index_interval_bytes: 150,
+        segment_ms: None,
     }
 }
 

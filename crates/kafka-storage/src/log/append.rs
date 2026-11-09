@@ -35,7 +35,7 @@ impl<F: Fs> PartitionLog<F> {
         self.check_online()?;
         let size: u64 = batches.iter().map(|b| b.len() as u64).sum();
         let (active, limit) = (self.active.size(), self.config.segment_bytes);
-        if active > 0 && active + size > limit {
+        if active > 0 && (active + size > limit || self.too_old_to_append_to(now)) {
             self.roll()?;
         }
         let (first, mark) = (self.end, self.active.mark());
@@ -63,12 +63,21 @@ impl<F: Fs> PartitionLog<F> {
         })
     }
 
+    /// Whether the active segment has been open longer than `segment.ms` allows (source: `LogSegment.shouldRoll`): it is
+    /// judged only when something is to be appended, so an idle partition keeps its segment.
+    fn too_old_to_append_to(&self, now: TimestampMs) -> bool {
+        match (self.config.segment_ms, self.active.born_ms()) {
+            (Some(limit), Some(born)) => now.get().saturating_sub(born) > limit,
+            _ => false,
+        }
+    }
+
     /// Seals the active segment and starts the one that begins at the log-end offset. The sealed segment is
     /// flushed first, its contents and its name: from here nothing looks at it again, not the timer, not an
     /// acknowledgement, and not recovery, so this is the flush that every record in it rests on. Flushing the
     /// name too means the names that exist after a power cut are always a run of segments up to the newest: a
     /// newer segment never outlives an older one, so the log has no hole in the middle.
-    fn roll(&mut self) -> Result<(), StorageError> {
+    pub(super) fn roll(&mut self) -> Result<(), StorageError> {
         self.flush_active()?;
         self.flush_directory()?;
         self.start_segment()

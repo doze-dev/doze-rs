@@ -135,3 +135,16 @@ fn a_topics_configuration_is_the_broker_defaults_with_its_own_laid_over() {
         Some("-1")
     );
 }
+
+#[test]
+fn a_topics_segment_ms_reaches_its_log_and_a_week_is_what_it_has_if_it_has_none() {
+    let defaults = crate::configs::broker::kafka_defaults();
+    assert_eq!(
+        log_config(&defaults, &BTreeMap::new()).segment_ms,
+        Some(604_800_000)
+    );
+    assert_eq!(
+        log_config(&defaults, &one("segment.ms", "1234")).segment_ms,
+        Some(1234)
+    );
+}

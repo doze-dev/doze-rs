@@ -15,6 +15,7 @@ pub(crate) const NOW: TimestampMs = TimestampMs::from_wire(1_000_000);
 pub(crate) const CONFIG: LogConfig = LogConfig {
     segment_bytes: 700,
     index_interval_bytes: 150,
+    segment_ms: None,
 };
 
 pub(crate) struct World {

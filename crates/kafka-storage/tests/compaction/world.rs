@@ -14,6 +14,7 @@ pub(crate) const NOW: TimestampMs = TimestampMs::from_wire(1_000_000);
 pub(crate) const CONFIG: LogConfig = LogConfig {
     segment_bytes: 400,
     index_interval_bytes: 100,
+    segment_ms: None,
 };
 /// Cleaning whenever anything is dirty; deletions are kept (their time never comes).
 pub(crate) const PARAMS: Params = Params {
