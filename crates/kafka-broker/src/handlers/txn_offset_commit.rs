@@ -50,10 +50,9 @@ impl<F: Fs> Broker<F> {
         let Ok(group) = GroupId::parse(req.group_id.0.as_str()) else {
             return Some(E::InvalidGroupId);
         };
-        let Some(entry) = self.txns.get(id) else {
+        let Some(mut e) = self.txns.lock(id).await else {
             return Some(E::InvalidProducerIdMapping);
         };
-        let mut e = entry.write().await;
         if let Some(code) = rules::owns(&e.rec, req.producer_id.0, req.producer_epoch) {
             return Some(code);
         }

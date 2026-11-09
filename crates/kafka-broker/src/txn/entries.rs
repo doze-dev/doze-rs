@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex, PoisonError};
 
 use kafka_meta::TxnRecord;
-use tokio::sync::RwLock;
+use tokio::sync::{OwnedRwLockWriteGuard, RwLock};
 
 /// A transaction held for reading, shared by the partitions of one Produce request.
 pub(crate) type Held = Arc<tokio::sync::OwnedRwLockReadGuard<Entry>>;
@@ -16,6 +16,8 @@ pub(crate) struct Entry {
     /// The last reason the transaction's decision could not be carried out, so that it is logged once and not on every
     /// attempt.
     pub(crate) failure: Option<String>,
+    /// Forgotten (the id expired): whoever still holds this entry must look the id up again.
+    pub(crate) retired: bool,
 }
 
 /// The entries. A transaction's lock is held for reading across a transactional batch's check and append (so that a
@@ -33,7 +35,11 @@ impl Txns {
             .map(|rec| {
                 (
                     rec.id.clone(),
-                    Arc::new(RwLock::new(Entry { rec, failure: None })),
+                    Arc::new(RwLock::new(Entry {
+                        rec,
+                        failure: None,
+                        retired: false,
+                    })),
                 )
             })
             .collect();
@@ -55,8 +61,37 @@ impl Txns {
             Arc::new(RwLock::new(Entry {
                 rec: TxnRecord::new(id),
                 failure: None,
+                retired: false,
             }))
         }))
+    }
+
+    /// The id's entry locked for writing, or `None` if there is none.
+    pub(crate) async fn lock(&self, id: &str) -> Option<OwnedRwLockWriteGuard<Entry>> {
+        loop {
+            let guard = self.get(id)?.write_owned().await;
+            if !guard.retired {
+                return Some(guard);
+            }
+        }
+    }
+
+    /// The id's entry locked for writing, made if there is none.
+    pub(crate) async fn lock_or_create(&self, id: &str) -> OwnedRwLockWriteGuard<Entry> {
+        loop {
+            let guard = self.get_or_create(id).write_owned().await;
+            if !guard.retired {
+                return guard;
+            }
+        }
+    }
+
+    /// Forgets an entry (while its lock is held by the caller, who has retired it).
+    pub(crate) fn remove(&self, id: &str, entry: &Arc<RwLock<Entry>>) {
+        let mut map = self.map();
+        if map.get(id).is_some_and(|e| Arc::ptr_eq(e, entry)) {
+            map.remove(id);
+        }
     }
 
     pub(crate) fn all(&self) -> Vec<Arc<RwLock<Entry>>> {

@@ -66,10 +66,9 @@ impl<F: Fs> Broker<F> {
         if id.is_empty() {
             return everywhere(E::InvalidRequest);
         }
-        let Some(entry) = self.txns.get(id) else {
+        let Some(mut e) = self.txns.lock(id).await else {
             return everywhere(E::InvalidProducerIdMapping);
         };
-        let mut e = entry.write().await;
         if let Some(code) = rules::owns(
             &e.rec,
             req.v3_and_below_producer_id.0,

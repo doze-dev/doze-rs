@@ -81,6 +81,14 @@ pub(crate) fn expired(rec: &TxnRecord, now_ms: i64) -> bool {
         && now_ms.saturating_sub(rec.updated_ms) > i64::from(rec.timeout_ms)
 }
 
+/// Whether the id has nothing open and has not changed for `limit_ms`: it can be forgotten.
+pub(crate) fn idle(rec: &TxnRecord, now_ms: i64, limit_ms: i64) -> bool {
+    matches!(
+        rec.state,
+        TxnState::Empty | TxnState::CompleteCommit | TxnState::CompleteAbort
+    ) && now_ms.saturating_sub(rec.updated_ms) > limit_ms
+}
+
 /// Whether a batch from `producer` at `epoch` to this partition is part of a transaction that may take it: the producer
 /// owns the id, a transaction is open and the partition was added to it. Otherwise the batch would sit in the log with
 /// no marker ever coming for it, holding the last stable offset still for ever.

@@ -15,6 +15,8 @@ pub(crate) struct Txns {
     pub(crate) acked: HashMap<&'static str, TxnRecord>,
     /// What writes that failed part-way may have left.
     pub(crate) maybe: HashMap<&'static str, Vec<TxnRecord>>,
+    /// Ids in `acked` whose record a forget that failed part-way may have removed.
+    pub(crate) maybe_gone: std::collections::HashSet<&'static str>,
 }
 
 impl Model {
@@ -37,6 +39,7 @@ impl Model {
                         "transaction {id} came back as {rec:?}, was {want:?}"
                     ));
                 }
+                None if self.txns.maybe_gone.contains(id) => {}
                 None => return Err(format!("transaction {id} was acknowledged and is gone")),
             }
         }
@@ -83,11 +86,29 @@ impl World {
             return "txn";
         };
         if store.put_txn(&rec).is_ok() {
+            self.model.txns.maybe_gone.remove(id);
             self.model.txns.acked.insert(id, rec);
         } else {
             self.model.txns.maybe.entry(id).or_default().push(rec);
             self.store = None;
         }
         "txn"
+    }
+
+    /// Forgets a transactional id.
+    pub(super) fn forget_txn(&mut self) -> &'static str {
+        let id = IDS[self.rng.below(IDS.len() as u64) as usize];
+        let Some(store) = &self.store else {
+            return "forget_txn";
+        };
+        if store.delete_txn(id).is_ok() {
+            self.model.txns.acked.remove(id);
+            self.model.txns.maybe.remove(id);
+            self.model.txns.maybe_gone.remove(id);
+        } else {
+            self.model.txns.maybe_gone.insert(id);
+            self.store = None;
+        }
+        "forget_txn"
     }
 }

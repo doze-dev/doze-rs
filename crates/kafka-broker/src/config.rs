@@ -60,6 +60,8 @@ pub struct Config {
     /// How long committed offsets are kept after their group has gone, or after they were committed if it never had
     /// members. Zero: for ever.
     pub offsets_retention: Duration,
+    /// How long a transactional id with no open transaction is kept after its last change (`transactional.id.expiration.ms`).
+    pub transactional_id_expiration: Duration,
     /// How often the offsets are looked at; `None`: a hundredth of the retention, between 50 ms and ten minutes.
     pub offsets_check_every: Option<Duration>,
     /// How long a member of a consumer group of the new protocol may be silent before it is removed.
@@ -85,6 +87,7 @@ impl Config {
             fsync_interval: Duration::from_millis(500),
             group_initial_rebalance_delay: Duration::from_millis(200),
             offsets_retention: Duration::from_secs(7 * 24 * 3600),
+            transactional_id_expiration: Duration::from_secs(7 * 24 * 3600),
             offsets_check_every: None,
             consumer_session_timeout: Duration::from_secs(45),
             consumer_assignment_interval: Duration::from_secs(1),

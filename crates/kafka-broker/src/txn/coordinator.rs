@@ -43,8 +43,7 @@ impl<F: Fs> Broker<F> {
         if timeout_ms <= 0 || timeout_ms > rules::MOST_TIMEOUT_MS {
             return Err(E::InvalidTransactionTimeout);
         }
-        let entry = self.txns.get_or_create(id);
-        let mut e = entry.write().await;
+        let mut e = self.txns.lock_or_create(id).await;
         let (mut producer, mut epoch) = (e.rec.producer_id, e.rec.epoch);
         match e.rec.state {
             TxnState::Empty if producer < 0 => {
@@ -104,10 +103,9 @@ impl<F: Fs> Broker<F> {
         epoch: i16,
         commit: bool,
     ) -> Option<E> {
-        let Some(entry) = self.txns.get(id) else {
+        let Some(mut e) = self.txns.lock(id).await else {
             return Some(E::InvalidProducerIdMapping);
         };
-        let mut e = entry.write().await;
         if let Some(refused) = rules::owns(&e.rec, producer, epoch) {
             return Some(refused);
         }
@@ -156,6 +154,7 @@ impl<F: Fs> Broker<F> {
     /// transaction past its timeout is aborted, which raises the epoch so that a producer that was only slow finds
     /// itself fenced instead of writing into a transaction that is already decided.
     pub async fn check_transactions(&self) {
+        self.expire_txn_ids().await;
         for entry in self.txns.all() {
             let (decided, expired) = {
                 let e = entry.read().await;

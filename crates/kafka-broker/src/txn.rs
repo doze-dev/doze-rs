@@ -8,6 +8,7 @@
 
 mod coordinator;
 mod entries;
+mod expiry;
 mod finish;
 pub(crate) mod rules;
 

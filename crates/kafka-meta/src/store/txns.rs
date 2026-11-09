@@ -24,6 +24,22 @@ impl MetaStore {
         Ok(())
     }
 
+    /// Forgets a transactional id, and makes that durable. The id is the caller's to forget only when nobody owns an open
+    /// transaction under it. An id that is not there is forgotten already.
+    ///
+    /// # Errors
+    /// A failed write; the record is then as it was.
+    pub fn delete_txn(&self, id: &str) -> Result<(), MetaError> {
+        let _one_at_a_time = lock(&self.write);
+        let txn = self.begin()?;
+        {
+            let mut table = txn.open_table(TXNS)?;
+            table.remove(id)?;
+        }
+        txn.commit()?;
+        Ok(())
+    }
+
     /// Every transactional id's record, by id.
     ///
     /// # Errors

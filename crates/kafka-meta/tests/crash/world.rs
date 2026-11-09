@@ -116,7 +116,7 @@ impl World {
             if self.store.is_none() {
                 return;
             }
-            let what = match self.rng.below(20) {
+            let what = match self.rng.below(21) {
                 0..=3 => self.create(),
                 4..=5 => self.delete(),
                 6..=8 => self.producer_id(),
@@ -126,6 +126,7 @@ impl World {
                 15 => self.delete_group_offsets(),
                 16 => self.forget_life(),
                 18..=19 => self.txn(),
+                20 => self.forget_txn(),
                 17 if self.rng.below(2) == 0 => self.shutdown(),
                 _ => self.restart(),
             };
