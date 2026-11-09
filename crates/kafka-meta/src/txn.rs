@@ -42,11 +42,16 @@ pub struct TxnRecord {
     pub id: String,
     pub producer_id: i64,
     pub epoch: i16,
+    /// The epoch before the last bump (-1: none), so that a producer asking again with the epoch it had, because the
+    /// answer was lost, is given the same answer and not fenced.
+    pub last_epoch: i16,
+    /// The producer id before the last rotation (an id whose epochs ran out gets a new producer id), -1 if none.
+    pub prev_producer_id: i64,
     pub timeout_ms: i32,
     pub state: TxnState,
     /// When the transaction began, in ms since the epoch.
     pub started_ms: i64,
-    /// When the record last changed: the transaction's timeout counts from it.
+    /// When the record last changed: an id nobody has touched for a long time is forgotten from it.
     pub updated_ms: i64,
     /// The partitions the transaction writes to (topic, partition).
     pub partitions: Vec<(String, i32)>,
@@ -63,6 +68,8 @@ impl TxnRecord {
             id: id.to_owned(),
             producer_id: -1,
             epoch: -1,
+            last_epoch: -1,
+            prev_producer_id: -1,
             timeout_ms: 0,
             state: TxnState::Empty,
             started_ms: 0,

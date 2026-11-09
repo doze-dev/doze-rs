@@ -202,9 +202,9 @@ impl<F: Fs> Broker<F> {
             }
             Request::ConsumerGroupDescribe(r) => self.consumer_group_describe(&r).await,
             Request::DescribeProducers(r) => self.describe_producers(&r).await,
-            Request::InitProducerId(r) => {
-                respond(Response::InitProducerId(self.init_producer_id(&r).await))
-            }
+            Request::InitProducerId(r) => respond(Response::InitProducerId(
+                self.init_producer_id(head.version, &r).await,
+            )),
             Request::AddPartitionsToTxn(r) => self.add_partitions_to_txn(head.version, &r).await,
             Request::AddOffsetsToTxn(r) => self.add_offsets_to_txn(head.version, &r).await,
             Request::EndTxn(r) => self.end_txn_request(head.version, &r).await,

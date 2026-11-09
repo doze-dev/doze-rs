@@ -27,6 +27,57 @@ pub(crate) fn fenced_as(code: E, version: i16, from: i16) -> E {
     }
 }
 
+/// What InitProducerId does to a transactional id whose transaction is over (or was never begun).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Init {
+    /// The same producer id at the next epoch; `last` is the epoch it had, which a producer asking again may still hold.
+    Bump { last: i16 },
+    /// The epochs of the producer id are used up: a new producer id, at epoch 0.
+    Rotate { last: i16 },
+    /// Asked again with the epoch it had before the last bump (the answer was lost): the same answer, nothing changed.
+    Again,
+}
+
+/// Whether the producer id and epoch an InitProducerId says it holds (KIP-360; `None` if it says none) can be those of
+/// the record. Another producer's are fenced, unless the id is new, or the producer id is the one before a rotation.
+pub(crate) fn expected_is_current(rec: &TxnRecord, expected: Option<(i64, i16)>) -> Result<(), E> {
+    let Some((producer, epoch)) = expected else {
+        return Ok(());
+    };
+    let after_rotation = producer == rec.prev_producer_id && epoch >= i16::MAX - 1;
+    if rec.epoch == -1 || producer == rec.producer_id || after_rotation {
+        Ok(())
+    } else {
+        Err(E::ProducerFenced)
+    }
+}
+
+/// What InitProducerId is to do, given the producer id and epoch the caller says it holds. The epoch it says must be the
+/// record's (a new owner of the id says none), or the one before the last bump.
+pub(crate) fn init(rec: &TxnRecord, expected: Option<(i64, i16)>) -> Result<Init, E> {
+    let used_up = rec.epoch >= i16::MAX - 1;
+    let Some((_, epoch)) = expected else {
+        return Ok(if used_up {
+            Init::Rotate { last: -1 }
+        } else {
+            Init::Bump { last: -1 }
+        });
+    };
+    if epoch == rec.epoch {
+        Ok(if used_up {
+            Init::Rotate { last: rec.epoch }
+        } else {
+            Init::Bump { last: rec.epoch }
+        })
+    } else if rec.epoch == -1 {
+        Ok(Init::Bump { last: -1 })
+    } else if epoch == rec.last_epoch {
+        Ok(Init::Again)
+    } else {
+        Err(E::ProducerFenced)
+    }
+}
+
 /// Partitions or offsets may be added unless the transaction is being ended.
 pub(crate) fn can_add(rec: &TxnRecord) -> Option<E> {
     matches!(rec.state, TxnState::PrepareCommit | TxnState::PrepareAbort)

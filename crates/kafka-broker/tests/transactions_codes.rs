@@ -140,3 +140,58 @@ async fn a_transaction_times_out_from_when_it_began_whatever_is_added_to_it_sinc
         "aborted by the broker 1.2 s after it began, though a partition was added at 0.7 s"
     );
 }
+
+async fn init_with(rig: &Rig, version: i16, pair: (i64, i16)) -> (i16, i64, i16) {
+    let mut req = kafka_wire::messages::InitProducerIdRequest::default();
+    req.transactional_id = Some(TransactionalId(text("tx")));
+    req.transaction_timeout_ms = 60_000;
+    req.producer_id = ProducerId(pair.0);
+    req.producer_epoch = pair.1;
+    let Response::InitProducerId(r) = rig.ask(version, Request::InitProducerId(req)).await else {
+        panic!("not InitProducerId")
+    };
+    (r.error_code, r.producer_id.0, r.producer_epoch)
+}
+
+#[tokio::test]
+async fn a_producer_that_says_what_it_holds_is_bumped_asked_again_it_is_answered_alike_and_a_stranger_is_fenced()
+ {
+    const INVALID_REQUEST: i16 = 42;
+    let (rig, t) = started().await;
+    // The owner bumps itself.
+    assert_eq!(
+        init_with(&rig, 4, (t.producer, t.epoch)).await,
+        (0, t.producer, t.epoch + 1)
+    );
+    // The answer was lost and it asks again with what it had: the same answer, not another bump.
+    assert_eq!(
+        init_with(&rig, 4, (t.producer, t.epoch)).await,
+        (0, t.producer, t.epoch + 1)
+    );
+    // A producer at an epoch that has gone, or of another id, is fenced (version 3 has no such code).
+    assert_eq!(
+        init_with(&rig, 4, (t.producer, t.epoch + 5)).await.0,
+        PRODUCER_FENCED
+    );
+    assert_eq!(
+        init_with(&rig, 3, (t.producer, t.epoch + 5)).await.0,
+        INVALID_PRODUCER_EPOCH
+    );
+    assert_eq!(
+        init_with(&rig, 4, (t.producer + 1, t.epoch + 1)).await.0,
+        PRODUCER_FENCED
+    );
+    // A new owner (it says nothing) takes the id; the old one, holding what it held, is fenced and cannot take it back.
+    let new = init_with(&rig, 4, (-1, -1)).await;
+    assert_eq!(new, (0, t.producer, t.epoch + 2));
+    assert_eq!(
+        init_with(&rig, 4, (t.producer, t.epoch + 1)).await.0,
+        PRODUCER_FENCED
+    );
+    // Half a pair is not one.
+    assert_eq!(
+        init_with(&rig, 4, (t.producer, -1)).await.0,
+        INVALID_REQUEST
+    );
+    assert_eq!(init_with(&rig, 4, (-1, 2)).await.0, INVALID_REQUEST);
+}

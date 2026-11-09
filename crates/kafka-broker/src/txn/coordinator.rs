@@ -35,37 +35,54 @@ impl<F: Fs> Broker<F> {
 
     /// InitProducerId for a transactional id: makes the caller the owner, fences whoever held the id, and decides what
     /// was left open. The producer id and epoch it is to use.
+    ///
+    /// `expected` is the producer id and epoch the caller says it holds (KIP-360), if it says: they must be the id's, or
+    /// the epoch before the last bump (then the answer is the one it was given and lost), else it is fenced. A caller
+    /// that says none is a new owner and takes the id over.
     pub(crate) async fn init_txn_producer(
         &self,
         id: &str,
         timeout_ms: i32,
+        expected: Option<(i64, i16)>,
     ) -> Result<(i64, i16), E> {
         if timeout_ms <= 0 || timeout_ms > rules::MOST_TIMEOUT_MS {
             return Err(E::InvalidTransactionTimeout);
         }
         let mut e = self.txns.lock_or_create(id).await;
-        let (mut producer, mut epoch) = (e.rec.producer_id, e.rec.epoch);
+        rules::expected_is_current(&e.rec, expected)?;
         match e.rec.state {
-            TxnState::Empty if producer < 0 => {
-                producer = self.next_txn_producer_id()?;
-                epoch = -1;
+            TxnState::Empty if e.rec.producer_id < 0 => {
+                let producer = self.next_txn_producer_id()?;
+                self.update_txn(&mut e, |rec| rec.producer_id = producer)
+                    .await?;
             }
             TxnState::Ongoing | TxnState::PrepareAbort => {
                 // The previous owner's transaction is aborted; its markers carry the new epoch.
                 self.abort_fencing(&mut e).await?;
-                (producer, epoch) = (e.rec.producer_id, e.rec.epoch);
             }
             TxnState::PrepareCommit => self.finish_txn(&mut e, true).await?,
             _ => {}
         }
-        if epoch >= i16::MAX - 1 {
-            // Epochs are used up: a new producer id, and epoch 0 again.
-            producer = self.next_txn_producer_id()?;
-            epoch = -1;
-        }
+        let step = rules::init(&e.rec, expected)?;
+        let fresh = match step {
+            rules::Init::Again => return Ok((e.rec.producer_id, e.rec.epoch)),
+            rules::Init::Rotate { .. } => Some(self.next_txn_producer_id()?),
+            rules::Init::Bump { .. } => None,
+        };
         self.update_txn(&mut e, |rec| {
-            rec.producer_id = producer;
-            rec.epoch = epoch + 1;
+            match (step, fresh) {
+                (rules::Init::Rotate { last }, Some(producer)) => {
+                    rec.prev_producer_id = rec.producer_id;
+                    rec.producer_id = producer;
+                    rec.epoch = 0;
+                    rec.last_epoch = last;
+                }
+                (rules::Init::Bump { last }, _) => {
+                    rec.epoch = rec.epoch.saturating_add(1);
+                    rec.last_epoch = last;
+                }
+                _ => {}
+            }
             rec.state = TxnState::Empty;
             rec.timeout_ms = timeout_ms;
             rec.partitions.clear();
@@ -87,6 +104,7 @@ impl<F: Fs> Broker<F> {
     /// old producer tries next) carry the new one.
     pub(crate) async fn abort_fencing(&self, e: &mut Entry) -> Result<(), E> {
         self.update_txn(e, |rec| {
+            rec.last_epoch = rec.epoch;
             rec.epoch = rec.epoch.saturating_add(1);
             rec.state = TxnState::PrepareAbort;
         })

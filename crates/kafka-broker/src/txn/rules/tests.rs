@@ -137,3 +137,56 @@ fn a_batch_may_be_written_only_by_the_owner_to_a_partition_of_the_open_transacti
         "no transaction is open"
     );
 }
+
+#[test]
+fn a_producer_says_the_producer_id_and_epoch_it_holds_and_is_fenced_if_they_are_not_the_ids() {
+    let mut r = rec(TxnState::CompleteCommit);
+    r.last_epoch = 1;
+    // Nobody says: a new owner takes the id and its epoch goes up.
+    assert_eq!(init(&r, None), Ok(Init::Bump { last: -1 }));
+    // The owner says what it holds: the next epoch, and the one it had is kept.
+    assert_eq!(expected_is_current(&r, Some((1000, 2))), Ok(()));
+    assert_eq!(init(&r, Some((1000, 2))), Ok(Init::Bump { last: 2 }));
+    // It asks again with the epoch before the bump, because the answer was lost: the same answer.
+    assert_eq!(init(&r, Some((1000, 1))), Ok(Init::Again));
+    // Any other epoch is a producer that has been replaced.
+    assert_eq!(init(&r, Some((1000, 0))), Err(E::ProducerFenced));
+    assert_eq!(init(&r, Some((1000, 3))), Err(E::ProducerFenced));
+    // Another producer id is not the owner's.
+    assert_eq!(
+        expected_is_current(&r, Some((999, 2))),
+        Err(E::ProducerFenced)
+    );
+    // Except that a record that has only just been made has no owner to fence.
+    assert_eq!(
+        expected_is_current(&TxnRecord::new("x"), Some((5, 3))),
+        Ok(())
+    );
+    assert_eq!(
+        init(&TxnRecord::new("x"), Some((5, 3))),
+        Ok(Init::Bump { last: -1 })
+    );
+}
+
+#[test]
+fn when_the_epochs_are_used_up_the_producer_id_is_replaced_and_the_old_one_is_still_known_for_a_retry()
+ {
+    let mut r = rec(TxnState::CompleteAbort);
+    r.epoch = i16::MAX - 1;
+    assert_eq!(init(&r, None), Ok(Init::Rotate { last: -1 }));
+    assert_eq!(
+        init(&r, Some((1000, i16::MAX - 1))),
+        Ok(Init::Rotate { last: i16::MAX - 1 })
+    );
+    // After the rotation the old id with its last epoch is a retry of the rotation, not a stranger.
+    r.producer_id = 2000;
+    r.epoch = 0;
+    r.prev_producer_id = 1000;
+    r.last_epoch = i16::MAX - 1;
+    assert_eq!(expected_is_current(&r, Some((1000, i16::MAX - 1))), Ok(()));
+    assert_eq!(init(&r, Some((1000, i16::MAX - 1))), Ok(Init::Again));
+    assert_eq!(
+        expected_is_current(&r, Some((1000, 3))),
+        Err(E::ProducerFenced)
+    );
+}

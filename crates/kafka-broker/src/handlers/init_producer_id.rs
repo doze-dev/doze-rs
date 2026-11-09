@@ -4,6 +4,7 @@ use kafka_storage::fs::Fs;
 use kafka_wire::ResponseError;
 use kafka_wire::messages::{InitProducerIdRequest, InitProducerIdResponse, ProducerId};
 
+use crate::txn::rules;
 use crate::{Broker, blocking};
 
 /// The longest transactional id kept (it is kept for good, in memory and on disk).
@@ -15,6 +16,7 @@ impl<F: Fs> Broker<F> {
     /// that id's transactions, fencing whoever held it.
     pub(crate) async fn init_producer_id(
         &self,
+        version: i16,
         req: &InitProducerIdRequest,
     ) -> InitProducerIdResponse {
         let mut resp = InitProducerIdResponse::default();
@@ -29,8 +31,14 @@ impl<F: Fs> Broker<F> {
             if id.0.is_empty() || id.0.len() > MOST_BYTES {
                 return refuse(resp, ResponseError::InvalidRequest);
             }
+            // A producer that says which producer id it holds must say its epoch too (KIP-360, version 3).
+            let expected = match (req.producer_id.0, req.producer_epoch) {
+                (-1, -1) => None,
+                (-1, _) | (_, -1) => return refuse(resp, ResponseError::InvalidRequest),
+                (producer, epoch) => Some((producer, epoch)),
+            };
             return match self
-                .init_txn_producer(id.0.as_str(), req.transaction_timeout_ms)
+                .init_txn_producer(id.0.as_str(), req.transaction_timeout_ms, expected)
                 .await
             {
                 Ok((producer, epoch)) => {
@@ -38,7 +46,7 @@ impl<F: Fs> Broker<F> {
                     resp.producer_epoch = epoch;
                     resp
                 }
-                Err(code) => refuse(resp, code),
+                Err(code) => refuse(resp, rules::fenced_as(code, version, 4)),
             };
         }
         match blocking::run(|| self.meta.next_producer_id()) {
