@@ -101,33 +101,41 @@ async fn stopped_at_every_point(commit: bool) {
     assert!(steps > 4, "{steps}");
     for stop in 0..=steps {
         for power in [false, true] {
-            let (rig, t) = open_transaction().await;
-            rig.fs.halt_after(stop);
-            let answer = rig.end_txn("tx", t, commit).await;
-            let disk = if power {
-                rig.fs.power_cut(Cut {
-                    data: DataCut::Drop,
-                    names: NameCut::Durable,
-                    seed: stop,
-                })
-            } else {
-                rig.fs.process_restart()
-            };
-            let after = restarted(disk.process_restart()).await;
-            let what = format!("stop {stop}/{steps}, power {power}, EndTxn answered {answer}");
-            let state = seen(&after).await;
-            assert!(state == Seen::Open || state == decided, "{what}: {state:?}");
-            if answer == 0 {
-                assert_eq!(state, decided, "{what}: acknowledged, so decided");
-            }
-            // The producer, finding the answer lost, asks again: it is decided, once.
-            assert_eq!(after.end_txn("tx", t, commit).await, 0, "{what}");
-            assert_eq!(seen(&after).await, decided, "{what}");
-            // And a second restart finds it as it was.
-            let again = restarted(after.fs.process_restart()).await;
-            assert_eq!(seen(&again).await, decided, "{what}: again");
+            stopped_at(stop, power, commit, &decided, steps).await;
         }
     }
+}
+
+/// A commit or abort stopped after `stop` operations, by a kill or (`power`) a power cut.
+async fn stopped_at(stop: u64, power: bool, commit: bool, decided: &Seen, steps: u64) {
+    let (rig, t) = open_transaction().await;
+    rig.fs.halt_after(stop);
+    let answer = rig.end_txn("tx", t, commit).await;
+    let disk = if power {
+        rig.fs.power_cut(Cut {
+            data: DataCut::Drop,
+            names: NameCut::Durable,
+            seed: stop,
+        })
+    } else {
+        rig.fs.process_restart()
+    };
+    let after = restarted(disk.process_restart()).await;
+    let what = format!("stop {stop}/{steps}, power {power}, EndTxn answered {answer}");
+    let state = seen(&after).await;
+    assert!(
+        state == Seen::Open || state == *decided,
+        "{what}: {state:?}"
+    );
+    if answer == 0 {
+        assert_eq!(state, *decided, "{what}: acknowledged, so decided");
+    }
+    // The producer, finding the answer lost, asks again: it is decided, once.
+    assert_eq!(after.end_txn("tx", t, commit).await, 0, "{what}");
+    assert_eq!(seen(&after).await, *decided, "{what}");
+    // And a second restart finds it as it was.
+    let again = restarted(after.fs.process_restart()).await;
+    assert_eq!(seen(&again).await, *decided, "{what}: again");
 }
 
 #[tokio::test]
