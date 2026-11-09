@@ -221,6 +221,8 @@ pub fn rig_with(tweak: impl FnOnce(&mut Config)) -> Rig {
 }
 
 // (Explicit paths: this file is a test target of its own as well as a module of the others.)
+#[path = "support/consumer.rs"]
+mod consumer;
 #[path = "support/fetch.rs"]
 mod fetch;
 #[path = "support/group_admin.rs"]
@@ -234,5 +236,6 @@ pub use groups::join_request;
 #[path = "support/produce.rs"]
 mod produce;
 
+pub use consumer::{assigned as assigned_848, beat_848, join_848};
 pub use fetch::*;
 pub use produce::*;

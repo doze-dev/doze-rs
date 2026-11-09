@@ -101,6 +101,8 @@ async fn api_versions_lists_only_what_the_broker_serves() {
         ApiKey::InitProducerId,
         ApiKey::DeleteGroups,
         ApiKey::OffsetDelete,
+        ApiKey::ConsumerGroupHeartbeat,
+        ApiKey::ConsumerGroupDescribe,
     ];
     assert_eq!(keys, served.map(|k| k as i16));
 }

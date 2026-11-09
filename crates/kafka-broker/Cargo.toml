@@ -17,6 +17,8 @@ kafka-storage = { path = "../kafka-storage" }
 kafka-meta = { path = "../kafka-meta" }
 thiserror = "2"
 bytes = "1"
+# Regular-expression topic subscriptions (ConsumerGroupHeartbeat v1): small, no dependencies.
+regex-lite = "0.1"
 # Member ids.
 getrandom = "0.4"
 # StreamMap waits on the end offsets of however many partitions a fetch reads.

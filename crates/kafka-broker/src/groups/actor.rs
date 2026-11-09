@@ -2,15 +2,18 @@
 //! answers on the channels the requests came with.
 
 use std::collections::{BTreeMap, HashMap};
+use std::sync::Arc;
 use std::time::Duration;
 
 use kafka_wire::ResponseError;
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::{Instant, sleep_until};
 
+use super::consumer::{Heartbeat, HeartbeatAnswer, TopicSource};
+use super::group::Group;
 use super::machine::{
-    Answer, CommitRequest, Effect, Event, GroupMachine, HeartbeatRequest, JoinAnswer, JoinRequest,
-    LeaveTarget, Millis, SyncRequest, TimerKey, TimerKind, Token,
+    Answer, CommitRequest, Effect, Event, HeartbeatRequest, JoinAnswer, JoinRequest, LeaveTarget,
+    Millis, SyncRequest, TimerKey, TimerKind, Token,
 };
 
 /// A request for the group.
@@ -23,6 +26,8 @@ pub(crate) enum Req {
     Commit(CommitRequest),
     Describe,
     Delete,
+    ConsumerHeartbeat(Heartbeat),
+    TopicsChanged,
 }
 
 /// A request and where its answer goes. If the sender is dropped without an answer the request was replaced by a
@@ -91,16 +96,16 @@ struct Keeper<R: Records> {
 impl<R: Records> Keeper<R> {
     /// A member is not seated before the group's record says it has members, or its commits could be stored under a
     /// record that says nobody is there and be expired as an empty group's. `false`: the record could not be written.
-    fn may_seat(&mut self, machine: &GroupMachine, req: &JoinRequest) -> bool {
+    fn may_seat(&mut self, group: &Group, event: &Event) -> bool {
         // A join that will be refused seats nobody and so needs no record (one would pin the group's offsets for ever).
-        if !machine.would_seat(req) {
+        let Some(seating) = group.seating(event) else {
             return true;
-        }
-        let session = u32::try_from(req.session_ms).unwrap_or(0);
-        if (machine.member_count() == 0 || session > self.session)
+        };
+        let session = u32::try_from(seating.session_ms).unwrap_or(0);
+        if (group.member_count() == 0 || session > self.session)
             && !self
                 .records
-                .live(session.max(self.session), &req.protocol_type)
+                .live(session.max(self.session), &seating.protocol_type)
         {
             return false;
         }
@@ -110,7 +115,7 @@ impl<R: Records> Keeper<R> {
 
     /// The machine has taken an event: if that took its last member, say so; if it has members, the record that it
     /// had none is out of date.
-    fn after(&mut self, machine: &GroupMachine, had_members: bool) {
+    fn after(&mut self, machine: &Group, had_members: bool) {
         if had_members && machine.member_count() == 0 {
             self.write_empty(machine);
             self.session = 0;
@@ -119,7 +124,7 @@ impl<R: Records> Keeper<R> {
         }
     }
 
-    fn write_empty(&mut self, machine: &GroupMachine) {
+    fn write_empty(&mut self, machine: &Group) {
         let written = self
             .records
             .empty(machine.protocol_type().unwrap_or(""), wall_ms());
@@ -129,9 +134,10 @@ impl<R: Records> Keeper<R> {
 
 /// Runs the group until every sender of commands is gone.
 pub(super) async fn run(
-    mut machine: GroupMachine,
+    mut machine: Group,
     mut commands: mpsc::Receiver<Command>,
     records: impl Records,
+    topics: Arc<dyn TopicSource>,
 ) {
     let start = Instant::now();
     let now = || Millis(u64::try_from(start.elapsed().as_millis()).unwrap_or(u64::MAX));
@@ -150,7 +156,10 @@ pub(super) async fn run(
                 let Some(Command { req, reply }) = command else { break };
                 tokens += 1;
                 let token = Token(tokens);
-                waiting.insert(token, reply);
+                // Nobody waits for the answer to "the topics changed".
+                if !matches!(req, Req::TopicsChanged) {
+                    waiting.insert(token, reply);
+                }
                 event_of(token, req)
             }
             () = sleep_or_wait_forever(keeper.unwritten_empty) => {
@@ -162,17 +171,16 @@ pub(super) async fn run(
                 None => continue,
             },
         };
-        if let Event::Join(token, req) = &event
-            && !keeper.may_seat(&machine, req)
-        {
-            if let Some(reply) = waiting.remove(token) {
-                let refused = JoinAnswer::refused(ResponseError::CoordinatorNotAvailable, None);
-                let _ = reply.send(Answer::Join(refused));
+        if !keeper.may_seat(&machine, &event) {
+            if let Some((token, refused)) = unavailable(&event)
+                && let Some(reply) = waiting.remove(&token)
+            {
+                let _ = reply.send(refused);
             }
             continue;
         }
         let had_members = machine.member_count() > 0;
-        let effects = machine.step(event, now());
+        let effects = machine.step(event, now(), topics.as_ref());
         keeper.after(&machine, had_members);
         // A group deleted while empty is gone: the registry has taken it out, and nothing is left to run.
         if apply(effects, &mut waiting, &mut timers) {
@@ -228,5 +236,28 @@ fn event_of(token: Token, req: Req) -> Event {
         Req::Commit(r) => Event::Commit(token, r),
         Req::Describe => Event::Describe(token),
         Req::Delete => Event::Delete(token),
+        Req::ConsumerHeartbeat(r) => Event::ConsumerHeartbeat(token, r),
+        Req::TopicsChanged => Event::TopicsChanged,
+    }
+}
+
+/// What a request that needed the group recorded is answered when it could not be.
+fn unavailable(event: &Event) -> Option<(Token, Answer)> {
+    match event {
+        Event::Join(token, _) => Some((
+            *token,
+            Answer::Join(JoinAnswer::refused(
+                ResponseError::CoordinatorNotAvailable,
+                None,
+            )),
+        )),
+        Event::ConsumerHeartbeat(token, _) => Some((
+            *token,
+            Answer::ConsumerHeartbeat(HeartbeatAnswer::refused(
+                ResponseError::CoordinatorNotAvailable,
+                "the group's members could not be recorded; try again",
+            )),
+        )),
+        _ => None,
     }
 }

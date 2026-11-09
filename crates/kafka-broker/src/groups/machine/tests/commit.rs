@@ -56,6 +56,7 @@ fn a_static_members_instance_is_checked_as_well() {
     let told = g.joined(t);
     let member = told.member_id.unwrap();
     let mut req = CommitRequest {
+        version: 8,
         member_id: Some(member.clone()),
         instance: Some(instance("i")),
         generation: 1,

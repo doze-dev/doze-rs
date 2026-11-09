@@ -21,7 +21,10 @@ impl<F: Fs> Broker<F> {
     /// others.
     pub(crate) async fn create_topics(&self, req: &CreateTopicsRequest) -> CreateTopicsResponse {
         let _one_change_at_a_time = self.topic_admin.lock().await;
-        crate::blocking::run(|| self.create_each(req))
+        let resp = crate::blocking::run(|| self.create_each(req));
+        // Consumer groups that subscribed before a topic existed are waiting for it.
+        self.groups.topics_changed().await;
+        resp
     }
 
     fn create_each(&self, req: &CreateTopicsRequest) -> CreateTopicsResponse {

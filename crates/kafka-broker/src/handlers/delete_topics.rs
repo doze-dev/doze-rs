@@ -62,6 +62,7 @@ impl<F: Fs> Broker<F> {
         blocking::run(|| self.clear_topic_data(&topic));
         // Fetches waiting on the topic have an answer now: it is gone.
         self.topics_changed.send_modify(|n| *n += 1);
+        self.groups.topics_changed().await;
         r
     }
 

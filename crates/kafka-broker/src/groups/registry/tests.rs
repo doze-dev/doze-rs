@@ -16,7 +16,17 @@ fn groups() -> Groups {
     let fs = SimFs::new();
     kafka_storage::fs::create_dirs_durably(&fs, Path::new("/data")).unwrap();
     let meta = Arc::new(MetaStore::open(&fs, Path::new("/data")).unwrap());
-    Groups::new(0, meta)
+    Groups::new(
+        Settings {
+            initial_delay_ms: 0,
+            consumer: crate::groups::ConsumerConfig {
+                session_ms: 45_000,
+                assign_interval_ms: 1_000,
+            },
+            ids: member_ids,
+        },
+        meta,
+    )
 }
 
 fn group(name: &str) -> GroupId {

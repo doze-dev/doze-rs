@@ -71,7 +71,7 @@ impl Groups {
 }
 
 /// Member ids: `doze-` and 32 hex digits, behind the instance id for a static member.
-pub(super) fn member_ids() -> IdSource {
+pub(crate) fn member_ids() -> IdSource {
     Box::new(new_member_id)
 }
 

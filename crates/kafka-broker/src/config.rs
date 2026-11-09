@@ -62,6 +62,11 @@ pub struct Config {
     pub offsets_retention: Duration,
     /// How often the offsets are looked at; `None`: a hundredth of the retention, between 50 ms and ten minutes.
     pub offsets_check_every: Option<Duration>,
+    /// How long a member of a consumer group of the new protocol may be silent before it is removed.
+    pub consumer_session_timeout: Duration,
+    /// The least time between two computations of a consumer group's target assignment (Kafka's
+    /// `group.consumer.assignment.interval.ms`).
+    pub consumer_assignment_interval: Duration,
 }
 
 impl Config {
@@ -81,6 +86,8 @@ impl Config {
             group_initial_rebalance_delay: Duration::from_millis(200),
             offsets_retention: Duration::from_secs(7 * 24 * 3600),
             offsets_check_every: None,
+            consumer_session_timeout: Duration::from_secs(45),
+            consumer_assignment_interval: Duration::from_secs(1),
         }
     }
 }

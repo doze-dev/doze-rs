@@ -48,6 +48,12 @@ impl<F: Fs> Broker<F> {
             }
             return out;
         };
+        // A consumer group is not described by the classic API: it is Dead here, as on Kafka, and ConsumerGroupDescribe
+        // has it.
+        if d.consumer.is_some() {
+            out.group_state = StrBytes::from_static_str("Dead");
+            return out;
+        }
         fill(&mut out, d);
         out
     }

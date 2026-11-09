@@ -3,7 +3,7 @@
 Status: **approved in part, 2026-11-08** (written after four feasibility spikes; the owner answered
 the open decisions the same day, see "Decisions"). Nothing here is built yet. Items marked
 **PROPOSED** are my recommendation and still need the owner's yes; items marked **SETTLED** come from
-the owner's own words. Scope review applied 2026-11-09 (see `SCOPE.md`; decisions D1 to D9 answered, edits E1 to E17 applied below). Still open: the console's build (the direction is chosen: Paper).
+the owner's own words. Scope review applied 2026-11-09 (see `SCOPE.md`; decisions D1 to D9 answered, edits E1 to E17 applied below). Still open: the console's build (the direction is chosen: Paper). How the port is run (five loops, scoreboard, stages with go/no-go) is in `phase0.md` and `scoreboard.md`, approved 2026-11-09.
 
 Target: this workspace (`~/Code/doze-dev/doze-rs`), beside the doze-kafka port (`../PLAN.md`).
 Domain reference: `~/Code/doze-dev/doze-aws` (Go, 17 services, about 138k lines of production Go,
@@ -226,7 +226,7 @@ calendar time. "Console" is that service's pages built to the dream-design board
 
 | # | Phase | Gate | API | Console |
 |---|---|---|---|---|
-| A0 | **Rails.** `docs/port/aws/` (this plan, `weight.md`, `oracle.md`), xtask additions (`codegen`, `weight`, `conformance`), CI for the new crates on Linux x86_64 and aarch64, macOS arm64 and Windows x86_64, Go-side `CONFORMANCE_BIN` use for doze-aws scenarios | conformance harness runs the boto3 scenarios against the **Go** doze-aws binary through the process target; CI green on all four targets | 2 to 3 | 0 |
+| A0 | **Instruments before product** (detail and status in `phase0.md`; spikes S1 to S6 run beside it). A dedicated recorder account (`doze-recorder`, Identity Center, SCP); record the existing boto3 conformance suite (`doze-aws/conformance`, `CONFORMANCE_RECORD=1`) and run it against Go for a measured baseline; xtask `weight`, `conformance`, `gates` (today xtask has only `lint-size` and `fuzz-check`); CI on Linux x86_64 and aarch64, macOS arm64, Windows x86_64 (today ubuntu and macos only); limit prober v0; `scoreboard.md` | Go baseline fidelity number exists; `cargo xtask weight|conformance|gates` run; CI green on all four targets | 6 to 9 | 0 |
 | A1 | **Shared kit.** Extract `doze-fs`, `doze-store`, `doze-runtime` from the kafka crates; decide whether `doze-log` generalises (small spike first). Kafka stays green and its weight unchanged | kafka gates pass unchanged; the lifecycle pattern has the spike's tests | 4 to 6 | 0 |
 | A2 | **Model and codegen.** `xtask codegen` (IR, types, newtypes, `Operation`, schema tables), overlays, the table-driven decoder proved on **SSM and S3 first** (the two largest) | a use-everything build of all 18 models, decode tables included, has a stated size ceiling (target 3 MiB at fat LTO); `--check` clean; clippy clean under the workspace lints | 5 to 8 | 0 |
 | A3 | **Wire and auth.** `aws-wire` (five codecs, fuzzed), `aws-auth` (SigV4 headers, presigned, chunked and trailer payloads, clock skew, typed `Principal`), `aws-gateway` (router, dispatch, limits, `Expect: 100-continue`) | spike B's client matrix (Rust SDK, boto3, CLI) passes against stub services; fuzz targets clean; 1 GiB upload peak RSS flat | 8 to 12 | 0 |

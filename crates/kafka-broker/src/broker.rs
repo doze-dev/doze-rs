@@ -11,7 +11,7 @@ use kafka_wire::header::RequestHead;
 use kafka_wire::messages::ApiKey;
 use kafka_wire::profile::ApiSet;
 
-use crate::groups::Groups;
+use crate::groups::{ConsumerConfig, Groups, Settings, member_ids};
 use crate::partitions::Partitions;
 use crate::{BrokerError, Config, Listener, Outcome, blocking};
 
@@ -39,6 +39,8 @@ const SERVED: &[ApiKey] = &[
     ApiKey::DescribeGroups,
     ApiKey::ListGroups,
     ApiKey::DeleteGroups,
+    ApiKey::ConsumerGroupHeartbeat,
+    ApiKey::ConsumerGroupDescribe,
 ];
 
 /// The broker, over a file system (the real one, or a simulated disk in tests).
@@ -73,8 +75,16 @@ impl<F: Fs> Broker<F> {
         let stop = StopState::begin(&fs, &config.data_dir)?;
         let partitions =
             Partitions::new(fs.clone(), config.clone(), stop.clone(), Arc::clone(&meta));
+        let millis = |d: std::time::Duration| u64::try_from(d.as_millis()).unwrap_or(u64::MAX);
         let groups = Groups::new(
-            u64::try_from(config.group_initial_rebalance_delay.as_millis()).unwrap_or(u64::MAX),
+            Settings {
+                initial_delay_ms: millis(config.group_initial_rebalance_delay),
+                consumer: ConsumerConfig {
+                    session_ms: millis(config.consumer_session_timeout),
+                    assign_interval_ms: millis(config.consumer_assignment_interval),
+                },
+                ids: member_ids,
+            },
             Arc::clone(&meta),
         );
         Ok(Self {
@@ -161,12 +171,21 @@ impl<F: Fs> Broker<F> {
             Request::SyncGroup(r) => self.sync_group(&r).await,
             Request::Heartbeat(r) => self.heartbeat(&r).await,
             Request::LeaveGroup(r) => self.leave_group(head.version, &r).await,
-            Request::OffsetCommit(r) => self.offset_commit(&r).await,
+            Request::OffsetCommit(r) => self.offset_commit(head.version, &r).await,
             Request::OffsetFetch(r) => self.offset_fetch(&r),
             Request::OffsetDelete(r) => self.offset_delete(&r).await,
             Request::DescribeGroups(r) => self.describe_groups(&r).await,
             Request::ListGroups(r) => self.list_groups(&r).await,
             Request::DeleteGroups(r) => self.delete_groups(&r).await,
+            Request::ConsumerGroupHeartbeat(r) => {
+                self.consumer_group_heartbeat(
+                    head.version,
+                    head.client_id.as_deref().unwrap_or(""),
+                    &r,
+                )
+                .await
+            }
+            Request::ConsumerGroupDescribe(r) => self.consumer_group_describe(&r).await,
             Request::InitProducerId(r) => respond(Response::InitProducerId(blocking::run(|| {
                 self.init_producer_id(&r)
             }))),
@@ -190,8 +209,6 @@ impl<F: Fs> Broker<F> {
             | Request::DescribeProducers(_)
             | Request::DescribeTransactions(_)
             | Request::ListTransactions(_)
-            | Request::ConsumerGroupHeartbeat(_)
-            | Request::ConsumerGroupDescribe(_)
             | Request::GetTelemetrySubscriptions(_)
             | Request::PushTelemetry(_) => Outcome::Close,
         }

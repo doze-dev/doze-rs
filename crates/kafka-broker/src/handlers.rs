@@ -1,5 +1,7 @@
 //! One file per API: the request in, the response out.
 
+mod consumer_group_describe;
+mod consumer_group_heartbeat;
 mod create_topics;
 mod delete_groups;
 mod delete_topics;

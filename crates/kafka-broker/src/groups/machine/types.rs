@@ -104,11 +104,15 @@ pub(crate) struct Description {
     /// The topics its members subscribe to; `None` if that cannot be said (not a consumer group, or a member's
     /// subscription is unreadable).
     pub(crate) subscribed: Option<std::collections::BTreeSet<String>>,
+    /// Set if this is a consumer group, which the classic APIs do not describe.
+    pub(crate) consumer: Option<crate::groups::consumer::ConsumerView>,
 }
 
 /// An OffsetCommit, as far as the group is concerned: may it be stored?
 #[derive(Debug, Clone)]
 pub(crate) struct CommitRequest {
+    /// The version of the OffsetCommit.
+    pub(crate) version: i16,
     /// Who commits, if it says.
     pub(crate) member_id: Option<MemberId>,
     /// Its static instance id, if it has one.
@@ -222,6 +226,8 @@ pub(crate) enum Answer {
     Describe(Description),
     /// To a request to delete the group: why not, if not.
     Delete(Option<ResponseError>),
+    /// To a ConsumerGroupHeartbeat.
+    ConsumerHeartbeat(crate::groups::consumer::HeartbeatAnswer),
 }
 
 /// Which clock a timer is.
@@ -233,6 +239,8 @@ pub(crate) enum TimerKind {
     Rebalance,
     /// The initial rebalance delay's current window.
     Hold,
+    /// A consumer group member's time to give up what it was told to.
+    Revoke(MemberId),
 }
 
 /// A timer that has run out. The generation tells a stale one (re-armed since) from the current.
@@ -261,6 +269,10 @@ pub(crate) enum Event {
     Describe(Token),
     /// Someone wants the group gone.
     Delete(Token),
+    /// A ConsumerGroupHeartbeat arrived.
+    ConsumerHeartbeat(Token, crate::groups::consumer::Heartbeat),
+    /// A topic was made, grown or deleted.
+    TopicsChanged,
     /// A timer ran out.
     Timer(TimerKey),
 }

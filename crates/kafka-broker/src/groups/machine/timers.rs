@@ -31,6 +31,8 @@ impl GroupMachine {
                 }
             }
             TimerKind::Hold => self.window_ended(key.generation, now, out),
+            // A consumer group's timer: not this machine's.
+            TimerKind::Revoke(_) => {}
         }
     }
 

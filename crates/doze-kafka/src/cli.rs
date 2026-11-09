@@ -61,6 +61,9 @@ pub(crate) struct Args {
     /// How long the first rebalance of an empty consumer group waits for more members to join (0 = not at all).
     #[arg(long, default_value = "200ms", value_parser = duration::parse)]
     group_initial_rebalance_delay: Duration,
+    /// How long a member of a consumer group of the new protocol (KIP-848) may be silent before it is removed.
+    #[arg(long, default_value = "45s", value_parser = duration::parse)]
+    consumer_session_timeout: Duration,
     /// Kafka major version to stand for (1-4).
     #[arg(long, default_value_t = 4)]
     kafka_version: u8,
@@ -93,8 +96,6 @@ pub(crate) struct Args {
     // Accepted and ignored until the phase that has them.
     #[arg(long, hide = true)]
     meta_db: Option<String>,
-    #[arg(long, hide = true)]
-    consumer_session_timeout: Option<String>,
     #[arg(long, hide = true)]
     acl_default: Option<String>,
     #[arg(long, hide = true, value_delimiter = ',')]
@@ -168,6 +169,12 @@ impl Args {
         broker.max_partitions = self.max_partitions;
         broker.fsync_interval = self.fsync_interval;
         broker.group_initial_rebalance_delay = self.group_initial_rebalance_delay;
+        broker.consumer_session_timeout = self.consumer_session_timeout;
+        // A test knob no flag covers: the least time between two computations of a consumer group's assignment.
+        if let Some(v) = std::env::var_os("DOZE_KAFKA_TEST_ASSIGNMENT_INTERVAL") {
+            broker.consumer_assignment_interval = duration::parse(&v.to_string_lossy())
+                .map_err(|e| anyhow::anyhow!("DOZE_KAFKA_TEST_ASSIGNMENT_INTERVAL: {e}"))?;
+        }
         broker.offsets_retention = self.offsets_retention;
         broker.max_open_partitions = self.max_open_partitions;
         broker.defaults = Defaults {

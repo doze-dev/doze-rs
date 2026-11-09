@@ -42,6 +42,7 @@ impl GroupMachine {
             protocol_type: self.protocol_type.clone(),
             protocol: self.protocol.clone(),
             subscribed: self.subscribed(&members),
+            consumer: None,
             members,
         }
     }

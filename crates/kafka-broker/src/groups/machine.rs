@@ -134,6 +134,8 @@ impl GroupMachine {
             Event::Describe(token) => self.describe(token, &mut out),
             Event::Delete(token) => self.delete(token, &mut out),
             Event::Timer(key) => self.timer(&key, now, &mut out),
+            // A consumer group's: the owner of the group hands these to the right machine.
+            Event::ConsumerHeartbeat(..) | Event::TopicsChanged => {}
         }
         out
     }

@@ -119,6 +119,7 @@ impl<F: Fs> Broker<F> {
                 warn!(topic = %name, error = %e, "creating a topic a client asked for failed");
             }
         }
+        self.groups.topics_changed().await;
     }
 
     fn described(&self, topic: &Topic) -> MetadataResponseTopic {

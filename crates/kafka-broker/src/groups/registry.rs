@@ -3,20 +3,24 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex as StdMutex};
 
-use kafka_meta::{GroupLife, MetaStore};
+use kafka_meta::MetaStore;
 use kafka_wire::ResponseError;
 use kafka_wire::ids::{GroupId, MemberId};
 use tokio::sync::{Mutex, mpsc, oneshot};
 use tokio::time::Instant;
 
 mod issued;
+mod records;
 
-use super::actor::{self, Command, Records, Req};
+use super::actor::{self, Command, Req};
+use super::consumer::HeartbeatAnswer;
+use super::group::{Group, Settings};
 use super::machine::{
-    Answer, Description, GroupMachine, JoinAnswer, LeaveResult, SyncAnswer, commit_to_no_group,
-    refusal,
+    Answer, Description, JoinAnswer, LeaveResult, SyncAnswer, commit_to_no_group, refusal,
 };
-use issued::{Issued, MOST_ISSUED, member_ids};
+pub(crate) use issued::member_ids;
+use issued::{Issued, MOST_ISSUED};
+use records::{MetaTopics, StoreRecords};
 
 /// How many requests may wait for a group's task before the next sender waits.
 const QUEUE: usize = 64;
@@ -34,7 +38,7 @@ pub(crate) enum Deleted {
 /// The classic consumer groups of the broker.
 #[derive(Debug)]
 pub(crate) struct Groups {
-    initial_delay_ms: u64,
+    settings: Settings,
     meta: Arc<MetaStore>,
     /// The most ids that may be outstanding at once.
     most_issued: usize,
@@ -47,9 +51,9 @@ pub(crate) struct Groups {
 }
 
 impl Groups {
-    pub(crate) fn new(initial_delay_ms: u64, meta: Arc<MetaStore>) -> Self {
+    pub(crate) fn new(settings: Settings, meta: Arc<MetaStore>) -> Self {
         Self {
-            initial_delay_ms,
+            settings,
             meta,
             most_issued: MOST_ISSUED,
             open: Mutex::new(HashMap::new()),
@@ -103,7 +107,7 @@ impl Groups {
                     // the broker gave it. One with an id nobody gave it is told so without making anything (or an
                     // id-only client would leave a group behind for each id it made up).
                     None if can_begin(&req) => {
-                        let sender = self.start(group);
+                        let sender = self.start(group, &req);
                         open.insert(group.clone(), sender.clone());
                         sender
                     }
@@ -164,6 +168,21 @@ impl Groups {
         out
     }
 
+    /// Tells every group in memory that a topic was made, grown or deleted. Not waited for.
+    pub(crate) async fn topics_changed(&self) {
+        let senders: Vec<mpsc::Sender<Command>> =
+            self.open.lock().await.values().cloned().collect();
+        for sender in senders {
+            let (reply, _) = oneshot::channel();
+            let _ = sender
+                .send(Command {
+                    req: Req::TopicsChanged,
+                    reply,
+                })
+                .await;
+        }
+    }
+
     /// Deletes a group that has no members, and runs `cleanup` (forgetting what is stored of it) before any join can make
     /// the group again: a group made meanwhile would have its record wiped by it. Not run if the group has members.
     pub(crate) async fn delete_with<R>(
@@ -203,59 +222,35 @@ impl Groups {
         (outcome, Some(cleanup()))
     }
 
-    fn start(&self, group: &GroupId) -> mpsc::Sender<Command> {
+    fn start(&self, group: &GroupId, first: &Req) -> mpsc::Sender<Command> {
         let (sender, commands) = mpsc::channel(QUEUE);
-        let machine = GroupMachine::new(self.initial_delay_ms, member_ids());
+        let machine = match first {
+            Req::ConsumerHeartbeat(_) => Group::consumer(self.settings),
+            _ => Group::classic(self.settings),
+        };
         let records = StoreRecords {
             meta: Arc::clone(&self.meta),
             group: group.clone(),
         };
-        tokio::spawn(actor::run(machine, commands, records));
+        tokio::spawn(actor::run(
+            machine,
+            commands,
+            records,
+            Arc::new(MetaTopics(Arc::clone(&self.meta))),
+        ));
         sender
-    }
-}
-
-/// A group's records, in the metadata database.
-struct StoreRecords {
-    meta: Arc<MetaStore>,
-    group: GroupId,
-}
-
-impl StoreRecords {
-    fn write(&self, life: &GroupLife) -> bool {
-        match crate::blocking::run(|| self.meta.set_group_life(&self.group, life)) {
-            Ok(()) => true,
-            Err(e) => {
-                tracing::error!(group = %self.group, error = %e, "writing what is known of a group's members failed");
-                false
-            }
-        }
-    }
-}
-
-impl Records for StoreRecords {
-    fn live(&self, session_ms: u32, protocol_type: &str) -> bool {
-        self.write(&GroupLife {
-            live: true,
-            session_ms,
-            empty_since_ms: None,
-            protocol_type: protocol_type.to_owned(),
-        })
-    }
-
-    fn empty(&self, protocol_type: &str, now_ms: i64) -> bool {
-        self.write(&GroupLife {
-            live: false,
-            session_ms: 0,
-            empty_since_ms: Some(now_ms),
-            protocol_type: protocol_type.to_owned(),
-        })
     }
 }
 
 /// Whether a request may make a group that is not there: a JoinGroup from a client with no id, or with one it was given.
 fn can_begin(req: &Req) -> bool {
-    matches!(req, Req::Join(j) if j.member_id.is_none() || (j.issued && j.instance.is_none()))
+    match req {
+        Req::Join(j) => j.member_id.is_none() || (j.issued && j.instance.is_none()),
+        // A consumer group is begun by a member joining it; one that keeps on, or leaves, a group that is not there
+        // is told so.
+        Req::ConsumerHeartbeat(h) => h.epoch == 0,
+        _ => false,
+    }
 }
 
 /// What a group that does not exist says to anything but a join: it has no such member. (A request to describe or
@@ -276,7 +271,18 @@ fn unknown(req: &Req) -> Option<Answer> {
                 })
                 .collect(),
         ),
-        Req::Describe | Req::Delete => return None,
+        Req::ConsumerHeartbeat(h) => {
+            let words = if h.epoch < 0 {
+                format!("Group {} not found.", h.group)
+            } else {
+                format!("Consumer group {} not found.", h.group)
+            };
+            Answer::ConsumerHeartbeat(HeartbeatAnswer::refused(
+                ResponseError::GroupIdNotFound,
+                words,
+            ))
+        }
+        Req::Describe | Req::Delete | Req::TopicsChanged => return None,
     })
 }
 

@@ -16,8 +16,8 @@ use crate::{Broker, Outcome, blocking, clock};
 const MAX_METADATA: usize = 4096;
 
 impl<F: Fs> Broker<F> {
-    pub(crate) async fn offset_commit(&self, req: &OffsetCommitRequest) -> Outcome {
-        let fence = self.commit_fence(req).await;
+    pub(crate) async fn offset_commit(&self, version: i16, req: &OffsetCommitRequest) -> Outcome {
+        let fence = self.commit_fence(version, req).await;
         let mut resp = OffsetCommitResponse::default();
         // Each partition is judged; those that pass are stored together in one write.
         let mut to_store: Vec<OffsetCommit> = Vec::new();
@@ -77,11 +77,12 @@ impl<F: Fs> Broker<F> {
     }
 
     /// May this group's offsets be written by this committer? `None`: yes.
-    async fn commit_fence(&self, req: &OffsetCommitRequest) -> Option<ResponseError> {
+    async fn commit_fence(&self, version: i16, req: &OffsetCommitRequest) -> Option<ResponseError> {
         let Ok(group) = GroupId::parse(req.group_id.as_str()) else {
             return Some(ResponseError::InvalidGroupId);
         };
         let check = CommitRequest {
+            version,
             member_id: MemberId::new(req.member_id.as_str()),
             instance: req
                 .group_instance_id

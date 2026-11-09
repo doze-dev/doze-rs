@@ -176,6 +176,7 @@ impl Group {
         generation: i32,
     ) -> Option<ResponseError> {
         let req = CommitRequest {
+            version: 8,
             member_id: member.map(id),
             instance: None,
             generation,
