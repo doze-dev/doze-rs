@@ -83,31 +83,50 @@ async fn a_new_owner_arriving_while_a_produce_spans_two_partitions_neither_waits
     }
 }
 
-/// A batch is never written behind its own transaction's marker: that would hold the last stable offset still for ever.
-/// The transaction is held, for the whole of a Produce request, from the check of a batch until it is queued, and
-/// EndTxn waits for that. (Run on threads: there is no gap between check and queue to fall into on one.)
-#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-async fn a_batch_checked_against_an_open_transaction_is_never_written_after_its_marker() {
-    for round in 0..300 {
-        let rig = Arc::new(rig());
-        rig.create(vec![topic("t", 1)], false).await;
-        let t = rig.init_txn("tx", 60_000).await.unwrap();
-        assert_eq!(rig.add_partitions("tx", t, "t", &[0]).await, [0]);
-        let (r1, r2) = (Arc::clone(&rig), Arc::clone(&rig));
-        let produce = tokio::spawn(async move { r1.produce_txn("tx", t, ("t", 0), 0, 1).await });
-        let end = tokio::spawn(async move { r2.end_txn("tx", t, true).await });
-        let (produced, ended) = (produce.await.unwrap(), end.await.unwrap());
-        assert_eq!(ended, 0, "round {round}");
-        let got = rig.fetch_committed("t", 0, 0).await;
-        assert_eq!(
-            got.last_stable_offset,
-            got.high_watermark,
-            "round {round}: nothing is left open (the batch was {})",
-            if produced.error_code == 0 {
-                "written"
-            } else {
-                "refused"
-            }
-        );
+/// A transaction cannot be ended in the middle of a Produce request that has begun to write to it: the request holds it,
+/// from its first check until its last batch is queued, so a batch checked against the open transaction is never written
+/// behind its marker (which would hold the last stable offset still for ever). Here EndTxn arrives while the request waits
+/// for room in partition 0 and has not yet looked at partition 1.
+#[tokio::test]
+async fn a_transaction_is_not_ended_in_the_middle_of_a_produce_request_that_writes_to_it() {
+    let rig = Arc::new(rig());
+    rig.create(vec![topic("t", 2)], false).await;
+    let t = rig.init_txn("tx", 60_000).await.unwrap();
+    assert!(
+        rig.add_partitions("tx", t, "t", &[0, 1])
+            .await
+            .iter()
+            .all(|c| *c == 0)
+    );
+    let mut others = Vec::new();
+    for _ in 0..40 {
+        let r = Arc::clone(&rig);
+        others.push(tokio::spawn(async move {
+            r.produce(1, "t", 0, records(1)).await;
+        }));
+    }
+    let r = Arc::clone(&rig);
+    let produce = tokio::spawn(async move { r.ask(9, Request::Produce(two_partitions(t))).await });
+    let r = Arc::clone(&rig);
+    let end = tokio::spawn(async move { r.end_txn("tx", t, true).await });
+    let Response::Produce(p) = produce.await.unwrap() else {
+        panic!("not Produce")
+    };
+    assert_eq!(
+        p.responses[0]
+            .partition_responses
+            .iter()
+            .map(|r| r.error_code)
+            .collect::<Vec<_>>(),
+        [0, 0],
+        "both batches were checked against the open transaction"
+    );
+    assert_eq!(end.await.unwrap(), 0);
+    for other in others {
+        other.await.unwrap();
+    }
+    for partition in 0..2 {
+        let got = rig.fetch_committed("t", partition, 0).await;
+        assert_eq!(got.last_stable_offset, got.high_watermark);
     }
 }
