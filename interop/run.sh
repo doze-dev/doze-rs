@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # Starts a release broker on a free port with a fresh data directory, runs the Go clients against it
-# (sarama, franz-go, kafka-go), stops the broker, and exits with the clients' status.
-# Usage: interop/run.sh [-only sarama|franz-go|kafka-go]
+# (sarama, franz-go, kafka-go, librdkafka), stops the broker, and exits with the clients' status.
+# Usage: interop/run.sh [-only <scenario>]   (see interop/README.md)
 set -euo pipefail
+command -v kcat >/dev/null || { echo "interop needs kcat (librdkafka): brew install kcat" >&2; exit 2; }
+command -v go >/dev/null || { echo "interop needs go" >&2; exit 2; }
 here="$(cd "$(dirname "$0")" && pwd)"
 root="$(dirname "$here")"
 work="$(mktemp -d)"

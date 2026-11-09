@@ -1,6 +1,6 @@
-// Command interop drives real Go Kafka clients (sarama, franz-go, kafka-go) against a running broker:
-// produce, read through consumer groups (of one library, and of all three together), then start a new
-// consumer in the same group and check it resumes from what was committed.
+// Command interop drives real Kafka clients (sarama, franz-go, kafka-go, librdkafka through kcat) against a
+// running broker: consumer groups of one library and of several together, a new consumer resuming from what was
+// committed, and a group whose members leave, crash and join while records flow.
 package main
 
 import (
@@ -13,48 +13,68 @@ import (
 	"time"
 )
 
+// member is one running consumer of a group.
+type member struct {
+	// stop leaves the group, which commits what was read.
+	stop func()
+	// kill is an end with no word to the broker, for a client that is a process of its own (nil if not).
+	kill func()
+}
+
 // client is what a scenario needs of a library.
 type client interface {
 	name() string
-	// produce sends values "<from>".."<from+n-1>" to the topic.
+	// produce sends the records "<from>".."<from+n-1>", each with itself as key and as value.
 	produce(ctx context.Context, topic string, from, n int) error
 	// join starts one member of the group using the named assignor ("range" or "roundrobin") and returns
-	// at once. got is called for each value read; fail for an error that ends the member. stop leaves
-	// the group, which commits what was read.
-	join(ctx context.Context, topic, group, assignor string, got func(string), fail func(error)) (stop func(), err error)
+	// at once. got is called for each value read; fail for an error that ends the member.
+	join(ctx context.Context, topic, group, assignor string, got func(string), fail func(error)) (member, error)
 }
+
+// partitions is the size of every topic: at least one for each member of the largest group.
+const partitions = 4
 
 func main() {
 	addr := flag.String("broker", "127.0.0.1:9092", "host:port of the broker")
-	only := flag.String("only", "", "run one scenario: sarama, franz-go, kafka-go, mixed")
+	only := flag.String("only", "", "run one scenario by name")
 	flag.Parse()
-	all := []client{sarama{*addr}, franz{*addr}, segment{*addr}}
-	var scenarios []scenario
+	sar, fra, seg, rdk := sarama{*addr}, franz{*addr}, segment{*addr}, rdkafka{*addr}
+	all := []client{sar, fra, seg, rdk}
+	var scenarios []runner
 	for _, c := range all {
 		scenarios = append(scenarios, scenario{c.name(), []client{c, c}, "range", true})
 	}
 	scenarios = append(scenarios,
-		scenario{"franz-sarama", []client{all[1], all[0]}, "range", false},
-		scenario{"franz-kafka-go", []client{all[1], all[2]}, "range", false},
-		scenario{"sarama-franz", []client{all[0], all[1]}, "range", false},
+		scenario{"franz-sarama", []client{fra, sar}, "range", false},
+		scenario{"franz-kafka-go", []client{fra, seg}, "range", false},
+		scenario{"sarama-franz", []client{sar, fra}, "range", false},
+		scenario{"librdkafka-franz", []client{rdk, fra}, "range", false},
+		scenario{"franz-librdkafka", []client{fra, rdk}, "range", false},
 		scenario{"mixed", all, "range", false},
-		scenario{"mixed-rr", all, "roundrobin", false})
+		scenario{"mixed-rr", all, "roundrobin", false},
+		churn{all})
 	failed := false
 	for _, s := range scenarios {
-		if *only != "" && *only != s.name {
+		if *only != "" && *only != s.title() {
 			continue
 		}
+		start := time.Now()
 		note, err := s.run(*addr)
 		if err != nil {
-			fmt.Printf("FAIL %-9s %v\n", s.name, err)
+			fmt.Printf("FAIL %-17s %v\n", s.title(), err)
 			failed = true
 			continue
 		}
-		fmt.Printf("ok   %-9s %s\n", s.name, note)
+		fmt.Printf("ok   %-17s %4.1fs  %s\n", s.title(), time.Since(start).Seconds(), note)
 	}
 	if failed {
 		os.Exit(1)
 	}
+}
+
+type runner interface {
+	title() string
+	run(addr string) (string, error)
 }
 
 // tally counts the values seen.
@@ -95,44 +115,36 @@ func (t *tally) check(from, n int, exact bool) (extra int, err error) {
 	return extra, nil
 }
 
-// scenario is one group: its members, the assignor they share, and whether each record must arrive once.
-type scenario struct {
-	name     string
-	members  []client
-	assignor string
-	exact    bool
-}
-
 // running is a group's members, started.
 type running struct {
 	members []client
-	reads   []int64
+	live    []member
+	reads   []*int64
 	failed  chan error
-	stops   []func()
 }
 
 func (r *running) stop() {
-	for _, stop := range r.stops {
-		stop()
+	for i := range r.live {
+		if r.live[i].stop != nil {
+			r.live[i].stop()
+		}
 	}
-	r.stops = nil
 }
 
-// start joins each of the members to the group; it returns once they have all been started, not settled.
-func (s scenario) start(ctx context.Context, topic, group string, members []client, t *tally) (*running, error) {
-	r := &running{members: members, reads: make([]int64, len(members)), failed: make(chan error, len(members))}
-	for i, m := range members {
-		count := &r.reads[i]
-		got := func(v string) { atomic.AddInt64(count, 1); t.add(v) }
-		fail := func(err error) { r.failed <- fmt.Errorf("%s: %w", m.name(), err) }
-		stop, err := m.join(ctx, topic, group, s.assignor, got, fail)
-		if err != nil {
-			r.stop()
-			return nil, fmt.Errorf("%s: %w", m.name(), err)
-		}
-		r.stops = append(r.stops, stop)
+// add joins one more member to the group, returning its place in r.
+func (r *running) add(ctx context.Context, m client, topic, group, assignor string, t *tally) (int, error) {
+	r.members = append(r.members, m)
+	count := new(int64)
+	r.reads = append(r.reads, count)
+	i := len(r.members) - 1
+	got := func(v string) { atomic.AddInt64(count, 1); t.add(v) }
+	fail := func(err error) { r.failed <- fmt.Errorf("%s: %w", m.name(), err) }
+	live, err := m.join(ctx, topic, group, assignor, got, fail)
+	if err != nil {
+		return 0, fmt.Errorf("%s: %w", m.name(), err)
 	}
-	return r, nil
+	r.live = append(r.live, live)
+	return i, nil
 }
 
 // until waits for want distinct values.
@@ -151,6 +163,28 @@ func (r *running) until(ctx context.Context, want int, t *tally) error {
 	return nil
 }
 
+// scenario is one group: its members, the assignor they share, and whether each record must arrive once.
+type scenario struct {
+	name     string
+	members  []client
+	assignor string
+	exact    bool
+}
+
+func (s scenario) title() string { return s.name }
+
+// start joins each of the members to the group; it returns once they have all been started, not settled.
+func (s scenario) start(ctx context.Context, topic, group string, members []client, t *tally) (*running, error) {
+	r := &running{failed: make(chan error, 16)}
+	for _, m := range members {
+		if _, err := r.add(ctx, m, topic, group, s.assignor, t); err != nil {
+			r.stop()
+			return nil, err
+		}
+	}
+	return r, nil
+}
+
 func (s scenario) run(addr string) (string, error) {
 	ctx, stop := context.WithTimeout(context.Background(), 90*time.Second)
 	defer stop()
@@ -161,7 +195,8 @@ func (s scenario) run(addr string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("admin: %w", err)
 	}
-	if err := adm.createTopic(topic, 3); err != nil {
+	defer adm.close()
+	if err := adm.createTopic(topic, partitions); err != nil {
 		return "", fmt.Errorf("create topic: %w", err)
 	}
 
@@ -185,10 +220,11 @@ func (s scenario) run(addr string) (string, error) {
 	group1.stop()
 	var split []string
 	for i, m := range s.members {
-		if group1.reads[i] == 0 {
-			return "", fmt.Errorf("member %d (%s) read nothing: %v", i, m.name(), group1.reads)
+		n := atomic.LoadInt64(group1.reads[i])
+		if n == 0 {
+			return "", fmt.Errorf("member %d (%s) read nothing", i, m.name())
 		}
-		split = append(split, fmt.Sprintf("%s=%d", m.name(), group1.reads[i]))
+		split = append(split, fmt.Sprintf("%s=%d", m.name(), n))
 	}
 	extra, err := one.check(0, first, s.exact)
 	if err != nil {

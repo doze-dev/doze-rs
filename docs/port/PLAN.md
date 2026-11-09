@@ -515,3 +515,10 @@ test-only knobs in `internal/config`.
   looked like a broker fault (a franz-go leader, one member reading everything); franz-go's debug log showed the plan
   was right and the records were all in one partition, because franz-go's producer sticks to a partition per batch.
   Test data now keyed. Lesson: read the client's own log before suspecting the broker.
+- **2026-11-09, librdkafka in the set, and a group under churn (owner's asks); CI stays local for now.** The owner wants
+  things perfected locally before any GitHub CI, so the `interop` job added earlier is removed (`interop/run.sh` is run by
+  hand). librdkafka runs through kcat as a process of its own. New scenario `churn`: four libraries in a group while
+  records flow; franz-go leaves, a librdkafka member is killed with SIGKILL (the broker's 6 s session ends it: seen at
+  5.5 s), a sarama member joins; every record is read and every partition ends committed. Checked by mutation: a broker
+  whose sessions never expire fails it. Found: nothing wrong in the broker; two harness mistakes, both the client's
+  ways (kcat `-o beginning` ignores commits; kcat reads no option after a topic).

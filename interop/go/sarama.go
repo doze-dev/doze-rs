@@ -54,10 +54,10 @@ func (h saramaHandler) ConsumeClaim(sess lib.ConsumerGroupSession, claim lib.Con
 	return nil
 }
 
-func (s sarama) join(ctx context.Context, topic, group, assignor string, got func(string), fail func(error)) (func(), error) {
+func (s sarama) join(ctx context.Context, topic, group, assignor string, got func(string), fail func(error)) (member, error) {
 	g, err := lib.NewConsumerGroup([]string{s.addr}, group, s.config(assignor))
 	if err != nil {
-		return nil, err
+		return member{}, err
 	}
 	ctx, cancel := context.WithCancel(ctx)
 	var wg sync.WaitGroup
@@ -72,5 +72,5 @@ func (s sarama) join(ctx context.Context, topic, group, assignor string, got fun
 		}
 	}()
 	// Closing the group commits the offsets marked.
-	return func() { cancel(); wg.Wait(); _ = g.Close() }, nil
+	return member{stop: func() { cancel(); wg.Wait(); _ = g.Close() }}, nil
 }

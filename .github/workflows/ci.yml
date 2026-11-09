@@ -62,17 +62,6 @@ jobs:
           [ "$crates" -le 115 ] || { echo "more than 115 packages"; exit 1; }
           [ "$rss" -le 8192 ] || { echo "idle resident memory over 8 MB"; exit 1; }
 
-  # Real Go clients (sarama, franz-go, kafka-go) produce and read through a two-member group.
-  interop:
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: interop/go/go.mod
-      - run: interop/run.sh
-
   supply-chain:
     runs-on: ubuntu-24.04
     steps:

@@ -29,7 +29,7 @@ func (s segment) produce(ctx context.Context, topic string, from, n int) error {
 	return w.WriteMessages(ctx, msgs...)
 }
 
-func (s segment) join(ctx context.Context, topic, group, assignor string, got func(string), fail func(error)) (func(), error) {
+func (s segment) join(ctx context.Context, topic, group, assignor string, got func(string), fail func(error)) (member, error) {
 	balancer := lib.GroupBalancer(lib.RangeGroupBalancer{})
 	if assignor == "roundrobin" {
 		balancer = lib.RoundRobinGroupBalancer{}
@@ -65,5 +65,5 @@ func (s segment) join(ctx context.Context, topic, group, assignor string, got fu
 			}
 		}
 	}()
-	return func() { cancel(); wg.Wait(); _ = r.Close() }, nil
+	return member{stop: func() { cancel(); wg.Wait(); _ = r.Close() }}, nil
 }

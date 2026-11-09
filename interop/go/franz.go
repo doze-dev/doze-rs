@@ -26,7 +26,7 @@ func (f franz) produce(ctx context.Context, topic string, from, n int) error {
 	return cl.ProduceSync(ctx, recs...).FirstErr()
 }
 
-func (f franz) join(ctx context.Context, topic, group, assignor string, got func(string), fail func(error)) (func(), error) {
+func (f franz) join(ctx context.Context, topic, group, assignor string, got func(string), fail func(error)) (member, error) {
 	balancer := kgo.RangeBalancer()
 	if assignor == "roundrobin" {
 		balancer = kgo.RoundRobinBalancer()
@@ -44,7 +44,7 @@ func (f franz) join(ctx context.Context, topic, group, assignor string, got func
 		kgo.DisableAutoCommit(),
 	)...)
 	if err != nil {
-		return nil, err
+		return member{}, err
 	}
 	ctx, cancel := context.WithCancel(ctx)
 	var wg sync.WaitGroup
@@ -64,5 +64,5 @@ func (f franz) join(ctx context.Context, topic, group, assignor string, got func
 			}
 		}
 	}()
-	return func() { cancel(); wg.Wait(); cl.Close() }, nil
+	return member{stop: func() { cancel(); wg.Wait(); cl.Close() }}, nil
 }
