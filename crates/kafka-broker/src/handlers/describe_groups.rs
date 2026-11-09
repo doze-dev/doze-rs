@@ -9,10 +9,6 @@ use kafka_wire::messages::{DescribeGroupsRequest, DescribeGroupsResponse};
 use crate::groups::{Description, State, kafka_order};
 use crate::{Broker, Outcome, blocking};
 
-/// What a client is shown as the member's address. The broker does not yet carry the peer address down to the group
-/// APIs, and a development broker is nearly always reached from the same machine.
-pub(super) const CLIENT_HOST: &str = "/127.0.0.1";
-
 impl<F: Fs> Broker<F> {
     /// Describes each group named, in the order Kafka answers. A group the broker has never heard of is Dead (not an
     /// error), and one known only by its committed offsets is Empty.
@@ -81,7 +77,7 @@ fn fill(out: &mut DescribedGroup, d: Description) {
             member.member_id = StrBytes::from_string(m.id.to_string());
             member.group_instance_id = m.instance.map(|i| StrBytes::from_string(i.to_string()));
             member.client_id = StrBytes::from_string(m.client_id);
-            member.client_host = StrBytes::from_static_str(CLIENT_HOST);
+            member.client_host = StrBytes::from_string(m.client_host.clone());
             if stable {
                 member.member_metadata = m.metadata;
             }

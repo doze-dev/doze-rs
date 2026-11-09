@@ -32,6 +32,7 @@ fn consumer_heartbeat(epoch: i32) -> Heartbeat {
         assignor: None,
         owned: (epoch == 0).then(Vec::new),
         client_id: "consumer".into(),
+        client_host: "/127.0.0.1".into(),
     }
 }
 

@@ -26,3 +26,11 @@ mod offset_fetch;
 mod produce;
 mod sync_group;
 mod txn_offset_commit;
+
+/// Who is asking: the name the client gave itself, and where it connected from (a slash, then the address, as Kafka shows
+/// it).
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct Client<'a> {
+    pub(crate) id: &'a str,
+    pub(crate) host: &'a str,
+}

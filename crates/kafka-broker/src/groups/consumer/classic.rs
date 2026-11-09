@@ -79,6 +79,7 @@ impl ConsumerGroup {
             let mut m = Member::new(seat.id);
             m.instance = seat.instance;
             m.client_id = seat.client_id;
+            m.client_host = seat.client_host;
             m.subscribed = sub.topics;
             m.epoch = epoch;
             m.prev_epoch = epoch;
@@ -116,6 +117,7 @@ impl ConsumerGroup {
                 id: m.id.clone(),
                 instance: m.instance.clone(),
                 client_id: m.client_id.clone(),
+                client_host: m.client_host.clone(),
                 protocols: seat.protocols.clone(),
                 assignment: encode_assignment(seat.version, &names_of(&m.assigned, topics)),
                 session_ms: seat.session_ms,

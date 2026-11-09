@@ -7,13 +7,14 @@ use kafka_wire::messages::{JoinGroupRequest, JoinGroupResponse};
 use kafka_wire::{ResponseError, StrBytes};
 
 use crate::groups::{Answer, JoinAnswer, JoinRequest, Protocol, Req};
+use crate::handlers::Client;
 use crate::{Broker, Outcome};
 
 impl<F: Fs> Broker<F> {
     pub(crate) async fn join_group(
         &self,
         version: i16,
-        client_id: &str,
+        client: &Client<'_>,
         req: &JoinGroupRequest,
     ) -> Outcome {
         let Ok(group) = GroupId::parse(req.group_id.as_str()) else {
@@ -28,7 +29,8 @@ impl<F: Fs> Broker<F> {
                 .group_instance_id
                 .as_ref()
                 .map(|i| InstanceId::new(i.as_str())),
-            client_id: client_id.to_owned(),
+            client_id: client.id.to_owned(),
+            client_host: client.host.to_owned(),
             protocol_type: req.protocol_type.as_str().to_owned(),
             protocols: req
                 .protocols

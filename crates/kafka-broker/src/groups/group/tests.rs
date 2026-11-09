@@ -190,6 +190,7 @@ fn join_request(member: Option<&str>) -> JoinRequest {
         session_ms: 10_000,
         rebalance_ms: 30_000,
         client_id: "c".into(),
+        client_host: "/127.0.0.1".into(),
         issued: true,
         id_first: false,
     }
@@ -209,6 +210,7 @@ fn heartbeat(member: &str, epoch: i32) -> Heartbeat {
         assignor: None,
         owned: (epoch == 0).then(Vec::new),
         client_id: "consumer".into(),
+        client_host: "/127.0.0.1".into(),
     }
 }
 

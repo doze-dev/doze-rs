@@ -58,7 +58,7 @@ pub(crate) async fn run<F: Fs>(
         let (ctx, stop) = (Arc::clone(&ctx), stop.clone());
         tasks.spawn(async move {
             let _permit = permit;
-            let end = connection::serve(socket, &ctx, &stop).await;
+            let end = connection::serve(socket, &ctx, Some(peer.ip()), &stop).await;
             debug!(%peer, %end, "connection closed");
         });
     }

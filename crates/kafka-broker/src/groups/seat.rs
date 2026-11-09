@@ -11,6 +11,8 @@ pub(crate) struct Seat {
     pub(crate) id: MemberId,
     pub(crate) instance: Option<InstanceId>,
     pub(crate) client_id: String,
+    /// Where it connected from, as DescribeGroups shows it.
+    pub(crate) client_host: String,
     /// What it offered, in its order.
     pub(crate) protocols: Vec<Protocol>,
     /// What it holds, as the bytes a classic member is given.

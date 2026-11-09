@@ -240,3 +240,33 @@ async fn an_acks_zero_produce_gets_no_answer_and_the_connection_goes_on_in_order
     );
     server.shutdown().await;
 }
+
+#[tokio::test]
+async fn a_member_that_joined_over_a_socket_is_described_with_the_address_it_connected_from() {
+    use kafka_wire::messages::join_group_request::JoinGroupRequestProtocol;
+    use kafka_wire::messages::{
+        DescribeGroupsRequest, DescribeGroupsResponse, GroupId, JoinGroupRequest,
+    };
+    let running = start(8).await;
+    let mut socket = TcpStream::connect(running.local_addr()).await.unwrap();
+    let mut join = JoinGroupRequest::default();
+    join.group_id = GroupId(StrBytes::from_static_str("g"));
+    join.session_timeout_ms = 10_000;
+    join.rebalance_timeout_ms = 10_000;
+    join.protocol_type = StrBytes::from_static_str("consumer");
+    let mut protocol = JoinGroupRequestProtocol::default();
+    protocol.name = StrBytes::from_static_str("range");
+    join.protocols.push(protocol);
+    exchange(&mut socket, ApiKey::JoinGroup, 3, 1, &join).await;
+    let mut describe = DescribeGroupsRequest::default();
+    describe.groups = vec![GroupId(StrBytes::from_static_str("g"))];
+    let mut payload = exchange(&mut socket, ApiKey::DescribeGroups, 5, 2, &describe).await;
+    // (Flexible versions put a tagged-fields byte after the correlation id; the response header of v5 is flexible.)
+    let _tags = payload.split_to(1);
+    let answer = DescribeGroupsResponse::decode(&mut payload, 5).unwrap();
+    assert_eq!(
+        answer.groups[0].members[0].client_host.as_str(),
+        "/127.0.0.1"
+    );
+    running.shutdown().await;
+}

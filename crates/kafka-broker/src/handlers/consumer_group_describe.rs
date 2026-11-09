@@ -15,9 +15,6 @@ use super::consumer_group_heartbeat::by_topic;
 use crate::groups::{Partitions, kafka_order};
 use crate::{Broker, Outcome};
 
-/// What a client is shown as the member's address.
-const CLIENT_HOST: &str = "/127.0.0.1";
-
 impl<F: Fs> Broker<F> {
     /// Describes each group named, in the order Kafka answers (that of DescribeGroups).
     pub(crate) async fn consumer_group_describe(
@@ -88,7 +85,7 @@ impl<F: Fs> Broker<F> {
                 member.rack_id = m.rack.map(StrBytes::from_string);
                 member.member_epoch = m.epoch;
                 member.client_id = StrBytes::from_string(m.client_id);
-                member.client_host = StrBytes::from_static_str(CLIENT_HOST);
+                member.client_host = StrBytes::from_string(m.client_host.clone());
                 member.subscribed_topic_names = m
                     .subscribed
                     .into_iter()

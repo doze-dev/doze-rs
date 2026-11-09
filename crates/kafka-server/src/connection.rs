@@ -61,8 +61,11 @@ pub(crate) enum End {
 pub(crate) async fn serve<S: AsyncRead + AsyncWrite + Unpin, F: Fs>(
     mut stream: S,
     ctx: &Context<F>,
+    peer: Option<std::net::IpAddr>,
     stop: &CancellationToken,
 ) -> End {
+    // What the broker is told of this connection: where it is from, for the group APIs that show members.
+    let listener = peer.map_or_else(|| ctx.listener.clone(), |p| ctx.listener.seen_from(p));
     let mut buf = BytesMut::with_capacity(BUFFER);
     let mut decoder = FrameDecoder::new(Trust::Authenticated);
     loop {
@@ -71,7 +74,7 @@ pub(crate) async fn serve<S: AsyncRead + AsyncWrite + Unpin, F: Fs>(
                 Ok(frame) => frame,
                 Err(end) => return end,
             };
-        if let Err(end) = exchange(&mut stream, ctx, frame, stop).await {
+        if let Err(end) = exchange(&mut stream, (ctx, &listener), frame, stop).await {
             return end;
         }
         if buf.is_empty() && buf.capacity() > KEEP {
@@ -83,7 +86,7 @@ pub(crate) async fn serve<S: AsyncRead + AsyncWrite + Unpin, F: Fs>(
 /// One request, from its frame to the end of its answer.
 async fn exchange<S: AsyncWrite + Unpin, F: Fs>(
     stream: &mut S,
-    ctx: &Context<F>,
+    (ctx, listener): (&Context<F>, &Listener),
     frame: bytes::Bytes,
     stop: &CancellationToken,
 ) -> Result<(), End> {
@@ -98,7 +101,7 @@ async fn exchange<S: AsyncWrite + Unpin, F: Fs>(
         Incoming::Request { head, request } => {
             // A handler may wait a long time (a long-poll Fetch): stopping the server does not wait for it.
             let outcome = tokio::select! {
-                o = ctx.broker.handle(&ctx.listener, &head, request) => o,
+                o = ctx.broker.handle(listener, &head, request) => o,
                 () = stop.cancelled() => return Err(End::Stopped),
             };
             match outcome {

@@ -157,6 +157,7 @@ impl ConsumerGroup {
         }
         if let Some(m) = self.members.get_mut(&id) {
             m.client_id.clone_from(&req.client_id);
+            m.client_host.clone_from(&req.client_host);
             m.instance.clone_from(&req.instance);
             m.rack.clone_from(&req.rack);
             if let Some(names) = &req.subscribed

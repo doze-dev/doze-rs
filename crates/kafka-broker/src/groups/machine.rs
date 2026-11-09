@@ -57,6 +57,7 @@ struct Member {
     id: MemberId,
     instance: Option<InstanceId>,
     client_id: String,
+    client_host: String,
     session_ms: u64,
     rebalance_ms: u64,
     protocols: Vec<Protocol>,

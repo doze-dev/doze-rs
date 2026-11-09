@@ -11,6 +11,7 @@ fn view() -> ConsumerView {
         instance: None,
         rack: None,
         client_id: String::new(),
+        client_host: "/127.0.0.1".into(),
         epoch,
         subscribed: vec![],
         regex: String::new(),

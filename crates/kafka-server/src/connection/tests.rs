@@ -18,6 +18,7 @@ fn context(timeouts: Timeouts) -> Context<SimFs> {
         listener: Listener {
             advertised_host: "localhost".into(),
             advertised_port: 9092,
+            client_host: "/127.0.0.1".into(),
         },
         profile: Profile::new(kafka_wire::profile::KafkaMajor::DEFAULT),
         features: Features {
@@ -69,7 +70,7 @@ fn start(
     let ctx = context(timeouts);
     let task = tokio::spawn({
         let stop = stop.clone();
-        async move { serve(server, &ctx, &stop).await }
+        async move { serve(server, &ctx, None, &stop).await }
     });
     (client, task, stop)
 }

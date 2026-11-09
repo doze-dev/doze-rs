@@ -79,6 +79,7 @@ impl ConsumerGroup {
         member.assigned.retain(|p| owned.contains(p));
         member.instance.clone_from(&req.instance);
         member.client_id.clone_from(&req.client_id);
+        member.client_host.clone_from(&req.client_host);
         if member.subscribed != sub.topics {
             member.subscribed.clone_from(&sub.topics);
             changed = true;

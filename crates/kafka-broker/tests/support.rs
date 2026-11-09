@@ -51,6 +51,7 @@ pub fn at() -> Listener {
     Listener {
         advertised_host: "127.0.0.1".into(),
         advertised_port: 4242,
+        client_host: "/127.0.0.1".into(),
     }
 }
 
@@ -75,6 +76,16 @@ impl Rig {
                     .unwrap_or_else(|e| panic!("{:?} v{version} cannot be encoded: {e}", head.key));
                 response
             }
+            other => panic!("no response: {other:?}"),
+        }
+    }
+
+    /// [`Rig::ask`] for a client connected from `peer` (an address).
+    pub async fn ask_from(&self, peer: &str, version: i16, request: Request) -> Response {
+        let head = head(request.api_key(), version);
+        let listener = at().seen_from(peer.parse().unwrap());
+        match self.broker.handle(&listener, &head, request).await {
+            kafka_broker::Outcome::Respond(response) => response,
             other => panic!("no response: {other:?}"),
         }
     }

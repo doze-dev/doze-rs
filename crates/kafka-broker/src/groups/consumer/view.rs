@@ -38,6 +38,7 @@ impl ConsumerGroup {
                     instance: m.instance.clone(),
                     rack: m.rack.clone(),
                     client_id: m.client_id.clone(),
+                    client_host: m.client_host.clone(),
                     epoch: if m.left { -2 } else { m.epoch },
                     subscribed: m.subscribed.clone(),
                     regex: m

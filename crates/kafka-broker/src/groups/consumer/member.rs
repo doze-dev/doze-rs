@@ -24,6 +24,7 @@ pub(super) struct Member {
     pub(super) instance: Option<InstanceId>,
     pub(super) rack: Option<String>,
     pub(super) client_id: String,
+    pub(super) client_host: String,
     /// The assignor it asked for.
     pub(super) assignor: Option<Assignor>,
     pub(super) subscribed: Vec<String>,
@@ -57,6 +58,7 @@ impl Member {
             instance: None,
             rack: None,
             client_id: String::new(),
+            client_host: String::new(),
             assignor: None,
             subscribed: Vec::new(),
             pattern: None,

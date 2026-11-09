@@ -28,6 +28,7 @@ impl GroupMachine {
                 id: m.id.clone(),
                 instance: m.instance.clone(),
                 client_id: m.client_id.clone(),
+                client_host: m.client_host.clone(),
                 metadata: m
                     .protocols
                     .iter()

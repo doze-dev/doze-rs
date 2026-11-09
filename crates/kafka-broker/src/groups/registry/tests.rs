@@ -44,6 +44,7 @@ fn join(member: Option<&MemberId>, instance: Option<&str>) -> Req {
             metadata: Bytes::new(),
         }],
         client_id: "test".into(),
+        client_host: "/127.0.0.1".into(),
         session_ms: 10_000,
         rebalance_ms: 30_000,
         issued: false,
@@ -244,6 +245,7 @@ async fn a_join_that_is_refused_is_told_why_even_where_the_group_is_not_there() 
         assignor: assignor.map(str::to_owned),
         owned: Some(vec![]),
         client_id: "c".into(),
+        client_host: "/127.0.0.1".into(),
     };
     let ask = |h: Heartbeat| {
         let groups = &groups;

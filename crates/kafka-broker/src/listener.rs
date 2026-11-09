@@ -6,4 +6,17 @@ pub struct Listener {
     pub advertised_host: String,
     /// The port a client should use.
     pub advertised_port: i32,
+    /// Where the client connected from, as DescribeGroups shows it: a slash, then its address.
+    pub client_host: String,
+}
+
+impl Listener {
+    /// This listener, for a connection from `peer`: Kafka shows a member's address as a slash and the address.
+    #[must_use]
+    pub fn seen_from(&self, peer: std::net::IpAddr) -> Self {
+        Self {
+            client_host: format!("/{peer}"),
+            ..self.clone()
+        }
+    }
 }

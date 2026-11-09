@@ -47,6 +47,8 @@ pub(crate) struct JoinRequest {
     pub(crate) rebalance_ms: i32,
     /// The client software's name for itself, as DescribeGroups shows it.
     pub(crate) client_id: String,
+    /// Where the client connected from (a slash, then the address).
+    pub(crate) client_host: String,
     /// The id was issued to this client by the broker and is still good: it is a new member's, not an unknown one's.
     /// Set by whoever keeps the ids issued; the machine only reads it.
     pub(crate) issued: bool,
@@ -88,6 +90,8 @@ pub(crate) struct MemberDescription {
     pub(crate) id: MemberId,
     pub(crate) instance: Option<InstanceId>,
     pub(crate) client_id: String,
+    /// Where it connected from (a slash, then the address).
+    pub(crate) client_host: String,
     /// Its metadata under the protocol chosen.
     pub(crate) metadata: Bytes,
     /// What the leader assigned it.

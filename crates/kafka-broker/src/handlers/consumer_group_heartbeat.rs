@@ -11,6 +11,7 @@ use kafka_wire::messages::ConsumerGroupHeartbeatResponse;
 use kafka_wire::messages::consumer_group_heartbeat_response::{Assignment, TopicPartitions};
 
 use crate::groups::{Answer, Heartbeat, Req};
+use crate::handlers::Client;
 use crate::{Broker, Outcome};
 
 /// The interval members are asked to heartbeat at. It also bounds how fast a handoff goes (a couple of intervals), so it
@@ -23,10 +24,10 @@ impl<F: Fs> Broker<F> {
     pub(crate) async fn consumer_group_heartbeat(
         &self,
         version: i16,
-        client_id: &str,
+        client: &Client<'_>,
         req: &ConsumerGroupHeartbeatRequest,
     ) -> Outcome {
-        let typed = match check(version, client_id, req) {
+        let typed = match check(version, client, req) {
             Ok(typed) => typed,
             Err((error, words)) => return Outcome::Respond(respond(&refusal(error, &words))),
         };
@@ -104,7 +105,7 @@ fn refusal_words(version: i16, r: &ConsumerGroupHeartbeatRequest) -> Option<&'st
 /// Kafka's checks of the request alone, and the typed request.
 fn check(
     version: i16,
-    client_id: &str,
+    client: &Client<'_>,
     r: &ConsumerGroupHeartbeatRequest,
 ) -> Result<Heartbeat, Refused> {
     let bad = |words: &str| Err((E::InvalidRequest, words.to_owned()));
@@ -143,7 +144,8 @@ fn check(
                 .map(|tp| (tp.topic_id, tp.partitions.clone()))
                 .collect()
         }),
-        client_id: client_id.to_owned(),
+        client_id: client.id.to_owned(),
+        client_host: client.host.to_owned(),
     })
 }
 

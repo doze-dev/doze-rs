@@ -71,6 +71,8 @@ impl Config {
         Listener {
             advertised_host: host,
             advertised_port: i32::from(self.advertised_port.unwrap_or(bound.port())),
+            // Made for each connection (see `Listener::seen_from`); until then, nobody.
+            client_host: String::new(),
         }
     }
 }

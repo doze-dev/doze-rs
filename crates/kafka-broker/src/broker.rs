@@ -180,7 +180,7 @@ impl<F: Fs> Broker<F> {
                 self.find_coordinator(head.version, listener, &r),
             )),
             Request::JoinGroup(r) => {
-                self.join_group(head.version, head.client_id.as_deref().unwrap_or(""), &r)
+                self.join_group(head.version, &client_of(listener, head), &r)
                     .await
             }
             Request::SyncGroup(r) => self.sync_group(&r).await,
@@ -193,12 +193,8 @@ impl<F: Fs> Broker<F> {
             Request::ListGroups(r) => self.list_groups(&r).await,
             Request::DeleteGroups(r) => self.delete_groups(&r).await,
             Request::ConsumerGroupHeartbeat(r) => {
-                self.consumer_group_heartbeat(
-                    head.version,
-                    head.client_id.as_deref().unwrap_or(""),
-                    &r,
-                )
-                .await
+                self.consumer_group_heartbeat(head.version, &client_of(listener, head), &r)
+                    .await
             }
             Request::ConsumerGroupDescribe(r) => self.consumer_group_describe(&r).await,
             Request::DescribeProducers(r) => self.describe_producers(&r).await,
@@ -232,4 +228,12 @@ impl<F: Fs> Broker<F> {
 
 fn respond(response: Response) -> Outcome {
     Outcome::Respond(response)
+}
+
+/// The client of a request: its own name, and where it connected from.
+fn client_of<'a>(listener: &'a Listener, head: &'a RequestHead) -> crate::handlers::Client<'a> {
+    crate::handlers::Client {
+        id: head.client_id.as_deref().unwrap_or(""),
+        host: &listener.client_host,
+    }
 }

@@ -79,6 +79,7 @@ pub(crate) struct Heartbeat {
     /// What the member says it owns: `None` if it does not say this time.
     pub(crate) owned: Option<Vec<(Uuid, Vec<i32>)>>,
     pub(crate) client_id: String,
+    pub(crate) client_host: String,
 }
 
 /// The answer to a ConsumerGroupHeartbeat.
@@ -110,6 +111,7 @@ pub(crate) struct MemberView {
     pub(crate) instance: Option<InstanceId>,
     pub(crate) rack: Option<String>,
     pub(crate) client_id: String,
+    pub(crate) client_host: String,
     /// -2 for a static member that has left and will be back.
     pub(crate) epoch: i32,
     pub(crate) subscribed: Vec<String>,
