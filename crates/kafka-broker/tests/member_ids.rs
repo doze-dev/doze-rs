@@ -57,26 +57,24 @@ async fn an_issued_id_is_used_up_by_a_join_that_is_taken_and_not_by_one_that_is_
 }
 
 #[tokio::test(start_paused = true)]
-async fn an_issued_id_is_forgotten_after_five_minutes() {
+async fn an_issued_id_is_forgotten_after_the_session_timeout_of_the_join_that_was_given_it() {
     let rig = rig_after(Duration::ZERO);
     let told = rig
         .join(4, join_request("g", "", None, &[("range", "m")]))
         .await;
     let id = told.member_id.as_str().to_owned();
-    tokio::time::sleep(Duration::from_secs(299)).await;
+    // (The test's join says its session is ten seconds.)
+    tokio::time::sleep(Duration::from_secs(9)).await;
     let early = rig
         .join(4, join_request("g", &id, None, &[("range", "m")]))
         .await;
-    assert_eq!(
-        early.error_code, NONE,
-        "still good at four minutes fifty-nine"
-    );
+    assert_eq!(early.error_code, NONE, "still good at nine seconds");
     rig.leave(4, "g", &[&id]).await;
     let told = rig
         .join(4, join_request("g2", "", None, &[("range", "m")]))
         .await;
     let id = told.member_id.as_str().to_owned();
-    tokio::time::sleep(Duration::from_secs(301)).await;
+    tokio::time::sleep(Duration::from_secs(11)).await;
     let late = rig
         .join(4, join_request("g2", &id, None, &[("range", "m")]))
         .await;

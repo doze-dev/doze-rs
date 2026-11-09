@@ -91,6 +91,8 @@ impl<F: Fs> LogReader<F> {
         // moment before it announces the new end, so a read could otherwise return batches the end has not
         // reached yet, and the reader's next request (for the offset after them) would be past the end it sees.
         // Never return a batch that begins at or after the end observed here.
+        // (A limit short of the end also bounds how much of a segment is worth reading.)
+        let bounded = limit.is_some_and(|l| l < end);
         let limit = Some(limit.map_or(end, |l| l.min(end)));
         let segments = self.shared.segments.load();
         let first = segments
@@ -101,7 +103,7 @@ impl<F: Fs> LogReader<F> {
         for (i, segment) in segments.iter().enumerate().skip(first) {
             let at = if i == first { from } else { segment.base() };
             if let Some(found) =
-                read_segment(segment, at, max_bytes, limit).doing("reading the log")?
+                read_segment(segment, at, max_bytes, (limit, bounded)).doing("reading the log")?
             {
                 return self.still_held(from, found);
             }
@@ -114,6 +116,16 @@ impl<F: Fs> LogReader<F> {
 /// step over (the index puts it within one interval and one batch of them), so that one read usually does it all.
 const HEADROOM: usize = 16 << 10;
 
+/// How far past the index entry nearest a limit that falls in the segment a read looks: the batch holding the limit
+/// begins within an index interval of that entry, and its header is what is wanted. (A read that needs more asks again.)
+const LIMIT_SLACK: u64 = 64 << 10;
+
+#[cfg(test)]
+thread_local! {
+    /// The most a read on this thread has asked the file for in one go.
+    pub(super) static BIGGEST_ASK: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
 /// A stretch of a segment read in one go. Headers are looked at in it, and the answer is cut out of it, without
 /// reading or copying again.
 struct Chunk {
@@ -123,6 +135,8 @@ struct Chunk {
 
 impl Chunk {
     fn read<F: Fs>(segment: &SegmentView<F>, pos: u64, len: usize) -> io::Result<Self> {
+        #[cfg(test)]
+        BIGGEST_ASK.with(|b| b.set(b.get().max(len)));
         Ok(Self {
             at: pos,
             bytes: segment.read(pos, len)?,
@@ -152,7 +166,7 @@ fn read_segment<F: Fs>(
     segment: &SegmentView<F>,
     from: Offset,
     max_bytes: usize,
-    limit: Option<Offset>,
+    (limit, bounded): (Option<Offset>, bool),
 ) -> io::Result<Option<Bytes>> {
     let committed = segment.committed();
     let mut pos = segment.seek(from.get())?;
@@ -161,9 +175,17 @@ fn read_segment<F: Fs>(
     if pos > 0 && pos >= committed {
         return Err(not_a_batch(pos));
     }
+    // A limit inside this segment (a read-committed fetch's last stable offset, or the end of the log) bounds what is
+    // worth reading: nothing at or past it is returned, however much room `max_bytes` leaves.
+    let reach = limit
+        .filter(|_| bounded)
+        .and_then(|l| segment.seek(l.get()).ok())
+        .map_or(u64::MAX, |p| p.saturating_add(LIMIT_SLACK));
     let ask = |pos: u64| {
+        let wanted = usize::try_from(reach.saturating_sub(pos)).unwrap_or(usize::MAX);
         usize::try_from(committed.saturating_sub(pos)).map_or(usize::MAX, |room| {
             room.min(max_bytes.saturating_add(HEADROOM))
+                .min(wanted.max(HEADROOM))
         })
     };
     let mut chunk = Chunk::read(segment, pos, ask(pos))?;
@@ -204,6 +226,10 @@ fn read_segment<F: Fs>(
     }
     let len = usize::try_from(total).unwrap_or(usize::MAX);
     match chunk.get(start, len) {
+        // A small answer is not kept as a window on a large buffer: the caller would hold all of it.
+        Some(inside) if inside.len().saturating_mul(8) < chunk.bytes.len() => {
+            Ok(Some(Bytes::copy_from_slice(&inside)))
+        }
         Some(inside) => Ok(Some(inside)),
         None => {
             // The first batch is bigger than what was asked for. A file that turns out shorter than the headers

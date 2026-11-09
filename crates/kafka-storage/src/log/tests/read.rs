@@ -136,3 +136,34 @@ fn a_read_of_many_small_batches_asks_the_file_for_a_few_ranges_not_one_per_batch
         bases(&got).len()
     );
 }
+
+#[test]
+fn a_read_with_a_limit_just_ahead_does_not_ask_the_file_for_what_max_bytes_would_allow() {
+    let (_fs, _dir, mut log) = fresh(NEVER);
+    // Some twenty megabytes in one segment, a batch of 2,000 records at a time.
+    for _ in 0..1_000 {
+        log.append(&[batch(2_000, 0)], NOW, TimestampType::Create)
+            .unwrap();
+    }
+    let r = log.reader();
+    let whole = r.read(offset(0), usize::MAX, None).unwrap();
+    assert!(whole.len() > 4 << 20, "{} bytes in all", whole.len());
+    // A read-committed fetch whose last stable offset is a few batches in, with a fifty-megabyte allowance.
+    super::super::read::BIGGEST_ASK.with(|b| b.set(0));
+    let got = r
+        .read(offset(0), 50 << 20, Some(offset(2_000 * 5)))
+        .unwrap();
+    assert_eq!(
+        bases(&got),
+        [0, 2_000, 4_000, 6_000, 8_000],
+        "up to the limit"
+    );
+    let asked = super::super::read::BIGGEST_ASK.with(std::cell::Cell::get);
+    assert!(
+        asked < whole.len() / 10,
+        "asked the file for {asked} bytes of {}",
+        whole.len()
+    );
+    // And the whole log is still read whole when nothing limits it.
+    assert_eq!(r.read(offset(0), usize::MAX, None).unwrap(), whole);
+}
