@@ -92,6 +92,7 @@ jobs:
         working-directory: crates/kafka-wire/fuzz
         run: |
           for target in fuzz_frame fuzz_request fuzz_batch; do
+            mkdir -p "corpus/$target"
             cargo fuzz run "$target" "corpus/$target" "seeds/$target" -- -max_total_time=30 -max_len=1048576
           done
       - name: Fuzz recovery for 30 seconds
