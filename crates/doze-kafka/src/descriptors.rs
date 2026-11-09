@@ -10,11 +10,18 @@ const RESERVED: u64 = 256;
 const PER_PARTITION: u64 = 4;
 
 /// Raises the soft limit on descriptors toward the hard one, and returns the limit now in force.
+#[cfg(unix)]
 pub(crate) fn raise() -> u64 {
     rlimit::increase_nofile_limit(WANTED).unwrap_or_else(|e| {
         tracing::warn!("the limit on open files could not be raised: {e}");
         rlimit::getrlimit(rlimit::Resource::NOFILE).map_or(1024, |(soft, _)| soft)
     })
+}
+
+/// Windows has no descriptor limit of this kind to raise (handles are bounded by memory), so the ask is the answer.
+#[cfg(not(unix))]
+pub(crate) fn raise() -> u64 {
+    WANTED
 }
 
 /// How many files the open partitions may hold open between them at `limit` descriptors, given that `connections` may be
