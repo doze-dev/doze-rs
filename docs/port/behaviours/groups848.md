@@ -89,3 +89,14 @@ consumer group maximum size), and a refusal changes nothing. OffsetFetch v9 with
 at its epoch (UNKNOWN_MEMBER_ID; STALE_MEMBER_EPOCH, ILLEGAL_GENERATION for a classic member) and checks nothing of a
 classic group or one that is not there. Test: `consumer_group_words`, `offset_fetch_checks`, `consumer/tests/fetch.rs`,
 `group/tests/timers.rs`.
+
+## G848-10. A commit by a consumer-protocol member at an older epoch (a decided difference)
+Kafka accepts an OffsetCommit or TxnOffsetCommit from a member of the new protocol at an epoch older than the member's current one,
+partition by partition, for each partition that was assigned (or is pending revocation) at or before that epoch; one assigned
+later is STALE_MEMBER_EPOCH for that partition (source: `ConsumerGroup.createAssignmentEpochValidator`). Here the whole request
+is STALE_MEMBER_EPOCH (ILLEGAL_GENERATION for a transaction's offsets and for a classic member) when the epoch is not the
+member's. The cost is a commit that crosses a change of the member's epoch being refused once and retried, which clients do
+after their next heartbeat (the error is retriable); nothing is lost or committed wrongly. Doing it as Kafka does needs the
+epoch each partition was assigned at, kept for every member through every reconcile, and a per-partition verdict from the
+group, and the reconcile is the part of Phase 5 that had the most defects; it is left until a client is seen to need it.
+A commit that names no generation to an empty group is accepted whoever it names (`consumer_group_words`).

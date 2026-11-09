@@ -58,8 +58,10 @@ impl ConsumerGroup {
         if req.version < 9 && member.is_some_and(|m| m.classic.is_none()) {
             return Some(E::UnsupportedVersion);
         }
-        if self.members.is_empty() {
-            return (req.generation >= 0 || req.member_id.is_some()).then_some(E::UnknownMemberId);
+        // Nobody in the group and no generation named: an admin tool, or a consumer that does not use the group (Kafka
+        // accepts it whoever it says it is).
+        if req.generation < 0 && self.members.is_empty() {
+            return None;
         }
         let Some(member) = member else {
             return Some(E::UnknownMemberId);

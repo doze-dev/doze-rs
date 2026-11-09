@@ -89,3 +89,28 @@ async fn a_group_of_classic_members_is_not_a_consumer_group_to_a_member_that_is_
         )
     );
 }
+
+#[tokio::test]
+async fn a_commit_naming_no_generation_to_an_empty_consumer_group_is_accepted_whoever_it_says_it_is()
+ {
+    let rig = rig();
+    rig.create(vec![topic("t", 3)], false).await;
+    let joined = rig.heartbeat_848(1, join_848("cg", "m1", &["t"])).await;
+    assert_eq!(joined.error_code, 0);
+    assert_eq!(
+        rig.heartbeat_848(1, beat_848("cg", "m1", -1, None))
+            .await
+            .error_code,
+        0
+    );
+    // Nobody is in the group now. A commit with generation -1 (a tool resetting offsets, or a consumer not using the group)
+    // is accepted, though it names a member; one that names a generation is not (Kafka's source).
+    let ok = rig
+        .commit_offsets(9, "cg", "someone", -1, &[("t", 0, 4, None)])
+        .await;
+    assert_eq!(ok.topics[0].partitions[0].error_code, 0);
+    let named = rig
+        .commit_offsets(9, "cg", "someone", 3, &[("t", 0, 5, None)])
+        .await;
+    assert_eq!(named.topics[0].partitions[0].error_code, 25);
+}

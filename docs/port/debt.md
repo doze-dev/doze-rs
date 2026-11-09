@@ -18,7 +18,7 @@ a named scenario, or is a decision that is written down with its reason, or is t
 | A8 | Minors: timeout from the transaction's start; producer state kept a day; an old repeat is OUT_OF_ORDER; any other epoch is PRODUCER_FENCED; AddPartitions judges partitions first; ListOffsets by time under read_committed; the real last stable offset at every isolation; markers raise the partition's producer epoch; producers with nothing left in the log are forgotten; DescribeTransactions names the offsets partitions; ListTransactions v1 duration | done (each with a test; `transactions.md`) |
 | A9 | Minors left as they are, with the reason: a marker written twice after a crash (Kafka may write one twice after a retry; the index ignores the second) | decided |
 | A10 | Gates red at the audit's HEAD (clippy too_many_lines in `versions_txn`); a librdkafka transactional producer and a zombie scenario missing from interop | done: split; `txn-librdkafka`, `fence-franz-go` |
-| A11 | Re-audit of the fixes | open until the re-audit reports |
+| A11 | Re-audit of the fixes | the first re-audit found three majors (a fence that left the last epoch to be presented back; the retired-entry lookup and the TxnOffsetCommit producer check and classic-group rules with no test that fails without them) and minors; all fixed and each fix mutation-checked (`transactions_fence`, `transactions_retired`, `transactions_offsets`, the reverse-order hold test, a power-cut sweep for the marker flush, pending offsets in the Prepare states, marker epochs after a reopen, the small-copy read); ListTransactions is offered at v0 to v1 with Kafka's duration rule. A narrow third look at the delta is in `PLAN.md` |
 
 ## B. Phase 5 (groups, KIP-848)
 | # | Item | Status |
@@ -28,6 +28,7 @@ a named scenario, or is a decision that is written down with its reason, or is t
 | B8 | Unrecorded words: "RackId can't be empty.", "MemberId can't be empty." and the order of the request checks; a consumer heartbeat to a classic group (not a consumer group; the upgrade refusals incl. the size) | done from the source (`consumer_group_words`, `group/tests/timers.rs`) |
 | B9 | The topic table rebuilt for each heartbeat | done: built when the topics change, shared by the groups (`topics_version`, `a_topic_made_after_the_member_subscribed_is_given_to_it`) |
 | B10 | A member cap checked after a conversion; the group record rewritten on each classic join into a consumer group | done: the size refusal comes before the upgrade; a keeper test counts the writes |
+| B12 | OffsetCommit by a consumer-protocol member at an epoch older than its current one (found by the Phase 6 re-audit) | decided: `groups848.md` G848-10 (the empty-group half is fixed) |
 | B11 | Rack-aware assignment; the heartbeat and assignment intervals only a test knob | decided: a one-broker cluster has no racks to place by, so the rack ids are kept and shown and change nothing, as in Kafka for a broker with no `broker.rack`; the intervals stay at Kafka's defaults, the assignment one a test knob |
 
 ## C. Phase 4 (groups, classic)
