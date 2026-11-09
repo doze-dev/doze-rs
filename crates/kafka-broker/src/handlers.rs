@@ -5,6 +5,7 @@ mod add_partitions_to_txn;
 pub(crate) mod alter_configs;
 mod consumer_group_describe;
 mod consumer_group_heartbeat;
+mod create_partitions;
 mod create_topics;
 mod delete_groups;
 mod delete_records;

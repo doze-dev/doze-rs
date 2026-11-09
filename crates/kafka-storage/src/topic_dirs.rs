@@ -29,7 +29,21 @@ pub fn create_partition_dirs<F: Fs>(
     topic: &TopicName,
     count: PartitionCount,
 ) -> Result<(), StorageError> {
-    for partition in count.ids() {
+    create_partition_dirs_from(fs, data, topic, 0, count)
+}
+
+/// As [`create_partition_dirs`], for the partitions from number `from` up (a topic that is given more).
+///
+/// # Errors
+/// As [`create_partition_dirs`]; the caller takes the new ones back with [`remove_partition_dirs_from`].
+pub fn create_partition_dirs_from<F: Fs>(
+    fs: &F,
+    data: &Path,
+    topic: &TopicName,
+    from: usize,
+    count: PartitionCount,
+) -> Result<(), StorageError> {
+    for partition in count.ids().skip(from) {
         fs.create_dir(&partition_dir(data, topic, partition))
             .doing("making a partition directory")?;
     }
@@ -47,8 +61,22 @@ pub fn remove_topic_dirs<F: Fs>(
     topic: &TopicName,
     count: PartitionCount,
 ) -> Result<(), StorageError> {
+    remove_partition_dirs_from(fs, data, topic, 0, count)
+}
+
+/// As [`remove_topic_dirs`], for the partitions from number `from` up (taking back what a topic was given).
+///
+/// # Errors
+/// The first removal or flush that failed.
+pub fn remove_partition_dirs_from<F: Fs>(
+    fs: &F,
+    data: &Path,
+    topic: &TopicName,
+    from: usize,
+    count: PartitionCount,
+) -> Result<(), StorageError> {
     let mut first = None;
-    for partition in count.ids() {
+    for partition in count.ids().skip(from) {
         let removed = remove_dir_and_files(fs, &partition_dir(data, topic, partition));
         first = first.or(removed.err());
     }

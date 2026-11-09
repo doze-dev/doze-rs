@@ -139,3 +139,50 @@ impl Rig {
             .collect()
     }
 }
+
+impl Rig {
+    /// CreatePartitions of the topics at version `v`: (name, count, assignments if any). One result for each answered.
+    pub async fn create_partitions(
+        &self,
+        v: i16,
+        validate_only: bool,
+        topics: &[(&str, i32, Option<Vec<Vec<i32>>>)],
+    ) -> Vec<(String, i16, Option<String>)> {
+        use kafka_wire::messages::create_partitions_request::{
+            CreatePartitionsAssignment, CreatePartitionsTopic,
+        };
+        use kafka_wire::messages::{BrokerId, CreatePartitionsRequest};
+        let mut req = CreatePartitionsRequest::default();
+        req.validate_only = validate_only;
+        req.timeout_ms = 10_000;
+        for (name, count, assignments) in topics {
+            let mut t = CreatePartitionsTopic::default();
+            t.name = super::wire_name(name);
+            t.count = *count;
+            t.assignments = assignments.as_ref().map(|all| {
+                all.iter()
+                    .map(|ids| {
+                        let mut a = CreatePartitionsAssignment::default();
+                        a.broker_ids = ids.iter().map(|i| BrokerId(*i)).collect();
+                        a
+                    })
+                    .collect()
+            });
+            req.topics.push(t);
+        }
+        let Response::CreatePartitions(resp) = self.ask(v, Request::CreatePartitions(req)).await
+        else {
+            panic!("not CreatePartitions")
+        };
+        resp.results
+            .into_iter()
+            .map(|r| {
+                (
+                    r.name.0.to_string(),
+                    r.error_code,
+                    r.error_message.map(|m| m.to_string()),
+                )
+            })
+            .collect()
+    }
+}

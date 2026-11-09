@@ -34,6 +34,7 @@ async fn api_versions_lists_only_what_the_broker_serves() {
         ApiKey::TxnOffsetCommit,
         ApiKey::DescribeConfigs,
         ApiKey::AlterConfigs,
+        ApiKey::CreatePartitions,
         ApiKey::DeleteGroups,
         ApiKey::IncrementalAlterConfigs,
         ApiKey::OffsetDelete,

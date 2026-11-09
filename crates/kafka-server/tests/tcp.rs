@@ -84,6 +84,7 @@ async fn a_client_on_a_socket_gets_its_answer() {
         ApiKey::TxnOffsetCommit,
         ApiKey::DescribeConfigs,
         ApiKey::AlterConfigs,
+        ApiKey::CreatePartitions,
         ApiKey::DeleteGroups,
         ApiKey::IncrementalAlterConfigs,
         ApiKey::OffsetDelete,

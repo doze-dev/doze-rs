@@ -42,6 +42,7 @@ const SERVED: &[ApiKey] = &[
     ApiKey::ConsumerGroupHeartbeat,
     ApiKey::ConsumerGroupDescribe,
     ApiKey::DeleteRecords,
+    ApiKey::CreatePartitions,
     ApiKey::DescribeConfigs,
     ApiKey::AlterConfigs,
     ApiKey::IncrementalAlterConfigs,
@@ -211,6 +212,7 @@ impl<F: Fs> Broker<F> {
             }
             Request::ConsumerGroupDescribe(r) => self.consumer_group_describe(&r).await,
             Request::DeleteRecords(r) => self.delete_records(&r).await,
+            Request::CreatePartitions(r) => self.create_partitions(&r).await,
             Request::DescribeConfigs(r) => self.describe_configs(&r),
             Request::AlterConfigs(r) => self.alter_configs(&r).await,
             Request::IncrementalAlterConfigs(r) => self.incremental_alter_configs(&r).await,
@@ -231,7 +233,6 @@ impl<F: Fs> Broker<F> {
             | Request::CreateAcls(_)
             | Request::DeleteAcls(_)
             | Request::SaslAuthenticate(_)
-            | Request::CreatePartitions(_)
             | Request::DescribeCluster(_)
             | Request::GetTelemetrySubscriptions(_)
             | Request::PushTelemetry(_) => Outcome::Close,
