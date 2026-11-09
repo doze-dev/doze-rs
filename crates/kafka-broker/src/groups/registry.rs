@@ -133,20 +133,16 @@ impl Groups {
                     None => return unknown(&req),
                 }
             };
-            // Kept to put again if the group is retired with this request queued behind its deletion.
-            let again = matches!(&req, Req::Join(_))
-                || matches!(&req, Req::ConsumerHeartbeat(h) if h.epoch == 0);
-            let again = again.then(|| req.clone());
+            // Kept to put again if the group is retired with this request queued behind its deletion: to a group made
+            // afresh by a join, or to none, which answers it as a group with no members would.
+            let again = req.clone();
             let (reply, answer) = oneshot::channel();
             match sender.send(Command { req, reply }).await {
                 Ok(()) => match answer.await {
                     Ok(answered) => return Some(answered),
                     // Dropped without an answer: replaced by a later join (the sender is still open), or the group went
-                    // while this was queued (it is closed): a join is put again, to a group made afresh.
-                    Err(_) if sender.is_closed() => match again {
-                        Some(next) => req = next,
-                        None => return None,
-                    },
+                    // while this was queued (it is closed): put again.
+                    Err(_) if sender.is_closed() => req = again,
                     Err(_) => return None,
                 },
                 Err(gone) => req = gone.0.req,

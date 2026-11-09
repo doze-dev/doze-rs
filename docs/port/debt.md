@@ -12,12 +12,12 @@ a named scenario, or is the owner's decision. Status: `open`, `done <commit>`, `
 ## B. Phase 5 (groups, KIP-848)
 | # | Item | Status |
 |---|---|---|
-| B1 | Test: cooperative `owned` retain in a classic join into a consumer group | open |
-| B2 | Test: classic SyncGroup "group moved on" check | open |
-| B3 | Test: `hand_over` disarms the rebalance timer and uses the previous assignment during a completing rebalance | open |
-| B4 | Test: `hand_back` disarms timers | open |
-| B5 | Test: registry retries a join queued behind a deletion | open |
-| B6 | Test: `end_revocation_if_given_up` | open |
+| B| Test: cooperative `owned` retain in a classic join into a consumer group | done |
+| B| Test: classic SyncGroup "group moved on" check | done |
+| B| Test: `hand_over` disarms the rebalance timer and uses the previous assignment during a completing rebalance | done |
+| B| Test: `hand_back` disarms timers | done |
+| B| Test: registry retries a join queued behind a deletion | done |
+| B| Test: `end_revocation_if_given_up` | done |
 | B7 | OffsetFetch v9 ignores the member epoch (Kafka checks it) | open: find the recording or read the spec, then build |
 | B8 | Words of a consumer heartbeat to a non-empty classic group; "RackId can't be empty." | open: unrecorded, check the recordings, else name what is guessed |
 | B9 | Topic snapshot rebuilt on every heartbeat | open |
@@ -28,7 +28,7 @@ a named scenario, or is the owner's decision. Status: `open`, `done <commit>`, `
 | # | Item | Status |
 |---|---|---|
 | C1 | Peer address in DescribeGroups is a fixed `/127.0.0.1` | open |
-| C2 | A SyncGroup or Heartbeat queued behind a group's deletion is dropped (connection closed); OffsetCommit answered UNKNOWN_MEMBER_ID | open |
+| C2 | A SyncGroup or Heartbeat queued behind a group's deletion is dropped (connection closed); OffsetCommit answered UNKNOWN_MEMBER_ID | done |
 | C3 | Issued-id table has one global cap (one client can use it all); an id lasts five minutes, not the session timeout | open |
 | C4 | librdkafka and FindCoordinator note owed from Phase 3 | open: interop runs librdkafka and kcat; record the finding |
 

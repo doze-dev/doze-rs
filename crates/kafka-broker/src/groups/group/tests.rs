@@ -286,4 +286,6 @@ fn when_the_last_consumer_protocol_member_leaves_the_group_is_classic_again_and_
 }
 
 mod classic;
+mod classic_join;
 mod migration;
+mod timers;
