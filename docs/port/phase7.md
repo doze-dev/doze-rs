@@ -1,9 +1,10 @@
 # Phase 7: topic admin, configs, retention and compaction
 
-Status: PLAN (2026-11-09; started at the owner's word while the Phase 6 re-audit runs). Catalogue: behaviours/admin.md and
-behaviours/compaction.md (written as slices land). Goal: the topic configuration a client sets is the configuration the
-broker acts on; a partition count can be raised; a partition's start can be moved; old data is deleted by age and size on its
-own; a compacted topic keeps the latest record of each key. The recorded Apache Kafka 4.3.1 scenarios of these APIs pass.
+Status: BUILT, audit pending (2026-11-09). Catalogue: behaviours/admin.md and behaviours/compaction.md. Goal: the topic
+configuration a client sets is the configuration the broker acts on; a partition count can be raised; a partition's start can be
+moved; old data is deleted by age and size on its own; a compacted topic keeps the latest record of each key. The recorded
+Apache Kafka 4.3.1 scenarios of these APIs pass (`list-config-append`, the Phase 7 rows of `version-matrix`, `metadata-autocreate`).
+
 
 ## What carries in from earlier phases (`debt.md`)
 - `Peek::read` insists that a batch's record count agrees with its last offset delta; compaction breaks that on purpose (a

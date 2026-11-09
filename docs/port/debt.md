@@ -45,8 +45,8 @@ a named scenario, or is a decision that is written down with its reason, or is t
 |---|---|---|
 | D1 | Sealed segments each hold two descriptors | done: open partitions are weighed by their segments and closed, least recently used first, to stay inside a budget taken from the descriptor limit (`partitions::tests::descriptors`, `open_files`) |
 | D2 | A read asked the file for `max_bytes` plus 16 KiB before the limit was known (7.5 MiB for 8 KiB) | done (`log::tests::read`) |
-| D3 | Go behaviours not built | decided: a closed partition's bounds are got by opening it (the cache evicts the least recently used; a never-written one is not opened); `max_bytes` of 0 returns the first batch, as Kafka's minimum-one-message read does; `segment.bytes` at runtime is AlterConfigs: Phase 7 |
-| D4 | Rewriting a batch into the topic's `compression.type` | moved: Phase 7 (topic configs) |
+| D3 | Go behaviours not built | decided: a closed partition's bounds are got by opening it (the cache evicts the least recently used; a never-written one is not opened); `max_bytes` of 0 returns the first batch, as Kafka's minimum-one-message read does; `segment.bytes` at runtime is AlterConfigs: done in Phase 7 (`broker_configs::a_topic_changed_while_open_*`) |
+| D4 | Rewriting a batch into the topic's `compression.type` | done: at Produce, as Kafka does (`produce_records`, `kafka-wire` `recode::tests`); the cleaner keeps the codec a batch has (`compaction.md` CMP-D4) |
 
 ## E. Phase 6
 | # | Item | Status |
@@ -64,10 +64,17 @@ a named scenario, or is a decision that is written down with its reason, or is t
 | F2 | A private GitHub repository for the port | owner (not a technical item; CI is kept local by the owner's choice) |
 | F3 | Java client | closed by the owner (Go clients only) |
 
+## G. Phase 7
+| # | Item | Status |
+|---|---|---|
+| G1 | Differences from Kafka in the config and partition APIs (loggers and other resource types, the broker's config list and its five changeable configs, synonym names, flag defaults, answer order, `--max-partitions`) | decided: `admin.md` ADM-D1 to ADM-D6 |
+| G2 | Differences from Kafka in compaction (segments not merged and the last batch of each kept, exact keys in a bounded map, one cleaner with no throttle, the codec a batch has) | decided: `compaction.md` CMP-D1 to CMP-D4 |
+| G3 | Empty batches left by compaction stalled librdkafka (a run of fetch answers with nothing to count as progress ends in "might be too large to fetch") | done: found by the `compaction` interop scenario, fixed in the reader (CMP-6); the walk that relearns producers had to be kept on the raw read, which the producer-retry test caught |
+| G4 | The cleaner and retention under many partitions (a sweep reopens closed partitions; a reopened one that holds transactions reads its log once) | decided: as A12 |
+
 ## Carried into later phases, by name
-- **Phase 7 (compaction):** a compacted batch keeps its last offset delta with fewer records, so `Peek::read` must stop
-  insisting that the record count agrees with it and the log walks (`visit_batches`, `read`) must advance by the last offset
-  delta; the transaction index and the producer history read through the same walk. `segment.bytes` and the other topic
-  configs act at runtime (AlterConfigs); batches are rewritten into the topic's `compression.type`.
+- **Phase 7 (compaction), done:** the log walks advance by the last offset delta and a stored batch may hold fewer records than it
+  spans (`compaction.md` CMP-6); `segment.bytes` and the other topic configs act at runtime (`admin.md` ADM-6); batches are
+  rewritten into the topic's `compression.type` at Produce (D4).
 - **Phase 8 (security):** `idempotent-write-from-topic-write`; ACLs on the transaction APIs (TRANSACTIONAL_ID_AUTHORIZATION_FAILED,
   GROUP_AUTHORIZATION_FAILED on TxnOffsetCommit, TOPIC_AUTHORIZATION_FAILED on AddPartitionsToTxn).

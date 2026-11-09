@@ -589,3 +589,20 @@ test-only knobs in `internal/config`.
   length 2, the reservation size, the 14-byte floor, `|` for `^` in zigzag), the test builder, the marker's leader epoch,
   and the varint's tenth-byte check (stricter than Kafka's, which ignores the extra bits). The `before_log` survivors are
   held by `kafka-broker/tests/produce_checks.rs`.
+
+### Phase 7 (2026-11-09): topic admin, configs, retention, compaction
+Built in five slices on the debt branch, each with its tests and a commit: 7a retention sweeper and DeleteRecords; 7b the
+three config APIs (topic and broker resources, the five dynamic broker configs kept durably, a change reaching open
+partitions at once, Kafka's validation order and words, the cross-field compaction-lag rule); 7c CreatePartitions (directories
+first, then the count; swept at every operation); 7d compaction (a stored batch spans its offsets; `Batch::filter`; planner,
+offset map, transaction tracking, the job, the writer's install with the index removed first; the cleaner task; reads skip
+batches with no records when records follow). Catalogue: `behaviours/{admin,compaction}.md`. Oracle: `list-config-append` and
+the Phase 7 rows of `version-matrix` pass (`oracle.md`); a full replay is 43 pass, 15 fail, all Phase 8 and 9. Weight: 4.01 MB,
+107 packages, 4.5 MB idle (`weight.md`).
+
+Method kept honest this phase: every rule has a test that fails when the rule is put back, and the mutation tool checks that the
+mutation applied (two "survivors" were mutations that had not changed the file, one because the formatter had split a line,
+one because BSD `sed` has no `0,/re/`). Found by something other than the author's tests: librdkafka against a real compacted
+topic (empty batches, G3), the producer-retry test when the fix for it first touched the walk that relearns producers, and the
+Random name-loss cut of the stop sweep (the first directory flush in the install cannot be dropped). The audit, when it comes,
+gets the property statement of `compaction.md` first.
