@@ -58,7 +58,7 @@ a named scenario, or is a decision that is written down with its reason, or is t
 ## F. Process
 | # | Item | Status |
 |---|---|---|
-| F1 | The two-sided test diet of `kafka-wire` | see the Phase 1 test diet entry in `PLAN.md` |
+| F1 | The two-sided test diet of `kafka-wire` | done: 123 tests to 87, every mutant the old suite caught still caught (`PLAN.md`, "Phase 1 test diet (2026-11-09)") |
 | F2 | A private GitHub repository for the port | owner (not a technical item; CI is kept local by the owner's choice) |
 | F3 | Java client | closed by the owner (Go clients only) |
 

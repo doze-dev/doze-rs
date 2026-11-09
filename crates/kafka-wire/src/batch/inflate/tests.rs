@@ -187,6 +187,35 @@ fn a_zstd_frame_may_not_ask_the_decoder_for_a_window_it_would_have_to_allocate_f
     assert_eq!(refused.refusal, Refusal::MessageTooLarge);
 }
 
+/// The window classes the oracle run found: a window of up to 2 MiB is never refused however small the limit (real
+/// compressors declare that much for tiny payloads); a frame's own content size counts as its window; and past the 128 MiB
+/// Kafka's decoder takes, the frame is unreadable rather than too large. Each body here is a frame header and no blocks.
+#[test]
+fn a_zstd_window_is_judged_by_its_class() {
+    let frame = |header: &[u8]| [&[0x28, 0xb5, 0x2f, 0xfd], header, &[0; 4]].concat();
+    let refusal = |body: Vec<u8>, limit| {
+        batch(4, body, 1)
+            .scan(&rules(limit), &"t-0")
+            .unwrap_err()
+            .refusal
+    };
+    // A window descriptor of 2 MiB (exponent 11) under a 16 KiB limit: read, and found to be no zstd.
+    assert_eq!(
+        refusal(frame(&[0x00, 0x58]), 16 << 10),
+        Refusal::UnknownServerError
+    );
+    // A single segment that declares 64 MiB of content in a four-byte field.
+    assert_eq!(
+        refusal(frame(&[0xa0, 0, 0, 0, 4]), 1 << 20),
+        Refusal::MessageTooLarge
+    );
+    // A window of 256 MiB (exponent 18).
+    assert_eq!(
+        refusal(frame(&[0x00, 0x90]), 1 << 20),
+        Refusal::UnknownServerError
+    );
+}
+
 #[test]
 fn a_compressed_batch_whose_records_are_not_numbered_from_zero_is_unreadable() {
     let skipping = [

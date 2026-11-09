@@ -122,30 +122,11 @@ impl FrameDecoder {
 mod tests {
     use super::*;
 
-    fn frame(payload: &[u8]) -> BytesMut {
-        let mut b = BytesMut::new();
-        b.extend_from_slice(&(payload.len() as u32).to_be_bytes());
-        b.extend_from_slice(payload);
-        b
-    }
-
     fn header(len: u32, key: i16) -> BytesMut {
         let mut b = BytesMut::new();
         b.extend_from_slice(&len.to_be_bytes());
         b.extend_from_slice(&key.to_be_bytes());
         b
-    }
-
-    #[test]
-    fn a_frame_is_length_prefixed() {
-        let mut src = frame(&[0, 18, 0, 0, 9, 9]);
-        let mut d = FrameDecoder::new(Trust::Authenticated);
-        assert_eq!(
-            d.decode(&mut src),
-            Ok(Some(Bytes::from_static(&[0, 18, 0, 0, 9, 9])))
-        );
-        assert!(src.is_empty());
-        assert_eq!(d.decode(&mut src), Ok(None));
     }
 
     #[test]
@@ -155,26 +136,6 @@ mod tests {
             FrameDecoder::new(Trust::Authenticated).decode(&mut src),
             Err(WireError::EmptyFrame)
         );
-    }
-
-    #[test]
-    fn the_cap_follows_the_api_key() {
-        let mut d = FrameDecoder::new(Trust::Authenticated);
-        // Produce may be large, Metadata may not.
-        assert_eq!(
-            d.decode(&mut header(50 << 20, ApiKey::Produce as i16)),
-            Ok(None)
-        );
-        let mut meta = header(2 << 20, ApiKey::Metadata as i16);
-        assert_eq!(
-            d.decode(&mut meta),
-            Err(WireError::FrameTooLarge {
-                len: 2 << 20,
-                limit: CONTROL_CAP
-            })
-        );
-        let mut telemetry = header((1 << 20) + 4096, ApiKey::PushTelemetry as i16);
-        assert_eq!(d.decode(&mut telemetry), Ok(None));
     }
 
     #[test]
@@ -259,14 +220,5 @@ mod tests {
             "reserved {} bytes for a frame of nothing",
             src.capacity()
         );
-    }
-
-    #[test]
-    fn a_key_split_across_reads_is_waited_for() {
-        let mut src = BytesMut::from(&[0u8, 0, 0, 8, 0][..]);
-        let mut d = FrameDecoder::new(Trust::Authenticated);
-        assert_eq!(d.decode(&mut src), Ok(None));
-        src.extend_from_slice(&[18, 1, 1, 1, 1, 1, 1]);
-        assert_eq!(d.decode(&mut src).map(|f| f.map(|b| b.len())), Ok(Some(8)));
     }
 }

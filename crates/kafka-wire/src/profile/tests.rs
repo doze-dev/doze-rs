@@ -13,13 +13,6 @@ const ALL: Features = Features {
 };
 
 #[test]
-fn only_majors_one_to_four_exist() {
-    assert!(KafkaMajor::new(0).is_none());
-    assert!(KafkaMajor::new(5).is_none());
-    assert_eq!(KafkaMajor::new(4), Some(KafkaMajor::DEFAULT));
-}
-
-#[test]
 fn advertised_is_sorted_and_conditional() {
     let plain = profile(4).advertised(Features::default());
     assert!(
@@ -42,22 +35,6 @@ fn each_major_offers_what_it_should() {
     assert!(profile(3).range(ApiKey::DescribeCluster).is_some());
     assert_eq!(profile(4).range(ApiKey::Fetch), Some((4, 13)));
     assert_eq!(profile(1).range(ApiKey::Produce), Some((3, 5)));
-}
-
-#[test]
-fn floors_are_never_below_what_can_be_decoded() {
-    for major in KafkaMajor::RANGE {
-        for a in profile(major).advertised(ALL) {
-            let can = a.key.valid_versions();
-            assert!(
-                a.min >= can.min && a.max <= can.max,
-                "{:?} at major {major}",
-                a.key
-            );
-        }
-    }
-    // ListOffsets v0 is offered by the table at major 1 and not decodable: the floor rises to the crate's.
-    assert_eq!(profile(1).range(ApiKey::ListOffsets).map(|r| r.0), Some(1));
 }
 
 #[test]

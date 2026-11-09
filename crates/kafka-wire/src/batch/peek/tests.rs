@@ -1,6 +1,6 @@
 use super::*;
+use crate::batch::BatchError;
 use crate::batch::build::BatchBuilder;
-use crate::batch::{Batch, BatchError};
 
 fn ok() -> Vec<u8> {
     BatchBuilder::new()
@@ -9,26 +9,6 @@ fn ok() -> Vec<u8> {
         .timestamps(100, 130)
         .build()
         .to_vec()
-}
-
-fn parse(v: &[u8]) -> Result<Batch, BatchError> {
-    Batch::parse(bytes::Bytes::copy_from_slice(v))
-}
-
-const HEADER_LEN: usize = 61;
-#[test]
-fn a_peek_finds_a_batchs_extent_without_its_body_or_checksum() {
-    let v = ok();
-    let peek = Peek::read(&v[..HEADER_LEN]).unwrap(); // the header alone is enough
-    assert_eq!(peek.total_len, v.len() as u64);
-    assert_eq!((peek.base_offset, peek.record_count), (0, 3));
-    assert_eq!(peek.max_timestamp.get(), 130);
-    // The checksum is not looked at: a flipped body byte still peeks, and does not parse.
-    let mut bad = v.clone();
-    let last = bad.len() - 1;
-    bad[last] ^= 1;
-    assert!(Peek::read(&bad).is_ok());
-    assert!(parse(&bad).is_err());
 }
 
 #[test]
@@ -69,20 +49,6 @@ fn a_peek_refuses_what_has_no_extent() {
     ));
     let v = BatchBuilder::new().attributes(6).build();
     assert_eq!(Peek::read(&v).unwrap_err(), BatchError::UnknownCodec(6));
-}
-
-#[test]
-fn whatever_a_batch_parses_as_it_peeks_as() {
-    for records in [1, 2, 9, 200] {
-        let b = BatchBuilder::new()
-            .records(records)
-            .timestamps(5, 50)
-            .build();
-        let (peek, whole) = (Peek::read(&b).unwrap(), Batch::parse(b.clone()).unwrap());
-        assert_eq!(peek.total_len, whole.len() as u64);
-        assert_eq!(peek.record_count, whole.record_count());
-        assert_eq!(peek.attributes, whole.attributes());
-    }
 }
 
 #[test]

@@ -15,30 +15,6 @@ fn parse(v: &[u8]) -> Result<Batch, BatchError> {
 }
 
 #[test]
-fn a_valid_batch_exposes_its_header() {
-    let b = parse(&ok()).unwrap();
-    assert_eq!(b.record_count(), 3);
-    assert_eq!(b.base_offset(), Some(Offset::ZERO));
-    let p = b.producer().unwrap();
-    assert_eq!(
-        (p.id.get(), p.epoch.get(), p.base_sequence),
-        (7, 2, Some(40))
-    );
-    assert_eq!(
-        (b.first_timestamp().get(), b.max_timestamp().get()),
-        (100, 130)
-    );
-    assert_eq!(b.attributes().compression(), Compression::None);
-    assert_eq!(b.partition_leader_epoch(), Some(0));
-    assert!(
-        parse(&BatchBuilder::new().build())
-            .unwrap()
-            .producer()
-            .is_none()
-    );
-}
-
-#[test]
 fn shape_rules() {
     assert_eq!(parse(&ok()[..30]).unwrap_err(), BatchError::TooShort(30));
 
@@ -85,28 +61,6 @@ fn checks_run_in_kafkas_order_so_the_first_fault_is_the_one_reported() {
     v[23..27].copy_from_slice(&9i32.to_be_bytes());
     reseal(&mut v);
     assert_eq!(parse(&v).unwrap_err(), BatchError::UnknownCodec(5));
-}
-
-#[test]
-fn refusals_are_answered_as_kafka_answers_them() {
-    let unknown = BatchError::UnknownCodec(6);
-    let bad_count = BatchError::Count {
-        count: 0,
-        last_offset_delta: 0,
-    };
-    assert_eq!(BatchError::TooShort(1).refusal(), Refusal::CorruptMessage);
-    assert_eq!(BatchError::Magic(1).refusal(), Refusal::CorruptMessage);
-    assert_eq!(unknown.refusal(), Refusal::UnknownServerError);
-    assert_eq!(bad_count.refusal(), Refusal::InvalidRecord);
-    assert_eq!(
-        BatchError::TooManyRecords(1).refusal(),
-        Refusal::InvalidRecord
-    );
-    let located = BatchError::InPayload {
-        at: 9,
-        error: Box::new(bad_count),
-    };
-    assert_eq!(located.refusal(), Refusal::InvalidRecord);
 }
 
 fn with_count(records: u32, attributes: u16, body: usize) -> Result<Batch, BatchError> {
@@ -269,21 +223,4 @@ fn a_run_of_batches_is_walked_one_at_a_time() {
         panic!("expected a located error");
     };
     assert_eq!(at, one.len());
-}
-
-#[test]
-fn attribute_bits() {
-    let a = Attributes::from_bits(0b11_0100);
-    assert_eq!(a.compression(), Compression::Zstd);
-    assert!(a.is_transactional() && a.is_control());
-    assert_eq!(a.timestamp_type(), TimestampType::Create);
-    assert_eq!(
-        Attributes::from_bits(0x08).timestamp_type(),
-        TimestampType::LogAppend
-    );
-    assert_eq!(
-        Attributes::from_bits(7).compression(),
-        Compression::Unknown(7)
-    );
-    assert!(!Attributes::from_bits(0).is_control());
 }

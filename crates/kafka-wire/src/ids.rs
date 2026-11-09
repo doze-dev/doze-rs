@@ -114,10 +114,4 @@ mod tests {
         );
         assert_eq!(Offset::new(i64::MAX).and_then(|o| o.checked_add(1)), None);
     }
-
-    #[test]
-    fn minus_one_is_no_producer() {
-        assert_eq!(ProducerId::new(-1), None);
-        assert_eq!(ProducerId::new(0).map(ProducerId::get), Some(0));
-    }
 }

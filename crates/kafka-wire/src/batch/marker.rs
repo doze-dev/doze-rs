@@ -180,10 +180,4 @@ mod tests {
             );
         }
     }
-
-    #[test]
-    fn a_batch_that_is_not_a_marker_is_not_read_as_one() {
-        assert_eq!(Marker::read(&[]), None);
-        assert_eq!(Marker::read(&[0; HEADER_LEN]), None);
-    }
 }

@@ -565,3 +565,27 @@ test-only knobs in `internal/config`.
   test that cannot tell a lock from a stale copy of what it guards needs the interleaving it is about (here, a reader on its
   own thread asking while a producer writes), and where the schedule rules it out the mutant is written down as surviving,
   with the reason; and Kafka facts that no recording holds are read from its source, by item, and marked as such.
+- **Phase 1 test diet (2026-11-09).** Rule 10 applied to `kafka-wire` (debt F1). cargo-mutants 27.1 over the
+  whole crate, every test binary run for every mutant (`--no-fail-fast`), the failing tests of each mutant read from its
+  log: 719 mutants, 519 caught, 42 timed out, 96 missed, 62 unviable. Kept: every integration suite (recorded ApiVersions
+  and exchanges, every offered version, the independent encoder, frame splits, no-panics, the allocation tests), the
+  regressions for bugs actually found (frame caps and count limits, the v0 ApiVersions header, stamping byte diffs, one
+  batch per partition, the oracle run's gzip trailing bytes, zstd windows, nonsense after a batch and recode), the sole
+  catcher of any mutant, and the only check of a catalogue sentence (a zero-length frame, a length over every cap with no
+  key, an unknown key, Kafka's check order and refusal classes, multi-member gzip, unreadable codecs, the producer rules).
+  Cut: tests that restated the suites (the header parses, response framing, request round trips, floors: all done for every
+  API at every version by `every_offered_version`; the ApiVersions answers and client-software names: done by the 31 recorded
+  Kafka exchanges), getters, and duplicate refusals. 123 tests became 87 (unit 102 to 67, integration 21 to 20, the
+  ignored corpus writer included); `api/tests.rs` is gone. Added where a contract behaviour had no check: one test of the
+  zstd window classes (2 MiB never refused, a single segment's content size is its window, past 128 MiB unreadable), a batch
+  of exactly `max.message.bytes` is taken, and an empty key is a key on a compacted topic. Proof: every mutant the first run
+  caught with a named test still has a catcher (552 of 552, checked against the remaining test list; the other 9 caught
+  were timeouts with no test named); the same 719 were run again, and every timeout or difference (81 mutants) rerun at
+  two jobs and a 90 s timeout: no mutant the old suite catches escapes the new one. Lesson: at six jobs the machine is loaded
+  enough that a test run passes 20 s and is called caught; 13 such "catches" (Display and `AsRef` of ids, `Stamped`
+  accessors, the varint's tenth-byte check, the empty-key comparison) were missed by the pre-diet suite too when rerun
+  quietly. About 90 mutants survive, on purpose: Display, `AsRef` and getters of the id types and `Stamped` (used and tested
+  by `kafka-meta`, `kafka-storage` and the broker), bounds checks the cursor repeats, equivalent boundary forms (a frame of
+  length 2, the reservation size, the 14-byte floor, `|` for `^` in zigzag), the test builder, the marker's leader epoch,
+  and the varint's tenth-byte check (stricter than Kafka's, which ignores the extra bits). The `before_log` survivors are
+  held by `kafka-broker/tests/produce_checks.rs`.

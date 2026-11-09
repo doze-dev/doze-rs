@@ -8,7 +8,6 @@
 )]
 
 use bytes::{BufMut, Bytes, BytesMut};
-use kafka_wire::api::API_TABLE;
 use kafka_wire::batch::{Batch, Batches};
 use kafka_wire::frame::{FrameDecoder, Trust};
 use kafka_wire::incoming;
@@ -100,17 +99,5 @@ proptest! {
                 }
             }
         }
-    }
-}
-
-#[test]
-fn the_table_is_what_the_profiles_are_built_from() {
-    // Every row is reachable from at least one profile, so no API is listed and never served.
-    for row in API_TABLE {
-        assert!(
-            profiles().any(|p| p.range(row.key).is_some()),
-            "{:?} is in no profile",
-            row.key
-        );
     }
 }

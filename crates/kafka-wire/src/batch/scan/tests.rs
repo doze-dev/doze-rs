@@ -124,6 +124,14 @@ fn a_compacted_topic_wants_a_key_on_every_record_and_says_which_in_kafkas_words(
         scan(&batch, &rules()).is_ok(),
         "a topic that does not compact takes them"
     );
+    let empty = Rec {
+        key: Some(vec![]),
+        ..rec(0)
+    };
+    assert!(
+        scan(&built(NOW, &[empty]), &strict).is_ok(),
+        "an empty key is a key"
+    );
 }
 
 #[test]
@@ -206,23 +214,5 @@ fn offsets_inside_a_batch_may_skip_in_an_uncompressed_one() {
     assert!(
         scan(&Batch::parse(batch).unwrap(), &rules()).is_ok(),
         "Kafka keeps an uncompressed one as it came"
-    );
-}
-
-#[test]
-fn a_hostile_number_is_refused_and_not_followed() {
-    // A record length of eleven continuation bytes.
-    let body = vec![0x80; 11];
-    let batch = Batch::parse(
-        BatchBuilder::new()
-            .records(1)
-            .timestamps(NOW, NOW)
-            .body(body)
-            .build(),
-    )
-    .unwrap();
-    assert_eq!(
-        scan(&batch, &rules()).unwrap_err().refusal,
-        Refusal::InvalidRecord
     );
 }

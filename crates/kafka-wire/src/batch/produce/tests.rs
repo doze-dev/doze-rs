@@ -19,11 +19,6 @@ fn refusal(bytes: Vec<u8>) -> Refusal {
 }
 
 #[test]
-fn one_batch_is_taken() {
-    assert_eq!(from(one()).unwrap().record_count(), 2);
-}
-
-#[test]
 fn nothing_whole_is_invalid_record() {
     assert_eq!(from(vec![]).unwrap_err(), ProduceError::NoWholeBatch(0));
     // A batch that says it is longer than what was sent.
@@ -189,6 +184,12 @@ fn a_batch_over_the_limit_is_too_large_whatever_else_is_wrong_with_it() {
     assert_eq!(err.refusal(), Refusal::MessageTooLarge);
     // Within the limit it is the checksum.
     assert_eq!(refusal(bad_crc), Refusal::CorruptMessage);
+    // A batch of exactly the limit is taken: Kafka refuses only what is larger.
+    let exact = ProduceRules {
+        max_batch_bytes: one().len() as u64,
+        ..RULES
+    };
+    assert!(Batch::from_produce(&Bytes::from(one()), exact).is_ok());
 }
 
 #[test]

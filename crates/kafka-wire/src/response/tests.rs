@@ -2,8 +2,7 @@
 //! for it, and must use every byte: a header of the wrong version shifts the body and shows up here.
 
 use kafka_protocol::messages::{
-    ApiKey, ApiVersionsResponse, MetadataResponse, ResponseHeader,
-    api_versions_response::ApiVersion,
+    ApiKey, ApiVersionsResponse, ResponseHeader, api_versions_response::ApiVersion,
 };
 use kafka_protocol::protocol::Decodable;
 
@@ -23,37 +22,6 @@ fn api_versions_body() -> ApiVersionsResponse {
     let mut response = ApiVersionsResponse::default();
     response.api_keys.push(row);
     response
-}
-
-#[test]
-fn a_response_is_a_framed_header_and_body() {
-    let frame = encode(
-        0x0A0B_0C0D,
-        4,
-        &Response::Metadata(MetadataResponse::default()),
-    )
-    .unwrap();
-    let mut rest = payload(&frame);
-    let header = ResponseHeader::decode(&mut rest, 0).unwrap();
-    assert_eq!(header.correlation_id, 0x0A0B_0C0D);
-    MetadataResponse::decode(&mut rest, 4).unwrap();
-    assert!(rest.is_empty(), "{} bytes left over", rest.len());
-}
-
-#[test]
-fn a_flexible_response_header_has_tagged_fields() {
-    // Metadata v4 is not flexible (header v0) and v12 is (header v1, with an empty tagged-fields block).
-    for (version, header_version) in [(4, 0), (12, 1)] {
-        let frame = encode(1, version, &Response::Metadata(MetadataResponse::default())).unwrap();
-        let mut rest = payload(&frame);
-        ResponseHeader::decode(&mut rest, header_version).unwrap();
-        MetadataResponse::decode(&mut rest, version).unwrap();
-        assert!(
-            rest.is_empty(),
-            "v{version}: {} bytes left over",
-            rest.len()
-        );
-    }
 }
 
 #[test]
