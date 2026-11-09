@@ -179,6 +179,21 @@ impl Producers {
         }
     }
 
+    /// The producers remembered: (id, epoch, last sequence, last used in ms), in no order.
+    pub(crate) fn snapshot(&self) -> Vec<(i64, i16, i32, i64)> {
+        self.by_id
+            .iter()
+            .map(|(id, p)| {
+                (
+                    *id,
+                    p.epoch,
+                    p.recent.back().map_or(-1, |s| s.last),
+                    p.last_used_ms,
+                )
+            })
+            .collect()
+    }
+
     /// How many producers are remembered.
     #[cfg(test)]
     pub(crate) fn len(&self) -> usize {

@@ -41,6 +41,13 @@ const SERVED: &[ApiKey] = &[
     ApiKey::DeleteGroups,
     ApiKey::ConsumerGroupHeartbeat,
     ApiKey::ConsumerGroupDescribe,
+    ApiKey::DescribeProducers,
+    ApiKey::AddPartitionsToTxn,
+    ApiKey::AddOffsetsToTxn,
+    ApiKey::EndTxn,
+    ApiKey::TxnOffsetCommit,
+    ApiKey::DescribeTransactions,
+    ApiKey::ListTransactions,
 ];
 
 /// The broker, over a file system (the real one, or a simulated disk in tests).
@@ -51,6 +58,8 @@ pub struct Broker<F: Fs = RealFs> {
     pub(crate) meta: Arc<MetaStore>,
     pub(crate) partitions: Partitions<F>,
     pub(crate) groups: Groups,
+    /// The transactional ids.
+    pub(crate) txns: crate::txn::Txns,
     /// When this run began, in milliseconds since the epoch.
     pub(crate) started_ms: i64,
     /// Counts changes to the set of topics that a waiting fetch must notice (a deletion).
@@ -76,6 +85,7 @@ impl<F: Fs> Broker<F> {
         let partitions =
             Partitions::new(fs.clone(), config.clone(), stop.clone(), Arc::clone(&meta));
         let millis = |d: std::time::Duration| u64::try_from(d.as_millis()).unwrap_or(u64::MAX);
+        let meta_txns = meta.txns()?;
         let groups = Groups::new(
             Settings {
                 initial_delay_ms: millis(config.group_initial_rebalance_delay),
@@ -93,6 +103,7 @@ impl<F: Fs> Broker<F> {
             meta,
             partitions,
             groups,
+            txns: crate::txn::Txns::load(meta_txns),
             started_ms: crate::clock::now().get(),
             topics_changed: tokio::sync::watch::channel(0).0,
             stop,
@@ -138,6 +149,10 @@ impl<F: Fs> Broker<F> {
 
     /// Handles one request. ApiVersions never gets here: the connection answers it from the version profile,
     /// before the connection is known to be allowed anything else.
+    #[expect(
+        clippy::cognitive_complexity,
+        reason = "an exhaustive match over every API, with no wildcard, so that an API with no handler does not compile"
+    )]
     pub async fn handle(
         &self,
         listener: &Listener,
@@ -186,17 +201,20 @@ impl<F: Fs> Broker<F> {
                 .await
             }
             Request::ConsumerGroupDescribe(r) => self.consumer_group_describe(&r).await,
-            Request::InitProducerId(r) => respond(Response::InitProducerId(blocking::run(|| {
-                self.init_producer_id(&r)
-            }))),
+            Request::DescribeProducers(r) => self.describe_producers(&r).await,
+            Request::InitProducerId(r) => {
+                respond(Response::InitProducerId(self.init_producer_id(&r).await))
+            }
+            Request::AddPartitionsToTxn(r) => self.add_partitions_to_txn(&r).await,
+            Request::AddOffsetsToTxn(r) => self.add_offsets_to_txn(&r).await,
+            Request::EndTxn(r) => self.end_txn_request(&r).await,
+            Request::TxnOffsetCommit(r) => self.txn_offset_commit(&r).await,
+            Request::DescribeTransactions(r) => self.describe_transactions(&r).await,
+            Request::ListTransactions(r) => self.list_transactions(&r).await,
             // Not served yet. Each moves out of this arm into a handler when its phase lands.
             Request::ApiVersions(_)
             | Request::SaslHandshake(_)
             | Request::DeleteRecords(_)
-            | Request::AddPartitionsToTxn(_)
-            | Request::AddOffsetsToTxn(_)
-            | Request::EndTxn(_)
-            | Request::TxnOffsetCommit(_)
             | Request::DescribeAcls(_)
             | Request::CreateAcls(_)
             | Request::DeleteAcls(_)
@@ -206,9 +224,6 @@ impl<F: Fs> Broker<F> {
             | Request::CreatePartitions(_)
             | Request::IncrementalAlterConfigs(_)
             | Request::DescribeCluster(_)
-            | Request::DescribeProducers(_)
-            | Request::DescribeTransactions(_)
-            | Request::ListTransactions(_)
             | Request::GetTelemetrySubscriptions(_)
             | Request::PushTelemetry(_) => Outcome::Close,
         }

@@ -201,12 +201,13 @@ async fn a_topic_made_but_never_given_its_directories_is_given_them_when_it_is_f
 }
 
 #[tokio::test]
-async fn producer_ids_are_handed_out_once_each_and_an_id_for_a_transaction_is_refused_for_now() {
+async fn producer_ids_are_handed_out_once_each_and_a_transaction_needs_a_timeout() {
     let rig = rig();
     let ids: Vec<_> = futures_seq(&rig, 3).await;
     assert!(ids.windows(2).all(|w| w[0] < w[1]), "{ids:?}");
+    // A transactional id with no usable timeout is INVALID_TRANSACTION_TIMEOUT (50).
     let t = rig.init_producer_id(Some("txn")).await;
-    assert_eq!((t.error_code, t.producer_id.0), (42, -1));
+    assert_eq!((t.error_code, t.producer_id.0), (50, -1));
 }
 
 async fn futures_seq(rig: &support::Rig, n: usize) -> Vec<i64> {

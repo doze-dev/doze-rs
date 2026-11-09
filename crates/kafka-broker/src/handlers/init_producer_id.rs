@@ -4,33 +4,53 @@ use kafka_storage::fs::Fs;
 use kafka_wire::ResponseError;
 use kafka_wire::messages::{InitProducerIdRequest, InitProducerIdResponse, ProducerId};
 
-use crate::Broker;
+use crate::{Broker, blocking};
+
+/// The longest transactional id kept (it is kept for good, in memory and on disk).
+const MOST_BYTES: usize = 4096;
 
 impl<F: Fs> Broker<F> {
-    /// Hands out a fresh producer id (epoch 0). Producers default to idempotence and ask for one before they
-    /// produce anything, so refusing puts a client into a fatal state; what an idempotent producer's id is used
-    /// for comes with the sequence checks (Phase 6). A transactional id is refused until the transaction APIs
-    /// exist: none of them is advertised, so a client that follows the advertised APIs never sends one.
-    pub(crate) fn init_producer_id(&self, req: &InitProducerIdRequest) -> InitProducerIdResponse {
+    /// Hands out a producer id (epoch 0). Producers default to idempotence and ask for one before they produce
+    /// anything, so refusing puts a client into a fatal state. With a transactional id the caller becomes the owner of
+    /// that id's transactions, fencing whoever held it.
+    pub(crate) async fn init_producer_id(
+        &self,
+        req: &InitProducerIdRequest,
+    ) -> InitProducerIdResponse {
         let mut resp = InitProducerIdResponse::default();
-        if req.transactional_id.is_some() {
-            resp.error_code = ResponseError::InvalidRequest.code();
+        let refuse = |mut resp: InitProducerIdResponse, code: ResponseError| {
+            resp.error_code = code.code();
             resp.producer_id = ProducerId(-1);
             resp.producer_epoch = -1;
-            return resp;
+            resp
+        };
+        if let Some(id) = &req.transactional_id {
+            // An empty id is not "no id" (that is null).
+            if id.0.is_empty() || id.0.len() > MOST_BYTES {
+                return refuse(resp, ResponseError::InvalidRequest);
+            }
+            return match self
+                .init_txn_producer(id.0.as_str(), req.transaction_timeout_ms)
+                .await
+            {
+                Ok((producer, epoch)) => {
+                    resp.producer_id = ProducerId(producer);
+                    resp.producer_epoch = epoch;
+                    resp
+                }
+                Err(code) => refuse(resp, code),
+            };
         }
-        match self.meta.next_producer_id() {
+        match blocking::run(|| self.meta.next_producer_id()) {
             Ok(id) => {
                 resp.producer_id = ProducerId(id);
                 resp.producer_epoch = 0;
+                resp
             }
             Err(e) => {
                 tracing::error!(error = %e, "reserving producer ids failed");
-                resp.error_code = ResponseError::KafkaStorageError.code();
-                resp.producer_id = ProducerId(-1);
-                resp.producer_epoch = -1;
+                refuse(resp, ResponseError::KafkaStorageError)
             }
         }
-        resp
     }
 }

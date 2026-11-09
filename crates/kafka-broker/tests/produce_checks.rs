@@ -112,7 +112,7 @@ async fn the_topic_limits_how_big_a_batch_may_be_and_zstd_needs_v7() {
 }
 
 #[tokio::test]
-async fn a_transactional_batch_needs_a_transactional_id_and_transactions_are_not_served_yet() {
+async fn a_transactional_batch_needs_a_transactional_id_that_a_producer_owns() {
     let rig = rig();
     rig.create(vec![topic("t", 2)], false).await;
     let transactional = BatchBuilder::new()
@@ -130,7 +130,7 @@ async fn a_transactional_batch_needs_a_transactional_id_and_transactions_are_not
         .map(|p| p.error_code)
         .collect();
     assert_eq!(codes, [53, 53]);
-    // With one, it is refused for the partition alone until Phase 6 has transactions.
+    // With one that no producer owns, it is refused for the partition alone.
     let mut req = produce_request(1, "t", &[(0, records(1)), (1, transactional)]);
     req.transactional_id = Some(kafka_wire::messages::TransactionalId(
         kafka_wire::StrBytes::from_static_str("x"),
@@ -143,7 +143,7 @@ async fn a_transactional_batch_needs_a_transactional_id_and_transactions_are_not
         .iter()
         .map(|p| p.error_code)
         .collect();
-    assert_eq!(codes, [0, 48]);
+    assert_eq!(codes, [0, 49]);
 }
 
 #[tokio::test]

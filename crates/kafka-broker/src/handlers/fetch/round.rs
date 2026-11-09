@@ -1,5 +1,6 @@
 //! One pass over the partitions of a Fetch.
 
+use crate::partitions::TxnView;
 use bytes::Bytes;
 use kafka_storage::StorageError;
 use kafka_storage::fs::Fs;
@@ -8,7 +9,9 @@ use kafka_wire::ids::Offset;
 use kafka_wire::messages::fetch_response::{FetchableTopicResponse, PartitionData};
 use kafka_wire::messages::{FetchRequest, FetchResponse};
 
-use super::{Place, Wanted};
+use kafka_wire::messages::fetch_response::AbortedTransaction;
+
+use super::{Place, Stable, Wanted};
 
 /// The size of a read when neither the partition nor the request names one.
 const DEFAULT_MAX_BYTES: i64 = 1 << 20;
@@ -58,6 +61,7 @@ impl Budget {
 
 pub(super) fn read<F: Fs>(
     wanted: &[Wanted<'_, F>],
+    stable: &[Vec<Stable>],
     req: &FetchRequest,
     mut budget: Budget,
 ) -> Round {
@@ -66,11 +70,11 @@ pub(super) fn read<F: Fs>(
         bytes: 0,
         failed: false,
     };
-    for w in wanted {
+    for (w, stable) in wanted.iter().zip(stable) {
         let mut topic = FetchableTopicResponse::default();
         topic.topic = w.request.topic.clone();
         topic.topic_id = w.request.topic_id;
-        for (asked, place) in w.request.partitions.iter().zip(&w.places) {
+        for ((asked, place), stable) in w.request.partitions.iter().zip(&w.places).zip(stable) {
             let mut data = PartitionData::default();
             data.partition_index = asked.partition;
             data.error_code = 0;
@@ -82,26 +86,52 @@ pub(super) fn read<F: Fs>(
                 Place::Open(partition) => {
                     let limit =
                         limit_for(asked.partition_max_bytes, req.max_bytes, budget.remaining);
+                    let cap = match stable {
+                        Stable::Of(view) => Some(view.last_stable),
+                        _ => None,
+                    };
                     round.bytes += fill(
                         &mut data,
                         partition.reader(),
                         asked.fetch_offset,
-                        limit,
+                        (limit, cap),
                         &mut budget,
                     );
+                    match stable {
+                        Stable::Of(view) if data.error_code == 0 => {
+                            data.last_stable_offset = view.last_stable.get();
+                            data.aborted_transactions = Some(aborted(view, asked.fetch_offset));
+                        }
+                        Stable::Failed => data.error_code = ResponseError::KafkaStorageError.code(),
+                        _ => {}
+                    }
                     round.failed |= data.error_code != 0;
                 }
             }
-            if req.isolation_level == 1 && data.error_code == 0 {
-                data.aborted_transactions = Some(Vec::new());
-            } else {
+            if req.isolation_level != 1 || data.error_code != 0 {
                 data.aborted_transactions = None;
+            } else if data.aborted_transactions.is_none() {
+                data.aborted_transactions = Some(Vec::new());
             }
             topic.partitions.push(data);
         }
         round.topics.push(topic);
     }
     round
+}
+
+/// The aborted transactions that touch what a `read_committed` fetch from `from` is given.
+fn aborted(view: &TxnView, from: i64) -> Vec<AbortedTransaction> {
+    view.aborted
+        .iter()
+        .filter(|a| a.last >= from && a.first < view.last_stable.get())
+        .map(|a| {
+            let mut t = AbortedTransaction::default();
+            t.producer_id = kafka_wire::messages::ProducerId(a.producer);
+            t.first_offset = a.first;
+            t
+        })
+        .collect()
 }
 
 /// How much one partition may read: its own limit, else the request's, else a default; no more than the request has
@@ -123,7 +153,7 @@ fn fill<F: Fs>(
     data: &mut PartitionData,
     reader: &kafka_storage::LogReader<F>,
     from: i64,
-    limit: usize,
+    (limit, cap): (usize, Option<Offset>),
     budget: &mut Budget,
 ) -> usize {
     let read = Offset::new(from)
@@ -132,7 +162,7 @@ fn fill<F: Fs>(
             start: reader.start_offset().get(),
             end: reader.end_offset().get(),
         })
-        .and_then(|from| reader.read(from, limit, None));
+        .and_then(|from| reader.read(from, limit, cap));
     // The end is read after the records: what was read is at or below it.
     data.high_watermark = reader.end_offset().get();
     data.last_stable_offset = data.high_watermark;

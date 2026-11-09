@@ -12,6 +12,7 @@ use tokio::time::{Instant, sleep_until};
 
 use crate::blocking;
 use crate::producers::{Producers, Stored, Verdict, last_of};
+use crate::txn_index::{Aborted, Open, TxnIndex};
 
 /// The most appends taken in one go, so that a partition under load still hears a Close.
 const GROUP: usize = 64;
@@ -20,6 +21,8 @@ const HISTORY_BYTES: u64 = 16 << 20;
 
 pub(super) enum Command {
     Append(Append),
+    /// What the partition knows of its transactions and producers.
+    Txns(oneshot::Sender<Result<TxnView, StorageError>>),
     /// Flush and close; answers whether that worked.
     Close(oneshot::Sender<bool>),
 }
@@ -33,6 +36,17 @@ pub(crate) enum Written {
     Duplicate { offset: Offset, timestamp: i64 },
     /// The producer's sequence or epoch is wrong; nothing was written.
     Refused(ResponseError),
+}
+
+/// What a partition knows of its transactions and its producers.
+#[derive(Debug, Clone)]
+pub(crate) struct TxnView {
+    /// The first offset a `read_committed` consumer may not read.
+    pub(crate) last_stable: Offset,
+    pub(crate) aborted: Vec<Aborted>,
+    pub(crate) open: Vec<Open>,
+    /// (id, epoch, last sequence, last used in ms)
+    pub(crate) producers: Vec<(i64, i16, i32, i64)>,
 }
 
 pub(super) struct Append {
@@ -50,6 +64,8 @@ struct Memory {
     producers: Producers,
     /// The log's recent history has been read in.
     loaded: bool,
+    /// The transactions the log holds; read from the log when first needed.
+    txns: Option<TxnIndex>,
 }
 
 /// Takes commands until the queue closes or a Close arrives: appends are written in the order they came, then one
@@ -128,6 +144,9 @@ fn work<F: Fs>(
                 // The producer waiting on this learns of the append now and of its flush by the ticket.
                 let _ = a.reply.send(result);
             }
+            Command::Txns(reply) => {
+                let _ = reply.send(view(log, memory));
+            }
             Command::Close(done) => closing = Some(done),
         }
     }
@@ -150,15 +169,11 @@ fn append_one<F: Fs>(
     a: &Append,
 ) -> Result<Written, StorageError> {
     let Some(producer) = a.batch.producer() else {
-        return log
-            .append(std::slice::from_ref(&a.batch), a.now, a.clock)
-            .map(Written::Appended);
+        return write(log, memory, a).map(Written::Appended);
     };
     // A batch with a producer and no sequence is a transaction marker: it is not sequenced.
     let Some(first) = producer.base_sequence.and_then(|s| i32::try_from(s).ok()) else {
-        return log
-            .append(std::slice::from_ref(&a.batch), a.now, a.clock)
-            .map(Written::Appended);
+        return write(log, memory, a).map(Written::Appended);
     };
     if !memory.loaded {
         relearn(log, memory)?;
@@ -167,7 +182,7 @@ fn append_one<F: Fs>(
     let last = last_of(first, a.batch.record_count());
     match memory.producers.check(id, epoch, first, last) {
         Verdict::Accept => {
-            let appended = log.append(std::slice::from_ref(&a.batch), a.now, a.clock)?;
+            let appended = write(log, memory, a)?;
             // The newest timestamp as stored: the batch's own, or the time of the append if the topic says so.
             let stored = match a.clock {
                 TimestampType::LogAppend => a.now.get(),
@@ -219,3 +234,6 @@ fn relearn<F: Fs>(log: &PartitionLog<F>, memory: &mut Memory) -> Result<(), Stor
     memory.loaded = true;
     Ok(())
 }
+
+mod transactions;
+use transactions::{view, write};

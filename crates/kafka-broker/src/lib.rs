@@ -15,6 +15,8 @@ mod producers;
 mod retention;
 mod topic_config;
 mod topics;
+mod txn;
+mod txn_index;
 
 pub use broker::Broker;
 pub use config::{Config, Defaults};

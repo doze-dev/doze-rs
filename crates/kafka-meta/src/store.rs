@@ -5,6 +5,7 @@ mod offsets;
 mod producer_ids;
 mod registry;
 mod topics;
+mod txns;
 
 pub use topics::random_topic_id;
 
@@ -26,6 +27,8 @@ pub(super) const OFFSETS: TableDefinition<'static, &[u8], &[u8]> = TableDefiniti
 pub(super) const GROUP_LIVES: TableDefinition<'static, &str, &[u8]> =
     TableDefinition::new("group_lives");
 /// Named counters.
+pub(super) const TXNS: TableDefinition<'static, &str, &[u8]> = TableDefinition::new("txns");
+
 pub(super) const COUNTERS: TableDefinition<'static, &str, u64> = TableDefinition::new("counters");
 
 const FILE: &str = "meta.redb";
@@ -110,6 +113,7 @@ fn make<F: Fs>(fs: &F, dir: &Path, path: &Path) -> Result<(), MetaError> {
     txn.open_table(COUNTERS)?;
     txn.open_table(OFFSETS)?;
     txn.open_table(GROUP_LIVES)?;
+    txn.open_table(TXNS)?;
     txn.commit()?;
     // Closed by name, not by dropping: closing flushes once more, and a flush that fails must stop the
     // file being put in place (a dropped database would swallow it, and the file's later flushes may

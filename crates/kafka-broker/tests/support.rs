@@ -235,7 +235,10 @@ pub use group_admin::subscription;
 pub use groups::join_request;
 #[path = "support/produce.rs"]
 mod produce;
+#[path = "support/txn.rs"]
+mod txn;
 
 pub use consumer::{assigned as assigned_848, beat_848, join_848};
 pub use fetch::*;
 pub use produce::*;
+pub use txn::Txn;

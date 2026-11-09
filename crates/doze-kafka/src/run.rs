@@ -29,11 +29,14 @@ pub(crate) fn logging(args: &Args) {
 pub(crate) async fn serve(settings: Settings) -> Result<()> {
     let Settings { broker, server } = settings;
     let broker = Arc::new(Broker::open(RealFs, broker).context("opening the broker's data")?);
+    // A transaction whose decision was stored is carried out before anything new is taken.
+    broker.recover_transactions().await;
     let running = Server::bind(server.clone(), Arc::clone(&broker))
         .await
         .with_context(|| format!("listening on {}", server.listen))?;
     tracing::info!(addr = %running.local_addr(), "listening");
     let _sweeper = broker.start_offsets_sweeper();
+    let _transactions = broker.start_transactions();
     let _control = crate::control::serve(&broker);
     stopped().await;
     tracing::info!("stopping");

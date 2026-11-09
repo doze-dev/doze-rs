@@ -15,8 +15,8 @@ use kafka_wire::batch::{Batch, TimestampType};
 use kafka_wire::ids::TimestampMs;
 use tokio::sync::{mpsc, oneshot};
 
-pub(crate) use actor::Written;
 use actor::{Append, Command};
+pub(crate) use actor::{TxnView, Written};
 pub(crate) use registry::Partitions;
 
 /// How many appends may wait for a partition's writer before the next sender waits.
@@ -63,6 +63,19 @@ impl<F: Fs> Partition<F> {
             .await
             .map_err(|_| gone())?;
         Ok(answer)
+    }
+
+    /// What the partition knows of its transactions and producers (read from the log the first time it is asked).
+    ///
+    /// # Errors
+    /// The log cannot be read, or the writer has gone.
+    pub(crate) async fn txns(&self) -> Result<TxnView, StorageError> {
+        let (reply, answer) = oneshot::channel();
+        self.commands
+            .send(Command::Txns(reply))
+            .await
+            .map_err(|_| gone())?;
+        answer.await.map_err(|_| gone())?
     }
 
     /// Stops the writer after it has flushed what it has, and waits until it has. Says whether the flush worked.

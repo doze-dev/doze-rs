@@ -1,11 +1,16 @@
 //! One file per API: the request in, the response out.
 
+mod add_offsets_to_txn;
+mod add_partitions_to_txn;
 mod consumer_group_describe;
 mod consumer_group_heartbeat;
 mod create_topics;
 mod delete_groups;
 mod delete_topics;
 mod describe_groups;
+mod describe_producers;
+mod describe_transactions;
+mod end_txn;
 mod fetch;
 mod find_coordinator;
 mod heartbeat;
@@ -20,3 +25,4 @@ mod offset_delete;
 mod offset_fetch;
 mod produce;
 mod sync_group;
+mod txn_offset_commit;

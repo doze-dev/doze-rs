@@ -23,7 +23,7 @@ fn setup_with(tweak: impl FnOnce(&mut Config), partitions: i32) -> (Partitions<S
     (partitions, topic)
 }
 
-fn setup_full(
+pub(super) fn setup_full(
     tweak: impl FnOnce(&mut Config),
     partitions: i32,
 ) -> (Partitions<SimFs>, Arc<Topic>, Arc<MetaStore>, SimFs) {
@@ -151,3 +151,5 @@ async fn a_partition_being_closed_is_not_opened_again_until_it_is_closed() {
     });
     assert!(got.is_ok(), "and once it is closed, it is opened");
 }
+
+mod txns;

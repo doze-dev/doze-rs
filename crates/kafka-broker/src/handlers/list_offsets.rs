@@ -103,6 +103,10 @@ impl<F: Fs> Broker<F> {
         let found = match p.timestamp {
             // Under read-committed the last stable offset is what a consumer may read, and with no transactions
             // yet that is the end.
+            LATEST if isolation == 1 => match partition.txns().await {
+                Ok(view) => Ok(Some((view.last_stable, None))),
+                Err(e) => Err(e),
+            },
             LATEST => Ok(Some((reader.end_offset(), None))),
             EARLIEST => Ok(Some((reader.start_offset(), None))),
             MAX_TIMESTAMP => blocking::run(|| reader.offset_of_max_timestamp())
