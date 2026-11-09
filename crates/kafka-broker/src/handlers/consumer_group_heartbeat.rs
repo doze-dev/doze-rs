@@ -54,6 +54,53 @@ fn refusal(error: E, words: &str) -> crate::groups::HeartbeatAnswer {
 
 type Refused = (E, String);
 
+/// What is wrong with the request alone, in Kafka's order and words.
+fn refusal_words(version: i16, r: &ConsumerGroupHeartbeatRequest) -> Option<&'static str> {
+    let group = r.group_id.0.as_str();
+    let instance = r.instance_id.as_ref().map(|i| i.as_str());
+    // Kafka's order, and its meaning of empty: nothing but white space. A member id is asked for from version 1 (the
+    // client makes it), and before that only after the first heartbeat.
+    if (version >= 1 || r.member_epoch > 0 || r.member_epoch == -1)
+        && r.member_id.as_str().trim().is_empty()
+    {
+        return Some("MemberId can't be empty.");
+    }
+    if group.trim().is_empty() {
+        return Some("GroupId can't be empty.");
+    }
+    if GroupId::parse(group).is_err() {
+        return Some("the group id is not usable");
+    }
+    if instance.is_some_and(|i| i.trim().is_empty()) {
+        return Some("InstanceId can't be empty.");
+    }
+    if r.rack_id
+        .as_ref()
+        .is_some_and(|i| i.as_str().trim().is_empty())
+    {
+        return Some("RackId can't be empty.");
+    }
+    let joining = r.member_epoch == 0;
+    if joining && r.rebalance_timeout_ms == -1 {
+        return Some("RebalanceTimeoutMs must be provided in first request.");
+    }
+    if joining && r.topic_partitions.as_ref().is_none_or(|t| !t.is_empty()) {
+        return Some("TopicPartitions must be empty when (re-)joining.");
+    }
+    if joining && r.subscribed_topic_names.is_none() && r.subscribed_topic_regex.is_none() {
+        return Some(
+            "Either SubscribedTopicNames or SubscribedTopicRegex must be non-null when (re-)joining.",
+        );
+    }
+    if r.member_epoch == -2 && instance.is_none() {
+        return Some("InstanceId can't be null.");
+    }
+    if r.member_epoch < -2 {
+        return Some("MemberEpoch is invalid.");
+    }
+    None
+}
+
 /// Kafka's checks of the request alone, and the typed request.
 fn check(
     version: i16,
@@ -63,45 +110,8 @@ fn check(
     let bad = |words: &str| Err((E::InvalidRequest, words.to_owned()));
     let group = r.group_id.0.as_str();
     let instance = r.instance_id.as_ref().map(|i| i.as_str());
-    // Kafka's order, and its meaning of empty: nothing but white space. A member id is asked for from version 1 (the
-    // client makes it), and before that only after the first heartbeat.
-    if (version >= 1 || r.member_epoch > 0 || r.member_epoch == -1)
-        && r.member_id.as_str().trim().is_empty()
-    {
-        return bad("MemberId can't be empty.");
-    }
-    if group.trim().is_empty() {
-        return bad("GroupId can't be empty.");
-    }
-    if GroupId::parse(group).is_err() {
-        return bad("the group id is not usable");
-    }
-    if instance.is_some_and(|i| i.trim().is_empty()) {
-        return bad("InstanceId can't be empty.");
-    }
-    if r.rack_id
-        .as_ref()
-        .is_some_and(|i| i.as_str().trim().is_empty())
-    {
-        return bad("RackId can't be empty.");
-    }
-    let joining = r.member_epoch == 0;
-    if joining && r.rebalance_timeout_ms == -1 {
-        return bad("RebalanceTimeoutMs must be provided in first request.");
-    }
-    if joining && r.topic_partitions.as_ref().is_none_or(|t| !t.is_empty()) {
-        return bad("TopicPartitions must be empty when (re-)joining.");
-    }
-    if joining && r.subscribed_topic_names.is_none() && r.subscribed_topic_regex.is_none() {
-        return bad(
-            "Either SubscribedTopicNames or SubscribedTopicRegex must be non-null when (re-)joining.",
-        );
-    }
-    if r.member_epoch == -2 && instance.is_none() {
-        return bad("InstanceId can't be null.");
-    }
-    if r.member_epoch < -2 {
-        return bad("MemberEpoch is invalid.");
+    if let Some(words) = refusal_words(version, r) {
+        return bad(words);
     }
     let names: Vec<String> = r
         .subscribed_topic_names
