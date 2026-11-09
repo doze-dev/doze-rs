@@ -31,6 +31,18 @@ No Rust for doze-aws exists yet; the foundation (A1 to A4) has not started.
 
 ## Recording status
 
+Recorded (2026-11-09): sqs, ssm, secretsmanager, sns, sts, dynamodb, cloudwatch, kinesis, eventbridge, s3, logs, kms, iam, stepfunctions, apigateway, cloudformation, lambda.
+**Baseline.md covers the first eleven only**: re-run `GO_BIN=... bun tools/aws-rec/baseline.ts` (all modules) to add kms, iam, stepfunctions, apigateway, cloudformation, lambda.
+
+Scenarios that still need work (the oracle contradicted them or the policy did):
+
+- `iam::test_user_group_and_access_key` failed during recording (read `tools/aws-rec/logs/record-iam.log`).
+- `cloudformation::test_a_failed_update_goes_back_to_the_previous_template`: the scenario asserts the stack is out of an `*_IN_PROGRESS` state, but AWS reports
+  `UPDATE_ROLLBACK_COMPLETE_CLEANUP_IN_PROGRESS`; it needs a wait.
+- `cloudformation::test_a_failed_create_can_be_left_or_deleted` errored at cleanup, and its template names an SSM parameter `/dzc/has space` outside the `doze-rec-` prefix, so the role
+  could not delete it (the stack ended `DELETE_FAILED`). Rename it with the prefix. The teardown now retains resources that refuse to delete and finishes the stack.
+- Do not trust the snapshots of those two CloudFormation tests until they are re-recorded.
+
 See the table in `baseline.md` for what is recorded. Policy lives in `tools/aws-rec/recorder-permission-set.ts` (`bun` regenerates `recorder-permission-set.min.json`;
 the owner pastes it into the permission set in IAM Identity Center when it changes). A scenario that AWS contradicts is changed to `snapshot.outcome(...)`
 with a dated comment; never re-record without reading the diff.

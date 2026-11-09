@@ -1,0 +1,711 @@
+{
+  "_recorded": {
+    "boto3": "1.43.107",
+    "botocore": "1.43.107",
+    "on": "2026-11-09",
+    "region": "us-east-1",
+    "target": "aws"
+  },
+  "test_a_failed_create_can_be_left_or_deleted": {
+    "a-failed-create-cannot-be-updated": {
+      "Error": {
+        "Code": "ValidationError",
+        "Message": "This stack is currently in a non-terminal [CREATE_FAILED] state. To update the stack from this state, please use the disable-rollback parameter with update-stack API. To rollback to the last known good state, use the rollback-stack API"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "disable-rollback-status": "CREATE_FAILED",
+    "on-failure-delete-status": "DELETE_COMPLETE",
+    "the-stack-is-gone-by-name": {
+      "Error": {
+        "Code": "ValidationError",
+        "Message": "Stack with id <name:gone> does not exist"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "what-was-made-is-deleted": {
+      "Error": {
+        "Code": "AWS.SimpleQueueService.NonExistentQueue",
+        "Message": "The specified queue does not exist."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "what-was-made-is-left": {
+      "QueueUrl": "<endpoint>/<account>/<name:kept-queue>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    }
+  },
+  "test_a_resource_that_fails_rolls_the_stack_back": {
+    "a-rolled-back-stack-cannot-be-updated": {
+      "Error": {
+        "Code": "ValidationError",
+        "Message": "Stack:arn:aws:cloudformation:us-east-1:<account>:stack/<name:stack>/<uuid:2> is in ROLLBACK_COMPLETE state and can not be updated."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "create": {
+      "OperationId": "<uuid:1>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "StackId": "arn:aws:cloudformation:us-east-1:<account>:stack/<name:stack>/<uuid:2>"
+    },
+    "nor-created-over": {
+      "Error": {
+        "Code": "AlreadyExistsException",
+        "Message": "Stack [<name:stack>] already exists"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "status": "ROLLBACK_COMPLETE",
+    "the-good-queue-was-taken-back": {
+      "Error": {
+        "Code": "AWS.SimpleQueueService.NonExistentQueue",
+        "Message": "The specified queue does not exist."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "what-failed": [
+      [
+        "Bad",
+        "CREATE_FAILED"
+      ]
+    ]
+  },
+  "test_a_taken_name_fails_the_create": {
+    "status": "ROLLBACK_COMPLETE",
+    "their-queue-is-unchanged": {
+      "Attributes": {
+        "VisibilityTimeout": "5"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "their-queue-outlives-the-stack": {
+      "QueueUrl": "<endpoint>/<account>/<name:theirs>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "why": [
+      "Resource handler returned message: \"Queue creation failed because the queue already exists\" (RequestToken: <uuid:1>, HandlerErrorCode: AlreadyExists)"
+    ]
+  },
+  "test_an_update_deletes_what_its_template_drops": {
+    "resources": [
+      "Keep"
+    ],
+    "stack-level-events": [
+      "CREATE_IN_PROGRESS",
+      "CREATE_IN_PROGRESS",
+      "CREATE_COMPLETE",
+      "UPDATE_IN_PROGRESS",
+      "UPDATE_COMPLETE_CLEANUP_IN_PROGRESS",
+      "UPDATE_COMPLETE"
+    ],
+    "status": "UPDATE_COMPLETE",
+    "the-dropped-queue-is-gone": {
+      "Error": {
+        "Code": "AWS.SimpleQueueService.NonExistentQueue",
+        "Message": "The specified queue does not exist."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "the-kept-queue": {
+      "QueueUrl": "<endpoint>/<account>/<name:keep>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "the-retained-queue-outlives-its-stack-entry": {
+      "QueueUrl": "<endpoint>/<account>/<name:held>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    }
+  },
+  "test_change_set": {
+    "after": [
+      "CREATE_COMPLETE"
+    ],
+    "create": {
+      "Id": "arn:aws:cloudformation:us-east-1:<account>:changeSet/<name:change>/<uuid:1>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "StackId": "arn:aws:cloudformation:us-east-1:<account>:stack/<name:stack>/<uuid:2>"
+    },
+    "describe": {
+      "Capabilities": [],
+      "ChangeSetId": "arn:aws:cloudformation:us-east-1:<account>:changeSet/<name:change>/<uuid:1>",
+      "ChangeSetName": "<name:change>",
+      "Changes": [
+        {
+          "ResourceChange": {
+            "Action": "Add",
+            "Details": [],
+            "LogicalResourceId": "Pointer",
+            "ResourceType": "AWS::SSM::Parameter",
+            "Scope": []
+          },
+          "Type": "Resource"
+        },
+        {
+          "ResourceChange": {
+            "Action": "Add",
+            "Details": [],
+            "LogicalResourceId": "Queue",
+            "ResourceType": "AWS::SQS::Queue",
+            "Scope": []
+          },
+          "Type": "Resource"
+        },
+        {
+          "ResourceChange": {
+            "Action": "Add",
+            "Details": [],
+            "LogicalResourceId": "Topic",
+            "ResourceType": "AWS::SNS::Topic",
+            "Scope": []
+          },
+          "Type": "Resource"
+        }
+      ],
+      "CreationTime": "<CreationTime:1>",
+      "DeploymentConfig": {
+        "DisableRollback": false,
+        "Mode": "STANDARD"
+      },
+      "ExecutionStatus": "AVAILABLE",
+      "IncludeNestedStacks": false,
+      "NotificationARNs": [],
+      "Parameters": [
+        {
+          "ParameterKey": "QueueName",
+          "ParameterValue": "<name:queue>"
+        },
+        {
+          "ParameterKey": "TopicName",
+          "ParameterValue": "<name:topic>"
+        },
+        {
+          "ParameterKey": "Visibility",
+          "ParameterValue": "30"
+        }
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "RollbackConfiguration": {},
+      "StackId": "arn:aws:cloudformation:us-east-1:<account>:stack/<name:stack>/<uuid:2>",
+      "StackName": "<name:stack>",
+      "Status": "CREATE_COMPLETE"
+    },
+    "execute": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "execute-again": {
+      "Error": {
+        "Code": "InvalidChangeSetStatus",
+        "Message": "ChangeSet [arn:aws:cloudformation:us-east-1:<account>:changeSet/<name:change>/<uuid:1>] cannot be executed in its current execution status of [EXECUTE_COMPLETE]"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "stack-in-review": [
+      "REVIEW_IN_PROGRESS"
+    ]
+  },
+  "test_refusals": {
+    "absent-change-set": {
+      "Error": {
+        "Code": "ChangeSetNotFound",
+        "Message": "ChangeSet [<name:absent>] does not exist"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    },
+    "absent-resource": {
+      "Error": {
+        "Code": "ValidationError",
+        "Message": "Resource Ghost does not exist for stack <name:stack>"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "bad-stack-name": {
+      "Error": {
+        "Code": "AccessDenied",
+        "Message": "User: arn:aws:sts::<account>:assumed-role/AWSReservedSSO_doze-recorder-limited_831b2805e46e339c/srini.icloud is not authorized to perform: cloudformation:CreateStack on resource: arn:aws:cloudformation:us-east-1:<account>:stack/has_underscore/* because no identity-based policy allows the cloudformation:CreateStack action"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 403
+      }
+    },
+    "create-twice": {
+      "Error": {
+        "Code": "AlreadyExistsException",
+        "Message": "Stack [<name:stack>] already exists"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "delete-absent": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "describe-absent": {
+      "Error": {
+        "Code": "ValidationError",
+        "Message": "Stack with id <name:absent> does not exist"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "missing-parameter": {
+      "Error": {
+        "Code": "ValidationError",
+        "Message": "Parameters: [TopicName] must have values"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "no-template": {
+      "Error": {
+        "Code": "ValidationError",
+        "Message": "Either Template URL or Template Body must be specified."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "parameter-not-in-template": {
+      "Error": {
+        "Code": "ValidationError",
+        "Message": "Parameters: [Nope] do not exist in the template"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "parameter-out-of-range": {
+      "Error": {
+        "Code": "ValidationError",
+        "Message": "Parameter 'Visibility' must be a number not greater than 43200"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "resources-of-absent": {
+      "Error": {
+        "Code": "ValidationError",
+        "Message": "Stack with id <name:absent> does not exist"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "update-absent": {
+      "Error": {
+        "Code": "ValidationError",
+        "Message": "Stack [<name:absent>] does not exist"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_stack_lifecycle": {
+    "create": {
+      "OperationId": "<uuid:1>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "StackId": "arn:aws:cloudformation:us-east-1:<account>:stack/<name:stack>/<uuid:2>"
+    },
+    "delete": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "describe": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Stacks": [
+        {
+          "CreationTime": "<CreationTime:1>",
+          "DeploymentConfig": {
+            "DisableRollback": false,
+            "Mode": "STANDARD"
+          },
+          "Description": "conformance stack",
+          "DisableRollback": false,
+          "EnableTerminationProtection": false,
+          "LastOperations": [
+            {
+              "OperationId": "<uuid:1>",
+              "OperationType": "CREATE_STACK"
+            }
+          ],
+          "NotificationARNs": [],
+          "Outputs": [
+            {
+              "ExportName": "<name:stack>-topic",
+              "OutputKey": "TopicArn",
+              "OutputValue": "arn:aws:sns:us-east-1:<account>:<name:topic>"
+            },
+            {
+              "OutputKey": "Joined",
+              "OutputValue": "us-east-1/<name:queue>"
+            },
+            {
+              "OutputKey": "QueueArn",
+              "OutputValue": "arn:aws:sqs:us-east-1:<account>:<name:queue>"
+            },
+            {
+              "OutputKey": "QueueUrl",
+              "OutputValue": "<endpoint>/<account>/<name:queue>"
+            }
+          ],
+          "Parameters": [
+            {
+              "ParameterKey": "QueueName",
+              "ParameterValue": "<name:queue>"
+            },
+            {
+              "ParameterKey": "TopicName",
+              "ParameterValue": "<name:topic>"
+            },
+            {
+              "ParameterKey": "Visibility",
+              "ParameterValue": "30"
+            }
+          ],
+          "RollbackConfiguration": {},
+          "StackId": "arn:aws:cloudformation:us-east-1:<account>:stack/<name:stack>/<uuid:2>",
+          "StackName": "<name:stack>",
+          "StackStatus": "CREATE_COMPLETE",
+          "Tags": [
+            {
+              "Key": "env",
+              "Value": "dev"
+            }
+          ]
+        }
+      ]
+    },
+    "describe-deleted": {
+      "Error": {
+        "Code": "ValidationError",
+        "Message": "Stack with id <name:stack> does not exist"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "exports": [
+      {
+        "ExportingStackId": "arn:aws:cloudformation:us-east-1:<account>:stack/<name:stack>/<uuid:2>",
+        "Name": "<name:stack>-topic",
+        "Value": "arn:aws:sns:us-east-1:<account>:<name:topic>"
+      }
+    ],
+    "one-resource": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "StackResourceDetail": {
+        "LastUpdatedTimestamp": "<LastUpdatedTimestamp:2>",
+        "LogicalResourceId": "Queue",
+        "Metadata": "{}",
+        "PhysicalResourceId": "<endpoint>/<account>/<name:queue>",
+        "ResourceStatus": "CREATE_COMPLETE",
+        "ResourceType": "AWS::SQS::Queue",
+        "StackId": "arn:aws:cloudformation:us-east-1:<account>:stack/<name:stack>/<uuid:2>",
+        "StackName": "<name:stack>"
+      }
+    },
+    "resources": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "StackResourceSummaries": [
+        {
+          "LastUpdatedTimestamp": "<LastUpdatedTimestamp:1>",
+          "LogicalResourceId": "Pointer",
+          "PhysicalResourceId": "/<name:queue>/queue-arn",
+          "ResourceStatus": "CREATE_COMPLETE",
+          "ResourceType": "AWS::SSM::Parameter"
+        },
+        {
+          "LastUpdatedTimestamp": "<LastUpdatedTimestamp:2>",
+          "LogicalResourceId": "Queue",
+          "PhysicalResourceId": "<endpoint>/<account>/<name:queue>",
+          "ResourceStatus": "CREATE_COMPLETE",
+          "ResourceType": "AWS::SQS::Queue"
+        },
+        {
+          "LastUpdatedTimestamp": "<LastUpdatedTimestamp:3>",
+          "LogicalResourceId": "Topic",
+          "PhysicalResourceId": "arn:aws:sns:us-east-1:<account>:<name:topic>",
+          "ResourceStatus": "CREATE_COMPLETE",
+          "ResourceType": "AWS::SNS::Topic"
+        }
+      ]
+    },
+    "stack-level-events": [
+      "CREATE_IN_PROGRESS",
+      "CREATE_COMPLETE",
+      "UPDATE_IN_PROGRESS",
+      "UPDATE_COMPLETE_CLEANUP_IN_PROGRESS",
+      "UPDATE_COMPLETE"
+    ],
+    "template": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "StagesAvailable": [
+        "Original",
+        "Processed"
+      ],
+      "TemplateBody": {
+        "AWSTemplateFormatVersion": "2010-09-09",
+        "Description": "conformance stack",
+        "Outputs": {
+          "Joined": {
+            "Value": {
+              "Fn::Join": [
+                "/",
+                [
+                  {
+                    "Ref": "AWS::Region"
+                  },
+                  {
+                    "Ref": "QueueName"
+                  }
+                ]
+              ]
+            }
+          },
+          "QueueArn": {
+            "Value": {
+              "Fn::GetAtt": [
+                "Queue",
+                "Arn"
+              ]
+            }
+          },
+          "QueueUrl": {
+            "Value": {
+              "Ref": "Queue"
+            }
+          },
+          "TopicArn": {
+            "Export": {
+              "Name": {
+                "Fn::Sub": "${AWS::StackName}-topic"
+              }
+            },
+            "Value": {
+              "Ref": "Topic"
+            }
+          }
+        },
+        "Parameters": {
+          "QueueName": {
+            "Type": "String"
+          },
+          "TopicName": {
+            "Type": "String"
+          },
+          "Visibility": {
+            "Default": 30,
+            "MaxValue": 43200,
+            "MinValue": 0,
+            "Type": "Number"
+          }
+        },
+        "Resources": {
+          "Pointer": {
+            "Properties": {
+              "Name": {
+                "Fn::Sub": "/${QueueName}/queue-arn"
+              },
+              "Type": "String",
+              "Value": {
+                "Fn::GetAtt": [
+                  "Queue",
+                  "Arn"
+                ]
+              }
+            },
+            "Type": "AWS::SSM::Parameter"
+          },
+          "Queue": {
+            "Properties": {
+              "QueueName": {
+                "Ref": "QueueName"
+              },
+              "VisibilityTimeout": {
+                "Ref": "Visibility"
+              }
+            },
+            "Type": "AWS::SQS::Queue"
+          },
+          "Topic": {
+            "Properties": {
+              "TopicName": {
+                "Ref": "TopicName"
+              }
+            },
+            "Type": "AWS::SNS::Topic"
+          }
+        }
+      }
+    },
+    "the-parameter": "arn:aws:sqs:us-east-1:<account>:<name:queue>",
+    "the-queue": {
+      "Attributes": {
+        "VisibilityTimeout": "30"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "the-queue-after": {
+      "Attributes": {
+        "VisibilityTimeout": "45"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "the-queue-is-gone": {
+      "Error": {
+        "Code": "AWS.SimpleQueueService.NonExistentQueue",
+        "Message": "The specified queue does not exist."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "update": {
+      "OperationId": "<uuid:3>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "StackId": "arn:aws:cloudformation:us-east-1:<account>:stack/<name:stack>/<uuid:2>"
+    },
+    "update-with-no-change": {
+      "Error": {
+        "Code": "ValidationError",
+        "Message": "No updates are to be performed."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_validate_template": {
+    "getatt-of-nothing": {
+      "Error": {
+        "Code": "ValidationError",
+        "Message": "Template error: instance of Fn::GetAtt references undefined resource Ghost"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "no-resources": {
+      "Error": {
+        "Code": "ValidationError",
+        "Message": "Template format error: At least one Resources member must be defined."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "not-a-template": {
+      "Error": {
+        "Code": "ValidationError",
+        "Message": "Template format error: YAML not well-formed. (line 1, column 6)"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "ref-to-nothing": {
+      "Error": {
+        "Code": "ValidationError",
+        "Message": "Template format error: Unresolved resource dependencies [Ghost] in the Resources block of the template"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "resource-without-a-type": {
+      "Error": {
+        "Code": "ValidationError",
+        "Message": "Template format error: [/Resources/Q] Every Resources object must contain a Type member."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "valid": {
+      "Description": "conformance stack",
+      "Parameters": [
+        {
+          "DefaultValue": "30",
+          "NoEcho": false,
+          "ParameterKey": "Visibility"
+        },
+        {
+          "NoEcho": false,
+          "ParameterKey": "QueueName"
+        },
+        {
+          "NoEcho": false,
+          "ParameterKey": "TopicName"
+        }
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "yaml-with-short-forms": {
+      "Parameters": [],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    }
+  }
+}

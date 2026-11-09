@@ -23,8 +23,19 @@ const kinds: Kind[] = [
     },
     remove: async (i) => {
       await attempt(() => aws(["cloudformation", "update-termination-protection", "--no-enable-termination-protection", "--stack-name", i.id]));
+      const wait = () => aws(["cloudformation", "wait", "stack-delete-complete", "--stack-name", i.id]);
       await aws(["cloudformation", "delete-stack", "--stack-name", i.id]);
-      await aws(["cloudformation", "wait", "stack-delete-complete", "--stack-name", i.id]);
+      try {
+        await wait();
+      } catch (e) {
+        // DELETE_FAILED: a resource refused to go (for example one that was never created). Keep it out of the stack and finish; the
+        // other kinds sweep whatever it left, by name, in the retry pass.
+        const failed = arr<any>((await aws(["cloudformation", "list-stack-resources", "--stack-name", i.id]))?.StackResourceSummaries)
+          .filter((r) => r.ResourceStatus === "DELETE_FAILED").map((r) => r.LogicalResourceId as string);
+        if (!failed.length) throw e;
+        await aws(["cloudformation", "delete-stack", "--stack-name", i.id, "--retain-resources", ...failed]);
+        await wait();
+      }
     },
   },
   {
@@ -324,7 +335,7 @@ for (let pass = 1; pass <= 2; pass++) {
   if (!failures.length) break;
 }
 // Lists of these kinds lag behind deletes (SQS keeps a deleted queue in ListQueues for up to 60 s), so wait before calling it residue.
-const EVENTUAL = new Set(["sqs", "iam-roles", "iam-users", "iam-groups", "iam-policies", "s3"]);
+const EVENTUAL = new Set(["sqs", "stepfunctions-machines", "stepfunctions-activities", "cloudformation", "kinesis", "iam-roles", "iam-users", "iam-groups", "iam-policies", "s3"]);
 let after = await scan("residue");
 for (let waited = 0; waited < 90 && [...after.found.keys()].every((k) => EVENTUAL.has(k)) && after.found.size > 0; waited += 15) {
   console.log("  (only eventually-consistent lists still show items; waiting 15 s and checking again)");

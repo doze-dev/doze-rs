@@ -1,0 +1,810 @@
+{
+  "_recorded": {
+    "boto3": "1.43.107",
+    "botocore": "1.43.107",
+    "on": "2026-11-09",
+    "region": "us-east-1",
+    "target": "aws"
+  },
+  "test_a_deleted_functions_mapping": {
+    "the-mapping": {
+      "BatchSize": 1,
+      "EventSourceArn": "arn:aws:sqs:us-east-1:<account>:<name:queue>",
+      "EventSourceMappingArn": "arn:aws:lambda:us-east-1:<account>:event-source-mapping:<uuid:1>",
+      "FunctionArn": "arn:aws:lambda:us-east-1:<account>:function:<name:fn>",
+      "FunctionResponseTypes": [],
+      "LastModified": "<LastModified:1>",
+      "MaximumBatchingWindowInSeconds": 0,
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "State": "Enabled",
+      "StateTransitionReason": "USER_INITIATED",
+      "UUID": "<uuid:1>"
+    },
+    "the-queue": {
+      "ApproximateNumberOfMessages": "0",
+      "ApproximateNumberOfMessagesNotVisible": "1"
+    }
+  },
+  "test_a_queue_drives_the_function": {
+    "consumed": [
+      "CONSUMED order-42 aws:sqs"
+    ],
+    "create-mapping": {
+      "BatchSize": 1,
+      "EventSourceArn": "arn:aws:sqs:us-east-1:<account>:<name:queue>",
+      "EventSourceMappingArn": "arn:aws:lambda:us-east-1:<account>:event-source-mapping:<uuid:1>",
+      "FunctionArn": "arn:aws:lambda:us-east-1:<account>:function:<name:fn>",
+      "FunctionResponseTypes": [],
+      "LastModified": "<LastModified:1>",
+      "MaximumBatchingWindowInSeconds": 0,
+      "ResponseMetadata": {
+        "HTTPStatusCode": 202
+      },
+      "UUID": "<uuid:1>"
+    },
+    "mapping": {
+      "BatchSize": 1,
+      "EventSourceArn": "arn:aws:sqs:us-east-1:<account>:<name:queue>",
+      "EventSourceMappingArn": "arn:aws:lambda:us-east-1:<account>:event-source-mapping:<uuid:1>",
+      "FunctionArn": "arn:aws:lambda:us-east-1:<account>:function:<name:fn>",
+      "FunctionResponseTypes": [],
+      "LastModified": "<LastModified:1>",
+      "MaximumBatchingWindowInSeconds": 0,
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "State": "Enabled",
+      "StateTransitionReason": "USER_INITIATED",
+      "UUID": "<uuid:1>"
+    },
+    "queue-is-empty": true
+  },
+  "test_a_trigger_whose_queue_hides_for_less_than_the_function_runs": {
+    "update-after-the-timeout-was-raised": {
+      "Error": {
+        "Code": "ResourceInUseException",
+        "Message": "Cannot update the event source mapping because it is in use."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "visibility-10-timeout-10": {
+      "BatchSize": 1,
+      "EventSourceArn": "arn:aws:sqs:us-east-1:<account>:<name:equal>",
+      "EventSourceMappingArn": "arn:aws:lambda:us-east-1:<account>:event-source-mapping:<uuid:1>",
+      "FunctionArn": "arn:aws:lambda:us-east-1:<account>:function:<name:fn>",
+      "FunctionResponseTypes": [],
+      "LastModified": "<LastModified:1>",
+      "MaximumBatchingWindowInSeconds": 0,
+      "ResponseMetadata": {
+        "HTTPStatusCode": 202
+      },
+      "UUID": "<uuid:1>"
+    },
+    "visibility-2-timeout-10": {
+      "Error": {
+        "Code": "InvalidParameterValueException",
+        "Message": "Queue visibility timeout: 2 seconds is less than Function timeout: 10 seconds"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_function_lifecycle_and_invoke": {
+    "configuration": {
+      "Architectures": [
+        "x86_64"
+      ],
+      "CodeSha256": "cWqFoIBBJaASyPPswaBFnA5fnQGaD1y1ZXES2DH1sqE=",
+      "CodeSize": 285,
+      "Description": "conformance",
+      "Environment": {
+        "Variables": {
+          "GREETING": "hello"
+        }
+      },
+      "EphemeralStorage": {
+        "Size": 512
+      },
+      "FunctionArn": "arn:aws:lambda:us-east-1:<account>:function:<name:fn>",
+      "FunctionName": "<name:fn>",
+      "Handler": "index.handler",
+      "LastModified": "<LastModified:1>",
+      "LastUpdateStatus": "Successful",
+      "LoggingConfig": {
+        "LogFormat": "Text",
+        "LogGroup": "/aws/lambda/<name:fn>"
+      },
+      "MemorySize": 128,
+      "PackageType": "Zip",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "RevisionId": "<uuid:2>",
+      "Role": "arn:aws:iam::<account>:role/<name:role-1>",
+      "Runtime": "python3.12",
+      "SnapStart": {
+        "ApplyOn": "None",
+        "OptimizationStatus": "Off"
+      },
+      "State": "Active",
+      "Timeout": 10,
+      "TracingConfig": {
+        "Mode": "PassThrough"
+      },
+      "Version": "$LATEST"
+    },
+    "create": {
+      "Architectures": [
+        "x86_64"
+      ],
+      "CodeSha256": "cWqFoIBBJaASyPPswaBFnA5fnQGaD1y1ZXES2DH1sqE=",
+      "CodeSize": 285,
+      "Description": "conformance",
+      "Environment": {
+        "Variables": {
+          "GREETING": "hello"
+        }
+      },
+      "EphemeralStorage": {
+        "Size": 512
+      },
+      "FunctionArn": "arn:aws:lambda:us-east-1:<account>:function:<name:fn>",
+      "FunctionName": "<name:fn>",
+      "Handler": "index.handler",
+      "LastModified": "<LastModified:1>",
+      "LoggingConfig": {
+        "LogFormat": "Text",
+        "LogGroup": "/aws/lambda/<name:fn>"
+      },
+      "MemorySize": 128,
+      "PackageType": "Zip",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 201
+      },
+      "RevisionId": "<uuid:1>",
+      "Role": "arn:aws:iam::<account>:role/<name:role-1>",
+      "Runtime": "python3.12",
+      "SnapStart": {
+        "ApplyOn": "None",
+        "OptimizationStatus": "Off"
+      },
+      "Timeout": 10,
+      "TracingConfig": {
+        "Mode": "PassThrough"
+      },
+      "Version": "$LATEST"
+    },
+    "delete": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 204
+      },
+      "StatusCode": 204
+    },
+    "get": {
+      "Code": {
+        "Location": "<Location:1>",
+        "RepositoryType": "<RepositoryType:1>"
+      },
+      "Configuration": {
+        "Architectures": [
+          "x86_64"
+        ],
+        "CodeSha256": "cWqFoIBBJaASyPPswaBFnA5fnQGaD1y1ZXES2DH1sqE=",
+        "CodeSize": 285,
+        "Description": "conformance",
+        "Environment": {
+          "Variables": {
+            "GREETING": "hello"
+          }
+        },
+        "EphemeralStorage": {
+          "Size": 512
+        },
+        "FunctionArn": "arn:aws:lambda:us-east-1:<account>:function:<name:fn>",
+        "FunctionName": "<name:fn>",
+        "Handler": "index.handler",
+        "LastModified": "<LastModified:1>",
+        "LastUpdateStatus": "Successful",
+        "LoggingConfig": {
+          "LogFormat": "Text",
+          "LogGroup": "/aws/lambda/<name:fn>"
+        },
+        "MemorySize": 128,
+        "PackageType": "Zip",
+        "RevisionId": "<uuid:2>",
+        "Role": "arn:aws:iam::<account>:role/<name:role-1>",
+        "Runtime": "python3.12",
+        "SnapStart": {
+          "ApplyOn": "None",
+          "OptimizationStatus": "Off"
+        },
+        "State": "Active",
+        "Timeout": 10,
+        "TracingConfig": {
+          "Mode": "PassThrough"
+        },
+        "Version": "$LATEST"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "get-deleted": {
+      "Error": {
+        "Code": "ResourceNotFoundException",
+        "Message": "Function not found: arn:aws:lambda:us-east-1:<account>:function:<name:fn>"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    },
+    "invoke": {
+      "ExecutedVersion": "$LATEST",
+      "Payload": {
+        "echo": {
+          "n": 1
+        },
+        "function": "<name:fn>",
+        "greeting": "hello",
+        "version": "$LATEST"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "StatusCode": 200
+    },
+    "invoke-after-update": {
+      "ExecutedVersion": "$LATEST",
+      "Payload": {
+        "echo": {
+          "n": 2
+        },
+        "function": "<name:fn>",
+        "greeting": "goodbye",
+        "version": "$LATEST"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "StatusCode": 200
+    },
+    "invoke-async": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 202
+      },
+      "StatusCode": 202
+    },
+    "invoke-dry-run": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 204
+      },
+      "StatusCode": 204
+    },
+    "invoke-fails": {
+      "ExecutedVersion": "$LATEST",
+      "FunctionError": "Unhandled",
+      "Payload": {
+        "errorMessage": "asked to fail",
+        "errorType": "ValueError"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "StatusCode": 200
+    },
+    "update-configuration": {
+      "Architectures": [
+        "x86_64"
+      ],
+      "CodeSha256": "cWqFoIBBJaASyPPswaBFnA5fnQGaD1y1ZXES2DH1sqE=",
+      "CodeSize": 285,
+      "Description": "conformance",
+      "Environment": {
+        "Variables": {
+          "GREETING": "goodbye"
+        }
+      },
+      "EphemeralStorage": {
+        "Size": 512
+      },
+      "FunctionArn": "arn:aws:lambda:us-east-1:<account>:function:<name:fn>",
+      "FunctionName": "<name:fn>",
+      "Handler": "index.handler",
+      "LastModified": "<LastModified:2>",
+      "LoggingConfig": {
+        "LogFormat": "Text",
+        "LogGroup": "/aws/lambda/<name:fn>"
+      },
+      "MemorySize": 256,
+      "PackageType": "Zip",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "RevisionId": "<uuid:3>",
+      "Role": "arn:aws:iam::<account>:role/<name:role-1>",
+      "Runtime": "python3.12",
+      "SnapStart": {
+        "ApplyOn": "None",
+        "OptimizationStatus": "Off"
+      },
+      "Timeout": 10,
+      "TracingConfig": {
+        "Mode": "PassThrough"
+      },
+      "Version": "$LATEST"
+    }
+  },
+  "test_permissions": {
+    "add": {
+      "Action": "lambda:InvokeFunction",
+      "Condition": {
+        "ArnLike": {
+          "AWS:SourceArn": "arn:aws:sns:us-east-1:<account>:<name:topic>"
+        }
+      },
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "sns.amazonaws.com"
+      },
+      "Resource": "arn:aws:lambda:us-east-1:<account>:function:<name:fn>",
+      "Sid": "sns"
+    },
+    "add-twice": {
+      "Error": {
+        "Code": "ResourceConflictException",
+        "Message": "The statement id (sns) provided already exists. Please provide a new statement id, or remove the existing statement."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 409
+      }
+    },
+    "no-policy-yet": {
+      "Error": {
+        "Code": "ResourceNotFoundException",
+        "Message": "The resource you requested does not exist."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    },
+    "policy": {
+      "Id": "default",
+      "Statement": [
+        {
+          "Action": "lambda:InvokeFunction",
+          "Condition": {
+            "ArnLike": {
+              "AWS:SourceArn": "arn:aws:sns:us-east-1:<account>:<name:topic>"
+            }
+          },
+          "Effect": "Allow",
+          "Principal": {
+            "Service": "sns.amazonaws.com"
+          },
+          "Resource": "arn:aws:lambda:us-east-1:<account>:function:<name:fn>",
+          "Sid": "sns"
+        }
+      ],
+      "Version": "2012-10-17"
+    },
+    "remove": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 204
+      }
+    },
+    "remove-again": {
+      "Error": {
+        "Code": "ResourceNotFoundException",
+        "Message": "No policy is associated with the given resource."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    }
+  },
+  "test_refusals": {
+    "absent-mapping": {
+      "Error": {
+        "Code": "AccessDeniedException",
+        "Message": "User: arn:aws:sts::<account>:assumed-role/AWSReservedSSO_doze-recorder-limited_831b2805e46e339c/srini.icloud is not authorized to perform: lambda:GetEventSourceMapping on resource: * because no identity-based policy allows the lambda:GetEventSourceMapping action"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 403
+      }
+    },
+    "absent-qualifier": {
+      "Error": {
+        "Code": "ResourceNotFoundException",
+        "Message": "Function not found: arn:aws:lambda:us-east-1:<account>:function:<name:fn>:9"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    },
+    "bad-runtime": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "1 validation error detected: Value 'cobol85' at 'runtime' failed to satisfy constraint: Member must satisfy enum value set: [nodejs20.x, python3.14, provided.al2023, python3.15, python3.12, python3.13, nodejs24.x, nodejs22.x, nodejs26.x, java25, python3.10, python3.11, java21, ruby3.3, ruby3.4, ruby4.0, ruby3.2, python3.8, python3.9, java17.al2023, java17, nodejs16.x, dotnet10, dotnet8, java8.al2023, java11, dotnet6, nodejs18.x, provided.al2, java8.al2, java11.al2023] or be a valid ARN"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "create-twice": {
+      "Error": {
+        "Code": "ResourceConflictException",
+        "Message": "Function already exist: <name:fn>"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 409
+      }
+    },
+    "delete-absent": {
+      "Error": {
+        "Code": "ResourceNotFoundException",
+        "Message": "Function not found: arn:aws:lambda:us-east-1:<account>:function:<name:absent>"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    },
+    "get-absent": {
+      "Error": {
+        "Code": "ResourceNotFoundException",
+        "Message": "Function not found: arn:aws:lambda:us-east-1:<account>:function:<name:absent>"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    },
+    "invoke-absent": {
+      "Error": {
+        "Code": "ResourceNotFoundException",
+        "Message": "Function not found: arn:aws:lambda:us-east-1:<account>:function:<name:absent>:$LATEST"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    },
+    "mapping-to-absent-queue": {
+      "Error": {
+        "Code": "InvalidParameterValueException",
+        "Message": "Error occurred while ReceiveMessage. SQS Error Code: AWS.SimpleQueueService.NonExistentQueue. SQS Error Message: The specified queue does not exist."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "not-a-zip": {
+      "Error": {
+        "Code": "InvalidParameterValueException",
+        "Message": "Could not unzip uploaded file. Please check your file, then try to upload again."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "payload-not-json": {
+      "Error": {
+        "Code": "InvalidRequestContentException",
+        "Message": "Could not parse request body into json: Could not parse payload into json: Unexpected character ('n' (code 110)): was expecting double-quote to start field name\n at [Source: REDACTED (`StreamReadFeature.INCLUDE_SOURCE_IN_LOCATION` disabled); line: 1, column: 2]"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "role-is-not-an-arn": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "1 validation error detected: Value 'not-an-arn' at 'role' failed to satisfy constraint: Member must satisfy regular expression pattern: arn:(aws[a-zA-Z-]*)?:iam::\\d{12}:role/?[a-zA-Z_0-9+=,.@\\-_/]+"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "timeout-of-a-day": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "1 validation error detected: Value '86400' at 'timeout' failed to satisfy constraint: Member must have value less than or equal to 5400"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "timeout-past-fifteen-minutes": {
+      "Architectures": [
+        "x86_64"
+      ],
+      "CodeSha256": "cWqFoIBBJaASyPPswaBFnA5fnQGaD1y1ZXES2DH1sqE=",
+      "CodeSize": 285,
+      "Description": "",
+      "EphemeralStorage": {
+        "Size": 512
+      },
+      "FunctionArn": "arn:aws:lambda:us-east-1:<account>:function:<name:fn>",
+      "FunctionName": "<name:fn>",
+      "Handler": "index.handler",
+      "LastModified": "<LastModified:1>",
+      "LoggingConfig": {
+        "LogFormat": "Text",
+        "LogGroup": "/aws/lambda/<name:fn>"
+      },
+      "MemorySize": 128,
+      "PackageType": "Zip",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "RevisionId": "<uuid:1>",
+      "Role": "arn:aws:iam::<account>:role/<name:role-1>",
+      "Runtime": "python3.12",
+      "SnapStart": {
+        "ApplyOn": "None",
+        "OptimizationStatus": "Off"
+      },
+      "Timeout": 901,
+      "TracingConfig": {
+        "Mode": "PassThrough"
+      },
+      "Version": "$LATEST"
+    }
+  },
+  "test_versions_and_aliases": {
+    "alias-to-absent-version": {
+      "Error": {
+        "Code": "ResourceNotFoundException",
+        "Message": "Function not found: arn:aws:lambda:us-east-1:<account>:function:<name:fn>:9"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    },
+    "alias-twice": {
+      "Error": {
+        "Code": "ResourceConflictException",
+        "Message": "Alias already exists: arn:aws:lambda:us-east-1:<account>:function:<name:fn>:live"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 409
+      }
+    },
+    "aliases": {
+      "Aliases": [
+        {
+          "AliasArn": "arn:aws:lambda:us-east-1:<account>:function:<name:fn>:live",
+          "Description": "",
+          "FunctionVersion": "2",
+          "Name": "live",
+          "RevisionId": "<uuid:4>"
+        }
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "change-a-published-version": {
+      "Error": {
+        "Code": "InvalidParameterValueException",
+        "Message": "This API only supports unqualified ARN or $LATEST."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "create-alias": {
+      "AliasArn": "arn:aws:lambda:us-east-1:<account>:function:<name:fn>:live",
+      "Description": "",
+      "FunctionVersion": "1",
+      "Name": "live",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 201
+      },
+      "RevisionId": "<uuid:3>"
+    },
+    "delete-alias": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 204
+      }
+    },
+    "delete-v1": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 204
+      },
+      "StatusCode": 204
+    },
+    "invoke-alias": {
+      "ExecutedVersion": "1",
+      "Payload": {
+        "echo": {},
+        "function": "<name:fn>",
+        "greeting": "one",
+        "version": "1"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "StatusCode": 200
+    },
+    "invoke-alias-repointed": {
+      "ExecutedVersion": "1",
+      "Payload": {
+        "echo": {},
+        "function": "<name:fn>",
+        "greeting": "one",
+        "version": "1"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "StatusCode": 200
+    },
+    "invoke-latest": {
+      "ExecutedVersion": "$LATEST",
+      "Payload": {
+        "echo": {},
+        "function": "<name:fn>",
+        "greeting": "two",
+        "version": "$LATEST"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "StatusCode": 200
+    },
+    "invoke-v1": {
+      "ExecutedVersion": "1",
+      "Payload": {
+        "echo": {},
+        "function": "<name:fn>",
+        "greeting": "one",
+        "version": "1"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "StatusCode": 200
+    },
+    "publish-unchanged": {
+      "Architectures": [
+        "x86_64"
+      ],
+      "CodeSha256": "cWqFoIBBJaASyPPswaBFnA5fnQGaD1y1ZXES2DH1sqE=",
+      "CodeSize": 285,
+      "Description": "first",
+      "Environment": {
+        "Variables": {
+          "GREETING": "one"
+        }
+      },
+      "EphemeralStorage": {
+        "Size": 512
+      },
+      "FunctionArn": "arn:aws:lambda:us-east-1:<account>:function:<name:fn>:1",
+      "FunctionName": "<name:fn>",
+      "Handler": "index.handler",
+      "LastModified": "<LastModified:1>",
+      "LoggingConfig": {
+        "LogFormat": "Text",
+        "LogGroup": "/aws/lambda/<name:fn>"
+      },
+      "MemorySize": 128,
+      "PackageType": "Zip",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 201
+      },
+      "RevisionId": "<uuid:1>",
+      "Role": "arn:aws:iam::<account>:role/<name:role-1>",
+      "Runtime": "python3.12",
+      "SnapStart": {
+        "ApplyOn": "None",
+        "OptimizationStatus": "Off"
+      },
+      "Timeout": 10,
+      "TracingConfig": {
+        "Mode": "PassThrough"
+      },
+      "Version": "1"
+    },
+    "publish-v1": {
+      "Architectures": [
+        "x86_64"
+      ],
+      "CodeSha256": "cWqFoIBBJaASyPPswaBFnA5fnQGaD1y1ZXES2DH1sqE=",
+      "CodeSize": 285,
+      "Description": "first",
+      "Environment": {
+        "Variables": {
+          "GREETING": "one"
+        }
+      },
+      "EphemeralStorage": {
+        "Size": 512
+      },
+      "FunctionArn": "arn:aws:lambda:us-east-1:<account>:function:<name:fn>:1",
+      "FunctionName": "<name:fn>",
+      "Handler": "index.handler",
+      "LastModified": "<LastModified:1>",
+      "LoggingConfig": {
+        "LogFormat": "Text",
+        "LogGroup": "/aws/lambda/<name:fn>"
+      },
+      "MemorySize": 128,
+      "PackageType": "Zip",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 201
+      },
+      "RevisionId": "<uuid:1>",
+      "Role": "arn:aws:iam::<account>:role/<name:role-1>",
+      "Runtime": "python3.12",
+      "SnapStart": {
+        "ApplyOn": "None",
+        "OptimizationStatus": "Off"
+      },
+      "Timeout": 10,
+      "TracingConfig": {
+        "Mode": "PassThrough"
+      },
+      "Version": "1"
+    },
+    "publish-v2": {
+      "Architectures": [
+        "x86_64"
+      ],
+      "CodeSha256": "cWqFoIBBJaASyPPswaBFnA5fnQGaD1y1ZXES2DH1sqE=",
+      "CodeSize": 285,
+      "Description": "",
+      "Environment": {
+        "Variables": {
+          "GREETING": "two"
+        }
+      },
+      "EphemeralStorage": {
+        "Size": 512
+      },
+      "FunctionArn": "arn:aws:lambda:us-east-1:<account>:function:<name:fn>:2",
+      "FunctionName": "<name:fn>",
+      "Handler": "index.handler",
+      "LastModified": "<LastModified:2>",
+      "LoggingConfig": {
+        "LogFormat": "Text",
+        "LogGroup": "/aws/lambda/<name:fn>"
+      },
+      "MemorySize": 128,
+      "PackageType": "Zip",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 201
+      },
+      "RevisionId": "<uuid:2>",
+      "Role": "arn:aws:iam::<account>:role/<name:role-1>",
+      "Runtime": "python3.12",
+      "SnapStart": {
+        "ApplyOn": "None",
+        "OptimizationStatus": "Off"
+      },
+      "Timeout": 10,
+      "TracingConfig": {
+        "Mode": "PassThrough"
+      },
+      "Version": "2"
+    },
+    "repoint-alias": {
+      "AliasArn": "arn:aws:lambda:us-east-1:<account>:function:<name:fn>:live",
+      "Description": "",
+      "FunctionVersion": "2",
+      "Name": "live",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "RevisionId": "<uuid:4>"
+    },
+    "versions": [
+      "$LATEST",
+      "1",
+      "2"
+    ]
+  }
+}
