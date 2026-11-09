@@ -7,6 +7,7 @@
 //! a [`Ticket`], and [`PartitionLog::sync`] makes every ticket before it good with one flush.
 
 mod append;
+mod compact;
 mod history;
 mod open;
 mod read;

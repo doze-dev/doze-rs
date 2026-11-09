@@ -76,18 +76,7 @@ impl Batch {
         let unreadable =
             |why: &str| RecordsRefused::new(Refusal::UnknownServerError, false, why.to_owned());
         let compression = self.attributes().compression();
-        let body = self.as_bytes().get(HEADER_LEN..).unwrap_or_default();
-        let mut inflated = Vec::new();
-        inflate::open(compression, body, rules.max_inflated)
-            .and_then(|mut s| s.read_to_end(&mut inflated).map_err(|e| inflate::why(&e)))
-            .map_err(|e| match e {
-                InflateError::TooLarge => RecordsRefused::new(
-                    Refusal::MessageTooLarge,
-                    true,
-                    "the records inflate past the limit",
-                ),
-                other => unreadable(&format!("the records cannot be read: {other:?}")),
-            })?;
+        let inflated = self.inflated(rules.max_inflated)?;
         let first = self.first_timestamp().get();
         let base = self.base_offset().map_or(0, Offset::get);
         let mut kept: Vec<(i64, &[u8])> = Vec::new();
@@ -136,6 +125,55 @@ impl Batch {
             &records,
             compression,
         )
+    }
+
+    /// Calls `look` with each record of the batch, in order.
+    ///
+    /// # Errors
+    /// A records section that cannot be read, or one that inflates past `max_inflated`.
+    pub fn each_record(
+        &self,
+        max_inflated: u64,
+        mut look: impl FnMut(&Seen<'_>),
+    ) -> Result<(), RecordsRefused> {
+        let unreadable =
+            |why: &str| RecordsRefused::new(Refusal::UnknownServerError, false, why.to_owned());
+        let inflated = self.inflated(max_inflated)?;
+        let base = self.base_offset().map_or(0, Offset::get);
+        let mut rest = inflated.as_slice();
+        for _ in 0..self.record_count() {
+            let (record, after) =
+                split_record(rest).ok_or_else(|| unreadable("a record is cut short"))?;
+            rest = after;
+            let p = parse(record).ok_or_else(|| unreadable("a record cannot be read"))?;
+            look(&Seen {
+                offset: base.saturating_add(p.offset_delta),
+                key: p.key,
+                tombstone: p.tombstone,
+            });
+        }
+        Ok(())
+    }
+
+    /// The records section, inflated.
+    fn inflated(&self, max_inflated: u64) -> Result<Vec<u8>, RecordsRefused> {
+        let body = self.as_bytes().get(HEADER_LEN..).unwrap_or_default();
+        let mut inflated = Vec::new();
+        inflate::open(self.attributes().compression(), body, max_inflated)
+            .and_then(|mut s| s.read_to_end(&mut inflated).map_err(|e| inflate::why(&e)))
+            .map_err(|e| match e {
+                InflateError::TooLarge => RecordsRefused::new(
+                    Refusal::MessageTooLarge,
+                    true,
+                    "the records inflate past the limit",
+                ),
+                other => RecordsRefused::new(
+                    Refusal::UnknownServerError,
+                    false,
+                    format!("the records cannot be read: {other:?}"),
+                ),
+            })?;
+        Ok(inflated)
     }
 
     fn rebuilt(

@@ -1,6 +1,8 @@
 //! Tests of the partition log, on the simulated disk.
 
 mod append;
+mod compaction;
+mod compaction_txn;
 mod durability;
 mod history;
 mod open;
