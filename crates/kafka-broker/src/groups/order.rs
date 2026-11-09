@@ -20,7 +20,7 @@ fn java_hash(s: &str) -> i32 {
 }
 
 /// Kafka's `partitionFor(groupId)`: `Utils.abs(hashCode) % 50`, where the absolute value of the least int is 0.
-fn offsets_partition(group: &str) -> i32 {
+pub(crate) fn offsets_partition(group: &str) -> i32 {
     let h = java_hash(group);
     if h == i32::MIN {
         0

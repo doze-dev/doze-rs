@@ -42,6 +42,13 @@ impl<F: Fs> Broker<F> {
                     for (topic, partition) in &rec.partitions {
                         by_topic.entry(topic.as_str()).or_default().push(*partition);
                     }
+                    // A group whose offsets it commits is a partition of the offsets topic, which is written to.
+                    for group in &rec.groups {
+                        by_topic
+                            .entry("__consumer_offsets")
+                            .or_default()
+                            .push(crate::groups::offsets_partition(group));
+                    }
                     s.topics = by_topic
                         .into_iter()
                         .map(|(topic, partitions)| {
@@ -73,7 +80,11 @@ impl<F: Fs> Broker<F> {
                     .producer_id_filters
                     .iter()
                     .any(|p| p.0 == e.rec.producer_id);
-            if e.rec.producer_id < 0 || !wanted_state || !wanted_producer {
+            let long_enough = req.duration_filter < 0
+                || (e.rec.state.is_open()
+                    && crate::clock::now().get().saturating_sub(e.rec.started_ms)
+                        > req.duration_filter);
+            if e.rec.producer_id < 0 || !wanted_state || !wanted_producer || !long_enough {
                 continue;
             }
             let mut row = Listed::default();
