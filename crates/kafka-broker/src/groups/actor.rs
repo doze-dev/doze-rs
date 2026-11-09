@@ -15,6 +15,7 @@ use super::machine::{
     Answer, CommitRequest, Effect, Event, HeartbeatRequest, JoinAnswer, JoinRequest, LeaveTarget,
     Millis, SyncRequest, TimerKey, TimerKind, Token,
 };
+use kafka_meta::ConsumerLife;
 
 /// A request for the group.
 #[derive(Clone)]
@@ -76,9 +77,9 @@ impl Timers {
 /// Writes down what the offsets retention needs to know of a group's members.
 pub(super) trait Records: Send + Sync + 'static {
     /// The group is about to have members, the longest session being `session_ms`.
-    fn live(&self, session_ms: u32, protocol_type: &str) -> bool;
+    fn live(&self, session_ms: u32, protocol_type: &str, consumer: Option<ConsumerLife>) -> bool;
     /// The group has lost its last member, at `now_ms`.
-    fn empty(&self, protocol_type: &str, now_ms: i64) -> bool;
+    fn empty(&self, protocol_type: &str, consumer: Option<ConsumerLife>, now_ms: i64) -> bool;
 }
 
 /// How long after a failed write of the group's emptiness it is tried again.
@@ -103,9 +104,11 @@ impl<R: Records> Keeper<R> {
         };
         let session = u32::try_from(seating.session_ms).unwrap_or(0);
         if (group.member_count() == 0 || session > self.session)
-            && !self
-                .records
-                .live(session.max(self.session), &seating.protocol_type)
+            && !self.records.live(
+                session.max(self.session),
+                &seating.protocol_type,
+                seating.consumer,
+            )
         {
             return false;
         }
@@ -125,9 +128,11 @@ impl<R: Records> Keeper<R> {
     }
 
     fn write_empty(&mut self, machine: &Group) {
-        let written = self
-            .records
-            .empty(machine.protocol_type().unwrap_or(""), wall_ms());
+        let written = self.records.empty(
+            machine.protocol_type().unwrap_or(""),
+            machine.consumer_life(),
+            wall_ms(),
+        );
         self.unwritten_empty = (!written).then(|| Instant::now() + RETRY);
     }
 }

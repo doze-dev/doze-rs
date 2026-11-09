@@ -69,6 +69,11 @@ impl World {
             session_ms: 6_000 + self.rng.below(60_000) as u32,
             empty_since_ms: (!live).then(|| self.rng.below(1_000_000) as i64),
             protocol_type: "consumer".into(),
+            consumer: (self.rng.below(2) == 0).then(|| kafka_meta::ConsumerLife {
+                epoch: self.rng.below(100) as i32,
+                assignment_epoch: self.rng.below(100) as i32,
+                assignor: "uniform".into(),
+            }),
         };
         let Some(store) = &self.store else {
             return "life";

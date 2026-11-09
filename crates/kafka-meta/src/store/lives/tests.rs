@@ -24,6 +24,7 @@ fn life(live: bool, empty_since: Option<i64>) -> GroupLife {
         session_ms: 10_000,
         empty_since_ms: empty_since,
         protocol_type: "consumer".into(),
+        consumer: None,
     }
 }
 

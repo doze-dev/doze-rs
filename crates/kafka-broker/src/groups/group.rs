@@ -8,6 +8,7 @@ use super::consumer::{self, ConsumerGroup, Heartbeat, HeartbeatAnswer, TopicSour
 use super::machine::{
     Answer, Effect, Event, GroupMachine, IdSource, JoinAnswer, JoinRequest, Millis, Token,
 };
+use kafka_meta::ConsumerLife;
 
 /// How the groups of a broker are made.
 #[derive(Clone, Copy, Debug)]
@@ -28,6 +29,17 @@ enum Kind {
 pub(crate) struct Seating {
     pub(crate) session_ms: i32,
     pub(crate) protocol_type: String,
+    /// Set if the group is, or is to be, a consumer group of the new protocol.
+    pub(crate) consumer: Option<ConsumerLife>,
+}
+
+/// A consumer group nobody has been in yet.
+fn default_life() -> ConsumerLife {
+    ConsumerLife {
+        epoch: 1,
+        assignment_epoch: 1,
+        assignor: "uniform".to_owned(),
+    }
 }
 
 /// A JoinGroup from a client with no member id, from a version that hands one out first.
@@ -63,7 +75,6 @@ impl Group {
 
     /// An empty consumer group as it was when the broker last stopped.
     #[must_use]
-    #[expect(dead_code, reason = "slice 5f restores groups at start")]
     pub(crate) fn restored(
         settings: Settings,
         epoch: i32,
@@ -99,6 +110,22 @@ impl Group {
         }
     }
 
+    /// What a consumer group keeps across a restart; `None` for a classic group.
+    #[must_use]
+    pub(crate) fn consumer_life(&self) -> Option<ConsumerLife> {
+        match &self.kind {
+            Kind::Classic(_) => None,
+            Kind::Consumer(c) => {
+                let (epoch, assignment_epoch, assignor) = c.epochs();
+                Some(ConsumerLife {
+                    epoch,
+                    assignment_epoch,
+                    assignor: assignor.name().to_owned(),
+                })
+            }
+        }
+    }
+
     /// What must be recorded of the group before this event may seat a member, if it can.
     #[must_use]
     pub(crate) fn seating(&self, event: &Event) -> Option<Seating> {
@@ -108,6 +135,7 @@ impl Group {
             (Event::Join(_, req), Kind::Classic(m)) => m.would_seat(req).then(|| Seating {
                 session_ms: req.session_ms,
                 protocol_type: req.protocol_type.clone(),
+                consumer: None,
             }),
             (Event::Join(_, req), Kind::Consumer(c)) => {
                 let seats = c.member_count() > 0
@@ -115,6 +143,7 @@ impl Group {
                 seats.then(|| Seating {
                     session_ms: req.session_ms,
                     protocol_type: req.protocol_type.clone(),
+                    consumer: None,
                 })
             }
             (Event::ConsumerHeartbeat(_, hb), kind)
@@ -127,6 +156,7 @@ impl Group {
                     session_ms: i32::try_from(self.settings.consumer.session_ms)
                         .unwrap_or(i32::MAX),
                     protocol_type: "consumer".to_owned(),
+                    consumer: Some(self.consumer_life().unwrap_or_else(default_life)),
                 })
             }
             _ => None,
@@ -261,3 +291,6 @@ impl Group {
         out
     }
 }
+
+#[cfg(test)]
+mod tests;

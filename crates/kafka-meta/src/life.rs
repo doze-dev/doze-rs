@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::MetaError;
 
-const VERSION: u8 = 1;
+const VERSION: u8 = 2;
 
 /// A group's membership, as last recorded.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -20,6 +20,28 @@ pub struct GroupLife {
     pub empty_since_ms: Option<i64>,
     /// The kind of group it is (`consumer` for a consumer group); empty if it never had a member.
     pub protocol_type: String,
+    /// Set for a group of the new protocol (KIP-848): what is needed to list and describe it again after a restart.
+    pub consumer: Option<ConsumerLife>,
+}
+
+/// What a consumer group of the new protocol keeps across a restart: its epochs and its assignor.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ConsumerLife {
+    /// The group epoch.
+    pub epoch: i32,
+    /// The epoch the members' targets were last computed for.
+    pub assignment_epoch: i32,
+    /// The assignor in use.
+    pub assignor: String,
+}
+
+/// A record as the first version wrote it, before consumer groups.
+#[derive(Deserialize)]
+struct V1 {
+    live: bool,
+    session_ms: u32,
+    empty_since_ms: Option<i64>,
+    protocol_type: String,
 }
 
 impl GroupLife {
@@ -31,10 +53,20 @@ impl GroupLife {
     pub(crate) fn decode(bytes: &[u8]) -> Result<Self, MetaError> {
         let corrupt = |why: &str| MetaError::Corrupt(format!("group record: {why}"));
         let (version, body) = bytes.split_first().ok_or_else(|| corrupt("empty"))?;
-        if *version != VERSION {
-            return Err(corrupt(&format!("version {version} is not known")));
+        match *version {
+            VERSION => postcard::from_bytes(body).map_err(|e| corrupt(&e.to_string())),
+            1 => {
+                let old: V1 = postcard::from_bytes(body).map_err(|e| corrupt(&e.to_string()))?;
+                Ok(Self {
+                    live: old.live,
+                    session_ms: old.session_ms,
+                    empty_since_ms: old.empty_since_ms,
+                    protocol_type: old.protocol_type,
+                    consumer: None,
+                })
+            }
+            _ => Err(corrupt(&format!("version {version} is not known"))),
         }
-        postcard::from_bytes(body).map_err(|e| corrupt(&e.to_string()))
     }
 }
 
@@ -49,6 +81,11 @@ mod tests {
             session_ms: 45_000,
             empty_since_ms: Some(1_700_000_000_000),
             protocol_type: "consumer".into(),
+            consumer: Some(ConsumerLife {
+                epoch: 3,
+                assignment_epoch: 2,
+                assignor: "uniform".into(),
+            }),
         };
         let mut bytes = life.encode().unwrap();
         assert_eq!(GroupLife::decode(&bytes).unwrap(), life);

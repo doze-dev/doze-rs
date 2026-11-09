@@ -11,17 +11,16 @@ use tokio::time::Instant;
 
 mod issued;
 mod records;
+mod requests;
 
 use super::actor::{self, Command, Req};
-use super::consumer::HeartbeatAnswer;
+use super::consumer::assign::Assignor;
 use super::group::{Group, Settings, asks_for_an_id};
-use super::machine::{
-    Answer, Description, JoinAnswer, JoinRequest, LeaveResult, SyncAnswer, commit_to_no_group,
-    refusal,
-};
+use super::machine::{Answer, Description, JoinAnswer, JoinRequest, refusal};
 pub(crate) use issued::member_ids;
 use issued::{Issued, MOST_ISSUED};
 use records::{MetaTopics, StoreRecords};
+use requests::{can_begin, unknown};
 
 /// How many requests may wait for a group's task before the next sender waits.
 const QUEUE: usize = 64;
@@ -242,10 +241,27 @@ impl Groups {
         (outcome, Some(cleanup()))
     }
 
+    /// A group of the new protocol, as it was when the broker last stopped if it was empty then.
+    fn consumer_group(&self, group: &GroupId) -> Group {
+        let life = crate::blocking::run(|| self.meta.group_life(group))
+            .ok()
+            .flatten()
+            .and_then(|l| l.consumer);
+        match life {
+            Some(c) => Group::restored(
+                self.settings,
+                c.epoch,
+                c.assignment_epoch,
+                Assignor::parse(&c.assignor).unwrap_or_default(),
+            ),
+            None => Group::consumer(self.settings),
+        }
+    }
+
     fn start(&self, group: &GroupId, first: &Req) -> mpsc::Sender<Command> {
         let (sender, commands) = mpsc::channel(QUEUE);
         let machine = match first {
-            Req::ConsumerHeartbeat(_) => Group::consumer(self.settings),
+            Req::ConsumerHeartbeat(_) => self.consumer_group(group),
             _ => Group::classic(self.settings),
         };
         let records = StoreRecords {
@@ -260,50 +276,6 @@ impl Groups {
         ));
         sender
     }
-}
-
-/// Whether a request may make a group that is not there: a JoinGroup from a client with no id, or with one it was given.
-fn can_begin(req: &Req) -> bool {
-    match req {
-        Req::Join(j) => j.member_id.is_none() || (j.issued && j.instance.is_none()),
-        // A consumer group is begun by a member joining it; one that keeps on, or leaves, a group that is not there
-        // is told so.
-        Req::ConsumerHeartbeat(h) => h.epoch == 0,
-        _ => false,
-    }
-}
-
-/// What a group that does not exist says to anything but a join: it has no such member. (A request to describe or
-/// delete one is not put at all.)
-fn unknown(req: &Req) -> Option<Answer> {
-    Some(match req {
-        Req::Join(_) => Answer::Join(JoinAnswer::refused(ResponseError::UnknownMemberId, None)),
-        Req::Sync(_) => Answer::Sync(SyncAnswer::refused(ResponseError::UnknownMemberId)),
-        Req::Heartbeat(_) => Answer::Heartbeat(Some(ResponseError::UnknownMemberId)),
-        Req::Commit(c) => Answer::Commit(commit_to_no_group(c.generation)),
-        Req::Leave(targets) => Answer::Leave(
-            targets
-                .iter()
-                .map(|t| LeaveResult {
-                    member_id: t.member_id.clone(),
-                    instance: t.instance.clone(),
-                    error: Some(ResponseError::UnknownMemberId),
-                })
-                .collect(),
-        ),
-        Req::ConsumerHeartbeat(h) => {
-            let words = if h.epoch < 0 {
-                format!("Group {} not found.", h.group)
-            } else {
-                format!("Consumer group {} not found.", h.group)
-            };
-            Answer::ConsumerHeartbeat(HeartbeatAnswer::refused(
-                ResponseError::GroupIdNotFound,
-                words,
-            ))
-        }
-        Req::Describe | Req::Delete | Req::TopicsChanged => return None,
-    })
 }
 
 #[cfg(test)]

@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use kafka_meta::{GroupLife, MetaStore};
+use kafka_meta::{ConsumerLife, GroupLife, MetaStore};
 use kafka_wire::ids::GroupId;
 
 use crate::groups::actor::Records;
@@ -40,21 +40,24 @@ impl StoreRecords {
 }
 
 impl Records for StoreRecords {
-    fn live(&self, session_ms: u32, protocol_type: &str) -> bool {
+    fn live(&self, session_ms: u32, protocol_type: &str, consumer: Option<ConsumerLife>) -> bool {
         self.write(&GroupLife {
             live: true,
             session_ms,
             empty_since_ms: None,
             protocol_type: protocol_type.to_owned(),
+            consumer,
         })
     }
 
-    fn empty(&self, protocol_type: &str, now_ms: i64) -> bool {
+    fn empty(&self, protocol_type: &str, consumer: Option<ConsumerLife>, now_ms: i64) -> bool {
         self.write(&GroupLife {
             live: false,
             session_ms: 0,
-            empty_since_ms: Some(now_ms),
+            // A consumer group's offsets are counted from each commit, so it has no time of becoming empty.
+            empty_since_ms: consumer.is_none().then_some(now_ms),
             protocol_type: protocol_type.to_owned(),
+            consumer,
         })
     }
 }

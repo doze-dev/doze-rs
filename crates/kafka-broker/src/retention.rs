@@ -91,6 +91,14 @@ impl<F: Fs> Broker<F> {
         let life = blocking::run(|| self.meta.group_life(id)).ok().flatten();
         let described = self.groups.describe(id).await;
         let members = match &described {
+            // A consumer group of the new protocol with members: not in a rebalance as far as its offsets go.
+            Some(d) if d.consumer.as_ref().is_some_and(|c| !c.members.is_empty()) => {
+                Members::Running {
+                    rebalancing: false,
+                    consumer: true,
+                    subscribed: d.subscribed.as_ref(),
+                }
+            }
             Some(d) if !d.members.is_empty() => Members::Running {
                 rebalancing: matches!(
                     d.state,
@@ -160,6 +168,7 @@ mod tests {
             session_ms,
             empty_since_ms: (!live).then_some(1),
             protocol_type: "consumer".into(),
+            consumer: None,
         }
     }
 

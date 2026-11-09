@@ -41,6 +41,11 @@ impl<F: Fs> Broker<F> {
             let life = group
                 .as_ref()
                 .and_then(|g| blocking::run(|| self.meta.group_life(g)).ok().flatten());
+            // An empty consumer group of the new protocol is not described by this API.
+            if life.as_ref().is_some_and(|l| l.consumer.is_some()) {
+                out.group_state = StrBytes::from_static_str("Dead");
+                return out;
+            }
             let known = has_offsets || life.is_some();
             out.group_state = StrBytes::from_static_str(if known { "Empty" } else { "Dead" });
             if let Some(life) = life {

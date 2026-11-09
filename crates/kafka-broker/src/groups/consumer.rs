@@ -105,6 +105,11 @@ impl ConsumerGroup {
         self.members.len()
     }
 
+    /// The epochs and assignor, for the record kept across a restart.
+    pub(crate) fn epochs(&self) -> (i32, i32, Assignor) {
+        (self.epoch, self.target_epoch, self.assignor)
+    }
+
     fn arming(&mut self) -> u64 {
         self.next_arming += 1;
         self.next_arming

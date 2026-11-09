@@ -52,6 +52,18 @@ impl<F: Fs> Broker<F> {
             );
         };
         let Some(description) = self.groups.describe(&group).await else {
+            // Not in memory: an empty consumer group the broker had before it was started again is still one.
+            let kept = crate::blocking::run(|| self.meta.group_life(&group))
+                .ok()
+                .flatten()
+                .and_then(|l| l.consumer);
+            if let Some(c) = kept {
+                out.group_state = StrBytes::from_static_str("Empty");
+                out.group_epoch = c.epoch;
+                out.assignment_epoch = c.assignment_epoch;
+                out.assignor_name = StrBytes::from_string(c.assignor);
+                return out;
+            }
             return refuse(out, E::GroupIdNotFound, format!("Group {name} not found."));
         };
         let Some(view) = description.consumer else {

@@ -31,7 +31,12 @@ impl<F: Fs> Broker<F> {
         // A group that had members and is not in memory (the broker has started since) is listed as the empty group it
         // is, with the kind it was, until the retention forgets it.
         for (id, life) in blocking::run(|| self.meta.group_lives()).unwrap_or_default() {
-            all.insert(id.to_string(), (life.protocol_type, "Empty", "classic"));
+            let kind = if life.consumer.is_some() {
+                "consumer"
+            } else {
+                "classic"
+            };
+            all.insert(id.to_string(), (life.protocol_type, "Empty", kind));
         }
         for (id, d) in self.groups.list().await {
             let listed = match &d.consumer {

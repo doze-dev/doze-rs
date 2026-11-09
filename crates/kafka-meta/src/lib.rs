@@ -13,7 +13,7 @@ mod record;
 mod store;
 
 pub use error::MetaError;
-pub use life::GroupLife;
+pub use life::{ConsumerLife, GroupLife};
 pub use names::Collision;
 pub use offsets::{Committed, GroupOffset, OffsetCommit, StoredOffset};
 pub use record::Topic;
