@@ -35,6 +35,12 @@ pub(super) fn unknown(req: &Req) -> Option<Answer> {
                 })
                 .collect(),
         ),
+        // A join that is refused whatever the group is told why, even where the group is not there.
+        Req::ConsumerHeartbeat(h)
+            if h.epoch == 0 && crate::groups::consumer::join_refusal(h).is_some() =>
+        {
+            Answer::ConsumerHeartbeat(crate::groups::consumer::join_refusal(h)?)
+        }
         Req::ConsumerHeartbeat(h) => {
             let words = if h.epoch < 0 {
                 format!("Group {} not found.", h.group)

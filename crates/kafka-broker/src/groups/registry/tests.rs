@@ -226,3 +226,48 @@ async fn a_join_put_to_a_group_whose_task_has_already_gone_makes_the_group_again
     }
     assert_eq!(joined(groups.put(&g, req).await).error, None);
 }
+
+#[tokio::test]
+async fn a_join_that_is_refused_is_told_why_even_where_the_group_is_not_there() {
+    use crate::groups::consumer::Heartbeat;
+    let groups = groups();
+    let join = |assignor: Option<&str>, regex: Option<&str>, member: Option<&str>| Heartbeat {
+        group: "pg".into(),
+        member_id: member.and_then(MemberId::new),
+        version: 1,
+        epoch: 0,
+        instance: None,
+        rack: None,
+        rebalance_ms: 60_000,
+        subscribed: Some(vec!["t".into()]),
+        regex: regex.map(str::to_owned),
+        assignor: assignor.map(str::to_owned),
+        owned: Some(vec![]),
+        client_id: "c".into(),
+    };
+    let ask = |h: Heartbeat| {
+        let groups = &groups;
+        async move {
+            match groups.ask(&group("pg"), Req::ConsumerHeartbeat(h)).await {
+                Some(Answer::ConsumerHeartbeat(a)) => a.error.map(|(e, _)| e),
+                other => panic!("{other:?}"),
+            }
+        }
+    };
+    assert_eq!(
+        ask(join(Some("bogus"), None, Some("m"))).await,
+        Some(ResponseError::UnsupportedAssignor)
+    );
+    assert_eq!(
+        ask(join(None, Some("("), Some("m"))).await,
+        Some(ResponseError::InvalidRegularExpression)
+    );
+    assert_eq!(
+        ask(join(None, None, None)).await,
+        Some(ResponseError::InvalidRequest)
+    );
+    assert!(
+        groups.list().await.is_empty(),
+        "and no group was made by any of them"
+    );
+}
