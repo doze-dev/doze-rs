@@ -63,14 +63,27 @@ fn check(
     let bad = |words: &str| Err((E::InvalidRequest, words.to_owned()));
     let group = r.group_id.0.as_str();
     let instance = r.instance_id.as_ref().map(|i| i.as_str());
-    if group.is_empty() {
+    // Kafka's order, and its meaning of empty: nothing but white space. A member id is asked for from version 1 (the
+    // client makes it), and before that only after the first heartbeat.
+    if (version >= 1 || r.member_epoch > 0 || r.member_epoch == -1)
+        && r.member_id.as_str().trim().is_empty()
+    {
+        return bad("MemberId can't be empty.");
+    }
+    if group.trim().is_empty() {
         return bad("GroupId can't be empty.");
     }
     if GroupId::parse(group).is_err() {
         return bad("the group id is not usable");
     }
-    if instance == Some("") {
+    if instance.is_some_and(|i| i.trim().is_empty()) {
         return bad("InstanceId can't be empty.");
+    }
+    if r.rack_id
+        .as_ref()
+        .is_some_and(|i| i.as_str().trim().is_empty())
+    {
+        return bad("RackId can't be empty.");
     }
     let joining = r.member_epoch == 0;
     if joining && r.rebalance_timeout_ms == -1 {

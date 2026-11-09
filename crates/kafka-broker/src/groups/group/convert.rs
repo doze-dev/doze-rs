@@ -38,12 +38,7 @@ impl Group {
         if let Kind::Classic(m) = &mut self.kind {
             // To the classic coordinator a consumer group that is not there is not there.
             if hb.epoch != 0 {
-                let words = if hb.epoch < 0 {
-                    format!("Group {} not found.", hb.group)
-                } else {
-                    format!("Consumer group {} not found.", hb.group)
-                };
-                return refuse(words);
+                return refuse(format!("Group {} is not a consumer group.", hb.group));
             }
             // A request that is refused changes nothing: the group keeps its kind and its members.
             if let Some(refused) = consumer::join_refusal(&hb) {
@@ -59,6 +54,13 @@ impl Group {
                 );
                 let refused = HeartbeatAnswer::refused(E::UnreleasedInstanceId, words);
                 return vec![Effect::Reply(token, Answer::ConsumerHeartbeat(refused))];
+            }
+            if m.member_count() > consumer::MOST_MEMBERS {
+                return refuse(format!(
+                    "Cannot upgrade classic group {} to consumer group because the group size exceeds the \
+                     consumer group maximum size.",
+                    hb.group
+                ));
             }
             if m.member_count() == 0 {
                 self.kind = Kind::Consumer(ConsumerGroup::new(

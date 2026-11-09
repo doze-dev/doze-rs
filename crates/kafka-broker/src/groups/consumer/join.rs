@@ -10,7 +10,7 @@ use super::{ConsumerGroup, Heartbeat, HeartbeatAnswer};
 use crate::groups::machine::Effect;
 
 /// The most members a consumer group takes (Kafka's `group.consumer.max.size`).
-pub(super) const MOST_MEMBERS: usize = 1000;
+pub(crate) const MOST_MEMBERS: usize = 1000;
 
 /// What a request asks for that can be wrong whatever the group.
 pub(super) struct Parsed {

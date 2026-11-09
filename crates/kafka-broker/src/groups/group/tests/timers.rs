@@ -64,3 +64,20 @@ fn a_downgrade_ends_the_deadlines_of_the_consumer_group() {
     r.advance(8_000);
     assert_eq!(super::classic::heartbeat_of(&mut r, "old", again), None);
 }
+
+#[test]
+fn a_classic_group_over_the_size_of_a_consumer_group_is_not_upgraded() {
+    let mut r = Rig::new();
+    // 1,001 members joined (no one syncs: the upgrade looks only at who is in the group).
+    for i in 0..=1_000 {
+        r.send(|t| Event::Join(t, join_request(Some(&format!("m{i}")))));
+    }
+    let a = r.consumer("new", 0);
+    let (error, words) = a.error.expect("refused");
+    assert_eq!(error, E::GroupIdNotFound);
+    assert_eq!(
+        words,
+        "Cannot upgrade classic group g to consumer group because the group size exceeds the consumer group maximum size."
+    );
+    assert!(r.view().is_none(), "still a classic group");
+}
