@@ -26,8 +26,6 @@ use request::{refused_everywhere, request_refusal};
 enum Stage<F: Fs> {
     Done(PartitionProduceResponse),
     Waiting {
-        /// The transaction a transactional batch is part of, held for reading until the append is done.
-        _guard: Option<crate::txn::Held>,
         answer: PartitionProduceResponse,
         partition: Arc<Partition<F>>,
         pending: Pending,
@@ -37,7 +35,8 @@ enum Stage<F: Fs> {
 
 type Refused = (ResponseError, Option<String>);
 
-/// What a Produce request carries of a transaction: the id it names, and the transaction held for the whole request.
+/// What a Produce request carries of a transaction: the id it names, and the transaction, held for reading until the
+/// request is answered (see [`Broker::hold_txn`]).
 struct Txn<'a> {
     id: Option<&'a str>,
     held: Option<crate::txn::Held>,
@@ -148,7 +147,6 @@ impl<F: Fs> Broker<F> {
         };
         // A transactional batch is part of a transaction that must be open for it. (A transactional bit on a batch with no
         // producer is stored as any other: Kafka does.)
-        let mut guard = None;
         if batch.attributes().is_transactional()
             && let Some(producer) = batch.producer()
         {
@@ -158,7 +156,7 @@ impl<F: Fs> Broker<F> {
                 (producer.id.get(), producer.epoch.get()),
                 (topic.name.as_ref(), p.index),
             ) {
-                Ok(()) => guard = txn.held.clone(),
+                Ok(()) => {}
                 Err((code, why)) => {
                     return Stage::Done(failed(p.index, code, Some(why.to_owned())));
                 }
@@ -175,7 +173,6 @@ impl<F: Fs> Broker<F> {
         };
         match partition.submit(batch, now, clock_kind, durable).await {
             Ok(pending) => Stage::Waiting {
-                _guard: guard,
                 answer: blank(p.index),
                 partition,
                 pending,
@@ -218,7 +215,6 @@ async fn finish<F: Fs>(stage: Stage<F>, durable: bool) -> PartitionProduceRespon
     match stage {
         Stage::Done(done) => done,
         Stage::Waiting {
-            _guard,
             answer,
             partition,
             pending,
