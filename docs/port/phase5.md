@@ -1,6 +1,6 @@
 # Phase 5: KIP-848 consumer groups and classic <-> consumer migration
 
-Status: built, awaiting the independent audit (started 2026-11-09, autonomous run). Catalogue: behaviours/groups848.md.
+Status: DONE 2026-11-09 (two audit rounds: round 1 found 3 MAJOR, all fixed; round 2 found 1 MAJOR, introduced by a round-1 fix, fixed with a test on a fresh group; the auditor then accepted it with the test debt below). Catalogue: behaviours/groups848.md.
 Goal: a client using `group.protocol=consumer` (ConsumerGroupHeartbeat, ConsumerGroupDescribe) joins, is assigned
 partitions by the *broker*, reconciles, rebalances, leaves; a classic and a consumer-protocol member can share one
 group (a rolling upgrade, in both directions); and every recorded Apache Kafka 4.3.1 scenario that was waiting on
@@ -101,3 +101,16 @@ sets. Not changed on purpose: a classic JoinGroup with an id the group did not i
 `cm-classic-join-unknown-member-id`). Known and unrecorded, left: OffsetFetch v9 does not look at the member epoch; the
 words of a consumer heartbeat to a non-empty classic group; "RackId can't be empty."; the topic snapshot is rebuilt per
 heartbeat.
+
+## Audit round 2 (HEAD cdd6594) and closure
+
+One new MAJOR, introduced by a round-1 fix: making a group begin only for a join that can seat a member sent a refused join
+to a group that does not exist down the "not found" path (code 69, fatal to a Java client) instead of the real error
+(UNSUPPORTED_ASSIGNOR, INVALID_REQUEST, INVALID_REGULAR_EXPRESSION). Fixed (`registry/requests.rs`) with a test on a fresh
+group. The auditor retracted its MINOR about an unissued classic member id (the recorded `cm-classic-join-unknown-member-id`
+shows Kafka seats it) and accepted Phase 5 with this **test debt** (behaviour present, mutations not caught by a unit
+test; the oracle and the real clients cover them): the cooperative `owned` retain in a classic join, the classic SyncGroup
+"group moved on" check, `hand_over` disarming the rebalance timer and using the previous assignment during a
+completing rebalance, `hand_back` disarming timers, the registry's retry of a join queued behind a deletion, and
+`end_revocation_if_given_up`. Residual MINORs: the member cap is checked after a conversion; the record is rewritten on
+every classic join into a consumer group.

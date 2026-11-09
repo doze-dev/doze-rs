@@ -530,3 +530,8 @@ test-only knobs in `internal/config`.
   protocol, alone and mixed with classic members. Weight 3.62 MB / 107 packages (one dependency added, `regex-lite`, for
   pattern subscriptions). Learned: franz-go's switch to the new protocol is `ServerSideBalancer`; a first "pass" with the
   wrong option was a classic run.
+- **2026-11-09, Phase 5 closed** on an independent audit after two rounds (3 MAJOR then 1 MAJOR, the second introduced by a
+  fix of the first: a refused join to a group that did not exist answered "not found"). Lesson: a fix that changes
+  *when a thing is made* changes the answers of everything that used to be answered by the thing; test it on a group that is
+  not there. The test debt the auditor listed is in `phase5.md`. Phase 6 (idempotence and transactions) was started at
+  the owner's request while Phase 5 was being audited; 6a (idempotent producers) is committed.
