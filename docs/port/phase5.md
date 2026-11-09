@@ -114,3 +114,7 @@ test; the oracle and the real clients cover them): the cooperative `owned` retai
 completing rebalance, `hand_back` disarming timers, the registry's retry of a join queued behind a deletion, and
 `end_revocation_if_given_up`. Residual MINORs: the member cap is checked after a conversion; the record is rewritten on
 every classic join into a consumer group.
+
+**All of it cleared in the debt pass of 2026-11-09 (`debt.md` B1 to B10):** each of the six has a test that fails when its
+branch is removed; the member cap is checked before a conversion; the record is written for a first member or a longer session,
+not for each join; OffsetFetch v9 checks the member; the words of the heartbeat checks were read from the source.

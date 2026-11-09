@@ -70,7 +70,9 @@ hold two descriptors each (lazy opening of sealed segments is not done): a parti
 
 ## Phase 6 (transactions), measured 2026-11-09, release, darwin/arm64
 
-Binary 3,759,584 B (3.62 MB at Phase 5: +137 KB for idempotence, the transaction index and the coordinator), 107
-packages (none added), idle RSS 4.5 MB. The producer tracker keeps at most five batches per producer and 50,000
-producers per partition, built when a partition is first written to, not at start; the audit of Phase 6 looks at what
-the transaction coordinator keeps per transactional id.
+Binary 3,776,752 B after the debt pass (3.62 MB at Phase 5: +155 KB for idempotence, the transaction index, the coordinator,
+the id expiry and the descriptor budget), 107 packages (none added), idle RSS 4.4 MB. The producer tracker keeps at most five
+batches per producer and 50,000 producers per partition, built when a partition is first written to, not at start. The
+coordinator keeps an entry for each transactional id in use, forgotten after seven days with nothing open. A log that never
+held a transaction is not read for them (a note beside its segments, made before the first, says one may be); one that did is
+read once, when it is opened. Open partitions are bounded by the files they hold as well as by their number.

@@ -9,7 +9,7 @@ command -v go >/dev/null || { echo "interop needs go" >&2; exit 2; }
 here="$(cd "$(dirname "$0")" && pwd)"
 root="$(dirname "$here")"
 work="$(mktemp -d)"
-trap 'if [ -n "${broker:-}" ]; then kill "$broker" 2>/dev/null; wait "$broker" 2>/dev/null; fi; rm -rf "$work"' EXIT
+trap 'if [ -n "${broker:-}" ]; then kill "$broker" 2>/dev/null; wait "$broker" 2>/dev/null; fi; [ -z "${KEEP_LOG:-}" ] || cp "$work/broker.log" "$KEEP_LOG"; rm -rf "$work"' EXIT
 
 # librdkafka's transactional producer (kcat has none): a small C program built against the librdkafka kcat uses.
 prefix="$(brew --prefix librdkafka 2>/dev/null || echo /usr/local)"

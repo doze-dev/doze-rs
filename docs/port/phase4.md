@@ -110,3 +110,5 @@ OffsetDelete: 24, 69, then per partition (86 subscribed, 3, delete). DeleteGroup
   them. Budget for it in 4h.
 - Phase 3 left a note owed about librdkafka and FindCoordinator (it could not be exercised without groups): re-check it
   with kcat and librdkafka in 4h and write down what is found.
+  Found (2026-11-09 debt pass): librdkafka (through kcat and a C producer) ran FindCoordinator, groups, transactions and the
+  new protocol in `interop/` with no finding.

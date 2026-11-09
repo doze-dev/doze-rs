@@ -205,9 +205,6 @@ connection, and the next *classic* step on it is recorded as "closed by the brok
 scenarios with the keep-alive skipping that request and found no classic step that differs.
 
 ## Not done (recorded)
-KIP-848 groups and the migration between protocols (Phase 5); transactional offset commits (Phase 6); ACLs (Phase 8); the
-Java client (no JDK on the machine); the peer address in DescribeGroups (a fixed `/127.0.0.1`); a command queued behind a group's
-deletion is put again only for a JoinGroup (a SyncGroup or Heartbeat is dropped and the connection closed; an
-OffsetCommit is answered UNKNOWN_MEMBER_ID); the issued-id table has one
-global cap (a single client can use it all up, and v4+ newcomers then get COORDINATOR_NOT_AVAILABLE until entries pass
-their five minutes), and the time an id lasts is five minutes, not the request's session timeout.
+ACLs (Phase 8); the Java client (no JDK on the machine, and the owner dropped it). (Cleared since: a member is shown with the
+address it connected from; every request queued behind a group's deletion is put again; the issued-id table has a cap for
+each group as well as one overall, and an id lasts the session timeout of the join that was given it.)

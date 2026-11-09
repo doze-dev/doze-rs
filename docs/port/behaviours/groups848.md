@@ -75,5 +75,17 @@ with the new protocol. sarama has no KIP-848.
 
 ## Not done
 The Java client. `full-disk-consumer-group-heartbeat` (a full-disk fault on the group heartbeat) is a fault-injection
-scenario of the Go harness. Rack-aware assignment (rack ids are kept, not used). The `heartbeat interval`
-and `assignment interval` are not configurable beyond the test knob.
+scenario of the Go harness. Rack-aware assignment: rack ids are kept and shown and place nothing, as in Kafka for a broker with no `broker.rack` (one
+broker has no racks to place by). The heartbeat and assignment intervals stay at Kafka's defaults, the assignment one a test
+knob.
+
+## G848-9. Words from the source (not in a recording)
+Read from Apache Kafka 4.3.1: a ConsumerGroupHeartbeat is checked in this order, each INVALID_REQUEST with Kafka's words:
+MemberId blank ("MemberId can't be empty."; asked for from version 1, and before that after the first heartbeat), GroupId,
+InstanceId, RackId ("RackId can't be empty."), then the joining checks. To a classic group, a member that is not joining
+(epoch above 0, or leaving) is GROUP_ID_NOT_FOUND "Group g is not a consumer group."; a joining one upgrades it, or is refused
+with "Cannot upgrade classic group g to consumer group because ..." (not the consumer protocol; the group size exceeds the
+consumer group maximum size), and a refusal changes nothing. OffsetFetch v9 with a member checks it is in a consumer group
+at its epoch (UNKNOWN_MEMBER_ID; STALE_MEMBER_EPOCH, ILLEGAL_GENERATION for a classic member) and checks nothing of a
+classic group or one that is not there. Test: `consumer_group_words`, `offset_fetch_checks`, `consumer/tests/fetch.rs`,
+`group/tests/timers.rs`.
