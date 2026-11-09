@@ -15,7 +15,7 @@ use kafka_wire::messages::fetch_request::FetchTopic;
 use kafka_wire::messages::{FetchRequest, FetchResponse};
 use tokio::time::{Instant, timeout_at};
 
-use crate::partitions::{Partition, TxnView};
+use crate::partitions::{Partition, Stability};
 use crate::{Broker, Outcome};
 use round::Budget;
 
@@ -30,14 +30,30 @@ pub(super) enum Place<F: Fs> {
     Open(Arc<Partition<F>>),
 }
 
-/// What a `read_committed` fetch is told of a partition's transactions.
+/// What a fetch is told of a partition's transactions: the last stable offset in every case, and for `read_committed` the
+/// offset it may read to and the aborted transactions to skip.
 pub(super) enum Stable {
-    /// Nothing: not `read_committed`, or the partition is not open.
+    /// Nothing: the partition is not open.
     Unasked,
-    /// The partition's transactions.
-    Of(TxnView),
-    /// They could not be read.
-    Failed,
+    /// The partition's last stable offset and aborted transactions.
+    Of(Stability),
+}
+
+/// Each open partition's last stable offset and aborted transactions, read from what its writer keeps for readers (so this
+/// does not wait for an append).
+fn stable<F: Fs>(wanted: &[Wanted<'_, F>]) -> Vec<Vec<Stable>> {
+    wanted
+        .iter()
+        .map(|w| {
+            w.places
+                .iter()
+                .map(|place| match place {
+                    Place::Open(p) => Stable::Of(p.stability()),
+                    Place::Error(_) => Stable::Unasked,
+                })
+                .collect()
+        })
+        .collect()
 }
 
 /// One topic of the request, with its partitions resolved.
@@ -64,7 +80,7 @@ impl<F: Fs> Broker<F> {
         let deadline = Instant::now() + waits;
         loop {
             let budget = Budget::new(req.max_bytes);
-            let stable = self.stable(&wanted, &req).await;
+            let stable = stable(&wanted);
             let round = blocking_round(&wanted, &stable, &req, budget);
             // An error is an answer: the client has to act on it, and making it wait would cost a consumer's offset
             // reset a whole wait.
@@ -81,29 +97,6 @@ impl<F: Fs> Broker<F> {
                 (wanted, watching) = self.resolve_and_watch(version, &req).await;
             }
         }
-    }
-
-    /// For a `read_committed` fetch, each open partition's last stable offset and aborted transactions, asked of its
-    /// writer, which owns them.
-    async fn stable(&self, wanted: &[Wanted<'_, F>], req: &FetchRequest) -> Vec<Vec<Stable>> {
-        let mut out = Vec::with_capacity(wanted.len());
-        for w in wanted {
-            let mut row = Vec::with_capacity(w.places.len());
-            for place in &w.places {
-                row.push(match place {
-                    Place::Open(p) if req.isolation_level == 1 => match p.txns().await {
-                        Ok(view) => Stable::Of(view),
-                        Err(e) => {
-                            tracing::error!(error = %e, "a read-committed fetch could not read a partition's transactions");
-                            Stable::Failed
-                        }
-                    },
-                    _ => Stable::Unasked,
-                });
-            }
-            out.push(row);
-        }
-        out
     }
 
     /// Finds the partitions the request names and starts watching them and the topics. The watch is made before the

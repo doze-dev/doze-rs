@@ -14,6 +14,7 @@ use tokio::sync::{OnceCell, mpsc};
 mod closing;
 
 use super::{Partition, QUEUE, actor};
+use crate::txn_index::TxnIndex;
 use crate::{Config, blocking, topic_config};
 
 type Slot<F> = Arc<OnceCell<Arc<Partition<F>>>>;
@@ -218,9 +219,25 @@ impl<F: Fs> Partitions<F> {
             .unwrap_or_else(|| self.stop.trust(&name));
         let log = blocking::run(|| PartitionLog::open(self.fs.clone(), dir, log_config, trust))?;
         let reader = log.reader();
+        // A log that holds transactions is read once, now, for the open and aborted ones; one that does not is not read.
+        let index = if log.holds_transactions() {
+            blocking::run(|| actor::read_index(&reader))?
+        } else {
+            TxnIndex::default()
+        };
+        let txns = actor::shared(index);
         let (commands, queue) = mpsc::channel(QUEUE);
-        tokio::spawn(actor::run(log, queue, self.config.fsync_interval));
-        Ok(Arc::new(Partition { reader, commands }))
+        tokio::spawn(actor::run(
+            log,
+            queue,
+            self.config.fsync_interval,
+            Arc::clone(&txns),
+        ));
+        Ok(Arc::new(Partition {
+            reader,
+            commands,
+            txns,
+        }))
     }
 }
 

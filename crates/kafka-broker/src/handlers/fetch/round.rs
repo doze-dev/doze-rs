@@ -1,6 +1,6 @@
 //! One pass over the partitions of a Fetch.
 
-use crate::partitions::TxnView;
+use crate::partitions::Stability;
 use bytes::Bytes;
 use kafka_storage::StorageError;
 use kafka_storage::fs::Fs;
@@ -87,7 +87,7 @@ pub(super) fn read<F: Fs>(
                     let limit =
                         limit_for(asked.partition_max_bytes, req.max_bytes, budget.remaining);
                     let cap = match stable {
-                        Stable::Of(view) => Some(view.last_stable),
+                        Stable::Of(view) if req.isolation_level == 1 => Some(view.last_stable),
                         _ => None,
                     };
                     round.bytes += fill(
@@ -97,13 +97,13 @@ pub(super) fn read<F: Fs>(
                         (limit, cap),
                         &mut budget,
                     );
-                    match stable {
-                        Stable::Of(view) if data.error_code == 0 => {
-                            data.last_stable_offset = view.last_stable.get();
+                    if let Stable::Of(view) = stable
+                        && data.error_code == 0
+                    {
+                        data.last_stable_offset = view.last_stable.get();
+                        if req.isolation_level == 1 {
                             data.aborted_transactions = Some(aborted(view, asked.fetch_offset));
                         }
-                        Stable::Failed => data.error_code = ResponseError::KafkaStorageError.code(),
-                        _ => {}
                     }
                     round.failed |= data.error_code != 0;
                 }
@@ -121,7 +121,7 @@ pub(super) fn read<F: Fs>(
 }
 
 /// The aborted transactions that touch what a `read_committed` fetch from `from` is given.
-fn aborted(view: &TxnView, from: i64) -> Vec<AbortedTransaction> {
+fn aborted(view: &Stability, from: i64) -> Vec<AbortedTransaction> {
     view.aborted
         .iter()
         .filter(|a| a.last >= from && a.first < view.last_stable.get())

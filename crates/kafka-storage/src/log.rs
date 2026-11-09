@@ -88,6 +88,8 @@ pub struct PartitionLog<F: Fs> {
     dir_dirty: bool,
     /// Why writes are refused, once a flush has failed.
     offline: Option<Arc<str>>,
+    /// The note that this log holds, or may hold, transactional batches is on disk.
+    transactional: bool,
 }
 
 impl<F: Fs> std::fmt::Debug for PartitionLog<F> {

@@ -1,5 +1,6 @@
 //! The task that owns a partition's writer.
 
+use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
 use kafka_storage::fs::Fs;
@@ -12,7 +13,7 @@ use tokio::time::{Instant, sleep_until};
 
 use crate::blocking;
 use crate::producers::{Producers, Stored, Verdict, last_of};
-use crate::txn_index::{Aborted, Open, TxnIndex};
+use crate::txn_index::{Open, TxnIndex};
 
 /// The most appends taken in one go, so that a partition under load still hears a Close.
 const GROUP: usize = 64;
@@ -38,12 +39,9 @@ pub(crate) enum Written {
     Refused(ResponseError),
 }
 
-/// What a partition knows of its transactions and its producers.
+/// What the partition's writer knows of its open transactions and its producers.
 #[derive(Debug, Clone)]
 pub(crate) struct TxnView {
-    /// The first offset a `read_committed` consumer may not read.
-    pub(crate) last_stable: Offset,
-    pub(crate) aborted: Vec<Aborted>,
     pub(crate) open: Vec<Open>,
     /// (id, epoch, last sequence, last used in ms)
     pub(crate) producers: Vec<(i64, i16, i32, i64)>,
@@ -59,13 +57,12 @@ pub(super) struct Append {
 }
 
 /// What the writer remembers besides the log.
-#[derive(Default)]
 struct Memory {
     producers: Producers,
     /// The log's recent history has been read in.
     loaded: bool,
-    /// The transactions the log holds; read from the log when first needed.
-    txns: Option<TxnIndex>,
+    /// The transactions the log holds, shared with the readers.
+    txns: Arc<RwLock<TxnIndex>>,
 }
 
 /// Takes commands until the queue closes or a Close arrives: appends are written in the order they came, then one
@@ -76,9 +73,14 @@ pub(super) async fn run<F: Fs>(
     mut log: PartitionLog<F>,
     mut queue: mpsc::Receiver<Command>,
     fsync_interval: Duration,
+    txns: Arc<RwLock<TxnIndex>>,
 ) {
     let mut unflushed_since: Option<Instant> = None;
-    let mut memory = Memory::default();
+    let mut memory = Memory {
+        producers: Producers::default(),
+        loaded: false,
+        txns,
+    };
     loop {
         let next = match unflushed_since {
             Some(since) => tokio::select! {
@@ -235,4 +237,5 @@ fn relearn<F: Fs>(log: &PartitionLog<F>, memory: &mut Memory) -> Result<(), Stor
 }
 
 mod transactions;
+pub(super) use transactions::{read_index, shared};
 use transactions::{view, write};

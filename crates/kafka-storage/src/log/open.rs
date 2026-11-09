@@ -133,6 +133,7 @@ impl<F: Fs> PartitionLog<F> {
         let end = recover_active(&mut active, *last, interval, trust)?;
         let first = sealed.first().map_or(*last, SealedSegment::base);
         let mut log = Self::assemble(fs, dir, config, sealed, active, (first, end));
+        log.transactional = crate::transactional::exists(&log.fs, &log.dir);
         log.dir_dirty = found.tidied;
         log.carry_on_from(recorded)?;
         log.finish_interrupted_deletes()?;
@@ -156,6 +157,7 @@ impl<F: Fs> PartitionLog<F> {
         let (active, _) = ActiveSegment::open(&fs, &dir, recorded, config.index_interval_bytes)
             .doing("creating the first segment")?;
         let mut log = Self::assemble(fs, dir, config, Vec::new(), active, (recorded, recorded));
+        log.transactional = crate::transactional::exists(&log.fs, &log.dir);
         // Its name is not flushed here: the flush that an acknowledgement waits for flushes it too.
         log.dir_dirty = true;
         log.dir_dirty |= tidied;
@@ -218,7 +220,31 @@ impl<F: Fs> PartitionLog<F> {
             synced_seq: 0,
             dir_dirty: false,
             offline: None,
+            transactional: false,
         }
+    }
+
+    /// Whether this log holds, or may hold, transactional batches or transaction markers. If not, it has no transactions
+    /// and is not to be read to find out.
+    #[must_use]
+    pub fn holds_transactions(&self) -> bool {
+        self.transactional
+    }
+
+    /// Notes, durably and before the first is written, that this log is to hold a transactional batch or a transaction
+    /// marker. A note already made is not made again.
+    ///
+    /// # Errors
+    /// A failed write of the note, which takes the log offline like any failed flush.
+    pub fn note_transactions(&mut self) -> Result<(), StorageError> {
+        if self.transactional {
+            return Ok(());
+        }
+        if let Err(e) = crate::transactional::record(&self.fs, &self.dir) {
+            return Err(self.fail("recording that the log holds transactions", e));
+        }
+        self.transactional = true;
+        Ok(())
     }
 }
 

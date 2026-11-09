@@ -1,13 +1,17 @@
-//! The writer's view of the partition's transactions: told of each transactional batch and marker as it is written,
-//! and read from the log the first time it is needed.
+//! The writer's part in the partition's transactions: it tells the shared index of each transactional batch and marker as
+//! it is written, and notes on disk that the log holds transactions before the first is.
+//!
+//! The index is shared with the readers (it is behind a lock held only for the instants of reading or changing it), so a
+//! `read_committed` fetch does not queue behind appends. The lock is taken before a transactional batch is appended and
+//! let go after the index has been told of it: a reader that sees the batch in the log therefore finds it in the index.
+
+use std::sync::{Arc, PoisonError, RwLock};
 
 use kafka_storage::fs::Fs;
-use kafka_storage::{Appended, PartitionLog, StorageError};
+use kafka_storage::{Appended, LogReader, PartitionLog, StorageError};
 use kafka_wire::batch::{Batch, Marker};
-use kafka_wire::ids::Offset;
 
 use super::{Append, Memory, TxnView, relearn};
-use crate::partitions::gone;
 use crate::txn_index::TxnIndex;
 
 /// Appends the batch; a transactional batch or a marker is told to the transaction index too.
@@ -18,40 +22,40 @@ pub(super) fn write<F: Fs>(
 ) -> Result<Appended, StorageError> {
     let transactional =
         a.batch.attributes().is_transactional() || a.batch.attributes().is_control();
-    if transactional {
-        transactions(log, memory)?;
+    if !transactional {
+        return log.append(std::slice::from_ref(&a.batch), a.now, a.clock);
     }
+    // The note is durable before the batch is written: a log without it is taken to hold no transactions.
+    log.note_transactions()?;
+    let mut index = memory.txns.write().unwrap_or_else(PoisonError::into_inner);
     let appended = log.append(std::slice::from_ref(&a.batch), a.now, a.clock)?;
-    if transactional {
-        note(memory, &a.batch, appended.first_offset.get());
-    }
+    note(&mut index, &a.batch, appended.first_offset.get());
+    index.forget_before(log.start_offset().get());
     Ok(appended)
 }
 
-/// The transactions in the log, read once from its batches.
-fn transactions<F: Fs>(log: &PartitionLog<F>, memory: &mut Memory) -> Result<(), StorageError> {
-    if memory.txns.is_some() {
-        return Ok(());
-    }
+/// The transactions in a log, read from its batches: for a log that holds transactions, when it is opened.
+///
+/// # Errors
+/// A failed read of the log.
+pub(crate) fn read_index<F: Fs>(reader: &LogReader<F>) -> Result<TxnIndex, StorageError> {
     let mut index = TxnIndex::default();
-    log.reader()
-        .visit_batches(log.reader().start_offset(), |peek, bytes| {
-            let Some(p) = peek.producer else { return };
-            if peek.attributes.is_control() {
-                if let Some(kind) = Marker::read(bytes) {
-                    index.marker(p.id.get(), peek.base_offset, kind);
-                }
-            } else if peek.attributes.is_transactional() {
-                index.write(p.id.get(), p.epoch.get(), peek.base_offset);
+    reader.visit_batches(reader.start_offset(), |peek, bytes| {
+        let Some(p) = peek.producer else { return };
+        if peek.attributes.is_control() {
+            if let Some(kind) = Marker::read(bytes) {
+                index.marker(p.id.get(), peek.base_offset, kind);
             }
-        })?;
-    memory.txns = Some(index);
-    Ok(())
+        } else if peek.attributes.is_transactional() {
+            index.write(p.id.get(), p.epoch.get(), peek.base_offset);
+        }
+    })?;
+    Ok(index)
 }
 
 /// Tells the transaction index of a batch just written at `offset`.
-fn note(memory: &mut Memory, batch: &Batch, offset: i64) {
-    let (Some(index), Some(p)) = (memory.txns.as_mut(), batch.producer()) else {
+fn note(index: &mut TxnIndex, batch: &Batch, offset: i64) {
+    let Some(p) = batch.producer() else {
         return;
     };
     if batch.attributes().is_control() {
@@ -63,24 +67,26 @@ fn note(memory: &mut Memory, batch: &Batch, offset: i64) {
     }
 }
 
+/// The open transactions and the producers the partition remembers.
 pub(super) fn view<F: Fs>(
     log: &PartitionLog<F>,
     memory: &mut Memory,
 ) -> Result<TxnView, StorageError> {
-    transactions(log, memory)?;
     if !memory.loaded {
         relearn(log, memory)?;
     }
-    let reader = log.reader();
-    let end = reader.end_offset().get();
-    let Some(index) = memory.txns.as_mut() else {
-        return Err(gone());
-    };
-    index.forget_before(reader.start_offset().get());
+    let open = memory
+        .txns
+        .read()
+        .unwrap_or_else(PoisonError::into_inner)
+        .open();
     Ok(TxnView {
-        last_stable: Offset::new(index.last_stable(end)).unwrap_or(Offset::ZERO),
-        aborted: index.aborted_between(reader.start_offset().get(), end),
-        open: index.open(),
+        open,
         producers: memory.producers.snapshot(),
     })
+}
+
+/// A new, shared index.
+pub(crate) fn shared(index: TxnIndex) -> Arc<RwLock<TxnIndex>> {
+    Arc::new(RwLock::new(index))
 }

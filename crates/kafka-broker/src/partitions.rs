@@ -9,11 +9,15 @@
 mod actor;
 mod registry;
 
+use std::sync::{Arc, PoisonError, RwLock};
+
 use kafka_storage::fs::Fs;
 use kafka_storage::{LogReader, StorageError};
 use kafka_wire::batch::{Batch, TimestampType};
-use kafka_wire::ids::TimestampMs;
+use kafka_wire::ids::{Offset, TimestampMs};
 use tokio::sync::{mpsc, oneshot};
+
+use crate::txn_index::{Aborted, TxnIndex};
 
 use actor::{Append, Command};
 pub(crate) use actor::{TxnView, Written};
@@ -27,6 +31,17 @@ pub(super) const QUEUE: usize = 32;
 pub(crate) struct Partition<F: Fs> {
     reader: LogReader<F>,
     commands: mpsc::Sender<Command>,
+    /// The partition's transactions, kept by its writer and read here without asking it.
+    txns: Arc<RwLock<TxnIndex>>,
+}
+
+/// What a `read_committed` consumer may be given of a partition: up to the last stable offset, skipping the aborted.
+#[derive(Debug, Clone)]
+pub(crate) struct Stability {
+    /// The first offset a `read_committed` consumer may not read: where the oldest open transaction began, or the end.
+    pub(crate) last_stable: Offset,
+    /// The aborted transactions, whole, from the log start to the end.
+    pub(crate) aborted: Vec<Aborted>,
 }
 
 /// The answer to an append that is on its way.
@@ -65,7 +80,20 @@ impl<F: Fs> Partition<F> {
         Ok(answer)
     }
 
-    /// What the partition knows of its transactions and producers (read from the log the first time it is asked).
+    /// The last stable offset and the aborted transactions. Asked of the shared index, not of the writer: this does not
+    /// wait for an append or a flush.
+    pub(crate) fn stability(&self) -> Stability {
+        // The end is read first: a transactional batch the log shows has been told to the index, which is locked while it
+        // is written.
+        let end = self.reader.end_offset();
+        let index = self.txns.read().unwrap_or_else(PoisonError::into_inner);
+        Stability {
+            last_stable: Offset::new(index.last_stable(end.get())).unwrap_or(Offset::ZERO),
+            aborted: index.aborted_between(self.reader.start_offset().get(), end.get()),
+        }
+    }
+
+    /// The open transactions and the producers the writer remembers (read from the log the first time it is asked).
     ///
     /// # Errors
     /// The log cannot be read, or the writer has gone.

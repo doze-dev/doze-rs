@@ -54,16 +54,15 @@ async fn open_and_aborted_transactions_are_seen_as_they_are_appended_and_after_a
         2,
         "a plain batch between"
     );
-    let view = p.txns().await.unwrap();
-    assert_eq!(view.last_stable.get(), 0, "producer 7 began at 0");
-    assert_eq!(view.open.len(), 2);
+    assert_eq!(p.stability().last_stable.get(), 0, "producer 7 began at 0");
+    assert_eq!(p.txns().await.unwrap().open.len(), 2);
     // 7 aborts and 8 commits.
     assert_eq!(append(&p, marker(7, Marker::Abort)).await, 3);
     assert_eq!(append(&p, marker(8, Marker::Commit)).await, 4);
-    let view = p.txns().await.unwrap();
-    assert_eq!(view.last_stable.get(), 5, "nothing open: the end");
+    let seen = p.stability();
+    assert_eq!(seen.last_stable.get(), 5, "nothing open: the end");
     assert_eq!(
-        view.aborted
+        seen.aborted
             .iter()
             .map(|a| (a.producer, a.first, a.last))
             .collect::<Vec<_>>(),
@@ -79,13 +78,18 @@ async fn open_and_aborted_transactions_are_seen_as_they_are_appended_and_after_a
         meta,
     );
     let q = restarted.get(&topic, id).await.unwrap();
-    let view = q.txns().await.unwrap();
-    assert_eq!(view.last_stable.get(), 5);
+    assert_eq!(q.stability().last_stable.get(), 5);
     assert_eq!(
-        view.open.iter().map(|o| o.producer).collect::<Vec<_>>(),
+        q.txns()
+            .await
+            .unwrap()
+            .open
+            .iter()
+            .map(|o| o.producer)
+            .collect::<Vec<_>>(),
         [9]
     );
-    assert_eq!(view.aborted.len(), 1);
+    assert_eq!(q.stability().aborted.len(), 1);
 }
 
 /// `Bytes` of a batch as a `Batch`.
@@ -97,4 +101,77 @@ impl PipeParse for bytes::Bytes {
     fn pipe_parse(self) -> Batch {
         Batch::parse(self).unwrap()
     }
+}
+
+/// A partition's reads of its log when it is opened again, in a world where it holds `transactional` batches or not.
+async fn reads_on_reopening(transactional: bool) -> u64 {
+    let (partitions, topic, meta, fs) = setup_full(|_| {}, 1);
+    let id = PartitionId::new(0).unwrap();
+    let p = partitions.get(&topic, id).await.unwrap();
+    for _ in 0..40 {
+        append(
+            &p,
+            Batch::parse(BatchBuilder::new().records(50).build()).unwrap(),
+        )
+        .await;
+    }
+    if transactional {
+        append(&p, data(7, 0)).await;
+        append(&p, marker(7, Marker::Commit)).await;
+    }
+    assert_eq!(
+        p.stability().last_stable.get(),
+        p.reader().end_offset().get()
+    );
+    drop(p);
+    let disk = fs.process_restart();
+    let before = disk.count(kafka_storage::sim::Op::Read);
+    let restarted = Partitions::new(
+        disk.clone(),
+        Config::new("/data".into()),
+        Default::default(),
+        meta,
+    );
+    let q = restarted.get(&topic, id).await.unwrap();
+    // Asking what a committed reader may read costs the log nothing, whatever it holds.
+    let asked = disk.count(kafka_storage::sim::Op::Read);
+    let _ = q.stability();
+    assert_eq!(disk.count(kafka_storage::sim::Op::Read), asked);
+    asked - before
+}
+
+#[tokio::test]
+async fn a_partition_that_never_held_a_transaction_is_not_read_to_find_that_out() {
+    let plain = reads_on_reopening(false).await;
+    let with_transactions = reads_on_reopening(true).await;
+    assert!(
+        plain < with_transactions,
+        "{plain} reads to reopen a log without transactions, {with_transactions} with them"
+    );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_transactional_batch_is_not_visible_to_a_reader_before_the_index_knows_it_is_open() {
+    let (partitions, topic, _meta, _fs) = setup_full(|_| {}, 1);
+    let id = PartitionId::new(0).unwrap();
+    let p = std::sync::Arc::new(partitions.get(&topic, id).await.unwrap());
+    // Readers ask for the last stable offset while a producer writes transactions: whenever the log shows a transactional
+    // batch, the last stable offset is not past it.
+    let reader = {
+        let p = std::sync::Arc::clone(&p);
+        tokio::spawn(async move {
+            for _ in 0..2_000 {
+                let seen = p.stability().last_stable.get();
+                let end = p.reader().end_offset().get();
+                assert!(seen <= end);
+                tokio::task::yield_now().await;
+            }
+        })
+    };
+    for producer in 1..60 {
+        let at = append(&p, data(producer, 0)).await;
+        assert!(p.stability().last_stable.get() <= at, "open at {at}");
+        append(&p, marker(producer, Marker::Commit)).await;
+    }
+    reader.await.unwrap();
 }
