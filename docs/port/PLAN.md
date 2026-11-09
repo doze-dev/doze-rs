@@ -498,3 +498,12 @@ test-only knobs in `internal/config`.
   found four bugs that unit tests did not; the test rig now encodes every response; `cargo clippy` goes before every
   commit (a test function over the length limit was committed once without it). Open and recorded in
   `behaviours/groups.md`: the Java client; KIP-848 and the migration (Phase 5, which needs the owner's go-ahead).
+- **2026-11-09, Go clients added; the Java client dropped (owner's call).** `interop/` holds a small Go program and
+  `interop/run.sh` (also a CI job): sarama, franz-go and kafka-go each produce, read through a two-member group, and a
+  new consumer of the same group resumes from the committed offsets; all three pass. They found one more bug of the
+  encode-refused-so-the-connection-closed kind: ListOffsets answered with a leader epoch of 0 below v4, and every
+  ListOffsets test had used v7. Fixed, and `tests/versions_data.rs` now asks every served version of Produce, Fetch,
+  ListOffsets, Metadata, CreateTopics, DeleteTopics and InitProducerId (the group APIs were done in `versions.rs`).
+  Learned about the clients: kafka-go does not retry the first Metadata answer for a topic that does not exist yet (the
+  recorded Kafka answers it the same way), and franz-go asks for auto-creation only when told to; neither is a broker
+  fault.

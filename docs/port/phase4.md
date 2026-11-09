@@ -1,7 +1,7 @@
 # Phase 4: classic consumer groups
 
 Status: DONE 2026-11-09 (slices 4a to 4h; an independent audit at 23dcee3 said DONE after four rounds, each of which found
-less; the Java client could not be run, there being no JDK on the machine). Catalogue: behaviours/groups.md. Goal: a Kafka client (franz-go, librdkafka, kcat -G, later the Java client) joins a group,
+less; the Java client is not run: no JDK, and the owner dropped it in favour of the Go clients sarama, franz-go and kafka-go, `interop/`). Catalogue: behaviours/groups.md. Goal: a Kafka client (franz-go, librdkafka, kcat -G, later the Java client) joins a group,
 is assigned partitions, heartbeats, commits and fetches offsets, rebalances when members come and go, and sees the
 same answers as real Apache Kafka 4.3.1 in the recorded classic-group scenarios. KIP-848 (ConsumerGroupHeartbeat) is
 Phase 5; transactions (TxnOffsetCommit, AddOffsetsToTxn) are Phase 6. Both stay out.

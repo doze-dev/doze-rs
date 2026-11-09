@@ -35,10 +35,15 @@ impl<F: Fs> Broker<F> {
             // answers each entry, because the console asks for a partition's earliest and latest offset as two
             // entries of one request.)
             for p in &t.partitions {
-                out.partitions.push(
-                    self.list_one(version, req.isolation_level, topic.as_deref(), p)
-                        .await,
-                );
+                let mut answer = self
+                    .list_one(version, req.isolation_level, topic.as_deref(), p)
+                    .await;
+                // The leader epoch is a field from v4; a version without it must carry the default, or the
+                // response cannot be written and the client's connection is closed.
+                if version < 4 {
+                    answer.leader_epoch = -1;
+                }
+                out.partitions.push(answer);
             }
             resp.topics.push(out);
         }
