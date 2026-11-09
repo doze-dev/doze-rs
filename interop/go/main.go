@@ -64,8 +64,10 @@ func main() {
 		scenario{"upgrade-848", []client{sar, rdk, fra8, rdk8}, "range", false},
 		scenario{"classic-joins-848", []client{fra8, rdk8, sar, rdk}, "range", false},
 		eos{},
+		fence{},
 		txnScenario{franzTxn{}},
 		txnScenario{saramaTxn{}},
+		txnScenario{rdkafkaTxn{}},
 		churn{"churn", all, "franz-go", "librdkafka"},
 		churn{"churn-848", []client{sar, rdk, fra8, rdk8}, "franz-go-848", "librdkafka-848"})
 	if *custom != "" {

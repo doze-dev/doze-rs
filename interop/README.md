@@ -46,13 +46,17 @@ with the new protocol. `-members franz-go-848,sarama` runs a group of the named 
 
 ## Transactions
 
-Run with `-only eos-franz-go`, `-only txn-franz-go`, `-only txn-sarama`.
+Run with `-only eos-franz-go`, `-only txn-franz-go`, `-only txn-sarama`, `-only txn-librdkafka`, `-only fence-franz-go`.
 
-**txn-franz-go, txn-sarama.** A transactional producer of that library writes three transactions (commit, abort,
+**txn-franz-go, txn-sarama, txn-librdkafka.** A transactional producer of that library (librdkafka's is a small C program, `interop/c/txnprod.c`, which `run.sh` builds against the librdkafka that kcat uses, since kcat has no transactions) writes three transactions (commit, abort,
 commit): one of ten records, one of ten that is aborted, and one of five, to a topic of three partitions. Three readers then read the
 topic from the start: franz-go, sarama and kcat, each reading committed records only and again reading everything.
 The committed readers must see exactly the records of the two commits (15, each once); the others all 25. Each takes
-about 18 s.
+about 9 s: the readers wait two seconds without a record before they say nothing more is coming.
+
+**fence-franz-go.** A zombie: a transactional producer has written five records when another with the same transactional id
+starts and commits five of its own. The broker aborts the first's transaction and fences it, so the first's commit fails; a
+committed reader sees only the second's records, and one reading everything sees both.
 
 **eos-franz-go.** Consume-transform-produce: franz-go's `GroupTransactSession` reads 200 input records in batches of
 25 and writes them to an output topic, committing the input offsets inside each transaction. One transaction is

@@ -3,9 +3,11 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	lib "github.com/IBM/sarama"
@@ -245,24 +247,36 @@ func (saramaReader) read(addr, topic string, committed bool) ([]string, error) {
 		return nil, err
 	}
 	defer c.Close()
-	var out []string
+	// The partitions are read at once, each until nothing has come for a while.
+	var (
+		mu  sync.Mutex
+		out []string
+		wg  sync.WaitGroup
+		bad error
+	)
 	for p := int32(0); p < 3; p++ {
 		pc, err := c.ConsumePartition(topic, p, lib.OffsetOldest)
 		if err != nil {
 			return nil, err
 		}
-	drain:
-		for {
-			select {
-			case m := <-pc.Messages():
-				out = append(out, string(m.Value))
-			case <-time.After(quiet):
-				break drain
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			defer pc.Close()
+			for {
+				select {
+				case m := <-pc.Messages():
+					mu.Lock()
+					out = append(out, string(m.Value))
+					mu.Unlock()
+				case <-time.After(quiet):
+					return
+				}
 			}
-		}
-		_ = pc.Close()
+		}()
 	}
-	return out, nil
+	wg.Wait()
+	return out, bad
 }
 
 type kcatReader struct{}
@@ -286,4 +300,22 @@ func (kcatReader) read(addr, topic string, committed bool) ([]string, error) {
 		}
 	}
 	return got, nil
+}
+
+// rdkafkaTxn is librdkafka's transactional producer: a small C program (interop/c/txnprod.c, built by run.sh against
+// the librdkafka kcat uses; its path is in TXNPROD).
+type rdkafkaTxn struct{}
+
+func (rdkafkaTxn) name() string { return "librdkafka" }
+
+func (rdkafkaTxn) run(ctx context.Context, addr, topic, id string) error {
+	bin := os.Getenv("TXNPROD")
+	if bin == "" {
+		return fmt.Errorf("TXNPROD (the built interop/c/txnprod) is not set; run through interop/run.sh")
+	}
+	out, err := exec.CommandContext(ctx, bin, addr, topic, id).CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("txnprod: %w: %s", err, strings.TrimSpace(string(out)))
+	}
+	return nil
 }
