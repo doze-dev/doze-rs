@@ -56,6 +56,7 @@ impl<F: Fs> Broker<F> {
         validate_only: bool,
         replace: bool,
     ) -> Vec<Option<Refusal>> {
+        let _one_change_at_a_time = self.config_admin.lock().await;
         let mut count: HashMap<(i8, &str), usize> = HashMap::new();
         for r in resources {
             *count.entry((r.kind, r.name.as_str())).or_default() += 1;

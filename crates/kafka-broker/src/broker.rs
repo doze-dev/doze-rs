@@ -76,6 +76,9 @@ pub struct Broker<F: Fs = RealFs> {
     /// Held for the whole of a topic's creation or deletion: a name freed by a delete is not made again until the
     /// delete has cleared the old topic's partitions, which are named the same.
     pub(crate) topic_admin: tokio::sync::Mutex<()>,
+    /// Held for the whole of a change to the configs of a topic or of the broker: what is changed is worked out from what
+    /// is there, so two changes at once would each be worked out from the same old configs and one would undo the other.
+    pub(crate) config_admin: tokio::sync::Mutex<()>,
 }
 
 impl<F: Fs> Broker<F> {
@@ -122,6 +125,7 @@ impl<F: Fs> Broker<F> {
             topics_changed: tokio::sync::watch::channel(0).0,
             stop,
             topic_admin: tokio::sync::Mutex::new(()),
+            config_admin: tokio::sync::Mutex::new(()),
         })
     }
 
