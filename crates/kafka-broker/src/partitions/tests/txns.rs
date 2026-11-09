@@ -155,23 +155,34 @@ async fn a_transactional_batch_is_not_visible_to_a_reader_before_the_index_knows
     let (partitions, topic, _meta, _fs) = setup_full(|_| {}, 1);
     let id = PartitionId::new(0).unwrap();
     let p = std::sync::Arc::new(partitions.get(&topic, id).await.unwrap());
-    // Readers ask for the last stable offset while a producer writes transactions: whenever the log shows a transactional
-    // batch, the last stable offset is not past it.
+    // A reader on its own thread asks for the last stable offset as fast as it can, noting the end of the log it saw first.
+    let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     let reader = {
-        let p = std::sync::Arc::clone(&p);
-        tokio::spawn(async move {
-            for _ in 0..2_000 {
-                let seen = p.stability().last_stable.get();
+        let (p, stop) = (std::sync::Arc::clone(&p), std::sync::Arc::clone(&stop));
+        std::thread::spawn(move || {
+            let mut seen = Vec::new();
+            while !stop.load(std::sync::atomic::Ordering::Relaxed) {
                 let end = p.reader().end_offset().get();
-                assert!(seen <= end);
-                tokio::task::yield_now().await;
+                seen.push((end, p.stability().last_stable.get()));
             }
+            seen
         })
     };
-    for producer in 1..60 {
-        let at = append(&p, data(producer, 0)).await;
-        assert!(p.stability().last_stable.get() <= at, "open at {at}");
+    // A producer writes a transaction's batch and then its marker, one after the other, so the batch at `at` is open exactly
+    // while the end of the log is `at + 1`.
+    let mut opened = Vec::new();
+    for producer in 1..400 {
+        opened.push(append(&p, data(producer, 0)).await);
         append(&p, marker(producer, Marker::Commit)).await;
     }
-    reader.await.unwrap();
+    stop.store(true, std::sync::atomic::Ordering::Relaxed);
+    for (end, stable) in reader.join().unwrap() {
+        if opened.contains(&(end - 1)) {
+            assert!(
+                stable <= end - 1,
+                "the log showed an open batch at {} and the last stable offset was {stable}",
+                end - 1
+            );
+        }
+    }
 }
