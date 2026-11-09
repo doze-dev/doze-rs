@@ -152,6 +152,9 @@ impl<R: Records> Keeper<R> {
     }
 }
 
+#[cfg(test)]
+mod tests;
+
 /// Runs the group until every sender of commands is gone.
 pub(super) async fn run(
     mut machine: Group,
