@@ -47,7 +47,7 @@ Each has a hypothesis, a measurement, and a fallback if it fails. Code stays in 
 
 | # | Hypothesis | Measurement | Fallback if false | Result |
 |---|---|---|---|---|
-| S1 | Types and schema tables for all 18 models fit in 3 MiB at fat LTO | stripped size of a use-everything build | cargo feature per service, `opt-level = "z"` on model crates | **FAIL** (`spikes/S1.md`): typed decode + encode of all 18 is 6.61 MiB at opt 3 (4.21 at opt z); the tables alone are a 2.25 MiB floor. Gating fits about 11 of 18 services in 3 MiB. **S1b queued** |
+| S1 | Types and schema tables for all 18 models fit in 3 MiB at fat LTO | stripped size of a use-everything build | cargo feature per service, `opt-level = "z"` on model crates | **FAIL** (`spikes/S1.md`): typed decode + encode of all 18 is 6.61 MiB at opt 3 (4.21 at opt z); the tables alone are a 2.25 MiB floor. Gating fits about 11 of 18 services in 3 MiB. **S1b done: design C** (`spikes/S1b.md`) |
 | S2 | `Fs`, redb, child supervision and the `serve` mode work on Windows or have a named substitute | **Deferred 2026-11-09: no Windows machine.** Until one exists: the Windows and x86 targets must at least compile (`cargo check --target x86_64-pc-windows-msvc` or `-gnu`, no run), and nothing may assume Unix paths, signals or sockets outside a `cfg` gate | named pipe or TCP `serve`, document the gap | Windows is assumed workable, not proven |
 | S3 | A host-process runtime runs CDK's Node custom-resource handler | one real CDK handler under the Lambda runtime API | D6 stays native-first; built-in custom resources only | |
 | S4 | `jlens-core` passes a corpus of ASL/JSONata cases recorded from Step Functions `TestState` | pass rate on the corpus | `seuil`, or an own subset evaluator (S to M) | |
