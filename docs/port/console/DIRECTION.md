@@ -24,15 +24,17 @@ was refused. The console is a place where a developer **understands their Kafka*
 ## Six spaces (labelled; never one icon per feature)
 1. **Home**: both addresses with snippets for franz-go, sarama, librdkafka, kcat and Java; the advertised-listener check; a
    first-request detector; the instance at a glance (uptime, last stop clean or not, weight).
-2. **Live**: the requests as they happen, grouped by app (`client.id`), API and version, topics, result, time; a transit-line map
-   of apps, topics and groups where a bead moves only for a real request; a refusal is a row that explains itself.
+2. **Live**: the requests as they happen, as one table, newest first: app (`client.id`), API and version, topics, result, time; a
+   refusal is a row that explains itself. (The transit-line map of apps, topics and groups, its drawers and the scrubbed 3 h window
+   were drawn and then dropped by the owner on 2026-11-10: out of this design, no lag trend either. See REALITY.md.)
 3. **Resources**: the kinds join through a descriptor, not new chrome: **Topics** (Messages, Log, Config, Consumers, Producers),
    **Groups** (Members, Lag, Story), **Transactions** (open, since, timeout, what they hold back); Schemas join in Phase 10.
-4. **Access** (Phase 8, shown NOT BUILT with its reason until then): principals, ACLs, "could this principal", denied requests.
+4. **Access** (Phase 8): one honest page, Open, that says what is on and off and that principals and ACLs arrive with security
+   work. No previews of ACLs or denied requests are drawn.
 5. **Lab**: a short list of rehearsals, each with an expiry and a visible rule on the connection layer; no disk faults (those stay
    in the tests).
-6. **Settings**: the five dynamic broker configs, the cleaner and retention intervals, the Kafka version profile, the data
-   directory, the instance's weight.
+6. **Settings**: one page in sections: the five dynamic broker configs, the Kafka version profile, the cleaner and retention
+   intervals, the instance's weight, the data directory and what a restart does, the flags.
 
 ## What would make it better, not only prettier (each tied to data; see GROUNDING Part 4)
 - **The log as segments** (K9, K8): an offset ruler with start, high watermark and last stable offset marked; sealed and active
