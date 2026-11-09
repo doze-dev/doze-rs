@@ -507,3 +507,11 @@ test-only knobs in `internal/config`.
   Learned about the clients: kafka-go does not retry the first Metadata answer for a topic that does not exist yet (the
   recorded Kafka answers it the same way), and franz-go asks for auto-creation only when told to; neither is a broker
   fault.
+- **2026-11-09, mixed-library groups.** `interop/` now has eight scenarios, among them groups whose members are
+  different libraries (sarama, franz-go and kafka-go together, with the range and the round-robin assignor, and pairs
+  with each as the leader). The group is settled (DescribeGroups through sarama says Stable with all members) before
+  records are produced, and every member must read something. All pass: the leader of one library decodes the
+  subscriptions of another, the vote picks the common protocol, and each gets its own assignment back. A first run
+  looked like a broker fault (a franz-go leader, one member reading everything); franz-go's debug log showed the plan
+  was right and the records were all in one partition, because franz-go's producer sticks to a partition per batch.
+  Test data now keyed. Lesson: read the client's own log before suspecting the broker.
