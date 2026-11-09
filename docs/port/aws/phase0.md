@@ -115,4 +115,4 @@ works until it has run on one. Revisit when a machine or a hosted runner is avai
 
 ### S1b (queued, 2026-11-09)
 
-S1 failed its 3 MiB target, but the target was ours, set before measuring; for scale the Go binary is 30 MiB and the whole Rust port must still be far lighter. S1b measures the two cheaper designs the spike suggested: (a) typed glue only for tier-F operations, everything else decoded and validated on a schema-driven dynamic tree; (b) the fully dynamic validator for all operations. Prediction and the restated whole-binary budget are written before measuring.
+S1 failed its 3 MiB target. That ceiling was ours and was set before measuring, and it is retired: PLAN.md now carries a whole-binary budget (at most 16 MiB, 12 intended, against Go's 22 to 24 MB stripped) defended by measurements. S1b measures the two cheaper designs the spike suggested: (a) typed glue only for tier-F operations, everything else decoded and validated on a schema-driven dynamic tree; (b) the fully dynamic validator for all operations. Prediction and the restated whole-binary budget are written before measuring.

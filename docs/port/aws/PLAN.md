@@ -108,17 +108,30 @@ Additions for this port:
 14. **A refused operation is a deliberate act:** it appears in the exhaustive `match` with its 501.
 15. **Every parser has a fuzz target and a nesting or length cap** (CI checks the pairing).
 
-## Weight budget (targets, not measurements; spike C's skeleton had no real service code)
+## Targets (provisional, set from measurements; re-based at A5)
 
-| | Go doze-aws today | Target (Rust, all 17 services) | Floci (advertised) |
-|---|---|---|---|
-| Idle RSS, fresh | 27 to 31 MiB | at most 4 MiB | about 13 MiB |
-| Idle RSS after traffic and reaping | 40 to 46 MiB | at most 12 MiB | n/a |
-| Idle wake-ups, 30 s | 132 to 583 | 0 | n/a |
-| Start to first answer | 10 to 13 ms | at most 10 ms | about 24 ms |
-| Stripped binary | 22 to 24 MB | at most 10 MB (stretch 6) | n/a |
+Rule: a target must be defended by a measurement plus a margin. A number we cannot defend is a hope, not a target, and does not go here.
+Rust's floor is what it is (async runtime, TLS-free HTTP, redb, crypto); the goal is the best result inside that floor, not below it.
 
-The first honest comparison is taken at the end of A5 (SQS: real service code, real tables).
+| | Go doze-aws today | Measured so far (Rust) | Target for 1.0 (all 17 services) | Floci (advertised) |
+|---|---|---|---|---|
+| Idle RSS, fresh, all services enabled and unused | 27 to 31 MiB | 2.6 MiB skeleton; 3.6 MiB with all 18 models linked (S1) | at most 6 MiB (kafka rose about 60% from skeleton to real code) | about 13 MiB |
+| Memory after a burst (10k small requests) and idle | 40 to 46 MiB | Linux: 823 MiB held by glibc without action; with a body cap plus one idle `malloc_trim`, about 3 MiB over baseline (S5). macOS RSS stays high but footprint is 18 MiB with the cap | Linux: back within 16 MiB of baseline within 60 s of idle. macOS: footprint (vmmap), not RSS, within 24 MiB | n/a |
+| Idle wake-ups, 30 s, nothing configured | 132 to 583 | 0 | 0; with an alarm, mapping, lifecycle rule and TTL table configured, wake-ups only at their deadlines | n/a |
+| Start to first answer | 10 to 13 ms | 0.74 to 2.4 ms skeleton; kafka 55 ms first start (database creation) | at most 25 ms fresh, 10 ms restart | about 24 ms |
+| Stripped binary, release, fat LTO | 22 to 24 MB | codegen alone: 4.2 MiB (opt z) to 6.6 MiB (opt 3) for typed decode and encode of all 18 (S1); kafka 3.4 MB | at most 16 MiB with all 17 services and the console (12 MiB intended); decode design chosen by spike S1b | n/a |
+| Durable send, SQS-shaped load | not measured | p50 about 6.4 ms, p99 9 to 13 ms at 1k and 10k msg/s, 5 to 14% of a core (S6, macOS; disk-bound) | within 1.5x of the S6 numbers; no regression gate on absolute latency (disk-dependent) | n/a |
+| Clean build, CI | n/a | codegen binary 5 min 42 s at opt 3, 44 s at opt z | CI uses opt z for the model crates in test builds; release builds are not a per-push job | n/a |
+
+Fidelity targets (the oracle is AWS recordings, see `phase0.md`):
+
+- **A service is done** when every recorded label matches AWS exactly or is listed in `deviations.py` with a reason (timing, randomness, a 60-second rule
+  that needs real time, something that cannot exist on a laptop). More than 3% of a service's labels in `deviations.py` means stop and re-plan, not accept.
+- Error-message wording is matched like everything else (the recordings contain the text), but reported separately on the scoreboard so a wording miss never hides a behaviour miss.
+- Rust must beat Go's measured score on every service it replaces; Go's first measurement is 46% exact over 537 labels (`baseline.md`).
+- Behaviour that cannot be recorded stays tagged `docs` or `unverified`; it never counts as matched.
+
+The first honest comparison is taken at the end of A5 (SQS: real service code, real tables); these figures are re-based then.
 
 ## Workspace and crates
 
@@ -228,7 +241,7 @@ calendar time. "Console" is that service's pages built to the dream-design board
 |---|---|---|---|---|
 | A0 | **Instruments before product** (detail and status in `phase0.md`; spikes S1 to S6 run beside it). A dedicated recorder account (`doze-recorder`, Identity Center, SCP); record the existing boto3 conformance suite (`doze-aws/conformance`, `CONFORMANCE_RECORD=1`) and run it against Go for a measured baseline; xtask `weight`, `conformance`, `gates` (today xtask has only `lint-size` and `fuzz-check`); CI on Linux x86_64 and aarch64, macOS arm64, Windows x86_64 (today ubuntu and macos only); limit prober v0; `scoreboard.md` | Go baseline fidelity number exists; `cargo xtask weight|conformance|gates` run; CI green on all four targets | 6 to 9 | 0 |
 | A1 | **Shared kit.** Extract `doze-fs`, `doze-store`, `doze-runtime` from the kafka crates; decide whether `doze-log` generalises (small spike first). Kafka stays green and its weight unchanged | kafka gates pass unchanged; the lifecycle pattern has the spike's tests | 4 to 6 | 0 |
-| A2 | **Model and codegen.** `xtask codegen` (IR, types, newtypes, `Operation`, schema tables), overlays, the table-driven decoder proved on **SSM and S3 first** (the two largest) | a use-everything build of all 18 models, decode tables included, has a stated size ceiling (target 3 MiB at fat LTO); `--check` clean; clippy clean under the workspace lints | 5 to 8 | 0 |
+| A2 | **Model and codegen.** `xtask codegen` (IR, types, newtypes, `Operation`, schema tables), overlays, the table-driven decoder proved on **SSM and S3 first** (the two largest) | a use-everything build of all 18 models, decode tables included, has a stated size ceiling (within the whole-binary budget under Targets; decode design chosen by spike S1b); `--check` clean; clippy clean under the workspace lints | 5 to 8 | 0 |
 | A3 | **Wire and auth.** `aws-wire` (five codecs, fuzzed), `aws-auth` (SigV4 headers, presigned, chunked and trailer payloads, clock skew, typed `Principal`), `aws-gateway` (router, dispatch, limits, `Expect: 100-continue`) | spike B's client matrix (Rust SDK, boto3, CLI) passes against stub services; fuzz targets clean; 1 GiB upload peak RSS flat | 8 to 12 | 0 |
 | A4 | **Core domain.** `aws-core` types, `aws-iam-policy` evaluator (identity, boundary and resource layers, plus empty session-policy and SCP slots; policy variables, `BinaryEquals`, three-state context keys, decision trace, AWS-shaped AccessDenied text; all condition operators), `aws-peers`, config, the service host. **Also: the generic accept-and-store path** (a stored-only record: kind, id, raw document, `active: false`) and a response-header sibling of `X-Doze-Not-Built`, which A3 carries on the wire; **`Expiring` is the only timer mechanism** | evaluator passes its case table (start from spike D's 53, add the Go gaps); host passes lifecycle tests; weight gate adds "30 s wake-ups with one alarm, one mapping, one lifecycle rule and one TTL table configured" next to the idle case | 7 to 10 | 0 |
 | A5 | **SQS** (the calibration). JSON only. Visibility, delay, FIFO, redrive, move tasks, DLQ, long polling; publishes an `aws-peers` notification on append so pollers await it, with lazy built-in metrics (the three Approximate* gauges plus Sent, Received, Deleted, materialised only when an alarm, dashboard or metric read names the namespace; decision D4). Console **kit** (shell, components, htmx, route export) built here with SQS's pages, **after the console redesign is approved** (see Open decisions) | boto3 scenarios; machine properties; weight table vs Go (first honest comparison); **re-estimate everything from the actual sessions** | 5 to 7 | 5 to 7 |
