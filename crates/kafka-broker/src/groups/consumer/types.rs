@@ -18,8 +18,12 @@ pub(crate) struct TopicInfo {
 
 /// The topics there are, when the group is asked something. The group never reaches for a store: whoever drives it
 /// takes this snapshot and hands it in.
+/// (Cheap to copy: the table is shared, so a snapshot taken for many heartbeats is one table.)
 #[derive(Debug, Clone, Default)]
-pub(crate) struct Topics {
+pub(crate) struct Topics(std::sync::Arc<Table>);
+
+#[derive(Debug, Default)]
+struct Table {
     by_name: BTreeMap<String, TopicInfo>,
     names: HashMap<Uuid, String>,
 }
@@ -27,29 +31,29 @@ pub(crate) struct Topics {
 impl Topics {
     #[must_use]
     pub(crate) fn new(all: impl IntoIterator<Item = TopicInfo>) -> Self {
-        let mut topics = Self::default();
+        let mut table = Table::default();
         for t in all {
-            topics.names.insert(t.id, t.name.clone());
-            topics.by_name.insert(t.name.clone(), t);
+            table.names.insert(t.id, t.name.clone());
+            table.by_name.insert(t.name.clone(), t);
         }
-        topics
+        Self(std::sync::Arc::new(table))
     }
 
     /// The id of the topic with this name, if there is one.
     #[must_use]
     pub(crate) fn id_of(&self, name: &str) -> Option<Uuid> {
-        self.by_name.get(name).map(|t| t.id)
+        self.0.by_name.get(name).map(|t| t.id)
     }
 
     /// The name of the topic with this id, if there is one.
     #[must_use]
     pub(crate) fn name_of(&self, id: &Uuid) -> Option<&str> {
-        self.names.get(id).map(String::as_str)
+        self.0.names.get(id).map(String::as_str)
     }
 
     /// Every topic, by name.
     pub(crate) fn all(&self) -> impl Iterator<Item = &TopicInfo> {
-        self.by_name.values()
+        self.0.by_name.values()
     }
 }
 

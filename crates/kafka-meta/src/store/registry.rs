@@ -15,10 +15,13 @@ pub(super) struct Registry {
     pub(super) by_name: HashMap<TopicName, Arc<Topic>>,
     pub(super) by_id: HashMap<TopicId, Arc<Topic>>,
     pub(super) names: NameIndex,
+    /// Counts the changes, so that what is built from the topics can tell when to be built again.
+    pub(super) version: u64,
 }
 
 impl Registry {
     pub(super) fn insert(&mut self, topic: Arc<Topic>) {
+        self.version += 1;
         self.names.add(&topic.name);
         self.by_id.insert(topic.id, Arc::clone(&topic));
         self.by_name.insert(topic.name.clone(), topic);
@@ -26,6 +29,7 @@ impl Registry {
 
     pub(super) fn remove(&mut self, name: &TopicName) -> Option<Arc<Topic>> {
         let topic = self.by_name.remove(name)?;
+        self.version += 1;
         self.by_id.remove(&topic.id);
         self.names.remove(name);
         Some(topic)

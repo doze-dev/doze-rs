@@ -8,16 +8,39 @@ use kafka_wire::ids::GroupId;
 use crate::groups::actor::Records;
 use crate::groups::consumer::{TopicInfo, TopicSource, Topics};
 
-/// The topics there are, as the metadata store has them.
-pub(super) struct MetaTopics(pub(super) Arc<MetaStore>);
+/// The topics there are, as the metadata store has them. The table a group is handed is built when the topics change, not
+/// for each heartbeat.
+#[derive(Debug)]
+pub(super) struct MetaTopics(
+    pub(super) Arc<MetaStore>,
+    std::sync::Mutex<Option<(u64, Topics)>>,
+);
+
+impl MetaTopics {
+    pub(super) fn new(meta: Arc<MetaStore>) -> Self {
+        Self(meta, std::sync::Mutex::new(None))
+    }
+}
 
 impl TopicSource for MetaTopics {
     fn topics(&self) -> Topics {
-        Topics::new(self.0.topics().iter().map(|t| TopicInfo {
+        let version = self.0.topics_version();
+        let mut cached = self
+            .1
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if let Some((at, topics)) = cached.as_ref()
+            && *at == version
+        {
+            return topics.clone();
+        }
+        let topics = Topics::new(self.0.topics().iter().map(|t| TopicInfo {
             name: t.name.to_string(),
             id: t.id.to_uuid(),
             partitions: t.partitions.get(),
-        }))
+        }));
+        *cached = Some((version, topics.clone()));
+        topics
     }
 }
 

@@ -14,6 +14,7 @@ mod records;
 mod requests;
 
 use super::actor::{self, Command, Req};
+use super::consumer::TopicSource;
 use super::consumer::assign::Assignor;
 use super::group::{Group, Settings, asks_for_an_id};
 use super::machine::{Answer, Description, JoinAnswer, JoinRequest, refusal};
@@ -40,6 +41,8 @@ pub(crate) enum Deleted {
 pub(crate) struct Groups {
     settings: Settings,
     meta: Arc<MetaStore>,
+    /// The topics, as every group is handed them.
+    topics: Arc<MetaTopics>,
     /// The most ids that may be outstanding at once.
     most_issued: usize,
     /// Held while a group is looked up, made or retired; never while a request waits for its answer, except a
@@ -54,6 +57,7 @@ impl Groups {
     pub(crate) fn new(settings: Settings, meta: Arc<MetaStore>) -> Self {
         Self {
             settings,
+            topics: Arc::new(MetaTopics::new(Arc::clone(&meta))),
             meta,
             most_issued: MOST_ISSUED,
             open: Mutex::new(HashMap::new()),
@@ -270,7 +274,7 @@ impl Groups {
             machine,
             commands,
             records,
-            Arc::new(MetaTopics(Arc::clone(&self.meta))),
+            Arc::clone(&self.topics) as Arc<dyn TopicSource>,
         ));
         sender
     }

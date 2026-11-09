@@ -82,6 +82,12 @@ impl MetaStore {
         self.shared.read().by_id.get(&id).cloned()
     }
 
+    /// A number that changes whenever a topic is made or removed (not otherwise).
+    #[must_use]
+    pub fn topics_version(&self) -> u64 {
+        self.shared.read().version
+    }
+
     /// Every topic, by name.
     #[must_use]
     pub fn topics(&self) -> Vec<Arc<Topic>> {

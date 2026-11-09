@@ -156,3 +156,19 @@ fn a_write_that_fails_leaves_the_topics_as_they_were() {
         assert!(failed, "operation {n} of {cost} is part of the commit");
     }
 }
+
+#[test]
+fn the_topics_version_changes_when_a_topic_is_made_or_removed_and_not_otherwise() {
+    let fs = disk();
+    let store = open(&fs);
+    let empty = store.topics_version();
+    assert_eq!(store.topics_version(), empty, "reading changes nothing");
+    create(&store, "t").unwrap();
+    let one = store.topics_version();
+    assert_ne!(one, empty);
+    let _ = store.topics();
+    let _ = store.topic(&name("t"));
+    assert_eq!(store.topics_version(), one);
+    store.delete_topic(&name("t")).unwrap();
+    assert_ne!(store.topics_version(), one);
+}
