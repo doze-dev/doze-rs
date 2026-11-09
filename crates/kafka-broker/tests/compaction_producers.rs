@@ -204,3 +204,30 @@ async fn keys(rig: &support::Rig) -> Vec<String> {
         .map(|(_, k)| k)
         .collect()
 }
+
+#[tokio::test]
+async fn an_aborted_transactions_record_for_a_key_does_not_take_the_committed_value_with_it() {
+    let rig = rig();
+    rig.create(vec![compacted()], false).await;
+    assert_eq!(
+        rig.produce(-1, "c", 0, keyed(&[("k", Some("good"))]))
+            .await
+            .error_code,
+        0
+    );
+    let aborted = rig.init_txn("ta", 60_000).await.unwrap();
+    assert_eq!(rig.add_partitions("ta", aborted, "c", &[0]).await, [0]);
+    let b = from(aborted.producer, aborted.epoch, 0, true, &[("k", "bad")]);
+    assert_eq!(produce_txn_batch(&rig, "ta", b).await.error_code, 0);
+    assert_eq!(rig.end_txn("ta", aborted, false).await, 0);
+    filler(&rig, 40).await;
+    rig.broker.check_cleaner().await;
+    let after = keys(&rig).await;
+    assert!(after.contains(&"k".to_owned()), "k is gone: {after:?}");
+    let got = offsets_and_keys(&rig).await;
+    assert_eq!(
+        got.iter().filter(|(_, k)| k == "k").count(),
+        1,
+        "the aborted record is gone and the committed one stays: {got:?}"
+    );
+}

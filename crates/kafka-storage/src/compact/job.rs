@@ -66,6 +66,9 @@ impl<F: Fs> CleanJob<F> {
     fn offset_map(&self) -> Result<OffsetMap, StorageError> {
         let (first_dirty, upto) = (self.plan.first_dirty, self.plan.upto);
         let mut map = OffsetMap::new(self.params.map_bytes);
+        // Aborted records are not in the map: they are going, and must not take the place of a committed value before them
+        // (source: `buildOffsetMapForSegment`).
+        let mut txns = CleanedTxns::new(self.aborted.clone());
         'segments: for input in &self.segments {
             if input.base.get() >= upto || input.next.get() <= first_dirty {
                 continue;
@@ -84,7 +87,7 @@ impl<F: Fs> CleanJob<F> {
                 if next <= first_dirty {
                     continue;
                 }
-                if found.peek.base_offset >= upto || !self.map_batch(&mut map, &found)? {
+                if found.peek.base_offset >= upto || !self.map_batch(&mut map, &mut txns, &found)? {
                     break 'segments;
                 }
                 map.cover_to(next - 1);
@@ -93,9 +96,22 @@ impl<F: Fs> CleanJob<F> {
         Ok(map)
     }
 
-    /// Notes the keys of a batch. `false` if the map is full.
-    fn map_batch(&self, map: &mut OffsetMap, found: &Found) -> Result<bool, StorageError> {
-        if found.peek.attributes.is_control() {
+    /// Notes the keys of a batch, unless it is of an aborted transaction. `false` if the map is full.
+    fn map_batch(
+        &self,
+        map: &mut OffsetMap,
+        txns: &mut CleanedTxns,
+        found: &Found,
+    ) -> Result<bool, StorageError> {
+        let peek = &found.peek;
+        let last_offset = peek.next_offset().unwrap_or(i64::MAX) - 1;
+        let producer = peek.producer.map_or(-1, |p| p.id.get());
+        if peek.attributes.is_control() {
+            let commit = Marker::read(&found.bytes).map(|m| m == Marker::Commit);
+            txns.on_marker(producer, commit, last_offset);
+            return Ok(true);
+        }
+        if txns.on_batch(producer, peek.attributes.is_transactional(), last_offset) {
             return Ok(true);
         }
         let batch = parse(&found.bytes)?;
