@@ -229,3 +229,34 @@ async fn a_transactions_offsets_are_fenced_by_the_committers_place_in_the_group_
         0
     );
 }
+
+#[tokio::test]
+async fn a_lookup_by_time_that_lands_in_what_a_committed_reader_may_not_yet_read_finds_nothing_to_it()
+ {
+    let (rig, t) = started().await;
+    // A transaction on partition 0 begins at offset 0 (its records are old), and plain records follow it.
+    assert_eq!(rig.add_partitions("tx", t, "t", &[0]).await, [0]);
+    assert_eq!(rig.produce_txn("tx", t, ("t", 0), 0, 2).await.error_code, 0);
+    rig.produce(1, "t", 0, support::records(2)).await;
+    // Everything: the newest record is found, and a lookup for a time before all finds the first.
+    let newest = rig.list_offset_with("t", -3, 0, -1).await.offset;
+    assert!(newest >= 0);
+    assert_eq!(rig.list_offset_with("t", 0, 0, -1).await.offset, 0);
+    // A committed reader may read nothing past the open transaction (the last stable offset is 0): nothing is found.
+    for ts in [-3, 0] {
+        let found = rig.list_offset_with("t", ts, 1, -1).await;
+        assert_eq!(
+            (found.error_code, found.offset, found.timestamp),
+            (0, -1, -1),
+            "ts {ts}"
+        );
+    }
+    assert_eq!(
+        rig.list_offset_with("t", -1, 1, -1).await.offset,
+        0,
+        "the latest is the last stable offset"
+    );
+    // Ended, it is all readable.
+    assert_eq!(rig.end_txn("tx", t, true).await, 0);
+    assert_eq!(rig.list_offset_with("t", -3, 1, -1).await.offset, newest);
+}

@@ -114,6 +114,20 @@ impl<F: Fs> Broker<F> {
             ts => blocking::run(|| reader.offset_for_timestamp(TimestampMs::from_wire(ts)))
                 .map(|f| f.map(|(o, t)| (o, Some(t)))),
         };
+        // Under read-committed a lookup by time (or for the newest record) that lands at or past the last stable offset
+        // has found nothing a consumer may read: Kafka answers that as not found.
+        let found = match found {
+            Ok(Some((offset, _)))
+                if isolation == 1 && !matches!(p.timestamp, LATEST | EARLIEST) =>
+            {
+                match partition.txns().await {
+                    Ok(view) if offset.get() >= view.last_stable.get() => Ok(None),
+                    Ok(_) => found,
+                    Err(e) => Err(e),
+                }
+            }
+            other => other,
+        };
         match found {
             Ok(Some((offset, time))) => {
                 r.offset = offset.get();
