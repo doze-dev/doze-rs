@@ -6,6 +6,7 @@ mod compaction_edges;
 mod compaction_failures;
 mod compaction_read;
 mod compaction_segments;
+mod compaction_stop;
 mod compaction_txn;
 mod durability;
 mod history;

@@ -6,6 +6,7 @@
     clippy::panic
 )]
 
+mod compaction;
 mod support;
 
 use kafka_storage::Trust;

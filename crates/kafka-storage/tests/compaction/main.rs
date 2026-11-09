@@ -10,5 +10,7 @@
     clippy::panic
 )]
 
+mod gaps;
+mod gaps_disk;
 mod sweeps;
 mod world;

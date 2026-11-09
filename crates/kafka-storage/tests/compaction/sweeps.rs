@@ -36,7 +36,7 @@ fn random_workloads_keep_the_latest_of_every_key_and_clean_to_one_record_a_key_b
 
 /// The ways the process can end: killed (the disk keeps all it was given), or the power goes with each of the ways the
 /// disk may keep or lose what had not been flushed.
-fn endings(stop: u64) -> Vec<Option<Cut>> {
+pub(crate) fn endings(stop: u64) -> Vec<Option<Cut>> {
     let mut all = vec![None];
     let data = [
         DataCut::Drop,

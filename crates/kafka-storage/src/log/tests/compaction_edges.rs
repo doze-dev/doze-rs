@@ -71,3 +71,52 @@ fn of_a_producers_markers_only_the_one_at_its_epoch_stays_once_cleaning_empties_
     );
     assert_eq!(records(&log).last().map(|r| r.0), Some(8));
 }
+
+#[test]
+fn a_marker_past_its_time_that_ends_a_segment_stays_as_an_empty_batch_so_the_segment_ends_where_it_did()
+ {
+    let id = ProducerId::new(7).unwrap();
+    let at = TimestampMs::from_wire(5);
+    let marker =
+        Batch::parse(Marker::Commit.batch(id, ProducerEpoch::from_wire(0), 0, at)).unwrap();
+    // A segment holds a record and the marker after it, and nothing else fits: the marker (offset 1) ends the segment.
+    let (fs, dir, mut log) = fresh(kv("a", Some("v")).len() as u64 + marker.len() as u64);
+    let mut batches = vec![kv("a", Some("v")), marker];
+    batches.extend((0..6).map(|i| kv(&format!("k{i}"), Some("v"))));
+    append_all(&mut log, &batches);
+    let segment_two = "00000000000000000002.log".to_string();
+    assert!(
+        fs.names(&dir).contains(&segment_two),
+        "{:?}",
+        fs.names(&dir)
+    );
+    // Round one gives the marker its time (10 + 1000), the records of the first segment stay.
+    clean(&mut log, &PARAMS, vec![], HashMap::new()).expect("due");
+    append_all(&mut log, &[kv("k0", Some("w")), kv("k1", Some("w"))]);
+    let before = records(&log);
+    let end = log.end_offset();
+    // Round two, after that time: the marker's records go, the batch stays empty to end its segment at 2. A segment
+    // that ended early would fail the check of the cleaned file, and every later round with it.
+    let late = Params {
+        now_ms: 5_000,
+        ..PARAMS
+    };
+    clean(&mut log, &late, vec![], HashMap::new()).expect("due");
+    assert_eq!(log.end_offset(), end);
+    let after = records(&log);
+    assert!(after.iter().any(|r| r.0 == 0 && r.1 == "a"), "{after:?}");
+    for r in &after {
+        assert!(before.contains(r), "{r:?} is new");
+    }
+    let names = fs.names(&dir);
+    assert!(
+        names.contains(&segment_two),
+        "the next segment keeps its name: {names:?}"
+    );
+    assert!(names.iter().all(|n| !n.ends_with(".tmp")), "{names:?}");
+    // A restart finds the same log.
+    drop(log);
+    let again = reopen(&fs.process_restart(), &dir);
+    assert_eq!(again.end_offset(), end);
+    assert_eq!(records(&again), after);
+}
