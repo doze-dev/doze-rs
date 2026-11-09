@@ -39,6 +39,15 @@ jobs:
         env:
           RUSTDOCFLAGS: -D warnings
 
+  # Windows (docs/port/aws/phase0.md, spike S2): the whole workspace must at least compile there. Tests join as crates are made
+  # portable; a red job here is information about what is still Unix-only, not noise.
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - run: cargo check --workspace --all-targets
+
   # Weight is a feature (docs/port/weight.md): numbers may only rise with a written reason, so the limits below sit a
   # little above the measured values and a change that crosses one has to move the limit and say why.
   weight:
