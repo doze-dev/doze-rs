@@ -545,3 +545,23 @@ test-only knobs in `internal/config`.
   producers, a franz-go consume-transform-produce session (200 records, 9 transactions, one aborted and redone, output
   exactly once) and `read_committed` readers (franz-go, sarama, kcat) pass in `interop/`. Weight 3.76 MB / 107 packages /
   4.5 MB idle. Learned: kafka-go's `ReadCommitted` ignores the aborted list and returns markers as messages.
+- **2026-11-09, Phase 6 first audit: NOT DONE; the debt pass.** The independent audit of Phase 6 (HEAD 3ed9e1e) found a
+  BLOCKER (a transactional Produce to two partitions took the transaction's lock once for each; a writer arriving between
+  the two holds deadlocked it, and the sweeper with it), six MAJOR (transactional ids kept for ever; InitProducerId
+  ignoring the producer id and epoch a caller holds; recovery untested; catalogue items citing tests that did not check
+  them; TxnOffsetCommit ignoring KIP-447 and Kafka's order; read-committed work queued behind the writer and reading the
+  whole log inside it) and a list of minors; the commit also had a clippy failure. At the same time the owner said nothing
+  known is to be carried past Phase 6, so every older debt was gathered into `debt.md` and cleared the same way. What was
+  done, with a test that fails when the behaviour is removed for each: the deadlock (a repro that fails on the old code);
+  id expiry; KIP-360; a stop at every operation of an EndTxn (kill and power cut, commit and abort) and one failed
+  operation anywhere in it; the describe APIs asserted; the group fence for TxnOffsetCommit; the transaction index shared
+  with readers behind a lock that the writer takes before it appends, a durable note on disk saying a log holds
+  transactions so that a log that never did is not read for them; Kafka's owner codes, order and clocks, read from its
+  source by a research agent (copies kept in the scratchpad) since the recordings do not reach them; OffsetFetch v9's member
+  check and `require_stable`; the heartbeat words; a peer address for described members; ids issued for the session timeout
+  with a cap for each group; a descriptor budget for open partitions; a read clamp; a cached topic table; the six Phase 5
+  mutation tests; a librdkafka transactional producer (a small C program) and a zombie-fencing scenario in `interop/`.
+  Lessons: a hold taken twice by one request is a deadlock the moment a writer queues between (tokio's lock is fair); a
+  test that cannot tell a lock from a stale copy of what it guards needs the interleaving it is about (here, a reader on its
+  own thread asking while a producer writes), and where the schedule rules it out the mutant is written down as surviving,
+  with the reason; and Kafka facts that no recording holds are read from its source, by item, and marked as such.
