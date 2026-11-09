@@ -1,0 +1,36 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "DenyOutsideUsEast1",
+      "Effect": "Deny",
+      "NotAction": [
+        "iam:*", "sts:*", "organizations:*", "account:*", "sso:*", "identitystore:*",
+        "budgets:*", "ce:*", "cur:*", "support:*", "health:*", "tag:*", "pricing:*",
+        "route53:*", "route53domains:*", "cloudfront:*", "waf:*", "wafv2:*",
+        "globalaccelerator:*", "trustedadvisor:*"
+      ],
+      "Resource": "*",
+      "Condition": { "StringNotEquals": { "aws:RequestedRegion": "us-east-1" } }
+    },
+    {
+      "Sid": "DenyServicesWeNeverRecord",
+      "Effect": "Deny",
+      "Action": [
+        "ec2:RunInstances", "ec2:CreateNatGateway", "ec2:AllocateAddress", "ec2:CreateVpnConnection",
+        "rds:Create*", "redshift:Create*", "elasticache:Create*", "es:CreateDomain",
+        "opensearch:CreateDomain", "eks:CreateCluster", "ecs:CreateService", "kafka:CreateCluster*",
+        "emr:RunJobFlow", "sagemaker:Create*", "bedrock:*", "dms:*", "workspaces:*",
+        "directconnect:*", "mediaconvert:*", "kinesisanalytics:Create*", "glue:CreateJob",
+        "lambda:PutProvisionedConcurrencyConfig", "dynamodb:PurchaseReservedCapacityOfferings"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "KeepTheAccountInTheOrganization",
+      "Effect": "Deny",
+      "Action": ["organizations:LeaveOrganization"],
+      "Resource": "*"
+    }
+  ]
+}

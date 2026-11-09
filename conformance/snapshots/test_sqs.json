@@ -1,0 +1,1612 @@
+{
+  "_recorded": {
+    "boto3": "1.43.107",
+    "botocore": "1.43.107",
+    "on": "2026-11-09",
+    "region": "us-east-1",
+    "target": "aws"
+  },
+  "test_add_permission_rules": {
+    "any-action": {
+      "Error": {
+        "Code": "InvalidParameterValue",
+        "Message": "Value SQS:SetQueueAttributes for parameter ActionName is invalid. Reason: Only the queue owner is allowed to invoke this action."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "eight-actions": {
+      "Error": {
+        "Code": "OverLimit",
+        "Message": "8 Actions were found, maximum allowed is 7. "
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 403
+      }
+    },
+    "first": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "label-81": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "label-chars": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "label-in-use": {
+      "Error": {
+        "Code": "InvalidParameterValue",
+        "Message": "Value friend for parameter Label is invalid. Reason: Already exists."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "non-account-principal": {
+      "Error": {
+        "Code": "InvalidParameterValue",
+        "Message": "Value [arn:aws:iam::<account>:user/alice] for parameter PrincipalId is invalid. Reason: Unable to verify."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "policy": {
+      "Statements": 3
+    },
+    "remove": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "remove-missing": {
+      "Error": {
+        "Code": "InvalidParameterValue",
+        "Message": "Value never-added for parameter Label is invalid. Reason: can't find label on existing policy."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "unknown-action": {
+      "Error": {
+        "Code": "InvalidParameterValue",
+        "Message": "Value SQS:DoEverything for parameter ActionName is invalid. Reason: Please refer to the appropriate WSDL for a list of valid actions."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_add_permission_statement_limit": {
+    "first-refusal": {
+      "at": 1,
+      "code": "InvalidParameterValue"
+    }
+  },
+  "test_an_arn_elsewhere": {
+    "move-task-another-account": {
+      "Error": {
+        "Code": "ResourceNotFoundException",
+        "Message": "The resource that you specified for the SourceArn parameter doesn't exist."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    },
+    "move-task-another-service": {
+      "Error": {
+        "Code": "InvalidParameterValue",
+        "Message": "You must use this format to specify the SourceArn: arn:<partition>:<service>:<region>:<account-id>:<resource-id>"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "redrive-policy-another-account": {
+      "Error": {
+        "Code": "InvalidParameterValue",
+        "Message": "Value {\"deadLetterTargetArn\": \"arn:aws:sqs:us-east-1:999999999999:<name:queue-dlq>\", \"maxReceiveCount\": \"3\"} for parameter RedrivePolicy is invalid. Reason: Dead-letter target owner should be same as the source."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "redrive-policy-another-service": {
+      "Error": {
+        "Code": "InvalidParameterValue",
+        "Message": "Value {\"deadLetterTargetArn\": \"arn:aws:sns:us-east-1:<account>:<name:queue-dlq>\", \"maxReceiveCount\": \"3\"} for parameter RedrivePolicy is invalid. Reason: Only SQS queues are valid resources for deadLetterTargetArn."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_an_old_receipt_handle": {
+    "after": {
+      "visible": 0
+    },
+    "change-visibility-with-the-old-handle": {
+      "Error": {
+        "Code": "InvalidParameterValue",
+        "Message": "Value AQEBAV31oiU4uCv5RyidSi+7Ab7c2PmRvSpDhwDS4pC9PD5ae77WIFU7M2LcR9Xykd9he1IoUkjpYE4brVQ0Wpv9b9ozGVhtYrOcYaXXDedgR0YY9MiMb0qb1IycMdrifif9i98VtFa9Iod73eC/bnMq/tv1/JzPkZKXMLD+y1SQnNFZLMCYRVfjDtlLkKPdEmIx8xbFokr1wFhenx2RK2WYZRdg3wsmW3dFyeQN/C2YTFpxdKzHl8qvKzqYmYXbBm7EpVkPCP2TUHlljtPUAahdnxpF+PcNyrMJYwzSuW/9z7FpE+B6mh3bQY4y/SM7ERilKWGlw+dW9dDFh5nenpldIadsOSJnJe6R6z5vtNvnkfH0ZseWYUlWkwJyNUWC3CQ2YyOq44iiQJPSYEAKQl3dMQ== for parameter ReceiptHandle is invalid. Reason: Message does not exist or is not available for visibility timeout change."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "delete-with-the-old-handle": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "handles-differ": {
+      "differ": true
+    }
+  },
+  "test_attribute_ranges": {
+    "DelaySeconds-901": {
+      "Error": {
+        "Code": "InvalidAttributeValue",
+        "Message": "Invalid value for the parameter DelaySeconds."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "KmsDataKeyReusePeriodSeconds-59": {
+      "Error": {
+        "Code": "InvalidAttributeValue",
+        "Message": "Invalid value for the parameter KmsDataKeyReusePeriodSeconds."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "KmsDataKeyReusePeriodSeconds-86401": {
+      "Error": {
+        "Code": "InvalidAttributeValue",
+        "Message": "Invalid value for the parameter KmsDataKeyReusePeriodSeconds."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "MaximumMessageSize-1023": {
+      "Error": {
+        "Code": "InvalidAttributeValue",
+        "Message": "Invalid value for the parameter MaximumMessageSize."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "MaximumMessageSize-1048577": {
+      "Error": {
+        "Code": "InvalidAttributeValue",
+        "Message": "Invalid value for the parameter MaximumMessageSize."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "MessageRetentionPeriod-1209601": {
+      "Error": {
+        "Code": "InvalidAttributeValue",
+        "Message": "Invalid value for the parameter MessageRetentionPeriod."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "MessageRetentionPeriod-59": {
+      "Error": {
+        "Code": "InvalidAttributeValue",
+        "Message": "Invalid value for the parameter MessageRetentionPeriod."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "ReceiveMessageWaitTimeSeconds-21": {
+      "Error": {
+        "Code": "InvalidAttributeValue",
+        "Message": "Invalid value for the parameter ReceiveMessageWaitTimeSeconds."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "VisibilityTimeout--1": {
+      "Error": {
+        "Code": "InvalidAttributeValue",
+        "Message": "Invalid value for the parameter VisibilityTimeout."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "VisibilityTimeout-43201": {
+      "Error": {
+        "Code": "InvalidAttributeValue",
+        "Message": "Invalid value for the parameter VisibilityTimeout."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "VisibilityTimeout-soon": {
+      "Error": {
+        "Code": "InvalidAttributeValue",
+        "Message": "Invalid value for the parameter VisibilityTimeout."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "at-the-bounds": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "unknown-attribute": {
+      "Error": {
+        "Code": "InvalidAttributeName",
+        "Message": "Unknown Attribute NoSuchAttribute."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_batch_refusals": {
+    "bad-id": {
+      "Error": {
+        "Code": "AWS.SimpleQueueService.InvalidBatchEntryId",
+        "Message": "A batch entry id can only contain alphanumeric characters, hyphens and underscores. It can be at most 80 letters long."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "delete-repeated-id": {
+      "Error": {
+        "Code": "AWS.SimpleQueueService.BatchEntryIdsNotDistinct",
+        "Message": "Id a repeated."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "eleven": {
+      "Error": {
+        "Code": "AWS.SimpleQueueService.TooManyEntriesInBatchRequest",
+        "Message": "Maximum number of entries per request are 10. You have sent 11."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "empty": {
+      "Error": {
+        "Code": "AWS.SimpleQueueService.EmptyBatchRequest",
+        "Message": "There should be at least one SendMessageBatchRequestEntry in the request."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "nothing-else-was-sent": {
+      "Attributes": {
+        "DelaySeconds": "0"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "one-entry-fails": {
+      "Failed": [
+        {
+          "Code": "InvalidParameterValue",
+          "Id": "late",
+          "Message": "Value 901 for parameter DelaySeconds is invalid. Reason: DelaySeconds must be >= 0 and <= 900.",
+          "SenderFault": true
+        }
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Successful": [
+        {
+          "Id": "m1",
+          "MD5OfMessageBody": "9dd4e461268c8034f5c8564e155c67a6",
+          "MessageId": "<uuid:1>"
+        }
+      ]
+    },
+    "visibility-empty": {
+      "Error": {
+        "Code": "AWS.SimpleQueueService.EmptyBatchRequest",
+        "Message": "There should be at least one ChangeMessageVisibilityBatchRequestEntry in the request."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_batch_total_size": {
+    "four-quarter-mebibytes": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Successful": [
+        {
+          "Id": "m0",
+          "MD5OfMessageBody": "1566aa66d825eb4354d3e9533b753995",
+          "MessageId": "<MessageId:1>"
+        },
+        {
+          "Id": "m1",
+          "MD5OfMessageBody": "1566aa66d825eb4354d3e9533b753995",
+          "MessageId": "<MessageId:2>"
+        },
+        {
+          "Id": "m2",
+          "MD5OfMessageBody": "1566aa66d825eb4354d3e9533b753995",
+          "MessageId": "<MessageId:3>"
+        },
+        {
+          "Id": "m3",
+          "MD5OfMessageBody": "1566aa66d825eb4354d3e9533b753995",
+          "MessageId": "<MessageId:4>"
+        }
+      ]
+    },
+    "one-byte-more": {
+      "Error": {
+        "Code": "AWS.SimpleQueueService.BatchRequestTooLong",
+        "Message": "Batch requests cannot be longer than 1048576 bytes. You have sent 1048577 bytes."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_boolean_attribute_spelling": {
+    "content-based-deduplication-1": {
+      "Error": {
+        "Code": "InvalidAttributeValue",
+        "Message": "Invalid value for the parameter 1."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "content-based-deduplication-TRUE": {
+      "QueueUrl": "<endpoint>/<account>/<name:queue>.fifo",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "content-based-deduplication-True": {
+      "Error": {
+        "Code": "QueueAlreadyExists",
+        "Message": "A queue already exists with the same name and a different value for attribute ContentBasedDeduplication"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_content_based_deduplication_id": {
+    "generated-id-is-sha256": {
+      "matches": true
+    }
+  },
+  "test_dead_letter_queue_takes_what_was_received_too_often": {
+    "in-the-dlq": [
+      "poison"
+    ],
+    "redrive-policy": {
+      "Attributes": {
+        "RedrivePolicy": "{\"deadLetterTargetArn\":\"arn:aws:sqs:us-east-1:<account>:<name:queue-dlq>\",\"maxReceiveCount\":1}"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "sources": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "queueUrls": [
+        "<endpoint>/<account>/<name:queue>"
+      ]
+    }
+  },
+  "test_error_statuses": {
+    "a-malformed-receipt-handle": {
+      "Error": {
+        "Code": "ReceiptHandleIsInvalid",
+        "Message": "The input receipt handle is invalid."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    },
+    "a-task-that-is-not-there": {
+      "Error": {
+        "Code": "InvalidParameterValue",
+        "Message": "Value for parameter TaskHandle is invalid."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_fifo_attribute_rules": {
+    "content-based-deduplication-on-a-standard-queue": {
+      "Error": {
+        "Code": "InvalidAttributeName",
+        "Message": "Unknown Attribute ContentBasedDeduplication."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "fifo-flag-value": {
+      "Error": {
+        "Code": "InvalidParameterValue",
+        "Message": "Can only include alphanumeric characters, hyphens, or underscores. 1 to 80 in length"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "high-throughput": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "per-group-needs-message-group-scope": {
+      "Error": {
+        "Code": "InvalidAttributeValue",
+        "Message": "Invalid value for the parameter FifoThroughputLimit. Reason: To set FifoThroughputLimit to perMessageGroupId, the DeduplicationScope must be messageGroup."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "scope-on-a-standard-queue": {
+      "Error": {
+        "Code": "InvalidAttributeName",
+        "Message": "You can specify the DeduplicationScope only when FifoQueue is set to true."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "scope-value": {
+      "Error": {
+        "Code": "InvalidAttributeValue",
+        "Message": "Invalid value for the parameter DeduplicationScope. Reason: not a supported value."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_fifo_orders_and_deduplicates": {
+    "first-receive": [
+      [
+        "first",
+        {
+          "MessageGroupId": "g"
+        }
+      ],
+      [
+        "second",
+        {
+          "MessageGroupId": "g"
+        }
+      ],
+      [
+        "third",
+        {
+          "MessageGroupId": "g"
+        }
+      ]
+    ],
+    "send-duplicate": {
+      "MD5OfMessageBody": "8b04d5e3775d298e78455efc5ca404d5",
+      "MessageId": "<uuid:1>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "SequenceNumber": "<SequenceNumber:1>"
+    },
+    "send-first": {
+      "MD5OfMessageBody": "8b04d5e3775d298e78455efc5ca404d5",
+      "MessageId": "<uuid:1>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "SequenceNumber": "<SequenceNumber:1>"
+    },
+    "send-second": {
+      "MD5OfMessageBody": "a9f0e61a137d86aa9db53465e0801612",
+      "MessageId": "<uuid:2>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "SequenceNumber": "<SequenceNumber:2>"
+    },
+    "send-third": {
+      "MD5OfMessageBody": "dd5c8bf51558ffcbe5007071908e9524",
+      "MessageId": "<uuid:3>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "SequenceNumber": "<SequenceNumber:3>"
+    }
+  },
+  "test_fifo_suffix_on_a_standard_queue": {
+    "flag-without-the-suffix": {
+      "Error": {
+        "Code": "InvalidParameterValue",
+        "Message": "The name of a FIFO queue can only include alphanumeric characters, hyphens, or underscores, must end with .fifo suffix and be 1 to 80 in length."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "suffix-without-the-flag": {
+      "Error": {
+        "Code": "InvalidParameterValue",
+        "Message": "Can only include alphanumeric characters, hyphens, or underscores. 1 to 80 in length"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_get_queue_attributes_without_names": {
+    "all": {
+      "has-arn": true
+    },
+    "no-names": {
+      "attributes": {}
+    }
+  },
+  "test_invalid_policy": {
+    "empty-statement": {
+      "Error": {
+        "Code": "InvalidAttributeValue",
+        "Message": "Invalid value for the parameter Policy."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "no-effect": {
+      "Error": {
+        "Code": "InvalidAttributeValue",
+        "Message": "Invalid value for the parameter Policy."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "no-principal": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "no-resource": {
+      "Error": {
+        "Code": "InvalidAttributeValue",
+        "Message": "Invalid value for the parameter Policy. Reason: Missing required field Resource."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "not-json": {
+      "Error": {
+        "Code": "InvalidAttributeValue",
+        "Message": "Invalid value for the parameter Policy."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_kms_key_with_sqs_managed_encryption": {
+    "both": {
+      "Error": {
+        "Code": "InvalidAttributeName",
+        "Message": "You can use one type of server-side encryption (SSE) at one time. You can either enable KMS SSE or SQS SSE."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_list_queues_paging": {
+    "first-page": {
+      "count": 2,
+      "more": true
+    },
+    "max-1001": {
+      "Error": {
+        "Code": "InvalidParameterValue",
+        "Message": "Value for parameter MaxResults is invalid. Reason: MaxResults must be an integer between 1 and 1000."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "second-page": {
+      "count": 1,
+      "more": false
+    },
+    "token-from-another-listing": {
+      "Error": {
+        "Code": "InvalidParameterValue",
+        "Message": "Invalid NextToken value. If you are passing in NextToken, you must not change the other request parameters."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_list_queues_token_needs_max_results": {
+    "paged": {
+      "count": 1,
+      "has-token": true
+    },
+    "unpaged": {
+      "count": 3,
+      "has-token": false
+    }
+  },
+  "test_message_attribute_prefix_selection": {
+    "prefix": [
+      "bar.one",
+      "bar.two"
+    ]
+  },
+  "test_message_attributes_and_batches": {
+    "delete-batch": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Successful": [
+        {
+          "Id": "one"
+        },
+        {
+          "Id": "two"
+        }
+      ]
+    },
+    "received-with-attributes": [
+      {
+        "Body": "typed",
+        "MD5OfBody": "710914450f935be2b55c4a1dbef7aedd",
+        "MD5OfMessageAttributes": "be57d8bd8cbfc9eddd238f68e64e5984",
+        "MessageAttributes": {
+          "blob": {
+            "BinaryValue": {
+              "<bytes>": "\u0000\u0001"
+            },
+            "DataType": "Binary"
+          },
+          "count": {
+            "DataType": "Number",
+            "StringValue": "3"
+          },
+          "kind": {
+            "DataType": "String",
+            "StringValue": "order"
+          }
+        },
+        "MessageId": "<uuid:1>",
+        "ReceiptHandle": "<ReceiptHandle:1>"
+      }
+    ],
+    "send-batch": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Successful": [
+        {
+          "Id": "a",
+          "MD5OfMessageBody": "f97c5d29941bfb1b2fdab0874906ab82",
+          "MessageId": "<uuid:2>"
+        },
+        {
+          "Id": "b",
+          "MD5OfMessageBody": "b8a9f715dbb64fd5c56e7783c6820a61",
+          "MessageId": "<uuid:3>"
+        }
+      ]
+    },
+    "send-with-attributes": {
+      "MD5OfMessageAttributes": "be57d8bd8cbfc9eddd238f68e64e5984",
+      "MD5OfMessageBody": "710914450f935be2b55c4a1dbef7aedd",
+      "MessageId": "<uuid:1>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    }
+  },
+  "test_message_group_on_a_standard_queue": {
+    "received": [
+      {
+        "MessageGroupId": "tenant-a"
+      }
+    ],
+    "send": {
+      "MD5OfMessageBody": "9dd4e461268c8034f5c8564e155c67a6",
+      "MessageId": "<MessageId:1>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "with-dedup-id": {
+      "Error": {
+        "Code": "InvalidParameterValue",
+        "Message": "Value d for parameter MessageDeduplicationId is invalid. Reason: The request include parameter that is not valid for this queue type."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_message_limits": {
+    "bad-character": {
+      "Error": {
+        "Code": "InvalidMessageContents",
+        "Message": "Invalid binary character '#x1' was found in the message body, the set of allowed characters is #x9 | #xA | #xD | [#x20-#xD7FF] | [#xE000-#xFFFD] | [#x10000-#x10FFFF]."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "data-type": {
+      "Error": {
+        "Code": "InvalidParameterValue",
+        "Message": "The type of message (user) attribute 'a' is invalid. You must use only the following supported type prefixes: Binary, Number, String."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "delay-901": {
+      "Error": {
+        "Code": "InvalidParameterValue",
+        "Message": "Value 901 for parameter DelaySeconds is invalid. Reason: DelaySeconds must be >= 0 and <= 900."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "eleven-attributes": {
+      "Error": {
+        "Code": "InvalidParameterValue",
+        "Message": "Number of message attributes [11] exceeds the allowed maximum [10]."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "one-mebibyte": {
+      "MD5OfMessageBody": "b561f87202d04959e37588ee05cf5b10",
+      "MessageId": "<MessageId:1>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "over-one-mebibyte": {
+      "Error": {
+        "Code": "InvalidParameterValue",
+        "Message": "One or more parameters are invalid. Reason: Message must be shorter than 1048576 bytes."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "reserved-prefix": {
+      "Error": {
+        "Code": "InvalidParameterValue",
+        "Message": "You can't use message attribute names beginning with 'AWS.' or 'Amazon'. These strings are reserved for internal use."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_message_system_attributes": {
+    "a-malformed-trace-header": {
+      "MD5OfMessageBody": "9dd4e461268c8034f5c8564e155c67a6",
+      "MD5OfMessageSystemAttributes": "3ceddbd884bffb13edbd5aa1051961dc",
+      "MessageId": "<MessageId:1>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "a-number": {
+      "MD5OfMessageBody": "9dd4e461268c8034f5c8564e155c67a6",
+      "MD5OfMessageSystemAttributes": "a37baf365c4742b88e7a8422920c1138",
+      "MessageId": "<uuid:1>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "another-name": {
+      "Error": {
+        "Code": "InvalidParameterValue",
+        "Message": "Message system attribute name 'Other' is invalid."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_move_task_cancel": {
+    "cancel": {
+      "moved-is-a-number": true
+    },
+    "cancel-again": {
+      "ApproximateNumberOfMessagesMoved": 1,
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "final": {
+      "has-handle": false,
+      "status": "CANCELLED"
+    },
+    "running": {
+      "has-handle": true,
+      "status": "RUNNING"
+    },
+    "second-start": {
+      "Error": {
+        "Code": "InvalidParameterValue",
+        "Message": "There is already a task running. Only one active task is allowed for a source queue arn at a given time."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "started": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "TaskHandle": "<TaskHandle:1>"
+    }
+  },
+  "test_move_task_default_destination": {
+    "back-at-the-source": [
+      "poison"
+    ],
+    "list-upper-limit": {
+      "Error": {
+        "Code": "InvalidParameterValue",
+        "Message": "Value for parameter MaxResults is invalid. Reason: You must enter a number that's between 1 and 10."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "listed": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Results": [
+        {
+          "ApproximateNumberOfMessagesMoved": 0,
+          "ApproximateNumberOfMessagesToMove": 1,
+          "SourceArn": "arn:aws:sqs:us-east-1:<account>:<name:queue-dlq>",
+          "StartedTimestamp": "<StartedTimestamp:1>",
+          "Status": "COMPLETED"
+        }
+      ]
+    },
+    "source-is-no-dlq": {
+      "Error": {
+        "Code": "InvalidParameterValue",
+        "Message": "Source queue must be configured as a Dead Letter Queue."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "started": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "TaskHandle": "<TaskHandle:1>"
+    }
+  },
+  "test_move_task_missing_queue": {
+    "list": {
+      "Error": {
+        "Code": "ResourceNotFoundException",
+        "Message": "The resource that you specified for the SourceArn parameter doesn't exist."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    },
+    "start": {
+      "Error": {
+        "Code": "ResourceNotFoundException",
+        "Message": "The resource that you specified for the SourceArn parameter doesn't exist."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    }
+  },
+  "test_purge_twice": {
+    "first": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "second": {
+      "Error": {
+        "Code": "AWS.SimpleQueueService.PurgeQueueInProgress",
+        "Message": "Only one PurgeQueue operation on <name:queue> is allowed every 60 seconds."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 403
+      }
+    }
+  },
+  "test_query_batch_with_a_gap": {
+    "a-gap-in-the-indices": {
+      "ErrorType": "MissingParameter",
+      "Status": 400,
+      "bodies": []
+    }
+  },
+  "test_queue_in_another_account": {
+    "owner-id": {
+      "Error": {
+        "Code": "InvalidAddress",
+        "Message": "The address <endpoint>/ is not valid for this endpoint."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    },
+    "send-to-another-accounts-url": {
+      "Error": {
+        "Code": "InvalidAddress",
+        "Message": "The address <endpoint>/ is not valid for this endpoint."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    }
+  },
+  "test_queue_type_cannot_change": {
+    "fifo-on-a-standard-queue": {
+      "Error": {
+        "Code": "InvalidAttributeName",
+        "Message": "Unknown Attribute FifoQueue."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "still-takes-a-plain-send": {
+      "MD5OfMessageBody": "9dd4e461268c8034f5c8564e155c67a6",
+      "MessageId": "<MessageId:1>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    }
+  },
+  "test_read_only_attributes": {
+    "create-with-QueueArn": {
+      "Error": {
+        "Code": "InvalidAttributeName",
+        "Message": "Unknown Attribute QueueArn."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "set-ApproximateNumberOfMessages": {
+      "Error": {
+        "Code": "InvalidAttributeName",
+        "Message": "Unknown Attribute ApproximateNumberOfMessages."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "set-CreatedTimestamp": {
+      "Error": {
+        "Code": "InvalidAttributeName",
+        "Message": "Unknown Attribute CreatedTimestamp."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "set-LastModifiedTimestamp": {
+      "Error": {
+        "Code": "InvalidAttributeName",
+        "Message": "Unknown Attribute LastModifiedTimestamp."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "set-QueueArn": {
+      "Error": {
+        "Code": "InvalidAttributeName",
+        "Message": "Unknown Attribute QueueArn."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_receive_out_of_range": {
+    "max-0": {
+      "Error": {
+        "Code": "InvalidParameterValue",
+        "Message": "Value 0 for parameter MaxNumberOfMessages is invalid. Reason: Must be between 1 and 10, if provided."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "max-11": {
+      "Error": {
+        "Code": "InvalidParameterValue",
+        "Message": "Value 11 for parameter MaxNumberOfMessages is invalid. Reason: Must be between 1 and 10, if provided."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "visibility-43201": {
+      "Error": {
+        "Code": "InvalidParameterValue",
+        "Message": "Value 43201 for parameter VisibilityTimeout is invalid. Reason: Must be between 0 and 43200, if provided."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "wait-21": {
+      "Error": {
+        "Code": "InvalidParameterValue",
+        "Message": "Value 21 for parameter WaitTimeSeconds is invalid. Reason: Must be >= 0 and <= 20, if provided."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_receive_request_attempt_id": {
+    "on-a-standard-queue": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "retry-same-messages": [
+      false
+    ]
+  },
+  "test_recreate_after_delete": {
+    "create-at-once": {
+      "Error": {
+        "Code": "AWS.SimpleQueueService.QueueDeletedRecently",
+        "Message": "You must wait 60 seconds after deleting a queue before you can create another with the same name."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_redrive_allow_policy": {
+    "bad-permission": {
+      "Error": {
+        "Code": "InvalidAttributeValue",
+        "Message": "Invalid value for the parameter RedriveAllowPolicy. Reason: Amazon SQS can't create the redrive allow policy, as it\u2019s in an unsupported format."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "byqueue-without-arns": {
+      "Error": {
+        "Code": "InvalidParameterValue",
+        "Message": "Value {\"redrivePermission\": \"byQueue\"} for parameter RedriveAllowPolicy is invalid. Reason: Amazon SQS can't create the redrive allow policy. When you specify the byQueue permission type, you must also specify one or more sourceQueueArns values."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "denied": {
+      "Error": {
+        "Code": "InvalidParameterValue",
+        "Message": "Value RedrivePolicy(maxReceiveCount=5, deadLetterTargetArn=arn:aws:sqs:us-east-1:<account>:<name:queue-dlq>) for parameter RedrivePolicy is invalid. Reason: The value for the dead-letter queue's RedriveAllowPolicy attribute prevents you from completing this request."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_redrive_max_receive_count_range": {
+    "max-receive-count-0": {
+      "Error": {
+        "Code": "InvalidParameterValue",
+        "Message": "Value {\"deadLetterTargetArn\": \"arn:aws:sqs:us-east-1:<account>:<name:queue-dlq>\", \"maxReceiveCount\": \"0\"} for parameter RedrivePolicy is invalid. Reason: Invalid value for maxReceiveCount: 0, valid values are from 1 to 1000 both inclusive."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "max-receive-count-1": {
+      "QueueUrl": "<endpoint>/<account>/<name:queue-1>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "max-receive-count-1000": {
+      "QueueUrl": "<endpoint>/<account>/<name:queue-1000>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "max-receive-count-1001": {
+      "Error": {
+        "Code": "InvalidParameterValue",
+        "Message": "Value {\"deadLetterTargetArn\": \"arn:aws:sqs:us-east-1:<account>:<name:queue-dlq>\", \"maxReceiveCount\": \"1001\"} for parameter RedrivePolicy is invalid. Reason: Invalid value for maxReceiveCount: 1001, valid values are from 1 to 1000 both inclusive."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_redrive_policy_without_max_receive_count": {
+    "no-max-receive-count": {
+      "Error": {
+        "Code": "InvalidParameterValue",
+        "Message": "Value {\"deadLetterTargetArn\": \"arn:aws:sqs:us-east-1:<account>:<name:queue-dlq>\"} for parameter RedrivePolicy is invalid. Reason: Redrive policy does not contain mandatory attribute: maxReceiveCount."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_redrive_receive_count": {
+    "in-the-dlq": [
+      {
+        "Attributes": {
+          "ApproximateReceiveCount": "2",
+          "DeadLetterQueueSourceArn": "arn:aws:sqs:us-east-1:<account>:<name:queue>"
+        },
+        "Body": "poison"
+      },
+      {
+        "Attributes": {
+          "ApproximateReceiveCount": "3",
+          "DeadLetterQueueSourceArn": "arn:aws:sqs:us-east-1:<account>:<name:queue>"
+        },
+        "Body": "poison"
+      },
+      {
+        "Attributes": {
+          "ApproximateReceiveCount": "4",
+          "DeadLetterQueueSourceArn": "arn:aws:sqs:us-east-1:<account>:<name:queue>"
+        },
+        "Body": "poison"
+      },
+      {
+        "Attributes": {
+          "ApproximateReceiveCount": "5",
+          "DeadLetterQueueSourceArn": "arn:aws:sqs:us-east-1:<account>:<name:queue>"
+        },
+        "Body": "poison"
+      },
+      {
+        "Attributes": {
+          "ApproximateReceiveCount": "6",
+          "DeadLetterQueueSourceArn": "arn:aws:sqs:us-east-1:<account>:<name:queue>"
+        },
+        "Body": "poison"
+      },
+      {
+        "Attributes": {
+          "ApproximateReceiveCount": "7",
+          "DeadLetterQueueSourceArn": "arn:aws:sqs:us-east-1:<account>:<name:queue>"
+        },
+        "Body": "poison"
+      },
+      {
+        "Attributes": {
+          "ApproximateReceiveCount": "8",
+          "DeadLetterQueueSourceArn": "arn:aws:sqs:us-east-1:<account>:<name:queue>"
+        },
+        "Body": "poison"
+      },
+      {
+        "Attributes": {
+          "ApproximateReceiveCount": "9",
+          "DeadLetterQueueSourceArn": "arn:aws:sqs:us-east-1:<account>:<name:queue>"
+        },
+        "Body": "poison"
+      },
+      {
+        "Attributes": {
+          "ApproximateReceiveCount": "10",
+          "DeadLetterQueueSourceArn": "arn:aws:sqs:us-east-1:<account>:<name:queue>"
+        },
+        "Body": "poison"
+      },
+      {
+        "Attributes": {
+          "ApproximateReceiveCount": "11",
+          "DeadLetterQueueSourceArn": "arn:aws:sqs:us-east-1:<account>:<name:queue>"
+        },
+        "Body": "poison"
+      }
+    ]
+  },
+  "test_refusals": {
+    "bad-name": {
+      "Error": {
+        "Code": "InvalidParameterValue",
+        "Message": "Can only include alphanumeric characters, hyphens, or underscores. 1 to 80 in length"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "bad-receipt-handle": {
+      "Error": {
+        "Code": "ReceiptHandleIsInvalid",
+        "Message": "The input receipt handle is invalid."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    },
+    "different-attributes": {
+      "Error": {
+        "Code": "QueueAlreadyExists",
+        "Message": "A queue already exists with the same name and a different value for attribute VisibilityTimeout"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "duplicate-batch-ids": {
+      "Error": {
+        "Code": "AWS.SimpleQueueService.BatchEntryIdsNotDistinct",
+        "Message": "Id a repeated."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "fifo-without-dedup": {
+      "Error": {
+        "Code": "InvalidParameterValue",
+        "Message": "The queue should either have ContentBasedDeduplication enabled or MessageDeduplicationId provided explicitly"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "fifo-without-group": {
+      "Error": {
+        "Code": "MissingParameter",
+        "Message": "The request must contain the parameter MessageGroupId."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "no-such-queue": {
+      "Error": {
+        "Code": "AWS.SimpleQueueService.NonExistentQueue",
+        "Message": "The specified queue does not exist."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_sequence_number_is_fifo_only": {
+    "standard": {
+      "receive-has-one": false,
+      "send-has-one": false
+    }
+  },
+  "test_setting_an_attribute_back_to_its_default": {
+    "after": {
+      "Attributes": {
+        "DelaySeconds": "0"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    }
+  },
+  "test_standard_queue_lifecycle": {
+    "create": {
+      "QueueUrl": "<endpoint>/<account>/<name:queue>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "create-again": {
+      "QueueUrl": "<endpoint>/<account>/<name:queue>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "defaults": {
+      "Attributes": {
+        "DelaySeconds": "0",
+        "MaximumMessageSize": "1048576",
+        "MessageRetentionPeriod": "345600",
+        "QueueArn": "arn:aws:sqs:us-east-1:<account>:<name:queue>",
+        "ReceiveMessageWaitTimeSeconds": "0",
+        "SqsManagedSseEnabled": "true",
+        "VisibilityTimeout": "30"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "delete-message": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "delete-queue": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "get-url": {
+      "QueueUrl": "<endpoint>/<account>/<name:queue>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "received": [
+      {
+        "Body": "hello",
+        "MD5OfBody": "5d41402abc4b2a76b9719d911017c592",
+        "MessageId": "<uuid:1>",
+        "ReceiptHandle": "<ReceiptHandle:1>"
+      }
+    ],
+    "send": {
+      "MD5OfMessageBody": "5d41402abc4b2a76b9719d911017c592",
+      "MessageId": "<uuid:1>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    }
+  },
+  "test_system_attributes_by_either_spelling": {
+    "all": [
+      "ApproximateFirstReceiveTimestamp",
+      "ApproximateReceiveCount",
+      "SenderId",
+      "SentTimestamp"
+    ],
+    "current-spelling": [
+      "SentTimestamp"
+    ],
+    "deprecated-spelling": [
+      "SentTimestamp"
+    ],
+    "deprecated-spelling-count": [
+      "ApproximateReceiveCount"
+    ]
+  },
+  "test_tag_limits": {
+    "aws-prefix": {
+      "Error": {
+        "Code": "InvalidParameterValue",
+        "Message": "Caller is an end user and not allowed to mutate system tags"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "fifty-one": {
+      "Error": {
+        "Code": "InvalidParameterValue",
+        "Message": "Too many tags added for queue <name:queue>."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "key-129": {
+      "Error": {
+        "Code": "InvalidParameterValue",
+        "Message": "Tag keys must be between 1 and 128 characters in length."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "value-257": {
+      "Error": {
+        "Code": "InvalidParameterValue",
+        "Message": "Tag values must be between 0 and 256 characters in length."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_tags_visibility_and_purge": {
+    "attributes-after": {
+      "Attributes": {
+        "DelaySeconds": "1",
+        "VisibilityTimeout": "5"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "hidden-while-in-flight": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "purge": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "received-twice": [
+      {
+        "ApproximateReceiveCount": "2"
+      }
+    ],
+    "release": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "retention-too-short": {
+      "Error": {
+        "Code": "InvalidAttributeValue",
+        "Message": "Invalid value for the parameter MessageRetentionPeriod."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "set-attributes": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "tag": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "tags": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Tags": {
+        "team": "a"
+      }
+    },
+    "tags-from-create": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Tags": {
+        "env": "dev"
+      }
+    },
+    "unknown-attribute": {
+      "Error": {
+        "Code": "InvalidAttributeName",
+        "Message": "Unknown Attribute NoSuchAttribute."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "untag": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "visibility-too-long": {
+      "Error": {
+        "Code": "InvalidParameterValue",
+        "Message": "Value 43201 for parameter VisibilityTimeout is invalid. Reason: VisibilityTimeout must be an integer between 0 and 43200."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_trace_header_on_a_batch": {
+    "batch": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Successful": [
+        {
+          "Id": "a",
+          "MD5OfMessageBody": "811b93782eec22f6be139a4bfae49197",
+          "MD5OfMessageSystemAttributes": "5ae4d5d7636402d80f4eb6d213245a88",
+          "MessageId": "<MessageId:1>"
+        }
+      ]
+    },
+    "received": [
+      {
+        "AWSTraceHeader": "Root=1-5759e988-bd862e3fe1be46a994272793;Parent=53995c3f42cd8ad8;Sampled=1"
+      }
+    ]
+  },
+  "test_twelve_hours_from_the_receive": {
+    "past-the-twelve-hours": {
+      "Error": {
+        "Code": "InvalidParameterValue",
+        "Message": "Value 43200 for parameter VisibilityTimeout is invalid. Reason: Total VisibilityTimeout for the message is beyond the limit [43200 seconds]."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "within-it": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    }
+  },
+  "test_visibility_change_in_flight": {
+    "still-hidden": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    }
+  },
+  "test_visibility_of_a_message_not_in_flight": {
+    "not-in-flight": {
+      "Error": {
+        "Code": "InvalidParameterValue",
+        "Message": "Value AQEB9Jd2OJNsAgehAyWPNcn8RY53YQJlDtIQCNeTnV6HAiZlyvCMlu00nIkTKV5RoafC/I0YGs+WyqJvC43xqpb6SjluujSRtcPy+NRAhwYRh80i1c1kmcAvtFc7WiiEwUyZCBV+EiZ/uet0g/lh3jBUOmM69525HdgrUjjErAcDaIC9y3EWqmohaWvqttACX7yxv+DTeULIrE4Le8xQajyVzrks8y5TYtxctKvwYwMFlulEhvwNDJfq1PZtzOaz8mMrMcj4sAJ06hp5LS1sXAkknoEiuIkBF84nSzKjOpHzGTkl/WnPnD4uh7pkkGAttYxBCBPsKwWQSxDSH7YWBPuKow8Fn8mWtoOqLvdKqxsp70DkTlqhtui6rJb8VwYnAbENTqK+aBzvLqTXKaI+FQv4Pg== for parameter ReceiptHandle is invalid. Reason: Message does not exist or is not available for visibility timeout change."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  }
+}

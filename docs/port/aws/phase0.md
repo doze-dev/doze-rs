@@ -1,6 +1,6 @@
 # doze-aws Rust port, Stage 0 and 1: instruments and risk spikes
 
-Status: **approved 2026-11-09, not started.** Owner steps for the AWS account are in progress.
+Status: **in progress.** 0.1 done 2026-11-09; 0.2 and 0.3 started (SQS recorded and baselined, the rest follow).
 This file is the working document for the two stages that come before any service code. `PLAN.md` says what to build;
 this says how we find out whether we are building it correctly. Update it, do not rewrite it.
 
@@ -26,7 +26,7 @@ service). Results go on `scoreboard.md`. A claim that did not come out of a loop
 
 | # | Item | Exit evidence | Status |
 |---|---|---|---|
-| 0.1 | Recorder account: root MFA, budget, Identity Center, member account, SSO user and permission set, SCP, CLI v2, teardown script | `aws sts get-caller-identity --profile doze-rec` shows the member account id; teardown dry-run lists nothing | owner steps in progress |
+| 0.1 | **Done 2026-11-09.** Recorder account: root MFA, budget, Identity Center, member account, SSO user and permission set, SCP, CLI v2, teardown script | `aws sts get-caller-identity --profile doze-rec` shows the member account id; teardown dry-run lists nothing | done: main account `821712915674`, role `doze-recorder-limited`, profile `doze-rec-main`; teardown tested on 19 throwaway resources and left the account clean (see `tools/aws-rec/`). The dedicated member account `doze-recorder` was parked: new member accounts return `OptInRequired` until sign-up completes |
 | 0.2 | Record the existing Go conformance suite (`doze-aws/conformance`, about 139 tests) with `CONFORMANCE_RECORD=1` | `snapshots/` populated; spend logged here | waits on 0.1 |
 | 0.3 | Run the same suite against the Go doze-aws | **A number**: Go's fidelity against AWS. This replaces 951 anecdotes and is the bar Rust must beat | waits on 0.2 |
 | 0.4 | `cargo xtask` gains `weight`, `conformance` (wraps the pytest harness through `CONFORMANCE_ENDPOINT`), `gates` (the pre-commit order), and a mutation baseline file | each command runs and prints a table | not started |
@@ -68,3 +68,30 @@ idle RSS of the Rust host with SQS enabled but unused stays under 6 MiB; adding 
 (`crates/kafka-meta/src/life.rs`), shutdown and server handle (`crates/kafka-server/src/server.rs`), frame pool
 (`crates/kafka-server/src/pool.rs`), data-dir lock (`crates/doze-kafka/src/lock.rs`). Extraction into `doze-fs`, `doze-store` and
 `doze-runtime` happens at A1 and must leave the kafka gates and weight unchanged.
+
+## Results so far
+
+### 0.1 Recorder (2026-11-09)
+
+- The permission set is limited to `doze-rec-*` names in us-east-1 (KMS: keys tagged `doze-rec=true`). A first draft let the role manage
+  the account's Identity Center KMS key; the probe found it and the policy was rewritten before any recording.
+- The teardown sweeps 34 kinds. Tested on 16 seeded services-worth of resources: dry run found 19, delete removed them, an independent
+  CLI check showed zero. SQS lists lag deletes by minutes, so the residue check waits up to 90 s before calling anything left over.
+
+### 0.2 / 0.3 SQS (2026-11-09)
+
+Recorded `tests/test_sqs.py` against AWS: 182 labels, about 2.5 minutes, under a cent. The oracle contradicted the Go author in
+three scenarios, which were corrected: AWS accepts a queue policy statement with no `Principal`; AWS answers a second `CancelMessageMoveTask`;
+AWS verifies the AddPermission principal account exists and accepts any label (81 characters, with a space).
+
+**Go doze-aws against that recording (origin/main f8c31a1), 182 labels:**
+
+| | labels | share |
+|---|---|---|
+| matched exactly | 80 | 44% |
+| differ only in the wording of the error message | 53 | 29% |
+| behavioural differences | 48 | 26% |
+| unverified | 1 | 1% |
+
+Of the 101 differing labels, 34 differ in HTTP status or error code and 20 differ in whether AWS accepts or refuses the call.
+This is the bar for Rust SQS: exact match first, with message wording tracked separately.
