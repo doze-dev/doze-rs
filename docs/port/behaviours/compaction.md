@@ -57,10 +57,12 @@ interop `compaction` (franz-go, sarama, librdkafka agree).
 `compact,delete`: compacted, then retention applies. `delete`: never cleaned. Test: `compaction::a_topic_that_does_not_compact_*`.
 
 ## Decided differences
-- **CMP-D1.** Each segment is rewritten under its own name, and segments are not merged into fewer; the last batch of every cleaned
-  segment stays, emptied, so that the segment ends where it did (Kafka keeps the last of the round). Reads skip the empty ones (CMP-6).
-  **A segment left with nothing but that ending batch, and no producer's last batch, is removed** (Kafka deletes a segment left
-  empty), so a hot key does not leave a file for every segment it ever filled (audit N3: 150 segments for 3 live records). The
+- **CMP-D1.** Each segment is rewritten under its own name, and segments are not merged into fewer (Kafka groups them by size,
+  `Cleaner.groupSegmentsBySize`, and rewrites each group as one segment, which is how its file count shrinks); the last batch of
+  every cleaned segment stays, emptied, so that the segment ends where it did (Kafka keeps the last batch of the round, line 353
+  of `Cleaner.java`). Reads skip the empty ones (CMP-6). **A segment left with nothing but that ending batch, and no producer's
+  last batch, is removed**: this broker's way of keeping the file count bounded without merging (Kafka's merging is the source
+  of the same effect, not of this rule), so a hot key does not leave a file for every segment it ever filled (audit N3: 150 segments for 3 live records). The
   offsets it covered are a gap, as inside a cleaned segment. Two limits: the first segment is never taken (it is where the log
   starts; one empty file at most), and a file that cannot be removed stays whole and is taken by the next round. Tests:
   `log/tests/compaction_segments.rs`; the stop sweeps (`tests/compaction`) run it at every operation.

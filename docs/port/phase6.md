@@ -1,6 +1,6 @@
 # Phase 6: idempotent producers and transactions
 
-Status: audited twice (2026-11-09): the first said NOT DONE (a deadlock and six majors; `debt.md` A), the second NOT DONE (three majors, small); both sets fixed. See the closure entry in `PLAN.md`. Catalogue:
+Status: DONE (2026-11-10). Audited three times (2026-11-09): NOT DONE (a deadlock and six majors; `debt.md` A), NOT DONE (three majors, small), NOT DONE (one major; A12); all fixed, and the last fix was in the scope of the Phase 7 audits, which said done. See the closure entry in `PLAN.md`. Catalogue:
 behaviours/transactions.md (written as slices land). Goal: an idempotent producer's retried batch is recognised and not
 written twice; a transactional producer (franz-go, librdkafka, sarama, the Java client's classic protocol) writes to several
 partitions and commits consumer offsets atomically; a `read_committed` consumer sees all of a transaction or none of it;

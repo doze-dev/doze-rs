@@ -11,7 +11,9 @@ source, read by item (`ConfigAdminManager`, `ConfigHelper`, `ControllerConfigura
 ## ADM-1. Retention acts (source)
 Every `log.retention.check.interval.ms` (flag `--log-retention-check-interval`, 5 minutes) each partition of a topic whose
 policy contains `delete` is trimmed by the topic's `retention.bytes` and `retention.ms` (else the broker's), oldest whole
-sealed segments first; the active segment is never deleted. A topic that only compacts is not trimmed. A closed partition
+segments first. As in Kafka (`UnifiedLog.deletableSegments`), a non-empty active segment that is past a bound is rolled first
+and then deleted with the rest, an empty active segment is never deleted, and a segment goes by size only while what remains
+is still at least `retention.bytes`. A topic that only compacts is not trimmed. A closed partition
 is opened for it, and closed again when the limit on open partitions says. Test: `log_retention::*`,
 `compaction::a_topic_that_does_not_compact_is_left_as_it_is_and_one_that_only_compacts_is_not_trimmed`.
 
@@ -90,3 +92,9 @@ any point leaves the old count or the new with every partition on disk. Test: `c
 - **ADM-D5.** CreatePartitions answers the topics that are not a duplicate in the order asked (Kafka's comes from a hash set).
   The partition count is held to `--max-partitions` (a limit of this broker, with its own text). Replication factor is one.
 - **ADM-D6.** ListConfigResources and the quota-throttled error of CreatePartitions v3 are not offered.
+- **ADM-D7.** `segment.ms` is the wall-clock age of the active segment since its first write, judged when the next append
+  comes (an idle partition keeps its segment until then). Kafka's `LogSegment.timeWaitedForRoll` measures the incoming batch's
+  largest timestamp against the first batch's timestamp, and a reopened segment starts from that timestamp, not from the file's
+  time. The two differ for backfilled or skewed record timestamps, and for the first roll after a restart. Decided: a clock the
+  producers cannot move keeps a topic's segments from growing without bound whatever timestamps arrive; the cost is a roll that
+  may come earlier or later than Kafka's for such data. Test: `log::tests::retention::a_segment_older_than_segment_ms_is_rolled_by_the_next_append_and_an_idle_one_is_left_alone`.

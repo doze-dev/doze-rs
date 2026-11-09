@@ -85,3 +85,8 @@ Phase 7 audit with 3 threads; 4.5 MB on a quieter run). The cleaner holds nothin
 round builds an offset map of at most 16 MiB of keys (`Config.cleaner_map_bytes`) and drops it when the round ends; a round reads
 a segment 1 MiB at a time and writes a segment's replacement only from the first change in it. The live defaults are one small
 shared value; dynamic broker configs are five numbers.
+
+**At the close of Phase 7 (2026-11-10, after both audits' fixes, release, darwin/arm64):** binary 4,029,504 B (+16,672 B over the
+figure above: removing a segment cleaning has emptied, the install in parts, the Kafka-worded config value check, the producer-state
+rule for a marker found at open), 107 packages (none added), idle RSS 4,816 KB with 3 threads. All three under the CI limits
+(4.2 MB, 115, 8 MB).
