@@ -123,7 +123,20 @@ fn a_value_of_the_longest_size_is_kept_and_one_byte_more_is_invalid_config() {
     assert!(text(32_767).is_ok(), "the longest is fine");
     let refused = text(32_768).unwrap_err();
     assert_eq!(refused.code, E::InvalidConfig);
-    assert!(refused.message.contains("32767"), "{}", refused.message);
+    assert_eq!(
+        refused.message,
+        "The configuration value cannot be added because it exceeds the maximum value size of 32767 bytes."
+    );
+}
+
+#[test]
+fn a_values_size_is_counted_as_java_counts_a_string_the_utf16_units_of_it() {
+    let text = |value: String| run(&[], &[set("leader.replication.throttled.replicas", &value)]);
+    // 20,000 two-byte characters are 40,000 bytes but 20,000 units: kept.
+    assert!(text("é".repeat(20_000)).is_ok());
+    // 16,384 characters outside the basic plane are two units each: 32,768, one over.
+    assert!(text("😀".repeat(16_384)).is_err());
+    assert!(text("😀".repeat(16_383)).is_ok());
 }
 
 fn broker_run(
@@ -167,4 +180,16 @@ fn a_dynamic_value_that_is_not_a_number_leaves_the_default_in_force() {
     assert_eq!(got.retention_ms, base.retention_ms, "unreadable: skipped");
     assert_eq!(got.message_max_bytes, base.message_max_bytes);
     assert_eq!(got.segment_bytes, 2_000_000, "and the rest still applies");
+}
+
+#[test]
+fn a_dynamic_number_with_spaces_around_it_is_applied_as_validation_read_it() {
+    use crate::configs::Dynamic;
+    // Validation trims (as Kafka's `ConfigDef` does) and accepts it; the value in force must be the one it accepted.
+    let base = Defaults::default();
+    let dynamic = Dynamic {
+        cluster: own(&[("log.segment.bytes", " 2000000 ")]),
+        own: own(&[]),
+    };
+    assert_eq!(broker::overlay(base, &dynamic).segment_bytes, 2_000_000);
 }

@@ -91,17 +91,26 @@ pub(crate) fn apply(
     let next = prepare(current, changes, topic_config::is_list, |name| {
         topic_config::default_of(defaults, name)
     })?;
-    if let Some(long) = next.values().find(|v| v.len() > LONGEST_VALUE) {
+    if sets_too_long_a_value(changes, &next) {
         return Err(refuse(
             E::InvalidConfig,
             format!(
-                "The value of a config is {} bytes, more than {LONGEST_VALUE}",
-                long.len()
+                "The configuration value cannot be added because it exceeds the maximum value size of {LONGEST_VALUE} bytes."
             ),
         ));
     }
     topic_config::validate(&next).map_err(|m| refuse(E::InvalidConfig, m))?;
     Ok(next)
+}
+
+/// Whether a value the request sets is too long. Kafka looks only at the values a request changes, and counts them as Java
+/// counts a string, in UTF-16 units (source: `ConfigurationControlManager`, `configRecord.value().length()`).
+fn sets_too_long_a_value(changes: &[Change], next: &BTreeMap<String, String>) -> bool {
+    changes
+        .iter()
+        .filter(|c| c.op != Op::Delete)
+        .filter_map(|c| next.get(&c.name))
+        .any(|v| v.encode_utf16().count() > LONGEST_VALUE)
 }
 
 /// The configs of a broker after the changes: those it can change while it runs, judged as Kafka judges them.

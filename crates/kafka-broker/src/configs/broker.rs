@@ -104,7 +104,8 @@ pub(crate) fn overlay(base: Defaults, dynamic: &Dynamic) -> Defaults {
     let mut out = base;
     for set in [&dynamic.cluster, &dynamic.own] {
         for (name, value) in set {
-            let Ok(n) = value.parse::<i64>() else {
+            // Read as `validate` reads it: a number may have spaces around it (Kafka's `ConfigDef.parseType` trims).
+            let Ok(n) = value.trim().parse::<i64>() else {
                 continue;
             };
             match name.as_str() {
