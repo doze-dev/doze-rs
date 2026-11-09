@@ -10,11 +10,12 @@ mod actor;
 mod registry;
 
 use kafka_storage::fs::Fs;
-use kafka_storage::{Appended, LogReader, StorageError};
+use kafka_storage::{LogReader, StorageError};
 use kafka_wire::batch::{Batch, TimestampType};
 use kafka_wire::ids::TimestampMs;
 use tokio::sync::{mpsc, oneshot};
 
+pub(crate) use actor::Written;
 use actor::{Append, Command};
 pub(crate) use registry::Partitions;
 
@@ -29,7 +30,7 @@ pub(crate) struct Partition<F: Fs> {
 }
 
 /// The answer to an append that is on its way.
-pub(crate) type Pending = oneshot::Receiver<Result<Appended, StorageError>>;
+pub(crate) type Pending = oneshot::Receiver<Result<Written, StorageError>>;
 
 impl<F: Fs> Partition<F> {
     /// What can be read of the partition.

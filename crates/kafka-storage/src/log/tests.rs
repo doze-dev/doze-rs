@@ -2,6 +2,7 @@
 
 mod append;
 mod durability;
+mod history;
 mod open;
 mod read;
 mod recovery;

@@ -1,13 +1,14 @@
 //! Produce.
 
 mod check;
+mod request;
 
 use std::sync::Arc;
 
 use kafka_meta::Topic;
 use kafka_storage::fs::Fs;
 use kafka_wire::api::Response;
-use kafka_wire::batch::{Batch, ProduceError, Refusal, TimestampType};
+use kafka_wire::batch::TimestampType;
 use kafka_wire::ids::{PartitionId, TimestampMs, TopicId, TopicName};
 use kafka_wire::messages::produce_request::PartitionProduceData;
 use kafka_wire::messages::produce_response::{
@@ -16,9 +17,10 @@ use kafka_wire::messages::produce_response::{
 use kafka_wire::messages::{ProduceRequest, ProduceResponse};
 use kafka_wire::{ResponseError, StrBytes};
 
-use crate::partitions::{Partition, Pending, gone};
+use crate::partitions::{Partition, Pending, Written, gone};
 use crate::{Broker, Outcome, blocking, clock};
 use check::Accepted;
+use request::{refused_everywhere, request_refusal};
 
 /// A partition's answer, or what it is waiting for.
 enum Stage<F: Fs> {
@@ -201,7 +203,19 @@ async fn wait_for<F: Fs>(
     durable: bool,
 ) -> PartitionProduceResponse {
     let appended = match pending.await {
-        Ok(Ok(appended)) => appended,
+        Ok(Ok(Written::Appended(appended))) => appended,
+        // A retry of a batch already written is answered as the first was: where it went, and its timestamp as stored.
+        Ok(Ok(Written::Duplicate { offset, timestamp })) => {
+            answer.base_offset = offset.get();
+            answer.log_append_time_ms = timestamp;
+            answer.log_start_offset = partition.reader().start_offset().get();
+            return answer;
+        }
+        Ok(Ok(Written::Refused(code))) => {
+            let mut refused = failed(answer.index, code, None);
+            refused.log_start_offset = partition.reader().start_offset().get();
+            return refused;
+        }
         Ok(Err(e)) => return storage_fault(answer.index, &e),
         Err(_) => return storage_fault(answer.index, &gone()),
     };
@@ -241,49 +255,4 @@ fn failed(index: i32, code: ResponseError, message: Option<String>) -> Partition
 fn storage_fault(index: i32, e: &kafka_storage::StorageError) -> PartitionProduceResponse {
     tracing::error!(error = %e, partition = index, "a produce could not be stored");
     failed(index, ResponseError::KafkaStorageError, None)
-}
-
-/// What fails the whole request before any partition is looked at: a \`required acks\` that is not -1, 0 or 1; and
-/// Kafka's look at every partition's first batch, which fails a request it cannot take apart there and one that has
-/// a transactional batch and no transactional id.
-fn request_refusal(req: &ProduceRequest) -> Option<Refused> {
-    if !(-1..=1).contains(&req.acks) {
-        return Some((ResponseError::InvalidRequiredAcks, None));
-    }
-    let mut transactional = false;
-    for p in req.topic_data.iter().flat_map(|t| &t.partition_data) {
-        let records = p.records.clone().unwrap_or_default();
-        match Batch::first_is_transactional(&records) {
-            Ok(t) => transactional |= t,
-            Err(e) => return Some((code_of(&e), e.kafka_message())),
-        }
-    }
-    (transactional && req.transactional_id.is_none())
-        .then_some((ResponseError::TransactionalIdAuthorizationFailed, None))
-}
-
-fn code_of(e: &ProduceError) -> ResponseError {
-    match e.refusal() {
-        Refusal::CorruptMessage => ResponseError::CorruptMessage,
-        _ => ResponseError::InvalidRecord,
-    }
-}
-
-fn refused_everywhere(
-    req: &ProduceRequest,
-    code: ResponseError,
-    message: Option<&str>,
-) -> ProduceResponse {
-    let mut resp = ProduceResponse::default();
-    for t in &req.topic_data {
-        let mut r = TopicProduceResponse::default();
-        r.name = t.name.clone();
-        r.topic_id = t.topic_id;
-        for p in &t.partition_data {
-            r.partition_responses
-                .push(failed(p.index, code, message.map(str::to_owned)));
-        }
-        resp.responses.push(r);
-    }
-    resp
 }

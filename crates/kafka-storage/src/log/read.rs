@@ -20,7 +20,7 @@ const HEADER: usize = kafka_wire::batch::HEADER_LEN;
 /// A reader of one partition's log. Cloning is cheap. Readers see only fully appended payloads and never wait
 /// for the writer; the log is never pulled into the heap, so memory does not grow with the data.
 pub struct LogReader<F: Fs> {
-    shared: Arc<Shared<F>>,
+    pub(super) shared: Arc<Shared<F>>,
 }
 
 impl<F: Fs> Clone for LogReader<F> {

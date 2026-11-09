@@ -11,6 +11,7 @@ mod handlers;
 mod listener;
 mod outcome;
 mod partitions;
+mod producers;
 mod retention;
 mod topic_config;
 mod topics;

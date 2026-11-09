@@ -5,8 +5,8 @@ use super::attributes::Attributes;
 use super::error::BatchError;
 use super::header::Header;
 use super::layout::{HEADER_LEN, LENGTH_OVERHEAD, MAGIC_V2};
-use super::{Compression, check_count};
-use crate::ids::TimestampMs;
+use super::{Compression, Producer, check_count};
+use crate::ids::{ProducerEpoch, ProducerId, TimestampMs};
 
 /// What the header of a batch says. The checksum has not been checked: this is for finding a batch's extent.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -21,6 +21,8 @@ pub struct Peek {
     pub max_timestamp: TimestampMs,
     /// Codec, timestamp type, transaction bits.
     pub attributes: Attributes,
+    /// The idempotent or transactional producer that wrote it, if any.
+    pub producer: Option<Producer>,
 }
 
 impl Peek {
@@ -55,6 +57,11 @@ impl Peek {
             record_count: u32::try_from(header.record_count).unwrap_or(0),
             max_timestamp: header.max_timestamp,
             attributes: header.attributes,
+            producer: ProducerId::new(header.producer_id).map(|id| Producer {
+                id,
+                epoch: ProducerEpoch::from_wire(header.producer_epoch),
+                base_sequence: u32::try_from(header.base_sequence).ok(),
+            }),
         })
     }
 }
