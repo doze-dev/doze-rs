@@ -4,7 +4,7 @@ use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
 use kafka_storage::fs::Fs;
-use kafka_storage::{Appended, PartitionLog, StorageError};
+use kafka_storage::{Appended, PartitionLog, Retention, StorageError};
 use kafka_wire::ResponseError;
 use kafka_wire::batch::{Batch, TimestampType};
 use kafka_wire::ids::{Offset, TimestampMs};
@@ -24,8 +24,19 @@ pub(super) enum Command {
     Append(Append),
     /// What the partition knows of its transactions and producers.
     Txns(oneshot::Sender<Result<TxnView, StorageError>>),
+    /// Move the start of the log up; answers the start now in force.
+    Trim(Trim, oneshot::Sender<Result<Offset, StorageError>>),
     /// Flush and close; answers whether that worked.
     Close(oneshot::Sender<bool>),
+}
+
+/// How the start of a log is moved up.
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum Trim {
+    /// Delete what retention no longer keeps, judged at `now`.
+    Retention(Retention, TimestampMs),
+    /// DeleteRecords: everything below the offset, or (`None`) everything.
+    Before(Option<Offset>),
 }
 
 /// What became of an append.
@@ -61,8 +72,6 @@ struct Memory {
     producers: Producers,
     /// The log's recent history has been read in.
     loaded: bool,
-    /// The log start the producers were last pruned for.
-    pruned_for: i64,
     /// The transactions the log holds, shared with the readers.
     txns: Arc<RwLock<TxnIndex>>,
 }
@@ -81,7 +90,6 @@ pub(super) async fn run<F: Fs>(
     let mut memory = Memory {
         producers: Producers::default(),
         loaded: false,
-        pruned_for: 0,
         txns,
     };
     loop {
@@ -152,6 +160,9 @@ fn work<F: Fs>(
             Command::Txns(reply) => {
                 let _ = reply.send(view(log, memory));
             }
+            Command::Trim(how, reply) => {
+                let _ = reply.send(trim(log, memory, how));
+            }
             Command::Close(done) => closing = Some(done),
         }
     }
@@ -189,10 +200,6 @@ fn append_one<F: Fs>(
     };
     if !memory.loaded {
         relearn(log, memory)?;
-    }
-    if memory.pruned_for != log.start_offset().get() {
-        memory.pruned_for = log.start_offset().get();
-        memory.producers.forget_below(memory.pruned_for);
     }
     let (id, epoch) = (producer.id.get(), producer.epoch.get());
     let last = last_of(first, a.batch.record_count());
@@ -232,6 +239,10 @@ fn relearn<F: Fs>(log: &PartitionLog<F>, memory: &mut Memory) -> Result<(), Stor
     for batch in log.reader().producer_history(HISTORY_BYTES)? {
         let Some(p) = batch.producer else { continue };
         let Some(first) = p.base_sequence.and_then(|s| i32::try_from(s).ok()) else {
+            // A marker: the producer is at least at its epoch (a fence raised it), and starts its sequences again.
+            memory
+                .producers
+                .marked(p.id.get(), p.epoch.get(), batch.max_timestamp.get());
             continue;
         };
         memory.producers.record(
@@ -252,4 +263,4 @@ fn relearn<F: Fs>(log: &PartitionLog<F>, memory: &mut Memory) -> Result<(), Stor
 
 mod transactions;
 pub(super) use transactions::{read_index, shared};
-use transactions::{view, write};
+use transactions::{trim, view, write};

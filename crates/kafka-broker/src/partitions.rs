@@ -20,7 +20,7 @@ use tokio::sync::{mpsc, oneshot};
 use crate::txn_index::{Aborted, TxnIndex};
 
 use actor::{Append, Command};
-pub(crate) use actor::{TxnView, Written};
+pub(crate) use actor::{Trim, TxnView, Written};
 pub(crate) use registry::Partitions;
 
 /// How many appends may wait for a partition's writer before the next sender waits.
@@ -92,8 +92,11 @@ impl<F: Fs> Partition<F> {
         // is written.
         let end = self.reader.end_offset();
         let index = self.txns.read().unwrap_or_else(PoisonError::into_inner);
+        // A log start moved past an open transaction's first offset (DeleteRecords) holds the last stable offset up to it.
+        let start = self.reader.start_offset().get();
         Stability {
-            last_stable: Offset::new(index.last_stable(end.get())).unwrap_or(Offset::ZERO),
+            last_stable: Offset::new(index.last_stable(end.get()).max(start))
+                .unwrap_or(Offset::ZERO),
             aborted: index.aborted_between(self.reader.start_offset().get(), end.get()),
         }
     }
@@ -106,6 +109,19 @@ impl<F: Fs> Partition<F> {
         let (reply, answer) = oneshot::channel();
         self.commands
             .send(Command::Txns(reply))
+            .await
+            .map_err(|_| gone())?;
+        answer.await.map_err(|_| gone())?
+    }
+
+    /// Moves the start of the log up, through the writer, so that it happens between appends. The start now in force.
+    ///
+    /// # Errors
+    /// The offset is past the end of the log, the partition is offline, a write failed, or the writer has gone.
+    pub(crate) async fn trim(&self, how: Trim) -> Result<Offset, StorageError> {
+        let (reply, answer) = oneshot::channel();
+        self.commands
+            .send(Command::Trim(how, reply))
             .await
             .map_err(|_| gone())?;
         answer.await.map_err(|_| gone())?

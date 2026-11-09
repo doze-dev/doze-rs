@@ -41,6 +41,7 @@ const SERVED: &[ApiKey] = &[
     ApiKey::DeleteGroups,
     ApiKey::ConsumerGroupHeartbeat,
     ApiKey::ConsumerGroupDescribe,
+    ApiKey::DeleteRecords,
     ApiKey::DescribeProducers,
     ApiKey::AddPartitionsToTxn,
     ApiKey::AddOffsetsToTxn,
@@ -197,6 +198,7 @@ impl<F: Fs> Broker<F> {
                     .await
             }
             Request::ConsumerGroupDescribe(r) => self.consumer_group_describe(&r).await,
+            Request::DeleteRecords(r) => self.delete_records(&r).await,
             Request::DescribeProducers(r) => self.describe_producers(&r).await,
             Request::InitProducerId(r) => respond(Response::InitProducerId(
                 self.init_producer_id(head.version, &r).await,
@@ -210,7 +212,6 @@ impl<F: Fs> Broker<F> {
             // Not served yet. Each moves out of this arm into a handler when its phase lands.
             Request::ApiVersions(_)
             | Request::SaslHandshake(_)
-            | Request::DeleteRecords(_)
             | Request::DescribeAcls(_)
             | Request::CreateAcls(_)
             | Request::DeleteAcls(_)

@@ -130,3 +130,57 @@ async fn a_transaction_is_not_ended_in_the_middle_of_a_produce_request_that_writ
         assert_eq!(got.last_stable_offset, got.high_watermark);
     }
 }
+
+/// The same, listing the partitions in the order opposite to the one they were added in, with the queue of the first one
+/// listed full: the end of the transaction could otherwise mark the second before the request has reached it. (This is the
+/// schedule on which a stale copy of the transaction, held in place of the lock, is told from the lock.)
+#[tokio::test]
+async fn a_transaction_is_not_ended_in_the_middle_of_a_produce_request_that_lists_its_partitions_the_other_way()
+ {
+    let rig = Arc::new(rig());
+    rig.create(vec![topic("t", 2)], false).await;
+    let t = rig.init_txn("tx", 60_000).await.unwrap();
+    assert!(
+        rig.add_partitions("tx", t, "t", &[0, 1])
+            .await
+            .iter()
+            .all(|c| *c == 0)
+    );
+    let mut others = Vec::new();
+    for _ in 0..40 {
+        let r = Arc::clone(&rig);
+        others.push(tokio::spawn(async move {
+            r.produce(1, "t", 1, records(1)).await;
+        }));
+    }
+    let r = Arc::clone(&rig);
+    let produce = tokio::spawn(async move { r.ask(9, Request::Produce(reversed(t))).await });
+    let r = Arc::clone(&rig);
+    let end = tokio::spawn(async move { r.end_txn("tx", t, true).await });
+    let Response::Produce(p) = produce.await.unwrap() else {
+        panic!("not Produce")
+    };
+    let codes: Vec<_> = p.responses[0]
+        .partition_responses
+        .iter()
+        .map(|r| r.error_code)
+        .collect();
+    let ended = end.await.unwrap();
+    for other in others {
+        other.await.unwrap();
+    }
+    for partition in 0..2 {
+        let got = rig.fetch_committed("t", partition, 0).await;
+        assert_eq!(
+            got.last_stable_offset, got.high_watermark,
+            "partition {partition}: codes {codes:?}, end {ended}"
+        );
+    }
+}
+
+/// A Produce of one transactional batch to each of partitions 1 and 0 of `t`, in that order.
+fn reversed(t: Txn) -> ProduceRequest {
+    let mut req = two_partitions(t);
+    req.topic_data[0].partition_data.reverse();
+    req
+}

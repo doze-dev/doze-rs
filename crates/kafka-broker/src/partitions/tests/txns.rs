@@ -188,3 +188,55 @@ async fn a_transactional_batch_is_not_visible_to_a_reader_before_the_index_knows
         }
     }
 }
+
+fn marker_at(producer: i64, epoch: i16, kind: Marker) -> Batch {
+    let bytes = kind.batch(
+        ProducerId::new(producer).unwrap(),
+        ProducerEpoch::from_wire(epoch),
+        0,
+        TimestampMs::from_wire(1),
+    );
+    Batch::parse(bytes).unwrap()
+}
+
+#[tokio::test]
+async fn the_epoch_a_marker_raised_is_still_the_producers_after_the_partition_is_opened_again() {
+    let (partitions, topic, meta, fs) = setup_full(|_| {}, 1);
+    let id = PartitionId::new(0).unwrap();
+    let p = partitions.get(&topic, id).await.unwrap();
+    append(&p, data(7, 0)).await;
+    // The broker aborted the transaction and fenced the producer: the marker carries epoch 3.
+    append(&p, marker_at(7, 3, Marker::Abort)).await;
+    let epoch = |view: TxnView| view.producers.iter().find(|x| x.0 == 7).map(|x| x.1);
+    assert_eq!(epoch(p.txns().await.unwrap()), Some(3));
+    drop(p);
+    let restarted = Partitions::new(
+        fs.process_restart(),
+        Config::new("/data".into()),
+        Default::default(),
+        meta,
+    );
+    let q = restarted.get(&topic, id).await.unwrap();
+    assert_eq!(
+        epoch(q.txns().await.unwrap()),
+        Some(3),
+        "read back from the log"
+    );
+}
+
+#[tokio::test]
+async fn a_start_moved_past_a_producers_batches_makes_the_partition_forget_it() {
+    let (partitions, topic, _meta, _fs) = setup_full(|_| {}, 1);
+    let p = partitions
+        .get(&topic, PartitionId::new(0).unwrap())
+        .await
+        .unwrap();
+    let plain =
+        |producer: i64| Batch::parse(BatchBuilder::new().producer(producer, 0, 0).build()).unwrap();
+    append(&p, plain(7)).await;
+    append(&p, plain(8)).await;
+    assert_eq!(p.txns().await.unwrap().producers.len(), 2);
+    // Everything goes (as DeleteRecords to the end does): nothing is left of either producer in the log.
+    p.trim(Trim::Before(None)).await.unwrap();
+    assert!(p.txns().await.unwrap().producers.is_empty());
+}

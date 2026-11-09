@@ -158,7 +158,7 @@ served_apis! {
     DescribeCluster(DescribeClusterRequest, DescribeClusterResponse) [NONE, NONE, v(0, 1), v(0, 2)];
     DescribeProducers(DescribeProducersRequest, DescribeProducersResponse) [NONE, NONE, v(0, 0), v(0, 0)];
     DescribeTransactions(DescribeTransactionsRequest, DescribeTransactionsResponse) [NONE, NONE, v(0, 0), v(0, 0)];
-    ListTransactions(ListTransactionsRequest, ListTransactionsResponse) [NONE, NONE, v(0, 0), v(0, 0)];
+    ListTransactions(ListTransactionsRequest, ListTransactionsResponse) [NONE, NONE, v(0, 1), v(0, 1)];
     ConsumerGroupHeartbeat(ConsumerGroupHeartbeatRequest, ConsumerGroupHeartbeatResponse) [NONE, NONE, NONE, v(0, 1)];
     ConsumerGroupDescribe(ConsumerGroupDescribeRequest, ConsumerGroupDescribeResponse) [NONE, NONE, NONE, v(0, 1)];
     GetTelemetrySubscriptions(GetTelemetrySubscriptionsRequest, GetTelemetrySubscriptionsResponse) [NONE, NONE, NONE, v(0, 0)], when Telemetry;

@@ -76,6 +76,7 @@ async fn a_client_on_a_socket_gets_its_answer() {
         ApiKey::ApiVersions,
         ApiKey::CreateTopics,
         ApiKey::DeleteTopics,
+        ApiKey::DeleteRecords,
         ApiKey::InitProducerId,
         ApiKey::AddPartitionsToTxn,
         ApiKey::AddOffsetsToTxn,

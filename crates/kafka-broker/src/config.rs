@@ -49,6 +49,8 @@ pub struct Config {
     /// How many partitions stay open at once (each holds files open): past it the least recently used are closed,
     /// and open again when asked for. Zero keeps every partition open once opened.
     pub max_open_partitions: usize,
+    /// How often every topic's retention is applied to its partitions (`log.retention.check.interval.ms`).
+    pub log_retention_check_every: Duration,
     /// How many files the open partitions may hold open between them (a partition holds two for each segment it has):
     /// past it the least recently used are closed, as past `max_open_partitions`. Zero: no bound of its own.
     pub max_open_descriptors: usize,
@@ -86,6 +88,7 @@ impl Config {
             default_partitions: 1,
             max_partitions: 1000,
             max_open_partitions: 512,
+            log_retention_check_every: Duration::from_secs(300),
             max_open_descriptors: 0,
             defaults: Defaults::default(),
             fsync_interval: Duration::from_millis(500),

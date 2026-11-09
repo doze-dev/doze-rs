@@ -9,6 +9,7 @@ mod error;
 mod groups;
 mod handlers;
 mod listener;
+mod logs;
 mod outcome;
 mod partitions;
 mod producers;

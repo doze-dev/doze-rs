@@ -10,6 +10,7 @@ use std::sync::{Arc, PoisonError, RwLock};
 use kafka_storage::fs::Fs;
 use kafka_storage::{Appended, LogReader, PartitionLog, StorageError};
 use kafka_wire::batch::{Batch, Marker};
+use kafka_wire::ids::Offset;
 
 use super::{Append, Memory, TxnView, relearn};
 use crate::txn_index::TxnIndex;
@@ -89,4 +90,26 @@ pub(super) fn view<F: Fs>(
 /// A new, shared index.
 pub(crate) fn shared(index: TxnIndex) -> Arc<RwLock<TxnIndex>> {
     Arc::new(RwLock::new(index))
+}
+
+/// Moves the start of the log up, and lets go of what the transaction index and the producers remembered below it.
+pub(super) fn trim<F: Fs>(
+    log: &mut PartitionLog<F>,
+    memory: &mut Memory,
+    how: super::Trim,
+) -> Result<Offset, StorageError> {
+    let start = match how {
+        super::Trim::Retention(policy, now) => {
+            log.enforce_retention(policy, now)?;
+            log.start_offset()
+        }
+        super::Trim::Before(to) => log.delete_before(to)?,
+    };
+    memory
+        .txns
+        .write()
+        .unwrap_or_else(PoisonError::into_inner)
+        .forget_before(start.get());
+    memory.producers.forget_below(start.get());
+    Ok(start)
 }

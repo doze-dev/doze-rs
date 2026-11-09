@@ -167,3 +167,23 @@ fn a_read_with_a_limit_just_ahead_does_not_ask_the_file_for_what_max_bytes_would
     // And the whole log is still read whole when nothing limits it.
     assert_eq!(r.read(offset(0), usize::MAX, None).unwrap(), whole);
 }
+
+#[test]
+fn a_small_answer_cut_from_a_large_read_is_copied_and_a_large_one_is_not() {
+    let (_fs, _dir, mut log) = fresh(NEVER);
+    for _ in 0..400 {
+        log.append(&[batch(50, 0)], NOW, TimestampType::Create)
+            .unwrap();
+    }
+    let r = log.reader();
+    super::super::read::COPIED.with(|c| c.set(0));
+    // One batch of a 50 MiB allowance read from a log that has plenty: the file is asked for a good deal more than it
+    // returns (the headroom and the batches to step over), and the answer is not left as a window on that.
+    let small = r.read(offset(500), 1, None).unwrap();
+    assert_eq!(bases(&small), [500]);
+    assert_eq!(super::super::read::COPIED.with(std::cell::Cell::get), 1);
+    // Most of what was read is what is returned: kept as it is.
+    let big = r.read(offset(0), 1 << 20, None).unwrap();
+    assert!(big.len() > 100 << 10);
+    assert_eq!(super::super::read::COPIED.with(std::cell::Cell::get), 1);
+}

@@ -150,11 +150,15 @@ async fn transactions_are_listed_by_state_producer_and_how_long_they_have_run() 
             .len(),
         2
     );
-    // Version 1: those that have run for longer than so many milliseconds are the open ones.
-    assert_eq!(listed(&rig, 1, &[], &[], 0).await, ["a:Ongoing"]);
+    // Version 1: those that have run for longer than so many milliseconds. A transaction that is not open counts as begun
+    // at -1 (Kafka's way), so it has run for ever; an open one has run for as long as it has.
+    assert_eq!(
+        listed(&rig, 1, &[], &[], 0).await,
+        ["a:Ongoing", "b:CompleteCommit"]
+    );
     assert_eq!(
         listed(&rig, 1, &[], &[], 3_600_000).await,
-        Vec::<String>::new()
+        ["b:CompleteCommit"]
     );
 }
 

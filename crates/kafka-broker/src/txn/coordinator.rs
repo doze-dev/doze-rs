@@ -65,9 +65,9 @@ impl<F: Fs> Broker<F> {
         }
         let step = rules::init(&e.rec, expected)?;
         let fresh = match step {
-            rules::Init::Again => return Ok((e.rec.producer_id, e.rec.epoch)),
             rules::Init::Rotate { .. } => Some(self.next_txn_producer_id()?),
-            rules::Init::Bump { .. } => None,
+            // Asked again: the same identity, and the id is made ready as for any InitProducerId.
+            rules::Init::Again | rules::Init::Bump { .. } => None,
         };
         self.update_txn(&mut e, |rec| {
             match (step, fresh) {
@@ -104,7 +104,6 @@ impl<F: Fs> Broker<F> {
     /// old producer tries next) carry the new one.
     pub(crate) async fn abort_fencing(&self, e: &mut Entry) -> Result<(), E> {
         self.update_txn(e, |rec| {
-            rec.last_epoch = rec.epoch;
             rec.epoch = rec.epoch.saturating_add(1);
             rec.state = TxnState::PrepareAbort;
         })

@@ -9,7 +9,7 @@ mod table;
 
 use std::collections::BTreeMap;
 
-use kafka_storage::LogConfig;
+use kafka_storage::{LogConfig, Retention};
 
 use crate::Defaults;
 use table::{Fallback, Kind, SETTINGS, Setting};
@@ -91,6 +91,23 @@ pub(crate) fn effective(defaults: &Defaults, own: &BTreeMap<String, String>) -> 
     all
 }
 
+/// How much of a partition the topic keeps: its own `retention.bytes` and `retention.ms` (a negative one is no bound), else the
+/// broker's.
+pub(crate) fn retention(defaults: &Defaults, own: &BTreeMap<String, String>) -> Retention {
+    let pick = |key: &str, default: i64| {
+        let n = own
+            .get(key)
+            .and_then(|v| v.parse::<i64>().ok())
+            .unwrap_or(default);
+        (n >= 0).then_some(n)
+    };
+    Retention {
+        max_bytes: pick("retention.bytes", defaults.retention_bytes)
+            .and_then(|n| u64::try_from(n).ok()),
+        max_age_ms: pick("retention.ms", defaults.retention_ms),
+    }
+}
+
 /// How a partition's log is sized: the topic's own `segment.bytes` and `index.interval.bytes`, else the broker's.
 pub(crate) fn log_config(defaults: &Defaults, own: &BTreeMap<String, String>) -> LogConfig {
     let pick = |key: &str, default: i64| {
@@ -159,3 +176,15 @@ fn one_of(v: &str, allowed: &[&str]) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests;
+
+/// Whether the topic only compacts: its policy names `compact` and not `delete`. Deleting records from such a topic is
+/// refused, and retention does not touch it.
+pub(crate) fn compacts_only(own: &BTreeMap<String, String>) -> bool {
+    own.get("cleanup.policy").is_some_and(|p| {
+        let kinds: Vec<_> = p
+            .split(',')
+            .map(|k| k.trim().to_ascii_lowercase())
+            .collect();
+        kinds.iter().any(|k| k == "compact") && !kinds.iter().any(|k| k == "delete")
+    })
+}

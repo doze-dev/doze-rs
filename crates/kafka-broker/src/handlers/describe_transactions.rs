@@ -80,10 +80,14 @@ impl<F: Fs> Broker<F> {
                     .producer_id_filters
                     .iter()
                     .any(|p| p.0 == e.rec.producer_id);
+            // (Kafka counts a transaction that is not open as begun at -1, so it has run for ever.)
+            let began = if e.rec.state.is_open() {
+                e.rec.started_ms
+            } else {
+                -1
+            };
             let long_enough = req.duration_filter < 0
-                || (e.rec.state.is_open()
-                    && crate::clock::now().get().saturating_sub(e.rec.started_ms)
-                        > req.duration_filter);
+                || crate::clock::now().get().saturating_sub(began) > req.duration_filter;
             if e.rec.producer_id < 0 || !wanted_state || !wanted_producer || !long_enough {
                 continue;
             }

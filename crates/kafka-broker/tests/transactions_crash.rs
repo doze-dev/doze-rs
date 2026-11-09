@@ -218,14 +218,31 @@ async fn one_operation_failing_anywhere_in_a_commit_is_survived() {
     let before = clean.fs.ops();
     assert_eq!(clean.end_txn("tx", t, true).await, 0);
     let steps = clean.fs.ops() - before;
-    for failure in [Failure::Full, Failure::Io] {
+    for (failure, power) in [
+        (Failure::Full, false),
+        (Failure::Io, false),
+        (Failure::Io, true),
+    ] {
         for nth in 1..=steps {
             let (rig, t) = open_transaction().await;
+            // (With a power cut, a flush that fails loses the pages it was to flush, as the kernel may: an answer of
+            // success then holds only if the marker was waited for until it was on disk.)
+            rig.fs.lose_pages_on_failed_fsync(power);
             rig.fs.fail_any(nth, failure);
             let answer = rig.end_txn("tx", t, true).await;
             rig.broker.check_transactions().await;
-            let what = format!("{failure:?} at {nth}/{steps}, EndTxn answered {answer}");
-            let after = restarted(rig.fs.process_restart()).await;
+            let what =
+                format!("{failure:?} at {nth}/{steps}, power {power}, EndTxn answered {answer}");
+            let disk = if power {
+                rig.fs.power_cut(Cut {
+                    data: DataCut::Drop,
+                    names: NameCut::Durable,
+                    seed: nth,
+                })
+            } else {
+                rig.fs.process_restart()
+            };
+            let after = restarted(disk.process_restart()).await;
             let state = seen(&after).await;
             assert!(
                 state == Seen::Open || state == Seen::Committed,
@@ -238,4 +255,32 @@ async fn one_operation_failing_anywhere_in_a_commit_is_survived() {
             assert_eq!(seen(&after).await, Seen::Committed, "{what}");
         }
     }
+}
+
+/// A decision stored and not carried out is a transaction that has not ended: the offsets it carries are still unstable.
+#[tokio::test]
+async fn offsets_of_a_decision_stored_and_not_carried_out_are_still_unstable() {
+    const UNSTABLE_OFFSET_COMMIT: i16 = 88;
+    let (clean, t) = open_transaction().await;
+    let before = clean.fs.ops();
+    assert_eq!(clean.end_txn("tx", t, true).await, 0);
+    let steps = clean.fs.ops() - before;
+    let mut reached = 0;
+    for stop in 0..=steps {
+        let (rig, t) = open_transaction().await;
+        rig.fs.halt_after(stop);
+        rig.end_txn("tx", t, true).await;
+        let after = open_on(rig.fs.process_restart());
+        if state_of(&after).await != "PrepareCommit" {
+            continue;
+        }
+        reached += 1;
+        let seen = after.fetch_as("g", None, "t", Some(&[0]), true).await;
+        assert_eq!(
+            seen.partitions,
+            [(0, UNSTABLE_OFFSET_COMMIT, -1)],
+            "stop {stop}"
+        );
+    }
+    assert!(reached > 0);
 }

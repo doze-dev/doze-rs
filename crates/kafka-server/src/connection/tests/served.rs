@@ -26,6 +26,7 @@ async fn api_versions_lists_only_what_the_broker_serves() {
         ApiKey::ApiVersions,
         ApiKey::CreateTopics,
         ApiKey::DeleteTopics,
+        ApiKey::DeleteRecords,
         ApiKey::InitProducerId,
         ApiKey::AddPartitionsToTxn,
         ApiKey::AddOffsetsToTxn,

@@ -6,6 +6,7 @@ mod consumer_group_describe;
 mod consumer_group_heartbeat;
 mod create_topics;
 mod delete_groups;
+mod delete_records;
 mod delete_topics;
 mod describe_groups;
 mod describe_producers;

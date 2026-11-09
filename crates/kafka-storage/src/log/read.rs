@@ -130,6 +130,8 @@ const LIMIT_SLACK: u64 = 64 << 10;
 thread_local! {
     /// The most a read on this thread has asked the file for in one go.
     pub(super) static BIGGEST_ASK: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+    /// How many answers on this thread were copied out of a larger buffer.
+    pub(super) static COPIED: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
 }
 
 /// A stretch of a segment read in one go. Headers are looked at in it, and the answer is cut out of it, without
@@ -234,6 +236,8 @@ fn read_segment<F: Fs>(
     match chunk.get(start, len) {
         // A small answer is not kept as a window on a large buffer: the caller would hold all of it.
         Some(inside) if inside.len().saturating_mul(8) < chunk.bytes.len() => {
+            #[cfg(test)]
+            COPIED.with(|c| c.set(c.get() + 1));
             Ok(Some(Bytes::copy_from_slice(&inside)))
         }
         Some(inside) => Ok(Some(inside)),

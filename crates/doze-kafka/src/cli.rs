@@ -58,6 +58,9 @@ pub(crate) struct Args {
     /// How long committed offsets are kept once their group has no members (0 = for ever).
     #[arg(long, default_value = "168h", value_parser = duration::parse)]
     offsets_retention: Duration,
+    /// How often the retention of every topic is applied to its partitions (must be above 0).
+    #[arg(long, default_value = "5m", value_parser = duration::parse)]
+    log_retention_check_interval: Duration,
     /// How long the first rebalance of an empty consumer group waits for more members to join (0 = not at all).
     #[arg(long, default_value = "200ms", value_parser = duration::parse)]
     group_initial_rebalance_delay: Duration,
@@ -140,6 +143,42 @@ impl Args {
                 self.kafka_version
             );
         };
+        self.check_numbers()?;
+        let none_is_zero = |n: i64| if n <= 0 { -1 } else { n };
+        let mut broker = BrokerConfig::new(self.data_dir.clone());
+        broker.auto_create_topics = self.auto_create_topics;
+        broker.default_partitions = self.default_partitions;
+        broker.max_partitions = self.max_partitions;
+        broker.fsync_interval = self.fsync_interval;
+        broker.group_initial_rebalance_delay = self.group_initial_rebalance_delay;
+        broker.consumer_session_timeout = self.consumer_session_timeout;
+        // A test knob no flag covers: the least time between two computations of a consumer group's assignment.
+        if let Some(v) = std::env::var_os("DOZE_KAFKA_TEST_ASSIGNMENT_INTERVAL") {
+            broker.consumer_assignment_interval = duration::parse(&v.to_string_lossy())
+                .map_err(|e| anyhow::anyhow!("DOZE_KAFKA_TEST_ASSIGNMENT_INTERVAL: {e}"))?;
+        }
+        broker.offsets_retention = self.offsets_retention;
+        broker.log_retention_check_every = self.log_retention_check_interval;
+        broker.max_open_partitions = self.max_open_partitions;
+        broker.defaults = Defaults {
+            segment_bytes: self.segment_bytes,
+            index_interval_bytes: self.index_interval_bytes,
+            message_max_bytes: self.message_max_bytes,
+            retention_bytes: none_is_zero(self.retention_bytes),
+            retention_ms: none_is_zero(self.retention_ms),
+        };
+        let server = ServerConfig {
+            listen: self.listen,
+            advertised_host: self.advertised_host.clone(),
+            advertised_port: self.advertised_port,
+            profile: Profile::new(major),
+            ..ServerConfig::default()
+        };
+        Ok(Settings { broker, server })
+    }
+
+    /// The sizes, counts and times that must be above zero.
+    fn check_numbers(&self) -> Result<()> {
         for (name, value) in [
             ("--segment-bytes", self.segment_bytes),
             ("--index-interval-bytes", self.index_interval_bytes),
@@ -159,42 +198,21 @@ impl Args {
                 self.max_partitions
             );
         }
-        if self.consumer_session_timeout.is_zero() {
-            bail!("--consumer-session-timeout must be above zero");
+        for (name, time) in [
+            ("--consumer-session-timeout", self.consumer_session_timeout),
+            (
+                "--log-retention-check-interval",
+                self.log_retention_check_interval,
+            ),
+        ] {
+            if time.is_zero() {
+                bail!("{name} must be above zero");
+            }
         }
         if self.worker_threads == 0 {
             bail!("--worker-threads must be at least 1");
         }
-        let none_is_zero = |n: i64| if n <= 0 { -1 } else { n };
-        let mut broker = BrokerConfig::new(self.data_dir.clone());
-        broker.auto_create_topics = self.auto_create_topics;
-        broker.default_partitions = self.default_partitions;
-        broker.max_partitions = self.max_partitions;
-        broker.fsync_interval = self.fsync_interval;
-        broker.group_initial_rebalance_delay = self.group_initial_rebalance_delay;
-        broker.consumer_session_timeout = self.consumer_session_timeout;
-        // A test knob no flag covers: the least time between two computations of a consumer group's assignment.
-        if let Some(v) = std::env::var_os("DOZE_KAFKA_TEST_ASSIGNMENT_INTERVAL") {
-            broker.consumer_assignment_interval = duration::parse(&v.to_string_lossy())
-                .map_err(|e| anyhow::anyhow!("DOZE_KAFKA_TEST_ASSIGNMENT_INTERVAL: {e}"))?;
-        }
-        broker.offsets_retention = self.offsets_retention;
-        broker.max_open_partitions = self.max_open_partitions;
-        broker.defaults = Defaults {
-            segment_bytes: self.segment_bytes,
-            index_interval_bytes: self.index_interval_bytes,
-            message_max_bytes: self.message_max_bytes,
-            retention_bytes: none_is_zero(self.retention_bytes),
-            retention_ms: none_is_zero(self.retention_ms),
-        };
-        let server = ServerConfig {
-            listen: self.listen,
-            advertised_host: self.advertised_host.clone(),
-            advertised_port: self.advertised_port,
-            profile: Profile::new(major),
-            ..ServerConfig::default()
-        };
-        Ok(Settings { broker, server })
+        Ok(())
     }
 
     /// The flags of later parts that were given a value and are being ignored, for a warning.

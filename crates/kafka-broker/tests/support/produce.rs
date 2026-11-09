@@ -95,3 +95,17 @@ pub fn stored(fs: &SimFs, topic: &str, partition: i32) -> Vec<Bytes> {
     }
     out
 }
+
+/// A batch of records with these keys and values (`None`: no value, a tombstone), timestamped at 1,000.
+pub fn keyed(pairs: &[(&str, Option<&str>)]) -> Bytes {
+    use kafka_wire::batch::build::Rec;
+    let recs: Vec<Rec> = pairs
+        .iter()
+        .map(|(k, v)| Rec {
+            key: Some(k.as_bytes().to_vec()),
+            value: v.map(|v| v.as_bytes().to_vec()),
+            ..Rec::default()
+        })
+        .collect();
+    BatchBuilder::from_records(1_000, &recs).build()
+}
