@@ -220,3 +220,58 @@ fn a_batch_that_was_written_is_never_written_again() {
         }
     }
 }
+
+#[test]
+fn a_marker_raises_the_producers_epoch_and_its_sequences_start_again() {
+    let mut p = Producers::default();
+    write(&mut p, 7, 0, 0, 3, 10);
+    p.marked(7, 2, NOW);
+    assert_eq!(p.snapshot()[0].1, 2, "the epoch the marker carried");
+    assert_eq!(
+        p.check(7, 1, 3, 3),
+        Verdict::Fenced,
+        "the old epoch is refused"
+    );
+    assert_eq!(
+        p.check(7, 2, 5, 5),
+        Verdict::OutOfOrder,
+        "a new epoch starts at 0"
+    );
+    assert_eq!(p.check(7, 2, 0, 0), Verdict::Accept);
+    // A marker at an epoch the producer is already at, or below, changes nothing.
+    write(&mut p, 7, 2, 0, 1, 20);
+    p.marked(7, 1, NOW);
+    p.marked(7, 2, NOW);
+    assert_eq!(p.check(7, 2, 1, 1), Verdict::Accept);
+    assert_eq!(
+        p.check(7, 2, 0, 0),
+        Verdict::Duplicate {
+            offset: 20,
+            timestamp: 520
+        }
+    );
+    // A producer never seen is known by its marker.
+    p.marked(9, 4, NOW);
+    assert_eq!(p.check(9, 3, 0, 0), Verdict::Fenced);
+}
+
+#[test]
+fn a_producer_whose_batches_are_all_below_the_log_start_is_forgotten() {
+    let mut p = Producers::default();
+    write(&mut p, 7, 0, 0, 3, 10);
+    write(&mut p, 8, 0, 0, 3, 40);
+    p.marked(9, 1, NOW);
+    p.forget_below(30);
+    let mut left: Vec<i64> = p.snapshot().iter().map(|s| s.0).collect();
+    left.sort_unstable();
+    // 7 has nothing left in the log, so any sequence of it is a fresh start; 8 and the marker-only 9 are kept.
+    assert_eq!(left, [8, 9]);
+    assert_eq!(p.check(7, 0, 50, 50), Verdict::Accept);
+    assert_eq!(
+        p.check(8, 0, 0, 2),
+        Verdict::Duplicate {
+            offset: 40,
+            timestamp: 540
+        }
+    );
+}

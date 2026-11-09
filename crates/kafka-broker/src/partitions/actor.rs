@@ -61,6 +61,8 @@ struct Memory {
     producers: Producers,
     /// The log's recent history has been read in.
     loaded: bool,
+    /// The log start the producers were last pruned for.
+    pruned_for: i64,
     /// The transactions the log holds, shared with the readers.
     txns: Arc<RwLock<TxnIndex>>,
 }
@@ -79,6 +81,7 @@ pub(super) async fn run<F: Fs>(
     let mut memory = Memory {
         producers: Producers::default(),
         loaded: false,
+        pruned_for: 0,
         txns,
     };
     loop {
@@ -173,12 +176,23 @@ fn append_one<F: Fs>(
     let Some(producer) = a.batch.producer() else {
         return write(log, memory, a).map(Written::Appended);
     };
-    // A batch with a producer and no sequence is a transaction marker: it is not sequenced.
+    // A batch with a producer and no sequence is a transaction marker: it is not sequenced, but it raises the producer's epoch.
     let Some(first) = producer.base_sequence.and_then(|s| i32::try_from(s).ok()) else {
-        return write(log, memory, a).map(Written::Appended);
+        let appended = write(log, memory, a)?;
+        if !memory.loaded {
+            relearn(log, memory)?;
+        }
+        memory
+            .producers
+            .marked(producer.id.get(), producer.epoch.get(), a.now.get());
+        return Ok(Written::Appended(appended));
     };
     if !memory.loaded {
         relearn(log, memory)?;
+    }
+    if memory.pruned_for != log.start_offset().get() {
+        memory.pruned_for = log.start_offset().get();
+        memory.producers.forget_below(memory.pruned_for);
     }
     let (id, epoch) = (producer.id.get(), producer.epoch.get());
     let last = last_of(first, a.batch.record_count());

@@ -100,7 +100,12 @@ impl Producers {
             };
         }
         let Some(newest) = p.recent.back() else {
-            return Verdict::Accept;
+            // Only a marker has been written for it at this epoch: its sequences start at 0.
+            return if first == 0 {
+                Verdict::Accept
+            } else {
+                Verdict::OutOfOrder
+            };
         };
         if first == next(newest.last) {
             return Verdict::Accept;
@@ -188,6 +193,31 @@ impl Producers {
                 )
             })
             .collect()
+    }
+
+    /// A transaction marker for `id` was written at `epoch`: the producer is at least that epoch, and its sequences start
+    /// again (Kafka's state is bumped by a marker, so a producer that has been fenced is refused here too).
+    pub(crate) fn marked(&mut self, id: i64, epoch: i16, now_ms: i64) {
+        match self.by_id.get_mut(&id) {
+            Some(p) if p.epoch >= epoch => p.last_used_ms = now_ms,
+            _ => {
+                self.by_id.insert(
+                    id,
+                    Producer {
+                        epoch,
+                        recent: VecDeque::new(),
+                        last_used_ms: now_ms,
+                    },
+                );
+            }
+        }
+    }
+
+    /// The log's start moved up to `start`: a producer whose newest remembered batch is below it has nothing left in the
+    /// log (Kafka drops such a producer's state with its batches), and starts afresh when it writes again.
+    pub(crate) fn forget_below(&mut self, start: i64) {
+        self.by_id
+            .retain(|_, p| p.recent.back().is_none_or(|s| s.base_offset >= start));
     }
 
     /// How many producers are remembered.

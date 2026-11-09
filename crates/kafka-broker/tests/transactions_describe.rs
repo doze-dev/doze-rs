@@ -193,3 +193,29 @@ async fn the_producers_of_a_partition_are_listed_with_where_their_open_transacti
     let after = ask(vec![0]).await;
     assert_eq!(after[0].active_producers[0].current_txn_start_offset, -1);
 }
+
+#[tokio::test]
+async fn a_fenced_producers_epoch_is_raised_on_the_partition_by_the_marker_that_aborted_it() {
+    let (rig, a, _) = two_transactions().await;
+    // A new owner of "a" aborts what the old one left, with markers at the next epoch.
+    let new = rig.init_txn("a", 60_000).await.unwrap();
+    // (The abort raises the epoch once, for its markers; taking the id over raises it again.)
+    assert_eq!(new.epoch, a.epoch + 2);
+    let mut t = TopicRequest::default();
+    t.name = wire_name("t");
+    t.partition_indexes = vec![0];
+    let mut req = DescribeProducersRequest::default();
+    req.topics.push(t);
+    let Response::DescribeProducers(r) = rig.ask(0, Request::DescribeProducers(req)).await else {
+        panic!("not DescribeProducers")
+    };
+    let producer = &r.topics[0].partitions[0].active_producers[0];
+    assert_eq!(
+        (
+            producer.producer_id.0,
+            producer.producer_epoch,
+            producer.current_txn_start_offset
+        ),
+        (a.producer, i32::from(a.epoch + 1), -1)
+    );
+}
