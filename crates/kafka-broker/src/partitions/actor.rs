@@ -275,10 +275,13 @@ fn relearn<F: Fs>(log: &PartitionLog<F>, memory: &mut Memory) -> Result<(), Stor
     for batch in log.reader().producer_history(HISTORY_BYTES)? {
         let Some(p) = batch.producer else { continue };
         let Some(first) = p.base_sequence.and_then(|s| i32::try_from(s).ok()) else {
-            // A marker: the producer is at least at its epoch (a fence raised it), and starts its sequences again.
-            memory
-                .producers
-                .marked(p.id.get(), p.epoch.get(), batch.max_timestamp.get());
+            // A marker: the producer is at least at its epoch (a fence raised it), and starts its sequences again. If it is
+            // all that is left of the producer, the sequences it ended are not known.
+            memory.producers.marked_in_history(
+                p.id.get(),
+                p.epoch.get(),
+                batch.max_timestamp.get(),
+            );
             continue;
         };
         memory.producers.record(

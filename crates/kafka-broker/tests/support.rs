@@ -232,6 +232,8 @@ pub fn rig_with(tweak: impl FnOnce(&mut Config)) -> Rig {
 }
 
 // (Explicit paths: this file is a test target of its own as well as a module of the others.)
+#[path = "support/compact.rs"]
+mod compact;
 #[path = "support/configs.rs"]
 mod configs;
 #[path = "support/consumer.rs"]
@@ -251,6 +253,7 @@ mod produce;
 #[path = "support/txn.rs"]
 mod txn;
 
+pub use compact::{clean_rounds, compacted, consume, delete_records, from, txn_produce};
 pub use configs::{BROKER, Op, TOPIC as TOPIC_RESOURCE};
 pub use consumer::{assigned as assigned_848, beat_848, join_848};
 pub use fetch::*;

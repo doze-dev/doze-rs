@@ -295,3 +295,32 @@ fn compaction_is_told_where_each_producers_newest_batch_ends_and_the_epoch_it_la
     assert_eq!(of(9).data_last_offset, None, "a marker is not data");
     assert_eq!(of(9).marker_epoch, 5);
 }
+
+#[test]
+fn a_marker_read_back_with_nothing_before_it_leaves_the_sequences_open_until_a_marker_raises_the_epoch()
+ {
+    let mut p = Producers::default();
+    // The batches the marker ended are gone from the log: the producer goes on at its epoch from wherever it is.
+    p.marked_in_history(7, 3, NOW);
+    assert_eq!(p.check(7, 2, 0, 0), Verdict::Fenced, "the epoch is known");
+    assert_eq!(p.check(7, 3, 5, 5), Verdict::Accept);
+    assert_eq!(
+        p.check(7, 4, 5, 5),
+        Verdict::OutOfOrder,
+        "a higher epoch starts at 0"
+    );
+    // A marker found after data of the producer ended it: the data tells the sequence, the marker changes nothing.
+    write(&mut p, 8, 3, 0, 2, 10);
+    p.marked_in_history(8, 3, NOW);
+    assert_eq!(p.check(8, 3, 2, 2), Verdict::Accept);
+    assert_eq!(p.check(8, 3, 9, 9), Verdict::OutOfOrder);
+    // A marker that raised the epoch above data read back starts the sequences at 0.
+    p.marked_in_history(8, 4, NOW);
+    assert_eq!(p.check(8, 4, 2, 2), Verdict::OutOfOrder);
+    assert_eq!(p.check(8, 4, 0, 0), Verdict::Accept);
+    // Likewise a later marker over an open start, and one the broker wrote itself, is not a loss of sequences.
+    p.marked_in_history(7, 5, NOW);
+    assert_eq!(p.check(7, 5, 8, 8), Verdict::OutOfOrder);
+    p.marked(9, 3, NOW);
+    assert_eq!(p.check(9, 3, 4, 4), Verdict::OutOfOrder);
+}

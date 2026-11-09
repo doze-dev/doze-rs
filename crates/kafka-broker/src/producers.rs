@@ -35,6 +35,10 @@ struct Producer {
     /// Ascending by sequence; the newest last.
     recent: VecDeque<Seen>,
     last_used_ms: i64,
+    /// Only a marker of this epoch is known, found in the log when the partition was opened: the batches it ended were
+    /// not read back (retention or DeleteRecords took them, or they are older than the tail that is read), so where the
+    /// producer's sequences stand is not known and its next batch is its baseline.
+    sequences_lost: bool,
 }
 
 /// What a batch is to be done with.
@@ -100,8 +104,10 @@ impl Producers {
             };
         }
         let Some(newest) = p.recent.back() else {
-            // Only a marker has been written for it at this epoch: its sequences start at 0.
-            return if first == 0 {
+            // Only a marker is known at this epoch. If it raised the epoch, the sequences start at 0; if it was found in a
+            // log whose batches are gone, they are not known, as for a producer never seen (Kafka's `checkSequence`: "accept
+            // writes with any sequence number" of a producer whose records retention or DeleteRecords deleted).
+            return if first == 0 || p.sequences_lost {
                 Verdict::Accept
             } else {
                 Verdict::OutOfOrder
@@ -140,6 +146,7 @@ impl Producers {
                     epoch,
                     recent: VecDeque::new(),
                     last_used_ms: now_ms,
+                    sequences_lost: false,
                 })
                 .into_mut(),
         };
@@ -198,15 +205,28 @@ impl Producers {
     /// A transaction marker for `id` was written at `epoch`: the producer is at least that epoch, and its sequences start
     /// again (Kafka's state is bumped by a marker, so a producer that has been fenced is refused here too).
     pub(crate) fn marked(&mut self, id: i64, epoch: i16, now_ms: i64) {
+        self.mark(id, epoch, now_ms, false);
+    }
+
+    /// As [`Producers::marked`], for a marker read back from the log when the partition was opened: if it is the first
+    /// thing known of the producer, the batches it ended may be gone from the log, so its sequences are not known.
+    pub(crate) fn marked_in_history(&mut self, id: i64, epoch: i16, now_ms: i64) {
+        self.mark(id, epoch, now_ms, true);
+    }
+
+    fn mark(&mut self, id: i64, epoch: i16, now_ms: i64, from_history: bool) {
         match self.by_id.get_mut(&id) {
             Some(p) if p.epoch >= epoch => p.last_used_ms = now_ms,
-            _ => {
+            known => {
+                // A marker above the epoch known raised it: that is a new session, which starts at 0.
+                let first_of_it = known.is_none();
                 self.by_id.insert(
                     id,
                     Producer {
                         epoch,
                         recent: VecDeque::new(),
                         last_used_ms: now_ms,
+                        sequences_lost: from_history && first_of_it,
                     },
                 );
             }
