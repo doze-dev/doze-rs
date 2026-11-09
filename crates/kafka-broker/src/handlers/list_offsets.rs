@@ -1,15 +1,17 @@
 //! ListOffsets.
 
 use kafka_meta::Topic;
+use kafka_storage::StorageError;
 use kafka_storage::fs::Fs;
 use kafka_wire::ResponseError;
-use kafka_wire::ids::{PartitionId, TimestampMs, TopicName};
+use kafka_wire::ids::{Offset, PartitionId, TimestampMs, TopicName};
 use kafka_wire::messages::list_offsets_request::ListOffsetsPartition;
 use kafka_wire::messages::list_offsets_response::{
     ListOffsetsPartitionResponse, ListOffsetsTopicResponse,
 };
 use kafka_wire::messages::{ListOffsetsRequest, ListOffsetsResponse};
 
+use crate::partitions::Partition;
 use crate::{Broker, blocking};
 
 const LATEST: i64 = -1;
@@ -99,33 +101,7 @@ impl<F: Fs> Broker<F> {
                 return refuse(r, ResponseError::KafkaStorageError);
             }
         };
-        let reader = partition.reader();
-        let found = match p.timestamp {
-            // Under read-committed the last stable offset is what a consumer may read, and with no transactions
-            // yet that is the end.
-            LATEST if isolation == 1 => Ok(Some((partition.stability().last_stable, None))),
-            LATEST => Ok(Some((reader.end_offset(), None))),
-            EARLIEST => Ok(Some((reader.start_offset(), None))),
-            MAX_TIMESTAMP => blocking::run(|| reader.offset_of_max_timestamp())
-                .map(|f| f.map(|(o, t)| (o, Some(t)))),
-            ts => blocking::run(|| reader.offset_for_timestamp(TimestampMs::from_wire(ts)))
-                .map(|f| f.map(|(o, t)| (o, Some(t)))),
-        };
-        // Under read-committed a lookup by time (or for the newest record) that lands at or past the last stable offset
-        // has found nothing a consumer may read: Kafka answers that as not found.
-        let found = match found {
-            Ok(Some((offset, _)))
-                if isolation == 1 && !matches!(p.timestamp, LATEST | EARLIEST) =>
-            {
-                if offset.get() >= partition.stability().last_stable.get() {
-                    Ok(None)
-                } else {
-                    found
-                }
-            }
-            other => other,
-        };
-        match found {
+        match lookup(&partition, p.timestamp, isolation) {
             Ok(Some((offset, time))) => {
                 r.offset = offset.get();
                 r.timestamp = time.map_or(-1, TimestampMs::get);
@@ -139,5 +115,39 @@ impl<F: Fs> Broker<F> {
             }
         }
         r
+    }
+}
+
+/// What the partition has for the time asked (`LATEST`, `EARLIEST`, the newest record, or a time): the offset, and the
+/// time of the record if there is one.
+fn lookup<F: Fs>(
+    partition: &Partition<F>,
+    timestamp: i64,
+    isolation: i8,
+) -> Result<Option<(Offset, Option<TimestampMs>)>, StorageError> {
+    let reader = partition.reader();
+    let found = match timestamp {
+        // Under read-committed the last stable offset is what a consumer may read, and with no transactions yet that is
+        // the end.
+        LATEST if isolation == 1 => Ok(Some((partition.stability().last_stable, None))),
+        LATEST => Ok(Some((reader.end_offset(), None))),
+        EARLIEST => Ok(Some((reader.start_offset(), None))),
+        MAX_TIMESTAMP => {
+            blocking::run(|| reader.offset_of_max_timestamp()).map(|f| f.map(|(o, t)| (o, Some(t))))
+        }
+        ts => blocking::run(|| reader.offset_for_timestamp(TimestampMs::from_wire(ts)))
+            .map(|f| f.map(|(o, t)| (o, Some(t)))),
+    };
+    // Under read-committed a lookup by time (or for the newest record) that lands at or past the last stable offset has
+    // found nothing a consumer may read: Kafka answers that as not found.
+    match found {
+        Ok(Some((offset, _)))
+            if isolation == 1
+                && !matches!(timestamp, LATEST | EARLIEST)
+                && offset.get() >= partition.stability().last_stable.get() =>
+        {
+            Ok(None)
+        }
+        other => other,
     }
 }
