@@ -1,0 +1,512 @@
+{
+  "_recorded": {
+    "boto3": "1.43.107",
+    "botocore": "1.43.107",
+    "on": "2026-11-09",
+    "region": "us-east-1",
+    "target": "aws"
+  },
+  "test_aliases": {
+    "create": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "create-twice": {
+      "Error": {
+        "Code": "AlreadyExistsException",
+        "Message": "An alias with the name arn:aws:kms:us-east-1:<account>:alias/<name:alias> already exists"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "delete": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "delete-again": {
+      "Error": {
+        "Code": "NotFoundException",
+        "Message": "Alias arn:aws:kms:us-east-1:<account>:alias/<name:alias> is not found."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "describe-through-alias": {
+      "KeyMetadata": {
+        "AWSAccountId": "<account>",
+        "Arn": "arn:aws:kms:us-east-1:<account>:key/<uuid:1>",
+        "CreationDate": "<datetime>",
+        "CurrentKeyMaterialId": "2487a979ada2c16ea16ef08e5546388daac917a38a4aaef7ac4bbb815928c089",
+        "CustomerMasterKeySpec": "SYMMETRIC_DEFAULT",
+        "Description": "",
+        "Enabled": true,
+        "EncryptionAlgorithms": [
+          "SYMMETRIC_DEFAULT"
+        ],
+        "KeyId": "<uuid:1>",
+        "KeyManager": "CUSTOMER",
+        "KeySpec": "SYMMETRIC_DEFAULT",
+        "KeyState": "Enabled",
+        "KeyUsage": "ENCRYPT_DECRYPT",
+        "MultiRegion": false,
+        "Origin": "AWS_KMS"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "encrypt-through-alias": {
+      "CiphertextBlob": "<CiphertextBlob:1>",
+      "EncryptionAlgorithm": "SYMMETRIC_DEFAULT",
+      "KeyId": "arn:aws:kms:us-east-1:<account>:key/<uuid:1>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "list-for-key": {
+      "Aliases": [
+        {
+          "AliasArn": "arn:aws:kms:us-east-1:<account>:alias/<name:alias>",
+          "AliasName": "alias/<name:alias>",
+          "CreationDate": "<datetime>",
+          "LastUpdatedDate": "<datetime>",
+          "TargetKeyId": "<uuid:1>"
+        }
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Truncated": false
+    },
+    "no-alias-prefix": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "Alias must start with the prefix \"alias/\". Please see https://docs.aws.amazon.com/kms/latest/developerguide/kms-alias.html"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "reserved-prefix": {
+      "Error": {
+        "Code": "AccessDeniedException",
+        "Message": "User: arn:aws:sts::<account>:assumed-role/AWSReservedSSO_doze-recorder-limited_831b2805e46e339c/srini.icloud is not authorized to perform: kms:CreateAlias on resource: arn:aws:kms:us-east-1:<account>:alias/aws/mine because no identity-based policy allows the kms:CreateAlias action. Go to https://us-east-1.console.aws.amazon.com/iam/home?region=us-east-1#/authorization-details/a8vw6ig59scsjgq23tgjhiv6u for complete details, or call the GetRequestAuthorizationDetails API with the following authorization id: a8vw6ig59scsjgq23tgjhiv6u"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_asymmetric_sign_and_hmac": {
+    "create-signer": {
+      "KeyMetadata": {
+        "AWSAccountId": "<account>",
+        "Arn": "arn:aws:kms:us-east-1:<account>:key/<uuid:1>",
+        "CreationDate": "<datetime>",
+        "CustomerMasterKeySpec": "ECC_NIST_P256",
+        "Description": "",
+        "Enabled": true,
+        "KeyId": "<uuid:1>",
+        "KeyManager": "CUSTOMER",
+        "KeySpec": "ECC_NIST_P256",
+        "KeyState": "Enabled",
+        "KeyUsage": "SIGN_VERIFY",
+        "MultiRegion": false,
+        "Origin": "AWS_KMS",
+        "SigningAlgorithms": [
+          "ECDSA_SHA_256"
+        ]
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "encrypt-with-a-signing-key": {
+      "Error": {
+        "Code": "InvalidKeyUsageException",
+        "Message": "arn:aws:kms:us-east-1:<account>:key/<uuid:1> key usage is SIGN_VERIFY which is not valid for Encrypt."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "mac": {
+      "KeyId": "arn:aws:kms:us-east-1:<account>:key/<uuid:2>",
+      "Mac": "<Mac:1>",
+      "MacAlgorithm": "HMAC_SHA_256",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "public-key": {
+      "CustomerMasterKeySpec": "ECC_NIST_P256",
+      "KeyId": "arn:aws:kms:us-east-1:<account>:key/<uuid:1>",
+      "KeySpec": "ECC_NIST_P256",
+      "KeyUsage": "SIGN_VERIFY",
+      "PublicKey": "<PublicKey:1>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "SigningAlgorithms": [
+        "ECDSA_SHA_256"
+      ]
+    },
+    "sign": {
+      "KeyId": "arn:aws:kms:us-east-1:<account>:key/<uuid:1>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Signature": "<Signature:1>",
+      "SigningAlgorithm": "ECDSA_SHA_256"
+    },
+    "verify": {
+      "KeyId": "arn:aws:kms:us-east-1:<account>:key/<uuid:1>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "SignatureValid": true,
+      "SigningAlgorithm": "ECDSA_SHA_256"
+    },
+    "verify-mac": {
+      "KeyId": "arn:aws:kms:us-east-1:<account>:key/<uuid:2>",
+      "MacAlgorithm": "HMAC_SHA_256",
+      "MacValid": true,
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "verify-tampered": {
+      "Error": {
+        "Code": "KMSInvalidSignatureException",
+        "Message": ""
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_key_states": {
+    "after-cancel": {
+      "KeyMetadata": {
+        "AWSAccountId": "<account>",
+        "Arn": "arn:aws:kms:us-east-1:<account>:key/<uuid:1>",
+        "CreationDate": "<datetime>",
+        "CurrentKeyMaterialId": "7dad629431c6980e8f05d0f0b368cfd069007ef8ea637bb855181791c09748f1",
+        "CustomerMasterKeySpec": "SYMMETRIC_DEFAULT",
+        "Description": "",
+        "Enabled": false,
+        "EncryptionAlgorithms": [
+          "SYMMETRIC_DEFAULT"
+        ],
+        "KeyId": "<uuid:1>",
+        "KeyManager": "CUSTOMER",
+        "KeySpec": "SYMMETRIC_DEFAULT",
+        "KeyState": "Disabled",
+        "KeyUsage": "ENCRYPT_DECRYPT",
+        "MultiRegion": false,
+        "Origin": "AWS_KMS"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "cancel": {
+      "KeyId": "arn:aws:kms:us-east-1:<account>:key/<uuid:1>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "disable": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "disabled": {
+      "KeyMetadata": {
+        "AWSAccountId": "<account>",
+        "Arn": "arn:aws:kms:us-east-1:<account>:key/<uuid:1>",
+        "CreationDate": "<datetime>",
+        "CurrentKeyMaterialId": "7dad629431c6980e8f05d0f0b368cfd069007ef8ea637bb855181791c09748f1",
+        "CustomerMasterKeySpec": "SYMMETRIC_DEFAULT",
+        "Description": "",
+        "Enabled": false,
+        "EncryptionAlgorithms": [
+          "SYMMETRIC_DEFAULT"
+        ],
+        "KeyId": "<uuid:1>",
+        "KeyManager": "CUSTOMER",
+        "KeySpec": "SYMMETRIC_DEFAULT",
+        "KeyState": "Disabled",
+        "KeyUsage": "ENCRYPT_DECRYPT",
+        "MultiRegion": false,
+        "Origin": "AWS_KMS"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "enable": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "encrypt-while-disabled": {
+      "Error": {
+        "Code": "DisabledException",
+        "Message": "arn:aws:kms:us-east-1:<account>:key/<uuid:1> is disabled."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "encrypt-while-pending": {
+      "Error": {
+        "Code": "KMSInvalidStateException",
+        "Message": "arn:aws:kms:us-east-1:<account>:key/<uuid:1> is pending deletion."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "pending": {
+      "KeyMetadata": {
+        "AWSAccountId": "<account>",
+        "Arn": "arn:aws:kms:us-east-1:<account>:key/<uuid:1>",
+        "CreationDate": "<datetime>",
+        "CurrentKeyMaterialId": "7dad629431c6980e8f05d0f0b368cfd069007ef8ea637bb855181791c09748f1",
+        "CustomerMasterKeySpec": "SYMMETRIC_DEFAULT",
+        "DeletionDate": "<datetime>",
+        "Description": "",
+        "Enabled": false,
+        "EncryptionAlgorithms": [
+          "SYMMETRIC_DEFAULT"
+        ],
+        "KeyId": "<uuid:1>",
+        "KeyManager": "CUSTOMER",
+        "KeySpec": "SYMMETRIC_DEFAULT",
+        "KeyState": "PendingDeletion",
+        "KeyUsage": "ENCRYPT_DECRYPT",
+        "MultiRegion": false,
+        "Origin": "AWS_KMS"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "schedule": {
+      "DeletionDate": "<datetime>",
+      "KeyId": "arn:aws:kms:us-east-1:<account>:key/<uuid:1>",
+      "KeyState": "PendingDeletion",
+      "PendingWindowInDays": 7,
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    }
+  },
+  "test_refusals": {
+    "absent-alias": {
+      "Error": {
+        "Code": "NotFoundException",
+        "Message": "Alias arn:aws:kms:us-east-1:<account>:alias/dzc-never-made is not found."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "bad-spec-for-usage": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "KeyUsage ENCRYPT_DECRYPT is not compatible with KeySpec HMAC_256"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "decrypt-garbage": {
+      "Error": {
+        "Code": "InvalidCiphertextException",
+        "Message": ""
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "describe-absent": {
+      "Error": {
+        "Code": "NotFoundException",
+        "Message": "Key 'arn:aws:kms:us-east-1:<account>:key/<uuid:1>' does not exist"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "encrypt-absent": {
+      "Error": {
+        "Code": "NotFoundException",
+        "Message": "Key 'arn:aws:kms:us-east-1:<account>:key/<uuid:1>' does not exist"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "sign-with-an-encryption-key": {
+      "Error": {
+        "Code": "InvalidKeyUsageException",
+        "Message": "arn:aws:kms:us-east-1:<account>:key/<uuid:2> key usage is ENCRYPT_DECRYPT which is not valid for Sign."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "window-too-short": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "PendingWindowInDays must be between 7 and 30"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_symmetric_key_encrypts_and_decrypts": {
+    "create": {
+      "KeyMetadata": {
+        "AWSAccountId": "<account>",
+        "Arn": "arn:aws:kms:us-east-1:<account>:key/<uuid:1>",
+        "CreationDate": "<datetime>",
+        "CurrentKeyMaterialId": "b1d1b40e1e3dc3a1046af9bc273e00069cdba4d6b3f0c0ca5c06c1737852c8fb",
+        "CustomerMasterKeySpec": "SYMMETRIC_DEFAULT",
+        "Description": "conformance",
+        "Enabled": true,
+        "EncryptionAlgorithms": [
+          "SYMMETRIC_DEFAULT"
+        ],
+        "KeyId": "<uuid:1>",
+        "KeyManager": "CUSTOMER",
+        "KeySpec": "SYMMETRIC_DEFAULT",
+        "KeyState": "Enabled",
+        "KeyUsage": "ENCRYPT_DECRYPT",
+        "MultiRegion": false,
+        "Origin": "AWS_KMS"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "data-key": {
+      "CiphertextBlob": "<CiphertextBlob:2>",
+      "KeyId": "arn:aws:kms:us-east-1:<account>:key/<uuid:1>",
+      "KeyMaterialId": "b1d1b40e1e3dc3a1046af9bc273e00069cdba4d6b3f0c0ca5c06c1737852c8fb",
+      "Plaintext": "<Plaintext:1>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "data-key-opens": {
+      "EncryptionAlgorithm": "SYMMETRIC_DEFAULT",
+      "KeyId": "arn:aws:kms:us-east-1:<account>:key/<uuid:1>",
+      "KeyMaterialId": "b1d1b40e1e3dc3a1046af9bc273e00069cdba4d6b3f0c0ca5c06c1737852c8fb",
+      "Plaintext": "<Plaintext:1>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "decrypt": {
+      "EncryptionAlgorithm": "SYMMETRIC_DEFAULT",
+      "KeyId": "arn:aws:kms:us-east-1:<account>:key/<uuid:1>",
+      "KeyMaterialId": "b1d1b40e1e3dc3a1046af9bc273e00069cdba4d6b3f0c0ca5c06c1737852c8fb",
+      "Plaintext": {
+        "<bytes>": "attack at dawn"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "decrypt-with-context": {
+      "EncryptionAlgorithm": "SYMMETRIC_DEFAULT",
+      "KeyId": "arn:aws:kms:us-east-1:<account>:key/<uuid:1>",
+      "KeyMaterialId": "b1d1b40e1e3dc3a1046af9bc273e00069cdba4d6b3f0c0ca5c06c1737852c8fb",
+      "Plaintext": {
+        "<bytes>": "x"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "decrypt-without-context": {
+      "Error": {
+        "Code": "InvalidCiphertextException",
+        "Message": ""
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "decrypt-wrong-context": {
+      "Error": {
+        "Code": "InvalidCiphertextException",
+        "Message": ""
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "describe": {
+      "KeyMetadata": {
+        "AWSAccountId": "<account>",
+        "Arn": "arn:aws:kms:us-east-1:<account>:key/<uuid:1>",
+        "CreationDate": "<datetime>",
+        "CurrentKeyMaterialId": "b1d1b40e1e3dc3a1046af9bc273e00069cdba4d6b3f0c0ca5c06c1737852c8fb",
+        "CustomerMasterKeySpec": "SYMMETRIC_DEFAULT",
+        "Description": "conformance",
+        "Enabled": true,
+        "EncryptionAlgorithms": [
+          "SYMMETRIC_DEFAULT"
+        ],
+        "KeyId": "<uuid:1>",
+        "KeyManager": "CUSTOMER",
+        "KeySpec": "SYMMETRIC_DEFAULT",
+        "KeyState": "Enabled",
+        "KeyUsage": "ENCRYPT_DECRYPT",
+        "MultiRegion": false,
+        "Origin": "AWS_KMS"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "enable-rotation": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "encrypt": {
+      "CiphertextBlob": "<CiphertextBlob:1>",
+      "EncryptionAlgorithm": "SYMMETRIC_DEFAULT",
+      "KeyId": "arn:aws:kms:us-east-1:<account>:key/<uuid:1>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "rotation-off": {
+      "KeyId": "arn:aws:kms:us-east-1:<account>:key/<uuid:1>",
+      "KeyRotationEnabled": false,
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "rotation-on": {
+      "KeyId": "arn:aws:kms:us-east-1:<account>:key/<uuid:1>",
+      "KeyRotationEnabled": true,
+      "NextRotationDate": "<datetime>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "RotationPeriodInDays": 365
+    }
+  }
+}

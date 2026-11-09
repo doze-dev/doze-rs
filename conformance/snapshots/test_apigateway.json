@@ -1,0 +1,371 @@
+{
+  "_recorded": {
+    "boto3": "1.43.107",
+    "botocore": "1.43.107",
+    "on": "2026-11-09",
+    "region": "us-east-1",
+    "target": "aws"
+  },
+  "test_http_api_proxies_to_lambda": {
+    "create": {
+      "ApiEndpoint": "<ApiEndpoint:1>",
+      "ApiId": "<ApiId:1>",
+      "ApiKeySelectionExpression": "$request.header.x-api-key",
+      "CreatedDate": "<CreatedDate:1>",
+      "DisableExecuteApiEndpoint": false,
+      "IpAddressType": "ipv4",
+      "Name": "<name:api>",
+      "ProtocolType": "HTTP",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 201
+      },
+      "RouteSelectionExpression": "$request.method $request.path"
+    },
+    "get": {
+      "body": {
+        "body": null,
+        "method": "GET",
+        "path": "/orders/42",
+        "path_parameters": {
+          "id": "42"
+        },
+        "query": {
+          "expand": "items"
+        },
+        "stage": "$default"
+      },
+      "content-type": "application/json",
+      "status": 201,
+      "x-handled-by": "lambda"
+    },
+    "integration": {
+      "ConnectionType": "INTERNET",
+      "IntegrationId": "<IntegrationId:1>",
+      "IntegrationMethod": "POST",
+      "IntegrationType": "AWS_PROXY",
+      "IntegrationUri": "<IntegrationUri:1>",
+      "PayloadFormatVersion": "2.0",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 201
+      },
+      "TimeoutInMillis": 30000
+    },
+    "route": {
+      "ApiKeyRequired": false,
+      "AuthorizationType": "NONE",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 201
+      },
+      "RouteId": "<RouteId:1>",
+      "RouteKey": "GET /orders/{id}",
+      "Target": "<Target:1>"
+    },
+    "routes": [
+      "GET /orders/{id}"
+    ],
+    "stage": {
+      "AutoDeploy": true,
+      "CreatedDate": "<CreatedDate:2>",
+      "DefaultRouteSettings": {
+        "DetailedMetricsEnabled": false
+      },
+      "LastUpdatedDate": "<LastUpdatedDate:1>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 201
+      },
+      "RouteSettings": {},
+      "StageName": "$default",
+      "StageVariables": {},
+      "Tags": {}
+    }
+  },
+  "test_refusals": {
+    "absent-http-api": {
+      "Error": {
+        "Code": "NotFoundException",
+        "Message": "Invalid API identifier specified <account>:neverwas00"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    },
+    "absent-parent": {
+      "Error": {
+        "Code": "NotFoundException",
+        "Message": "Invalid Resource identifier specified"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    },
+    "absent-rest-api": {
+      "Error": {
+        "Code": "NotFoundException",
+        "Message": "Invalid API identifier specified <account>:neverwas00"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    },
+    "absent-stage": {
+      "Error": {
+        "Code": "NotFoundException",
+        "Message": "Invalid stage identifier specified"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    },
+    "bad-http-method": {
+      "Error": {
+        "Code": "BadRequestException",
+        "Message": "Invalid HttpMethod specified. Valid options are GET,PUT,POST,DELETE,PATCH,OPTIONS,HEAD,ANY"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "bad-path-part": {
+      "Error": {
+        "Code": "BadRequestException",
+        "Message": "Resource's path part only allow a-zA-Z0-9._-: or a valid greedy path variable and curly braces at the beginning and the end."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "bad-protocol": {
+      "Error": {
+        "Code": "BadRequestException",
+        "Message": "Invalid protocol specified. Must be one of [HTTP, WEBSOCKET]"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "bad-route-key": {
+      "Error": {
+        "Code": "BadRequestException",
+        "Message": "The provided route key is not formatted properly for HTTP protocol. Format should be \"[HTTP METHOD] /[RESOURCE PATH]\" or \"$default\""
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "deploy-a-method-with-no-integration": {
+      "Error": {
+        "Code": "BadRequestException",
+        "Message": "No integration defined for method"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "deploy-with-no-methods": {
+      "Error": {
+        "Code": "BadRequestException",
+        "Message": "The REST API doesn't contain any methods"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "integration-before-method": {
+      "Error": {
+        "Code": "NotFoundException",
+        "Message": "Invalid Method identifier specified"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    },
+    "route-to-absent-integration": {
+      "Error": {
+        "Code": "BadRequestException",
+        "Message": "Unable to find route target of type integrations with ID neverwas"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "same-path-twice": {
+      "Error": {
+        "Code": "ConflictException",
+        "Message": "Another resource with the same parent already has this name: things"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 409
+      }
+    }
+  },
+  "test_rest_api_proxies_to_lambda": {
+    "get-with-a-path-parameter": {
+      "body": {
+        "body": null,
+        "method": "GET",
+        "path": "/orders/42",
+        "path_parameters": {
+          "id": "42"
+        },
+        "query": {
+          "expand": "items"
+        },
+        "stage": "prod"
+      },
+      "content-type": "application/json",
+      "status": 201,
+      "x-handled-by": "lambda"
+    },
+    "post-with-a-body": {
+      "body": {
+        "body": "{\"sku\": \"book\"}",
+        "method": "POST",
+        "path": "/orders",
+        "path_parameters": null,
+        "query": null,
+        "stage": "prod"
+      },
+      "content-type": "application/json",
+      "status": 201,
+      "x-handled-by": "lambda"
+    }
+  },
+  "test_rest_api_with_a_mock_integration": {
+    "create": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 201
+      },
+      "apiKeySource": "HEADER",
+      "apiStatus": "AVAILABLE",
+      "createdDate": "<createdDate:1>",
+      "description": "conformance",
+      "disableExecuteApiEndpoint": false,
+      "endpointConfiguration": {
+        "ipAddressType": "ipv4",
+        "types": [
+          "EDGE"
+        ]
+      },
+      "id": "<id:1>",
+      "name": "<name:api>",
+      "rootResourceId": "<rootResourceId:1>",
+      "securityPolicy": "TLS_1_0"
+    },
+    "delete-a-served-deployment": {
+      "Error": {
+        "Code": "BadRequestException",
+        "Message": "Active stages pointing to this deployment must be moved or deleted"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "delete-an-absent-deployment": {
+      "Error": {
+        "Code": "NotFoundException",
+        "Message": "Invalid Deployment identifier specified"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    },
+    "deploy": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 201
+      },
+      "createdDate": "<createdDate:2>",
+      "id": "<id:4>"
+    },
+    "get": {
+      "body": {
+        "pong": true
+      },
+      "content-type": "application/json",
+      "status": 200,
+      "x-handled-by": null
+    },
+    "integration": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 201
+      },
+      "cacheKeyParameters": [],
+      "cacheNamespace": "<cacheNamespace:1>",
+      "passthroughBehavior": "WHEN_NO_MATCH",
+      "requestTemplates": {
+        "application/json": "{\"statusCode\": 200}"
+      },
+      "responseTransferMode": "BUFFERED",
+      "timeoutInMillis": 29000,
+      "type": "MOCK"
+    },
+    "integration-response": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 201
+      },
+      "responseTemplates": {
+        "application/json": "{\"pong\": true}"
+      },
+      "statusCode": "200"
+    },
+    "method": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 201
+      },
+      "apiKeyRequired": false,
+      "authorizationType": "NONE",
+      "httpMethod": "GET"
+    },
+    "method-response": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 201
+      },
+      "statusCode": "200"
+    },
+    "no-such-method": {
+      "body": {
+        "message": "Missing Authentication Token"
+      },
+      "content-type": "application/json",
+      "status": 403,
+      "x-handled-by": null
+    },
+    "no-such-path": {
+      "body": {
+        "message": "Missing Authentication Token"
+      },
+      "content-type": "application/json",
+      "status": 403,
+      "x-handled-by": null
+    },
+    "resource": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 201
+      },
+      "id": "<id:3>",
+      "parentId": "<parentId:1>",
+      "path": "/ping",
+      "pathPart": "ping"
+    },
+    "resources": [
+      "/",
+      "/ping"
+    ],
+    "root": {
+      "id": "<id:2>",
+      "path": "/"
+    },
+    "stage": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "cacheClusterEnabled": false,
+      "cacheClusterStatus": "NOT_AVAILABLE",
+      "createdDate": "<createdDate:2>",
+      "deploymentId": "<deploymentId:1>",
+      "lastUpdatedDate": "<lastUpdatedDate:1>",
+      "methodSettings": {},
+      "stageName": "dev",
+      "tracingEnabled": false
+    }
+  }
+}

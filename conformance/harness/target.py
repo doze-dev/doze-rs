@@ -126,6 +126,23 @@ class Doze(Target):
             self.tmp.cleanup()
 
 
+# KMS keys have no names, so the recorder account's policy lets the role use only keys tagged doze-rec=true. The mark is added to every
+# CreateKey here and taken out of every tag listing, so no scenario (and no recording) ever sees it.
+_MARK = {"TagKey": "doze-rec", "TagValue": "true"}
+
+
+def _mark_kms_keys(client):
+    def add(params, **_):
+        params["Tags"] = [*params.get("Tags", []), _MARK]
+
+    def hide(parsed, **_):
+        if "Tags" in parsed:
+            parsed["Tags"] = [t for t in parsed["Tags"] if t.get("TagKey") != _MARK["TagKey"]]
+
+    client.meta.events.register("provide-client-params.kms.CreateKey", add)
+    client.meta.events.register("after-call.kms.ListResourceTags", hide)
+
+
 class AWS(Target):
     name = "aws"
 
@@ -146,7 +163,10 @@ class AWS(Target):
             )
 
     def client(self, service, **kw):
-        return self.session.client(service, **kw)
+        client = self.session.client(service, **kw)
+        if service == "kms":
+            _mark_kms_keys(client)
+        return client
 
     def normalizer(self):
         return Normalizer(self.account, endpoint_patterns=[AWS_HOST], region=self.region)

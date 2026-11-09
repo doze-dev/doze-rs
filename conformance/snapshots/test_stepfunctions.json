@@ -1,0 +1,395 @@
+{
+  "_recorded": {
+    "boto3": "1.43.107",
+    "botocore": "1.43.107",
+    "on": "2026-11-09",
+    "region": "us-east-1",
+    "target": "aws"
+  },
+  "test_machine_lifecycle_and_history": {
+    "create": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "creationDate": "<creationDate:1>",
+      "stateMachineArn": "arn:aws:states:us-east-1:<account>:stateMachine:<name:machine>"
+    },
+    "delete": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "describe": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "creationDate": "<creationDate:1>",
+      "definition": {
+        "Comment": "conformance",
+        "StartAt": "Greet",
+        "States": {
+          "Greet": {
+            "End": true,
+            "Parameters": {
+              "hello.$": "$.who"
+            },
+            "Type": "Pass"
+          }
+        }
+      },
+      "encryptionConfiguration": {
+        "type": "AWS_OWNED_KEY"
+      },
+      "loggingConfiguration": {
+        "includeExecutionData": false,
+        "level": "OFF"
+      },
+      "name": "<name:machine>",
+      "roleArn": "arn:aws:iam::<account>:role/<name:role-1>",
+      "stateMachineArn": "arn:aws:states:us-east-1:<account>:stateMachine:<name:machine>",
+      "status": "ACTIVE",
+      "tracingConfiguration": {
+        "enabled": false
+      },
+      "type": "STANDARD"
+    },
+    "done": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "executionArn": "arn:aws:states:us-east-1:<account>:execution:<name:machine>:<name:run>",
+      "input": {
+        "who": "world"
+      },
+      "inputDetails": {
+        "included": true
+      },
+      "name": "<name:run>",
+      "output": {
+        "hello": "world"
+      },
+      "outputDetails": {
+        "included": true
+      },
+      "startDate": "<startDate:1>",
+      "stateMachineArn": "arn:aws:states:us-east-1:<account>:stateMachine:<name:machine>",
+      "status": "SUCCEEDED",
+      "stopDate": "<stopDate:1>"
+    },
+    "history": [
+      "ExecutionStarted",
+      "PassStateEntered",
+      "PassStateExited",
+      "ExecutionSucceeded"
+    ],
+    "history-links": [
+      [
+        1,
+        0
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        3,
+        2
+      ],
+      [
+        4,
+        3
+      ]
+    ],
+    "list": [
+      "<name:run>"
+    ],
+    "start": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "executionArn": "arn:aws:states:us-east-1:<account>:execution:<name:machine>:<name:run>",
+      "startDate": "<startDate:1>"
+    },
+    "update": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "updateDate": "<updateDate:1>"
+    }
+  },
+  "test_refusals": {
+    "bad-name": {
+      "Error": {
+        "Code": "InvalidName",
+        "Message": "Invalid Name: 'has space'"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "create-again-different": {
+      "Error": {
+        "Code": "StateMachineAlreadyExists",
+        "Message": "State Machine Already Exists: 'arn:aws:states:us-east-1:<account>:stateMachine:<name:machine>'"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "create-again-same": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "creationDate": "<datetime>",
+      "stateMachineArn": "arn:aws:states:us-east-1:<account>:stateMachine:<name:machine>"
+    },
+    "definition-not-json": {
+      "Error": {
+        "Code": "InvalidDefinition",
+        "Message": "Invalid State Machine Definition: 'INVALID_JSON_DESCRIPTION: Unexpected character ('n' (code 110)): was expecting double-quote to start field name\n at [Source: (String)\"{nope\"; line: 1, column: 2] at [Source: (String)\"{nope\"; line: 1, column: 2]'"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "describe-absent-execution": {
+      "Error": {
+        "Code": "ExecutionDoesNotExist",
+        "Message": "Execution Does Not Exist: 'arn:aws:states:us-east-1:<account>:execution:<name:absent>:never-ran'"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "describe-absent-machine": {
+      "Error": {
+        "Code": "StateMachineDoesNotExist",
+        "Message": "State Machine Does Not Exist: 'arn:aws:states:us-east-1:<account>:stateMachine:<name:absent>'"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "input-not-json": {
+      "Error": {
+        "Code": "InvalidExecutionInput",
+        "Message": "Invalid State Machine Execution Input: 'Unexpected character ('n' (code 110)): was expecting double-quote to start field name'"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "next-names-no-state": {
+      "Error": {
+        "Code": "InvalidDefinition",
+        "Message": "Invalid State Machine Definition: 'MISSING_TRANSITION_TARGET: Missing 'Next' target: Nowhere at /States/A/Next, MISSING_END_STATE: Workflow has no terminal state at null'"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "no-start": {
+      "Error": {
+        "Code": "InvalidDefinition",
+        "Message": "Invalid State Machine Definition: 'SCHEMA_VALIDATION_FAILED: These fields are required: [StartAt] at /'"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "no-terminal-state": {
+      "Error": {
+        "Code": "InvalidDefinition",
+        "Message": "Invalid State Machine Definition: 'MISSING_END_STATE: Workflow has no terminal state at null'"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "role-is-not-an-arn": {
+      "Error": {
+        "Code": "InvalidArn",
+        "Message": "Invalid Role Arn: 'not-an-arn'"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "same-name-different-input": {
+      "Error": {
+        "Code": "ExecutionAlreadyExists",
+        "Message": "Execution Already Exists: 'arn:aws:states:us-east-1:<account>:execution:<name:machine>:<name:run>'"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "same-name-same-input": {
+      "Error": {
+        "Code": "ExecutionAlreadyExists",
+        "Message": "Execution Already Exists: 'arn:aws:states:us-east-1:<account>:execution:<name:machine>:<name:run>'"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "start-absent-machine": {
+      "Error": {
+        "Code": "StateMachineDoesNotExist",
+        "Message": "State Machine Does Not Exist: 'arn:aws:states:us-east-1:<account>:stateMachine:<name:absent>'"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "start-names-no-state": {
+      "Error": {
+        "Code": "InvalidDefinition",
+        "Message": "Invalid State Machine Definition: 'MISSING_TRANSITION_TARGET: Missing 'Next' target: Z at /StartAt, MISSING_TRANSITION_TARGET: State \"A\" is not reachable. at /States/A'"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "unknown-state-type": {
+      "Error": {
+        "Code": "InvalidDefinition",
+        "Message": "Invalid State Machine Definition: 'SCHEMA_VALIDATION_FAILED: The field 'Type' should have one of these values: [Task, Wait, Pass, Succeed, Fail, Choice, Parallel, Map] at /States/A/Type, MISSING_END_STATE: Workflow has no terminal state at null'"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_the_states_language": {
+    "choice": {
+      "cause": null,
+      "error": null,
+      "output": "big",
+      "status": "SUCCEEDED"
+    },
+    "fail": {
+      "cause": "no items",
+      "error": "Order.Invalid",
+      "output": null,
+      "status": "FAILED"
+    },
+    "intrinsics": {
+      "cause": null,
+      "error": null,
+      "output": {
+        "add": 42,
+        "array": [
+          "x",
+          "y",
+          3
+        ],
+        "b64": "eA==",
+        "contains": true,
+        "format": "x-y",
+        "hash": "2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881",
+        "item": 2,
+        "merge": {
+          "j": 2,
+          "k": 1
+        },
+        "partition": [
+          [
+            1,
+            2
+          ],
+          [
+            3
+          ]
+        ],
+        "range": [
+          1,
+          4,
+          7
+        ],
+        "split": [
+          "p",
+          "q",
+          "r"
+        ],
+        "to_json": {
+          "z": [
+            1,
+            2
+          ]
+        },
+        "to_string": "{\"k\":1}",
+        "unique": [
+          1,
+          2
+        ]
+      },
+      "status": "SUCCEEDED"
+    },
+    "map": {
+      "cause": null,
+      "error": null,
+      "output": [
+        {
+          "at": 0,
+          "seen": "a"
+        },
+        {
+          "at": 1,
+          "seen": "b"
+        },
+        {
+          "at": 2,
+          "seen": "c"
+        }
+      ],
+      "status": "SUCCEEDED"
+    },
+    "parallel": {
+      "cause": null,
+      "error": null,
+      "output": [
+        "left",
+        {
+          "got": 1
+        }
+      ],
+      "status": "SUCCEEDED"
+    },
+    "paths": {
+      "cause": null,
+      "error": null,
+      "output": {
+        "count": 2,
+        "first": "book",
+        "id": 7
+      },
+      "status": "SUCCEEDED"
+    },
+    "result-path-merges": {
+      "cause": null,
+      "error": null,
+      "output": {
+        "check": {
+          "ok": true
+        },
+        "kept": 1
+      },
+      "status": "SUCCEEDED"
+    },
+    "runtime-error": {
+      "cause": "An error occurred while executing the state 'Reach' (entered at the event id #2). The JSONPath '$.not.there' specified for the field 'x.$' could not be found in the input '{}'",
+      "error": "States.Runtime",
+      "output": null,
+      "status": "FAILED"
+    },
+    "wait-and-succeed": {
+      "cause": null,
+      "error": null,
+      "output": {
+        "carried": true
+      },
+      "status": "SUCCEEDED"
+    }
+  }
+}

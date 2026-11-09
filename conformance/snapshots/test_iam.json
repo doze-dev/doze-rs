@@ -1,0 +1,435 @@
+{
+  "_recorded": {
+    "boto3": "1.43.107",
+    "botocore": "1.43.107",
+    "on": "2026-11-09",
+    "region": "us-east-1",
+    "target": "aws"
+  },
+  "test_instance_profile": {
+    "add-role": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "create": {
+      "InstanceProfile": {
+        "Arn": "arn:aws:iam::<account>:instance-profile/<name:profile>",
+        "CreateDate": "<datetime>",
+        "InstanceProfileId": "<InstanceProfileId:1>",
+        "InstanceProfileName": "<name:profile>",
+        "Path": "/",
+        "Roles": []
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "get": {
+      "InstanceProfile": {
+        "Arn": "arn:aws:iam::<account>:instance-profile/<name:profile>",
+        "CreateDate": "<datetime>",
+        "InstanceProfileId": "<InstanceProfileId:1>",
+        "InstanceProfileName": "<name:profile>",
+        "Path": "/",
+        "Roles": [
+          {
+            "Arn": "arn:aws:iam::<account>:role/<name:role>",
+            "AssumeRolePolicyDocument": {
+              "Statement": [
+                {
+                  "Action": "sts:AssumeRole",
+                  "Effect": "Allow",
+                  "Principal": {
+                    "Service": "ec2.amazonaws.com"
+                  }
+                }
+              ],
+              "Version": "2012-10-17"
+            },
+            "CreateDate": "<datetime>",
+            "Path": "/",
+            "RoleId": "<RoleId:1>",
+            "RoleName": "<name:role>"
+          }
+        ],
+        "Tags": []
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "same-role-again": {
+      "Error": {
+        "Code": "LimitExceeded",
+        "Message": "Cannot exceed quota for InstanceSessionsPerInstanceProfile: 1"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 409
+      }
+    },
+    "second-role": {
+      "Error": {
+        "Code": "LimitExceeded",
+        "Message": "Cannot exceed quota for InstanceSessionsPerInstanceProfile: 1"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 409
+      }
+    }
+  },
+  "test_policy_versions": {
+    "create-v2": {
+      "PolicyVersion": {
+        "CreateDate": "<datetime>",
+        "IsDefaultVersion": true,
+        "VersionId": "v2"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "delete-the-default": {
+      "Error": {
+        "Code": "DeleteConflict",
+        "Message": "Cannot delete the default version of a policy."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 409
+      }
+    },
+    "delete-v2": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "set-default-back": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "versions": {
+      "IsTruncated": false,
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Versions": [
+        {
+          "CreateDate": "<datetime>",
+          "IsDefaultVersion": true,
+          "VersionId": "v2"
+        },
+        {
+          "CreateDate": "<datetime>",
+          "IsDefaultVersion": false,
+          "VersionId": "v1"
+        }
+      ]
+    }
+  },
+  "test_refusals": {
+    "attach-absent-policy": {
+      "Error": {
+        "Code": "NoSuchEntity",
+        "Message": "The role with name <name:absent> cannot be found."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    },
+    "bad-role-name": {
+      "Error": {
+        "Code": "ValidationError",
+        "Message": "The specified value for roleName is invalid. It must contain only alphanumeric characters and/or the following: +=,.@_-"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "create-role-twice": {
+      "Error": {
+        "Code": "EntityAlreadyExists",
+        "Message": "Role with name <name:role> already exists."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 409
+      }
+    },
+    "get-absent-inline": {
+      "Error": {
+        "Code": "NoSuchEntity",
+        "Message": "The role policy with name absent cannot be found."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    },
+    "get-absent-policy": {
+      "Error": {
+        "Code": "NoSuchEntity",
+        "Message": "Policy arn:aws:iam::<account>:policy/<name:absent> was not found."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    },
+    "get-absent-role": {
+      "Error": {
+        "Code": "NoSuchEntity",
+        "Message": "The role with name <name:absent> cannot be found."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    },
+    "get-absent-user": {
+      "Error": {
+        "Code": "NoSuchEntity",
+        "Message": "The user with name <name:absent> cannot be found."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    },
+    "inline-with-a-principal": {
+      "Error": {
+        "Code": "MalformedPolicyDocument",
+        "Message": "Policy document should not specify a principal."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "policy-not-json": {
+      "Error": {
+        "Code": "MalformedPolicyDocument",
+        "Message": "Syntax errors in policy."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "trust-not-json": {
+      "Error": {
+        "Code": "MalformedPolicyDocument",
+        "Message": "This policy contains invalid Json"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "trust-without-principal": {
+      "Error": {
+        "Code": "MalformedPolicyDocument",
+        "Message": "Has prohibited field Resource"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_role_with_inline_and_managed_policies": {
+    "attach": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "attached": {
+      "AttachedPolicies": [
+        {
+          "PolicyArn": "arn:aws:iam::<account>:policy/<name:policy>",
+          "PolicyName": "<name:policy>"
+        }
+      ],
+      "IsTruncated": false,
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "create-policy": {
+      "Policy": {
+        "Arn": "arn:aws:iam::<account>:policy/<name:policy>",
+        "AttachmentCount": 0,
+        "CreateDate": "<datetime>",
+        "DefaultVersionId": "v1",
+        "IsAttachable": true,
+        "Path": "/",
+        "PermissionsBoundaryUsageCount": 0,
+        "PolicyId": "<PolicyId:1>",
+        "PolicyName": "<name:policy>",
+        "UpdateDate": "<datetime>"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "create-role": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Role": {
+        "Arn": "arn:aws:iam::<account>:role/<name:role>",
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com"
+              }
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "CreateDate": "<datetime>",
+        "Path": "/",
+        "RoleId": "<RoleId:1>",
+        "RoleName": "<name:role>",
+        "Tags": [
+          {
+            "Key": "env",
+            "Value": "dev"
+          }
+        ]
+      }
+    },
+    "delete-attached-policy": {
+      "Error": {
+        "Code": "DeleteConflict",
+        "Message": "Cannot delete a policy attached to entities."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 409
+      }
+    },
+    "delete-role-in-use": {
+      "Error": {
+        "Code": "DeleteConflict",
+        "Message": "Cannot delete entity, must detach all policies first."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 409
+      }
+    },
+    "detach": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "detach-again": {
+      "Error": {
+        "Code": "NoSuchEntity",
+        "Message": "Policy arn:aws:iam::<account>:policy/<name:policy> was not found."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    },
+    "get-inline": {
+      "PolicyDocument": {
+        "Statement": [
+          {
+            "Action": "s3:GetObject",
+            "Effect": "Allow",
+            "Resource": "*"
+          }
+        ],
+        "Version": "2012-10-17"
+      },
+      "PolicyName": "inline",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "RoleName": "<name:role>"
+    },
+    "get-role": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Role": {
+        "Arn": "arn:aws:iam::<account>:role/<name:role>",
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com"
+              }
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "CreateDate": "<datetime>",
+        "Description": "conformance",
+        "MaxSessionDuration": 3600,
+        "Path": "/",
+        "RoleId": "<RoleId:1>",
+        "RoleName": "<name:role>",
+        "Tags": [
+          {
+            "Key": "env",
+            "Value": "dev"
+          }
+        ]
+      }
+    },
+    "list-inline": {
+      "IsTruncated": false,
+      "PolicyNames": [
+        "inline"
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "policy-after-attach": {
+      "Policy": {
+        "Arn": "arn:aws:iam::<account>:policy/<name:policy>",
+        "AttachmentCount": 1,
+        "CreateDate": "<datetime>",
+        "DefaultVersionId": "v1",
+        "IsAttachable": true,
+        "Path": "/",
+        "PermissionsBoundaryUsageCount": 0,
+        "PolicyId": "<PolicyId:1>",
+        "PolicyName": "<name:policy>",
+        "Tags": [],
+        "UpdateDate": "<datetime>"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "policy-version": {
+      "PolicyVersion": {
+        "CreateDate": "<datetime>",
+        "Document": {
+          "Statement": [
+            {
+              "Action": "s3:GetObject",
+              "Effect": "Allow",
+              "Resource": "*"
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "IsDefaultVersion": true,
+        "VersionId": "v1"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "put-inline": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "update-trust": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    }
+  }
+}
