@@ -16,9 +16,13 @@ use crate::{Broker, Outcome};
 type Judged = Vec<(kafka_wire::messages::TopicName, Vec<(i32, Option<E>)>)>;
 
 impl<F: Fs> Broker<F> {
-    pub(crate) async fn add_partitions_to_txn(&self, req: &AddPartitionsToTxnRequest) -> Outcome {
+    pub(crate) async fn add_partitions_to_txn(
+        &self,
+        version: i16,
+        req: &AddPartitionsToTxnRequest,
+    ) -> Outcome {
         let mut resp = AddPartitionsToTxnResponse::default();
-        let judged = self.judge_additions(req).await;
+        let judged = self.judge_additions(version, req).await;
         resp.results_by_topic_v3_and_below = judged
             .into_iter()
             .map(|(name, codes)| result(name, codes))
@@ -50,7 +54,7 @@ impl<F: Fs> Broker<F> {
     }
 
     /// Every partition of the request, with its answer.
-    async fn judge_additions(&self, req: &AddPartitionsToTxnRequest) -> Judged {
+    async fn judge_additions(&self, version: i16, req: &AddPartitionsToTxnRequest) -> Judged {
         let id = req.v3_and_below_transactional_id.0.as_str();
         let everywhere = |code: E| -> Judged {
             req.v3_and_below_topics
@@ -63,6 +67,21 @@ impl<F: Fs> Broker<F> {
                 })
                 .collect()
         };
+        // Every partition is judged before the coordinator is asked anything: one that cannot be added leaves the rest
+        // not attempted, and the transaction is not looked at, as in Kafka.
+        let (mut judged, add) = self.judge_partitions(req);
+        if judged
+            .iter()
+            .any(|(_, codes)| codes.iter().any(|(_, c)| c.is_some()))
+        {
+            for (_, codes) in &mut judged {
+                for (_, c) in codes {
+                    c.get_or_insert(E::OperationNotAttempted);
+                }
+            }
+            return judged;
+        }
+        let everywhere = |code: E| everywhere(rules::fenced_as(code, version, 2));
         if id.is_empty() {
             return everywhere(E::InvalidRequest);
         }
@@ -77,19 +96,6 @@ impl<F: Fs> Broker<F> {
         .or_else(|| rules::can_add(&e.rec))
         {
             return everywhere(code);
-        }
-        // Every partition is judged before any is added; one that cannot be leaves the rest not attempted, as in Kafka.
-        let (mut judged, add) = self.judge_partitions(req);
-        if judged
-            .iter()
-            .any(|(_, codes)| codes.iter().any(|(_, c)| c.is_some()))
-        {
-            for (_, codes) in &mut judged {
-                for (_, c) in codes {
-                    c.get_or_insert(E::OperationNotAttempted);
-                }
-            }
-            return judged;
         }
         let now = crate::clock::now().get();
         let stored = self

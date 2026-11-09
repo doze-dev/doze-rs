@@ -6,7 +6,8 @@ fn rec(state: TxnState) -> TxnRecord {
     r.epoch = 2;
     r.timeout_ms = 60_000;
     r.state = state;
-    r.updated_ms = 1_000;
+    r.started_ms = 1_000;
+    r.updated_ms = 50_000;
     r.partitions = vec![("t".into(), 0)];
     r
 }
@@ -17,7 +18,14 @@ fn the_owner_is_the_producer_id_and_epoch_on_the_record_and_a_lower_epoch_is_fen
     assert_eq!(owns(&r, 1000, 2), None);
     assert_eq!(owns(&r, 999, 2), Some(E::InvalidProducerIdMapping));
     assert_eq!(owns(&r, 1000, 1), Some(E::ProducerFenced));
-    assert_eq!(owns(&r, 1000, 3), Some(E::InvalidProducerEpoch));
+    assert_eq!(
+        owns(&r, 1000, 3),
+        Some(E::ProducerFenced),
+        "a higher epoch is fenced too"
+    );
+    assert_eq!(fenced_as(E::ProducerFenced, 1, 2), E::InvalidProducerEpoch);
+    assert_eq!(fenced_as(E::ProducerFenced, 2, 2), E::ProducerFenced);
+    assert_eq!(fenced_as(E::InvalidTxnState, 0, 2), E::InvalidTxnState);
     assert_eq!(
         owns(&TxnRecord::new("none"), 0, 0),
         Some(E::InvalidProducerIdMapping),
@@ -95,7 +103,7 @@ fn each_end_is_answered_as_the_recording_says() {
 }
 
 #[test]
-fn a_transaction_outlives_its_timeout_from_when_the_record_last_changed() {
+fn a_transaction_outlives_its_timeout_from_when_it_began_not_from_its_last_change() {
     let r = rec(TxnState::Ongoing);
     assert!(!expired(&r, 61_000), "exactly the timeout is not over it");
     assert!(expired(&r, 61_001));

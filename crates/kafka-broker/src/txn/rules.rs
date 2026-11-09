@@ -6,17 +6,24 @@ use kafka_wire::ResponseError as E;
 /// The longest `transaction.timeout.ms` a producer may ask for (Kafka's `transaction.max.timeout.ms`).
 pub(crate) const MOST_TIMEOUT_MS: i32 = 15 * 60 * 1000;
 
-/// Whether a request's producer id and epoch are the ones that own the transactional id. A lower epoch has been
-/// fenced by a newer producer.
+/// Whether a request's producer id and epoch are the ones that own the transactional id. Any other epoch, a lower one (a
+/// newer producer has taken the id) or a higher, is PRODUCER_FENCED: Kafka's coordinator does not tell them apart.
 pub(crate) fn owns(rec: &TxnRecord, producer: i64, epoch: i16) -> Option<E> {
     if rec.producer_id < 0 || producer != rec.producer_id {
         Some(E::InvalidProducerIdMapping)
-    } else if epoch < rec.epoch {
+    } else if epoch != rec.epoch {
         Some(E::ProducerFenced)
-    } else if epoch > rec.epoch {
-        Some(E::InvalidProducerEpoch)
     } else {
         None
+    }
+}
+
+/// What a version that does not have PRODUCER_FENCED (before `from`) is told for it: INVALID_PRODUCER_EPOCH.
+pub(crate) fn fenced_as(code: E, version: i16, from: i16) -> E {
+    if code == E::ProducerFenced && version < from {
+        E::InvalidProducerEpoch
+    } else {
+        code
     }
 }
 
@@ -75,10 +82,11 @@ pub(crate) fn end(rec: &TxnRecord, commit: bool) -> End {
     }
 }
 
-/// Whether the open transaction has outlived its timeout, counted from when the record last changed.
+/// Whether the open transaction has outlived its timeout, counted from when it began (Kafka's clock: adding partitions
+/// does not start it again).
 pub(crate) fn expired(rec: &TxnRecord, now_ms: i64) -> bool {
     rec.state == TxnState::Ongoing
-        && now_ms.saturating_sub(rec.updated_ms) > i64::from(rec.timeout_ms)
+        && now_ms.saturating_sub(rec.started_ms) > i64::from(rec.timeout_ms)
 }
 
 /// Whether the id has nothing open and has not changed for `limit_ms`: it can be forgotten.

@@ -205,9 +205,9 @@ impl<F: Fs> Broker<F> {
             Request::InitProducerId(r) => {
                 respond(Response::InitProducerId(self.init_producer_id(&r).await))
             }
-            Request::AddPartitionsToTxn(r) => self.add_partitions_to_txn(&r).await,
-            Request::AddOffsetsToTxn(r) => self.add_offsets_to_txn(&r).await,
-            Request::EndTxn(r) => self.end_txn_request(&r).await,
+            Request::AddPartitionsToTxn(r) => self.add_partitions_to_txn(head.version, &r).await,
+            Request::AddOffsetsToTxn(r) => self.add_offsets_to_txn(head.version, &r).await,
+            Request::EndTxn(r) => self.end_txn_request(head.version, &r).await,
             Request::TxnOffsetCommit(r) => self.txn_offset_commit(&r).await,
             Request::DescribeTransactions(r) => self.describe_transactions(&r).await,
             Request::ListTransactions(r) => self.list_transactions(&r).await,

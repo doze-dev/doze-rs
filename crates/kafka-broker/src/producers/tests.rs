@@ -72,8 +72,8 @@ fn a_gap_and_an_overlap_are_out_of_order_and_one_from_long_ago_is_a_duplicate_no
     );
     assert_eq!(
         p.check(7, 0, 0, 1),
-        Verdict::DuplicateOld,
-        "older than all that is remembered"
+        Verdict::OutOfOrder,
+        "older than all that is remembered: Kafka no longer has the batch, so it is out of order"
     );
     assert_eq!(p.check(7, 0, 14, 15), Verdict::Accept);
 }
@@ -117,7 +117,7 @@ fn sequences_wrap_at_thirty_one_bits() {
 }
 
 #[test]
-fn producers_silent_for_fifteen_minutes_are_forgotten_and_the_ceiling_holds() {
+fn producers_silent_for_a_day_are_forgotten_and_the_ceiling_holds() {
     let mut p = Producers::default();
     for id in 0..(SWEEP_EVERY as i64) {
         p.record(
@@ -215,10 +215,7 @@ fn a_batch_that_was_written_is_never_written_again() {
                     written.push((id, epoch, first, last));
                     next_seq[slot] = next(last);
                 }
-                Verdict::Duplicate { .. }
-                | Verdict::DuplicateOld
-                | Verdict::OutOfOrder
-                | Verdict::Fenced => {}
+                Verdict::Duplicate { .. } | Verdict::OutOfOrder | Verdict::Fenced => {}
             }
         }
     }

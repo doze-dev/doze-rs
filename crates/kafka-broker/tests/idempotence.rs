@@ -15,7 +15,6 @@ use kafka_wire::batch::build::BatchBuilder;
 use support::{open_on, rig, topic};
 
 const OUT_OF_ORDER: i16 = 45;
-const DUPLICATE: i16 = 46;
 const INVALID_EPOCH: i16 = 47;
 
 /// A batch of `n` records from producer `id` at `epoch`, numbered from `seq`.
@@ -79,8 +78,8 @@ async fn a_gap_a_stale_epoch_and_a_repeat_from_long_ago_are_refused() {
     );
     assert_eq!(
         code(rig.produce(-1, "t", 0, batch(7, 2, 0, 2)).await),
-        (DUPLICATE, -1),
-        "older than the window"
+        (OUT_OF_ORDER, -1),
+        "older than the window: Kafka no longer has the batch to point to"
     );
     // A new epoch starts at 0.
     assert_eq!(

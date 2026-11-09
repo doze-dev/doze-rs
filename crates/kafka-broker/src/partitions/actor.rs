@@ -205,7 +205,6 @@ fn append_one<F: Fs>(
             offset: Offset::new(offset).unwrap_or(Offset::ZERO),
             timestamp,
         }),
-        Verdict::DuplicateOld => Ok(Written::Refused(ResponseError::DuplicateSequenceNumber)),
         Verdict::OutOfOrder => Ok(Written::Refused(ResponseError::OutOfOrderSequenceNumber)),
         Verdict::Fenced => Ok(Written::Refused(ResponseError::InvalidProducerEpoch)),
     }

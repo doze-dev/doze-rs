@@ -7,7 +7,7 @@ use kafka_wire::messages::{EndTxnRequest, EndTxnResponse};
 use crate::{Broker, Outcome};
 
 impl<F: Fs> Broker<F> {
-    pub(crate) async fn end_txn_request(&self, req: &EndTxnRequest) -> Outcome {
+    pub(crate) async fn end_txn_request(&self, version: i16, req: &EndTxnRequest) -> Outcome {
         let mut resp = EndTxnResponse::default();
         let id = req.transactional_id.0.as_str();
         resp.error_code = if id.is_empty() {
@@ -15,7 +15,7 @@ impl<F: Fs> Broker<F> {
         } else {
             self.end_txn(id, req.producer_id.0, req.producer_epoch, req.committed)
                 .await
-                .map_or(0, |e| e.code())
+                .map_or(0, |e| crate::txn::rules::fenced_as(e, version, 2).code())
         };
         Outcome::Respond(Response::EndTxn(resp))
     }

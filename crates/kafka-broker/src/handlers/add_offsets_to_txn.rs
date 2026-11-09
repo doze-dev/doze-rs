@@ -9,9 +9,16 @@ use crate::txn::rules;
 use crate::{Broker, Outcome};
 
 impl<F: Fs> Broker<F> {
-    pub(crate) async fn add_offsets_to_txn(&self, req: &AddOffsetsToTxnRequest) -> Outcome {
+    pub(crate) async fn add_offsets_to_txn(
+        &self,
+        version: i16,
+        req: &AddOffsetsToTxnRequest,
+    ) -> Outcome {
         let mut resp = AddOffsetsToTxnResponse::default();
-        resp.error_code = self.add_offsets(req).await.map_or(0, |e| e.code());
+        resp.error_code = self
+            .add_offsets(req)
+            .await
+            .map_or(0, |e| rules::fenced_as(e, version, 2).code());
         Outcome::Respond(Response::AddOffsetsToTxn(resp))
     }
 

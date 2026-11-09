@@ -13,8 +13,8 @@ use std::collections::{HashMap, VecDeque};
 
 /// How many recent batches are kept per producer.
 const RECENT: usize = 5;
-/// A producer silent for this long is forgotten (Kafka's `producer.id.expiration.ms`, 15 minutes).
-const IDLE_MS: i64 = 15 * 60 * 1000;
+/// A producer silent for this long is forgotten (Kafka's `producer.id.expiration.ms`, one day).
+const IDLE_MS: i64 = 24 * 60 * 60 * 1000;
 /// The most producers one partition remembers, so that memory stays bounded however many write.
 const MOST: usize = 50_000;
 /// The idle are looked for after this many more producers have been remembered.
@@ -44,9 +44,8 @@ pub(crate) enum Verdict {
     Accept,
     /// Already written: answer with where it went and its timestamp as stored; write nothing.
     Duplicate { offset: i64, timestamp: i64 },
-    /// Already written, long enough ago that where it went is no longer known: DUPLICATE_SEQUENCE_NUMBER.
-    DuplicateOld,
-    /// A gap, or an overlap with what was written: OUT_OF_ORDER_SEQUENCE_NUMBER.
+    /// A gap, an overlap with what was written, or a repeat of a batch too old to be remembered (Kafka tells these apart
+    /// only by whether it still has the batch): OUT_OF_ORDER_SEQUENCE_NUMBER.
     OutOfOrder,
     /// An epoch older than the producer's: INVALID_PRODUCER_EPOCH.
     Fenced,
@@ -114,10 +113,7 @@ impl Producers {
                 timestamp: seen.max_timestamp,
             };
         }
-        match p.recent.front() {
-            Some(oldest) if last < oldest.first && first <= last => Verdict::DuplicateOld,
-            _ => Verdict::OutOfOrder,
-        }
+        Verdict::OutOfOrder
     }
 
     /// Remembers a batch that was written at `now_ms`.
@@ -158,7 +154,7 @@ impl Producers {
         }
     }
 
-    /// Drops the producers silent for 15 minutes and, if the partition is still over its ceiling with everyone recently
+    /// Drops the producers silent for a day and, if the partition is still over its ceiling with everyone recently
     /// active, the least recently used beyond it (a tenth of the ceiling at a time, so that this is rare). `keep` is the
     /// producer that has just written.
     fn forget_idle(&mut self, keep: i64, now_ms: i64) {

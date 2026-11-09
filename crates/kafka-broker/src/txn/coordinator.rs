@@ -134,14 +134,14 @@ impl<F: Fs> Broker<F> {
 
     /// Finishes what a stop left half done: a transaction whose decision was stored is carried out. One still open is
     /// left open, as in Kafka: its producer may be alive and retrying across the restart, and aborting it would fence
-    /// that producer for good. Its timeout counts again from now, and a producer that is really gone is found by that.
+    /// that producer for good. Its timeout runs from when it began, as it did before the stop (Kafka does the same), so one whose
+    /// producer is gone is aborted by the sweeper.
     pub async fn recover_transactions(&self) {
         for entry in self.txns.all() {
             let mut e = entry.write().await;
             let outcome = match e.rec.state {
                 TxnState::PrepareCommit => self.finish_txn(&mut e, true).await,
                 TxnState::PrepareAbort => self.finish_txn(&mut e, false).await,
-                TxnState::Ongoing => self.update_txn(&mut e, |_| {}).await,
                 _ => Ok(()),
             };
             if let Err(code) = outcome {
