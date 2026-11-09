@@ -5,7 +5,9 @@
 use kafka_wire::ResponseError as E;
 
 use super::consumer::{self, ConsumerGroup, Heartbeat, HeartbeatAnswer, TopicSource};
-use super::machine::{Answer, Effect, Event, GroupMachine, IdSource, Millis, Token};
+use super::machine::{
+    Answer, Effect, Event, GroupMachine, IdSource, JoinAnswer, JoinRequest, Millis, Token,
+};
 
 /// How the groups of a broker are made.
 #[derive(Clone, Copy, Debug)]
@@ -26,6 +28,11 @@ enum Kind {
 pub(crate) struct Seating {
     pub(crate) session_ms: i32,
     pub(crate) protocol_type: String,
+}
+
+/// A JoinGroup from a client with no member id, from a version that hands one out first.
+pub(crate) fn asks_for_an_id(req: &JoinRequest) -> bool {
+    req.id_first && req.member_id.is_none() && req.instance.is_none()
 }
 
 /// A group of either kind.
@@ -96,11 +103,20 @@ impl Group {
     #[must_use]
     pub(crate) fn seating(&self, event: &Event) -> Option<Seating> {
         match (event, &self.kind) {
+            // Asking for an id seats nobody.
+            (Event::Join(_, req), _) if asks_for_an_id(req) => None,
             (Event::Join(_, req), Kind::Classic(m)) => m.would_seat(req).then(|| Seating {
                 session_ms: req.session_ms,
                 protocol_type: req.protocol_type.clone(),
             }),
-            (Event::Join(..), Kind::Consumer(_)) => None,
+            (Event::Join(_, req), Kind::Consumer(c)) => {
+                let seats = c.member_count() > 0
+                    || GroupMachine::new(0, (self.settings.ids)()).would_seat(req);
+                seats.then(|| Seating {
+                    session_ms: req.session_ms,
+                    protocol_type: req.protocol_type.clone(),
+                })
+            }
             (Event::ConsumerHeartbeat(_, hb), kind)
                 if match kind {
                     Kind::Consumer(c) => c.would_seat(hb),
@@ -125,6 +141,10 @@ impl Group {
         source: &dyn TopicSource,
     ) -> Vec<Effect> {
         match event {
+            // A client asking for an id before it joins (JoinGroup v4 and later): vetted, and the id issued by the registry.
+            Event::Join(token, req) if asks_for_an_id(&req) => {
+                vec![Effect::Reply(token, Answer::Join(self.vet(&req)))]
+            }
             Event::ConsumerHeartbeat(token, hb) => self.consumer_heartbeat(token, hb, now, source),
             // A classic member joining a consumer group nobody is in: the id is the classic protocol's now.
             Event::Join(token, req) if matches!(&self.kind, Kind::Consumer(c) if c.member_count() == 0) =>
@@ -144,10 +164,20 @@ impl Group {
                     {
                         GroupMachine::new(0, (self.settings.ids)()).step(event, now)
                     }
-                    event => c.step(event, now, source),
+                    event => self.step_consumer(event, now, source),
                 },
             },
         }
+    }
+
+    /// What a client asking for an id is told by this group: refused if a consumer group would refuse its protocols
+    /// whatever id it had, else that it is to come back with an id (the registry makes the answer, with the id).
+    fn vet(&self, req: &JoinRequest) -> JoinAnswer {
+        let refusal = match &self.kind {
+            Kind::Consumer(c) if c.member_count() > 0 => c.protocol_refusal(req),
+            _ => None,
+        };
+        JoinAnswer::refused(refusal.unwrap_or(E::MemberIdRequired), None)
     }
 
     fn consumer_heartbeat(
@@ -157,49 +187,77 @@ impl Group {
         now: Millis,
         source: &dyn TopicSource,
     ) -> Vec<Effect> {
-        let not_found = |hb: &Heartbeat| {
-            let words = if hb.epoch < 0 {
-                format!("Group {} not found.", hb.group)
-            } else {
-                format!("Consumer group {} not found.", hb.group)
-            };
+        let refuse = |words: String| {
             vec![Effect::Reply(
                 token,
                 Answer::ConsumerHeartbeat(HeartbeatAnswer::refused(E::GroupIdNotFound, words)),
             )]
         };
-        match &self.kind {
-            Kind::Consumer(_) => {}
+        let mut out = Vec::new();
+        if let Kind::Classic(m) = &mut self.kind {
             // To the classic coordinator a consumer group that is not there is not there.
-            Kind::Classic(_) if hb.epoch != 0 => return not_found(&hb),
-            Kind::Classic(m) if m.member_count() == 0 => {
+            if hb.epoch != 0 {
+                let words = if hb.epoch < 0 {
+                    format!("Group {} not found.", hb.group)
+                } else {
+                    format!("Consumer group {} not found.", hb.group)
+                };
+                return refuse(words);
+            }
+            if m.member_count() == 0 {
                 self.kind = Kind::Consumer(ConsumerGroup::new(
                     self.settings.consumer,
                     (self.settings.ids)(),
                 ));
-            }
-            Kind::Classic(m) if m.protocol_type() != Some("consumer") => {
-                let words = format!(
-                    "Cannot upgrade classic group {} to consumer group because the group does not use the consumer \
-                     embedded protocol.",
-                    hb.group
+            } else {
+                // A group of consumers with members becomes a consumer group, its members staying as members of it. A
+                // group of another protocol type (Connect), or one whose subscriptions cannot be read, is not upgraded.
+                let Some(handover) = m.hand_over(&mut out) else {
+                    return refuse(format!(
+                        "Cannot upgrade classic group {} to consumer group because the group does not use the \
+                         consumer embedded protocol.",
+                        hb.group
+                    ));
+                };
+                let adopted = ConsumerGroup::adopt(
+                    self.settings.consumer,
+                    (self.settings.ids)(),
+                    handover,
+                    &source.topics(),
+                    now,
+                    &mut out,
                 );
-                return vec![Effect::Reply(
-                    token,
-                    Answer::ConsumerHeartbeat(HeartbeatAnswer::refused(E::GroupIdNotFound, words)),
-                )];
-            }
-            Kind::Classic(_) => {
-                let words = "the group id is in use by a classic group";
-                return vec![Effect::Reply(
-                    token,
-                    Answer::ConsumerHeartbeat(HeartbeatAnswer::refused(E::GroupIdNotFound, words)),
-                )];
+                self.kind = Kind::Consumer(adopted);
             }
         }
-        match &mut self.kind {
-            Kind::Consumer(c) => c.step(Event::ConsumerHeartbeat(token, hb), now, source),
-            Kind::Classic(_) => Vec::new(),
+        out.extend(self.step_consumer(Event::ConsumerHeartbeat(token, hb), now, source));
+        out
+    }
+
+    /// A consumer group's step, and the change to a classic group if its last consumer-protocol member has gone.
+    fn step_consumer(
+        &mut self,
+        event: Event,
+        now: Millis,
+        source: &dyn TopicSource,
+    ) -> Vec<Effect> {
+        let Kind::Consumer(c) = &mut self.kind else {
+            return Vec::new();
+        };
+        let mut out = c.step(event, now, source);
+        if c.take_downgrade()
+            && let Some(handover) = c.hand_back(&source.topics(), &mut out)
+        {
+            let initial = self.settings.initial_delay_ms;
+            let classic = GroupMachine::from_handover(
+                initial,
+                (self.settings.ids)(),
+                handover,
+                now,
+                &mut out,
+            );
+            self.kind = Kind::Classic(classic);
         }
+        out
     }
 }

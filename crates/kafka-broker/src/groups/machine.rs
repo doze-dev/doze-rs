@@ -12,6 +12,7 @@ mod admin;
 mod commit;
 mod join;
 mod leave;
+mod migrate;
 mod rebalance;
 mod sync;
 mod timers;
@@ -60,6 +61,8 @@ struct Member {
     rebalance_ms: u64,
     protocols: Vec<Protocol>,
     assignment: Bytes,
+    /// What the generation before gave it, kept while the new one has none yet.
+    previous: Bytes,
     /// A JoinGroup of this member that is waiting for the rebalance.
     joined: Option<Token>,
     /// A SyncGroup of this member that is waiting for the leader.

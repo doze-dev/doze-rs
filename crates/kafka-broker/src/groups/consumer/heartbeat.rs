@@ -43,7 +43,7 @@ impl ConsumerGroup {
         out.push(Effect::Reply(token, Answer::ConsumerHeartbeat(answer)));
     }
 
-    fn holder_of(&self, instance: &InstanceId) -> Option<&MemberId> {
+    pub(super) fn holder_of(&self, instance: &InstanceId) -> Option<&MemberId> {
         self.members
             .values()
             .find(|m| m.instance.as_ref() == Some(instance))
@@ -51,7 +51,7 @@ impl ConsumerGroup {
     }
 
     /// A request naming a static instance that is not the member's: nobody holds it, or another member does.
-    fn static_refusal(
+    pub(super) fn static_refusal(
         &self,
         member: Option<&MemberId>,
         instance: Option<&InstanceId>,
@@ -110,6 +110,7 @@ impl ConsumerGroup {
         }
         self.remove_member(&id, out);
         self.bump_for_removal();
+        self.check_downgrade = true;
         Self::done(&id, req.epoch)
     }
 

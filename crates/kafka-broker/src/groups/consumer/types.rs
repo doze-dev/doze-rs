@@ -1,6 +1,6 @@
 //! What goes into a consumer group and what comes out. No wire types: the handlers translate.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 use kafka_wire::ResponseError;
 use kafka_wire::Uuid;
@@ -21,6 +21,7 @@ pub(crate) struct TopicInfo {
 #[derive(Debug, Clone, Default)]
 pub(crate) struct Topics {
     by_name: BTreeMap<String, TopicInfo>,
+    names: HashMap<Uuid, String>,
 }
 
 impl Topics {
@@ -28,9 +29,22 @@ impl Topics {
     pub(crate) fn new(all: impl IntoIterator<Item = TopicInfo>) -> Self {
         let mut topics = Self::default();
         for t in all {
+            topics.names.insert(t.id, t.name.clone());
             topics.by_name.insert(t.name.clone(), t);
         }
         topics
+    }
+
+    /// The id of the topic with this name, if there is one.
+    #[must_use]
+    pub(crate) fn id_of(&self, name: &str) -> Option<Uuid> {
+        self.by_name.get(name).map(|t| t.id)
+    }
+
+    /// The name of the topic with this id, if there is one.
+    #[must_use]
+    pub(crate) fn name_of(&self, id: &Uuid) -> Option<&str> {
+        self.names.get(id).map(String::as_str)
     }
 
     /// Every topic, by name.

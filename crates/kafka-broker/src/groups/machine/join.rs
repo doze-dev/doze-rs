@@ -269,6 +269,7 @@ fn new_member(id: &MemberId, req: &JoinRequest) -> Member {
         rebalance_ms: to_ms(req.rebalance_ms),
         protocols: req.protocols.clone(),
         assignment: Bytes::new(),
+        previous: Bytes::new(),
         joined: None,
         syncing: None,
         session_gen: 0,

@@ -1,13 +1,11 @@
 //! One member of a consumer group.
 
-use bytes::Bytes;
 use kafka_wire::ids::{InstanceId, MemberId};
 
 use super::assign::{Assignor, Partitions};
 use super::pattern::Pattern;
 use crate::groups::machine::Protocol;
 
-#[expect(dead_code, reason = "slice 5e seats classic members")]
 /// What a member that arrived by the classic JoinGroup keeps of it: it is still told what to do by the classic APIs.
 #[derive(Debug, Clone)]
 pub(crate) struct ClassicSeat {
@@ -19,8 +17,6 @@ pub(crate) struct ClassicSeat {
     pub(crate) version: i16,
     /// The session it asked for.
     pub(crate) session_ms: u64,
-    /// What it was last given, as the bytes a classic member is told: kept for handing the group back.
-    pub(crate) assignment: Bytes,
 }
 
 pub(super) struct Member {

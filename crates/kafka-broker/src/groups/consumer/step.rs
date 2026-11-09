@@ -5,10 +5,7 @@ use std::collections::BTreeSet;
 use kafka_wire::ResponseError as E;
 
 use super::{ConsumerGroup, TopicSource};
-use crate::groups::machine::{
-    Answer, CommitRequest, Description, Effect, Event, JoinAnswer, LeaveResult, Millis, State,
-    SyncAnswer,
-};
+use crate::groups::machine::{Answer, CommitRequest, Description, Effect, Event, Millis, State};
 
 impl ConsumerGroup {
     /// Handles one event at time `now`.
@@ -40,7 +37,9 @@ impl ConsumerGroup {
             Event::Join(token, req) => {
                 self.classic_join(token, &req, &source.topics(), now, &mut out)
             }
-            Event::Sync(token, req) => self.classic_sync(token, &req, now, &mut out),
+            Event::Sync(token, req) => {
+                self.classic_sync(token, &req, &source.topics(), now, &mut out)
+            }
             Event::Heartbeat(token, req) => self.classic_heartbeat(token, &req, now, &mut out),
             Event::Leave(token, targets) => self.classic_leave(token, &targets, &mut out),
         }
@@ -58,7 +57,9 @@ impl ConsumerGroup {
         if self.members.is_empty() {
             return (req.generation >= 0 || req.member_id.is_some()).then_some(E::UnknownMemberId);
         }
-        let member = member?;
+        let Some(member) = member else {
+            return Some(E::UnknownMemberId);
+        };
         if req.generation == member.epoch {
             return None;
         }
@@ -89,63 +90,5 @@ impl ConsumerGroup {
             subscribed: Some(subscribed),
             consumer: Some(self.view()),
         }
-    }
-}
-
-/// Until a classic member can sit in a consumer group.
-impl ConsumerGroup {
-    fn classic_join(
-        &mut self,
-        token: crate::groups::machine::Token,
-        _req: &crate::groups::machine::JoinRequest,
-        _topics: &super::Topics,
-        _now: Millis,
-        out: &mut Vec<Effect>,
-    ) {
-        let refused = JoinAnswer::refused(E::CoordinatorNotAvailable, None);
-        out.push(Effect::Reply(token, Answer::Join(refused)));
-    }
-
-    fn classic_sync(
-        &mut self,
-        token: crate::groups::machine::Token,
-        _req: &crate::groups::machine::SyncRequest,
-        _now: Millis,
-        out: &mut Vec<Effect>,
-    ) {
-        out.push(Effect::Reply(
-            token,
-            Answer::Sync(SyncAnswer::refused(E::UnknownMemberId)),
-        ));
-    }
-
-    fn classic_heartbeat(
-        &mut self,
-        token: crate::groups::machine::Token,
-        _req: &crate::groups::machine::HeartbeatRequest,
-        _now: Millis,
-        out: &mut Vec<Effect>,
-    ) {
-        out.push(Effect::Reply(
-            token,
-            Answer::Heartbeat(Some(E::UnknownMemberId)),
-        ));
-    }
-
-    fn classic_leave(
-        &mut self,
-        token: crate::groups::machine::Token,
-        targets: &[crate::groups::machine::LeaveTarget],
-        out: &mut Vec<Effect>,
-    ) {
-        let results = targets
-            .iter()
-            .map(|t| LeaveResult {
-                member_id: t.member_id.clone(),
-                instance: t.instance.clone(),
-                error: Some(E::UnknownMemberId),
-            })
-            .collect();
-        out.push(Effect::Reply(token, Answer::Leave(results)));
     }
 }

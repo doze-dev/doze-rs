@@ -14,9 +14,10 @@ mod records;
 
 use super::actor::{self, Command, Req};
 use super::consumer::HeartbeatAnswer;
-use super::group::{Group, Settings};
+use super::group::{Group, Settings, asks_for_an_id};
 use super::machine::{
-    Answer, Description, JoinAnswer, LeaveResult, SyncAnswer, commit_to_no_group, refusal,
+    Answer, Description, JoinAnswer, JoinRequest, LeaveResult, SyncAnswer, commit_to_no_group,
+    refusal,
 };
 pub(crate) use issued::member_ids;
 use issued::{Issued, MOST_ISSUED};
@@ -75,8 +76,12 @@ impl Groups {
             if let Some(error) = refusal(join) {
                 return Some(Answer::Join(JoinAnswer::refused(error, None)));
             }
-            if join.id_first && join.member_id.is_none() && join.instance.is_none() {
-                return Some(self.issue(group));
+            if asks_for_an_id(join) {
+                // A group that is there may refuse the client before it is given an id; one that is not there is not made.
+                return Some(match self.vet(group, join).await {
+                    Some(refused) => refused,
+                    None => self.issue(group),
+                });
             }
             if let Some(id) = &join.member_id
                 && self.is_issued(group, id)
@@ -93,6 +98,21 @@ impl Groups {
             self.spend(group, id);
         }
         answer
+    }
+
+    /// What a group that exists says to a client asking for an id, if it refuses it. `None`: it may be given one.
+    async fn vet(&self, group: &GroupId, join: &JoinRequest) -> Option<Answer> {
+        let sender = self.open.lock().await.get(group).cloned()?;
+        let (reply, answer) = oneshot::channel();
+        let command = Command {
+            req: Req::Join(join.clone()),
+            reply,
+        };
+        sender.send(command).await.ok()?;
+        match answer.await.ok()? {
+            Answer::Join(j) if j.error == Some(ResponseError::MemberIdRequired) => None,
+            other => Some(other),
+        }
     }
 
     /// Puts the request to the group's task.

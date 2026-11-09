@@ -7,6 +7,7 @@ mod machine;
 mod order;
 mod registry;
 mod retention;
+mod seat;
 mod subscription;
 
 pub(crate) use actor::Req;

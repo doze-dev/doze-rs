@@ -16,10 +16,12 @@
 //! computation, never by a leave, an expiry or the passing of time. That is what Kafka does and what is recorded.
 
 pub(crate) mod assign;
+mod classic;
 mod heartbeat;
 mod join;
 mod member;
 mod pattern;
+pub(crate) mod protocol;
 mod reconcile;
 mod step;
 mod timers;
@@ -63,6 +65,8 @@ pub(crate) struct ConsumerGroup {
     assignor: Assignor,
     members: BTreeMap<MemberId, Member>,
     next_arming: u64,
+    /// A consumer-protocol member has gone: if only classic members are left, the group is classic again.
+    check_downgrade: bool,
 }
 
 impl ConsumerGroup {
@@ -91,6 +95,7 @@ impl ConsumerGroup {
             assignor,
             members: BTreeMap::new(),
             next_arming: 0,
+            check_downgrade: false,
         }
     }
 

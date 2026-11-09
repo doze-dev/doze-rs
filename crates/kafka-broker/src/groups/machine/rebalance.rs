@@ -118,7 +118,7 @@ impl GroupMachine {
         for id in ids {
             let answer = self.join_answer(&id);
             if let Some(m) = self.members.get_mut(&id) {
-                m.assignment = bytes::Bytes::new();
+                m.previous = std::mem::take(&mut m.assignment);
                 if let Some(token) = m.joined.take() {
                     out.push(Effect::Reply(token, Answer::Join(answer)));
                 }
