@@ -32,3 +32,14 @@ what the killed member read and had not committed), and at the end every partiti
   `-X auto.offset.reset=earliest`. kcat reads no option after the first topic.
 - kafka-go does not retry a first Metadata answer for a topic that does not exist yet (a recorded Kafka answers it
   the same way); franz-go asks for auto-creation only when told to. The topic is therefore made first.
+
+## The new group protocol (KIP-848)
+
+franz-go (`kgo.ServerSideBalancer()`; its `GroupProtocol` option is only the classic protocol's name) and librdkafka
+(`-X group.protocol=consumer`) also run as consumer-protocol members (`franz-go-848`, `librdkafka-848`). Scenarios:
+the same two libraries in a group of their own; `upgrade-848` (classic members first, then new-protocol ones join: an
+upgrade) and `classic-joins-848` (the reverse); `churn-848`. A graceful shutdown of a group of both stops the
+new-protocol members last, as the last of them gone turns the group classic again and a classic member's final commit
+would be under a generation that is gone. kafka-go and sarama stay classic: kafka-go writes subscription version 1
+without the owned partitions, which a coordinator that reads subscriptions cannot read, so it is left out of groups
+with the new protocol. `-members franz-go-848,sarama` runs a group of the named clients, in join order.

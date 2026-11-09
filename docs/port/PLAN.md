@@ -522,3 +522,11 @@ test-only knobs in `internal/config`.
   5.5 s), a sarama member joins; every record is read and every partition ends committed. Checked by mutation: a broker
   whose sessions never expire fails it. Found: nothing wrong in the broker; two harness mistakes, both the client's
   ways (kcat `-o beginning` ignores commits; kcat reads no option after a topic).
+- **2026-11-09, Phase 5 built (KIP-848 and migration), awaiting its independent audit.** One actor per group owns a
+  `Group` that is a classic or a consumer group; a migration is a conversion inside the owner (this replaces the plan's
+  "claims registry": no claim race to arbitrate, no lock order). The assignors are pure and property-tested; the consumer
+  machine is sans-IO like the classic one, with a random simulation of its ownership invariants (mutation-checked). All the
+  recorded KIP-848 and mixed-protocol scenarios pass, as do the classic ones; franz-go and librdkafka run on the new
+  protocol, alone and mixed with classic members. Weight 3.62 MB / 107 packages (one dependency added, `regex-lite`, for
+  pattern subscriptions). Learned: franz-go's switch to the new protocol is `ServerSideBalancer`; a first "pass" with the
+  wrong option was a classic run.

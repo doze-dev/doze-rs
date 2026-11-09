@@ -78,3 +78,13 @@ Found by the oracle and not by the broker's own tests (each now has one): gzip w
 accepted; zstd windows past 128 MiB are unreadable and under it are too large only past this broker's cap; a topic's
 `compression.type` makes the broker write the batch again (renumbered, size held as stored); a transactional bit with no
 producer id is stored; nonsense after the batch fails it without Kafka's text; the value length is in the timestamp-type text.
+
+## Phase 5 result (2026-11-09)
+
+The consumer-group scenarios pass against the Rust binary: `consumer-assignment-interval`, `consumer-assignment-expiry`,
+`consumer-static-leave`, `mixed-protocol-{groups,rolling,parked,cooperative,static}`, `group-requests-refused`,
+`describe-groups-order`, `offsets-retention{,-members,-recreate,-restart}`, `groups-listed-after-restart`,
+`offset-delete-subscribed`. `--consumer-session-timeout` is a flag; the assignment interval is the test knob
+`DOZE_KAFKA_TEST_ASSIGNMENT_INTERVAL`. A full replay passes 38 scenarios; the failing ones are of Phases 6 to 11.
+The helper used: `CONFORMANCE_BIN=... CONFORMANCE_ONLY=<prefixes> go test ./conformance -run 'TestReplay$' -v`, output
+reduced to the `--- PASS/FAIL` and `differs from` lines.

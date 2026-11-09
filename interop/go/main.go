@@ -8,6 +8,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -19,6 +20,9 @@ type member struct {
 	stop func()
 	// kill is an end with no word to the broker, for a client that is a process of its own (nil if not).
 	kill func()
+	// late: a member of the new group protocol, which a graceful shutdown of a group of both stops last, so that the
+	// classic members still commit under the generation they hold (the last of them gone, the group is classic again).
+	late bool
 }
 
 // client is what a scenario needs of a library.
@@ -37,11 +41,14 @@ const partitions = 4
 func main() {
 	addr := flag.String("broker", "127.0.0.1:9092", "host:port of the broker")
 	only := flag.String("only", "", "run one scenario by name")
+	custom := flag.String("members", "", "run a group of these clients (comma-separated names, in the order they join), named custom")
 	flag.Parse()
-	sar, fra, seg, rdk := sarama{*addr}, franz{*addr}, segment{*addr}, rdkafka{*addr}
+	sar, fra, seg, rdk := sarama{*addr}, franz{addr: *addr}, segment{*addr}, rdkafka{addr: *addr}
+	// The same two libraries on the new group protocol (KIP-848); the broker assigns.
+	fra8, rdk8 := franz{addr: *addr, kip848: true}, rdkafka{addr: *addr, kip848: true}
 	all := []client{sar, fra, seg, rdk}
 	var scenarios []runner
-	for _, c := range all {
+	for _, c := range []client{sar, fra, seg, rdk, fra8, rdk8} {
 		scenarios = append(scenarios, scenario{c.name(), []client{c, c}, "range", true})
 	}
 	scenarios = append(scenarios,
@@ -52,7 +59,29 @@ func main() {
 		scenario{"franz-librdkafka", []client{fra, rdk}, "range", false},
 		scenario{"mixed", all, "range", false},
 		scenario{"mixed-rr", all, "roundrobin", false},
-		churn{all})
+		// Both protocols in one group: the new ones join a group of classic members (an upgrade), and classic members
+		// join a group of the new ones.
+		scenario{"upgrade-848", []client{sar, rdk, fra8, rdk8}, "range", false},
+		scenario{"classic-joins-848", []client{fra8, rdk8, sar, rdk}, "range", false},
+		churn{"churn", all, "franz-go", "librdkafka"},
+		churn{"churn-848", []client{sar, rdk, fra8, rdk8}, "franz-go-848", "librdkafka-848"})
+	if *custom != "" {
+		byName := map[string]client{}
+		for _, c := range []client{sar, fra, seg, rdk, fra8, rdk8} {
+			byName[c.name()] = c
+		}
+		var members []client
+		for _, n := range strings.Split(*custom, ",") {
+			c, ok := byName[n]
+			if !ok {
+				fmt.Printf("no client named %q\n", n)
+				os.Exit(2)
+			}
+			members = append(members, c)
+		}
+		scenarios = []runner{scenario{"custom", members, "range", false}}
+		*only = ""
+	}
 	failed := false
 	for _, s := range scenarios {
 		if *only != "" && *only != s.title() {
@@ -124,9 +153,11 @@ type running struct {
 }
 
 func (r *running) stop() {
-	for i := range r.live {
-		if r.live[i].stop != nil {
-			r.live[i].stop()
+	for _, late := range []bool{false, true} {
+		for i := range r.live {
+			if r.live[i].stop != nil && r.live[i].late == late {
+				r.live[i].stop()
+			}
 		}
 	}
 }
@@ -225,6 +256,9 @@ func (s scenario) run(addr string) (string, error) {
 			return "", fmt.Errorf("member %d (%s) read nothing", i, m.name())
 		}
 		split = append(split, fmt.Sprintf("%s=%d", m.name(), n))
+	}
+	if err := adm.committedAtEnd(group, topic, partitions); err != nil {
+		return "", fmt.Errorf("after the members left: %w", err)
 	}
 	extra, err := one.check(0, first, s.exact)
 	if err != nil {

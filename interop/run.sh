@@ -13,7 +13,7 @@ trap 'if [ -n "${broker:-}" ]; then kill "$broker" 2>/dev/null; wait "$broker" 2
 cargo build --release -p doze-kafka --manifest-path "$root/Cargo.toml"
 port="$(( (RANDOM % 20000) + 30000 ))"
 "$root/target/release/doze-kafka" --listen "127.0.0.1:$port" --data-dir "$work/data" \
-  --default-partitions 3 >"$work/broker.log" 2>&1 &
+  --default-partitions 3 --consumer-session-timeout 6s >"$work/broker.log" 2>&1 &
 broker=$!
 sleep 1
 (cd "$here/go" && go run . -broker "127.0.0.1:$port" "$@") || { cat "$work/broker.log"; exit 1; }

@@ -13,9 +13,17 @@ import (
 )
 
 // rdkafka is librdkafka, through kcat: a separate process, so it can also be killed without warning.
-type rdkafka struct{ addr string }
+type rdkafka struct {
+	addr   string
+	kip848 bool
+}
 
-func (rdkafka) name() string { return "librdkafka" }
+func (r rdkafka) name() string {
+	if r.kip848 {
+		return "librdkafka-848"
+	}
+	return "librdkafka"
+}
 
 func (r rdkafka) produce(ctx context.Context, topic string, from, n int) error {
 	var lines strings.Builder
@@ -31,15 +39,20 @@ func (r rdkafka) produce(ctx context.Context, topic string, from, n int) error {
 }
 
 func (r rdkafka) join(ctx context.Context, topic, group, assignor string, got func(string), fail func(error)) (member, error) {
-	cmd := exec.Command("kcat", "-b", r.addr, "-G", group, "-u", "-q", "-f", "%s\n",
+	args := []string{"-b", r.addr, "-G", group, "-u", "-q", "-f", "%s\n",
 		// Not -o beginning: that starts at offset 0 every time, whatever is committed.
 		"-X", "auto.offset.reset=earliest",
-		"-X", "partition.assignment.strategy="+assignor,
+		"-X", "enable.auto.commit=true", "-X", "auto.commit.interval.ms=500"}
+	if r.kip848 {
+		// The broker assigns, and decides the session and the heartbeat interval.
+		args = append(args, "-X", "group.protocol=consumer", "-X", "group.remote.assignor=uniform")
+	} else {
 		// A session that runs out in 6 s (the broker's shortest), so a crashed member is noticed soon.
-		"-X", "session.timeout.ms=6000", "-X", "heartbeat.interval.ms=1000",
-		"-X", "enable.auto.commit=true", "-X", "auto.commit.interval.ms=500",
-		// Last: kcat reads no option after the first topic.
-		topic)
+		args = append(args, "-X", "partition.assignment.strategy="+assignor,
+			"-X", "session.timeout.ms=6000", "-X", "heartbeat.interval.ms=1000")
+	}
+	// Last: kcat reads no option after the first topic.
+	cmd := exec.Command("kcat", append(args, topic)...)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	out, err := cmd.StdoutPipe()
@@ -91,6 +104,7 @@ func (r rdkafka) join(ctx context.Context, topic, group, assignor string, got fu
 		})
 	}
 	return member{
+		late: r.kip848,
 		// SIGTERM: kcat closes the consumer, which commits and leaves the group.
 		stop: func() { end(syscall.SIGTERM, 15*time.Second) },
 		// SIGKILL: gone with no word to the broker.

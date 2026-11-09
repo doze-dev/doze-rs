@@ -9,9 +9,17 @@ import (
 	"github.com/twmb/franz-go/pkg/kgo"
 )
 
-type franz struct{ addr string }
+type franz struct {
+	addr   string
+	kip848 bool
+}
 
-func (franz) name() string { return "franz-go" }
+func (f franz) name() string {
+	if f.kip848 {
+		return "franz-go-848"
+	}
+	return "franz-go"
+}
 
 func (f franz) produce(ctx context.Context, topic string, from, n int) error {
 	cl, err := kgo.NewClient(kgo.SeedBrokers(f.addr), kgo.DefaultProduceTopic(topic), kgo.AllowAutoTopicCreation())
@@ -35,11 +43,16 @@ func (f franz) join(ctx context.Context, topic, group, assignor string, got func
 	if os.Getenv("FRANZ_LOG") != "" {
 		opts = append(opts, kgo.WithLogger(kgo.BasicLogger(os.Stderr, kgo.LogLevelDebug, nil)))
 	}
+	if f.kip848 {
+		// The broker assigns (it needs the range or the sticky balancer to be named, and Kafka 4).
+		opts = append(opts, kgo.ServerSideBalancer(), kgo.Balancers(kgo.RangeBalancer()))
+	} else {
+		opts = append(opts, kgo.Balancers(balancer))
+	}
 	cl, err := kgo.NewClient(append(opts,
 		kgo.SeedBrokers(f.addr),
 		kgo.ConsumerGroup(group),
 		kgo.ConsumeTopics(topic),
-		kgo.Balancers(balancer),
 		kgo.ConsumeResetOffset(kgo.NewOffset().AtStart()),
 		kgo.DisableAutoCommit(),
 	)...)
@@ -64,5 +77,5 @@ func (f franz) join(ctx context.Context, topic, group, assignor string, got func
 			}
 		}
 	}()
-	return member{stop: func() { cancel(); wg.Wait(); cl.Close() }}, nil
+	return member{stop: func() { cancel(); wg.Wait(); cl.Close() }, late: f.kip848}, nil
 }

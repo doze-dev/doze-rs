@@ -1,17 +1,22 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"time"
 
 	lib "github.com/IBM/sarama"
+	"github.com/twmb/franz-go/pkg/kgo"
+	"github.com/twmb/franz-go/pkg/kmsg"
 )
 
-// admin is sarama's admin client, used by every scenario for the parts that are not under test:
-// making the topic, seeing when a group has settled, and where its offsets stand.
+// admin is sarama's admin client, used by every scenario for the parts that are not under test: making the topic,
+// seeing when a group has settled, and where its offsets stand. A group of the new protocol is not described by the
+// classic API, so franz-go's client asks ConsumerGroupDescribe first.
 type admin struct {
 	c  lib.ClusterAdmin
 	cl lib.Client
+	k  *kgo.Client
 }
 
 func newAdmin(addr string) (admin, error) {
@@ -26,38 +31,80 @@ func newAdmin(addr string) (admin, error) {
 		_ = c.Close()
 		return admin{}, err
 	}
-	return admin{c, cl}, nil
+	k, err := kgo.NewClient(kgo.SeedBrokers(addr))
+	if err != nil {
+		_ = c.Close()
+		_ = cl.Close()
+		return admin{}, err
+	}
+	return admin{c, cl, k}, nil
 }
 
-func (a admin) close() { _ = a.c.Close(); _ = a.cl.Close() }
+func (a admin) close() { _ = a.c.Close(); _ = a.cl.Close(); a.k.Close() }
 
 func (a admin) createTopic(topic string, partitions int32) error {
 	return a.c.CreateTopic(topic, &lib.TopicDetail{NumPartitions: partitions, ReplicationFactor: 1}, false)
 }
 
-// waitStable waits until the group is Stable with exactly n members: every one has joined and been given
-// its assignment, so what is read next is read under the final split.
+// groupState is the group's state and how many members it lists, whichever protocol it is on now.
+// who names the members the group lists, for a failure to say.
+func (a admin) who(group string) string {
+	req := kmsg.NewPtrConsumerGroupDescribeRequest()
+	req.Groups = []string{group}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	resp, err := req.RequestWith(ctx, a.k)
+	if err != nil || len(resp.Groups) != 1 {
+		return ""
+	}
+	g := resp.Groups[0]
+	out := fmt.Sprintf("[%s epoch %d/%d]", g.State, g.Epoch, g.AssignmentEpoch)
+	for _, m := range g.Members {
+		n := 0
+		for _, t := range m.Assignment.TopicPartitions {
+			n += len(t.Partitions)
+		}
+		out += fmt.Sprintf(" %s@%d(%d)", m.ClientID, m.MemberEpoch, n)
+	}
+	return out
+}
+
+func (a admin) groupState(group string) (state string, members int, err error) {
+	req := kmsg.NewPtrConsumerGroupDescribeRequest()
+	req.Groups = []string{group}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if resp, err := req.RequestWith(ctx, a.k); err == nil && len(resp.Groups) == 1 && resp.Groups[0].ErrorCode == 0 {
+		return resp.Groups[0].State, len(resp.Groups[0].Members), nil
+	}
+	ds, err := a.c.DescribeConsumerGroups([]string{group})
+	if err != nil || len(ds) != 1 {
+		return "", 0, err
+	}
+	return ds[0].State, len(ds[0].Members), nil
+}
+
+// waitStable waits until the group is Stable with exactly n members: every one has joined and been given its
+// assignment, so what is read next is read under the final split.
 func (a admin) waitStable(group string, n int) error {
 	deadline := time.Now().Add(40 * time.Second)
 	var last string
 	for time.Now().Before(deadline) {
-		ds, err := a.c.DescribeConsumerGroups([]string{group})
+		state, members, err := a.groupState(group)
 		if err != nil {
 			return err
 		}
-		if len(ds) == 1 {
-			last = fmt.Sprintf("%s with %d members", ds[0].State, len(ds[0].Members))
-			if ds[0].State == "Stable" && len(ds[0].Members) == n {
-				return nil
-			}
+		last = fmt.Sprintf("%s with %d members", state, members)
+		if state == "Stable" && members == n {
+			return nil
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
-	return fmt.Errorf("the group never became Stable with %d members (last: %s)", n, last)
+	return fmt.Errorf("the group never became Stable with %d members (last: %s %s)", n, last, a.who(group))
 }
 
-// committedAtEnd checks that the group has committed every record of the topic: each partition's committed
-// offset is its end offset.
+// committedAtEnd checks that the group has committed every record of the topic: each partition's committed offset is
+// its end offset.
 func (a admin) committedAtEnd(group, topic string, partitions int32) error {
 	all := make([]int32, partitions)
 	for p := range all {
@@ -88,11 +135,11 @@ func (a admin) committedAtEnd(group, topic string, partitions int32) error {
 func (a admin) waitMembers(group string, n int) (time.Duration, error) {
 	start := time.Now()
 	for time.Since(start) < 40*time.Second {
-		ds, err := a.c.DescribeConsumerGroups([]string{group})
+		_, members, err := a.groupState(group)
 		if err != nil {
 			return 0, err
 		}
-		if len(ds) == 1 && len(ds[0].Members) == n {
+		if members == n {
 			return time.Since(start), nil
 		}
 		time.Sleep(50 * time.Millisecond)

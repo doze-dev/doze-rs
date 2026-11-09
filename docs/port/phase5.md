@@ -1,6 +1,6 @@
 # Phase 5: KIP-848 consumer groups and classic <-> consumer migration
 
-Status: IN PROGRESS (started 2026-11-09, autonomous run). Catalogue: behaviours/groups848.md (written as slices land).
+Status: built, awaiting the independent audit (started 2026-11-09, autonomous run). Catalogue: behaviours/groups848.md.
 Goal: a client using `group.protocol=consumer` (ConsumerGroupHeartbeat, ConsumerGroupDescribe) joins, is assigned
 partitions by the *broker*, reconciles, rebalances, leaves; a classic and a consumer-protocol member can share one
 group (a rolling upgrade, in both directions); and every recorded Apache Kafka 4.3.1 scenario that was waiting on
@@ -70,3 +70,19 @@ Gates as in Phase 4 (fmt, clippy -D warnings, tests, lint-size). Commit per slic
 - Regular-expression subscriptions (ConsumerGroupHeartbeat v1) need a regex engine; a small dependency (`regex-lite`)
   is weighed against the weight gate when it is added.
 - Real clients exercise paths the recordings do not (librdkafka's KIP-848 consumer is new): budget for 5g.
+
+## Result (slices 5a to 5g built)
+
+Oracle, against recorded Apache Kafka 4.3.1 (full replay: 38 scenarios pass; the ones that do not are all of later phases
+- transactions and idempotence, ACLs, SASL, telemetry, config APIs): `consumer-assignment-interval`, `-expiry`,
+`consumer-static-leave`, the five `mixed-protocol-*`, `group-requests-refused`, `describe-groups-order`,
+`offsets-retention`, `-members`, `-recreate`, `-restart`, `groups-listed-after-restart`, `offset-delete-subscribed`, and all
+the classic ones of Phase 4. Real clients: franz-go and librdkafka on the new protocol, alone and with classic members
+(a rolling upgrade, and the reverse), and under churn (`interop/`, 17 scenarios pass). Weight: binary 3.62 MB (gate 4.2),
+107 packages (gate 115). Tests: 495 in the workspace.
+
+Found by the oracle and the clients and not by the unit tests (each now has one): a commit naming a member that is not in
+a group with members was let through; a client asking for a member id must be vetted by a consumer group before it is
+issued one (the recorded order); franz-go's "848" switch is `ServerSideBalancer`, not `GroupProtocol` (the first
+"pass" was a classic run: read the client's log before believing it); kafka-go cannot join a group that reads
+subscriptions; a graceful shutdown of a mixed group has to stop the classic members first.

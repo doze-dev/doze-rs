@@ -10,14 +10,19 @@ import (
 // churn is a group under load whose members come and go: while records are produced all along, one member
 // leaves, one is killed (no LeaveGroup; the broker finds out when its session runs out), and a new one joins.
 // Every record must still be read, and everything must be committed at the end.
-type churn struct{ clients []client }
+type churn struct {
+	name    string
+	clients []client
+	// leave is the library whose member leaves, kill the one whose member is killed.
+	leave, kill string
+}
 
-func (churn) title() string { return "churn" }
+func (c churn) title() string { return c.name }
 
 func (c churn) run(addr string) (string, error) {
 	ctx, stop := context.WithTimeout(context.Background(), 120*time.Second)
 	defer stop()
-	topic := fmt.Sprintf("churn-%d", time.Now().UnixNano())
+	topic := fmt.Sprintf("%s-%d", c.name, time.Now().UnixNano())
 	group := topic + "-g"
 	adm, err := newAdmin(addr)
 	if err != nil {
@@ -83,7 +88,7 @@ func (c churn) run(addr string) (string, error) {
 	if err := at(300); err != nil {
 		return "", err
 	}
-	left("franz-go").stop()
+	left(c.leave).stop()
 	if err := adm.waitStable(group, len(c.clients)-1); err != nil {
 		return "", fmt.Errorf("after franz-go left: %w", err)
 	}
@@ -91,7 +96,7 @@ func (c churn) run(addr string) (string, error) {
 	if err := at(900); err != nil {
 		return "", err
 	}
-	left("librdkafka").kill()
+	left(c.kill).kill()
 	// Its session is 6 s and it last heartbeated within a second before the kill: the seat goes between 4 s and
 	// 7 s after it (the broker's timer, a little slack for polling).
 	expired, err := adm.waitMembers(group, len(c.clients)-2)

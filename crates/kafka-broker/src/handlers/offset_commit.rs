@@ -90,11 +90,15 @@ impl<F: Fs> Broker<F> {
                 .map(|i| InstanceId::new(i.as_str())),
             generation: req.generation_id_or_member_epoch,
         };
-        match self.groups.ask(&group, Req::Commit(check)).await {
+        let fenced = match self.groups.ask(&group, Req::Commit(check)).await {
             Some(Answer::Commit(error)) => error,
             // The group has gone while asking: nothing is known of the committer.
             _ => Some(ResponseError::UnknownMemberId),
+        };
+        if let Some(error) = fenced {
+            tracing::debug!(%group, member = req.member_id.as_str(), generation = req.generation_id_or_member_epoch, version, ?error, "an offset commit was refused by its group");
         }
+        fenced
     }
 
     /// Stores what passed and tells each partition how it went.
