@@ -84,7 +84,7 @@ fn a_record_is_written_for_a_groups_first_member_and_not_for_each_classic_member
         unwritten_empty: None,
         consumer: false,
     };
-    let mut step = |keeper: &mut Keeper<Counting>, group: &mut Group, event: Event| {
+    let step = |keeper: &mut Keeper<Counting>, group: &mut Group, event: Event| {
         let had = group.member_count() > 0;
         assert!(keeper.may_seat(group, &event));
         let _ = group.step(event, Millis(1_000), &One);
