@@ -204,3 +204,127 @@ async fn what_cleaning_left_is_what_a_restarted_broker_serves() {
     again.broker.check_cleaner().await;
     assert_eq!(again.list_offset(7, "c", 0, -1).await.offset, 90);
 }
+
+/// A compacted topic with small segments whose own settings are `configs` (the given ones replace the usual).
+fn compacted_by(
+    configs: &[(&str, &str)],
+) -> kafka_wire::messages::create_topics_request::CreatableTopic {
+    let mut t = with_config(topic("c", 1), "cleanup.policy", "compact");
+    t = with_config(t, "segment.bytes", "1024");
+    for (k, v) in configs {
+        t = with_config(t, k, v);
+    }
+    t
+}
+
+/// Records stamped now, for what is judged by how old a record is.
+fn keyed_now(key: &str, value: &str) -> bytes::Bytes {
+    use kafka_wire::batch::build::{BatchBuilder, Rec};
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as i64;
+    let rec = Rec {
+        key: Some(key.as_bytes().to_vec()),
+        value: Some(value.as_bytes().to_vec()),
+        ..Rec::default()
+    };
+    BatchBuilder::from_records(now, &[rec]).build()
+}
+
+#[tokio::test]
+async fn min_compaction_lag_ms_keeps_records_that_young_from_being_cleaned() {
+    for (lag, cleaned) in [("3600000", false), ("0", true)] {
+        let rig = rig();
+        let t = compacted_by(&[
+            ("min.cleanable.dirty.ratio", "0.01"),
+            ("min.compaction.lag.ms", lag),
+        ]);
+        rig.create(vec![t], false).await;
+        for i in 0..60 {
+            let one = keyed_now(&format!("k{}", i % 5), &format!("v{i}"));
+            assert_eq!(rig.produce(-1, "c", 0, one).await.error_code, 0);
+        }
+        rig.broker.check_cleaner().await;
+        let left = everything(&rig, "c").await.len();
+        assert_eq!(left < 60, cleaned, "lag {lag}: {left} records left");
+    }
+}
+
+#[tokio::test]
+async fn max_compaction_lag_ms_forces_a_round_the_dirty_ratio_would_not() {
+    for (max_lag, cleaned) in [("1", true), ("9223372036854775807", false)] {
+        let rig = rig();
+        // A ratio of one is never exceeded: only the lag can make the log due.
+        let t = compacted_by(&[
+            ("min.cleanable.dirty.ratio", "1"),
+            ("max.compaction.lag.ms", max_lag),
+        ]);
+        rig.create(vec![t], false).await;
+        fill(&rig, 60, 5).await;
+        rig.broker.check_cleaner().await;
+        let left = everything(&rig, "c").await.len();
+        assert_eq!(left < 60, cleaned, "max lag {max_lag}: {left} records left");
+    }
+}
+
+#[tokio::test]
+async fn delete_retention_ms_is_how_long_a_deletion_is_kept_after_it_is_cleaned() {
+    let rig = rig();
+    let t = compacted_by(&[
+        ("min.cleanable.dirty.ratio", "0.01"),
+        ("delete.retention.ms", "3600000"),
+    ]);
+    rig.create(vec![t], false).await;
+    fill(&rig, 20, 5).await;
+    assert_eq!(
+        rig.produce(-1, "c", 0, keyed(&[("gone", Some("1"))]))
+            .await
+            .error_code,
+        0
+    );
+    assert_eq!(
+        rig.produce(-1, "c", 0, keyed(&[("gone", None)]))
+            .await
+            .error_code,
+        0
+    );
+    for _ in 0..3 {
+        fill(&rig, 30, 5).await;
+        rig.broker.check_cleaner().await;
+        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+    }
+    let after = everything(&rig, "c").await;
+    assert!(
+        after.iter().any(|r| r.1 == "gone" && r.2),
+        "an hour is longer than this test: the deletion is still served: {after:?}"
+    );
+}
+
+#[tokio::test]
+async fn a_log_of_many_segments_is_cleaned_whole_though_the_writer_takes_it_a_few_at_a_time() {
+    let rig = rig();
+    rig.create(vec![compacted("compact")], false).await;
+    // Segments of a kilobyte hold about a dozen of these: well over the number put in place in one go.
+    fill(&rig, 800, 5).await;
+    let before = everything(&rig, "c").await;
+    rig.broker.check_cleaner().await;
+    let after = everything(&rig, "c").await;
+    for k in 0..5 {
+        let key = format!("k{k}");
+        let latest = before.iter().rfind(|r| r.1 == key).unwrap();
+        assert!(after.contains(latest), "the latest of {key} is gone");
+    }
+    let below_the_tail = after.iter().filter(|r| r.0 < 700).count();
+    assert!(
+        below_the_tail <= 5 + 5,
+        "every segment but the active ones was cleaned: {below_the_tail} records left below it"
+    );
+    // The writer is not left holding anything: it takes appends, and the round run again changes nothing.
+    assert_eq!(
+        rig.produce(-1, "c", 0, keyed(&[("k0", Some("again"))])).await.error_code,
+        0
+    );
+    rig.broker.check_cleaner().await;
+    assert_eq!(rig.list_offset(7, "c", 0, -1).await.offset, 801);
+}

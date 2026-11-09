@@ -36,6 +36,8 @@ pub(super) enum Command<F: Fs> {
         kafka_storage::compact::Cleaned,
         oneshot::Sender<Result<usize, StorageError>>,
     ),
+    /// Take back the files of a round that will not be put in place.
+    Discard(kafka_storage::compact::Cleaned),
     /// Judge appends by this config from now on.
     Configure(kafka_storage::LogConfig),
     /// Flush and close; answers whether that worked.
@@ -181,6 +183,7 @@ fn work<F: Fs>(
             Command::Install(cleaned, reply) => {
                 let _ = reply.send(log.install_cleaned(&cleaned));
             }
+            Command::Discard(cleaned) => log.discard_cleaned(&cleaned),
             Command::Configure(config) => log.set_config(config),
             Command::Close(done) => closing = Some(done),
         }

@@ -31,6 +31,8 @@ pub struct Facts {
     pub size: u64,
     /// The newest timestamp in it (its last write, for one with none).
     pub newest_ms: i64,
+    /// The timestamp of its first batch (0 if it has none): what `max.compaction.lag.ms` counts a segment's age from.
+    pub oldest_ms: i64,
 }
 
 /// What a plan found.
@@ -68,9 +70,11 @@ pub fn judge(
         .rev()
         .find(|s| s.base <= first_dirty && first_dirty < s.next)
         .map_or(first_dirty, |s| s.base);
-    // The first segment too new to clean limits how far cleaning goes.
+    // The first dirty segment too new to clean limits how far cleaning goes (`LogCleanerManager.cleanableOffsets`): only when
+    // there is a minimum lag, and only among the dirty ones: a clean segment's age is no reason to wait.
     let too_new = segments
         .iter()
+        .filter(|s| p.min_lag_ms > 0 && s.base >= dirty_start)
         .find(|s| s.newest_ms > p.now_ms.saturating_sub(p.min_lag_ms))
         .map_or(i64::MAX, |s| s.base);
     let upto = unstable.min(active_base).min(too_new);
@@ -86,12 +90,15 @@ pub fn judge(
         return None;
     }
     let ratio = dirty as f64 / (dirty + clean) as f64;
-    let waited_too_long = segments
-        .iter()
-        .find(|s| s.base >= dirty_start && s.base < upto)
-        .is_some_and(|s| {
-            p.max_lag_ms != i64::MAX && p.now_ms.saturating_sub(s.newest_ms) >= p.max_lag_ms
-        });
+    // Forced once the earliest first-batch timestamp of the dirty segments is older than the maximum lag
+    // (`LogCleanerManager.maxCompactionDelay`): a segment is as old as its first record, not its last.
+    let waited_too_long = p.max_lag_ms != i64::MAX
+        && segments
+            .iter()
+            .filter(|s| s.base >= dirty_start && s.oldest_ms > 0)
+            .map(|s| s.oldest_ms)
+            .min()
+            .is_some_and(|earliest| earliest < p.now_ms.saturating_sub(p.max_lag_ms));
     (ratio > p.min_dirty_ratio || waited_too_long).then_some(Plan {
         upto,
         first_dirty,

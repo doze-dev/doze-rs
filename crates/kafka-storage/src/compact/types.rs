@@ -59,6 +59,34 @@ pub struct Cleaned {
     pub records_kept: u64,
 }
 
+impl Cleaned {
+    /// The round in parts of at most `most` segments each, to be put in place one after the other: putting a segment in
+    /// place takes the writer three directory flushes, and a log of hundreds of segments must not hold its writer for all of
+    /// them at once. Only the last part says how far cleaning got, so that the checkpoint moves only when every segment is
+    /// in place.
+    #[must_use]
+    pub fn in_parts(self, most: usize) -> Vec<Cleaned> {
+        let most = most.max(1);
+        let mut parts: Vec<Cleaned> = self
+            .replacements
+            .chunks(most)
+            .map(|replacements| Cleaned {
+                replacements: replacements.to_vec(),
+                ..Cleaned::default()
+            })
+            .collect();
+        if parts.is_empty() {
+            parts.push(Cleaned::default());
+        }
+        if let Some(last) = parts.last_mut() {
+            last.clean_to = self.clean_to;
+            last.records_read = self.records_read;
+            last.records_kept = self.records_kept;
+        }
+        parts
+    }
+}
+
 /// The temporary files of a segment's replacement.
 pub(crate) fn temporary(dir: &Path, base: Offset) -> (PathBuf, PathBuf) {
     let tmp = |mut p: PathBuf| {
@@ -75,5 +103,52 @@ impl<F: Fs> std::fmt::Debug for CleanJob<F> {
             .field("plan", &self.plan)
             .field("segments", &self.segments.len())
             .finish_non_exhaustive()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn round(n: i64) -> Cleaned {
+        Cleaned {
+            replacements: (0..n)
+                .map(|i| Replacement {
+                    base: Offset::new(i * 10).unwrap(),
+                    from_size: 1,
+                })
+                .collect(),
+            clean_to: 77,
+            records_read: 5,
+            records_kept: 3,
+        }
+    }
+
+    #[test]
+    fn a_round_is_put_in_place_in_parts_and_only_the_last_says_how_far_it_got() {
+        let parts = round(7).in_parts(3);
+        let sizes: Vec<_> = parts.iter().map(|p| p.replacements.len()).collect();
+        assert_eq!(sizes, [3, 3, 1]);
+        let to: Vec<_> = parts.iter().map(|p| p.clean_to).collect();
+        assert_eq!(
+            to,
+            [0, 0, 77],
+            "the checkpoint moves when every part is in place"
+        );
+        assert_eq!(parts[2].records_read + parts[0].records_read, 5);
+        // Every segment is in exactly one part, in order.
+        let bases: Vec<_> = parts
+            .iter()
+            .flat_map(|p| p.replacements.iter().map(|r| r.base.get()))
+            .collect();
+        assert_eq!(bases, [0, 10, 20, 30, 40, 50, 60]);
+    }
+
+    #[test]
+    fn a_round_with_nothing_to_replace_is_still_one_part_that_moves_the_checkpoint() {
+        let parts = round(0).in_parts(3);
+        assert_eq!(parts.len(), 1);
+        assert_eq!(parts[0].clean_to, 77);
+        assert_eq!(round(2).in_parts(0).len(), 2, "never zero at a time");
     }
 }

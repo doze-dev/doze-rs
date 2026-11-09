@@ -33,7 +33,14 @@ impl<F: Fs> PartitionLog<F> {
     ) -> Result<Option<CleanJob<F>>, StorageError> {
         let ages = params.min_lag_ms > 0 || params.max_lag_ms != i64::MAX;
         let mut facts = Vec::with_capacity(self.sealed.len());
+        let forced = params.max_lag_ms != i64::MAX;
         for s in &self.sealed {
+            let oldest_ms = if forced {
+                s.first_batch_timestamp()
+                    .doing("reading a segment's first timestamp")?
+            } else {
+                0
+            };
             let newest_ms = if ages {
                 s.max_timestamp()
                     .doing("reading a segment's timestamps")?
@@ -50,6 +57,7 @@ impl<F: Fs> PartitionLog<F> {
                 base: s.base().get(),
                 size: s.size(),
                 newest_ms,
+                oldest_ms,
             });
         }
         let checkpoint = read_checkpoint(&self.fs, &self.dir).max(self.start);
@@ -114,6 +122,13 @@ impl<F: Fs> PartitionLog<F> {
             write_checkpoint(&self.fs, &self.dir, to).doing("recording how far cleaning got")?;
         }
         Ok(replaced)
+    }
+
+    /// Takes back the files of a round that will not be put in place.
+    pub fn discard_cleaned(&self, cleaned: &Cleaned) {
+        for r in &cleaned.replacements {
+            self.discard(r);
+        }
     }
 
     fn discard(&self, r: &Replacement) {

@@ -20,6 +20,10 @@ use tokio::sync::{mpsc, oneshot};
 use crate::txn_index::{Aborted, TxnIndex};
 
 use actor::{Append, Command};
+
+/// How many of a round's segments the writer puts in place in one go: each takes three directory flushes (about 13 ms
+/// measured under load), so this keeps an append from waiting more than a fifth of a second for a round.
+const INSTALL_AT_A_TIME: usize = 16;
 pub(crate) use actor::{Trim, TxnView, Written};
 pub(crate) use registry::Partitions;
 
@@ -151,12 +155,26 @@ impl<F: Fs> Partition<F> {
         &self,
         cleaned: kafka_storage::compact::Cleaned,
     ) -> Result<usize, StorageError> {
-        let (reply, answer) = oneshot::channel();
-        self.commands
-            .send(Command::Install(cleaned, reply))
-            .await
-            .map_err(|_| gone())?;
-        answer.await.map_err(|_| gone())?
+        // A few segments at a time: between two parts the writer takes the appends and reads that have waited.
+        let mut parts = cleaned.in_parts(INSTALL_AT_A_TIME).into_iter();
+        let mut replaced = 0;
+        while let Some(part) = parts.next() {
+            let (reply, answer) = oneshot::channel();
+            self.commands
+                .send(Command::Install(part, reply))
+                .await
+                .map_err(|_| gone())?;
+            match answer.await.map_err(|_| gone())? {
+                Ok(n) => replaced += n,
+                Err(e) => {
+                    for rest in parts {
+                        let _ = self.commands.send(Command::Discard(rest)).await;
+                    }
+                    return Err(e);
+                }
+            }
+        }
+        Ok(replaced)
     }
 
     /// Tells the writer to judge appends by `config` from now on, between two appends.

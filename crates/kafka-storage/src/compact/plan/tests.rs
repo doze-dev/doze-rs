@@ -19,6 +19,7 @@ fn segs(parts: &[(i64, u64, i64)]) -> Vec<Facts> {
             next: parts.get(i + 1).map_or(base + 100, |n| n.0),
             size: *size,
             newest_ms: *newest_ms,
+            oldest_ms: *newest_ms,
         })
         .collect()
 }
@@ -104,4 +105,94 @@ fn the_minimum_lag_keeps_recent_segments_out_and_the_maximum_forces_an_old_dirty
         judge(&s, 1_000, 2_000, 1_010, &recent).is_none(),
         "not yet old enough"
     );
+}
+
+/// A segment of `size` bytes holding offsets from `base`, first written at `oldest_ms` and last at `newest_ms`.
+fn seg(base: i64, size: u64, oldest_ms: i64, newest_ms: i64) -> Facts {
+    Facts {
+        base,
+        next: base + 10,
+        size,
+        newest_ms,
+        oldest_ms,
+    }
+}
+
+#[test]
+fn a_record_stamped_in_the_future_blocks_nothing_when_there_is_no_minimum_lag() {
+    let p = Params {
+        min_dirty_ratio: 0.0,
+        max_lag_ms: 86_400_000,
+        ..P
+    };
+    // The first dirty segment holds a record a minute ahead of the clock (a client's): not "too new" with no lag to wait.
+    let segments = [seg(0, 100, 1, 10_000 + 60_000), seg(10, 100, 1, 1)];
+    assert!(judge(&segments, 0, 40, 30, &p).is_some());
+}
+
+#[test]
+fn a_clean_segment_inside_the_minimum_lag_does_not_hold_back_the_dirty_ones_after_it() {
+    let p = Params {
+        min_dirty_ratio: 0.0,
+        min_lag_ms: 600_000,
+        now_ms: 1_000_000,
+        ..P
+    };
+    // Cleaned to 10: the first segment is clean and young, the next two are dirty and old enough.
+    let segments = [
+        seg(0, 100, 900_000, 900_000),
+        seg(10, 100, 100, 100),
+        seg(20, 100, 100, 100),
+    ];
+    let plan = judge(&segments, 10, 40, 30, &p).unwrap();
+    assert_eq!(plan.upto, 30);
+    // A dirty one inside the lag does limit how far cleaning goes.
+    let young = [
+        seg(0, 100, 1, 1),
+        seg(10, 100, 100, 100),
+        seg(20, 100, 900_000, 900_000),
+    ];
+    assert_eq!(judge(&young, 10, 40, 30, &p).unwrap().upto, 20);
+}
+
+#[test]
+fn the_maximum_lag_counts_a_segments_age_from_its_first_batch_and_the_earliest_of_the_dirty_ones_decides()
+ {
+    let p = Params {
+        min_dirty_ratio: 1.0,
+        max_lag_ms: 5_000,
+        now_ms: 10_000,
+        ..P
+    };
+    // Written from 100 to 9,900: its first batch is long past the lag, its last is not.
+    let long_filling = [seg(0, 100, 100, 9_900), seg(10, 100, 9_950, 9_960)];
+    assert!(judge(&long_filling, 0, 40, 20, &p).is_some());
+    // The earliest of the dirty segments decides, not the first one.
+    let later_older = [seg(0, 100, 9_000, 9_100), seg(10, 100, 100, 200)];
+    assert!(judge(&later_older, 0, 40, 20, &p).is_some());
+    // Every dirty segment began within the lag: not forced (a ratio of one is never passed).
+    let young = [seg(0, 100, 6_000, 9_000), seg(10, 100, 9_000, 9_900)];
+    assert!(judge(&young, 0, 40, 20, &p).is_none());
+    // Exactly at the lag is not past it.
+    let at = [seg(0, 100, 5_000, 5_000), seg(10, 100, 9_000, 9_900)];
+    assert!(judge(&at, 0, 40, 20, &p).is_none());
+    // A segment with no first batch to read (0) says nothing.
+    let none = [seg(0, 100, 0, 0), seg(10, 100, 9_000, 9_900)];
+    assert!(judge(&none, 0, 40, 20, &p).is_none());
+    // A clean segment's age is no reason to clean.
+    let clean_old = [seg(0, 100, 100, 100), seg(10, 100, 9_000, 9_900)];
+    assert!(judge(&clean_old, 10, 40, 20, &p).is_none());
+}
+
+#[test]
+fn the_minimum_lag_is_about_the_newest_record_and_the_edge_is_not_too_new() {
+    let p = Params {
+        min_dirty_ratio: 0.0,
+        min_lag_ms: 1_000,
+        now_ms: 10_000,
+        ..P
+    };
+    // Exactly a lag old is old enough; a millisecond younger is too new.
+    assert!(judge(&[seg(0, 100, 1, 9_000), seg(10, 1, 1, 1)], 0, 40, 20, &p).is_some());
+    assert!(judge(&[seg(0, 100, 1, 9_001)], 0, 40, 10, &p).is_none());
 }
