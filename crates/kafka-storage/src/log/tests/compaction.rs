@@ -78,12 +78,12 @@ pub(super) fn clean(
     Some(cleaned)
 }
 
-fn plain(log: &mut PartitionLog<SimFs>) -> Option<Cleaned> {
+pub(super) fn plain(log: &mut PartitionLog<SimFs>) -> Option<Cleaned> {
     clean(log, &PARAMS, vec![], HashMap::new())
 }
 
 /// A log of one-record batches, a segment holding about three of them.
-fn keyed(keys: &[(&str, Option<&str>)]) -> PartitionLog<SimFs> {
+pub(super) fn keyed(keys: &[(&str, Option<&str>)]) -> PartitionLog<SimFs> {
     let (_fs, _dir, mut log) = fresh(3 * kv("a", Some("v")).len() as u64);
     let batches: Vec<_> = keys.iter().map(|(k, v)| kv(k, *v)).collect();
     append_all(&mut log, &batches);

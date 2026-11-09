@@ -2,6 +2,7 @@
 
 mod append;
 mod compaction;
+mod compaction_read;
 mod compaction_txn;
 mod durability;
 mod history;

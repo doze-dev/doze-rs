@@ -12,6 +12,7 @@ mod history;
 mod open;
 mod read;
 mod shared;
+mod skip;
 mod sync;
 mod times;
 mod trim;

@@ -70,13 +70,8 @@ impl<F: Fs> LogReader<F> {
         self.shared.end.subscribe()
     }
 
-    /// Whole batches starting at the one that holds `from`, up to `max_bytes` (but always the first one, if
-    /// there is one, however large). An offset equal to the end is an empty answer (caught up). With a `limit`
-    /// (the last stable offset, for a read-committed fetch), no batch that begins at or after it is returned.
-    ///
-    /// # Errors
-    /// [`StorageError::OutOfRange`] below the log start or above the end; a failed read.
-    pub fn read(
+    /// One read, as the files have it: nothing skipped, so that a walk of the log sees every batch.
+    pub(super) fn read_once(
         &self,
         from: Offset,
         max_bytes: usize,

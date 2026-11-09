@@ -53,7 +53,7 @@ impl<F: Fs> LogReader<F> {
         let end = self.end_offset();
         let mut at = from.max(self.start_offset());
         while at < end {
-            let chunk = self.read(at, STEP, None)?;
+            let chunk = self.read_once(at, STEP, None)?;
             let Some(next) = walk(&chunk, &mut visit)? else {
                 break;
             };

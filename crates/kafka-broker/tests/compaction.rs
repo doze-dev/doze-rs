@@ -85,10 +85,19 @@ async fn a_compacted_topic_keeps_the_latest_record_of_each_key_at_its_own_offset
         "nothing that was not written"
     );
     // The topic is served from anywhere in it.
-    for from in [0, 1, 17, 40, 59] {
+    // A fetch is never answered with nothing but a batch that holds no records while records follow: librdkafka, given
+    // enough of those, gives up on the partition.
+    for from in 0..60 {
         let data = rig.fetch_now(&[("c", 0, from, 1 << 20)]).await.remove(0);
         assert_eq!(data.error_code, 0, "from {from}");
-        assert!(!data.records.expect("records").is_empty(), "from {from}");
+        let first = Batches::new(data.records.expect("records"))
+            .next()
+            .unwrap_or_else(|| panic!("nothing from {from}"))
+            .unwrap();
+        assert!(
+            first.record_count() > 0,
+            "from {from}: a batch with no records first"
+        );
     }
 }
 
