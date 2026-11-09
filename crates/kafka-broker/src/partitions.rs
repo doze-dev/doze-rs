@@ -53,6 +53,11 @@ impl<F: Fs> Partition<F> {
         &self.reader
     }
 
+    /// The files this partition holds open: two for each segment, one for flushing its directory and one of headroom.
+    pub(crate) fn descriptors(&self) -> usize {
+        self.reader.segment_count() * 2 + 2
+    }
+
     /// Queues a batch for the writer and returns where its answer will come. `durable` asks for the next flush
     /// to cover it (the answer's ticket then says when it has).
     ///

@@ -26,6 +26,8 @@ fn main() -> Result<()> {
         );
         settings.broker.max_open_partitions = open;
     }
+    settings.broker.max_open_descriptors =
+        descriptors::open_files(descriptors, settings.server.max_connections);
     for flag in args.ignored() {
         tracing::warn!(
             "{flag} is accepted and ignored: that part of doze-kafka is not in this edition yet"

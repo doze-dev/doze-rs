@@ -17,6 +17,15 @@ pub(crate) fn raise() -> u64 {
     })
 }
 
+/// How many files the open partitions may hold open between them at `limit` descriptors, given that `connections` may be
+/// open as well, each holding one: what is left after those and the reserve, and never fewer than 64.
+pub(crate) fn open_files(limit: u64, connections: usize) -> usize {
+    let spoken_for = RESERVED.saturating_add(u64::try_from(connections).unwrap_or(u64::MAX));
+    usize::try_from(limit.saturating_sub(spoken_for))
+        .unwrap_or(usize::MAX)
+        .max(64)
+}
+
 /// How many partitions may stay open at `limit` descriptors, given the `configured` number (0: no bound of its own)
 /// and that `connections` may be open as well, each holding one. Never fewer than eight, so that a broker with a tiny
 /// limit still works, one partition at a time.
@@ -34,7 +43,7 @@ pub(crate) fn open_partitions(configured: usize, limit: u64, connections: usize)
 
 #[cfg(test)]
 mod tests {
-    use super::open_partitions;
+    use super::{open_files, open_partitions};
 
     #[test]
     fn the_configured_number_stands_when_the_limit_has_room_for_it() {
@@ -56,6 +65,13 @@ mod tests {
             8,
             "and never below eight"
         );
+    }
+
+    #[test]
+    fn the_files_left_for_partitions_are_what_the_limit_leaves_after_the_reserve_and_the_connections()
+     {
+        assert_eq!(open_files(10_240, 2_048), 7_936);
+        assert_eq!(open_files(300, 2_048), 64, "and never below sixty-four");
     }
 
     #[test]

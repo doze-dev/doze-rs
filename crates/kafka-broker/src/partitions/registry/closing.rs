@@ -42,46 +42,17 @@ impl<F: Fs> Partitions<F> {
         }
     }
 
-    /// Closes the partitions over the limit, least recently used first, except `keep` and any that something holds.
+    /// Closes the partitions over the limits (how many are open, and how many files they hold open between them), least
+    /// recently used first, except `keep` and any that something holds.
     pub(super) async fn evict(&self, keep: Key) {
-        let max = self.config.max_open_partitions;
-        if max == 0 {
+        let (max, budget) = (
+            self.config.max_open_partitions,
+            self.config.max_open_descriptors,
+        );
+        if max == 0 && budget == 0 {
             return;
         }
-        let victims: Vec<(Key, String, Arc<Partition<F>>)> = {
-            let mut registry = self.registry();
-            let open = registry
-                .open
-                .values()
-                .filter(|e| e.slot.get().is_some())
-                .count();
-            if open <= max {
-                return;
-            }
-            let mut idle: Vec<_> = registry
-                .open
-                .iter()
-                .filter(|(k, e)| {
-                    **k != keep && e.slot.get().is_some_and(|p| Arc::strong_count(p) == 1)
-                })
-                .map(|(k, e)| (e.used, *k))
-                .collect();
-            idle.sort_unstable();
-            let take: Vec<Key> = idle.into_iter().take(open - max).map(|(_, k)| k).collect();
-            let mut victims = Vec::new();
-            for k in take {
-                if let Some(e) = registry.open.remove(&k)
-                    && let Some(p) = e.slot.get()
-                {
-                    // Not vouched for until the close says so: if this future is dropped half way (a stop), the
-                    // partition's files are not known to be whole.
-                    registry.closed.insert(e.name.clone(), Trust::Unvouched);
-                    registry.closing.insert(k);
-                    victims.push((k, e.name, Arc::clone(p)));
-                }
-            }
-            victims
-        };
+        let victims = self.pick_victims(keep, (max, budget));
         // Every guard exists before the first close begins, so that dropping this future part way releases them all.
         let work: Vec<_> = victims
             .into_iter()
@@ -102,6 +73,61 @@ impl<F: Fs> Partitions<F> {
             }
             drop(done);
         }
+    }
+
+    /// Takes out of the registry the partitions to close, least recently used first, until the limits `(most partitions, most
+    /// files)` are met or only the busy ones are left; they are marked as closing.
+    fn pick_victims(
+        &self,
+        keep: Key,
+        (max, budget): (usize, usize),
+    ) -> Vec<(Key, String, Arc<Partition<F>>)> {
+        let mut registry = self.registry();
+        let opened = || {
+            registry
+                .open
+                .values()
+                .filter_map(|e| e.slot.get())
+                .map(|p| p.descriptors())
+        };
+        let (mut open, mut held) = (opened().count(), opened().sum::<usize>());
+        let over =
+            |open: usize, held: usize| (max != 0 && open > max) || (budget != 0 && held > budget);
+        if !over(open, held) {
+            return Vec::new();
+        }
+        let mut idle: Vec<_> = registry
+            .open
+            .iter()
+            .filter(|(k, e)| **k != keep && e.slot.get().is_some_and(|p| Arc::strong_count(p) == 1))
+            .map(|(k, e)| (e.used, *k))
+            .collect();
+        idle.sort_unstable();
+        // The least recently used go until both limits are met (or nothing idle is left to close).
+        let mut take: Vec<Key> = Vec::new();
+        for (_, k) in idle {
+            if !over(open, held) {
+                break;
+            }
+            if let Some(p) = registry.open.get(&k).and_then(|e| e.slot.get()) {
+                open -= 1;
+                held = held.saturating_sub(p.descriptors());
+                take.push(k);
+            }
+        }
+        let mut victims = Vec::new();
+        for k in take {
+            if let Some(e) = registry.open.remove(&k)
+                && let Some(p) = e.slot.get()
+            {
+                // Not vouched for until the close says so: if this future is dropped half way (a stop), the
+                // partition's files are not known to be whole.
+                registry.closed.insert(e.name.clone(), Trust::Unvouched);
+                registry.closing.insert(k);
+                victims.push((k, e.name, Arc::clone(p)));
+            }
+        }
+        victims
     }
 
     /// Closes every open partition of `topic`, each after it has flushed, so that its files can be removed.

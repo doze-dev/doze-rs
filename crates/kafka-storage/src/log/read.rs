@@ -51,6 +51,12 @@ impl<F: Fs> LogReader<F> {
         self.shared.start()
     }
 
+    /// How many segments the log has now. Each holds two files open, so this is what the log costs in descriptors.
+    #[must_use]
+    pub fn segment_count(&self) -> usize {
+        self.shared.segments.load().len()
+    }
+
     /// The offset the next record will get.
     #[must_use]
     pub fn end_offset(&self) -> Offset {
