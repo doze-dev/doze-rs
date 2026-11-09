@@ -5,6 +5,7 @@
 //! wording of a refusal is Kafka's, recorded from 4.3.1). Accepting is not acting: which of them the broker acts
 //! on is in `docs/limitations.md`.
 
+mod docs;
 mod table;
 
 use std::collections::BTreeMap;
@@ -19,7 +20,9 @@ use table::{Fallback, Kind, SETTINGS, Setting};
 pub(crate) enum Source {
     /// Set on the topic.
     DynamicTopic,
-    /// The broker's default.
+    /// The broker's own setting, which is not Kafka's default (a flag it was started with).
+    StaticBroker,
+    /// Kafka's default.
     Default,
 }
 
@@ -29,6 +32,7 @@ impl Source {
     pub(crate) fn code(self) -> i8 {
         match self {
             Self::DynamicTopic => 1,
+            Self::StaticBroker => 4,
             Self::Default => 5,
         }
     }
@@ -43,6 +47,10 @@ pub(crate) struct Entry {
     pub value: String,
     /// Where it comes from.
     pub source: Source,
+    /// The type, as DescribeConfigs numbers it (BOOLEAN 1, STRING 2, INT 3, LONG 5, DOUBLE 6, LIST 7).
+    pub kind: i8,
+    /// What Kafka says it is for.
+    pub doc: &'static str,
 }
 
 /// The first config of `configs` (in name order, so the answer is stable) that is not a topic config or whose value
@@ -58,6 +66,14 @@ pub(crate) fn validate(configs: &BTreeMap<String, String>) -> Result<(), String>
             .check(value)
             .map_err(|why| format!("Invalid value {value} for configuration {name}: {why}"))?;
     }
+    let lag = |name: &str| configs.get(name).and_then(|v| v.trim().parse::<i64>().ok());
+    if let (Some(min), Some(max)) = (lag("min.compaction.lag.ms"), lag("max.compaction.lag.ms"))
+        && min > max
+    {
+        return Err(format!(
+            "conflict topic config setting min.compaction.lag.ms ({min}) > max.compaction.lag.ms ({max})"
+        ));
+    }
     Ok(())
 }
 
@@ -69,26 +85,60 @@ pub(crate) fn effective(defaults: &Defaults, own: &BTreeMap<String, String>) -> 
         .iter()
         .filter_map(|s| {
             if let Some((_, value)) = own.get_key_value(s.name) {
-                return Some(Entry {
-                    name: s.name,
-                    value: value.clone(),
-                    source: Source::DynamicTopic,
-                });
+                return Some(entry(s, value.clone(), Source::DynamicTopic));
             }
-            let value = match &s.default {
+            let (value, source) = match &s.default {
                 Fallback::None => return None,
-                Fallback::Fixed(v) => (*v).to_owned(),
-                Fallback::Broker(f) => f(defaults),
+                Fallback::Fixed(v) => ((*v).to_owned(), Source::Default),
+                Fallback::Broker(f, kafka) => {
+                    let value = f(defaults);
+                    let source = if value == *kafka {
+                        Source::Default
+                    } else {
+                        Source::StaticBroker
+                    };
+                    (value, source)
+                }
             };
-            Some(Entry {
-                name: s.name,
-                value,
-                source: Source::Default,
-            })
+            Some(entry(s, value, source))
         })
         .collect();
-    all.sort_by(|a, b| a.name.cmp(b.name));
+    // In the order Kafka lists them (a Java hash map's), then any it does not list.
+    all.sort_by_key(|e| {
+        docs::ORDER
+            .iter()
+            .position(|n| *n == e.name)
+            .unwrap_or(usize::MAX)
+    });
     all
+}
+
+fn entry(s: &'static Setting, value: String, source: Source) -> Entry {
+    Entry {
+        name: s.name,
+        value,
+        source,
+        kind: s.kind.wire_type(s.name),
+        doc: docs::DOCS
+            .iter()
+            .find(|(n, _)| *n == s.name)
+            .map_or("", |(_, d)| d),
+    }
+}
+
+/// Whether the config is a list, which APPEND and SUBTRACT may be used on.
+#[must_use]
+pub(crate) fn is_list(name: &str) -> bool {
+    lookup(name).is_some_and(|s| s.kind.wire_type(s.name) == 7)
+}
+
+/// What the topic config is when the topic does not set it (for APPEND to start from), if it has a default.
+#[must_use]
+pub(crate) fn default_of(defaults: &Defaults, name: &str) -> Option<String> {
+    effective(defaults, &BTreeMap::new())
+        .into_iter()
+        .find(|e| e.name == name)
+        .map(|e| e.value)
 }
 
 /// How much of a partition the topic keeps: its own `retention.bytes` and `retention.ms` (a negative one is no bound), else the
@@ -128,6 +178,19 @@ fn lookup(name: &str) -> Option<&'static Setting> {
 }
 
 impl Kind {
+    /// The type DescribeConfigs reports: BOOLEAN 1, STRING 2, INT 3, LONG 5, DOUBLE 6, LIST 7.
+    fn wire_type(&self, name: &str) -> i8 {
+        match self {
+            Self::Bool => 1,
+            Self::Int { .. } => 3,
+            Self::Long { .. } => 5,
+            Self::Double { .. } => 6,
+            Self::CleanupPolicy => 7,
+            Self::Text if name.ends_with(".throttled.replicas") => 7,
+            Self::Choice(_) | Self::Text => 2,
+        }
+    }
+
     fn check(&self, v: &str) -> Result<(), String> {
         match self {
             Self::Int { min } => number::<i32>(v, "INT", *min),
@@ -187,4 +250,19 @@ pub(crate) fn compacts_only(own: &BTreeMap<String, String>) -> bool {
             .collect();
         kinds.iter().any(|k| k == "compact") && !kinds.iter().any(|k| k == "delete")
     })
+}
+
+/// The name of a topic config as this table spells it, if it is one.
+#[must_use]
+pub(crate) fn lookup_name(name: &str) -> Option<&'static str> {
+    lookup(name).map(|s| s.name)
+}
+
+/// What Kafka's own default for a topic config is, as text, if it has one.
+#[must_use]
+pub(crate) fn kafka_default_of(name: &str) -> Option<String> {
+    match lookup(name)?.default {
+        Fallback::None => None,
+        Fallback::Fixed(v) | Fallback::Broker(_, v) => Some(v.to_owned()),
+    }
 }

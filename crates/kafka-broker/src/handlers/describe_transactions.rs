@@ -31,11 +31,7 @@ impl<F: Fs> Broker<F> {
                     s.transaction_timeout_ms = rec.timeout_ms;
                     s.producer_id = ProducerId(rec.producer_id);
                     s.producer_epoch = rec.epoch;
-                    let open = matches!(
-                        rec.state,
-                        TxnState::Ongoing | TxnState::PrepareCommit | TxnState::PrepareAbort
-                    );
-                    if open {
+                    if rec.state != TxnState::Empty {
                         s.transaction_start_time_ms = rec.started_ms;
                     }
                     let mut by_topic: BTreeMap<&str, Vec<i32>> = BTreeMap::new();
@@ -80,8 +76,9 @@ impl<F: Fs> Broker<F> {
                     .producer_id_filters
                     .iter()
                     .any(|p| p.0 == e.rec.producer_id);
-            // (Kafka counts a transaction that is not open as begun at -1, so it has run for ever.)
-            let began = if e.rec.state.is_open() {
+            // (Only an id that has no transaction at all, one just made ready, is begun at -1 in Kafka; a finished transaction
+            // keeps the time it began.)
+            let began = if e.rec.state != TxnState::Empty {
                 e.rec.started_ms
             } else {
                 -1

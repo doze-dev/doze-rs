@@ -27,6 +27,13 @@ impl Registry {
         self.by_name.insert(topic.name.clone(), topic);
     }
 
+    /// A topic changed (its configuration, its partitions): the same name and id, a new record.
+    pub(super) fn replace(&mut self, topic: Arc<Topic>) {
+        self.version += 1;
+        self.by_id.insert(topic.id, Arc::clone(&topic));
+        self.by_name.insert(topic.name.clone(), topic);
+    }
+
     pub(super) fn remove(&mut self, name: &TopicName) -> Option<Arc<Topic>> {
         let topic = self.by_name.remove(name)?;
         self.version += 1;

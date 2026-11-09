@@ -5,6 +5,7 @@ mod blocking;
 mod broker;
 mod clock;
 mod config;
+mod configs;
 mod error;
 mod groups;
 mod handlers;
@@ -21,6 +22,7 @@ mod txn_index;
 
 pub use broker::Broker;
 pub use config::{Config, Defaults};
+pub(crate) use configs::Live;
 pub use error::BrokerError;
 pub use listener::Listener;
 pub use outcome::Outcome;

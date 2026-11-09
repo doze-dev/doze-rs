@@ -113,11 +113,12 @@ fn a_topics_configuration_is_the_broker_defaults_with_its_own_laid_over() {
             .map(|e| (e.value.as_str(), e.source))
     };
     assert_eq!(get("retention.bytes"), Some(("100", Source::DynamicTopic)));
-    assert_eq!(get("retention.ms"), Some(("5000", Source::Default)));
-    assert_eq!(get("segment.bytes"), Some(("4096", Source::Default)));
+    // A value the broker was started with that is not Kafka's default is a static broker config.
+    assert_eq!(get("retention.ms"), Some(("5000", Source::StaticBroker)));
+    assert_eq!(get("segment.bytes"), Some(("4096", Source::StaticBroker)));
     assert_eq!(get("cleanup.policy"), Some(("delete", Source::Default)));
-    // Reported in name order, and a config with no default is reported only when set.
-    assert!(all.windows(2).all(|w| w[0].name < w[1].name));
+    // Reported in the order Kafka lists them, and a config with no default is reported only when set.
+    assert_eq!(all[0].name, "compression.type");
     assert_eq!(get("preallocate"), Some(("false", Source::Default)));
     assert_eq!(get("message.downconversion.enable"), None);
     let set = effective(&defaults, &one("message.downconversion.enable", "true"));

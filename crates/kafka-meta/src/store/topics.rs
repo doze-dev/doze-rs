@@ -50,6 +50,35 @@ impl MetaStore {
         Ok(topic)
     }
 
+    /// Changes a topic (its configuration, its partitions) and makes that durable. `change` is given the topic as it is and
+    /// returns what it is to be; its name and id are kept. `None`: there is no such topic.
+    ///
+    /// # Errors
+    /// A failed write; the topic is then as it was.
+    pub fn update_topic(
+        &self,
+        name: &TopicName,
+        change: impl FnOnce(&Topic) -> Topic,
+    ) -> Result<Option<Arc<Topic>>, MetaError> {
+        let _one_at_a_time = lock(&self.write);
+        let Some(old) = self.topic(name) else {
+            return Ok(None);
+        };
+        let mut next = change(&old);
+        next.name = old.name.clone();
+        next.id = old.id;
+        let next = Arc::new(next);
+        let record = next.encode()?;
+        let txn = self.begin()?;
+        {
+            txn.open_table(TOPICS)?
+                .insert(name.as_str(), record.as_slice())?;
+        }
+        txn.commit()?;
+        self.shared.write().replace(Arc::clone(&next));
+        Ok(Some(next))
+    }
+
     /// Deletes a topic and makes that durable. Returns it, or `None` if there was none.
     ///
     /// # Errors

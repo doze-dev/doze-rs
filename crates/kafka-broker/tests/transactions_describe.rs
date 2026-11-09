@@ -104,7 +104,13 @@ async fn a_transaction_is_described_while_it_is_open_and_after() {
     assert_eq!(topics[1], ("t".to_owned(), vec![0, 1]));
     let done = describe(&rig, "b").await;
     assert_eq!(done.transaction_state.as_str(), "CompleteCommit");
-    assert_eq!(done.transaction_start_time_ms, -1, "nothing is open");
+    assert!(
+        done.transaction_start_time_ms > 0,
+        "a finished transaction keeps the time it began"
+    );
+    // An id that has begun nothing is begun at -1.
+    rig.init_txn("c", 60_000).await.unwrap();
+    assert_eq!(describe(&rig, "c").await.transaction_start_time_ms, -1);
     assert!(done.topics.is_empty());
     assert_eq!(done.producer_id.0, b.producer);
     assert_eq!(
@@ -150,16 +156,15 @@ async fn transactions_are_listed_by_state_producer_and_how_long_they_have_run() 
             .len(),
         2
     );
-    // Version 1: those that have run for longer than so many milliseconds. A transaction that is not open counts as begun
-    // at -1 (Kafka's way), so it has run for ever; an open one has run for as long as it has.
+    // Version 1: those that have run for longer than so many milliseconds, from when the transaction began (an id that
+    // has begun none is begun at -1, so has run for ever, and is listed with the producer id it holds).
+    rig.init_txn("c", 60_000).await.unwrap();
+    tokio::time::sleep(std::time::Duration::from_millis(5)).await;
     assert_eq!(
         listed(&rig, 1, &[], &[], 0).await,
-        ["a:Ongoing", "b:CompleteCommit"]
+        ["a:Ongoing", "b:CompleteCommit", "c:Empty"]
     );
-    assert_eq!(
-        listed(&rig, 1, &[], &[], 3_600_000).await,
-        ["b:CompleteCommit"]
-    );
+    assert_eq!(listed(&rig, 1, &[], &[], 3_600_000).await, ["c:Empty"]);
 }
 
 #[tokio::test]

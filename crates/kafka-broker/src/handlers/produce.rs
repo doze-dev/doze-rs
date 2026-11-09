@@ -141,7 +141,9 @@ impl<F: Fs> Broker<F> {
         let Accepted {
             batch,
             log_append_time,
-        } = match blocking::run(|| check::check(&self.config, version, topic, id, &records, now)) {
+        } = match blocking::run(|| {
+            check::check(&self.defaults.get(), version, topic, id, &records, now)
+        }) {
             Ok(accepted) => accepted,
             Err(refused) => return Stage::Done(self.refused(topic, id, refused).await),
         };

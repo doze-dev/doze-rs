@@ -12,6 +12,7 @@ use kafka_wire::ids::{PartitionId, TopicId};
 use tokio::sync::{OnceCell, mpsc};
 
 mod closing;
+mod reconfigure;
 
 use super::{Partition, QUEUE, actor};
 use crate::txn_index::TxnIndex;
@@ -58,6 +59,7 @@ struct Registry<F: Fs> {
 pub(crate) struct Partitions<F: Fs> {
     fs: F,
     config: Config,
+    defaults: crate::Live,
     registry: Mutex<Registry<F>>,
     /// What the last stop vouched for.
     stop: StopState,
@@ -68,10 +70,17 @@ pub(crate) struct Partitions<F: Fs> {
 }
 
 impl<F: Fs> Partitions<F> {
-    pub(crate) fn new(fs: F, config: Config, stop: StopState, meta: Arc<MetaStore>) -> Self {
+    pub(crate) fn new(
+        fs: F,
+        config: Config,
+        defaults: crate::Live,
+        stop: StopState,
+        meta: Arc<MetaStore>,
+    ) -> Self {
         Self {
             fs,
             config,
+            defaults,
             meta,
             closing_done: tokio::sync::Notify::new(),
             registry: Mutex::new(Registry {
@@ -208,7 +217,7 @@ impl<F: Fs> Partitions<F> {
         partition: PartitionId,
     ) -> Result<Arc<Partition<F>>, StorageError> {
         let dir = partition_dir(&self.config.data_dir, &topic.name, partition);
-        let log_config: LogConfig = topic_config::log_config(&self.config.defaults, &topic.config);
+        let log_config: LogConfig = topic_config::log_config(&self.defaults.get(), &topic.config);
         // Closed by this run: flushed whole, or not. Otherwise the last stop vouches for the files, or does not.
         let name = format!("{}-{partition}", topic.name);
         let trust = self

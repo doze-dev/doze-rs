@@ -26,6 +26,8 @@ pub(super) enum Command {
     Txns(oneshot::Sender<Result<TxnView, StorageError>>),
     /// Move the start of the log up; answers the start now in force.
     Trim(Trim, oneshot::Sender<Result<Offset, StorageError>>),
+    /// Judge appends by this config from now on.
+    Configure(kafka_storage::LogConfig),
     /// Flush and close; answers whether that worked.
     Close(oneshot::Sender<bool>),
 }
@@ -163,6 +165,7 @@ fn work<F: Fs>(
             Command::Trim(how, reply) => {
                 let _ = reply.send(trim(log, memory, how));
             }
+            Command::Configure(config) => log.set_config(config),
             Command::Close(done) => closing = Some(done),
         }
     }

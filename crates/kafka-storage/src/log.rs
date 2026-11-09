@@ -47,6 +47,14 @@ impl Default for LogConfig {
     }
 }
 
+impl<F: Fs> PartitionLog<F> {
+    /// Makes `config` the one the log is judged by from the next append on: the active segment rolls at the new size,
+    /// and segments made after this index at the new interval (the one being written keeps the interval it began with).
+    pub fn set_config(&mut self, config: LogConfig) {
+        self.config = config;
+    }
+}
+
 /// Whether the previous run vouches that a partition's files were flushed (it stopped cleanly after flushing
 /// them). Without it nothing read back at open is taken to be on disk until this run has flushed it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -7,6 +7,7 @@ use kafka_wire::ids::{PartitionCount, TopicName};
 use redb::{Database, ReadableTable};
 
 use super::*;
+use crate::Topic;
 use crate::backend::FileBackend;
 
 const DATA: &str = "/data";
@@ -171,4 +172,91 @@ fn the_topics_version_changes_when_a_topic_is_made_or_removed_and_not_otherwise(
     assert_eq!(store.topics_version(), one);
     store.delete_topic(&name("t")).unwrap();
     assert_ne!(store.topics_version(), one);
+}
+
+#[test]
+fn a_changed_topic_keeps_its_name_and_id_is_durable_and_a_failed_write_changes_nothing() {
+    let fs = disk();
+    let store = open(&fs);
+    let made = create(&store, "t").unwrap();
+    let before = store.topics_version();
+    let changed = store
+        .update_topic(&name("t"), |_| Topic {
+            name: name("other"),
+            id: crate::random_topic_id().unwrap(),
+            partitions: PartitionCount::new(9).unwrap(),
+            config: BTreeMap::from([("retention.ms".to_owned(), "5".to_owned())]),
+        })
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        (changed.name.clone(), changed.id),
+        (made.name.clone(), made.id)
+    );
+    assert_eq!(changed.partitions.get(), 9);
+    assert_ne!(store.topics_version(), before);
+    assert_eq!(store.topic_by_id(made.id), Some(changed.clone()));
+    assert!(
+        store
+            .update_topic(&name("nope"), Topic::clone)
+            .unwrap()
+            .is_none()
+    );
+    // Durable, and a write that fails leaves the topic as it was.
+    drop(store);
+    let cut = Cut {
+        data: DataCut::Drop,
+        names: NameCut::Durable,
+        seed: 2,
+    };
+    let disk = fs.power_cut(cut);
+    let store = open(&disk);
+    assert_eq!(store.topic(&name("t")), Some(changed.clone()));
+    disk.fail_any(1, Failure::Io);
+    assert!(
+        store
+            .update_topic(&name("t"), |t| Topic {
+                partitions: PartitionCount::new(20).unwrap(),
+                ..t.clone()
+            })
+            .is_err()
+    );
+    assert_eq!(store.topic(&name("t")), Some(changed));
+}
+
+#[test]
+fn broker_configs_are_kept_by_scope_replaced_whole_and_survive_the_power_going() {
+    let fs = disk();
+    let store = open(&fs);
+    assert!(store.broker_configs().unwrap().is_empty());
+    let map = |pairs: &[(&str, &str)]| {
+        pairs
+            .iter()
+            .map(|(k, v)| ((*k).to_owned(), (*v).to_owned()))
+            .collect::<BTreeMap<_, _>>()
+    };
+    store
+        .set_broker_configs("", &map(&[("a", "1"), ("b", "2")]))
+        .unwrap();
+    store.set_broker_configs("1", &map(&[("a", "9")])).unwrap();
+    // Setting a scope again leaves nothing of what it held, and does not touch the other scope.
+    store.set_broker_configs("", &map(&[("c", "3")])).unwrap();
+    let want = BTreeMap::from([
+        (("".to_owned(), "c".to_owned()), "3".to_owned()),
+        (("1".to_owned(), "a".to_owned()), "9".to_owned()),
+    ]);
+    assert_eq!(store.broker_configs().unwrap(), want);
+    drop(store);
+    let cut = Cut {
+        data: DataCut::Drop,
+        names: NameCut::Durable,
+        seed: 3,
+    };
+    let disk = fs.power_cut(cut);
+    let store = open(&disk);
+    assert_eq!(store.broker_configs().unwrap(), want);
+    // A write that fails changes nothing.
+    disk.fail_any(1, Failure::Io);
+    assert!(store.set_broker_configs("", &map(&[("z", "0")])).is_err());
+    assert_eq!(store.broker_configs().unwrap(), want);
 }

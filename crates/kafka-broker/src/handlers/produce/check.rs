@@ -9,7 +9,7 @@ use kafka_wire::batch::{
 };
 use kafka_wire::ids::{PartitionId, TimestampMs};
 
-use crate::Config;
+use crate::Defaults;
 
 /// The most one batch may inflate to when its records are read: sixty-four times the Java producer's default request
 /// size. Real Kafka has no such bound; a batch past it is refused with Kafka's size error.
@@ -82,7 +82,7 @@ fn stored_codec(topic: &Topic, produced: Compression) -> Compression {
 /// batch's header and size, then every record, then the size it is stored at. On success the batch's newest
 /// timestamp is the records' own, and its records are in the codec the topic stores.
 pub(super) fn check(
-    config: &Config,
+    defaults: &Defaults,
     version: i16,
     topic: &Topic,
     partition: PartitionId,
@@ -90,7 +90,7 @@ pub(super) fn check(
     now: TimestampMs,
 ) -> Result<Accepted, Refused> {
     let own = |key: &str| topic.config.get(key).and_then(|v| v.parse::<i64>().ok());
-    let max_batch = own("max.message.bytes").unwrap_or(config.defaults.message_max_bytes);
+    let max_batch = own("max.message.bytes").unwrap_or(defaults.message_max_bytes);
     let max = u64::try_from(max_batch).unwrap_or(0);
     let rules = ProduceRules {
         version,

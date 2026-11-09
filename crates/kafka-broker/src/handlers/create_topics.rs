@@ -106,7 +106,7 @@ impl<F: Fs> Broker<F> {
         };
         Ok(created(
             &topic,
-            &topic_config::effective(&self.config.defaults, &topic.config),
+            &topic_config::effective(&self.defaults.get(), &topic.config),
         ))
     }
 

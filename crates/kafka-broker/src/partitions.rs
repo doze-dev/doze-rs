@@ -95,7 +95,7 @@ impl<F: Fs> Partition<F> {
         // A log start moved past an open transaction's first offset (DeleteRecords) holds the last stable offset up to it.
         let start = self.reader.start_offset().get();
         Stability {
-            last_stable: Offset::new(index.last_stable(end.get()).max(start))
+            last_stable: Offset::new(clamp_stable(index.last_stable(end.get()), start, end.get()))
                 .unwrap_or(Offset::ZERO),
             aborted: index.aborted_between(self.reader.start_offset().get(), end.get()),
         }
@@ -127,6 +127,12 @@ impl<F: Fs> Partition<F> {
         answer.await.map_err(|_| gone())?
     }
 
+    /// Tells the writer to judge appends by `config` from now on, between two appends.
+    pub(crate) async fn configure(&self, config: kafka_storage::LogConfig) {
+        // A writer that has gone is a partition that is closing, and it will open with the config it is given then.
+        let _ = self.commands.send(Command::Configure(config)).await;
+    }
+
     /// Stops the writer after it has flushed what it has, and waits until it has. Says whether the flush worked.
     pub(super) async fn close(&self) -> bool {
         let (done, closed) = oneshot::channel();
@@ -142,6 +148,13 @@ pub(crate) fn gone() -> StorageError {
     StorageError::Offline {
         cause: "the partition was closed".into(),
     }
+}
+
+/// The last stable offset kept inside the log: not below its start (DeleteRecords moved the start past an open
+/// transaction), and never above the end read before it (a delete to the end and appends can come between the reads of
+/// the end and the start).
+fn clamp_stable(last_stable: i64, start: i64, end: i64) -> i64 {
+    last_stable.max(start).min(end)
 }
 
 #[cfg(test)]

@@ -25,9 +25,13 @@ fn id(s: &str) -> TransactionalId {
 }
 
 async fn init_as(rig: &Rig, held: Txn) -> (i16, i64, i16) {
+    init_with(rig, held, 60_000).await
+}
+
+async fn init_with(rig: &Rig, held: Txn, timeout_ms: i32) -> (i16, i64, i16) {
     let mut req = InitProducerIdRequest::default();
     req.transactional_id = Some(id("tx"));
-    req.transaction_timeout_ms = 60_000;
+    req.transaction_timeout_ms = timeout_ms;
     req.producer_id = ProducerId(held.producer);
     req.producer_epoch = held.epoch;
     let Response::InitProducerId(r) = rig.ask(4, Request::InitProducerId(req)).await else {
@@ -88,10 +92,22 @@ async fn asking_again_with_the_epoch_before_the_last_bump_gives_the_same_answer_
     assert_eq!(rig.add_partitions("tx", now, "t", &[0]).await, [0]);
     assert_eq!(rig.end_txn("tx", now, true).await, 0);
     assert_eq!(state(&rig).await, "CompleteCommit");
-    assert_eq!(init_as(&rig, held).await, bumped);
+    // The asking again gives the timeout it names to the transaction the id will begin next.
+    assert_eq!(init_with(&rig, held, 30_000).await, bumped);
+    assert_eq!(timeout_ms(&rig).await, 30_000);
     assert_eq!(
         state(&rig).await,
         "Empty",
         "ready for the producer to begin again"
     );
+}
+
+async fn timeout_ms(rig: &Rig) -> i32 {
+    let mut req = DescribeTransactionsRequest::default();
+    req.transactional_ids = vec![id("tx")];
+    let Response::DescribeTransactions(r) = rig.ask(0, Request::DescribeTransactions(req)).await
+    else {
+        panic!("not DescribeTransactions")
+    };
+    r.transaction_states[0].transaction_timeout_ms
 }
