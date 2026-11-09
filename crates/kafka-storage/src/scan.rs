@@ -117,8 +117,9 @@ pub(crate) fn scan<L: FsFile>(
             });
             found.since_index = 0;
         }
-        found.next_offset = Offset::new(peek.base_offset)
-            .and_then(|o| o.checked_add(peek.record_count))
+        found.next_offset = peek
+            .next_offset()
+            .and_then(Offset::new)
             .unwrap_or(found.next_offset);
         found.max_timestamp = found
             .max_timestamp
@@ -143,7 +144,7 @@ fn next_good<L: FsFile>(
         .checked_add(peek.total_len)
         .is_some_and(|end| end <= size);
     let forwards = peek.base_offset >= expect_at_least.get();
-    let advances = Offset::new(peek.base_offset).and_then(|o| o.checked_add(peek.record_count));
+    let advances = peek.next_offset();
     if !(fits && forwards && advances.is_some()) {
         return Ok(None);
     }
@@ -189,7 +190,10 @@ pub(crate) fn scan_tail<L: FsFile>(log: &L, size: u64, last: Entry) -> io::Resul
             since += peek.total_len;
         }
         first = false;
-        next = peek.base_offset + i64::from(peek.record_count);
+        let Some(after) = peek.next_offset() else {
+            return Ok(None);
+        };
+        next = after;
         pos += peek.total_len;
     }
     let next_offset = Offset::new(next).unwrap_or(Offset::ZERO);
@@ -217,9 +221,7 @@ pub(crate) fn tail_end<L: FsFile>(
         let Ok(peek) = Peek::read(window.read(pos, HEADER)?) else {
             break;
         };
-        let Some(after) =
-            Offset::new(peek.base_offset).and_then(|o| o.checked_add(peek.record_count))
-        else {
+        let Some(after) = peek.next_offset().and_then(Offset::new) else {
             break;
         };
         if pos.saturating_add(peek.total_len) > size {

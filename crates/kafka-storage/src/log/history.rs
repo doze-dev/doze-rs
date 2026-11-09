@@ -78,10 +78,7 @@ fn walk(
             doing: "reading the log's batches",
             source: std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string()),
         })?;
-        let after = peek
-            .base_offset
-            .saturating_add(i64::from(peek.record_count));
-        next = Offset::new(after);
+        next = peek.next_offset().and_then(Offset::new);
         let Some((batch, tail)) = usize::try_from(peek.total_len)
             .ok()
             .and_then(|n| rest.split_at_checked(n))

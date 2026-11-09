@@ -4,6 +4,7 @@ const COMPRESSION_MASK: u16 = 0x07;
 const TIMESTAMP_TYPE: u16 = 0x08;
 const TRANSACTIONAL: u16 = 0x10;
 const CONTROL: u16 = 0x20;
+const DELETE_HORIZON: u16 = 0x40;
 
 /// How a batch's records are compressed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -83,6 +84,23 @@ impl Attributes {
     #[must_use]
     pub fn is_control(self) -> bool {
         self.0 & CONTROL != 0
+    }
+
+    /// Whether the batch's first timestamp is the time its tombstones and markers may be removed after (compaction sets it,
+    /// and the records' timestamps are relative to it).
+    #[must_use]
+    pub fn has_delete_horizon(self) -> bool {
+        self.0 & DELETE_HORIZON != 0
+    }
+
+    /// These attributes with the delete horizon flag set.
+    pub(super) fn with_delete_horizon(self) -> Self {
+        Self(self.0 | DELETE_HORIZON)
+    }
+
+    /// These attributes with no compression.
+    pub(super) fn uncompressed(self) -> Self {
+        Self(self.0 & !COMPRESSION_MASK)
     }
 
     /// These attributes with the timestamp type set to LogAppendTime.

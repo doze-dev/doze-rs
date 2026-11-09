@@ -224,3 +224,68 @@ fn a_run_of_batches_is_walked_one_at_a_time() {
     };
     assert_eq!(at, one.len());
 }
+
+/// A batch the log holds after compaction: two records of an eight-offset span, and one with none left.
+fn thinned(count: u32, span_less_one: i32) -> bytes::Bytes {
+    BatchBuilder::new()
+        .base_offset(100)
+        .records(count)
+        .last_offset_delta(span_less_one)
+        .build()
+}
+
+#[test]
+fn a_batch_a_client_sent_has_as_many_records_as_it_spans_and_a_stored_one_may_have_fewer_or_none() {
+    let thin = thinned(2, 7);
+    assert!(matches!(
+        Batch::parse(thin.clone()).unwrap_err(),
+        BatchError::Count {
+            count: 2,
+            last_offset_delta: 7
+        }
+    ));
+    let stored = Batch::parse_stored(thin).unwrap();
+    assert_eq!(stored.record_count(), 2);
+    assert_eq!(
+        stored.next_offset(),
+        Offset::new(108),
+        "its span, not its records"
+    );
+    let empty = Batch::parse_stored(thinned(0, 7)).unwrap();
+    assert_eq!(
+        (empty.record_count(), empty.next_offset()),
+        (0, Offset::new(108))
+    );
+    assert!(Batch::parse(thinned(0, 7)).is_err());
+}
+
+#[test]
+fn a_stored_batch_still_may_not_have_more_records_than_offsets_or_a_negative_span() {
+    for (count, span) in [(3, 1), (1, -1), (0, -1)] {
+        assert!(
+            matches!(
+                Batch::parse_stored(thinned(count, span)).unwrap_err(),
+                BatchError::Count { .. }
+            ),
+            "{count} records over a span of {}",
+            span.wrapping_add(1)
+        );
+    }
+}
+
+#[test]
+fn a_run_of_stored_batches_is_walked_by_span() {
+    let mut run = Vec::new();
+    run.extend_from_slice(&thinned(1, 4));
+    run.extend_from_slice(
+        &BatchBuilder::new()
+            .base_offset(105)
+            .records(2)
+            .last_offset_delta(1)
+            .build(),
+    );
+    let next: Vec<_> = Batches::new(bytes::Bytes::from(run))
+        .map(|b| b.unwrap().next_offset().unwrap().get())
+        .collect();
+    assert_eq!(next, [105, 107]);
+}

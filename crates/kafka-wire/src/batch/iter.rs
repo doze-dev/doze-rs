@@ -43,7 +43,7 @@ impl Iterator for Batches {
         };
         let one = self.rest.split_to(total);
         self.at += total;
-        match Batch::parse(one) {
+        match Batch::parse_stored(one) {
             Ok(batch) => Some(Ok(batch)),
             Err(error) => self.fail(BatchError::InPayload {
                 at,

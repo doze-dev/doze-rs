@@ -253,7 +253,8 @@ fn relearn<F: Fs>(log: &PartitionLog<F>, memory: &mut Memory) -> Result<(), Stor
                 id: p.id.get(),
                 epoch: p.epoch.get(),
                 first,
-                last: last_of(first, batch.record_count),
+                // The span of sequences is the span of offsets, whatever compaction left in the batch.
+                last: last_of(first, batch.last_offset_delta.saturating_add(1)),
                 base_offset: batch.base_offset,
                 max_timestamp: batch.max_timestamp.get(),
             },

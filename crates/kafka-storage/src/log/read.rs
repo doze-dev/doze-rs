@@ -203,11 +203,7 @@ fn read_segment<F: Fs>(
             return Ok(None);
         }
         let peek = peek_at(segment, &mut chunk, pos, committed, ask(pos))?;
-        if peek
-            .base_offset
-            .saturating_add(i64::from(peek.record_count))
-            > from.get()
-        {
+        if peek.next_offset().unwrap_or(i64::MAX) > from.get() {
             break peek;
         }
         pos += peek.total_len;

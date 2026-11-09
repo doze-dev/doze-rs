@@ -106,7 +106,7 @@ fn within(batch: &Batch, start: Offset, wanted: impl Fn(TimestampMs) -> bool) ->
 }
 
 fn next_offset(batch: &Batch) -> Option<Offset> {
-    batch.base_offset()?.checked_add(batch.record_count())
+    batch.next_offset()
 }
 
 fn damage(why: impl std::fmt::Display) -> StorageError {

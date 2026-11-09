@@ -8,6 +8,7 @@ mod attributes;
 #[cfg(any(test, feature = "test-support"))]
 pub mod build;
 mod error;
+mod filter;
 mod header;
 mod inflate;
 mod iter;
@@ -24,6 +25,7 @@ use bytes::Bytes;
 
 pub use attributes::{Attributes, Compression, TimestampType};
 pub use error::{BatchError, Refusal};
+pub use filter::{Filtered, Rules, Seen};
 use header::Header;
 pub use iter::Batches;
 pub use layout::HEADER_LEN;
@@ -66,6 +68,20 @@ impl Batch {
     /// # Errors
     /// Any of the [`BatchError`] shape and checksum failures.
     pub fn parse(bytes: Bytes) -> Result<Self, BatchError> {
+        Self::parse_as(bytes, false)
+    }
+
+    // fuzz:parser fuzz_batch
+    /// Like [`Batch::parse`], for a batch the log holds: one that compaction has thinned has fewer records than its
+    /// offsets span (possibly none), which a batch sent by a client may not.
+    ///
+    /// # Errors
+    /// As [`Batch::parse`], except for the count: it may be anything from none to the span of the offsets.
+    pub fn parse_stored(bytes: Bytes) -> Result<Self, BatchError> {
+        Self::parse_as(bytes, true)
+    }
+
+    fn parse_as(bytes: Bytes, stored: bool) -> Result<Self, BatchError> {
         let header = Header::read(&bytes)?;
         if header.magic != MAGIC_V2 {
             return Err(BatchError::Magic(header.magic));
@@ -88,7 +104,7 @@ impl Batch {
         if let Compression::Unknown(codec) = compression {
             return Err(BatchError::UnknownCodec(codec));
         }
-        check_count(&header, bytes.len() - HEADER_LEN, compression)?;
+        check_count(&header, bytes.len() - HEADER_LEN, compression, stored)?;
         Ok(Self { bytes, header })
     }
 
@@ -118,10 +134,20 @@ impl Batch {
         Offset::new(self.header.base_offset)
     }
 
-    /// How many records the batch holds: always at least one.
+    /// How many records the batch holds: at least one for a batch a client sent; a stored one may hold fewer than its offsets span.
     #[must_use]
     pub fn record_count(&self) -> u32 {
         u32::try_from(self.header.record_count).unwrap_or(0)
+    }
+
+    /// The offset after the batch's last, from its base offset and the span its header declares. For a batch the log
+    /// holds this is not base plus record count: compaction leaves a batch its span when it takes records out.
+    #[must_use]
+    pub fn next_offset(&self) -> Option<Offset> {
+        let span = u32::try_from(self.header.last_offset_delta)
+            .ok()?
+            .checked_add(1)?;
+        self.base_offset()?.checked_add(span)
     }
 
     /// The attributes: codec, timestamp type, transactional and control bits.
@@ -160,9 +186,19 @@ impl Batch {
 }
 
 /// The record count must be positive, agree with `lastOffsetDelta`, and be a number the bytes could hold.
-fn check_count(header: &Header, body: usize, compression: Compression) -> Result<(), BatchError> {
+fn check_count(
+    header: &Header,
+    body: usize,
+    compression: Compression,
+    stored: bool,
+) -> Result<(), BatchError> {
     let (count, delta) = (header.record_count, header.last_offset_delta);
-    if count <= 0 || delta.checked_add(1) != Some(count) {
+    let agrees = if stored {
+        count >= 0 && delta >= 0 && delta.checked_add(1).is_some_and(|span| count <= span)
+    } else {
+        count > 0 && delta.checked_add(1) == Some(count)
+    };
+    if !agrees {
         return Err(BatchError::Count {
             count,
             last_offset_delta: delta,
