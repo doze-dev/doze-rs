@@ -95,6 +95,37 @@ fn the_marker_of_an_aborted_transaction_stays_while_its_records_are_dropped_then
     assert!(!has_offset(&log, 2), "gone: {:?}", records(&log));
 }
 
+#[test]
+fn a_marker_goes_in_the_round_whose_time_is_exactly_its_time_and_not_before() {
+    let (mut log, aborted) = log_with_an_aborted_transaction();
+    clean(&mut log, &PARAMS, aborted.clone(), HashMap::new()).unwrap();
+    // Round two gives the marker its time: 1500 + 1000 = 2500.
+    more(&mut log, ["q", "r", "s", "u"]);
+    let two = Params {
+        now_ms: 1_500,
+        ..PARAMS
+    };
+    clean(&mut log, &two, aborted.clone(), HashMap::new()).unwrap();
+    more(&mut log, ["v", "w", "x", "y"]);
+    let before = Params {
+        now_ms: 2_499,
+        ..PARAMS
+    };
+    clean(&mut log, &before, aborted.clone(), HashMap::new()).unwrap();
+    assert!(has_offset(&log, 2), "a millisecond early: it stays");
+    more(&mut log, ["z1", "z2", "z3", "z4"]);
+    let at = Params {
+        now_ms: 2_500,
+        ..PARAMS
+    };
+    clean(&mut log, &at, aborted, HashMap::new()).unwrap();
+    assert!(
+        !has_offset(&log, 2),
+        "at its time it goes: {:?}",
+        records(&log)
+    );
+}
+
 /// A one-record batch of a transaction of `producer`.
 fn txn_batch(producer: i64, key: &str, value: &str, seq: i32) -> Batch {
     let rec = Rec {

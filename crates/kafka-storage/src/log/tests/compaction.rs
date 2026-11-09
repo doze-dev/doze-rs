@@ -290,7 +290,7 @@ fn a_round_put_in_place_twice_changes_nothing_the_second_time_and_leaves_no_file
 }
 
 /// A one-record batch stamped `ts`.
-fn kv_at(key: &str, value: &str, ts: i64) -> Batch {
+pub(super) fn kv_at(key: &str, value: &str, ts: i64) -> Batch {
     let rec = Rec {
         key: Some(key.as_bytes().to_vec()),
         value: Some(value.as_bytes().to_vec()),

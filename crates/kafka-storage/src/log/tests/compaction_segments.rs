@@ -142,3 +142,21 @@ fn a_segment_holding_the_last_batch_of_a_producer_stays_though_its_records_are_g
         "the records are the same"
     );
 }
+
+#[test]
+fn a_round_whose_dirty_part_is_a_single_offset_still_cleans() {
+    // A segment holds one batch. Round one cleans offsets 0 and 1 (offset 2 is in the active segment).
+    let one = kv("hot", Some("00")).len() as u64;
+    let (_fs, _dir, mut log) = fresh(one);
+    let first: Vec<_> = (0..3)
+        .map(|i| kv("hot", Some(&format!("{i:02}"))))
+        .collect();
+    append_all(&mut log, &first);
+    assert_eq!(plain(&mut log).expect("due").clean_to, 2);
+    // One more batch seals offset 2: that is all that is dirty now, and it supersedes offset 1.
+    append_all(&mut log, &[kv("hot", Some("03"))]);
+    assert_eq!(plain(&mut log).expect("due").clean_to, 3);
+    let left: Vec<i64> = records(&log).iter().map(|r| r.0).collect();
+    assert_eq!(left, [2, 3]);
+    std::mem::forget(_fs);
+}

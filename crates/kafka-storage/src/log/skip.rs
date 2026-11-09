@@ -58,3 +58,43 @@ fn skip_empty(bytes: &Bytes) -> Option<(i64, Bytes)> {
     }
     next.map(|n| (n, bytes.slice(pos.min(bytes.len())..)))
 }
+
+#[cfg(test)]
+mod tests {
+    use kafka_wire::batch::build::{BatchBuilder, Rec};
+    use kafka_wire::batch::{Batch, Rules};
+
+    use super::*;
+
+    fn one_record() -> Bytes {
+        let rec = Rec {
+            key: Some(b"k".to_vec()),
+            value: Some(b"v".to_vec()),
+            ..Rec::default()
+        };
+        BatchBuilder::from_records(5, &[rec]).build()
+    }
+
+    /// A batch cleaning has emptied: its offsets are kept, its records are not.
+    fn emptied() -> Bytes {
+        let rules = Rules {
+            max_inflated: 1 << 20,
+            horizon: 0,
+            marker_of_empty_transaction: false,
+        };
+        let batch = Batch::parse_stored(one_record()).unwrap();
+        batch.filter(rules, |_| false).unwrap().batch.into_bytes()
+    }
+
+    #[test]
+    fn a_run_of_batches_with_no_records_is_skipped_whole_and_what_follows_is_left() {
+        let full = one_record();
+        let mut all = Vec::new();
+        all.extend_from_slice(&emptied());
+        all.extend_from_slice(&emptied());
+        all.extend_from_slice(&full);
+        let (_, rest) = skip_empty(&Bytes::from(all)).expect("a lead of empty batches");
+        assert_eq!(rest.len(), full.len(), "both empty batches are skipped");
+        assert!(skip_empty(&full).is_none(), "no lead, nothing to skip");
+    }
+}

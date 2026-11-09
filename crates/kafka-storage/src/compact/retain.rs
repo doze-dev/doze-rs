@@ -66,6 +66,15 @@ mod tests {
     }
 
     #[test]
+    fn what_is_at_the_last_offset_the_map_covers_is_judged_like_the_rest() {
+        // The map covers up to offset 8 whatever the record there is: a deletion past its time, or one with no key, goes.
+        let m = map();
+        assert!(!retain(&m, Some(0), 1_000, &seen(8, Some(b"b"), true)));
+        assert!(!retain(&m, None, 0, &seen(8, None, false)));
+        assert!(retain(&m, None, 0, &seen(8, Some(b"b"), false)));
+    }
+
+    #[test]
     fn what_is_past_the_map_is_left_whatever_it_is() {
         let m = map();
         assert!(
