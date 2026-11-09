@@ -219,6 +219,110 @@
   "test_input_transformer": {
     "transformed": "{\"message\": \"ada did placed\"}"
   },
+  "test_pattern_matching": {
+    "anything-but": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Result": true
+    },
+    "anything-but-miss": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Result": false
+    },
+    "array-member": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Result": true
+    },
+    "boolean": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Result": true
+    },
+    "equals-ignore-case": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Result": true
+    },
+    "exact": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Result": true
+    },
+    "exists": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Result": true
+    },
+    "miss": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Result": false
+    },
+    "not-exists": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Result": true
+    },
+    "null": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Result": true
+    },
+    "numeric-miss": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Result": false
+    },
+    "numeric-range": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Result": true
+    },
+    "or": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Result": true
+    },
+    "prefix": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Result": true
+    },
+    "suffix": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Result": true
+    },
+    "two-fields-and": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Result": false
+    },
+    "wildcard": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Result": true
+    }
+  },
   "test_refusals": {
     "create-bus-twice": {
       "Error": {

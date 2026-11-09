@@ -1,0 +1,243 @@
+{
+  "_recorded": {
+    "boto3": "1.43.107",
+    "botocore": "1.43.107",
+    "on": "2026-11-09",
+    "region": "us-east-1",
+    "target": "aws"
+  },
+  "test_events_are_written_read_and_filtered": {
+    "filter-exclude": [
+      "INFO stopped"
+    ],
+    "filter-json": [
+      "{\"level\":\"error\",\"code\":507}"
+    ],
+    "filter-json-string": [
+      "{\"level\":\"error\",\"code\":507}"
+    ],
+    "filter-quoted": [
+      "ERROR disk full"
+    ],
+    "filter-term": [
+      "ERROR disk full"
+    ],
+    "filter-two-terms": [
+      "INFO started"
+    ],
+    "get": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "events": [
+        {
+          "ingestionTime": "<ingestionTime:1>",
+          "message": "INFO started",
+          "timestamp": "<timestamp:1>"
+        },
+        {
+          "ingestionTime": "<ingestionTime:1>",
+          "message": "ERROR disk full",
+          "timestamp": "<timestamp:2>"
+        },
+        {
+          "ingestionTime": "<ingestionTime:1>",
+          "message": "{\"level\":\"error\",\"code\":507}",
+          "timestamp": "<timestamp:3>"
+        },
+        {
+          "ingestionTime": "<ingestionTime:1>",
+          "message": "INFO stopped",
+          "timestamp": "<timestamp:4>"
+        }
+      ],
+      "nextBackwardToken": "<nextBackwardToken:1>",
+      "nextForwardToken": "<nextForwardToken:1>"
+    },
+    "put": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "nextSequenceToken": "<nextSequenceToken:1>"
+    }
+  },
+  "test_group_and_stream_lifecycle": {
+    "create-group": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "create-stream": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "delete-group": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "delete-stream": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "describe": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "logGroups": [
+        {
+          "arn": "arn:aws:logs:us-east-1:<account>:log-group:/<name:group>:*",
+          "bearerTokenAuthenticationEnabled": false,
+          "creationTime": "<creationTime:1>",
+          "deletionProtectionEnabled": false,
+          "logGroupArn": "arn:aws:logs:us-east-1:<account>:log-group:/<name:group>",
+          "logGroupClass": "STANDARD",
+          "logGroupName": "/<name:group>",
+          "metricFilterCount": 0
+        }
+      ]
+    },
+    "drop-retention": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "set-retention": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "streams": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "logStreams": [
+        {
+          "arn": "arn:aws:logs:us-east-1:<account>:log-group:/<name:group>:log-stream:app",
+          "creationTime": "<creationTime:2>",
+          "logStreamName": "app"
+        }
+      ]
+    },
+    "tags": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "tags": {
+        "env": "dev"
+      }
+    },
+    "with-retention": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "logGroups": [
+        {
+          "arn": "arn:aws:logs:us-east-1:<account>:log-group:/<name:group>:*",
+          "bearerTokenAuthenticationEnabled": false,
+          "creationTime": "<creationTime:1>",
+          "deletionProtectionEnabled": false,
+          "logGroupArn": "arn:aws:logs:us-east-1:<account>:log-group:/<name:group>",
+          "logGroupClass": "STANDARD",
+          "logGroupName": "/<name:group>",
+          "metricFilterCount": 0,
+          "retentionInDays": 7
+        }
+      ]
+    }
+  },
+  "test_refusals": {
+    "bad-filter-pattern": {
+      "Error": {
+        "Code": "InvalidParameterException",
+        "Message": "Invalid filter pattern"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "create-group-twice": {
+      "Error": {
+        "Code": "ResourceAlreadyExistsException",
+        "Message": "The specified log group already exists"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "create-stream-twice": {
+      "Error": {
+        "Code": "ResourceAlreadyExistsException",
+        "Message": "The specified log stream already exists"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "delete-absent-group": {
+      "Error": {
+        "Code": "ResourceNotFoundException",
+        "Message": "The specified log group does not exist."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "events-from-absent-group": {
+      "Error": {
+        "Code": "ResourceNotFoundException",
+        "Message": "The specified log group does not exist."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "events-from-absent-stream": {
+      "Error": {
+        "Code": "ResourceNotFoundException",
+        "Message": "The specified log stream does not exist."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "out-of-order": {
+      "Error": {
+        "Code": "InvalidParameterException",
+        "Message": "Log events in a single PutLogEvents request must be in chronological order."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "put-to-absent-stream": {
+      "Error": {
+        "Code": "ResourceNotFoundException",
+        "Message": "The specified log stream does not exist."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "retention-not-allowed": {
+      "Error": {
+        "Code": "InvalidParameterException",
+        "Message": "Invalid retention value. Valid values are: [1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1096, 1827, 2192, 2557, 2922, 3288, 3653]"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "stream-in-absent-group": {
+      "Error": {
+        "Code": "ResourceNotFoundException",
+        "Message": "The specified log group does not exist."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  }
+}
