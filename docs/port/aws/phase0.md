@@ -116,3 +116,8 @@ works until it has run on one. Revisit when a machine or a hosted runner is avai
 ### S1b (queued, 2026-11-09)
 
 S1 failed its 3 MiB target. That ceiling was ours and was set before measuring, and it is retired: PLAN.md now carries a whole-binary budget (at most 16 MiB, 12 intended, against Go's 22 to 24 MB stripped) defended by measurements. S1b measures the two cheaper designs the spike suggested: (a) typed glue only for tier-F operations, everything else decoded and validated on a schema-driven dynamic tree; (b) the fully dynamic validator for all operations. Prediction and the restated whole-binary budget are written before measuring.
+
+## Audit brief, standing items (2026-11-09)
+
+Every independent audit also checks PLAN.md rules 16 to 25: avoidable copies and allocations on hot paths; every escape hatch has a `// WHY:` and a better design was tried; no `_` arms over our own enums; no
+`Rc<RefCell>`, `Arc<Mutex>` service state or guards across `.await`; hot-path allocation counts; which tests are redundant and which real failures would now pass silently.

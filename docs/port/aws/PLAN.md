@@ -108,6 +108,36 @@ Additions for this port:
 14. **A refused operation is a deliberate act:** it appears in the exhaustive `match` with its 501.
 15. **Every parser has a fuzz target and a nesting or length cap** (CI checks the pairing).
 
+### Rust principles we live by
+
+Source: the learning blog the owner and I wrote the doze principles from (https://learningrust.nerdmenot.in/, read 2026-11-09: "The ten ideas behind most rules" and
+"Habits that look like idioms"). The owner's standing instructions, 2026-11-08 and 2026-11-09: no copying unless it is needed, no easy options, Rust done the way it is
+intended, and no cop-outs just because we are stuck. Targets are realistic; the standards are not loosened to meet them.
+
+16. **A copy needs a stated reason.** Every `.clone()`, `to_vec()`, `to_owned()` or buffer copy on data of any size carries a one-line reason (a real mutation of shared data, a value
+    that must outlive its source, a small `Copy` value). Borrow, slice `Bytes`, build small things on the stack, write from the buffers already held. Parameters borrow when they only read.
+    A rising clone or `Rc` count is a design signal, not a fix: stop and change the ownership. Enforced by: the aws crates opt into `clippy::redundant_clone`, `implicit_clone`,
+    `unnecessary_to_owned`, `needless_pass_by_value` and `clone_on_ref_ptr` as denies; every audit brief includes "hunt avoidable copies and allocations on hot paths".
+17. **Decide with `&self`, then apply with `&mut self`.** Service logic is the sans-IO step function; one writer owns the state (the actor). No `Rc<RefCell<_>>`, no `Arc<Mutex<_>>`
+    around service state, no guard held across an `.await` (already a deny). A lock is allowed only on small leaf data with a comment saying why an owner task would be worse.
+18. **Wrong states are hard to write.** Parse, don't validate: loose input becomes a checked newtype once, at the edge. Enums with per-variant data, not a struct with a field per state;
+    typestate where order is fixed (connect before send). No text where an enum belongs (error codes, operation names, states).
+19. **Exhaustive means exhaustive.** No `_` arm in a `match` over our own operation, error or state enums (`clippy::wildcard_enum_match_arm` in the aws crates), so adding a variant
+    stops the build. Public error enums are `#[non_exhaustive]`. Library errors are `thiserror` enums that map to an AWS code once, at the boundary; `anyhow` and `Box<dyn Error>`
+    only in binaries. No `unwrap`/`expect` outside tests, no `let _ =` on a `Result`, no `catch_unwind` as a try/catch, no `process::exit`.
+20. **`unsafe` is the last resort.** Try safe code, then std, then a well-used crate, and only then our own block: small, behind a safe function, with a `// SAFETY:` comment.
+    Every crate is `forbid(unsafe_code)` except `doze-alloc` (the Linux `malloc_trim`, spike S5). Never `unsafe impl Send/Sync` to get past the checker.
+21. **Nothing happens behind our back.** Conversions are written out (`From`, `TryFrom`, `FromStr` by failure mode). Blocking work never runs on the async threads (`spawn_blocking`
+    or a dedicated thread). Async functions that must run are awaited or spawned and tracked (`TaskTracker`), never fire-and-forget.
+22. **Tests: own data, own folder, own clock.** Inject the clock and `Fs` (already the pattern). Property tests with a fixed seed so a failure repeats. Recordings are never re-recorded
+    without reading the diff. Coverage shows what ran, not what was checked; it is not a target.
+23. **Measure release builds, and count.** Weight and speed claims come from release builds, one run is a direction not a result, and hot paths get an allocation-count test (a counting
+    global allocator in the test binary) alongside any timing. A target moves only with a measurement and a written reason; it is not relaxed because a build was hard.
+24. **Features only add.** Cargo unions features, so a feature never removes behaviour. Workspace inheritance for version, edition and dependencies; the declared `rust-version` is tested.
+25. **When stuck, the design is the problem.** The escape hatches (`clone`, `Rc<RefCell>`, `unsafe`, `unwrap`, a `_` arm, `Box<dyn Error>`, a global lock, a copied buffer) need a
+    `// WHY:` comment naming the constraint and the better design that was tried, and the independent audit reviews every one. The compiler's `help:` lines are hints, not a
+    diagnosis. If two parts both want to change one value, or a third `clone` appears to quiet an error, write the blocker in the phase doc and redesign before continuing.
+
 ## Targets (provisional, set from measurements; re-based at A5)
 
 Rule: a target must be defended by a measurement plus a margin. A number we cannot defend is a hope, not a target, and does not go here.
