@@ -88,6 +88,10 @@ struct Memory {
     loaded: bool,
     /// The transactions the log holds, shared with the readers.
     txns: Arc<RwLock<TxnIndex>>,
+    /// How far the last round of cleaning that was put in place got. The aborted transactions that ended before it have no
+    /// record left; they are let go one round later, so that a reader that began on the old segments is not told less than
+    /// what it reads.
+    cleaned_to: i64,
 }
 
 /// Takes commands until the queue closes or a Close arrives: appends are written in the order they came, then one
@@ -105,6 +109,7 @@ pub(super) async fn run<F: Fs>(
         producers: Producers::default(),
         loaded: false,
         txns,
+        cleaned_to: 0,
     };
     loop {
         let next = match unflushed_since {
@@ -181,7 +186,16 @@ fn work<F: Fs>(
                 let _ = reply.send(cleaning::plan(log, memory, &params));
             }
             Command::Install(cleaned, reply) => {
-                let _ = reply.send(log.install_cleaned(&cleaned));
+                let installed = log.install_cleaned(&cleaned);
+                if installed.is_ok() {
+                    memory
+                        .txns
+                        .write()
+                        .unwrap_or_else(std::sync::PoisonError::into_inner)
+                        .forget_before(memory.cleaned_to);
+                    memory.cleaned_to = memory.cleaned_to.max(cleaned.clean_to);
+                }
+                let _ = reply.send(installed);
             }
             Command::Discard(cleaned) => log.discard_cleaned(&cleaned),
             Command::Configure(config) => log.set_config(config),

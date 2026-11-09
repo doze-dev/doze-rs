@@ -4,6 +4,7 @@
 //! Nothing here changes the log: it leaves new files beside it, for the writer to put in place.
 
 use std::path::Path;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use bytes::Bytes;
 use kafka_wire::batch::{Batch, Marker, Rules};
@@ -28,7 +29,16 @@ impl<F: Fs> CleanJob<F> {
     /// # Errors
     /// A failed read or write, or a segment that is not made of batches. Files begun are taken back.
     pub fn run(self) -> Result<Cleaned, StorageError> {
-        let map = self.offset_map()?;
+        self.run_until(&AtomicBool::new(false))
+    }
+
+    /// Does the round, unless `stop` is set meanwhile: it is looked at between batches, so a broker that is stopping does
+    /// not wait for the end of a round of a large log.
+    ///
+    /// # Errors
+    /// As for `run`, and `ErrorKind::Interrupted` if stopped; files begun are taken back.
+    pub fn run_until(self, stop: &AtomicBool) -> Result<Cleaned, StorageError> {
+        let map = self.offset_map(stop)?;
         let first_dirty = self.plan.first_dirty;
         let mut done = Cleaned {
             clean_to: first_dirty,
@@ -41,7 +51,7 @@ impl<F: Fs> CleanJob<F> {
         done.clean_to = clean_to;
         let mut txns = CleanedTxns::new(self.aborted.clone());
         for input in self.segments.iter().filter(|s| s.base.get() < clean_to) {
-            match self.clean_segment(input, &map, &mut txns, &mut done) {
+            match self.clean_segment(input, &map, (&mut txns, stop), &mut done) {
                 Ok(Some(r)) => done.replacements.push(r),
                 Ok(None) => {}
                 Err(e) => {
@@ -63,7 +73,7 @@ impl<F: Fs> CleanJob<F> {
     }
 
     /// The latest offset of each key from the first dirty offset up to the limit, as far as the map has room.
-    fn offset_map(&self) -> Result<OffsetMap, StorageError> {
+    fn offset_map(&self, stop: &AtomicBool) -> Result<OffsetMap, StorageError> {
         let (first_dirty, upto) = (self.plan.first_dirty, self.plan.upto);
         let mut map = OffsetMap::new(self.params.map_bytes);
         // Aborted records are not in the map: they are going, and must not take the place of a committed value before them
@@ -83,6 +93,7 @@ impl<F: Fs> CleanJob<F> {
             };
             let mut source = Source::new(&input.view, from);
             while let Some(found) = source.next().doing("reading a segment to clean it")? {
+                stopped(stop)?;
                 let next = found.peek.next_offset().unwrap_or(i64::MAX);
                 if next <= first_dirty {
                     continue;
@@ -131,7 +142,7 @@ impl<F: Fs> CleanJob<F> {
         &self,
         input: &Input<F>,
         map: &OffsetMap,
-        txns: &mut CleanedTxns,
+        (txns, stop): (&mut CleanedTxns, &AtomicBool),
         done: &mut Cleaned,
     ) -> Result<Option<Replacement>, StorageError> {
         let (log_tmp, index_tmp) = temporary(&self.dir, input.base);
@@ -141,6 +152,7 @@ impl<F: Fs> CleanJob<F> {
         let mut last_next = input.base.get();
         let walked = (|| -> Result<(), StorageError> {
             while let Some(found) = source.next().doing("reading a segment to clean it")? {
+                stopped(stop)?;
                 last_next = found.peek.next_offset().unwrap_or(last_next);
                 let last_in_segment = found.position + found.peek.total_len >= size;
                 let fate = self.fate(&found, last_in_segment, map, txns, done)?;
@@ -274,6 +286,17 @@ enum Fate {
 
 fn parse(bytes: &Bytes) -> Result<Batch, StorageError> {
     Batch::parse_stored(bytes.clone()).map_err(|e| unreadable(&e.to_string()))
+}
+
+/// An error if the round has been told to stop.
+fn stopped(stop: &AtomicBool) -> Result<(), StorageError> {
+    if stop.load(Ordering::Relaxed) {
+        return Err(StorageError::Io {
+            doing: "cleaning a segment",
+            source: std::io::Error::from(std::io::ErrorKind::Interrupted),
+        });
+    }
+    Ok(())
 }
 
 fn unreadable(why: &str) -> StorageError {

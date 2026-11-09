@@ -79,6 +79,8 @@ pub struct Broker<F: Fs = RealFs> {
     /// Held for the whole of a change to the configs of a topic or of the broker: what is changed is worked out from what
     /// is there, so two changes at once would each be worked out from the same old configs and one would undo the other.
     pub(crate) config_admin: tokio::sync::Mutex<()>,
+    /// Set when the broker is stopping: a round of cleaning that is running gives up (it is looked at between batches).
+    pub(crate) stop_cleaning: Arc<std::sync::atomic::AtomicBool>,
 }
 
 impl<F: Fs> Broker<F> {
@@ -126,6 +128,7 @@ impl<F: Fs> Broker<F> {
             stop,
             topic_admin: tokio::sync::Mutex::new(()),
             config_admin: tokio::sync::Mutex::new(()),
+            stop_cleaning: Arc::default(),
         })
     }
 
@@ -136,6 +139,8 @@ impl<F: Fs> Broker<F> {
     /// The record of the stop could not be written; the next start then distrusts every partition, which is slower
     /// and safe.
     pub async fn shutdown(&self) -> Result<(), BrokerError> {
+        self.stop_cleaning
+            .store(true, std::sync::atomic::Ordering::Relaxed);
         let closed = self.partitions.close_all().await;
         let data = &self.config.data_dir;
         // What this stop cannot vouch for. A partition this run opened is as its last close left it, whatever the

@@ -100,6 +100,14 @@ impl<F: Fs> Partitions<F> {
     }
 
     /// How many partitions are open now.
+    /// Whether the partition has its files open now.
+    pub(crate) fn is_open(&self, topic: TopicId, partition: PartitionId) -> bool {
+        self.registry()
+            .open
+            .get(&(topic, partition))
+            .is_some_and(|e| e.slot.get().is_some())
+    }
+
     pub(crate) fn open_count(&self) -> usize {
         self.registry()
             .open

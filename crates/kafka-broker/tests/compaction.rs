@@ -322,9 +322,50 @@ async fn a_log_of_many_segments_is_cleaned_whole_though_the_writer_takes_it_a_fe
     );
     // The writer is not left holding anything: it takes appends, and the round run again changes nothing.
     assert_eq!(
-        rig.produce(-1, "c", 0, keyed(&[("k0", Some("again"))])).await.error_code,
+        rig.produce(-1, "c", 0, keyed(&[("k0", Some("again"))]))
+            .await
+            .error_code,
         0
     );
     rig.broker.check_cleaner().await;
     assert_eq!(rig.list_offset(7, "c", 0, -1).await.offset, 801);
+}
+
+#[tokio::test]
+async fn the_cleaner_does_not_leave_open_the_partitions_it_opened_only_to_look() {
+    let rig = rig();
+    // Topics, one partition each, all clean already (a single key written once), and none open after a restart.
+    let topics: Vec<_> = (0..6)
+        .map(|i| {
+            let t = with_config(topic(&format!("c{i}"), 1), "cleanup.policy", "compact");
+            with_config(t, "segment.bytes", "1024")
+        })
+        .collect();
+    rig.create(topics, false).await;
+    for i in 0..6 {
+        assert_eq!(
+            rig.produce(-1, &format!("c{i}"), 0, keyed(&[("k", Some("v"))]))
+                .await
+                .error_code,
+            0
+        );
+    }
+    let again = open_on(rig.fs.process_restart());
+    assert_eq!(again.broker.open_partitions(), 0);
+    again.broker.check_cleaner().await;
+    assert_eq!(
+        again.broker.open_partitions(),
+        0,
+        "nothing was due, and what was opened to find out is closed again"
+    );
+    // A partition that was open stays open.
+    assert_eq!(
+        again
+            .produce(-1, "c0", 0, keyed(&[("k", Some("w"))]))
+            .await
+            .error_code,
+        0
+    );
+    again.broker.check_cleaner().await;
+    assert_eq!(again.broker.open_partitions(), 1);
 }

@@ -80,7 +80,8 @@ read once, when it is opened. Open partitions are bounded by the files they hold
 
 ## Phase 7 (config APIs, CreatePartitions, retention, compaction), measured 2026-11-09, release, darwin/arm64
 Binary 4,012,832 B (3,776,752 B after the Phase 6 debt pass: +236 KB for three config APIs, CreatePartitions, the retention
-and cleaner tasks, and compaction), 107 packages (none added), idle RSS 4.5 MB (4.4). The cleaner holds nothing while idle: a
+and cleaner tasks, and compaction), 107 packages (none added), idle RSS 4.6 to 4.7 MB (4,592 to 4,720 KB measured by the
+Phase 7 audit with 3 threads; 4.5 MB on a quieter run). The cleaner holds nothing while idle: a
 round builds an offset map of at most 16 MiB of keys (`Config.cleaner_map_bytes`) and drops it when the round ends; a round reads
 a segment 1 MiB at a time and writes a segment's replacement only from the first change in it. The live defaults are one small
 shared value; dynamic broker configs are five numbers.

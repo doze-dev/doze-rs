@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use kafka_storage::Trust;
 use kafka_storage::fs::Fs;
-use kafka_wire::ids::TopicId;
+use kafka_wire::ids::{PartitionId, TopicId};
 use tokio::task::JoinSet;
 
 use super::{Entry, Key, Partition, Partitions};
@@ -40,6 +40,43 @@ impl<F: Fs> Partitions<F> {
         if let Some(partition) = entry.as_ref().and_then(|e| e.slot.get()) {
             let _ = partition.close().await;
         }
+    }
+
+    /// Closes the partition if nothing holds it: one opened only to look at (by the cleaner) is not left open, so that a
+    /// broker with many compacted partitions holds nothing for them between rounds.
+    pub(crate) async fn release_if_idle(&self, topic: TopicId, partition: PartitionId) {
+        let key = (topic, partition);
+        let victim = {
+            let mut registry = self.registry();
+            let idle = !registry.closing.contains(&key)
+                && registry
+                    .open
+                    .get(&key)
+                    .and_then(|e| e.slot.get())
+                    .is_some_and(|p| Arc::strong_count(p) == 1);
+            if !idle {
+                return;
+            }
+            let Some(e) = registry.open.remove(&key) else {
+                return;
+            };
+            let Some(p) = e.slot.get() else {
+                return;
+            };
+            // Not vouched for until the close says so, as when the limits close a partition.
+            registry.closed.insert(e.name.clone(), Trust::Unvouched);
+            registry.closing.insert(key);
+            (e.name.clone(), Arc::clone(p))
+        };
+        let (name, partition) = victim;
+        let done = Closing {
+            partitions: self,
+            key,
+        };
+        if partition.close().await {
+            self.registry().closed.insert(name, Trust::Vouched);
+        }
+        drop(done);
     }
 
     /// Closes the partitions over the limits (how many are open, and how many files they hold open between them), least

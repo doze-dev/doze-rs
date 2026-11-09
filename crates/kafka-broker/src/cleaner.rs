@@ -25,6 +25,12 @@ impl<F: Fs> Broker<F> {
                     continue;
                 };
                 if let Err(error) = self.clean_partition(&topic, id).await {
+                    if self
+                        .stop_cleaning
+                        .load(std::sync::atomic::Ordering::Relaxed)
+                    {
+                        return;
+                    }
                     tracing::warn!(topic = %topic.name, partition = n, %error, "cleaning a partition failed");
                 }
             }
@@ -32,9 +38,24 @@ impl<F: Fs> Broker<F> {
     }
 
     async fn clean_partition(&self, topic: &Topic, id: PartitionId) -> Result<(), StorageError> {
+        let was_open = self.partitions.is_open(topic.id, id);
         let Some(partition) = self.partitions.get_unless_empty(topic, id).await? else {
             return Ok(());
         };
+        let result = self.clean_open(topic, id, &partition).await;
+        drop(partition);
+        if !was_open {
+            self.partitions.release_if_idle(topic.id, id).await;
+        }
+        result
+    }
+
+    async fn clean_open(
+        &self,
+        topic: &Topic,
+        id: PartitionId,
+        partition: &crate::partitions::Partition<F>,
+    ) -> Result<(), StorageError> {
         let params = topic_config::cleaner(
             &self.defaults.get(),
             &topic.config,
@@ -44,7 +65,8 @@ impl<F: Fs> Broker<F> {
         let Some(job) = partition.plan_clean(params).await? else {
             return Ok(());
         };
-        let cleaned = tokio::task::spawn_blocking(move || job.run())
+        let stop = Arc::clone(&self.stop_cleaning);
+        let cleaned = tokio::task::spawn_blocking(move || job.run_until(&stop))
             .await
             .map_err(|e| StorageError::Io {
                 doing: "cleaning a log",

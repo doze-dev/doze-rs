@@ -231,3 +231,43 @@ async fn an_aborted_transactions_record_for_a_key_does_not_take_the_committed_va
         "the aborted record is gone and the committed one stays: {got:?}"
     );
 }
+
+/// The aborted transactions a read_committed fetch from the start is told of.
+async fn told_aborted(rig: &support::Rig) -> usize {
+    let mut req = support::fetch_request(&[("c", 0, 0, 1 << 20)], 0, 1, 1 << 20);
+    req.isolation_level = 1;
+    rig.fetch(req).await[0]
+        .aborted_transactions
+        .as_ref()
+        .map_or(0, Vec::len)
+}
+
+#[tokio::test]
+async fn an_aborted_transaction_is_forgotten_once_cleaning_has_taken_all_its_records_and_a_round_has_passed()
+ {
+    let rig = rig();
+    rig.create(vec![compacted()], false).await;
+    let aborted = rig.init_txn("ta", 60_000).await.unwrap();
+    assert_eq!(rig.add_partitions("ta", aborted, "c", &[0]).await, [0]);
+    let b = from(aborted.producer, aborted.epoch, 0, true, &[("k", "bad")]);
+    assert_eq!(produce_txn_batch(&rig, "ta", b).await.error_code, 0);
+    assert_eq!(rig.end_txn("ta", aborted, false).await, 0);
+    assert_eq!(
+        told_aborted(&rig).await,
+        1,
+        "told of it while its records are there"
+    );
+    filler(&rig, 40).await;
+    rig.broker.check_cleaner().await;
+    assert!(
+        !keys(&rig).await.contains(&"k".to_owned()),
+        "its record is gone"
+    );
+    filler(&rig, 40).await;
+    rig.broker.check_cleaner().await;
+    assert_eq!(
+        told_aborted(&rig).await,
+        0,
+        "no record of it is left to skip: it is not carried any more"
+    );
+}

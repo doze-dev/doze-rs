@@ -318,12 +318,18 @@ fn the_newest_timestamp_is_of_a_record_that_is_left_not_of_a_batch_cleaning_has_
         ],
     );
     assert_eq!(
-        log.reader().offset_of_max_timestamp().unwrap().map(|(o, t)| (o.get(), t.get())),
+        log.reader()
+            .offset_of_max_timestamp()
+            .unwrap()
+            .map(|(o, t)| (o.get(), t.get())),
         Some((2, 9_000))
     );
     plain(&mut log).expect("due");
     assert_eq!(
-        log.reader().offset_of_max_timestamp().unwrap().map(|(o, t)| (o.get(), t.get())),
+        log.reader()
+            .offset_of_max_timestamp()
+            .unwrap()
+            .map(|(o, t)| (o.get(), t.get())),
         Some((7, 600)),
         "the records left: {:?}",
         records(&log)
@@ -334,7 +340,9 @@ fn the_newest_timestamp_is_of_a_record_that_is_left_not_of_a_batch_cleaning_has_
 fn a_checkpoint_beyond_the_end_of_the_log_is_begun_again_from_the_start() {
     let seg = kv("a", Some("v")).len() as u64;
     let (fs, dir, mut log) = fresh(3 * seg);
-    let batches: Vec<_> = (0..60).map(|i| kv(&format!("k{}", i % 4), Some("v"))).collect();
+    let batches: Vec<_> = (0..60)
+        .map(|i| kv(&format!("k{}", i % 4), Some("v")))
+        .collect();
     append_all(&mut log, &batches);
     crate::fs::write_durably(&fs, &dir.join("cleaner-checkpoint"), b"5000\n").unwrap();
     let before = records(&log).len();
@@ -346,7 +354,9 @@ fn a_checkpoint_beyond_the_end_of_the_log_is_begun_again_from_the_start() {
 fn a_stale_temporary_file_of_an_earlier_round_does_not_get_into_a_new_one() {
     let seg = kv("a", Some("v")).len() as u64;
     let (fs, dir, mut log) = fresh(3 * seg);
-    let batches: Vec<_> = (0..30).map(|i| kv(&format!("k{}", i % 3), Some("v"))).collect();
+    let batches: Vec<_> = (0..30)
+        .map(|i| kv(&format!("k{}", i % 3), Some("v")))
+        .collect();
     append_all(&mut log, &batches);
     let want = {
         let (fs2, dir2, mut twin) = fresh(3 * seg);
@@ -356,7 +366,12 @@ fn a_stale_temporary_file_of_an_earlier_round_does_not_get_into_a_new_one() {
         records(&twin)
     };
     // What a round that was stopped left behind: longer than the file it would make, and not a log at all.
-    crate::fs::write_durably(&fs, &dir.join("00000000000000000000.log.tmp"), &[0xAB; 4096]).unwrap();
+    crate::fs::write_durably(
+        &fs,
+        &dir.join("00000000000000000000.log.tmp"),
+        &[0xAB; 4096],
+    )
+    .unwrap();
     plain(&mut log).expect("due");
     assert_eq!(records(&log), want);
     assert!(
@@ -370,7 +385,9 @@ fn a_stale_temporary_file_of_an_earlier_round_does_not_get_into_a_new_one() {
 fn a_round_that_cannot_read_a_segment_leaves_no_temporary_file() {
     let seg = kv("a", Some("v")).len() as u64;
     let (fs, dir, mut log) = fresh(3 * seg);
-    let batches: Vec<_> = (0..30).map(|i| kv(&format!("k{}", i % 3), Some("v"))).collect();
+    let batches: Vec<_> = (0..30)
+        .map(|i| kv(&format!("k{}", i % 3), Some("v")))
+        .collect();
     append_all(&mut log, &batches);
     let job = log
         .clean_job(&PARAMS, log.end_offset(), vec![], HashMap::new())
@@ -389,10 +406,13 @@ fn a_round_that_cannot_read_a_segment_leaves_no_temporary_file() {
 }
 
 #[test]
-fn a_segment_that_cannot_be_opened_again_after_it_was_put_in_place_does_not_take_the_partition_offline() {
+fn a_segment_that_cannot_be_opened_again_after_it_was_put_in_place_does_not_take_the_partition_offline()
+ {
     let seg = kv("a", Some("v")).len() as u64;
     let (fs, dir, mut log) = fresh(3 * seg);
-    let batches: Vec<_> = (0..30).map(|i| kv(&format!("k{}", i % 3), Some("v"))).collect();
+    let batches: Vec<_> = (0..30)
+        .map(|i| kv(&format!("k{}", i % 3), Some("v")))
+        .collect();
     append_all(&mut log, &batches);
     let job = log
         .clean_job(&PARAMS, log.end_offset(), vec![], HashMap::new())
@@ -409,6 +429,35 @@ fn a_segment_that_cannot_be_opened_again_after_it_was_put_in_place_does_not_take
     // What is on disk is whole, and is what a restart finds.
     drop(log);
     let again = reopen(&fs.process_restart(), &dir);
-    let latest: Vec<_> = records(&again).into_iter().filter(|r| r.1 == "k0").collect();
+    let latest: Vec<_> = records(&again)
+        .into_iter()
+        .filter(|r| r.1 == "k0")
+        .collect();
     assert_eq!(latest.last().map(|r| r.0), Some(30), "{latest:?}");
+}
+
+#[test]
+fn a_round_told_to_stop_gives_up_at_once_and_leaves_no_files_and_the_log_as_it_was() {
+    use std::sync::atomic::AtomicBool;
+    let seg = kv("a", Some("v")).len() as u64;
+    let (fs, dir, mut log) = fresh(3 * seg);
+    let batches: Vec<_> = (0..30)
+        .map(|i| kv(&format!("k{}", i % 3), Some("v")))
+        .collect();
+    append_all(&mut log, &batches);
+    let before = records(&log);
+    let job = log
+        .clean_job(&PARAMS, log.end_offset(), vec![], HashMap::new())
+        .unwrap()
+        .expect("due");
+    let stop = AtomicBool::new(true);
+    let outcome = job.run_until(&stop);
+    match outcome {
+        Err(crate::StorageError::Io { source, .. }) => {
+            assert_eq!(source.kind(), std::io::ErrorKind::Interrupted);
+        }
+        other => panic!("not interrupted: {other:?}"),
+    }
+    assert!(fs.names(&dir).iter().all(|n| !n.ends_with(".tmp")));
+    assert_eq!(records(&log), before);
 }
