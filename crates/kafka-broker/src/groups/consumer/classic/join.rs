@@ -103,6 +103,7 @@ impl ConsumerGroup {
             self.assign_if_due(topics, now);
         }
         self.reconcile(&id, Some(&owned), now, out);
+        self.end_revocation_if_given_up(&id, out);
         self.arm_classic_revocations(now, out);
         // The member it replaced may have been the last of the consumer protocol.
         self.check_downgrade |= replaced_consumer;
@@ -115,6 +116,20 @@ impl ConsumerGroup {
             leader: None,
             member_id: Some(id),
             members: Vec::new(),
+        }
+    }
+
+    /// Having joined again, a classic member has given up what it was to: the deadline it had for that is over.
+    fn end_revocation_if_given_up(&mut self, id: &MemberId, out: &mut Vec<Effect>) {
+        if let Some(m) = self.members.get_mut(id)
+            && m.revoke_gen != 0
+            && m.revoking.is_empty()
+            && m.assigned.iter().all(|p| m.target.contains(p))
+        {
+            m.revoke_gen = 0;
+            out.push(Effect::Disarm(crate::groups::machine::TimerKind::Revoke(
+                id.clone(),
+            )));
         }
     }
 

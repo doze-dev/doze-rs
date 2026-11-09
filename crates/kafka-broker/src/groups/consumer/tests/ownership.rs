@@ -88,7 +88,8 @@ fn a_topic_made_after_the_member_subscribed_is_assigned_when_the_topics_change()
     let a = r.beat(join("a"));
     assert_eq!(a.assignment, Some(parts(&[])));
     r.topics = topics(3);
-    r.group.topics_changed(&r.topics, Millis(r.now));
+    r.group
+        .topics_changed(&r.topics, Millis(r.now), &mut Vec::new());
     let a = r.beat(poll("a", 2));
     assert_eq!(a.assignment, Some(parts(&[0, 1, 2])));
 }
@@ -98,7 +99,8 @@ fn a_deleted_topic_is_revoked_and_one_made_again_under_the_name_is_another_topic
     let mut r = rig(2);
     r.beat(join("a"));
     r.topics = Topics::new([]);
-    r.group.topics_changed(&r.topics, Millis(r.now));
+    r.group
+        .topics_changed(&r.topics, Millis(r.now), &mut Vec::new());
     let a = r.beat(poll_owning("a", r.member("a").epoch, &[0, 1]));
     assert_eq!(a.assignment, Some(parts(&[])), "told to give it up");
     // A topic of the same name with another id: the old partitions are not the new ones.
@@ -107,9 +109,28 @@ fn a_deleted_topic_is_revoked_and_one_made_again_under_the_name_is_another_topic
         id: Uuid::from_u128(9),
         partitions: 2,
     }]);
-    r.group.topics_changed(&r.topics, Millis(r.now));
+    r.group
+        .topics_changed(&r.topics, Millis(r.now), &mut Vec::new());
     let epoch = r.member("a").epoch;
     let a = r.beat(poll_owning("a", epoch, &[]));
     let got = a.assignment.unwrap_or_default();
     assert!(got.iter().all(|p| p.0 == Uuid::from_u128(9)), "{got:?}");
+}
+
+#[test]
+fn a_topic_that_changes_what_a_member_is_to_have_moves_the_epoch_and_one_that_changes_nothing_does_not()
+ {
+    let mut r = rig(2);
+    r.beat(join("a"));
+    let before = r.view().epoch;
+    // Nothing a member wants has changed: the same topics, again.
+    r.group
+        .topics_changed(&r.topics, Millis(r.now), &mut Vec::new());
+    assert_eq!(r.view().epoch, before);
+    // The topic grows: the member is to have more, and the group's epoch says so.
+    r.topics = topics(4);
+    r.group
+        .topics_changed(&r.topics, Millis(r.now), &mut Vec::new());
+    assert_eq!(r.view().epoch, before + 1);
+    assert_eq!(r.view().assignment_epoch, before + 1);
 }

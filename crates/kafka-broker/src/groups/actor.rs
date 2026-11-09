@@ -92,6 +92,8 @@ struct Keeper<R: Records> {
     session: u32,
     /// The group has lost its last member and the record of that is not yet written; when to try again.
     unwritten_empty: Option<Instant>,
+    /// The record says the group is a consumer group of the new protocol.
+    consumer: bool,
 }
 
 impl<R: Records> Keeper<R> {
@@ -107,12 +109,13 @@ impl<R: Records> Keeper<R> {
             && !self.records.live(
                 session.max(self.session),
                 &seating.protocol_type,
-                seating.consumer,
+                seating.consumer.clone(),
             )
         {
             return false;
         }
         self.session = self.session.max(session);
+        self.consumer = seating.consumer.is_some();
         true
     }
 
@@ -124,6 +127,18 @@ impl<R: Records> Keeper<R> {
             self.session = 0;
         } else if machine.member_count() > 0 {
             self.unwritten_empty = None;
+            // A group that has changed kind with its members in it (an upgrade, or the last member of the new protocol
+            // gone) is recorded as the kind it is, or a restart would list and judge it as the other.
+            let life = machine.consumer_life();
+            if life.is_some() != self.consumer
+                && self.records.live(
+                    self.session,
+                    machine.protocol_type().unwrap_or(""),
+                    life.clone(),
+                )
+            {
+                self.consumer = life.is_some();
+            }
         }
     }
 
@@ -153,6 +168,7 @@ pub(super) async fn run(
         records,
         session: 0,
         unwritten_empty: None,
+        consumer: false,
     };
     loop {
         let wake = timers.next().map(|at| start + Duration::from_millis(at.0));

@@ -134,7 +134,9 @@ impl Groups {
                 }
             };
             // Kept to put again if the group is retired with this request queued behind its deletion.
-            let again = matches!(req, Req::Join(_)).then(|| req.clone());
+            let again = matches!(&req, Req::Join(_))
+                || matches!(&req, Req::ConsumerHeartbeat(h) if h.epoch == 0);
+            let again = again.then(|| req.clone());
             let (reply, answer) = oneshot::channel();
             match sender.send(Command { req, reply }).await {
                 Ok(()) => match answer.await {

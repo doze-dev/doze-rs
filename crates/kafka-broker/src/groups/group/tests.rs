@@ -22,11 +22,18 @@ struct Fixed;
 
 impl TopicSource for Fixed {
     fn topics(&self) -> Topics {
-        Topics::new([TopicInfo {
-            name: "t".into(),
-            id: T,
-            partitions: 2,
-        }])
+        Topics::new([
+            TopicInfo {
+                name: "t".into(),
+                id: T,
+                partitions: 2,
+            },
+            TopicInfo {
+                name: "u".into(),
+                id: Uuid::from_u128(2),
+                partitions: 1,
+            },
+        ])
     }
 }
 
@@ -96,6 +103,24 @@ impl Rig {
             }
         }
         token
+    }
+
+    /// Lets `ms` pass, running the timers that fall due in the order they do.
+    fn advance(&mut self, ms: u64) {
+        let until = self.now + ms;
+        loop {
+            let due = self
+                .timers
+                .values()
+                .filter(|(at, _)| *at <= until)
+                .min_by_key(|(at, key)| (*at, key.generation))
+                .map(|(at, key)| (*at, key.clone()));
+            let Some((at, key)) = due else { break };
+            self.timers.remove(&key.kind);
+            self.now = at;
+            self.send(|_| Event::Timer(key));
+        }
+        self.now = until;
     }
 
     fn answer(&mut self, token: Token) -> Answer {
@@ -230,22 +255,6 @@ fn what_a_classic_group_had_parked_is_answered_rebalance_in_progress_when_it_is_
 }
 
 #[test]
-fn a_group_of_another_protocol_type_is_not_upgraded() {
-    let mut r = Rig::new();
-    let mut connect = join_request(Some("w"));
-    connect.protocol_type = "connect".into();
-    let t = r.send(|t| Event::Join(t, connect));
-    r.answer(t);
-    let a = r.consumer("c", 0);
-    let (error, words) = a.error.expect("refused");
-    assert_eq!(error, E::GroupIdNotFound);
-    assert!(
-        words.starts_with("Cannot upgrade classic group g to consumer group because"),
-        "{words}"
-    );
-}
-
-#[test]
 fn when_the_last_consumer_protocol_member_leaves_the_group_is_classic_again_and_its_members_rejoin()
 {
     let mut r = Rig::new();
@@ -275,3 +284,5 @@ fn when_the_last_consumer_protocol_member_leaves_the_group_is_classic_again_and_
     };
     assert!(j.error.is_none(), "{:?}", j.error);
 }
+
+mod classic;

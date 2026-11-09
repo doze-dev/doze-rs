@@ -4,7 +4,7 @@ use std::collections::BTreeSet;
 
 use kafka_wire::ResponseError as E;
 
-use super::{ConsumerGroup, TopicSource};
+use super::{ConsumerGroup, TopicSource, Topics};
 use crate::groups::machine::{Answer, CommitRequest, Description, Effect, Event, Millis, State};
 
 impl ConsumerGroup {
@@ -21,10 +21,11 @@ impl ConsumerGroup {
                 self.heartbeat(token, &hb, &source.topics(), now, &mut out);
             }
             Event::Timer(key) => self.timer(&key, now, &mut out),
-            Event::TopicsChanged => self.topics_changed(&source.topics(), now),
-            Event::Describe(token) => {
-                out.push(Effect::Reply(token, Answer::Describe(self.description())))
-            }
+            Event::TopicsChanged => self.topics_changed(&source.topics(), now, &mut out),
+            Event::Describe(token) => out.push(Effect::Reply(
+                token,
+                Answer::Describe(self.description(&source.topics())),
+            )),
             Event::Delete(token) => {
                 let refused = (!self.members.is_empty()).then_some(E::NonEmptyGroup);
                 out.push(Effect::Reply(token, Answer::Delete(refused)));
@@ -72,12 +73,21 @@ impl ConsumerGroup {
     }
 
     /// The group as the classic APIs and ListGroups see it: not described by the classic APIs, but listed.
-    fn description(&self) -> Description {
-        let subscribed: BTreeSet<String> = self
+    fn description(&self, topics: &Topics) -> Description {
+        // The names members subscribe to, and the topics that exist which a member's pattern matches.
+        let mut subscribed: BTreeSet<String> = self
             .members
             .values()
             .flat_map(|m| m.subscribed.iter().cloned())
             .collect();
+        if self.members.values().any(|m| m.pattern.is_some()) {
+            subscribed.extend(
+                topics
+                    .all()
+                    .filter(|t| self.members.values().any(|m| m.subscribes(&t.name)))
+                    .map(|t| t.name.clone()),
+            );
+        }
         Description {
             state: if self.members.is_empty() {
                 State::Empty

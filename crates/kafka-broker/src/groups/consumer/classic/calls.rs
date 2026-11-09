@@ -108,7 +108,10 @@ impl ConsumerGroup {
         }
         let behind = m.epoch != self.target_epoch;
         self.reset_session(&req.member_id, now, out);
-        (behind || self.must_rejoin(&req.member_id)).then_some(E::RebalanceInProgress)
+        let rejoin = behind || self.must_rejoin(&req.member_id);
+        // Told to rejoin to give something up, it has until its rebalance timeout to do it.
+        self.arm_classic_revocations(now, out);
+        rejoin.then_some(E::RebalanceInProgress)
     }
 
     /// A LeaveGroup removes the members it names, a consumer-protocol one too (as an admin tool removes one). The group is

@@ -40,6 +40,9 @@ impl ConsumerGroup {
         } else {
             self.join_or_poll(req, topics, now, out)
         };
+        // The targets may have moved: a classic member that holds what it is no longer to have has until its rebalance
+        // timeout to join again.
+        self.arm_classic_revocations(now, out);
         out.push(Effect::Reply(token, Answer::ConsumerHeartbeat(answer)));
     }
 
@@ -221,6 +224,10 @@ impl ConsumerGroup {
             ));
         };
         if req.epoch == m.epoch {
+            // A request carrying all that a join does is a client that did not hear: it is told its assignment again.
+            if req.rebalance_ms >= 0 && req.subscribed.is_some() && req.owned.is_some() {
+                m.sent = None;
+            }
             Ok(())
         } else if req.epoch == m.prev_epoch && req.epoch < m.epoch {
             m.sent = None;

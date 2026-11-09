@@ -36,7 +36,7 @@ use std::collections::BTreeMap;
 use kafka_wire::ids::MemberId;
 
 use self::assign::Assignor;
-pub(crate) use self::join::can_join;
+pub(crate) use self::join::{can_join, join_refusal};
 #[allow(unused_imports)]
 pub(crate) use self::member::ClassicSeat;
 use self::member::Member;

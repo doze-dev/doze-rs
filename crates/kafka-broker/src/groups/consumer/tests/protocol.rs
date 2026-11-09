@@ -211,3 +211,17 @@ fn a_static_member_that_does_not_return_is_removed_when_its_session_ends() {
     assert!(r.view().members.is_empty());
     assert_eq!(r.view().state, "Empty");
 }
+
+#[test]
+fn a_request_with_all_a_join_carries_at_the_members_epoch_is_answered_with_the_assignment_again() {
+    let mut r = rig(3);
+    r.beat(join("a"));
+    // A client that did not hear sends it all again at its epoch (no join: epoch 2): it is told what it holds.
+    let again = r.beat(Heartbeat {
+        epoch: 2,
+        ..join("a")
+    });
+    assert_eq!(again.assignment, Some(parts(&[0, 1, 2])));
+    // A bare heartbeat is not.
+    assert_eq!(r.beat(poll("a", 2)).assignment, None);
+}

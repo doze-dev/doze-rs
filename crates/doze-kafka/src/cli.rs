@@ -159,6 +159,9 @@ impl Args {
                 self.max_partitions
             );
         }
+        if self.consumer_session_timeout.is_zero() {
+            bail!("--consumer-session-timeout must be above zero");
+        }
         if self.worker_threads == 0 {
             bail!("--worker-threads must be at least 1");
         }

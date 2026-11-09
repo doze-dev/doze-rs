@@ -94,3 +94,30 @@ mod tests {
         assert!(GroupLife::decode(&[]).is_err());
     }
 }
+
+#[cfg(test)]
+mod compatibility {
+    use super::*;
+
+    #[test]
+    fn a_record_the_first_version_wrote_is_read_as_a_classic_group() {
+        // Version byte 1, then postcard of (live, session_ms, empty_since_ms, protocol_type) as that version had it.
+        #[derive(Serialize)]
+        struct First {
+            live: bool,
+            session_ms: u32,
+            empty_since_ms: Option<i64>,
+            protocol_type: String,
+        }
+        let first = First {
+            live: false,
+            session_ms: 0,
+            empty_since_ms: Some(42),
+            protocol_type: "consumer".into(),
+        };
+        let bytes = postcard::to_extend(&first, vec![1]).unwrap();
+        let life = GroupLife::decode(&bytes).unwrap();
+        assert_eq!((life.empty_since_ms, life.consumer), (Some(42), None));
+        assert_eq!(life.protocol_type, "consumer");
+    }
+}

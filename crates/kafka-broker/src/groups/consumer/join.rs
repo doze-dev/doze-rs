@@ -9,6 +9,9 @@ use super::pattern::Pattern;
 use super::{ConsumerGroup, Heartbeat, HeartbeatAnswer};
 use crate::groups::machine::Effect;
 
+/// The most members a consumer group takes (Kafka's `group.consumer.max.size`).
+pub(super) const MOST_MEMBERS: usize = 1000;
+
 /// What a request asks for that can be wrong whatever the group.
 pub(super) struct Parsed {
     pub(super) assignor: Option<Assignor>,
@@ -44,7 +47,19 @@ pub(super) fn parse(req: &Heartbeat) -> Result<Parsed, HeartbeatAnswer> {
 /// Whether a join can seat a member whatever the group it comes to: it names an id (or is version 0, which is given
 /// one) and asks for nothing that is refused. Whether a group with members will seat it is `ConsumerGroup::would_seat`.
 pub(crate) fn can_join(req: &Heartbeat) -> bool {
-    req.epoch == 0 && (req.member_id.is_some() || req.version == 0) && parse(req).is_ok()
+    req.epoch == 0 && join_refusal(req).is_none()
+}
+
+/// Why a join is refused whatever the group it comes to, in Kafka's words. Checked before a group changes kind for
+/// it: a request that fails must not disturb a group.
+pub(crate) fn join_refusal(req: &Heartbeat) -> Option<HeartbeatAnswer> {
+    if req.member_id.is_none() && req.version != 0 {
+        return Some(HeartbeatAnswer::refused(
+            E::InvalidRequest,
+            "a member id is required",
+        ));
+    }
+    parse(req).err()
 }
 
 impl ConsumerGroup {
@@ -69,6 +84,12 @@ impl ConsumerGroup {
         changed: &mut bool,
         out: &mut Vec<Effect>,
     ) -> Result<(), HeartbeatAnswer> {
+        if self.members.len() >= MOST_MEMBERS && !self.members.contains_key(id) {
+            let words = format!(
+                "The consumer group has reached its maximum size of {MOST_MEMBERS} members."
+            );
+            return Err(HeartbeatAnswer::refused(E::GroupMaxSizeReached, words));
+        }
         let mut member = self.members.remove(id);
         if let Some(instance) = &req.instance
             && let Some(other_id) = self

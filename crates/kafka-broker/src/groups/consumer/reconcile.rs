@@ -1,10 +1,11 @@
 //! Moving members to their targets, one safe step per heartbeat, and the group's epochs.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 
 use kafka_wire::ids::MemberId;
 
 use super::assign::{Assignor, Partition, Partitions, Subscribed, assign};
+use super::member::Member;
 use super::{ConsumerGroup, Topics};
 use crate::groups::machine::{Effect, Millis, TimerKind};
 
@@ -182,15 +183,23 @@ impl ConsumerGroup {
 
     /// The topics that exist and some member wants, by name, each with who wants it.
     fn subscribed(&self, topics: &Topics) -> Vec<Subscribed> {
+        // Each member's names as a set once, not searched as a list for every topic.
+        let names: Vec<(&Member, HashSet<&str>)> = self
+            .members
+            .values()
+            .map(|m| (m, m.subscribed.iter().map(String::as_str).collect()))
+            .collect();
         topics
             .all()
             .filter(|t| t.partitions > 0)
             .filter_map(|t| {
-                let subscribers: Vec<MemberId> = self
-                    .members
-                    .values()
-                    .filter(|m| m.subscribes(&t.name))
-                    .map(|m| m.id.clone())
+                let subscribers: Vec<MemberId> = names
+                    .iter()
+                    .filter(|(m, set)| {
+                        set.contains(t.name.as_str())
+                            || m.pattern.as_ref().is_some_and(|p| p.matches(&t.name))
+                    })
+                    .map(|(m, _)| m.id.clone())
                     .collect();
                 (!subscribers.is_empty()).then_some(Subscribed {
                     id: t.id,
@@ -203,7 +212,7 @@ impl ConsumerGroup {
 
     /// A topic was made, grown or deleted: members that wanted it before it existed, or want it no more, are told by a
     /// new epoch when their targets change, since the targets are otherwise computed only when membership changes.
-    pub(crate) fn topics_changed(&mut self, topics: &Topics, now: Millis) {
+    pub(crate) fn topics_changed(&mut self, topics: &Topics, now: Millis, out: &mut Vec<Effect>) {
         if self.members.is_empty() {
             return;
         }
@@ -212,5 +221,6 @@ impl ConsumerGroup {
         }
         self.target_epoch = self.epoch;
         self.assigned_at = Some(now);
+        self.arm_classic_revocations(now, out);
     }
 }

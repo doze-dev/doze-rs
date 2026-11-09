@@ -185,6 +185,11 @@ impl GroupMachine {
         self.members.len()
     }
 
+    /// The member that holds a static instance, if any.
+    pub(crate) fn holder_of(&self, instance: &InstanceId) -> Option<&MemberId> {
+        self.statics.get(instance)
+    }
+
     /// The protocol type the members share.
     #[must_use]
     pub(crate) fn protocol_type(&self) -> Option<&str> {

@@ -12,7 +12,7 @@ pub(super) fn can_begin(req: &Req) -> bool {
         Req::Join(j) => j.member_id.is_none() || (j.issued && j.instance.is_none()),
         // A consumer group is begun by a member joining it; one that keeps on, or leaves, a group that is not there
         // is told so.
-        Req::ConsumerHeartbeat(h) => h.epoch == 0,
+        Req::ConsumerHeartbeat(h) => crate::groups::consumer::can_join(h),
         _ => false,
     }
 }

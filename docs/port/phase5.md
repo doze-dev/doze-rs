@@ -23,7 +23,7 @@ and `conformance/claims/groups.md` (R8a-j, R11*, R21*, R22*, R24*, R25a, G7).
 
 ## Design
 
-**`Group` enum** (groups/group.rs). The actor's `Machine` is `Group`; `step(event, now, &Topics)`. Events gain
+**`Group`** (groups/group.rs): a struct holding a private enum, `Classic(GroupMachine)` or `Consumer(ConsumerGroup)`; `step(event, now, &dyn TopicSource)` (the source is asked for a `Topics` snapshot only by events that need one). Events gain
 `ConsumerHeartbeat`, `ConsumerDescribe`, `TopicsChanged`; answers gain `Consumer(..)`, `ConsumerDescribe(..)`;
 `TimerKind` gains `Revoke(MemberId)`. A classic request to a `Consumer` group, and a ConsumerGroupHeartbeat to a classic
 one, are handled by the owner converting (upgrade needs protocol type `consumer` and readable subscriptions: else
@@ -86,3 +86,18 @@ a group with members was let through; a client asking for a member id must be ve
 issued one (the recorded order); franz-go's "848" switch is `ServerSideBalancer`, not `GroupProtocol` (the first
 "pass" was a classic run: read the client's log before believing it); kafka-go cannot join a group that reads
 subscriptions; a graceful shutdown of a mixed group has to stop the classic members first.
+
+## Audit round 1 (HEAD b9cc244): fixed
+
+Three MAJOR findings, each reproduced by the auditor with a probe, and fixed with tests: a refused ConsumerGroupHeartbeat
+converted the group before it was validated (now validated first: the group keeps its kind and its members);
+a classic member told to rejoin that never did was never removed (its rebalance deadline is now armed wherever targets
+move, and ended when it rejoins having given up what it was to); a member subscribed by pattern was invisible to offsets
+retention and OffsetDelete (the pattern is resolved against the topics there are). Also fixed: a full request at the
+member's epoch is answered with the assignment again; a join racing a deletion is put again; a heartbeat that would seat
+nobody does not make a group; the group's record follows its kind through an upgrade and a downgrade; the group
+is at most 1000 members (GROUP_MAX_SIZE_REACHED); `--consumer-session-timeout` must be above zero; subscription tests use
+sets. Not changed on purpose: a classic JoinGroup with an id the group did not issue is seated (recorded:
+`cm-classic-join-unknown-member-id`). Known and unrecorded, left: OffsetFetch v9 does not look at the member epoch; the
+words of a consumer heartbeat to a non-empty classic group; "RackId can't be empty."; the topic snapshot is rebuilt per
+heartbeat.
