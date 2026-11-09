@@ -44,6 +44,7 @@ Windows built on GitHub runners; targets realistic and measured, standards not l
 ## Open
 
 - S1b verdict and the decode design; whole-binary budget re-based at A5.
+- Optional, owner idea (2026-11-09): draw one console board in AWS-style colours (navy and orange) with the same CSS tokens swapped, next to Paper, to compare. Paper stays the direction unless it clearly wins. Kit: `scratchpad/aws-console-direction/kit/paper.css`, backed up in `~/Code/doze-dev/_backup/`.
 - Audit decision list (60 items) for the owner; cross-service console links, the Access explainer, menu and filter components.
 - Policy gaps found by batch 2 (if any) need one more paste.
 - The Identity Center KMS key in the account is not ours; the policy denies touching it.
