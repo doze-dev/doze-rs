@@ -1,0 +1,356 @@
+{
+  "_recorded": {
+    "boto3": "1.43.107",
+    "botocore": "1.43.107",
+    "on": "2026-11-09",
+    "region": "us-east-1",
+    "target": "aws"
+  },
+  "test_a_bus_can_be_tagged": {
+    "no-tags": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Tags": []
+    },
+    "tag": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "tags": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Tags": [
+        {
+          "Key": "env",
+          "Value": "dev"
+        }
+      ]
+    },
+    "untag": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    }
+  },
+  "test_a_matching_event_reaches_the_queue": {
+    "delivered": {
+      "account": "<account>",
+      "detail": {
+        "total": 250
+      },
+      "detail-type": "placed",
+      "id": "<uuid:1>",
+      "region": "us-east-1",
+      "resources": [
+        "arn:aws:x:::order/1"
+      ],
+      "source": "shop.orders",
+      "time": "<time:1>",
+      "version": "0"
+    },
+    "list-targets": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Targets": [
+        {
+          "Arn": "arn:aws:sqs:us-east-1:<account>:<name:queue>",
+          "Id": "queue"
+        }
+      ]
+    },
+    "put-events": {
+      "Entries": [
+        {
+          "EventId": "<EventId:1>"
+        },
+        {
+          "EventId": "<EventId:2>"
+        }
+      ],
+      "FailedEntryCount": 0,
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "put-targets": {
+      "FailedEntries": [],
+      "FailedEntryCount": 0,
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "remove-targets": {
+      "FailedEntries": [],
+      "FailedEntryCount": 0,
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    }
+  },
+  "test_a_rule_with_targets_cannot_be_deleted": {
+    "delete-rule-with-targets": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "Rule can't be deleted since it has targets."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "still-there": {
+      "Arn": "arn:aws:events:us-east-1:<account>:rule/<name:bus>/<name:rule>",
+      "CreatedBy": "<account>",
+      "EventBusName": "<name:bus>",
+      "EventPattern": "{\"source\": [\"x\"]}",
+      "Name": "<name:rule>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "State": "ENABLED"
+    }
+  },
+  "test_bus_and_rule_lifecycle": {
+    "create-bus": {
+      "EventBusArn": "arn:aws:events:us-east-1:<account>:event-bus/<name:bus>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "delete-bus": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "delete-bus-again": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "delete-rule": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "describe-bus": {
+      "Arn": "arn:aws:events:us-east-1:<account>:event-bus/<name:bus>",
+      "CreationTime": "<datetime>",
+      "LastModifiedTime": "<datetime>",
+      "Name": "<name:bus>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "describe-rule": {
+      "Arn": "arn:aws:events:us-east-1:<account>:rule/<name:bus>/<name:rule>",
+      "CreatedBy": "<account>",
+      "Description": "orders",
+      "EventBusName": "<name:bus>",
+      "EventPattern": "{\"source\": [\"shop.orders\"], \"detail-type\": [\"placed\"]}",
+      "Name": "<name:rule>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "State": "ENABLED"
+    },
+    "disable": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "disabled": {
+      "Arn": "arn:aws:events:us-east-1:<account>:rule/<name:bus>/<name:rule>",
+      "CreatedBy": "<account>",
+      "Description": "orders",
+      "EventBusName": "<name:bus>",
+      "EventPattern": "{\"source\": [\"shop.orders\"], \"detail-type\": [\"placed\"]}",
+      "Name": "<name:rule>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "State": "DISABLED"
+    },
+    "enable": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "list-rules": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Rules": [
+        {
+          "Arn": "arn:aws:events:us-east-1:<account>:rule/<name:bus>/<name:rule>",
+          "Description": "orders",
+          "EventBusName": "<name:bus>",
+          "EventPattern": "{\"source\": [\"shop.orders\"], \"detail-type\": [\"placed\"]}",
+          "Name": "<name:rule>",
+          "State": "ENABLED"
+        }
+      ]
+    },
+    "put-rule": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "RuleArn": "arn:aws:events:us-east-1:<account>:rule/<name:bus>/<name:rule>"
+    },
+    "rule-tags": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Tags": [
+        {
+          "Key": "env",
+          "Value": "dev"
+        }
+      ]
+    },
+    "tag-rule": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    }
+  },
+  "test_input_transformer": {
+    "transformed": "{\"message\": \"ada did placed\"}"
+  },
+  "test_refusals": {
+    "create-bus-twice": {
+      "Error": {
+        "Code": "ResourceAlreadyExistsException",
+        "Message": "Event bus <name:bus> already exists."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "delete-default-bus": {
+      "Error": {
+        "Code": "AccessDeniedException",
+        "Message": "User: arn:aws:sts::<account>:assumed-role/AWSReservedSSO_doze-recorder-limited_831b2805e46e339c/srini.icloud is not authorized to perform: events:DeleteEventBus on resource: arn:aws:events:us-east-1:<account>:event-bus/default because no identity-based policy allows the events:DeleteEventBus action"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "describe-absent-bus": {
+      "Error": {
+        "Code": "ResourceNotFoundException",
+        "Message": "Event bus <name:absent> does not exist."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "describe-absent-rule": {
+      "Error": {
+        "Code": "ResourceNotFoundException",
+        "Message": "Rule <name:rule> does not exist on EventBus <name:bus>."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "entry-with-bad-detail": {
+      "Entries": [
+        {
+          "ErrorCode": "MalformedDetail",
+          "ErrorMessage": "Detail is malformed."
+        }
+      ],
+      "FailedEntryCount": 1,
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "entry-without-source": {
+      "Entries": [
+        {
+          "ErrorCode": "InvalidArgument",
+          "ErrorMessage": "Parameter Source is not valid. Reason: Source is a required argument."
+        }
+      ],
+      "FailedEntryCount": 1,
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "neither-pattern-nor-schedule": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "Parameter(s) EventPattern or ScheduleExpression must be specified."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "pattern-not-json": {
+      "Error": {
+        "Code": "InvalidEventPatternException",
+        "Message": "Event pattern is not valid. Reason: Unexpected character ('n' (code 110)): was expecting double-quote to start field name\n at [Source: (String)\"{not json\"; line: 1, column: 2]"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "pattern-value-not-in-array": {
+      "Error": {
+        "Code": "InvalidEventPatternException",
+        "Message": "Event pattern is not valid. Reason: \"source\" must be an object or an array\n at [Source: (String)\"{\"source\": \"x\"}\"; line: 1, column: 13]"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "plural-unit-for-one": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "Parameter ScheduleExpression is not valid."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "rule-on-absent-bus": {
+      "Error": {
+        "Code": "ResourceNotFoundException",
+        "Message": "Event bus <name:absent> does not exist."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "schedule-on-a-custom-bus": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "ScheduleExpression is supported only on the default event bus."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "singular-unit-for-many": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "Parameter ScheduleExpression is not valid."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "targets-on-absent-rule": {
+      "Error": {
+        "Code": "ResourceNotFoundException",
+        "Message": "Rule <name:absent-rule> does not exist on EventBus <name:bus>."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  }
+}

@@ -4,6 +4,8 @@ Cost on AWS: a provisioned shard is billed by the hour — about a cent and a
 half — and each stream here lives for a minute or two.
 """
 
+import time
+
 FAST = {"Delay": 1, "MaxAttempts": 180}
 
 # Positions and cursors the service mints.
@@ -41,17 +43,29 @@ def test_stream_lifecycle(client, names, cleanup, snapshot):
     snapshot.error("describe-deleted", lambda: kinesis.describe_stream_summary(StreamName=name))
 
 
-def test_a_split_closes_the_parent_even_if_it_never_held_a_record(client, names, cleanup, snapshot):
+def test_a_split_closes_the_parent_even_if_it_never_held_a_record(client, names, cleanup, snapshot, eventually, target):
     kinesis = client("kinesis")
     name = stream(kinesis, names, cleanup)
-    parent = kinesis.list_shards(StreamName=name)["Shards"][0]
+    # ListShards can answer "not found" for a moment after the stream is ACTIVE on real AWS (recorded 2026-11-09).
+    def first_shard():
+        try:
+            return kinesis.list_shards(StreamName=name)["Shards"][0]
+        except kinesis.exceptions.ResourceNotFoundException as e:
+            raise AssertionError(str(e))
+    parent = eventually(first_shard)
     mid = int(parent["HashKeyRange"]["EndingHashKey"]) // 2
     snapshot.match("split", kinesis.split_shard(
         StreamName=name, ShardToSplit=parent["ShardId"], NewStartingHashKey=str(mid)))
     kinesis.get_waiter("stream_exists").wait(StreamName=name, WaiterConfig=FAST)
-    shards = kinesis.list_shards(StreamName=name)["Shards"]
-    closed = [s for s in shards if s["ShardId"] == parent["ShardId"]][0]
-    assert "EndingSequenceNumber" in closed["SequenceNumberRange"], closed
+    # Whether and when AWS closes the parent of a shard that never held a record is the question, so poll briefly and record the answer.
+    deadline = time.time() + (45 if target.name == "aws" else 5)
+    while True:
+        shards = kinesis.list_shards(StreamName=name)["Shards"]
+        closed = [s for s in shards if s["ShardId"] == parent["ShardId"]][0]
+        if "EndingSequenceNumber" in closed["SequenceNumberRange"] or time.time() > deadline:
+            break
+        time.sleep(1)
+    snapshot.match("parent-closed", {"closed": "EndingSequenceNumber" in closed["SequenceNumberRange"]})
     snapshot.match("shards", shards, opaque=MINTED)
 
 

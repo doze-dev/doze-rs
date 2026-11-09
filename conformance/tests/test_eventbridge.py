@@ -100,14 +100,15 @@ def test_a_matching_event_reaches_the_queue(client, names, cleanup, snapshot, ev
         Rule=rule, EventBusName=name, Ids=["queue", "absent"]))
 
 
-def test_a_rule_with_targets_cannot_be_deleted(client, names, cleanup, snapshot):
+def test_a_rule_with_targets_cannot_be_deleted(client, names, cleanup, snapshot, target):
     events = client("events")
     name, _ = bus(events, names, cleanup)
     rule = names("rule")
     events.put_rule(Name=rule, EventBusName=name, EventPattern=json.dumps({"source": ["x"]}))
     cleanup(events.delete_rule, Name=rule, EventBusName=name)
     events.put_targets(Rule=rule, EventBusName=name, Targets=[
-        {"Id": "t", "Arn": "arn:aws:sqs:us-east-1:000000000000:anything"}])
+        # A queue in another account needs a RoleArn on real AWS, so the target is in the run's own account.
+        {"Id": "t", "Arn": f"arn:aws:sqs:us-east-1:{target.account}:anything"}])
     cleanup(events.remove_targets, Rule=rule, EventBusName=name, Ids=["t"])
     snapshot.error("delete-rule-with-targets", lambda: events.delete_rule(
         Name=rule, EventBusName=name))

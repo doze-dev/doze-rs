@@ -87,8 +87,8 @@
   },
   "test_add_permission_statement_limit": {
     "first-refusal": {
-      "at": 1,
-      "code": "InvalidParameterValue"
+      "at": 21,
+      "code": "OverLimit"
     }
   },
   "test_an_arn_elsewhere": {

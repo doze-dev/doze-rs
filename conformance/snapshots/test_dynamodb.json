@@ -1,0 +1,1117 @@
+{
+  "_recorded": {
+    "boto3": "1.43.107",
+    "botocore": "1.43.107",
+    "on": "2026-11-09",
+    "region": "us-east-1",
+    "target": "aws"
+  },
+  "test_batch_write_and_ttl": {
+    "count": {
+      "Count": 3,
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "ScannedCount": 3
+    },
+    "delete-one": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "UnprocessedItems": {}
+    },
+    "enable-ttl": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "TimeToLiveSpecification": {
+        "AttributeName": "expires",
+        "Enabled": true
+      }
+    },
+    "enable-ttl-again": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "TimeToLive is already enabled"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "same-key-twice": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "Provided list of item keys contains duplicates"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "twenty-six": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "1 validation error detected: Value '{<name:table>=[WriteRequest(putRequest=PutRequest(item={pk=AttributeValue(s=k0, n=null, b=null, iNT=null, dECIMAL=null, dOUBLE=null, sS=null, nS=null, bS=null, iNTSET=null, dECIMALSET=null, dOUBLESET=null, m=null, l=null, nULL=null, bOOL=null)}, workloadProfileName=null), deleteRequest=null), WriteRequest(putRequest=PutRequest(item={pk=AttributeValue(s=k1, n=null, b=null, iNT=null, dECIMAL=null, dOUBLE=null, sS=null, nS=null, bS=null, iNTSET=null, dECIMALSET=null, dOUBLESET=null, m=null, l=null, nULL=null, bOOL=null)}, workloadProfileName=null), deleteRequest=null), WriteRequest(putRequest=PutRequest(item={pk=AttributeValue(s=k2, n=null, b=null, iNT=null, dECIMAL=null, dOUBLE=null, sS=null, nS=null, bS=null, iNTSET=null, dECIMALSET=null, dOUBLESET=null, m=null, l=null, nULL=null, bOOL=null)}, workloadProfileName=null), deleteRequest=null), WriteRequest(putRequest=PutRequest(item={pk=AttributeValue(s=k3, n=null, b=null, iNT=null, dECIMAL=null, dOUBLE=null, sS=null, nS=null, bS=null, iNTSET=null, dECIMALSET=null, dOUBLESET=null, m=null, l=null, nULL=null, bOOL=null)}, workloadProfileName=null), deleteRequest=null), WriteRequest(putRequest=PutRequest(item={pk=AttributeValue(s=k4, n=null, b=null, iNT=null, dECIMAL=null, dOUBLE=null, sS=null, nS=null, bS=null, iNTSET=null, dECIMALSET=null, dOUBLESET=null, m=null, l=null, nULL=null, bOOL=null)}, workloadProfileName=null), deleteRequest=null), WriteRequest(putRequest=PutRequest(item={pk=AttributeValue(s=k5, n=null, b=null, iNT=null, dECIMAL=null, dOUBLE=null, sS=null, nS=null, bS=null, iNTSET=null, dECIMALSET=null, dOUBLESET=null, m=null, l=null, nULL=null, bOOL=null)}, workloadProfileName=null), deleteRequest=null), WriteRequest(putRequest=PutRequest(item={pk=AttributeValue(s=k6, n=null, b=null, iNT=null, dECIMAL=null, dOUBLE=null, sS=null, nS=null, bS=null, iNTSET=null, dECIMALSET=null, dOUBLESET=null, m=null, l=null, nULL=null, bOOL=null)}, workloadProfileName=null), deleteRequest=null), WriteRequest(putRequest=PutRequest(item={pk=AttributeValue(s=k7, n=null, b=null, iNT=null, dECIMAL=null, dOUBLE=null, sS=null, nS=null, bS=null, iNTSET=null, dECIMALSET=null, dOUBLESET=null, m=null, l=null, nULL=null, bOOL=null)}, workloadProfileName=null), deleteRequest=null), WriteRequest(putRequest=PutRequest(item={pk=AttributeValue(s=k8, n=null, b=null, iNT=null, dECIMAL=null, dOUBLE=null, sS=null, nS=null, bS=null, iNTSET=null, dECIMALSET=null, dOUBLESET=null, m=null, l=null, nULL=null, bOOL=null)}, workloadProfileName=null), deleteRequest=null), WriteRequest(putRequest=PutRequest(item={pk=AttributeValue(s=k9, n=null, b=null, iNT=null, dECIMAL=null, dOUBLE=null, sS=null, nS=null, bS=null, iNTSET=null, dECIMALSET=null, dOUBLESET=null, m=null, l=null, nULL=null, bOOL=null)}, workloadProfileName=null), deleteRequest=null), WriteRequest(putRequest=PutRequest(item={pk=AttributeValue(s=k10, n=null, b=null, iNT=null, dECIMAL=null, dOUBLE=null, sS=null, nS=null, bS=null, iNTSET=null, dECIMALSET=null, dOUBLESET=null, m=null, l=null, nULL=null, bOOL=null)}, workloadProfileName=null), deleteRequest=null), WriteRequest(putRequest=PutRequest(item={pk=AttributeValue(s=k11, n=null, b=null, iNT=null, dECIMAL=null, dOUBLE=null, sS=null, nS=null, bS=null, iNTSET=null, dECIMALSET=null, dOUBLESET=null, m=null, l=null, nULL=null, bOOL=null)}, workloadProfileName=null), deleteRequest=null), WriteRequest(putRequest=PutRequest(item={pk=AttributeValue(s=k12, n=null, b=null, iNT=null, dECIMAL=null, dOUBLE=null, sS=null, nS=null, bS=null, iNTSET=null, dECIMALSET=null, dOUBLESET=null, m=null, l=null, nULL=null, bOOL=null)}, workloadProfileName=null), deleteRequest=null), WriteRequest(putRequest=PutRequest(item={pk=AttributeValue(s=k13, n=null, b=null, iNT=null, dECIMAL=null, dOUBLE=null, sS=null, nS=null, bS=null, iNTSET=null, dECIMALSET=null, dOUBLESET=null, m=null, l=null, nULL=null, bOOL=null)}, workloadProfileName=null), deleteRequest=null), WriteRequest(putRequest=PutRequest(item={pk=AttributeValue(s=k14, n=null, b=null, iNT=null, dECIMAL=null, dOUBLE=null, sS=null, nS=null, bS=null, iNTSET=null, dECIMALSET=null, dOUBLESET=null, m=null, l=null, nULL=null, bOOL=null)}, workloadProfileName=null), deleteRequest=null), WriteRequest(putRequest=PutRequest(item={pk=AttributeValue(s=k15, n=null, b=null, iNT=null, dECIMAL=null, dOUBLE=null, sS=null, nS=null, bS=null, iNTSET=null, dECIMALSET=null, dOUBLESET=null, m=null, l=null, nULL=null, bOOL=null)}, workloadProfileName=null), deleteRequest=null), WriteRequest(putRequest=PutRequest(item={pk=AttributeValue(s=k16, n=null, b=null, iNT=null, dECIMAL=null, dOUBLE=null, sS=null, nS=null, bS=null, iNTSET=null, dECIMALSET=null, dOUBLESET=null, m=null, l=null, nULL=null, bOOL=null)}, workloadProfileName=null), deleteRequest=null), WriteRequest(putRequest=PutRequest(item={pk=AttributeValue(s=k17, n=null, b=null, iNT=null, dECIMAL=null, dOUBLE=null, sS=null, nS=null, bS=null, iNTSET=null, dECIMALSET=null, dOUBLESET=null, m=null, l=null, nULL=null, bOOL=null)}, workloadProfileName=null), deleteRequest=null), WriteRequest(putRequest=PutRequest(item={pk=AttributeValue(s=k18, n=null, b=null, iNT=null, dECIMAL=null, dOUBLE=null, sS=null, nS=null, bS=null, iNTSET=null, dECIMALSET=null, dOUBLESET=null, m=null, l=null, nULL=null, bOOL=null)}, workloadProfileName=null), deleteRequest=null), WriteRequest(putRequest=PutRequest(item={pk=AttributeValue(s=k19, n=null, b=null, iNT=null, dECIMAL=null, dOUBLE=null, sS=null, nS=null, bS=null, iNTSET=null, dECIMALSET=null, dOUBLESET=null, m=null, l=null, nULL=null, bOOL=null)}, workloadProfileName=null), deleteRequest=null), WriteRequest(putRequest=PutRequest(item={pk=AttributeValue(s=k20, n=null, b=null, iNT=null, dECIMAL=null, dOUBLE=null, sS=null, nS=null, bS=null, iNTSET=null, dECIMALSET=null, dOUBLESET=null, m=null, l=null, nULL=null, bOOL=null)}, workloadProfileName=null), deleteRequest=null), WriteRequest(putRequest=PutRequest(item={pk=AttributeValue(s=k21, n=null, b=null, iNT=null, dECIMAL=null, dOUBLE=null, sS=null, nS=null, bS=null, iNTSET=null, dECIMALSET=null, dOUBLESET=null, m=null, l=null, nULL=null, bOOL=null)}, workloadProfileName=null), deleteRequest=null), WriteRequest(putRequest=PutRequest(item={pk=AttributeValue(s=k22, n=null, b=null, iNT=null, dECIMAL=null, dOUBLE=null, sS=null, nS=null, bS=null, iNTSET=null, dECIMALSET=null, dOUBLESET=null, m=null, l=null, nULL=null, bOOL=null)}, workloadProfileName=null), deleteRequest=null), WriteRequest(putRequest=PutRequest(item={pk=AttributeValue(s=k23, n=null, b=null, iNT=null, dECIMAL=null, dOUBLE=null, sS=null, nS=null, bS=null, iNTSET=null, dECIMALSET=null, dOUBLESET=null, m=null, l=null, nULL=null, bOOL=null)}, workloadProfileName=null), deleteRequest=null), WriteRequest(putRequest=PutRequest(item={pk=AttributeValue(s=k24, n=null, b=null, iNT=null, dECIMAL=null, dOUBLE=null, sS=null, nS=null, bS=null, iNTSET=null, dECIMALSET=null, dOUBLESET=null, m=null, l=null, nULL=null, bOOL=null)}, workloadProfileName=null), deleteRequest=null), WriteRequest(putRequest=PutRequest(item={pk=AttributeValue(s=k25, n=null, b=null, iNT=null, dECIMAL=null, dOUBLE=null, sS=null, nS=null, bS=null, iNTSET=null, dECIMALSET=null, dOUBLESET=null, m=null, l=null, nULL=null, bOOL=null)}, workloadProfileName=null), deleteRequest=null)]}' at 'requestItems' failed to satisfy constraint: Map value must satisfy constraint: [Member must have length less than or equal to 25, Member must have length greater than or equal to 1]"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "write": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "UnprocessedItems": {}
+    }
+  },
+  "test_conditions_and_transactions": {
+    "batch-get": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Responses": {
+        "<name:table>": [
+          {
+            "n": {
+              "N": "2"
+            },
+            "pk": {
+              "S": "a"
+            }
+          },
+          {
+            "pk": {
+              "S": "b"
+            }
+          }
+        ]
+      },
+      "UnprocessedKeys": {}
+    },
+    "condition-fails": {
+      "Error": {
+        "Code": "ConditionalCheckFailedException",
+        "Message": "The conditional request failed"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "condition-fails-returning-old": {
+      "Error": {
+        "Code": "ConditionalCheckFailedException",
+        "Message": "The conditional request failed"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "nothing-was-written": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "transact": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "transact-cancelled": {
+      "Error": {
+        "Code": "TransactionCanceledException",
+        "Message": "Transaction cancelled, please refer cancellation reasons for specific reasons [None, ConditionalCheckFailed]"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_global_secondary_index": {
+    "absent-index": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "The table does not have the specified index: absent"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "all-attributes-not-projected": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "One or more parameter values were invalid: Select type ALL_ATTRIBUTES is not supported for global secondary index by-owner because its projection type is not ALL"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "consistent-read-on-a-gsi": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "Consistent reads are not supported on global secondary indexes"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "create": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "TableDescription": {
+        "AttributeDefinitions": [
+          {
+            "AttributeName": "at",
+            "AttributeType": "N"
+          },
+          {
+            "AttributeName": "owner",
+            "AttributeType": "S"
+          },
+          {
+            "AttributeName": "pk",
+            "AttributeType": "S"
+          }
+        ],
+        "BillingModeSummary": {
+          "BillingMode": "PAY_PER_REQUEST"
+        },
+        "CreationDateTime": "<datetime>",
+        "DeletionProtectionEnabled": false,
+        "GlobalSecondaryIndexes": [
+          {
+            "IndexArn": "arn:aws:dynamodb:us-east-1:<account>:table/<name:table>/index/by-owner",
+            "IndexName": "by-owner",
+            "IndexSizeBytes": 0,
+            "KeySchema": [
+              {
+                "AttributeName": "owner",
+                "KeyType": "HASH"
+              },
+              {
+                "AttributeName": "at",
+                "KeyType": "RANGE"
+              }
+            ],
+            "Projection": {
+              "NonKeyAttributes": [
+                "title"
+              ],
+              "ProjectionType": "INCLUDE"
+            },
+            "ProvisionedThroughput": {
+              "NumberOfDecreasesToday": 0,
+              "ReadCapacityUnits": 0,
+              "WriteCapacityUnits": 0
+            }
+          }
+        ],
+        "KeySchema": [
+          {
+            "AttributeName": "pk",
+            "KeyType": "HASH"
+          }
+        ],
+        "ProvisionedThroughput": {
+          "NumberOfDecreasesToday": 0,
+          "ReadCapacityUnits": 0,
+          "WriteCapacityUnits": 0
+        },
+        "TableArn": "arn:aws:dynamodb:us-east-1:<account>:table/<name:table>",
+        "TableId": "<uuid:1>",
+        "TableName": "<name:table>"
+      }
+    },
+    "describe": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Table": {
+        "AttributeDefinitions": [
+          {
+            "AttributeName": "at",
+            "AttributeType": "N"
+          },
+          {
+            "AttributeName": "owner",
+            "AttributeType": "S"
+          },
+          {
+            "AttributeName": "pk",
+            "AttributeType": "S"
+          }
+        ],
+        "BillingModeSummary": {
+          "BillingMode": "PAY_PER_REQUEST",
+          "LastUpdateToPayPerRequestDateTime": "<datetime>"
+        },
+        "CreationDateTime": "<datetime>",
+        "DeletionProtectionEnabled": false,
+        "GlobalSecondaryIndexes": [
+          {
+            "IndexArn": "arn:aws:dynamodb:us-east-1:<account>:table/<name:table>/index/by-owner",
+            "IndexName": "by-owner",
+            "IndexSizeBytes": 0,
+            "KeySchema": [
+              {
+                "AttributeName": "owner",
+                "KeyType": "HASH"
+              },
+              {
+                "AttributeName": "at",
+                "KeyType": "RANGE"
+              }
+            ],
+            "Projection": {
+              "NonKeyAttributes": [
+                "title"
+              ],
+              "ProjectionType": "INCLUDE"
+            },
+            "ProvisionedThroughput": {
+              "NumberOfDecreasesToday": 0,
+              "ReadCapacityUnits": 0,
+              "WriteCapacityUnits": 0
+            },
+            "WarmThroughput": {
+              "ReadUnitsPerSecond": 12000,
+              "Status": "ACTIVE",
+              "WriteUnitsPerSecond": 4000
+            }
+          }
+        ],
+        "KeySchema": [
+          {
+            "AttributeName": "pk",
+            "KeyType": "HASH"
+          }
+        ],
+        "ProvisionedThroughput": {
+          "NumberOfDecreasesToday": 0,
+          "ReadCapacityUnits": 0,
+          "WriteCapacityUnits": 0
+        },
+        "TableArn": "arn:aws:dynamodb:us-east-1:<account>:table/<name:table>",
+        "TableId": "<uuid:1>",
+        "TableName": "<name:table>",
+        "WarmThroughput": {
+          "ReadUnitsPerSecond": 12000,
+          "Status": "ACTIVE",
+          "WriteUnitsPerSecond": 4000
+        }
+      }
+    },
+    "newest-first": {
+      "Count": 1,
+      "Items": [
+        {
+          "at": {
+            "N": "1"
+          },
+          "owner": {
+            "S": "ada"
+          },
+          "pk": {
+            "S": "doc-1"
+          },
+          "title": {
+            "S": "t1"
+          }
+        }
+      ],
+      "LastEvaluatedKey": {
+        "at": {
+          "N": "1"
+        },
+        "owner": {
+          "S": "ada"
+        },
+        "pk": {
+          "S": "doc-1"
+        }
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "ScannedCount": 1
+    },
+    "query-index": {
+      "Count": 2,
+      "Items": [
+        {
+          "at": {
+            "N": "0"
+          },
+          "owner": {
+            "S": "ada"
+          },
+          "pk": {
+            "S": "doc-0"
+          },
+          "title": {
+            "S": "t0"
+          }
+        },
+        {
+          "at": {
+            "N": "1"
+          },
+          "owner": {
+            "S": "ada"
+          },
+          "pk": {
+            "S": "doc-1"
+          },
+          "title": {
+            "S": "t1"
+          }
+        }
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "ScannedCount": 2
+    },
+    "reserved-word-in-key-condition": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "Invalid KeyConditionExpression: Attribute name is a reserved keyword; reserved keyword: owner"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "scan-index-is-sparse": {
+      "Count": 3,
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "ScannedCount": 3
+    }
+  },
+  "test_item_round_trip_and_every_type": {
+    "delete": {
+      "Attributes": {
+        "n": {
+          "N": "9"
+        },
+        "pk": {
+          "S": "a"
+        },
+        "seen": {
+          "SS": [
+            "x"
+          ]
+        },
+        "tags": {
+          "L": []
+        }
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "get": {
+      "Item": {
+        "b": {
+          "B": {
+            "<bytes:base64>": "AP8="
+          }
+        },
+        "flag": {
+          "BOOL": true
+        },
+        "list": {
+          "L": [
+            {
+              "S": "x"
+            },
+            {
+              "N": "2"
+            }
+          ]
+        },
+        "map": {
+          "M": {
+            "inner": {
+              "S": "y"
+            }
+          }
+        },
+        "n": {
+          "N": "1.5"
+        },
+        "nothing": {
+          "NULL": true
+        },
+        "ns": {
+          "NS": [
+            "1",
+            "2"
+          ]
+        },
+        "pk": {
+          "S": "a"
+        },
+        "ss": {
+          "SS": [
+            "a",
+            "b"
+          ]
+        }
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "get-absent": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "put": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "put-returning-old": {
+      "Attributes": {
+        "b": {
+          "B": {
+            "<bytes:base64>": "AP8="
+          }
+        },
+        "flag": {
+          "BOOL": true
+        },
+        "list": {
+          "L": [
+            {
+              "S": "x"
+            },
+            {
+              "N": "2"
+            }
+          ]
+        },
+        "map": {
+          "M": {
+            "inner": {
+              "S": "y"
+            }
+          }
+        },
+        "n": {
+          "N": "1.5"
+        },
+        "nothing": {
+          "NULL": true
+        },
+        "ns": {
+          "NS": [
+            "1",
+            "2"
+          ]
+        },
+        "pk": {
+          "S": "a"
+        },
+        "ss": {
+          "SS": [
+            "a",
+            "b"
+          ]
+        }
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "update": {
+      "Attributes": {
+        "n": {
+          "N": "3"
+        },
+        "pk": {
+          "S": "a"
+        },
+        "seen": {
+          "SS": [
+            "x"
+          ]
+        },
+        "tags": {
+          "L": []
+        }
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "update-updated-old": {
+      "Attributes": {
+        "n": {
+          "N": "3"
+        }
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    }
+  },
+  "test_query_and_scan": {
+    "all": {
+      "Count": 5,
+      "Items": [
+        {
+          "even": {
+            "BOOL": false
+          },
+          "pk": {
+            "S": "a"
+          },
+          "sk": {
+            "N": "1"
+          }
+        },
+        {
+          "even": {
+            "BOOL": true
+          },
+          "pk": {
+            "S": "a"
+          },
+          "sk": {
+            "N": "2"
+          }
+        },
+        {
+          "even": {
+            "BOOL": false
+          },
+          "pk": {
+            "S": "a"
+          },
+          "sk": {
+            "N": "3"
+          }
+        },
+        {
+          "even": {
+            "BOOL": true
+          },
+          "pk": {
+            "S": "a"
+          },
+          "sk": {
+            "N": "4"
+          }
+        },
+        {
+          "even": {
+            "BOOL": false
+          },
+          "pk": {
+            "S": "a"
+          },
+          "sk": {
+            "N": "5"
+          }
+        }
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "ScannedCount": 5
+    },
+    "between": {
+      "Count": 3,
+      "Items": [
+        {
+          "even": {
+            "BOOL": true
+          },
+          "pk": {
+            "S": "a"
+          },
+          "sk": {
+            "N": "2"
+          }
+        },
+        {
+          "even": {
+            "BOOL": false
+          },
+          "pk": {
+            "S": "a"
+          },
+          "sk": {
+            "N": "3"
+          }
+        },
+        {
+          "even": {
+            "BOOL": true
+          },
+          "pk": {
+            "S": "a"
+          },
+          "sk": {
+            "N": "4"
+          }
+        }
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "ScannedCount": 3
+    },
+    "count": {
+      "Count": 5,
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "ScannedCount": 5
+    },
+    "descending": {
+      "Count": 2,
+      "Items": [
+        {
+          "even": {
+            "BOOL": false
+          },
+          "pk": {
+            "S": "a"
+          },
+          "sk": {
+            "N": "5"
+          }
+        },
+        {
+          "even": {
+            "BOOL": true
+          },
+          "pk": {
+            "S": "a"
+          },
+          "sk": {
+            "N": "4"
+          }
+        }
+      ],
+      "LastEvaluatedKey": {
+        "pk": {
+          "S": "a"
+        },
+        "sk": {
+          "N": "4"
+        }
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "ScannedCount": 2
+    },
+    "filtered": {
+      "Count": 1,
+      "Items": [
+        {
+          "even": {
+            "BOOL": true
+          },
+          "pk": {
+            "S": "a"
+          },
+          "sk": {
+            "N": "2"
+          }
+        }
+      ],
+      "LastEvaluatedKey": {
+        "pk": {
+          "S": "a"
+        },
+        "sk": {
+          "N": "3"
+        }
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "ScannedCount": 3
+    },
+    "page-1": {
+      "Count": 2,
+      "Items": [
+        {
+          "even": {
+            "BOOL": false
+          },
+          "pk": {
+            "S": "a"
+          },
+          "sk": {
+            "N": "1"
+          }
+        },
+        {
+          "even": {
+            "BOOL": true
+          },
+          "pk": {
+            "S": "a"
+          },
+          "sk": {
+            "N": "2"
+          }
+        }
+      ],
+      "LastEvaluatedKey": {
+        "pk": {
+          "S": "a"
+        },
+        "sk": {
+          "N": "2"
+        }
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "ScannedCount": 2
+    },
+    "page-2": {
+      "Count": 2,
+      "Items": [
+        {
+          "even": {
+            "BOOL": false
+          },
+          "pk": {
+            "S": "a"
+          },
+          "sk": {
+            "N": "3"
+          }
+        },
+        {
+          "even": {
+            "BOOL": true
+          },
+          "pk": {
+            "S": "a"
+          },
+          "sk": {
+            "N": "4"
+          }
+        }
+      ],
+      "LastEvaluatedKey": {
+        "pk": {
+          "S": "a"
+        },
+        "sk": {
+          "N": "4"
+        }
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "ScannedCount": 2
+    },
+    "projection": {
+      "Count": 1,
+      "Items": [
+        {
+          "sk": {
+            "N": "1"
+          }
+        }
+      ],
+      "LastEvaluatedKey": {
+        "pk": {
+          "S": "a"
+        },
+        "sk": {
+          "N": "1"
+        }
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "ScannedCount": 1
+    },
+    "scan": {
+      "Count": 6,
+      "Items": [
+        {
+          "even": {
+            "BOOL": false
+          },
+          "pk": {
+            "S": "a"
+          },
+          "sk": {
+            "N": "1"
+          }
+        },
+        {
+          "even": {
+            "BOOL": false
+          },
+          "pk": {
+            "S": "a"
+          },
+          "sk": {
+            "N": "3"
+          }
+        },
+        {
+          "even": {
+            "BOOL": false
+          },
+          "pk": {
+            "S": "a"
+          },
+          "sk": {
+            "N": "5"
+          }
+        },
+        {
+          "even": {
+            "BOOL": true
+          },
+          "pk": {
+            "S": "a"
+          },
+          "sk": {
+            "N": "2"
+          }
+        },
+        {
+          "even": {
+            "BOOL": true
+          },
+          "pk": {
+            "S": "a"
+          },
+          "sk": {
+            "N": "4"
+          }
+        },
+        {
+          "pk": {
+            "S": "b"
+          },
+          "sk": {
+            "N": "1"
+          }
+        }
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "ScannedCount": 6
+    }
+  },
+  "test_refusals": {
+    "bad-expression": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "1 validation error detected: Invalid UpdateExpression: Syntax error; token: \"<EOF>\", near: \"SET\""
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "empty-set": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "1 validation error detected: One or more parameter values were invalid: An string set  may not be empty"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "missing-key": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "One or more parameter values were invalid: Missing the key pk in the item"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "no-such-table": {
+      "Error": {
+        "Code": "ResourceNotFoundException",
+        "Message": "Requested resource not found"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "reserved-word": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "1 validation error detected: Invalid UpdateExpression: Attribute name is a reserved keyword; reserved keyword: name"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "table-exists": {
+      "Error": {
+        "Code": "ResourceInUseException",
+        "Message": "Table already exists: <name:table>"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "undefined-value": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "1 validation error detected: Invalid UpdateExpression: An expression attribute value used in expression is not defined; attribute value: :missing"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "unused-value": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "1 validation error detected: Value provided in ExpressionAttributeValues unused in expressions: keys: {:unused}"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "update-the-key": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "One or more parameter values were invalid: Cannot update attribute pk. This attribute is part of the key"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "wrong-key-type": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "One or more parameter values were invalid: Type mismatch for key pk expected: S actual: N"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_table_lifecycle": {
+    "create": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "TableDescription": {
+        "AttributeDefinitions": [
+          {
+            "AttributeName": "pk",
+            "AttributeType": "S"
+          }
+        ],
+        "BillingModeSummary": {
+          "BillingMode": "PAY_PER_REQUEST"
+        },
+        "CreationDateTime": "<datetime>",
+        "DeletionProtectionEnabled": false,
+        "KeySchema": [
+          {
+            "AttributeName": "pk",
+            "KeyType": "HASH"
+          }
+        ],
+        "ProvisionedThroughput": {
+          "NumberOfDecreasesToday": 0,
+          "ReadCapacityUnits": 0,
+          "WriteCapacityUnits": 0
+        },
+        "TableArn": "arn:aws:dynamodb:us-east-1:<account>:table/<name:table>",
+        "TableId": "<uuid:1>",
+        "TableName": "<name:table>"
+      }
+    },
+    "delete": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "TableDescription": {
+        "BillingModeSummary": {
+          "BillingMode": "PAY_PER_REQUEST",
+          "LastUpdateToPayPerRequestDateTime": "<datetime>"
+        },
+        "DeletionProtectionEnabled": false,
+        "ProvisionedThroughput": {
+          "NumberOfDecreasesToday": 0,
+          "ReadCapacityUnits": 0,
+          "WriteCapacityUnits": 0
+        },
+        "TableArn": "arn:aws:dynamodb:us-east-1:<account>:table/<name:table>",
+        "TableId": "<uuid:1>",
+        "TableName": "<name:table>"
+      }
+    },
+    "describe": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Table": {
+        "AttributeDefinitions": [
+          {
+            "AttributeName": "pk",
+            "AttributeType": "S"
+          }
+        ],
+        "BillingModeSummary": {
+          "BillingMode": "PAY_PER_REQUEST",
+          "LastUpdateToPayPerRequestDateTime": "<datetime>"
+        },
+        "CreationDateTime": "<datetime>",
+        "DeletionProtectionEnabled": false,
+        "KeySchema": [
+          {
+            "AttributeName": "pk",
+            "KeyType": "HASH"
+          }
+        ],
+        "ProvisionedThroughput": {
+          "NumberOfDecreasesToday": 0,
+          "ReadCapacityUnits": 0,
+          "WriteCapacityUnits": 0
+        },
+        "TableArn": "arn:aws:dynamodb:us-east-1:<account>:table/<name:table>",
+        "TableId": "<uuid:1>",
+        "TableName": "<name:table>",
+        "TableStatus": "ACTIVE",
+        "WarmThroughput": {
+          "ReadUnitsPerSecond": 12000,
+          "Status": "ACTIVE",
+          "WriteUnitsPerSecond": 4000
+        }
+      }
+    },
+    "describe-deleted": {
+      "Error": {
+        "Code": "ResourceNotFoundException",
+        "Message": "Requested resource not found: Table: <name:table> not found"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "ttl": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "TimeToLiveDescription": {
+        "TimeToLiveStatus": "DISABLED"
+      }
+    }
+  }
+}

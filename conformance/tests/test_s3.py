@@ -199,7 +199,8 @@ def test_presigned_urls(client, names, cleanup, snapshot):
     snapshot.match("get", fetch(get))
     put = s3.generate_presigned_url("put_object", Params={"Bucket": name, "Key": "up"}, ExpiresIn=300)
     snapshot.match("put", fetch(put, method="PUT", data=b"signed write"))
-    snapshot.match("what-the-put-wrote", s3.get_object(Bucket=name, Key="up"))
+    # boto3 signs a checksum of the empty body into the URL, so on real AWS this PUT may be refused and write nothing (recorded 2026-11-09).
+    snapshot.outcome("what-the-put-wrote", lambda: s3.get_object(Bucket=name, Key="up"))
     absent = s3.generate_presigned_url("get_object", Params={"Bucket": name, "Key": "absent"})
     snapshot.match("get-absent", fetch(absent))
 

@@ -1,0 +1,411 @@
+{
+  "_recorded": {
+    "boto3": "1.43.107",
+    "botocore": "1.43.107",
+    "on": "2026-11-09",
+    "region": "us-east-1",
+    "target": "aws"
+  },
+  "test_parameter_lifecycle_and_versions": {
+    "delete": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "describe": {
+      "Parameters": [
+        {
+          "ARN": "arn:aws:ssm:us-east-1:<account>:parameter/<name:param>/db/host",
+          "DataType": "text",
+          "LastModifiedDate": "<datetime>",
+          "LastModifiedUser": "<LastModifiedUser:1>",
+          "Name": "/<name:param>/db/host",
+          "Policies": [],
+          "Tier": "Standard",
+          "Type": "String",
+          "Version": 2
+        }
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "get": {
+      "Parameter": {
+        "ARN": "arn:aws:ssm:us-east-1:<account>:parameter/<name:param>/db/host",
+        "DataType": "text",
+        "LastModifiedDate": "<datetime>",
+        "Name": "/<name:param>/db/host",
+        "Type": "String",
+        "Value": "one",
+        "Version": 1
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "get-by-label": {
+      "Parameter": {
+        "ARN": "arn:aws:ssm:us-east-1:<account>:parameter/<name:param>/db/host",
+        "DataType": "text",
+        "LastModifiedDate": "<datetime>",
+        "Name": "/<name:param>/db/host",
+        "Selector": ":stable",
+        "Type": "String",
+        "Value": "one",
+        "Version": 1
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "get-by-version": {
+      "Parameter": {
+        "ARN": "arn:aws:ssm:us-east-1:<account>:parameter/<name:param>/db/host",
+        "DataType": "text",
+        "LastModifiedDate": "<datetime>",
+        "Name": "/<name:param>/db/host",
+        "Selector": ":1",
+        "Type": "String",
+        "Value": "one",
+        "Version": 1
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "get-deleted": {
+      "Error": {
+        "Code": "ParameterNotFound",
+        "Message": ""
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "get-v2": {
+      "Parameter": {
+        "ARN": "arn:aws:ssm:us-east-1:<account>:parameter/<name:param>/db/host",
+        "DataType": "text",
+        "LastModifiedDate": "<datetime>",
+        "Name": "/<name:param>/db/host",
+        "Type": "String",
+        "Value": "two",
+        "Version": 2
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "history": {
+      "Parameters": [
+        {
+          "DataType": "text",
+          "Labels": [
+            "stable"
+          ],
+          "LastModifiedDate": "<datetime>",
+          "LastModifiedUser": "<LastModifiedUser:1>",
+          "Name": "/<name:param>/db/host",
+          "Policies": [],
+          "Tier": "Standard",
+          "Type": "String",
+          "Value": "one",
+          "Version": 1
+        },
+        {
+          "DataType": "text",
+          "Labels": [],
+          "LastModifiedDate": "<datetime>",
+          "LastModifiedUser": "<LastModifiedUser:1>",
+          "Name": "/<name:param>/db/host",
+          "Policies": [],
+          "Tier": "Standard",
+          "Type": "String",
+          "Value": "two",
+          "Version": 2
+        }
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "label": {
+      "InvalidLabels": [],
+      "ParameterVersion": 1,
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "overwrite": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Tier": "Standard",
+      "Version": 2
+    },
+    "put": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Tier": "Standard",
+      "Version": 1
+    },
+    "put-without-overwrite": {
+      "Error": {
+        "Code": "ParameterAlreadyExists",
+        "Message": "The parameter already exists. To overwrite this value, set the overwrite option in the request to true."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_paths_and_bulk_reads": {
+    "delete-many": {
+      "DeletedParameters": [
+        "/<name:param>/a"
+      ],
+      "InvalidParameters": [
+        "/<name:param>/absent"
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "one-level": {
+      "Parameters": [
+        {
+          "ARN": "arn:aws:ssm:us-east-1:<account>:parameter/<name:param>/a",
+          "DataType": "text",
+          "LastModifiedDate": "<datetime>",
+          "Name": "/<name:param>/a",
+          "Type": "String",
+          "Value": "a",
+          "Version": 1
+        },
+        {
+          "ARN": "arn:aws:ssm:us-east-1:<account>:parameter/<name:param>/b",
+          "DataType": "text",
+          "LastModifiedDate": "<datetime>",
+          "Name": "/<name:param>/b",
+          "Type": "String",
+          "Value": "b",
+          "Version": 1
+        }
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "page": {
+      "count": 2,
+      "more": true
+    },
+    "recursive": {
+      "Parameters": [
+        {
+          "ARN": "arn:aws:ssm:us-east-1:<account>:parameter/<name:param>/a",
+          "DataType": "text",
+          "LastModifiedDate": "<datetime>",
+          "Name": "/<name:param>/a",
+          "Type": "String",
+          "Value": "a",
+          "Version": 1
+        },
+        {
+          "ARN": "arn:aws:ssm:us-east-1:<account>:parameter/<name:param>/b",
+          "DataType": "text",
+          "LastModifiedDate": "<datetime>",
+          "Name": "/<name:param>/b",
+          "Type": "String",
+          "Value": "b",
+          "Version": 1
+        },
+        {
+          "ARN": "arn:aws:ssm:us-east-1:<account>:parameter/<name:param>/nested/c",
+          "DataType": "text",
+          "LastModifiedDate": "<datetime>",
+          "Name": "/<name:param>/nested/c",
+          "Type": "String",
+          "Value": "nested/c",
+          "Version": 1
+        }
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "some-missing": {
+      "InvalidParameters": [
+        "/<name:param>/absent"
+      ],
+      "Parameters": [
+        {
+          "ARN": "arn:aws:ssm:us-east-1:<account>:parameter/<name:param>/a",
+          "DataType": "text",
+          "LastModifiedDate": "<datetime>",
+          "Name": "/<name:param>/a",
+          "Type": "String",
+          "Value": "a",
+          "Version": 1
+        }
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    }
+  },
+  "test_refusals": {
+    "absent-version": {
+      "Error": {
+        "Code": "ParameterVersionNotFound",
+        "Message": "Systems Manager could not find version 9 of /<name:param>/x. Verify the version and try again."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "bad-characters": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "Parameter name: can't be prefixed with \"ssm\" (case-insensitive). If formed as a path, it can consist of sub-paths divided by slash symbol; each sub-path can be formed as a mix of letters, numbers and the following 3 symbols .-_"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "bad-type": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "1 validation error detected: Value 'Sentence' at 'type' failed to satisfy constraint: Member must satisfy enum value set: [SecureString, StringList, String]"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "change-type-on-overwrite": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Tier": "Standard",
+      "Version": 2
+    },
+    "delete-absent": {
+      "Error": {
+        "Code": "ParameterNotFound",
+        "Message": ""
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "get-absent": {
+      "Error": {
+        "Code": "ParameterNotFound",
+        "Message": ""
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "label-absent-version": {
+      "Error": {
+        "Code": "ParameterVersionNotFound",
+        "Message": "Systems Manager could not find version 9 of /<name:param>/x. Verify the version and try again."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "no-type-on-create": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "A parameter type is required when you create a parameter."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "path-without-slash": {
+      "Error": {
+        "Code": "AccessDeniedException",
+        "Message": "User: arn:aws:sts::<account>:assumed-role/AWSReservedSSO_doze-recorder-limited_831b2805e46e339c/srini.icloud is not authorized to perform: ssm:GetParametersByPath on resource: arn:aws:ssm:us-east-1:<account>:parameter/no-leading-slash because no identity-based policy allows the ssm:GetParametersByPath action"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "reserved-prefix": {
+      "Error": {
+        "Code": "AccessDeniedException",
+        "Message": "User: arn:aws:sts::<account>:assumed-role/AWSReservedSSO_doze-recorder-limited_831b2805e46e339c/srini.icloud is not authorized to perform: ssm:PutParameter on resource: arn:aws:ssm:us-east-1:<account>:parameter/aws/not-yours because no identity-based policy allows the ssm:PutParameter action"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "reserved-word": {
+      "Error": {
+        "Code": "AccessDeniedException",
+        "Message": "User: arn:aws:sts::<account>:assumed-role/AWSReservedSSO_doze-recorder-limited_831b2805e46e339c/srini.icloud is not authorized to perform: ssm:PutParameter on resource: arn:aws:ssm:us-east-1:<account>:parameter/ssm-not-yours because no identity-based policy allows the ssm:PutParameter action"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "reserved-word-deeper-in-the-path": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Tier": "Standard",
+      "Version": 1
+    },
+    "reserved-word-starts-a-segment": {
+      "Error": {
+        "Code": "AccessDeniedException",
+        "Message": "User: arn:aws:sts::<account>:assumed-role/AWSReservedSSO_doze-recorder-limited_831b2805e46e339c/srini.icloud is not authorized to perform: ssm:PutParameter on resource: arn:aws:ssm:us-east-1:<account>:parameter/awsome-dzc/x because no identity-based policy allows the ssm:PutParameter action"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_secure_string_is_ciphertext_until_asked": {
+    "opened": {
+      "Parameter": {
+        "ARN": "arn:aws:ssm:us-east-1:<account>:parameter/<name:param>/password",
+        "DataType": "text",
+        "LastModifiedDate": "<datetime>",
+        "Name": "/<name:param>/password",
+        "Type": "SecureString",
+        "Value": "hunter2",
+        "Version": 1
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "put": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Tier": "Standard",
+      "Version": 1
+    },
+    "sealed": {
+      "Parameter": {
+        "ARN": "arn:aws:ssm:us-east-1:<account>:parameter/<name:param>/password",
+        "DataType": "text",
+        "LastModifiedDate": "<datetime>",
+        "Name": "/<name:param>/password",
+        "Type": "SecureString",
+        "Value": "<Value:1>",
+        "Version": 1
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    }
+  }
+}

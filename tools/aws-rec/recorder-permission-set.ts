@@ -22,6 +22,8 @@ const policy = {
         "cloudformation:List*", "cloudformation:Describe*", "cloudformation:GetTemplateSummary", "cloudformation:ValidateTemplate",
         "apigateway:GET", "iam:Get*", "iam:List*", "iam:SimulatePrincipalPolicy", "sts:GetCallerIdentity", "sts:GetAccessKeyInfo",
         "budgets:ViewBudget", "ce:GetCostAndUsage", "tag:GetResources",
+        // Stateless checks: they evaluate what is sent and store nothing.
+        "events:TestEventPattern", "logs:TestMetricFilter", "states:TestState", "iam:SimulateCustomPolicy",
       ],
       Resource: "*",
       Condition: region,
@@ -44,6 +46,8 @@ const policy = {
         `${A}:dynamodb:${R}:*:table/${P}*/*`,
         `${A}:logs:${R}:*:log-group:${P}*`,
         `${A}:logs:${R}:*:log-group:${P}*:*`,
+        `${A}:logs:${R}:*:log-group:/${P}*`,
+        `${A}:logs:${R}:*:log-group:/${P}*:*`,
         `${A}:logs:${R}:*:log-group:/aws/lambda/${P}*`,
         `${A}:logs:${R}:*:log-group:/aws/lambda/${P}*:*`,
         `${A}:events:${R}:*:rule/${P}*`,

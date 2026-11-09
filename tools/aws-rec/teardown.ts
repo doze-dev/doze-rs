@@ -161,7 +161,7 @@ const kinds: Kind[] = [
     name: "logs",
     list: async () => {
       const seen = new Map<string, Item>();
-      for (const p of [PREFIX, `/aws/lambda/${PREFIX}`])
+      for (const p of [PREFIX, `/${PREFIX}`, `/aws/lambda/${PREFIX}`])
         for (const g of arr<any>((await aws(["logs", "describe-log-groups", "--log-group-name-prefix", p]))?.logGroups)) seen.set(g.logGroupName, { id: g.logGroupName, label: g.logGroupName });
       return [...seen.values()];
     },

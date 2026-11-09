@@ -95,3 +95,14 @@ AWS verifies the AddPermission principal account exists and accepts any label (8
 
 Of the 101 differing labels, 34 differ in HTTP status or error code and 20 differ in whether AWS accepts or refuses the call.
 This is the bar for Rust SQS: exact match first, with message wording tracked separately.
+
+### 0.2 / 0.3 first batch (2026-11-09)
+
+Ten modules recorded: sqs, ssm, secretsmanager, sns, sts, dynamodb, cloudwatch, kinesis, eventbridge, s3 (537 labels, about 20 minutes,
+cents). Every sweep after a module came back clean. The oracle changed several scenarios again: AWS accepts a PutMetricData namespace
+beginning `AWS/`; verifies that EventBridge SQS targets in another account carry a RoleArn; may refuse a boto3 presigned PUT (the URL signs
+the checksum of an empty body); and a Kinesis ListShards can answer "not found" shortly after the stream is ACTIVE.
+
+Go doze-aws against those recordings: 537 labels, 249 exact (46%), 147 behavioural differences, per module in `baseline.md`.
+Still to record: logs (needs the policy to allow `/doze-rec-` log groups), the EventBridge pattern scenario (`events:TestEventPattern`), kms (needs key
+tagging in the harness), iam, lambda, cloudformation, apigateway, stepfunctions.

@@ -97,7 +97,8 @@ def test_refusals(client, names, cleanup, snapshot):
     alarm = dict(AlarmName=name, Namespace=ns, MetricName="m", Statistic="Sum", Period=60,
                  EvaluationPeriods=1, Threshold=1, ComparisonOperator="GreaterThanThreshold")
 
-    snapshot.error("reserved-namespace", lambda: cw.put_metric_data(
+    # The docs reserve the AWS/ prefix; AWS accepted PutMetricData to AWS/Mine (recorded 2026-11-09), so this is a question.
+    snapshot.outcome("reserved-namespace", lambda: cw.put_metric_data(
         Namespace="AWS/Mine", MetricData=[{"MetricName": "m", "Value": 1}]))
     snapshot.error("value-and-statistics", lambda: cw.put_metric_data(Namespace=ns, MetricData=[{
         "MetricName": "m", "Value": 1,

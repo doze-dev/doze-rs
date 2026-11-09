@@ -1,0 +1,413 @@
+{
+  "_recorded": {
+    "boto3": "1.43.107",
+    "botocore": "1.43.107",
+    "on": "2026-11-09",
+    "region": "us-east-1",
+    "target": "aws"
+  },
+  "test_a_fifo_queue_on_a_standard_topic": {
+    "subscribe": {
+      "Error": {
+        "Code": "InvalidParameter",
+        "Message": "Invalid parameter: Invalid parameter: Endpoint Reason: FIFO SQS Queues can not be subscribed to standard SNS topics"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_create_again_must_agree": {
+    "different-attribute": {
+      "Error": {
+        "Code": "InvalidParameter",
+        "Message": "Invalid parameter: Attributes Reason: Topic already exists with different attributes"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "different-tags": {
+      "Error": {
+        "Code": "InvalidParameter",
+        "Message": "Invalid parameter: Tags Reason: Topic already exists with different tags"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "display-name-after": "Orders",
+    "no-attributes": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "TopicArn": "arn:aws:sns:us-east-1:<account>:<name:topic>"
+    },
+    "same": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "TopicArn": "arn:aws:sns:us-east-1:<account>:<name:topic>"
+    }
+  },
+  "test_fifo_topic_delivers_to_a_fifo_queue": {
+    "create": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "TopicArn": "arn:aws:sns:us-east-1:<account>:<name:topic.fifo>"
+    },
+    "delivered": [
+      [
+        "first",
+        {
+          "MessageGroupId": "g"
+        }
+      ]
+    ],
+    "fifo-name-without-the-attribute": {
+      "Error": {
+        "Code": "InvalidParameter",
+        "Message": "Invalid parameter: Topic Name"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "no-group-id": {
+      "Error": {
+        "Code": "InvalidParameter",
+        "Message": "Invalid parameter: The MessageGroupId parameter is required for FIFO topics"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "publish": {
+      "MessageId": "<uuid:1>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "SequenceNumber": "<SequenceNumber:1>"
+    },
+    "the-attribute-without-the-fifo-name": {
+      "Error": {
+        "Code": "InvalidParameter",
+        "Message": "Invalid parameter: Topic Name"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_publish_batch": {
+    "delivered": [
+      "one",
+      "two"
+    ],
+    "eleven": {
+      "Error": {
+        "Code": "TooManyEntriesInBatchRequest",
+        "Message": "The batch request contains more entries than permissible."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "empty": {
+      "Error": {
+        "Code": "EmptyBatchRequest",
+        "Message": "The batch request doesn't contain any entries."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "publish": {
+      "Failed": [],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Successful": [
+        {
+          "Id": "a",
+          "MessageId": "<uuid:1>"
+        },
+        {
+          "Id": "b",
+          "MessageId": "<uuid:2>"
+        }
+      ]
+    },
+    "repeated-ids": {
+      "Error": {
+        "Code": "BatchEntryIdsNotDistinct",
+        "Message": "Two or more batch entries in the request have the same Id."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  },
+  "test_publish_reaches_a_queue_in_the_envelope": {
+    "envelope": {
+      "Message": "shipped",
+      "MessageAttributes": {
+        "kind": {
+          "Type": "String",
+          "Value": "order"
+        }
+      },
+      "MessageId": "<uuid:2>",
+      "Signature": "<Signature:1>",
+      "SignatureVersion": "1",
+      "SigningCertURL": "<SigningCertURL:1>",
+      "Subject": "order",
+      "Timestamp": "<Timestamp:1>",
+      "TopicArn": "arn:aws:sns:us-east-1:<account>:<name:topic>",
+      "Type": "Notification",
+      "UnsubscribeURL": "<UnsubscribeURL:1>"
+    },
+    "publish": {
+      "MessageId": "<uuid:2>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "subscribe": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "SubscriptionArn": "arn:aws:sns:us-east-1:<account>:<name:topic>:<uuid:1>"
+    },
+    "subscription-attributes": {
+      "Attributes": {
+        "ConfirmationWasAuthenticated": "true",
+        "Endpoint": "arn:aws:sqs:us-east-1:<account>:<name:queue>",
+        "Owner": "<account>",
+        "PendingConfirmation": "false",
+        "Protocol": "sqs",
+        "RawMessageDelivery": "false",
+        "SubscriptionArn": "arn:aws:sns:us-east-1:<account>:<name:topic>:<uuid:1>",
+        "SubscriptionPrincipal": "arn:aws:iam::<account>:role/aws-reserved/sso.amazonaws.com/AWSReservedSSO_doze-recorder-limited_831b2805e46e339c",
+        "TopicArn": "arn:aws:sns:us-east-1:<account>:<name:topic>"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    }
+  },
+  "test_raw_delivery_and_a_filter_policy": {
+    "delivered": [
+      {
+        "Body": "let through",
+        "MD5OfBody": "7955246d9d62978c0ff301ac4c1fbc3a",
+        "MD5OfMessageAttributes": "8cc3ab13200b21b0d17b28c4d98ec74a",
+        "MessageAttributes": {
+          "kind": {
+            "DataType": "String",
+            "StringValue": "order"
+          }
+        },
+        "MessageId": "<uuid:2>",
+        "ReceiptHandle": "<ReceiptHandle:1>"
+      }
+    ],
+    "subscription-attributes": {
+      "Attributes": {
+        "ConfirmationWasAuthenticated": "true",
+        "Endpoint": "arn:aws:sqs:us-east-1:<account>:<name:queue>",
+        "FilterPolicy": "{\"kind\":[\"order\"]}",
+        "FilterPolicyScope": "MessageAttributes",
+        "Owner": "<account>",
+        "PendingConfirmation": "false",
+        "Protocol": "sqs",
+        "RawMessageDelivery": "true",
+        "SubscriptionArn": "arn:aws:sns:us-east-1:<account>:<name:topic>:<uuid:1>",
+        "SubscriptionPrincipal": "arn:aws:iam::<account>:role/aws-reserved/sso.amazonaws.com/AWSReservedSSO_doze-recorder-limited_831b2805e46e339c",
+        "TopicArn": "arn:aws:sns:us-east-1:<account>:<name:topic>"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    }
+  },
+  "test_refusals": {
+    "attributes-of-no-topic": {
+      "Error": {
+        "Code": "NotFound",
+        "Message": "Topic does not exist"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    },
+    "bad-attribute": {
+      "Error": {
+        "Code": "InvalidParameter",
+        "Message": "Invalid parameter: AttributeName"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "bad-filter-policy": {
+      "Error": {
+        "Code": "InvalidParameter",
+        "Message": "Invalid parameter: Attributes Reason: FilterPolicy: failed to parse JSON. Unexpected character ('n' (code 110)): was expecting double-quote to start field name\n at [Source: REDACTED (`StreamReadFeature.INCLUDE_SOURCE_IN_LOCATION` disabled); line: 1, column: 2]"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "bad-protocol": {
+      "Error": {
+        "Code": "InvalidParameter",
+        "Message": "Invalid parameter: Amazon SNS does not support this protocol string: carrier-pigeon"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "bad-topic-name": {
+      "Error": {
+        "Code": "AuthorizationError",
+        "Message": "User: arn:aws:sts::<account>:assumed-role/AWSReservedSSO_doze-recorder-limited_831b2805e46e339c/srini.icloud is not authorized to perform: SNS:CreateTopic on resource: arn:aws:sns:us-east-1:<account>:not a topic name! because no identity-based policy allows the SNS:CreateTopic action"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 403
+      }
+    },
+    "empty-message": {
+      "Error": {
+        "Code": "InvalidParameter",
+        "Message": "Invalid parameter: Empty message"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "not-an-arn": {
+      "Error": {
+        "Code": "InvalidParameter",
+        "Message": "Invalid parameter: TopicArn Reason: An ARN must have at least 6 elements, not 1"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "publish-to-no-topic": {
+      "Error": {
+        "Code": "NotFound",
+        "Message": "Topic does not exist"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    }
+  },
+  "test_topic_lifecycle": {
+    "attributes": {
+      "Attributes": {
+        "DisplayName": "",
+        "EffectiveDeliveryPolicy": {
+          "http": {
+            "defaultHealthyRetryPolicy": {
+              "backoffFunction": "linear",
+              "maxDelayTarget": 20,
+              "minDelayTarget": 20,
+              "numMaxDelayRetries": 0,
+              "numMinDelayRetries": 0,
+              "numNoDelayRetries": 0,
+              "numRetries": 3
+            },
+            "defaultRequestPolicy": {
+              "headerContentType": "text/plain; charset=UTF-8"
+            },
+            "disableSubscriptionOverrides": false
+          }
+        },
+        "Owner": "<account>",
+        "Policy": {
+          "Id": "__default_policy_ID",
+          "Statement": [
+            {
+              "Action": [
+                "SNS:GetTopicAttributes",
+                "SNS:SetTopicAttributes",
+                "SNS:AddPermission",
+                "SNS:RemovePermission",
+                "SNS:DeleteTopic",
+                "SNS:Subscribe",
+                "SNS:ListSubscriptionsByTopic",
+                "SNS:Publish"
+              ],
+              "Condition": {
+                "StringEquals": {
+                  "AWS:SourceOwner": "<account>"
+                }
+              },
+              "Effect": "Allow",
+              "Principal": {
+                "AWS": "*"
+              },
+              "Resource": "arn:aws:sns:us-east-1:<account>:<name:topic>",
+              "Sid": "__default_statement_ID"
+            }
+          ],
+          "Version": "2008-10-17"
+        },
+        "SubscriptionsConfirmed": "0",
+        "SubscriptionsDeleted": "0",
+        "SubscriptionsPending": "0",
+        "TopicArn": "arn:aws:sns:us-east-1:<account>:<name:topic>"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "create": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "TopicArn": "arn:aws:sns:us-east-1:<account>:<name:topic>"
+    },
+    "create-again": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "TopicArn": "arn:aws:sns:us-east-1:<account>:<name:topic>"
+    },
+    "delete": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "delete-again": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "set-display-name": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "tag": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "tags": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Tags": [
+        {
+          "Key": "env",
+          "Value": "dev"
+        }
+      ]
+    }
+  }
+}

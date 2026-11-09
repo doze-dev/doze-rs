@@ -646,7 +646,7 @@ def test_redrive_policy_without_max_receive_count(client, names, cleanup, snapsh
                        opaque=("RedrivePolicy",))
 
 
-def test_add_permission_statement_limit(client, names, cleanup, snapshot):
+def test_add_permission_statement_limit(client, names, cleanup, snapshot, target):
     """The model says AddPermission is OverLimit when "the maximum number of
     permissions for the queue is reached" and not what the number is."""
     sqs = client("sqs")
@@ -654,7 +654,7 @@ def test_add_permission_statement_limit(client, names, cleanup, snapshot):
     first_refused = None
     for i in range(1, 31):
         try:
-            sqs.add_permission(QueueUrl=url, Label=f"l{i}", AWSAccountIds=["111122223333"], Actions=["SendMessage"])
+            sqs.add_permission(QueueUrl=url, Label=f"l{i}", AWSAccountIds=[target.account], Actions=["SendMessage"])
         except Exception as e:  # noqa: BLE001 - recorded, not judged
             first_refused = (i, getattr(e, "response", {}).get("Error", {}).get("Code"))
             break

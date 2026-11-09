@@ -1,0 +1,287 @@
+{
+  "_recorded": {
+    "boto3": "1.43.107",
+    "botocore": "1.43.107",
+    "on": "2026-11-09",
+    "region": "us-east-1",
+    "target": "aws"
+  },
+  "test_alarm_lifecycle": {
+    "by-prefix": [
+      "<name:alarm>"
+    ],
+    "delete": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "delete-again": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "describe": {
+      "CompositeAlarms": [],
+      "LogAlarms": [],
+      "MetricAlarms": [
+        {
+          "ActionsEnabled": false,
+          "AlarmActions": [],
+          "AlarmArn": "arn:aws:cloudwatch:us-east-1:<account>:alarm:<name:alarm>",
+          "AlarmConfigurationUpdatedTimestamp": "<AlarmConfigurationUpdatedTimestamp:1>",
+          "AlarmDescription": "queue is backing up",
+          "AlarmName": "<name:alarm>",
+          "ComparisonOperator": "GreaterThanThreshold",
+          "DatapointsToAlarm": 2,
+          "Dimensions": [
+            {
+              "Name": "queue",
+              "Value": "orders"
+            }
+          ],
+          "EvaluationPeriods": 2,
+          "InsufficientDataActions": [],
+          "MetricName": "depth",
+          "Namespace": "dzc/<name:ns>",
+          "OKActions": [],
+          "Period": 60,
+          "StateTransitionedTimestamp": "<StateTransitionedTimestamp:1>",
+          "StateUpdatedTimestamp": "<StateUpdatedTimestamp:1>",
+          "Statistic": "Maximum",
+          "Threshold": 100.0,
+          "TreatMissingData": "notBreaching"
+        }
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "disable-actions": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "gone": {
+      "CompositeAlarms": [],
+      "LogAlarms": [],
+      "MetricAlarms": [],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "in-alarm": [
+      [
+        "ALARM",
+        "forced by the scenario"
+      ]
+    ],
+    "put": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "set-state": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "tag": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    }
+  },
+  "test_metric_data_reads_back_as_statistics": {
+    "get-metric-data": {
+      "Messages": [],
+      "MetricDataResults": [
+        {
+          "Id": "d",
+          "Label": "depth",
+          "StatusCode": "Complete",
+          "Timestamps": "<Timestamps:1>",
+          "Values": [
+            9.0
+          ]
+        }
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "list": {
+      "Metrics": [
+        {
+          "Dimensions": [],
+          "MetricName": "latency",
+          "Namespace": "dzc/<name:ns>"
+        },
+        {
+          "Dimensions": [
+            {
+              "Name": "queue",
+              "Value": "orders"
+            }
+          ],
+          "MetricName": "depth",
+          "Namespace": "dzc/<name:ns>"
+        }
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "put": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "statistic-set": {
+      "Datapoints": [
+        {
+          "Average": 25.0,
+          "Maximum": 40.0,
+          "Minimum": 10.0,
+          "SampleCount": 4.0,
+          "Sum": 100.0,
+          "Timestamp": "<Timestamp:1>",
+          "Unit": "Milliseconds"
+        }
+      ],
+      "Label": "latency",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "statistics": {
+      "Datapoints": [
+        {
+          "Average": 3.0,
+          "Maximum": 6.0,
+          "Minimum": 1.0,
+          "SampleCount": 3.0,
+          "Sum": 9.0,
+          "Timestamp": "<Timestamp:1>",
+          "Unit": "Count"
+        }
+      ],
+      "Label": "depth",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "without-its-dimensions": {
+      "Datapoints": [],
+      "Label": "depth",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    }
+  },
+  "test_refusals": {
+    "bad-comparison": {
+      "Error": {
+        "Code": "ValidationError",
+        "Message": "1 validation error detected: Value 'RoughlyEqualTo' at 'comparisonOperator' failed to satisfy constraint: Member must satisfy enum value set: [GreaterThanUpperThreshold, LessThanLowerThreshold, GreaterThanThreshold, LessThanThreshold, LessThanOrEqualToThreshold, LessThanLowerOrGreaterThanUpperThreshold, GreaterThanOrEqualToThreshold]"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "bad-state": {
+      "Error": {
+        "Code": "ValidationError",
+        "Message": "1 validation error detected: Value 'PANIC' at 'stateValue' failed to satisfy constraint: Member must satisfy enum value set: [INSUFFICIENT_DATA, ALARM, OK]"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "bad-treat-missing": {
+      "Error": {
+        "Code": "ValidationError",
+        "Message": "The value shrug is not supported for TreatMissingData parameter. Supported values are [breaching, notBreaching, ignore, missing]."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "bad-unit": {
+      "Error": {
+        "Code": "InvalidParameterValue",
+        "Message": "The parameter MetricData.member.1.Unit must be a value in the set [ Megabits, Terabits, Gigabits, Count, Bytes, Gigabytes, Gigabytes/Second, Kilobytes, Kilobits/Second, Terabytes, Terabits/Second, Bytes/Second, Percent, Megabytes, Megabits/Second, Milliseconds, Microseconds, Kilobytes/Second, Gigabits/Second, Megabytes/Second, Bits, Bits/Second, Count/Second, Seconds, Kilobits, Terabytes/Second, None ]."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "end-before-start": {
+      "Error": {
+        "Code": "InvalidParameterValue",
+        "Message": "The parameter StartTime must be less than the parameter EndTime."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "more-datapoints-than-periods": {
+      "Error": {
+        "Code": "ValidationError",
+        "Message": "DatapointsToAlarm must be less than or equal to EvaluationPeriods"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "no-statistic": {
+      "Error": {
+        "Code": "InvalidParameterCombination",
+        "Message": "At least one of the parameters Statistics and ExtendedStatistics must be specified."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "period-not-a-minute": {
+      "Error": {
+        "Code": "InvalidParameterValue",
+        "Message": "The parameter Period must be a value in the set [1, 5, 10, 20, 30]."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "reserved-namespace": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "set-state-of-absent-alarm": {
+      "Error": {
+        "Code": "ResourceNotFound",
+        "Message": ""
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    },
+    "statistic-and-extended": {
+      "Error": {
+        "Code": "ValidationError",
+        "Message": "PutMetricAlarm request can not be made with both Statistic and ExtendedStatistic parameters. Only one of them should be present"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "value-and-statistics": {
+      "Error": {
+        "Code": "InvalidParameterCombination",
+        "Message": "The parameters MetricData.member.1.Value and MetricData.member.1.StatisticValues are mutually exclusive and you have specified both."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    }
+  }
+}

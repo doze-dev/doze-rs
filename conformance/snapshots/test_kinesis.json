@@ -1,0 +1,360 @@
+{
+  "_recorded": {
+    "boto3": "1.43.107",
+    "botocore": "1.43.107",
+    "on": "2026-11-09",
+    "region": "us-east-1",
+    "target": "aws"
+  },
+  "test_a_split_closes_the_parent_even_if_it_never_held_a_record": {
+    "parent-closed": {
+      "closed": true
+    },
+    "shards": [
+      {
+        "HashKeyRange": {
+          "EndingHashKey": "340282366920938463463374607431768211455",
+          "StartingHashKey": "0"
+        },
+        "SequenceNumberRange": {
+          "EndingSequenceNumber": "<EndingSequenceNumber:1>",
+          "StartingSequenceNumber": "<StartingSequenceNumber:1>"
+        },
+        "ShardId": "shardId-000000000000"
+      },
+      {
+        "HashKeyRange": {
+          "EndingHashKey": "170141183460469231731687303715884105726",
+          "StartingHashKey": "0"
+        },
+        "ParentShardId": "shardId-000000000000",
+        "SequenceNumberRange": {
+          "StartingSequenceNumber": "<StartingSequenceNumber:2>"
+        },
+        "ShardId": "shardId-000000000001"
+      },
+      {
+        "HashKeyRange": {
+          "EndingHashKey": "340282366920938463463374607431768211455",
+          "StartingHashKey": "170141183460469231731687303715884105727"
+        },
+        "ParentShardId": "shardId-000000000000",
+        "SequenceNumberRange": {
+          "StartingSequenceNumber": "<StartingSequenceNumber:3>"
+        },
+        "ShardId": "shardId-000000000002"
+      }
+    ],
+    "split": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    }
+  },
+  "test_partition_keys_route_across_shards": {
+    "explicit-hash-key": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "SequenceNumber": "<SequenceNumber:1>",
+      "ShardId": "shardId-000000000000"
+    },
+    "routing": {
+      "a": "shardId-000000000000",
+      "b": "shardId-000000000001",
+      "c": "shardId-000000000000",
+      "d": "shardId-000000000001",
+      "user-1": "shardId-000000000001",
+      "user-2": "shardId-000000000000"
+    },
+    "shards": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Shards": [
+        {
+          "HashKeyRange": {
+            "EndingHashKey": "170141183460469231731687303715884105727",
+            "StartingHashKey": "0"
+          },
+          "SequenceNumberRange": {
+            "StartingSequenceNumber": "<StartingSequenceNumber:1>"
+          },
+          "ShardId": "shardId-000000000000"
+        },
+        {
+          "HashKeyRange": {
+            "EndingHashKey": "340282366920938463463374607431768211455",
+            "StartingHashKey": "170141183460469231731687303715884105728"
+          },
+          "SequenceNumberRange": {
+            "StartingSequenceNumber": "<StartingSequenceNumber:2>"
+          },
+          "ShardId": "shardId-000000000001"
+        }
+      ]
+    }
+  },
+  "test_records_are_read_back_in_order": {
+    "iterator": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "ShardIterator": "<ShardIterator:1>"
+    },
+    "nothing-after-latest": {
+      "NextShardIterator": "<NextShardIterator:1>",
+      "Records": [],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "put": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "SequenceNumber": "<SequenceNumber:1>",
+      "ShardId": "shardId-000000000000"
+    },
+    "put-many": {
+      "FailedRecordCount": 0,
+      "Records": [
+        {
+          "SequenceNumber": "<SequenceNumber:2>",
+          "ShardId": "shardId-000000000000"
+        },
+        {
+          "SequenceNumber": "<SequenceNumber:3>",
+          "ShardId": "shardId-000000000000"
+        }
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "records": [
+      {
+        "ApproximateArrivalTimestamp": "<datetime>",
+        "Data": {
+          "<bytes>": "one"
+        },
+        "PartitionKey": "k",
+        "SequenceNumber": "<SequenceNumber:1>"
+      },
+      {
+        "ApproximateArrivalTimestamp": "<datetime>",
+        "Data": {
+          "<bytes>": "two"
+        },
+        "PartitionKey": "k",
+        "SequenceNumber": "<SequenceNumber:2>"
+      },
+      {
+        "ApproximateArrivalTimestamp": "<datetime>",
+        "Data": {
+          "<bytes>": "three"
+        },
+        "PartitionKey": "k",
+        "SequenceNumber": "<SequenceNumber:3>"
+      }
+    ]
+  },
+  "test_refusals": {
+    "absent-shard": {
+      "Error": {
+        "Code": "ResourceNotFoundException",
+        "Message": "Shard shardId-000000000099 in stream <name:stream> under account <account> does not exist"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "at-sequence-without-one": {
+      "Error": {
+        "Code": "InvalidArgumentException",
+        "Message": "Must either specify (1) AT_SEQUENCE_NUMBER or AFTER_SEQUENCE_NUMBER and StartingSequenceNumber or (2) TRIM_HORIZON or LATEST and no StartingSequenceNumber. Request specified AT_SEQUENCE_NUMBER and no StartingSequenceNumber."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "bad-explicit-hash-key": {
+      "Error": {
+        "Code": "ValidationException",
+        "Message": "1 validation error detected: Value 'not-a-number' at 'explicitHashKey' failed to satisfy constraint: Member must satisfy regular expression pattern: ^(0|([1-9]\\d{0,38}))$"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "create-twice": {
+      "Error": {
+        "Code": "ResourceInUseException",
+        "Message": "Stream <name:stream> under account <account> already exists."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "delete-absent": {
+      "Error": {
+        "Code": "ResourceNotFoundException",
+        "Message": "Stream <name:absent> under account <account> not found."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "describe-absent": {
+      "Error": {
+        "Code": "ResourceNotFoundException",
+        "Message": "Stream <name:absent> under account <account> not found."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "garbage-iterator": {
+      "Error": {
+        "Code": "InvalidArgumentException",
+        "Message": "Invalid ShardIterator."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "put-to-absent": {
+      "Error": {
+        "Code": "ResourceNotFoundException",
+        "Message": "Stream <name:absent> under account <account> not found."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "retention-below-current": {
+      "Error": {
+        "Code": "InvalidArgumentException",
+        "Message": "Minimum allowed retention period is 24 hours. Requested retention period (12 hours) is too short."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "retention-not-an-increase": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    }
+  },
+  "test_stream_lifecycle": {
+    "create": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "delete": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "describe-deleted": {
+      "Error": {
+        "Code": "ResourceNotFoundException",
+        "Message": "Stream <name:stream> under account <account> not found."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "retention-up": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "shards": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Shards": [
+        {
+          "HashKeyRange": {
+            "EndingHashKey": "340282366920938463463374607431768211455",
+            "StartingHashKey": "0"
+          },
+          "SequenceNumberRange": {
+            "StartingSequenceNumber": "<StartingSequenceNumber:1>"
+          },
+          "ShardId": "shardId-000000000000"
+        }
+      ]
+    },
+    "summary": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "StreamDescriptionSummary": {
+        "ChannelCount": 0,
+        "ConsumerCount": 0,
+        "EncryptionType": "NONE",
+        "EnhancedMonitoring": [
+          {
+            "ShardLevelMetrics": []
+          }
+        ],
+        "MaxRecordSizeInKiB": 1024,
+        "OpenShardCount": 1,
+        "RetentionPeriodHours": 24,
+        "StreamARN": "arn:aws:kinesis:us-east-1:<account>:stream/<name:stream>",
+        "StreamCreationTimestamp": "<datetime>",
+        "StreamModeDetails": {
+          "StreamMode": "PROVISIONED"
+        },
+        "StreamName": "<name:stream>",
+        "StreamStatus": "ACTIVE"
+      }
+    },
+    "summary-after": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "StreamDescriptionSummary": {
+        "ChannelCount": 0,
+        "ConsumerCount": 0,
+        "EncryptionType": "NONE",
+        "EnhancedMonitoring": [
+          {
+            "ShardLevelMetrics": []
+          }
+        ],
+        "MaxRecordSizeInKiB": 1024,
+        "OpenShardCount": 1,
+        "RetentionPeriodHours": 48,
+        "StreamARN": "arn:aws:kinesis:us-east-1:<account>:stream/<name:stream>",
+        "StreamCreationTimestamp": "<datetime>",
+        "StreamModeDetails": {
+          "StreamMode": "PROVISIONED"
+        },
+        "StreamName": "<name:stream>",
+        "StreamStatus": "ACTIVE"
+      }
+    },
+    "tag": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "tags": {
+      "HasMoreTags": false,
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Tags": [
+        {
+          "Key": "env",
+          "Value": "dev"
+        }
+      ]
+    }
+  }
+}

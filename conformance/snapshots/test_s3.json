@@ -1,0 +1,1114 @@
+{
+  "_recorded": {
+    "boto3": "1.43.107",
+    "botocore": "1.43.107",
+    "on": "2026-11-09",
+    "region": "us-east-1",
+    "target": "aws"
+  },
+  "test_bucket_and_object_lifecycle": {
+    "copy": {
+      "CopyObjectResult": {
+        "ChecksumCRC32": "NhCmhg==",
+        "ChecksumType": "FULL_OBJECT",
+        "ETag": "\"5d41402abc4b2a76b9719d911017c592\"",
+        "LastModified": "<datetime>"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "ServerSideEncryption": "AES256"
+    },
+    "create-bucket": {
+      "BucketArn": "arn:aws:s3:::<name:bucket>",
+      "Location": "/<name:bucket>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "delete": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 204
+      }
+    },
+    "delete-again": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 204
+      }
+    },
+    "empty-listing": {
+      "EncodingType": "url",
+      "IsTruncated": false,
+      "KeyCount": 0,
+      "MaxKeys": 1000,
+      "Name": "<name:bucket>",
+      "Prefix": "",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "get": {
+      "AcceptRanges": "bytes",
+      "Body": {
+        "<bytes>": "hello"
+      },
+      "ChecksumCRC32": "NhCmhg==",
+      "ChecksumType": "FULL_OBJECT",
+      "ContentLength": 5,
+      "ContentType": "text/plain",
+      "ETag": "\"5d41402abc4b2a76b9719d911017c592\"",
+      "LastModified": "<datetime>",
+      "Metadata": {
+        "origin": "conformance"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "ServerSideEncryption": "AES256"
+    },
+    "head": {
+      "AcceptRanges": "bytes",
+      "ContentLength": 5,
+      "ContentType": "text/plain",
+      "ETag": "\"5d41402abc4b2a76b9719d911017c592\"",
+      "LastModified": "<datetime>",
+      "Metadata": {
+        "origin": "conformance"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "ServerSideEncryption": "AES256"
+    },
+    "listing": {
+      "Contents": [
+        {
+          "ChecksumAlgorithm": [
+            "CRC32"
+          ],
+          "ChecksumType": "FULL_OBJECT",
+          "ETag": "\"5d41402abc4b2a76b9719d911017c592\"",
+          "Key": "greeting.txt",
+          "LastModified": "<datetime>",
+          "Size": 5,
+          "StorageClass": "STANDARD"
+        }
+      ],
+      "EncodingType": "url",
+      "IsTruncated": false,
+      "KeyCount": 1,
+      "MaxKeys": 1000,
+      "Name": "<name:bucket>",
+      "Prefix": "",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "location": {
+      "LocationConstraint": null,
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "put": {
+      "ChecksumCRC32": "NhCmhg==",
+      "ChecksumType": "FULL_OBJECT",
+      "ETag": "\"5d41402abc4b2a76b9719d911017c592\"",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "ServerSideEncryption": "AES256"
+    }
+  },
+  "test_bucket_configuration": {
+    "cors": {
+      "CORSRules": [
+        {
+          "AllowedHeaders": [
+            "*"
+          ],
+          "AllowedMethods": [
+            "GET"
+          ],
+          "AllowedOrigins": [
+            "https://example.com"
+          ],
+          "MaxAgeSeconds": 300
+        }
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "default-encryption": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "ServerSideEncryptionConfiguration": {
+        "Rules": [
+          {
+            "ApplyServerSideEncryptionByDefault": {
+              "SSEAlgorithm": "AES256"
+            },
+            "BlockedEncryptionTypes": {
+              "EncryptionType": [
+                "SSE-C"
+              ]
+            },
+            "BucketKeyEnabled": false
+          }
+        ]
+      }
+    },
+    "default-public-access-block": {
+      "PublicAccessBlockConfiguration": {
+        "BlockPublicAcls": true,
+        "BlockPublicPolicy": true,
+        "IgnorePublicAcls": true,
+        "RestrictPublicBuckets": true
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "delete-cors": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 204
+      }
+    },
+    "delete-policy": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 204
+      }
+    },
+    "lifecycle": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Rules": [
+        {
+          "Expiration": {
+            "Days": 7
+          },
+          "Filter": {
+            "Prefix": "tmp/"
+          },
+          "ID": "expire-tmp",
+          "Status": "Enabled"
+        }
+      ],
+      "TransitionDefaultMinimumObjectSize": "all_storage_classes_128K"
+    },
+    "no-cors": {
+      "Error": {
+        "Code": "NoSuchCORSConfiguration",
+        "Message": "The CORS configuration does not exist"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    },
+    "no-lifecycle": {
+      "Error": {
+        "Code": "NoSuchLifecycleConfiguration",
+        "Message": "The lifecycle configuration does not exist"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    },
+    "no-policy": {
+      "Error": {
+        "Code": "NoSuchBucketPolicy",
+        "Message": "The bucket policy does not exist"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    },
+    "no-website": {
+      "Error": {
+        "Code": "NoSuchWebsiteConfiguration",
+        "Message": "The specified bucket does not have a website configuration"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    },
+    "policy": {
+      "Statement": [
+        {
+          "Action": "s3:GetObject",
+          "Effect": "Allow",
+          "Principal": {
+            "AWS": "arn:aws:iam::<account>:root"
+          },
+          "Resource": "arn:aws:s3:::<name:bucket>/*",
+          "Sid": "own-account"
+        }
+      ],
+      "Version": "2012-10-17"
+    },
+    "policy-for-another-bucket": {
+      "Error": {
+        "Code": "MalformedPolicy",
+        "Message": "Policy has invalid resource"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "policy-not-json": {
+      "Error": {
+        "Code": "MalformedPolicy",
+        "Message": "This policy contains invalid Json"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "put-cors": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "put-lifecycle": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "TransitionDefaultMinimumObjectSize": "all_storage_classes_128K"
+    },
+    "put-policy": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 204
+      }
+    }
+  },
+  "test_copy_replaces_or_keeps_metadata": {
+    "absent-source": {
+      "Error": {
+        "Code": "NoSuchKey",
+        "Message": "The specified key does not exist."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    },
+    "kept": {
+      "AcceptRanges": "bytes",
+      "CacheControl": "max-age=60",
+      "ContentLength": 1,
+      "ContentType": "text/plain",
+      "ETag": "\"9dd4e461268c8034f5c8564e155c67a6\"",
+      "LastModified": "<datetime>",
+      "Metadata": {
+        "origin": "first"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "ServerSideEncryption": "AES256"
+    },
+    "onto-itself-unchanged": {
+      "Error": {
+        "Code": "InvalidRequest",
+        "Message": "This copy request is illegal because it is trying to copy an object to itself without changing the object's metadata, storage class, website redirect location or encryption attributes."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "replaced": {
+      "AcceptRanges": "bytes",
+      "ContentLength": 1,
+      "ContentType": "application/json",
+      "ETag": "\"9dd4e461268c8034f5c8564e155c67a6\"",
+      "LastModified": "<datetime>",
+      "Metadata": {
+        "origin": "second"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "ServerSideEncryption": "AES256"
+    }
+  },
+  "test_listing_with_prefix_delimiter_and_pages": {
+    "folders": {
+      "CommonPrefixes": [
+        {
+          "Prefix": "a/"
+        },
+        {
+          "Prefix": "b/"
+        }
+      ],
+      "Contents": [
+        {
+          "ChecksumAlgorithm": [
+            "CRC32"
+          ],
+          "ChecksumType": "FULL_OBJECT",
+          "ETag": "\"b28354b543375bfa94dabaeda722927f\"",
+          "Key": "top",
+          "LastModified": "<datetime>",
+          "Size": 3,
+          "StorageClass": "STANDARD"
+        }
+      ],
+      "Delimiter": "/",
+      "EncodingType": "url",
+      "IsTruncated": false,
+      "KeyCount": 3,
+      "MaxKeys": 1000,
+      "Name": "<name:bucket>",
+      "Prefix": "",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "page-1": {
+      "Contents": [
+        {
+          "ChecksumAlgorithm": [
+            "CRC32"
+          ],
+          "ChecksumType": "FULL_OBJECT",
+          "ETag": "\"32a390517fcc6e43df5fc5f2c94699e1\"",
+          "Key": "a/1",
+          "LastModified": "<datetime>",
+          "Size": 3,
+          "StorageClass": "STANDARD"
+        },
+        {
+          "ChecksumAlgorithm": [
+            "CRC32"
+          ],
+          "ChecksumType": "FULL_OBJECT",
+          "ETag": "\"08a3a0ab38cac589c7231d171c88091f\"",
+          "Key": "a/2",
+          "LastModified": "<datetime>",
+          "Size": 3,
+          "StorageClass": "STANDARD"
+        }
+      ],
+      "EncodingType": "url",
+      "IsTruncated": true,
+      "KeyCount": 2,
+      "MaxKeys": 2,
+      "Name": "<name:bucket>",
+      "NextContinuationToken": "<NextContinuationToken:1>",
+      "Prefix": "",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "page-2": {
+      "Contents": [
+        {
+          "ChecksumAlgorithm": [
+            "CRC32"
+          ],
+          "ChecksumType": "FULL_OBJECT",
+          "ETag": "\"46bc882b88120fd4dc12076ba56c7dd4\"",
+          "Key": "b/1",
+          "LastModified": "<datetime>",
+          "Size": 3,
+          "StorageClass": "STANDARD"
+        },
+        {
+          "ChecksumAlgorithm": [
+            "CRC32"
+          ],
+          "ChecksumType": "FULL_OBJECT",
+          "ETag": "\"745043227164be0ef82a563d61daef79\"",
+          "Key": "b/c/1",
+          "LastModified": "<datetime>",
+          "Size": 5,
+          "StorageClass": "STANDARD"
+        }
+      ],
+      "ContinuationToken": "<ContinuationToken:1>",
+      "EncodingType": "url",
+      "IsTruncated": true,
+      "KeyCount": 2,
+      "MaxKeys": 2,
+      "Name": "<name:bucket>",
+      "NextContinuationToken": "<NextContinuationToken:2>",
+      "Prefix": "",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "start-after": {
+      "Contents": [
+        {
+          "ChecksumAlgorithm": [
+            "CRC32"
+          ],
+          "ChecksumType": "FULL_OBJECT",
+          "ETag": "\"745043227164be0ef82a563d61daef79\"",
+          "Key": "b/c/1",
+          "LastModified": "<datetime>",
+          "Size": 5,
+          "StorageClass": "STANDARD"
+        },
+        {
+          "ChecksumAlgorithm": [
+            "CRC32"
+          ],
+          "ChecksumType": "FULL_OBJECT",
+          "ETag": "\"b28354b543375bfa94dabaeda722927f\"",
+          "Key": "top",
+          "LastModified": "<datetime>",
+          "Size": 3,
+          "StorageClass": "STANDARD"
+        }
+      ],
+      "EncodingType": "url",
+      "IsTruncated": false,
+      "KeyCount": 2,
+      "MaxKeys": 1000,
+      "Name": "<name:bucket>",
+      "Prefix": "",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "StartAfter": "b/1"
+    },
+    "under-b": {
+      "CommonPrefixes": [
+        {
+          "Prefix": "b/c/"
+        }
+      ],
+      "Contents": [
+        {
+          "ChecksumAlgorithm": [
+            "CRC32"
+          ],
+          "ChecksumType": "FULL_OBJECT",
+          "ETag": "\"46bc882b88120fd4dc12076ba56c7dd4\"",
+          "Key": "b/1",
+          "LastModified": "<datetime>",
+          "Size": 3,
+          "StorageClass": "STANDARD"
+        }
+      ],
+      "Delimiter": "/",
+      "EncodingType": "url",
+      "IsTruncated": false,
+      "KeyCount": 2,
+      "MaxKeys": 1000,
+      "Name": "<name:bucket>",
+      "Prefix": "b/",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "v1-listing": {
+      "CommonPrefixes": [
+        {
+          "Prefix": "a/"
+        },
+        {
+          "Prefix": "b/"
+        }
+      ],
+      "Contents": [
+        {
+          "ChecksumAlgorithm": [
+            "CRC32"
+          ],
+          "ChecksumType": "FULL_OBJECT",
+          "ETag": "\"b28354b543375bfa94dabaeda722927f\"",
+          "Key": "top",
+          "LastModified": "<datetime>",
+          "Size": 3,
+          "StorageClass": "STANDARD"
+        }
+      ],
+      "Delimiter": "/",
+      "EncodingType": "url",
+      "IsTruncated": false,
+      "Marker": "",
+      "MaxKeys": 1000,
+      "Name": "<name:bucket>",
+      "Prefix": "",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    }
+  },
+  "test_multipart_upload": {
+    "abort": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 204
+      }
+    },
+    "complete": {
+      "Bucket": "<name:bucket>",
+      "ChecksumCRC64NVME": "om/L0dM0gF4=",
+      "ChecksumType": "FULL_OBJECT",
+      "ETag": "\"8b0be7847da5564ae08e97af63b60885-2\"",
+      "Key": "big",
+      "Location": "https://<name:bucket>.s3.amazonaws.com/big",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "ServerSideEncryption": "AES256"
+    },
+    "create": {
+      "Bucket": "<name:bucket>",
+      "Key": "big",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "ServerSideEncryption": "AES256",
+      "UploadId": "<UploadId:1>"
+    },
+    "get": {
+      "AcceptRanges": "bytes",
+      "Body": {
+        "<bytes:sha256>": "afa11e8897b7a38e88e26c4d00768356278807baeb14267d8f8c64368d9db71c",
+        "length": 5242890
+      },
+      "ChecksumCRC64NVME": "om/L0dM0gF4=",
+      "ChecksumType": "FULL_OBJECT",
+      "ContentLength": 5242890,
+      "ContentType": "binary/octet-stream",
+      "ETag": "\"8b0be7847da5564ae08e97af63b60885-2\"",
+      "LastModified": "<datetime>",
+      "Metadata": {},
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "ServerSideEncryption": "AES256"
+    },
+    "head": {
+      "AcceptRanges": "bytes",
+      "ContentLength": 5242890,
+      "ContentType": "binary/octet-stream",
+      "ETag": "\"8b0be7847da5564ae08e97af63b60885-2\"",
+      "LastModified": "<datetime>",
+      "Metadata": {},
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "ServerSideEncryption": "AES256"
+    },
+    "in-progress": {
+      "Bucket": "<name:bucket>",
+      "IsTruncated": false,
+      "KeyMarker": "",
+      "MaxUploads": 1000,
+      "NextKeyMarker": "big",
+      "NextUploadIdMarker": "X8tw2a2u2Zc6owfli_xgkFJbfx5pU8juUfnEQoEfoUlzsXz_op8YUV08e5Ke_yzu5yLLm6HhIUbNhYz054PuKmPPXGaZ7oKYYXGKWUloO07FEODXbaNIBftiQNXCJdEt8Z0d_VnLbuJJHAYKpKsSPg--",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "UploadIdMarker": "",
+      "Uploads": [
+        {
+          "Initiated": "<datetime>",
+          "Key": "big",
+          "StorageClass": "STANDARD",
+          "UploadId": "<UploadId:1>"
+        }
+      ]
+    },
+    "part-1": {
+      "ChecksumCRC32": "r/zBbw==",
+      "ETag": "\"79b281060d337b9b2b84ccf390adcf74\"",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "ServerSideEncryption": "AES256"
+    },
+    "part-2": {
+      "ChecksumCRC32": "Qi9M+A==",
+      "ETag": "\"82136b4240d6ce4ea7d03e51469a393b\"",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "ServerSideEncryption": "AES256"
+    },
+    "part-too-small": {
+      "Error": {
+        "Code": "EntityTooSmall",
+        "Message": "Your proposed upload is smaller than the minimum allowed size"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "parts": {
+      "Bucket": "<name:bucket>",
+      "IsTruncated": false,
+      "Key": "big",
+      "MaxParts": 1000,
+      "NextPartNumberMarker": 2,
+      "PartNumberMarker": 0,
+      "Parts": [
+        {
+          "ETag": "\"79b281060d337b9b2b84ccf390adcf74\"",
+          "LastModified": "<datetime>",
+          "PartNumber": 1,
+          "Size": 5242880
+        },
+        {
+          "ETag": "\"82136b4240d6ce4ea7d03e51469a393b\"",
+          "LastModified": "<datetime>",
+          "PartNumber": 2,
+          "Size": 10
+        }
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "StorageClass": "STANDARD",
+      "UploadId": "<UploadId:1>"
+    }
+  },
+  "test_notification_fifo_queue": {
+    "configuration-after": {
+      "QueueConfigurations": [
+        {
+          "Events": [
+            "s3:ObjectCreated:*"
+          ],
+          "Id": "<Id:1>",
+          "QueueArn": "<QueueArn:1>"
+        }
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "fifo-queue": {
+      "Error": {
+        "Code": "InvalidArgument",
+        "Message": "FIFO SQS queues are not supported."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "standard-queue": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    }
+  },
+  "test_presigned_urls": {
+    "get": {
+      "body": "signed read",
+      "status": 200
+    },
+    "get-absent": {
+      "status": 404
+    },
+    "put": {
+      "status": 403
+    },
+    "what-the-put-wrote": {
+      "Error": {
+        "Code": "NoSuchKey",
+        "Message": "The specified key does not exist."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    }
+  },
+  "test_ranged_reads": {
+    "middle": {
+      "AcceptRanges": "bytes",
+      "Body": {
+        "<bytes>": "ell"
+      },
+      "ContentLength": 3,
+      "ContentRange": "bytes 1-3/11",
+      "ContentType": "binary/octet-stream",
+      "ETag": "\"5eb63bbbe01eeed093cb22bb8f5acdc3\"",
+      "LastModified": "<datetime>",
+      "Metadata": {},
+      "ResponseMetadata": {
+        "HTTPStatusCode": 206
+      },
+      "ServerSideEncryption": "AES256"
+    },
+    "open-ended": {
+      "AcceptRanges": "bytes",
+      "Body": {
+        "<bytes>": "world"
+      },
+      "ContentLength": 5,
+      "ContentRange": "bytes 6-10/11",
+      "ContentType": "binary/octet-stream",
+      "ETag": "\"5eb63bbbe01eeed093cb22bb8f5acdc3\"",
+      "LastModified": "<datetime>",
+      "Metadata": {},
+      "ResponseMetadata": {
+        "HTTPStatusCode": 206
+      },
+      "ServerSideEncryption": "AES256"
+    },
+    "past-the-end": {
+      "Error": {
+        "Code": "InvalidRange",
+        "Message": "The requested range is not satisfiable"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 416
+      }
+    },
+    "suffix": {
+      "AcceptRanges": "bytes",
+      "Body": {
+        "<bytes>": "world"
+      },
+      "ContentLength": 5,
+      "ContentRange": "bytes 6-10/11",
+      "ContentType": "binary/octet-stream",
+      "ETag": "\"5eb63bbbe01eeed093cb22bb8f5acdc3\"",
+      "LastModified": "<datetime>",
+      "Metadata": {},
+      "ResponseMetadata": {
+        "HTTPStatusCode": 206
+      },
+      "ServerSideEncryption": "AES256"
+    },
+    "whole-by-range": {
+      "AcceptRanges": "bytes",
+      "Body": {
+        "<bytes>": "hello world"
+      },
+      "ChecksumCRC32": "DUoRhQ==",
+      "ChecksumType": "FULL_OBJECT",
+      "ContentLength": 11,
+      "ContentRange": "bytes 0-10/11",
+      "ContentType": "binary/octet-stream",
+      "ETag": "\"5eb63bbbe01eeed093cb22bb8f5acdc3\"",
+      "LastModified": "<datetime>",
+      "Metadata": {},
+      "ResponseMetadata": {
+        "HTTPStatusCode": 206
+      },
+      "ServerSideEncryption": "AES256"
+    }
+  },
+  "test_refusals": {
+    "bad-bucket-name": {
+      "Error": {
+        "Code": "InvalidBucketName",
+        "Message": "The specified bucket is not valid."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
+      }
+    },
+    "create-twice": {
+      "BucketArn": "arn:aws:s3:::<name:bucket>",
+      "Location": "/<name:bucket>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "head-no-such-bucket": {
+      "Error": {
+        "Code": "404",
+        "Message": "Not Found"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    },
+    "head-no-such-key": {
+      "Error": {
+        "Code": "404",
+        "Message": "Not Found"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    },
+    "no-such-bucket": {
+      "Error": {
+        "Code": "NoSuchBucket",
+        "Message": "The specified bucket does not exist"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    },
+    "no-such-key": {
+      "Error": {
+        "Code": "NoSuchKey",
+        "Message": "The specified key does not exist."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    },
+    "no-such-upload": {
+      "Error": {
+        "Code": "NoSuchUpload",
+        "Message": "The specified upload does not exist. The upload ID may be invalid, or the upload may have been aborted or completed."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    },
+    "not-empty": {
+      "Error": {
+        "Code": "BucketNotEmpty",
+        "Message": "The bucket you tried to delete is not empty"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 409
+      }
+    },
+    "precondition": {
+      "Error": {
+        "Code": "PreconditionFailed",
+        "Message": "At least one of the pre-conditions you specified did not hold"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 412
+      }
+    }
+  },
+  "test_tagging_and_batch_delete": {
+    "bucket-tags": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "TagSet": [
+        {
+          "Key": "env",
+          "Value": "dev"
+        },
+        {
+          "Key": "team",
+          "Value": "a"
+        }
+      ]
+    },
+    "delete-many": {
+      "Deleted": [
+        {
+          "Key": "a"
+        },
+        {
+          "Key": "b"
+        },
+        {
+          "Key": "never-existed"
+        }
+      ],
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "delete-quietly": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "empty": {
+      "EncodingType": "url",
+      "IsTruncated": false,
+      "KeyCount": 0,
+      "MaxKeys": 1000,
+      "Name": "<name:bucket>",
+      "Prefix": "",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "head-counts-tags": {
+      "AcceptRanges": "bytes",
+      "Body": {
+        "<bytes>": "x"
+      },
+      "ChecksumCRC32": "jNwWgw==",
+      "ChecksumType": "FULL_OBJECT",
+      "ContentLength": 1,
+      "ContentType": "binary/octet-stream",
+      "ETag": "\"9dd4e461268c8034f5c8564e155c67a6\"",
+      "LastModified": "<datetime>",
+      "Metadata": {},
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "ServerSideEncryption": "AES256",
+      "TagCount": 2
+    },
+    "no-bucket-tags": {
+      "Error": {
+        "Code": "NoSuchTagSet",
+        "Message": "The TagSet does not exist"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    },
+    "no-object-tags": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "TagSet": []
+    },
+    "object-tags": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "TagSet": [
+        {
+          "Key": "env",
+          "Value": "dev"
+        },
+        {
+          "Key": "team",
+          "Value": "a"
+        }
+      ]
+    },
+    "tag-bucket": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 204
+      }
+    },
+    "tag-object": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "untag-object": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 204
+      }
+    }
+  },
+  "test_versioning_and_delete_markers": {
+    "delete": {
+      "DeleteMarker": true,
+      "ResponseMetadata": {
+        "HTTPStatusCode": 204
+      },
+      "VersionId": "<VersionId:3>"
+    },
+    "enable": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "enabled": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "Status": "Enabled"
+    },
+    "get-latest-is-a-marker": {
+      "Error": {
+        "Code": "NoSuchKey",
+        "Message": "The specified key does not exist."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 404
+      }
+    },
+    "get-v1": {
+      "AcceptRanges": "bytes",
+      "Body": {
+        "<bytes>": "one"
+      },
+      "ChecksumCRC32": "emyG8Q==",
+      "ChecksumType": "FULL_OBJECT",
+      "ContentLength": 3,
+      "ContentType": "binary/octet-stream",
+      "ETag": "\"f97c5d29941bfb1b2fdab0874906ab82\"",
+      "LastModified": "<datetime>",
+      "Metadata": {},
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "ServerSideEncryption": "AES256",
+      "VersionId": "<VersionId:1>"
+    },
+    "put-v1": {
+      "ChecksumCRC32": "emyG8Q==",
+      "ChecksumType": "FULL_OBJECT",
+      "ETag": "\"f97c5d29941bfb1b2fdab0874906ab82\"",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "ServerSideEncryption": "AES256",
+      "VersionId": "<VersionId:1>"
+    },
+    "put-v2": {
+      "ChecksumCRC32": "EcqKZg==",
+      "ChecksumType": "FULL_OBJECT",
+      "ETag": "\"b8a9f715dbb64fd5c56e7783c6820a61\"",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "ServerSideEncryption": "AES256",
+      "VersionId": "<VersionId:2>"
+    },
+    "unversioned": {
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "versions": {
+      "DeleteMarkers": [
+        {
+          "IsLatest": true,
+          "Key": "k",
+          "LastModified": "<datetime>",
+          "VersionId": "<VersionId:3>"
+        }
+      ],
+      "EncodingType": "url",
+      "IsTruncated": false,
+      "KeyMarker": "",
+      "MaxKeys": 1000,
+      "Name": "<name:bucket>",
+      "Prefix": "",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "VersionIdMarker": "",
+      "Versions": [
+        {
+          "ChecksumAlgorithm": [
+            "CRC32"
+          ],
+          "ChecksumType": "FULL_OBJECT",
+          "ETag": "\"b8a9f715dbb64fd5c56e7783c6820a61\"",
+          "IsLatest": false,
+          "Key": "k",
+          "LastModified": "<datetime>",
+          "Size": 3,
+          "StorageClass": "STANDARD",
+          "VersionId": "<VersionId:2>"
+        },
+        {
+          "ChecksumAlgorithm": [
+            "CRC32"
+          ],
+          "ChecksumType": "FULL_OBJECT",
+          "ETag": "\"f97c5d29941bfb1b2fdab0874906ab82\"",
+          "IsLatest": false,
+          "Key": "k",
+          "LastModified": "<datetime>",
+          "Size": 3,
+          "StorageClass": "STANDARD",
+          "VersionId": "<VersionId:1>"
+        }
+      ]
+    }
+  }
+}
