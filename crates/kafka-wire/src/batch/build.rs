@@ -10,6 +10,7 @@ use super::layout::{CRC, LENGTH, crc_of};
 pub struct BatchBuilder {
     base_offset: i64,
     count: u32,
+    last_offset_delta: Option<i32>,
     attributes: u16,
     first_timestamp: i64,
     max_timestamp: i64,
@@ -22,6 +23,7 @@ impl Default for BatchBuilder {
         Self {
             base_offset: 0,
             count: 1,
+            last_offset_delta: None,
             attributes: 0,
             first_timestamp: 0,
             max_timestamp: 0,
@@ -49,6 +51,13 @@ impl BatchBuilder {
     #[must_use]
     pub fn records(mut self, n: u32) -> Self {
         self.count = n;
+        self
+    }
+
+    /// The offsets the batch spans, less one, when that is not its record count less one (a batch compaction thinned).
+    #[must_use]
+    pub fn last_offset_delta(mut self, v: i32) -> Self {
+        self.last_offset_delta = Some(v);
         self
     }
 
@@ -94,11 +103,11 @@ impl BatchBuilder {
         b.put_i8(2); // magic
         b.put_u32(0); // crc, below
         b.put_u16(self.attributes);
-        b.put_i32(
+        b.put_i32(self.last_offset_delta.unwrap_or_else(|| {
             i32::try_from(self.count)
                 .unwrap_or(i32::MAX)
-                .wrapping_sub(1),
-        );
+                .wrapping_sub(1)
+        }));
         b.put_i64(self.first_timestamp);
         b.put_i64(self.max_timestamp);
         b.put_i64(self.producer.0);

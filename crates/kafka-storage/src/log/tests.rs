@@ -1,12 +1,21 @@
 //! Tests of the partition log, on the simulated disk.
 
 mod append;
+mod compaction;
+mod compaction_edges;
+mod compaction_failures;
+mod compaction_read;
+mod compaction_segments;
+mod compaction_stop;
+mod compaction_txn;
 mod durability;
 mod history;
 mod open;
+mod producer_last;
 mod read;
 mod recovery;
 mod retention;
+mod thinned;
 mod tickets;
 mod times;
 mod transactional;
@@ -25,6 +34,7 @@ pub(super) fn config(segment_bytes: u64) -> LogConfig {
     LogConfig {
         segment_bytes,
         index_interval_bytes: 150,
+        segment_ms: None,
     }
 }
 

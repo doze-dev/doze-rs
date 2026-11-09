@@ -71,3 +71,24 @@ fn only_directories_that_look_like_partitions_of_the_name_are_stray() {
     assert_eq!(remove_stray_dirs(&fs, data, &topic("t")).unwrap(), 2);
     assert_eq!(dirs(&fs), ["t", "t-", "t-5", "t-x", "tt-0", "u-0"]);
 }
+
+#[test]
+fn directories_made_or_removed_from_a_number_up_leave_the_ones_below_alone() {
+    let fs = disk();
+    let (data, t) = (Path::new(DATA), topic("t"));
+    create_partition_dirs(&fs, data, &t, PartitionCount::new(2).unwrap()).unwrap();
+    fs.open_or_create(&data.join("t-0").join("x")).unwrap();
+    create_partition_dirs_from(&fs, data, &t, 2, PartitionCount::new(4).unwrap()).unwrap();
+    assert_eq!(
+        dirs(&after_power_cut(&fs)),
+        ["t-0", "t-1", "t-2", "t-3"],
+        "all four are durable"
+    );
+    remove_partition_dirs_from(&fs, data, &t, 2, PartitionCount::new(4).unwrap()).unwrap();
+    assert_eq!(dirs(&after_power_cut(&fs)), ["t-0", "t-1"]);
+    assert_eq!(
+        fs.names(&data.join("t-0")),
+        ["x"],
+        "what is in the kept ones is kept"
+    );
+}

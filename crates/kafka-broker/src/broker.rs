@@ -42,6 +42,10 @@ const SERVED: &[ApiKey] = &[
     ApiKey::ConsumerGroupHeartbeat,
     ApiKey::ConsumerGroupDescribe,
     ApiKey::DeleteRecords,
+    ApiKey::CreatePartitions,
+    ApiKey::DescribeConfigs,
+    ApiKey::AlterConfigs,
+    ApiKey::IncrementalAlterConfigs,
     ApiKey::DescribeProducers,
     ApiKey::AddPartitionsToTxn,
     ApiKey::AddOffsetsToTxn,
@@ -56,6 +60,8 @@ const SERVED: &[ApiKey] = &[
 pub struct Broker<F: Fs = RealFs> {
     pub(crate) fs: F,
     pub(crate) config: Config,
+    /// The broker-wide defaults in force: the flags, as AlterConfigs on the broker has changed them.
+    pub(crate) defaults: crate::Live,
     pub(crate) meta: Arc<MetaStore>,
     pub(crate) partitions: Partitions<F>,
     pub(crate) groups: Groups,
@@ -70,6 +76,11 @@ pub struct Broker<F: Fs = RealFs> {
     /// Held for the whole of a topic's creation or deletion: a name freed by a delete is not made again until the
     /// delete has cleared the old topic's partitions, which are named the same.
     pub(crate) topic_admin: tokio::sync::Mutex<()>,
+    /// Held for the whole of a change to the configs of a topic or of the broker: what is changed is worked out from what
+    /// is there, so two changes at once would each be worked out from the same old configs and one would undo the other.
+    pub(crate) config_admin: tokio::sync::Mutex<()>,
+    /// Set when the broker is stopping: a round of cleaning that is running gives up (it is looked at between batches).
+    pub(crate) stop_cleaning: Arc<std::sync::atomic::AtomicBool>,
 }
 
 impl<F: Fs> Broker<F> {
@@ -83,8 +94,14 @@ impl<F: Fs> Broker<F> {
         // Read, and removed before anything is written: a marker that came back after a power cut would vouch for a
         // log this run was in the middle of writing.
         let stop = StopState::begin(&fs, &config.data_dir)?;
-        let partitions =
-            Partitions::new(fs.clone(), config.clone(), stop.clone(), Arc::clone(&meta));
+        let defaults = crate::Live::new(config.defaults, stored_configs(&meta, config.node_id)?);
+        let partitions = Partitions::new(
+            fs.clone(),
+            config.clone(),
+            defaults.clone(),
+            stop.clone(),
+            Arc::clone(&meta),
+        );
         let millis = |d: std::time::Duration| u64::try_from(d.as_millis()).unwrap_or(u64::MAX);
         let meta_txns = meta.txns()?;
         let groups = Groups::new(
@@ -101,6 +118,7 @@ impl<F: Fs> Broker<F> {
         Ok(Self {
             fs,
             config,
+            defaults,
             meta,
             partitions,
             groups,
@@ -109,6 +127,8 @@ impl<F: Fs> Broker<F> {
             topics_changed: tokio::sync::watch::channel(0).0,
             stop,
             topic_admin: tokio::sync::Mutex::new(()),
+            config_admin: tokio::sync::Mutex::new(()),
+            stop_cleaning: Arc::default(),
         })
     }
 
@@ -119,6 +139,8 @@ impl<F: Fs> Broker<F> {
     /// The record of the stop could not be written; the next start then distrusts every partition, which is slower
     /// and safe.
     pub async fn shutdown(&self) -> Result<(), BrokerError> {
+        self.stop_cleaning
+            .store(true, std::sync::atomic::Ordering::Relaxed);
         let closed = self.partitions.close_all().await;
         let data = &self.config.data_dir;
         // What this stop cannot vouch for. A partition this run opened is as its last close left it, whatever the
@@ -199,6 +221,10 @@ impl<F: Fs> Broker<F> {
             }
             Request::ConsumerGroupDescribe(r) => self.consumer_group_describe(&r).await,
             Request::DeleteRecords(r) => self.delete_records(&r).await,
+            Request::CreatePartitions(r) => self.create_partitions(&r).await,
+            Request::DescribeConfigs(r) => self.describe_configs(&r),
+            Request::AlterConfigs(r) => self.alter_configs(&r).await,
+            Request::IncrementalAlterConfigs(r) => self.incremental_alter_configs(&r).await,
             Request::DescribeProducers(r) => self.describe_producers(&r).await,
             Request::InitProducerId(r) => respond(Response::InitProducerId(
                 self.init_producer_id(head.version, &r).await,
@@ -215,11 +241,7 @@ impl<F: Fs> Broker<F> {
             | Request::DescribeAcls(_)
             | Request::CreateAcls(_)
             | Request::DeleteAcls(_)
-            | Request::DescribeConfigs(_)
-            | Request::AlterConfigs(_)
             | Request::SaslAuthenticate(_)
-            | Request::CreatePartitions(_)
-            | Request::IncrementalAlterConfigs(_)
             | Request::DescribeCluster(_)
             | Request::GetTelemetrySubscriptions(_)
             | Request::PushTelemetry(_) => Outcome::Close,
@@ -237,4 +259,17 @@ fn client_of<'a>(listener: &'a Listener, head: &'a RequestHead) -> crate::handle
         id: head.client_id.as_deref().unwrap_or(""),
         host: &listener.client_host,
     }
+}
+
+/// The broker configs set before the last stop: for all brokers, and for this one.
+fn stored_configs(meta: &MetaStore, node_id: i32) -> Result<crate::configs::Dynamic, BrokerError> {
+    let mut out = crate::configs::Dynamic::default();
+    for ((scope, name), value) in meta.broker_configs()? {
+        if scope.is_empty() {
+            out.cluster.insert(name, value);
+        } else if scope == node_id.to_string() {
+            out.own.insert(name, value);
+        }
+    }
+    Ok(out)
 }

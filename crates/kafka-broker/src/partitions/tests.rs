@@ -40,7 +40,13 @@ pub(super) fn setup_full(
     let mut config = Config::new("/data".into());
     tweak(&mut config);
     (
-        Partitions::new(fs.clone(), config, Default::default(), Arc::clone(&meta)),
+        Partitions::new(
+            fs.clone(),
+            config.clone(),
+            crate::Live::new(config.defaults, Default::default()),
+            Default::default(),
+            Arc::clone(&meta),
+        ),
         topic,
         meta,
         fs,
@@ -154,3 +160,12 @@ async fn a_partition_being_closed_is_not_opened_again_until_it_is_closed() {
 
 mod descriptors;
 mod txns;
+
+#[test]
+fn the_last_stable_offset_is_held_inside_the_log_from_both_sides() {
+    use super::clamp_stable;
+    assert_eq!(clamp_stable(5, 0, 10), 5);
+    assert_eq!(clamp_stable(2, 7, 10), 7, "not below the start");
+    // A start read after the end, and past it: the answer is not above the end that was read.
+    assert_eq!(clamp_stable(2, 12, 10), 10, "never above the end");
+}

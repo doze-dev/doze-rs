@@ -3,6 +3,7 @@
 //! Everything here is synchronous and runtime-free: a log is a value with `&mut self` methods, and every
 //! file operation goes through [`fs::Fs`], which is what lets the whole crate run on a simulated disk.
 
+pub mod compact;
 pub mod error;
 pub mod fs;
 mod index;

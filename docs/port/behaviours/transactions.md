@@ -34,7 +34,12 @@ A producer whose newest remembered batch is below the log start is forgotten too
 batches) and starts afresh. After a restart the state is rebuilt from the last 16 MiB of the log, so a batch whose
 acknowledgement was lost in the stop is still recognised. A transaction marker raises the producer's epoch on the partition
 and its sequences start at 0 again, so a fenced producer is refused by the partition as well as by the coordinator; the epoch is read
-back from the markers in the log when the partition is opened again. Test:
+back from the markers in the log when the partition is opened again. When a marker found at open is all that is left of a
+producer (DeleteRecords or retention took the batches it ended), its epoch is kept (a lower epoch is still fenced, a higher one
+still starts at 0) but where its sequences stand is not known, so its next batch at that epoch is its baseline, as before the
+reopen (Kafka's `ProducerAppendInfo.checkSequence`: a producer whose records retention or DeleteRecords deleted is accepted
+with any sequence; Doze has no snapshots, so it matches its own answer from before the reopen). Test:
+`producers_after_trim::*`, `producers::tests::*` (marker found in the history), `compaction_model` (random workloads),
 `producers::tests::producers_silent_for_a_day_are_forgotten_and_the_ceiling_holds`,
 `a_producer_whose_batches_are_all_below_the_log_start_is_forgotten`, `a_marker_raises_the_producers_epoch_and_its_sequences_start_again`,
 `idempotence::a_retry_after_a_restart_is_still_recognised`, `history::*`,

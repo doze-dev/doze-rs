@@ -7,10 +7,12 @@
 //! a [`Ticket`], and [`PartitionLog::sync`] makes every ticket before it good with one flush.
 
 mod append;
+mod compact;
 mod history;
 mod open;
 mod read;
 mod shared;
+mod skip;
 mod sync;
 mod times;
 mod trim;
@@ -36,6 +38,9 @@ pub struct LogConfig {
     pub segment_bytes: u64,
     /// An index entry is written about every this many bytes of log.
     pub index_interval_bytes: u64,
+    /// The active segment rolls, at the next append, once its first batch is older than this (`segment.ms`); `None` is
+    /// never.
+    pub segment_ms: Option<i64>,
 }
 
 impl Default for LogConfig {
@@ -43,7 +48,16 @@ impl Default for LogConfig {
         Self {
             segment_bytes: 128 << 20,
             index_interval_bytes: 4096,
+            segment_ms: None,
         }
+    }
+}
+
+impl<F: Fs> PartitionLog<F> {
+    /// Makes `config` the one the log is judged by from the next append on: the active segment rolls at the new size,
+    /// and segments made after this index at the new interval (the one being written keeps the interval it began with).
+    pub fn set_config(&mut self, config: LogConfig) {
+        self.config = config;
     }
 }
 

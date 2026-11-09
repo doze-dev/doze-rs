@@ -66,25 +66,31 @@ async fn a_topic_with_no_bound_keeps_everything_and_one_whose_age_is_up_loses_wh
     let rig = filled(&[]).await;
     rig.broker.check_logs().await;
     assert_eq!(rig.list_offset(7, "t", 0, -2).await.offset, 0, "no bound");
-    // The records are stamped with a time long ago: retention.ms of a second finds every sealed segment too old.
+    // The records are stamped with a time long ago: retention.ms of a second finds every segment too old, the active
+    // one too (it is rolled first, so the partition has one to write to).
     let old = filled(&[("retention.ms", "1000")]).await;
     old.broker.check_logs().await;
-    assert!(old.list_offset(7, "t", 0, -2).await.offset > 0);
+    assert_eq!(old.list_offset(7, "t", 0, -2).await.offset, 600);
+    assert_eq!(old.produce(-1, "t", 0, records(10)).await.error_code, 0);
+    assert_eq!(old.list_offset(7, "t", 0, -1).await.offset, 610);
 }
 
 #[tokio::test]
-async fn the_active_segment_is_never_deleted_whatever_the_bound() {
+async fn a_bound_of_no_bytes_takes_the_active_segment_too_and_the_partition_goes_on_from_where_it_was()
+ {
     let rig = filled(&[("retention.bytes", "0")]).await;
     rig.broker.check_logs().await;
-    let start = rig.list_offset(7, "t", 0, -2).await.offset;
-    assert!(start < 600, "the newest data stays: start {start}");
+    assert_eq!(rig.list_offset(7, "t", 0, -2).await.offset, 600);
+    assert_eq!(rig.list_offset(7, "t", 0, -1).await.offset, 600);
+    assert_eq!(rig.produce(-1, "t", 0, records(10)).await.error_code, 0);
     let got = rig
         .fetch(support::fetch_request(
-            &[("t", 0, start, 1 << 20)],
+            &[("t", 0, 600, 1 << 20)],
             0,
             1,
             1 << 20,
         ))
         .await;
+    assert_eq!(got[0].error_code, 0);
     assert!(got[0].records.as_ref().is_some_and(|r| !r.is_empty()));
 }

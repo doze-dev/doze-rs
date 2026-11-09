@@ -1,9 +1,11 @@
 # Phase 7: topic admin, configs, retention and compaction
 
-Status: PLAN (2026-11-09; started at the owner's word while the Phase 6 re-audit runs). Catalogue: behaviours/admin.md and
-behaviours/compaction.md (written as slices land). Goal: the topic configuration a client sets is the configuration the
-broker acts on; a partition count can be raised; a partition's start can be moved; old data is deleted by age and size on its
-own; a compacted topic keeps the latest record of each key. The recorded Apache Kafka 4.3.1 scenarios of these APIs pass.
+Status: DONE (2026-11-10) after two independent audits (the first, at 9eded61, said not done: one blocker, four major; the second,
+at b394527, said done, with minors and test gaps that are all closed: `debt.md` section H). Catalogue: behaviours/admin.md and behaviours/compaction.md. Goal: the topic
+configuration a client sets is the configuration the broker acts on; a partition count can be raised; a partition's start can be
+moved; old data is deleted by age and size on its own; a compacted topic keeps the latest record of each key. The recorded
+Apache Kafka 4.3.1 scenarios of these APIs pass (`list-config-append`, the Phase 7 rows of `version-matrix`, `metadata-autocreate`).
+
 
 ## What carries in from earlier phases (`debt.md`)
 - `Peek::read` insists that a batch's record count agrees with its last offset delta; compaction breaks that on purpose (a
@@ -42,7 +44,8 @@ sweep needs (`retention.ms`, `retention.bytes`, `segment.ms`, the compaction set
 
 **Retention.** One broker task (`log.retention.check.interval.ms`, default 5 minutes, a test knob like the offsets one) walks
 the topics: an open partition is asked through its writer (`enforce_retention`, which exists in storage), a closed one is
-judged from its files (`enforce_closed`, which exists). `segment.ms` rolls an idle active segment by age.
+judged from its files (`enforce_closed`, which exists). `segment.ms` rolls the active segment at the next append once its
+wall-clock age (since its first write) passes it; an idle partition keeps its segment until then (ADM-D7).
 
 **DeleteRecords.** Storage already moves a log start (`PartitionLog::delete_before`). The handler adds Kafka's checks, the
 response's low watermark, the producer-state and transaction-index effects of the start moving (both are pruned by the start),
@@ -53,9 +56,10 @@ partitions open on first use; validate-only changes nothing; assignments are che
 
 **Compaction** (storage `compact/`, broker `cleaner`). A pure planner chooses the logs and segments from sizes, ages, the
 dirty ratio and the lags; an executor reads the dirty sealed segments (below the last stable offset) into a key to latest
-offset map, rewrites each eligible segment to `.cleaned`, swaps it in (`.swap` and rename, the sequence that is safe against a
-stop at any point, tested with `SimFs` stops at every operation as the log's own recovery is), and removes what is emptied
-except the first segment. Offsets never move; batches keep base offset and offset span, so records leave gaps; the empty batch
+offset map, rewrites each eligible segment to a `.tmp` file beside it and puts it in place a few segments at a time (the index
+removed first, the log renamed over, the index renamed in: the sequence that is safe against a stop at any point, tested with
+`SimFs` stops at every operation as the log's own recovery is), and removes a segment left with nothing but its ending batch
+(the first segment excepted: CMP-D1). Offsets never move; batches keep base offset and offset span, so records leave gaps; the empty batch
 that holds the last offset or producer sequence is kept. Tombstones stay for `delete.retention.ms`; aborted data goes; a marker
 stays while a record of its transaction does. The reader, the walk and the index accept gaps. Produce refuses a keyless
 record on a compacted topic (INVALID_RECORD, per-record errors). `compact,delete` compacts first and retains after.

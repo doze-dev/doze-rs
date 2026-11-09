@@ -64,6 +64,7 @@ func main() {
 		scenario{"upgrade-848", []client{sar, rdk, fra8, rdk8}, "range", false},
 		scenario{"classic-joins-848", []client{fra8, rdk8, sar, rdk}, "range", false},
 		eos{},
+		compaction{},
 		fence{},
 		txnScenario{franzTxn{}},
 		txnScenario{saramaTxn{}},

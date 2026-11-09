@@ -7,7 +7,9 @@ pub(super) const CRC: usize = 17;
 pub(super) const ATTRIBUTES: usize = 21;
 /// Through `lastOffsetDelta`: the fields every batch has, whatever its format.
 const THROUGH_LAST_OFFSET_DELTA: usize = 27;
+pub(super) const FIRST_TIMESTAMP: usize = 27;
 pub(super) const MAX_TIMESTAMP: usize = 35;
+pub(super) const RECORD_COUNT: usize = 57;
 
 /// The whole v2 header, through the record count.
 pub const HEADER_LEN: usize = 61;

@@ -74,6 +74,7 @@ async fn open_and_aborted_transactions_are_seen_as_they_are_appended_and_after_a
     let restarted = Partitions::new(
         fs.process_restart(),
         Config::new("/data".into()),
+        crate::Live::new(Default::default(), Default::default()),
         Default::default(),
         meta,
     );
@@ -129,6 +130,7 @@ async fn reads_on_reopening(transactional: bool) -> u64 {
     let restarted = Partitions::new(
         disk.clone(),
         Config::new("/data".into()),
+        crate::Live::new(Default::default(), Default::default()),
         Default::default(),
         meta,
     );
@@ -213,6 +215,7 @@ async fn the_epoch_a_marker_raised_is_still_the_producers_after_the_partition_is
     let restarted = Partitions::new(
         fs.process_restart(),
         Config::new("/data".into()),
+        crate::Live::new(Default::default(), Default::default()),
         Default::default(),
         meta,
     );
@@ -222,6 +225,10 @@ async fn the_epoch_a_marker_raised_is_still_the_producers_after_the_partition_is
         Some(3),
         "read back from the log"
     );
+    // A marker begins the producer's sequences again at its epoch: its first batch there is sequence 0, which is new, not
+    // a repeat of the sequence 0 written at the epoch before.
+    let again = Batch::parse(BatchBuilder::new().producer(7, 3, 0).build()).unwrap();
+    append(&q, again).await;
 }
 
 #[tokio::test]

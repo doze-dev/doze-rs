@@ -20,12 +20,26 @@ const GROUP: usize = 64;
 /// How much of the log's tail is read to relearn its producers after a restart.
 const HISTORY_BYTES: u64 = 16 << 20;
 
-pub(super) enum Command {
+pub(super) enum Command<F: Fs> {
     Append(Append),
     /// What the partition knows of its transactions and producers.
     Txns(oneshot::Sender<Result<TxnView, StorageError>>),
     /// Move the start of the log up; answers the start now in force.
     Trim(Trim, oneshot::Sender<Result<Offset, StorageError>>),
+    /// Plan a round of cleaning, if the log is due one.
+    Clean(
+        kafka_storage::compact::Params,
+        oneshot::Sender<Result<Option<kafka_storage::compact::CleanJob<F>>, StorageError>>,
+    ),
+    /// Put a round of cleaning in place; answers how many segments it replaced.
+    Install(
+        kafka_storage::compact::Cleaned,
+        oneshot::Sender<Result<usize, StorageError>>,
+    ),
+    /// Take back the files of a round that will not be put in place.
+    Discard(kafka_storage::compact::Cleaned),
+    /// Judge appends by this config from now on.
+    Configure(kafka_storage::LogConfig),
     /// Flush and close; answers whether that worked.
     Close(oneshot::Sender<bool>),
 }
@@ -74,6 +88,10 @@ struct Memory {
     loaded: bool,
     /// The transactions the log holds, shared with the readers.
     txns: Arc<RwLock<TxnIndex>>,
+    /// How far the last round of cleaning that was put in place got. The aborted transactions that ended before it have no
+    /// record left; they are let go one round later, so that a reader that began on the old segments is not told less than
+    /// what it reads.
+    cleaned_to: i64,
 }
 
 /// Takes commands until the queue closes or a Close arrives: appends are written in the order they came, then one
@@ -82,7 +100,7 @@ struct Memory {
 /// there is something to flush: an idle partition holds no timer.
 pub(super) async fn run<F: Fs>(
     mut log: PartitionLog<F>,
-    mut queue: mpsc::Receiver<Command>,
+    mut queue: mpsc::Receiver<Command<F>>,
     fsync_interval: Duration,
     txns: Arc<RwLock<TxnIndex>>,
 ) {
@@ -91,6 +109,7 @@ pub(super) async fn run<F: Fs>(
         producers: Producers::default(),
         loaded: false,
         txns,
+        cleaned_to: 0,
     };
     loop {
         let next = match unflushed_since {
@@ -143,7 +162,7 @@ enum Flushed {
 fn work<F: Fs>(
     log: &mut PartitionLog<F>,
     memory: &mut Memory,
-    group: Vec<Command>,
+    group: Vec<Command<F>>,
 ) -> (Option<oneshot::Sender<bool>>, Flushed) {
     let (mut wrote, mut wants_flush, mut closing) = (false, false, None);
     for command in group {
@@ -163,6 +182,23 @@ fn work<F: Fs>(
             Command::Trim(how, reply) => {
                 let _ = reply.send(trim(log, memory, how));
             }
+            Command::Clean(params, reply) => {
+                let _ = reply.send(cleaning::plan(log, memory, &params));
+            }
+            Command::Install(cleaned, reply) => {
+                let installed = log.install_cleaned(&cleaned);
+                if installed.is_ok() {
+                    memory
+                        .txns
+                        .write()
+                        .unwrap_or_else(std::sync::PoisonError::into_inner)
+                        .forget_before(memory.cleaned_to);
+                    memory.cleaned_to = memory.cleaned_to.max(cleaned.clean_to);
+                }
+                let _ = reply.send(installed);
+            }
+            Command::Discard(cleaned) => log.discard_cleaned(&cleaned),
+            Command::Configure(config) => log.set_config(config),
             Command::Close(done) => closing = Some(done),
         }
     }
@@ -239,10 +275,13 @@ fn relearn<F: Fs>(log: &PartitionLog<F>, memory: &mut Memory) -> Result<(), Stor
     for batch in log.reader().producer_history(HISTORY_BYTES)? {
         let Some(p) = batch.producer else { continue };
         let Some(first) = p.base_sequence.and_then(|s| i32::try_from(s).ok()) else {
-            // A marker: the producer is at least at its epoch (a fence raised it), and starts its sequences again.
-            memory
-                .producers
-                .marked(p.id.get(), p.epoch.get(), batch.max_timestamp.get());
+            // A marker: the producer is at least at its epoch (a fence raised it), and starts its sequences again. If it is
+            // all that is left of the producer, the sequences it ended are not known.
+            memory.producers.marked_in_history(
+                p.id.get(),
+                p.epoch.get(),
+                batch.max_timestamp.get(),
+            );
             continue;
         };
         memory.producers.record(
@@ -250,7 +289,8 @@ fn relearn<F: Fs>(log: &PartitionLog<F>, memory: &mut Memory) -> Result<(), Stor
                 id: p.id.get(),
                 epoch: p.epoch.get(),
                 first,
-                last: last_of(first, batch.record_count),
+                // The span of sequences is the span of offsets, whatever compaction left in the batch.
+                last: last_of(first, batch.last_offset_delta.saturating_add(1)),
                 base_offset: batch.base_offset,
                 max_timestamp: batch.max_timestamp.get(),
             },
@@ -261,6 +301,7 @@ fn relearn<F: Fs>(log: &PartitionLog<F>, memory: &mut Memory) -> Result<(), Stor
     Ok(())
 }
 
+mod cleaning;
 mod transactions;
 pub(super) use transactions::{read_index, shared};
 use transactions::{trim, view, write};

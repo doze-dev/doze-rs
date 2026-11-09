@@ -1,5 +1,6 @@
 //! The metadata database: one redb file, opened over the file seam.
 
+mod broker_configs;
 mod lives;
 mod offsets;
 mod producer_ids;
@@ -28,6 +29,9 @@ pub(super) const GROUP_LIVES: TableDefinition<'static, &str, &[u8]> =
     TableDefinition::new("group_lives");
 /// Named counters.
 pub(super) const TXNS: TableDefinition<'static, &str, &[u8]> = TableDefinition::new("txns");
+/// The broker's dynamic configs: `scope/name` to the value as text.
+pub(super) const BROKER_CONFIGS: TableDefinition<'static, &str, &str> =
+    TableDefinition::new("broker_configs");
 
 pub(super) const COUNTERS: TableDefinition<'static, &str, u64> = TableDefinition::new("counters");
 
@@ -114,6 +118,7 @@ fn make<F: Fs>(fs: &F, dir: &Path, path: &Path) -> Result<(), MetaError> {
     txn.open_table(OFFSETS)?;
     txn.open_table(GROUP_LIVES)?;
     txn.open_table(TXNS)?;
+    txn.open_table(BROKER_CONFIGS)?;
     txn.commit()?;
     // Closed by name, not by dropping: closing flushes once more, and a flush that fails must stop the
     // file being put in place (a dropped database would swallow it, and the file's later flushes may

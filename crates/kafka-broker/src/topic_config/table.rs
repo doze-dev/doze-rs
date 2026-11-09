@@ -29,8 +29,8 @@ pub(super) enum Fallback {
     None,
     /// This value.
     Fixed(&'static str),
-    /// The broker's own setting.
-    Broker(fn(&Defaults) -> String),
+    /// The broker's own setting, and what Kafka's own default for it is (a different value is a static broker config).
+    Broker(fn(&Defaults) -> String, &'static str),
 }
 
 #[derive(Debug)]
@@ -78,7 +78,7 @@ pub(super) static SETTINGS: &[Setting] = &[
     s(
         "index.interval.bytes",
         Int { min: 0 },
-        Broker(|d| d.index_interval_bytes.to_string()),
+        Broker(|d| d.index_interval_bytes.to_string(), "4096"),
     ),
     s("leader.replication.throttled.replicas", Text, Fixed("")),
     s("local.retention.bytes", Long { min: -2 }, Fixed("-2")),
@@ -87,7 +87,7 @@ pub(super) static SETTINGS: &[Setting] = &[
     s(
         "max.message.bytes",
         Int { min: 0 },
-        Broker(|d| d.message_max_bytes.to_string()),
+        Broker(|d| d.message_max_bytes.to_string(), "1048588"),
     ),
     s("message.downconversion.enable", TRUE_FALSE, Fallback::None),
     s("message.format.version", Text, Fallback::None),
@@ -111,11 +111,10 @@ pub(super) static SETTINGS: &[Setting] = &[
         Choice(&["CreateTime", "LogAppendTime"]),
         Fixed("CreateTime"),
     ),
-    // Kafka's default is 0.5; here a topic is cleaned as soon as a segment has rolled.
     s(
         "min.cleanable.dirty.ratio",
         Double { min: 0.0, max: 1.0 },
-        Fixed("0"),
+        Fixed("0.5"),
     ),
     s("min.compaction.lag.ms", Long { min: 0 }, Fixed("0")),
     s("min.insync.replicas", Int { min: 1 }, Fixed("1")),
@@ -126,19 +125,19 @@ pub(super) static SETTINGS: &[Setting] = &[
     s(
         "retention.bytes",
         Long { min: -1 },
-        Broker(|d| bound(d.retention_bytes)),
+        Broker(|d| bound(d.retention_bytes), "-1"),
     ),
     s(
         "retention.ms",
         Long { min: -1 },
-        Broker(|d| bound(d.retention_ms)),
+        Broker(|d| bound(d.retention_ms), "604800000"),
     ),
     // Kafka asks for a megabyte since 4.0. Lower here, so retention can be tried on a handful of records, but
     // not so low that every record is a file of its own: a segment is two open files while its partition is in use.
     s(
         "segment.bytes",
         Int { min: 1024 },
-        Broker(|d| d.segment_bytes.to_string()),
+        Broker(|d| d.segment_bytes.to_string(), "1073741824"),
     ),
     s("segment.index.bytes", Int { min: 4 }, Fixed("10485760")),
     s("segment.jitter.ms", Long { min: 0 }, Fixed("0")),

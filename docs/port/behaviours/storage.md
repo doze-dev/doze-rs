@@ -152,10 +152,11 @@ Test: `log::tests::trim::delete_before_moves_the_start_and_removes_whole_segment
 
 ## Retention
 
-### S20. Retention deletes whole old non-active segments
+### S20. Retention deletes whole old segments (the active one too, once rolled)
 A policy has `max_bytes` and `max_age` (each optional). First by age: oldest sealed segments whose age is before the
 cutoff; a segment's age is the largest timestamp of its records, or, if none has one, when it was last written. Then
-by size: while the total exceeds `max_bytes`. The active segment is never deleted. The log start advances to the new
+by size: while the total exceeds `max_bytes` and what remains stays at least `max_bytes`. An empty active segment is never
+deleted; a non-empty one past a bound is rolled first and then deleted with the rest (Phase 7, M2). The log start advances to the new
 first segment, and, as for DeleteRecords, it is recorded durably before any file is removed: removals are only in
 memory until the directory is flushed, and a power cut may keep a later one and lose an earlier one, which would leave a
 hole in the log; with the start recorded, whatever comes back is below it and the next open removes it. The same rule

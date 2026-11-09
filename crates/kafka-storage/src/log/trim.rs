@@ -9,12 +9,12 @@ use crate::logstart;
 use crate::retention;
 use crate::segment::{SealedSegment, remove_files};
 
-/// Bounds on a partition's disk use. Each is optional; the active segment is never deleted.
+/// Bounds on a partition's disk use. Each is optional.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct Retention {
-    /// Delete the oldest sealed segments while the partition holds more than this many bytes.
+    /// Delete the oldest segments while the partition would still hold this many bytes without them.
     pub max_bytes: Option<u64>,
-    /// Delete sealed segments whose newest record (or, with none, last write) is older than this.
+    /// Delete segments whose newest record (or, with none, last write) is older than this.
     pub max_age_ms: Option<i64>,
 }
 
@@ -79,8 +79,8 @@ impl<F: Fs> PartitionLog<F> {
         Ok(self.start)
     }
 
-    /// Deletes whole sealed segments past the policy's bounds, oldest first. Returns how many it removed. The
-    /// log start advances to the first segment left.
+    /// Deletes whole segments past the policy's bounds, oldest first. Returns how many it removed. The log start
+    /// advances to the first segment left. If the active segment is one that goes, a new one is started first.
     ///
     /// # Errors
     /// A failed removal (what was already removed stays removed).
@@ -92,17 +92,26 @@ impl<F: Fs> PartitionLog<F> {
         if !policy.is_set() {
             return Ok(0);
         }
-        let sizes: Vec<u64> = self.sealed.iter().map(SealedSegment::size).collect();
+        let mut sizes: Vec<u64> = self.sealed.iter().map(SealedSegment::size).collect();
+        // An empty active segment is never deleted.
+        if self.active.size() > 0 {
+            sizes.push(self.active.size());
+        }
         let age_of = |i: usize| match self.sealed.get(i) {
             Some(s) => Ok(s.max_timestamp()?.map_or(s.modified_ms(), TimestampMs::get)),
-            None => Ok(i64::MAX),
+            None => self.active.newest_ms(),
         };
-        let drop = retention::count_to_drop(&sizes, age_of, self.active.size(), policy, now)
+        let drop = retention::count_to_drop(&sizes, age_of, policy, now)
             .doing("judging the age of a segment")?;
         if drop == 0 {
             return Ok(0);
         }
         self.check_online()?;
+        if drop > self.sealed.len() {
+            // The active segment goes too: what it holds is sealed (and flushed) and a fresh one is begun, so that
+            // there is always one to write to.
+            self.roll()?;
+        }
         // The new start is recorded before any file is removed, as for DeleteRecords. Removals are only in
         // memory until the directory is flushed, and a power cut may keep a later one and lose an earlier
         // one, which would leave a hole in the log; with the start recorded, whatever comes back is below it

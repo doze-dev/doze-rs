@@ -15,8 +15,11 @@ pub struct Peek {
     pub total_len: u64,
     /// The offset of its first record, as stamped.
     pub base_offset: i64,
-    /// How many records it holds: at least one.
+    /// How many records it holds: none to as many as its offsets span (a batch that compaction thinned holds fewer).
     pub record_count: u32,
+    /// The last record's offset, relative to the base: the batch covers `last_offset_delta + 1` offsets, whatever it
+    /// still holds.
+    pub last_offset_delta: u32,
     /// The newest timestamp in the batch.
     pub max_timestamp: TimestampMs,
     /// Codec, timestamp type, transaction bits.
@@ -26,6 +29,16 @@ pub struct Peek {
 }
 
 impl Peek {
+    /// The offset after the batch's last: where the next batch begins. A batch covers its span of offsets whether or
+    /// not compaction has left every record in it. `None` if that is not an offset.
+    #[must_use]
+    pub fn next_offset(&self) -> Option<i64> {
+        self.base_offset
+            .checked_add(i64::from(self.last_offset_delta))?
+            .checked_add(1)
+            .filter(|o| *o >= 0)
+    }
+
     // fuzz:parser fuzz_batch
     /// Reads the header at the start of `bytes` (which may hold more than the header, or only the header).
     ///
@@ -50,11 +63,12 @@ impl Peek {
             return Err(BatchError::UnknownCodec(codec));
         }
         let body = usize::try_from(total).unwrap_or(usize::MAX) - HEADER_LEN;
-        check_count(&header, body, compression)?;
+        check_count(&header, body, compression, true)?;
         Ok(Self {
             total_len: total,
             base_offset: header.base_offset,
             record_count: u32::try_from(header.record_count).unwrap_or(0),
+            last_offset_delta: u32::try_from(header.last_offset_delta).unwrap_or(0),
             max_timestamp: header.max_timestamp,
             attributes: header.attributes,
             producer: ProducerId::new(header.producer_id).map(|id| Producer {

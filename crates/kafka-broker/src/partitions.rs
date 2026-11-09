@@ -20,6 +20,10 @@ use tokio::sync::{mpsc, oneshot};
 use crate::txn_index::{Aborted, TxnIndex};
 
 use actor::{Append, Command};
+
+/// How many of a round's segments the writer puts in place in one go: each takes three directory flushes (about 13 ms
+/// measured under load), so this keeps an append from waiting more than a fifth of a second for a round.
+const INSTALL_AT_A_TIME: usize = 16;
 pub(crate) use actor::{Trim, TxnView, Written};
 pub(crate) use registry::Partitions;
 
@@ -30,7 +34,7 @@ pub(super) const QUEUE: usize = 32;
 #[derive(Debug)]
 pub(crate) struct Partition<F: Fs> {
     reader: LogReader<F>,
-    commands: mpsc::Sender<Command>,
+    commands: mpsc::Sender<Command<F>>,
     /// The partition's transactions, kept by its writer and read here without asking it.
     txns: Arc<RwLock<TxnIndex>>,
 }
@@ -95,7 +99,7 @@ impl<F: Fs> Partition<F> {
         // A log start moved past an open transaction's first offset (DeleteRecords) holds the last stable offset up to it.
         let start = self.reader.start_offset().get();
         Stability {
-            last_stable: Offset::new(index.last_stable(end.get()).max(start))
+            last_stable: Offset::new(clamp_stable(index.last_stable(end.get()), start, end.get()))
                 .unwrap_or(Offset::ZERO),
             aborted: index.aborted_between(self.reader.start_offset().get(), end.get()),
         }
@@ -127,6 +131,58 @@ impl<F: Fs> Partition<F> {
         answer.await.map_err(|_| gone())?
     }
 
+    /// A round of cleaning, if the log is due one, planned by the writer.
+    ///
+    /// # Errors
+    /// The log's history cannot be read, or the writer has gone.
+    pub(crate) async fn plan_clean(
+        &self,
+        params: kafka_storage::compact::Params,
+    ) -> Result<Option<kafka_storage::compact::CleanJob<F>>, StorageError> {
+        let (reply, answer) = oneshot::channel();
+        self.commands
+            .send(Command::Clean(params, reply))
+            .await
+            .map_err(|_| gone())?;
+        answer.await.map_err(|_| gone())?
+    }
+
+    /// Has the writer put a round's new segments in place; how many it replaced.
+    ///
+    /// # Errors
+    /// A step failed, or the writer has gone.
+    pub(crate) async fn install_clean(
+        &self,
+        cleaned: kafka_storage::compact::Cleaned,
+    ) -> Result<usize, StorageError> {
+        // A few segments at a time: between two parts the writer takes the appends and reads that have waited.
+        let mut parts = cleaned.in_parts(INSTALL_AT_A_TIME).into_iter();
+        let mut replaced = 0;
+        while let Some(part) = parts.next() {
+            let (reply, answer) = oneshot::channel();
+            self.commands
+                .send(Command::Install(part, reply))
+                .await
+                .map_err(|_| gone())?;
+            match answer.await.map_err(|_| gone())? {
+                Ok(n) => replaced += n,
+                Err(e) => {
+                    for rest in parts {
+                        let _ = self.commands.send(Command::Discard(rest)).await;
+                    }
+                    return Err(e);
+                }
+            }
+        }
+        Ok(replaced)
+    }
+
+    /// Tells the writer to judge appends by `config` from now on, between two appends.
+    pub(crate) async fn configure(&self, config: kafka_storage::LogConfig) {
+        // A writer that has gone is a partition that is closing, and it will open with the config it is given then.
+        let _ = self.commands.send(Command::Configure(config)).await;
+    }
+
     /// Stops the writer after it has flushed what it has, and waits until it has. Says whether the flush worked.
     pub(super) async fn close(&self) -> bool {
         let (done, closed) = oneshot::channel();
@@ -142,6 +198,13 @@ pub(crate) fn gone() -> StorageError {
     StorageError::Offline {
         cause: "the partition was closed".into(),
     }
+}
+
+/// The last stable offset kept inside the log: not below its start (DeleteRecords moved the start past an open
+/// transaction), and never above the end read before it (a delete to the end and appends can come between the reads of
+/// the end and the start).
+fn clamp_stable(last_stable: i64, start: i64, end: i64) -> i64 {
+    last_stable.max(start).min(end)
 }
 
 #[cfg(test)]

@@ -68,6 +68,16 @@ impl<F: Fs> SealedSegment<F> {
         self.modified_ms
     }
 
+    /// The timestamp of the segment's first batch (its newest record's, as the batch header has it); 0 if the segment is
+    /// empty or has no first batch to read.
+    pub(crate) fn first_batch_timestamp(&self) -> io::Result<i64> {
+        let mut head = [0u8; kafka_wire::batch::HEADER_LEN];
+        if self.view.read_into(0, &mut head)? < head.len() {
+            return Ok(0);
+        }
+        Ok(kafka_wire::batch::Peek::read(&head).map_or(0, |p| p.max_timestamp.get()))
+    }
+
     /// The newest timestamp of any record in the segment, if any has one.
     pub(crate) fn max_timestamp(&self) -> io::Result<Option<TimestampMs>> {
         if let Some(known) = self.max_timestamp.get() {

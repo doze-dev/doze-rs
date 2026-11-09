@@ -589,3 +589,40 @@ test-only knobs in `internal/config`.
   length 2, the reservation size, the 14-byte floor, `|` for `^` in zigzag), the test builder, the marker's leader epoch,
   and the varint's tenth-byte check (stricter than Kafka's, which ignores the extra bits). The `before_log` survivors are
   held by `kafka-broker/tests/produce_checks.rs`.
+
+### Phase 7 (2026-11-09): topic admin, configs, retention, compaction
+Built in five slices on the debt branch, each with its tests and a commit: 7a retention sweeper and DeleteRecords; 7b the
+three config APIs (topic and broker resources, the five dynamic broker configs kept durably, a change reaching open
+partitions at once, Kafka's validation order and words, the cross-field compaction-lag rule); 7c CreatePartitions (directories
+first, then the count; swept at every operation); 7d compaction (a stored batch spans its offsets; `Batch::filter`; planner,
+offset map, transaction tracking, the job, the writer's install with the index removed first; the cleaner task; reads skip
+batches with no records when records follow). Catalogue: `behaviours/{admin,compaction}.md`. Oracle: `list-config-append` and
+the Phase 7 rows of `version-matrix` pass (`oracle.md`); a full replay is 43 pass, 15 fail, all Phase 8 and 9. Weight: 4.01 MB,
+107 packages, 4.5 MB idle (`weight.md`).
+
+Method kept honest this phase: every rule has a test that fails when the rule is put back, and the mutation tool checks that the
+mutation applied (two "survivors" were mutations that had not changed the file, one because the formatter had split a line,
+one because BSD `sed` has no `0,/re/`). Found by something other than the author's tests: librdkafka against a real compacted
+topic (empty batches, G3), the producer-retry test when the fix for it first touched the walk that relearns producers, and the
+Random name-loss cut of the stop sweep (the first directory flush in the install cannot be dropped). The audit, when it comes,
+gets the property statement of `compaction.md` first.
+
+**Phase 7 audits and closure (2026-11-10): Phases 6 and 7 DONE.** The first independent audit of Phase 7 (HEAD 9eded61) said NOT DONE:
+a blocker (aborted records in the compaction offset map lost a committed value), four majors (concurrent config changes lost
+acknowledged ones; retention never took an expired active segment and `segment.ms` was not implemented; compaction lag planning
+differed from Kafka and was untested; a round held the partition writer for seconds), ten minors and 52 mutation gaps. Every
+finding was fixed with a test that fails without the fix (`debt.md` section H), including N3 (a hot key left a file for every segment
+it filled: a segment cleaning leaves with only its ending batch is removed, CMP-D1). The 52 gaps were re-run on the fixed code with
+seven new mutants for N3 and the audit's list (57 in all): 34 now die to a new test, 8 are written down as equivalent or defensive,
+and the work found two real defects the audit had not (a broker number with spaces was validated but not applied; the over-long
+config value refusal did not use Kafka's words). The second independent audit (HEAD b394527) said DONE: no blocker or major, it
+could not break the segment removal (sweeps at every stop and power cut, failed operations, concurrent readers, DeleteRecords at every
+offset, a 400-seed model run), and left five minors and six test gaps, all closed: a transactional producer whose data was trimmed
+but whose marker stayed was refused after a reopen (fixed, TX-4); `segment.ms` by wall clock is a decided difference (ADM-D7); four
+statements in the docs contradicted the code (corrected, among them that Kafka deletes an empty segment: it merges them by size).
+Gates at the closing commit, quiet machine: fmt, clippy `-D warnings`, `cargo test --workspace` 743 passed and 0 failed in 84
+binaries (4 ignored on purpose), lint-size (0 over the hard limit), interop 23 of 23 (sarama, franz-go, kafka-go, librdkafka),
+oracle replay 43 pass and 15 fail (all Phase 8 and 9), weight 4,029,504 B, 107 packages, 4.8 MB idle. Phase 6 closes with it: the
+third Phase 6 audit's fix (A12) was in the Phase 7 audit's scope. Method notes: a test that fixes "the Nth read fails" breaks when a
+fix changes the number of reads, so the fault point is swept; a failure that shows up once in a scratch copy is reproduced against
+the old code before it is called flaky (here it was the pre-fix defect, deterministic at seed 24).

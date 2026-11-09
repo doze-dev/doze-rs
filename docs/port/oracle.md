@@ -95,3 +95,10 @@ not drive (the first is a unit test of the same table, `rules::each_end_is_answe
 covered with `SimFs`). `idempotent-write-from-topic-write` needs SASL and ACLs (Phase 8). A full replay: 41 scenarios pass and 17 fail,
 every failure an API of a later phase: configs, DeleteRecords, CreatePartitions (Phase 7), ACLs and SASL (Phase 8),
 telemetry and DescribeCluster (Phase 9).
+
+**Phase 7 (2026-11-09).** `list-config-append` passes; the Phase 7 APIs (DescribeConfigs, AlterConfigs, IncrementalAlterConfigs,
+CreatePartitions, DeleteRecords) now match their rows of `version-matrix`, which still differs only on CreateAcls, DeleteAcls
+(Phase 8), DescribeCluster and the telemetry APIs (Phase 9); `metadata-autocreate` passes whole. A full replay: 43 scenarios
+pass and 15 fail, every failure of Phase 8 (`acl-unknown-codes`, `sasl-plain`, `sasl-scram`, `idempotent-write-from-topic-write`,
+`version-matrix` in its ACL rows) or Phase 9 (`telemetry-*`, DescribeCluster). No recording covers compaction itself;
+`interop/` scenario `compaction` (franz-go, sarama, librdkafka) and `compaction.md` do.

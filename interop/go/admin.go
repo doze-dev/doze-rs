@@ -146,3 +146,8 @@ func (a admin) waitMembers(group string, n int) (time.Duration, error) {
 	}
 	return 0, fmt.Errorf("the group never listed %d members", n)
 }
+
+// createTopicWith makes a topic with these configs (a compacted topic with small segments, say).
+func (a admin) createTopicWith(topic string, partitions int32, configs map[string]*string) error {
+	return a.c.CreateTopic(topic, &lib.TopicDetail{NumPartitions: partitions, ReplicationFactor: 1, ConfigEntries: configs}, false)
+}

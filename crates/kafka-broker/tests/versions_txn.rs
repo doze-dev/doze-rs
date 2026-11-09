@@ -10,6 +10,7 @@
 mod support;
 
 use kafka_wire::api::Request;
+use kafka_wire::messages::ApiKey;
 use kafka_wire::messages::add_partitions_to_txn_request::AddPartitionsToTxnTopic;
 use kafka_wire::messages::describe_producers_request::TopicRequest;
 use kafka_wire::messages::txn_offset_commit_request::{
@@ -20,6 +21,7 @@ use kafka_wire::messages::{
     DescribeTransactionsRequest, EndTxnRequest, GroupId, InitProducerIdRequest,
     ListTransactionsRequest, ProducerId, TransactionalId, TxnOffsetCommitRequest,
 };
+use kafka_wire::profile::{KafkaMajor, Profile};
 use support::Txn;
 use support::{rig, topic, wire_name};
 
@@ -107,6 +109,9 @@ async fn a_transaction_is_run_through_every_version_of_each_api() {
     let mut ask = DescribeTransactionsRequest::default();
     ask.transactional_ids = vec![TransactionalId(text("v-0")), TransactionalId(text("nope"))];
     rig.ask(0, Request::DescribeTransactions(ask)).await;
+    // ListTransactions is offered at 0 to 1 (v1 adds the duration filter): a narrower offer is a regression.
+    let offered = Profile::new(KafkaMajor::new(4).unwrap()).range(ApiKey::ListTransactions);
+    assert_eq!(offered, Some((0, 1)));
     for v in 0..=1 {
         rig.ask(
             v,

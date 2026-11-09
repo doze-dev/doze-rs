@@ -1,8 +1,9 @@
 //! Retention: which of the oldest whole segments a partition may no longer keep.
 //!
-//! Enforcement deletes only: whole sealed segments past a bound are removed and the log start advances. The
-//! active segment is never a candidate, so a partition always keeps its most recent data. The decision is a
-//! pure function of sizes and ages, so an open partition and a closed one (judged from its files alone) give
+//! Enforcement deletes only: whole segments past a bound are removed and the log start advances. The active segment
+//! is a candidate once it holds something (source: `UnifiedLog.deletableSegments`, `deleteSegments`): if it is the
+//! one that has expired, a fresh one is started first, so a partition is never left without an active segment. The
+//! decision is a pure function of sizes and ages, so an open partition and a closed one (judged from its files alone) give
 //! the same answer, and an age is only worked out (it can mean reading a segment) when an age bound is set and
 //! only for the segments up to the first one that is not too old.
 
@@ -15,20 +16,20 @@ use crate::fs::{Fs, FsFile};
 use crate::log::Retention;
 use crate::logstart;
 use crate::scan;
-use crate::segment::{base_of_log, log_path};
+use crate::segment::{base_of_log, index_path, log_path};
 
-/// How many of the oldest segments of a partition to delete. `sizes` are the sealed segments, oldest first;
-/// `age_of(i)` is when the `i`th is judged to date from (the newest timestamp of its records, or, if none has
-/// one, when it was last written: records stamped long ago, in a replay or a backfill, are old at the next sweep
-/// however new the file is). First those older than the age bound go; then, while the partition (with its
-/// `active` segment) is over the size bound, the next oldest.
+/// How many of the oldest segments of a partition to delete. `sizes` are its segments, oldest first, the active one
+/// last unless it is empty (an empty one is never deleted); `age_of(i)` is when the `i`th is judged to date from (the
+/// newest timestamp of its records, or, if none has one, when it was last written: records stamped long ago, in a
+/// replay or a backfill, are old at the next sweep however new the file is). First those older than the age bound go;
+/// then the next oldest, each while the partition would still hold the size bound without it (so the partition is left
+/// with at least the bound, as Kafka leaves it).
 ///
 /// # Errors
 /// A failure of `age_of`.
 pub(crate) fn count_to_drop(
     sizes: &[u64],
     mut age_of: impl FnMut(usize) -> io::Result<i64>,
-    active: u64,
     policy: Retention,
     now: TimestampMs,
 ) -> io::Result<usize> {
@@ -40,12 +41,12 @@ pub(crate) fn count_to_drop(
         }
     }
     if let Some(max_bytes) = policy.max_bytes {
-        let mut total = active + sizes.iter().skip(dropped).sum::<u64>();
+        let mut held: u64 = sizes.iter().skip(dropped).sum();
         for size in sizes.iter().skip(dropped) {
-            if total <= max_bytes {
+            if held < max_bytes.saturating_add(*size) {
                 break;
             }
-            total -= size;
+            held -= size;
             dropped += 1;
         }
     }
@@ -70,31 +71,48 @@ pub fn enforce_closed<F: Fs>(
         .filter_map(|e| base_of_log(&e.name))
         .collect();
     bases.sort();
-    let Some((last, sealed_bases)) = bases.split_last() else {
-        return Ok(0);
-    };
     let open = |base: &Offset| fs.open_existing(&log_path(dir, *base));
-    let sizes = sealed_bases
+    let mut sizes = bases
         .iter()
         .map(|b| open(b).and_then(|f| f.size()))
         .collect::<io::Result<Vec<_>>>()?;
-    let active = open(last)?.size()?;
+    // An empty active segment is never deleted.
+    if sizes.last() == Some(&0) {
+        sizes.pop();
+    }
     let age_of = |i: usize| {
-        let log = open(sealed_bases.get(i).unwrap_or(last))?;
+        let log = open(bases.get(i).unwrap_or(&Offset::ZERO))?;
         let size = log.size()?;
         scan::max_timestamp(&log, size)?.map_or_else(|| log.modified_ms(), |t| Ok(t.get()))
     };
-    let drop = count_to_drop(&sizes, age_of, active, policy, now)?;
+    let drop = count_to_drop(&sizes, age_of, policy, now)?;
     if drop == 0 {
         return Ok(0);
     }
-    let survivor = bases.get(drop).copied().unwrap_or(*last);
+    let survivor = match bases.get(drop) {
+        Some(next) => *next,
+        // Everything goes, the active segment too: a fresh one is made at the end of the log, first, so that the log
+        // is never left with no segment.
+        None => begin_after(fs, dir, bases.last().copied().unwrap_or(Offset::ZERO))?,
+    };
     if survivor > logstart::read(fs, dir) {
         logstart::write(fs, dir, survivor)?;
     }
-    for base in sealed_bases.iter().take(drop) {
+    for base in bases.iter().take(drop) {
         crate::segment::remove_files(fs, dir, *base)?;
     }
     fs.sync_dir(dir)?;
     Ok(drop)
+}
+
+/// Makes an empty segment where the log that ends in the segment at `last` ends, and says where that is.
+fn begin_after<F: Fs>(fs: &F, dir: &Path, last: Offset) -> io::Result<Offset> {
+    let log = fs.open_existing(&log_path(dir, last))?;
+    let size = log.size()?;
+    let end = scan::scan(&log, size, last, u64::MAX, 0)?.next_offset;
+    fs.open_or_create(&log_path(dir, end))?;
+    fs.open_or_create(&index_path(dir, end))?;
+    // The new names are on disk before the start is recorded past everything that is there.
+    fs.sync_dir(dir)?;
+    Ok(end)
 }

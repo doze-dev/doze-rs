@@ -61,13 +61,13 @@ impl Batch {
     }
 }
 
-fn put(bytes: &mut [u8], at: usize, value: &[u8]) {
+pub(super) fn put(bytes: &mut [u8], at: usize, value: &[u8]) {
     if let Some(dst) = bytes.get_mut(at..at + value.len()) {
         dst.copy_from_slice(value);
     }
 }
 
-fn code(c: Compression) -> u16 {
+pub(super) fn code(c: Compression) -> u16 {
     match c {
         Compression::Gzip => 1,
         Compression::Snappy => 2,
@@ -78,7 +78,7 @@ fn code(c: Compression) -> u16 {
 }
 
 /// A zigzag varint (Kafka's `varint` and `varlong`) off the front of `bytes`: its value and its length.
-fn read_varint(bytes: &[u8]) -> Option<(i64, usize)> {
+pub(super) fn read_varint(bytes: &[u8]) -> Option<(i64, usize)> {
     let mut value = 0u64;
     for (i, shift) in (0..70).step_by(7).enumerate() {
         let byte = *bytes.get(i)?;
@@ -90,7 +90,7 @@ fn read_varint(bytes: &[u8]) -> Option<(i64, usize)> {
     None
 }
 
-fn write_varint(out: &mut Vec<u8>, v: i64) {
+pub(super) fn write_varint(out: &mut Vec<u8>, v: i64) {
     let mut u = ((v << 1) ^ (v >> 63)) as u64;
     while u >= 0x80 {
         out.push((u as u8 & 0x7f) | 0x80);
@@ -124,7 +124,7 @@ fn renumber(records: &[u8], count: u32) -> Option<Vec<u8>> {
 }
 
 /// `records` compressed with `codec`.
-fn pack(codec: Compression, records: &[u8]) -> Result<Vec<u8>, RecordsRefused> {
+pub(super) fn pack(codec: Compression, records: &[u8]) -> Result<Vec<u8>, RecordsRefused> {
     use std::io::Write;
     let failed = |why: String| RecordsRefused::new(Refusal::UnknownServerError, false, why);
     match codec {

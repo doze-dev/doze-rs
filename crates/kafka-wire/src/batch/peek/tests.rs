@@ -73,3 +73,31 @@ fn a_verified_peek_is_a_parse_without_the_ownership() {
         Err(BatchError::Length { .. })
     ));
 }
+
+#[test]
+fn a_peek_covers_the_offsets_a_batch_spans_whatever_records_are_left_in_it() {
+    let thin = BatchBuilder::new()
+        .base_offset(10)
+        .records(2)
+        .last_offset_delta(9)
+        .build();
+    let p = Peek::read(&thin).unwrap();
+    assert_eq!(
+        (p.record_count, p.last_offset_delta, p.next_offset()),
+        (2, 9, Some(20))
+    );
+    let empty = BatchBuilder::new()
+        .base_offset(10)
+        .records(0)
+        .last_offset_delta(9)
+        .body(vec![])
+        .build();
+    let p = Peek::read_verified(&empty).unwrap();
+    assert_eq!((p.record_count, p.next_offset()), (0, Some(20)));
+    // More records than offsets is still a lie.
+    let lying = BatchBuilder::new().records(3).last_offset_delta(1).build();
+    assert!(matches!(
+        Peek::read(&lying).unwrap_err(),
+        BatchError::Count { .. }
+    ));
+}

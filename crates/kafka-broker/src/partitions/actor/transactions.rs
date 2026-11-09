@@ -113,3 +113,74 @@ pub(super) fn trim<F: Fs>(
     memory.producers.forget_below(start.get());
     Ok(start)
 }
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use kafka_storage::sim::SimFs;
+    use kafka_storage::{LogConfig, Trust};
+    use kafka_wire::batch::build::BatchBuilder;
+    use kafka_wire::batch::{Batch, Marker, TimestampType};
+    use kafka_wire::ids::TimestampMs;
+
+    use super::super::Trim;
+    use super::*;
+    use crate::producers::Producers;
+
+    fn memory(index: TxnIndex) -> Memory {
+        Memory {
+            producers: Producers::default(),
+            loaded: true,
+            txns: shared(index),
+            cleaned_to: 0,
+        }
+    }
+
+    fn aborted_held(memory: &Memory) -> usize {
+        let index = memory.txns.read().unwrap();
+        index.aborted_between(0, i64::MAX).len()
+    }
+
+    #[test]
+    fn moving_the_start_up_lets_go_of_the_aborted_transactions_that_ended_below_it() {
+        let fs = SimFs::new();
+        kafka_storage::fs::create_dirs_durably(&fs, std::path::Path::new("/data")).unwrap();
+        let mut log = PartitionLog::open(
+            fs,
+            PathBuf::from("/data/t-0"),
+            LogConfig::default(),
+            Trust::Vouched,
+        )
+        .unwrap();
+        for _ in 0..3 {
+            let batch = Batch::parse(BatchBuilder::new().records(10).build()).unwrap();
+            let now = TimestampMs::from_wire(1);
+            log.append(&[batch], now, TimestampType::Create).unwrap();
+        }
+        // Two aborted transactions: one that ended at offset 7, one that began at 20 and ended at 28.
+        let mut index = TxnIndex::default();
+        for (producer, first, last) in [(1, 2, 7), (2, 20, 28)] {
+            index.write(producer, 0, first);
+            index.marker(producer, last, Marker::Abort);
+        }
+        let mut memory = memory(index);
+        assert_eq!(aborted_held(&memory), 2);
+        let to = Offset::new(15);
+        assert_eq!(
+            trim(&mut log, &mut memory, Trim::Before(to)).unwrap().get(),
+            15
+        );
+        assert_eq!(
+            aborted_held(&memory),
+            1,
+            "the one that ended at 7 is below 15"
+        );
+        let to = Offset::new(29);
+        assert_eq!(
+            trim(&mut log, &mut memory, Trim::Before(to)).unwrap().get(),
+            29
+        );
+        assert_eq!(aborted_held(&memory), 0);
+    }
+}

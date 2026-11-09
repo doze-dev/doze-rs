@@ -77,3 +77,16 @@ batches per producer and 50,000 producers per partition, built when a partition 
 coordinator keeps an entry for each transactional id in use, forgotten after seven days with nothing open. A log that never
 held a transaction is not read for them (a note beside its segments, made before the first, says one may be); one that did is
 read once, when it is opened. Open partitions are bounded by the files they hold as well as by their number.
+
+## Phase 7 (config APIs, CreatePartitions, retention, compaction), measured 2026-11-09, release, darwin/arm64
+Binary 4,012,832 B (3,776,752 B after the Phase 6 debt pass: +236 KB for three config APIs, CreatePartitions, the retention
+and cleaner tasks, and compaction), 107 packages (none added), idle RSS 4.6 to 4.7 MB (4,592 to 4,720 KB measured by the
+Phase 7 audit with 3 threads; 4.5 MB on a quieter run). The cleaner holds nothing while idle: a
+round builds an offset map of at most 16 MiB of keys (`Config.cleaner_map_bytes`) and drops it when the round ends; a round reads
+a segment 1 MiB at a time and writes a segment's replacement only from the first change in it. The live defaults are one small
+shared value; dynamic broker configs are five numbers.
+
+**At the close of Phase 7 (2026-11-10, after both audits' fixes, release, darwin/arm64):** binary 4,029,504 B (+16,672 B over the
+figure above: removing a segment cleaning has emptied, the install in parts, the Kafka-worded config value check, the producer-state
+rule for a marker found at open), 107 packages (none added), idle RSS 4,816 KB with 3 threads. All three under the CI limits
+(4.2 MB, 115, 8 MB).

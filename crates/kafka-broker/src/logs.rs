@@ -16,8 +16,8 @@ impl<F: Fs> Broker<F> {
     pub async fn check_logs(&self) {
         let now = clock::now();
         for topic in self.meta.topics() {
-            let policy = topic_config::retention(&self.config.defaults, &topic.config);
-            if !policy.is_set() {
+            let policy = topic_config::retention(&self.defaults.get(), &topic.config);
+            if !policy.is_set() || topic_config::compacts_only(&topic.config) {
                 continue;
             }
             for n in 0..topic.partitions.get() {

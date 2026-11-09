@@ -38,6 +38,7 @@ pub(crate) async fn serve(settings: Settings) -> Result<()> {
     let _sweeper = broker.start_offsets_sweeper();
     let _transactions = broker.start_transactions();
     let _logs = broker.start_log_sweeper();
+    let _cleaner = broker.start_log_cleaner();
     let _control = crate::control::serve(&broker);
     stopped().await;
     tracing::info!("stopping");
