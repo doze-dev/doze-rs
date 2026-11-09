@@ -6,6 +6,9 @@ use std::sync::{Arc, Mutex, PoisonError};
 use kafka_meta::TxnRecord;
 use tokio::sync::RwLock;
 
+/// A transaction held for reading, shared by the partitions of one Produce request.
+pub(crate) type Held = Arc<tokio::sync::OwnedRwLockReadGuard<Entry>>;
+
 /// One transactional id.
 #[derive(Debug)]
 pub(crate) struct Entry {

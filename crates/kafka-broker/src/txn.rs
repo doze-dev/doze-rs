@@ -11,4 +11,4 @@ mod entries;
 mod finish;
 pub(crate) mod rules;
 
-pub(crate) use entries::{Entry, Txns};
+pub(crate) use entries::{Held, Txns};

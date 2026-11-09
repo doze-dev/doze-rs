@@ -27,7 +27,7 @@ enum Stage<F: Fs> {
     Done(PartitionProduceResponse),
     Waiting {
         /// The transaction a transactional batch is part of, held for reading until the append is done.
-        _guard: Option<tokio::sync::OwnedRwLockReadGuard<crate::txn::Entry>>,
+        _guard: Option<crate::txn::Held>,
         answer: PartitionProduceResponse,
         partition: Arc<Partition<F>>,
         pending: Pending,
@@ -36,6 +36,12 @@ enum Stage<F: Fs> {
 }
 
 type Refused = (ResponseError, Option<String>);
+
+/// What a Produce request carries of a transaction: the id it names, and the transaction held for the whole request.
+struct Txn<'a> {
+    id: Option<&'a str>,
+    held: Option<crate::txn::Held>,
+}
 
 impl<F: Fs> Broker<F> {
     /// Appends each partition's batch to its log. `acks=0` is not answered (and a connection that cannot be told
@@ -66,14 +72,18 @@ impl<F: Fs> Broker<F> {
         // Every partition's batch is queued with its writer before any answer is waited for, so the writers work
         // at once and each flushes a group.
         let durable = req.acks == -1;
-        let txn_id = req.transactional_id.as_ref().map(|t| t.0.as_str());
+        let id = req.transactional_id.as_ref().map(|t| t.0.as_str());
+        let txn = Txn {
+            id,
+            held: self.hold_txn(id).await,
+        };
         let mut staged = Vec::new();
         for t in &req.topic_data {
             let topic = self.topic_of(version, t.topic_id, &t.name);
             let mut stages = Vec::new();
             for p in &t.partition_data {
                 stages.push(
-                    self.start(version, durable, txn_id, topic.as_deref(), p)
+                    self.start(version, durable, &txn, topic.as_deref(), p)
                         .await,
                 );
             }
@@ -110,7 +120,7 @@ impl<F: Fs> Broker<F> {
         &self,
         version: i16,
         durable: bool,
-        txn_id: Option<&str>,
+        txn: &Txn<'_>,
         topic: Option<&Topic>,
         p: &PartitionProduceData,
     ) -> Stage<F> {
@@ -142,17 +152,13 @@ impl<F: Fs> Broker<F> {
         if batch.attributes().is_transactional()
             && let Some(producer) = batch.producer()
         {
-            match self
-                .txn_guard(
-                    txn_id,
-                    producer.id.get(),
-                    producer.epoch.get(),
-                    topic.name.as_ref(),
-                    p.index,
-                )
-                .await
-            {
-                Ok(held) => guard = Some(held),
+            match Self::check_txn_batch(
+                txn.id,
+                txn.held.as_ref(),
+                (producer.id.get(), producer.epoch.get()),
+                (topic.name.as_ref(), p.index),
+            ) {
+                Ok(()) => guard = txn.held.clone(),
                 Err((code, why)) => {
                     return Stage::Done(failed(p.index, code, Some(why.to_owned())));
                 }

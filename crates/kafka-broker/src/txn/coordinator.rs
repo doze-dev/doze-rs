@@ -5,7 +5,7 @@ use kafka_meta::{TxnRecord, TxnState};
 use kafka_storage::fs::Fs;
 use kafka_wire::ResponseError as E;
 
-use super::entries::Entry;
+use super::entries::{Entry, Held};
 use super::rules::{self, End};
 use crate::{Broker, blocking, clock};
 
@@ -191,38 +191,42 @@ impl<F: Fs> Broker<F> {
 }
 
 impl<F: Fs> Broker<F> {
-    /// The check a transactional batch has to pass, held across its append: the producer must own the transactional id,
-    /// a transaction must be open, and the partition must have been added to it. The guard keeps the transaction from
-    /// being ended between the check and the append.
-    pub(crate) async fn txn_guard(
-        &self,
+    /// Takes the transaction of `id` for reading, to be held across the appends of one Produce request: it keeps the
+    /// transaction from being ended between a batch's check and its append. Taken once for the whole request, and not for
+    /// each partition: a lock that is waited for again while an earlier hold of it is kept would wait behind a writer
+    /// that is itself waiting for the first, and neither would ever go on (the lock queues in order).
+    pub(crate) async fn hold_txn(&self, id: Option<&str>) -> Option<Held> {
+        let entry = self.txns.get(id.filter(|id| !id.is_empty())?)?;
+        Some(std::sync::Arc::new(entry.read_owned().await))
+    }
+
+    /// The check a transactional batch has to pass: the request must name the transactional id, the producer must own it,
+    /// a transaction must be open, and the partition must have been added to it. `held` is [`Self::hold_txn`] of the id.
+    pub(crate) fn check_txn_batch(
         id: Option<&str>,
-        producer: i64,
-        epoch: i16,
-        topic: &str,
-        partition: i32,
-    ) -> Result<tokio::sync::OwnedRwLockReadGuard<Entry>, (E, &'static str)> {
-        let Some(id) = id.filter(|id| !id.is_empty()) else {
+        held: Option<&Held>,
+        who: (i64, i16),
+        at: (&str, i32),
+    ) -> Result<(), (E, &'static str)> {
+        if id.is_none_or(str::is_empty) {
             return Err((
                 E::InvalidTxnState,
                 "a transactional batch must come in a produce request that names the transactional id",
             ));
-        };
-        let Some(entry) = self.txns.get(id) else {
+        }
+        let Some(held) = held else {
             return Err((
                 E::InvalidProducerIdMapping,
                 "no producer owns that transactional id",
             ));
         };
-        let guard = entry.read_owned().await;
-        rules::may_write(&guard.rec, producer, epoch, topic, partition).map_err(|code| {
+        rules::may_write(&held.rec, who.0, who.1, at.0, at.1).map_err(|code| {
             let why = match code {
                 E::InvalidTxnState => "the partition was not added to an open transaction",
                 _ => "the producer id and epoch are not the ones that own the transactional id",
             };
             (code, why)
-        })?;
-        Ok(guard)
+        })
     }
 }
 
