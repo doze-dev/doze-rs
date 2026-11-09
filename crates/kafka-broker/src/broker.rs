@@ -187,7 +187,7 @@ impl<F: Fs> Broker<F> {
             Request::Heartbeat(r) => self.heartbeat(&r).await,
             Request::LeaveGroup(r) => self.leave_group(head.version, &r).await,
             Request::OffsetCommit(r) => self.offset_commit(head.version, &r).await,
-            Request::OffsetFetch(r) => self.offset_fetch(&r),
+            Request::OffsetFetch(r) => self.offset_fetch(&r).await,
             Request::OffsetDelete(r) => self.offset_delete(&r).await,
             Request::DescribeGroups(r) => self.describe_groups(&r).await,
             Request::ListGroups(r) => self.list_groups(&r).await,

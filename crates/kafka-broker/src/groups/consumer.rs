@@ -17,6 +17,7 @@
 
 pub(crate) mod assign;
 mod classic;
+mod fetch;
 mod heartbeat;
 mod join;
 mod member;
@@ -36,6 +37,7 @@ use std::collections::BTreeMap;
 use kafka_wire::ids::MemberId;
 
 use self::assign::Assignor;
+pub(crate) use self::fetch::fetch_refusal;
 pub(crate) use self::join::{can_join, join_refusal};
 #[allow(unused_imports)]
 pub(crate) use self::member::ClassicSeat;

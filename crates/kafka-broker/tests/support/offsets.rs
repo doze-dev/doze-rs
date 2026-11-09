@@ -135,3 +135,55 @@ impl Rig {
         out
     }
 }
+
+/// An OffsetFetch (v9) of one group, as a member of it if `member` is given: the group's code, and each partition's
+/// (partition, code, offset).
+pub struct Fetched {
+    pub error: i16,
+    pub partitions: Vec<(i32, i16, i64)>,
+}
+
+impl Rig {
+    /// OffsetFetch v9 for partitions of `topic` (`None`: every offset the group has), asking for stable offsets only if
+    /// `stable`.
+    pub async fn fetch_as(
+        &self,
+        group: &str,
+        member: Option<(&str, i32)>,
+        topic: &str,
+        partitions: Option<&[i32]>,
+        stable: bool,
+    ) -> Fetched {
+        use kafka_wire::messages::offset_fetch_request::{
+            OffsetFetchRequestGroup, OffsetFetchRequestTopics,
+        };
+        let mut g = OffsetFetchRequestGroup::default();
+        g.group_id = GroupId(text(group));
+        if let Some((id, epoch)) = member {
+            g.member_id = Some(text(id));
+            g.member_epoch = epoch;
+        }
+        g.topics = partitions.map(|ps| {
+            let mut t = OffsetFetchRequestTopics::default();
+            t.name = kafka_wire::messages::TopicName(text(topic));
+            t.partition_indexes = ps.to_vec();
+            vec![t]
+        });
+        let mut req = kafka_wire::messages::OffsetFetchRequest::default();
+        req.groups.push(g);
+        req.require_stable = stable;
+        let Response::OffsetFetch(r) = self.ask(9, Request::OffsetFetch(req)).await else {
+            panic!("not OffsetFetch");
+        };
+        let g = &r.groups[0];
+        Fetched {
+            error: g.error_code,
+            partitions: g
+                .topics
+                .iter()
+                .flat_map(|t| &t.partitions)
+                .map(|p| (p.partition_index, p.error_code, p.committed_offset))
+                .collect(),
+        }
+    }
+}

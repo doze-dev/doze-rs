@@ -89,6 +89,15 @@ impl TxnRecord {
 }
 
 impl TxnState {
+    /// Whether the transaction has not finished: its offsets, if any, are neither committed nor gone.
+    #[must_use]
+    pub fn is_open(self) -> bool {
+        matches!(
+            self,
+            Self::Ongoing | Self::PrepareCommit | Self::PrepareAbort
+        )
+    }
+
     /// Kafka's name for the state, as DescribeTransactions and ListTransactions show it.
     #[must_use]
     pub fn name(self) -> &'static str {

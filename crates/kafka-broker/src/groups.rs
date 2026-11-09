@@ -12,6 +12,7 @@ mod subscription;
 
 pub(crate) use actor::Req;
 pub(crate) use consumer::assign::Partitions;
+pub(crate) use consumer::fetch_refusal;
 pub(crate) use consumer::{Config as ConsumerConfig, Heartbeat, HeartbeatAnswer};
 pub(crate) use group::Settings;
 pub(crate) use machine::State;
