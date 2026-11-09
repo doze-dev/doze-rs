@@ -20,12 +20,22 @@ const GROUP: usize = 64;
 /// How much of the log's tail is read to relearn its producers after a restart.
 const HISTORY_BYTES: u64 = 16 << 20;
 
-pub(super) enum Command {
+pub(super) enum Command<F: Fs> {
     Append(Append),
     /// What the partition knows of its transactions and producers.
     Txns(oneshot::Sender<Result<TxnView, StorageError>>),
     /// Move the start of the log up; answers the start now in force.
     Trim(Trim, oneshot::Sender<Result<Offset, StorageError>>),
+    /// Plan a round of cleaning, if the log is due one.
+    Clean(
+        kafka_storage::compact::Params,
+        oneshot::Sender<Result<Option<kafka_storage::compact::CleanJob<F>>, StorageError>>,
+    ),
+    /// Put a round of cleaning in place; answers how many segments it replaced.
+    Install(
+        kafka_storage::compact::Cleaned,
+        oneshot::Sender<Result<usize, StorageError>>,
+    ),
     /// Judge appends by this config from now on.
     Configure(kafka_storage::LogConfig),
     /// Flush and close; answers whether that worked.
@@ -84,7 +94,7 @@ struct Memory {
 /// there is something to flush: an idle partition holds no timer.
 pub(super) async fn run<F: Fs>(
     mut log: PartitionLog<F>,
-    mut queue: mpsc::Receiver<Command>,
+    mut queue: mpsc::Receiver<Command<F>>,
     fsync_interval: Duration,
     txns: Arc<RwLock<TxnIndex>>,
 ) {
@@ -145,7 +155,7 @@ enum Flushed {
 fn work<F: Fs>(
     log: &mut PartitionLog<F>,
     memory: &mut Memory,
-    group: Vec<Command>,
+    group: Vec<Command<F>>,
 ) -> (Option<oneshot::Sender<bool>>, Flushed) {
     let (mut wrote, mut wants_flush, mut closing) = (false, false, None);
     for command in group {
@@ -164,6 +174,12 @@ fn work<F: Fs>(
             }
             Command::Trim(how, reply) => {
                 let _ = reply.send(trim(log, memory, how));
+            }
+            Command::Clean(params, reply) => {
+                let _ = reply.send(cleaning::plan(log, memory, &params));
+            }
+            Command::Install(cleaned, reply) => {
+                let _ = reply.send(log.install_cleaned(&cleaned));
             }
             Command::Configure(config) => log.set_config(config),
             Command::Close(done) => closing = Some(done),
@@ -265,6 +281,7 @@ fn relearn<F: Fs>(log: &PartitionLog<F>, memory: &mut Memory) -> Result<(), Stor
     Ok(())
 }
 
+mod cleaning;
 mod transactions;
 pub(super) use transactions::{read_index, shared};
 use transactions::{trim, view, write};

@@ -5,6 +5,7 @@
 //! wording of a refusal is Kafka's, recorded from 4.3.1). Accepting is not acting: which of them the broker acts
 //! on is in `docs/limitations.md`.
 
+mod cleanup;
 mod docs;
 mod table;
 
@@ -13,6 +14,7 @@ use std::collections::BTreeMap;
 use kafka_storage::{LogConfig, Retention};
 
 use crate::Defaults;
+pub(crate) use cleanup::{cleaner, compacts, compacts_only};
 use table::{Fallback, Kind, SETTINGS, Setting};
 
 /// Where a config's value comes from, as DescribeConfigs and CreateTopics number them.
@@ -239,18 +241,6 @@ fn one_of(v: &str, allowed: &[&str]) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests;
-
-/// Whether the topic only compacts: its policy names `compact` and not `delete`. Deleting records from such a topic is
-/// refused, and retention does not touch it.
-pub(crate) fn compacts_only(own: &BTreeMap<String, String>) -> bool {
-    own.get("cleanup.policy").is_some_and(|p| {
-        let kinds: Vec<_> = p
-            .split(',')
-            .map(|k| k.trim().to_ascii_lowercase())
-            .collect();
-        kinds.iter().any(|k| k == "compact") && !kinds.iter().any(|k| k == "delete")
-    })
-}
 
 /// The name of a topic config as this table spells it, if it is one.
 #[must_use]

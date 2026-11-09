@@ -86,3 +86,33 @@ fn a_zero_retention_is_no_limit_and_a_value_is_kept() {
         (60000, -1)
     );
 }
+
+#[test]
+fn the_cleaner_looks_every_fifteen_seconds_unless_told_otherwise_and_a_zero_interval_is_refused() {
+    let settings = args(&[]).unwrap().settings().unwrap();
+    assert_eq!(
+        (
+            settings.broker.log_cleaner_every,
+            settings.broker.log_cleaner_enable
+        ),
+        (std::time::Duration::from_secs(15), true)
+    );
+    let set = args(&[
+        "--log-cleaner-interval",
+        "2s",
+        "--log-cleaner-enable",
+        "false",
+    ])
+    .unwrap()
+    .settings()
+    .unwrap();
+    assert_eq!(
+        (set.broker.log_cleaner_every, set.broker.log_cleaner_enable),
+        (std::time::Duration::from_secs(2), false)
+    );
+    let err = args(&["--log-cleaner-interval", "0s"])
+        .unwrap()
+        .settings()
+        .unwrap_err();
+    assert!(err.to_string().contains("--log-cleaner-interval"), "{err}");
+}

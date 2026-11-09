@@ -30,7 +30,7 @@ pub(super) const QUEUE: usize = 32;
 #[derive(Debug)]
 pub(crate) struct Partition<F: Fs> {
     reader: LogReader<F>,
-    commands: mpsc::Sender<Command>,
+    commands: mpsc::Sender<Command<F>>,
     /// The partition's transactions, kept by its writer and read here without asking it.
     txns: Arc<RwLock<TxnIndex>>,
 }
@@ -122,6 +122,38 @@ impl<F: Fs> Partition<F> {
         let (reply, answer) = oneshot::channel();
         self.commands
             .send(Command::Trim(how, reply))
+            .await
+            .map_err(|_| gone())?;
+        answer.await.map_err(|_| gone())?
+    }
+
+    /// A round of cleaning, if the log is due one, planned by the writer.
+    ///
+    /// # Errors
+    /// The log's history cannot be read, or the writer has gone.
+    pub(crate) async fn plan_clean(
+        &self,
+        params: kafka_storage::compact::Params,
+    ) -> Result<Option<kafka_storage::compact::CleanJob<F>>, StorageError> {
+        let (reply, answer) = oneshot::channel();
+        self.commands
+            .send(Command::Clean(params, reply))
+            .await
+            .map_err(|_| gone())?;
+        answer.await.map_err(|_| gone())?
+    }
+
+    /// Has the writer put a round's new segments in place; how many it replaced.
+    ///
+    /// # Errors
+    /// A step failed, or the writer has gone.
+    pub(crate) async fn install_clean(
+        &self,
+        cleaned: kafka_storage::compact::Cleaned,
+    ) -> Result<usize, StorageError> {
+        let (reply, answer) = oneshot::channel();
+        self.commands
+            .send(Command::Install(cleaned, reply))
             .await
             .map_err(|_| gone())?;
         answer.await.map_err(|_| gone())?

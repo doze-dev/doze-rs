@@ -229,3 +229,26 @@ impl Producers {
 
 #[cfg(test)]
 mod tests;
+
+impl Producers {
+    /// What each producer has in the log that compaction must not lose: where its last data batch ends (if it has one
+    /// remembered), and its epoch (a marker's, when the last thing it wrote was one).
+    pub(crate) fn lasts(&self) -> HashMap<i64, kafka_storage::compact::LastOf> {
+        self.by_id
+            .iter()
+            .map(|(id, p)| {
+                let data_last_offset = p
+                    .recent
+                    .back()
+                    .map(|s| s.base_offset + i64::from(s.last.wrapping_sub(s.first) & i32::MAX));
+                (
+                    *id,
+                    kafka_storage::compact::LastOf {
+                        data_last_offset,
+                        marker_epoch: p.epoch,
+                    },
+                )
+            })
+            .collect()
+    }
+}

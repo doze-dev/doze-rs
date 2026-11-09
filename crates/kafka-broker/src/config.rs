@@ -51,6 +51,12 @@ pub struct Config {
     pub max_open_partitions: usize,
     /// How often every topic's retention is applied to its partitions (`log.retention.check.interval.ms`).
     pub log_retention_check_every: Duration,
+    /// How often compacted topics are looked at to be cleaned (`log.cleaner.backoff.ms`).
+    pub log_cleaner_every: Duration,
+    /// Whether compacted topics are cleaned at all (`log.cleaner.enable`).
+    pub log_cleaner_enable: bool,
+    /// The most bytes of keys one round of cleaning holds (`log.cleaner.dedupe.buffer.size`, which is 128 MiB in Kafka).
+    pub cleaner_map_bytes: usize,
     /// How many files the open partitions may hold open between them (a partition holds two for each segment it has):
     /// past it the least recently used are closed, as past `max_open_partitions`. Zero: no bound of its own.
     pub max_open_descriptors: usize,
@@ -89,6 +95,9 @@ impl Config {
             max_partitions: 1000,
             max_open_partitions: 512,
             log_retention_check_every: Duration::from_secs(300),
+            log_cleaner_every: Duration::from_secs(15),
+            log_cleaner_enable: true,
+            cleaner_map_bytes: 16 << 20,
             max_open_descriptors: 0,
             defaults: Defaults::default(),
             fsync_interval: Duration::from_millis(500),

@@ -61,6 +61,12 @@ pub(crate) struct Args {
     /// How often the retention of every topic is applied to its partitions (must be above 0).
     #[arg(long, default_value = "5m", value_parser = duration::parse)]
     log_retention_check_interval: Duration,
+    /// How often compacted topics are looked at to be cleaned (must be above 0).
+    #[arg(long, default_value = "15s", value_parser = duration::parse)]
+    log_cleaner_interval: Duration,
+    /// Clean topics whose cleanup.policy says compact.
+    #[arg(long, default_value_t = true, action = clap::ArgAction::Set, num_args = 0..=1, default_missing_value = "true")]
+    log_cleaner_enable: bool,
     /// How long the first rebalance of an empty consumer group waits for more members to join (0 = not at all).
     #[arg(long, default_value = "200ms", value_parser = duration::parse)]
     group_initial_rebalance_delay: Duration,
@@ -159,6 +165,8 @@ impl Args {
         }
         broker.offsets_retention = self.offsets_retention;
         broker.log_retention_check_every = self.log_retention_check_interval;
+        broker.log_cleaner_every = self.log_cleaner_interval;
+        broker.log_cleaner_enable = self.log_cleaner_enable;
         broker.max_open_partitions = self.max_open_partitions;
         broker.defaults = Defaults {
             segment_bytes: self.segment_bytes,
@@ -200,6 +208,7 @@ impl Args {
         }
         for (name, time) in [
             ("--consumer-session-timeout", self.consumer_session_timeout),
+            ("--log-cleaner-interval", self.log_cleaner_interval),
             (
                 "--log-retention-check-interval",
                 self.log_retention_check_interval,
