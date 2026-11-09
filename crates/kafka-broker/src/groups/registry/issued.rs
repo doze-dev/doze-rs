@@ -12,18 +12,24 @@ use tokio::time::Instant;
 use super::Groups;
 use crate::groups::machine::{Answer, IdSource, JoinAnswer};
 
-/// How long a member id handed to a client that has not yet come back with it is good for.
+/// How long a member id is good for when the client did not say how long its session is (Kafka keeps a pending member for
+/// the session timeout of its JoinGroup).
 pub(super) const ISSUED_FOR: Duration = Duration::from_secs(300);
 /// How often the table of ids is gone through for the ones past their time (and always when it is full).
 pub(super) const PURGE_EVERY: Duration = Duration::from_secs(10);
 /// The most ids handed out and not yet come back with. A client that only ever asks for an id costs an entry here, not a
 /// group.
 pub(super) const MOST_ISSUED: usize = 100_000;
+/// The most one group may have outstanding: a client cannot use up the room of all the others.
+pub(super) const MOST_ISSUED_PER_GROUP: usize = 1_000;
 
 /// The ids handed out, and when the table was last gone through for the stale ones.
 #[derive(Debug)]
 pub(super) struct Issued {
-    pub(super) ids: HashMap<(GroupId, MemberId), Instant>,
+    /// Each id with when it was handed out and for how long it is good.
+    pub(super) ids: HashMap<(GroupId, MemberId), (Instant, Duration)>,
+    /// How many of the ids are each group's.
+    pub(super) per_group: HashMap<GroupId, usize>,
     pub(super) purged: Instant,
 }
 
@@ -33,7 +39,7 @@ impl Groups {
     }
 
     /// Hands a client without an id one to come back with (MEMBER_ID_REQUIRED).
-    pub(super) fn issue(&self, group: &GroupId) -> Answer {
+    pub(super) fn issue(&self, group: &GroupId, session_ms: i32) -> Answer {
         let now = Instant::now();
         let mut issued = self.issued();
         // Looking through every id each time would make a flood of them quadratic; at the cap the room is made, and
@@ -41,17 +47,34 @@ impl Groups {
         if issued.ids.len() >= self.most_issued || now.duration_since(issued.purged) > PURGE_EVERY {
             issued
                 .ids
-                .retain(|_, at| now.duration_since(*at) < ISSUED_FOR);
+                .retain(|_, (at, good_for)| now.duration_since(*at) < *good_for);
+            let mut counts: HashMap<GroupId, usize> = HashMap::new();
+            for (group, _) in issued.ids.keys() {
+                *counts.entry(group.clone()).or_default() += 1;
+            }
+            issued.per_group = counts;
             issued.purged = now;
         }
-        if issued.ids.len() >= self.most_issued {
+        let group_full = issued
+            .per_group
+            .get(group)
+            .is_some_and(|n| *n >= MOST_ISSUED_PER_GROUP);
+        if issued.ids.len() >= self.most_issued || group_full {
             return Answer::Join(JoinAnswer::refused(
                 ResponseError::CoordinatorNotAvailable,
                 None,
             ));
         }
         let id = new_member_id(None);
-        issued.ids.insert((group.clone(), id.clone()), now);
+        // Good for the session timeout the client asked with, as Kafka keeps a pending member.
+        let good_for = u64::try_from(session_ms)
+            .ok()
+            .filter(|ms| *ms > 0)
+            .map_or(ISSUED_FOR, Duration::from_millis);
+        issued
+            .ids
+            .insert((group.clone(), id.clone()), (now, good_for));
+        *issued.per_group.entry(group.clone()).or_default() += 1;
         Answer::Join(JoinAnswer::refused(
             ResponseError::MemberIdRequired,
             Some(id),
@@ -62,11 +85,16 @@ impl Groups {
         self.issued()
             .ids
             .get(&(group.clone(), id.clone()))
-            .is_some_and(|at| Instant::now().duration_since(*at) < ISSUED_FOR)
+            .is_some_and(|(at, good_for)| Instant::now().duration_since(*at) < *good_for)
     }
 
     pub(super) fn spend(&self, group: &GroupId, id: &MemberId) {
-        self.issued().ids.remove(&(group.clone(), id.clone()));
+        let mut issued = self.issued();
+        if issued.ids.remove(&(group.clone(), id.clone())).is_some()
+            && let Some(n) = issued.per_group.get_mut(group)
+        {
+            *n = n.saturating_sub(1);
+        }
     }
 }
 

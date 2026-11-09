@@ -63,6 +63,7 @@ impl Groups {
             open: Mutex::new(HashMap::new()),
             issued: StdMutex::new(Issued {
                 ids: HashMap::new(),
+                per_group: HashMap::new(),
                 purged: Instant::now(),
             }),
         }
@@ -83,7 +84,7 @@ impl Groups {
                 // A group that is there may refuse the client before it is given an id; one that is not there is not made.
                 return Some(match self.vet(group, join).await {
                     Some(refused) => refused,
-                    None => self.issue(group),
+                    None => self.issue(group, join.session_ms),
                 });
             }
             if let Some(id) = &join.member_id
