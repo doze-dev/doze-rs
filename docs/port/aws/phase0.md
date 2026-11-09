@@ -48,7 +48,7 @@ Each has a hypothesis, a measurement, and a fallback if it fails. Code stays in 
 | # | Hypothesis | Measurement | Fallback if false | Result |
 |---|---|---|---|---|
 | S1 | Types and schema tables for all 18 models fit in 3 MiB at fat LTO | stripped size of a use-everything build | cargo feature per service, `opt-level = "z"` on model crates | |
-| S2 | `Fs`, redb, child supervision and the `serve` mode work on Windows or have a named substitute | CI on windows x86_64 | named pipe or TCP `serve`, document the gap | |
+| S2 | `Fs`, redb, child supervision and the `serve` mode work on Windows or have a named substitute | **Deferred 2026-11-09: no Windows machine.** Until one exists: the Windows and x86 targets must at least compile (`cargo check --target x86_64-pc-windows-msvc` or `-gnu`, no run), and nothing may assume Unix paths, signals or sockets outside a `cfg` gate | named pipe or TCP `serve`, document the gap | Windows is assumed workable, not proven |
 | S3 | A host-process runtime runs CDK's Node custom-resource handler | one real CDK handler under the Lambda runtime API | D6 stays native-first; built-in custom resources only | |
 | S4 | `jlens-core` passes a corpus of ASL/JSONata cases recorded from Step Functions `TestState` | pass rate on the corpus | `seuil`, or an own subset evaluator (S to M) | |
 | S5 | The system allocator returns memory after a 1 GiB upload and after a burst of invocations; the frame-pool pattern suffices | RSS before, peak, and 10 s after | `doze-alloc` crate (one `unsafe`), mimalloc on macOS | |
@@ -106,3 +106,9 @@ the checksum of an empty body); and a Kinesis ListShards can answer "not found" 
 Go doze-aws against those recordings: 537 labels, 249 exact (46%), 147 behavioural differences, per module in `baseline.md`.
 Still to record: logs (needs the policy to allow `/doze-rec-` log groups), the EventBridge pattern scenario (`events:TestEventPattern`), kms (needs key
 tagging in the harness), iam, lambda, cloudformation, apigateway, stepfunctions.
+
+### Windows (owner decision, 2026-11-09)
+
+No Windows machine is available, so S2 and the Windows rows of 0.5 wait. Windows stays in scope as an assumption, not a claim: the design keeps
+Unix specifics behind `cfg` and the `Fs` trait, the Windows targets are compile-checked where the toolchain allows, and no release note says Windows
+works until it has run on one. Revisit when a machine or a hosted runner is available.

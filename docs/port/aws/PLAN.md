@@ -275,6 +275,7 @@ in every service, so it is last and doubles as the integration test.
   these must be built lazily or the budget is missed.
 - **Fidelity cannot be proven without the AWS account.** Auth error codes, DynamoDB error text,
   JSONata edge cases and IAM expectations are unverified.
+- **Windows is deferred (2026-11-09): no machine to test on.** It stays in scope as an assumption; the port is compile-checked for it where possible and nothing claims it works until it has run there. Original note follows.
 - **Windows and x86 (now in scope).** Nothing in the spikes ran on Windows. Known exposure: file
   sync and rename semantics behind `Fs`, child-process supervision for Lambda, the unix-socket `serve`
   mode doze uses, and `rsa`/crypto speed on x86. Rough extra cost 4 to 8 sessions, a guess to be
