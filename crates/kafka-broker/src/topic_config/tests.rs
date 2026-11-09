@@ -148,3 +148,41 @@ fn a_topics_segment_ms_reaches_its_log_and_a_week_is_what_it_has_if_it_has_none(
         Some(1234)
     );
 }
+
+#[test]
+fn equal_compaction_lags_are_not_a_conflict_but_a_minimum_above_the_maximum_is() {
+    let lags = |min: &str, max: &str| {
+        BTreeMap::from([
+            ("min.compaction.lag.ms".to_owned(), min.to_owned()),
+            ("max.compaction.lag.ms".to_owned(), max.to_owned()),
+        ])
+    };
+    assert_eq!(validate(&lags("100", "100")), Ok(()), "equal: no conflict");
+    assert_eq!(validate(&lags("99", "100")), Ok(()));
+    assert_eq!(
+        validate(&lags("101", "100")).unwrap_err(),
+        "conflict topic config setting min.compaction.lag.ms (101) > max.compaction.lag.ms (100)"
+    );
+}
+
+#[test]
+fn compaction_is_told_the_topics_lags_and_how_long_a_deletion_is_kept_or_kafkas_defaults() {
+    let defaults = crate::configs::broker::kafka_defaults();
+    let none = cleaner(&defaults, &BTreeMap::new(), 7, 64);
+    assert_eq!(
+        (none.min_lag_ms, none.max_lag_ms, none.delete_retention_ms),
+        (0, i64::MAX, 86_400_000),
+        "a day, Kafka's `delete.retention.ms`"
+    );
+    assert_eq!((none.now_ms, none.map_bytes), (7, 64));
+    let own = BTreeMap::from([
+        ("min.compaction.lag.ms".to_owned(), "11".to_owned()),
+        ("max.compaction.lag.ms".to_owned(), "22".to_owned()),
+        ("delete.retention.ms".to_owned(), "33".to_owned()),
+    ]);
+    let set = cleaner(&defaults, &own, 7, 64);
+    assert_eq!(
+        (set.min_lag_ms, set.max_lag_ms, set.delete_retention_ms),
+        (11, 22, 33)
+    );
+}

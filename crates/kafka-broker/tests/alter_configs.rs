@@ -274,3 +274,23 @@ async fn the_legacy_alter_replaces_all_the_topic_has_and_refuses_a_null() {
     assert_eq!(value_and_source(&rig, "t", "segment.ms").await.0, "9999");
     let _ = DEFAULT;
 }
+
+#[tokio::test]
+async fn a_validation_of_a_topic_that_is_not_there_is_refused_as_a_change_would_be() {
+    let rig = rig();
+    let ghost = |value| vec![(TOPIC, "ghost", vec![("retention.ms", Some(value))])];
+    let missing = refused(
+        UNKNOWN_TOPIC_OR_PARTITION,
+        "The topic 'ghost' does not exist.",
+    );
+    assert_eq!(
+        rig.incremental(
+            1,
+            true,
+            &[(TOPIC, "ghost", vec![("retention.ms", SET, Some("1"))])]
+        )
+        .await,
+        std::slice::from_ref(&missing)
+    );
+    assert_eq!(rig.alter(1, true, &ghost("1")).await, [missing]);
+}

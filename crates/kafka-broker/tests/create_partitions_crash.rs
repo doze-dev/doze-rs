@@ -99,3 +99,28 @@ async fn a_stop_at_any_point_leaves_the_topic_with_its_old_count_or_its_new_and_
     }
     assert_eq!(seen.len(), 2, "both outcomes were reached: {seen:?}");
 }
+
+/// A directory that cannot be made, after some were: the answer is the storage error, the topic keeps its count, and the
+/// directories that were made for it are taken back (nothing is left on the disk that the topic does not have).
+#[tokio::test]
+async fn a_directory_that_cannot_be_made_leaves_the_topic_as_it_was_and_no_new_directory_behind() {
+    use kafka_storage::sim::{Failure, Op};
+    const KAFKA_STORAGE_ERROR: i16 = 56;
+    let rig = rig();
+    rig.create(vec![topic("t", 2)], false).await;
+    let before = rig.dirs();
+    assert_eq!(before, ["t-0", "t-1"]);
+    // t-2 is made, t-3 is not.
+    rig.fs.fail(Op::Mkdir, 2, Failure::Io);
+    let got = rig.create_partitions(3, false, &[("t", 5, None)]).await;
+    assert_eq!(got.len(), 1);
+    assert_eq!(got[0].1, KAFKA_STORAGE_ERROR, "{got:?}");
+    assert_eq!(partitions_of(&rig, "t").await, 2);
+    assert_eq!(rig.dirs(), before, "t-2 was taken back");
+    // And the same request, asked again, works.
+    assert_eq!(
+        rig.create_partitions(3, false, &[("t", 5, None)]).await,
+        [ok("t")]
+    );
+    assert_eq!(rig.dirs().len(), 5);
+}

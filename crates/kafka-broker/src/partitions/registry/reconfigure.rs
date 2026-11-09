@@ -49,3 +49,68 @@ impl<F: Fs> Partitions<F> {
         out
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::collections::BTreeMap;
+
+    use kafka_storage::sim::SimFs;
+    use kafka_wire::batch::build::BatchBuilder;
+    use kafka_wire::batch::{Batch, TimestampType};
+    use kafka_wire::ids::{PartitionId, TimestampMs};
+
+    use super::*;
+    use crate::partitions::Partition;
+    use crate::partitions::registry::Slot;
+    use crate::partitions::tests::setup_full;
+
+    async fn write(p: &Partition<SimFs>) {
+        let batch = Batch::parse(BatchBuilder::new().records(2).build()).unwrap();
+        let pending = p
+            .submit(
+                batch,
+                TimestampMs::from_wire(1),
+                TimestampType::Create,
+                true,
+            )
+            .await
+            .unwrap();
+        pending.await.unwrap().unwrap();
+    }
+
+    /// A partition that is being opened when its topic's config changes is waited for, and judges appends by the new
+    /// config from then on (it may have read the old one before the change).
+    #[tokio::test(start_paused = true)]
+    async fn a_partition_still_opening_is_waited_for_and_given_the_new_config() {
+        let (partitions, topic, ..) = setup_full(|_| {}, 1);
+        let id = PartitionId::new(0).unwrap();
+        let open = partitions.get(&topic, id).await.unwrap();
+        // As it stands while its open is under way: its place is in the registry, and empty.
+        let slot: Slot<SimFs> = Slot::default();
+        let place = Arc::clone(&slot);
+        partitions
+            .registry()
+            .open
+            .get_mut(&(topic.id, id))
+            .unwrap()
+            .slot = place;
+        let finish = async {
+            tokio::time::sleep(Duration::from_millis(20)).await;
+            slot.set(Arc::clone(&open)).ok().unwrap();
+        };
+        let config = BTreeMap::from([("segment.bytes".to_owned(), "1".to_owned())]);
+        let changed = Arc::new(Topic {
+            config,
+            ..(*topic).clone()
+        });
+        let topics = [changed];
+        tokio::join!(partitions.reconfigure(&topics), finish);
+        for _ in 0..4 {
+            write(&open).await;
+        }
+        assert!(
+            open.reader().segment_count() > 1,
+            "a segment of one byte holds one batch: the new config was applied"
+        );
+    }
+}

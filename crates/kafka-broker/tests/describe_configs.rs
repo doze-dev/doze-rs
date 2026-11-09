@@ -230,3 +230,38 @@ async fn every_offered_version_answers() {
         assert_eq!((v, b.error_code), (v, 0));
     }
 }
+
+#[tokio::test]
+async fn synonyms_come_only_when_asked_for_and_only_the_assignment_interval_is_not_read_only() {
+    let rig = rig();
+    rig.create(
+        vec![with_config(topic("t", 1), "retention.ms", "60000")],
+        false,
+    )
+    .await;
+    let with = |on| rig.describe_configs(4, TOPIC, "t", Some(&["retention.ms"]), on, false);
+    assert_eq!(with(true).await.configs[0].synonyms.len(), 3);
+    assert!(with(false).await.configs[0].synonyms.is_empty());
+    let broker = |on| rig.describe_configs(4, BROKER, "1", None, on, false);
+    assert!(
+        broker(false)
+            .await
+            .configs
+            .iter()
+            .all(|c| c.synonyms.is_empty()),
+        "none asked for, none given"
+    );
+    // Recorded from Apache Kafka 4.3.1 (`group-coordinator-defaults`): this one can be changed while the broker runs.
+    let configs = broker(true).await.configs;
+    let read_only = |n: &str| {
+        configs
+            .iter()
+            .find(|c| c.name.as_str() == n)
+            .unwrap()
+            .read_only
+    };
+    assert!(!read_only("group.consumer.assignment.interval.ms"));
+    assert!(read_only("group.consumer.session.timeout.ms"));
+    assert!(read_only("num.partitions"));
+    assert!(!read_only("log.retention.ms"), "and the changeable ones");
+}

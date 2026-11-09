@@ -275,3 +275,23 @@ fn a_producer_whose_batches_are_all_below_the_log_start_is_forgotten() {
         }
     );
 }
+
+#[test]
+fn compaction_is_told_where_each_producers_newest_batch_ends_and_the_epoch_it_last_wrote_at() {
+    let mut p = Producers::default();
+    // Two batches in order: the second, newer one is where the producer's data ends (offset 13, 14: it has two records).
+    write(&mut p, 7, 3, 0, 3, 10);
+    write(&mut p, 7, 3, 3, 2, 13);
+    // A batch that wraps the sequence space: four records, so its last offset is three above its first.
+    write(&mut p, 8, 1, i32::MAX - 1, 4, 100);
+    // Only a marker, at a later epoch.
+    p.marked(9, 5, NOW);
+    let lasts = p.lasts();
+    let of = |id| lasts.get(&id).copied().unwrap();
+    assert_eq!(of(7).data_last_offset, Some(14));
+    assert_eq!(of(7).marker_epoch, 3);
+    assert_eq!(of(8).data_last_offset, Some(103), "wrapped: 4 records");
+    assert_eq!(of(8).marker_epoch, 1);
+    assert_eq!(of(9).data_last_offset, None, "a marker is not data");
+    assert_eq!(of(9).marker_epoch, 5);
+}

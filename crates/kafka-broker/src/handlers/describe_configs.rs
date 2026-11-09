@@ -170,3 +170,46 @@ fn broker_entry(v: &View, cluster: bool, req: &DescribeConfigsRequest) -> Config
     }
     c
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn view() -> View {
+        View {
+            name: "log.retention.ms",
+            value: "5".into(),
+            kind: 5,
+            read_only: false,
+            source: view::DYNAMIC_DEFAULT,
+            synonyms: vec![
+                (view::DYNAMIC_BROKER, "6".into()),
+                (view::DYNAMIC_DEFAULT, "5".into()),
+                (view::STATIC_BROKER, "7".into()),
+                (view::DEFAULT, "8".into()),
+            ],
+        }
+    }
+
+    #[test]
+    fn the_configs_of_all_brokers_keep_only_the_places_that_are_for_all_brokers() {
+        // `view::of_cluster` gives a view only that place, so DescribeConfigs cannot show the difference today; the
+        // rule is the entry's own, and it must hold whatever the view holds.
+        let mut req = DescribeConfigsRequest::default();
+        req.include_synonyms = true;
+        let places = |cluster| {
+            let c = broker_entry(&view(), cluster, &req);
+            c.synonyms.iter().map(|s| s.source).collect::<Vec<_>>()
+        };
+        assert_eq!(places(true), [view::DYNAMIC_DEFAULT]);
+        assert_eq!(
+            places(false),
+            [
+                view::DYNAMIC_BROKER,
+                view::DYNAMIC_DEFAULT,
+                view::STATIC_BROKER,
+                view::DEFAULT
+            ]
+        );
+    }
+}

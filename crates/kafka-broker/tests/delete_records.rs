@@ -93,6 +93,9 @@ async fn an_offset_past_the_high_watermark_or_below_minus_one_is_out_of_range_an
  {
     let rig = rig();
     filled(&rig, 2).await;
+    // Offset 0 is the start already: nothing is deleted, and the start stays 0 (not 1).
+    assert_eq!(one(&rig, "t", 0, 0).await, (0, 0));
+    assert_eq!(rig.list_offset(7, "t", 0, -2).await.offset, 0);
     assert_eq!(one(&rig, "t", 0, 21).await, (OFFSET_OUT_OF_RANGE, -1));
     assert_eq!(
         one(&rig, "t", 0, 20).await,
@@ -101,6 +104,8 @@ async fn an_offset_past_the_high_watermark_or_below_minus_one_is_out_of_range_an
     );
     assert_eq!(one(&rig, "t", 0, -2).await, (OFFSET_OUT_OF_RANGE, -1));
     assert_eq!(one(&rig, "t", 7, 0).await, (UNKNOWN_TOPIC_OR_PARTITION, -1));
+    // The topic has partitions 0 and 1: the number 2 is the first that is not one.
+    assert_eq!(one(&rig, "t", 2, 0).await, (UNKNOWN_TOPIC_OR_PARTITION, -1));
     assert_eq!(
         one(&rig, "nope", 0, 0).await,
         (UNKNOWN_TOPIC_OR_PARTITION, -1)

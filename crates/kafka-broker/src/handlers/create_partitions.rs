@@ -197,3 +197,6 @@ fn answer(t: &CreatePartitionsTopic, result: Result<(), Refusal>) -> CreateParti
     }
     r
 }
+
+#[cfg(test)]
+mod tests;
