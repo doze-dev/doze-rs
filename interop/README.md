@@ -43,3 +43,22 @@ new-protocol members last, as the last of them gone turns the group classic agai
 would be under a generation that is gone. kafka-go and sarama stay classic: kafka-go writes subscription version 1
 without the owned partitions, which a coordinator that reads subscriptions cannot read, so it is left out of groups
 with the new protocol. `-members franz-go-848,sarama` runs a group of the named clients, in join order.
+
+## Transactions
+
+Run with `-only eos-franz-go`, `-only txn-franz-go`, `-only txn-sarama`.
+
+**txn-franz-go, txn-sarama.** A transactional producer of that library writes three transactions (commit, abort,
+commit): one of ten records, one of ten that is aborted, and one of five, to a topic of three partitions. Three readers then read the
+topic from the start: franz-go, sarama and kcat, each reading committed records only and again reading everything.
+The committed readers must see exactly the records of the two commits (15, each once); the others all 25. Each takes
+about 18 s.
+
+**eos-franz-go.** Consume-transform-produce: franz-go's `GroupTransactSession` reads 200 input records in batches of
+25 and writes them to an output topic, committing the input offsets inside each transaction. One transaction is
+deliberately aborted and redone. The output must hold every record exactly once for a `read_committed` reader, and
+every input offset must be committed.
+
+kafka-go is left out of the readers: its `ReadCommitted` ignores the aborted list and hands the control batches
+(markers) up as messages, so it cannot tell a transaction from its markers. sarama has no new-protocol consumer, and
+its transactional producer is the classic protocol, which is all this broker serves.

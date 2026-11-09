@@ -535,3 +535,13 @@ test-only knobs in `internal/config`.
   *when a thing is made* changes the answers of everything that used to be answered by the thing; test it on a group that is
   not there. The test debt the auditor listed is in `phase5.md`. Phase 6 (idempotence and transactions) was started at
   the owner's request while Phase 5 was being audited; 6a (idempotent producers) is committed.
+- **2026-11-09, Phase 6 built (idempotence and transactions), awaiting its independent audit.** The partition writer owns the
+  producer tracker (last five batches per producer, rebuilt from the last 16 MiB of the log) and the transaction index
+  (open transactions, aborted ranges, last stable offset, rebuilt from the log); markers are control batches built in the
+  wire crate. The coordinator keeps one record per transactional id in `kafka-meta`, written before the broker acts (the
+  metadata crash sweep now writes them), pure rules decide every answer (EndTxn's table is the recording's), and a stop in
+  the middle of an end is finished at the next start, before the listener binds. `read_committed` Fetch and ListOffsets use
+  the last stable offset. `produce-validation`, `endtxn-decisions` and `txn-empty-id` pass; franz-go and sarama transactional
+  producers, a franz-go consume-transform-produce session (200 records, 9 transactions, one aborted and redone, output
+  exactly once) and `read_committed` readers (franz-go, sarama, kcat) pass in `interop/`. Weight 3.76 MB / 107 packages /
+  4.5 MB idle. Learned: kafka-go's `ReadCommitted` ignores the aborted list and returns markers as messages.

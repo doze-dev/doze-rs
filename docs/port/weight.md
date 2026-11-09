@@ -67,3 +67,10 @@ a Phase 3 design item (lazy open, or a descriptor cache). A fetch allocates the 
 the least recently used that nothing holds, after flushing it, and it opens again when asked. A ListOffsets for a
 partition that was never written to answers without opening it. Left: sealed segments of an open partition still
 hold two descriptors each (lazy opening of sealed segments is not done): a partition with 100 segments holds 200.
+
+## Phase 6 (transactions), measured 2026-11-09, release, darwin/arm64
+
+Binary 3,759,584 B (3.62 MB at Phase 5: +137 KB for idempotence, the transaction index and the coordinator), 107
+packages (none added), idle RSS 4.5 MB. The producer tracker keeps at most five batches per producer and 50,000
+producers per partition, built when a partition is first written to, not at start; the audit of Phase 6 looks at what
+the transaction coordinator keeps per transactional id.

@@ -1,6 +1,6 @@
 # Phase 6: idempotent producers and transactions
 
-Status: PLAN (2026-11-09; started when Phase 5 was built, at the owner's request to go on while away). Catalogue:
+Status: BUILT 2026-11-09, awaiting its independent audit (slices 6a to 6f done; 6g is the audit). Catalogue:
 behaviours/transactions.md (written as slices land). Goal: an idempotent producer's retried batch is recognised and not
 written twice; a transactional producer (franz-go, librdkafka, sarama, the Java client's classic protocol) writes to several
 partitions and commits consumer offsets atomically; a `read_committed` consumer sees all of a transaction or none of it;

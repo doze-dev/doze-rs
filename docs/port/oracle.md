@@ -88,3 +88,10 @@ The consumer-group scenarios pass against the Rust binary: `consumer-assignment-
 `DOZE_KAFKA_TEST_ASSIGNMENT_INTERVAL`. A full replay passes 38 scenarios; the failing ones are of Phases 6 to 11.
 The helper used: `CONFORMANCE_BIN=... CONFORMANCE_ONLY=<prefixes> go test ./conformance -run 'TestReplay$' -v`, output
 reduced to the `--- PASS/FAIL` and `differs from` lines.
+
+**Phase 6 (2026-11-09).** `produce-validation` now passes whole (its `unknown-pid-seq-*` steps included), as do
+`endtxn-decisions` and `txn-empty-id`. `endtxn-while-preparing` and `full-disk-*` are fault scenarios that `TestReplay` does
+not drive (the first is a unit test of the same table, `rules::each_end_is_answered_as_the_recording_says`; the second is
+covered with `SimFs`). `idempotent-write-from-topic-write` needs SASL and ACLs (Phase 8). A full replay: 41 scenarios pass and 17 fail,
+every failure an API of a later phase: configs, DeleteRecords, CreatePartitions (Phase 7), ACLs and SASL (Phase 8),
+telemetry and DescribeCluster (Phase 9).
