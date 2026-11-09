@@ -162,8 +162,9 @@ async fn a_transactional_batch_is_not_visible_to_a_reader_before_the_index_knows
         std::thread::spawn(move || {
             let mut seen = Vec::new();
             while !stop.load(std::sync::atomic::Ordering::Relaxed) {
-                let end = p.reader().end_offset().get();
-                seen.push((end, p.stability().last_stable.get()));
+                let before = p.reader().end_offset().get();
+                let stable = p.stability().last_stable.get();
+                seen.push((before, stable, p.reader().end_offset().get()));
             }
             seen
         })
@@ -176,12 +177,13 @@ async fn a_transactional_batch_is_not_visible_to_a_reader_before_the_index_knows
         append(&p, marker(producer, Marker::Commit)).await;
     }
     stop.store(true, std::sync::atomic::Ordering::Relaxed);
-    for (end, stable) in reader.join().unwrap() {
-        if opened.contains(&(end - 1)) {
+    for (before, stable, after) in reader.join().unwrap() {
+        // The log showed the batch and, when the question was answered, not yet its marker: it was open throughout.
+        if before == after && opened.contains(&(before - 1)) {
             assert!(
-                stable <= end - 1,
+                stable < before,
                 "the log showed an open batch at {} and the last stable offset was {stable}",
-                end - 1
+                before - 1
             );
         }
     }
