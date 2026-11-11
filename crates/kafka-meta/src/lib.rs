@@ -4,7 +4,6 @@
 //! One redb database on the file seam of `kafka-storage`, so the simulated disk that crash-tests the logs
 //! crash-tests this too. The records are ours (a version byte and postcard), not redb's types.
 
-mod backend;
 mod error;
 mod life;
 mod names;

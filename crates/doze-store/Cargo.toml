@@ -1,0 +1,26 @@
+[package]
+name = "doze-store"
+version = "0.0.0"
+description = "A redb database on the Fs seam: atomic create, versioned records, and a group-commit writer"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+doze-fs = { path = "../doze-fs" }
+# Pinned to the minor: the file format is redb's, and a new version is a decision (docs/port/weight.md).
+redb = "=4.5.0"
+serde = "1"
+postcard = { version = "1", default-features = false, features = ["alloc"] }
+thiserror = "2"
+# Only its oneshot channel (no runtime): a writer answers each caller through one.
+tokio = { version = "1", default-features = false, features = ["sync"] }
+
+[dev-dependencies]
+doze-fs = { path = "../doze-fs", features = ["sim"] }
+tokio = { version = "1", default-features = false, features = ["rt", "macros", "time"] }

@@ -47,3 +47,17 @@ from_redb!(
     redb::CommitError,
     redb::SetDurabilityError,
 );
+
+/// The shared store's failures are the metadata's: a database, file or record that failed keeps its kind.
+impl From<doze_store::StoreError> for MetaError {
+    fn from(e: doze_store::StoreError) -> Self {
+        match e {
+            doze_store::StoreError::Database(e) => Self::Database(e),
+            doze_store::StoreError::Io(e) => Self::Io(e),
+            doze_store::StoreError::Corrupt(why) => Self::Corrupt(why),
+            // The group-commit writer is not used here, so these two cannot arise; if one ever does, it is
+            // reported as what it is, not as a database error.
+            other => Self::Corrupt(other.to_string()),
+        }
+    }
+}

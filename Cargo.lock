@@ -276,12 +276,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "doze-fs"
+version = "0.0.0"
+dependencies = [
+ "doze-fs",
+]
+
+[[package]]
 name = "doze-kafka"
 version = "0.0.0"
 dependencies = [
  "anyhow",
  "bytes",
  "clap",
+ "doze-runtime",
  "kafka-broker",
  "kafka-console",
  "kafka-protocol",
@@ -293,6 +301,27 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "doze-runtime"
+version = "0.0.0"
+dependencies = [
+ "thiserror",
+ "tokio",
+ "tokio-util",
+]
+
+[[package]]
+name = "doze-store"
+version = "0.0.0"
+dependencies = [
+ "doze-fs",
+ "postcard",
+ "redb",
+ "serde",
+ "thiserror",
+ "tokio",
 ]
 
 [[package]]
@@ -474,6 +503,7 @@ dependencies = [
 name = "kafka-meta"
 version = "0.0.0"
 dependencies = [
+ "doze-store",
  "getrandom",
  "kafka-storage",
  "kafka-wire",
@@ -524,6 +554,7 @@ version = "0.0.0"
 dependencies = [
  "arc-swap",
  "bytes",
+ "doze-fs",
  "kafka-storage",
  "kafka-wire",
  "stats_alloc",
@@ -1066,6 +1097,7 @@ dependencies = [
  "futures-sink",
  "futures-util",
  "pin-project-lite",
+ "slab",
  "tokio",
 ]
 

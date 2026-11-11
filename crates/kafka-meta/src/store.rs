@@ -13,11 +13,11 @@ pub use topics::random_topic_id;
 use std::path::Path;
 use std::sync::{Mutex, MutexGuard, PoisonError};
 
+use doze_store::Store;
 use kafka_storage::fs::Fs;
-use redb::{Database, Durability, TableDefinition, WriteTransaction};
+use redb::{TableDefinition, WriteTransaction};
 
 use crate::MetaError;
-use crate::backend::FileBackend;
 use registry::Shared;
 
 /// Topic name to its record.
@@ -44,7 +44,7 @@ const CACHE_BYTES: usize = 1 << 20;
 /// a crash at any point leaves it done or not done, never half. Writes are one at a time.
 #[derive(Debug)]
 pub struct MetaStore {
-    db: Database,
+    db: Store,
     /// What the topics are, in memory, changed only by a write that has committed.
     shared: Shared,
     /// Held for the whole of a topic change, from the checks to the registry update, so that two changes
@@ -62,16 +62,15 @@ impl MetaStore {
     /// # Errors
     /// A file system or database failure, or a topic record this version cannot read.
     pub fn open<F: Fs>(fs: &F, dir: &Path) -> Result<Self, MetaError> {
-        let path = dir.join(FILE);
-        let file = match fs.open_existing(&path) {
-            Ok(file) => file,
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-                make(fs, dir, &path)?;
-                fs.open_existing(&path)?
-            }
-            Err(e) => return Err(e.into()),
-        };
-        let db = builder().create_with_backend(FileBackend(file))?;
+        let db = Store::open(fs, dir, FILE, CACHE_BYTES, |txn| {
+            txn.open_table(TOPICS)?;
+            txn.open_table(COUNTERS)?;
+            txn.open_table(OFFSETS)?;
+            txn.open_table(GROUP_LIVES)?;
+            txn.open_table(TXNS)?;
+            txn.open_table(BROKER_CONFIGS)?;
+            Ok(())
+        })?;
         let shared = Shared::load(&db)?;
         Ok(Self {
             db,
@@ -92,41 +91,9 @@ impl MetaStore {
     }
 
     pub(super) fn begin(&self) -> Result<WriteTransaction, MetaError> {
-        let mut txn = self.db.begin_write()?;
         // Flushed at commit, whatever the library's default says.
-        txn.set_durability(Durability::Immediate)?;
-        Ok(txn)
+        Ok(self.db.begin()?)
     }
-}
-
-fn builder() -> redb::Builder {
-    let mut b = Database::builder();
-    b.set_cache_size(CACHE_BYTES);
-    b
-}
-
-/// Makes a database with its tables and puts it at `path`.
-fn make<F: Fs>(fs: &F, dir: &Path, path: &Path) -> Result<(), MetaError> {
-    let staged = dir.join(format!("{FILE}.tmp"));
-    // Whatever an earlier attempt left is not trusted.
-    fs.remove_file(&staged)?;
-    let (file, _) = fs.open_or_create(&staged)?;
-    let db = builder().create_with_backend(FileBackend(file))?;
-    let txn = db.begin_write()?;
-    txn.open_table(TOPICS)?;
-    txn.open_table(COUNTERS)?;
-    txn.open_table(OFFSETS)?;
-    txn.open_table(GROUP_LIVES)?;
-    txn.open_table(TXNS)?;
-    txn.open_table(BROKER_CONFIGS)?;
-    txn.commit()?;
-    // Closed by name, not by dropping: closing flushes once more, and a flush that fails must stop the
-    // file being put in place (a dropped database would swallow it, and the file's later flushes may
-    // report success without writing anything).
-    db.close()?;
-    fs.rename(&staged, path)?;
-    fs.sync_dir(dir)?;
-    Ok(())
 }
 
 /// A lock held for a short step; one that a panicking thread poisoned is still taken (the data under it is

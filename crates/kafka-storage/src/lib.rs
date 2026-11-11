@@ -5,7 +5,6 @@
 
 pub mod compact;
 pub mod error;
-pub mod fs;
 mod index;
 pub mod log;
 mod logstart;
@@ -13,10 +12,13 @@ pub mod marker;
 mod retention;
 mod scan;
 mod segment;
-#[cfg(any(test, feature = "sim"))]
-pub mod sim;
 pub mod topic_dirs;
 mod transactional;
+
+// The file seam moved to `doze-fs` (A1); these keep every `kafka_storage::fs` path working.
+pub use doze_fs::fs;
+#[cfg(any(test, feature = "sim"))]
+pub use doze_fs::sim;
 
 pub use error::StorageError;
 pub use log::{Appended, LogConfig, LogReader, PartitionLog, Retention, Ticket, Trust};

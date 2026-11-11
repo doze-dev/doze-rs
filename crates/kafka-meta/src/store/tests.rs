@@ -8,7 +8,7 @@ use redb::{Database, ReadableTable};
 
 use super::*;
 use crate::Topic;
-use crate::backend::FileBackend;
+use doze_store::FileBackend;
 
 const DATA: &str = "/data";
 

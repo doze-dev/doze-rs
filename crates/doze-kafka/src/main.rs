@@ -4,7 +4,6 @@ mod cli;
 mod control;
 mod descriptors;
 mod duration;
-mod lock;
 mod run;
 
 use anyhow::Result;
@@ -33,7 +32,7 @@ fn main() -> Result<()> {
             "{flag} is accepted and ignored: that part of doze-kafka is not in this edition yet"
         );
     }
-    let _lock = lock::DataDirLock::take(&args.data_dir)?;
+    let _lock = doze_runtime::DataDirLock::take(&args.data_dir, "doze-kafka")?;
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(args.worker_threads)
         .thread_name("doze-kafka")

@@ -1,15 +1,17 @@
-//! redb running on our file seam, so the metadata database is written through the same [`Fs`] as the logs and
-//! a simulated disk can cut the power under it.
+//! redb running on our file seam, so the database is written through the same [`Fs`] as everything else
+//! and a simulated disk can cut the power under it.
+//!
+//! [`Fs`]: doze_fs::fs::Fs
 
 use std::fmt;
 use std::io;
 
-use kafka_storage::fs::FsFile;
+use doze_fs::fs::FsFile;
 use redb::StorageBackend;
 
 /// One file, as redb wants to see it. Locking is not offered (redb then relies on the caller to open the
-/// database once: the broker holds a lock on its data directory for that).
-pub(crate) struct FileBackend<T: FsFile>(pub(crate) T);
+/// database once: a service holds a lock on its data directory for that).
+pub struct FileBackend<T: FsFile>(pub T);
 
 impl<T: FsFile> fmt::Debug for FileBackend<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

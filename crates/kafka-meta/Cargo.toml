@@ -14,6 +14,7 @@ workspace = true
 [dependencies]
 kafka-wire = { path = "../kafka-wire" }
 kafka-storage = { path = "../kafka-storage" }
+doze-store = { path = "../doze-store" }
 # Pinned to the minor: the file format is redb's, and a new version is a decision (docs/port/weight.md).
 redb = "=4.5.0"
 serde = { version = "1", features = ["derive"] }

@@ -13,6 +13,7 @@ workspace = true
 
 [dependencies]
 kafka-wire = { path = "../kafka-wire" }
+doze-fs = { path = "../doze-fs" }
 bytes = "1"
 thiserror = "2"
 arc-swap = "1"
@@ -21,9 +22,11 @@ tokio = { version = "1", default-features = false, features = ["sync"] }
 
 [features]
 # A deterministic in-memory disk with crash points and injected faults, for tests.
-sim = []
+sim = ["doze-fs/sim"]
 
 [dev-dependencies]
+# The unit tests run on the simulated disk.
+doze-fs = { path = "../doze-fs", features = ["sim"] }
 # Builds valid batches for the tests.
 kafka-wire = { path = "../kafka-wire", features = ["test-support"] }
 tokio = { version = "1", default-features = false, features = ["rt", "macros", "time"] }

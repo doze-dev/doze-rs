@@ -91,3 +91,9 @@ figure above: removing a segment cleaning has emptied, the install in parts, the
 rule for a marker found at open), 107 packages (none added), idle RSS 4,816 KB with 3 threads. All three under the CI limits
 (the CI job runs on Linux x86_64: 5.15 MB, which was measured at 4.90 MB there; 115 packages counted with `sort -u`; 8 MB idle). The
 4.2 MB figure that stood here is the darwin/arm64 one and is not what CI gates.
+
+**After A1, the shared kit extracted (2026-11-12, darwin/arm64, release, branch `aws`):** binary 4,030,448 B (+944 B over the Phase 7
+close above), 112 lines in the CI count (107 plus `doze-fs`, `doze-store` and `doze-runtime`, and two `(*)` repeat lines for `redb` and
+`postcard`, which the `sort -u` count includes; the real new packages are our three), idle RSS 4,816 to 4,880 KB over three runs (4,816 at
+Phase 7). Under the CI limits (115, 5.15 MB, 8 MB). Kafka now links `doze-store` and the lock from `doze-runtime`; it does not link
+`Lazy` or `Expiring`. `cargo xtask weight` now measures this.

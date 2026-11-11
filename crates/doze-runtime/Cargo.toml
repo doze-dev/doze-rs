@@ -1,0 +1,21 @@
+[package]
+name = "doze-runtime"
+version = "0.0.0"
+description = "What every doze service runs on: lazy services that cost nothing idle, timers, a clock, shutdown, the data-dir lock"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+thiserror = "2"
+tokio = { version = "1", default-features = false, features = ["rt", "sync", "time"] }
+# `time` is the DelayQueue behind `Expiring`; `rt` is the TaskTracker and `sync` the CancellationToken.
+tokio-util = { version = "0.7", default-features = false, features = ["rt", "time"] }
+
+[dev-dependencies]
+tokio = { version = "1", default-features = false, features = ["rt", "rt-multi-thread", "sync", "time", "macros", "test-util"] }

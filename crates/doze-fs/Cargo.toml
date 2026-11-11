@@ -1,0 +1,19 @@
+[package]
+name = "doze-fs"
+version = "0.0.0"
+description = "The file-system seam: the Fs trait, the real disk, and a simulated disk with crash points and faults"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[features]
+# A deterministic in-memory disk with crash points and injected faults, for tests.
+sim = []
+
+[dev-dependencies]
+doze-fs = { path = ".", features = ["sim"] }

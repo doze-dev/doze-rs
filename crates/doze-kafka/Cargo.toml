@@ -18,6 +18,7 @@ kafka-broker = { path = "../kafka-broker" }
 kafka-server = { path = "../kafka-server" }
 kafka-console = { path = "../kafka-console" }
 kafka-registry = { path = "../kafka-registry" }
+doze-runtime = { path = "../doze-runtime" }
 anyhow = "1"
 # The limit on open files: raised at start, and the open partitions sized to it.
 rlimit = "0.11"
