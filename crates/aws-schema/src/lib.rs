@@ -6,6 +6,7 @@
 //! From spike S1b (design C, 2026-11-09).
 
 pub mod arena;
+pub mod build;
 pub mod enc;
 pub mod json;
 pub mod patterns;

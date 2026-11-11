@@ -19,6 +19,7 @@ use std::path::PathBuf;
 
 use aws_modelcheck::{Service, services};
 use aws_schema::arena::Arena;
+use aws_schema::enc::encode;
 use aws_schema::json::{Violation, decode};
 use aws_schema::patterns::Patterns;
 use aws_schema::tables::{F_REQUIRED, K_BOOL, K_INT, K_STR, MemberRef, RangeRef};
@@ -129,6 +130,24 @@ fn faults(g: &Gen<'_>, shape: u32) -> Vec<Fault> {
     out
 }
 
+/// Writing a decoded tree back out gives text that decodes again and writes out identically: the encoder agrees with the decoder.
+fn reencodes_to_itself(g: &Gen<'_>, what: &str, shape: u32, body: &str, ar: &Arena, root: u32) {
+    let mut first = Vec::new();
+    encode(g.t, shape, ar, body, root, &mut first)
+        .unwrap_or_else(|e| panic!("{what}: cannot encode: {e:?}"));
+    let first = String::from_utf8(first).unwrap();
+    let mut again = Arena::new();
+    let root = decode(g.t, &g.pats, shape, &first, &mut again)
+        .unwrap_or_else(|e| panic!("{what}: its own output was refused: {e:?}\n{first}"));
+    let mut second = Vec::new();
+    encode(g.t, shape, &again, &first, root, &mut second).unwrap();
+    assert_eq!(
+        first.as_bytes(),
+        second.as_slice(),
+        "{what}: encode is not stable"
+    );
+}
+
 fn check_service(svc: &Service) -> (usize, usize, Vec<String>) {
     let t = svc.tables;
     let g = Gen {
@@ -152,6 +171,15 @@ fn check_service(svc: &Service) -> (usize, usize, Vec<String>) {
             "{}.{}: a valid body was refused: {got:?}\n{valid}",
             svc.name,
             op.name
+        );
+        let root = got.unwrap();
+        reencodes_to_itself(
+            &g,
+            &format!("{}.{}", svc.name, op.name),
+            input,
+            &valid,
+            &ar,
+            root,
         );
         tested += 1;
         for (body, want, what) in faults(&g, input) {

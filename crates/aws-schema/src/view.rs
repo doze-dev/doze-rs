@@ -56,6 +56,12 @@ impl<S, K> Key<S, K> {
             _m: PhantomData,
         }
     }
+
+    /// The member index this key names.
+    #[must_use]
+    pub const fn member(&self) -> u32 {
+        self.member
+    }
 }
 
 /// What a value of kind `K` reads as.

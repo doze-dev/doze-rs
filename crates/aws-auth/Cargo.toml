@@ -1,0 +1,27 @@
+[package]
+name = "aws-auth"
+version = "0.0.0"
+description = "SigV4 request authentication, sans-IO: parse a signature claim, check it against stored credentials, yield proof"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+aws-core = { path = "../aws-core" }
+# Only the request head types; no I/O.
+http = "1"
+bytes = "1"
+form_urlencoded = "1.2"
+sha2 = "0.11"
+hmac = "0.13"
+thiserror = "2"
+
+[dev-dependencies]
+# The cross-check re-signs with the AWS crate (a signer: to verify, re-sign and compare). Never linked into a server.
+aws-sigv4 = { version = "1.6", default-features = false, features = ["sign-http", "http1"] }
+aws-credential-types = "1.3"

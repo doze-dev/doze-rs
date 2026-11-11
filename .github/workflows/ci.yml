@@ -89,3 +89,11 @@ jobs:
         run: |
           mkdir -p corpus/fuzz_recovery
           cargo fuzz run fuzz_recovery corpus/fuzz_recovery seeds/fuzz_recovery -- -max_total_time=30 -max_len=65536
+      - name: Fuzz the aws decoders for 30 seconds each
+        run: |
+          (cd crates/aws-schema/fuzz && mkdir -p corpus/fuzz_json && cargo fuzz run fuzz_json corpus/fuzz_json seeds/fuzz_json -- -max_total_time=30 -max_len=65536)
+          cd crates/aws-auth/fuzz
+          for target in fuzz_claim fuzz_chunked; do
+            mkdir -p "corpus/$target"
+            cargo fuzz run "$target" "corpus/$target" "seeds/$target" -- -max_total_time=30 -max_len=65536
+          done

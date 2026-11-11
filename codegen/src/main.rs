@@ -75,7 +75,11 @@ fn parse(argv: Vec<String>) -> Result<Args> {
 fn stems(args: &Args) -> Result<Vec<String>> {
     let mut stems: Vec<String> = std::fs::read_dir(&args.models)
         .with_context(|| args.models.display().to_string())?
-        .filter_map(|e| e.ok()?.path().file_stem()?.to_str().map(str::to_owned))
+        .filter_map(|e| {
+            let path = e.ok()?.path();
+            // Only the models: the directory also holds PROVENANCE.md.
+            (path.extension()? == "json").then(|| path.file_stem()?.to_str().map(str::to_owned))?
+        })
         .collect();
     stems.sort();
     stems.dedup();

@@ -40,6 +40,7 @@ struct D<'t> {
     ar: &'t mut Arena,
 }
 
+// fuzz:parser fuzz_json
 /// Decodes `body` as the structure `shape`; returns the root node.
 pub fn decode(t: &Tables, pats: &Patterns, shape: u32, body: &str, ar: &mut Arena) -> R<u32> {
     ar.reserve_for(body.len());

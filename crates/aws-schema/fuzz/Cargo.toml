@@ -1,0 +1,24 @@
+[package]
+name = "aws-schema-fuzz"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+aws-schema = { path = ".." }
+aws-model-sqs = { path = "../../aws-model-sqs" }
+aws-model-dynamodb = { path = "../../aws-model-dynamodb" }
+aws-model-ssm = { path = "../../aws-model-ssm" }
+
+# Not part of the main workspace: fuzzing needs a nightly toolchain.
+[workspace]
+
+[[bin]]
+name = "fuzz_json"
+path = "fuzz_targets/fuzz_json.rs"
+test = false
+doc = false
