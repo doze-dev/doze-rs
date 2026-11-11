@@ -1,0 +1,27 @@
+[package]
+name = "codegen"
+version = "0.0.0"
+description = "Smithy JSON AST to the packed schema tables the aws-model-* crates hold. Run as `cargo xtask codegen`."
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+# A build tool, not shipped code: it may use anyhow, and its emitters may have long functions. It is still
+# unsafe-free, and every file stays under the size limits (`cargo xtask lint-size` covers this directory).
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+
+[dependencies]
+anyhow = "1"
+heck = "0.5"
+indexmap = { version = "2", features = ["serde"] }
+proc-macro2 = "1"
+regex-lite = "0.1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.11"

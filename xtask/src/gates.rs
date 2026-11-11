@@ -92,6 +92,7 @@ fn steps(jobs: u32) -> Vec<Step> {
             ],
             false,
         ),
+        step("codegen", "cargo", &["xtask", "codegen", "--check"], false),
         step("lint-size", "cargo", &["xtask", "lint-size"], false),
         step("fuzz-check", "cargo", &["xtask", "fuzz-check"], false),
         step(
@@ -118,7 +119,17 @@ mod tests {
     fn the_cheap_checks_come_before_the_tests() {
         let all = steps(4);
         let names: Vec<_> = all.iter().map(|s| s.name).collect();
-        assert_eq!(names, ["fmt", "clippy", "lint-size", "fuzz-check", "test"]);
+        assert_eq!(
+            names,
+            [
+                "fmt",
+                "clippy",
+                "codegen",
+                "lint-size",
+                "fuzz-check",
+                "test"
+            ]
+        );
         assert!(all.iter().filter(|s| s.slow).all(|s| s.name == "test"));
     }
 

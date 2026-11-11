@@ -23,7 +23,7 @@ pub(crate) fn run(args: Vec<String>) -> ExitCode {
     };
     let root = Path::new(".");
     let mut files = Vec::new();
-    for dir in ["crates", "xtask"] {
+    for dir in ["crates", "xtask", "codegen"] {
         if let Err(e) = collect(&root.join(dir), &mut files) {
             eprintln!("xtask lint-size: reading {dir}: {e}");
             return ExitCode::FAILURE;
@@ -93,8 +93,19 @@ fn collect(dir: &Path, out: &mut Vec<Sized>) -> io::Result<()> {
                 collect(&path, out)?;
             }
         } else if path.extension().is_some_and(|e| e == "rs") {
-            let lines = fs::read_to_string(&path)?.lines().count();
-            out.push(Sized { path, lines });
+            let text = fs::read_to_string(&path)?;
+            // Generated tables and constants are not split by responsibility; `xtask codegen --check` is their gate.
+            if text
+                .lines()
+                .next()
+                .is_some_and(|l| l.contains("@generated"))
+            {
+                continue;
+            }
+            out.push(Sized {
+                path,
+                lines: text.lines().count(),
+            });
         }
     }
     Ok(())

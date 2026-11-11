@@ -1,0 +1,39 @@
+[package]
+name = "aws-modelcheck"
+version = "0.0.0"
+description = "Tests that hold all 18 generated models against the decoder and against the raw Smithy models"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+aws-schema = { path = "../aws-schema" }
+aws-model-api-gateway = { path = "../aws-model-api-gateway" }
+aws-model-apigatewayv2 = { path = "../aws-model-apigatewayv2" }
+aws-model-cloudformation = { path = "../aws-model-cloudformation" }
+aws-model-cloudwatch = { path = "../aws-model-cloudwatch" }
+aws-model-cloudwatch-logs = { path = "../aws-model-cloudwatch-logs" }
+aws-model-dynamodb = { path = "../aws-model-dynamodb" }
+aws-model-eventbridge = { path = "../aws-model-eventbridge" }
+aws-model-iam = { path = "../aws-model-iam" }
+aws-model-kinesis = { path = "../aws-model-kinesis" }
+aws-model-kms = { path = "../aws-model-kms" }
+aws-model-lambda = { path = "../aws-model-lambda" }
+aws-model-s3 = { path = "../aws-model-s3" }
+aws-model-secrets-manager = { path = "../aws-model-secrets-manager" }
+aws-model-sfn = { path = "../aws-model-sfn" }
+aws-model-sns = { path = "../aws-model-sns" }
+aws-model-sqs = { path = "../aws-model-sqs" }
+aws-model-ssm = { path = "../aws-model-ssm" }
+aws-model-sts = { path = "../aws-model-sts" }
+
+[dev-dependencies]
+serde_json = "1"
+# Samples strings that match a model pattern, for the bodies test; seeded, so a failure repeats.
+rand = { version = "0.9", default-features = false, features = ["std", "std_rng"] }
+rand_regex = "0.18"

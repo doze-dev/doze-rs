@@ -30,6 +30,8 @@ jobs:
       - run: cargo test -p kafka-storage -p kafka-meta --features kafka-storage/sim --release
         env:
           SIM_SEEDS: "200"
+      # The generated aws-model crates are what the models and overlays produce (docs/port/aws/PLAN.md, rule 11).
+      - run: cargo xtask codegen --check
       # No file grows past the hard size limit (docs/port/PLAN.md, quality rule 1).
       - run: cargo xtask lint-size
       # Every parser has a fuzz target (a `// fuzz:parser` marker with no target fails).

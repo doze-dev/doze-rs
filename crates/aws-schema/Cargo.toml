@@ -1,0 +1,15 @@
+[package]
+name = "aws-schema"
+version = "0.0.0"
+description = "Schema-driven zero-copy decode, validate and encode over the packed tables the model crates generate"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+regex-lite = "0.1"
