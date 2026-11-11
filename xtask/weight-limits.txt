@@ -1,0 +1,6 @@
+# Weight limits (docs/port/weight.md). A limit moves only with a written reason in that file.
+# package   max_bytes  max_packages  max_rss_kb  server args ({port} and {data} are filled in)
+#
+# doze-kafka: measured on ubuntu x86_64: 4,899,328 B (the macOS arm64 build is 3.4 MB); the limit is that plus about 5%.
+# These are the limits CI has enforced; the macOS idle figure is lower than Linux's 8 MB limit.
+doze-kafka 5150000 115 8192 --listen 127.0.0.1:{port} --data-dir {data}

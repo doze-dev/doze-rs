@@ -234,8 +234,10 @@ def settled(cfn, eventually, name):
 
 # An SSM parameter SSM refuses: it fails after the queues beside it are made,
 # which is the situation a rollback exists for.
-BAD = {"Type": "AWS::SSM::Parameter",
-       "Properties": {"Name": "/dzc/has space", "Type": "String", "Value": "v"}}
+def bad(param):
+    """The parameter, named with the run prefix so the recorder role may touch it (and so a sweep finds it)."""
+    return {"Type": "AWS::SSM::Parameter",
+            "Properties": {"Name": f"/{param}/has space", "Type": "String", "Value": "v"}}
 
 
 def trail(cfn, name):
@@ -246,7 +248,7 @@ def trail(cfn, name):
 
 def test_a_failed_update_goes_back_to_the_previous_template(client, names, cleanup, snapshot, eventually):
     cfn, sqs = client("cloudformation"), client("sqs")
-    queue, extra = names("queue"), names("extra")
+    queue, extra, param = names("queue"), names("extra"), names("param")
     v1 = {"Resources": {"Q": {"Type": "AWS::SQS::Queue",
                               "Properties": {"QueueName": queue, "VisibilityTimeout": 30}}}}
     name, _ = stack(cfn, names, cleanup, v1)
@@ -256,7 +258,7 @@ def test_a_failed_update_goes_back_to_the_previous_template(client, names, clean
     v2 = {"Resources": {
         "Q": {"Type": "AWS::SQS::Queue", "Properties": {"QueueName": queue, "VisibilityTimeout": 45}},
         "Extra": {"Type": "AWS::SQS::Queue", "Properties": {"QueueName": extra}},
-        "Bad": {**BAD, "DependsOn": ["Q", "Extra"]},
+        "Bad": {**bad(param), "DependsOn": ["Q", "Extra"]},
     }}
     snapshot.match("update", cfn.update_stack(StackName=name, TemplateBody=json.dumps(v2)))
     snapshot.match("status", settled(cfn, eventually, name))
@@ -297,10 +299,10 @@ def test_an_update_deletes_what_its_template_drops(client, names, cleanup, snaps
 
 def test_a_failed_create_can_be_left_or_deleted(client, names, cleanup, snapshot, eventually):
     cfn, sqs = client("cloudformation"), client("sqs")
-    kept_q, gone_q = names("kept-queue"), names("gone-queue")
+    kept_q, gone_q, param = names("kept-queue"), names("gone-queue"), names("param")
     body = lambda queue: json.dumps({"Resources": {
         "Good": {"Type": "AWS::SQS::Queue", "Properties": {"QueueName": queue}},
-        "Bad": {**BAD, "DependsOn": "Good"}}})
+        "Bad": {**bad(param), "DependsOn": "Good"}}})
 
     kept = names("kept")
     cleanup(lambda: (cfn.delete_stack(StackName=kept),

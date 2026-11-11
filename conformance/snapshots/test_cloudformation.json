@@ -2,7 +2,7 @@
   "_recorded": {
     "boto3": "1.43.107",
     "botocore": "1.43.107",
-    "on": "2026-11-09",
+    "on": "2026-11-12",
     "region": "us-east-1",
     "target": "aws"
   },
@@ -40,6 +40,53 @@
       "QueueUrl": "<endpoint>/<account>/<name:kept-queue>",
       "ResponseMetadata": {
         "HTTPStatusCode": 200
+      }
+    }
+  },
+  "test_a_failed_update_goes_back_to_the_previous_template": {
+    "a-good-update-after": {
+      "OperationId": "<uuid:3>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "StackId": "arn:aws:cloudformation:us-east-1:<account>:stack/<name:stack>/<uuid:2>"
+    },
+    "stack-level-events": [
+      "CREATE_IN_PROGRESS",
+      "CREATE_IN_PROGRESS",
+      "CREATE_COMPLETE",
+      "UPDATE_IN_PROGRESS",
+      "UPDATE_ROLLBACK_IN_PROGRESS",
+      "UPDATE_ROLLBACK_COMPLETE_CLEANUP_IN_PROGRESS",
+      "UPDATE_ROLLBACK_COMPLETE"
+    ],
+    "status": "UPDATE_ROLLBACK_COMPLETE",
+    "status-after": "UPDATE_COMPLETE",
+    "the-queue-is-as-it-was": {
+      "Attributes": {
+        "VisibilityTimeout": "30"
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      }
+    },
+    "the-template-is-the-old-one": [
+      "Q"
+    ],
+    "update": {
+      "OperationId": "<uuid:1>",
+      "ResponseMetadata": {
+        "HTTPStatusCode": 200
+      },
+      "StackId": "arn:aws:cloudformation:us-east-1:<account>:stack/<name:stack>/<uuid:2>"
+    },
+    "what-the-update-added-is-gone": {
+      "Error": {
+        "Code": "AWS.SimpleQueueService.NonExistentQueue",
+        "Message": "The specified queue does not exist."
+      },
+      "ResponseMetadata": {
+        "HTTPStatusCode": 400
       }
     }
   },
