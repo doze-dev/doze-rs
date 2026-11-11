@@ -1,4 +1,6 @@
-# doze-aws Rust port: where we stopped (2026-11-09 night) and how to resume
+# doze-aws Rust port: where we stopped (2026-11-12) and how to resume
+
+**2026-11-12 update:** SSO session verified, teardown dry run found 0, baseline re-run over all 17 recorded modules (850 labels: 423 exact, 225 behavioural, 18 unverified; see `baseline.md`), scoreboard updated. CI: only the nightly `fuzz` job is red (kafka-wire fuzz target lacks the new `Features.served` field; Kafka-side, not aws). Still open from the list below: IAM re-record (owner pastes the policy), the two CloudFormation scenarios, then 0.4 xtask, S3, S4, A1. The Go binary was built from a detached worktree of `doze-aws` origin/main (f8c31a1) in the scratchpad (`go-baseline`); local `doze-aws` main is at a2d1e54, not the baselined commit.
 
 Read this first. Then `phase0.md` (method, stages, spikes), `scoreboard.md`, `baseline.md`, `PLAN.md` (phases, targets, rules 16 to 25).
 
