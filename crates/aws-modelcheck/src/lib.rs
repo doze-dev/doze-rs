@@ -1,5 +1,6 @@
 //! All 18 generated models in one list, for tests that hold them against the decoder and the raw models.
 
+use aws_schema::meta::ServiceMeta;
 use aws_schema::tables::Tables;
 
 /// One service's generated tables.
@@ -8,6 +9,7 @@ pub struct Service {
     /// The model file's stem (`models/<name>.json`).
     pub name: &'static str,
     pub tables: &'static Tables,
+    pub meta: &'static ServiceMeta,
     /// How many operations the model defines (the length of its `Operation::ALL`).
     pub operations: usize,
 }
@@ -17,6 +19,7 @@ macro_rules! list {
         vec![$(Service {
             name: $name,
             tables: &$krate::tables::TABLES,
+            meta: &$krate::meta::META,
             operations: $krate::Operation::ALL.len(),
         }),*]
     };

@@ -134,6 +134,62 @@ fn check_service(svc: &Service) -> (usize, usize) {
 }
 
 #[test]
+fn what_each_model_says_of_its_service_is_in_meta() {
+    use aws_schema::meta::Protocol::{
+        AwsJson10, AwsJson11, AwsQuery, RestJson1, RestXml, Rpcv2Cbor,
+    };
+    let traits = [
+        ("aws.protocols#awsJson1_0", AwsJson10),
+        ("aws.protocols#awsJson1_1", AwsJson11),
+        ("aws.protocols#awsQuery", AwsQuery),
+        ("aws.protocols#restJson1", RestJson1),
+        ("aws.protocols#restXml", RestXml),
+        ("smithy.protocols#rpcv2Cbor", Rpcv2Cbor),
+    ];
+    for svc in services() {
+        let doc = model(svc.name);
+        let (id, service) = doc["shapes"]
+            .as_object()
+            .unwrap()
+            .iter()
+            .find(|(_, s)| s["type"] == "service")
+            .unwrap();
+        let (ns, name) = id.split_once('#').unwrap();
+        let m = svc.meta;
+        assert_eq!((m.namespace, m.shape_name), (ns, name), "{}", svc.name);
+        assert_eq!(
+            m.version,
+            service["version"].as_str().unwrap(),
+            "{}",
+            svc.name
+        );
+        let want: Vec<_> = traits
+            .iter()
+            .filter(|(t, _)| service["traits"].get(*t).is_some())
+            .map(|(_, p)| *p)
+            .collect();
+        assert_eq!(m.protocols, want.as_slice(), "{}", svc.name);
+        let query_compatible = service["traits"]
+            .get("aws.protocols#awsQueryCompatible")
+            .is_some();
+        assert_eq!(m.query_compatible, query_compatible, "{}", svc.name);
+        assert_eq!(
+            m.signing_name,
+            service["traits"]["aws.auth#sigv4"]["name"]
+                .as_str()
+                .unwrap(),
+            "{}",
+            svc.name
+        );
+        assert!(
+            !m.signing_name.is_empty() && !m.sdk_id.is_empty(),
+            "{}",
+            svc.name
+        );
+    }
+}
+
+#[test]
 fn every_operation_of_the_model_is_in_the_tables() {
     for svc in services() {
         let doc = model(svc.name);

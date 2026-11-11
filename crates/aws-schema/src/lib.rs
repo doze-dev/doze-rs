@@ -9,6 +9,7 @@ pub mod arena;
 pub mod build;
 pub mod enc;
 pub mod json;
+pub mod meta;
 pub mod patterns;
 pub mod tables;
 pub mod time;

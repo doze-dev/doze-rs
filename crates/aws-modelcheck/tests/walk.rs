@@ -141,6 +141,20 @@ fn every_index_in_every_table_is_in_range() {
     }
 }
 
+/// `find_op` is a binary search: it needs the operations in name order, and must find every one.
+#[test]
+fn operations_are_found_by_name() {
+    for s in services() {
+        let t = s.tables;
+        for i in 0..t.n_ops() {
+            let name = t.op(i).unwrap().name;
+            assert_eq!(t.find_op(name), Some(i), "{}: {name}", s.name);
+        }
+        assert_eq!(t.find_op("NoSuchOperation"), None);
+        assert_eq!(t.find_op(""), None);
+    }
+}
+
 #[test]
 fn the_models_hold_every_operation_aws_defines() {
     let all = services();

@@ -248,6 +248,21 @@ impl Tables {
         let n = self.word(start);
         (0..n).any(|k| self.string(self.word(start + 1 + k)) == s)
     }
+    /// The index of the operation called `name`. The generator writes operations in name order, so this is a binary search.
+    #[must_use]
+    pub fn find_op(&self, name: &str) -> Option<u32> {
+        let (mut lo, mut hi) = (0, self.l.n_ops);
+        while lo < hi {
+            let mid = lo + (hi - lo) / 2;
+            match self.op(mid)?.name.cmp(name) {
+                std::cmp::Ordering::Less => lo = mid + 1,
+                std::cmp::Ordering::Greater => hi = mid,
+                std::cmp::Ordering::Equal => return Some(mid),
+            }
+        }
+        None
+    }
+
     #[must_use]
     pub fn op(&self, i: u32) -> Option<OpRef<'_>> {
         if i >= self.l.n_ops {

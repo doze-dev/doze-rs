@@ -9,6 +9,8 @@
 #[rustfmt::skip]
 pub mod keys;
 #[rustfmt::skip]
+pub mod meta;
+#[rustfmt::skip]
 pub mod ops;
 #[rustfmt::skip]
 pub mod tables;
