@@ -98,20 +98,20 @@ it can go.
 
 ## Owner's decisions (2026-11-10)
 
-The owner answered the tiers above. The canvas ("doze-kafka console · direction") now draws **95 screens**, down from 137.
+The owner answered the tiers above. The canvas ("doze-kafka console · direction") now draws **94 screens**, down from 137.
 
-**Tier C: folded (31 screens gone, content kept in the parent page; `group-story-calm` stays, because it is another group's story and cannot sit under `fulfilment`'s header).**
+**Tier C: folded (32 screens gone, content kept in the parent page).**
 - Settings: intervals, flags, profile, weight, data and restart are sections of `settings-home` (one page); the three broker-config dialogs stay.
 - Producers: `topic-producers`, `txn-open` and `txn-holding` stay; producer detail, idempotent, aborted, expiry, fenced, list, none, offsets and timeout are rows and sentences on them.
 - Log: `topic-log` (ruler and planner verdict), `log-planner`, `log-retention`, `log-empty`, `log-compact-now` stay; blocked planner, last retention, last compaction, delete-records effect, flush, gaps, index, segment and tombstones are rows and cards inside them.
 - Config: synonyms and Kafka's text are expandable rows on `topic-config`; "when it takes effect" is one sentence under each row and a timeline on `config-saved`; compare is dropped.
-- Cheap states: `home-instance` is the This instance card on Home; `topic-internal` is a callout under the Topics table; `group-empty` is the analytics group's Lag page (`lag-ahead`), with the "Nobody is in this group" callout and Delete group. `group-story-calm` is kept as a page: it is another group's Story tab and would be wrong inside fulfilment's story.
+- Cheap states: `home-instance` is the This instance card on Home; `topic-internal` is a callout under the Topics table; `group-empty` is the analytics group's Lag page (`lag-ahead`), with the "Nobody is in this group" callout and Delete group. `group-story-calm` (owner, 2026-11-12: fold it too) is a card on `group-story`, "What a calm group looks like" (search-indexer, one event), and the Story tab of search-indexer's pages is inert, as the Members tab of the empty group is.
 
-**Tier D: Lab kept, the rest dumped (11 screens gone: 137 - 31 - 11 = 95).** All Lab screens stay (10, plus `live-lab-rule` and `log-compact-now`). Dumped: the transit map and its relatives
+**Tier D: Lab kept, the rest dumped (11 screens gone: 137 - 32 - 11 = 94).** All Lab screens stay (10, plus `live-lab-rule` and `log-compact-now`). Dumped: the transit map and its relatives
 (`live-map`, `live-both`, `live-app`, `live-topic`, `live-group`, `live-window`), `topic-record-trace`, the lag trend (`lag-behind`; `group-lag` keeps the
 current lag only) and the Access previews (`access-home`, `access-acl-preview`, `access-denied-preview`; `access-open` is the section's one page).
 
-**Screens per section now:** Home 7, Live 10, Topics 26, Log 5, Config 8, Producers 3, Groups 21, Access 1, Lab 10, Settings 4 = 95.
+**Screens per section now:** Home 7, Live 10, Topics 26, Log 5, Config 8, Producers 3, Groups 20, Access 1, Lab 10, Settings 4 = 94.
 
 **Phase 9 build order, revised.**
 1. The console crate and shell, Home and Connect, Topics (list, page, Messages, produce, create).
