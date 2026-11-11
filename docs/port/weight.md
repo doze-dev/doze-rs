@@ -89,4 +89,5 @@ shared value; dynamic broker configs are five numbers.
 **At the close of Phase 7 (2026-11-10, after both audits' fixes, release, darwin/arm64):** binary 4,029,504 B (+16,672 B over the
 figure above: removing a segment cleaning has emptied, the install in parts, the Kafka-worded config value check, the producer-state
 rule for a marker found at open), 107 packages (none added), idle RSS 4,816 KB with 3 threads. All three under the CI limits
-(4.2 MB, 115, 8 MB).
+(the CI job runs on Linux x86_64: 5.15 MB, which was measured at 4.90 MB there; 115 packages counted with `sort -u`; 8 MB idle). The
+4.2 MB figure that stood here is the darwin/arm64 one and is not what CI gates.
