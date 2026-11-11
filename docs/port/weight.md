@@ -97,3 +97,5 @@ close above), 112 lines in the CI count (107 plus `doze-fs`, `doze-store` and `d
 `postcard`, which the `sort -u` count includes; the real new packages are our three), idle RSS 4,816 to 4,880 KB over three runs (4,816 at
 Phase 7). Under the CI limits (115, 5.15 MB, 8 MB). Kafka now links `doze-store` and the lock from `doze-runtime`; it does not link
 `Lazy` or `Expiring`. `cargo xtask weight` now measures this.
+
+**The model layer (2026-11-12, A2, darwin/arm64, release, thin LTO):** a binary that links all 18 generated models and the JSON decoder and uses each (`cargo build --release -p aws-modelcheck --example everything`) is 1,186,144 B (1.13 MiB); an empty Rust binary of the same settings is 0.33 MiB. The ceiling for the model layer is 1.25 MiB; the whole-binary budget (PLAN.md "Targets") is re-based at A5.
