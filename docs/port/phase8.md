@@ -43,7 +43,7 @@ secret-redaction gate passes; the weight gates hold; two independent audits say 
 
 | # | Question | Taken | Why, and what changes if it is overturned |
 |---|---|---|---|
-| D1 | Crypto for SCRAM and PLAIN | **Hand-written SHA-256, SHA-512, HMAC, PBKDF2 and a constant-time compare, in a leaf crate `kafka-auth` with no dependencies.** `ring` only behind the `tls` feature | Keeps the default build pure Rust and the package count at 107; the cost is about 400 lines we own. It is pinned by NIST and RFC 4231/6070/7677/5802 vectors, a differential test against `ring` and RustCrypto as dev-dependencies, the recorded SCRAM scenario (real Kafka's own client math), and real clients. If overturned: `ring` in the default build is +34 KB, +3 packages and a C compiler; the module boundary (`kafka-auth::crypto`) makes the swap a one-file change |
+| D1 | Crypto for SCRAM and PLAIN | **RustCrypto crates, chosen by the owner (2026-11-12): `hmac`, `sha2` and `subtle`, with PBKDF2 (about 15 lines over HMAC) and base64 (about 30) written in-tree**, pinned by RFC 6070/7677/5802 and NIST vectors. `ring` only behind the `tls` feature | Pure Rust, no crypto primitives of our own, no C compiler. **The cost is packages: 107 to about 121 (the spike measured +14 with `pbkdf2` and `base64` as crates, +12 without them), over the 115 CI gate.** Slice 8a measures the real number on the broker, raises the gate in `ci.yml` and writes the reason in `weight.md` (proposed: 125, so the next small dependency needs no second exception). Size is about +50 KB. A hand-written or `ring` backend stays possible later: the boundary is `kafka-auth::crypto` and the swap is one file |
 | D2 | TLS | **Cargo feature `tls`, off by default** (`rustls` 0.23 + `tokio-rustls`, provider `ring`, PEM through `rustls-pki-types`). PEM files only, any error aborts startup, never a fallback to plaintext. No cert generation, no client certificates | +0.87 MB cannot be always on. CI gains a second weight job for `--features tls`. If the owner wants TLS in the default binary the CI limits must rise (about 5.8 MB Linux, 121 packages) |
 | D3 | Users and credentials | **Slices 8a-8c: flags only, as the Go edition** (`--sasl-user`, derived at start, nothing stored). **Slice 8f: Kafka's `AlterUserScramCredentials` / `DescribeUserScramCredentials`** (APIs 50, 51) with a credential table in `kafka-meta`, so `kafka-configs.sh` and admin clients can manage users at runtime | The flags alone cannot add a user to a running broker; the API alone locks you out (every comparable system has a bootstrap user). 50/51 are not recorded: source-derived tests only. Dropping 8f costs nothing else |
 | D4 | Authorization when SASL is off | **As the Go edition**: the ACL APIs always work and are stored; ACLs are enforced for the principal `User:ANONYMOUS`; `--acl-default allow` is the default, so an empty ACL set changes nothing | Kafka without an authorizer answers `SECURITY_DISABLED` (54) and enforces nothing; that is a deliberate difference (ADM-style entry `SEC-D1`). It is what lets `--acl-default deny` be used without SASL |
@@ -56,8 +56,8 @@ secret-redaction gate passes; the weight gates hold; two independent audits say 
 
 ## Design
 
-**Crates.** One new leaf crate, `kafka-auth` (no dependencies; `forbid(unsafe_code)`; sans-IO; the fuzz targets live here):
-`crypto` (SHA-2, HMAC, PBKDF2, constant-time compare), `plain`, `scram` (parse, keys, the two-message state machine), `principal`
+**Crates.** One new leaf crate, `kafka-auth` (dependencies: `hmac`, `sha2`, `subtle`; `forbid(unsafe_code)`; sans-IO; the fuzz targets live here):
+`crypto` (the one wrapper over `hmac`, `sha2` and `subtle`; PBKDF2; base64), `plain`, `scram` (parse, keys, the two-message state machine), `principal`
 (`Principal`, `Mechanism`), and `authz` (`Acl` with the raw wire codes, `AclFilter`, `AclSet`, the decision procedure, the
 `authorizeByResourceType` variant). The ACL types keep the integers a client sent (a client gets back exactly what it stored), as
 the Go edition does. `kafka-meta` stores `AclRecord` (version byte plus postcard) in a new table; `kafka-broker` holds the
@@ -80,7 +80,7 @@ the API's own code (29 topic, 30 group, 31 cluster, 53 transactional id), per it
 
 | Area | Files |
 |---|---|
-| `kafka-auth` | `crypto/{sha256,sha512,hmac,pbkdf2,ct}.rs`, `plain.rs`, `scram.rs`, `scram/{parse,keys}.rs`, `principal.rs`, `authz.rs`, `authz/{acl,filter,rules}.rs`, `credentials.rs` |
+| `kafka-auth` | `crypto.rs`, `crypto/{pbkdf2,base64}.rs`, `plain.rs`, `scram.rs`, `scram/{parse,keys}.rs`, `principal.rs`, `authz.rs`, `authz/{acl,filter,rules}.rs`, `credentials.rs` |
 | `kafka-meta` | `acl.rs`, `store/acls.rs`, `credential.rs` + `store/credentials.rs` (8f); `store.rs` gains the tables |
 | `kafka-broker` | `caller.rs`, `authorizer.rs`, `handlers/{create_acls,describe_acls,delete_acls}.rs`, `handlers/{describe,alter}_user_scram_credentials.rs` (8f); **split `broker.rs`** (`handle` into `broker/dispatch.rs`); one check in each served handler (list in 8d) |
 | `kafka-server` | `session.rs`, `session/steps.rs`, `tls.rs` (feature), `connection.rs` (split `exchange` out), `config.rs`, `frames.rs` (pre-auth budget), `accept.rs` (handshake in the spawned task) |
@@ -93,7 +93,7 @@ the API's own code (29 topic, 30 group, 31 cluster, 53 transactional id), per it
 
 | | Slice | Gate |
 |---|---|---|
-| 8a | `kafka-auth`: crypto with vectors, PLAIN, `Principal`; `Session` and the gating in the connection; `--sasl-mechanisms` and `--sasl-user` live; ApiVersions lists the two SASL APIs only when SASL is on | crypto vectors; `Session` table tests; the handshake and PLAIN steps of `sasl-plain` pass |
+| 8a | `kafka-auth`: crypto wrapper and in-tree PBKDF2/base64 with vectors, PLAIN, `Principal`; `Session` and the gating in the connection; `--sasl-mechanisms` and `--sasl-user` live; ApiVersions lists the two SASL APIs only when SASL is on | crypto vectors; the package gate raised with its reason; `Session` table tests; the handshake and PLAIN steps of `sasl-plain` pass |
 | 8b | ACLs: `kafka-auth::authz`, the `kafka-meta` table, `Authorizer`, `Caller`, the three ACL handlers, the `Metadata` and `InitProducerId` checks, `--acl-default`, `--acl-super-user` | oracle `sasl-plain` (whole), `acl-unknown-codes`, `idempotent-write-from-topic-write`, `version-matrix`; a model test of the authorizer against Kafka's algorithm written from the source |
 | 8c | SCRAM-SHA-256 and -512: parsers, keys, the state machine, wired into the handshake and authenticate | oracle `sasl-scram`; franz-go, sarama, kafka-go (where it supports it) and librdkafka log in over SCRAM |
 | 8d | The authorization matrix on every remaining served handler (about 45 APIs, the Phase 6 transaction APIs included), one test per row from the source; secret-redaction tests; the fuzz targets | a test per matrix row; every non-security scenario and `interop/` unchanged (the allow-all path is exact); interop with an ACL'd user (allowed and denied) |
@@ -113,7 +113,7 @@ Order is 8a, 8b, 8c, 8d, 8e, 8f, 8g. 8e and 8f do not depend on each other. If `
 - **A model for the authorizer**: a few dozen lines transcribing `StandardAuthorizerData.authorize` from the source, run against
   the real one on random ACL sets and requests (proptest). The DENY-wins, per-resource default and implication rules are where a
   hand-written authorizer goes wrong.
-- **Crypto**: NIST/RFC vectors, and a differential test against `ring` and RustCrypto (dev-dependencies, not shipped).
+- **Crypto**: RFC/NIST vectors for the in-tree PBKDF2 and base64 and for the whole SCRAM proof; a differential test of PBKDF2 against the `pbkdf2` crate (dev-dependency, not shipped).
 - **Parsers** (PLAIN token, SCRAM client-first and client-final, ACL filter) are marked for `cargo xtask fuzz-check` and have targets.
 - **Secret redaction**: a planted password must not appear in logs at any level, in `Debug` output or in an error text; the Go
   edition's suite (`cmd/doze-kafka/secrets*_test.go`) is the model.
@@ -123,8 +123,8 @@ Order is 8a, 8b, 8c, 8d, 8e, 8f, 8g. 8e and 8f do not depend on each other. If `
 
 - **Source-derived rows.** About 40 of the 45 matrix rows have no recording. The mitigation is D9; the honest status of a row without
   a recording is "from the source", and the catalogue says so per row.
-- **Hand-written crypto** (D1). Mitigated as above, and it is behind one module boundary. A reviewer may prefer a library; that is
-  the owner's call and cheap to reverse.
+- **Weight of the crypto choice** (D1): +14 packages is the largest weight step since Phase 3. It is a written, owner-approved rise of
+  the package gate, measured in 8a on the real build (CI counts with `sort -u`, so the figure can differ from a distinct count).
 - **Unknowns in `phase8/kafka-semantics.md` section 7** (the long cluster-authorization message text, the order of DescribeAcls and
   DeleteAcls results, the 10,000-ACL limit, re-authentication, mTLS principals, IPv6 ACL hosts). None is recorded; tests must not pin
   the first two (clients sort); re-authentication and mTLS are out of scope until asked.
@@ -138,7 +138,7 @@ Order is 8a, 8b, 8c, 8d, 8e, 8f, 8g. 8e and 8f do not depend on each other. If `
 The plan's table says 3 to 4 sessions. The honest figure is **7 to 10**, because the plan did not count: the 45-API authorization
 matrix (8d alone is 1.5 to 2 sessions: many handlers, one source-derived test per row, interop with ACLs), the crypto
 and its vectors, a security cell in the interop suite, and the audit loop (Phase 7's two audits took about as long as the build).
-Rough split: 8a 1, 8b 1 to 1.5, 8c 0.5 to 1, 8d 1.5 to 2, 8e 0.5 to 1, 8f 0.5, 8g with audits 1.5 to 2.
+Slice 8a is a little smaller with RustCrypto than it would have been with hand-written primitives. Rough split: 8a 1, 8b 1 to 1.5, 8c 0.5 to 1, 8d 1.5 to 2, 8e 0.5 to 1, 8f 0.5, 8g with audits 1.5 to 2.
 
 ## Not in this phase
 
