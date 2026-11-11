@@ -1,7 +1,7 @@
 # Behaviours: server (kafka-server)
 
 How a connection is served, distilled from the Go source (`internal/protocol/conn.go`, `server.go` at `4081fa6`).
-TLS, SASL and the pre-authentication budget are Phase 8; the traffic observer is Phase 9.
+TLS is Phase 8 (slice 8e); SASL, the login session and the pre-authentication budget are Phase 8 slice 8a (`security.md`); the traffic observer is Phase 9.
 
 ### V1. One request at a time, in order
 A connection reads a frame, answers it, then reads the next. A client may send its next request before it has the

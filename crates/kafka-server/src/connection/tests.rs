@@ -27,6 +27,7 @@ fn context(timeouts: Timeouts) -> Context<SimFs> {
         },
         broker,
         timeouts,
+        auth: None,
     }
 }
 
@@ -265,4 +266,5 @@ async fn a_big_frame_that_trickles_in_has_the_frame_budget_too() {
     assert!(matches!(task.await.unwrap(), End::Slow));
 }
 
+mod login;
 mod served;

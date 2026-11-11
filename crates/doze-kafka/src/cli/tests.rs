@@ -32,7 +32,10 @@ fn the_flags_the_conformance_harness_passes_are_all_accepted() {
     let parsed = args(&passed).unwrap();
     let settings = parsed.settings().unwrap();
     assert_eq!(settings.server.listen.port(), 45123);
-    assert_eq!(parsed.ignored(), ["--console"]);
+    assert_eq!(
+        parsed.ignored(),
+        ["--console", "--acl-default deny", "--acl-super-user"]
+    );
 }
 
 #[test]
@@ -62,14 +65,140 @@ fn the_values_that_make_a_broker_that_cannot_work_are_refused_with_words() {
 }
 
 #[test]
-fn authentication_is_refused_and_not_ignored_because_ignoring_it_would_leave_the_broker_open() {
-    for flags in [
-        &["--sasl-mechanisms", "PLAIN"][..],
-        &["--sasl-user", "u:p"],
-        &["--tls-cert", "c.pem"],
-    ] {
+fn tls_is_refused_and_not_ignored_because_ignoring_it_would_leave_the_channel_open() {
+    for flags in [&["--tls-cert", "c.pem"][..], &["--tls-key", "k.pem"]] {
         assert!(args(flags).unwrap().settings().is_err(), "{flags:?}");
     }
+}
+
+/// The settings of `flags`, as the user would read the refusal: or the authenticator.
+fn sasl(flags: &[&str]) -> Result<Option<std::sync::Arc<kafka_auth::Authenticator>>, String> {
+    let args = args(flags).unwrap();
+    args.settings()
+        .map(|s| s.server.sasl)
+        .map_err(|e| format!("{e:#}"))
+}
+
+#[test]
+fn no_sasl_flags_means_no_login() {
+    assert!(sasl(&[]).unwrap().is_none());
+}
+
+#[test]
+fn plain_with_users_turns_login_on_and_the_password_may_hold_colons() {
+    let auth = sasl(&[
+        "--sasl-mechanisms",
+        "PLAIN",
+        "--sasl-user",
+        "admin:admin-secret",
+        "--sasl-user",
+        "alice:a:b:c",
+    ])
+    .unwrap()
+    .unwrap();
+    assert_eq!(auth.offered(), [kafka_auth::Mechanism::Plain]);
+    assert_eq!(auth.user_count(), 2);
+    // The split is at the first colon, so the rest is the password.
+    assert!(auth.plain(b"\0alice\0a:b:c").is_ok());
+    assert!(auth.plain(b"\0alice\0b:c").is_err());
+    assert!(auth.plain(b"\0admin\0admin-secret").is_ok());
+}
+
+#[test]
+fn sasl_flags_that_cannot_work_are_refused_with_the_go_editions_words() {
+    let cases: [(&[&str], &str); 8] = [
+        (
+            &["--sasl-user", "u:p"],
+            "no mechanism is enabled; add --sasl-mechanisms",
+        ),
+        (
+            &["--sasl-mechanisms", "PLAIN"],
+            "no credentials are configured",
+        ),
+        (
+            &["--sasl-mechanisms", "plain", "--sasl-user", "u:p"],
+            "unknown SASL mechanism \"plain\"; supported: PLAIN, SCRAM-SHA-256, SCRAM-SHA-512",
+        ),
+        (
+            &["--sasl-mechanisms", "PLAIN,", "--sasl-user", "u:p"],
+            "unknown SASL mechanism \"\"",
+        ),
+        (
+            &[
+                "--sasl-mechanisms",
+                "PLAIN",
+                "--sasl-user",
+                "nocolon-planted",
+            ],
+            "--sasl-user: not a valid value (expected user:password)",
+        ),
+        (
+            &[
+                "--sasl-mechanisms",
+                "PLAIN",
+                "--sasl-user",
+                ":secret-planted",
+            ],
+            "SASL credential has an empty username",
+        ),
+        (
+            &["--sasl-mechanisms", "PLAIN", "--sasl-user", "alice:"],
+            "SASL user \"alice\" has an empty password",
+        ),
+        (
+            &[
+                "--sasl-mechanisms",
+                "PLAIN",
+                "--sasl-user",
+                "a:one-planted",
+                "--sasl-user",
+                "a:two-planted",
+            ],
+            "SASL user \"a\" is given more than once",
+        ),
+    ];
+    for (flags, why) in cases {
+        let said = sasl(flags).unwrap_err();
+        assert!(said.contains(why), "{flags:?}: {said}");
+        assert!(!said.contains("planted"), "{said}");
+    }
+}
+
+#[test]
+fn scram_is_refused_until_it_exists_and_says_so() {
+    for m in ["SCRAM-SHA-256", "SCRAM-SHA-512", "PLAIN,SCRAM-SHA-512"] {
+        let said = sasl(&["--sasl-mechanisms", m, "--sasl-user", "u:p"]).unwrap_err();
+        assert!(said.contains("SCRAM arrives with slice 8c"), "{m}: {said}");
+    }
+}
+
+#[test]
+fn the_password_of_a_user_is_in_no_debug_output_of_the_arguments_or_the_settings() {
+    let parsed = args(&[
+        "--sasl-mechanisms",
+        "PLAIN",
+        "--sasl-user",
+        "alice:hunter2-planted",
+    ])
+    .unwrap();
+    let shown = format!("{parsed:?} {:?}", parsed.settings().unwrap());
+    assert!(shown.contains("alice"), "{shown}");
+    assert!(
+        !shown.contains("hunter2") && !shown.contains("planted"),
+        "{shown}"
+    );
+}
+
+#[test]
+fn the_acl_flags_that_would_matter_are_reported_as_ignored_until_they_are_enforced() {
+    let parsed = args(&["--acl-default", "deny", "--acl-super-user", "User:admin"]).unwrap();
+    assert_eq!(parsed.ignored(), ["--acl-default deny", "--acl-super-user"]);
+    assert!(
+        args(&["--acl-default", "allow"])
+            .unwrap()
+            .ignored()
+            .is_empty()
+    );
 }
 
 #[test]

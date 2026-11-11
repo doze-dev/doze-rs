@@ -3,7 +3,9 @@
 //! The flags that matter are here. The ones of parts that come in later phases (groups, ACLs, the console) are
 //! accepted and ignored, hidden from the help, so that the conformance harness, which passes them all, can run the
 //! scenarios of the parts that exist. A flag that would make the broker safer or different in a way a user would
-//! rely on (authentication, TLS) is refused instead: a broker that ignored `--sasl-user` would be open.
+//! rely on is refused instead when it cannot be honoured: a broker that ignored `--tls-cert` would send in the
+//! clear. SASL/PLAIN is real (`--sasl-mechanisms`, `--sasl-user`); the passwords of `--sasl-user` are kept
+//! out of every `Debug` output and of every message.
 
 use std::net::SocketAddr;
 use std::path::PathBuf;
@@ -101,6 +103,14 @@ pub(crate) struct Args {
     /// Log format.
     #[arg(long, value_enum, default_value = "text")]
     pub(crate) log_format: LogFormat,
+    /// SASL mechanisms to offer, comma separated (PLAIN today; SCRAM-SHA-256 and SCRAM-SHA-512 later). Needs
+    /// --sasl-user. Without it, no client is asked to log in.
+    #[arg(long, value_delimiter = ',')]
+    sasl_mechanisms: Vec<String>,
+    /// A user that may log in, as user:password (split at the first colon; repeatable). Needs
+    /// --sasl-mechanisms. Passwords are ASCII and are never printed.
+    #[arg(long, value_name = "USER:PASSWORD")]
+    sasl_user: Vec<sasl::Login>,
 
     // Accepted and ignored until the phase that has them.
     #[arg(long, hide = true)]
@@ -114,11 +124,7 @@ pub(crate) struct Args {
     #[arg(long, hide = true)]
     console_addr: Option<String>,
 
-    // Refused: a broker that ignored them would be open.
-    #[arg(long, hide = true, value_delimiter = ',')]
-    sasl_mechanisms: Vec<String>,
-    #[arg(long, hide = true)]
-    sasl_user: Vec<String>,
+    // Refused: a broker that ignored them would send in the clear.
     #[arg(long, hide = true)]
     tls_cert: Option<String>,
     #[arg(long, hide = true)]
@@ -135,11 +141,6 @@ pub(crate) struct Settings {
 impl Args {
     /// Checks the arguments and turns them into the configuration of the broker and the server.
     pub(crate) fn settings(&self) -> Result<Settings> {
-        if !self.sasl_mechanisms.is_empty() || !self.sasl_user.is_empty() {
-            bail!(
-                "SASL is not supported yet in this edition; the broker would accept any client, so it will not start with --sasl-mechanisms or --sasl-user"
-            );
-        }
         if self.tls_cert.is_some() || self.tls_key.is_some() {
             bail!("TLS is not supported yet in this edition");
         }
@@ -176,6 +177,7 @@ impl Args {
             retention_ms: none_is_zero(self.retention_ms),
         };
         let server = ServerConfig {
+            sasl: sasl::authenticator(&self.sasl_mechanisms, &self.sasl_user)?,
             listen: self.listen,
             advertised_host: self.advertised_host.clone(),
             advertised_port: self.advertised_port,
@@ -230,9 +232,18 @@ impl Args {
         if self.console.as_deref().is_some_and(|v| v != "false") {
             out.push("--console");
         }
+        // Allowing is what happens anyway, so only a flag that asks for more than is done is reported.
+        if self.acl_default.as_deref() == Some("deny") {
+            out.push("--acl-default deny");
+        }
+        if !self.acl_super_user.is_empty() {
+            out.push("--acl-super-user");
+        }
         out
     }
 }
+
+mod sasl;
 
 #[cfg(test)]
 mod tests;

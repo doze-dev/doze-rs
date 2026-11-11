@@ -13,6 +13,9 @@ use crate::error::WireError;
 const CONTROL_CAP: u32 = 1 << 20;
 /// Produce is the only request that carries record data; Kafka's own default maximum request size.
 const PRODUCE_CAP: u32 = 100 << 20;
+/// What a stranger may send before it has logged in: Kafka's own `sasl.server.max.receive.size`. An ApiVersions
+/// request, a SaslHandshake and a login token are all far under it.
+const ANONYMOUS_CAP: u32 = 512 << 10;
 /// PushTelemetry: the 1 MiB of metrics a client is told it may send, and room for the header around it.
 const PUSH_TELEMETRY_CAP: u32 = (1 << 20) + 4096;
 /// How much of a frame is trusted up front. A frame bigger than this is buffered as its bytes arrive, so
@@ -20,7 +23,7 @@ const PUSH_TELEMETRY_CAP: u32 = (1 << 20) + 4096;
 const CHUNK: usize = 64 << 10;
 
 /// How far the peer of a connection is trusted. An anonymous one may send only what ApiVersions and the
-/// SASL exchange need, which is far under the 1 MiB control cap, whatever the API.
+/// SASL exchange need, which is far under 512 KiB, whatever the API.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Trust {
     /// Not yet logged in.
@@ -40,7 +43,7 @@ fn cap_for(key: i16, trust: Trust) -> u32 {
     };
     match trust {
         Trust::Authenticated => cap,
-        Trust::Anonymous => cap.min(CONTROL_CAP),
+        Trust::Anonymous => cap.min(ANONYMOUS_CAP),
     }
 }
 
@@ -139,16 +142,18 @@ mod tests {
     }
 
     #[test]
-    fn an_unauthenticated_connection_is_capped_at_one_mib() {
+    fn an_unauthenticated_connection_is_capped_at_half_a_mib() {
+        // Kafka's own `sasl.server.max.receive.size`: 512 KiB, not 1 MiB.
         let mut src = header(2 << 20, ApiKey::Produce as i16);
         let mut d = FrameDecoder::new(Trust::Anonymous);
         assert_eq!(
             d.decode(&mut src),
             Err(WireError::FrameTooLarge {
                 len: 2 << 20,
-                limit: CONTROL_CAP
+                limit: ANONYMOUS_CAP
             })
         );
+        assert_eq!(ANONYMOUS_CAP, 512 << 10);
         d.set_authenticated();
         let mut src = header(2 << 20, ApiKey::Produce as i16);
         assert_eq!(d.decode(&mut src), Ok(None));
@@ -190,13 +195,24 @@ mod tests {
                 "{key:?} over {cap}"
             );
         }
-        // Anonymous, every API is held to 1 MiB.
+        // Anonymous, every API is held to 512 KiB.
+        const HALF: u32 = MIB / 2;
         let mut d = FrameDecoder::new(Trust::Anonymous);
-        assert_eq!(d.decode(&mut header(MIB, ApiKey::Produce as i16)), Ok(None));
-        assert!(
-            d.decode(&mut header(MIB + 1, ApiKey::Produce as i16))
-                .is_err()
-        );
+        for key in [
+            ApiKey::Produce,
+            ApiKey::ApiVersions,
+            ApiKey::SaslAuthenticate,
+        ] {
+            assert_eq!(d.decode(&mut header(HALF, key as i16)), Ok(None), "{key:?}");
+            assert_eq!(
+                d.decode(&mut header(HALF + 1, key as i16)),
+                Err(WireError::FrameTooLarge {
+                    len: HALF + 1,
+                    limit: HALF
+                }),
+                "{key:?}"
+            );
+        }
     }
 
     #[test]

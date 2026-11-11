@@ -12,6 +12,25 @@ use crate::Timeouts;
 use crate::connection::End;
 use crate::pool::{self, POOL};
 
+/// [`next`], but only until `login_by` if there is one: a connection that has not logged in by then is
+/// `End::LoginTooSlow`, whatever it is doing. The budget is for the whole login, counted from the accept, so
+/// a stranger who sends a byte every few seconds does not hold the connection.
+pub(crate) async fn next_before<S: AsyncRead + Unpin>(
+    stream: &mut S,
+    buf: &mut BytesMut,
+    decoder: &mut FrameDecoder,
+    (timeouts, login_by): (&Timeouts, Option<Instant>),
+    stop: &CancellationToken,
+) -> Result<Bytes, End> {
+    let frame = next(stream, buf, decoder, timeouts, stop);
+    match login_by {
+        None => frame.await,
+        Some(by) => timeout_at(by, frame)
+            .await
+            .unwrap_or(Err(End::LoginTooSlow)),
+    }
+}
+
 /// The next complete frame. `buf` carries what was read past the last frame (a client may send its next request
 /// before it has the answer to this one).
 ///

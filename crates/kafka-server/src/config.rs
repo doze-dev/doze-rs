@@ -1,6 +1,8 @@
 use std::net::{Ipv4Addr, SocketAddr};
+use std::sync::Arc;
 use std::time::Duration;
 
+use kafka_auth::Authenticator;
 use kafka_broker::Listener;
 use kafka_wire::profile::{KafkaMajor, Profile};
 
@@ -14,6 +16,10 @@ pub struct Timeouts {
     pub frame: Duration,
     /// How long one response may take to write, to a client that has stopped reading.
     pub write: Duration,
+    /// How long a connection has to finish logging in, counted from when it was accepted and not restarted by
+    /// each request. Apache Kafka has no such limit; a dev broker should not sit open to a silent socket.
+    /// Only a broker with SASL on applies it.
+    pub pre_auth: Duration,
 }
 
 impl Default for Timeouts {
@@ -22,6 +28,7 @@ impl Default for Timeouts {
             idle: Duration::from_secs(600),
             frame: Duration::from_secs(30),
             write: Duration::from_secs(30),
+            pre_auth: Duration::from_secs(30),
         }
     }
 }
@@ -43,6 +50,9 @@ pub struct Config {
     /// The most connections served at once; the next is closed as it arrives. Far above what local development
     /// uses and far below what exhausts a default descriptor limit.
     pub max_connections: usize,
+    /// Who may log in, and how. Unset, the broker asks nobody for anything: no SASL API is advertised and a
+    /// connection is served from its first request. Set, a connection must log in first.
+    pub sasl: Option<Arc<Authenticator>>,
 }
 
 impl Default for Config {
@@ -54,6 +64,7 @@ impl Default for Config {
             profile: Profile::new(KafkaMajor::DEFAULT),
             timeouts: Timeouts::default(),
             max_connections: 2048,
+            sasl: None,
         }
     }
 }

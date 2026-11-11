@@ -93,3 +93,51 @@ fn only_the_served_apis_are_advertised_and_accepted() {
     // Offered by the profile, but not served: refused as if never offered.
     assert!(profile(4).check(ApiKey::Fetch, 12, features).is_err());
 }
+
+#[test]
+fn the_two_sasl_apis_need_both_the_feature_and_a_handler() {
+    let sasl = [ApiKey::SaslHandshake, ApiKey::SaslAuthenticate];
+    let has = |f: Features, k| profile(4).advertised(f).iter().any(|a| a.key == k);
+    let narrowed = ApiSet::of(&[ApiKey::Metadata]);
+    let served = narrowed
+        .with(ApiKey::SaslHandshake)
+        .with(ApiKey::SaslAuthenticate);
+    assert!(served.contains(ApiKey::Metadata) && served.contains(ApiKey::SaslHandshake));
+    assert!(
+        !narrowed.contains(ApiKey::SaslAuthenticate),
+        "`with` leaves the original alone"
+    );
+    for key in sasl {
+        // Handler but no feature, feature but no handler: neither lists it.
+        assert!(!has(
+            Features {
+                sasl: false,
+                served,
+                ..Features::default()
+            },
+            key
+        ));
+        assert!(!has(
+            Features {
+                sasl: true,
+                served: narrowed,
+                ..Features::default()
+            },
+            key
+        ));
+        assert!(has(
+            Features {
+                sasl: true,
+                served,
+                ..Features::default()
+            },
+            key
+        ));
+        let on = Features {
+            sasl: true,
+            served,
+            ..Features::default()
+        };
+        assert!(profile(4).check(key, 1, on).is_ok());
+    }
+}

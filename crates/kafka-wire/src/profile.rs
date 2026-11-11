@@ -47,6 +47,12 @@ impl ApiSet {
         Self(bits)
     }
 
+    /// This set and `key`.
+    #[must_use]
+    pub const fn with(self, key: ApiKey) -> Self {
+        Self(self.0 | Self::bit(key))
+    }
+
     /// Whether `key` is in the set.
     #[must_use]
     pub const fn contains(self, key: ApiKey) -> bool {

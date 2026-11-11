@@ -28,6 +28,14 @@ fn main() -> Result<()> {
     }
     settings.broker.max_open_descriptors =
         descriptors::open_files(descriptors, settings.server.max_connections);
+    if let Some(sasl) = &settings.server.sasl {
+        let offered: Vec<_> = sasl.offered().iter().map(|m| m.name()).collect();
+        tracing::info!(
+            mechanisms = %offered.join(","),
+            users = sasl.user_count(),
+            "SASL is on: clients must log in"
+        );
+    }
     for flag in args.ignored() {
         tracing::warn!(
             "{flag} is accepted and ignored: that part of doze-kafka is not in this edition yet"

@@ -69,7 +69,9 @@ jobs:
           echo "binary $size B, $crates packages, idle $rss KB"
           # Measured on ubuntu x86_64: 4,899,328 B (the macOS arm64 build is 3.4 MB); the limit is that plus about 5%.
           [ "$size" -le 5150000 ] || { echo "binary over 5.15 MB"; exit 1; }
-          [ "$crates" -le 115 ] || { echo "more than 115 packages"; exit 1; }
+          # 115 until Phase 8 slice 8a, which added 15 lines (12 packages: hmac, sha2, subtle and what they need, and
+          # kafka-auth) for SASL (docs/port/weight.md); the limit is the measured 122 plus 4.
+          [ "$crates" -le 126 ] || { echo "more than 126 packages"; exit 1; }
           [ "$rss" -le 8192 ] || { echo "idle resident memory over 8 MB"; exit 1; }
 
   supply-chain:
@@ -95,6 +97,11 @@ jobs:
             mkdir -p "corpus/$target"
             cargo fuzz run "$target" "corpus/$target" "seeds/$target" -- -max_total_time=30 -max_len=1048576
           done
+      - name: Fuzz the PLAIN token for 30 seconds
+        working-directory: crates/kafka-auth/fuzz
+        run: |
+          mkdir -p corpus/plain
+          cargo fuzz run plain corpus/plain seeds/plain -- -max_total_time=30 -max_len=524288
       - name: Fuzz recovery for 30 seconds
         working-directory: crates/kafka-storage/fuzz
         run: |

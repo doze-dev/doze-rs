@@ -12,6 +12,7 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
+kafka-auth = { path = "../kafka-auth" }
 kafka-wire = { path = "../kafka-wire" }
 kafka-storage = { path = "../kafka-storage" }
 kafka-broker = { path = "../kafka-broker" }
