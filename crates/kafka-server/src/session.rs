@@ -10,6 +10,7 @@
 //! The verdict is given on the request's header alone, so the body of a stranger's request is never decoded
 //! for an API it may not use.
 
+use kafka_auth::scram::Awaiting;
 use kafka_auth::{Mechanism, Principal};
 use kafka_wire::messages::ApiKey;
 
@@ -22,8 +23,11 @@ pub(crate) enum Session {
     /// answered; an ApiVersions that was answered with an error (a version not served, a badly named client)
     /// does not use it up, as in Kafka.
     Unauthenticated { versions_answered: bool },
-    /// The mechanism is chosen and the login is in progress.
+    /// The mechanism is chosen and the login is in progress: the first token is next.
     Handshaken(Mechanism),
+    /// A SCRAM login whose first message was answered: the exchange it holds is waiting for the final one. It
+    /// is the only state that holds anything a client made up (a nonce), and it is dropped with the connection.
+    Challenged(Awaiting),
     /// Logged in, as this principal, for the life of the connection.
     Authenticated(Principal),
 }
@@ -59,15 +63,17 @@ impl Session {
                 ApiVersions,
             )
             | (Self::Unauthenticated { .. }, SaslHandshake)
-            | (Self::Handshaken(_), SaslAuthenticate) => Verdict::Serve,
-            (Self::Handshaken(_), ApiVersions | SaslHandshake) => {
+            | (Self::Handshaken(_) | Self::Challenged(_), SaslAuthenticate) => Verdict::Serve,
+            (Self::Handshaken(_) | Self::Challenged(_), ApiVersions | SaslHandshake) => {
                 Verdict::IllegalState { stays_open: false }
             }
             (Self::Authenticated(_), SaslHandshake | SaslAuthenticate) => {
                 Verdict::IllegalState { stays_open: true }
             }
             (Self::Authenticated(_), _) => Verdict::Serve,
-            (Self::Unauthenticated { .. } | Self::Handshaken(_), _) => Verdict::Close,
+            (Self::Unauthenticated { .. } | Self::Handshaken(_) | Self::Challenged(_), _) => {
+                Verdict::Close
+            }
         }
     }
 

@@ -59,6 +59,8 @@ pub(crate) enum End {
     Unknown,
     #[error("the login was refused")]
     LoginFailed,
+    #[error("the login was cut off without an answer")]
+    LoginAbandoned,
     #[error("a {0:?} request was made out of order in the login")]
     OutOfOrder(ApiKey),
     #[error("no login within the time allowed")]

@@ -5,6 +5,19 @@ use kafka_wire::api::API_TABLE;
 use super::*;
 
 const HANDSHAKEN: fn() -> Session = || Session::Handshaken(Mechanism::Plain);
+fn challenged() -> Session {
+    let users = [("alice".to_owned(), "pw".to_owned())];
+    let auth = kafka_auth::Authenticator::new(
+        &[Mechanism::ScramSha256],
+        kafka_auth::Credentials::new(users).unwrap(),
+    )
+    .unwrap();
+    let (_, awaiting) = auth
+        .scram_first(Mechanism::ScramSha256, b"n,,n=alice,r=NC.")
+        .unwrap();
+    Session::Challenged(awaiting)
+}
+
 const LOGGED_IN: fn() -> Session = || Session::Authenticated(Principal::user("alice"));
 
 fn others() -> impl Iterator<Item = ApiKey> {
@@ -37,7 +50,14 @@ fn a_stranger_may_ask_apiversions_once_and_then_handshake_and_nothing_else() {
 
 #[test]
 fn after_the_handshake_only_a_token_is_welcome_and_two_apis_are_answered_then_closed() {
-    let s = HANDSHAKEN();
+    // Both rounds of a SCRAM login are in this state of the order: handshaken, then challenged.
+    for s in [HANDSHAKEN(), challenged()] {
+        assert_after_the_handshake(&s);
+        assert!(!s.is_authenticated() && s.principal().is_none());
+    }
+}
+
+fn assert_after_the_handshake(s: &Session) {
     assert_eq!(s.admit(ApiKey::SaslAuthenticate), Verdict::Serve);
     // handshake-twice, versions-before-token
     for key in [ApiKey::SaslHandshake, ApiKey::ApiVersions] {

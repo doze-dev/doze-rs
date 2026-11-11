@@ -23,14 +23,17 @@ New: `--worker-threads` (default 2; idle threads are weight). Accepted and ignor
 `--meta-db --group-initial-rebalance-delay --consumer-session-timeout --offsets-retention --acl-default --acl-super-user
 --console --console-addr`, so that the conformance harness, which passes them all, can run the scenarios of the parts
 that exist (`--acl-default deny` and `--acl-super-user` are reported at start as ignored until ACLs are enforced, slice 8b).
-**SASL is real** (Phase 8, slice 8a): `--sasl-mechanisms PLAIN` (comma list, exact upper-case names) and `--sasl-user user:password`
+**SASL is real** (Phase 8, slices 8a and 8c): `--sasl-mechanisms PLAIN,SCRAM-SHA-512,SCRAM-SHA-256` (comma list, exact upper-case names; any of the three) and `--sasl-user user:password`
 (repeatable; split at the first colon, so a password may hold colons; ASCII). They go together: users without mechanisms, mechanisms
 without users, an unknown mechanism, a name without a colon, an empty user or password, and a user given twice each stop the
-start, in the Go edition's words, and none of those messages repeats a password. `SCRAM-SHA-256` and `SCRAM-SHA-512` are known names
-but stop the start with "SCRAM arrives with slice 8c". The passwords are in no `Debug` output of the arguments or the settings and
+start, in the Go edition's words, and none of those messages repeats a password. For a SCRAM mechanism the broker derives, at start,
+a verifier for every user (4096 iterations, a random 16-byte salt per user and mechanism; nothing is stored), so a password is
+the same for PLAIN and for both SCRAM hashes. The flag order is kept for the configuration; a SaslHandshake answer lists the
+mechanisms in Java `HashSet` order whatever the flag says (SEC-7). The passwords are in no `Debug` output of the arguments or the settings and
 in no log line (SEC-13). **Refused** (the channel would otherwise be in the clear): `--tls-cert --tls-key`.
 Test: `cli::tests::*`, `duration::tests::*`, `tests/process` `sasl::flags_that_cannot_be_honoured_stop_the_start_and_say_why`,
-`sasl::a_broker_started_with_sasl_logs_a_client_in_and_serves_it_and_prints_no_password`
+`sasl::a_broker_started_with_sasl_logs_a_client_in_and_serves_it_and_prints_no_password`,
+`sasl::a_broker_started_with_scram_logs_a_client_in_with_either_hash_and_prints_no_password`
 
 ### B5. Descriptors
 At start the soft limit on open files is raised toward the hard one (to 65,536 at most; macOS allows 10,240), and the

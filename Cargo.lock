@@ -512,6 +512,7 @@ dependencies = [
 name = "kafka-auth"
 version = "0.0.0"
 dependencies = [
+ "getrandom",
  "hmac",
  "pbkdf2",
  "sha2",

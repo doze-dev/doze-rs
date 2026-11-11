@@ -1,7 +1,15 @@
 //! The users an operator configured, and a password that cannot be printed.
+//!
+//! PLAIN needs the password itself. SCRAM needs only a verifier, derived once at start for each user and each
+//! SCRAM mechanism that is on, with a salt of its own; nothing is stored, so the verifiers are made again, with
+//! new salts, at every start.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fmt;
+use std::sync::Arc;
+
+use crate::scram::keys::ITERATIONS;
+use crate::scram::{Kind, Verifier};
 
 /// A password. It has no `Display`, and its `Debug` shows nothing of it, so it cannot reach a log line by
 /// accident; the only way to see the bytes is [`Secret::expose`], and each use of that is a decision.
@@ -42,12 +50,16 @@ pub enum CredentialsError {
     /// The same user twice.
     #[error("SASL user {0:?} is given more than once")]
     Duplicate(String),
+    /// The system could not give the random bytes a salt needs.
+    #[error("the system gave no random bytes for a SCRAM salt")]
+    NoEntropy,
 }
 
 /// The configured users and their passwords. Built once at start; nothing is stored.
 #[derive(Clone, Default)]
 pub struct Credentials {
     users: BTreeMap<String, Secret>,
+    scram: HashMap<Kind, BTreeMap<String, Arc<Verifier>>>,
 }
 
 impl Credentials {
@@ -67,7 +79,35 @@ impl Credentials {
                 return Err(CredentialsError::Duplicate(name));
             }
         }
-        Ok(Self { users })
+        Ok(Self {
+            users,
+            scram: HashMap::new(),
+        })
+    }
+
+    /// These credentials with a SCRAM verifier for every user under each of `kinds`: `ITERATIONS` rounds and a
+    /// salt of 16 random bytes, new for each.
+    ///
+    /// # Errors
+    /// [`CredentialsError::NoEntropy`] if the system has no random bytes to give.
+    pub fn with_scram(mut self, kinds: &[Kind]) -> Result<Self, CredentialsError> {
+        for &kind in kinds {
+            let mut verifiers = BTreeMap::new();
+            for (name, password) in &self.users {
+                let mut salt = [0u8; 16];
+                getrandom::fill(&mut salt).map_err(|_| CredentialsError::NoEntropy)?;
+                let verifier = Verifier::derive(kind, password.expose(), &salt, ITERATIONS);
+                verifiers.insert(name.clone(), Arc::new(verifier));
+            }
+            self.scram.insert(kind, verifiers);
+        }
+        Ok(self)
+    }
+
+    /// The SCRAM verifier of the user called `name` for `kind`, if there is one.
+    #[must_use]
+    pub fn verifier(&self, kind: Kind, name: &str) -> Option<Arc<Verifier>> {
+        self.scram.get(&kind)?.get(name).cloned()
     }
 
     /// The password of the user called `name`, if there is one. The name is compared as bytes.
@@ -112,6 +152,7 @@ impl fmt::Debug for Credentials {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Credentials")
             .field("users", &self.users.keys().collect::<Vec<_>>())
+            .field("scram", &self.scram.keys().collect::<Vec<_>>())
             .finish_non_exhaustive()
     }
 }

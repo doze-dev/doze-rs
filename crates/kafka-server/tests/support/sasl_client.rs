@@ -1,4 +1,4 @@
-//! A raw client for a broker with SASL/PLAIN on a real socket, shared by the SASL tests.
+//! A raw client for a broker with SASL (PLAIN and SCRAM) on a real socket, shared by the SASL tests.
 #![allow(
     dead_code,
     clippy::unwrap_used,
@@ -12,6 +12,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use bytes::Bytes;
+use kafka_auth::scram::Kind;
+use kafka_auth::scram::client::Client as ScramClient;
 use kafka_auth::{Authenticator, Credentials, Mechanism};
 use kafka_broker::{Broker, Config as BrokerConfig};
 use kafka_protocol::protocol::{Decodable, Encodable, StrBytes};
@@ -30,10 +32,26 @@ use tokio::time::timeout;
 
 pub(crate) const SECRET: &str = "alice-secret-planted-7f3a";
 
+pub(crate) const BOB_SECRET: &str = "bob-secret-planted-91c2";
+
+/// PLAIN alone, with or without SASL on.
 pub(crate) async fn start_with(sasl: bool) -> Running {
-    let users = [("alice", SECRET), ("bob", "bob-secret-planted-91c2")]
-        .map(|(u, p)| (u.to_owned(), p.to_owned()));
-    let auth = Authenticator::new(&[Mechanism::Plain], Credentials::new(users).unwrap()).unwrap();
+    start_offering(&[Mechanism::Plain], sasl).await
+}
+
+/// Every mechanism, the way the conformance harness starts the broker for `sasl-scram`.
+pub(crate) async fn start_scram() -> Running {
+    let all = [
+        Mechanism::Plain,
+        Mechanism::ScramSha512,
+        Mechanism::ScramSha256,
+    ];
+    start_offering(&all, true).await
+}
+
+async fn start_offering(mechanisms: &[Mechanism], sasl: bool) -> Running {
+    let users = [("alice", SECRET), ("bob", BOB_SECRET)].map(|(u, p)| (u.to_owned(), p.to_owned()));
+    let auth = Authenticator::new(mechanisms, Credentials::new(users).unwrap()).unwrap();
     let config = Config {
         listen: SocketAddr::from((Ipv4Addr::LOCALHOST, 0)),
         sasl: sasl.then(|| Arc::new(auth)),
@@ -108,6 +126,31 @@ impl Client {
             (done.error_code, done.error_message.as_deref()),
             (0, Some(""))
         );
+    }
+
+    /// The handshake for `kind` and the first SCRAM token of `client`: the answer to the token.
+    pub(crate) async fn scram_first(
+        &mut self,
+        kind: Kind,
+        client: &ScramClient,
+    ) -> SaslAuthenticateResponse {
+        let hs = self.handshake(kind.mechanism().name()).await.unwrap();
+        assert_eq!(hs.error_code, 0);
+        self.token(&client.first()).await.unwrap()
+    }
+
+    /// A whole SCRAM login that is expected to succeed, signature checked.
+    pub(crate) async fn scram_log_in(&mut self, kind: Kind, user: &str, password: &str) {
+        let client = ScramClient::new(kind, user, password, "client-nonce-0001.");
+        let challenge = self.scram_first(kind, &client).await;
+        assert_eq!(challenge.error_code, 0, "{challenge:?}");
+        let last = client.last(&challenge.auth_bytes, None, "");
+        let done = self.token(&last.message).await.unwrap();
+        assert_eq!(
+            (done.error_code, done.error_message.as_deref()),
+            (0, Some(""))
+        );
+        assert_eq!(done.auth_bytes.as_ref(), last.expected.as_slice());
     }
 
     pub(crate) async fn versions(&mut self) -> Option<ApiVersionsResponse> {

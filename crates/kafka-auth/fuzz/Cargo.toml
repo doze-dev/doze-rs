@@ -19,3 +19,15 @@ name = "plain"
 path = "fuzz_targets/plain.rs"
 test = false
 doc = false
+
+[[bin]]
+name = "scram_first"
+path = "fuzz_targets/scram_first.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "scram_final"
+path = "fuzz_targets/scram_final.rs"
+test = false
+doc = false

@@ -4,7 +4,7 @@
 //! accepted and ignored, hidden from the help, so that the conformance harness, which passes them all, can run the
 //! scenarios of the parts that exist. A flag that would make the broker safer or different in a way a user would
 //! rely on is refused instead when it cannot be honoured: a broker that ignored `--tls-cert` would send in the
-//! clear. SASL/PLAIN is real (`--sasl-mechanisms`, `--sasl-user`); the passwords of `--sasl-user` are kept
+//! clear. SASL (PLAIN, SCRAM-SHA-256, SCRAM-SHA-512) is real (`--sasl-mechanisms`, `--sasl-user`); the passwords of `--sasl-user` are kept
 //! out of every `Debug` output and of every message.
 
 use std::net::SocketAddr;
@@ -103,8 +103,8 @@ pub(crate) struct Args {
     /// Log format.
     #[arg(long, value_enum, default_value = "text")]
     pub(crate) log_format: LogFormat,
-    /// SASL mechanisms to offer, comma separated (PLAIN today; SCRAM-SHA-256 and SCRAM-SHA-512 later). Needs
-    /// --sasl-user. Without it, no client is asked to log in.
+    /// SASL mechanisms to offer, comma separated (PLAIN, SCRAM-SHA-256, SCRAM-SHA-512; a SCRAM mechanism is
+    /// derived from each user's password at start). Needs --sasl-user. Without it, no client is asked to log in.
     #[arg(long, value_delimiter = ',')]
     sasl_mechanisms: Vec<String>,
     /// A user that may log in, as user:password (split at the first colon; repeatable). Needs

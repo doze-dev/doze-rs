@@ -29,6 +29,7 @@ tracing-subscriber = { version = "0.3", default-features = false, features = ["f
 tokio = { version = "1", default-features = false, features = ["rt", "rt-multi-thread", "signal", "net", "time", "macros"] }
 
 [dev-dependencies]
+kafka-auth = { path = "../kafka-auth", features = ["client"] }
 kafka-wire = { path = "../kafka-wire", features = ["test-support"] }
 kafka-protocol = { version = "0.18", default-features = false, features = ["client"] }
 bytes = "1"
