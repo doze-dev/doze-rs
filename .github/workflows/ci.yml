@@ -48,29 +48,16 @@ jobs:
       - uses: actions-rust-lang/setup-rust-toolchain@v1
       - run: cargo check --workspace --all-targets
 
-  # Weight is a feature (docs/port/weight.md): numbers may only rise with a written reason, so the limits below sit a
+  # Weight is a feature (docs/port/weight.md): numbers may only rise with a written reason, so the limits (xtask/weight-limits.txt) sit a
   # little above the measured values and a change that crosses one has to move the limit and say why.
   weight:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions-rust-lang/setup-rust-toolchain@v1
-      - run: cargo build --release -p doze-kafka
-      - name: Binary size, crates, idle memory
-        run: |
-          size=$(stat -c %s target/release/doze-kafka)
-          crates=$(cargo tree -p doze-kafka --prefix none --edges normal | sort -u | wc -l)
-          dir=$(mktemp -d)
-          target/release/doze-kafka --listen 127.0.0.1:19092 --data-dir "$dir" &
-          pid=$!
-          sleep 3
-          rss=$(awk '/VmRSS/ {print $2}' /proc/$pid/status)
-          kill $pid
-          echo "binary $size B, $crates packages, idle $rss KB"
-          # Measured on ubuntu x86_64: 4,899,328 B (the macOS arm64 build is 3.4 MB); the limit is that plus about 5%.
-          [ "$size" -le 5150000 ] || { echo "binary over 5.15 MB"; exit 1; }
-          [ "$crates" -le 115 ] || { echo "more than 115 packages"; exit 1; }
-          [ "$rss" -le 8192 ] || { echo "idle resident memory over 8 MB"; exit 1; }
+      # Builds release, measures size, packages and idle memory, and fails over the limits in xtask/weight-limits.txt
+      # (measured on ubuntu x86_64: 4,899,328 B; the limit is that plus about 5%).
+      - run: cargo xtask weight
 
   supply-chain:
     runs-on: ubuntu-24.04
