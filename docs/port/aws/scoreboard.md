@@ -8,7 +8,7 @@ Baseline (Stage 0.3, re-run 2026-11-12): Go doze-aws (origin/main f8c31a1) again
 | Service | Fidelity (Rust) | Fidelity (Go, same snapshots) | Binary delta | Idle RSS delta | Sessions est. | Sessions actual | Audit rounds | Open decisions |
 |---|---|---|---|---|---|---|---|---|
 | Foundation (A0 to A4) | | | | | 31 to 49 | | | |
-| SQS | | 44% exact / 73% ignoring wording (182 labels) | | | 5 to 7 | | | |
+| SQS | | 44% exact / 73% ignoring wording (182 labels) | | | 5 to 7 (+1 for redrive tasks, owner decision 2026-11-12; the 7-session trigger stays) | | | |
 | SSM | | 52% exact / 76% ignoring wording (33 labels) | | | | | | |
 | Secrets Manager | | 48% exact / 81% ignoring wording (27 labels) | | | | | | |
 | KMS | | 33% exact / 69% ignoring wording (45 labels) | | | | | | |
