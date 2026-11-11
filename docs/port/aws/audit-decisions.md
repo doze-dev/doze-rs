@@ -2,6 +2,17 @@
 
 Rules applied to every recommendation: only what can be true locally; the Go engine is frozen, so engine gaps become Rust behaviour-catalogue entries (not Go fixes); weight is a feature (no new engine state unless it earns its place). "Catalogue" below means: add a behaviour-catalogue entry for the Rust engine and keep the screen matching today's engine until then.
 
+## Decided 2026-11-12 (owner)
+
+**Rule applied to all 60:** AWS is the judge (see `phase0.md`). Every "fix engine in Rust" item whose AWS behaviour is recorded is fixed in Rust and the screen is drawn to match once the engine does; every "catalogue" item gets a behaviour-catalogue entry; every "leave screen as is" stays. Where a recommendation below says otherwise, the owner answers here win.
+
+- **Enable (all accepted):** E1 REST method/integration/response Edit via re-put; E3 CFN "Preserve resources" (and fix SUPPORT, C4); E4 Lambda "Create default role" via iam:CreateRole; E6 S3 Move, Rename, Calculate total size (Download as is dropped); E8 alarm form "Create a new SNS topic"; E9 Logs deletion protection via PutLogGroupDeletionProtection (C3 resolved: it is F).
+- **Build in 1.0:** G11 Logs storedBytes (a counter, not a scan); G25 SNS MaximumMessageSize enforced (tracing stays stored-only); G15 a small fixed list of AWS managed policies, built lazily.
+- **Not built in 1.0:** G24 CloudWatch keeps 24 h (the 1d/3d/1w range line stays a teaching line); retention is a weight choice.
+- **H3 evidence:** keep screens whose operations are F; one live-console pass (H2) settles the wording later.
+- **N4 SQS redrive:** build it. Add StartMessageMoveTask, ListMessageMoveTasks and CancelMessageMoveTask scenarios to the SQS recordings (about one session more for SQS; re-plan trigger is 7 sessions, so say so on the scoreboard).
+- **Everything else:** the recommendation in the item stands.
+
 ## 1. Engine gap: AWS does X, doze-aws ignores or refuses it, screen matches the engine
 
 - **G1 CloudFormation.** Is it acceptable that CreateStack ignores EnableTerminationProtection, RoleARN and StackPolicyBody, CreateChangeSet drops Description, and Describe/ListStacks return no Description?
