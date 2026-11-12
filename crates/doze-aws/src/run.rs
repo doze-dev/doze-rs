@@ -46,6 +46,8 @@ pub(crate) async fn run(args: Args) -> Result<()> {
     let (iam, sts) = aws_iam::services(Arc::new(ctx("iam")));
     let iam = Arc::new(iam);
     peers.set_authorizer(iam.clone());
+    // Under `--auth verify`, a key the command line does not name may be one IAM issued (an access key or a role session).
+    config.credential_source = Some(iam.clone());
     let services: Vec<Arc<dyn Service>> = vec![
         iam,
         Arc::new(sts),

@@ -46,8 +46,10 @@ impl Shared {
     async fn ask(&self, which: Which, call: Call) -> Reply {
         let (mut reply, durable) = match self.actor.call(Ask::Call { which, call }).await {
             Ok(Answer::Call { reply, durable }) => (reply, durable),
-            Ok(Answer::Authorize(_)) => (
-                Err(ApiError::internal("IAM answered a call with a verdict")),
+            Ok(_) => (
+                Err(ApiError::internal(
+                    "IAM answered a call with something else",
+                )),
                 None,
             ),
             Err(e) => (Err(ApiError::internal(e.to_string())), None),
@@ -71,11 +73,49 @@ impl Shared {
             .await
         {
             Ok(Answer::Authorize(verdict)) => verdict,
-            Ok(Answer::Call { .. }) => {
-                Err(ApiError::internal("IAM answered a question with a reply"))
-            }
+            Ok(_) => Err(ApiError::internal(
+                "IAM answered a question with something else",
+            )),
             Err(e) => Err(ApiError::internal(e.to_string())),
         }
+    }
+}
+
+impl Shared {
+    async fn credential(
+        &self,
+        access_key_id: &str,
+        session_token: Option<&str>,
+    ) -> Option<aws_auth::Credential> {
+        match self
+            .actor
+            .call(Ask::Credential {
+                access_key_id: access_key_id.to_owned(),
+                session_token: session_token.map(str::to_owned),
+            })
+            .await
+        {
+            Ok(Answer::Credential(found)) => found,
+            _ => None,
+        }
+    }
+}
+
+impl aws_auth::CredentialSource for Iam {
+    /// Only a key that looks issued by IAM (`AKIA` for an access key, `ASIA` for a session) wakes IAM.
+    fn find<'a>(
+        &'a self,
+        access_key_id: &'a str,
+        session_token: Option<&'a str>,
+    ) -> std::pin::Pin<
+        Box<dyn std::future::Future<Output = Option<aws_auth::Credential>> + Send + 'a>,
+    > {
+        Box::pin(async move {
+            if !(access_key_id.starts_with("AKIA") || access_key_id.starts_with("ASIA")) {
+                return None;
+            }
+            self.0.credential(access_key_id, session_token).await
+        })
     }
 }
 

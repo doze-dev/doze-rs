@@ -19,7 +19,7 @@ mod error;
 pub mod key;
 pub mod verify;
 
-pub use creds::{Credential, Credentials, Secret, StaticCredentials};
+pub use creds::{Credential, CredentialSource, Credentials, Secret, StaticCredentials, WithExtra};
 pub use error::AuthError;
 pub use verify::{Endpoint, Pending, Scope, Verified, begin};
 

@@ -119,6 +119,7 @@ async fn handle(
         ))
     };
     let authed = authenticate(shared, parts, claim.service.as_str())
+        .await
         .map_err(|e| fail(&from_auth(&e, Family::Coral)))?;
     let bytes = read_body(body, shared.config.max_body_bytes)
         .await
@@ -199,7 +200,7 @@ fn early(id: &RequestId, err: &ApiError) -> Fail {
 }
 
 /// Checks the head of the request in `Verify` mode; `None` in `Trust` mode.
-pub(crate) fn authenticate(
+pub(crate) async fn authenticate(
     shared: &Shared,
     parts: &Parts,
     signing_name: &str,
@@ -216,7 +217,22 @@ pub(crate) fn authenticate(
         max_skew_secs: shared.config.max_skew_secs,
     };
     let now = SystemClock.now_ms() / 1000;
-    begin(parts, now, endpoint, creds.as_ref()).map(Some)
+    // A key the fixed credentials do not hold may be one IAM issued: ask its source, which is only woken for keys that look issued.
+    let claim = aws_auth::claim::Claim::parse(parts)?;
+    let mut extra = None;
+    if let (Some(claim), Some(source)) = (&claim, &shared.config.credential_source)
+        && aws_auth::Credentials::lookup(creds.as_ref(), &claim.access_key_id, |c| c.is_none())
+    {
+        extra = source
+            .find(&claim.access_key_id, claim.session_token.as_deref())
+            .await
+            .map(|c| (claim.access_key_id.clone(), c));
+    }
+    let with = aws_auth::WithExtra {
+        fixed: creds.as_ref(),
+        extra: extra.as_ref().map(|(id, c)| (id.as_str(), c)),
+    };
+    begin(parts, now, endpoint, &with).map(Some)
 }
 
 pub(crate) async fn read_body(body: Incoming, limit: usize) -> Result<Bytes, ApiError> {

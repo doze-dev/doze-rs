@@ -25,6 +25,7 @@ pub(crate) async fn handle(
     let (meta, tables) = (entry.service.meta(), entry.service.tables());
     let fail = |e: &ApiError| -> Fail { Box::new(query::failure(meta, tables, id, e)) };
     let authed = authenticate(shared, parts, claim.service.as_str())
+        .await
         .map_err(|e| fail(&from_auth(&e, Family::Query)))?;
     let bytes = read_body(body, shared.max_body_bytes())
         .await

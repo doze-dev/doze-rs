@@ -43,6 +43,11 @@ pub(crate) enum Ask {
     Call { which: Which, call: Call },
     /// A service asks whether a caller may do what a request asks.
     Authorize { caller: Caller, needs: Vec<Need> },
+    /// The gateway asks for the credential behind an access key id, to check a signature.
+    Credential {
+        access_key_id: String,
+        session_token: Option<String>,
+    },
 }
 
 /// What the actor answers.
@@ -52,6 +57,8 @@ pub(crate) enum Answer {
     Call { reply: Reply, durable: Option<Ack> },
     /// Yes, or the refusal.
     Authorize(Result<(), ApiError>),
+    /// The credential, if IAM issued the key.
+    Credential(Option<aws_auth::Credential>),
 }
 
 /// All of the account's identities. Owned by one task, so no operation needs a lock.
@@ -91,6 +98,14 @@ impl doze_runtime::Service for Core {
         let (which, call) = match ask {
             Ask::Authorize { caller, needs } => {
                 return Answer::Authorize(self.authorize(&caller, &needs));
+            }
+            Ask::Credential {
+                access_key_id,
+                session_token,
+            } => {
+                return Answer::Credential(
+                    self.credential(&access_key_id, session_token.as_deref()),
+                );
             }
             Ask::Call { which, call } => (which, call),
         };

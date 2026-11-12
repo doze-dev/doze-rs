@@ -100,6 +100,17 @@ impl Session {
         .collect()
     }
 
+    /// The session a token stands for if it is ours, whether or not it has run out (a caller of an expired one is told so).
+    pub(crate) fn read(token: &str, key: &[u8]) -> Option<Self> {
+        let (payload, tag) = token.split_once('.')?;
+        let payload = base64::decode(payload)?;
+        let tag = base64::decode(tag)?;
+        if !same(&mac(key, &payload), &tag) {
+            return None;
+        }
+        serde_json::from_slice(&payload).ok()
+    }
+
     /// The session a token stands for, if it is ours and has not run out.
     pub(crate) fn verify(token: &str, key: &[u8], now_ms: i64) -> Result<Self, TokenFault> {
         let (payload, tag) = token.split_once('.').ok_or(TokenFault::Invalid)?;

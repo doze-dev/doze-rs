@@ -3,7 +3,7 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use aws_auth::StaticCredentials;
+use aws_auth::{CredentialSource, StaticCredentials};
 
 /// Who may call.
 #[derive(Clone, Debug)]
@@ -22,6 +22,8 @@ pub struct Config {
     pub listen: SocketAddr,
     /// Who may call.
     pub auth: Auth,
+    /// Where to look for a key the fixed credentials of [`Auth::Verify`] do not hold (IAM's access keys and role sessions).
+    pub credential_source: Option<Arc<dyn CredentialSource>>,
     /// The account every request is for until IAM says otherwise.
     pub account_id: String,
     /// The most request body read into memory, in bytes.
@@ -37,6 +39,7 @@ impl Config {
         Self {
             listen,
             auth: Auth::Trust,
+            credential_source: None,
             account_id: "000000000000".to_owned(),
             max_body_bytes: 16 << 20,
             max_skew_secs: 300,

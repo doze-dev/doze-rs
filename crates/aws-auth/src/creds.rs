@@ -67,3 +67,32 @@ impl Credentials for StaticCredentials {
         f(self.map.get(access_key_id))
     }
 }
+
+/// A source of credentials that has to be asked, because it keeps them somewhere that answers later (IAM's access keys and role
+/// sessions live behind an actor). The gateway asks it, once per request, for a key id that its fixed credentials do not hold.
+pub trait CredentialSource: Send + Sync + fmt::Debug + 'static {
+    /// The credential for `access_key_id`, if this source issued it. `session_token` is the token the request carried.
+    fn find<'a>(
+        &'a self,
+        access_key_id: &'a str,
+        session_token: Option<&'a str>,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Option<Credential>> + Send + 'a>>;
+}
+
+#[derive(Debug)]
+/// Fixed credentials with, beside them, at most one the request's source supplied.
+pub struct WithExtra<'a> {
+    /// The fixed set.
+    pub fixed: &'a StaticCredentials,
+    /// The key id and credential a [`CredentialSource`] supplied for this request.
+    pub extra: Option<(&'a str, &'a Credential)>,
+}
+
+impl Credentials for WithExtra<'_> {
+    fn lookup<R>(&self, access_key_id: &str, f: impl FnOnce(Option<&Credential>) -> R) -> R {
+        match self.extra {
+            Some((id, credential)) if id == access_key_id => f(Some(credential)),
+            _ => self.fixed.lookup(access_key_id, f),
+        }
+    }
+}

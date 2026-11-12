@@ -375,3 +375,32 @@ impl Core {
         "*".to_owned()
     }
 }
+
+impl Core {
+    /// The credential behind an access key id, for checking a signature: the secret of an access key IAM issued (while it is
+    /// active), or the one a role session derives (with the token the request must carry and the time it runs out).
+    pub(crate) fn credential(
+        &self,
+        access_key_id: &str,
+        token: Option<&str>,
+    ) -> Option<aws_auth::Credential> {
+        if access_key_id.starts_with("ASIA") {
+            let key = self.account().signing_key;
+            let session = Session::read(token?, &key)?;
+            if session.access_key_id(&key) != access_key_id {
+                return None;
+            }
+            return Some(aws_auth::Credential {
+                secret: aws_auth::Secret::new(session.secret_access_key(&key)),
+                session_token: token.map(str::to_owned),
+                expires_at: Some(session.expires_ms / 1000),
+            });
+        }
+        let issued = self.keys.get(access_key_id).filter(|k| k.active)?;
+        Some(aws_auth::Credential {
+            secret: aws_auth::Secret::new(issued.secret.clone()),
+            session_token: None,
+            expires_at: None,
+        })
+    }
+}

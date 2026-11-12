@@ -266,3 +266,64 @@ fn assuming_a_role_needs_the_trust_policy_and_either_the_user_named_or_an_identi
         "a trust policy that names someone else lets no one else in"
     );
 }
+
+#[test]
+fn the_credential_behind_a_key_is_its_secret_while_the_key_is_active_and_a_sessions_until_it_runs_out()
+ {
+    let mut w = World::new();
+    w.ok("CreateUser", &json!({"UserName": "gina"}));
+    let made = w.ok("CreateAccessKey", &json!({"UserName": "gina"}));
+    let (id, secret) = (
+        made["AccessKey"]["AccessKeyId"]
+            .as_str()
+            .unwrap()
+            .to_owned(),
+        made["AccessKey"]["SecretAccessKey"]
+            .as_str()
+            .unwrap()
+            .to_owned(),
+    );
+    let found = w.core.credential(&id, None).unwrap();
+    assert!(found.session_token.is_none() && found.expires_at.is_none());
+    assert_eq!(format!("{:?}", found.secret), "Secret(<redacted>)");
+    let _ = secret;
+    assert!(w.core.credential("AKIANOSUCHKEY", None).is_none());
+    w.ok(
+        "UpdateAccessKey",
+        &json!({"UserName": "gina", "AccessKeyId": id, "Status": "Inactive"}),
+    );
+    assert!(
+        w.core.credential(&id, None).is_none(),
+        "an inactive key signs nothing"
+    );
+
+    w.ok(
+        "CreateRole",
+        &json!({"RoleName": "r", "AssumeRolePolicyDocument": TRUST}),
+    );
+    let assumed = w.sts_ok("AssumeRole", &json!({"RoleArn": "arn:aws:iam::000000000000:role/r", "RoleSessionName": "me", "DurationSeconds": 900}));
+    let (key, token) = (
+        assumed["Credentials"]["AccessKeyId"]
+            .as_str()
+            .unwrap()
+            .to_owned(),
+        assumed["Credentials"]["SessionToken"]
+            .as_str()
+            .unwrap()
+            .to_owned(),
+    );
+    let c = w.core.credential(&key, Some(&token)).unwrap();
+    assert_eq!(c.session_token.as_deref(), Some(token.as_str()));
+    assert!(
+        w.core.credential(&key, None).is_none(),
+        "a session key needs its token"
+    );
+    assert!(
+        w.core.credential("ASIAWRONGKEYID", Some(&token)).is_none(),
+        "and the token must be the key\u{2019}s own"
+    );
+    // After it runs out the credential is still found, with its time, so the caller is told the token has expired.
+    w.clock.advance(901_000);
+    let expired = w.core.credential(&key, Some(&token)).unwrap();
+    assert!(expired.expires_at.unwrap() <= w.core.now_ms() / 1000);
+}

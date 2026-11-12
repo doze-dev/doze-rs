@@ -17,6 +17,7 @@ aws-model-sts = { path = "../aws-model-sts" }
 aws-schema = { path = "../aws-schema" }
 aws-wire = { path = "../aws-wire" }
 aws-peers = { path = "../aws-peers" }
+aws-auth = { path = "../aws-auth" }
 tracing = "0.1"
 aws-core = { path = "../aws-core" }
 aws-seal = { path = "../aws-seal" }

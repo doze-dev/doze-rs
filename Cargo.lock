@@ -195,6 +195,7 @@ dependencies = [
 name = "aws-iam"
 version = "0.0.0"
 dependencies = [
+ "aws-auth",
  "aws-core",
  "aws-iam-policy",
  "aws-model-iam",
