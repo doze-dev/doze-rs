@@ -22,6 +22,7 @@ pub mod domains;
 pub mod error;
 pub mod front;
 pub mod front_door;
+pub mod nat;
 pub mod pool;
 mod proxy;
 pub mod registry;
