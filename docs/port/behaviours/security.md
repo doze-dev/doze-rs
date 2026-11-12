@@ -510,7 +510,17 @@ allowing, have every bit. The auto-creation check (CREATE on the cluster or the 
 a real ACL set each), and on a real socket `kafka-server tests/acl_topics.rs::a_user_is_refused_on_a_topic_it_has_no_acl_for_and_served_on_one_it_has`
 (a SASL PLAIN user: served on a topic it has an ACL for, refused 29 on another, on Produce, Fetch, ListOffsets and CreateTopics). The allow-all path is
 proved by every earlier broker, server and interop test passing unchanged except the 8b tests that made their topics as the anonymous caller of a
-closed broker (they now make them as the super user: `Rig::create_as_admin`). Mutation check: see the end of this section.
+closed broker (they now make them as the super user: `Rig::create_as_admin`).
+
+Mutation check (25 hand-made mutations of these checks, each applied to a copy of the tree and checked as applied, 2026-11-12): a check removed (CreateTopics,
+ListOffsets), a wrong operation (DeleteRecords ALTER for DELETE; Fetch DESCRIBE for READ; DescribeConfigs ALTER_CONFIGS for DESCRIBE_CONFIGS; DescribeProducers
+DESCRIBE for READ; CreatePartitions CREATE for ALTER), a wrong resource type (Produce asked of the cluster; the topic's bits asked of the cluster), a check after
+the change (AlterConfigs), a check before the validation it must follow (a broker's AlterConfigs), a refusal on the wrong place or in the wrong order
+(ListOffsets loses the topic's name; DescribeConfigs and CreateTopics put the refused first), any transactional id accepted (Produce), the wrong code
+(Produce answers 3), existence leaked (DeleteTopics by name, and the name shown by id), the cluster's DELETE grant lost, the cluster's bits told without
+DESCRIBE or in v11, a follower asked for READ, replica 0 read as a consumer, configs told without DESCRIBE_CONFIGS, a name judged after READ in DescribeProducers.
+**25 of 25 were killed**. (The first table asked a caller with only an unrelated operation, which would not have killed the weaker-operation
+mutations; that was seen by reading before the run, and `the_weaker_right_that_the_stronger_one_implies_is_not_enough` was added first.)
 
 ## Deviations
 - **SEC-D1.** A request in the middle of a login other than ApiVersions and SaslHandshake closes unanswered; Kafka answers it in its

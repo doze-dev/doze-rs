@@ -204,6 +204,12 @@ async fn preprocessing_errors_are_said_before_authorization_is_asked() {
             Some("Null value not supported for : retention.ms, segment.ms".into())
         )
     );
+}
+
+#[tokio::test]
+async fn a_brokers_name_and_configs_are_judged_before_the_right_to_alter_them_is() {
+    let rig = rig_with_topics(&["t"]).await;
+    let nobody = user("nobody");
 
     // A broker named by something that is not its id, or by another id.
     let r = rig
