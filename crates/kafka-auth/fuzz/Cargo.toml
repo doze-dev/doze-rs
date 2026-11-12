@@ -37,3 +37,9 @@ name = "scram_final"
 path = "fuzz_targets/scram_final.rs"
 test = false
 doc = false
+
+[[bin]]
+name = "hostguard"
+path = "fuzz_targets/hostguard.rs"
+test = false
+doc = false

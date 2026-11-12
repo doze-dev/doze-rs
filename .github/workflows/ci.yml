@@ -140,6 +140,11 @@ jobs:
         run: |
           mkdir -p corpus/acl_filter
           cargo fuzz run acl_filter corpus/acl_filter seeds/acl_filter -- -max_total_time=30 -max_len=4096
+      - name: Fuzz the allowed-hosts guard for 30 seconds
+        working-directory: crates/kafka-auth/fuzz
+        run: |
+          mkdir -p corpus/hostguard
+          cargo fuzz run hostguard corpus/hostguard seeds/hostguard -- -max_total_time=30 -max_len=4096
       - name: Fuzz the two SCRAM messages for 30 seconds
         working-directory: crates/kafka-auth/fuzz
         run: |
