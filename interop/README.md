@@ -37,7 +37,7 @@ library's own producer and consumer, then logs in with a wrong password, which m
 15 s (the output prints the words each library gave). sarama gets its SCRAM client from `xdg-go/scram`, as its documentation
 says; the others have SCRAM built in or in their own `sasl` packages. `interop/go/sasl.go`.
 
-**Users made over the API (`interop/go/users.go`, the second half of `-sasl`).** Eleven more lines. franz-go's `kadm` makes a user, `dave`, with `AlterUserScramCredentials` (SCRAM-SHA-256 at 4096 iterations, SCRAM-SHA-512 at 8192; kadm
+**Users made over the API (`interop/go/users.go`, the second half of `-sasl`).** Fourteen more lines. franz-go's `kadm` makes a user, `dave`, with `AlterUserScramCredentials` (SCRAM-SHA-256 at 4096 iterations, SCRAM-SHA-512 at 8192; kadm
 salts the password and runs PBKDF2 itself, in Go) through a login as `alice`, who is configured at start; `DescribeUserScramCredentials` lists both users; an attempt to take over `alice` is refused (93). Then the eight cells above run again, as
 `dave` with SCRAM-SHA-256 and SCRAM-SHA-512 (a wrong password refused). Then: PLAIN with the right password is refused by every library (a stored SCRAM verifier cannot give a password back); `dave`'s SCRAM-SHA-512 credential is deleted and
 every library is refused with it while SCRAM-SHA-256 still logs in; the SCRAM-SHA-256 one is deleted and every library is refused; a second deletion is `RESOURCE_NOT_FOUND` and `dave` is no longer described. The broker of `-sasl` has no ACL, so any

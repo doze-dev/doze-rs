@@ -30,6 +30,22 @@ fn log_in(s: &mut TcpStream, user: &str, password: &str) -> (i16, i16) {
     (0, done.error_code)
 }
 
+/// The request that makes `user`: the client sends the salted password, the broker never sees the password.
+fn make_user(user: &str, password: &str) -> AlterUserScramCredentialsRequest {
+    let salt = format!("salt-of-{user}").into_bytes();
+    let iterations = std::num::NonZeroU32::new(4096).unwrap();
+    let mut up = ScramCredentialUpsertion::default();
+    up.name = StrBytes::from_string(user.to_owned());
+    up.mechanism = 1;
+    up.iterations = 4096;
+    up.salted_password =
+        Bytes::from(Kind::Sha256.salted_password(password.as_bytes(), &salt, iterations));
+    up.salt = Bytes::from(salt);
+    let mut req = AlterUserScramCredentialsRequest::default();
+    req.upsertions.push(up);
+    req
+}
+
 fn file(dir: &Path, text: &str, mode: u32) -> PathBuf {
     std::fs::create_dir_all(dir).unwrap();
     let path = dir.join("users");
@@ -63,21 +79,7 @@ fn users_from_a_file_and_the_environment_log_in_and_one_made_over_the_api_outliv
     );
     let mut admin = broker.connect();
     assert_eq!(log_in(&mut admin, "admin", "admin-file-planted"), (0, 0));
-    // The client sends the salted password: the broker never sees the password.
-    let (salt, iterations) = (b"salt-of-carol".to_vec(), 4096);
-    let mut up = ScramCredentialUpsertion::default();
-    up.name = StrBytes::from_static_str("carol");
-    up.mechanism = 1;
-    up.iterations = iterations;
-    up.salt = Bytes::from(salt.clone());
-    let salted = Kind::Sha256.salted_password(
-        b"carol-api-planted",
-        &salt,
-        std::num::NonZeroU32::new(4096).unwrap(),
-    );
-    up.salted_password = Bytes::from(salted);
-    let mut req = AlterUserScramCredentialsRequest::default();
-    req.upsertions.push(up);
+    let req = make_user("carol", "carol-api-planted");
     let made: AlterUserScramCredentialsResponse =
         call(&mut admin, ApiKey::AlterUserScramCredentials, 0, &req);
     assert_eq!(
@@ -92,7 +94,7 @@ fn users_from_a_file_and_the_environment_log_in_and_one_made_over_the_api_outliv
     assert!(status.success(), "{status:?}");
 
     // Started again: the configured users come from the file and the variable again, and carol from the database.
-    let mut again = start_with_env(&data, &flags, &env);
+    let again = start_with_env(&data, &flags, &env);
     for (user, password) in [
         ("bob", "bob-env-planted"),
         ("admin", "admin-file-planted"),

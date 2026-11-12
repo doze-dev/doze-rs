@@ -12,6 +12,7 @@ impl<F: Fs> Broker<F> {
     /// profile, before the connection is known to be allowed anything else.
     #[expect(
         clippy::cognitive_complexity,
+        clippy::too_many_lines,
         reason = "an exhaustive match over every API, with no wildcard, so that an API with no handler does not compile"
     )]
     pub async fn handle(

@@ -541,7 +541,7 @@ Test: `tests/user_scram_use::describe_lists_every_user_with_its_mechanisms_and_i
 A SCRAM login finds the verifier in the bootstrap users or, if the name is not one of them, in the stored ones (SEC-172), by user and mechanism: a credential for SCRAM-SHA-512 does not log in SCRAM-SHA-256, and one for a mechanism the broker does not offer
 (`--sasl-mechanisms`) cannot log in. **PLAIN can log in bootstrap users only**: a stored SCRAM verifier cannot give a password back to be compared, and Kafka's PLAIN uses its JAAS file only. A replaced, deleted or added credential applies to the logins
 that begin after the answer; **a connection that is already logged in stays logged in** with the same principal (Kafka checks credentials again only at re-authentication, `connections.max.reauth.ms`, which this broker does not do, SEC-D55). Test:
-`kafka-auth authenticator::tests::a_stored_user_logs_in_with_scram_and_never_with_plain`, `..::a_stored_credential_of_a_mechanism_that_is_off_cannot_log_in`, `kafka-server tests/users_api::a_user_made_by_an_admin_logs_in_at_once_and_after_a_restart_and_a_deleted_one_does_not`
+`kafka-auth authenticator::tests::a_stored_user_logs_in_with_scram_and_never_with_plain`, `..::a_stored_credential_of_a_mechanism_that_is_off_cannot_log_in`, `kafka-server tests/users_api::a_user_made_by_an_admin_logs_in_at_once_and_after_a_restart` and `..::a_deleted_credential_is_refused_at_the_next_login_and_an_open_connection_stays_logged_in`
 (a deleted user is refused with the generic 58 and the connection closes; the connection that was open before the deletion still answers), `interop/run.sh -sasl` (`users/` cells).
 
 ## SEC-171. The stored users outlive the process

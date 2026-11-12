@@ -364,3 +364,18 @@ async fn two_requests_at_once_lose_neither() {
         .collect();
     assert_eq!(names, ["a", "b"]);
 }
+
+#[tokio::test]
+async fn a_deletion_that_failed_ends_the_users_part_of_the_request() {
+    // :189, :209: the first error stands and every later operation on the name, of either kind, is ignored.
+    let rig = rig_with(|_| {});
+    let missing = "Attempt to delete a user credential that does not exist";
+    let r = rig
+        .scram_alter(
+            vec![delete("ghost", SHA256), delete("ghost", SHA512)],
+            vec![upsert("ghost", SHA256, 4096, "p")],
+        )
+        .await;
+    assert_eq!(r, vec![err("ghost", 91, Some(missing))]);
+    assert!(rig.scram_listed().await.is_empty());
+}

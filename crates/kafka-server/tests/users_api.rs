@@ -10,127 +10,21 @@
 
 #[path = "support/sasl_client.rs"]
 mod client;
+#[path = "support/users_server.rs"]
+mod server;
 
-use std::net::{Ipv4Addr, SocketAddr};
-use std::sync::Arc;
-
-use bytes::Bytes;
 use client::{Client, metadata_for};
 use kafka_auth::scram::Kind;
 use kafka_auth::scram::client::Client as ScramClient;
-use kafka_auth::{Authenticator, Credentials, Mechanism, Users};
-use kafka_broker::{Broker, Config as BrokerConfig};
-use kafka_protocol::protocol::StrBytes;
-use kafka_server::{Config, Running, Server};
 use kafka_storage::sim::SimFs;
-use kafka_wire::messages::alter_user_scram_credentials_request::{
-    ScramCredentialDeletion, ScramCredentialUpsertion,
-};
 use kafka_wire::messages::{
-    AlterUserScramCredentialsRequest, AlterUserScramCredentialsResponse, ApiKey,
-    DescribeUserScramCredentialsRequest, DescribeUserScramCredentialsResponse, MetadataResponse,
+    ApiKey, DescribeUserScramCredentialsRequest, DescribeUserScramCredentialsResponse,
+    MetadataResponse,
 };
-use std::num::NonZeroU32;
-
-const ADMIN_PW: &str = "admin-secret-planted-31";
-const BAD: &str =
-    "Authentication failed during authentication due to invalid credentials with SASL mechanism ";
-
-/// A broker on `fs` whose only configured user is the super user `admin`. Starting it again on the same disk is a
-/// restart: the stored users are loaded when it opens.
-async fn start(fs: &SimFs) -> Running {
-    let all = [
-        Mechanism::Plain,
-        Mechanism::ScramSha512,
-        Mechanism::ScramSha256,
-    ];
-    let admin = [("admin".to_owned(), ADMIN_PW.to_owned())];
-    let users = Arc::new(Users::derive(Credentials::new(admin).unwrap(), &all).unwrap());
-    let auth = Authenticator::over(&all, Arc::clone(&users)).unwrap();
-    let config = Config {
-        listen: SocketAddr::from((Ipv4Addr::LOCALHOST, 0)),
-        sasl: Some(Arc::new(auth)),
-        ..Config::default()
-    };
-    let mut broker = BrokerConfig::new("/data".into());
-    broker.acl_default_allow = false;
-    broker.super_users.insert("User:admin".to_owned());
-    broker.users = users;
-    let broker = Broker::open(fs.clone(), broker).unwrap();
-    Server::bind(config, Arc::new(broker)).await.unwrap()
-}
-
-async fn admin(server: &Running) -> Client {
-    let mut c = Client::connect(server).await;
-    c.scram_log_in(Kind::Sha256, "admin", ADMIN_PW).await;
-    c
-}
-
-fn name(s: &str) -> StrBytes {
-    StrBytes::from_string(s.to_owned())
-}
-
-fn upsert(user: &str, kind: Kind, password: &str) -> ScramCredentialUpsertion {
-    let (salt, iterations) = (format!("salt-{user}").into_bytes(), 4096);
-    let mut u = ScramCredentialUpsertion::default();
-    u.name = name(user);
-    u.mechanism = if kind == Kind::Sha256 { 1 } else { 2 };
-    u.iterations = iterations;
-    let salted = kind.salted_password(
-        password.as_bytes(),
-        &salt,
-        NonZeroU32::new(iterations.unsigned_abs()).unwrap(),
-    );
-    u.salted_password = Bytes::from(salted);
-    u.salt = Bytes::from(salt);
-    u
-}
-
-async fn alter(
-    c: &mut Client,
-    deletions: Vec<ScramCredentialDeletion>,
-    upsertions: Vec<ScramCredentialUpsertion>,
-) -> Vec<(String, i16)> {
-    let mut req = AlterUserScramCredentialsRequest::default();
-    req.deletions = deletions;
-    req.upsertions = upsertions;
-    let r: AlterUserScramCredentialsResponse = c
-        .call(ApiKey::AlterUserScramCredentials, 0, &req)
-        .await
-        .unwrap();
-    r.results
-        .into_iter()
-        .map(|x| (x.user.to_string(), x.error_code))
-        .collect()
-}
-
-fn deletion(user: &str, mechanism: i8) -> ScramCredentialDeletion {
-    let mut d = ScramCredentialDeletion::default();
-    d.name = name(user);
-    d.mechanism = mechanism;
-    d
-}
-
-/// The login of `user` is refused: the answer is the generic failure and then the connection closes.
-async fn refused(server: &Running, kind: Kind, user: &str, password: &str) {
-    let mut c = Client::connect(server).await;
-    let me = ScramClient::new(kind, user, password, "client-nonce-0001.");
-    let mut said = c.scram_first(kind, &me).await;
-    // An unknown user is turned down at once; a known user with the wrong password after the proof.
-    if said.error_code == 0 {
-        said = c
-            .token(&me.last(&said.auth_bytes, None, "").message)
-            .await
-            .unwrap();
-    }
-    assert_eq!(said.error_code, 58, "{said:?}");
-    let text = said.error_message.as_deref().unwrap_or_default();
-    assert_eq!(text, format!("{BAD}{}", kind.mechanism().name()));
-    assert!(c.is_closed().await);
-}
+use server::{admin, alter, deletion, refused, start, upsert};
 
 #[tokio::test]
-async fn a_user_made_by_an_admin_logs_in_at_once_and_after_a_restart_and_a_deleted_one_does_not() {
+async fn a_user_made_by_an_admin_logs_in_at_once_and_after_a_restart() {
     let fs = SimFs::new();
     let server = start(&fs).await;
     let mut root = admin(&server).await;
@@ -191,10 +85,20 @@ async fn a_user_made_by_an_admin_logs_in_at_once_and_after_a_restart_and_a_delet
         .scram_log_in(Kind::Sha512, "carol", "carol-pw")
         .await;
     refused(&server, Kind::Sha512, "carol", "other").await;
+    server.shutdown().await;
+}
 
-    // Deleted: new logins with that mechanism are refused, the other mechanism still works, and the connection that
-    // was open stays open (Kafka re-checks only at re-authentication).
+#[tokio::test]
+async fn a_deleted_credential_is_refused_at_the_next_login_and_an_open_connection_stays_logged_in()
+{
+    let server = start(&SimFs::new()).await;
     let mut root = admin(&server).await;
+    for kind in [Kind::Sha256, Kind::Sha512] {
+        let made = alter(&mut root, vec![], vec![upsert("carol", kind, "carol-pw")]).await;
+        assert_eq!(made, vec![("carol".to_owned(), 0)]);
+    }
+    // New logins with the deleted mechanism are refused, the other mechanism still works, and the connection that
+    // was open stays open (Kafka re-checks only at re-authentication).
     let mut open = Client::connect(&server).await;
     open.scram_log_in(Kind::Sha256, "carol", "carol-pw").await;
     let gone = alter(&mut root, vec![deletion("carol", 2)], vec![]).await;
