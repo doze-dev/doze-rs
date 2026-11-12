@@ -195,10 +195,7 @@ impl ConsumerGroup {
             .filter_map(|t| {
                 let subscribers: Vec<MemberId> = names
                     .iter()
-                    .filter(|(m, set)| {
-                        set.contains(t.name.as_str())
-                            || m.pattern.as_ref().is_some_and(|p| p.matches(&t.name))
-                    })
+                    .filter(|(m, set)| set.contains(t.name.as_str()) || m.pattern_takes(&t.name))
                     .map(|(m, _)| m.id.clone())
                     .collect();
                 (!subscribers.is_empty()).then_some(Subscribed {

@@ -176,6 +176,8 @@ impl ConsumerGroup {
                 m.assignor = assignor;
                 changed = true;
             }
+            // A right to DESCRIBE given or taken since the last heartbeat changes what the pattern takes.
+            changed |= m.take_rights(req.rights.clone(), topics);
         }
         self.reset_session(&id, now, out);
         if changed {

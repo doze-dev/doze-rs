@@ -8,7 +8,7 @@
 use kafka_auth::authz::{CLUSTER_NAME, operation, resource};
 use kafka_storage::fs::Fs;
 
-use crate::authorizer::Authorizer;
+use crate::authorizer::{Authorizer, TopicRights};
 use crate::{Broker, Caller};
 
 /// What a group can be asked to allow (Kafka's `AclEntry.supportedOperations(GROUP)`): the bits of an
@@ -48,6 +48,11 @@ impl Guard<'_> {
     pub(crate) fn cluster(&self, op: i8) -> bool {
         self.authz
             .allows(self.who, resource::CLUSTER, CLUSTER_NAME, op)
+    }
+
+    /// What the caller may DESCRIBE among the topics, to be kept (`None`: everything, at no cost).
+    pub(crate) fn topic_rights(&self) -> Option<TopicRights> {
+        self.authz.describe_rights(self.who)
     }
 
     /// The operations the caller may do to the group `id`, one bit each at the operation's number
