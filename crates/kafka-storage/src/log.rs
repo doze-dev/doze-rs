@@ -29,7 +29,7 @@ pub use read::LogReader;
 pub use sync::Ticket;
 pub use times::OffsetAt;
 pub use trim::Retention;
-pub use walk::{Budget, SegmentWalk, Tombstone, Walk};
+pub use walk::{Budget, MarkerNote, SegmentWalk, Tombstone, Walk};
 
 use crate::fs::Fs;
 use crate::segment::{ActiveSegment, SealedSegment};

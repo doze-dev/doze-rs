@@ -65,7 +65,8 @@ async fn a_get_never_asks_the_broker_to_change_anything() {
             .replace("{id}", "home-sentence")
             .replace("{name}", "x")
             .replace("{group}", "g")
-            .replace("{member}", "m");
+            .replace("{member}", "m")
+            .replace("{txn}", "x");
         if path == "/events" {
             continue;
         }

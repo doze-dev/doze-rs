@@ -320,3 +320,21 @@ Statuses as above. Rules CON-100 and up in `behaviours/console.md`. The writing 
 | J128 | The Consumers tab of the Config pages goes to the topic's own page as the boards draw it, where the Messages page links `/groups` | open: decide with 9c |
 | J129 | The effects table lists the keys the broker lists today; a key added to `topic_config::table` without an entry fails `every_key_the_broker_lists_has_an_effect_sentence` | decided |
 | J130 | The "Before and after" of a Check is worked out from the row and the typed value (list elements added once, taken out); the Saved page reads both sides from the broker | decided |
+| J231 | "Compact now" on `topic-log` is Lab (`log-compact-now`): a fault rule in the request path; not built, no button | open: Lab |
+| J232 | "On the wire" docks of `topic-log` and `topic-producers` need the request recorder | open: 9e |
+| J233 | "Seen as" on the producers table needs the recorder (a name appears when it saw the producer write); the column says "not known" | open: 9e |
+| J234 | "Flushed through offset N": the log keeps no flushed-through offset; the Durability card says how the log is flushed and what the last stop left (adding the offset means a counter on the writer's hot path) | open |
+| J235 | The first entries of a segment's index (`First entries`) are not shown: no accessor reads them; the row says how many entries there should be, about | open |
+| J236 | The epoch history of a producer ("raised from 1 at 17:14:11") is not kept; the page shows the epoch now | open |
+| J237 | "Offsets staged" of a transaction: DescribeTransactions does not list the groups; the row says so | open |
+| J238 | An aborted transaction: the marker says it was an abort and when it was written, not whether the producer or the timeout wrote it; the board's "Timeout" and "Abort" words are one word, "Abort", with that sentence | open |
+| J239 | `LogReader::survey` (kafka-storage, read-only) is bounded: 200,000 batch headers, 32 MiB of whole batches, 20,000 gaps, 200 deletions; a larger log says it was read in part and counts what it could not place | decided |
+| J240 | The notes of the cleaner and of retention (`kafka-broker/src/log_notes.rs`) are in memory and bounded (512 partitions, one pass, 64 deletions listed); they are written by `cleaner.rs` and `logs.rs` and read by nothing but the console; zero behaviour change (the storage, compaction and retention tests and the oracle are as before) | decided |
+| J241 | `ConsoleView::log_facts` opens the partition if it must (as a Fetch would) and lets it go if nothing else holds it; with `--max-open-partitions` reached it can close another to make room, as any read does | decided |
+| J242 | The planner is given `PartitionLog::stability().last_stable` (clamped to the log start); the cleaner uses the index's own, not clamped. They differ only when DeleteRecords moved the start past an open transaction on a `compact,delete` topic | open |
+| J243 | The retention card's "Past retention" lists the partitions whose log start the last pass moved (by the note), not a count of segments: the trim does not say how many it removed | open |
+| J244 | "Other logs on this broker" lists the first six other topics by name, with a line from each one's partition 0, where the board lists the ones "with a story" | open |
+| J245 | The four Log boards are four states of one route; the board's buttons "Why not yet?", "Retention" and "Empty log" go to the same address, so the gate's link resolution cannot tell them apart (allow-list entries) | decided |
+| J246 | `ConsoleView::producers` needs READ on the topic (what DescribeProducers asks), where `log_facts` needs DESCRIBE | decided |
+| J247 | The transaction pages are `/topics/{topic}/transactions/{txn}` and `/held`: the boards give `txn-open` a title of its own and `txn-holding` a button to reach it, so each has an address; a transaction that writes to several topics has a page under each | decided |
+| J248 | A mutation check by hand was made on `compact::plan::reading`, `log_words::planner::share` and `LogReader::survey`'s gap placement; a run over `gather/log.rs` was not made | open |

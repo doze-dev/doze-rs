@@ -5,12 +5,15 @@
 //! compaction thinned or that carries a delete horizon, the batch itself, within a budget; a log bigger than the budget is
 //! reported as walked in part, never guessed.
 
-use kafka_wire::batch::{Batch, HEADER_LEN, Peek};
+use kafka_wire::batch::{Batch, HEADER_LEN, Marker, Peek};
 
 use super::LogReader;
 use crate::compact::Facts;
 use crate::fs::{Fs, FsFile};
 use crate::segment::SegmentView;
+
+/// How many marker offsets a segment keeps (the newest).
+const MOST_MARKERS: usize = 256;
 
 /// What a walk may spend.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -60,6 +63,8 @@ pub struct SegmentWalk {
     pub gaps: Vec<(i64, i64)>,
     /// Records removed that sit in a batch the walk did not open (over the budget): counted, not placed.
     pub unplaced: u64,
+    /// The transaction markers in it, the newest 256.
+    pub markers: Vec<MarkerNote>,
 }
 
 impl SegmentWalk {
@@ -74,6 +79,14 @@ impl SegmentWalk {
     pub fn removed(&self) -> i64 {
         self.gaps.iter().map(|g| g.1).sum::<i64>() + i64::try_from(self.unplaced).unwrap_or(0)
     }
+}
+
+/// A commit or abort marker the log holds: where it is, when it was written, and what it says.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MarkerNote {
+    pub offset: i64,
+    pub at_ms: i64,
+    pub commit: bool,
 }
 
 /// A deletion a round has kept, with the time after which the next round removes it.
@@ -193,6 +206,9 @@ fn one<F: Fs>(
             return seg;
         }
         note_batch(&mut seg, &peek, expect, spent);
+        if peek.attributes.is_control() {
+            note_marker(&mut seg, view, pos, &peek);
+        }
         let batch_next = peek.next_offset().unwrap_or(expect);
         if wants_batch(&peek) {
             open_batch(view, pos, &peek, (&mut seg, spent), tombs);
@@ -233,6 +249,25 @@ fn push_gap(seg: &mut SegmentWalk, spent: &mut Spent, first: i64, count: i64) {
     } else {
         spent.partial = true;
         seg.unplaced += u64::try_from(count).unwrap_or(0);
+    }
+}
+
+/// Notes a marker: its batch is read (it is a few dozen bytes) to see whether it commits or aborts. One that cannot be read is
+/// not listed.
+fn note_marker<F: Fs>(seg: &mut SegmentWalk, view: &SegmentView<F>, pos: u64, peek: &Peek) {
+    let kind = usize::try_from(peek.total_len)
+        .ok()
+        .and_then(|n| view.read(pos, n).ok())
+        .and_then(|bytes| Marker::read(&bytes));
+    if let Some(kind) = kind {
+        seg.markers.push(MarkerNote {
+            offset: peek.base_offset,
+            at_ms: peek.max_timestamp.get(),
+            commit: kind == Marker::Commit,
+        });
+        if seg.markers.len() > MOST_MARKERS {
+            seg.markers.remove(0);
+        }
     }
 }
 

@@ -10,6 +10,7 @@ pub mod form;
 pub mod glyph;
 pub mod glyph_extra;
 pub mod glyph_groups;
+pub mod glyph_log;
 pub mod kafka;
 pub mod layout;
 pub mod notice;

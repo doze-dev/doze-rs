@@ -16,6 +16,8 @@ pub mod boards;
 #[cfg(any(test, feature = "examples"))]
 pub mod boards_config;
 #[cfg(any(test, feature = "examples"))]
+pub mod boards_log;
+#[cfg(any(test, feature = "examples"))]
 pub mod boards_write;
 pub mod calls;
 pub mod calls_groups;
@@ -33,6 +35,8 @@ pub mod fixtures_config;
 #[cfg(any(test, feature = "examples"))]
 pub mod fixtures_groups;
 #[cfg(any(test, feature = "examples"))]
+pub mod fixtures_log;
+#[cfg(any(test, feature = "examples"))]
 pub mod fixtures_topics;
 #[cfg(any(test, feature = "examples"))]
 pub mod fixtures_write;
@@ -45,12 +49,16 @@ pub mod handlers;
 pub mod headers;
 pub mod lag;
 pub mod limits;
+pub mod log_ruler;
+pub mod log_source;
+pub mod log_words;
 pub mod model;
 pub mod origin;
 pub mod pages;
 pub mod partitioner;
 pub mod phrases;
 pub mod probe;
+pub mod producers_words;
 pub mod refusal;
 pub mod routes;
 pub mod serve;
@@ -59,6 +67,7 @@ pub mod source;
 pub mod state;
 pub mod stream;
 pub mod stream_groups;
+pub mod stream_log;
 pub mod teach;
 pub mod tick;
 pub mod ui;

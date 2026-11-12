@@ -20,6 +20,9 @@ pub async fn fragment(
     if let Some(m) = super::groups_fragment(&s, &id, &query).await {
         return etagged(&headers, &m);
     }
+    if let Some(m) = super::log_fragment(&s, &id, &query).await {
+        return etagged(&headers, &m);
+    }
     let Some(markup) = topics_fragment(&s, &id, &query).await else {
         return fragment_of_home(&s, &id, &headers).await;
     };

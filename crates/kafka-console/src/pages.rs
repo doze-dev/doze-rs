@@ -7,7 +7,9 @@ mod config;
 mod connect;
 pub mod groups;
 mod home;
+mod log;
 mod notice;
+mod producers;
 pub mod topics;
 mod topics_write;
 
@@ -22,7 +24,15 @@ pub use config::{
 };
 pub use connect::{connect, probe_connect};
 pub use home::{HOME_LIVE, callout_body, home, live_fragment, probe_home};
+pub use log::{
+    LOG_CARDS, LOG_RULER, LOG_SENTENCE, log_cards_fragment, log_page, log_ruler_fragment,
+    log_sentence_fragment, log_url,
+};
 pub use notice::{not_found, planned};
+pub use producers::{
+    PRODUCERS_SENTENCE, PRODUCERS_TABLE, no_txn, producers_page, producers_sentence_fragment,
+    producers_table_fragment, producers_url, txn_held_page, txn_held_url, txn_page, txn_url,
+};
 pub use topics_write::{
     add_partitions_dialog, create_page, create_refused, created, delete_dialog,
     delete_records_dialog, delete_records_refused, deleted_page, no_topic, produce_dialog,

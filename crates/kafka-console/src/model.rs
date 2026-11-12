@@ -7,7 +7,9 @@ mod config;
 mod connect;
 mod groups;
 mod home;
+mod log;
 mod messages;
+mod producers;
 mod query;
 mod topic;
 mod topics;
@@ -20,6 +22,15 @@ pub use config::{
 };
 pub use connect::{Access, ClientSnippet, ConnectView, ProbeView, Rule, Span, Tok, Verdict};
 pub use home::{Attention, HeldBack, HomeState, HomeView, InstanceView, StopView};
+pub use log::{
+    LogCleaner, LogCompaction, LogDurability, LogLimit, LogMoved, LogOther, LogOtherLink, LogPass,
+    LogPlanner, LogRetentionView, LogRound, LogRules, LogSegment, LogState, LogStop, LogTombstone,
+    LogView,
+};
+pub use producers::{
+    ProdAborted, ProdBatch, ProdCell, ProdRow, ProdTail, ProdTxn, ProducersView, TxnPart, TxnRow,
+    TxnView,
+};
 
 pub(crate) mod write;
 
