@@ -195,3 +195,26 @@ async fn a_static_file_answers_304_to_its_own_etag_and_ignores_a_range() {
     assert!(res.headers().get(header::CONTENT_RANGE).is_none());
     assert_eq!(res.headers()[header::ACCEPT_RANGES], "none");
 }
+
+#[tokio::test]
+async fn with_two_host_headers_the_guard_and_the_origin_proof_read_the_same_first_one() {
+    // Audit A25: not exploitable, and pinned: both layers use the first value, so they cannot disagree about which host
+    // was asked. (A browser sends one; a request with two is not a browser's.)
+    let (app, _) = app("/", &[]);
+    let two = |origin: &str| {
+        let mut r = post("/connect/advertised/check", "back=home");
+        r.headers_mut().insert(header::ORIGIN, origin.parse().unwrap());
+        r.headers_mut()
+            .append(header::HOST, "evil.example".parse().unwrap());
+        r
+    };
+    let (res, _) = send(&app, two(&format!("http://{HOST}"))).await;
+    assert_eq!(res.status(), StatusCode::SEE_OTHER);
+    let (res, _) = send(&app, two("http://evil.example")).await;
+    assert_eq!(res.status(), StatusCode::FORBIDDEN);
+    // And the allowed host cannot be the second one.
+    let mut r = get("/");
+    r.headers_mut().insert(header::HOST, "evil.example".parse().unwrap());
+    r.headers_mut().append(header::HOST, HOST.parse().unwrap());
+    assert_eq!(send(&app, r).await.0.status(), StatusCode::FORBIDDEN);
+}

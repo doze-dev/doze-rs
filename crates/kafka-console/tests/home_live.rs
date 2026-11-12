@@ -226,3 +226,19 @@ async fn a_probe_against_a_black_hole_finishes_in_its_deadline_and_a_result_that
     hole.abort();
     w.stop().await;
 }
+
+#[test]
+fn the_memory_figure_says_it_is_what_is_resident_now_under_the_boards_label() {
+    use kafka_console::base::Base;
+    use kafka_console::model::HomeState;
+    let page = kafka_console::pages::home(
+        &kafka_console::fixtures::home(HomeState::Steady),
+        &Base::root(),
+    )
+    .into_string();
+    assert!(page.contains("<dt>Idle memory</dt>"), "the board's label stays");
+    assert!(
+        page.contains("Resident now. Measured on Linux only"),
+        "the figure is the current resident memory, and says so"
+    );
+}

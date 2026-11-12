@@ -155,10 +155,12 @@ fn rows(i: &InstanceView, quiet: bool) -> Vec<(&'static str, Markup)> {
             ),
         ));
     }
+    // The board's label is "Idle memory"; what is read is the resident memory now (VmRSS), which is not an idle figure when the
+    // broker is busy. The label is the board's (debt J-row on the label), the line under the figure says what it is.
     out.push((
         "Idle memory",
         match i.resident_bytes {
-            Some(b) => value_with_sub(mono(bytes(b)), "Measured on Linux only"),
+            Some(b) => value_with_sub(mono(bytes(b)), "Resident now. Measured on Linux only"),
             None => value_with_sub(html! { "Not measured" }, "Measured on Linux only"),
         },
     ));
