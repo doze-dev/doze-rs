@@ -58,14 +58,16 @@ impl Req {
         self.body.as_object().cloned().unwrap_or_default()
     }
 
-    /// Epoch seconds, as v1 writes a timestamp.
-    pub(crate) fn now_secs(&self) -> i64 {
-        self.now_ms / 1000
+    /// Epoch seconds, as v1 writes a timestamp, to the millisecond (two things made in one second are told apart, as AWS's slower
+    /// calls are).
+    pub(crate) fn now_secs(&self) -> f64 {
+        self.now_ms as f64 / 1000.0
     }
 
     /// ISO 8601, as v2 writes a timestamp.
     pub(crate) fn now_iso(&self) -> String {
-        aws_core::time::format_iso8601(self.now_secs())
+        let whole = aws_core::time::format_iso8601(self.now_ms.div_euclid(1000));
+        whole.replace(".000Z", &format!(".{:03}Z", self.now_ms.rem_euclid(1000)))
     }
 
     /// The patch operations of an `Update*`.

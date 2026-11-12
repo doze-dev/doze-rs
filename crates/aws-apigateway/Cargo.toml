@@ -26,6 +26,8 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 bytes = "1"
 http = "1"
+# Selection patterns, `replaceAll` in templates and `pattern` in models; already linked by aws-schema.
+regex-lite = "0.1"
 # Ids are random; getrandom is already linked (request ids, KMS).
 getrandom = "0.4"
 # The WebSocket handshake hashes with SHA-1 (RFC 6455); a JWT is verified with RSA (RS256) over SHA-256. All three are already linked by KMS.

@@ -79,8 +79,9 @@ pub(crate) fn new_api(r: &Req, name: &str) -> (String, Value) {
     );
     a.insert("apiStatus".into(), json!("AVAILABLE"));
     let models = default_models();
-    let doc =
-        json!({"api": a, "resources": {root.clone(): {"id": root, "path": "/"}}, "models": models});
+    // The account is kept for the execute-api plane, whose requests are unsigned and name none.
+    let doc = json!({"api": a, "resources": {root.clone(): {"id": root, "path": "/"}}, "models": models,
+        "account": r.account(), "region": r.region()});
     (id, doc)
 }
 

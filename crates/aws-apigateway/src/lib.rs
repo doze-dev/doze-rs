@@ -242,5 +242,25 @@ service!(
     v2::built
 );
 
+/// The parsers, for the fuzz targets (`fuzz/`): each takes any input and must not panic.
+#[doc(hidden)]
+pub mod fuzz {
+    /// A mapping template, read and run against an empty request.
+    pub fn vtl(text: &str) {
+        let mut env = crate::plane::vtl::Env::default();
+        drop(crate::plane::vtl::render(text, &mut env));
+    }
+
+    /// An HTTP integration's answer.
+    pub fn http_answer(raw: &[u8]) {
+        drop(crate::plane::client_parse(raw));
+    }
+
+    /// A JSON Web Token.
+    pub fn jwt(text: &str) {
+        drop(crate::plane::jwt_decode(text));
+    }
+}
+
 #[cfg(test)]
 mod tests;
