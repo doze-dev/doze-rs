@@ -25,7 +25,12 @@ fn concrete(pattern: &str, state: &kafka_console::state::State) -> String {
         .replace("{offset}", "16050")
         .replace("{group}", "search-indexer")
         .replace("{member}", "search-indexer-1")
-        + if pattern.ends_with("/config/edit") || pattern.ends_with("/config/reset") {
+        + if pattern == "/settings/config/edit" {
+            // Slice 9h: a broker config is one of five, not a topic's.
+            "?key=log.retention.ms"
+        } else if pattern == "/access/acls/delete" {
+            "?type=topic&name=orders&pattern=literal&principal=User%3Aorders&host=%2A&op=write&perm=allow"
+        } else if pattern.ends_with("/config/edit") || pattern.ends_with("/config/reset") {
             "?key=cleanup.policy"
         } else {
             ""
@@ -44,6 +49,11 @@ fn valid_body(pattern: &str) -> &'static str {
         "/topics/{topic}/delete" => "confirm=orders",
         "/topics/{topic}/config/edit" => "key=segment.bytes&value=2048",
         "/topics/{topic}/config/reset" => "key=segment.bytes",
+        "/settings/config/edit" => "key=log.retention.ms&was=log.retention.ms&value=259200000",
+        "/access/acls/new" => "type=topic&name=orders&principal=User%3Aorders&op=write",
+        "/access/acls/delete" => {
+            "type=topic&name=orders&pattern=literal&principal=User%3Aorders&host=%2A&op=write&perm=allow"
+        }
         _ => "back=home",
     }
 }
