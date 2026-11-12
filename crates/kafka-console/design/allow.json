@@ -343,7 +343,7 @@
     "board": "topic-record",
     "field": "link",
     "selector": "topic-detail|topic-offline",
-    "reason": "p9b-read: a record is a page of its own here (a direct address works with no script), so Close is a link back to the topic; the board's drawer closes in place.",
+    "reason": "p9b-read: Close and the scrim are real links to the Messages page behind the drawer, so that closing works with no script; a script turns them into an in-place close.",
     "expires": "close"
   },
   {

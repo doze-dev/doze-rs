@@ -12,7 +12,7 @@ use crate::ui::client;
 use crate::ui::glyph::{Glyph, glyph};
 use crate::ui::kafka::{field, headers};
 use crate::ui::notice::{Tone, callout};
-use crate::ui::overlay::{Kind as OverlayKind, close, frame};
+use crate::ui::overlay::{Kind as OverlayKind, frame};
 
 fn kind_word(k: Kind) -> &'static str {
     match k {
@@ -170,7 +170,7 @@ pub fn record_drawer(v: &RecordView, base: &Base, query: &str) -> Markup {
                 }
                 div class="row wrap" style="margin-top:20px" {
                     (client::copy_from_button("btn", "record-value", html! { (glyph(Glyph::Copy, 14, "")) @if binary { "Copy as hex" } @else { "Copy value" } }))
-                    (close("btn ghost", &back, html! { "Close" }))
+                    a class="btn ghost" data-ui="close" data-dialog-close href=(back) { "Close" }
                 }
         },
     )
