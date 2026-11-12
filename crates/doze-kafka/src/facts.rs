@@ -176,9 +176,7 @@ fn flag_of(arg: &Arg, group: &str, matches: &ArgMatches) -> SettingsFlag {
 }
 
 /// The table: every flag the command line has, grouped and ordered as [`GROUPS`] says.
-pub(crate) fn flags(matches: &ArgMatches) -> Vec<SettingsFlag> {
-    let mut cmd: Command = Args::command();
-    cmd.build();
+pub(crate) fn flags(cmd: &Command, matches: &ArgMatches) -> Vec<SettingsFlag> {
     let mut out = Vec::new();
     for (group, names) in GROUPS {
         for name in names {

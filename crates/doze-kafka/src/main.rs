@@ -15,10 +15,11 @@ use clap::{CommandFactory, FromArgMatches};
 
 /// `Parser::parse`, taken apart: the matches say which flags were given, which Settings shows.
 fn parse() -> (cli::Args, run::Flags) {
-    let matches = cli::Args::command().get_matches();
+    let mut cmd = cli::Args::command();
+    let matches = cmd.get_matches_mut();
     let args = cli::Args::from_arg_matches(&matches).unwrap_or_else(|e| e.exit());
     #[cfg(feature = "console")]
-    let flags = facts::flags(&matches);
+    let flags = facts::flags(&cmd, &matches);
     #[cfg(not(feature = "console"))]
     #[allow(clippy::let_unit_value)]
     let flags = ();

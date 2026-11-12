@@ -5,12 +5,13 @@ use clap::FromArgMatches;
 use super::*;
 
 fn table(args: &[&str]) -> Vec<SettingsFlag> {
-    let matches = Args::command()
-        .try_get_matches_from(["doze-kafka"].into_iter().chain(args.iter().copied()))
+    let mut cmd = Args::command();
+    let matches = cmd
+        .try_get_matches_from_mut(["doze-kafka"].into_iter().chain(args.iter().copied()))
         .unwrap();
     // The same parse the binary does: if clap would refuse the command line, so would this.
     Args::from_arg_matches(&matches).unwrap();
-    flags(&matches)
+    flags(&cmd, &matches)
 }
 
 fn flag<'a>(t: &'a [SettingsFlag], name: &str) -> &'a SettingsFlag {
