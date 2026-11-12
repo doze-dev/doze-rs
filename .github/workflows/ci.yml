@@ -67,6 +67,8 @@ jobs:
           if [ -n "$d" ]; then echo "PGBIN=$d" >> "$GITHUB_ENV"; fi
       - run: cargo clippy -p doze-os -p doze-module-proto -p doze-module -p doze-module-derive -p doze-module-host -p doze-module-test -p doze-module-release -p doze-resp -p doze-module-valkey -p doze-module-kvrocks -p doze-module-temporal -p doze-names --all-targets -- -D warnings
       - run: cargo test -p doze-os -p doze-module-proto -p doze-module -p doze-module-host -p doze-module-test -p doze-module-release -p doze-resp -p doze-module-valkey -p doze-module-kvrocks -p doze-module-temporal -p doze-names --no-fail-fast -- --nocapture
+      - name: doze-names with the network daemon (tun-rs; the root end-to-end test skips itself here)
+        run: cargo clippy -p doze-names --features netd --all-targets -- -D warnings && cargo test -p doze-names --features netd --no-fail-fast
 
   # Module acceptance (docs/port/modules/PLAN.md D12): each module boots the engine build doze-binaries publishes, on
   # every target the module declares. DOZE_ACCEPTANCE turns a missing build into a failure, so a skip cannot pass for a

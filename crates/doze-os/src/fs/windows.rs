@@ -13,6 +13,10 @@ use windows_sys::Win32::Security::{
     DACL_SECURITY_INFORMATION, PROTECTED_DACL_SECURITY_INFORMATION,
 };
 
+pub(super) fn file_id(_meta: &std::fs::Metadata) -> u64 {
+    0
+}
+
 pub(super) fn write_private(path: &Path, bytes: &[u8]) -> io::Result<()> {
     // Empty first, private second, contents last: the bytes never sit in a file others can read.
     std::fs::write(path, [])?;
