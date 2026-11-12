@@ -707,6 +707,8 @@ dependencies = [
  "bytes",
  "futures-util",
  "http-body-util",
+ "hyper",
+ "hyper-util",
  "kafka-auth",
  "kafka-broker",
  "kafka-console",

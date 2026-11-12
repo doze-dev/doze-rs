@@ -10,6 +10,7 @@ use std::time::Duration;
 
 use axum::response::sse::{Event, KeepAlive, Sse};
 use futures_util::stream::{self, Stream, StreamExt};
+use tokio::sync::OwnedSemaphorePermit;
 use tokio_util::sync::CancellationToken;
 
 use crate::tick::Viewer;
@@ -47,17 +48,19 @@ pub fn events(
     viewer: Viewer,
     ids: Vec<String>,
     stop: CancellationToken,
+    slot: OwnedSemaphorePermit,
 ) -> impl Stream<Item = Result<Event, Infallible>> {
     let data = ids.join(",");
     let first = stream::once(std::future::ready(Ok(tick(&data))));
+    // The permit lives as long as the stream does, and is given back when it is dropped.
     let rest = stream::unfold(
-        (viewer, stop, data),
-        |(mut viewer, stop, data)| async move {
+        (viewer, stop, data, slot),
+        |(mut viewer, stop, data, slot)| async move {
             let heard = tokio::select! {
                 () = stop.cancelled() => false,
                 heard = viewer.changed() => heard,
             };
-            heard.then(|| (Ok(tick(&data)), (viewer, stop, data)))
+            heard.then(|| (Ok(tick(&data)), (viewer, stop, data, slot)))
         },
     );
     first.chain(rest)
@@ -68,8 +71,9 @@ pub fn response(
     viewer: Viewer,
     ids: Vec<String>,
     stop: CancellationToken,
+    slot: OwnedSemaphorePermit,
 ) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
-    Sse::new(events(viewer, ids, stop))
+    Sse::new(events(viewer, ids, stop, slot))
         .keep_alive(KeepAlive::new().interval(KEEP_ALIVE).text("keep-alive"))
 }
 

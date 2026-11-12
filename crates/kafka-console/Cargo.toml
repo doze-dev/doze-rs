@@ -31,6 +31,10 @@ tokio = { version = "1", default-features = false, features = ["rt", "net", "tim
 tokio-util = { version = "0.7", default-features = false }
 futures-util = { version = "0.3", default-features = false }
 tracing = "0.1"
+# The connection loop (a header-read timeout and a cap on connections need hyper's own server, which axum::serve does not
+# expose). Both are already in the tree through axum; this asks for nothing new from them (the features are axum's).
+hyper = { version = "1", default-features = false, features = ["http1", "server"] }
+hyper-util = { version = "0.1", default-features = false, features = ["tokio", "server", "service"] }
 
 [dev-dependencies]
 # The fixtures and the example the integration tests render pages from.

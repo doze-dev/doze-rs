@@ -1,5 +1,7 @@
 //! The answers that are not pages: the stream, the files, the health check.
 
+use std::sync::Arc;
+
 use axum::extract::{Path, RawQuery, State};
 use axum::http::StatusCode;
 use axum::http::header::{CACHE_CONTROL, CONTENT_TYPE};
@@ -23,7 +25,11 @@ pub async fn events(State(s): State<Shared>, RawQuery(query): RawQuery) -> Respo
             return (StatusCode::BAD_REQUEST, body).into_response();
         }
     };
-    stream::response(s.ticker.watch(), ids, s.stop.clone()).into_response()
+    // One permit per open stream, held by the stream until it ends: the 65th is told to come back.
+    let Ok(permit) = Arc::clone(&s.streams).try_acquire_owned() else {
+        return crate::limits::busy("The console has as many event streams open as it allows.");
+    };
+    stream::response(s.ticker.watch(), ids, s.stop.clone(), permit).into_response()
 }
 
 /// A file of the manifest by its hashed name, cached for a year: the name changes when the file does.
