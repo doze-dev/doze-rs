@@ -11,7 +11,7 @@
 //! region, then every region with S3 state on disk, for the first that has the bucket.
 //!
 //! A website is served to anyone, as an unsigned request to a trusting gateway is (S3's own rule wants a public-read policy); its
-//! error pages are AWS's HTML ones (wording from memory).
+//! error pages are AWS's HTML ones (memory).
 
 use std::sync::Arc;
 

@@ -5,7 +5,7 @@
 //!
 //! Matching follows the S3 User Guide ("How does Amazon S3 evaluate the CORS configuration on a bucket?"): an `AllowedOrigin` or
 //! `AllowedHeader` may hold one `*` standing for any run of characters; header names are compared without case; methods exactly. The
-//! headers of the answer, and the wording of the refusals, are from memory: `Access-Control-Allow-Origin` is `*` when the matching
+//! headers of the answer, and the wording of the refusals, are (memory): `Access-Control-Allow-Origin` is `*` when the matching
 //! rule allows `*` and the origin otherwise (with `Access-Control-Allow-Credentials: true`), `Access-Control-Allow-Methods` lists the
 //! rule's methods, `Access-Control-Allow-Headers` echoes the requested headers, and `Vary` names what the answer depends on.
 

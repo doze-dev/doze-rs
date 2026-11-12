@@ -1,6 +1,6 @@
 //! The `wildcard` operator of a filter policy (SNS Developer Guide, "String value matching": `{"wildcard": "*ball"}` and
 //! `{"anything-but": {"wildcard": "*ball"}}`): `*` stands for any run of characters, `\*` for an asterisk and `\\` for a backslash. The
-//! rule and the refusals' words are EventBridge's (whose pattern language SNS shares; the words are from memory); a copy of
+//! rule and the refusals' words are EventBridge's (whose pattern language SNS shares; the words are (memory)); a copy of
 //! `aws-eventbridge`'s matcher, kept here so SNS does not depend on EventBridge for forty lines.
 
 /// The literal pieces between the wildcards of `pattern`.

@@ -3,7 +3,7 @@
 //! headers `x-amz-sns-message-type`, `x-amz-sns-message-id`, `x-amz-sns-topic-arn` and (for a notification)
 //! `x-amz-sns-subscription-arn`, `Content-Type: text/plain; charset=UTF-8`, and the JSON document of the SNS Developer Guide's "HTTP/HTTPS
 //! … JSON format" pages as the body (the raw message, with `x-amz-sns-rawdelivery: true`, for a raw subscription). The confirmation's
-//! `Message` sentence is the documented one; the `User-Agent` is from memory.
+//! `Message` sentence is the documented one; the `User-Agent` is (memory).
 //!
 //! **Off the actor.** Each POST is a task: the publish answers without waiting for the endpoint. A delivery that fails (no answer, a
 //! 429 or a 5xx; AWS does not retry other client errors (memory)) is tried again under the delivery policy (the subscription's

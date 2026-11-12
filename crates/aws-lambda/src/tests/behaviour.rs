@@ -306,76 +306,27 @@ async fn a_function_url_turns_a_request_into_an_event_and_the_answer_into_a_resp
         json!({"q": {"a": "1", "b": "x y"}, "body": "hello", "m": "POST"})
     );
     let id = host.split('.').next().unwrap();
-    let by_path = web
-        .serve(request(
+    // By path with the region, by the Go edition's path without it (the region that has the id), and two that are not URLs.
+    for (host, path, status) in [
+        (
             "127.0.0.1:4566",
-            &format!("/_aws/lambda-url/us-east-1/{id}/p"),
-        ))
-        .await;
-    assert_eq!(by_path.status, 201);
-    // The Go edition's path, with no region: found in the region that has the id.
-    let go_form = web
-        .serve(request(
-            "127.0.0.1:4566",
-            &format!("/_aws/lambda-url/{id}/p"),
-        ))
-        .await;
-    assert_eq!(go_form.status, 201);
-    assert_eq!(
-        web.serve(request("127.0.0.1:4566", "/_aws/lambda-url/nope/p"))
-            .await
-            .status,
-        404
-    );
-    assert_eq!(
-        web.serve(request("nope.lambda-url.us-east-1.localhost:4566", "/"))
-            .await
-            .status,
-        404
-    );
-    w.stop().await;
-}
-
-#[tokio::test]
-async fn code_run_in_place_is_picked_up_when_the_directory_changes() {
-    if !have("python3") {
-        return;
+            format!("/_aws/lambda-url/us-east-1/{id}/p"),
+            201,
+        ),
+        ("127.0.0.1:4566", format!("/_aws/lambda-url/{id}/p"), 201),
+        ("127.0.0.1:4566", "/_aws/lambda-url/nope/p".to_owned(), 404),
+        (
+            "nope.lambda-url.us-east-1.localhost:4566",
+            "/".to_owned(),
+            404,
+        ),
+    ] {
+        assert_eq!(
+            web.serve(request(host, &path)).await.status,
+            status,
+            "{path}"
+        );
     }
-    let w = World::new();
-    let dir = std::env::temp_dir().join(format!("doze-lambda-local-{}", std::process::id()));
-    drop(std::fs::remove_dir_all(&dir));
-    std::fs::create_dir_all(&dir).unwrap();
-    std::fs::write(dir.join("index.py"), "def handler(e, c):\n    return 1\n").unwrap();
-    w.ok(
-        "CreateFunction",
-        json!({"FunctionName": "l", "Runtime": "python3.12", "Role": format!("arn:aws:iam::{ACCOUNT}:role/r"), "Handler": "index.handler",
-            "Code": {"S3Bucket": "_local_", "S3Key": dir.to_string_lossy()}}),
-    )
-    .await;
-    assert_eq!(w.invoke("l", &json!({})).await["Payload"], 1);
-    let v1 = w.ok("PublishVersion", json!({"FunctionName": "l"})).await["Version"]
-        .as_str()
-        .unwrap()
-        .to_owned();
-    tokio::time::sleep(std::time::Duration::from_millis(1100)).await;
-    std::fs::write(
-        dir.join("index.py"),
-        "def handler(e, c):\n    return 2\n  \n",
-    )
-    .unwrap();
-    assert_eq!(w.invoke("l", &json!({})).await["Payload"], 2);
-    // The published version is a copy: the directory changed under `$LATEST` and not under it.
-    let frozen = w
-        .ok(
-            "Invoke",
-            json!({"FunctionName": "l", "Qualifier": v1, "Payload": base64::encode(b"{}")}),
-        )
-        .await;
-    assert_eq!(
-        base64::decode(frozen["Payload"].as_str().unwrap()).unwrap(),
-        b"1"
-    );
-    drop(std::fs::remove_dir_all(&dir));
     w.stop().await;
 }
 

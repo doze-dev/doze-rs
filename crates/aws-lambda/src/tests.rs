@@ -24,6 +24,7 @@ use crate::{Config, Lambda};
 
 mod behaviour;
 mod functions;
+mod inplace;
 mod invoking;
 mod livelog;
 mod reshard;
