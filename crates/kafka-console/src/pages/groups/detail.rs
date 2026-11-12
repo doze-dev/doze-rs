@@ -42,27 +42,24 @@ fn heard(m: &GroupMemberRow) -> String {
 
 /// `clickstream-0 to 5`, `orders-0, orders-2`: partitions of topics, runs folded.
 pub(super) fn part_list(ps: &[GroupPart]) -> String {
-    let mut out: Vec<String> = Vec::new();
-    let mut i = 0;
-    while i < ps.len() {
-        let topic = &ps[i].topic;
-        let mut j = i;
-        while j + 1 < ps.len()
-            && ps[j + 1].topic == *topic
-            && ps[j + 1].partition == ps[j].partition + 1
-        {
-            j += 1;
+    // Runs of one topic with consecutive partitions: (topic, first, last).
+    let mut runs: Vec<(&str, i32, i32)> = Vec::new();
+    for p in ps {
+        match runs.last_mut() {
+            Some((t, _, last)) if *t == p.topic && p.partition == last.saturating_add(1) => {
+                *last = p.partition;
+            }
+            _ => runs.push((p.topic.as_str(), p.partition, p.partition)),
         }
-        out.push(if j - i >= 2 {
-            format!("{topic}-{} to {}", ps[i].partition, ps[j].partition)
-        } else if j > i {
-            format!("{topic}-{}, {topic}-{}", ps[i].partition, ps[j].partition)
-        } else {
-            format!("{topic}-{}", ps[i].partition)
-        });
-        i = j + 1;
     }
-    out.join(", ")
+    runs.iter()
+        .map(|(t, first, last)| match last - first {
+            0 => format!("{t}-{first}"),
+            1 => format!("{t}-{first}, {t}-{last}"),
+            _ => format!("{t}-{first} to {last}"),
+        })
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 fn members_table(h: &GroupHead, base: &Base) -> Markup {
@@ -260,7 +257,7 @@ fn consumer_reads(topics: &[LagTopic], base: &Base) -> Markup {
                             td class="name" { (topic_link(base, &t.name)) }
                             td class="mono" { (ps.join(", ")) }
                             td {
-                                @if behind.len() > 1 && behind.iter().all(|n| *n == behind[0]) { (number(behind[0])) " in each" }
+                                @if let Some(first) = behind.first().filter(|f| behind.len() > 1 && behind.iter().all(|n| n == *f)) { (number(*first)) " in each" }
                                 @else { (number(t.behind)) }
                             }
                         }
@@ -308,11 +305,10 @@ fn consumer(v: &GroupLagView, base: &Base) -> Markup {
 fn waiting_card(h: &GroupHead) -> Markup {
     let r = h.rebalance.as_ref();
     let (remaining, timeout) = r.map_or((0, 0), |r| (r.remaining_ms, r.timeout_ms));
-    let pct = if timeout == 0 {
-        100
-    } else {
-        100 - u8::try_from((remaining * 100 / timeout).min(100)).unwrap_or(100)
-    };
+    let pct = remaining
+        .saturating_mul(100)
+        .checked_div(timeout)
+        .map_or(100, |left| 100 - u8::try_from(left.min(100)).unwrap_or(100));
     html! {
         div class="card" {
             div class="row sb" {

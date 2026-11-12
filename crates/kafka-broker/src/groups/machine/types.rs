@@ -117,7 +117,7 @@ pub(crate) struct Description {
     pub(crate) consumer: Option<crate::groups::consumer::ConsumerView>,
     /// What the console is told besides (feature `inspect`).
     #[cfg(feature = "inspect")]
-    pub(crate) inspect: crate::groups::Inspect,
+    pub(crate) inspect: Box<crate::groups::Inspect>,
 }
 
 /// One member a LeaveGroup names, by id or by static instance.

@@ -23,7 +23,11 @@ fn ops_of(id: &str) -> Vec<String> {
 
 #[test]
 fn actions_match_boards() {
-    let drawn: BTreeSet<String> = WRITE_BOARDS.iter().flat_map(|id| ops_of(id)).collect();
+    let drawn: BTreeSet<String> = WRITE_BOARDS
+        .iter()
+        .chain(&GROUP_WRITE_BOARDS)
+        .flat_map(|id| ops_of(id))
+        .collect();
     let listed: BTreeSet<String> = Action::ALL.iter().map(|a| a.op().to_owned()).collect();
     let missing: Vec<_> = drawn.difference(&listed).collect();
     let unused: Vec<_> = listed.difference(&drawn).collect();

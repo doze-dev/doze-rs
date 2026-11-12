@@ -49,7 +49,7 @@ impl GroupMachine {
             subscribed: self.subscribed(&members),
             consumer: None,
             #[cfg(feature = "inspect")]
-            inspect: self.inspect(now),
+            inspect: Box::new(self.inspect(now)),
             members,
         }
     }

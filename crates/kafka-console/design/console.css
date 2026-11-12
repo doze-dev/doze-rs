@@ -56,3 +56,9 @@ button.btn{font-family:inherit;cursor:pointer}
    focus, then wide enough to type in. Without a script a click on the chip focuses its field. */
 .fchip input{border:0;background:transparent;font:inherit;color:inherit;min-width:0;outline:0;padding:0;width:0}
 .fchip.on input,.fchip:focus-within input{width:15ch;padding:0 0 0 4px}
+/* Groups: a checkbox row drawn as the kit's check, and the value field inside a reset option. */
+.opt-row input[type=checkbox]{position:absolute;opacity:0;width:0;height:0}
+.opt-row input:checked+.check{background:var(--accent);border-color:var(--accent);color:#fff}
+.opt-row input:not(:checked)+.check svg{visibility:hidden}
+.opt-row:has(input:focus-visible) .check{outline:2px solid var(--accent);outline-offset:2px}
+.opt-row .t2 .input{height:34px;margin-top:6px;max-width:260px}

@@ -210,3 +210,62 @@ pub async fn committed(w: &World, group: &str) -> Vec<(String, i32, i64)> {
         })
         .collect()
 }
+
+use crate::support::get;
+use crate::support_write::{page, world};
+use axum::http::StatusCode;
+
+/// A broker with `orders` (3 partitions holding 4, 3 and 2 records).
+pub async fn with_orders(name: &str, tweak: impl FnOnce(&mut kafka_broker::Config)) -> World {
+    let w = world(name, |b, _| tweak(b)).await;
+    w.create_topic("orders", 3, &[]).await;
+    produce(&w, "orders", 0, 4).await;
+    produce(&w, "orders", 1, 3).await;
+    produce(&w, "orders", 2, 2).await;
+    w
+}
+
+pub fn live_dir() -> std::path::PathBuf {
+    let m = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let t = std::env::var_os("CARGO_TARGET_DIR").map_or_else(
+        || m.parent().unwrap().parent().unwrap().join("target"),
+        Into::into,
+    );
+    t.join("board-diff-live")
+}
+
+/// A page, asserted a 200, written for the live board-diff under the board's id.
+pub async fn ok(app: &axum::Router, path: &str, board: Option<&str>) -> String {
+    let (status, body) = page(app, get(path)).await;
+    assert_eq!(status, StatusCode::OK, "{path}: {body:.600}");
+    if let Some(id) = board {
+        std::fs::create_dir_all(live_dir()).unwrap();
+        std::fs::write(live_dir().join(format!("{id}.html")), &body).unwrap();
+    }
+    body
+}
+
+pub async fn commit_as_member(
+    w: &World,
+    group: &str,
+    member: &str,
+    generation: i32,
+    offsets: &[(i32, i64)],
+) {
+    use kafka_wire::messages::offset_commit_request::{
+        OffsetCommitRequestPartition, OffsetCommitRequestTopic,
+    };
+    let Request::OffsetCommit(mut r) =
+        kafka_console::backend::requests::admin_commit(group, "orders", offsets)
+    else {
+        panic!()
+    };
+    r.generation_id_or_member_epoch = generation;
+    r.member_id = kafka_wire::StrBytes::from_string(member.to_owned());
+    let _: Option<(OffsetCommitRequestPartition, OffsetCommitRequestTopic)> = None;
+    let kafka_wire::api::Response::OffsetCommit(a) = w.ask(8, Request::OffsetCommit(r)).await
+    else {
+        panic!()
+    };
+    assert_eq!(a.topics[0].partitions[0].error_code, 0, "{a:?}");
+}

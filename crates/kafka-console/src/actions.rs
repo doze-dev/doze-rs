@@ -59,7 +59,7 @@ impl Action {
 }
 
 /// The boards of the slices that write, by id: the ones whose `data-op` names the test compares with [`Action::ALL`].
-pub const WRITE_BOARDS: [&str; 19] = [
+pub const WRITE_BOARDS: [&str; 14] = [
     "topic-create",
     "topic-create-config",
     "topic-create-review",
@@ -74,6 +74,10 @@ pub const WRITE_BOARDS: [&str; 19] = [
     "topic-delete-records-refused",
     "topic-delete",
     "topic-deleted",
+];
+
+/// The boards of slice 9c that write (a group's offsets or the group itself), compared the same way.
+pub const GROUP_WRITE_BOARDS: [&str; 5] = [
     "group-reset-offsets",
     "group-reset-refused",
     "group-delete",

@@ -71,15 +71,6 @@ fn content(id: &str, base: &Base) -> Option<Content> {
             "Groups".to_owned(),
             steps(&[("Resources", Some("/topics")), ("Groups", None)]),
         ),
-        "groups-none" => (
-            page::groups_page(
-                &world::groups("", GroupFilter::All, Some("none")),
-                base,
-                fixtures::ADDRESS,
-            ),
-            "No groups yet".to_owned(),
-            steps(&[("Resources", Some("/topics")), ("Groups", None)]),
-        ),
         "group-detail" => (
             page::group_page(&group("search-indexer", false)?, base),
             "search-indexer".to_owned(),
@@ -128,6 +119,22 @@ fn content(id: &str, base: &Base) -> Option<Content> {
             page::lag_page(&group("analytics", true)?, base),
             "Lag".to_owned(),
             under("analytics", "Lag"),
+        ),
+        _ => return overlays(id, base),
+    })
+}
+
+/// The dialogs, the drawer and the refusals.
+fn overlays(id: &str, base: &Base) -> Option<Content> {
+    Some(match id {
+        "groups-none" => (
+            page::groups_page(
+                &world::groups("", GroupFilter::All, Some("none")),
+                base,
+                fixtures::ADDRESS,
+            ),
+            "No groups yet".to_owned(),
+            steps(&[("Resources", Some("/topics")), ("Groups", None)]),
         ),
         "group-reset-offsets" => (
             page::reset_dialog(

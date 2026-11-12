@@ -108,7 +108,7 @@ impl ConsumerGroup {
             subscribed: Some(subscribed),
             consumer: Some(self.view()),
             #[cfg(feature = "inspect")]
-            inspect: self.inspect(now),
+            inspect: Box::new(self.inspect(now)),
         }
     }
 }

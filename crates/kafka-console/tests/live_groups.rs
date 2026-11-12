@@ -18,37 +18,7 @@ use kafka_wire::api::Request;
 use kafka_wire::messages::{DeleteTopicsRequest, TopicName};
 use support::get;
 use support_groups::*;
-use support_write::{World, page, post_form, world};
-
-/// A broker with `orders` (3 partitions holding 4, 3 and 2 records).
-async fn with_orders(name: &str, tweak: impl FnOnce(&mut kafka_broker::Config)) -> World {
-    let w = world(name, |b, _| tweak(b)).await;
-    w.create_topic("orders", 3, &[]).await;
-    produce(&w, "orders", 0, 4).await;
-    produce(&w, "orders", 1, 3).await;
-    produce(&w, "orders", 2, 2).await;
-    w
-}
-
-fn live_dir() -> std::path::PathBuf {
-    let m = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let t = std::env::var_os("CARGO_TARGET_DIR").map_or_else(
-        || m.parent().unwrap().parent().unwrap().join("target"),
-        Into::into,
-    );
-    t.join("board-diff-live")
-}
-
-/// A page, asserted a 200, written for the live board-diff under the board's id.
-async fn ok(app: &axum::Router, path: &str, board: Option<&str>) -> String {
-    let (status, body) = page(app, get(path)).await;
-    assert_eq!(status, StatusCode::OK, "{path}: {body:.600}");
-    if let Some(id) = board {
-        std::fs::create_dir_all(live_dir()).unwrap();
-        std::fs::write(live_dir().join(format!("{id}.html")), &body).unwrap();
-    }
-    body
-}
+use support_write::{World, page, post_form};
 
 #[tokio::test]
 async fn a_classic_group_with_a_member_and_commits_shows_its_members_lag_and_what_the_protocol_hides()
@@ -112,31 +82,6 @@ async fn a_classic_group_with_a_member_and_commits_shows_its_members_lag_and_wha
     assert!(lag.contains("<span class=\"n\">3</span>"), "{lag:.3500}");
     assert!(!lag.contains(">-"), "a negative number");
     w.stop().await;
-}
-
-async fn commit_as_member(
-    w: &World,
-    group: &str,
-    member: &str,
-    generation: i32,
-    offsets: &[(i32, i64)],
-) {
-    use kafka_wire::messages::offset_commit_request::{
-        OffsetCommitRequestPartition, OffsetCommitRequestTopic,
-    };
-    let Request::OffsetCommit(mut r) =
-        kafka_console::backend::requests::admin_commit(group, "orders", offsets)
-    else {
-        panic!()
-    };
-    r.generation_id_or_member_epoch = generation;
-    r.member_id = kafka_wire::StrBytes::from_string(member.to_owned());
-    let _: Option<(OffsetCommitRequestPartition, OffsetCommitRequestTopic)> = None;
-    let kafka_wire::api::Response::OffsetCommit(a) = w.ask(8, Request::OffsetCommit(r)).await
-    else {
-        panic!()
-    };
-    assert_eq!(a.topics[0].partitions[0].error_code, 0, "{a:?}");
 }
 
 #[tokio::test]
@@ -451,100 +396,4 @@ async fn commit_to_member_group(w: &World) {
     let g = w.backend.group_detail("search-indexer").await.unwrap();
     let id = g.members[0].id.clone();
     commit_as_member(w, "search-indexer", &id, g.generation, &[(0, 1)]).await;
-}
-
-#[tokio::test]
-async fn on_a_broker_with_acls_a_caller_without_the_right_is_refused_as_a_client_would_be() {
-    use kafka_auth::Principal;
-    use kafka_broker::Caller;
-    use kafka_wire::api::Response;
-    let w = with_orders("g-acl", |b| b.acl_default_allow = false).await;
-    commit(&w, "analytics", "orders", &[(0, 1)]).await;
-    let acl = |res: (i8, &str), op: i8| {
-        let mut a = kafka_wire::messages::create_acls_request::AclCreation::default();
-        a.resource_type = res.0;
-        a.resource_name = kafka_wire::StrBytes::from_string(res.1.to_owned());
-        a.resource_pattern_type = 3;
-        a.principal = kafka_wire::StrBytes::from_static_str("User:ANONYMOUS");
-        a.host = kafka_wire::StrBytes::from_static_str("*");
-        a.operation = op;
-        a.permission_type = 3;
-        a
-    };
-    let mut grant = kafka_wire::messages::CreateAclsRequest::default();
-    grant.creations = vec![acl((3, "analytics"), 8), acl((2, "orders"), 8)];
-    let Response::CreateAcls(r) = w.ask(3, Request::CreateAcls(grant)).await else {
-        panic!()
-    };
-    assert_eq!(r.results[0].error_code, 0);
-    let someone = Caller::new(Principal::anonymous(), Some("127.0.0.1".parse().unwrap()));
-    let app = support_write::router_of(&w, w.backend.acting_as(someone));
-    ok(&app, "/groups/analytics", None).await;
-    let (_, reset) = page(
-        &app,
-        post_form(
-            "/groups/analytics/reset",
-            &[("topic", "orders"), ("to", "earliest")],
-        ),
-    )
-    .await;
-    assert!(
-        reset.contains("GROUP_AUTHORIZATION_FAILED (30)")
-            && reset.contains("Group authorization failed."),
-        "{reset:.3500}"
-    );
-    let (_, del) = page(&app, post_form("/groups/analytics/delete", &[])).await;
-    assert!(
-        del.contains("GROUP_AUTHORIZATION_FAILED (30)"),
-        "{del:.3000}"
-    );
-    let (nobody, _) = page(&app, get("/groups/search-indexer")).await;
-    assert_eq!(
-        nobody,
-        StatusCode::NOT_FOUND,
-        "a group the caller may not describe is not told apart from no group"
-    );
-    w.stop().await;
-}
-
-#[tokio::test]
-async fn a_hostile_group_id_is_escaped_and_encoded_on_every_page() {
-    let w = with_orders("g-hostile", |_| {}).await;
-    let long = "g".repeat(255);
-    for id in [
-        "a/b?c%d é 😀",
-        "<script>alert(1)</script>",
-        "x\"onmouseover=\"y",
-        &long,
-    ] {
-        commit(&w, id, "orders", &[(0, 1)]).await;
-        let app = w.router();
-        let enc = support_write::enc(id);
-        let enc = enc.replace("%2F", "%2F");
-        for tail in [
-            "",
-            "/members",
-            "/lag",
-            "/lag?expiring=1",
-            "/reset",
-            "/delete",
-            "/offsets/delete",
-        ] {
-            let body = ok(&app, &format!("/groups/{enc}{tail}"), None).await;
-            assert!(!body.contains("<script>alert"), "{id} {tail}: unescaped");
-            assert!(
-                !body.contains("onmouseover=\"y"),
-                "{id} {tail}: attribute break"
-            );
-            for link in support::local_links(&body) {
-                assert!(
-                    !link.contains(' ') && !link.contains('<') && !link.contains('"'),
-                    "{id} {tail}: {link}"
-                );
-            }
-        }
-        let list = ok(&app, "/groups", None).await;
-        assert!(!list.contains("<script>alert") && !list.contains("onmouseover=\"y"));
-    }
-    w.stop().await;
 }

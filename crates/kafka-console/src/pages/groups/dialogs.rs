@@ -178,15 +178,14 @@ pub fn delete_dialog(v: &GroupDeleteView, base: &Base, inline: bool) -> Markup {
         .offsets
         .iter()
         .map(|(t, ps)| {
-            let list = super::detail::part_list(
+            super::detail::part_list(
                 &ps.iter()
                     .map(|p| crate::model::GroupPart {
                         topic: t.clone(),
                         partition: *p,
                     })
                     .collect::<Vec<_>>(),
-            );
-            list
+            )
         })
         .collect();
     modal(

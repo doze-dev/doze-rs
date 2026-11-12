@@ -254,19 +254,20 @@ pub fn lag_state(topics: &[LagTopic], expiring: bool) -> LagState {
     }
 }
 
+/// What was read besides the group itself: the groups there are, the partitions of each topic, where logs end, topic configs.
+#[derive(Debug, Clone, Copy)]
+pub struct Seen<'a> {
+    pub all: &'a [read::Listed],
+    pub counts: &'a BTreeMap<String, usize>,
+    pub ends: &'a HashMap<(String, i32), i64>,
+    pub cfgs: &'a Cfgs,
+}
+
 /// The whole of one group from what was read: the pure half of [`group`] (the fixtures run it too).
 #[must_use]
-pub fn assemble(
-    id: &str,
-    l: &Loaded,
-    all: &[read::Listed],
-    counts: &BTreeMap<String, usize>,
-    ends: &HashMap<(String, i32), i64>,
-    cfgs: &Cfgs,
-    expiring: bool,
-) -> GroupLagView {
-    let topics = topic_blocks(l, counts, ends, cfgs);
-    let mut head = head(id, l, chips(all, id), &topics);
+pub fn assemble(id: &str, l: &Loaded, seen: &Seen<'_>, expiring: bool) -> GroupLagView {
+    let topics = topic_blocks(l, seen.counts, seen.ends, seen.cfgs);
+    let mut head = head(id, l, chips(seen.all, id), &topics);
     if head.protocol == GroupProtocol::Consumer {
         head.session_ms = head
             .members
@@ -309,5 +310,15 @@ pub async fn group(b: &Backend, id: &str, expiring: bool) -> Option<GroupLagView
         })
         .collect();
     let all = read::listed(b).await;
-    Some(assemble(id, &l, &all, &counts, &ends, &cfgs, expiring))
+    Some(assemble(
+        id,
+        &l,
+        &Seen {
+            all: &all,
+            counts: &counts,
+            ends: &ends,
+            cfgs: &cfgs,
+        },
+        expiring,
+    ))
 }

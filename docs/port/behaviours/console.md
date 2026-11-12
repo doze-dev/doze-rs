@@ -240,3 +240,62 @@ Tagged in the code and in `debt.md` J21 to J40.
 - "Copy as kcat" on a record: a hostile value would be put in a command line; the page copies the value.
 - When a partition went offline: the broker keeps the cause, not the time.
 - The "Who this holds back" lede names a group and its lag: lag is slice 9c; the page says where a read_committed consumer stops.
+
+## Slice 9c: Groups and lag (CON-200 to CON-215)
+
+Sixteen boards: `groups-list`, `groups-none`, `group-detail`, `group-detail-848`, `group-rebalancing`, `group-members`, `member-detail`, `group-lag`, `lag-no-commits`, `lag-ahead`, `lag-expiring`, `group-reset-offsets`, `group-reset-refused`, `group-delete`, `group-delete-refused`, `group-offset-delete`.
+
+## CON-200. Lag is a subtraction only when it is one
+Lag is the log end (ListOffsets) minus the committed offset (OffsetFetch). A partition never committed (OffsetFetch answers -1) is `NoCommit`, never lag `end`; a commit beyond the log end (a topic recreated under an app that kept its position) is `PastEnd(by)`; a partition with no log end is `Gone`. A negative lag is never produced and never shown. Tests: `lag::tests::the_table_of_cases`, `lag::tests::lag_is_never_negative_and_a_behind_group_is_exactly_the_difference`, `lag::tests::a_bar_is_zero_when_not_behind_two_at_least_when_behind_and_never_over_a_hundred`.
+
+## CON-201. A commit past the end of a recreated topic is said, not subtracted
+Over a real broker: commits made after a topic was deleted and made again, shorter, show "3 past the end" on the Lag page and on the list ("orders-0 is 3 beyond its log"), with the callouts that say what Kafka accepted and what a consumer would do. Test: `live_groups::a_commit_beyond_the_end_of_a_recreated_topic_is_past_the_end_never_negative_lag`.
+
+## CON-202. A group with no commit shows "No commits yet", not the log end
+A group whose members are subscribed to a topic but have committed nothing shows its partitions as "No commits yet" and the tab says "lag not known". Test: `live_groups::a_group_with_no_commit_shows_no_commits_and_not_the_log_end_as_lag`.
+
+## CON-203. The expiry date is the moment the sweep takes the commit
+`groups::expiry::first_expiry` applies the rules of `groups::expired` (empty since, own age, the presumed members after a restart, subscribed topics kept, a group in a rebalance not looked at) and is held to `expired` itself at the moment before, at and after each date over a grid of groups. The date on the Lag page is that date, and a sweep at that moment takes the commit. Tests: `groups::expiry::tests::the_date_is_the_one_the_sweep_acts_on_over_a_grid_of_groups`, `live_groups::the_expiry_date_shown_is_the_moment_the_sweep_takes_the_commit`.
+
+## CON-204. What the protocol hides comes from `ConsoleView::group_detail`
+The classic leader, the generation, the session and rebalance timeouts of each member, how long ago each was heard, which member a rebalance waits for and how long is left, a consumer group's epochs, the date a group became empty and the retention: read in the group's own task (one consistent look), Describe-checked on the group, and the offsets filtered by Describe on their topic. No transition changed: a member's `heard` and a rebalance's `began` are written where the timers were already armed. Tests: `live_groups::a_classic_group_with_a_member_and_commits_shows_its_members_lag_and_what_the_protocol_hides`, `live_groups::a_rebalance_in_progress_says_who_it_waits_for`.
+
+## CON-205. A KIP-848 group is described by its own API
+A consumer group of the new protocol is Dead to DescribeGroups; the page asks ConsumerGroupDescribe and shows epoch, target epoch, assignor, and each member's target and assigned partitions. Test: `live_groups::a_consumer_group_of_the_new_protocol_is_described_by_its_own_api`.
+
+## CON-206. The sentences say only what the group machine says now
+No sentence gives the cause of a rebalance (a member left, timed out, a topic changed): that needs the event ring of slice 9f. Tests: `groups_words::tests::a_rebalance_names_who_is_waited_for_and_the_time_left_and_never_a_cause`, `groups_words::tests::a_consumer_group_in_step_says_nothing_is_moving_and_gives_no_cause`, `groups_words::tests::a_stable_classic_group_is_told_by_its_member_its_topics_and_its_lag`, `groups_words::tests::the_lag_sentences_per_state`.
+
+## CON-207. A reset is a commit with no generation, and the broker's refusal is shown in its words
+Reset offsets sends OffsetCommit with generation -1 and no member (what `kafka-consumer-groups --reset-offsets` sends); the preview is the same computation as the write (earliest, latest, an offset, a time, a shift, current; each kept within the log). On a group with a member Kafka answers UNKNOWN_MEMBER_ID (25) and the page shows that code, its words ("The coordinator is not aware of this member."), the console's reading of the rule and what would pass. Tests: `live_groups::a_reset_of_an_empty_group_moves_its_offsets_and_a_group_with_a_member_is_refused_in_kafkas_words`, `groups_words::tests::the_reading_of_a_refused_reset_counts_the_members_and_a_delete_names_the_rule`, `backend::requests::groups_read::tests::a_reset_is_a_commit_that_names_no_generation_and_no_member`.
+
+## CON-208. Delete group is refused with NON_EMPTY_GROUP and done when empty
+DeleteGroups on a group with a member shows NON_EMPTY_GROUP (68) and "The group is not empty."; on an empty group it deletes and returns to the list. Test: `live_groups::deleting_a_group_is_refused_with_members_and_done_when_empty`.
+
+## CON-209. Delete offsets forgets them, and a subscribed topic is refused
+OffsetDelete on an empty group forgets the commits and lands on the Lag page; on a topic a member is subscribed to Kafka answers GROUP_SUBSCRIBED_TO_TOPIC (86) and the dialog shows it. Test: `live_groups::deleting_offsets_forgets_them_and_a_subscribed_topic_is_refused`.
+
+## CON-210. An ACL-on broker refuses as a client would be refused
+With ACLs on, a caller that may only DESCRIBE a group is refused a reset and a delete with GROUP_AUTHORIZATION_FAILED (30), and a group it may not describe is not told apart from no group. Test: `live_groups::on_a_broker_with_acls_a_caller_without_the_right_is_refused_as_a_client_would_be`.
+
+## CON-211. A group id is hostile input
+A group id with `/`, `?`, `%`, spaces, unicode, a `<script>`, an attribute break, or 255 bytes is escaped in every page and percent-encoded in every link. Test: `live_groups::a_hostile_group_id_is_escaped_and_encoded_on_every_page`.
+
+## CON-212. The group requests are bounded and name what they do
+DescribeGroups and ConsumerGroupDescribe name at most 100 groups; an OffsetFetch asks for every partition of one group and waits for a stable answer; a commit or a delete names at most 4,096 partitions. Tests: `backend::requests::groups_read::tests::a_describe_names_at_most_a_hundred_groups`, `backend::requests::groups_read::tests::an_offset_fetch_asks_for_every_partition_of_one_group_and_waits_for_a_stable_answer`, `backend::requests::groups_read::tests::the_deletes_name_what_they_delete`.
+
+## CON-213. The assignment bytes are read without trusting their counts
+A member's assignment and subscription (DescribeGroups hands the bytes over) are decoded with every count checked against the bytes left. Test: `gather::protocol::tests::bytes_that_are_not_an_assignment_or_a_subscription_are_not_read`.
+
+## CON-214. The sixteen boards pass the structure gate in both renders
+The fixture render (the larder: analytics, fulfilment, payments-workers, search-indexer, run through the same assembly as a live group) and the live render over a real broker both pass `bun tools/board-diff.ts --require` the sixteen ids, with every allowed difference carrying a reason and an `expires` (the wire dock: 9e; the Story page: 9f; the rest: close). Tests: `boards_groups::every_board_of_the_slice_renders_and_is_written_for_the_tool`, `boards_groups::the_list_has_the_boards_four_groups_in_order_with_their_lag_words`, `boards_groups::the_group_pages_say_what_the_boards_say`, `boards_groups::the_consumer_group_shows_target_and_assigned_and_the_rebalance_shows_who_is_waited_for`, `boards_groups::the_lag_pages_never_show_a_negative_number_and_say_where_a_commit_is`, `boards_groups::the_refusals_carry_kafkas_code_and_words`.
+
+## CON-215. The stream vocabulary of the Groups pages is registered once
+Five fragment ids (`groups-live`, `groups-table`, `group-sentence`, `group-lag-sentence`, `group-lag-table`) live in `stream_groups.rs` and are accepted by the stream through one line. Test: `stream_groups::tests::every_id_a_page_watches_is_in_the_vocabulary_and_the_pages_use_these_constants`.
+
+### What these boards show that the broker cannot supply yet
+
+Tagged in the code and in `debt.md` J91 to J120.
+- "What just happened" wire docks: the request recorder (slice 9e).
+- The Story tab and its count, "left 3 s ago", the last rebalance's age: the group event ring (slice 9f).
+- Members that left a group: the machine forgets them; only members present are drawn.

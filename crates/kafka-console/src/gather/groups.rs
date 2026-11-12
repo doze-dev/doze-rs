@@ -27,7 +27,8 @@ fn row_lag(topics: &[LagTopic], any_commit: bool) -> RowLag {
     let behind: Vec<i64> = topics
         .iter()
         .flat_map(|t| &t.rows)
-        .filter_map(|r| matches!(r.lag, Lag::Behind(_)).then(|| r.lag.behind()))
+        .filter(|r| matches!(r.lag, Lag::Behind(_)))
+        .map(|r| r.lag.behind())
         .collect();
     let each = behind
         .first()

@@ -23,6 +23,8 @@ fn concrete(pattern: &str, state: &kafka_console::state::State) -> String {
         .replace("{topic}", "orders")
         .replace("{partition}", "1")
         .replace("{offset}", "16050")
+        .replace("{group}", "search-indexer")
+        .replace("{member}", "search-indexer-1")
 }
 
 /// A body each POST row takes without complaint (the proof of origin is what the guard tests are about).

@@ -682,7 +682,6 @@
   {
     "board": "member-detail",
     "field": "heading",
-    "selector": "h2 search-indexer-1",
     "reason": "[p9c] A live page names the member and the topic it holds from the broker (a generated member id, orders) where the board draws search-indexer-1 and clickstream.",
     "expires": "close"
   },
@@ -690,13 +689,6 @@
     "board": "member-detail",
     "field": "button",
     "selector": "Open clickstream [-] -> to:topic-detail",
-    "reason": "[p9c] A live page names the member and the topic it holds from the broker (a generated member id, orders) where the board draws search-indexer-1 and clickstream.",
-    "expires": "close"
-  },
-  {
-    "board": "member-detail",
-    "field": "heading",
-    "selector": "h2 doze-4dc51fba30446e8aa79c206fac7f7e36",
     "reason": "[p9c] A live page names the member and the topic it holds from the broker (a generated member id, orders) where the board draws search-indexer-1 and clickstream.",
     "expires": "close"
   },
@@ -967,7 +959,7 @@
     "board": "group-reset-offsets",
     "field": "button",
     "selector": "Preview [-] -> ui:refresh",
-    "reason": "[p9c] A Delete group, Reset offsets or Preview control is a link to a dialog (or a button of a form) where the board draws a button or a link of the other kind; the Kafka API named is the same.",
+    "reason": "improvement: [p9c] Preview is a button that shows exactly what Reset will send before anything is committed, and it works without a script (a GET of the same form); the board draws the preview with no way to refresh it.",
     "expires": "close"
   },
   {
