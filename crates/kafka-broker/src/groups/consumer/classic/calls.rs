@@ -10,7 +10,7 @@ use crate::groups::machine::{
     Answer, Effect, HeartbeatRequest, LeaveResult, LeaveTarget, Millis, SyncAnswer, SyncRequest,
     Token,
 };
-use crate::groups::note::{Cause, Named};
+use crate::groups::note::{Cause, Named, Why};
 
 impl ConsumerGroup {
     pub(in crate::groups::consumer) fn classic_sync(
@@ -121,7 +121,8 @@ impl ConsumerGroup {
                 self.members.len(),
             );
             self.bump_and_reassign(topics, now);
-            self.bumped(before, Cause::RightsChanged, who, was, now, out);
+            let why = Why::new(Cause::RightsChanged, who, was);
+            self.bumped(before, why, now, out);
         }
         let behind = self
             .members
@@ -170,14 +171,8 @@ impl ConsumerGroup {
         }
         if removed {
             self.bump_for_removal();
-            self.bumped(
-                before,
-                Cause::MemberLeft,
-                gone.into_iter().next(),
-                was,
-                now,
-                out,
-            );
+            let why = Why::new(Cause::MemberLeft, gone.into_iter().next(), was);
+            self.bumped(before, why, now, out);
         }
         out.push(Effect::Reply(token, Answer::Leave(results)));
     }

@@ -4,6 +4,7 @@ use kafka_wire::ResponseError as E;
 use kafka_wire::ids::MemberId;
 
 use super::super::member::{ClassicSeat, Member};
+use super::super::notes::Moves;
 use super::super::{ConsumerGroup, Topics};
 use super::{partitions_of, subscription};
 use crate::groups::machine::{Answer, Effect, JoinAnswer, JoinRequest, Millis, Token};
@@ -104,21 +105,14 @@ impl ConsumerGroup {
         self.members.insert(id.clone(), member);
         // Its principal's rights, as the join brought them: what it was left by a member it replaced, or holds from before
         // a right was taken away, goes before anything is told (SEC-231).
-        let rights = self.refresh_rights(&id, req.rights.clone(), topics, now, out);
-        if rights {
-            cause.get_or_insert(Cause::RightsChanged);
-        }
-        changed |= rights;
-        self.reset_session(&id, now, out);
-        if changed {
-            let who = self.who_is(&id, req.reason.clone());
-            let before = self.epoch;
-            self.bump_and_reassign(topics, now);
-            let cause = cause.unwrap_or(Cause::MemberJoined);
-            self.bumped(before, cause, who, was, now, out);
-        } else {
-            self.assign_if_due(topics, now);
-        }
+        let moves = Moves {
+            changed,
+            cause,
+            was,
+            reason: req.reason.clone(),
+            rights: req.rights.clone(),
+        };
+        self.settle(&id, moves, topics, now, out);
         self.reconcile(&id, Some(&owned), now, out);
         self.end_revocation_if_given_up(&id, out);
         self.arm_classic_revocations(now, out);

@@ -13,7 +13,7 @@ use crate::Caller;
 use crate::clock;
 use crate::groups::Cause;
 use crate::groups::events::{EVENTS_PER_GROUP, GROUPS_KEPT, RING_BYTES, Recorded};
-use crate::groups::note::{Hold, Named, What};
+use crate::groups::note::{Hold, Named, What, Why};
 
 /// What a note says happened.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -117,25 +117,7 @@ impl<F: Fs> ConsoleView<'_, F> {
 
 fn event_of(r: &Recorded, now_ms: i64) -> GroupEvent {
     let ago = i64::try_from(r.ago_ms).unwrap_or(i64::MAX);
-    let mut e = GroupEvent {
-        kind: EventKind::Began,
-        at_ms: now_ms.saturating_sub(ago),
-        generation: 0,
-        cause: None,
-        member: None,
-        client: None,
-        more: 0,
-        reason: None,
-        session_ms: None,
-        members_before: None,
-        members_after: None,
-        wait_ms: None,
-        members: Vec::new(),
-        members_total: 0,
-        leader: None,
-        holds: Vec::new(),
-        holds_total: 0,
-    };
+    let mut e = GroupEvent::at(now_ms.saturating_sub(ago));
     match &r.note.what {
         What::Began {
             why,
@@ -143,24 +125,10 @@ fn event_of(r: &Recorded, now_ms: i64) -> GroupEvent {
             after,
             wait_ms,
         } => {
-            e.kind = EventKind::Began;
-            e.generation = *generation;
-            e.cause = Some(why.cause);
-            e.named(why.who.as_ref());
-            e.more = why.more;
-            e.members_before = Some(why.before);
-            e.members_after = Some(*after);
+            e.moved(EventKind::Began, why, *generation, *after);
             e.wait_ms = Some(*wait_ms);
         }
-        What::Epoch { why, epoch, after } => {
-            e.kind = EventKind::Epoch;
-            e.generation = *epoch;
-            e.cause = Some(why.cause);
-            e.named(why.who.as_ref());
-            e.more = why.more;
-            e.members_before = Some(why.before);
-            e.members_after = Some(*after);
-        }
+        What::Epoch { why, epoch, after } => e.moved(EventKind::Epoch, why, *epoch, *after),
         What::Formed {
             generation,
             members,
@@ -199,6 +167,40 @@ fn event_of(r: &Recorded, now_ms: i64) -> GroupEvent {
 }
 
 impl GroupEvent {
+    /// A note with nothing in it yet, said at `at_ms`.
+    fn at(at_ms: i64) -> Self {
+        Self {
+            kind: EventKind::Began,
+            at_ms,
+            generation: 0,
+            cause: None,
+            member: None,
+            client: None,
+            more: 0,
+            reason: None,
+            session_ms: None,
+            members_before: None,
+            members_after: None,
+            wait_ms: None,
+            members: Vec::new(),
+            members_total: 0,
+            leader: None,
+            holds: Vec::new(),
+            holds_total: 0,
+        }
+    }
+
+    /// A rebalance that began or an epoch that moved: why, who it was about, the members before and after.
+    fn moved(&mut self, kind: EventKind, why: &Why, generation: i32, after: u32) {
+        self.kind = kind;
+        self.generation = generation;
+        self.cause = Some(why.cause);
+        self.named(why.who.as_ref());
+        self.more = why.more;
+        self.members_before = Some(why.before);
+        self.members_after = Some(after);
+    }
+
     fn named(&mut self, who: Option<&Named>) {
         let Some(w) = who else { return };
         self.member = Some(w.member.to_string());

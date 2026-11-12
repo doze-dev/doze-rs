@@ -2,7 +2,7 @@
 
 use super::ConsumerGroup;
 use crate::groups::machine::{Effect, Millis, TimerKey, TimerKind};
-use crate::groups::note::Cause;
+use crate::groups::note::{Cause, Why};
 
 impl ConsumerGroup {
     /// A timer ran out. One that was re-armed since carries an old generation and does nothing.
@@ -52,7 +52,7 @@ impl ConsumerGroup {
         let (before, was, who) = (self.epoch, self.members.len(), self.who_is(id, None));
         self.remove_member(id, out);
         self.bump_for_removal();
-        self.bumped(before, cause, who, was, now, out);
+        self.bumped(before, Why::new(cause, who, was), now, out);
         self.check_downgrade = true;
     }
 }
