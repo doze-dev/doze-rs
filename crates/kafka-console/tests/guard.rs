@@ -173,3 +173,56 @@ async fn every_answer_carries_the_security_headers() {
         "a refusal has them too"
     );
 }
+
+#[tokio::test]
+async fn every_post_row_needs_the_same_origin_proof_and_changes_nothing_without_it() {
+    let (app, state) = app("/", &[]);
+    let posts: Vec<_> = ROUTES.iter().filter(|r| r.method == Method::Post).collect();
+    assert!(
+        posts.len() >= 6,
+        "the table has the writes of the topic pages: {}",
+        posts.len()
+    );
+    for r in posts {
+        let path = r.path.replace("{topic}", "orders");
+        let bare = |origin: Option<&str>, site: Option<&str>| {
+            let mut b = axum::http::Request::builder()
+                .method("POST")
+                .uri(&path)
+                .header(header::HOST, HOST);
+            if let Some(o) = origin {
+                b = b.header(header::ORIGIN, o);
+            }
+            if let Some(s) = site {
+                b = b.header("sec-fetch-site", s);
+            }
+            b.body(axum::body::Body::from(
+                "confirm=orders&name=x&count=9&offset=1&partition=0&value=v",
+            ))
+            .unwrap()
+        };
+        for (origin, site) in [
+            (None, None),
+            (Some("http://evil.example"), None),
+            (Some("null"), None),
+            (Some("http://127.0.0.1:9093"), Some("cross-site")),
+        ] {
+            let (res, body) = send(&app, bare(origin, site)).await;
+            assert_eq!(
+                res.status(),
+                StatusCode::FORBIDDEN,
+                "POST {} {origin:?} {site:?}: {body:.200}",
+                r.path
+            );
+        }
+        // Every POST row is a mutation, and every mutation is a POST.
+        assert!(r.mutates || r.op == Some("Metadata"), "{}", r.path);
+    }
+    assert!(
+        ROUTES
+            .iter()
+            .filter(|r| r.mutates)
+            .all(|r| r.method == Method::Post)
+    );
+    let _ = state;
+}

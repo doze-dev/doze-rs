@@ -43,7 +43,7 @@ fn every_board_of_the_slice_renders_and_is_written_for_the_tool() {
         std::fs::write(dir.join(format!("{id}.html")), &doc).unwrap();
     }
     assert!(
-        render("topics-list", &Base::root()).is_none(),
+        render("live-wire", &Base::root()).is_none(),
         "a board of another slice is not drawn here"
     );
 }

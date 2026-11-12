@@ -6,8 +6,12 @@ use crate::base::Base;
 use crate::fixtures;
 use crate::model::HomeState;
 use crate::pages;
-use crate::stream::WATCHABLE;
+use crate::stream::HOME_IDS;
+
+mod topics_read;
+
 use crate::ui::shell::{Crumb, Page, Rail, document};
+pub use topics_read::{IDS as TOPICS_READ_IDS, render as render_topics_read};
 
 /// The breadcrumb of a board: label and path.
 type Steps<'a> = Vec<(&'a str, Option<&'a str>)>;
@@ -49,7 +53,7 @@ pub fn render(id: &str, base: &Base) -> Option<String> {
                 title,
                 pages::home(&view, base),
                 vec![("Home", None)],
-                WATCHABLE,
+                HOME_IDS,
             )
         }
         "connect" => (
@@ -68,7 +72,7 @@ pub fn render(id: &str, base: &Base) -> Option<String> {
             ],
             &[],
         ),
-        _ => return None,
+        _ => return topics_read::render(id, base),
     };
     let page = Page {
         base,

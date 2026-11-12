@@ -1549,6 +1549,7 @@ version = "0.0.0"
 dependencies = [
  "axum",
  "bytes",
+ "flate2",
  "futures-util",
  "http-body-util",
  "kafka-auth",

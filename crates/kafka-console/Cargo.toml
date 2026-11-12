@@ -33,6 +33,10 @@ futures-util = { version = "0.3", default-features = false }
 tracing = "0.1"
 
 [dev-dependencies]
+# gzip batches for the tests that seed a broker.
+flate2 = "1"
+# Batches to walk in the tests of the record reader.
+kafka-wire = { path = "../kafka-wire", features = ["test-support"] }
 # The fixtures and the example the integration tests render pages from.
 kafka-console = { path = ".", features = ["examples"] }
 kafka-server = { path = "../kafka-server" }

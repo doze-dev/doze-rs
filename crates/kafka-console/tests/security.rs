@@ -296,3 +296,143 @@ async fn a_hostile_query_is_never_echoed() {
         "{body}"
     );
 }
+
+/// Every form of the topic writes, fed what a hostile page or person would put in it: nothing panics, nothing is a 5xx, and
+/// whatever is echoed is text.
+#[tokio::test]
+#[allow(clippy::too_many_lines)]
+async fn hostile_input_in_every_topic_form_is_answered_and_echoed_as_text() {
+    let (app, _) = app("/", &[]);
+    let long_name = "a".repeat(249);
+    let huge = "A".repeat(900 * 1024);
+    let evil = [
+        "<script>alert(1)</script>".to_owned(),
+        "\"><img src=x onerror=alert(1)>".to_owned(),
+        "a\r\nSet-Cookie: x=1".to_owned(),
+        "k\nX-Injected: yes".to_owned(),
+        "nul\0byte".to_owned(),
+        long_name.clone(),
+        "a".repeat(250),
+        huge,
+        "javascript:alert(1)".to_owned(),
+    ];
+    let enc = |s: &str| -> String {
+        s.bytes()
+            .map(|b| {
+                if b.is_ascii_alphanumeric() {
+                    char::from(b).to_string()
+                } else {
+                    format!("%{b:02X}")
+                }
+            })
+            .collect()
+    };
+    for value in &evil {
+        let v = enc(value);
+        let bodies = [
+            (
+                "/topics/new",
+                format!(
+                    "name={v}&partitions={v}&template={v}&cleanup.policy={v}&retention.ms={v}&mode=create"
+                ),
+            ),
+            (
+                "/topics/new",
+                format!("name={v}&name=orders&partitions=3&mode=check"),
+            ),
+            (
+                "/topics/orders/produce",
+                format!("partition={v}&key={v}&value={v}&hn0={v}&hv0={v}&hn0=dup&acks={v}"),
+            ),
+            (
+                "/topics/inventory.levels/produce",
+                format!("key=&value={v}&hn0={v}&hv0={v}&acks=-1"),
+            ),
+            ("/topics/orders/partitions/add", format!("count={v}")),
+            (
+                "/topics/orders/delete-records",
+                format!("partition={v}&offset={v}"),
+            ),
+            ("/topics/orders/delete", format!("confirm={v}")),
+            (
+                "/topics/orders/delete",
+                "confirm=%ff%fe%e2%9c&confirm=orders".to_owned(),
+            ),
+        ];
+        for (path, body) in bodies {
+            let (res, doc) = send(&app, support::post(path, &body)).await;
+            assert!(res.status().as_u16() < 500, "{path}: {}", res.status());
+            if res.status().is_success() {
+                assert_inert(&doc, value, path);
+                // Nothing in a header line of the answer: a newline in a field cannot reach one.
+                assert!(
+                    !res.headers().iter().any(|(_, v)| v
+                        .to_str()
+                        .is_ok_and(|s| s.contains("X-Injected") || s.contains("Set-Cookie"))),
+                    "{path}"
+                );
+            }
+        }
+        for query in [
+            format!(
+                "/topics/new?step=review&name={v}&partitions={v}&template={v}&cleanup.policy={v}&retention.ms={v}"
+            ),
+            format!(
+                "/topics/orders/produce?partition={v}&key={v}&value={v}&hn0={v}&hv0={v}&acks={v}"
+            ),
+            format!("/topics/orders/partitions/add?count={v}"),
+            format!("/topics/orders/delete-records?partition={v}&offset={v}"),
+        ] {
+            if query.len() > 8000 {
+                continue;
+            }
+            let (res, doc) = send(&app, get(&query)).await;
+            assert!(res.status().as_u16() < 500, "{query:.80}: {}", res.status());
+            if res.status().is_success() {
+                assert_inert(&doc, value, "a dialog or step from a query");
+            }
+        }
+    }
+    // A name that is shown is shown as text, in the call, in the terminal command and in the refusal.
+    let (_, doc) = send(
+        &app,
+        support::post(
+            "/topics/new",
+            "name=%3Cscript%3Ealert(1)%3C%2Fscript%3E&partitions=3&mode=create",
+        ),
+    )
+    .await;
+    assert!(
+        doc.contains("&lt;script&gt;alert(1)&lt;/script&gt;")
+            && doc.contains("Refused · INVALID_TOPIC_EXCEPTION (17)"),
+        "{doc:.400}"
+    );
+    // The 249-byte name is a valid one: the broker takes it, and it is the one thing no sentence refuses.
+    let (_, doc) = send(
+        &app,
+        support::post(
+            "/topics/new",
+            &format!("name={long_name}&partitions=1&mode=check"),
+        ),
+    )
+    .await;
+    assert!(doc.contains("<b>Checked.</b>"), "{doc:.300}");
+}
+
+/// A request header or a refused body never becomes a header of the answer, and a body of exactly the limit is read.
+#[tokio::test]
+async fn a_field_of_the_size_of_the_body_limit_is_read_and_a_larger_body_is_refused() {
+    let (app, _) = app("/", &[]);
+    let near = format!(
+        "name={}&partitions=1&mode=check",
+        "a".repeat((1 << 20) - 64)
+    );
+    let (res, _) = send(&app, support::post("/topics/new", &near)).await;
+    assert!(res.status().as_u16() < 500);
+    let over = format!("value={}", "a".repeat((1 << 20) + 1));
+    let (res, _) = send(&app, support::post("/topics/orders/produce", &over)).await;
+    assert_eq!(res.status(), axum::http::StatusCode::PAYLOAD_TOO_LARGE);
+}
+// The Topics pages (slice 9b, reading half) are in `security/topics.rs`: they share the helpers above.
+#[path = "security/topics.rs"]
+mod topics;

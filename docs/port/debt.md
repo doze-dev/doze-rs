@@ -225,3 +225,45 @@ Statuses as above. The catalogue is `behaviours/console.md` (and SEC-240 to SEC-
 | J18 | A mutation run on `origin.rs`, `format.rs`, `words.rs` and `probe/judge.rs` was not done in this slice | open: before the phase audit |
 | J19 | `fixtures` and `boards` are in the library behind the `examples` feature; a release build without the feature has neither | decided |
 | J20 | `doze-kafka/src/cli.rs` is 361 lines (soft limit 300; it was 344): the console flags added to it | open: split the flag groups into files when the next flags land |
+| J41 | The wire table under a refused produce ("What the wire recorded", board `topic-produce-keyless`) needs the request recorder; the page leaves it out (allow-list entries, `expires: 9e`) | moved: slice 9e |
+| J42 | "Size on disk" of the topics list after a delete and the "(7.9 MiB)" figures of the Produced and Delete pages need `partition_files()` (the read builder's `ConsoleView` method): the list cell shows a dash and the sentences give records only | moved: after the merge of p9b-read |
+| J43 | The delete dialog's "group reads it with 3 members" and "expire in 3 d 2 h": the protocol gives groups with an offset committed on the topic and their member counts, not who subscribes (that is in member metadata) nor the offsets' expiry (9c); the callout says what is read | decided; 9c for expiry |
+| J44 | The Produced page's table lists the record just sent, not the newest five across partitions: the other rows need the record decoder of the read builder (allow-list entry, live render only) | moved: after the merge of p9b-read |
+| J45 | `acks` is three radio inputs drawn as the segmented control (the board draws three buttons, which do nothing without a script); allow-list entries, `close` | decided |
+| J46 | The Create page's call is the call for what was submitted last, not a live preview "as you type" (a script could do it; the sentence under the title no longer says it does) | open: a few lines of `console.js` |
+| J47 | The boards' teaching links to refusal states ("see that refusal") are not offered: a state needs a request, and a GET never changes anything (allow-list entries, `close`) | decided |
+| J48 | The console is a super user of every broker (SEC-241), so the authorization refusal pages are exercised through `Backend::acting_as` (a test seam), not by the real console; the pages and wording are tested | decided (D5) |
+| J49 | A keyless record sent with the partition left to the key goes to partition 0 (Kafka's client uses a sticky partitioner for it); a keyed one goes where `murmur2` puts it, tested on Kafka's own vectors | decided |
+| J50 | Rows for `/groups`, `/topics/{topic}/log` and `/topics/{topic}/config` are Planned pages so the Produced page's tabs resolve; `topic-producers` joins the producers row. The read builder adds the same rows: dedupe at the merge | open: merge |
+| J51 | `Backend::acting_as` and `Backend::recording` are `doc(hidden)` seams for the tests (a caller that is not the console; a log of the APIs called); a real console never sets either | decided |
+| J52 | The created page says "Nothing has written to it yet" (checked with ListOffsets) and does not claim "no group reads it" | decided |
+| J53 | "Check only" has no board of its own: its answer is the review step with a banner ("Checked."); a refusal of the check is the refused state | decided |
+| J54 | Chrome side-by-sides were looked at for `topic-create`, `topic-produce` (dialog over a blank page: the board draws it over its parent) and `topic-deleted` only; the other eleven were checked by structure (board-diff, both renders) | open: the independent look of the slice gate |
+| J55 | A form body is read for 64 fields (`form::FIELD_LIMIT`); the Produce dialog offers 8 header rows | decided |
+| J56 | The dialog opening in `console.js` has string tests and a manual look only (as J12) | open |
+
+## J (continued). Phase 9, slice 9b, the reading half (`p9b-read`: the topics list, a topic with its Messages, a record, partitions, offline), built 2026-11-12, audits pending
+Statuses as above. Rules CON-100 and up in `behaviours/console.md`. The writing half has its own rows.
+
+| # | What | Status |
+|---|---|---|
+| J21 | The "On the wire" dock of the topic page, "What the wire recorded" of the offline page, and the button and link to `topic-wire` are not drawn (REALITY 1, the recorder); allow-list entries expire with 9e | moved: slice 9e |
+| J22 | The record page's "Copy as kcat" is "Copy value" (and "Copy as hex" for bytes): a command line built from a hostile value is a shell-injection risk, so the page copies the text and builds no command | decided |
+| J23 | The list rows and the topic page say "read by <groups that committed offsets>" and never "written by <client>" (REALITY 5.4, the recorder); "read by" is groups with a committed offset, so a group that reads without committing is not listed | moved: slice 9e for "written by" |
+| J24 | The list rows have no record counts: ListOffsets opens every partition it is asked about, so counting for a list would open (and flush, on eviction) every partition to draw a table. The topic page has the count (ListOffsets on one topic) | decided |
+| J25 | The offline page says which partition and why (the writer's recorded cause) and not when: the broker keeps the first failed flush's text and not its time. The live test cannot seed an offline partition (the console holds `Broker<RealFs>`); the facts are tested in `kafka-storage` and `kafka-broker` and the page is rendered from the fixture | decided |
+| J26 | The tab counts are "Consumers N" = groups with a committed offset on the topic and "Producers N" = producers active on its partitions (DescribeProducers: they expire); neither is a member count | decided |
+| J27 | "Older" shows twice as many records (up to 200) and is hidden at the cap; there is no cursor into the past | open: a cursor (`before`) if a person needs more than 200 |
+| J28 | A key search reads the partition backwards from its end in windows of 1,000 offsets until enough records match or 8 MiB (16 requests a window) were looked at, and says how far it looked; the board's help text ("reads from the start of the partition") is reworded to say that. A time goes to ListOffsets, which the broker answers by walking the log | decided |
+| J29 | An ACL refusal cannot be shown as the console, which is a super user (SEC-241); the test acts as another principal through `Backend::acting_as`, compiled only for tests and the `examples` feature | decided |
+| J30 | `__consumer_offsets` is a constant row (Metadata never lists it; "50 partitions" is the broker's group-slot count): drawn on "Show internal" and in the callout, said to be no log | decided |
+| J31 | The boards' navigation between states (the help line with links to the filtered and empty list, "What an offline partition looks like", "Its dead letter topic, by name") is canvas scaffolding and is not drawn; the allow-list entries say so | decided |
+| J32 | A record is a page of its own at `/topics/{topic}/messages/{partition}/{offset}`, not a drawer over its parent: a direct address works with no script and the board's "Close" is a link back; the drawer's behaviour over a dimmed parent is not built | decided |
+| J33 | An empty state's title is an h2 (the canvas has an h3 straight under the h1: `tools/test/a11y-known.json`); `design/console.css` styles both alike and the allow-list carries the heading difference | decided |
+| J34 | Values over 64 KiB are shown to 64 KiB (hex to 16 KiB) with the true size; a value that is cut is not recognised as JSON; Avro and Protobuf are not decoded (Phase 10) | decided |
+| J35 | The read_committed page's "Who this holds back" has no group lag (the board names the group payments-workers and its lag: slice 9c); it says where a read_committed consumer stops and which transaction holds it | moved: slice 9c |
+| J36 | "Size on disk" is the bytes of the segments' log files; the index files are not counted | decided |
+| J37 | A mutation check by hand on `gather::walk::Aborts::reach`, `gather::decode::text_of` and `model::query::whole` was made at the slice close (the changes and what failed are in the report); a mutation run over the whole of `gather/`, `words/topics.rs` and `format/read.rs` was not made | open: before the phase audit |
+| J38 | The live board-diff seeds an `orders` topic whose rows are not the boards' (the live render is compared on structure only); the fixture render carries the boards' numbers | decided |
+| J39 | The stream's ticker for the topic pages is the 2 s floor timer until the recorder bumps it per request (slice 9e); the pages are right without it and a fragment is a 304 when nothing changed | moved: slice 9e |
+| J40 | `Source` gains one file of methods (`source/topics.rs`) and the stream vocabulary three lists (`HOME_IDS`, `TOPICS_IDS`, `TOPIC_IDS`); the four Planned rows after `/topics/new` in `routes.rs` (produce, partitions/add, delete-records, delete) stand in for `p9b-write`'s handlers until the branches are merged | open: the lead's merge |

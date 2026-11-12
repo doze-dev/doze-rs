@@ -21,6 +21,22 @@ fn concrete(pattern: &str, state: &kafka_console::state::State) -> String {
         .replace("{id}", "home-instance")
         .replace("{name}", &asset)
         .replace("{topic}", "orders")
+        .replace("{partition}", "1")
+        .replace("{offset}", "16050")
+}
+
+/// A body each POST row takes without complaint (the proof of origin is what the guard tests are about).
+fn valid_body(pattern: &str) -> &'static str {
+    match pattern {
+        "/topics/new" => {
+            "name=orders.retry&partitions=3&cleanup.policy=delete&retention.ms=1000&mode=create"
+        }
+        "/topics/{topic}/produce" => "partition=0&key=k&value=v&acks=-1",
+        "/topics/{topic}/partitions/add" => "count=5",
+        "/topics/{topic}/delete-records" => "partition=0&offset=1",
+        "/topics/{topic}/delete" => "confirm=orders",
+        _ => "back=home",
+    }
 }
 
 #[tokio::test]
@@ -30,7 +46,7 @@ async fn every_row_of_the_table_has_a_handler_and_every_handler_a_row() {
         let path = concrete(r.path, &state);
         let req = match r.method {
             Method::Get => get(&path),
-            Method::Post => post(&path, "back=home"),
+            Method::Post => post(&path, valid_body(r.path)),
         };
         // The stream never ends: its answer is judged by its head alone.
         let (res, body) = if r.handler == Handler::Events {
@@ -53,7 +69,7 @@ async fn every_row_of_the_table_has_a_handler_and_every_handler_a_row() {
     // And what is not a row is not answered: the router is built from the table and from nothing else.
     for path in [
         "/nope",
-        "/topics/orders",
+        "/topics/orders/nope",
         "/connect/advertised/",
         "/static",
         "/fragments",

@@ -6,7 +6,7 @@
 //! on the wire (the recorder of slice 9e sees only clients).
 
 use std::net::IpAddr;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use kafka_auth::Principal;
 use kafka_broker::{Broker, Caller, Instance, Listener, Outcome};
@@ -16,6 +16,7 @@ use kafka_wire::api::{Request, Response};
 use kafka_wire::header::RequestHead;
 use kafka_wire::profile::Profile;
 
+mod forms;
 pub mod requests;
 
 /// The client id the console's requests carry.
@@ -37,6 +38,8 @@ pub struct Backend {
     caller: Caller,
     listener: Listener,
     profile: Profile,
+    /// The APIs called, in order, when a test asks to see them (see [`Backend::recording`]); none in a real console.
+    spy: Option<Arc<Mutex<Vec<kafka_wire::messages::ApiKey>>>>,
 }
 
 impl Backend {
@@ -50,7 +53,33 @@ impl Backend {
             caller,
             listener,
             profile,
+            spy: None,
         }
+    }
+
+    /// The same handle, but calls are made as `caller` and not as the console. A test seam: the console is a super user of
+    /// every broker (SEC-241), so this is how a page is shown a refusal for want of an ACL, as a client would meet it.
+    #[doc(hidden)]
+    #[must_use]
+    pub fn acting_as(&self, caller: Caller) -> Self {
+        Self {
+            caller,
+            ..self.clone()
+        }
+    }
+
+    /// The same handle with a log of every API it calls. A test seam: it proves that a page that only reads never writes.
+    #[doc(hidden)]
+    #[must_use]
+    pub fn recording(&self) -> (Self, Arc<Mutex<Vec<kafka_wire::messages::ApiKey>>>) {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        (
+            Self {
+                spy: Some(Arc::clone(&log)),
+                ..self.clone()
+            },
+            log,
+        )
     }
 
     /// The caller of every call: the console's principal.
@@ -71,6 +100,11 @@ impl Backend {
     /// [`CallError::NoAnswer`] if the broker answers nothing (it does not serve the API).
     pub async fn call(&self, request: Request) -> Result<Response, CallError> {
         let key = request.api_key();
+        if let Some(log) = &self.spy {
+            log.lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .push(key);
+        }
         let head = RequestHead {
             key,
             version: self.version(key),
@@ -85,6 +119,14 @@ impl Backend {
             Outcome::Respond(response) => Ok(response),
             _ => Err(CallError::NoAnswer),
         }
+    }
+
+    /// The files of each partition of `topic` (size, last write, offline cause), if the console may describe it.
+    #[must_use]
+    pub fn partition_files(&self, topic: &str) -> Option<Vec<kafka_broker::PartitionFiles>> {
+        self.broker
+            .console_view()
+            .partition_files(&self.caller, topic)
     }
 
     /// The facts of this run that the protocol does not say.

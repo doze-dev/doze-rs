@@ -3,10 +3,22 @@
 mod fragments;
 mod pages;
 mod plain;
+mod topics_dialogs;
+mod topics_write;
+mod topics;
 
 pub use fragments::{check, fragment};
 pub use pages::{advertised, connect, home, method_not_allowed, not_found, planned};
 pub use plain::{events, health, static_file};
+pub use topics_dialogs::{
+    delete, delete_form, delete_records, delete_records_form, partitions_add, partitions_add_form,
+    produce, produce_form,
+};
+pub use topics_write::{create, create_form};
+pub use topics::{
+    messages as topic_messages, partitions as topic_partitions, record as topic_record, topic,
+    topics,
+};
 
 use axum::http::header::{CACHE_CONTROL, CONTENT_TYPE, ETAG};
 use axum::http::{HeaderMap, StatusCode, header::IF_NONE_MATCH};

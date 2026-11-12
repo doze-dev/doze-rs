@@ -105,3 +105,117 @@ Each is tagged in the code with its reference and is a debt row of section J in 
 - The instance card, "Segments and indexes" for descriptors: the count is of all open files and sockets, and says so. "Idle memory" and "Threads" are measured on Linux only.
 - Times are UTC and say so (no safe way to read the local zone).
 - The rail's pinned items and key hints, the search box, and `connect-first-request`.
+
+
+## The topic writes (slice 9b, p9b-write)
+
+## CON-150. The writes are one list
+`actions.rs` lists the Kafka APIs the console writes with (CreateTopics, Produce, CreatePartitions, DeleteRecords, DeleteTopics) and a test compares it with the `data-op` names the committed boards draw, both ways. Test: `actions::tests::actions_match_boards`.
+
+## CON-151. A write is a POST with a same-origin proof, and a GET never writes
+Every write is a plain `<form method=post>`; without the proof every POST row is 403 and changes nothing; every GET of every route calls only reads (a log of the APIs called, and the broker's state before and after). Test: `tests/guard::every_post_row_needs_the_same_origin_proof_and_changes_nothing_without_it`, `tests/live_write_admin::a_get_never_asks_the_broker_to_change_anything`.
+
+## CON-152. Create topic is three steps of one route
+`/topics/new?step=name|config|review`; each step is a GET form carrying every value typed, so Back and a reload keep them; moving on checks the steps before it and lands on the first with something to fix; the POST makes the topic (or, "Check only", runs the checks with `validate_only`). Test: `gather::create::tests::moving_on_checks_the_steps_before_the_one_asked_for`, `tests/live_write::a_topic_made_through_the_pages_exists_for_the_protocol_with_its_partitions_and_configs`.
+
+## CON-153. The topic-name rule is the broker's own
+The form judges a name with `TopicName::parse` and says why in a sentence (a character by name or code point, 249, `.` and `..`); the collision with `.` against `_` and with letter case is advised and decided by the broker. Test: `validate::tests::every_name_the_broker_would_parse_passes_and_no_other_does`, `validate::tests::a_topic_name_is_judged_by_the_brokers_own_rule_and_told_in_a_sentence`.
+
+## CON-154. A refusal is Kafka's code and the broker's own sentence
+The page shows the code, its name and the handler's `error_message` (Kafka's description where the answer has none, as DeleteRecords), then the console's rule and what would pass where the table has one. Test: `tests/live_write::every_refusal_of_a_create_is_kafkas_code_and_the_brokers_own_sentence`, `refusal::tests::kafkas_names_are_made_from_the_variants`.
+
+## CON-155. The teaching under a field comes from the broker's table
+Kafka's documentation string and default for `cleanup.policy` and `retention.ms` are read through `ConsoleView::topic_config_defaults` (checked against CREATE on the cluster), with tags removed; the limits are `ConsoleView::limits`. Test: `view::tests::the_create_form_is_taught_from_the_brokers_own_table_and_only_to_who_may_create`, `teach::tests::kafkas_documentation_becomes_plain_text_of_a_few_sentences`.
+
+## CON-156. A record is framed as a client frames it
+One v2 batch, CRC and all, written by `kafka_wire::batch::single_record` (checked byte for byte against the test builder), sent through Produce at the topic's own limits; a key left to the key goes where Kafka's partitioner puts it. Test: `batch::compose::tests::a_batch_is_what_the_format_says_byte_for_byte`, `partitioner::tests::the_hash_is_kafkas_on_its_own_test_vectors`, `tests/live_write::a_keyed_and_a_keyless_record_are_written_and_fetched_back_through_the_protocol`.
+
+## CON-157. A produce that Kafka refuses shows Kafka's words
+A keyless record on a compacted topic is INVALID_RECORD with the broker's "Compacted topic cannot accept message without key in topic partition ..." and uses no offset; a record over the topic's `max.message.bytes` is MESSAGE_TOO_LARGE with the limit read from the topic. Test: `tests/live_write::kafkas_own_words_for_a_keyless_record_on_a_compacted_topic_and_for_a_record_that_is_too_large`.
+
+## CON-158. Partitions go up, never down
+The Add-partitions dialog takes the new total; a count not above the present one is refused INVALID_PARTITIONS in the broker's words, nothing changes. Test: `tests/live_write_admin::partitions_can_be_added_and_never_taken_away`.
+
+## CON-159. Delete records moves the log start
+The earliest offset after the call is the one asked (-1 is the high watermark); below the start changes nothing; past the end is OFFSET_OUT_OF_RANGE; a compact-only topic is POLICY_VIOLATION. Test: `tests/live_write_admin::records_are_deleted_up_to_an_offset_and_the_log_start_is_that_offset`.
+
+## CON-160. A topic is deleted when its name is typed
+Wrong confirmation is 422 and sends nothing; the delete shows what uses the topic (groups with offsets on it, open transactions) as read; afterwards the topic is gone from Metadata. Test: `tests/live_write_admin::a_topic_is_deleted_only_when_its_name_is_typed_and_is_then_gone`.
+
+## CON-161. A dialog is a route
+With a script a link marked `data-dialog` opens the body (answered alone to `X-Fragment`) in a `<dialog>`; without one the same address is a full page with the dialog in it; either way it is one POST form. Test: `tests/routes_write::a_dialog_is_a_full_page_to_a_browser_and_its_body_alone_to_a_script`, `ui::client::tests::the_script_opens_dialogs_by_the_names_this_file_defines`.
+
+## CON-162. Without super rights each write is refused as a client would be
+A caller that may only DESCRIBE gets TOPIC_AUTHORIZATION_FAILED on every write, with the console's reading, and a topic it may not describe is "not there". Test: `tests/live_write_admin::on_a_broker_with_acls_a_caller_that_may_only_describe_is_refused_as_a_client_would_be`.
+
+## CON-163. Hostile input is text
+Names with markup, NUL and newlines, 249 and 250 bytes, invalid UTF-8 escapes, duplicate fields and bodies at the limit, through every form and every query: no panic, no 5xx, inert echo, no header injection. Test: `tests/security::hostile_input_in_every_topic_form_is_answered_and_echoed_as_text`, `form::body_tests::fields_past_the_limit_are_dropped_not_errors`, `form::body_tests::a_field_as_large_as_the_body_limit_is_read_whole`.
+
+## CON-164. The fourteen boards, fixtures and a real broker
+Each write board is rendered from the larder and from a real broker and compared by `tools/board-diff.ts`. Test: `tests/boards_write::every_board_of_the_slice_renders_and_is_written_for_the_tool`, `tests/live_write_boards::the_fourteen_boards_are_rendered_from_a_real_broker`.
+
+## CON-165. Every link of the write pages resolves
+Under any prefix, except links to the read builder's pages until the merge. Test: `tests/routes_write::every_link_of_the_write_pages_resolves_or_is_the_read_builders`.
+## Topics, the reading half (slice 9b, `p9b-read`; the rules from CON-100 up)
+
+The boards `topics-list`, `topics-none`, `topics-filtered`, `topic-detail`, `topic-messages-empty`, `topic-messages-filtered`, `topic-readcommitted`, `topic-record`, `topic-record-binary`, `topic-partitions` and `topic-offline`. The writing half (create, produce, add partitions, delete records, delete) is `p9b-write` and has its own rules.
+
+## CON-100. Five routes, and the data chooses the state
+`/topics` (list, none, filtered), `/topics/{topic}` and `/topics/{topic}/messages` (the Messages tab: detail, filtered, read_committed, empty, offline), `/topics/{topic}/messages/{partition}/{offset}` (a record, text or binary) and `/topics/{topic}/partitions`. The state is chosen by the data and the filters, never by the address: no topic is none, a name filter that matches nothing is filtered, a topic nothing was written to is empty, a topic with an offline partition is offline, `isolation=read_committed` is the read_committed state, any other filter is the filtered state. Test: `tests/boards_topics::every_board_of_the_reading_half_renders_and_is_written_for_the_tool`, `tests/live_topics::every_route_answers_as_the_console_and_has_the_boards_parts`, `tests/live_topics::an_empty_broker_is_the_none_state`, `tests/routes::every_row_of_the_table_has_a_handler_and_every_handler_a_row`.
+
+## CON-101. Every fact is a protocol request or `ConsoleView`, as the console principal
+Names, partitions and ids come from Metadata; offsets from ListOffsets; records from Fetch; policy and retention from DescribeConfigs; open transactions from ListTransactions and DescribeTransactions; producers and where each transaction began from DescribeProducers; the groups that read a topic from ListGroups and OffsetFetch. Only size on disk, last write and the offline cause come from `ConsoleView::partition_files`. Nothing is kept between requests. Test: `tests/live_topics::every_route_answers_as_the_console_and_has_the_boards_parts`, `tests/live_topics::the_reads_the_records_and_the_filters_answer_as_the_console_and_have_the_boards_parts`, `backend::requests::fetch::tests::a_fetch_never_waits_and_is_bounded_by_the_limit_it_was_given`, `backend::requests::offsets::tests::each_ask_is_one_entry_in_order_and_the_isolation_is_the_requests`.
+
+## CON-102. A read is bounded
+A Fetch has `max_wait 0`; a table reads 256 KiB a request, one record 1 MiB and 12 bytes (a Fetch returns its first batch whole whatever its size, so a larger record still arrives); one read makes at most 16 requests and takes at most 4 MiB of records; a batch inflates to at most 64 MiB (the broker's own limit when it accepted the batch); a page shows 25 records and at most 200; a key search looks at the newest 8 MiB. Test: `backend::requests::fetch::tests::the_isolation_levels_are_the_protocols_numbers`, `backend::requests::offsets::tests::a_request_is_bounded`, `model::query::tests::a_huge_limit_is_cut_and_a_long_key_is_refused_with_a_sentence`, `batch::look::tests::a_gzip_batch_is_read_through_its_codec_and_held_to_the_limit`.
+
+## CON-103. A value is shown as the bytes say, with its true size
+Absent is null (a deletion's value), zero bytes is empty. Valid UTF-8 is text, and text that is one whole JSON object or array is labelled JSON. Anything else is binary: a hex dump, eight bytes to a line with the text beside it, never a guess at text. Text is shown in full to 64 KiB and then cut at a character with the true size beside it; hex to 16 KiB. A table cell is the first 47 characters on one line, or `binary` and the first eight bytes. Control characters, line separators and bidirectional controls are written out as `⟨U+XXXX⟩`, so a value cannot move text around the page or hide in it. Test: `gather::decode::tests::nothing_and_empty_are_told_apart`, `gather::decode::tests::text_is_text_and_a_complete_json_object_or_array_is_json`, `gather::decode::tests::json_nested_past_the_depth_is_not_recognised_and_does_not_overflow_the_stack`, `gather::decode::tests::bytes_that_are_not_utf8_are_binary_with_a_hex_dump_and_a_preview_of_eight_bytes`, `gather::decode::tests::a_value_is_shown_in_full_to_64_kib_and_then_cut_with_its_true_size`, `gather::decode::tests::a_prefix_that_stopped_in_the_middle_of_a_character_is_still_text`, `gather::decode::tests::hex_is_cut_at_16_kib`, `gather::decode::tests::what_could_act_on_the_page_is_written_out`, `gather::decode::tests::a_cell_is_one_line_of_47_characters`, `gather::decode::tests::no_bytes_make_it_panic_and_the_size_is_always_the_true_one`, `tests/security::what_could_act_on_a_page_is_written_out_in_a_value_and_the_size_stays_true`.
+
+## CON-104. Where a record stands for a read_committed consumer
+Each record is Committed (below the last stable offset and not aborted), Above LSO (at or above it: held back) or Aborted (its transaction was aborted and the abort marker is past it). The walk does what a consumer does: an aborted transaction's records are skipped from its first offset until its abort marker, a producer's records after its marker are not, a window that begins inside a transaction still skips it, and markers are not rows. A read_uncommitted answer does not list the aborted transactions, so a page that meets a transactional batch asks for the list a read_committed consumer is given. Test: `gather::walk::tests::records_at_or_above_the_last_stable_offset_are_held_and_the_rest_are_committed`, `gather::walk::tests::an_aborted_transaction_is_skipped_from_its_first_offset_to_its_marker`, `gather::walk::tests::a_producer_after_its_marker_is_not_aborted_again`, `gather::walk::tests::a_window_that_begins_inside_the_transaction_still_skips_it`, `gather::walk::tests::the_producer_and_the_sequence_of_each_record_are_reported`, `gather::walk::tests::bytes_that_are_not_batches_end_the_walk_without_a_panic`.
+
+## CON-105. read_committed and read_uncommitted show different rows around an open transaction
+With a transaction open on a partition, `isolation=read_committed` stops at the last stable offset and lists none of the transaction's records; read_uncommitted lists them, each marked Above LSO. The read_committed page names the records held back, the transaction that holds them (where it began, from DescribeProducers), and what each isolation level gets. Test: `tests/live_topics::read_committed_stops_at_the_last_stable_offset_and_read_uncommitted_does_not`, `tests/boards_topics::the_empty_topic_the_filtered_read_and_the_committed_read_are_their_boards`.
+
+## CON-106. A filter is validated and a bad value is a sentence
+Partition, offset, time, key, isolation and limit come from the address (and a form of the same fields), are validated and bounded, and a value that cannot be used (negative, not a number, overflowing, a time that is not one, a key over 512 bytes, a limit over 200) is a sentence on the page and the rest of the query still works: never an error and never a 5xx. One box takes an offset when it is digits and a key otherwise. A time is milliseconds or a UTC civil time. Test: `model::query::tests::each_filter_is_read_and_written_back`, `model::query::tests::the_one_box_is_an_offset_when_it_is_digits_and_a_key_otherwise`, `model::query::tests::a_value_that_cannot_be_used_is_a_sentence_and_the_rest_still_works`, `model::query::tests::a_hostile_value_reaches_a_sentence_only_clipped_and_escaped_by_debug`, `format::read::tests::a_time_is_milliseconds_or_a_utc_civil_time`, `tests/live_topics::the_filters_find_by_key_by_offset_and_by_time_and_a_bad_value_is_a_sentence`, `tests/security::a_hostile_query_on_a_topic_page_is_a_sentence_never_markup_never_a_5xx`.
+
+## CON-107. What a read did is said, and a search says how far it looked
+Under a filtered table a sentence says how many records came, their offsets, whether the read reached the end of the partition, how many are at or above the last stable offset, and for a key search how many records it looked at and whether that was all of them. Test: `words::topics::tests::what_a_read_did_is_said_in_the_boards_words`, `words::topics::tests::a_search_that_found_nothing_says_how_much_it_looked_at`, `tests/live_topics::the_filters_find_by_key_by_offset_and_by_time_and_a_bad_value_is_a_sentence`.
+
+## CON-108. The list says what the broker holds
+Name, partitions, cleanup policy, size on disk and last write (from `partition_files`), whether a transaction is open, retention where the topic sets its own, "N segments" where a topic has more segments than partitions, and the groups that have committed offsets on it ("read by"). Internal topics are hidden; `__consumer_offsets`, which Metadata never lists, is shown as a constant row when asked for, said to be no log. The filter matches names as typed. "Written by" is not drawn: it needs the recorder. Test: `tests/boards_topics::the_list_has_the_boards_nine_topics_and_the_hidden_internal_one`, `tests/live_topics::every_route_answers_as_the_console_and_has_the_boards_parts`, `words::topics::tests::the_list_sentence_is_the_boards`, `gather::configs::tests::a_policy_is_delete_compact_or_both`.
+
+## CON-109. `ConsoleView::partition_files`: size, last write and the offline cause, lazily
+Per partition: bytes of its segments, how many segments, when the newest was last written, and why writes are refused after a failed flush. An open partition answers from its reader's snapshot; a closed one is read from its directory; nothing is opened or kept, so looking at a list does not change which partitions are open. The topic is checked for Describe with the console's caller, and an unknown topic and a refused one are not told apart. Test: `tests/view_partition_files::each_partition_reports_its_size_and_a_partition_never_written_reports_none`, `tests/view_partition_files::a_partition_that_was_closed_to_make_room_reports_the_same_from_its_directory`, `tests/view_partition_files::a_partition_whose_flush_failed_is_offline_with_the_cause_and_the_others_are_not`, `tests/view_partition_files::a_topic_the_caller_may_not_describe_or_that_does_not_exist_is_nothing`, `log::files::tests::a_log_of_several_segments_lists_each_with_its_base_and_size`, `log::files::tests::what_the_directory_says_is_what_the_open_log_says`, `log::files::tests::a_failed_flush_is_the_offline_cause_a_reader_can_read`, `log::files::tests::a_directory_that_is_not_there_has_no_segments_and_foreign_files_are_not_segments`.
+
+## CON-110. An offline partition is named with its cause, not a time
+A topic with a partition a failed flush took offline says which, what still works (reads), what is refused (KAFKA_STORAGE_ERROR, 56) and what restarting does. The broker keeps the cause and not the time of the failure, so the page does not say when. Test: `words::topics::tests::an_offline_partition_is_named_and_the_others_are_said_to_work`, `tests/boards_topics::the_partitions_and_the_offline_pages_are_their_boards`, `tests/security::hostile_names_and_values_are_inert_on_the_offline_empty_record_and_unknown_pages`.
+
+## CON-111. A record is one page, complete
+Its key, value, headers, time (and whose clock), codec, producer id, epoch and its own sequence number, the transaction it belongs to (from the coordinator while it is open) and where it stands for a read_committed consumer. A record that is not there (an offset outside the log, a partition that does not exist, a place compaction or a marker emptied) is a 404 page in the shell. Test: `tests/boards_topics::the_record_pages_show_the_text_and_the_bytes`, `tests/live_topics::a_compacted_topic_a_gzip_batch_headers_and_a_binary_value_are_shown_as_they_are`, `tests/live_topics::a_record_past_the_end_is_a_page_that_says_so_and_not_an_error`.
+
+## CON-112. The page follows the stream, and the stream's vocabulary is closed
+The list and the Messages page watch `topics-sentence`, `topics-table`, `topic-sentence` and `topic-messages`; each is also a plain GET (`/fragments/{id}` with the page's query) that answers 304 to an unchanged ETag. An id that is not in the vocabulary is refused. Until the recorder (slice 9e) the ticker is the 2 s floor timer, and the page is right without it. Test: `stream::tests::only_the_closed_vocabulary_may_be_watched`, `tests/security::the_stream_vocabulary_is_closed_and_has_the_topics_ids`, `tests/security::the_stream_takes_the_topics_ids_and_refuses_one_that_is_not_in_the_vocabulary`, `tests/live_topics_more::a_fragment_is_what_the_page_holds_and_an_unchanged_one_is_a_304`.
+
+## CON-113. Hostile keys, values, headers and names are text
+A record's key, value and header names and values, a topic name (every legal character, 249 bytes), a transaction id, an offline cause and every value of the query are shown escaped on every page and fragment: no script, no attribute break-out, no bidirectional control, no NUL, and a very long line is cut. Test: `tests/security::hostile_keys_values_headers_and_names_are_inert_on_every_topic_page`, `tests/security::hostile_topic_names_in_the_list_come_out_inert`, `tests/live_topics_more::hostile_records_headers_and_names_from_a_real_broker_are_inert_on_every_page`, `pages::topics::table::tests::a_hostile_key_and_value_are_text_in_their_cells_and_the_offset_is_the_link`.
+
+## CON-114. A refusal is Kafka's, as a client would see it
+On an ACL-on broker a principal that may describe a topic but not read it sees the topic and then "The broker refused the read: TOPIC_AUTHORIZATION_FAILED (29)."; one that may not describe it sees no such topic; one with no right at all sees an empty broker. The console itself is a super user and reads everything; the refusal is shown by acting as another caller (`Backend::acting_as`, tests and examples only). Test: `tests/live_topics_more::on_an_acl_broker_a_principal_that_may_describe_but_not_read_is_refused_in_kafkas_words`, `words::topics::tests::a_timeout_is_in_seconds_up_to_two_minutes_as_the_board_writes_it`.
+
+## CON-115. A topic name of 249 bytes fits
+The longest legal name is listed, opened and linked, and one byte more is no topic (a 404 page, no request to the broker). Test: `tests/live_topics::a_topic_name_of_249_bytes_fits_and_a_longer_one_is_no_topic`.
+
+## CON-116. The boards pass the structure gate in both renders
+The eleven boards pass `bun tools/board-diff.ts` against the fixture render and, for the ten that a real broker draws, against the live render (`target/board-diff-live/`); `topic-offline` cannot be seeded over the real file system and is fixture-rendered (the offline cause is held by `CON-109`). Every allowed difference has a reason and an `expires`. Test: `tests/boards_topics::the_list_has_the_boards_nine_topics_and_the_hidden_internal_one`, `tests/boards_topics::the_topic_page_has_the_open_transaction_the_toolbar_and_the_ten_newest`, `tests/live_topics::every_route_answers_as_the_console_and_has_the_boards_parts`.
+
+### What these boards show that the broker cannot supply yet
+
+Tagged in the code and in `debt.md` J21 to J40.
+- "On the wire" on the topic page and "What the wire recorded" on the offline page, and "written by" on the list: the recorder (slice 9e).
+- Record counts on the list rows: ListOffsets would open every partition just to draw a list; the topic page has the counts.
+- "Copy as kcat" on a record: a hostile value would be put in a command line; the page copies the value.
+- When a partition went offline: the broker keeps the cause, not the time.
+- The "Who this holds back" lede names a group and its lag: lag is slice 9c; the page says where a read_committed consumer stops.

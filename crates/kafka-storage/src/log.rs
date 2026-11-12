@@ -8,6 +8,7 @@
 
 mod append;
 mod compact;
+mod files;
 mod history;
 mod open;
 mod read;
@@ -22,6 +23,7 @@ use std::sync::Arc;
 
 use kafka_wire::ids::Offset;
 
+pub use files::{SegmentInfo, segments_on_disk};
 pub use read::LogReader;
 pub use sync::Ticket;
 pub use times::OffsetAt;

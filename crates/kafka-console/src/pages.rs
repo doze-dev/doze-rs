@@ -6,6 +6,8 @@ mod common;
 mod connect;
 mod home;
 mod notice;
+mod topics_write;
+pub mod topics;
 
 pub use advertised::{advertised, probe_advertised};
 pub use common::{PROBE_ADVERTISED, PROBE_CONNECT, PROBE_HOME, probe_fragment_url};
@@ -15,3 +17,8 @@ pub use home::{
     probe_home, sentence_fragment,
 };
 pub use notice::{not_found, planned};
+pub use topics_write::{
+    add_partitions_dialog, create_page, create_refused, created, delete_dialog,
+    delete_records_dialog, delete_records_refused, deleted_page, no_topic, produce_dialog,
+    produce_refused, produced,
+};

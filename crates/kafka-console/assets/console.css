@@ -370,3 +370,35 @@ html,body{background:#fbfaff}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 /* A card's lede keeps its look when the lede sits inside a fragment (the check) and not directly in the card. */
 .card>.frag>.lede{margin:0 0 20px;color:var(--dim);font-size:13.5px}
+/* A dialog served as a page (no script): it sits in the page, not over it. With a script it is shown in a <dialog>. */
+.modal.page{position:static;transform:none;margin:24px 0 0;max-width:760px;width:100%}
+dialog.dlg{border:0;padding:0;background:transparent;max-width:none;overflow:visible}
+dialog.dlg::backdrop{background:rgba(23,20,31,.4)}
+dialog.dlg .modal{position:relative;left:auto;top:auto;transform:none;margin:0}
+/* A field's error line and the radio rows of a form sit as the kit draws them when a real input is used. */
+.opt-row input[type=radio]{position:absolute;opacity:0;width:0;height:0}
+.opt-row:has(input:focus-visible) .radio{outline:2px solid var(--accent);outline-offset:2px}
+label.opt-row{cursor:pointer}
+.opt-row input:checked+.radio{border-color:var(--accent)}
+.opt-row input:checked+.radio::after{content:"";width:8px;height:8px;border-radius:50%;background:var(--accent)}
+.choice .opt:has(input:checked){border-color:var(--accent);box-shadow:0 0 0 3px rgba(122,79,224,.1);background:#fcfaff}
+.choice label.opt{display:block}
+/* The Send/Delete buttons are real buttons: the kit draws .btn on links, so a button takes the same box. */
+button.btn{font-family:inherit;cursor:pointer}
+/* A choice made of radio inputs drawn as the kit's segmented control, and a select drawn in the kit's box. */
+.seg label{position:relative;height:30px;padding:0 14px;border-radius:8px;display:inline-flex;align-items:center;font-size:13px;font-weight:500;color:var(--text);cursor:pointer}
+.seg label input{position:absolute;opacity:0;inset:0;margin:0;cursor:pointer}
+.seg label:has(input:checked){background:#fff;color:var(--bright);box-shadow:0 0 0 1px var(--line),0 1px 2px rgba(58,53,80,.12)}
+.seg label:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:2px}
+.input select{flex:1;min-width:0;border:0;outline:0;background:transparent;font-family:inherit;font-size:14px;color:var(--text);appearance:none;height:100%}
+.input.mono select{font-family:'JetBrains Mono',ui-monospace,Menlo,monospace;font-size:13.5px}
+.input textarea{width:100%;resize:vertical;font-family:inherit;font-size:14px;line-height:1.5}
+.input.mono textarea{font-family:'JetBrains Mono',ui-monospace,Menlo,monospace;font-size:13.5px}
+/* A toolbar that is a form (its filters are a plain GET) keeps its own box. */
+.root form.toolbar{display:flex}
+/* The title of an empty state is an h2 in the page (an h3 straight under the h1 skips a level); the kit styles the h3. */
+.empty h2{margin:0 0 8px;font-size:18px;font-weight:600;color:var(--bright)}
+/* A chip that holds a field (the time and the key of the Messages filters): as small as the board's chip until it has a value or
+   focus, then wide enough to type in. Without a script a click on the chip focuses its field. */
+.fchip input{border:0;background:transparent;font:inherit;color:inherit;min-width:0;outline:0;padding:0;width:0}
+.fchip.on input,.fchip:focus-within input{width:15ch;padding:0 0 0 4px}
