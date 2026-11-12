@@ -1,0 +1,66 @@
+//! One builder per request the console sends: typed, bounded, nothing the boards do not draw.
+
+use kafka_wire::StrBytes;
+use kafka_wire::api::Request;
+use kafka_wire::messages::list_offsets_request::{ListOffsetsPartition, ListOffsetsTopic};
+use kafka_wire::messages::{
+    DescribeTransactionsRequest, ListOffsetsRequest, ListTransactionsRequest, MetadataRequest,
+    TopicName, TransactionalId,
+};
+
+/// Metadata for every topic, creating none (the console never makes a topic by asking about it).
+#[must_use]
+pub fn metadata_all() -> Request {
+    let mut r = MetadataRequest::default();
+    r.topics = None;
+    r.allow_auto_topic_creation = false;
+    Request::Metadata(r)
+}
+
+/// Metadata for no topic: the brokers alone, which is all the advertised-listener check wants.
+#[must_use]
+pub fn metadata_brokers() -> Request {
+    let mut r = MetadataRequest::default();
+    r.topics = Some(Vec::new());
+    r.allow_auto_topic_creation = false;
+    Request::Metadata(r)
+}
+
+/// The transactions that are open (state `Ongoing`).
+#[must_use]
+pub fn list_ongoing_transactions() -> Request {
+    let mut r = ListTransactionsRequest::default();
+    r.state_filters = vec![StrBytes::from_static_str("Ongoing")];
+    Request::ListTransactions(r)
+}
+
+/// The detail of these transactional ids (at most 20: more than a page of Home would show).
+#[must_use]
+pub fn describe_transactions(ids: &[String]) -> Request {
+    let mut r = DescribeTransactionsRequest::default();
+    r.transactional_ids = ids
+        .iter()
+        .take(20)
+        .map(|id| TransactionalId(StrBytes::from_string(id.clone())))
+        .collect();
+    Request::DescribeTransactions(r)
+}
+
+/// The latest offset of one partition, as a consumer of that isolation level sees it (`read_committed` is 1: the last
+/// stable offset; `read_uncommitted` is 0: the high watermark).
+#[must_use]
+pub fn latest_offset(topic: &str, partition: i32, isolation_level: i8) -> Request {
+    let mut p = ListOffsetsPartition::default();
+    p.partition_index = partition;
+    p.current_leader_epoch = -1;
+    // -1 is "the latest offset" in ListOffsets.
+    p.timestamp = -1;
+    let mut t = ListOffsetsTopic::default();
+    t.name = TopicName(StrBytes::from_string(topic.to_owned()));
+    t.partitions = vec![p];
+    let mut r = ListOffsetsRequest::default();
+    r.replica_id = kafka_wire::messages::BrokerId(-1);
+    r.isolation_level = isolation_level;
+    r.topics = vec![t];
+    Request::ListOffsets(r)
+}

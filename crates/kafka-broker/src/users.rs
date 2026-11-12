@@ -57,6 +57,11 @@ pub(crate) fn row_of(user: &str, verifier: &Verifier) -> (CredentialId, Credenti
 pub(crate) fn load(meta: &MetaStore, users: &Users) -> Result<(), BrokerError> {
     let mut stored = users.stored().as_ref().clone();
     for (id, record) in meta.credentials()? {
+        // A row for the console's name (from a build that did not reserve it) is never put in force (SEC-240).
+        if id.user == kafka_auth::CONSOLE_USER {
+            warn!("a stored SCRAM credential for the reserved user __console is ignored");
+            continue;
+        }
         let verifier = kind_of(id.mechanism).and_then(|kind| {
             Verifier::from_parts(
                 kind,

@@ -89,6 +89,9 @@ impl<F: Fs> Broker<F> {
     /// Why `user` may not be changed by this caller, if it may not: configured at start (nobody may), or a super user
     /// (and the caller is not one). Kafka has neither rule (SEC-D50, SEC-D70).
     fn why_not_changed(&self, user: &str, caller_is_super: bool) -> Option<Failure> {
+        if user == kafka_auth::CONSOLE_USER {
+            return Some(plan::RESERVED);
+        }
         if self.users.is_bootstrap(user) {
             return Some(plan::CONFIGURED);
         }

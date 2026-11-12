@@ -2,6 +2,10 @@
 
 use std::fmt;
 
+/// The name of the console's own user (`User:__console`). It is reserved (SEC-240): no login, no stored credential and
+/// no `--acl-super-user` may carry it, so the only way to be this principal is to be the console, in the process.
+pub const CONSOLE_USER: &str = "__console";
+
 /// The identity a connection is authorized as: Kafka's `KafkaPrincipal`, written `Type:name`. Only the `User`
 /// type exists here.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -12,6 +16,18 @@ impl Principal {
     #[must_use]
     pub fn user(name: &str) -> Self {
         Self(format!("User:{name}"))
+    }
+
+    /// The console's own principal, `User:__console`: a super user of the broker that holds it, and nobody else.
+    #[must_use]
+    pub fn console() -> Self {
+        Self::user(CONSOLE_USER)
+    }
+
+    /// Whether `principal` (written `Type:name`) is the console's.
+    #[must_use]
+    pub fn is_console(principal: &str) -> bool {
+        principal.strip_prefix("User:") == Some(CONSOLE_USER)
     }
 
     /// The principal of a connection that was never asked to log in (`User:ANONYMOUS`, as on a Kafka listener

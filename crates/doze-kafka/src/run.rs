@@ -27,7 +27,23 @@ pub(crate) fn logging(args: &Args) {
 /// Opens the broker, serves until told to stop, then stops cleanly: the server first, so nothing new arrives, then
 /// the broker, which flushes every partition and records that it did.
 pub(crate) async fn serve(settings: Settings) -> Result<()> {
-    let Settings { broker, server, .. } = settings;
+    let Settings {
+        broker,
+        server,
+        console,
+        ..
+    } = settings;
+    // The console's address is had before anything is opened: one the operator chose that cannot be bound stops the start.
+    #[cfg(feature = "console")]
+    let console_listener = match crate::web::bind(&console).await {
+        Ok(bound) => bound,
+        Err(e) => {
+            eprintln!("Error: {e:#}");
+            std::process::exit(2);
+        }
+    };
+    #[cfg(not(feature = "console"))]
+    let _ = &console;
     let broker = Arc::new(Broker::open(RealFs, broker).context("opening the broker's data")?);
     // The users stored over the API are loaded now, so only now is it known whether anybody can log in.
     if let Some(sasl) = &server.sasl {
@@ -50,8 +66,18 @@ pub(crate) async fn serve(settings: Settings) -> Result<()> {
     let _logs = broker.start_log_sweeper();
     let _cleaner = broker.start_log_cleaner();
     let _control = crate::control::serve(&broker);
+    #[cfg(feature = "console")]
+    let web = console_listener
+        .map(|bound| bound.serve(&console, &server, &running, &broker))
+        .transpose()
+        .context("starting the console")?;
     stopped().await;
     tracing::info!("stopping");
+    // The console first: nothing it shows or does outlives the broker it reads.
+    #[cfg(feature = "console")]
+    if let Some(web) = web {
+        web.shutdown().await;
+    }
     running.shutdown().await;
     broker.shutdown().await.context("stopping the broker")?;
     tracing::info!("stopped");

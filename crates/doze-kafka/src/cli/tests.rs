@@ -32,7 +32,13 @@ fn the_flags_the_conformance_harness_passes_are_all_accepted() {
     let parsed = args(&passed).unwrap();
     let settings = parsed.settings().unwrap();
     assert_eq!(settings.server.listen.port(), 45123);
-    assert_eq!(parsed.ignored(), ["--console"]);
+    // With a console in the build the console flags are acted on; without one they are named as ignored.
+    let ignored: &[&str] = if cfg!(feature = "console") {
+        &[]
+    } else {
+        &["--console", "--console-addr"]
+    };
+    assert_eq!(parsed.ignored(), ignored);
     assert!(!settings.broker.acl_default_allow);
     assert_eq!(
         settings

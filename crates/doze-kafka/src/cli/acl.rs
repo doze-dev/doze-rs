@@ -47,6 +47,13 @@ pub(super) fn super_users(flags: &[String]) -> Result<BTreeSet<String>> {
                 "config: acl super user {principal:?} must be written Type:name, such as User:admin"
             );
         }
+        // The console's principal is a super user of every broker already, and naming it here would only make it look
+        // like something an operator controls (SEC-240).
+        if kafka_auth::Principal::is_console(principal) {
+            bail!(
+                "config: acl super user {principal:?} is reserved: the web console's own principal is always a super user of the broker, and cannot be named here"
+            );
+        }
         out.insert(principal.to_owned());
     }
     Ok(out)
@@ -72,6 +79,21 @@ mod tests {
         assert_eq!(users(&["User:a", "User:b;User:a"]).unwrap(), want);
         // Empty parts are skipped as before.
         assert_eq!(users(&[";User:a,;"]).unwrap(), ["User:a"]);
+    }
+
+    #[test]
+    fn the_consoles_own_principal_cannot_be_named_as_a_super_user() {
+        for flag in [
+            "User:__console",
+            "User:a,User:__console",
+            "User:a;User:__console",
+        ] {
+            let message = users(&[flag]).unwrap_err().to_string();
+            assert!(message.contains("is reserved"), "{flag}: {message}");
+        }
+        // Another name that merely looks like it is an ordinary one.
+        assert_eq!(users(&["User:__console2"]).unwrap(), ["User:__console2"]);
+        assert_eq!(users(&["Group:__console"]).unwrap(), ["Group:__console"]);
     }
 
     #[test]

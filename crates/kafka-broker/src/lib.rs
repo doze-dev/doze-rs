@@ -24,6 +24,8 @@ mod topics;
 mod txn;
 mod txn_index;
 mod users;
+#[cfg(feature = "inspect")]
+mod view;
 
 pub use broker::Broker;
 pub use caller::Caller;
@@ -32,3 +34,5 @@ pub(crate) use configs::Live;
 pub use error::BrokerError;
 pub use listener::Listener;
 pub use outcome::Outcome;
+#[cfg(feature = "inspect")]
+pub use view::{ConsoleView, Instance, LastStop, Process};

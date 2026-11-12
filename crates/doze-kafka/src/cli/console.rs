@@ -1,31 +1,52 @@
-//! The console's flags and the start-up rule that needs no console to hold.
+//! The console's flags and the start-up rule on them.
 //!
-//! The console arrives with Phase 9, so `--console-allow-host` and `--console-unprotected` are parsed, checked and
-//! kept, and nothing listens for them to act on. What exists already is the rule on their inputs: with SASL or TLS
-//! on, a console address that other machines can reach is refused unless `--console-unprotected` accepts it (the
-//! console has no login, is plain HTTP and would act as a super user), and the choices that leave something open are
-//! reported once at start. The words are the Go edition's.
+//! `--console`, `--console-addr`, `--console-prefix`, `--console-allow-host` and `--console-unprotected` are parsed and
+//! checked here and acted on by `web.rs` (a build with the `console` feature serves a console; one without says the
+//! flags are ignored). The rule on their inputs: with SASL or TLS on, a console address that other machines can reach
+//! is refused unless `--console-unprotected` accepts it (the console has no login, is plain HTTP and would act as a
+//! super user), and the choices that leave something open are reported once at start. The words are the Go edition's.
 
 use std::net::{IpAddr, SocketAddr};
 
 use anyhow::{Result, bail};
 
 /// What the console flags come to.
-#[derive(Debug, Default, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 pub(crate) struct Console {
-    /// `--console-addr`, if given.
+    /// `--console`: false only for `--console=false`.
+    pub(crate) enabled: bool,
+    /// `--console-addr`, if given (the default, `127.0.0.1:9093`, is not an address the operator chose).
     pub(crate) addr: Option<String>,
+    /// `--console-prefix`: the path the console is served under (`/` is the root).
+    pub(crate) prefix: String,
     /// `--console-allow-host`: the names, besides loopback ones and addresses, the console answers to (`*` = all).
     pub(crate) allow_hosts: Vec<String>,
     /// `--console-unprotected`.
     pub(crate) unprotected: bool,
 }
 
+impl Default for Console {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            addr: None,
+            prefix: "/".to_owned(),
+            allow_hosts: Vec::new(),
+            unprotected: false,
+        }
+    }
+}
+
+#[cfg_attr(not(feature = "console"), allow(dead_code))]
+/// The address the console listens on when `--console-addr` is not given: the Kafka port plus one, on loopback.
+pub(crate) const DEFAULT_ADDR: &str = "127.0.0.1:9093";
+
 /// What the rule looks at.
 pub(super) struct Input<'a> {
     /// `--console`: `false` turns the console off; absent or anything else leaves it on.
     pub(super) console: Option<&'a str>,
     pub(super) addr: Option<&'a str>,
+    pub(super) prefix: &'a str,
     pub(super) allow_hosts: &'a [String],
     pub(super) unprotected: bool,
     pub(super) sasl: bool,
@@ -87,8 +108,13 @@ pub(super) fn setup(input: &Input<'_>) -> Result<(Console, Vec<String>)> {
         .map(|h| h.trim().to_owned())
         .filter(|h| !h.is_empty())
         .collect();
+    if on {
+        check_prefix(input.prefix)?;
+    }
     let console = Console {
+        enabled: on,
         addr: input.addr.map(str::to_owned),
+        prefix: input.prefix.to_owned(),
         allow_hosts,
         unprotected: input.unprotected,
     };
@@ -120,5 +146,26 @@ fn beyond_loopback(addr: &str) -> bool {
     match host.parse::<IpAddr>() {
         Ok(ip) => !ip.is_loopback(),
         Err(_) => !host.eq_ignore_ascii_case("localhost"),
+    }
+}
+
+/// `--console-prefix` is a path: letters, digits, `-`, `_`, `.`, `~` and `/`, no empty step inside it and no `.` or `..`
+/// step. A leading and a trailing slash are not significant (`kafka`, `/kafka/` and `/kafka` are one prefix).
+fn check_prefix(prefix: &str) -> Result<()> {
+    let inner = prefix.trim_matches('/');
+    let chars = inner
+        .bytes()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.' | b'~' | b'/'));
+    let steps = inner.is_empty()
+        || inner
+            .split('/')
+            .all(|s| !s.is_empty() && s != "." && s != "..");
+    let ok = chars && steps;
+    if ok {
+        Ok(())
+    } else {
+        bail!(
+            "config: console prefix {prefix:?} must be a path of letters, digits, - _ . ~ and / (for example /kafka), with no empty or . or .. step"
+        )
     }
 }

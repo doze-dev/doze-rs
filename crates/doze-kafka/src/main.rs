@@ -6,6 +6,8 @@ mod descriptors;
 mod duration;
 mod lock;
 mod run;
+#[cfg(feature = "console")]
+mod web;
 
 use anyhow::Result;
 use clap::Parser;
@@ -57,10 +59,12 @@ fn main() -> Result<()> {
         tracing::warn!("{warning}");
     }
     tracing::debug!(
-        console = ?settings.console.addr,
+        console = settings.console.enabled,
+        addr = ?settings.console.addr,
+        prefix = %settings.console.prefix,
         allow_hosts = ?settings.console.allow_hosts,
         unprotected = settings.console.unprotected,
-        "console flags (no console to serve before Phase 9)"
+        "console flags"
     );
     let _lock = lock::DataDirLock::take(&args.data_dir)?;
     let runtime = tokio::runtime::Builder::new_multi_thread()

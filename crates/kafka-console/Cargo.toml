@@ -11,6 +11,37 @@ publish.workspace = true
 [lints]
 workspace = true
 
+[features]
+# The "larder" world of the design boards as view-models, and the example that serves it with no broker. The tests
+# have it always; a release build does not.
+examples = []
+
 [dependencies]
 kafka-wire = { path = "../kafka-wire" }
-kafka-broker = { path = "../kafka-broker" }
+kafka-broker = { path = "../kafka-broker", features = ["inspect"] }
+kafka-storage = { path = "../kafka-storage" }
+kafka-auth = { path = "../kafka-auth" }
+# The HTTP server and router: no default features (no macros, no json, no tracing, no HTTP/2, no websockets), only
+# what the pages need.
+axum = { version = "0.8", default-features = false, features = ["tokio", "http1"] }
+# Compile-time HTML: it expands to string pushes, so it costs no runtime and no dependency of its own at run time.
+maud = "0.27"
+bytes = "1"
+tokio = { version = "1", default-features = false, features = ["rt", "net", "time", "sync", "macros", "io-util"] }
+tokio-util = { version = "0.7", default-features = false }
+futures-util = { version = "0.3", default-features = false }
+tracing = "0.1"
+
+[dev-dependencies]
+# The fixtures and the example the integration tests render pages from.
+kafka-console = { path = ".", features = ["examples"] }
+kafka-server = { path = "../kafka-server" }
+kafka-storage = { path = "../kafka-storage", features = ["sim"] }
+# `oneshot` on a Router, and the bodies of its answers.
+tower = { version = "0.5", default-features = false, features = ["util"] }
+http-body-util = "0.1"
+tokio = { version = "1", default-features = false, features = ["rt", "rt-multi-thread", "net", "time", "sync", "macros", "io-util", "signal", "test-util"] }
+
+[[example]]
+name = "boards"
+required-features = ["examples"]

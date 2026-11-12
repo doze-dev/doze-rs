@@ -1,6 +1,6 @@
 //! The command line.
 //!
-//! The flags that matter are here. The ones of parts that come in later phases (the console) are
+//! The flags that matter are here. The ones of parts that come in later phases (the schema registry's) are
 //! accepted and ignored, hidden from the help, so that the conformance harness, which passes them all, can run the
 //! scenarios of the parts that exist. A flag that would make the broker safer or different in a way a user would
 //! rely on is refused instead when it cannot be honoured: a broker that ignored `--tls-cert` would send in the
@@ -137,20 +137,26 @@ pub(crate) struct Args {
     #[arg(long, value_name = "PRINCIPAL")]
     acl_super_user: Vec<String>,
 
-    // Accepted and ignored until the phase that has them.
+    // Accepted and ignored until the phase that has it.
     #[arg(long, hide = true)]
     meta_db: Option<String>,
-    #[arg(long, hide = true, num_args = 0..=1, default_missing_value = "true")]
+    /// The web console: on unless `--console=false`. It listens beside the broker, in the same process, and shows what the
+    /// broker holds. A build without the `console` feature accepts the flag and serves none.
+    #[arg(long, num_args = 0..=1, default_missing_value = "true", value_name = "BOOL")]
     console: Option<String>,
-    #[arg(long, hide = true)]
+    /// Where the console listens (default 127.0.0.1:9093: the Kafka port plus one, on this machine only). If the default
+    /// port is busy the broker runs without a console and says so; an address you give that cannot be bound stops the start.
+    #[arg(long, value_name = "HOST:PORT")]
     console_addr: Option<String>,
+    /// The path the console is served under, for a proxy that forwards it as it is (default `/`; every link follows it).
+    #[arg(long, value_name = "PATH", default_value = "/")]
+    console_prefix: String,
     /// A host name the console answers to besides localhost and IP addresses (repeatable, or comma separated; `*`
-    /// turns the check off). It guards against DNS rebinding. The console arrives with Phase 9: today the flag is
-    /// checked and kept, and nothing listens for it to guard.
+    /// turns the check off). It guards against DNS rebinding: a request for any other `Host` is refused with 403.
     #[arg(long, value_name = "HOST", value_delimiter = ',')]
     console_allow_host: Vec<String>,
     /// Accept serving the console beyond loopback although SASL or TLS is on (it has no login and is plain HTTP, so
-    /// without this that start is refused). The console arrives with Phase 9: today only the start-up rule uses it.
+    /// without this that start is refused). Every page then says it is served beyond loopback with no login.
     #[arg(long)]
     console_unprotected: bool,
 
@@ -176,7 +182,7 @@ pub(crate) struct Args {
 pub(crate) struct Settings {
     pub(crate) broker: BrokerConfig,
     pub(crate) server: ServerConfig,
-    /// The console flags (nothing serves a console before Phase 9).
+    /// The console flags (`web.rs` serves the console they describe).
     pub(crate) console: Console,
     /// What the operator chose that leaves something open, to be said once at start.
     pub(crate) warnings: Vec<String>,
@@ -269,6 +275,7 @@ impl Args {
         console::setup(&console::Input {
             console: self.console.as_deref(),
             addr: self.console_addr.as_deref(),
+            prefix: &self.console_prefix,
             allow_hosts: &self.console_allow_host,
             unprotected: self.console_unprotected,
             sasl,
@@ -317,25 +324,35 @@ impl Args {
         Ok(())
     }
 
-    /// The flags of later parts that were given a value and are being ignored, for a warning.
+    /// The flags of later parts that were given a value and are being ignored, for a warning. A build without the
+    /// `console` feature has no console, so it names the console flags that were given.
     pub(crate) fn ignored(&self) -> Vec<&'static str> {
-        let mut out = Vec::new();
-        if self.console.as_deref().is_some_and(|v| v != "false") {
-            out.push("--console");
+        if cfg!(feature = "console") {
+            return Vec::new();
         }
-        if !self.console_allow_host.is_empty() {
-            out.push("--console-allow-host");
-        }
-        if self.console_unprotected {
-            out.push("--console-unprotected");
-        }
-        out
+        let given = [
+            (
+                self.console.as_deref().is_some_and(|v| v != "false"),
+                "--console",
+            ),
+            (self.console_addr.is_some(), "--console-addr"),
+            (self.console_prefix != "/", "--console-prefix"),
+            (!self.console_allow_host.is_empty(), "--console-allow-host"),
+            (self.console_unprotected, "--console-unprotected"),
+        ];
+        given
+            .into_iter()
+            .filter(|(on, _)| *on)
+            .map(|(_, name)| name)
+            .collect()
     }
 }
 
 mod acl;
 mod console;
 pub(crate) use console::Console;
+#[cfg(feature = "console")]
+pub(crate) use console::DEFAULT_ADDR as DEFAULT_CONSOLE_ADDR;
 mod sasl;
 pub(crate) use sasl::NO_USERS;
 mod tls;
