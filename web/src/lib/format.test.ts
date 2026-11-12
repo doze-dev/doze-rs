@@ -55,3 +55,14 @@ describe("recents", () => {
     expect(parseRecents(JSON.stringify([{ kind: "topic", label: "x", to: "javascript:alert(1)" }, { kind: "page", label: "Home", to: "/" }]))).toEqual([{ kind: "page", label: "Home", to: "/" }]);
   });
 });
+
+import { connectSearch, gallerySearch } from "./search";
+
+describe("search params", () => {
+  test("only allowed values survive", () => {
+    expect(connectSearch({ as: "properties" })).toEqual({ as: "properties" });
+    expect(connectSearch({ as: "<img>" })).toEqual({ as: undefined });
+    expect(gallerySearch({ tab: "config", rows: 1000, density: "x", record: "r7" })).toEqual({ tab: "config", rows: "1000", density: undefined, record: "r7" });
+    expect(gallerySearch({ record: "x".repeat(65) }).record).toBeUndefined();
+  });
+});

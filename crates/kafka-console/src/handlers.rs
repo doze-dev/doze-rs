@@ -14,7 +14,7 @@ mod live;
 mod log;
 mod overlays;
 mod pages;
-mod plain;
+pub mod plain;
 mod settings;
 mod story;
 mod topics;

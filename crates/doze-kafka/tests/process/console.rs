@@ -109,7 +109,22 @@ fn the_console_serves_its_pages_beside_the_broker_and_refuses_what_it_should() {
     let data = scratch("console-serves");
     let mut broker = start(&data);
     let addr = console_addr(&broker);
-    let home = http(&addr, &format!("GET / HTTP/1.1\r\nHost: {addr}"), "");
+    let spa = http(
+        &addr,
+        &format!("GET /topics/orders HTTP/1.1\r\nHost: {addr}"),
+        "",
+    );
+    assert!(spa.starts_with("HTTP/1.1 200"), "{spa}");
+    assert!(
+        spa.contains("<meta name=\"doze-base\""),
+        "the React console answers every page address: {spa}"
+    );
+    // The classic console, until slice R5.
+    let home = http(
+        &addr,
+        &format!("GET /classic/ HTTP/1.1\r\nHost: {addr}"),
+        "",
+    );
     assert!(home.starts_with("HTTP/1.1 200"), "{home}");
     assert!(
         home.contains(&format!("127.0.0.1:{}", broker.port)),
@@ -121,13 +136,17 @@ fn the_console_serves_its_pages_beside_the_broker_and_refuses_what_it_should() {
         "{home}"
     );
     assert!(
-        http(&addr, &format!("GET /connect HTTP/1.1\r\nHost: {addr}"), "")
-            .starts_with("HTTP/1.1 200")
+        http(
+            &addr,
+            &format!("GET /classic/connect HTTP/1.1\r\nHost: {addr}"),
+            ""
+        )
+        .starts_with("HTTP/1.1 200")
     );
     let foreign = http(&addr, "GET / HTTP/1.1\r\nHost: evil.example", "");
     assert!(foreign.starts_with("HTTP/1.1 403"), "{foreign}");
     assert!(foreign.contains("--console-allow-host"), "{foreign}");
-    let post = format!("POST /connect/advertised/check HTTP/1.1\r\nHost: {addr}");
+    let post = format!("POST /classic/connect/advertised/check HTTP/1.1\r\nHost: {addr}");
     let bare = http(&addr, &post, "back=home");
     assert!(
         bare.starts_with("HTTP/1.1 403"),
@@ -161,7 +180,7 @@ fn a_stopping_broker_does_not_wait_for_an_open_console_stream() {
         .unwrap();
     write!(
         stream,
-        "GET /events?tail=live HTTP/1.1\r\nHost: {addr}\r\n\r\n"
+        "GET /classic/events?tail=live HTTP/1.1\r\nHost: {addr}\r\n\r\n"
     )
     .unwrap();
     let mut seen = Vec::new();
@@ -231,12 +250,12 @@ fn a_prefix_moves_every_page_under_it() {
     let addr = console_addr(&broker);
     let under = http(
         &addr,
-        &format!("GET /kafka/connect HTTP/1.1\r\nHost: {addr}"),
+        &format!("GET /kafka/classic/connect HTTP/1.1\r\nHost: {addr}"),
         "",
     );
     assert!(under.starts_with("HTTP/1.1 200"), "{under}");
     assert!(
-        under.contains("href=\"/kafka/connect/advertised\""),
+        under.contains("href=\"/kafka/classic/connect/advertised\""),
         "{under}"
     );
     let bare = http(&addr, &format!("GET /connect HTTP/1.1\r\nHost: {addr}"), "");

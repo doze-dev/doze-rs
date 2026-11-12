@@ -1,11 +1,12 @@
 // bun run build: the Vite build into crates/kafka-console/web-dist/, then what the Rust side needs from it:
-//   1. a .gz beside every text file (level 9; the server sends it as it is to a client that accepts gzip),
+//   1. a .gz beside every text file, made by the same `pack` as the classic assets (tools/assets-compress.ts); the server
+//      serves both kinds through `handlers::plain::packed` (gzip as it is, inflated for a client that does not accept it),
 //   2. web-dist/manifest.rs: one include_bytes! line per file (the .gz where there is one), included by src/web.rs,
 //   3. web-dist/source-hash.txt: the hash of the web/ sources (scripts/source-hash.ts), which a Rust test checks.
 // It fails if index.html carries an inline script or a script file evaluates strings: the CSP forbids both.
-import { gzipSync } from "bun";
 import { readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join, relative, sep } from "node:path";
+import { pack } from "../../tools/assets-compress.ts";
 import { sourceHash } from "./source-hash.ts";
 
 const web = join(import.meta.dir, "..");
@@ -53,13 +54,13 @@ for (const rel of files) {
   if (ext === "js" && /\beval\(|new Function\(/.test(bytes.toString())) problems.push(`${rel}: evaluates a string (the CSP forbids it)`);
   let path = rel;
   if (text) {
-    const gz = gzipSync(bytes, { level: 9 });
+    const gz = pack(bytes);
     writeFileSync(join(dist, `${rel}.gz`), gz);
     embedded += gz.length;
     path = `${rel}.gz`;
   } else embedded += bytes.length;
   lines.push(
-    `    WebFile {\n        path: ${JSON.stringify(rel)},\n        content_type: ${JSON.stringify(type)},\n        gzip: ${text},\n        bytes: include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), ${JSON.stringify(`/web-dist/${path}`)})),\n    },`,
+    `    (\n        ${JSON.stringify(rel)},\n        Served {\n            content_type: ${JSON.stringify(type)},\n            bytes: include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), ${JSON.stringify(`/web-dist/${path}`)})),\n            gzip: ${text},\n        },\n    ),`,
   );
 }
 if (problems.length) {
@@ -68,7 +69,7 @@ if (problems.length) {
 }
 writeFileSync(
   join(dist, "manifest.rs"),
-  `// Written by web/scripts/build.ts (bun run build in web/). Do not edit.\n\n/// Every file of the bundle.\npub const FILES: &[WebFile] = &[\n${lines.join("\n")}\n];\n`,
+  `// Written by web/scripts/build.ts (bun run build in web/). Do not edit.\n\n/// Every file of the bundle.\npub const FILES: &[(&str, Served)] = &[\n${lines.join("\n")}\n];\n`,
 );
 writeFileSync(join(dist, "source-hash.txt"), `${sourceHash(web)}\n`);
 // Vite's own copy of the public dir name list is not needed; nothing else is left behind.

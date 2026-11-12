@@ -19,7 +19,7 @@ use tokio::sync::Semaphore;
 use tokio::task::{JoinHandle, JoinSet};
 use tokio_util::sync::CancellationToken;
 
-use crate::app::router;
+use crate::app::console;
 use crate::base::Base;
 use crate::headers::security_headers;
 use crate::limits::{Limits, refusal_bytes, request_timeout};
@@ -82,15 +82,15 @@ pub fn start_with(
 ) -> io::Result<Running> {
     let addr = listener.local_addr()?;
     let stop = CancellationToken::new();
-    let state = State::with_limits(
+    let state = State::console(
         source,
-        Base::new(&settings.prefix),
+        &Base::new(&settings.prefix),
         settings.allow_hosts,
         stop.clone(),
         &limits,
     );
     // The timeout is outside the router's layers, so its 408 is given the security headers by the layer over it.
-    let app = router(state.clone())
+    let app = console(state.clone())
         .layer(from_fn_with_state(limits.request_timeout, request_timeout))
         .layer(from_fn(security_headers));
     let task = tokio::spawn(accept_loop(listener, app, stop.clone(), limits));

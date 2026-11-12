@@ -9,6 +9,7 @@
 pub mod access_words;
 pub mod acl_words;
 pub mod actions;
+pub mod api;
 pub mod app;
 pub mod assets;
 pub mod backend;
@@ -90,6 +91,7 @@ pub mod teach;
 pub mod trail;
 pub mod ui;
 pub mod validate;
+pub mod web;
 pub mod words;
 pub mod write_source;
 

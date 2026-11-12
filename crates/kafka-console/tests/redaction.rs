@@ -2,7 +2,7 @@
 //! with a planted password, fail a login with another, produce a record whose key, value and header are planted, change a secret
 //! config and a SCRAM credential, and then every place the recorder's knowledge can surface is searched for the plants: the
 //! recorder's own Debug, every row and every detail, every page of Live, the drawers, the docks, the clients and the first
-//! request.
+//! request; and every JSON answer of the React console's API (slice R0).
 #![allow(
     clippy::too_many_lines,
     clippy::unwrap_used,
@@ -204,6 +204,26 @@ async fn no_planted_secret_reaches_the_recorder_the_stream_or_a_page() {
     for path in &paths {
         let (_, html) = page(&app, get(path)).await;
         corpus.push(html);
+    }
+    // The React console's JSON API (slice R0): every GET endpoint, over the same broker and recorder.
+    let live = Live::new(w.backend.clone(), w.facts.clone()).with_recorder(Arc::clone(&recorder));
+    let web = kafka_console::app::console(State::console(
+        Source::Live(Box::new(live)),
+        &Base::root(),
+        vec![],
+        CancellationToken::new(),
+        &kafka_console::Limits::default(),
+    ));
+    for path in kafka_console::api::GET_PATHS {
+        let req = axum::http::Request::builder()
+            .uri(*path)
+            .header(axum::http::header::HOST, support::HOST)
+            .header("x-console", "1")
+            .body(axum::body::Body::empty())
+            .unwrap();
+        let (status, json) = page(&web, req).await;
+        assert_eq!(status, axum::http::StatusCode::OK, "{path}: {json}");
+        corpus.push(json);
     }
     // The stream carries fragment ids and nothing else (its own test); the pages above are what it makes the browser fetch.
     for plant in [PASSWORD, WRONG, VALUE, KEY, HEADER, CONFIG, SALTED] {

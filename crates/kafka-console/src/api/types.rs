@@ -8,7 +8,9 @@ use std::path::PathBuf;
 
 use ts_rs::{Config, TS};
 
-use super::{ApiError, ConnectResponse, ConnectWords, HomeResponse, HomeWords, JumpView, ShellView};
+use super::{
+    ApiError, ConnectResponse, ConnectWords, HomeResponse, HomeWords, JumpView, ShellView,
+};
 use crate::model::{
     Access, Attention, ClientSnippet, ConnectView, HeldBack, HomeState, HomeView, InstanceView,
     ProbeView, Rule, Span, SpokeView, StopView, Tok, Verdict,
@@ -73,7 +75,10 @@ fn the_typescript_types_of_the_api_are_current() {
         }
     }
     let mut extra = Vec::new();
-    for entry in std::fs::read_dir(&dir).expect("read the types directory").flatten() {
+    for entry in std::fs::read_dir(&dir)
+        .expect("read the types directory")
+        .flatten()
+    {
         let name = entry.file_name().to_string_lossy().into_owned();
         if name.ends_with(".ts") && !want.contains_key(&name) {
             extra.push(name);

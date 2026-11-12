@@ -24,9 +24,28 @@ use kafka_console::ui::shell::{Chrome, Crumb, Page, Rail, document};
 use kafka_console::ui::table::{Column, table};
 use maud::{Markup, html};
 
+/// The Refresh control's stamp is the time of the render (wall clock): the golden file holds a fixed one, or the test fails
+/// whenever it is run at another second.
+fn stamp_free(text: &str) -> String {
+    const OPEN: &str = "<time data-stamp data-vary datetime=\"";
+    let mut out = String::with_capacity(text.len());
+    let mut rest = text;
+    while let Some(at) = rest.find(OPEN) {
+        out.push_str(&rest[..at]);
+        let after = &rest[at..];
+        let end = after
+            .find("</time>")
+            .map_or(after.len(), |e| e + "</time>".len());
+        out.push_str("<time data-stamp data-vary datetime=\"2026-01-01T00:00:00Z\" title=\"UTC\">00:00:00</time>");
+        rest = &after[end..];
+    }
+    out.push_str(rest);
+    out
+}
+
 /// Compares `markup` with `tests/golden/<name>.html`, one element per line so a diff reads.
 fn golden(name: &str, markup: &Markup) {
-    let text = markup.0.replace("><", ">\n<") + "\n";
+    let text = stamp_free(&(markup.0.replace("><", ">\n<") + "\n"));
     let path = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("tests/golden")
         .join(format!("{name}.html"));

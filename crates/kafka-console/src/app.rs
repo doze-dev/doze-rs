@@ -2,9 +2,14 @@
 //! security headers, then the host guard, then the same-origin proof, then the body limit.
 
 use axum::Router;
+use axum::body::Body;
 use axum::extract::DefaultBodyLimit;
+use axum::extract::{Request, State};
+use axum::http::{Method as HttpMethod, StatusCode};
 use axum::middleware::{from_fn, from_fn_with_state};
+use axum::response::{IntoResponse, Response};
 use axum::routing::{MethodRouter, get, post};
+use tower::ServiceExt as _;
 
 use crate::guard::{MAX_BODY, body_limit, host_guard, same_origin};
 use crate::handlers;
@@ -91,7 +96,54 @@ fn method_router(route: &Route) -> MethodRouter<Shared> {
     }
 }
 
-/// The console's router.
+/// The whole console at `state.web` (`--console-prefix`): the React console (its API, its files, and `index.html` for every
+/// other GET, so a deep link works) and the classic console under `state.base` (`{prefix}/classic`) until slice R5. The
+/// security headers, the host guard and the body limit stand in front of all of it; the API has its own proof
+/// (`api::guard`), the classic console keeps every layer of [`router`].
+pub fn console(state: Shared) -> Router {
+    let classic = router(state.clone());
+    let web = state.web.clone();
+    crate::api::routes(&web)
+        .route(&web.url("/healthz"), get(handlers::health))
+        .fallback(move |s: State<Shared>, req: Request| dispatch(s, classic.clone(), req))
+        .layer(DefaultBodyLimit::max(MAX_BODY))
+        .layer(from_fn(body_limit))
+        .layer(from_fn_with_state(state.clone(), host_guard))
+        .layer(from_fn(security_headers))
+        .with_state(state)
+}
+
+/// Where a request no API route took goes: the classic console, an API 404, a file of the bundle, or `index.html`.
+async fn dispatch(State(s): State<Shared>, classic: Router, req: Request<Body>) -> Response {
+    let path = req.uri().path().to_owned();
+    let Some(rest) = s.web.strip(&path) else {
+        return classic.oneshot(req).await.into_response();
+    };
+    let under = |p: &str| rest == p || rest.starts_with(&format!("{p}/"));
+    if under("/classic") {
+        return classic.oneshot(req).await.into_response();
+    }
+    if under("/api") {
+        return crate::api::not_found();
+    }
+    if req.method() != HttpMethod::GET && req.method() != HttpMethod::HEAD {
+        return crate::api::error(
+            StatusCode::METHOD_NOT_ALLOWED,
+            "METHOD_NOT_ALLOWED",
+            "This address only answers GET.",
+        );
+    }
+    let file = rest.trim_start_matches('/');
+    if let Some(res) = s.bundle.file(file, req.headers()) {
+        return res;
+    }
+    if under("/assets") {
+        return (StatusCode::NOT_FOUND, "no such file\n").into_response();
+    }
+    s.bundle.index()
+}
+
+/// The classic console's router.
 pub fn router(state: Shared) -> Router {
     let mut routes: Router<Shared> = Router::new();
     for route in ROUTES {

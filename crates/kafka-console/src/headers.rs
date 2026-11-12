@@ -12,7 +12,7 @@ use axum::response::Response;
 /// The policy, as a literal that `concat!` can join.
 macro_rules! csp {
     () => {
-        "default-src 'self'; style-src 'self' 'unsafe-inline'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
+        "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
     };
 }
 

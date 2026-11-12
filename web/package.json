@@ -6,8 +6,8 @@
   "scripts": {
     "dev": "bunx --bun vite",
     "build": "bun scripts/build.ts",
-    "typecheck": "tsc -b --noEmit",
-    "lint": "eslint --max-warnings 0 .",
+    "typecheck": "bunx --bun tsc -b --noEmit",
+    "lint": "bunx --bun eslint --max-warnings 0 .",
     "test": "bun test src"
   },
   "dependencies": {

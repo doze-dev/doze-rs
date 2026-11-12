@@ -85,32 +85,39 @@ pub fn not_found() -> Response {
 
 /// The proof every API request must carry (see the module text).
 pub async fn guard(req: Request, next: Next) -> Response {
+    if let Some(refused) = refusal(&req) {
+        return refused;
+    }
+    next.run(req).await
+}
+
+/// Why [`guard`] refuses a request, if it does.
+fn refusal(req: &Request) -> Option<Response> {
     let header = |name: &HeaderName| req.headers().get(name).and_then(|v| v.to_str().ok());
     if header(&HeaderName::from_static(PROOF_HEADER)) != Some("1") {
-        return error(
+        return Some(error(
             StatusCode::FORBIDDEN,
             "FORBIDDEN",
             "The console's API answers only its own pages, which send the header X-Console: 1.",
-        );
+        ));
     }
     if let Some(site) = header(&FETCH_SITE)
         && !site.trim().eq_ignore_ascii_case("same-origin")
     {
-        return error(
+        return Some(error(
             StatusCode::FORBIDDEN,
             "FORBIDDEN",
             origin::Refusal::CrossSite.words(),
-        );
+        ));
     }
-    if let Err(why) = origin::check(
+    origin::check(
         req.method().as_str(),
         header(&ORIGIN),
         header(&FETCH_SITE),
         header(&HOST),
-    ) {
-        return error(StatusCode::FORBIDDEN, "FORBIDDEN", why.words());
-    }
-    next.run(req).await
+    )
+    .err()
+    .map(|why| error(StatusCode::FORBIDDEN, "FORBIDDEN", why.words()))
 }
 
 /// The words of Home that Rust already decides (the boards' copy), so the page does not say them a second way.
@@ -237,11 +244,17 @@ pub struct JumpView {
 pub const JUMP_MOST: usize = 200;
 
 async fn home(State(s): State<Shared>) -> Response {
-    json(StatusCode::OK, &HomeResponse::new(s.source.home(None).await))
+    json(
+        StatusCode::OK,
+        &HomeResponse::new(s.source.home(None).await),
+    )
 }
 
 async fn connect(State(s): State<Shared>) -> Response {
-    json(StatusCode::OK, &ConnectResponse::new(s.source.connect().await))
+    json(
+        StatusCode::OK,
+        &ConnectResponse::new(s.source.connect().await),
+    )
 }
 
 /// `POST /api/v1/probe`: run the advertised-listener check now.
@@ -279,11 +292,12 @@ async fn jump(State(s): State<Shared>, RawQuery(query): RawQuery) -> Response {
     let want = q.to_lowercase();
     let topics: Vec<String> = s
         .source
-        .topics(&q, false, None)
+        .topics("", false, None)
         .await
         .rows
         .into_iter()
         .map(|r| r.name)
+        .filter(|t| want.is_empty() || t.to_lowercase().contains(&want))
         .collect();
     let groups: Vec<String> = s
         .source
