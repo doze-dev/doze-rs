@@ -1,5 +1,6 @@
 //! The handlers: each asks the source for a model, renders it, and answers.
 
+mod config;
 mod fragments;
 mod groups;
 mod groups_fragments;
@@ -9,6 +10,7 @@ mod topics;
 mod topics_dialogs;
 mod topics_write;
 
+pub use config::{config, config_edit, config_edit_form, config_reset, config_reset_form};
 pub use fragments::{check, fragment};
 pub use groups::{
     delete as group_delete, delete_form as group_delete_form, group as group_page,

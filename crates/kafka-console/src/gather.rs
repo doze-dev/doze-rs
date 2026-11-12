@@ -1,6 +1,10 @@
 //! Broker answers to view-models: the code that decides what a page will say, from real data. No HTML here.
 
 mod attention;
+mod config;
+mod config_edit;
+mod config_refuse;
+mod config_reset;
 mod create;
 mod delete;
 mod forms;
@@ -17,6 +21,13 @@ mod records;
 pub use attention::{Looked, MAX_DESCRIBED, near_timeout, nearest, nearest_capped};
 pub use home::{choose, counts, instance_view};
 
+pub use config::{ConfigMissing, page as config_page};
+pub use config_edit::{
+    ConfigFields, EditState, EditWorld, changes_of as config_changes, checked_of as config_checked,
+    form as config_form, input_of as config_input, missing as config_missing, save as config_save,
+    shape as config_shape, view_of as config_view,
+};
+pub use config_reset::{form as config_reset_form, reset as config_reset};
 pub use create::{
     CLEANUP, Inputs, RETENTION, create, errors, inputs as create_inputs, landing, landing_view,
     template_values, view_at as create_view,

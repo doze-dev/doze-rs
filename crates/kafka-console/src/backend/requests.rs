@@ -1,5 +1,6 @@
 //! One builder per request the console sends: typed, bounded, nothing the boards do not draw.
 
+pub mod alter_configs;
 mod configs;
 mod fetch;
 pub mod forms;

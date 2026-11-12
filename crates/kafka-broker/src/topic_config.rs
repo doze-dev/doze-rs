@@ -266,3 +266,9 @@ pub(crate) fn kafka_default_of(name: &str) -> Option<String> {
         Fallback::Fixed(v) | Fallback::Broker(_, v) => Some(v.to_owned()),
     }
 }
+
+/// What a value of the topic config may be, in words, if it is one.
+#[must_use]
+pub(crate) fn allowed_of(name: &str) -> Option<String> {
+    lookup(name).map(|s| s.kind.allowed())
+}

@@ -21,11 +21,13 @@ pub enum Action {
     OffsetDelete,
     /// Slice 9c: delete an empty group.
     DeleteGroups,
+    /// Slice 9d: set, append to, subtract from, check (`validate_only`) and reset a topic's config.
+    IncrementalAlterConfigs,
 }
 
 impl Action {
     /// Every write of the console.
-    pub const ALL: [Self; 8] = [
+    pub const ALL: [Self; 9] = [
         Self::CreateTopics,
         Self::Produce,
         Self::CreatePartitions,
@@ -34,6 +36,7 @@ impl Action {
         Self::OffsetCommit,
         Self::OffsetDelete,
         Self::DeleteGroups,
+        Self::IncrementalAlterConfigs,
     ];
 
     /// The name a form carries in `data-op`: Kafka's own name for the API.
@@ -48,6 +51,7 @@ impl Action {
             Self::OffsetCommit => "OffsetCommit",
             Self::OffsetDelete => "OffsetDelete",
             Self::DeleteGroups => "DeleteGroups",
+            Self::IncrementalAlterConfigs => "IncrementalAlterConfigs",
         }
     }
 
@@ -84,6 +88,7 @@ pub const GROUP_WRITE_BOARDS: [&str; 5] = [
     "group-delete-refused",
     "group-offset-delete",
 ];
+pub mod config;
 
 #[cfg(test)]
 mod tests;

@@ -3,6 +3,7 @@
 //! A page is `fn(&Model) -> Markup`. Everything that decides what the person reads (which state of Home, whether the
 //! advertised address answers) is decided before, from real data, and arrives here as a value.
 
+mod config;
 mod connect;
 mod groups;
 mod home;
@@ -11,6 +12,12 @@ mod query;
 mod topic;
 mod topics;
 
+pub use config::{
+    ConfigAsk, ConfigChange, ConfigChecked, ConfigEditView, ConfigForm, ConfigHead, ConfigInput,
+    ConfigOp, ConfigPace, ConfigPage, ConfigPass, ConfigRefusal, ConfigRefused, ConfigResetResult,
+    ConfigResetView, ConfigResult, ConfigRow, ConfigSaved, ConfigShow, ConfigSource, ConfigSynonym,
+    ConfigTeach, ConfigValue,
+};
 pub use connect::{Access, ClientSnippet, ConnectView, ProbeView, Rule, Span, Tok, Verdict};
 pub use home::{Attention, HeldBack, HomeState, HomeView, InstanceView, StopView};
 

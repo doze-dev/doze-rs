@@ -49,6 +49,11 @@ fn method_router(route: &Route) -> MethodRouter<Shared> {
         (Handler::GroupDelete, _) => post(handlers::group_delete),
         (Handler::OffsetsDeleteForm, _) => get(handlers::offsets_delete_form),
         (Handler::OffsetsDelete, _) => post(handlers::offsets_delete),
+        (Handler::ConfigPage, _) => get(handlers::config),
+        (Handler::ConfigEditForm, _) => get(handlers::config_edit_form),
+        (Handler::ConfigEdit, _) => post(handlers::config_edit),
+        (Handler::ConfigResetForm, _) => get(handlers::config_reset_form),
+        (Handler::ConfigReset, _) => post(handlers::config_reset),
         (Handler::Planned(title), _) => get(
             move |axum::extract::State(s): axum::extract::State<Shared>| async move {
                 handlers::planned(s, title).await

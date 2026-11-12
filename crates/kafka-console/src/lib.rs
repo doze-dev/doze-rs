@@ -14,12 +14,22 @@ pub mod base;
 #[cfg(any(test, feature = "examples"))]
 pub mod boards;
 #[cfg(any(test, feature = "examples"))]
+pub mod boards_config;
+#[cfg(any(test, feature = "examples"))]
 pub mod boards_write;
 pub mod calls;
 pub mod calls_groups;
+pub mod config_calls;
+pub mod config_effects;
+pub mod config_pass;
+pub mod config_source;
+pub mod config_teach;
+pub mod config_words;
 pub mod facts;
 #[cfg(any(test, feature = "examples"))]
 pub mod fixtures;
+#[cfg(any(test, feature = "examples"))]
+pub mod fixtures_config;
 #[cfg(any(test, feature = "examples"))]
 pub mod fixtures_groups;
 #[cfg(any(test, feature = "examples"))]

@@ -1,6 +1,13 @@
 {
   "screens": {
     "access-open": "/access",
+    "config-edit": "/topics/{topic}/config/edit",
+    "config-edit-lag": "/topics/{topic}/config/edit",
+    "config-edit-list": "/topics/{topic}/config/edit",
+    "config-refused": "/topics/{topic}/config/edit",
+    "config-refused-value": "/topics/{topic}/config/edit",
+    "config-reset": "/topics/{topic}/config/reset",
+    "config-saved": "/topics/{topic}/config/edit",
     "connect": "/connect",
     "connect-advertised": "/connect/advertised",
     "group-delete": "/groups/{group}/delete",

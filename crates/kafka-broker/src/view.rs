@@ -18,6 +18,11 @@ mod process;
 
 pub use config_help::{ConfigHelp, Limits};
 pub use group_detail::{GroupDetail, GroupKind, MemberDetail, OffsetExpiry, RebalanceDetail};
+mod config_rules;
+mod pace;
+
+pub use config_rules::ConfigRule;
+pub use pace::Pace;
 mod partition_files;
 
 pub use partition_files::PartitionFiles;

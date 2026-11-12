@@ -1060,5 +1060,109 @@
     "selector": "st refused in rows",
     "reason": "[p9c] The wire recorder (slice 9e) does not exist yet, so the 'What just happened' dock is not drawn (debt J93).",
     "expires": "9e"
+  },
+  {
+    "board": "config-edit",
+    "field": "link",
+    "selector": "config-saved",
+    "reason": "[p9d] A result state is the answer to the form's POST, not an address: the board's link to it is not offered.",
+    "expires": "close"
+  },
+  {
+    "board": "config-edit",
+    "field": "button",
+    "selector": "Check [-] -> submit",
+    "reason": "[p9d] Check sends the same call with validate_only and changes nothing: the plan's 'preview is the real validator's answer'. The board draws Save alone.",
+    "expires": "close"
+  },
+  {
+    "board": "config-edit-list",
+    "field": "link",
+    "selector": "config-refused-value",
+    "reason": "[p9d] A result state is the answer to the form's POST, not an address: the board's link to it is not offered.",
+    "expires": "close"
+  },
+  {
+    "board": "config-edit-list",
+    "field": "button",
+    "selector": "Check [-] -> submit",
+    "reason": "[p9d] Check sends the same call with validate_only and changes nothing: the plan's 'preview is the real validator's answer'. The board draws Save alone.",
+    "expires": "close"
+  },
+  {
+    "board": "config-edit-lag",
+    "field": "link",
+    "selector": "config-refused",
+    "reason": "[p9d] A result state is the answer to the form's POST, not an address: the board's link to it is not offered.",
+    "expires": "close"
+  },
+  {
+    "board": "config-edit-lag",
+    "field": "button",
+    "selector": "Check [-] -> submit",
+    "reason": "[p9d] Check sends the same call with validate_only and changes nothing: the plan's 'preview is the real validator's answer'. The board draws Save alone.",
+    "expires": "close"
+  },
+  {
+    "board": "config-saved",
+    "field": "title",
+    "reason": "[p9d] The gate takes a state's title from its parent (Edit min.cleanable.dirty.ratio); the page's breadcrumb says where the person is: Config, then Saved or Refused.",
+    "expires": "close"
+  },
+  {
+    "board": "config-refused",
+    "field": "title",
+    "reason": "[p9d] The gate takes a state's title from its parent (Edit compaction lag); the page's breadcrumb says where the person is: Config, then Saved or Refused.",
+    "expires": "close"
+  },
+  {
+    "board": "config-refused-value",
+    "field": "title",
+    "reason": "[p9d] The gate takes a state's title from its parent (Edit cleanup.policy); the page's breadcrumb says where the person is: Config, then Saved or Refused.",
+    "expires": "close"
+  },
+  {
+    "board": "topic-config",
+    "field": "title",
+    "reason": "[p9d] The breadcrumb ends in Config (Resources, Topics, the topic, Config); the board's title is the topic's name, which stays in the breadcrumb and the h1.",
+    "expires": "close"
+  },
+  {
+    "board": "topic-config",
+    "field": "button",
+    "reason": "[p9d] Every Edit, Reset, Where from, Kafka's text, filter chip and Show 9 is a plain link (a dialog's address, or this page with that part opened), so the page is complete with no script. The board draws some as buttons that need one and some as links; the write is the dialog's form, which carries the data-op.",
+    "expires": "close"
+  },
+  {
+    "board": "topic-config",
+    "field": "op",
+    "reason": "[p9d] The data-op is on the dialogs' Save and Reset buttons (the forms that write), not on the links that open them.",
+    "expires": "close"
+  },
+  {
+    "board": "topic-config",
+    "field": "link",
+    "selector": "config-edit-list",
+    "reason": "[p9d] One address (/config/edit?key=) opens all three edit dialogs; the key chooses the shape, so the page links it once.",
+    "expires": "close"
+  },
+  {
+    "board": "topic-config",
+    "field": "link",
+    "selector": "config-edit-lag",
+    "reason": "[p9d] One address (/config/edit?key=) opens all three edit dialogs; the key chooses the shape, so the page links it once.",
+    "expires": "close"
+  },
+  {
+    "board": "config-refused-value",
+    "field": "button",
+    "reason": "[p9d] Besides Back to the config the page offers Edit again, which opens the dialog with what was typed (or with the value the broker accepted); the board offers only the way back.",
+    "expires": "close"
+  },
+  {
+    "board": "config-refused-value",
+    "field": "link",
+    "reason": "[p9d] Edit again goes to the edit dialog (see the button entry).",
+    "expires": "close"
   }
 ]

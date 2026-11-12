@@ -53,6 +53,12 @@ pub enum Handler {
     GroupDelete,
     OffsetsDeleteForm,
     OffsetsDelete,
+    /// Slice 9d, the Config tab of a topic: the list, the edit and reset dialogs, and the POST of each.
+    ConfigPage,
+    ConfigEditForm,
+    ConfigEdit,
+    ConfigResetForm,
+    ConfigReset,
     /// A screen of the design that a later slice builds: a page that says so (title).
     Planned(&'static str),
 }
@@ -219,16 +225,39 @@ pub const ROUTES: &[Route] = &[
         &["txn-open", "topic-producers", "txn-holding"],
         Handler::Planned("Producers"),
     ),
+    // Slice 9d, the Config tab (p9d).
+    get(
+        "/topics/{topic}/config",
+        &["topic-config"],
+        Handler::ConfigPage,
+    ),
+    get(
+        "/topics/{topic}/config/edit",
+        &["config-edit", "config-edit-list", "config-edit-lag"],
+        Handler::ConfigEditForm,
+    ),
+    write(
+        "/topics/{topic}/config/edit",
+        "IncrementalAlterConfigs",
+        &["config-saved", "config-refused", "config-refused-value"],
+        Handler::ConfigEdit,
+    ),
+    get(
+        "/topics/{topic}/config/reset",
+        &["config-reset"],
+        Handler::ConfigResetForm,
+    ),
+    write(
+        "/topics/{topic}/config/reset",
+        "IncrementalAlterConfigs",
+        &[],
+        Handler::ConfigReset,
+    ),
     // The tabs of a topic and the Groups space, for the links of the pages above (built by later slices).
     get(
         "/topics/{topic}/log",
         &["topic-log"],
         Handler::Planned("Log"),
-    ),
-    get(
-        "/topics/{topic}/config",
-        &["topic-config"],
-        Handler::Planned("Config"),
     ),
     // Slice 9c, groups (p9c).
     get("/groups", &["groups-list", "groups-none"], Handler::Groups),
@@ -296,6 +325,7 @@ pub const ROUTES: &[Route] = &[
         &["group-wire"],
         Handler::Planned("Wire"),
     ),
+    get("/groups", &["groups-list"], Handler::Planned("Groups")),
     get("/access", &["access-open"], Handler::Planned("Access")),
     get("/lab", &["lab-home"], Handler::Planned("Lab")),
     get(

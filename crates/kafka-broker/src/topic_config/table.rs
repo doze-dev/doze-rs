@@ -144,3 +144,17 @@ pub(super) static SETTINGS: &[Setting] = &[
     s("segment.ms", Long { min: 1 }, Fixed("604800000")),
     s("unclean.leader.election.enable", TRUE_FALSE, Fixed("false")),
 ];
+
+impl Kind {
+    /// What a value may be, as a person says it (the Config page of the console teaches from this).
+    pub(super) fn allowed(&self) -> String {
+        match self {
+            Self::Int { min } | Self::Long { min } => format!("a whole number, at least {min}"),
+            Self::Double { min, max } => format!("a number from {min} to {max}"),
+            Self::Bool => "true or false".to_owned(),
+            Self::Choice(all) => format!("one of {}", all.join(", ")),
+            Self::CleanupPolicy => "compact or delete, each element checked".to_owned(),
+            Self::Text => "any text".to_owned(),
+        }
+    }
+}
