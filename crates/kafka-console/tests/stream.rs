@@ -54,13 +54,8 @@ async fn read_until(s: &mut TcpStream, needle: &str, within: Duration) -> String
 #[tokio::test]
 async fn the_first_event_arrives_at_once_and_names_what_is_watched() {
     let c = console().await;
-    let mut s = open(c.local_addr(), "home-instance,home-sentence").await;
-    let seen = read_until(
-        &mut s,
-        "data: home-instance,home-sentence",
-        Duration::from_secs(2),
-    )
-    .await;
+    let mut s = open(c.local_addr(), "home-live").await;
+    let seen = read_until(&mut s, "data: home-live", Duration::from_secs(2)).await;
     assert!(seen.starts_with("HTTP/1.1 200"), "{seen}");
     assert!(
         seen.to_ascii_lowercase()
@@ -79,15 +74,15 @@ async fn the_first_event_arrives_at_once_and_names_what_is_watched() {
 #[tokio::test]
 async fn a_tick_arrives_when_the_signal_is_bumped_and_by_itself_on_the_floor_timer() {
     let c = console().await;
-    let mut s = open(c.local_addr(), "home-callout").await;
-    read_until(&mut s, "data: home-callout\n\n", Duration::from_secs(2)).await;
+    let mut s = open(c.local_addr(), "home-live").await;
+    read_until(&mut s, "data: home-live\n\n", Duration::from_secs(2)).await;
     // A bump (the recorder's way, from slice 9e) reaches it at once.
     c.state().ticker.bump();
-    let seen = read_until(&mut s, "data: home-callout\n\n", Duration::from_millis(500)).await;
+    let seen = read_until(&mut s, "data: home-live\n\n", Duration::from_millis(500)).await;
     assert!(seen.contains("event: tick"));
     // And with nothing bumped, the 2 s floor timer ticks (a little over two seconds, never more than four).
     let started = Instant::now();
-    read_until(&mut s, "data: home-callout\n\n", Duration::from_secs(4)).await;
+    read_until(&mut s, "data: home-live\n\n", Duration::from_secs(4)).await;
     assert!(
         started.elapsed() >= Duration::from_millis(1500),
         "{:?}",
@@ -102,7 +97,7 @@ async fn shutdown_while_ten_streams_are_open_completes_in_under_a_second() {
     let addr = c.local_addr();
     let mut streams = Vec::new();
     for _ in 0..10 {
-        let mut s = open(addr, "home-instance").await;
+        let mut s = open(addr, "home-live").await;
         read_until(&mut s, "event: tick", Duration::from_secs(2)).await;
         streams.push(s);
     }
@@ -127,9 +122,9 @@ async fn the_task_exists_only_while_a_stream_is_connected() {
     let c = console().await;
     let ticker = c.state().ticker.clone();
     assert!(!ticker.running(), "nothing is connected: no task");
-    let mut a = open(c.local_addr(), "home-instance").await;
+    let mut a = open(c.local_addr(), "home-live").await;
     read_until(&mut a, "event: tick", Duration::from_secs(2)).await;
-    let mut b = open(c.local_addr(), "home-instance").await;
+    let mut b = open(c.local_addr(), "home-live").await;
     read_until(&mut b, "event: tick", Duration::from_secs(2)).await;
     assert!(ticker.running());
     assert_eq!(ticker.viewers(), 2);

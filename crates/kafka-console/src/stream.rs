@@ -16,7 +16,7 @@ use crate::tick::Viewer;
 use crate::ui::client::EVENT_TICK;
 
 /// The fragments a stream may be asked to watch: a closed vocabulary.
-pub const WATCHABLE: &[&str] = &["home-sentence", "home-callout", "home-instance"];
+pub const WATCHABLE: &[&str] = &["home-live"];
 
 /// The comment line sent every 15 s.
 pub const KEEP_ALIVE: Duration = Duration::from_secs(15);
@@ -80,12 +80,10 @@ mod tests {
     #[test]
     fn only_the_closed_vocabulary_may_be_watched() {
         assert_eq!(parse_watch(""), Ok(vec![]));
-        assert_eq!(parse_watch("home-instance"), Ok(vec!["home-instance"]));
-        assert_eq!(
-            parse_watch("home-sentence,home-instance,home-sentence"),
-            Ok(vec!["home-sentence", "home-instance"])
-        );
-        assert_eq!(parse_watch("home-instance,evil"), Err("evil"));
+        assert_eq!(parse_watch("home-live"), Ok(vec!["home-live"]));
+        assert_eq!(parse_watch("home-live,home-live"), Ok(vec!["home-live"]));
+        assert_eq!(parse_watch("home-live,evil"), Err("evil"));
+        assert_eq!(parse_watch("home-instance"), Err("home-instance"));
         assert_eq!(parse_watch("../x"), Err("../x"));
         assert_eq!(parse_watch("a\nb"), Err("a\nb"));
     }

@@ -163,7 +163,7 @@ fn a_stopping_broker_does_not_wait_for_an_open_console_stream() {
         .unwrap();
     write!(
         stream,
-        "GET /events?watch=home-instance HTTP/1.1\r\nHost: {addr}\r\n\r\n"
+        "GET /events?watch=home-live HTTP/1.1\r\nHost: {addr}\r\n\r\n"
     )
     .unwrap();
     let mut seen = Vec::new();

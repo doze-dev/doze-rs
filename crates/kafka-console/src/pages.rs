@@ -10,8 +10,5 @@ mod notice;
 pub use advertised::{advertised, probe_advertised};
 pub use common::{PROBE_ADVERTISED, PROBE_CONNECT, PROBE_HOME, probe_fragment_url};
 pub use connect::{connect, probe_connect};
-pub use home::{
-    HOME_CALLOUT, HOME_INSTANCE, HOME_SENTENCE, callout_fragment, home, instance_fragment,
-    probe_home, sentence_fragment,
-};
+pub use home::{HOME_LIVE, callout_body, home, live_fragment, probe_home};
 pub use notice::{not_found, planned};

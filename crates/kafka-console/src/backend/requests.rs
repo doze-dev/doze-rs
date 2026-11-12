@@ -8,6 +8,9 @@ use kafka_wire::messages::{
     TopicName, TransactionalId,
 };
 
+/// How many transactional ids one DescribeTransactions asks about.
+pub const DESCRIBE_CHUNK: usize = 100;
+
 /// Metadata for every topic, creating none (the console never makes a topic by asking about it).
 #[must_use]
 pub fn metadata_all() -> Request {
@@ -34,13 +37,13 @@ pub fn list_ongoing_transactions() -> Request {
     Request::ListTransactions(r)
 }
 
-/// The detail of these transactional ids (at most 20: more than a page of Home would show).
+/// The detail of these transactional ids. The broker takes any number; the callers ask in chunks of
+/// [`DESCRIBE_CHUNK`] so that no one call is long.
 #[must_use]
 pub fn describe_transactions(ids: &[String]) -> Request {
     let mut r = DescribeTransactionsRequest::default();
     r.transactional_ids = ids
         .iter()
-        .take(20)
         .map(|id| TransactionalId(StrBytes::from_string(id.clone())))
         .collect();
     Request::DescribeTransactions(r)

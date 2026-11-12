@@ -107,11 +107,32 @@ fn a_verdict_has_one_word() {
 #[test]
 fn the_attention_headline_counts() {
     assert_eq!(
-        attention_headline(1),
+        attention_headline(1, 0),
         "1 thing needs you: a transaction is close to its timeout."
     );
     assert_eq!(
-        attention_headline(3),
+        attention_headline(3, 0),
         "3 things need you: 3 transactions are close to their timeout."
+    );
+}
+
+#[test]
+fn a_count_that_did_not_look_at_everything_is_a_floor_and_says_so() {
+    assert_eq!(
+        attention_headline(1, 4),
+        "At least 1 transaction is close to its timeout."
+    );
+    assert_eq!(
+        attention_headline(3, 1),
+        "At least 3 transactions are close to their timeout."
+    );
+    assert_eq!(unchecked_note(0), None);
+    assert_eq!(
+        unchecked_note(1).as_deref(),
+        Some("1 open transaction was not checked.")
+    );
+    assert_eq!(
+        unchecked_note(5).as_deref(),
+        Some("5 open transactions were not checked.")
     );
 }

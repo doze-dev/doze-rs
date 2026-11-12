@@ -75,4 +75,7 @@ pub struct HomeView {
     pub partitions: usize,
     pub probe: ProbeView,
     pub instance: InstanceView,
+    /// Open transactions the console did not look at (it describes at most [`crate::gather::MAX_DESCRIBED`]); 0 when it
+    /// looked at every one. Home never says "nothing needs you" about what it did not look at.
+    pub unchecked: usize,
 }

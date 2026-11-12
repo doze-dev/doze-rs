@@ -38,25 +38,32 @@ impl Live {
         facts::access(&self.facts, acls, allow)
     }
 
-    async fn home(&self) -> HomeView {
+    /// Home. `dial`: whether the advertised-listener result may be made now (a page load: a result under 30 s old is
+    /// reused) or is only what the last check said (the live fragment, which never dials).
+    async fn home(&self, dial: bool) -> HomeView {
         let now = now_ms();
         let (topics, partitions) = gather::counts(&self.backend).await;
-        let attention = gather::nearest(&self.backend, now).await;
+        let looked = gather::nearest(&self.backend, now).await;
         let access = self.access().await;
         let instance = self
             .backend
             .instance()
             .map(|i| gather::instance_view(&i, &self.facts, access, now));
-        let probe = self.prober.cached().await;
+        let probe = if dial {
+            self.prober.cached().await
+        } else {
+            self.prober.peek()
+        };
         let instance = instance.unwrap_or_else(|| unknown_instance(&self.facts, &probe));
         HomeView {
-            state: gather::choose(topics, attention),
+            state: gather::choose(topics, looked.attention),
             listen: self.facts.bootstrap(),
             loopback: self.facts.loopback(),
             topics,
             partitions,
             probe,
             instance,
+            unchecked: looked.unchecked,
         }
     }
 }
@@ -115,12 +122,21 @@ impl Source {
         }
     }
 
+    /// Home's live fragment: the same view, with the advertised-listener part as the last check left it (no dial).
+    pub async fn home_live(&self) -> HomeView {
+        match self {
+            Self::Live(l) => l.home(false).await,
+            #[cfg(any(test, feature = "examples"))]
+            Self::Fixture => self.home(None).await,
+        }
+    }
+
     /// Home. `hint` names a state (`quiet`, `attention`) for the fixtures only; a live broker decides by its data.
     pub async fn home(&self, hint: Option<&str>) -> HomeView {
         match self {
             Self::Live(l) => {
                 let _ = hint;
-                l.home().await
+                l.home(true).await
             }
             #[cfg(any(test, feature = "examples"))]
             Self::Fixture => crate::fixtures::home(match hint {

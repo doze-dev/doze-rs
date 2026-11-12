@@ -18,7 +18,7 @@ use support::{app, get, local_links, post, send};
 fn concrete(pattern: &str, state: &kafka_console::state::State) -> String {
     let asset = state.assets.urls.css.rsplit('/').next().unwrap().to_owned();
     pattern
-        .replace("{id}", "home-instance")
+        .replace("{id}", "home-live")
         .replace("{name}", &asset)
         .replace("{topic}", "orders")
 }
@@ -169,18 +169,18 @@ async fn pages_are_not_stored_fragments_revalidate_and_files_are_kept_for_a_year
         send(&app, get("/")).await.0.headers()[header::CACHE_CONTROL],
         "no-store"
     );
-    let (res, body) = send(&app, get("/fragments/home-instance")).await;
+    let (res, body) = send(&app, get("/fragments/home-live")).await;
     assert_eq!(res.headers()[header::CACHE_CONTROL], "no-cache");
     let etag = res.headers()[header::ETAG].to_str().unwrap().to_owned();
     assert!(body.contains("This instance"));
-    let mut again = get("/fragments/home-instance");
+    let mut again = get("/fragments/home-live");
     again
         .headers_mut()
         .insert(header::IF_NONE_MATCH, etag.parse().unwrap());
     let (res, body) = send(&app, again).await;
     assert_eq!(res.status(), StatusCode::NOT_MODIFIED);
     assert!(body.is_empty());
-    let mut stale = get("/fragments/home-instance");
+    let mut stale = get("/fragments/home-live");
     stale
         .headers_mut()
         .insert(header::IF_NONE_MATCH, "\"other\"".parse().unwrap());
@@ -205,7 +205,7 @@ async fn pages_are_not_stored_fragments_revalidate_and_files_are_kept_for_a_year
 #[tokio::test]
 async fn the_stream_takes_only_the_closed_vocabulary_and_an_unknown_fragment_is_a_404() {
     let (app, _) = app("/", &[]);
-    let (res, body) = send(&app, get("/events?watch=home-instance,evil")).await;
+    let (res, body) = send(&app, get("/events?watch=home-live,evil")).await;
     assert_eq!(res.status(), StatusCode::BAD_REQUEST);
     assert!(
         body.contains("\"evil\" is not a fragment this console can watch"),

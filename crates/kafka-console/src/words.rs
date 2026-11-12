@@ -146,13 +146,27 @@ pub fn verdict_word(v: Verdict) -> &'static str {
     }
 }
 
-/// The words of the callout when something needs someone (the one condition the boards draw).
+/// The words of the callout when something needs someone (the one condition the boards draw). With `unchecked` open
+/// transactions not looked at, the count is a floor and says so.
 #[must_use]
-pub fn attention_headline(count: usize) -> String {
-    if count == 1 {
-        "1 thing needs you: a transaction is close to its timeout.".to_owned()
-    } else {
-        format!("{count} things need you: {count} transactions are close to their timeout.")
+pub fn attention_headline(count: usize, unchecked: usize) -> String {
+    match (count, unchecked) {
+        (1, 0) => "1 thing needs you: a transaction is close to its timeout.".to_owned(),
+        (_, 0) => {
+            format!("{count} things need you: {count} transactions are close to their timeout.")
+        }
+        (1, _) => "At least 1 transaction is close to its timeout.".to_owned(),
+        (_, _) => format!("At least {count} transactions are close to their timeout."),
+    }
+}
+
+/// What Home says of the open transactions it did not look at (none: nothing to say).
+#[must_use]
+pub fn unchecked_note(unchecked: usize) -> Option<String> {
+    match unchecked {
+        0 => None,
+        1 => Some("1 open transaction was not checked.".to_owned()),
+        n => Some(format!("{n} open transactions were not checked.")),
     }
 }
 

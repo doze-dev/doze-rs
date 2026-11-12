@@ -129,6 +129,7 @@ pub fn home(state: HomeState) -> HomeView {
         partitions,
         probe: probe_ok(),
         instance,
+        unchecked: 0,
     }
 }
 

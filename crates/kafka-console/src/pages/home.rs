@@ -26,27 +26,22 @@ use crate::ui::code::pre;
 use crate::ui::glyph::Glyph;
 use crate::ui::layout::{card_extra, hr, kv, page_header, title_row, value_with_sub};
 use crate::ui::notice::{Tone, callout};
-use crate::words::{self, attention_headline, home_advertised_lede, home_sub, home_title};
+use crate::words::{
+    self, attention_headline, home_advertised_lede, home_sub, home_title, unchecked_note,
+};
 
-/// The ids of Home's fragments.
-pub const HOME_SENTENCE: &str = "home-sentence";
-pub const HOME_CALLOUT: &str = "home-callout";
-pub const HOME_INSTANCE: &str = "home-instance";
+/// The id of Home's one live fragment: the title, the sentence, the callout and both columns. What the page says in each
+/// state (the title, the sentence, the callout, which card sits where) follows the data together, so it is fetched, and
+/// swapped, together (audit A13); one tick is one look at the broker.
+pub const HOME_LIVE: &str = "home-live";
 
 fn url(base: &Base, id: &str) -> String {
     base.url(&format!("/fragments/{id}"))
 }
 
-/// The sentence under the title, as a fragment.
-#[must_use]
-pub fn sentence_fragment(v: &HomeView, base: &Base) -> Markup {
-    client::fragment(
-        HOME_SENTENCE,
-        &url(base, HOME_SENTENCE),
-        html! {
-            p class="sub" data-extra="live-sentence" { (spans(&home_sub(v))) }
-        },
-    )
+/// The sentence under the title.
+fn sentence(v: &HomeView) -> Markup {
+    html! { p class="sub" data-extra="live-sentence" { (spans(&home_sub(v))) } }
 }
 
 fn fraction(held: i64, of: i64) -> i64 {
@@ -57,7 +52,7 @@ fn fraction(held: i64, of: i64) -> i64 {
     }
 }
 
-fn attention(a: &Attention, base: &Base) -> Markup {
+fn attention(a: &Attention, unchecked: usize, base: &Base) -> Markup {
     let p = fraction(a.elapsed_secs, a.timeout_secs);
     let txn_url = base.url(&format!(
         "/topics/{}/producers",
@@ -67,7 +62,8 @@ fn attention(a: &Attention, base: &Base) -> Markup {
         div style="flex:1" {
             div class="row sb" style="align-items:flex-start;gap:24px" {
                 div {
-                    b { (attention_headline(a.count)) } br;
+                    b { (attention_headline(a.count, unchecked)) } br;
+                    @if let Some(note) = unchecked_note(unchecked) { (note) " " }
                     "Transaction " span class="mono" { (a.transactional_id) }
                     " (producer " (a.producer_id) ", epoch " (a.producer_epoch) ") has been open on "
                     span class="mono" { (a.partition) } " since " (a.since)
@@ -91,13 +87,13 @@ fn attention(a: &Attention, base: &Base) -> Markup {
     }
 }
 
-/// The callout under the sentence, as a fragment.
+/// The callout under the sentence.
 #[must_use]
-pub fn callout_fragment(v: &HomeView, base: &Base) -> Markup {
-    let body = match &v.state {
+pub fn callout_body(v: &HomeView, base: &Base) -> Markup {
+    match &v.state {
         HomeState::Attention(a) => html! {
             div class="callout warn" data-extra="live-sentence" style="margin-bottom:32px" {
-                (crate::ui::glyph::glyph(Glyph::Warn, 18, "")) (attention(a, base))
+                (crate::ui::glyph::glyph(Glyph::Warn, 18, "")) (attention(a, v.unchecked, base))
             }
         },
         HomeState::Quiet => html! {
@@ -105,14 +101,22 @@ pub fn callout_fragment(v: &HomeView, base: &Base) -> Markup {
                 b { "Nothing to look after yet." } " This broker has no topics. The next step is to send it something."
             })) }
         },
-        HomeState::Steady => html! {
-            div style="margin-bottom:32px" data-extra="live-sentence" { (callout(Tone::Plain, Glyph::Check, html! {
-                b { "Nothing needs you." }
-                " No transaction is near its timeout. When something does, it shows here, for example a transaction close to its timeout."
-            })) }
+        // The all-clear is claimed only for what was looked at all of: with open transactions left unchecked it says so.
+        HomeState::Steady => match unchecked_note(v.unchecked) {
+            Some(note) => html! {
+                div style="margin-bottom:32px" data-extra="live-sentence" { (callout(Tone::Plain, Glyph::Info, html! {
+                    b { "No transaction that was checked is near its timeout." }
+                    " " (note) " This is not the all-clear."
+                })) }
+            },
+            None => html! {
+                div style="margin-bottom:32px" data-extra="live-sentence" { (callout(Tone::Plain, Glyph::Check, html! {
+                    b { "Nothing needs you." }
+                    " No transaction is near its timeout. When something does, it shows here, for example a transaction close to its timeout."
+                })) }
+            },
         },
-    };
-    client::fragment(HOME_CALLOUT, &url(base, HOME_CALLOUT), body)
+    }
 }
 
 fn rows(i: &InstanceView, quiet: bool) -> Vec<(&'static str, Markup)> {
@@ -167,9 +171,8 @@ fn rows(i: &InstanceView, quiet: bool) -> Vec<(&'static str, Markup)> {
     out
 }
 
-/// The "This instance" card, as a fragment.
-#[must_use]
-pub fn instance_fragment(v: &HomeView, base: &Base) -> Markup {
+/// The "This instance" card.
+fn instance_card(v: &HomeView, base: &Base) -> Markup {
     let i = &v.instance;
     let quiet = v.state == HomeState::Quiet;
     let mut list = rows(i, quiet);
@@ -180,7 +183,7 @@ pub fn instance_fragment(v: &HomeView, base: &Base) -> Markup {
             &i.access.detail,
         ),
     ));
-    let body = card_extra(
+    card_extra(
         "live-sentence",
         html! {
             (title_row("This instance", state(State::Ok, "Running")))
@@ -191,8 +194,7 @@ pub fn instance_fragment(v: &HomeView, base: &Base) -> Markup {
                 (link(&base.url("/settings"), Variant::Plain, Size::Normal, Some(Glyph::Settings), "Weight and data in Settings"))
             }
         },
-    );
-    client::fragment(HOME_INSTANCE, &url(base, HOME_INSTANCE), body)
+    )
 }
 
 /// The advertised-listener part of the Address card, as the fragment the check form swaps.
@@ -262,9 +264,9 @@ fn next_card(v: &HomeView, base: &Base) -> Markup {
     } }
 }
 
-/// Home.
+/// Home's live fragment, and Home.
 #[must_use]
-pub fn home(v: &HomeView, base: &Base) -> Markup {
+pub fn live_fragment(v: &HomeView, base: &Base) -> Markup {
     let quiet = v.state == HomeState::Quiet;
     let acts = if quiet {
         html! {}
@@ -277,12 +279,22 @@ pub fn home(v: &HomeView, base: &Base) -> Markup {
             "Connect an app",
         )
     };
-    html! {
-        (page_header(home_title(&v.state), sentence_fragment(v, base), acts))
-        (callout_fragment(v, base))
-        div class="split" {
-            div class="stack-y" { (address_card(v, base)) @if quiet { (next_card(v, base)) } }
-            div class="stack-y" { (instance_fragment(v, base)) @if !quiet { (next_card(v, base)) } }
-        }
-    }
+    client::fragment(
+        HOME_LIVE,
+        &url(base, HOME_LIVE),
+        html! {
+            (page_header(home_title(&v.state), sentence(v), acts))
+            (callout_body(v, base))
+            div class="split" {
+                div class="stack-y" { (address_card(v, base)) @if quiet { (next_card(v, base)) } }
+                div class="stack-y" { (instance_card(v, base)) @if !quiet { (next_card(v, base)) } }
+            }
+        },
+    )
+}
+
+/// Home.
+#[must_use]
+pub fn home(v: &HomeView, base: &Base) -> Markup {
+    live_fragment(v, base)
 }

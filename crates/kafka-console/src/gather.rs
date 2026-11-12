@@ -3,5 +3,5 @@
 mod attention;
 mod home;
 
-pub use attention::{near_timeout, nearest};
+pub use attention::{Looked, MAX_DESCRIBED, near_timeout, nearest, nearest_capped};
 pub use home::{choose, counts, instance_view};
