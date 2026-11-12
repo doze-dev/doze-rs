@@ -22,8 +22,16 @@
 //!
 //! `console.css` is `design/kit/paper.css` + `design/kit/kafka.css` + `design/console.css`, joined; a test says so.
 //! A test walks `assets/` and fails on a file that is not in the manifest and on an entry with no file.
+//!
+//! **Text is embedded compressed.** The stylesheet and every script are `include_bytes!` of their `.gz` (made by
+//! `bun tools/assets-compress.ts`; a test inflates each and compares it with its source, so a stale one fails). They are
+//! served as they are with `Content-Encoding: gzip` to a client that accepts it and inflated (flate2, already in the
+//! broker) to one that does not. The stylesheet is compressed with its `@asset:<font>` placeholders already replaced by the
+//! fonts' hashed names (the same `fingerprint` and `hashed`, computed by the tool), so nothing is rewritten at start-up
+//! and nothing is copied to the heap. A served file's name is the fingerprint of the bytes in the binary.
 
 use std::collections::HashMap;
+use std::io::Read;
 
 use crate::base::Base;
 
@@ -43,8 +51,10 @@ pub enum Kind {
 pub struct File {
     pub name: &'static str,
     pub kind: Kind,
-    /// `None` for a licence: it is in the source tree, not in the binary.
+    /// `None` for a licence: it is in the source tree, not in the binary. For a `packed` file these are its gzip bytes.
     pub bytes: Option<&'static [u8]>,
+    /// The bytes are the file's `.gz` (the source file is not in the binary).
+    pub packed: bool,
 }
 
 macro_rules! file {
@@ -53,21 +63,34 @@ macro_rules! file {
             name: $name,
             kind: Kind::$kind,
             bytes: Some(include_bytes!(concat!("../assets/", $name))),
+            packed: false,
+        }
+    };
+}
+
+/// A text file embedded as its `.gz`: the plain source is not linked.
+macro_rules! packed {
+    ($name:literal, $kind:ident) => {
+        File {
+            name: $name,
+            kind: Kind::$kind,
+            bytes: Some(include_bytes!(concat!("../assets/", $name, ".gz"))),
+            packed: true,
         }
     };
 }
 
 /// Every file of `assets/`.
 pub const MANIFEST: &[File] = &[
-    file!("console.css", Css),
-    file!("console.js", Js),
-    file!("components.js", Js),
-    file!("multiselect.js", Js),
-    file!("live.js", Js),
-    file!("htmx-2.0.11.min.js", Js),
-    file!("idiomorph-ext-0.8.0.min.js", Js),
-    file!("alpine-anchor-3.17.5.min.js", Js),
-    file!("alpine-csp-3.17.5.min.js", Js),
+    packed!("console.css", Css),
+    packed!("console.js", Js),
+    packed!("components.js", Js),
+    packed!("multiselect.js", Js),
+    packed!("live.js", Js),
+    packed!("htmx-2.0.11.min.js", Js),
+    packed!("idiomorph-ext-0.8.0.min.js", Js),
+    packed!("alpine-anchor-3.17.5.min.js", Js),
+    packed!("alpine-csp-3.17.5.min.js", Js),
     file!("favicon.svg", Svg),
     file!("inter-latin-wght-normal.woff2", Font),
     file!("jetbrains-mono-latin-400-normal.woff2", Font),
@@ -76,26 +99,31 @@ pub const MANIFEST: &[File] = &[
         name: "htmx.LICENSE.txt",
         kind: Kind::Licence,
         bytes: None,
+        packed: false,
     },
     File {
         name: "idiomorph.LICENSE.txt",
         kind: Kind::Licence,
         bytes: None,
+        packed: false,
     },
     File {
         name: "alpine.LICENSE.txt",
         kind: Kind::Licence,
         bytes: None,
+        packed: false,
     },
     File {
         name: "inter.LICENSE.txt",
         kind: Kind::Licence,
         bytes: None,
+        packed: false,
     },
     File {
         name: "jetbrains-mono.LICENSE.txt",
         kind: Kind::Licence,
         bytes: None,
+        packed: false,
     },
 ];
 
@@ -115,7 +143,25 @@ pub const SCRIPT_ORDER: [&str; 8] = [
 #[derive(Debug)]
 pub struct Served {
     pub content_type: &'static str,
-    pub bytes: Vec<u8>,
+    /// What is in the binary: the gzip bytes when `gzip`.
+    pub bytes: &'static [u8],
+    /// `bytes` are gzip: serve them with `Content-Encoding: gzip`, or inflate them for a client that does not accept it.
+    pub gzip: bool,
+}
+
+impl Served {
+    /// The file itself: the embedded bytes, inflated when they are gzip.
+    #[must_use]
+    pub fn inflated(&self) -> Option<std::borrow::Cow<'static, [u8]>> {
+        if !self.gzip {
+            return Some(std::borrow::Cow::Borrowed(self.bytes));
+        }
+        let mut out = Vec::new();
+        flate2::read::GzDecoder::new(self.bytes)
+            .read_to_end(&mut out)
+            .ok()?;
+        Some(std::borrow::Cow::Owned(out))
+    }
 }
 
 /// Where the pages find the files they link to.
@@ -165,34 +211,20 @@ const fn content_type(kind: Kind) -> &'static str {
 }
 
 impl Assets {
-    /// Hashes every file and links the stylesheet to the fonts' hashed names, which it names as `@asset:file`.
+    /// Names every file by the fingerprint of its embedded bytes, and works out the URLs the pages link to.
     #[must_use]
     pub fn build(base: &Base) -> Self {
-        let served: Vec<_> = MANIFEST
-            .iter()
-            .filter_map(|f| f.bytes.map(|b| (f, b)))
-            .collect();
         let mut names: HashMap<&str, String> = HashMap::new();
-        for (f, bytes) in served.iter().filter(|(f, _)| f.kind != Kind::Css) {
-            names.insert(f.name, hashed(f.name, &fingerprint(bytes)));
-        }
         let mut by_name = HashMap::new();
-        for (f, bytes) in &served {
-            let mut data = bytes.to_vec();
-            if f.kind == Kind::Css {
-                let mut text = String::from_utf8_lossy(bytes).into_owned();
-                for (plain, hashed_name) in &names {
-                    text = text.replace(&format!("@asset:{plain}"), hashed_name);
-                }
-                data = text.into_bytes();
-                names.insert(f.name, hashed(f.name, &fingerprint(&data)));
-            }
-            let name = names.get(f.name).cloned().unwrap_or_default();
+        for (f, bytes) in MANIFEST.iter().filter_map(|f| f.bytes.map(|b| (f, b))) {
+            let name = hashed(f.name, &fingerprint(bytes));
+            names.insert(f.name, name.clone());
             by_name.insert(
                 name,
                 Served {
                     content_type: content_type(f.kind),
-                    bytes: data,
+                    bytes,
+                    gzip: f.packed,
                 },
             );
         }
