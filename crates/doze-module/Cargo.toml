@@ -19,6 +19,7 @@ minicbor = { version = "2.3", features = ["derive", "std"] }
 tokio = { version = "1.54", features = ["rt", "time", "process", "fs", "io-util", "net", "signal", "macros"] }
 
 [dev-dependencies]
+serde_json = "1"
 doze-module-test = { path = "../doze-module-test" }
 doze-os = { path = "../doze-os" }
 doze-module-host = { path = "../doze-module-host" }

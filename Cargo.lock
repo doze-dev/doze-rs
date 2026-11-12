@@ -1084,6 +1084,7 @@ dependencies = [
  "doze-module-test",
  "doze-os",
  "minicbor",
+ "serde_json",
  "tokio",
 ]
 
@@ -1124,6 +1125,7 @@ dependencies = [
  "doze-module-proto",
  "doze-os",
  "hcl-edit",
+ "serde_json",
  "tokio",
 ]
 

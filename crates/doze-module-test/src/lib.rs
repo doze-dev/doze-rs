@@ -3,6 +3,7 @@
 
 pub mod boot;
 pub mod hcl;
+pub mod oracle;
 pub mod run;
 pub mod sandbox;
 

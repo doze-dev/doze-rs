@@ -16,6 +16,7 @@ doze-module-proto = { path = "../doze-module-proto" }
 doze-module-host = { path = "../doze-module-host" }
 doze-os = { path = "../doze-os" }
 hcl-edit = "0.10"
+serde_json = "1"
 tokio = { version = "1.54", features = ["rt", "time", "process", "net", "io-util", "sync", "fs"] }
 
 [dev-dependencies]
