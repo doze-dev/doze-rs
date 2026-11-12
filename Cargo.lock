@@ -1259,6 +1259,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "doze-os"
+version = "0.0.0"
+dependencies = [
+ "rustix",
+ "tokio",
+ "windows-sys 0.61.2",
+]
+
+[[package]]
 name = "doze-runtime"
 version = "0.0.0"
 dependencies = [

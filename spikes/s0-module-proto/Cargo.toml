@@ -1,0 +1,25 @@
+[package]
+name = "s0-module-proto"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+# S0 spike for docs/port/modules/PLAN.md: the module protocol (transport, framing,
+# encoding, fd passing, host-death behaviour). Not production code; outside the
+# doze-rs workspace on purpose.
+[workspace]
+
+[dependencies]
+tokio = { version = "1.54", features = ["rt", "net", "process", "macros", "sync", "time", "io-util"] }
+rustix = { version = "1.1.6", features = ["net", "stdio", "process", "fs"] }
+anyhow = "1"
+minicbor = { version = "2.3", features = ["derive", "std"] }
+serde = { version = "1", features = ["derive"] }
+postcard = { version = "1.1", default-features = false, features = ["use-std"] }
+prost = "0.14"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true
+panic = "abort"
