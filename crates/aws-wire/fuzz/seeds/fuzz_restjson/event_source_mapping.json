@@ -1,0 +1,1 @@
+{"FunctionName":"f","EventSourceArn":"arn:aws:sqs:us-east-1:111122223333:q","BatchSize":5,"FunctionResponseTypes":["ReportBatchItemFailures"],"FilterCriteria":{"Filters":[{"Pattern":"{\"body\":{\"kind\":[\"order\"]}}"}]},"DestinationConfig":{"OnFailure":{"Destination":"arn:aws:sqs:us-east-1:111122223333:dlq"}}}

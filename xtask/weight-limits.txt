@@ -52,4 +52,15 @@ doze-kafka 9000000 159 8192 --listen 127.0.0.1:{port} --data-dir {data}
 # 2026-11-13, with EventBridge (A12; integrator, darwin/arm64 release-aws): 5,785,936 B, 224 packages, 3,728 KB idle (+347 KB and +4 packages over Logs/Kinesis/CloudWatch
 # plus the parity round: aws-eventbridge, aws-cron and the EventBridge model, all first party). Byte limit = macOS size times 1.2 plus 5% = 7,291,000, rounded to 7,300,000 B;
 # packages 232 (measured 224 plus 8: Lambda and the REST-JSON codec are next and a named third-party package may be needed). Idle unchanged at 6,144 KB.
-doze-aws 7300000 232 6144 --listen 127.0.0.1:{port} --data-dir {data}
+# 2026-11-13, A13 Lambda (branch aws-a13-lambda, alone on the 5,371,872 B / 220 package base): 6,102,912 B, 229 packages, 3,872 KB idle (+731 KB, +9 packages, +0.27 MB idle). NO new
+# third-party package: Cargo.lock gains only aws-lambda and (linked for the first time) aws-model-lambda. The tool counts distinct lines of `cargo tree`, so a crate reached by a
+# new edge is counted again as a "(*)" line; the other 7 are such repeat lines (hyper, http-body-util, tokio-util, flate2, crc32fast, sha2, tokio) from aws-lambda's own edges.
+# What the bytes are: the Lambda model's tables (87 operations, 840 constraints), the REST-JSON codec, the Runtime API server, the zip reader, the three embedded runtime clients
+# (about 19 KB of text), the pollers and the service. Byte limit: macOS size times 1.2 plus 5% = 7,690,000, rounded to 7,700,000 B (the owner's ceiling on Linux is 10 MB; the
+# Linux build is about 1.45 times the macOS one, so 6.1 MB is about 8.9 MB there); packages 233 (measured 229 plus 4). Idle limit unchanged.
+# 2026-11-13, with Lambda and the REST-JSON codec (A13; integrator, release-aws): 6,500,256 B on darwin/arm64, 233 packages, 3,920 KB idle. FIRST REAL LINUX MEASUREMENT: the
+# same code cross-built for x86_64-unknown-linux-musl is 8,206,736 B, 1.26 times the macOS size (the earlier 1.2 was doze-kafka's ratio; a stage agent's 1.45 was an estimate).
+# The CI job runs on ubuntu x86_64 with glibc (dynamic, so a little smaller than musl), so the byte limit is the measured musl size plus 5% = 8,617,000, rounded to
+# 8,600,000 B; packages 240 (233 plus 7). That is 86% of the owner's 10 MB ceiling and 96% of the 9 MB CI default is NOT acceptable as a plan: Step Functions, API Gateway and
+# CloudFormation are still to come, so the next lever (opt-level "z", measured at 77% of the opt-level "s" size on 2026-11-13) is to be taken before the limit moves again.
+doze-aws 8600000 240 6144 --listen 127.0.0.1:{port} --data-dir {data}

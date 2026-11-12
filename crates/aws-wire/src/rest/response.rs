@@ -67,7 +67,7 @@ pub fn render(
     r
 }
 
-fn header(r: &mut Rendered, m: &MemberRef<'_>, value: Option<&Value>) {
+pub(super) fn header(r: &mut Rendered, m: &MemberRef<'_>, value: Option<&Value>) {
     let (Some(name), Some(v)) = (m.bind_str, value) else {
         return;
     };
@@ -102,7 +102,7 @@ fn header_text(m: &MemberRef<'_>, v: &Value) -> Option<String> {
     }
 }
 
-fn prefixed(r: &mut Rendered, m: &MemberRef<'_>, value: Option<&Value>) {
+pub(super) fn prefixed(r: &mut Rendered, m: &MemberRef<'_>, value: Option<&Value>) {
     let (Some(prefix), Some(Value::Object(map))) = (m.bind_str, value) else {
         return;
     };

@@ -77,6 +77,45 @@ pub type Reply = Result<Output, ApiError>;
 /// A boxed future, so a service can sit behind a trait object (one allocation per call).
 pub type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 
+/// An unsigned HTTP request to an address a service owns.
+#[derive(Debug)]
+pub struct WebRequest {
+    /// `GET`, `POST`...
+    pub method: String,
+    /// The `Host` header.
+    pub host: String,
+    /// The path as sent (still percent-encoded).
+    pub path: String,
+    /// The query string as sent, without the `?`.
+    pub query: String,
+    /// The headers, names lower-cased.
+    pub headers: Vec<(String, String)>,
+    /// The body.
+    pub body: bytes::Bytes,
+    /// The scheme and host the client used (`http://127.0.0.1:4566`).
+    pub endpoint: String,
+}
+
+/// The answer to a [`WebRequest`].
+#[derive(Debug)]
+pub struct WebReply {
+    /// The status.
+    pub status: u16,
+    /// The headers.
+    pub headers: Vec<(String, String)>,
+    /// The body.
+    pub body: bytes::Bytes,
+}
+
+/// A service with addresses of its own that are not signed API calls (a Lambda function URL).
+pub trait Web: Send + Sync {
+    /// Whether a request to this host and path is the service's. Cheap and pure: it runs for every request that is not signed.
+    fn owns(&self, host: &str, path: &str) -> bool;
+
+    /// Answers the request.
+    fn serve(&self, request: WebRequest) -> BoxFuture<'_, WebReply>;
+}
+
 /// A service the gateway can route to.
 pub trait Service: Send + Sync + 'static {
     /// What its model says about it.
@@ -102,6 +141,12 @@ pub trait Service: Send + Sync + 'static {
     /// The service's REST side, for a service that speaks a REST protocol (S3): the gateway hands it streaming bodies and takes
     /// streaming answers. `None` for every service that speaks a JSON or Query protocol.
     fn rest(&self) -> Option<&dyn crate::rest::RestService> {
+        None
+    }
+
+    /// The service's own unsigned web addresses (a Lambda function URL), for a service that has some: the gateway asks it before it
+    /// looks for a signature, and hands it the request whole. `None` for every service that has none.
+    fn web(&self) -> Option<&dyn Web> {
         None
     }
 

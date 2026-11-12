@@ -84,6 +84,11 @@ impl Shared {
         &self.config.account_id
     }
 
+    /// The services that own addresses of their own.
+    pub(crate) fn webs(&self) -> impl Iterator<Item = &dyn aws_wire::service::Web> {
+        self.entries.iter().filter_map(|e| e.service.web())
+    }
+
     pub(crate) fn entry(&self, signing_name: &str) -> Option<&Entry> {
         self.by_signing_name
             .get(signing_name)
@@ -99,6 +104,10 @@ pub(crate) type Fail = Box<Out>;
 pub(crate) async fn respond(shared: &Shared, req: http::Request<Incoming>) -> Response<RespBody> {
     let id = RequestId::new();
     let (parts, body) = req.into_parts();
+    let body = match crate::web::serve(shared, &id, &parts, body).await {
+        Ok(response) => return response,
+        Err(body) => body,
+    };
     // A REST service (S3) streams its bodies and words its errors its own way, so it has its own path.
     let claim = match Claim::parse(&parts) {
         Ok(found) => found,
@@ -118,9 +127,10 @@ pub(crate) async fn respond(shared: &Shared, req: http::Request<Incoming>) -> Re
             .flatten()
     });
     if let Some(claim) = claim
-        && let Some(entry) = shared
-            .entry(&claim.service)
-            .filter(|e| e.service.meta().speaks(Protocol::RestXml))
+        && let Some(entry) = shared.entry(&claim.service).filter(|e| {
+            let meta = e.service.meta();
+            meta.speaks(Protocol::RestXml) || meta.speaks(Protocol::RestJson1)
+        })
     {
         return crate::rest::respond(shared, entry, &id, &parts, body, claim).await;
     }

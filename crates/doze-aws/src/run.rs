@@ -28,21 +28,7 @@ pub(crate) async fn run(args: Args) -> Result<()> {
     };
     let mut config = Config::new(args.listen);
     config.account_id.clone_from(&args.account);
-    config.auth = match args.auth {
-        AuthMode::Trust => Auth::Trust,
-        AuthMode::Verify => {
-            let mut creds = StaticCredentials::new();
-            creds.insert(
-                args.access_key.clone(),
-                Credential {
-                    secret: Secret::new(args.secret_key.clone()),
-                    session_token: None,
-                    expires_at: None,
-                },
-            );
-            Auth::Verify(Arc::new(creds))
-        }
-    };
+    config.auth = auth_of(&args);
     peers.set_mode(args.iam.into());
     let (iam, sts) = aws_iam::services(Arc::new(ctx("iam")));
     let iam = Arc::new(iam);
@@ -51,20 +37,22 @@ pub(crate) async fn run(args: Args) -> Result<()> {
     config.credential_source = Some(iam.clone());
     let cloudwatch = Arc::new(aws_cloudwatch::Cloudwatch::new(Arc::new(ctx("cloudwatch"))));
     let eventbridge = Arc::new(Eventbridge::new(Arc::new(ctx("eventbridge"))));
+    let (sqs, dynamodb, kinesis, lambda) = compute(&ctx, &args);
     let services: Vec<Arc<dyn Service>> = vec![
         iam,
         Arc::new(sts),
-        Arc::new(aws_sqs::Sqs::new(Arc::new(ctx("sqs")))),
+        sqs,
         Arc::new(aws_ssm::Ssm::new(Arc::new(ctx("ssm")))),
         Arc::new(aws_secrets::Secrets::new(Arc::new(ctx("secretsmanager")))),
         Arc::new(aws_kms::Kms::new(Arc::new(ctx("kms")))),
         Arc::new(aws_sns::Sns::new(Arc::new(ctx("sns")))),
-        Arc::new(aws_dynamodb::Dynamodb::new(Arc::new(ctx("dynamodb")))),
+        dynamodb,
         Arc::new(aws_s3::S3::new(Arc::new(ctx("s3")))),
-        Arc::new(aws_kinesis::Kinesis::new(Arc::new(ctx("kinesis")))),
+        kinesis,
         Arc::new(aws_logs::Logs::new(Arc::new(ctx("logs")))),
         cloudwatch.clone(),
         eventbridge.clone(),
+        lambda.clone(),
     ];
     let mut gateway = Gateway::new(config);
     for service in services {
@@ -78,6 +66,9 @@ pub(crate) async fn run(args: Args) -> Result<()> {
     // Alarms that were pending when the process last stopped are judged again; nothing else would wake their region.
     cloudwatch.resume().await;
     eventbridge.resume().await;
+    // Event source mappings that were enabled when the process last stopped poll again; functions find the other services here.
+    lambda.set_endpoint(&format!("http://{}", running.local_addr()));
+    lambda.resume().await;
     // The line a supervisor (and the conformance harness) waits for.
     tracing::info!("doze-aws listening on {}", running.local_addr());
     wait_for_stop().await;
@@ -85,6 +76,70 @@ pub(crate) async fn run(args: Args) -> Result<()> {
     running.shutdown().await;
     tasks.shutdown().await;
     Ok(())
+}
+
+/// Who may call: anyone (trust), or the one key from the command line (verify; IAM's own keys are added by the credential source).
+fn auth_of(args: &Args) -> Auth {
+    match args.auth {
+        AuthMode::Trust => Auth::Trust,
+        AuthMode::Verify => {
+            let mut creds = StaticCredentials::new();
+            creds.insert(
+                args.access_key.clone(),
+                Credential {
+                    secret: Secret::new(args.secret_key.clone()),
+                    session_token: None,
+                    expires_at: None,
+                },
+            );
+            Auth::Verify(Arc::new(creds))
+        }
+    }
+}
+
+/// SQS, DynamoDB, Kinesis and Lambda, made together: Lambda wakes its event source pollers from the sources themselves, so it is
+/// handed them (the peer bus does not carry a wake-up).
+fn compute(
+    ctx: &impl Fn(&str) -> Ctx,
+    args: &Args,
+) -> (
+    Arc<aws_sqs::Sqs>,
+    Arc<aws_dynamodb::Dynamodb>,
+    Arc<aws_kinesis::Kinesis>,
+    Arc<aws_lambda::Lambda>,
+) {
+    let sqs = Arc::new(aws_sqs::Sqs::new(Arc::new(ctx("sqs"))));
+    let dynamodb = Arc::new(aws_dynamodb::Dynamodb::new(Arc::new(ctx("dynamodb"))));
+    let kinesis = Arc::new(aws_kinesis::Kinesis::new(Arc::new(ctx("kinesis"))));
+    let lambda = Arc::new(aws_lambda::Lambda::with_config(
+        Arc::new(ctx("lambda")),
+        lambda_config(args),
+    ));
+    lambda.connect(aws_lambda::Sources {
+        sqs: Arc::clone(&sqs),
+        kinesis: Arc::clone(&kinesis),
+        dynamodb: Arc::clone(&dynamodb),
+    });
+    (sqs, dynamodb, kinesis, lambda)
+}
+
+/// How Lambda runs functions: the idle time and quiet flag from the command line, and the interpreters from `DOZE_LAMBDA_PYTHON`,
+/// `_NODE`, `_RUBY`, `_JAVA` and `_DOTNET` (the one on `PATH` otherwise).
+fn lambda_config(args: &Args) -> aws_lambda::Config {
+    let env = |name: &str| std::env::var(name).ok().filter(|v| !v.is_empty());
+    aws_lambda::Config {
+        runtime: aws_lambda::RuntimeConfig {
+            idle: Duration::from_secs(args.lambda_idle_secs),
+            interpreters: aws_lambda::Interpreters {
+                python: env("DOZE_LAMBDA_PYTHON"),
+                node: env("DOZE_LAMBDA_NODE"),
+                ruby: env("DOZE_LAMBDA_RUBY"),
+                java: env("DOZE_LAMBDA_JAVA"),
+                dotnet: env("DOZE_LAMBDA_DOTNET"),
+            },
+        },
+        quiet: args.lambda_quiet,
+    }
 }
 
 /// Resolves on Ctrl-C or, on Unix, SIGTERM.

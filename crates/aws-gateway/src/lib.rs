@@ -14,8 +14,10 @@ mod pipeline;
 mod presign;
 mod query;
 mod rest;
+mod s3host;
 mod server;
 mod upload;
+mod web;
 
 pub use config::{Auth, Config};
 pub use server::{Gateway, Running};

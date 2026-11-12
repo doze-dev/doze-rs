@@ -65,4 +65,10 @@ pub(crate) struct Args {
     /// The account every request is for.
     #[arg(long, default_value = "000000000000")]
     pub(crate) account: String,
+    /// Seconds a warm Lambda function process waits for its next invocation before it ends.
+    #[arg(long, default_value_t = 600)]
+    pub(crate) lambda_idle_secs: u64,
+    /// Keep what Lambda functions print out of this process's log (it is always in CloudWatch Logs).
+    #[arg(long)]
+    pub(crate) lambda_quiet: bool,
 }
