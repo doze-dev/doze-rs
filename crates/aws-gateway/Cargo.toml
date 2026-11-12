@@ -18,6 +18,8 @@ aws-auth = { path = "../aws-auth" }
 aws-wire = { path = "../aws-wire" }
 doze-runtime = { path = "../doze-runtime" }
 bytes = "1"
+# A gzip request body (botocore compresses PutMetricData past 10 KB). The pure-Rust backend only.
+flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
 http = "1"
 http-body-util = "0.1"
 hyper = { version = "1", default-features = false, features = ["server", "http1"] }

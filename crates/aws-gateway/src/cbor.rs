@@ -10,8 +10,7 @@ use http::request::Parts;
 use hyper::body::Incoming;
 
 use crate::pipeline::{
-    Entry, Fail, Out, Shared, authenticate, decode_call, endpoint_of, read_body, session_token,
-    unbuilt,
+    Entry, Fail, Out, Shared, authenticate, caller_of, decode_call, inflate, read_body, unbuilt,
 };
 
 /// Answers a CBOR request to `entry`.
@@ -50,6 +49,7 @@ pub(crate) async fn handle(
     if let Some(refusal) = unbuilt(entry, op) {
         return Err(fail(&refusal));
     }
+    let bytes = inflate(parts, bytes, shared.max_body_bytes()).map_err(|e| fail(&e))?;
     let json = cbor::to_json(&bytes).map_err(|e| {
         fail(&ApiError::new(
             400,
@@ -57,14 +57,7 @@ pub(crate) async fn handle(
             format!("The request body could not be read: {e}"),
         ))
     })?;
-    let caller = aws_wire::service::Caller {
-        access_key_id: claim.access_key_id,
-        account_id: shared.account_id().to_owned(),
-        region: claim.region,
-        endpoint: endpoint_of(parts),
-        service: None,
-        session_token: session_token(parts),
-    };
+    let caller = caller_of(shared, parts, claim);
     let call = decode_call(entry, op, id, caller, Bytes::from(json)).map_err(|e| fail(&e))?;
     let output = entry.service.call(call).await.map_err(|e| fail(&e))?;
     let encoded = encode_output(entry, op, &output).map_err(|e| fail(&e))?;

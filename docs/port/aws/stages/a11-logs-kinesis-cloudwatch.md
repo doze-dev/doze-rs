@@ -157,7 +157,7 @@ Each is marked `(memory)` in a code comment.
 
 ## Tests
 
-- `aws-logs`: 33 (24 state-machine tests including restart-after-writes and "a read changes nothing on disk", 8 pattern tests, a refusal-by-name test), fuzz target `fuzz_filter_pattern` (850,000 inputs in 60 s, no finding).
+- `aws-logs`: 24 (15 state-machine tests including restart-after-writes and "a read changes nothing on disk", 8 pattern tests, a refusal-by-name test), fuzz target `fuzz_filter_pattern` (850,000 inputs in 60 s, no finding).
 - `aws-kinesis`: 21 (iterator types, retention expiry with a manual clock, routing by the recorded keys, restart, consumers, tags, notification flag).
 - `aws-cloudwatch`: 22 (metrics read back as the recording, alarm evaluation against deadlines with a manual clock, missing-data settings, M of N, forced states,
   actions queued and refused, history, tags, dashboards, detectors; a real-time timer test; a restart test; a CBOR round trip; the socket test in `tests/cbor_wire.rs`).

@@ -99,9 +99,9 @@ async fn cbor(addr: SocketAddr, op: &str, body: &[u8]) -> (u16, String, Value) {
     (status, head, serde_json::from_str(&json).unwrap())
 }
 
-#[tokio::test]
-async fn a_cbor_client_puts_data_reads_statistics_and_meets_cbor_errors() {
-    let dir = std::env::temp_dir().join(format!("doze-aws-cw-wire-{}", std::process::id()));
+/// A gateway with CloudWatch behind it on a directory of its own, and the time now in seconds.
+async fn start(tag: &str) -> (aws_gateway::Running, SocketAddr, std::path::PathBuf, f64) {
+    let dir = std::env::temp_dir().join(format!("doze-aws-cw-wire-{tag}-{}", std::process::id()));
     let ctx = Arc::new(Ctx {
         dir: dir.clone(),
         idle: Duration::from_secs(300),
@@ -121,7 +121,12 @@ async fn a_cbor_client_puts_data_reads_statistics_and_meets_cbor_errors() {
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
         .as_secs_f64();
+    (running, addr, dir, now)
+}
 
+#[tokio::test]
+async fn a_cbor_client_puts_data_and_reads_statistics() {
+    let (running, addr, dir, now) = start("data").await;
     let datum = map(&[
         ("MetricName", string("depth")),
         ("Timestamp", timestamp(now - 30.0)),
@@ -148,7 +153,28 @@ async fn a_cbor_client_puts_data_reads_statistics_and_meets_cbor_errors() {
     assert_eq!(answer["Label"], "depth");
     assert_eq!(answer["Datapoints"][0]["Sum"], 4.5);
     assert_eq!(answer["Datapoints"][0]["Unit"], "Count");
+    // The same service answers a JSON 1.0 client on the same port.
+    let (status, head, bytes) = send(
+        addr,
+        "/",
+        &[
+            ("X-Amz-Target", "GraniteServiceVersion20100801.ListMetrics"),
+            ("Content-Type", "application/x-amz-json-1.0"),
+        ],
+        br#"{"Namespace":"W"}"#,
+    )
+    .await;
+    assert_eq!(status, 200);
+    assert!(head.contains("application/x-amz-json-1.0"), "{head}");
+    let listed: Value = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(listed["Metrics"][0]["MetricName"], "depth");
+    running.shutdown().await;
+    drop(std::fs::remove_dir_all(&dir));
+}
 
+#[tokio::test]
+async fn cbor_errors_are_cbor_maps_with_the_query_code_beside_them() {
+    let (running, addr, dir, now) = start("errors").await;
     // A refusal of the service is a CBOR map, with the code the Query protocol would use beside it.
     let bad = map(&[
         ("Namespace", string("W")),
@@ -189,22 +215,60 @@ async fn a_cbor_client_puts_data_reads_statistics_and_meets_cbor_errors() {
     assert!(head.contains("x-doze-not-built: 1"), "{head}");
     let (status, _, _) = cbor(addr, "NoSuchOperation", &map(&[])).await;
     assert_eq!(status, 404);
+    running.shutdown().await;
+    drop(std::fs::remove_dir_all(&dir));
+}
 
-    // The same service answers a JSON 1.0 client on the same port.
-    let (status, head, bytes) = send(
+#[tokio::test]
+async fn a_gzip_body_is_inflated_before_it_is_read() {
+    let (running, addr, dir, _) = start("gzip").await;
+    // A gzip body, as botocore sends PutMetricData past 10 KB (the signature covers the compressed bytes).
+    use std::io::Write;
+    let mut gz = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+    gz.write_all(br#"{"Namespace":"W","MetricData":[{"MetricName":"zipped","Value":1}]}"#)
+        .unwrap();
+    let zipped = gz.finish().unwrap();
+    let (status, _, _) = send(
+        addr,
+        "/",
+        &[
+            (
+                "X-Amz-Target",
+                "GraniteServiceVersion20100801.PutMetricData",
+            ),
+            ("Content-Type", "application/x-amz-json-1.0"),
+            ("Content-Encoding", "gzip"),
+        ],
+        &zipped,
+    )
+    .await;
+    assert_eq!(status, 200);
+    let (status, _, _) = send(
+        addr,
+        "/",
+        &[
+            (
+                "X-Amz-Target",
+                "GraniteServiceVersion20100801.PutMetricData",
+            ),
+            ("Content-Encoding", "gzip"),
+        ],
+        b"not gzip",
+    )
+    .await;
+    assert_eq!(status, 400);
+    let (_, _, bytes) = send(
         addr,
         "/",
         &[
             ("X-Amz-Target", "GraniteServiceVersion20100801.ListMetrics"),
             ("Content-Type", "application/x-amz-json-1.0"),
         ],
-        br#"{"Namespace":"W"}"#,
+        br#"{"MetricName":"zipped"}"#,
     )
     .await;
-    assert_eq!(status, 200);
-    assert!(head.contains("application/x-amz-json-1.0"), "{head}");
     let listed: Value = serde_json::from_slice(&bytes).unwrap();
-    assert_eq!(listed["Metrics"][0]["MetricName"], "depth");
+    assert_eq!(listed["Metrics"][0]["MetricName"], "zipped");
 
     running.shutdown().await;
     drop(std::fs::remove_dir_all(&dir));

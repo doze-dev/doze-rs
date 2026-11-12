@@ -141,18 +141,58 @@ async fn handle(
     if let Some(refusal) = unbuilt(entry, op) {
         return Err(fail(&refusal));
     }
-    let caller = Caller {
+    let bytes = inflate(parts, bytes, shared.max_body_bytes()).map_err(|e| fail(&e))?;
+    let caller = caller_of(shared, parts, claim);
+    let call = decode_call(entry, op, id, caller, bytes).map_err(|e| fail(&e))?;
+    let output = entry.service.call(call).await.map_err(|e| fail(&e))?;
+    let encoded = encode_output(entry, op, &output.arena, output.root).map_err(|e| fail(&e))?;
+    Ok(json::success(version, id, encoded))
+}
+
+/// Who is calling, from the credential scope and the request head.
+pub(crate) fn caller_of(shared: &Shared, parts: &Parts, claim: Claim) -> Caller {
+    Caller {
         access_key_id: claim.access_key_id,
         account_id: shared.config.account_id.clone(),
         region: claim.region,
         endpoint: endpoint_of(parts),
         service: None,
         session_token: session_token(parts),
-    };
-    let call = decode_call(entry, op, id, caller, bytes).map_err(|e| fail(&e))?;
-    let output = entry.service.call(call).await.map_err(|e| fail(&e))?;
-    let encoded = encode_output(entry, op, &output.arena, output.root).map_err(|e| fail(&e))?;
-    Ok(json::success(version, id, encoded))
+    }
+}
+
+/// A body sent with `Content-Encoding: gzip` (botocore compresses `PutMetricData` past 10 KB, as the CloudWatch model says it may),
+/// inflated. The signature covers the bytes as sent, so this comes after the check. What it inflates to is held to the same limit
+/// as any body, so a small request cannot become a large one.
+pub(crate) fn inflate(parts: &Parts, bytes: Bytes, limit: usize) -> Result<Bytes, ApiError> {
+    use std::io::Read;
+    let gzip = parts
+        .headers
+        .get(http::header::CONTENT_ENCODING)
+        .and_then(|v| v.to_str().ok())
+        .is_some_and(|v| v.trim().eq_ignore_ascii_case("gzip"));
+    if !gzip {
+        return Ok(bytes);
+    }
+    let mut out = Vec::new();
+    let read = flate2::read::GzDecoder::new(&bytes[..])
+        .take(limit as u64 + 1)
+        .read_to_end(&mut out);
+    if read.is_err() {
+        return Err(ApiError::new(
+            400,
+            "SerializationException",
+            "The request body is not valid gzip.",
+        ));
+    }
+    if out.len() > limit {
+        return Err(ApiError::new(
+            413,
+            "RequestEntityTooLarge",
+            format!("The request body exceeds {limit} bytes once inflated."),
+        ));
+    }
+    Ok(Bytes::from(out))
 }
 
 /// The refusal for an operation the service does not build (501, by name), before its body is read.
