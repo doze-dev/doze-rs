@@ -120,8 +120,7 @@ and gave the focus to nothing on close in Firefox and Safari (a clicked button i
 entry, so Back did not restore it; the drawer put the focus on a tooltip trigger, so the first Esc closed the tooltip; the WebKit focus
 escape above.
 
-**The gate, last run** (Playwright 1.65.0, `workers: 1`, release binary): 29 scenarios per browser (shell 13, gallery 11, pages 6,
-less one shared: see `web/e2e/tests/`), **Firefox 29/29, WebKit 29/29, Chromium 29/29** against the seeded world, and the same 87/87
+**The gate, last run** (Playwright 1.65.0, `workers: 1`, release binary): 29 scenarios per browser (see `web/e2e/tests/`), **Firefox 29/29, WebKit 29/29, Chromium 29/29** against the seeded world, and the same 87/87
 with `E2E_URL` against a broker with live traffic (the demo workload). Rust: `cargo test -p kafka-console -p doze-kafka` 888 passed;
 fmt, clippy `-D warnings` (default and `--no-default-features`), lint-size (0 over hard), the console catalogue and the assets check
 green; `bun run typecheck`, `bun run lint` (0 warnings), `bun test` green. Two allowances in the gate, both written in the specs: a
