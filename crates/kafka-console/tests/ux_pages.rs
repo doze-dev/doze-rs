@@ -313,7 +313,8 @@ fn controls(doc: &str) -> Vec<String> {
     let row = row.split("<input type=\"hidden\"").next().unwrap_or(row);
     let mut out = Vec::new();
     for part in row.split('<').skip(1) {
-        if part.starts_with("button") {
+        if part.starts_with("button") || (part.starts_with("a ") && part.contains("data-seg")) {
+            // A button, or a segment of a Segmented control (a link): what it says.
             out.push(part[part.find('>').unwrap() + 1..].trim_end().to_owned());
         } else if let Some(at) = part.find("name=\"") {
             let name = &part[at + 6..];
