@@ -79,6 +79,28 @@
     } catch (err) { f.submit(); }
   });
 
+  // A dialog: a link marked data-dialog fetches the dialog's body (the server answers it alone when asked for a fragment)
+  // and opens it in the platform's <dialog> over this page. Cancel closes it; a failed fetch follows the link instead.
+  // The dialog is a plain POST form, so submitting it navigates, exactly as it does with no script.
+  document.addEventListener('click', async (e) => {
+    const close = e.target.closest('[data-dialog-close]');
+    if (close && close.closest('dialog.dlg')) { e.preventDefault(); close.closest('dialog.dlg').close(); return; }
+    const a = e.target.closest('a[data-dialog]');
+    if (!a || e.defaultPrevented || e.metaKey || e.ctrlKey || e.shiftKey || e.button) return;
+    e.preventDefault();
+    try {
+      const r = await fetch(a.href, { headers: { 'X-Fragment': '1' } });
+      if (!r.ok || !HTMLDialogElement.prototype.showModal) throw new Error(String(r.status));
+      const d = document.createElement('dialog');
+      d.className = 'dlg';
+      d.innerHTML = await r.text();
+      d.addEventListener('close', () => d.remove());
+      d.addEventListener('click', (ev) => { if (ev.target === d) d.close(); });
+      document.body.append(d);
+      d.showModal();
+    } catch (err) { location.href = a.href; }
+  });
+
   // The stream: one connection while the page is on screen. A tick names the fragments to fetch again.
   const url = attr(document.body, 'data-stream');
   if (!url || !window.EventSource) return;

@@ -67,6 +67,22 @@ pub fn get<'a>(fields: &'a [(String, String)], name: &str) -> Option<&'a str> {
         .map(|(_, v)| v.as_str())
 }
 
+/// The fields of a form body as it arrives: bytes, of which what is not UTF-8 is replaced (so a hostile or broken body
+/// is text like any other, never an error).
+#[must_use]
+pub fn parse_body(body: &[u8]) -> Vec<(String, String)> {
+    parse(&String::from_utf8_lossy(body))
+}
+
+/// The first value of a field, or the empty text when it is absent: a form left a field out the way it leaves one empty.
+#[must_use]
+pub fn text<'a>(fields: &'a [(String, String)], name: &str) -> &'a str {
+    get(fields, name).unwrap_or("")
+}
+
+/// The most fields a form is read for (see [`parse`]).
+pub const FIELD_LIMIT: usize = MOST_FIELDS;
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -122,5 +138,74 @@ mod tests {
                 let _ = parse(&s);
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod body_tests {
+    use super::*;
+
+    #[test]
+    fn a_body_that_is_not_utf8_is_text_with_replacements() {
+        let f = parse_body(b"a=\xff\xfe&b=%ff&c=ok&d=%e2%9c");
+        assert_eq!(text(&f, "a"), "\u{fffd}\u{fffd}");
+        assert_eq!(text(&f, "b"), "\u{fffd}");
+        assert_eq!(text(&f, "c"), "ok");
+        assert_eq!(
+            text(&f, "d"),
+            "\u{fffd}",
+            "a cut multi-byte sequence is one replacement"
+        );
+        assert_eq!(parse_body(b""), Vec::new());
+    }
+
+    #[test]
+    fn an_absent_field_is_empty_and_the_first_of_a_repeat_wins() {
+        let f = parse_body(b"name=first&name=second&empty=");
+        assert_eq!(text(&f, "name"), "first");
+        assert_eq!(text(&f, "empty"), "");
+        assert_eq!(text(&f, "missing"), "");
+        assert_eq!(get(&f, "missing"), None);
+        assert_eq!(get(&f, "empty"), Some(""));
+    }
+
+    #[test]
+    fn percent_escapes_plus_and_control_bytes_decode_the_way_a_browser_wrote_them() {
+        let f = parse_body(b"k=a%2Bb+c%20d%0D%0Ae%00f&%6Eame=x");
+        assert_eq!(text(&f, "k"), "a+b c d\r\ne\0f");
+        assert_eq!(text(&f, "name"), "x", "a name is decoded too");
+        // An escape that is not one stays as it is.
+        assert_eq!(text(&parse_body(b"k=%&j=%g1&l=%1"), "k"), "%");
+        assert_eq!(text(&parse_body(b"j=%g1"), "j"), "%g1");
+    }
+
+    #[test]
+    fn a_field_as_large_as_the_body_limit_is_read_whole() {
+        // The body limit is 1 MiB (guard::MAX_BODY): a value that fills it is decoded without loss and without a panic.
+        let mut body = b"value=".to_vec();
+        body.extend(std::iter::repeat_n(b'a', (1 << 20) - 6));
+        let f = parse_body(&body);
+        assert_eq!(text(&f, "value").len(), (1 << 20) - 6);
+        let mut escaped = b"value=".to_vec();
+        for _ in 0..((1 << 20) / 3) {
+            escaped.extend_from_slice(b"%41");
+        }
+        assert_eq!(text(&parse_body(&escaped), "value").len(), (1 << 20) / 3);
+    }
+
+    #[test]
+    fn fields_past_the_limit_are_dropped_not_errors() {
+        let body: String = (0..FIELD_LIMIT + 50).map(|i| format!("f{i}=v&")).collect();
+        let f = parse_body(body.as_bytes());
+        assert_eq!(f.len(), FIELD_LIMIT);
+        assert_eq!(text(&f, "f0"), "v");
+        assert_eq!(
+            text(&f, &format!("f{}", FIELD_LIMIT)),
+            "",
+            "the first field past the limit is gone"
+        );
+        // A field before the limit still wins over a later repeat of it.
+        let dup = format!("a=1&{}a=2", "x=1&".repeat(10));
+        assert_eq!(text(&parse_body(dup.as_bytes()), "a"), "1");
     }
 }

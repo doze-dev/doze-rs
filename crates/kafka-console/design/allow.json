@@ -19,5 +19,308 @@
     "selector": "connect-first-request",
     "reason": "The first-request card needs the recorder: slice 9e (debt J1-J7).",
     "expires": "9e"
+  },
+  {
+    "board": "topic-create",
+    "field": "button",
+    "reason": "[p9b-write] A step's Next is a submit button of a GET form that carries every typed value to the next step, so Back and a reload keep them with no script; the board draws a link.",
+    "expires": "close"
+  },
+  {
+    "board": "topic-create",
+    "field": "link",
+    "reason": "[p9b-write] A step's Next is a submit button of a GET form that carries every typed value to the next step, so Back and a reload keep them with no script; the board draws a link.",
+    "expires": "close"
+  },
+  {
+    "board": "topic-create-config",
+    "field": "button",
+    "reason": "[p9b-write] A step's Next is a submit button of a GET form that carries every typed value to the next step, so Back and a reload keep them with no script; the board draws a link.",
+    "expires": "close"
+  },
+  {
+    "board": "topic-create-config",
+    "field": "link",
+    "reason": "[p9b-write] A step's Next is a submit button of a GET form that carries every typed value to the next step, so Back and a reload keep them with no script; the board draws a link.",
+    "expires": "close"
+  },
+  {
+    "board": "topic-create-review",
+    "field": "link",
+    "selector": "topic-create-refused",
+    "reason": "[p9b-write] A result state is the answer to the form's POST, not an address: the board's teaching link to it is not offered.",
+    "expires": "close"
+  },
+  {
+    "board": "topic-create-review",
+    "field": "link",
+    "selector": "topic-created",
+    "reason": "[p9b-write] A result state is the answer to the form's POST, not an address: the board's teaching link to it is not offered.",
+    "expires": "close"
+  },
+  {
+    "board": "topic-create-refused",
+    "field": "button",
+    "reason": "[p9b-write] TEMPORARY: the target page is built by the parallel read builder (p9b-read); remove when the two branches are merged and the link resolves.",
+    "expires": "9b"
+  },
+  {
+    "board": "topic-create-refused",
+    "field": "link",
+    "reason": "[p9b-write] TEMPORARY: the target page is built by the parallel read builder (p9b-read); remove when the two branches are merged and the link resolves.",
+    "expires": "9b"
+  },
+  {
+    "board": "topic-created",
+    "field": "button",
+    "reason": "[p9b-write] TEMPORARY: the target page is built by the parallel read builder (p9b-read); remove when the two branches are merged and the link resolves.",
+    "expires": "9b"
+  },
+  {
+    "board": "topic-created",
+    "field": "link",
+    "reason": "[p9b-write] TEMPORARY: the target page is built by the parallel read builder (p9b-read); remove when the two branches are merged and the link resolves.",
+    "expires": "9b"
+  },
+  {
+    "board": "topic-produced",
+    "field": "button",
+    "reason": "[p9b-write] TEMPORARY: the target page is built by the parallel read builder (p9b-read); remove when the two branches are merged and the link resolves.",
+    "expires": "9b"
+  },
+  {
+    "board": "topic-produced",
+    "field": "link",
+    "reason": "[p9b-write] TEMPORARY: the target page is built by the parallel read builder (p9b-read); remove when the two branches are merged and the link resolves.",
+    "expires": "9b"
+  },
+  {
+    "board": "topic-add-partitions-refused",
+    "field": "button",
+    "reason": "[p9b-write] TEMPORARY: the target page is built by the parallel read builder (p9b-read); remove when the two branches are merged and the link resolves.",
+    "expires": "9b"
+  },
+  {
+    "board": "topic-add-partitions-refused",
+    "field": "link",
+    "reason": "[p9b-write] TEMPORARY: the target page is built by the parallel read builder (p9b-read); remove when the two branches are merged and the link resolves.",
+    "expires": "9b"
+  },
+  {
+    "board": "topic-deleted",
+    "field": "link",
+    "reason": "[p9b-write] TEMPORARY: the target page is built by the parallel read builder (p9b-read); remove when the two branches are merged and the link resolves.",
+    "expires": "9b"
+  },
+  {
+    "board": "topic-produce",
+    "field": "button",
+    "selector": "all (-1) [-] -> ui:select",
+    "reason": "[p9b-write] acks is three radio inputs drawn as the segmented control: a button of the segment would do nothing without a script.",
+    "expires": "close"
+  },
+  {
+    "board": "topic-produce",
+    "field": "button",
+    "selector": "1 [-] -> ui:select",
+    "reason": "[p9b-write] acks is three radio inputs drawn as the segmented control: a button of the segment would do nothing without a script.",
+    "expires": "close"
+  },
+  {
+    "board": "topic-produce",
+    "field": "button",
+    "selector": "0 [-] -> ui:select",
+    "reason": "[p9b-write] acks is three radio inputs drawn as the segmented control: a button of the segment would do nothing without a script.",
+    "expires": "close"
+  },
+  {
+    "board": "topic-produce",
+    "field": "button",
+    "selector": "all (-#) [-] -> ui:select",
+    "render": "live",
+    "reason": "[p9b-write] acks is three radio inputs drawn as the segmented control: a button of the segment would do nothing without a script.",
+    "expires": "close"
+  },
+  {
+    "board": "topic-produce",
+    "field": "button",
+    "selector": "# [-] -> ui:select",
+    "render": "live",
+    "reason": "[p9b-write] acks is three radio inputs drawn as the segmented control: a button of the segment would do nothing without a script.",
+    "expires": "close"
+  },
+  {
+    "board": "topic-produce",
+    "field": "button",
+    "selector": "Cancel [-] -> to:topic-detail",
+    "reason": "[p9b-write] TEMPORARY: the target page is built by the parallel read builder (p9b-read); remove when the two branches are merged and the link resolves.",
+    "expires": "9b"
+  },
+  {
+    "board": "topic-produce",
+    "field": "button",
+    "selector": "Cancel [-] -> to:?/topics/orders",
+    "reason": "[p9b-write] TEMPORARY: the target page is built by the parallel read builder (p9b-read); remove when the two branches are merged and the link resolves.",
+    "expires": "9b"
+  },
+  {
+    "board": "topic-produce",
+    "field": "link",
+    "selector": "topic-detail",
+    "reason": "[p9b-write] TEMPORARY: the target page is built by the parallel read builder (p9b-read); remove when the two branches are merged and the link resolves.",
+    "expires": "9b"
+  },
+  {
+    "board": "topic-produce",
+    "field": "link",
+    "selector": "?/topics/orders",
+    "reason": "[p9b-write] TEMPORARY: the target page is built by the parallel read builder (p9b-read); remove when the two branches are merged and the link resolves.",
+    "expires": "9b"
+  },
+  {
+    "board": "topic-produce",
+    "field": "link",
+    "selector": "topic-produce-keyless",
+    "reason": "[p9b-write] A result state is the answer to the form's POST, not an address: the board's teaching link to it is not offered.",
+    "expires": "close"
+  },
+  {
+    "board": "topic-produce",
+    "field": "link",
+    "selector": "topic-produced",
+    "reason": "[p9b-write] A result state is the answer to the form's POST, not an address: the board's teaching link to it is not offered.",
+    "expires": "close"
+  },
+  {
+    "board": "topic-produce-keyless",
+    "field": "heading",
+    "reason": "[p9b-write] The wire table under a refused produce (\"What the wire recorded\") needs the request recorder: slice 9e (debt J41).",
+    "expires": "9e"
+  },
+  {
+    "board": "topic-produce-keyless",
+    "field": "table",
+    "reason": "[p9b-write] The wire table under a refused produce (\"What the wire recorded\") needs the request recorder: slice 9e (debt J41).",
+    "expires": "9e"
+  },
+  {
+    "board": "topic-produce-keyless",
+    "field": "table.col",
+    "reason": "[p9b-write] The wire table under a refused produce (\"What the wire recorded\") needs the request recorder: slice 9e (debt J41).",
+    "expires": "9e"
+  },
+  {
+    "board": "topic-produce-keyless",
+    "field": "table.rows",
+    "reason": "[p9b-write] The wire table under a refused produce (\"What the wire recorded\") needs the request recorder: slice 9e (debt J41).",
+    "expires": "9e"
+  },
+  {
+    "board": "topic-produce-keyless",
+    "field": "state",
+    "reason": "[p9b-write] The wire table under a refused produce (\"What the wire recorded\") needs the request recorder: slice 9e (debt J41).",
+    "expires": "9e"
+  },
+  {
+    "board": "topic-produced",
+    "field": "state",
+    "selector": "st warn in rows",
+    "render": "live",
+    "reason": "[p9b-write] The board lists the newest records of every partition, some held back above the last stable offset; the page lists the record just sent, the other partitions' newest records needing the record decoder of the read builder.",
+    "expires": "close"
+  },
+  {
+    "board": "topic-add-partitions",
+    "field": "button",
+    "reason": "[p9b-write] TEMPORARY: the target page is built by the parallel read builder (p9b-read); remove when the two branches are merged and the link resolves.",
+    "expires": "9b"
+  },
+  {
+    "board": "topic-add-partitions",
+    "field": "link",
+    "selector": "topic-partitions",
+    "reason": "[p9b-write] TEMPORARY: the target page is built by the parallel read builder (p9b-read); remove when the two branches are merged and the link resolves.",
+    "expires": "9b"
+  },
+  {
+    "board": "topic-add-partitions",
+    "field": "link",
+    "selector": "?/topics/orders/partitions",
+    "reason": "[p9b-write] TEMPORARY: the target page is built by the parallel read builder (p9b-read); remove when the two branches are merged and the link resolves.",
+    "expires": "9b"
+  },
+  {
+    "board": "topic-add-partitions",
+    "field": "link",
+    "selector": "topic-add-partitions-refused",
+    "reason": "[p9b-write] A result state is the answer to the form's POST, not an address: the board's teaching link to it is not offered.",
+    "expires": "close"
+  },
+  {
+    "board": "topic-delete-records",
+    "field": "button",
+    "reason": "[p9b-write] TEMPORARY: the target page is built by the parallel read builder (p9b-read); remove when the two branches are merged and the link resolves.",
+    "expires": "9b"
+  },
+  {
+    "board": "topic-delete-records",
+    "field": "link",
+    "selector": "topic-partitions",
+    "reason": "[p9b-write] TEMPORARY: the target page is built by the parallel read builder (p9b-read); remove when the two branches are merged and the link resolves.",
+    "expires": "9b"
+  },
+  {
+    "board": "topic-delete-records",
+    "field": "link",
+    "selector": "?/topics/orders/partitions",
+    "reason": "[p9b-write] TEMPORARY: the target page is built by the parallel read builder (p9b-read); remove when the two branches are merged and the link resolves.",
+    "expires": "9b"
+  },
+  {
+    "board": "topic-delete-records",
+    "field": "link",
+    "selector": "topic-delete-records-refused",
+    "reason": "[p9b-write] A result state is the answer to the form's POST, not an address: the board's teaching link to it is not offered.",
+    "expires": "close"
+  },
+  {
+    "board": "topic-delete-records-refused",
+    "field": "link",
+    "selector": "config-edit-list",
+    "reason": "[p9b-write] TEMPORARY: the Edit cleanup.policy link goes to the config edit dialog, built by slice 9d.",
+    "expires": "9d"
+  },
+  {
+    "board": "topic-delete",
+    "field": "button",
+    "reason": "[p9b-write] TEMPORARY: the target page is built by the parallel read builder (p9b-read); remove when the two branches are merged and the link resolves.",
+    "expires": "9b"
+  },
+  {
+    "board": "topic-delete",
+    "field": "link",
+    "selector": "topic-detail",
+    "reason": "[p9b-write] TEMPORARY: the target page is built by the parallel read builder (p9b-read); remove when the two branches are merged and the link resolves.",
+    "expires": "9b"
+  },
+  {
+    "board": "topic-delete",
+    "field": "link",
+    "selector": "?/topics/orders",
+    "reason": "[p9b-write] TEMPORARY: the target page is built by the parallel read builder (p9b-read); remove when the two branches are merged and the link resolves.",
+    "expires": "9b"
+  },
+  {
+    "board": "topic-delete",
+    "field": "link",
+    "selector": "topic-deleted",
+    "reason": "[p9b-write] A result state is the answer to the form's POST, not an address: the board's teaching link to it is not offered.",
+    "expires": "close"
+  },
+  {
+    "board": "topic-deleted",
+    "field": "title",
+    "reason": "[p9b-write] The tool gives a state its parent's title (here the delete dialog, \"Delete orders\"); the page after a delete is the topic list and its breadcrumb says Topic deleted.",
+    "expires": "close"
   }
 ]

@@ -8,3 +8,12 @@ mod home;
 
 pub use connect::{Access, ClientSnippet, ConnectView, ProbeView, Rule, Span, Tok, Verdict};
 pub use home::{Attention, HeldBack, HomeState, HomeView, InstanceView, StopView};
+
+mod write;
+
+pub use write::{
+    AddView, Checked, CreateRefused, CreateResult, CreateView, Created, DeleteRecordsRefused,
+    DeleteRecordsView, DeleteView, Deleted, Draft, Errors, InUse, Lines, ProduceErrors,
+    ProduceInput, ProduceRefused, ProduceResult, ProduceView, Produced, RecordRow, RecordsDeleted,
+    Refusal, Remaining, Step, Teach, Template, TopicHead, Visibility,
+};

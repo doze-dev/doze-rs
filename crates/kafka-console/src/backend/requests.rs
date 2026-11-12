@@ -1,5 +1,8 @@
 //! One builder per request the console sends: typed, bounded, nothing the boards do not draw.
 
+pub mod forms;
+pub mod topics_write;
+
 use kafka_wire::StrBytes;
 use kafka_wire::api::Request;
 use kafka_wire::messages::list_offsets_request::{ListOffsetsPartition, ListOffsetsTopic};

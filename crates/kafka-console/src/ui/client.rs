@@ -30,6 +30,12 @@ pub const ATTR_COPY_FROM: &str = "data-copy-from";
 pub const ATTR_COPY_AS: &str = "data-copy-as";
 /// The address (bootstrap) the alternative copy forms are built from.
 pub const ATTR_ADDRESS: &str = "data-address";
+/// A link whose target is a dialog: with a script it opens over the page, without one it is an ordinary link to a page.
+pub const ATTR_DIALOG: &str = "data-dialog";
+/// A control inside a dialog that closes it (Cancel): without a script it is a link back to the page.
+pub const ATTR_DIALOG_CLOSE: &str = "data-dialog-close";
+/// The class of the `<dialog>` the script makes to hold a dialog's body.
+pub const CLASS_DIALOG: &str = "dlg";
 /// The class of an element that is a fragment of its own.
 pub const CLASS_FRAGMENT: &str = "frag";
 /// The id of the banner shown while the stream is lost.
@@ -77,6 +83,12 @@ pub fn form(action: &str, target: &str, hidden: &[(&str, &str)], content: Markup
 #[must_use]
 pub fn copy_button(class: &str, text: &str, label: Markup) -> Markup {
     html! { button class=(class) type="button" data-ui="copy" data-copy=(text) data-js-only hidden { (label) } }
+}
+
+/// A link to a dialog's address: a plain link, marked so a script can open the dialog over the page.
+#[must_use]
+pub fn dialog_link(class: &str, href: &str, label: Markup) -> Markup {
+    html! { a class=(class) href=(href) data-dialog { (label) } }
 }
 
 /// The address chip of the top bar: always shown (it is the address), and copies it when a script can.

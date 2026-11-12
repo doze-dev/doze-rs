@@ -23,6 +23,16 @@ fn method_router(route: &Route) -> MethodRouter<Shared> {
         (Handler::Events, _) => get(handlers::events),
         (Handler::Static, _) => get(handlers::static_file),
         (Handler::Health, _) => get(handlers::health),
+        (Handler::CreateForm, _) => get(handlers::create_form),
+        (Handler::Create, _) => post(handlers::create),
+        (Handler::ProduceForm, _) => get(handlers::produce_form),
+        (Handler::Produce, _) => post(handlers::produce),
+        (Handler::PartitionsAddForm, _) => get(handlers::partitions_add_form),
+        (Handler::PartitionsAdd, _) => post(handlers::partitions_add),
+        (Handler::DeleteRecordsForm, _) => get(handlers::delete_records_form),
+        (Handler::DeleteRecords, _) => post(handlers::delete_records),
+        (Handler::DeleteForm, _) => get(handlers::delete_form),
+        (Handler::Delete, _) => post(handlers::delete),
         (Handler::Planned(title), _) => get(
             move |axum::extract::State(s): axum::extract::State<Shared>| async move {
                 handlers::planned(s, title).await
