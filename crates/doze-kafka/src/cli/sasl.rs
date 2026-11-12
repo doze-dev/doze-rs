@@ -128,3 +128,15 @@ fn pairs(input: &Input<'_>) -> Result<Vec<(String, String)>> {
     }
     Ok(out)
 }
+
+/// The users of `DOZE_KAFKA_SASL_USERS`, if it is set to something. Its text is never put in a message.
+pub(super) fn users_from_env(
+    env: &dyn Fn(&str) -> Option<std::ffi::OsString>,
+) -> Result<Option<String>> {
+    match env("DOZE_KAFKA_SASL_USERS").map(std::ffi::OsString::into_string) {
+        None => Ok(None),
+        Some(Ok(text)) if text.trim().is_empty() => Ok(None),
+        Some(Ok(text)) => Ok(Some(text)),
+        Some(Err(_)) => bail!("DOZE_KAFKA_SASL_USERS is not valid UTF-8 text"),
+    }
+}

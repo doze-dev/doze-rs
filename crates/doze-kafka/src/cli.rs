@@ -216,7 +216,7 @@ impl Args {
             mechanisms: &self.sasl_mechanisms,
             users: &self.sasl_user,
             users_file: self.sasl_users_file.as_deref(),
-            env: users_from_env(env)?,
+            env: sasl::users_from_env(env)?,
             allow_empty: self.sasl_allow_empty_users,
             data_dir: &self.data_dir,
         })?;
@@ -284,16 +284,6 @@ impl Args {
             out.push("--console");
         }
         out
-    }
-}
-
-/// The users of `DOZE_KAFKA_SASL_USERS`, if it is set to something. Its text is never put in a message.
-fn users_from_env(env: &dyn Fn(&str) -> Option<std::ffi::OsString>) -> Result<Option<String>> {
-    match env("DOZE_KAFKA_SASL_USERS").map(std::ffi::OsString::into_string) {
-        None => Ok(None),
-        Some(Ok(text)) if text.trim().is_empty() => Ok(None),
-        Some(Ok(text)) => Ok(Some(text)),
-        Some(Err(_)) => bail!("DOZE_KAFKA_SASL_USERS is not valid UTF-8 text"),
     }
 }
 

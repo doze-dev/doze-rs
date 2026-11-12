@@ -514,16 +514,16 @@ second deletion of the same credential. Test: `tests/user_scram::deleting_what_i
 ## SEC-165. A user touched twice in one request loses both operations (SCM:188-226)
 The key is the user's name, not the name and mechanism: two deletions, a deletion and an upsertion (either mechanism), or two upsertions of one user are `DUPLICATE_RESOURCE` 92 `A user credential cannot be altered twice in the same request`;
 the earlier operation is cancelled with the later one, nothing is changed for that user, and a third mention is ignored. Once a user has an error (any), every later operation on the name is ignored and the first error stands.
-Test: `tests/user_scram::a_user_touched_twice_in_one_request_is_refused_whatever_the_operations`, `..::a_user_whose_first_operation_failed_keeps_that_error_and_a_repeat_is_ignored`.
+Test: `tests/user_scram_requests::a_user_touched_twice_in_one_request_is_refused_whatever_the_operations`, `..::a_user_whose_first_operation_failed_keeps_that_error_and_a_repeat_is_ignored`, `..::a_deletion_that_failed_ends_the_users_part_of_the_request`.
 
 ## SEC-166. The answer: deletions that happened, upsertions that happened, then the refusals (SCM:229-257)
 One result per user: `User`, `ErrorCode`, `ErrorMessage` (null on success). Kafka's order inside each group is a hash map's; here it is the order of the request (**deviation SEC-D52**). An empty request answers an empty list. Test:
-`tests/user_scram::a_mixed_request_answers_deletions_then_upsertions_then_errors`, `..::an_empty_request_changes_nothing_and_answers_nothing`.
+`tests/user_scram_requests::a_mixed_request_answers_deletions_then_upsertions_then_errors`, `..::an_empty_request_changes_nothing_and_answers_nothing` (both in `tests/user_scram_requests`).
 
 ## SEC-167. Salt and salted password are not judged, except that a key cannot be empty (SCM:260-282, ApiError.java:35-41)
 Any salt is taken, empty included (Kafka validates nothing: kafka-semantics 3.6), and a salted password of any length is a key. A salted password of no bytes makes Java's `SecretKeySpec` throw
 `IllegalArgumentException("Empty key")` inside `finishUpsertion`, which the controller catches and `ApiError.fromThrowable` turns into `UNKNOWN_SERVER_ERROR` (-1) with a null message; no record is written. Here the same: -1, null, nothing stored.
-Test: `tests/user_scram::the_salt_and_the_salted_password_are_not_judged_except_that_a_key_cannot_be_empty`.
+Test: `tests/user_scram_requests::the_salt_and_the_salted_password_are_not_judged_except_that_a_key_cannot_be_empty`.
 
 ## SEC-168. A request is one change: written, then swapped in, under a lock
 The whole request is applied in one table transaction (deletions and upsertions together: Kafka's `ControllerResult.atomicOf`, SCM:257), durable before the answer, and only then is the new snapshot of stored users swapped in (an `ArcSwap`), so a
