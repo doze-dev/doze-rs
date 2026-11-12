@@ -269,7 +269,10 @@ mod tests {
             vec![],
         )
         .into_string();
-        assert!(m.contains("<th scope=\"col\" title=\"Time\">Time</th>"), "{m}");
+        assert!(
+            m.contains("<th scope=\"col\" title=\"Time\">Time</th>"),
+            "{m}"
+        );
         assert!(
             m.contains(r#"<div class="dt-empty" data-empty>No requests yet.</div>"#),
             "{m}"
