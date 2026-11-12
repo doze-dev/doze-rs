@@ -148,3 +148,50 @@ async fn a_body_that_says_it_is_over_a_mebibyte_is_refused_before_it_is_read_on_
     let (res, _) = send(&app, exact).await;
     assert_eq!(res.status(), StatusCode::SEE_OTHER);
 }
+
+#[tokio::test]
+async fn a_static_file_answers_304_to_its_own_etag_and_ignores_a_range() {
+    let (app, state) = app("/", &[]);
+    let css = state.assets.urls.css.clone();
+    let (res, body) = send(&app, get(&css)).await;
+    assert_eq!(res.status(), StatusCode::OK);
+    let etag = res.headers()[header::ETAG].to_str().unwrap().to_owned();
+    assert!(etag.starts_with('"') && etag.contains("console."), "{etag}");
+    assert_eq!(res.headers()[header::ACCEPT_RANGES], "none");
+    // The browser asks again with the tag: nothing is sent, and the rules for keeping it are repeated.
+    let mut again = get(&css);
+    again
+        .headers_mut()
+        .insert(header::IF_NONE_MATCH, etag.parse().unwrap());
+    let (res, empty) = send(&app, again).await;
+    assert_eq!(res.status(), StatusCode::NOT_MODIFIED);
+    assert!(empty.is_empty());
+    assert_eq!(res.headers()[header::ETAG], etag.as_str());
+    assert_eq!(
+        res.headers()[header::CACHE_CONTROL],
+        "public, max-age=31536000, immutable"
+    );
+    assert_all_five(res.headers(), "304 of a file");
+    // Another tag, a weak form of the same, a list that includes it, and `*`.
+    for (sent, want) in [
+        ("\"other\"", StatusCode::OK),
+        (format!("W/{etag}").leak() as &str, StatusCode::NOT_MODIFIED),
+        (format!("\"a\", {etag}").leak() as &str, StatusCode::NOT_MODIFIED),
+        ("*", StatusCode::NOT_MODIFIED),
+    ] {
+        let mut r = get(&css);
+        r.headers_mut()
+            .insert(header::IF_NONE_MATCH, sent.parse().unwrap());
+        assert_eq!(send(&app, r).await.0.status(), want, "{sent}");
+    }
+    // A range is not honoured: the whole file, 200, and the answer says ranges are not offered.
+    let mut ranged = get(&css);
+    ranged
+        .headers_mut()
+        .insert(header::RANGE, "bytes=0-10".parse().unwrap());
+    let (res, partial) = send(&app, ranged).await;
+    assert_eq!(res.status(), StatusCode::OK);
+    assert_eq!(partial, body);
+    assert!(res.headers().get(header::CONTENT_RANGE).is_none());
+    assert_eq!(res.headers()[header::ACCEPT_RANGES], "none");
+}

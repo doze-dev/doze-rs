@@ -127,11 +127,15 @@ pub fn connect_advertised_lede(p: &ProbeView) -> Vec<Span> {
 pub fn advertised_instance_lede(p: &ProbeView) -> String {
     match (p.same, p.verdict) {
         (_, Verdict::NotChecked) => "The check did not finish in time: nothing is claimed. Check again.".to_owned(),
-        (true, Verdict::Reachable) => "Advertised host and port equal the listener, so a client that reached it once can always reach it again.".to_owned(),
+        // Only what the check did: it dialled that address and it answered (the board adds "so a client that reached it once
+        // can always reach it again", which a check made once, from this machine, cannot promise).
+        (true, Verdict::Reachable) => "Advertised host and port equal the listener, and the check reached that address.".to_owned(),
         (true, Verdict::NotReachable) => "Advertised host and port equal the listener, yet a rule below failed.".to_owned(),
+        // (The board says "a client that reached {listen}": that is claimed only when the check reached it, and the rules
+        // below say whether it did.)
         (false, _) => format!(
-            "Advertised host and port differ from the listener: a client that reached {} is told to go to {}.",
-            p.listen, p.advertised
+            "Advertised host and port differ from the listener: a client is told to go to {}, not to {}.",
+            p.advertised, p.listen
         ),
     }
 }
