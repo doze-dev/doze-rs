@@ -5,6 +5,7 @@ use std::time::Duration;
 
 use anyhow::{Context, Result};
 use aws_auth::{Credential, Secret, StaticCredentials};
+use aws_eventbridge::Eventbridge;
 use aws_gateway::{Auth, Config, Gateway};
 use aws_peers::Peers;
 use aws_wire::service::Service;
@@ -49,6 +50,7 @@ pub(crate) async fn run(args: Args) -> Result<()> {
     // Under `--auth verify`, a key the command line does not name may be one IAM issued (an access key or a role session).
     config.credential_source = Some(iam.clone());
     let cloudwatch = Arc::new(aws_cloudwatch::Cloudwatch::new(Arc::new(ctx("cloudwatch"))));
+    let eventbridge = Arc::new(Eventbridge::new(Arc::new(ctx("eventbridge"))));
     let services: Vec<Arc<dyn Service>> = vec![
         iam,
         Arc::new(sts),
@@ -62,6 +64,7 @@ pub(crate) async fn run(args: Args) -> Result<()> {
         Arc::new(aws_kinesis::Kinesis::new(Arc::new(ctx("kinesis")))),
         Arc::new(aws_logs::Logs::new(Arc::new(ctx("logs")))),
         cloudwatch.clone(),
+        eventbridge.clone(),
     ];
     let mut gateway = Gateway::new(config);
     for service in services {
@@ -74,6 +77,7 @@ pub(crate) async fn run(args: Args) -> Result<()> {
         .with_context(|| format!("listening on {}", args.listen))?;
     // Alarms that were pending when the process last stopped are judged again; nothing else would wake their region.
     cloudwatch.resume().await;
+    eventbridge.resume().await;
     // The line a supervisor (and the conformance harness) waits for.
     tracing::info!("doze-aws listening on {}", running.local_addr());
     wait_for_stop().await;

@@ -1,0 +1,1 @@
+{"source":[{"prefix":"a"},{"anything-but":{"wildcard":"x*y"}}],"detail":{"n":[{"numeric":[">",1,"<=",5]}],"ip":[{"cidr":"10.0.0.0/8"}],"gone":[{"exists":false}]},"$or":[{"a":["b"]},{"c":[null,true,1.5]}]}

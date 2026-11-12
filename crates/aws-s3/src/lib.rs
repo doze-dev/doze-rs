@@ -19,6 +19,7 @@ mod core;
 mod delete;
 mod download;
 mod errors;
+mod eventbridge;
 mod events;
 mod get;
 mod idconfig;

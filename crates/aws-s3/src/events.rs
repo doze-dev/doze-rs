@@ -1,7 +1,8 @@
 //! Event notifications: what a bucket sends when objects are created, removed or tagged. A call notes its events as it changes
 //! things; once the change is on disk they are matched against the bucket's notification configuration and delivered. Queues are
-//! delivered to through the peer bus; topics, Lambda functions and EventBridge are the hooks marked below, filled in when those
-//! services exist (the configuration for them is already stored and returned as sent).
+//! delivered to through the peer bus, and so is the default event bus when the configuration asks for it (`eventbridge.rs`); topics
+//! and Lambda functions are the hooks marked below, filled in when those services exist (the configuration for them is already stored
+//! and returned as sent).
 
 use aws_core::time::format_iso8601;
 use aws_wire::service::Caller;
@@ -235,8 +236,10 @@ impl Core {
                 }
             }
         }
-        // Hook for EventBridge (stage A12): when the configuration has an `EventBridgeConfiguration`, put the event on the
-        // account's default bus as source `aws.s3` (SCOPE.md item 12).
+        // A configuration with an `EventBridgeConfiguration` puts every event on the account's default bus (SCOPE.md item 12).
+        if config.get("EventBridgeConfiguration").is_some() {
+            self.to_eventbridge(event).await;
+        }
     }
 
     async fn to_queue(&self, event: &Event, arn: &str, config_id: &str) {

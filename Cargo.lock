@@ -191,6 +191,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "aws-cron"
+version = "0.0.0"
+
+[[package]]
 name = "aws-dynamodb"
 version = "0.0.0"
 dependencies = [
@@ -210,6 +214,30 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
+]
+
+[[package]]
+name = "aws-eventbridge"
+version = "0.0.0"
+dependencies = [
+ "aws-core",
+ "aws-cron",
+ "aws-iam-policy",
+ "aws-kinesis",
+ "aws-logs",
+ "aws-model-eventbridge",
+ "aws-peers",
+ "aws-schema",
+ "aws-sns",
+ "aws-sqs",
+ "aws-testkit",
+ "aws-wire",
+ "doze-runtime",
+ "doze-store",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -517,6 +545,7 @@ version = "0.0.0"
 dependencies = [
  "aws-auth",
  "aws-core",
+ "aws-eventbridge",
  "aws-gateway",
  "aws-model-s3",
  "aws-peers",
@@ -1209,6 +1238,7 @@ dependencies = [
  "aws-auth",
  "aws-cloudwatch",
  "aws-dynamodb",
+ "aws-eventbridge",
  "aws-gateway",
  "aws-iam",
  "aws-kinesis",
