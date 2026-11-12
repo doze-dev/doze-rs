@@ -178,8 +178,22 @@ pub struct OpIr {
     pub http: Option<HttpIr>,
 }
 
+/// What the model says about the service as a whole.
+#[derive(Clone, Debug)]
+pub struct ServiceIr {
+    pub shape_name: String,
+    pub namespace: String,
+    pub signing_name: String,
+    pub sdk_id: String,
+    pub version: String,
+    pub protocols: Vec<Protocol>,
+    pub query_compatible: bool,
+    pub xml_namespace: Option<String>,
+}
+
 #[derive(Debug)]
 pub struct Ir {
+    pub service: ServiceIr,
     pub types: BTreeMap<String, TypeDef>,
     pub ops: Vec<OpIr>,
 }

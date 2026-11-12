@@ -68,6 +68,8 @@ pub struct OperationDef {
 #[derive(Debug, Deserialize, Default)]
 pub struct ServiceDef {
     #[serde(default)]
+    pub version: String,
+    #[serde(default)]
     pub operations: Vec<Ref>,
     #[serde(default)]
     pub resources: Vec<Ref>,

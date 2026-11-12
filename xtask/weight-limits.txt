@@ -4,3 +4,6 @@
 # doze-kafka: measured on ubuntu x86_64: 4,899,328 B (the macOS arm64 build is 3.4 MB); the limit is that plus about 5%.
 # These are the limits CI has enforced; the macOS idle figure is lower than Linux's 8 MB limit.
 doze-kafka 5150000 115 8192 --listen 127.0.0.1:{port} --data-dir {data}
+# doze-aws: measured 2026-11-12 on darwin/arm64 with SQS only: 1,713,536 B, 104 lines in the package count, 3,056 KB idle. Linux x86_64 is about
+# 1.45 times the macOS size for the Kafka binary, so the byte limit is 1.7 MB x 1.45 plus 5%; it is re-based from the first Linux CI run.
+doze-aws 2600000 110 6144 --listen 127.0.0.1:{port} --data-dir {data}

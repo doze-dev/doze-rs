@@ -12,6 +12,8 @@ pub struct Service {
     pub meta: &'static ServiceMeta,
     /// How many operations the model defines (the length of its `Operation::ALL`).
     pub operations: usize,
+    /// The `Operation` enum's variants as text, in `ALL` order.
+    pub operation_names: fn() -> Vec<String>,
 }
 
 macro_rules! list {
@@ -21,6 +23,7 @@ macro_rules! list {
             tables: &$krate::tables::TABLES,
             meta: &$krate::meta::META,
             operations: $krate::Operation::ALL.len(),
+            operation_names: || $krate::Operation::ALL.iter().map(|o| format!("{o:?}")).collect(),
         }),*]
     };
 }

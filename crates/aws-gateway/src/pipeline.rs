@@ -129,11 +129,22 @@ async fn handle(
         access_key_id: claim.access_key_id,
         account_id: shared.config.account_id.clone(),
         region: claim.region,
+        endpoint: endpoint_of(parts),
     };
     let call = decode_call(entry, op, id, caller, bytes).map_err(|e| fail(&e))?;
     let output = entry.service.call(call).await.map_err(|e| fail(&e))?;
     let encoded = encode_output(entry, op, &output.arena, output.root).map_err(|e| fail(&e))?;
     Ok(json::success(version, id, encoded))
+}
+
+/// The scheme and host the caller used, for URLs in answers.
+fn endpoint_of(parts: &Parts) -> String {
+    let host = parts
+        .headers
+        .get(http::header::HOST)
+        .and_then(|h| h.to_str().ok())
+        .unwrap_or("localhost");
+    format!("http://{host}")
 }
 
 /// An error raised before a service is known.

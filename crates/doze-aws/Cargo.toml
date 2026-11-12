@@ -1,0 +1,24 @@
+[package]
+name = "doze-aws"
+version = "0.0.0"
+description = "Local AWS for development: the binary"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+aws-auth = { path = "../aws-auth" }
+aws-gateway = { path = "../aws-gateway" }
+aws-sqs = { path = "../aws-sqs" }
+doze-runtime = { path = "../doze-runtime" }
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "env-filter", "ansi"] }
+# One thread (weight is a feature), and the signals a stop arrives by.
+tokio = { version = "1", default-features = false, features = ["rt", "signal", "net", "time", "macros"] }

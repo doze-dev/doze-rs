@@ -155,6 +155,24 @@ fn operations_are_found_by_name() {
     }
 }
 
+/// A service dispatches on `Operation`, and the gateway hands it the tables' operation index: the two must be the same order.
+#[test]
+fn the_operation_enum_is_in_the_order_of_the_tables() {
+    for s in services() {
+        let names = (s.operation_names)();
+        assert_eq!(names.len(), s.tables.n_ops() as usize, "{}", s.name);
+        for (i, variant) in names.iter().enumerate() {
+            let table = s.tables.op(u32::try_from(i).unwrap()).unwrap().name;
+            // A name that is not an identifier is written with underscores.
+            let ident: String = table
+                .chars()
+                .map(|c| if c.is_ascii_alphanumeric() { c } else { '_' })
+                .collect();
+            assert_eq!(variant, &ident, "{}: operation {i}", s.name);
+        }
+    }
+}
+
 #[test]
 fn the_models_hold_every_operation_aws_defines() {
     let all = services();

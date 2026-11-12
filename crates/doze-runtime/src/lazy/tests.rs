@@ -8,6 +8,7 @@ fn ctx(idle: u64) -> Arc<Ctx> {
         dir: PathBuf::new(),
         idle: Duration::from_secs(idle),
         tasks: Tasks::new(),
+        clock: Arc::new(crate::ManualClock::at(0)),
     })
 }
 

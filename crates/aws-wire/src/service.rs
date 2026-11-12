@@ -20,6 +20,8 @@ pub struct Caller {
     pub account_id: String,
     /// The region it was signed for.
     pub region: String,
+    /// The scheme and host the caller used (`http://127.0.0.1:4566`): what a URL in an answer must begin with.
+    pub endpoint: String,
 }
 
 /// One decoded request, owned, so it can cross to the task that owns the service.

@@ -8,7 +8,7 @@ use std::sync::atomic::{AtomicI64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 /// A source of the current time, in milliseconds since the Unix epoch.
-pub trait Clock: Send + Sync {
+pub trait Clock: Send + Sync + std::fmt::Debug {
     /// Now, in milliseconds since the epoch.
     fn now_ms(&self) -> i64;
 }

@@ -9,7 +9,7 @@ mod words;
 
 use anyhow::Result;
 
-use crate::ir::Ir;
+use crate::ir::{Ir, ServiceIr};
 
 /// One generated crate: relative paths with their contents.
 #[derive(Debug)]
@@ -36,12 +36,40 @@ pub fn render(ir: &Ir, crate_name: &str, service: &str, header: &str) -> Result<
             "src/ops.rs".to_owned(),
             format!("// {header}\n{}", m.emit_ops()),
         ),
+        (
+            "src/meta.rs".to_owned(),
+            format!("// {header}\n{}", meta_rs(&ir.service)),
+        ),
     ];
     Ok(Rendered {
         files,
         counts: m.counts(),
         hand_patterns: m.hand_patterns.clone(),
     })
+}
+
+fn meta_rs(s: &ServiceIr) -> String {
+    let protocols: Vec<String> = s
+        .protocols
+        .iter()
+        .map(|p| format!("Protocol::{p:?}"))
+        .collect();
+    let xml = s
+        .xml_namespace
+        .as_ref()
+        .map_or_else(|| "None".to_owned(), |x| format!("Some({x:?})"));
+    format!(
+        "use aws_schema::meta::{{Protocol, ServiceMeta}};\n\n\
+         pub const META: ServiceMeta = ServiceMeta {{\n    shape_name: {:?},\n    namespace: {:?},\n    signing_name: {:?},\n    \
+         sdk_id: {:?},\n    version: {:?},\n    protocols: &[{}],\n    query_compatible: {},\n    xml_namespace: {xml},\n}};\n",
+        s.shape_name,
+        s.namespace,
+        s.signing_name,
+        s.sdk_id,
+        s.version,
+        protocols.join(", "),
+        s.query_compatible,
+    )
 }
 
 fn manifest(crate_name: &str, service: &str) -> String {
@@ -63,7 +91,7 @@ fn lib_rs(service: &str, header: &str) -> String {
          //!\n//! {header}\n\n\
          #![forbid(unsafe_code)]\n\n\
          // The generated files are tables and constants; their layout is the generator's, not rustfmt's.\n\
-         #[rustfmt::skip]\npub mod keys;\n#[rustfmt::skip]\npub mod ops;\n#[rustfmt::skip]\npub mod tables;\n\n\
+         #[rustfmt::skip]\npub mod keys;\n#[rustfmt::skip]\npub mod meta;\n#[rustfmt::skip]\npub mod ops;\n#[rustfmt::skip]\npub mod tables;\n\n\
          pub use ops::Operation;\n"
     )
 }

@@ -5,7 +5,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use anyhow::{Context, Result, anyhow, bail};
 
-use super::{FaultKind, HttpIr, Ir, OpIr, Protocol, Ts, Ty, TypeDef};
+use super::{FaultKind, HttpIr, Ir, OpIr, Protocol, ServiceIr, Ts, Ty, TypeDef};
 use crate::model::{Model, Ref, Shape, Traits, TraitsExt, local_name};
 
 /// Builds the IR for the one service in `model`.
@@ -38,9 +38,32 @@ pub fn build(model: &Model) -> Result<Ir> {
     }
     ops.sort_by(|a, c| a.name.cmp(&c.name));
     Ok(Ir {
+        service: service_of(svc_id, svc, protocols),
         types: b.types,
         ops,
     })
+}
+
+fn service_of(id: &str, svc: &crate::model::ServiceDef, protocols: Vec<Protocol>) -> ServiceIr {
+    let text = |trait_id: &str, key: &str| {
+        svc.traits
+            .get_trait(trait_id)
+            .and_then(|v| v.get(key))
+            .and_then(|v| v.as_str())
+            .map(str::to_owned)
+    };
+    ServiceIr {
+        shape_name: local_name(id).to_owned(),
+        namespace: id
+            .split_once('#')
+            .map_or_else(String::new, |(ns, _)| ns.to_owned()),
+        signing_name: text("aws.auth#sigv4", "name").unwrap_or_default(),
+        sdk_id: text("aws.api#service", "sdkId").unwrap_or_default(),
+        version: svc.version.clone(),
+        query_compatible: svc.traits.contains_key("aws.protocols#awsQueryCompatible"),
+        xml_namespace: text("xmlNamespace", "uri"),
+        protocols,
+    }
 }
 
 /// The service's operations and those of every resource below it.

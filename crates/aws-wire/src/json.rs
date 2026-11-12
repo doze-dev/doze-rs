@@ -98,9 +98,8 @@ pub fn failure(
     };
     let status = StatusCode::from_u16(status).unwrap_or(StatusCode::BAD_REQUEST);
     let mut builder = base(status, version, id);
-    if meta.query_compatible
-        && let Some(code) = query_code
-    {
+    if meta.query_compatible {
+        let code = query_code.unwrap_or(err.code.as_ref());
         let who = if fault == Fault::Receiver {
             "Receiver"
         } else {

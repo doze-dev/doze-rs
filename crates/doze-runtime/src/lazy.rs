@@ -22,7 +22,7 @@ use std::time::Duration;
 
 use tokio::sync::{mpsc, oneshot};
 
-use crate::Tasks;
+use crate::{Clock, Tasks};
 
 /// What every service shares: where its files live, how long it may sit idle, and the task set its actor
 /// runs in.
@@ -34,6 +34,8 @@ pub struct Ctx {
     pub idle: Duration,
     /// Actors are spawned here, so a shutdown stops and waits for them.
     pub tasks: Tasks,
+    /// The time, as a value a test can hold.
+    pub clock: Arc<dyn Clock>,
 }
 
 /// A service is a plain struct that owns its state. `open` loads it, `handle` serves one request.

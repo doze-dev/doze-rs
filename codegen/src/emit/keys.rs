@@ -82,7 +82,7 @@ impl Model {
 
     pub(crate) fn emit_ops(&self) -> String {
         let mut o = String::from(
-            "/// Every operation of the model, implemented or not: an unimplemented one answers 501 by name.\n#[derive(Clone, Copy, Debug, PartialEq, Eq)]\n#[non_exhaustive]\npub enum Operation {\n",
+            "/// Every operation of the model, implemented or not. Not `non_exhaustive`: a service matches it exhaustively, so a model that gains an operation stops the build until the service decides what to do with it.\n#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub enum Operation {\n",
         );
         for op in &self.ops {
             let _ = writeln!(o, "    {},", type_ident(&op.name));
@@ -91,7 +91,7 @@ impl Model {
         for op in &self.ops {
             let _ = writeln!(o, "        Operation::{},", type_ident(&op.name));
         }
-        o.push_str("    ];\n    pub const fn index(self) -> u32 { self as u32 }\n}\n");
+        o.push_str("    ];\n    pub const fn index(self) -> u32 { self as u32 }\n    pub fn from_index(i: u32) -> Option<Operation> { Self::ALL.get(i as usize).copied() }\n}\n");
         o
     }
 }
