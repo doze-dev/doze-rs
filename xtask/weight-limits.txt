@@ -67,4 +67,10 @@ doze-kafka 9000000 159 8192 --listen 127.0.0.1:{port} --data-dir {data}
 # commit cross-built for x86_64-unknown-linux-musl is 7,481,552 B (was 8,206,736 B): only 9% smaller, because 1.0 MB of an x86_64 Linux binary is unwind tables and relocations that
 # "z" does not touch (-Cforce-unwind-tables=no changes nothing on this target, which requires them). Byte limit = the musl size plus 5% = 7,855,000, rounded to 7,900,000 B.
 # Linux is 1.54 times the macOS size at "z"; Step Functions, API Gateway and CloudFormation will cost about 1.5 times what they cost on macOS. Packages unchanged at 240.
-doze-aws 7900000 240 6144 --listen 127.0.0.1:{port} --data-dir {data}
+# 2026-11-13, A15 API Gateway (branch aws-a15-apigateway, alone on the 4,867,344 B / 233 base): 5,349,616 B on darwin/arm64 (+482 KB), 237 packages (+4), 4,576 KB idle (+176 KB).
+# Cross-built for x86_64-unknown-linux-musl: 8,261,008 B (+779 KB over 7,481,552 B; 1.62 times the macOS delta), which breaks the 7,900,000 B line, so the line moves (the owner
+# allows it now that every service is to be finished). NO new third-party package: Cargo.lock gains aws-apigateway, aws-model-api-gateway and aws-model-apigatewayv2 (linked for the
+# first time); the fourth counted line is a repeat line from a new edge. The bytes: both models' tables (124 + 103 operations), both control planes, the execute-api plane (VTL subset,
+# OpenAPI/YAML reader, JWT, WebSocket framing, HTTP client). Byte limit = the musl size plus 5% = 8,674,000, rounded to 8,700,000 B (87% of the 10 MB ceiling; Step Functions and
+# CloudFormation are still to come, about 1.7 MB of room); packages 240 unchanged (237 measured).
+doze-aws 8700000 240 6144 --listen 127.0.0.1:{port} --data-dir {data}
