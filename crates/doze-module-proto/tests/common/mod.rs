@@ -40,6 +40,9 @@ pub fn manifest(caps: u64) -> Manifest {
         homepage: None,
         source: None,
         example_label: None,
+        default_version: None,
+        client: None,
+        detect: None,
     }
 }
 

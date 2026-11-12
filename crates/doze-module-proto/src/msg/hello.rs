@@ -2,6 +2,7 @@
 //! answers with the agreed version and the limits it enforces.
 
 use super::console::{Action, ConsoleSpec};
+pub use super::hints::{ClientCommand, Detect};
 use super::value::Value;
 use minicbor::{Decode, Encode};
 
@@ -113,6 +114,18 @@ pub struct Manifest {
     /// The instance label used in `example`.
     #[n(19)]
     pub example_label: Option<String>,
+    /// The `version` `doze add` writes when the user names none (protocol 1's core kept a table of these).
+    #[n(20)]
+    #[cbor(default)]
+    pub default_version: Option<String>,
+    /// The shell client that opens a session on an instance (protocol 1's core guessed one from the URL's scheme).
+    #[n(21)]
+    #[cbor(default)]
+    pub client: Option<ClientCommand>,
+    /// How `doze init` recognises a project that uses this engine (protocol 1's core kept these for five engines).
+    #[n(22)]
+    #[cbor(default)]
+    pub detect: Option<Detect>,
 }
 
 /// The shape of a module's configuration block: the core validates against it before the module sees anything.

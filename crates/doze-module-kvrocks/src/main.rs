@@ -2,16 +2,25 @@
 //! every boot, gated on its backend accepting connections. Like valkey it rides the core's generic accept, boot, splice
 //! path.
 //!
-//! Departures from the Go module, each deliberate: the server listens where the host granted (D13); the password is
-//! escaped in the URL (module bug 7); a value with control characters is refused, as a newline in it would add a line
-//! of its own to the config file; the published example quotes its dotted setting so it decodes without the core.
+//! Better than the Go module, each tested (docs/port/modules/PLAN.md, "better than Go"):
+//! - mistakes kvrocks refuses only at boot (`workers = 0`, a token equal to the password) and one it accepts and gets
+//!   wrong (two namespaces sharing a token) are refused before boot, at their line ([`check`]);
+//! - the app shows memory, the disk the data really takes, keys per namespace and the live command stream, and can
+//!   empty a namespace, recount or compact ([`admin`]);
+//! - the password is escaped in the URL (module bug 7); the server listens where the host granted (D13); a value with
+//!   control characters cannot add lines of its own to the config file; the published example decodes without the
+//!   core (it quotes its dotted setting).
 
+mod admin;
+mod check;
 mod conf;
 
+use doze_module::caps::{Admin, Console, Rows};
+use doze_module::proto::msg::console::Resource;
 use doze_module::proto::msg::error::Diagnostic;
+use doze_module::proto::msg::hello::{ClientCommand, Detect};
 use doze_module::proto::msg::instance::{Connection, Instance, Toolchain};
 use doze_module::proto::msg::run::{Pin, Plan, Process, Provisioned, Resolved, StopHow};
-use doze_module::proto::msg::value::PathSeg;
 use doze_module::{About, Cx, Module, Result, Spec, help, serve};
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -97,21 +106,27 @@ impl Module for Kvrocks {
             homepage: Some("https://github.com/doze-dev/doze-rs/tree/main/crates/doze-module-kvrocks".into()),
             source: Some("doze/kvrocks".into()),
             example_label: Some("store".into()),
+            console: Some(admin::console()),
+            actions: admin::actions(),
+            default_version: Some("2".into()),
+            // kvrocks ships no client of its own; the redis ones speak to it.
+            client: Some(ClientCommand {
+                program: "valkey-cli".into(),
+                args: ["-h", "{host}", "-p", "{port}"].map(String::from).to_vec(),
+                env: BTreeMap::from([("REDISCLI_AUTH".into(), "{password}".into())]),
+                fallbacks: vec!["redis-cli".into()],
+            }),
+            // Redis client libraries suggest valkey, so only the image says kvrocks.
+            detect: Some(Detect {
+                images: vec!["apache/kvrocks".into()],
+                ..Detect::default()
+            }),
             ..About::default()
         }
     }
 
     fn check(&self, spec: &KvrocksSpec, _instance: &Instance) -> Vec<Diagnostic> {
-        let mut out = conf::unwritable(spec);
-        if !spec.namespace.is_empty() && spec.password().is_none() {
-            out.push(Diagnostic {
-                path: vec![PathSeg::Key("password".into())],
-                message: "kvrocks namespaces require a `password` (the default-namespace token)"
-                    .into(),
-                hint: None,
-            });
-        }
-        out
+        check::check(spec)
     }
 
     fn connection(&self, cx: &Cx<KvrocksSpec>) -> Result<Connection> {
@@ -163,6 +178,38 @@ impl Module for Kvrocks {
     }
 }
 
+impl Admin for Kvrocks {
+    async fn resources(&self, cx: &Cx<KvrocksSpec>) -> Result<Vec<Resource>> {
+        admin::resources(cx).await
+    }
+
+    async fn run_action(
+        &self,
+        cx: &Cx<KvrocksSpec>,
+        action: &str,
+        resource: &str,
+        _input: Option<&str>,
+    ) -> Result<String> {
+        admin::run_action(cx, action, resource).await
+    }
+}
+
+impl Console for Kvrocks {
+    async fn tail(
+        &self,
+        cx: &Cx<KvrocksSpec>,
+        _panel: &str,
+        _selector: &str,
+        out: &Rows<'_>,
+    ) -> Result<()> {
+        admin::tail(cx, out).await
+    }
+}
+
 fn main() -> std::process::ExitCode {
-    serve(Kvrocks).release(env!("CARGO_PKG_VERSION")).run()
+    serve(Kvrocks)
+        .release(env!("CARGO_PKG_VERSION"))
+        .admin()
+        .console()
+        .run()
 }

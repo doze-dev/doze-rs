@@ -187,7 +187,7 @@ fn text(n: &Node) -> String {
 }
 
 /// The known name nearest to `key` (edit distance ≤ 2), for "did you mean".
-fn closest<'a>(key: &str, known: &[&'a str]) -> Option<&'a str> {
+pub fn closest<'a>(key: &str, known: &[&'a str]) -> Option<&'a str> {
     known
         .iter()
         .map(|k| (distance(key, k), *k))
@@ -196,31 +196,38 @@ fn closest<'a>(key: &str, known: &[&'a str]) -> Option<&'a str> {
         .map(|(_, k)| k)
 }
 
+/// Edits between `a` and `b`, a swap of neighbouring letters counting as one (optimal string alignment): `lur` is one
+/// edit from `lru`, the commonest typo, not two, so it is not tied with `lfu`.
 fn distance(a: &str, b: &str) -> usize {
-    let b: Vec<char> = b.chars().collect();
-    let mut row: Vec<usize> = (0..=b.len()).collect();
-    for (i, ca) in a.chars().enumerate() {
-        let mut prev = row.first().copied().unwrap_or(0);
-        if let Some(first) = row.first_mut() {
-            *first = i + 1;
-        }
-        for (j, cb) in b.iter().enumerate() {
-            let cur = row.get(j + 1).copied().unwrap_or(0);
-            let best = [
-                cur + 1,
-                row.get(j).copied().unwrap_or(0) + 1,
-                prev + usize::from(ca != *cb),
-            ]
-            .into_iter()
-            .min()
-            .unwrap_or(0);
-            if let Some(slot) = row.get_mut(j + 1) {
-                *slot = best;
-            }
-            prev = cur;
+    let (a, b): (Vec<char>, Vec<char>) = (a.chars().collect(), b.chars().collect());
+    let w = b.len() + 1;
+    let mut d = vec![0usize; (a.len() + 1) * w];
+    let get = |d: &[usize], i: usize, j: usize| d.get(i * w + j).copied().unwrap_or(usize::MAX / 2);
+    for i in 0..=a.len() {
+        if let Some(c) = d.get_mut(i * w) {
+            *c = i;
         }
     }
-    row.last().copied().unwrap_or(0)
+    for j in 0..=b.len() {
+        if let Some(c) = d.get_mut(j) {
+            *c = j;
+        }
+    }
+    for (i, ca) in a.iter().enumerate() {
+        for (j, cb) in b.iter().enumerate() {
+            let mut best = (get(&d, i, j + 1) + 1)
+                .min(get(&d, i + 1, j) + 1)
+                .min(get(&d, i, j) + usize::from(ca != cb));
+            let swapped = i > 0 && j > 0 && a.get(i - 1) == Some(cb) && b.get(j - 1) == Some(ca);
+            if swapped {
+                best = best.min(get(&d, i - 1, j - 1) + 1);
+            }
+            if let Some(c) = d.get_mut((i + 1) * w + j + 1) {
+                *c = best;
+            }
+        }
+    }
+    get(&d, a.len(), b.len())
 }
 
 /// The schema entry for nested block type `T` named `name`.
@@ -231,5 +238,21 @@ pub fn block_schema<T: Spec>(name: &str, doc: &str) -> BlockSchema {
         repeated: true,
         doc: doc.to_string(),
         schema: T::schema(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_swap_of_neighbours_is_one_edit_and_the_nearest_wins() {
+        assert_eq!(distance("lur", "lru"), 1);
+        assert_eq!(distance("lur", "lfu"), 2);
+        assert_eq!(distance("", "abc"), 3);
+        assert_eq!(distance("maxmemory", "maxmemory"), 0);
+        let policies = ["allkeys-lfu", "allkeys-lru", "noeviction"];
+        assert_eq!(closest("allkeys-lur", &policies), Some("allkeys-lru"));
+        assert_eq!(closest("something-else", &policies), None);
     }
 }

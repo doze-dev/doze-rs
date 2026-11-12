@@ -42,6 +42,11 @@ pub struct About {
     pub homepage: Option<String>,
     pub source: Option<String>,
     pub example_label: Option<String>,
+    /// What protocol 1's core hard-coded per engine: the version `doze add` writes, the shell client, and the signs
+    /// `doze init` looks for (see the manifest fields of the same names).
+    pub default_version: Option<String>,
+    pub client: Option<doze_module_proto::msg::hello::ClientCommand>,
+    pub detect: Option<doze_module_proto::msg::hello::Detect>,
 }
 
 /// What a handler is given: the decoded spec, the instance, and the call it serves.

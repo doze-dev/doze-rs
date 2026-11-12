@@ -3,10 +3,11 @@
 
 pub mod accept;
 pub mod boot;
+mod grant;
 pub mod hcl;
 pub mod oracle;
 pub mod run;
 pub mod sandbox;
 
 pub use accept::acceptance;
-pub use boot::{Booted, Harness, target};
+pub use boot::{Booted, Harness, Stops, target};

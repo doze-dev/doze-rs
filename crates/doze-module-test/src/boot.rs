@@ -2,11 +2,11 @@
 //! (downloads come from a local build directory), provision, plan, start, and converge when fresh.
 
 use crate::run::{self, Started};
-use crate::sandbox::{Sandbox, free_port};
+use crate::sandbox::Sandbox;
 use doze_module_host::{BoxFuture, Downloads, Running, Services};
 use doze_module_proto::msg::error::Error;
 use doze_module_proto::msg::hello::caps;
-use doze_module_proto::msg::instance::{Address, Granted, Instance, Listener, Toolchain};
+use doze_module_proto::msg::instance::{Address, Instance, Listener, Toolchain};
 use doze_module_proto::msg::run::{Ensure, Ensured, Provisioned, ResolveArgs, WithToolchain};
 use doze_module_proto::network;
 use std::collections::BTreeMap;
@@ -81,50 +81,11 @@ fn render(e: &Error) -> String {
     let mut s = e.message.clone();
     for d in &e.diagnostics {
         s.push_str(&format!("\n  at {:?}: {}", d.path, d.message));
+        if let Some(h) = &d.hint {
+            s.push_str(&format!(" ({h})"));
+        }
     }
     s
-}
-
-/// Grants every listener a loopback address and a backend: a socket file on Unix, a loopback port on Windows (D13).
-fn grant(
-    listeners: &[Listener],
-    sandbox: &Sandbox,
-    inst: &Instance,
-) -> Result<BTreeMap<String, Granted>, String> {
-    let mut out = BTreeMap::new();
-    let socket_dir = sandbox.socket_dir(&inst.name).map_err(|e| e.to_string())?;
-    for l in listeners {
-        let port = free_port().map_err(|e| e.to_string())?;
-        let backend = if cfg!(unix) {
-            Address::Unix(
-                socket_dir
-                    .join(format!("{}.sock", l.name))
-                    .to_string_lossy()
-                    .into_owned(),
-            )
-        } else {
-            Address::Tcp(format!(
-                "127.0.0.1:{}",
-                free_port().map_err(|e| e.to_string())?
-            ))
-        };
-        let hosts: Vec<String> = l
-            .routes
-            .iter()
-            .filter_map(|r| network::route_host(r, &inst.host).ok())
-            .collect();
-        let scheme = if l.http { "http" } else { "tcp" };
-        out.insert(
-            l.name.clone(),
-            Granted {
-                addr: format!("127.0.0.1:{port}"),
-                url: format!("{scheme}://127.0.0.1:{port}"),
-                hosts,
-                backend,
-            },
-        );
-    }
-    Ok(out)
 }
 
 impl Harness {
@@ -165,7 +126,7 @@ impl Harness {
         let mut instance = new_instance(parsed, &sandbox)?;
         module.decode(&instance).await.map_err(|e| render(&e))?;
         let listeners = checked_network(&module, &instance).await?;
-        instance.listeners = grant(&listeners, &sandbox, &instance)?;
+        instance.listeners = crate::grant::grant(&listeners, &sandbox, &instance)?;
         let args = ResolveArgs {
             instance: instance.clone(),
             target: target(),
@@ -224,7 +185,41 @@ impl Booted {
     ) -> Vec<(String, std::io::Result<doze_os::tree::Stopped>)> {
         self.started.stop(grace).await
     }
+
+    /// What doze does to an idle instance and then to its next client: stop it gracefully, then provision (it is
+    /// already there), plan and start it again in the same sandbox. How each process ended, and the instance awake.
+    pub async fn sleep_and_wake(self, grace: Duration) -> Result<(Stops, Booted), String> {
+        let Booted {
+            module,
+            instance,
+            toolchain,
+            started,
+            _sandbox: sandbox,
+            ..
+        } = self;
+        let stops = started.stop(grace).await;
+        let with = WithToolchain {
+            instance: instance.clone(),
+            toolchain: toolchain.clone(),
+        };
+        let fresh = module.provision(&with).await.map_err(|e| render(&e))? == Provisioned::Fresh;
+        let plan = module.plan(&with).await.map_err(|e| render(&e))?;
+        let logs = sandbox.logs().map_err(|e| e.to_string())?;
+        let started = run::start(&plan, &logs, Duration::from_secs(90)).await?;
+        let awake = Booted {
+            module,
+            instance,
+            toolchain,
+            fresh,
+            started,
+            _sandbox: sandbox,
+        };
+        Ok((stops, awake))
+    }
 }
+
+/// How each process of an instance ended.
+pub type Stops = Vec<(String, std::io::Result<doze_os::tree::Stopped>)>;
 
 fn new_instance(parsed: crate::hcl::Parsed, sandbox: &Sandbox) -> Result<Instance, String> {
     Ok(Instance {

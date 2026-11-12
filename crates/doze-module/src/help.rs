@@ -107,6 +107,28 @@ pub async fn run_tool(program: &std::path::Path, args: &[&str]) -> Result<String
     ))
 }
 
+/// A diagnostic at `path` unless `value` is one of `allowed`, naming the nearest one ("did you mean") or listing them
+/// all: the engine would refuse it anyway, but only at boot, in its own log, with no line in doze.hcl to point at.
+pub fn one_of(
+    path: Vec<doze_module_proto::msg::value::PathSeg>,
+    what: &str,
+    value: &str,
+    allowed: &[&str],
+) -> Option<doze_module_proto::msg::error::Diagnostic> {
+    if allowed.contains(&value) {
+        return None;
+    }
+    let hint = match crate::spec::closest(value, allowed) {
+        Some(near) => format!("did you mean {near:?}?"),
+        None => format!("one of: {}", allowed.join(", ")),
+    };
+    Some(doze_module_proto::msg::error::Diagnostic {
+        path,
+        message: format!("{value:?} is not {what}"),
+        hint: Some(hint),
+    })
+}
+
 /// An I/O failure as a module error: what was being done to which path, and why it failed.
 pub fn io_error(what: &str, path: &std::path::Path) -> impl FnOnce(std::io::Error) -> Error {
     let what = format!("{what} {}", path.display());
@@ -144,6 +166,43 @@ pub fn prepare_backend(instance: &Instance, fallback: &str) -> Result<Address> {
         clear_stale(socket)?;
     }
     Ok(addr)
+}
+
+/// A connection to the running engine's main backend, for a module that asks its engine something (an admin
+/// action, console numbers). `Unavailable` if it is not running: the console then shows the instance asleep.
+pub async fn dial_backend(instance: &Instance) -> Result<doze_os::net::Stream> {
+    let Some(granted) = instance.listeners.get(doze_module_proto::network::MAIN) else {
+        return Err(Error::new(
+            ErrorKind::Unavailable,
+            "the instance has no backend granted",
+        ));
+    };
+    let dialed = match &granted.backend {
+        Address::Unix(p) => doze_os::net::connect_unix(p).await,
+        Address::Tcp(a) => doze_os::net::connect_tcp(a).await,
+    };
+    dialed.map_err(|e| {
+        Error::new(
+            ErrorKind::Unavailable,
+            format!("the engine is not answering: {e}"),
+        )
+    })
+}
+
+/// The bytes the files under `dir` hold, for an engine whose own figures for its disk use are missing or misleading
+/// (kvrocks reports the whole disk). Links are not followed; what cannot be read counts as nothing.
+pub fn dir_size(dir: &std::path::Path) -> u64 {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return 0;
+    };
+    entries
+        .flatten()
+        .map(|e| match e.file_type() {
+            Ok(t) if t.is_dir() => dir_size(&e.path()),
+            Ok(t) if t.is_file() => e.metadata().map(|m| m.len()).unwrap_or(0),
+            _ => 0,
+        })
+        .sum()
 }
 
 /// A loopback TCP address split into host and port, for engines that take them separately.

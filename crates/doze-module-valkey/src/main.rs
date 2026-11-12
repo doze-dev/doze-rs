@@ -2,23 +2,30 @@
 //! connections. Valkey needs no structure converged and its protocol no preamble, so the core's generic accept, boot,
 //! splice path serves it; the module only decodes, plans and names the URL.
 //!
-//! Departures from the Go module, each deliberate: the server listens where the host granted (D13), not on a path of
-//! its own choosing; the password is in a file only the user can read, not on the command line where `ps` shows it,
-//! and it is escaped in the URL (module bug 7); a password with control characters is refused, as it would break the
-//! config line it is written into.
+//! Better than the Go module, each tested (docs/port/modules/PLAN.md, "better than Go"):
+//! - a cache that sleeps keeps its data: unless `save` says otherwise, valkey writes a snapshot when doze stops it
+//!   (Go's default lost every key at every idle reap);
+//! - mistakes are refused before boot at their line, with a way out ([`check`]), not found in the engine's log;
+//! - the app shows memory, keys, hits and the live command stream, and can empty the cache or save now ([`admin`]);
+//! - the password is in a file only the user can read, not on the command line `ps` shows, and escaped in the URL
+//!   (module bug 7); the server listens where the host granted (D13).
 
+mod admin;
+mod check;
+mod plan;
+
+use doze_module::caps::{Admin, Console, Rows};
+use doze_module::proto::msg::console::Resource;
 use doze_module::proto::msg::error::Diagnostic;
-use doze_module::proto::msg::instance::{Address, Connection, Instance, Toolchain};
-use doze_module::proto::msg::run::{Pin, Plan, Process, Provisioned, Ready, Resolved, StopHow};
-use doze_module::proto::msg::value::PathSeg;
+use doze_module::proto::msg::hello::{ClientCommand, Detect};
+use doze_module::proto::msg::instance::{Connection, Instance, Toolchain};
+use doze_module::proto::msg::run::{Pin, Plan, Process, Provisioned, Resolved, StopHow};
 use doze_module::{About, Cx, Module, Result, Spec, help, serve};
 use std::collections::BTreeMap;
 use std::path::Path;
 
 /// The socket's name in the instance's socket directory when the host grants none.
 const SOCKET: &str = "valkey.sock";
-/// The config file that holds the password, in the data directory.
-const AUTH_FILE: &str = "doze-auth.conf";
 
 const EXAMPLE: &str = r#"valkey "cache" {
   version          = 9
@@ -47,7 +54,10 @@ struct ValkeySpec {
     appendonly: bool,
     #[spec(doc = "requirepass auth password.")]
     password: Option<String>,
-    #[spec(doc = "RDB snapshot schedule, e.g. \"900 1 300 10\" (unset or empty disables it).")]
+    #[spec(
+        doc = "RDB snapshot schedule, e.g. \"900 1 300 10\". Unset, a snapshot is written when doze stops the server, so \
+               a sleeping cache keeps its keys; \"\" keeps nothing."
+    )]
     save: Option<String>,
     #[spec(doc = "Arbitrary valkey.conf directives, applied verbatim.")]
     settings: BTreeMap<String, String>,
@@ -92,24 +102,17 @@ impl Module for Valkey {
             homepage: Some("https://github.com/doze-dev/doze-rs/tree/main/crates/doze-module-valkey".into()),
             source: Some("doze/valkey".into()),
             example_label: Some("cache".into()),
+            console: Some(admin::console()),
+            actions: admin::actions(),
+            default_version: Some("9".into()),
+            client: Some(client()),
+            detect: Some(detect()),
             ..About::default()
         }
     }
 
     fn check(&self, spec: &ValkeySpec, _instance: &Instance) -> Vec<Diagnostic> {
-        let bad = spec
-            .password()
-            .is_some_and(|p| p.chars().any(char::is_control));
-        if !bad {
-            return vec![];
-        }
-        vec![Diagnostic {
-            path: vec![PathSeg::Key("password".into())],
-            message: "a password cannot hold control characters (a newline would end the config line it is written \
-                      into)"
-                .into(),
-            hint: None,
-        }]
+        check::check(spec)
     }
 
     fn connection(&self, cx: &Cx<ValkeySpec>) -> Result<Connection> {
@@ -138,8 +141,8 @@ impl Module for Valkey {
     async fn plan(&self, cx: &Cx<ValkeySpec>, tc: &Toolchain) -> Result<Plan> {
         let s = &cx.spec;
         let data = &cx.instance.data_dir;
-        let mut args = auth_file(Path::new(data), s.password())?;
-        let (listen, ready) = listen(help::prepare_backend(&cx.instance, SOCKET)?)?;
+        let mut args = plan::auth_file(Path::new(data), s.password())?;
+        let (listen, ready) = plan::listen(help::prepare_backend(&cx.instance, SOCKET)?)?;
         args.extend(listen);
         let save = s.save.clone().unwrap_or_default();
         let appendonly = if s.appendonly { "yes" } else { "no" };
@@ -154,6 +157,10 @@ impl Module for Valkey {
             appendonly,
         ] {
             args.push(a.to_string());
+        }
+        if s.save.is_none() {
+            // No periodic snapshots, but one when doze stops it: a cache that sleeps wakes with its keys.
+            args.extend(["--shutdown-on-sigterm".to_string(), "save".to_string()]);
         }
         let typed = [
             ("maxmemory", &s.maxmemory),
@@ -185,59 +192,77 @@ impl Module for Valkey {
     }
 }
 
-/// With a password, the config file holding it (valkey reads a config file only as its first argument); without
-/// one, nothing, and an old file is removed so a dropped password does not linger on disk.
-fn auth_file(data: &Path, password: Option<&str>) -> Result<Vec<String>> {
-    let path = data.join(AUTH_FILE);
-    let Some(p) = password else {
-        help::clear_stale(&path)?;
-        return Ok(vec![]);
-    };
-    doze_os::fs::private_dir(data).map_err(help::io_error("creating", data))?;
-    doze_os::fs::write_private(&path, auth_conf(p).as_bytes())
-        .map_err(help::io_error("writing", &path))?;
-    Ok(vec![path.to_string_lossy().into_owned()])
+/// `valkey-cli` from the engine's own build, through doze's address (so it wakes the instance), with the password in
+/// the client's own variable rather than on its command line.
+fn client() -> ClientCommand {
+    ClientCommand {
+        program: "valkey-cli".into(),
+        args: ["-h", "{host}", "-p", "{port}"].map(String::from).to_vec(),
+        env: BTreeMap::from([("REDISCLI_AUTH".into(), "{password}".into())]),
+        fallbacks: vec!["redis-cli".into()],
+    }
 }
 
-/// `requirepass "…"`, quoted the way valkey's config parser reads a quoted argument.
-fn auth_conf(password: &str) -> String {
-    let quoted = password.replace('\\', "\\\\").replace('"', "\\\"");
-    format!("# Written by doze on every boot.\nrequirepass \"{quoted}\"\n")
+/// What protocol 1's core looked for (internal/detect): redis clients, redis and valkey images, the usual variables.
+fn detect() -> Detect {
+    let list = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+    Detect {
+        packages: BTreeMap::from([
+            (
+                "go".into(),
+                list(&[
+                    "github.com/redis/go-redis",
+                    "github.com/go-redis/redis",
+                    "github.com/gomodule/redigo",
+                    "github.com/valkey-io/valkey-go",
+                ]),
+            ),
+            ("npm".into(), list(&["redis", "ioredis", "bullmq"])),
+        ]),
+        images: list(&["redis", "valkey/valkey"]),
+        env: [
+            ("REDIS_URL", "url"),
+            ("VALKEY_URL", "url"),
+            ("CACHE_ADDR", "address"),
+            ("REDIS_ADDR", "address"),
+        ]
+        .map(|(k, v)| (k.to_string(), v.to_string()))
+        .into(),
+    }
 }
 
-/// The listening arguments and the readiness check for a granted backend.
-fn listen(addr: Address) -> Result<(Vec<String>, Ready)> {
-    match addr {
-        Address::Unix(p) => Ok((
-            vec![
-                "--port".into(),
-                "0".into(),
-                "--unixsocket".into(),
-                p.clone(),
-            ],
-            Ready::Socket(p),
-        )),
-        Address::Tcp(a) => {
-            let (host, port) = help::host_port(&a)?;
-            let args = vec!["--port".into(), port.into(), "--bind".into(), host.into()];
-            Ok((args, Ready::Tcp(a.clone())))
-        }
+impl Admin for Valkey {
+    async fn resources(&self, cx: &Cx<ValkeySpec>) -> Result<Vec<Resource>> {
+        admin::resources(cx).await
+    }
+
+    async fn run_action(
+        &self,
+        cx: &Cx<ValkeySpec>,
+        action: &str,
+        _resource: &str,
+        _input: Option<&str>,
+    ) -> Result<String> {
+        admin::run_action(cx, action).await
+    }
+}
+
+impl Console for Valkey {
+    async fn tail(
+        &self,
+        cx: &Cx<ValkeySpec>,
+        _panel: &str,
+        _selector: &str,
+        out: &Rows<'_>,
+    ) -> Result<()> {
+        admin::tail(cx, out).await
     }
 }
 
 fn main() -> std::process::ExitCode {
-    serve(Valkey).release(env!("CARGO_PKG_VERSION")).run()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn the_password_line_survives_quotes_and_backslashes() {
-        assert_eq!(
-            auth_conf(r#"a"b\c d"#),
-            "# Written by doze on every boot.\nrequirepass \"a\\\"b\\\\c d\"\n"
-        );
-    }
+    serve(Valkey)
+        .release(env!("CARGO_PKG_VERSION"))
+        .admin()
+        .console()
+        .run()
 }

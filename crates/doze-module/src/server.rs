@@ -216,6 +216,9 @@ impl<M: Module> Server<M> {
             homepage: a.homepage,
             source: a.source,
             example_label: a.example_label,
+            default_version: a.default_version,
+            client: a.client,
+            detect: a.detect,
         }
     }
 

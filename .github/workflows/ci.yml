@@ -82,7 +82,9 @@ jobs:
     runs-on: ${{ matrix.os }}
     env:
       DOZE_ACCEPTANCE: "1"
+      # Every major a module declares is accepted on its newest build: valkey 9 and 8, kvrocks 2.
       VALKEY: "9.1.1"
+      VALKEY8: "8.1.9"
       KVROCKS: "2.16.0"
     steps:
       - uses: actions/checkout@v4
@@ -93,16 +95,20 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TARGET: ${{ matrix.target }}
         run: |
-          for e in "valkey:$VALKEY" "kvrocks:$KVROCKS"; do
-            name=${e%%:*}; v=${e#*:}; dir="$RUNNER_TEMP/engines/$name"
+          # <variable>:<engine>:<version> — the variable names where that build's bin/ is.
+          for e in "DOZE_VALKEY_BINDIR:valkey:$VALKEY" "VALKEY8_BINDIR:valkey:$VALKEY8" "DOZE_KVROCKS_BINDIR:kvrocks:$KVROCKS"; do
+            var=${e%%:*}; rest=${e#*:}; name=${rest%%:*}; v=${rest#*:}
+            dir="$RUNNER_TEMP/engines/$name-$v"; art="$name-$v-$TARGET.tar.gz"
             mkdir -p "$dir"
-            gh release download "$name" -R doze-dev/doze-binaries -p "$name-$v-$TARGET.tar.gz" -p "$name-$v-$TARGET.tar.gz.sha256" -D "$dir"
-            (cd "$dir" && shasum -a 256 -c "$name-$v-$TARGET.tar.gz.sha256")
-            tar -xzf "$dir/$name-$v-$TARGET.tar.gz" -C "$dir"
-            upper=$(echo "$name" | tr '[:lower:]' '[:upper:]')
-            echo "DOZE_${upper}_BINDIR=$dir/$name-$v-$TARGET/bin" >> "$GITHUB_ENV"
+            gh release download "$name" -R doze-dev/doze-binaries -p "$art" -p "$art.sha256" -D "$dir"
+            (cd "$dir" && shasum -a 256 -c "$art.sha256")
+            tar -xzf "$dir/$art" -C "$dir"
+            echo "$var=$dir/$name-$v-$TARGET/bin" >> "$GITHUB_ENV"
           done
       - run: cargo test -p doze-module-valkey -p doze-module-kvrocks --no-fail-fast -- --nocapture
+      - name: valkey's acceptance on its other major (8)
+        shell: bash
+        run: DOZE_VALKEY_BINDIR="$VALKEY8_BINDIR" cargo test -p doze-module-valkey --test acceptance --no-fail-fast -- --nocapture
 
   # Windows (docs/port/aws/phase0.md, spike S2): the whole workspace must at least compile there. Tests join as crates are made
   # portable; a red job here is information about what is still Unix-only, not noise.
@@ -214,11 +220,13 @@ jobs:
         run: |
           mkdir -p corpus/fuzz_frame
           cargo fuzz run fuzz_frame corpus/fuzz_frame -- -max_total_time=30 -max_len=1048576
-      - name: Fuzz the RESP reply parser for 30 seconds
+      - name: Fuzz the RESP parsers (replies; INFO and MONITOR text) for 30 seconds each
         working-directory: crates/doze-resp/fuzz
         run: |
           mkdir -p corpus/fuzz_reply
           cargo fuzz run fuzz_reply corpus/fuzz_reply -- -max_total_time=30 -max_len=65536
+          mkdir -p corpus/fuzz_text
+          cargo fuzz run fuzz_text corpus/fuzz_text -- -max_total_time=30 -max_len=65536
       - name: Fuzz the PLAIN token for 30 seconds
         working-directory: crates/kafka-auth/fuzz
         run: |

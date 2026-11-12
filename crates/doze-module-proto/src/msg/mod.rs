@@ -5,6 +5,7 @@ pub mod calls;
 pub mod console;
 pub mod error;
 pub mod hello;
+pub mod hints;
 pub mod instance;
 pub mod run;
 pub mod value;
