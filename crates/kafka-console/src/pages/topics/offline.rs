@@ -6,10 +6,12 @@
 use maud::{Markup, html};
 
 use super::common::{TopicTab, topic_frame, topic_url};
+use super::messages::TOPIC_VIEW;
 use crate::base::Base;
 use crate::model::TopicHead;
 use crate::ui::button::{State, state};
 use crate::ui::glyph::{Glyph, glyph};
+use crate::ui::inplace;
 
 fn works(h: &TopicHead) -> Markup {
     html! {
@@ -52,6 +54,8 @@ pub(super) fn offline_page(h: &TopicHead, base: &Base) -> Markup {
     let down = h.offline();
     html! {
         (topic_frame(h, base, TopicTab::Messages))
+        // The region of the Messages page, so that a filter that lands here (Clear filters on this topic) swaps like any other.
+        (inplace::region(TOPIC_VIEW, html! {
         @for p in &down { div class="banner bad" {
             (glyph(Glyph::Warn, 18, ""))
             span { b { (h.name) "-" (p.partition) " is offline." } " A flush of its active segment failed: " span class="mono" { (p.offline.as_deref().unwrap_or("")) } ". The broker does not retry it." }
@@ -62,5 +66,6 @@ pub(super) fn offline_page(h: &TopicHead, base: &Base) -> Markup {
             a class="lnk" href=(format!("{}/messages?partition={}", topic_url(base, &h.name), down.first().map_or(0, |p| p.partition))) { "open partition " (down.first().map_or(0, |p| p.partition)) }
             "."
         }
+        }))
     }
 }

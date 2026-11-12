@@ -48,10 +48,10 @@ describe("pause", () => {
     const p = await started();
     await answer(p, 12, [5, 4, 3, 2, 1]);
     expect(rows(p)).toEqual(["5", "4", "3", "2", "1"]);
-    const marked = [...p.document.querySelectorAll("tr.new")].map((r) => r.getAttribute("data-row"));
+    const marked = [...p.document.querySelectorAll("tr.fresh")].map((r) => r.getAttribute("data-row"));
     expect(marked).toEqual(["5", "4"]);
     p.runTimers();
-    expect(p.document.querySelectorAll("tr.new").length).toBe(0);
+    expect(p.document.querySelectorAll("tr.fresh").length).toBe(0);
   });
 
   test("a drawer that is open holds the tape without a banner, and closing it lets the tape catch up", async () => {

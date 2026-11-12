@@ -74,3 +74,10 @@ The copy buttons (with "Copied"), the Live tape (pause with a held-back count, t
 ## Numbers measured
 
 See `docs/port/console/ux-tests.md` for how to run `tools/ux/drive.ts`, and the final report of the UX foundation pass for the per-scenario numbers (drawer rect 0/800/1280, slide start 480 px, 240 ms, layout shift 0, scrollY unchanged by a filter, one preload, cached click).
+
+## Integration pass (UX agent 3)
+
+- **Regions.** The foundation's `in_place_*` pattern is now used by every page that has a toolbar (`ui/inplace.rs`; CON-750 to CON-752). Idiomorph's `ignoreActiveValue` (set in `console.js`) is what lets a region that contains the focused field be morphed while you type; the config string `morph:{...}` cannot be used (the extension compiles it with `Function`, which the CSP forbids).
+- **History.** A form sends itself as it stands (`?partition=1&time=&partition=1`); the handler's `region::canonical` replaces that with the clean address (`HX-Push-Url`, `HX-Replace-Url`, or `HX-Push-Url: false` when nothing changed). A search box sends `X-History: replace`.
+- **Page changes** are latest-wins and wait for a swap that is on its way (`console.js`, "Page changes are latest-wins"); `hx-sync="this:replace"` was tried and dropped, because an aborted request is logged as a console error by htmx 2. A scroll restore is `behavior: "instant"` (the page has `scroll-behavior: smooth`).
+- **Weight.** The pass adds about 5.5 KB of script and 1.5 KB of CSS; no library.

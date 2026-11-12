@@ -80,20 +80,18 @@ impl Stat {
     }
 
     fn one(&self, extra: &str) -> Markup {
-        let style = format!("width:{}ch", self.ch);
+        let style = format!("min-width:{}ch", self.ch);
         let class = if self.mono { "v mono" } else { "v" };
         let title = self.tip.as_deref().unwrap_or(&self.value);
         html! {
             div class={"stat" (extra)} {
-                dt { (self.label) }
-                dd {
-                    @if let Some(iso) = &self.time {
-                        time class=(class) style=(style) datetime=(iso) title=(title) data-rel { (self.value) }
-                    } @else {
-                        span class=(class) style=(style) title=(title) { (self.value) }
-                    }
-                    @if let Some(u) = &self.unit { span class="u" { (u) } }
+                span class="k" { (self.label) }
+                @if let Some(iso) = &self.time {
+                    time class=(class) style=(style) datetime=(iso) title=(title) data-rel { (self.value) }
+                } @else {
+                    span class=(class) style=(style) title=(title) { (self.value) }
                 }
+                @if let Some(u) = &self.unit { span class="s" { (u) } }
             }
         }
     }
@@ -120,19 +118,19 @@ pub fn deadline(remaining_ms: i64) -> Markup {
 /// A value in a line of static text (a pager: `Showing [16] of [2,000] rows`): a slot of `ch` characters, so the line never changes length.
 #[must_use]
 pub fn slot(value: &str, ch: u8) -> Markup {
-    html! { span class="v" style={"width:" (ch) "ch"} title=(value) { (value) } }
+    html! { span class="slot" style={"width:" (ch) "ch"} title=(value) { (value) } }
 }
 
 /// A strip of metrics in one bordered row. It is one line high at any width the page is shown at, and never holds a sentence.
 #[must_use]
 pub fn stat_strip(stats: &[Stat]) -> Markup {
-    html! { dl class="stats" { @for s in stats { (s.one("")) } } }
+    html! { div class="stats" role="group" { @for s in stats { (s.one("")) } } }
 }
 
 /// A single metric as a tile.
 #[must_use]
 pub fn stat_tile(stat: &Stat) -> Markup {
-    html! { dl class="stats tile" { (stat.one("")) } }
+    html! { div class="stats tile" role="group" { (stat.one("")) } }
 }
 
 #[cfg(test)]

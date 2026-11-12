@@ -56,8 +56,7 @@ fn fraction(held: i64, of: i64) -> i64 {
 fn attention(a: &Attention, unchecked: usize, base: &Base) -> Markup {
     let p = fraction(a.elapsed_secs, a.timeout_secs);
     // The deadline is an instant, to the second; the script counts down to it in its own slot, with no request (CON-812).
-    let deadline =
-        (crate::source::now_ms() / 1000 + (a.timeout_secs - a.elapsed_secs).max(0)) * 1000;
+    let deadline = (crate::source::now_ms() / 1000 + (a.timeout_secs - a.elapsed_secs).max(0)) * 1000;
     // The transaction's own page (slice 9g).
     let txn_url = base.url(&format!(
         "/topics/{}/transactions/{}",
@@ -77,7 +76,7 @@ fn attention(a: &Attention, unchecked: usize, base: &Base) -> Markup {
                 }
                 div class="row" style="flex:none" { (link(&txn_url, Variant::Plain, Size::Small, Some(Glyph::ArrowR), "Open the transaction")) }
             }
-            div class="lagbar deadline" style="margin-top:14px;max-width:560px" {
+            div class="lagbar" style="margin-top:14px;max-width:560px" {
                 div class="tr" { i class="warn" style={"--p:" (p) "%"} {} }
                 span class="n" style="min-width:210px" { "Times out at " time datetime=(crate::format::iso(deadline)) { (crate::format::clock(deadline)) " UTC" } " " span class="cd mono" data-until=(crate::format::iso(deadline)) {} }
             }
@@ -176,6 +175,47 @@ fn rows(i: &InstanceView, quiet: bool) -> Vec<(&'static str, Markup)> {
     out
 }
 
+/// Home's strip of metrics: every fact that follows the broker, each a tile with a figure of reserved width (CON-805). The time it has run
+/// is the instant it started (absolute); how long ago is on the hover.
+fn strip(v: &HomeView) -> Markup {
+    let i = &v.instance;
+    let quiet = v.state == HomeState::Quiet;
+    let n = |x: usize| number(i64::try_from(x).unwrap_or(0));
+    let now = crate::source::now_ms();
+    let started = i.started.trim_end_matches(" UTC").to_owned();
+    let last_stop = match i.last_stop {
+        StopView::Clean => "last stop clean",
+        StopView::Unclean => "last stop not clean",
+        StopView::None => "on a new data directory",
+    };
+    let (apps, reach, last) = match &v.spoke {
+        Some(s) => (
+            Stat::new("Apps on the wire", n(s.apps)).unit(match s.oldest_ms {
+                Some(ms) => format!("wire back to {} UTC", crate::words::live::hhmm(ms)),
+                None => "no request yet".to_owned(),
+            }),
+            (),
+            match s.last_ms {
+                Some(ms) => Stat::at("Last request", ms, now),
+                None => Stat::new("Last request", "none yet").mono().ch(11),
+            },
+        ),
+        None => (Stat::new("Apps on the wire", "-"), (), Stat::new("Last request", "-").mono().ch(11)),
+    };
+    let _ = reach;
+    stat_strip(&[
+        Stat::new("Started", started).unit(last_stop).mono().ch(12),
+        Stat::new("Open partitions", words::open_partitions(i)).unit(if quiet { "opened on first use" } else { "opened on first use" }).mono().ch(8),
+        Stat::new("Topics", n(v.topics)).unit(format!("{} partitions", n(v.partitions))).ch(5),
+        Stat::new("Memory", i.resident_bytes.map_or_else(|| "Not measured".to_owned(), bytes))
+            .unit(if i.resident_bytes.is_some() { "resident now" } else { "measured on Linux only" })
+            .mono()
+            .ch(9),
+        apps,
+        last,
+    ])
+}
+
 /// The "This instance" card.
 fn instance_card(v: &HomeView, base: &Base) -> Markup {
     let i = &v.instance;
@@ -269,48 +309,7 @@ fn next_card(v: &HomeView, base: &Base) -> Markup {
     } }
 }
 
-/// Home's strip of metrics: every fact that follows the broker, each in a slot of reserved width (CON-805).
-fn strip(v: &HomeView) -> Markup {
-    let n = |x: usize| number(i64::try_from(x).unwrap_or(0));
-    let started = v.instance.started.trim_end_matches(" UTC").to_owned();
-    let last_stop = match v.instance.last_stop {
-        StopView::Clean => "Clean",
-        StopView::Unclean => "Not clean",
-        StopView::None => "None yet",
-    };
-    let now = crate::source::now_ms();
-    let mut stats = vec![
-        Stat::new("Started", started).unit("UTC").mono().ch(12),
-        Stat::new("Last stop", last_stop).ch(9),
-        Stat::new("Topics", n(v.topics)).ch(5),
-        Stat::new("Partitions", n(v.partitions)).ch(5),
-    ];
-    match &v.spoke {
-        Some(s) => {
-            stats.push(Stat::new("Apps on the wire", n(s.apps)).ch(5));
-            stats.push(
-                Stat::new(
-                    "Wire reaches back to",
-                    s.oldest_ms
-                        .map_or_else(|| "none".to_owned(), crate::words::live::hhmm),
-                )
-                .unit("UTC")
-                .mono()
-                .ch(5),
-            );
-            stats.push(match s.last_ms {
-                Some(ms) => Stat::at("Last request", ms, now),
-                None => Stat::new("Last request", "none yet").mono().ch(11),
-            });
-        }
-        None => {
-            stats.push(Stat::new("Apps on the wire", "-").ch(5));
-        }
-    }
-    stat_strip(&stats)
-}
-
-/// Home's live fragment: the strip, the transaction region and both columns. The title and its sentence are not in it.
+/// Home's live fragment, and Home.
 #[must_use]
 pub fn live_fragment(v: &HomeView, base: &Base) -> Markup {
     let quiet = v.state == HomeState::Quiet;
@@ -320,9 +319,14 @@ pub fn live_fragment(v: &HomeView, base: &Base) -> Markup {
         html! {
             (strip(v))
             div class="home-callout" { (callout_body(v, base)) }
-            div class="split" {
-                div class="stack-y" { (address_card(v, base)) @if quiet { (next_card(v, base)) } }
-                div class="stack-y" { (instance_card(v, base)) @if !quiet { (next_card(v, base)) } }
+            // Two balanced columns (7 to 5, the second never under 380 px; one column under 1180 px), then the way on across the page.
+            // The first run keeps the board's order (the address, the three steps, then the instance); the grid puts the instance
+            // beside them.
+            @if quiet {
+                div class="home-grid quiet" { (address_card(v, base)) (next_card(v, base)) (instance_card(v, base)) }
+            } @else {
+                div class="home-grid" { (address_card(v, base)) (instance_card(v, base)) }
+                div class="home-next" { (next_card(v, base)) }
             }
         },
     )
@@ -335,13 +339,7 @@ pub fn home(v: &HomeView, base: &Base) -> Markup {
     let acts = if quiet {
         html! {}
     } else {
-        link(
-            &base.url("/connect"),
-            Variant::Primary,
-            Size::Normal,
-            Some(Glyph::Code),
-            "Connect an app",
-        )
+        link(&base.url("/connect"), Variant::Primary, Size::Normal, Some(Glyph::Code), "Connect an app")
     };
     html! {
         (page_header(home_title(&v.state), sentence(v), acts))

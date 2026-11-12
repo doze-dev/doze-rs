@@ -13,9 +13,14 @@ use crate::ui::button::{Size, State, Variant, opener, state};
 use crate::ui::client;
 use crate::ui::disclosure::{Look, disclosure};
 use crate::ui::glyph::{Glyph, glyph};
+use crate::ui::inplace::{self, Opts};
 use crate::ui::kafka::{apicall, empty, pager_with, sec};
 use crate::ui::metrics::slot;
 use crate::words::reach_sentence;
+
+/// The region of the Messages page: the toolbar, the table and what is said about the read. A partition, a filter, an isolation
+/// level or "Older" changes it and nothing above it (the topic's head, its tabs, the open-transaction callout).
+pub(super) const TOPIC_VIEW: &str = "topic-view";
 
 /// The fragment that holds the table and what is said about it.
 pub const MESSAGES_FRAGMENT: &str = "topic-messages";
@@ -36,7 +41,7 @@ fn older(v: &MessagesView, base: &Base) -> Markup {
     };
     html! {
         @if v.reach.more && v.query.limit < crate::model::MOST_LIMIT {
-            a class="btn sm" data-ui="page" href=(format!("{}#topic-bar", messages_url(base, &v.head.name, &q))) { "Older" }
+            (inplace::link_with(TOPIC_VIEW, "btn sm", &messages_url(base, &v.head.name, &q), &Opts { ui: Some("page"), ..Opts::default() }, html! { "Older" }))
         }
     }
 }
@@ -151,16 +156,19 @@ fn explainers(v: &MessagesView, base: &Base) -> Markup {
     )
 }
 
-fn detail(v: &MessagesView, base: &Base, query: &str) -> Markup {
+fn detail(v: &MessagesView, base: &Base, query: &str, dock: Markup) -> Markup {
     html! {
         (topic_frame(&v.head, base, TopicTab::Messages))
-        (bar(v, base))
-        (crate::ui::tail::tail_bar(MESSAGES_FRAGMENT, tailable(&v.query)))
-        (messages_fragment(v, base, query))
-        div class="row wrap" style="margin-top:20px;gap:24px" {
-            span class="row" { (state(State::Ok, &format!("{} of {} partitions online", v.head.parts.len() - v.head.offline().len(), v.head.parts.len()))) }
-        }
-        div style="margin-top:24px" { (explainers(v, base)) }
+        (inplace::region(TOPIC_VIEW, html! {
+            (bar(v, base))
+            (crate::ui::tail::tail_bar(MESSAGES_FRAGMENT, tailable(&v.query)))
+            (messages_fragment(v, base, query))
+            div class="row wrap" style="margin-top:20px;gap:24px" {
+                span class="row" { (state(State::Ok, &format!("{} of {} partitions online", v.head.parts.len() - v.head.offline().len(), v.head.parts.len()))) }
+            }
+            div style="margin-top:24px" { (explainers(v, base)) }
+            (dock)
+        }))
     }
 }
 
@@ -178,15 +186,17 @@ fn empty_topic(v: &MessagesView, base: &Base, listen: &str) -> Markup {
     );
     html! {
         (topic_frame(&v.head, base, TopicTab::Messages))
-        (empty(
-            Glyph::Queue, "d-msg", Some("teaching"),
-            html! { "No records yet" },
-            html! { "Nothing has been written to this topic, so there is nothing to read, and no group or producer has touched it. The first record lands at offset 0 of partition 0." },
-            produce,
-        ))
-        (sec(32, "Or from your app", Some(html! { "The first record lands at offset 0 of partition 0." }), html! {
-            pre class="code" data-extra="copy-as" { (cmd) }
-            div class="row" style="margin-top:12px" { (client::copy_button("btn sm", &cmd, html! { (glyph(Glyph::Copy, 14, "")) "Copy" })) }
+        (inplace::region(TOPIC_VIEW, html! {
+            (empty(
+                Glyph::Queue, "d-msg", Some("teaching"),
+                html! { "No records yet" },
+                html! { "Nothing has been written to this topic, so there is nothing to read, and no group or producer has touched it. The first record lands at offset 0 of partition 0." },
+                produce,
+            ))
+            (sec(32, "Or from your app", Some(html! { "The first record lands at offset 0 of partition 0." }), html! {
+                pre class="code" data-extra="copy-as" { (cmd) }
+                div class="row" style="margin-top:12px" { (client::copy_button("btn sm", &cmd, html! { (glyph(Glyph::Copy, 14, "")) "Copy" })) }
+            }))
         }))
     }
 }
@@ -194,6 +204,18 @@ fn empty_topic(v: &MessagesView, base: &Base, listen: &str) -> Markup {
 /// The page for a topic's Messages, in the state its data and filters call for.
 #[must_use]
 pub fn messages_page(v: &MessagesView, base: &Base, listen: &str, query: &str) -> Markup {
+    messages_page_with(v, base, listen, query, html! {})
+}
+
+/// [`messages_page`] with the wire dock the plain page carries under it (inside the region, so a filter that hides it takes it away).
+#[must_use]
+pub fn messages_page_with(
+    v: &MessagesView,
+    base: &Base,
+    listen: &str,
+    query: &str,
+    dock: Markup,
+) -> Markup {
     if v.head.is_empty() && !v.query.filtered() && v.query.reading == Reading::Uncommitted {
         return empty_topic(v, base, listen);
     }
@@ -203,5 +225,5 @@ pub fn messages_page(v: &MessagesView, base: &Base, listen: &str, query: &str) -
     {
         return super::offline::offline_page(&v.head, base);
     }
-    detail(v, base, query)
+    detail(v, base, query, dock)
 }

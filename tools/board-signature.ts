@@ -225,6 +225,8 @@ function linkToken(href: string, isBoard: boolean, opts: Options): string | null
 const OVERLAY = (e: El): boolean => {
   if ("hidden" in e.attrs || e.attrs["aria-hidden"] === "true") return false;
   if (e.tag === "dialog") return "open" in e.attrs;
+  // A Popover's card is a small floating card of a control (a "dialog" for a screen reader), not an overlay page.
+  if (hasClass(e, "dz-pop")) return false;
   return e.attrs.role === "dialog" || e.attrs.role === "alertdialog" || hasClass(e, "modal") || hasClass(e, "drawer-panel");
 };
 

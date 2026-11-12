@@ -7,10 +7,11 @@ use crate::model::{TopicRow, TopicsState, TopicsView};
 use crate::ui::button::{Size, Variant, link};
 use crate::ui::client;
 use crate::ui::glyph::{Glyph, glyph};
-use crate::ui::kafka::{Tab, empty, filter_box, pager_with, sec, tabs};
+use crate::ui::inplace;
+use crate::ui::kafka::{Tab, empty, pager_with, sec, tabs};
 use crate::ui::layout::page_header;
-use crate::ui::metrics::{Stat, slot, stat_strip};
 use crate::ui::notice::{Tone, callout};
+use crate::ui::metrics::{Stat, slot, stat_strip};
 
 use super::list_table::{internal_table, table};
 
@@ -63,18 +64,27 @@ pub fn list_fragment(v: &TopicsView, base: &Base, query: &str) -> Markup {
     )
 }
 
+/// The id of the region the toolbar and the list share: a filter, a chip or Refresh changes it and nothing else of the page.
+pub(super) const LIST_VIEW: &str = "topics-view";
+
 fn toolbar(v: &TopicsView, base: &Base) -> Markup {
-    html! {
-        form class="toolbar" method="get" action=(base.url("/topics")) {
-            // The button Enter presses in the filter box: not a control of the page, so it is out of the board's reckoning.
-            input type="submit" value="Filter" aria-label="Filter topics" hidden data-scaffold;
-            (filter_box("q", "Filter topics by name", "Filter topics by name", &v.filter))
-            button class={"fchip" @if v.show_internal { " on" }} type="submit" name="internal" value=(if v.show_internal { "0" } else { "1" }) data-ui="toggle" aria-pressed=(v.show_internal) {
-                span class="toggle" {} "Show internal"
-            }
-            @if v.show_internal { input type="hidden" name="internal" value="1"; }
-        }
-    }
+    let action = base.url("/topics");
+    inplace::form(
+        LIST_VIEW,
+        None,
+        "toolbar",
+        None,
+        &action,
+        html! {
+                // The button Enter presses in the filter box: not a control of the page, so it is out of the board's reckoning.
+                input type="submit" value="Filter" aria-label="Filter topics" hidden data-scaffold;
+                (inplace::search_box(LIST_VIEW, &action, "q", "Filter topics by name", "Filter topics by name", &v.filter))
+                button class={"fchip" @if v.show_internal { " on" }} type="submit" name="internal" value=(if v.show_internal { "0" } else { "1" }) data-ui="toggle" aria-pressed=(v.show_internal) {
+                    span class={"toggle" @if v.show_internal { " on" }} {} "Show internal"
+                }
+                @if v.show_internal { input type="hidden" name="internal" value="1"; }
+        },
+    )
 }
 
 fn internal_note(v: &TopicsView, base: &Base) -> Markup {
@@ -143,36 +153,37 @@ fn none(v: &TopicsView, base: &Base, listen: &str) -> Markup {
     }
 }
 
-fn filtered(v: &TopicsView, base: &Base, query: &str) -> Markup {
+/// The list's place when no topic name contains the filter: the toolbar above it stays exactly as it was.
+fn nothing_matches(v: &TopicsView, base: &Base) -> Markup {
     let clear = base.url("/topics");
-    html! {
-        (head(v, base, "Where records live. Every topic is a log: open one to read it, produce to it, or see what the broker did to it."))
-        (stats_fragment(v, base, query))
-        div class="toolbar" {
-            (filter_box("q", "Filter topics by name", "Filter topics by name", &v.filter))
-            span class="fchip on" { "Name contains " (v.filter) }
-            a class="btn sm" href=(clear) data-ui="clear" { (glyph(Glyph::X, 14, "")) "Clear filter" }
-        }
-        (empty(
-            Glyph::Search, "", None,
-            html! { "No topic name contains " span class="mono" { (v.filter) } },
-            html! { "The filter looks at the " (v.total) " topic names; internal topics are hidden. Names are matched as typed, so " span class="mono" { "pick-lists" } " will not match " span class="mono" { "pick_lists" } "." },
-            html! { div class="row" {
-                a class="btn" href=(clear) data-ui="clear" { "Clear filter" }
-                a class="btn pri" href=(format!("{}?name={}", base.url("/topics/new"), segment(&v.filter))) { (glyph(Glyph::Plus, 16, "")) "Create " span class="mono" { (v.filter) } }
-            } },
-        ))
-    }
+    empty(
+        Glyph::Search,
+        "",
+        None,
+        html! { "No topic name contains " span class="mono" { (v.filter) } },
+        html! { "The filter looks at the " (v.total) " topic names; internal topics are hidden. Names are matched as typed, so " span class="mono" { "pick-lists" } " will not match " span class="mono" { "pick_lists" } "." },
+        html! { div class="row" {
+            (inplace::link(LIST_VIEW, "btn", &clear, None, html! { "Clear filter" }))
+            a class="btn pri" href=(format!("{}?name={}", base.url("/topics/new"), segment(&v.filter))) { (glyph(Glyph::Plus, 16, "")) "Create " span class="mono" { (v.filter) } }
+        } },
+    )
 }
 
 fn steady(v: &TopicsView, base: &Base, query: &str) -> Markup {
     html! {
         (head(v, base, "Where records live. Every topic is a log: open one to read it, produce to it, or see what the broker did to it."))
-        // About the broker, not the filter: it is there whatever is typed, so typing moves nothing.
-        (stats_fragment(v, base, query))
-        (toolbar(v, base))
-        (list_fragment(v, base, query))
-        (internal_note(v, base))
+        (inplace::region(LIST_VIEW, html! {
+            // About the broker, not the filter: it is there whatever is typed, so typing moves nothing; it is in the region because
+            // it says whether the internal topic is hidden, which a chip changes.
+            (stats_fragment(v, base, query))
+            (toolbar(v, base))
+            @if v.state() == TopicsState::Filtered {
+                (nothing_matches(v, base))
+            } @else {
+                (list_fragment(v, base, query))
+                (internal_note(v, base))
+            }
+        }))
     }
 }
 
@@ -181,7 +192,6 @@ fn steady(v: &TopicsView, base: &Base, query: &str) -> Markup {
 pub fn list_page(v: &TopicsView, base: &Base, listen: &str, query: &str) -> Markup {
     match v.state() {
         TopicsState::None => none(v, base, listen),
-        TopicsState::Filtered => filtered(v, base, query),
-        TopicsState::List => steady(v, base, query),
+        TopicsState::List | TopicsState::Filtered => steady(v, base, query),
     }
 }

@@ -25,6 +25,8 @@ pub async fn live(State(s): State<Shared>, RawQuery(query): RawQuery) -> Respons
     let f = fields(&query);
     let q = WireQuery::parse(&f);
     let view = s.source.live(&q, crate::form::get(&f, "state")).await;
+    // The clean address of the filters (what a chip, a Select or the search box leaves in the history).
+    crate::region::canonical(&format!("{}{}", s.base.url("/live"), q.to_query()));
     let main = live_page(&view, &s.base);
     html(
         &s.document(

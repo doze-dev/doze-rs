@@ -119,12 +119,14 @@ fn the_empty_broker_and_the_filter_that_matches_nothing_have_their_own_pages() {
         "topics-filtered",
         &filtered,
         &[
-            "Name contains refunds",
-            "Clear filter",
+            // The toolbar is the one of the list (it does not change shape when the filter matches nothing); the way out is in the card.
+            "Filter topics by name",
+            "Show internal",
             "No topic name contains",
             "refunds",
             "The filter looks at the 9 topic names",
             "pick_lists",
+            "Clear filter",
             "Create <span class=\"mono\">refunds</span>",
         ],
     );

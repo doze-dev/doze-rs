@@ -199,9 +199,8 @@ button.lnk:hover{text-decoration:underline}
 .bar{display:block;margin:0 0 16px}
 .bar .bar-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;min-height:36px}
 .bar .bar-row .sp{flex:1 1 0;min-width:0}
-.bar .bar-time input{height:36px;box-sizing:border-box;width:172px;padding:0 12px;border:1px solid var(--line2);border-radius:10px;background:#fff;font:inherit;font-size:13.5px;color:var(--text)}
 .bar .bar-time input::placeholder{color:var(--dim);opacity:1}
-.bar-chips{display:flex;align-items:center;gap:8px;height:36px;margin-top:10px;overflow:hidden;white-space:nowrap}
+.bar-chips{display:flex;align-items:center;gap:8px;height:36px;margin-top:10px;white-space:nowrap}
 .bar-chips .fchip{height:30px;padding:0 10px 0 12px;font-size:12.5px}
 .fchip.rm{text-decoration:none;color:var(--bright)}
 .fchip.rm:hover{border-color:var(--accent)}
@@ -266,7 +265,9 @@ table.consumers td.grp .grp-bits{margin-left:12px}
 .bar .bar-row{flex-wrap:nowrap}
 .bar .bar-row .finput{flex:1 1 220px;min-width:180px}
 .bar .bar-row .seg,.bar .bar-row .dim{flex:none}
-.bar-chips .bar-time input{height:30px;width:150px;font-size:12.5px;border-radius:999px;padding:0 12px}
+.bar-chips .bar-time{display:flex;flex-direction:column;align-items:flex-start;white-space:normal;width:260px}
+.bar-chips .bar-time-l{font-size:12.5px;font-weight:500;color:var(--bright);margin-bottom:6px}
+.bar-chips .bar-time input{height:34px;width:100%;box-sizing:border-box;font:inherit;font-size:13.5px;padding:0 12px;border:1px solid var(--line2);border-radius:8px;background:#fff;color:var(--text)}
 .bar-chips .btn.sm{flex:none}
 /* ---- Components (src/ui/components; assets/components.js): the shadcn look on the kit's tokens ---------------------------- */
 /* Page transitions: a thin hint, drawn only when a request takes longer than 250 ms (the script adds .is-loading). */
@@ -279,7 +280,7 @@ html.is-loading::before{content:"";position:fixed;z-index:90;top:0;left:0;right:
 .dz.is-on .dz-native{position:absolute;opacity:0;pointer-events:none;width:1px;height:1px;overflow:hidden}
 @media (scripting:enabled){.dz-select:not(.is-on) .dz-native,.dz-combobox:not(.is-on) .dz-native{visibility:hidden}.dz-menu:not(.is-on) .dz-pop,.dz-pov:not(.is-on) .dz-pop{display:none}}
 /* The popup: 1px border, radius 8, a soft shadow, 4px inside. */
-.dz-pop{z-index:60;box-sizing:border-box;min-width:8rem;max-width:min(420px,92vw);max-height:min(320px,60vh);overflow-y:auto;overscroll-behavior:contain;padding:4px;background:#fff;color:var(--text);border:1px solid var(--line2);border-radius:8px;box-shadow:0 12px 32px -8px rgba(23,20,31,.20),0 2px 6px rgba(23,20,31,.06)}
+.dz-pop{z-index:60;box-sizing:border-box;min-width:8rem;width:max-content;max-width:min(420px,calc(100vw - 32px));max-height:min(320px,60vh);overflow-y:auto;overscroll-behavior:contain;padding:4px;background:#fff;color:var(--text);border:1px solid var(--line2);border-radius:8px;box-shadow:0 12px 32px -8px rgba(23,20,31,.20),0 2px 6px rgba(23,20,31,.06)}
 @media (prefers-reduced-motion:no-preference){.dz-pop{animation:dz-in 120ms cubic-bezier(.22,1,.36,1) both}}
 @keyframes dz-in{from{opacity:0;transform:translateY(-3px) scale(.985)}}
 /* Select */
@@ -295,7 +296,7 @@ html.is-loading::before{content:"";position:fixed;z-index:90;top:0;left:0;right:
 .dz-opt{position:relative;display:flex;align-items:center;gap:8px;min-height:32px;padding:6px 10px 6px 30px;border-radius:6px;color:var(--text);cursor:default;user-select:none}
 .dz-opt[hidden]{display:none}
 .dz-opt-t{display:flex;flex-direction:column;min-width:0}
-.dz-opt-label{overflow-wrap:anywhere}
+.dz-opt-label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dz-desc{font-size:12px;line-height:16px;color:var(--dim)}
 .dz-check{position:absolute;left:9px;top:9px;visibility:hidden;color:var(--accent)}
 .dz-opt[aria-selected=true] .dz-check{visibility:visible}
@@ -340,6 +341,7 @@ html.is-loading::before{content:"";position:fixed;z-index:90;top:0;left:0;right:
 .seg a.dz-seg-i{display:inline-flex;align-items:center;height:30px;padding:0 14px;border-radius:8px;font-size:13px;font-weight:500;color:var(--text);text-decoration:none;white-space:nowrap;transition:background-color .12s ease,color .12s ease,box-shadow .12s ease}
 .seg a.dz-seg-i.on{background:#fff;color:var(--bright);box-shadow:0 0 0 1px var(--line),0 1px 2px rgba(58,53,80,.12)}
 .seg a.dz-seg-i:hover:not(.on){color:var(--bright)}
+.dz-seg-n{margin-left:6px;font-size:12px;font-weight:400}
 /* The palette's group headings */
 .jump-h{list-style:none;padding:10px 12px 4px;font-size:11.5px;font-weight:500;letter-spacing:.07em;text-transform:uppercase;color:var(--dim)}
 /* The gallery (examples build only) */
@@ -358,17 +360,6 @@ html.is-loading::before{content:"";position:fixed;z-index:90;top:0;left:0;right:
 .refresh .every{display:inline-block;min-width:96px}
 .refresh .bad{color:var(--bad);white-space:nowrap;max-width:300px;overflow:hidden;text-overflow:ellipsis}
 .refresh .btn.sm{height:30px}
-/* Metric slots: a label, a value in a slot of declared width, tabular figures, one line. A strip is as tall at any value. */
-.stats{display:flex;flex-wrap:wrap;margin:0 0 24px;padding:0;background:#fff;border:1px solid var(--line);border-radius:14px}
-.page-h + .stats,.page-h + .frag > .stats{margin-top:-12px}
-.stats .stat{flex:0 0 auto;padding:12px 20px;border-right:1px solid var(--line);min-height:64px;box-sizing:border-box}
-.stats .stat:last-child{border-right:0}
-.stat dt{margin:0;font-size:11.5px;font-weight:500;letter-spacing:.07em;text-transform:uppercase;color:var(--dim);white-space:nowrap}
-.stat dd{margin:3px 0 0;display:flex;align-items:baseline;gap:6px;white-space:nowrap;font-size:18px;line-height:26px;color:var(--bright);font-variant-numeric:tabular-nums}
-.v{display:inline-block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom;font-variant-numeric:tabular-nums}
-.stat .u{font-size:12.5px;color:var(--dim)}
-.stat .v.mono{font-size:16px}
-.stats.tile{display:inline-flex}
 .nowrap{white-space:nowrap}
 /* Regions of reserved height: a conditional block has its own place, calm when there is nothing to say (CON-807). */
 .txn-region{min-height:84px;margin:0 0 24px}
@@ -411,3 +402,97 @@ table.dt-t{table-layout:fixed;width:100%}
 .held-pill{position:fixed;top:66px;left:50%;transform:translateX(-50%);z-index:30;height:32px;padding:0 14px;border-radius:999px;border:1px solid var(--accent);background:var(--accent);color:#fff;font:inherit;font-size:13px;font-weight:500;cursor:pointer;box-shadow:0 4px 14px rgba(58,53,80,.22);white-space:nowrap;font-variant-numeric:tabular-nums}
 .held-pill[hidden]{display:none}
 .tail-root.is-tailing .pager{visibility:hidden}
+
+/* A narrow window (a laptop with the console beside an editor): the rail keeps only its icons (the name is a tooltip), the page gets
+   its room back, and a table cell is a little tighter, so that no page scrolls sideways at 1024 px. */
+@media (max-width:1180px){
+.rail{width:64px;padding:22px 8px 24px}
+.ni{font-size:0;gap:0;justify-content:center;padding:0;position:relative}
+.ni .soon{display:none}
+.ni.is-soon svg{opacity:.55}
+.hints{display:none}
+.main{padding:24px 28px 72px}
+.t th,.t td{padding-left:12px;padding-right:12px}
+}
+
+/* One focus ring, on the box, for the filter fields; headings balance their lines and paragraphs avoid a one-word last line. */
+.finput:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px rgba(122,79,224,.12)}
+.finput input:focus-visible{outline:0}
+h1,h2,h3{text-wrap:balance}
+p,.sub,.lede,.help{text-wrap:pretty}
+.t td.key{white-space:nowrap}
+.t td.val{max-width:0;width:34%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* Reduced motion: the page change is a swap with no cross-fade (the browser's own default for a view transition would fade). */
+@media (prefers-reduced-motion:reduce){::view-transition-group(*),::view-transition-old(*),::view-transition-new(*){animation:none!important}}
+.dz-opt-t{flex:1 1 auto}.dz-item{overflow:hidden;text-overflow:ellipsis}
+
+/* ===== ONE focus system (shadcn-like) =====
+   A 2 px ring, the primary colour at about 45 %, 2 px off the OUTERMOST shape of the control, following its radius; no second border,
+   no ring inside a ring. A control that is its own shape (a button, a link, a chip, a tab, a segment, a trigger, a menu button, a
+   row's link) draws it on itself; a field that is a box around an input (.search, .input, .finput, .dz-field, a chip that holds an
+   input) draws it on the BOX (:focus-within) and its input draws none. A menu item or an option shows focus by its highlight. */
+:root{--ring:rgba(122,79,224,.45)}
+:where(a,button,input,select,textarea,summary,[tabindex]):focus-visible,
+.opt-row:has(input:focus-visible) :is(.radio,.check),.seg label:has(input:focus-visible),.fchip:has(select:focus-visible),
+.t a:focus-visible,.crumbs a:focus-visible,.tab:focus-visible,.ni:focus-visible,.disc>summary:focus-visible,
+.dz-trigger:focus-visible,.dz-menu-btn:focus-visible,.dz-seg-i:focus-visible,.dz-pov-btn:focus-visible{outline:2px solid var(--ring);outline-offset:2px}
+.search:focus-within,.input:focus-within,.finput:focus-within,.dz-field:focus-within,.fchip:has(input:focus-visible){outline:2px solid var(--ring);outline-offset:2px;border-color:var(--accent);box-shadow:none}
+.search input:focus-visible,.input :is(input,textarea,select):focus-visible,.finput input:focus-visible,.dz-input:focus-visible,.fchip input:focus-visible{outline:0}
+.dz[data-open] .dz-trigger,.dz-combobox[data-open] .dz-field{border-color:var(--accent);box-shadow:none}
+.dz-opt:focus-visible,.dz-item:focus-visible{outline:0}
+#main:focus,#main:focus-visible{outline:0}
+@media (forced-colors:active){
+:where(a,button,input,select,textarea,summary,[tabindex]):focus-visible,.search:focus-within,.input:focus-within,.finput:focus-within,.dz-field:focus-within,.fchip:has(input:focus-visible),.dz-trigger:focus-visible,.dz-seg-i:focus-visible{outline:2px solid Highlight;outline-offset:2px}
+}
+
+/* ===== Overlays fit the window and scroll inside themselves =====
+   A dialog is a flex column no taller than the window (less 24 px each side): the title is fixed, the body scrolls, the foot with the
+   buttons stays in view. A drawer is as tall as the window (100dvh) and scrolls inside itself. The page behind never scrolls. */
+.ovl.ovl-dialog{align-items:center;overflow:hidden;padding:24px 16px}
+.ovl-dialog .modal{display:flex;flex-direction:column;padding:0;max-height:calc(100vh - 48px);max-height:calc(100dvh - 48px);overflow:hidden}
+.ovl-dialog .modal>form{display:flex;flex-direction:column;flex:1 1 auto;min-height:0;margin:0}
+.ovl-dialog .modal h2{flex:none;margin:0;padding:28px 32px 12px}
+.ovl-dialog .modal .body{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;margin:0;padding:0 32px 20px}
+.ovl-dialog .modal .foot{flex:none;padding:16px 32px 20px;background:#fff;border-top:1px solid var(--line)}
+.ovl-dialog .modal>:not(form){margin-left:32px;margin-right:32px}
+@media (max-width:640px){.ovl-dialog .modal h2{padding:24px 20px 10px}.ovl-dialog .modal .body{padding:0 20px 16px}.ovl-dialog .modal .foot{padding:14px 20px 16px}}
+.ovl-drawer .drawer-panel{height:100vh;height:100dvh;max-height:100dvh;box-sizing:border-box}
+
+/* ===== Home: a strip of figures, two balanced columns, the way on across the page ===== */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:16px;margin:0 0 24px}
+.stat{display:flex;flex-direction:column;gap:2px;min-width:0;padding:16px 18px;background:var(--panel);border:1px solid var(--line);border-radius:14px}
+.stat .k{font-size:11.5px;font-weight:500;letter-spacing:.07em;text-transform:uppercase;color:var(--dim)}
+.stat .v{font-size:20px;line-height:28px;font-weight:600;color:var(--bright);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stat .v .mono{font-size:19px}
+.stat .s{font-size:12.5px;color:var(--dim)}
+.home-grid{display:grid;grid-template-columns:minmax(0,7fr) minmax(380px,5fr);gap:24px;align-items:start}
+.home-grid>.card{min-width:0}
+.home-grid>.card+.card,.home-next>.card{margin-top:0}
+.home-next{margin-top:24px}
+@media (max-width:1180px){.home-grid{grid-template-columns:minmax(0,1fr)}}
+.home-grid .kv.sm{grid-template-columns:minmax(120px,170px) minmax(0,1fr)}
+.home-grid .kv dd{word-break:normal;overflow-wrap:anywhere}
+.home-grid .kv dd .mono{white-space:nowrap}
+.home-grid .address-row,.home-grid .endpoint{min-width:0}
+/* A row of choice cards wraps instead of running out of its card (the create form at 1024 px). */
+.choice{flex-wrap:wrap}.choice .opt{flex:1 1 150px;min-width:0}.choice .opt .t1,.choice .opt .t2{overflow-wrap:anywhere}
+@media (max-width:1180px){.stats{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.home-grid.quiet>.card:nth-child(3){grid-column:2;grid-row:1 / span 2}
+@media (max-width:1180px){.home-grid.quiet>.card:nth-child(3){grid-column:auto;grid-row:auto}}
+
+/* The tape: a row that has just arrived is tinted for a moment (its own background, nothing else), and a reader who has scrolled away is
+   told how many rows wait, in a pill that does not move the page. */
+.dz-chip .dz-field{min-width:11rem;height:36px;border-radius:999px;padding:0 10px 0 12px;box-shadow:none;background:transparent}
+.dz-chip.on .dz-field{background:var(--sel);border-color:#cdbff4}
+
+/* A slot whose content changes does not change its size (no layout depends on a live value): the list of refusals above the tape is
+   always two lines tall (the newest that fit; the drawer of each has the rest), so a new refusal moves nothing. */
+.refusal-links{height:52px;overflow:hidden;align-content:flex-start}
+.wire-dock>h2,.wire-dock>.lede{min-height:0}
+/* Figures keep their width as they change. */
+.sub .mono,.sub b,.sent .mono,.sent b,.tab .n,.pill,.mono.r,td.mono,.stat .v,.kv dd .mono{font-variant-numeric:tabular-nums}
+/* Metric slots (ui::metrics): the figure of a tile has a declared width, and a value in a line of text is a slot of its own width. */
+.page-h + .stats,.page-h + .frag > .stats{margin-top:-12px}
+.stats.tile{grid-template-columns:minmax(150px,240px)}
+.slot{display:inline-block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom;font-variant-numeric:tabular-nums}
+.stat .s{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

@@ -134,6 +134,54 @@ fn refused_links(rows: &[WireRow]) -> Vec<WireRefusal> {
     out
 }
 
+/// A poll that found nothing, the oldest row of the tape: "Idle polls hidden" hides it, and turning that off shows it.
+fn idle_poll() -> WireRow {
+    let mut r = steady_rows().remove(0);
+    // It opens the drawer of a request the fixtures have (the world has no request of its own for it).
+    r.id = 99;
+    r.at_ms = at("22:14:21.000");
+    r.target_sub = None;
+    r.detail = "no records".to_owned();
+    r.idle = true;
+    r
+}
+
+/// Whether the query asks for anything but the tape as it is (the page's own state, a pause or a page back, is not a filter).
+fn is_filtered(q: &WireQuery) -> bool {
+    !(q.text.is_empty()
+        && q.client.is_empty()
+        && q.api.is_empty()
+        && q.topic.is_empty()
+        && q.group.is_empty()
+        && !q.refused_only
+        && q.hide_idle)
+}
+
+fn has(hay: &str, needle: &str) -> bool {
+    hay.to_ascii_lowercase()
+        .contains(&needle.to_ascii_lowercase())
+}
+
+/// Whether a row of the fixture tape passes the person's filters: the rules of the real recorder (`recorder/view.rs`), so that the
+/// fixtures server answers a filter the way a broker with traffic does (it used to ignore the query, and no filter changed anything).
+fn passes(r: &WireRow, q: &WireQuery) -> bool {
+    let in_topics = |n: &str| r.topics.iter().any(|t| has(t, n));
+    let in_group = |n: &str| r.group.as_deref().is_some_and(|g| has(g, n));
+    (q.client.is_empty() || has(&r.client, &q.client))
+        && (q.api.is_empty() || r.api.eq_ignore_ascii_case(&q.api))
+        && (q.topic.is_empty() || in_topics(&q.topic))
+        && (q.group.is_empty() || in_group(&q.group))
+        && (q.text.is_empty()
+            || has(&r.client, &q.text)
+            || has(r.api, &q.text)
+            || in_topics(&q.text)
+            || in_group(&q.text))
+        && (!q.refused_only || r.class == WireClass::Refused)
+        && (!q.hide_idle || !r.idle)
+        && q.before.is_none_or(|b| r.id < b)
+        && q.until.is_none_or(|u| r.id <= u)
+}
+
 /// The Live page in the state `hint` names: `paused`, `quiet`, `load`; anything else is the steady tape.
 #[must_use]
 pub fn live(q: &WireQuery, hint: Option<&str>) -> LiveView {
@@ -203,6 +251,16 @@ pub fn live(q: &WireQuery, hint: Option<&str>) -> LiveView {
             v.refused = vec![];
             v.refused_total = 0;
             v.older = None;
+        }
+        _ if is_filtered(q) => {
+            // The steady tape answers the filters like the real one: only the rows that pass (the polls that found nothing are
+            // there too, hidden by default), and no pager unless more than a page passes.
+            let mut all = steady.clone();
+            all.insert(4, idle_poll());
+            let kept: Vec<WireRow> = all.into_iter().filter(|r| passes(r, q)).collect();
+            v.matched = kept.len();
+            v.older = None;
+            v.rows = kept.into_iter().take(q.limit).collect();
         }
         _ => {}
     }

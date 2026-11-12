@@ -102,6 +102,12 @@ async fn missing(s: &Shared, topic: &str, key: &str, why: ConfigMissing) -> Resp
 
 /// The Config page of a topic as the parent of an overlay (the edit and reset dialogs). `None` when there is no such topic.
 async fn config_parent(s: &Shared, topic: &str, ask: ConfigAsk) -> Option<Parent> {
+    // What the filter is, without what is open: the address an in-place chip or the search box leaves in the history.
+    crate::region::canonical(&format!(
+        "{}/config{}",
+        crate::pages::topics::topic_url(&s.base, topic),
+        crate::form::encode_query(&[("q", &ask.q), ("show", ask.show.word())])
+    ));
     let page = s.source.config_page(topic, ask).await?;
     let head = s.source.topic_head(topic).await;
     Some(Parent {

@@ -25,7 +25,7 @@ fn row(h: &TopicHead, p: &PartitionRow, base: &Base) -> Markup {
         p.partition
     );
     html! {
-        tr {
+        tr id=(format!("part-{}", p.partition)) {
             td class="mono" { (h.name) "-" (p.partition) @if p.offline.is_some() { " " (state(State::Bad, "Offline")) } }
             td class="mono r" { (number(p.start)) }
             td class="mono r" { (number(p.end)) }

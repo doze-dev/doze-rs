@@ -22,8 +22,8 @@ pub fn tip(id: &str, text: &str, trigger: &Markup) -> Markup {
 pub fn popover(id: &str, label: &str, body: &Markup) -> Markup {
     alpine(html! {
         div class="dz dz-pov" x-data="dzPopover" x-on:keydown="key" xo-click="away" x-on:focusout="focusout" xb-data-open="open" data-ui="popover" {
-            button type="button" class="btn sm dz-pov-btn" x-ref="trigger" x-on:click="toggle" aria-haspopup="dialog" aria-expanded="false" xb-aria-expanded="open" aria-controls=(id) hidden { (label) }
-            div class="dz-pop dz-pov-card" role="dialog" id=(id) aria-label=(label) x-show="open" xa-bottom-start-6="$refs.trigger" { (body) }
+            button type="button" class="btn sm dz-pov-btn" x-ref="trigger" x-on:click="toggle" aria-haspopup="dialog" aria-expanded="false" xb-aria-expanded="open" aria-controls=(id) id=(format!("{id}-btn")) hidden { (label) }
+            div class="dz-pop dz-pov-card" role="dialog" id=(id) aria-labelledby=(format!("{id}-btn")) x-show="open" xa-bottom-start-6="$refs.trigger" { (body) }
         }
     })
 }

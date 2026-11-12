@@ -12,38 +12,95 @@
 use maud::{Markup, html};
 
 use super::common::topic_url;
-use super::messages::messages_url;
+use super::messages::{TOPIC_VIEW, messages_url};
 use crate::base::Base;
 use crate::format::number;
 use crate::model::{MessageQuery, MessagesView, Reading};
+use crate::ui::components::{Choice, SegItem, Select, popover, seg, select};
 use crate::ui::glyph::{Glyph, glyph};
+use crate::ui::inplace::{self, Opts};
 use crate::ui::kafka::filter_box;
 
 /// The id of the toolbar: the controls a script reads the whole form of. The data it drives is `#topic-messages`.
 pub(super) const BAR_ID: &str = "topic-bar";
 
-fn partition_seg(v: &MessagesView) -> Markup {
-    html! {
-        div class="seg" role="group" aria-label="Partition" {
-            button class={@if v.query.partition.is_none() { "on" }} type="submit" name="partition" value="" aria-pressed=(v.query.partition.is_none()) data-ui="select" { "All partitions" }
-            @for p in &v.head.parts {
-                button class={@if v.query.partition == Some(p.partition) { "on" }} type="submit" name="partition" value=(p.partition) aria-pressed=(v.query.partition == Some(p.partition)) data-ui="select" { (p.partition) }
-            }
-        }
+/// The most partitions drawn as a row of segments; a topic with more has a Select (a list you can open, with the keys).
+const MOST_SEGMENTS: usize = 8;
+
+/// The partitions: a Segmented control for a few, a Select for many. Each choice is the same page with that partition, so a
+/// choice is also a plain link (the Select is a real `<select>` that submits the form with no script).
+fn partition_pick(v: &MessagesView, base: &Base) -> Markup {
+    let to = |p: Option<i32>| {
+        let mut q = v.query.clone();
+        q.partition = p;
+        messages_url(base, &v.head.name, &q)
+    };
+    if v.head.parts.len() > MOST_SEGMENTS {
+        let labels: Vec<String> = v
+            .head
+            .parts
+            .iter()
+            .map(|p| p.partition.to_string())
+            .collect();
+        let mut choices = vec![Choice::new("", "All partitions")];
+        choices.extend(labels.iter().map(|l| Choice::new(l, l)));
+        let now = v.query.partition.map(|p| p.to_string()).unwrap_or_default();
+        return select(&Select {
+            auto_submit: true,
+            placeholder: "All partitions",
+            ..Select::new("topic-partition", "partition", "Partition", &choices, &now)
+        });
     }
+    // Each segment: its label, the page with that partition, and whether it is the one in the query.
+    let mut rows: Vec<(String, String, bool)> = vec![(
+        "All partitions".to_owned(),
+        to(None),
+        v.query.partition.is_none(),
+    )];
+    rows.extend(v.head.parts.iter().map(|p| {
+        (
+            p.partition.to_string(),
+            to(Some(p.partition)),
+            v.query.partition == Some(p.partition),
+        )
+    }));
+    let items: Vec<SegItem<'_>> = rows
+        .iter()
+        .map(|(label, href, current)| SegItem {
+            label,
+            href,
+            current: *current,
+            count: None,
+        })
+        .collect();
+    seg("Partition", &items, Some(TOPIC_VIEW))
 }
 
 /// "Reading as", always `read_uncommitted` then `read_committed`, always at the right.
-fn reading_seg(v: &MessagesView) -> Markup {
-    let level = |r: Reading| {
-        let on = v.query.reading == r;
-        html! { button class={@if on { "on" }} type="submit" name="isolation" value=(r.word()) aria-pressed=(on) data-ui="select" { (r.word()) } }
+fn reading_seg(v: &MessagesView, base: &Base) -> Markup {
+    let to = |r: Reading| {
+        let mut q = v.query.clone();
+        q.reading = r;
+        messages_url(base, &v.head.name, &q)
     };
+    let (u, c) = (to(Reading::Uncommitted), to(Reading::Committed));
+    let items = [
+        SegItem {
+            label: Reading::Uncommitted.word(),
+            href: &u,
+            current: v.query.reading == Reading::Uncommitted,
+            count: None,
+        },
+        SegItem {
+            label: Reading::Committed.word(),
+            href: &c,
+            current: v.query.reading == Reading::Committed,
+            count: None,
+        },
+    ];
     html! {
         span class="dim" { "Reading as" }
-        div class="seg" role="group" aria-label="Reading as" {
-            (level(Reading::Uncommitted)) (level(Reading::Committed))
-        }
+        (seg("Reading as", &items, Some(TOPIC_VIEW)))
     }
 }
 
@@ -67,19 +124,33 @@ fn from_held(v: &MessagesView, base: &Base) -> Markup {
         ..MessageQuery::default()
     };
     html! {
-        a class="btn sm" href=(messages_url(base, &v.head.name, &q)) data-op="Fetch" {
+        (inplace::link_with(TOPIC_VIEW, "btn sm", &messages_url(base, &v.head.name, &q), &Opts { op: Some("Fetch"), ..Opts::default() }, html! {
             (glyph(Glyph::Filter, 14, "")) "Show " (v.head.name) "-" (p.partition) " from " (number(p.last_stable))
-        }
+        }))
     }
 }
 
 /// A filter that is on: its words and the link that takes it off.
 fn chip(v: &MessagesView, base: &Base, label: &str, without: &MessageQuery) -> Markup {
     html! {
-        a class="fchip on rm" href=(messages_url(base, &v.head.name, without)) aria-label=(format!("Remove the filter {label}")) {
+        (inplace::link(TOPIC_VIEW, "fchip on rm", &messages_url(base, &v.head.name, without), Some(&format!("Remove the filter {label}")), html! {
             (label) (glyph(Glyph::X, 12, ""))
-        }
+        }))
     }
+}
+
+/// "From time": a Popover with a proper field (what to write, an Apply), in the row's fixed place. The field is part of the form, so
+/// Enter or Apply asks for the time, and every other control of the toolbar carries it along.
+fn time_pick(q: &MessageQuery) -> Markup {
+    let body = html! {
+        div class="bar-time" {
+            label class="bar-time-l" for="bar-time-in" { "From time (UTC)" }
+            input id="bar-time-in" type="text" name="time" value=(q.time.as_ref().map_or("", |t| t.1.as_str())) placeholder="2026-11-09 22:13" size="22" autocomplete="off" spellcheck="false";
+            p class="help" style="margin:8px 0 12px" { "Or milliseconds since the epoch. The first record at or after it." }
+            button class="btn sm pri" type="submit" { "Apply" }
+        }
+    };
+    popover("topic-time", "From time", &body)
 }
 
 /// Row two: the time box, the shortcut to a held record, the filters that are on, or one quiet sentence.
@@ -92,16 +163,16 @@ fn chips(v: &MessagesView, base: &Base) -> Markup {
     };
     html! {
         div class="bar-chips" {
-            label class="bar-time" { span class="sr" { "From time (UTC)" } input type="text" name="time" value=(q.time.as_ref().map_or("", |t| t.1.as_str())) placeholder="From time, UTC" size="16"; }
+            (time_pick(q))
             (from_held(v, base))
             @if q.filtered() {
                 @if let Some(p) = q.partition { (chip(v, base, &format!("Partition {p}"), &without(|c| c.partition = None))) }
                 @if let Some(o) = q.offset { (chip(v, base, &format!("From offset {}", number(o)), &without(|c| c.offset = None))) }
                 @if let Some((_, t)) = &q.time { (chip(v, base, &format!("From {t}"), &without(|c| c.time = None))) }
                 @if let Some(k) = &q.key { (chip(v, base, &format!("Key {k}"), &without(|c| c.key = None))) }
-                a class="btn sm" data-ui="clear" href=(messages_url(base, &v.head.name, &MessageQuery { reading: q.reading, ..MessageQuery::default() })) {
+                (inplace::link_with(TOPIC_VIEW, "btn sm", &messages_url(base, &v.head.name, &MessageQuery { reading: q.reading, ..MessageQuery::default() }), &Opts { ui: Some("clear"), ..Opts::default() }, html! {
                     (glyph(Glyph::X, 14, "")) "Clear filters"
-                }
+                }))
             } @else {
                 span class="dim" { "No filters: the newest records of every partition." }
             }
@@ -114,15 +185,16 @@ fn chips(v: &MessagesView, base: &Base) -> Markup {
 pub(super) fn bar(v: &MessagesView, base: &Base) -> Markup {
     let q = &v.query;
     let (find, shown) = find_value(q);
+    let action = format!("{}/messages", topic_url(base, &v.head.name));
     html! {
-        form class="toolbar bar" id=(BAR_ID) method="get" action=(format!("{}/messages", topic_url(base, &v.head.name))) {
+        (inplace::form(TOPIC_VIEW, Some(BAR_ID), "toolbar bar", None, &action, html! {
             // The button Enter presses in the find box: not a control of the page, so it is out of the board's reckoning.
             input type="submit" value="Show" aria-label="Show records" hidden data-scaffold;
             div class="bar-row" {
-                (partition_seg(v))
+                (partition_pick(v, base))
                 (filter_box("find", "Key, or offset", "Find by key or offset", &find))
                 span class="sp" {}
-                (reading_seg(v))
+                (reading_seg(v, base))
             }
             // After the buttons, so that the button that was clicked is the first of its name.
             @if let Some(p) = q.partition { input type="hidden" name="partition" value=(p); }
@@ -136,7 +208,7 @@ pub(super) fn bar(v: &MessagesView, base: &Base) -> Markup {
             }
             @if q.limit != crate::model::DEFAULT_LIMIT { input type="hidden" name="limit" value=(q.limit); }
             (chips(v, base))
-        }
+        }))
     }
 }
 

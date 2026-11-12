@@ -34,7 +34,7 @@ fn heard(h: &GroupHead, m: &GroupMemberRow) -> String {
 
 fn row(h: &GroupHead, m: &GroupMemberRow, base: &Base, open: Option<&str>) -> Markup {
     html! {
-        tr class=[(open == Some(m.id.as_str())).then_some("sel")] {
+        tr id=(format!("m-{}", m.id)) class=[(open == Some(m.id.as_str())).then_some("sel")] {
             td class="name mid-cell" { a class="mono" href=(group_url(base, &h.id, &format!("/members/{}", segment(&m.id)))) data-dialog { (middle(&m.id)) } }
             td class="mono" { (m.client_id) }
             td class="mono" { (m.host) }

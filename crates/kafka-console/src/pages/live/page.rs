@@ -13,16 +13,18 @@ use crate::base::Base;
 use crate::format::number;
 use crate::model::{LiveState, LiveView};
 use crate::ui::client;
-use crate::ui::components::{Choice, Select, select};
+use crate::ui::components::{Choice, Combobox, Select, combobox, select};
 use crate::ui::glyph::{Glyph, glyph};
 use crate::ui::glyph_live::{LiveGlyph, live_glyph};
-use crate::ui::kafka::filter_box;
 use crate::ui::layout::page_header;
 use crate::ui::metrics::{Stat, slot, stat_strip};
 use crate::words::live::hhmm;
 
 /// The region of the metrics.
 pub const LIVE_STATS: &str = "live-stats";
+
+/// The longest list a filter shows as a plain Select; a longer one is a Combobox.
+const MOST_PLAIN: usize = 8;
 
 /// A filter that is a Select: the first choice is "all" (an empty value), the rest are what the wire has seen. A value the filter
 /// holds that the wire no longer shows stays a choice, so the page never lies about what it is filtering by.
@@ -31,6 +33,15 @@ fn select_chip(name: &str, all: &str, current: &str, options: &[String]) -> Mark
     choices.extend(options.iter().map(|o| Choice::new(o, o)));
     if !current.is_empty() && !options.iter().any(|o| o == current) {
         choices.push(Choice::new(current, current));
+    }
+    // A list that can grow (every app, every topic the wire has seen) is searchable.
+    if choices.len() > MOST_PLAIN {
+        return combobox(&Combobox {
+            auto_submit: true,
+            placeholder: all,
+            class: if current.is_empty() { "dz-chip" } else { "dz-chip on" },
+            ..Combobox::new(&format!("live-{name}"), name, all, &choices, current)
+        });
     }
     select(&Select {
         auto_submit: true,
@@ -57,7 +68,7 @@ fn toolbar(v: &LiveView, base: &Base) -> Markup {
         form class="toolbar" method="get" action=(base.url("/live")) data-live-filters
             hx-get=(base.url("/live")) hx-target={"#" (LIVE_FRAGMENT)} hx-select={"#" (LIVE_FRAGMENT)} hx-swap=(client::IN_PLACE_SWAP) hx-push-url="true" {
             input type="submit" value="Filter" aria-label="Filter the wire" hidden data-scaffold;
-            (filter_box("q", "Filter by client, API or topic", "Filter the wire", &q.text))
+            (crate::ui::inplace::search_box(LIVE_FRAGMENT, &base.url("/live"), "q", "Filter by client, API or topic", "Filter the wire", &q.text))
             (select_chip("client", "All apps", &q.client, &v.clients_ids))
             (select_chip("topic", "All topics", &q.topic, &v.topics_seen))
             // A toggle's own button carries its new value; the hidden fields keep the other's state.

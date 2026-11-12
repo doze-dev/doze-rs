@@ -25,7 +25,7 @@ pub use common::{Acts, TopicTab, acts_of, topic_frame, topic_tabs_on, topic_url,
 pub use common::{TOPIC_STATS, stats_fragment as topic_stats_fragment};
 pub use consumers::{CONSUMERS_REGION, consumers_page};
 pub use list::{LIST_FRAGMENT, LIST_STATS, list_fragment, list_page, stats_fragment};
-pub use messages::{MESSAGES_FRAGMENT, messages_fragment, messages_page};
+pub use messages::{MESSAGES_FRAGMENT, messages_fragment, messages_page, messages_page_with};
 pub use partitions::partitions_page;
 pub use record::{no_record, record_drawer};
 pub use table::tail_rows;
