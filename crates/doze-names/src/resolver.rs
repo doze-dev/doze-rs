@@ -93,10 +93,15 @@ async fn run(cfg: ResolverConfig, mut stop: watch::Receiver<bool>, bound: watch:
                 let _ = bound.send(true);
                 (cfg.log)(format!("names: serving {} on {}", crate::SUFFIX, cfg.addr));
                 announced = false;
-                answer_until_stopped(Arc::new(sock), &cfg, &mut stop).await;
+                let sock = Arc::new(sock);
+                answer_until_stopped(Arc::clone(&sock), &cfg, &mut stop).await;
+                // The record goes while the socket is still held: once it closes a peer may bind and record itself,
+                // and a release after that would erase the successor's record (it matches by pid, and peers in one
+                // process share one; seen on a slow Windows runner).
                 if let Some(r) = &cfg.registry {
                     let _ = r.release_key(RESOLVER_KEY);
                 }
+                drop(sock);
                 if *stop.borrow() {
                     return;
                 }
