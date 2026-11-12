@@ -4,7 +4,7 @@
 //! accepted and ignored, hidden from the help, so that the conformance harness, which passes them all, can run the
 //! scenarios of the parts that exist. A flag that would make the broker safer or different in a way a user would
 //! rely on is refused instead when it cannot be honoured: a broker that ignored `--tls-cert` would send in the
-//! clear. SASL (PLAIN, SCRAM-SHA-256, SCRAM-SHA-512) is real (`--sasl-mechanisms`, `--sasl-user`); the passwords of `--sasl-user` are kept
+//! clear (so they need the `tls` feature, and are refused without it). SASL (PLAIN, SCRAM-SHA-256, SCRAM-SHA-512) is real (`--sasl-mechanisms`, `--sasl-user`); the passwords of `--sasl-user` are kept
 //! out of every `Debug` output and of every message.
 
 use std::net::SocketAddr;
@@ -128,9 +128,19 @@ pub(crate) struct Args {
     #[arg(long, hide = true)]
     console_addr: Option<String>,
 
-    // Refused: a broker that ignored them would send in the clear.
+    /// PEM certificate chain (leaf first) to serve TLS with. Needs --tls-key.
+    #[cfg(feature = "tls")]
+    #[arg(long, value_name = "FILE")]
+    tls_cert: Option<PathBuf>,
+    /// PEM private key of the certificate (PKCS#8, SEC1 or RSA, not encrypted). Needs --tls-cert.
+    #[cfg(feature = "tls")]
+    #[arg(long, value_name = "FILE")]
+    tls_key: Option<PathBuf>,
+    // Without the feature the two flags are accepted, hidden, to be refused with a message that names the feature.
+    #[cfg(not(feature = "tls"))]
     #[arg(long, hide = true)]
     tls_cert: Option<String>,
+    #[cfg(not(feature = "tls"))]
     #[arg(long, hide = true)]
     tls_key: Option<String>,
 }
@@ -145,9 +155,9 @@ pub(crate) struct Settings {
 impl Args {
     /// Checks the arguments and turns them into the configuration of the broker and the server.
     pub(crate) fn settings(&self) -> Result<Settings> {
-        if self.tls_cert.is_some() || self.tls_key.is_some() {
-            bail!("TLS is not supported yet in this edition");
-        }
+        // Without the feature this refuses the flags, and a value that is `()` is all that is left of them.
+        #[cfg_attr(not(feature = "tls"), allow(clippy::let_unit_value, unused_variables))]
+        let tls = tls::load(self.tls_cert.as_ref(), self.tls_key.as_ref())?;
         let Some(major) = KafkaMajor::new(self.kafka_version) else {
             bail!(
                 "--kafka-version must be 1, 2, 3 or 4, not {}",
@@ -184,6 +194,8 @@ impl Args {
         };
         let server = ServerConfig {
             sasl: sasl::authenticator(&self.sasl_mechanisms, &self.sasl_user)?,
+            #[cfg(feature = "tls")]
+            tls,
             listen: self.listen,
             advertised_host: self.advertised_host.clone(),
             advertised_port: self.advertised_port,
@@ -244,6 +256,7 @@ impl Args {
 
 mod acl;
 mod sasl;
+mod tls;
 
 #[cfg(test)]
 mod tests;

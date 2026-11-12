@@ -71,10 +71,17 @@ fn the_values_that_make_a_broker_that_cannot_work_are_refused_with_words() {
     }
 }
 
+#[cfg(not(feature = "tls"))]
 #[test]
 fn tls_is_refused_and_not_ignored_because_ignoring_it_would_leave_the_channel_open() {
-    for flags in [&["--tls-cert", "c.pem"][..], &["--tls-key", "k.pem"]] {
-        assert!(args(flags).unwrap().settings().is_err(), "{flags:?}");
+    for flags in [
+        &["--tls-cert", "c.pem"][..],
+        &["--tls-key", "k.pem"],
+        &["--tls-cert", "c.pem", "--tls-key", "k.pem"],
+    ] {
+        let said = args(flags).unwrap().settings().unwrap_err().to_string();
+        assert!(said.contains("--features tls"), "{flags:?}: {said}");
+        assert!(said.contains("tls-cert"), "{flags:?}: {said}");
     }
 }
 
@@ -327,3 +334,6 @@ fn the_cleaner_looks_every_fifteen_seconds_unless_told_otherwise_and_a_zero_inte
         .unwrap_err();
     assert!(err.to_string().contains("--log-cleaner-interval"), "{err}");
 }
+
+#[cfg(feature = "tls")]
+mod tls;

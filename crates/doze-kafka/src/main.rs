@@ -36,6 +36,11 @@ fn main() -> Result<()> {
             "SASL is on: clients must log in"
         );
     }
+    #[cfg(feature = "tls")]
+    if let Some(tls) = &settings.server.tls {
+        // The certificate's file, never the key's content (nor the key file's name: it says nothing a log needs).
+        tracing::info!(cert = %tls.cert_file().display(), "TLS is on: clients must connect with TLS (1.2 or newer)");
+    }
     for flag in args.ignored() {
         tracing::warn!(
             "{flag} is accepted and ignored: that part of doze-kafka is not in this edition yet"

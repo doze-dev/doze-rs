@@ -26,6 +26,9 @@ jobs:
       - run: cargo fmt --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace
+      # The TLS feature: its unit tests, the loopback tests and the process test (a C compiler is on both runners).
+      - run: cargo test -p kafka-server -p doze-kafka --features tls
+      - run: cargo clippy -p kafka-server -p doze-kafka --all-targets --features tls -- -D warnings
       # The storage simulation (random workloads, a disk that fails and loses power at every file operation).
       - run: cargo test -p kafka-storage -p kafka-meta --features kafka-storage/sim --release
         env:
@@ -74,6 +77,36 @@ jobs:
           [ "$crates" -le 126 ] || { echo "more than 126 packages"; exit 1; }
           [ "$rss" -le 8192 ] || { echo "idle resident memory over 8 MB"; exit 1; }
 
+  # The same measurements for the optional TLS build (docs/port/weight.md, Phase 8 slice 8e). Building it needs a C compiler
+  # and an assembler (ring); ubuntu has gcc. The default build above is not affected by the feature and keeps its gates.
+  weight-tls:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - run: cargo build --release -p doze-kafka --features tls
+      - name: Binary size, crates, idle memory (TLS configured)
+        run: |
+          size=$(stat -c %s target/release/doze-kafka)
+          crates=$(cargo tree -p doze-kafka --features tls --prefix none --edges normal | sort -u | wc -l)
+          dir=$(mktemp -d)
+          openssl ecparam -name prime256v1 -genkey -noout -out "$dir/key.pem"
+          openssl req -x509 -new -sha256 -key "$dir/key.pem" -out "$dir/cert.pem" -days 2 -subj "/CN=localhost" -addext "subjectAltName=DNS:localhost,IP:127.0.0.1"
+          target/release/doze-kafka --listen 127.0.0.1:19092 --data-dir "$dir/data" --tls-cert "$dir/cert.pem" --tls-key "$dir/key.pem" &
+          pid=$!
+          sleep 3
+          rss=$(awk '/VmRSS/ {print $2}' /proc/$pid/status)
+          kill $pid
+          echo "binary $size B, $crates packages, idle $rss KB"
+          # The default build measures 4,899,328 B on ubuntu x86_64 (the limit of the job above). On macOS arm64 the feature adds
+          # 838,928 B (4,183,056 to 5,021,984); the spike's figure of +0.9 MB is used here, ring's x86_64 code being larger:
+          # 4,899,328 + 900,000 = 5,799,328, and 5 percent above is 6,089,294, rounded up to 6,100,000.
+          [ "$size" -le 6100000 ] || { echo "tls binary over 6.1 MB"; exit 1; }
+          # 122 on ubuntu for the default build, plus the 11 lines the feature adds (macOS: 123 to 134), plus 4.
+          [ "$crates" -le 137 ] || { echo "more than 137 packages with tls"; exit 1; }
+          [ "$rss" -le 8192 ] || { echo "idle resident memory over 8 MB with tls"; exit 1; }
+
+  # deny.toml sets `all-features = true`, so this checks the `tls` feature's crates (ring, rustls) too.
   supply-chain:
     runs-on: ubuntu-24.04
     steps:

@@ -398,6 +398,88 @@ the close after a refused first message, the stored exchange, the hash of the re
 (the kind filter was redundant with the keyed lookup, a NUL in a name was caught only by the nonce class, a last field that merely looked like base64 was
 accepted); a test was added for each and the three are killed. Final: 23 of 23.
 
+## TLS, slice 8e (SEC-140 to SEC-159)
+
+A cargo feature (`tls`, off by default) in `kafka-server` and `doze-kafka`: `crates/kafka-server/src/tls.rs` (the certificate, the key, the handshake),
+`accept.rs` (where the handshake runs), `crates/doze-kafka/src/cli/tls.rs` (the flags). rustls 0.23 with the ring provider, tokio-rustls 0.26, PEM through
+`rustls-pki-types` (decision D2; the weight is in `weight.md`). The Kafka references are `kafka-semantics.md` section 4 (KC = `KafkaChannel.java`); the
+Go edition's are `go-oracle-rust.md` B3. There is no recording of TLS (the claims list it as not recorded), so the tests below, and the real clients of
+`interop/run.sh -tls` (sarama, franz-go, kafka-go and librdkafka over SASL_SSL and over SSL), are the evidence. The fixtures are `kafka-server/tests/tls-fixtures/`.
+
+## SEC-140. TLS is a build choice and a start choice; neither changes a broker that does not use it
+Without `--features tls` no TLS code is compiled, `Config` has no `tls` field and the listener is plaintext. With it, no `--tls-cert` and `--tls-key` means
+plaintext still. Both flags together put every connection of the listener behind a handshake. Test: `cli::tests::tls_is_refused_*` (default build),
+`cli::tests::tls::a_certificate_and_a_key_turn_tls_on_and_none_leaves_it_off`; every pre-existing test is the rest of the proof (the default build's tests are unchanged).
+
+## SEC-141. The flags: both or neither, refused without the feature, in the Go edition's words
+`--tls-cert FILE` and `--tls-key FILE`. One without the other stops the start with `config: TLS needs both --tls-cert and --tls-key, or neither`. In a build without the
+feature either flag is refused with a message that says to rebuild with `--features tls` (and that it needs a C compiler), exit non-zero; they are never ignored,
+because a broker that ignored them would send in the clear. Test: `cli::tests::tls::one_of_the_two_is_refused_in_the_go_editions_words`,
+`cli::tests::tls_is_refused_and_not_ignored_*` (default), `tests/process sasl::flags_that_cannot_be_honoured_stop_the_start_and_say_why`.
+
+## SEC-142. A certificate or key that cannot be used stops the start, before anything is bound, and never falls back to plaintext
+The files are read once, at start. A missing or unreadable file, a file with no certificate, a file with no key (including a certificate where the key goes and the reverse),
+an encrypted key, bad PEM, a key that does not belong to the first certificate, a key this build cannot use: each is an error that names the file (or both, for a mismatch) and says
+what is wrong. The words of the stop are the Go edition's: `config: cannot load the TLS certificate and key (--tls-cert X, --tls-key Y): <reason>`. No listener is left behind.
+Test: `tls::tests::{a_missing_file_is_named, an_empty_file_or_the_wrong_kind_of_file_says_what_is_missing_and_where, a_key_that_belongs_to_another_certificate_is_a_mismatch_naming_both_files, an_encrypted_key_is_recognised_and_garbage_is_not_echoed}`,
+`cli::tests::tls::a_file_that_cannot_be_used_stops_the_start_naming_both_flags_and_no_key_bytes`, `tests/process tls::a_certificate_that_cannot_be_used_stops_the_start_and_no_plaintext_listener_is_left`.
+
+## SEC-143. What is accepted: a PEM chain, leaf first, and a PEM key of any of three kinds
+The certificate file holds the leaf and then, if the clients do not have them, its intermediates; all are sent. The key is PKCS#8 (`PRIVATE KEY`), SEC1 (`EC PRIVATE KEY`) or
+PKCS#1 (`RSA PRIVATE KEY`), unencrypted; ring signs with P-256, P-384, Ed25519 and RSA keys. Not accepted: JKS, PKCS#12, DER files, an encrypted key (the error says to decrypt it with
+`openssl pkey`). Test: `tls::tests::a_chain_loads_with_a_key_in_any_of_the_three_formats`, `tests/tls::every_key_format_serves_and_the_chain_is_sent_whole` (a client that trusts only the root
+verifies the chain; with the leaf alone it cannot).
+
+## SEC-144. The protocol: TLS 1.2 at least, ring's suites, the server proves itself and asks nothing of the client
+TLS 1.3 and 1.2 are offered, nothing older (rustls has no older). The cipher suites are ring's defaults. No client certificate is requested: Kafka's `ssl.client.auth=none` default
+(DefaultSslEngineFactory:192-203), and the Go edition's `MinVersion: TLS 1.2` with no client authentication. Test: `tests/tls::tls_one_two_and_one_three_are_both_offered_and_the_address_may_be_an_ip`
+(a TLS 1.2-only and a TLS 1.3-only client are both served; the address 127.0.0.1 is in the certificate).
+
+## SEC-145. The handshake completes before the first Kafka byte; a plaintext client is closed and is answered nothing in Kafka's protocol (KC:177-178)
+A connection on a TLS listener speaks TLS first. A client that sends Kafka (or HTTP) in the clear is closed; the most it receives is a TLS alert record (content type 21, a few bytes), never a
+response frame. Test: `tests/tls::a_plaintext_client_on_the_tls_port_is_closed_and_gets_no_kafka_answer`, `tests/process tls::a_broker_started_with_a_certificate_serves_tls_refuses_plaintext_and_prints_no_key`.
+
+## SEC-146. A failed handshake closes the connection with no Kafka bytes, says what kind of failure at debug level, and costs the server nothing
+Half a hello, a record of a type that does not exist, a client that does not trust the certificate and hangs up, a TLS version in common none: the connection ends and the task goes. The
+debug line (`connection closed`) carries only a kind of ours (`not a TLS handshake`, `the client sent an alert`, `no protocol version or cipher suite in common`, `a protocol
+violation`, `closed during the handshake`, `an i/o error`), never rustls's own text (which can quote the peer) and never a byte the client sent. The next client is served as before.
+Test: `tests/tls::a_broken_handshake_closes_quietly_and_the_server_goes_on`, `tls::tests::what_went_wrong_in_a_handshake_is_named_without_quoting_the_peer`, `tests/tls_redaction`.
+
+## SEC-147. The handshake runs in the connection's own task; a slow one holds a place in the connection limit and nothing else
+`accept` returns at once; the handshake is the first thing the spawned task does. A client that connects and says nothing does not delay the accept loop or any other connection.
+Test: `tests/tls_lifecycle::a_connection_that_never_handshakes_is_cut_by_the_pre_auth_budget_and_does_not_block_others`.
+
+## SEC-148. The handshake is inside the pre-auth budget, with SASL or without (extends SEC-4; **deviation SEC-D2** for the idea)
+The budget (`Timeouts.pre_auth`, 30 s) counts from the accept. With TLS on, the handshake must finish inside it whether or not SASL is on; with SASL on the login has what is left,
+so a slow handshake does not extend the time a stranger may hold the connection. Test: `tests/tls_lifecycle::the_handshake_counts_against_the_login_budget_it_does_not_extend_it`,
+`tests/tls_lifecycle::a_connection_that_never_handshakes_is_cut_by_the_pre_auth_budget_and_does_not_block_others`.
+
+## SEC-149. The peer's address is the TCP socket's, taken before the handshake
+An ACL on a host (SEC-17) is matched against the address `accept` returned, so ACLs by host work over TLS as over a plain socket. Test:
+`tests/tls_lifecycle::an_acl_by_host_sees_the_peers_address_over_tls` (an allow for 127.0.0.1 matches, an allow for another address does not, a deny for 127.0.0.1 beats an allow for all).
+
+## SEC-150. TLS and SASL are independent: the four listener shapes all work
+PLAINTEXT (no flags), SSL (TLS only: the principal is `User:ANONYMOUS`, Kafka's `SSL` listener without client authentication, kafka-semantics 4), SASL_PLAINTEXT (the earlier slices)
+and SASL_SSL (both: the login of SEC-2 to SEC-12 runs inside the tunnel, PLAIN and both SCRAM hashes). Test: `tests/tls::sasl_and_tls_are_independent_and_both_work_together`,
+`tests/tls_lifecycle::an_acl_by_host_sees_the_peers_address_over_tls` (the anonymous principal over TLS), `interop/run.sh -tls` (both shapes, four client libraries).
+
+## SEC-151. A stop says close_notify, and an unfinished handshake does not hold it up
+Stopping the server ends every TLS connection with a close_notify (bounded to 1 s each, all in parallel), so a client reads a clean end and not a truncation; a connection still in its
+handshake is dropped at once. Test: `tests/tls_lifecycle::a_stop_ends_tls_connections_with_close_notify_and_does_not_wait_for_a_stalled_handshake`, and `tests/process tls::a_broker_started_with_a_certificate_serves_tls_*` (SIGTERM with a TLS connection open exits 0).
+
+## SEC-152. The private key is printed nowhere (extends SEC-13)
+Not in an error (each is one of ours, built from the file name and a reason, never from the parser's text, which quotes lines), not in the `Debug` of `TlsConfig` or of `Config` (the file
+names are shown), not in a log line at any level, not in the startup line (which names the certificate file only). The key bytes are read once and held by ring. Test:
+`tests/tls_redaction::the_key_and_a_clients_broken_bytes_are_in_no_log_error_or_debug_output` (every line of every key fixture is searched for), `tls::tests::the_key_is_in_no_debug_output_*`,
+`tests/process tls::*` (the broker's stderr at trace level).
+
+## SEC-153. The start says that TLS is on
+`TLS is on: clients must connect with TLS (1.2 or newer)` at info, with `cert=<path>`. Test: `tests/process tls::a_broker_started_with_a_certificate_serves_tls_*`.
+
+## SEC-154. The weight is behind the feature
+The default build has no `rustls`, `ring` or `tokio-rustls` (the package count is unchanged), and a build with the feature needs a C compiler and an assembler (ring's build script). The numbers and the CI
+jobs are in `weight.md`. Test: the `weight` and `weight-tls` jobs of `.github/workflows/ci.yml`; `cargo tree -p doze-kafka --prefix none --edges normal | sort -u | wc -l` with and without `--features tls`.
+
 ## Deviations
 - **SEC-D1.** A request in the middle of a login other than ApiVersions and SaslHandshake closes unanswered; Kafka answers it in its
   own shape with 34 and then closes. (Recorded `request-before-token-who`; the Go edition has the same difference.)
@@ -430,3 +512,19 @@ accepted); a test was added for each and the three are killed. Final: 23 of 23.
   client-first, cannot occur.
 - **SEC-D15.** The derived keys, the salted password and the proof are `Vec`s that are not zeroed on drop (extends SEC-D5); the verifiers are kept for the life of
   the process, the intermediate values for the length of a call.
+- **SEC-D40.** Client certificates and mutual TLS are out of scope: the listener never asks for one (Kafka's `ssl.client.auth` `requested` and `required`), so on a TLS
+  listener without SASL the principal is always `User:ANONYMOUS` (what Kafka answers with `ssl.client.auth=none`), and no principal is read from a certificate subject. The Go edition
+  has the same limit.
+- **SEC-D41.** `ssl.principal.mapping.rules` has nothing to map (SEC-D40). Out of scope.
+- **SEC-D42.** The protocol versions and cipher suites are rustls's with ring (TLS 1.3 and 1.2; AEAD suites only). Kafka's `ssl.enabled.protocols`, `ssl.cipher.suites`, `ssl.protocol`,
+  `ssl.provider` and `ssl.endpoint.identification.algorithm` have no counterpart; a client that can only speak TLS 1.1 or a CBC-only suite fails its handshake (SEC-146).
+- **SEC-D43.** The broker does not generate a certificate and does not reload one. The files are read at start; a renewed certificate needs a restart. The documentation gives the
+  two-step `openssl ecparam` recipe of the Go edition (LibreSSL-safe), and `interop/run.sh -tls` makes a throwaway CA and leaf the same way.
+- **SEC-D44.** PEM only: no JKS, PKCS#12 or DER, no encrypted key, no key password. One certificate for the one listener; no SNI-based choice of certificate, no ALPN, no session tickets.
+- **SEC-D45.** A failed handshake may send the client a TLS alert record (rustls writes the alert before it closes); the JVM's `SSLEngine` does the same. No Kafka bytes are sent (SEC-145).
+- **SEC-D46.** The pre-auth budget applies to the handshake even with SASL off (SEC-148); Kafka bounds neither (extends SEC-D2).
+- **SEC-D47.** The advertised host (`--advertised-host`, or the listen address) must be a name or address in the certificate for clients that verify host names; the broker checks nothing of the
+  kind (Kafka's broker does not either).
+- **SEC-D48.** ring is built from C and assembly by its build script, so a build with the `tls` feature needs a C compiler (and, where ring does not ship the object file for the target, an
+  assembler): clang or gcc on Linux and macOS, the MSVC build tools on Windows (ring ships prebuilt Windows objects, so NASM is not normally needed; not verified here, the `windows` CI job checks
+  the default build only). The default build needs neither. Where it matters: Windows developers and minimal CI images that have no compiler.

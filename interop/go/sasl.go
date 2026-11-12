@@ -4,6 +4,9 @@ package main
 // with `--sasl-mechanisms PLAIN,SCRAM-SHA-512,SCRAM-SHA-256 --sasl-user alice:...`, produces records, reads them
 // back, and then tries a wrong password, which must be refused (and quickly). The cells are the product of the four
 // libraries and the three mechanisms; none of the other scenarios runs in this mode, and none of them needs SASL.
+//
+// The same cells run over TLS (tls.go): "secure" then holds the CA to trust, every library connects with it, and a
+// mechanism of "" means no SASL at all (the SSL listener).
 
 import (
 	"context"
@@ -78,7 +81,7 @@ func cell(addr string, c saslClient, mech string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 	topic := fmt.Sprintf("sasl-%s-%s-%d", c.name(), strings.ToLower(mech), time.Now().UnixNano()%1_000_000)
-	if err := makeTopic(ctx, addr, topic); err != nil {
+	if err := makeTopic(ctx, addr, topic, mech); err != nil {
 		return "", fmt.Errorf("making the topic: %w", err)
 	}
 	if err := c.produce(ctx, addr, mech, saslPassword(), topic); err != nil {
@@ -86,6 +89,9 @@ func cell(addr string, c saslClient, mech string) (string, error) {
 	}
 	if err := c.consume(ctx, addr, mech, saslPassword(), topic); err != nil {
 		return "", fmt.Errorf("consume: %w", err)
+	}
+	if mech == "" {
+		return untrustedCA(ctx, addr, c)
 	}
 	refusal, cancelRefusal := context.WithTimeout(ctx, 20*time.Second)
 	defer cancelRefusal()
@@ -110,9 +116,9 @@ func cell(addr string, c saslClient, mech string) (string, error) {
 	return words, nil
 }
 
-// makeTopic creates the topic (one partition) with franz-go over PLAIN, as the user of the test.
-func makeTopic(ctx context.Context, addr, topic string) error {
-	cl, err := kgo.NewClient(kgo.SeedBrokers(addr), kgo.SASL(franzplain.Auth{User: saslUser, Pass: saslPassword()}.AsMechanism()))
+// makeTopic creates the topic (one partition) with franz-go, logged in with mech as the user of the test.
+func makeTopic(ctx context.Context, addr, topic, mech string) error {
+	cl, err := kgo.NewClient(franzSasl{}.opts(addr, mech, saslPassword())...)
 	if err != nil {
 		return err
 	}
@@ -174,6 +180,12 @@ func (saramaSasl) config(mech, pass string) *lib.Config {
 	cfg.Version = lib.V3_6_0_0
 	cfg.Producer.Return.Successes = true
 	cfg.Producer.RequiredAcks = lib.WaitForAll
+	if secure.cfg != nil {
+		cfg.Net.TLS.Enable, cfg.Net.TLS.Config = true, secure.cfg
+	}
+	if mech == "" {
+		return cfg
+	}
 	cfg.Net.SASL.Enable, cfg.Net.SASL.User, cfg.Net.SASL.Password = true, saslUser, pass
 	switch mech {
 	case "PLAIN":
@@ -246,6 +258,18 @@ type franzSasl struct{}
 
 func (franzSasl) name() string { return "franz-go" }
 
+// opts are the options of a client: the broker, TLS if the cells run over it, and the login unless mech is "".
+func (f franzSasl) opts(addr, mech, pass string, more ...kgo.Opt) []kgo.Opt {
+	opts := append([]kgo.Opt{kgo.SeedBrokers(addr)}, more...)
+	if secure.cfg != nil {
+		opts = append(opts, kgo.DialTLSConfig(secure.cfg))
+	}
+	if mech != "" {
+		opts = append(opts, kgo.SASL(f.mechanism(mech, pass)))
+	}
+	return opts
+}
+
 func (franzSasl) mechanism(mech, pass string) franzsasl.Mechanism {
 	switch mech {
 	case "SCRAM-SHA-256":
@@ -257,7 +281,7 @@ func (franzSasl) mechanism(mech, pass string) franzsasl.Mechanism {
 }
 
 func (f franzSasl) produce(ctx context.Context, addr, mech, pass, topic string) error {
-	cl, err := kgo.NewClient(kgo.SeedBrokers(addr), kgo.SASL(f.mechanism(mech, pass)), kgo.DefaultProduceTopic(topic))
+	cl, err := kgo.NewClient(f.opts(addr, mech, pass, kgo.DefaultProduceTopic(topic))...)
 	if err != nil {
 		return err
 	}
@@ -270,8 +294,8 @@ func (f franzSasl) produce(ctx context.Context, addr, mech, pass, topic string) 
 }
 
 func (f franzSasl) consume(ctx context.Context, addr, mech, pass, topic string) error {
-	cl, err := kgo.NewClient(kgo.SeedBrokers(addr), kgo.SASL(f.mechanism(mech, pass)), kgo.ConsumeTopics(topic),
-		kgo.ConsumeResetOffset(kgo.NewOffset().AtStart()))
+	cl, err := kgo.NewClient(f.opts(addr, mech, pass, kgo.ConsumeTopics(topic),
+		kgo.ConsumeResetOffset(kgo.NewOffset().AtStart()))...)
 	if err != nil {
 		return err
 	}
@@ -288,7 +312,7 @@ func (f franzSasl) consume(ctx context.Context, addr, mech, pass, topic string) 
 }
 
 func (f franzSasl) login(ctx context.Context, addr, mech, pass string) error {
-	cl, err := kgo.NewClient(kgo.SeedBrokers(addr), kgo.SASL(f.mechanism(mech, pass)))
+	cl, err := kgo.NewClient(f.opts(addr, mech, pass)...)
 	if err != nil {
 		return err
 	}
@@ -304,6 +328,8 @@ func (kafkaGoSasl) name() string { return "kafka-go" }
 
 func (kafkaGoSasl) mechanism(mech, pass string) (kgosasl.Mechanism, error) {
 	switch mech {
+	case "":
+		return nil, nil
 	case "SCRAM-SHA-256":
 		return kgoscram.Mechanism(kgoscram.SHA256, saslUser, pass)
 	case "SCRAM-SHA-512":
@@ -320,7 +346,7 @@ func (k kafkaGoSasl) produce(ctx context.Context, addr, mech, pass, topic string
 	w := &kafka.Writer{
 		Addr:         kafka.TCP(addr),
 		Topic:        topic,
-		Transport:    &kafka.Transport{SASL: m},
+		Transport:    &kafka.Transport{SASL: m, TLS: secure.cfg},
 		RequiredAcks: kafka.RequireAll,
 		BatchTimeout: 10 * time.Millisecond,
 	}
@@ -341,7 +367,7 @@ func (k kafkaGoSasl) consume(ctx context.Context, addr, mech, pass, topic string
 		Brokers:   []string{addr},
 		Topic:     topic,
 		Partition: 0,
-		Dialer:    &kafka.Dialer{Timeout: 10 * time.Second, SASLMechanism: m},
+		Dialer:    &kafka.Dialer{Timeout: 10 * time.Second, SASLMechanism: m, TLS: secure.cfg},
 		MinBytes:  1,
 		MaxBytes:  1 << 20,
 		MaxWait:   500 * time.Millisecond,
@@ -366,7 +392,7 @@ func (k kafkaGoSasl) login(ctx context.Context, addr, mech, pass string) error {
 	if err != nil {
 		return err
 	}
-	d := &kafka.Dialer{Timeout: 10 * time.Second, SASLMechanism: m}
+	d := &kafka.Dialer{Timeout: 10 * time.Second, SASLMechanism: m, TLS: secure.cfg}
 	conn, err := d.DialContext(ctx, "tcp", addr)
 	if err != nil {
 		return err
@@ -384,8 +410,21 @@ func (kcatSasl) name() string { return "librdkafka" }
 
 // args are kcat's options for a login: the properties of librdkafka.
 func (kcatSasl) args(addr, mech, pass string) []string {
-	return []string{"-b", addr, "-X", "security.protocol=SASL_PLAINTEXT", "-X", "sasl.mechanism=" + mech,
-		"-X", "sasl.username=" + saslUser, "-X", "sasl.password=" + pass}
+	protocol := "SASL_PLAINTEXT"
+	if secure.cfg != nil {
+		protocol = "SASL_SSL"
+		if mech == "" {
+			protocol = "SSL"
+		}
+	}
+	args := []string{"-b", addr, "-X", "security.protocol=" + protocol}
+	if secure.caFile != "" {
+		args = append(args, "-X", "ssl.ca.location="+secure.caFile)
+	}
+	if mech == "" {
+		return args
+	}
+	return append(args, "-X", "sasl.mechanism="+mech, "-X", "sasl.username="+saslUser, "-X", "sasl.password="+pass)
 }
 
 func (k kcatSasl) produce(ctx context.Context, addr, mech, pass, topic string) error {

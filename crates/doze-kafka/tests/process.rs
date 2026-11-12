@@ -124,7 +124,12 @@ impl Drop for Broker {
     }
 }
 
-fn call<Q: Encodable, A: Decodable>(s: &mut TcpStream, key: ApiKey, version: i16, q: &Q) -> A {
+fn call<S: Read + Write, Q: Encodable, A: Decodable>(
+    s: &mut S,
+    key: ApiKey,
+    version: i16,
+    q: &Q,
+) -> A {
     let payload = request_payload(key, version, 7, Some("process-test"), q);
     s.write_all(&framed(&payload)).unwrap();
     let mut len = [0; 4];
@@ -143,7 +148,7 @@ fn name(s: &str) -> TopicName {
     TopicName(StrBytes::from_string(s.to_owned()))
 }
 
-fn create(s: &mut TcpStream, topic: &str) {
+fn create<S: Read + Write>(s: &mut S, topic: &str) {
     let mut t = CreatableTopic::default();
     t.name = name(topic);
     t.num_partitions = 2;
@@ -162,7 +167,7 @@ fn batch() -> Bytes {
     BatchBuilder::new().records(3).timestamps(now, now).build()
 }
 
-fn produce(s: &mut TcpStream, topic: &str, records: Bytes) -> i64 {
+fn produce<S: Read + Write>(s: &mut S, topic: &str, records: Bytes) -> i64 {
     let mut p = PartitionProduceData::default();
     p.index = 1;
     p.records = Some(records);
@@ -179,7 +184,7 @@ fn produce(s: &mut TcpStream, topic: &str, records: Bytes) -> i64 {
     r.base_offset
 }
 
-fn fetch(s: &mut TcpStream, topic: &str) -> Bytes {
+fn fetch<S: Read + Write>(s: &mut S, topic: &str) -> Bytes {
     let mut p = FetchPartition::default();
     p.partition = 1;
     p.fetch_offset = 0;
@@ -272,3 +277,6 @@ fn a_second_broker_on_the_same_data_directory_is_refused() {
 mod acl;
 #[path = "process/sasl.rs"]
 mod sasl;
+#[cfg(feature = "tls")]
+#[path = "process/tls.rs"]
+mod tls;

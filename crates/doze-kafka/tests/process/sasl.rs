@@ -6,7 +6,14 @@ use super::*;
 fn flags_that_cannot_be_honoured_stop_the_start_and_say_why() {
     let data = scratch("refused");
     for (flags, why) in [
-        (&["--tls-cert", "c.pem"][..], "TLS is not supported"),
+        (
+            &["--tls-cert", "c.pem"][..],
+            if cfg!(feature = "tls") {
+                "TLS needs both --tls-cert and --tls-key"
+            } else {
+                "--features tls"
+            },
+        ),
         (
             &[
                 "--sasl-mechanisms",

@@ -8,6 +8,7 @@ through `kcat` (a process of its own, which is also what lets one be killed with
     FRANZ_LOG=1 interop/run.sh -only franz-go    # franz-go's debug log (its join, balance and sync steps)
 
     interop/run.sh -sasl                 the SASL cells (below) against a broker started with SASL on
+    interop/run.sh -tls                  the TLS cells (below): the broker built with --features tls, over SASL_SSL and SSL
 
 Against a broker already running: `cd interop/go && go run . -broker 127.0.0.1:9092`.
 
@@ -35,6 +36,15 @@ SCRAM-SHA-512, twelve in all. A cell makes a topic (franz-go over PLAIN), writes
 library's own producer and consumer, then logs in with a wrong password, which must fail with an authentication error within
 15 s (the output prints the words each library gave). sarama gets its SCRAM client from `xdg-go/scram`, as its documentation
 says; the others have SCRAM built in or in their own `sasl` packages. `interop/go/sasl.go`.
+
+## TLS (`-tls`)
+
+Another mode of its own (needs `openssl`; LibreSSL, which macOS ships, works). `run.sh -tls` builds the broker with `--features tls` (a C compiler, for ring), makes a
+throwaway CA and a server certificate for `localhost` and `127.0.0.1` (the two-step `ecparam` key and `-sha256`, because LibreSSL's one-line forms write a key
+or a signature that rustls refuses), and starts two brokers: one with the certificate and `--sasl-mechanisms SCRAM-SHA-512` (SASL_SSL), one with the certificate alone (SSL).
+Each of sarama, franz-go, kafka-go and librdkafka (kcat) trusts that CA and nothing else, and on each listener writes 20 keyed records and reads them back. Then the
+refusal that listener allows: a wrong password on SASL_SSL (an authentication error, within 15 s), and on SSL a client that does not have the CA, which must fail as a
+certificate failure. Eight cells. `interop/go/tls.go` (the cells are the ones of `sasl.go`, with `secure` set).
 
 ## What the clients taught
 
