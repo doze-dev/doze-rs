@@ -244,3 +244,54 @@ async fn the_jump_palette_is_an_overlay_alone_to_a_script_and_a_page_of_links_to
     );
     assert!(!page.contains("data-overlay"));
 }
+
+/// The CSS the console ships, then what is outside the `prefers-reduced-motion: no-preference` blocks, then what is inside.
+fn motion_rules() -> (String, String, String) {
+    let css = include_str!("../assets/console.css");
+    let mut inside = String::new();
+    let mut outside = String::new();
+    let mut rest = css;
+    while let Some(at) = rest.find("@media (prefers-reduced-motion:no-preference){") {
+        outside.push_str(&rest[..at]);
+        let body = &rest[at..];
+        // The block ends at the first "\n}" (the rules inside are one per line).
+        let end = body.find("\n}\n").map_or(body.len(), |e| e + 2);
+        inside.push_str(&body[..end]);
+        rest = &body[end..];
+    }
+    outside.push_str(rest);
+    (css.to_owned(), outside, inside)
+}
+
+#[test]
+fn the_motion_is_gentle_and_only_for_people_who_have_not_asked_for_less() {
+    let (css, outside, motion) = motion_rules();
+    // The numbers of the brief: scrim 160 ms, drawer 220 ms, dialog 180 ms, closing 140 ms; the page 180 ms.
+    for want in [
+        ".ovl-in .scrim{animation:ovl-fade 160ms ease-out both}",
+        ".ovl-in.ovl-drawer .drawer-panel{animation:ovl-slide 220ms",
+        ".ovl-in.ovl-dialog .modal{animation:ovl-rise 180ms ease-out both}",
+        ".ovl-out .scrim{animation:ovl-fade-out 140ms ease-in both}",
+        ".ovl-out.ovl-drawer .drawer-panel{animation:ovl-slide-out 140ms ease-in both}",
+        ".ovl-out.ovl-dialog .modal{animation:ovl-rise-out 140ms ease-in both}",
+        "@view-transition{navigation:auto}",
+        ".topbar{view-transition-name:topbar}",
+        ".rail{view-transition-name:rail}",
+        "::view-transition-new(main){animation:vt-in 180ms ease-out both}",
+    ] {
+        assert!(
+            motion.contains(want),
+            "{want:?} must be inside the no-preference block"
+        );
+    }
+    // Nothing that moves is outside it, and only opacity and transform are in the keyframes (no layout).
+    assert!(!outside.contains("animation:ovl-") && !outside.contains("view-transition-name"));
+    for frames in css.split("@keyframes ").skip(1) {
+        let body = &frames[..frames.find("}}").unwrap_or(frames.len())];
+        for banned in ["width", "height", "top", "left", "margin", "padding"] {
+            assert!(!body.contains(&format!("{banned}:")), "{body}: {banned}");
+        }
+    }
+    // And a person who asks for less gets none, whatever else is added later.
+    assert!(css.contains("@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}"));
+}

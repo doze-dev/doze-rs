@@ -108,6 +108,8 @@ a.chip:hover,button.chip:hover{border-color:var(--line2);color:var(--bright)}
 .t tbody tr:hover td{background:#faf9ff}
 .t tbody tr.sel:hover td{background:var(--sel)}
 .t tbody tr:focus-within td{background:#faf9ff}
+/* A link in a table cell has a hit area as tall as the row's comfort, with no change of layout. */
+.t td a.lnk{display:inline-block;padding:7px 8px;margin:-7px -8px;border-radius:6px}
 button[data-copied]{color:var(--good);border-color:var(--good)}
 /* A field's error line and the radio rows of a form sit as the kit draws them when a real input is used. */
 .opt-row input[type=radio]{position:absolute;opacity:0;width:0;height:0}
@@ -129,7 +131,7 @@ button.btn{font-family:inherit;cursor:pointer}
 .input textarea{width:100%;resize:vertical;font-family:inherit;font-size:14px;line-height:1.5}
 .input.mono textarea{font-family:'JetBrains Mono',ui-monospace,Menlo,monospace;font-size:13.5px}
 /* A toolbar that is a form (its filters are a plain GET) keeps its own box. */
-.root form.toolbar{display:flex}
+.root form.toolbar{display:flex;margin:0 0 16px}
 /* The title of an empty state is an h2 in the page (an h3 straight under the h1 skips a level); the kit styles the h3. */
 .empty h2{margin:0 0 8px;font-size:18px;font-weight:600;color:var(--bright)}
 /* A chip that holds a field (the time and the key of the Messages filters): as small as the board's chip until it has a value or

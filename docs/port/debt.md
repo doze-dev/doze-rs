@@ -320,3 +320,9 @@ Statuses as above. Rules CON-100 and up in `behaviours/console.md`. The writing 
 | J128 | The Consumers tab of the Config pages goes to the topic's own page as the boards draw it, where the Messages page links `/groups` | open: decide with 9c |
 | J129 | The effects table lists the keys the broker lists today; a key added to `topic_config::table` without an entry fails `every_key_the_broker_lists_has_an_effect_sentence` | decided |
 | J130 | The "Before and after" of a Check is worked out from the row and the typed value (list elements added once, taken out); the Saved page reads both sides from the broker | decided |
+| J201 | The jump palette lists topics only: the Groups pages do not exist yet, and a link to a page that is not built would be worse than none | open: groups join with slice 9c (the same `/jump`, one more list) |
+| J202 | The palette lists the first 500 topics and filters in the page; past 500 the Topics page's own filter is the way | open: a server-side `?q=` for the palette if a broker ever has that many |
+| J203 | Table headers are not sticky: `table.t` clips its corners with `overflow:hidden`, which makes the table the scroll container of a sticky header | open: needs the corner radius drawn another way |
+| J204 | A cross-document view transition is Chrome and Safari 18 only; Firefox navigates with no fade | accepted: graceful by design |
+| J205 | A write's result page that replaces an overlay's page is the POST's own answer: the address becomes the parent's and a reload shows the parent, not the result | accepted: the result is ephemeral as in the boards |
+| J206 | `ui::overlay` is built for the 7 overlay boards of Topics; the drawers of Groups and Live (`member-detail`, `story-rebalance`, `request-*`, `live-clients`) and the dialogs of Config, Access, Lab, Log and Settings use the same recipe when their slices build them | open: each slice, by `docs/port/console/overlays.md` |

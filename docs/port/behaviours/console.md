@@ -163,8 +163,8 @@ The earliest offset after the call is the one asked (-1 is the high watermark); 
 ## CON-160. A topic is deleted when its name is typed
 Wrong confirmation is 422 and sends nothing; the delete shows what uses the topic (groups with offsets on it, open transactions) as read; afterwards the topic is gone from Metadata. Test: `tests/live_write_admin::a_topic_is_deleted_only_when_its_name_is_typed_and_is_then_gone`.
 
-## CON-161. A dialog is a route
-With a script a link marked `data-dialog` opens the body (answered alone to `X-Fragment`) in a `<dialog>`; without one the same address is a full page with the dialog in it; either way it is one POST form. Test: `tests/routes_write::a_dialog_is_a_full_page_to_a_browser_and_its_body_alone_to_a_script`, `ui::client::tests::the_script_opens_dialogs_by_the_names_this_file_defines`.
+## CON-161. A dialog is an overlay of its parent page
+Reversed by the owner on 2026-11-13 (see CON-400): a dialog is no longer a page of its own. A link marked `data-dialog` opens it in place over the page; without a script its address is the PARENT page with the dialog open on it; either way it is one POST form. Test: `tests/routes_write::a_dialog_is_a_full_page_to_a_browser_and_its_body_alone_to_a_script`, `ui::client::tests::the_script_opens_dialogs_by_the_names_this_file_defines`.
 
 ## CON-162. Without super rights each write is refused as a client would be
 A caller that may only DESCRIBE gets TOPIC_AUTHORIZATION_FAILED on every write, with the console's reading, and a topic it may not describe is "not there". Test: `tests/live_write_admin::on_a_broker_with_acls_a_caller_that_may_only_describe_is_refused_as_a_client_would_be`.
@@ -352,3 +352,30 @@ Tagged in the code and in `debt.md` J121 to J130.
 - The cleaner's state ("61 % of the log is dirty", "not due until 11.2 MiB more"): the cleaner keeps none a console may read.
 - The name of the flag behind a Static flag (`--segment-bytes`): the table knows the broker config, not the flag.
 - Segment sizes ("Segments 1 to 7 keep their size", "the active segment (0.6 MiB)"): the dialog does not read the log's files.
+## Overlays, motion and the small things (slice p9o; the rules from CON-400 up)
+
+The owner's words (2026-11-13): "I see too many pages. Aren't we supposed to have a sidebar instead of a whole page?" and "the transitions between pages need to be nice and gentle". The design is `docs/port/console/overlays.md`.
+
+## CON-400. An overlay is its parent page with the overlay open on it
+A board of kind `drawer` or `dialog` has an address of its own; a direct visit answers the parent page's whole document (its landmarks, its one `h1`, its breadcrumb and stream) with the overlay as the last element of the body, `role=dialog`, `aria-modal`, `aria-labelledby` bound to a heading that is there, the parent `inert`; the scrim and the Close control are plain links to the parent's address, under any prefix. Test: `tests/overlays::a_direct_visit_is_the_parent_page_with_the_overlay_open_on_it`.
+
+## CON-401. A script is sent the overlay alone, marked as one
+`X-Fragment` gets the overlay element and no document, with `x-overlay: 1`; the script tells an overlay from a page by that header. Test: `tests/overlays::a_script_is_sent_the_overlay_alone_marked_as_one`.
+
+## CON-402. A record is a drawer over the Messages page it was opened from
+The drawer's address carries the page's query (its filters) and closing returns to that page; the offsets of the table and the buttons that open dialogs are openers. Test: `tests/overlays::the_records_parent_keeps_its_query_and_the_drawer_closes_back_to_it`.
+
+## CON-403. An overlay of a name that is not a topic is inert
+Hostile topic names in any overlay address are text in the page that says there is no such topic; no overlay is drawn over a page that is not there. Test: `tests/overlays::the_overlays_of_a_hostile_topic_name_are_text_in_the_page_that_says_there_is_none`, `tests/overlays::an_overlay_with_no_parent_topic_is_the_page_that_says_so`.
+
+## CON-404. The script opens, closes and keeps overlays as the contract says
+Open in place with no navigation, push the address, Esc, the scrim, Close and Back close it and restore the address, the scroll and the focus; Tab stays inside, the page behind is `inert`; a second opener replaces the content; a server-rendered overlay is adopted; a form's answer replaces the overlay (a refusal) or the page (a result); with reduced motion nothing animates. Test: `tools/dom/overlay.test.ts` (run: `cd tools/dom && bun test`).
+
+## CON-405. The motion is gentle and only for people who have not asked for less
+Scrim 160 ms, drawer 220 ms with ease-out, dialog 180 ms, closing 140 ms, the page 180 ms with a 4 px rise; opacity and transform only; the top bar and the rail keep their own view-transition names; all of it inside `prefers-reduced-motion: no-preference`. A fragment that changed fades 120 ms where it changed and an unchanged one does not move. Test: `tests/overlays::the_motion_is_gentle_and_only_for_people_who_have_not_asked_for_less`, `tools/dom/overlay.test.ts`.
+
+## CON-406. Jump to a topic
+`/jump` is the palette to a script (the overlay alone, with no history entry) and a page of links with a plain GET filter to a browser; ⌘K and Ctrl+K open it, typing narrows, the arrows and Enter go, Esc closes. Test: `tests/overlays::the_jump_palette_is_an_overlay_alone_to_a_script_and_a_page_of_links_to_a_browser`, `tools/dom/polish.test.ts`.
+
+## CON-407. j and k, and a copy that says it copied
+`j` and `k` move through the rows of the page's table (and through the records of an open drawer), never in a field; a copy button says "Copied" for a moment in the width it had. Test: `tools/dom/polish.test.ts`.
