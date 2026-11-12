@@ -10,6 +10,8 @@ mod fields;
 pub mod help;
 pub mod module;
 mod register;
+mod register_io;
+mod route;
 pub mod server;
 pub mod spec;
 
