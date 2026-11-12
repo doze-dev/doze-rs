@@ -325,7 +325,6 @@ pub const ROUTES: &[Route] = &[
         &["group-wire"],
         Handler::Planned("Wire"),
     ),
-    get("/groups", &["groups-list"], Handler::Planned("Groups")),
     get("/access", &["access-open"], Handler::Planned("Access")),
     get("/lab", &["lab-home"], Handler::Planned("Lab")),
     get(
