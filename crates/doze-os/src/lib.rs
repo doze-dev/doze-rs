@@ -8,11 +8,19 @@
 //! - [`tree`]: a process and everything it starts, stopped gently or killed, and gone when doze is gone.
 //! - [`privilege`]: never run engines with administrator rights.
 //! - [`which`]: find a program on `PATH` without a shell.
+//! - [`fs`]: locks between processes, owner-only directories, cloning a data directory.
+//! - [`home`]: where doze keeps its state.
+//! - [`detach`]: start the daemon so it outlives its starter (and can still stop engines gently).
 
 pub mod channel;
+pub mod detach;
+pub mod fs;
+pub mod home;
 pub mod privilege;
 pub mod tree;
 pub mod which;
 
+#[cfg(windows)]
+mod winsec;
 #[cfg(windows)]
 mod winsock;

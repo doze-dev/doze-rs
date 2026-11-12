@@ -2,6 +2,8 @@
 //! Frames on the channel are `[u32 LE length][u8 flags][payload]`; flag bit 0 = the payload ends with a handle trailer.
 #![allow(clippy::print_stdout)]
 
+mod files;
+
 use doze_os::channel::{self, TRAILER_LEN};
 use doze_os::tree::Tree;
 use std::io::Write as _;
@@ -31,6 +33,10 @@ fn main() {
             doze_os::privilege::is_privileged().map(|p| println!("privileged={p}"))
         }),
         "pg" => relaunch_then(|| rt.block_on(pg(args.get(1..).unwrap_or_default()))),
+        "hold-lock" => files::hold_lock(args.get(1..).unwrap_or_default()),
+        "home" => files::home(),
+        "launch-daemon" => files::launch_daemon(args.get(1..).unwrap_or_default()),
+        "daemon" => rt.block_on(files::daemon(args.get(1..).unwrap_or_default())),
         _ => fail(&format!("unknown mode {mode:?}")),
     };
     if let Err(e) = r {

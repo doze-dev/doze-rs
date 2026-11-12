@@ -2,15 +2,15 @@
 // Win32 calls: each unsafe block below does one thing and carries its SAFETY reason (p1.md).
 #![allow(unsafe_code)]
 
+use crate::winsec::{Sid, nt_sid};
 use std::ffi::c_void;
 use std::io;
 use std::os::windows::ffi::OsStrExt;
 use std::os::windows::io::{FromRawHandle, OwnedHandle};
 use windows_sys::Win32::Foundation::{HANDLE, WAIT_OBJECT_0};
 use windows_sys::Win32::Security::{
-    AllocateAndInitializeSid, CheckTokenMembership, CreateRestrictedToken, DISABLE_MAX_PRIVILEGE,
-    FreeSid, PSID, SECURITY_NT_AUTHORITY, SID_AND_ATTRIBUTES, TOKEN_ADJUST_DEFAULT,
-    TOKEN_ASSIGN_PRIMARY, TOKEN_DUPLICATE, TOKEN_QUERY,
+    CheckTokenMembership, CreateRestrictedToken, DISABLE_MAX_PRIVILEGE, SID_AND_ATTRIBUTES,
+    TOKEN_ADJUST_DEFAULT, TOKEN_ASSIGN_PRIMARY, TOKEN_DUPLICATE, TOKEN_QUERY,
 };
 use windows_sys::Win32::System::Console::{
     GetStdHandle, STD_ERROR_HANDLE, STD_INPUT_HANDLE, STD_OUTPUT_HANDLE,
@@ -25,44 +25,8 @@ use windows_sys::Win32::System::Threading::{
     WaitForSingleObject,
 };
 
-/// A SID from `AllocateAndInitializeSid`, freed on drop.
-pub(super) struct Sid(pub(super) PSID);
-
-impl Drop for Sid {
-    fn drop(&mut self) {
-        // SAFETY: the SID came from AllocateAndInitializeSid and is freed exactly once.
-        unsafe { FreeSid(self.0) };
-    }
-}
-
 fn builtin_group(rid: i32) -> io::Result<Sid> {
     nt_sid(2, SECURITY_BUILTIN_DOMAIN_RID as u32, rid as u32)
-}
-
-/// A SID under the NT authority with one or two sub-authorities (the second is ignored when `count` is 1).
-pub(super) fn nt_sid(count: u8, first: u32, second: u32) -> io::Result<Sid> {
-    let mut sid: PSID = std::ptr::null_mut();
-    let (domain, rid) = (first, second);
-    // SAFETY: the authority is a valid constant; `sid` is a valid out-pointer; success is checked below.
-    let ok = unsafe {
-        AllocateAndInitializeSid(
-            &SECURITY_NT_AUTHORITY,
-            count,
-            domain,
-            rid,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            &mut sid,
-        )
-    };
-    if ok == 0 {
-        return Err(io::Error::last_os_error());
-    }
-    Ok(Sid(sid))
 }
 
 fn privileged_groups() -> io::Result<[Sid; 2]> {
