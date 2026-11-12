@@ -115,9 +115,9 @@ fn hostile_keys_values_headers_and_names_are_inert_on_every_topic_page() {
             assert_inert(&frag, p, "messages fragment");
             let frag = format!(
                 "<script src=a></script>{}",
-                topic_pages::topic_sentence_fragment(&v.head, &base).into_string()
+                topic_pages::topic_stats_fragment(&v.head, &base).into_string()
             );
-            assert_inert(&frag, p, "topic sentence");
+            assert_inert(&frag, p, "topic stats");
         }
     }
 }
@@ -206,7 +206,7 @@ fn hostile_topic_names_in_the_list_come_out_inert() {
         let frag = format!(
             "<script src=a></script>{}{}",
             topic_pages::list_fragment(&v, &base, "").into_string(),
-            topic_pages::sentence_fragment(&v, &base, "").into_string()
+            topic_pages::stats_fragment(&v, &base, "").into_string()
         );
         assert_inert(&frag, &payload, "list fragments");
     }
@@ -273,51 +273,32 @@ async fn a_hostile_query_on_a_topic_page_is_a_sentence_never_markup_never_a_5xx(
     }
 }
 
-#[test]
-fn the_stream_vocabulary_is_closed_and_has_the_topics_ids() {
-    use kafka_console::stream::{WATCHABLE, parse_watch};
-    for id in [
-        "topics-sentence",
-        "topics-table",
-        "topic-sentence",
-        "topic-messages",
-    ] {
-        assert!(WATCHABLE.contains(&id), "{id}");
-        assert_eq!(parse_watch(id), Ok(vec![id]));
-    }
-    for bad in [
-        "topic-evil",
-        "topics-table,evil",
-        "Topic-Messages",
-        "topic-messages ",
-        "../topic-messages",
-    ] {
-        assert!(parse_watch(bad).is_err(), "{bad:?}");
-    }
-}
-
 #[tokio::test]
-async fn the_stream_takes_the_topics_ids_and_refuses_one_that_is_not_in_the_vocabulary() {
+async fn the_stream_takes_the_two_tails_and_refuses_anything_else() {
     let (app, _) = app("/", &[]);
-    let ok = crate::support::head(
-        &app,
-        get("/events?watch=topics-sentence,topics-table,topic-sentence,topic-messages"),
-    )
-    .await;
-    assert_eq!(ok.status(), axum::http::StatusCode::OK);
-    assert!(
-        ok.headers()[axum::http::header::CONTENT_TYPE]
-            .to_str()
-            .unwrap()
-            .starts_with("text/event-stream")
-    );
+    for ok_q in ["tail=live", "tail=messages&topic=orders"] {
+        let ok = crate::support::head(&app, get(&format!("/events?{ok_q}"))).await;
+        assert_eq!(ok.status(), axum::http::StatusCode::OK, "{ok_q}");
+        assert!(
+            ok.headers()[axum::http::header::CONTENT_TYPE]
+                .to_str()
+                .unwrap()
+                .starts_with("text/event-stream")
+        );
+    }
     for bad in [
         "topic-evil",
-        "topic-messages,evil",
-        "TOPIC-MESSAGES",
-        "topics-table%0Aevil",
+        "tail=topic-messages",
+        "tail=LIVE",
+        "tail=live%0Aevil",
+        "watch=home-live",
     ] {
-        let (res, _) = send(&app, get(&format!("/events?watch={bad}"))).await;
+        let q = if bad.contains('=') {
+            bad.to_owned()
+        } else {
+            format!("watch={bad}")
+        };
+        let (res, _) = send(&app, get(&format!("/events?{q}"))).await;
         assert_eq!(res.status(), axum::http::StatusCode::BAD_REQUEST, "{bad}");
     }
 }

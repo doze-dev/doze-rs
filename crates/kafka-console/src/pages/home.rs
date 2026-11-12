@@ -56,7 +56,8 @@ fn fraction(held: i64, of: i64) -> i64 {
 fn attention(a: &Attention, unchecked: usize, base: &Base) -> Markup {
     let p = fraction(a.elapsed_secs, a.timeout_secs);
     // The deadline is an instant, to the second; the script counts down to it in its own slot, with no request (CON-812).
-    let deadline = (crate::source::now_ms() / 1000 + (a.timeout_secs - a.elapsed_secs).max(0)) * 1000;
+    let deadline =
+        (crate::source::now_ms() / 1000 + (a.timeout_secs - a.elapsed_secs).max(0)) * 1000;
     // The transaction's own page (slice 9g).
     let txn_url = base.url(&format!(
         "/topics/{}/transactions/{}",
@@ -200,17 +201,38 @@ fn strip(v: &HomeView) -> Markup {
                 None => Stat::new("Last request", "none yet").mono().ch(11),
             },
         ),
-        None => (Stat::new("Apps on the wire", "-"), (), Stat::new("Last request", "-").mono().ch(11)),
+        None => (
+            Stat::new("Apps on the wire", "-"),
+            (),
+            Stat::new("Last request", "-").mono().ch(11),
+        ),
     };
     let _ = reach;
     stat_strip(&[
         Stat::new("Started", started).unit(last_stop).mono().ch(12),
-        Stat::new("Open partitions", words::open_partitions(i)).unit(if quiet { "opened on first use" } else { "opened on first use" }).mono().ch(8),
-        Stat::new("Topics", n(v.topics)).unit(format!("{} partitions", n(v.partitions))).ch(5),
-        Stat::new("Memory", i.resident_bytes.map_or_else(|| "Not measured".to_owned(), bytes))
-            .unit(if i.resident_bytes.is_some() { "resident now" } else { "measured on Linux only" })
+        Stat::new("Open partitions", words::open_partitions(i))
+            .unit(if quiet {
+                "opened on first use"
+            } else {
+                "opened on first use"
+            })
             .mono()
-            .ch(9),
+            .ch(8),
+        Stat::new("Topics", n(v.topics))
+            .unit(format!("{} partitions", n(v.partitions)))
+            .ch(5),
+        Stat::new(
+            "Memory",
+            i.resident_bytes
+                .map_or_else(|| "Not measured".to_owned(), bytes),
+        )
+        .unit(if i.resident_bytes.is_some() {
+            "resident now"
+        } else {
+            "measured on Linux only"
+        })
+        .mono()
+        .ch(9),
         apps,
         last,
     ])
@@ -339,7 +361,13 @@ pub fn home(v: &HomeView, base: &Base) -> Markup {
     let acts = if quiet {
         html! {}
     } else {
-        link(&base.url("/connect"), Variant::Primary, Size::Normal, Some(Glyph::Code), "Connect an app")
+        link(
+            &base.url("/connect"),
+            Variant::Primary,
+            Size::Normal,
+            Some(Glyph::Code),
+            "Connect an app",
+        )
     };
     html! {
         (page_header(home_title(&v.state), sentence(v), acts))

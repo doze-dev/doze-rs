@@ -11,38 +11,23 @@ fn plain(spans: &[Span]) -> String {
 }
 
 #[test]
-fn the_steady_sentence_says_how_long_and_how_it_stopped_and_what_it_holds() {
+fn the_steady_sentence_is_static_and_holds_no_number() {
     let v = fixtures::home(HomeState::Steady);
     assert_eq!(home_title(&v.state), "Home");
+    let s = plain(&home_sub(&v));
     assert_eq!(
-        plain(&home_sub(&v)),
-        "Running 3 d 4 h, last stop clean. It holds 9 topics and 21 partitions. 9 apps appear on the wire, which reaches back to 19:12, and the last request landed 1 s ago."
+        s,
+        "What this broker holds, who has spoken to it, and whether anything needs you."
     );
-    // With no recorder the sentence says only what the broker holds; with an empty tape, that nobody has spoken.
-    let mut none = v.clone();
-    none.spoke = None;
+    // What used to be in it (how long it ran, the topics, the apps, the last request) is the strip of metric slots on Home.
+    assert!(!s.chars().any(|c| c.is_ascii_digit()), "{s}");
+    let mut other = v.clone();
+    other.spoke = None;
+    other.instance.up_secs = 7;
     assert_eq!(
-        plain(&home_sub(&none)),
-        "Running 3 d 4 h, last stop clean. It holds 9 topics and 21 partitions."
-    );
-    none.spoke = Some(crate::model::SpokeView::default());
-    assert!(
-        plain(&home_sub(&none))
-            .ends_with("It holds 9 topics and 21 partitions. No client has spoken yet.")
-    );
-}
-
-#[test]
-fn the_steady_sentence_has_a_form_for_each_last_stop() {
-    let mut v = fixtures::home(HomeState::Steady);
-    v.instance.last_stop = StopView::Unclean;
-    assert!(plain(&home_sub(&v)).starts_with("Running 3 d 4 h, last stop not clean. It holds"));
-    v.instance.last_stop = StopView::None;
-    v.instance.up_secs = 7;
-    v.spoke = None;
-    assert_eq!(
-        plain(&home_sub(&v)),
-        "Running 7 s on a new data directory. It holds 9 topics and 21 partitions."
+        plain(&home_sub(&other)),
+        s,
+        "the sentence does not depend on the data"
     );
 }
 
@@ -59,20 +44,17 @@ fn the_quiet_sentence_names_the_listener_and_claims_no_client() {
 }
 
 #[test]
-fn the_instance_lede_follows_the_last_stop() {
+fn the_instance_lede_follows_the_last_stop_and_says_no_time() {
     let mut i = fixtures::home(HomeState::Steady).instance;
     assert_eq!(
         instance_lede(&i),
-        "Up 3 d 4 h. The last stop was clean, so every partition was trusted on start."
+        "The last stop was clean, so every partition was trusted on start."
     );
     i.last_stop = StopView::Unclean;
     assert!(instance_lede(&i).contains("not clean, so every partition was checked"));
     i.last_stop = StopView::None;
     i.up_secs = 120;
-    assert_eq!(
-        instance_lede(&i),
-        "Started 2 min ago on a new data directory."
-    );
+    assert_eq!(instance_lede(&i), "Started on a new data directory.");
 }
 
 #[test]

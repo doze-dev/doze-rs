@@ -12,8 +12,8 @@ use crate::model::live::{
 
 /// The requests in a minute above which the page is "a busy minute".
 const BUSY: u32 = 100;
-/// Refusals linked from the top of the tape.
-const REFUSED_LINKS: usize = 6;
+/// Refusals named at the top of the tape: one line for each (code, client), at most this many, then "and N more".
+const REFUSED_LINES: usize = 3;
 
 /// The class a row is shown with.
 pub(super) fn class_of(row: &Row) -> WireClass {
@@ -130,7 +130,8 @@ impl Recorder {
             matched,
             window: window(ring),
             query: q.clone(),
-            refused: refusals(ring),
+            refused: refusals(ring).0,
+            refused_more: refusals(ring).1,
             refused_total: count(Class::Refused),
             denied_total: count(Class::Denied),
             clients: inner.conns.len(),
@@ -220,21 +221,34 @@ fn page(ring: &ring::Ring, q: &WireQuery) -> (Vec<WireRow>, usize, Option<u64>) 
     (rows, matched, older)
 }
 
-/// The newest refusals (Kafka's and the ACLs'), to link from the top of the tape.
-fn refusals(ring: &ring::Ring) -> Vec<WireRefusal> {
-    ring.iter()
+/// The refusals, folded: one entry for each (code, client) with how many there are and the newest, newest first, at most
+/// [`REFUSED_LINES`]; and how many more pairs there are.
+fn refusals(ring: &ring::Ring) -> (Vec<WireRefusal>, usize) {
+    let mut by: Vec<WireRefusal> = Vec::new();
+    for r in ring
+        .iter()
         .rev()
         .filter(|r| matches!(class_of(r), WireClass::Refused | WireClass::Denied))
-        .take(REFUSED_LINKS)
-        .map(|r| WireRefusal {
-            id: r.id,
-            code_name: errors::name(r.code),
-            code: r.code,
-            client: r.who.client.to_string(),
-            at_ms: r.last_ms,
-            class: class_of(r),
-        })
-        .collect()
+    {
+        match by
+            .iter_mut()
+            .find(|x| x.code == r.code && *x.client == *r.who.client)
+        {
+            Some(x) => x.count = x.count.saturating_add(r.count),
+            None => by.push(WireRefusal {
+                id: r.id,
+                count: r.count,
+                code_name: errors::name(r.code),
+                code: r.code,
+                client: r.who.client.to_string(),
+                at_ms: r.last_ms,
+                class: class_of(r),
+            }),
+        }
+    }
+    let more = by.len().saturating_sub(REFUSED_LINES);
+    by.truncate(REFUSED_LINES);
+    (by, more)
 }
 
 fn state_of(ring: &ring::Ring, last_minute: u32) -> LiveState {

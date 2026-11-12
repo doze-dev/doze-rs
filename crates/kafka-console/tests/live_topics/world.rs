@@ -375,6 +375,6 @@ impl std::fmt::Display for Doc {
 }
 
 pub fn row_count(body: &str) -> usize {
-    body.matches("<td class=\"mono\"><a class=\"lnk\" href=\"/topics/")
+    body.matches("<a class=\"lnk mono\" href=\"/topics/")
         .count()
 }

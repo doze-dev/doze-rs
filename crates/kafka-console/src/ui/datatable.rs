@@ -285,6 +285,6 @@ mod tests {
     #[test]
     fn a_tail_table_says_so_on_its_body() {
         let m = data_table(&DataTable::new("t", "T", &COLS).tail(), vec![]).into_string();
-        assert!(m.contains("<tbody data-tail>"));
+        assert!(m.contains("<tbody data-tail"), "{m}");
     }
 }

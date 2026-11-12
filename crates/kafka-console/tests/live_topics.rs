@@ -29,7 +29,7 @@ async fn every_route_answers_as_the_console_and_has_the_boards_parts() {
         );
     }
     assert!(
-        list.contains("4 topics hold <b>6</b> partitions."),
+        list.contains(r#"<span class="k">Topics</span><span class="v" style="min-width:5ch" title="4">4</span>"#) && list.contains(r#"<span class="k">Partitions</span><span class="v" style="min-width:5ch" title="6">6</span>"#),
         "{list:.1500}"
     );
     assert!(
@@ -155,7 +155,7 @@ async fn a_compacted_topic_a_gzip_batch_headers_and_a_binary_value_are_shown_as_
     let app = w.router();
     let c = page(&app, "/topics/customer.profiles", None).await;
     assert!(
-        c.contains("keeps the latest record of each key") && c.contains("Compacted"),
+        c.contains("compact · for ever") && c.contains("Compacted"),
         "{c:.2500}"
     );
     assert_eq!(row_count(&c), 3);

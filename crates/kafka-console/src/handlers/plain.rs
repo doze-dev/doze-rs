@@ -53,7 +53,8 @@ pub async fn events(
     let Ok(permit) = Arc::clone(&s.streams).try_acquire_owned() else {
         return crate::limits::busy("The console has as many event streams open as it allows.");
     };
-    stream::response(s, feed, permit).into_response()
+    let pace = stream::pace_of(crate::form::get(&fields, "pace"));
+    stream::response(s, feed, pace, permit).into_response()
 }
 
 /// A file of the manifest by its hashed name, cached for a year: the name changes when the file does.

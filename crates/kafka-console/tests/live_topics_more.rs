@@ -115,7 +115,7 @@ async fn hostile_records_headers_and_names_from_a_real_broker_are_inert_on_every
         format!("/topics/{name}/messages?isolation=read_committed"),
         format!("/topics/{name}/partitions"),
         format!("/fragments/topic-messages?topic={name}"),
-        format!("/fragments/topic-sentence?topic={name}"),
+        format!("/fragments/topic-stats?topic={name}"),
     ];
     for i in 0..payloads.len() {
         pages.push(format!("/topics/{name}/messages/0/{i}"));
@@ -163,9 +163,14 @@ async fn a_fragment_is_what_the_page_holds_and_an_unchanged_one_is_a_304() {
     let w = seeded("frag", |_| {}).await;
     let app = w.router();
     let page_html = page(&app, "/topics/orders", None).await;
+    // A page is a snapshot (CON-800): nothing in it opens a stream; the tail is offered, and its address is in the page.
     assert!(
-        page_html
-            .contains("data-stream=\"/events?watch=topic-sentence,topic-messages,topic-wire\"")
+        !page_html.contains("data-stream"),
+        "no page subscribes by itself"
+    );
+    assert!(
+        page_html.contains("data-tail-url=\"/events?tail=messages&amp;topic=orders"),
+        "{page_html:.300}"
     );
     let first = send(&app, get("/fragments/topic-messages?topic=orders")).await;
     assert_eq!(first.0.status(), StatusCode::OK);
@@ -184,6 +189,6 @@ async fn a_fragment_is_what_the_page_holds_and_an_unchanged_one_is_a_304() {
     assert_eq!(res.status(), StatusCode::NOT_FOUND);
     let (res, body) = send(&app, get("/fragments/topics-table")).await;
     assert_eq!(res.status(), StatusCode::OK);
-    assert!(body.contains("4 of 4 topics"), "{body}");
+    assert!(body.contains(">4</span> topics"), "{body}");
     w.stop().await;
 }

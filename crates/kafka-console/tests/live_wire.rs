@@ -44,9 +44,8 @@ async fn the_tape_shows_what_the_clients_did_and_what_was_refused() {
         "× 25",
         "1 record",
         "caught up, no records",
-        "Refused among the rows kept:",
-        "data-extra=\"live-sentence\"",
-        "requests in the last minute.",
+        "Refusals",
+        "Requests, last minute",
     ] {
         assert!(live.contains(want), "{want:?} in {live:.6000}");
     }
@@ -256,7 +255,7 @@ async fn a_console_without_a_recorder_says_the_wire_is_empty_and_the_broker_with
     let (status, live) = page(&app, get("/live")).await;
     assert_eq!(status, StatusCode::OK);
     assert!(
-        live.contains("Nothing has reached the broker"),
+        live.contains("No requests yet. Send one with any Kafka client"),
         "{live:.1500}"
     );
     w.stop().await;

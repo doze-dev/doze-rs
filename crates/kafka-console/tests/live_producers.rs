@@ -74,13 +74,10 @@ async fn the_producers_page_names_the_transaction_that_holds_the_stable_offset()
     let stable = w.offset("orders", 0, -1).await;
     assert_eq!(stable, end);
     assert!(
-        doc.contains(&format!(
-            "holds the last stable offset at <b>{}</b>",
-            end - 3
-        )),
+        doc.contains(&format!(">{}</span>", end - 3))
+            && doc.contains(r#"<span class="k">Held back</span>"#),
         "{doc:.3000}"
     );
-    assert!(doc.contains("a read_committed consumer is held <b>3</b> records behind"));
     w.stop().await;
 }
 

@@ -123,11 +123,8 @@ async fn main() {
     let recorder: Arc<dyn Observer> = Recorder::new();
     let with = measure(Some(recorder), false).await;
     let (m1, b1) = summary("recorder installed", &with);
-    // A console page is open: every recorded request bumps the shared tick (at most every 100 ms).
+    // A console page is open: it costs the recorder nothing (a page is a snapshot; a tail asks once a second and nothing is woken).
     let rec = Recorder::new();
-    let ticker = kafka_console::tick::Ticker::new(Duration::from_secs(3600));
-    rec.attach(ticker.clone());
-    let _viewer = ticker.watch();
     let watched = measure(Some(rec as Arc<dyn Observer>), true).await;
     let (m2, b2) = summary("recorder installed, a page open", &watched);
     let none_again = measure(None, false).await;

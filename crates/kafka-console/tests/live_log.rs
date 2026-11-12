@@ -310,10 +310,10 @@ async fn a_get_of_these_pages_reads_and_changes_nothing() {
         "/topics/orders/producers?partition=1&open=1,2",
         "/topics/orders/transactions/tx",
         "/topics/orders/transactions/tx/held",
-        "/fragments/log-sentence?topic=orders&partition=0",
+        "/fragments/log-stats?topic=orders&partition=0",
         "/fragments/log-ruler?topic=inventory.levels&partition=0",
         "/fragments/log-cards?topic=inventory.levels&partition=0",
-        "/fragments/producers-sentence?topic=orders&partition=0",
+        "/fragments/producers-stats?topic=orders&partition=0",
         "/fragments/producers-table?topic=orders&partition=0",
     ] {
         let (status, _) = page(&app, get(path)).await;
@@ -351,10 +351,10 @@ async fn the_fragments_are_watchable_and_answer_with_a_tag() {
     let w = seeded("log-frag").await;
     let app = w.router();
     for id in [
-        "log-sentence",
+        "log-stats",
         "log-ruler",
         "log-cards",
-        "producers-sentence",
+        "producers-stats",
         "producers-table",
     ] {
         let topic = if id.starts_with("log") {
@@ -373,15 +373,11 @@ async fn the_fragments_are_watchable_and_answer_with_a_tag() {
             text.contains(&format!("id=\"{id}\""))
                 || id.ends_with("cards")
                 || id.ends_with("ruler")
-                || id.ends_with("sentence"),
+                || id.ends_with("stats"),
             "{id}"
         );
-        assert!(
-            kafka_console::stream::parse_watch(id).is_ok(),
-            "the stream may watch {id}"
-        );
     }
-    let (status, _) = page(&app, get("/fragments/log-sentence?topic=nope&partition=0")).await;
+    let (status, _) = page(&app, get("/fragments/log-stats?topic=nope&partition=0")).await;
     assert_eq!(status, StatusCode::NOT_FOUND);
     w.stop().await;
 }

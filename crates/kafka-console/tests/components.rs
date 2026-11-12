@@ -72,7 +72,7 @@ fn the_shell() {
             },
         ],
         title: "Connect an app",
-        watch: &["home-instance", "home-sentence"],
+        regions: &["home-instance", "home-sentence"],
     };
     golden("shell", &document(&page, html! { h1 { "Connect an app" } }));
 }

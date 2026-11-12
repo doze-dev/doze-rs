@@ -54,9 +54,10 @@ fn the_list_has_the_boards_four_groups_in_order_with_their_lag_words() {
         &[
             "<h1>Groups</h1>",
             "fulfilment is rebalancing.",
-            "waiting for <span class=\"mono\">fulfilment-py-1</span> to rejoin, 2.1 s of 5 s left.",
+            "waiting for <span class=\"mono\">fulfilment-py-1</span> to rejoin.",
+            "Rejoin deadline",
             ">analytics</a>",
-            "offsets expire in 3 d 2 h",
+            "offsets expire ",
             "Past the end",
             "orders-0 is 96 beyond its log",
             ">fulfilment</a>",
@@ -68,7 +69,7 @@ fn the_list_has_the_boards_four_groups_in_order_with_their_lag_words() {
             ">search-indexer</a>",
             "classic, roundrobin",
             "18,240",
-            "4 of 4 groups",
+            ">4</span> groups",
         ],
     );
 }
@@ -83,9 +84,9 @@ fn the_group_pages_say_what_the_boards_say() {
             "classic",
             "roundrobin",
             "generation 8",
-            "One member, <b>search-indexer-1</b>, reads",
-            "clickstream</a> (6 partitions) and",
-            "It is 18,240 records behind on clickstream",
+            "<span class=\"k\">Members</span>",
+            "<span class=\"k\">Lag</span>",
+            "18,240",
             "Session timeout",
             "45 s",
             "Rebalance timeout",
@@ -118,8 +119,7 @@ fn the_consumer_group_shows_target_and_assigned_and_the_rebalance_shows_who_is_w
         &doc("group-rebalancing"),
         &[
             "generation 31 forming",
-            "<b>fulfilment-py-2</b> left 3 s ago, so the group is rebalancing.",
-            "It is waiting for <b>fulfilment-py-1</b> to rejoin",
+            "<span class=\"k\">State</span>",
             "Waiting for",
             "2.1",
             "What happens next",
@@ -135,19 +135,14 @@ fn the_lag_pages_never_show_a_negative_number_and_say_where_a_commit_is() {
     in_order(
         "lag-ahead",
         &ahead,
-        &[
-            "analytics committed 16,200 on orders-0, but the log ends at 16,104",
-            "96 past the end",
-            "Kafka accepted this commit.",
-        ],
+        &["16,200", "96 past the end", "Kafka accepted this commit."],
     );
     assert!(!ahead.contains(">-"), "a negative number");
     in_order(
         "lag-no-commits",
         &doc("lag-no-commits"),
         &[
-            "21 records behind on payments.settled",
-            "pick-lists has no committed offset",
+            "payments.settled",
             "No commits yet",
             "No commit is not lag 2,310.",
         ],

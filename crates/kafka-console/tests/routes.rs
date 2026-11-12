@@ -72,7 +72,10 @@ async fn every_row_of_the_table_has_a_handler_and_every_handler_a_row() {
         };
         // The stream never ends: its answer is judged by its head alone.
         let (res, body) = if r.handler == Handler::Events {
-            (support::head(&app, req).await, String::new())
+            (
+                support::head(&app, get("/events?tail=live")).await,
+                String::new(),
+            )
         } else {
             send(&app, req).await
         };
@@ -241,14 +244,11 @@ async fn pages_are_not_stored_fragments_revalidate_and_files_are_kept_for_a_year
 }
 
 #[tokio::test]
-async fn the_stream_takes_only_the_closed_vocabulary_and_an_unknown_fragment_is_a_404() {
+async fn the_stream_takes_only_the_two_tails_and_an_unknown_fragment_is_a_404() {
     let (app, _) = app("/", &[]);
-    let (res, body) = send(&app, get("/events?watch=home-live,evil")).await;
+    let (res, body) = send(&app, get("/events?tail=evil")).await;
     assert_eq!(res.status(), StatusCode::BAD_REQUEST);
-    assert!(
-        body.contains("\"evil\" is not a fragment this console can watch"),
-        "{body}"
-    );
+    assert!(body.contains("tail must be live or messages"), "{body}");
     let (res, _) = send(&app, get("/fragments/etc-passwd")).await;
     assert_eq!(res.status(), StatusCode::NOT_FOUND);
     let (res, body) = send(&app, get("/healthz")).await;

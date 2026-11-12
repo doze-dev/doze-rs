@@ -10,8 +10,8 @@ use crate::ui::glyph::{Glyph, glyph};
 use crate::ui::inplace;
 use crate::ui::kafka::{Tab, empty, pager_with, sec, tabs};
 use crate::ui::layout::page_header;
-use crate::ui::notice::{Tone, callout};
 use crate::ui::metrics::{Stat, slot, stat_strip};
+use crate::ui::notice::{Tone, callout};
 
 use super::list_table::{internal_table, table};
 

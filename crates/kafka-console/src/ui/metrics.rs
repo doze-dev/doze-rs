@@ -138,11 +138,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn a_stat_has_a_label_a_slot_of_declared_width_and_the_full_value_on_hover() {
+    fn a_stat_has_a_label_a_figure_of_declared_width_and_the_full_value_on_hover() {
         let m = stat_strip(&[Stat::new("Records", "1,644").unit("records").ch(9)]).into_string();
         assert_eq!(
             m,
-            r#"<dl class="stats"><div class="stat"><dt>Records</dt><dd><span class="v" style="width:9ch" title="1,644">1,644</span><span class="u">records</span></dd></div></dl>"#
+            r#"<div class="stats" role="group"><div class="stat"><span class="k">Records</span><span class="v" style="min-width:9ch" title="1,644">1,644</span><span class="s">records</span></div></div>"#
         );
     }
 
@@ -151,12 +151,24 @@ mod tests {
         let m = stat_tile(
             &Stat::new("Last write", "14:32:05")
                 .time("2026-11-13T14:32:05Z")
-                .tip("2 s ago")
+                .tip("2026-11-13 14:32:05 UTC")
                 .mono(),
         )
         .into_string();
-        assert!(m.contains(r#"<time class="v mono" style="width:8ch" datetime="2026-11-13T14:32:05Z" title="2 s ago" data-rel>14:32:05</time>"#));
-        assert!(m.starts_with(r#"<dl class="stats tile">"#));
+        assert!(m.contains(r#"<time class="v mono" style="min-width:8ch" datetime="2026-11-13T14:32:05Z" title="2026-11-13 14:32:05 UTC" data-rel>14:32:05</time>"#), "{m}");
+        assert!(m.starts_with(r#"<div class="stats tile""#));
+    }
+
+    #[test]
+    fn an_instant_is_absolute_and_the_relative_form_is_not_in_the_text() {
+        let m = stat_strip(&[Stat::at("Last write", 1_762_900_000_000, 1_762_900_005_000)])
+            .into_string();
+        assert!(m.contains(">22:26:40<") && !m.contains(" ago"), "{m}");
+        let cell = at_cell(1_762_900_000_000, 1_762_900_005_000).into_string();
+        assert!(
+            cell.contains("data-rel") && cell.contains("2025-11-11 22:26:40 UTC"),
+            "{cell}"
+        );
     }
 
     #[test]

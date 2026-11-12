@@ -345,32 +345,3 @@ describe("a Preview control (a GET submit) in an overlay never writes", () => {
     expect(p.history.url).toBe(`${ORIGIN}/groups/g/reset?topic=orders`);
   });
 });
-
-describe("a fragment that changed fades in, softly, and one that did not does not move", () => {
-  const rows = (text: string) => `<div class="frag" id="rows" data-frag="/fragments/rows"><p id="n">${text}</p></div>`;
-  const tick = async (p: Page, body: string) => {
-    p.autoAnswer(() => ({ etag: `"${body.length}${body}"`, body }));
-    p.streams[0].emit("tick", "rows");
-    await p.flush();
-  };
-
-  test("what changed changes its text and nothing is animated (no block dips in opacity)", async () => {
-    const p = await started({ stream: "/events?watch=rows" });
-    await tick(p, rows("two"));
-    expect(p.document.getElementById("n")!.textContent).toBe("two");
-    expect(p.animated).toEqual([]);
-  });
-
-  test("an unchanged answer animates nothing", async () => {
-    const p = await started({ stream: "/events?watch=rows" });
-    await tick(p, rows("one"));
-    expect(p.animated).toEqual([]);
-  });
-
-  test("with reduced motion nothing animates", async () => {
-    const p = await started({ stream: "/events?watch=rows", reduced: true });
-    await tick(p, rows("two"));
-    expect(p.document.getElementById("n")!.textContent).toBe("two");
-    expect(p.animated).toEqual([]);
-  });
-});

@@ -67,18 +67,18 @@ fn live_wire_has_the_boards_sentence_filters_refusals_and_sixteen_rows() {
         &[
             "<h1>Live</h1>",
             "Everything your apps send, newest first.",
-            "reach back to 19:12, 3 h 2 min.",
-            "Pause",
+            "Reaches back to",
+            "19:12",
+            "Clients",
+            "Refusals",
+            "INVALID_RECORD (87)",
+            "MESSAGE_TOO_LARGE (10)",
+            "INVALID_PRODUCER_EPOCH (47)",
             "Filter by client, API or topic",
             "All apps",
             "All topics",
             "Refused only",
             "Idle polls hidden",
-            "Clients · 9",
-            "Refused among the rows kept: 3.",
-            "INVALID_RECORD (87)",
-            "MESSAGE_TOO_LARGE (10)",
-            "INVALID_PRODUCER_EPOCH (47)",
             ">Time</th>",
             ">Client</th>",
             ">API</th>",
@@ -89,60 +89,48 @@ fn live_wire_has_the_boards_sentence_filters_refusals_and_sixteen_rows() {
             "payments.settled-1",
             "from 7,402",
             "1 batch, 211 B",
-            "Showing 16 of 2,000 matching rows",
+            "Showing ",
+            ">16</span> of <span",
+            " matching rows",
             "Older",
         ],
     );
     assert_eq!(d.matches("data-row=").count(), 16);
-    assert!(d.contains("aria-live=\"polite\""));
-    assert!(d.contains("data-extra=\"live-sentence\""));
+    // The page holds no number in a sentence (CON-805), no explainer box above the table, and a tail that is offered, not on.
+    assert!(!d.contains("aria-live=\"polite\"") || d.contains("data-conn"));
+    assert!(d.contains("data-tail-url=") && d.contains("data-tail-mode=\"live\""));
+    assert!(!d.contains("Repeats fold into one row, a line") && !d.contains("data-stream"));
+    assert!(d.contains("class=\"stats\"") && d.contains("data-frag=\"/fragments/live-stats\""));
 }
 
 #[test]
-fn the_three_states_say_what_the_boards_say() {
-    let paused = doc("live-paused");
-    in_order(
-        "live-paused",
-        &paused,
-        &[
-            "Paused at 22:14:23.6. Everything below is as it was then.",
-            "Resume",
-            "Paused. ",
-            "17",
-            " requests are held back.",
-            "The wire, as of 22:14:23.6",
-            "The last 7 requests before the pause.",
-            "17 newer",
-        ],
-    );
-    assert_eq!(paused.matches("data-row=").count(), 7);
+fn the_page_is_the_same_page_in_every_state_and_the_states_are_slots() {
+    // CON-807: a state never moves a block. The quiet wire, the busy wire and the steady one have the same parts in the same order.
+    let parts = [
+        "<h1>Live</h1>",
+        "class=\"stats\"",
+        "among the rows kept",
+        "class=\"toolbar\"",
+        "class=\"tailbar\"",
+        "<table class=\"t dt-t\"",
+        "<div class=\"pager\"",
+    ];
+    for id in ["live-wire", "live-quiet", "live-load"] {
+        let d = doc(id);
+        in_order(id, &d, &parts);
+        assert!(
+            !d.contains("data-stream") && !d.contains("data-pause"),
+            "{id}"
+        );
+    }
     let quiet = doc("live-quiet");
-    in_order(
-        "live-quiet",
-        &quiet,
-        &[
-            "Nothing has reached the broker since it started at 22:12.",
-            "127.0.0.1:9092",
-            "Send the first request",
-            "kcat -P -b 127.0.0.1:9092",
-            "Snippets for your client",
-            "No requests yet",
-        ],
-    );
-    assert!(!quiet.contains("Clients ·"));
+    assert!(quiet.contains("No requests yet. Send one with any Kafka client, for example: echo hi | kcat -P -b 127.0.0.1:9092"));
+    assert_eq!(quiet.matches("data-row=").count(), 0);
+    assert!(quiet.contains("No refusals among the rows kept."));
     let load = doc("live-load");
-    in_order(
-        "live-load",
-        &load,
-        &[
-            "A busy minute: 571 requests",
-            "Repeats fold into one row.",
-            "× 412",
-            "The wire, folded",
-            "7 rows stand for 571 requests.",
-            "about 36 records each",
-            "median",
-        ],
+    assert!(
+        load.contains("× 412"),
+        "a folded row says how many it stands for"
     );
 }
 

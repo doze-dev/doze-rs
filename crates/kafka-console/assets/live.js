@@ -134,7 +134,11 @@
     }));
 
     // ==== Tail ====
-    const MAX_ROWS = 200, HOLD_PX = 8, BATCH_MS = 1000, WAITS = [1, 2, 4, 8, 15, 30];
+    // The speed of a tail is the person's: Realtime (a batch each second, the fastest there is), Relaxed (3 s, the start), Slow (10 s), or
+    // Paused. It is remembered in this browser and asked of the server as `pace`, which never goes under one second.
+    const MAX_ROWS = 200, HOLD_PX = 8, WAITS = [1, 2, 4, 8, 15, 30], SPEED = 'doze:tail-speed', SPEEDS = [1, 3, 10, 0];
+    const speedOf = () => { const raw = store && store.getItem(SPEED); const v = raw === null || raw === undefined ? NaN : Number(raw); return SPEEDS.includes(v) ? v : 3; };
+    const rate = (n) => (n === 0 ? 'Paused: no rows are fetched until you choose a speed' : n === 1 ? 'Realtime: rows arrive in batches every second' : 'Rows arrive in batches every ' + n + ' s');
     A.data('tailControl', () => {
       let root, es = null, retry = 0, wait = 0, countdown = 0, reopen = 0, lastId = '0', lastFlush = 0, flushAt = 0, tick = 0;
       const pending = new Map(); // row id -> element, newest first
@@ -159,7 +163,9 @@
         const body = T.body;
         if (!body) return true;
         const sel = window.getSelection && window.getSelection();
-        const reading = (sel && !sel.isCollapsed && body.contains(sel.anchorNode)) || body.contains(document.activeElement) || T.rootEl.matches(':hover');
+        let hover = false;
+        try { hover = T.rootEl.matches(':hover'); } catch (e) { /* no pointer to ask */ }
+        const reading = (sel && !sel.isCollapsed && body.contains(sel.anchorNode)) || body.contains(document.activeElement) || hover;
         return window.scrollY > HOLD_PX || reading || overlayOpen();
       };
       const url = () => {
@@ -167,6 +173,7 @@
         if (!r) return null;
         const u = new URL(attr(r, 'data-tail-url'), location.href);
         u.searchParams.set('since', lastId);
+        u.searchParams.set('pace', String(speedOf() || 3));
         return u.href;
       };
       const idPrefix = () => (attr(T.rootEl, 'data-tail-rows') || '') + '-r-';
@@ -192,7 +199,7 @@
       }
       function later() {
         if (flushAt) return;
-        const wait_ = Math.max(0, lastFlush + BATCH_MS - Date.now());
+        const wait_ = Math.max(0, lastFlush + (D.batchMs === undefined ? speedOf() * 1000 : D.batchMs) - Date.now());
         flushAt = setTimeout(flush, wait_);
       }
       function take(html, id) {
@@ -215,11 +222,13 @@
           older.forEach(([k, v]) => pending.set(k, v));
         }
         while (pending.size > 500) pending.delete(pending.keys().next().value);
+        if (holding()) pill();
         later();
       }
 
       function open() {
         close(false);
+        if (speedOf() === 0) { status('snapshot', 'Paused'); return; }
         const u = url();
         if (!u || !window.EventSource) return;
         es = new EventSource(u);
@@ -289,6 +298,29 @@
           });
           window.addEventListener('pagehide', () => close(false));
           lastId = attr(T.rootEl, 'data-cursor') || '0';
+          const n = speedOf(), sel = q('select');
+          if (sel) {
+            sel.value = String(n);
+            const box = q('.dz-select'), data = box && A.$data(box);
+            if (data && data.paint) data.paint();
+          }
+          const tip = q('[data-tail-speed]');
+          if (tip) tip.setAttribute('title', rate(n));
+        },
+        // The speed was chosen: remember it, say what it means, and apply it to a tail that is running.
+        speed(e) {
+          const sel = e.target;
+          if (!sel || sel.name !== 'speed') return;
+          const n = Number(sel.value);
+          if (!SPEEDS.includes(n)) return;
+          if (store) { try { store.setItem(SPEED, String(n)); } catch (x) { /* storage is off: the choice lasts for this page */ } }
+          const tip = q('[data-tail-speed]');
+          if (tip) tip.setAttribute('title', rate(n));
+          if (T.mode !== 'live') return;
+          clearTimeout(flushAt);
+          flushAt = 0;
+          retry = 0;
+          if (n === 0) { close(false); status('snapshot', 'Paused'); } else { status('reconnecting', 'Connecting…'); open(); }
         },
         live() {
           if (T.mode === 'live' || !T.rootEl) return;

@@ -80,7 +80,7 @@ async fn a_classic_group_that_joins_and_leaves_tells_its_story_with_a_clipped_re
     let app = w.router();
     let story = ok(&app, "/groups/fulfilment/story", Some("group-story")).await;
     for want in [
-        "has rebalanced 2 times",
+        "Rebalances kept",
         "Member joined",
         "Generation 1",
         "joined an empty group and led it. Members 0 to 1.",

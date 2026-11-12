@@ -39,7 +39,11 @@ fn select_chip(name: &str, all: &str, current: &str, options: &[String]) -> Mark
         return combobox(&Combobox {
             auto_submit: true,
             placeholder: all,
-            class: if current.is_empty() { "dz-chip" } else { "dz-chip on" },
+            class: if current.is_empty() {
+                "dz-chip"
+            } else {
+                "dz-chip on"
+            },
             ..Combobox::new(&format!("live-{name}"), name, all, &choices, current)
         });
     }
@@ -85,7 +89,6 @@ fn toolbar(v: &LiveView, base: &Base) -> Markup {
 
 /// The metrics and the refusals line: one region, one fixed height.
 fn stats_region(v: &LiveView, base: &Base) -> Markup {
-    let refused = v.refused_total + v.denied_total;
     let reach = v.window.oldest_ms.map_or_else(|| "none".to_owned(), hhmm);
     let strip = stat_strip(&[
         Stat::new("Requests, last minute", number(i64::from(v.last_minute))).ch(7),
@@ -104,19 +107,34 @@ fn stats_region(v: &LiveView, base: &Base) -> Markup {
             .mono()
             .ch(5),
         Stat::new("Clients", number(i64::try_from(v.clients).unwrap_or(0))).ch(5),
-        Stat::new("Refused", number(i64::try_from(refused).unwrap_or(0))).ch(5),
     ]);
     html! {
         (strip)
-        div class="refusals" {
-            @if v.refused.is_empty() {
-                span class="dim" { "No refusals among the rows kept." }
-            } @else {
-                b { "Refused: " }
-                @for r in &v.refused {
-                    a class="lnk" href=(request_url_in(base, r.id, &v.query)) data-dialog {
-                        span class="mono" { (r.code_name) " (" (r.code) ")" } " · " (r.client) " · " time { (crate::format::clock(r.at_ms)) }
+        (refusals(v, base))
+    }
+}
+
+/// The refusals, folded: one line for each (code, client) with how many and when the last was, at most three and "and N more".
+/// A strip of one line that opens in place (the Live toolbar and the tape stay where they are while it is shut), and says so when
+/// there is nothing to say: it is there either way (CON-807).
+fn refusals(v: &LiveView, base: &Base) -> Markup {
+    let total = v.refused_total + v.denied_total;
+    html! {
+        details class="refusals" {
+            summary {
+                @if total == 0 { span class="dim" { "No refusals among the rows kept." } }
+                @else { b { "Refusals" } span class="dim" { " among the rows kept: " } span class="mono" { (number(i64::try_from(total).unwrap_or(0))) } }
+            }
+            @if total > 0 {
+                ul class="refusal-lines" {
+                    @for r in &v.refused {
+                        li {
+                            span class="mono" { (r.code_name) " (" (r.code) ")" } " · " (r.client) " · "
+                            span class="mono" { "×" (number(i64::from(r.count))) } " · last " time class="mono" datetime=(crate::format::iso(r.at_ms)) title=(crate::format::exact(r.at_ms)) data-rel { (crate::format::clock(r.at_ms)) }
+                            " · " a class="lnk" href=(request_url_in(base, r.id, &v.query)) data-dialog { "View" }
+                        }
                     }
+                    @if v.refused_more > 0 { li class="dim" { "and " (v.refused_more) " more kinds" } }
                 }
             }
         }
@@ -205,7 +223,7 @@ pub fn live_page(v: &LiveView, base: &Base) -> Markup {
     html! {
         (page_header(
             "Live",
-            html! { p class="sub" { "Everything your apps send, newest first. The broker keeps its last requests in memory and older ones fall off; repeats fold into one row with a count and the span they cover." } },
+            html! { p class="sub" { "Everything your apps send, newest first. Repeats fold into one row with a count; the oldest rows fall off." } },
             html! {},
         ))
         (stats_fragment(v, base))

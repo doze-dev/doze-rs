@@ -161,12 +161,12 @@ fn a_stopping_broker_does_not_wait_for_an_open_console_stream() {
         .unwrap();
     write!(
         stream,
-        "GET /events?watch=home-live HTTP/1.1\r\nHost: {addr}\r\n\r\n"
+        "GET /events?tail=live HTTP/1.1\r\nHost: {addr}\r\n\r\n"
     )
     .unwrap();
     let mut seen = Vec::new();
     let mut buf = [0_u8; 512];
-    while !String::from_utf8_lossy(&seen).contains("event: tick") {
+    while !String::from_utf8_lossy(&seen).contains("event: ready") {
         let n = stream.read(&mut buf).unwrap();
         assert!(
             n > 0,

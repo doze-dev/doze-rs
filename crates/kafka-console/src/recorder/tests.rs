@@ -248,19 +248,6 @@ fn the_page_back_and_the_paused_page_are_cut_by_row_id() {
     );
     assert!(next.rows.iter().all(|r| r.id < older));
     assert_eq!(next.rows.len(), 16);
-    let until = first.rows[5].id;
-    let paused = rec.tape(
-        &WireQuery {
-            until: Some(until),
-            ..WireQuery::default()
-        },
-        now_ms(),
-    );
-    assert_eq!(paused.rows[0].id, until);
-    assert_eq!(
-        paused.held,
-        Some(first.rows[..5].iter().map(|r| u64::from(r.count)).sum())
-    );
 }
 
 #[test]
@@ -413,11 +400,15 @@ fn since_returns_what_changed_after_a_cursor_including_a_fold() {
     open(&rec, 1);
     let (q, a) = heartbeat("g", 0);
     play(&rec, 1, "c", &q, Answer::Response(&a), 4);
-    let (cursor, rows) = rec.since(0);
+    let all = WireQuery {
+        hide_idle: false,
+        ..WireQuery::default()
+    };
+    let (cursor, rows) = rec.since(&all, 0);
     assert_eq!(rows.len(), 1);
-    assert!(rec.since(cursor).1.is_empty());
+    assert!(rec.since(&all, cursor).1.is_empty());
     play(&rec, 1, "c", &q, Answer::Response(&a), 4);
-    let (next, rows) = rec.since(cursor);
+    let (next, rows) = rec.since(&all, cursor);
     assert!(next > cursor);
     assert_eq!(rows.len(), 1);
     assert_eq!(rows[0].count, 2);
@@ -433,16 +424,44 @@ fn the_debug_of_a_recorder_prints_counts_and_nothing_a_client_sent() {
     assert!(text.contains("rows") && !text.contains("PLANTED"), "{text}");
 }
 
-#[tokio::test]
-async fn a_recorded_request_bumps_the_shared_tick() {
-    let ticker = crate::tick::Ticker::new(Duration::from_secs(3600));
+#[test]
+fn the_recorder_wakes_nobody_a_tail_asks_what_is_new_and_the_cursor_moves_with_the_ring() {
     let rec = Recorder::new();
-    rec.attach(ticker.clone());
-    let mut viewer = ticker.watch();
     open(&rec, 1);
-    let (q, a) = heartbeat("g", 0);
-    play(&rec, 1, "c", &q, Answer::Response(&a), 4);
-    tokio::time::timeout(Duration::from_secs(2), viewer.changed())
-        .await
-        .expect("the recorder bumped the tick");
+    let q = WireQuery {
+        hide_idle: false,
+        ..WireQuery::default()
+    };
+    let (c0, none) = rec.since(&q, 0);
+    assert!(none.is_empty());
+    let (hb, a) = heartbeat("g", 0);
+    play(&rec, 1, "c", &hb, Answer::Response(&a), 4);
+    let (c1, rows) = rec.since(&q, c0);
+    assert!(c1 > c0 && rows.len() == 1);
+    assert_eq!(
+        rec.tape(&q, now_ms()).cursor,
+        c1,
+        "the page and the tail count from the same version"
+    );
+    assert!(
+        rec.since(&q, c1).1.is_empty(),
+        "nothing new: nothing to send"
+    );
+}
+
+#[test]
+fn a_tail_sees_only_the_rows_its_filters_pass() {
+    let rec = Recorder::new();
+    open(&rec, 1);
+    let (p, a) = produce("orders", 1, 0);
+    play(&rec, 1, "app", &p, Answer::Response(&a), 9);
+    let (p2, a2) = produce("other", 1, 0);
+    play(&rec, 1, "app", &p2, Answer::Response(&a2), 9);
+    let q = WireQuery {
+        topic: "orders".into(),
+        ..WireQuery::default()
+    };
+    let (_, rows) = rec.since(&q, 0);
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].topics, vec!["orders".to_owned()]);
 }

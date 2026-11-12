@@ -7,16 +7,14 @@ use crate::assets::Assets;
 use crate::base::Base;
 use crate::fixtures;
 use crate::fixtures_live as world;
-use crate::live_ids::{GROUP_WIRE_IDS, LIVE_IDS, TOPIC_WIRE_IDS};
 use crate::model::WireQuery;
 use crate::pages::live as page;
 use crate::ui::overlay::{Over, over};
 use crate::ui::shell::{Crumb, Page, Rail, document_over};
 
 /// The boards this slice builds, by screen id.
-pub const IDS: [&str; 12] = [
+pub const IDS: [&str; 11] = [
     "live-wire",
-    "live-paused",
     "live-quiet",
     "live-load",
     "request-detail",
@@ -67,7 +65,7 @@ fn content(id: &str, base: &Base) -> Option<Content> {
             "Live".to_owned(),
             Rail::Live,
             steps,
-            LIVE_IDS,
+            crate::regions::LIVE,
         )
     };
     let opened = |which: &str, last: &'static str| {
@@ -76,12 +74,11 @@ fn content(id: &str, base: &Base) -> Option<Content> {
             "Live".to_owned(),
             Rail::Live,
             vec![("Live", Some("/live")), (last, None)],
-            LIVE_IDS,
+            crate::regions::LIVE,
         ))
     };
     Some(match id {
         "live-wire" => live("steady"),
-        "live-paused" => live("paused"),
         "live-quiet" => live("quiet"),
         "live-load" => live("load"),
         "request-detail" => opened("detail", "Fetch v12")?,
@@ -95,7 +92,7 @@ fn content(id: &str, base: &Base) -> Option<Content> {
                 "Live".to_owned(),
                 Rail::Live,
                 vec![("Live", Some("/live")), ("Clients", None)],
-                LIVE_IDS,
+                crate::regions::LIVE,
             )
         }
         "connect-first-request" => (
@@ -119,7 +116,7 @@ fn content(id: &str, base: &Base) -> Option<Content> {
                     ("orders", Some("/topics/orders")),
                     ("orders on the wire", None),
                 ],
-                TOPIC_WIRE_IDS,
+                crate::regions::TOPIC_WIRE,
             )
         }
         "group-wire" => {
@@ -137,7 +134,7 @@ fn content(id: &str, base: &Base) -> Option<Content> {
                     ("fulfilment", Some("/groups/fulfilment")),
                     ("Wire", None),
                 ],
-                GROUP_WIRE_IDS,
+                crate::regions::GROUP_WIRE,
             )
         }
         _ => return None,

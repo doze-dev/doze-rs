@@ -56,14 +56,14 @@ fn the_list_has_the_boards_nine_topics_and_the_hidden_internal_one() {
         &d,
         &[
             "<h1>Topics</h1>",
-            "9 topics hold",
-            "<b>21</b>",
-            "partitions.",
-            "The newest write was <b>0.2 s</b> ago, to clickstream.",
-            "One internal topic is hidden.",
+            "<span class=\"k\">Topics</span>",
+            "<span class=\"k\">Partitions</span>",
+            "21",
+            "<span class=\"k\">Newest write</span>",
+            "<span class=\"k\">Written to</span>",
+            "clickstream",
             "Filter topics by name",
             "Show internal",
-            "Refresh",
             "Cleanup policy",
             "Size on disk",
             "Last write",
@@ -81,7 +81,7 @@ fn the_list_has_the_boards_nine_topics_and_the_hidden_internal_one() {
             "retention 1 h",
             ">orders.dlq</a>",
             "empty: no records yet",
-            "9 of 9 topics",
+            ">9</span> topics",
             "One internal topic is hidden.",
             "__consumer_offsets",
             "Why it is read only.",
@@ -92,9 +92,10 @@ fn the_list_has_the_boards_nine_topics_and_the_hidden_internal_one() {
         "sizes"
     );
     assert!(
-        d.contains(">0.2 s ago<")
-            && d.contains(">41 s ago<")
-            && d.contains(">3 d ago<")
+        // A time is absolute in the text (CON-806); how long ago is on the hover, worked out by the script.
+        d.contains("data-rel")
+            && !d.contains(" s ago<")
+            && !d.contains(" d ago<")
             && d.contains(">never<")
     );
 }
@@ -141,17 +142,17 @@ fn the_topic_page_has_the_open_transaction_the_toolbar_and_the_ten_newest() {
         &[
             "<h1 class=\"mono\">orders</h1>",
             "Transaction open",
-            "has 3 partitions, keeps records for 7 d",
-            "<b>48,213</b>",
             "Partitions",
             "Produce",
             "Delete topic",
-            "Messages",
-            "Consumers<span class=\"n\">2</span>",
-            "Producers<span class=\"n\">3</span>",
+            "<span class=\"k\">Records</span>",
+            "48,213",
             "Transaction orders-eos is open.",
             "Producer 4017 (epoch 2) began it at 22:13:33 UTC on orders-0 and orders-1; the timeout is 60 s.",
             "held 6 records behind",
+            "Messages",
+            "Consumers<span class=\"n\">2</span>",
+            "Producers<span class=\"n\">3</span>",
             "All partitions",
             "Reading as",
             "read_uncommitted",
@@ -161,11 +162,12 @@ fn the_topic_page_has_the_open_transaction_the_toolbar_and_the_ten_newest() {
             "Above LSO",
             "ord-88409",
             "binary · 0a 09 6f 72 64 2d 38 38 …",
-            "Newest first · 10 of 48,213",
+            "Newest first · ",
+            ">10</span> of <span",
             "3 of 3 partitions online",
         ],
     );
-    assert_eq!(d.matches("<tr><td class=\"mono\">").count(), 10);
+    assert_eq!(d.matches("<tr id=\"records-r-").count(), 10);
 }
 
 #[test]
@@ -176,8 +178,7 @@ fn the_empty_topic_the_filtered_read_and_the_committed_read_are_their_boards() {
         &empty,
         &[
             "orders.dlq",
-            "has 1 partition",
-            "and is empty: offsets 0 to 0, no write yet.",
+            "<span class=\"k\">Partitions</span>",
             "No records yet",
             "Produce a record",
             "Or from your app",
@@ -281,8 +282,10 @@ fn the_partitions_and_the_offline_pages_are_their_boards() {
         "topic-partitions",
         &p,
         &[
-            "3 partitions, <b>48,213</b> records, 7.9 MiB.",
             "Add partitions",
+            "<span class=\"k\">Records</span>",
+            "48,213",
+            "7.9 MiB",
             "One broker.",
             "Log start",
             "High watermark",
@@ -303,9 +306,7 @@ fn the_partitions_and_the_offline_pages_are_their_boards() {
         &o,
         &[
             "Partition 1 offline",
-            "Partitions 0 and 2 work;",
-            "partition 1</b> went offline after a failed flush",
-            "notifications.email-1 is offline.",
+            "<span class=\"k\">Offline</span>",
             "Input/output error (os error 5)",
             "What works and what does not",
             "KAFKA_STORAGE_ERROR (56)",

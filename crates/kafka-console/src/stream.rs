@@ -1,6 +1,6 @@
 //! `GET /events?tail=live|messages&...`: the console's only stream, for the two tails (CON-809, `docs/port/console/live-design.md`).
 //!
-//! A person has asked for it (the `Live tail` control of the Live page or of a topic's Messages page); no other page opens a
+//! A person has asked for it (and for how fast: `pace=1|3|10` seconds, never under one, never over thirty) (the `Live tail` control of the Live page or of a topic's Messages page); no other page opens a
 //! stream. The server COALESCES: it looks once a second, and sends an event only when rows were added (or a folded row grew),
 //! so the traffic rate of the cluster never becomes the update rate of the page. An event carries the rows as HTML, newest
 //! first, and its `id` is the cursor the next look starts from: when the browser reconnects it sends that as `Last-Event-ID`,
@@ -20,8 +20,20 @@ use crate::model::{MessageQuery, WireQuery};
 use crate::state::Shared;
 use crate::ui::client::EVENT_ROWS;
 
-/// How often the server looks for new rows: the most events a second a tail can send.
-pub const EVERY: Duration = Duration::from_secs(1);
+/// The least time between two looks: the most events a second a tail can send, whatever it asks for.
+pub const LEAST_PACE: u64 = 1;
+/// The most a person can slow a tail to, in seconds (Realtime 1, Relaxed 3, Slow 10).
+pub const MOST_PACE: u64 = 30;
+
+/// The time between looks that a request for `pace` seconds is given: never faster than once a second, never slower than 30 s.
+#[must_use]
+pub fn pace_of(pace: Option<&str>) -> Duration {
+    Duration::from_secs(
+        pace.and_then(|p| p.parse::<u64>().ok())
+            .unwrap_or(LEAST_PACE)
+            .clamp(LEAST_PACE, MOST_PACE),
+    )
+}
 /// The comment line sent every 15 s.
 pub const KEEP_ALIVE: Duration = Duration::from_secs(15);
 /// The most records a Messages tail looks at in one look.
@@ -129,12 +141,13 @@ fn event(batch: &Batch) -> Event {
 pub fn events(
     s: Shared,
     feed: Feed,
+    pace: Duration,
     slot: OwnedSemaphorePermit,
 ) -> impl Stream<Item = Result<Event, Infallible>> {
     let ready = stream::once(std::future::ready(Ok(Event::default()
         .event("ready")
         .data("ok"))));
-    let mut every = tokio::time::interval(EVERY);
+    let mut every = tokio::time::interval(pace);
     every.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
     // The permit lives as long as the stream does, and is given back when it is dropped.
     let rest = stream::unfold(
@@ -158,15 +171,30 @@ pub fn events(
 pub fn response(
     s: Shared,
     feed: Feed,
+    pace: Duration,
     slot: OwnedSemaphorePermit,
 ) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
-    Sse::new(events(s, feed, slot))
+    Sse::new(events(s, feed, pace, slot))
         .keep_alive(KeepAlive::new().interval(KEEP_ALIVE).text("keep-alive"))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_pace_is_what_was_asked_within_the_caps() {
+        assert_eq!(pace_of(None), Duration::from_secs(1));
+        assert_eq!(pace_of(Some("3")), Duration::from_secs(3));
+        assert_eq!(
+            pace_of(Some("0")),
+            Duration::from_secs(1),
+            "never faster than once a second"
+        );
+        assert_eq!(pace_of(Some("9999")), Duration::from_secs(30));
+        assert_eq!(pace_of(Some("-4")), Duration::from_secs(1));
+        assert_eq!(pace_of(Some("fast")), Duration::from_secs(1));
+    }
 
     #[test]
     fn a_line_break_in_a_value_cannot_split_an_event() {

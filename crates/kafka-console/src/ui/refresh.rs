@@ -1,5 +1,5 @@
 //! The Refresh control (CON-802): at the right of the breadcrumb row of a data page. A button (key `r`), the time the data was
-//! rendered (absolute, UTC, never "s ago") and an interval picker (Off, 5 s, 15 s, 30 s, 1 min; default Off). With a script it
+//! rendered (absolute, UTC, never "s ago") and an interval picker (Off, 5 s, 10 s, 30 s, 1 min; default Off). With a script it
 //! fetches the page's regions again, with their ETags, now or on the interval; without one the button is a link that reloads the
 //! page and the picker is not offered. The behaviour is `assets/live.js` (`refreshControl`).
 
@@ -13,7 +13,7 @@ use crate::format::{civil, clock};
 pub const INTERVALS: [(&str, &str); 5] = [
     ("0", "Off"),
     ("5", "5 s"),
-    ("15", "15 s"),
+    ("10", "10 s"),
     ("30", "30 s"),
     ("60", "1 min"),
 ];
@@ -33,7 +33,7 @@ pub fn refresh_bar(regions: &[&str], now_ms: i64) -> Markup {
             span class="every" {
                 (select(&Select { class: "dz-chip", ui: Some("refresh-every"), ..Select::new("refresh-every", "every", "Refresh every", &choices, "0") }))
             }
-            span class="bad" data-refresh-failed hidden { "Could not refresh" }
+            span class="bad" data-refresh-failed hidden {}
             a class="btn sm" href="" data-refresh-now title="Refresh (r)" aria-label="Refresh" x-on:click="now" { (glyph(Glyph::Refresh, 14, "")) "Refresh" }
         }
     }

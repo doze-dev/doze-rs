@@ -695,6 +695,64 @@ html.is-loading::before{content:"";position:fixed;z-index:90;top:0;left:0;right:
 .gal section{padding:20px 24px;background:#fff;border:1px solid var(--line);border-radius:14px}
 .gal h2{margin:0 0 4px;font-size:16px;font-weight:600;color:var(--bright)}
 .gal .row{display:flex;flex-wrap:wrap;align-items:flex-start;gap:16px;margin-top:14px}
+/* ==== Live design (CON-800 to CON-812, docs/port/console/live-design.md) ==== */
+/* The breadcrumb row carries the Refresh control at its right; the control's parts have fixed widths, so nothing in the row moves. */
+.crumb-row{display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:36px}
+.crumb-row .crumbs{flex:1;min-width:0}
+.refresh{display:flex;align-items:center;gap:10px;flex:none;font-size:12.5px;color:var(--dim)}
+.refresh .stamp{white-space:nowrap;font-variant-numeric:tabular-nums}
+.refresh .stamp time{display:inline-block;min-width:8ch}
+.refresh:not(.is-on) .every{visibility:hidden}
+.refresh .every{display:inline-block;min-width:96px}
+.refresh .bad{color:var(--bad);white-space:nowrap;max-width:300px;overflow:hidden;text-overflow:ellipsis}
+.refresh .btn.sm{height:30px}
+.nowrap{white-space:nowrap}
+/* Regions of reserved height: a conditional block has its own place, calm when there is nothing to say (CON-807). */
+.txn-region{min-height:84px;margin:0 0 24px}
+.attention-region{min-height:80px;margin:0 0 24px}
+.home-callout{min-height:96px}
+details.refusals{margin:-8px 0 16px;min-height:40px;font-size:13.5px;color:var(--dim)}
+details.refusals>summary{display:flex;align-items:center;gap:0;min-height:40px;cursor:pointer;list-style:none;white-space:nowrap;color:var(--text)}
+details.refusals>summary::-webkit-details-marker{display:none}
+.refusal-lines{margin:0 0 8px;padding:0 0 0 2px;list-style:none;display:grid;gap:6px}
+.refusal-lines li{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)}
+.calm{display:flex;align-items:center;gap:10px;min-height:56px;padding:0 16px;box-sizing:border-box;border:1px solid var(--line);border-radius:12px;background:var(--well);color:var(--dim);font-size:13.5px}
+.calm svg{color:var(--good)}
+.dl .cd{color:var(--dim)}
+/* The DataTable: the columns are declared by the page (a colgroup), a row has one height, a cell one line (CON-808). */
+.dt{position:relative;contain:layout}
+table.dt-t{table-layout:fixed;width:100%}
+.dt-t th,.dt-t td{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-left:12px;padding-right:12px}
+.dt-t td{height:44px;padding-top:0;padding-bottom:0}
+.dt.compact .dt-t td{height:36px}
+.dt.roomy .dt-t td{height:56px}
+.dt-t td.wrap{white-space:normal}
+.dt-t td.r,.dt-t th.r{text-align:right;font-variant-numeric:tabular-nums}
+.dt .ell{display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}
+.dt .sub{display:inline;margin:0 0 0 8px;font-size:12.5px;color:var(--dim)}
+.dt.roomy .sub{display:block;margin:1px 0 0}
+.dt.roomy .sub.ell{display:block;max-width:100%}
+.dt td a.lnk{display:inline-block;max-width:100%;padding:7px 8px;margin:-7px -8px;overflow:hidden;text-overflow:ellipsis;vertical-align:middle}
+.dt-empty{min-height:120px;display:flex;align-items:center;justify-content:center;padding:24px;text-align:center;color:var(--dim);background:#fff;border:1px solid var(--line);border-top:0;border-radius:0 0 14px 14px}
+.dt-empty[hidden]{display:none}
+.dt:has(.dt-empty:not([hidden])) .dt-t{border-bottom-left-radius:0;border-bottom-right-radius:0}
+/* A new row of a tail is marked by its background for a moment; nothing else about it changes. */
+.dt tbody tr.fresh td{animation:dz-new 1.5s ease-out}
+@keyframes dz-new{from{background-color:#e9e0ff}to{background-color:transparent}}
+@media (prefers-reduced-motion:reduce){.dt tbody tr.fresh td{animation:none;background-color:#f1ecff}}
+/* The tail's control: a segmented control, the connection indicator, and the pill of what is held. */
+.tailbar{display:flex;align-items:center;gap:14px;margin:0 0 12px;min-height:34px;flex-wrap:nowrap}
+.tailbar .speed{display:inline-flex}
+.tailbar .seg button:disabled{opacity:.5;cursor:not-allowed}
+.conn{display:inline-flex;align-items:center;gap:7px;min-width:210px;font-size:12.5px;color:var(--dim);white-space:nowrap}
+.conn .dot{width:8px;height:8px;border-radius:50%;background:#aaa5bf;flex:none}
+.conn[data-conn=live] .dot{background:var(--good)}
+.conn[data-conn=reconnecting] .dot{background:#d99a1b}
+.conn[data-conn=disconnected] .dot{background:var(--bad)}
+.conn[data-conn=disconnected]{color:var(--bad)}
+.held-pill{position:fixed;top:66px;left:50%;transform:translateX(-50%);z-index:30;height:32px;padding:0 14px;border-radius:999px;border:1px solid var(--accent);background:var(--accent);color:#fff;font:inherit;font-size:13px;font-weight:500;cursor:pointer;box-shadow:0 4px 14px rgba(58,53,80,.22);white-space:nowrap;font-variant-numeric:tabular-nums}
+.held-pill[hidden]{display:none}
+.tail-root.is-tailing .pager{visibility:hidden}
 
 /* A narrow window (a laptop with the console beside an editor): the rail keeps only its icons (the name is a tooltip), the page gets
    its room back, and a table cell is a little tighter, so that no page scrolls sideways at 1024 px. */
@@ -780,7 +838,11 @@ p,.sub,.lede,.help{text-wrap:pretty}
 
 /* A slot whose content changes does not change its size (no layout depends on a live value): the list of refusals above the tape is
    always two lines tall (the newest that fit; the drawer of each has the rest), so a new refusal moves nothing. */
-.refusal-links{height:52px;overflow:hidden;align-content:flex-start}
 .wire-dock>h2,.wire-dock>.lede{min-height:0}
 /* Figures keep their width as they change. */
 .sub .mono,.sub b,.sent .mono,.sent b,.tab .n,.pill,.mono.r,td.mono,.stat .v,.kv dd .mono{font-variant-numeric:tabular-nums}
+/* Metric slots (ui::metrics): the figure of a tile has a declared width, and a value in a line of text is a slot of its own width. */
+.page-h + .stats,.page-h + .frag > .stats{margin-top:-12px}
+.stats.tile{grid-template-columns:minmax(150px,240px)}
+.slot{display:inline-block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom;font-variant-numeric:tabular-nums}
+.stat .s{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

@@ -80,7 +80,7 @@ async fn every_kind_of_answer_carries_all_five_headers_with_their_whole_values()
     assert_eq!(res.status(), StatusCode::FORBIDDEN);
     assert_all_five(res.headers(), "403 origin");
     // 400: a stream that watches what it may not, and a form that goes nowhere.
-    let (res, _) = send(&app, get("/events?watch=nope")).await;
+    let (res, _) = send(&app, get("/events?tail=nope")).await;
     assert_eq!(res.status(), StatusCode::BAD_REQUEST);
     assert_all_five(res.headers(), "400");
     // 413: declared over the limit, and undeclared (cut at the limit).
@@ -104,7 +104,7 @@ async fn every_kind_of_answer_carries_all_five_headers_with_their_whole_values()
     assert_eq!(res.status(), StatusCode::SEE_OTHER);
     assert_all_five(res.headers(), "303");
     // The head of a stream, which has no end.
-    let res = head(&app, get("/events?watch=home-live")).await;
+    let res = head(&app, get("/events?tail=live")).await;
     assert_eq!(res.status(), StatusCode::OK);
     assert_all_five(res.headers(), "stream head");
 }

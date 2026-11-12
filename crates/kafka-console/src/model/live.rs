@@ -118,7 +118,10 @@ pub struct WireWindow {
 /// A refusal to link to from the top of the tape.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WireRefusal {
+    /// The newest request refused in this way (the "View" opens it).
     pub id: u64,
+    /// How many requests the recorder holds that were refused with this code for this client.
+    pub count: u32,
     pub code_name: String,
     pub code: i16,
     pub client: String,
@@ -146,7 +149,10 @@ pub struct LiveView {
     pub matched: usize,
     pub window: WireWindow,
     pub query: WireQuery,
+    /// One entry for each (code, client) that was refused, newest first, at most three.
     pub refused: Vec<WireRefusal>,
+    /// How many more (code, client) pairs there are than `refused` shows.
+    pub refused_more: usize,
     pub refused_total: usize,
     pub denied_total: usize,
     /// Clients connected now.

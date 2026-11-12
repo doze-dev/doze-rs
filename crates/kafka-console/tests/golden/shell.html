@@ -98,7 +98,8 @@
 <kbd>⌘K</kbd>jump</span>
 </div>
 </nav>
-<main class="main" id="main" data-stream="/k/events?watch=home-instance,home-sentence">
+<main class="main" id="main">
+<div class="crumb-row">
 <nav class="crumbs" aria-label="Breadcrumb">
 <a href="/k/">Home</a>
 <svg class="gl" width="12" height="12" viewBox="0 0 16 16" aria-hidden="true">
@@ -106,8 +107,76 @@
 </svg>
 <span class="cur">Connect an app</span>
 </nav>
-<div class="banner bad" id="stream-banner" hidden role="status">
-<b>Live updates are paused.</b> The console lost its connection to the broker's process. It is trying again; the page itself is still right as of its last load.</div>
+<div class="refresh" x-data="refreshControl" x-on:change="picked" data-refresh data-regions="home-instance,home-sentence">
+<span class="stamp">Updated <time data-stamp data-vary datetime="2026-11-12T20:56:34Z" title="UTC">20:56:34</time>
+</span>
+<span class="every">
+<div class="dz dz-select dz-chip" x-data="dzSelect" x-on:keydown="key" x-on:click="click" x-on:mousemove="hover" x-on:focusout="focusout" x-on:click.outside="away" :data-open="open" data-ui="select" data-name="every">
+<select class="dz-native" id="refresh-every" name="every" aria-label="Refresh every">
+<option value="0" selected>Off</option>
+<option value="5">5 s</option>
+<option value="10">10 s</option>
+<option value="30">30 s</option>
+<option value="60">1 min</option>
+</select>
+<button type="button" class="dz-trigger" x-ref="trigger" role="combobox" aria-haspopup="listbox" aria-expanded="false" :aria-expanded="open" aria-controls="refresh-every-list" data-placeholder="Choose" data-ui="refresh-every" hidden>
+<span class="dz-value">Off</span>
+<svg class="gl dz-chev" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+<path d="M4 6.2 8 10l4-3.8"/>
+</svg>
+</button>
+<div class="dz-pop" role="listbox" id="refresh-every-list" aria-label="Refresh every" x-ref="list" x-show="open" x-anchor.bottom-start.offset.4="$refs.trigger" style="display:none">
+<div class="dz-opt" role="option" id="refresh-every-o0" data-value="0" data-label="Off" title="Off" aria-selected="true">
+<svg class="gl dz-check" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+<path d="M3.4 8.6l3 3L12.6 4.6"/>
+</svg>
+<span class="dz-opt-t">
+<span class="dz-opt-label">Off</span>
+</span>
+</div>
+<div class="dz-opt" role="option" id="refresh-every-o1" data-value="5" data-label="5 s" title="5 s" aria-selected="false">
+<svg class="gl dz-check" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+<path d="M3.4 8.6l3 3L12.6 4.6"/>
+</svg>
+<span class="dz-opt-t">
+<span class="dz-opt-label">5 s</span>
+</span>
+</div>
+<div class="dz-opt" role="option" id="refresh-every-o2" data-value="10" data-label="10 s" title="10 s" aria-selected="false">
+<svg class="gl dz-check" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+<path d="M3.4 8.6l3 3L12.6 4.6"/>
+</svg>
+<span class="dz-opt-t">
+<span class="dz-opt-label">10 s</span>
+</span>
+</div>
+<div class="dz-opt" role="option" id="refresh-every-o3" data-value="30" data-label="30 s" title="30 s" aria-selected="false">
+<svg class="gl dz-check" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+<path d="M3.4 8.6l3 3L12.6 4.6"/>
+</svg>
+<span class="dz-opt-t">
+<span class="dz-opt-label">30 s</span>
+</span>
+</div>
+<div class="dz-opt" role="option" id="refresh-every-o4" data-value="60" data-label="1 min" title="1 min" aria-selected="false">
+<svg class="gl dz-check" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+<path d="M3.4 8.6l3 3L12.6 4.6"/>
+</svg>
+<span class="dz-opt-t">
+<span class="dz-opt-label">1 min</span>
+</span>
+</div>
+</div>
+</div>
+</span>
+<span class="bad" data-refresh-failed hidden>
+</span>
+<a class="btn sm" href="" data-refresh-now title="Refresh (r)" aria-label="Refresh" x-on:click="now">
+<svg class="gl" width="14" height="14" viewBox="0 0 16 16" aria-hidden="true">
+<path d="M13 8a5 5 0 1 1-1.7-3.8M13 3v3.2h-3.2"/>
+</svg>Refresh</a>
+</div>
+</div>
 <h1>Connect an app</h1>
 </main>
 </div>

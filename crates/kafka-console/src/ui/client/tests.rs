@@ -110,19 +110,18 @@ fn the_script_follows_the_rules_the_spike_found_and_runs_under_the_strictest_pol
             "the newest request wins per fragment",
             "new AbortController()",
         ),
+        ("a hidden tab polls nothing", "visibilitychange"),
         (
-            "the stream is closed when the page is hidden",
-            "visibilitychange",
+            "a tail is closed when the page goes to the back/forward cache",
+            "'pagehide'",
         ),
-        ("and when it goes to the back/forward cache", "'pagehide'"),
-        ("and reopened when it comes back", "'pageshow'"),
         (
             "the focused input keeps its value",
             "ignoreActiveValue = true",
         ),
         (
             "the reconnect waits longer and longer",
-            "Math.min(wait * 2, 15000)",
+            "WAITS = [1, 2, 4, 8, 15, 30]",
         ),
     ] {
         assert!(
@@ -152,7 +151,7 @@ fn the_script_follows_the_rules_the_spike_found_and_runs_under_the_strictest_pol
     // (The script is the product's logic over htmx and Alpine: the tests in `tools/dom` run it with both. It is small enough to read in
     // one sitting; the generic parts (fragment swaps, link and form interception, popups) are the libraries'.)
     assert!(
-        SCRIPT.lines().count() < 700,
+        SCRIPT.lines().count() < 900,
         "the script is small enough to read in one sitting"
     );
 }

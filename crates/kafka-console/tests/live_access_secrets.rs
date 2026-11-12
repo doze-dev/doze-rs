@@ -65,7 +65,7 @@ async fn no_planted_password_salt_or_key_is_in_any_page_fragment_stream_or_debug
         "/access/acls/delete?type=topic&name=orders&principal=User%3Aorders&op=write",
         "/settings/config/edit?key=log.retention.ms",
         "/fragments/home-live",
-        "/events?watch=home-live",
+        "/events?tail=live",
     ] {
         if path.starts_with("/events") {
             continue;
@@ -108,7 +108,7 @@ async fn no_planted_password_salt_or_key_is_in_any_page_fragment_stream_or_debug
 
 /// CON-565: the stream carries only fragment ids, so no secret can be in it.
 #[tokio::test]
-async fn the_stream_of_a_secured_console_carries_ticks_and_nothing_else() {
+async fn the_stream_of_a_secured_console_carries_a_ready_and_nothing_else() {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     let s = secured("acc-stream", false).await;
     let planted = secrets(&s);
@@ -126,12 +126,12 @@ async fn the_stream_of_a_secured_console_carries_ticks_and_nothing_else() {
     .unwrap();
     let addr = running.local_addr();
     let mut c = tokio::net::TcpStream::connect(addr).await.unwrap();
-    c.write_all(format!("GET /events?watch=home-live HTTP/1.1\r\nHost: {addr}\r\n\r\n").as_bytes())
+    c.write_all(format!("GET /events?tail=live HTTP/1.1\r\nHost: {addr}\r\n\r\n").as_bytes())
         .await
         .unwrap();
     let mut text = String::new();
     let mut buf = [0_u8; 1024];
-    while !text.contains("data: home-live") {
+    while !text.contains("event: ready") {
         let n = tokio::time::timeout(std::time::Duration::from_secs(3), c.read(&mut buf))
             .await
             .unwrap()

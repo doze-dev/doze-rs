@@ -71,9 +71,13 @@ fn the_top_bar_says_the_address_the_profile_and_what_is_on() {
 }
 
 #[test]
-fn a_page_that_watches_opens_a_stream_and_one_that_does_not_has_none() {
+fn no_page_opens_a_stream_and_a_page_that_lists_regions_has_the_refresh_control_in_the_breadcrumb_row()
+ {
     let none = render(&fixtures::chrome(), Rail::Home, &[], "/");
-    assert!(!none.contains("data-stream"));
+    assert!(
+        !none.contains("data-stream") && !none.contains("data-refresh"),
+        "a snapshot with nothing to refresh has no control"
+    );
     let some = render(
         &fixtures::chrome(),
         Rail::Home,
@@ -81,8 +85,12 @@ fn a_page_that_watches_opens_a_stream_and_one_that_does_not_has_none() {
         "/k",
     );
     assert!(
-        some.contains(r#"data-stream="/k/events?watch=home-instance,home-sentence""#)
-            && some.contains(r#"<main class="main" id="main" data-stream"#),
+        !some.contains("data-stream"),
+        "no page subscribes by itself"
+    );
+    assert!(
+        some.contains(r#"<div class="crumb-row"><nav class="crumbs""#)
+            && some.contains(r#"data-regions="home-instance,home-sentence""#),
         "{some}"
     );
 }
@@ -98,12 +106,6 @@ fn the_guard_banner_is_on_the_page_only_when_the_console_is_unprotected() {
         "{s}"
     );
     assert!(s.contains(r#"role="alert""#));
-}
-
-#[test]
-fn the_stream_banner_is_hidden_until_the_script_shows_it() {
-    let s = render(&fixtures::chrome(), Rail::Home, &[], "/");
-    assert!(s.contains(r#"id="stream-banner" hidden role="status""#));
 }
 
 #[test]

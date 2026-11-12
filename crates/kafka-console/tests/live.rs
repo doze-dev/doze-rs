@@ -138,18 +138,13 @@ async fn a_broker_with_no_topics_is_the_quiet_home_and_with_one_it_is_the_steady
     let (res, body) = send(&app, get("/")).await;
     assert_eq!(res.status(), StatusCode::OK);
     assert!(body.contains("<h1>Your broker is up</h1>"), "{body:.300}");
-    assert!(
-        body.contains("Started 0 s ago on a new data directory.")
-            || body.contains("ago on a new data directory."),
-        "{body}"
-    );
+    assert!(body.contains("Started on a new data directory."), "{body}");
     assert!(body.contains(&w.facts.listen.to_string()));
     w.create_topic("orders").await;
     let (_, body) = send(&app, get("/")).await;
     assert!(body.contains("<h1>Home</h1>"), "{body:.300}");
-    assert!(body.contains("It holds 1 topic and 1 partition."), "{body}");
+    assert!(body.contains(r#"<span class="k">Topics</span><span class="v" style="min-width:5ch" title="1">1</span>"#), "{body}");
     assert!(body.contains("Nothing needs you."));
-    assert!(body.contains("on a new data directory. It holds"), "{body}");
     w.stop().await;
 }
 
@@ -159,7 +154,7 @@ async fn the_console_reads_a_broker_that_refuses_everyone_else_because_it_is_a_s
     w.create_topic("orders").await;
     let app = w.router();
     let (_, body) = send(&app, get("/")).await;
-    assert!(body.contains("It holds 1 topic and 1 partition."), "{body}");
+    assert!(body.contains(r#"<span class="k">Topics</span><span class="v" style="min-width:5ch" title="1">1</span>"#), "{body}");
     assert!(
         body.contains("Open · ACLs"),
         "the chip says ACLs deny by default"

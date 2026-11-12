@@ -136,7 +136,7 @@ async fn a_live_drawer_closes_to_the_live_page_with_its_filters_and_the_tape_lin
         assert_eq!(between(&page, "<a class=\"scrim\" href=\"", "\""), want);
         // The Live page behind it is the tape fragment (with its row count), so a script can hold it and let it catch up.
         assert!(
-            page.contains("id=\"live-wire\"") && page.contains("data-seen="),
+            page.contains("id=\"live-wire\"") && page.contains("data-tail-url="),
             "{link}"
         );
         // A script is sent the drawer alone.

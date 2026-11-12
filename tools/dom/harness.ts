@@ -14,6 +14,7 @@ const SCRIPTS = {
   idiomorph: await read("idiomorph-ext-0.8.0.min.js"),
   console: CONSOLE,
   components: await read("components.js"),
+  live: await read("live.js"),
   anchor: await read("alpine-anchor-3.17.5.min.js"),
   alpine: await read("alpine-csp-3.17.5.min.js"),
 };
@@ -69,19 +70,19 @@ export class FakeEventSource {
   closed = false;
   onopen: (() => void) | null = null;
   onerror: (() => void) | null = null;
-  private listeners = new Map<string, Array<(e: { data: string }) => void>>();
+  private listeners = new Map<string, Array<(e: { data: string; lastEventId: string }) => void>>();
   constructor(public url: string) {
     FakeEventSource.all.push(this);
   }
-  addEventListener(type: string, fn: (e: { data: string }) => void): void {
+  addEventListener(type: string, fn: (e: { data: string; lastEventId: string }) => void): void {
     this.listeners.set(type, [...(this.listeners.get(type) ?? []), fn]);
   }
   close(): void {
     this.closed = true;
   }
   /** The server sent an event. */
-  emit(type: string, data: string): void {
-    for (const fn of this.listeners.get(type) ?? []) fn({ data });
+  emit(type: string, data: string, lastEventId = ""): void {
+    for (const fn of this.listeners.get(type) ?? []) fn({ data, lastEventId });
   }
   open(): void {
     this.onopen?.();
@@ -91,7 +92,7 @@ export class FakeEventSource {
   }
 }
 
-export type Timer = { fn: () => void; ms: number; cleared: boolean };
+export type Timer = { fn: () => void; ms: number; cleared: boolean; id?: unknown };
 
 export interface Page {
   history: FakeHistory;
@@ -120,13 +121,10 @@ export interface Page {
   /** Runs the timers that are set (once each), returning how many. */
   runTimers(): number;
   click(el: Element): void;
-  tick(ids: string): void;
   flush(): Promise<void>;
 }
 
 export interface Options {
-  /** The stream's URL on the body (what the server renders); none for a page that does not listen. */
-  stream?: string | null;
   /** Is `navigator.clipboard` there? (Not over plain http on a LAN address.) */
   clipboard?: boolean;
   /** No EventSource at all. */
@@ -155,7 +153,6 @@ export async function boot(html: string, opts: Options = {}): Promise<Page> {
     document.body.setAttribute("hx-swap", "outerHTML transition:true show:window:top");
     document.body.setAttribute("hx-ext", "morph");
   }
-  if (opts.stream) (document.getElementById("main") ?? document.body).setAttribute("data-stream", opts.stream);
   const calls: Call[] = [];
   const pending: Pending[] = [];
   const timers: Timer[] = [];
@@ -316,12 +313,13 @@ export async function boot(html: string, opts: Options = {}): Promise<Page> {
   // (and a test that waits for a delay waits that long, or reads `timers` for what was asked).
   const realSet = window.setTimeout.bind(window), realClear = window.clearTimeout.bind(window);
   (window as unknown as { setTimeout: unknown }).setTimeout = (fn: () => void, ms: number) => {
-    timers.push({ fn, ms, cleared: false });
-    if (opts.alpine) return realSet(() => { if (!timers.find((t) => t.fn === fn)?.cleared) fn(); }, ms);
+    const t: Timer = { fn, ms, cleared: false };
+    timers.push(t);
+    if (opts.alpine) { t.id = realSet(() => { if (!t.cleared) { t.cleared = true; fn(); } }, ms); return t.id as number; }
     return timers.length;
   };
   (window as unknown as { clearTimeout: unknown }).clearTimeout = (id: number) => {
-    if (opts.alpine) { realClear(id); return; }
+    if (opts.alpine) { realClear(id); const t = timers.find((x) => x.id === id); if (t) t.cleared = true; return; }
     const t = timers[id - 1];
     if (t) t.cleared = true;
   };
@@ -371,6 +369,7 @@ export async function boot(html: string, opts: Options = {}): Promise<Page> {
   window.eval(SCRIPTS.idiomorph);
   window.eval(SCRIPTS.console);
   window.eval(SCRIPTS.components);
+  window.eval(SCRIPTS.live);
   if (opts.alpine) {
     window.eval(SCRIPTS.anchor);
     window.eval(SCRIPTS.alpine);
@@ -407,10 +406,6 @@ export async function boot(html: string, opts: Options = {}): Promise<Page> {
     },
     click: (el) => {
       el.dispatchEvent(new window.MouseEvent("click", { bubbles: true, cancelable: true }));
-    },
-    tick: (ids) => {
-      const es = FakeEventSource.all[FakeEventSource.all.length - 1];
-      es.emit("tick", ids);
     },
     flush,
   };

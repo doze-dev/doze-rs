@@ -457,7 +457,7 @@
     pageUrl = here();
     let y = 0;
     if (store) { try { y = Number(store.getItem('doze:y:' + pageUrl)) || 0; } catch (e) { y = 0; } }
-    if (window.scrollTo) window.scrollTo(0, y);
+    if (window.scrollTo) window.scrollTo({ top: y, left: 0, behavior: 'instant' });
     reveal();
     sync();
   });

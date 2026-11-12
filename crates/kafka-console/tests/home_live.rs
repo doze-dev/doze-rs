@@ -69,13 +69,20 @@ async fn creating_a_topic_flips_title_sentence_and_cards_in_the_one_fragment_wit
     let app = w.router();
     let (res, quiet) = send(&app, get("/fragments/home-live")).await;
     assert_eq!(res.status(), StatusCode::OK);
-    assert!(quiet.contains("<h1>Your broker is up</h1>"), "{quiet:.400}");
+    // The title is the page's, not the region's (CON-803: a region holds data); the page says it.
+    assert!(!quiet.contains("<h1>"), "{quiet:.400}");
+    let (_, quiet_page) = send(&app, get("/")).await;
+    assert!(
+        quiet_page.contains("<h1>Your broker is up</h1>"),
+        "{quiet_page:.400}"
+    );
     assert!(quiet.contains("Waiting for your first request"), "{quiet}");
     assert!(quiet.contains("Nothing to look after yet."), "{quiet}");
     let quiet_tag = res.headers()[header::ETAG].clone();
     w.create_topic("orders").await;
     let (res, steady) = send(&app, get("/fragments/home-live")).await;
-    assert!(steady.contains("<h1>Home</h1>"), "{steady:.400}");
+    let (_, steady_page) = send(&app, get("/")).await;
+    assert!(steady_page.contains("<h1>Home</h1>"), "{steady_page:.400}");
     assert!(
         !steady.contains("Waiting for your first request"),
         "the first-request card stayed: {steady}"
@@ -83,7 +90,7 @@ async fn creating_a_topic_flips_title_sentence_and_cards_in_the_one_fragment_wit
     assert!(steady.contains("Next: connect something new"), "{steady}");
     assert!(steady.contains("Nothing needs you."), "{steady}");
     assert!(
-        steady.contains("It holds 1 topic and 1 partition."),
+        steady.contains(r#"<span class="k">Topics</span><span class="v" style="min-width:5ch" title="1">1</span><span class="s">1 partitions</span>"#),
         "{steady}"
     );
     assert_ne!(res.headers()[header::ETAG], quiet_tag);
@@ -93,6 +100,7 @@ async fn creating_a_topic_flips_title_sentence_and_cards_in_the_one_fragment_wit
         .trim_start_matches(|c| c != '>')
         .trim_start_matches('>');
     assert!(page.contains(&inner[..inner.len().min(300)]), "{page:.300}");
+    assert!(page.contains(r#"<div class="frag" id="home-live""#) && !page.contains("data-stream"));
     w.stop().await;
 }
 

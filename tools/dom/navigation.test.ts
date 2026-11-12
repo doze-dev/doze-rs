@@ -1,5 +1,5 @@
 // Navigation as the stack does it (htmx boost, out-of-band parts, history) and the seams console.js adds to it: scroll memory, the
-// progress hint, focus after a swap, preload on intent, the stream following the page. Run: `cd tools/dom && bun install && bun test`.
+// progress hint, focus after a swap, preload on intent. Run: `cd tools/dom && bun install && bun test`.
 
 import { describe, expect, test } from "bun:test";
 import { boot, type Page } from "./harness.ts";
@@ -12,8 +12,8 @@ const SHELL = `<div class="root"><nav class="rail" id="rail"><a class="ni on" hr
 <div id="region"><p id="n">before</p></div></main></div>`;
 
 /** What the server answers an htmx navigation with (src/region.rs): the region, the rail and the overlay root out of band. */
-const region = (title: string, h1: string, stream = "") =>
-  `<title>${title} · doze-kafka</title><main class="main" id="main"${stream ? ` data-stream="${stream}"` : ""}><h1>${h1}</h1></main>` +
+const region = (title: string, h1: string) =>
+  `<title>${title} · doze-kafka</title><main class="main" id="main"><h1>${h1}</h1></main>` +
   `<nav class="rail" id="rail" aria-label="Spaces" hx-swap-oob="true"><a class="ni" href="/topics">Resources</a><a class="ni on" id="live" href="/live" aria-current="page">Live</a></nav><div id="ovl" hx-swap-oob="true"></div>`;
 
 const started = (opts = {}) => boot(SHELL, { url: `${ORIGIN}/topics`, ...opts });
@@ -22,7 +22,7 @@ const text = (p: Page, sel: string) => p.document.querySelector(sel)?.textConten
 describe("a boosted link", () => {
   test("asks for the region, swaps main, updates the title and the rail, pushes the address, and focuses the new page", async () => {
     const p = await started();
-    p.autoAnswer(() => ({ body: region("Live", "Live", "/events?watch=live-wire") }));
+    p.autoAnswer(() => ({ body: region("Live", "Live") }));
     p.click(p.document.getElementById("go")!);
     await p.flush();
     const call = p.calls[p.calls.length - 1];
@@ -38,23 +38,12 @@ describe("a boosted link", () => {
     expect(p.navigated).toEqual([]);
   });
 
-  test("the stream follows the page: the new main's address is opened, the old one closed", async () => {
-    const p = await started({ stream: "/events?watch=home" });
-    expect(p.streams.map((s) => s.url)).toEqual(["/events?watch=home"]);
-    p.autoAnswer(() => ({ body: region("Live", "Live", "/events?watch=live-wire") }));
+  test("no page opens a stream by itself: a swap to any page leaves the browser with no EventSource and no timer of ours", async () => {
+    const p = await started();
+    p.autoAnswer(() => ({ body: region("Live", "Live") }));
     p.click(p.document.getElementById("go")!);
     await p.flush();
-    expect(p.streams.length).toBe(2);
-    expect(p.streams[0].closed).toBe(true);
-    expect(p.streams[1].url).toBe("/events?watch=live-wire");
-  });
-
-  test("a page with no stream closes the old one and opens none", async () => {
-    const p = await started({ stream: "/events?watch=home" });
-    p.autoAnswer(() => ({ body: region("Connect", "Connect") }));
-    p.click(p.document.getElementById("go")!);
-    await p.flush();
-    expect(p.streams.every((s) => s.closed)).toBe(true);
+    expect(p.streams.length).toBe(0);
   });
 
   test("a request that cannot be made is followed as the browser would", async () => {

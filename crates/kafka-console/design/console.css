@@ -365,7 +365,11 @@ html.is-loading::before{content:"";position:fixed;z-index:90;top:0;left:0;right:
 .txn-region{min-height:84px;margin:0 0 24px}
 .attention-region{min-height:80px;margin:0 0 24px}
 .home-callout{min-height:96px}
-.refusals{display:flex;align-items:center;gap:20px;min-height:40px;margin:-8px 0 16px;overflow:hidden;white-space:nowrap;font-size:13.5px;color:var(--dim)}
+details.refusals{margin:-8px 0 16px;min-height:40px;font-size:13.5px;color:var(--dim)}
+details.refusals>summary{display:flex;align-items:center;gap:0;min-height:40px;cursor:pointer;list-style:none;white-space:nowrap;color:var(--text)}
+details.refusals>summary::-webkit-details-marker{display:none}
+.refusal-lines{margin:0 0 8px;padding:0 0 0 2px;list-style:none;display:grid;gap:6px}
+.refusal-lines li{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)}
 .calm{display:flex;align-items:center;gap:10px;min-height:56px;padding:0 16px;box-sizing:border-box;border:1px solid var(--line);border-radius:12px;background:var(--well);color:var(--dim);font-size:13.5px}
 .calm svg{color:var(--good)}
 .dl .cd{color:var(--dim)}
@@ -391,7 +395,8 @@ table.dt-t{table-layout:fixed;width:100%}
 @keyframes dz-new{from{background-color:#e9e0ff}to{background-color:transparent}}
 @media (prefers-reduced-motion:reduce){.dt tbody tr.fresh td{animation:none;background-color:#f1ecff}}
 /* The tail's control: a segmented control, the connection indicator, and the pill of what is held. */
-.tailbar{display:flex;align-items:center;gap:14px;margin:0 0 12px;min-height:34px}
+.tailbar{display:flex;align-items:center;gap:14px;margin:0 0 12px;min-height:34px;flex-wrap:nowrap}
+.tailbar .speed{display:inline-flex}
 .tailbar .seg button:disabled{opacity:.5;cursor:not-allowed}
 .conn{display:inline-flex;align-items:center;gap:7px;min-width:210px;font-size:12.5px;color:var(--dim);white-space:nowrap}
 .conn .dot{width:8px;height:8px;border-radius:50%;background:#aaa5bf;flex:none}
@@ -487,7 +492,6 @@ p,.sub,.lede,.help{text-wrap:pretty}
 
 /* A slot whose content changes does not change its size (no layout depends on a live value): the list of refusals above the tape is
    always two lines tall (the newest that fit; the drawer of each has the rest), so a new refusal moves nothing. */
-.refusal-links{height:52px;overflow:hidden;align-content:flex-start}
 .wire-dock>h2,.wire-dock>.lede{min-height:0}
 /* Figures keep their width as they change. */
 .sub .mono,.sub b,.sent .mono,.sent b,.tab .n,.pill,.mono.r,td.mono,.stat .v,.kv dd .mono{font-variant-numeric:tabular-nums}

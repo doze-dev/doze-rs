@@ -116,6 +116,7 @@ fn refused_links(rows: &[WireRow]) -> Vec<WireRefusal> {
         .filter(|r| r.class == WireClass::Refused)
         .map(|r| WireRefusal {
             id: r.id,
+            count: 1,
             code_name: r.code_name.clone(),
             code: r.code,
             client: r.client.clone(),
@@ -125,6 +126,7 @@ fn refused_links(rows: &[WireRow]) -> Vec<WireRefusal> {
         .collect();
     out.push(WireRefusal {
         id: 99,
+        count: 1,
         code_name: "INVALID_PRODUCER_EPOCH".into(),
         code: 47,
         client: "orders".into(),
@@ -179,10 +181,9 @@ fn passes(r: &WireRow, q: &WireQuery) -> bool {
         && (!q.refused_only || r.class == WireClass::Refused)
         && (!q.hide_idle || !r.idle)
         && q.before.is_none_or(|b| r.id < b)
-        && q.until.is_none_or(|u| r.id <= u)
 }
 
-/// The Live page in the state `hint` names: `paused`, `quiet`, `load`; anything else is the steady tape.
+/// The Live page in the state `hint` names: `quiet`, `load`; anything else is the steady tape.
 #[must_use]
 pub fn live(q: &WireQuery, hint: Option<&str>) -> LiveView {
     let steady = steady_rows();
@@ -193,6 +194,7 @@ pub fn live(q: &WireQuery, hint: Option<&str>) -> LiveView {
         window: window(2000, 2000),
         query: q.clone(),
         refused: refused_links(&steady),
+        refused_more: 0,
         refused_total: 3,
         denied_total: 0,
         clients: 9,

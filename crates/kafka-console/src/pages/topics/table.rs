@@ -168,7 +168,7 @@ mod tests {
         );
         assert!(
             m.contains(r#"<span class="dim">empty</span>"#)
-                && m.contains("color:var(--dim)\">binary · 0a"),
+                && m.contains("color:var(--dim)\" title=\"binary · 0a\">binary · 0a"),
             "{m}"
         );
     }

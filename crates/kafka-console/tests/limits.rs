@@ -72,7 +72,7 @@ async fn dial(addr: SocketAddr) -> TcpStream {
 
 async fn open_stream(addr: SocketAddr) -> TcpStream {
     let mut s = dial(addr).await;
-    s.write_all(format!("GET /events?watch=home-live HTTP/1.1\r\nHost: {addr}\r\n\r\n").as_bytes())
+    s.write_all(format!("GET /events?tail=live HTTP/1.1\r\nHost: {addr}\r\n\r\n").as_bytes())
         .await
         .unwrap();
     s
@@ -232,7 +232,7 @@ async fn the_stream_over_the_cap_is_refused_and_a_stream_that_ends_gives_its_slo
     let mut streams = Vec::new();
     for _ in 0..3 {
         let mut s = open_stream(addr).await;
-        read_until(&mut s, "event: tick", Duration::from_secs(2)).await;
+        read_until(&mut s, "event: ready", Duration::from_secs(2)).await;
         streams.push(s);
     }
     let mut fourth = open_stream(addr).await;
@@ -262,7 +262,6 @@ async fn the_stream_over_the_cap_is_refused_and_a_stream_that_ends_gives_its_slo
     streams.pop();
     let deadline = Instant::now() + Duration::from_secs(8);
     loop {
-        c.state().ticker.bump();
         let mut retry = open_stream(addr).await;
         let (seen, _) = read_to_close(&mut retry, Duration::from_millis(400)).await;
         if seen.starts_with("HTTP/1.1 200") {

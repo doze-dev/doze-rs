@@ -121,7 +121,7 @@ fn shell(s: &str, main: maud::Markup, base: &Base) -> String {
             },
         ],
         title: s,
-        watch: &["home-live"],
+        regions: &["home-live"],
     };
     document(&page, main).into_string()
 }
@@ -284,19 +284,16 @@ async fn a_hostile_query_is_never_echoed() {
     .await;
     assert_eq!(res.status(), axum::http::StatusCode::OK);
     assert!(!body.contains("alert(1)") && !body.contains("<img>"));
-    let (res, body) = send(&app, get("/events?watch=%3Cscript%3E")).await;
+    let (res, body) = send(&app, get("/events?tail=%3Cscript%3E")).await;
     assert_eq!(res.status(), axum::http::StatusCode::BAD_REQUEST);
-    // The 400 is plain text, and says the id with its quotes (Debug), never as markup.
+    // The 400 is plain text and does not echo what was sent.
     assert!(
         res.headers()[axum::http::header::CONTENT_TYPE]
             .to_str()
             .unwrap()
             .starts_with("text/plain")
     );
-    assert!(
-        body.contains("\\\"") || body.contains("\"<script>\""),
-        "{body}"
-    );
+    assert!(!body.contains("<script>"), "{body}");
 }
 
 /// Every form of the topic writes, fed what a hostile page or person would put in it: nothing panics, nothing is a 5xx, and
