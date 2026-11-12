@@ -3,6 +3,10 @@
 Slice 8a: SASL/PLAIN and the login session (SEC-1 to SEC-15). Slice 8b: the authorizer, the three ACL APIs, and the first two
 handler checks, Metadata and InitProducerId (SEC-16 to SEC-30). Slice 8c: SASL/SCRAM-SHA-256 and SCRAM-SHA-512 (SEC-40 to SEC-51).
 Slice 8d-1: the topic APIs (SEC-60 to SEC-72; groups and transactions are 8d-2). (The rest of the authorization matrix is slice 8d-2, TLS 8e: their rules join this file when they land.) What Apache Kafka 4.3.1 does, and the
+
+handler checks, Metadata and InitProducerId (SEC-16 to SEC-30). Slice 8c: SASL/SCRAM-SHA-256 and SCRAM-SHA-512 (SEC-40 to SEC-51). Slice 8e: TLS (SEC-140 to SEC-154). Slice 8f: users made at run time over
+`AlterUserScramCredentials` and `DescribeUserScramCredentials`, and the users file and environment variable (SEC-160 to SEC-179; deviations SEC-D50 to SEC-D59).
+(The authorization matrix is slice 8d: its rules join this file when they land.) What Apache Kafka 4.3.1 does, and the
 test that holds each. The source is the recordings (`conformance/recordings/sasl-plain.json`, the step names are the oracle's) where
 there is one, else Kafka 4.3.1's own source, read by item (`SaslServerAuthenticator` SSA, `PlainSaslServer`, `SocketServer`; the line
 numbers are in `phase8/kafka-semantics.md` 3.1 to 3.9 and 6): **(source)** marks those. The pure parts are in `crates/kafka-auth`
@@ -758,6 +762,117 @@ a test was added for each, and `five_ways!` gained the "only DESCRIBE" caller fo
 item was the first partition of a refused topic, which a single-partition test cannot tell from the right one); a test was added. Final: 40 of 40.
 (The mutation copy builds in a target directory of its own: sharing one with the worktree let the last mutant's build be taken for the worktree's.)
 
+## SEC-160. DescribeUserScramCredentials (50) and AlterUserScramCredentials (51): versions and profile
+Both exist at v0 only (`msg/DescribeUserScramCredentials*.json`, `AlterUserScramCredentials*.json`: `validVersions 0`, flexible). The profile offers them at 0 to 0 for
+`--kafka-version` 2, 3 and 4 and not at 1, as the recorded brokers do (`crates/kafka-wire/tests/data/api-versions.json`: cp-kafka 6.2, 3.9.1 and 4.3.1 list both at 0..0, the 1.x broker neither).
+They are served with SASL off too (SEC-D51). The crate decodes both at v0 (`vendor/kafka-protocol/src/messages/*_user_scram_credentials_*.rs`). Test: `kafka-wire profile::tests::the_scram_credential_apis_are_offered_from_kafka_2_at_version_0_and_not_at_1`,
+`tests/every_offered_version` (every offered request is read and every default response written and read back), `kafka-server connection::tests::served::*`, `tests/tcp`, `kafka-server tests/users_api::the_two_apis_are_advertised_after_login`.
+
+## SEC-161. Who may call them (KA:2444-2455, CA:890-900)
+Describe needs DESCRIBE on the cluster, Alter needs ALTER (which implies DESCRIBE, SEC-19), both through the authorizer of SEC-16 to SEC-19, so a super user, an ALLOW on `kafka-cluster`, or (on a broker with
+the default allow and no ACL) anybody. **Denied:** Describe answers the top-level `ErrorCode 31` and one entry with 31 for each name asked for (`DescribeUserScramCredentialsRequest.getErrorResponse`,
+DescribeUserScramCredentialsRequest.java:63-76); Alter answers 31 for each distinct user name in the request, sorted (`AlterUserScramCredentialsRequest.getErrorResponse`,
+AlterUserScramCredentialsRequest.java:67-83), and nothing is changed. The check precedes every rule below. Messages are null (**deviation SEC-D8**, the long message of `authorizeClusterOperation` is not reproduced). Test:
+`kafka-broker tests/user_scram_use::a_caller_without_the_right_is_refused_in_the_shape_kafka_answers`, `..::alter_needs_alter_on_the_cluster_and_describe_needs_describe_which_alter_implies`,
+`kafka-server tests/users_api::a_user_made_by_an_admin_logs_in_*` (a user who is not a super user gets 31 on a real socket).
+
+## SEC-162. The client sends the salted password; the broker does no PBKDF2 (SCM:260-282)
+An upsertion carries `Salt`, `Iterations` and `SaltedPassword = Hi(password, salt, iterations)`, computed by the client. The broker derives `StoredKey = H(HMAC(SaltedPassword, "Client Key"))` and
+`ServerKey = HMAC(SaltedPassword, "Server Key")` and keeps salt, iterations and the two keys (`Verifier::from_salted_password`); the password and the salted password are never kept, and the keys are in no `Debug`
+output. A SCRAM login for that user then proves the password with the salt and iteration count the client chose (the server sends them in server-first). Test: `kafka-broker tests/user_scram::a_user_is_made_for_each_mechanism_and_logs_in_with_the_password_the_client_salted`,
+`kafka-auth scram::keys::tests::*` and `users::tests::a_verifier_made_from_parts_must_have_keys_the_size_of_the_hash`, `interop/run.sh -sasl` (franz-go's kadm salts with Go's PBKDF2; all four libraries then log in).
+
+## SEC-163. Validation, in Kafka's order, with Kafka's words (SCM:284-322)
+Per user, an upsertion is judged: the name (empty: `UNACCEPTABLE_CREDENTIAL` 93 `Username must not be empty`), the mechanism (not 1 or 2, including 0: `UNSUPPORTED_SASL_MECHANISM` 33 `Unknown SCRAM mechanism`), then
+the iteration count: below 4096 `UNACCEPTABLE_CREDENTIAL` `Too few iterations`, above 16384 `Too many iterations` (both mechanisms; 4095 and 16385 are refused, 4096 and 16384 taken; negatives are too few). A deletion is judged by
+the name and the mechanism the same way. Mechanism numbers: 1 SCRAM-SHA-256, 2 SCRAM-SHA-512. (The refusal of a user configured at start sits after the mechanism and before the count: SEC-D50.) Test: `tests/user_scram::the_iteration_count_must_be_from_4096_to_16384`,
+`..::an_empty_name_and_an_unknown_mechanism_are_refused_with_kafkas_words`.
+
+## SEC-164. Deleting what is not there is RESOURCE_NOT_FOUND (SCM:298-309)
+The key is the user **and** the mechanism: `RESOURCE_NOT_FOUND` 91 `Attempt to delete a user credential that does not exist` for a user with no credential of that mechanism, for a user who was never there, and for the
+second deletion of the same credential. Test: `tests/user_scram::deleting_what_is_not_there_is_resource_not_found`, `..::a_deleted_credential_no_longer_logs_in_and_the_other_mechanism_still_does`.
+
+## SEC-165. A user touched twice in one request loses both operations (SCM:188-226)
+The key is the user's name, not the name and mechanism: two deletions, a deletion and an upsertion (either mechanism), or two upsertions of one user are `DUPLICATE_RESOURCE` 92 `A user credential cannot be altered twice in the same request`;
+the earlier operation is cancelled with the later one, nothing is changed for that user, and a third mention is ignored. Once a user has an error (any), every later operation on the name is ignored and the first error stands.
+Test: `tests/user_scram_requests::a_user_touched_twice_in_one_request_is_refused_whatever_the_operations`, `..::a_user_whose_first_operation_failed_keeps_that_error_and_a_repeat_is_ignored`, `..::a_deletion_that_failed_ends_the_users_part_of_the_request`.
+
+## SEC-166. The answer: deletions that happened, upsertions that happened, then the refusals (SCM:229-257)
+One result per user: `User`, `ErrorCode`, `ErrorMessage` (null on success). Kafka's order inside each group is a hash map's; here it is the order of the request (**deviation SEC-D52**). An empty request answers an empty list. Test:
+`tests/user_scram_requests::a_mixed_request_answers_deletions_then_upsertions_then_errors`, `..::an_empty_request_changes_nothing_and_answers_nothing` (both in `tests/user_scram_requests`).
+
+## SEC-167. Salt and salted password are not judged, except that a key cannot be empty (SCM:260-282, ApiError.java:35-41)
+Any salt is taken, empty included (Kafka validates nothing: kafka-semantics 3.6), and a salted password of any length is a key. A salted password of no bytes makes Java's `SecretKeySpec` throw
+`IllegalArgumentException("Empty key")` inside `finishUpsertion`, which the controller catches and `ApiError.fromThrowable` turns into `UNKNOWN_SERVER_ERROR` (-1) with a null message; no record is written. Here the same: -1, null, nothing stored.
+Test: `tests/user_scram_requests::the_salt_and_the_salted_password_are_not_judged_except_that_a_key_cannot_be_empty`.
+
+## SEC-168. A request is one change: written, then swapped in, under a lock
+The whole request is applied in one table transaction (deletions and upsertions together: Kafka's `ControllerResult.atomicOf`, SCM:257), durable before the answer, and only then is the new snapshot of stored users swapped in (an `ArcSwap`), so a
+login never sees a credential the table does not have, and two requests at once never start from the same snapshot (`Broker::user_admin`; the table's own write lock serialises the writers, `kafka-meta`). A write that fails answers `KAFKA_STORAGE_ERROR` (56) for each
+operation that would have happened (the refusals keep their own answers) and changes neither the table nor the snapshot. Test: `tests/user_scram_use::a_write_that_fails_changes_nothing_and_says_so`,
+`tests/user_scram::two_requests_at_once_lose_neither`, `kafka-meta store::credentials::tests::*` (a write that fails leaves them as they were; writers at once lose nothing; an old database takes a write), the crash sweep `tests/crash` (`credentials` in the workload: a power cut, a failing operation or a stopped process after any step loses nothing acknowledged).
+
+## SEC-169. DescribeUserScramCredentials answers (ScramImage.java:79-133)
+No list, or an empty list: every user that has a credential (here by name). Otherwise each name asked for, once, in the order first seen: a name given more than once is one entry `DUPLICATE_RESOURCE` 92
+`Cannot describe SCRAM credentials for the same user twice in a single request: <user>` (whether or not it exists); a name with no credential is `RESOURCE_NOT_FOUND` 91 `Attempt to describe a user credential that does not exist: <user>`
+(the empty name too); else `CredentialInfos` of mechanism and iterations, in mechanism order. Never a salt or a key. A success has `ErrorCode 0` and the empty message `""` at the top and in each entry, as Kafka's generated classes leave them.
+Test: `tests/user_scram_use::describe_lists_every_user_with_its_mechanisms_and_iterations_and_nothing_secret`, `..::describe_by_name_answers_each_name_once_with_kafkas_words_for_the_failures`.
+
+## SEC-170. A stored credential logs a user in with SCRAM, and only SCRAM; the change applies to the next login
+A SCRAM login finds the verifier in the bootstrap users or, if the name is not one of them, in the stored ones (SEC-172), by user and mechanism: a credential for SCRAM-SHA-512 does not log in SCRAM-SHA-256, and one for a mechanism the broker does not offer
+(`--sasl-mechanisms`) cannot log in. **PLAIN can log in bootstrap users only**: a stored SCRAM verifier cannot give a password back to be compared, and Kafka's PLAIN uses its JAAS file only. A replaced, deleted or added credential applies to the logins
+that begin after the answer; **a connection that is already logged in stays logged in** with the same principal (Kafka checks credentials again only at re-authentication, `connections.max.reauth.ms`, which this broker does not do, SEC-D55). Test:
+`kafka-auth authenticator::tests::a_stored_user_logs_in_with_scram_and_never_with_plain`, `..::a_stored_credential_of_a_mechanism_that_is_off_cannot_log_in`, `kafka-server tests/users_api::a_user_made_by_an_admin_logs_in_at_once_and_after_a_restart` and `..::a_deleted_credential_is_refused_at_the_next_login_and_an_open_connection_stays_logged_in`
+(a deleted user is refused with the generic 58 and the connection closes; the connection that was open before the deletion still answers), `interop/run.sh -sasl` (`users/` cells).
+
+## SEC-171. The stored users outlive the process
+The table (`kafka-meta`, key = mechanism byte then user name, value = a version byte and postcard of salt, iterations, the two keys) is read when the broker opens and swapped into the snapshot before the server is bound; the table is made with the database and
+a database made before it existed reads as none and takes the first write. A row this program cannot use (an unknown mechanism, keys not the size of the hash, no iterations) is left in the table, unused, and named at warn level (user and mechanism, no key). Test:
+`tests/user_scram_use::stored_users_come_back_after_a_restart_and_log_in`, `kafka-meta store::credentials::tests::credentials_survive_a_restart_and_a_power_cut_after_the_answer`, `..::a_database_made_before_credentials_existed_reads_as_none_and_takes_a_write`,
+`kafka-server tests/users_api` (restart on the same disk), `tests/process users::users_from_a_file_and_the_environment_log_in_and_one_made_over_the_api_outlives_the_process` (the real binary, SIGTERM, started again).
+
+## SEC-172. Two layers of users: bootstrap and stored (**deviation SEC-D50**)
+The **bootstrap** users are those of `--sasl-user`, `--sasl-users-file` and `DOZE_KAFKA_SASL_USERS`: derived at every start, never written to the table, and for PLAIN and for each SCRAM mechanism that is on. The **stored** users are those the API made. A name in both
+is the bootstrap user's, for every mechanism and every login: the stored entries under that name are never consulted (they stay in the table, and come back if the bootstrap user is removed from the flags). An Alter or a Delete aimed at a bootstrap user is refused with
+`UNACCEPTABLE_CREDENTIAL` (93) `The user is configured at start (--sasl-user, --sasl-users-file or DOZE_KAFKA_SASL_USERS) and cannot be changed over the API`, whichever the mechanism (it is judged after the mechanism is known to be 1 or 2 and before the count); Describe lists
+a bootstrap user with the mechanisms that are on and 4096 iterations (SEC-D14). Test: `tests/user_scram_use::a_user_configured_at_start_is_listed_and_cannot_be_changed_over_the_api`,
+`..::a_name_stored_and_then_configured_at_start_is_the_configured_one_and_the_stored_row_stays`, `kafka-auth users::tests::a_user_in_both_is_the_bootstrap_one_whatever_is_stored`, `kafka-server tests/users_api::the_user_configured_at_start_cannot_be_taken_over_and_is_listed`.
+
+## SEC-173. The users file (`--sasl-users-file PATH`)
+One `user:password` a line, split at the first colon (so a password may hold colons); ASCII, as the flag; the user and the password are checked as the flag's are (an empty user or password, a NUL, a non-ASCII password). A line that is empty or only blanks, a line whose first non-blank character is `#`,
+a CRLF ending and a leading byte order mark are skipped; nothing else is trimmed (a space in a password is a character). A line that is not an entry stops the start with `--sasl-users-file: line N: not a valid entry (expected user:password)`, a bad user or password with
+`--sasl-users-file: line N: SASL user "alice" has an empty password`: the line number and the user, never the line. A file that cannot be read or is not UTF-8 stops the start (`cannot be read: <os error>`, `is not valid UTF-8 text`), naming the path. Test: `cli::tests::users::a_users_file_holds_one_user_and_password_a_line_split_at_the_first_colon`,
+`..::a_bad_line_is_named_by_its_number_and_its_content_is_not_repeated`, `..::a_file_that_cannot_be_read_is_refused_without_a_guess`.
+
+## SEC-174. The environment variable (`DOZE_KAFKA_SASL_USERS`)
+`user:password` entries separated by commas, with the same rules as a line; the space around an entry is ignored and an empty entry is skipped (`a:1, b:2,,`). **A password with a comma cannot be written there** (the text after the comma is another entry): use the file. A variable that is empty or only blanks is
+not set. A bad entry stops the start with `DOZE_KAFKA_SASL_USERS: entry N: ...` (N counts the commas, empty entries included), never repeating it; a value that is not UTF-8 says so. The variable is visible to the same user's other processes (`/proc/<pid>/environ`, `ps eww`) and is not cleared: it keeps the password out of the command line, no more (**SEC-D58**). Test: `cli::tests::users::an_environment_list_is_comma_separated_user_and_password`,
+`..::an_empty_variable_is_the_same_as_none`, `..::a_bad_line_is_named_by_its_number_and_its_content_is_not_repeated`.
+
+## SEC-175. The three sources add up, once
+Flag, then file, then variable; a user given twice anywhere (within a source or across them) stops the start with `SASL user "alice" is given more than once`, naming the user and no password. Users from the file or the variable without `--sasl-mechanisms` stop the start (`no mechanism is enabled`), as
+`--sasl-user` does, and so does `--sasl-allow-empty-users` (it needs `--sasl-mechanisms`). Test: `cli::tests::users::the_three_sources_add_up_in_the_order_flag_file_environment`, `..::a_user_given_twice_across_sources_is_refused_naming_the_user_and_never_a_password`,
+`..::users_from_the_file_or_the_environment_without_a_mechanism_are_refused`.
+
+## SEC-176. SASL with nobody to log in: refused, unless a stored user exists or it was meant (`--sasl-allow-empty-users`)
+Mechanisms with no user in any source still stop the start (`SASL is enabled but no credentials are configured; give --sasl-user, --sasl-users-file or DOZE_KAFKA_SASL_USERS, or start with --sasl-allow-empty-users ...`), but a stored credential counts as a user, and that is known only when the database is open: so with no database in the data
+directory the refusal is immediate and nothing is created, and with one it comes after the stored users are loaded (`Authenticator::ensure_users`). `--sasl-allow-empty-users` starts it anyway: the way to run a secured broker whose first user is made over the API by a super user (`--acl-super-user`); with no super user and no stored user nobody can log in, and the start says nothing more. **The bootstrap story:** the first user comes
+from a flag, a file or the variable, or (with the flag) from the API as a super user, which itself needs a login or the open-broker posture (SEC-D51). Test: `cli::tests::users::mechanisms_without_a_user_are_refused_unless_a_stored_user_may_exist_or_it_was_meant`, `kafka-auth authenticator::tests::a_start_with_nobody_to_log_in_is_refused_unless_it_was_meant`,
+`tests/process users::a_secured_broker_with_no_user_starts_only_when_that_was_asked_for`.
+
+## SEC-177. A users file others can read is warned about
+On Unix, if `mode & 0o077` is not zero the start logs at warn `--sasl-users-file PATH is readable by group or others (mode 644); run chmod 600 on it`: the path and the mode, nothing of the content. It is only a warning: the broker starts. Not on other platforms.
+Test: `cli::tests::users::a_file_others_can_read_is_warned_about_and_a_private_one_is_not`, `tests/process users::a_users_file_others_can_read_is_warned_about_without_its_content`.
+
+## SEC-178. No password from any source is shown (extends SEC-13)
+The passwords of the flag, the file and the variable are in no `Debug` output of the arguments, the settings or the authenticator, in no error (a bad line, a duplicate, a bad entry), and in no log line at trace level; the keys of a stored credential are in no `Debug` output
+(`CredentialRecord`, `Verifier`, `Stored`, `Users` print names and counts), and a rejected SCRAM login logs an enum name. The salted password a client sends is not logged: the connection logging shows no request bodies. Test: `cli::tests::users::no_password_from_any_source_is_in_a_debug_output`,
+`..::a_user_given_twice_across_sources_is_refused_naming_the_user_and_never_a_password`, `kafka-meta credential::tests::a_record_prints_no_secret`, `kafka-auth users::tests::debug_output_names_users_and_shows_no_key`, `tests/process users::users_from_a_file_and_the_environment_log_in_and_one_made_over_the_api_outlives_the_process` (the log at trace level is searched for all three passwords and the API user's).
+
+## SEC-179. Real clients
+franz-go's kadm makes the user (its own salt and PBKDF2), then sarama, franz-go, kafka-go and librdkafka log in as it with SCRAM-SHA-256 and SCRAM-SHA-512 and write and read 20 records; PLAIN with the right password is refused in each; the user configured at start cannot be taken over (93); the credentials are deleted one mechanism at a time and
+each deletion is refused at the next login by every library, the other mechanism still working until its own deletion; a second deletion is `RESOURCE_NOT_FOUND`. Test: `interop/run.sh -sasl` (the `users/` lines after the twelve cells), `interop/go/users.go`.
+
 ## Deviations
 - **SEC-D1.** A request in the middle of a login other than ApiVersions and SaslHandshake closes unanswered; Kafka answers it in its
   own shape with 34 and then closes. (Recorded `request-before-token-who`; the Go edition has the same difference.)
@@ -843,3 +958,18 @@ item was the first partition of a refused topic, which a single-partition test c
 - **SEC-D36.** Unsure: FindCoordinator before v4 puts the error's own message in the answer (`Errors.message()` is the exception's, `Group authorization failed.`; the `NONE` of a success
   is its `toString`), read from `FindCoordinatorResponse.prepareOldResponse`. Not recorded.
 - **SEC-D37.** Not served, so not checked: share groups (key type 2), the share and streams group APIs, AddPartitionsToTxn v4 and later.
+
+- **SEC-D50.** Two layers of users (SEC-172). Kafka has one store, the cluster metadata, and its PLAIN users live in a JAAS file outside it; here the users of the flags, the file and the variable are derived at every start and never stored. If a name is in both layers the bootstrap user wins for every
+  mechanism and the stored entries under the name are shadowed, not deleted. An Alter or Delete aimed at a bootstrap user is refused with `UNACCEPTABLE_CREDENTIAL` (93) and a message that names the three sources: Kafka has no such case, and 93 (a credential it will not accept) is the closest of its codes; the check sits after the
+  name and the mechanism and before the iteration count and the existence check, and, like every error, it ends the user's part of the request (SEC-165). The alternative, letting the API override a bootstrap user until the next start, would make the broker's login depend on the order of events.
+- **SEC-D51.** The two APIs work with SASL off (decision D4): the authorizer then governs by `User:ANONYMOUS`, and with `--acl-default allow` (the default) and no ACL **anybody who can connect may make, replace and delete users** and list them. That is the same open-broker posture as the ACL APIs (SEC-D7) and as
+  every other API of a broker with no flags: it matters only if SASL is on, and then the users made are the only ones SASL checks. A broker that must not allow it needs `--acl-default deny` with a super user. Kafka without an authorizer answers `SECURITY_DISABLED` (54) to the ACL APIs, but its credential APIs have no such case (ControllerApis checks `authorizeClusterOperation`, which succeeds with no authorizer).
+- **SEC-D52.** The order of the results of Alter and of Describe is the request's (Alter: deletions that happened, upsertions that happened, refusals) or by name (Describe with no list), not a Java hash map's, which no client depends on (SCM:229-257, ScramImage.java:96-127).
+- **SEC-D53.** Metadata.version is not modelled: Kafka's `UNSUPPORTED_VERSION` `The current metadata.version does not support SCRAM` (SCM:195, 216) is unreachable here, as a broker of 4.x always supports SCRAM.
+- **SEC-D54.** Describe with a **null** user list from a caller who is denied: Kafka's `getErrorResponse` iterates `data.users()` without a null check (DescribeUserScramCredentialsRequest.java:70), so the denial of a describe-all request throws a NullPointerException there and the client sees whatever the error path then does. Here it is the top-level 31 with no entries (what the same code does for an empty list). Not verified against a running Kafka.
+- **SEC-D55.** A changed or deleted credential applies to new logins; a connection that is logged in stays logged in, as in Kafka with `connections.max.reauth.ms` at its default of 0. Kafka with re-authentication on checks again at the next re-login; this broker has no re-authentication (kafka-semantics 3.7, out of scope).
+- **SEC-D56.** The credentials are kept in a table of the broker's own database (`meta.redb`), key mechanism then user, value salt, iterations and the two keys, not as `UserScramCredentialRecord`s in a replicated metadata log. A data directory made by a build without this slice has no such table and reads as none; one written by this build and opened by an older one has a table the older one ignores. The keys are not encrypted at rest (a stolen `meta.redb` lets someone check
+  passwords offline, not log in: SEC-162).
+- **SEC-D57.** A stored row the broker cannot use is left in the table and named at warn (SEC-171); Kafka would fail to replay the log. Deleting such a row over the API is `RESOURCE_NOT_FOUND`, because the snapshot does not have it.
+- **SEC-D58.** The environment variable is read once and not cleared (`set_var` is unsafe on edition 2024 and the process is multi-threaded): it is visible to other processes of the same user for the life of the broker. `--sasl-users-file` with mode 600 is the one that does not leave the password in `ps`, in `/proc/<pid>/cmdline` or in `environ`.
+- **SEC-D59.** Passwords in the file and the variable are ASCII without NUL, as the flag's (no SASLprep: Phase 8 "Not in this phase"), and are held in memory for the life of the process (SEC-D5). A stored credential holds no password at all.

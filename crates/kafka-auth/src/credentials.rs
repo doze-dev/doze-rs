@@ -73,7 +73,7 @@ impl Credentials {
     {
         let mut users = BTreeMap::new();
         for (name, password) in pairs {
-            check(&name, &password)?;
+            validate(&name, &password)?;
             let secret = Secret(password.into_bytes().into_boxed_slice());
             if users.insert(name.clone(), secret).is_some() {
                 return Err(CredentialsError::Duplicate(name));
@@ -110,6 +110,26 @@ impl Credentials {
         self.scram.get(&kind)?.get(name).cloned()
     }
 
+    /// Whether there is a user called `name`.
+    #[must_use]
+    pub fn has_user(&self, name: &str) -> bool {
+        self.users.contains_key(name)
+    }
+
+    /// The names of the users.
+    pub fn names(&self) -> impl Iterator<Item = &str> {
+        self.users.keys().map(String::as_str)
+    }
+
+    /// The mechanisms `name` has a SCRAM verifier for, with the iteration count of each, in mechanism order.
+    #[must_use]
+    pub fn scram_of(&self, name: &str) -> Vec<(Kind, u32)> {
+        Kind::ALL
+            .iter()
+            .filter_map(|&k| Some((k, self.verifier(k, name)?.iterations().get())))
+            .collect()
+    }
+
     /// The password of the user called `name`, if there is one. The name is compared as bytes.
     #[must_use]
     pub fn password(&self, name: &[u8]) -> Option<&Secret> {
@@ -131,7 +151,11 @@ impl Credentials {
     }
 }
 
-fn check(name: &str, password: &str) -> Result<(), CredentialsError> {
+/// Whether `name` and `password` can be a login: a name and a password that every client sends the same way.
+///
+/// # Errors
+/// The first thing wrong with them, in words that name the user and never the password.
+pub fn validate(name: &str, password: &str) -> Result<(), CredentialsError> {
     if name.is_empty() {
         return Err(CredentialsError::EmptyUser);
     }

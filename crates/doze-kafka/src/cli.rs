@@ -108,9 +108,19 @@ pub(crate) struct Args {
     #[arg(long, value_delimiter = ',')]
     sasl_mechanisms: Vec<String>,
     /// A user that may log in, as user:password (split at the first colon; repeatable). Needs
-    /// --sasl-mechanisms. Passwords are ASCII and are never printed.
+    /// --sasl-mechanisms. Passwords are ASCII and are never printed. They show in `ps`: see --sasl-users-file.
     #[arg(long, value_name = "USER:PASSWORD")]
     sasl_user: Vec<sasl::Login>,
+    /// A file of users that may log in, one user:password a line (split at the first colon; blank lines and lines that
+    /// start with # are skipped), so that passwords stay out of `ps`. Warns at start if group or others can read it.
+    /// The variable DOZE_KAFKA_SASL_USERS (comma-separated user:password, no comma in a password) is read too. Users
+    /// from these are re-applied at every start, never stored, and cannot be changed over the API.
+    #[arg(long, value_name = "FILE")]
+    sasl_users_file: Option<PathBuf>,
+    /// Start with SASL on although no user is configured and none is stored. The first user is then made over the API
+    /// (AlterUserScramCredentials) by a super user (--acl-super-user): without one nobody can ever log in.
+    #[arg(long)]
+    sasl_allow_empty_users: bool,
 
     /// What a resource that no ACL covers allows: allow (the default, so that a broker with no ACLs refuses nothing)
     /// or deny (Kafka's own default). ACLs you create are enforced either way.
@@ -150,11 +160,21 @@ pub(crate) struct Args {
 pub(crate) struct Settings {
     pub(crate) broker: BrokerConfig,
     pub(crate) server: ServerConfig,
+    /// `--sasl-allow-empty-users`: a start with SASL on and no user at all is meant.
+    pub(crate) allow_empty_users: bool,
 }
 
 impl Args {
     /// Checks the arguments and turns them into the configuration of the broker and the server.
     pub(crate) fn settings(&self) -> Result<Settings> {
+        self.settings_in(&|name| std::env::var_os(name))
+    }
+
+    /// [`Args::settings`] with the environment given, so that a test need not change the process's own.
+    pub(crate) fn settings_in(
+        &self,
+        env: &dyn Fn(&str) -> Option<std::ffi::OsString>,
+    ) -> Result<Settings> {
         // Without the feature this refuses the flags, and a value that is `()` is all that is left of them.
         #[cfg_attr(not(feature = "tls"), allow(clippy::let_unit_value, unused_variables))]
         let tls = tls::load(self.tls_cert.as_ref(), self.tls_key.as_ref())?;
@@ -174,7 +194,7 @@ impl Args {
         broker.group_initial_rebalance_delay = self.group_initial_rebalance_delay;
         broker.consumer_session_timeout = self.consumer_session_timeout;
         // A test knob no flag covers: the least time between two computations of a consumer group's assignment.
-        if let Some(v) = std::env::var_os("DOZE_KAFKA_TEST_ASSIGNMENT_INTERVAL") {
+        if let Some(v) = env("DOZE_KAFKA_TEST_ASSIGNMENT_INTERVAL") {
             broker.consumer_assignment_interval = duration::parse(&v.to_string_lossy())
                 .map_err(|e| anyhow::anyhow!("DOZE_KAFKA_TEST_ASSIGNMENT_INTERVAL: {e}"))?;
         }
@@ -192,8 +212,17 @@ impl Args {
             retention_bytes: none_is_zero(self.retention_bytes),
             retention_ms: none_is_zero(self.retention_ms),
         };
+        let sasl = sasl::setup(&sasl::Input {
+            mechanisms: &self.sasl_mechanisms,
+            users: &self.sasl_user,
+            users_file: self.sasl_users_file.as_deref(),
+            env: sasl::users_from_env(env)?,
+            allow_empty: self.sasl_allow_empty_users,
+            data_dir: &self.data_dir,
+        })?;
+        broker.users = sasl.users;
         let server = ServerConfig {
-            sasl: sasl::authenticator(&self.sasl_mechanisms, &self.sasl_user)?,
+            sasl: sasl.authenticator,
             #[cfg(feature = "tls")]
             tls,
             listen: self.listen,
@@ -202,7 +231,11 @@ impl Args {
             profile: Profile::new(major),
             ..ServerConfig::default()
         };
-        Ok(Settings { broker, server })
+        Ok(Settings {
+            broker,
+            server,
+            allow_empty_users: self.sasl_allow_empty_users,
+        })
     }
 
     /// The sizes, counts and times that must be above zero.
@@ -256,6 +289,7 @@ impl Args {
 
 mod acl;
 mod sasl;
+pub(crate) use sasl::NO_USERS;
 mod tls;
 
 #[cfg(test)]

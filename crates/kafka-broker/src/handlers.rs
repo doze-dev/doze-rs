@@ -3,6 +3,7 @@
 mod add_offsets_to_txn;
 mod add_partitions_to_txn;
 pub(crate) mod alter_configs;
+mod alter_user_scram_credentials;
 mod consumer_group_describe;
 mod consumer_group_heartbeat;
 mod create_acls;
@@ -17,6 +18,7 @@ mod describe_configs;
 mod describe_groups;
 mod describe_producers;
 mod describe_transactions;
+mod describe_user_scram_credentials;
 mod end_txn;
 mod fetch;
 mod find_coordinator;

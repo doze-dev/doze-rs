@@ -32,10 +32,16 @@ what the killed member read and had not committed), and at the end every partiti
 A mode of its own, so the scenarios above stay as they are (they run with no login). `run.sh -sasl` starts the broker with
 `--sasl-mechanisms PLAIN,SCRAM-SHA-512,SCRAM-SHA-256 --sasl-user alice:alice-secret-pw` (`SASL_PASSWORD` changes the password) and
 runs one cell for each library and mechanism: sarama, franz-go, kafka-go and librdkafka (kcat) with PLAIN, SCRAM-SHA-256 and
-SCRAM-SHA-512, twelve in all. A cell makes a topic (franz-go over PLAIN), writes 20 keyed records and reads them back with the
+SCRAM-SHA-512, twelve in all (and the users step below). A cell makes a topic (franz-go over PLAIN), writes 20 keyed records and reads them back with the
 library's own producer and consumer, then logs in with a wrong password, which must fail with an authentication error within
 15 s (the output prints the words each library gave). sarama gets its SCRAM client from `xdg-go/scram`, as its documentation
 says; the others have SCRAM built in or in their own `sasl` packages. `interop/go/sasl.go`.
+
+**Users made over the API (`interop/go/users.go`, the second half of `-sasl`).** Fourteen more lines. franz-go's `kadm` makes a user, `dave`, with `AlterUserScramCredentials` (SCRAM-SHA-256 at 4096 iterations, SCRAM-SHA-512 at 8192; kadm
+salts the password and runs PBKDF2 itself, in Go) through a login as `alice`, who is configured at start; `DescribeUserScramCredentials` lists both users; an attempt to take over `alice` is refused (93). Then the eight cells above run again, as
+`dave` with SCRAM-SHA-256 and SCRAM-SHA-512 (a wrong password refused). Then: PLAIN with the right password is refused by every library (a stored SCRAM verifier cannot give a password back); `dave`'s SCRAM-SHA-512 credential is deleted and
+every library is refused with it while SCRAM-SHA-256 still logs in; the SCRAM-SHA-256 one is deleted and every library is refused; a second deletion is `RESOURCE_NOT_FOUND` and `dave` is no longer described. The broker of `-sasl` has no ACL, so any
+logged-in user may manage users (the open-broker posture, SEC-D51 in `docs/port/behaviours/security.md`). Needs `github.com/twmb/franz-go/pkg/kadm` (in `go.mod`).
 
 ## TLS (`-tls`)
 

@@ -12,6 +12,7 @@ impl<F: Fs> Broker<F> {
     /// profile, before the connection is known to be allowed anything else.
     #[expect(
         clippy::cognitive_complexity,
+        clippy::too_many_lines,
         reason = "an exhaustive match over every API, with no wildcard, so that an API with no handler does not compile"
     )]
     pub async fn handle(
@@ -80,6 +81,12 @@ impl<F: Fs> Broker<F> {
             Request::DescribeAcls(r) => self.describe_acls(caller, &r),
             Request::CreateAcls(r) => self.create_acls(caller, &r).await,
             Request::DeleteAcls(r) => self.delete_acls(caller, &r).await,
+            Request::DescribeUserScramCredentials(r) => {
+                self.describe_user_scram_credentials(caller, &r)
+            }
+            Request::AlterUserScramCredentials(r) => {
+                self.alter_user_scram_credentials(caller, &r).await
+            }
             // Not served yet (or answered by the connection). Each moves out of this arm into a handler when its
             // phase lands.
             Request::ApiVersions(_)

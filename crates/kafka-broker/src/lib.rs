@@ -1,5 +1,5 @@
 //! Request handlers and the state they keep: topics, partitions and their writers, producer ids, groups,
-//! transactions and the ACLs that say who may do what (SCRAM arrives in a later slice). No sockets here: the server hands a decoded request in and gets an [`Outcome`] back.
+//! transactions, the ACLs that say who may do what, and the SCRAM credentials stored over the API. No sockets here: the server hands a decoded request in and gets an [`Outcome`] back.
 
 mod authorizer;
 mod blocking;
@@ -23,6 +23,7 @@ mod topic_config;
 mod topics;
 mod txn;
 mod txn_index;
+mod users;
 
 pub use broker::Broker;
 pub use caller::Caller;

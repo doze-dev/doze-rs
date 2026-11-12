@@ -6,6 +6,7 @@
 
 mod acl;
 mod backend;
+mod credential;
 mod error;
 mod life;
 mod names;
@@ -15,6 +16,7 @@ mod store;
 mod txn;
 
 pub use acl::AclRecord;
+pub use credential::{CredentialId, CredentialRecord};
 pub use error::MetaError;
 pub use life::{ConsumerLife, GroupLife};
 pub use names::Collision;

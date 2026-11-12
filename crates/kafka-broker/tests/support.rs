@@ -269,6 +269,8 @@ pub use groups::join_request;
 mod produce;
 #[path = "support/txn.rs"]
 mod txn;
+#[path = "support/users.rs"]
+pub mod users;
 
 pub use compact::{clean_rounds, compacted, consume, delete_records, from, txn_produce};
 pub use configs::{BROKER, Op, TOPIC as TOPIC_RESOURCE};

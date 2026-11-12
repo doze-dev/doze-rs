@@ -57,6 +57,8 @@ const SERVED: &[ApiKey] = &[
     ApiKey::DescribeAcls,
     ApiKey::CreateAcls,
     ApiKey::DeleteAcls,
+    ApiKey::DescribeUserScramCredentials,
+    ApiKey::AlterUserScramCredentials,
 ];
 
 /// The broker, over a file system (the real one, or a simulated disk in tests).
@@ -88,6 +90,11 @@ pub struct Broker<F: Fs = RealFs> {
     /// Held for the whole of a change to the ACLs, from the set it starts from to the one swapped in: a change is
     /// worked out from the ACLs there are, so two at once would each start from the same set and one would be lost.
     pub(crate) acl_admin: tokio::sync::Mutex<()>,
+    /// The users that can log in: the ones configured at start, and the SCRAM credentials stored over the API.
+    pub(crate) users: Arc<kafka_auth::Users>,
+    /// Held for the whole of a change to the stored credentials, from the snapshot it starts from to the one swapped
+    /// in, for the reason `acl_admin` is.
+    pub(crate) user_admin: tokio::sync::Mutex<()>,
     /// Set when the broker is stopping: a round of cleaning that is running gives up (it is looked at between batches).
     pub(crate) stop_cleaning: Arc<std::sync::atomic::AtomicBool>,
 }
@@ -116,6 +123,8 @@ impl<F: Fs> Broker<F> {
             config.acl_default_allow,
             config.super_users.clone(),
         );
+        let users = Arc::clone(&config.users);
+        crate::users::load(&meta, &users)?;
         let millis = |d: std::time::Duration| u64::try_from(d.as_millis()).unwrap_or(u64::MAX);
         let meta_txns = meta.txns()?;
         let groups = Groups::new(
@@ -144,6 +153,8 @@ impl<F: Fs> Broker<F> {
             config_admin: tokio::sync::Mutex::new(()),
             authz,
             acl_admin: tokio::sync::Mutex::new(()),
+            users,
+            user_admin: tokio::sync::Mutex::new(()),
             stop_cleaning: Arc::default(),
         })
     }

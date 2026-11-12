@@ -91,6 +91,8 @@ async fn a_client_on_a_socket_gets_its_answer() {
         ApiKey::DeleteGroups,
         ApiKey::IncrementalAlterConfigs,
         ApiKey::OffsetDelete,
+        ApiKey::DescribeUserScramCredentials,
+        ApiKey::AlterUserScramCredentials,
         ApiKey::DescribeProducers,
         ApiKey::DescribeTransactions,
         ApiKey::ListTransactions,

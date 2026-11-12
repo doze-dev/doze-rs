@@ -32,7 +32,7 @@ fn main() -> Result<()> {
         let offered: Vec<_> = sasl.offered().iter().map(|m| m.name()).collect();
         tracing::info!(
             mechanisms = %offered.join(","),
-            users = sasl.user_count(),
+            configured_users = sasl.user_count(),
             "SASL is on: clients must log in"
         );
     }

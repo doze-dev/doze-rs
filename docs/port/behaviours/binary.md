@@ -35,6 +35,17 @@ a verifier for every user (4096 iterations, a random 16-byte salt per user and m
 the same for PLAIN and for both SCRAM hashes. The flag order is kept for the configuration; a SaslHandshake answer lists the
 mechanisms in Java `HashSet` order whatever the flag says (SEC-7). The passwords are in no `Debug` output of the arguments or the settings and
 in no log line (SEC-13).
+**Users from a file, the environment, and the API** (Phase 8, slice 8f; rules SEC-160 to SEC-179): the users of `--sasl-user` show in `ps`, so `--sasl-users-file PATH` (one `user:password` a
+line, split at the first colon; blank lines and lines whose first non-blank character is `#` are skipped; a CRLF ending and a leading byte order mark are ignored; nothing else is trimmed) and the
+variable `DOZE_KAFKA_SASL_USERS` (`user:password` entries separated by commas, the space around an entry ignored, an empty entry skipped; **a password with a comma cannot be written there**) give the
+same users from places `ps` does not show. The three sources add up (flag, file, environment) and are the **bootstrap** users: derived at every start, never stored, and refused by the API (SEC-D50).
+A bad line is named by its number (`--sasl-users-file: line 3: not a valid entry (expected user:password)`, or `DOZE_KAFKA_SASL_USERS: entry 2: ...`) and its text is never repeated; a user given
+twice across the sources names the user, never a password. On Unix the start warns (`--sasl-users-file PATH is readable by group or others (mode 644); run chmod 600 on it`) if group or others can read the file. Users from the file or
+the variable without `--sasl-mechanisms` stop the start, like `--sasl-user`. **No user at all** (no flag, file or variable, and no stored credential) with SASL on still stops the start with `SASL is enabled but no
+credentials are configured; give --sasl-user, --sasl-users-file or DOZE_KAFKA_SASL_USERS, or start with --sasl-allow-empty-users ...`: at once if the data directory has no database (nothing is created), else once the
+database is open and has no stored user. `--sasl-allow-empty-users` starts it anyway, so that the first user is made over the API (`AlterUserScramCredentials`) by a super user (`--acl-super-user`); without a
+super user nobody can then ever log in. **The bootstrap story:** the first user comes from a flag, a file or the variable; every later one can be made with `kafka-configs.sh --alter --add-config 'SCRAM-SHA-256=[iterations=4096,password=...]'`
+and survives restarts. The flag needs `--sasl-mechanisms`. Test: `cli::tests::users::*`, `tests/process` `users::*`, `kafka-server tests/users_api`.
 **TLS is real, behind a cargo feature** (Phase 8, slice 8e; rules SEC-140 to SEC-154): a build with `--features tls` (off by default; it needs a C compiler) takes `--tls-cert FILE` (a PEM chain, leaf
 first) and `--tls-key FILE` (PKCS#8, SEC1 or RSA, unencrypted), both or neither. One alone stops the start with `config: TLS needs both --tls-cert and --tls-key, or neither`; a file that cannot be
 used stops it with `config: cannot load the TLS certificate and key (--tls-cert X, --tls-key Y): <reason>` (the Go edition's words), before anything is bound, and the broker never falls back to

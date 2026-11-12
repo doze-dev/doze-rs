@@ -17,7 +17,7 @@ pub const ITERATIONS: NonZeroU32 = match NonZeroU32::new(4096) {
 };
 
 /// Which hash a SCRAM mechanism is built on.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Kind {
     /// `SCRAM-SHA-256`: SHA-256, 32-byte keys and proofs.
     Sha256,
@@ -100,14 +100,53 @@ impl Verifier {
     #[must_use]
     pub fn derive(kind: Kind, password: &[u8], salt: &[u8], iterations: NonZeroU32) -> Self {
         let salted = kind.salted_password(password, salt, iterations);
-        let client_key = kind.hmac(&salted, &[b"Client Key"]);
+        Self::from_salted_password(kind, salt, iterations, &salted)
+    }
+
+    /// The verifier a client's `AlterUserScramCredentials` asks for: the client sends `SaltedPassword = Hi(password,
+    /// salt, iterations)` and the server derives the two keys from it (`StoredKey = H(HMAC(SaltedPassword, "Client
+    /// Key"))`, `ServerKey = HMAC(SaltedPassword, "Server Key")`), so it never sees the password and does no PBKDF2.
+    #[must_use]
+    pub fn from_salted_password(
+        kind: Kind,
+        salt: &[u8],
+        iterations: NonZeroU32,
+        salted_password: &[u8],
+    ) -> Self {
+        let client_key = kind.hmac(salted_password, &[b"Client Key"]);
         Self {
             kind,
             salt: salt.into(),
             iterations,
             stored_key: kind.hash(&client_key).into(),
-            server_key: kind.hmac(&salted, &[b"Server Key"]).into(),
+            server_key: kind.hmac(salted_password, &[b"Server Key"]).into(),
         }
+    }
+
+    /// The verifier with these keys, as it was stored; `None` if either key is not the size of the hash (a record
+    /// that this program did not write).
+    #[must_use]
+    pub fn from_parts(
+        kind: Kind,
+        salt: &[u8],
+        iterations: NonZeroU32,
+        stored_key: &[u8],
+        server_key: &[u8],
+    ) -> Option<Self> {
+        let right = |k: &[u8]| k.len() == kind.hash_len();
+        (right(stored_key) && right(server_key)).then(|| Self {
+            kind,
+            salt: salt.into(),
+            iterations,
+            stored_key: stored_key.into(),
+            server_key: server_key.into(),
+        })
+    }
+
+    /// `(StoredKey, ServerKey)`, to be stored. Whoever holds them can check a login but not make one.
+    #[must_use]
+    pub fn keys(&self) -> (&[u8], &[u8]) {
+        (&self.stored_key, &self.server_key)
     }
 
     /// The hash this verifier is for.
