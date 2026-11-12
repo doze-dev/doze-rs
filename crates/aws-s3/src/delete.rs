@@ -5,6 +5,7 @@ use aws_wire::ApiError;
 use serde_json::{Map, Value, json};
 
 use crate::core::Core;
+use crate::events::Kind;
 use crate::errors::malformed_xml;
 use crate::model::{Meta, Version, Versioning};
 use crate::put::new_version_id;
@@ -21,6 +22,8 @@ pub(crate) struct Removed {
     pub(crate) created: bool,
     /// Size of the object removed, for the event.
     pub(crate) size: u64,
+    /// Something was there to remove, or a marker was added.
+    pub(crate) happened: bool,
 }
 
 /// The most keys one `DeleteObjects` may name.
@@ -39,6 +42,7 @@ impl Core {
                         marker: v.delete_marker,
                         created: false,
                         size: v.size,
+                        happened: true,
                     }
                 }
                 None => Removed::default(),
@@ -53,6 +57,7 @@ impl Core {
                 }
                 Ok(Removed {
                     size,
+                    happened: !existing.is_empty(),
                     ..Removed::default()
                 })
             }
@@ -88,12 +93,14 @@ impl Core {
             marker: true,
             created: true,
             size,
+            happened: true,
         })
     }
 
     pub(crate) fn delete_object(&mut self, req: &Req<'_>) -> Answer {
         let (bucket, key) = (req.bucket(), req.key());
         let removed = self.remove_key(bucket, key, req.s("VersionId"))?;
+        self.note_removed(req, key, &removed);
         let mut out = Map::new();
         if removed.marker {
             out.insert("DeleteMarker".into(), json!(true));
@@ -122,9 +129,21 @@ impl Core {
                 continue;
             }
             let r = self.remove_key(bucket, key, id)?;
+            self.note_removed(req, key, &r);
             done.push(deleted_entry(key, id, &r));
         }
         Out::json(if quiet { json!({}) } else { json!({"Deleted": done}) })
+    }
+}
+
+impl Core {
+    /// Notes the event for a removal: a delete marker added, or an object (version) removed.
+    fn note_removed(&mut self, req: &Req<'_>, key: &str, r: &Removed) {
+        if !r.happened {
+            return;
+        }
+        let name = if r.created { "ObjectRemoved:DeleteMarkerCreated" } else { "ObjectRemoved:Delete" };
+        self.note(req, Kind::Object(name), key, r.size, "", r.version_id.as_deref());
     }
 }
 

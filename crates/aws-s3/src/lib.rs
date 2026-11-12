@@ -24,6 +24,9 @@ mod core;
 mod delete;
 mod download;
 mod errors;
+mod janitor;
+mod lifecycle;
+mod events;
 mod get;
 mod list;
 mod listv;
@@ -47,32 +50,88 @@ use aws_wire::rest::{RestReply, RestService, Upload};
 use aws_wire::service::{BoxFuture, Call, Reply, Service};
 use aws_wire::{ApiError, RequestId};
 use doze_fs::fs::RealFs;
-use doze_runtime::{Ctx, Keyed};
+use doze_runtime::{Clock, Ctx, Keyed, Tasks};
 
 use crate::blob::Blobs;
 use crate::checksum::Algo;
 use crate::core::Core;
+use crate::janitor::Janitor;
 use crate::receive::{Declared, receive};
 use crate::req::{Answer, Ask};
 
 /// The region whose files are kept in the service's directory itself.
 const HOME_REGION: &str = "us-east-1";
 
-/// The S3 service. Nothing runs until the first request.
+/// The S3 service. Nothing runs until the first request, except that a region left with lifecycle rules arms the janitor.
 #[derive(Debug)]
 pub struct S3 {
+    inner: Arc<Inner>,
+}
+
+#[derive(Debug)]
+pub(crate) struct Inner {
     actors: Keyed<Core>,
     dir: PathBuf,
+    pub(crate) janitor: Janitor,
+    tasks: Tasks,
+    clock: Arc<dyn Clock>,
+}
+
+/// What a lifecycle sweep did.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Swept {
+    /// How many objects, versions and uploads the rules acted on.
+    pub actions: usize,
+    /// Whether any rule is left in the region (the janitor keeps visiting while one is).
+    pub armed: bool,
 }
 
 impl S3 {
     /// Registers S3. `ctx` says where its files live and how it reads the time.
     #[must_use]
     pub fn new(ctx: Arc<Ctx>) -> Self {
-        Self {
+        let inner = Arc::new(Inner {
             dir: ctx.dir.clone(),
+            tasks: ctx.tasks.clone(),
+            clock: Arc::clone(&ctx.clock),
+            janitor: Janitor::default(),
             actors: Keyed::new("s3", ctx, HOME_REGION),
+        });
+        for region in janitor::armed_regions(&inner.dir) {
+            inner.arm(&region);
         }
+        Self { inner }
+    }
+
+    /// Applies the lifecycle rules of `region` now, as the janitor does at midnight. For tests, and for a developer who does not
+    /// want to wait a day.
+    ///
+    /// # Errors
+    /// The region's service could not be reached.
+    pub async fn sweep_now(&self, region: &str) -> Result<Swept, ApiError> {
+        self.inner.sweep_now(region).await
+    }
+}
+
+impl Inner {
+    /// Arms the janitor for `region`, starting its task if it is not running.
+    fn arm(self: &Arc<Self>, region: &str) {
+        if self.janitor.arm(region) {
+            if tokio::runtime::Handle::try_current().is_err() {
+                self.janitor.disarm_all();
+                return;
+            }
+            let (me, tasks, clock) = (Arc::clone(self), self.tasks.clone(), Arc::clone(&self.clock));
+            self.tasks.spawn(janitor::run(me, tasks, clock));
+        }
+    }
+
+    pub(crate) async fn sweep_now(&self, region: &str) -> Result<Swept, ApiError> {
+        let out = self.ask(region, Ask::Sweep).await?;
+        Ok(Swept {
+            actions: out.json.get("Actions").and_then(serde_json::Value::as_u64).map_or(0, |n| usize::try_from(n).unwrap_or(0)),
+            armed: out.json.get("Armed").and_then(serde_json::Value::as_bool).unwrap_or(false),
+        })
     }
 
     /// Asks the actor of the region the call was signed for.
@@ -97,7 +156,7 @@ impl S3 {
         Blobs::new(RealFs, &dir)
     }
 
-    async fn run(&self, call: Call, upload: Option<Box<dyn Upload>>) -> Result<RestReply, ApiError> {
+    async fn run(self: &Arc<Self>, call: Call, upload: Option<Box<dyn Upload>>) -> Result<RestReply, ApiError> {
         let region = call.caller.region.clone();
         let op = Operation::from_index(call.op);
         let answer = match (op, upload) {
@@ -106,6 +165,9 @@ impl S3 {
             }
             (_, _) => self.ask(&region, Ask::Call(call, None)).await?,
         };
+        if op == Some(Operation::PutBucketLifecycleConfiguration) {
+            self.arm(&region);
+        }
         Ok(RestReply {
             json: answer.json,
             status: answer.status,
@@ -203,7 +265,7 @@ impl RestService for S3 {
         call: Call,
         upload: Option<Box<dyn Upload>>,
     ) -> BoxFuture<'_, Result<RestReply, ApiError>> {
-        Box::pin(self.run(call, upload))
+        Box::pin(self.inner.run(call, upload))
     }
 }
 

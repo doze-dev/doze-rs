@@ -76,6 +76,7 @@ impl Core {
             return Err(bucket_not_empty(name));
         }
         self.buckets.remove(name);
+        self.sync_marker();
         let gone: Vec<String> = self
             .uploads
             .with_prefix(&format!("{name}\0"))

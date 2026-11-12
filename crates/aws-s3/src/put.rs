@@ -7,6 +7,7 @@ use serde_json::{Map, Value, json};
 
 use crate::checksum::{Algo, Done, b64};
 use crate::core::Core;
+use crate::events::Kind;
 use crate::errors::{invalid_argument, key_too_long, precondition_failed};
 use crate::model::{CKind, Checksum, Meta, Seg, Version, Versioning};
 use crate::req::{Answer, Out, Req};
@@ -168,6 +169,7 @@ impl Core {
             tags: req.s("Tagging").map(tags_of).unwrap_or_default(),
         };
         let stored = self.install(&bucket, v)?;
+        self.note(&req, Kind::Object("ObjectCreated:Put"), &stored.key, stored.size, &stored.etag, Some(&stored.version_id));
         Out::json(self.put_output(&bucket, &stored))
     }
 

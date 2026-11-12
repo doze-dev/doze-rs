@@ -15,6 +15,7 @@ use doze_store::{Db, StoreError};
 use crate::blob::Blobs;
 use crate::model::{Bucket, PartRec, Upload};
 use crate::req::{Answer, Ask, Out, Req};
+use serde_json::json;
 
 pub(crate) const FILE: &str = "s3.redb";
 pub(crate) const BUCKETS: &str = "buckets";
@@ -49,6 +50,10 @@ pub(crate) struct Core {
     pub(crate) dir: std::path::PathBuf,
     /// Blobs to remove once the rows that referred to them are committed.
     pub(crate) doomed: Vec<String>,
+    /// Events the call in hand noted, delivered once its changes are on disk.
+    pub(crate) events: Vec<crate::events::Event>,
+    /// Who called last: the account and region the janitor acts in, since it has no request of its own.
+    pub(crate) last_caller: Option<aws_wire::service::Caller>,
 }
 
 /// The operations this service runs. The others are refused by name (501, `X-Doze-Not-Built`) before their request is read: ACLs
@@ -110,7 +115,14 @@ impl doze_runtime::Service for Core {
         let (call, staged, gate) = match ask {
             Ask::Gate(call) => (call, None, true),
             Ask::Call(call, staged) => (call, staged, false),
+            Ask::Sweep => {
+                let done = self.sweep_lifecycle();
+                self.sync_marker();
+                let result = Out::json(json!({"Actions": done, "Armed": self.has_lifecycle_rules()}));
+                return self.commit(result).await;
+            }
         };
+        self.last_caller = Some(call.caller.clone());
         let req = Req::new(&call, staged);
         self.authorize(&req).await?;
         if gate {
@@ -150,6 +162,8 @@ impl Core {
             clock,
             dir: dir.to_path_buf(),
             doomed: Vec::new(),
+            events: Vec::new(),
+            last_caller: None,
         };
         core.start_up();
         Ok(core)
@@ -181,6 +195,17 @@ impl Core {
         live
     }
 
+    /// Leaves or removes the marker that tells a restart this region has lifecycle rules.
+    pub(crate) fn sync_marker(&self) {
+        let marker = self.dir.join(crate::janitor::MARKER);
+        // WHY: a marker that cannot be written only means the janitor is not armed by a restart; the next lifecycle put arms it.
+        if self.has_lifecycle_rules() {
+            RealFs.open_or_create(&marker).ok();
+        } else {
+            RealFs.remove_file(&marker).ok();
+        }
+    }
+
     pub(crate) fn now_ms(&self) -> i64 {
         self.clock.now_ms()
     }
@@ -207,6 +232,7 @@ impl Core {
         for blob in doomed {
             self.blobs.remove(&blob);
         }
+        self.deliver().await;
         result
     }
 
@@ -214,6 +240,7 @@ impl Core {
     fn rollback(&mut self) {
         self.batch = Batch::default();
         self.doomed.clear();
+        self.events.clear();
         // WHY: the records noted their changes as they were made; staging them and dropping the rows is how they forget. A record
         // changed in memory by a call that then failed is rewritten from disk at the next start; failing calls change nothing
         // before their last step by construction (they check, then change).

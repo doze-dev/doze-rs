@@ -23,6 +23,8 @@ pub(crate) enum Ask {
     Gate(Call),
     /// Do the operation.
     Call(Call, Option<Staged>),
+    /// Apply the lifecycle rules of every bucket as of now (the janitor asks; so does a test).
+    Sweep,
 }
 
 /// A stretch of a blob to send.

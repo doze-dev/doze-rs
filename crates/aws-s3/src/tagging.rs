@@ -4,6 +4,7 @@ use aws_wire::ApiError;
 use serde_json::{Value, json};
 
 use crate::core::Core;
+use crate::events::Kind;
 use crate::errors::{malformed_xml, no_config, no_such_key};
 use crate::req::{Answer, Out, Req};
 
@@ -79,6 +80,7 @@ impl Core {
         let mut v = self.readable(req.bucket(), req.key(), req.s("VersionId"))?;
         v.tags = tags;
         self.put_row(req.bucket(), &v)?;
+        self.note(req, Kind::Object("ObjectTagging:Put"), &v.key, v.size, &v.etag, Some(&v.version_id));
         let mut out = json!({});
         if v.version_id != "null"
             && let Some(o) = out.as_object_mut()
@@ -101,6 +103,7 @@ impl Core {
             .map_err(|e| if e.code == "NoSuchKey" { no_such_key(req.key()) } else { e })?;
         v.tags.clear();
         self.put_row(req.bucket(), &v)?;
+        self.note(req, Kind::Object("ObjectTagging:Delete"), &v.key, v.size, &v.etag, Some(&v.version_id));
         Out::empty()
     }
 }

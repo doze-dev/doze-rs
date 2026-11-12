@@ -10,6 +10,7 @@ use serde_json::{Map, Value, json};
 use crate::blob::Staging;
 use crate::checksum::{Algo, Done, Sums};
 use crate::core::Core;
+use crate::events::Kind;
 use crate::errors::{invalid_argument, invalid_request, no_such_bucket, precondition_failed};
 use crate::get::{check_conditions, slices};
 use crate::model::{Seg, Version, Versioning};
@@ -160,6 +161,7 @@ impl Core {
             tags,
         };
         let stored = self.install(&bucket, v)?;
+        self.note(req, Kind::Object("ObjectCreated:Copy"), &stored.key, stored.size, &stored.etag, Some(&stored.version_id));
         Out::json(copy_output(&stored, &src, dest != Versioning::Off))
     }
 }

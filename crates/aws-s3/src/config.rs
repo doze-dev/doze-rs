@@ -89,13 +89,17 @@ impl Core {
         if let Some(b) = self.buckets.get_mut(req.bucket()) {
             b.configs.insert(k.name.to_owned(), text);
         }
-        if k.name == "lifecycle" {
-            return Out::json(json!({"TransitionDefaultMinimumObjectSize": "all_storage_classes_128K"}));
+        if k.name == "notification" {
+            self.note(req, crate::events::Kind::Test, "", 0, "", None);
         }
-        if k.name == "policy" {
-            return Out::no_content();
+        match k.name {
+            "lifecycle" => {
+                self.sync_marker();
+                Out::json(json!({"TransitionDefaultMinimumObjectSize": "all_storage_classes_128K"}))
+            }
+            "policy" => Out::no_content(),
+            _ => Out::empty(),
         }
-        Out::empty()
     }
 
     fn get_config(&self, req: &Req<'_>, k: &Kind) -> Answer {
@@ -122,6 +126,9 @@ impl Core {
     fn delete_config(&mut self, req: &Req<'_>, k: &Kind) -> Answer {
         if let Some(b) = self.buckets.get_mut(req.bucket()) {
             b.configs.remove(k.name);
+        }
+        if k.name == "lifecycle" {
+            self.sync_marker();
         }
         Out::empty()
     }

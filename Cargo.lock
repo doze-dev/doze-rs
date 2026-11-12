@@ -430,6 +430,7 @@ dependencies = [
  "aws-model-s3",
  "aws-peers",
  "aws-schema",
+ "aws-sqs",
  "aws-testkit",
  "aws-wire",
  "bytes",

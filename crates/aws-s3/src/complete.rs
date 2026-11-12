@@ -6,6 +6,7 @@ use serde_json::{Map, Value, json};
 
 use crate::checksum::{Algo, b64, combine, composite};
 use crate::core::Core;
+use crate::events::Kind;
 use crate::errors::malformed_xml;
 use crate::model::{CKind, Checksum, PartInfo, PartRec, Seg, Upload, Version};
 use crate::multipart::{part_row, upload_row};
@@ -116,6 +117,7 @@ impl Core {
         let used: Vec<String> = chosen.iter().map(|(_, p)| p.blob.clone()).collect();
         let stored = self.install(&bucket, v)?;
         self.finish_upload(&upload_row(&bucket, &key, &id), &used);
+        self.note(req, Kind::Object("ObjectCreated:CompleteMultipartUpload"), &stored.key, stored.size, &stored.etag, Some(&stored.version_id));
         Out::json(complete_output(&bucket, &key, req.call.caller.endpoint.as_str(), &stored, self.versioned(&bucket)))
     }
 
