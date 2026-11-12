@@ -301,11 +301,13 @@ fn a_segmented_control_is_a_group_of_links_with_one_current_and_may_work_in_plac
             label: "All",
             href: "?p=all",
             current: true,
+            count: None,
         },
         SegItem {
             label: "0",
             href: "?p=0",
             current: false,
+            count: None,
         },
     ];
     let plain = seg("Partitions", &items, None).into_string();

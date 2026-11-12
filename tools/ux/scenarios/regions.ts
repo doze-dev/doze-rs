@@ -46,7 +46,7 @@ export const scenarios: Record<string, (t: T) => Promise<void>> = {
 };
 
 const BAR = "#topic-bar";
-const MSG_ABOVE = [".page-h", ".tabs", BAR, `${BAR} .bar-row`, `${BAR} .bar-chips`, `${BAR} .seg`];
+const MSG_ABOVE = [".page-h", ".tabs", BAR, `${BAR} .bar-row`, `${BAR} .bar-chips`, `${BAR} .seg`, `${BAR} .seg[aria-label=Partition]`];
 
 Object.assign(scenarios, {
   // The Messages toolbar: a partition, a level, a key, a chip's X, Clear filters, Older. Nothing above the table moves; the owner's
@@ -59,13 +59,13 @@ Object.assign(scenarios, {
     const n = (name: string) => `messages: ${name}`;
     await inPlace(t, p, {
       name: n("partition 1"), above: MSG_ABOVE, url: /^\/topics\/orders\/messages\?partition=1$/,
-      act: () => p.click(`${BAR} button[name=partition][value="1"]`, { scroll: false }), done: "location.search.includes('partition=1') && document.querySelector('#topic-bar button[value=\"1\"]').getAttribute('aria-pressed') === 'true'",
-      focus: `${BAR} button[name=partition][value="1"]`,
+      act: () => p.click(`${BAR} [aria-label=Partition] a:nth-child(3)`, { scroll: false }), done: "location.search.includes('partition=1') && document.querySelector('#topic-bar [aria-label=Partition] a:nth-child(3)').getAttribute('aria-current') === 'true'",
+      focus: `${BAR} [aria-label=Partition] a:nth-child(3)`,
     });
     await inPlace(t, p, {
       name: n("read_committed"), above: MSG_ABOVE, url: /isolation=read_committed/,
-      act: () => p.click(`${BAR} button[name=isolation][value=read_committed]`, { scroll: false }), done: "location.search.includes('isolation=read_committed')",
-      focus: `${BAR} button[name=isolation][value=read_committed]`,
+      act: () => p.click(`${BAR} [aria-label="Reading as"] a:nth-child(2)`, { scroll: false }), done: "location.search.includes('isolation=read_committed')",
+      focus: `${BAR} [aria-label="Reading as"] a:nth-child(2)`,
     });
     // "Reading as" stays where it is (finding 9).
     const reading = await p.rect(`${BAR} .seg[aria-label="Reading as"]`);
@@ -113,8 +113,8 @@ Object.assign(scenarios, {
     const above = [".page-h", ".tabs", TOOLBAR];
     await inPlace(t, p, {
       name: "groups: Stable", above, url: /^\/groups\?state=stable$/,
-      act: () => p.click(`${TOOLBAR} button[name=state][value=stable]`, { scroll: false }), done: "location.search.includes('state=stable') && document.querySelector('form.toolbar button[value=stable]').getAttribute('aria-pressed') === 'true'",
-      focus: `${TOOLBAR} button[name=state][value=stable]`,
+      act: () => p.click(`${TOOLBAR} [aria-label=State] a:nth-child(2)`, { scroll: false }), done: "location.search.includes('state=stable') && document.querySelector('form.toolbar [aria-label=State] a:nth-child(2)').getAttribute('aria-current') === 'true'",
+      focus: `${TOOLBAR} [aria-label=State] a:nth-child(2)`,
     });
     await inPlace(t, p, {
       name: "groups: typing keeps the state", above, history: "replace", url: /^\/groups\?q=pay&state=stable$/,
@@ -122,7 +122,7 @@ Object.assign(scenarios, {
     });
     await inPlace(t, p, {
       name: "groups: All", above, url: /^\/groups\?q=pay$/,
-      act: () => p.click(`${TOOLBAR} button[name=state][value=""]`, { scroll: false }), done: "!location.search.includes('state=')",
+      act: () => p.click(`${TOOLBAR} [aria-label=State] a:nth-child(1)`, { scroll: false }), done: "!location.search.includes('state=')",
     });
     await p.back();
     await p.waitFor("location.search.includes('state=stable')");

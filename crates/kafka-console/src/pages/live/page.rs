@@ -11,7 +11,7 @@ use crate::format::number;
 use crate::model::{LiveState, LiveView, Span};
 use crate::ui::button::{Size, Variant, link};
 use crate::ui::client;
-use crate::ui::components::{Choice, Select, select};
+use crate::ui::components::{Choice, Combobox, Select, combobox, select};
 use crate::ui::glyph::{Glyph, glyph};
 use crate::ui::glyph_live::{LiveGlyph, live_glyph};
 use crate::ui::kafka::{filter_box, pager};
@@ -41,6 +41,9 @@ fn pause(v: &LiveView, base: &Base) -> Markup {
     }
 }
 
+/// The longest list a filter shows as a plain Select; a longer one is a Combobox.
+const MOST_PLAIN: usize = 8;
+
 /// A filter that is a Select: the first choice is "all" (an empty value), the rest are what the wire has seen. A value the filter
 /// holds that the wire no longer shows stays a choice, so the page never lies about what it is filtering by.
 fn select_chip(name: &str, all: &str, current: &str, options: &[String]) -> Markup {
@@ -48,6 +51,19 @@ fn select_chip(name: &str, all: &str, current: &str, options: &[String]) -> Mark
     choices.extend(options.iter().map(|o| Choice::new(o, o)));
     if !current.is_empty() && !options.iter().any(|o| o == current) {
         choices.push(Choice::new(current, current));
+    }
+    // A list that can grow (every app, every topic the wire has seen) is searchable.
+    if choices.len() > MOST_PLAIN {
+        return combobox(&Combobox {
+            auto_submit: true,
+            placeholder: all,
+            class: if current.is_empty() {
+                "dz-chip"
+            } else {
+                "dz-chip on"
+            },
+            ..Combobox::new(&format!("live-{name}"), name, all, &choices, current)
+        });
     }
     select(&Select {
         auto_submit: true,

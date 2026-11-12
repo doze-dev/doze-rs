@@ -10,6 +10,7 @@ use crate::config_words::{first_sentence, has_more, plain_text, type_word};
 use crate::model::{ConfigAsk, ConfigPace, ConfigRow, ConfigSource, ConfigSynonym};
 use crate::ui::button::{Size, Variant, class};
 use crate::ui::client::dialog_link;
+use crate::ui::components::{Menu, MenuItem, menu};
 use crate::ui::disclosure::{Look, disclosure};
 use crate::ui::glyph::{Glyph, glyph};
 
@@ -58,14 +59,33 @@ fn source_cell(r: &ConfigRow) -> Markup {
     html! { td { (source_tag(r.source)) } }
 }
 
+/// A topic value has two actions (Edit, Reset): a menu. A value that is the broker's or Kafka's has one: a button.
 fn actions_cell(r: &ConfigRow, c: &Ctx<'_>) -> Markup {
+    let edit = edit_url(c.base, c.topic, &r.name);
+    let reset = reset_url(c.base, c.topic, &r.name);
+    let items = [
+        MenuItem::Link {
+            label: "Edit",
+            href: &edit,
+            dialog: true,
+            danger: false,
+        },
+        MenuItem::Link {
+            label: "Reset to the inherited value",
+            href: &reset,
+            dialog: true,
+            danger: false,
+        },
+    ];
+    let label = format!("Actions for {}", r.name);
     html! {
         td {
             div class="row" style="justify-content:flex-end;gap:6px" {
                 @if r.on_topic() {
-                    (dialog_link(&(class(Variant::Plain, Size::Small) + " ghost"), &reset_url(c.base, c.topic, &r.name), html! { "Reset" }))
+                    (menu(&Menu { id: &format!("cfg-{}", r.name), label: &label, items: &items }))
+                } @else {
+                    (dialog_link(&class(Variant::Plain, Size::Small), &edit, html! { "Edit" }))
                 }
-                (dialog_link(&class(Variant::Plain, Size::Small), &edit_url(c.base, c.topic, &r.name), html! { "Edit" }))
             }
         }
     }

@@ -22,7 +22,8 @@ export class Browser {
   private dir = "";
 
   static async launch(chrome = DEFAULT_CHROME, size = { width: 1280, height: 800 }): Promise<Browser> {
-    const running = Bun.spawnSync(["pgrep", "-fl", "Google Chrome"]).stdout.toString().trim();
+    // A crashpad handler may linger after a Chrome has gone: it is not a browser.
+    const running = Bun.spawnSync(["pgrep", "-fl", "Google Chrome"]).stdout.toString().split("\n").filter((l) => l.trim() && !l.includes("chrome_crashpad_handler")).join("\n");
     if (running) throw new Error(`a Chrome is already running; one at a time:\n${running}`);
     const b = new Browser();
     b.dir = mkdtempSync(join(tmpdir(), "ux-chrome-"));

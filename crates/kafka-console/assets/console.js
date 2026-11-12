@@ -257,6 +257,7 @@
     if (r) r.setAttribute('inert', '');
     if (o.animate && !reduced()) el.classList.add('ovl-in');
     reveal();
+    if (el.hasAttribute('data-transient')) paintRecents(el);
     focusIn(el);
   }
   // Closing is the opening in reverse and a little faster; with reduced motion it is at once.
@@ -273,7 +274,7 @@
       if (pausedAt === null && !document.querySelector('[data-overlay]')) release();
       const r = pageRoot();
       if (r) r.removeAttribute('inert');
-      if (window.scrollTo) window.scrollTo(0, o.y);
+      if (window.scrollTo) window.scrollTo({ top: o.y, left: 0, behavior: 'instant' });
       if (o.opener && o.opener.isConnected) o.opener.focus({ preventScroll: true });
     };
     if (now || reduced()) return finish();
@@ -393,14 +394,51 @@
     const all = jumpLinks();
     all.forEach((a, i) => { a.classList.toggle('sel', i === to); if (i === to) { a.setAttribute('aria-current', 'true'); if (a.scrollIntoView) a.scrollIntoView({ block: 'nearest' }); } else a.removeAttribute('aria-current'); });
   }
+  // Recents: the last five places opened from the palette, kept in this browser (localStorage) as a kind and a name, nothing else.
+  // They are painted as COPIES of the list's own rows (never built from the stored text), so a stored name is only ever matched
+  // against what the server rendered and never becomes markup.
+  const RECENT = 'doze:recent';
+  const recent = () => { try { const r = JSON.parse(window.localStorage.getItem(RECENT) || '[]'); return Array.isArray(r) ? r.filter((x) => x && typeof x.n === 'string' && typeof x.k === 'string').slice(0, 5) : []; } catch (e) { return []; } };
+  const rowsOf = (list) => [...list.querySelectorAll('li:not(.jump-h) > a.jump-item')];
+  const nameOf = (a) => (a.querySelector('.mono') || {}).textContent, kindOf = (a) => (a.querySelector('.jump-kind') || {}).textContent;
+  function paintRecents(el) {
+    const list = el.querySelector('.jump-list');
+    if (!list || list.querySelector('[data-recent]')) return;
+    const have = rowsOf(list), picked = [];
+    for (const r of recent()) { const a = have.find((x) => nameOf(x) === r.n && kindOf(x) === r.k); if (a) picked.push(a.parentElement.cloneNode(true)); }
+    if (!picked.length) return;
+    const h = document.createElement('li');
+    h.className = 'jump-h'; h.setAttribute('role', 'presentation'); h.textContent = 'Recent';
+    [h, ...picked].forEach((li) => li.setAttribute('data-recent', ''));
+    list.prepend(h, ...picked);
+  }
+  function rememberPlace(a) {
+    const n = nameOf(a), k = kindOf(a);
+    if (!n || !k) return;
+    try { window.localStorage.setItem(RECENT, JSON.stringify([{ k, n }, ...recent().filter((x) => !(x.n === n && x.k === k))].slice(0, 5))); } catch (e) { /* storage is off or full */ }
+  }
+  // A heading is shown only while a row of its section is.
+  function headings(list) {
+    let head = null, any = false;
+    const close = () => { if (head) head.hidden = !any; };
+    for (const li of list.children) {
+      if (li.classList.contains('jump-h')) { close(); head = li; any = false; } else if (!li.hidden) any = true;
+    }
+    close();
+  }
   document.addEventListener('input', (e) => {
     if (!ovl || !e.target.hasAttribute || !e.target.hasAttribute('data-jump-input')) return;
-    const q = e.target.value.trim().toLowerCase(), items = [...ovl.el.querySelectorAll('.jump-list li')];
-    items.forEach((li) => { li.hidden = !!q && !attr(li.firstElementChild, 'data-jump').includes(q); });
+    const q = e.target.value.trim().toLowerCase(), list = ovl.el.querySelector('.jump-list');
+    const items = [...list.children].filter((li) => !li.classList.contains('jump-h'));
+    items.forEach((li) => { li.hidden = !!q && (li.hasAttribute('data-recent') || !attr(li.firstElementChild, 'data-jump').includes(q)); });
+    // The recents' heading goes with them while something is typed.
+    list.querySelectorAll('.jump-h[data-recent]').forEach((h) => { h.hidden = !!q; });
+    headings(list);
     const none = ovl.el.querySelector('.jump-empty');
     if (none) none.hidden = !items.length || items.some((li) => !li.hidden);
     jumpSelect(0);
   });
+  document.addEventListener('click', (e) => { const a = e.target.closest && e.target.closest('.jump-item'); if (a && ovl && ovl.el.hasAttribute('data-transient')) rememberPlace(a); }, true);
   document.addEventListener('keydown', (e) => {
     if ((e.metaKey || e.ctrlKey) && !e.altKey && (e.key === 'k' || e.key === 'K')) { e.preventDefault(); openPalette(); return; }
     if (!ovl || !ovl.el.hasAttribute('data-transient')) return;
@@ -517,7 +555,7 @@
     pageUrl = here();
     let y = 0;
     if (store) { try { y = Number(store.getItem('doze:y:' + pageUrl)) || 0; } catch (e) { y = 0; } }
-    if (window.scrollTo) window.scrollTo(0, y);
+    if (window.scrollTo) window.scrollTo({ top: y, left: 0, behavior: 'instant' });
     reveal();
     sync();
     connect();

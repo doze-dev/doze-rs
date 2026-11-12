@@ -22,7 +22,18 @@ pub(super) const MOST: usize = 500;
 pub enum JumpKind {
     Topic,
     Group,
+    /// A place of the console itself (Home, Live, Connect, the two lists).
+    Page,
 }
+
+/// The pages of the console the palette can go to, by the name it shows.
+const PAGES: [(&str, &str); 5] = [
+    ("Home", "/"),
+    ("Live", "/live"),
+    ("Connect", "/connect"),
+    ("Topics", "/topics"),
+    ("Groups", "/groups"),
+];
 
 /// One place the palette can go: a topic or a group, by name.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -41,10 +52,12 @@ impl JumpItem {
                 name: n.clone(),
             }
         };
+        let pages: Vec<String> = PAGES.iter().map(|(n, _)| (*n).to_owned()).collect();
         topics
             .iter()
             .map(of(JumpKind::Topic))
             .chain(groups.iter().map(of(JumpKind::Group)))
+            .chain(pages.iter().map(of(JumpKind::Page)))
             .collect()
     }
 
@@ -52,6 +65,7 @@ impl JumpItem {
         match self.kind {
             JumpKind::Topic => "topic",
             JumpKind::Group => "group",
+            JumpKind::Page => "page",
         }
     }
 
@@ -59,24 +73,45 @@ impl JumpItem {
         let at = match self.kind {
             JumpKind::Topic => "topics",
             JumpKind::Group => "groups",
+            JumpKind::Page => {
+                let path = PAGES
+                    .iter()
+                    .find(|(n, _)| *n == self.name)
+                    .map_or("/", |(_, p)| p);
+                return base.url(path);
+            }
         };
         base.url(&format!("/{at}/{}", segment(&self.name)))
     }
 }
 
+/// The names, in three sections with a heading each (Topics, Groups, Pages); a section with no name has no heading.
 fn list(items: &[JumpItem], base: &Base) -> Markup {
-    html! {
-        ul class="jump-list" id="jump-list" aria-label="Topics and groups" {
-            @for i in items.iter().take(MOST) {
-                li { a class="jump-item" href=(i.href(base)) data-jump=(i.name.to_lowercase()) {
-                    @match i.kind {
-                        JumpKind::Topic => (glyph(Glyph::Topic, 16, "")),
-                        JumpKind::Group => (group_glyph(GroupGlyph::Group, 16, "")),
-                    }
-                    span class="mono" { (i.name) }
-                    span class="jump-kind" { (i.word()) }
-                } }
+    let shown: Vec<&JumpItem> = items.iter().take(MOST).collect();
+    let section = |kind: JumpKind, title: &'static str| -> Markup {
+        let of: Vec<&&JumpItem> = shown.iter().filter(|i| i.kind == kind).collect();
+        html! {
+            @if !of.is_empty() {
+                li class="jump-h" role="presentation" { (title) }
+                @for i in of {
+                    li { a class="jump-item" href=(i.href(base)) data-jump=(i.name.to_lowercase()) {
+                        @match i.kind {
+                            JumpKind::Topic => (glyph(Glyph::Topic, 16, "")),
+                            JumpKind::Group => (group_glyph(GroupGlyph::Group, 16, "")),
+                            JumpKind::Page => (glyph(Glyph::Home, 16, "")),
+                        }
+                        span class="mono" { (i.name) }
+                        span class="jump-kind" { (i.word()) }
+                    } }
+                }
             }
+        }
+    };
+    html! {
+        ul class="jump-list" id="jump-list" aria-label="Topics, groups and pages" {
+            (section(JumpKind::Topic, "Topics"))
+            (section(JumpKind::Group, "Groups"))
+            (section(JumpKind::Page, "Pages"))
         }
     }
 }

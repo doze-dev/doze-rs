@@ -89,9 +89,11 @@ export const scenarios = {
   async "select-flips-near-the-bottom"(t: T) {
     const p = t.page;
     await p.goto("/gallery");
-    // Put the trigger low in the window.
-    await p.eval(`(() => { const e = document.querySelector(${JSON.stringify(open("s-plain"))}); const y = e.getBoundingClientRect().top + window.scrollY - (window.innerHeight - 70); window.scrollTo(0, y); })()`);
-    await Bun.sleep(80);
+    // Put the trigger low in the window (once the page has its full height: the scroll is clamped before that).
+    await p.waitFor("document.documentElement.scrollHeight > window.innerHeight + 300");
+    await Bun.sleep(150);
+    await p.eval(`(() => { const e = document.querySelector(${JSON.stringify(open("s-plain"))}); const y = e.getBoundingClientRect().top + window.scrollY - (window.innerHeight - 70); window.scrollTo({ top: y, behavior: "instant" }); })()`);
+    await Bun.sleep(150);
     await p.click(open("s-plain"), { scroll: false });
     await p.waitFor(`document.querySelector(${JSON.stringify(open("s-plain"))}).getAttribute('aria-expanded') === 'true'`);
     await Bun.sleep(100);

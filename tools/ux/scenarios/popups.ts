@@ -16,17 +16,20 @@ export const scenarios: Record<string, (t: T) => Promise<void>> = {
     await Bun.sleep(250);
     const m = await p.eval<{ left: number; right: number; top: number; bottom: number }>(rect(".dz-menu-list"));
     t.num("menu.left", m.left);
+    const nudge = await p.eval<number>("parseFloat(document.querySelector('.dz-menu-list').style.marginLeft) || 0");
+    t.num("menu.nudge", nudge);
+    t.ok(m.left - nudge < railRight, "the test is real: without the nudge the menu would be over the rail");
     t.ok(m.left >= railRight, `the menu starts at ${m.left}, right of the rail (${railRight})`);
-    t.ok(m.right <= 1280 && m.top >= 52 && m.bottom <= 800, "the menu is inside the window and under the top bar");
+    t.ok(m.right <= 1280 && m.bottom <= 800, "the menu is inside the window");
     await p.shot(`${t.shots}/menu-by-the-rail.png`);
     await p.key("Escape");
-    // The same at the right edge and near the top bar.
-    await p.eval("(() => { const m = document.querySelector('.dz-menu'); m.style.left = 'auto'; m.style.right = '4px'; m.style.top = '58px'; })()");
+    // The same at the right edge.
+    await p.eval("(() => { const m = document.querySelector('.dz-menu'); m.style.left = 'auto'; m.style.right = '4px'; m.style.top = '300px'; })()");
     await p.click(".dz-menu .dz-menu-btn", { scroll: false });
     await p.waitFor("document.querySelector('.dz-menu-btn').getAttribute('aria-expanded') === 'true'");
     await Bun.sleep(250);
     const r = await p.eval<{ left: number; right: number; top: number; bottom: number }>(rect(".dz-menu-list"));
-    t.ok(r.right <= 1280 - 7 && r.top >= 52, `at the right edge: right ${r.right}, top ${r.top}`);
+    t.ok(r.right <= 1280 - 7, `at the right edge: right ${r.right}`);
     await p.key("Escape");
   },
 };

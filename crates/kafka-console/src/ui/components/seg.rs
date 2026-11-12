@@ -9,6 +9,8 @@ pub struct SegItem<'a> {
     pub label: &'a str,
     pub href: &'a str,
     pub current: bool,
+    /// A muted number after the label (the groups in a state).
+    pub count: Option<usize>,
 }
 
 /// The control. With `in_place` set to the id of the region the segments change, a click swaps only that region (and pushes the
@@ -21,7 +23,7 @@ pub fn seg(label: &str, items: &[SegItem<'_>], in_place: Option<&str>) -> Markup
                 @let target = in_place.map(|t| format!("#{t}"));
                 a class={"dz-seg-i" @if it.current { " on" }} href=(it.href) data-seg aria-current=[it.current.then_some("true")]
                     hx-get=[target.as_ref().map(|_| it.href)] hx-target=[target.as_deref()] hx-select=[target.as_deref()]
-                    hx-swap=[target.as_ref().map(|_| crate::ui::client::IN_PLACE_SWAP)] hx-push-url=[target.as_ref().map(|_| "true")] data-nopreload=[target.as_ref().map(|_| "false")] { (it.label) }
+                    hx-swap=[target.as_ref().map(|_| crate::ui::client::IN_PLACE_SWAP)] hx-push-url=[target.as_ref().map(|_| "true")] data-nopreload=[target.as_ref().map(|_| "false")] { (it.label) @if let Some(n) = it.count { span class="dim dz-seg-n" { (n) } } }
             }
         }
     }

@@ -16,6 +16,7 @@ use super::messages::{TOPIC_VIEW, messages_url};
 use crate::base::Base;
 use crate::format::number;
 use crate::model::{MessageQuery, MessagesView, Reading};
+use crate::ui::components::{Choice, SegItem, Select, seg, select};
 use crate::ui::glyph::{Glyph, glyph};
 use crate::ui::inplace::{self, Opts};
 use crate::ui::kafka::filter_box;
@@ -23,28 +24,82 @@ use crate::ui::kafka::filter_box;
 /// The id of the toolbar: the controls a script reads the whole form of. The data it drives is `#topic-messages`.
 pub(super) const BAR_ID: &str = "topic-bar";
 
-fn partition_seg(v: &MessagesView) -> Markup {
-    html! {
-        div class="seg" role="group" aria-label="Partition" {
-            button class={@if v.query.partition.is_none() { "on" }} type="submit" name="partition" value="" aria-pressed=(v.query.partition.is_none()) data-ui="select" { "All partitions" }
-            @for p in &v.head.parts {
-                button class={@if v.query.partition == Some(p.partition) { "on" }} type="submit" name="partition" value=(p.partition) aria-pressed=(v.query.partition == Some(p.partition)) data-ui="select" { (p.partition) }
-            }
-        }
+/// The most partitions drawn as a row of segments; a topic with more has a Select (a list you can open, with the keys).
+const MOST_SEGMENTS: usize = 8;
+
+/// The partitions: a Segmented control for a few, a Select for many. Each choice is the same page with that partition, so a
+/// choice is also a plain link (the Select is a real `<select>` that submits the form with no script).
+fn partition_pick(v: &MessagesView, base: &Base) -> Markup {
+    let to = |p: Option<i32>| {
+        let mut q = v.query.clone();
+        q.partition = p;
+        messages_url(base, &v.head.name, &q)
+    };
+    if v.head.parts.len() > MOST_SEGMENTS {
+        let labels: Vec<String> = v
+            .head
+            .parts
+            .iter()
+            .map(|p| p.partition.to_string())
+            .collect();
+        let mut choices = vec![Choice::new("", "All partitions")];
+        choices.extend(labels.iter().map(|l| Choice::new(l, l)));
+        let now = v.query.partition.map(|p| p.to_string()).unwrap_or_default();
+        return select(&Select {
+            auto_submit: true,
+            placeholder: "All partitions",
+            ..Select::new("topic-partition", "partition", "Partition", &choices, &now)
+        });
     }
+    let links: Vec<String> = std::iter::once(to(None))
+        .chain(v.head.parts.iter().map(|p| to(Some(p.partition))))
+        .collect();
+    let labels: Vec<String> = std::iter::once("All partitions".to_owned())
+        .chain(v.head.parts.iter().map(|p| p.partition.to_string()))
+        .collect();
+    let items: Vec<SegItem<'_>> = labels
+        .iter()
+        .zip(&links)
+        .enumerate()
+        .map(|(i, (label, href))| SegItem {
+            label,
+            href,
+            current: if i == 0 {
+                v.query.partition.is_none()
+            } else {
+                v.query.partition == Some(v.head.parts[i - 1].partition)
+            },
+            count: None,
+        })
+        .collect();
+    seg("Partition", &items, Some(TOPIC_VIEW))
 }
 
 /// "Reading as", always `read_uncommitted` then `read_committed`, always at the right.
-fn reading_seg(v: &MessagesView) -> Markup {
-    let level = |r: Reading| {
-        let on = v.query.reading == r;
-        html! { button class={@if on { "on" }} type="submit" name="isolation" value=(r.word()) aria-pressed=(on) data-ui="select" { (r.word()) } }
+fn reading_seg(v: &MessagesView, base: &Base) -> Markup {
+    let to = |r: Reading| {
+        let mut q = v.query.clone();
+        q.reading = r;
+        messages_url(base, &v.head.name, &q)
     };
+    let (u, c) = (to(Reading::Uncommitted), to(Reading::Committed));
+    let items = [
+        SegItem {
+            label: Reading::Uncommitted.word(),
+            href: &u,
+            current: v.query.reading == Reading::Uncommitted,
+            count: None,
+        },
+        SegItem {
+            label: Reading::Committed.word(),
+            href: &c,
+            current: v.query.reading == Reading::Committed,
+            count: None,
+        },
+    ];
     html! {
         span class="dim" { "Reading as" }
-        div class="seg" role="group" aria-label="Reading as" {
-            (level(Reading::Uncommitted)) (level(Reading::Committed))
-        }
+        (seg("Reading as", &items, Some(TOPIC_VIEW)))
     }
 }
 
@@ -121,10 +176,10 @@ pub(super) fn bar(v: &MessagesView, base: &Base) -> Markup {
             // The button Enter presses in the find box: not a control of the page, so it is out of the board's reckoning.
             input type="submit" value="Show" aria-label="Show records" hidden data-scaffold;
             div class="bar-row" {
-                (partition_seg(v))
+                (partition_pick(v, base))
                 (filter_box("find", "Key, or offset", "Find by key or offset", &find))
                 span class="sp" {}
-                (reading_seg(v))
+                (reading_seg(v, base))
             }
             // After the buttons, so that the button that was clicked is the first of its name.
             @if let Some(p) = q.partition { input type="hidden" name="partition" value=(p); }

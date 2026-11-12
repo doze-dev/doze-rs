@@ -9,6 +9,7 @@ use crate::groups_words::attention_sentence;
 use crate::model::{GroupFilter, GroupPhase, GroupProtocol, GroupRow, GroupsView, RowLag};
 use crate::ui::button::{Size, Variant, link, state};
 use crate::ui::client;
+use crate::ui::components::{SegItem, seg};
 use crate::ui::glyph::Glyph;
 use crate::ui::inplace;
 use crate::ui::kafka::empty;
@@ -165,13 +166,36 @@ pub fn groups_live_fragment(v: &GroupsView, base: &Base) -> Markup {
     )
 }
 
-fn chip(v: &GroupsView, which: GroupFilter, label: &str, n: usize) -> Markup {
-    let on = v.state == which;
-    html! {
-        button class={"fchip" @if on { " on" }} type="submit" name="state" value=(which.value()) data-ui="filter" aria-pressed=(on) {
-            (label) span class="dim" { (n) }
-        }
-    }
+/// The states as a Segmented control: each is the same list in that state (a link with no script, an in-place swap with one).
+fn states(v: &GroupsView, base: &Base) -> Markup {
+    let all = [
+        (GroupFilter::All, "All"),
+        (GroupFilter::Stable, "Stable"),
+        (GroupFilter::Rebalancing, "Rebalancing"),
+        (GroupFilter::Empty, "Empty"),
+    ];
+    let hrefs: Vec<String> = all
+        .iter()
+        .map(|(w, _)| {
+            format!(
+                "{}{}",
+                base.url("/groups"),
+                crate::form::encode_query(&[("q", &v.filter), ("state", w.value())])
+            )
+        })
+        .collect();
+    let items: Vec<SegItem<'_>> = all
+        .iter()
+        .zip(&hrefs)
+        .enumerate()
+        .map(|(i, ((w, label), href))| SegItem {
+            label,
+            href,
+            current: v.state == *w,
+            count: Some(v.counts[i]),
+        })
+        .collect();
+    seg("State", &items, Some(GROUPS_VIEW))
 }
 
 /// The id of the region the toolbar and the table share: a chip or the filter changes it and nothing else of the page.
@@ -183,10 +207,7 @@ fn toolbar(v: &GroupsView, base: &Base) -> Markup {
         (inplace::form(GROUPS_VIEW, None, "toolbar", Some("margin-top:24px"), &action, html! {
             input type="submit" value="Filter" aria-label="Filter groups" hidden data-scaffold;
             (inplace::search_box(GROUPS_VIEW, &action, "q", "Filter by group id", "Filter by group id", &v.filter))
-            (chip(v, GroupFilter::All, "All", v.counts[0]))
-            (chip(v, GroupFilter::Stable, "Stable", v.counts[1]))
-            (chip(v, GroupFilter::Rebalancing, "Rebalancing", v.counts[2]))
-            (chip(v, GroupFilter::Empty, "Empty", v.counts[3]))
+            (states(v, base))
             span class="sp" {}
             // After the buttons: the button that was clicked is the first of its name, and typing keeps the state that is on.
             @if v.state != GroupFilter::All { input type="hidden" name="state" value=(v.state.value()); }
