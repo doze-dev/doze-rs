@@ -53,6 +53,7 @@ pub(crate) async fn run(args: Args) -> Result<()> {
         Arc::new(aws_ssm::Ssm::new(Arc::new(ctx("ssm")))),
         Arc::new(aws_secrets::Secrets::new(Arc::new(ctx("secretsmanager")))),
         Arc::new(aws_kms::Kms::new(Arc::new(ctx("kms")))),
+        Arc::new(aws_s3::S3::new(Arc::new(ctx("s3")))),
     ];
     let mut gateway = Gateway::new(config);
     for service in services {

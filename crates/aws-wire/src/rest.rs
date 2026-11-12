@@ -30,6 +30,11 @@ pub trait Upload: Send {
     /// The trailing headers (`x-amz-checksum-crc32` and so on), lower-cased, known once the stream has ended.
     fn trailers(&self) -> Vec<(String, String)>;
 
+    /// The hex SHA-256 the client signed for the payload (`x-amz-content-sha256`), when it gave one: the body must hash to it.
+    fn sha256(&self) -> Option<String> {
+        None
+    }
+
     /// The payload's length when the client declared it (`x-amz-decoded-content-length`, or `Content-Length` for a plain body).
     fn length(&self) -> Option<u64>;
 }

@@ -21,6 +21,31 @@ use crate::body::RespBody;
 use crate::pipeline::{Entry, Shared, authenticate, read_body, session_token};
 use crate::upload::{Framing, upload};
 
+/// The claim of a SigV2 presigned URL (`AWSAccessKeyId`, `Expires`, `Signature`), as far as it means anything without the secret:
+/// who it names, and that it expires at the absolute time it carries.
+pub(crate) fn sigv2_claim(parts: &Parts) -> Option<Claim> {
+    let q = pairs(parts.uri.query()?);
+    let get = |name: &str| q.iter().find(|(k, _)| k == name).map(|(_, v)| v.clone());
+    let expires: i64 = get("Expires")?.parse().ok()?;
+    let signature = get("Signature")?;
+    Some(Claim {
+        placement: Placement::Query,
+        access_key_id: get("AWSAccessKeyId")?,
+        scope_date: String::new(),
+        region: "us-east-1".to_owned(),
+        service: "s3".to_owned(),
+        signed_headers: Vec::new(),
+        signature: Vec::new(),
+        signature_hex: signature,
+        amz_date: String::new(),
+        // The URL is good until `expires`: signed "at" that moment for a lifetime of nothing.
+        request_time: expires,
+        expires_in: Some(0),
+        session_token: None,
+        content_sha256: None,
+    })
+}
+
 /// Answers a request to the REST service `entry`.
 pub(crate) async fn respond(
     shared: &Shared,
@@ -196,7 +221,13 @@ async fn take_body(
         return Ok((bytes, None));
     }
     let (framing, length) = framing_of(parts, pending)?;
-    Ok((bytes::Bytes::new(), Some(upload(body, framing, length))))
+    let claimed = parts
+        .headers
+        .get("x-amz-content-sha256")
+        .and_then(|v| v.to_str().ok())
+        .filter(|h| h.len() == 64)
+        .map(str::to_owned);
+    Ok((bytes::Bytes::new(), Some(upload(body, framing, length, claimed))))
 }
 
 /// How the payload is framed, and its declared length. The signature is finished here, before a byte of the payload is read.

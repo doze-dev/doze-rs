@@ -71,6 +71,11 @@ impl Shared {
         self.config.max_body_bytes
     }
 
+    /// Whether signatures are taken on trust.
+    pub(crate) fn trusts(&self) -> bool {
+        matches!(self.config.auth, Auth::Trust)
+    }
+
     /// The account every request is for.
     pub(crate) fn account_id(&self) -> &str {
         &self.config.account_id
@@ -95,7 +100,14 @@ pub(crate) async fn respond(
     let id = RequestId::new();
     let (parts, body) = req.into_parts();
     // A REST service (S3) streams its bodies and words its errors its own way, so it has its own path.
-    if let Ok(Some(claim)) = Claim::parse(&parts)
+    let claim = match Claim::parse(&parts) {
+        Ok(found) => found,
+        // boto3 signs an S3 presigned URL with SigV2 unless told otherwise, and S3 accepts it. With no keys to check it against, a
+        // trusting gateway takes the access key as given and holds the URL to its expiry.
+        Err(AuthError::UnsupportedAlgorithm) if shared.trusts() => crate::rest::sigv2_claim(&parts),
+        Err(_) => None,
+    };
+    if let Some(claim) = claim
         && let Some(entry) = shared
             .entry(&claim.service)
             .filter(|e| e.service.meta().speaks(Protocol::RestXml))

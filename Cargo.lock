@@ -422,6 +422,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "aws-s3"
+version = "0.0.0"
+dependencies = [
+ "aws-core",
+ "aws-model-s3",
+ "aws-peers",
+ "aws-schema",
+ "aws-testkit",
+ "aws-wire",
+ "bytes",
+ "doze-fs",
+ "doze-runtime",
+ "doze-store",
+ "getrandom 0.4.3",
+ "md-5",
+ "serde",
+ "serde_json",
+ "sha1",
+ "sha2",
+ "tokio",
+]
+
+[[package]]
 name = "aws-schema"
 version = "0.0.0"
 dependencies = [
@@ -1072,6 +1095,7 @@ dependencies = [
  "aws-iam",
  "aws-kms",
  "aws-peers",
+ "aws-s3",
  "aws-secrets",
  "aws-sqs",
  "aws-ssm",

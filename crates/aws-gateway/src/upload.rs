@@ -23,12 +23,18 @@ struct Stream {
     /// Bytes received and not yet consumed by the chunk decoder.
     pending: Bytes,
     length: Option<u64>,
+    sha256: Option<String>,
     trailers: Vec<(String, String)>,
     done: bool,
 }
 
 /// An upload over `body`; `length` is the payload's declared length.
-pub(crate) fn upload(body: Incoming, framing: Framing, length: Option<u64>) -> Box<dyn Upload> {
+pub(crate) fn upload(
+    body: Incoming,
+    framing: Framing,
+    length: Option<u64>,
+    sha256: Option<String>,
+) -> Box<dyn Upload> {
     let decoder = match framing {
         Framing::Plain => None,
         Framing::Chunked(auth, signed_trailer) => Some(ChunkDecoder::new(auth, signed_trailer)),
@@ -38,6 +44,7 @@ pub(crate) fn upload(body: Incoming, framing: Framing, length: Option<u64>) -> B
         decoder,
         pending: Bytes::new(),
         length,
+        sha256,
         trailers: Vec::new(),
         done: false,
     })
@@ -143,5 +150,9 @@ impl Upload for Stream {
 
     fn length(&self) -> Option<u64> {
         self.length
+    }
+
+    fn sha256(&self) -> Option<String> {
+        self.sha256.clone()
     }
 }
