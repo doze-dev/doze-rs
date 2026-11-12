@@ -33,6 +33,8 @@ pub mod fixtures_config;
 #[cfg(any(test, feature = "examples"))]
 pub mod fixtures_groups;
 #[cfg(any(test, feature = "examples"))]
+pub mod fixtures_live;
+#[cfg(any(test, feature = "examples"))]
 pub mod fixtures_topics;
 #[cfg(any(test, feature = "examples"))]
 pub mod fixtures_write;
@@ -45,12 +47,14 @@ pub mod handlers;
 pub mod headers;
 pub mod lag;
 pub mod limits;
+pub mod live_ids;
 pub mod model;
 pub mod origin;
 pub mod pages;
 pub mod partitioner;
 pub mod phrases;
 pub mod probe;
+pub mod recorder;
 pub mod refusal;
 pub mod routes;
 pub mod serve;
@@ -69,5 +73,6 @@ pub mod write_source;
 pub use backend::Backend;
 pub use facts::Facts;
 pub use limits::{Limits, MAX_CONNECTIONS, MAX_STREAMS};
+pub use recorder::Recorder;
 pub use serve::{Running, Settings, start, start_on, start_with};
 pub use source::{Live, Source};

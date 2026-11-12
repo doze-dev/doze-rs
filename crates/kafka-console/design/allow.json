@@ -2,23 +2,9 @@
   {
     "board": "home",
     "field": "link",
-    "selector": "connect-first-request",
-    "reason": "The first-request card needs the recorder (what the first request of a new client looks like): slice 9e. Until then Home shows the how-to-connect text (debt J1-J7).",
-    "expires": "9e"
-  },
-  {
-    "board": "home",
-    "field": "link",
     "selector": "home-attention",
     "reason": "The all-clear sentence links to the attention state of the same page on the board; a state is not a route, so it is plain text (debt J1-J7).",
     "expires": "close"
-  },
-  {
-    "board": "home-attention",
-    "field": "link",
-    "selector": "connect-first-request",
-    "reason": "The first-request card needs the recorder: slice 9e (debt J1-J7).",
-    "expires": "9e"
   },
   {
     "board": "topic-create",
@@ -238,66 +224,6 @@
     "expires": "close"
   },
   {
-    "board": "topic-detail",
-    "field": "link",
-    "selector": "topic-wire",
-    "reason": "p9b-read: the wire recorder (slice 9e) does not exist yet, so the 'On the wire' dock is not drawn (debt J21).",
-    "expires": "9e"
-  },
-  {
-    "board": "topic-detail",
-    "field": "heading",
-    "selector": "h2 On the wire",
-    "reason": "p9b-read: the wire recorder (slice 9e) does not exist yet, so the 'On the wire' dock is not drawn (debt J21).",
-    "expires": "9e"
-  },
-  {
-    "board": "topic-detail",
-    "field": "table",
-    "reason": "p9b-read: the wire recorder (slice 9e) does not exist yet, so the 'On the wire' dock is not drawn (debt J21).",
-    "expires": "9e"
-  },
-  {
-    "board": "topic-detail",
-    "field": "table.col",
-    "reason": "p9b-read: the wire recorder (slice 9e) does not exist yet, so the 'On the wire' dock is not drawn (debt J21).",
-    "expires": "9e"
-  },
-  {
-    "board": "topic-detail",
-    "field": "table.rows",
-    "reason": "p9b-read: the wire recorder (slice 9e) does not exist yet, so the 'On the wire' dock is not drawn (debt J21).",
-    "expires": "9e"
-  },
-  {
-    "board": "topic-detail",
-    "field": "button",
-    "selector": "Expand the wire [sm] -> to:topic-wire",
-    "reason": "p9b-read: the wire recorder (slice 9e) does not exist yet, so the 'On the wire' dock is not drawn (debt J21).",
-    "expires": "9e"
-  },
-  {
-    "board": "topic-detail",
-    "field": "extra",
-    "selector": "wire-dock",
-    "reason": "p9b-read: the wire recorder (slice 9e) does not exist yet, so the 'On the wire' dock is not drawn (debt J21).",
-    "expires": "9e"
-  },
-  {
-    "board": "topic-detail",
-    "field": "state",
-    "selector": "rw ok in rows",
-    "reason": "p9b-read: the wire recorder (slice 9e) does not exist yet, so the 'On the wire' dock is not drawn (debt J21).",
-    "expires": "9e"
-  },
-  {
-    "board": "topic-detail",
-    "field": "state",
-    "selector": "st refused in rows",
-    "reason": "p9b-read: the wire recorder (slice 9e) does not exist yet, so the 'On the wire' dock is not drawn (debt J21).",
-    "expires": "9e"
-  },
-  {
     "board": "topic-messages-filtered",
     "field": "link",
     "selector": "topic-messages-empty|topic-messages-filtered|topic-readcommitted",
@@ -337,13 +263,6 @@
     "field": "button",
     "selector": "Copy value [-] -> ui:copy",
     "reason": "p9b-read: see 'Copy as kcat'.",
-    "expires": "close"
-  },
-  {
-    "board": "topic-record",
-    "field": "link",
-    "selector": "topic-detail|topic-offline",
-    "reason": "p9b-read: Close and the scrim are real links to the Messages page behind the drawer, so that closing works with no script; a script turns them into an in-place close.",
     "expires": "close"
   },
   {
@@ -1166,6 +1085,13 @@
     "expires": "close"
   },
   {
+    "board": "topic-record",
+    "field": "link",
+    "selector": "topic-detail|topic-offline",
+    "reason": "p9b-read: Close and the scrim are real links to the Messages page behind the drawer, so that closing works with no script; a script turns them into an in-place close.",
+    "expires": "close"
+  },
+  {
     "board": "member-detail",
     "field": "button",
     "selector": "Close [-] -> to:group-members",
@@ -1178,5 +1104,409 @@
     "selector": "group-members",
     "reason": "improvement: the Close control and the scrim are real links to the Members page behind the drawer, so that closing works with no script.",
     "expires": "close"
+  },
+  {
+    "board": "connect-first-request",
+    "field": "link",
+    "selector": "request-detail|request-fenced|request-refused|request-too-large",
+    "reason": "improvement: every row's time is a link to its drawer (the board links only a few), so any request can be opened",
+    "expires": "close"
+  },
+  {
+    "board": "group-wire",
+    "field": "link",
+    "selector": "live-load|live-paused|live-quiet|live-wire",
+    "reason": "improvement: client, API and topic cells, Close and Pause link to the Live page filtered or as it was; the filters live in the address so they can be shared and survive a reload",
+    "expires": "close"
+  },
+  {
+    "board": "group-wire",
+    "field": "link",
+    "selector": "request-detail|request-fenced|request-refused|request-too-large",
+    "reason": "improvement: every row's time is a link to its drawer (the board links only a few), so any request can be opened",
+    "expires": "close"
+  },
+  {
+    "board": "live-clients",
+    "field": "link",
+    "selector": "live-load|live-paused|live-quiet|live-wire",
+    "reason": "improvement: client, API and topic cells, Close and Pause link to the Live page filtered or as it was; the filters live in the address so they can be shared and survive a reload",
+    "expires": "close"
+  },
+  {
+    "board": "live-load",
+    "field": "button",
+    "selector": "All apps [-] -> ui:filter",
+    "reason": "improvement: the filter chip is a native select (it works with no script, with the keyboard and with a screen reader, and keeps the choice in the address); the board draws a button",
+    "expires": "close"
+  },
+  {
+    "board": "live-load",
+    "field": "button",
+    "selector": "All topics [-] -> ui:filter",
+    "reason": "improvement: the filter chip is a native select (it works with no script, with the keyboard and with a screen reader, and keeps the choice in the address); the board draws a button",
+    "expires": "close"
+  },
+  {
+    "board": "live-load",
+    "field": "link",
+    "selector": "live-load|live-paused|live-quiet|live-wire",
+    "reason": "improvement: client, API and topic cells, Close and Pause link to the Live page filtered or as it was; the filters live in the address so they can be shared and survive a reload",
+    "expires": "close"
+  },
+  {
+    "board": "live-load",
+    "field": "link",
+    "selector": "request-detail|request-fenced|request-refused|request-too-large",
+    "reason": "improvement: every row's time is a link to its drawer (the board links only a few), so any request can be opened",
+    "expires": "close"
+  },
+  {
+    "board": "live-paused",
+    "field": "button",
+    "selector": "All apps [-] -> ui:filter",
+    "reason": "improvement: the filter chip is a native select (it works with no script, with the keyboard and with a screen reader, and keeps the choice in the address); the board draws a button",
+    "expires": "close"
+  },
+  {
+    "board": "live-paused",
+    "field": "button",
+    "selector": "All topics [-] -> ui:filter",
+    "reason": "improvement: the filter chip is a native select (it works with no script, with the keyboard and with a screen reader, and keeps the choice in the address); the board draws a button",
+    "expires": "close"
+  },
+  {
+    "board": "live-paused",
+    "field": "link",
+    "selector": "request-detail|request-fenced|request-refused|request-too-large",
+    "reason": "improvement: every row's time is a link to its drawer (the board links only a few), so any request can be opened",
+    "expires": "close"
+  },
+  {
+    "board": "live-quiet",
+    "field": "button",
+    "selector": "All apps [-] -> ui:filter",
+    "reason": "improvement: the filter chip is a native select (it works with no script, with the keyboard and with a screen reader, and keeps the choice in the address); the board draws a button",
+    "expires": "close"
+  },
+  {
+    "board": "live-quiet",
+    "field": "button",
+    "selector": "All topics [-] -> ui:filter",
+    "reason": "improvement: the filter chip is a native select (it works with no script, with the keyboard and with a screen reader, and keeps the choice in the address); the board draws a button",
+    "expires": "close"
+  },
+  {
+    "board": "live-quiet",
+    "field": "link",
+    "selector": "live-load|live-paused|live-quiet|live-wire",
+    "reason": "improvement: client, API and topic cells, Close and Pause link to the Live page filtered or as it was; the filters live in the address so they can be shared and survive a reload",
+    "expires": "close"
+  },
+  {
+    "board": "live-wire",
+    "field": "button",
+    "selector": "All apps [-] -> ui:filter",
+    "reason": "improvement: the filter chip is a native select (it works with no script, with the keyboard and with a screen reader, and keeps the choice in the address); the board draws a button",
+    "expires": "close"
+  },
+  {
+    "board": "live-wire",
+    "field": "button",
+    "selector": "All topics [-] -> ui:filter",
+    "reason": "improvement: the filter chip is a native select (it works with no script, with the keyboard and with a screen reader, and keeps the choice in the address); the board draws a button",
+    "expires": "close"
+  },
+  {
+    "board": "live-wire",
+    "field": "link",
+    "selector": "live-lab-rule",
+    "reason": "improvement: Lab is not built, so a callout about its rows would promise a feature that does not exist; it returns with Lab",
+    "expires": "close"
+  },
+  {
+    "board": "live-wire",
+    "field": "link",
+    "selector": "request-fenced",
+    "reason": "one route (/live/{id}) serves the four request drawers and the data chooses which opens; the link tool resolves a shared route to its first screen",
+    "expires": "close"
+  },
+  {
+    "board": "live-wire",
+    "field": "link",
+    "selector": "request-refused",
+    "reason": "one route (/live/{id}) serves the four request drawers and the data chooses which opens; the link tool resolves a shared route to its first screen",
+    "expires": "close"
+  },
+  {
+    "board": "live-wire",
+    "field": "link",
+    "selector": "request-too-large",
+    "reason": "one route (/live/{id}) serves the four request drawers and the data chooses which opens; the link tool resolves a shared route to its first screen",
+    "expires": "close"
+  },
+  {
+    "board": "live-wire",
+    "field": "note",
+    "selector": "callout: A rehearsal leaves a mark.",
+    "reason": "improvement: Lab is not built, so a callout about its rows would promise a feature that does not exist; it returns with Lab",
+    "expires": "close"
+  },
+  {
+    "board": "request-detail",
+    "field": "link",
+    "selector": "live-load|live-paused|live-quiet|live-wire",
+    "reason": "improvement: client, API and topic cells, Close and Pause link to the Live page filtered or as it was; the filters live in the address so they can be shared and survive a reload",
+    "expires": "close"
+  },
+  {
+    "board": "request-detail",
+    "field": "link",
+    "selector": "topic-messages-empty|topic-messages-filtered|topic-readcommitted",
+    "reason": "improvement: 'Fetch it again' is a plain link to the topic's Messages at that offset (a read the person can bookmark), not a button that re-sends",
+    "expires": "close"
+  },
+  {
+    "board": "request-fenced",
+    "field": "link",
+    "selector": "live-load|live-paused|live-quiet|live-wire",
+    "reason": "improvement: client, API and topic cells, Close and Pause link to the Live page filtered or as it was; the filters live in the address so they can be shared and survive a reload",
+    "expires": "close"
+  },
+  {
+    "board": "request-refused",
+    "field": "link",
+    "selector": "live-load|live-paused|live-quiet|live-wire",
+    "reason": "improvement: client, API and topic cells, Close and Pause link to the Live page filtered or as it was; the filters live in the address so they can be shared and survive a reload",
+    "expires": "close"
+  },
+  {
+    "board": "request-too-large",
+    "field": "button",
+    "selector": "Raise max.message.bytes [pri] -> to:config-edit",
+    "reason": "9d: the edit dialog of max.message.bytes is slice 9d's; until then the link goes to the topic's Config page",
+    "expires": "9d"
+  },
+  {
+    "board": "request-too-large",
+    "field": "link",
+    "selector": "config-edit",
+    "reason": "9d: the edit dialog of max.message.bytes is slice 9d's; until then the link goes to the topic's Config page",
+    "expires": "9d"
+  },
+  {
+    "board": "request-too-large",
+    "field": "button",
+    "selector": "Raise max.message.bytes [pri] -> to:topic-config",
+    "reason": "9d: the edit dialog of max.message.bytes is slice 9d's; until then the link goes to the topic's Config page",
+    "expires": "9d"
+  },
+  {
+    "board": "request-too-large",
+    "field": "link",
+    "selector": "live-load|live-paused|live-quiet|live-wire",
+    "reason": "improvement: client, API and topic cells, Close and Pause link to the Live page filtered or as it was; the filters live in the address so they can be shared and survive a reload",
+    "expires": "close"
+  },
+  {
+    "board": "request-too-large",
+    "field": "link",
+    "selector": "topic-config",
+    "reason": "9d: the edit dialog of max.message.bytes is slice 9d's; until then the link goes to the topic's Config page",
+    "expires": "9d"
+  },
+  {
+    "board": "topic-wire",
+    "field": "link",
+    "selector": "live-load|live-paused|live-quiet|live-wire",
+    "reason": "improvement: client, API and topic cells, Close and Pause link to the Live page filtered or as it was; the filters live in the address so they can be shared and survive a reload",
+    "expires": "close"
+  },
+  {
+    "board": "connect-first-request",
+    "field": "state",
+    "selector": "st ok in rows",
+    "reason": "live data: what a real broker's traffic made of this part (the states and names in rows, the topic a request touched, the time of a pause) is data, and the live render compares structure only; the fixture render holds the board's own",
+    "render": "live",
+    "expires": "close"
+  },
+  {
+    "board": "connect-first-request",
+    "field": "state",
+    "selector": "st refused in rows",
+    "reason": "live data: what a real broker's traffic made of this part (the states and names in rows, the topic a request touched, the time of a pause) is data, and the live render compares structure only; the fixture render holds the board's own",
+    "render": "live",
+    "expires": "close"
+  },
+  {
+    "board": "group-wire",
+    "field": "state",
+    "selector": "st ok in rows",
+    "reason": "live data: what a real broker's traffic made of this part (the states and names in rows, the topic a request touched, the time of a pause) is data, and the live render compares structure only; the fixture render holds the board's own",
+    "render": "live",
+    "expires": "close"
+  },
+  {
+    "board": "group-wire",
+    "field": "state",
+    "selector": "st warn in rows",
+    "reason": "live data: what a real broker's traffic made of this part (the states and names in rows, the topic a request touched, the time of a pause) is data, and the live render compares structure only; the fixture render holds the board's own",
+    "render": "live",
+    "expires": "close"
+  },
+  {
+    "board": "live-paused",
+    "field": "state",
+    "selector": "st refused in rows",
+    "reason": "live data: what a real broker's traffic made of this part (the states and names in rows, the topic a request touched, the time of a pause) is data, and the live render compares structure only; the fixture render holds the board's own",
+    "render": "live",
+    "expires": "close"
+  },
+  {
+    "board": "live-quiet",
+    "field": "heading",
+    "selector": "h3 Send the first request",
+    "reason": "improvement: the first heading of the quiet card is an h2 so that the page's headings do not skip a level (the board draws an h3 under the h1)",
+    "expires": "close"
+  },
+  {
+    "board": "live-quiet",
+    "field": "heading",
+    "selector": "h2 Send the first request",
+    "reason": "improvement: the first heading of the quiet card is an h2 so that the page's headings do not skip a level (the board draws an h3 under the h1)",
+    "expires": "close"
+  },
+  {
+    "board": "live-wire",
+    "field": "note",
+    "selector": "callout",
+    "reason": "live data: what a real broker's traffic made of this part (the states and names in rows, the topic a request touched, the time of a pause) is data, and the live render compares structure only; the fixture render holds the board's own",
+    "render": "live",
+    "expires": "close"
+  },
+  {
+    "board": "request-detail",
+    "field": "button",
+    "selector": "Open payments.settled [pri] -> to:topic-detail",
+    "reason": "live data: what a real broker's traffic made of this part (the states and names in rows, the topic a request touched, the time of a pause) is data, and the live render compares structure only; the fixture render holds the board's own",
+    "render": "live",
+    "expires": "close"
+  },
+  {
+    "board": "request-detail",
+    "field": "button",
+    "selector": "Open orders [pri] -> to:topic-detail",
+    "reason": "live data: what a real broker's traffic made of this part (the states and names in rows, the topic a request touched, the time of a pause) is data, and the live render compares structure only; the fixture render holds the board's own",
+    "render": "live",
+    "expires": "close"
+  },
+  {
+    "board": "topic-wire",
+    "field": "state",
+    "selector": "st warn",
+    "reason": "live data: what a real broker's traffic made of this part (the states and names in rows, the topic a request touched, the time of a pause) is data, and the live render compares structure only; the fixture render holds the board's own",
+    "render": "live",
+    "expires": "close"
+  },
+  {
+    "board": "live-paused",
+    "field": "heading",
+    "render": "live",
+    "reason": "live data: the time of the pause in the heading is the moment of this page, not the board's",
+    "expires": "close"
+  },
+  {
+    "board": "topic-detail",
+    "field": "link",
+    "selector": "request-detail|request-fenced|request-refused|request-too-large",
+    "reason": "improvement: every row's time is a link to its drawer (the board's dock rows are not links), so any request can be opened",
+    "render": "fixture",
+    "expires": "close"
+  },
+  {
+    "board": "topic-detail",
+    "field": "link",
+    "selector": "live-load|live-paused|live-quiet|live-wire",
+    "reason": "improvement: client, API and topic cells link to the Live page filtered by them; the filters live in the address so they can be shared and survive a reload",
+    "expires": "close"
+  },
+  {
+    "board": "topic-detail",
+    "field": "table",
+    "selector": "wire",
+    "reason": "live data: the live world's topic has no client request on the wire, so the dock says so and draws no table",
+    "render": "live",
+    "expires": "close"
+  },
+  {
+    "board": "topic-detail",
+    "field": "table.col",
+    "selector": "Time",
+    "reason": "live data: the live world's topic has no client request on the wire, so the dock says so and draws no table",
+    "render": "live",
+    "expires": "close"
+  },
+  {
+    "board": "topic-detail",
+    "field": "table.col",
+    "selector": "Client",
+    "reason": "live data: the live world's topic has no client request on the wire, so the dock says so and draws no table",
+    "render": "live",
+    "expires": "close"
+  },
+  {
+    "board": "topic-detail",
+    "field": "table.col",
+    "selector": "API",
+    "reason": "live data: the live world's topic has no client request on the wire, so the dock says so and draws no table",
+    "render": "live",
+    "expires": "close"
+  },
+  {
+    "board": "topic-detail",
+    "field": "table.col",
+    "selector": "Topic and partition",
+    "reason": "live data: the live world's topic has no client request on the wire, so the dock says so and draws no table",
+    "render": "live",
+    "expires": "close"
+  },
+  {
+    "board": "topic-detail",
+    "field": "table.col",
+    "selector": "Result",
+    "reason": "live data: the live world's topic has no client request on the wire, so the dock says so and draws no table",
+    "render": "live",
+    "expires": "close"
+  },
+  {
+    "board": "topic-detail",
+    "field": "table.col",
+    "selector": "Took",
+    "reason": "live data: the live world's topic has no client request on the wire, so the dock says so and draws no table",
+    "render": "live",
+    "expires": "close"
+  },
+  {
+    "board": "topic-detail",
+    "field": "state",
+    "selector": "rw ok in rows",
+    "reason": "live data: the live world's topic has no client request on the wire, so the dock says so and draws no table",
+    "render": "live",
+    "expires": "close"
+  },
+  {
+    "board": "topic-detail",
+    "field": "state",
+    "selector": "st refused in rows",
+    "reason": "live data: the live world's topic has no client request on the wire, so the dock says so and draws no table",
+    "render": "live",
+    "expires": "close"
+  },
+  {
+    "board": "group-wire",
+    "field": "state",
+    "selector": "st warn",
+    "reason": "9c: the group page, its header (state word and pills) and its route are slice 9c's; this page links to /groups/{group} and carries a plain title row",
+    "expires": "9c"
   }
 ]

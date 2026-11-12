@@ -25,6 +25,13 @@ pub enum Handler {
     TopicRecord,
     TopicPartitions,
     Fragment,
+    /// Slice 9e: Live, its drawers, the first-request page and the wire pages of a topic and a group.
+    Live,
+    LiveClients,
+    LiveRequest,
+    FirstRequest,
+    TopicWire,
+    GroupWire,
     Events,
     Static,
     Health,
@@ -136,7 +143,30 @@ pub const ROUTES: &[Route] = &[
     get("/static/{name}", &[], Handler::Static),
     get("/healthz", &[], Handler::Health),
     // The rest of the design, built by later slices: each says it is not built yet.
-    get("/live", &["live-wire"], Handler::Planned("Live")),
+    // Slice 9e: the recorder and Live. `/live/clients` is a fixed name and wins over `/live/{id}`.
+    get(
+        "/live",
+        &["live-wire", "live-paused", "live-quiet", "live-load"],
+        Handler::Live,
+    ),
+    get("/live/clients", &["live-clients"], Handler::LiveClients),
+    get(
+        "/live/{request}",
+        &[
+            "request-detail",
+            "request-refused",
+            "request-fenced",
+            "request-too-large",
+        ],
+        Handler::LiveRequest,
+    ),
+    get(
+        "/connect/first-request",
+        &["connect-first-request"],
+        Handler::FirstRequest,
+    ),
+    get("/topics/{topic}/wire", &["topic-wire"], Handler::TopicWire),
+    get("/groups/{group}/wire", &["group-wire"], Handler::GroupWire),
     // Slice 9b, the topic reads (p9b-read).
     get(
         "/topics",
@@ -322,11 +352,6 @@ pub const ROUTES: &[Route] = &[
         "/groups/{group}/story",
         &["group-story", "story-rebalance", "story-flapping"],
         Handler::Planned("Story"),
-    ),
-    get(
-        "/groups/{group}/wire",
-        &["group-wire"],
-        Handler::Planned("Wire"),
     ),
     get("/access", &["access-open"], Handler::Planned("Access")),
     get("/lab", &["lab-home"], Handler::Planned("Lab")),

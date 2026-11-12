@@ -74,6 +74,21 @@ fn list(id: &str, base: &Base) -> Option<Content> {
     ))
 }
 
+/// The topic page with its wire dock under it (slice 9e), as the Messages handler draws it.
+fn detail_with_dock(base: &Base) -> Option<maud::Markup> {
+    let page = messages("orders", MessageQuery::default(), base)?;
+    let (rows, w) = crate::fixtures_live::topic_wire("orders");
+    let dock = crate::pages::live::topic_dock(
+        "orders",
+        &rows,
+        &w,
+        crate::fixtures_live::now(),
+        base,
+        false,
+    );
+    Some(maud::html! { (page) (dock) })
+}
+
 /// The pages of `orders`, and of the two other topics of the world.
 fn topic(id: &str, base: &Base) -> Option<Content> {
     let orders = |last: &'static str| {
@@ -95,7 +110,7 @@ fn topic(id: &str, base: &Base) -> Option<Content> {
     };
     Some(match id {
         "topic-detail" => (
-            messages("orders", MessageQuery::default(), base)?,
+            detail_with_dock(base)?,
             "orders",
             vec![HOME, TOPICS, ("orders", None)],
         ),

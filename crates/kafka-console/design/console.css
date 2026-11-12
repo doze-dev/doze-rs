@@ -170,3 +170,12 @@ button.btn{font-family:inherit;cursor:pointer}
 .opt-row input:not(:checked)+.check svg{visibility:hidden}
 .opt-row:has(input:focus-visible) .check{outline:2px solid var(--accent);outline-offset:2px}
 .opt-row .t2 .input{height:34px;margin-top:6px;max-width:260px}
+/* Live (slice 9e): the filter chips that are selects, the cells that filter, rows that are read and rows that arrive. */
+.fchip select{border:0;background:transparent;font:inherit;color:inherit;appearance:none;outline:0;cursor:pointer;padding:0 2px;max-width:16ch}
+.fchip:has(select:focus-visible){outline:2px solid var(--accent);outline-offset:2px}
+.cell-filter{color:inherit;text-decoration:none}
+.cell-filter:hover{text-decoration:underline;text-decoration-color:var(--line2);text-underline-offset:3px}
+table.wire tbody tr:hover td{background:var(--well)}
+table.wire tbody tr:focus-within td{background:var(--sel)}
+table.wire tbody tr.new td{background:var(--sel)}
+@media (prefers-reduced-motion:no-preference){table.wire tbody td{transition:background-color .22s ease}}

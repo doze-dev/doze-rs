@@ -86,6 +86,13 @@ const OVERLAYS: &[(&str, &str, &str)] = &[
         "<h1 class=\"mono\">inventory.levels</h1>",
         "/topics/inventory.levels/config",
     ),
+    ("/live/99", "<h1>Live</h1>", "/live"),
+    (
+        "/live/99?client=orders-api",
+        "<h1>Live</h1>",
+        "/live?client=orders-api",
+    ),
+    ("/live/clients", "<h1>Live</h1>", "/live"),
 ];
 
 fn between<'a>(text: &'a str, from: &str, to: &str) -> &'a str {
@@ -438,4 +445,65 @@ async fn a_refusal_in_a_dialog_answers_the_dialog_over_its_parent_and_a_result_i
     )
     .await;
     assert_eq!(res.status(), StatusCode::SEE_OTHER);
+}
+
+#[tokio::test]
+async fn a_live_drawer_closes_to_the_live_page_with_its_filters_and_the_tape_links_open_it_in_place()
+ {
+    for prefix in ["/", "/kafka"] {
+        let (app, state) = app(prefix, &[]);
+        // The tape's time links are openers that carry the page's own filters.
+        let (_, live) = send(&app, get(&state.base.url("/live?refused=1"))).await;
+        let link = local_links(&live)
+            .into_iter()
+            .find(|l| l.contains("/live/") && !l.contains("/live/clients"))
+            .expect("a request link on the tape");
+        assert!(
+            link.ends_with("refused=1") || link.contains("refused=1"),
+            "{link}"
+        );
+        assert!(
+            live.contains(&format!("href=\"{link}\" data-dialog")),
+            "{link}"
+        );
+        // Following it is the Live page with the drawer open, and Close is that page's address with the same filters.
+        let (res, page) = send(&app, get(&link)).await;
+        assert_eq!(res.status(), StatusCode::OK, "{link}");
+        assert!(
+            page.contains("<h1>Live</h1>") && page.contains("<div class=\"root\" inert>"),
+            "{link}"
+        );
+        let want = state.base.url("/live?refused=1");
+        assert_eq!(between(&page, "<a class=\"scrim\" href=\"", "\""), want);
+        // The Live page behind it is the tape fragment (with its row count), so a script can hold it and let it catch up.
+        assert!(
+            page.contains("id=\"live-wire\"") && page.contains("data-seen="),
+            "{link}"
+        );
+        // A script is sent the drawer alone.
+        let mut ask = get(&link);
+        ask.headers_mut().insert("x-fragment", "1".parse().unwrap());
+        let (res, alone) = send(&app, ask).await;
+        assert_eq!(res.headers()["x-overlay"], "1");
+        assert!(
+            alone.starts_with("<div class=\"ovl ovl-drawer root\"") && !alone.contains("<html")
+        );
+    }
+}
+
+#[tokio::test]
+async fn a_request_that_is_not_on_the_tape_and_a_hostile_id_are_the_page_that_says_so_with_no_drawer()
+ {
+    let (app, _) = app("/", &[]);
+    for path in [
+        "/live/123456789",
+        "/live/%3Cimg%20src=x%20onerror=alert(1)%3E",
+    ] {
+        let (res, page) = send(&app, get(path)).await;
+        assert_eq!(res.status(), StatusCode::NOT_FOUND, "{path}");
+        assert!(
+            !page.contains("<img") && !page.contains("data-overlay"),
+            "{path}"
+        );
+    }
 }

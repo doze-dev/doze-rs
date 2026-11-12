@@ -397,3 +397,70 @@ Every `table.t` header is `position: sticky` at 52 px (the top bar's height) and
 
 ## CON-413. A long key or name gives way in the middle
 A key in the Messages table, a topic name in the list and a member id keep their last ten characters and lose their start to an ellipsis when the cell is narrow; the whole text is the hover and is in the page for a copy; short texts are untouched; a hostile text is escaped. Test: `ui::table::tests::a_short_text_is_left_alone_and_a_long_one_is_split_before_its_last_ten_characters`, `ui::table::tests::the_two_halves_are_the_whole_text_and_never_cut_a_character`, `ui::table::tests::a_hostile_text_is_escaped_in_the_title_and_in_both_halves`, `tests/tables::a_long_key_gives_way_in_the_middle_and_keeps_its_end`.
+
+# Slice 9e: the recorder, Live, the drawers, the docks (CON-300 to CON-319)
+
+Branch `p9e`. The recorder is `kafka_server::Observer` (`crates/kafka-server/src/observer.rs`) implemented by `kafka_console::Recorder` (`crates/kafka-console/src/recorder/`); the pages are `pages/live/`, their models `model/live.rs`, their fixtures `fixtures_live.rs`.
+
+## CON-300. The observer is optional, and with none installed a request costs one `Option` test
+`Config::observer` is `None` by default and `--console=false` leaves it so. A connection takes a number and builds its `Watch` only when an observer exists; the request header is cloned for the observer only then. The Produce benchmark (`crates/kafka-console/examples/produce_bench.rs`, interleaved with a build of main before the change) shows the same throughput within the noise of two runs of one binary (about 3%). Test: `connections::tests::numbers_start_at_one_and_none_are_taken_without_an_observer`, `connection::tests::observed::each_request_is_told_twice_in_order_between_the_open_and_the_close`.
+
+## CON-301. Every request is told twice, in order, whatever becomes of it
+`begin` runs before the handler with the request; `end` after it with the answer (encoded, so its size is known), before the answer is written, so a slow client does not lengthen what the broker is said to have taken. A request refused on its header (a stranger before login), a body that does not decode, a request that gets no answer (`acks=0`), and a handler cut short by a stop are each told as `Closed` or `Nothing`, with the server's words. The connection is told when it opens and when it closes, with the server's sentence for why. Test: `connection::tests::observed::a_request_the_connection_is_closed_for_is_told_as_closed_and_a_login_changes_the_principal`, `connection::tests::observed::a_request_with_no_answer_is_told_as_nothing`.
+
+## CON-302. An observer that panics ends its own connection and no other
+Every connection is a task of its own, so in a test build a panic ends only that connection. A release build is `panic = "abort"`: observers must not panic, which the workspace lints (no `unwrap`, `expect`, indexing or `panic`) enforce for the recorder. Documented in the module. Test: `connection::tests::observed::an_observer_that_panics_ends_its_own_connection_and_no_other`.
+
+## CON-303. `Summarize` is a typed match with no wildcard, and every API has a golden file
+`recorder/summary.rs` matches `Request` and `Response` exhaustively: an API added to the served table without a summary does not compile. Each of the 43 served APIs has a golden file of what is kept of a representative request and answer (`recorder/tests/golden/<Api>.txt`; `BLESS=1` rewrites them). Summaries are bounded: 20 topics, 8 partitions each, 16 results, names 128 bytes, text 256; batch headers are walked (at most 64), records never. Test: `recorder::summary::tests::every_served_api_has_a_golden_file`, `recorder::summary::tests::each_summary_is_what_its_golden_file_says`, `recorder::facts::tests::topics_are_bounded_clipped_and_counted_past_the_bound`, `recorder::facts::tests::batch_headers_are_walked_not_records`.
+
+## CON-304. No secret enters the recorder
+Never kept: record keys, values and headers, SASL tokens and the server's side of the exchange, SCRAM salts and salted passwords, config values (names only), ACL contents beyond counts. A planted-secret test runs a real login (and a failed one), a produce with a planted key, value and header, a secret config change and a SCRAM change against a broker with SASL on, then searches the recorder's `Debug`, every row and detail, every Live page, drawer, dock, the clients and the first request; a mutated summary that keeps a token fails it. Test: `recorder::summary::tests::no_planted_secret_or_record_byte_reaches_a_summary`, `tests/redaction::no_planted_secret_reaches_the_recorder_the_stream_or_a_page`, `recorder::tests::the_debug_of_a_recorder_prints_counts_and_nothing_a_client_sent`.
+
+## CON-305. The error table has a row for every code the broker serves
+Name, code, Kafka's own words, a plain sentence, a class (`Ok`, `Warn`, `Bad`, `Refused`, `Denied`) and what would pass. A test walks the broker, server, wire and auth sources for every `ResponseError` they name and fails on a code with no row; another proves the walk can fail; another checks each row's name and code against the protocol crate's. Test: `recorder::errors::tests::every_error_the_broker_names_has_a_row`, `recorder::errors::tests::the_scan_would_find_a_code_with_no_row`, `recorder::errors::tests::a_rows_name_and_code_are_the_protocol_crates_own`, `recorder::errors::tests::codes_are_unique_and_the_classes_are_what_the_boards_say`.
+
+## CON-306. The ring is bounded by rows and by bytes
+2,000 rows and 1 MiB by an estimate of what each row holds (struct, text, vectors); strings are clipped, so a 900 KiB `reason` or client id (the Go edition's TRF-1) is kept at 256 or 128 bytes and cannot exceed the budget. The fold index forgets a row that is dropped. Test: `recorder::ring::tests::the_ring_never_holds_more_than_its_rows`, `recorder::ring::tests::the_ring_never_holds_more_than_its_byte_budget`, `recorder::ring::tests::the_byte_count_is_what_the_rows_weigh`, `recorder::ring::tests::the_fold_index_forgets_a_row_that_was_dropped`, `recorder::tests::a_900_kib_reason_is_clipped_and_cannot_exceed_the_byte_budget`.
+
+## CON-307. An idle recorder holds nothing
+No ring is allocated until a request is recorded; when the last row goes the memory is given back; the connection table empties as connections close and is capped at 4,096. Test: `recorder::ring::tests::an_idle_ring_holds_nothing`, `recorder::tests::the_state_is_quiet_until_a_request_arrives`, `recorder::clients::tests::a_connection_is_a_row_until_it_closes_and_is_not_kept_past_the_cap`.
+
+## CON-308. Repeats fold: heartbeats and idle polls for ten minutes, a stream of requests for two seconds, an error never
+The key is connection, API, version, target, result and the transactional flag. A refusal or a failure stays on its own row. A folded row keeps its first and last time, a count, the totals of records and bytes, and the last 64 took samples (the median is of those, and says so). Test: `recorder::ring::tests::repeats_within_the_window_fold_into_one_row_and_a_later_one_does_not`, `recorder::ring::tests::a_request_that_is_not_a_poll_folds_only_in_a_stream`, `recorder::ring::tests::rows_that_never_fold_and_rows_with_other_keys_stand_alone`, `recorder::ring::tests::the_took_samples_are_the_last_sixty_four`, `recorder::tests::heartbeats_fold_into_one_row_that_idle_hiding_hides_and_refusals_stand_alone`.
+
+## CON-309. The window is computed from the oldest row, never promised
+"Right now they reach back to 19:12, 3 h 2 min" is the oldest row's time against now. The boards' "3 hours" is gone. The quiet sentence says when the broker started and where it listens. Test: `words::live::tests::the_steady_sentence_says_how_far_back_the_ring_reaches_and_the_last_minute`, `words::live::tests::the_quiet_and_busy_and_paused_sentences`.
+
+## CON-310. A cursor says what changed, and a recorded request bumps the one shared tick
+`Recorder::since(cursor)` returns the rows that changed after it (a fold counts as a change) and the cursor for next time. The recorder bumps the console's tick when it records or a connection closes, at most every 100 ms; the 2 s floor timer of the ticker still covers time-based text. Test: `recorder::tests::since_returns_what_changed_after_a_cursor_including_a_fold`, `recorder::tests::a_recorded_request_bumps_the_shared_tick`.
+
+## CON-311. A Fetch names its topic, though Kafka 4 names it by id
+Fetch v13 sends a topic id. The recorder learns id to name from the Metadata and CreateTopics answers that pass, and shows the name; an id it has not learned stays an id. Test: `recorder::tests::a_fetch_names_its_topic_by_id_and_the_recorder_learns_the_name_from_metadata`.
+
+## CON-312. Denied is amber and says Denied; Kafka's refusals are violet
+An ACL or a login that says no is the class `Denied`: the word "Denied", the `warn` colour, a drawer whose rule is "An ACL allows this". Kafka's own refusals stay `Refused`. Test: `tests/live_wire::an_acl_refusal_is_amber_denied_and_not_violet`.
+
+## CON-313. A refused request opens the drawer its error calls for, with Kafka's words
+Answered requests open the detail drawer; `INVALID_PRODUCER_EPOCH` and `PRODUCER_FENCED` the fenced drawer (the requests of the same transactional id that came before, then the two epochs); `MESSAGE_TOO_LARGE` the size drawer (the limit is read from the broker when the drawer opens, and said to be as of now); every other refusal the generic drawer with the broker's own message, the code's rule and what would pass. A request that has fallen off the tape is a 404 that says so. Test: `tests/live_wire::each_refusal_opens_its_own_drawer_with_kafkas_words_and_the_rule`, `tests/boards_live::the_drawers_have_their_boards_parts`.
+
+## CON-314. What a client sent is text on every page
+A client id of `<script>alert(1)</script>` and software of `<img src=x onerror=alert(2)>` are escaped on the tape, in the clients drawer and in every dock; commands put in a drawer are shell-quoted. Test: `tests/live_wire::the_tape_shows_what_the_clients_did_and_what_was_refused`, `pages::live::commands::tests::a_plain_name_is_left_alone_and_a_hostile_one_is_quoted`.
+
+## CON-315. The docks, the first request and Home's sentence come from the same tape
+A topic's dock, a group's wire (`/groups/{group}/wire`, built for slice 9c to link to) and the first-request page filter or read the one recorder; Home says how many apps appear on the wire and how long ago the last request landed, and says nothing of apps when this console has no recorder. The console's own requests are not on the tape, and the docks say so. Test: `tests/live_wire::the_docks_the_first_request_and_home_come_from_the_same_tape`, `words::tests::the_steady_sentence_says_how_long_and_how_it_stopped_and_what_it_holds`.
+
+## CON-316. The filters are in the address
+`?q=&client=&api=&topic=&group=&kind=&refused=1&idle=0&before=&until=&limit=`: a filter survives a reload and can be shared; a value that cannot be used is no filter; the limit is held to 1 to 100. A click on a client, API or topic cell filters by it. Test: `model::live::tests::an_address_is_the_filters_and_back_again`, `model::live::tests::nonsense_is_no_filter_and_the_limit_is_held_to_its_range`, `model::live::tests::a_click_on_a_cell_filters_by_it_and_leaves_the_page_back`, `recorder::tests::filters_by_client_api_topic_group_and_refusal`.
+
+## CON-317. Pause holds the tape still, counts what arrives, and a drawer holds it too
+With a script Pause keeps new answers aside and counts the requests recorded since; Resume (or closing a drawer) brings the newest in; new rows are marked for a moment; `j` and `k` move between rows and a select filter applies on change. Without a script Pause is a link to the page as it was (`?until=`). Tests: `tools/dom/live.test.ts` ("a click on Pause holds the tape in place...", "a drawer that is open holds the tape without a banner..."), `recorder::tests::the_page_back_and_the_paused_page_are_cut_by_row_id`.
+
+## CON-318. Without a recorder the broker behaves as it did, and the page says the wire is empty
+Test: `tests/live_wire::a_console_without_a_recorder_says_the_wire_is_empty_and_the_broker_without_an_observer_is_unchanged`; the broker's and server's own tests run unchanged.
+
+## CON-319. The twelve boards pass the structure gate in both renders
+Fixture render (`tests/boards_live::every_board_of_the_slice_renders_and_is_written_for_the_tool`) and live render over a real broker with real client traffic (`tests/live_wire::the_live_render_of_the_boards_over_a_real_broker`), every difference in `design/allow.json` with a reason (those that make the page better than the board begin `improvement:`).
+
+### What these boards show that the recorder cannot supply, and what the page does instead
+Tagged in `docs/port/debt.md` J151 to J170: "waited 480 ms" (the recorder knows how long the client was willing to wait); "Record 0 has a null key" (no record is kept: the broker's own message and the topic's config now); the producer's story (only requests still on the tape, not why a transaction timed out: that is the group-ring slice's); a heartbeat that is idle is hidden by default.

@@ -131,6 +131,19 @@ pub(super) async fn messages_parent(
     let q = view.query.to_query();
     let main = page::messages_page(&view, &s.base, &s.source.listen(), &q);
     let last = state_title(&view);
+    // The plain Messages page carries the topic's wire dock (slice 9e): the last requests that touched it. It is part of the
+    // parent, so it is there behind a record's drawer and the dialogs, as the boards draw it.
+    let docked = last.is_none()
+        && !view.head.is_empty()
+        && view.head.offline().is_empty()
+        && view.query.reading == crate::model::Reading::Uncommitted
+        && !view.query.filtered();
+    let main = if docked {
+        let (rows, window, now) = s.source.topic_wire(name).await;
+        maud::html! { (main) (crate::pages::live::topic_dock(name, &rows, &window, now, &s.base, false)) }
+    } else {
+        main
+    };
     let t = page::topic_url(&s.base, name);
     let t = s.base.strip(&t).unwrap_or("/topics").to_owned();
     let shown = view.head.name.clone();
@@ -153,7 +166,11 @@ pub(super) async fn messages_parent(
         rail: Rail::Resources,
         title,
         crumbs,
-        watch: s.source.watching(TOPIC_IDS),
+        watch: s.source.watching(if docked {
+            crate::live_ids::TOPIC_DETAIL_IDS
+        } else {
+            TOPIC_IDS
+        }),
         main,
     })
 }

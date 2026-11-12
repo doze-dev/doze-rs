@@ -109,13 +109,17 @@ impl Bound {
         server: &ServerConfig,
         kafka: &Kafka,
         broker: &Arc<Broker<RealFs>>,
+        recorder: Option<Arc<kafka_console::Recorder>>,
     ) -> Result<Serving> {
         let addr = self.listener.local_addr()?;
         let listener = server.advertise(kafka.local_addr());
         let facts = facts(server, kafka, &listener, &addr, &console.allow_hosts);
         let backend = kafka_console::Backend::new(Arc::clone(broker), listener, server.profile);
-        let source =
-            kafka_console::Source::Live(Box::new(kafka_console::Live::new(backend, facts)));
+        let mut live = kafka_console::Live::new(backend, facts);
+        if let Some(r) = recorder {
+            live = live.with_recorder(r);
+        }
+        let source = kafka_console::Source::Live(Box::new(live));
         let settings = kafka_console::Settings {
             addr,
             prefix: console.prefix.clone(),

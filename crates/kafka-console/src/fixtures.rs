@@ -121,6 +121,7 @@ pub fn home(state: HomeState) -> HomeView {
         }
         _ => (9, 21),
     };
+    let spoke = (state != HomeState::Quiet).then(crate::fixtures_live::spoke);
     HomeView {
         state,
         listen: ADDRESS.to_owned(),
@@ -130,6 +131,7 @@ pub fn home(state: HomeState) -> HomeView {
         probe: probe_ok(),
         instance,
         unchecked: 0,
+        spoke,
     }
 }
 

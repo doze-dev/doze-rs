@@ -35,6 +35,8 @@ fn context_of(timeouts: Timeouts, config: BrokerConfig) -> Context<SimFs> {
         broker,
         timeouts,
         auth: None,
+        observer: None,
+        numbers: crate::connections::Numbers::default(),
     }
 }
 
@@ -288,5 +290,6 @@ async fn a_big_frame_that_trickles_in_has_the_frame_budget_too() {
 
 mod delay;
 mod login;
+mod observed;
 mod scram;
 mod served;

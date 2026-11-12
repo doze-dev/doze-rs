@@ -7,6 +7,7 @@ mod config;
 mod connect;
 mod groups;
 mod home;
+pub mod live;
 mod messages;
 mod query;
 mod topic;
@@ -20,6 +21,10 @@ pub use config::{
 };
 pub use connect::{Access, ClientSnippet, ConnectView, ProbeView, Rule, Span, Tok, Verdict};
 pub use home::{Attention, HeldBack, HomeState, HomeView, InstanceView, StopView};
+pub use live::{
+    ClientRow, ClientsView, FirstView, GroupWireView, LiveState, LiveView, SpokeView, WIRE_LIMIT,
+    WIRE_MOST, WireClass, WireDetail, WirePart, WireQuery, WireRefusal, WireRow, WireWindow,
+};
 
 pub(crate) mod write;
 

@@ -163,7 +163,10 @@ async fn a_fragment_is_what_the_page_holds_and_an_unchanged_one_is_a_304() {
     let w = seeded("frag", |_| {}).await;
     let app = w.router();
     let page_html = page(&app, "/topics/orders", None).await;
-    assert!(page_html.contains("data-stream=\"/events?watch=topic-sentence,topic-messages\""));
+    assert!(
+        page_html
+            .contains("data-stream=\"/events?watch=topic-sentence,topic-messages,topic-wire\"")
+    );
     let first = send(&app, get("/fragments/topic-messages?topic=orders")).await;
     assert_eq!(first.0.status(), StatusCode::OK);
     let tag = first.0.headers()[axum::http::header::ETAG]

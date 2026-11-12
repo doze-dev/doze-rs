@@ -16,7 +16,19 @@ fn the_steady_sentence_says_how_long_and_how_it_stopped_and_what_it_holds() {
     assert_eq!(home_title(&v.state), "Home");
     assert_eq!(
         plain(&home_sub(&v)),
+        "Running 3 d 4 h, last stop clean. It holds 9 topics and 21 partitions. 9 apps appear on the wire, which reaches back to 19:12, and the last request landed 1 s ago."
+    );
+    // With no recorder the sentence says only what the broker holds; with an empty tape, that nobody has spoken.
+    let mut none = v.clone();
+    none.spoke = None;
+    assert_eq!(
+        plain(&home_sub(&none)),
         "Running 3 d 4 h, last stop clean. It holds 9 topics and 21 partitions."
+    );
+    none.spoke = Some(crate::model::SpokeView::default());
+    assert!(
+        plain(&home_sub(&none))
+            .ends_with("It holds 9 topics and 21 partitions. No client has spoken yet.")
     );
 }
 
@@ -27,6 +39,7 @@ fn the_steady_sentence_has_a_form_for_each_last_stop() {
     assert!(plain(&home_sub(&v)).starts_with("Running 3 d 4 h, last stop not clean. It holds"));
     v.instance.last_stop = StopView::None;
     v.instance.up_secs = 7;
+    v.spoke = None;
     assert_eq!(
         plain(&home_sub(&v)),
         "Running 7 s on a new data directory. It holds 9 topics and 21 partitions."

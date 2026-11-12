@@ -78,4 +78,6 @@ pub struct HomeView {
     /// Open transactions the console did not look at (it describes at most [`crate::gather::MAX_DESCRIBED`]); 0 when it
     /// looked at every one. Home never says "nothing needs you" about what it did not look at.
     pub unchecked: usize,
+    /// Who has spoken to the broker, from the recorder (slice 9e); `None` when this console has no recorder.
+    pub spoke: Option<super::SpokeView>,
 }

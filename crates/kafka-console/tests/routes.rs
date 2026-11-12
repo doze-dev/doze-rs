@@ -25,6 +25,7 @@ fn concrete(pattern: &str, state: &kafka_console::state::State) -> String {
         .replace("{offset}", "16050")
         .replace("{group}", "search-indexer")
         .replace("{member}", "search-indexer-1")
+        .replace("{request}", "1")
         + if pattern.ends_with("/config/edit") || pattern.ends_with("/config/reset") {
             "?key=cleanup.policy"
         } else {

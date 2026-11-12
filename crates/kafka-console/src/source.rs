@@ -12,7 +12,10 @@ use crate::snippets;
 use crate::ui::shell::Chrome;
 
 mod groups;
+mod live;
 mod topics;
+
+pub use live::is_quiet;
 
 /// A live broker: the in-process handle, how it was started, and the advertised-listener check.
 #[derive(Debug)]
@@ -20,6 +23,8 @@ pub struct Live {
     pub backend: Backend,
     pub facts: Facts,
     pub prober: Prober,
+    /// What the broker was asked, if the console was started with a recorder (slice 9e).
+    pub recorder: Option<std::sync::Arc<crate::recorder::Recorder>>,
 }
 
 impl Live {
@@ -30,6 +35,7 @@ impl Live {
             backend,
             facts,
             prober,
+            recorder: None,
         }
     }
 
@@ -67,6 +73,7 @@ impl Live {
             probe,
             instance,
             unchecked: looked.unchecked,
+            spoke: self.recorder.as_ref().map(|r| r.spoke()),
         }
     }
 }

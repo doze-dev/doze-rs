@@ -37,6 +37,8 @@ impl Server {
             broker,
             timeouts: config.timeouts,
             auth: config.sasl,
+            observer: config.observer,
+            numbers: crate::connections::Numbers::default(),
         });
         #[cfg(feature = "tls")]
         let tls = config.tls.as_ref().map(crate::TlsConfig::acceptor);
