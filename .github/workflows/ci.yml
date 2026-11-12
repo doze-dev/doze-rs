@@ -48,6 +48,26 @@ jobs:
         env:
           RUSTDOCFLAGS: -D warnings
 
+  # doze-os on all five targets (docs/port/modules/PLAN.md D10): the only platform code and the only `unsafe` in the
+  # workspace. The Windows runners run elevated, so the postgres test there proves engines start under doze's restricted
+  # token (postgres refuses an elevated one: spikes/w0-windows/REPORT.md).
+  os:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, ubuntu-24.04-arm, macos-latest, windows-latest, windows-11-arm]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - name: Postgres for the tree test (the Linux images ship one; the Windows x64 image sets PGBIN itself)
+        shell: bash
+        run: |
+          d=$(ls -d /usr/lib/postgresql/*/bin 2>/dev/null | sort -V | tail -1 || true)
+          if [ -n "$d" ]; then echo "PGBIN=$d" >> "$GITHUB_ENV"; fi
+      - run: cargo clippy -p doze-os --all-targets -- -D warnings
+      - run: cargo test -p doze-os -- --nocapture
+
   # Windows (docs/port/aws/phase0.md, spike S2): the whole workspace must at least compile there. Tests join as crates are made
   # portable; a red job here is information about what is still Unix-only, not noise.
   windows:

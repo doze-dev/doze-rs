@@ -1,0 +1,37 @@
+[package]
+name = "w0-windows"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+# W0 spike for docs/port/modules/PLAN.md (D11): S0's module transport on Windows
+# (named pipe), Job objects, socket duplication into a module, real postgres.
+# Runs on GitHub Actions (.github/workflows/w0.yml). Not production code.
+[workspace]
+
+[dependencies]
+tokio = { version = "1.54", features = ["rt", "net", "process", "macros", "sync", "time", "io-util", "signal"] }
+anyhow = "1"
+minicbor = { version = "2.3", features = ["derive", "std"] }
+serde = { version = "1", features = ["derive"] }
+
+[target.'cfg(unix)'.dependencies]
+rustix = { version = "1.1.6", features = ["net", "stdio", "process", "fs"] }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_Networking_WinSock",
+    "Win32_System_JobObjects",
+    "Win32_System_Threading",
+    "Win32_System_Pipes",
+    "Win32_System_ProcessStatus",
+    "Win32_System_Console",
+    "Win32_Security",
+] }
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true
+panic = "abort"

@@ -1,0 +1,65 @@
+[package]
+name = "doze-os"
+version = "0.0.0"
+description = "Every operating-system difference doze has: the module channel, process groups, privilege, executable lookup"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+# The workspace table forbids `unsafe`, and a forbidden lint cannot be relaxed per crate, so this crate repeats the
+# table with `unsafe_code = "deny"` (allowed per block in the platform files, each with a SAFETY line; owner decision
+# 2026-11-12, docs/port/modules/p1.md). Keep the rest in step with the workspace table.
+[lints.rust]
+unsafe_code = "deny"
+missing_debug_implementations = "warn"
+unreachable_pub = "warn"
+unsafe_op_in_unsafe_fn = "deny"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+unwrap_used = "deny"
+expect_used = "deny"
+indexing_slicing = "deny"
+panic = "deny"
+todo = "deny"
+unimplemented = "deny"
+dbg_macro = "deny"
+await_holding_lock = "deny"
+await_holding_refcell_ref = "deny"
+too_many_lines = "deny"
+cognitive_complexity = "deny"
+too_many_arguments = "deny"
+# Only here: every unsafe block says why it is sound, and does one unsafe thing.
+undocumented_unsafe_blocks = "deny"
+multiple_unsafe_ops_per_block = "deny"
+
+[dependencies]
+tokio = { version = "1.54", features = ["net", "process", "io-util", "time", "rt", "signal"] }
+
+[target.'cfg(unix)'.dependencies]
+rustix = { version = "1.1.6", features = ["net", "stdio", "process", "fs"] }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_Networking_WinSock",
+    "Win32_Security",
+    "Win32_System_Console",
+    "Win32_System_Environment",
+    "Win32_System_JobObjects",
+    "Win32_System_Pipes",
+    "Win32_System_SystemServices",
+    "Win32_System_Threading",
+] }
+
+[dev-dependencies]
+tokio = { version = "1.54", features = ["net", "process", "io-util", "time", "rt", "macros"] }
+
+[[bin]]
+# Test helper only: the tests start it as a module, an engine, or a process to stop.
+name = "doze-os-helper"
+path = "src/bin/doze-os-helper.rs"
+test = false
+doc = false
