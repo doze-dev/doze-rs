@@ -92,7 +92,9 @@ export function runDiff(o: DiffOptions): Report {
   }
   const snap = JSON.parse(text) as { boards: Record<string, { section: string; signature: Signature }> };
   const allIds = Object.keys(snap.boards).sort();
-  const ids = o.ids ?? allIds;
+  const required = o.require === "all" ? allIds : o.require;
+  // A required board is always compared, whatever --ids says.
+  const ids = [...new Set([...(o.ids ?? allIds), ...required])];
   for (const id of ids) if (!snap.boards[id]) errors.push(`unknown board id "${id}"`);
   if (errors.length) return empty(2);
 
@@ -105,9 +107,6 @@ export function runDiff(o: DiffOptions): Report {
   errors.push(...allowErrors);
   const used = new Set<AllowEntry>();
   const judged = new Set<AllowEntry>();
-
-  const required = o.require === "all" ? allIds : o.require;
-  for (const id of required) if (!snap.boards[id]) errors.push(`--require names unknown board "${id}"`);
 
   const results: BoardResult[] = [];
   for (const id of ids) {

@@ -1,0 +1,9 @@
+[
+  { "board": "groups-none", "check": "heading-order", "reason": "Canvas defect: the empty state's title is an h3 straight under the page h1 (no h2 between). The built page should use h2." },
+  { "board": "lab-empty", "check": "heading-order", "reason": "Canvas defect: the empty state's title is an h3 straight under the page h1 (no h2 between). The built page should use h2." },
+  { "board": "live-quiet", "check": "heading-order", "reason": "Canvas defect: the empty state's title is an h3 straight under the page h1 (no h2 between). The built page should use h2." },
+  { "board": "log-empty", "check": "heading-order", "reason": "Canvas defect: the empty state's title is an h3 straight under the page h1 (no h2 between). The built page should use h2." },
+  { "board": "topic-messages-empty", "check": "heading-order", "reason": "Canvas defect: the empty state's title is an h3 straight under the page h1 (no h2 between). The built page should use h2." },
+  { "board": "topics-filtered", "check": "heading-order", "reason": "Canvas defect: the empty state's title is an h3 straight under the page h1 (no h2 between). The built page should use h2." },
+  { "board": "topics-none", "check": "heading-order", "reason": "Canvas defect: the empty state's title is an h3 straight under the page h1 (no h2 between). The built page should use h2." }
+]
