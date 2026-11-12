@@ -1,0 +1,1 @@
+{"kind": ["order", {"prefix": "re"}, {"numeric": [">", 1, "<=", 5]}, {"anything-but": ["x"]}, {"exists": false}, {"cidr": "10.0.0.0/24"}], "$or": [{"a": [1]}, {"b": [true, null]}]}

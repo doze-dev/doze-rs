@@ -189,7 +189,7 @@
         "Protocol": "sqs",
         "RawMessageDelivery": "false",
         "SubscriptionArn": "arn:aws:sns:us-east-1:<account>:<name:topic>:<uuid:1>",
-        "SubscriptionPrincipal": "arn:aws:iam::<account>:role/aws-reserved/sso.amazonaws.com/AWSReservedSSO_doze-recorder-limited_831b2805e46e339c",
+        "SubscriptionPrincipal": "<SubscriptionPrincipal:1>",
         "TopicArn": "arn:aws:sns:us-east-1:<account>:<name:topic>"
       },
       "ResponseMetadata": {
@@ -224,7 +224,7 @@
         "Protocol": "sqs",
         "RawMessageDelivery": "true",
         "SubscriptionArn": "arn:aws:sns:us-east-1:<account>:<name:topic>:<uuid:1>",
-        "SubscriptionPrincipal": "arn:aws:iam::<account>:role/aws-reserved/sso.amazonaws.com/AWSReservedSSO_doze-recorder-limited_831b2805e46e339c",
+        "SubscriptionPrincipal": "<SubscriptionPrincipal:1>",
         "TopicArn": "arn:aws:sns:us-east-1:<account>:<name:topic>"
       },
       "ResponseMetadata": {
