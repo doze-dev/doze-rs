@@ -62,6 +62,16 @@ pub fn producers_sentence(v: &ProducersView) -> Vec<Span> {
     out
 }
 
+/// A transaction's timeout as the boards write it: whole seconds up to two minutes (`60 s`), else in the two largest units.
+#[must_use]
+pub fn timeout_text(ms: i64) -> String {
+    if ms > 0 && ms % 1000 == 0 && ms <= 120_000 {
+        format!("{} s", ms / 1000)
+    } else {
+        span_ms(ms)
+    }
+}
+
 /// How long a transaction has run, and how long it has left, in milliseconds.
 #[must_use]
 pub fn running_ms(x: &TxnRow, now_ms: i64) -> i64 {
@@ -108,7 +118,10 @@ pub fn txn_sentence(v: &TxnView) -> Vec<Span> {
     if x.ongoing() {
         out.push(t(format!(", begun at {}, ", clock(x.since_ms))));
         out.push(Span::strong(span_ms(running_ms(x, v.now_ms))));
-        out.push(t(format!(" into its {} timeout.", span_ms(x.timeout_ms))));
+        out.push(t(format!(
+            " into its {} timeout.",
+            timeout_text(x.timeout_ms)
+        )));
         let held = part_list(&v.parts, &v.topic, |p| p.first);
         if !held.is_empty() {
             out.push(t(format!(" It holds the last stable offset of {held}.")));

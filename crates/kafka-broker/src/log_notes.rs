@@ -6,7 +6,7 @@
 //! deletions listed), and two numbers. A broker that has cleaned nothing and swept nothing keeps nothing; the notes are
 //! forgotten when the broker stops, as the page says.
 
-#![cfg_attr(not(feature = "inspect"), allow(dead_code))]
+#![cfg_attr(not(feature = "inspect"), allow(dead_code, unreachable_pub))]
 
 use std::collections::HashMap;
 use std::sync::Mutex;

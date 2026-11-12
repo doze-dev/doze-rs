@@ -45,7 +45,7 @@ fn a_transaction_is_described_with_its_clock_its_timeout_and_what_it_holds() {
     let v = txn_view("orders", "orders-eos").unwrap();
     assert_eq!(
         text(&txn_sentence(&v)),
-        "orders-eos is Ongoing: producer 4017 epoch 2, begun at 22:13:33, 41 s into its 1 min timeout. It holds the last stable offset of orders-0 at 16,098 and of orders-1 at 16,050."
+        "orders-eos is Ongoing: producer 4017 epoch 2, begun at 22:13:33, 41 s into its 60 s timeout. It holds the last stable offset of orders-0 at 16,098 and of orders-1 at 16,050."
     );
     assert_eq!(
         (

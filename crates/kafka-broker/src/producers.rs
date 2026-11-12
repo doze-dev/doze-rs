@@ -275,6 +275,7 @@ impl Producers {
 
 /// What one producer's window holds, for the console to show: read only.
 #[derive(Debug, Clone)]
+#[cfg_attr(not(feature = "inspect"), allow(dead_code))]
 pub(crate) struct Window {
     pub(crate) id: i64,
     pub(crate) epoch: i16,
@@ -285,6 +286,7 @@ pub(crate) struct Window {
 
 impl Producers {
     /// Every producer's window (at most five batches each), in no order. Changes nothing.
+    #[cfg_attr(not(feature = "inspect"), allow(dead_code))]
     pub(crate) fn windows(&self) -> Vec<Window> {
         self.by_id
             .iter()

@@ -66,7 +66,7 @@ fn a_producer_is_never_shown_with_a_name_the_broker_does_not_know() {
 fn the_transaction_page_has_the_countdown_and_the_two_ways_on() {
     let v = txn_view("orders", "orders-eos").unwrap();
     let p = txn_page(&v, &Base::root()).into_string();
-    assert!(p.contains("41 s of 1 min"));
+    assert!(p.contains("41 s of 60 s"));
     assert!(p.contains("19 s left, then the broker aborts it and fences the producer"));
     assert!(p.contains("href=\"/topics/orders/transactions/orders-eos/held\""));
     assert!(p.contains("Offsets staged") && p.contains("not listed"));

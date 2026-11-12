@@ -11,7 +11,7 @@ use crate::format::{clock, number, span_ms};
 use crate::model::{TxnRow, TxnView};
 use crate::pages::log::topic_tabs;
 use crate::producers_words::{
-    holds_sentence, left_ms, running_ms, timeout_percent, txn_sentence, unended_parts,
+    holds_sentence, left_ms, running_ms, timeout_percent, timeout_text, txn_sentence, unended_parts,
 };
 use crate::ui::button::{Size, State, Variant, link, pill_mono, state};
 use crate::ui::glyph::Glyph;
@@ -82,8 +82,8 @@ fn the_transaction(v: &TxnView) -> Markup {
                 ("Producer", html! { span class="mono" { (x.producer_id) ", epoch " (x.producer_epoch) } }),
                 ("Began", value_with_sub(html! { span class="mono" { (clock(x.since_ms)) } }, &format!("{} ago; adding partitions does not start the clock again", span_ms(running)))),
                 ("Timeout", html! {
-                    div class="lagbar" style="max-width:360px" { div class="tr" { i style={"--p:" (timeout_percent(x, v.now_ms)) "%"} {} } span class="n" { (span_ms(running)) " of " (span_ms(x.timeout_ms)) } }
-                    span class="sub" { (span_ms(x.timeout_ms)) ": " @if left > 0 { (span_ms(left)) " left, then the broker aborts it and fences the producer" } @else { "passed: the broker aborts it at its next look and fences the producer" } }
+                    div class="lagbar" style="max-width:360px" { div class="tr" { i style={"--p:" (timeout_percent(x, v.now_ms)) "%"} {} } span class="n" { (span_ms(running)) " of " (timeout_text(x.timeout_ms)) } }
+                    span class="sub" { (timeout_text(x.timeout_ms)) ": " @if left > 0 { (span_ms(left)) " left, then the broker aborts it and fences the producer" } @else { "passed: the broker aborts it at its next look and fences the producer" } }
                 }),
                 ("Partitions", partitions_cell(v)),
                 ("Offsets staged", value_with_sub(html! { "not listed" }, "DescribeTransactions does not say whether a group was added; on commit staged offsets are applied to the group, on abort forgotten")),
@@ -119,7 +119,7 @@ fn all_table(v: &TxnView, base: &Base) -> Markup {
                             td { (state(tone(&t.state), &t.state)) }
                             td class="mono" { (t.producer_id) ", epoch " (t.producer_epoch) }
                             td class="mono" data-vary="" { (span_ms(running_ms(t, v.now_ms))) }
-                            td class="mono" { (span_ms(t.timeout_ms)) }
+                            td class="mono" { (timeout_text(t.timeout_ms)) }
                             td class="mono" { (partitions_of(t)) }
                         }
                     }

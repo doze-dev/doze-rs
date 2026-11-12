@@ -305,40 +305,117 @@ fn tail() -> ProdTail {
     }
 }
 
-/// The Producers page of `orders` partition 0; `None` for another topic.
-#[must_use]
-pub fn producers(topic: &str, partition: i32, opened: Vec<i64>) -> Option<ProducersView> {
-    let n = now();
-    if topic != "orders" {
-        // A topic of the world that no producer has written to: nothing remembered, nothing open.
-        let head = crate::fixtures_topics::head(topic)?;
-        let partitions = i32::try_from(head.parts.len()).unwrap_or(1);
-        return Some(ProducersView {
-            topic: topic.to_owned(),
-            partitions,
-            partition: partition.clamp(0, partitions - 1),
-            now_ms: n,
-            start: 0,
-            end: 0,
-            last_stable: 0,
-            producers: Vec::new(),
-            open: Vec::new(),
-            aborted: Vec::new(),
-            tail: ProdTail {
-                from: 0,
-                cells: Vec::new(),
-            },
-            opened,
-        });
-    }
-    let row = |id, epoch, last, idle_s: i64, txn: Option<ProdTxn>, batches| ProdRow {
+/// A topic of the world that no producer has written to: nothing remembered, nothing open.
+fn empty_producers(topic: &str, partition: i32, opened: Vec<i64>) -> Option<ProducersView> {
+    let head = crate::fixtures_topics::head(topic)?;
+    let partitions = i32::try_from(head.parts.len()).unwrap_or(1);
+    Some(ProducersView {
+        topic: topic.to_owned(),
+        partitions,
+        partition: partition.clamp(0, partitions - 1),
+        now_ms: now(),
+        start: 0,
+        end: 0,
+        last_stable: 0,
+        producers: Vec::new(),
+        open: Vec::new(),
+        aborted: Vec::new(),
+        tail: ProdTail {
+            from: 0,
+            cells: Vec::new(),
+        },
+        opened,
+    })
+}
+
+/// A batch of the table: (sequences, offsets, when, in the open transaction).
+type Row = ((i32, i32), (i64, i64), &'static str, bool);
+
+fn batches(rows: &[Row]) -> Vec<ProdBatch> {
+    rows.iter().map(|r| batch(r.0, r.1, r.2, r.3)).collect()
+}
+
+/// The three producers `orders-0` remembers.
+fn orders_rows(n: i64) -> Vec<ProdRow> {
+    let row = |id, epoch, last, idle_s: i64, txn: Option<ProdTxn>, rows: &[Row]| ProdRow {
         id,
         epoch,
         last_sequence: Some(last),
         last_used_ms: n - idle_s * 1000,
         txn,
-        batches,
+        batches: batches(rows),
     };
+    let open = ProdTxn {
+        id: "orders-eos".to_owned(),
+        state: "Ongoing".to_owned(),
+        from: Some(16_098),
+    };
+    vec![
+        row(
+            4017,
+            2,
+            22_918,
+            4,
+            Some(open),
+            &[
+                (
+                    (22_915, 22_918),
+                    (16_100, 16_103),
+                    "2026-11-09 22:14:21",
+                    true,
+                ),
+                (
+                    (22_913, 22_914),
+                    (16_098, 16_099),
+                    "2026-11-09 22:13:33",
+                    true,
+                ),
+                (
+                    (22_909, 22_912),
+                    (16_093, 16_096),
+                    "2026-11-09 22:13:09",
+                    false,
+                ),
+                (
+                    (22_907, 22_908),
+                    (16_090, 16_091),
+                    "2026-11-09 22:12:40",
+                    false,
+                ),
+                (
+                    (22_903, 22_906),
+                    (16_085, 16_088),
+                    "2026-11-09 22:12:18",
+                    false,
+                ),
+            ],
+        ),
+        row(
+            4023,
+            0,
+            1140,
+            38,
+            None,
+            &[((1138, 1140), (16_081, 16_083), "2026-11-09 22:13:36", false)],
+        ),
+        row(
+            4031,
+            1,
+            309,
+            3 * 3600 + 12 * 60,
+            None,
+            &[((308, 309), (16_010, 16_011), "2026-11-09 19:02:14", false)],
+        ),
+    ]
+}
+
+/// The Producers page of `orders` partition 0; `None` for another topic.
+#[must_use]
+pub fn producers(topic: &str, partition: i32, opened: Vec<i64>) -> Option<ProducersView> {
+    if topic != "orders" {
+        return empty_producers(topic, partition, opened);
+    }
+    let n = now();
     Some(ProducersView {
         topic: "orders".to_owned(),
         partitions: 3,
@@ -347,77 +424,7 @@ pub fn producers(topic: &str, partition: i32, opened: Vec<i64>) -> Option<Produc
         start: 0,
         end: 16_104,
         last_stable: 16_098,
-        producers: vec![
-            row(
-                4017,
-                2,
-                22_918,
-                4,
-                Some(ProdTxn {
-                    id: "orders-eos".to_owned(),
-                    state: "Ongoing".to_owned(),
-                    from: Some(16_098),
-                }),
-                vec![
-                    batch(
-                        (22_915, 22_918),
-                        (16_100, 16_103),
-                        "2026-11-09 22:14:21",
-                        true,
-                    ),
-                    batch(
-                        (22_913, 22_914),
-                        (16_098, 16_099),
-                        "2026-11-09 22:13:33",
-                        true,
-                    ),
-                    batch(
-                        (22_909, 22_912),
-                        (16_093, 16_096),
-                        "2026-11-09 22:13:09",
-                        false,
-                    ),
-                    batch(
-                        (22_907, 22_908),
-                        (16_090, 16_091),
-                        "2026-11-09 22:12:40",
-                        false,
-                    ),
-                    batch(
-                        (22_903, 22_906),
-                        (16_085, 16_088),
-                        "2026-11-09 22:12:18",
-                        false,
-                    ),
-                ],
-            ),
-            row(
-                4023,
-                0,
-                1140,
-                38,
-                None,
-                vec![batch(
-                    (1138, 1140),
-                    (16_081, 16_083),
-                    "2026-11-09 22:13:36",
-                    false,
-                )],
-            ),
-            row(
-                4031,
-                1,
-                309,
-                3 * 3600 + 12 * 60,
-                None,
-                vec![batch(
-                    (308, 309),
-                    (16_010, 16_011),
-                    "2026-11-09 19:02:14",
-                    false,
-                )],
-            ),
-        ],
+        producers: orders_rows(n),
         open: vec![txn()],
         aborted: vec![
             ProdAborted {

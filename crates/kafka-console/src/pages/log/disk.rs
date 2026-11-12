@@ -151,9 +151,8 @@ fn row(v: &LogView, s: &LogSegment, n: usize, open: bool) -> Markup {
     }
 }
 
-fn detail(v: &LogView, s: &LogSegment, last: i64, newest: &str) -> Markup {
-    let name = format!("{:020}", s.base);
-    let entries = (s.bytes / v.index_interval_bytes.max(1)).max(1);
+/// The two small lines under a segment's size and offsets.
+fn subs(v: &LogView, s: &LogSegment) -> (String, String) {
     let size_sub = if s.active {
         format!(
             "of segment.bytes {}; rolls when full",
@@ -183,6 +182,13 @@ fn detail(v: &LogView, s: &LogSegment, last: i64, newest: &str) -> Markup {
             number(s.next)
         )
     };
+    (size_sub, offsets_sub)
+}
+
+fn detail(v: &LogView, s: &LogSegment, last: i64, newest: &str) -> Markup {
+    let name = format!("{:020}", s.base);
+    let entries = (s.bytes / v.index_interval_bytes.max(1)).max(1);
+    let (size_sub, offsets_sub) = subs(v, s);
     let mut rows = vec![
         (
             "Offsets",

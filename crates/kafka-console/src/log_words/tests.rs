@@ -157,7 +157,7 @@ fn retention_names_the_segment_that_turns_old_and_the_pass_that_takes_it() {
         (0, 5980, Some(0))
     );
     assert_eq!(
-        e.pass_at_ms.map(|t| crate::format::clock(t)),
+        e.pass_at_ms.map(crate::format::clock),
         Some("22:22:00".to_owned())
     );
 }

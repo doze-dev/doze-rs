@@ -36,7 +36,7 @@ impl<F: Fs> Broker<F> {
                         let to = partition.trim(Trim::Retention(policy, now)).await;
                         note.looked += 1;
                         if let Ok(to) = &to {
-                            note_move(&mut note, &topic.name.to_string(), n, (from, to.get()));
+                            note_move(&mut note, topic.name.as_ref(), n, (from, to.get()));
                         }
                         to.map(drop)
                     }

@@ -270,7 +270,7 @@ fn interval(v: &LogView, c: &LogCompaction) -> Rule {
             RuleTone::Ok,
             &format!("Looked at every {look}"),
             vec![
-                m(format!("--log-cleaner-interval {look}")),
+                m(format!("--log-cleaner-interval {}", flag(c.every_ms))),
                 t(format!("; {next}")),
             ],
             if c.planner.due { "due" } else { "waiting" },

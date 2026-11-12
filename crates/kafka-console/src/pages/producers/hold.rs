@@ -43,6 +43,7 @@ pub(super) fn section(v: &ProducersView, base: &Base) -> Markup {
 pub fn txn_held_page(v: &TxnView, base: &Base) -> Markup {
     let p = v.parts.iter().find(|p| p.partition == v.tail_partition);
     let (end, stable) = p.map_or((0, 0), |p| (p.end, p.last_stable));
+    let here = p.map_or(0, |p| p.held());
     let messages = format!(
         "{}?reading=committed&partition={}",
         base.url(&format!("/topics/{}/messages", segment(&v.topic))),
@@ -57,12 +58,12 @@ pub fn txn_held_page(v: &TxnView, base: &Base) -> Markup {
             div class="card" { h2 { "read_uncommitted" } p class="lede" { "The default of most clients." }
                 dl class="kv sm" {
                     dt { "Reads up to" } dd class="mono" { (number(end - 1)) }
-                    dt { "Sees" } dd { "every record, including the " (v.held()) " of an undecided transaction" }
+                    dt { "Sees" } dd { "every record, including the " (here) " of an undecided transaction" }
                 } }
             div class="card" { h2 { "read_committed" } p class="lede" { "Exactly-once consumers." }
                 dl class="kv sm" {
                     dt { "Reads up to" } dd class="mono" { (number(stable - 1)) }
-                    dt { "Waits for" } dd { "the transaction to commit (then sees " (v.held()) " more) or abort (then skips them)" }
+                    dt { "Waits for" } dd { "the transaction to commit (then sees " (here) " more) or abort (then skips them)" }
                 } }
         }
         div class="sec" style="margin-top:28px" {

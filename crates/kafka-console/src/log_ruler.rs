@@ -169,6 +169,13 @@ fn label_of(v: &LogView, s: &LogSegment, i: usize, cell: Cell) -> (String, Strin
         Cell::Active => "active: never deleted".to_owned(),
         Cell::Sealed => match expiry(v) {
             Some(e) if i < e.going_now => "goes at the next pass".to_owned(),
+            Some(e) if e.next.is_some_and(|n| n.0 == i) && e.pass_at_ms.is_some() => format!(
+                "goes at {}",
+                crate::format::clock(e.pass_at_ms.unwrap_or(0))
+                    .chars()
+                    .take(5)
+                    .collect::<String>()
+            ),
             _ => "sealed".to_owned(),
         },
     };

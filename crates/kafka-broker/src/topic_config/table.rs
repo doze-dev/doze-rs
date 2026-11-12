@@ -147,6 +147,7 @@ pub(super) static SETTINGS: &[Setting] = &[
 
 impl Kind {
     /// What a value may be, as a person says it (the Config page of the console teaches from this).
+    #[cfg_attr(not(feature = "inspect"), allow(dead_code))]
     pub(super) fn allowed(&self) -> String {
         match self {
             Self::Int { min } | Self::Long { min } => format!("a whole number, at least {min}"),

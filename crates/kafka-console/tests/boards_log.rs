@@ -238,11 +238,11 @@ fn the_producers_and_transaction_pages_have_the_parts_of_their_boards_in_order()
         "txn-open",
         &page("txn-open"),
         &[
-            "<b>orders-eos</b> is <b>Ongoing</b>: producer 4017 epoch 2, begun at 22:13:33, <b>41 s</b> into its 1 min timeout.",
+            "<b>orders-eos</b> is <b>Ongoing</b>: producer 4017 epoch 2, begun at 22:13:33, <b>41 s</b> into its 60 s timeout.",
             "The transaction",
             "<dt>Transactional id</dt>",
             "<dt>Timeout</dt>",
-            "41 s of 1 min",
+            "41 s of 60 s",
             "19 s left, then the broker aborts it and fences the producer",
             "<dt>Partitions</dt>",
             "orders-0 from 16,098",

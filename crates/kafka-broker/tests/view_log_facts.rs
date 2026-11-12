@@ -78,7 +78,7 @@ async fn the_verdict_is_what_the_cleaner_then_does() {
     );
     assert!(second.1.reading.ratio().is_some_and(|r| r < 0.5));
 
-    let rig = rig();
+    let rig = support::rig();
     let lagged = with_config(compacting("0.01"), "min.compaction.lag.ms", "1000000000");
     let lagged = with_config(lagged, "message.timestamp.type", "LogAppendTime");
     rig.create(vec![lagged], false).await;
