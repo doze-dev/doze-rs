@@ -327,6 +327,27 @@ describe("forms in an overlay", () => {
   });
 });
 
+describe("a Preview control (a GET submit) in an overlay never writes", () => {
+  const form = `<form id="f" method="post" action="/groups/g/reset"><input name="topic" value="orders"><button id="prev" type="submit" formmethod="get" formaction="/groups/g/reset">Preview</button><button id="go" type="submit">Reset</button></form>`;
+  test("it is fetched as a GET with the fields in the address, and the overlay that comes back replaces this one", async () => {
+    const p = await started();
+    p.autoAnswer(() => reply("Reset offsets", "dialog", form));
+    p.click(p.document.getElementById("open")!);
+    await p.flush();
+    p.autoAnswer(() => reply("Reset offsets, previewed", "dialog", `<p id="seen">preview</p>`));
+    const prev = p.document.getElementById("prev") as HTMLButtonElement;
+    p.document.getElementById("f")!.dispatchEvent(new p.window.SubmitEvent("submit", { bubbles: true, cancelable: true, submitter: prev }));
+    await p.flush();
+    const call = p.calls[p.calls.length - 1];
+    expect(call.method).toBe("GET");
+    expect(call.url).toBe(`${ORIGIN}/groups/g/reset?topic=orders`);
+    expect(call.headers["X-Fragment"]).toBe("1");
+    expect(p.calls.some((c) => c.method === "POST")).toBe(false);
+    expect(p.document.getElementById("seen")).not.toBeNull();
+    expect(p.history.url).toBe(`${ORIGIN}/groups/g/reset?topic=orders`);
+  });
+});
+
 describe("a fragment that changed fades in, softly, and one that did not does not move", () => {
   const rows = (text: string) => `<div class="frag" id="rows" data-frag="/fragments/rows"><p id="n">${text}</p></div>`;
   const tick = async (p: Page, body: string) => {

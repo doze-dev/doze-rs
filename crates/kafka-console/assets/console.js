@@ -225,13 +225,25 @@
   }
   // A form of an overlay: posted in place. An overlay comes back (a refusal, a field to fix) and replaces this one; a page
   // comes back (the result) and replaces the page. If the request cannot be made at all the form posts as it would without us.
+  // A submit control that asks for a GET (formmethod, like a dialog's Preview) never writes: its answer is fetched with the
+  // fields in the address, and the overlay that comes back replaces this one and takes that address.
   async function submitOverlay(f, submitter) {
-    const body = new URLSearchParams(new FormData(f, submitter || undefined));
+    const via = (submitter && submitter.getAttribute('formmethod')) || f.getAttribute('method') || 'post';
+    const reading = via.toLowerCase() === 'get';
+    const data = new FormData(f, submitter || undefined);
     f.setAttribute('aria-busy', 'true');
-    let r;
-    try { r = await fetch(f.action, { method: 'POST', body, headers: { 'X-Fragment': '1' } }); } catch (err) { f.submit(); return; }
+    let r, at = null;
+    try {
+      if (reading) {
+        at = new URL((submitter && submitter.getAttribute('formaction')) || f.action, location.href);
+        at.search = new URLSearchParams(data).toString();
+        r = await fetch(at.href, { headers: { 'X-Fragment': '1' } });
+      } else {
+        r = await fetch(f.action, { method: 'POST', body: new URLSearchParams(data), headers: { 'X-Fragment': '1' } });
+      }
+    } catch (err) { if (reading) location.href = at.href; else f.submit(); return; }
     const text = await r.text();
-    if (r.headers.get('x-overlay')) { const el = asOverlay(text); if (el) return replaceOverlay(el, null); }
+    if (r.headers.get('x-overlay')) { const el = asOverlay(text); if (el) return replaceOverlay(el, reading ? at.href : null); }
     swapPage(text, r.redirected ? r.url : null);
   }
 
