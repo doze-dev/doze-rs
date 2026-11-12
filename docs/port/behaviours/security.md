@@ -1035,7 +1035,7 @@ check at the request (SEC-106). The filter runs before the assignor, never after
 Test: `a_regex_is_assigned_only_topics_the_member_may_describe` (the audit's), `a_regex_that_matches_only_describable_topics_gets_all_of_them`,
 `a_deny_keeps_one_topic_out_of_the_match`, `a_super_user_is_assigned_every_topic_the_expression_matches`,
 `a_classic_member_in_a_group_with_a_regex_member_is_unaffected`, `two_members_with_one_expression_are_filtered_each_by_its_own_rights`,
-`a_topic_made_later_is_taken_only_if_the_member_may_describe_it` (all in `tests/authz_regex_848.rs`).
+`a_topic_made_later_is_taken_only_if_the_member_may_describe_it` (`tests/authz_regex_848.rs`; those about rights that change are in `tests/authz_regex_rights_848.rs`).
 
 ## SEC-211. A right granted or taken away is seen at the member's next heartbeat
 Kafka re-resolves when a refresh is due (new topics, an unresolved expression, or the refresh interval; at most every 10 s, GMM:3354-3373) and with the rights of whichever
