@@ -124,7 +124,7 @@ fn quiet_card(v: &LiveView, base: &Base) -> Markup {
     html! {
         div class="card" { div class="row" style="gap:32px;align-items:flex-start" {
             div style="flex:1" {
-                h3 style="margin:0 0 6px;font-size:16px" { "Send the first request" }
+                h2 style="margin:0 0 6px;font-size:16px" { "Send the first request" }
                 p class="help" style="margin:0 0 12px" { "Any Kafka client will do. Name it with " span class="mono" { "client.id" } " and it shows up as itself." }
                 (crate::ui::code::pre(&format!("echo hi | kcat -P -b {} -t orders -X client.id=admin-cli", v.listen), None, None))
             }

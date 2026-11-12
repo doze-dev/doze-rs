@@ -87,10 +87,85 @@
       if (r.status === 304) { reached(); return; }
       if (!r.ok) throw new Error(String(r.status));
       etags[id] = r.headers.get('ETag');
-      apply(await r.text());
+      const html = await r.text();
+      if (holds(id, html)) { reached(); return; }
+      const before = rowsOn(id);
+      apply(html);
+      markNew(id, before);
       reached();
     } catch (e) { if (e.name !== 'AbortError' && banner) banner.hidden = false; }
   }
+
+  // Live (slice 9e). A fragment that carries a [data-seen] (a count that grows with every request recorded) is a tape: while it
+  // is paused, or a drawer is open over it, new answers are kept aside and counted, so what a person reads never moves.
+  // Pause is a link that works with no script (the page as it was); here it holds the tape in place instead. Resume (or
+  // closing the drawer) brings the newest in. New rows are marked for a moment so the eye finds them.
+  const held = {};
+  let pausedAt = null;
+  const seenOf = (root) => { const s = root && root.querySelector('[data-seen]'); return s ? Number(s.getAttribute('data-seen')) : null; };
+  const overlayOpen = () => !!document.querySelector('[data-overlay],dialog[open]');
+  const parse = (html) => { const t = document.createElement('template'); t.innerHTML = html; return t.content; };
+  const showHeld = (n) => document.querySelectorAll('[data-held]').forEach((el) => { el.textContent = new Intl.NumberFormat('en-US').format(n); });
+  function holds(id, html) {
+    const el = document.getElementById(id);
+    if (!el || seenOf(el) === null) return false;
+    if (pausedAt === null && !overlayOpen()) { delete held[id]; return false; }
+    held[id] = html;
+    if (pausedAt !== null) showHeld(Math.max(0, seenOf(parse(html)) - pausedAt));
+    return true;
+  }
+  function release() {
+    for (const id of Object.keys(held)) { const html = held[id]; delete held[id]; const b = rowsOn(id); apply(html); markNew(id, b); }
+  }
+  const rowsOn = (id) => { const el = document.getElementById(id); return el ? new Set([...el.querySelectorAll('tr[data-row]')].map((r) => r.getAttribute('data-row'))) : new Set(); };
+  function markNew(id, before) {
+    const el = document.getElementById(id);
+    if (!el || before.size === 0) return;
+    el.querySelectorAll('tr[data-row]').forEach((r) => {
+      if (before.has(r.getAttribute('data-row'))) return;
+      r.classList.add('new');
+      setTimeout(() => r.classList.remove('new'), 1600);
+    });
+  }
+  function pause(btn) {
+    const live = document.querySelector('[data-seen]');
+    pausedAt = live ? Number(live.getAttribute('data-seen')) : 0;
+    document.querySelectorAll('[data-paused-banner]').forEach((el) => { el.hidden = false; });
+    showHeld(0);
+    btn.dataset.label = btn.textContent;
+    btn.textContent = 'Resume';
+    btn.removeAttribute('data-pause');
+    btn.setAttribute('data-resume', '');
+  }
+  function resume(btn) {
+    pausedAt = null;
+    document.querySelectorAll('[data-paused-banner]').forEach((el) => { el.hidden = true; });
+    btn.textContent = btn.dataset.label || 'Pause';
+    btn.removeAttribute('data-resume');
+    btn.setAttribute('data-pause', '');
+    release();
+  }
+  document.addEventListener('click', (e) => {
+    const p = e.target.closest('[data-pause]');
+    if (p && !e.defaultPrevented) { e.preventDefault(); pause(p); return; }
+    const r = e.target.closest('[data-resume]');
+    if (r && pausedAt !== null) { e.preventDefault(); resume(r); }
+  });
+  // A drawer that closes lets the tape catch up. Keys: j and k move between the rows' links; Enter opens the one in focus.
+  document.addEventListener('click', () => setTimeout(() => { if (pausedAt === null && !overlayOpen()) release(); }, 0));
+  document.addEventListener('keydown', (e) => {
+    if (e.metaKey || e.ctrlKey || e.altKey || (e.key !== 'j' && e.key !== 'k')) return;
+    const tag = e.target && e.target.tagName;
+    if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+    const links = [...document.querySelectorAll('table.wire td.tm a')];
+    if (!links.length) return;
+    const at = links.indexOf(document.activeElement);
+    const next = e.key === 'j' ? Math.min(links.length - 1, at + 1) : Math.max(0, at < 0 ? 0 : at - 1);
+    links[next].focus();
+    e.preventDefault();
+  });
+  // A filter that is a select applies as soon as it changes (without a script it is applied with the Enter key or the button).
+  document.addEventListener('change', (e) => { const s = e.target.closest && e.target.closest('select[data-autosubmit]'); if (s && s.form) s.form.submit(); });
 
   // A form: posted in place; the answer is the fragment named by data-target. If that fails the form posts as it would without us.
   document.addEventListener('submit', async (e) => {
