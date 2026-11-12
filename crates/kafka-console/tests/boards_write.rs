@@ -2,6 +2,7 @@
 //! `target/board-diff/<id>.html` for `tools/board-diff.ts`, and checked here against what the boards say (their headings,
 //! their labels, their buttons, their numbers) so that a page that drifts from its board fails before the tool runs.
 #![allow(
+    clippy::too_many_lines,
     clippy::unwrap_used,
     clippy::expect_used,
     clippy::indexing_slicing,

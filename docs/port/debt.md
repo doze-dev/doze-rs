@@ -225,3 +225,19 @@ Statuses as above. The catalogue is `behaviours/console.md` (and SEC-240 to SEC-
 | J18 | A mutation run on `origin.rs`, `format.rs`, `words.rs` and `probe/judge.rs` was not done in this slice | open: before the phase audit |
 | J19 | `fixtures` and `boards` are in the library behind the `examples` feature; a release build without the feature has neither | decided |
 | J20 | `doze-kafka/src/cli.rs` is 361 lines (soft limit 300; it was 344): the console flags added to it | open: split the flag groups into files when the next flags land |
+| J41 | The wire table under a refused produce ("What the wire recorded", board `topic-produce-keyless`) needs the request recorder; the page leaves it out (allow-list entries, `expires: 9e`) | moved: slice 9e |
+| J42 | "Size on disk" of the topics list after a delete and the "(7.9 MiB)" figures of the Produced and Delete pages need `partition_files()` (the read builder's `ConsoleView` method): the list cell shows a dash and the sentences give records only | moved: after the merge of p9b-read |
+| J43 | The delete dialog's "group reads it with 3 members" and "expire in 3 d 2 h": the protocol gives groups with an offset committed on the topic and their member counts, not who subscribes (that is in member metadata) nor the offsets' expiry (9c); the callout says what is read | decided; 9c for expiry |
+| J44 | The Produced page's table lists the record just sent, not the newest five across partitions: the other rows need the record decoder of the read builder (allow-list entry, live render only) | moved: after the merge of p9b-read |
+| J45 | `acks` is three radio inputs drawn as the segmented control (the board draws three buttons, which do nothing without a script); allow-list entries, `close` | decided |
+| J46 | The Create page's call is the call for what was submitted last, not a live preview "as you type" (a script could do it; the sentence under the title no longer says it does) | open: a few lines of `console.js` |
+| J47 | The boards' teaching links to refusal states ("see that refusal") are not offered: a state needs a request, and a GET never changes anything (allow-list entries, `close`) | decided |
+| J48 | The console is a super user of every broker (SEC-241), so the authorization refusal pages are exercised through `Backend::acting_as` (a test seam), not by the real console; the pages and wording are tested | decided (D5) |
+| J49 | A keyless record sent with the partition left to the key goes to partition 0 (Kafka's client uses a sticky partitioner for it); a keyed one goes where `murmur2` puts it, tested on Kafka's own vectors | decided |
+| J50 | Rows for `/groups`, `/topics/{topic}/log` and `/topics/{topic}/config` are Planned pages so the Produced page's tabs resolve; `topic-producers` joins the producers row. The read builder adds the same rows: dedupe at the merge | open: merge |
+| J51 | `Backend::acting_as` and `Backend::recording` are `doc(hidden)` seams for the tests (a caller that is not the console; a log of the APIs called); a real console never sets either | decided |
+| J52 | The created page says "Nothing has written to it yet" (checked with ListOffsets) and does not claim "no group reads it" | decided |
+| J53 | "Check only" has no board of its own: its answer is the review step with a banner ("Checked."); a refusal of the check is the refused state | decided |
+| J54 | Chrome side-by-sides were looked at for `topic-create`, `topic-produce` (dialog over a blank page: the board draws it over its parent) and `topic-deleted` only; the other eleven were checked by structure (board-diff, both renders) | open: the independent look of the slice gate |
+| J55 | A form body is read for 64 fields (`form::FIELD_LIMIT`); the Produce dialog offers 8 header rows | decided |
+| J56 | The dialog opening in `console.js` has string tests and a manual look only (as J12) | open |

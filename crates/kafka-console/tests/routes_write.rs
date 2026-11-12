@@ -1,6 +1,7 @@
 //! Every link of the topic write pages resolves, under any prefix; the dialogs are routes that answer a script their body
 //! alone and a browser a full page; and the POST of each write answers the board's state.
 #![allow(
+    clippy::too_many_lines,
     clippy::unwrap_used,
     clippy::expect_used,
     clippy::indexing_slicing,
@@ -26,6 +27,7 @@ fn read_builders(path: &str) -> bool {
 }
 
 #[tokio::test]
+#[allow(clippy::too_many_lines)]
 async fn every_link_of_the_write_pages_resolves_or_is_the_read_builders() {
     for prefix in ["/", "/kafka"] {
         let (app, state) = app(prefix, &[]);

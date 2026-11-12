@@ -208,6 +208,17 @@ pub async fn create(b: &Backend, draft: Draft, validate_only: bool, address: &st
             },
         });
     }
+    CreateResult::Created(made(b, draft, res, partitions, address).await)
+}
+
+/// The topic as it was made: the count and configs the broker answered, and whether it is empty (read back with ListOffsets).
+async fn made(
+    b: &Backend,
+    draft: Draft,
+    res: kafka_wire::messages::create_topics_response::CreatableTopicResult,
+    asked: i32,
+    address: &str,
+) -> Created {
     let configs = res.configs.unwrap_or_default();
     let value = |key: &str, fallback: &str| {
         configs
@@ -219,12 +230,12 @@ pub async fn create(b: &Backend, draft: Draft, validate_only: bool, address: &st
     let count = if res.num_partitions > 0 {
         res.num_partitions
     } else {
-        partitions
+        asked
     };
     let all: Vec<i32> = (0..count).collect();
     let start = forms::offsets(b, &draft.name, &all, -2, 0).await;
     let end = forms::offsets(b, &draft.name, &all, -1, 0).await;
-    CreateResult::Created(Created {
+    Created {
         empty: !all.is_empty()
             && all
                 .iter()
@@ -234,7 +245,7 @@ pub async fn create(b: &Backend, draft: Draft, validate_only: bool, address: &st
         name: draft.name,
         partitions: count,
         address: address.to_owned(),
-    })
+    }
 }
 
 fn refused(

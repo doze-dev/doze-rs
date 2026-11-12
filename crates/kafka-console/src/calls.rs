@@ -139,18 +139,24 @@ pub struct RecordText<'a> {
     pub headers: &'a [(String, String)],
 }
 
-/// What a Produce answered, for one partition.
+/// What the broker answered a produce with, for the partition: its code (0 is none), the code's name and the base offset.
+#[derive(Debug, Clone, Copy)]
+pub struct Outcome<'a> {
+    pub code: i16,
+    pub name: &'a str,
+    pub base_offset: i64,
+}
+
+/// What a Produce answered, for one partition; `more` are the fields of a success that follow the offset.
 #[must_use]
 pub fn produce_answer(
     version: i16,
     topic: &str,
     partition: i32,
-    code: i16,
-    name: &str,
-    base_offset: i64,
+    o: Outcome<'_>,
     more: &[(&str, String)],
 ) -> Lines {
-    let ok = code == 0;
+    let ok = o.code == 0;
     let mut out = vec![
         head("Produce", version, " response"),
         kv(1, "topic", Tok::Str, &visible(topic, 80)),
@@ -158,12 +164,12 @@ pub fn produce_answer(
         if ok {
             num(1, "error_code", 0)
         } else {
-            kv(1, "error_code", Tok::Str, &format!("{code} {name}"))
+            kv(1, "error_code", Tok::Str, &format!("{} {}", o.code, o.name))
         },
         if ok {
-            kv(1, "base_offset", Tok::Str, &base_offset.to_string())
+            kv(1, "base_offset", Tok::Str, &o.base_offset.to_string())
         } else {
-            num(1, "base_offset", base_offset)
+            num(1, "base_offset", o.base_offset)
         },
     ];
     out.extend(more.iter().map(|(k, v)| kv(1, k, Tok::Plain, v)));

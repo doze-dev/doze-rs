@@ -1,6 +1,7 @@
 //! The topic writes over a real broker in this process: a page is a form, a POST makes a protocol request as the console's
 //! principal, and what the broker did is looked at through the protocol (Metadata, DescribeConfigs, ListOffsets, Fetch).
 #![allow(
+    clippy::too_many_lines,
     clippy::unwrap_used,
     clippy::expect_used,
     clippy::indexing_slicing,

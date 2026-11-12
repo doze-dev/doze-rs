@@ -9,18 +9,14 @@ pub fn murmur2(data: &[u8]) -> i32 {
     const SEED: u32 = 0x9747_b28c;
     let len = u32::try_from(data.len()).unwrap_or(u32::MAX);
     let mut h = SEED ^ len;
-    let mut chunks = data.chunks_exact(4);
-    for c in chunks.by_ref() {
-        let Ok(word) = <[u8; 4]>::try_from(c) else {
-            continue;
-        };
-        let mut k = u32::from_le_bytes(word);
+    let (words, rest) = data.as_chunks::<4>();
+    for word in words {
+        let mut k = u32::from_le_bytes(*word);
         k = k.wrapping_mul(M);
         k ^= k >> 24;
         k = k.wrapping_mul(M);
         h = h.wrapping_mul(M) ^ k;
     }
-    let rest = chunks.remainder();
     if !rest.is_empty() {
         for (i, b) in rest.iter().enumerate().rev() {
             h ^= u32::from(*b) << (8 * i);
@@ -64,7 +60,7 @@ mod tests {
         ] {
             assert_eq!(murmur2(input.as_bytes()), want, "{input}");
         }
-        assert_eq!(murmur2(&[b'a', b'b', b'c']), 479_470_107);
+        assert_eq!(murmur2(b"abc"), 479_470_107);
     }
 
     #[test]

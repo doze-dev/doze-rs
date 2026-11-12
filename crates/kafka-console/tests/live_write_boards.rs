@@ -2,6 +2,7 @@
 //! `target/board-diff-live/<id>.html` for `tools/board-diff.ts` (structure only: the same columns, buttons, links and
 //! cards as the board, whatever the names and numbers).
 #![allow(
+    clippy::too_many_lines,
     clippy::unwrap_used,
     clippy::expect_used,
     clippy::indexing_slicing,
@@ -26,6 +27,9 @@ use kafka_wire::messages::{
 };
 use support::get;
 use support_write::{World, page, post_form, world};
+
+/// A board: its id, the POST that makes it (path and fields) or else the GET path.
+type Board<'a> = (&'a str, Option<(String, Vec<(&'a str, &'a str)>)>, String);
 
 fn out_dir() -> PathBuf {
     let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -107,7 +111,7 @@ async fn the_fourteen_boards_are_rendered_from_a_real_broker() {
         ]
     };
     let q = "name=orders.retry&partitions=3&template=event&cleanup.policy=delete&retention.ms=604800000";
-    let boards: Vec<(&str, Option<(String, Vec<(&str, &str)>)>, String)> = vec![
+    let boards: Vec<Board> = vec![
         ("topic-create", None, format!("/topics/new?step=name&{q}")),
         ("topic-create-config", None, format!("/topics/new?step=config&{q}")),
         ("topic-create-review", None, format!("/topics/new?step=review&{q}")),

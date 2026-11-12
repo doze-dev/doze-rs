@@ -70,9 +70,11 @@ fn the_produce_call_draws_the_record_and_the_answer_the_offset() {
             9,
             "orders",
             2,
-            0,
-            "NONE",
-            16_058,
+            Outcome {
+                code: 0,
+                name: "NONE",
+                base_offset: 16_058
+            },
             &[("log_append_time_ms", "-1".to_owned())]
         )),
         "Produce v9 response\n  topic: orders\n  partition: 2\n  error_code: 0\n  base_offset: 16058\n  log_append_time_ms: -1"
@@ -81,9 +83,11 @@ fn the_produce_call_draws_the_record_and_the_answer_the_offset() {
         9,
         "inventory.levels",
         0,
-        87,
-        "INVALID_RECORD",
-        -1,
+        Outcome {
+            code: 87,
+            name: "INVALID_RECORD",
+            base_offset: -1,
+        },
         &[],
     ));
     assert!(

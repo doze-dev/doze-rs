@@ -1,7 +1,7 @@
 //! The Produce dialog over the larder, and a stand-in for the broker's answer to a produce.
 
 use super::{SENT_MS, topic};
-use crate::calls::{self, RecordText};
+use crate::calls::{self, Outcome, RecordText};
 use crate::model::{
     ProduceErrors, ProduceInput, ProduceRefused, ProduceResult, ProduceView, Produced, RecordRow,
     TopicHead, Visibility,
@@ -80,6 +80,32 @@ fn others() -> Vec<RecordRow> {
         .collect()
 }
 
+/// The refusal the larder's broker gives this record, if it gives one.
+fn refusal_of(
+    view: &ProduceView,
+    key: Option<&String>,
+    partition: i32,
+    size: i64,
+) -> Option<crate::model::Refusal> {
+    if view.compacts && key.is_none() {
+        let said = format!(
+            "Compacted topic cannot accept message without key in topic partition {}-{partition}",
+            view.topic
+        );
+        Some(refusal::produce(87, Some(&said), true, true, Some(LIMIT)))
+    } else if size > LIMIT {
+        Some(refusal::produce(
+            10,
+            None,
+            view.compacts,
+            key.is_none(),
+            Some(LIMIT),
+        ))
+    } else {
+        None
+    }
+}
+
 /// What Produce answers in the larder.
 #[must_use]
 pub fn produce_send(name: &str, input: &ProduceInput) -> ProduceResult {
@@ -100,38 +126,20 @@ pub fn produce_send(name: &str, input: &ProduceInput) -> ProduceResult {
         .unwrap_or_else(|| {
             partitioner::for_key(key.as_deref().map(str::as_bytes), view.partitions)
         });
-    let size = value.as_ref().map_or(0, |v| v.len() as i64);
-    let refusal_of = if view.compacts && key.is_none() {
-        let said = format!(
-            "Compacted topic cannot accept message without key in topic partition {}-{partition}",
-            view.topic
-        );
-        Some(refusal::produce(87, Some(&said), true, true, Some(LIMIT)))
-    } else if size > LIMIT {
-        Some(refusal::produce(
-            10,
-            None,
-            view.compacts,
-            key.is_none(),
-            Some(LIMIT),
-        ))
-    } else {
-        None
-    };
-    if let Some(reading) = refusal_of {
+    let size = value
+        .as_ref()
+        .map_or(0, |v| i64::try_from(v.len()).unwrap_or(i64::MAX));
+    if let Some(reading) = refusal_of(&view, key.as_ref(), partition, size) {
         if reading.code == 87 {
             view.errors.key = Some("A compacted topic needs a key on every record.".to_owned());
         }
+        let outcome = Outcome {
+            code: reading.code,
+            name: &reading.name,
+            base_offset: -1,
+        };
         return ProduceResult::Refused(Box::new(ProduceRefused {
-            answer: calls::produce_answer(
-                VERSION,
-                &view.topic,
-                partition,
-                reading.code,
-                &reading.name,
-                -1,
-                &[],
-            ),
+            answer: calls::produce_answer(VERSION, &view.topic, partition, outcome, &[]),
             record_errors: Vec::new(),
             refusal: reading,
             partition,
@@ -139,10 +147,6 @@ pub fn produce_send(name: &str, input: &ProduceInput) -> ProduceResult {
             view,
         }));
     }
-    let more = [
-        ("log_append_time_ms", "-1".to_owned()),
-        ("log_start_offset", "0".to_owned()),
-    ];
     let row = RecordRow {
         partition,
         offset: 16_058,
@@ -152,7 +156,20 @@ pub fn produce_send(name: &str, input: &ProduceInput) -> ProduceResult {
         size: u64::try_from(size).unwrap_or(0),
         committed: partition != 0 && partition != 1,
     };
-    ProduceResult::Sent(Box::new(Produced {
+    ProduceResult::Sent(Box::new(sent(view, row, partition, acks)))
+}
+
+fn sent(view: ProduceView, row: RecordRow, partition: i32, acks: i16) -> Produced {
+    let more = [
+        ("log_append_time_ms", "-1".to_owned()),
+        ("log_start_offset", "0".to_owned()),
+    ];
+    let outcome = Outcome {
+        code: 0,
+        name: "NONE",
+        base_offset: 16_058,
+    };
+    Produced {
         topic: view.topic.clone(),
         partition,
         offset: 16_058,
@@ -175,7 +192,7 @@ pub fn produce_send(name: &str, input: &ProduceInput) -> ProduceResult {
             high_watermark: 16_059,
             transaction_on_partition: !row.committed,
         },
-        answer: calls::produce_answer(VERSION, &view.topic, partition, 0, "NONE", 16_058, &more),
+        answer: calls::produce_answer(VERSION, &view.topic, partition, outcome, &more),
         row,
-    }))
+    }
 }
