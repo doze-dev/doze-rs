@@ -140,7 +140,7 @@ async fn a_script_gets_the_drawer_alone_and_a_browser_gets_the_story_with_it_ope
     assert_eq!(status, StatusCode::OK);
     assert!(
         whole.contains("<html")
-            && whole.contains("Generations, newest first")
+            && whole.contains("A quiet story is a good one")
             && whole.contains("data-overlay"),
         "{whole:.800}"
     );
