@@ -1,5 +1,7 @@
 //! One request, from its frame to the end of its answer.
 
+use std::time::Duration;
+
 use bytes::Bytes;
 use kafka_broker::{Caller, Listener, Outcome};
 use kafka_storage::fs::Fs;
@@ -9,7 +11,7 @@ use kafka_wire::header::{self, RequestHead};
 use kafka_wire::incoming::Incoming;
 use kafka_wire::messages::ApiKey;
 use kafka_wire::response;
-use tokio::io::{AsyncWrite, AsyncWriteExt};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::time::timeout;
 use tokio_util::sync::CancellationToken;
 
@@ -29,7 +31,7 @@ struct Answer {
 ///
 /// With a `session` the request is first judged on its header alone ([`Session::admit`]): a stranger's body
 /// is decoded only for an API it may use.
-pub(super) async fn exchange<S: AsyncWrite + Unpin, F: Fs>(
+pub(super) async fn exchange<S: AsyncRead + AsyncWrite + Unpin, F: Fs>(
     stream: &mut S,
     (ctx, listener, caller): (&Context<F>, &Listener, &Caller),
     session: &mut Option<Session>,
@@ -189,9 +191,24 @@ async fn failed_login_delay<F: Fs>(ctx: &Context<F>, stop: &CancellationToken) -
     }
 }
 
-/// Ends the stream cleanly after a refusal was written, so the client reads the answer and not a reset.
-async fn hang_up<S: AsyncWrite + Unpin, F: Fs>(stream: &mut S, ctx: &Context<F>) {
-    let _ = timeout(ctx.timeouts.write, stream.shutdown()).await;
+/// How long a refused client has to close its side after the server has shut down its own.
+const LINGER: Duration = Duration::from_millis(250);
+
+/// Ends the stream cleanly after a refusal was written, so the client reads the answer and not a reset (SEC-195).
+///
+/// The server's side is shut down first, so the client sees the end at once. Then what the client sent behind the
+/// refusal is read and thrown away until it closes its side or [`LINGER`] is over: closing a socket that still holds
+/// unread bytes sends a reset, which can discard an answer the client has not yet read.
+async fn hang_up<S: AsyncRead + AsyncWrite + Unpin, F: Fs>(stream: &mut S, ctx: &Context<F>) {
+    if !matches!(
+        timeout(ctx.timeouts.write, stream.shutdown()).await,
+        Ok(Ok(()))
+    ) {
+        return;
+    }
+    let mut sink = [0u8; 4096];
+    let drain = async { while matches!(stream.read(&mut sink).await, Ok(n) if n > 0) {} };
+    let _ = timeout(LINGER, drain).await;
 }
 
 async fn write<S: AsyncWrite + Unpin, F: Fs>(
