@@ -29,10 +29,16 @@ impl FromStr for AclDefault {
     }
 }
 
-/// The super users: each flag is one principal or a comma list, each written `Type:name`.
+/// The super users: each flag is one principal or a list, each written `Type:name`. The separator is a comma (the Go
+/// edition's) or a semicolon (Kafka's `super.users`): taken as one principal, `User:a;User:b` would name a user
+/// called `a;User:b` and leave nobody a super user (SEC-D87).
 pub(super) fn super_users(flags: &[String]) -> Result<BTreeSet<String>> {
     let mut out = BTreeSet::new();
-    for principal in flags.iter().flat_map(|f| f.split(',')).map(str::trim) {
+    for principal in flags
+        .iter()
+        .flat_map(|f| f.split([',', ';']))
+        .map(str::trim)
+    {
         if principal.is_empty() {
             continue;
         }
@@ -44,4 +50,35 @@ pub(super) fn super_users(flags: &[String]) -> Result<BTreeSet<String>> {
         out.insert(principal.to_owned());
     }
     Ok(out)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn users(flags: &[&str]) -> Result<Vec<String>> {
+        let flags: Vec<String> = flags.iter().map(|f| (*f).to_owned()).collect();
+        super_users(&flags).map(|s| s.into_iter().collect())
+    }
+
+    #[test]
+    fn a_list_may_be_separated_by_commas_or_semicolons() {
+        let want = ["User:a", "User:b"];
+        assert_eq!(users(&["User:a,User:b"]).unwrap(), want);
+        assert_eq!(users(&["User:a;User:b"]).unwrap(), want);
+        assert_eq!(users(&["User:a; User:b ,User:a"]).unwrap(), want);
+        // Both in one flag, and across repeated flags.
+        assert_eq!(users(&["User:a;User:b,User:c", "User:d"]).unwrap().len(), 4);
+        assert_eq!(users(&["User:a", "User:b;User:a"]).unwrap(), want);
+        // Empty parts are skipped as before.
+        assert_eq!(users(&[";User:a,;"]).unwrap(), ["User:a"]);
+    }
+
+    #[test]
+    fn every_part_of_a_semicolon_list_is_checked_for_type_and_name() {
+        for bad in ["User:a;admin", "admin;User:a", "User:a;User:", "User:a;:x"] {
+            let message = users(&[bad]).unwrap_err().to_string();
+            assert!(message.contains("must be written Type:name"), "{bad}: {message}");
+        }
+    }
 }

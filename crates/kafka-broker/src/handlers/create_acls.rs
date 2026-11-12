@@ -1,6 +1,6 @@
 //! CreateAcls: store ACLs, and enforce them from the next request on.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashSet};
 
 use kafka_auth::authz::{Acl, AclSet, CLUSTER_NAME, operation, resource};
 use kafka_storage::fs::Fs;
@@ -78,10 +78,12 @@ impl<F: Fs> Broker<F> {
             .map(|(a, _)| a)
             .collect();
         let snapshot = self.authz.snapshot();
+        // Looked up in a set: a batch of N against M stored is N + M, not N times M, on a worker that other requests wait for.
+        let stored_already: HashSet<&Acl> = snapshot.iter().collect();
         let fresh: Vec<&Acl> = valid
             .iter()
             .copied()
-            .filter(|a| !snapshot.iter().any(|s| s == *a))
+            .filter(|a| !stored_already.contains(*a))
             .collect();
         let stored = if fresh.is_empty() {
             Ok(())

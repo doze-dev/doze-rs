@@ -126,7 +126,7 @@ pub(crate) struct Args {
     /// or deny (Kafka's own default). ACLs you create are enforced either way.
     #[arg(long, default_value = "allow")]
     acl_default: acl::AclDefault,
-    /// A principal that ACLs never refuse, as Type:name such as User:admin (repeatable, or comma separated).
+    /// A principal that ACLs never refuse, as Type:name such as User:admin (repeatable, or separated by commas or semicolons).
     #[arg(long, value_name = "PRINCIPAL")]
     acl_super_user: Vec<String>,
 
