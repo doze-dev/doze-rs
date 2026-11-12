@@ -11,8 +11,8 @@ mod support;
 
 use std::sync::Arc;
 
+use support::rig_with;
 use support::users::{Line, SHA256, SHA512, bootstrap_users, delete, logs_in, salted, upsert};
-use support::{open_on_with, rig_with};
 
 fn ok(user: &str) -> Line {
     (user.to_owned(), 0, None)
