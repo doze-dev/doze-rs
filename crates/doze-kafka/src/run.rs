@@ -67,6 +67,9 @@ pub(crate) async fn serve(settings: Settings, console_listener: ConsoleBound) ->
             "SASL users"
         );
     }
+    // Asked to stop from now on means a clean stop: the handlers are registered before the broker says it is listening,
+    // because a signal that arrives between that line and a late registration would end the process by the default action.
+    let stop = stop_signal();
     // A transaction whose decision was stored is carried out before anything new is taken.
     broker.recover_transactions().await;
     let running = Server::bind(server.clone(), Arc::clone(&broker))
@@ -83,7 +86,7 @@ pub(crate) async fn serve(settings: Settings, console_listener: ConsoleBound) ->
         .map(|bound| bound.serve(&console, &server, &running, &broker, recorder))
         .transpose()
         .context("starting the console")?;
-    stopped().await;
+    stop.await;
     tracing::info!("stopping");
     // The console first: nothing it shows or does outlives the broker it reads.
     #[cfg(feature = "console")]
@@ -96,24 +99,29 @@ pub(crate) async fn serve(settings: Settings, console_listener: ConsoleBound) ->
     Ok(())
 }
 
-/// Resolves when the process is asked to stop (SIGINT or SIGTERM).
-async fn stopped() {
+/// Registers for SIGINT and SIGTERM now; the future resolves when the process is asked to stop.
+fn stop_signal() -> impl std::future::Future<Output = ()> {
     #[cfg(unix)]
     {
         use tokio::signal::unix::{SignalKind, signal};
-        let (Ok(mut term), Ok(mut int)) = (
+        let signals = (
             signal(SignalKind::terminate()),
             signal(SignalKind::interrupt()),
-        ) else {
-            return std::future::pending().await;
-        };
-        tokio::select! {
-            _ = term.recv() => {}
-            _ = int.recv() => {}
+        );
+        async move {
+            let (Ok(mut term), Ok(mut int)) = signals else {
+                return std::future::pending().await;
+            };
+            tokio::select! {
+                _ = term.recv() => {}
+                _ = int.recv() => {}
+            }
         }
     }
     #[cfg(not(unix))]
     {
-        let _ = tokio::signal::ctrl_c().await;
+        async {
+            let _ = tokio::signal::ctrl_c().await;
+        }
     }
 }
