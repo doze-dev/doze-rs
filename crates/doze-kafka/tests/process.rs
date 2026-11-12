@@ -338,6 +338,8 @@ fn a_second_broker_on_the_same_data_directory_is_refused() {
 mod acl;
 #[path = "process/console.rs"]
 mod console;
+#[path = "process/console_start.rs"]
+mod console_start;
 #[path = "process/sasl.rs"]
 mod sasl;
 #[cfg(feature = "tls")]

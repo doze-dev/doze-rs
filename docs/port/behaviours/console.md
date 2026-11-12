@@ -124,4 +124,5 @@ Each is tagged in the code with its reference and is a debt row of section J in 
 - Home quiet, "no clients": there is no connection table yet (slice 9e).
 - The instance card, "Segments and indexes" for descriptors: the count is of all open files and sockets, and says so. "Idle memory" and "Threads" are measured on Linux only.
 - Times are UTC and say so (no safe way to read the local zone).
+- The instance card's "Idle memory" keeps the board's label and shows the resident memory now (J81); the sentence of `connect-advertised` that says a client "can always reach it again" says what the check did instead (J84).
 - The rail's pinned items and key hints, the search box, and `connect-first-request`.
