@@ -3,7 +3,7 @@
 
 use maud::{Markup, html};
 
-use crate::model::{SettingsApi, SettingsProfile};
+use crate::model::{SettingsApi, SettingsProfile, SettingsSpeaks};
 use crate::ui::glyph_extra::{Extra, glyph_extra};
 
 /// The APIs shown before "Show all".
@@ -54,6 +54,45 @@ fn names(apis: &[SettingsApi]) -> Markup {
     }
 }
 
+/// The clients the recorder heard, grouped by name (one client may speak both): `fulfilment` and what it speaks.
+fn speakers(list: &[SettingsSpeaks]) -> Vec<(&str, Vec<String>)> {
+    let mut out: Vec<(&str, Vec<String>)> = Vec::new();
+    for s in list {
+        let said = format!("{} v{}", s.api, s.version);
+        match out.iter_mut().find(|(c, _)| *c == s.client) {
+            Some((_, said_all)) => said_all.push(said),
+            None => out.push((&s.client, vec![said])),
+        }
+    }
+    out
+}
+
+/// "today fulfilment speaks Fetch v12 and orders Produce v9, both inside the ranges": from the request recorder, so only
+/// what it heard, and "inside the ranges" only when each version is (else the one outside is named).
+fn today(list: &[SettingsSpeaks]) -> Markup {
+    let who = speakers(list);
+    let outside: Vec<&SettingsSpeaks> = list.iter().filter(|s| !s.inside).collect();
+    html! {
+        @if !who.is_empty() {
+            " Today "
+            @for (i, (client, said)) in who.iter().enumerate() {
+                @if i > 0 { @if i + 1 == who.len() { " and " } @else { ", " } }
+                b { (client) } " speaks " (said.join(" and "))
+            }
+            @if outside.is_empty() {
+                @if list.len() > 1 { ", all inside the ranges." } @else { ", inside the range." }
+            } @else {
+                ", but "
+                @for (i, s) in outside.iter().enumerate() {
+                    @if i > 0 { ", " }
+                    (s.api) " v" (s.version)
+                }
+                " is outside what is offered."
+            }
+        }
+    }
+}
+
 fn notes(p: &SettingsProfile) -> Markup {
     html! {
         p class="help" style="margin:16px 0 0" {
@@ -86,6 +125,7 @@ pub(super) fn profile_section(p: &SettingsProfile, name: &str) -> Markup {
                 "The Kafka the broker stands for, and the APIs a client is offered: "
                 b class="mono" { "--kafka-version " (p.major) } ", " b { (p.apis.len()) " APIs" }
                 ", each with the versions a real " (name) " broker offers, never more. It is what ApiVersions answers. A client picks, for each API, the highest version both sides have."
+                (today(&p.speaking))
             }
             (first_table(first))
             @if !rest.is_empty() { (rest_table(rest)) }

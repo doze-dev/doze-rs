@@ -2,7 +2,7 @@
 
 use maud::{Markup, html};
 
-use crate::model::SettingsIntervals;
+use crate::model::{SettingsIntervals, SettingsRound};
 
 fn rows(i: &SettingsIntervals) -> Markup {
     html! {
@@ -14,6 +14,23 @@ fn rows(i: &SettingsIntervals) -> Markup {
                 td class="mono" { (r.default) }
                 td class="dim" { (r.note) }
             }
+        }
+    }
+}
+
+/// "Its last round was on inventory.levels at 21:31, and the next look finds it due": from the cleaner's own notes and the planner.
+fn last_round(r: Option<&SettingsRound>) -> Markup {
+    html! {
+        @match r {
+            Some(r) => {
+                " Its last round was on " b { (r.topic) @if r.partition > 0 { "-" (r.partition) } } " at " b { (r.at) } " UTC"
+                @match r.due {
+                    Some(true) => ", and the next look finds it due.",
+                    Some(false) => ", and the next look finds nothing due there.",
+                    None => ".",
+                }
+            }
+            None => " It has put no round in place since the broker started.",
         }
     }
 }
@@ -30,6 +47,7 @@ pub(super) fn intervals_section(i: &SettingsIntervals) -> Markup {
                     " Retention is applied every " b { (i.retention_every) } ". "
                     @if i.cleaner_on {
                         "The cleaner looks every " b { (i.cleaner_every) } "."
+                        (last_round(i.round.as_ref()))
                     } @else {
                         "The cleaner is off (" span class="mono" { "--log-cleaner-enable=false" } ")."
                     }

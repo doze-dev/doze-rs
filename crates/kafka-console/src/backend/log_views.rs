@@ -15,6 +15,11 @@ impl Backend {
             .await
     }
 
+    /// The newest round of cleaning put in place on a topic the console may describe (topic, partition, round).
+    pub fn last_cleaner_round(&self) -> Option<(String, i32, kafka_broker::RoundNote)> {
+        self.broker.console_view().last_round(&self.caller)
+    }
+
     /// The producers of one partition, if the console may read the topic and the partition exists.
     pub async fn partition_producers(
         &self,

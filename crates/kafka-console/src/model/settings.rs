@@ -63,6 +63,37 @@ pub struct SettingsProfile {
     pub sasl_on: bool,
     /// APIs this version of Kafka has that this broker does not offer now.
     pub not_offered: Vec<String>,
+    /// The newest client that spoke Fetch and the newest that spoke Produce, from the request recorder; empty where there is none.
+    pub speaking: Vec<SettingsSpeaks>,
+}
+
+/// A client the tape heard use an API, and the version of its newest request of that API.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SettingsHeard {
+    pub client: String,
+    pub api: &'static str,
+    pub version: i16,
+}
+
+/// A client the recorder heard use an API, with the version it used.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SettingsSpeaks {
+    pub client: String,
+    pub api: &'static str,
+    pub version: i16,
+    /// The version is inside the range this broker offers for that API.
+    pub inside: bool,
+}
+
+/// The cleaner's last round, as the Intervals line says it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SettingsRound {
+    pub topic: String,
+    pub partition: i32,
+    /// `21:31`, UTC.
+    pub at: String,
+    /// What a look now finds: the planner says that log is due (`Some(true)`) or not; `None` if the log could not be read.
+    pub due: Option<bool>,
 }
 
 /// One interval: what it is, its value, its flag and default.
@@ -85,6 +116,8 @@ pub struct SettingsIntervals {
     pub retention_every: String,
     pub cleaner_every: String,
     pub cleaner_on: bool,
+    /// The cleaner's last round since the broker began; `None` if it has put none in place.
+    pub round: Option<SettingsRound>,
 }
 
 /// What this instance costs the machine, as the process can read it.

@@ -27,6 +27,6 @@ Reviewed in real Chrome (headless, 1440 by 900) against the fixtures server: the
 | 2 | `topic-record` | next and previous record buttons in the drawer's head (j and k do it; a click should too) |
 | 2 | palette | groups (J201); recent topics first; the topic's tabs as second-level jumps (orders > Config) |
 | 2 | `home`, `connect` | prose links ("Snippets for every client", "Open the transaction") are 20 px high targets; they are text links, give them the hit area |
-| 3 | planned pages | the "Not built yet" copy says Home and Connect are here; it should say what is |
+| 3 | planned pages | ~~the "Not built yet" copy says Home and Connect are here~~ closed (p9x): it lists the pages that are here |
 | 3 | overlays | a scrollbar gutter when the page behind had none shifts it by the scrollbar's width on Windows and Linux (macOS overlay scrollbars do not) |
 | 3 | `topic-produce` | the dialog opens with the focus on Partition; Value is where people type: focus it when the key is filled |

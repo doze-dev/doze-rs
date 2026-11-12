@@ -9,8 +9,8 @@ use crate::gather::settings_edit::{SettingsFields, call_lines};
 use crate::model::{
     ConfigSource, Refusal, SettingsChecked, SettingsConfigRow, SettingsConfigs, SettingsData,
     SettingsEditView, SettingsHead, SettingsInterval, SettingsIntervals, SettingsLine,
-    SettingsRefused, SettingsResult, SettingsSaved, SettingsScope, SettingsTeach, SettingsView,
-    SettingsWeight, Span, StopView,
+    SettingsRefused, SettingsResult, SettingsRound, SettingsSaved, SettingsScope, SettingsTeach,
+    SettingsView, SettingsWeight, Span, StopView,
 };
 use crate::settings_words::{DYNAMIC, allowed, takes_effect, unit, what};
 
@@ -132,7 +132,7 @@ fn intervals() -> SettingsIntervals {
                 "committed offsets of an empty group are kept this long",
                 "168h",
                 "--offsets-retention",
-                "kept for 7 d",
+                "kept for 7 d; analytics' expire in 3 d 2 h",
             ),
             interval(
                 "First rebalance wait",
@@ -153,6 +153,12 @@ fn intervals() -> SettingsIntervals {
         retention_every: "5 m".to_owned(),
         cleaner_every: "15 s".to_owned(),
         cleaner_on: true,
+        round: Some(SettingsRound {
+            topic: "inventory.levels".to_owned(),
+            partition: 0,
+            at: "21:31".to_owned(),
+            due: Some(true),
+        }),
     }
 }
 

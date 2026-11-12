@@ -2,7 +2,7 @@
 
 use kafka_wire::messages::ApiKey;
 
-use crate::model::{SettingsApi, SettingsProfile};
+use crate::model::{SettingsApi, SettingsProfile, SettingsSpeaks};
 use crate::settings_words::{family_of, versions};
 
 const APIS: [(ApiKey, i16, i16); 38] = [
@@ -71,5 +71,19 @@ pub(super) fn profile() -> SettingsProfile {
         ],
         sasl_on: false,
         not_offered: vec![],
+        speaking: vec![
+            SettingsSpeaks {
+                client: "fulfilment".into(),
+                api: "Fetch",
+                version: 12,
+                inside: true,
+            },
+            SettingsSpeaks {
+                client: "orders".into(),
+                api: "Produce",
+                version: 9,
+                inside: true,
+            },
+        ],
     }
 }

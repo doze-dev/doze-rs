@@ -22,7 +22,7 @@ fn ints() -> Intervals {
 
 #[test]
 fn the_intervals_are_the_flags_values_written_as_the_flags_write_them_with_their_defaults() {
-    let none = intervals(&ints(), &StartFacts::default());
+    let none = intervals(&ints(), &StartFacts::default(), (None, None));
     let got: Vec<(&str, &str, &str)> = none
         .rows
         .iter()
@@ -59,16 +59,26 @@ fn the_intervals_are_the_flags_values_written_as_the_flags_write_them_with_their
         }],
         ..StartFacts::default()
     };
-    let with = intervals(&ints(), &known);
+    let with = intervals(&ints(), &known, (None, None));
     assert_eq!(with.rows[2].default, "500ms");
 }
 
 #[test]
 fn offsets_retention_says_how_long_that_is() {
-    assert_eq!(offsets_note(&ints()), "kept for 7 d");
+    assert_eq!(offsets_note(&ints(), None), "kept for 7 d");
+    let soonest = ("analytics".to_owned(), "3 d 2 h".to_owned());
+    assert_eq!(
+        offsets_note(&ints(), Some(&soonest)),
+        "kept for 7 d; analytics' expire in 3 d 2 h"
+    );
+    let own = ("orders-api".to_owned(), "1 d".to_owned());
+    assert_eq!(
+        offsets_note(&ints(), Some(&own)),
+        "kept for 7 d; orders-api's expire in 1 d"
+    );
     let mut forever = ints();
     forever.offsets_retention = Duration::ZERO;
-    assert_eq!(offsets_note(&forever), "kept for ever");
+    assert_eq!(offsets_note(&forever, None), "kept for ever");
 }
 
 #[test]

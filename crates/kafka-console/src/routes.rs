@@ -157,7 +157,7 @@ pub const ROUTES: &[Route] = &[
     get("/jump", &[], Handler::Jump),
     get("/static/{name}", &[], Handler::Static),
     get("/healthz", &[], Handler::Health),
-    // The rest of the design, built by later slices: each says it is not built yet.
+    // The rest of the design: Live is built (9e); what is still not built says so (Lab, a group's story).
     // Slice 9e: the recorder and Live. `/live/clients` is a fixed name and wins over `/live/{id}`.
     get(
         "/live",
@@ -312,7 +312,7 @@ pub const ROUTES: &[Route] = &[
         &[],
         Handler::ConfigReset,
     ),
-    // The tabs of a topic and the Groups space, for the links of the pages above (built by later slices).
+    // The Log and Producers tabs of a topic, and the page of a transaction (9g).
     get(
         "/topics/{topic}/log",
         &["topic-log", "log-planner", "log-retention", "log-empty"],

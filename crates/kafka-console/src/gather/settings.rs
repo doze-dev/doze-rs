@@ -4,13 +4,14 @@
 use kafka_broker::{Instance, Intervals, LastStop};
 
 use super::settings_configs::{BrokerConfigs, of_broker, set_count};
+use super::settings_live::{last_round, soonest_expiry, speaking};
 use crate::backend::Backend;
 use crate::facts::Facts;
 use crate::facts_start::StartFacts;
 use crate::format::{date_time, span};
 use crate::model::{
-    SettingsApi, SettingsConfigs, SettingsData, SettingsHead, SettingsInterval, SettingsIntervals,
-    SettingsProfile, SettingsView, SettingsWeight, StopView,
+    SettingsApi, SettingsConfigs, SettingsData, SettingsHead, SettingsHeard, SettingsInterval,
+    SettingsIntervals, SettingsProfile, SettingsRound, SettingsView, SettingsWeight, StopView,
 };
 use crate::settings_words::{family_of, flag_duration, spoken, versions};
 
@@ -35,7 +36,7 @@ fn api_rows(list: &[kafka_wire::profile::Advertised]) -> Vec<SettingsApi> {
 
 /// The version profile: what ApiVersions offers now, what SASL would add, what this Kafka has that is not offered.
 #[must_use]
-pub fn profile(b: &Backend, facts: &Facts) -> SettingsProfile {
+pub fn profile(b: &Backend, facts: &Facts, heard: &[SettingsHeard]) -> SettingsProfile {
     let sasl_on = !facts.sasl.is_empty();
     let now = b.apis_offered(sasl_on);
     let with = b.apis_offered(true);
@@ -51,7 +52,12 @@ pub fn profile(b: &Backend, facts: &Facts) -> SettingsProfile {
         .filter(|a| !with.iter().any(|w| w.key == a.key))
         .map(|a| format!("{:?}", a.key))
         .collect();
+    let offered: Vec<(String, i16, i16)> = now
+        .iter()
+        .map(|a| (format!("{:?}", a.key), a.min, a.max))
+        .collect();
     SettingsProfile {
+        speaking: speaking(heard, &offered),
         major: facts.kafka_major,
         apis: api_rows(&now),
         with_sasl: api_rows(&extra),
@@ -81,7 +87,11 @@ fn interval(
 
 /// The intervals table, from the flags' values the broker holds.
 #[must_use]
-pub fn intervals(i: &Intervals, start: &StartFacts) -> SettingsIntervals {
+pub fn intervals(
+    i: &Intervals,
+    start: &StartFacts,
+    live: (Option<SettingsRound>, Option<(String, String)>),
+) -> SettingsIntervals {
     let n = |s: &str| s.to_owned();
     let rows = vec![
         interval(
@@ -120,7 +130,7 @@ pub fn intervals(i: &Intervals, start: &StartFacts) -> SettingsIntervals {
                 "Offsets retention",
                 "committed offsets of an empty group are kept this long",
                 "--offsets-retention",
-                offsets_note(i),
+                offsets_note(i, live.1.as_ref()),
             ),
             i.offsets_retention,
         ),
@@ -151,19 +161,29 @@ pub fn intervals(i: &Intervals, start: &StartFacts) -> SettingsIntervals {
         retention_every: spoken(i.retention_check),
         cleaner_every: spoken(i.cleaner),
         cleaner_on: i.cleaner_on,
+        round: live.0,
     }
 }
 
-/// The offsets-retention row says how long that is in words, from the value itself.
+/// The offsets-retention row says how long that is in words, from the value itself, and which group's offsets the sweep takes
+/// first and in how long (`soonest`: the group and the span, where some group has a date).
 #[must_use]
-pub fn offsets_note(i: &Intervals) -> String {
-    if i.offsets_retention.is_zero() {
+pub fn offsets_note(i: &Intervals, soonest: Option<&(String, String)>) -> String {
+    let kept = if i.offsets_retention.is_zero() {
         "kept for ever".to_owned()
     } else {
         format!(
             "kept for {}",
             span(i64::try_from(i.offsets_retention.as_secs()).unwrap_or(i64::MAX))
         )
+    };
+    match soonest {
+        Some((group, within)) => {
+            // "analytics' expire", "payments' expire", "orders-api's expire".
+            let own = if group.ends_with('s') { "'" } else { "'s" };
+            format!("{kept}; {group}{own} expire in {within}")
+        }
+        None => kept,
     }
 }
 
@@ -205,7 +225,12 @@ fn weight(i: Option<&Instance>, start: &StartFacts, counts: (usize, usize)) -> S
 }
 
 /// The page.
-pub async fn settings(b: &Backend, facts: &Facts, start: &StartFacts, now_ms: i64) -> SettingsView {
+pub async fn settings(
+    b: &Backend,
+    (facts, start): (&Facts, &StartFacts),
+    heard: &[SettingsHeard],
+    now_ms: i64,
+) -> SettingsView {
     let instance = b.instance();
     let counts = super::counts(b).await;
     let ints = b.intervals();
@@ -223,6 +248,7 @@ pub async fn settings(b: &Backend, facts: &Facts, start: &StartFacts, now_ms: i6
         since: instance.as_ref().map(|i| date_time(i.started_ms)),
         profile: format!("Kafka {}", facts.kafka_major),
     };
+    let live = (last_round(b).await, soonest_expiry(b, now_ms).await);
     let rows = ints.as_ref().map_or_else(
         || SettingsIntervals {
             rows: vec![],
@@ -230,8 +256,9 @@ pub async fn settings(b: &Backend, facts: &Facts, start: &StartFacts, now_ms: i6
             retention_every: String::new(),
             cleaner_every: String::new(),
             cleaner_on: true,
+            round: None,
         },
-        |i| intervals(i, start),
+        |i| intervals(i, start, live.clone()),
     );
     SettingsView {
         head,
@@ -239,7 +266,7 @@ pub async fn settings(b: &Backend, facts: &Facts, start: &StartFacts, now_ms: i6
             rows: configs.rows,
             node_id: node,
         },
-        profile: profile(b, facts),
+        profile: profile(b, facts, heard),
         intervals: rows,
         weight: weight(instance.as_ref(), start, counts),
         data: SettingsData {

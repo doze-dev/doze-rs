@@ -112,6 +112,22 @@ pub struct LogFacts {
 }
 
 impl<F: Fs> ConsoleView<'_, F> {
+    /// The newest round of cleaning that was put in place on a topic that still exists and that `caller` may DESCRIBE: the
+    /// topic, the partition and the round. Kept in memory and forgotten when the broker stops, so a broker that has cleaned
+    /// nothing since it began has none.
+    #[must_use]
+    pub fn last_round(&self, caller: &Caller) -> Option<(String, i32, RoundNote)> {
+        let b = self.broker;
+        b.log_notes
+            .rounds_newest_first()
+            .into_iter()
+            .find_map(|(id, partition, round)| {
+                let topic = b.meta.topic_by_id(id)?;
+                b.topic_allows(caller, topic.name.as_str(), operation::DESCRIBE)
+                    .then(|| (topic.name.as_str().to_owned(), partition, round))
+            })
+    }
+
     /// The log of `partition` of `topic`, if `caller` may DESCRIBE the topic and the partition exists; `None` otherwise (the
     /// two are not told apart, as Kafka does not).
     pub async fn log_facts(

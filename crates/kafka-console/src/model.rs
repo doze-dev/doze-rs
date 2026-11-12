@@ -69,7 +69,8 @@ pub use access::{
 };
 pub use settings::{
     SettingsApi, SettingsChecked, SettingsConfigRow, SettingsConfigs, SettingsData,
-    SettingsEditView, SettingsFlag, SettingsHead, SettingsInterval, SettingsIntervals,
-    SettingsLine, SettingsProfile, SettingsRefused, SettingsResult, SettingsSaved, SettingsScope,
-    SettingsTeach, SettingsView, SettingsWeight,
+    SettingsEditView, SettingsFlag, SettingsHead, SettingsHeard, SettingsInterval,
+    SettingsIntervals, SettingsLine, SettingsProfile, SettingsRefused, SettingsResult,
+    SettingsRound, SettingsSaved, SettingsScope, SettingsSpeaks, SettingsTeach, SettingsView,
+    SettingsWeight,
 };

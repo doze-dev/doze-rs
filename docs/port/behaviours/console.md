@@ -667,6 +667,21 @@ CreateAcls and DeleteAcls join the list. Test: `actions::tests::actions_match_bo
 ### What these boards show that the broker cannot supply yet
 
 Tagged in the code and in `debt.md` J261 to J278.
-- "Today fulfilment speaks Fetch v12 and orders Produce v9" (the wire recorder, 9e), "its last round was on inventory.levels at 21:31" (the cleaner's rounds, 9g) and "analytics' offsets expire in 3 d 2 h" (a group's own clock, Groups): the sentences say what the broker holds now and name none of them.
-- The iteration count column of the users table: not read by any code of the console (J264).
 - Idle memory and threads on a system that does not let a process read them (macOS): the tile says "Measured on Linux only".
+
+## Integration of 9g and 9h, and what they left open (slice p9x; CON-582 to CON-586)
+
+## CON-582. Settings names the clients, the cleaner's last round and a group's expiry from what the broker holds
+"Today fulfilment speaks Fetch v12 and orders Produce v9, all inside the ranges" is the newest client of the tape that used each of Fetch and Produce with the version of its newest request (a client with no id is nobody; a version outside the range offered is named as outside); "Its last round was on inventory.levels at 21:31 UTC, and the next look finds it due" is the newest round the cleaner put in place on a topic the console may describe, and the planner's own verdict on that log now; "analytics' expire in 3 d 2 h" on the Offsets retention row is the soonest date the sweep takes a group's offsets. With no recorder no client is named; with no round the page says none was put in place since the broker started; with no date no group is named. Test: `live_settings_wired::settings_names_the_clients_the_last_round_and_the_expiry_from_what_the_broker_holds`, `pages::settings::tests::the_sentences_from_the_recorder_and_the_cleaner_say_only_what_they_were_given`, `settings_live::tests::a_version_outside_the_range_or_of_an_api_not_offered_is_not_inside`.
+
+## CON-583. Without a recorder or a round the Settings page names none and invents none
+Test: `live_settings_wired::without_a_recorder_or_a_round_the_page_names_none`.
+
+## CON-584. The Settings edit dialog and the two ACL dialogs are overlays over their pages
+`/settings/config/edit`, `/access/acls/new` and `/access/acls/delete` answer the parent page with the dialog open on it to a browser and the dialog alone to a script (`X-Fragment`); a refusal or an invalid field answers the dialog again, a result is a page or a redirect to the parent. Test: `overlays::a_direct_visit_is_the_parent_page_with_the_overlay_open_on_it`, `overlays::a_script_is_sent_the_overlay_alone_marked_as_one`, `pages::settings::tests::the_edit_dialog_is_one_form_with_a_check_a_save_and_the_call`.
+
+## CON-585. The users table has the board's Iterations column
+The iteration count of a SCRAM credential is a public parameter (the server-first message sends it to every client): one count when a user's mechanisms agree, each with its mechanism when they differ, `none` for a user with only PLAIN; password, salt, stored key and server key are still never read. Test: `access_words::tests::the_iteration_cell_is_one_count_when_they_agree_each_when_they_differ_and_none_without_scram`, `pages::access::tests::no_secret_field_exists_to_be_shown`, `live_access::the_page_says_what_a_secured_broker_holds_by_name_only`.
+
+## CON-586. The palette also goes to the pages
+Home, Live, Topics, Groups, Access, Settings and Connect come first, each tagged `page` and going to its own address under the base; with no script the filtered page keeps the pages the filter names. Test: `jump::tests::the_pages_come_first_each_goes_to_its_own_address_and_a_filter_keeps_the_ones_it_names`.

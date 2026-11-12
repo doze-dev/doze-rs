@@ -304,6 +304,8 @@ async fn a_get_of_either_page_or_dialog_changes_nothing() {
         ApiKey::DescribeUserScramCredentials,
         ApiKey::DescribeConfigs,
         ApiKey::Metadata,
+        // The Settings page asks which groups have offsets that expire (a read).
+        ApiKey::ListGroups,
     ];
     for c in &calls {
         assert!(reads.contains(c), "a GET called {c:?}, which is not a read");

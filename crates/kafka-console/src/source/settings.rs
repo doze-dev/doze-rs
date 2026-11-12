@@ -16,7 +16,13 @@ impl Source {
     pub async fn settings(&self) -> SettingsView {
         match self {
             Self::Live(l) => {
-                gather::settings::settings(&l.backend, &l.facts, &l.start, super::now_ms()).await
+                let now = super::now_ms();
+                // The tape names the clients; a console with no recorder names none.
+                let heard = l
+                    .recorder
+                    .as_ref()
+                    .map_or_else(Vec::new, |r| r.heard(&gather::settings_live::SPOKEN));
+                gather::settings::settings(&l.backend, (&l.facts, &l.start), &heard, now).await
             }
             #[cfg(any(test, feature = "examples"))]
             Self::Fixture => crate::fixtures_settings::page(),

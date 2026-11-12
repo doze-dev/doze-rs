@@ -14,7 +14,7 @@ pub fn planned(title: &str, base: &Base) -> Markup {
     html! {
         (page_header(title, html! { p class="sub" { "This part of the console is not built yet." } }, html! {}))
         (callout(Tone::Plain, Glyph::Info, html! {
-            b { "Not built yet." } " Home and Connect are here; the rest of the console arrives in later releases, and this address will be its page."
+            b { "Not built yet." } " Home, Live, Topics, Groups, Settings, Access and Connect are here; this part arrives in a later release, and this address will be its page."
         }))
         div class="row" style="margin-top:24px" { (link(&base.url("/"), Variant::Primary, Size::Normal, Some(Glyph::ArrowR), "Back to Home")) }
     }

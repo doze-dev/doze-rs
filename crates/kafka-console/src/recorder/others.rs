@@ -5,7 +5,9 @@ use std::collections::BTreeMap;
 use super::row::Row;
 use super::view::{class_of, wire};
 use super::{Recorder, names};
-use crate::model::{ClientRow, ClientsView, FirstView, SpokeView, WireClass, WireRow};
+use crate::model::{
+    ClientRow, ClientsView, FirstView, SettingsHeard, SpokeView, WireClass, WireRow,
+};
 
 impl Recorder {
     /// The clients connected now, grouped by `client.id`, most recently active first.
@@ -88,6 +90,28 @@ impl Recorder {
             ago_ms: last.map(|r| crate::source::now_ms().saturating_sub(r.last_ms)),
             last_client: last.map(|r| r.who.client.to_string()),
         }
+    }
+
+    /// For each of `apis`, the newest client on the tape that used it (a client with no id is nobody) and the version of that
+    /// request, whether or not it was answered well: what a client speaks is what it sent. The tape is the last 2,000 rows,
+    /// so a client that spoke long ago is not named; an API nobody used is left out.
+    #[must_use]
+    pub fn heard(&self, apis: &[kafka_wire::messages::ApiKey]) -> Vec<SettingsHeard> {
+        let inner = self.lock();
+        apis.iter()
+            .filter_map(|api| {
+                let r = inner
+                    .ring
+                    .iter()
+                    .rev()
+                    .find(|r| r.api == *api && !r.who.client.is_empty())?;
+                Some(SettingsHeard {
+                    client: r.who.client.to_string(),
+                    api: names::api(*api),
+                    version: r.version,
+                })
+            })
+            .collect()
     }
 
     /// The newest client the tape first heard of, and what it asked, for the first-request page.

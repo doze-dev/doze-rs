@@ -72,4 +72,5 @@ pub mod access_dialogs;
 pub mod settings;
 pub mod settings_configs;
 pub mod settings_edit;
+pub mod settings_live;
 pub mod settings_refuse;

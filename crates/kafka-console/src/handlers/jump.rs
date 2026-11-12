@@ -40,7 +40,12 @@ pub async fn jump(
             .collect();
         (topics.rows.iter().map(|r| r.name.clone()).collect(), groups)
     };
-    let items = pages::JumpItem::all(&topics, &groups);
+    let mut items = pages::JumpItem::all(&topics, &groups);
+    // The pages are filtered here too (the topics and groups were).
+    if !filter.is_empty() {
+        let want = filter.to_lowercase();
+        items.retain(|i| i.kind != pages::JumpKind::Page || i.matches(&want));
+    }
     let main = pages::jump_page(&items, total, &filter, &s.base);
     html(
         &s.document(

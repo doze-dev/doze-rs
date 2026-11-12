@@ -1,7 +1,7 @@
 use super::*;
 use crate::fixtures_settings as larder;
 use crate::gather::settings_edit::SettingsFields;
-use crate::model::SettingsResult;
+use crate::model::{SettingsResult, SettingsRound, SettingsSpeaks};
 
 fn page() -> String {
     settings_page(&larder::page(), &Base::root()).into_string()
@@ -169,4 +169,68 @@ fn a_saved_change_and_a_refusal_say_what_the_broker_said() {
         "{p}"
     );
     assert!(p.contains("--default-partitions") && p.contains("kafka-configs.sh"));
+}
+
+fn speak(client: &str, api: &'static str, version: i16, inside: bool) -> SettingsSpeaks {
+    SettingsSpeaks {
+        client: client.to_owned(),
+        api,
+        version,
+        inside,
+    }
+}
+
+#[test]
+fn the_sentences_from_the_recorder_and_the_cleaner_say_only_what_they_were_given() {
+    let mut v = larder::page();
+    let p = settings_page(&v, &Base::root()).into_string();
+    assert!(
+        p.contains("Today <b>fulfilment</b> speaks Fetch v12 and <b>orders</b> speaks Produce v9, all inside the ranges."),
+        "{p}"
+    );
+    assert!(
+        p.contains("Its last round was on <b>inventory.levels</b> at <b>21:31</b> UTC, and the next look finds it due."),
+        "{p}"
+    );
+    // One client that speaks both is named once; one outside its range is named as outside; nobody heard is no sentence.
+    v.profile.speaking = vec![
+        speak("app", "Fetch", 12, true),
+        speak("app", "Produce", 9, true),
+    ];
+    let p = settings_page(&v, &Base::root()).into_string();
+    assert!(
+        p.contains("Today <b>app</b> speaks Fetch v12 and Produce v9, all inside the ranges."),
+        "{p}"
+    );
+    v.profile.speaking = vec![speak("old", "Fetch", 13, false)];
+    let p = settings_page(&v, &Base::root()).into_string();
+    assert!(
+        p.contains("Today <b>old</b> speaks Fetch v13, but Fetch v13 is outside what is offered."),
+        "{p}"
+    );
+    v.profile.speaking.clear();
+    v.intervals.round = None;
+    let p = settings_page(&v, &Base::root()).into_string();
+    assert!(!p.contains("Today "), "{p}");
+    assert!(
+        p.contains("It has put no round in place since the broker started."),
+        "{p}"
+    );
+    // A hostile client or topic name is text.
+    v.profile.speaking = vec![speak("<script>x</script>", "Fetch", 12, true)];
+    v.intervals.round = Some(SettingsRound {
+        topic: "<img src=x>".to_owned(),
+        partition: 2,
+        at: "01:02".to_owned(),
+        due: None,
+    });
+    let p = settings_page(&v, &Base::root()).into_string();
+    assert!(
+        !p.contains("<script>x") && !p.contains("<img src=x>"),
+        "{p}"
+    );
+    assert!(
+        p.contains("&lt;img src=x&gt;-2</b> at <b>01:02</b> UTC."),
+        "{p}"
+    );
 }

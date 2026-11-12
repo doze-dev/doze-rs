@@ -137,6 +137,16 @@ impl LogNotes {
             .map(|(_, n)| n.clone())
     }
 
+    /// The rounds that are remembered, the newest first: topic, partition and the round.
+    pub(crate) fn rounds_newest_first(&self) -> Vec<(TopicId, i32, RoundNote)> {
+        let mut rounds: Vec<_> = locked(&self.cleaner)
+            .iter()
+            .filter_map(|((topic, partition), (_, n))| n.last.map(|r| (*topic, *partition, r)))
+            .collect();
+        rounds.sort_by_key(|(_, _, r)| std::cmp::Reverse(r.at_ms));
+        rounds
+    }
+
     /// A retention pass finished.
     pub(crate) fn pass(&self, note: PassNote) {
         let moved = u64::from(note.more) + note.deleted.len() as u64;
@@ -175,6 +185,22 @@ mod tests {
             replaced: 1,
             clean_to: 77,
         }
+    }
+
+    #[test]
+    fn the_rounds_come_newest_first_and_a_partition_with_none_put_in_place_is_not_one() {
+        let n = LogNotes::default();
+        n.round(id(1), 0, round(9));
+        n.round(id(2), 3, round(12));
+        n.running(id(3), 0, 20);
+        n.failed(id(4), 0, 30, "boom");
+        n.round(id(1), 1, round(10));
+        let got: Vec<(u8, i32, i64)> = n
+            .rounds_newest_first()
+            .into_iter()
+            .map(|(t, p, r)| (t.as_bytes()[0], p, r.at_ms))
+            .collect();
+        assert_eq!(got, [(2, 3, 12), (1, 1, 10), (1, 0, 9)]);
     }
 
     #[test]
