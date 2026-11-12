@@ -139,3 +139,35 @@ pub(super) fn bar(v: &MessagesView, base: &Base) -> Markup {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn q(key: Option<&str>, offset: Option<i64>) -> MessageQuery {
+        MessageQuery {
+            key: key.map(str::to_owned),
+            offset,
+            ..MessageQuery::default()
+        }
+    }
+
+    #[test]
+    fn the_find_box_shows_a_key_or_an_offset_and_never_a_key_that_would_read_back_as_an_offset() {
+        assert_eq!(
+            find_value(&q(Some("ord-1"), None)),
+            ("ord-1".to_owned(), true)
+        );
+        assert_eq!(
+            find_value(&q(None, Some(16_098))),
+            ("16098".to_owned(), true)
+        );
+        assert_eq!(
+            find_value(&q(Some("42"), None)),
+            (String::new(), false),
+            "a key of digits is a hidden field"
+        );
+        assert_eq!(find_value(&q(Some("42"), Some(7))), (String::new(), false));
+        assert_eq!(find_value(&q(None, None)), (String::new(), false));
+    }
+}
