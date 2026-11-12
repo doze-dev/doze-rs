@@ -72,12 +72,15 @@ pub fn failure(
         "Sender"
     };
     let body = xml::error(meta.xml_namespace, who, code, &err.message, id.as_str());
-    base(
+    let mut builder = base(
         StatusCode::from_u16(status).unwrap_or(StatusCode::BAD_REQUEST),
         id,
-    )
-    .body(body.into_bytes())
-    .unwrap_or_default()
+    );
+    // An operation the service refuses by name says so in a header, as the JSON services do.
+    if err.status == 501 && err.code == "NotImplemented" {
+        builder = builder.header("x-doze-not-built", "1");
+    }
+    builder.body(body.into_bytes()).unwrap_or_default()
 }
 
 #[cfg(test)]
@@ -95,6 +98,25 @@ mod tests {
             .unwrap()
             .input
             .unwrap()
+    }
+
+    #[test]
+    fn a_refusal_by_name_carries_the_not_built_header() {
+        let r = failure(
+            &META,
+            &TABLES,
+            &RequestId::new(),
+            &ApiError::new(501, "NotImplemented", "X is not built in doze-aws."),
+        );
+        assert_eq!(r.status(), 501);
+        assert_eq!(r.headers().get("x-doze-not-built").unwrap(), "1");
+        let other = failure(
+            &META,
+            &TABLES,
+            &RequestId::new(),
+            &ApiError::new(400, "Nope", "m"),
+        );
+        assert!(other.headers().get("x-doze-not-built").is_none());
     }
 
     #[test]
