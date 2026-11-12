@@ -57,7 +57,7 @@ Rust crate read and write one file in turn.
 | DNS messages | hand-written, as Go's (crate `wire.rs`, about 100 lines); `simple-dns` 0.13 (MIT, no dependencies) is the fallback if more record types are ever needed | the zone answers one question with A, empty NOERROR or NXDOMAIN, and caps relayed TTLs: no dependency earns its place for that. `hickory-proto` brings rand, url, ipnet, tracing; `domain` is larger. Fuzzed (`fuzz_wire`). |
 | CA and leaf certificates | `x509-cert` 0.3 (RustCrypto) on the workspace's `p256` and `sha2` | parses and builds certificates on the crypto family already in doze-rs; rcgen would have added x509-parser and a second parsing stack. Keys are SEC1 ("EC PRIVATE KEY"), what Go reads. |
 | TLS at the front door | `tokio-rustls` (already in the workspace) | SNI picks the leaf |
-| macOS tunnel | written in `doze-os` (utun: a `PF_SYSTEM` socket, `CTLIOCGINFO`, connect; ~100 lines) | the only `unsafe` stays in doze-os (D11); `tun-rs` would add a dependency for a few calls |
+| macOS tunnel | `tun-rs` (see "Cross-platform libraries") | revised 2026-11-13 at the owner's suggestion: a maintained cross-platform crate instead of our own utun code |
 | Packet translation | hand-written IPv4/TCP rewrite with checksum update | a dozen lines of arithmetic the Go version also writes by hand; fuzzed |
 | HTTP routing at the front door | hyper 1 (already in the workspace: aws-gateway) | Host header, streaming |
 
@@ -109,6 +109,24 @@ The networking needs root once per machine, never per run, as in Go:
   instance, boot on first connection, splice) and its TLS termination for engines that need it (`tls.go`: a cached
   self-signed certificate, enough for postgres `sslmode=require`). In protocol 2 that is the core's proxy plus the
   module's wire filter (`Wire` capability; postgres in step 11). See docs/port/modules/PLAN.md.
+
+## Cross-platform libraries for the OS layers (owner, 2026-11-13)
+
+"If there's a lib that already manages stuff like this cross platform, that could be great too. Go was not written
+for Windows: only mac and Linux, and Linux tested on a local VM." So N4 and N5 lean on libraries where a good one
+exists, and Go's tested rules become the tests the library must pass on mac and Linux. Checked 2026-11-13:
+
+| Layer | Crate | State then | Use |
+|---|---|---|---|
+| the macOS daemon's tunnel | `tun-rs` 2.8 (Apache-2.0) | 237 stars, two years, pushed this month; macOS, Linux, Windows (Wintun), BSDs | **use**: replaces the hand-written utun planned for doze-os (no `unsafe` of ours) |
+| installing the daemon at boot | `service-manager` 0.11 (MIT/Apache) | 247 stars, four years; launchd, systemd, OpenRC, Windows (sc.exe, WinSW) | **use**, with its per-backend escape hatch for what Go's plist needed (bootout before bootstrap) |
+| routing `.doze` (and declared domains) to the resolver | `osdns` 0.3 (MIT/Apache) | two months old, 10 stars; `/etc/resolver`, resolved routing domains, NRPT; watches for DHCP/VPN changes | **spike in N5** against Go's rules (resolver port, the resolv.conf marker rule, dnsmasq, the hosts block); adopt if it passes, else ours |
+| the one administrator prompt | `privesc` 1.2 (MIT) | one year, 39 stars; osascript GUI prompt, sudo/pkexec, UAC | **spike**: fits "one script under one prompt" |
+| trusting the doze CA | `fastcert` 0.3 (BSD-3) | one year, 35 stars; keychain, Linux stores, Windows store, NSS (Firefox), Java | **evaluate**: NSS and Java are more than Go did; Go's trust code is ~365 lines, so ours stays cheap if it falls short |
+| `splitdns` | | archived | no |
+
+Windows is where these pay most: NRPT, UAC, the Windows service, the certificate store and Wintun are exactly what
+Go never had.
 
 ## The crate
 
