@@ -212,6 +212,16 @@ pub fn host_port(addr: &str) -> Result<(&str, &str)> {
         .ok_or_else(|| Error::new(ErrorKind::Invalid, format!("{addr:?} is not host:port")))
 }
 
+/// An object's hash as the protocol defines it (protocol.md row 15): the first 12 hex digits of the SHA-256 of the
+/// canonical CBOR of its declared fields. Pass those fields, in a fixed order; the same declaration always hashes the
+/// same, and any change to it changes the hash, which is how `doze plan` sees an object needs converging.
+pub fn object_hash<T: minicbor::Encode<()>>(declared: &T) -> String {
+    use sha2::Digest;
+    let bytes = minicbor::to_vec(declared).unwrap_or_default();
+    let digest = hex::encode(sha2::Sha256::digest(&bytes));
+    digest.get(..12).unwrap_or_default().to_string()
+}
+
 /// Removes a stale socket or pid file left by an engine that did not exit cleanly; absent is fine.
 pub fn clear_stale(path: &std::path::Path) -> Result<()> {
     match std::fs::remove_file(path) {

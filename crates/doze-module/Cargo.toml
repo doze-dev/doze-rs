@@ -16,6 +16,8 @@ doze-module-proto = { path = "../doze-module-proto" }
 doze-module-derive = { path = "../doze-module-derive" }
 doze-os = { path = "../doze-os" }
 minicbor = { version = "2.3", features = ["derive", "std"] }
+hex = "0.4"
+sha2 = "0.11"
 tokio = { version = "1.54", features = ["rt", "time", "process", "fs", "io-util", "net", "signal", "macros"] }
 
 [dev-dependencies]

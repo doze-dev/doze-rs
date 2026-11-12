@@ -118,6 +118,7 @@ mod tests {
             port,
             http,
             routes: routes.iter().map(|r| r.to_string()).collect(),
+            tcp: false,
         }
     }
 
