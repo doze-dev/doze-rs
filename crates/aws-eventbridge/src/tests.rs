@@ -20,6 +20,7 @@ mod delivery;
 mod refusals;
 mod rules;
 mod schedules;
+mod services;
 
 /// 2023-11-14 22:13:20 UTC, on a minute boundary.
 pub(crate) const START: i64 = 1_699_999_980_000;

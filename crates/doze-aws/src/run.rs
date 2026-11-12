@@ -5,6 +5,7 @@ use std::time::Duration;
 
 use anyhow::{Context, Result};
 use aws_auth::{Credential, Secret, StaticCredentials};
+use aws_eventbridge::Eventbridge;
 use aws_gateway::{Auth, Config, Gateway};
 use aws_peers::Peers;
 use aws_wire::service::Service;
@@ -49,9 +50,7 @@ pub(crate) async fn run(args: Args) -> Result<()> {
     // Under `--auth verify`, a key the command line does not name may be one IAM issued (an access key or a role session).
     config.credential_source = Some(iam.clone());
     let cloudwatch = Arc::new(aws_cloudwatch::Cloudwatch::new(Arc::new(ctx("cloudwatch"))));
-    let eventbridge = Arc::new(aws_eventbridge::Eventbridge::new(Arc::new(ctx(
-        "eventbridge",
-    ))));
+    let eventbridge = Arc::new(Eventbridge::new(Arc::new(ctx("eventbridge"))));
     let services: Vec<Arc<dyn Service>> = vec![
         iam,
         Arc::new(sts),
