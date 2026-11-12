@@ -85,7 +85,7 @@ pub(crate) async fn check(peers: Option<&Peers>, caller: &Caller, role: &str) ->
                 .and_then(Value::as_str)?;
             Some(trusts_lambda(doc) || peers.mode() != Mode::Enforce)
         }
-        Err(e) if e.code == "NoSuchEntity" => (peers.mode() == Mode::Enforce).then_some(false),
+        Err(e) if e.code.starts_with("NoSuchEntity") => (peers.mode() == Mode::Enforce).then_some(false),
         Err(_) => None,
     }
 }
@@ -118,14 +118,19 @@ impl Sessions {
             service: Some("lambda".to_owned()),
             ..caller.clone()
         };
-        let ask = json!({"RoleArn": role, "RoleSessionName": name.chars().take(64).collect::<String>(), "DurationSeconds": 3600});
-        let Ok(got) = peers
+        let ask = json!({"RoleArn": role, "RoleSessionName": format!("awslambda_{name}_{now_ms}").chars().take(64).collect::<String>(), "DurationSeconds": 3600});
+        let got = match peers
             .call("lambda", &acting, "sts", "AssumeRole", &ask)
             .await
-        else {
-            return crate::rt::test_credentials();
+        {
+            Ok(got) => got,
+            Err(e) => {
+                tracing::warn!("could not assume {role} for {name}: {}", e.message);
+                return crate::rt::test_credentials();
+            }
         };
         let Some(c) = got.get("Credentials") else {
+            tracing::warn!("{role} was assumed and no credentials came back");
             return crate::rt::test_credentials();
         };
         let text = |k: &str| {

@@ -21,6 +21,7 @@ use serde_json::{Value, json};
 
 use crate::{Config, Lambda};
 
+mod behaviour;
 mod functions;
 mod invoking;
 mod sources;

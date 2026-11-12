@@ -106,6 +106,8 @@ pub(crate) struct Inner {
     /// The address the gateway listens on, as functions reach it.
     endpoint: Mutex<String>,
     account: Mutex<String>,
+    /// What code run in place looked like when last looked at, and when: it is looked at again after a second.
+    locals: Mutex<std::collections::HashMap<String, (std::time::Instant, String)>>,
     pub(crate) pollers: poll::Pollers,
     patterns: Patterns,
 }
@@ -142,6 +144,7 @@ impl Lambda {
             sources: OnceLock::new(),
             endpoint: Mutex::new("http://127.0.0.1:4566".to_owned()),
             account: Mutex::new("000000000000".to_owned()),
+            locals: Mutex::new(std::collections::HashMap::new()),
             pollers: poll::Pollers::default(),
             patterns: Patterns::new(&TABLES),
         });
@@ -215,6 +218,28 @@ impl Inner {
         } else {
             self.dir.join("regions").join(region)
         }
+    }
+
+    /// A stamp of the tree code runs from in place, so a change to the directory starts new processes (empty for archived code).
+    pub(crate) fn local_stamp(&self, rs: &resolve::Resolved) -> String {
+        let Some(path) = rs.code.local.as_deref() else {
+            return String::new();
+        };
+        let mut seen = self.locals.lock().unwrap_or_else(PoisonError::into_inner);
+        if let Some((at, stamp)) = seen
+            .get(path)
+            .filter(|(at, _)| at.elapsed() < std::time::Duration::from_secs(1))
+        {
+            let _ = at;
+            return stamp.clone();
+        }
+        let stamp = code::fingerprint(Path::new(path));
+        let changed = seen.get(path).is_some_and(|(_, old)| *old != stamp);
+        seen.insert(path.to_owned(), (std::time::Instant::now(), stamp.clone()));
+        if changed {
+            self.rt.retire(&format!("{}/{}", rs.region, rs.name));
+        }
+        stamp
     }
 
     /// Learns where the gateway is from a request that reached it (a client's `Host` is the address functions can use too).

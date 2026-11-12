@@ -127,7 +127,7 @@ fn in_place(path: &str) -> Result<Code, ApiError> {
 }
 
 /// A hash of the names, sizes and times of the files of a tree (bounded), so a change to code run in place is a change of `CodeSha256`.
-fn fingerprint(root: &Path) -> String {
+pub(crate) fn fingerprint(root: &Path) -> String {
     let mut hash = Sha256::new();
     let mut todo = vec![root.to_path_buf()];
     let mut seen = 0_usize;
