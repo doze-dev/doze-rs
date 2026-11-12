@@ -22,7 +22,7 @@ fn head(key: ApiKey, version: i16, client: &str) -> RequestHead {
 }
 
 /// Plays one request through the observer, as the server does.
-fn play(
+pub(super) fn play(
     rec: &Recorder,
     conn: u64,
     client: &str,
@@ -59,7 +59,7 @@ fn heartbeat(group: &str, code: i16) -> (Request, Response) {
     (Request::Heartbeat(q), Response::Heartbeat(a))
 }
 
-fn produce(topic: &str, records: i32, code: i16) -> (Request, Response) {
+pub(super) fn produce(topic: &str, records: i32, code: i16) -> (Request, Response) {
     let batch = kafka_wire::batch::build::BatchBuilder::new()
         .records(u32::try_from(records).unwrap())
         .build();
@@ -81,7 +81,7 @@ fn produce(topic: &str, records: i32, code: i16) -> (Request, Response) {
     (Request::Produce(q), Response::Produce(a))
 }
 
-fn open(rec: &Recorder, conn: u64) {
+pub(super) fn open(rec: &Recorder, conn: u64) {
     rec.opened(&Opened {
         id: ConnId(conn),
         peer: Some("127.0.0.1:50402".parse().unwrap()),
@@ -179,21 +179,21 @@ fn filters_by_client_api_topic_group_and_refusal() {
     assert_eq!(ask(WireQuery::default()), 3);
     assert_eq!(
         ask(WireQuery {
-            client: "CATA".into(),
+            client: vec!["catalog".into()],
             ..WireQuery::default()
         }),
         2
     );
     assert_eq!(
         ask(WireQuery {
-            api: "produce".into(),
+            api: vec!["Produce".into()],
             ..WireQuery::default()
         }),
         2
     );
     assert_eq!(
         ask(WireQuery {
-            topic: "inven".into(),
+            topic: vec!["inventory".into()],
             ..WireQuery::default()
         }),
         1
@@ -438,7 +438,7 @@ fn a_tail_sees_only_the_rows_its_filters_pass() {
     let (p2, a2) = produce("other", 1, 0);
     play(&rec, 1, "app", &p2, Answer::Response(&a2), 9);
     let q = WireQuery {
-        topic: "orders".into(),
+        topic: vec!["orders".to_owned()],
         ..WireQuery::default()
     };
     let (_, rows) = rec.since(&q, 0);

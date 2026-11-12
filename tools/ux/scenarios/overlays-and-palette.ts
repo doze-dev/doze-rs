@@ -61,11 +61,11 @@ export const scenarios = {
     t.near(await p.eval<number>("history.length"), h, 0, "the palette made no history entry");
   },
 
-  // Live: a filter chip is a Select; choosing changes the tape in place.
+  // Live: a filter chip is a MultiSelect; choosing changes the tape in place.
   async "live-filter-in-place"(t: T) {
     const p = t.page;
     await p.goto("/live");
-    await p.waitFor("!!document.querySelector('form[data-live-filters] .dz-select')");
+    await p.waitFor("!!document.querySelector('form[data-live-filters] .dz-multi.is-on')");
     await p.eval("window.__marker = 'same-document'");
     // The filter now narrows the tape, so the page may be shorter than the scroll: keep it long (a spacer after the region).
     await pad(p, 1500);
@@ -75,11 +75,12 @@ export const scenarios = {
     const crumb0 = await p.text(".crumbs");
     await p.resetShift();
     await p.shot(join(t.shots, "live.png"));
-    await p.click("form[data-live-filters] .dz-select .dz-trigger", { scroll: false });
-    await p.waitFor("document.querySelector('form[data-live-filters] .dz-select .dz-trigger').getAttribute('aria-expanded') === 'true'");
+    await p.click("form[data-live-filters] .dz-multi .dz-trigger", { scroll: false });
+    await p.waitFor("document.querySelector('form[data-live-filters] .dz-multi .dz-trigger').getAttribute('aria-expanded') === 'true'");
     await Bun.sleep(100);
     await p.key("ArrowDown");
     await p.key("Enter");
+    await p.key("Escape");
     await p.waitFor("location.search.includes('client=')", 4000);
     await Bun.sleep(400);
     const bar1 = await p.rect("form[data-live-filters]");
@@ -89,7 +90,7 @@ export const scenarios = {
     t.ok((await p.shift()) < 0.02, "layout shift under 0.02");
     t.ok(await p.eval("window.__marker === 'same-document'"), "no navigation");
     t.ok((await p.text(".crumbs")) === crumb0, "the breadcrumb is unchanged by a filter");
-    t.ok(await p.eval("document.querySelector('form[data-live-filters] .dz-select.on, form[data-live-filters] .dz-chip.on') !== null"), "the chip shows it is filtering");
+    t.ok(await p.eval("document.querySelector('form[data-live-filters] .dz-chip.on') !== null"), "the chip shows it is filtering");
     t.ok(await p.eval("document.activeElement && document.activeElement.classList.contains('dz-trigger')"), "focus stayed on the control");
   },
 };

@@ -12,7 +12,7 @@ use crate::gather::group::{Cfgs, Loaded, Seen, assemble};
 use crate::gather::group_read::{Commits, Described, Listed};
 use crate::gather::groups::{Entry, phase_of, view};
 use crate::model::{
-    GroupFilter, GroupLagView, GroupMemberRow, GroupPart, GroupProtocol, GroupsView,
+    GroupLagView, GroupMemberRow, GroupPart, GroupProtocol, GroupStates, GroupsView,
 };
 
 /// The moment of the world: Nov 9, 22:14:00 UTC.
@@ -353,7 +353,7 @@ fn entries() -> Vec<Entry> {
 
 /// The list. `hint` is `none` for the empty broker (the board `groups-none`).
 #[must_use]
-pub fn groups(filter: &str, state: GroupFilter, hint: Option<&str>) -> GroupsView {
+pub fn groups(filter: &str, state: &GroupStates, hint: Option<&str>) -> GroupsView {
     let all: Vec<Entry> = if hint == Some("none") {
         Vec::new()
     } else {

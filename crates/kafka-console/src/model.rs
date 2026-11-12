@@ -6,9 +6,11 @@
 mod config;
 mod connect;
 mod consumers;
+mod group_states;
 mod groups;
 mod home;
 pub mod live;
+mod live_clients;
 mod log;
 mod messages;
 mod producers;
@@ -27,9 +29,10 @@ pub use connect::{Access, ClientSnippet, ConnectView, ProbeView, Rule, Span, Tok
 pub use consumers::{ConsumersView, TopicReader};
 pub use home::{Attention, HeldBack, HomeState, HomeView, InstanceView, StopView};
 pub use live::{
-    ClientRow, ClientsView, FirstView, GroupWireView, LiveState, LiveView, SpokeView, WIRE_LIMIT,
-    WIRE_MOST, WireClass, WireDetail, WirePart, WireQuery, WireRefusal, WireRow, WireWindow,
+    Facet, Facets, GroupWireView, LiveState, LiveView, WIRE_LIMIT, WIRE_MOST, WireClass,
+    WireDetail, WirePart, WireQuery, WireRefusal, WireRow, WireWindow,
 };
+pub use live_clients::{ClientRow, ClientsView, FirstView, SpokeView};
 pub use log::{
     LogCleaner, LogCompaction, LogDurability, LogLimit, LogMoved, LogOther, LogOtherLink, LogPass,
     LogPlanner, LogRetentionView, LogRound, LogRules, LogSegment, LogState, LogStop, LogTombstone,
@@ -60,6 +63,7 @@ pub use story::{
     StoryLast, StoryLeft, StoryNow, StoryParts, StoryRule, StoryTone, StoryView, StoryWho,
 };
 
+pub use group_states::GroupStates;
 pub use groups::{
     GroupAttention, GroupDeleteView, GroupFilter, GroupHead, GroupLagView, GroupMemberRow,
     GroupPart, GroupPhase, GroupProtocol, GroupRebalance, GroupRefused, GroupRow, GroupSpan,

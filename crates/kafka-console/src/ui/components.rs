@@ -1,5 +1,5 @@
-//! The interactive components, in the shadcn/ui look: Select, Combobox, DropdownMenu, Tooltip, Popover and the segmented
-//! control. Each is a maud function that renders COMPLETE, working markup with no script (a real `<select>`, links in a list, a
+//! The interactive components, in the shadcn/ui look: Select, Combobox, MultiSelect, DropdownMenu, Tooltip, Popover and the
+//! segmented control. Each is a maud function that renders COMPLETE, working markup with no script (a real `<select>`, links in a list, a
 //! `title`), and carries the `x-data` of the Alpine component in `assets/components.js` that turns it into the enhanced control
 //! when the script runs. The contract of each (markup, attributes, keys, events) is in `docs/port/console/components.md`.
 //!
@@ -11,12 +11,14 @@ mod combobox;
 #[cfg(feature = "examples")]
 pub mod gallery;
 mod menu;
+mod multiselect;
 mod seg;
 mod select;
 mod tip;
 
 pub use combobox::{Combobox, combobox};
 pub use menu::{Menu, MenuItem, menu};
+pub use multiselect::{MultiSelect, multiselect, summary};
 pub use seg::{SegItem, seg};
 pub use select::{Select, select};
 pub use tip::{popover, tip};
@@ -31,6 +33,8 @@ pub struct Choice<'a> {
     /// A muted second line, if any.
     pub desc: Option<&'a str>,
     pub disabled: bool,
+    /// How many rows the choice would leave, when the server knows (a MultiSelect shows it).
+    pub count: Option<usize>,
 }
 
 impl<'a> Choice<'a> {
@@ -41,12 +45,19 @@ impl<'a> Choice<'a> {
             label,
             desc: None,
             disabled: false,
+            count: None,
         }
     }
 
     #[must_use]
     pub const fn desc(mut self, desc: &'a str) -> Self {
         self.desc = Some(desc);
+        self
+    }
+
+    #[must_use]
+    pub const fn count(mut self, count: usize) -> Self {
+        self.count = Some(count);
         self
     }
 
@@ -84,6 +95,7 @@ pub(crate) enum Icon {
     Check,
     Dots,
     Search,
+    Close,
 }
 
 impl Icon {
@@ -95,6 +107,7 @@ impl Icon {
                 r#"<circle cx="3.4" cy="8" r="1.1" fill="currentColor"/><circle cx="8" cy="8" r="1.1" fill="currentColor"/><circle cx="12.6" cy="8" r="1.1" fill="currentColor"/>"#
             }
             Self::Search => r#"<circle cx="7" cy="7" r="4.5"/><path d="M10.4 10.4 14 14"/>"#,
+            Self::Close => r#"<path d="M4.5 4.5l7 7M11.5 4.5l-7 7"/>"#,
         }
     }
 }
@@ -131,3 +144,5 @@ pub(crate) fn shown<'a>(
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_multi;

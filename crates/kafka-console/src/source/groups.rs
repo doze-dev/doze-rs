@@ -4,12 +4,17 @@
 use super::Source;
 use crate::gather::{self, DeleteGroupResult, OffsetDeleteResult, ResetResult};
 use crate::model::{
-    GroupDeleteView, GroupFilter, GroupLagView, GroupsView, OffsetDeleteView, ResetView,
+    GroupDeleteView, GroupLagView, GroupStates, GroupsView, OffsetDeleteView, ResetView,
 };
 
 impl Source {
     /// The groups whose id contains `filter`, in the state `state`. `hint` names a state for the fixtures only (`none`).
-    pub async fn groups(&self, filter: &str, state: GroupFilter, hint: Option<&str>) -> GroupsView {
+    pub async fn groups(
+        &self,
+        filter: &str,
+        state: &GroupStates,
+        hint: Option<&str>,
+    ) -> GroupsView {
         match self {
             Self::Live(l) => {
                 let _ = hint;
@@ -29,7 +34,7 @@ impl Source {
                 .map(|g| g.id)
                 .collect(),
             #[cfg(any(test, feature = "examples"))]
-            Self::Fixture => crate::fixtures_groups::groups("", GroupFilter::All, None)
+            Self::Fixture => crate::fixtures_groups::groups("", &GroupStates::default(), None)
                 .rows
                 .into_iter()
                 .map(|r| r.id)

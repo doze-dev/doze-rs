@@ -7,13 +7,13 @@
 
 use maud::{Markup, html};
 
+use super::filters;
 use super::parts::{LIVE_FRAGMENT, LIVE_VIEW, request_url_in, wire_url};
 use super::tape::Layout;
 use crate::base::Base;
 use crate::format::number;
 use crate::model::{LiveState, LiveView};
 use crate::ui::client;
-use crate::ui::components::{Choice, Combobox, Select, combobox, select};
 use crate::ui::glyph::{Glyph, glyph};
 use crate::ui::glyph_live::{LiveGlyph, live_glyph};
 use crate::ui::layout::page_header;
@@ -22,43 +22,6 @@ use crate::words::live::hhmm;
 
 /// The region of the metrics.
 pub const LIVE_STATS: &str = "live-stats";
-
-/// The longest list a filter shows as a plain Select; a longer one is a Combobox.
-const MOST_PLAIN: usize = 8;
-
-/// A filter that is a Select: the first choice is "all" (an empty value), the rest are what the wire has seen. A value the filter
-/// holds that the wire no longer shows stays a choice, so the page never lies about what it is filtering by.
-fn select_chip(name: &str, all: &str, current: &str, options: &[String]) -> Markup {
-    let mut choices = vec![Choice::new("", all)];
-    choices.extend(options.iter().map(|o| Choice::new(o, o)));
-    if !current.is_empty() && !options.iter().any(|o| o == current) {
-        choices.push(Choice::new(current, current));
-    }
-    // A list that can grow (every app, every topic the wire has seen) is searchable.
-    if choices.len() > MOST_PLAIN {
-        return combobox(&Combobox {
-            auto_submit: true,
-            placeholder: all,
-            class: if current.is_empty() {
-                "dz-chip"
-            } else {
-                "dz-chip on"
-            },
-            ..Combobox::new(&format!("live-{name}"), name, all, &choices, current)
-        });
-    }
-    select(&Select {
-        auto_submit: true,
-        ui: Some("filter"),
-        placeholder: all,
-        class: if current.is_empty() {
-            "dz-chip"
-        } else {
-            "dz-chip on"
-        },
-        ..Select::new(&format!("live-{name}"), name, all, &choices, current)
-    })
-}
 
 fn toggle(name: &str, on: bool, label: Markup) -> Markup {
     html! {
@@ -73,13 +36,11 @@ fn toolbar(v: &LiveView, base: &Base) -> Markup {
             hx-get=(base.url("/live")) hx-target={"#" (LIVE_VIEW)} hx-select={"#" (LIVE_VIEW)} hx-swap=(client::IN_PLACE_SWAP) hx-push-url="true" {
             input type="submit" value="Filter" aria-label="Filter the wire" hidden data-scaffold;
             (crate::ui::inplace::search_box(LIVE_VIEW, &base.url("/live"), "q", "Filter by client, API or topic", "Filter the wire", &q.text))
-            (select_chip("client", "All apps", &q.client, &v.clients_ids))
-            (select_chip("topic", "All topics", &q.topic, &v.topics_seen))
+            (filters::controls(v))
             // A toggle's own button carries its new value; the hidden fields keep the other's state.
             (toggle("refused", q.refused_only, html! { (glyph(Glyph::Filter, 14, "")) "Refused only" }))
             // "Idle polls hidden" is on by default: its button says what a click does by what it is now.
             button class={"fchip" @if q.hide_idle { " on" }} type="submit" name="idle" value=(if q.hide_idle { "0" } else { "1" }) data-ui="toggle" aria-pressed=(q.hide_idle) { "Idle polls hidden" }
-            @if !q.api.is_empty() { input type="hidden" name="api" value=(q.api); }
             @if !q.group.is_empty() { input type="hidden" name="group" value=(q.group); }
             span class="sp" {}
             (client::dialog_link("btn sm", &format!("{}{}", base.url("/live/clients"), q.to_query()), html! { (live_glyph(LiveGlyph::Network, 16)) "Clients" }))
@@ -188,29 +149,31 @@ fn pager_row(v: &LiveView, base: &Base) -> Markup {
 #[must_use]
 pub fn live_fragment(v: &LiveView, base: &Base) -> Markup {
     let url = wire_url(base, LIVE_FRAGMENT, &v.query.to_query());
-    let stream = crate::form::encode_query(&[
-        ("tail", "live"),
-        ("q", &v.query.text),
-        ("client", &v.query.client),
-        ("api", &v.query.api),
-        ("topic", &v.query.topic),
-        ("group", &v.query.group),
-        ("refused", if v.query.refused_only { "1" } else { "" }),
-        ("idle", if v.query.hide_idle { "" } else { "0" }),
-        ("since", &v.cursor.to_string()),
-    ]);
+    let stream = format!(
+        "?tail=live&since={}&{}",
+        v.cursor,
+        v.query.to_query().trim_start_matches('?')
+    );
     let events = base.url(&format!("/events{stream}"));
     let empty = format!(
         "No requests yet. Send one with any Kafka client, for example: echo hi | kcat -P -b {} -t orders -X client.id=admin-cli",
         v.listen
     );
-    let t = super::tape::table_with_empty(&v.rows, base, &v.query, Layout::Live, &empty);
+    let nothing = v.rows.is_empty() && v.state != LiveState::Quiet && v.query.is_filtered();
+    let t = super::tape::table_with_empty(
+        &v.rows,
+        base,
+        &v.query,
+        Layout::Live,
+        if nothing { "" } else { &empty },
+    );
     client::fragment(
         LIVE_FRAGMENT,
         &url,
         html! {
             div class="tail-root" data-tail-url=(events) data-cursor=(v.cursor) data-tail-rows="tape" {
                 (t)
+                @if nothing { (filters::no_match(v, base)) }
                 (pager_row(v, base))
             }
         },
@@ -229,6 +192,7 @@ pub fn live_page(v: &LiveView, base: &Base) -> Markup {
         (stats_fragment(v, base))
         (crate::ui::inplace::region(LIVE_VIEW, html! {
             (toolbar(v, base))
+            (filters::picked(v, base))
             (crate::ui::tail::tail_bar(LIVE_FRAGMENT, true))
             (live_fragment(v, base))
         }))

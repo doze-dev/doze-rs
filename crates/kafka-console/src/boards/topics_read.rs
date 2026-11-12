@@ -93,7 +93,7 @@ fn topic(id: &str, base: &Base) -> Option<Content> {
         ]
     };
     let filtered = MessageQuery {
-        partition: Some(0),
+        partitions: vec![0],
         offset: Some(16_098),
         ..MessageQuery::default()
     };

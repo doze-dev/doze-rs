@@ -4,7 +4,8 @@
 use maud::{Markup, html};
 
 use super::{
-    Choice, Combobox, Menu, MenuItem, SegItem, Select, combobox, menu, popover, seg, select, tip,
+    Choice, Combobox, Menu, MenuItem, MultiSelect, SegItem, Select, combobox, menu, multiselect,
+    popover, seg, select, tip,
 };
 use crate::ui::client::{self, in_place_form};
 use crate::ui::layout::page_header;
@@ -22,6 +23,8 @@ pub struct Chosen {
     pub topic: String,
     pub client: String,
     pub view: String,
+    /// The topics the multi-select chose (the repeated `tag` field).
+    pub tags: Vec<String>,
 }
 
 impl Chosen {
@@ -35,6 +38,11 @@ impl Chosen {
             topic: get("topic"),
             client: get("client"),
             view: get("view"),
+            tags: f
+                .iter()
+                .filter(|(k, v)| k == "tag" && !v.is_empty())
+                .map(|(_, v)| v.clone())
+                .collect(),
         }
     }
 }
@@ -53,6 +61,11 @@ fn demo_form(c: &Chosen, base: &crate::base::Base) -> Markup {
     let topics: Vec<String> = (1..=40).map(|n| format!("topic.{n:02}")).collect();
     let mut tc = vec![Choice::new("", "Any topic")];
     tc.extend(topics.iter().map(|t| Choice::new(t, t)));
+    let tag_choices: Vec<Choice<'_>> = topics
+        .iter()
+        .enumerate()
+        .map(|(i, t)| Choice::new(t, t).count(i * 7 % 23 + 1))
+        .collect();
     let seg_items: Vec<(String, String)> = ["all", "ok", "refused"]
         .iter()
         .map(|v| {
@@ -80,6 +93,7 @@ fn demo_form(c: &Chosen, base: &crate::base::Base) -> Markup {
         (in_place_form(REGION, "toolbar", &base.url("/gallery"), html! {
             (select(&Select { auto_submit: true, placeholder: "All partitions", ..Select::new("g-partition", "partition", "Partition", &partitions, &c.partition) }))
             (combobox(&Combobox { auto_submit: true, placeholder: "Search topics", ..Combobox::new("g-topic", "topic", "Topic", &tc, &c.topic) }))
+            (multiselect(&MultiSelect { auto_submit: true, placeholder: "All topics", noun: "topics", class: "dz-chip", ..MultiSelect::new("g-tags", "tag", "Topics", &tag_choices, &c.tags) }))
             input type="hidden" name="view" value=(c.view);
             noscript { button class="btn" type="submit" { "Filter" } }
         }))
@@ -92,7 +106,7 @@ fn demo_form(c: &Chosen, base: &crate::base::Base) -> Markup {
 pub fn region(c: &Chosen) -> Markup {
     html! {
         div class="frag" id=(REGION) {
-            p class="sub" data-test="chosen" { "partition " b { (if c.partition.is_empty() { "all" } else { &c.partition }) } ", topic " b { (if c.topic.is_empty() { "any" } else { &c.topic }) } ", view " b { (if c.view.is_empty() { "all" } else { &c.view }) } }
+            p class="sub" data-test="chosen" { "partition " b { (if c.partition.is_empty() { "all" } else { &c.partition }) } ", topic " b { (if c.topic.is_empty() { "any" } else { &c.topic }) } ", topics " b { (if c.tags.is_empty() { "all".to_owned() } else { c.tags.join(" + ") }) } ", view " b { (if c.view.is_empty() { "all" } else { &c.view }) } }
             div style="height:520px;background:linear-gradient(var(--well),#fff);border:1px dashed var(--line2);border-radius:12px;padding:16px" { "A tall region, so the page scrolls: a control above must not move it." }
         }
     }
@@ -116,12 +130,28 @@ fn colours_and_clients() -> (Vec<Choice<'static>>, Vec<Choice<'static>>) {
 
 fn choice_sections() -> Markup {
     let (colours, cc) = colours_and_clients();
+    let long_names = [
+        "fulfilment-payments-settled-consumer-group-eu-west-1-canary-blue",
+        "search-indexer-clickstream-backfill-worker-us-east-2-green",
+    ];
+    let long: Vec<Choice<'_>> = long_names
+        .iter()
+        .map(|n| Choice::new(n, n).count(1234))
+        .chain([Choice::new("short", "short").count(2)])
+        .collect();
     html! {
         (section("Select", "Single choice. Keyboard: Enter, Space or the arrows open; arrows, Home, End and letters move; Enter chooses; Esc closes.", html! {
             (select(&Select::new("s-plain", "colour", "Colour", &colours, "g")))
             (select(&Select { placeholder: "Pick a colour", ..Select::new("s-empty", "colour2", "Colour", &colours, "") }))
             (select(&Select { disabled: true, ..Select::new("s-dis", "colour3", "Colour", &colours, "r") }))
             (select(&Select { class: "dz-chip", ..Select::new("s-chip", "client", "Client", &cc, "") }))
+        }))
+        (section("MultiSelect", "Several choices: a button that says them compactly, a clear x, a popup with a search field, Select all and Clear, and checks. Arrows move; Space or Enter toggles; Backspace in the empty search removes the last; Esc closes.", html! {
+            (multiselect(&MultiSelect { placeholder: "All clients", noun: "clients", ..MultiSelect::new("m-none", "mclient", "Clients", &cc, &[]) }))
+            (multiselect(&MultiSelect { placeholder: "All clients", noun: "clients", class: "dz-chip", ..MultiSelect::new("m-one", "mclient1", "Clients", &cc, &["admin-cli".to_owned()]) }))
+            (multiselect(&MultiSelect { placeholder: "All clients", noun: "clients", class: "dz-chip", ..MultiSelect::new("m-three", "mclient3", "Clients", &cc, &["admin-cli".to_owned(), "checkout-svc".to_owned(), "billing-batch".to_owned()]) }))
+            (multiselect(&MultiSelect { placeholder: "All services", noun: "services", class: "dz-chip", ..MultiSelect::new("m-long", "mlong", "Services", &long, &[long_names[0].to_owned(), long_names[1].to_owned()]) }))
+            (multiselect(&MultiSelect { placeholder: "All colours", noun: "colours", ..MultiSelect::new("m-hostile", "mcolour", "Colours", &colours, &[HOSTILE.to_owned()]) }))
         }))
         (section("Combobox", "Searchable. Type to filter; with free text it offers to use what you typed.", html! {
             (combobox(&Combobox::new("c-client", "cclient", "Client", &cc, "")))

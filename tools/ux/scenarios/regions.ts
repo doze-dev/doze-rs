@@ -113,8 +113,14 @@ Object.assign(scenarios, {
     const above = [".page-h", ".tabs", TOOLBAR];
     await inPlace(t, p, {
       name: "groups: Stable", above, url: /^\/groups\?state=stable$/,
-      act: () => p.click(`${TOOLBAR} [aria-label=State] a:nth-child(2)`, { scroll: false }), done: "location.search.includes('state=stable') && document.querySelector('form.toolbar [aria-label=State] a:nth-child(2)').getAttribute('aria-current') === 'true'",
-      focus: `${TOOLBAR} [aria-label=State] a:nth-child(2)`,
+      act: async () => {
+        await p.click(`${TOOLBAR} #groups-state-ms .dz-trigger`, { scroll: false });
+        await Bun.sleep(150);
+        await p.click("#groups-state-ms [role=option][data-label=Stable]", { scroll: false });
+        await p.key("Escape");
+      },
+      done: "location.search.includes('state=stable') && document.querySelector('#groups-state-ms .dz-value').textContent === 'Stable'",
+      focus: `${TOOLBAR} #groups-state-ms .dz-trigger`,
     });
     await inPlace(t, p, {
       name: "groups: typing keeps the state", above, history: "replace", url: /^\/groups\?q=pay&state=stable$/,
@@ -122,7 +128,8 @@ Object.assign(scenarios, {
     });
     await inPlace(t, p, {
       name: "groups: All", above, url: /^\/groups\?q=pay$/,
-      act: () => p.click(`${TOOLBAR} [aria-label=State] a:nth-child(1)`, { scroll: false }), done: "!location.search.includes('state=')",
+      act: () => p.click(`${TOOLBAR} #groups-state-ms [data-clear]`, { scroll: false }), done: "!location.search.includes('state=')",
+      focus: `${TOOLBAR} #groups-state-ms .dz-trigger`,
     });
     await p.back();
     await p.waitFor("location.search.includes('state=stable')");

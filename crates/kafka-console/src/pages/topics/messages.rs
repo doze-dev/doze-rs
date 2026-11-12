@@ -95,7 +95,7 @@ pub fn messages_fragment(v: &MessagesView, base: &Base, page_query: &str) -> Mar
 
 fn call_preview(v: &MessagesView) -> Markup {
     let q = &v.query;
-    let partition = q.partition.unwrap_or(0);
+    let partition = q.partitions.first().copied().unwrap_or(0);
     let from = q.offset.unwrap_or(0);
     let iso = if q.reading == Reading::Committed {
         "1 (read_committed)"

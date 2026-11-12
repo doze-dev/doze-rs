@@ -41,7 +41,7 @@ fn retention_is_a_span_or_for_ever() {
 #[test]
 fn what_a_read_did_is_said_in_the_boards_words() {
     let q = MessageQuery {
-        partition: Some(0),
+        partitions: vec![0],
         offset: Some(16_098),
         ..MessageQuery::default()
     };

@@ -103,7 +103,7 @@ impl Source {
         match self {
             Self::Live(l) => {
                 let q = WireQuery {
-                    topic: topic.to_owned(),
+                    topic: vec![topic.to_owned()],
                     hide_idle: false,
                     limit: 12,
                     ..WireQuery::default()

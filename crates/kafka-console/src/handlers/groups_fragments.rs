@@ -3,7 +3,7 @@
 use maud::Markup;
 
 use crate::form::{get, parse};
-use crate::model::GroupFilter;
+use crate::model::GroupStates;
 use crate::pages::groups as g;
 use crate::state::Shared;
 
@@ -13,8 +13,8 @@ pub async fn groups_fragment(s: &Shared, id: &str, query: &Option<String>) -> Op
     match id {
         g::GROUPS_LIVE | g::GROUPS_TABLE => {
             let filter = get(&f, "q").unwrap_or("").trim().to_owned();
-            let state = GroupFilter::parse(get(&f, "state").unwrap_or(""));
-            let v = s.source.groups(&filter, state, None).await;
+            let state = GroupStates::parse(&f);
+            let v = s.source.groups(&filter, &state, None).await;
             Some(if id == g::GROUPS_LIVE {
                 g::groups_live_fragment(&v, &s.base)
             } else {

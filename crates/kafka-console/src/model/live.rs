@@ -67,9 +67,11 @@ pub struct WireRow {
 pub struct WireQuery {
     /// Free text: matches a client, an API, a topic or a group.
     pub text: String,
-    pub client: String,
-    pub api: String,
-    pub topic: String,
+    /// The apps, APIs and topics to keep (an exact name each): a row passes a kind when it matches ANY value of it, and the
+    /// kinds combine with AND. Empty means every one.
+    pub client: Vec<String>,
+    pub api: Vec<String>,
+    pub topic: Vec<String>,
     pub group: String,
     /// A kind of group request: `join`, `commits`, `heartbeats` (the group wire's chips).
     pub kind: String,
@@ -90,9 +92,9 @@ impl Default for WireQuery {
     fn default() -> Self {
         Self {
             text: String::new(),
-            client: String::new(),
-            api: String::new(),
-            topic: String::new(),
+            client: Vec::new(),
+            api: Vec::new(),
+            topic: Vec::new(),
             group: String::new(),
             kind: String::new(),
             refused_only: false,
@@ -174,8 +176,23 @@ pub struct LiveView {
     pub started_ms: Option<i64>,
     /// The id the next page back starts after, if there is one.
     pub older: Option<u64>,
-    pub clients_ids: Vec<String>,
-    pub topics_seen: Vec<String>,
+    /// What the tape holds, for the filters' options: each app, API and topic with the rows that would remain if it were chosen.
+    pub facets: Facets,
+}
+
+/// One option of a filter: a value and how many rows of the tape carry it (among the rows that pass the other filters).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Facet {
+    pub value: String,
+    pub count: usize,
+}
+
+/// The options of the Live filters.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Facets {
+    pub clients: Vec<Facet>,
+    pub apis: Vec<Facet>,
+    pub topics: Vec<Facet>,
 }
 
 /// One per-partition result of a request.
@@ -232,64 +249,36 @@ pub struct WireDetail {
     pub story: Vec<WireRow>,
 }
 
-/// One connected client.
-#[derive(Debug, Clone, PartialEq)]
-pub struct ClientRow {
-    pub client: String,
-    pub tag: Option<String>,
-    pub software: Option<String>,
-    /// The address of its newest connection, and how many more it has.
-    pub peer: Option<String>,
-    pub more: usize,
-    /// The APIs it has used, with the highest version of each, most used first.
-    pub apis: Vec<(&'static str, i16)>,
-    pub principal: String,
-    pub last_ms: i64,
-    pub requests: u64,
-    pub errors: u64,
-}
-
-/// The clients drawer.
-#[derive(Debug, Clone, PartialEq)]
-pub struct ClientsView {
-    pub rows: Vec<ClientRow>,
-    pub connections: usize,
-    pub now_ms: i64,
-}
-
-/// Home's strip: who has spoken.
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub struct SpokeView {
-    /// Distinct client ids seen since the broker started (those the ring still knows), and requests in the window.
-    pub apps: usize,
-    pub requests: u64,
-    pub oldest_ms: Option<i64>,
-    pub last_ms: Option<i64>,
-    /// How long ago the last request landed, in milliseconds.
-    pub ago_ms: Option<i64>,
-    pub last_client: Option<String>,
-}
-
-/// The first-request page: the newest client the broker had not heard from before.
-#[derive(Debug, Clone, PartialEq)]
-pub struct FirstView {
-    pub client: String,
-    pub software: Option<String>,
-    pub peer: Option<String>,
-    pub first_ms: i64,
-    /// Its requests in order, oldest first, up to a dozen.
-    pub rows: Vec<WireRow>,
-    /// Whether every request of it was answered without an error.
-    pub all_answered: bool,
-    pub refused: usize,
-    pub topics_listed: Option<u32>,
-    pub profile: String,
-    pub listen: String,
-    pub versions: Vec<(&'static str, i16)>,
-}
-
 /// The longest a filter's text is read.
 const MOST_TEXT: usize = 128;
+/// The APIs of a repeated `api` field, as the broker names them (`produce` is `Produce`); a name that is not an API is dropped.
+fn apis(fields: &[(String, String)]) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    for v in values(fields, "api") {
+        let name = crate::recorder::names::api_of(&v).map(crate::recorder::names::api);
+        if let Some(n) = name
+            && !out.iter().any(|o| o == n)
+        {
+            out.push(n.to_owned());
+        }
+    }
+    out
+}
+
+/// The most values one kind of filter keeps.
+pub const MOST_VALUES: usize = 32;
+
+/// Every value of a repeated field (`topic=a&topic=b`): trimmed, bounded, without empties or repeats, in the order given.
+fn values(fields: &[(String, String)], name: &str) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    for (k, v) in fields {
+        let v: String = v.trim().chars().take(MOST_TEXT).collect();
+        if k == name && !v.is_empty() && !out.contains(&v) && out.len() < MOST_VALUES {
+            out.push(v);
+        }
+    }
+    out
+}
 
 impl WireQuery {
     /// The filters of an address (`?q=...&client=...&api=...&topic=...&group=...&refused=1&idle=0&before=12&limit=50`). A
@@ -307,9 +296,10 @@ impl WireQuery {
             |name: &str| crate::form::get(fields, name).and_then(|v| v.trim().parse::<u64>().ok());
         Self {
             text: text("q"),
-            client: text("client"),
-            api: text("api"),
-            topic: text("topic"),
+            client: values(fields, "client"),
+            // An API is one the broker has: a name that is not is no filter (it could only ever match nothing).
+            api: apis(fields),
+            topic: values(fields, "topic"),
             group: text("group"),
             kind: text("kind"),
             refused_only: crate::form::get(fields, "refused") == Some("1"),
@@ -330,18 +320,66 @@ impl WireQuery {
         } else {
             self.limit.to_string()
         };
-        crate::form::encode_query(&[
-            ("q", &self.text),
-            ("client", &self.client),
-            ("api", &self.api),
-            ("topic", &self.topic),
-            ("group", &self.group),
-            ("kind", &self.kind),
+        let mut fields: Vec<(&str, &str)> = vec![("q", &self.text)];
+        fields.extend(self.client.iter().map(|v| ("client", v.as_str())));
+        fields.extend(self.api.iter().map(|v| ("api", v.as_str())));
+        fields.extend(self.topic.iter().map(|v| ("topic", v.as_str())));
+        fields.extend([
+            ("group", self.group.as_str()),
+            ("kind", self.kind.as_str()),
             ("refused", if self.refused_only { "1" } else { "" }),
             ("idle", if self.hide_idle { "" } else { "0" }),
             ("before", &before),
             ("limit", &limit),
-        ])
+        ]);
+        crate::form::encode_query(&fields)
+    }
+
+    /// Whether an app passes the client filter.
+    #[must_use]
+    pub fn client_ok(&self, client: &str) -> bool {
+        self.client.is_empty() || self.client.iter().any(|c| c == client)
+    }
+
+    /// Whether an API passes the API filter (the names are the broker's, compared without regard to case).
+    #[must_use]
+    pub fn api_ok(&self, api: &str) -> bool {
+        self.api.is_empty() || self.api.iter().any(|a| a.eq_ignore_ascii_case(api))
+    }
+
+    /// Whether a request that names these topics passes the topic filter: it names at least one of the chosen topics, exactly.
+    #[must_use]
+    pub fn topic_ok<'a>(&self, mut named: impl Iterator<Item = &'a str>) -> bool {
+        self.topic.is_empty() || named.any(|n| self.topic.iter().any(|t| t == n))
+    }
+
+    /// The same filters without one chosen value (a chip's x), and the page back dropped.
+    #[must_use]
+    pub fn without(&self, field: &str, value: &str) -> Self {
+        let mut q = Self {
+            before: None,
+            ..self.clone()
+        };
+        match field {
+            "client" => q.client.retain(|v| v != value),
+            "api" => q.api.retain(|v| v != value),
+            "topic" => q.topic.retain(|v| v != value),
+            _ => {}
+        }
+        q
+    }
+
+    /// Whether any filter is on: what an empty tape should say it is empty because of (the page's own state, a pause or a page
+    /// back, and the idle toggle's default are not filters).
+    #[must_use]
+    pub fn is_filtered(&self) -> bool {
+        !(self.text.is_empty()
+            && self.client.is_empty()
+            && self.api.is_empty()
+            && self.topic.is_empty()
+            && self.group.is_empty()
+            && self.kind.is_empty()
+            && !self.refused_only)
     }
 
     /// The same filters with one field changed (a click on a client, an API or a topic), and the page back dropped.
@@ -351,10 +389,17 @@ impl WireQuery {
             before: None,
             ..self.clone()
         };
+        let one = |v: &str| {
+            if v.is_empty() {
+                Vec::new()
+            } else {
+                vec![v.to_owned()]
+            }
+        };
         match field {
-            "client" => q.client = value.to_owned(),
-            "api" => q.api = value.to_owned(),
-            "topic" => q.topic = value.to_owned(),
+            "client" => q.client = one(value),
+            "api" => q.api = one(value),
+            "topic" => q.topic = one(value),
             "group" => q.group = value.to_owned(),
             "kind" => q.kind = value.to_owned(),
             _ => {}
@@ -364,52 +409,7 @@ impl WireQuery {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn q(s: &str) -> WireQuery {
-        WireQuery::parse(&crate::form::parse(s))
-    }
-
-    #[test]
-    fn an_address_is_the_filters_and_back_again() {
-        let w = q(
-            "q=ord&client=admin-cli&api=Produce&topic=orders&refused=1&idle=0&before=12&limit=50",
-        );
-        assert_eq!(
-            (
-                w.text.as_str(),
-                w.client.as_str(),
-                w.api.as_str(),
-                w.topic.as_str()
-            ),
-            ("ord", "admin-cli", "Produce", "orders")
-        );
-        assert!(w.refused_only && !w.hide_idle);
-        assert_eq!((w.before, w.limit), (Some(12), 50));
-        assert_eq!(q(&w.to_query()[1..]), w);
-        assert_eq!(WireQuery::default().to_query(), "");
-    }
-
-    #[test]
-    fn nonsense_is_no_filter_and_the_limit_is_held_to_its_range() {
-        assert_eq!(q("before=abc&until=-1&limit=999999").limit, WIRE_MOST);
-        assert_eq!(q("limit=0").limit, 1);
-        assert_eq!(q("before=abc").before, None);
-        assert!(q("idle=yes").hide_idle);
-        assert_eq!(q(&format!("q={}", "x".repeat(1000))).text.len(), 128);
-    }
-
-    #[test]
-    fn a_click_on_a_cell_filters_by_it_and_leaves_the_page_back() {
-        let w = q("q=a&before=9").with("client", "orders");
-        assert_eq!(
-            (w.client.as_str(), w.before, w.text.as_str()),
-            ("orders", None, "a")
-        );
-        assert_eq!(w.with("nothing", "x"), w);
-    }
-}
+mod tests;
 
 /// A group's wire: the rows that pass the filters, and the counts the chips say.
 #[derive(Debug, Clone, PartialEq)]

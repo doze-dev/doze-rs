@@ -72,6 +72,12 @@ export class Page {
     await this.ready();
   }
 
+  /** Navigates and does not wait for the page's scripts (for a page seen with scripting off). */
+  async gotoRaw(path: string): Promise<void> {
+    await this.cmd("Page.navigate", { url: path.startsWith("http") ? path : this.base + path });
+    await this.waitFor("document.readyState === 'complete'", 8000);
+  }
+
   async ready(): Promise<void> {
     await this.waitFor(`document.readyState === 'complete' && !!window.htmx && !!window.Alpine`, 8000);
     await Bun.sleep(80);
@@ -154,6 +160,9 @@ export class Page {
     writeFileSync(path, Buffer.from(r.data, "base64"));
     return path;
   }
+
+  /** Turns the page's scripting off or on (for the no-script look of a component); a navigation applies it. */
+  async scripting(enabled: boolean): Promise<void> { await this.cmd("Emulation.setScriptExecutionDisabled", { value: !enabled }); }
 
   /** The window's size (CSS pixels). */
   async viewport(width: number, height: number): Promise<void> { await this.cmd("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: false }); }

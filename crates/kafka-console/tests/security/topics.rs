@@ -86,7 +86,7 @@ fn hostile_keys_values_headers_and_names_are_inert_on_every_topic_page() {
         let queries = [
             MessageQuery::default(),
             MessageQuery {
-                partition: Some(0),
+                partitions: vec![0],
                 offset: Some(16_098),
                 ..MessageQuery::default()
             },

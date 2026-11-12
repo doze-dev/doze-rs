@@ -2,6 +2,7 @@
 //!
 //! Every name here starts with `Group`, `Lag`, `Reset` or `Offset` so that no other family of pages can clash with it.
 
+use super::group_states::GroupStates;
 use super::write::{Lines, Refusal};
 use crate::lag::Lag;
 
@@ -230,7 +231,7 @@ pub struct GroupsView {
     /// How many are in each state: all, stable, rebalancing, empty.
     pub counts: [usize; 4],
     pub filter: String,
-    pub state: GroupFilter,
+    pub state: GroupStates,
     /// How many topics the broker has (the other tab).
     pub topics: usize,
     pub attention: Option<GroupAttention>,

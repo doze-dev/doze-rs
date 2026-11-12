@@ -3581,6 +3581,36 @@
     "expires": "close"
   },
   {
+    "board": "live-load",
+    "field": "button",
+    "reason": "improvement: the apps, APIs and topics are MultiSelects (CON-851): each is a button with a clear x and, in its popup, Select all and Clear, and without a script a details of checkboxes with an Apply button; the board draws one chip per filter that takes a single value",
+    "expires": "close"
+  },
+  {
+    "board": "live-paused",
+    "field": "button",
+    "reason": "improvement: the apps, APIs and topics are MultiSelects (CON-851): each is a button with a clear x and, in its popup, Select all and Clear, and without a script a details of checkboxes with an Apply button; the board draws one chip per filter that takes a single value",
+    "expires": "close"
+  },
+  {
+    "board": "live-quiet",
+    "field": "button",
+    "reason": "improvement: the apps, APIs and topics are MultiSelects (CON-851): each is a button with a clear x and, in its popup, Select all and Clear, and without a script a details of checkboxes with an Apply button; the board draws one chip per filter that takes a single value",
+    "expires": "close"
+  },
+  {
+    "board": "live-wire",
+    "field": "button",
+    "reason": "improvement: the apps, APIs and topics are MultiSelects (CON-851): each is a button with a clear x and, in its popup, Select all and Clear, and without a script a details of checkboxes with an Apply button; the board draws one chip per filter that takes a single value",
+    "expires": "close"
+  },
+  {
+    "board": "groups-list",
+    "field": "button",
+    "reason": "improvement: the Groups states are a MultiSelect (CON-857): a group shows in any of the states chosen; the button, its clear x, Select all, Clear and (without a script) Apply replace the board's four state chips",
+    "expires": "close"
+  },
+  {
     "board": "connect-first-request",
     "field": "table",
     "selector": "wire",
@@ -3894,22 +3924,6 @@
   },
   {
     "board": "group-wire",
-    "field": "button",
-    "selector": "Refresh [sm] -> none",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): every data page has the Refresh control (a button and an interval) in the breadcrumb row.",
-    "expires": "close",
-    "render": "live"
-  },
-  {
-    "board": "groups-list",
-    "field": "button",
-    "selector": "Off [-] -> ui:refresh-every",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): every data page has the Refresh control (a button and an interval) in the breadcrumb row.",
-    "expires": "close",
-    "render": "live"
-  },
-  {
-    "board": "groups-list",
     "field": "button",
     "selector": "Refresh [sm] -> none",
     "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): every data page has the Refresh control (a button and an interval) in the breadcrumb row.",
@@ -4089,22 +4103,6 @@
     "field": "table",
     "selector": "wire",
     "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): tables are DataTables (a declared colgroup, one line a cell; CON-808), so the class and the empty block differ from the board's.",
-    "expires": "close",
-    "render": "fixture"
-  },
-  {
-    "board": "live-load",
-    "field": "button",
-    "selector": "Pause [-] -> ui:pause",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): the Pause is the Snapshot control, the quiet card and the busy explainer are the table's reserved empty state and one static sentence, so the page has the same parts in every state (CON-807).",
-    "expires": "close",
-    "render": "fixture"
-  },
-  {
-    "board": "live-load",
-    "field": "button",
-    "selector": "Clients · 9 [sm] -> to:live-clients",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): the Snapshot | Live tail control, its speed, the held-rows pill and the stat slots of the Live page (CON-809).",
     "expires": "close",
     "render": "fixture"
   },
@@ -4134,78 +4132,6 @@
   },
   {
     "board": "live-load",
-    "field": "button",
-    "selector": "Off [-] -> ui:refresh-every",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): every data page has the Refresh control (a button and an interval) in the breadcrumb row.",
-    "expires": "close",
-    "render": "fixture"
-  },
-  {
-    "board": "live-load",
-    "field": "button",
-    "selector": "Refresh [sm] -> none",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): every data page has the Refresh control (a button and an interval) in the breadcrumb row.",
-    "expires": "close",
-    "render": "fixture"
-  },
-  {
-    "board": "live-load",
-    "field": "button",
-    "selector": "Clients [sm] -> to:live-clients",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): the Snapshot | Live tail control, its speed, the held-rows pill and the stat slots of the Live page (CON-809).",
-    "expires": "close",
-    "render": "fixture"
-  },
-  {
-    "board": "live-load",
-    "field": "button",
-    "selector": "Snapshot [-] -> none",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): the Snapshot | Live tail control, its speed, the held-rows pill and the stat slots of the Live page (CON-809).",
-    "expires": "close",
-    "render": "fixture"
-  },
-  {
-    "board": "live-load",
-    "field": "button",
-    "selector": "Live tail [-] -> none",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): the Snapshot | Live tail control, its speed, the held-rows pill and the stat slots of the Live page (CON-809).",
-    "expires": "close",
-    "render": "fixture"
-  },
-  {
-    "board": "live-load",
-    "field": "button",
-    "selector": "Relaxed [-] -> ui:tail-speed",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): the Snapshot | Live tail control, its speed, the held-rows pill and the stat slots of the Live page (CON-809).",
-    "expires": "close",
-    "render": "fixture"
-  },
-  {
-    "board": "live-load",
-    "field": "button",
-    "selector": "↑ 0 new · Show [-] -> none",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): the Snapshot | Live tail control, its speed, the held-rows pill and the stat slots of the Live page (CON-809).",
-    "expires": "close",
-    "render": "fixture"
-  },
-  {
-    "board": "live-load",
-    "field": "button",
-    "selector": "Newer [sm] -> ui:page",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): the Snapshot | Live tail control, its speed, the held-rows pill and the stat slots of the Live page (CON-809).",
-    "expires": "close",
-    "render": "fixture"
-  },
-  {
-    "board": "live-load",
-    "field": "button",
-    "selector": "Older [sm] -> ui:page",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): the Snapshot | Live tail control, its speed, the held-rows pill and the stat slots of the Live page (CON-809).",
-    "expires": "close",
-    "render": "fixture"
-  },
-  {
-    "board": "live-load",
     "field": "heading",
     "selector": "h2 The wire, folded",
     "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): the Pause is the Snapshot control, the quiet card and the busy explainer are the table's reserved empty state and one static sentence, so the page has the same parts in every state (CON-807).",
@@ -4222,22 +4148,6 @@
   },
   {
     "board": "live-load",
-    "field": "button",
-    "selector": "Pause [-] -> ui:pause",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): the Pause is the Snapshot control, the quiet card and the busy explainer are the table's reserved empty state and one static sentence, so the page has the same parts in every state (CON-807).",
-    "expires": "close",
-    "render": "live"
-  },
-  {
-    "board": "live-load",
-    "field": "button",
-    "selector": "Clients · # [sm] -> to:live-clients",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): the Snapshot | Live tail control, its speed, the held-rows pill and the stat slots of the Live page (CON-809).",
-    "expires": "close",
-    "render": "live"
-  },
-  {
-    "board": "live-load",
     "field": "note",
     "selector": "callout",
     "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): a figure that follows the data is a metric slot, a time is absolute, a block of conditional content has its own reserved region (CON-805 to CON-807).",
@@ -4259,86 +4169,6 @@
     "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): tables are DataTables (a declared colgroup, one line a cell; CON-808), so the class and the empty block differ from the board's.",
     "expires": "close",
     "render": "live"
-  },
-  {
-    "board": "live-load",
-    "field": "button",
-    "selector": "Off [-] -> ui:refresh-every",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): every data page has the Refresh control (a button and an interval) in the breadcrumb row.",
-    "expires": "close",
-    "render": "live"
-  },
-  {
-    "board": "live-load",
-    "field": "button",
-    "selector": "Refresh [sm] -> none",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): every data page has the Refresh control (a button and an interval) in the breadcrumb row.",
-    "expires": "close",
-    "render": "live"
-  },
-  {
-    "board": "live-load",
-    "field": "button",
-    "selector": "Clients [sm] -> to:live-clients",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): the Snapshot | Live tail control, its speed, the held-rows pill and the stat slots of the Live page (CON-809).",
-    "expires": "close",
-    "render": "live"
-  },
-  {
-    "board": "live-load",
-    "field": "button",
-    "selector": "Snapshot [-] -> none",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): the Snapshot | Live tail control, its speed, the held-rows pill and the stat slots of the Live page (CON-809).",
-    "expires": "close",
-    "render": "live"
-  },
-  {
-    "board": "live-load",
-    "field": "button",
-    "selector": "Live tail [-] -> none",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): the Snapshot | Live tail control, its speed, the held-rows pill and the stat slots of the Live page (CON-809).",
-    "expires": "close",
-    "render": "live"
-  },
-  {
-    "board": "live-load",
-    "field": "button",
-    "selector": "Relaxed [-] -> ui:tail-speed",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): the Snapshot | Live tail control, its speed, the held-rows pill and the stat slots of the Live page (CON-809).",
-    "expires": "close",
-    "render": "live"
-  },
-  {
-    "board": "live-load",
-    "field": "button",
-    "selector": "↑ # new · Show [-] -> none",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): the Snapshot | Live tail control, its speed, the held-rows pill and the stat slots of the Live page (CON-809).",
-    "expires": "close",
-    "render": "live"
-  },
-  {
-    "board": "live-load",
-    "field": "button",
-    "selector": "Newer [sm] -> ui:page",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): the Snapshot | Live tail control, its speed, the held-rows pill and the stat slots of the Live page (CON-809).",
-    "expires": "close",
-    "render": "live"
-  },
-  {
-    "board": "live-load",
-    "field": "button",
-    "selector": "Older [sm] -> ui:page",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): the Snapshot | Live tail control, its speed, the held-rows pill and the stat slots of the Live page (CON-809).",
-    "expires": "close",
-    "render": "live"
-  },
-  {
-    "board": "live-paused",
-    "field": "button",
-    "selector": "Resume [pri] -> to:live-wire",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): the Pause is the Snapshot control, the quiet card and the busy explainer are the table's reserved empty state and one static sentence, so the page has the same parts in every state (CON-807).",
-    "expires": "close",
-    "render": "fixture"
   },
   {
     "board": "live-paused",
@@ -4350,22 +4180,6 @@
   },
   {
     "board": "live-paused",
-    "field": "button",
-    "selector": "Resume [pri] -> to:live-wire",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): the Pause is the Snapshot control, the quiet card and the busy explainer are the table's reserved empty state and one static sentence, so the page has the same parts in every state (CON-807).",
-    "expires": "close",
-    "render": "live"
-  },
-  {
-    "board": "live-paused",
-    "field": "button",
-    "selector": "Clients · # [sm] -> to:live-clients",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): the Snapshot | Live tail control, its speed, the held-rows pill and the stat slots of the Live page (CON-809).",
-    "expires": "close",
-    "render": "live"
-  },
-  {
-    "board": "live-paused",
     "field": "note",
     "selector": "callout",
     "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): a figure that follows the data is a metric slot, a time is absolute, a block of conditional content has its own reserved region (CON-805 to CON-807).",
@@ -4385,78 +4199,6 @@
     "field": "table",
     "selector": "t",
     "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): tables are DataTables (a declared colgroup, one line a cell; CON-808), so the class and the empty block differ from the board's.",
-    "expires": "close",
-    "render": "live"
-  },
-  {
-    "board": "live-paused",
-    "field": "button",
-    "selector": "Off [-] -> ui:refresh-every",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): every data page has the Refresh control (a button and an interval) in the breadcrumb row.",
-    "expires": "close",
-    "render": "live"
-  },
-  {
-    "board": "live-paused",
-    "field": "button",
-    "selector": "Refresh [sm] -> none",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): every data page has the Refresh control (a button and an interval) in the breadcrumb row.",
-    "expires": "close",
-    "render": "live"
-  },
-  {
-    "board": "live-paused",
-    "field": "button",
-    "selector": "Clients [sm] -> to:live-clients",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): the Snapshot | Live tail control, its speed, the held-rows pill and the stat slots of the Live page (CON-809).",
-    "expires": "close",
-    "render": "live"
-  },
-  {
-    "board": "live-paused",
-    "field": "button",
-    "selector": "Snapshot [-] -> none",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): the Snapshot | Live tail control, its speed, the held-rows pill and the stat slots of the Live page (CON-809).",
-    "expires": "close",
-    "render": "live"
-  },
-  {
-    "board": "live-paused",
-    "field": "button",
-    "selector": "Live tail [-] -> none",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): the Snapshot | Live tail control, its speed, the held-rows pill and the stat slots of the Live page (CON-809).",
-    "expires": "close",
-    "render": "live"
-  },
-  {
-    "board": "live-paused",
-    "field": "button",
-    "selector": "Relaxed [-] -> ui:tail-speed",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): the Snapshot | Live tail control, its speed, the held-rows pill and the stat slots of the Live page (CON-809).",
-    "expires": "close",
-    "render": "live"
-  },
-  {
-    "board": "live-paused",
-    "field": "button",
-    "selector": "↑ # new · Show [-] -> none",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): the Snapshot | Live tail control, its speed, the held-rows pill and the stat slots of the Live page (CON-809).",
-    "expires": "close",
-    "render": "live"
-  },
-  {
-    "board": "live-paused",
-    "field": "button",
-    "selector": "Newer [sm] -> ui:page",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): the Snapshot | Live tail control, its speed, the held-rows pill and the stat slots of the Live page (CON-809).",
-    "expires": "close",
-    "render": "live"
-  },
-  {
-    "board": "live-paused",
-    "field": "button",
-    "selector": "Older [sm] -> ui:page",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): the Snapshot | Live tail control, its speed, the held-rows pill and the stat slots of the Live page (CON-809).",
     "expires": "close",
     "render": "live"
   },
@@ -4472,30 +4214,6 @@
     "board": "live-quiet",
     "field": "heading",
     "selector": "h3 No requests yet",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): the Pause is the Snapshot control, the quiet card and the busy explainer are the table's reserved empty state and one static sentence, so the page has the same parts in every state (CON-807).",
-    "expires": "close",
-    "render": "fixture"
-  },
-  {
-    "board": "live-quiet",
-    "field": "button",
-    "selector": "Pause [-] -> ui:pause",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): the Pause is the Snapshot control, the quiet card and the busy explainer are the table's reserved empty state and one static sentence, so the page has the same parts in every state (CON-807).",
-    "expires": "close",
-    "render": "fixture"
-  },
-  {
-    "board": "live-quiet",
-    "field": "button",
-    "selector": "Snippets for your client [pri] -> to:connect",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): the Pause is the Snapshot control, the quiet card and the busy explainer are the table's reserved empty state and one static sentence, so the page has the same parts in every state (CON-807).",
-    "expires": "close",
-    "render": "fixture"
-  },
-  {
-    "board": "live-quiet",
-    "field": "button",
-    "selector": "Create a topic [-] -> to:topic-create",
     "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): the Pause is the Snapshot control, the quiet card and the busy explainer are the table's reserved empty state and one static sentence, so the page has the same parts in every state (CON-807).",
     "expires": "close",
     "render": "fixture"
@@ -4598,78 +4316,6 @@
   },
   {
     "board": "live-quiet",
-    "field": "button",
-    "selector": "Off [-] -> ui:refresh-every",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): every data page has the Refresh control (a button and an interval) in the breadcrumb row.",
-    "expires": "close",
-    "render": "fixture"
-  },
-  {
-    "board": "live-quiet",
-    "field": "button",
-    "selector": "Refresh [sm] -> none",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): every data page has the Refresh control (a button and an interval) in the breadcrumb row.",
-    "expires": "close",
-    "render": "fixture"
-  },
-  {
-    "board": "live-quiet",
-    "field": "button",
-    "selector": "Clients [sm] -> to:live-clients",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): the Snapshot | Live tail control, its speed, the held-rows pill and the stat slots of the Live page (CON-809).",
-    "expires": "close",
-    "render": "fixture"
-  },
-  {
-    "board": "live-quiet",
-    "field": "button",
-    "selector": "Snapshot [-] -> none",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): the Snapshot | Live tail control, its speed, the held-rows pill and the stat slots of the Live page (CON-809).",
-    "expires": "close",
-    "render": "fixture"
-  },
-  {
-    "board": "live-quiet",
-    "field": "button",
-    "selector": "Live tail [-] -> none",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): the Snapshot | Live tail control, its speed, the held-rows pill and the stat slots of the Live page (CON-809).",
-    "expires": "close",
-    "render": "fixture"
-  },
-  {
-    "board": "live-quiet",
-    "field": "button",
-    "selector": "Relaxed [-] -> ui:tail-speed",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): the Snapshot | Live tail control, its speed, the held-rows pill and the stat slots of the Live page (CON-809).",
-    "expires": "close",
-    "render": "fixture"
-  },
-  {
-    "board": "live-quiet",
-    "field": "button",
-    "selector": "↑ 0 new · Show [-] -> none",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): the Snapshot | Live tail control, its speed, the held-rows pill and the stat slots of the Live page (CON-809).",
-    "expires": "close",
-    "render": "fixture"
-  },
-  {
-    "board": "live-quiet",
-    "field": "button",
-    "selector": "Newer [sm] -> ui:page",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): the Snapshot | Live tail control, its speed, the held-rows pill and the stat slots of the Live page (CON-809).",
-    "expires": "close",
-    "render": "fixture"
-  },
-  {
-    "board": "live-quiet",
-    "field": "button",
-    "selector": "Older [sm] -> ui:page",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): the Snapshot | Live tail control, its speed, the held-rows pill and the stat slots of the Live page (CON-809).",
-    "expires": "close",
-    "render": "fixture"
-  },
-  {
-    "board": "live-quiet",
     "field": "link",
     "selector": "live-clients",
     "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): a figure that follows the data is a metric slot, a time is absolute, a block of conditional content has its own reserved region (CON-805 to CON-807).",
@@ -4688,30 +4334,6 @@
     "board": "live-quiet",
     "field": "heading",
     "selector": "h3 No requests yet",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): the Pause is the Snapshot control, the quiet card and the busy explainer are the table's reserved empty state and one static sentence, so the page has the same parts in every state (CON-807).",
-    "expires": "close",
-    "render": "live"
-  },
-  {
-    "board": "live-quiet",
-    "field": "button",
-    "selector": "Pause [-] -> ui:pause",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): the Pause is the Snapshot control, the quiet card and the busy explainer are the table's reserved empty state and one static sentence, so the page has the same parts in every state (CON-807).",
-    "expires": "close",
-    "render": "live"
-  },
-  {
-    "board": "live-quiet",
-    "field": "button",
-    "selector": "Snippets for your client [pri] -> to:connect",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): the Pause is the Snapshot control, the quiet card and the busy explainer are the table's reserved empty state and one static sentence, so the page has the same parts in every state (CON-807).",
-    "expires": "close",
-    "render": "live"
-  },
-  {
-    "board": "live-quiet",
-    "field": "button",
-    "selector": "Create a topic [-] -> to:topic-create",
     "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): the Pause is the Snapshot control, the quiet card and the busy explainer are the table's reserved empty state and one static sentence, so the page has the same parts in every state (CON-807).",
     "expires": "close",
     "render": "live"
@@ -4806,78 +4428,6 @@
   },
   {
     "board": "live-quiet",
-    "field": "button",
-    "selector": "Off [-] -> ui:refresh-every",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): every data page has the Refresh control (a button and an interval) in the breadcrumb row.",
-    "expires": "close",
-    "render": "live"
-  },
-  {
-    "board": "live-quiet",
-    "field": "button",
-    "selector": "Refresh [sm] -> none",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): every data page has the Refresh control (a button and an interval) in the breadcrumb row.",
-    "expires": "close",
-    "render": "live"
-  },
-  {
-    "board": "live-quiet",
-    "field": "button",
-    "selector": "Clients [sm] -> to:live-clients",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): the Snapshot | Live tail control, its speed, the held-rows pill and the stat slots of the Live page (CON-809).",
-    "expires": "close",
-    "render": "live"
-  },
-  {
-    "board": "live-quiet",
-    "field": "button",
-    "selector": "Snapshot [-] -> none",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): the Snapshot | Live tail control, its speed, the held-rows pill and the stat slots of the Live page (CON-809).",
-    "expires": "close",
-    "render": "live"
-  },
-  {
-    "board": "live-quiet",
-    "field": "button",
-    "selector": "Live tail [-] -> none",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): the Snapshot | Live tail control, its speed, the held-rows pill and the stat slots of the Live page (CON-809).",
-    "expires": "close",
-    "render": "live"
-  },
-  {
-    "board": "live-quiet",
-    "field": "button",
-    "selector": "Relaxed [-] -> ui:tail-speed",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): the Snapshot | Live tail control, its speed, the held-rows pill and the stat slots of the Live page (CON-809).",
-    "expires": "close",
-    "render": "live"
-  },
-  {
-    "board": "live-quiet",
-    "field": "button",
-    "selector": "↑ # new · Show [-] -> none",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): the Snapshot | Live tail control, its speed, the held-rows pill and the stat slots of the Live page (CON-809).",
-    "expires": "close",
-    "render": "live"
-  },
-  {
-    "board": "live-quiet",
-    "field": "button",
-    "selector": "Newer [sm] -> ui:page",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): the Snapshot | Live tail control, its speed, the held-rows pill and the stat slots of the Live page (CON-809).",
-    "expires": "close",
-    "render": "live"
-  },
-  {
-    "board": "live-quiet",
-    "field": "button",
-    "selector": "Older [sm] -> ui:page",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): the Snapshot | Live tail control, its speed, the held-rows pill and the stat slots of the Live page (CON-809).",
-    "expires": "close",
-    "render": "live"
-  },
-  {
-    "board": "live-quiet",
     "field": "link",
     "selector": "live-clients",
     "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): a figure that follows the data is a metric slot, a time is absolute, a block of conditional content has its own reserved region (CON-805 to CON-807).",
@@ -4889,22 +4439,6 @@
     "field": "table",
     "selector": "wire",
     "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): tables are DataTables (a declared colgroup, one line a cell; CON-808), so the class and the empty block differ from the board's.",
-    "expires": "close",
-    "render": "fixture"
-  },
-  {
-    "board": "live-wire",
-    "field": "button",
-    "selector": "Pause [-] -> to:live-paused",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): the Pause is the Snapshot control, the quiet card and the busy explainer are the table's reserved empty state and one static sentence, so the page has the same parts in every state (CON-807).",
-    "expires": "close",
-    "render": "fixture"
-  },
-  {
-    "board": "live-wire",
-    "field": "button",
-    "selector": "Clients · 9 [sm] -> to:live-clients",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): the Snapshot | Live tail control, its speed, the held-rows pill and the stat slots of the Live page (CON-809).",
     "expires": "close",
     "render": "fixture"
   },
@@ -4934,81 +4468,9 @@
   },
   {
     "board": "live-wire",
-    "field": "button",
-    "selector": "Off [-] -> ui:refresh-every",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): every data page has the Refresh control (a button and an interval) in the breadcrumb row.",
-    "expires": "close",
-    "render": "fixture"
-  },
-  {
-    "board": "live-wire",
-    "field": "button",
-    "selector": "Refresh [sm] -> none",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): every data page has the Refresh control (a button and an interval) in the breadcrumb row.",
-    "expires": "close",
-    "render": "fixture"
-  },
-  {
-    "board": "live-wire",
-    "field": "button",
-    "selector": "Clients [sm] -> to:live-clients",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): the Snapshot | Live tail control, its speed, the held-rows pill and the stat slots of the Live page (CON-809).",
-    "expires": "close",
-    "render": "fixture"
-  },
-  {
-    "board": "live-wire",
-    "field": "button",
-    "selector": "Snapshot [-] -> none",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): the Snapshot | Live tail control, its speed, the held-rows pill and the stat slots of the Live page (CON-809).",
-    "expires": "close",
-    "render": "fixture"
-  },
-  {
-    "board": "live-wire",
-    "field": "button",
-    "selector": "Live tail [-] -> none",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): the Snapshot | Live tail control, its speed, the held-rows pill and the stat slots of the Live page (CON-809).",
-    "expires": "close",
-    "render": "fixture"
-  },
-  {
-    "board": "live-wire",
-    "field": "button",
-    "selector": "Relaxed [-] -> ui:tail-speed",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): the Snapshot | Live tail control, its speed, the held-rows pill and the stat slots of the Live page (CON-809).",
-    "expires": "close",
-    "render": "fixture"
-  },
-  {
-    "board": "live-wire",
-    "field": "button",
-    "selector": "↑ 0 new · Show [-] -> none",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): the Snapshot | Live tail control, its speed, the held-rows pill and the stat slots of the Live page (CON-809).",
-    "expires": "close",
-    "render": "fixture"
-  },
-  {
-    "board": "live-wire",
     "field": "table",
     "selector": "wire",
     "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): tables are DataTables (a declared colgroup, one line a cell; CON-808), so the class and the empty block differ from the board's.",
-    "expires": "close",
-    "render": "live"
-  },
-  {
-    "board": "live-wire",
-    "field": "button",
-    "selector": "Pause [-] -> to:live-paused",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): the Pause is the Snapshot control, the quiet card and the busy explainer are the table's reserved empty state and one static sentence, so the page has the same parts in every state (CON-807).",
-    "expires": "close",
-    "render": "live"
-  },
-  {
-    "board": "live-wire",
-    "field": "button",
-    "selector": "Clients · # [sm] -> to:live-clients",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): the Snapshot | Live tail control, its speed, the held-rows pill and the stat slots of the Live page (CON-809).",
     "expires": "close",
     "render": "live"
   },
@@ -5033,62 +4495,6 @@
     "field": "table",
     "selector": "t",
     "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): tables are DataTables (a declared colgroup, one line a cell; CON-808), so the class and the empty block differ from the board's.",
-    "expires": "close",
-    "render": "live"
-  },
-  {
-    "board": "live-wire",
-    "field": "button",
-    "selector": "Off [-] -> ui:refresh-every",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): every data page has the Refresh control (a button and an interval) in the breadcrumb row.",
-    "expires": "close",
-    "render": "live"
-  },
-  {
-    "board": "live-wire",
-    "field": "button",
-    "selector": "Refresh [sm] -> none",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): every data page has the Refresh control (a button and an interval) in the breadcrumb row.",
-    "expires": "close",
-    "render": "live"
-  },
-  {
-    "board": "live-wire",
-    "field": "button",
-    "selector": "Clients [sm] -> to:live-clients",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): the Snapshot | Live tail control, its speed, the held-rows pill and the stat slots of the Live page (CON-809).",
-    "expires": "close",
-    "render": "live"
-  },
-  {
-    "board": "live-wire",
-    "field": "button",
-    "selector": "Snapshot [-] -> none",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): the Snapshot | Live tail control, its speed, the held-rows pill and the stat slots of the Live page (CON-809).",
-    "expires": "close",
-    "render": "live"
-  },
-  {
-    "board": "live-wire",
-    "field": "button",
-    "selector": "Live tail [-] -> none",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): the Snapshot | Live tail control, its speed, the held-rows pill and the stat slots of the Live page (CON-809).",
-    "expires": "close",
-    "render": "live"
-  },
-  {
-    "board": "live-wire",
-    "field": "button",
-    "selector": "Relaxed [-] -> ui:tail-speed",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): the Snapshot | Live tail control, its speed, the held-rows pill and the stat slots of the Live page (CON-809).",
-    "expires": "close",
-    "render": "live"
-  },
-  {
-    "board": "live-wire",
-    "field": "button",
-    "selector": "↑ # new · Show [-] -> none",
-    "reason": "improvement: the live design (CON-800 to CON-812, docs/port/console/live-design.md): the Snapshot | Live tail control, its speed, the held-rows pill and the stat slots of the Live page (CON-809).",
     "expires": "close",
     "render": "live"
   },

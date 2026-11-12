@@ -258,17 +258,30 @@ pub async fn page(
     let meta = meta::one(b, name).await?;
     let head = topic::head_of(b, &meta).await;
     let mut q = query;
-    if q.partition.is_some_and(|p| !meta.partitions.contains(&p)) {
+    let missing: Vec<String> = q
+        .partitions
+        .iter()
+        .filter(|p| !meta.partitions.contains(p))
+        .map(ToString::to_string)
+        .collect();
+    if !missing.is_empty() {
         notes.push(format!(
-            "{} has no partition {}, so all partitions are shown.",
+            "{} has no partition {}, so {} left out.",
             head.name,
-            q.partition.unwrap_or(0)
+            missing.join(", "),
+            if missing.len() == 1 {
+                "it is"
+            } else {
+                "they are"
+            }
         ));
-        q.partition = None;
+        q.partitions.retain(|p| meta.partitions.contains(p));
     }
-    let parts: Vec<i32> = q
-        .partition
-        .map_or_else(|| meta.partitions.clone(), |p| vec![p]);
+    let parts: Vec<i32> = if q.partitions.is_empty() {
+        meta.partitions.clone()
+    } else {
+        q.partitions.clone()
+    };
     if q.offset.is_some() && parts.len() != 1 {
         notes.push(
             "An offset belongs to one partition: choose a partition and the offset is used."

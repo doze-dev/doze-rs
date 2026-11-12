@@ -376,6 +376,7 @@ fn the_alpine_stand_ins_never_leak_into_the_page() {
         .into_string(),
     ]
     .join("");
+    let all = format!("{all}{}", super::tests_multi::multi(&["r"]));
     for stand_in in [" xo-click=", " xa-", " xb-"] {
         assert!(!all.contains(stand_in), "{stand_in} is in the markup");
     }

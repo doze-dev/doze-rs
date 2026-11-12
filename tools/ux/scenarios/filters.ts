@@ -8,6 +8,17 @@ const rows = (p: Page, sel: string) => p.eval<number>(`document.querySelectorAll
 const WIRE = ".dt-t tbody tr";
 
 async function pick(p: Page, id: string, text: string): Promise<void> {
+  // A MultiSelect (the Live filters): tick the option with a real click, then Esc closes it and sends the choice at once.
+  if (await p.exists(`#${id}-ms`)) {
+    await p.click(`#${id}-ms .dz-trigger`);
+    await p.waitFor(`getComputedStyle(document.querySelector('#${id}-ms .dz-multi-pop')).display !== 'none'`);
+    await Bun.sleep(150);
+    const sel = await p.eval<string>(`(() => { const o = [...document.querySelectorAll('#${id}-ms [role=option]')].find((o) => o.getAttribute('data-label').startsWith(${JSON.stringify(text)})); if (!o) return ''; o.setAttribute('data-pick', '1'); return '#${id}-ms [data-pick]'; })()`);
+    if (!sel) throw new Error(`no option ${text} in ${id}`);
+    await p.click(sel, { scroll: false });
+    await p.key("Escape");
+    return;
+  }
   const trig = `.dz:has(#${id}) .dz-trigger, .dz:has(#${id}) .dz-input`;
   await p.click(trig);
   await p.waitFor(`document.querySelector('.dz:has(#${id}) [role=listbox]') && getComputedStyle(document.querySelector('.dz:has(#${id}) [role=listbox]')).display !== 'none'`);
@@ -66,7 +77,7 @@ export const scenarios: Record<string, (t: T) => Promise<void>> = {
     // Groups: a state.
     await p.goto("/groups");
     const groups = await rows(p, "#groups-table tbody tr");
-    await p.click("form.toolbar [aria-label=State] a:nth-child(2)");
+    await pick(p, "groups-state", "Stable");
     await p.waitFor("location.search.includes('state=stable')");
     await Bun.sleep(350);
     const stable = await rows(p, "#groups-table tbody tr");

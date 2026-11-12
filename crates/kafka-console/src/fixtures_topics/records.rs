@@ -177,7 +177,7 @@ pub fn messages(name: &str, query: MessageQuery, notes: Vec<String>) -> Option<M
         (_, true) => newest()
             .into_iter()
             .filter(|r| {
-                r.partition == query.partition.unwrap_or(0)
+                (query.partitions.is_empty() || query.partitions.contains(&r.partition))
                     && r.partition == 0
                     && r.offset >= query.offset.unwrap_or(0)
             })

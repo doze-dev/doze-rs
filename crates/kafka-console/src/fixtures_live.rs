@@ -169,9 +169,9 @@ fn has(hay: &str, needle: &str) -> bool {
 fn passes(r: &WireRow, q: &WireQuery) -> bool {
     let in_topics = |n: &str| r.topics.iter().any(|t| has(t, n));
     let in_group = |n: &str| r.group.as_deref().is_some_and(|g| has(g, n));
-    (q.client.is_empty() || has(&r.client, &q.client))
-        && (q.api.is_empty() || r.api.eq_ignore_ascii_case(&q.api))
-        && (q.topic.is_empty() || in_topics(&q.topic))
+    q.client_ok(&r.client)
+        && q.api_ok(r.api)
+        && q.topic_ok(r.topics.iter().map(String::as_str))
         && (q.group.is_empty() || in_group(&q.group))
         && (q.text.is_empty()
             || has(&r.client, &q.text)
@@ -207,25 +207,7 @@ pub fn live(q: &WireQuery, hint: Option<&str>) -> LiveView {
         listen: "127.0.0.1:9092".to_owned(),
         started_ms: Some(at("22:12:00.000")),
         older: Some(1),
-        clients_ids: [
-            "admin-cli",
-            "catalog",
-            "fulfilment",
-            "notifications",
-            "orders",
-            "payments",
-            "search-indexer",
-        ]
-        .map(str::to_owned)
-        .to_vec(),
-        topics_seen: [
-            "clickstream",
-            "inventory.levels",
-            "orders",
-            "payments.settled",
-        ]
-        .map(str::to_owned)
-        .to_vec(),
+        facets: others::facets(&steady),
     };
     match hint {
         Some("quiet") => {

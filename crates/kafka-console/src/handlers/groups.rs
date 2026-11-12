@@ -12,7 +12,7 @@ use super::html;
 use super::overlays::Parent;
 use super::topics::page_of;
 use crate::form::{get, parse};
-use crate::model::{GroupFilter, GroupLagView};
+use crate::model::{GroupLagView, GroupStates};
 use crate::pages::groups as page;
 use crate::state::Shared;
 use crate::trail::{Place, borrowed};
@@ -48,8 +48,8 @@ pub(super) async fn gone(s: &Shared, id: &str) -> Response {
 pub async fn groups(State(s): State<Shared>, RawQuery(query): RawQuery) -> Response {
     let f = parse(query.as_deref().unwrap_or(""));
     let filter = get(&f, "q").unwrap_or("").trim().to_owned();
-    let state = GroupFilter::parse(get(&f, "state").unwrap_or(""));
-    let view = s.source.groups(&filter, state, get(&f, "hint")).await;
+    let state = GroupStates::parse(&f);
+    let view = s.source.groups(&filter, &state, get(&f, "hint")).await;
     let title = if view.total == 0 {
         "No groups yet"
     } else {
@@ -58,7 +58,7 @@ pub async fn groups(State(s): State<Shared>, RawQuery(query): RawQuery) -> Respo
     crate::region::canonical(&format!(
         "{}{}",
         s.base.url("/groups"),
-        crate::form::encode_query(&[("q", &filter), ("state", state.value())])
+        state.query(&filter)
     ));
     let main = page::groups_page(&view, &s.base, &s.source.listen());
     shell(
