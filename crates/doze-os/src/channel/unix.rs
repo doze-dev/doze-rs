@@ -29,6 +29,16 @@ pub(super) async fn spawn_module(
     Ok((child, Channel(UnixStream::from_std(ours)?)))
 }
 
+pub(super) async fn pair() -> io::Result<(Channel, Channel)> {
+    let (a, b) = std::os::unix::net::UnixStream::pair()?;
+    a.set_nonblocking(true)?;
+    b.set_nonblocking(true)?;
+    Ok((
+        Channel(UnixStream::from_std(a)?),
+        Channel(UnixStream::from_std(b)?),
+    ))
+}
+
 pub(super) fn module_channel() -> io::Result<Channel> {
     // Our own copy of the socket (close-on-exec), then fd 0 becomes /dev/null so programs this module runs
     // (psql, mariadb …) never inherit the channel (S0 measured a grandchild holding it otherwise).

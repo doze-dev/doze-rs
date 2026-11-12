@@ -51,6 +51,13 @@ pub fn private_dir(path: &Path) -> io::Result<()> {
     imp::make_private(path)
 }
 
+/// Writes `bytes` to `path` (replacing it) so that only this user can read it, for an engine config that carries a
+/// password: mode 0600 on Unix, the file made private before anything is written to it on Windows. An existing file is
+/// narrowed too.
+pub fn write_private(path: &Path, bytes: &[u8]) -> io::Result<()> {
+    imp::write_private(path, bytes)
+}
+
 /// Makes `dst` a copy of the directory `src`: copy-on-write where the filesystem supports it (APFS clonefile, btrfs
 /// and XFS reflinks), a plain copy otherwise. `dst` must not exist; its parent must.
 pub fn clone_dir(src: &Path, dst: &Path) -> io::Result<()> {

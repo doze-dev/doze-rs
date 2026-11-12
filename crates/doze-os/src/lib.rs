@@ -10,12 +10,14 @@
 //! - [`which`]: find a program on `PATH` without a shell.
 //! - [`fs`]: locks between processes, owner-only directories, cloning a data directory.
 //! - [`home`]: where doze keeps its state.
+//! - [`net`]: dial an engine's backend, a Unix socket or loopback TCP, as one stream type.
 //! - [`detach`]: start the daemon so it outlives its starter (and can still stop engines gently).
 
 pub mod channel;
 pub mod detach;
 pub mod fs;
 pub mod home;
+pub mod net;
 pub mod privilege;
 pub mod tree;
 pub mod which;

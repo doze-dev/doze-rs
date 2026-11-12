@@ -76,6 +76,19 @@ pub(super) async fn spawn_module(
     Ok((child, Channel::Server(server, want)))
 }
 
+pub(super) async fn pair() -> io::Result<(Channel, Channel)> {
+    crate::winsock::init()?;
+    let name = pipe_name();
+    let server = ServerOptions::new()
+        .first_pipe_instance(true)
+        .reject_remote_clients(true)
+        .create(&name)?;
+    let client = ClientOptions::new().open(&name)?;
+    server.connect().await?;
+    let me = std::process::id();
+    Ok((Channel::Server(server, me), Channel::Client(client, me)))
+}
+
 pub(super) fn module_channel() -> io::Result<Channel> {
     crate::winsock::init()?;
     let name = std::env::var(PIPE_ENV)
