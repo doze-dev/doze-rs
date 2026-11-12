@@ -4,6 +4,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use aws_model_kms::Operation;
+use aws_peers::{Mode, Peers};
 use aws_seal::Sealer;
 use aws_wire::ApiError;
 use aws_wire::service::{Call, Reply};
@@ -32,6 +33,8 @@ pub(crate) struct Core {
     pub(crate) db: Option<Db>,
     /// When the first key scheduled for deletion is due to go, so a call before then need not look.
     next_purge_ms: Option<i64>,
+    /// The bus, for asking whether a caller may do what it asks.
+    pub(crate) peers: Option<Arc<Peers>>,
 }
 
 /// What the actor answers: the reply, and the commit it must wait for.
@@ -99,10 +102,24 @@ impl doze_runtime::Service for Core {
     type Error = StoreError;
 
     async fn open(ctx: &Ctx, _name: &'static str) -> Result<Self, StoreError> {
-        Self::open_in(&ctx.dir, Arc::clone(&ctx.clock))
+        let mut core = Self::open_in(&ctx.dir, Arc::clone(&ctx.clock))?;
+        core.peers = ctx
+            .ext
+            .as_ref()
+            .and_then(|e| Arc::clone(e).downcast::<Peers>().ok());
+        Ok(core)
     }
 
     async fn handle(&mut self, call: Call) -> Answer {
+        if let Some(peers) = self.peers.clone()
+            && peers.mode() != Mode::Off
+            && let Err(refusal) = peers.authorize(&call.caller, self.needs(&call)).await
+        {
+            return Answer {
+                reply: Err(refusal),
+                durable: None,
+            };
+        }
         let mut reply = self.dispatch(&call);
         let durable = match self.flush() {
             Ok(ack) => ack,
@@ -172,6 +189,7 @@ impl Core {
             clock,
             db,
             next_purge_ms,
+            peers: None,
         }
     }
 

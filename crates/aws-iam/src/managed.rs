@@ -16,10 +16,15 @@ use crate::view;
 const MAX_VERSIONS: usize = 5;
 const AWS_PREFIX: &str = "arn:aws:iam::aws:policy/";
 const EMPTY_DOCUMENT: &str = r#"{"Version":"2012-10-17","Statement":[]}"#;
+/// The one AWS-managed policy whose document is the same everywhere and known without asking AWS.
+const ADMINISTRATOR: &str =
+    r#"{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":"*","Resource":"*"}]}"#;
 
 impl Core {
-    /// The policy `arn` names. An AWS-managed policy (`arn:aws:iam::aws:policy/...`) is made the first time it is named, with an
-    /// empty document: doze-aws does not carry AWS's documents yet, so such a policy attaches and lists but allows nothing.
+    /// The policy `arn` names. An AWS-managed policy (`arn:aws:iam::aws:policy/...`) is made the first time it is named. Only
+    /// `AdministratorAccess` has its document; the rest are empty, since doze-aws does not carry AWS's documents yet (they are to be
+    /// recorded from the AWS account): such a policy attaches and lists but allows nothing, which enforce mode would show as a
+    /// refusal that AWS would not make.
     pub(crate) fn known_policy(&mut self, arn: &str) -> Result<(), ApiError> {
         if self.policies.get(arn).is_some() {
             return Ok(());
@@ -41,7 +46,12 @@ impl Core {
             updated_ms: now,
             versions: vec![Version {
                 id: "v1".into(),
-                document: EMPTY_DOCUMENT.into(),
+                document: if name == "AdministratorAccess" {
+                    ADMINISTRATOR
+                } else {
+                    EMPTY_DOCUMENT
+                }
+                .into(),
                 created_ms: now,
             }],
             default: "v1".into(),

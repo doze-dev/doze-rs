@@ -25,7 +25,7 @@ impl Core {
             Need::new(action.clone(), arn(region, account, name)).with_policy(policy)
         };
         let named = match op {
-            Operation::CreateQueue | Operation::GetQueueUrl => text("QueueName").map(&on),
+            Operation::CreateQueue | Operation::GetQueueUrl => text("QueueName").map(on),
             Operation::ListQueues => Some(Need::new(action.clone(), arn(region, account, "*"))),
             Operation::StartMessageMoveTask | Operation::ListMessageMoveTasks => text("SourceArn")
                 .map(|a| {

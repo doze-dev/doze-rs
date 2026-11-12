@@ -186,3 +186,83 @@ fn principal_tags_and_condition_keys_reach_the_policy() {
     );
     assert!(refusal(&w, &caller(&key, None), "sqs:SendMessage").is_some());
 }
+
+fn iam_as(
+    w: &mut World,
+    key: &str,
+    op: &str,
+    request: &serde_json::Value,
+) -> Result<serde_json::Value, aws_wire::ApiError> {
+    let previous = std::mem::replace(&mut w.iam.access_key_id, key.to_owned());
+    let out = w.run(op, request);
+    w.iam.access_key_id = previous;
+    out
+}
+
+#[test]
+fn iam_guards_itself_and_sts_lets_anyone_see_who_they_are() {
+    let mut w = World::new();
+    let key = user_with_key(&mut w, "dave");
+    w.core.mode = Mode::Enforce;
+    let e = iam_as(&mut w, &key, "CreateUser", &json!({"UserName": "eve"})).unwrap_err();
+    assert_eq!((e.status, e.code.as_ref()), (403, "AccessDenied"));
+    assert!(e.message.contains("is not authorized to perform: iam:CreateUser on resource: arn:aws:iam::000000000000:user/eve"), "{}", e.message);
+    // The root is not asked.
+    w.ok("CreateUser", &json!({"UserName": "eve"}));
+    // Allowed on its own user only.
+    let own = r#"{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":"iam:GetUser","Resource":"arn:aws:iam::000000000000:user/dave"}]}"#;
+    w.ok(
+        "PutUserPolicy",
+        &json!({"UserName": "dave", "PolicyName": "own", "PolicyDocument": own}),
+    );
+    assert!(iam_as(&mut w, &key, "GetUser", &json!({"UserName": "dave"})).is_ok());
+    assert!(iam_as(&mut w, &key, "GetUser", &json!({"UserName": "eve"})).is_err());
+    let previous = std::mem::replace(&mut w.sts.access_key_id, key);
+    assert_eq!(
+        w.sts_ok("GetCallerIdentity", &json!({}))["Arn"],
+        "arn:aws:iam::000000000000:user/dave"
+    );
+    w.sts.access_key_id = previous;
+}
+
+#[test]
+fn assuming_a_role_needs_the_trust_policy_and_either_the_user_named_or_an_identity_allow() {
+    let mut w = World::new();
+    let key = user_with_key(&mut w, "frank");
+    let direct = r#"{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"AWS":"arn:aws:iam::000000000000:user/frank"},"Action":"sts:AssumeRole"}]}"#;
+    w.ok(
+        "CreateRole",
+        &json!({"RoleName": "named", "AssumeRolePolicyDocument": direct}),
+    );
+    let account = r#"{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"AWS":"arn:aws:iam::000000000000:root"},"Action":"sts:AssumeRole"}]}"#;
+    w.ok(
+        "CreateRole",
+        &json!({"RoleName": "open", "AssumeRolePolicyDocument": account}),
+    );
+    w.ok(
+        "CreateRole",
+        &json!({"RoleName": "lambda", "AssumeRolePolicyDocument": TRUST}),
+    );
+    w.core.mode = Mode::Enforce;
+    let may = |w: &mut World, role: &str| {
+        let previous = std::mem::replace(&mut w.sts.access_key_id, key.clone());
+        let out = w.sts_run("AssumeRole", &json!({"RoleArn": format!("arn:aws:iam::000000000000:role/{role}"), "RoleSessionName": "sess"}));
+        w.sts.access_key_id = previous;
+        out.is_ok()
+    };
+    assert!(may(&mut w, "named"), "the trust policy names the user");
+    assert!(
+        !may(&mut w, "open"),
+        "the trust policy names the account, so the user needs an allow of its own"
+    );
+    let allow = r#"{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":"sts:AssumeRole","Resource":"*"}]}"#;
+    w.ok(
+        "PutUserPolicy",
+        &json!({"UserName": "frank", "PolicyName": "assume", "PolicyDocument": allow}),
+    );
+    assert!(may(&mut w, "open"));
+    assert!(
+        !may(&mut w, "lambda"),
+        "a trust policy that names someone else lets no one else in"
+    );
+}

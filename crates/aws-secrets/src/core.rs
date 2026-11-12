@@ -4,7 +4,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use aws_model_secrets_manager::Operation;
-use aws_peers::Peers;
+use aws_peers::{Mode, Peers};
 use aws_wire::ApiError;
 use aws_wire::service::{Call, Reply};
 use doze_runtime::{Clock, Ctx};
@@ -60,6 +60,15 @@ impl doze_runtime::Service for Core {
     }
 
     async fn handle(&mut self, call: Call) -> Answer {
+        if let Some(peers) = self.peers.clone()
+            && peers.mode() != Mode::Off
+            && let Err(refusal) = peers.authorize(&call.caller, self.needs(&call)).await
+        {
+            return Answer {
+                reply: Err(refusal),
+                durable: None,
+            };
+        }
         let mut reply = self.dispatch(&call).await;
         let durable = match self.flush() {
             Ok(ack) => ack,

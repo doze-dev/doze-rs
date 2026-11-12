@@ -8,11 +8,12 @@
 use aws_iam_policy::{Context, Decision, Document, Layer, Policies, Request, Subject, Verdict};
 use aws_peers::{Mode, Need};
 use aws_wire::ApiError;
-use aws_wire::service::Caller;
+use aws_wire::service::{Call, Caller};
 
-use crate::core::Core;
+use crate::core::{Core, Which};
 use crate::gather::Docs;
 use crate::model::{Entity, Kind};
+use crate::req::Req;
 use crate::session::{Session, SessionKind, TokenFault};
 
 /// Context keys AWS supplies on a real request and this emulator cannot: a condition that hangs on one is a guess, and the log says so.
@@ -275,4 +276,102 @@ fn refusal(p: &Principal, need: &Need, d: &Decision) -> String {
         format!("because no {missing} allows the {action} action")
     };
     format!("{head}{why}")
+}
+
+impl Core {
+    /// Every thing a call to IAM or STS asks to do. `GetCallerIdentity` and `GetSessionToken` are never asked about: AWS lets any
+    /// caller see who they are, and a session token is made from what a user already has.
+    pub(crate) fn needs_of(&self, which: Which, call: &Call) -> Vec<Need> {
+        let r = Req::new(call);
+        match which {
+            Which::Sts => self.sts_needs(call, &r),
+            Which::Iam => {
+                let Some(op) = aws_model_iam::Operation::from_index(call.op) else {
+                    return Vec::new();
+                };
+                let mut need = Need::new(
+                    format!("iam:{op:?}"),
+                    self.iam_resource(op, &r, &call.caller),
+                );
+                if let Some(arn) = r.opt("PolicyArn") {
+                    need = need.with("iam:PolicyARN", vec![arn.to_owned()]);
+                }
+                if let Some(arn) = r.opt("PermissionsBoundary") {
+                    need = need.with("iam:PermissionsBoundary", vec![arn.to_owned()]);
+                }
+                vec![need]
+            }
+        }
+    }
+
+    fn sts_needs(&self, call: &Call, r: &Req<'_>) -> Vec<Need> {
+        use aws_model_sts::Operation as O;
+        let Some(op) = O::from_index(call.op) else {
+            return Vec::new();
+        };
+        match op {
+            O::GetCallerIdentity
+            | O::GetSessionToken
+            | O::AssumeRoleWithWebIdentity
+            | O::AssumeRoleWithSAML => Vec::new(),
+            O::AssumeRole => {
+                let arn = r.s("RoleArn");
+                let trust = arn
+                    .rsplit('/')
+                    .next()
+                    .and_then(|name| self.entity(Kind::Role, name).ok())
+                    .and_then(|role| role.trust.clone());
+                vec![Need::new("sts:AssumeRole", arn).with_policy(trust).gated()]
+            }
+            other => vec![Need::new(format!("sts:{other:?}"), "*")],
+        }
+    }
+
+    /// The ARN of what an IAM operation is on: the entity, policy or profile it names, else `*`.
+    fn iam_resource(&self, op: aws_model_iam::Operation, r: &Req<'_>, caller: &Caller) -> String {
+        use aws_model_iam::Operation as O;
+        let account = &caller.account_id;
+        let entity = |kind: Kind, name: &str| {
+            self.entity(kind, name).map_or_else(
+                |_| {
+                    let path = r.opt("Path").unwrap_or("/");
+                    format!("arn:aws:iam::{account}:{}{path}{name}", kind.word())
+                },
+                |e| e.arn.clone(),
+            )
+        };
+        let group_first = matches!(op, O::AddUserToGroup | O::RemoveUserFromGroup);
+        if group_first && let Some(name) = r.opt("GroupName") {
+            return entity(Kind::Group, name);
+        }
+        if let Some(name) = r.opt("UserName") {
+            return entity(Kind::User, name);
+        }
+        if let Some(name) = r.opt("GroupName") {
+            return entity(Kind::Group, name);
+        }
+        if let Some(name) = r.opt("RoleName") {
+            return entity(Kind::Role, name);
+        }
+        for member in ["PolicyArn", "OpenIDConnectProviderArn", "SAMLProviderArn"] {
+            if let Some(arn) = r.opt(member) {
+                return arn.to_owned();
+            }
+        }
+        if let Some(name) = r.opt("InstanceProfileName") {
+            let path = r.opt("Path").unwrap_or("/");
+            return self.profiles.get(name).map_or_else(
+                || format!("arn:aws:iam::{account}:instance-profile{path}{name}"),
+                |p| p.arn.clone(),
+            );
+        }
+        // A key made or listed without a user is the caller's own.
+        if matches!(op, O::CreateAccessKey | O::ListAccessKeys)
+            && let Ok(Resolved::Principal(p)) = self.resolve(caller)
+            && let Some(arn) = p.subject.arns.first()
+        {
+            return arn.clone();
+        }
+        "*".to_owned()
+    }
 }

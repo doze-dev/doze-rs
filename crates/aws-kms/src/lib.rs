@@ -5,6 +5,7 @@
 
 mod alias;
 mod asym;
+mod authz;
 mod cipher;
 mod core;
 mod crypto;

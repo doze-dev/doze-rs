@@ -199,6 +199,16 @@ impl Core {
 
     /// Runs the call and writes the answer as the operation's output.
     pub(crate) fn dispatch(&mut self, which: Which, call: &Call) -> Reply {
+        if self.mode != Mode::Off {
+            // The Query services refuse as 403 `AccessDenied`.
+            self.authorize(&call.caller, &self.needs_of(which, call))
+                .map_err(|mut denied| {
+                    denied.status = 403;
+                    denied.code = "AccessDenied".into();
+                    denied.shape = None;
+                    denied
+                })?;
+        }
         let r = Req::new(call);
         let value: Value = match which {
             Which::Iam => self.run_iam(call.op, &r)?,

@@ -230,6 +230,7 @@ dependencies = [
  "aes-kw",
  "aws-core",
  "aws-model-kms",
+ "aws-peers",
  "aws-schema",
  "aws-seal",
  "aws-testkit",

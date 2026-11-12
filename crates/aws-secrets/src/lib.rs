@@ -2,6 +2,7 @@
 //! passwords, as a state machine behind a lazy actor. State is on disk, values are sealed, and it survives an idle reap and a
 //! restart. Rotation (which drives a Lambda function) and replication to other regions are refused by name.
 
+mod authz;
 mod core;
 mod create;
 mod delete;

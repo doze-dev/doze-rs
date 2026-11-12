@@ -2,6 +2,7 @@
 //! on disk, and survives an idle reap and a restart. The other half of SSM (Run Command, Automation, Session Manager,
 //! associations, inventory, patching, maintenance windows) is refused by name before its request is read.
 
+mod authz;
 mod core;
 mod kms;
 mod label;

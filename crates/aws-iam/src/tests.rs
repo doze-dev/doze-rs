@@ -90,6 +90,14 @@ impl World {
         )
     }
 
+    pub(crate) fn sts_run(
+        &mut self,
+        op: &str,
+        request: &Value,
+    ) -> Result<Value, aws_wire::ApiError> {
+        self.go(Which::Sts, op, request)
+    }
+
     pub(crate) fn sts_ok(&mut self, op: &str, request: &Value) -> Value {
         self.go(Which::Sts, op, request)
             .unwrap_or_else(|e| panic!("{op}: {} {}", e.code, e.message))
