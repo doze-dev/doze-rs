@@ -49,4 +49,10 @@ doze-kafka 9000000 159 8192 --listen 127.0.0.1:{port} --data-dir {data}
 # (+711 KB and +11 packages over the 4,660,320 B / 209 of SNS, DynamoDB and S3: Logs, Kinesis, CloudWatch, the CBOR codec and flate2). Byte limit = macOS size times 1.2
 # plus 5% = 6,768,000, rounded to 6,800,000 B; packages 224 (measured 220 plus 4). Idle unchanged at 6,144 KB. Package count is now the faster-growing number
 # (198 to 220 in one round): every new third-party package must be named in the stage note.
-doze-aws 6800000 224 6144 --listen 127.0.0.1:{port} --data-dir {data}
+# 2026-11-13, A13 Lambda (branch aws-a13-lambda, alone on the 5,371,872 B / 220 package base): 6,102,912 B, 229 packages, 3,872 KB idle (+731 KB, +9 packages, +0.27 MB idle). NO new
+# third-party package: Cargo.lock gains only aws-lambda and (linked for the first time) aws-model-lambda. The tool counts distinct lines of `cargo tree`, so a crate reached by a
+# new edge is counted again as a "(*)" line; the other 7 are such repeat lines (hyper, http-body-util, tokio-util, flate2, crc32fast, sha2, tokio) from aws-lambda's own edges.
+# What the bytes are: the Lambda model's tables (87 operations, 840 constraints), the REST-JSON codec, the Runtime API server, the zip reader, the three embedded runtime clients
+# (about 19 KB of text), the pollers and the service. Byte limit: macOS size times 1.2 plus 5% = 7,690,000, rounded to 7,700,000 B (the owner's ceiling on Linux is 10 MB; the
+# Linux build is about 1.45 times the macOS one, so 6.1 MB is about 8.9 MB there); packages 233 (measured 229 plus 4). Idle limit unchanged.
+doze-aws 7700000 233 6144 --listen 127.0.0.1:{port} --data-dir {data}

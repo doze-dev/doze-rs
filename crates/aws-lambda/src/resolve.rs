@@ -68,12 +68,15 @@ impl Core {
             .get(&f.name)
             .ok_or_else(|| no_function(&invoked))?;
         let key = f.qualifier.clone().unwrap_or_default();
-        self.allow(
-            ask,
-            &invoked,
-            function.policies.get(&key).map(String::as_str),
-        )
-        .await?;
+        // What the caller named is what the policy is asked about: the unqualified ARN unless they gave a qualifier.
+        let named = arn::function(
+            &self.region,
+            &ask.caller.account_id,
+            &f.name,
+            f.qualifier.as_deref(),
+        );
+        self.allow(ask, &named, function.policies.get(&key).map(String::as_str))
+            .await?;
         let qualifier = match f.qualifier.as_deref() {
             Some(q) if function.aliases.iter().any(|a| a.name == q) => Some(
                 self.alias_version(function, q, ask.draw)

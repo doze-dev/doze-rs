@@ -366,6 +366,51 @@ async fn code_run_in_place_is_picked_up_when_the_directory_changes() {
 }
 
 #[tokio::test]
+async fn a_service_invokes_a_function_only_when_the_functions_policy_names_it() {
+    if !have("python3") {
+        return;
+    }
+    let w = World::with_mode(Mode::Enforce);
+    let role = create_role(&w, "r", TRUST).await;
+    function_with_role(&w, "f", &role, WORKS).await.unwrap();
+    let body = json!({"FunctionName": "f", "Payload": base64::encode(br#"{"from":"sns"}"#),
+        "SourceArn": format!("arn:aws:sns:us-east-1:{ACCOUNT}:t")});
+    let invoke = |service: &'static str| {
+        let (peers, body) = (w.peers.clone(), body.clone());
+        async move {
+            peers
+                .call(service, &World::caller(), "lambda", "Invoke", &body)
+                .await
+        }
+    };
+    let denied = invoke("sns").await.unwrap_err();
+    assert_eq!(denied.code, "AccessDeniedException");
+    assert!(
+        denied
+            .message
+            .contains("sns.amazonaws.com is not authorized to perform: lambda:InvokeFunction"),
+        "{}",
+        denied.message
+    );
+    w.ok(
+        "AddPermission",
+        json!({"FunctionName": "f", "StatementId": "sns", "Action": "lambda:InvokeFunction", "Principal": "sns.amazonaws.com",
+            "SourceArn": format!("arn:aws:sns:us-east-1:{ACCOUNT}:t")}),
+    )
+    .await;
+    let ok = invoke("sns").await.unwrap();
+    assert_eq!(ok["StatusCode"], 200);
+    let payload = base64::decode(ok["Payload"].as_str().unwrap()).unwrap();
+    assert_eq!(payload, br#"{"ok": {"from": "sns"}}"#);
+    // The statement names SNS, not S3.
+    assert_eq!(
+        invoke("s3").await.unwrap_err().code,
+        "AccessDeniedException"
+    );
+    w.stop().await;
+}
+
+#[tokio::test]
 async fn a_role_that_cannot_read_the_queue_cannot_have_it_mapped_when_iam_enforces() {
     let w = World::with_mode(Mode::Enforce);
     let role = create_role(&w, "reader", TRUST).await;
