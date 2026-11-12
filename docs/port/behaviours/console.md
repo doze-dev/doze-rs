@@ -464,3 +464,9 @@ Fixture render (`tests/boards_live::every_board_of_the_slice_renders_and_is_writ
 
 ### What these boards show that the recorder cannot supply, and what the page does instead
 Tagged in `docs/port/debt.md` J151 to J170: "waited 480 ms" (the recorder knows how long the client was willing to wait); "Record 0 has a null key" (no record is kept: the broker's own message and the topic's config now); the producer's story (only requests still on the tape, not why a transaction timed out: that is the group-ring slice's); a heartbeat that is idle is hidden by default.
+
+## CON-414. A Live drawer is an overlay over the Live page it was opened from
+`/live/{id}` (Detail, Refused, Fenced, Too large by what became of the request) and `/live/clients` are drawers over the Live page with the filters in the address; a direct visit is that page with the drawer open, Close and the scrim are plain links to the same filtered page, a script is sent the drawer alone, the tape's time links and the refused links are openers that carry the filters, a request not on the tape is a 404 page with no drawer. Test: `tests/overlays::a_live_drawer_closes_to_the_live_page_with_its_filters_and_the_tape_links_open_it_in_place`, `tests/overlays::a_direct_visit_is_the_parent_page_with_the_overlay_open_on_it`, `tests/overlays::a_request_that_is_not_on_the_tape_and_a_hostile_id_are_the_page_that_says_so_with_no_drawer`.
+
+## CON-415. An open drawer holds the tape, and closing it lets the tape catch up
+While a Live drawer is open (adopted from the server or opened in place) what the stream brings is kept aside with no banner; closing it by Esc, the Close control or Back brings the newest in. Test: `tools/dom/live.test.ts` (a Live drawer opened by the overlay system holds the tape).

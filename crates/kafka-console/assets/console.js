@@ -2,7 +2,20 @@
 // (copy), fragments that refetch when the server says they changed, forms that swap their answer in place, drawers and
 // dialogs that open over the page they were asked from, and the banner when the stream is lost. Every name below is defined in src/ui/client.rs, and a test checks that they agree.
 // Measured by the D4a spike (docs/port/phase9/client-spike.md); the rules it found are marked (spike n).
+//
+// One file, one request, no build step. It is past the ~200 lines at which the D4a spike said to reconsider writing our own, and
+// the owner's call is to keep it: it stays readable as sections, in this order, each one standing on the ones above it:
+//   1. Helpers and the copy buttons      (attr, reveal, copy, "Copied")
+//   2. Fragments                         (morph, fade, apply, refresh by ETag)
+//   3. Live                              (pause and resume, the tape held aside while paused or while a drawer is open, new rows, j/k on the tape)
+//   4. Overlays                          (open, close, history, focus, form answers, page swap, adoption of a server-rendered one)
+//   5. The jump palette                  (⌘K, arrows, Enter)
+//   6. j and k through the rows          (and through the records of an open drawer)
+//   7. The stream                        (one EventSource, ticks, the banner)
+// The Live section asks "is an overlay open?" of the DOM (`[data-overlay]`) and the Overlays section lets the tape catch up when
+// the last one goes, so neither knows the other's internals. Tests: tools/dom (console, overlay, polish and live suites).
 (() => {
+  // ==== 1. Helpers and the copy buttons ====
   const attr = (el, name) => (el ? el.getAttribute(name) : null);
   const banner = () => document.getElementById('stream-banner');
   const reveal = () => {
@@ -67,6 +80,7 @@
     setTimeout(() => { btn.innerHTML = was; btn.style.minWidth = ''; btn.removeAttribute('data-copied'); }, 1400);
   }
 
+  // ==== 2. Fragments ====
   // Edit the nodes on screen into the new ones, so focus, typed text, caret and scroll position stay. What really changed is
   // remembered, so that only it fades in (below): an unchanged answer changes nothing and moves nothing.
   const changed = new Set();
@@ -122,7 +136,8 @@
     } catch (e) { const b = banner(); if (e.name !== 'AbortError' && b) b.hidden = false; }
   }
 
-  // Live (slice 9e). A fragment that carries a [data-seen] (a count that grows with every request recorded) is a tape: while it
+  // ==== 3. Live (slice 9e) ====
+  // A fragment that carries a [data-seen] (a count that grows with every request recorded) is a tape: while it
   // is paused, or a drawer is open over it, new answers are kept aside and counted, so what a person reads never moves.
   // Pause is a link that works with no script (the page as it was); here it holds the tape in place instead. Resume (or
   // closing the drawer) brings the newest in. New rows are marked for a moment so the eye finds them.
@@ -203,7 +218,8 @@
     } catch (err) { f.submit(); }
   }
 
-  // ---- Overlays: a drawer or a dialog (src/ui/overlay.rs) opens over the page it was asked from, with no navigation. The
+  // ==== 4. Overlays ====
+  // A drawer or a dialog (src/ui/overlay.rs) opens over the page it was asked from, with no navigation. The
   // address is pushed, so Back closes it; Esc, the scrim and the Close control close it too. The page behind is inert, focus
   // stays inside, and closing returns focus to what opened it. A server-rendered overlay (a direct visit, a reload) is adopted.
   let ovl = null; // { el, opener, pushed, y }
@@ -348,7 +364,8 @@
     if (e.shiftKey && (at === first || !p.contains(at))) { e.preventDefault(); last.focus(); }
     else if (!e.shiftKey && (at === last || !p.contains(at))) { e.preventDefault(); first.focus(); }
   });
-  // ---- Jump: ⌘K or Ctrl+K, or a click on the top bar's search, opens the palette (/jump, an overlay with no page behind it of its
+  // ==== 5. The jump palette ====
+  // ⌘K or Ctrl+K, or a click on the top bar's search, opens the palette (/jump, an overlay with no page behind it of its
   // own: no history entry). Typing narrows the topics, the arrows move, Enter goes there, Esc closes.
   const palette = () => attr(document.querySelector('[data-palette]'), 'data-palette');
   function openPalette() {
@@ -379,6 +396,7 @@
   document.addEventListener('click', (e) => { if (!ovl && e.target.closest('[data-palette]')) openPalette(); });
   document.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !ovl && e.target.closest && e.target.closest('[data-palette]')) openPalette(); });
 
+  // ==== 6. j and k through the rows ====
   // j and k move through the rows of the page's table (a row's first link takes the focus; Enter opens it, as on any link). With
   // a drawer open they are the next and the previous record: the opener's neighbours in its table.
   const typing = (t) => t && (/^(input|textarea|select)$/i.test(t.tagName) || t.isContentEditable);
@@ -407,7 +425,8 @@
   const first = document.querySelector('[data-overlay]');
   if (first) { ovl = { el: first, opener: null, pushed: false, y: 0 }; history.replaceState({ ovl: 1 }, '', location.href); focusIn(first); }
 
-  // The stream: one connection while the page is on screen. A tick names the fragments to fetch again.
+  // ==== 7. The stream ====
+  // One connection while the page is on screen. A tick names the fragments to fetch again.
   let es = null, wait = 1000, timer = 0;
   const close = () => { clearTimeout(timer); if (es) es.close(); es = null; };
   const connect = () => {
