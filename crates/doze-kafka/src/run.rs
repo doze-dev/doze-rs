@@ -46,7 +46,7 @@ pub(crate) async fn serve(
     flags: Flags,
 ) -> Result<()> {
     #[cfg(not(feature = "console"))]
-    let _ = flags;
+    let () = flags;
     let Settings {
         broker,
         server,

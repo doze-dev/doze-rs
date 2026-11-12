@@ -15,6 +15,7 @@ use axum::Router;
 use kafka_auth::scram::Kind;
 use kafka_auth::{Authenticator, Credentials, Mechanism, Users};
 use kafka_console::Backend;
+use kafka_console::backend::requests::broker_configs;
 use kafka_console::base::Base;
 use kafka_console::facts::Facts;
 use kafka_console::facts_start::StartFacts;
@@ -26,7 +27,7 @@ use kafka_wire::messages::AlterUserScramCredentialsRequest;
 use kafka_wire::messages::alter_user_scram_credentials_request::ScramCredentialUpsertion;
 use tokio_util::sync::CancellationToken;
 
-use crate::support_write::{World, world};
+use crate::support_write::{World, post_form, world};
 
 pub const FLAG_PASSWORD: &str = "PLANTED-FLAG-USER-PASSWORD-7731";
 pub const STORED_SALT: &[u8] = b"PLANTED-SALT-0123";
@@ -156,4 +157,109 @@ impl Secured {
             self.w.backend.clone(),
         )
     }
+}
+
+/// Every ACL the broker lists, as `(type, name, pattern, principal, host, operation, permission)`.
+pub async fn acls(w: &World) -> Vec<(i8, String, i8, String, String, i8, i8)> {
+    let Response::DescribeAcls(r) = w
+        .ask(3, kafka_console::backend::requests::acls::describe_all())
+        .await
+    else {
+        panic!()
+    };
+    assert_eq!(r.error_code, 0, "{r:?}");
+    let mut out = Vec::new();
+    for res in &r.resources {
+        for a in &res.acls {
+            out.push((
+                res.resource_type,
+                res.resource_name.to_string(),
+                res.pattern_type,
+                a.principal.to_string(),
+                a.host.to_string(),
+                a.operation,
+                a.permission_type,
+            ));
+        }
+    }
+    out
+}
+
+pub fn new_acl(name: &str, principal: &str) -> Vec<(&'static str, String)> {
+    vec![
+        ("type", "topic".to_owned()),
+        ("name", name.to_owned()),
+        ("pattern", "literal".to_owned()),
+        ("principal", principal.to_owned()),
+        ("host", "*".to_owned()),
+        ("op", "write".to_owned()),
+        ("perm", "allow".to_owned()),
+    ]
+}
+
+pub fn form(fields: &[(&'static str, String)]) -> axum::http::Request<axum::body::Body> {
+    let f: Vec<(&str, &str)> = fields.iter().map(|(k, v)| (*k, v.as_str())).collect();
+    post_form("/access/acls/new", &f)
+}
+
+/// A broker config as DescribeConfigs says it for this broker: value and source number.
+pub async fn described(w: &World, key: &str) -> (String, i8) {
+    let Response::DescribeConfigs(r) = w.ask(4, broker_configs::describe_broker(1)).await else {
+        panic!()
+    };
+    let c = r.results[0]
+        .configs
+        .iter()
+        .find(|c| c.name.as_str() == key)
+        .unwrap_or_else(|| panic!("the broker does not list {key}"));
+    (
+        c.value
+            .as_ref()
+            .map(ToString::to_string)
+            .unwrap_or_default(),
+        c.config_source,
+    )
+}
+
+pub async fn alter(
+    w: &World,
+    name: &str,
+    key: &str,
+    value: &str,
+    validate_only: bool,
+) -> (i16, Option<String>) {
+    let Response::IncrementalAlterConfigs(r) = w
+        .ask(
+            1,
+            broker_configs::alter_broker(name, key, value, validate_only),
+        )
+        .await
+    else {
+        panic!()
+    };
+    (
+        r.responses[0].error_code,
+        r.responses[0]
+            .error_message
+            .as_ref()
+            .map(ToString::to_string),
+    )
+}
+
+pub async fn seeded(name: &str) -> World {
+    let w = world(name, |b, _| {
+        b.log_retention_check_every = std::time::Duration::from_secs(7);
+        b.fsync_interval = std::time::Duration::from_millis(90);
+    })
+    .await;
+    w.create_topic("orders", 2, &[("retention.ms", "604800000")])
+        .await;
+    w.create_topic("payments.settled", 1, &[]).await;
+    w.create_topic("inventory.levels", 1, &[("cleanup.policy", "compact")])
+        .await;
+    w
+}
+
+pub fn app(w: &World) -> axum::Router {
+    router_with(w.facts.clone(), start(false), w.backend.clone())
 }

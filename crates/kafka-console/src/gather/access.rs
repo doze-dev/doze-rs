@@ -137,6 +137,17 @@ pub fn users_of(
     rows
 }
 
+/// What the broker said, before it is made into a page.
+#[derive(Debug, Clone)]
+pub struct Read {
+    pub flag_users: Vec<String>,
+    pub supers: Vec<String>,
+    pub default_allow: bool,
+    pub stored: usize,
+    pub acls: Result<Vec<AclEntry>, Refusal>,
+    pub scram: Vec<(String, Vec<&'static str>)>,
+}
+
 /// The page.
 pub async fn access(b: &Backend, facts: &Facts, start: &StartFacts) -> AccessView {
     let known = b.access_facts();
@@ -158,8 +169,29 @@ pub async fn access(b: &Backend, facts: &Facts, start: &StartFacts) -> AccessVie
             )
         },
     );
-    let listed = entries(b).await;
-    let (rows, refused) = match listed {
+    let read = Read {
+        flag_users,
+        supers,
+        default_allow,
+        stored,
+        acls: entries(b).await,
+        scram: scram_users(b).await,
+    };
+    assemble(read, facts, start)
+}
+
+/// The page from what was read (pure: everything it says is in the arguments).
+#[must_use]
+pub fn assemble(read: Read, facts: &Facts, start: &StartFacts) -> AccessView {
+    let Read {
+        flag_users,
+        supers,
+        default_allow,
+        stored,
+        acls,
+        scram,
+    } = read;
+    let (rows, refused) = match acls {
         Ok(rows) => (rows, None),
         Err(r) => (vec![], Some(r)),
     };
@@ -183,7 +215,7 @@ pub async fn access(b: &Backend, facts: &Facts, start: &StartFacts) -> AccessVie
         console_addr: &console_addr,
         listener: &listen,
     };
-    let users = users_of(scram_users(b).await, &flag_users, plain_on, &supers);
+    let users = users_of(scram, &flag_users, plain_on, &supers);
     AccessView {
         auth: AccessAuth {
             on: sasl,
@@ -202,26 +234,34 @@ pub async fn access(b: &Backend, facts: &Facts, start: &StartFacts) -> AccessVie
             deny: rows.len() - allow,
             super_users: supers,
         },
-        tls: AccessTls {
-            on: facts.tls,
-            cert: start.tls_cert.clone(),
-            listener: listen.clone(),
-            loopback: facts.loopback(),
-        },
+        tls: tls_of(facts, start),
         users,
         acls: AccessAcls {
             more: rows.len().saturating_sub(MOST_ACLS),
             rows: rows.into_iter().take(MOST_ACLS).collect(),
             refused,
         },
-        console: AccessConsole {
-            principal: CONSOLE_PRINCIPAL.to_owned(),
-            listens: console_addr.clone(),
-            beyond_loopback: facts.unprotected,
-            allow_hosts: facts.allow_hosts.clone(),
-        },
+        console: console_of(facts, &console_addr),
         warnings: warnings(&switches),
         listen,
+    }
+}
+
+fn tls_of(facts: &Facts, start: &StartFacts) -> AccessTls {
+    AccessTls {
+        on: facts.tls,
+        cert: start.tls_cert.clone(),
+        listener: facts.bootstrap(),
+        loopback: facts.loopback(),
+    }
+}
+
+fn console_of(facts: &Facts, addr: &str) -> AccessConsole {
+    AccessConsole {
+        principal: CONSOLE_PRINCIPAL.to_owned(),
+        listens: addr.to_owned(),
+        beyond_loopback: facts.unprotected,
+        allow_hosts: facts.allow_hosts.clone(),
     }
 }
 

@@ -397,13 +397,13 @@ Test: `tests/live_access::hostile_names_are_escaped_and_inject_nothing`.
 Test: `tests/live_access::a_get_of_either_page_or_dialog_changes_nothing`.
 
 ## CON-563. The console is a super user: a broker that denies by default still shows its page
-Test: `tests/live_access::the_console_is_a_super_user_so_a_denying_broker_still_shows_its_page`.
+Test: `tests/live_access_secrets::the_console_is_a_super_user_so_a_denying_broker_still_shows_its_page`.
 
 ## CON-564. No planted password, salt or key is in any page, fragment, stream or Debug
-A real SCRAM user from flags (planted password) and a stored one (planted salt and salted password), each secret in its text, hex and base64, and the stored and server keys read from the broker's own verifiers. Test: `tests/live_access::no_planted_password_salt_or_key_is_in_any_page_fragment_stream_or_debug`.
+A real SCRAM user from flags (planted password) and a stored one (planted salt and salted password), each secret in its text, hex and base64, and the stored and server keys read from the broker's own verifiers. Test: `tests/live_access_secrets::no_planted_password_salt_or_key_is_in_any_page_fragment_stream_or_debug`.
 
 ## CON-565. The stream of a secured console carries ticks and nothing else
-Test: `tests/live_access::the_stream_of_a_secured_console_carries_ticks_and_nothing_else`.
+Test: `tests/live_access_secrets::the_stream_of_a_secured_console_carries_ticks_and_nothing_else`.
 
 ## CON-566. The Settings page lists the five, their sources and the intervals of this run, from the broker's own answers
 Test: `tests/live_settings::the_page_lists_the_five_with_their_sources_and_the_intervals_of_this_run`.
@@ -415,13 +415,13 @@ All brokers is the resource `""` (source 3), this broker its node id (source 2).
 Too small, not a number, a config that cannot change (a dry run, `validate_only`, asked by the link of the page), a forged key (always a dry run), an empty value (no call), the select moved (no call). Test: `tests/live_settings::a_check_changes_nothing_and_each_refusal_is_kafkas_own`.
 
 ## CON-569. The rule the dialog teaches is the rule the broker holds
-The least value of each config is taken and one less is refused, by the broker. Test: `tests/live_settings::the_rule_the_dialog_teaches_is_the_rule_the_broker_holds`.
+The least value of each config is taken and one less is refused, by the broker. Test: `tests/live_settings_more::the_rule_the_dialog_teaches_is_the_rule_the_broker_holds`.
 
 ## CON-570. Hostile text on Settings is escaped and cannot start a line of the call
-Test: `tests/live_settings::hostile_text_is_escaped_and_cannot_start_a_line_of_the_call`.
+Test: `tests/live_settings_more::hostile_text_is_escaped_and_cannot_start_a_line_of_the_call`.
 
 ## CON-571. A caller without rights is refused in Kafka's words, and the page still draws
-Test: `tests/live_settings::a_caller_without_rights_is_refused_in_kafkas_words_and_the_page_still_draws`.
+Test: `tests/live_settings_more::a_caller_without_rights_is_refused_in_kafkas_words_and_the_page_still_draws`.
 
 ## CON-572. The Settings boards and the open Access board render from a real broker
 Written to `target/board-diff-live/` for the board-diff. Test: `tests/live_boards_settings_access::the_settings_boards_and_the_open_access_board_render_from_a_real_broker`.

@@ -120,7 +120,7 @@ fn deleting_a_deny_can_allow_again_and_a_super_user_never_changes() {
     ));
     assert!(said.contains("is then allowed Read"), "{said}");
     let said = text(&after_delete(
-        &[deny.clone()],
+        std::slice::from_ref(&deny),
         &deny,
         &rules(false, &["User:report-job"]),
     ));

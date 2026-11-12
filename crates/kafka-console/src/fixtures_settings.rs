@@ -2,16 +2,17 @@
 //! the pages can be rendered, compared with their boards and served with no broker. A test holds the headline numbers to the
 //! boards' own text.
 
-use kafka_wire::messages::ApiKey;
+mod flags;
+mod profile;
 
 use crate::gather::settings_edit::{SettingsFields, call_lines};
 use crate::model::{
-    ConfigSource, Refusal, SettingsApi, SettingsChecked, SettingsConfigRow, SettingsConfigs,
-    SettingsData, SettingsEditView, SettingsFlag, SettingsHead, SettingsInterval,
-    SettingsIntervals, SettingsLine, SettingsProfile, SettingsRefused, SettingsResult,
-    SettingsSaved, SettingsScope, SettingsTeach, SettingsView, SettingsWeight, Span, StopView,
+    ConfigSource, Refusal, SettingsChecked, SettingsConfigRow, SettingsConfigs, SettingsData,
+    SettingsEditView, SettingsHead, SettingsInterval, SettingsIntervals, SettingsLine,
+    SettingsRefused, SettingsResult, SettingsSaved, SettingsScope, SettingsTeach, SettingsView,
+    SettingsWeight, Span, StopView,
 };
-use crate::settings_words::{DYNAMIC, allowed, family_of, takes_effect, unit, versions, what};
+use crate::settings_words::{DYNAMIC, allowed, takes_effect, unit, what};
 
 /// `IncrementalAlterConfigs` as the boards draw it: version 1.
 const VERSION: i16 = 1;
@@ -85,75 +86,6 @@ fn rows(retention: Option<&str>) -> Vec<SettingsConfigRow> {
     ]
 }
 
-const APIS: [(ApiKey, i16, i16); 38] = [
-    (ApiKey::Produce, 3, 9),
-    (ApiKey::Fetch, 4, 13),
-    (ApiKey::ListOffsets, 1, 7),
-    (ApiKey::DeleteRecords, 0, 2),
-    (ApiKey::ApiVersions, 0, 4),
-    (ApiKey::Metadata, 0, 12),
-    (ApiKey::FindCoordinator, 0, 4),
-    (ApiKey::CreateTopics, 2, 7),
-    (ApiKey::DeleteTopics, 1, 6),
-    (ApiKey::CreatePartitions, 0, 3),
-    (ApiKey::DescribeConfigs, 1, 4),
-    (ApiKey::AlterConfigs, 0, 2),
-    (ApiKey::IncrementalAlterConfigs, 0, 1),
-    (ApiKey::JoinGroup, 0, 9),
-    (ApiKey::SyncGroup, 0, 5),
-    (ApiKey::Heartbeat, 0, 4),
-    (ApiKey::LeaveGroup, 0, 5),
-    (ApiKey::DescribeGroups, 0, 5),
-    (ApiKey::ListGroups, 0, 5),
-    (ApiKey::DeleteGroups, 0, 2),
-    (ApiKey::ConsumerGroupHeartbeat, 0, 1),
-    (ApiKey::ConsumerGroupDescribe, 0, 1),
-    (ApiKey::OffsetCommit, 2, 9),
-    (ApiKey::OffsetFetch, 1, 9),
-    (ApiKey::OffsetDelete, 0, 0),
-    (ApiKey::InitProducerId, 0, 4),
-    (ApiKey::AddPartitionsToTxn, 0, 3),
-    (ApiKey::AddOffsetsToTxn, 0, 3),
-    (ApiKey::EndTxn, 0, 3),
-    (ApiKey::TxnOffsetCommit, 0, 3),
-    (ApiKey::DescribeProducers, 0, 0),
-    (ApiKey::DescribeTransactions, 0, 0),
-    (ApiKey::ListTransactions, 0, 1),
-    (ApiKey::DescribeAcls, 1, 3),
-    (ApiKey::CreateAcls, 1, 3),
-    (ApiKey::DeleteAcls, 1, 3),
-    (ApiKey::DescribeUserScramCredentials, 0, 0),
-    (ApiKey::AlterUserScramCredentials, 0, 0),
-];
-
-fn profile() -> SettingsProfile {
-    SettingsProfile {
-        major: 4,
-        apis: APIS
-            .iter()
-            .map(|(k, lo, hi)| SettingsApi {
-                name: format!("{k:?}"),
-                versions: versions(*lo, *hi),
-                family: family_of(*k).map_or("Other", |f| f.1),
-            })
-            .collect(),
-        with_sasl: vec![
-            SettingsApi {
-                name: "SaslHandshake".into(),
-                versions: "v1 only".into(),
-                family: "Security: ACLs and users",
-            },
-            SettingsApi {
-                name: "SaslAuthenticate".into(),
-                versions: "v0 to v2".into(),
-                family: "Security: ACLs and users",
-            },
-        ],
-        sasl_on: false,
-        not_offered: vec![],
-    }
-}
-
 fn interval(
     name: &'static str,
     what: &'static str,
@@ -224,280 +156,6 @@ fn intervals() -> SettingsIntervals {
     }
 }
 
-fn flag(group: &str, name: &str, value: &str, default: &str, what: &str) -> SettingsFlag {
-    SettingsFlag {
-        name: name.to_owned(),
-        group: group.to_owned(),
-        value: value.to_owned(),
-        default: default.to_owned(),
-        set: false,
-        what: what.to_owned(),
-        dynamic: crate::settings_words::flag_dynamic(name).map(str::to_owned),
-    }
-}
-
-fn flags() -> Vec<SettingsFlag> {
-    let n = "Network and storage";
-    let t = "Topics and partitions";
-    let c = "Cleaning, retention and groups";
-    let p = "Profile and process";
-    let s = "Security: sign-in, ACLs and TLS";
-    let w = "Console";
-    let mut out = vec![
-        flag(
-            n,
-            "--listen",
-            "127.0.0.1:9092",
-            "127.0.0.1:9092",
-            "Serve on this host and port",
-        ),
-        flag(
-            n,
-            "--advertised-host",
-            "unset",
-            "the listen address",
-            "Host told to clients in Metadata; see Connect for the trap",
-        ),
-        flag(
-            n,
-            "--advertised-port",
-            "unset",
-            "the port bound",
-            "Port told to clients in Metadata",
-        ),
-        flag(
-            n,
-            "--data-dir",
-            "~/larder/data/kafka",
-            "./data",
-            "Metadata database and partition logs",
-        ),
-        flag(
-            n,
-            "--segment-bytes",
-            "134,217,728",
-            "134,217,728",
-            "Roll a segment once it exceeds this size",
-        ),
-        flag(
-            n,
-            "--index-interval-bytes",
-            "4,096",
-            "4,096",
-            "Add one sparse index entry per this many bytes of log",
-        ),
-        flag(
-            n,
-            "--message-max-bytes",
-            "1,048,588",
-            "1,048,588",
-            "Largest record batch a topic accepts unless it sets max.message.bytes",
-        ),
-        flag(
-            n,
-            "--retention-bytes",
-            "0",
-            "0",
-            "Delete old segments once a partition exceeds this size (0 = unbounded)",
-        ),
-        flag(
-            n,
-            "--retention-ms",
-            "0",
-            "0",
-            "Delete segments older than this many milliseconds (0 = unbounded)",
-        ),
-        flag(
-            t,
-            "--auto-create-topics",
-            "true",
-            "true",
-            "Create unknown topics when a client asks about them",
-        ),
-        flag(
-            t,
-            "--default-partitions",
-            "1",
-            "1",
-            "Partition count for auto-created topics",
-        ),
-        flag(
-            t,
-            "--max-partitions",
-            "1000",
-            "1000",
-            "Most partitions one topic may have",
-        ),
-        flag(
-            t,
-            "--max-open-partitions",
-            "512",
-            "512",
-            "How many partitions stay open at once",
-        ),
-        flag(
-            c,
-            "--log-retention-check-interval",
-            "5m",
-            "5m",
-            "How often the retention of every topic is applied",
-        ),
-        flag(
-            c,
-            "--log-cleaner-interval",
-            "15s",
-            "15s",
-            "How often compacted topics are looked at to be cleaned",
-        ),
-        flag(
-            c,
-            "--log-cleaner-enable",
-            "true",
-            "true",
-            "Clean topics whose cleanup.policy says compact",
-        ),
-        flag(
-            c,
-            "--offsets-retention",
-            "168h",
-            "168h",
-            "How long committed offsets are kept once their group has no members",
-        ),
-        flag(
-            c,
-            "--group-initial-rebalance-delay",
-            "200ms",
-            "200ms",
-            "How long the first rebalance of an empty group waits for more members",
-        ),
-        flag(
-            c,
-            "--consumer-session-timeout",
-            "45s",
-            "45s",
-            "How long a KIP-848 member may be silent before it is removed",
-        ),
-        flag(
-            c,
-            "--fsync-interval",
-            "500ms",
-            "500ms",
-            "How soon after an acks=1 write it is flushed",
-        ),
-        flag(
-            p,
-            "--kafka-version",
-            "4",
-            "4",
-            "Kafka major version to stand for (1-4)",
-        ),
-        flag(
-            p,
-            "--worker-threads",
-            "2",
-            "2",
-            "Threads running the broker's work",
-        ),
-        flag(
-            p,
-            "--log-level",
-            "info",
-            "info",
-            "Log verbosity: error, warn, info, debug or trace",
-        ),
-        flag(p, "--log-format", "text", "text", "Log format"),
-        flag(
-            s,
-            "--sasl-mechanisms",
-            "none",
-            "none",
-            "SASL mechanisms to offer",
-        ),
-        flag(
-            s,
-            "--sasl-user",
-            "none",
-            "none",
-            "A user that may log in, as user:password (never shown)",
-        ),
-        flag(
-            s,
-            "--sasl-users-file",
-            "unset",
-            "unset",
-            "A file of users that may log in, one user:password a line",
-        ),
-        flag(
-            s,
-            "--sasl-failed-login-delay",
-            "100ms",
-            "100ms",
-            "How long a failed login waits before it is answered",
-        ),
-        flag(
-            s,
-            "--acl-default",
-            "allow",
-            "allow",
-            "What a resource that no ACL covers allows",
-        ),
-        flag(
-            s,
-            "--acl-super-user",
-            "none",
-            "none",
-            "A principal that ACLs never refuse, as Type:name",
-        ),
-        flag(
-            s,
-            "--tls-cert",
-            "unset",
-            "unset",
-            "PEM certificate chain (leaf first) to serve TLS with",
-        ),
-        flag(
-            s,
-            "--tls-key",
-            "unset",
-            "unset",
-            "PEM private key of the certificate; its contents are never shown",
-        ),
-        flag(w, "--console", "true", "true", "The web console"),
-        flag(
-            w,
-            "--console-addr",
-            "127.0.0.1:9093",
-            "127.0.0.1:9093",
-            "Where the console listens",
-        ),
-        flag(
-            w,
-            "--console-prefix",
-            "/",
-            "/",
-            "The path the console is served under",
-        ),
-        flag(
-            w,
-            "--console-allow-host",
-            "none",
-            "none",
-            "A host name the console answers to besides localhost and IP addresses",
-        ),
-        flag(
-            w,
-            "--console-unprotected",
-            "false",
-            "false",
-            "Accept the console beyond loopback although SASL or TLS is on",
-        ),
-    ];
-    if let Some(f) = out.iter_mut().find(|f| f.name == "--data-dir") {
-        f.set = true;
-    }
-    out
-}
-
 /// The Settings page of the larder.
 #[must_use]
 pub fn page() -> SettingsView {
@@ -512,7 +170,7 @@ pub fn page() -> SettingsView {
             rows: rows(None),
             node_id: 1,
         },
-        profile: profile(),
+        profile: profile::profile(),
         intervals: intervals(),
         weight: SettingsWeight {
             open_partitions: 21,
@@ -534,7 +192,7 @@ pub fn page() -> SettingsView {
             last_stop: StopView::Clean,
             flag_set: true,
         },
-        flags: flags(),
+        flags: flags::flags(),
     }
 }
 

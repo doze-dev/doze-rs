@@ -13,8 +13,8 @@ mod web;
 use anyhow::Result;
 use clap::{CommandFactory, FromArgMatches};
 
-fn main() -> Result<()> {
-    // `Parser::parse`, taken apart: the matches say which flags were given, which Settings shows.
+/// `Parser::parse`, taken apart: the matches say which flags were given, which Settings shows.
+fn parse() -> (cli::Args, run::Flags) {
     let matches = cli::Args::command().get_matches();
     let args = cli::Args::from_arg_matches(&matches).unwrap_or_else(|e| e.exit());
     #[cfg(feature = "console")]
@@ -22,6 +22,11 @@ fn main() -> Result<()> {
     #[cfg(not(feature = "console"))]
     #[allow(clippy::let_unit_value)]
     let flags = ();
+    (args, flags)
+}
+
+fn main() -> Result<()> {
+    let (args, flags) = parse();
     run::logging(&args);
     // A configuration that cannot start exits 2, as a bad flag does (clap's own code), before anything is opened.
     let mut settings = match args.settings() {

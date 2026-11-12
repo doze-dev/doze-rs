@@ -46,11 +46,10 @@ fn memory(w: &SettingsWeight) -> Markup {
 }
 
 fn partitions(w: &SettingsWeight) -> Markup {
-    let p = if w.max_open == 0 {
-        0
-    } else {
-        (w.open_partitions * 100 / w.max_open).min(100)
-    };
+    let p = (w.open_partitions * 100)
+        .checked_div(w.max_open)
+        .unwrap_or(0)
+        .min(100);
     tile(
         "Open partitions",
         html! { (w.open_partitions) small { @if w.max_open > 0 { "of " (w.max_open) } @else { "no limit" } } },

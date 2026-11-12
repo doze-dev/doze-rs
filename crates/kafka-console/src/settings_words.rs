@@ -184,11 +184,11 @@ pub fn flag_duration(d: Duration) -> String {
     let ms = d.as_millis();
     if ms == 0 {
         "0".to_owned()
-    } else if ms % 3_600_000 == 0 {
+    } else if ms.is_multiple_of(3_600_000) {
         format!("{}h", ms / 3_600_000)
-    } else if ms % 60_000 == 0 {
+    } else if ms.is_multiple_of(60_000) {
         format!("{}m", ms / 60_000)
-    } else if ms % 1000 == 0 {
+    } else if ms.is_multiple_of(1000) {
         format!("{}s", ms / 1000)
     } else {
         format!("{ms}ms")
