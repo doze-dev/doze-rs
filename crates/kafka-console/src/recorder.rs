@@ -23,6 +23,7 @@ mod detail;
 pub mod errors;
 pub mod facts;
 pub mod names;
+mod lab;
 mod others;
 pub mod phrase;
 pub mod ring;

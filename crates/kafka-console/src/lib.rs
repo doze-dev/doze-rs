@@ -57,6 +57,7 @@ pub mod fixtures_topics;
 pub mod fixtures_write;
 pub mod form;
 pub mod format;
+pub mod lab;
 pub mod gather;
 pub mod groups_words;
 pub mod guard;

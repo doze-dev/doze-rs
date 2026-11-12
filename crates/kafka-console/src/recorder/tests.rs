@@ -45,6 +45,7 @@ pub(super) fn play(
             answer,
             took: Duration::from_micros(1500),
             response_bytes: 40,
+            fault: None,
         },
     );
 }
@@ -301,6 +302,7 @@ fn a_closed_connection_is_a_row_that_says_why() {
             answer: Answer::Closed("a Metadata request was made out of order in the login"),
             took: Duration::ZERO,
             response_bytes: 0,
+            fault: None,
         },
     );
     let tape = rec.tape(&WireQuery::default(), now_ms());

@@ -30,6 +30,8 @@ pub struct Live {
     pub recorder: Option<std::sync::Arc<crate::recorder::Recorder>>,
     /// The flags and the rest of how the binary started the broker (empty where not known).
     pub start: crate::facts_start::StartFacts,
+    /// The Lab, when it is on (`--lab`, the default): the broker's fault table and the rehearsals kept. None: switched off.
+    pub lab: Option<std::sync::Arc<crate::lab::Lab>>,
 }
 
 impl Live {
@@ -42,7 +44,15 @@ impl Live {
             prober,
             recorder: None,
             start: crate::facts_start::StartFacts::default(),
+            lab: None,
         }
+    }
+
+    /// The same, with the Lab on over the fault table the server was given.
+    #[must_use]
+    pub fn with_lab(mut self, table: std::sync::Arc<kafka_server::fault::FaultTable>) -> Self {
+        self.lab = Some(std::sync::Arc::new(crate::lab::Lab::new(table)));
+        self
     }
 
     /// The same, told how the binary started the broker: the Settings and Access pages say it.

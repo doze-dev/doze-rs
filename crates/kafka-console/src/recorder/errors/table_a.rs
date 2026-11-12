@@ -35,6 +35,23 @@ pub(super) const ROWS: &[Row] = &[
         "The topic or partition does not exist on this broker.",
         "Create the topic first, or turn on auto topic creation in the producer's metadata request.",
     ),
+    // 6 and 7 are answers only the Lab makes up (a broker with one node never says them): the wire names them as clients do.
+    r(
+        6,
+        "NOT_LEADER_OR_FOLLOWER",
+        Warn,
+        "For requests intended only for the leader, this error indicates that the broker is not the current leader.",
+        "The request went to a broker that is not the partition's leader (a Lab rule said so; this broker is always the leader).",
+        "",
+    ),
+    r(
+        7,
+        "REQUEST_TIMED_OUT",
+        Warn,
+        "The request timed out.",
+        "The broker took too long, as a Lab rule made it say; clients retry.",
+        "",
+    ),
     r(
         10,
         "MESSAGE_TOO_LARGE",
