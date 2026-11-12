@@ -1,0 +1,21 @@
+[package]
+name = "aws-expr-fuzz"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+aws-expr = { path = ".." }
+
+# Not part of the main workspace: fuzzing needs a nightly toolchain.
+[workspace]
+
+[[bin]]
+name = "fuzz_expression"
+path = "fuzz_targets/fuzz_expression.rs"
+test = false
+doc = false
