@@ -109,6 +109,14 @@ pub(crate) async fn respond(shared: &Shared, req: http::Request<Incoming>) -> Re
         }
         Err(_) => None,
     };
+    // A request with no signature at all, to a gateway that trusts, is a person with curl or a browser: S3 serves it as the local
+    // account.
+    let claim = claim.or_else(|| {
+        shared
+            .trusts()
+            .then(|| crate::presign::anonymous_claim(&parts))
+            .flatten()
+    });
     if let Some(claim) = claim
         && let Some(entry) = shared
             .entry(&claim.service)

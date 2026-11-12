@@ -148,6 +148,32 @@ async fn configuration_is_kept_as_sent_and_what_is_not_built_is_refused_by_name(
 }
 
 #[tokio::test]
+async fn an_unsigned_request_is_served_as_the_local_account() {
+    let dir = temp("anonymous");
+    let srv = start(&dir).await;
+    call(&srv, "PUT", "/bkt", &[], b"").await;
+    call(
+        &srv,
+        "PUT",
+        "/bkt/page.html",
+        &[("Content-Type", "text/html")],
+        b"<p>hi</p>",
+    )
+    .await;
+    // What curl sends: no Authorization header at all.
+    let mut s = TcpStream::connect(srv.addr).await.unwrap();
+    s.write_all(b"GET /bkt/page.html HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n")
+        .await
+        .unwrap();
+    let mut raw = Vec::new();
+    s.read_to_end(&mut raw).await.unwrap();
+    let r = parse(&raw);
+    assert_eq!((r.status, r.text().as_str()), (200, "<p>hi</p>"));
+    assert_eq!(r.header("Content-Type"), Some("text/html"));
+    srv.stop().await;
+}
+
+#[tokio::test]
 async fn a_virtual_host_names_the_bucket() {
     let dir = temp("vhost");
     let srv = start(&dir).await;

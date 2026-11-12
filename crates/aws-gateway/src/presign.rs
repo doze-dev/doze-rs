@@ -30,6 +30,34 @@ pub(crate) fn sigv2_claim(parts: &Parts) -> Option<Claim> {
     })
 }
 
+/// The claim of a request that carries no signature and is not for a JSON or Query service: an S3 request made with `curl` or a
+/// browser. Served as the local account, by a gateway that trusts.
+pub(crate) fn anonymous_claim(parts: &Parts) -> Option<Claim> {
+    let h = &parts.headers;
+    let for_another_protocol = h.contains_key("x-amz-target")
+        || h.get(http::header::CONTENT_TYPE)
+            .and_then(|v| v.to_str().ok())
+            .is_some_and(|v| v.starts_with("application/x-www-form-urlencoded"));
+    if h.contains_key(http::header::AUTHORIZATION) || for_another_protocol {
+        return None;
+    }
+    Some(Claim {
+        placement: Placement::Header,
+        access_key_id: "anonymous".to_owned(),
+        scope_date: String::new(),
+        region: "us-east-1".to_owned(),
+        service: "s3".to_owned(),
+        signed_headers: Vec::new(),
+        signature: Vec::new(),
+        signature_hex: String::new(),
+        amz_date: String::new(),
+        request_time: 0,
+        expires_in: None,
+        session_token: None,
+        content_sha256: None,
+    })
+}
+
 /// In trust mode the signature is not checked, but a presigned URL that has expired, or that names a signed header the request does
 /// not carry, would be refused by S3 whatever the key, so it is refused here.
 pub(crate) fn check_presigned(claim: &Claim, parts: &Parts) -> Result<(), ApiError> {

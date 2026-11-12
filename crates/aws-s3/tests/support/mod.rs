@@ -19,13 +19,13 @@ use doze_runtime::{Ctx, SystemClock, Tasks};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 
-pub struct Server {
+pub(crate) struct Server {
     running: Running,
-    pub tasks: Tasks,
-    pub addr: SocketAddr,
+    pub(crate) tasks: Tasks,
+    pub(crate) addr: SocketAddr,
 }
 
-pub async fn start(dir: &Path) -> Server {
+pub(crate) async fn start(dir: &Path) -> Server {
     let tasks = Tasks::new();
     let ctx = Arc::new(Ctx {
         dir: dir.to_path_buf(),
@@ -48,34 +48,40 @@ pub async fn start(dir: &Path) -> Server {
 }
 
 impl Server {
-    pub async fn stop(self) {
+    pub(crate) async fn stop(self) {
         self.running.shutdown().await;
         self.tasks.shutdown().await;
     }
 }
 
-pub struct Reply {
-    pub status: u16,
-    pub headers: Vec<(String, String)>,
-    pub body: Vec<u8>,
+pub(crate) struct Reply {
+    pub(crate) status: u16,
+    pub(crate) headers: Vec<(String, String)>,
+    pub(crate) body: Vec<u8>,
 }
 
 impl Reply {
-    pub fn header(&self, name: &str) -> Option<&str> {
+    pub(crate) fn header(&self, name: &str) -> Option<&str> {
         self.headers
             .iter()
             .find(|(k, _)| k.eq_ignore_ascii_case(name))
             .map(|(_, v)| v.as_str())
     }
 
-    pub fn text(&self) -> String {
+    pub(crate) fn text(&self) -> String {
         String::from_utf8_lossy(&self.body).into_owned()
     }
 }
 
-pub const AUTH: &str = "AWS4-HMAC-SHA256 Credential=test/20260101/us-east-1/s3/aws4_request, SignedHeaders=host, Signature=00";
+pub(crate) const AUTH: &str = "AWS4-HMAC-SHA256 Credential=test/20260101/us-east-1/s3/aws4_request, SignedHeaders=host, Signature=00";
 
-pub fn head(method: &str, host: &str, path: &str, extra: &[(&str, &str)], len: usize) -> String {
+pub(crate) fn head(
+    method: &str,
+    host: &str,
+    path: &str,
+    extra: &[(&str, &str)],
+    len: usize,
+) -> String {
     let mut r = format!(
         "{method} {path} HTTP/1.1\r\nHost: {host}\r\nAuthorization: {AUTH}\r\nx-amz-date: 20260101T000000Z\r\nConnection: close\r\nContent-Length: {len}\r\n"
     );
@@ -86,7 +92,7 @@ pub fn head(method: &str, host: &str, path: &str, extra: &[(&str, &str)], len: u
     r
 }
 
-pub fn parse(raw: &[u8]) -> Reply {
+pub(crate) fn parse(raw: &[u8]) -> Reply {
     let split = raw
         .windows(4)
         .position(|w| w == b"\r\n\r\n")
@@ -112,7 +118,7 @@ pub fn parse(raw: &[u8]) -> Reply {
     }
 }
 
-pub async fn request(
+pub(crate) async fn request(
     addr: SocketAddr,
     method: &str,
     host: &str,
@@ -130,7 +136,7 @@ pub async fn request(
     parse(&raw)
 }
 
-pub async fn call(
+pub(crate) async fn call(
     srv: &Server,
     method: &str,
     path: &str,
@@ -140,7 +146,7 @@ pub async fn call(
     request(srv.addr, method, "127.0.0.1", path, extra, body).await
 }
 
-pub fn temp(name: &str) -> std::path::PathBuf {
+pub(crate) fn temp(name: &str) -> std::path::PathBuf {
     let dir = std::env::temp_dir().join(format!("aws-s3-{name}-{}", std::process::id()));
     std::fs::remove_dir_all(&dir).ok();
     dir

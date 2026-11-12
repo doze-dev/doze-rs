@@ -47,9 +47,9 @@ use aws_model_s3::Operation;
 use aws_model_s3::meta::META;
 use aws_model_s3::tables::TABLES;
 use aws_schema::json::Violation;
+use aws_wire::ApiError;
 use aws_wire::rest::{RestReply, RestService, Upload};
 use aws_wire::service::{BoxFuture, Call, Reply, Service};
-use aws_wire::{ApiError, RequestId};
 use doze_fs::fs::RealFs;
 use doze_runtime::{Clock, Ctx, Keyed, Tasks};
 
@@ -290,13 +290,6 @@ impl RestService for S3 {
     ) -> BoxFuture<'_, Result<RestReply, ApiError>> {
         Box::pin(self.inner.run(call, upload))
     }
-}
-
-/// An id for an answer that has none of its own.
-#[doc(hidden)]
-#[must_use]
-pub fn request_id() -> RequestId {
-    RequestId::new()
 }
 
 #[cfg(test)]
