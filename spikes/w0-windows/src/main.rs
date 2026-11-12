@@ -507,8 +507,17 @@ fn exe(name: &str) -> String {
     if cfg!(windows) { format!("{name}.exe") } else { name.to_string() }
 }
 
+/// Runs a tool and captures its output, bounded: a hang becomes a reported error, not a stuck job.
 async fn run(bin: &std::path::Path, args: &[&str]) -> Result<std::process::Output> {
-    Ok(tokio::process::Command::new(bin).args(args).stdin(Stdio::null()).output().await?)
+    let fut = tokio::process::Command::new(bin).args(args).stdin(Stdio::null()).kill_on_drop(true).output();
+    tokio::time::timeout(Duration::from_secs(60), fut).await.with_context(|| format!("{} did not finish in 60 s", bin.display()))?.map_err(Into::into)
+}
+
+/// Runs a tool that leaves a server behind (pg_ctl start): no pipes, so the server cannot
+/// inherit them and keep the read open forever; only the exit status.
+async fn run_status(bin: &std::path::Path, args: &[&str]) -> Result<std::process::ExitStatus> {
+    let fut = tokio::process::Command::new(bin).args(args).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()).status();
+    tokio::time::timeout(Duration::from_secs(60), fut).await.with_context(|| format!("{} did not finish in 60 s", bin.display()))?.map_err(Into::into)
 }
 
 async fn pg() -> Result<()> {
@@ -567,8 +576,9 @@ async fn pg() -> Result<()> {
     // 2. Fallback if postgres refused to run directly (e.g. an elevated admin token): pg_ctl.
     if !direct {
         let t0 = Instant::now();
-        let o = run(&bindir.join(exe("pg_ctl")), &["start", "-w", "-D", &data_s, "-o", &format!("-p {port} -c listen_addresses=127.0.0.1"), "-l", &tmp.join("pg.log").to_string_lossy()]).await?;
-        println!("pg: pg_ctl start -> {} in {:.0} ms {}", o.status, t0.elapsed().as_secs_f64() * 1e3, String::from_utf8_lossy(&o.stderr).trim());
+        let log = tmp.join("pg.log");
+        let st = run_status(&bindir.join(exe("pg_ctl")), &["start", "-w", "-D", &data_s, "-o", &format!("-p {port} -c listen_addresses=127.0.0.1"), "-l", &log.to_string_lossy()]).await;
+        println!("pg: pg_ctl start -> {st:?} in {:.0} ms; log: {}", t0.elapsed().as_secs_f64() * 1e3, std::fs::read_to_string(&log).unwrap_or_default().lines().take(3).collect::<Vec<_>>().join(" | "));
     }
 
     let o = run(&bindir.join(exe("psql")), &["-h", "127.0.0.1", "-p", &port_s, "-U", "postgres", "-tAc", "select version()"]).await?;

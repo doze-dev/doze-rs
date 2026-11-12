@@ -36,20 +36,26 @@ jobs:
           d=$(ls -d /usr/lib/postgresql/*/bin 2>/dev/null | sort -V | tail -1 || true)
           if [ -n "$d" ]; then echo "PGBIN=$d" >> "$GITHUB_ENV"; echo "PGBIN=$d"; else echo "no postgres on this runner"; fi
           echo "whoami: $(whoami)"
+          if [ "$RUNNER_OS" = "Windows" ]; then net session >/dev/null 2>&1 && echo "token: elevated admin" || echo "token: not elevated"; fi
       - name: host (transport scenarios)
         if: always()
+        timeout-minutes: 5
         run: ./target/release/w0-windows host
       - name: orphan (host killed)
         if: always()
+        timeout-minutes: 5
         run: ./target/release/w0-windows orphan
       - name: break (graceful stop)
         if: always()
+        timeout-minutes: 5
         run: ./target/release/w0-windows break
       - name: pg (real postgres)
         if: always()
+        timeout-minutes: 5
         run: ./target/release/w0-windows pg
       - name: which (executable lookup)
         if: always()
+        timeout-minutes: 5
         run: ./target/release/w0-windows which
       - name: binary size
         if: always()
