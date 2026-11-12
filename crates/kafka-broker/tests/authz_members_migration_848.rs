@@ -122,3 +122,29 @@ async fn the_groups_subscribed_set_drops_a_name_whose_right_was_taken_away() {
         assert_eq!(*code == 86, topic == "open", "{codes:?}");
     }
 }
+
+/// The rights a classic member carries into the upgrade are those of its latest JoinGroup, not of its first.
+#[tokio::test]
+async fn a_classic_member_that_rejoined_after_its_right_was_taken_away_is_upgraded_with_the_new_right()
+ {
+    let rig = rig().await;
+    grant(&rig, vec![allow(TOPIC, "secret", "User:bob", DESCRIBE)]).await;
+    let first = bob_holds_both(&rig).await;
+    grant(&rig, vec![deny(TOPIC, "secret", "User:bob", DESCRIBE)]).await;
+    let again = classic::join(
+        &rig,
+        &user("bob"),
+        "g",
+        &first.id,
+        None,
+        &["secret", "open"],
+    )
+    .await;
+    assert_eq!(again.error, 0);
+    let held = classic::assignment_bytes(&[("secret", &[0, 1, 2]), ("open", &[0, 1])]);
+    again.sync(&rig, &[(&again.id, held)]).await;
+    let mut alice = Seat::join_names(&rig, user("alice"), "g", "ma", None, &["open"]).await;
+    alice.beats(2).await;
+    let seen = shown_to_bob(&rig, &again.id).await;
+    assert!(seen.iter().all(|t| t != "secret"), "{seen:?}");
+}

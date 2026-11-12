@@ -91,7 +91,7 @@ impl ConsumerGroup {
             subscribed.extend(
                 topics
                     .all()
-                    .filter(|t| self.members.values().any(|m| m.subscribes(&t.name)))
+                    .filter(|t| self.members.values().any(|m| m.pattern_takes(&t.name)))
                     .map(|t| t.name.clone()),
             );
         }

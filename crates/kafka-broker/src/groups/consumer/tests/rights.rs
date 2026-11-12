@@ -79,3 +79,17 @@ fn a_static_member_replaced_by_a_principal_that_may_describe_nothing_inherits_no
         "{seen:?}"
     );
 }
+
+#[test]
+fn a_topic_the_member_still_owns_is_withdrawn_even_if_it_no_longer_subscribes_to_it() {
+    // The heartbeat drops the topic from the names and brings the DENY together: the topic is held, matched by nothing.
+    let mut r = rig(3);
+    r.beat(join("m"));
+    let beat = Heartbeat {
+        subscribed: Some(vec![]),
+        rights: describes_nothing(),
+        ..poll_owning("m", 2, &[0, 1, 2])
+    };
+    let answer = r.beat(beat);
+    assert_eq!(answer.assignment, Some(parts(&[])), "{answer:?}");
+}

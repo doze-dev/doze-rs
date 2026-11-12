@@ -4,7 +4,7 @@
 //! principal that scheduled the resolution (`filterTopicDescribeAuthorizedTopics`). Neither covers the other sources of
 //! a member's topics: the names and the assignment a static member leaves behind for the principal that takes its place,
 //! a right taken away after the names were sent, a classic member's subscription. Here the member keeps the rights of
-//! the latest request of its principal (`Member::rights`), every source is held to them (`Member::subscribes`), and when
+//! the latest request of its principal (`Member::rights`), every source is held to them (`Member::visible_names`, `Member::pattern_takes`), and when
 //! they change what the member holds is withdrawn before the request is answered (SEC-230 to SEC-233).
 
 use std::collections::HashSet;

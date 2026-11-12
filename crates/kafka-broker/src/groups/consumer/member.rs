@@ -80,18 +80,6 @@ impl Member {
         }
     }
 
-    /// Whether the member wants this topic and may have it: a name it subscribed to or a match of its expression, and
-    /// in either case a topic the member may DESCRIBE now (SEC-210, SEC-230).
-    pub(super) fn subscribes(&self, topic: &str) -> bool {
-        self.names(topic) || self.pattern_takes(topic)
-    }
-
-    /// Whether the topic is among the names the member subscribed to (or inherited) and it may DESCRIBE it. Kafka
-    /// checks a name once, when it is sent; here it is held to the right at every heartbeat, as a match is.
-    pub(super) fn names(&self, topic: &str) -> bool {
-        self.subscribed.iter().any(|t| t == topic) && permits(self.rights.as_ref(), topic)
-    }
-
     /// Whether the member's pattern matches the topic and the member may DESCRIBE it (Kafka's
     /// `filterTopicDescribeAuthorizedTopics`).
     pub(super) fn pattern_takes(&self, topic: &str) -> bool {
@@ -100,7 +88,9 @@ impl Member {
             .is_some_and(|p| p.matches(topic) && permits(self.rights.as_ref(), topic))
     }
 
-    /// The names it subscribed to that its own principal may DESCRIBE: the ones that are shown and counted.
+    /// The names it subscribed to (or inherited) that its own principal may DESCRIBE: the ones that are shown, counted and
+    /// assigned from. Kafka checks a name once, when it is sent; here it is held to the right at every heartbeat, as a
+    /// match is (SEC-230, SEC-232).
     pub(super) fn visible_names(&self) -> impl Iterator<Item = &String> {
         self.subscribed
             .iter()
