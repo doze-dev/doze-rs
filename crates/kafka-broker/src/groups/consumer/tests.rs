@@ -3,6 +3,7 @@
 mod fetch;
 mod ownership;
 mod protocol;
+mod rights;
 mod simulation;
 
 use std::collections::BTreeMap;
