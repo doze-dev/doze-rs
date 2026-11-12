@@ -234,3 +234,37 @@ fn sasl_with_the_allow_default_is_noted_and_deny_or_no_sasl_is_not() {
         "{help}"
     );
 }
+
+#[test]
+fn the_console_flag_takes_a_strict_boolean_in_any_case_and_anything_else_stops_the_start() {
+    let set = |flags: &[&str]| settings(flags);
+    for off in [
+        "false", "0", "no", "off", "FALSE", "False", "No", "OFF", "oFf",
+    ] {
+        let flag = format!("--console={off}");
+        assert!(!set(&[&flag]).unwrap().console.enabled, "{flag} left it on");
+    }
+    for on in ["true", "1", "yes", "on", "TRUE", "True", "Yes", "ON"] {
+        let flag = format!("--console={on}");
+        assert!(set(&[&flag]).unwrap().console.enabled, "{flag}");
+    }
+    // The value as a separate argument is the same, and the bare flag is on.
+    assert!(!set(&["--console", "off"]).unwrap().console.enabled);
+    assert!(set(&["--console"]).unwrap().console.enabled);
+    for bad in ["maybe", "", "2", "fals", "truee", "t", "n", "disabled", " false"] {
+        let flag = format!("--console={bad}");
+        let said = set(&[&flag]).unwrap_err();
+        assert_eq!(
+            said,
+            format!(
+                "config: --console takes true, false, 1, 0, yes, no, on or off, not {bad:?}; the console stays on only when it is asked for plainly"
+            )
+        );
+    }
+}
+
+#[test]
+fn a_console_flag_that_is_not_a_boolean_is_refused_even_when_the_console_flags_are_otherwise_fine() {
+    let said = settings(&["--console=maybe", "--console-addr", "127.0.0.1:0"]).unwrap_err();
+    assert!(said.contains("--console takes true, false"), "{said}");
+}

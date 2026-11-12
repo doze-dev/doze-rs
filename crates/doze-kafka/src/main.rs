@@ -72,11 +72,23 @@ fn main() -> Result<()> {
         unprotected = settings.console.unprotected,
         "console flags"
     );
-    let _lock = lock::DataDirLock::take(&args.data_dir)?;
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(args.worker_threads)
         .thread_name("doze-kafka")
         .enable_all()
         .build()?;
-    runtime.block_on(run::serve(settings))
+    // The console's address is had before anything is created, the data directory and its lock file included (SEC-247):
+    // one the operator chose that cannot be bound stops the start with exit 2, as every start that cannot be honoured does.
+    #[cfg(feature = "console")]
+    let console = match runtime.block_on(web::bind(&settings.console)) {
+        Ok(bound) => bound,
+        Err(e) => {
+            eprintln!("Error: {e:#}");
+            std::process::exit(2);
+        }
+    };
+    #[cfg(not(feature = "console"))]
+    let console = ();
+    let _lock = lock::DataDirLock::take(&args.data_dir)?;
+    runtime.block_on(run::serve(settings, console))
 }

@@ -1,4 +1,5 @@
-//! The web console beside the broker: bound before anything is opened, served until the broker is told to stop.
+//! The web console beside the broker: bound before anything is created (not the data directory, not its lock file),
+//! served until the broker is told to stop.
 //!
 //! The default address is `127.0.0.1:9093`, the Kafka port plus one, and a default that cannot be had (a second broker
 //! on the machine has it) leaves the broker running without a console and says so: an optional page does not stop a
@@ -49,6 +50,7 @@ pub(crate) async fn bind(console: &Console) -> Result<Option<Bound>> {
 /// [`bind`] with the default address given, so a test can make it busy.
 async fn bind_with_default(console: &Console, default: &str) -> Result<Option<Bound>> {
     if !console.enabled {
+        tracing::info!("the console is off (--console=false)");
         return Ok(None);
     }
     let explicit = console.addr.as_deref();

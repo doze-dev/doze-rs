@@ -43,7 +43,7 @@ pub(crate) const DEFAULT_ADDR: &str = "127.0.0.1:9093";
 
 /// What the rule looks at.
 pub(super) struct Input<'a> {
-    /// `--console`: `false` turns the console off; absent or anything else leaves it on.
+    /// `--console`: a boolean (see [`switch`]); absent is on.
     pub(super) console: Option<&'a str>,
     pub(super) addr: Option<&'a str>,
     pub(super) prefix: &'a str,
@@ -59,13 +59,30 @@ pub(super) struct Input<'a> {
 /// SASL on with `--acl-default allow` (SEC-191): a login proves who a client is and then allows it everything.
 pub(super) const OPEN_ACLS: &str = "SASL is on and --acl-default is allow, so every logged-in user may do everything, including managing users: use --acl-default deny with ACLs, or --acl-super-user";
 
+/// A boolean as `--console` is written: `true`, `false`, `1`, `0`, `yes`, `no`, `on` or `off`, in any case. Anything else is
+/// not a boolean: a typo must not leave a console with no login open when the person meant to turn it off.
+pub(super) fn switch(text: &str) -> Option<bool> {
+    match text.to_ascii_lowercase().as_str() {
+        "true" | "1" | "yes" | "on" => Some(true),
+        "false" | "0" | "no" | "off" => Some(false),
+        _ => None,
+    }
+}
+
 /// Checks the console flags against what protects the broker, and says what is left open.
 ///
 /// # Errors
-/// An address that is not `host:port`; or SASL or TLS is on and the console would be served beyond loopback
+/// `--console` that is not a boolean; an address that is not `host:port`; or SASL or TLS is on and the console would be served beyond loopback
 /// without `--console-unprotected`.
 pub(super) fn setup(input: &Input<'_>) -> Result<(Console, Vec<String>)> {
-    let on = input.console.is_none_or(|v| v != "false");
+    let on = match input.console {
+        None => true,
+        Some(text) => switch(text).ok_or_else(|| {
+            anyhow::anyhow!(
+                "config: --console takes true, false, 1, 0, yes, no, on or off, not {text:?}; the console stays on only when it is asked for plainly"
+            )
+        })?,
+    };
     let protection = match (input.sasl, input.tls) {
         (true, true) => Some("SASL and TLS"),
         (true, false) => Some("SASL"),
