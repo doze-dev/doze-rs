@@ -110,3 +110,59 @@ impl ConsumerGroup {
         true
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use kafka_auth::Principal;
+    use kafka_meta::AclRecord;
+
+    use super::*;
+    use crate::Caller;
+    use crate::authorizer::Authorizer;
+
+    /// bob may DESCRIBE `kept` and nothing else.
+    fn bob_rights() -> Option<TopicRights> {
+        let record = AclRecord {
+            resource_type: 2,
+            name: "kept".into(),
+            pattern_type: 3,
+            principal: "User:bob".into(),
+            host: "*".into(),
+            operation: 8,
+            permission: 3,
+        };
+        Authorizer::new(vec![record], false, Default::default())
+            .describe_rights(&Caller::new(Principal::user("bob"), None))
+    }
+
+    fn topic(name: &str, id: u128) -> TopicInfo {
+        TopicInfo {
+            name: name.into(),
+            id: Uuid::from_u128(id),
+            partitions: 1,
+        }
+    }
+
+    #[test]
+    fn a_topic_is_let_through_when_it_is_unnarrowed_or_gone_and_otherwise_by_the_rights() {
+        let rights = bob_rights();
+        assert!(rights.is_some(), "bob is narrowed");
+        let topics = Topics::new([topic("kept", 1), topic("hidden", 2)]);
+        let id = Uuid::from_u128;
+        assert!(
+            allowed(rights.as_ref(), &topics, &id(1)),
+            "a topic he may DESCRIBE"
+        );
+        assert!(
+            !allowed(rights.as_ref(), &topics, &id(2)),
+            "a topic he may not"
+        );
+        // A topic that is gone reveals nothing: it is let through for the usual handling of a topic that has gone (its
+        // partitions are dropped when the targets are computed again), as it is for a member nothing narrows.
+        assert!(
+            allowed(rights.as_ref(), &topics, &id(3)),
+            "a topic that is gone"
+        );
+        assert!(allowed(None, &topics, &id(2)), "unnarrowed");
+    }
+}

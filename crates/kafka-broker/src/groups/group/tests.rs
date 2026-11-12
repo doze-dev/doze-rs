@@ -258,39 +258,14 @@ fn what_a_classic_group_had_parked_is_answered_rebalance_in_progress_when_it_is_
     );
 }
 
-#[test]
-fn when_the_last_consumer_protocol_member_leaves_the_group_is_classic_again_and_its_members_rejoin()
-{
-    let mut r = Rig::new();
-    let generation = r.classic_member("old");
-    r.consumer("new", 0);
-    let left = r.consumer("new", -1);
-    assert!(left.error.is_none(), "{:?}", left.error);
-    assert!(r.view().is_none(), "not a consumer group any more");
-    // The classic member's old generation is gone: its heartbeat says so, and it rejoins.
-    let hb = r.send(|t| {
-        Event::Heartbeat(
-            t,
-            HeartbeatRequest {
-                member_id: id("old"),
-                instance: None,
-                generation,
-                rights: None,
-            },
-        )
-    });
-    let Answer::Heartbeat(e) = r.answer(hb) else {
-        panic!("not a heartbeat")
-    };
-    assert_eq!(e, Some(E::IllegalGeneration));
-    let rejoin = r.send(|t| Event::Join(t, join_request(Some("old"))));
-    let Answer::Join(j) = r.answer(rejoin) else {
-        panic!("not a join")
-    };
-    assert!(j.error.is_none(), "{:?}", j.error);
-}
-
 mod classic;
 mod classic_join;
+mod invariants;
+mod invariants_classic;
+mod invariants_steps;
+mod liveness;
+mod liveness_clients;
+mod liveness_sim;
 mod migration;
+mod sim;
 mod timers;

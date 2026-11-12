@@ -159,6 +159,7 @@ the catalogue lists, one row each; the second is what the slices reported left u
 | SEC-D90 | A member's names and what it inherits (a static member's place, a classic subscription) are held to its own principal's DESCRIBE right at every heartbeat | decided: stricter than Kafka, which checks names once and copies a departed static member's state whole (SEC-230 to SEC-233) |
 | SEC-D91 | A classic member of a consumer group is given only topics its principal may DESCRIBE | decided: Kafka's coordinator assigns what the opaque subscription names (SEC-231) |
 | SEC-D92 | `--sasl-failed-login-delay` is at most 10 s | decided: Kafka has no limit; a wait of minutes holds a connection and a task per guess (SEC-236) |
+| SEC-D93 | A classic group adopted by a consumer group drops, with no handover, the partitions its members held of topics they may not DESCRIBE | recorded by the final audit of Phase 8, not decided: Kafka keeps them until the member rejoins; another member may be given them while the old client still consumes (SEC-239) |
 
 ### I.2 Left unfinished, and the audits
 | # | Item | Status |
@@ -190,6 +191,7 @@ the catalogue lists, one row each; the second is what the slices reported left u
 | I25 | A stored credential, the TLS key and the users file are protected by file mode only; the partition logs and the data directory are as the umask makes them; the plaintext of a `--sasl-user` flag stays in the process arguments (`ps`) | owner: the flag's value cannot be hidden from `ps` by the process; the file and variable avoid it (SEC-D58) |
 | I26 | Fixes of the re-audit of the authorization half (branch `p8j`): SEC-230 to SEC-238, SEC-D90 to D92 (a static member's inherited topics, names revoked, classic members of a consumer group and a group changing kind, the failed-login cap and the lingering close at a stop, every file mode pinned, the super-user name documented) | done on `p8j`, merge and the next audit pending |
 | I27 | Found by the author's replay, not by any audit: the audit fix that capped a stranger's frame at 64 KiB turned the recorded Apache Kafka step `token-of-64k-authenticate` of `sasl-plain` (a 64 KiB token, answered 58) into a closed connection | done: the cap is 128 KiB (a242d28), a connection test pins the 64 KiB token, SEC-194 and SEC-D71 say why. Lesson: every hardening change is re-run against the replay; the agents were told not to run it, so only the author's gate could catch this |
+| I28 | Closing findings of the final focused audit of Phase 8 (branch `p8k`): a classic heartbeat in a consumer group answers REBALANCE_IN_PROGRESS when a right is taken, inside the assignment interval too (SEC-231); the audit's liveness and invariant simulations are repo tests (`groups::group::tests::liveness`, `invariants`); the catalogue records four observations (SEC-230 table) and SEC-239, SEC-D93 | done on `p8k`, merge pending |
 
 ## Carried into later phases, by name
 - **Phase 7 (compaction), done:** the log walks advance by the last offset delta and a stored batch may hold fewer records than it

@@ -76,3 +76,20 @@ fn a_consumer_group_takes_a_thousand_members_and_no_more() {
     // One that is already a member may join again.
     assert!(r.consumer("m7", 0).error.is_none());
 }
+
+#[test]
+fn when_the_last_consumer_protocol_member_leaves_the_group_is_classic_again_and_its_members_rejoin()
+{
+    let mut r = Rig::new();
+    let generation = r.classic_member("old");
+    r.consumer("new", 0);
+    let left = r.consumer("new", -1);
+    assert!(left.error.is_none(), "{:?}", left.error);
+    assert!(r.view().is_none(), "not a consumer group any more");
+    // The classic member's old generation is gone: its heartbeat says so, and it rejoins.
+    assert_eq!(
+        heartbeat_of(&mut r, "old", generation),
+        Some(E::IllegalGeneration)
+    );
+    rejoin(&mut r, "old");
+}

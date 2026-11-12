@@ -109,7 +109,11 @@ impl ConsumerGroup {
         if req.generation != m.epoch {
             return Some(E::IllegalGeneration);
         }
-        if self.refresh_rights(&req.member_id, req.rights.clone(), topics, now, out) {
+        // A right changed is a new epoch for the group, as a change in Kafka bumps the group epoch and the target
+        // assignment's with it (`member.memberEpoch() < group.assignmentEpoch()`): the member is told to rejoin even
+        // when the targets are not due to be computed yet and its generation is still the last one computed.
+        let changed = self.refresh_rights(&req.member_id, req.rights.clone(), topics, now, out);
+        if changed {
             self.bump_and_reassign(topics, now);
         }
         let behind = self
@@ -117,7 +121,7 @@ impl ConsumerGroup {
             .get(&req.member_id)
             .is_some_and(|m| m.epoch != self.target_epoch);
         self.reset_session(&req.member_id, now, out);
-        let rejoin = behind || self.must_rejoin(&req.member_id);
+        let rejoin = changed || behind || self.must_rejoin(&req.member_id);
         // Told to rejoin to give something up, it has until its rebalance timeout to do it.
         self.arm_classic_revocations(now, out);
         rejoin.then_some(E::RebalanceInProgress)
