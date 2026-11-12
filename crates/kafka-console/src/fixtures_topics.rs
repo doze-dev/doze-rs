@@ -3,7 +3,9 @@
 //! `boards` example. The headline numbers are checked against the boards' text by `tests/boards_topics.rs`.
 
 use crate::format::parse_time;
-use crate::model::{Cleanup, OpenTxn, PartitionRow, TabCounts, TopicHead, TopicRow, TopicsView};
+use crate::model::{
+    CallVersions, Cleanup, OpenTxn, PartitionRow, TabCounts, TopicHead, TopicRow, TopicsView,
+};
 
 /// The moment of the world: Nov 9, 22:14:25 UTC.
 #[must_use]
@@ -186,6 +188,10 @@ fn orders() -> TopicHead {
             consumers: 2,
             producers: 3,
         },
+        calls: CallVersions {
+            fetch: 12,
+            list_offsets: 7,
+        },
         now_ms: now(),
     }
 }
@@ -206,6 +212,10 @@ fn dlq() -> TopicHead {
         }],
         txns: Vec::new(),
         tabs: TabCounts::default(),
+        calls: CallVersions {
+            fetch: 12,
+            list_offsets: 7,
+        },
         now_ms: now(),
     }
 }
@@ -228,6 +238,10 @@ fn notifications() -> TopicHead {
         tabs: TabCounts {
             consumers: 1,
             producers: 1,
+        },
+        calls: CallVersions {
+            fetch: 12,
+            list_offsets: 7,
         },
         now_ms: now(),
     }
@@ -255,6 +269,10 @@ fn generic(r: &TopicRow) -> TopicHead {
         tabs: TabCounts {
             consumers: r.read_by.len(),
             producers: 0,
+        },
+        calls: CallVersions {
+            fetch: 12,
+            list_offsets: 7,
         },
         now_ms: now(),
     }

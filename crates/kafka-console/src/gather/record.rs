@@ -22,14 +22,7 @@ pub async fn one(b: &Backend, topic: &str, partition: i32, offset: i64) -> Optio
     if !m.partitions.contains(&partition) || offset < 0 {
         return None;
     }
-    let chunk = read::once(
-        b,
-        m.id,
-        (partition, offset),
-        Reading::Uncommitted,
-        (WHOLE, 1),
-    )
-    .await;
+    let chunk = read::once(b, &m, (partition, offset), Reading::Uncommitted, (WHOLE, 1)).await;
     let raw: Raw = chunk.rows.into_iter().find(|r| r.offset == offset)?;
     let open = txns::ongoing(b).await;
     Some(view(topic, &raw, chunk.lso, &open))

@@ -5,7 +5,7 @@ use maud::{Markup, html};
 
 use super::common::topic_url;
 use crate::base::Base;
-use crate::format::{bytes, clock_ms, number, span_ms};
+use crate::format::{bytes, clock_ms, number};
 use crate::model::{Kind, RecordView, Shown, Standing};
 use crate::ui::button::{State, state};
 use crate::ui::client;
@@ -60,7 +60,11 @@ fn standing_callout(v: &RecordView) -> Markup {
         Standing::AboveLso => html! {
             div data-extra="record-view" style="margin-bottom:20px" { (callout(Tone::Warn, Glyph::Warn, html! {
                 b { "At or above the last stable offset." }
-                " The LSO of " (v.topic) "-" (v.partition) " is " (lso) @if v.transactional { " and this record is in a transaction that is still open" }
+                " The LSO of " (v.topic) "-" (v.partition) " is " (lso) @if v.transactional {
+                    " and this record is in "
+                    @match v.txn.as_ref().and_then(|t| t.id.as_ref()) { Some(id) => { "transaction " (id) }, None => { "a transaction" } }
+                    ", still open"
+                }
                 ": a read_committed consumer cannot see it yet; a read_uncommitted one can."
             })) }
         },
@@ -103,7 +107,7 @@ fn transaction(v: &RecordView) -> Markup {
             @match &t.id { Some(id) => span class="mono" { (id) }, None => "unknown transaction" }
             " " @if let Some(s) = &t.state { (state(if s == "Ongoing" { State::Warn } else { State::Info }, s)) }
             @if let (Some(since), Some(timeout)) = (t.since_ms, t.timeout_ms) {
-                span class="sub" { "since " (crate::format::clock(since)) ", timeout " (span_ms(timeout)) }
+                span class="sub" { "since " (crate::format::clock(since)) ", timeout " (crate::words::timeout(timeout)) }
             } @else { span class="sub" { "the coordinator no longer has it open" } }
         },
     }

@@ -1,10 +1,11 @@
 //! Fetch: one partition, from one offset, never waiting, never more than the limit.
 
+use kafka_wire::StrBytes;
 use kafka_wire::Uuid;
 use kafka_wire::api::Request;
-use kafka_wire::messages::BrokerId;
 use kafka_wire::messages::FetchRequest;
 use kafka_wire::messages::fetch_request::{FetchPartition, FetchTopic};
+use kafka_wire::messages::{BrokerId, TopicName};
 
 /// What a table of records reads from one partition at a time: 256 KiB.
 pub const TABLE_BYTES: i32 = 256 << 10;
@@ -36,6 +37,7 @@ impl Isolation {
 /// whole whatever its size), at once: `max_wait 0`, so an empty partition answers empty.
 #[must_use]
 pub fn fetch_partition(
+    topic: &str,
     topic_id: Uuid,
     partition: i32,
     offset: i64,
@@ -50,6 +52,8 @@ pub fn fetch_partition(
     p.last_fetched_epoch = -1;
     p.log_start_offset = -1;
     let mut t = FetchTopic::default();
+    // A version before 13 names the topic, from 13 on it is the id: both are given, and the broker reads the one its version has.
+    t.topic = TopicName(StrBytes::from_string(topic.to_owned()));
     t.topic_id = topic_id;
     t.partitions = vec![p];
     let mut r = FetchRequest::default();
@@ -68,9 +72,14 @@ mod tests {
 
     #[test]
     fn a_fetch_never_waits_and_is_bounded_by_the_limit_it_was_given() {
-        let Request::Fetch(r) =
-            fetch_partition(Uuid::from_u128(7), 2, 40, 1000, Isolation::ReadCommitted)
-        else {
+        let Request::Fetch(r) = fetch_partition(
+            "orders",
+            Uuid::from_u128(7),
+            2,
+            40,
+            1000,
+            Isolation::ReadCommitted,
+        ) else {
             panic!("not a Fetch");
         };
         assert_eq!((r.max_wait_ms, r.min_bytes, r.max_bytes), (0, 0, 1000));
@@ -82,6 +91,11 @@ mod tests {
             (2, 40, 1000)
         );
         assert_eq!(r.topics[0].topic_id, Uuid::from_u128(7));
+        assert_eq!(
+            r.topics[0].topic.0.as_str(),
+            "orders",
+            "a version before 13 reads the name"
+        );
     }
 
     #[test]

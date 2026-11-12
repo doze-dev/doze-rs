@@ -7,7 +7,9 @@ use super::configs::{self, TopicConfigs};
 use super::meta::{self, TopicMeta};
 use super::{readers, txns};
 use crate::backend::{Backend, requests};
-use crate::model::{OpenTxn, PartitionRow, TabCounts, TopicHead};
+use kafka_wire::messages::ApiKey;
+
+use crate::model::{CallVersions, OpenTxn, PartitionRow, TabCounts, TopicHead};
 use crate::source::now_ms;
 
 /// The offsets of the partitions: `(start, end, last stable)` in partition order, by one ListOffsets for the log start and
@@ -171,6 +173,10 @@ pub(super) async fn head_of(b: &Backend, meta: &TopicMeta) -> TopicHead {
                 .get(name)
                 .map_or(0, std::collections::BTreeSet::len),
             producers: producer_count,
+        },
+        calls: CallVersions {
+            fetch: b.version(ApiKey::Fetch),
+            list_offsets: b.version(ApiKey::ListOffsets),
         },
         now_ms: now_ms(),
     }

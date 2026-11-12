@@ -295,3 +295,29 @@ fn the_stream_vocabulary_is_closed_and_has_the_topics_ids() {
         assert!(parse_watch(bad).is_err(), "{bad:?}");
     }
 }
+
+#[tokio::test]
+async fn the_stream_takes_the_topics_ids_and_refuses_one_that_is_not_in_the_vocabulary() {
+    let (app, _) = app("/", &[]);
+    let ok = crate::support::head(
+        &app,
+        get("/events?watch=topics-sentence,topics-table,topic-sentence,topic-messages"),
+    )
+    .await;
+    assert_eq!(ok.status(), axum::http::StatusCode::OK);
+    assert!(
+        ok.headers()[axum::http::header::CONTENT_TYPE]
+            .to_str()
+            .unwrap()
+            .starts_with("text/event-stream")
+    );
+    for bad in [
+        "topic-evil",
+        "topic-messages,evil",
+        "TOPIC-MESSAGES",
+        "topics-table%0Aevil",
+    ] {
+        let (res, _) = send(&app, get(&format!("/events?watch={bad}"))).await;
+        assert_eq!(res.status(), axum::http::StatusCode::BAD_REQUEST, "{bad}");
+    }
+}

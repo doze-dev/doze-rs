@@ -188,7 +188,7 @@ describe("the command line", () => {
     const o = setup({ home: page("home") });
     const copy = join(work, "design-copy");
     cpSync(join(root, "crates/kafka-console/design"), copy, { recursive: true });
-    const r = run(["--dir", o.dir, "--routes", o.routes, "--allow", o.allow, "--boards", join(copy, "boards"), "--snapshot", join(copy, "boards.json")]);
+    const r = run(["--dir", o.dir, "--live-dir", o.liveDir, "--routes", o.routes, "--allow", o.allow, "--boards", join(copy, "boards"), "--snapshot", join(copy, "boards.json")]);
     expect(r.exitCode).toBe(0);
   });
 });

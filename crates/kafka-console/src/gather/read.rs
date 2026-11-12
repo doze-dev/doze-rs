@@ -1,8 +1,8 @@
 //! Reading a partition through Fetch: one request, or a run of them, bounded in requests and in bytes.
 
-use kafka_wire::Uuid;
 use kafka_wire::api::Response;
 
+use super::meta::TopicMeta;
 use super::walk::{Keep, Raw, walk};
 use crate::backend::{Backend, requests};
 use crate::model::{Reading, Standing};
@@ -41,7 +41,14 @@ struct Answer {
     error: Option<i16>,
 }
 
-async fn ask(b: &Backend, id: Uuid, partition: i32, from: i64, max: i32, iso: Isolation) -> Answer {
+async fn ask(
+    b: &Backend,
+    t: &TopicMeta,
+    partition: i32,
+    from: i64,
+    max: i32,
+    iso: Isolation,
+) -> Answer {
     let empty = Answer {
         records: bytes::Bytes::new(),
         lso: 0,
@@ -49,7 +56,9 @@ async fn ask(b: &Backend, id: Uuid, partition: i32, from: i64, max: i32, iso: Is
         error: Some(-1),
     };
     let Ok(Response::Fetch(r)) = b
-        .call(requests::fetch_partition(id, partition, from, max, iso))
+        .call(requests::fetch_partition(
+            &t.name, t.id, partition, from, max, iso,
+        ))
         .await
     else {
         return empty;
@@ -77,12 +86,12 @@ async fn ask(b: &Backend, id: Uuid, partition: i32, from: i64, max: i32, iso: Is
 /// transactions are dropped, as a consumer drops them.
 pub(super) async fn once(
     b: &Backend,
-    id: Uuid,
+    t: &TopicMeta,
     (partition, from): (i32, i64),
     reading: Reading,
     (keep, limit): (Keep, usize),
 ) -> Chunk {
-    let first = ask(b, id, partition, from, TABLE_BYTES, isolation(reading)).await;
+    let first = ask(b, t, partition, from, TABLE_BYTES, isolation(reading)).await;
     if first.error.is_some() {
         return Chunk {
             error: first.error,
@@ -101,7 +110,7 @@ pub(super) async fn once(
     if reading == Reading::Uncommitted && walked.saw_txn {
         // A read_uncommitted answer does not list the aborted transactions; ask for the list a consumer of the other
         // level would be given (one batch at most comes with it) and walk again.
-        let aborted = ask(b, id, partition, from, 1, Isolation::ReadCommitted)
+        let aborted = ask(b, t, partition, from, 1, Isolation::ReadCommitted)
             .await
             .aborted;
         walked = walk(
@@ -140,7 +149,7 @@ pub(super) struct Window {
 /// is met: 16 requests, or 4 MiB of records.
 pub(super) async fn forward(
     b: &Backend,
-    id: Uuid,
+    t: &TopicMeta,
     (partition, from, until): (i32, i64, i64),
     reading: Reading,
     (keep, want): (Keep, Option<usize>),
@@ -151,7 +160,7 @@ pub(super) async fn forward(
         if cursor >= until || w.bytes >= MOST_BYTES || want.is_some_and(|n| w.rows.len() >= n) {
             break;
         }
-        let c = once(b, id, (partition, cursor), reading, (keep, usize::MAX)).await;
+        let c = once(b, t, (partition, cursor), reading, (keep, usize::MAX)).await;
         w.error = c.error;
         w.bytes += c.bytes;
         let progressed = c.next.is_some_and(|n| n > cursor);

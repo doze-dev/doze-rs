@@ -41,9 +41,9 @@ fn row(h: &TopicHead, p: &PartitionRow, base: &Base) -> Markup {
 fn call(h: &TopicHead) -> Markup {
     let parts: Vec<String> = h.parts.iter().map(|p| p.partition.to_string()).collect();
     apicall(
-        "ListOffsets v10",
+        &format!("ListOffsets v{}", h.calls.list_offsets),
         html! {
-            span class="k" { "ListOffsets" } " v10  topic " (h.name) ", partitions " (parts.join(" ")) "\n  timestamp: -2  " span class="c" { "earliest: the log start" }
+            span class="k" { "ListOffsets" } " v" (h.calls.list_offsets) "  topic " (h.name) ", partitions " (parts.join(" ")) "\n  timestamp: -2  " span class="c" { "earliest: the log start" }
             "\n  timestamp: -1  " span class="c" { "latest: the log end" }
             "\nisolation_level 1  " span class="c" { "read_committed: latest is the last stable offset" }
         },

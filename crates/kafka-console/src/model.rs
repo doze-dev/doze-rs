@@ -16,5 +16,5 @@ pub use messages::{
     HeaderRow, Hold, Kind, MessagesView, Reach, RecordRow, RecordTxn, RecordView, Shown, Standing,
 };
 pub use query::{DEFAULT_LIMIT, MOST_KEY, MOST_LIMIT, MessageQuery, Reading};
-pub use topic::{OpenTxn, PartitionRow, TabCounts, TopicHead};
+pub use topic::{CallVersions, OpenTxn, PartitionRow, TabCounts, TopicHead};
 pub use topics::{Cleanup, TopicRow, TopicsState, TopicsView};

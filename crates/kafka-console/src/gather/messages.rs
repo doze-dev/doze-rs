@@ -6,7 +6,6 @@
 //! - A key: the partition is searched backwards from its end, a thousand offsets at a time, until enough matched or 8 MiB
 //!   of records have been looked at.
 
-use kafka_wire::Uuid;
 use kafka_wire::api::Response;
 
 use super::decode::shown;
@@ -64,7 +63,13 @@ struct Found {
     error: Option<i16>,
 }
 
-async fn latest(b: &Backend, id: Uuid, head: &TopicHead, parts: &[i32], q: &MessageQuery) -> Found {
+async fn latest(
+    b: &Backend,
+    t: &TopicMeta,
+    head: &TopicHead,
+    parts: &[i32],
+    q: &MessageQuery,
+) -> Found {
     let mut out = Found {
         reached_end: true,
         ..Found::default()
@@ -74,7 +79,7 @@ async fn latest(b: &Backend, id: Uuid, head: &TopicHead, parts: &[i32], q: &Mess
         let (start, end) = stop(head, q.reading, p);
         let mut from = (end - n).max(start);
         loop {
-            let w = read::forward(b, id, (p, from, end), q.reading, (TABLE, None)).await;
+            let w = read::forward(b, t, (p, from, end), q.reading, (TABLE, None)).await;
             out.error = out.error.or(w.error);
             out.reached_end &= w.reached;
             let enough = w.rows.len() >= q.limit || from <= start;
@@ -90,7 +95,7 @@ async fn latest(b: &Backend, id: Uuid, head: &TopicHead, parts: &[i32], q: &Mess
 
 async fn from_offsets(
     b: &Backend,
-    id: Uuid,
+    t: &TopicMeta,
     head: &TopicHead,
     starts: &[(i32, i64)],
     q: &MessageQuery,
@@ -103,7 +108,7 @@ async fn from_offsets(
         let (start, end) = stop(head, q.reading, p);
         let w = read::forward(
             b,
-            id,
+            t,
             (p, from.max(start), end),
             q.reading,
             (TABLE, Some(q.limit)),
@@ -157,7 +162,13 @@ async fn offsets_at(
         .unwrap_or_default()
 }
 
-async fn by_key(b: &Backend, id: Uuid, head: &TopicHead, parts: &[i32], q: &MessageQuery) -> Found {
+async fn by_key(
+    b: &Backend,
+    t: &TopicMeta,
+    head: &TopicHead,
+    parts: &[i32],
+    q: &MessageQuery,
+) -> Found {
     let wanted = q.key.as_deref().unwrap_or_default().as_bytes();
     let mut out = Found {
         reached_end: true,
@@ -174,7 +185,7 @@ async fn by_key(b: &Backend, id: Uuid, head: &TopicHead, parts: &[i32], q: &Mess
                 break;
             }
             let from = (to - WINDOW).max(start);
-            let w = read::forward(b, id, (p, from, to), q.reading, (TABLE, None)).await;
+            let w = read::forward(b, t, (p, from, to), q.reading, (TABLE, None)).await;
             out.error = out.error.or(w.error);
             bytes += w.bytes;
             looked += w.rows.len() as u64;
@@ -294,15 +305,15 @@ async fn search(
     q: &MessageQuery,
 ) -> Found {
     if q.key.is_some() {
-        return by_key(b, meta.id, head, parts, q).await;
+        return by_key(b, meta, head, parts, q).await;
     }
     if let Some(offset) = q.offset {
         let starts: Vec<(i32, i64)> = parts.iter().map(|&p| (p, offset)).collect();
-        return from_offsets(b, meta.id, head, &starts, q).await;
+        return from_offsets(b, meta, head, &starts, q).await;
     }
     if let Some((ms, _)) = &q.time {
         let starts = offsets_at(b, &meta.name, parts, *ms, q.reading).await;
-        return from_offsets(b, meta.id, head, &starts, q).await;
+        return from_offsets(b, meta, head, &starts, q).await;
     }
-    latest(b, meta.id, head, parts, q).await
+    latest(b, meta, head, parts, q).await
 }

@@ -374,5 +374,7 @@ html,body{background:#fbfaff}
 .root form.toolbar{display:flex}
 /* The title of an empty state is an h2 in the page (an h3 straight under the h1 skips a level); the kit styles the h3. */
 .empty h2{margin:0 0 8px;font-size:18px;font-weight:600;color:var(--bright)}
-/* A chip that holds a field (the time and the key of the Messages filters). */
-.fchip input{border:0;background:transparent;font:inherit;color:inherit;min-width:0;outline:0;padding:0 0 0 4px}
+/* A chip that holds a field (the time and the key of the Messages filters): as small as the board's chip until it has a value or
+   focus, then wide enough to type in. Without a script a click on the chip focuses its field. */
+.fchip input{border:0;background:transparent;font:inherit;color:inherit;min-width:0;outline:0;padding:0;width:0}
+.fchip.on input,.fchip:focus-within input{width:15ch;padding:0 0 0 4px}

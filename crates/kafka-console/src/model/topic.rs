@@ -52,6 +52,13 @@ pub struct TabCounts {
     pub producers: usize,
 }
 
+/// The versions of the requests the pages say they make (the highest the broker's profile offers).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct CallVersions {
+    pub fetch: i16,
+    pub list_offsets: i16,
+}
+
 /// One topic.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TopicHead {
@@ -63,6 +70,7 @@ pub struct TopicHead {
     pub parts: Vec<PartitionRow>,
     pub txns: Vec<OpenTxn>,
     pub tabs: TabCounts,
+    pub calls: CallVersions,
     pub now_ms: i64,
 }
 

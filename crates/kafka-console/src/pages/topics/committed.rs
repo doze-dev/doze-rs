@@ -108,7 +108,9 @@ fn holds(v: &MessagesView, base: &Base) -> Markup {
                 tbody { @for h in &v.holds { (row(h)) } }
             }
             p class="help" style="margin-top:16px" {
-                "The transaction times out and the coordinator then aborts it and fences its producer. "
+                @if let Some(t) = v.head.txns.first() {
+                "The transaction times out at " (crate::words::timeout(t.timeout_ms)) ": the coordinator then aborts it and fences producer " (t.producer_id) ". "
+            } @else { "A transaction that times out is aborted by the coordinator and its producer is fenced. " }
                 a class="lnk" href=(format!("{}/producers", topic_url(base, &v.head.name))) { "What it holds back" }
             }
         },
@@ -122,7 +124,11 @@ fn reader_sees(v: &MessagesView, base: &Base) -> Markup {
             h2 { "What a read_committed reader sees" }
             (records(&v.rows, &v.head.name, base))
             p class="help" style="margin-top:12px" {
-                "The records held back are not listed here; "
+                @match v.head.held() {
+                    0 => { "Nothing is held back, so this is every record the table shows; " },
+                    1 => { "The held record is not listed here; " },
+                    n => { "The " (n) " held records are not listed here; " },
+                }
                 a class="lnk" href=(plain) { "read_uncommitted shows them" } ", each marked Above LSO."
             }
         }

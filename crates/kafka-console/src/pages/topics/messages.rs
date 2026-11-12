@@ -72,7 +72,7 @@ pub fn messages_fragment(v: &MessagesView, base: &Base, page_query: &str) -> Mar
                 p class="help" { "Nothing to list. Clear the filters to see the newest records." }
             } @else {
                 (records(&v.rows, &v.head.name, base))
-                (pager(&line(v), older(v, base)))
+                @if !v.query.filtered() { (pager(&line(v), older(v, base))) }
             }
         },
     )
@@ -200,7 +200,7 @@ fn call_preview(v: &MessagesView) -> Markup {
     apicall(
         "The call",
         html! {
-            span class="k" { "Fetch" } " v18\n  isolation_level: " (iso) "\n  topics[0]\n    topic: " span class="s" { (v.head.name) }
+            span class="k" { "Fetch" } " v" (v.head.calls.fetch) "\n  isolation_level: " (iso) "\n  topics[0]\n    topic: " span class="s" { (v.head.name) }
             "\n    partitions[0]\n      partition: " (partition) "\n      fetch_offset: " (from) "\n      partition_max_bytes: " (crate::backend::requests::TABLE_BYTES)
         },
         Some(
