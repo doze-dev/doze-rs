@@ -1164,5 +1164,19 @@
     "field": "link",
     "reason": "improvement: Edit again goes to the edit dialog (see the button entry).",
     "expires": "close"
+  },
+  {
+    "board": "member-detail",
+    "field": "button",
+    "selector": "Close [-] -> to:group-members",
+    "reason": "improvement: a Close control in the drawer, as the record drawer has, a plain link to the Members page behind it (a script closes in place); the board draws none and leaves Esc or a click outside as the only way out.",
+    "expires": "close"
+  },
+  {
+    "board": "member-detail",
+    "field": "link",
+    "selector": "group-members",
+    "reason": "improvement: the Close control and the scrim are real links to the Members page behind the drawer, so that closing works with no script.",
+    "expires": "close"
   }
 ]
