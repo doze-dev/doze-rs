@@ -15,11 +15,15 @@
 
 pub mod ca;
 mod ca_cert;
+mod ca_leaf;
+pub mod certs;
 pub mod claims;
 pub mod domains;
 pub mod error;
 pub mod front;
+pub mod front_door;
 pub mod pool;
+mod proxy;
 pub mod registry;
 pub mod resolver;
 pub mod upstream;
@@ -201,4 +205,18 @@ mod tests {
 pub mod fuzzing {
     pub use crate::upstream::{resolv_conf_servers, scutil_servers};
     pub use crate::wire::{answer, cap_ttl};
+}
+
+/// Whether an address is this machine talking to itself: loopback, or on a Mac one of the zone's translated addresses
+/// (routed to this machine's own interface and nowhere else). The front door binds the wildcard, so it is reachable
+/// from the network the machine is on, and the services behind it are development fixtures with no authentication:
+/// only this machine is answered.
+pub fn on_this_machine(ip: std::net::IpAddr) -> bool {
+    let net = Net::native();
+    match ip {
+        std::net::IpAddr::V4(v4) => v4.is_loopback() || (net.virtual_ && net.offset(v4).is_some()),
+        std::net::IpAddr::V6(v6) => {
+            v6.is_loopback() || v6.to_ipv4_mapped().is_some_and(|v4| v4.is_loopback())
+        }
+    }
 }

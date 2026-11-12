@@ -55,7 +55,7 @@ Rust crate read and write one file in turn.
 | Need | Choice | Why |
 |---|---|---|
 | DNS messages | hand-written, as Go's (crate `wire.rs`, about 100 lines); `simple-dns` 0.13 (MIT, no dependencies) is the fallback if more record types are ever needed | the zone answers one question with A, empty NOERROR or NXDOMAIN, and caps relayed TTLs: no dependency earns its place for that. `hickory-proto` brings rand, url, ipnet, tracing; `domain` is larger. Fuzzed (`fuzz_wire`). |
-| CA and leaf certificates | `rcgen` 0.14 on `ring` | doze-rs already uses rustls with ring (doze-kafka TLS): no second crypto stack |
+| CA and leaf certificates | `x509-cert` 0.3 (RustCrypto) on the workspace's `p256` and `sha2` | parses and builds certificates on the crypto family already in doze-rs; rcgen would have added x509-parser and a second parsing stack. Keys are SEC1 ("EC PRIVATE KEY"), what Go reads. |
 | TLS at the front door | `tokio-rustls` (already in the workspace) | SNI picks the leaf |
 | macOS tunnel | written in `doze-os` (utun: a `PF_SYSTEM` socket, `CTLIOCGINFO`, connect; ~100 lines) | the only `unsafe` stays in doze-os (D11); `tun-rs` would add a dependency for a few calls |
 | Packet translation | hand-written IPv4/TCP rewrite with checksum update | a dozen lines of arithmetic the Go version also writes by hand; fuzzed |
@@ -137,10 +137,10 @@ crates/doze-os/src/tun/       utun on macOS
 
 | # | What | Tests (ported Go tests) | Days |
 |---|---|---|---|
-| N0 | This plan; cross-language format test harness (Go library vs Rust crate, one home) | format, zone_switch | 1 |
-| N1 | Names, pool, registry, leases, liveness, ports file, routes, domains | registry, allocator, domains, subtree, stack, peers, private_zone, heal, format | 4 |
-| N2 | Resolver and upstream: first-come bind and take-over between processes, zone answers, forwarding | resolver, peers, private_zone | 3 |
-| N3 | CA and front door: Host/SNI routing, leaf minting, first-come :80/:443 | ca, ingress | 3 |
+| N0 ✓ | This plan; cross-language format test harness (Go library vs Rust crate, one home) | format, zone_switch | 1 |
+| N1 ✓ | Names, pool, registry, leases, liveness, ports file, routes, domains | registry, allocator, domains, subtree, stack, peers, private_zone, heal, format | 4 |
+| N2 ✓ | Resolver and upstream: first-come bind and take-over between processes, zone answers, forwarding | resolver, peers, private_zone | 3 |
+| N3 ✓ | CA and front door: Host/SNI routing, leaf minting, first-come :80/:443 | ca, ingress | 3 |
 | N4 | Listen/forward; macOS netd: tunnel, translation, table cache (privileged parts tested on the owner's Mac) | listen, nat, netd, e2e_darwin | 5 |
 | N5 | Setup and trust per OS as data: macOS, Linux (in the Lima VM with sudo), Windows (NRPT, in CI) | setup, setup_linux, setup_netd_linux, setup_darwin, resolvconf, trust | 5 |
 | N6 | Wire into Rust doze-aws and doze-kafka (`aws.doze`, `kafka.doze` again), then the core | their own e2e | 2 |
@@ -148,3 +148,16 @@ crates/doze-os/src/tun/       utun on macOS
 About 23 days. N0 to N3 need no privilege and run unattended; N4 and N5 need root (the owner's Mac, the Lima VM, the
 elevated Windows runners). Tests never touch the real zone: a private home with `DOZE_ZONE_RESOLVER` and
 `DOZE_ZONE_INGRESS` pointed at test ports, as the Go tests do.
+
+## Progress
+
+- **N0 to N3 built 2026-11-13** (PR #4, crate `doze-names`, 48 tests): registry, addresses, domains, stacks,
+  holders and routes; the resolver with take-over and forwarding; the CA (shared with Go: Go verifies leaves Rust
+  mints, Rust uses Go's authority); the front door on :80/:443 with take-over, Host and SNI routing, https from the CA
+  or the person's own files, the redirect, rotation followed, WebSocket upgrades carried; separate processes sharing
+  one zone and surviving the holder's death (tests/peers.rs). Cross-language oracle: `tools/names-oracle`.
+- **Deferred, said here**: HTTP/2 on the https port (Go offers h2; browsers fall back to HTTP/1.1, and hyper's h2 adds
+  weight to every program that links this crate); the CA bundle with the system roots (`Bundle`, for
+  `SSL_CERT_FILE`) and `RotateCA`'s list of roots the machine trusts, both of which read platform trust stores: N5.
+- **Not started**: N4 (listen/forward, the macOS daemon), N5 (setup and trust), N6 (wiring into doze-aws, doze-kafka
+  and the core). N4 and N5 need root.

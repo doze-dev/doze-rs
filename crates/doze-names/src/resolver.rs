@@ -2,10 +2,10 @@
 //! the zone survive any one program. With doze, doze-aws and doze-kafka as peers, the one holding the socket may exit
 //! while others still run, so every peer keeps trying; whoever holds it answers for all of them.
 
+use crate::Registry;
 use crate::front::RESOLVER_KEY;
 use crate::upstream::Upstreams;
 use crate::wire::{RELAY_TTL, answer, cap_ttl};
-use crate::{Net, Registry};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::Arc;
 use std::time::Duration;
@@ -167,15 +167,7 @@ async fn answer_until_stopped(
 /// Whether a query came from this machine: loopback, the resolver's own address (Linux answers for its interface),
 /// or a translated zone address (macOS).
 fn asked_from_here(ip: IpAddr) -> bool {
-    let net = Net::native();
-    match ip {
-        IpAddr::V4(v4) => {
-            v4.is_loopback()
-                || v4.to_string() == crate::RESOLVER_IP
-                || (net.virtual_ && net.offset(v4).is_some())
-        }
-        IpAddr::V6(v6) => v6.is_loopback(),
-    }
+    crate::on_this_machine(ip) || ip.to_string() == crate::RESOLVER_IP
 }
 
 /// A peer's address for tests: a free loopback UDP port nothing uses.
