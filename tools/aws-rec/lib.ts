@@ -2,7 +2,8 @@
 export const BIN = process.env.AWS_BIN ?? "/opt/homebrew/bin/aws";
 export const PROFILE = process.env.DOZE_REC_PROFILE ?? "doze-rec-main";
 export const REGION = "us-east-1";
-export const EXPECT_ACCOUNT = "821712915674";
+// The recorder account id stays out of the repository: set DOZE_REC_ACCOUNT.
+export const EXPECT_ACCOUNT = process.env.DOZE_REC_ACCOUNT ?? "";
 export const EXPECT_ROLE = "doze-recorder-limited";
 export const PREFIX = "doze-rec-";
 
@@ -24,6 +25,7 @@ export async function aws(args: string[]): Promise<any> {
 
 /** Refuses to run unless we are the limited recorder role in the expected account. */
 export async function assertRecorder(): Promise<string> {
+  if (!EXPECT_ACCOUNT) throw new Error("set DOZE_REC_ACCOUNT to the recorder account id");
   const who = await aws(["sts", "get-caller-identity"]);
   if (who.Account !== EXPECT_ACCOUNT) throw new Error(`wrong account ${who.Account}, expected ${EXPECT_ACCOUNT}`);
   if (!String(who.Arn).includes(EXPECT_ROLE)) throw new Error(`wrong role ${who.Arn}, expected ${EXPECT_ROLE}`);

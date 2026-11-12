@@ -4,7 +4,7 @@ Read this first. Then `phase0.md` (method, stages, spikes), `scoreboard.md`, `ba
 
 ## State in one paragraph
 
-Stage 0 (instruments) is nearly done: the AWS recorder account works (main account `821712915674`, permission set `doze-recorder-limited`,
+Stage 0 (instruments) is nearly done: the AWS recorder account works (main account (id in `DOZE_REC_ACCOUNT`, kept out of the repository), permission set `doze-recorder-limited`,
 profile `doze-rec-main`, no keys), teardown is tested, the Go conformance harness is forked to `conformance/` and recordings from real AWS exist for the modules
 listed in `baseline.md`. Go doze-aws was measured against them (first batch: 46% exact over 537 labels). Stage 1 spikes: S1 failed (3 MiB ceiling retired, targets restated),
 S5 half true, S6 holds, S1b (decode design) was running when we stopped, S2 (Windows) now runs through GitHub Actions, S3 (Lambda handlers) and S4 (ASL) not started.
