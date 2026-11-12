@@ -50,13 +50,17 @@ pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode) -> Outcome {
     };
     let (mut rows, mut refresh, mut unknown) = (Vec::new(), Vec::new(), Vec::new());
     for (source, pin) in &lock.modules {
-        let short = Source::parse(source).map_or_else(|| source.clone(), |s| s.short());
-        let copy = cache.read(&format!("{source}/index.yaml"), ctx.now);
+        // A key that is not a module source (a hand edit) names no file: it is listed as not known.
+        let src = Source::parse(source);
+        let short = src.as_ref().map_or_else(|| source.clone(), Source::short);
+        let copy = src
+            .as_ref()
+            .and_then(|s| cache.read(&s.file("index.yaml"), ctx.now));
         if copy
             .as_ref()
             .is_none_or(|(_, age)| *age > Duration::from_secs(86_400))
         {
-            refresh.push(source.clone());
+            refresh.extend(src.as_ref().map(ToString::to_string));
         }
         let idx = copy
             .and_then(|(text, _)| index::parse(&text).ok())
