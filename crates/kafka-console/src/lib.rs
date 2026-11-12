@@ -20,8 +20,9 @@ pub mod facts;
 #[cfg(any(test, feature = "examples"))]
 pub mod fixtures;
 #[cfg(any(test, feature = "examples"))]
-pub mod fixtures_write;
 pub mod fixtures_topics;
+#[cfg(any(test, feature = "examples"))]
+pub mod fixtures_write;
 pub mod form;
 pub mod format;
 pub mod gather;

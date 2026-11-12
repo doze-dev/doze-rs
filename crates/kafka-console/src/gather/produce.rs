@@ -10,8 +10,7 @@ use crate::backend::{Backend, requests::topics_write};
 use crate::calls::{self, Outcome, RecordText};
 use crate::model::write::{RecordRow, TopicHead};
 use crate::model::{
-    ProduceErrors, ProduceInput, ProduceRefused, ProduceResult, ProduceView, Produced,
-    Visibility,
+    ProduceErrors, ProduceInput, ProduceRefused, ProduceResult, ProduceView, Produced, Visibility,
 };
 use crate::{partitioner, refusal, validate};
 
