@@ -14,6 +14,27 @@ pub(crate) enum AuthMode {
     Verify,
 }
 
+/// What happens to a request IAM would refuse.
+#[derive(Clone, Copy, Debug, ValueEnum)]
+pub(crate) enum IamMode {
+    /// Policies are stored and never asked.
+    Off,
+    /// A request that would be refused is logged, and goes through.
+    Soft,
+    /// A request that is not allowed is refused, in AWS's words.
+    Enforce,
+}
+
+impl From<IamMode> for aws_peers::Mode {
+    fn from(m: IamMode) -> Self {
+        match m {
+            IamMode::Off => Self::Off,
+            IamMode::Soft => Self::Soft,
+            IamMode::Enforce => Self::Enforce,
+        }
+    }
+}
+
 /// Local AWS for development.
 #[derive(Debug, Parser)]
 #[command(version, about)]
@@ -33,6 +54,10 @@ pub(crate) struct Args {
     /// The secret key `--auth verify` accepts.
     #[arg(long, default_value = "test")]
     pub(crate) secret_key: String,
+    /// What IAM does with a request its policies do not allow. Callers using a key IAM did not issue (`test`) are the account
+    /// root and are allowed everything.
+    #[arg(long, value_enum, default_value_t = IamMode::Soft)]
+    pub(crate) iam: IamMode,
     /// Seconds without a request before a service lets go of its memory and its files (it starts again, with its state, on the
     /// next request).
     #[arg(long, default_value_t = 300)]

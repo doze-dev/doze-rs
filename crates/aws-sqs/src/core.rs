@@ -4,6 +4,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
 use aws_model_sqs::Operation;
+use aws_peers::{Mode, Peers};
 use aws_schema::arena::Arena;
 use aws_schema::build::Object;
 use aws_schema::view::{Shape, View};
@@ -34,6 +35,8 @@ pub(crate) struct Core {
     pub(crate) removed: Vec<String>,
     /// The bytes last written for `deleted` and `tasks`.
     pub(crate) written_meta: Vec<u8>,
+    /// The bus, for asking whether a caller may do what it asks.
+    pub(crate) peers: Option<Arc<Peers>>,
 }
 
 /// What the actor answers: the reply, whether the caller may wait for a better one (a receive that found nothing), and the
@@ -52,11 +55,26 @@ impl doze_runtime::Service for Core {
 
     async fn open(ctx: &Ctx, _name: &'static str) -> Result<Self, StoreError> {
         let persist = Persist::open(&ctx.dir)?;
-        Ok(Self::restore(Arc::clone(&ctx.clock), Some(persist)))
+        let mut core = Self::restore(Arc::clone(&ctx.clock), Some(persist));
+        core.peers = ctx
+            .ext
+            .as_ref()
+            .and_then(|e| Arc::clone(e).downcast::<Peers>().ok());
+        Ok(core)
     }
 
     async fn handle(&mut self, call: Call) -> Answer {
         self.poll = None;
+        if let Some(peers) = self.peers.clone()
+            && peers.mode() != Mode::Off
+            && let Err(refusal) = peers.authorize(&call.caller, self.needs(&call)).await
+        {
+            return Answer {
+                reply: Err(refusal),
+                poll: None,
+                durable: None,
+            };
+        }
         let mut reply = self.dispatch(&call);
         let durable = match self.flush() {
             Ok(ack) => ack,
@@ -92,6 +110,7 @@ impl Core {
             touched: BTreeSet::new(),
             removed: Vec::new(),
             written_meta: Vec::new(),
+            peers: None,
         }
     }
 

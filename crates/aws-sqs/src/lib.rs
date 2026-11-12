@@ -3,6 +3,7 @@
 //! reap and a restart. Every operation the model has is named in [`core`]'s dispatch.
 
 mod attrs;
+mod authz;
 mod batch;
 mod core;
 mod fifo;

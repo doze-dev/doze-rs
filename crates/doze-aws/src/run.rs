@@ -42,9 +42,12 @@ pub(crate) async fn run(args: Args) -> Result<()> {
             Auth::Verify(Arc::new(creds))
         }
     };
+    peers.set_mode(args.iam.into());
     let (iam, sts) = aws_iam::services(Arc::new(ctx("iam")));
+    let iam = Arc::new(iam);
+    peers.set_authorizer(iam.clone());
     let services: Vec<Arc<dyn Service>> = vec![
-        Arc::new(iam),
+        iam,
         Arc::new(sts),
         Arc::new(aws_sqs::Sqs::new(Arc::new(ctx("sqs")))),
         Arc::new(aws_ssm::Ssm::new(Arc::new(ctx("ssm")))),
