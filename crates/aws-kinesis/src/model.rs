@@ -11,8 +11,12 @@ pub(crate) const MAX_HASH: u128 = u128::MAX;
 /// increasing in a shard. So a time is a sequence number (`AT_TIMESTAMP`, and expiry by retention) and it sorts as a number.
 pub(crate) const SEQ_SHIFT: u32 = 24;
 
-/// One shard. `parent` and `adjacent_parent` are kept for resharding, which is refused by name for now: the lineage is
-/// part of the record so that adding it later does not change what is stored.
+/// How long a stream reports `UPDATING` after a reshard. AWS says `UPDATING` while it moves the shards and `ACTIVE` after; how
+/// long that takes is its own, so this is a short fixed window. (memory)
+pub(crate) const RESHARD_MS: i64 = 1000;
+
+/// One shard. A shard is never changed in place: a split, a merge or a new shard count closes it (`ended_seq`) and opens children
+/// that name it as `parent` (and, for a merge, `adjacent_parent`).
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct Shard {
     pub(crate) id: u32,
@@ -36,6 +40,26 @@ impl Shard {
     pub(crate) fn holds(&self, hash: u128) -> bool {
         self.ended_seq.is_none() && (self.start..=self.end).contains(&hash)
     }
+
+    /// The millisecond the shard was opened at (a sequence number carries its arrival time).
+    pub(crate) fn opened_ms(&self) -> i64 {
+        seq_ms(self.first_seq)
+    }
+
+    /// The millisecond the shard was closed at, if it is closed.
+    pub(crate) fn closed_ms(&self) -> Option<i64> {
+        self.ended_seq.map(seq_ms)
+    }
+}
+
+/// The time in milliseconds a sequence number stands for.
+pub(crate) fn seq_ms(seq: u128) -> i64 {
+    i64::try_from(seq >> SEQ_SHIFT).unwrap_or(i64::MAX)
+}
+
+/// The smallest sequence number given out at `ms` or later.
+pub(crate) fn ms_seq(ms: i64) -> u128 {
+    u128::try_from(ms).unwrap_or(0) << SEQ_SHIFT
 }
 
 pub(crate) fn shard_name(id: u32) -> String {
@@ -92,6 +116,59 @@ impl Stream {
     /// The open shards.
     pub(crate) fn open(&self) -> impl Iterator<Item = &Shard> {
         self.shards.iter().filter(|s| s.ended_seq.is_none())
+    }
+
+    /// What the stream reports as its status at `now_ms`: `UPDATING` for a moment after a reshard, `ACTIVE` otherwise. A reshard
+    /// leaves no field of its own: the children of one are the shards with a parent, and each carries the time it was opened.
+    pub(crate) fn status(&self, now_ms: i64) -> &'static str {
+        let updating = self
+            .shards
+            .iter()
+            .any(|s| s.parent.is_some() && now_ms < s.opened_ms().saturating_add(RESHARD_MS));
+        if updating { "UPDATING" } else { "ACTIVE" }
+    }
+
+    /// The children of shard `id`: the shards that name it as a parent.
+    pub(crate) fn children(&self, id: u32) -> impl Iterator<Item = &Shard> {
+        self.shards
+            .iter()
+            .filter(move |s| s.parent == Some(id) || s.adjacent_parent == Some(id))
+    }
+
+    /// Closes shard `id` at the current end of the stream. Returns the sequence number it ends at: no record of the shard is past it,
+    /// and none is before the shard started (a shard that never held a record is closed all the same).
+    pub(crate) fn close(&mut self, id: u32, now_ms: i64) -> u128 {
+        let floor = ms_seq(now_ms);
+        let Some(shard) = self.shards.iter_mut().find(|s| s.id == id) else {
+            return 0;
+        };
+        let end = shard.last_seq.max(floor).max(shard.first_seq);
+        shard.ended_seq = Some(end);
+        end
+    }
+
+    /// Opens a shard over `start..=end` after the sequence number `after`, naming its parents. Returns its id.
+    pub(crate) fn open_child(
+        &mut self,
+        (start, end): (u128, u128),
+        parents: (Option<u32>, Option<u32>),
+        after: u128,
+        now_ms: i64,
+    ) -> u32 {
+        let id = self.next_shard;
+        self.next_shard += 1;
+        self.shards.push(Shard {
+            id,
+            start,
+            end,
+            parent: parents.0,
+            adjacent_parent: parents.1,
+            // The children start after everything their parents ever held, and no two start at the same number.
+            first_seq: ms_seq(now_ms).max(after.saturating_add(1)) + u128::from(id),
+            last_seq: 0,
+            ended_seq: None,
+        });
+        id
     }
 }
 

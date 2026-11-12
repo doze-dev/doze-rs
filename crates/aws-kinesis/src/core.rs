@@ -17,12 +17,14 @@ use doze_store::rows::RowTable;
 use doze_store::{Ack, Db, StoreError};
 use serde_json::Value;
 
+use crate::billing::Commitment;
 use crate::model::Stream;
 use crate::req::Req;
 
 const FILE: &str = "kinesis.redb";
 const STREAMS: &str = "streams";
 const RECORDS: &str = "records";
+const ACCOUNT: &str = "account";
 /// The version of every record here. A change of a record's shape is a new version with a branch that reads the old one.
 const VERSION: u8 = 1;
 
@@ -30,6 +32,8 @@ const VERSION: u8 = 1;
 #[derive(Debug)]
 pub(crate) struct Core {
     pub(crate) streams: Records<Stream>,
+    /// The account-level settings: one row, the minimum throughput billing commitment.
+    pub(crate) account: Records<Commitment>,
     pub(crate) rows: RowTable,
     pub(crate) db: Option<Db>,
     pub(crate) clock: Arc<dyn Clock>,
@@ -87,6 +91,11 @@ pub(crate) fn built(op: Operation) -> bool {
             | O::DeregisterStreamConsumer
             | O::DescribeStreamConsumer
             | O::ListStreamConsumers
+            | O::SplitShard
+            | O::MergeShards
+            | O::UpdateShardCount
+            | O::DescribeAccountSettings
+            | O::UpdateAccountSettings
     )
 }
 
@@ -142,6 +151,7 @@ impl Core {
         Self::with(
             clock,
             Records::new(STREAMS, "stream", VERSION),
+            Records::new(ACCOUNT, "account setting", VERSION),
             RowTable::new(RECORDS, true),
             None,
             None,
@@ -153,13 +163,15 @@ impl Core {
         clock: Arc<dyn Clock>,
         peers: Option<Arc<Peers>>,
     ) -> Result<Self, StoreError> {
-        let db = Db::open(dir, FILE, &[STREAMS, RECORDS])?;
+        let db = Db::open(dir, FILE, &[STREAMS, RECORDS, ACCOUNT])?;
         let read = db.read()?;
         let streams = Records::load(STREAMS, "stream", VERSION, &read)?;
+        let account = Records::load(ACCOUNT, "account setting", VERSION, &read)?;
         drop(read);
         Ok(Self::with(
             clock,
             streams,
+            account,
             RowTable::new(RECORDS, false),
             Some(db),
             peers,
@@ -169,12 +181,14 @@ impl Core {
     fn with(
         clock: Arc<dyn Clock>,
         streams: Records<Stream>,
+        account: Records<Commitment>,
         rows: RowTable,
         db: Option<Db>,
         peers: Option<Arc<Peers>>,
     ) -> Self {
         Self {
             streams,
+            account,
             rows,
             db,
             clock,
@@ -191,7 +205,7 @@ impl Core {
 
     /// Sends what the last call changed to the writer; the [`Ack`] resolves when it is on disk.
     pub(crate) fn flush(&mut self) -> Result<Option<Ack>, StoreError> {
-        let changes = vec![self.streams.stage()?];
+        let changes = vec![self.streams.stage()?, self.account.stage()?];
         let rows = vec![self.rows.stage()];
         Ok(self
             .db
@@ -242,6 +256,11 @@ impl Core {
             O::DeregisterStreamConsumer => self.deregister_consumer(r),
             O::DescribeStreamConsumer => self.describe_consumer(r),
             O::ListStreamConsumers => self.list_consumers(r),
+            O::SplitShard => self.split_shard(r),
+            O::MergeShards => self.merge_shards(r),
+            O::UpdateShardCount => self.update_shard_count(r),
+            O::DescribeAccountSettings => Ok(self.describe_account_settings()),
+            O::UpdateAccountSettings => self.update_account_settings(r),
             _ => Err(not_built()),
         }
     }
@@ -277,6 +296,15 @@ pub(crate) fn not_found(name: &str, account: &str) -> ApiError {
     ApiError::modeled(
         "ResourceNotFoundException",
         format!("Stream {name} under account {account} not found."),
+    )
+}
+
+/// Recorded on AWS (2026-11-09, `GetShardIterator`): `Shard <id> in stream <name> under account <account> does not exist` (no full
+/// stop). The reshard operations are worded the same way. (memory)
+pub(crate) fn shard_missing(id: &str, stream: &str, account: &str) -> ApiError {
+    ApiError::modeled(
+        "ResourceNotFoundException",
+        format!("Shard {id} in stream {stream} under account {account} does not exist"),
     )
 }
 

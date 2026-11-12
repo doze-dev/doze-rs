@@ -10,7 +10,7 @@ use crate::model::{Shard, Stream, ranges};
 use crate::req::{Put, Req, invalid, secs};
 
 /// Shards one region may hold (AWS's default limit is 500 in the large regions; the limit is a setting there). (memory)
-const SHARD_LIMIT: i64 = 500;
+pub(crate) const SHARD_LIMIT: i64 = 500;
 /// Shards of an on-demand stream when it is made.
 const ON_DEMAND_SHARDS: u32 = 4;
 
@@ -113,7 +113,7 @@ impl Core {
             .filter(|sh| after.is_none_or(|a| sh.id > a))
             .collect();
         let shown: Vec<Value> = rest.iter().take(limit).map(|sh| shard_json(sh)).collect();
-        let mut d = common(s, r.region(), r.account());
+        let mut d = common(s, r.region(), r.account(), self.now_ms());
         d.put("Shards", Value::Array(shown));
         d.put("HasMoreShards", json!(rest.len() > limit));
         Ok(json!({ "StreamDescription": d }))
@@ -121,7 +121,7 @@ impl Core {
 
     pub(crate) fn describe_stream_summary(&self, r: &Req<'_>) -> Result<Value, ApiError> {
         let s = self.stream(r)?;
-        let mut d = common(s, r.region(), r.account());
+        let mut d = common(s, r.region(), r.account(), self.now_ms());
         d.put("OpenShardCount", json!(s.open().count()));
         d.put("ConsumerCount", json!(s.consumers.len()));
         d.put("MaxRecordSizeInKiB", json!(s.max_record_kib));
@@ -139,6 +139,7 @@ impl Core {
     }
 
     pub(crate) fn list_streams(&self, r: &Req<'_>) -> Value {
+        let now = self.now_ms();
         let limit = r
             .int("Limit")
             .map_or(100, |n| usize::try_from(n).unwrap_or(100));
@@ -160,7 +161,7 @@ impl Core {
             "StreamSummaries": shown.iter().map(|s| json!({
                 "StreamName": s.name,
                 "StreamARN": s.arn(r.region(), r.account()),
-                "StreamStatus": "ACTIVE",
+                "StreamStatus": s.status(now),
                 "StreamModeDetails": mode_of(s),
                 "StreamCreationTimestamp": secs(s.created_ms),
             })).collect::<Vec<_>>(),
@@ -216,12 +217,12 @@ pub(crate) fn mode_of(s: &Stream) -> Value {
 }
 
 /// The members a description and a summary share.
-fn common(s: &Stream, region: &str, account: &str) -> Value {
+fn common(s: &Stream, region: &str, account: &str, now_ms: i64) -> Value {
     let metrics: Vec<&String> = s.metrics.iter().collect();
     let mut d = json!({
         "StreamName": s.name,
         "StreamARN": s.arn(region, account),
-        "StreamStatus": "ACTIVE",
+        "StreamStatus": s.status(now_ms),
         "StreamModeDetails": mode_of(s),
         "RetentionPeriodHours": s.retention_hours,
         "StreamCreationTimestamp": secs(s.created_ms),
@@ -232,6 +233,27 @@ fn common(s: &Stream, region: &str, account: &str) -> Value {
         d.put("KeyId", json!(k));
     }
     d
+}
+
+/// The `ChildShards` of a closed shard, as `GetRecords` shows them at the end of it.
+pub(crate) fn child_shards_json(s: &Stream, id: u32) -> Vec<Value> {
+    s.children(id)
+        .map(|c| {
+            let parents: Vec<String> = [c.parent, c.adjacent_parent]
+                .into_iter()
+                .flatten()
+                .map(crate::model::shard_name)
+                .collect();
+            json!({
+                "ShardId": c.name(),
+                "ParentShards": parents,
+                "HashKeyRange": {
+                    "StartingHashKey": c.start.to_string(),
+                    "EndingHashKey": c.end.to_string(),
+                },
+            })
+        })
+        .collect()
 }
 
 /// A shard as `ListShards` and `DescribeStream` show it.
