@@ -34,6 +34,7 @@ impl Core {
         move_stage(secret, stage, from, to)?;
         secret.changed_ms = now;
         let arn = secret.arn.clone();
+        self.note_stage_moved(&name, stage, to);
         reply::<Staged>(|o| {
             o.put(Staged::ARN, &arn);
             o.put(Staged::NAME, &name);

@@ -14,6 +14,7 @@ mod core;
 mod docs;
 mod events;
 mod filters;
+mod forward;
 mod groups;
 mod model;
 mod pattern;
