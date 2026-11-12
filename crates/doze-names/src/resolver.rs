@@ -186,7 +186,8 @@ pub fn free_udp_addr() -> std::io::Result<SocketAddr> {
     let seed = std::process::id().wrapping_mul(7919);
     for _ in 0..512 {
         let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        let port = 20000 + u16::try_from(seed.wrapping_add(n.wrapping_mul(97)) % 12000).unwrap_or(0);
+        let port =
+            20000 + u16::try_from(seed.wrapping_add(n.wrapping_mul(97)) % 12000).unwrap_or(0);
         if let Ok(s) = std::net::UdpSocket::bind(("127.0.0.1", port)) {
             return s.local_addr();
         }

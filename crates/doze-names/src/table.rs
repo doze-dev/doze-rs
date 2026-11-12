@@ -138,7 +138,7 @@ impl TableCache {
                     .ok()
                     .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
                     .map_or(0, |d| d.as_nanos());
-                let id = doze_os::fs::file_id(&m);
+                let id = doze_os::fs::file_id(&p).unwrap_or(0);
                 s.push_str(&format!("{id}/{nanos}/{};", m.len()));
             }
         }
