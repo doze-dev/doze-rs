@@ -313,6 +313,20 @@ async fn a_function_url_turns_a_request_into_an_event_and_the_answer_into_a_resp
         ))
         .await;
     assert_eq!(by_path.status, 201);
+    // The Go edition's path, with no region: found in the region that has the id.
+    let go_form = web
+        .serve(request(
+            "127.0.0.1:4566",
+            &format!("/_aws/lambda-url/{id}/p"),
+        ))
+        .await;
+    assert_eq!(go_form.status, 201);
+    assert_eq!(
+        web.serve(request("127.0.0.1:4566", "/_aws/lambda-url/nope/p"))
+            .await
+            .status,
+        404
+    );
     assert_eq!(
         web.serve(request("nope.lambda-url.us-east-1.localhost:4566", "/"))
             .await

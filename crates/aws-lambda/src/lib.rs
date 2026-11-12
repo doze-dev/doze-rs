@@ -335,7 +335,9 @@ impl Inner {
             _ => None,
         };
         if let Some(spec) = spec {
-            staged.code = Some(code::stage(&base, self.peers.as_deref(), &r.caller, spec).await?);
+            let layer = op == Operation::PublishLayerVersion;
+            staged.code =
+                Some(code::stage(&base, self.peers.as_deref(), &r.caller, spec, layer).await?);
         }
         if matches!(
             op,

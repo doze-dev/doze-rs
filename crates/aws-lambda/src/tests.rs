@@ -25,6 +25,7 @@ use crate::{Config, Lambda};
 mod behaviour;
 mod functions;
 mod invoking;
+mod reshard;
 mod sources;
 
 pub(crate) const ACCOUNT: &str = "111122223333";
