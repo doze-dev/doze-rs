@@ -159,24 +159,7 @@ async fn pg(args: &[String]) -> std::io::Result<()> {
             .stderr(std::process::Stdio::null());
         c
     };
-    // initdb exits when done (it leaves no server behind), so its output can be captured for the failure message.
-    let out = quiet("initdb")
-        .arg("-D")
-        .arg(&data)
-        .args(["-U", "postgres", "-A", "trust", "--no-sync"])
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped())
-        .output()
-        .await?;
-    if !out.status.success() {
-        let why = [out.stdout, out.stderr].concat();
-        let why = String::from_utf8_lossy(&why);
-        return Err(std::io::Error::other(format!(
-            "initdb: {}: {}",
-            out.status,
-            why.trim()
-        )));
-    }
+    initdb(&bin("initdb"), &data).await?;
     let port = std::net::TcpListener::bind("127.0.0.1:0")?
         .local_addr()?
         .port()
@@ -220,4 +203,25 @@ async fn pg(args: &[String]) -> std::io::Result<()> {
     let r = tree.stop(&stop, Duration::from_secs(30)).await?;
     println!("pg=stopped {r:?}");
     Ok(())
+}
+
+/// initdb exits when done (it leaves no server behind), so its output can be captured for the failure message.
+async fn initdb(initdb: &std::path::Path, data: &std::path::Path) -> std::io::Result<()> {
+    let out = tokio::process::Command::new(initdb)
+        .arg("-D")
+        .arg(data)
+        .args(["-U", "postgres", "-A", "trust", "--no-sync"])
+        .stdin(std::process::Stdio::null())
+        .output()
+        .await?;
+    if out.status.success() {
+        return Ok(());
+    }
+    let why = [out.stdout, out.stderr].concat();
+    let why = String::from_utf8_lossy(&why);
+    Err(std::io::Error::other(format!(
+        "initdb: {}: {}",
+        out.status,
+        why.trim()
+    )))
 }
