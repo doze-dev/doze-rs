@@ -143,7 +143,6 @@ fn stats_strip(h: &TopicHead) -> Markup {
         Stat::new("Records", number(h.records())).ch(9),
         Stat::new("Size on disk", bytes(h.bytes())).ch(9),
         last,
-        Stat::new("Open transactions", n(h.txns.len())).ch(3),
     ])
 }
 

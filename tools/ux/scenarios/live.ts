@@ -202,6 +202,25 @@ export const scenarios: Record<string, (t: T) => Promise<void>> = {
     await p.eval("localStorage.removeItem('doze:tail-speed')");
   },
 
+  // The Messages tail: new records of the topic arrive at the top; the toolbar and header do not move; nothing that was there is rewritten.
+  async "tail-messages"(t) {
+    const p = t.page;
+    await p.goto("/topics/orders/messages");
+    await p.eval("localStorage.setItem('doze:tail-speed', '1')");
+    await p.goto("/topics/orders/messages");
+    await p.waitFor("!document.querySelector('[data-tail-mode=live]').disabled");
+    const n0 = await p.eval<number>("document.querySelectorAll('tbody[data-tail] tr').length");
+    await p.eval("window.__old = document.querySelector('tbody[data-tail] tr'); window.__thead = document.querySelector('thead th').getBoundingClientRect().width");
+    await p.click("[data-tail-mode=live]");
+    await p.waitFor("document.querySelector('[data-conn]').getAttribute('data-conn') === 'live'", 5000);
+    await p.waitFor("document.querySelectorAll('tbody[data-tail] tr').length > " + n0, 20000);
+    t.ok(await p.eval("document.body.contains(window.__old)"), "the row that was there is the same element");
+    t.ok(await p.eval("document.querySelector('thead th').getBoundingClientRect().width === window.__thead"), "the header cell kept its width");
+    await p.shot(join(t.shots, "messages-tail.png"));
+    await p.click("[data-tail-mode=snapshot]");
+    await p.eval("localStorage.removeItem('doze:tail-speed')");
+  },
+
   async "tail-reconnect"(t) {
     const ctl = process.env.BROKER_CTL ?? "";
     if (!ctl) return;

@@ -185,9 +185,10 @@ describe("the interval (CON-802, CON-804)", () => {
 // ---- the tail ----
 const row = (id: number, extra = "") => `<tr id="tape-r-${id}" data-row="${id}"><td><a class="lnk" href="/live/${id}">r${id}</a>${extra}</td></tr>`;
 const tail = (ids: number[], cursor = 5) =>
-  `<main id="main"><div class="tailbar" x-data="tailControl" data-tail-bar data-tail-for="live-wire">` +
+  `<main id="main"><div class="tailbar" x-data="tailControl" x-on:change="speed" data-tail-bar data-tail-for="live-wire">` +
   `<div class="seg"><button type="button" class="on" aria-pressed="true" data-tail-mode="snapshot" x-on:click="snapshot">Snapshot</button><button type="button" aria-pressed="false" data-tail-mode="live" x-on:click="live" disabled>Live tail</button></div>` +
-  `<span class="conn" data-conn="snapshot"><i class="dot"></i><span data-conn-text>Snapshot</span></span>` +
+  `<span data-tail-speed title=""><select id="tail-speed" name="speed"><option value="1">Realtime</option><option value="3" selected>Relaxed</option><option value="10">Slow</option><option value="0">Paused</option></select></span>` +
+  `<span class="tail-conn" data-conn="snapshot"><i class="dot"></i><span data-conn-text>Snapshot</span></span>` +
   `<button type="button" class="held-pill" data-held-pill hidden x-on:click="show">↑ <span data-held-n>0</span> new · Show</button></div>` +
   `<div class="frag" id="live-wire" data-frag="/fragments/live-wire"><div class="tail-root" data-tail-url="/events?tail=live&amp;since=${cursor}" data-cursor="${cursor}" data-tail-rows="tape">` +
   `<table class="dt-t"><thead data-morph-skip><tr><th>Time</th></tr></thead><tbody data-tail>${ids.map((i) => row(i)).join("")}</tbody></table><div data-empty hidden>none</div></div></div></main>`;
@@ -321,6 +322,34 @@ describe("the tail (CON-809, CON-810)", () => {
     again.emit("rows", row(4) + row(5), "8");
     await wait(40);
     expect(ids(p)).toEqual(["5", "4", "3", "2", "1"]);
+  });
+
+  test("the speed is the person's: Relaxed to start, asked of the server as pace, remembered, and Paused takes no stream", async () => {
+    const p = await started(tail([3, 2, 1]));
+    await p.flush();
+    expect(p.document.querySelector("[data-tail-speed]")!.getAttribute("title")).toContain("every 3 s");
+    const es = await live(p);
+    expect(es.url).toContain("pace=3");
+    const sel = p.document.getElementById("tail-speed") as HTMLSelectElement;
+    sel.value = "1";
+    sel.dispatchEvent(new p.window.Event("change", { bubbles: true }));
+    await p.flush();
+    expect(p.window.localStorage.getItem("doze:tail-speed")).toBe("1");
+    expect(es.closed).toBe(true);
+    const next = p.streams[p.streams.length - 1];
+    expect(next.url).toContain("pace=1");
+    expect(p.document.querySelector("[data-tail-speed]")!.getAttribute("title")).toContain("Realtime");
+    sel.value = "0";
+    sel.dispatchEvent(new p.window.Event("change", { bubbles: true }));
+    await p.flush();
+    expect(next.closed).toBe(true);
+    expect(p.document.querySelector("[data-conn-text]")!.textContent).toBe("Paused");
+    const count = p.streams.length;
+    sel.value = "10";
+    sel.dispatchEvent(new p.window.Event("change", { bubbles: true }));
+    await p.flush();
+    expect(p.streams.length).toBe(count + 1);
+    expect(p.streams[p.streams.length - 1].url).toContain("pace=10");
   });
 
   test("a second failure shows Disconnected with the seconds to the next try", async () => {

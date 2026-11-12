@@ -39,7 +39,7 @@ const COLS: [Col<'static>; 7] = [
     Col::new("Timestamp", Width::Px(128)),
     Col::new("Key", Width::Pct(16)),
     Col::new("Value", Width::Fill),
-    Col::new("Value size", Width::Px(96)).right(),
+    Col::new("Value size", Width::Px(108)).right(),
     Col::new("For read_committed", Width::Px(150)),
 ];
 
