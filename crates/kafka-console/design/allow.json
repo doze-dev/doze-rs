@@ -1932,5 +1932,85 @@
     "render": "live",
     "reason": "improvement: the Partition field is a Select component (a combobox button and a listbox over a real <select>, docs/port/console/components.md); the board draws a styled box with no button",
     "expires": "close"
+  },
+  {
+    "board": "topics-filtered",
+    "field": "button",
+    "selector": "Clear filter [sm] -> ui:clear",
+    "render": "fixture",
+    "reason": "improvement: the list's toolbar (filter, Show internal, Refresh) is the same in every state, so a filter that matches nothing changes only the region under it (UX finding 8); the board's chip and Clear filter are the card's Clear filter, which swaps in place",
+    "expires": "close"
+  },
+  {
+    "board": "topics-filtered",
+    "field": "button",
+    "selector": "Clear filter [sm] -> ui:clear",
+    "render": "live",
+    "reason": "improvement: the list's toolbar (filter, Show internal, Refresh) is the same in every state, so a filter that matches nothing changes only the region under it (UX finding 8); the board's chip and Clear filter are the card's Clear filter, which swaps in place",
+    "expires": "close"
+  },
+  {
+    "board": "topics-filtered",
+    "field": "button",
+    "selector": "Clear filter [-] -> ui:clear",
+    "render": "fixture",
+    "reason": "improvement: the list's toolbar (filter, Show internal, Refresh) is the same in every state, so a filter that matches nothing changes only the region under it (UX finding 8); the board's chip and Clear filter are the card's Clear filter, which swaps in place",
+    "expires": "close"
+  },
+  {
+    "board": "topics-filtered",
+    "field": "button",
+    "selector": "Clear filter [-] -> ui:clear",
+    "render": "live",
+    "reason": "improvement: the list's toolbar (filter, Show internal, Refresh) is the same in every state, so a filter that matches nothing changes only the region under it (UX finding 8); the board's chip and Clear filter are the card's Clear filter, which swaps in place",
+    "expires": "close"
+  },
+  {
+    "board": "topics-filtered",
+    "field": "button",
+    "selector": "Show internal [-] -> ui:toggle",
+    "render": "fixture",
+    "reason": "improvement: the list's toolbar (filter, Show internal, Refresh) is the same in every state, so a filter that matches nothing changes only the region under it (UX finding 8); the board's chip and Clear filter are the card's Clear filter, which swaps in place",
+    "expires": "close"
+  },
+  {
+    "board": "topics-filtered",
+    "field": "button",
+    "selector": "Show internal [-] -> ui:toggle",
+    "render": "live",
+    "reason": "improvement: the list's toolbar (filter, Show internal, Refresh) is the same in every state, so a filter that matches nothing changes only the region under it (UX finding 8); the board's chip and Clear filter are the card's Clear filter, which swaps in place",
+    "expires": "close"
+  },
+  {
+    "board": "topics-filtered",
+    "field": "button",
+    "selector": "Refresh [sm] -> ui:refresh",
+    "render": "fixture",
+    "reason": "improvement: the list's toolbar (filter, Show internal, Refresh) is the same in every state, so a filter that matches nothing changes only the region under it (UX finding 8); the board's chip and Clear filter are the card's Clear filter, which swaps in place",
+    "expires": "close"
+  },
+  {
+    "board": "topics-filtered",
+    "field": "button",
+    "selector": "Refresh [sm] -> ui:refresh",
+    "render": "live",
+    "reason": "improvement: the list's toolbar (filter, Show internal, Refresh) is the same in every state, so a filter that matches nothing changes only the region under it (UX finding 8); the board's chip and Clear filter are the card's Clear filter, which swaps in place",
+    "expires": "close"
+  },
+  {
+    "board": "topics-filtered",
+    "field": "button",
+    "selector": "Clear filter [-] -> to:topics-list",
+    "render": "fixture",
+    "reason": "improvement: the list's toolbar (filter, Show internal, Refresh) is the same in every state, so a filter that matches nothing changes only the region under it (UX finding 8); the board's chip and Clear filter are the card's Clear filter, which swaps in place",
+    "expires": "close"
+  },
+  {
+    "board": "topics-filtered",
+    "field": "button",
+    "selector": "Clear filter [-] -> to:topics-list",
+    "render": "live",
+    "reason": "improvement: the list's toolbar (filter, Show internal, Refresh) is the same in every state, so a filter that matches nothing changes only the region under it (UX finding 8); the board's chip and Clear filter are the card's Clear filter, which swaps in place",
+    "expires": "close"
   }
 ]
