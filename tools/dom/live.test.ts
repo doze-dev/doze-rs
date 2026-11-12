@@ -111,3 +111,57 @@ describe("filters", () => {
     expect(p.forms.length).toBe(1);
   });
 });
+
+describe("a Live drawer opened by the overlay system holds the tape", () => {
+  const page = (seen: number, rows: number[]) =>
+    `<div class="root"><main id="main">${tape(seen, rows)}<a id="open" class="lnk" href="/live/3?client=a" data-dialog>r3</a></main></div>`;
+  const drawer = `<div class="ovl ovl-drawer root" data-overlay data-close="/live?client=a"><a class="scrim" href="/live?client=a" tabindex="-1" aria-hidden="true" data-overlay-close></a>` +
+    `<div class="drawer-panel" role="dialog" aria-modal="true" aria-labelledby="t" tabindex="-1"><h2 id="t">Fetch v12</h2><a class="btn" id="close" href="/live?client=a" data-dialog-close>Close</a></div></div>`;
+
+  test("while the real drawer is open what comes is kept aside, and closing it (Esc, the control, Back) lets the tape catch up", async () => {
+    for (const how of ["esc", "close", "back"]) {
+      const p = await boot(page(10, [3, 2, 1]), { stream: "/events?watch=live-wire" });
+      p.autoAnswer(() => ({ headers: { "x-overlay": "1" }, body: drawer }));
+      p.click(p.document.getElementById("open")!);
+      await p.flush();
+      expect(p.document.querySelector("[data-overlay]")).not.toBeNull();
+      expect(p.history.pushes.length).toBe(1);
+      p.autoAnswer(null as never); // the tape's own fetch stays pending until the test answers it
+      await answer(p, 20, [8, 7, 3, 2, 1]);
+      expect(rows(p)).toEqual(["3", "2", "1"]);
+      expect((p.document.querySelector("[data-paused-banner]") as HTMLElement).hidden).toBe(true);
+      if (how === "esc") {
+        const e = new p.window.KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
+        (p.document.activeElement ?? p.document.body).dispatchEvent(e);
+      } else if (how === "close") {
+        p.click(p.document.getElementById("close")!);
+      } else {
+        p.history.back();
+      }
+      p.runTimers();
+      await p.flush();
+      p.runTimers();
+      await p.flush();
+      if (p.document.querySelector("[data-overlay]")) throw new Error("still open after " + how);
+      expect(rows(p), how).toEqual(["8", "7", "3", "2", "1"]);
+    }
+  });
+
+  test("a server-rendered drawer (a direct visit) holds the tape from the start", async () => {
+    const p = await boot(page(10, [3, 2, 1]) + drawer, { stream: "/events?watch=live-wire" });
+    await answer(p, 20, [8, 7, 3, 2, 1]);
+    expect(rows(p)).toEqual(["3", "2", "1"]);
+  });
+
+  test("j and k do not move the focus behind an open drawer", async () => {
+    const p = await boot(page(10, [3, 2, 1]), { stream: "/events?watch=live-wire" });
+    p.autoAnswer(() => ({ headers: { "x-overlay": "1" }, body: drawer }));
+    p.click(p.document.getElementById("open")!);
+    await p.flush();
+    const before = p.document.activeElement;
+    const e = new p.window.KeyboardEvent("keydown", { key: "j", bubbles: true, cancelable: true });
+    (p.document.activeElement ?? p.document.body).dispatchEvent(e);
+    expect(p.document.activeElement).toBe(before);
+    expect(p.document.querySelector("table.wire a:focus")).toBeNull();
+  });
+});

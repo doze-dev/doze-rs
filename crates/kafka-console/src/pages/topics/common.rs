@@ -5,7 +5,7 @@ use maud::{Markup, html};
 use crate::base::{Base, segment};
 use crate::format::{clock, number};
 use crate::model::{Cleanup, Span, TopicHead};
-use crate::ui::button::{Size, State, Variant, link, pill_mono, state};
+use crate::ui::button::{Size, State, Variant, link, opener, pill_mono, state};
 use crate::ui::client;
 use crate::ui::glyph::Glyph;
 use crate::ui::kafka::{Tab, tabs, title_row};
@@ -78,14 +78,14 @@ fn buttons(h: &TopicHead, base: &Base, acts: Acts) -> Markup {
         Some(Glyph::List),
         "Partitions",
     );
-    let produce = link(
+    let produce = opener(
         &format!("{t}/produce"),
         Variant::Primary,
         Size::Normal,
         Some(Glyph::Send),
         "Produce",
     );
-    let delete = link(
+    let delete = opener(
         &format!("{t}/delete"),
         Variant::Danger,
         Size::Normal,
@@ -97,7 +97,7 @@ fn buttons(h: &TopicHead, base: &Base, acts: Acts) -> Markup {
             Acts::Full => { (partitions) (produce) (delete) },
             Acts::Empty => { (produce) (delete) },
             Acts::Offline => { (partitions) (produce) },
-            Acts::Partitions => { (link(&format!("{t}/partitions/add"), Variant::Primary, Size::Normal, Some(Glyph::Plus), "Add partitions")) },
+            Acts::Partitions => { (opener(&format!("{t}/partitions/add"), Variant::Primary, Size::Normal, Some(Glyph::Plus), "Add partitions")) },
         }
     }
 }
@@ -218,6 +218,9 @@ pub(super) fn txn_callout(h: &TopicHead, base: &Base) -> Markup {
 pub fn unknown(name: &str, base: &Base) -> Markup {
     html! {
         (page_header("No such topic", html! { p class="sub" { "There is no topic called " span class="mono" { (name) } ", or the console may not describe it." } }, html! {}))
-        div class="row" { (link(&base.url("/topics"), Variant::Primary, Size::Normal, Some(Glyph::ArrowR), "Back to Topics")) }
+        div class="row" {
+            (link(&base.url("/topics"), Variant::Primary, Size::Normal, Some(Glyph::ArrowR), "Back to Topics"))
+            (link(&base.url("/jump"), Variant::Plain, Size::Normal, Some(Glyph::Search), "Find a topic"))
+        }
     }
 }

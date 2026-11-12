@@ -1,6 +1,6 @@
-//! The Config pages of a topic: the list, the edit dialog and its POST, the reset dialog and its POST. A dialog is a route
-//! that answers its body alone to a script (`X-Fragment`) and the whole page with the dialog in it to a browser without
-//! one. A GET never changes anything; every change is a POST with the same-origin proof.
+//! The Config pages of a topic: the list, the edit dialog and its POST, the reset dialog and its POST. A dialog is an
+//! overlay (`ui::overlay`) over the Config page: its route answers the dialog alone to a script (`X-Fragment`) and the Config
+//! page with the dialog open on it to a browser without one. A GET never changes anything; every change is a POST with the same-origin proof.
 
 use axum::body::Bytes;
 use axum::extract::{Path, RawQuery, State};
@@ -10,13 +10,13 @@ use kafka_wire::ids::TopicName;
 use maud::Markup;
 
 use super::html;
+use super::overlays::{self, Parent};
 use crate::base::segment;
 use crate::form::{get, parse, parse_body, text};
 use crate::gather::{ConfigFields, ConfigMissing};
 use crate::model::{ConfigAsk, ConfigResetResult, ConfigResult, ConfigShow};
 use crate::pages;
 use crate::state::Shared;
-use crate::ui::client::HEADER_FRAGMENT;
 use crate::ui::shell::Rail;
 
 /// The most rows a page may be asked to open, and the longest name of one.
@@ -112,24 +112,39 @@ async fn missing(s: &Shared, topic: &str, key: &str, why: ConfigMissing) -> Resp
     }
 }
 
-/// A dialog: its body alone for a script; else its parent page with the dialog open on it (the overlay system draws it over the page).
+/// The Config page of a topic as the parent of an overlay (the edit and reset dialogs). `None` when there is no such topic.
+async fn config_parent(s: &Shared, topic: &str, ask: ConfigAsk) -> Option<Parent> {
+    let page = s.source.config_page(topic, ask).await?;
+    let t = format!("/topics/{}", segment(topic));
+    Some(Parent {
+        rail: Rail::Resources,
+        title: "Config".to_owned(),
+        crumbs: vec![
+            ("Resources".to_owned(), Some("/topics".to_owned())),
+            ("Topics".to_owned(), Some("/topics".to_owned())),
+            (topic.to_owned(), Some(t)),
+            ("Config".to_owned(), None),
+        ],
+        watch: &[],
+        main: pages::config_page(&page, &s.base),
+    })
+}
+
+/// A dialog: alone for a script (which opens it over the page it is on), else the Config page with the dialog open on it.
 async fn dialog(
     s: &Shared,
     status: StatusCode,
     h: &HeaderMap,
-    at: (&str, &str),
-    make: impl Fn(bool) -> Markup,
+    topic: &str,
+    overlay: Markup,
 ) -> Response {
-    if h.contains_key(HEADER_FRAGMENT) {
-        return (status, html(&make(false))).into_response();
+    if overlays::wants_fragment(h) {
+        return overlays::fragment(status, &overlay);
     }
-    // A direct visit shows the parent (the Config page) with the overlay open on it.
-    let (topic, _) = at;
-    let Some(parent) = s.source.config_page(topic, ConfigAsk::default()).await else {
-        return no_topic(s, topic).await;
-    };
-    let main = pages::config_with_overlay(pages::config_page(&parent, &s.base), make(true));
-    shell(s, status, topic, None, main).await
+    match config_parent(s, topic, ConfigAsk::default()).await {
+        Some(parent) => overlays::over_parent(s, status, parent, overlay).await,
+        None => no_topic(s, topic).await,
+    }
 }
 
 /// `GET /topics/{topic}/config`
@@ -141,17 +156,10 @@ pub async fn config(
     if !valid(&topic) {
         return no_topic(&s, &topic).await;
     }
-    let Some(page) = s.source.config_page(&topic, ask_of(&q)).await else {
+    let Some(parent) = config_parent(&s, &topic, ask_of(&q)).await else {
         return no_topic(&s, &topic).await;
     };
-    shell(
-        &s,
-        StatusCode::OK,
-        &topic,
-        None,
-        pages::config_page(&page, &s.base),
-    )
-    .await
+    html(&super::topics::page_of(&s, parent).await)
 }
 
 /// `GET /topics/{topic}/config/edit?key=`
@@ -174,11 +182,8 @@ pub async fn config_edit_form(
     }
     match s.source.config_form(&topic, fields).await {
         Ok(v) => {
-            let title = pages::config_dialog_title(&v);
-            dialog(&s, StatusCode::OK, &headers, (&topic, &title), |inline| {
-                pages::config_edit_dialog(&v, &s.base, inline)
-            })
-            .await
+            let overlay = pages::config_edit_dialog(&v, &s.base);
+            dialog(&s, StatusCode::OK, &headers, &topic, overlay).await
         }
         Err(why) => missing(&s, &topic, key, why).await,
     }
@@ -225,20 +230,17 @@ pub async fn config_edit(
             .await
         }
         ConfigResult::Checked(v) => {
-            let title = pages::config_dialog_title(&v);
-            dialog(&s, StatusCode::OK, &headers, (&topic, &title), |inline| {
-                pages::config_edit_dialog(&v, &s.base, inline)
-            })
-            .await
+            let overlay = pages::config_edit_dialog(&v, &s.base);
+            dialog(&s, StatusCode::OK, &headers, &topic, overlay).await
         }
         ConfigResult::Invalid(v) => {
-            let title = pages::config_dialog_title(&v);
+            let overlay = pages::config_edit_dialog(&v, &s.base);
             dialog(
                 &s,
                 StatusCode::UNPROCESSABLE_ENTITY,
                 &headers,
-                (&topic, &title),
-                |inline| pages::config_edit_dialog(&v, &s.base, inline),
+                &topic,
+                overlay,
             )
             .await
         }
@@ -261,14 +263,8 @@ pub async fn config_reset_form(
     }
     match s.source.config_reset_form(&topic, key).await {
         Ok(v) => {
-            dialog(
-                &s,
-                StatusCode::OK,
-                &headers,
-                (&topic, "Reset to default"),
-                |inline| pages::config_reset_dialog(&v, &s.base, inline),
-            )
-            .await
+            let overlay = pages::config_reset_dialog(&v, &s.base);
+            dialog(&s, StatusCode::OK, &headers, &topic, overlay).await
         }
         Err(why) => missing(&s, &topic, key, why).await,
     }
@@ -291,14 +287,8 @@ pub async fn config_reset(
             Redirect::to(&pages::config_url(&s.base, &topic, "")).into_response()
         }
         ConfigResetResult::Refused(v) => {
-            dialog(
-                &s,
-                StatusCode::OK,
-                &headers,
-                (&topic, "Reset to default"),
-                |inline| pages::config_reset_dialog(&v, &s.base, inline),
-            )
-            .await
+            let overlay = pages::config_reset_dialog(&v, &s.base);
+            dialog(&s, StatusCode::OK, &headers, &topic, overlay).await
         }
         ConfigResetResult::NoTopic => no_topic(&s, &topic).await,
         ConfigResetResult::NoKey => no_key(&s, &topic, key).await,

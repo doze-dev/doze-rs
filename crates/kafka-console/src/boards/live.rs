@@ -1,7 +1,7 @@
 //! The twelve boards of slice 9e (Live, its drawers, the first request and the two docks) rendered from the fixtures as whole
 //! documents: what `tests/boards_live.rs` writes to `target/board-diff/<id>.html`.
 
-use maud::Markup;
+use maud::{Markup, html};
 
 use crate::assets::Assets;
 use crate::base::Base;
@@ -10,7 +10,8 @@ use crate::fixtures_live as world;
 use crate::live_ids::{GROUP_WIRE_IDS, LIVE_IDS, TOPIC_WIRE_IDS};
 use crate::model::WireQuery;
 use crate::pages::live as page;
-use crate::ui::shell::{Crumb, Page, Rail, document};
+use crate::ui::overlay::{Over, over};
+use crate::ui::shell::{Crumb, Page, Rail, document_over};
 
 /// The boards this slice builds, by screen id.
 pub const IDS: [&str; 12] = [
@@ -30,7 +31,7 @@ pub const IDS: [&str; 12] = [
 
 /// A board's main content, the title of its page, its rail place, its breadcrumb and the fragments it watches.
 type Content = (
-    Markup,
+    Over,
     String,
     Rail,
     Vec<(&'static str, Option<&'static str>)>,
@@ -41,26 +42,31 @@ fn live_page(hint: &str, base: &Base) -> Markup {
     page::live_page(&world::live(&WireQuery::default(), Some(hint)), base)
 }
 
-fn drawer(which: &str, base: &Base) -> Option<Markup> {
+/// A drawer board: the Live page as the board's `from` says, with the drawer over it.
+fn drawer(which: &str, base: &Base) -> Option<Over> {
     let (d, limits) = world::request(which)?;
     let close = base.url("/live");
-    let id = page::detail_heading_id(&d);
-    let body = page::request_body(&d, &limits, base, fixtures::ADDRESS, &close);
-    Some(page::drawer_page(live_page("steady", base), body, id))
+    let drawer = page::request_drawer(&d, &limits, base, fixtures::ADDRESS, &close);
+    Some(over(live_page("steady", base), drawer))
+}
+
+/// A board with no overlay on it.
+fn plain(main: Markup) -> Over {
+    over(main, html! {})
 }
 
 #[allow(clippy::too_many_lines)] // one arm per board
 fn content(id: &str, base: &Base) -> Option<Content> {
     let live = |hint: &str| {
         (
-            live_page(hint, base),
+            plain(live_page(hint, base)),
             "Live".to_owned(),
             Rail::Live,
             vec![("Live", None)],
             LIVE_IDS,
         )
     };
-    let over = |which: &str, last: &'static str| {
+    let opened = |which: &str, last: &'static str| {
         Some((
             drawer(which, base)?,
             "Live".to_owned(),
@@ -74,14 +80,14 @@ fn content(id: &str, base: &Base) -> Option<Content> {
         "live-paused" => live("paused"),
         "live-quiet" => live("quiet"),
         "live-load" => live("load"),
-        "request-detail" => over("detail", "Fetch v12")?,
-        "request-refused" => over("refused", "INVALID_RECORD")?,
-        "request-fenced" => over("fenced", "INVALID_PRODUCER_EPOCH")?,
-        "request-too-large" => over("too-large", "MESSAGE_TOO_LARGE")?,
+        "request-detail" => opened("detail", "Fetch v12")?,
+        "request-refused" => opened("refused", "INVALID_RECORD")?,
+        "request-fenced" => opened("fenced", "INVALID_PRODUCER_EPOCH")?,
+        "request-too-large" => opened("too-large", "MESSAGE_TOO_LARGE")?,
         "live-clients" => {
-            let body = page::clients_body(&world::clients(), base, &base.url("/live"));
+            let drawer = page::clients_drawer(&world::clients(), base, &base.url("/live"));
             (
-                page::drawer_page(live_page("steady", base), body, "live-clients"),
+                over(live_page("steady", base), drawer),
                 "Live".to_owned(),
                 Rail::Live,
                 vec![("Live", Some("/live")), ("Clients", None)],
@@ -89,7 +95,7 @@ fn content(id: &str, base: &Base) -> Option<Content> {
             )
         }
         "connect-first-request" => (
-            page::first_page(&world::first(), base),
+            plain(page::first_page(&world::first(), base)),
             "Home".to_owned(),
             Rail::Home,
             vec![("Home", None)],
@@ -100,7 +106,7 @@ fn content(id: &str, base: &Base) -> Option<Content> {
             let (rows, w) = world::topic_wire("orders");
             let dock = page::topic_dock("orders", &rows, &w, world::now(), base, true);
             (
-                crate::pages::topics::topic_wire_page(&head, dock, base),
+                plain(crate::pages::topics::topic_wire_page(&head, dock, base)),
                 "orders on the wire".to_owned(),
                 Rail::Resources,
                 vec![
@@ -118,7 +124,7 @@ fn content(id: &str, base: &Base) -> Option<Content> {
                 ..WireQuery::default()
             });
             (
-                page::group_wire_page(&v, base),
+                plain(page::group_wire_page(&v, base)),
                 "Wire".to_owned(),
                 Rail::Resources,
                 vec![
@@ -156,5 +162,5 @@ pub fn render(id: &str, base: &Base) -> Option<String> {
         title: &title,
         watch,
     };
-    Some(document(&page, main).into_string())
+    Some(document_over(&page, main).into_string())
 }

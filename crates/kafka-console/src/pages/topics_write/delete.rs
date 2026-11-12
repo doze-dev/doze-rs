@@ -49,16 +49,11 @@ fn body(v: &DeleteView) -> Markup {
 
 /// The dialog. `refusal` is the broker's answer when it said no.
 #[must_use]
-pub fn delete_dialog(
-    v: &DeleteView,
-    refusal: Option<&Refusal>,
-    base: &Base,
-    inline: bool,
-) -> Markup {
+pub fn delete_dialog(v: &DeleteView, refusal: Option<&Refusal>, base: &Base) -> Markup {
     modal(
         "delete-topic",
         &topic_url(base, &v.topic, "/delete"),
-        inline,
+        &topic_url(base, &v.topic, ""),
         html! { "Delete " span class="mono" { (v.topic) } "?" },
         html! { (body(v)) @if let Some(r) = refusal { div style="margin-top:16px" { (refused(r)) } } },
         html! {

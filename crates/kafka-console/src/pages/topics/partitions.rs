@@ -6,7 +6,7 @@ use super::common::{Acts, head, sentence_p, topic_url};
 use crate::base::Base;
 use crate::format::{bytes, number};
 use crate::model::{PartitionRow, TopicHead};
-use crate::ui::button::{Size, State, Variant, link, state};
+use crate::ui::button::{Size, State, Variant, opener, state};
 use crate::ui::glyph::Glyph;
 use crate::ui::kafka::{apicall, sec};
 use crate::ui::notice::{Tone, callout};
@@ -33,7 +33,7 @@ fn row(h: &TopicHead, p: &PartitionRow, base: &Base) -> Markup {
             td class="mono r" { (number(p.end)) }
             td class="mono r" { (stable(p)) }
             td class="mono r" { (p.bytes.map_or_else(|| "unknown".to_owned(), bytes)) }
-            td class="r" { (link(&del, Variant::Plain, Size::Small, None, "Delete records")) }
+            td class="r" { (opener(&del, Variant::Plain, Size::Small, None, "Delete records")) }
         }
     }
 }

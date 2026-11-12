@@ -163,8 +163,8 @@ The earliest offset after the call is the one asked (-1 is the high watermark); 
 ## CON-160. A topic is deleted when its name is typed
 Wrong confirmation is 422 and sends nothing; the delete shows what uses the topic (groups with offsets on it, open transactions) as read; afterwards the topic is gone from Metadata. Test: `tests/live_write_admin::a_topic_is_deleted_only_when_its_name_is_typed_and_is_then_gone`.
 
-## CON-161. A dialog is a route
-With a script a link marked `data-dialog` opens the body (answered alone to `X-Fragment`) in a `<dialog>`; without one the same address is a full page with the dialog in it; either way it is one POST form. Test: `tests/routes_write::a_dialog_is_a_full_page_to_a_browser_and_its_body_alone_to_a_script`, `ui::client::tests::the_script_opens_dialogs_by_the_names_this_file_defines`.
+## CON-161. A dialog is an overlay of its parent page
+Reversed by the owner on 2026-11-13 (see CON-400): a dialog is no longer a page of its own. A link marked `data-dialog` opens it in place over the page; without a script its address is the PARENT page with the dialog open on it; either way it is one POST form. Test: `tests/routes_write::a_dialog_is_a_full_page_to_a_browser_and_its_body_alone_to_a_script`, `ui::client::tests::the_script_opens_dialogs_by_the_names_this_file_defines`.
 
 ## CON-162. Without super rights each write is refused as a client would be
 A caller that may only DESCRIBE gets TOPIC_AUTHORIZATION_FAILED on every write, with the console's reading, and a topic it may not describe is "not there". Test: `tests/live_write_admin::on_a_broker_with_acls_a_caller_that_may_only_describe_is_refused_as_a_client_would_be`.
@@ -352,6 +352,52 @@ Tagged in the code and in `debt.md` J121 to J130.
 - The cleaner's state ("61 % of the log is dirty", "not due until 11.2 MiB more"): the cleaner keeps none a console may read.
 - The name of the flag behind a Static flag (`--segment-bytes`): the table knows the broker config, not the flag.
 - Segment sizes ("Segments 1 to 7 keep their size", "the active segment (0.6 MiB)"): the dialog does not read the log's files.
+## Overlays, motion and the small things (slice p9o; the rules from CON-400 up)
+
+The owner's words (2026-11-13): "I see too many pages. Aren't we supposed to have a sidebar instead of a whole page?" and "the transitions between pages need to be nice and gentle". The design is `docs/port/console/overlays.md`.
+
+## CON-400. An overlay is its parent page with the overlay open on it
+A board of kind `drawer` or `dialog` has an address of its own; a direct visit answers the parent page's whole document (its landmarks, its one `h1`, its breadcrumb and stream) with the overlay as the last element of the body, `role=dialog`, `aria-modal`, `aria-labelledby` bound to a heading that is there, the parent `inert`; the scrim and the Close control are plain links to the parent's address, under any prefix. Test: `tests/overlays::a_direct_visit_is_the_parent_page_with_the_overlay_open_on_it`.
+
+## CON-401. A script is sent the overlay alone, marked as one
+`X-Fragment` gets the overlay element and no document, with `x-overlay: 1`; the script tells an overlay from a page by that header. Test: `tests/overlays::a_script_is_sent_the_overlay_alone_marked_as_one`.
+
+## CON-402. A record is a drawer over the Messages page it was opened from
+The drawer's address carries the page's query (its filters) and closing returns to that page; the offsets of the table and the buttons that open dialogs are openers. Test: `tests/overlays::the_records_parent_keeps_its_query_and_the_drawer_closes_back_to_it`.
+
+## CON-403. An overlay of a name that is not a topic is inert
+Hostile topic names in any overlay address are text in the page that says there is no such topic; no overlay is drawn over a page that is not there. Test: `tests/overlays::the_overlays_of_a_hostile_topic_name_are_text_in_the_page_that_says_there_is_none`, `tests/overlays::an_overlay_with_no_parent_topic_is_the_page_that_says_so`.
+
+## CON-404. The script opens, closes and keeps overlays as the contract says
+Open in place with no navigation, push the address, Esc, the scrim, Close and Back close it and restore the address, the scroll and the focus; Tab stays inside, the page behind is `inert`; a second opener replaces the content; a server-rendered overlay is adopted; a form's answer replaces the overlay (a refusal) or the page (a result); with reduced motion nothing animates. Test: `tools/dom/overlay.test.ts` (run: `cd tools/dom && bun test`).
+
+## CON-405. The motion is gentle and only for people who have not asked for less
+Scrim 160 ms, drawer 220 ms with ease-out, dialog 180 ms, closing 140 ms, the page 180 ms with a 4 px rise; opacity and transform only; the top bar and the rail keep their own view-transition names; all of it inside `prefers-reduced-motion: no-preference`. A fragment that changed fades 120 ms where it changed and an unchanged one does not move. Test: `tests/overlays::the_motion_is_gentle_and_only_for_people_who_have_not_asked_for_less`, `tools/dom/overlay.test.ts`.
+
+## CON-406. Jump to a topic or a group
+`/jump` is the palette to a script (the overlay alone, with no history entry) and a page of links with a plain GET filter to a browser; ⌘K and Ctrl+K open it, typing narrows, the arrows and Enter go, Esc closes. It lists the topics, then the groups (ListGroups through the Backend), each with a visible `topic` or `group` tag; at most 500 names; every name is text and a link made by `segment` (CON-410). Test: `tests/overlays::the_jump_palette_is_an_overlay_alone_to_a_script_and_a_page_of_links_to_a_browser`, `tools/dom/polish.test.ts`.
+
+## CON-407. j and k, and a copy that says it copied
+`j` and `k` move through the rows of the page's table (and through the records of an open drawer), never in a field; a copy button says "Copied" for a moment in the width it had. Test: `tools/dom/polish.test.ts`.
+
+## CON-408. The Groups and Config dialogs and the member drawer are overlays
+The member drawer (`member-detail`) is a drawer over the Members page; Reset offsets and Delete offsets are dialogs over the group's Lag page (Delete offsets over the Lag page with the expiring offsets), Delete group over the group's page; the four edit and reset dialogs of Config are dialogs over the topic's Config page. A direct visit is the parent page (its heading, its landmarks) with the overlay open, closing is a link to the parent's address, a script is sent the overlay alone, and the buttons and links that open them are openers (`data-dialog`). Test: `tests/overlays::a_direct_visit_is_the_parent_page_with_the_overlay_open_on_it`, `tests/overlays::a_script_is_sent_the_overlay_alone_marked_as_one`, `tests/overlays_more::the_buttons_that_open_a_group_dialog_or_a_member_are_openers`.
+
+## CON-409. A refusal answers in the dialog, a result is a page
+Kafka's refusal of Delete offsets (GROUP_SUBSCRIBED_TO_TOPIC) and an invalid Config or Reset field answer the dialog again (an overlay to a script, the parent with the dialog open to a browser), in Kafka's words; a write that worked is a redirect to the page that shows it, and a refusal the boards draw as a page (Reset refused, Delete refused, Refused, Saved) is that page. Test: `tests/overlays_more::a_refusal_in_a_dialog_answers_the_dialog_over_its_parent_and_a_result_is_a_page`.
+
+## CON-410. Overlays and palette entries of hostile names are inert
+A hostile group id, member id or topic name in an overlay address is text in the page that says there is none, with no overlay over it; in the palette every name is escaped in the link, the `title` and the text. Test: `tests/overlays_more::the_overlays_of_a_hostile_group_or_member_name_are_text_in_the_page_that_says_there_is_none`, `pages::jump::tests::a_hostile_name_is_text_in_a_link_made_by_segment_and_the_tag_says_which_it_is`, `tests/live_groups_more::the_jump_palette_lists_the_groups_a_real_broker_lists_and_a_hostile_group_id_is_text`.
+
+## CON-411. A control that asks for a GET in an overlay never writes
+The Reset dialog's Preview (`formmethod="get"`) is fetched as a GET with the fields in the address and the overlay that comes back replaces the dialog and takes that address; the dialog's own POST is the only thing that writes. Test: `tools/dom/overlay.test.ts` (a Preview control in an overlay never writes).
+
+## CON-412. A table's header sticks under the top bar
+Every `table.t` header is `position: sticky` at 52 px (the top bar's height) and the table is not its own scroll container (the cells draw the corners, the borders are separate); inside an overlay the header does not stick. Test: `tests/tables::a_table_header_sticks_under_the_top_bar_and_the_table_is_not_its_scroll_container`.
+
+## CON-413. A long key or name gives way in the middle
+A key in the Messages table, a topic name in the list and a member id keep their last ten characters and lose their start to an ellipsis when the cell is narrow; the whole text is the hover and is in the page for a copy; short texts are untouched; a hostile text is escaped. Test: `ui::table::tests::a_short_text_is_left_alone_and_a_long_one_is_split_before_its_last_ten_characters`, `ui::table::tests::the_two_halves_are_the_whole_text_and_never_cut_a_character`, `ui::table::tests::a_hostile_text_is_escaped_in_the_title_and_in_both_halves`, `tests/tables::a_long_key_gives_way_in_the_middle_and_keeps_its_end`.
+
 # Slice 9e: the recorder, Live, the drawers, the docks (CON-300 to CON-319)
 
 Branch `p9e`. The recorder is `kafka_server::Observer` (`crates/kafka-server/src/observer.rs`) implemented by `kafka_console::Recorder` (`crates/kafka-console/src/recorder/`); the pages are `pages/live/`, their models `model/live.rs`, their fixtures `fixtures_live.rs`.
@@ -418,3 +464,9 @@ Fixture render (`tests/boards_live::every_board_of_the_slice_renders_and_is_writ
 
 ### What these boards show that the recorder cannot supply, and what the page does instead
 Tagged in `docs/port/debt.md` J151 to J170: "waited 480 ms" (the recorder knows how long the client was willing to wait); "Record 0 has a null key" (no record is kept: the broker's own message and the topic's config now); the producer's story (only requests still on the tape, not why a transaction timed out: that is the group-ring slice's); a heartbeat that is idle is hidden by default.
+
+## CON-414. A Live drawer is an overlay over the Live page it was opened from
+`/live/{id}` (Detail, Refused, Fenced, Too large by what became of the request) and `/live/clients` are drawers over the Live page with the filters in the address; a direct visit is that page with the drawer open, Close and the scrim are plain links to the same filtered page, a script is sent the drawer alone, the tape's time links and the refused links are openers that carry the filters, a request not on the tape is a 404 page with no drawer. Test: `tests/overlays_more::a_live_drawer_closes_to_the_live_page_with_its_filters_and_the_tape_links_open_it_in_place`, `tests/overlays::a_direct_visit_is_the_parent_page_with_the_overlay_open_on_it`, `tests/overlays_more::a_request_that_is_not_on_the_tape_and_a_hostile_id_are_the_page_that_says_so_with_no_drawer`.
+
+## CON-415. An open drawer holds the tape, and closing it lets the tape catch up
+While a Live drawer is open (adopted from the server or opened in place) what the stream brings is kept aside with no banner; closing it by Esc, the Close control or Back brings the newest in. Test: `tools/dom/live.test.ts` (a Live drawer opened by the overlay system holds the tape).

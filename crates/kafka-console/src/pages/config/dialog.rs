@@ -187,13 +187,13 @@ fn title(v: &ConfigEditView) -> String {
     }
 }
 
-/// The dialog, for any of the three shapes.
+/// The dialog, for any of the three shapes, over the topic's Config page.
 #[must_use]
-pub fn edit_dialog(v: &ConfigEditView, base: &Base, inline: bool) -> Markup {
+pub fn edit_dialog(v: &ConfigEditView, base: &Base) -> Markup {
     modal(
         "config-edit",
         &config_url(base, &v.topic, "/edit"),
-        inline,
+        &config_url(base, &v.topic, ""),
         html! { (title(v)) },
         body(v),
         html! {
@@ -202,23 +202,4 @@ pub fn edit_dialog(v: &ConfigEditView, base: &Base, inline: bool) -> Markup {
             button class="btn pri" type="submit" data-op="IncrementalAlterConfigs" { "Save" }
         },
     )
-}
-
-#[must_use]
-pub fn dialog_title(v: &ConfigEditView) -> String {
-    title(v)
-}
-
-/// The overlay of the edit dialogs: only the dialog (its heading is `config-edit-title`, which labels it), for the
-/// overlay system to draw over the Config page. `inline` is the shell of 9b's `ui/dialog.rs` that sits in the page until
-/// the overlay system takes over.
-#[must_use]
-pub fn edit_overlay(v: &ConfigEditView, base: &Base, inline: bool) -> Markup {
-    edit_dialog(v, base, inline)
-}
-
-/// The Config page with an overlay open on it: the parent's content, then the overlay.
-#[must_use]
-pub fn with_overlay(parent: Markup, overlay: Markup) -> Markup {
-    html! { (parent) (overlay) }
 }

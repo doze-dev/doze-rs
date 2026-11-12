@@ -3,8 +3,11 @@
 mod config;
 mod fragments;
 mod groups;
+mod groups_dialogs;
 mod groups_fragments;
+mod jump;
 mod live;
+mod overlays;
 mod pages;
 mod plain;
 mod topics;
@@ -14,12 +17,15 @@ mod topics_write;
 pub use config::{config, config_edit, config_edit_form, config_reset, config_reset_form};
 pub use fragments::{check, fragment};
 pub use groups::{
-    delete as group_delete, delete_form as group_delete_form, group as group_page,
-    groups as groups_list, lag as group_lag, member as group_member, members as group_members,
+    group as group_page, groups as groups_list, lag as group_lag, members as group_members,
+};
+pub use groups_dialogs::{
+    delete as group_delete, delete_form as group_delete_form, member as group_member,
     offset_delete as offsets_delete, offset_delete_form as offsets_delete_form,
     reset as group_reset, reset_form as group_reset_form,
 };
 pub use groups_fragments::groups_fragment;
+pub use jump::jump;
 pub(crate) use live::fragment as live_fragment;
 pub use live::{
     clients as live_clients, first as first_request, group_wire, live, request as live_request,

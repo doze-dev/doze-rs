@@ -8,7 +8,7 @@ use super::table::records;
 use crate::base::Base;
 use crate::format::number;
 use crate::model::{MessageQuery, MessagesView, Reading};
-use crate::ui::button::{Size, State, Variant, link, state};
+use crate::ui::button::{Size, State, Variant, opener, state};
 use crate::ui::client;
 use crate::ui::glyph::{Glyph, glyph};
 use crate::ui::kafka::{apicall, empty, filter_box, pager, sec};
@@ -71,7 +71,7 @@ pub fn messages_fragment(v: &MessagesView, base: &Base, page_query: &str) -> Mar
             @if v.rows.is_empty() && v.query.filtered() {
                 p class="help" { "Nothing to list. Clear the filters to see the newest records." }
             } @else {
-                (records(&v.rows, &v.head.name, base))
+                (records(&v.rows, &v.head.name, &v.query.to_query(), base))
                 @if !v.query.filtered() { (pager(&line(v), older(v, base))) }
             }
         },
@@ -243,7 +243,7 @@ fn filtered(v: &MessagesView, base: &Base, query: &str) -> Markup {
 }
 
 fn empty_topic(v: &MessagesView, base: &Base, listen: &str) -> Markup {
-    let produce = link(
+    let produce = opener(
         &format!("{}/produce", topic_url(base, &v.head.name)),
         Variant::Primary,
         Size::Normal,

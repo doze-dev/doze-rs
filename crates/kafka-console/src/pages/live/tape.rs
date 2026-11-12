@@ -3,7 +3,7 @@
 
 use maud::{Markup, html};
 
-use super::parts::{filter_link, request_url, result_cell};
+use super::parts::{filter_link, request_url, request_url_in, result_cell};
 use crate::base::Base;
 use crate::format::{clock, date_time, millis};
 use crate::model::{WireClass, WireQuery, WireRow};
@@ -85,10 +85,18 @@ fn took(r: &WireRow) -> Markup {
     }
 }
 
-fn time(r: &WireRow, base: &Base) -> Markup {
+/// The time of a row, which is its link. On the Live page it opens the request's drawer over the page (carrying the page's own
+/// filters, so closing returns to the same tape); in a dock or a group's wire it is a plain link to the drawer's address.
+fn time(r: &WireRow, base: &Base, q: &WireQuery, layout: Layout) -> Markup {
+    let on_live = layout == Layout::Live;
+    let href = if on_live {
+        request_url_in(base, r.id, q)
+    } else {
+        request_url(base, r.id)
+    };
     html! {
         td class="tm" data-vary {
-            a class="lnk" href=(request_url(base, r.id)) {
+            a class="lnk" href=(href) data-dialog[on_live] {
                 time datetime=(date_time(r.at_ms)) title=(date_time(r.at_ms)) { (crate::format::clock_ms(r.at_ms)) }
             }
             @if let Some(since) = r.since_ms { span class="sub" { "since " (clock(since)) } }
@@ -136,7 +144,7 @@ pub(super) fn row(r: &WireRow, base: &Base, q: &WireQuery, layout: Layout) -> Ma
     let filterable = layout == Layout::Live;
     html! {
         tr data-row=(r.id) {
-            (time(r, base))
+            (time(r, base, q, layout))
             @if layout != Layout::First { (client(r, base, q)) }
             (api(r, base, q, filterable))
             (target(r, base, q, filterable))

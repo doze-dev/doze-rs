@@ -113,7 +113,7 @@ fn hostile_text_in_every_field_of_every_config_page_comes_out_inert() {
         v.error = Some(p.to_owned());
         v.topic = p.to_owned();
         inert(
-            &pages::config_edit_overlay(&v, &base, true).into_string(),
+            &pages::config_edit_dialog(&v, &base).into_string(),
             "the dialog",
         );
 
@@ -121,7 +121,7 @@ fn hostile_text_in_every_field_of_every_config_page_comes_out_inert() {
         reset.topic = p.to_owned();
         reset.row.value = p.to_owned();
         inert(
-            &pages::config_reset_dialog(&reset, &base, true).into_string(),
+            &pages::config_reset_dialog(&reset, &base).into_string(),
             "the reset dialog",
         );
     }

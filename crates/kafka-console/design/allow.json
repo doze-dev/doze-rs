@@ -266,13 +266,6 @@
     "expires": "close"
   },
   {
-    "board": "topic-record",
-    "field": "link",
-    "selector": "topic-detail|topic-offline",
-    "reason": "p9b-read: a record is a page of its own here (a direct address works with no script), so Close is a link back to the topic; the board's drawer closes in place.",
-    "expires": "close"
-  },
-  {
     "board": "topic-record-binary",
     "field": "link",
     "selector": "topic-detail|topic-offline",
@@ -1092,46 +1085,32 @@
     "expires": "close"
   },
   {
+    "board": "topic-record",
+    "field": "link",
+    "selector": "topic-detail|topic-offline",
+    "reason": "p9b-read: Close and the scrim are real links to the Messages page behind the drawer, so that closing works with no script; a script turns them into an in-place close.",
+    "expires": "close"
+  },
+  {
+    "board": "member-detail",
+    "field": "button",
+    "selector": "Close [-] -> to:group-members",
+    "reason": "improvement: a Close control in the drawer, as the record drawer has, a plain link to the Members page behind it (a script closes in place); the board draws none and leaves Esc or a click outside as the only way out.",
+    "expires": "close"
+  },
+  {
+    "board": "member-detail",
+    "field": "link",
+    "selector": "group-members",
+    "reason": "improvement: the Close control and the scrim are real links to the Members page behind the drawer, so that closing works with no script.",
+    "expires": "close"
+  },
+  {
     "board": "connect-first-request",
     "field": "link",
     "selector": "request-detail|request-fenced|request-refused|request-too-large",
     "reason": "improvement: every row's time is a link to its drawer (the board links only a few), so any request can be opened",
     "expires": "close"
-  },
-  {
-    "board": "group-wire",
-    "field": "button",
-    "selector": "Back to the group [-] -> to:group-rebalancing",
-    "reason": "9c: the group page, its header (state word and pills) and its route are slice 9c's; this page links to /groups/{group} and carries a plain title row",
-    "expires": "9c"
-  },
-  {
-    "board": "group-wire",
-    "field": "link",
-    "selector": "group-rebalancing",
-    "reason": "9c: the group page, its header (state word and pills) and its route are slice 9c's; this page links to /groups/{group} and carries a plain title row",
-    "expires": "9c"
-  },
-  {
-    "board": "group-wire",
-    "field": "state",
-    "selector": "st warn",
-    "reason": "9c: the group page, its header (state word and pills) and its route are slice 9c's; this page links to /groups/{group} and carries a plain title row",
-    "expires": "9c"
-  },
-  {
-    "board": "group-wire",
-    "field": "button",
-    "selector": "Back to the group [-] -> to:?/groups/fulfilment",
-    "reason": "9c: the group page, its header (state word and pills) and its route are slice 9c's; this page links to /groups/{group} and carries a plain title row",
-    "expires": "9c"
-  },
-  {
-    "board": "group-wire",
-    "field": "link",
-    "selector": "?/groups/fulfilment",
-    "reason": "9c: the group page, its header (state word and pills) and its route are slice 9c's; this page links to /groups/{group} and carries a plain title row",
-    "expires": "9c"
   },
   {
     "board": "group-wire",
@@ -1522,5 +1501,12 @@
     "reason": "live data: the live world's topic has no client request on the wire, so the dock says so and draws no table",
     "render": "live",
     "expires": "close"
+  },
+  {
+    "board": "group-wire",
+    "field": "state",
+    "selector": "st warn",
+    "reason": "9c: the group page, its header (state word and pills) and its route are slice 9c's; this page links to /groups/{group} and carries a plain title row",
+    "expires": "9c"
   }
 ]

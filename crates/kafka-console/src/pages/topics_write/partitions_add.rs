@@ -95,7 +95,7 @@ fn body(v: &AddView) -> Markup {
 
 /// The dialog, in its two states: the form, and the form after a refusal.
 #[must_use]
-pub fn add_partitions_dialog(v: &AddView, base: &Base, inline: bool) -> Markup {
+pub fn add_partitions_dialog(v: &AddView, base: &Base) -> Markup {
     let back = topic_url(base, &v.topic, "/partitions");
     let foot = if v.refusal.is_some() {
         html! {
@@ -111,7 +111,7 @@ pub fn add_partitions_dialog(v: &AddView, base: &Base, inline: bool) -> Markup {
     modal(
         "add-partitions",
         &topic_url(base, &v.topic, "/partitions/add"),
-        inline,
+        &back,
         html! { "Add partitions to " span class="mono" { (v.topic) } },
         body(v),
         foot,

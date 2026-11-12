@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use maud::Markup;
+use maud::{Markup, html};
 use tokio::sync::Semaphore;
 use tokio_util::sync::CancellationToken;
 
@@ -11,7 +11,8 @@ use crate::base::Base;
 use crate::limits::Limits;
 use crate::source::Source;
 use crate::tick::{FLOOR, Ticker};
-use crate::ui::shell::{Crumb, Page, Rail, document};
+use crate::ui::overlay::{Over, over};
+use crate::ui::shell::{Crumb, Page, Rail, document_over};
 
 /// The state of one console.
 #[derive(Debug)]
@@ -73,6 +74,19 @@ impl State {
         watch: &[&'static str],
         main: Markup,
     ) -> Markup {
+        self.document_over(active, title, crumbs, watch, over(main, html! {}))
+            .await
+    }
+
+    /// A page with an overlay open on it: the parent's `main` and the overlay element (`ui::overlay`).
+    pub async fn document_over(
+        &self,
+        active: Rail,
+        title: &str,
+        crumbs: &[(&str, Option<&str>)],
+        watch: &[&'static str],
+        over: Over,
+    ) -> Markup {
         let chrome = self.source.chrome().await;
         let crumbs = crumbs
             .iter()
@@ -90,6 +104,6 @@ impl State {
             title,
             watch,
         };
-        document(&page, main)
+        document_over(&page, over)
     }
 }

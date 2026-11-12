@@ -2,11 +2,12 @@
 //! are in the address; a value that cannot be used is a sentence on the page.
 
 use axum::extract::{Path, RawQuery, State};
-use axum::http::StatusCode;
+use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use kafka_wire::ids::TopicName;
 
 use super::html;
+use super::overlays::{self, Parent};
 use crate::model::{MessageQuery, MessagesView, TopicHead};
 use crate::pages::topics as page;
 use crate::state::Shared;
@@ -114,59 +115,81 @@ fn state_title(v: &MessagesView) -> Option<String> {
     })
 }
 
-async fn messages_response(s: Shared, name: String, query: Option<String>) -> Response {
-    if !valid(&name) {
-        return not_found(&s, &name).await;
+/// The Messages page of a topic as the parent of an overlay (a record's drawer, the Produce dialog): the same page
+/// `messages_response` renders, with its title, breadcrumb and stream. `None` when there is no such topic.
+pub(super) async fn messages_parent(
+    s: &Shared,
+    name: &str,
+    query: Option<String>,
+) -> Option<Parent> {
+    if !valid(name) {
+        return None;
     }
     let raw = fields(&query);
     let (q, notes) = MessageQuery::parse(&raw);
-    let Some(view) = s.source.messages(&name, q, notes).await else {
-        return not_found(&s, &name).await;
-    };
+    let view = s.source.messages(name, q, notes).await?;
     let q = view.query.to_query();
     let main = page::messages_page(&view, &s.base, &s.source.listen(), &q);
     let last = state_title(&view);
-    // The plain Messages page carries the topic's wire dock (slice 9e): the last requests that touched it.
+    // The plain Messages page carries the topic's wire dock (slice 9e): the last requests that touched it. It is part of the
+    // parent, so it is there behind a record's drawer and the dialogs, as the boards draw it.
     let docked = last.is_none()
         && !view.head.is_empty()
         && view.head.offline().is_empty()
         && view.query.reading == crate::model::Reading::Uncommitted
         && !view.query.filtered();
     let main = if docked {
-        let (rows, window, now) = s.source.topic_wire(&name).await;
-        maud::html! { (main) (crate::pages::live::topic_dock(&name, &rows, &window, now, &s.base, false)) }
+        let (rows, window, now) = s.source.topic_wire(name).await;
+        maud::html! { (main) (crate::pages::live::topic_dock(name, &rows, &window, now, &s.base, false)) }
     } else {
         main
     };
-    let t = page::topic_url(&s.base, &name);
+    let t = page::topic_url(&s.base, name);
     let t = s.base.strip(&t).unwrap_or("/topics").to_owned();
     let shown = view.head.name.clone();
-    let mut steps: Steps = vec![("Resources", Some("/topics")), ("Topics", Some("/topics"))];
+    let mut crumbs = vec![
+        ("Resources".to_owned(), Some("/topics".to_owned())),
+        ("Topics".to_owned(), Some("/topics".to_owned())),
+    ];
     let title = match &last {
         Some(l) => {
-            steps.push((&shown, Some(&t)));
-            steps.push((l, None));
+            crumbs.push((shown, Some(t)));
+            crumbs.push((l.clone(), None));
             l.clone()
         }
         None => {
-            steps.push((&shown, None));
-            shown.clone()
+            crumbs.push((shown.clone(), None));
+            shown
         }
     };
-    html(
-        &s.document(
-            Rail::Resources,
-            &title,
-            &steps,
-            s.source.watching(if docked {
-                crate::live_ids::TOPIC_DETAIL_IDS
-            } else {
-                TOPIC_IDS
-            }),
-            main,
-        )
-        .await,
-    )
+    Some(Parent {
+        rail: Rail::Resources,
+        title,
+        crumbs,
+        watch: s.source.watching(if docked {
+            crate::live_ids::TOPIC_DETAIL_IDS
+        } else {
+            TOPIC_IDS
+        }),
+        main,
+    })
+}
+
+async fn messages_response(s: Shared, name: String, query: Option<String>) -> Response {
+    let Some(p) = messages_parent(&s, &name, query).await else {
+        return not_found(&s, &name).await;
+    };
+    html(&page_of(&s, p).await)
+}
+
+/// A parent as a page of its own (no overlay on it).
+pub(super) async fn page_of(s: &Shared, p: Parent) -> maud::Markup {
+    let crumbs: Vec<(&str, Option<&str>)> = p
+        .crumbs
+        .iter()
+        .map(|(label, path)| (label.as_str(), path.as_deref()))
+        .collect();
+    s.document(p.rail, &p.title, &crumbs, p.watch, p.main).await
 }
 
 /// `/topics/{topic}`: the Messages tab with no filter.
@@ -187,10 +210,13 @@ pub async fn messages(
     messages_response(s, name, query).await
 }
 
-/// `/topics/{topic}/messages/{partition}/{offset}`.
+/// `/topics/{topic}/messages/{partition}/{offset}`: a drawer over the Messages page. The query is the Messages page's own
+/// (its filters), so that closing the drawer returns to the same page.
 pub async fn record(
     State(s): State<Shared>,
     Path((name, partition, offset)): Path<(String, String, String)>,
+    RawQuery(query): RawQuery,
+    headers: HeaderMap,
 ) -> Response {
     let (Some(p), Some(o)) = (
         partition.parse::<i32>().ok().filter(|p| *p >= 0),
@@ -204,17 +230,15 @@ pub async fn record(
     let Some(view) = s.source.record(&name, p, o).await else {
         return gone(&s, &name, p, o).await;
     };
-    let main = page::record_page(&view, &s.base);
-    let title = format!("{name}-{p} offset {}", crate::format::number(o));
-    let t = page::topic_url(&s.base, &name);
-    let t = s.base.strip(&t).unwrap_or("/topics").to_owned();
-    let steps: Steps = vec![
-        ("Resources", Some("/topics")),
-        ("Topics", Some("/topics")),
-        (&name, Some(&t)),
-        (&title, None),
-    ];
-    html(&s.document(Rail::Resources, &title, &steps, &[], main).await)
+    let own = MessageQuery::parse(&fields(&query)).0.to_query();
+    let drawer = page::record_drawer(&view, &s.base, &own);
+    if overlays::wants_fragment(&headers) {
+        return overlays::fragment(StatusCode::OK, &drawer);
+    }
+    let Some(parent) = messages_parent(&s, &name, query).await else {
+        return gone(&s, &name, p, o).await;
+    };
+    overlays::over_parent(&s, StatusCode::OK, parent, drawer).await
 }
 
 async fn gone(s: &Shared, name: &str, p: i32, o: i64) -> Response {
@@ -236,25 +260,33 @@ async fn gone(s: &Shared, name: &str, p: i32, o: i64) -> Response {
     (StatusCode::NOT_FOUND, html(&page)).into_response()
 }
 
+/// The Partitions page of a topic as the parent of an overlay (Add partitions, Delete records). `None` when there is no such topic.
+pub(super) async fn partitions_parent(s: &Shared, name: &str) -> Option<Parent> {
+    if !valid(name) {
+        return None;
+    }
+    let head: TopicHead = s.source.topic_head(name).await?;
+    let main = page::partitions_page(&head, &s.base);
+    let t = page::topic_url(&s.base, name);
+    let t = s.base.strip(&t).unwrap_or("/topics").to_owned();
+    Some(Parent {
+        rail: Rail::Resources,
+        title: "Partitions".to_owned(),
+        crumbs: vec![
+            ("Resources".to_owned(), Some("/topics".to_owned())),
+            ("Topics".to_owned(), Some("/topics".to_owned())),
+            (name.to_owned(), Some(t)),
+            ("Partitions".to_owned(), None),
+        ],
+        watch: &[],
+        main,
+    })
+}
+
 /// `/topics/{topic}/partitions`.
 pub async fn partitions(State(s): State<Shared>, Path(name): Path<String>) -> Response {
-    if !valid(&name) {
-        return not_found(&s, &name).await;
-    }
-    let Some(head): Option<TopicHead> = s.source.topic_head(&name).await else {
+    let Some(p) = partitions_parent(&s, &name).await else {
         return not_found(&s, &name).await;
     };
-    let main = page::partitions_page(&head, &s.base);
-    let t = page::topic_url(&s.base, &name);
-    let t = s.base.strip(&t).unwrap_or("/topics").to_owned();
-    let steps: Steps = vec![
-        ("Resources", Some("/topics")),
-        ("Topics", Some("/topics")),
-        (&name, Some(&t)),
-        ("Partitions", None),
-    ];
-    html(
-        &s.document(Rail::Resources, "Partitions", &steps, &[], main)
-            .await,
-    )
+    html(&page_of(&s, p).await)
 }

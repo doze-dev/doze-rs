@@ -6,16 +6,15 @@ use axum::response::{IntoResponse, Response};
 use maud::{Markup, html};
 
 use super::html;
+use super::overlays::{self, Parent};
 use crate::live_ids::{
     GROUP_WIRE, GROUP_WIRE_IDS, LIVE_IDS, LIVE_WIRE, TOPIC_WIRE, TOPIC_WIRE_IDS,
 };
 use crate::model::WireQuery;
 use crate::pages::live::{
-    RequestKind, clients_body, drawer_page, first_page, group_wire_page, live_page, request_body,
-    topic_dock,
+    clients_drawer, first_page, group_wire_page, live_page, request_drawer, topic_dock,
 };
 use crate::state::Shared;
-use crate::ui::client::HEADER_FRAGMENT;
 use crate::ui::shell::Rail;
 
 const LIVE: (&str, Option<&str>) = ("Live", None);
@@ -42,30 +41,30 @@ pub async fn live(State(s): State<Shared>, RawQuery(query): RawQuery) -> Respons
     )
 }
 
-/// The parent of every drawer: the Live page as it is now.
-async fn parent(s: &Shared) -> Markup {
-    live_page(&s.source.live(&WireQuery::default(), None).await, &s.base)
-}
-
-fn fragment_or_page(
-    headers: &HeaderMap,
-    s: &Shared,
-    parent: Markup,
-    body: Markup,
-    id: &str,
-) -> Markup {
-    let _ = s;
-    if headers.contains_key(HEADER_FRAGMENT) {
-        html! { div class="drawer-panel" role="dialog" aria-labelledby=(id) { (body) } }
-    } else {
-        drawer_page(parent, body, id)
+/// The Live page as the parent of a drawer: the same page `live` renders for the same filters, with its title, breadcrumb and
+/// stream, so that it keeps running behind the drawer (an open drawer holds the tape: the script keeps what comes aside).
+async fn live_parent(s: &Shared, q: &WireQuery) -> Parent {
+    let main = live_page(&s.source.live(q, None).await, &s.base);
+    Parent {
+        rail: Rail::Live,
+        title: "Live".to_owned(),
+        crumbs: vec![("Live".to_owned(), None)],
+        watch: s.source.watching(LIVE_IDS),
+        main,
     }
 }
 
-/// `/live/{id}`: one request in a drawer over the tape; which drawer, the data chooses.
+/// The address a drawer closes to: the Live page with the filters the drawer was opened from.
+fn live_url(s: &Shared, q: &WireQuery) -> String {
+    format!("{}{}", s.base.url("/live"), q.to_query())
+}
+
+/// `/live/{id}`: one request in a drawer over the tape (which drawer, the data chooses), over the Live page with the filters in
+/// the address; closing returns to it.
 pub async fn request(
     State(s): State<Shared>,
     Path(id): Path<String>,
+    RawQuery(query): RawQuery,
     headers: HeaderMap,
 ) -> Response {
     // An id is a number; anything else is a request that is not on the tape.
@@ -86,46 +85,27 @@ pub async fn request(
             .await;
         return (StatusCode::NOT_FOUND, html(&page)).into_response();
     };
-    let close = s.base.url("/live");
-    let kind = RequestKind::of(&d);
-    let body = request_body(&d, &limits, &s.base, &s.source.listen(), &close);
-    let main = fragment_or_page(&headers, &s, parent(&s).await, body, kind.heading_id());
-    if headers.contains_key(HEADER_FRAGMENT) {
-        return html(&main);
+    let q = WireQuery::parse(&fields(&query));
+    let drawer = request_drawer(&d, &limits, &s.base, &s.source.listen(), &live_url(&s, &q));
+    if overlays::wants_fragment(&headers) {
+        return overlays::fragment(StatusCode::OK, &drawer);
     }
-    html(
-        &s.document(
-            Rail::Live,
-            "Live",
-            &[
-                ("Live", Some("/live")),
-                (&format!("{} v{}", d.row.api, d.row.version), None),
-            ],
-            &[],
-            main,
-        )
-        .await,
-    )
+    overlays::over_parent(&s, StatusCode::OK, live_parent(&s, &q).await, drawer).await
 }
 
-/// `/live/clients`: the clients drawer.
-pub async fn clients(State(s): State<Shared>, headers: HeaderMap) -> Response {
+/// `/live/clients`: the clients drawer over the Live page.
+pub async fn clients(
+    State(s): State<Shared>,
+    RawQuery(query): RawQuery,
+    headers: HeaderMap,
+) -> Response {
     let v = s.source.clients().await;
-    let body = clients_body(&v, &s.base, &s.base.url("/live"));
-    let main = fragment_or_page(&headers, &s, parent(&s).await, body, "live-clients");
-    if headers.contains_key(HEADER_FRAGMENT) {
-        return html(&main);
+    let q = WireQuery::parse(&fields(&query));
+    let drawer = clients_drawer(&v, &s.base, &live_url(&s, &q));
+    if overlays::wants_fragment(&headers) {
+        return overlays::fragment(StatusCode::OK, &drawer);
     }
-    html(
-        &s.document(
-            Rail::Live,
-            "Live",
-            &[("Live", Some("/live")), ("Clients", None)],
-            &[],
-            main,
-        )
-        .await,
-    )
+    overlays::over_parent(&s, StatusCode::OK, live_parent(&s, &q).await, drawer).await
 }
 
 /// `/connect/first-request`: what the newest new client asked.

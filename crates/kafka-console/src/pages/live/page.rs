@@ -4,7 +4,7 @@
 
 use maud::{Markup, html};
 
-use super::parts::{LIVE_FRAGMENT, request_url, wire_url};
+use super::parts::{LIVE_FRAGMENT, request_url_in, wire_url};
 use super::tape::{Layout, table};
 use crate::base::Base;
 use crate::format::number;
@@ -76,13 +76,14 @@ fn toolbar(v: &LiveView, base: &Base, with_search: bool) -> Markup {
             @if let Some(u) = q.until { input type="hidden" name="until" value=(u); }
             span class="sp" {}
             @if v.clients > 0 {
-                (client::dialog_link("btn sm", &base.url("/live/clients"), html! { (live_glyph(LiveGlyph::Network, 16)) "Clients · " (v.clients) }))
+                (client::dialog_link("btn sm", &format!("{}{}", base.url("/live/clients"), q.to_query()), html! { (live_glyph(LiveGlyph::Network, 16)) "Clients · " (v.clients) }))
             }
         }
     }
 }
 
 fn refusals(v: &LiveView, base: &Base) -> Markup {
+    let q = &v.query;
     if v.refused.is_empty() {
         return html! {};
     }
@@ -94,7 +95,7 @@ fn refusals(v: &LiveView, base: &Base) -> Markup {
                 " Kafka's own refusals" @if denied > 0 { " and the ACLs' denials (" (denied) ")" } ", with the rule behind each."
                 div class="row wrap" style="gap:28px;margin-top:8px" {
                     @for r in &v.refused {
-                        a class="lnk" href=(request_url(base, r.id)) {
+                        a class="lnk" href=(request_url_in(base, r.id, q)) data-dialog {
                             span class="mono" { (r.code_name) " (" (r.code) ")" } " · " (r.client) " · " span data-vary { (crate::format::clock(r.at_ms)) }
                         }
                     }

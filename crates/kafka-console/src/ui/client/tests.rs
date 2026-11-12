@@ -155,7 +155,7 @@ fn the_script_follows_the_rules_the_spike_found_and_runs_under_the_strictest_pol
     // (Over 130 since the audit asked for the clipboard fallback and the banner's way back; the behaviour is tested in
     // `tools/dom`, which runs this very file, so these are no longer the only guard.)
     assert!(
-        SCRIPT.lines().count() < 260,
+        SCRIPT.lines().count() < 520,
         "the script is small enough to read in one sitting"
     );
 }
@@ -176,11 +176,24 @@ fn a_dialog_link_is_a_plain_link_a_script_can_open_over_the_page() {
 
 #[test]
 fn the_script_opens_dialogs_by_the_names_this_file_defines() {
-    for name in [ATTR_DIALOG, ATTR_DIALOG_CLOSE, CLASS_DIALOG] {
+    for name in [
+        ATTR_DIALOG,
+        ATTR_DIALOG_CLOSE,
+        ATTR_OVERLAY,
+        ATTR_PALETTE,
+        ATTR_TRANSIENT,
+        ATTR_JUMP_INPUT,
+        ATTR_JUMP,
+        HEADER_OVERLAY,
+        CLASS_OVERLAY_IN,
+        CLASS_OVERLAY_OUT,
+    ] {
         assert!(SCRIPT.contains(name), "console.js never mentions {name:?}");
     }
-    // A dialog is opened with the platform's own: focus is trapped and Escape closes it.
-    assert!(SCRIPT.contains("showModal"));
+    // An overlay is ours (the markup of src/ui/overlay.rs): the address is pushed, Back closes it, the page behind is inert.
+    for needle in ["history.pushState", "popstate", "'inert'", "Escape"] {
+        assert!(SCRIPT.contains(needle), "{needle:?}");
+    }
     // The answer is a fragment (the dialog's body), asked for in the header the server looks for.
     assert!(SCRIPT.contains("'X-Fragment'"));
     // A dialog that cannot be fetched falls back to following the link.

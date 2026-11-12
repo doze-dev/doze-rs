@@ -45,6 +45,24 @@ pub fn link(href: &str, variant: Variant, size: Size, icon: Option<Glyph>, label
     }
 }
 
+/// A button that opens an overlay (a dialog or a drawer): a link to the overlay's address, which a script turns into an
+/// overlay opened in place over this page (`ui::overlay`) and a browser follows to the parent with the overlay open on it.
+#[must_use]
+pub fn opener(
+    href: &str,
+    variant: Variant,
+    size: Size,
+    icon: Option<Glyph>,
+    label: &str,
+) -> Markup {
+    html! {
+        a class=(class(variant, size)) href=(href) data-dialog {
+            @if let Some(g) = icon { (glyph(g, 16, "")) }
+            (label)
+        }
+    }
+}
+
 /// The kinds of state a word can be in (`st ok`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum State {
@@ -110,6 +128,21 @@ mod tests {
         ] {
             assert!(!s.class().is_empty());
         }
+    }
+
+    #[test]
+    fn an_opener_is_a_link_a_script_opens_in_place() {
+        assert_eq!(
+            opener(
+                "/t/produce",
+                Variant::Primary,
+                Size::Normal,
+                None,
+                "Produce"
+            )
+            .into_string(),
+            r#"<a class="btn pri" href="/t/produce" data-dialog>Produce</a>"#
+        );
     }
 
     #[test]

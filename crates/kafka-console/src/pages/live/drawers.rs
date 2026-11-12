@@ -1,6 +1,6 @@
 //! A request in full, as a drawer over the Live page (boards `request-detail`, `request-refused`, `request-fenced` and
 //! `request-too-large`; the refusals are in `refusals.rs`). Each body is a pure function of the request and of what the broker
-//! says now, with its own heading id; the overlay frame is the shell's (`drawer_page` is the stand-in until it is wired).
+//! says now, with its own heading id; [`request_drawer`] puts one in the overlay frame (`ui::overlay`), over the Live page.
 
 use maud::{Markup, html};
 
@@ -13,6 +13,7 @@ use crate::model::{WireClass, WireDetail};
 use crate::ui::button::{Size, Variant, link};
 use crate::ui::client;
 use crate::ui::glyph::{Glyph, glyph};
+use crate::ui::overlay::{Kind as OverlayKind, frame};
 
 /// What the broker says about the topic now, read when the drawer opens: the rules of a refusal are shown against it, and
 /// the page says "now" because the topic may have changed since the request.
@@ -229,11 +230,21 @@ pub fn request_body(
     }
 }
 
-/// A drawer's page without the overlay system: the Live page, then the drawer. The shell's `overlay::over` replaces it.
+/// A request's drawer over the Live page: the overlay element (`ui::overlay`), which closes to `close`, the Live page's own
+/// address with the filters it had.
 #[must_use]
-pub fn drawer_page(parent: Markup, body: Markup, heading_id: &str) -> Markup {
-    html! {
-        (parent)
-        div class="drawer-panel" role="dialog" aria-labelledby=(heading_id) { (body) }
-    }
+pub fn request_drawer(
+    d: &WireDetail,
+    limits: &Limits,
+    base: &Base,
+    listen: &str,
+    close: &str,
+) -> Markup {
+    let kind = Kind::of(d);
+    frame(
+        OverlayKind::Drawer,
+        kind.heading_id(),
+        close,
+        request_body(d, limits, base, listen, close),
+    )
 }

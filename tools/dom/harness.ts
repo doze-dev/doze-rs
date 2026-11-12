@@ -7,7 +7,43 @@ import { Window } from "happy-dom";
 // CONSOLE_JS names another file to run (the script before a change, to see a test fail on it).
 const SCRIPT = await Bun.file(process.env.CONSOLE_JS ?? new URL("../../crates/kafka-console/assets/console.js", import.meta.url).pathname).text();
 
-export type Reply = { status?: number; etag?: string; body?: string };
+export type Reply = { status?: number; etag?: string; body?: string; headers?: Record<string, string>; redirected?: boolean; url?: string };
+
+/** What the page asked of the history: a stand-in that keeps entries and fires popstate on back and forward, as a browser does. */
+export class FakeHistory {
+  entries: Array<{ state: unknown; url: string }>;
+  index = 0;
+  pushes: string[] = [];
+  replaces: string[] = [];
+  constructor(private window: Window, url: string) {
+    this.entries = [{ state: null, url }];
+  }
+  get state(): unknown {
+    return this.entries[this.index].state;
+  }
+  get url(): string {
+    return this.entries[this.index].url;
+  }
+  pushState(state: unknown, _t: string, url?: string): void {
+    this.entries = [...this.entries.slice(0, this.index + 1), { state, url: new URL(url ?? this.url, this.url).href }];
+    this.index++;
+    this.pushes.push(this.url);
+  }
+  replaceState(state: unknown, _t: string, url?: string): void {
+    this.entries[this.index] = { state, url: new URL(url ?? this.url, this.url).href };
+    this.replaces.push(this.url);
+  }
+  back(): void {
+    if (this.index === 0) return;
+    this.index--;
+    this.window.dispatchEvent(new this.window.Event("popstate"));
+  }
+  forward(): void {
+    if (this.index >= this.entries.length - 1) return;
+    this.index++;
+    this.window.dispatchEvent(new this.window.Event("popstate"));
+  }
+}
 
 /** A request the script made. */
 export type Call = { url: string; method: string; headers: Record<string, string>; signal: AbortSignal | undefined; body: unknown };
@@ -45,6 +81,12 @@ export class FakeEventSource {
 export type Timer = { fn: () => void; ms: number; cleared: boolean };
 
 export interface Page {
+  history: FakeHistory;
+  /** The addresses the script sent the browser to (`location.href = ...`), and how many times it reloaded. */
+  navigated: string[];
+  reloads: number;
+  /** The fades (Element.animate) the script asked for, by the element that was animated. */
+  animated: Element[];
   window: Window;
   document: Window["document"];
   /** Every fetch, in order, answered or not. */
@@ -74,11 +116,15 @@ export interface Options {
   clipboard?: boolean;
   /** No EventSource at all. */
   noEventSource?: boolean;
+  /** The person asked for reduced motion. */
+  reduced?: boolean;
+  /** The address the page is at (default the console's root). */
+  url?: string;
 }
 
 /** Boots `html` (a body) with the script. */
 export async function boot(html: string, opts: Options = {}): Promise<Page> {
-  const window = new Window({ url: "http://127.0.0.1:9093/", width: 1024, height: 768 });
+  const window = new Window({ url: opts.url ?? "http://127.0.0.1:9093/", width: 1024, height: 768 });
   const document = window.document;
   document.body.innerHTML = html;
   if (opts.stream) document.body.setAttribute("data-stream", opts.stream);
@@ -90,13 +136,22 @@ export async function boot(html: string, opts: Options = {}): Promise<Page> {
   const forms: string[] = [];
   let auto: ((c: Call) => Reply | Error) | null = null;
 
-  const response = (r: Reply, signal: AbortSignal | undefined) => {
+  const response = (r: Reply, signal: AbortSignal | undefined, call_url: string) => {
     const status = r.status ?? 200;
     const aborted = () => new window.DOMException("The operation was aborted.", "AbortError");
     return {
       status,
       ok: status >= 200 && status < 300,
-      headers: { get: (n: string) => (n.toLowerCase() === "etag" ? (r.etag ?? null) : null) },
+      redirected: r.redirected ?? false,
+      url: r.url ?? String(call_url),
+      headers: {
+        get: (n: string) => {
+          const k = n.toLowerCase();
+          if (k === "etag") return r.etag ?? null;
+          const h = Object.entries(r.headers ?? {}).find(([name]) => name.toLowerCase() === k);
+          return h ? h[1] : null;
+        },
+      },
       // Like a browser: reading the body of an aborted request fails.
       text: async () => {
         if (signal?.aborted) throw aborted();
@@ -121,7 +176,7 @@ export async function boot(html: string, opts: Options = {}): Promise<Page> {
         answer: (r) => {
           const at = pending.indexOf(p);
           if (at >= 0) pending.splice(at, 1);
-          resolve(response(r, call.signal));
+          resolve(response(r, call.signal, call.url));
         },
         fail: (e) => {
           const at = pending.indexOf(p);
@@ -168,12 +223,32 @@ export async function boot(html: string, opts: Options = {}): Promise<Page> {
     forms.push(this.action);
   };
 
+  const history = new FakeHistory(window, window.location.href);
+  Object.defineProperty(window, "history", { value: history, configurable: true });
+  const navigated: string[] = [];
+  let reloads = 0;
+  Object.defineProperty(window.location, "href", { get: () => history.url, set: (v: string) => void navigated.push(String(v)), configurable: true });
+  Object.defineProperty(window.location, "reload", { value: () => void reloads++, configurable: true });
+  (window as unknown as { matchMedia: unknown }).matchMedia = (q: string) => ({ matches: !!opts.reduced && q.includes("reduce"), media: q });
+  (window as unknown as { scrollTo: unknown }).scrollTo = () => {};
+  const animated: Element[] = [];
+  (window.Element.prototype as unknown as { animate: unknown }).animate = function (this: Element) {
+    animated.push(this);
+    return {};
+  };
+
   window.eval(SCRIPT);
 
   const flush = async () => {
     for (let i = 0; i < 6; i++) await new Promise((r) => setImmediate(r));
   };
   return {
+    history,
+    navigated,
+    get reloads() {
+      return reloads;
+    },
+    animated,
     window,
     document,
     calls,

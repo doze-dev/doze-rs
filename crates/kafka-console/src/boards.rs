@@ -15,7 +15,10 @@ mod topics_read;
 use crate::ui::shell::{Crumb, Page, Rail, document};
 pub use groups::{IDS as GROUPS_IDS, render as render_groups};
 pub use live::{IDS as LIVE_IDS_BOARDS, render as render_live};
-pub use topics_read::{IDS as TOPICS_READ_IDS, render as render_topics_read};
+pub use topics_read::{
+    IDS as TOPICS_READ_IDS, document_for, parent as topics_read_parent,
+    render as render_topics_read,
+};
 
 /// The breadcrumb of a board: label and path.
 type Steps<'a> = Vec<(&'a str, Option<&'a str>)>;

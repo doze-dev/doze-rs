@@ -8,63 +8,47 @@ use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Redirect, Response};
 use maud::Markup;
 
-use super::html;
+use super::overlays;
+use super::topics::{messages_parent, partitions_parent};
 use super::topics_write::page;
 use crate::form::{parse, parse_body, text};
 use crate::gather::{AddResult, DeleteResult, RecordsResult};
 use crate::model::{ProduceInput, ProduceResult};
 use crate::pages;
 use crate::state::Shared;
-use crate::ui::client::HEADER_FRAGMENT;
-use crate::ui::shell::Rail;
 
 /// The most header rows the Produce dialog posts.
 const MOST_HEADERS: usize = 8;
 
-fn asked_for_a_fragment(h: &HeaderMap) -> bool {
-    h.contains_key(HEADER_FRAGMENT)
+/// The page an overlay sits over.
+#[derive(Clone, Copy)]
+enum Under {
+    /// The topic's Messages page (Produce, Delete topic).
+    Messages,
+    /// The topic's Partitions page (Add partitions, Delete records).
+    Partitions,
 }
 
-/// The dialog on a page of its own (or alone, for a script), under its breadcrumb.
-/// Where a dialog sits: its title, the topic, and the pages between the topic and it (label and path under the topic).
-struct At<'a> {
-    title: &'a str,
-    topic: &'a str,
-    trail: &'a [(&'a str, &'a str)],
-}
-
+/// An overlay of a topic: alone for a script, over its parent page (with the overlay open on it) for a browser.
 async fn dialog(
     s: &Shared,
     status: StatusCode,
     headers: &HeaderMap,
-    at: At<'_>,
-    make: impl Fn(bool) -> Markup,
+    topic: &str,
+    under: Under,
+    overlay: Markup,
 ) -> Response {
-    let At {
-        title,
-        topic,
-        trail,
-    } = at;
-    if asked_for_a_fragment(headers) {
-        return (status, html(&make(false))).into_response();
+    if overlays::wants_fragment(headers) {
+        return overlays::fragment(status, &overlay);
     }
-    let topic_path = format!("/topics/{}", crate::base::segment(topic));
-    let mut crumbs: Vec<(&str, Option<&str>)> = vec![
-        ("Topics", Some("/topics")),
-        (topic, Some(topic_path.as_str())),
-    ];
-    let trail_paths: Vec<String> = trail
-        .iter()
-        .map(|(_, tail)| format!("{topic_path}{tail}"))
-        .collect();
-    for ((label, _), path) in trail.iter().zip(&trail_paths) {
-        crumbs.push((label, Some(path.as_str())));
+    let parent = match under {
+        Under::Messages => messages_parent(s, topic, None).await,
+        Under::Partitions => partitions_parent(s, topic).await,
+    };
+    match parent {
+        Some(p) => overlays::over_parent(s, status, p, overlay).await,
+        None => no_topic(s, topic).await,
     }
-    crumbs.push((title, None));
-    let doc = s
-        .document(Rail::Resources, title, &crumbs, &[], make(true))
-        .await;
-    (status, html(&doc)).into_response()
 }
 
 /// The page that says there is no such topic.
@@ -114,12 +98,9 @@ pub async fn produce_form(
         &s,
         StatusCode::OK,
         &headers,
-        At {
-            title: "Produce",
-            topic: &topic,
-            trail: &[],
-        },
-        |inline| pages::produce_dialog(&view, &s.base, inline),
+        &topic,
+        Under::Messages,
+        pages::produce_dialog(&view, &s.base),
     )
     .await
 }
@@ -179,12 +160,9 @@ pub async fn produce(
                 &s,
                 StatusCode::UNPROCESSABLE_ENTITY,
                 &headers,
-                At {
-                    title: "Produce",
-                    topic: &topic,
-                    trail: &[],
-                },
-                |inline| pages::produce_dialog(&view, &s.base, inline),
+                &topic,
+                Under::Messages,
+                pages::produce_dialog(&view, &s.base),
             )
             .await
         }
@@ -211,12 +189,9 @@ pub async fn partitions_add_form(
         &s,
         StatusCode::OK,
         &headers,
-        At {
-            title: "Add partitions",
-            topic: &topic,
-            trail: &[("Partitions", "/partitions")],
-        },
-        |inline| pages::add_partitions_dialog(&view, &s.base, inline),
+        &topic,
+        Under::Partitions,
+        pages::add_partitions_dialog(&view, &s.base),
     )
     .await
 }
@@ -244,12 +219,9 @@ pub async fn partitions_add(
                 &s,
                 StatusCode::OK,
                 &headers,
-                At {
-                    title: "Add partitions refused",
-                    topic: &topic,
-                    trail: &[("Partitions", "/partitions")],
-                },
-                |inline| pages::add_partitions_dialog(&v, &s.base, inline),
+                &topic,
+                Under::Partitions,
+                pages::add_partitions_dialog(&v, &s.base),
             )
             .await
         }
@@ -258,12 +230,9 @@ pub async fn partitions_add(
                 &s,
                 StatusCode::UNPROCESSABLE_ENTITY,
                 &headers,
-                At {
-                    title: "Add partitions",
-                    topic: &topic,
-                    trail: &[("Partitions", "/partitions")],
-                },
-                |inline| pages::add_partitions_dialog(&v, &s.base, inline),
+                &topic,
+                Under::Partitions,
+                pages::add_partitions_dialog(&v, &s.base),
             )
             .await
         }
@@ -298,12 +267,9 @@ pub async fn delete_records_form(
         &s,
         StatusCode::OK,
         &headers,
-        At {
-            title: "Delete records",
-            topic: &topic,
-            trail: &[("Partitions", "/partitions")],
-        },
-        |inline| pages::delete_records_dialog(&view, &s.base, inline),
+        &topic,
+        Under::Partitions,
+        pages::delete_records_dialog(&view, &s.base),
     )
     .await
 }
@@ -349,12 +315,9 @@ pub async fn delete_records(
                 &s,
                 StatusCode::UNPROCESSABLE_ENTITY,
                 &headers,
-                At {
-                    title: "Delete records",
-                    topic: &topic,
-                    trail: &[("Partitions", "/partitions")],
-                },
-                |inline| pages::delete_records_dialog(&v, &s.base, inline),
+                &topic,
+                Under::Partitions,
+                pages::delete_records_dialog(&v, &s.base),
             )
             .await
         }
@@ -375,12 +338,9 @@ pub async fn delete_form(
         &s,
         StatusCode::OK,
         &headers,
-        At {
-            title: "Delete topic",
-            topic: &topic,
-            trail: &[],
-        },
-        |inline| pages::delete_dialog(&view, None, &s.base, inline),
+        &topic,
+        Under::Messages,
+        pages::delete_dialog(&view, None, &s.base),
     )
     .await
 }
@@ -413,12 +373,9 @@ pub async fn delete(
                 &s,
                 StatusCode::OK,
                 &headers,
-                At {
-                    title: "Delete topic",
-                    topic: &topic,
-                    trail: &[],
-                },
-                |inline| pages::delete_dialog(&v, Some(&r), &s.base, inline),
+                &topic,
+                Under::Messages,
+                pages::delete_dialog(&v, Some(&r), &s.base),
             )
             .await
         }
@@ -427,12 +384,9 @@ pub async fn delete(
                 &s,
                 StatusCode::UNPROCESSABLE_ENTITY,
                 &headers,
-                At {
-                    title: "Delete topic",
-                    topic: &topic,
-                    trail: &[],
-                },
-                |inline| pages::delete_dialog(&v, None, &s.base, inline),
+                &topic,
+                Under::Messages,
+                pages::delete_dialog(&v, None, &s.base),
             )
             .await
         }

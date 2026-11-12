@@ -132,7 +132,7 @@ async fn a_dialog_is_a_full_page_to_a_browser_and_its_body_alone_to_a_script() {
         assert!(
             page.starts_with("<!DOCTYPE html>")
                 && page.contains(&format!(
-                    "<div class=\"modal page\" id=\"{id}\" role=\"dialog\""
+                    "<div class=\"modal\" role=\"dialog\" aria-modal=\"true\" aria-labelledby=\"{id}-title\""
                 )),
             "{path}: {page:.300}"
         );
@@ -142,7 +142,8 @@ async fn a_dialog_is_a_full_page_to_a_browser_and_its_body_alone_to_a_script() {
         let (res, alone) = send(&app, ask).await;
         assert_eq!(res.status(), StatusCode::OK);
         assert!(
-            alone.starts_with(&format!("<div class=\"modal\" id=\"{id}\" role=\"dialog\"")),
+            alone.starts_with("<div class=\"ovl ovl-dialog root\" data-overlay")
+                && alone.contains(&format!("aria-labelledby=\"{id}-title\"")),
             "{path}: {alone:.200}"
         );
         assert!(

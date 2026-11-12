@@ -1,5 +1,5 @@
-//! One record, completely (`topic-record` and `topic-record-binary`): a drawer on the boards, a page of its own here so the
-//! address works with no script.
+//! One record, completely (`topic-record` and `topic-record-binary`): a drawer over the topic's Messages page, as the boards
+//! draw it. Its address works with no script: the server renders the Messages page with the drawer open on it.
 
 use maud::{Markup, html};
 
@@ -12,6 +12,7 @@ use crate::ui::client;
 use crate::ui::glyph::{Glyph, glyph};
 use crate::ui::kafka::{field, headers};
 use crate::ui::notice::{Tone, callout};
+use crate::ui::overlay::{Kind as OverlayKind, frame};
 
 fn kind_word(k: Kind) -> &'static str {
     match k {
@@ -127,10 +128,11 @@ fn position(v: &RecordView) -> Markup {
     }
 }
 
-/// The page for one record.
+/// The drawer for one record. `query` is the Messages page's own query (its filters), which the drawer's address carries so
+/// that closing returns to the same page.
 #[must_use]
-pub fn record_page(v: &RecordView, base: &Base) -> Markup {
-    let back = topic_url(base, &v.topic);
+pub fn record_drawer(v: &RecordView, base: &Base, query: &str) -> Markup {
+    let back = format!("{}{query}", topic_url(base, &v.topic));
     let binary = v.value.kind == Kind::Binary;
     let hdrs: Vec<(String, String)> = v
         .headers
@@ -146,29 +148,32 @@ pub fn record_page(v: &RecordView, base: &Base) -> Markup {
             )
         })
         .collect();
-    html! {
-        div role="dialog" aria-labelledby="record-title" class="drawer-panel" style="position:relative;top:0;right:auto;bottom:auto;width:auto;max-width:640px;box-shadow:none;border:1px solid var(--line);border-radius:12px" {
-            h2 class="mono" id="record-title" { (v.topic) "-" (v.partition) " · " (number(v.offset)) }
-            p class="help" style="margin:0 0 16px" { "One record, completely." }
-            (standing_callout(v))
-            (field("Key", &note(&v.key), block(&v.key, "padding:10px 14px", "record-key")))
-            (field("Value", &note(&v.value), block(&v.value, if binary { "padding:12px 14px;font-size:12px;line-height:20px" } else { "padding:12px 14px;font-size:12.5px;line-height:20px" }, "record-value")))
-            (field("Headers", &(if hdrs.is_empty() { "none".to_owned() } else { hdrs.len().to_string() }), html! {
-                @if hdrs.is_empty() { p class="help" style="margin:0" { "No headers were sent with this record." } } @else { (headers(&hdrs)) }
-            }))
-            dl class="kv sm" {
-                dt { "Timestamp" } dd class="mono" { (timestamp(v)) }
-                dt { "Codec" } dd { (v.codec) }
-                dt { "Producer" } dd { (producer(v)) }
-                dt { "Transaction" } dd { (transaction(v)) }
-                @if v.txn.is_none() { dt { "Position" } dd { (position(v)) } }
-            }
-            div class="row wrap" style="margin-top:20px" {
-                (client::copy_from_button("btn", "record-value", html! { (glyph(Glyph::Copy, 14, "")) @if binary { "Copy as hex" } @else { "Copy value" } }))
-                a class="btn ghost" data-ui="close" href=(back) { "Close" }
-            }
-        }
-    }
+    frame(
+        OverlayKind::Drawer,
+        "record-title",
+        &back,
+        html! {
+                h2 class="mono" id="record-title" { (v.topic) "-" (v.partition) " · " (number(v.offset)) }
+                p class="help" style="margin:0 0 16px" { "One record, completely." }
+                (standing_callout(v))
+                (field("Key", &note(&v.key), block(&v.key, "padding:10px 14px", "record-key")))
+                (field("Value", &note(&v.value), block(&v.value, if binary { "padding:12px 14px;font-size:12px;line-height:20px" } else { "padding:12px 14px;font-size:12.5px;line-height:20px" }, "record-value")))
+                (field("Headers", &(if hdrs.is_empty() { "none".to_owned() } else { hdrs.len().to_string() }), html! {
+                    @if hdrs.is_empty() { p class="help" style="margin:0" { "No headers were sent with this record." } } @else { (headers(&hdrs)) }
+                }))
+                dl class="kv sm" {
+                    dt { "Timestamp" } dd class="mono" { (timestamp(v)) }
+                    dt { "Codec" } dd { (v.codec) }
+                    dt { "Producer" } dd { (producer(v)) }
+                    dt { "Transaction" } dd { (transaction(v)) }
+                    @if v.txn.is_none() { dt { "Position" } dd { (position(v)) } }
+                }
+                div class="row wrap" style="margin-top:20px" {
+                    (client::copy_from_button("btn", "record-value", html! { (glyph(Glyph::Copy, 14, "")) @if binary { "Copy as hex" } @else { "Copy value" } }))
+                    a class="btn ghost" data-ui="close" data-dialog-close href=(back) { "Close" }
+                }
+        },
+    )
 }
 
 /// The page for a record that is not there: a topic or partition that does not exist, an offset outside the log, or a place

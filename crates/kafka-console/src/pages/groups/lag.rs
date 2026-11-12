@@ -173,18 +173,18 @@ fn acts(v: &GroupLagView, base: &Base) -> Markup {
     let h = &v.head;
     let reset = |pri: bool| {
         html! {
-            a class={"btn" @if pri { " pri" }} href=(group_url(base, &h.id, "/reset")) data-op="OffsetCommit" { (glyph(Glyph::Refresh, 16, "")) "Reset offsets" }
+            a class={"btn" @if pri { " pri" }} href=(group_url(base, &h.id, "/reset")) data-dialog data-op="OffsetCommit" { (glyph(Glyph::Refresh, 16, "")) "Reset offsets" }
         }
     };
     let delete_offsets = html! {
-        a class="btn" href=(group_url(base, &h.id, "/offsets/delete")) data-op="OffsetDelete" { (glyph(Glyph::Trash, 16, "")) "Delete offsets" }
+        a class="btn" href=(group_url(base, &h.id, "/offsets/delete")) data-dialog data-op="OffsetDelete" { (glyph(Glyph::Trash, 16, "")) "Delete offsets" }
     };
     html! {
         @match v.state {
             LagState::Ahead => {
                 (reset(true))
                 a class="btn" href=(format!("{}?expiring=1", group_url(base, &h.id, "/lag"))) { (group_glyph(GroupGlyph::Clock, 16, "")) "When do these expire?" }
-                a class="btn danger" href=(group_url(base, &h.id, "/delete")) { (glyph(Glyph::Trash, 16, "")) "Delete group" }
+                a class="btn danger" href=(group_url(base, &h.id, "/delete")) data-dialog { (glyph(Glyph::Trash, 16, "")) "Delete group" }
             },
             LagState::Expiring => { (delete_offsets) (reset(false)) },
             _ => { (reset(false)) (delete_offsets) },

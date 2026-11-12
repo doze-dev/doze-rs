@@ -20,6 +20,12 @@ pub(super) fn request_url(base: &Base, id: u64) -> String {
     base.url(&format!("/live/{id}"))
 }
 
+/// The address of one request's drawer over the Live page as the filters `q` have it: closing the drawer returns to that page.
+#[must_use]
+pub(super) fn request_url_in(base: &Base, id: u64, q: &crate::model::WireQuery) -> String {
+    format!("{}{}", request_url(base, id), q.to_query())
+}
+
 /// The word of a result, as the boards say it.
 #[must_use]
 pub(super) fn class_word(class: WireClass, code: i16) -> &'static str {

@@ -8,6 +8,7 @@ use maud::{DOCTYPE, Markup, html};
 
 use super::client;
 use super::glyph::{Glyph, glyph};
+use super::overlay::Over;
 use crate::assets::AssetUrls;
 use crate::base::Base;
 
@@ -109,9 +110,10 @@ fn topbar(page: &Page<'_>) -> Markup {
     html! {
         header class="topbar" {
             div class="brand" { span class="wm" { "doze-kafka" } }
-            div class="search" {
+            div class="search" data-palette=(page.base.url("/jump")) {
                 (glyph(Glyph::Search, 16, ""))
-                // Jump to a topic or group arrives with the Topics and Groups pages; until then it is drawn, not offered.
+                // Without a script the field is drawn, not offered (the Jump page has the same list as links); a script enables it
+                // and opens the palette on a click or Enter, as ⌘K does.
                 input type="text" placeholder="Jump to a topic or group" aria-label="Jump to a topic or group" disabled;
                 kbd { "⌘K" }
             }
@@ -138,6 +140,11 @@ fn rail(page: &Page<'_>) -> Markup {
                     }
                 }
             }
+            // The keys the script answers to (the boards draw them): hidden when there is no script to answer.
+            div class="hints" data-js-only hidden {
+                span { kbd { "j" } kbd { "k" } "move" }
+                span { kbd { "⌘K" } "jump" }
+            }
         }
     }
 }
@@ -156,6 +163,19 @@ fn crumbs(page: &Page<'_>) -> Markup {
 /// The whole document: `main` is the page's own content.
 #[must_use]
 pub fn document(page: &Page<'_>, main: Markup) -> Markup {
+    document_with(page, main, None)
+}
+
+/// A document with an overlay open on its parent page (`ui::overlay`): the parent is `inert` (no focus, no clicks, not read
+/// out) and the page does not scroll, by the markup and the CSS alone; the overlay is the last thing in the body.
+#[must_use]
+pub fn document_over(page: &Page<'_>, over: Over) -> Markup {
+    // An empty overlay is no overlay: a plain page goes through here too.
+    let overlay = (!over.overlay.0.is_empty()).then_some(over.overlay);
+    document_with(page, over.main, overlay)
+}
+
+fn document_with(page: &Page<'_>, main: Markup, overlay: Option<Markup>) -> Markup {
     let stream =
         (!page.watch.is_empty()).then(|| client::stream_url(&page.base.url("/events"), page.watch));
     html! {
@@ -171,7 +191,7 @@ pub fn document(page: &Page<'_>, main: Markup) -> Markup {
             }
             (client::body(stream.as_deref(), html! {
                 a class="skip" href="#main" { "Skip to the page" }
-                div class="root" {
+                div class="root" inert[overlay.is_some()] {
                     @if page.chrome.unprotected {
                         div class="banner bad" role="alert" {
                             b { "Served beyond loopback, no login." }
@@ -191,6 +211,7 @@ pub fn document(page: &Page<'_>, main: Markup) -> Markup {
                         }
                     }
                 }
+                @if let Some(o) = &overlay { (o) }
             }))
         }
     }

@@ -112,7 +112,8 @@ async fn partitions_can_be_added_and_never_taken_away() {
     )
     .await;
     assert!(
-        alone.starts_with("<div class=\"modal\" id=\"add-partitions\" role=\"dialog\""),
+        alone.starts_with("<div class=\"ovl ovl-dialog root\" data-overlay")
+            && alone.contains("aria-labelledby=\"add-partitions-title\""),
         "{alone:.200}"
     );
     assert!(!alone.contains("<html"));

@@ -6,7 +6,8 @@ use crate::fixtures;
 use crate::fixtures_topics as world;
 use crate::model::{MessageQuery, Reading};
 use crate::pages::topics as page;
-use crate::ui::shell::{Crumb, Page, Rail, document};
+use crate::ui::overlay::{Over, over};
+use crate::ui::shell::{Crumb, Page, Rail, document_over};
 
 /// The boards this half builds, by screen id.
 pub const IDS: [&str; 11] = [
@@ -44,7 +45,7 @@ fn messages(name: &str, q: MessageQuery, base: &Base) -> Option<maud::Markup> {
 }
 
 /// A board's main content, the title of its page, and its breadcrumb.
-type Content = (
+pub(super) type Content = (
     maud::Markup,
     &'static str,
     Vec<(&'static str, Option<&'static str>)>,
@@ -143,24 +144,56 @@ fn topic(id: &str, base: &Base) -> Option<Content> {
             "Partitions",
             orders("Partitions"),
         ),
-        "topic-record" => (
-            page::record_page(&world::record("orders", 1, 16_050)?, base),
-            "orders-1 offset 16,050",
-            orders("orders-1 offset 16,050"),
-        ),
-        "topic-record-binary" => (
-            page::record_page(&world::record("orders", 2, 16_056)?, base),
-            "orders-2 offset 16,056",
-            orders("orders-2 offset 16,056"),
-        ),
         _ => return None,
     })
+}
+
+/// The drawer of a board: the record, over the Messages page of `orders`, which is that board's parent.
+fn drawer(id: &str, base: &Base) -> Option<maud::Markup> {
+    let (p, o) = match id {
+        "topic-record" => (1, 16_050),
+        "topic-record-binary" => (2, 16_056),
+        _ => return None,
+    };
+    Some(page::record_drawer(
+        &world::record("orders", p, o)?,
+        base,
+        "",
+    ))
+}
+
+/// The page behind the overlays of the topic boards: the Messages page of `orders`, or its Partitions page.
+#[must_use]
+pub fn parent(partitions: bool, base: &Base) -> Option<Content> {
+    topic(
+        if partitions {
+            "topic-partitions"
+        } else {
+            "topic-detail"
+        },
+        base,
+    )
 }
 
 /// The page of a board as a full document with no broker; `None` for an id that is not one of these.
 #[must_use]
 pub fn render(id: &str, base: &Base) -> Option<String> {
-    let (main, title, steps) = list(id, base).or_else(|| topic(id, base))?;
+    let (main, title, steps) = match drawer(id, base) {
+        Some(_) => parent(false, base)?,
+        None => list(id, base).or_else(|| topic(id, base))?,
+    };
+    let overlay = drawer(id, base).unwrap_or_default();
+    document_for(base, title, &steps, over(main, overlay))
+}
+
+/// A document for a board: the shell, the page, and an overlay over it if there is one.
+#[must_use]
+pub fn document_for(
+    base: &Base,
+    title: &str,
+    steps: &[(&str, Option<&str>)],
+    over: Over,
+) -> Option<String> {
     let assets = Assets::build(base);
     let chrome = fixtures::chrome();
     let page = Page {
@@ -168,9 +201,9 @@ pub fn render(id: &str, base: &Base) -> Option<String> {
         assets: &assets.urls,
         chrome: &chrome,
         active: Rail::Resources,
-        crumbs: crumbs(base, &steps),
+        crumbs: crumbs(base, steps),
         title,
         watch: &[],
     };
-    Some(document(&page, main).into_string())
+    Some(document_over(&page, over).into_string())
 }

@@ -145,7 +145,7 @@ fn hostile_names_and_values_are_inert_on_the_offline_empty_record_and_unknown_pa
         assert_inert(
             &shell(
                 p,
-                topic_pages::record_page(&hostile_record(p), &base),
+                topic_pages::record_drawer(&hostile_record(p), &base, ""),
                 &base,
             ),
             p,

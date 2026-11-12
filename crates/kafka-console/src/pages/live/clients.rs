@@ -7,9 +7,21 @@ use crate::format::ago;
 use crate::model::ClientsView;
 use crate::ui::button::pill_mono;
 use crate::ui::glyph::{Glyph, glyph};
+use crate::ui::overlay::{Kind, frame};
 
 /// The heading id of the drawer.
 pub(super) const CLIENTS_HEADING: &str = "live-clients";
+
+/// The drawer over the Live page; it closes to `close`, the Live page's address with the filters it had.
+#[must_use]
+pub fn clients_drawer(v: &ClientsView, base: &Base, close: &str) -> Markup {
+    frame(
+        Kind::Drawer,
+        CLIENTS_HEADING,
+        close,
+        clients_body(v, base, close),
+    )
+}
 
 /// The body of the drawer.
 #[must_use]

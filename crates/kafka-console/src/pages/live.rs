@@ -18,12 +18,12 @@ mod parts;
 mod refusals;
 mod tape;
 
-pub use clients::clients_body;
+pub use clients::{clients_body, clients_drawer};
 pub use commands::{FetchCommands, fetch_commands, shell_word};
 pub use docks::{group_wire_page, topic_dock};
 pub use drawers::{
-    Kind as RequestKind, Limits as RequestLimits, detail_body, detail_heading_id, drawer_page,
-    request_body,
+    Kind as RequestKind, Limits as RequestLimits, detail_body, detail_heading_id, request_body,
+    request_drawer,
 };
 pub use first::first_page;
 pub use page::{live_fragment, live_page};
