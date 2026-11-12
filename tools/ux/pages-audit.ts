@@ -121,9 +121,10 @@ export async function auditPage(p: Page, base: string, path: string, limit = 60,
     const shifted = moved(before, after, 1);
     const cls = await p.cls();
     let verdict: Row["verdict"] = "in place";
-    if (navigated) verdict = c.nav ? "navigation" : sy0 > 0 || shifted.length ? "JUMP" : "reload";
+    if (c.nav && (navigated || mainSwapped)) verdict = "navigation";
+    else if (navigated) verdict = sy0 > 0 || shifted.length ? "JUMP" : "reload";
     else if ((sy1 !== sy0 && !(sy1 >= maxScroll - 1 && sy1 < sy0)) || shifted.length) verdict = "JUMP";
-    else if (mainSwapped) verdict = c.nav ? "navigation" : "main swap";
+    else if (mainSwapped) verdict = "main swap";
     rows.push({ page: path, control: c.label || "(no text)", kind: c.kind, target: c.target, navigated, scrollBefore: sy0, scrollAfter: sy1, moved: shifted, cls, mainSwapped, verdict });
   }
   return rows;
