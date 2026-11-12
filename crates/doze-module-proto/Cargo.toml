@@ -1,0 +1,16 @@
+[package]
+name = "doze-module-proto"
+version = "0.0.0"
+description = "Protocol 2 between doze and its modules: frames, messages, versions, flow control, the peer"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+minicbor = { version = "2.3", features = ["derive", "std"] }
+thiserror = "2"

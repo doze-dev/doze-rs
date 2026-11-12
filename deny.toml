@@ -19,6 +19,9 @@ allow = [
     "ISC",
     "Unicode-3.0",
     "Zlib",
+    # minicbor (the module protocol's encoding, chosen in spike S0): the Blue Oak Model License is permissive and
+    # OSI-approved. Owner decision 2026-11-12.
+    "BlueOak-1.0.0",
 ]
 confidence-threshold = 0.9
 
