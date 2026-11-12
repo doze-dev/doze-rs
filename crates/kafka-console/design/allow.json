@@ -1508,5 +1508,54 @@
     "selector": "st warn",
     "reason": "9c: the group page, its header (state word and pills) and its route are slice 9c's; this page links to /groups/{group} and carries a plain title row",
     "expires": "9c"
+  },
+  {
+    "board": "group-story",
+    "field": "link",
+    "selector": "group-rebalancing",
+    "reason": "[p9f] The Members tab links to the group's own page, which one address serves in three states (group-detail, group-detail-848, group-rebalancing: the data chooses); routes.json maps an address to several screens and the tool counts one of them.",
+    "expires": "close"
+  },
+  {
+    "board": "group-story",
+    "field": "link",
+    "selector": "lag-no-commits",
+    "reason": "[p9f] The Lag tab links to the Lag page, which one address serves in four states; routes.json maps an address to several screens and the tool counts one of them.",
+    "expires": "close"
+  },
+  {
+    "board": "group-story",
+    "field": "link",
+    "selector": "group-story",
+    "reason": "[p9f] The tab that is showing is a link to its own page marked aria-current, as on the other group pages; the board draws plain text.",
+    "expires": "close"
+  },
+  {
+    "board": "story-flapping",
+    "field": "link",
+    "selector": "lab-expire",
+    "reason": "[p9f] The callout points at Lab, which is not built; the page says so in words instead of linking to a page that is only a notice (debt J296).",
+    "expires": "close"
+  },
+  {
+    "board": "story-flapping",
+    "field": "link",
+    "selector": "group-story",
+    "reason": "[p9f] The tab that is showing is a link to its own page marked aria-current, as on the other group pages; the board draws plain text.",
+    "expires": "close"
+  },
+  {
+    "board": "story-rebalance",
+    "field": "button",
+    "selector": "Close [-] -> to:group-story",
+    "reason": "improvement: a Close control in the drawer, as the member drawer has, a plain link to the Story behind it (a script closes in place); the board draws none and leaves Esc or a click outside as the only way out.",
+    "expires": "close"
+  },
+  {
+    "board": "story-rebalance",
+    "field": "link",
+    "selector": "group-story",
+    "reason": "improvement: the Close control and the scrim are real links to the Story behind the drawer, so that closing works with no script.",
+    "expires": "close"
   }
 ]

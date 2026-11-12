@@ -470,3 +470,61 @@ Tagged in `docs/port/debt.md` J151 to J170: "waited 480 ms" (the recorder knows 
 
 ## CON-415. An open drawer holds the tape, and closing it lets the tape catch up
 While a Live drawer is open (adopted from the server or opened in place) what the stream brings is kept aside with no banner; closing it by Esc, the Close control or Back brings the newest in. Test: `tools/dom/live.test.ts` (a Live drawer opened by the overlay system holds the tape).
+
+# Slice 9f: the group event ring and the Story (CON-600 to CON-649)
+
+Three boards: `group-story` (a page), `story-rebalance` (a drawer over the Story page), `story-flapping` (a state: the rule held against the group). The heart of the slice is in `kafka-broker`: the only slice that touches the group state machines, so the rule is absolute: a note is an extra effect, never a different transition.
+
+## CON-600. A note is an extra effect, and the machines do exactly what they did before they took notes
+`Effect::Note` is pushed beside the effects of a step and read by nobody who decides anything. 500 seeded sequences of 400 steps (members joining, rejoining with other protocols, syncing, heartbeating, leaving by id and by static instance, going silent, consumer-protocol members coming and going, topics growing) are run through a group and every answer, every timer and every description it gives, notes left out, is hashed; the hash is a constant worked out on the machines as they were before any note was added, one for the build with the console's view (`inspect`) and one without. The same constant holds with the notes on, so a note changes no transition. Test: `groups::group::tests::differential::the_machine_does_what_it_did_before_it_took_notes`. The Phase 4 and 5 gates are unchanged and were run: the broker's group tests, the oracle replay (58 of 58) and the interop group cells.
+
+## CON-601. Every way a classic rebalance begins says why
+A member that joins (the first of an empty group, or one that was not in it), one that leaves, one whose session runs out, one that joins again offering other protocols, the leader of a running group joining again, a group made classic again by the last consumer-protocol member leaving: each is a cause on the note of the rebalance it began, with the member, the client id, the members before and after, and the wait the members were given; a member dropped as the generation forms (the rebalance timeout) is its own note; the generation formed and the assignment handed out (what each member holds) are noted too. A join into a rebalance already forming begins nothing and says nothing. Tests: `groups::machine::tests::notes::*`.
+
+## CON-602. Every move of a consumer group's epoch says why
+A member joining, leaving (epoch -1), expiring or not giving up what it was told to in its rebalance timeout; a subscription, pattern or assignor changed; a right to describe a topic given or taken; partitions added to, or a topic made or deleted among, the topics the members read (`TopicsChanged`, which the broker sends every group); a classic group made a consumer group. An epoch that does not move says nothing. Tests: `groups::group::tests::notes::*`, and over a real broker `view_group_events::partitions_added_to_a_topic_a_consumer_group_reads_are_a_topic_that_changed` and `live_story::partitions_added_to_a_topic_a_consumer_group_reads_are_told_as_a_topic_that_changed`.
+
+## CON-603. The ring is bounded, lazy and kept by the group's own task
+200 notes per group, 64 KiB of notes per group, 100 groups (the oldest group's ring is let go when a 101st speaks), emptied at a restart. The ring belongs to the group's task: a note is a push with no lock; only the first note of a group and the end of its task touch the shared ledger. A group that never rebalances never has a ring: an idle broker pays nothing. Tests: `groups::events::tests::*`.
+
+## CON-604. The client's own reason is kept clipped and never logged
+JoinGroup v5 and LeaveGroup v5 carry a `reason`. It is clipped to 128 bytes at a character boundary with control characters left out, as it is read (a 900 KiB reason costs as much as a short one and the Go edition's 1.8 GiB cannot happen), kept only in a note, and never written to a log. Tests: `groups::note::tests::*`, `view_group_events::a_join_and_a_leave_are_told_with_their_causes_and_the_clients_clipped_reasons`, `live_story::a_classic_group_that_joins_and_leaves_tells_its_story_with_a_clipped_reason`.
+
+## CON-605. `ConsoleView::group_events` is read-only and Describe-checked
+It returns owned plain structs; a caller that may not DESCRIBE the group is told nothing and not that the group exists; a group the broker does not have in memory (restarted, deleted) has `None`, which is not the same as an empty story; asking is a request to the group's task like any other and changes nothing. Tests: `view_group_events::*`.
+
+## CON-606. The Story is the group's generations, newest first, from the ring
+`/groups/{group}/story`: Now (what the group is doing, and for a rebalance the time the members have left, live), each generation with its cause, who, the members before and after, how long it took to settle, what each member held, who did not join in time, how long it lasted, the members that were in it; the causes the broker can name with how often each happened here; whether the group is flapping; another group that rebalances rarely, for contrast; and the footnote: 200 events per group, emptied at a restart. Tests: `boards_story::the_story_has_the_boards_four_generations_newest_first_and_its_cards`, `story::tests::*`, `live_story::*`.
+
+## CON-607. A rebalance opens as a drawer over the Story
+`/groups/{group}/story/{generation}` is a drawer over the Story page (a direct visit is the Story with the drawer open; a script is sent the drawer alone; Close and the scrim are links back); a generation the ring does not hold is a 404. Tests: `boards_story::the_rebalance_drawer_says_who_when_the_deadline_and_what_moves`, `live_story::a_script_gets_the_drawer_alone_and_a_browser_gets_the_story_with_it_open`.
+
+## CON-608. The flapping rule is one pure function and its words are its code
+Three or more expired-then-joined cycles in ten minutes: a session expiry, then a join by the same client, each expiry used once; the window's edge counts, a millisecond older does not. `story::flap_of`; the page's verdict, rows and sentence are made from what it returns. Tests: `story::tests::three_expired_then_joined_cycles_in_ten_minutes_are_flapping_and_two_are_not`, `story::tests::the_window_is_ten_minutes_and_its_edge_counts`, `story::tests::the_member_that_comes_back_is_the_client_that_expired`, `story::tests::the_rule_held_against_the_boards_group_says_what_the_board_says`.
+
+## CON-609. A clean leave never counts toward flapping
+A member that sends LeaveGroup told the broker it was going; nothing ran out. Any number of leaves and joins is no cycle. Tests: `story::tests::a_clean_leave_never_counts_and_a_join_after_a_leave_is_no_cycle`, `live_story::a_member_that_expires_and_comes_back_until_the_rule_names_it_is_flapping`.
+
+## CON-610. The Story tab is a link with a count on every page of a group
+Members, Lag and Story carry the number of rebalances the ring holds for the group (Members the members, Lag the lag, as before); the tab that is showing is the current page. Tests: `live_story::a_classic_group_that_joins_and_leaves_tells_its_story_with_a_clipped_reason` (the count on the Members page), `boards_story::*`.
+
+## CON-611. Sentences give a cause only when the ring has one
+"fulfilment-py-2 left 3 s ago, so the group is rebalancing. It is waiting for fulfilment-py-1 to rejoin", the list's rebalancing line with "or read its story", a consumer group's "The last rebalance was 6 h ago: payments-3c joined." and its row's "last rebalance 6 h ago"; a group the broker has no notes of (restarted) says only what the machine says now. Tests: `groups_words::tests::a_rebalance_names_who_left_how_long_ago_and_who_is_waited_for_with_the_time_left`, `groups_words::tests::a_consumer_group_in_step_says_nothing_is_moving_and_when_and_why_it_last_rebalanced`.
+
+## CON-612. The Story says what the ring is
+"200 events per group, emptied at a restart" under the generations, and "Generations 1 to N are older than the ring keeps" when it is full. Test: `boards_story::the_story_has_the_boards_four_generations_newest_first_and_its_cards`.
+
+## CON-613. The stream vocabulary of the Story is registered once
+Two fragment ids (`story-sentence`, `story-now`) live in `story_ids.rs` and are accepted by the stream through one line. Test: `story_ids::tests::what_the_story_watches_is_in_the_vocabulary_and_the_stream_accepts_it`.
+
+## CON-614. The three boards pass the structure gate in both renders
+Fixture render (`tests/boards_story::every_board_of_the_slice_renders_and_is_written_for_the_tool`), every difference in `design/allow.json` with a reason.
+
+## CON-615. A group id and a generation in the address are hostile input
+Shown as text, put in links only through `segment`, a generation that is not a number or not in the ring is a 404 that echoes nothing. Test: `live_story::a_hostile_group_id_is_escaped_and_encoded_on_the_story_pages`.
+
+## CON-616. A caller that may not describe the group gets no group
+The Story, the drawer and the flapping page of a group the caller may not DESCRIBE are the 404 of a group that is not there; nothing of the story leaks. Test: `live_story::a_caller_who_may_not_describe_the_group_is_told_no_group_not_that_it_has_a_story`.
+
+### What these boards show that the broker cannot supply, and what the page does instead
+Tagged in `docs/port/debt.md` J291 to J302: "Topic changed" on a classic group is "Leader rejoined" (a client sees the change and its leader joins again); the topic that changed is not named; "last told to rejoin" is "last heard"; a member joining a rebalance already forming is folded into it; the causes' phrases are the boards', since no recording carries a Kafka reason.

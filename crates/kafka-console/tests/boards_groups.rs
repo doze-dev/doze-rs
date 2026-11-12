@@ -118,7 +118,8 @@ fn the_consumer_group_shows_target_and_assigned_and_the_rebalance_shows_who_is_w
         &doc("group-rebalancing"),
         &[
             "generation 31 forming",
-            "<b>fulfilment-py-1</b> has not joined again",
+            "<b>fulfilment-py-2</b> left 3 s ago, so the group is rebalancing.",
+            "It is waiting for <b>fulfilment-py-1</b> to rejoin",
             "Waiting for",
             "2.1",
             "What happens next",
