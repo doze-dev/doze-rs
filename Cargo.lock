@@ -1321,6 +1321,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "doze-journal"
+version = "0.0.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tempfile",
+ "time",
+]
+
+[[package]]
 name = "doze-kafka"
 version = "0.0.0"
 dependencies = [
@@ -1479,6 +1489,19 @@ dependencies = [
  "rustix",
  "tokio",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "doze-projects"
+version = "0.0.0"
+dependencies = [
+ "doze-os",
+ "hex",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "time",
 ]
 
 [[package]]
