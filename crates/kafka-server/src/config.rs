@@ -66,6 +66,9 @@ pub struct Config {
     /// Who may log in, and how. Unset, the broker asks nobody for anything: no SASL API is advertised and a
     /// connection is served from its first request. Set, a connection must log in first.
     pub sasl: Option<Arc<Authenticator>>,
+    /// Who is told of every connection and request (the console's recorder). Unset, a request costs one `Option` test and
+    /// nothing more; see [`crate::Observer`] for what an observer must and must not do.
+    pub observer: Option<Arc<dyn crate::Observer>>,
     /// The certificate to prove itself with. Unset, the listener speaks plaintext; set, every connection starts with a
     /// TLS handshake. Independent of `sasl`. The field exists only in a build with the `tls` feature.
     #[cfg(feature = "tls")]
@@ -82,6 +85,7 @@ impl Default for Config {
             timeouts: Timeouts::default(),
             max_connections: 2048,
             sasl: None,
+            observer: None,
             #[cfg(feature = "tls")]
             tls: None,
         }

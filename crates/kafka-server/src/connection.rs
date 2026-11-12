@@ -16,6 +16,7 @@ use tokio::time::Instant;
 use tokio_util::sync::CancellationToken;
 use tracing::debug;
 
+use crate::observer::Watch;
 use crate::session::Session;
 use crate::{Timeouts, frames};
 
@@ -36,6 +37,19 @@ pub(crate) struct Context<F: Fs> {
     pub(crate) timeouts: Timeouts,
     /// Who may log in. `None`: nobody is asked to, and a connection is served from its first request.
     pub(crate) auth: Option<Arc<Authenticator>>,
+    /// Who is told of connections and requests, if anybody.
+    pub(crate) observer: Option<Arc<dyn crate::Observer>>,
+    /// Where connection numbers come from (taken from only with an observer).
+    pub(crate) numbers: crate::connections::Numbers,
+}
+
+/// What the exchange of one request has to hand: the server's shared parts, what the broker is told of the connection, who it
+/// is, and the observer's view of it (none, in the usual case).
+pub(crate) struct Ears<'a, F: Fs> {
+    pub(crate) ctx: &'a Context<F>,
+    pub(crate) listener: &'a Listener,
+    pub(crate) caller: &'a Caller,
+    pub(crate) watch: Option<&'a Watch>,
 }
 
 /// Why a connection ended. None of these texts holds anything a client sent.
@@ -79,14 +93,31 @@ pub(crate) enum End {
 pub(crate) async fn serve<S: AsyncRead + AsyncWrite + Unpin, F: Fs>(
     stream: &mut S,
     ctx: &Context<F>,
-    peer: Option<std::net::IpAddr>,
+    peer: Option<std::net::SocketAddr>,
     accepted: Instant,
     stop: &CancellationToken,
 ) -> End {
+    let watch = ctx.numbers.watch(ctx.observer.as_ref(), peer);
+    let end = serve_loop(stream, ctx, peer, accepted, stop, watch.as_ref()).await;
+    if let Some(w) = &watch {
+        w.observer.closed(w.conn, &end.to_string());
+    }
+    end
+}
+
+async fn serve_loop<S: AsyncRead + AsyncWrite + Unpin, F: Fs>(
+    stream: &mut S,
+    ctx: &Context<F>,
+    peer: Option<std::net::SocketAddr>,
+    accepted: Instant,
+    stop: &CancellationToken,
+    watch: Option<&Watch>,
+) -> End {
+    let ip = peer.map(|p| p.ip());
     // What the broker is told of this connection: where it is from, for the group APIs that show members.
-    let listener = peer.map_or_else(|| ctx.listener.clone(), |p| ctx.listener.seen_from(p));
+    let listener = peer.map_or_else(|| ctx.listener.clone(), |p| ctx.listener.seen_from(p.ip()));
     // And who it is: nobody in particular until a login says otherwise (and for good, if the server asks for none).
-    let mut caller = Caller::anonymous(peer);
+    let mut caller = Caller::anonymous(ip);
     let mut buf = BytesMut::with_capacity(BUFFER);
     // A broker that wants a login starts every connection as a stranger, held to a small frame and a deadline.
     let mut session = ctx.auth.as_ref().map(|_| Session::new());
@@ -102,7 +133,12 @@ pub(crate) async fn serve<S: AsyncRead + AsyncWrite + Unpin, F: Fs>(
             Ok(frame) => frame,
             Err(end) => return end,
         };
-        let ears = (ctx, &listener, &caller);
+        let ears = Ears {
+            ctx,
+            listener: &listener,
+            caller: &caller,
+            watch,
+        };
         if let Err(end) = exchange::exchange(stream, ears, &mut session, frame, stop).await {
             return end;
         }
@@ -111,7 +147,7 @@ pub(crate) async fn serve<S: AsyncRead + AsyncWrite + Unpin, F: Fs>(
             login_by = None;
             if let Some(who) = session.as_ref().and_then(Session::principal) {
                 debug!(principal = %who, "logged in");
-                caller = Caller::new(who.clone(), peer);
+                caller = Caller::new(who.clone(), ip);
             }
         }
         if buf.is_empty() && buf.capacity() > KEEP {
