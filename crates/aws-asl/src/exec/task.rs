@@ -141,6 +141,7 @@ impl Exec {
                 let state = sub(def, &f.def)?.state(&f.state)?;
                 let resource = match &state.kind {
                     Kind::Task(t) => t.resource.clone(),
+                    Kind::Map(_) if f.writing => super::writer::RESULT_WRITER.to_owned(),
                     Kind::Map(_) => super::fan::ITEM_READER.to_owned(),
                     _ => return None,
                 };
@@ -180,14 +181,7 @@ impl Exec {
             return step;
         };
         if let Kind::Map(_) = &state.kind {
-            match outcome {
-                Outcome::Done(items) => self.items_read(cx, frame, state, items, &mut step),
-                Outcome::Failed(failure) => {
-                    let failure = Failure::new(crate::errors::ITEM_READER_FAILED, failure.cause);
-                    self.failed(cx, frame, state, failure, &mut step);
-                }
-                Outcome::Submitted(_) => {}
-            }
+            self.map_answer(cx, &f, state, outcome, &mut step);
             self.pump(cx, &mut step);
             return step;
         }
@@ -227,6 +221,42 @@ impl Exec {
         }
         self.pump(cx, &mut step);
         step
+    }
+
+    /// The answer to a distributed Map's reader (its items) or writer (its result).
+    fn map_answer(
+        &mut self,
+        cx: Cx<'_>,
+        f: &super::Frame,
+        state: &State,
+        outcome: Outcome,
+        step: &mut Step,
+    ) {
+        let (error, writing) = if f.writing {
+            (crate::errors::RESULT_WRITER_FAILED, true)
+        } else {
+            (crate::errors::ITEM_READER_FAILED, false)
+        };
+        if let Some(fm) = self.frame_mut(f.id) {
+            fm.writing = false;
+        }
+        match outcome {
+            Outcome::Done(result) if writing => {
+                let view = View {
+                    ex: self,
+                    frame: f,
+                    state,
+                    env: cx.env,
+                };
+                let mv = finish_result(&view, &parse(&f.input), result);
+                self.apply(cx, f.id, state, mv, step);
+            }
+            Outcome::Done(items) => self.items_read(cx, f.id, state, items, step),
+            Outcome::Failed(failure) => {
+                self.failed(cx, f.id, state, Failure::new(error, failure.cause), step);
+            }
+            Outcome::Submitted(_) => {}
+        }
     }
 
     /// A state failed: retry, catch, or fail the branch.
@@ -318,7 +348,7 @@ impl Exec {
         if r.jitter {
             secs *= env.unit();
         }
-        Some(env.now_ms + (secs * 1000.0) as i64)
+        Some(env.now_ms + (secs * env.wait_scale * 1000.0) as i64)
     }
 }
 

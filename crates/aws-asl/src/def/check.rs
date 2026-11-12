@@ -277,6 +277,14 @@ fn test_paths(t: &Test, at: &str, out: &mut Vec<Diagnostic>) {
 
 /// Every `{% %}` string of a JSONata state must compile.
 fn expressions(s: &State, at: &str, out: &mut Vec<Diagnostic>) {
+    if !crate::jsonata::available() {
+        out.push(Diagnostic::error(
+            SCHEMA,
+            "JSONata is not built into this doze-aws (it was built without the jsonata feature)",
+            at,
+        ));
+        return;
+    }
     let mut found = Vec::new();
     for (name, v) in [
         ("Arguments", &s.arguments),

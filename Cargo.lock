@@ -675,6 +675,7 @@ dependencies = [
  "aws-logs",
  "aws-model-sfn",
  "aws-peers",
+ "aws-s3",
  "aws-schema",
  "aws-sns",
  "aws-sqs",

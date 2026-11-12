@@ -19,6 +19,13 @@ use doze_store::{Ack, Db, StoreError};
 use serde_json::Value;
 
 use crate::effects::Effects;
+
+/// A request, with the settings the service runs under (an actor may be opened again after an idle reap, so they come each time).
+#[derive(Debug)]
+pub(crate) struct Asked {
+    pub(crate) config: Arc<crate::Config>,
+    pub(crate) req: Request,
+}
 use crate::model::{Activity, Execution, Machine, MapRun};
 use crate::req::{Req, not_built};
 
@@ -80,6 +87,8 @@ pub(crate) struct Core {
     /// The last caller seen, whose region and endpoint a wake-up works as.
     pub(crate) last_caller: Option<Caller>,
     pub(crate) region: String,
+    /// The local-testing settings of the last request.
+    pub(crate) config: Arc<crate::Config>,
 }
 
 /// Every operation of the model is built (Go's support table marks all 37 F).
@@ -88,7 +97,7 @@ pub(crate) const fn built(_op: Operation) -> bool {
 }
 
 impl doze_runtime::Service for Core {
-    type Request = Request;
+    type Request = Asked;
     type Response = Answer;
     type Error = StoreError;
 
@@ -96,7 +105,9 @@ impl doze_runtime::Service for Core {
         Self::open_in(&ctx.dir, Arc::clone(&ctx.clock), peers_of(ctx))
     }
 
-    async fn handle(&mut self, req: Request) -> Answer {
+    async fn handle(&mut self, asked: Asked) -> Answer {
+        self.config = asked.config;
+        let req = asked.req;
         let mut reply = match req {
             Request::Call(call) => self.serve(call).await,
             Request::Tick(caller, at) => {
@@ -181,6 +192,7 @@ impl Core {
             effects: Effects::default(),
             last_caller: None,
             region: String::new(),
+            config: Arc::default(),
         }
     }
 

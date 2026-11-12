@@ -37,6 +37,7 @@ pub(crate) struct Begin {
     pub(crate) trace: Option<String>,
     /// A `.sync` parent: `(ARN, frame, call, .sync:2)`.
     pub(crate) parent: Option<(String, u32, u32, bool)>,
+    pub(crate) test_case: Option<String>,
 }
 
 /// The record of a new execution.
@@ -67,6 +68,8 @@ fn record(l: Launch, b: Begin, exec: Exec, now: i64) -> Execution {
         logging: l.logging,
         activity: Vec::new(),
         redrive_tokens: Vec::new(),
+        test_case: b.test_case,
+        mock_calls: Vec::new(),
     }
 }
 
@@ -112,7 +115,11 @@ impl Core {
     }
 
     pub(crate) fn start_execution(&mut self, r: &Req<'_>, sync: bool) -> Result<Value, ApiError> {
-        let given = r.s("stateMachineArn");
+        // `<machine ARN>#<case>` runs a test case of the mock configuration (Step Functions Local's convention).
+        let (given, case) = match r.s("stateMachineArn").split_once('#') {
+            Some((a, c)) => (a, Some(c.to_owned())),
+            None => (r.s("stateMachineArn"), None),
+        };
         let l = self.launch(given)?;
         if sync && !l.express {
             // (memory)
@@ -146,6 +153,7 @@ impl Core {
                 input,
                 trace,
                 parent: None,
+                test_case: case,
             },
         );
         let start = e.start_ms;

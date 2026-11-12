@@ -95,6 +95,7 @@ impl<'a> Cursor<'a> {
     }
 }
 
+// fuzz:parser fuzz_jsonpath
 pub(super) fn path(text: &str) -> Result<Path, String> {
     let mut c = Cursor::new(text);
     let root = root(&mut c, text)?;

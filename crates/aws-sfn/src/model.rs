@@ -122,6 +122,9 @@ pub(crate) struct Execution {
     pub(crate) activity: Vec<ActivityCall>,
     /// The `RedriveExecution` client tokens already used.
     pub(crate) redrive_tokens: Vec<String>,
+    /// The mock test case it runs (`<machine ARN>#<case>`), and how often each mocked state was called.
+    pub(crate) test_case: Option<String>,
+    pub(crate) mock_calls: Vec<(String, u32)>,
 }
 
 /// An activity task of an execution.

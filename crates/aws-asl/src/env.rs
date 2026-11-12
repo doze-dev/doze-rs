@@ -11,6 +11,8 @@ pub struct Env {
     rng: Cell<u64>,
     /// Whether task tokens may be made (an Express execution cannot wait for one).
     pub tokens: bool,
+    /// What every Wait and retry interval is multiplied by (1 is AWS; a local-testing setting).
+    pub wait_scale: f64,
     /// The region and account, for ARNs the interpreter writes (a Map Run's).
     pub region: String,
     pub account: String,
@@ -24,6 +26,7 @@ impl Env {
             now_ms,
             rng: Cell::new(seed | 1),
             tokens: true,
+            wait_scale: 1.0,
             region: String::new(),
             account: String::new(),
         }

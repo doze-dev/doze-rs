@@ -348,6 +348,9 @@ impl Exec {
             _ => "MapStateSucceeded",
         };
         self.recorder(step, env).add(id, kind, None);
+        if self.write_results(cx, id, state, &sorted, step) {
+            return;
+        }
         let Some(f) = self.frame(id).cloned() else {
             return;
         };

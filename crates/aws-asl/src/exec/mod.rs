@@ -16,6 +16,7 @@ mod task;
 #[cfg(test)]
 mod tests;
 mod timers;
+mod writer;
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -27,6 +28,7 @@ pub use events::Event;
 pub use fan::ITEM_READER;
 pub use io::context_time;
 pub use task::parks;
+pub use writer::RESULT_WRITER;
 
 /// Where a frame is between two steps.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -112,6 +114,8 @@ pub struct Frame {
     pub tolerated: Option<(f64, f64)>,
     /// A distributed Map's Map Run ARN.
     pub map_run: Option<String>,
+    /// A distributed Map whose results are being written (its call is the `ResultWriter`'s).
+    pub writing: bool,
 }
 
 /// One execution.

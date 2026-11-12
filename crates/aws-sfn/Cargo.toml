@@ -12,7 +12,7 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
-aws-asl = { path = "../aws-asl" }
+aws-asl = { path = "../aws-asl", default-features = false }
 aws-model-sfn = { path = "../aws-model-sfn" }
 aws-schema = { path = "../aws-schema" }
 aws-wire = { path = "../aws-wire" }
@@ -34,4 +34,10 @@ aws-sns = { path = "../aws-sns" }
 aws-dynamodb = { path = "../aws-dynamodb" }
 aws-logs = { path = "../aws-logs" }
 aws-eventbridge = { path = "../aws-eventbridge" }
+aws-s3 = { path = "../aws-s3" }
 tokio = { version = "1", default-features = false, features = ["rt", "macros", "time", "test-util", "sync"] }
+
+[features]
+# JSONata, passed to aws-asl (see its Cargo.toml for the cost). On by default.
+default = ["jsonata"]
+jsonata = ["aws-asl/jsonata"]

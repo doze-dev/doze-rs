@@ -260,6 +260,7 @@ fn a_token_parks_until_it_is_answered() {
 }
 
 #[test]
+#[cfg(feature = "jsonata")]
 fn jsonata_states_run() {
     let step = run(
         json!({"QueryLanguage": "JSONata", "StartAt": "A", "States": {

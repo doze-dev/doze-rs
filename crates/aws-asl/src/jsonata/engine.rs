@@ -1,7 +1,5 @@
-//! The JSONata dialect: a string `{% expr %}` anywhere in `Arguments`, `Output`, `Assign`, `Items`, `ItemSelector`, a `Condition`
-//! or one of the number and time fields is an expression, evaluated by `jlens-core` with `$states` (`input`, `context`, `result`,
-//! `errorOutput`), the variables in scope, and the functions AWS adds: `$partition`, `$range`, `$hash`, `$random`, `$uuid` and
-//! `$parse`. An evaluation is bounded in time and depth.
+//! The JSONata engine: `jlens-core`, with `$states`, the variables in scope and the functions AWS adds. Built with the `jsonata`
+//! feature.
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -10,72 +8,18 @@ use std::time::Duration;
 use jlens_core::{Bindings, Expression, HostFunction, Options};
 use serde_json::{Map, Value};
 
+use super::{Failed, Scope, body, is_expr};
 use crate::env::Env;
 
 /// How long one expression may run.
 const TIME_LIMIT: Duration = Duration::from_secs(5);
 
-/// Whether `s` is a whole expression.
-#[must_use]
-pub fn is_expr(s: &str) -> bool {
-    let t = s.trim();
-    t.len() >= 4 && t.starts_with("{%") && t.ends_with("%}")
+/// Why `expr` does not compile, if it does not.
+pub(super) fn compile_error(expr: &str) -> Option<String> {
+    Expression::compile(expr).err().map(|e| e.message())
 }
 
-fn body(s: &str) -> &str {
-    let t = s.trim();
-    t.get(2..t.len() - 2).unwrap_or_default().trim()
-}
-
-/// The expressions in `v` that do not compile, with where they are.
-pub fn problems(v: &Value, at: &str, out: &mut Vec<(String, String)>) {
-    match v {
-        Value::String(s) if is_expr(s) => {
-            if let Err(e) = Expression::compile(body(s)) {
-                // (memory)
-                out.push((
-                    at.to_owned(),
-                    format!(
-                        "The JSONata expression '{}' is not valid: {}",
-                        body(s),
-                        e.message()
-                    ),
-                ));
-            }
-        }
-        Value::Object(m) => m
-            .iter()
-            .for_each(|(k, v)| problems(v, &format!("{at}/{k}"), out)),
-        Value::Array(a) => a
-            .iter()
-            .enumerate()
-            .for_each(|(i, v)| problems(v, &format!("{at}/{i}"), out)),
-        _ => {}
-    }
-}
-
-/// What an expression sees.
-#[derive(Clone, Copy, Debug)]
-pub struct Scope<'a> {
-    /// `$states`.
-    pub states: &'a Value,
-    /// The variables in scope, each bound as `$name`.
-    pub vars: &'a Map<String, Value>,
-}
-
-/// An expression that failed: its text and the engine's reason.
-#[derive(Clone, Debug)]
-pub struct Failed {
-    pub expr: String,
-    pub why: String,
-}
-
-/// Evaluates every expression in `v` (a template: objects and arrays are walked, other values kept). `None` when the whole of `v` is
-/// one expression whose value is undefined; a member whose expression is undefined is left out.
-///
-/// # Errors
-/// The first expression that fails.
-pub fn eval(v: &Value, scope: Scope<'_>, env: &Env) -> Result<Option<Value>, Failed> {
+pub(super) fn eval(v: &Value, scope: Scope<'_>, env: &Env) -> Result<Option<Value>, Failed> {
     let bindings = bindings(scope, env);
     walk(v, &bindings, env)
 }
@@ -200,7 +144,10 @@ fn functions(seed: Arc<AtomicU64>) -> Vec<(&'static str, HostFunction)> {
 mod tests {
     use serde_json::json;
 
-    use super::*;
+    use serde_json::Map;
+
+    use super::super::{Scope, eval, is_expr, problems};
+    use crate::env::Env;
 
     #[test]
     fn templates_evaluate() {

@@ -11,6 +11,7 @@ mod lambda;
 mod optimized;
 mod reader;
 mod sdk;
+mod writer;
 
 use std::sync::Arc;
 
@@ -77,6 +78,9 @@ async fn outcome(shared: &Shared, starter: &Caller, job: &Job) -> Outcome {
 /// The call a resource names.
 pub(crate) async fn call(peers: &Arc<Peers>, caller: &Caller, job: &Job) -> Result<Value, Failure> {
     let r = job.resource.as_str();
+    if r == aws_asl::exec::RESULT_WRITER {
+        return writer::write(peers, caller, &job.input).await;
+    }
     if r == aws_asl::ITEM_READER {
         return reader::read(peers, caller, &job.input).await;
     }

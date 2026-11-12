@@ -44,6 +44,7 @@ fn run(call: &Call, scope: Scope<'_>, env: &Env) -> Result<Value, Failure> {
 }
 
 /// Runs the function `name` on arguments already evaluated (JSONata's `$hash`, `$partition` and `$range` are these functions).
+#[cfg(feature = "jsonata")]
 pub(crate) fn apply(name: &str, args: &[Value], env: &Env) -> Result<Value, String> {
     fns::apply(name, args, env)
 }

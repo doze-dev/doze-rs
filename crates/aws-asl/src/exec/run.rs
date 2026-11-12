@@ -354,7 +354,7 @@ fn until(v: &View<'_>, raw: &Value, w: &Wait) -> Result<i64, Failure> {
             if secs < 0.0 {
                 return Err(v.fail(RUNTIME, "The value of Seconds must be a positive integer")); // (memory)
             }
-            Ok(now + (secs * 1000.0) as i64)
+            Ok(now + (secs * v.env.wait_scale * 1000.0) as i64)
         }
         Wait::Timestamp(src) => {
             let text = match src {
@@ -364,12 +364,25 @@ fn until(v: &View<'_>, raw: &Value, w: &Wait) -> Result<i64, Failure> {
                     .jsonata("Timestamp", e, &v.states(raw, &[]))?
                     .unwrap_or(Value::Null),
             };
-            text.as_str().and_then(crate::time::parse).ok_or_else(|| {
-                v.fail(
-                    RUNTIME,
-                    &format!("The value '{text}' of Timestamp is not a valid ISO-8601 timestamp"),
-                )
-            }) // (memory)
+            let scale = v.env.wait_scale;
+            let scaled = |ts: i64| {
+                if ts > now {
+                    now + ((ts - now) as f64 * scale) as i64
+                } else {
+                    ts
+                }
+            };
+            text.as_str()
+                .and_then(crate::time::parse)
+                .map(scaled)
+                .ok_or_else(|| {
+                    v.fail(
+                        RUNTIME,
+                        &format!(
+                            "The value '{text}' of Timestamp is not a valid ISO-8601 timestamp"
+                        ),
+                    )
+                }) // (memory)
         }
     }
 }

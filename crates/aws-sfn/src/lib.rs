@@ -17,6 +17,7 @@ mod aliases;
 mod arn;
 mod authz;
 mod children;
+mod config;
 mod core;
 mod deliver;
 mod drive;
@@ -56,6 +57,7 @@ use aws_wire::handler::reply_json;
 use aws_wire::service::{BoxFuture, Call, Caller, Reply, Service};
 use doze_runtime::Ctx;
 
+pub use crate::config::Config;
 use crate::core::Request;
 use crate::shared::{HOME_REGION, Shared};
 
@@ -75,8 +77,14 @@ impl Sfn {
     /// Registers Step Functions. `ctx` says where its files live and how it reads the time.
     #[must_use]
     pub fn new(ctx: Arc<Ctx>) -> Self {
+        Self::with_config(ctx, Config::default())
+    }
+
+    /// Registers Step Functions with local-testing settings (Wait scaling, mocked tasks).
+    #[must_use]
+    pub fn with_config(ctx: Arc<Ctx>, config: Config) -> Self {
         Self {
-            shared: Shared::new(ctx),
+            shared: Shared::new(ctx, config),
             patterns: Patterns::new(&TABLES),
         }
     }

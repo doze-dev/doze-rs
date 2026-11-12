@@ -83,6 +83,7 @@ impl Core {
             input,
             trace: None,
             parent: link,
+            test_case: parent.test_case.clone(),
         };
         let child = self.begin(launch, begin);
         let started = json!({"ExecutionArn": arn, "StartDate": child.start_ms});

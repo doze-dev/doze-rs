@@ -16,9 +16,15 @@ aws-core = { path = "../aws-core" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 # JSONata (PLAN.md, spike D): pinned, young and single-author; passes 1,688 of the 1,690 official cases.
-jlens-core = "=0.31.0"
+jlens-core = { version = "=0.31.0", optional = true }
 # The regular expressions of a JSONPath filter (`=~`): the engine jlens-core already links, with the same features.
-regress = { package = "jlens-regress", version = "=0.31.0", default-features = false, features = ["std", "prohibit-unsafe"] }
+regress = { package = "jlens-regress", version = "=0.31.0", default-features = false, features = ["std", "prohibit-unsafe"], optional = true }
 md-5 = "0.11"
 sha1 = "0.11"
 sha2 = "0.11"
+
+[features]
+# JSONata (QueryLanguage JSONata) and the regular expressions of JSONPath filters. On by default; without it a definition that uses
+# either is refused when it is checked. Measured cost on x86_64 Linux: about 1.26 MB of doze-aws (the stage note has the numbers).
+default = ["jsonata"]
+jsonata = ["dep:jlens-core", "dep:regress"]

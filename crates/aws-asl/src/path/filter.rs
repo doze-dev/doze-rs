@@ -146,6 +146,11 @@ fn relative(c: &mut Cursor<'_>, root: Root) -> Result<Path, String> {
 }
 
 fn regex(c: &mut Cursor<'_>) -> Result<Operand, String> {
+    if !cfg!(feature = "jsonata") {
+        return Err(
+            "regular expressions in a JSONPath filter are not built into this doze-aws".to_owned(),
+        );
+    }
     let rest = c.rest();
     let mut escaped = false;
     let end = rest
@@ -235,8 +240,7 @@ fn compare(left: Option<Value>, op: Op, right: &Operand, node: &Value, scope: Sc
         let Some(text) = left.as_str() else {
             return false;
         };
-        return regress::Regex::with_flags(pattern, flags.as_str())
-            .is_ok_and(|r| r.find(text).is_some());
+        return matches_regex(pattern, flags, text);
     }
     let Some(right) = right.value(node, scope) else {
         return op == Op::Ne;
@@ -267,6 +271,19 @@ fn compare(left: Option<Value>, op: Op, right: &Operand, node: &Value, scope: Sc
         }),
         Op::Matches => false,
     }
+}
+
+/// Whether `text` matches the regular expression (ECMAScript syntax, as Jayway's Java patterns mostly are).
+#[cfg(feature = "jsonata")]
+fn matches_regex(pattern: &str, flags: &str, text: &str) -> bool {
+    regress::Regex::with_flags(pattern, flags).is_ok_and(|r| r.find(text).is_some())
+}
+
+/// Built without the regular-expression engine, a filter with `=~` is refused when its path is read (see `regex`), so this is
+/// never reached.
+#[cfg(not(feature = "jsonata"))]
+fn matches_regex(_pattern: &str, _flags: &str, _text: &str) -> bool {
+    false
 }
 
 fn same(a: &Value, b: &Value) -> bool {

@@ -5,6 +5,7 @@
 mod executions;
 mod integrations;
 mod lifecycle;
+mod local;
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -47,6 +48,11 @@ impl World {
 
     /// A world over `dir` (a restart reuses one).
     pub(crate) fn at(dir: TempDir) -> Self {
+        Self::configured(dir, crate::Config::default())
+    }
+
+    /// A world whose Step Functions runs with local-testing settings.
+    pub(crate) fn configured(dir: TempDir, config: crate::Config) -> Self {
         let tasks = Tasks::new();
         let peers = Peers::new();
         let ext: Arc<dyn std::any::Any + Send + Sync> = peers.clone();
@@ -64,7 +70,8 @@ impl World {
         peers.register(Arc::new(aws_dynamodb::Dynamodb::new(ctx("dynamodb"))));
         peers.register(Arc::new(aws_logs::Logs::new(ctx("logs"))));
         peers.register(Arc::new(aws_eventbridge::Eventbridge::new(ctx("events"))));
-        let sfn = Arc::new(Sfn::new(ctx("states")));
+        peers.register(Arc::new(aws_s3::S3::new(ctx("s3"))));
+        let sfn = Arc::new(Sfn::with_config(ctx("states"), config));
         peers.register(Arc::clone(&sfn) as Arc<dyn aws_wire::service::Service>);
         Self {
             sfn,

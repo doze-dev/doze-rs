@@ -41,6 +41,7 @@ impl Core {
         }
         let mut env = Env::new(self.now_ms(), u64::from_le_bytes(seed));
         env.tokens = !e.express;
+        env.wait_scale = self.config.wait_scale;
         if let Some(p) = crate::arn::parts(&e.arn) {
             p.region.clone_into(&mut env.region);
             p.account.clone_into(&mut env.account);
@@ -139,7 +140,36 @@ impl Core {
     }
 
     /// Where a call goes: an activity's queue, a child execution, or a job for the world outside.
+    /// The answer of a mocked state, when the execution runs a test case that mocks it.
+    fn mocked(&self, e: &mut Execution, d: &Dispatch) -> Option<Outcome> {
+        let case = e.test_case.as_deref()?;
+        if d.resource == aws_asl::ITEM_READER || d.resource == aws_asl::exec::RESULT_WRITER {
+            return None;
+        }
+        let machine = e.machine_arn.rsplit(':').next()?;
+        let n = e
+            .mock_calls
+            .iter()
+            .find(|(s, _)| *s == d.state)
+            .map_or(0, |(_, n)| *n);
+        let out = self.config.mocked(machine, case, &d.state, n)?;
+        match e.mock_calls.iter_mut().find(|(s, _)| *s == d.state) {
+            Some((_, count)) => *count += 1,
+            None => e.mock_calls.push((d.state.clone(), 1)),
+        }
+        Some(out)
+    }
+
     fn route(&mut self, e: &mut Execution, d: Dispatch) {
+        if let Some(outcome) = self.mocked(e, &d) {
+            self.queue.push_back(Work::Deliver {
+                execution: e.arn.clone(),
+                frame: d.frame,
+                seq: d.seq,
+                outcome,
+            });
+            return;
+        }
         let base = d
             .resource
             .split(".waitForTaskToken")

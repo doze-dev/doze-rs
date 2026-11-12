@@ -39,7 +39,7 @@ fn service(id: &str) -> Option<(&'static str, &'static str)> {
 }
 
 /// A request body sent in one piece.
-struct Whole(Option<Bytes>, u64);
+pub(super) struct Whole(pub(super) Option<Bytes>, pub(super) u64);
 
 impl aws_wire::rest::Upload for Whole {
     fn next(&mut self) -> BoxFuture<'_, Result<Option<Bytes>, ApiError>> {

@@ -13,7 +13,7 @@ use doze_runtime::{Ctx, Keyed};
 use serde_json::Value;
 use tokio::sync::{Notify, oneshot};
 
-use crate::core::{Answer, Core, Request};
+use crate::core::{Answer, Asked, Core, Request};
 use crate::effects::Effects;
 use crate::role::Sessions;
 use crate::timers::Timers;
@@ -38,12 +38,13 @@ pub(crate) struct Shared {
     pub(crate) timers: Arc<Timers>,
     pub(crate) peers: Option<Arc<Peers>>,
     pub(crate) sessions: Sessions,
+    pub(crate) config: Arc<crate::Config>,
     sync: Mutex<HashMap<String, Slot>>,
     polls: Mutex<HashMap<String, Arc<Notify>>>,
 }
 
 impl Shared {
-    pub(crate) fn new(ctx: Arc<Ctx>) -> Arc<Self> {
+    pub(crate) fn new(ctx: Arc<Ctx>, config: crate::Config) -> Arc<Self> {
         let peers = ctx
             .ext
             .as_ref()
@@ -54,6 +55,7 @@ impl Shared {
             ctx,
             peers,
             sessions: Sessions::default(),
+            config: Arc::new(config),
             sync: Mutex::new(HashMap::new()),
             polls: Mutex::new(HashMap::new()),
         })
@@ -71,7 +73,10 @@ impl Shared {
             .actor(region)
             .map_err(|e| ApiError::internal(e.to_string()))?;
         let mut answer = actor
-            .call(req)
+            .call(Asked {
+                config: Arc::clone(&self.config),
+                req,
+            })
             .await
             .map_err(|e| ApiError::internal(e.to_string()))?;
         if let Some(saved) = answer.durable.take()
