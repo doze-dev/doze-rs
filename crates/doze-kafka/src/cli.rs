@@ -123,10 +123,14 @@ pub(crate) struct Args {
     sasl_allow_empty_users: bool,
 
     /// What a resource that no ACL covers allows: allow (the default, so that a broker with no ACLs refuses nothing)
-    /// or deny (Kafka's own default). ACLs you create are enforced either way.
+    /// or deny (Kafka's own default). ACLs you create are enforced either way. With SASL on, allow means every
+    /// logged-in user may do everything, including managing users and ACLs (only the credentials of --acl-super-user
+    /// principals are kept from them): use deny with ACLs for a broker that is shared.
     #[arg(long, default_value = "allow")]
     acl_default: acl::AclDefault,
-    /// A principal that ACLs never refuse, as Type:name such as User:admin (repeatable, or comma separated).
+    /// A principal that ACLs never refuse, as Type:name such as User:admin (repeatable, or comma separated). Only
+    /// a super user may set or delete the SCRAM credential of a super user over the API: with --acl-default allow,
+    /// naming the administrators here is what stops any other login from taking their place.
     #[arg(long, value_name = "PRINCIPAL")]
     acl_super_user: Vec<String>,
 
@@ -266,6 +270,7 @@ impl Args {
             sasl,
             tls,
             listen: self.listen,
+            acl_allow: self.acl_default == acl::AclDefault::Allow,
         })
     }
 

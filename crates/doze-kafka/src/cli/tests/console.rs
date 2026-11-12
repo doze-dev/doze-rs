@@ -2,7 +2,14 @@
 
 use super::*;
 
-const SASL: [&str; 4] = ["--sasl-mechanisms", "PLAIN", "--sasl-user", "u:pw-planted"];
+const SASL: [&str; 6] = [
+    "--sasl-mechanisms",
+    "PLAIN",
+    "--sasl-user",
+    "u:pw-planted",
+    "--acl-default",
+    "deny",
+];
 
 fn settings(flags: &[&str]) -> Result<crate::cli::Settings, String> {
     args(flags)
@@ -163,5 +170,41 @@ fn sasl_without_tls_on_an_address_other_machines_reach_is_noted() {
             .unwrap()
             .warnings
             .is_empty()
+    );
+}
+
+#[test]
+fn sasl_with_the_allow_default_is_noted_and_deny_or_no_sasl_is_not() {
+    // SEC-191: the words are the audit's.
+    let said = "SASL is on and --acl-default is allow, so every logged-in user may do everything, including managing users: use --acl-default deny with ACLs, or --acl-super-user";
+    let open = settings(&["--sasl-mechanisms", "PLAIN", "--sasl-user", "u:pw-planted"]).unwrap();
+    assert_eq!(open.warnings, [said]);
+    let explicit = settings(&[
+        "--sasl-mechanisms",
+        "PLAIN",
+        "--sasl-user",
+        "u:pw-planted",
+        "--acl-default",
+        "allow",
+        "--acl-super-user",
+        "User:u",
+    ])
+    .unwrap();
+    assert_eq!(explicit.warnings, [said]);
+    // A warning, not an error: the broker starts. Deny, or no SASL at all, say nothing.
+    assert!(settings(&with_sasl(&[])).unwrap().warnings.is_empty());
+    assert!(
+        settings(&["--acl-default", "allow"])
+            .unwrap()
+            .warnings
+            .is_empty()
+    );
+    let help = <Args as clap::CommandFactory>::command()
+        .render_long_help()
+        .to_string();
+    let help = help.split_whitespace().collect::<Vec<_>>().join(" ");
+    assert!(
+        help.contains("Only a super user may set or delete the SCRAM credential of a super user"),
+        "{help}"
     );
 }

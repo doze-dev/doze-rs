@@ -31,7 +31,12 @@ pub(super) struct Input<'a> {
     pub(super) sasl: bool,
     pub(super) tls: bool,
     pub(super) listen: SocketAddr,
+    /// `--acl-default allow`: what no ACL covers is allowed.
+    pub(super) acl_allow: bool,
 }
+
+/// SASL on with `--acl-default allow` (SEC-191): a login proves who a client is and then allows it everything.
+pub(super) const OPEN_ACLS: &str = "SASL is on and --acl-default is allow, so every logged-in user may do everything, including managing users: use --acl-default deny with ACLs, or --acl-super-user";
 
 /// Checks the console flags against what protects the broker, and says what is left open.
 ///
@@ -72,6 +77,9 @@ pub(super) fn setup(input: &Input<'_>) -> Result<(Console, Vec<String>)> {
             "SASL is on without TLS and --listen {} can be reached from other machines: logins (a PLAIN password is sent as it is) and messages cross the network unencrypted",
             input.listen
         ));
+    }
+    if input.sasl && input.acl_allow {
+        notes.push(OPEN_ACLS.to_owned());
     }
     let allow_hosts = input
         .allow_hosts

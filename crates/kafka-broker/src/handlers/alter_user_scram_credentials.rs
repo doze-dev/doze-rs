@@ -57,9 +57,14 @@ impl<F: Fs> Broker<F> {
         }
         let _one_change_at_a_time = self.user_admin.lock().await;
         let stored = self.users.stored();
+        // A caller who is not a super user may not touch a super user's credential, whatever the ACLs say (SEC-190).
+        let caller_is_super = self
+            .config
+            .super_users
+            .contains(caller.principal().as_str());
         let plan = plan(
             req,
-            |user| self.users.is_bootstrap(user),
+            |user| self.why_not_changed(user, caller_is_super),
             |kind, user| stored.verifier(kind, user).is_some(),
         );
         let outcome = self.apply(&plan, &stored);
@@ -79,6 +84,16 @@ impl<F: Fs> Broker<F> {
             )
             .collect();
         Outcome::Respond(Response::AlterUserScramCredentials(resp))
+    }
+
+    /// Why `user` may not be changed by this caller, if it may not: configured at start (nobody may), or a super user
+    /// (and the caller is not one). Kafka has neither rule (SEC-D50, SEC-D70).
+    fn why_not_changed(&self, user: &str, caller_is_super: bool) -> Option<Failure> {
+        if self.users.is_bootstrap(user) {
+            return Some(plan::CONFIGURED);
+        }
+        let is_super = self.config.super_users.contains(&format!("User:{user}"));
+        (is_super && !caller_is_super).then_some(plan::SUPER_USER)
     }
 
     /// Writes the plan, then swaps the snapshot it makes. `Err` if the table could not be written, and then nothing is

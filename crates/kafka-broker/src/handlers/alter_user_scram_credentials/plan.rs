@@ -34,10 +34,16 @@ const TWICE: Failure = failure(
 );
 /// Kafka has no users configured outside the quorum, so no code of its own fits; a credential it will not accept is
 /// UNACCEPTABLE_CREDENTIAL (SEC-D50).
-const CONFIGURED: Failure = failure(
+pub(super) const CONFIGURED: Failure = failure(
     ResponseError::UnacceptableCredential,
     "The user is configured at start (--sasl-user, --sasl-users-file or DOZE_KAFKA_SASL_USERS) and cannot be changed over the API",
 );
+/// A super user's credential asked for by a caller who is not one: CLUSTER_AUTHORIZATION_FAILED, with no message, as
+/// the refusal of the whole request is (SEC-190, SEC-D70).
+pub(super) const SUPER_USER: Failure = Failure {
+    code: ResponseError::ClusterAuthorizationFailed.code(),
+    message: None,
+};
 
 /// What is to be done, and what is refused. Each list is in the order the request gave the operations.
 #[derive(Debug)]
@@ -50,11 +56,11 @@ pub(super) struct Plan {
     pub(super) failures: Vec<(String, Failure)>,
 }
 
-/// Judges `request`. `configured` says whether a user is one configured at start, `stored` whether a stored credential
-/// exists.
+/// Judges `request`. `refused` says why a user may not be changed (configured at start, or a super user and the caller
+/// is not one), `stored` whether a stored credential exists.
 pub(super) fn plan(
     request: &AlterUserScramCredentialsRequest,
-    configured: impl Fn(&str) -> bool,
+    refused: impl Fn(&str) -> Option<Failure>,
     stored: impl Fn(Kind, &str) -> bool,
 ) -> Plan {
     let mut deletions: Vec<(&str, Kind)> = Vec::new();
@@ -75,7 +81,7 @@ pub(super) fn plan(
             failures.push((name.to_owned(), TWICE));
             continue;
         }
-        match check_deletion(name, d.mechanism, &configured, &stored) {
+        match check_deletion(name, d.mechanism, &refused, &stored) {
             Ok(kind) => deletions.push((name, kind)),
             Err(why) => failures.push((name.to_owned(), why)),
         }
@@ -96,7 +102,7 @@ pub(super) fn plan(
             failures.push((name.to_owned(), TWICE));
             continue;
         }
-        match check_upsertion(name, u, &configured) {
+        match check_upsertion(name, u, &refused) {
             Ok(kind) => upsertions.push((name, kind, u)),
             Err(why) => failures.push((name.to_owned(), why)),
         }
@@ -144,12 +150,12 @@ fn check_name_and_mechanism(name: &str, mechanism: i8) -> Result<Kind, Failure> 
 fn check_deletion(
     name: &str,
     mechanism: i8,
-    configured: &impl Fn(&str) -> bool,
+    refused: &impl Fn(&str) -> Option<Failure>,
     stored: &impl Fn(Kind, &str) -> bool,
 ) -> Result<Kind, Failure> {
     let kind = check_name_and_mechanism(name, mechanism)?;
-    if configured(name) {
-        return Err(CONFIGURED);
+    if let Some(why) = refused(name) {
+        return Err(why);
     }
     if !stored(kind, name) {
         return Err(failure(
@@ -164,11 +170,11 @@ fn check_deletion(
 fn check_upsertion(
     name: &str,
     u: &ScramCredentialUpsertion,
-    configured: &impl Fn(&str) -> bool,
+    refused: &impl Fn(&str) -> Option<Failure>,
 ) -> Result<Kind, Failure> {
     let kind = check_name_and_mechanism(name, u.mechanism)?;
-    if configured(name) {
-        return Err(CONFIGURED);
+    if let Some(why) = refused(name) {
+        return Err(why);
     }
     if u.iterations < MIN_ITERATIONS {
         return Err(failure(
