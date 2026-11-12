@@ -96,3 +96,66 @@ impl Rows<'_> {
         self.0.item(row).await
     }
 }
+
+/// Takes over client connections (the postgres filter: TLS, startup, cancel), boots the backend through the host,
+/// and splices. The connection stays with the module until `accept` returns.
+pub trait Wire: Module {
+    fn accept(
+        &self,
+        conn: tokio::net::TcpStream,
+        req: &doze_module_proto::msg::console::WireAccept,
+        host: &WireHost,
+    ) -> impl Future<Output = Result<()>> + Send;
+}
+
+/// The host's side of one hand-off: valid while that `wire.accept` call runs.
+#[derive(Debug)]
+pub struct WireHost {
+    pub(crate) peer: doze_module_proto::peer::Peer,
+    pub(crate) for_call: u32,
+    pub(crate) instance: String,
+}
+
+impl WireHost {
+    async fn use_(
+        &self,
+        m: doze_module_proto::method::Method,
+    ) -> Result<doze_module_proto::msg::calls::Unit> {
+        let a = doze_module_proto::msg::calls::WireUse {
+            instance: self.instance.clone(),
+        };
+        let opts = doze_module_proto::peer::CallOpts {
+            for_call: Some(self.for_call),
+            ..Default::default()
+        };
+        self.peer.call(m, &a, opts).await
+    }
+
+    /// Boots the backend (lazily, only when this connection needs it) and says where it listens.
+    pub async fn boot(&self) -> Result<doze_module_proto::msg::instance::Address> {
+        let a = doze_module_proto::msg::calls::WireUse {
+            instance: self.instance.clone(),
+        };
+        let opts = doze_module_proto::peer::CallOpts {
+            for_call: Some(self.for_call),
+            ..Default::default()
+        };
+        self.peer
+            .call(doze_module_proto::method::Method::WireBoot, &a, opts)
+            .await
+    }
+
+    /// A connection started splicing (the instance is in use).
+    pub async fn acquire(&self) -> Result<()> {
+        self.use_(doze_module_proto::method::Method::WireAcquire)
+            .await
+            .map(drop)
+    }
+
+    /// The spliced connection ended.
+    pub async fn release(&self) -> Result<()> {
+        self.use_(doze_module_proto::method::Method::WireRelease)
+            .await
+            .map(drop)
+    }
+}

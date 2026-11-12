@@ -55,3 +55,11 @@ pub struct Shutdown {
 /// An empty argument or answer.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Encode, Decode)]
 pub struct Unit {}
+
+/// `wire.boot`, `wire.acquire`, `wire.release` (module to host, only while the `wire.accept` call `for_call` runs): boot
+/// the instance's backend (answer: its address), and count a spliced connection in and out for idle accounting.
+#[derive(Debug, Clone, PartialEq, Eq, Encode, Decode)]
+pub struct WireUse {
+    #[n(0)]
+    pub instance: String,
+}

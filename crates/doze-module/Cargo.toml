@@ -16,10 +16,11 @@ doze-module-proto = { path = "../doze-module-proto" }
 doze-module-derive = { path = "../doze-module-derive" }
 doze-os = { path = "../doze-os" }
 minicbor = { version = "2.3", features = ["derive", "std"] }
-tokio = { version = "1.54", features = ["rt", "time", "process", "fs", "io-util"] }
+tokio = { version = "1.54", features = ["rt", "time", "process", "fs", "io-util", "net"] }
 
 [dev-dependencies]
-tokio = { version = "1.54", features = ["rt", "time", "process", "macros"] }
+doze-module-host = { path = "../doze-module-host" }
+tokio = { version = "1.54", features = ["rt", "time", "process", "macros", "net", "io-util"] }
 doze-module-proto = { path = "../doze-module-proto" }
 
 [[bin]]

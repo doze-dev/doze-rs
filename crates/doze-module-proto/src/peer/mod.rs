@@ -310,6 +310,11 @@ impl Peer {
         }
     }
 
+    /// Whether the connection has ended.
+    pub fn is_closed(&self) -> bool {
+        self.inner.is_closed()
+    }
+
     /// Resolves when the connection has ended.
     pub async fn closed(&self) {
         loop {

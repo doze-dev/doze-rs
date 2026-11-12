@@ -104,6 +104,7 @@ impl Module for Echo {
     }
 
     async fn plan(&self, cx: &Cx<EchoSpec>, tc: &Toolchain) -> Result<Plan> {
+        cx.log(2, "planning the echo engine");
         let socket = std::path::Path::new(&cx.instance.socket_dir).join("echo.sock");
         let mut args = vec!["--buffer".to_string(), cx.spec.buffer.to_string()];
         if let Some(g) = &cx.spec.greeting {
@@ -152,5 +153,37 @@ fn main() -> std::process::ExitCode {
     serve(Echo)
         .release(env!("CARGO_PKG_VERSION"))
         .objects()
+        .wire()
         .run()
+}
+
+impl doze_module::caps::Wire for Echo {
+    async fn accept(
+        &self,
+        conn: tokio::net::TcpStream,
+        _req: &doze_module::proto::msg::console::WireAccept,
+        host: &doze_module::caps::WireHost,
+    ) -> Result<()> {
+        use doze_module::proto::msg::error::{Error, ErrorKind};
+        use doze_module::proto::msg::instance::Address;
+        use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+        let io = |e: std::io::Error| Error::new(ErrorKind::Unavailable, e.to_string());
+        // The startup line, as a protocol filter would read a preamble before deciding to boot.
+        let mut client = BufReader::new(conn);
+        let mut startup = String::new();
+        client.read_line(&mut startup).await.map_err(io)?;
+        let Address::Tcp(addr) = host.boot().await? else {
+            return Err(Error::new(
+                ErrorKind::Unsupported,
+                "the echo engine listens on TCP",
+            ));
+        };
+        let mut backend = tokio::net::TcpStream::connect(&addr).await.map_err(io)?;
+        backend.write_all(startup.as_bytes()).await.map_err(io)?;
+        host.acquire().await?;
+        let mut client = client.into_inner();
+        let spliced = tokio::io::copy_bidirectional(&mut client, &mut backend).await;
+        host.release().await?;
+        spliced.map(drop).map_err(io)
+    }
 }

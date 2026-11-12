@@ -122,7 +122,7 @@ async fn the_manifest_comes_from_the_derive_and_the_registrations() {
     );
     assert_eq!(
         m.caps,
-        caps::OBJECTS,
+        caps::OBJECTS | caps::WIRE,
         "capabilities must be exactly what was registered"
     );
 }

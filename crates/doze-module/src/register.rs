@@ -39,7 +39,7 @@ macro_rules! route {
 }
 
 impl<M: Module> Server<M> {
-    fn add(mut self, bits: u64, method: Method, r: Route<M>) -> Self {
+    pub(crate) fn add(mut self, bits: u64, method: Method, r: Route<M>) -> Self {
         self.caps |= bits;
         self.routes.insert(method, r);
         self
@@ -269,6 +269,53 @@ impl<M: Module> Server<M> {
                     Err(e) => call
                         .responder
                         .err(&Error::new(ErrorKind::Internal, e.to_string())),
+                });
+            }),
+        )
+    }
+}
+
+impl<M: Module + crate::caps::Wire> Server<M> {
+    /// Client hand-off: the module takes over connections (`Wire`).
+    pub fn wire(self) -> Self {
+        self.add(
+            caps::WIRE,
+            Method::WireAccept,
+            route!(|m, call, peer| {
+                let Some((a, mut call)) = args::<doze_module_proto::msg::console::WireAccept>(call)
+                else {
+                    return;
+                };
+                let Some(handle) = call.handle.take() else {
+                    drop(call.responder.err(&Error::new(
+                        ErrorKind::Invalid,
+                        "wire.accept without a connection",
+                    )));
+                    return;
+                };
+                let std_conn = std::net::TcpStream::from(handle);
+                let conn = match std_conn
+                    .set_nonblocking(true)
+                    .and_then(|()| tokio::net::TcpStream::from_std(std_conn))
+                {
+                    Ok(c) => c,
+                    Err(e) => {
+                        drop(call.responder.err(&Error::new(
+                            ErrorKind::Internal,
+                            format!("the handed-over connection: {e}"),
+                        )));
+                        return;
+                    }
+                };
+                let host = crate::caps::WireHost {
+                    peer,
+                    for_call: call.id(),
+                    instance: a.instance.clone(),
+                };
+                let r = m.accept(conn, &a, &host).await;
+                drop(match r {
+                    Ok(()) => call.responder.ok(&Unit {}),
+                    Err(e) => call.responder.err(&e),
                 });
             }),
         )
