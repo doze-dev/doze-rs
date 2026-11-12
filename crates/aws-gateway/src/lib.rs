@@ -16,6 +16,7 @@ mod query;
 mod rest;
 mod server;
 mod upload;
+mod web;
 
 pub use config::{Auth, Config};
 pub use server::{Gateway, Running};

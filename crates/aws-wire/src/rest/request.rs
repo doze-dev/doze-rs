@@ -77,7 +77,7 @@ pub fn to_json(tables: &Tables, shape: u32, p: &Parts<'_>) -> Result<Value, Read
     Ok(Value::Object(out))
 }
 
-fn query(m: &MemberRef<'_>, pairs: &[(String, String)]) -> Option<Value> {
+pub(super) fn query(m: &MemberRef<'_>, pairs: &[(String, String)]) -> Option<Value> {
     let name = m.bind_str?;
     let mut hits = pairs
         .iter()
@@ -90,7 +90,7 @@ fn query(m: &MemberRef<'_>, pairs: &[(String, String)]) -> Option<Value> {
     hits.next().map(|v| scalar(m.kind, v))
 }
 
-fn header(m: &MemberRef<'_>, headers: &HeaderMap) -> Option<Value> {
+pub(super) fn header(m: &MemberRef<'_>, headers: &HeaderMap) -> Option<Value> {
     let name = m.bind_str?;
     let values: Vec<&str> = headers
         .get_all(name)
@@ -109,7 +109,7 @@ fn header(m: &MemberRef<'_>, headers: &HeaderMap) -> Option<Value> {
 }
 
 /// Every header that starts with the member's prefix, as a map of the rest of its name.
-fn prefixed(m: &MemberRef<'_>, headers: &HeaderMap) -> Option<Value> {
+pub(super) fn prefixed(m: &MemberRef<'_>, headers: &HeaderMap) -> Option<Value> {
     let prefix = m.bind_str?.to_ascii_lowercase();
     let map: Map<String, Value> = headers
         .iter()
@@ -214,7 +214,7 @@ fn object(tables: &Tables, shape: u32, e: &Elem) -> Map<String, Value> {
 }
 
 /// Text read as the kind of member it is bound to; text that does not fit stays text, so the decoder reports the wrong type.
-fn scalar(kind: u8, text: &str) -> Value {
+pub(super) fn scalar(kind: u8, text: &str) -> Value {
     match kind {
         K_BOOL => match text {
             "true" => Value::Bool(true),

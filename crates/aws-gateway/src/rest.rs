@@ -6,7 +6,10 @@ use aws_auth::Pending;
 use aws_auth::claim::Claim;
 use aws_schema::arena::{Arena, NIL};
 use aws_schema::json::decode;
+use aws_schema::meta::Protocol;
 use aws_schema::tables::{K_STREAM, Tables};
+use aws_wire::rest::jsonin;
+use aws_wire::rest::jsonout;
 use aws_wire::rest::request::{Parts as Input, ReadError, to_json};
 use aws_wire::rest::response::{Rendered, error, host_id, render};
 use aws_wire::rest::route::Matched;
@@ -32,15 +35,35 @@ pub(crate) async fn respond(
     claim: Claim,
 ) -> Response<RespBody> {
     let head = parts.method == Method::HEAD;
+    let json = is_json(entry);
     match handle(shared, entry, id, parts, body, claim).await {
         Ok(response) => response,
-        Err(e) => finish(
-            error(&e, id, head),
-            id,
-            None,
-            e.status == 501 && e.code == "NotImplemented",
-        ),
+        Err(e) => {
+            let rendered = if json {
+                jsonout::error(&e)
+            } else {
+                error(&e, id, head)
+            };
+            finish(
+                rendered,
+                id,
+                json,
+                None,
+                e.status == 501 && e.code == "NotImplemented",
+            )
+        }
     }
+}
+
+/// Whether the service speaks restJson1 (Lambda) and not restXml (S3): they share this path and differ in how the input is read, the
+/// answer written, and the headers every answer carries.
+fn is_json(entry: &Entry) -> bool {
+    entry.service.meta().speaks(Protocol::RestJson1)
+}
+
+/// How an authentication failure is worded for the protocol.
+fn family(json: bool) -> Family {
+    if json { Family::Coral } else { Family::S3 }
 }
 
 async fn handle(
@@ -52,20 +75,25 @@ async fn handle(
     claim: Claim,
 ) -> Result<Response<RespBody>, ApiError> {
     let tables = entry.service.tables();
+    let json = is_json(entry);
     let pending = authenticate(shared, parts, &claim.service)
         .await
-        .map_err(|e| from_auth(&e, Family::S3))?;
+        .map_err(|e| from_auth(&e, family(json)))?;
     if pending.is_none() {
         check_presigned(&claim, parts)?;
     }
-    let (path, host) = target(parts);
+    let (path, host) = if json {
+        (parts.uri.path().to_owned(), host_of(parts))
+    } else {
+        target(parts)
+    };
     let query = pairs(parts.uri.query().unwrap_or_default());
     let matched = entry
         .router(tables)
         .find(parts.method.as_str(), &path, &query, |h| {
             parts.headers.contains_key(h)
         })
-        .ok_or_else(unrouted)?;
+        .ok_or_else(|| unrouted(json))?;
     let op = matched.op;
     if !entry.service.serves(op) {
         let name = tables.op(op).map_or("", |o| o.name);
@@ -76,7 +104,7 @@ async fn handle(
         ));
     }
     let streaming = streams(tables, op);
-    let (body_bytes, up) = take_body(shared, parts, body, pending, streaming).await?;
+    let (body_bytes, up) = take_body(shared, parts, body, pending, streaming, family(json)).await?;
     let head = Head {
         id,
         parts,
@@ -85,6 +113,7 @@ async fn handle(
         matched: &matched,
         query: &query,
         body: &body_bytes,
+        json,
     };
     let call = decode_call(entry, &head, claim)?;
     let rest = entry
@@ -95,7 +124,10 @@ async fn handle(
     Ok(answer(entry, id, op, parts.method == Method::HEAD, reply))
 }
 
-fn unrouted() -> ApiError {
+fn unrouted(json: bool) -> ApiError {
+    if json {
+        return ApiError::new(404, "UnknownOperationException", "Unknown operation.");
+    }
     ApiError::new(
         405,
         "MethodNotAllowed",
@@ -164,6 +196,7 @@ async fn take_body(
     body: Incoming,
     pending: Option<Pending>,
     streaming: bool,
+    family: Family,
 ) -> Result<(bytes::Bytes, Option<Box<dyn Upload>>), ApiError> {
     if !streaming {
         let bytes = read_body(body, shared.max_body_bytes()).await?;
@@ -173,11 +206,11 @@ async fn take_body(
                 .then(|| aws_auth::key::sha256_hex(&bytes));
             pending
                 .finish(parts, hash.as_deref())
-                .map_err(|e| from_auth(&e, Family::S3))?;
+                .map_err(|e| from_auth(&e, family))?;
         }
         return Ok((bytes, None));
     }
-    let (framing, length) = framing_of(parts, pending)?;
+    let (framing, length) = framing_of(parts, pending, family)?;
     let claimed = parts
         .headers
         .get("x-amz-content-sha256")
@@ -191,7 +224,11 @@ async fn take_body(
 }
 
 /// How the payload is framed, and its declared length. The signature is finished here, before a byte of the payload is read.
-fn framing_of(parts: &Parts, pending: Option<Pending>) -> Result<(Framing, Option<u64>), ApiError> {
+fn framing_of(
+    parts: &Parts,
+    pending: Option<Pending>,
+    family: Family,
+) -> Result<(Framing, Option<u64>), ApiError> {
     let header = |name: &str| parts.headers.get(name).and_then(|v| v.to_str().ok());
     let declared = header("x-amz-content-sha256").unwrap_or_default();
     let chunked = declared.starts_with("STREAMING-")
@@ -213,7 +250,7 @@ fn framing_of(parts: &Parts, pending: Option<Pending>) -> Result<(Framing, Optio
         }
         let mut verified = pending
             .finish(parts, None)
-            .map_err(|e| from_auth(&e, Family::S3))?;
+            .map_err(|e| from_auth(&e, family))?;
         auth = verified.take_chunk_auth();
     }
     let framing = if chunked {
@@ -233,6 +270,26 @@ struct Head<'a> {
     matched: &'a Matched,
     query: &'a [(String, String)],
     body: &'a [u8],
+    json: bool,
+}
+
+/// The input of a restJson1 operation; the body is only named for the error (a body that is not JSON is the service's to word).
+fn json_in(
+    tables: &Tables,
+    shape: u32,
+    p: &Input<'_>,
+) -> Option<serde_json::Value> {
+    jsonin::to_json(tables, shape, p).ok()
+}
+
+/// The `Host` header, or `localhost`.
+fn host_of(parts: &Parts) -> String {
+    parts
+        .headers
+        .get(header::HOST)
+        .and_then(|h| h.to_str().ok())
+        .unwrap_or("localhost")
+        .to_owned()
 }
 
 fn decode_call(entry: &Entry, h: &Head<'_>, claim: Claim) -> Result<Call, ApiError> {
@@ -248,14 +305,22 @@ fn decode_call(entry: &Entry, h: &Head<'_>, claim: Claim) -> Result<Call, ApiErr
                 headers: &parts.headers,
                 body: h.body,
             };
-            let json = to_json(tables, shape, &p).map_err(|ReadError::MalformedXml| {
-                ApiError::new(
-                    400,
-                    "MalformedXML",
-                    "The XML you provided was not well-formed or did not validate against our published schema",
-                )
-            })?;
-            let text = json.to_string();
+            let value = if h.json {
+                json_in(tables, shape, &p).ok_or_else(|| {
+                    entry
+                        .service
+                        .invalid(&aws_schema::json::Violation::Syntax { at: 0 })
+                })?
+            } else {
+                to_json(tables, shape, &p).map_err(|ReadError::MalformedXml| {
+                    ApiError::new(
+                        400,
+                        "MalformedXML",
+                        "The XML you provided was not well-formed or did not validate against our published schema",
+                    )
+                })?
+            };
+            let text = value.to_string();
             let root = decode(tables, &entry.patterns, shape, &text, &mut arena)
                 .map_err(|v| entry.service.invalid(&v))?;
             (text, root)
@@ -289,13 +354,18 @@ fn answer(
 ) -> Response<RespBody> {
     let meta = entry.service.meta();
     let RestReply { json, status, body } = reply;
-    let mut r = render(
-        entry.service.tables(),
-        meta.xml_namespace,
-        op,
-        &json,
-        status,
-    );
+    let wire_json = is_json(entry);
+    let mut r = if wire_json {
+        jsonout::render(entry.service.tables(), op, &json, status)
+    } else {
+        render(
+            entry.service.tables(),
+            meta.xml_namespace,
+            op,
+            &json,
+            status,
+        )
+    };
     if !r.body.is_empty()
         && !r
             .headers
@@ -307,15 +377,16 @@ fn answer(
     }
     if head {
         r.body.clear();
-        return finish(r, id, None, false);
+        return finish(r, id, wire_json, None, false);
     }
-    finish(r, id, body, false)
+    finish(r, id, wire_json, body, false)
 }
 
 /// The response: status, headers, the identifying headers every S3 answer has, and the body.
 fn finish(
     r: Rendered,
     id: &RequestId,
+    json: bool,
     stream: Option<aws_wire::rest::Download>,
     not_built: bool,
 ) -> Response<RespBody> {
@@ -328,10 +399,14 @@ fn finish(
             builder = builder.header(name, value);
         }
     }
-    builder = builder
-        .header("x-amz-request-id", id.as_str())
-        .header("x-amz-id-2", host_id(id))
-        .header(header::SERVER, "AmazonS3");
+    builder = if json {
+        builder.header("x-amzn-RequestId", id.as_str())
+    } else {
+        builder
+            .header("x-amz-request-id", id.as_str())
+            .header("x-amz-id-2", host_id(id))
+            .header(header::SERVER, "AmazonS3")
+    };
     if not_built {
         builder = builder.header("x-doze-not-built", "1");
     }
