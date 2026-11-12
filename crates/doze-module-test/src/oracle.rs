@@ -121,6 +121,16 @@ async fn answer(m: &Running, case: &Json, golden: &Json) -> Json {
     out
 }
 
+/// Paths with forward slashes: the Go answers were recorded on Unix, and on Windows a Rust module joins paths with `\`.
+/// The comparison is about what the module does, not the separator of the system it runs on.
+fn slash(v: &Json) -> Json {
+    match v {
+        Json::String(s) => Json::String(s.replace('\\', "/")),
+        Json::Array(items) => Json::Array(items.iter().map(slash).collect()),
+        other => other.clone(),
+    }
+}
+
 /// The parts of a Go answer that must match (wording, hashes and nulls aside).
 fn comparable(a: &Json) -> Json {
     if a.get("decode_error").is_some() {
@@ -135,9 +145,9 @@ fn comparable(a: &Json) -> Json {
         })
         .unwrap_or_default();
     let plan: Vec<Json> = f(a, "plan").as_array().map(|ps| ps.iter().map(|p| {
-        let list = |k: &str| p[k].as_array().cloned().unwrap_or_default();
-        json!({ "name": f(p, "name"), "program": f(p, "program"), "args": list("args"), "env_added": f(p, "env_added"),
-                "after": list("after"), "ready": f(p, "ready"), "hooks": list("hooks") })
+        let list = |k: &str| f(p, k).as_array().cloned().unwrap_or_default();
+        json!({ "name": f(p, "name"), "program": slash(f(p, "program")), "args": slash(&Json::Array(list("args"))),
+                "env_added": f(p, "env_added"), "after": list("after"), "ready": slash(f(p, "ready")), "hooks": list("hooks") })
     }).collect()).unwrap_or_default();
     json!({ "refused": false, "env_var": f(a, "env_var"), "url": f(a, "url"), "objects": objects, "plan": plan,
             "plan_error": a.get("plan_error").is_some() })

@@ -15,6 +15,7 @@ the Rust ports are checked against, case by case.
 - The comparison itself is `doze_module_test::oracle::compare`: refusals must agree (not their wording), and so must the
   connection variable and URL, objects (kind and name), and each planned process's program, arguments, added
   environment, order, readiness check and hooks. A module lists deliberate departures (a Go bug it fixes) with reasons.
+  The answers were recorded on Unix; path separators are compared as `/` so the same check holds on Windows.
 
 Regenerate (needs `../../../doze-modules` and Go):
 
