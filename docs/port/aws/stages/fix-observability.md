@@ -43,3 +43,7 @@ No new deviation; the deviations list stays empty.
 Scoreboard (release-aws, account 111122223333): logs 28 exact of 46, cloudwatch 28 of 36, lambda 52 of 58 (3 behaviour, as before):
 unchanged. Weight: 4,950,688 B on darwin/arm64 (+83 KB over 4,867,344 B), 233 packages (no new package; `tracing` was already in the
 tree and is now a direct dependency of `aws-cloudwatch`), idle 4,608 KB.
+
+`cargo xtask gates`: the first run exited 1 on `lint-size` (`aws-logs/src/events.rs` 486 lines and `aws-lambda/src/metrics.rs` 484, over
+the hard limit of 450). The retention sweep and event cap moved to `aws-logs/src/bounds.rs` and the Lambda metric tests to
+`metrics/tests.rs`; the second run exited 0 (fmt, clippy, codegen, lint-size, fuzz-check, test all ok).
