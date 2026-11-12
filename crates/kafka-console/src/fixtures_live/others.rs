@@ -334,7 +334,7 @@ pub fn spoke() -> crate::model::SpokeView {
 }
 
 /// The filters' options: the fixture tape's apps, APIs and topics (and the few more the larder's world has), each with its rows.
-pub fn facets(rows: &[WireRow]) -> Facets {
+pub(super) fn facets(rows: &[WireRow]) -> Facets {
     let list = |names: &[&str], of: &dyn Fn(&WireRow, &str) -> bool| {
         names
             .iter()
