@@ -22,7 +22,36 @@ const PATH_PREFIX: &str = "/_aws/lambda-url/";
 
 /// Whether the request is for a function URL.
 pub(crate) fn owns(host: &str, path: &str) -> bool {
-    host.contains(".lambda-url.") || path.starts_with(PATH_PREFIX)
+    host.contains(".lambda-url.") || path.starts_with(PATH_PREFIX) || path.starts_with(CODE_PREFIX)
+}
+
+/// Where the packages of functions and layers can be downloaded from (what `Code.Location` and `Content.Location` name).
+const CODE_PREFIX: &str = "/_aws/lambda/code/";
+
+/// The package for `/_aws/lambda/code/<region>/<id>`: the zip as it was uploaded.
+async fn download(inner: &Inner, path: &str) -> WebReply {
+    let mut parts = path.trim_start_matches(CODE_PREFIX).splitn(2, '/');
+    let (region, id) = (
+        parts.next().unwrap_or_default(),
+        parts.next().unwrap_or_default(),
+    );
+    let safe = |s: &str| !s.is_empty() && s.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-');
+    if !safe(region) || !safe(id) {
+        return plain(404, "Not Found");
+    }
+    let file = inner
+        .region_dir(region)
+        .join("code")
+        .join(id)
+        .join("code.zip");
+    match tokio::fs::read(file).await {
+        Ok(bytes) => WebReply {
+            status: 200,
+            headers: vec![("content-type".to_owned(), "application/zip".to_owned())],
+            body: Bytes::from(bytes),
+        },
+        Err(_) => plain(404, "Not Found"),
+    }
 }
 
 /// The region and URL id a request is for.
@@ -59,6 +88,9 @@ fn plain(status: u16, message: &str) -> WebReply {
 }
 
 pub(crate) async fn serve(inner: Arc<Inner>, req: WebRequest) -> WebReply {
+    if req.path.starts_with(CODE_PREFIX) {
+        return download(&inner, &req.path).await;
+    }
     let Some((region, id, path)) = target(&req.host, &req.path) else {
         return plain(404, "Not Found");
     };

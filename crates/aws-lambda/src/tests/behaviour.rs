@@ -4,7 +4,7 @@
 use aws_core::base64;
 use aws_peers::{Mode, Need};
 use aws_wire::rest::RestReply;
-use aws_wire::service::{Service, Web, WebRequest};
+use aws_wire::service::{Service, WebRequest};
 use serde_json::{Value, json};
 
 use super::{ACCOUNT, World, have};
@@ -158,7 +158,12 @@ async fn an_event_invocation_is_retried_and_its_result_goes_to_the_destination()
             .await;
         for m in got["Messages"].as_array().into_iter().flatten() {
             let doc: Value = serde_json::from_str(m["Body"].as_str().unwrap()).unwrap();
-            conditions.lock().unwrap().push(doc["requestContext"]["condition"].as_str().unwrap().to_owned());
+            conditions.lock().unwrap().push(
+                doc["requestContext"]["condition"]
+                    .as_str()
+                    .unwrap()
+                    .to_owned(),
+            );
             assert_eq!(doc["requestPayload"], json!({"n": 1}));
         }
         conditions.lock().unwrap().len() >= 2
@@ -357,5 +362,38 @@ async fn code_run_in_place_is_picked_up_when_the_directory_changes() {
         b"1"
     );
     drop(std::fs::remove_dir_all(&dir));
+    w.stop().await;
+}
+
+#[tokio::test]
+async fn a_role_that_cannot_read_the_queue_cannot_have_it_mapped_when_iam_enforces() {
+    let w = World::with_mode(Mode::Enforce);
+    let role = create_role(&w, "reader", TRUST).await;
+    function_with_role(&w, "f", &role, WORKS).await.unwrap();
+    w.peer("sqs", "CreateQueue", json!({"QueueName": "q"}))
+        .await;
+    let arn = format!("arn:aws:sqs:us-east-1:{ACCOUNT}:q");
+    let refused = w
+        .err(
+            "CreateEventSourceMapping",
+            json!({"FunctionName": "f", "EventSourceArn": arn}),
+        )
+        .await;
+    assert_eq!(
+        refused.message,
+        "The provided execution role does not have permissions to call ReceiveMessage on SQS"
+    );
+    let policy = r#"{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":["sqs:ReceiveMessage","sqs:DeleteMessage","sqs:GetQueueAttributes"],"Resource":"*"}]}"#;
+    w.peer(
+        "iam",
+        "PutRolePolicy",
+        json!({"RoleName": "reader", "PolicyName": "read", "PolicyDocument": policy}),
+    )
+    .await;
+    w.ok(
+        "CreateEventSourceMapping",
+        json!({"FunctionName": "f", "EventSourceArn": arn}),
+    )
+    .await;
     w.stop().await;
 }

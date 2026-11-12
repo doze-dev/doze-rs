@@ -46,7 +46,7 @@ fn full_view(r: &Req, name: &str, v: &LayerVersion) -> Value {
         o.insert(
             "Content".into(),
             json!({
-                "Location": format!("{}/_aws/lambda/layer/{}/{name}/{}", r.caller.endpoint, r.region(), v.number),
+                "Location": format!("{}/_aws/lambda/code/{}/{}", r.caller.endpoint, r.region(), v.code.id),
                 "CodeSha256": v.code.sha256,
                 "CodeSize": v.code.size,
             }),

@@ -1,6 +1,7 @@
 //! Lambda end to end inside the crate: real processes behind the real Runtime API, driven through the service the way a gateway
 //! would. A runtime that the host lacks makes its test skip (it says so), not fail.
 #![allow(
+    clippy::too_many_lines,
     clippy::unwrap_used,
     clippy::indexing_slicing,
     clippy::panic,

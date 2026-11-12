@@ -276,17 +276,116 @@ impl Core {
             .and_then(|c| c.get("Timeout").and_then(Value::as_i64))
             .unwrap_or(3);
         let acting = &r.caller;
+        let role = serde_json::from_str::<Value>(&function.latest.config)
+            .ok()
+            .and_then(|c| c.get("Role").and_then(Value::as_str).map(str::to_owned))
+            .unwrap_or_default();
         match source {
-            Source::Sqs => crate::poll::sqs::check(&peers, acting, &source_arn, timeout).await,
+            Source::Sqs => {
+                crate::poll::sqs::check(&peers, acting, &source_arn, timeout).await?;
+                role_may(&peers, acting, &role, source, &source_arn).await
+            }
             Source::Kinesis => {
                 let asked = json!({"StreamARN": source_arn});
-                peers.call("lambda", acting, "kinesis", "DescribeStreamSummary", &asked).await.map(|_| ()).map_err(|e| {
+                peers.call("lambda", acting, "kinesis", "DescribeStreamSummary", &asked).await.map_err(|e| {
                     invalid(format!("Cannot access stream {source_arn}. Please ensure the role can perform the GetRecords, GetShardIterator, DescribeStream, and ListShards Kinesis actions on your stream in IAM. ({})", e.message))
-                })
+                })?;
+                role_may(&peers, acting, &role, source, &source_arn).await
             }
-            Source::DynamoDb => Ok(()),
+            Source::DynamoDb => role_may(&peers, acting, &role, source, &source_arn).await,
         }
     }
+}
+
+/// A caller that is a session of `role`, made for the check; `None` when IAM cannot make one.
+async fn session_for(
+    peers: &aws_peers::Peers,
+    caller: &aws_wire::service::Caller,
+    role: &str,
+) -> Option<aws_wire::service::Caller> {
+    let acting = aws_wire::service::Caller {
+        service: Some("lambda".to_owned()),
+        ..caller.clone()
+    };
+    let ask =
+        json!({"RoleArn": role, "RoleSessionName": "awslambda_mapping", "DurationSeconds": 900});
+    let got = peers
+        .call("lambda", &acting, "sts", "AssumeRole", &ask)
+        .await
+        .ok()?;
+    let text = |k: &str| {
+        got.pointer(&format!("/Credentials/{k}"))
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_owned()
+    };
+    Some(aws_wire::service::Caller {
+        access_key_id: text("AccessKeyId"),
+        session_token: Some(text("SessionToken")),
+        service: None,
+        ..caller.clone()
+    })
+}
+
+/// Whether the function's execution role may read the source, asked of IAM as the role (a session made for it). A refusal is AWS's
+/// in words when IAM enforces; when it only watches, it is logged and the mapping is made.
+async fn role_may(
+    peers: &aws_peers::Peers,
+    caller: &aws_wire::service::Caller,
+    role: &str,
+    source: Source,
+    arn: &str,
+) -> Result<(), ApiError> {
+    use aws_peers::{Mode, Need};
+    if peers.mode() == Mode::Off || role.is_empty() {
+        return Ok(());
+    }
+    let Some(as_role) = session_for(peers, caller, role).await else {
+        return Ok(());
+    };
+    let (prefix, actions, resource): (&str, &[&str], &str) = match source {
+        Source::Sqs => (
+            "sqs",
+            &["ReceiveMessage", "DeleteMessage", "GetQueueAttributes"],
+            arn,
+        ),
+        Source::Kinesis => (
+            "kinesis",
+            &[
+                "GetRecords",
+                "GetShardIterator",
+                "DescribeStream",
+                "ListShards",
+            ],
+            arn,
+        ),
+        Source::DynamoDb => (
+            "dynamodb",
+            &["GetRecords", "GetShardIterator", "DescribeStream"],
+            arn,
+        ),
+    };
+    for action in actions {
+        let need = Need::new(format!("{prefix}:{action}"), resource);
+        if let Err(why) = peers.authorize(&as_role, vec![need]).await {
+            if peers.mode() == Mode::Soft {
+                tracing::warn!(
+                    "iam soft mode: the execution role would be refused: {}",
+                    why.message
+                );
+                return Ok(());
+            }
+            return Err(invalid(match source {
+                Source::Sqs => format!(
+                    "The provided execution role does not have permissions to call {action} on SQS"
+                ),
+                _ => format!(
+                    "Cannot access stream {arn}. Please ensure the role can perform the GetRecords, GetShardIterator, DescribeStream, and ListShards actions on your stream in IAM."
+                ),
+            }));
+        }
+    }
+    Ok(())
 }
 
 /// The filter patterns of a mapping must be valid patterns.

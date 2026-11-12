@@ -85,7 +85,9 @@ pub(crate) async fn check(peers: Option<&Peers>, caller: &Caller, role: &str) ->
                 .and_then(Value::as_str)?;
             Some(trusts_lambda(doc) || peers.mode() != Mode::Enforce)
         }
-        Err(e) if e.code.starts_with("NoSuchEntity") => (peers.mode() == Mode::Enforce).then_some(false),
+        Err(e) if e.code.starts_with("NoSuchEntity") => {
+            (peers.mode() == Mode::Enforce).then_some(false)
+        }
         Err(_) => None,
     }
 }
