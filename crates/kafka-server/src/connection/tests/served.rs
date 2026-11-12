@@ -41,6 +41,8 @@ async fn api_versions_lists_only_what_the_broker_serves() {
         ApiKey::DeleteGroups,
         ApiKey::IncrementalAlterConfigs,
         ApiKey::OffsetDelete,
+        ApiKey::DescribeUserScramCredentials,
+        ApiKey::AlterUserScramCredentials,
         ApiKey::DescribeProducers,
         ApiKey::DescribeTransactions,
         ApiKey::ListTransactions,

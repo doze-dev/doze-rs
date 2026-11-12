@@ -55,7 +55,10 @@ fn a_stored_user_logs_in_with_the_verifier_that_was_swapped_in() {
     // Another mechanism is another credential.
     assert!(!logs_in(&users, Kind::Sha256, "bob", "bob-secret"));
     let v = users.verifier(Kind::Sha512, "bob").unwrap();
-    assert_eq!((v.salt(), v.iterations().get()), (&b"salt-of-bob"[..], 5000));
+    assert_eq!(
+        (v.salt(), v.iterations().get()),
+        (&b"salt-of-bob"[..], 5000)
+    );
 }
 
 #[test]
@@ -78,10 +81,11 @@ fn a_user_in_both_is_the_bootstrap_one_whatever_is_stored() {
 #[test]
 fn a_removal_applies_to_the_next_lookup_and_an_old_snapshot_is_unchanged() {
     let users = boot();
-    users.replace_stored(users.stored().with(
-        "bob",
-        verifier(Kind::Sha256, "bob-secret", b"salt", 4096),
-    ));
+    users.replace_stored(
+        users
+            .stored()
+            .with("bob", verifier(Kind::Sha256, "bob-secret", b"salt", 4096)),
+    );
     let before = users.stored();
     users.replace_stored(users.stored().without("bob", Kind::Sha256));
     assert!(users.verifier(Kind::Sha256, "bob").is_none());
@@ -120,7 +124,10 @@ fn the_credentials_listed_are_both_sources_sorted_with_the_bootstrap_one_winning
 fn emptiness_counts_both_sources() {
     let none = Users::none();
     assert!(none.is_empty());
-    none.replace_stored(none.stored().with("bob", verifier(Kind::Sha256, "p", b"s", 4096)));
+    none.replace_stored(
+        none.stored()
+            .with("bob", verifier(Kind::Sha256, "p", b"s", 4096)),
+    );
     assert!(!none.is_empty());
     assert!(!boot().is_empty());
 }

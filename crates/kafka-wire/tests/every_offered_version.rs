@@ -69,6 +69,14 @@ defaults!(
     DescribeAcls(DescribeAclsRequest, DescribeAclsResponse),
     CreateAcls(CreateAclsRequest, CreateAclsResponse),
     DeleteAcls(DeleteAclsRequest, DeleteAclsResponse),
+    DescribeUserScramCredentials(
+        DescribeUserScramCredentialsRequest,
+        DescribeUserScramCredentialsResponse
+    ),
+    AlterUserScramCredentials(
+        AlterUserScramCredentialsRequest,
+        AlterUserScramCredentialsResponse
+    ),
     DescribeConfigs(DescribeConfigsRequest, DescribeConfigsResponse),
     AlterConfigs(AlterConfigsRequest, AlterConfigsResponse),
     SaslAuthenticate(SaslAuthenticateRequest, SaslAuthenticateResponse),

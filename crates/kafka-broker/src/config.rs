@@ -2,7 +2,10 @@
 
 use std::collections::BTreeSet;
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::time::Duration;
+
+use kafka_auth::Users;
 
 /// The broker-wide values that a topic's own config overrides. Retention uses Kafka's way of saying "no limit":
 /// -1.
@@ -86,6 +89,9 @@ pub struct Config {
     pub acl_default_allow: bool,
     /// Principals no ACL refuses anything (`super.users`), each as `Type:name`.
     pub super_users: BTreeSet<String>,
+    /// The users that can log in. The broker loads the credentials stored over the API into it when it opens and keeps
+    /// it up to date; the server's authenticator shares it, so a change applies to the next login.
+    pub users: Arc<Users>,
 }
 
 impl Config {
@@ -115,6 +121,7 @@ impl Config {
             consumer_assignment_interval: Duration::from_secs(1),
             acl_default_allow: true,
             super_users: BTreeSet::new(),
+            users: Arc::new(Users::none()),
         }
     }
 }

@@ -132,11 +132,11 @@ fn a_stored_user_logs_in_with_scram_and_never_with_plain() {
     stored_bob(&users, Kind::Sha256);
     let (server_first, awaiting) = a.scram_first(ScramSha256, &bob().first()).unwrap();
     let fin = bob().last(&server_first, None, "");
-    assert_eq!(awaiting.finish(&fin.message).unwrap().1.as_str(), "User:bob");
     assert_eq!(
-        a.plain(b"\0bob\0bob-secret"),
-        Err(Refusal::BadCredentials)
+        awaiting.finish(&fin.message).unwrap().1.as_str(),
+        "User:bob"
     );
+    assert_eq!(a.plain(b"\0bob\0bob-secret"), Err(Refusal::BadCredentials));
     // The configured user is untouched, and a removal is seen by the next login.
     assert!(a.plain(b"\0alice\0alice-secret").is_ok());
     users.replace_stored(users.stored().without("bob", Kind::Sha256));

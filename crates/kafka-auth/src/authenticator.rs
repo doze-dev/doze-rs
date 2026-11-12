@@ -44,7 +44,10 @@ impl Authenticator {
         if credentials.is_empty() {
             return Err(SetupError::NoUsers);
         }
-        Self::over(mechanisms, Arc::new(Users::derive(credentials, mechanisms)?))
+        Self::over(
+            mechanisms,
+            Arc::new(Users::derive(credentials, mechanisms)?),
+        )
     }
 
     /// An authenticator offering `mechanisms` to `users`, which may have no one yet: the broker that shares them
@@ -115,9 +118,7 @@ impl Authenticator {
         let kind = Kind::of(mechanism).filter(|_| self.offers(mechanism));
         let kind = kind.ok_or(rejected(Why::UnknownUser))?;
         let nonce = scram::fresh_nonce().ok_or(rejected(Why::NoEntropy))?;
-        scram::first(kind, token, &nonce, |user| {
-            self.users.verifier(kind, user)
-        })
+        scram::first(kind, token, &nonce, |user| self.users.verifier(kind, user))
     }
 
     /// Judges a PLAIN token. Only the users configured at start can log in this way: a stored SCRAM verifier cannot

@@ -16,7 +16,8 @@
 use bytes::{Bytes, BytesMut};
 use kafka_protocol::messages::{
     AddOffsetsToTxnRequest, AddOffsetsToTxnResponse, AddPartitionsToTxnRequest,
-    AddPartitionsToTxnResponse, AlterConfigsRequest, AlterConfigsResponse, ApiKey,
+    AddPartitionsToTxnResponse, AlterConfigsRequest, AlterConfigsResponse,
+    AlterUserScramCredentialsRequest, AlterUserScramCredentialsResponse, ApiKey,
     ApiVersionsRequest, ApiVersionsResponse, ConsumerGroupDescribeRequest,
     ConsumerGroupDescribeResponse, ConsumerGroupHeartbeatRequest, ConsumerGroupHeartbeatResponse,
     CreateAclsRequest, CreateAclsResponse, CreatePartitionsRequest, CreatePartitionsResponse,
@@ -26,18 +27,19 @@ use kafka_protocol::messages::{
     DescribeClusterRequest, DescribeClusterResponse, DescribeConfigsRequest,
     DescribeConfigsResponse, DescribeGroupsRequest, DescribeGroupsResponse,
     DescribeProducersRequest, DescribeProducersResponse, DescribeTransactionsRequest,
-    DescribeTransactionsResponse, EndTxnRequest, EndTxnResponse, FetchRequest, FetchResponse,
-    FindCoordinatorRequest, FindCoordinatorResponse, GetTelemetrySubscriptionsRequest,
-    GetTelemetrySubscriptionsResponse, HeartbeatRequest, HeartbeatResponse,
-    IncrementalAlterConfigsRequest, IncrementalAlterConfigsResponse, InitProducerIdRequest,
-    InitProducerIdResponse, JoinGroupRequest, JoinGroupResponse, LeaveGroupRequest,
-    LeaveGroupResponse, ListGroupsRequest, ListGroupsResponse, ListOffsetsRequest,
-    ListOffsetsResponse, ListTransactionsRequest, ListTransactionsResponse, MetadataRequest,
-    MetadataResponse, OffsetCommitRequest, OffsetCommitResponse, OffsetDeleteRequest,
-    OffsetDeleteResponse, OffsetFetchRequest, OffsetFetchResponse, ProduceRequest, ProduceResponse,
-    PushTelemetryRequest, PushTelemetryResponse, SaslAuthenticateRequest, SaslAuthenticateResponse,
-    SaslHandshakeRequest, SaslHandshakeResponse, SyncGroupRequest, SyncGroupResponse,
-    TxnOffsetCommitRequest, TxnOffsetCommitResponse,
+    DescribeTransactionsResponse, DescribeUserScramCredentialsRequest,
+    DescribeUserScramCredentialsResponse, EndTxnRequest, EndTxnResponse, FetchRequest,
+    FetchResponse, FindCoordinatorRequest, FindCoordinatorResponse,
+    GetTelemetrySubscriptionsRequest, GetTelemetrySubscriptionsResponse, HeartbeatRequest,
+    HeartbeatResponse, IncrementalAlterConfigsRequest, IncrementalAlterConfigsResponse,
+    InitProducerIdRequest, InitProducerIdResponse, JoinGroupRequest, JoinGroupResponse,
+    LeaveGroupRequest, LeaveGroupResponse, ListGroupsRequest, ListGroupsResponse,
+    ListOffsetsRequest, ListOffsetsResponse, ListTransactionsRequest, ListTransactionsResponse,
+    MetadataRequest, MetadataResponse, OffsetCommitRequest, OffsetCommitResponse,
+    OffsetDeleteRequest, OffsetDeleteResponse, OffsetFetchRequest, OffsetFetchResponse,
+    ProduceRequest, ProduceResponse, PushTelemetryRequest, PushTelemetryResponse,
+    SaslAuthenticateRequest, SaslAuthenticateResponse, SaslHandshakeRequest, SaslHandshakeResponse,
+    SyncGroupRequest, SyncGroupResponse, TxnOffsetCommitRequest, TxnOffsetCommitResponse,
 };
 use kafka_protocol::protocol::{Decodable, Encodable};
 
@@ -161,6 +163,8 @@ served_apis! {
     ListTransactions(ListTransactionsRequest, ListTransactionsResponse) [NONE, NONE, v(0, 1), v(0, 1)];
     ConsumerGroupHeartbeat(ConsumerGroupHeartbeatRequest, ConsumerGroupHeartbeatResponse) [NONE, NONE, NONE, v(0, 1)];
     ConsumerGroupDescribe(ConsumerGroupDescribeRequest, ConsumerGroupDescribeResponse) [NONE, NONE, NONE, v(0, 1)];
+    DescribeUserScramCredentials(DescribeUserScramCredentialsRequest, DescribeUserScramCredentialsResponse) [NONE, v(0, 0), v(0, 0), v(0, 0)];
+    AlterUserScramCredentials(AlterUserScramCredentialsRequest, AlterUserScramCredentialsResponse) [NONE, v(0, 0), v(0, 0), v(0, 0)];
     GetTelemetrySubscriptions(GetTelemetrySubscriptionsRequest, GetTelemetrySubscriptionsResponse) [NONE, NONE, NONE, v(0, 0)], when Telemetry;
     PushTelemetry(PushTelemetryRequest, PushTelemetryResponse) [NONE, NONE, NONE, v(0, 0)], when Telemetry;
 }
