@@ -2,8 +2,9 @@
 //! running; any other (or one whose service is not there) is not delivered, and the alarm's history says so: "stored, not
 //! delivered locally" is the flag a client can see.
 //!
-//! The SNS message is the document AWS sends for an alarm. Its field names and layout are from AWS's documentation and memory; no
-//! recording of it exists.
+//! A topic gets the document AWS publishes for an alarm; a Lambda function gets the different event AWS invokes functions with
+//! (`source: aws.cloudwatch`, `alarmData`), with the alarm as its `SourceArn`. Both layouts are from AWS's documentation and
+//! memory; no recording of either exists.
 
 use aws_wire::service::Caller;
 use serde_json::{Value, json};
@@ -60,7 +61,8 @@ impl Core {
                 json!({
                     "FunctionName": o.action,
                     "InvocationType": "Event",
-                    "Payload": aws_core::base64::encode(message.to_string().as_bytes()),
+                    "Payload": aws_core::base64::encode(lambda_event(o, message, caller).to_string().as_bytes()),
+                    "SourceArn": alarm_arn(&caller.region, &caller.account_id, &o.alarm),
                 }),
             ),
             other => {
@@ -93,6 +95,43 @@ impl Core {
                 }
             })
     }
+}
+
+/// The event AWS invokes a function with for an alarm that changed state, built from the published document. (memory)
+fn lambda_event(o: &Outgoing, message: &Value, caller: &Caller) -> Value {
+    let text = |k: &str| message.get(k).cloned().unwrap_or(Value::Null);
+    let trigger = message.get("Trigger");
+    let metrics = trigger.map_or_else(Vec::new, |t| {
+        let dims: serde_json::Map<String, Value> = t
+            .get("Dimensions")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(|d| Some((d.get("name")?.as_str()?.to_owned(), d.get("value")?.clone())))
+            .collect();
+        vec![json!({
+            "id": "m1",
+            "metricStat": {
+                "metric": {"namespace": t.get("Namespace"), "name": t.get("MetricName"), "dimensions": dims},
+                "period": t.get("Period"),
+                "stat": t.get("Statistic"),
+            },
+            "returnData": true,
+        })]
+    });
+    json!({
+        "source": "aws.cloudwatch",
+        "alarmArn": text("AlarmArn"),
+        "accountId": caller.account_id,
+        "time": iso(o.at_ms),
+        "region": caller.region,
+        "alarmData": {
+            "alarmName": o.alarm,
+            "state": {"value": o.new, "reason": text("NewStateReason"), "timestamp": iso(o.at_ms)},
+            "previousState": {"value": o.old},
+            "configuration": {"description": text("AlarmDescription"), "metrics": metrics},
+        },
+    })
 }
 
 /// The message AWS publishes for an alarm that changed state.
