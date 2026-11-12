@@ -15,7 +15,7 @@ use crate::base::Base;
 use crate::config_effects::page_moment;
 use crate::config_words::{Group, group_of, is_compaction, is_segments, page_sentence};
 use crate::format::number;
-use crate::model::{ConfigPage, ConfigRow, ConfigShow};
+use crate::model::{Cleanup, ConfigPage, ConfigRow, ConfigShow};
 use crate::ui::glyph::Glyph;
 use crate::ui::kafka::filter_box;
 use crate::ui::notice::{Tone, callout};
@@ -129,9 +129,12 @@ fn replication(rows: &[&ConfigRow], c: &Ctx<'_>, base: &Base, topic: &str) -> Ma
     }
 }
 
-fn lede_of(g: Group) -> &'static str {
+fn lede_of(g: Group, cleanup: Cleanup) -> &'static str {
     match g {
         Group::Cleanup => "How the cleaner decides.",
+        Group::Retention if cleanup == Cleanup::Compact => {
+            "Not used by this topic: it only compacts."
+        }
         Group::Retention => "When old records are deleted by age or size.",
         _ => "",
     }
@@ -162,7 +165,7 @@ fn sections(p: &ConfigPage, c: &Ctx<'_>, base: &Base) -> Markup {
             @if g == Group::Replication {
                 @if !rows.is_empty() { (replication(&rows, c, base, &p.head.name)) }
             } @else if !rows.is_empty() {
-                (section(g.title(), lede_of(g), &rows, c))
+                (section(g.title(), lede_of(g, p.head.cleanup), &rows, c))
             }
         }
         @if shown.is_empty() { p class="help" { "No config matches. Clear the filter to see all " (p.rows.len()) "." } }
