@@ -29,13 +29,19 @@ import (
 	"github.com/xdg-go/scram"
 )
 
-// The user the broker is started with (interop/run.sh -sasl); the password may be changed with SASL_PASSWORD.
-const (
-	saslUser = "alice"
-	records  = 20
+// The user the broker is started with (interop/run.sh -sasl); the password may be changed with SASL_PASSWORD. The users
+// step (users.go) runs the same cells as a user made over the API, by changing these two for a while.
+var (
+	saslUser     = "alice"
+	saslPassOver = ""
 )
 
+const records = 20
+
 func saslPassword() string {
+	if saslPassOver != "" {
+		return saslPassOver
+	}
 	if p := os.Getenv("SASL_PASSWORD"); p != "" {
 		return p
 	}

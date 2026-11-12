@@ -53,7 +53,9 @@ func main() {
 		return
 	}
 	if *sasl {
-		if !runSasl(*addr) {
+		ok := runSasl(*addr)
+		// Then the users made over the API (AlterUserScramCredentials), by the same libraries.
+		if !runUsers(*addr) || !ok {
 			os.Exit(1)
 		}
 		return
