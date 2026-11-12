@@ -1,5 +1,5 @@
-//! The members page (`group-members`) and the member's drawer (`member-detail`, drawn as a drawer; without a script it is a
-//! page of its own at `/groups/{group}/members/{member}`).
+//! The members page (`group-members`) and the member's drawer (`member-detail`): a drawer over the members page, which a
+//! direct visit to `/groups/{group}/members/{member}` shows with the drawer open on it.
 
 use maud::{Markup, html};
 
@@ -10,6 +10,7 @@ use crate::format::ago;
 use crate::groups_words::{group_sentence, number_word};
 use crate::model::{GroupHead, GroupLagView, GroupMemberRow, GroupPart, GroupProtocol, LagTopic};
 use crate::ui::button::{Size, Variant, link};
+use crate::ui::overlay::{Kind, close, frame};
 
 fn role(h: &GroupHead, m: &GroupMemberRow) -> &'static str {
     match (h.protocol, m.leader) {
@@ -33,7 +34,7 @@ fn heard(m: &GroupMemberRow) -> String {
 fn row(h: &GroupHead, m: &GroupMemberRow, base: &Base) -> Markup {
     html! {
         tr {
-            td class="name" { a class="mono" href=(group_url(base, &h.id, &format!("/members/{}", segment(&m.id)))) { (m.id) } }
+            td class="name" { a class="mono" href=(group_url(base, &h.id, &format!("/members/{}", segment(&m.id)))) data-dialog { (m.id) } }
             td class="mono" { (m.client_id) }
             td class="mono" { (m.host) }
             td { (role(h, m)) }
@@ -139,7 +140,7 @@ pub fn members_page(v: &GroupLagView, base: &Base) -> Markup {
     }
 }
 
-/// `member-detail`: one member, as a drawer.
+/// `member-detail`: one member, as a drawer over the members page (which closing returns to).
 #[must_use]
 pub fn member_drawer(h: &GroupHead, m: &GroupMemberRow, base: &Base) -> Markup {
     let topics: Vec<&str> = {
@@ -148,9 +149,12 @@ pub fn member_drawer(h: &GroupHead, m: &GroupMemberRow, base: &Base) -> Markup {
         t
     };
     let first = topics.first().copied();
-    html! {
-        div class="drawer-panel" role="dialog" aria-labelledby="member-title"
-            style="position:static;width:100%;max-width:560px;margin:24px 0 0;border:1px solid var(--line);border-radius:18px" {
+    let back = group_url(base, &h.id, "/members");
+    frame(
+        Kind::Drawer,
+        "member-title",
+        &back,
+        html! {
             h2 class="mono" id="member-title" { (m.id) }
             p class="dim" style="margin:0 0 20px" {
                 "A member of " a class="lnk mono" href=(group_url(base, &h.id, "")) { (h.id) }
@@ -181,7 +185,8 @@ pub fn member_drawer(h: &GroupHead, m: &GroupMemberRow, base: &Base) -> Markup {
             div class="row wrap" style="margin-top:24px" {
                 (link(&base.url("/live"), Variant::Plain, Size::Normal, None, "Open the wire in Live"))
                 @if let Some(t) = first { (link(&base.url(&format!("/topics/{}", segment(t))), Variant::Plain, Size::Normal, None, &format!("Open {t}"))) }
+                (close("btn ghost", &back, html! { "Close" }))
             }
-        }
-    }
+        },
+    )
 }

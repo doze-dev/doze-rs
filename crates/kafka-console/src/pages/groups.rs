@@ -25,30 +25,3 @@ pub use list::{
 };
 pub use members::{member_drawer, members_page};
 pub use refused::{delete_refused_page, no_group, reset_refused_page};
-
-/// The parents of the overlays: the page each overlay opens over. A direct visit to an overlay's address shows its parent with
-/// the overlay open; the overlay itself is the function named in each doc line (a pure function of its view).
-pub mod parents {
-    use maud::Markup;
-
-    use crate::base::Base;
-    use crate::model::GroupLagView;
-
-    /// The parent of a member's drawer (`member_drawer`): the members page.
-    #[must_use]
-    pub fn of_member(v: &GroupLagView, base: &Base) -> Markup {
-        super::members_page(v, base)
-    }
-
-    /// The parent of the Reset dialog (`reset_dialog`) and of the Delete-offsets dialog (`offset_delete_dialog`): the Lag tab.
-    #[must_use]
-    pub fn of_offsets(v: &GroupLagView, base: &Base) -> Markup {
-        super::lag_page(v, base)
-    }
-
-    /// The parent of the Delete-group dialog (`delete_dialog`): the group's page.
-    #[must_use]
-    pub fn of_group(v: &GroupLagView, base: &Base) -> Markup {
-        super::group_page(v, base)
-    }
-}

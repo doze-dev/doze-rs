@@ -20,7 +20,7 @@ fn dialog_of(key: &str, op: Option<&str>, value: &str, other: Option<&str>) -> S
         },
     )
     .unwrap();
-    edit_dialog(&v, &Base::root(), true).into_string()
+    edit_dialog(&v, &Base::root()).into_string()
 }
 
 #[test]
@@ -189,7 +189,7 @@ fn a_dialog_shows_a_field_error_and_a_dry_runs_answer_and_nothing_when_there_is_
     ) else {
         panic!()
     };
-    let doc = edit_dialog(&v, &Base::root(), true).into_string();
+    let doc = edit_dialog(&v, &Base::root()).into_string();
     assert!(
         doc.contains("<div class=\"help err\">Type a value.</div>"),
         "{doc:.1500}"
@@ -207,7 +207,7 @@ fn a_dialog_shows_a_field_error_and_a_dry_runs_answer_and_nothing_when_there_is_
     ) else {
         panic!()
     };
-    let doc = edit_dialog(&v, &Base::root(), true).into_string();
+    let doc = edit_dialog(&v, &Base::root()).into_string();
     assert!(doc.contains("Kafka would take this."));
     assert!(doc.contains("8388608 <span class=\"dim\">to</span> 2048"));
 }

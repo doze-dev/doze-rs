@@ -4,7 +4,7 @@ use maud::{Markup, html};
 
 use crate::base::{Base, segment};
 use crate::model::{GroupHead, GroupPhase, GroupProtocol, GroupSpan};
-use crate::ui::button::{Size, State, Variant, link, state};
+use crate::ui::button::{Size, State, Variant, opener, state};
 use crate::ui::client;
 use crate::ui::glyph::Glyph;
 use crate::ui::glyph_groups::{GroupGlyph, group_glyph};
@@ -156,7 +156,7 @@ fn i64_usize(n: i64) -> usize {
 #[must_use]
 pub(super) fn reset_and_delete(h: &GroupHead, base: &Base) -> Markup {
     html! {
-        a class="btn" href=(group_url(base, &h.id, "/reset")) data-op="OffsetCommit" { (crate::ui::glyph::glyph(Glyph::Refresh, 16, "")) "Reset offsets" }
-        (link(&group_url(base, &h.id, "/delete"), Variant::Danger, Size::Normal, Some(Glyph::Trash), "Delete group"))
+        a class="btn" href=(group_url(base, &h.id, "/reset")) data-dialog data-op="OffsetCommit" { (crate::ui::glyph::glyph(Glyph::Refresh, 16, "")) "Reset offsets" }
+        (opener(&group_url(base, &h.id, "/delete"), Variant::Danger, Size::Normal, Some(Glyph::Trash), "Delete group"))
     }
 }

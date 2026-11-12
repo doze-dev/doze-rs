@@ -1,5 +1,6 @@
-//! The three dialogs of a group: Reset offsets (with its preview), Delete group, Delete offsets. Each is one POST form; the
-//! page that follows a refusal is in `refused.rs`.
+//! The three dialogs of a group: Reset offsets (with its preview), Delete group, Delete offsets. Each is an overlay (a dialog of
+//! `ui::overlay`) over the group's lag page, or its page for Delete group, with one POST form; the page that follows a refusal
+//! is in `refused.rs`.
 
 use maud::{Markup, html};
 
@@ -150,15 +151,15 @@ fn body(v: &ResetView) -> Markup {
     }
 }
 
-/// The Reset dialog; `inline` is the full-page rendering.
+/// The Reset dialog, over the group's Lag page.
 #[must_use]
-pub fn reset_dialog(v: &ResetView, base: &Base, inline: bool) -> Markup {
+pub fn reset_dialog(v: &ResetView, base: &Base) -> Markup {
     let moves = v.rows.iter().filter(|r| r.after.is_some()).count();
     let h = &v.head;
     modal(
         "reset-offsets",
         &group_url(base, &h.id, "/reset"),
-        inline,
+        &group_url(base, &h.id, "/lag"),
         html! { "Reset offsets of " (h.id) },
         body(v),
         html! {
@@ -169,9 +170,9 @@ pub fn reset_dialog(v: &ResetView, base: &Base, inline: bool) -> Markup {
     )
 }
 
-/// The Delete-group dialog.
+/// The Delete-group dialog, over the group's page.
 #[must_use]
-pub fn delete_dialog(v: &GroupDeleteView, base: &Base, inline: bool) -> Markup {
+pub fn delete_dialog(v: &GroupDeleteView, base: &Base) -> Markup {
     let h = &v.head;
     let n: usize = v.offsets.iter().map(|(_, ps)| ps.len()).sum();
     let named: Vec<String> = v
@@ -191,7 +192,7 @@ pub fn delete_dialog(v: &GroupDeleteView, base: &Base, inline: bool) -> Markup {
     modal(
         "delete-group",
         &group_url(base, &h.id, "/delete"),
-        inline,
+        &group_url(base, &h.id, ""),
         html! { "Delete " (h.id) "?" },
         html! {
             p style="margin:0 0 16px" {
@@ -213,13 +214,12 @@ pub fn delete_dialog(v: &GroupDeleteView, base: &Base, inline: bool) -> Markup {
     )
 }
 
-/// The Delete-offsets dialog; `refusal` is Kafka's answer when it said no.
+/// The Delete-offsets dialog, over the Lag page with the expiring offsets; `refusal` is Kafka's answer when it said no.
 #[must_use]
 pub fn offset_delete_dialog(
     v: &OffsetDeleteView,
     refusal: Option<&Refusal>,
     base: &Base,
-    inline: bool,
 ) -> Markup {
     let h = &v.head;
     let picked: usize = v
@@ -231,7 +231,7 @@ pub fn offset_delete_dialog(
     modal(
         "delete-offsets",
         &group_url(base, &h.id, "/offsets/delete"),
-        inline,
+        &format!("{}?expiring=1", group_url(base, &h.id, "/lag")),
         html! { "Delete committed offsets of " (h.id) "?" },
         html! {
             p style="margin:0 0 16px" {

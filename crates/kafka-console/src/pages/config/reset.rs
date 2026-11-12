@@ -43,13 +43,13 @@ fn body(v: &ConfigResetView) -> Markup {
     }
 }
 
-/// The dialog.
+/// The dialog, over the topic's Config page.
 #[must_use]
-pub fn reset_dialog(v: &ConfigResetView, base: &Base, inline: bool) -> Markup {
+pub fn reset_dialog(v: &ConfigResetView, base: &Base) -> Markup {
     modal(
         "config-reset",
         &config_url(base, &v.topic, "/reset"),
-        inline,
+        &config_url(base, &v.topic, ""),
         html! { "Reset " (v.row.name) " to default?" },
         body(v),
         html! {

@@ -1,7 +1,7 @@
 //! The eight boards of the Config pages rendered from the larder with no broker, as whole documents: what
 //! `tests/boards_config.rs` writes to `target/board-diff/<id>.html` for `tools/board-diff.ts`.
 
-use maud::Markup;
+use maud::{Markup, html};
 
 use crate::assets::Assets;
 use crate::base::Base;
@@ -10,7 +10,8 @@ use crate::fixtures_config::{self as larder, TOPIC};
 use crate::gather::ConfigFields;
 use crate::model::{ConfigAsk, ConfigResult};
 use crate::pages;
-use crate::ui::shell::{Crumb, Page, Rail, document};
+use crate::ui::overlay::{Over, over};
+use crate::ui::shell::{Crumb, Page, Rail, document_over};
 
 /// The boards this builder renders, by screen id.
 pub use crate::actions::config::BOARDS as IDS;
@@ -18,8 +19,13 @@ pub use crate::actions::config::BOARDS as IDS;
 const PATH: &str = "/topics/inventory.levels";
 const CONFIG: &str = "/topics/inventory.levels/config";
 
-/// A board: the title of its page and what is in `<main>`.
-type Drawn = (String, Markup);
+/// A board: the title of its page and what is in `<main>`, with the dialog over it when it is one.
+type Drawn = (String, Over);
+
+/// A page with no overlay.
+fn plain(title: &str, main: Markup) -> Drawn {
+    (title.to_owned(), over(main, html! {}))
+}
 
 fn fields<'a>(
     key: &'a str,
@@ -40,28 +46,25 @@ fn saved(base: &Base) -> Option<Drawn> {
     let ConfigResult::Saved(s) = larder::save(TOPIC, f, false) else {
         return None;
     };
-    Some(("Saved".to_owned(), pages::config_saved(&s, base)))
+    Some(plain("Saved", pages::config_saved(&s, base)))
 }
 
 fn refused(base: &Base, f: ConfigFields<'_>) -> Option<Drawn> {
     let ConfigResult::Refused(r) = larder::save(TOPIC, f, false) else {
         return None;
     };
-    Some(("Refused".to_owned(), pages::config_refused(&r, base)))
+    Some(plain("Refused", pages::config_refused(&r, base)))
 }
 
-/// A dialog board: the Config page with the dialog open on it, as a direct visit to the dialog's address shows it.
-fn over(base: &Base, overlay: Markup) -> Option<Drawn> {
+/// A dialog board: the Config page with the dialog over it, as a direct visit to the dialog's address shows it.
+fn dialog_over(base: &Base, overlay: Markup) -> Option<Drawn> {
     let parent = pages::config_page(&larder::page(TOPIC, ConfigAsk::default())?, base);
-    Some((
-        "Config".to_owned(),
-        pages::config_with_overlay(parent, overlay),
-    ))
+    Some(("Config".to_owned(), over(parent, overlay)))
 }
 
 fn dialog(base: &Base, f: ConfigFields<'_>) -> Option<Drawn> {
     let v = larder::form(TOPIC, f).ok()?;
-    over(base, pages::config_edit_overlay(&v, base, true))
+    dialog_over(base, pages::config_edit_dialog(&v, base))
 }
 
 fn board(id: &str, base: &Base) -> Option<Drawn> {
@@ -75,7 +78,7 @@ fn board(id: &str, base: &Base) -> Option<Drawn> {
                 ..ConfigAsk::default()
             };
             let page = larder::page(TOPIC, ask)?;
-            Some(("Config".to_owned(), pages::config_page(&page, base)))
+            Some(plain("Config", pages::config_page(&page, base)))
         }
         "config-edit" => dialog(base, fields("min.cleanable.dirty.ratio", None, "0.7", None)),
         "config-edit-list" => dialog(
@@ -97,7 +100,7 @@ fn board(id: &str, base: &Base) -> Option<Drawn> {
         ),
         "config-reset" => {
             let v = larder::reset_form(TOPIC, "segment.bytes").ok()?;
-            over(base, pages::config_reset_dialog(&v, base, true))
+            dialog_over(base, pages::config_reset_dialog(&v, base))
         }
         _ => None,
     }
@@ -137,5 +140,5 @@ pub fn render(id: &str, base: &Base) -> Option<String> {
         title: &title,
         watch: &[],
     };
-    Some(document(&page, main).into_string())
+    Some(document_over(&page, main).into_string())
 }
