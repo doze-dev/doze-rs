@@ -1,6 +1,7 @@
 //! The handlers: each asks the source for a model, renders it, and answers.
 
 mod config;
+mod consumers;
 mod fragments;
 mod groups;
 mod groups_dialogs;
@@ -13,8 +14,10 @@ mod plain;
 mod topics;
 mod topics_dialogs;
 mod topics_write;
+mod unbuilt;
 
 pub use config::{config, config_edit, config_edit_form, config_reset, config_reset_form};
+pub use consumers::consumers as topic_consumers;
 pub use fragments::{check, fragment};
 pub use groups::{
     group as group_page, groups as groups_list, lag as group_lag, members as group_members,
@@ -31,7 +34,7 @@ pub use live::{
     clients as live_clients, first as first_request, group_wire, live, request as live_request,
     topic_wire,
 };
-pub use pages::{advertised, connect, home, method_not_allowed, not_found, planned};
+pub use pages::{advertised, connect, home, method_not_allowed, not_found};
 pub use plain::{events, health, static_file};
 pub use topics::{
     messages as topic_messages, partitions as topic_partitions, record as topic_record, topic,
@@ -42,6 +45,7 @@ pub use topics_dialogs::{
     produce, produce_form,
 };
 pub use topics_write::{create, create_form};
+pub use unbuilt::unbuilt;
 
 use axum::http::header::{CACHE_CONTROL, CONTENT_TYPE, ETAG};
 use axum::http::{HeaderMap, StatusCode, header::IF_NONE_MATCH};

@@ -16,6 +16,7 @@ use crate::gather::{AddResult, DeleteResult, RecordsResult};
 use crate::model::{ProduceInput, ProduceResult};
 use crate::pages;
 use crate::state::Shared;
+use crate::trail::{Place, TopicPage};
 
 /// The most header rows the Produce dialog posts.
 const MOST_HEADERS: usize = 8;
@@ -58,7 +59,7 @@ async fn no_topic(s: &Shared, topic: &str) -> Response {
         s,
         StatusCode::NOT_FOUND,
         "No such topic",
-        &[("Topics", Some("/topics")), ("No such topic", None)],
+        &Place::NoTopic.steps(),
         main,
     )
     .await
@@ -115,19 +116,11 @@ pub async fn produce(
     let input = produce_input(&parse_body(&body));
     match s.source.produce(&topic, &input).await {
         ProduceResult::Sent(p) => {
-            let crumbs = [
-                ("Topics", Some("/topics")),
-                (
-                    topic.as_str(),
-                    Some(&*format!("/topics/{}", crate::base::segment(&topic))),
-                ),
-                ("Record sent", None),
-            ];
             page(
                 &s,
                 StatusCode::OK,
                 "Record sent",
-                &crumbs,
+                &Place::Topic(&topic).steps(),
                 pages::produced(&p, &s.base),
             )
             .await
@@ -138,19 +131,11 @@ pub async fn produce(
             } else {
                 "Produce refused"
             };
-            let topic_path = format!("/topics/{}", crate::base::segment(&topic));
-            let produce_path = format!("{topic_path}/produce");
-            let crumbs = [
-                ("Topics", Some("/topics")),
-                (topic.as_str(), Some(topic_path.as_str())),
-                ("Produce", Some(produce_path.as_str())),
-                (title, None),
-            ];
             page(
                 &s,
                 StatusCode::OK,
                 title,
-                &crumbs,
+                &Place::Topic(&topic).steps(),
                 pages::produce_refused(&r, &s.base),
             )
             .await
@@ -293,19 +278,11 @@ pub async fn delete_records(
         )))
         .into_response(),
         RecordsResult::Refused(r) => {
-            let topic_path = format!("/topics/{}", crate::base::segment(&topic));
-            let parts = format!("{topic_path}/partitions");
-            let crumbs = [
-                ("Topics", Some("/topics")),
-                (topic.as_str(), Some(topic_path.as_str())),
-                ("Partitions", Some(parts.as_str())),
-                ("Delete records refused", None),
-            ];
             page(
                 &s,
                 StatusCode::OK,
                 "Delete records refused",
-                &crumbs,
+                &Place::TopicPage(&topic, TopicPage::Partitions).steps(),
                 pages::delete_records_refused(&r, &s.base),
             )
             .await
@@ -363,7 +340,7 @@ pub async fn delete(
                 &s,
                 StatusCode::OK,
                 "Topic deleted",
-                &[("Topics", Some("/topics")), ("Topic deleted", None)],
+                &Place::Topics.steps(),
                 pages::deleted_page(&d, &s.base),
             )
             .await

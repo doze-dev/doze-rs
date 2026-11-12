@@ -184,6 +184,8 @@ fn document_with(page: &Page<'_>, main: Markup, overlay: Option<Markup>) -> Mark
             head {
                 meta charset="utf-8";
                 meta name="viewport" content="width=device-width, initial-scale=1";
+                // A console on a developer's machine is not a page for a search engine.
+                meta name="robots" content="noindex";
                 title { (page.title) " · doze-kafka" }
                 link rel="icon" type="image/svg+xml" href=(page.assets.favicon);
                 link rel="stylesheet" href=(page.assets.css);

@@ -36,7 +36,7 @@ pub(super) fn spans(parts: &[GroupSpan], base: &Base) -> Markup {
 
 /// The colour of a state word.
 #[must_use]
-pub(super) fn tone(p: GroupPhase) -> State {
+pub(crate) fn tone(p: GroupPhase) -> State {
     match p {
         GroupPhase::Stable => State::Ok,
         GroupPhase::Empty => State::Idle,

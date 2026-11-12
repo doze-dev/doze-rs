@@ -46,7 +46,7 @@ pub(super) fn policy_word(c: Cleanup) -> &'static str {
 
 /// Which buttons the head carries.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum Acts {
+pub enum Acts {
     /// Partitions, Produce, Delete topic.
     Full,
     /// Produce and Delete topic: a topic with nothing in it has no partitions page worth opening.
@@ -141,42 +141,73 @@ pub(super) fn topic_head(h: &TopicHead, base: &Base, acts: Acts) -> Markup {
     head(h, base, acts, sentence_fragment(h, base))
 }
 
+/// The five tabs of a topic: the one showing is `on`. The same five links, in the same order, with the same counts, on every
+/// page of the topic, so that a tab switch changes only what is under them.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TopicTab {
+    Messages,
+    Log,
+    Config,
+    Consumers,
+    Producers,
+}
+
+/// The tabs of a topic with `on` showing.
+#[must_use]
+pub fn topic_tabs_on(h: &TopicHead, base: &Base, on: TopicTab) -> Markup {
+    let t = topic_url(base, &h.name);
+    let tab = |tab: TopicTab, label: &'static str, href: String, count: Option<usize>| Tab {
+        label,
+        href,
+        on: tab == on,
+        count,
+    };
+    tabs(&[
+        tab(TopicTab::Messages, "Messages", t.clone(), None),
+        tab(TopicTab::Log, "Log", format!("{t}/log"), None),
+        tab(TopicTab::Config, "Config", format!("{t}/config"), None),
+        tab(
+            TopicTab::Consumers,
+            "Consumers",
+            format!("{t}/consumers"),
+            Some(h.tabs.consumers),
+        ),
+        tab(
+            TopicTab::Producers,
+            "Producers",
+            format!("{t}/producers"),
+            Some(h.tabs.producers),
+        ),
+    ])
+}
+
 /// The tabs of a topic: Messages is the one showing.
 #[must_use]
 pub(super) fn topic_tabs(h: &TopicHead, base: &Base) -> Markup {
-    let t = topic_url(base, &h.name);
-    tabs(&[
-        Tab {
-            label: "Messages",
-            href: t.clone(),
-            on: true,
-            count: None,
-        },
-        Tab {
-            label: "Log",
-            href: format!("{t}/log"),
-            on: false,
-            count: None,
-        },
-        Tab {
-            label: "Config",
-            href: format!("{t}/config"),
-            on: false,
-            count: None,
-        },
-        Tab {
-            label: "Consumers",
-            href: base.url("/groups"),
-            on: false,
-            count: Some(h.tabs.consumers),
-        },
-        Tab {
-            label: "Producers",
-            href: format!("{t}/producers"),
-            on: false,
-            count: Some(h.tabs.producers),
-        },
-    ])
+    topic_tabs_on(h, base, TopicTab::Messages)
+}
+
+/// Which buttons the head carries: a function of the topic and nothing else, so that it is the same on every tab.
+#[must_use]
+pub fn acts_of(h: &TopicHead) -> Acts {
+    if !h.offline().is_empty() {
+        Acts::Offline
+    } else if h.is_empty() {
+        Acts::Empty
+    } else {
+        Acts::Full
+    }
+}
+
+/// The head and the tabs of a topic, as one piece: the name with its words, the sentence that follows the topic, the
+/// buttons, and the five tabs with `on` showing. Every tab page starts with exactly this, so switching tabs changes nothing
+/// above the tab body.
+#[must_use]
+pub fn topic_frame(h: &TopicHead, base: &Base, on: TopicTab) -> Markup {
+    html! {
+        (topic_head(h, base, acts_of(h)))
+        (topic_tabs_on(h, base, on))
+    }
 }
 
 /// The callout of an open transaction (the topic page and no other).

@@ -5,6 +5,7 @@
 
 mod config;
 mod connect;
+mod consumers;
 mod groups;
 mod home;
 pub mod live;
@@ -20,6 +21,7 @@ pub use config::{
     ConfigTeach, ConfigValue,
 };
 pub use connect::{Access, ClientSnippet, ConnectView, ProbeView, Rule, Span, Tok, Verdict};
+pub use consumers::{ConsumersView, TopicReader};
 pub use home::{Attention, HeldBack, HomeState, HomeView, InstanceView, StopView};
 pub use live::{
     ClientRow, ClientsView, FirstView, GroupWireView, LiveState, LiveView, SpokeView, WIRE_LIMIT,

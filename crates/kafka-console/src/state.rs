@@ -88,6 +88,8 @@ impl State {
         over: Over,
     ) -> Markup {
         let chrome = self.source.chrome().await;
+        // The tab says what the breadcrumb says: the title is the last step (`trail`), whatever the caller passed.
+        let title = crumbs.last().map_or(title, |(label, _)| *label);
         let crumbs = crumbs
             .iter()
             .map(|(label, path)| Crumb {

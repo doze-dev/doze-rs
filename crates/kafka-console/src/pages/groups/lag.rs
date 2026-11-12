@@ -49,7 +49,7 @@ fn when(h: &GroupHead, ms: i64) -> String {
     }
 }
 
-fn cell_lag(r: &LagRow) -> Markup {
+pub(crate) fn cell_lag(r: &LagRow) -> Markup {
     match r.lag {
         Lag::Behind(n) => html! { (lagbar(r.bar, Some(n))) },
         Lag::CaughtUp => html! { (lagbar(0, Some(0))) },

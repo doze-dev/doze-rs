@@ -8,6 +8,7 @@ use axum::response::{IntoResponse, Response};
 use super::html;
 use crate::pages;
 use crate::state::Shared;
+use crate::trail::{Place, borrowed};
 use crate::ui::shell::Rail;
 
 /// Home, in the state its data calls for.
@@ -18,8 +19,14 @@ pub async fn home(State(s): State<Shared>, RawQuery(query): RawQuery) -> Respons
     let main = pages::home(&view, &s.base);
     let title = crate::words::home_title(&view.state);
     html(
-        &s.document(Rail::Home, title, &[("Home", None)], s.source.watch(), main)
-            .await,
+        &s.document(
+            Rail::Home,
+            title,
+            &borrowed(&Place::Home.steps()),
+            s.source.watch(),
+            main,
+        )
+        .await,
     )
 }
 
@@ -31,7 +38,7 @@ pub async fn connect(State(s): State<Shared>) -> Response {
         &s.document(
             Rail::Home,
             "Connect an app",
-            &[("Home", Some("/")), ("Connect an app", None)],
+            &borrowed(&Place::Connect.steps()),
             &[],
             main,
         )
@@ -43,32 +50,11 @@ pub async fn connect(State(s): State<Shared>) -> Response {
 pub async fn advertised(State(s): State<Shared>) -> Response {
     let view = s.source.probe(false).await;
     let main = pages::advertised(&view, &s.base);
-    let crumbs = [
-        ("Home", Some("/")),
-        ("Connect", Some("/connect")),
-        ("Advertised listener", None),
-    ];
-    html(
-        &s.document(Rail::Home, "Advertised listener", &crumbs, &[], main)
-            .await,
-    )
-}
-
-/// A page that a later slice builds.
-pub async fn planned(s: Shared, title: &'static str) -> Response {
-    let main = pages::planned(title, &s.base);
-    let rail = match title {
-        "Live" => Rail::Live,
-        "Access" => Rail::Access,
-        "Lab" => Rail::Lab,
-        "Settings" => Rail::Settings,
-        _ => Rail::Resources,
-    };
     html(
         &s.document(
-            rail,
-            title,
-            &[("Home", Some("/")), (title, None)],
+            Rail::Home,
+            "Advertised listener",
+            &borrowed(&Place::Advertised.steps()),
             &[],
             main,
         )
@@ -83,7 +69,7 @@ pub async fn not_found(State(s): State<Shared>, uri: Uri) -> Response {
         .document(
             Rail::Home,
             "Not found",
-            &[("Home", Some("/")), ("Not found", None)],
+            &borrowed(&Place::NotFound.steps()),
             &[],
             main,
         )
@@ -98,7 +84,7 @@ pub async fn method_not_allowed(State(s): State<Shared>, uri: Uri) -> Response {
         .document(
             Rail::Home,
             "Not allowed",
-            &[("Home", Some("/")), ("Not allowed", None)],
+            &borrowed(&Place::NotAllowed.steps()),
             &[],
             main,
         )

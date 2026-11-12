@@ -15,9 +15,8 @@ use crate::pages::live::{
     clients_drawer, first_page, group_wire_page, live_page, request_drawer, topic_dock,
 };
 use crate::state::Shared;
+use crate::trail::{Place, TopicPage, borrowed};
 use crate::ui::shell::Rail;
-
-const LIVE: (&str, Option<&str>) = ("Live", None);
 
 fn fields(query: &Option<String>) -> Vec<(String, String)> {
     crate::form::parse(query.as_deref().unwrap_or(""))
@@ -29,15 +28,11 @@ pub async fn live(State(s): State<Shared>, RawQuery(query): RawQuery) -> Respons
     let q = WireQuery::parse(&f);
     let view = s.source.live(&q, crate::form::get(&f, "state")).await;
     let main = live_page(&view, &s.base);
-    let crumbs: Vec<(&str, Option<&str>)> = match crate::pages::live::state_crumb(&view) {
-        Some(last) => vec![("Live", Some("/live")), (last, None)],
-        None => vec![LIVE],
-    };
     html(
         &s.document(
             Rail::Live,
             "Live",
-            &crumbs,
+            &borrowed(&Place::Live.steps()),
             s.source.watching(LIVE_IDS),
             main,
         )
@@ -52,7 +47,7 @@ async fn live_parent(s: &Shared, q: &WireQuery) -> Parent {
     Parent {
         rail: Rail::Live,
         title: "Live".to_owned(),
-        crumbs: vec![("Live".to_owned(), None)],
+        crumbs: Place::Live.steps(),
         watch: s.source.watching(LIVE_IDS),
         main,
     }
@@ -82,7 +77,7 @@ pub async fn request(
             .document(
                 Rail::Live,
                 "Live",
-                &[("Live", Some("/live")), ("Request", None)],
+                &[("Live", Some("/live")), ("Request not found", None)],
                 &[],
                 main,
             )
@@ -120,7 +115,7 @@ pub async fn first(State(s): State<Shared>) -> Response {
             &s.document(
                 Rail::Home,
                 "A new client just connected",
-                &[("Home", None)],
+                &[("Home", Some("/")), ("No client yet", None)],
                 &[],
                 main,
             )
@@ -132,7 +127,7 @@ pub async fn first(State(s): State<Shared>) -> Response {
         &s.document(
             Rail::Home,
             "Home",
-            &[("Home", Some("/")), ("First request landed", None)],
+            &borrowed(&Place::FirstRequest.steps()),
             &[],
             main,
         )
@@ -144,16 +139,11 @@ pub async fn first(State(s): State<Shared>) -> Response {
 pub async fn topic_wire(State(s): State<Shared>, Path(topic): Path<String>) -> Response {
     let Some(head) = s.source.topic_head(&topic).await else {
         let main = crate::pages::topics::unknown(&topic, &s.base);
-        let shown: String = topic.chars().take(60).collect();
         let page = s
             .document(
                 Rail::Resources,
                 "No such topic",
-                &[
-                    ("Resources", Some("/topics")),
-                    ("Topics", Some("/topics")),
-                    (&shown, None),
-                ],
+                &borrowed(&Place::NoTopic.steps()),
                 &[],
                 main,
             )
@@ -163,20 +153,11 @@ pub async fn topic_wire(State(s): State<Shared>, Path(topic): Path<String>) -> R
     let (rows, window, now) = s.source.topic_wire(&topic).await;
     let dock = topic_dock(&topic, &rows, &window, now, &s.base, true);
     let main = crate::pages::topics::topic_wire_page(&head, dock, &s.base);
-    let crumbs = [
-        ("Resources", Some("/topics")),
-        ("Topics", Some("/topics")),
-        (
-            topic.as_str(),
-            Some(&*format!("/topics/{}", crate::base::segment(&topic))),
-        ),
-        ("On the wire", None),
-    ];
     html(
         &s.document(
             Rail::Resources,
-            &format!("{topic} on the wire"),
-            &crumbs,
+            "On the wire",
+            &borrowed(&Place::TopicPage(&topic, TopicPage::Wire).steps()),
             s.source.watching(TOPIC_WIRE_IDS),
             main,
         )
@@ -195,18 +176,11 @@ pub async fn group_wire(
         ..WireQuery::parse(&fields(&query))
     };
     let main = group_wire_page(&s.source.group_wire(&q).await, &s.base);
-    let g = format!("/groups/{}", crate::base::segment(&group));
-    let crumbs = [
-        ("Resources", Some("/topics")),
-        ("Groups", Some("/groups")),
-        (group.as_str(), Some(g.as_str())),
-        ("Wire", None),
-    ];
     html(
         &s.document(
             Rail::Resources,
             "Wire",
-            &crumbs,
+            &borrowed(&Place::GroupPage(&group, "Wire").steps()),
             s.source.watching(GROUP_WIRE_IDS),
             main,
         )

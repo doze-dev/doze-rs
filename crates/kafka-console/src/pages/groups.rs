@@ -16,9 +16,11 @@ mod list;
 mod members;
 mod refused;
 
+pub(crate) use common::tone;
 pub use common::{GROUP_SENTENCE, group_url, sentence_fragment as group_sentence_fragment};
 pub use detail::group_page;
 pub use dialogs::{delete_dialog, offset_delete_dialog, reset_dialog};
+pub(crate) use lag::cell_lag;
 pub use lag::{LAG_SENTENCE, LAG_TABLE, lag_page, lag_sentence_fragment, lag_table_fragment};
 pub use list::{
     GROUPS_LIVE, GROUPS_TABLE, groups_live_fragment, groups_page, groups_table_fragment,

@@ -24,6 +24,8 @@ pub enum Handler {
     TopicMessages,
     TopicRecord,
     TopicPartitions,
+    /// The Consumers tab of a topic: the groups that read it, with their lag on its partitions.
+    TopicConsumers,
     Fragment,
     /// Slice 9e: Live, its drawers, the first-request page and the wire pages of a topic and a group.
     Live,
@@ -197,6 +199,7 @@ pub const ROUTES: &[Route] = &[
         &["topic-partitions"],
         Handler::TopicPartitions,
     ),
+    get("/topics/{topic}/consumers", &[], Handler::TopicConsumers),
     // Slice 9b, the topic writes (p9b-write).
     get(
         "/topics/new",

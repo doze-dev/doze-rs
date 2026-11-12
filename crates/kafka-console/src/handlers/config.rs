@@ -11,12 +11,12 @@ use maud::Markup;
 
 use super::html;
 use super::overlays::{self, Parent};
-use crate::base::segment;
 use crate::form::{get, parse, parse_body, text};
 use crate::gather::{ConfigFields, ConfigMissing};
 use crate::model::{ConfigAsk, ConfigResetResult, ConfigResult, ConfigShow};
 use crate::pages;
 use crate::state::Shared;
+use crate::trail::{Place, TopicPage, borrowed};
 use crate::ui::shell::Rail;
 
 /// The most rows a page may be asked to open, and the longest name of one.
@@ -49,27 +49,19 @@ fn ask_of(query: &Option<String>) -> ConfigAsk {
     }
 }
 
-/// A page in the shell, under `Resources > Topics > topic > Config > tail`.
+/// A page in the shell, under `Resources > Topics > topic > Config`. What became of an edit (saved, refused) is the page's
+/// own words, not a step of the path: the `tail` names it for the code that calls, and is not shown in the trail.
 async fn shell(
     s: &Shared,
     status: StatusCode,
     topic: &str,
-    tail: Option<&str>,
+    _tail: Option<&str>,
     main: Markup,
 ) -> Response {
-    let t = format!("/topics/{}", segment(topic));
-    let c = format!("{t}/config");
-    let mut steps: Vec<(&str, Option<&str>)> = vec![
-        ("Resources", Some("/topics")),
-        ("Topics", Some("/topics")),
-        (topic, Some(&t)),
-    ];
-    let title = tail.unwrap_or("Config");
-    steps.push(("Config", tail.map(|_| c.as_str())));
-    if let Some(label) = tail {
-        steps.push((label, None));
-    }
-    let doc = s.document(Rail::Resources, title, &steps, &[], main).await;
+    let steps = Place::TopicPage(topic, TopicPage::Config).steps();
+    let doc = s
+        .document(Rail::Resources, "Config", &borrowed(&steps), &[], main)
+        .await;
     (status, html(&doc)).into_response()
 }
 
@@ -80,11 +72,7 @@ async fn no_topic(s: &Shared, topic: &str) -> Response {
         .document(
             Rail::Resources,
             "No such topic",
-            &[
-                ("Resources", Some("/topics")),
-                ("Topics", Some("/topics")),
-                ("No such topic", None),
-            ],
+            &borrowed(&Place::NoTopic.steps()),
             &[],
             main,
         )
@@ -115,18 +103,13 @@ async fn missing(s: &Shared, topic: &str, key: &str, why: ConfigMissing) -> Resp
 /// The Config page of a topic as the parent of an overlay (the edit and reset dialogs). `None` when there is no such topic.
 async fn config_parent(s: &Shared, topic: &str, ask: ConfigAsk) -> Option<Parent> {
     let page = s.source.config_page(topic, ask).await?;
-    let t = format!("/topics/{}", segment(topic));
+    let head = s.source.topic_head(topic).await?;
     Some(Parent {
         rail: Rail::Resources,
         title: "Config".to_owned(),
-        crumbs: vec![
-            ("Resources".to_owned(), Some("/topics".to_owned())),
-            ("Topics".to_owned(), Some("/topics".to_owned())),
-            (topic.to_owned(), Some(t)),
-            ("Config".to_owned(), None),
-        ],
+        crumbs: Place::TopicPage(topic, TopicPage::Config).steps(),
         watch: &[],
-        main: pages::config_page(&page, &s.base),
+        main: pages::config_page(&page, &head, &s.base),
     })
 }
 

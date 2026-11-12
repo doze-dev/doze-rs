@@ -406,3 +406,21 @@ pub fn group(id: &str, expiring: bool) -> Option<GroupLagView> {
 mod forms;
 
 pub use forms::{delete_form, delete_refused, offset_delete_form, reset, reset_refused};
+
+/// A topic's Consumers tab: the groups of the world with offsets committed on it, in the same assembly the live console runs.
+#[must_use]
+pub fn consumers(topic: &str) -> Option<crate::model::ConsumersView> {
+    let head = crate::fixtures_topics::head(topic)?;
+    let groups: Vec<(Listed, Loaded)> = world()
+        .into_iter()
+        .filter(|(_, l)| l.commits.keys().any(|(t, _)| t == topic))
+        .collect();
+    let mut head = head;
+    head.tabs.consumers = groups.len();
+    Some(crate::gather::consumers::view(
+        head,
+        groups.len(),
+        &groups,
+        &ends(),
+    ))
+}

@@ -11,6 +11,7 @@ use crate::probe::Prober;
 use crate::snippets;
 use crate::ui::shell::Chrome;
 
+mod consumers;
 mod groups;
 mod live;
 mod topics;

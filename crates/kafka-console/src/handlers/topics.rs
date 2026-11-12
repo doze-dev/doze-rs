@@ -8,13 +8,12 @@ use kafka_wire::ids::TopicName;
 
 use super::html;
 use super::overlays::{self, Parent};
-use crate::model::{MessageQuery, MessagesView, TopicHead};
+use crate::model::{MessageQuery, TopicHead};
 use crate::pages::topics as page;
 use crate::state::Shared;
 use crate::stream::{TOPIC_IDS, TOPICS_IDS};
+use crate::trail::{Place, TopicPage, borrowed};
 use crate::ui::shell::Rail;
-
-type Steps<'a> = Vec<(&'a str, Option<&'a str>)>;
 
 /// A topic name the broker could hold: anything else is no topic, whatever the broker would say.
 fn valid(name: &str) -> bool {
@@ -34,20 +33,6 @@ pub async fn topics(State(s): State<Shared>, RawQuery(query): RawQuery) -> Respo
         .source
         .topics(&filter, internal, crate::form::get(&f, "state"))
         .await;
-    let (title, rail_crumbs): (&str, Steps) = match view.state() {
-        crate::model::TopicsState::None => (
-            "No topics yet",
-            vec![("Resources", Some("/topics")), ("Topics", None)],
-        ),
-        crate::model::TopicsState::Filtered => (
-            "No topic matches",
-            vec![("Resources", Some("/topics")), ("Topics", None)],
-        ),
-        crate::model::TopicsState::List => (
-            "Topics",
-            vec![("Resources", Some("/topics")), ("Topics", None)],
-        ),
-    };
     let q = crate::form::encode_query(&[
         ("q", &filter),
         ("internal", if internal { "1" } else { "" }),
@@ -56,8 +41,8 @@ pub async fn topics(State(s): State<Shared>, RawQuery(query): RawQuery) -> Respo
     html(
         &s.document(
             Rail::Resources,
-            title,
-            &rail_crumbs,
+            "Topics",
+            &borrowed(&Place::Topics.steps()),
             s.source.watching(TOPICS_IDS),
             main,
         )
@@ -65,54 +50,22 @@ pub async fn topics(State(s): State<Shared>, RawQuery(query): RawQuery) -> Respo
     )
 }
 
+pub(super) async fn missing_topic(s: &Shared, name: &str) -> Response {
+    not_found(s, name).await
+}
+
 async fn not_found(s: &Shared, name: &str) -> Response {
     let main = page::unknown(name, &s.base);
-    let shown: String = name.chars().take(60).collect();
     let page = s
         .document(
             Rail::Resources,
             "No such topic",
-            &[
-                ("Resources", Some("/topics")),
-                ("Topics", Some("/topics")),
-                (&shown, None),
-            ],
+            &borrowed(&Place::NoTopic.steps()),
             &[],
             main,
         )
         .await;
     (StatusCode::NOT_FOUND, html(&page)).into_response()
-}
-
-/// The title of the state the Messages page is in, for the last step of the breadcrumb.
-fn state_title(v: &MessagesView) -> Option<String> {
-    use crate::format::number;
-    let q = &v.query;
-    if v.head.is_empty() && !q.filtered() {
-        return None;
-    }
-    if !v.head.offline().is_empty()
-        && !q.filtered()
-        && q.reading == crate::model::Reading::Uncommitted
-    {
-        let down = v.head.offline();
-        return Some(format!(
-            "{} partition {} offline",
-            v.head.name,
-            crate::words::list_and(&down.iter().map(|p| p.partition).collect::<Vec<_>>())
-        ));
-    }
-    if q.reading == crate::model::Reading::Committed {
-        return Some("read_committed".to_owned());
-    }
-    if !q.filtered() {
-        return None;
-    }
-    Some(match (q.partition, q.offset) {
-        (Some(p), Some(o)) => format!("{}-{p} from {}", v.head.name, number(o)),
-        (Some(p), None) => format!("{}-{p}", v.head.name),
-        _ => "Filtered".to_owned(),
-    })
 }
 
 /// The Messages page of a topic as the parent of an overlay (a record's drawer, the Produce dialog): the same page
@@ -130,11 +83,10 @@ pub(super) async fn messages_parent(
     let view = s.source.messages(name, q, notes).await?;
     let q = view.query.to_query();
     let main = page::messages_page(&view, &s.base, &s.source.listen(), &q);
-    let last = state_title(&view);
+    // The state of the page (a partition, an isolation level, a record's address) is on the page, never in the breadcrumb.
     // The plain Messages page carries the topic's wire dock (slice 9e): the last requests that touched it. It is part of the
     // parent, so it is there behind a record's drawer and the dialogs, as the boards draw it.
-    let docked = last.is_none()
-        && !view.head.is_empty()
+    let docked = !view.head.is_empty()
         && view.head.offline().is_empty()
         && view.query.reading == crate::model::Reading::Uncommitted
         && !view.query.filtered();
@@ -144,28 +96,10 @@ pub(super) async fn messages_parent(
     } else {
         main
     };
-    let t = page::topic_url(&s.base, name);
-    let t = s.base.strip(&t).unwrap_or("/topics").to_owned();
-    let shown = view.head.name.clone();
-    let mut crumbs = vec![
-        ("Resources".to_owned(), Some("/topics".to_owned())),
-        ("Topics".to_owned(), Some("/topics".to_owned())),
-    ];
-    let title = match &last {
-        Some(l) => {
-            crumbs.push((shown, Some(t)));
-            crumbs.push((l.clone(), None));
-            l.clone()
-        }
-        None => {
-            crumbs.push((shown.clone(), None));
-            shown
-        }
-    };
     Some(Parent {
         rail: Rail::Resources,
-        title,
-        crumbs,
+        title: view.head.name.clone(),
+        crumbs: Place::Topic(&view.head.name).steps(),
         watch: s.source.watching(if docked {
             crate::live_ids::TOPIC_DETAIL_IDS
         } else {
@@ -184,12 +118,8 @@ async fn messages_response(s: Shared, name: String, query: Option<String>) -> Re
 
 /// A parent as a page of its own (no overlay on it).
 pub(super) async fn page_of(s: &Shared, p: Parent) -> maud::Markup {
-    let crumbs: Vec<(&str, Option<&str>)> = p
-        .crumbs
-        .iter()
-        .map(|(label, path)| (label.as_str(), path.as_deref()))
-        .collect();
-    s.document(p.rail, &p.title, &crumbs, p.watch, p.main).await
+    s.document(p.rail, &p.title, &borrowed(&p.crumbs), p.watch, p.main)
+        .await
 }
 
 /// `/topics/{topic}`: the Messages tab with no filter.
@@ -243,16 +173,11 @@ pub async fn record(
 
 async fn gone(s: &Shared, name: &str, p: i32, o: i64) -> Response {
     let main = page::no_record(name, p, o, &s.base);
-    let shown: String = name.chars().take(60).collect();
     let page = s
         .document(
             Rail::Resources,
             "No such record",
-            &[
-                ("Resources", Some("/topics")),
-                ("Topics", Some("/topics")),
-                (&shown, None),
-            ],
+            &borrowed(&Place::Topic(name).steps()),
             &[],
             main,
         )
@@ -267,17 +192,10 @@ pub(super) async fn partitions_parent(s: &Shared, name: &str) -> Option<Parent> 
     }
     let head: TopicHead = s.source.topic_head(name).await?;
     let main = page::partitions_page(&head, &s.base);
-    let t = page::topic_url(&s.base, name);
-    let t = s.base.strip(&t).unwrap_or("/topics").to_owned();
     Some(Parent {
         rail: Rail::Resources,
         title: "Partitions".to_owned(),
-        crumbs: vec![
-            ("Resources".to_owned(), Some("/topics".to_owned())),
-            ("Topics".to_owned(), Some("/topics".to_owned())),
-            (name.to_owned(), Some(t)),
-            ("Partitions".to_owned(), None),
-        ],
+        crumbs: Place::TopicPage(name, TopicPage::Partitions).steps(),
         watch: &[],
         main,
     })

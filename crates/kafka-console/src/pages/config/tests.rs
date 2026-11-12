@@ -6,7 +6,11 @@ use crate::model::{ConfigAsk, ConfigResult, ConfigShow};
 
 fn page_of(ask: ConfigAsk) -> String {
     let p = larder::page(larder::TOPIC, ask).unwrap();
-    config_page(&p, &Base::root()).into_string()
+    config_page(&p, &head(), &Base::root()).into_string()
+}
+
+fn head() -> crate::model::TopicHead {
+    crate::fixtures_topics::head(larder::TOPIC).unwrap()
 }
 
 fn dialog_of(key: &str, op: Option<&str>, value: &str, other: Option<&str>) -> String {
@@ -226,7 +230,7 @@ fn names_and_values_from_the_broker_are_text_in_every_place_they_are_drawn() {
     p.rows[i].doc = format!("{evil}. Second <b>sentence</b>.");
     p.rows[i].synonyms[0].name = evil.to_owned();
     p.ask.open = vec![token("where", evil), token("text", evil)];
-    let doc = config_page(&p, &Base::root()).into_string();
+    let doc = config_page(&p, &head(), &Base::root()).into_string();
     assert!(!doc.contains("<img"), "{doc:.600}");
     assert!(doc.contains("&lt;img src=x onerror=alert(1)&gt;"));
     assert!(!doc.contains("<b>sentence</b>"));

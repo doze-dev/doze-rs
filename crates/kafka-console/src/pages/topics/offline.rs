@@ -5,7 +5,7 @@
 
 use maud::{Markup, html};
 
-use super::common::{Acts, topic_head, topic_tabs, topic_url};
+use super::common::{TopicTab, topic_frame, topic_url};
 use crate::base::Base;
 use crate::model::TopicHead;
 use crate::ui::button::{State, state};
@@ -51,8 +51,7 @@ fn restart() -> Markup {
 pub(super) fn offline_page(h: &TopicHead, base: &Base) -> Markup {
     let down = h.offline();
     html! {
-        (topic_head(h, base, Acts::Offline))
-        (topic_tabs(h, base))
+        (topic_frame(h, base, TopicTab::Messages))
         @for p in &down { div class="banner bad" {
             (glyph(Glyph::Warn, 18, ""))
             span { b { (h.name) "-" (p.partition) " is offline." } " A flush of its active segment failed: " span class="mono" { (p.offline.as_deref().unwrap_or("")) } ". The broker does not retry it." }
