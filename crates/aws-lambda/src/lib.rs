@@ -26,6 +26,7 @@ mod functions;
 mod invoke;
 mod layers;
 mod mappings;
+mod metrics;
 mod model;
 mod perms;
 mod poll;
@@ -101,6 +102,8 @@ pub(crate) struct Inner {
     pub(crate) tasks: Tasks,
     pub(crate) clock: Arc<dyn Clock>,
     pub(crate) peers: Option<Arc<Peers>>,
+    /// `AWS/Lambda` counts, held until CloudWatch reads them (`metrics`).
+    pub(crate) meter: Arc<metrics::Meter>,
     pub(crate) rt: Runtime,
     pub(crate) logger: rt::logs::Logger,
     pub(crate) roles: role::Sessions,
@@ -134,6 +137,7 @@ impl Lambda {
             dir: ctx.dir.clone(),
             tasks: ctx.tasks.clone(),
             clock: Arc::clone(&ctx.clock),
+            meter: metrics::Meter::install(peers.as_ref()),
             peers,
             rt: Runtime::new(
                 ctx.tasks.clone(),

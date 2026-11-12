@@ -118,11 +118,24 @@ fn an_alarm_follows_its_data_and_does_not_flip_back_for_want_of_a_poll() {
         None,
         "no data can change an OK alarm with nothing in the window"
     );
-    // Data that breaches judges the alarm at once.
+    // Data that breaches in the minute still filling is not judged until that minute ends (AWS evaluates a one-minute alarm at
+    // the end of each minute, on the minutes that are over): the alarm cannot flip on part of a period.
+    w.clock.advance(10_000);
     w.put("m", NOW + 10_000, 150.0);
+    assert_eq!(
+        w.state("a"),
+        "OK",
+        "the minute holding the datapoint is not over"
+    );
+    assert_eq!(w.core.earliest_due(), Some(NOW + 60_000));
+    w.clock.advance(49_000);
+    w.core.tick();
+    assert_eq!(w.state("a"), "OK", "not yet");
+    w.clock.advance(1_000);
+    w.core.tick();
     assert_eq!(w.state("a"), "ALARM");
     // With nothing new, the alarm goes back when the datapoint leaves its one-period window: a deadline, not a poll.
-    assert_eq!(w.core.earliest_due(), Some(NOW + 60_000));
+    assert_eq!(w.core.earliest_due(), Some(NOW + 120_000));
     w.clock.advance(59_000);
     w.core.tick();
     assert_eq!(w.state("a"), "ALARM", "not yet");
@@ -169,7 +182,39 @@ fn missing_data_is_judged_by_the_setting() {
     w.put("m", NOW - 60_000, 200.0);
     assert_eq!(w.state("a"), "OK");
     w.put("m", NOW, 200.0);
+    assert_eq!(
+        w.state("a"),
+        "OK",
+        "the second is in the minute still filling"
+    );
+    w.clock.advance(60_000);
+    w.core.tick();
     assert_eq!(w.state("a"), "ALARM");
+}
+
+#[test]
+fn a_long_period_slides_by_the_minute_and_is_not_aligned_to_the_clock() {
+    // Period five minutes, one period: at the end of each minute the alarm looks at the five minutes before (AWS's example).
+    let mut w = World::new();
+    w.alarm(
+        "a",
+        &json!({"Period": 300, "Statistic": "Sum", "Threshold": 10.0, "TreatMissingData": "notBreaching"}),
+    );
+    w.core.tick();
+    assert_eq!(w.state("a"), "OK");
+    w.clock.advance(30_000);
+    w.put("m", NOW + 30_000, 20.0);
+    assert_eq!(w.state("a"), "OK");
+    // Seen when its minute ends, not when the five-minute block of the clock ends.
+    assert_eq!(w.core.earliest_due(), Some(NOW + 60_000));
+    w.clock.advance(30_000);
+    w.core.tick();
+    assert_eq!(w.state("a"), "ALARM");
+    // And it leaves the window five minutes later.
+    assert_eq!(w.core.earliest_due(), Some(NOW + 360_000));
+    w.clock.set(NOW + 360_000);
+    w.core.tick();
+    assert_eq!(w.state("a"), "OK");
 }
 
 #[test]

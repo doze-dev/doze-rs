@@ -25,6 +25,7 @@ const GROUPS: &str = "groups";
 const STREAMS: &str = "streams";
 const DOCS: &str = "docs";
 const EVENTS: &str = "events";
+const HELD: &str = "held";
 /// The version of every record here. A change of a record's shape is a new version with a branch that reads the old one.
 pub(crate) const VERSION: u8 = 1;
 
@@ -46,6 +47,16 @@ pub(crate) struct Core {
     pub(crate) emit: Vec<Value>,
     /// What subscription filters deliver, once the call is answered.
     pub(crate) forward: Vec<crate::forward::Forward>,
+    /// Events held per stream (by stream key), for the local cap. A stream with no entry (made before the count was kept) is counted
+    /// when first needed.
+    pub(crate) held: Records<u64>,
+    /// The minute a metric filter last reported its default value, by group and filter (not persisted: at worst a restart reports
+    /// it once more in the same minute).
+    pub(crate) defaulted: HashMap<(String, String), i64>,
+    /// The local bound on an event's age (`--logs-retention-days`), whatever the group's retention; `None` keeps them.
+    pub(crate) keep_ms: Option<i64>,
+    /// The local bound on the events one group holds (`--logs-max-events`); 0 is none.
+    pub(crate) max_events: u64,
 }
 
 /// What the actor answers: the reply, and the commit it must wait for.
@@ -109,7 +120,9 @@ impl doze_runtime::Service for Core {
     type Error = StoreError;
 
     async fn open(ctx: &Ctx, _name: &'static str) -> Result<Self, StoreError> {
-        Self::open_in(&ctx.dir, Arc::clone(&ctx.clock), peers_of(ctx))
+        let mut core = Self::open_in(&ctx.dir, Arc::clone(&ctx.clock), peers_of(ctx))?;
+        core.set(settings_of(ctx));
+        Ok(core)
     }
 
     async fn handle(&mut self, call: Call) -> Answer {
@@ -154,6 +167,7 @@ impl Core {
                 Records::new(GROUPS, "log group", VERSION),
                 Records::new(STREAMS, "log stream", VERSION),
                 Records::new(DOCS, "document", VERSION),
+                Records::new(HELD, "event count", VERSION),
             ),
             RowTable::new(EVENTS, true),
             None,
@@ -166,12 +180,13 @@ impl Core {
         clock: Arc<dyn Clock>,
         peers: Option<Arc<Peers>>,
     ) -> Result<Self, StoreError> {
-        let db = Db::open(dir, FILE, &[GROUPS, STREAMS, DOCS, EVENTS])?;
+        let db = Db::open(dir, FILE, &[GROUPS, STREAMS, DOCS, HELD, EVENTS])?;
         let read = db.read()?;
         let loaded = (
             Records::load(GROUPS, "log group", VERSION, &read)?,
             Records::load(STREAMS, "log stream", VERSION, &read)?,
             Records::load(DOCS, "document", VERSION, &read)?,
+            Records::load(HELD, "event count", VERSION, &read)?,
         );
         drop(read);
         Ok(Self::with(
@@ -185,15 +200,22 @@ impl Core {
 
     fn with(
         clock: Arc<dyn Clock>,
-        (groups, streams, docs): (Records<Group>, Records<Stream>, Records<Doc>),
+        (groups, streams, docs, held): (
+            Records<Group>,
+            Records<Stream>,
+            Records<Doc>,
+            Records<u64>,
+        ),
         events: RowTable,
         db: Option<Db>,
         peers: Option<Arc<Peers>>,
     ) -> Self {
+        let settings = crate::Settings::default();
         Self {
             groups,
             streams,
             docs,
+            held,
             events,
             db,
             clock,
@@ -202,7 +224,16 @@ impl Core {
             swept: HashMap::new(),
             emit: Vec::new(),
             forward: Vec::new(),
+            defaulted: HashMap::new(),
+            keep_ms: settings.retention.map(ms),
+            max_events: settings.max_events,
         }
+    }
+
+    /// Takes the local settings.
+    pub(crate) fn set(&mut self, settings: crate::Settings) {
+        self.keep_ms = settings.retention.map(ms);
+        self.max_events = settings.max_events;
     }
 
     pub(crate) fn now_ms(&self) -> i64 {
@@ -215,6 +246,7 @@ impl Core {
             self.groups.stage()?,
             self.streams.stage()?,
             self.docs.stage()?,
+            self.held.stage()?,
         ];
         let rows = vec![self.events.stage()];
         Ok(self
@@ -286,9 +318,25 @@ pub(crate) fn not_built() -> ApiError {
     )
 }
 
-/// The bus the host handed this service, if it did.
-fn peers_of(ctx: &Ctx) -> Option<Arc<Peers>> {
+/// The bus the host handed this service, if it did (directly, or inside the [`crate::Ext`] a region's actor is given).
+pub(crate) fn peers_of(ctx: &Ctx) -> Option<Arc<Peers>> {
+    let ext = ctx.ext.as_ref()?;
+    if let Ok(ours) = Arc::clone(ext).downcast::<crate::Ext>() {
+        return ours.peers.clone();
+    }
+    Arc::clone(ext).downcast::<Peers>().ok()
+}
+
+/// The local settings in a region actor's context.
+fn settings_of(ctx: &Ctx) -> crate::Settings {
     ctx.ext
         .as_ref()
-        .and_then(|e| Arc::clone(e).downcast::<Peers>().ok())
+        .and_then(|e| Arc::clone(e).downcast::<crate::Ext>().ok())
+        .map(|e| e.settings)
+        .unwrap_or_default()
+}
+
+/// Milliseconds of a duration.
+fn ms(d: std::time::Duration) -> i64 {
+    i64::try_from(d.as_millis()).unwrap_or(i64::MAX)
 }

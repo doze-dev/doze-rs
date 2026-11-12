@@ -1,4 +1,4 @@
-//! Writing events: `PutLogEvents`, the retention sweep, and the data points metric filters make.
+//! Writing events: `PutLogEvents`, and the data points metric filters and the Embedded Metric Format make (what is kept: `bounds`).
 
 use aws_wire::ApiError;
 use doze_store::record;
@@ -19,8 +19,6 @@ const TOO_NEW_MS: i64 = 2 * 3_600_000;
 const TOO_OLD_MS: i64 = 14 * 86_400_000;
 /// The longest span of time one batch may cover.
 const MAX_SPAN_MS: i64 = 24 * 3_600_000;
-/// A group's events past their retention are removed at most this often.
-const SWEEP_EVERY_MS: i64 = 60_000;
 
 /// The sequence token of a stream. PutLogEvents ignores the token it is given, so this only has to be there and move.
 pub(crate) fn token_of(s: &Stream) -> String {
@@ -52,7 +50,10 @@ impl Core {
             .get(verdict.first_ok..verdict.end_ok)
             .unwrap_or_default();
         check_span(accepted)?;
-        self.metric_points(&group, accepted);
+        self.metric_points(&group, accepted, now);
+        if r.call.caller.service.as_deref() == Some("lambda") {
+            self.emf_points(accepted, now);
+        }
         if let Some(g) = self.groups.get(&group) {
             let group_arn = g.arn(r.region(), r.account());
             let lines: Vec<crate::forward::Line<'_>> = accepted
@@ -95,94 +96,87 @@ impl Core {
         if let Some(rejected) = verdict.rejected() {
             out.put("rejectedLogEventsInfo", rejected);
         }
+        if !accepted.is_empty() {
+            let count = self.held_of(&key) + accepted.len() as u64;
+            self.held.insert(key, count);
+            self.cap(&group);
+        }
         Ok(out)
     }
 
-    /// Removes the events of `group` older than its retention (lazily: when the group is written or read, not more than once a
-    /// minute).
-    pub(crate) fn sweep(&mut self, group: &str) {
-        let now = self.now_ms();
-        let Some(days) = self.groups.get(group).and_then(|g| g.retention_days) else {
-            return;
-        };
-        if self
-            .swept
-            .get(group)
-            .is_some_and(|at| now - at < SWEEP_EVERY_MS)
-        {
-            return;
-        }
-        self.swept.insert(group.to_owned(), now);
-        let cutoff = now - days * 86_400_000;
-        let keys: Vec<String> = self
-            .streams
-            .with_prefix(&stream_key(group, ""))
-            .map(|(k, _)| k.to_owned())
-            .collect();
-        for key in keys {
-            let Some(no) = self.streams.get(&key).map(|s| s.no) else {
-                continue;
-            };
-            let (from, to) = (event_key(no, 0, 0), event_key(no, cutoff, 0));
-            let removed = self.sum_bytes(&from, &to);
-            if removed == 0 && self.events_empty_before(&from, &to) {
-                continue;
-            }
-            self.events.delete_range(&from, &to);
-            if let Some(s) = self.streams.get_mut(&key) {
-                s.bytes = (s.bytes - removed).max(0);
-                if s.bytes == 0 {
-                    s.first_ms = None;
-                    s.last_ms = None;
-                    s.last_ingested_ms = None;
-                } else {
-                    s.first_ms = s.first_ms.map(|f| f.max(cutoff));
-                }
-            }
-        }
-    }
-
-    /// The bytes the events in `from..to` count as.
-    fn sum_bytes(&self, from: &str, to: &str) -> i64 {
-        let (mut total, mut at) = (0i64, from.to_owned());
-        while let Ok(rows) = self.events.scan(self.db.as_ref(), &at, to, 500, false) {
-            let Some((last, _)) = rows.last() else {
-                break;
-            };
-            at = format!("{last}\u{0}");
-            for (_, value) in &rows {
-                if let Ok(e) = record::decode::<Event>("event", VERSION, value) {
-                    total += i64::try_from(e.message.len() + EVENT_OVERHEAD).unwrap_or(0);
-                }
-            }
-        }
-        total
-    }
-
-    fn events_empty_before(&self, from: &str, to: &str) -> bool {
-        self.events
-            .scan(self.db.as_ref(), from, to, 1, false)
-            .is_ok_and(|rows| rows.is_empty())
-    }
-
-    /// The data points the group's metric filters make of `events`, held until the call is answered.
-    fn metric_points(&mut self, group: &str, events: &[Incoming]) {
+    /// The data points the group's metric filters make of `events`, held until the call is answered. A filter none of whose events
+    /// match reports its `defaultValue`, if it has one, once in the minute: AWS's documentation says the default is "the value
+    /// reported to the metric filter during a period when logs are ingested but no matching logs are found", and that nothing is
+    /// reported for a period with no logs. Reported at the time of ingestion, and only by a filter without dimensions (AWS does not
+    /// take a default beside dimensions) (memory).
+    fn metric_points(&mut self, group: &str, events: &[Incoming], now: i64) {
         let Some(g) = self.groups.get(group) else {
             return;
         };
+        let minute = now.div_euclid(60_000);
+        let mut matched = Vec::new();
+        let mut defaults = Vec::new();
         for f in &g.metric_filters {
             let Ok(pattern) = pattern::parse(&f.pattern) else {
                 continue;
             };
             let t = &f.transformation;
-            let data: Vec<Value> = events
+            let hits: Vec<&Incoming> = events
                 .iter()
                 .filter(|e| pattern.matches(&e.message))
+                .collect();
+            if hits.is_empty() {
+                if let (Some(d), true, false) =
+                    (t.default, t.dimensions.is_empty(), events.is_empty())
+                {
+                    #[allow(clippy::cast_precision_loss)]
+                    let mut datum =
+                        json!({"MetricName": t.name, "Value": d, "Timestamp": now as f64 / 1000.0});
+                    if let Some(u) = &t.unit {
+                        datum.put("Unit", json!(u));
+                    }
+                    defaults.push((f.name.clone(), t.namespace.clone(), datum));
+                }
+                continue;
+            }
+            matched.push(f.name.clone());
+            let data: Vec<Value> = hits
+                .into_iter()
                 .filter_map(|e| datum(&pattern, t, e))
                 .collect();
             if !data.is_empty() {
                 self.emit
                     .push(json!({"Namespace": t.namespace, "MetricData": data}));
+            }
+        }
+        for name in matched {
+            self.defaulted.insert((group.to_owned(), name), minute);
+        }
+        for (name, namespace, datum) in defaults {
+            let key = (group.to_owned(), name);
+            if self.defaulted.get(&key) == Some(&minute) {
+                continue;
+            }
+            self.defaulted.insert(key, minute);
+            self.emit
+                .push(json!({"Namespace": namespace, "MetricData": [datum]}));
+        }
+    }
+
+    /// The data points the Embedded Metric Format lines among `events` make, held until the call is answered (see `emf`).
+    fn emf_points(&mut self, events: &[Incoming], now: i64) {
+        let mut by_namespace: std::collections::BTreeMap<String, Vec<Value>> =
+            std::collections::BTreeMap::new();
+        for e in events {
+            for (namespace, datum) in crate::emf::data_points(&e.message, now) {
+                by_namespace.entry(namespace).or_default().push(datum);
+            }
+        }
+        for (namespace, data) in by_namespace {
+            // PutMetricData takes at most 1,000 data points.
+            for chunk in data.chunks(1000) {
+                self.emit
+                    .push(json!({"Namespace": namespace, "MetricData": chunk}));
             }
         }
     }
@@ -204,7 +198,6 @@ impl Core {
         }
     }
 }
-
 /// A data point: the filter's value read from the event, at the event's time.
 fn datum(pattern: &Pattern, t: &crate::model::Transformation, e: &Incoming) -> Option<Value> {
     let value: f64 = match t.value.parse() {
