@@ -39,6 +39,8 @@ hyper = { version = "1", default-features = false, features = ["http1", "server"
 hyper-util = { version = "0.1", default-features = false, features = ["tokio", "server", "service"] }
 
 [dev-dependencies]
+# The request types a raw test client encodes.
+kafka-protocol = { version = "0.18", default-features = false, features = ["client"] }
 # gzip batches for the tests that seed a broker.
 flate2 = "1"
 # Batches to walk in the tests of the record reader.

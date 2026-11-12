@@ -1416,5 +1416,107 @@
     "selector": "live-load|live-paused|live-quiet|live-wire",
     "reason": "improvement: client, API and topic cells, Close and Pause link to the Live page filtered or as it was; the filters live in the address so they can be shared and survive a reload",
     "expires": "close"
+  },
+  {
+    "board": "connect-first-request",
+    "field": "state",
+    "selector": "st ok in rows",
+    "reason": "live data: what a real broker's traffic made of this part (the states and names in rows, the topic a request touched, the time of a pause) is data, and the live render compares structure only; the fixture render holds the board's own",
+    "render": "live",
+    "expires": "close"
+  },
+  {
+    "board": "connect-first-request",
+    "field": "state",
+    "selector": "st refused in rows",
+    "reason": "live data: what a real broker's traffic made of this part (the states and names in rows, the topic a request touched, the time of a pause) is data, and the live render compares structure only; the fixture render holds the board's own",
+    "render": "live",
+    "expires": "close"
+  },
+  {
+    "board": "group-wire",
+    "field": "state",
+    "selector": "st ok in rows",
+    "reason": "live data: what a real broker's traffic made of this part (the states and names in rows, the topic a request touched, the time of a pause) is data, and the live render compares structure only; the fixture render holds the board's own",
+    "render": "live",
+    "expires": "close"
+  },
+  {
+    "board": "group-wire",
+    "field": "state",
+    "selector": "st warn in rows",
+    "reason": "live data: what a real broker's traffic made of this part (the states and names in rows, the topic a request touched, the time of a pause) is data, and the live render compares structure only; the fixture render holds the board's own",
+    "render": "live",
+    "expires": "close"
+  },
+  {
+    "board": "live-paused",
+    "field": "heading",
+    "selector": "h2 The wire, as of 22:14:23.6",
+    "reason": "the pause time in the heading is the moment of this page, not the board's",
+    "render": "live",
+    "expires": "close"
+  },
+  {
+    "board": "live-paused",
+    "field": "state",
+    "selector": "st refused in rows",
+    "reason": "live data: what a real broker's traffic made of this part (the states and names in rows, the topic a request touched, the time of a pause) is data, and the live render compares structure only; the fixture render holds the board's own",
+    "render": "live",
+    "expires": "close"
+  },
+  {
+    "board": "live-paused",
+    "field": "heading",
+    "selector": "h2 The wire, as of 14:11:55.6",
+    "reason": "the pause time in the heading is the moment of this page, not the board's",
+    "render": "live",
+    "expires": "close"
+  },
+  {
+    "board": "live-quiet",
+    "field": "heading",
+    "selector": "h3 Send the first request",
+    "reason": "improvement: the first heading of the quiet card is an h2 so that the page's headings do not skip a level (the board draws an h3 under the h1)",
+    "expires": "close"
+  },
+  {
+    "board": "live-quiet",
+    "field": "heading",
+    "selector": "h2 Send the first request",
+    "reason": "improvement: the first heading of the quiet card is an h2 so that the page's headings do not skip a level (the board draws an h3 under the h1)",
+    "expires": "close"
+  },
+  {
+    "board": "live-wire",
+    "field": "note",
+    "selector": "callout",
+    "reason": "live data: what a real broker's traffic made of this part (the states and names in rows, the topic a request touched, the time of a pause) is data, and the live render compares structure only; the fixture render holds the board's own",
+    "render": "live",
+    "expires": "close"
+  },
+  {
+    "board": "request-detail",
+    "field": "button",
+    "selector": "Open payments.settled [pri] -> to:topic-detail",
+    "reason": "live data: what a real broker's traffic made of this part (the states and names in rows, the topic a request touched, the time of a pause) is data, and the live render compares structure only; the fixture render holds the board's own",
+    "render": "live",
+    "expires": "close"
+  },
+  {
+    "board": "request-detail",
+    "field": "button",
+    "selector": "Open orders [pri] -> to:topic-detail",
+    "reason": "live data: what a real broker's traffic made of this part (the states and names in rows, the topic a request touched, the time of a pause) is data, and the live render compares structure only; the fixture render holds the board's own",
+    "render": "live",
+    "expires": "close"
+  },
+  {
+    "board": "topic-wire",
+    "field": "state",
+    "selector": "st warn",
+    "reason": "live data: what a real broker's traffic made of this part (the states and names in rows, the topic a request touched, the time of a pause) is data, and the live render compares structure only; the fixture render holds the board's own",
+    "render": "live",
+    "expires": "close"
   }
 ]
