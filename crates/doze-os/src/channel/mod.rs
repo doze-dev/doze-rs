@@ -38,6 +38,13 @@ pub async fn spawn_module(
     Ok((child, Channel(ch)))
 }
 
+/// Both ends of a channel inside this process: a module run in-process (tests, an embedded module). Handles can be
+/// passed across it as across a real one.
+pub async fn pair() -> io::Result<(Channel, Channel)> {
+    let (a, b) = imp::pair().await?;
+    Ok((Channel(a), Channel(b)))
+}
+
 /// The module's end of the channel. Call it once, before starting any other process: on Unix it also points the
 /// module's stdin at the null device, so nothing the module runs inherits the channel.
 pub fn module_channel() -> io::Result<Channel> {

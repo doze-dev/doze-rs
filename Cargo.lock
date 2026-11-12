@@ -1078,8 +1078,10 @@ dependencies = [
 name = "doze-module-proto"
 version = "0.0.0"
 dependencies = [
+ "doze-os",
  "minicbor",
  "thiserror",
+ "tokio",
 ]
 
 [[package]]

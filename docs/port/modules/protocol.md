@@ -1,6 +1,6 @@
 # Protocol 2: how doze talks to a module
 
-Status: design, 2026-11-12 (step 1 of PLAN.md). Owner: "if the golang one had limitations, you can make it better".
+Status: built 2026-11-12 (step 1 of PLAN.md): `crates/doze-module-proto`, 16 tests and a fuzzed frame decoder (1.8 M runs, no crash). Owner: "if the golang one had limitations, you can make it better".
 Evidence: the three audits of 2026-11-12 (what the Go core calls, the SDK, the modules), S0 and W0 (transport numbers on
 five targets). Encoding (minicbor, numbered fields) and transport (`doze-os::channel`) are settled; this note is about
 what goes over them.
@@ -53,3 +53,14 @@ The `doze-module-proto` crate: frame codec (fuzzed), all messages with their fie
 negotiation, credit accounting, and the async peer on `doze-os::channel`; tests: a compatibility test in which a
 "2.0" and a "2.1" build talk in both directions, deadlines and cancellation, credit back-pressure, callbacks scoped to
 their call; green on five targets.
+
+## Found while building it (keep)
+
+- **`#[cbor(index_only)]` enums break evolution.** An unknown variant of an `index_only` enum fails to decode even inside
+  `Option` (EndOfInput); only the default one-item-array form reads as `None`. S0 had proven the rule for the default
+  form only. `tests/compat.rs` caught it; no enum in the protocol uses `index_only`.
+- **A handler that keeps only `call.cancel` drops the responder at once** (edition 2021+ closures and async blocks
+  capture fields precisely), and the peer then answers "dropped without an answer" for it. That safeguard is the
+  point, but the SDK should hand handlers a context that keeps the call alive.
+- An unknown capability bit from a newer module is kept, not refused; an unknown callback is refused with a structured
+  `Unsupported` and the channel stays usable (`tests/compat.rs`).

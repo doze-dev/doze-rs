@@ -14,3 +14,9 @@ workspace = true
 [dependencies]
 minicbor = { version = "2.3", features = ["derive", "std"] }
 thiserror = "2"
+doze-os = { path = "../doze-os" }
+tokio = { version = "1.54", features = ["sync", "rt", "time", "macros"] }
+
+[dev-dependencies]
+minicbor = { version = "2.3", features = ["derive", "std"] }
+tokio = { version = "1.54", features = ["sync", "rt", "time", "macros"] }

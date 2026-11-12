@@ -5,4 +5,7 @@
 
 pub mod flow;
 pub mod frame;
+pub mod method;
+pub mod msg;
+pub mod peer;
 pub mod version;
