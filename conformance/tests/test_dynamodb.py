@@ -222,3 +222,148 @@ def test_batch_write_and_ttl(client, names, cleanup, snapshot):
     snapshot.match("enable-ttl", ddb.update_time_to_live(TableName=name, TimeToLiveSpecification=spec))
     snapshot.error("enable-ttl-again", lambda: ddb.update_time_to_live(
         TableName=name, TimeToLiveSpecification=spec))
+
+
+# Scenarios below were written before AWS answered them (2026-11-12): each runs against doze-aws and is UNVERIFIED until recorded.
+# Read the diff of every recording before keeping it; where AWS contradicts a scenario, it becomes snapshot.outcome with a dated note.
+
+
+def test_point_in_time_recovery_is_a_round_trip(client, names, cleanup, snapshot):
+    ddb = client("dynamodb")
+    name, _ = table(ddb, names, cleanup)
+    snapshot.match("before", ddb.describe_continuous_backups(TableName=name))
+    on = ddb.update_continuous_backups(
+        TableName=name, PointInTimeRecoverySpecification={"PointInTimeRecoveryEnabled": True, "RecoveryPeriodInDays": 7})
+    snapshot.match("enable", on)
+    snapshot.match("after", ddb.describe_continuous_backups(TableName=name))
+    snapshot.error("absent-table", lambda: ddb.describe_continuous_backups(TableName=names("absent")))
+
+
+def test_tags(client, names, cleanup, snapshot, eventually):
+    ddb = client("dynamodb")
+    name, created = table(ddb, names, cleanup)
+    arn = created["TableDescription"]["TableArn"]
+    snapshot.match("tag", ddb.tag_resource(ResourceArn=arn, Tags=[{"Key": "team", "Value": "a"}, {"Key": "env", "Value": "dev"}]))
+
+    def tagged():
+        r = ddb.list_tags_of_resource(ResourceArn=arn)
+        assert len(r["Tags"]) == 2, "tags are eventually consistent"
+        return r
+
+    snapshot.match("list", eventually(tagged), unordered=("Tags",))
+    snapshot.match("untag", ddb.untag_resource(ResourceArn=arn, TagKeys=["env"]))
+    snapshot.error("reserved-prefix", lambda: ddb.tag_resource(ResourceArn=arn, Tags=[{"Key": "aws:x", "Value": "a"}]))
+
+
+def test_stream_specification_on_an_existing_table(client, names, cleanup, snapshot):
+    ddb = client("dynamodb")
+    name, _ = table(ddb, names, cleanup)
+    spec = {"StreamEnabled": True, "StreamViewType": "NEW_AND_OLD_IMAGES"}
+    on = ddb.update_table(TableName=name, StreamSpecification=spec)
+    snapshot.match("enable", on, drop=WEATHER + ("TableStatus", "LatestStreamArn", "LatestStreamLabel"))
+    ddb.get_waiter("table_exists").wait(TableName=name, WaiterConfig=FAST)
+    snapshot.error("enable-again", lambda: ddb.update_table(TableName=name, StreamSpecification=spec))
+    snapshot.error("no-change-at-all", lambda: ddb.update_table(TableName=name))
+
+
+def test_update_expression_forms(client, names, cleanup, snapshot):
+    ddb = client("dynamodb")
+    name, _ = table(ddb, names, cleanup)
+    ddb.put_item(TableName=name, Item={
+        "pk": {"S": "a"}, "l": {"L": [{"N": "1"}]}, "l2": {"L": [{"N": "1"}, {"N": "2"}, {"N": "3"}]}, "m": {"M": {"k": {"S": "v"}}},
+        "s": {"SS": ["x", "y", "z"]}, "n": {"N": "10"}})
+    key = {"pk": {"S": "a"}}
+    snapshot.match("list-append-and-nested", ddb.update_item(
+        TableName=name, Key=key, ReturnValues="ALL_NEW",
+        UpdateExpression="SET l = list_append(l, :more), m.k2 = :v, c = if_not_exists(c, :zero) REMOVE l2[0]",
+        ExpressionAttributeValues={":more": {"L": [{"N": "4"}]}, ":v": {"S": "w"}, ":zero": {"N": "0"}}))
+    snapshot.match("set-delete", ddb.update_item(
+        TableName=name, Key=key, ReturnValues="UPDATED_NEW",
+        UpdateExpression="DELETE s :d ADD n :five",
+        ExpressionAttributeValues={":d": {"SS": ["y"]}, ":five": {"N": "5"}}))
+    snapshot.error("overlapping-paths", lambda: ddb.update_item(
+        TableName=name, Key=key, UpdateExpression="SET m.k = :v REMOVE m",
+        ExpressionAttributeValues={":v": {"S": "x"}}))
+    snapshot.error("add-to-a-string", lambda: ddb.update_item(
+        TableName=name, Key=key, UpdateExpression="ADD m.k :one",
+        ExpressionAttributeValues={":one": {"N": "1"}}))
+    snapshot.error("arithmetic-on-a-string", lambda: ddb.update_item(
+        TableName=name, Key=key, UpdateExpression="SET n = m.k + :one",
+        ExpressionAttributeValues={":one": {"N": "1"}}))
+
+
+def test_scan_pages_and_segments(client, names, cleanup, snapshot):
+    ddb = client("dynamodb")
+    name, _ = table(ddb, names, cleanup)
+    for i in range(7):
+        ddb.put_item(TableName=name, Item={"pk": {"S": f"k{i}"}, "n": {"N": str(i)}})
+    seen, start = [], None
+    while True:
+        kw = {"ExclusiveStartKey": start} if start else {}
+        page = ddb.scan(TableName=name, Limit=3, ConsistentRead=True, **kw)
+        seen += [i["pk"]["S"] for i in page["Items"]]
+        start = page.get("LastEvaluatedKey")
+        if not start:
+            break
+    snapshot.match("all-keys", {"keys": sorted(seen)})
+    snapshot.match("filtered", ddb.scan(TableName=name, ConsistentRead=True, FilterExpression="n > :t",
+                                        ExpressionAttributeValues={":t": {"N": "4"}}), unordered=("Items",))
+    counts = [ddb.scan(TableName=name, Segment=s, TotalSegments=3, Select="COUNT", ConsistentRead=True)["Count"] for s in range(3)]
+    snapshot.match("segments-add-up", {"total": sum(counts)})
+    snapshot.error("segment-out-of-range", lambda: ddb.scan(TableName=name, Segment=3, TotalSegments=3))
+
+
+def test_transaction_rules(client, names, cleanup, snapshot):
+    ddb = client("dynamodb")
+    name, _ = table(ddb, names, cleanup)
+    same = [{"Put": {"TableName": name, "Item": {"pk": {"S": "a"}}}},
+            {"Delete": {"TableName": name, "Key": {"pk": {"S": "a"}}}}]
+    snapshot.error("two-operations-on-one-item", lambda: ddb.transact_write_items(TransactItems=same))
+    update = lambda v: [{"Update": {"TableName": name, "Key": {"pk": {"S": "ctr"}}, "UpdateExpression": "ADD n :v",
+                                    "ExpressionAttributeValues": {":v": {"N": str(v)}}}}]
+    token = "dzc-" + names("token")[-12:]
+    snapshot.match("first", ddb.transact_write_items(TransactItems=update(1), ClientRequestToken=token))
+    snapshot.match("replay", ddb.transact_write_items(TransactItems=update(1), ClientRequestToken=token))
+    snapshot.match("applied-once", ddb.get_item(TableName=name, Key={"pk": {"S": "ctr"}}, ConsistentRead=True))
+    snapshot.error("same-token-other-request", lambda: ddb.transact_write_items(TransactItems=update(2), ClientRequestToken=token))
+    snapshot.error("cancelled-with-the-item", lambda: ddb.transact_write_items(TransactItems=[
+        {"Delete": {"TableName": name, "Key": {"pk": {"S": "ctr"}}, "ConditionExpression": "n = :v",
+                    "ExpressionAttributeValues": {":v": {"N": "99"}}, "ReturnValuesOnConditionCheckFailure": "ALL_OLD"}}]))
+    snapshot.match("get", ddb.transact_get_items(TransactItems=[
+        {"Get": {"TableName": name, "Key": {"pk": {"S": "zz"}}}}, {"Get": {"TableName": name, "Key": {"pk": {"S": "ctr"}}}}]))
+
+
+def test_key_and_item_limits(client, names, cleanup, snapshot):
+    ddb = client("dynamodb")
+    name, _ = table(ddb, names, cleanup)
+    snapshot.error("empty-key", lambda: ddb.put_item(TableName=name, Item={"pk": {"S": ""}}))
+    snapshot.error("key-over-2048-bytes", lambda: ddb.put_item(TableName=name, Item={"pk": {"S": "x" * 2049}}))
+    snapshot.error("item-over-400kb", lambda: ddb.put_item(TableName=name, Item={"pk": {"S": "a"}, "blob": {"S": "x" * (401 * 1024)}}))
+    snapshot.error("key-with-extra-attribute", lambda: ddb.get_item(TableName=name, Key={"pk": {"S": "a"}, "x": {"S": "b"}}))
+    snapshot.error("duplicate-set-members", lambda: ddb.put_item(TableName=name, Item={"pk": {"S": "a"}, "s": {"SS": ["a", "a"]}}))
+    snapshot.error("bad-number", lambda: ddb.put_item(TableName=name, Item={"pk": {"S": "a"}, "n": {"N": "12abc"}}))
+    snapshot.match("number-normalised", ddb.update_item(
+        TableName=name, Key={"pk": {"S": "a"}}, UpdateExpression="SET n = :v", ReturnValues="ALL_NEW",
+        ExpressionAttributeValues={":v": {"N": "0001.2300"}}))
+
+
+def test_index_added_and_removed_later(client, names, cleanup, snapshot, eventually):
+    ddb = client("dynamodb")
+    name, _ = table(ddb, names, cleanup)
+    for k, c in (("a", "red"), ("b", "blue"), ("c", None)):
+        ddb.put_item(TableName=name, Item={"pk": {"S": k}, **({"color": {"S": c}} if c else {})})
+    ddb.update_table(
+        TableName=name, AttributeDefinitions=[{"AttributeName": "color", "AttributeType": "S"}],
+        GlobalSecondaryIndexUpdates=[{"Create": {"IndexName": "by-color", "KeySchema": [{"AttributeName": "color", "KeyType": "HASH"}],
+                                                 "Projection": {"ProjectionType": "ALL"}}}])
+    ddb.get_waiter("table_exists").wait(TableName=name, WaiterConfig=FAST)
+
+    def ready():
+        d = ddb.describe_table(TableName=name)["Table"]["GlobalSecondaryIndexes"][0]
+        assert d["IndexStatus"] == "ACTIVE", "the index is still being built"
+
+    eventually(ready)
+    q = dict(TableName=name, IndexName="by-color", KeyConditionExpression="color = :c")
+    snapshot.match("red", ddb.query(**q, ExpressionAttributeValues={":c": {"S": "red"}}))
+    snapshot.error("two-index-updates", lambda: ddb.update_table(
+        TableName=name, GlobalSecondaryIndexUpdates=[{"Delete": {"IndexName": "by-color"}}, {"Delete": {"IndexName": "by-color"}}]))

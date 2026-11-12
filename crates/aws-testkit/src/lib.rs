@@ -64,7 +64,7 @@ impl<S: Service> Harness<S> {
         // An operation with no input takes no body.
         let root = match self.tables().op(op).unwrap().input {
             Some(shape) => decode(self.tables(), &self.patterns, shape, &body, &mut arena)
-                .map_err(|v| self.service.invalid(&v))?,
+                .map_err(|v| self.service.invalid_in(&v, &body))?,
             None => NIL,
         };
         Ok(Call {

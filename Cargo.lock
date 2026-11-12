@@ -171,6 +171,37 @@ dependencies = [
 ]
 
 [[package]]
+name = "aws-dynamodb"
+version = "0.0.0"
+dependencies = [
+ "aws-core",
+ "aws-expr",
+ "aws-model-dynamodb",
+ "aws-peers",
+ "aws-schema",
+ "aws-seal",
+ "aws-testkit",
+ "aws-wire",
+ "doze-fs",
+ "doze-runtime",
+ "doze-store",
+ "postcard",
+ "redb",
+ "serde",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
+name = "aws-expr"
+version = "0.0.0"
+dependencies = [
+ "aws-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "aws-gateway"
 version = "0.0.0"
 dependencies = [
@@ -1089,6 +1120,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "aws-auth",
+ "aws-dynamodb",
  "aws-gateway",
  "aws-iam",
  "aws-kms",

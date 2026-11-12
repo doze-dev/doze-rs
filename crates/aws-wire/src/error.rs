@@ -30,6 +30,8 @@ pub struct ApiError {
     pub message: String,
     /// Further fields some protocols carry (S3's error bodies).
     pub extra: Vec<(String, String)>,
+    /// Further members of an awsJson error body, as raw JSON values (DynamoDB's `CancellationReasons`, a failed condition's `Item`).
+    pub body: Option<Box<BodyFields>>,
 }
 
 impl ApiError {
@@ -43,6 +45,7 @@ impl ApiError {
             fault: Fault::Sender,
             message: message.into(),
             extra: Vec::new(),
+            body: None,
         }
     }
 
@@ -64,6 +67,7 @@ impl ApiError {
             },
             message: message.into(),
             extra: Vec::new(),
+            body: None,
         }
     }
 
@@ -73,6 +77,16 @@ impl ApiError {
         Self::new(500, "InternalFailure", message)
     }
 
+    /// Adds a member to an awsJson error body: `value` is JSON text and is written as it stands.
+    #[must_use]
+    pub fn with_body(mut self, name: impl Into<String>, value: impl Into<String>) -> Self {
+        self.body
+            .get_or_insert_with(Box::default)
+            .0
+            .push((name.into(), value.into()));
+        self
+    }
+
     /// Adds a field.
     #[must_use]
     pub fn with(mut self, name: impl Into<String>, value: impl Into<String>) -> Self {
@@ -80,3 +94,7 @@ impl ApiError {
         self
     }
 }
+
+/// The extra members of an awsJson error body, each a name and JSON text. Boxed in [`ApiError`] so the error stays small.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct BodyFields(pub Vec<(String, String)>);
