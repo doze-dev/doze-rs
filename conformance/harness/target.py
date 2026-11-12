@@ -29,7 +29,7 @@ from .normalize import Normalizer
 REPO = pathlib.Path(__file__).resolve().parents[2]
 
 # awsident's fixed local identity.
-DOZE_ACCOUNT = "000000000000"
+DOZE_ACCOUNT = "111122223333"
 DOZE_REGION = "us-east-1"
 
 AWS_HOST = re.compile(r"https?://[a-z0-9.-]+\.amazonaws\.com")

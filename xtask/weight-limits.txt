@@ -9,4 +9,6 @@ doze-kafka 5150000 115 8192 --listen 127.0.0.1:{port} --data-dir {data}
 # byte limit is the macOS size times 1.3 (the Linux build of doze-kafka is about 1.2 times its macOS one) plus 5%; it is re-based from the first Linux CI run.
 # 2026-11-12, with SSM Parameter Store: 3,086,160 B, 139 packages, 3,232 KB idle (+399 KB and +21 packages over SQS alone: AES-GCM and its trait
 # crates for SecureString, regex-lite for AllowedPattern, the SSM model's tables). Same 1.3 times macOS plus 5%; the package limit leaves three of room.
-doze-aws 4250000 142 6144 --listen 127.0.0.1:{port} --data-dir {data}
+# 2026-11-12, with Secrets Manager too: 3,320,864 B, 143 packages, 3,152 KB idle (+234 KB and +4 packages over SSM: the Secrets Manager model's tables
+# and the service). Same rule; four of room.
+doze-aws 4550000 147 6144 --listen 127.0.0.1:{port} --data-dir {data}

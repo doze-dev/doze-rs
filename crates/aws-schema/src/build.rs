@@ -279,3 +279,19 @@ impl<T> Entries<'_, Obj<T>> {
         self.entry(name, Val::Obj(first))
     }
 }
+
+impl<K> Entries<'_, List<K>> {
+    /// Adds `name` with a list value, filled in by `fill`.
+    pub fn insert(&mut self, name: &str, fill: impl FnOnce(&mut Items<'_, K>)) -> &mut Self {
+        let first = {
+            let mut items = Items::<K> {
+                ar: self.ar,
+                chain: Chain::new(),
+                _k: PhantomData,
+            };
+            fill(&mut items);
+            items.chain.first
+        };
+        self.entry(name, Val::Seq(first))
+    }
+}

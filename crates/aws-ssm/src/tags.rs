@@ -8,8 +8,9 @@ use aws_model_ssm::keys::{
 use aws_wire::ApiError;
 use aws_wire::service::{Call, Reply};
 
-use crate::core::{Core, empty, reply, request};
+use crate::core::Core;
 use crate::model::Parameter;
+use aws_wire::handler::{empty, reply, request};
 
 const MAX_TAGS: usize = 50;
 

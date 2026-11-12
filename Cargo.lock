@@ -342,6 +342,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "aws-seal"
+version = "0.0.0"
+dependencies = [
+ "aes-gcm",
+ "getrandom 0.4.3",
+]
+
+[[package]]
+name = "aws-secrets"
+version = "0.0.0"
+dependencies = [
+ "aws-core",
+ "aws-model-secrets-manager",
+ "aws-schema",
+ "aws-seal",
+ "aws-testkit",
+ "aws-wire",
+ "doze-runtime",
+ "doze-store",
+ "serde",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "aws-sigv4"
 version = "1.6.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -464,15 +489,14 @@ dependencies = [
 name = "aws-ssm"
 version = "0.0.0"
 dependencies = [
- "aes-gcm",
  "aws-core",
  "aws-model-ssm",
  "aws-schema",
+ "aws-seal",
  "aws-testkit",
  "aws-wire",
  "doze-runtime",
  "doze-store",
- "getrandom 0.4.3",
  "regex-lite",
  "serde",
  "serde_json",
@@ -814,6 +838,7 @@ dependencies = [
  "anyhow",
  "aws-auth",
  "aws-gateway",
+ "aws-secrets",
  "aws-sqs",
  "aws-ssm",
  "clap",

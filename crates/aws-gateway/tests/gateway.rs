@@ -197,7 +197,10 @@ async fn an_operation_the_service_does_not_serve_is_refused_before_its_body_is_r
     assert_eq!(status, 501, "{body}");
     assert!(head.contains("x-doze-not-built: 1"), "{head}");
     assert!(body.contains("NotImplemented"), "{body}");
-    assert!(body.contains("PurgeQueue is not built in doze-aws."), "{body}");
+    assert!(
+        body.contains("PurgeQueue is not built in doze-aws."),
+        "{body}"
+    );
     running.shutdown().await;
 }
 

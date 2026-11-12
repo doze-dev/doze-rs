@@ -7,9 +7,10 @@ use aws_model_ssm::keys::{
 use aws_wire::ApiError;
 use aws_wire::service::{Call, Reply};
 
-use crate::core::{Core, reply, request};
+use crate::core::Core;
 use crate::read::version_not_found;
 use crate::write::not_found;
+use aws_wire::handler::{reply, request};
 
 const MAX_LABELS: usize = 10;
 

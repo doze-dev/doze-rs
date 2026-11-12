@@ -4,17 +4,14 @@ use std::path::Path;
 use std::sync::Arc;
 
 use aws_model_ssm::Operation;
-use aws_schema::arena::Arena;
-use aws_schema::build::Object;
-use aws_schema::view::{Shape, View};
 use aws_wire::ApiError;
-use aws_wire::service::{Call, Output, Reply};
+use aws_wire::service::{Call, Reply};
 use doze_runtime::{Clock, Ctx};
 use doze_store::records::Records;
 use doze_store::{Ack, Db, StoreError};
 
 use crate::model::Parameter;
-use crate::seal::{self, Sealer};
+use aws_seal::{self as seal, Sealer};
 
 const FILE: &str = "ssm.redb";
 const PARAMS: &str = "params";
@@ -206,31 +203,7 @@ impl Core {
     }
 }
 
-/// The request as a typed view.
-pub(crate) fn request<S: Shape>(call: &Call) -> Result<View<'_, S>, ApiError> {
-    View::<S>::root(&call.arena, &call.body, call.root)
-        .ok_or_else(|| ApiError::internal("the request was not decoded"))
-}
-
-/// An answer, written by `fill`.
-pub(crate) fn reply<S>(fill: impl FnOnce(&mut Object<'_, S>)) -> Reply {
-    let mut arena = Arena::new();
-    let mut out = Object::<S>::root(&mut arena);
-    fill(&mut out);
-    let root = out.finish();
-    Ok(Output { arena, root })
-}
-
-/// An answer with nothing in it.
-pub(crate) fn empty() -> Reply {
-    Ok(Output {
-        arena: Arena::new(),
-        root: aws_schema::arena::NIL,
-    })
-}
-
-/// An operation's input that was left out. The model's `required` checks catch these first; this is for a member the model
-/// leaves optional that the operation cannot do without.
+/// A refusal that names the rule.
 pub(crate) fn validation(message: impl Into<String>) -> ApiError {
     ApiError::modeled("ValidationException", message)
 }

@@ -12,9 +12,10 @@ use aws_model_ssm::keys::{
 use aws_wire::ApiError;
 use aws_wire::service::{Call, Reply};
 
-use crate::core::{Core, empty, reply, request, validation};
+use crate::core::{Core, validation};
 use crate::model::{Kind, Parameter, Policy, Version};
 use crate::{name, policy};
+use aws_wire::handler::{empty, reply, request};
 
 const STANDARD_BYTES: usize = 4096;
 const ADVANCED_BYTES: usize = 8192;

@@ -10,6 +10,7 @@
 
 mod auth_error;
 mod error;
+pub mod handler;
 pub mod json;
 mod request_id;
 pub mod service;

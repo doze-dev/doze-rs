@@ -10,10 +10,11 @@ use aws_schema::view::View;
 use aws_wire::ApiError;
 use aws_wire::service::{Call, Reply};
 
-use crate::core::{Core, reply, request};
+use crate::core::Core;
 use crate::model::Parameter;
 use crate::read::{policy_of, seconds, shown};
 use crate::{name, page};
+use aws_wire::handler::{reply, request};
 
 /// Parameters with their names.
 type Rows<'a> = Vec<(&'a str, &'a Parameter)>;

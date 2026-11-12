@@ -39,6 +39,9 @@ pub(crate) async fn run(args: Args) -> Result<()> {
     let running = Gateway::new(config)
         .with(Arc::new(aws_sqs::Sqs::new(Arc::new(ctx("sqs")))))
         .with(Arc::new(aws_ssm::Ssm::new(Arc::new(ctx("ssm")))))
+        .with(Arc::new(aws_secrets::Secrets::new(Arc::new(ctx(
+            "secretsmanager",
+        )))))
         .bind()
         .await
         .with_context(|| format!("listening on {}", args.listen))?;

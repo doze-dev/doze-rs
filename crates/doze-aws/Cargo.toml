@@ -16,6 +16,7 @@ aws-auth = { path = "../aws-auth" }
 aws-gateway = { path = "../aws-gateway" }
 aws-sqs = { path = "../aws-sqs" }
 aws-ssm = { path = "../aws-ssm" }
+aws-secrets = { path = "../aws-secrets" }
 doze-runtime = { path = "../doze-runtime" }
 anyhow = "1"
 clap = { version = "4", features = ["derive"] }

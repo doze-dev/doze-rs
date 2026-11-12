@@ -10,7 +10,6 @@ mod name;
 mod page;
 mod policy;
 mod read;
-mod seal;
 mod tags;
 mod write;
 

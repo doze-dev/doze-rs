@@ -10,10 +10,11 @@ use aws_schema::build::Object;
 use aws_wire::ApiError;
 use aws_wire::service::{Call, Reply};
 
-use crate::core::{Core, reply, request};
+use crate::core::Core;
 use crate::model::{Parameter, Version};
 use crate::page;
 use crate::write::not_found;
+use aws_wire::handler::{reply, request};
 
 /// The most versions one page of history holds.
 const HISTORY_PAGE: usize = 50;
