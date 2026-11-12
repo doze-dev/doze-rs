@@ -239,7 +239,8 @@ impl Args {
             data_dir: &self.data_dir,
         })?;
         broker.users = sasl.users;
-        let (console, warnings) = self.console_rule(sasl.authenticator.is_some(), tls_on)?;
+        let (console, mut warnings) = self.console_rule(sasl.authenticator.is_some(), tls_on)?;
+        warnings.extend(tls::key_warning(self.tls_key.as_ref()));
         let server = ServerConfig {
             sasl: sasl.authenticator,
             #[cfg(feature = "tls")]

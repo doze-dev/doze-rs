@@ -200,3 +200,21 @@ fn a_secured_broker_with_no_user_anywhere_is_refused_and_one_with_stored_users_s
     assert!(said.contains("no credentials are configured"), "{said}");
     let _ = std::fs::remove_dir_all(&empty);
 }
+
+#[test]
+fn the_metadata_database_is_owner_only_and_an_open_one_from_an_earlier_build_is_narrowed() {
+    // SEC-193: the file holds the SCRAM salts and keys.
+    let data = scratch("db-mode");
+    let path = data.join("meta.redb");
+    let mode = || std::fs::metadata(&path).unwrap().permissions().mode() & 0o777;
+    let mut first = start_with(&data, &[]);
+    assert_eq!(mode(), 0o600);
+    assert!(first.terminate().success());
+    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o644)).unwrap();
+    let mut again = start_with(&data, &[]);
+    assert_eq!(mode(), 0o600);
+    assert!(again.terminate().success());
+    let log = again.log.lock().unwrap().clone();
+    assert!(log.contains("now readable by its owner only"), "{log}");
+    let _ = std::fs::remove_dir_all(&data);
+}

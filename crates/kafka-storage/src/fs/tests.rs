@@ -137,3 +137,46 @@ fn the_real_file_system_keeps_the_contract() {
 fn the_simulated_file_system_keeps_the_contract() {
     contract(&SimFs::new(), Path::new("/"));
 }
+
+/// A private file is made, and then found, as `open_or_create` does; on the real disk of a system with modes, only its
+/// owner can read it, and `restrict_to_owner` closes a file that was open (SEC-193).
+fn a_private_file_is_made_and_found_like_any<F: Fs>(fs: &F, root: &Path) -> PathBuf {
+    let path = root.join("secret");
+    let (file, created) = fs.open_or_create_private(&path).unwrap();
+    assert!(created);
+    file.write_all_at(b"keys", 0).unwrap();
+    let (again, created) = fs.open_or_create_private(&path).unwrap();
+    assert!(!created);
+    assert_eq!(again.size().unwrap(), 4);
+    path
+}
+
+#[test]
+fn the_simulated_file_system_makes_private_files_and_has_no_modes_to_narrow() {
+    let fs = SimFs::new();
+    let path = a_private_file_is_made_and_found_like_any(&fs, Path::new("/"));
+    assert!(!fs.restrict_to_owner(&path).unwrap());
+}
+
+#[cfg(unix)]
+#[test]
+fn a_private_file_on_the_real_disk_is_owner_only_and_an_open_one_is_narrowed() {
+    use std::os::unix::fs::PermissionsExt;
+    let scratch = Scratch::new();
+    let path = a_private_file_is_made_and_found_like_any(&RealFs, &scratch.0);
+    let mode = |p: &Path| std::fs::metadata(p).unwrap().permissions().mode() & 0o777;
+    assert_eq!(mode(&path), 0o600);
+    assert!(
+        !RealFs.restrict_to_owner(&path).unwrap(),
+        "nothing to narrow"
+    );
+    // An ordinary file keeps the umask's mode, and is narrowed on request; a missing one is an error.
+    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o664)).unwrap();
+    assert!(RealFs.restrict_to_owner(&path).unwrap());
+    assert_eq!(mode(&path), 0o600);
+    assert!(
+        RealFs
+            .restrict_to_owner(&scratch.0.join("nowhere"))
+            .is_err()
+    );
+}

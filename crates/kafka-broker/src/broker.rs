@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use kafka_meta::MetaStore;
+use kafka_meta::{FileMode, MetaStore};
 use kafka_storage::Trust;
 use kafka_storage::fs::{Fs, RealFs};
 use kafka_storage::marker::{StopState, record_clean_stop};
@@ -107,6 +107,15 @@ impl<F: Fs> Broker<F> {
     pub fn open(fs: F, config: Config) -> Result<Self, BrokerError> {
         kafka_storage::fs::create_dirs_durably(&fs, &config.data_dir)?;
         let meta = Arc::new(MetaStore::open(&fs, &config.data_dir)?);
+        match meta.file_mode() {
+            FileMode::Private => {}
+            FileMode::Narrowed => tracing::info!(
+                "the metadata database (it holds SCRAM keys) was readable by group or others and is now readable by its owner only"
+            ),
+            FileMode::Wide => tracing::warn!(
+                "the metadata database (it holds SCRAM keys) is readable by group or others and could not be narrowed: run chmod 600 on meta.redb"
+            ),
+        }
         // Read, and removed before anything is written: a marker that came back after a power cut would vouch for a
         // log this run was in the middle of writing.
         let stop = StopState::begin(&fs, &config.data_dir)?;
