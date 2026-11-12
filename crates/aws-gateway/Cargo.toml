@@ -16,6 +16,7 @@ serde_json = "1"
 aws-schema = { path = "../aws-schema" }
 aws-auth = { path = "../aws-auth" }
 aws-wire = { path = "../aws-wire" }
+aws-core = { path = "../aws-core" }
 doze-runtime = { path = "../doze-runtime" }
 bytes = "1"
 http = "1"

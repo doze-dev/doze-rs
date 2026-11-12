@@ -9,7 +9,7 @@ use serde_json::Value;
 use crate::{ApiError, Fault, RequestId};
 
 mod form;
-mod xml;
+pub(crate) mod xml;
 
 pub use form::{parse_form, to_json};
 

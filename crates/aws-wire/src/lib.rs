@@ -13,6 +13,7 @@ mod error;
 pub mod handler;
 pub mod json;
 pub mod query;
+pub mod rest;
 mod request_id;
 pub mod service;
 

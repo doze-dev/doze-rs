@@ -29,6 +29,17 @@ pub struct Changes {
 }
 
 impl Changes {
+    /// Rows written straight to `table`, for a service that keeps a table too large to hold in memory and reads it with
+    /// [`Db::scan`](crate::Db::scan): the bytes of each row are the caller's (see [`record::encode`]).
+    #[must_use]
+    pub fn of_rows(table: &'static str, puts: Vec<(String, Vec<u8>)>, deletes: Vec<String>) -> Self {
+        Self {
+            table,
+            puts,
+            deletes,
+        }
+    }
+
     /// Whether there is nothing to write.
     #[must_use]
     pub fn is_empty(&self) -> bool {

@@ -12,10 +12,11 @@ use aws_schema::patterns::Patterns;
 use aws_wire::service::{Call, Caller, Service};
 use aws_wire::{ApiError, Family, RequestId, from_auth, json};
 use bytes::Bytes;
+use crate::body::RespBody;
 use doze_runtime::{Clock, SystemClock};
 use http::Response;
 use http::request::Parts;
-use http_body_util::{BodyExt, Full, Limited};
+use http_body_util::{BodyExt, Limited};
 use hyper::body::Incoming;
 
 use crate::{Auth, Config};
@@ -24,6 +25,24 @@ use crate::{Auth, Config};
 pub(crate) struct Entry {
     pub(crate) service: std::sync::Arc<dyn Service>,
     pub(crate) patterns: Patterns,
+    /// The routes of a REST service, built when its first request arrives.
+    pub(crate) routes: std::sync::OnceLock<aws_wire::rest::route::Router>,
+}
+
+impl Entry {
+    pub(crate) fn new(service: std::sync::Arc<dyn Service>) -> Self {
+        Self {
+            patterns: Patterns::new(service.tables()),
+            service,
+            routes: std::sync::OnceLock::new(),
+        }
+    }
+
+    /// The routes of the service's model.
+    pub(crate) fn router(&self, tables: &aws_schema::tables::Tables) -> &aws_wire::rest::route::Router {
+        self.routes
+            .get_or_init(|| aws_wire::rest::route::Router::new(tables))
+    }
 }
 
 /// What every request handler shares.
@@ -72,14 +91,22 @@ pub(crate) type Fail = Box<Out>;
 pub(crate) async fn respond(
     shared: &Shared,
     req: http::Request<Incoming>,
-) -> Response<Full<Bytes>> {
+) -> Response<RespBody> {
     let id = RequestId::new();
     let (parts, body) = req.into_parts();
+    // A REST service (S3) streams its bodies and words its errors its own way, so it has its own path.
+    if let Ok(Some(claim)) = Claim::parse(&parts)
+        && let Some(entry) = shared
+            .entry(&claim.service)
+            .filter(|e| e.service.meta().speaks(Protocol::RestXml))
+    {
+        return crate::rest::respond(shared, entry, &id, &parts, body, claim).await;
+    }
     let out = match handle(shared, &id, &parts, body).await {
         Ok(out) => out,
         Err(out) => *out,
     };
-    out.map(|b| Full::new(Bytes::from(b)))
+    out.map(RespBody::whole)
 }
 
 async fn handle(
@@ -212,7 +239,7 @@ pub(crate) fn authenticate(
     };
     let endpoint = Endpoint {
         signing_name: entry.service.meta().signing_name,
-        s3: false,
+        s3: signing_name == "s3",
         max_skew_secs: shared.config.max_skew_secs,
     };
     let now = SystemClock.now_ms() / 1000;
