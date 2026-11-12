@@ -94,6 +94,17 @@ async fn ready_now(r: &Ready, log: &Path) -> Result<bool, String> {
     })
 }
 
+/// What a log says about an exit: from a Go panic's first line (its message, which a stack's tail never has),
+/// else the last lines, in order.
+fn why_it_exited(text: &str) -> String {
+    let lines: Vec<&str> = text.lines().collect();
+    let from = lines
+        .iter()
+        .rposition(|l| l.starts_with("panic:") || l.starts_with("fatal error:") || l.starts_with("Error:"))
+        .unwrap_or(lines.len().saturating_sub(5));
+    lines.iter().skip(from).take(8).copied().collect::<Vec<_>>().join(" | ")
+}
+
 async fn wait_ready(
     p: &Process,
     tree: &mut Tree,
@@ -111,11 +122,11 @@ async fn wait_ready(
     let t0 = Instant::now();
     loop {
         if let Some(st) = tree.try_wait().map_err(|e| e.to_string())? {
-            let tail = std::fs::read_to_string(log).unwrap_or_default();
+            let text = std::fs::read_to_string(log).unwrap_or_default();
             return Err(format!(
                 "{} exited before it was ready ({st}): {}",
                 p.name,
-                tail.lines().rev().take(5).collect::<Vec<_>>().join(" | ")
+                why_it_exited(&text)
             ));
         }
         if ready_now(ready, log).await? {
