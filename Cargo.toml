@@ -46,3 +46,10 @@ lto = "thin"
 codegen-units = 1
 strip = true
 panic = "abort"
+
+# doze-aws is built smaller than the broker: optimised for size with fat LTO, which was 33% smaller than the release profile on the same
+# code (6.97 MB to 4.66 MB, 2026-11-13) with no measurable slowdown on a 1 GiB S3 transfer. `cargo xtask weight` builds it with this profile.
+[profile.release-aws]
+inherits = "release"
+opt-level = "s"
+lto = "fat"

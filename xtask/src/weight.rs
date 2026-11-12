@@ -136,15 +136,25 @@ fn breaches(m: &Measure, limit: &Limit) -> Vec<String> {
     out
 }
 
+/// The build profile a package is weighed in: doze-aws has its own, smaller one (see the workspace `Cargo.toml`).
+fn profile_of(package: &str) -> &'static str {
+    if package == "doze-aws" {
+        "release-aws"
+    } else {
+        "release"
+    }
+}
+
 fn measure(limit: &Limit) -> Result<Measure, String> {
+    let profile = profile_of(&limit.package);
     let status = Command::new("cargo")
-        .args(["build", "--release", "-p", &limit.package])
+        .args(["build", "--profile", profile, "-p", &limit.package])
         .status()
         .map_err(|e| format!("cargo build: {e}"))?;
     if !status.success() {
         return Err("release build failed".to_string());
     }
-    let binary = Path::new("target/release").join(&limit.package);
+    let binary = Path::new("target").join(profile).join(&limit.package);
     let bytes = fs::metadata(&binary)
         .map_err(|e| format!("{}: {e}", binary.display()))?
         .len();

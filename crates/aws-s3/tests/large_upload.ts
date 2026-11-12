@@ -1,7 +1,7 @@
 // The flat-memory gate for large objects: streams SIZE_MIB of data into S3 and back out through a release doze-aws, sampling the
 // server's resident memory the whole time, and fails if it grew by more than LIMIT_MIB over where it started.
 //
-//   bun crates/aws-s3/tests/large_upload.ts target/release/doze-aws [size_mib=1024] [limit_mib=64]
+//   bun crates/aws-s3/tests/large_upload.ts target/release-aws/doze-aws [size_mib=1024] [limit_mib=64]
 //
 // The data is generated as it is sent and hashed as it comes back, so neither the client nor the server holds the object.
 
