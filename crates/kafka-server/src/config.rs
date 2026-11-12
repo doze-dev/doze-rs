@@ -21,6 +21,10 @@ pub struct Timeouts {
     /// Only a broker with SASL on applies it to the login. With TLS on, the handshake is held to the same budget
     /// whether or not SASL is on, and the login has what is left of it.
     pub pre_auth: Duration,
+    /// How long a failed login waits before it is answered, to make guessing a password slow
+    /// (`connection.failed.authentication.delay.ms`, 100 ms in Kafka). Every login that is answered
+    /// SASL_AUTHENTICATION_FAILED waits; a close with no answer, and any other answer, does not. Zero answers at once.
+    pub failed_login: Duration,
 }
 
 impl Default for Timeouts {
@@ -30,6 +34,7 @@ impl Default for Timeouts {
             frame: Duration::from_secs(30),
             write: Duration::from_secs(30),
             pre_auth: Duration::from_secs(30),
+            failed_login: Duration::from_millis(100),
         }
     }
 }

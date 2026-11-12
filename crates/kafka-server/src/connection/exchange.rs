@@ -57,10 +57,13 @@ pub(super) async fn exchange<S: AsyncWrite + Unpin, F: Fs>(
         return Ok(());
     };
     let fate = answer.fate;
+    if fate == Fate::Failed {
+        failed_login_delay(ctx, stop).await?;
+    }
     write(stream, ctx, answer).await?;
     match fate {
         Fate::Open => Ok(()),
-        Fate::Closing => {
+        Fate::Closing | Fate::Failed => {
             hang_up(stream, ctx).await;
             Err(End::LoginFailed)
         }
@@ -172,6 +175,17 @@ fn open(id: i32, version: i16, response: Response) -> Answer {
         version,
         response,
         fate: Fate::Open,
+    }
+}
+
+/// Waits the failed-login delay before a refusal is answered (SEC-192); a stop does not wait for it.
+async fn failed_login_delay<F: Fs>(ctx: &Context<F>, stop: &CancellationToken) -> Result<(), End> {
+    if ctx.timeouts.failed_login.is_zero() {
+        return Ok(());
+    }
+    tokio::select! {
+        () = tokio::time::sleep(ctx.timeouts.failed_login) => Ok(()),
+        () = stop.cancelled() => Err(End::Stopped),
     }
 }
 

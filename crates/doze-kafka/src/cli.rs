@@ -14,7 +14,7 @@ use std::time::Duration;
 use anyhow::{Result, bail};
 use clap::{Parser, ValueEnum};
 use kafka_broker::{Config as BrokerConfig, Defaults};
-use kafka_server::Config as ServerConfig;
+use kafka_server::{Config as ServerConfig, Timeouts};
 use kafka_wire::profile::{KafkaMajor, Profile};
 
 use crate::duration;
@@ -119,6 +119,10 @@ pub(crate) struct Args {
     /// from these are re-applied at every start, never stored, and cannot be changed over the API.
     #[arg(long, value_name = "FILE")]
     sasl_users_file: Option<PathBuf>,
+    /// How long a failed login waits before it is answered, to make guessing passwords slow (Kafka's
+    /// connection.failed.authentication.delay.ms, 100ms; 0 = at once). Applies to every login that is refused.
+    #[arg(long, default_value = "100ms", value_parser = duration::parse)]
+    sasl_failed_login_delay: Duration,
 
     /// What a resource that no ACL covers allows: allow (the default, so that a broker with no ACLs refuses nothing)
     /// or deny (Kafka's own default). ACLs you create are enforced either way. With SASL on, allow means every
@@ -244,6 +248,10 @@ impl Args {
             advertised_host: self.advertised_host.clone(),
             advertised_port: self.advertised_port,
             profile: Profile::new(major),
+            timeouts: Timeouts {
+                failed_login: self.sasl_failed_login_delay,
+                ..Timeouts::default()
+            },
             ..ServerConfig::default()
         };
         Ok(Settings {

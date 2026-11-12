@@ -62,3 +62,19 @@ fn no_password_from_any_source_is_in_a_debug_output() {
         "{shown}"
     );
 }
+
+#[test]
+fn the_failed_login_delay_is_kafkas_hundred_milliseconds_unless_the_flag_says_otherwise() {
+    // SEC-192.
+    let delay = |flags: &[&str]| settings(flags, None).unwrap().server.timeouts.failed_login;
+    assert_eq!(delay(&[]), std::time::Duration::from_millis(100));
+    assert_eq!(
+        delay(&["--sasl-failed-login-delay", "2s"]),
+        std::time::Duration::from_secs(2)
+    );
+    assert_eq!(
+        delay(&["--sasl-failed-login-delay", "0"]),
+        std::time::Duration::ZERO
+    );
+    assert!(args(&["--sasl-failed-login-delay", "soon"]).is_err());
+}

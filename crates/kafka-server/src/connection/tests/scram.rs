@@ -30,7 +30,7 @@ fn needing_scram(timeouts: Timeouts) -> Context<SimFs> {
     ctx
 }
 
-fn start_scram(
+pub(super) fn start_scram(
     timeouts: Timeouts,
 ) -> (
     DuplexStream,
@@ -47,13 +47,13 @@ fn start_scram(
     (client, task, stop)
 }
 
-fn handshake(id: i32, mechanism: &'static str) -> Bytes {
+pub(super) fn handshake(id: i32, mechanism: &'static str) -> Bytes {
     let mut body = SaslHandshakeRequest::default();
     body.mechanism = StrBytes::from_static_str(mechanism);
     framed(&request_payload(ApiKey::SaslHandshake, 1, id, None, &body))
 }
 
-fn token(id: i32, bytes: &[u8]) -> Bytes {
+pub(super) fn token(id: i32, bytes: &[u8]) -> Bytes {
     let mut body = SaslAuthenticateRequest::default();
     body.auth_bytes = Bytes::copy_from_slice(bytes);
     framed(&request_payload(
@@ -65,7 +65,7 @@ fn token(id: i32, bytes: &[u8]) -> Bytes {
     ))
 }
 
-async fn read_frame(client: &mut DuplexStream) -> Bytes {
+pub(super) async fn read_frame(client: &mut DuplexStream) -> Bytes {
     let mut len = [0; 4];
     client.read_exact(&mut len).await.unwrap();
     let mut payload = vec![0; u32::from_be_bytes(len) as usize];
@@ -73,14 +73,18 @@ async fn read_frame(client: &mut DuplexStream) -> Bytes {
     Bytes::from(payload)
 }
 
-async fn read_token(client: &mut DuplexStream) -> SaslAuthenticateResponse {
+pub(super) async fn read_token(client: &mut DuplexStream) -> SaslAuthenticateResponse {
     let mut payload = read_frame(client).await;
     let _id_and_tags = payload.split_to(5);
     SaslAuthenticateResponse::decode(&mut payload, 2).unwrap()
 }
 
 /// The handshake and the first token: the server-first message.
-async fn challenge(client: &mut DuplexStream, kind: Kind, me: &Client) -> SaslAuthenticateResponse {
+pub(super) async fn challenge(
+    client: &mut DuplexStream,
+    kind: Kind,
+    me: &Client,
+) -> SaslAuthenticateResponse {
     client
         .write_all(&handshake(1, kind.mechanism().name()))
         .await

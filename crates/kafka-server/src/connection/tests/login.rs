@@ -22,7 +22,7 @@ fn needing_login(timeouts: Timeouts) -> Context<SimFs> {
     ctx
 }
 
-fn start_login(
+pub(super) fn start_login(
     timeouts: Timeouts,
 ) -> (
     DuplexStream,
@@ -39,13 +39,13 @@ fn start_login(
     (client, task, stop)
 }
 
-fn handshake(id: i32) -> Bytes {
+pub(super) fn handshake(id: i32) -> Bytes {
     let mut body = SaslHandshakeRequest::default();
     body.mechanism = StrBytes::from_static_str("PLAIN");
     framed(&request_payload(ApiKey::SaslHandshake, 1, id, None, &body))
 }
 
-fn token(id: i32, bytes: &'static [u8]) -> Bytes {
+pub(super) fn token(id: i32, bytes: &'static [u8]) -> Bytes {
     let mut body = SaslAuthenticateRequest::default();
     body.auth_bytes = Bytes::from_static(bytes);
     framed(&request_payload(
@@ -58,7 +58,7 @@ fn token(id: i32, bytes: &'static [u8]) -> Bytes {
 }
 
 /// The answer to a SaslAuthenticate v2: its error code.
-async fn read_token_answer(client: &mut DuplexStream) -> i16 {
+pub(super) async fn read_token_answer(client: &mut DuplexStream) -> i16 {
     let mut len = [0; 4];
     client.read_exact(&mut len).await.unwrap();
     let mut payload = vec![0; u32::from_be_bytes(len) as usize];
