@@ -28,7 +28,8 @@ pub struct ClientsView {
 }
 
 /// Home's strip: who has spoken.
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct SpokeView {
     /// Distinct client ids seen since the broker started (those the ring still knows), and requests in the window.
     pub apps: usize,

@@ -28,7 +28,7 @@ async fn console() -> Running {
 async fn open(addr: SocketAddr, query: &str) -> TcpStream {
     let mut s = TcpStream::connect(addr).await.unwrap();
     let req = format!(
-        "GET /events?{query} HTTP/1.1\r\nHost: {addr}\r\nAccept: text/event-stream\r\n\r\n"
+        "GET /classic/events?{query} HTTP/1.1\r\nHost: {addr}\r\nAccept: text/event-stream\r\n\r\n"
     );
     s.write_all(req.as_bytes()).await.unwrap();
     s

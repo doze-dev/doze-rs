@@ -14,7 +14,11 @@ use super::*;
 fn home_of(addr: &str) -> String {
     let port = addr.rsplit(':').next().unwrap();
     let host = format!("127.0.0.1:{port}");
-    http(&host, &format!("GET / HTTP/1.1\r\nHost: {host}"), "")
+    http(
+        &host,
+        &format!("GET /classic/ HTTP/1.1\r\nHost: {host}"),
+        "",
+    )
 }
 
 #[test]
@@ -56,7 +60,11 @@ fn the_banner_shows_with_sasl_and_unprotected_and_is_absent_on_loopback() {
     let data = scratch("console-no-banner");
     let mut broker = start(&data);
     let addr = console_addr(&broker);
-    let home = http(&addr, &format!("GET / HTTP/1.1\r\nHost: {addr}"), "");
+    let home = http(
+        &addr,
+        &format!("GET /classic/ HTTP/1.1\r\nHost: {addr}"),
+        "",
+    );
     assert!(home.starts_with("HTTP/1.1 200"), "{home}");
     assert!(!home.contains("Served beyond loopback"), "{home}");
     assert!(broker.terminate().success());

@@ -14,7 +14,7 @@ use axum::http::{HeaderMap, Method, Request, StatusCode, header};
 use support::{HOST, app, get, head, post, send};
 
 /// The policy, written out in full here and not read from the code under test.
-const CSP: &str = "default-src 'self'; style-src 'self' 'unsafe-inline'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'";
+const CSP: &str = "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'";
 
 fn assert_all_five(h: &HeaderMap, what: &str) {
     assert_eq!(h[header::CONTENT_SECURITY_POLICY], CSP, "{what}: CSP");

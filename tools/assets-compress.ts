@@ -62,6 +62,12 @@ export function plain(name: string): Uint8Array {
   return new TextEncoder().encode(text);
 }
 
+/** The compression every embedded text file gets (the classic assets here, the React bundle in web/scripts/build.ts): level 9 and
+ * the largest memory level, the best zlib offers; the header carries no time, so the file is reproducible. */
+export function pack(bytes: Uint8Array): Uint8Array {
+  return gzipSync(bytes, { level: 9, memLevel: 9 });
+}
+
 function main(): number {
   const check = process.argv.includes("--check");
   let stale = 0;
@@ -76,8 +82,7 @@ function main(): number {
       }
       continue;
     }
-    // Level 9 and the largest memory level: the best zlib offers; the header carries no time, so the file is reproducible.
-    const packed = gzipSync(want, { level: 9, memLevel: 9 });
+    const packed = pack(want);
     writeFileSync(path, packed);
     console.log(`${name}: ${want.length} -> ${packed.length} B`);
   }

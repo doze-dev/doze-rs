@@ -41,9 +41,11 @@ async fn follow(
 async fn open(addr: std::net::SocketAddr, query: &str, last_event_id: Option<&str>) -> TcpStream {
     let mut s = TcpStream::connect(addr).await.unwrap();
     let id = last_event_id.map_or(String::new(), |i| format!("Last-Event-ID: {i}\r\n"));
-    s.write_all(format!("GET /events?{query} HTTP/1.1\r\nHost: {addr}\r\n{id}\r\n").as_bytes())
-        .await
-        .unwrap();
+    s.write_all(
+        format!("GET /classic/events?{query} HTTP/1.1\r\nHost: {addr}\r\n{id}\r\n").as_bytes(),
+    )
+    .await
+    .unwrap();
     s
 }
 

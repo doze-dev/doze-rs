@@ -17,7 +17,13 @@ use crate::ui::shell::{Crumb, Page, Rail, document_over};
 #[derive(Debug)]
 pub struct State {
     pub source: Source,
+    /// Where the classic (server-rendered) console lives: `{prefix}/classic` in the binary until slice R5, the root in the
+    /// tests that build [`crate::app::router`] alone.
     pub base: Base,
+    /// The console's root (`--console-prefix`): the React console, its API and its files are under it.
+    pub web: Base,
+    /// The React console's built files.
+    pub bundle: crate::web::Bundle,
     pub assets: Assets,
     /// Cancelled when the console is told to stop: every open stream ends with it.
     pub stop: CancellationToken,
@@ -41,6 +47,20 @@ impl State {
         Self::with_limits(source, base, allow_hosts, stop, &Limits::default())
     }
 
+    /// The state of the whole console served at `web` (`--console-prefix`): the React console at the root, the classic one
+    /// under `/classic`.
+    #[must_use]
+    pub fn console(
+        source: Source,
+        web: &Base,
+        allow_hosts: Vec<String>,
+        stop: CancellationToken,
+        limits: &Limits,
+    ) -> Shared {
+        let classic = Base::new(&web.url("/classic"));
+        Self::build(source, classic, web.clone(), allow_hosts, stop, limits)
+    }
+
     /// [`State::new`] with the limits given.
     #[must_use]
     pub fn with_limits(
@@ -50,10 +70,24 @@ impl State {
         stop: CancellationToken,
         limits: &Limits,
     ) -> Shared {
+        let web = base.clone();
+        Self::build(source, base, web, allow_hosts, stop, limits)
+    }
+
+    fn build(
+        source: Source,
+        base: Base,
+        web: Base,
+        allow_hosts: Vec<String>,
+        stop: CancellationToken,
+        limits: &Limits,
+    ) -> Shared {
         Arc::new(Self {
             assets: Assets::build(&base),
+            bundle: crate::web::Bundle::build(&web),
             source,
             base,
+            web,
             stop,
             allow_hosts,
             streams: Arc::new(Semaphore::new(limits.max_streams)),

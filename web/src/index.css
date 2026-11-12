@@ -1,0 +1,152 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* The doze kit's tokens (crates/kafka-console/design/kit/paper.css: the light violet "Paper" theme) mapped onto shadcn's
+   variables. One theme: the console has no dark mode (canvas corrections, 2026-11-12). */
+
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("./fonts/inter-latin-wght-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url("./fonts/jetbrains-mono-latin-400-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 500;
+  src: url("./fonts/jetbrains-mono-latin-500-normal.woff2") format("woff2");
+}
+
+:root {
+  --radius: 0.625rem; /* 10 px: the kit's buttons and fields */
+
+  /* the kit: --bg, --panel, --text, --bright, --dim, --line, --line2, --well, --accent, --sel, --pick, --track */
+  --background: #fbfaff;
+  --foreground: #3a3550;
+  --card: #ffffff;
+  --card-foreground: #3a3550;
+  --popover: #ffffff;
+  --popover-foreground: #3a3550;
+  --primary: #7a4fe0;
+  --primary-foreground: #ffffff;
+  --secondary: #f6f4fb;
+  --secondary-foreground: #17141f;
+  --muted: #f6f4fb;
+  --muted-foreground: #6f6888;
+  --accent: #ece6fb;
+  --accent-foreground: #17141f;
+  --destructive: #cc3550;
+  --border: #e4e0f0;
+  --input: #d4cde6;
+  --ring: #7a4fe0;
+
+  --bright: #17141f;
+  --good: #17773f;
+  --warn: #9a6400;
+  --cool: #2f62d9;
+  --bad: #cc3550;
+  --refused: #a3279a;
+  --pick: #e3d9ff;
+  --track: #ece8f5;
+  --well: #f6f4fb;
+
+  --sidebar: #f3f1fa;
+  --sidebar-foreground: #3a3550;
+  --sidebar-primary: #7a4fe0;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #ece6fb;
+  --sidebar-accent-foreground: #17141f;
+  --sidebar-border: #e4e0f0;
+  --sidebar-ring: #7a4fe0;
+}
+
+@theme inline {
+  --font-sans: "Inter", -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-bright: var(--bright);
+  --color-good: var(--good);
+  --color-warn: var(--warn);
+  --color-cool: var(--cool);
+  --color-bad: var(--bad);
+  --color-refused: var(--refused);
+  --color-pick: var(--pick);
+  --color-track: var(--track);
+  --color-well: var(--well);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    /* The scrollbar's gutter is always kept, so an overlay that locks the scroll does not shift the page. */
+    scrollbar-gutter: stable;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-size: 14px;
+    line-height: 1.5;
+    font-optical-sizing: auto;
+  }
+  h1, h2, h3 {
+    text-wrap: balance;
+  }
+  p {
+    text-wrap: pretty;
+  }
+  code, kbd, samp, pre {
+    @apply font-mono;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

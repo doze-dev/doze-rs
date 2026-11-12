@@ -60,7 +60,7 @@ pub async fn events(
 }
 
 /// Whether the client lists `gzip` in `Accept-Encoding` with a quality above zero (`*` counts).
-fn accepts_gzip(headers: &HeaderMap) -> bool {
+pub(crate) fn accepts_gzip(headers: &HeaderMap) -> bool {
     headers
         .get(ACCEPT_ENCODING)
         .and_then(|v| v.to_str().ok())
@@ -91,13 +91,26 @@ pub async fn static_file(
     let Some(f) = s.assets.get(&name) else {
         return StatusCode::NOT_FOUND.into_response();
     };
-    let gzip = f.gzip && accepts_gzip(&headers);
+    packed(f, &name, "public, max-age=31536000, immutable", &headers)
+}
+
+/// One embedded file as an answer: the gzip bytes as they are to a client that accepts gzip, inflated for any other (under
+/// a tag of its own), a 304 for a tag the client already has. `name` makes the ETag; `cache` is the Cache-Control. Used by
+/// the classic console's files and by the React bundle (`crate::web`).
+#[must_use]
+pub fn packed(
+    f: &crate::assets::Served,
+    name: &str,
+    cache: &'static str,
+    headers: &HeaderMap,
+) -> Response {
+    let gzip = f.gzip && accepts_gzip(headers);
     let tag = if f.gzip && !gzip {
         format!("\"{name}.identity\"")
     } else {
         format!("\"{name}\"")
     };
-    let mut res = if super::has_tag(&headers, &tag) {
+    let mut res = if super::has_tag(headers, &tag) {
         StatusCode::NOT_MODIFIED.into_response()
     } else if f.gzip && !gzip {
         match f.inflated() {
@@ -115,10 +128,7 @@ pub async fn static_file(
             h.insert(CONTENT_ENCODING, HeaderValue::from_static("gzip"));
         }
     }
-    h.insert(
-        CACHE_CONTROL,
-        HeaderValue::from_static("public, max-age=31536000, immutable"),
-    );
+    h.insert(CACHE_CONTROL, HeaderValue::from_static(cache));
     h.insert(ACCEPT_RANGES, HeaderValue::from_static("none"));
     if let Ok(v) = HeaderValue::from_str(&tag) {
         h.insert(ETAG, v);

@@ -40,8 +40,16 @@ tracing = "0.1"
 # expose). Both are already in the tree through axum; this asks for nothing new from them (the features are axum's).
 hyper = { version = "1", default-features = false, features = ["http1", "server"] }
 hyper-util = { version = "0.1", default-features = false, features = ["tokio", "server", "service"] }
+# The JSON API of the React console (docs/port/console/react-plan.md): both are already in the default build through
+# tracing-subscriber, so they add no package.
+serde = { version = "1", default-features = false, features = ["std", "derive"] }
+serde_json = "1"
+# `oneshot` to hand a request to the classic router from the console's fallback; already in the tree through axum.
+tower = { version = "0.5", default-features = false, features = ["util"] }
 
 [dev-dependencies]
+# TypeScript types of the JSON API, written by a test into web/src/api/types (a stale file fails the test).
+ts-rs = "12"
 # The request types a raw test client encodes.
 kafka-protocol = { version = "0.18", default-features = false, features = ["client"] }
 # Batches to walk in the tests of the record reader.

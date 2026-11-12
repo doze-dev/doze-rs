@@ -126,9 +126,11 @@ async fn the_stream_of_a_secured_console_carries_a_ready_and_nothing_else() {
     .unwrap();
     let addr = running.local_addr();
     let mut c = tokio::net::TcpStream::connect(addr).await.unwrap();
-    c.write_all(format!("GET /events?tail=live HTTP/1.1\r\nHost: {addr}\r\n\r\n").as_bytes())
-        .await
-        .unwrap();
+    c.write_all(
+        format!("GET /classic/events?tail=live HTTP/1.1\r\nHost: {addr}\r\n\r\n").as_bytes(),
+    )
+    .await
+    .unwrap();
     let mut text = String::new();
     let mut buf = [0_u8; 1024];
     while !text.contains("event: ready") {

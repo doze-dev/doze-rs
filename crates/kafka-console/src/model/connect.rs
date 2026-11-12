@@ -1,7 +1,9 @@
 //! The view-models of Connect and of the advertised-listener check.
 
 /// A run of text in a sentence: plain, or in the monospace face (a name, an address).
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(tag = "kind", content = "text", rename_all = "snake_case")]
 pub enum Span {
     Text(String),
     Mono(String),
@@ -24,7 +26,8 @@ impl Span {
 }
 
 /// One line of the checklist: a verdict, what was checked, what was done to check it, and the figure beside it.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct Rule {
     pub ok: bool,
     pub title: String,
@@ -34,7 +37,9 @@ pub struct Rule {
 }
 
 /// What the three rules add up to.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "snake_case")]
 pub enum Verdict {
     Reachable,
     NotReachable,
@@ -43,7 +48,8 @@ pub enum Verdict {
 }
 
 /// The advertised-listener check, as every page that shows it needs it.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct ProbeView {
     pub verdict: Verdict,
     pub rules: Vec<Rule>,
@@ -58,7 +64,8 @@ pub struct ProbeView {
 }
 
 /// What a client needs to log in, as far as the page says it.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct Access {
     /// The word of the security chip: `Open`, `SASL SCRAM · ACLs + TLS`.
     pub label: String,
@@ -69,7 +76,8 @@ pub struct Access {
 }
 
 /// One client's snippet: its name, the language tag and the code with the address in it.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct ClientSnippet {
     pub name: &'static str,
     pub tag: &'static str,
@@ -78,7 +86,9 @@ pub struct ClientSnippet {
 }
 
 /// A colour class of a snippet token.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "snake_case")]
 pub enum Tok {
     Plain,
     Keyword,
@@ -87,7 +97,8 @@ pub enum Tok {
 }
 
 /// The Connect page.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct ConnectView {
     pub listen: String,
     pub loopback: bool,
