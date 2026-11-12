@@ -13,6 +13,8 @@
 //! Every name resolves to an address of its own ([`pool`]), which is what lets each service hold its canonical port:
 //! every Kafka on 9092, every local AWS on 80.
 
+pub mod ca;
+mod ca_cert;
 pub mod claims;
 pub mod domains;
 pub mod error;

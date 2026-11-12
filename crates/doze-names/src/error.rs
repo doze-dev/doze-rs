@@ -34,6 +34,8 @@ pub enum Error {
     PoolFull(String),
     /// The name is not this process's to change.
     NotHeld(String),
+    /// The certificate authority could not be made, read or used.
+    Ca(String),
     /// Reading or writing the registry failed.
     Io(std::io::Error),
 }
@@ -71,6 +73,7 @@ impl fmt::Display for Error {
                 "every address in {cidr} is in use by a running doze service"
             ),
             Error::NotHeld(host) => write!(f, "{host} is not held by this process"),
+            Error::Ca(why) => write!(f, "the doze certificate authority: {why}"),
             Error::Io(e) => write!(f, "the names registry: {e}"),
         }
     }
