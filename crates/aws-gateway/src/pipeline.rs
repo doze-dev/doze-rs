@@ -94,6 +94,31 @@ impl Shared {
             .get(signing_name)
             .and_then(|&i| self.entries.get(i))
     }
+
+    /// The REST service a request signed as `signing_name` is for. Two models can share a signing name (API Gateway's REST and
+    /// HTTP APIs both sign as `apigateway`): the one whose routes take the method and path is the one; otherwise the last registered.
+    pub(crate) fn rest_entry(&self, signing_name: &str, parts: &Parts) -> Option<&Entry> {
+        let mut same = self
+            .entries
+            .iter()
+            .filter(|e| e.service.meta().signing_name == signing_name);
+        let first = same.next()?;
+        let Some(second) = same.next() else {
+            return Some(first);
+        };
+        let query = crate::presign::pairs(parts.uri.query().unwrap_or_default());
+        [first, second]
+            .into_iter()
+            .chain(same)
+            .find(|e| {
+                e.router(e.service.tables())
+                    .find(parts.method.as_str(), parts.uri.path(), &query, |h| {
+                        parts.headers.contains_key(h)
+                    })
+                    .is_some()
+            })
+            .or_else(|| self.entry(signing_name))
+    }
 }
 
 pub(crate) type Out = Response<Vec<u8>>;
@@ -127,7 +152,7 @@ pub(crate) async fn respond(shared: &Shared, req: http::Request<Incoming>) -> Re
             .flatten()
     });
     if let Some(claim) = claim
-        && let Some(entry) = shared.entry(&claim.service).filter(|e| {
+        && let Some(entry) = shared.rest_entry(&claim.service, &parts).filter(|e| {
             let meta = e.service.meta();
             meta.speaks(Protocol::RestXml) || meta.speaks(Protocol::RestJson1)
         })

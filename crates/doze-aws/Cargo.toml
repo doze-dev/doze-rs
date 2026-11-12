@@ -27,6 +27,7 @@ aws-logs = { path = "../aws-logs" }
 aws-cloudwatch = { path = "../aws-cloudwatch" }
 aws-eventbridge = { path = "../aws-eventbridge" }
 aws-lambda = { path = "../aws-lambda" }
+aws-apigateway = { path = "../aws-apigateway" }
 aws-peers = { path = "../aws-peers" }
 aws-wire = { path = "../aws-wire" }
 doze-runtime = { path = "../doze-runtime" }

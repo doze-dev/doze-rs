@@ -146,6 +146,33 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f2032f911046de80f0a198e0901378627c33f59ea0ac00e363d481118bd70a53"
 
 [[package]]
+name = "aws-apigateway"
+version = "0.0.0"
+dependencies = [
+ "aws-auth",
+ "aws-core",
+ "aws-iam-policy",
+ "aws-model-api-gateway",
+ "aws-model-apigatewayv2",
+ "aws-peers",
+ "aws-schema",
+ "aws-testkit",
+ "aws-wire",
+ "bytes",
+ "doze-runtime",
+ "doze-store",
+ "getrandom 0.4.3",
+ "http",
+ "rsa",
+ "serde",
+ "serde_json",
+ "sha1",
+ "sha2",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "aws-auth"
 version = "0.0.0"
 dependencies = [
@@ -1289,6 +1316,7 @@ name = "doze-aws"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "aws-apigateway",
  "aws-auth",
  "aws-cloudwatch",
  "aws-dynamodb",

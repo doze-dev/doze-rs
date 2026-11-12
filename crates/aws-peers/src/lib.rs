@@ -51,6 +51,12 @@ impl Peers {
     /// Makes `service` callable by its signing name.
     pub fn register(&self, service: Arc<dyn Service>) {
         let name = service.meta().signing_name;
+        self.register_as(name, service);
+    }
+
+    /// Makes `service` callable as `name`, for a service whose signing name another already has (API Gateway's HTTP APIs sign as
+    /// `apigateway` like its REST APIs, and are called `apigatewayv2`).
+    pub fn register_as(&self, name: &'static str, service: Arc<dyn Service>) {
         let patterns = Patterns::new(service.tables());
         if let Ok(mut entries) = self.entries.write() {
             entries.insert(name, Entry { service, patterns });

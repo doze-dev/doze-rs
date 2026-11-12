@@ -59,6 +59,13 @@ pub(crate) async fn run(args: Args) -> Result<()> {
         peers.register(Arc::clone(&service));
         gateway = gateway.with(service);
     }
+    // API Gateway's two APIs sign alike (`apigateway`); the gateway tells them apart by path, the bus by name.
+    let (rest_apis, http_apis) = aws_apigateway::services(Arc::new(ctx("apigateway")));
+    let (rest_apis, http_apis): (Arc<dyn Service>, Arc<dyn Service>) =
+        (Arc::new(rest_apis), Arc::new(http_apis));
+    peers.register_as("apigateway", Arc::clone(&rest_apis));
+    peers.register_as("apigatewayv2", Arc::clone(&http_apis));
+    gateway = gateway.with(rest_apis).with(http_apis);
     let running = gateway
         .bind()
         .await
