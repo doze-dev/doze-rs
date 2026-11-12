@@ -34,8 +34,8 @@ pub async fn topics(State(s): State<Shared>, RawQuery(query): RawQuery) -> Respo
         .topics(&filter, internal, crate::form::get(&f, "state"))
         .await;
     let (title, rail_crumbs): (&str, Steps) = match view.state() {
-        crate::model::TopicsState::None => ("No topics yet", vec![("Home", Some("/")), ("Topics", Some("/topics")), ("No topics yet", None)]),
-        crate::model::TopicsState::Filtered => ("No topic matches", vec![("Home", Some("/")), ("Topics", Some("/topics")), ("No topic matches", None)]),
+        crate::model::TopicsState::None => ("No topics yet", vec![("Home", Some("/")), ("Topics", None)]),
+        crate::model::TopicsState::Filtered => ("No topic matches", vec![("Home", Some("/")), ("Topics", None)]),
         crate::model::TopicsState::List => ("Topics", vec![("Home", Some("/")), ("Topics", None)]),
     };
     let q = crate::form::encode_query(&[("q", &filter), ("internal", if internal { "1" } else { "" })]);

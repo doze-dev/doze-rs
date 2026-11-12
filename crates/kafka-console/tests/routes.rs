@@ -21,6 +21,8 @@ fn concrete(pattern: &str, state: &kafka_console::state::State) -> String {
         .replace("{id}", "home-instance")
         .replace("{name}", &asset)
         .replace("{topic}", "orders")
+        .replace("{partition}", "1")
+        .replace("{offset}", "16050")
 }
 
 #[tokio::test]

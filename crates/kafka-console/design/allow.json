@@ -19,5 +19,258 @@
     "selector": "connect-first-request",
     "reason": "The first-request card needs the recorder: slice 9e (debt J1-J7).",
     "expires": "9e"
+  },
+  {
+    "board": "topics-list",
+    "field": "link",
+    "selector": "topic-messages-empty",
+    "reason": "p9b-read: the board links to another state of a route this page also serves (the data chooses the state, so one address serves topics-list, topics-none and topics-filtered; routes.json maps an address to several screens and the tool counts one of them); expected until the tool counts all the screens a route serves.",
+    "expires": "close"
+  },
+  {
+    "board": "topics-list",
+    "field": "link",
+    "selector": "topics-list",
+    "reason": "p9b-read: the board links to another state of a route this page also serves (the data chooses the state, so one address serves topics-list, topics-none and topics-filtered; routes.json maps an address to several screens and the tool counts one of them); expected until the tool counts all the screens a route serves.",
+    "expires": "close"
+  },
+  {
+    "board": "topics-list",
+    "field": "link",
+    "selector": "topics-none",
+    "reason": "p9b-read: the board links to another state of a route this page also serves (the data chooses the state, so one address serves topics-list, topics-none and topics-filtered; routes.json maps an address to several screens and the tool counts one of them); expected until the tool counts all the screens a route serves.",
+    "expires": "close"
+  },
+  {
+    "board": "topic-detail",
+    "field": "link",
+    "selector": "topic-messages-filtered",
+    "reason": "p9b-read: the board links to another state of a route this page also serves (the data chooses the state, so one address serves topics-list, topics-none and topics-filtered; routes.json maps an address to several screens and the tool counts one of them); expected until the tool counts all the screens a route serves.",
+    "expires": "close"
+  },
+  {
+    "board": "topic-detail",
+    "field": "link",
+    "selector": "topic-offline",
+    "reason": "p9b-read: the board links to another state of a route this page also serves (the data chooses the state, so one address serves topics-list, topics-none and topics-filtered; routes.json maps an address to several screens and the tool counts one of them); expected until the tool counts all the screens a route serves.",
+    "expires": "close"
+  },
+  {
+    "board": "topic-detail",
+    "field": "link",
+    "selector": "topic-readcommitted",
+    "reason": "p9b-read: the board links to another state of a route this page also serves (the data chooses the state, so one address serves topics-list, topics-none and topics-filtered; routes.json maps an address to several screens and the tool counts one of them); expected until the tool counts all the screens a route serves.",
+    "expires": "close"
+  },
+  {
+    "board": "topic-detail",
+    "field": "link",
+    "selector": "topic-record-binary",
+    "reason": "p9b-read: the board links to another state of a route this page also serves (the data chooses the state, so one address serves topics-list, topics-none and topics-filtered; routes.json maps an address to several screens and the tool counts one of them); expected until the tool counts all the screens a route serves.",
+    "expires": "close"
+  },
+  {
+    "board": "topic-detail",
+    "field": "link",
+    "selector": "txn-open",
+    "reason": "p9b-read: the board links to another state of a route this page also serves (the data chooses the state, so one address serves topics-list, topics-none and topics-filtered; routes.json maps an address to several screens and the tool counts one of them); expected until the tool counts all the screens a route serves.",
+    "expires": "close"
+  },
+  {
+    "board": "topic-detail",
+    "field": "link",
+    "selector": "topic-wire",
+    "reason": "p9b-read: the wire recorder (slice 9e) does not exist yet, so the 'On the wire' dock is not drawn (debt J21).",
+    "expires": "9e"
+  },
+  {
+    "board": "topic-detail",
+    "field": "heading",
+    "selector": "h2 On the wire",
+    "reason": "p9b-read: the wire recorder (slice 9e) does not exist yet, so the 'On the wire' dock is not drawn (debt J21).",
+    "expires": "9e"
+  },
+  {
+    "board": "topic-detail",
+    "field": "table",
+    "reason": "p9b-read: the wire recorder (slice 9e) does not exist yet, so the 'On the wire' dock is not drawn (debt J21).",
+    "expires": "9e"
+  },
+  {
+    "board": "topic-detail",
+    "field": "table.col",
+    "reason": "p9b-read: the wire recorder (slice 9e) does not exist yet, so the 'On the wire' dock is not drawn (debt J21).",
+    "expires": "9e"
+  },
+  {
+    "board": "topic-detail",
+    "field": "table.rows",
+    "reason": "p9b-read: the wire recorder (slice 9e) does not exist yet, so the 'On the wire' dock is not drawn (debt J21).",
+    "expires": "9e"
+  },
+  {
+    "board": "topic-detail",
+    "field": "button",
+    "selector": "Expand the wire [sm] -> to:topic-wire",
+    "reason": "p9b-read: the wire recorder (slice 9e) does not exist yet, so the 'On the wire' dock is not drawn (debt J21).",
+    "expires": "9e"
+  },
+  {
+    "board": "topic-detail",
+    "field": "extra",
+    "selector": "wire-dock",
+    "reason": "p9b-read: the wire recorder (slice 9e) does not exist yet, so the 'On the wire' dock is not drawn (debt J21).",
+    "expires": "9e"
+  },
+  {
+    "board": "topic-detail",
+    "field": "state",
+    "selector": "rw ok in rows",
+    "reason": "p9b-read: the wire recorder (slice 9e) does not exist yet, so the 'On the wire' dock is not drawn (debt J21).",
+    "expires": "9e"
+  },
+  {
+    "board": "topic-detail",
+    "field": "state",
+    "selector": "st refused in rows",
+    "reason": "p9b-read: the wire recorder (slice 9e) does not exist yet, so the 'On the wire' dock is not drawn (debt J21).",
+    "expires": "9e"
+  },
+  {
+    "board": "topic-messages-filtered",
+    "field": "link",
+    "selector": "topic-messages-empty|topic-messages-filtered|topic-readcommitted",
+    "reason": "p9b-read: the board links to another state of a route this page also serves (the data chooses the state, so one address serves topics-list, topics-none and topics-filtered; routes.json maps an address to several screens and the tool counts one of them); expected until the tool counts all the screens a route serves.",
+    "expires": "close"
+  },
+  {
+    "board": "topic-messages-filtered",
+    "field": "link",
+    "selector": "topic-record|topic-record-binary",
+    "reason": "p9b-read: the board links to another state of a route this page also serves (the data chooses the state, so one address serves topics-list, topics-none and topics-filtered; routes.json maps an address to several screens and the tool counts one of them); expected until the tool counts all the screens a route serves.",
+    "expires": "close"
+  },
+  {
+    "board": "topic-readcommitted",
+    "field": "link",
+    "selector": "txn-holding",
+    "reason": "p9b-read: the board links to another state of a route this page also serves (the data chooses the state, so one address serves topics-list, topics-none and topics-filtered; routes.json maps an address to several screens and the tool counts one of them); expected until the tool counts all the screens a route serves.",
+    "expires": "close"
+  },
+  {
+    "board": "topic-readcommitted",
+    "field": "link",
+    "selector": "topic-messages-empty|topic-messages-filtered|topic-readcommitted",
+    "reason": "p9b-read: the board links to another state of a route this page also serves (the data chooses the state, so one address serves topics-list, topics-none and topics-filtered; routes.json maps an address to several screens and the tool counts one of them); expected until the tool counts all the screens a route serves.",
+    "expires": "close"
+  },
+  {
+    "board": "topic-record",
+    "field": "button",
+    "selector": "Copy as kcat [-] -> ui:copy",
+    "reason": "p9b-read: copying a record value into a shell command (kcat -P) would put hostile text in a command line; the page offers 'Copy value', which copies the text (debt J22).",
+    "expires": "close"
+  },
+  {
+    "board": "topic-record",
+    "field": "button",
+    "selector": "Copy value [-] -> ui:copy",
+    "reason": "p9b-read: see 'Copy as kcat'.",
+    "expires": "close"
+  },
+  {
+    "board": "topic-record",
+    "field": "link",
+    "selector": "topic-detail|topic-offline",
+    "reason": "p9b-read: a record is a page of its own here (a direct address works with no script), so Close is a link back to the topic; the board's drawer closes in place.",
+    "expires": "close"
+  },
+  {
+    "board": "topic-record-binary",
+    "field": "link",
+    "selector": "topic-detail|topic-offline",
+    "reason": "p9b-read: as for topic-record.",
+    "expires": "close"
+  },
+  {
+    "board": "topic-offline",
+    "field": "link",
+    "selector": "topic-messages-empty|topic-messages-filtered|topic-readcommitted",
+    "reason": "p9b-read: the board links to another state of a route this page also serves (the data chooses the state, so one address serves topics-list, topics-none and topics-filtered; routes.json maps an address to several screens and the tool counts one of them); expected until the tool counts all the screens a route serves.",
+    "expires": "close"
+  },
+  {
+    "board": "topic-offline",
+    "field": "heading",
+    "selector": "h2 What the wire recorded",
+    "reason": "p9b-read: the wire recorder (slice 9e) does not exist yet, so the 'On the wire' dock is not drawn (debt J21).",
+    "expires": "9e"
+  },
+  {
+    "board": "topic-offline",
+    "field": "table",
+    "reason": "p9b-read: the wire recorder (slice 9e) does not exist yet, so the 'On the wire' dock is not drawn (debt J21).",
+    "expires": "9e"
+  },
+  {
+    "board": "topic-offline",
+    "field": "table.col",
+    "reason": "p9b-read: the wire recorder (slice 9e) does not exist yet, so the 'On the wire' dock is not drawn (debt J21).",
+    "expires": "9e"
+  },
+  {
+    "board": "topic-offline",
+    "field": "table.rows",
+    "reason": "p9b-read: the wire recorder (slice 9e) does not exist yet, so the 'On the wire' dock is not drawn (debt J21).",
+    "expires": "9e"
+  },
+  {
+    "board": "topic-offline",
+    "field": "state",
+    "selector": "rw ok in rows",
+    "reason": "p9b-read: the wire recorder (slice 9e) does not exist yet, so the 'On the wire' dock is not drawn (debt J21).",
+    "expires": "9e"
+  },
+  {
+    "board": "topics-none",
+    "field": "heading",
+    "selector": "h3 This broker holds no topics",
+    "reason": "p9b-read: the empty state's title is an h2 in the page and an h3 on the canvas (an h3 straight under the h1 skips a level: tools/test/a11y-known.json); the CSS styles both alike.",
+    "expires": "close"
+  },
+  {
+    "board": "topics-none",
+    "field": "heading",
+    "selector": "h2 This broker holds no topics",
+    "reason": "p9b-read: the empty state's title is an h2 in the page and an h3 on the canvas (an h3 straight under the h1 skips a level: tools/test/a11y-known.json); the CSS styles both alike.",
+    "expires": "close"
+  },
+  {
+    "board": "topics-filtered",
+    "field": "heading",
+    "selector": "h3 No topic name contains {}",
+    "reason": "p9b-read: the empty state's title is an h2 in the page and an h3 on the canvas (an h3 straight under the h1 skips a level: tools/test/a11y-known.json); the CSS styles both alike.",
+    "expires": "close"
+  },
+  {
+    "board": "topics-filtered",
+    "field": "heading",
+    "selector": "h2 No topic name contains {}",
+    "reason": "p9b-read: the empty state's title is an h2 in the page and an h3 on the canvas (an h3 straight under the h1 skips a level: tools/test/a11y-known.json); the CSS styles both alike.",
+    "expires": "close"
+  },
+  {
+    "board": "topic-messages-empty",
+    "field": "heading",
+    "selector": "h3 No records yet",
+    "reason": "p9b-read: the empty state's title is an h2 in the page and an h3 on the canvas (an h3 straight under the h1 skips a level: tools/test/a11y-known.json); the CSS styles both alike.",
+    "expires": "close"
+  },
+  {
+    "board": "topic-messages-empty",
+    "field": "heading",
+    "selector": "h2 No records yet",
+    "reason": "p9b-read: the empty state's title is an h2 in the page and an h3 on the canvas (an h3 straight under the h1 skips a level: tools/test/a11y-known.json); the CSS styles both alike.",
+    "expires": "close"
   }
 ]

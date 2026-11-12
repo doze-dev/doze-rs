@@ -43,8 +43,8 @@ fn content(id: &str, base: &Base) -> Option<(maud::Markup, &'static str, Vec<(&'
     let on_orders = |last: &'static str| vec![home, topics, ("orders", Some("/topics/orders")), (last, None)];
     Some(match id {
         "topics-list" => (page::list_page(&world::topics("", false, None), base, listen, ""), "Topics", vec![home, ("Topics", None)]),
-        "topics-none" => (page::list_page(&world::topics("", false, Some("none")), base, listen, ""), "No topics yet", vec![home, topics, ("No topics yet", None)]),
-        "topics-filtered" => (page::list_page(&world::topics("refunds", false, None), base, listen, "?q=refunds"), "No topic matches", vec![home, topics, ("No topic matches", None)]),
+        "topics-none" => (page::list_page(&world::topics("", false, Some("none")), base, listen, ""), "No topics yet", vec![home, ("Topics", None)]),
+        "topics-filtered" => (page::list_page(&world::topics("refunds", false, None), base, listen, "?q=refunds"), "No topic matches", vec![home, ("Topics", None)]),
         "topic-detail" => (messages("orders", MessageQuery::default(), base)?, "orders", vec![home, topics, ("orders", None)]),
         "topic-messages-empty" => (messages("orders.dlq", MessageQuery::default(), base)?, "orders.dlq", vec![home, topics, ("orders.dlq", None)]),
         "topic-messages-filtered" => {

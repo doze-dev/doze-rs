@@ -10,7 +10,6 @@ use crate::format::number;
 use crate::model::{MessageQuery, MessagesView, Reading};
 use crate::ui::button::{Size, State, Variant, link, state};
 use crate::ui::client;
-use crate::ui::code::pre;
 use crate::ui::glyph::{Glyph, glyph};
 use crate::ui::kafka::{apicall, empty, filter_box, pager, sec};
 use crate::words::reach_sentence;
@@ -114,7 +113,8 @@ fn from_held(v: &MessagesView, base: &Base) -> Markup {
 fn form(v: &MessagesView, base: &Base, inner: Markup) -> Markup {
     html! {
         form class="toolbar" method="get" action=(format!("{}/messages", topic_url(base, &v.head.name))) {
-            input type="submit" value="Show" aria-label="Show records" hidden;
+            // The button Enter presses in the find box: not a control of the page, so it is out of the board's reckoning.
+            input type="submit" value="Show" aria-label="Show records" hidden data-scaffold;
             @if v.query.reading == Reading::Committed { input type="hidden" name="isolation" value="read_committed"; }
             (inner)
         }
@@ -213,7 +213,7 @@ fn empty_topic(v: &MessagesView, base: &Base, listen: &str) -> Markup {
             produce,
         ))
         (sec(32, "Or from your app", Some(html! { "The first record lands at offset 0 of partition 0." }), html! {
-            (pre(&cmd, None, None))
+            pre class="code" data-extra="copy-as" { (cmd) }
             div class="row" style="margin-top:12px" { (client::copy_button("btn sm", &cmd, html! { (glyph(Glyph::Copy, 14, "")) "Copy" })) }
         }))
     }

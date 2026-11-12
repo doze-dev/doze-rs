@@ -63,11 +63,11 @@ fn standing_callout(v: &RecordView) -> Markup {
             })) }
         },
         Standing::Committed if v.value.kind == Kind::Binary => html! {
-            div data-extra="record-view" style="margin-bottom:20px" { (callout(Tone::Plain, Glyph::Info, html! {
+            div style="margin-bottom:20px" { (callout(Tone::Plain, Glyph::Info, html! {
                 b { "The value is not text." } " " (number(i64::try_from(v.value.bytes).unwrap_or(0))) " bytes that are not valid UTF-8, shown as hex. Avro and Protobuf are decoded once schemas arrive (Phase 10); until then the bytes are all the broker can say."
             })) }
         },
-        Standing::Committed => html! { div data-extra="record-view" {} },
+        Standing::Committed => html! {},
     }
 }
 

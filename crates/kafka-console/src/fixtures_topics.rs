@@ -18,6 +18,11 @@ pub fn now() -> i64 {
 
 const MIB: u64 = 1 << 20;
 
+/// `n` tenths of a MiB, rounded up so that the size reads as the board says it.
+fn tenths(n: u64) -> u64 {
+    (n * MIB).div_ceil(10)
+}
+
 #[allow(clippy::too_many_arguments)]
 fn topic(
     name: &str,
@@ -43,20 +48,20 @@ fn topic(
 }
 
 fn rows() -> Vec<TopicRow> {
-    let mut orders = topic("orders", 3, Cleanup::Delete, (79 * MIB / 10, Some(4_000)), &["payments-workers"]);
+    let mut orders = topic("orders", 3, Cleanup::Delete, (tenths(79), Some(4_000)), &["payments-workers"]);
     orders.txn_open = true;
-    let mut clicks = topic("clickstream", 6, Cleanup::Delete, (1286 * MIB / 10, Some(200)), &["search-indexer"]);
+    let mut clicks = topic("clickstream", 6, Cleanup::Delete, (tenths(1286), Some(200)), &["search-indexer"]);
     clicks.retention_ms = Some(3_600_000);
-    let mut customers = topic("customer.profiles", 1, Cleanup::Compact, (88 * MIB / 10, Some(6 * 3_600_000)), &[]);
+    let mut customers = topic("customer.profiles", 1, Cleanup::Compact, (tenths(88), Some(6 * 3_600_000)), &[]);
     customers.segments = Some(3);
     vec![
         orders,
-        topic("payments.settled", 4, Cleanup::Delete, (24 * MIB / 10, Some(11_000)), &["fulfilment"]),
-        topic("inventory.levels", 1, Cleanup::Compact, (397 * MIB / 10, Some(3_000)), &["search-indexer"]),
+        topic("payments.settled", 4, Cleanup::Delete, (tenths(24), Some(11_000)), &["fulfilment"]),
+        topic("inventory.levels", 1, Cleanup::Compact, (tenths(397), Some(3_000)), &["search-indexer"]),
         customers,
-        topic("pick-lists", 1, Cleanup::Delete, (MIB / 2, Some(41_000)), &["fulfilment"]),
+        topic("pick-lists", 1, Cleanup::Delete, (tenths(5), Some(41_000)), &["fulfilment"]),
         topic("pick-lists.dlq", 1, Cleanup::Delete, (1434, Some(3 * 86_400_000)), &[]),
-        topic("notifications.email", 3, Cleanup::Delete, (21 * MIB / 10, Some(60_000)), &["notifications"]),
+        topic("notifications.email", 3, Cleanup::Delete, (tenths(21), Some(60_000)), &["notifications"]),
         clicks,
         topic("orders.dlq", 1, Cleanup::Delete, (0, None), &[]),
     ]
@@ -255,7 +260,7 @@ fn view(head: TopicHead, query: MessageQuery, notes: Vec<String>, rows: Vec<Reco
         reached_end: true,
         above_lso: rows.iter().filter(|r| r.standing == Standing::AboveLso).count(),
         scanned: None,
-        more: false,
+        more: head.records() > i64::try_from(rows.len()).unwrap_or(0) && !query.filtered(),
     };
     MessagesView { holds: holds(&head), head, query, notes, rows, reach }
 }
@@ -349,7 +354,9 @@ pub fn record(name: &str, partition: i32, offset: i64) -> Option<RecordView> {
         ("orders", 2, 16_056) => return Some(binary_record()),
         _ => {}
     }
-    let found = messages(name, MessageQuery::default(), Vec::new())?.rows.into_iter().find(|r| r.partition == partition && r.offset == offset)?;
+    let mut all = messages(name, MessageQuery::default(), Vec::new())?.rows;
+    all.extend(committed_rows());
+    let found = all.into_iter().find(|r| r.partition == partition && r.offset == offset)?;
     let mut v = orders_record();
     v.topic = name.to_owned();
     v.partition = partition;

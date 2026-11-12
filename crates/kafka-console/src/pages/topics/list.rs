@@ -122,7 +122,8 @@ pub fn list_fragment(v: &TopicsView, base: &Base, query: &str) -> Markup {
 fn toolbar(v: &TopicsView, base: &Base) -> Markup {
     html! {
         form class="toolbar" method="get" action=(base.url("/topics")) {
-            input type="submit" value="Filter" aria-label="Filter topics" hidden;
+            // The button Enter presses in the filter box: not a control of the page, so it is out of the board's reckoning.
+            input type="submit" value="Filter" aria-label="Filter topics" hidden data-scaffold;
             (filter_box("q", "Filter topics by name", "Filter topics by name", &v.filter))
             button class={"fchip" @if v.show_internal { " on" }} type="submit" name="internal" value=(if v.show_internal { "0" } else { "1" }) data-ui="toggle" aria-pressed=(v.show_internal) {
                 span class="toggle" {} "Show internal"
@@ -194,7 +195,7 @@ fn none(v: &TopicsView, base: &Base, listen: &str) -> Markup {
             create(),
         ))
         (sec(32, "Or from your app", Some(html! { "Writing to a topic that does not exist creates it, and the console shows it here as soon as the request lands." }), html! {
-            (pre(&format!("# kcat, from the machine the broker runs on\necho '{{\"order_id\":\"ord-88412\"}}' | kcat -P -b {listen} -t orders -k ord-88412"), None, None))
+            pre class="code" data-extra="copy-as" { (format!("# kcat, from the machine the broker runs on\necho '{{\"order_id\":\"ord-88412\"}}' | kcat -P -b {listen} -t orders -k ord-88412")) }
             div class="row" style="margin-top:12px" {
                 (client::copy_button("btn sm", &format!("echo '{{\"order_id\":\"ord-88412\"}}' | kcat -P -b {listen} -t orders -k ord-88412"), html! { (glyph(Glyph::Copy, 14, "")) "Copy" }))
                 span class="dim" { "To " span class="mono" { (listen) } ", the listener" }

@@ -105,7 +105,7 @@ pub fn sentence_fragment(h: &TopicHead, base: &Base) -> Markup {
 pub fn head(h: &TopicHead, base: &Base, acts: Acts, sentence: Markup) -> Markup {
     let title = html! {
         div {
-            (title_row(&h.name, words(h)))
+            (title_row(&h.name, if acts == Acts::Partitions { html! {} } else { words(h) }))
             (sentence)
         }
     };

@@ -192,7 +192,7 @@ pub async fn page(b: &Backend, name: &str, query: MessageQuery, mut notes: Vec<S
     }
     let mut found = search(b, &meta, &head, &parts, &q).await;
     newest_first(&mut found.rows, parts.len() == 1);
-    let more = found.rows.len() > q.limit;
+    let more = found.rows.len() > q.limit || (!q.filtered() && head.records() > i64::try_from(found.rows.len().min(q.limit)).unwrap_or(0));
     found.rows.truncate(q.limit);
     let rows: Vec<RecordRow> = found.rows.iter().map(row).collect();
     let reach = reach(&rows, &found, more);

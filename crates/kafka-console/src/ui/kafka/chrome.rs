@@ -40,7 +40,8 @@ pub fn empty(icon: Glyph, class: &str, extra: Option<&str>, title: Markup, body:
     html! {
         div class="empty" data-extra=[extra] {
             span class="ic" { (glyph(icon, 22, class)) }
-            h3 { (title) }
+            // An h2: the page has only an h1 above it. The kit draws an h3 here and the kit's CSS styles both alike.
+            h2 { (title) }
             p { (body) }
             (acts)
         }
