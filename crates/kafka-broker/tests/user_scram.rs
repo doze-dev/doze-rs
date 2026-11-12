@@ -193,7 +193,7 @@ async fn a_deleted_credential_no_longer_logs_in_and_the_other_mechanism_still_do
 
 #[tokio::test]
 async fn a_user_touched_twice_in_one_request_is_refused_whatever_the_operations() {
-    // :188-228: the key is the user name, not the user and mechanism; the earlier operation is cancelled and a third
+    // :188-226: the key is the user name, not the user and mechanism; the earlier operation is cancelled and a third
     // occurrence is ignored.
     let rig = rig_with(|_| {});
     rig.scram_alter(vec![], vec![upsert("bob", SHA256, 4096, "keep")])
@@ -233,7 +233,7 @@ async fn a_user_touched_twice_in_one_request_is_refused_whatever_the_operations(
 
 #[tokio::test]
 async fn a_user_whose_first_operation_failed_keeps_that_error_and_a_repeat_is_ignored() {
-    // :187, :207: `userToError.containsKey` skips every later operation on the user.
+    // :189, :209: `userToError.containsKey` skips every later operation on the user.
     let rig = rig_with(|_| {});
     let r = rig
         .scram_alter(

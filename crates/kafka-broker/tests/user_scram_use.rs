@@ -193,7 +193,7 @@ async fn a_user_configured_at_start_is_listed_and_cannot_be_changed_over_the_api
             vec![upsert("admin", SHA512, 4096, "taken-over")],
         )
         .await;
-    // The deletion is judged first and fails, and then every later operation on the name is ignored (:187, :207).
+    // The deletion is judged first and fails, and then every later operation on the name is ignored (:189, :209).
     assert_eq!(r, vec![err("admin", 93, said)]);
     for (deletions, upsertions) in [
         (vec![delete("admin", SHA256)], vec![]),

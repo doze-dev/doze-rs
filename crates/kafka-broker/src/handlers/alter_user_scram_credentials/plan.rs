@@ -61,8 +61,8 @@ pub(super) fn plan(
     let mut upsertions: Vec<(&str, Kind, &ScramCredentialUpsertion)> = Vec::new();
     let mut failures: Vec<(String, Failure)> = Vec::new();
     // The key of all three is the user's name, not the name and the mechanism: a user touched twice in any
-    // combination loses both operations (:188-228), and once a user has a failure every later operation on the
-    // name is ignored (:187, :207).
+    // combination loses both operations (:188-226), and once a user has a failure every later operation on the
+    // name is ignored (:189, :209).
     let failed =
         |failures: &[(String, Failure)], name: &str| failures.iter().any(|(n, _)| n == name);
     for d in &request.deletions {
