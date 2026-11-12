@@ -26,6 +26,7 @@ const svcs: any[] = [
   { go: "CloudWatch Logs", model: "cloudwatch-logs", sign: "logs", kind: "json", ver: "1.1", target: "Logs_20140328" },
   { go: "Kinesis", model: "kinesis", sign: "kinesis", kind: "json", ver: "1.1", target: "Kinesis_20131202" },
   { go: "CloudWatch", model: "cloudwatch", sign: "monitoring", kind: "json", ver: "1.0", target: "GraniteServiceVersion20100801" },
+  { go: "EventBridge", model: "eventbridge", sign: "events", kind: "json", ver: "1.1", target: "AWSEvents" },
   { go: "SNS", model: "sns", sign: "sns", kind: "query", version: "2010-03-31" },
 ];
 const addr = process.argv[2];

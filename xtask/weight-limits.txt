@@ -49,4 +49,7 @@ doze-kafka 9000000 159 8192 --listen 127.0.0.1:{port} --data-dir {data}
 # (+711 KB and +11 packages over the 4,660,320 B / 209 of SNS, DynamoDB and S3: Logs, Kinesis, CloudWatch, the CBOR codec and flate2). Byte limit = macOS size times 1.2
 # plus 5% = 6,768,000, rounded to 6,800,000 B; packages 224 (measured 220 plus 4). Idle unchanged at 6,144 KB. Package count is now the faster-growing number
 # (198 to 220 in one round): every new third-party package must be named in the stage note.
-doze-aws 6800000 224 6144 --listen 127.0.0.1:{port} --data-dir {data}
+# 2026-11-13, with EventBridge (A12; integrator, darwin/arm64 release-aws): 5,785,936 B, 224 packages, 3,728 KB idle (+347 KB and +4 packages over Logs/Kinesis/CloudWatch
+# plus the parity round: aws-eventbridge, aws-cron and the EventBridge model, all first party). Byte limit = macOS size times 1.2 plus 5% = 7,291,000, rounded to 7,300,000 B;
+# packages 232 (measured 224 plus 8: Lambda and the REST-JSON codec are next and a named third-party package may be needed). Idle unchanged at 6,144 KB.
+doze-aws 7300000 232 6144 --listen 127.0.0.1:{port} --data-dir {data}

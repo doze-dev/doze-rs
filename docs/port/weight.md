@@ -255,3 +255,5 @@ Phase 7). Under the CI limits (115, 5.15 MB, 8 MB). Kafka now links `doze-store`
 
 **doze-aws after the Go-parity round (2026-11-13, darwin/arm64, release-aws): 5,438,064 B (5.19 MiB), 220 packages, idle 3,632 KB.** Over the 5,371,872 B of Logs, Kinesis and CloudWatch: +66 KB and no package. IAM `GetAccountAuthorizationDetails` and `AssumeRoot`, Kinesis resharding and account settings, and S3 Object Lock and policy status together cost 66 KB. The limits stand (6,800,000 B, 224 packages).
 
+**doze-aws with EventBridge (2026-11-13, darwin/arm64, release-aws): 5,785,936 B (5.52 MiB), 224 packages, idle 3,728 KB.** Over the 5,438,064 B / 220 packages of the Go-parity round: +348 KB and +4 packages, all first party (`aws-eventbridge`, `aws-cron`, `aws-model-eventbridge`; the tool counts one more). Nothing runs until a request; the schedule timer is one task per region with a pending deadline. The Linux limits became 7,300,000 B (macOS size times 1.2 plus 5%) and 232 packages (the old limit of 224 was met exactly). Next come Lambda (with the REST-JSON codec) and Step Functions; every new third-party package must be named in its stage note.
+
