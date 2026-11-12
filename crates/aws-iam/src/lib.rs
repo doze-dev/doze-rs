@@ -20,6 +20,7 @@ mod groups;
 mod keys;
 mod managed;
 mod model;
+mod needs;
 mod ops;
 mod profiles;
 mod providers;
