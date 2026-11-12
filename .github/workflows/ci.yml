@@ -81,13 +81,13 @@ jobs:
 
   # Weight is a feature (docs/port/weight.md): numbers may only rise with a written reason, so the limits (xtask/weight-limits.txt) sit a
   # little above the measured values and a change that crosses one has to move the limit and say why.
-  # The default build includes the console (Phase 9, decision D1: the owner chose it). The size limit is 9 MB and is NOT the
-  # measurement plus 5%: weight.md ("Phase 9, slice 9a") estimates the Linux x86_64 default build at about 6.7 MB, from two
-  # measurements that agree (darwin arm64 5,521,456 B times the 1.216 ratio of Phase 7, and the doze-ubuntu VM, aarch64 Linux,
-  # 5,971,376 B times about 1.12 for x86_64 code), and then the OWNER'S DECISION of 2026-11-12 ("anything less than 10 MB is
-  # fine") raised it to the estimate plus 2 MB: 9 MB, with 2.3 MB of room for the eight slices of pages still to come (Phase 9
-  # b to i). That room is spent only with a reason written in weight.md. The first CI run replaces the estimate with a
-  # measurement; the limit stays until a person lowers it.
+  # The default build includes the console (Phase 9, decision D1: the owner chose it). The size limit is 7.8 MB, re-based by the
+  # weight pass of 2026-11-13 (weight.md, "Phase 9, weight pass"): fat LTO, the console and its HTTP stack at opt-level z, and the
+  # text assets embedded as gzip took the default build from 8,055,312 B to 5,797,328 B on darwin (6,626,840 B in the doze-ubuntu
+  # VM, aarch64 Linux). The ubuntu x86_64 estimate, from two measurements that agree to 5% (darwin times the 1.216 ratio of
+  # Phase 7: 7.05 MB; the VM times about 1.12: 7.42 MB), is 7.4 MB at most, and the limit is that plus about 5%. The owner's ceiling
+  # (2026-11-12, "anything less than 10 MB is fine") is 10 MB: the 2.2 MB between this limit and it is not spent. A rise needs a
+  # reason written in weight.md. The first CI run replaces the estimate with a measurement; the limit stays until a person lowers it.
   weight:
     runs-on: ubuntu-24.04
     steps:
@@ -105,8 +105,9 @@ jobs:
           done
 
   # The broker without the console (`--no-default-features`): one cheap job so that the lean build, the one the Phase 8 limits
-  # described, cannot grow unnoticed. Phase 8 closed at 4,301,200 B on darwin and 4,660,632 B in the Linux VM; on ubuntu
-  # x86_64 that is about 5.23 MB (the 5.15 MB of the Phase 8 job was already under it by the darwin steps), plus 5% is 5.5 MB.
+  # described, cannot grow unnoticed. Re-based by the weight pass of 2026-11-13: 3,917,008 B on darwin and 4,398,512 B in the Linux
+  # VM (4,726,200 B there before the pass; the profile change reaches the lean build too); on ubuntu x86_64 that is 4.76 MB (darwin
+  # times 1.216) to 4.93 MB (the VM times 1.12), plus 5% is 5.2 MB. 127 packages in the VM (the 126 of this job was already one under).
   weight-lean:
     runs-on: ubuntu-24.04
     steps:
@@ -124,8 +125,8 @@ jobs:
           rss=$(awk '/VmRSS/ {print $2}' /proc/$pid/status)
           kill $pid
           echo "binary $size B, $crates packages, idle $rss KB"
-          [ "$size" -le 5500000 ] || { echo "lean binary over 5.5 MB"; exit 1; }
-          [ "$crates" -le 126 ] || { echo "more than 126 packages in the lean build"; exit 1; }
+          [ "$size" -le 5200000 ] || { echo "lean binary over 5.2 MB"; exit 1; }
+          [ "$crates" -le 130 ] || { echo "more than 130 packages in the lean build"; exit 1; }
           [ "$rss" -le 8192 ] || { echo "idle resident memory over 8 MB in the lean build"; exit 1; }
           ! cargo tree -p doze-kafka --no-default-features --prefix none --edges normal | grep -E "^(axum|maud|hyper|tower|kafka-console) " || { echo "the lean build contains the console"; exit 1; }
 
@@ -150,13 +151,14 @@ jobs:
           rss=$(awk '/VmRSS/ {print $2}' /proc/$pid/status)
           kill $pid
           echo "binary $size B, $crates packages, idle $rss KB"
-          # The feature adds 838,928 B on macOS arm64, taken as 0.9 MB on x86_64 (ring's code is larger there): the default build
-          # (the job above) is estimated at 6.7 MB, so about 7.6 MB. The limit is 10 MB because the owner's ceiling of 2026-11-12
-          # is "anything less than 10 MB is fine" (weight.md, "The owner's decision on the size"); the 8,200,000 B of the first
-          # draft (the estimate plus 5%) was withdrawn when that ceiling was set.
-          [ "$size" -le 10000000 ] || { echo "tls binary over 10 MB (the owner's ceiling)"; exit 1; }
-          # 150 for the default build with the console, plus the 11 lines the feature adds, plus 4.
-          [ "$crates" -le 165 ] || { echo "more than 165 packages with tls"; exit 1; }
+          # The feature adds 794,688 B on macOS arm64 (6,592,016 B against 5,797,328 B; 838,928 B before the weight pass), taken as
+          # 0.9 MB on x86_64 (ring's code is larger there): the default build (the job above) is estimated at 7.4 MB at most, so about
+          # 8.3 MB, and the limit is that plus 5%, rounded: 8.75 MB. It was 10 MB, the owner's ceiling of 2026-11-12 ("anything less
+          # than 10 MB is fine"), while the estimate was 7.6 MB; the weight pass of 2026-11-13 (weight.md) lets the limit follow the
+          # estimate again, and the ceiling stands 1.25 MB above it.
+          [ "$size" -le 8750000 ] || { echo "tls binary over 8.75 MB"; exit 1; }
+          # 158 for the default build in the Linux VM, plus the 11 lines the feature adds, plus 4.
+          [ "$crates" -le 173 ] || { echo "more than 173 packages with tls"; exit 1; }
           [ "$rss" -le 8192 ] || { echo "idle resident memory over 8 MB with tls"; exit 1; }
 
   # deny.toml sets `all-features = true`, so this checks the `tls` feature's crates (ring, rustls) too.

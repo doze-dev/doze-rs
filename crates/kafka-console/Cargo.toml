@@ -29,6 +29,9 @@ axum = { version = "0.8", default-features = false, features = ["tokio", "http1"
 # Compile-time HTML: it expands to string pushes, so it costs no runtime and no dependency of its own at run time.
 maud = "0.27"
 bytes = "1"
+# The embedded text assets are gzip (assets.rs); a client that does not accept gzip is sent them inflated. Already in the tree
+# through the broker's gzip record batches: no new package.
+flate2 = "1"
 tokio = { version = "1", default-features = false, features = ["rt", "net", "time", "sync", "macros", "io-util"] }
 tokio-util = { version = "0.7", default-features = false }
 futures-util = { version = "0.3", default-features = false }
@@ -50,8 +53,6 @@ flate2 = "1"
 ts-rs = "12"
 # The request types a raw test client encodes.
 kafka-protocol = { version = "0.18", default-features = false, features = ["client"] }
-# gzip batches for the tests that seed a broker.
-flate2 = "1"
 # Batches to walk in the tests of the record reader.
 kafka-wire = { path = "../kafka-wire", features = ["test-support"] }
 # The fixtures and the example the integration tests render pages from.

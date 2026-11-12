@@ -3,7 +3,9 @@
 use std::sync::Arc;
 
 use axum::extract::{Path, RawQuery, State};
-use axum::http::header::{ACCEPT_RANGES, CACHE_CONTROL, CONTENT_TYPE, ETAG};
+use axum::http::header::{
+    ACCEPT_ENCODING, ACCEPT_RANGES, CACHE_CONTROL, CONTENT_ENCODING, CONTENT_TYPE, ETAG, VARY,
+};
 use axum::http::{HeaderMap, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 
@@ -57,9 +59,30 @@ pub async fn events(
     stream::response(s, feed, pace, permit).into_response()
 }
 
+/// Whether the client lists `gzip` in `Accept-Encoding` with a quality above zero (`*` counts).
+fn accepts_gzip(headers: &HeaderMap) -> bool {
+    headers
+        .get(ACCEPT_ENCODING)
+        .and_then(|v| v.to_str().ok())
+        .is_some_and(|v| {
+            v.split(',').any(|item| {
+                let mut parts = item.split(';');
+                let coding = parts.next().unwrap_or("").trim();
+                let refused = parts.any(|p| {
+                    let p = p.trim();
+                    p.strip_prefix("q=")
+                        .is_some_and(|q| q.trim().parse::<f32>() == Ok(0.0))
+                });
+                (coding.eq_ignore_ascii_case("gzip") || coding == "*") && !refused
+            })
+        })
+}
+
 /// A file of the manifest by its hashed name, cached for a year: the name changes when the file does.
 /// The hashed name is the ETag (it changes when the file does), so a browser that asks again gets a 304. A `Range` is
 /// ignored: the whole file is the answer (it is a few KB to 40 KB) and `Accept-Ranges: none` says so.
+/// Text is embedded as gzip: a client that accepts gzip gets those bytes as they are (`Content-Encoding: gzip`), any other
+/// gets the file inflated, under its own tag (the two representations of one name must not share an ETag).
 pub async fn static_file(
     State(s): State<Shared>,
     Path(name): Path<String>,
@@ -68,13 +91,30 @@ pub async fn static_file(
     let Some(f) = s.assets.get(&name) else {
         return StatusCode::NOT_FOUND.into_response();
     };
-    let tag = format!("\"{name}\"");
+    let gzip = f.gzip && accepts_gzip(&headers);
+    let tag = if f.gzip && !gzip {
+        format!("\"{name}.identity\"")
+    } else {
+        format!("\"{name}\"")
+    };
     let mut res = if super::has_tag(&headers, &tag) {
         StatusCode::NOT_MODIFIED.into_response()
+    } else if f.gzip && !gzip {
+        match f.inflated() {
+            Some(plain) => ([(CONTENT_TYPE, f.content_type)], plain.into_owned()).into_response(),
+            None => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        }
     } else {
-        ([(CONTENT_TYPE, f.content_type)], f.bytes.clone()).into_response()
+        ([(CONTENT_TYPE, f.content_type)], f.bytes).into_response()
     };
+    let sent = res.status() == StatusCode::OK;
     let h = res.headers_mut();
+    if f.gzip {
+        h.insert(VARY, HeaderValue::from_static("Accept-Encoding"));
+        if gzip && sent {
+            h.insert(CONTENT_ENCODING, HeaderValue::from_static("gzip"));
+        }
+    }
     h.insert(
         CACHE_CONTROL,
         HeaderValue::from_static("public, max-age=31536000, immutable"),

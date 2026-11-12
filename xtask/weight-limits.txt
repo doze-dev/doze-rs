@@ -1,9 +1,11 @@
 # Weight limits (docs/port/weight.md). A limit moves only with a written reason in that file.
 # package   max_bytes  max_packages  max_rss_kb  server args ({port} and {data} are filled in)
 #
-# doze-kafka: measured on ubuntu x86_64: 4,899,328 B (the macOS arm64 build is 3.4 MB); the limit is that plus about 5%.
-# These are the limits CI has enforced; the macOS idle figure is lower than Linux's 8 MB limit.
-doze-kafka 9000000 159 8192 --listen 127.0.0.1:{port} --data-dir {data}
+# doze-kafka (the default build, with the console). Re-based 2026-11-13 by the weight pass (docs/port/weight.md, "Phase 9, weight pass"):
+# darwin arm64 5,797,328 B, Linux aarch64 (the doze-ubuntu VM) 6,626,840 B, 158 packages, 7.1 MB idle in the VM. The ubuntu x86_64 estimate is
+# 7.05 MB (darwin times the 1.216 of Phase 7) to 7.42 MB (the VM times 1.12); the limit is the larger plus about 5%. Before the pass the same
+# estimate was 9.8 MB against a 9 MB limit. The owner's ceiling is 10 MB; the first CI run replaces the estimate with a measurement.
+doze-kafka 7800000 161 8192 --listen 127.0.0.1:{port} --data-dir {data}
 # doze-aws: measured 2026-11-12 on darwin/arm64 with SQS and its database: 2,687,088 B, 118 packages (the ones that only run at build time count: serde_derive
 # and its macro crates), 3,120 KB idle. It was 1,914,240 B and 109 packages before SQS kept its state on disk: redb is 507 KiB of the difference. The
 # byte limit is the macOS size times 1.3 (the Linux build of doze-kafka is about 1.2 times its macOS one) plus 5%; it is re-based from the first Linux CI run.
