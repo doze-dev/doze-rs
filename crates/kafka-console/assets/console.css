@@ -711,6 +711,11 @@ html.is-loading::before{content:"";position:fixed;z-index:90;top:0;left:0;right:
 .dz-picked a.dz-tag:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .dz-picked .dz-tag-x{pointer-events:none}
 .dz-picked .dz-link{margin-left:4px}
+.dz-picked-f{margin-right:5px;color:var(--dim);font-size:11.5px}
+/* Live's toolbar holds a search box and seven controls: the box gives way and a chosen name is cut short, so that they stay on one line. */
+.toolbar[data-live-filters]{gap:8px}
+.toolbar[data-live-filters] .finput{min-width:200px;flex:0 1 230px}
+.dz-chip.dz-multi .dz-value{max-width:170px}
 /* Combobox: the kit's field, with the list under it */
 .dz-field{display:flex;align-items:center;gap:8px;height:36px;min-width:15rem;padding:0 8px 0 10px;background:#fff;border:1px solid var(--line2);border-radius:8px;box-shadow:0 1px 2px rgba(23,20,31,.04);transition:border-color .12s ease,box-shadow .12s ease}
 .dz-field:focus-within,.dz-combobox[data-open] .dz-field{border-color:var(--accent);box-shadow:0 0 0 3px rgba(122,79,224,.12)}

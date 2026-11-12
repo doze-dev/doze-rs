@@ -122,7 +122,7 @@ fn the_partitions_sentence_names_the_partitions_a_transaction_holds_back() {
 #[test]
 fn what_a_read_did_is_said_in_the_boards_words() {
     let q = MessageQuery {
-        partition: Some(0),
+        partitions: vec![0],
         offset: Some(16_098),
         ..MessageQuery::default()
     };

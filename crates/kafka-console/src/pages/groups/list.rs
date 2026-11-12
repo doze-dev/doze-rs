@@ -9,7 +9,7 @@ use crate::groups_words::attention_sentence;
 use crate::model::{GroupFilter, GroupPhase, GroupProtocol, GroupRow, GroupsView, RowLag};
 use crate::ui::button::{Size, Variant, link, state};
 use crate::ui::client;
-use crate::ui::components::{SegItem, seg};
+use crate::ui::components::{Choice, MultiSelect, multiselect};
 use crate::ui::glyph::Glyph;
 use crate::ui::inplace;
 use crate::ui::kafka::empty;
@@ -127,7 +127,7 @@ fn shown(v: &GroupsView) -> String {
 }
 
 fn query(v: &GroupsView) -> String {
-    crate::form::encode_query(&[("q", &v.filter), ("state", v.state.value())])
+    v.state.query(&v.filter)
 }
 
 /// The table and the line under it, as a fragment.
@@ -166,36 +166,28 @@ pub fn groups_live_fragment(v: &GroupsView, base: &Base) -> Markup {
     )
 }
 
-/// The states as a Segmented control: each is the same list in that state (a link with no script, an in-place swap with one).
-fn states(v: &GroupsView, base: &Base) -> Markup {
+/// The states as a MultiSelect: a group shows when it is in any of the states chosen (none chosen: every group), with how many groups each
+/// state holds. Without a script it is checkboxes in a details with an Apply button.
+fn states(v: &GroupsView) -> Markup {
     let all = [
-        (GroupFilter::All, "All"),
         (GroupFilter::Stable, "Stable"),
         (GroupFilter::Rebalancing, "Rebalancing"),
         (GroupFilter::Empty, "Empty"),
     ];
-    let hrefs: Vec<String> = all
+    // `counts` is all, stable, rebalancing, empty.
+    let choices: Vec<Choice<'_>> = all
         .iter()
-        .map(|(w, _)| {
-            format!(
-                "{}{}",
-                base.url("/groups"),
-                crate::form::encode_query(&[("q", &v.filter), ("state", w.value())])
-            )
-        })
+        .zip(v.counts.iter().skip(1))
+        .map(|((w, label), n)| Choice::new(w.value(), label).count(*n))
         .collect();
-    let items: Vec<SegItem<'_>> = all
-        .iter()
-        .zip(&hrefs)
-        .zip(v.counts)
-        .map(|(((w, label), href), n)| SegItem {
-            label,
-            href,
-            current: v.state == *w,
-            count: Some(n),
-        })
-        .collect();
-    seg("State", &items, Some(GROUPS_VIEW))
+    let values: Vec<String> = v.state.values().into_iter().map(str::to_owned).collect();
+    multiselect(&MultiSelect {
+        auto_submit: true,
+        placeholder: "All states",
+        noun: "states",
+        class: "dz-chip",
+        ..MultiSelect::new("groups-state", "state", "States", &choices, &values)
+    })
 }
 
 /// The id of the region the toolbar and the table share: a chip or the filter changes it and nothing else of the page.
@@ -207,10 +199,9 @@ fn toolbar(v: &GroupsView, base: &Base) -> Markup {
         (inplace::form(GROUPS_VIEW, None, "toolbar", Some("margin-top:24px"), &action, html! {
             input type="submit" value="Filter" aria-label="Filter groups" hidden data-scaffold;
             (inplace::search_box(GROUPS_VIEW, &action, "q", "Filter by group id", "Filter by group id", &v.filter))
-            (states(v, base))
+            (states(v))
             span class="sp" {}
             // After the buttons: the button that was clicked is the first of its name, and typing keeps the state that is on.
-            @if v.state != GroupFilter::All { input type="hidden" name="state" value=(v.state.value()); }
             span class="dim" { "Listed by id, refreshes every 3 s while open" }
         }))
     }

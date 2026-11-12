@@ -9,7 +9,7 @@ use super::group_read as read;
 use crate::backend::Backend;
 use crate::lag::Lag;
 use crate::model::{
-    GroupAttention, GroupFilter, GroupPhase, GroupProtocol, GroupRow, GroupsView, LagTopic, RowLag,
+    GroupAttention, GroupPhase, GroupProtocol, GroupRow, GroupStates, GroupsView, LagTopic, RowLag,
 };
 use crate::source::now_ms;
 
@@ -133,7 +133,7 @@ pub fn attention(entries: &[Entry]) -> Option<GroupAttention> {
 #[allow(clippy::too_many_arguments)]
 pub fn view(
     filter: &str,
-    state: GroupFilter,
+    state: &GroupStates,
     total: usize,
     phases: &[GroupPhase],
     entries: &[Entry],
@@ -157,7 +157,7 @@ pub fn view(
         total,
         counts: counts(phases),
         filter: filter.to_owned(),
-        state,
+        state: state.clone(),
         topics: partitions.len(),
         attention: attention(entries),
         now_ms,
@@ -193,7 +193,7 @@ async fn noteworthy(
 }
 
 /// The list, for a name filter and a state chip.
-pub async fn groups(b: &Backend, filter: &str, state: GroupFilter) -> GroupsView {
+pub async fn groups(b: &Backend, filter: &str, state: &GroupStates) -> GroupsView {
     let filter: String = filter.chars().take(255).collect();
     let all = read::listed(b).await;
     let named: Vec<&read::Listed> = all

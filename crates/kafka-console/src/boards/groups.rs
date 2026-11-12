@@ -7,7 +7,7 @@ use crate::assets::Assets;
 use crate::base::Base;
 use crate::fixtures;
 use crate::fixtures_groups as world;
-use crate::model::GroupFilter;
+use crate::model::GroupStates;
 use crate::pages::groups as page;
 use crate::ui::overlay::{Over, over};
 use crate::ui::shell::{Crumb, Page, Rail, document_over};
@@ -67,7 +67,7 @@ fn pages(id: &str, base: &Base) -> Option<Content> {
     Some(match id {
         "groups-list" => (
             page::groups_page(
-                &world::groups("", GroupFilter::All, None),
+                &world::groups("", &GroupStates::default(), None),
                 base,
                 fixtures::ADDRESS,
             ),
@@ -123,7 +123,7 @@ fn refusals(id: &str, base: &Base) -> Option<Content> {
     Some(match id {
         "groups-none" => (
             page::groups_page(
-                &world::groups("", GroupFilter::All, Some("none")),
+                &world::groups("", &GroupStates::default(), Some("none")),
                 base,
                 fixtures::ADDRESS,
             ),

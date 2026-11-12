@@ -16,7 +16,7 @@ use super::messages::{TOPIC_VIEW, messages_url};
 use crate::base::Base;
 use crate::format::number;
 use crate::model::{MessageQuery, MessagesView, Reading};
-use crate::ui::components::{Choice, SegItem, Select, popover, seg, select};
+use crate::ui::components::{Choice, MultiSelect, SegItem, multiselect, popover, seg};
 use crate::ui::glyph::{Glyph, glyph};
 use crate::ui::inplace::{self, Opts};
 use crate::ui::kafka::filter_box;
@@ -27,41 +27,51 @@ pub(super) const BAR_ID: &str = "topic-bar";
 /// The most partitions drawn as a row of segments; a topic with more has a Select (a list you can open, with the keys).
 const MOST_SEGMENTS: usize = 8;
 
-/// The partitions: a Segmented control for a few, a Select for many. Each choice is the same page with that partition, so a
-/// choice is also a plain link (the Select is a real `<select>` that submits the form with no script).
+/// The partitions. A topic with few has a Segmented control (one partition or all: each choice is the same page, a plain link) and, after
+/// it, "More", a MultiSelect for several at once; a topic with many has the MultiSelect alone ("All partitions"). The MultiSelect is a
+/// group of checkboxes in a form with no script and sends `partition=0&partition=2`.
 fn partition_pick(v: &MessagesView, base: &Base) -> Markup {
+    let labels: Vec<String> = v
+        .head
+        .parts
+        .iter()
+        .map(|p| p.partition.to_string())
+        .collect();
+    let choices: Vec<Choice<'_>> = labels.iter().map(|l| Choice::new(l, l)).collect();
+    let chosen: Vec<String> = v.query.partitions.iter().map(ToString::to_string).collect();
+    let many = v.head.parts.len() > MOST_SEGMENTS;
+    let multi = multiselect(&MultiSelect {
+        auto_submit: true,
+        placeholder: if many { "All partitions" } else { "More" },
+        noun: "partitions",
+        class: "dz-chip",
+        ..MultiSelect::new(
+            "topic-partition",
+            "partition",
+            "Partitions",
+            &choices,
+            &chosen,
+        )
+    });
+    if many {
+        return multi;
+    }
     let to = |p: Option<i32>| {
         let mut q = v.query.clone();
-        q.partition = p;
+        q.partitions = p.into_iter().collect();
         messages_url(base, &v.head.name, &q)
     };
-    if v.head.parts.len() > MOST_SEGMENTS {
-        let labels: Vec<String> = v
-            .head
-            .parts
-            .iter()
-            .map(|p| p.partition.to_string())
-            .collect();
-        let mut choices = vec![Choice::new("", "All partitions")];
-        choices.extend(labels.iter().map(|l| Choice::new(l, l)));
-        let now = v.query.partition.map(|p| p.to_string()).unwrap_or_default();
-        return select(&Select {
-            auto_submit: true,
-            placeholder: "All partitions",
-            ..Select::new("topic-partition", "partition", "Partition", &choices, &now)
-        });
-    }
-    // Each segment: its label, the page with that partition, and whether it is the one in the query.
+    // Each segment: its label, the page with that partition, and whether it is the only one in the query.
     let mut rows: Vec<(String, String, bool)> = vec![(
         "All partitions".to_owned(),
         to(None),
-        v.query.partition.is_none(),
+        v.query.partitions.is_empty(),
     )];
     rows.extend(v.head.parts.iter().map(|p| {
         (
             p.partition.to_string(),
             to(Some(p.partition)),
-            v.query.partition == Some(p.partition),
+            v.query.partitions == [p.partition],
         )
     }));
     let items: Vec<SegItem<'_>> = rows
@@ -73,7 +83,7 @@ fn partition_pick(v: &MessagesView, base: &Base) -> Markup {
             count: None,
         })
         .collect();
-    seg("Partition", &items, Some(TOPIC_VIEW))
+    html! { (seg("Partition", &items, Some(TOPIC_VIEW))) (multi) }
 }
 
 /// "Reading as", always `read_uncommitted` then `read_committed`, always at the right.
@@ -119,7 +129,7 @@ fn from_held(v: &MessagesView, base: &Base) -> Markup {
         return html! {};
     };
     let q = MessageQuery {
-        partition: Some(p.partition),
+        partitions: vec![p.partition],
         offset: Some(p.last_stable),
         ..MessageQuery::default()
     };
@@ -166,7 +176,7 @@ fn chips(v: &MessagesView, base: &Base) -> Markup {
             (time_pick(q))
             (from_held(v, base))
             @if q.filtered() {
-                @if let Some(p) = q.partition { (chip(v, base, &format!("Partition {p}"), &without(|c| c.partition = None))) }
+                @for p in &q.partitions { (chip(v, base, &format!("Partition {p}"), &MessageQuery { partitions: q.partitions.iter().copied().filter(|x| x != p).collect(), ..q.clone() })) }
                 @if let Some(o) = q.offset { (chip(v, base, &format!("From offset {}", number(o)), &without(|c| c.offset = None))) }
                 @if let Some((_, t)) = &q.time { (chip(v, base, &format!("From {t}"), &without(|c| c.time = None))) }
                 @if let Some(k) = &q.key { (chip(v, base, &format!("Key {k}"), &without(|c| c.key = None))) }
@@ -197,7 +207,6 @@ pub(super) fn bar(v: &MessagesView, base: &Base) -> Markup {
                 (reading_seg(v, base))
             }
             // After the buttons, so that the button that was clicked is the first of its name.
-            @if let Some(p) = q.partition { input type="hidden" name="partition" value=(p); }
             @if q.reading == Reading::Committed { input type="hidden" name="isolation" value="read_committed"; }
             @if !shown {
                 @if let Some(k) = &q.key { input type="hidden" name="key" value=(k); }

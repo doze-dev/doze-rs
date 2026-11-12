@@ -16,6 +16,8 @@ struct Kind<'a> {
     label: &'static str,
     placeholder: &'static str,
     noun: &'static str,
+    /// One of them, for a tag ("topic orders").
+    one: &'static str,
     values: &'a [String],
     options: &'a [Facet],
 }
@@ -28,6 +30,7 @@ fn kinds(v: &LiveView) -> [Kind<'_>; 3] {
             label: "Apps",
             placeholder: "All apps",
             noun: "apps",
+            one: "app",
             values: &q.client,
             options: &v.facets.clients,
         },
@@ -36,6 +39,7 @@ fn kinds(v: &LiveView) -> [Kind<'_>; 3] {
             label: "Topics",
             placeholder: "All topics",
             noun: "topics",
+            one: "topic",
             values: &q.topic,
             options: &v.facets.topics,
         },
@@ -44,6 +48,7 @@ fn kinds(v: &LiveView) -> [Kind<'_>; 3] {
             label: "APIs",
             placeholder: "All APIs",
             noun: "APIs",
+            one: "API",
             values: &q.api,
             options: &v.facets.apis,
         },
@@ -82,7 +87,7 @@ pub(super) fn picked(v: &LiveView, base: &Base) -> Markup {
                 @for k in &ks {
                     @for val in k.values {
                         (client::in_place_link(LIVE_FRAGMENT, "dz-tag", &live_url(base, &v.query.without(k.field, val)), html! {
-                            span class="dz-picked-f" { (k.noun.trim_end_matches('s')) " " }
+                            span class="dz-picked-f" { (k.one) }
                             span class="dz-tag-t" { (val) }
                             span class="dz-tag-x" aria-label={"Remove " (val)} { "\u{d7}" }
                         }))

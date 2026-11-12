@@ -134,7 +134,11 @@ fn choice_sections() -> Markup {
         "fulfilment-payments-settled-consumer-group-eu-west-1-canary-blue",
         "search-indexer-clickstream-backfill-worker-us-east-2-green",
     ];
-    let long: Vec<Choice<'_>> = long_names.iter().map(|n| Choice::new(n, n).count(1234)).chain([Choice::new("short", "short").count(2)]).collect();
+    let long: Vec<Choice<'_>> = long_names
+        .iter()
+        .map(|n| Choice::new(n, n).count(1234))
+        .chain([Choice::new("short", "short").count(2)])
+        .collect();
     html! {
         (section("Select", "Single choice. Keyboard: Enter, Space or the arrows open; arrows, Home, End and letters move; Enter chooses; Esc closes.", html! {
             (select(&Select::new("s-plain", "colour", "Colour", &colours, "g")))

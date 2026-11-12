@@ -28,10 +28,14 @@ impl Reading {
     }
 }
 
+/// The most partitions one query names.
+const MOST_PARTITIONS: usize = 256;
+
 /// The filters of the Messages page.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MessageQuery {
-    pub partition: Option<i32>,
+    /// The partitions to read, ascending; none is all of them.
+    pub partitions: Vec<i32>,
     /// From this offset (on the chosen partition).
     pub offset: Option<i64>,
     /// From this time, in milliseconds since the epoch, and as it was typed.
@@ -45,7 +49,7 @@ pub struct MessageQuery {
 impl Default for MessageQuery {
     fn default() -> Self {
         Self {
-            partition: None,
+            partitions: Vec::new(),
             offset: None,
             time: None,
             key: None,
@@ -75,7 +79,7 @@ impl MessageQuery {
     /// Whether any filter besides the isolation level is set.
     #[must_use]
     pub fn filtered(&self) -> bool {
-        self.partition.is_some()
+        !self.partitions.is_empty()
             || self.offset.is_some()
             || self.time.is_some()
             || self.key.is_some()
@@ -86,15 +90,25 @@ impl MessageQuery {
     pub fn parse(fields: &[(String, String)]) -> (Self, Vec<String>) {
         let mut q = Self::default();
         let mut notes = Vec::new();
-        if let Some(p) = get(fields, "partition") {
+        // `partition=0&partition=2`: every one, once; a value that is no partition number is said and left out.
+        for (k, p) in fields {
+            if k != "partition" || p.trim().is_empty() {
+                continue;
+            }
             match p.trim().parse::<i32>().ok().filter(|n| *n >= 0) {
-                Some(n) => q.partition = Some(n),
+                Some(n) if q.partitions.len() < MOST_PARTITIONS => {
+                    if !q.partitions.contains(&n) {
+                        q.partitions.push(n);
+                    }
+                }
+                Some(_) => {}
                 None => notes.push(format!(
-                    "{:?} is not a partition number, so all partitions are shown.",
+                    "{:?} is not a partition number, so it is ignored.",
                     clip(p)
                 )),
             }
         }
+        q.partitions.sort_unstable();
         // The one box: digits are an offset, anything else a key.
         let find = get(fields, "find");
         let (find_offset, find_key) = match find {
@@ -167,7 +181,7 @@ impl MessageQuery {
     #[must_use]
     pub fn to_query(&self) -> String {
         let mut parts: Vec<String> = Vec::new();
-        if let Some(p) = self.partition {
+        for p in &self.partitions {
             parts.push(format!("partition={p}"));
         }
         if let Some(o) = self.offset {
