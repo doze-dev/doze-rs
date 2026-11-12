@@ -30,6 +30,7 @@ pub use compose::{OneRecord, single_record};
 pub use error::{BatchError, Refusal};
 pub use filter::{Filtered, Rules, Seen};
 use header::Header;
+pub use inflate::inflates_within;
 pub use iter::Batches;
 pub use layout::HEADER_LEN;
 use layout::{LENGTH_OVERHEAD, MAGIC_V2};
