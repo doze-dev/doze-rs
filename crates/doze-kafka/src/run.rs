@@ -31,9 +31,22 @@ pub(crate) type ConsoleBound = Option<crate::web::Bound>;
 #[cfg(not(feature = "console"))]
 pub(crate) type ConsoleBound = ();
 
+/// The table of flags the console shows (Settings), made from the command line before anything else is done with it.
+#[cfg(feature = "console")]
+pub(crate) type Flags = Vec<kafka_console::model::SettingsFlag>;
+/// A build without the console has no table to show.
+#[cfg(not(feature = "console"))]
+pub(crate) type Flags = ();
+
 /// Opens the broker, serves until told to stop, then stops cleanly: the server first, so nothing new arrives, then
 /// the broker, which flushes every partition and records that it did.
-pub(crate) async fn serve(settings: Settings, console_listener: ConsoleBound) -> Result<()> {
+pub(crate) async fn serve(
+    settings: Settings,
+    console_listener: ConsoleBound,
+    flags: Flags,
+) -> Result<()> {
+    #[cfg(not(feature = "console"))]
+    let _ = flags;
     let Settings {
         broker,
         server,
@@ -66,7 +79,7 @@ pub(crate) async fn serve(settings: Settings, console_listener: ConsoleBound) ->
     let _control = crate::control::serve(&broker);
     #[cfg(feature = "console")]
     let web = console_listener
-        .map(|bound| bound.serve(&console, &server, &running, &broker))
+        .map(|bound| bound.serve(&console, &server, &running, &broker, flags))
         .transpose()
         .context("starting the console")?;
     stopped().await;

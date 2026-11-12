@@ -181,7 +181,7 @@ pub async fn form(b: &Backend, key: &str, scope: &str) -> Option<SettingsEditVie
     }
     let node = node_of(b);
     let retention = b.intervals().map(|i| i.retention_check.as_secs());
-    let configs = of_broker(b, node, retention).await?;
+    let configs = of_broker(b, node, retention).await.unwrap_or_default();
     let who = followers(b, key).await;
     let w = world_for(b, &configs, &who, node).await;
     let value = start_value(&configs, key);
@@ -224,9 +224,8 @@ pub async fn save(b: &Backend, f: SettingsFields<'_>, check: bool) -> SettingsRe
     let node = node_of(b);
     let retention = b.intervals().map(|i| i.retention_check.as_secs());
     let version = b.version(ApiKey::IncrementalAlterConfigs);
-    let Some(before) = of_broker(b, node, retention).await else {
-        return refused(b, f, scope, node, None, true).await;
-    };
+    // A caller that may not describe the broker's configs still gets Kafka's own answer to the change it asked for.
+    let before = of_broker(b, node, retention).await.unwrap_or_default();
     if !is_dynamic(f.key) {
         let (code, message) = send(b, &resource_name(scope, node), f.key, f.value, true)
             .await

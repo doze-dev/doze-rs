@@ -175,9 +175,11 @@ pub(crate) struct Args {
     #[arg(long, value_name = "FILE")]
     tls_key: Option<PathBuf>,
     // Without the feature the two flags are accepted, hidden, to be refused with a message that names the feature.
+    /// PEM certificate chain (leaf first) to serve TLS with. This build has no TLS and refuses the flag.
     #[cfg(not(feature = "tls"))]
     #[arg(long, hide = true)]
     tls_cert: Option<String>,
+    /// PEM private key of the certificate. This build has no TLS and refuses the flag.
     #[cfg(not(feature = "tls"))]
     #[arg(long, hide = true)]
     tls_key: Option<String>,

@@ -93,6 +93,9 @@ async fn a_get_never_asks_the_broker_to_change_anything() {
         ApiKey::ApiVersions,
         ApiKey::Fetch,
         ApiKey::DescribeProducers,
+        // Slice 9h: the Access page reads the ACLs and the names of the users.
+        ApiKey::DescribeAcls,
+        ApiKey::DescribeUserScramCredentials,
     ];
     let calls = log.lock().unwrap().clone();
     assert!(

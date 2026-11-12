@@ -101,6 +101,29 @@ fn facts(
     }
 }
 
+/// How the broker was started, as far as Settings and Access say it: the flags, where the console listens, the certificate's
+/// file (never the key's), and how long a failed login waits.
+fn start_facts(
+    server: &ServerConfig,
+    console: &Console,
+    addr: &SocketAddr,
+    flags: Vec<kafka_console::model::SettingsFlag>,
+) -> kafka_console::facts_start::StartFacts {
+    kafka_console::facts_start::StartFacts {
+        flags,
+        console_addr: Some(addr.to_string()),
+        #[cfg(feature = "tls")]
+        tls_cert: server
+            .tls
+            .as_ref()
+            .map(|t| t.cert_file().display().to_string()),
+        #[cfg(not(feature = "tls"))]
+        tls_cert: None,
+        failed_login_delay: server.sasl.as_ref().map(|_| server.timeouts.failed_login),
+        console_unprotected: console.unprotected,
+    }
+}
+
 impl Bound {
     /// Starts serving: from here the console reads and acts on `broker` as `User:__console`.
     pub(crate) fn serve(
@@ -109,13 +132,16 @@ impl Bound {
         server: &ServerConfig,
         kafka: &Kafka,
         broker: &Arc<Broker<RealFs>>,
+        flags: Vec<kafka_console::model::SettingsFlag>,
     ) -> Result<Serving> {
         let addr = self.listener.local_addr()?;
         let listener = server.advertise(kafka.local_addr());
         let facts = facts(server, kafka, &listener, &addr, &console.allow_hosts);
+        let start = start_facts(server, console, &addr, flags);
         let backend = kafka_console::Backend::new(Arc::clone(broker), listener, server.profile);
-        let source =
-            kafka_console::Source::Live(Box::new(kafka_console::Live::new(backend, facts)));
+        let source = kafka_console::Source::Live(Box::new(
+            kafka_console::Live::new(backend, facts).with_start(start),
+        ));
         let settings = kafka_console::Settings {
             addr,
             prefix: console.prefix.clone(),
