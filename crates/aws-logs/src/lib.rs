@@ -15,6 +15,7 @@
 //! 100,000 events per group by default), which is doze's bound and not reported through the API.
 
 mod authz;
+mod bounds;
 mod core;
 mod docs;
 mod emf;
