@@ -255,6 +255,10 @@ fn encode_output(entry: &Entry, op: u32, arena: &Arena, root: u32) -> Result<Vec
     let Some(shape) = tables.op(op).and_then(|o| o.output) else {
         return Ok(b"{}".to_vec());
     };
+    // An operation whose output is an empty structure answers with no tree at all.
+    if root == NIL {
+        return Ok(b"{}".to_vec());
+    }
     let mut out = Vec::new();
     encode(tables, shape, arena, "", root, &mut out)
         .map_err(|_| ApiError::internal("The response could not be written."))?;

@@ -24,6 +24,8 @@ const policy = {
         "budgets:ViewBudget", "ce:GetCostAndUsage", "tag:GetResources",
         // Stateless checks: they evaluate what is sent and store nothing.
         "events:TestEventPattern", "logs:TestMetricFilter", "states:TestState", "iam:SimulateCustomPolicy",
+        // Added 2026-11-12 for the KMS and Secrets Manager scenarios written before they were recorded: no resource, nothing stored.
+        "kms:GenerateRandom", "secretsmanager:GetRandomPassword", "secretsmanager:ValidateResourcePolicy",
       ],
       Resource: "*",
       Condition: region,
@@ -40,6 +42,14 @@ const policy = {
         `${A}:sqs:${R}:*:${P}*`,
         `${A}:sns:${R}:*:${P}*`,
         `${A}:ssm:${R}:*:parameter/${P}*`,
+        // Names the scenarios use to see what AWS refuses (and accepts): reserved words, a path with no slash, and the Secrets
+        // Manager reference path. AWS refuses the first four before it makes anything; `/awsome-dzc/*` it may accept, and cleanup deletes it.
+        `${A}:ssm:${R}:*:parameter/aws/not-yours`,
+        `${A}:ssm:${R}:*:parameter/ssm-not-yours`,
+        `${A}:ssm:${R}:*:parameter/awsome-dzc/*`,
+        `${A}:ssm:${R}:*:parameter/no-leading-slash`,
+        `${A}:ssm:${R}:*:parameter/aws/reference/secretsmanager`,
+        `${A}:ssm:${R}:*:parameter/aws/reference/secretsmanager/${P}*`,
         `${A}:ssm:${R}:*:document/${P}*`,
         `${A}:secretsmanager:${R}:*:secret:${P}*`,
         `${A}:dynamodb:${R}:*:table/${P}*`,
@@ -109,7 +119,8 @@ const policy = {
       Sid: "KmsOurAliases",
       Effect: "Allow",
       Action: ["kms:CreateAlias", "kms:DeleteAlias", "kms:UpdateAlias"],
-      Resource: `${A}:kms:${R}:*:alias/${P}*`,
+      // `alias/aws/mine` is a name AWS reserves: the scenario shows that it refuses it, and nothing is made.
+      Resource: [`${A}:kms:${R}:*:alias/${P}*`, `${A}:kms:${R}:*:alias/aws/mine`],
     },
     {
       Sid: "S3PrefixedBuckets",

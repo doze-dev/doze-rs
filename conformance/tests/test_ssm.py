@@ -92,3 +92,106 @@ def test_refusals(client, names, cleanup, snapshot):
         Name=f"{root}/x", ParameterVersion=9, Labels=["l"]))
     snapshot.outcome("change-type-on-overwrite", lambda: ssm.put_parameter(
         Name=f"{root}/x", Value="a,b", Type="StringList", Overwrite=True))
+
+
+# Added 2026-11-12, before they were recorded: they run against doze-aws and are UNVERIFIED until they are recorded against AWS.
+# They cover what was built without a scenario: tags, filters, unlabel, SecureString reads in bulk and in history, the value limit
+# and AllowedPattern, what an overwrite keeps, and the Secrets Manager reference path.
+
+
+def test_tags_filters_and_unlabel(client, names, cleanup, snapshot):
+    ssm = client("ssm")
+    root = f"/{names('param')}"
+    a, b = f"{root}/a", f"{root}/b"
+    for name in (a, b):
+        cleanup(ssm.delete_parameter, Name=name)
+    snapshot.match("put-with-tags", ssm.put_parameter(
+        Name=a, Value="1", Type="String", Tags=[{"Key": "env", "Value": "dev"}]))
+    ssm.put_parameter(Name=b, Value="x,y", Type="StringList")
+    snapshot.match("add-tags", ssm.add_tags_to_resource(
+        ResourceType="Parameter", ResourceId=a, Tags=[{"Key": "team", "Value": "x"}]))
+    snapshot.match("list-tags", ssm.list_tags_for_resource(ResourceType="Parameter", ResourceId=a),
+                   unordered=("TagList",))
+    snapshot.match("remove-tags", ssm.remove_tags_from_resource(
+        ResourceType="Parameter", ResourceId=a, TagKeys=["env"]))
+    snapshot.match("tags-after", ssm.list_tags_for_resource(ResourceType="Parameter", ResourceId=a))
+    snapshot.error("tags-of-absent", lambda: ssm.list_tags_for_resource(
+        ResourceType="Parameter", ResourceId=f"{root}/absent"))
+    snapshot.error("tags-of-a-document-type", lambda: ssm.list_tags_for_resource(
+        ResourceType="Nonsense", ResourceId=a))
+    snapshot.match("by-type", ssm.describe_parameters(ParameterFilters=[
+        {"Key": "Type", "Values": ["StringList"]}, {"Key": "Name", "Option": "BeginsWith", "Values": [root]}]),
+        opaque=("LastModifiedUser",))
+    snapshot.match("by-path-one-level", ssm.describe_parameters(ParameterFilters=[
+        {"Key": "Path", "Option": "OneLevel", "Values": [root]}]),
+        opaque=("LastModifiedUser",), unordered=("Parameters",))
+    snapshot.error("bad-filter-key", lambda: ssm.describe_parameters(ParameterFilters=[
+        {"Key": "Nonsense", "Values": ["x"]}]))
+    ssm.put_parameter(Name=a, Value="2", Overwrite=True)
+    snapshot.match("label-two", ssm.label_parameter_version(Name=a, ParameterVersion=2, Labels=["one", "two"]))
+    snapshot.match("unlabel", ssm.unlabel_parameter_version(Name=a, ParameterVersion=2, Labels=["one", "absent"]))
+    snapshot.match("label-bad", ssm.label_parameter_version(Name=a, ParameterVersion=2, Labels=["1bad"]))
+
+
+def test_secure_strings_read_in_bulk_and_in_history(client, names, cleanup, snapshot):
+    ssm = client("ssm")
+    root = f"/{names('param')}"
+    name = f"{root}/secret"
+    cleanup(ssm.delete_parameter, Name=name)
+    ssm.put_parameter(Name=name, Value="first", Type="SecureString")
+    snapshot.match("overwrite-keeps-type", ssm.put_parameter(Name=name, Value="second", Overwrite=True))
+    snapshot.match("history-open", ssm.get_parameter_history(Name=name, WithDecryption=True),
+                   opaque=("LastModifiedUser",))
+    history = ssm.get_parameter_history(Name=name)
+    snapshot.match("history-sealed", history, opaque=("LastModifiedUser", "Value"))
+    snapshot.match("bulk-open", ssm.get_parameters(Names=[name], WithDecryption=True))
+    snapshot.match("by-path-open", ssm.get_parameters_by_path(Path=root, WithDecryption=True))
+    snapshot.match("describe", ssm.describe_parameters(ParameterFilters=[
+        {"Key": "Name", "Values": [name]}]), opaque=("LastModifiedUser",))
+
+
+def test_value_limits_and_allowed_pattern(client, names, cleanup, snapshot):
+    ssm = client("ssm")
+    root = f"/{names('param')}"
+    for leaf in ("big", "digits"):
+        cleanup(ssm.delete_parameter, Name=f"{root}/{leaf}")
+    snapshot.error("over-4096-standard", lambda: ssm.put_parameter(
+        Name=f"{root}/big", Value="x" * 4097, Type="String"))
+    snapshot.match("exactly-4096", ssm.put_parameter(Name=f"{root}/big", Value="x" * 4096, Type="String",
+                                                     Overwrite=True))
+    snapshot.match("pattern", ssm.put_parameter(Name=f"{root}/digits", Value="42", Type="String",
+                                                AllowedPattern=r"^\d+$"))
+    snapshot.error("pattern-mismatch", lambda: ssm.put_parameter(
+        Name=f"{root}/digits", Value="forty", Type="String", Overwrite=True))
+    snapshot.match("pattern-kept", ssm.describe_parameters(ParameterFilters=[
+        {"Key": "Name", "Values": [f"{root}/digits"]}]), opaque=("LastModifiedUser",))
+    snapshot.error("bad-pattern", lambda: ssm.put_parameter(
+        Name=f"{root}/digits", Value="1", Type="String", AllowedPattern="(", Overwrite=True))
+    snapshot.error("tags-with-overwrite", lambda: ssm.put_parameter(
+        Name=f"{root}/digits", Value="1", Type="String", Overwrite=True, Tags=[{"Key": "k", "Value": "v"}]))
+    snapshot.error("bad-data-type", lambda: ssm.put_parameter(
+        Name=f"{root}/digits", Value="1", Type="String", DataType="Text", Overwrite=True))
+    snapshot.error("policies-on-standard", lambda: ssm.put_parameter(
+        Name=f"{root}/digits", Value="1", Type="String", Overwrite=True,
+        Policies='[{"Type":"Expiration","Version":"1.0","Attributes":{"Timestamp":"2099-01-01T00:00:00.000Z"}}]'))
+    snapshot.outcome("description-after-overwrite", lambda: (
+        ssm.put_parameter(Name=f"{root}/digits", Value="7", Type="String", Overwrite=True, Description="kept?"),
+        ssm.put_parameter(Name=f"{root}/digits", Value="8", Type="String", Overwrite=True),
+        ssm.describe_parameters(ParameterFilters=[{"Key": "Name", "Values": [f"{root}/digits"]}])))
+
+
+def test_a_secrets_manager_secret_read_through_parameter_store(client, names, cleanup, snapshot):
+    ssm = client("ssm")
+    sm = client("secretsmanager")
+    secret = names("secret")
+    sm.create_secret(Name=secret, SecretString="s3cret")
+    cleanup(sm.delete_secret, SecretId=secret, ForceDeleteWithoutRecovery=True)
+    reference = f"/aws/reference/secretsmanager/{secret}"
+    snapshot.match("open", ssm.get_parameter(Name=reference, WithDecryption=True), opaque=("Version",))
+    snapshot.error("sealed", lambda: ssm.get_parameter(Name=reference))
+    snapshot.match("bulk", ssm.get_parameters(
+        Names=[reference, f"{reference}-absent"], WithDecryption=True), opaque=("Version",))
+    snapshot.error("absent", lambda: ssm.get_parameter(
+        Name=f"{reference}-absent", WithDecryption=True))
+    snapshot.outcome("by-path-does-not-list-it", lambda: ssm.get_parameters_by_path(
+        Path="/aws/reference/secretsmanager", WithDecryption=True))
