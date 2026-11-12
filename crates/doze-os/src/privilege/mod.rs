@@ -10,6 +10,8 @@
 use std::io;
 
 #[cfg(windows)]
+mod dacl;
+#[cfg(windows)]
 mod windows;
 
 /// Set in the environment of a re-launched copy, so it can never re-launch again.

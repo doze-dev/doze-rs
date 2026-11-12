@@ -9,8 +9,8 @@ use std::os::windows::io::{FromRawHandle, OwnedHandle};
 use windows_sys::Win32::Foundation::{HANDLE, WAIT_OBJECT_0};
 use windows_sys::Win32::Security::{
     AllocateAndInitializeSid, CheckTokenMembership, CreateRestrictedToken, DISABLE_MAX_PRIVILEGE,
-    FreeSid, PSID, SECURITY_NT_AUTHORITY, SID_AND_ATTRIBUTES, TOKEN_ASSIGN_PRIMARY,
-    TOKEN_DUPLICATE, TOKEN_QUERY,
+    FreeSid, PSID, SECURITY_NT_AUTHORITY, SID_AND_ATTRIBUTES, TOKEN_ADJUST_DEFAULT,
+    TOKEN_ASSIGN_PRIMARY, TOKEN_DUPLICATE, TOKEN_QUERY,
 };
 use windows_sys::Win32::System::Console::{
     GetStdHandle, STD_ERROR_HANDLE, STD_INPUT_HANDLE, STD_OUTPUT_HANDLE,
@@ -26,7 +26,7 @@ use windows_sys::Win32::System::Threading::{
 };
 
 /// A SID from `AllocateAndInitializeSid`, freed on drop.
-struct Sid(PSID);
+pub(super) struct Sid(pub(super) PSID);
 
 impl Drop for Sid {
     fn drop(&mut self) {
@@ -36,13 +36,18 @@ impl Drop for Sid {
 }
 
 fn builtin_group(rid: i32) -> io::Result<Sid> {
+    nt_sid(2, SECURITY_BUILTIN_DOMAIN_RID as u32, rid as u32)
+}
+
+/// A SID under the NT authority with one or two sub-authorities (the second is ignored when `count` is 1).
+pub(super) fn nt_sid(count: u8, first: u32, second: u32) -> io::Result<Sid> {
     let mut sid: PSID = std::ptr::null_mut();
-    let (domain, rid) = (SECURITY_BUILTIN_DOMAIN_RID as u32, rid as u32);
+    let (domain, rid) = (first, second);
     // SAFETY: the authority is a valid constant; `sid` is a valid out-pointer; success is checked below.
     let ok = unsafe {
         AllocateAndInitializeSid(
             &SECURITY_NT_AUTHORITY,
-            2,
+            count,
             domain,
             rid,
             0,
@@ -95,7 +100,7 @@ fn restricted_token() -> io::Result<OwnedHandle> {
     let ok = unsafe {
         OpenProcessToken(
             me,
-            TOKEN_DUPLICATE | TOKEN_ASSIGN_PRIMARY | TOKEN_QUERY,
+            TOKEN_DUPLICATE | TOKEN_ASSIGN_PRIMARY | TOKEN_QUERY | TOKEN_ADJUST_DEFAULT,
             &mut token,
         )
     };
@@ -128,7 +133,11 @@ fn restricted_token() -> io::Result<OwnedHandle> {
     if ok == 0 {
         return Err(io::Error::last_os_error());
     }
-    Ok(owned(restricted))
+    let restricted = owned(restricted);
+    super::dacl::grant_user(
+        std::os::windows::io::AsRawHandle::as_raw_handle(&restricted) as HANDLE,
+    )?;
+    Ok(restricted)
 }
 
 /// This process's command line, as a writable, NUL-terminated buffer (CreateProcessAsUserW may write to it).

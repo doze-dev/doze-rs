@@ -159,21 +159,19 @@ async fn pg(args: &[String]) -> std::io::Result<()> {
             .stderr(std::process::Stdio::null());
         c
     };
-    initdb(&bin("initdb"), &data).await?;
-    let port = std::net::TcpListener::bind("127.0.0.1:0")?
-        .local_addr()?
-        .port()
-        .to_string();
+    println!("pg: privileged={}", doze_os::privilege::is_privileged()?);
+    at("initdb", initdb(&bin("initdb"), &data).await)?;
+    let port = at("picking a port", free_port())?;
     let mut server = quiet("postgres");
     server
         .arg("-D")
         .arg(&data)
         .args(["-p", &port, "-c", "listen_addresses=127.0.0.1", "-k"])
         .arg(work);
-    let mut tree = Tree::spawn(server)?;
+    let mut tree = at("starting postgres as a tree", Tree::spawn(server))?;
     let t0 = std::time::Instant::now();
     loop {
-        if let Some(st) = tree.try_wait()? {
+        if let Some(st) = at("checking postgres", tree.try_wait())? {
             return Err(std::io::Error::other(format!(
                 "postgres exited at once: {st}"
             )));
@@ -181,8 +179,8 @@ async fn pg(args: &[String]) -> std::io::Result<()> {
         let ready = quiet("pg_isready")
             .args(["-h", "127.0.0.1", "-p", &port, "-U", "postgres"])
             .status()
-            .await?;
-        if ready.success() {
+            .await;
+        if at("running pg_isready", ready)?.success() {
             break;
         }
         if t0.elapsed() > Duration::from_secs(60) {
@@ -200,7 +198,10 @@ async fn pg(args: &[String]) -> std::io::Result<()> {
         "fast".into(),
         "-w".into(),
     ]);
-    let r = tree.stop(&stop, Duration::from_secs(30)).await?;
+    let r = at(
+        "stopping postgres",
+        tree.stop(&stop, Duration::from_secs(30)).await,
+    )?;
     println!("pg=stopped {r:?}");
     Ok(())
 }
@@ -224,4 +225,16 @@ async fn initdb(initdb: &std::path::Path, data: &std::path::Path) -> std::io::Re
         out.status,
         why.trim()
     )))
+}
+
+/// Names the step an error came from.
+fn at<T>(step: &str, r: std::io::Result<T>) -> std::io::Result<T> {
+    r.map_err(|e| std::io::Error::new(e.kind(), format!("{step}: {e}")))
+}
+
+fn free_port() -> std::io::Result<String> {
+    Ok(std::net::TcpListener::bind("127.0.0.1:0")?
+        .local_addr()?
+        .port()
+        .to_string())
 }
