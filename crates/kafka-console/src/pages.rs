@@ -19,12 +19,12 @@ pub use common::{PROBE_ADVERTISED, PROBE_CONNECT, PROBE_HOME, probe_fragment_url
 pub use config::{
     config_page, config_refused, config_saved, config_url, edit_dialog as config_edit_dialog,
     edit_url as config_edit_url, no_config as config_no_key, reset_dialog as config_reset_dialog,
-    reset_url as config_reset_url, toggled as config_toggled, token as config_token,
+    reset_url as config_reset_url, token as config_token,
 };
 pub use connect::{connect, probe_connect};
 pub use home::{HOME_LIVE, callout_body, home, live_fragment, probe_home};
 pub use jump::{JumpItem, JumpKind, jump_overlay, jump_page};
-pub use notice::{not_found, planned};
+pub use notice::{not_found, unavailable, unavailable_what};
 pub use topics_write::{
     add_partitions_dialog, create_page, create_refused, created, delete_dialog,
     delete_records_dialog, delete_records_refused, deleted_page, no_topic, produce_dialog,

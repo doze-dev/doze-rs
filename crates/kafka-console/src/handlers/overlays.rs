@@ -59,13 +59,14 @@ pub(super) async fn over_parent(
     p: Parent,
     overlay: Markup,
 ) -> Response {
-    let crumbs: Vec<(&str, Option<&str>)> = p
-        .crumbs
-        .iter()
-        .map(|(label, path)| (label.as_str(), path.as_deref()))
-        .collect();
     let doc = s
-        .document_over(p.rail, &p.title, &crumbs, p.watch, over(p.main, overlay))
+        .document_over(
+            p.rail,
+            &p.title,
+            &crate::trail::borrowed(&p.crumbs),
+            p.watch,
+            over(p.main, overlay),
+        )
         .await;
     (status, super::html(&doc)).into_response()
 }

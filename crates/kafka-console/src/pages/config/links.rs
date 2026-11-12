@@ -1,5 +1,7 @@
-//! The address of the Config page for what it was asked to show, and the toggles that change one part of it. With no
-//! script every expander, chip and filter is a plain link or a GET form, so the page is the whole state.
+//! The address of the Config page for what it was asked to show. The filter and the chips are plain links or a GET form, so
+//! with no script the address is the state of the list. What is open (a row's "Where from", Kafka's text, the replication
+//! section) is NOT in it: those are native disclosures that open in place; `?open=` and `?replication=1` are only deep links
+//! that the server renders open.
 
 use super::common::config_url;
 use crate::base::Base;
@@ -36,29 +38,10 @@ pub fn token(kind: &str, key: &str) -> String {
     format!("{kind}:{key}")
 }
 
-/// The same page with `token` shut if it was open, else opened alone: a link never piles one open part on another, so the
-/// addresses of a page are as many as its parts, not the ways to open them (a direct address may still open several).
-#[must_use]
-pub fn toggled(ask: &ConfigAsk, token: &str) -> ConfigAsk {
-    let mut next = ask.clone();
-    if next.open.iter().any(|t| t == token) {
-        next.open.retain(|t| t != token);
-    } else {
-        next.open = vec![token.to_owned()];
-    }
-    next
-}
-
-/// The address of the page for `ask`, with the anchor of the row it is about.
+/// The address of the page for the filter in `ask` (what is open is not part of it), with the anchor of the row it is about.
 #[must_use]
 pub(super) fn url(base: &Base, topic: &str, ask: &ConfigAsk, anchor: Option<&str>) -> String {
-    let open = ask.open.join(",");
-    let query = encode_query(&[
-        ("q", &ask.q),
-        ("show", ask.show.word()),
-        ("open", &open),
-        ("replication", if ask.replication { "1" } else { "" }),
-    ]);
+    let query = encode_query(&[("q", &ask.q), ("show", ask.show.word())]);
     let tail = anchor.map_or_else(String::new, |a| format!("#c-{}", crate::base::segment(a)));
     format!("{}{query}{tail}", config_url(base, topic, ""))
 }
@@ -85,22 +68,8 @@ mod tests {
         );
         assert_eq!(
             url(&base, "orders", &ask(), Some("segment.bytes")),
-            "/topics/orders/config?q=seg%20ment&show=changed&open=where%3Asegment.bytes&replication=1#c-segment.bytes"
-        );
-    }
-
-    #[test]
-    fn an_expander_opens_alone_when_shut_and_shuts_when_open() {
-        let a = ask();
-        let shut = toggled(&a, "where:segment.bytes");
-        assert!(shut.open.is_empty());
-        let other = toggled(&a, "text:retention.ms");
-        assert_eq!(other.open, ["text:retention.ms"], "opened alone");
-        let mut two = a.clone();
-        two.open.push("text:retention.ms".to_owned());
-        assert_eq!(
-            toggled(&two, "text:retention.ms").open,
-            ["where:segment.bytes"]
+            "/topics/orders/config?q=seg%20ment&show=changed#c-segment.bytes",
+            "the filter is in the address; what is open (an expander) is not"
         );
     }
 

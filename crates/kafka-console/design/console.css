@@ -181,3 +181,77 @@ table.wire tbody tr:hover td{background:var(--well)}
 table.wire tbody tr:focus-within td{background:var(--sel)}
 table.wire tbody tr.new td{background:var(--sel)}
 @media (prefers-reduced-motion:no-preference){table.wire tbody td{transition:background-color .22s ease}}
+
+/* ---- Pages (UX pass): bars that do not move, disclosures, the Consumers tab, calm numbers ---- */
+/* The Messages toolbar: row one holds the controls, row two always one line tall (the filters that are on, or a quiet sentence). */
+.bar{display:block;margin:0 0 16px}
+.bar .bar-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;min-height:36px}
+.bar .bar-row .sp{flex:1 1 0;min-width:0}
+.bar .bar-time input{height:36px;box-sizing:border-box;width:172px;padding:0 12px;border:1px solid var(--line2);border-radius:10px;background:#fff;font:inherit;font-size:13.5px;color:var(--text)}
+.bar .bar-time input::placeholder{color:var(--dim);opacity:1}
+.bar-chips{display:flex;align-items:center;gap:8px;height:36px;margin-top:10px;overflow:hidden;white-space:nowrap}
+.bar-chips .fchip{height:30px;padding:0 10px 0 12px;font-size:12.5px}
+.fchip.rm{text-decoration:none;color:var(--bright)}
+.fchip.rm:hover{border-color:var(--accent)}
+.fchip.rm svg{margin-left:2px}
+.root form.bar{display:block}
+/* One scroll anchor rule for every same-page jump: the target clears the sticky top bar. */
+[id]{scroll-margin-top:72px}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+/* Numbers do not jitter when a live update changes them: tabular figures in every table and counter. */
+.t td,.t th,.pager,.tab .n,.pill,.lagbar .n,.mono{font-variant-numeric:tabular-nums}
+/* Every row that is a target shows it: hover and keyboard focus look alike. */
+.t tbody tr:focus-within td{background:#faf9ff}
+.t tbody tr:hover td a.lnk,.t tbody tr:focus-within td a.lnk{text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--line2)}
+.t a:focus-visible,.crumbs a:focus-visible,.tab:focus-visible,.ni:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+/* The Consumers tab: a group's header row inside the table. */
+table.consumers td.grp{background:var(--well);height:44px}
+table.consumers td.grp .grp-n{float:right}
+/* A disclosure: a native <details>, no script, no navigation; it opens with a short motion that reduced motion switches off. */
+:root{interpolate-size:allow-keywords}
+.disc>summary{list-style:none;cursor:pointer;display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:500;color:var(--accent);padding:4px 2px;border-radius:6px}
+.disc>summary::-webkit-details-marker{display:none}
+.disc>summary::before{content:"";width:6px;height:6px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(-45deg);margin:0 4px 0 2px;transition:transform .16s ease}
+.disc[open]>summary::before{transform:rotate(45deg)}
+.disc>summary:hover{color:var(--bright)}
+.disc>summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.disc .disc-body{padding-top:12px}
+.disc-row>summary{display:flex;width:100%;color:inherit;font-weight:inherit;font-size:inherit;padding:0}
+.disc-row>summary:hover{color:inherit}
+@media (prefers-reduced-motion:no-preference){
+  .disc::details-content{block-size:0;overflow:clip;opacity:0;transition:block-size .16s ease,opacity .16s ease,content-visibility .16s allow-discrete}
+  .disc[open]::details-content{block-size:auto;opacity:1}
+}
+/* The page for a screen this edition does not have, and the "Soon" tag on a link to one where the product wants it seen. */
+.soon{display:inline-flex;align-items:center;margin-left:8px;padding:0 7px;border-radius:999px;background:var(--well);color:var(--dim);font-size:11px;font-weight:500;line-height:18px}
+.is-soon{opacity:.6;cursor:default}
+/* The tabs keep one weight, so that switching tab moves nothing: the one showing differs by colour and underline only. */
+.tab,.tab.on{font-weight:500}
+table.consumers td.grp .grp-bits{margin-left:12px}
+/* Disclosures that are a ghost button (a row's Where from, Kafka's text) and ones whose header is the summary (a section). */
+.disc>summary.btn{padding:0 10px}
+.disc>summary.btn::before{margin:0 2px 0 0;width:5px;height:5px}
+.disc-btn{display:block}
+.panels{display:flex;flex-direction:column;align-items:flex-start;gap:2px;margin-top:6px}
+.panels .disc{width:100%}
+.disc .panel{background:var(--sel);border-radius:10px;padding:14px 16px;margin:8px 0 6px}
+.disc-sec{display:block}
+.disc-sec>summary{display:flex;width:100%;align-items:flex-start;justify-content:space-between;gap:16px;padding:0;color:inherit;font-size:inherit;font-weight:inherit;border-radius:8px}
+.disc-sec>summary::before{display:none}
+.disc-sec>summary:hover{color:inherit}
+.disc-sec .when-open,.disc-sec[open] .when-shut{display:none}
+.disc-sec[open] .when-open{display:inline-flex}
+.disc-sec .disc-body{padding-top:0}
+.t td.r,.t td.mono{font-variant-numeric:tabular-nums}
+.sec .t td{vertical-align:top}
+.ni.on.is-soon{opacity:1}
+.ni .soon{margin-left:auto}
+/* A sentence that is one line in one state and two in another keeps three lines of room, so a view switch moves nothing under it. */
+.page-h .sub:has(#group-lag-sentence){min-height:66px}
+/* Row one never wraps at a normal width: the find box gives way, "Reading as" stays at the right. Row two holds the time box and the filters on one line. */
+.bar .bar-row{flex-wrap:nowrap}
+.bar .bar-row .finput{flex:1 1 220px;min-width:180px}
+.bar .bar-row .seg,.bar .bar-row .dim{flex:none}
+.bar-chips .bar-time input{height:30px;width:150px;font-size:12.5px;border-radius:999px;padding:0 12px}
+.bar-chips .btn.sm{flex:none}

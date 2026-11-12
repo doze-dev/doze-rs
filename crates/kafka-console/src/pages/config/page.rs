@@ -15,7 +15,9 @@ use crate::base::Base;
 use crate::config_effects::page_moment;
 use crate::config_words::{Group, group_of, is_compaction, is_segments, page_sentence};
 use crate::format::number;
-use crate::model::{Cleanup, ConfigPage, ConfigRow, ConfigShow};
+use crate::model::{Cleanup, ConfigPage, ConfigRow, ConfigShow, TopicHead};
+use crate::pages::topics::{TopicTab, topic_frame};
+use crate::ui::disclosure::{Look, disclosure};
 use crate::ui::glyph::Glyph;
 use crate::ui::kafka::filter_box;
 use crate::ui::notice::{Tone, callout};
@@ -113,18 +115,22 @@ fn explainer() -> Markup {
 
 fn replication(rows: &[&ConfigRow], c: &Ctx<'_>, base: &Base, topic: &str) -> Markup {
     let n = rows.len();
-    let open = c.ask.replication;
-    let mut toggled = c.ask.clone();
-    toggled.replication = !open;
-    let href = url(base, topic, &toggled, None);
+    let _ = (base, topic);
     html! {
         div class="sec" {
-            div class="row sb" {
-                h2 { (Group::Replication.title()) " " (pill(n)) }
-                a class="btn sm" href=(href) aria-expanded=(open) { (if open { "Hide" } else { "Show" }) " " (n) }
-            }
-            p class="lede" { (n) " configs Kafka lists that this broker has no use for: one broker, no replicas, no tiered storage." }
-            @if open { (table(rows, c)) }
+            // The section is a disclosure: its header is the summary, so it opens in place; `?replication=1` is a deep link that opens it.
+            (disclosure(
+                Look::Section,
+                Some("replication"),
+                c.ask.replication,
+                html! {
+                    div { h2 { (Group::Replication.title()) " " (pill(n)) }
+                        p class="lede" { (n) " configs Kafka lists that this broker has no use for: one broker, no replicas, no tiered storage." } }
+                    span class="btn sm when-shut" { "Show " (n) }
+                    span class="btn sm when-open" { "Hide " (n) }
+                },
+                table(rows, c),
+            ))
         }
     }
 }
@@ -174,7 +180,7 @@ fn sections(p: &ConfigPage, c: &Ctx<'_>, base: &Base) -> Markup {
 
 /// The page.
 #[must_use]
-pub fn config_page(p: &ConfigPage, base: &Base) -> Markup {
+pub fn config_page(p: &ConfigPage, head: Option<&TopicHead>, base: &Base) -> Markup {
     let sentence = page_sentence(&p.rows, &page_moment(p.pace));
     let c = Ctx {
         base,
@@ -183,8 +189,12 @@ pub fn config_page(p: &ConfigPage, base: &Base) -> Markup {
         pace: p.pace,
     };
     html! {
-        (page_head(&p.head, &sentence, html! {}))
-        (config_tabs(&p.head.name, base))
+        // The topic's own head and tabs, the same on every tab. A caller that may read the configs and not describe the topic
+        // (the ACL test seam) gets the plain head the page had before.
+        @if let Some(head) = head { (topic_frame(head, base, TopicTab::Config)) }
+        @else { (page_head(&p.head, &sentence, html! {})) (config_tabs(&p.head.name, base)) }
+        // What this tab says of the topic, under the tabs.
+        p class="sent" data-extra="live-sentence" style="margin:0 0 20px;max-width:900px" { (crate::ui::write::spans(&sentence)) }
         (toolbar(p, base))
         div style="margin-bottom:28px" { (explainer()) }
         (sections(p, &c, base))

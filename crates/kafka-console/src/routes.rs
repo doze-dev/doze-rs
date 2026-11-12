@@ -24,6 +24,8 @@ pub enum Handler {
     TopicMessages,
     TopicRecord,
     TopicPartitions,
+    /// The Consumers tab of a topic: the groups that read it, with their lag on its partitions.
+    TopicConsumers,
     Fragment,
     /// Slice 9e: Live, its drawers, the first-request page and the wire pages of a topic and a group.
     Live,
@@ -201,6 +203,7 @@ pub const ROUTES: &[Route] = &[
         &["topic-partitions"],
         Handler::TopicPartitions,
     ),
+    get("/topics/{topic}/consumers", &[], Handler::TopicConsumers),
     // Slice 9b, the topic writes (p9b-write).
     get(
         "/topics/new",
@@ -371,6 +374,15 @@ pub const ROUTES: &[Route] = &[
         Handler::Planned("Settings"),
     ),
 ];
+
+/// Whether `path` is a screen no slice has built yet (its row is `Handler::Planned`): the rail draws it with a "Soon" tag, and
+/// the page it opens says so. When a slice builds it the row changes and the tag goes with it.
+#[must_use]
+pub fn is_planned(path: &str) -> bool {
+    ROUTES.iter().any(|r| {
+        r.path == path && r.method == Method::Get && matches!(r.handler, Handler::Planned(_))
+    })
+}
 
 /// The paths a row is registered under for a prefix: the root is `/` and, under a prefix, both `/k` and `/k/`.
 #[must_use]

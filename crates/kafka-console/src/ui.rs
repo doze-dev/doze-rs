@@ -5,6 +5,7 @@ pub mod button;
 pub mod client;
 pub mod code;
 pub mod dialog;
+pub mod disclosure;
 pub mod filter;
 pub mod form;
 pub mod glyph;

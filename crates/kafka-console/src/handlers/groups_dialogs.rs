@@ -9,15 +9,14 @@ use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Redirect, Response};
 use maud::Markup;
 
-use super::groups::{
-    GROUPS, RESOURCES, Steps, gone, group_parent, lag_parent, members_parent, shell,
-};
+use super::groups::{gone, group_parent, lag_parent, members_parent, shell};
 use super::overlays;
 use crate::base::segment;
 use crate::form::{get, parse, parse_body, text};
 use crate::gather::{DeleteGroupResult, OffsetDeleteResult, ResetResult};
 use crate::pages::groups as page;
 use crate::state::Shared;
+use crate::trail::Place;
 
 /// The page an overlay of a group sits over.
 #[derive(Clone, Copy)]
@@ -122,15 +121,7 @@ pub async fn reset(
             Redirect::to(&lag_url(&s, &id, &format!("?done=reset-{n}"))).into_response()
         }
         ResetResult::Refused(r) => {
-            let path = format!("/groups/{}", segment(&id));
-            let lag = format!("{path}/lag");
-            let steps: Steps = vec![
-                RESOURCES,
-                GROUPS,
-                (&id, Some(&path)),
-                ("Lag", Some(&lag)),
-                ("Reset refused", None),
-            ];
+            let steps = Place::GroupPage(&id, "Lag").steps();
             shell(
                 &s,
                 StatusCode::OK,
@@ -168,13 +159,7 @@ pub async fn delete(State(s): State<Shared>, Path(id): Path<String>) -> Response
     match s.source.delete_group(&id).await {
         DeleteGroupResult::Done => Redirect::to(&s.base.url("/groups")).into_response(),
         DeleteGroupResult::Refused(r) => {
-            let path = format!("/groups/{}", segment(&id));
-            let steps: Steps = vec![
-                RESOURCES,
-                GROUPS,
-                (&id, Some(&path)),
-                ("Delete refused", None),
-            ];
+            let steps = Place::Group(&id).steps();
             shell(
                 &s,
                 StatusCode::OK,

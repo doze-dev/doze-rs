@@ -5,6 +5,7 @@ mod config;
 mod config_edit;
 mod config_refuse;
 mod config_reset;
+pub mod consumers;
 mod create;
 mod delete;
 mod forms;

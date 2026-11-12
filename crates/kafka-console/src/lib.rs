@@ -69,6 +69,7 @@ pub mod stream;
 pub mod stream_groups;
 pub mod teach;
 pub mod tick;
+pub mod trail;
 pub mod ui;
 pub mod validate;
 pub mod words;

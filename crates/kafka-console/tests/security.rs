@@ -180,7 +180,7 @@ fn hostile_text_in_every_field_of_every_page_comes_out_inert() {
             "advertised",
         );
         assert_inert(
-            &shell(payload, pages::planned(payload, &base), &base),
+            &shell(payload, pages::unavailable(payload, "/", payload), &base),
             payload,
             "planned",
         );

@@ -3,13 +3,14 @@
 use maud::{Markup, html};
 
 use super::common::{edit_url, plain_value, reset_url, source_tag, value_cell};
-use super::links::{toggled, token, url};
+use super::links::token;
 use crate::base::Base;
 use crate::config_effects::sentence_of;
 use crate::config_words::{first_sentence, has_more, plain_text, type_word};
 use crate::model::{ConfigAsk, ConfigPace, ConfigRow, ConfigSource, ConfigSynonym};
 use crate::ui::button::{Size, Variant, class};
 use crate::ui::client::dialog_link;
+use crate::ui::disclosure::{Look, disclosure};
 use crate::ui::glyph::{Glyph, glyph};
 
 /// What a row needs besides itself.
@@ -25,17 +26,16 @@ fn opened(c: &Ctx<'_>, kind: &str, key: &str) -> bool {
     c.ask.open.contains(&token(kind, key))
 }
 
-/// A ghost button that opens or shuts one of the two panels: a link that carries the state of the page.
-fn expander(c: &Ctx<'_>, kind: &str, key: &str, label: &str) -> Markup {
-    let open = opened(c, kind, key);
-    let next = toggled(c.ask, &token(kind, key));
-    let href = url(c.base, c.topic, &next, Some(key));
-    html! {
-        a class=(class(Variant::Plain, Size::Small) + " ghost") href=(href) aria-expanded=(open) {
-            (glyph(Glyph::ChevR, 14, ""))
-            (label)
-        }
-    }
+/// One of the two panels under a row: a native disclosure that opens in place (no navigation, the scroll stays), shut unless
+/// the address asked for it (`?open=where:segment.bytes`, a deep link).
+fn panel(c: &Ctx<'_>, kind: &str, r: &ConfigRow, label: &str, body: Markup) -> Markup {
+    disclosure(
+        Look::Button,
+        Some(&format!("{kind}-{}", r.name)),
+        opened(c, kind, &r.name),
+        html! { (label) },
+        body,
+    )
 }
 
 fn first_cell(r: &ConfigRow, c: &Ctx<'_>) -> Markup {
@@ -44,17 +44,18 @@ fn first_cell(r: &ConfigRow, c: &Ctx<'_>) -> Markup {
             span class="mono bright" { (r.name) }
             @if !r.doc.is_empty() { span class="sub" { (first_sentence(&r.doc)) } }
             @if let Some(s) = sentence_of(&r.name, c.pace) { span class="sub" { (s) } }
+            @if r.changed() || has_more(&r.doc) {
+                div class="panels" {
+                    @if r.changed() { (panel(c, "where", r, "Where from", where_from(r))) }
+                    @if has_more(&r.doc) { (panel(c, "text", r, "Kafka's text", kafkas_text(r))) }
+                }
+            }
         }
     }
 }
 
-fn source_cell(r: &ConfigRow, c: &Ctx<'_>) -> Markup {
-    html! {
-        td {
-            (source_tag(r.source))
-            @if r.changed() { span class="sub" { (expander(c, "where", &r.name, "Where from")) } }
-        }
-    }
+fn source_cell(r: &ConfigRow) -> Markup {
+    html! { td { (source_tag(r.source)) } }
 }
 
 fn actions_cell(r: &ConfigRow, c: &Ctx<'_>) -> Markup {
@@ -64,7 +65,6 @@ fn actions_cell(r: &ConfigRow, c: &Ctx<'_>) -> Markup {
                 @if r.on_topic() {
                     (dialog_link(&(class(Variant::Plain, Size::Small) + " ghost"), &reset_url(c.base, c.topic, &r.name), html! { "Reset" }))
                 }
-                @if has_more(&r.doc) { (expander(c, "text", &r.name, "Kafka's text")) }
                 (dialog_link(&class(Variant::Plain, Size::Small), &edit_url(c.base, c.topic, &r.name), html! { "Edit" }))
             }
         }
@@ -75,10 +75,8 @@ fn actions_cell(r: &ConfigRow, c: &Ctx<'_>) -> Markup {
 pub(super) fn row(r: &ConfigRow, c: &Ctx<'_>) -> Markup {
     html! {
         tr id=(format!("c-{}", r.name)) {
-            (first_cell(r, c)) (value_cell(r)) (source_cell(r, c)) (actions_cell(r, c))
+            (first_cell(r, c)) (value_cell(r)) (source_cell(r)) (actions_cell(r, c))
         }
-        @if opened(c, "where", &r.name) { (where_from(r)) }
-        @if opened(c, "text", &r.name) { (kafkas_text(r)) }
     }
 }
 
@@ -147,15 +145,13 @@ fn where_from(r: &ConfigRow) -> Markup {
         .position(|p| r.synonyms.iter().any(|s| s.source == p.0))
         .unwrap_or(PLACES.len());
     html! {
-        tr class="sel" {
-            td colspan="4" {
-                b { "Where " (r.name) " comes from." }
-                " The first place with a value wins. DescribeConfigs lists them when synonyms are asked for."
-                div class="rules" style="margin-top:12px" {
-                    @for (i, p) in PLACES.iter().enumerate() { (place_row(r, p, i == winner)) }
-                }
-                @if let Some(t) = takes_over(r) { p class="help" style="margin:12px 0 0" { (t) } }
+        div class="panel" {
+            b { "Where " (r.name) " comes from." }
+            " The first place with a value wins. DescribeConfigs lists them when synonyms are asked for."
+            div class="rules" style="margin-top:12px" {
+                @for (i, p) in PLACES.iter().enumerate() { (place_row(r, p, i == winner)) }
             }
+            @if let Some(t) = takes_over(r) { p class="help" style="margin:12px 0 0" { (t) } }
         }
     }
 }
@@ -163,19 +159,17 @@ fn where_from(r: &ConfigRow) -> Markup {
 fn kafkas_text(r: &ConfigRow) -> Markup {
     let default = r.kafka_default().map_or("none", |d| d.value.as_str());
     html! {
-        tr class="sel" {
-            td colspan="4" {
-                b { "Kafka's text for " (r.name) }
-                ", as DescribeConfigs returns it when documentation is asked for."
-                div class="teach" style="max-width:none;margin-top:12px" {
-                    div style="font-size:13px;line-height:21px" { (plain_text(&r.doc)) }
-                }
-                dl class="kv sm" style="margin-top:12px" {
-                    dt { "Type" } dd class="mono" { (type_word(r.kind)) }
-                    dt { "Allowed" } dd { (r.allowed) }
-                    dt { "Default" } dd class="mono" { (default) }
-                    dt { "Here" } dd { (plain_value(&r.name, &r.value)) span class="sub" { (r.source.label()) } }
-                }
+        div class="panel" {
+            b { "Kafka's text for " (r.name) }
+            ", as DescribeConfigs returns it when documentation is asked for."
+            div class="teach" style="max-width:none;margin-top:12px" {
+                div style="font-size:13px;line-height:21px" { (plain_text(&r.doc)) }
+            }
+            dl class="kv sm" style="margin-top:12px" {
+                dt { "Type" } dd class="mono" { (type_word(r.kind)) }
+                dt { "Allowed" } dd { (r.allowed) }
+                dt { "Default" } dd class="mono" { (default) }
+                dt { "Here" } dd { (plain_value(&r.name, &r.value)) span class="sub" { (r.source.label()) } }
             }
         }
     }

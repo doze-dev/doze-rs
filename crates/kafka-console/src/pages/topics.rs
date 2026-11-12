@@ -8,8 +8,10 @@
 //! - When a partition went offline: the broker keeps the cause, not the time.
 //! - "Producers N" and "Consumers N" are counts of active producers and of groups with a committed offset on the topic.
 
+mod bar;
 mod committed;
 mod common;
+mod consumers;
 mod list;
 mod messages;
 mod offline;
@@ -18,8 +20,9 @@ mod record;
 mod table;
 mod wire;
 
+pub use common::{Acts, TopicTab, acts_of, topic_frame, topic_tabs_on, topic_url, unknown};
 pub use common::{TOPIC_SENTENCE, sentence_fragment as topic_sentence_fragment};
-pub use common::{topic_url, unknown};
+pub use consumers::{CONSUMERS_REGION, consumers_page};
 pub use list::{LIST_FRAGMENT, LIST_SENTENCE, list_fragment, list_page, sentence_fragment};
 pub use messages::{MESSAGES_FRAGMENT, messages_fragment, messages_page};
 pub use partitions::partitions_page;

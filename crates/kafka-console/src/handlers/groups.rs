@@ -11,38 +11,34 @@ use maud::Markup;
 use super::html;
 use super::overlays::Parent;
 use super::topics::page_of;
-use crate::base::segment;
 use crate::form::{get, parse};
 use crate::model::{GroupFilter, GroupLagView};
 use crate::pages::groups as page;
 use crate::state::Shared;
 use crate::stream_groups::{GROUP_IDS, GROUPS_IDS, LAG_IDS};
+use crate::trail::{Place, borrowed};
 use crate::ui::shell::Rail;
-
-pub(super) type Steps<'a> = Vec<(&'a str, Option<&'a str>)>;
-
-pub(super) const RESOURCES: (&str, Option<&str>) = ("Resources", Some("/topics"));
-pub(super) const GROUPS: (&str, Option<&str>) = ("Groups", Some("/groups"));
 
 pub(super) async fn shell(
     s: &Shared,
     status: StatusCode,
     title: &str,
-    steps: &[(&str, Option<&str>)],
+    steps: &[crate::trail::Step],
     watch: &[&'static str],
     main: Markup,
 ) -> Response {
-    let doc = s.document(Rail::Resources, title, steps, watch, main).await;
+    let doc = s
+        .document(Rail::Resources, title, &borrowed(steps), watch, main)
+        .await;
     (status, html(&doc)).into_response()
 }
 
 pub(super) async fn gone(s: &Shared, id: &str) -> Response {
-    let shown: String = id.chars().take(60).collect();
     shell(
         s,
         StatusCode::NOT_FOUND,
         "No such group",
-        &[RESOURCES, GROUPS, (&shown, None)],
+        &Place::NoGroup.steps(),
         &[],
         page::no_group(id, &s.base),
     )
@@ -65,7 +61,7 @@ pub async fn groups(State(s): State<Shared>, RawQuery(query): RawQuery) -> Respo
         &s,
         StatusCode::OK,
         title,
-        &[RESOURCES, ("Groups", None)],
+        &Place::Groups.steps(),
         s.source.watching(GROUPS_IDS),
         main,
     )
@@ -73,21 +69,11 @@ pub async fn groups(State(s): State<Shared>, RawQuery(query): RawQuery) -> Respo
 }
 
 /// The breadcrumb of a group's page, or of a page under it: Resources, Groups, the group, and the page (no link on the last).
-pub(super) fn trail(id: &str, last: Option<&str>) -> Vec<(String, Option<String>)> {
-    let path = format!("/groups/{}", segment(id));
-    let shown: String = id.chars().take(60).collect();
-    let mut out = vec![
-        ("Resources".to_owned(), Some("/topics".to_owned())),
-        ("Groups".to_owned(), Some("/groups".to_owned())),
-    ];
+pub(super) fn trail(id: &str, last: Option<&str>) -> Vec<crate::trail::Step> {
     match last {
-        None => out.push((shown, None)),
-        Some(label) => {
-            out.push((shown, Some(path)));
-            out.push((label.to_owned(), None));
-        }
+        None => Place::Group(id).steps(),
+        Some(label) => Place::GroupPage(id, label).steps(),
     }
-    out
 }
 
 /// A group's own page as the parent of an overlay (the Delete-group dialog).
@@ -131,15 +117,11 @@ pub async fn members(State(s): State<Shared>, Path(id): Path<String>) -> Respons
 /// The Lag page as the parent of an overlay (Reset offsets, Delete offsets); `flash` is what a redirect after a write says.
 pub(super) fn lag_parent(s: &Shared, mut view: GroupLagView, flash: Option<String>) -> Parent {
     view.flash = flash;
-    let title = if view.state == crate::model::LagState::NoCommits {
-        "Lag: no commits yet"
-    } else {
-        "Lag"
-    };
+    // "No commits yet" is the state of the group's lag, said on the page; the trail names the page.
     Parent {
         rail: Rail::Resources,
-        title: title.to_owned(),
-        crumbs: trail(&view.head.id, Some(title)),
+        title: "Lag".to_owned(),
+        crumbs: trail(&view.head.id, Some("Lag")),
         watch: s.source.watching(LAG_IDS),
         main: page::lag_page(&view, &s.base),
     }

@@ -135,8 +135,10 @@ fn rail(page: &Page<'_>) -> Markup {
             div class="nav" {
                 @for r in Rail::ALL {
                     @let on = r == page.active;
-                    a class={"ni" @if on { " on" }} href=(page.base.url(r.path())) aria-current=[on.then_some("page")] {
+                    @let soon = crate::routes::is_planned(r.path());
+                    a class={"ni" @if on { " on" } @if soon { " is-soon" }} href=(page.base.url(r.path())) aria-current=[on.then_some("page")] {
                         (glyph(r.glyph(), 20, "")) (r.label())
+                        @if soon { span class="soon" { "Soon" } }
                     }
                 }
             }
@@ -184,6 +186,8 @@ fn document_with(page: &Page<'_>, main: Markup, overlay: Option<Markup>) -> Mark
             head {
                 meta charset="utf-8";
                 meta name="viewport" content="width=device-width, initial-scale=1";
+                // A console on a developer's machine is not a page for a search engine.
+                meta name="robots" content="noindex";
                 title { (page.title) " · doze-kafka" }
                 link rel="icon" type="image/svg+xml" href=(page.assets.favicon);
                 link rel="stylesheet" href=(page.assets.css);

@@ -54,9 +54,29 @@ pub fn middle(text: &str) -> Markup {
     html! { span class="mid" title=(text) { span class="mid-a" { (head) } span class="mid-b" { (tail) } } }
 }
 
+/// A relative time ("4 s ago") with the exact time on hover: the sentence stays short and the instant is one hover away.
+#[must_use]
+pub fn when(relative: &str, at_ms: i64) -> Markup {
+    let c = crate::format::civil(at_ms);
+    let exact = format!(
+        "{:04}-{:02}-{:02} {:02}:{:02}:{:02} UTC",
+        c.year, c.month, c.day, c.hour, c.minute, c.second
+    );
+    html! { span class="when" title=(exact) { (relative) } }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_relative_time_carries_the_exact_instant_on_hover() {
+        let m = when("4 s ago", 1_762_900_000_000).into_string();
+        assert_eq!(
+            m,
+            "<span class=\"when\" title=\"2025-11-11 22:26:40 UTC\">4 s ago</span>"
+        );
+    }
 
     #[test]
     fn a_table_scopes_its_headers_and_aligns_numbers_right() {

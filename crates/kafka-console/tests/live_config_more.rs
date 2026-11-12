@@ -277,8 +277,18 @@ async fn a_get_of_the_config_pages_never_changes_the_broker() {
     }
     let calls = log.lock().unwrap().clone();
     assert!(!calls.is_empty());
+    // The page reads the topic's own head too (its tabs carry counts): reads only, whatever they are.
     assert!(
-        calls.iter().all(|c| *c == ApiKey::DescribeConfigs),
+        calls.iter().all(|c| matches!(
+            c,
+            ApiKey::DescribeConfigs
+                | ApiKey::Metadata
+                | ApiKey::ListOffsets
+                | ApiKey::DescribeProducers
+                | ApiKey::ListTransactions
+                | ApiKey::ListGroups
+                | ApiKey::OffsetFetch
+        )),
         "{calls:?}"
     );
     assert_eq!(described(&w, "segment.bytes").await, before);
