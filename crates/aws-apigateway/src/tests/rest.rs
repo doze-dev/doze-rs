@@ -68,11 +68,18 @@ async fn a_rest_api_is_built_patched_and_deployed() {
         .await
         .unwrap();
     let no_role = w
-        .rest("UpdateStage", json!({"restApiId": api, "stageName": "dev", "patchOperations": [
-            {"op": "replace", "path": "/*/*/logging/loglevel", "value": "INFO"}]}))
+        .rest(
+            "UpdateStage",
+            json!({"restApiId": api, "stageName": "dev", "patchOperations": [
+            {"op": "replace", "path": "/*/*/logging/loglevel", "value": "INFO"}]}),
+        )
         .await
         .unwrap_err();
-    assert!(no_role.message.contains("CloudWatch Logs role ARN"), "{}", no_role.message);
+    assert!(
+        no_role.message.contains("CloudWatch Logs role ARN"),
+        "{}",
+        no_role.message
+    );
     w.rest("UpdateAccount", json!({"patchOperations": [{"op": "replace", "path": "/cloudwatchRoleArn", "value": "arn:aws:iam::0:role/cw"}]}))
         .await
         .unwrap();
