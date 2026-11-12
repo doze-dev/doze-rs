@@ -1,4 +1,4 @@
-//! Listener, connection tasks, login sessions and shutdown. (TLS joins in Phase 8.)
+//! Listener, TLS (the `tls` feature), connection tasks, login sessions and shutdown.
 //!
 //! A connection is a plain loop: read a frame, split the header, decode the body, hand it to the broker,
 //! encode the answer, write it. One request at a time, in order, as Kafka's own broker serves a connection:
@@ -15,6 +15,10 @@ mod frames;
 mod pool;
 mod server;
 mod session;
+#[cfg(feature = "tls")]
+mod tls;
 
 pub use config::{Config, Timeouts};
 pub use server::{Running, Server};
+#[cfg(feature = "tls")]
+pub use tls::{TlsConfig, TlsError};

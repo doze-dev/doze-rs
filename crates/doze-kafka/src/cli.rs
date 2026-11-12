@@ -4,7 +4,7 @@
 //! accepted and ignored, hidden from the help, so that the conformance harness, which passes them all, can run the
 //! scenarios of the parts that exist. A flag that would make the broker safer or different in a way a user would
 //! rely on is refused instead when it cannot be honoured: a broker that ignored `--tls-cert` would send in the
-//! clear. SASL (PLAIN, SCRAM-SHA-256, SCRAM-SHA-512) is real (`--sasl-mechanisms`, `--sasl-user`); the passwords of `--sasl-user` are kept
+//! clear (so they need the `tls` feature, and are refused without it). SASL (PLAIN, SCRAM-SHA-256, SCRAM-SHA-512) is real (`--sasl-mechanisms`, `--sasl-user`); the passwords of `--sasl-user` are kept
 //! out of every `Debug` output and of every message.
 
 use std::net::SocketAddr;
@@ -128,11 +128,12 @@ pub(crate) struct Args {
     #[arg(long, hide = true)]
     console_addr: Option<String>,
 
-    // Refused: a broker that ignored them would send in the clear.
-    #[arg(long, hide = true)]
-    tls_cert: Option<String>,
-    #[arg(long, hide = true)]
-    tls_key: Option<String>,
+    /// PEM certificate chain (leaf first) to serve TLS with. Needs --tls-key; a build without the `tls` feature refuses it.
+    #[arg(long, value_name = "FILE", hide = !cfg!(feature = "tls"))]
+    tls_cert: Option<PathBuf>,
+    /// PEM private key of the certificate (PKCS#8, SEC1 or RSA, not encrypted). Needs --tls-cert.
+    #[arg(long, value_name = "FILE", hide = !cfg!(feature = "tls"))]
+    tls_key: Option<PathBuf>,
 }
 
 /// What the command line comes to once it has been checked.
@@ -145,9 +146,7 @@ pub(crate) struct Settings {
 impl Args {
     /// Checks the arguments and turns them into the configuration of the broker and the server.
     pub(crate) fn settings(&self) -> Result<Settings> {
-        if self.tls_cert.is_some() || self.tls_key.is_some() {
-            bail!("TLS is not supported yet in this edition");
-        }
+        let tls = tls::load(self.tls_cert.as_ref(), self.tls_key.as_ref())?;
         let Some(major) = KafkaMajor::new(self.kafka_version) else {
             bail!(
                 "--kafka-version must be 1, 2, 3 or 4, not {}",
@@ -184,6 +183,8 @@ impl Args {
         };
         let server = ServerConfig {
             sasl: sasl::authenticator(&self.sasl_mechanisms, &self.sasl_user)?,
+            #[cfg(feature = "tls")]
+            tls,
             listen: self.listen,
             advertised_host: self.advertised_host.clone(),
             advertised_port: self.advertised_port,
@@ -244,6 +245,7 @@ impl Args {
 
 mod acl;
 mod sasl;
+mod tls;
 
 #[cfg(test)]
 mod tests;

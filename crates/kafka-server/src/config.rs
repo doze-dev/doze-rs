@@ -18,7 +18,8 @@ pub struct Timeouts {
     pub write: Duration,
     /// How long a connection has to finish logging in, counted from when it was accepted and not restarted by
     /// each request. Apache Kafka has no such limit; a dev broker should not sit open to a silent socket.
-    /// Only a broker with SASL on applies it.
+    /// Only a broker with SASL on applies it to the login. With TLS on, the handshake is held to the same budget
+    /// whether or not SASL is on, and the login has what is left of it.
     pub pre_auth: Duration,
 }
 
@@ -53,6 +54,10 @@ pub struct Config {
     /// Who may log in, and how. Unset, the broker asks nobody for anything: no SASL API is advertised and a
     /// connection is served from its first request. Set, a connection must log in first.
     pub sasl: Option<Arc<Authenticator>>,
+    /// The certificate to prove itself with. Unset, the listener speaks plaintext; set, every connection starts with a
+    /// TLS handshake. Independent of `sasl`. The field exists only in a build with the `tls` feature.
+    #[cfg(feature = "tls")]
+    pub tls: Option<crate::TlsConfig>,
 }
 
 impl Default for Config {
@@ -65,6 +70,8 @@ impl Default for Config {
             timeouts: Timeouts::default(),
             max_connections: 2048,
             sasl: None,
+            #[cfg(feature = "tls")]
+            tls: None,
         }
     }
 }

@@ -26,7 +26,7 @@ use kafka_wire::messages::{
     TopicName,
 };
 use kafka_wire::testing::{framed, request_payload};
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio::time::timeout;
 
@@ -61,15 +61,22 @@ async fn start_offering(mechanisms: &[Mechanism], sasl: bool) -> Running {
     Server::bind(config, Arc::new(broker)).await.unwrap()
 }
 
-/// A raw client: what a library would send, one request at a time.
-pub(crate) struct Client {
-    pub(crate) socket: TcpStream,
+/// A raw client: what a library would send, one request at a time. Over a TCP socket, or (the TLS tests) over a TLS
+/// stream made from one.
+pub(crate) struct Client<S = TcpStream> {
+    pub(crate) socket: S,
     pub(crate) id: i32,
 }
 
 impl Client {
     pub(crate) async fn connect(server: &Running) -> Self {
         let socket = TcpStream::connect(server.local_addr()).await.unwrap();
+        Self::over(socket)
+    }
+}
+
+impl<S: AsyncRead + AsyncWrite + Unpin> Client<S> {
+    pub(crate) fn over(socket: S) -> Self {
         Self { socket, id: 0 }
     }
 

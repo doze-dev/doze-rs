@@ -65,13 +65,22 @@ pub(crate) enum End {
     OutOfOrder(ApiKey),
     #[error("no login within the time allowed")]
     LoginTooSlow,
+    /// The kind of failure, in words of ours (`tls::kind`); never what the client sent.
+    #[cfg(feature = "tls")]
+    #[error("the TLS handshake failed: {0}")]
+    Handshake(&'static str),
+    #[cfg(feature = "tls")]
+    #[error("the TLS handshake took too long")]
+    HandshakeTooSlow,
 }
 
-/// Serves `stream` until the client goes, something is wrong with it, or `stop` is cancelled.
+/// Serves `stream` until the client goes, something is wrong with it, or `stop` is cancelled. `accepted` is when the
+/// connection arrived: the login budget counts from there, so a TLS handshake that came first has used some of it.
 pub(crate) async fn serve<S: AsyncRead + AsyncWrite + Unpin, F: Fs>(
-    mut stream: S,
+    stream: &mut S,
     ctx: &Context<F>,
     peer: Option<std::net::IpAddr>,
+    accepted: Instant,
     stop: &CancellationToken,
 ) -> End {
     // What the broker is told of this connection: where it is from, for the group APIs that show members.
@@ -83,7 +92,7 @@ pub(crate) async fn serve<S: AsyncRead + AsyncWrite + Unpin, F: Fs>(
     let mut session = ctx.auth.as_ref().map(|_| Session::new());
     let mut login_by = session
         .as_ref()
-        .map(|_| Instant::now() + ctx.timeouts.pre_auth);
+        .map(|_| accepted + ctx.timeouts.pre_auth);
     let mut decoder = FrameDecoder::new(if session.is_some() {
         Trust::Anonymous
     } else {
@@ -91,13 +100,13 @@ pub(crate) async fn serve<S: AsyncRead + AsyncWrite + Unpin, F: Fs>(
     });
     loop {
         let wait = (&ctx.timeouts, login_by);
-        let frame = match frames::next_before(&mut stream, &mut buf, &mut decoder, wait, stop).await
+        let frame = match frames::next_before(stream, &mut buf, &mut decoder, wait, stop).await
         {
             Ok(frame) => frame,
             Err(end) => return end,
         };
         let ears = (ctx, &listener, &caller);
-        if let Err(end) = exchange::exchange(&mut stream, ears, &mut session, frame, stop).await {
+        if let Err(end) = exchange::exchange(stream, ears, &mut session, frame, stop).await {
             return end;
         }
         if login_by.is_some() && session.as_ref().is_some_and(Session::is_authenticated) {

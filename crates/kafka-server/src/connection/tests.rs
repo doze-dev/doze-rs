@@ -73,7 +73,7 @@ fn start(
     let ctx = context(timeouts);
     let task = tokio::spawn({
         let stop = stop.clone();
-        async move { serve(server, &ctx, None, &stop).await }
+        async move { serve(&mut { server }, &ctx, None, Instant::now(), &stop).await }
     });
     (client, task, stop)
 }

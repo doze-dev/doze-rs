@@ -38,6 +38,10 @@ impl Server {
             timeouts: config.timeouts,
             auth: config.sasl,
         });
+        #[cfg(feature = "tls")]
+        let tls = config.tls.as_ref().map(crate::TlsConfig::acceptor);
+        #[cfg(not(feature = "tls"))]
+        let tls = ();
         let limit = Arc::new(Semaphore::new(config.max_connections));
         let (stop, tasks) = (CancellationToken::new(), TaskTracker::new());
         tasks.spawn(accept::run(
@@ -46,6 +50,7 @@ impl Server {
             limit,
             stop.clone(),
             tasks.clone(),
+            tls,
         ));
         Ok(Running { addr, stop, tasks })
     }

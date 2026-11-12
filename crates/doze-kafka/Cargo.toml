@@ -11,6 +11,11 @@ publish.workspace = true
 [lints]
 workspace = true
 
+[features]
+# TLS on the Kafka listener: --tls-cert and --tls-key. Off by default (weight is a feature); building it needs a C
+# compiler and assembler because of ring. See docs/port/weight.md.
+tls = ["kafka-server/tls"]
+
 [dependencies]
 kafka-auth = { path = "../kafka-auth" }
 kafka-wire = { path = "../kafka-wire" }
