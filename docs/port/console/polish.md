@@ -30,3 +30,51 @@ Reviewed in real Chrome (headless, 1440 by 900) against the fixtures server: the
 | 3 | planned pages | ~~the "Not built yet" copy says Home and Connect are here~~ closed (p9x): it lists the pages that are here |
 | 3 | overlays | a scrollbar gutter when the page behind had none shifts it by the scrollbar's width on Windows and Linux (macOS overlay scrollbars do not) |
 | 3 | `topic-produce` | the dialog opens with the focus on Partition; Value is where people type: focus it when the key is filled |
+
+# Integration of 9g (Log, Producers) and 9h (Settings, Access): what Chrome showed (slice p9x, 2026-11-13)
+
+Headless Chrome 152, 1440 wide, one at a time under the lock. Each of the 15 boards was rendered (the fixture render of the gate, with the console's own assets), taken at the height of the board's PNG and compared with it (`board-pixels --page-png`, canvas scaffold cut and the rail masked); every side-by-side was read. Then the fixtures server was clicked through end to end: Home, Topics, a topic, a record drawer (Esc, Back), a group, the Config dialog (an empty value answers in the dialog), Live, Settings and its dialog (Check), Access, the ACL dialogs (an empty one answers in the dialog, Back closes the delete), the palette. Console messages were captured over CDP (`Runtime.consoleAPICalled`, `Runtime.exceptionThrown`, `Log.entryAdded`).
+
+## Fixed in this slice
+
+| Where | What was wrong | Fix |
+|---|---|---|
+| every page | p9h set `html{scroll-behavior:smooth}` for the Settings section tabs, which made every programmatic scroll (the overlay's scroll restore, a script's click after `scrollIntoView`) animate | only where the page has section tabs that are anchors (`html:has(nav.tabs a[href^="#"])`) |
+| Settings, edit dialog | "Who sees it" ran its list into the next sentence (`orders.dlq orders (7 d)`) and said "a, b, c" where the board says "a, b and c" | the list ends with a full stop and the prose lists say "and" before the last name |
+| Log, Producers | the board draws the "On the wire" dock; the page did not | the dock (9e) is under both pages and watched with them |
+| Producers | "Seen as" said "not known" for every producer | the recorder names the clients whose Produce carried the producer id |
+| Access | the users table had no Iterations column | drawn as the board has it |
+| every not-built page | the copy said only Home and Connect were here | lists what is here |
+
+## Per board (after the fixes)
+
+| Board | Remaining differences |
+|---|---|
+| `topic-log` | "Compact now" (Lab, J231); the board's breadcrumb is Resources > Log > name, the page's Resources > Topics > name > Log (the same as the Config page); the last two segments rows and the "Other logs" table match |
+| `log-planner`, `log-retention` | the page adds "The log, offset by offset" and the Gaps / Log start notes the board draws only on `topic-log`, so everything below is 80 to 100 px lower; `log-retention` has the partition chips (0, 1, 2) the board leaves to its header word (needed: the board gives no way to the other partitions); backlog P3: draw the notes only on the compacted state |
+| `log-empty` | 10 px higher (the board's lede wraps to two lines); the same otherwise |
+| `topic-producers` | "Seen as" shows `orders (go, sarama)` from the tape, and "not known" where the tape never saw the producer (the board's "not seen for 3 h 12 min" is not built); "raised from 1 at 17:14:11" is not kept (J236) |
+| `txn-open` | "Offsets staged: not listed" where the board says none (DescribeTransactions does not say); the transactional id is a link |
+| `txn-holding` | the group sentence "payments-workers reads orders and is 12 behind on every partition" is not drawn (backlog P2: it can now come from the Groups pages) |
+| `settings-home` | the breadcrumb is Home > Settings; the ledes run wider than the board's 520 px; the three sentences that waited are drawn (CON-582) |
+| `broker-config-edit` | a Check button the board does not draw (an improvement, J277); the dialog sits 8 px lower (the canvas scaffold) |
+| `broker-config-refused`, `broker-config-saved` | none that show |
+| `access-open` | "See the page with security on" is not drawn (J265); Create ACL is offered on an open broker too (improvement); the canvas's NEW pill |
+| `access-secured` | the canvas callout and the NEW pill; Iterations is there |
+| `access-acl-create`, `access-acl-delete` | none that show; the page's delete says "also covered by 1 other ACL" where the board names it (the fixture's detail) |
+
+## The click-through
+
+- Overlays open in place (no navigation: a marker set on `window` survived), push their address, close with Esc and with Back, and restore the address: the record drawer, the Config edit dialog, the Settings edit dialog, the Create ACL and Delete ACL dialogs, the palette (with the seven pages first). A direct visit to each dialog's address is the parent page with it open (`tests/overlays.rs`).
+- A refusal answers in the dialog: an empty value in the Settings dialog shows "Type a value." in the dialog, and the Create ACL dialog answers its own field error; the Config dialog's Save comes back as the Saved page (the fixtures accept any value: the refusals of a real broker are in `tests/live_config*.rs`), whose address is the parent's, so a reload shows the Config page (J205).
+- Motion: the scrim fades in 160 ms and the dialog rises in 180 ms (read off `document.getAnimations()` 40 ms after the click); hover transitions 56 to 120 ms; only opacity, transform and colours move; the page area carries `view-transition-name: main`.
+- Console messages: one, `Failed to load resource: 422` for the dialog's own answer to an empty field (the status the contract gives an invalid field; Chrome logs every 4xx a fetch gets). No exception, no warning, no 404 for an asset.
+
+## Backlog
+
+| P | Where | What |
+|---|---|---|
+| 2 | the script | answer an invalid field with 200 and a marker when the request carries `X-Fragment`, so that the browser's console has no red line for something the page handles (the status 422 stays for a plain POST) |
+| 2 | `txn-holding` | the group sentence, from the Groups pages |
+| 3 | `log-planner`, `log-retention` | draw "The log, offset by offset" and the Gaps note only where the board does |
+| 3 | `topic-producers` | "not seen for 3 h 12 min" (a producer the tape has not seen since before its window) |

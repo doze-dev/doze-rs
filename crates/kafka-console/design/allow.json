@@ -411,13 +411,6 @@
   {
     "board": "groups-list",
     "field": "link",
-    "selector": "group-story",
-    "reason": "[p9c] The group event ring and the Story page (slice 9f) do not exist yet: the Story tab is drawn without a link, a member that left is not remembered, and a cause is not given (debt J94).",
-    "expires": "9f"
-  },
-  {
-    "board": "groups-list",
-    "field": "link",
     "selector": "lag-ahead",
     "reason": "[p9c] One address serves several states of a group page (the data chooses: /groups/{group} is group-detail, group-detail-848 or group-rebalancing; /lag is four states), and a switch-group chip links to the same tab of another group, so the link the board draws to a particular state of another group is the same address; routes.json maps an address to several screens and the tool counts one of them.",
     "expires": "close"
@@ -660,13 +653,6 @@
   {
     "board": "group-rebalancing",
     "field": "link",
-    "selector": "group-story",
-    "reason": "[p9c] The group event ring and the Story page (slice 9f) do not exist yet: the Story tab is drawn without a link, a member that left is not remembered, and a cause is not given (debt J94).",
-    "expires": "9f"
-  },
-  {
-    "board": "group-rebalancing",
-    "field": "link",
     "selector": "group-wire",
     "reason": "[p9c] The wire recorder (slice 9e) does not exist yet, so the 'What just happened' dock is not drawn (debt J93).",
     "expires": "9e"
@@ -695,16 +681,17 @@
   {
     "board": "group-rebalancing",
     "field": "state",
-    "selector": "st idle in rows",
-    "reason": "[p9c] The group event ring and the Story page (slice 9f) do not exist yet: the Story tab is drawn without a link, a member that left is not remembered, and a cause is not given (debt J94).",
-    "expires": "9f"
+    "selector": "st ok in rows",
+    "reason": "[p9c] The wire recorder (slice 9e) does not exist yet, so the 'What just happened' dock is not drawn (debt J93).",
+    "expires": "9e"
   },
   {
     "board": "group-rebalancing",
     "field": "state",
-    "selector": "st ok in rows",
-    "reason": "[p9c] The wire recorder (slice 9e) does not exist yet, so the 'What just happened' dock is not drawn (debt J93).",
-    "expires": "9e"
+    "selector": "st idle in rows",
+    "render": "live",
+    "reason": "live data: the live rebalance began with a member joining, so no member left and the table has no Left row; the fixture render holds the board's own",
+    "expires": "close"
   },
   {
     "board": "group-rebalancing",
@@ -747,13 +734,6 @@
     "selector": "group-offset-delete",
     "reason": "[p9c] One address serves several states of a group page (the data chooses: /groups/{group} is group-detail, group-detail-848 or group-rebalancing; /lag is four states), and a switch-group chip links to the same tab of another group, so the link the board draws to a particular state of another group is the same address; routes.json maps an address to several screens and the tool counts one of them.",
     "expires": "close"
-  },
-  {
-    "board": "lag-no-commits",
-    "field": "link",
-    "selector": "group-story",
-    "reason": "[p9c] The group event ring and the Story page (slice 9f) do not exist yet: the Story tab is drawn without a link, a member that left is not remembered, and a cause is not given (debt J94).",
-    "expires": "9f"
   },
   {
     "board": "lag-no-commits",
@@ -2989,14 +2969,6 @@
     "field": "link",
     "selector": "group-story",
     "reason": "improvement: the Story tab is a link to the Story page, with the count of the ring; the board draws it as plain text, as the Story was not built.",
-    "expires": "close"
-  },
-  {
-    "board": "group-rebalancing",
-    "field": "state",
-    "selector": "st idle in rows",
-    "render": "live",
-    "reason": "live data: the live rebalance began with a member joining, so no member left and the table has no Left row; the fixture render holds the board's own",
     "expires": "close"
   }
 ]
