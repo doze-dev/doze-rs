@@ -18,7 +18,7 @@ use support::{rig_with, topic};
 #[tokio::test]
 async fn read_write_delete_and_alter_imply_describe_but_a_deny_is_exact() {
     let rig = rig_with(closed_world);
-    rig.create(vec![topic("t", 1)], false).await;
+    rig.create_as_admin(vec![topic("t", 1)], false).await;
     let ok = |r: kafka_wire::messages::MetadataResponse| r.topics[0].error_code;
     let probe = |who: &'static str| {
         let rig = &rig;
@@ -65,7 +65,7 @@ async fn read_write_delete_and_alter_imply_describe_but_a_deny_is_exact() {
 #[tokio::test]
 async fn prefixes_wildcards_and_the_any_user_are_honoured() {
     let rig = rig_with(closed_world);
-    rig.create(
+    rig.create_as_admin(
         vec![
             topic("orders-eu", 1),
             topic("orders-us", 1),
@@ -103,7 +103,7 @@ async fn the_default_applies_only_to_a_topic_nothing_covers() {
     let rig = rig_with(|c| {
         c.super_users.insert("User:admin".to_owned());
     });
-    rig.create(vec![topic("covered", 1), topic("free", 1)], false)
+    rig.create_as_admin(vec![topic("covered", 1), topic("free", 1)], false)
         .await;
     grant(&rig, vec![on("covered", "User:alice", DESCRIBE)]).await;
     // allow.everyone.if.no.acl.found is true here: bob sees `free`, not `covered`.
@@ -127,7 +127,7 @@ async fn the_default_applies_only_to_a_topic_nothing_covers() {
 #[tokio::test]
 async fn an_acl_for_a_host_applies_to_that_address_only() {
     let rig = rig_with(closed_world);
-    rig.create(vec![topic("t", 1)], false).await;
+    rig.create_as_admin(vec![topic("t", 1)], false).await;
     let mut a = on("t", "User:alice", DESCRIBE);
     a.host = kafka_wire::StrBytes::from_string("10.0.0.1".to_owned());
     grant(&rig, vec![a]).await;

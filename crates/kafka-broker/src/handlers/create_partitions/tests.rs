@@ -59,16 +59,20 @@ fn a_topic_that_is_gone_by_the_time_its_count_is_recorded_leaves_no_directories_
 async fn a_change_waits_while_another_topic_change_is_being_made_and_then_goes_through() {
     let (broker, name) = broker_with_t();
     let held = broker.topic_admin.lock().await;
-    let waiting =
-        tokio::time::timeout(Duration::from_millis(50), broker.create_partitions(&ask(3))).await;
+    let waiting = tokio::time::timeout(
+        Duration::from_millis(50),
+        broker.create_partitions(&crate::Caller::anonymous(None), &ask(3)),
+    )
+    .await;
     assert!(
         waiting.is_err(),
         "it must not run beside a delete or a create"
     );
     assert_eq!(broker.meta.topic(&name).unwrap().partitions.get(), 1);
     drop(held);
-    let Outcome::Respond(Response::CreatePartitions(resp)) =
-        broker.create_partitions(&ask(3)).await
+    let Outcome::Respond(Response::CreatePartitions(resp)) = broker
+        .create_partitions(&crate::Caller::anonymous(None), &ask(3))
+        .await
     else {
         panic!("not CreatePartitions")
     };

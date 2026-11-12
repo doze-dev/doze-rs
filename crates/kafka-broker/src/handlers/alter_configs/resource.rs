@@ -4,17 +4,22 @@
 
 use std::collections::HashMap;
 
+use kafka_auth::authz::{operation, resource};
 use kafka_meta::Topic;
 use kafka_storage::fs::Fs;
 use kafka_wire::ResponseError as E;
 use kafka_wire::ids::TopicName;
 
 use crate::configs::{self, Change, Refusal};
+use crate::guard::{CLUSTER_DENIED, GROUP_DENIED, TOPIC_DENIED};
 use crate::handlers::create_topics::name_message;
-use crate::{Broker, blocking};
+use crate::{Broker, Caller, blocking};
 
 pub(crate) const TOPIC: i8 = 2;
 pub(crate) const BROKER: i8 = 4;
+pub(crate) const BROKER_LOGGER: i8 = 8;
+pub(crate) const CLIENT_METRICS: i8 = 16;
+pub(crate) const GROUP: i8 = 32;
 
 /// What a request asks of one resource.
 #[derive(Debug, Clone)]
@@ -30,6 +35,17 @@ fn refuse(code: E, message: impl Into<String>) -> Refusal {
     Refusal {
         code,
         message: message.into(),
+    }
+}
+
+/// An operation number IncrementalAlterConfigs does not have, if the request gave one.
+fn bad_operation(r: &Resource) -> Result<(), Refusal> {
+    match r.bad_op {
+        Some(op) => Err(refuse(
+            E::InvalidRequest,
+            format!("Unknown operations type {op}"),
+        )),
+        None => Ok(()),
     }
 }
 
@@ -52,6 +68,7 @@ impl<F: Fs> Broker<F> {
     /// `replace` is the legacy request: the configs given are all the resource is to have.
     pub(super) async fn alter_resources(
         &self,
+        caller: &Caller,
         resources: &[Resource],
         validate_only: bool,
         replace: bool,
@@ -72,30 +89,67 @@ impl<F: Fs> Broker<F> {
                     "Each resource must appear at most once.",
                 ))
             } else {
-                self.alter_one(r, validate_only, replace).await.err()
+                self.alter_one(caller, r, validate_only, replace)
+                    .await
+                    .err()
             });
         }
         out
     }
 
+    /// One resource, in Kafka's order (`ConfigAdminManager.preprocess`, then `ControllerApis`): what is wrong with the
+    /// request itself (duplicate keys, null values, and for a broker its name and its configs) is said before the
+    /// caller's rights are looked at, so a caller without them sees those first; then ALTER_CONFIGS; then the topic.
     async fn alter_one(
         &self,
+        caller: &Caller,
         r: &Resource,
         validate_only: bool,
         replace: bool,
     ) -> Result<(), Refusal> {
         configs::check_request(&r.changes)?;
-        if let Some(op) = r.bad_op {
-            return Err(refuse(
-                E::InvalidRequest,
-                format!("Unknown operations type {op}"),
-            ));
-        }
         match r.kind {
-            TOPIC => self.alter_topic(r, validate_only, replace).await,
-            BROKER => self.alter_broker(r, validate_only, replace).await,
-            other => Err(unsupported(other)),
+            TOPIC => {
+                self.alter_access(caller, r, replace)?;
+                bad_operation(r)?;
+                self.alter_topic(r, validate_only, replace).await
+            }
+            BROKER => {
+                bad_operation(r)?;
+                self.alter_broker(caller, r, validate_only, replace).await
+            }
+            other => {
+                self.alter_access(caller, r, replace)?;
+                Err(unsupported(other))
+            }
         }
+    }
+
+    /// Whether the caller may ALTER_CONFIGS the resource: on the topic; on the cluster for a broker, its client
+    /// metrics (and, in IncrementalAlterConfigs only, its loggers); on the group. Any other type is nobody's to
+    /// refuse here.
+    fn alter_access(&self, caller: &Caller, r: &Resource, replace: bool) -> Result<(), Refusal> {
+        let ask = |kind: i8| {
+            self.authz
+                .allows(caller, kind, &r.name, operation::ALTER_CONFIGS)
+        };
+        let cluster = || self.cluster_allows(caller, operation::ALTER_CONFIGS);
+        let (allowed, error, message) = match r.kind {
+            TOPIC => (
+                ask(resource::TOPIC),
+                E::TopicAuthorizationFailed,
+                TOPIC_DENIED,
+            ),
+            BROKER | CLIENT_METRICS => (cluster(), E::ClusterAuthorizationFailed, CLUSTER_DENIED),
+            BROKER_LOGGER if !replace => (cluster(), E::ClusterAuthorizationFailed, CLUSTER_DENIED),
+            GROUP => (
+                ask(resource::GROUP),
+                E::GroupAuthorizationFailed,
+                GROUP_DENIED,
+            ),
+            _ => return Ok(()),
+        };
+        allowed.then_some(()).ok_or_else(|| refuse(error, message))
     }
 
     async fn alter_topic(
@@ -150,6 +204,7 @@ impl<F: Fs> Broker<F> {
 
     async fn alter_broker(
         &self,
+        caller: &Caller,
         r: &Resource,
         validate_only: bool,
         replace: bool,
@@ -184,6 +239,8 @@ impl<F: Fs> Broker<F> {
             scope.clone()
         };
         *scope = configs::apply_to_broker(&current, &r.changes)?;
+        // After the name and the configs are found valid, as Kafka does: that is the broker's own preprocessing.
+        self.alter_access(caller, r, replace)?;
         if validate_only {
             return Ok(());
         }

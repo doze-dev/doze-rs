@@ -2,32 +2,60 @@
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 
+use kafka_auth::authz::operation;
 use kafka_meta::{Collision, MetaError, Topic, random_topic_id};
 use kafka_storage::fs::Fs;
 use kafka_wire::ResponseError;
 use kafka_wire::StrBytes;
-use kafka_wire::ids::{PartitionCount, TopicName, TopicNameError};
+use kafka_wire::ids::{TopicName, TopicNameError};
 use kafka_wire::messages::create_topics_request::CreatableTopic;
 use kafka_wire::messages::create_topics_response::{CreatableTopicConfigs, CreatableTopicResult};
 use kafka_wire::messages::{CreateTopicsRequest, CreateTopicsResponse};
 
 use crate::topic_config::{self, Entry};
-use crate::{Broker, BrokerError};
+use crate::{Broker, BrokerError, Caller};
+
+mod assignment;
 
 type Refusal = (ResponseError, String);
 
+/// What a caller that may create a topic may be told of it.
+#[derive(Clone, Copy)]
+struct Access {
+    /// The topic's configs and partition count (`DESCRIBE_CONFIGS` on it).
+    configs: bool,
+}
+
 impl<F: Fs> Broker<F> {
     /// Creates each topic of the request, and answers once per name. One refused topic does not stop the
-    /// others.
-    pub(crate) async fn create_topics(&self, req: &CreateTopicsRequest) -> CreateTopicsResponse {
+    /// others. A topic the caller may not create is answered 29 before it is looked at, so a name that exists, or is
+    /// invalid, is not revealed to it; those answers come last.
+    pub(crate) async fn create_topics(
+        &self,
+        caller: &Caller,
+        req: &CreateTopicsRequest,
+    ) -> CreateTopicsResponse {
         let _one_change_at_a_time = self.topic_admin.lock().await;
-        let resp = crate::blocking::run(|| self.create_each(req));
+        let resp = crate::blocking::run(|| self.create_each(caller, req));
         // Consumer groups that subscribed before a topic existed are waiting for it.
         self.groups.topics_changed().await;
         resp
     }
 
-    fn create_each(&self, req: &CreateTopicsRequest) -> CreateTopicsResponse {
+    /// What `caller` may do with a topic of its request, if it may create it: whether it may also be told the topic's
+    /// configs (`DESCRIBE_CONFIGS`). CREATE on the cluster covers every topic; failing that, CREATE on the topic.
+    /// Asked before anything else is looked at (a name that exists, or is invalid, is not revealed to a caller that
+    /// may not create it): `ControllerApis.createTopics`.
+    fn creation_access(&self, caller: &Caller, raw: &str, cluster: bool) -> Option<Access> {
+        (cluster || self.topic_allows(caller, raw, operation::CREATE)).then(|| Access {
+            configs: self.topic_allows(caller, raw, operation::DESCRIBE_CONFIGS),
+        })
+    }
+
+    fn create_each(&self, caller: &Caller, req: &CreateTopicsRequest) -> CreateTopicsResponse {
+        let cluster = self.cluster_allows(caller, operation::CREATE);
+        // The topics refused for want of CREATE come last, after every other answer.
+        let mut denied = Vec::new();
         // A name listed twice is a malformed request: neither entry is acted on, and Kafka answers once per name.
         let mut counts: HashMap<&str, usize> = HashMap::new();
         for t in &req.topics {
@@ -51,7 +79,12 @@ impl<F: Fs> Broker<F> {
                 }
                 continue;
             }
-            let result = match self.create_one(t, req.validate_only, &created) {
+            let Some(access) = self.creation_access(caller, raw, cluster) else {
+                let why = "Authorization failed.".to_owned();
+                denied.push(refused(t, (ResponseError::TopicAuthorizationFailed, why)));
+                continue;
+            };
+            let result = match self.create_one(t, req.validate_only, &created, access) {
                 Ok(done) => {
                     if !req.validate_only {
                         created.extend(TopicName::parse(raw).ok());
@@ -62,6 +95,7 @@ impl<F: Fs> Broker<F> {
             };
             resp.topics.push(result);
         }
+        resp.topics.extend(denied);
         resp
     }
 
@@ -70,6 +104,7 @@ impl<F: Fs> Broker<F> {
         t: &CreatableTopic,
         validate_only: bool,
         beside: &HashSet<TopicName>,
+        access: Access,
     ) -> Result<CreatableTopicResult, Refusal> {
         let raw: &str = &t.name;
         let name = TopicName::parse(raw)
@@ -104,88 +139,8 @@ impl<F: Fs> Broker<F> {
             let made = self.make_topic(&name, partitions, config, beside);
             made.map(|t| (*t).clone()).map_err(made_wrong)?
         };
-        Ok(created(
-            &topic,
-            &topic_config::effective(&self.defaults.get(), &topic.config),
-        ))
-    }
-
-    /// How many partitions the request asks for: its manual assignment's length, or its count (-1 is the broker's
-    /// default).
-    fn partitions_requested(&self, t: &CreatableTopic) -> Result<PartitionCount, Refusal> {
-        let invalid = |m: &str| (ResponseError::InvalidRequest, m.to_owned());
-        if !t.assignments.is_empty() {
-            if t.replication_factor != -1 {
-                return Err(invalid(
-                    "A manual partition assignment was specified, but replication factor was not set to -1.",
-                ));
-            }
-            if t.num_partitions != -1 {
-                return Err(invalid(
-                    "A manual partition assignment was specified, but numPartitions was not set to -1.",
-                ));
-            }
-            return self.assigned_partitions(t);
-        }
-        if t.replication_factor == 0 || t.replication_factor < -1 {
-            let why = "Replication factor must be larger than 0, or -1 to use the default value.";
-            return Err((ResponseError::InvalidReplicationFactor, why.to_owned()));
-        }
-        // Greater than one is accepted and answered as one: a development broker has one node, and clients
-        // (Connect, Streams) ask for three by default.
-        let count = if t.num_partitions == -1 {
-            self.config.default_partitions
-        } else {
-            t.num_partitions
-        };
-        PartitionCount::new(count).ok_or_else(|| {
-            let why = "Number of partitions was set to an invalid non-positive value.";
-            (ResponseError::InvalidPartitions, why.to_owned())
-        })
-    }
-
-    fn assigned_partitions(&self, t: &CreatableTopic) -> Result<PartitionCount, Refusal> {
-        let bad = |m: String| (ResponseError::InvalidReplicaAssignment, m);
-        let mut replicas = HashMap::new();
-        for a in &t.assignments {
-            if replicas.insert(a.partition_index, &a.broker_ids).is_some() {
-                return Err(bad(format!(
-                    "Partition {} is assigned more than once.",
-                    a.partition_index
-                )));
-            }
-        }
-        let count = i32::try_from(t.assignments.len()).unwrap_or(i32::MAX);
-        for p in 0..count {
-            let Some(brokers) = replicas.get(&p) else {
-                return Err(bad(
-                    "partitions should be a consecutive 0-based integer sequence".to_owned(),
-                ));
-            };
-            if brokers.is_empty() {
-                return Err(bad(format!(
-                    "The manual partition assignment includes an empty replica list for partition {p}."
-                )));
-            }
-            let mut seen = HashSet::new();
-            for b in brokers.iter() {
-                if b.0 != self.config.node_id {
-                    return Err(bad(format!(
-                        "The manual partition assignment includes broker {}, but no such broker is registered.",
-                        b.0
-                    )));
-                }
-                if !seen.insert(b.0) {
-                    return Err(bad(format!(
-                        "The manual partition assignment includes the broker {} more than once.",
-                        b.0
-                    )));
-                }
-            }
-        }
-        PartitionCount::new(count).ok_or_else(|| {
-            bad("partitions should be a consecutive 0-based integer sequence".to_owned())
-        })
+        let configs = topic_config::effective(&self.defaults.get(), &topic.config);
+        Ok(created(&topic, &configs, access))
     }
 }
 
@@ -261,15 +216,25 @@ fn refused(t: &CreatableTopic, (error, message): Refusal) -> CreatableTopicResul
     r
 }
 
-fn created(topic: &Topic, configs: &[Entry]) -> CreatableTopicResult {
+/// The topic made, as told to a caller. Without DESCRIBE_CONFIGS on it the caller is told only that it was made:
+/// the partition count and replication factor are -1, there are no configs and `TopicConfigErrorCode` is 29
+/// (`ReplicationControlManager.createTopic`, which answers so whoever has CREATE and not DESCRIBE_CONFIGS).
+fn created(topic: &Topic, configs: &[Entry], access: Access) -> CreatableTopicResult {
     let mut r = CreatableTopicResult::default();
     r.name = kafka_wire::messages::TopicName(StrBytes::from_string(topic.name.to_string()));
     r.topic_id = topic.id.to_uuid();
     // Null, not empty: the schema's default is an empty string.
     r.error_message = None;
-    r.num_partitions = topic.partitions.get();
-    r.replication_factor = 1;
-    r.configs = Some(configs.iter().map(config_entry).collect());
+    if access.configs {
+        r.num_partitions = topic.partitions.get();
+        r.replication_factor = 1;
+        r.configs = Some(configs.iter().map(config_entry).collect());
+    } else {
+        r.topic_config_error_code = ResponseError::TopicAuthorizationFailed.code();
+        r.num_partitions = -1;
+        r.replication_factor = -1;
+        r.configs = Some(Vec::new());
+    }
     r
 }
 

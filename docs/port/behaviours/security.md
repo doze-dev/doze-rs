@@ -2,7 +2,7 @@
 
 Slice 8a: SASL/PLAIN and the login session (SEC-1 to SEC-15). Slice 8b: the authorizer, the three ACL APIs, and the first two
 handler checks, Metadata and InitProducerId (SEC-16 to SEC-30). Slice 8c: SASL/SCRAM-SHA-256 and SCRAM-SHA-512 (SEC-40 to SEC-51).
-(The authorization matrix is slice 8d, TLS 8e: their rules join this file when they land.) What Apache Kafka 4.3.1 does, and the
+Slice 8d-1: the topic APIs (SEC-60 to SEC-72; groups and transactions are 8d-2). (The rest of the authorization matrix is slice 8d-2, TLS 8e: their rules join this file when they land.) What Apache Kafka 4.3.1 does, and the
 test that holds each. The source is the recordings (`conformance/recordings/sasl-plain.json`, the step names are the oracle's) where
 there is one, else Kafka 4.3.1's own source, read by item (`SaslServerAuthenticator` SSA, `PlainSaslServer`, `SocketServer`; the line
 numbers are in `phase8/kafka-semantics.md` 3.1 to 3.9 and 6): **(source)** marks those. The pure parts are in `crates/kafka-auth`
@@ -398,6 +398,130 @@ the close after a refused first message, the stored exchange, the hash of the re
 (the kind filter was redundant with the keyed lookup, a NUL in a name was caught only by the nonce class, a last field that merely looked like base64 was
 accepted); a test was added for each and the three are killed. Final: 23 of 23.
 
+## The topic APIs, slice 8d-1 (2026-11-12)
+Every rule below is **(source)**: none of these denials is recorded (only Metadata and InitProducerId are), so each is written from Kafka 4.3.1's
+`KafkaApis.scala` (KA), `ControllerApis.scala` (CA), `ConfigHelper.scala` (CH), `ConfigAdminManager.scala` (CAM), `AuthHelper.scala` (AH) and
+`ReplicationControlManager.java` (RCM), with the line it was read at (re-read against the tag, 2026-11-12; the matrix of `phase8/kafka-semantics.md`
+2.1 was right in every row used here, and its line numbers are the old ones, so the ones below are the tag's). The tests are from the same
+reading, not from a run of Kafka: **the one real risk is a reading that differs from the JVM**, which `authz-matrix` (plan D9) would settle.
+The checks are in `crates/kafka-broker/src/guard.rs` (the resource type, the cluster's name and the denial texts, written once) and in each
+handler; each is asked **before** the topic is looked for (a topic that is not there is hidden like one that is) and, with no ACL and the
+default allowing, costs one atomic load and allocates nothing (`Authorizer::allows`), asked once per topic of a request and never per record
+batch.
+
+## SEC-60. The five things every topic row does (tests: `kafka-broker tests/authz_topics_matrix.rs`, one table over the eleven APIs)
+For each API, with the operation of SEC-61 to SEC-71 on the topic: a caller with the ACL is served; one with none is refused 29 (the item's own
+code, in its own place); an ACL for another topic or for an operation that does not imply the needed one is no use (`an_acl_on_another_topic_is_not_enough`,
+`an_operation_that_does_not_imply_the_needed_one_is_not_enough`, `the_weaker_right_that_the_stronger_one_implies_is_not_enough`); a super user is
+served though a DENY names it; a DENY beats an ALLOW of the same operation, or an ALLOW of ALL against a DENY of the operation, in either order;
+`User:*`, a PREFIXED ACL and the name `*` grant, and a PREFIXED DENY beats a literal ALLOW; the default (`--acl-default`) applies only to a topic no
+ACL covers, and an ACL for another host covers it (turns the default off) without allowing this host; a topic that does not exist is 29 to a caller
+that may not use it and the API's "unknown" to one that may; and a refused request changes nothing.
+
+## SEC-61. CreateTopics: CREATE on the cluster, else on the topic (source: CA:391-449; RCM:815-843; tests `authz_topics_create.rs`)
+The cluster is asked once (CREATE on `kafka-cluster`); if it is not allowed, each topic is asked for CREATE. A name listed twice is set aside as
+42 "Duplicate topic name." before anyone is asked (CA:395-408). A topic the caller may not create is taken out before it is looked at, so a name
+that exists (36) or is invalid (17) is not told to a caller that may not create it: **29 with "Authorization failed."**, `NumPartitions` and
+`ReplicationFactor` -1, no id; these answers come after all the others (CA:427-445). `validate_only` asks the same. A caller that may create but
+may not DESCRIBE_CONFIGS the topic (ALTER_CONFIGS implies it) is told it was made without the configs: `TopicConfigErrorCode` 29 (a tagged field of
+v5 and later), `NumPartitions` and `ReplicationFactor` -1, an empty config list, and the topic id (RCM:840-842). Because the default is per resource, a
+broker with the default allowing and no ACL on the cluster lets anyone create anything (the cluster is "covered by no ACL"); an ACL for anyone on the
+cluster turns that off. Test: `an_unauthorized_topic_is_29_with_kafkas_text_and_no_numbers_and_comes_last`, `a_name_that_is_taken_or_invalid_is_not_revealed_to_a_caller_that_may_not_create_it`,
+`a_duplicate_name_is_answered_42_before_authorization_is_asked`, `without_describe_configs_the_topic_is_made_and_its_configs_are_withheld`,
+`create_on_the_cluster_covers_every_name_and_deny_on_the_topic_does_not_undo_it`, `authz_topics_matrix::with_the_default_allowing_a_cluster_no_acl_covers_is_open_and_covers_every_topic`.
+
+## SEC-62. DeleteTopics: DELETE on the cluster, else DESCRIBE and DELETE on the topic (source: CA:198-345; test `authz_topics_create.rs`)
+CLUSTER DELETE is asked once and grants both. Otherwise, **by name**: a topic the caller may not DESCRIBE is 29 with the name (id zero) whether it
+exists or not; one it may describe, present, and may not DELETE is 29 with the name and no id; one it may describe and that is absent is 3. **By id**
+(v6): a present topic it may not DELETE is 29 with the id the caller sent, and the name only if it may DESCRIBE it (CA:307-345). The message is
+"Topic authorization failed." (v5 and later carry it). DELETE implies DESCRIBE, but a DENY of DESCRIBE hides the topic from the deleter. A DENY of
+DELETE on the topic does not undo a cluster DELETE. Test: `delete_topics_by_name_hides_what_a_caller_may_not_describe`,
+`delete_topics_by_id_shows_the_name_only_to_a_caller_that_may_describe_it`, `delete_on_the_cluster_grants_both_describing_and_deleting`,
+`delete_implies_describe_but_a_deny_of_describe_hides_the_topic_from_the_deleter`.
+
+## SEC-63. Produce: WRITE on each topic; WRITE on the transactional id if a batch is transactional (source: KA:396-451, 507-521; test `authz_topics_data.rs`)
+First, if the first batch of any partition is transactional: WRITE on the request's transactional id, a missing id being denied, as a whole-request
+error: 53 on **every** partition (KA:398-405; this is the existing "transactional bit and no id" rule, now also "no right to the id"). Then each
+topic entry is asked for WRITE once, before the topic is looked for: 29 on each of its partitions, no offsets (KA:431-441). **Produce asks for nothing
+else**: an idempotent producer needs no IDEMPOTENT_WRITE here, and IDEMPOTENT_WRITE on the cluster does not let a caller write a topic. With `acks=0` a
+refusal closes the connection and a success is not answered. A request with no transactional batch asks nothing of the id. Test:
+`produce_answers_each_topic_by_its_own_right_and_stores_only_what_was_allowed`, `every_partition_of_a_refused_topic_is_refused_and_a_missing_one_is_hidden`,
+`produce_needs_only_topic_write_not_idempotent_write`, `a_transactional_batch_needs_write_on_the_transactional_id_before_any_topic_is_looked_at`,
+`a_batch_that_is_not_transactional_asks_nothing_of_the_transactional_id`, `with_no_acks_a_refusal_closes_the_connection_and_a_success_is_not_answered`.
+
+## SEC-64. Fetch: READ on each topic; a follower needs CLUSTER_ACTION (source: KA:563-620; test `authz_topics_data.rs`)
+A consumer (`replica_id` -1) is asked READ per topic, before the topic is looked for: 29 on each partition, in the order asked; the answer is
+immediate (an error ends a long wait) and the topic's records do not leave. From v13 the check is on the name the id stands for, and an id that stands
+for nothing is UNKNOWN_TOPIC_ID to everyone, before authorization (KA:607). A request from a follower (`replica_id` 0 or more) is asked
+CLUSTER_ACTION on the cluster once, and then needs no topic right; without it every partition is 29 (KA:586-600; this broker has no followers, so such a
+request is read like a consumer's once allowed: deviation SEC-D19). Fetch sessions (KIP-227) are not kept, so the session bookkeeping that Kafka does
+before authorization is the existing "session not found" answer. Test: `fetch_answers_each_partition_by_the_topics_right_in_every_version`,
+`a_refused_fetch_is_answered_at_once_and_does_not_wait_for_data`, `a_follower_fetch_needs_cluster_action_and_no_topic_right`,
+`fetch_by_topic_id_judges_the_name_the_id_stands_for_and_an_unknown_id_is_unknown_to_all`.
+
+## SEC-65. ListOffsets: DESCRIBE on each topic (source: KA:781-821; test `authz_topics_data.rs`)
+A topic the caller may not DESCRIBE (READ, WRITE, DELETE and ALTER each grant it, a DENY of READ does not take it away) is answered 29 on each
+partition with timestamp and offset -1; those entries come **after** the answers for the topics it may (KA:805-807). Test:
+`list_offsets_puts_the_refused_topics_after_the_others_with_no_offset`, `list_offsets_is_granted_by_any_right_that_implies_describe_and_denied_only_by_describe`.
+
+## SEC-66. DeleteRecords: DELETE on each topic (source: KA:1538-1601; test `authz_topics_data.rs`)
+29 on each partition of a topic the caller may not DELETE, low watermark -1, before the topic is looked for; nothing is deleted. Test:
+`delete_records_refuses_a_topic_per_partition_with_no_low_watermark_and_deletes_nothing`.
+
+## SEC-67. CreatePartitions: ALTER on each topic (source: CA:826-861; test `authz_topics_create.rs`)
+Names listed twice are set aside first (42 "Duplicate topic name.", both removed, one answer); then the topics the caller may not ALTER (DESCRIBE and
+READ do not do) are 29 with **no message**, whether they exist or not; then the rest. The answers are in that order. Test:
+`create_partitions_needs_alter_and_answers_the_refused_after_the_duplicates_with_no_message`, `create_partitions_with_describe_or_read_only_is_refused_and_changes_nothing`.
+
+## SEC-68. DescribeConfigs: DESCRIBE_CONFIGS on the resource (source: CH:49-80; test `authz_topics_configs.rs`)
+A topic: DESCRIBE_CONFIGS on it (ALTER_CONFIGS grants it, DESCRIBE does not). BROKER, BROKER_LOGGER and CLIENT_METRICS: DESCRIBE_CONFIGS on the cluster.
+GROUP: on the group. A resource refused is answered 29, 31 or 30 with that error's own words ("Topic authorization failed." and so on), no configs and
+its type and name; it comes **after** the answers for the resources the caller may see; this is asked before the topic is looked for. A resource type
+nothing knows is left to the request (42), not to the ACLs. Test: `describe_configs_answers_the_refused_resources_after_the_others_with_no_configs_and_the_errors_words`,
+`describe_configs_is_granted_by_alter_configs_and_a_topic_that_is_not_there_is_hidden`, `describe_configs_leaves_an_unknown_resource_type_to_the_request_and_not_to_the_acls`.
+
+## SEC-69. AlterConfigs and IncrementalAlterConfigs: ALTER_CONFIGS, after the request is found well-formed (source: CAM:100-160, 209-261; CA:472-554, 715-794; test `authz_topics_configs.rs`)
+The order, per resource: a resource listed twice (both copies 42 "Each resource must appear at most once."); duplicate config keys ("Error due to
+duplicate config keys"); null values ("Null value not supported for : a, b"); for a broker its name ("Node id must be an integer, but it is: x",
+"Unexpected broker id, expected 1, but received 7") and its configs' validity, all **before authorization**, so a caller with no right sees these and
+never a 29 or 31 for the resources they affect (the broker preprocesses before forwarding to the controller); then ALTER_CONFIGS: a topic on the
+topic (29 "Topic authorization failed."), a broker or client metrics on the cluster (31), a group on the group (30), and, in the incremental API only,
+BROKER_LOGGER on the cluster; only then the topic's name, its existence and its configs. The answers are in the order asked. Test:
+`a_resource_the_caller_may_not_alter_is_refused_with_that_resources_error_and_words`, `the_loggers_of_a_broker_are_the_clusters_in_the_incremental_api_only`,
+`preprocessing_errors_are_said_before_authorization_is_asked`, `a_topic_the_caller_may_not_alter_is_29_even_when_it_is_missing_or_named_badly`,
+`altering_needs_alter_configs_and_nothing_else_grants_it`.
+
+## SEC-70. DescribeProducers: READ on each topic, after its name (source: KA:2485-2529; test `authz_topics_data.rs`)
+Per topic, in Kafka's order: a name that cannot be a topic's (INVALID_TOPIC_EXCEPTION, the same words as CreateTopics), then READ (29 with
+"Topic authorization failed." on each requested partition), then whether the topic is there. (Before this slice an invalid name was answered as an
+unknown topic.) Test: `describe_producers_refuses_each_partition_with_the_error_text_and_judges_the_name_first`.
+
+## SEC-71. Metadata: the authorized-operations fields (source: KA:960-981, AH:62-76; test `authz_metadata_ops.rs`)
+From v8, with `IncludeTopicAuthorizedOperations`, every topic entry has a bit `1 << code` for each of READ, WRITE, CREATE, DELETE, ALTER, DESCRIBE,
+DESCRIBE_CONFIGS and ALTER_CONFIGS that the caller is allowed on the topic of that name (ALL is never a bit; the implications of SEC-20 count, a
+DENY is exact), also for the entries that are refused, by name. With `IncludeClusterAuthorizedOperations` (v8 to v10 only) the cluster's: 0 if the
+caller may not DESCRIBE the cluster, else a bit for each of CREATE, ALTER, DESCRIBE, CLUSTER_ACTION, DESCRIBE_CONFIGS, ALTER_CONFIGS and
+IDEMPOTENT_WRITE it may. A field not asked for, or not in the version, is the schema default (-2147483648). A super user, and a broker with no ACLs and the default
+allowing, have every bit. The auto-creation check (CREATE on the cluster or the topic, 29 instead of 3) was already SEC-27. Test: all of
+`authz_metadata_ops.rs`.
+
+## SEC-72. How these are held
+`authz_topics_matrix.rs` (SEC-60), `authz_topics_create.rs`, `authz_topics_data.rs`, `authz_topics_configs.rs`, `authz_metadata_ops.rs` (broker handlers,
+a real ACL set each), and on a real socket `kafka-server tests/acl_topics.rs::a_user_is_refused_on_a_topic_it_has_no_acl_for_and_served_on_one_it_has`
+(a SASL PLAIN user: served on a topic it has an ACL for, refused 29 on another, on Produce, Fetch, ListOffsets and CreateTopics). The allow-all path is
+proved by every earlier broker, server and interop test passing unchanged except the 8b tests that made their topics as the anonymous caller of a
+closed broker (they now make them as the super user: `Rig::create_as_admin`).
+
+Mutation check (25 hand-made mutations of these checks, each applied to a copy of the tree and checked as applied, 2026-11-12): a check removed (CreateTopics,
+ListOffsets), a wrong operation (DeleteRecords ALTER for DELETE; Fetch DESCRIBE for READ; DescribeConfigs ALTER_CONFIGS for DESCRIBE_CONFIGS; DescribeProducers
+DESCRIBE for READ; CreatePartitions CREATE for ALTER), a wrong resource type (Produce asked of the cluster; the topic's bits asked of the cluster), a check after
+the change (AlterConfigs), a check before the validation it must follow (a broker's AlterConfigs), a refusal on the wrong place or in the wrong order
+(ListOffsets loses the topic's name; DescribeConfigs and CreateTopics put the refused first), any transactional id accepted (Produce), the wrong code
+(Produce answers 3), existence leaked (DeleteTopics by name, and the name shown by id), the cluster's DELETE grant lost, the cluster's bits told without
+DESCRIBE or in v11, a follower asked for READ, replica 0 read as a consumer, configs told without DESCRIBE_CONFIGS, a name judged after READ in DescribeProducers.
+**25 of 25 were killed**. (The first table asked a caller with only an unrelated operation, which would not have killed the weaker-operation
+mutations; that was seen by reading before the run, and `the_weaker_right_that_the_stronger_one_implies_is_not_enough` was added first.)
+
 ## TLS, slice 8e (SEC-140 to SEC-159)
 
 A cargo feature (`tls`, off by default) in `kafka-server` and `doze-kafka`: `crates/kafka-server/src/tls.rs` (the certificate, the key, the handshake),
@@ -497,8 +621,9 @@ jobs are in `weight.md`. Test: the `weight` and `weight-tls` jobs of `.github/wo
 - **SEC-D9.** A super user must be written `Type:name` with both parts non-empty (the Go edition's rule); Kafka only needs a colon, so it
   accepts `:x` and `User:`.
 - **SEC-D10.** DescribeAcls and DeleteAcls list resources and ACLs sorted; Kafka's order is a hash map's (unspecified).
-- **SEC-D11.** The ACL checks are in Metadata and InitProducerId only; every other handler is open to every principal until slice 8d. Metadata does
-  not compute the authorized-operations bitfields (`IncludeTopicAuthorizedOperations` and the cluster one answer the schema default). A CreateAcls of
+- **SEC-D11.** (Slice 8d-1 closed two of the three items: the topic APIs now check (SEC-60 to SEC-70) and Metadata computes the authorized-operations
+  fields (SEC-71); the auto-creation CREATE check had been done in 8b (SEC-27). Still open until slice 8d-2: the group and transactional-id APIs are
+  open to every principal.) A CreateAcls of
   more than 10,000 new ACLs is not limited (Kafka's outcome is unspecified, kafka-semantics U3). DescribeConfigs on the broker does not report
   `allow.everyone.if.no.acl.found` or `super.users` (the Go edition does; real Kafka lists neither, so the recorded answers would differ).
 - **SEC-D12.** The server nonce is 18 random bytes in base64 (24 characters); Kafka's is a base-36 rendering of 130 random bits (up to 26). Both are
@@ -512,6 +637,26 @@ jobs are in `weight.md`. Test: the `weight` and `weight-tls` jobs of `.github/wo
   client-first, cannot occur.
 - **SEC-D15.** The derived keys, the salted password and the proof are `Vec`s that are not zeroed on drop (extends SEC-D5); the verifiers are kept for the life of
   the process, the intermediate values for the length of a call.
+- **SEC-D16.** Where Kafka answers from an unordered map or a shuffle, the answer here is in the order asked: DeleteTopics (shuffled on purpose, CA:353),
+  Produce and DeleteRecords (maps merged, KA:458 and 1580), and Fetch's partitions. Where Kafka's order is a stated one it is kept: the topics a
+  caller may not use come after the others in CreateTopics, ListOffsets, DescribeConfigs and Metadata, and after the duplicates in CreatePartitions. In
+  CreateTopics a name listed twice is answered where it first appears, as before this phase, not after the others (Kafka puts the duplicates after the
+  controller's answers); clients match results by name.
+- **SEC-D17.** CreateTopics refused for want of CREATE answers `configs` as an empty list, not null (the existing "never null" rule, see `refused` in
+  `create_topics.rs`); `__cluster_metadata` is not special-cased (Kafka answers 42 "Creation of internal topic __cluster_metadata is prohibited.");
+  DeleteTopics has none of Kafka's request-shape errors ("Neither topic name nor id were specified.", "You may not specify both topic name and topic id.",
+  duplicate ids) and no `delete.topic.enable`; those are not authorization and were not added here.
+- **SEC-D18.** A resource type this broker does not take (BROKER_LOGGER, CLIENT_METRICS and GROUP in DescribeConfigs and the alter APIs) is checked first
+  for the right Kafka asks (31 or 30 when the caller lacks it) and then answered 42 "Unsupported resource type" as before; the legacy AlterConfigs says
+  that for BROKER_LOGGER where Kafka says "Unknown resource type 8" and does not ask for a right. A broker's configs are validated by this broker's own
+  table (`configs::apply_to_broker`) where Kafka uses `DynamicBrokerConfig.validate`, so which config names fail before authorization is this table's.
+- **SEC-D19.** A Fetch from a follower (`replica_id` 0 or more) that has CLUSTER_ACTION is read like a consumer's, without READ on the topic: there is no
+  replication to serve, and the caller is a broker or a tool that asked for it. Metadata's topic entry that has no name (a topic asked for by an id
+  nobody knows or may not describe) has no authorized operations field; Kafka builds a resource with a null name for it, which throws.
+- **SEC-D20.** The tests of these rules read the Kafka source and not a run of it (D9: `authz-matrix` is not recorded). The rows most likely to differ are
+  the ones whose order Kafka leaves to a hash map or a set (the order of the refused among themselves in CreateTopics and Metadata) and the texts of
+  the 29 answers for which Kafka's message is the default one (set from `Errors.TOPIC_AUTHORIZATION_FAILED.message`, checked against the source only).
+
 - **SEC-D40.** Client certificates and mutual TLS are out of scope: the listener never asks for one (Kafka's `ssl.client.auth` `requested` and `required`), so on a TLS
   listener without SASL the principal is always `User:ANONYMOUS` (what Kafka answers with `ssl.client.auth=none`), and no principal is read from a certificate subject. The Go edition
   has the same limit.

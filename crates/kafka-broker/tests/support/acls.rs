@@ -102,6 +102,22 @@ pub fn describe_request(f: &DeleteAclsFilter) -> DescribeAclsRequest {
 }
 
 impl Rig {
+    /// [`Rig::create`] as the super user of `closed_world` (the anonymous caller may not create topics there).
+    pub async fn create_as_admin(
+        &self,
+        topics: Vec<kafka_wire::messages::create_topics_request::CreatableTopic>,
+        validate_only: bool,
+    ) -> Vec<kafka_wire::messages::create_topics_response::CreatableTopicResult> {
+        let mut req = kafka_wire::messages::CreateTopicsRequest::default();
+        req.topics = topics;
+        req.validate_only = validate_only;
+        let Response::CreateTopics(r) = self.ask_as(&admin(), 7, Request::CreateTopics(req)).await
+        else {
+            panic!("not CreateTopics")
+        };
+        r.topics
+    }
+
     /// What the broker does with `request`, from `caller`.
     pub async fn outcome_as(&self, caller: &Caller, version: i16, request: Request) -> Outcome {
         self.broker

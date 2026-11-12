@@ -3,6 +3,7 @@
 
 use std::collections::HashMap;
 
+use kafka_auth::authz::operation;
 use kafka_meta::Topic;
 use kafka_storage::fs::Fs;
 use kafka_storage::topic_dirs;
@@ -15,7 +16,7 @@ use kafka_wire::messages::create_partitions_response::CreatePartitionsTopicResul
 use kafka_wire::messages::{CreatePartitionsRequest, CreatePartitionsResponse};
 use tracing::warn;
 
-use crate::{Broker, Outcome, blocking};
+use crate::{Broker, Caller, Outcome, blocking};
 
 /// Why a topic was not given partitions: the code and Kafka's message (none, for an unknown topic).
 type Refusal = (E, Option<String>);
@@ -27,7 +28,15 @@ fn refuse(code: E, message: impl Into<String>) -> Refusal {
 impl<F: Fs> Broker<F> {
     /// Each topic named is answered once: a name listed twice is refused (both entries), first in the answer; the rest
     /// follow in the order asked, a refusal of one not stopping the others.
-    pub(crate) async fn create_partitions(&self, req: &CreatePartitionsRequest) -> Outcome {
+    ///
+    /// The caller must be allowed to ALTER each topic, asked after the duplicates are set aside and before the topic is
+    /// looked for (an absent topic is 29, not 3, to a caller that may not alter it). The topics refused are answered
+    /// after the duplicates and before the rest, with no message (`ControllerApis.createPartitions`).
+    pub(crate) async fn create_partitions(
+        &self,
+        caller: &Caller,
+        req: &CreatePartitionsRequest,
+    ) -> Outcome {
         let _one_change_at_a_time = self.topic_admin.lock().await;
         let mut count: HashMap<&str, usize> = HashMap::new();
         for t in &req.topics {
@@ -42,11 +51,18 @@ impl<F: Fs> Broker<F> {
                 resp.results.push(answer(t, Err(dup)));
             }
         }
+        let single = req
+            .topics
+            .iter()
+            .filter(|t| count.get(t.name.0.as_str()).copied().unwrap_or(0) <= 1);
+        let (permitted, refused): (Vec<_>, Vec<_>) =
+            single.partition(|t| self.topic_allows(caller, &t.name.0, operation::ALTER));
+        for t in refused {
+            let denied = (E::TopicAuthorizationFailed, None);
+            resp.results.push(answer(t, Err(denied)));
+        }
         let mut grown = false;
-        for t in &req.topics {
-            if count.get(t.name.0.as_str()).copied().unwrap_or(0) > 1 {
-                continue;
-            }
+        for t in permitted {
             let done = blocking::run(|| self.grow(t, req.validate_only));
             grown |= matches!(done, Ok(true));
             resp.results.push(answer(t, done.map(|_| ())));

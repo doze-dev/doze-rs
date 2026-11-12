@@ -1,18 +1,19 @@
 //! ListOffsets.
 
+use kafka_auth::authz::operation;
 use kafka_meta::Topic;
 use kafka_storage::StorageError;
 use kafka_storage::fs::Fs;
 use kafka_wire::ResponseError;
 use kafka_wire::ids::{Offset, PartitionId, TimestampMs, TopicName};
-use kafka_wire::messages::list_offsets_request::ListOffsetsPartition;
+use kafka_wire::messages::list_offsets_request::{ListOffsetsPartition, ListOffsetsTopic};
 use kafka_wire::messages::list_offsets_response::{
     ListOffsetsPartitionResponse, ListOffsetsTopicResponse,
 };
 use kafka_wire::messages::{ListOffsetsRequest, ListOffsetsResponse};
 
 use crate::partitions::Partition;
-use crate::{Broker, blocking};
+use crate::{Broker, Caller, blocking};
 
 const LATEST: i64 = -1;
 const EARLIEST: i64 = -2;
@@ -21,13 +22,23 @@ const MAX_TIMESTAMP: i64 = -3;
 impl<F: Fs> Broker<F> {
     /// Answers earliest, latest and max-timestamp queries and, for a real timestamp, the offset of the first record at or
     /// after it ("replay from ten minutes ago"). A timestamp after every record is offset -1 with timestamp -1.
+    ///
+    /// The caller must be allowed to DESCRIBE each topic (which any ACL for READ, WRITE, DELETE or ALTER grants); the
+    /// check is made before the topic is looked for, and the topics refused are answered after those that were not
+    /// (`KafkaApis.handleListOffsetRequest`).
     pub(crate) async fn list_offsets(
         &self,
         version: i16,
+        caller: &Caller,
         req: &ListOffsetsRequest,
     ) -> ListOffsetsResponse {
         let mut resp = ListOffsetsResponse::default();
+        let mut refused = Vec::new();
         for t in &req.topics {
+            if !self.topic_allows(caller, &t.name.0, operation::DESCRIBE) {
+                refused.push(not_described(t));
+                continue;
+            }
             let topic = TopicName::parse(&t.name.0)
                 .ok()
                 .and_then(|n| self.meta.topic(&n));
@@ -49,6 +60,7 @@ impl<F: Fs> Broker<F> {
             }
             resp.topics.push(out);
         }
+        resp.topics.extend(refused);
         resp
     }
 
@@ -116,6 +128,20 @@ impl<F: Fs> Broker<F> {
         }
         r
     }
+}
+
+/// A topic the caller may not describe: each partition asked is 29, with no timestamp or offset.
+fn not_described(t: &ListOffsetsTopic) -> ListOffsetsTopicResponse {
+    let mut out = ListOffsetsTopicResponse::default();
+    out.name = t.name.clone();
+    for p in &t.partitions {
+        let mut r = ListOffsetsPartitionResponse::default();
+        r.partition_index = p.partition_index;
+        r.error_code = ResponseError::TopicAuthorizationFailed.code();
+        (r.timestamp, r.offset, r.leader_epoch) = (-1, -1, -1);
+        out.partitions.push(r);
+    }
+    out
 }
 
 /// What the partition has for the time asked (`LATEST`, `EARLIEST`, the newest record, or a time): the offset, and the
