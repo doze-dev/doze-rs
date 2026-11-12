@@ -73,7 +73,7 @@ impl Credentials {
     {
         let mut users = BTreeMap::new();
         for (name, password) in pairs {
-            check(&name, &password)?;
+            validate(&name, &password)?;
             let secret = Secret(password.into_bytes().into_boxed_slice());
             if users.insert(name.clone(), secret).is_some() {
                 return Err(CredentialsError::Duplicate(name));
@@ -151,7 +151,11 @@ impl Credentials {
     }
 }
 
-fn check(name: &str, password: &str) -> Result<(), CredentialsError> {
+/// Whether `name` and `password` can be a login: a name and a password that every client sends the same way.
+///
+/// # Errors
+/// The first thing wrong with them, in words that name the user and never the password.
+pub fn validate(name: &str, password: &str) -> Result<(), CredentialsError> {
     if name.is_empty() {
         return Err(CredentialsError::EmptyUser);
     }

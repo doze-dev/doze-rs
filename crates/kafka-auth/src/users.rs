@@ -62,6 +62,12 @@ impl Stored {
         self.users.is_empty()
     }
 
+    /// How many users have a stored verifier.
+    #[must_use]
+    pub fn user_count(&self) -> usize {
+        self.users.len()
+    }
+
     /// Every user's verifiers, by user name and then mechanism.
     pub fn iter(&self) -> impl Iterator<Item = (&str, &Arc<Verifier>)> {
         self.users
