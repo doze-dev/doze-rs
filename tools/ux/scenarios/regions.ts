@@ -222,7 +222,8 @@ Object.assign(scenarios, {
     await pad(p);
     await p.scrollTo(300);
     const sum = "#topic-explained > summary";
-    await p.click(sum, { scroll: false });
+    await p.click(sum);
+    await p.scrollTo(Math.max(0, (await p.scrollY()) - 200));
     await p.waitFor("document.querySelector('#topic-explained').open === true");
     await inPlace(t, p, {
       name: "messages: a partition with an expander open", above: MSG_ABOVE, url: /partition=2/,
