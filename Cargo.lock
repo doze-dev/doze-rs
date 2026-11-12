@@ -1075,6 +1075,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "doze-module"
+version = "0.0.0"
+dependencies = [
+ "doze-module-derive",
+ "doze-module-proto",
+ "doze-os",
+ "minicbor",
+ "tokio",
+]
+
+[[package]]
+name = "doze-module-derive"
+version = "0.0.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
+]
+
+[[package]]
 name = "doze-module-proto"
 version = "0.0.0"
 dependencies = [

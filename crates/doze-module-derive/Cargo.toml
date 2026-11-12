@@ -1,0 +1,20 @@
+[package]
+name = "doze-module-derive"
+version = "0.0.0"
+description = "#[derive(Spec)]: one Rust type gives a module its config schema and its decoder"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[lib]
+proc-macro = true
+
+[dependencies]
+proc-macro2 = "1"
+quote = "1"
+syn = { version = "2", features = ["full"] }

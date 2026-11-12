@@ -146,6 +146,7 @@ async fn a_capability_the_module_did_not_declare_is_refused_locally() {
             &TailArgs {
                 panel: "p".into(),
                 selector: String::new(),
+                instance: common::instance(),
             },
             CallOpts::default(),
         )
@@ -181,6 +182,7 @@ async fn a_stream_never_runs_more_than_a_window_ahead_of_its_reader() {
             &TailArgs {
                 panel: "p".into(),
                 selector: String::new(),
+                instance: common::instance(),
             },
             CallOpts::default(),
         )

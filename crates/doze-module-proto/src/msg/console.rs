@@ -99,13 +99,15 @@ pub enum Layout {
 }
 
 /// `tail` arguments: stream rows of a stream panel.
-#[derive(Debug, Clone, PartialEq, Eq, Encode, Decode)]
+#[derive(Debug, Clone, PartialEq, Encode, Decode)]
 pub struct TailArgs {
     #[n(0)]
     pub panel: String,
     /// The selected row of the table the stream follows; empty for none.
     #[n(1)]
     pub selector: String,
+    #[n(2)]
+    pub instance: super::instance::Instance,
 }
 
 /// One streamed row.

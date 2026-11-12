@@ -60,3 +60,20 @@ pub async fn connected(module_caps: u64, host: Handler, module: Handler) -> (Pee
 }
 
 pub const ALL: u64 = caps::CONSOLE | caps::WIRE | caps::ADMIN;
+
+/// A minimal instance for calls that need one.
+pub fn instance() -> doze_module_proto::msg::instance::Instance {
+    use doze_module_proto::msg::value::{Node, Value};
+    doze_module_proto::msg::instance::Instance {
+        name: "e".into(),
+        engine: "echo".into(),
+        version: String::new(),
+        data_dir: String::new(),
+        socket_dir: String::new(),
+        spec: Node::bare(Value::Map(Default::default())),
+        host: String::new(),
+        listeners: Default::default(),
+        deps: vec![],
+        toolchain: None,
+    }
+}
