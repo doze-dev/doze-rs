@@ -14,7 +14,7 @@ use crate::ui::client;
 use crate::ui::components::{Choice, Combobox, Select, combobox, select};
 use crate::ui::glyph::{Glyph, glyph};
 use crate::ui::glyph_live::{LiveGlyph, live_glyph};
-use crate::ui::kafka::{filter_box, pager};
+use crate::ui::kafka::pager;
 use crate::ui::layout::page_header;
 use crate::ui::notice::{Tone, callout};
 use crate::words::live::{live_sentence, load_line, pager_line, paused_clock};
@@ -90,7 +90,7 @@ fn toolbar(v: &LiveView, base: &Base, with_search: bool) -> Markup {
         form class="toolbar" method="get" action=(base.url("/live")) data-live-filters
             hx-get=(base.url("/live")) hx-target={"#" (LIVE_FRAGMENT)} hx-select={"#" (LIVE_FRAGMENT)} hx-swap=(client::IN_PLACE_SWAP) hx-push-url="true" {
             input type="submit" value="Filter" aria-label="Filter the wire" hidden data-scaffold;
-            @if with_search { (filter_box("q", "Filter by client, API or topic", "Filter the wire", &q.text)) }
+            @if with_search { (crate::ui::inplace::search_box(LIVE_FRAGMENT, &base.url("/live"), "q", "Filter by client, API or topic", "Filter the wire", &q.text)) }
             (select_chip("client", "All apps", &q.client, &v.clients_ids))
             (select_chip("topic", "All topics", &q.topic, &v.topics_seen))
             // A toggle's own button carries its new value; the hidden fields keep the other's state.
