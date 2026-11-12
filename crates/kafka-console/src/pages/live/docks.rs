@@ -8,31 +8,24 @@ use super::parts::{request_url, wire_url};
 use super::tape::{Layout, table};
 use crate::base::{Base, segment};
 use crate::format::clock;
-use crate::live_ids::{GROUP_WIRE, TOPIC_WIRE};
 use crate::model::{GroupWireView, WireClass, WireQuery, WireRow, WireWindow};
 use crate::ui::client;
 use crate::ui::glyph::Glyph;
 use crate::ui::glyph_live::{LiveGlyph, live_glyph};
+use crate::ui::metrics::slot;
 use crate::ui::notice::{Tone, callout};
-use crate::words::live::{hhmm, reach};
+use crate::words::live::hhmm;
 
-/// What a dock says of how far back it reaches.
-fn reach_line(w: &WireWindow, now_ms: i64) -> String {
-    match (w.oldest_ms, reach(w, now_ms)) {
-        (Some(o), Some(_)) => format!(
-            "among the last {} rows the broker kept (back to {})",
-            w.rows,
-            hhmm(o)
-        ),
-        _ => "none yet: the wire starts empty at every start".to_owned(),
-    }
-}
+/// The region of a topic's dock.
+pub const TOPIC_WIRE: &str = "topic-wire";
+/// The region of a group's wire.
+pub const GROUP_WIRE: &str = "group-wire";
 
-/// The Pause button of a dock: with a script it holds the dock still; without one it is not shown.
-fn pause_button(small: bool) -> Markup {
-    html! {
-        button class={"btn" @if small { " sm" }} type="button" data-ui="pause" data-pause data-js-only hidden { (live_glyph(LiveGlyph::Stop, 14)) "Pause" }
-    }
+/// What a dock says of how far back it reaches: slots, so that the line never changes length.
+fn reach_line(w: &WireWindow) -> Markup {
+    let rows = crate::format::number(i64::try_from(w.rows).unwrap_or(0));
+    let back = w.oldest_ms.map_or_else(|| "none".to_owned(), hhmm);
+    html! { "Among the last " (slot(&rows, 5)) " rows the broker kept, back to " (slot(&back, 5)) " UTC." }
 }
 
 fn expanded_toolbar(topic: &str) -> Markup {
@@ -42,8 +35,6 @@ fn expanded_toolbar(topic: &str) -> Markup {
             span class="fchip" { "Client" }
             span class="fchip" { "API" }
             span class="fchip" { "Refused only" }
-            span class="sp" {}
-            (pause_button(true))
         }
     }
 }
@@ -54,7 +45,6 @@ pub fn topic_dock(
     topic: &str,
     rows: &[WireRow],
     w: &WireWindow,
-    now_ms: i64,
     base: &Base,
     expanded: bool,
 ) -> Markup {
@@ -73,7 +63,7 @@ pub fn topic_dock(
                 div class="row sb" {
                     div {
                         h2 { "On the wire" @if expanded { ": " (topic) } }
-                        p class="lede" { "Client requests that touched this topic, " (reach_line(w, now_ms)) ". A Fetch that returns nothing is folded." }
+                        p class="lede" { "Client requests that touched this topic. " (reach_line(w)) " A Fetch that returns nothing is folded." }
                     }
                     @if expanded { a class="btn sm" href=(t) { "Collapse to the dock" } }
                     @else { a class="btn sm" href={(t) "/wire"} { "Expand the wire" } }
@@ -135,7 +125,7 @@ fn group_toolbar(v: &GroupWireView, base: &Base) -> Markup {
 /// A group's wire page: every client request that touched the group, newest first. The group pages come from slice 9c: this is
 /// its body only, routed at `/groups/{group}/wire`; the page header of the group (its state and pills) is theirs to put above.
 #[must_use]
-pub fn group_wire_page(v: &GroupWireView, base: &Base) -> Markup {
+pub fn group_wire_fragment(v: &GroupWireView, base: &Base) -> Markup {
     let group = v.group.as_str();
     let q = WireQuery {
         group: group.to_owned(),
@@ -161,25 +151,30 @@ pub fn group_wire_page(v: &GroupWireView, base: &Base) -> Markup {
         GROUP_WIRE,
         &url,
         html! {
-            div class="page-h" {
-                div {
-                    div class="title-row" { h1 class="mono" { (group) } }
-                    p class="sub" {
-                        "Every client request that touched " (group) " " (reach_line(&v.window, v.now_ms)) ", newest first. Heartbeats fold into one row; a refusal stays on its own row. The console's own requests are not listed."
-                    }
-                }
-                div class="acts" {
-                    (pause_button(false))
-                    a class="btn" href=(base.url(&format!("/groups/{}", segment(group)))) { (live_glyph(LiveGlyph::Back, 16)) "Back to the group" }
-                }
-            }
-            (group_toolbar(v, base))
-            div data-extra="wire-dock" {
-                @if v.rows.is_empty() {
-                    p class="help" { "No client request that touched this group matches." }
-                } @else { (table(&v.rows, base, &q, Layout::Group)) }
-            }
+            (table(&v.rows, base, &q, Layout::Group))
+            p class="help" style="margin-top:12px" { (reach_line(&v.window)) }
             (refusal_note(&v.rows, base))
         },
     )
+}
+
+/// The page: the title, the filters and the region.
+#[must_use]
+pub fn group_wire_page(v: &GroupWireView, base: &Base) -> Markup {
+    let group = v.group.as_str();
+    html! {
+        div class="page-h" {
+            div {
+                div class="title-row" { h1 class="mono" { (group) } }
+                p class="sub" {
+                    "Every client request that touched " (group) ", newest first. Heartbeats fold into one row; a refusal stays on its own row. The console's own requests are not listed."
+                }
+            }
+            div class="acts" {
+                a class="btn" href=(base.url(&format!("/groups/{}", segment(group)))) { (live_glyph(LiveGlyph::Back, 16)) "Back to the group" }
+            }
+        }
+        (group_toolbar(v, base))
+        (group_wire_fragment(v, base))
+    }
 }

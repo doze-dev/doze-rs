@@ -34,7 +34,7 @@ async fn access_parent(s: &Shared, state: Option<&str>) -> Parent {
         rail: Rail::Access,
         title: "Access".to_owned(),
         crumbs: Place::Access.steps(),
-        watch: &[],
+        regions: &[],
         main: pages::access_page(&view, &s.base),
     }
 }

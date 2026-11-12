@@ -71,7 +71,7 @@ fn clock_bar(n: &StoryNow) -> Markup {
     html! {
         div class="lagbar" data-vary {
             div class="tr" { i class="warn" style={"--p:" (pct) "%"} {} }
-            span class="n" style="min-width:140px" { (span_precise(left)) " of " (span_precise(of)) " left" }
+            span class="n" style="min-width:210px" { "Rejoin deadline " (crate::ui::metrics::deadline(i64::try_from(left).unwrap_or(0))) }
         }
     }
 }

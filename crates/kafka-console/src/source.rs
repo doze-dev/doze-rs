@@ -125,17 +125,6 @@ pub enum Source {
 }
 
 impl Source {
-    /// The fragments a Home page asks the stream to watch: none over the fixtures, which do not change and which a
-    /// refetch would turn back into the steady state.
-    #[must_use]
-    pub fn watch(&self) -> &'static [&'static str] {
-        match self {
-            Self::Live(_) => crate::stream::HOME_IDS,
-            #[cfg(any(test, feature = "examples"))]
-            Self::Fixture => &[],
-        }
-    }
-
     /// The top bar.
     pub async fn chrome(&self) -> Chrome {
         match self {

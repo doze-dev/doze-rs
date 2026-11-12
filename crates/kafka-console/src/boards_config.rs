@@ -147,7 +147,7 @@ pub fn render(id: &str, base: &Base) -> Option<String> {
         active: Rail::Resources,
         crumbs: crumbs(base, &title),
         title: &title,
-        watch: &[],
+        regions: &[],
     };
     Some(document_over(&page, main).into_string())
 }

@@ -25,6 +25,7 @@ use crate::ui::client;
 use crate::ui::code::pre;
 use crate::ui::glyph::Glyph;
 use crate::ui::layout::{card_extra, hr, kv, page_header, title_row, value_with_sub};
+use crate::ui::metrics::{Stat, stat_strip};
 use crate::ui::notice::{Tone, callout};
 use crate::words::{
     self, attention_headline, home_advertised_lede, home_sub, home_title, unchecked_note,
@@ -54,6 +55,9 @@ fn fraction(held: i64, of: i64) -> i64 {
 
 fn attention(a: &Attention, unchecked: usize, base: &Base) -> Markup {
     let p = fraction(a.elapsed_secs, a.timeout_secs);
+    // The deadline is an instant, to the second; the script counts down to it in its own slot, with no request (CON-812).
+    let deadline =
+        (crate::source::now_ms() / 1000 + (a.timeout_secs - a.elapsed_secs).max(0)) * 1000;
     // The transaction's own page (slice 9g).
     let txn_url = base.url(&format!(
         "/topics/{}/transactions/{}",
@@ -73,9 +77,9 @@ fn attention(a: &Attention, unchecked: usize, base: &Base) -> Markup {
                 }
                 div class="row" style="flex:none" { (link(&txn_url, Variant::Plain, Size::Small, Some(Glyph::ArrowR), "Open the transaction")) }
             }
-            div class="lagbar" style="margin-top:14px;max-width:560px" {
+            div class="lagbar deadline" style="margin-top:14px;max-width:560px" {
                 div class="tr" { i class="warn" style={"--p:" (p) "%"} {} }
-                span class="n" style="min-width:110px" { (a.elapsed_secs) " s of " (a.timeout_secs) " s" }
+                span class="n" style="min-width:210px" { "Times out at " time datetime=(crate::format::iso(deadline)) { (crate::format::clock(deadline)) " UTC" } " " span class="cd mono" data-until=(crate::format::iso(deadline)) {} }
             }
             @if let Some(h) = a.held_back {
                 div class="help" style="margin-top:10px" {
@@ -129,9 +133,6 @@ fn rows(i: &InstanceView, quiet: bool) -> Vec<(&'static str, Markup)> {
         .rsplit_once(' ')
         .unwrap_or((i.started.as_str(), ""));
     let mut out = vec![("Started", value_with_sub(mono(day.to_owned()), zone))];
-    if !quiet {
-        out.push(("Up for", mono(crate::format::span(i.up_secs))));
-    }
     out.push((
         "Last stop",
         match i.last_stop {
@@ -268,9 +269,68 @@ fn next_card(v: &HomeView, base: &Base) -> Markup {
     } }
 }
 
-/// Home's live fragment, and Home.
+/// Home's strip of metrics: every fact that follows the broker, each in a slot of reserved width (CON-805).
+fn strip(v: &HomeView) -> Markup {
+    let n = |x: usize| number(i64::try_from(x).unwrap_or(0));
+    let started = v.instance.started.trim_end_matches(" UTC").to_owned();
+    let last_stop = match v.instance.last_stop {
+        StopView::Clean => "Clean",
+        StopView::Unclean => "Not clean",
+        StopView::None => "None yet",
+    };
+    let now = crate::source::now_ms();
+    let mut stats = vec![
+        Stat::new("Started", started).unit("UTC").mono().ch(12),
+        Stat::new("Last stop", last_stop).ch(9),
+        Stat::new("Topics", n(v.topics)).ch(5),
+        Stat::new("Partitions", n(v.partitions)).ch(5),
+    ];
+    match &v.spoke {
+        Some(s) => {
+            stats.push(Stat::new("Apps on the wire", n(s.apps)).ch(5));
+            stats.push(
+                Stat::new(
+                    "Wire reaches back to",
+                    s.oldest_ms
+                        .map_or_else(|| "none".to_owned(), crate::words::live::hhmm),
+                )
+                .unit("UTC")
+                .mono()
+                .ch(5),
+            );
+            stats.push(match s.last_ms {
+                Some(ms) => Stat::at("Last request", ms, now),
+                None => Stat::new("Last request", "none yet").mono().ch(11),
+            });
+        }
+        None => {
+            stats.push(Stat::new("Apps on the wire", "-").ch(5));
+        }
+    }
+    stat_strip(&stats)
+}
+
+/// Home's live fragment: the strip, the transaction region and both columns. The title and its sentence are not in it.
 #[must_use]
 pub fn live_fragment(v: &HomeView, base: &Base) -> Markup {
+    let quiet = v.state == HomeState::Quiet;
+    client::fragment(
+        HOME_LIVE,
+        &url(base, HOME_LIVE),
+        html! {
+            (strip(v))
+            div class="home-callout" { (callout_body(v, base)) }
+            div class="split" {
+                div class="stack-y" { (address_card(v, base)) @if quiet { (next_card(v, base)) } }
+                div class="stack-y" { (instance_card(v, base)) @if !quiet { (next_card(v, base)) } }
+            }
+        },
+    )
+}
+
+/// Home.
+#[must_use]
+pub fn home(v: &HomeView, base: &Base) -> Markup {
     let quiet = v.state == HomeState::Quiet;
     let acts = if quiet {
         html! {}
@@ -283,22 +343,8 @@ pub fn live_fragment(v: &HomeView, base: &Base) -> Markup {
             "Connect an app",
         )
     };
-    client::fragment(
-        HOME_LIVE,
-        &url(base, HOME_LIVE),
-        html! {
-            (page_header(home_title(&v.state), sentence(v), acts))
-            (callout_body(v, base))
-            div class="split" {
-                div class="stack-y" { (address_card(v, base)) @if quiet { (next_card(v, base)) } }
-                div class="stack-y" { (instance_card(v, base)) @if !quiet { (next_card(v, base)) } }
-            }
-        },
-    )
-}
-
-/// Home.
-#[must_use]
-pub fn home(v: &HomeView, base: &Base) -> Markup {
-    live_fragment(v, base)
+    html! {
+        (page_header(home_title(&v.state), sentence(v), acts))
+        (live_fragment(v, base))
+    }
 }

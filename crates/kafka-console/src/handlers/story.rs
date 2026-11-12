@@ -21,7 +21,7 @@ fn story_parent(s: &Shared, v: &StoryView) -> Parent {
         rail: Rail::Resources,
         title: "Story".to_owned(),
         crumbs: trail(&v.head.id, Some("Story")),
-        watch: s.source.watching(crate::story_ids::STORY_IDS),
+        regions: crate::regions::STORY,
         main: page::story_page(v, &s.base),
     }
 }
@@ -49,7 +49,7 @@ pub async fn flapping(State(s): State<Shared>, Path(id): Path<String>) -> Respon
         rail: Rail::Resources,
         title: "Flapping".to_owned(),
         crumbs,
-        watch: &[],
+        regions: &[],
         main: page::flapping_page(&view, &s.base),
     };
     html(&page_of(&s, parent).await)
@@ -96,13 +96,12 @@ async fn missing(s: &Shared, uri: &Uri) -> Response {
 
 /// The fragments of the Story page, by id: what the stream tells it to fetch again; `None` for an id that is not one.
 pub(crate) async fn fragment(s: &Shared, id: &str, query: &Option<String>) -> Option<maud::Markup> {
-    use crate::story_ids::{STORY_NOW, STORY_SENTENCE};
-    if id != STORY_NOW && id != STORY_SENTENCE {
+    if id != crate::pages::story::STORY_NOW && id != crate::pages::story::STORY_SENTENCE {
         return None;
     }
     let f = crate::form::parse(query.as_deref().unwrap_or(""));
     let view = s.source.story(crate::form::get(&f, "group")?).await?;
-    Some(if id == STORY_NOW {
+    Some(if id == crate::pages::story::STORY_NOW {
         page::now_fragment(&view, &s.base)
     } else {
         page::sentence_fragment(&view, &s.base)

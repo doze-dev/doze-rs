@@ -2,27 +2,39 @@
 
 use maud::{Markup, html};
 
-use super::{LOG_SENTENCE, fragment_url};
+use super::{LOG_STATS, fragment_url};
 use crate::base::Base;
-use crate::log_words::{head_sentence, state_word};
+use crate::format::{bytes, number};
+use crate::log_words::state_word;
 use crate::model::{Cleanup, LogState, LogView, TopicHead};
 use crate::pages::topics::{TopicTab, topic_frame};
 use crate::ui::button::{pill_mono, state};
 use crate::ui::client;
-use crate::ui::write::spans;
+use crate::ui::metrics::{Stat, stat_strip};
 
-/// The sentence under the name, as a fragment that refreshes while the page is open.
+/// What follows the log, as a strip of metric slots in a region a Refresh fetches again (CON-805).
 #[must_use]
-pub fn log_sentence_fragment(v: &LogView, base: &Base) -> Markup {
+pub fn log_stats_fragment(v: &LogView, base: &Base) -> Markup {
+    let n = |x: i64| number(x);
+    let state = match v.state() {
+        LogState::Empty => "Empty",
+        LogState::Due => "Due",
+        LogState::NotDue => "Not due",
+        LogState::Retention => "Retention",
+    };
     client::fragment(
-        LOG_SENTENCE,
-        &fragment_url(base, LOG_SENTENCE, v),
-        sentence(v),
+        LOG_STATS,
+        &fragment_url(base, LOG_STATS, v),
+        stat_strip(&[
+            Stat::new("Log", state).ch(10),
+            Stat::new("Start offset", n(v.start)).ch(9),
+            Stat::new("End offset", n(v.end)).ch(9),
+            Stat::new("Last stable", n(v.last_stable)).ch(9),
+            Stat::new("Records", n(v.records())).ch(9),
+            Stat::new("Segments", n(i64::try_from(v.segments.len()).unwrap_or(0))).ch(4),
+            Stat::new("Size", bytes(v.bytes())).ch(9),
+        ]),
     )
-}
-
-fn sentence(v: &LogView) -> Markup {
-    html! { p class="sub" data-extra="live-sentence" { (spans(&head_sentence(v))) } }
 }
 
 fn beside(v: &LogView) -> Markup {
@@ -36,14 +48,14 @@ fn beside(v: &LogView) -> Markup {
     }
 }
 
-/// What this tab says first, under the topic's own head and tabs (the same on every tab of the topic): the words of the log (due,
-/// compacted, which partition) and the sentence that follows the data.
+/// What this tab says first, under the topic's own head and tabs: the words of the log (due, compacted, which partition), then the
+/// strip of metrics that follows the data.
 #[must_use]
-pub(crate) fn lead(words: Markup, sentence: Markup) -> Markup {
+pub(crate) fn lead(words: Markup, stats: Markup) -> Markup {
     html! {
         div class="tab-lead" {
-            div class="row" style="gap:8px;align-items:center;margin-bottom:8px" { (words) }
-            (sentence)
+            div class="row" style="gap:8px;align-items:center;margin-bottom:12px" { (words) }
+            (stats)
         }
     }
 }
@@ -53,7 +65,7 @@ pub(crate) fn lead(words: Markup, sentence: Markup) -> Markup {
 pub(super) fn log_head(v: &LogView, head: &TopicHead, base: &Base) -> Markup {
     html! {
         (topic_frame(head, base, TopicTab::Log))
-        (lead(beside(v), log_sentence_fragment(v, base)))
+        (lead(beside(v), log_stats_fragment(v, base)))
         (partitions(v, base))
     }
 }

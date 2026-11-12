@@ -2,7 +2,7 @@ use super::*;
 use crate::assets::Assets;
 use crate::fixtures;
 
-fn render(chrome: &Chrome, active: Rail, watch: &[&'static str], prefix: &str) -> String {
+fn render(chrome: &Chrome, active: Rail, regions: &[&'static str], prefix: &str) -> String {
     let base = Base::new(prefix);
     let assets = Assets::build(&base);
     let page = Page {
@@ -21,7 +21,7 @@ fn render(chrome: &Chrome, active: Rail, watch: &[&'static str], prefix: &str) -
             },
         ],
         title: "Connect an app",
-        watch,
+        regions,
     };
     document(&page, html! { h1 { "Connect an app" } }).into_string()
 }

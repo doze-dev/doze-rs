@@ -15,7 +15,6 @@ use crate::form::{get, parse};
 use crate::model::{GroupFilter, GroupLagView};
 use crate::pages::groups as page;
 use crate::state::Shared;
-use crate::stream_groups::{GROUP_IDS, GROUPS_IDS, LAG_IDS};
 use crate::trail::{Place, borrowed};
 use crate::ui::shell::Rail;
 
@@ -24,11 +23,11 @@ pub(super) async fn shell(
     status: StatusCode,
     title: &str,
     steps: &[crate::trail::Step],
-    watch: &[&'static str],
+    regions: &[&'static str],
     main: Markup,
 ) -> Response {
     let doc = s
-        .document(Rail::Resources, title, &borrowed(steps), watch, main)
+        .document(Rail::Resources, title, &borrowed(steps), regions, main)
         .await;
     (status, html(&doc)).into_response()
 }
@@ -62,7 +61,7 @@ pub async fn groups(State(s): State<Shared>, RawQuery(query): RawQuery) -> Respo
         StatusCode::OK,
         title,
         &Place::Groups.steps(),
-        s.source.watching(GROUPS_IDS),
+        crate::regions::GROUPS,
         main,
     )
     .await
@@ -82,7 +81,7 @@ pub(super) fn group_parent(s: &Shared, view: &GroupLagView) -> Parent {
         rail: Rail::Resources,
         title: view.head.id.clone(),
         crumbs: trail(&view.head.id, None),
-        watch: s.source.watching(GROUP_IDS),
+        regions: crate::regions::GROUP,
         main: page::group_page(view, &s.base),
     }
 }
@@ -101,7 +100,7 @@ pub(super) fn members_parent(s: &Shared, view: &GroupLagView, open: Option<&str>
         rail: Rail::Resources,
         title: "Members".to_owned(),
         crumbs: trail(&view.head.id, Some("Members")),
-        watch: s.source.watching(GROUP_IDS),
+        regions: crate::regions::GROUP,
         main: page::members_page_open(view, &s.base, open),
     }
 }
@@ -122,7 +121,7 @@ pub(super) fn lag_parent(s: &Shared, mut view: GroupLagView, flash: Option<Strin
         rail: Rail::Resources,
         title: "Lag".to_owned(),
         crumbs: trail(&view.head.id, Some("Lag")),
-        watch: s.source.watching(LAG_IDS),
+        regions: crate::regions::LAG,
         main: page::lag_page(&view, &s.base),
     }
 }

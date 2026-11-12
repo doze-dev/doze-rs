@@ -108,7 +108,7 @@ async fn config_parent(s: &Shared, topic: &str, ask: ConfigAsk) -> Option<Parent
         rail: Rail::Resources,
         title: "Config".to_owned(),
         crumbs: Place::TopicPage(topic, TopicPage::Config).steps(),
-        watch: &[],
+        regions: &[],
         main: pages::config_page(&page, head.as_ref(), &s.base),
     })
 }

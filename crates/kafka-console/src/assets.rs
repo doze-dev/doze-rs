@@ -62,6 +62,7 @@ pub const MANIFEST: &[File] = &[
     file!("console.css", Css),
     file!("console.js", Js),
     file!("components.js", Js),
+    file!("live.js", Js),
     file!("htmx-2.0.11.min.js", Js),
     file!("idiomorph-ext-0.8.0.min.js", Js),
     file!("alpine-anchor-3.17.5.min.js", Js),
@@ -98,11 +99,12 @@ pub const MANIFEST: &[File] = &[
 ];
 
 /// The scripts of a page, in load order.
-pub const SCRIPT_ORDER: [&str; 6] = [
+pub const SCRIPT_ORDER: [&str; 7] = [
     "htmx-2.0.11.min.js",
     "idiomorph-ext-0.8.0.min.js",
     "console.js",
     "components.js",
+    "live.js",
     "alpine-anchor-3.17.5.min.js",
     "alpine-csp-3.17.5.min.js",
 ];

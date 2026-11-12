@@ -21,7 +21,7 @@ pub(super) struct Parent {
     /// The breadcrumb: label and path under the base; the last has no path.
     pub crumbs: Vec<(String, Option<String>)>,
     /// The fragments the parent asks the stream to watch, so that it stays live behind the overlay.
-    pub watch: &'static [&'static str],
+    pub regions: &'static [&'static str],
     pub main: Markup,
 }
 
@@ -75,7 +75,7 @@ pub(super) async fn over_parent(
             p.rail,
             &p.title,
             &crate::trail::borrowed(&p.crumbs),
-            p.watch,
+            p.regions,
             over(p.main, overlay),
         )
         .await;

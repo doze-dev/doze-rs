@@ -156,3 +156,12 @@ fn every_day_for_two_hundred_years_has_a_valid_date_and_follows_the_one_before()
         last = c;
     }
 }
+
+#[test]
+fn an_instant_is_written_in_absolute_terms() {
+    let now = 1_762_900_000_000; // 2025-11-11 22:26:40 UTC
+    assert_eq!(iso(now), "2025-11-11T22:26:40Z");
+    assert_eq!(exact(now), "2025-11-11 22:26:40 UTC");
+    assert_eq!(stamp(now - 5_000, now), "22:26:35");
+    assert_eq!(stamp(now - 86_400_000, now), "Nov 10 22:26");
+}

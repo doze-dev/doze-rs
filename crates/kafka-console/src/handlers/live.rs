@@ -7,12 +7,10 @@ use maud::{Markup, html};
 
 use super::html;
 use super::overlays::{self, Parent};
-use crate::live_ids::{
-    GROUP_WIRE, GROUP_WIRE_IDS, LIVE_IDS, LIVE_WIRE, TOPIC_WIRE, TOPIC_WIRE_IDS,
-};
 use crate::model::WireQuery;
 use crate::pages::live::{
-    clients_drawer, first_page, group_wire_page, live_page, request_drawer, topic_dock,
+    GROUP_WIRE, LIVE_STATS, TOPIC_WIRE, clients_drawer, first_page, group_wire_fragment,
+    group_wire_page, live_fragment, live_page, request_drawer, stats_fragment, topic_dock,
 };
 use crate::state::Shared;
 use crate::trail::{Place, TopicPage, borrowed};
@@ -33,7 +31,7 @@ pub async fn live(State(s): State<Shared>, RawQuery(query): RawQuery) -> Respons
             Rail::Live,
             "Live",
             &borrowed(&Place::Live.steps()),
-            s.source.watching(LIVE_IDS),
+            crate::regions::LIVE,
             main,
         )
         .await,
@@ -48,7 +46,7 @@ async fn live_parent(s: &Shared, q: &WireQuery) -> Parent {
         rail: Rail::Live,
         title: "Live".to_owned(),
         crumbs: Place::Live.steps(),
-        watch: s.source.watching(LIVE_IDS),
+        regions: crate::regions::LIVE,
         main,
     }
 }
@@ -150,15 +148,15 @@ pub async fn topic_wire(State(s): State<Shared>, Path(topic): Path<String>) -> R
             .await;
         return (StatusCode::NOT_FOUND, html(&page)).into_response();
     };
-    let (rows, window, now) = s.source.topic_wire(&topic).await;
-    let dock = topic_dock(&topic, &rows, &window, now, &s.base, true);
+    let (rows, window, _) = s.source.topic_wire(&topic).await;
+    let dock = topic_dock(&topic, &rows, &window, &s.base, true);
     let main = crate::pages::topics::topic_wire_page(&head, dock, &s.base);
     html(
         &s.document(
             Rail::Resources,
             "On the wire",
             &borrowed(&Place::TopicPage(&topic, TopicPage::Wire).steps()),
-            s.source.watching(TOPIC_WIRE_IDS),
+            crate::regions::TOPIC_WIRE,
             main,
         )
         .await,
@@ -181,7 +179,7 @@ pub async fn group_wire(
             Rail::Resources,
             "Wire",
             &borrowed(&Place::GroupPage(&group, "Wire").steps()),
-            s.source.watching(GROUP_WIRE_IDS),
+            crate::regions::GROUP_WIRE,
             main,
         )
         .await,
@@ -192,21 +190,28 @@ pub async fn group_wire(
 pub(crate) async fn fragment(s: &Shared, id: &str, query: &Option<String>) -> Option<Markup> {
     let f = fields(query);
     match id {
-        LIVE_WIRE => {
+        crate::regions::LIVE_WIRE => {
             let q = WireQuery::parse(&f);
-            Some(live_page(
+            Some(live_fragment(
+                &s.source.live(&q, crate::form::get(&f, "state")).await,
+                &s.base,
+            ))
+        }
+        LIVE_STATS => {
+            let q = WireQuery::parse(&f);
+            Some(stats_fragment(
                 &s.source.live(&q, crate::form::get(&f, "state")).await,
                 &s.base,
             ))
         }
         TOPIC_WIRE => {
             let topic = crate::form::text(&f, "topic");
-            let (rows, window, now) = s.source.topic_wire(topic).await;
-            Some(topic_dock(topic, &rows, &window, now, &s.base, false))
+            let (rows, window, _) = s.source.topic_wire(topic).await;
+            Some(topic_dock(topic, &rows, &window, &s.base, false))
         }
         GROUP_WIRE => {
             let q = WireQuery::parse(&f);
-            Some(group_wire_page(&s.source.group_wire(&q).await, &s.base))
+            Some(group_wire_fragment(&s.source.group_wire(&q).await, &s.base))
         }
         _ => None,
     }

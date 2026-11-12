@@ -17,20 +17,20 @@ mod txn;
 use maud::{Markup, html};
 
 use crate::base::{Base, segment};
+use crate::format::number;
 use crate::model::{ProducersView, TopicHead};
 use crate::pages::log::lead;
 use crate::pages::topics::{TopicTab, topic_frame};
-use crate::producers_words::producers_sentence;
 use crate::ui::button::pill_mono;
 use crate::ui::client;
-use crate::ui::write::spans;
+use crate::ui::metrics::{Stat, stat_strip};
 
 pub use hold::txn_held_page;
 pub use hold::txn_held_url;
 pub use txn::{no_txn, txn_page};
 
 /// The fragments of the page that follow the data.
-pub const PRODUCERS_SENTENCE: &str = "producers-sentence";
+pub const PRODUCERS_STATS: &str = "producers-stats";
 pub const PRODUCERS_TABLE: &str = "producers-table";
 
 /// `/topics/orders/producers?partition=1`.
@@ -62,17 +62,28 @@ fn fragment_url(base: &Base, id: &str, v: &ProducersView) -> String {
     ))
 }
 
-fn sentence(v: &ProducersView) -> Markup {
-    html! { p class="sub" data-extra="live-sentence" { (spans(&producers_sentence(v))) } }
-}
-
-/// The sentence under the name, as a fragment that refreshes while the page is open.
+/// What follows the partition's producers, as a strip of metric slots in a region a Refresh fetches again (CON-805).
 #[must_use]
-pub fn producers_sentence_fragment(v: &ProducersView, base: &Base) -> Markup {
+pub fn producers_stats_fragment(v: &ProducersView, base: &Base) -> Markup {
+    let n = |x: i64| number(x);
     client::fragment(
-        PRODUCERS_SENTENCE,
-        &fragment_url(base, PRODUCERS_SENTENCE, v),
-        sentence(v),
+        PRODUCERS_STATS,
+        &fragment_url(base, PRODUCERS_STATS, v),
+        stat_strip(&[
+            Stat::new(
+                "Producers",
+                n(i64::try_from(v.producers.len()).unwrap_or(0)),
+            )
+            .ch(5),
+            Stat::new(
+                "Open transactions",
+                n(i64::try_from(v.open.len()).unwrap_or(0)),
+            )
+            .ch(4),
+            Stat::new("Last stable", n(v.last_stable)).ch(9),
+            Stat::new("High watermark", n(v.end)).ch(9),
+            Stat::new("Held back", n(v.held())).unit("records").ch(7),
+        ]),
     )
 }
 
@@ -106,7 +117,7 @@ pub fn producers_page(v: &ProducersView, head: &TopicHead, base: &Base) -> Marku
         (topic_frame(head, base, TopicTab::Producers))
         (lead(html! {
             (pill_mono(&format!("partition {} of {}", v.partition, v.partitions)))
-        }, producers_sentence_fragment(v, base)))
+        }, producers_stats_fragment(v, base)))
         (partition_seg(v))
         (producers_table_fragment(v, base))
         @if v.held() > 0 { (hold::section(v, base)) }

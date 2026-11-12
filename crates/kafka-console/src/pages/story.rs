@@ -16,4 +16,6 @@ mod page;
 
 pub use drawer::rebalance_drawer;
 pub use flapping::flapping_page;
-pub use page::{no_story, now_fragment, sentence_fragment, story_page, story_url};
+pub use page::{
+    STORY_NOW, STORY_SENTENCE, no_story, now_fragment, sentence_fragment, story_page, story_url,
+};

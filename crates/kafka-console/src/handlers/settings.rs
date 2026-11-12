@@ -52,7 +52,7 @@ async fn settings_parent(s: &Shared) -> Parent {
         rail: Rail::Settings,
         title: "Settings".to_owned(),
         crumbs: Place::Settings.steps(),
-        watch: &[],
+        regions: &[],
         main: pages::settings_page(&view, &s.base),
     }
 }

@@ -74,11 +74,7 @@ pub fn attention_sentence(a: &GroupAttention) -> Vec<S> {
         } else {
             list_and(&a.waiting_for)
         }));
-        v.push(S::text(format!(
-            " to rejoin, {} of {} left.",
-            span_precise(a.remaining_ms),
-            span_precise(a.timeout_ms)
-        )));
+        v.push(S::text(" to rejoin."));
     } else if a.waiting_for.is_empty() {
         v.push(S::text(
             "Every member has joined again and the leader is working out who holds what.",
@@ -86,11 +82,7 @@ pub fn attention_sentence(a: &GroupAttention) -> Vec<S> {
     } else {
         v.push(S::text("It is waiting for "));
         v.push(S::mono(list_and(&a.waiting_for)));
-        v.push(S::text(format!(
-            " to rejoin, {} of {} left.",
-            span_precise(a.remaining_ms),
-            span_precise(a.timeout_ms)
-        )));
+        v.push(S::text(" to rejoin."));
     }
     v
 }

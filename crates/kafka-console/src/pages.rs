@@ -27,12 +27,12 @@ pub use connect::{connect, probe_connect};
 pub use home::{HOME_LIVE, callout_body, home, live_fragment, probe_home};
 pub use jump::{JumpItem, JumpKind, jump_overlay, jump_page};
 pub use log::{
-    LOG_CARDS, LOG_RULER, LOG_SENTENCE, log_cards_fragment, log_page, log_ruler_fragment,
-    log_sentence_fragment, log_url,
+    LOG_CARDS, LOG_RULER, LOG_STATS, log_cards_fragment, log_page, log_ruler_fragment,
+    log_stats_fragment, log_url,
 };
 pub use notice::{not_found, unavailable, unavailable_what};
 pub use producers::{
-    PRODUCERS_SENTENCE, PRODUCERS_TABLE, no_txn, producers_page, producers_sentence_fragment,
+    PRODUCERS_STATS, PRODUCERS_TABLE, no_txn, producers_page, producers_stats_fragment,
     producers_table_fragment, producers_url, txn_held_page, txn_held_url, txn_page, txn_url,
 };
 pub use topics_write::{

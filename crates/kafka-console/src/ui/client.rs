@@ -8,14 +8,14 @@
 
 use maud::{Markup, html};
 
-/// The server-sent event that names the fragments that changed.
-pub const EVENT_TICK: &str = "tick";
+/// The server-sent event of a tail: the rows added since the cursor, as HTML, newest first.
+pub const EVENT_ROWS: &str = "rows";
 /// The attribute of a fragment that holds the URL it is fetched from.
 pub const ATTR_FRAG: &str = "data-frag";
 /// The request header that says "I want the fragment, not a redirect".
 pub const HEADER_FRAGMENT: &str = "x-fragment";
-/// The attribute of `<body>` that holds the URL of the stream.
-pub const ATTR_STREAM: &str = "data-stream";
+/// The attribute of a tail region that holds the URL of its stream (the script opens it only when a person asks for the tail).
+pub const ATTR_TAIL: &str = "data-tail-url";
 /// A control that only works with a script: hidden until the script reveals it.
 pub const ATTR_JS_ONLY: &str = "data-js-only";
 /// The text a copy button puts on the clipboard.
@@ -49,8 +49,6 @@ pub const CLASS_OVERLAY_IN: &str = "ovl-in";
 pub const CLASS_OVERLAY_OUT: &str = "ovl-out";
 /// The class of an element that is a fragment of its own.
 pub const CLASS_FRAGMENT: &str = "frag";
-/// The id of the banner shown while the stream is lost.
-pub const ID_BANNER: &str = "stream-banner";
 /// The id of the overlay root: the element every overlay is put in (the target of the requests that open one).
 pub const ID_OVERLAY_ROOT: &str = "ovl";
 /// htmx's configuration, as the document says it (a `<meta>`, so that no inline script is needed). Why each line is there:
@@ -167,12 +165,6 @@ pub fn copy_as_button(kind: &str, on: bool, label: &str) -> Markup {
 #[must_use]
 pub fn address_holder(address: &str, content: Markup) -> Markup {
     html! { div data-address=(address) { (content) } }
-}
-
-/// The stream's URL for a set of fragment ids.
-#[must_use]
-pub fn stream_url(events_path: &str, ids: &[&str]) -> String {
-    format!("{events_path}?watch={}", ids.join(","))
 }
 
 /// The one inline piece of script-free styling the client layer needs: a hidden control stays hidden.

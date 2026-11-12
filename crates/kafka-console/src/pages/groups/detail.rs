@@ -3,7 +3,7 @@
 
 use maud::{Markup, html};
 
-use super::common::{On, group_tabs, group_url, head, reset_and_delete, sentence_fragment, switch};
+use super::common::{On, group_tabs, group_url, head, reset_and_delete, stats_fragment, switch};
 use crate::base::{Base, segment};
 use crate::format::{ago, number};
 use crate::groups_words::{group_sentence, span_precise};
@@ -33,10 +33,10 @@ fn holds(m: &GroupMemberRow) -> String {
     }
 }
 
-fn heard(m: &GroupMemberRow) -> String {
+fn heard(h: &GroupHead, m: &GroupMemberRow) -> String {
     m.heard_ago_ms.map_or_else(
         || "not told".to_owned(),
-        |ms| ago(i64::try_from(ms).unwrap_or(i64::MAX)),
+        |ms| crate::format::stamp(h.now_ms - i64::try_from(ms).unwrap_or(0), h.now_ms),
     )
 }
 
@@ -78,7 +78,7 @@ fn members_table(h: &GroupHead, base: &Base) -> Markup {
                             td class="mono" { (m.client_id) }
                             td class="mono" { (m.host) }
                             td { (holds(m)) }
-                            td class="mono" data-vary { (heard(m)) }
+                            td class="mono" data-vary { (heard(h, m)) }
                         }
                     }
                 }
@@ -133,7 +133,9 @@ fn reads_table(topics: &[LagTopic], base: &Base) -> Markup {
 }
 
 fn the_group(h: &GroupHead, v: &GroupLagView) -> Markup {
-    let last = h.last_commit_ms.map(|ms| ago(h.now_ms - ms));
+    let last = h
+        .last_commit_ms
+        .map(|ms| crate::format::stamp(ms, h.now_ms));
     let session = h
         .members
         .iter()
@@ -181,7 +183,7 @@ fn the_group(h: &GroupHead, v: &GroupLagView) -> Markup {
 fn classic(v: &GroupLagView, base: &Base) -> Markup {
     let h = &v.head;
     html! {
-        (head(h, sentence_fragment(h, base, &group_sentence(h, &v.topics), true), reset_and_delete(h, base)))
+        (head(h, stats_fragment(h, base), reset_and_delete(h, base)))
         (switch(h, base, ""))
         (group_tabs(h, base, On::Members))
         div class="split" {
@@ -279,7 +281,7 @@ fn consumer(v: &GroupLagView, base: &Base) -> Markup {
         html! { div class="card" { div class="eyebrow" { (label) } (value) p class="help" { (help) } } }
     };
     html! {
-        (head(h, sentence_fragment(h, base, &group_sentence(h, &v.topics), true), reset_and_delete(h, base)))
+        (head(h, stats_fragment(h, base), reset_and_delete(h, base)))
         (switch(h, base, ""))
         (group_tabs(h, base, On::Members))
         div class="sec" { div class="g4" {
@@ -396,7 +398,7 @@ fn rebalancing_members(h: &GroupHead) -> Markup {
                             td class="name mono" { (m.id) @if m.leader { span class="sub" { "leader at generation " (h.generation) } } }
                             td { @if m.rejoined { span class="st ok" { "Rejoined" } } @else { span class="st warn" { "Not rejoined" } } }
                             td class="mono" { (part_list(&m.holds)) }
-                            td class="mono" data-vary { (heard(m)) @if !m.rejoined { span class="sub" { "told to rejoin" } } }
+                            td class="mono" data-vary { (heard(h, m)) @if !m.rejoined { span class="sub" { "told to rejoin" } } }
                         }
                     }
                     @if let Some(l) = &h.story.left { (left_row(l)) }
@@ -409,7 +411,7 @@ fn rebalancing_members(h: &GroupHead) -> Markup {
 fn rebalancing(v: &GroupLagView, base: &Base) -> Markup {
     let h = &v.head;
     html! {
-        (head(h, sentence_fragment(h, base, &group_sentence(h, &v.topics), true), reset_and_delete(h, base)))
+        (head(h, stats_fragment(h, base), reset_and_delete(h, base)))
         (switch(h, base, ""))
         (group_tabs(h, base, On::Members))
         div class="g2" style="align-items:stretch" { (waiting_card(h)) (what_next(h)) }

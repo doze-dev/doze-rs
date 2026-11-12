@@ -57,7 +57,7 @@ fn no_page_of_the_log_has_a_form_a_write_or_a_compact_now_button() {
 #[test]
 fn the_live_parts_are_fragments_the_stream_can_name() {
     let p = page("inventory.levels");
-    for id in [LOG_SENTENCE, LOG_RULER, LOG_CARDS] {
+    for id in [LOG_STATS, LOG_RULER, LOG_CARDS] {
         assert!(p.contains(&format!("id=\"{id}\"")), "{id}");
         assert!(
             p.contains(&format!(

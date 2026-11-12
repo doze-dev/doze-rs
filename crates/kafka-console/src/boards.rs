@@ -6,7 +6,6 @@ use crate::base::Base;
 use crate::fixtures;
 use crate::model::HomeState;
 use crate::pages;
-use crate::stream::HOME_IDS;
 
 mod groups;
 mod live;
@@ -49,7 +48,7 @@ fn crumbs(base: &Base, steps: &[(&str, Option<&str>)]) -> Vec<Crumb> {
 pub fn render(id: &str, base: &Base) -> Option<String> {
     let assets = Assets::build(base);
     let chrome = fixtures::chrome();
-    let (title, main, steps, watch): (&str, _, Steps, &[&'static str]) = match id {
+    let (title, main, steps, regions): (&str, _, Steps, &[&'static str]) = match id {
         "home" | "home-quiet" | "home-attention" => {
             let state = match id {
                 "home-quiet" => HomeState::Quiet,
@@ -62,7 +61,7 @@ pub fn render(id: &str, base: &Base) -> Option<String> {
                 title,
                 pages::home(&view, base),
                 vec![("Home", None)],
-                HOME_IDS,
+                crate::regions::HOME,
             )
         }
         "connect" => (
@@ -90,7 +89,7 @@ pub fn render(id: &str, base: &Base) -> Option<String> {
         active: Rail::Home,
         crumbs: crumbs(base, &steps),
         title,
-        watch,
+        regions,
     };
     Some(document(&page, main).into_string())
 }

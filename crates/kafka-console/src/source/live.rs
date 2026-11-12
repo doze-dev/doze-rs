@@ -38,15 +38,6 @@ fn empty(q: &WireQuery, now: i64) -> LiveView {
 }
 
 impl Source {
-    /// The recorder, if this source has one: the console's state hands the shared tick to it.
-    pub(crate) fn attach(&self, ticker: &Arc<crate::tick::Ticker>) {
-        if let Self::Live(l) = self
-            && let Some(r) = &l.recorder
-        {
-            r.attach(Arc::clone(ticker));
-        }
-    }
-
     /// The Live page for the filters in `q`. `hint` names a state for the fixtures only (`paused`, `quiet`, `load`).
     pub async fn live(&self, q: &WireQuery, hint: Option<&str>) -> LiveView {
         match self {
@@ -173,4 +164,19 @@ impl Source {
 #[must_use]
 pub fn is_quiet(v: &LiveView) -> bool {
     v.state == LiveState::Quiet
+}
+
+impl Source {
+    /// The rows a tail has not sent yet: what changed on the tape after `cursor` under the filters in `q`, and the cursor to ask
+    /// from next. A console with no recorder (and the fixtures, which do not change) has none.
+    pub async fn tail_since(&self, q: &WireQuery, cursor: u64) -> (u64, Vec<WireRow>) {
+        match self {
+            Self::Live(l) => l
+                .recorder
+                .as_ref()
+                .map_or((cursor, vec![]), |r| r.since(q, cursor)),
+            #[cfg(any(test, feature = "examples"))]
+            Self::Fixture => (cursor, vec![]),
+        }
+    }
 }

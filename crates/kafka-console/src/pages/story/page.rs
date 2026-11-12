@@ -8,11 +8,14 @@ use crate::base::Base;
 use crate::model::{GroupHead, StoryView};
 use crate::pages::groups::{group_head, group_story_tabs, group_switch, group_url};
 use crate::story::{cause_phrase, is_quiet, lasted};
-use crate::story_ids::{STORY_NOW, STORY_SENTENCE};
 use crate::ui::button::{Size, Variant, link};
 use crate::ui::client;
 use crate::ui::glyph::Glyph;
 use crate::ui::glyph_groups::{GroupGlyph, group_glyph};
+
+/// The Story page's regions (the sentence is still a region until the Story is converted to metric slots).
+pub const STORY_SENTENCE: &str = "story-stats";
+pub const STORY_NOW: &str = "story-now";
 
 /// `/groups/{group}/story` and what follows it.
 #[must_use]
@@ -164,13 +167,32 @@ fn fragment_url(base: &Base, id: &str, group: &str) -> String {
     ))
 }
 
-/// The sentence under the name, in its fragment: it follows the group while the page is open.
+/// What the ring holds, as a strip of metric slots in a region a Refresh fetches again (CON-805).
 #[must_use]
 pub fn sentence_fragment(v: &StoryView, base: &Base) -> Markup {
+    let forming = v.generations.first().is_some_and(|g| g.forming);
+    let newest = if v.generations.is_empty() {
+        "none"
+    } else if forming {
+        "Forming"
+    } else {
+        "Settled"
+    };
+    let since = match v.since_ms {
+        Some(ms) => crate::ui::metrics::Stat::at("Oldest note", ms, v.head.now_ms),
+        None => crate::ui::metrics::Stat::new("Oldest note", "none")
+            .mono()
+            .ch(11),
+    };
     client::fragment(
         STORY_SENTENCE,
         &fragment_url(base, STORY_SENTENCE, &v.head.id),
-        html! { span data-extra="live-sentence" data-vary { (sentence(v)) } },
+        crate::ui::metrics::stat_strip(&[
+            crate::ui::metrics::Stat::new("Rebalances kept", v.generations.len().to_string()).ch(5),
+            crate::ui::metrics::Stat::new("Newest", newest).ch(9),
+            crate::ui::metrics::Stat::new("Causes", v.causes.len().to_string()).ch(3),
+            since,
+        ]),
     )
 }
 

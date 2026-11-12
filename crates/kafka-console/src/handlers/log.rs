@@ -56,11 +56,11 @@ async fn no_topic(s: &Shared, topic: &str) -> Response {
 }
 
 /// A page of a topic, with the trail of its place and its last step as the title.
-async fn shell(s: &Shared, place: Place<'_>, watch: &[&'static str], main: Markup) -> Response {
+async fn shell(s: &Shared, place: Place<'_>, regions: &[&'static str], main: Markup) -> Response {
     let steps = place.steps();
     let title = steps.last().map_or("", |l| l.0.as_str());
     html(
-        &s.document(Rail::Resources, title, &borrowed(&steps), watch, main)
+        &s.document(Rail::Resources, title, &borrowed(&steps), regions, main)
             .await,
     )
     .into_response()
@@ -68,8 +68,8 @@ async fn shell(s: &Shared, place: Place<'_>, watch: &[&'static str], main: Marku
 
 /// The page with the topic's "On the wire" dock under it, as the Messages page has it: the last requests that touched the topic.
 async fn docked(s: &Shared, topic: &str, main: Markup) -> Markup {
-    let (rows, window, now) = s.source.topic_wire(topic).await;
-    maud::html! { (main) (crate::pages::live::topic_dock(topic, &rows, &window, now, &s.base, false)) }
+    let (rows, window, _) = s.source.topic_wire(topic).await;
+    maud::html! { (main) (crate::pages::live::topic_dock(topic, &rows, &window, &s.base, false)) }
 }
 
 /// `GET /topics/{topic}/log`
@@ -96,7 +96,7 @@ pub async fn log(
     shell(
         &s,
         Place::TopicPage(&topic, TopicPage::Log),
-        s.source.watching(crate::stream_log::LOG_WATCH),
+        crate::regions::LOG,
         main,
     )
     .await
@@ -125,7 +125,7 @@ pub async fn producers(
     shell(
         &s,
         Place::TopicPage(&topic, TopicPage::Producers),
-        s.source.watching(crate::stream_log::PRODUCERS_WATCH),
+        crate::regions::PRODUCERS,
         main,
     )
     .await
@@ -182,21 +182,21 @@ pub async fn log_fragment(s: &Shared, id: &str, query: &Option<String>) -> Optio
         .filter(|p| *p >= 0)
         .unwrap_or(0);
     match id {
-        pages::LOG_SENTENCE | pages::LOG_RULER | pages::LOG_CARDS => {
+        pages::LOG_STATS | pages::LOG_RULER | pages::LOG_CARDS => {
             let v = s.source.log(topic, partition).await?;
             Some(match id {
-                pages::LOG_SENTENCE => pages::log_sentence_fragment(&v, &s.base),
+                pages::LOG_STATS => pages::log_stats_fragment(&v, &s.base),
                 pages::LOG_RULER => pages::log_ruler_fragment(&v, &s.base),
                 _ => pages::log_cards_fragment(&v, &s.base),
             })
         }
-        pages::PRODUCERS_SENTENCE | pages::PRODUCERS_TABLE => {
+        pages::PRODUCERS_STATS | pages::PRODUCERS_TABLE => {
             let v = s
                 .source
                 .producers(topic, partition, opened_of(query))
                 .await?;
-            Some(if id == pages::PRODUCERS_SENTENCE {
-                pages::producers_sentence_fragment(&v, &s.base)
+            Some(if id == pages::PRODUCERS_STATS {
+                pages::producers_stats_fragment(&v, &s.base)
             } else {
                 pages::producers_table_fragment(&v, &s.base)
             })

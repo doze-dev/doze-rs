@@ -2,7 +2,7 @@
 
 use maud::{Markup, html};
 
-use super::common::{Acts, head, sentence_p, topic_url};
+use super::common::{Acts, head, stats_fragment, topic_url};
 use crate::base::Base;
 use crate::format::{bytes, number};
 use crate::model::{PartitionRow, TopicHead};
@@ -10,7 +10,6 @@ use crate::ui::button::{Size, State, Variant, opener, state};
 use crate::ui::glyph::Glyph;
 use crate::ui::kafka::{apicall, sec};
 use crate::ui::notice::{Tone, callout};
-use crate::words::partitions_sentence;
 
 fn stable(p: &PartitionRow) -> Markup {
     html! {
@@ -55,7 +54,7 @@ fn call(h: &TopicHead) -> Markup {
 #[must_use]
 pub fn partitions_page(h: &TopicHead, base: &Base) -> Markup {
     html! {
-        (head(h, base, Acts::Partitions, sentence_p(&partitions_sentence(h))))
+        (head(h, base, Acts::Partitions, stats_fragment(h, base)))
         (callout(Tone::Plain, Glyph::Info, html! {
             b { "One broker." } " This broker leads every partition and holds the only copy, so there are no leaders, replicas or in-sync lists to show. Said once, here."
         }))

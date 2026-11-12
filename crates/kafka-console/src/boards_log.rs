@@ -27,14 +27,7 @@ type Drawn = (&'static str, Vec<(String, Option<String>)>, Markup);
 /// A page with the topic's wire dock under it, as the handlers draw the Log and Producers pages of a topic the larder's wire knows.
 fn docked(topic: &str, main: Markup, base: &Base) -> Markup {
     let (rows, window) = crate::fixtures_live::topic_wire(topic);
-    let dock = pages::live::topic_dock(
-        topic,
-        &rows,
-        &window,
-        crate::fixtures_live::now(),
-        base,
-        false,
-    );
+    let dock = pages::live::topic_dock(topic, &rows, &window, base, false);
     maud::html! { (main) (dock) }
 }
 
@@ -120,7 +113,7 @@ pub fn render(id: &str, base: &Base) -> Option<String> {
         active: Rail::Resources,
         crumbs,
         title,
-        watch: &[],
+        regions: &[],
     };
     Some(document(&page, main).into_string())
 }

@@ -101,8 +101,8 @@ pub struct Page<'a> {
     pub crumbs: Vec<Crumb>,
     /// The document title and the page's name.
     pub title: &'a str,
-    /// The fragment ids the page asks the stream to watch (none: no stream).
-    pub watch: &'a [&'static str],
+    /// The regions the page lists for its Refresh control (none: a snapshot with nothing to refresh).
+    pub regions: &'a [&'static str],
 }
 
 fn topbar(page: &Page<'_>) -> Markup {
@@ -178,17 +178,14 @@ pub fn document_over(page: &Page<'_>, over: Over) -> Markup {
 }
 
 fn document_with(page: &Page<'_>, main: Markup, overlay: Option<Markup>) -> Markup {
-    let stream =
-        (!page.watch.is_empty()).then(|| client::stream_url(&page.base.url("/events"), page.watch));
-    // The page's own part: the breadcrumb, the stream banner and the content. It is the same markup in a whole document and in
+    // The page's own part: the breadcrumb row (with the Refresh control), the banner and the content. It is the same markup in a whole document and in
     // the region an htmx request is answered with.
     let main_el = html! {
-        main class="main" id="main" data-stream=[stream.as_deref()] {
-            (crumbs(page))
-            (super::notice::banner_bad(Some(client::ID_BANNER), true, html! {
-                b { "Live updates are paused." }
-                " The console lost its connection to the broker's process. It is trying again; the page itself is still right as of its last load."
-            }))
+        main class="main" id="main" {
+            div class="crumb-row" {
+                (crumbs(page))
+                @if !page.regions.is_empty() { (super::refresh::refresh_bar(page.regions, crate::source::now_ms())) }
+            }
             (main)
         }
     };

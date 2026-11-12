@@ -16,7 +16,6 @@ use crate::ui::glyph_groups::{GroupGlyph, group_glyph};
 use crate::ui::notice::{Tone, callout};
 
 /// The fragments of the Lag tab: the sentence and the table.
-pub const LAG_SENTENCE: &str = "group-lag-sentence";
 pub const LAG_TABLE: &str = "group-lag-table";
 
 fn query(v: &GroupLagView) -> String {
@@ -31,22 +30,8 @@ fn query(v: &GroupLagView) -> String {
     )
 }
 
-/// The sentence under the name, as a fragment.
-#[must_use]
-pub fn lag_sentence_fragment(v: &GroupLagView, base: &Base) -> Markup {
-    client::fragment(
-        LAG_SENTENCE,
-        &base.url(&format!("/fragments/{LAG_SENTENCE}{}", query(v))),
-        html! { span data-extra="live-sentence" { (spans(&lag_sentence(&v.head, &v.topics, v.state, v.retention_ms), base)) } },
-    )
-}
-
 fn when(h: &GroupHead, ms: i64) -> String {
-    if h.now_ms - ms > 86_400_000 {
-        date_time(ms).trim_end_matches(" UTC").to_owned()
-    } else {
-        ago(h.now_ms - ms)
-    }
+    crate::format::stamp(ms, h.now_ms)
 }
 
 pub(crate) fn cell_lag(r: &LagRow) -> Markup {
@@ -337,7 +322,7 @@ pub fn lag_page(v: &GroupLagView, base: &Base) -> Markup {
         @if let Some(f) = &v.flash {
             div class="banner" style="margin-top:24px" { (glyph(Glyph::Check, 18, "")) span { (f) } }
         }
-        (head(h, lag_sentence_fragment(v, base), acts(v, base)))
+        (head(h, super::common::stats_fragment(h, base), acts(v, base)))
         (switch(h, base, "/lag"))
         (group_tabs(h, base, On::Lag))
         @if v.state == LagState::Expiring { (expiring_window(v)) }

@@ -2,7 +2,7 @@
 //! (reviewed copy); where the broker cannot yet say what a board says, the sentence says what it can, and the place
 //! is tagged with the REALITY or GROUNDING reference that explains it.
 
-use crate::format::{count, number, span};
+use crate::format::number;
 use crate::model::{HomeState, HomeView, InstanceView, ProbeView, Span, StopView, Verdict};
 
 /// The title of Home: the quiet state has its own (board `home-quiet`).
@@ -14,72 +14,32 @@ pub fn home_title(state: &HomeState) -> &'static str {
     }
 }
 
-/// The sentence under the title. The boards add "N apps appear on the wire ... the last request landed 1 s ago": that is
-/// the recorder's (GROUNDING 2.3, slice 9e), so here the broker says what it holds instead, never a count of apps.
+/// The sentence under the title: static (CON-805). The numbers it used to hold (how long it has run, how many topics, how many
+/// apps spoke, when the last request landed) are the metric slots of Home's strip.
 #[must_use]
 pub fn home_sub(v: &HomeView) -> Vec<Span> {
-    let holds = || {
-        format!(
-            "It holds {} and {}.",
-            count(v.topics, "topic", "topics"),
-            count(v.partitions, "partition", "partitions")
-        )
-    };
     match v.state {
         HomeState::Quiet => vec![Span::text(format!(
             "No topics yet, and that is fine. It is listening on {} and will hold whatever you send it.",
             v.listen
         ))],
-        _ => vec![
-            Span::text("Running "),
-            Span::strong(span(v.instance.up_secs)),
-            Span::text(format!(
-                "{} {}{}",
-                last_stop_short(v.instance.last_stop),
-                holds(),
-                spoke_sentence(v.spoke.as_ref())
-            )),
-        ],
+        _ => vec![Span::text(
+            "What this broker holds, who has spoken to it, and whether anything needs you.",
+        )],
     }
 }
 
-/// What the recorder adds to Home's sentence: how many clients the wire knows, how far back it reaches, how long ago the last
-/// request landed. Nothing when this console has no recorder; a plain "no client has spoken" for an empty tape.
-fn spoke_sentence(s: Option<&crate::model::SpokeView>) -> String {
-    let Some(s) = s else { return String::new() };
-    match (s.apps, s.oldest_ms, s.ago_ms) {
-        (0, _, _) => " No client has spoken yet.".to_owned(),
-        (n, Some(oldest), Some(ago)) => format!(
-            " {} appear on the wire, which reaches back to {}, and the last request landed {}.",
-            count(n, "app", "apps"),
-            live::hhmm(oldest),
-            crate::format::ago(ago)
-        ),
-        (n, _, _) => format!(" {} appear on the wire.", count(n, "app", "apps")),
-    }
-}
-
-/// What follows the running time: the board's ", last stop clean." and its two other cases.
-fn last_stop_short(stop: StopView) -> &'static str {
-    match stop {
-        StopView::Clean => ", last stop clean.",
-        StopView::Unclean => ", last stop not clean.",
-        StopView::None => " on a new data directory.",
-    }
-}
-
-/// The first line of the instance card.
+/// The first line of the instance card: static, the facts are in the rows below it.
 #[must_use]
 pub fn instance_lede(i: &InstanceView) -> String {
-    let up = span(i.up_secs);
     match i.last_stop {
         StopView::Clean => {
-            format!("Up {up}. The last stop was clean, so every partition was trusted on start.")
+            "The last stop was clean, so every partition was trusted on start.".to_owned()
         }
-        StopView::Unclean => format!(
-            "Up {up}. The last stop was not clean, so every partition was checked on start."
-        ),
-        StopView::None => format!("Started {up} ago on a new data directory."),
+        StopView::Unclean => {
+            "The last stop was not clean, so every partition was checked on start.".to_owned()
+        }
+        StopView::None => "Started on a new data directory.".to_owned(),
     }
 }
 

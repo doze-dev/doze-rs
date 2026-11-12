@@ -55,7 +55,7 @@ pub fn clients_body(v: &ClientsView, base: &Base, close: &str) -> Markup {
                         div class="help" style="margin-top:4px" {
                             @if let Some(s) = &c.software { (s) " · " }
                             span class="mono" { (c.apis.iter().take(6).map(|(a, v)| format!("{a} v{v}")).collect::<Vec<_>>().join(" · ")) }
-                            " · last request " span data-vary { (ago(v.now_ms - c.last_ms)) }
+                            " · last request at " span data-vary { (crate::format::stamp(c.last_ms, v.now_ms)) }
                             @if c.errors > 0 { " · " (c.errors) " of " (c.requests) " not answered cleanly" }
                         }
                     }

@@ -3,18 +3,21 @@
 use maud::{Markup, html};
 
 use crate::base::{Base, segment};
+use crate::format::bytes;
 use crate::format::{clock, number};
 use crate::model::{Cleanup, Span, TopicHead};
 use crate::ui::button::{Size, State, Variant, link, opener, pill_mono, state};
 use crate::ui::client;
-use crate::ui::glyph::Glyph;
+use crate::ui::glyph::{Glyph, glyph};
 use crate::ui::kafka::{Tab, tabs, title_row};
 use crate::ui::layout::page_header;
+use crate::ui::metrics::Stat;
+use crate::ui::metrics::stat_strip;
 use crate::ui::notice::{Tone, callout};
-use crate::words::{list_and, timeout, topic_sentence};
+use crate::words::{list_and, timeout};
 
-/// The fragment that holds the sentence under a topic's name.
-pub const TOPIC_SENTENCE: &str = "topic-sentence";
+/// The region that holds a topic's facts and its transaction line.
+pub const TOPIC_STATS: &str = "topic-stats";
 
 /// `/topics/orders`.
 #[must_use]
@@ -102,43 +105,69 @@ fn buttons(h: &TopicHead, base: &Base, acts: Acts) -> Markup {
     }
 }
 
-/// The sentence under the name.
+/// The facts of a topic as a strip of metric slots, and the transaction region under it, as a fragment that a Refresh fetches
+/// again. No sentence holds a number (CON-805) and the region under the strip has the same height whether a transaction is open or
+/// not (CON-807).
 #[must_use]
-pub(super) fn sentence_p(sentence: &[Span]) -> Markup {
-    html! { p class="sent" data-extra="live-sentence" style="margin:10px 0 0;max-width:760px" { (spans(sentence)) } }
-}
-
-/// The sentence under the name, as a fragment that refreshes while the page is open.
-#[must_use]
-pub fn sentence_fragment(h: &TopicHead, base: &Base) -> Markup {
+pub fn stats_fragment(h: &TopicHead, base: &Base) -> Markup {
     client::fragment(
-        TOPIC_SENTENCE,
+        TOPIC_STATS,
         &base.url(&format!(
-            "/fragments/{TOPIC_SENTENCE}?topic={}",
+            "/fragments/{TOPIC_STATS}?topic={}",
             segment(&h.name)
         )),
-        sentence_p(&topic_sentence(h)),
+        html! { (stats_strip(h)) (txn_region(h, base)) },
     )
+}
+
+fn stats_strip(h: &TopicHead) -> Markup {
+    let n = |v: usize| number(i64::try_from(v).unwrap_or(0));
+    let retention = h.retention_ms.map_or_else(
+        || policy_word(h.cleanup).to_owned(),
+        |ms| {
+            format!(
+                "{} · {}",
+                policy_word(h.cleanup),
+                crate::words::retention(ms)
+            )
+        },
+    );
+    let last = match h.last_write_ms() {
+        Some(ms) if !h.is_empty() => Stat::at("Last write", ms, h.now_ms),
+        _ => Stat::new("Last write", "never").mono().ch(11),
+    };
+    stat_strip(&[
+        Stat::new("Partitions", n(h.parts.len())).ch(4),
+        Stat::new("Offline", n(h.offline().len())).ch(4),
+        Stat::new("Retention", retention).mono().ch(14),
+        Stat::new("Records", number(h.records())).ch(9),
+        Stat::new("Size on disk", bytes(h.bytes())).ch(9),
+        last,
+        Stat::new("Open transactions", n(h.txns.len())).ch(3),
+    ])
+}
+
+/// The open-transaction region: the callout, or a calm line, in a block of the same height.
+fn txn_region(h: &TopicHead, base: &Base) -> Markup {
+    html! { div class="txn-region" { (txn_callout(h, base)) } }
 }
 
 /// The head of a topic page: the name with its words, the sentence that follows the topic, and the buttons.
 #[must_use]
-pub(super) fn head(h: &TopicHead, base: &Base, acts: Acts, sentence: Markup) -> Markup {
+pub(super) fn head(h: &TopicHead, base: &Base, acts: Acts, stats: Markup) -> Markup {
     let title = html! {
-        div {
-            (title_row(&h.name, if acts == Acts::Partitions { html! {} } else { words(h) }))
-            (sentence)
-        }
+        div { (title_row(&h.name, if acts == Acts::Partitions { html! {} } else { words(h) })) }
     };
     html! {
         div class="page-h" { (title) div class="acts" { (buttons(h, base, acts)) } }
+        (stats)
     }
 }
 
 /// The head with the topic's own sentence.
 #[must_use]
 pub(super) fn topic_head(h: &TopicHead, base: &Base, acts: Acts) -> Markup {
-    head(h, base, acts, sentence_fragment(h, base))
+    head(h, base, acts, stats_fragment(h, base))
 }
 
 /// The five tabs of a topic: the one showing is `on`. The same five links, in the same order, with the same counts, on every
@@ -214,7 +243,7 @@ pub fn topic_frame(h: &TopicHead, base: &Base, on: TopicTab) -> Markup {
 #[must_use]
 pub(super) fn txn_callout(h: &TopicHead, base: &Base) -> Markup {
     let Some(t) = h.txns.first() else {
-        return html! {};
+        return html! { div class="calm" { (glyph(Glyph::Check, 16, "")) "No open transactions." } };
     };
     let on: Vec<String> = t
         .partitions
@@ -233,7 +262,7 @@ pub(super) fn txn_callout(h: &TopicHead, base: &Base) -> Markup {
         crate::base::segment(&t.id)
     );
     html! {
-        div style="margin-bottom:24px" {
+        div {
             (callout(Tone::Warn, Glyph::Warn, html! {
                 b { "Transaction " (t.id) " is open." }
                 " Producer " (t.producer_id) " (epoch " (t.producer_epoch) ") began it at " (clock(t.since_ms)) " UTC on "

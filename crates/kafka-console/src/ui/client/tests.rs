@@ -1,21 +1,23 @@
 use super::*;
 
 /// The script as shipped.
-const SCRIPT: &str = include_str!("../../../assets/console.js");
+const SCRIPT: &str = concat!(
+    include_str!("../../../assets/console.js"),
+    include_str!("../../../assets/live.js")
+);
 
 #[test]
 fn the_script_uses_every_name_this_file_defines() {
     for name in [
-        EVENT_TICK,
+        EVENT_ROWS,
         ATTR_FRAG,
-        ATTR_STREAM,
+        ATTR_TAIL,
         ATTR_JS_ONLY,
         ATTR_COPY,
         ATTR_COPY_FROM,
         ATTR_COPY_FORMS,
         ATTR_COPY_AS,
         ATTR_ADDRESS,
-        ID_BANNER,
     ] {
         assert!(SCRIPT.contains(name), "console.js never mentions {name:?}");
     }
@@ -82,12 +84,6 @@ fn a_form_posts_with_no_script_and_swaps_its_target_with_one() {
         f.contains(r#"<input type="hidden" name="back" value="home">"#),
         "{f}"
     );
-}
-
-#[test]
-fn the_stream_url_lists_the_watched_fragments() {
-    assert_eq!(stream_url("/k/events", &["a", "b"]), "/k/events?watch=a,b");
-    assert_eq!(stream_url("/events", &[]), "/events?watch=");
 }
 
 #[test]

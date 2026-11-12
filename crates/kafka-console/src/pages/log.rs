@@ -25,10 +25,10 @@ use crate::ui::client;
 
 pub(crate) use head::lead;
 use head::log_head;
-pub use head::log_sentence_fragment;
+pub use head::log_stats_fragment;
 
 /// The fragments of the page that follow the data.
-pub const LOG_SENTENCE: &str = "log-sentence";
+pub const LOG_STATS: &str = "log-stats";
 pub const LOG_RULER: &str = "log-ruler";
 pub const LOG_CARDS: &str = "log-cards";
 

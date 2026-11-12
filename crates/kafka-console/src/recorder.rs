@@ -3,22 +3,19 @@
 //!
 //! It is a [`kafka_server::Observer`]: the server tells it of each request twice (before the broker handles it and after) and of
 //! each connection opening and closing. It keeps a small, clipped, secret-free summary ([`summary`]) of each request and its
-//! answer in a ring bounded by rows AND bytes, folds repeats ([`ring`]), keeps a table of the connections that are open, and
-//! bumps the console's tick so the pages that watch it refetch. Pages never see the ring's types: they ask for models
+//! answer in a ring bounded by rows AND bytes, folds repeats ([`ring`]), and keeps a table of the connections that are open. It wakes nobody:
+//! a tail asks it what is new once a second (`Recorder::since`). Pages never see the ring's types: they ask for models
 //! ([`crate::model::live`]) through [`Recorder::tape`], [`Recorder::get`], [`Recorder::since`] and the like.
 //!
 //! The honest window is computed from the oldest row, never promised. Idle, nothing is held.
 
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
-use std::sync::atomic::{AtomicI64, Ordering};
-use std::sync::{Arc, Mutex, MutexGuard, OnceLock, PoisonError};
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
 use kafka_server::{Answer, Asked, Call, ConnId, Observed, Observer, Opened, Pending};
 use kafka_wire::api::Response;
 use kafka_wire::messages::ApiKey;
-
-use crate::tick::Ticker;
 
 pub mod clients;
 pub mod clip;
@@ -38,8 +35,6 @@ use facts::Facts;
 use ring::{Fold, Ring};
 use row::{Begun, Row};
 
-/// The least time between two bumps of the tick: a busy broker is not a storm of refetches.
-const BUMP_EVERY_MS: i64 = 100;
 /// The most topic ids the recorder remembers names for.
 const MOST_IDS: usize = 2048;
 
@@ -56,8 +51,6 @@ struct Inner {
 #[derive(Default)]
 pub struct Recorder {
     inner: Mutex<Inner>,
-    ticker: OnceLock<Arc<Ticker>>,
-    last_bump: AtomicI64,
 }
 
 impl std::fmt::Debug for Recorder {
@@ -79,29 +72,8 @@ impl Recorder {
         Arc::new(Self::default())
     }
 
-    /// Hands the recorder the console's one shared tick: from now on a recorded request bumps it (at most every 100 ms), so
-    /// Live refetches when something happened and not only on the floor timer.
-    pub fn attach(&self, ticker: Arc<Ticker>) {
-        let _ = self.ticker.set(ticker);
-    }
-
     fn lock(&self) -> MutexGuard<'_, Inner> {
         self.inner.lock().unwrap_or_else(PoisonError::into_inner)
-    }
-
-    fn bump(&self, now_ms: i64) {
-        let Some(ticker) = self.ticker.get() else {
-            return;
-        };
-        let last = self.last_bump.load(Ordering::Relaxed);
-        if now_ms.saturating_sub(last) >= BUMP_EVERY_MS
-            && self
-                .last_bump
-                .compare_exchange(last, now_ms, Ordering::Relaxed, Ordering::Relaxed)
-                .is_ok()
-        {
-            ticker.bump();
-        }
     }
 
     /// The most bytes the ring has held (a test and the report read it).
@@ -179,12 +151,10 @@ impl Observer for Recorder {
         inner.conns.note(who_conn, api, version, errored, now);
         inner.ring.record(row, fold);
         drop(inner);
-        self.bump(now);
     }
 
     fn closed(&self, conn: ConnId, _why: &str) {
         self.lock().conns.close(conn.0);
-        self.bump(now_ms());
     }
 }
 

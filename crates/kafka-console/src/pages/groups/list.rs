@@ -4,14 +4,16 @@ use maud::{Markup, html};
 
 use super::common::{group_url, spans, tone};
 use crate::base::Base;
-use crate::format::{ago, number, span_ms};
+use crate::format::{number, stamp};
 use crate::groups_words::attention_sentence;
 use crate::model::{GroupFilter, GroupPhase, GroupProtocol, GroupRow, GroupsView, RowLag};
 use crate::ui::button::{Size, Variant, link, state};
 use crate::ui::client;
-use crate::ui::glyph::Glyph;
+use crate::ui::datatable::{Col, DataTable, Row, Width, data_table};
+use crate::ui::glyph::{Glyph, glyph};
 use crate::ui::kafka::{empty, filter_box};
 use crate::ui::layout::page_header;
+use crate::ui::metrics::{Stat, deadline, slot, stat_strip};
 use crate::ui::notice::{Tone, callout};
 
 /// The fragments of the list: the line about a rebalancing group, and the table.
@@ -33,18 +35,18 @@ fn name_sub(r: &GroupRow, now: i64) -> Option<String> {
     if r.phase == GroupPhase::Empty
         && let Some(at) = r.expires_ms
     {
-        return Some(format!("offsets expire in {}", span_ms(at - now)));
+        return Some(format!("offsets expire {}", stamp(at, now)));
     }
     if r.protocol == GroupProtocol::Consumer
         && let Some(last) = r.story.last.as_ref().filter(|l| !l.forming)
     {
         return Some(format!(
             "last rebalance {}",
-            crate::story::ago_near(last.ago_ms)
+            crate::words::live::hhmm(now - i64::try_from(last.ago_ms).unwrap_or(0))
         ));
     }
     r.last_commit_ms
-        .map(|ms| format!("last commit {}", ago(now - ms)))
+        .map(|ms| format!("last commit {}", stamp(ms, now)))
         .or_else(|| (!r.lag.any_commit).then(|| "no commits yet".to_owned()))
 }
 
@@ -80,47 +82,52 @@ fn lag_cell(l: &RowLag) -> Markup {
     }
 }
 
-fn row(r: &GroupRow, v: &GroupsView, base: &Base) -> Markup {
+const COLS: [Col<'static>; 6] = [
+    Col::new("Group", Width::Fill),
+    Col::new("Protocol", Width::Px(168)),
+    Col::new("State", Width::Px(150)),
+    Col::new("Members", Width::Px(88)).right(),
+    Col::new("Reads", Width::Px(168)),
+    Col::new("Lag", Width::Px(168)),
+];
+
+fn row(r: &GroupRow, v: &GroupsView, base: &Base) -> Row {
     let sub = name_sub(r, v.now_ms);
-    html! {
-        tr {
-            td class="name" {
-                a class="mono" href=(group_url(base, &r.id, "")) { (r.id) }
-                @if let Some(s) = sub { span class="sub" data-vary { (s) } }
-            }
-            td { (protocol_word(r)) }
-            td { (state_cell(r)) }
-            td class="r mono" { (r.members) }
-            td class="mono" { (r.reads.join(", ")) }
-            td { (lag_cell(&r.lag)) }
-        }
-    }
+    Row::new(
+        r.id.clone(),
+        vec![
+            html! {
+                a class="mono name-link" href=(group_url(base, &r.id, "")) { (r.id) }
+                @if let Some(s) = &sub { span class="sub ell" title=(s) { (s) } }
+            },
+            crate::ui::datatable::text(&protocol_word(r)),
+            state_cell(r),
+            html! { span class="mono" { (r.members) } },
+            crate::ui::datatable::text(&r.reads.join(", ")),
+            lag_cell(&r.lag),
+        ],
+    )
 }
 
 fn table(v: &GroupsView, base: &Base) -> Markup {
-    html! {
-        table class="t" {
-            thead { tr {
-                th scope="col" { "Group" } th scope="col" { "Protocol" } th scope="col" { "State" }
-                th scope="col" class="r" { "Members" } th scope="col" { "Reads" } th scope="col" { "Lag" }
-            } }
-            tbody { @for r in &v.rows { (row(r, v, base)) } }
-        }
-        @if v.rows.is_empty() {
-            p class="help" { "No group " @if v.filter.is_empty() { "is in this state." } @else { "id contains " span class="mono" { (v.filter) } "." } }
-        }
-    }
+    let none = if v.filter.is_empty() {
+        "No group is in this state.".to_owned()
+    } else {
+        format!("No group id contains {}.", v.filter)
+    };
+    data_table(
+        &DataTable::new("groups", "Groups", &COLS)
+            .roomy()
+            .empty(&none),
+        v.rows.iter().map(|r| row(r, v, base)).collect(),
+    )
 }
 
-fn shown(v: &GroupsView) -> String {
-    let n = v.rows.len();
-    if v.truncated {
-        format!(
-            "First {n} of {} groups, by id",
-            number(i64::try_from(v.total).unwrap_or(0))
-        )
-    } else {
-        format!("{n} of {} groups", v.total)
+fn shown(v: &GroupsView) -> Markup {
+    let n = number(i64::try_from(v.rows.len()).unwrap_or(0));
+    let total = number(i64::try_from(v.total).unwrap_or(0));
+    html! {
+        @if v.truncated { "First " (slot(&n, 5)) " of " (slot(&total, 5)) " groups, by id" } @else { (slot(&n, 5)) " of " (slot(&total, 5)) " groups" }
     }
 }
 
@@ -138,7 +145,7 @@ pub fn groups_table_fragment(v: &GroupsView, base: &Base) -> Markup {
             (table(v, base))
             div class="pager" style="justify-content:space-between" {
                 a class="lnk" href=(base.url("/groups")) { "How a group gets onto this list" }
-                span { (shown(v)) }
+                span class="nowrap" { (shown(v)) }
             }
         },
     )
@@ -151,14 +158,23 @@ pub fn groups_live_fragment(v: &GroupsView, base: &Base) -> Markup {
         GROUPS_LIVE,
         &base.url(&format!("/fragments/{GROUPS_LIVE}{}", query(v))),
         html! {
+            (stat_strip(&[
+                Stat::new("Groups", number(i64::try_from(v.counts[0]).unwrap_or(0))).ch(5),
+                Stat::new("Stable", number(i64::try_from(v.counts[1]).unwrap_or(0))).ch(5),
+                Stat::new("Rebalancing", number(i64::try_from(v.counts[2]).unwrap_or(0))).ch(5),
+                Stat::new("Empty", number(i64::try_from(v.counts[3]).unwrap_or(0))).ch(5),
+            ]))
+            div class="attention-region" {
             @if let Some(a) = &v.attention {
                 div data-extra="live-sentence" {
                     (callout(Tone::Warn, Glyph::Warn, html! {
                         (spans(&attention_sentence(a), base)) " "
+                        @if a.remaining_ms > 0 { "Rejoin deadline " (deadline(i64::try_from(a.remaining_ms).unwrap_or(0))) ". " }
                         a class="lnk" href=(group_url(base, &a.id, "")) { "Open the group" }
                         @if a.last.is_some() { " or " a class="lnk" href=(group_url(base, &a.id, "/story")) { "read its story" } }
                     }))
                 }
+            } @else { div class="calm" { (glyph(Glyph::Check, 16, "")) "No group is rebalancing." } }
             }
         },
     )
@@ -183,7 +199,7 @@ fn toolbar(v: &GroupsView, base: &Base) -> Markup {
             (chip(v, GroupFilter::Rebalancing, "Rebalancing", v.counts[2]))
             (chip(v, GroupFilter::Empty, "Empty", v.counts[3]))
             span class="sp" {}
-            span class="dim" { "Listed by id, refreshes every 3 s while open" }
+            span class="dim" { "Listed by id" }
         }
     }
 }

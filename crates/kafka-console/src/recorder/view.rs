@@ -105,7 +105,6 @@ fn matches(row: &Row, q: &WireQuery) -> bool {
         && (!q.refused_only || class_of(row).is_refusal())
         && (!q.hide_idle || !row.idle)
         && q.before.is_none_or(|b| row.id < b)
-        && q.until.is_none_or(|u| row.id <= u)
 }
 
 impl Recorder {
@@ -121,13 +120,6 @@ impl Recorder {
                 .count()
         };
         let (last_minute, busiest) = last_minute(ring, now_ms);
-        let held = q.until.map(|u| {
-            ring.iter()
-                .rev()
-                .take_while(|r| r.id > u)
-                .map(|r| u64::from(r.count))
-                .sum()
-        });
         let mut clients: Vec<&str> = ring.iter().map(|r| &*r.who.client).collect();
         clients.sort_unstable();
         clients.dedup();
@@ -146,26 +138,26 @@ impl Recorder {
             busiest,
             seen: ring.requests(),
             newest_id: ring.newest_id(),
+            cursor: ring.version(),
             now_ms,
             listen: String::new(),
             started_ms: None,
             older,
-            held,
-            paused_at_ms: q.until.and_then(|u| ring.get(u).map(|r| r.last_ms)),
             clients_ids: clients.iter().take(50).map(ToString::to_string).collect(),
             topics_seen: topics_seen(ring),
         }
     }
 
-    /// Rows that changed after `cursor` (newest first, at most a hundred) and the cursor to ask from next time.
+    /// Rows that passed the filters in `q` and changed after `cursor` (newest first, at most a hundred), and the cursor to ask from
+    /// next time. A row that folded a repeat since is among them, with its count grown.
     #[must_use]
-    pub fn since(&self, cursor: u64) -> (u64, Vec<WireRow>) {
+    pub fn since(&self, q: &WireQuery, cursor: u64) -> (u64, Vec<WireRow>) {
         let inner = self.lock();
         let rows = inner
             .ring
             .iter()
             .rev()
-            .filter(|r| r.touched > cursor)
+            .filter(|r| r.touched > cursor && matches(r, q))
             .take(100)
             .map(wire)
             .collect();

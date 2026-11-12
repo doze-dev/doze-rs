@@ -83,7 +83,7 @@ pub fn render(id: &str, base: &Base) -> Option<String> {
         active: Rail::Access,
         crumbs,
         title: "Access",
-        watch: &[],
+        regions: &[],
     };
     Some(document_over(&page, main).into_string())
 }

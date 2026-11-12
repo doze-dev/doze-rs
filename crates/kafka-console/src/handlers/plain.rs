@@ -7,29 +7,53 @@ use axum::http::header::{ACCEPT_RANGES, CACHE_CONTROL, CONTENT_TYPE, ETAG};
 use axum::http::{HeaderMap, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 
+use crate::model::{MessageQuery, WireQuery};
 use crate::state::Shared;
-use crate::stream::{self, WATCHABLE};
+use crate::stream::{self, Feed};
 
-/// `GET /events?watch=a,b`.
-pub async fn events(State(s): State<Shared>, RawQuery(query): RawQuery) -> Response {
+/// `GET /events?tail=live&...` or `?tail=messages&topic=...`: the stream of one tail (CON-809). `since` (or the browser's
+/// `Last-Event-ID`) is the cursor the page already holds.
+pub async fn events(
+    State(s): State<Shared>,
+    RawQuery(query): RawQuery,
+    headers: HeaderMap,
+) -> Response {
     let fields = crate::form::parse(query.as_deref().unwrap_or(""));
-    let value = crate::form::get(&fields, "watch").unwrap_or("");
-    let ids = match stream::parse_watch(value) {
-        Ok(ids) => ids.into_iter().map(str::to_owned).collect::<Vec<_>>(),
-        Err(bad) => {
-            let shown: String = bad.chars().take(40).collect();
-            let body = format!(
-                "{shown:?} is not a fragment this console can watch; the choices are {}",
-                WATCHABLE.join(", ")
-            );
-            return (StatusCode::BAD_REQUEST, body).into_response();
+    let cursor = headers
+        .get("last-event-id")
+        .and_then(|v| v.to_str().ok())
+        .map(str::to_owned)
+        .or_else(|| crate::form::get(&fields, "since").map(str::to_owned));
+    let mut feed = match crate::form::get(&fields, "tail") {
+        Some("live") => {
+            let q = WireQuery {
+                before: None,
+                ..WireQuery::parse(&fields)
+            };
+            Feed::Live { q, cursor: 0 }
+        }
+        Some("messages") => {
+            let topic = crate::form::text(&fields, "topic").to_owned();
+            let (q, _notes) = MessageQuery::parse(&fields);
+            Feed::Messages {
+                topic,
+                q,
+                since_ms: 0,
+                last: None,
+            }
+        }
+        _ => {
+            return (StatusCode::BAD_REQUEST, "tail must be live or messages").into_response();
         }
     };
+    if let Some(c) = &cursor {
+        feed.resume(c);
+    }
     // One permit per open stream, held by the stream until it ends: the 65th is told to come back.
     let Ok(permit) = Arc::clone(&s.streams).try_acquire_owned() else {
         return crate::limits::busy("The console has as many event streams open as it allows.");
     };
-    stream::response(s.ticker.watch(), ids, s.stop.clone(), permit).into_response()
+    stream::response(s, feed, permit).into_response()
 }
 
 /// A file of the manifest by its hashed name, cached for a year: the name changes when the file does.

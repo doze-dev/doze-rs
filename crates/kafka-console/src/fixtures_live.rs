@@ -152,12 +152,11 @@ pub fn live(q: &WireQuery, hint: Option<&str>) -> LiveView {
         busiest: Some(("clickstream".to_owned(), 412)),
         seen: 2000,
         newest_id: 16,
+        cursor: 2000,
         now_ms: now(),
         listen: "127.0.0.1:9092".to_owned(),
         started_ms: Some(at("22:12:00.000")),
         older: Some(1),
-        held: None,
-        paused_at_ms: None,
         clients_ids: [
             "admin-cli",
             "catalog",
@@ -179,13 +178,6 @@ pub fn live(q: &WireQuery, hint: Option<&str>) -> LiveView {
         .to_vec(),
     };
     match hint {
-        Some("paused") => {
-            v.rows = steady.iter().take(7).cloned().collect();
-            v.matched = 7;
-            v.held = Some(17);
-            v.paused_at_ms = Some(at("22:14:23.600"));
-            v.query.until = Some(7);
-        }
         Some("quiet") => {
             v.state = LiveState::Quiet;
             v.rows = vec![];

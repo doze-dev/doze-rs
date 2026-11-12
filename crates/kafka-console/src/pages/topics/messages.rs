@@ -4,7 +4,7 @@
 use maud::{Markup, html};
 
 use super::bar::bar;
-use super::common::{TopicTab, spans, topic_frame, topic_url, txn_callout};
+use super::common::{TopicTab, spans, topic_frame, topic_url};
 use super::table::records;
 use crate::base::Base;
 use crate::format::number;
@@ -13,7 +13,8 @@ use crate::ui::button::{Size, State, Variant, opener, state};
 use crate::ui::client;
 use crate::ui::disclosure::{Look, disclosure};
 use crate::ui::glyph::{Glyph, glyph};
-use crate::ui::kafka::{apicall, empty, pager, sec};
+use crate::ui::kafka::{apicall, empty, pager_with, sec};
+use crate::ui::metrics::slot;
 use crate::words::reach_sentence;
 
 /// The fragment that holds the table and what is said about it.
@@ -40,18 +41,18 @@ fn older(v: &MessagesView, base: &Base) -> Markup {
     }
 }
 
-fn line(v: &MessagesView) -> String {
+/// Whether the Live tail applies: newest records, in the order they arrive. A key, a time or an offset asks for something else.
+fn tailable(q: &crate::model::MessageQuery) -> bool {
+    q.key.is_none() && q.offset.is_none() && q.time.is_none()
+}
+
+/// The line under the table: slots, so that it never changes length.
+fn line(v: &MessagesView) -> Markup {
+    let returned = number(i64::try_from(v.reach.returned).unwrap_or(0));
     if v.query.filtered() {
-        return format!(
-            "Newest first · {}",
-            crate::format::count(v.reach.returned, "record", "records")
-        );
+        return html! { "Newest first · " (slot(&returned, 5)) " " (if v.reach.returned == 1 { "record" } else { "records" }) };
     }
-    format!(
-        "Newest first · {} of {}",
-        v.reach.returned,
-        number(v.head.records())
-    )
+    html! { "Newest first · " (slot(&returned, 5)) " of " (slot(&number(v.head.records()), 8)) }
 }
 
 /// The table region as a fragment: what is said about the read, the table, and the line under it.
@@ -62,6 +63,14 @@ pub fn messages_fragment(v: &MessagesView, base: &Base, page_query: &str) -> Mar
         crate::base::segment(&v.head.name),
         page_query.trim_start_matches('?')
     ));
+    let cursor = v.rows.iter().map(|r| r.timestamp_ms).max().unwrap_or(0);
+    let stream = tailable(&v.query).then(|| {
+        base.url(&format!(
+            "/events?tail=messages&topic={}&since={cursor}&{}",
+            crate::base::segment(&v.head.name),
+            v.query.to_query().trim_start_matches('?')
+        ))
+    });
     client::fragment(
         MESSAGES_FRAGMENT,
         &url,
@@ -71,11 +80,9 @@ pub fn messages_fragment(v: &MessagesView, base: &Base, page_query: &str) -> Mar
             @if v.query.filtered() {
                 p class="sent" style="margin:0 0 16px;max-width:900px" { (spans(&reach_sentence(v))) }
             }
-            @if v.rows.is_empty() && v.query.filtered() {
-                p class="help" { "Nothing to list. Clear the filters to see the newest records." }
-            } @else {
-                (records(&v.rows, &v.head.name, &v.query.to_query(), base))
-                @if !v.query.filtered() { (pager(&line(v), older(v, base))) }
+            div class="tail-root" data-tail-url=[stream.as_deref()] data-cursor=(cursor) data-tail-rows=(super::table::RECORDS) {
+                (records(&v.rows, &v.head.name, &v.query.to_query(), base, tailable(&v.query)))
+                @if !v.query.filtered() { (pager_with(line(v), older(v, base))) }
             }
         },
     )
@@ -147,9 +154,8 @@ fn explainers(v: &MessagesView, base: &Base) -> Markup {
 fn detail(v: &MessagesView, base: &Base, query: &str) -> Markup {
     html! {
         (topic_frame(&v.head, base, TopicTab::Messages))
-        // Whenever the topic has an open transaction, whatever is being filtered or read: the structure does not depend on the state.
-        (txn_callout(&v.head, base))
         (bar(v, base))
+        (crate::ui::tail::tail_bar(MESSAGES_FRAGMENT, tailable(&v.query)))
         (messages_fragment(v, base, query))
         div class="row wrap" style="margin-top:20px;gap:24px" {
             span class="row" { (state(State::Ok, &format!("{} of {} partitions online", v.head.parts.len() - v.head.offline().len(), v.head.parts.len()))) }

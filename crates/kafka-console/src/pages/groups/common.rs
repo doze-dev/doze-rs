@@ -3,15 +3,17 @@
 use maud::{Markup, html};
 
 use crate::base::{Base, segment};
+use crate::format::number;
 use crate::model::{GroupHead, GroupPhase, GroupProtocol, GroupSpan};
 use crate::ui::button::{Size, State, Variant, opener, state};
 use crate::ui::client;
 use crate::ui::glyph::Glyph;
 use crate::ui::glyph_groups::{GroupGlyph, group_glyph};
 use crate::ui::kafka::title_row;
+use crate::ui::metrics::{Stat, stat_strip};
 
-/// The fragment that holds the sentence under a group's name.
-pub const GROUP_SENTENCE: &str = "group-sentence";
+/// The region that holds a group's facts.
+pub const GROUP_STATS: &str = "group-stats";
 
 /// `/groups/{group}` and what follows it.
 #[must_use]
@@ -73,33 +75,45 @@ pub(super) fn title(h: &GroupHead) -> Markup {
     )
 }
 
-/// The page head: title row, a sentence under it, and the actions at the right.
+/// The page head: title row, the actions at the right, and under them what follows the group (a strip of metric slots, or a
+/// static line for a page that has none).
 #[must_use]
-pub(crate) fn head(h: &GroupHead, sentence: Markup, acts: Markup) -> Markup {
+pub(crate) fn head(h: &GroupHead, under: Markup, acts: Markup) -> Markup {
     html! {
         div class="page-h" {
-            div { (title(h)) div class="sub" { (sentence) } }
+            div { (title(h)) }
             div class="acts" { (acts) }
         }
+        (under)
     }
 }
 
-/// The sentence in its fragment, so that it follows the group while the page is open.
+/// What follows the group, as a strip of metric slots in a region a Refresh fetches again (CON-805).
 #[must_use]
-pub fn sentence_fragment(
-    h: &GroupHead,
-    base: &Base,
-    sentence: &[GroupSpan],
-    extra: bool,
-) -> Markup {
-    let url = base.url(&format!(
-        "/fragments/{GROUP_SENTENCE}?group={}",
-        segment(&h.id)
-    ));
+pub fn stats_fragment(h: &GroupHead, base: &Base) -> Markup {
+    let n = |v: usize| number(i64::try_from(v).unwrap_or(0));
+    let generation = match h.protocol {
+        GroupProtocol::Consumer => ("Epoch", h.generation.to_string()),
+        GroupProtocol::Classic => ("Generation", h.generation.to_string()),
+    };
+    let last = match h.last_commit_ms {
+        Some(ms) => Stat::at("Last commit", ms, h.now_ms),
+        None => Stat::new("Last commit", "never").mono().ch(11),
+    };
     client::fragment(
-        GROUP_SENTENCE,
-        &url,
-        html! { span data-extra=[extra.then_some("live-sentence")] { (spans(sentence, base)) } },
+        GROUP_STATS,
+        &base.url(&format!(
+            "/fragments/{GROUP_STATS}?group={}",
+            segment(&h.id)
+        )),
+        stat_strip(&[
+            Stat::new("State", h.phase.word()).ch(12),
+            Stat::new("Members", n(h.members.len())).ch(4),
+            Stat::new(generation.0, generation.1).ch(6),
+            Stat::new("Lag", number(h.lag_total)).ch(9),
+            Stat::new("Committed partitions", n(h.commits)).ch(4),
+            last,
+        ]),
     )
 }
 

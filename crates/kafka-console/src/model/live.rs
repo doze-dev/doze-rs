@@ -78,8 +78,6 @@ pub struct WireQuery {
     pub hide_idle: bool,
     /// Only rows older than this id (the next page back).
     pub before: Option<u64>,
-    /// The paused page: only rows up to this id, as they were.
-    pub until: Option<u64>,
     pub limit: usize,
 }
 
@@ -100,7 +98,6 @@ impl Default for WireQuery {
             refused_only: false,
             hide_idle: true,
             before: None,
-            until: None,
             limit: WIRE_LIMIT,
         }
     }
@@ -158,10 +155,12 @@ pub struct LiveView {
     pub last_minute: u32,
     /// The most requests one folded row stands for in the last minute (for the busy state's sentence), and the topic.
     pub busiest: Option<(String, u32)>,
-    /// A number that grows with every request recorded: what the client script counts "held back" with.
+    /// Requests recorded since the broker started (folded rows count each request).
     pub seen: u64,
-    /// The id of the newest row (a paused page is "as of" it).
+    /// The id of the newest row.
     pub newest_id: u64,
+    /// The recorder's version when this was made: where a tail begins (`since`).
+    pub cursor: u64,
     /// When this was made.
     pub now_ms: i64,
     /// Where the broker listens and when it started (for the quiet state).
@@ -169,9 +168,6 @@ pub struct LiveView {
     pub started_ms: Option<i64>,
     /// The id the next page back starts after, if there is one.
     pub older: Option<u64>,
-    /// For a paused page: requests held back since it.
-    pub held: Option<u64>,
-    pub paused_at_ms: Option<i64>,
     pub clients_ids: Vec<String>,
     pub topics_seen: Vec<String>,
 }
@@ -290,7 +286,7 @@ pub struct FirstView {
 const MOST_TEXT: usize = 128;
 
 impl WireQuery {
-    /// The filters of an address (`?q=...&client=...&api=...&topic=...&group=...&refused=1&idle=0&before=12&until=40&limit=50`). A
+    /// The filters of an address (`?q=...&client=...&api=...&topic=...&group=...&refused=1&idle=0&before=12&limit=50`). A
     /// value that cannot be used is left out: a hostile address is a page with no filter, never an error.
     #[must_use]
     pub fn parse(fields: &[(String, String)]) -> Self {
@@ -313,18 +309,16 @@ impl WireQuery {
             refused_only: crate::form::get(fields, "refused") == Some("1"),
             hide_idle: crate::form::get(fields, "idle") != Some("0"),
             before: number("before"),
-            until: number("until"),
             limit: number("limit")
                 .and_then(|n| usize::try_from(n).ok())
                 .map_or(WIRE_LIMIT, |n| n.clamp(1, WIRE_MOST)),
         }
     }
 
-    /// The address's query part for these filters (with its `?`), with `before` and `until` as given and the defaults left out.
+    /// The address's query part for these filters (with its `?`), with `before` as given and the defaults left out.
     #[must_use]
     pub fn to_query(&self) -> String {
         let before = self.before.map(|n| n.to_string()).unwrap_or_default();
-        let until = self.until.map(|n| n.to_string()).unwrap_or_default();
         let limit = if self.limit == WIRE_LIMIT {
             String::new()
         } else {
@@ -340,7 +334,6 @@ impl WireQuery {
             ("refused", if self.refused_only { "1" } else { "" }),
             ("idle", if self.hide_idle { "" } else { "0" }),
             ("before", &before),
-            ("until", &until),
             ("limit", &limit),
         ])
     }

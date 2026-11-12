@@ -3,19 +3,18 @@
 // What the libraries do and this file does not: htmx boosts every link and form (a navigation swaps `main` and keeps the shell),
 // pushes the history, restores a page on Back, preloads on intent and cross-fades with a View Transition; idiomorph edits the page
 // into the new one so focus, typed text and scroll stay; Alpine (components.js) runs the Select, Combobox, menu and tooltip.
-// What this file keeps, because it is the product: the copy buttons, the Live tape (pause, what is held back, new rows), the
-// stream's ticks and fragments (ETag), overlays (a drawer or dialog opens over its page, with its own history entry),
-// the ⌘K palette's keys, j and k, and the small seams to the stack: scroll memory, the progress hint, focus after a swap.
+// What this file keeps, because it is the product: the copy buttons, how a morph treats the page's components, overlays (a drawer or
+// dialog opens over its page, with its own history entry), the ⌘K palette's keys, j and k, and the small seams to the stack: scroll
+// memory, the progress hint, focus after a swap. How a page changes while it is open (Refresh and the two tails) is live.js
+// (docs/port/console/live-design.md): this file has no timer, no stream and no fade.
 // Every name below is defined in src/ui/client.rs, and a test checks that they agree. Tests: tools/dom.
 //
 // Sections, each standing on the ones above it:
-//   1. Helpers and the copy buttons      2. Fragments (morph, fade, refresh by ETag)      3. Live (pause, held, new rows)
-//   4. Overlays (htmx.ajax into #ovl, history, focus)      5. The palette      6. j and k      7. The stream
-//   8. Navigation (scroll, progress, focus, preload on intent)
+//   1. Helpers and the copy buttons      2. How a morph treats the page      3. A select that filters      4. Overlays
+//   5. The palette      6. j and k      7. Navigation (scroll, progress, focus, preload on intent)
 (() => {
   // ==== 1. Helpers and the copy buttons ====
   const attr = (el, name) => (el ? el.getAttribute(name) : null);
-  const banner = () => document.getElementById('stream-banner');
   const reveal = () => {
     document.querySelectorAll('[data-js-only]').forEach((el) => { el.hidden = false; });
     // The top bar's search is offered once there is a script to answer it (the palette): a field that opens it, not one to type in.
@@ -84,12 +83,11 @@
     setTimeout(() => { btn.innerHTML = was; btn.style.minWidth = ''; btn.removeAttribute('data-copied'); }, 1400);
   }
 
-  // ==== 2. Fragments ====
-  // Idiomorph edits the nodes on screen into the new ones, so focus, typed text, caret and scroll position stay. What really
-  // changed is remembered, so that only it fades in (below): an unchanged answer changes nothing and moves nothing. The same
-  // configuration serves htmx's own `morph` swaps (a filter, a chip, a pager) through Idiomorph.defaults.
-  const changed = new Set(), added = [];
-  const mark = (el) => { if (el) changed.add(el); };
+  // ==== 2. How a morph treats the page ====
+  // Idiomorph edits the nodes on screen into the new ones, so focus, typed text, caret and scroll position stay; an unchanged answer
+  // changes nothing and moves nothing, and nothing fades (CON-811). The same configuration serves htmx's own `morph` swaps (a filter, a
+  // chip, a pager) and the regions live.js refreshes, through Idiomorph.defaults.
+  const D = (window.Doze = window.Doze || {});
   const quiet = (el) => el && el.nodeType === 1 && el.hasAttribute('data-open');
   // What a component's script did to its elements (shown the enhanced control, hid the plain one, named it) is not in the server's
   // markup: carry it over to the new node, so that a swap of a region that holds a Select (the Live toolbar) does not undo it.
@@ -105,124 +103,19 @@
     const d = window.Idiomorph.defaults;
     d.ignoreActiveValue = true;
     Object.assign(d.callbacks, {
-      // A component that is open (a menu, a select's list) is left as the person has it.
+      // A component that is open (a menu, a select's list) is left as the person has it; the header of a table is never refreshed.
       beforeNodeMorphed: (a, b) => {
         if (quiet(a)) return false;
+        if (D.skipHeads && a.nodeType === 1 && a.hasAttribute('data-morph-skip')) return false;
         if (a.nodeType === 1 && b.nodeType === 1) keepEnhanced(a, b);
-        if (a.nodeType === 3 && a.data !== b.data) mark(a.parentElement);
         return true;
       },
-      beforeNodeAdded: (n) => { added.push(n); return true; },
-      beforeNodeRemoved: (n) => { mark(n.parentElement); return true; },
       // Alpine owns an `x-show` element's `style`: the server's copy (closed) must not close it.
-      beforeAttributeUpdated: (name, node) => {
-        if (name === 'style' && node.hasAttribute && node.hasAttribute('x-show')) return false;
-        // htmx's own bookkeeping classes (htmx-added, htmx-settling) coming and going are no change of the page.
-        if (!(name === 'class' && /(^| )htmx-/.test(node.className || ''))) mark(node);
-        return true;
-      },
+      beforeAttributeUpdated: (name, node) => !(name === 'style' && node.hasAttribute && node.hasAttribute('x-show')),
     });
   }
-  // A very short fade (opacity only, 120 ms) on what changed.
-  function fade() {
-    for (const n of added.splice(0)) if (n.parentElement) changed.add(n.parentElement);
-    const els = [...changed].filter((el) => el.isConnected);
-    changed.clear();
-    if (reduced()) return;
-    els.forEach((el) => { if (el.animate) el.animate([{ opacity: 0.45 }, { opacity: 1 }], { duration: 120, easing: 'ease-out' }); });
-  }
-  // An answer is HTML whose top-level elements have ids: each one morphs into the element with that id.
-  function apply(html) {
-    const t = document.createElement('template');
-    t.innerHTML = html;
-    for (const el of t.content.children) {
-      const target = el.id && document.getElementById(el.id);
-      if (target) window.Idiomorph.morph(target, el, { morphStyle: 'outerHTML' });
-    }
-    fade();
-  }
-  // htmx's morph swaps (a filter, a chip) fade what changed, too.
-  document.addEventListener('htmx:afterSwap', fade);
 
-  // A fragment: fetched again on a tick. The script keeps the ETag and sends it (spike 1: a browser turns a 304 into a 200
-  // for fetch), and the newest request wins per fragment (spike 4).
-  const etags = {}, ctl = {};
-  // A fetch that came back (even with 304) says the console's process is there: the banner of a lost connection goes.
-  const reached = () => { const b = banner(); if (b) b.hidden = true; };
-  async function refresh(id) {
-    const url = attr(document.getElementById(id), 'data-frag');
-    if (!url) return;
-    if (ctl[id]) ctl[id].abort();
-    const c = (ctl[id] = new AbortController());
-    try {
-      const headers = etags[id] ? { 'If-None-Match': etags[id] } : {};
-      const r = await fetch(url, { signal: c.signal, headers });
-      if (r.status === 304) { reached(); return; }
-      if (!r.ok) throw new Error(String(r.status));
-      etags[id] = r.headers.get('ETag');
-      const html = await r.text();
-      if (holds(id, html)) { reached(); return; }
-      const before = rowsOn(id);
-      apply(html);
-      markNew(id, before);
-      reached();
-    } catch (e) { const b = banner(); if (e.name !== 'AbortError' && b) b.hidden = false; }
-  }
-
-  // ==== 3. Live (slice 9e) ====
-  // A fragment that carries a [data-seen] (a count that grows with every request recorded) is a tape: while it
-  // is paused, or a drawer is open over it, new answers are kept aside and counted, so what a person reads never moves.
-  // Pause is a link that works with no script (the page as it was); here it holds the tape in place instead. Resume (or
-  // closing the drawer) brings the newest in. New rows are marked for a moment so the eye finds them.
-  const held = {};
-  let pausedAt = null;
-  const seenOf = (root) => { const s = root && root.querySelector('[data-seen]'); return s ? Number(s.getAttribute('data-seen')) : null; };
-  const overlayOpen = () => !!document.querySelector('[data-overlay],dialog[open]');
-  const parse = (html) => { const t = document.createElement('template'); t.innerHTML = html; return t.content; };
-  const showHeld = (n) => document.querySelectorAll('[data-held]').forEach((el) => { el.textContent = new Intl.NumberFormat('en-US').format(n); });
-  function holds(id, html) {
-    const el = document.getElementById(id);
-    if (!el || seenOf(el) === null) return false;
-    if (pausedAt === null && !overlayOpen()) { delete held[id]; return false; }
-    held[id] = html;
-    if (pausedAt !== null) showHeld(Math.max(0, seenOf(parse(html)) - pausedAt));
-    return true;
-  }
-  function release() {
-    for (const id of Object.keys(held)) { const html = held[id]; delete held[id]; const b = rowsOn(id); apply(html); markNew(id, b); }
-  }
-  const rowsOn = (id) => { const el = document.getElementById(id); return el ? new Set([...el.querySelectorAll('tr[data-row]')].map((r) => r.getAttribute('data-row'))) : new Set(); };
-  function markNew(id, before) {
-    const el = document.getElementById(id);
-    if (!el || before.size === 0) return;
-    el.querySelectorAll('tr[data-row]').forEach((r) => {
-      if (before.has(r.getAttribute('data-row'))) return;
-      r.classList.add('new');
-      setTimeout(() => r.classList.remove('new'), 1600);
-    });
-  }
-  function pause(btn) {
-    const live = document.querySelector('[data-seen]');
-    pausedAt = live ? Number(live.getAttribute('data-seen')) : 0;
-    document.querySelectorAll('[data-paused-banner]').forEach((el) => { el.hidden = false; });
-    showHeld(0);
-    btn.dataset.label = btn.textContent;
-    btn.textContent = 'Resume';
-    btn.removeAttribute('data-pause');
-    btn.setAttribute('data-resume', '');
-  }
-  function resume(btn) {
-    pausedAt = null;
-    document.querySelectorAll('[data-paused-banner]').forEach((el) => { el.hidden = true; });
-    btn.textContent = btn.dataset.label || 'Pause';
-    btn.removeAttribute('data-resume');
-    btn.setAttribute('data-pause', '');
-    release();
-  }
-  own('[data-pause]', (p) => pause(p));
-  own('[data-resume]', (r) => (pausedAt !== null ? resume(r) : false));
-  // A drawer that closes lets the tape catch up. Keys: j and k move between the rows' links; Enter opens the one in focus.
-  document.addEventListener('click', () => setTimeout(() => { if (pausedAt === null && !overlayOpen()) release(); }, 0));
+  // ==== 3. A select that filters ====
   // A filter that is a select applies as soon as it changes (without a script it is applied with the Enter key or the button).
   // `requestSubmit` goes through the form's submit event, which htmx (or the browser) answers.
   document.addEventListener('change', (e) => {
@@ -269,8 +162,6 @@
       if (done) return;
       done = true;
       o.el.remove();
-      // A drawer that held the tape lets it catch up now (Live: what came while a record was open).
-      if (pausedAt === null && !document.querySelector('[data-overlay]')) release();
       const r = pageRoot();
       if (r) r.removeAttribute('inert');
       if (window.scrollTo) window.scrollTo(0, o.y);
@@ -416,7 +307,7 @@
   // a drawer open they are the next and the previous record: the opener's neighbours in its table.
   const typing = (t) => t && (/^(input|textarea|select)$/i.test(t.tagName) || t.isContentEditable || (t.closest && t.closest('[role=listbox],[role=menu]')));
   const rowLinks = () => [...document.querySelectorAll('main table.t tbody tr')].map((tr) => tr.querySelector('a[href]')).filter(Boolean);
-  const tapeLinks = () => [...document.querySelectorAll('table.wire td.tm a')];
+  const tapeLinks = () => [...document.querySelectorAll('table.dt-t tbody tr td:first-child a')];
   document.addEventListener('keydown', (e) => {
     if ((e.key !== 'j' && e.key !== 'k') || e.metaKey || e.ctrlKey || e.altKey || e.defaultPrevented || typing(e.target)) return;
     const links = rowLinks().length ? rowLinks() : tapeLinks();
@@ -430,34 +321,7 @@
     next.focus();
   });
 
-  // ==== 7. The stream ====
-  // One connection while the page is on screen. A tick names the fragments to fetch again. The address is on `main`: a swap
-  // of main (a navigation) brings the next page's own, and the stream is opened again for it.
-  let es = null, wait = 1000, timer = 0, streamUrl = null;
-  const close = () => { clearTimeout(timer); if (es) es.close(); es = null; };
-  const wanted = () => attr(document.getElementById('main'), 'data-stream') || attr(document.body, 'data-stream');
-  const connect = () => {
-    close();
-    streamUrl = wanted();
-    if (!streamUrl || !window.EventSource) return;
-    es = new EventSource(streamUrl);
-    es.addEventListener('tick', (e) => e.data.split(',').filter(Boolean).forEach(refresh));
-    es.onopen = () => { wait = 1000; const b = banner(); if (b) b.hidden = true; };
-    // Reconnect for ever with a growing wait (spike 3): the console left open while the broker is down must come back.
-    es.onerror = () => {
-      const b = banner();
-      if (b) b.hidden = false;
-      close();
-      timer = setTimeout(connect, wait);
-      wait = Math.min(wait * 2, 15000);
-    };
-  };
-  // A page in the back/forward cache or a hidden tab must not hold a stream open: a browser allows 6 connections per origin (spike 2).
-  document.addEventListener('visibilitychange', () => (document.hidden ? close() : connect()));
-  addEventListener('pagehide', close);
-  addEventListener('pageshow', (e) => { if (e.persisted) connect(); });
-
-  // ==== 8. Navigation: the seams to htmx ====
+  // ==== 7. Navigation: the seams to htmx ====
   // Scroll: a new page starts at the top (the swap says so), Back puts the page where it was left, and a control that changes only
   // its own region keeps the scroll (its swap says show:none). Scroll is remembered per address for the session.
   let pageUrl = here();
@@ -483,12 +347,11 @@
     if (elt && elt.tagName === 'FORM') elt.submit();
     else if (p && e.detail.requestConfig && e.detail.requestConfig.boosted) location.href = p;
   });
-  // After any swap: our state follows the DOM (an overlay came or went), new controls are revealed, the stream follows the page.
+  // After any swap: our state follows the DOM (an overlay came or went), new controls are revealed.
   hx('afterSettle', () => {
     pageUrl = ovl && ovl.parent ? ovl.parent : here();
     sync();
     reveal();
-    if (wanted() !== streamUrl) connect();
   });
   hx('load', reveal);
   // A page swapped into main takes focus (a screen reader reads the new page), without scrolling.
@@ -506,7 +369,6 @@
     if (window.scrollTo) window.scrollTo(0, y);
     reveal();
     sync();
-    connect();
   });
   hx('pushedIntoHistory', () => { pageUrl = here(); });
   hx('replacedInHistory', () => { pageUrl = here(); });
@@ -518,7 +380,7 @@
   const warm = new Map();
   let rest = 0;
   const preloadable = (a) => a && a.href && a.origin === location.origin && !a.target && !a.hasAttribute('download') && !a.hasAttribute('data-dialog') &&
-    !a.hasAttribute('data-nopreload') && !a.hasAttribute('hx-get') && !a.hasAttribute('data-pause') && !a.hasAttribute('data-resume') &&
+    !a.hasAttribute('data-nopreload') && !a.hasAttribute('hx-get') &&
     !a.hasAttribute('data-overlay-close') && !a.hasAttribute('data-dialog-close') && !!a.closest('[hx-boost=true]') && a.getAttribute('hx-boost') !== 'false' && a.href.split('#')[0] !== location.href.split('#')[0];
   function preload(a) {
     if (!preloadable(a)) return;
@@ -532,5 +394,4 @@
   document.addEventListener('focusin', (e) => preload(e.target.closest && e.target.closest('a[href]')));
 
   adopt();
-  connect();
 })();

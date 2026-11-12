@@ -20,13 +20,13 @@ mod tape;
 
 pub use clients::{clients_body, clients_drawer};
 pub use commands::{FetchCommands, fetch_commands, shell_word};
-pub use docks::{group_wire_page, topic_dock};
+pub use docks::{GROUP_WIRE, TOPIC_WIRE, group_wire_fragment, group_wire_page, topic_dock};
 pub use drawers::{
     Kind as RequestKind, Limits as RequestLimits, detail_body, detail_heading_id, request_body,
     request_drawer,
 };
 pub use first::first_page;
-pub use page::{live_fragment, live_page, state_crumb};
+pub use page::{LIVE_STATS, live_fragment, live_page, state_crumb, stats_fragment};
 pub use parts::{LIVE_FRAGMENT, wire_url};
 pub use refusals::{fenced_body, refused_body, too_large_body};
-pub use tape::{Layout, table};
+pub use tape::{Layout, table, tail_rows};

@@ -528,7 +528,7 @@ button.btn{font-family:inherit;cursor:pointer}
 .cell-filter:hover{text-decoration:underline;text-decoration-color:var(--line2);text-underline-offset:3px}
 table.wire tbody tr:hover td{background:var(--well)}
 table.wire tbody tr:focus-within td{background:var(--sel)}
-table.wire tbody tr.new td{background:var(--sel)}
+table.wire tbody tr.fresh td{background:var(--sel)}
 @media (prefers-reduced-motion:no-preference){table.wire tbody td{transition:background-color .22s ease}}
 /* Settings and Access: a form that sits in a sentence, a button that reads as a link, and text only a screen reader reads. */
 form.inline{display:inline;margin:0}

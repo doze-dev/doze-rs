@@ -23,7 +23,7 @@ pub async fn home(State(s): State<Shared>, RawQuery(query): RawQuery) -> Respons
             Rail::Home,
             title,
             &borrowed(&Place::Home.steps()),
-            s.source.watch(),
+            crate::regions::HOME,
             main,
         )
         .await,

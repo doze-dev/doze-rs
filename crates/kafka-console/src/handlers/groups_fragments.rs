@@ -21,23 +21,16 @@ pub async fn groups_fragment(s: &Shared, id: &str, query: &Option<String>) -> Op
                 g::groups_table_fragment(&v, &s.base)
             })
         }
-        g::GROUP_SENTENCE => {
+        g::GROUP_STATS => {
             let v = s.source.group(get(&f, "group")?, false).await?;
-            let sentence = crate::groups_words::group_sentence(&v.head, &v.topics);
-            Some(g::group_sentence_fragment(
-                &v.head, &s.base, &sentence, true,
-            ))
+            Some(g::group_stats_fragment(&v.head, &s.base))
         }
-        g::LAG_SENTENCE | g::LAG_TABLE => {
+        g::LAG_TABLE => {
             let v = s
                 .source
                 .group(get(&f, "group")?, get(&f, "expiring") == Some("1"))
                 .await?;
-            Some(if id == g::LAG_SENTENCE {
-                g::lag_sentence_fragment(&v, &s.base)
-            } else {
-                g::lag_table_fragment(&v, &s.base)
-            })
+            Some(g::lag_table_fragment(&v, &s.base))
         }
         _ => None,
     }

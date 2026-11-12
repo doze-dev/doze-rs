@@ -46,7 +46,7 @@ async fn topics_fragment(s: &Shared, id: &str, query: &Option<String>) -> Option
         ("internal", if internal { "1" } else { "" }),
     ]);
     match id {
-        t::LIST_SENTENCE => Some(t::sentence_fragment(
+        t::LIST_STATS => Some(t::stats_fragment(
             &s.source.topics(&filter, internal, None).await,
             &s.base,
             &q,
@@ -56,9 +56,9 @@ async fn topics_fragment(s: &Shared, id: &str, query: &Option<String>) -> Option
             &s.base,
             &q,
         )),
-        t::TOPIC_SENTENCE => {
+        t::TOPIC_STATS => {
             let name = crate::form::get(&f, "topic").unwrap_or("");
-            Some(t::topic_sentence_fragment(
+            Some(t::topic_stats_fragment(
                 &s.source.topic_head(name).await?,
                 &s.base,
             ))

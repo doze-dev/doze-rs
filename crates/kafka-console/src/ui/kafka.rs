@@ -6,6 +6,6 @@ mod chrome;
 mod record;
 mod ruler;
 
-pub use chrome::{Tab, apicall, empty, filter_box, pager, sec, tabs, title_row};
+pub use chrome::{Tab, apicall, empty, filter_box, pager, pager_with, sec, tabs, title_row};
 pub use record::{field, headers};
 pub use ruler::{Mark, ruler};

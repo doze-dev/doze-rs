@@ -1,97 +1,166 @@
-//! `GET /events?watch=a,b`: one server-sent stream per page on screen, carrying only "these fragments changed".
+//! `GET /events?tail=live|messages&...`: the console's only stream, for the two tails (CON-809, `docs/port/console/live-design.md`).
 //!
-//! The first event names every watched fragment, so a page that has just loaded (or reconnected) reconciles itself; each
-//! later event is a tick of the shared signal ([`crate::tick`]) naming them again, and the page fetches them with an
-//! ETag so an unchanged one is a 304. A comment keeps the connection alive every 15 s. Every stream ends when the
-//! server's cancellation token does, so a graceful shutdown never waits on one.
+//! A person has asked for it (the `Live tail` control of the Live page or of a topic's Messages page); no other page opens a
+//! stream. The server COALESCES: it looks once a second, and sends an event only when rows were added (or a folded row grew),
+//! so the traffic rate of the cluster never becomes the update rate of the page. An event carries the rows as HTML, newest
+//! first, and its `id` is the cursor the next look starts from: when the browser reconnects it sends that as `Last-Event-ID`,
+//! so a reconnect brings the rows it missed and no row twice. The first event, `ready`, is sent at once and says the stream is
+//! open. A comment keeps the connection alive every 15 s. Every stream ends when the server's cancellation token does, so a
+//! graceful shutdown never waits on one.
 
+use std::collections::HashSet;
 use std::convert::Infallible;
 use std::time::Duration;
 
 use axum::response::sse::{Event, KeepAlive, Sse};
 use futures_util::stream::{self, Stream, StreamExt};
 use tokio::sync::OwnedSemaphorePermit;
-use tokio_util::sync::CancellationToken;
 
-use crate::tick::Viewer;
-use crate::ui::client::EVENT_TICK;
+use crate::model::{MessageQuery, WireQuery};
+use crate::state::Shared;
+use crate::ui::client::EVENT_ROWS;
 
-/// The fragments a stream may be asked to watch: a closed vocabulary.
-pub const WATCHABLE: &[&str] = &[
-    "home-live",
-    "topics-sentence",
-    "topics-table",
-    "topic-sentence",
-    "topic-messages",
-];
-
-/// What the Home page watches.
-pub const HOME_IDS: &[&str] = &["home-live"];
-/// What the topics list watches.
-pub const TOPICS_IDS: &[&str] = &["topics-sentence", "topics-table"];
-/// What a topic's Messages page watches.
-pub const TOPIC_IDS: &[&str] = &["topic-sentence", "topic-messages"];
-
+/// How often the server looks for new rows: the most events a second a tail can send.
+pub const EVERY: Duration = Duration::from_secs(1);
 /// The comment line sent every 15 s.
 pub const KEEP_ALIVE: Duration = Duration::from_secs(15);
+/// The most records a Messages tail looks at in one look.
+pub const MESSAGES_WINDOW: usize = 50;
 
-/// The ids of a `watch` value, or the first one that is not in the vocabulary. An empty value watches nothing.
-///
-/// # Errors
-/// The first id that is not watchable.
-pub fn parse_watch(value: &str) -> Result<Vec<&str>, &str> {
-    let mut out = Vec::new();
-    for id in value.split(',').filter(|s| !s.is_empty()) {
-        if !WATCHABLE.contains(&id)
-            && !crate::stream_groups::WATCHABLE.contains(&id)
-            && !crate::live_ids::WATCHABLE.contains(&id)
-            && !crate::stream_log::WATCHABLE.contains(&id)
-            && !crate::story_ids::WATCHABLE.contains(&id)
-        {
-            return Err(id);
-        }
-        if !out.contains(&id) {
-            out.push(id);
+/// What a stream follows.
+#[derive(Debug)]
+pub enum Feed {
+    /// The Live tape under the filters in `q`; `cursor` is the recorder's version already sent.
+    Live { q: WireQuery, cursor: u64 },
+    /// A topic's newest records; `since_ms` is the timestamp of the newest the page holds, `last` the keys of the last look.
+    Messages {
+        topic: String,
+        q: MessageQuery,
+        since_ms: i64,
+        last: Option<HashSet<(i32, i64)>>,
+    },
+}
+
+/// The rows of one look, as HTML, with the cursor to ask from next time.
+#[derive(Debug, PartialEq, Eq)]
+pub struct Batch {
+    pub id: String,
+    pub html: String,
+}
+
+/// HTML in one SSE `data` field: a line break in a value is a character reference, so the field stays one line.
+#[must_use]
+pub fn one_line(html: &str) -> String {
+    html.replace('\r', "&#13;").replace('\n', "&#10;")
+}
+
+impl Feed {
+    /// The cursor to start from, as the event ids say it.
+    pub fn resume(&mut self, id: &str) {
+        match self {
+            Self::Live { cursor, .. } => {
+                if let Ok(n) = id.parse() {
+                    *cursor = n;
+                }
+            }
+            Self::Messages { since_ms, .. } => {
+                if let Ok(n) = id.parse() {
+                    *since_ms = n;
+                }
+            }
         }
     }
-    Ok(out)
+
+    /// One look. `None`: nothing was added, so nothing is sent.
+    pub async fn look(&mut self, s: &Shared) -> Option<Batch> {
+        match self {
+            Self::Live { q, cursor } => {
+                let (next, rows) = s.source.tail_since(q, *cursor).await;
+                *cursor = next;
+                if rows.is_empty() {
+                    return None;
+                }
+                let html = crate::pages::live::tail_rows(&rows, &s.base, q).into_string();
+                Some(Batch {
+                    id: next.to_string(),
+                    html: one_line(&html),
+                })
+            }
+            Self::Messages {
+                topic,
+                q,
+                since_ms,
+                last,
+            } => {
+                let view = s.source.messages(topic, q.clone(), vec![]).await?;
+                let keys: HashSet<(i32, i64)> =
+                    view.rows.iter().map(|r| (r.partition, r.offset)).collect();
+                let fresh: Vec<_> = view
+                    .rows
+                    .iter()
+                    .filter(|r| match last {
+                        Some(prev) => !prev.contains(&(r.partition, r.offset)),
+                        None => r.timestamp_ms >= *since_ms,
+                    })
+                    .cloned()
+                    .collect();
+                *last = Some(keys);
+                let newest = fresh.iter().map(|r| r.timestamp_ms).max()?;
+                *since_ms = (*since_ms).max(newest);
+                let html = crate::pages::topics::tail_rows(&fresh, topic, &q.to_query(), &s.base)
+                    .into_string();
+                Some(Batch {
+                    id: since_ms.to_string(),
+                    html: one_line(&html),
+                })
+            }
+        }
+    }
 }
 
-fn tick(ids: &str) -> Event {
-    Event::default().event(EVENT_TICK).data(ids)
+fn event(batch: &Batch) -> Event {
+    Event::default()
+        .event(EVENT_ROWS)
+        .id(batch.id.clone())
+        .data(&batch.html)
 }
 
-/// The events of one stream: the first at once, then one per tick, until `stop` is cancelled or the signal is gone.
+/// The events of one stream: `ready` at once, then one per look that found rows, until the console stops.
 pub fn events(
-    viewer: Viewer,
-    ids: Vec<String>,
-    stop: CancellationToken,
+    s: Shared,
+    feed: Feed,
     slot: OwnedSemaphorePermit,
 ) -> impl Stream<Item = Result<Event, Infallible>> {
-    let data = ids.join(",");
-    let first = stream::once(std::future::ready(Ok(tick(&data))));
+    let ready = stream::once(std::future::ready(Ok(Event::default()
+        .event("ready")
+        .data("ok"))));
+    let mut every = tokio::time::interval(EVERY);
+    every.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
     // The permit lives as long as the stream does, and is given back when it is dropped.
     let rest = stream::unfold(
-        (viewer, stop, data, slot),
-        |(mut viewer, stop, data, slot)| async move {
-            let heard = tokio::select! {
-                () = stop.cancelled() => false,
-                heard = viewer.changed() => heard,
-            };
-            heard.then(|| (Ok(tick(&data)), (viewer, stop, data, slot)))
+        (s, feed, every, slot),
+        |(s, mut feed, mut every, slot)| async move {
+            loop {
+                tokio::select! {
+                    () = s.stop.cancelled() => return None,
+                    _ = every.tick() => {}
+                }
+                if let Some(batch) = feed.look(&s).await {
+                    return Some((Ok(event(&batch)), (s, feed, every, slot)));
+                }
+            }
         },
     );
-    first.chain(rest)
+    ready.chain(rest)
 }
 
 /// The response of an open stream.
 pub fn response(
-    viewer: Viewer,
-    ids: Vec<String>,
-    stop: CancellationToken,
+    s: Shared,
+    feed: Feed,
     slot: OwnedSemaphorePermit,
 ) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
-    Sse::new(events(viewer, ids, stop, slot))
+    Sse::new(events(s, feed, slot))
         .keep_alive(KeepAlive::new().interval(KEEP_ALIVE).text("keep-alive"))
 }
 
@@ -100,13 +169,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn only_the_closed_vocabulary_may_be_watched() {
-        assert_eq!(parse_watch(""), Ok(vec![]));
-        assert_eq!(parse_watch("home-live"), Ok(vec!["home-live"]));
-        assert_eq!(parse_watch("home-live,home-live"), Ok(vec!["home-live"]));
-        assert_eq!(parse_watch("home-live,evil"), Err("evil"));
-        assert_eq!(parse_watch("home-instance"), Err("home-instance"));
-        assert_eq!(parse_watch("../x"), Err("../x"));
-        assert_eq!(parse_watch("a\nb"), Err("a\nb"));
+    fn a_line_break_in_a_value_cannot_split_an_event() {
+        assert_eq!(one_line("a\nb\r\nc"), "a&#10;b&#13;&#10;c");
+        assert_eq!(one_line("<tr id=\"x\">"), "<tr id=\"x\">");
     }
 }

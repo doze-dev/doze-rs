@@ -108,7 +108,7 @@ fn content(id: &str, base: &Base) -> Option<Content> {
         "topic-wire" => {
             let head = crate::fixtures_topics::head("orders")?;
             let (rows, w) = world::topic_wire("orders");
-            let dock = page::topic_dock("orders", &rows, &w, world::now(), base, true);
+            let dock = page::topic_dock("orders", &rows, &w, base, true);
             (
                 plain(crate::pages::topics::topic_wire_page(&head, dock, base)),
                 "orders on the wire".to_owned(),
@@ -147,7 +147,7 @@ fn content(id: &str, base: &Base) -> Option<Content> {
 /// The page of a board as a full document with no broker; `None` for an id that is not one of these.
 #[must_use]
 pub fn render(id: &str, base: &Base) -> Option<String> {
-    let (main, title, active, steps, watch) = content(id, base)?;
+    let (main, title, active, steps, regions) = content(id, base)?;
     let assets = Assets::build(base);
     let chrome = fixtures::chrome();
     let crumbs = steps
@@ -164,7 +164,7 @@ pub fn render(id: &str, base: &Base) -> Option<String> {
         active,
         crumbs,
         title: &title,
-        watch,
+        regions,
     };
     Some(document_over(&page, main).into_string())
 }

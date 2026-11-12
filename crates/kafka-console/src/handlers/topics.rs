@@ -11,7 +11,6 @@ use super::overlays::{self, Parent};
 use crate::model::{MessageQuery, TopicHead};
 use crate::pages::topics as page;
 use crate::state::Shared;
-use crate::stream::{TOPIC_IDS, TOPICS_IDS};
 use crate::trail::{Place, TopicPage, borrowed};
 use crate::ui::shell::Rail;
 
@@ -43,7 +42,7 @@ pub async fn topics(State(s): State<Shared>, RawQuery(query): RawQuery) -> Respo
             Rail::Resources,
             "Topics",
             &borrowed(&Place::Topics.steps()),
-            s.source.watching(TOPICS_IDS),
+            crate::regions::TOPICS,
             main,
         )
         .await,
@@ -91,8 +90,8 @@ pub(super) async fn messages_parent(
         && view.query.reading == crate::model::Reading::Uncommitted
         && !view.query.filtered();
     let main = if docked {
-        let (rows, window, now) = s.source.topic_wire(name).await;
-        maud::html! { (main) (crate::pages::live::topic_dock(name, &rows, &window, now, &s.base, false)) }
+        let (rows, window, _) = s.source.topic_wire(name).await;
+        maud::html! { (main) (crate::pages::live::topic_dock(name, &rows, &window, &s.base, false)) }
     } else {
         main
     };
@@ -100,11 +99,11 @@ pub(super) async fn messages_parent(
         rail: Rail::Resources,
         title: view.head.name.clone(),
         crumbs: Place::Topic(&view.head.name).steps(),
-        watch: s.source.watching(if docked {
-            crate::live_ids::TOPIC_DETAIL_IDS
+        regions: if docked {
+            crate::regions::TOPIC_DOCKED
         } else {
-            TOPIC_IDS
-        }),
+            crate::regions::TOPIC
+        },
         main,
     })
 }
@@ -118,7 +117,7 @@ async fn messages_response(s: Shared, name: String, query: Option<String>) -> Re
 
 /// A parent as a page of its own (no overlay on it).
 pub(super) async fn page_of(s: &Shared, p: Parent) -> maud::Markup {
-    s.document(p.rail, &p.title, &borrowed(&p.crumbs), p.watch, p.main)
+    s.document(p.rail, &p.title, &borrowed(&p.crumbs), p.regions, p.main)
         .await
 }
 
@@ -196,7 +195,7 @@ pub(super) async fn partitions_parent(s: &Shared, name: &str) -> Option<Parent> 
         rail: Rail::Resources,
         title: "Partitions".to_owned(),
         crumbs: Place::TopicPage(name, TopicPage::Partitions).steps(),
-        watch: &[],
+        regions: &[],
         main,
     })
 }

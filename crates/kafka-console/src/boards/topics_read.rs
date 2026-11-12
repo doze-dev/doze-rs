@@ -78,14 +78,7 @@ fn list(id: &str, base: &Base) -> Option<Content> {
 fn detail_with_dock(base: &Base) -> Option<maud::Markup> {
     let page = messages("orders", MessageQuery::default(), base)?;
     let (rows, w) = crate::fixtures_live::topic_wire("orders");
-    let dock = crate::pages::live::topic_dock(
-        "orders",
-        &rows,
-        &w,
-        crate::fixtures_live::now(),
-        base,
-        false,
-    );
+    let dock = crate::pages::live::topic_dock("orders", &rows, &w, base, false);
     Some(maud::html! { (page) (dock) })
 }
 
@@ -203,7 +196,7 @@ pub fn document_for(
         active: Rail::Resources,
         crumbs: crumbs(base, steps),
         title,
-        watch: &[],
+        regions: &[],
     };
     Some(document_over(&page, over).into_string())
 }

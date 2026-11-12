@@ -2,113 +2,54 @@
 
 use maud::{Markup, html};
 
-use super::common::spans;
 use crate::base::{Base, segment};
-use crate::format::{ago, bytes};
-use crate::model::{Cleanup, TopicRow, TopicsState, TopicsView};
-use crate::ui::button::{Size, State, Variant, link, state};
+use crate::model::{TopicRow, TopicsState, TopicsView};
+use crate::ui::button::{Size, Variant, link};
 use crate::ui::client;
 use crate::ui::glyph::{Glyph, glyph};
-use crate::ui::kafka::{Tab, empty, filter_box, pager, sec, tabs};
+use crate::ui::kafka::{Tab, empty, filter_box, pager_with, sec, tabs};
 use crate::ui::layout::page_header;
+use crate::ui::metrics::{Stat, slot, stat_strip};
 use crate::ui::notice::{Tone, callout};
-use crate::ui::table::middle;
-use crate::words::{list_sentence, retention};
 
-/// The fragments of the list: the sentence and the table.
+use super::list_table::{internal_table, table};
+
+/// The regions of the list: the metrics and the table.
 pub const LIST_FRAGMENT: &str = "topics-table";
-pub const LIST_SENTENCE: &str = "topics-sentence";
+pub const LIST_STATS: &str = "topics-stats";
 
-fn cleanup_tag(c: Cleanup) -> Markup {
-    let word = super::common::policy_word(c);
-    html! { span class="tag" { (word) } }
-}
-
-fn sub_line(r: &TopicRow) -> Option<String> {
-    if r.internal {
-        return Some("read only · the group coordinator's name for where commits live".to_owned());
-    }
-    if r.empty {
-        return Some("empty: no records yet".to_owned());
-    }
-    let mut parts = Vec::new();
-    if let Some(n) = r.segments.filter(|n| *n > 1) {
-        parts.push(format!("{n} segments"));
-    }
-    if let Some(ms) = r.retention_ms {
-        parts.push(format!("retention {}", retention(ms)));
-    }
-    if !r.read_by.is_empty() {
-        parts.push(format!("read by {}", r.read_by.join(", ")));
-    }
-    (!parts.is_empty()).then(|| parts.join(" · "))
-}
-
-fn row(r: &TopicRow, v: &TopicsView, base: &Base) -> Markup {
-    let href = base.url(&format!("/topics/{}", segment(&r.name)));
-    let sub = sub_line(r);
-    html! {
-        tr {
-            td class="name mid-cell" {
-                @if r.internal {
-                    span class="mono" { (r.name) } " " span class="tag" { "internal" }
-                } @else {
-                    a class="mono" href=(href) { (middle(&r.name)) }
-                    @if r.offline > 0 { " " (state(State::Bad, "Offline")) }
-                    @if r.txn_open { " " (state(State::Warn, "Transaction open")) }
-                }
-                @if let Some(s) = sub { span class="sub" { (s) } }
-            }
-            td class="mono r" { (r.partitions) }
-            td { (cleanup_tag(r.cleanup)) }
-            @if r.internal {
-                td class="mono r dim" { "not a log" }
-                td class="mono r dim" { "none" }
-            } @else {
-                td class="mono r" { (r.bytes.map_or_else(|| "unknown".to_owned(), bytes)) }
-                td class="mono r" data-vary {
-                    @match r.last_write_ms {
-                        Some(ms) if !r.empty => (crate::ui::table::when(&ago(v.now_ms - ms), ms)),
-                        _ => "never",
-                    }
-                }
-            }
-        }
-    }
-}
-
-fn table(v: &TopicsView, base: &Base) -> Markup {
-    html! {
-        table class="t" {
-            thead { tr {
-                th scope="col" { "Name" } th scope="col" class="r" { "Partitions" } th scope="col" { "Cleanup policy" }
-                th scope="col" class="r" { "Size on disk" } th scope="col" class="r" { "Last write" }
-            } }
-            tbody { @for r in &v.rows { (row(r, v, base)) } }
-        }
-    }
-}
-
-fn shown(v: &TopicsView) -> String {
+/// The line under the table, with its numbers in slots.
+fn shown(v: &TopicsView) -> Markup {
     let n = v.rows.iter().filter(|r| !r.internal).count();
     let of = if v.filter.is_empty() { v.total } else { n };
-    if v.truncated {
-        format!(
-            "First {n} of {} topics, by name",
-            crate::format::number(i64::try_from(v.total).unwrap_or(0))
-        )
-    } else {
-        format!("{n} of {of} topics")
+    let num = |n: usize| crate::format::number(i64::try_from(n).unwrap_or(0));
+    html! {
+        @if v.truncated { "First " (slot(&num(n), 5)) " of " (slot(&num(v.total), 5)) " topics, by name" } @else { (slot(&num(n), 5)) " of " (slot(&num(of), 5)) " topics" }
     }
 }
 
-/// The sentence under the title, as a fragment.
+/// The metrics of the list, as a fragment: no sentence holds a number.
 #[must_use]
-pub fn sentence_fragment(v: &TopicsView, base: &Base, query: &str) -> Markup {
+pub fn stats_fragment(v: &TopicsView, base: &Base, query: &str) -> Markup {
+    let num = |n: usize| crate::format::number(i64::try_from(n).unwrap_or(0));
+    let mut stats = vec![
+        Stat::new("Topics", num(v.total)).ch(5),
+        Stat::new("Partitions", num(v.partitions)).ch(5),
+    ];
+    match &v.newest {
+        Some((topic, ms)) => {
+            stats.push(Stat::at("Newest write", *ms, v.now_ms));
+            stats.push(Stat::new("Written to", topic.clone()).mono().ch(20));
+        }
+        None => {
+            stats.push(Stat::new("Newest write", "none yet").mono().ch(11));
+            stats.push(Stat::new("Written to", "none").mono().ch(20));
+        }
+    }
     client::fragment(
-        LIST_SENTENCE,
-        &base.url(&format!("/fragments/{LIST_SENTENCE}{query}")),
-        html! { p class="sent" data-extra="live-sentence" style="margin:-8px 0 20px" { (spans(&list_sentence(v))) } },
+        LIST_STATS,
+        &base.url(&format!("/fragments/{LIST_STATS}{query}")),
+        stat_strip(&stats),
     )
 }
 
@@ -118,7 +59,7 @@ pub fn list_fragment(v: &TopicsView, base: &Base, query: &str) -> Markup {
     client::fragment(
         LIST_FRAGMENT,
         &base.url(&format!("/fragments/{LIST_FRAGMENT}{query}")),
-        html! { (table(v, base)) (pager(&shown(v), html! {})) },
+        html! { (table(v, base)) (pager_with(shown(v), html! {})) },
     )
 }
 
@@ -131,8 +72,6 @@ fn toolbar(v: &TopicsView, base: &Base) -> Markup {
             button class={"fchip" @if v.show_internal { " on" }} type="submit" name="internal" value=(if v.show_internal { "0" } else { "1" }) data-ui="toggle" aria-pressed=(v.show_internal) {
                 span class="toggle" {} "Show internal"
             }
-            span class="sp" {}
-            button class="btn sm" type="submit" data-ui="refresh" { (glyph(Glyph::Refresh, 14, "")) "Refresh" }
             @if v.show_internal { input type="hidden" name="internal" value="1"; }
         }
     }
@@ -146,7 +85,7 @@ fn internal_note(v: &TopicsView, base: &Base) -> Markup {
                 div style="flex:1" {
                     b { @if v.show_internal { "The internal topic is shown." } @else { "One internal topic is hidden." } }
                     " Turn on " b { "Show internal" } " and this row joins the list:"
-                    table class="t" style="margin-top:12px;background:var(--bg)" { tbody { (row_internal(&row)) } }
+                    div style="margin-top:12px" { (internal_table(&row, base)) }
                     p style="margin:12px 0 0" {
                         b { "Why it is read only." } " " span class="mono" { "__consumer_offsets" }
                         " is Kafka's own name for the place the group coordinator keeps each group's committed offsets, spread over 50 partitions. This broker keeps commits in its own store and answers Kafka's offset calls from it, so there is no log here to read, produce to, delete from, or change. The name is shown because Kafka clients and tools know it; the 50 partitions decide which coordinator slot a group lands in. Look at a group's commits on its Lag tab instead: "
@@ -154,18 +93,6 @@ fn internal_note(v: &TopicsView, base: &Base) -> Markup {
                     }
                 }
             }))
-        }
-    }
-}
-
-fn row_internal(r: &TopicRow) -> Markup {
-    html! {
-        tr {
-            td class="name" { span class="mono" { (r.name) } " " span class="tag" { "internal" } span class="sub" { "read only · the group coordinator's name for where commits live" } }
-            td class="mono r" { (r.partitions) }
-            td { (cleanup_tag(r.cleanup)) }
-            td class="mono r dim" { "not a log" }
-            td class="mono r dim" { "none" }
         }
     }
 }
@@ -220,7 +147,7 @@ fn filtered(v: &TopicsView, base: &Base, query: &str) -> Markup {
     let clear = base.url("/topics");
     html! {
         (head(v, base, "Where records live. Every topic is a log: open one to read it, produce to it, or see what the broker did to it."))
-        (sentence_fragment(v, base, query))
+        (stats_fragment(v, base, query))
         div class="toolbar" {
             (filter_box("q", "Filter topics by name", "Filter topics by name", &v.filter))
             span class="fchip on" { "Name contains " (v.filter) }
@@ -242,7 +169,7 @@ fn steady(v: &TopicsView, base: &Base, query: &str) -> Markup {
     html! {
         (head(v, base, "Where records live. Every topic is a log: open one to read it, produce to it, or see what the broker did to it."))
         // About the broker, not the filter: it is there whatever is typed, so typing moves nothing.
-        (sentence_fragment(v, base, query))
+        (stats_fragment(v, base, query))
         (toolbar(v, base))
         (list_fragment(v, base, query))
         (internal_note(v, base))

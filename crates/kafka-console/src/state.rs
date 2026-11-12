@@ -10,7 +10,6 @@ use crate::assets::Assets;
 use crate::base::Base;
 use crate::limits::Limits;
 use crate::source::Source;
-use crate::tick::{FLOOR, Ticker};
 use crate::ui::overlay::{Over, over};
 use crate::ui::shell::{Crumb, Page, Rail, document_over};
 
@@ -20,7 +19,6 @@ pub struct State {
     pub source: Source,
     pub base: Base,
     pub assets: Assets,
-    pub ticker: Arc<Ticker>,
     /// Cancelled when the console is told to stop: every open stream ends with it.
     pub stop: CancellationToken,
     /// `--console-allow-host`.
@@ -52,13 +50,10 @@ impl State {
         stop: CancellationToken,
         limits: &Limits,
     ) -> Shared {
-        let ticker = Ticker::new(FLOOR);
-        source.attach(&ticker);
         Arc::new(Self {
             assets: Assets::build(&base),
             source,
             base,
-            ticker,
             stop,
             allow_hosts,
             streams: Arc::new(Semaphore::new(limits.max_streams)),
@@ -71,10 +66,10 @@ impl State {
         active: Rail,
         title: &str,
         crumbs: &[(&str, Option<&str>)],
-        watch: &[&'static str],
+        regions: &[&'static str],
         main: Markup,
     ) -> Markup {
-        self.document_over(active, title, crumbs, watch, over(main, html! {}))
+        self.document_over(active, title, crumbs, regions, over(main, html! {}))
             .await
     }
 
@@ -84,7 +79,7 @@ impl State {
         active: Rail,
         title: &str,
         crumbs: &[(&str, Option<&str>)],
-        watch: &[&'static str],
+        regions: &[&'static str],
         over: Over,
     ) -> Markup {
         let chrome = self.source.chrome().await;
@@ -104,7 +99,7 @@ impl State {
             active,
             crumbs,
             title,
-            watch,
+            regions,
         };
         document_over(&page, over)
     }

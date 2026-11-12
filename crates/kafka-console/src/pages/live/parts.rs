@@ -6,7 +6,7 @@ use crate::base::Base;
 use crate::model::{WireClass, WireQuery, WireRow};
 
 /// The id of the Live fragment.
-pub const LIVE_FRAGMENT: &str = crate::live_ids::LIVE_WIRE;
+pub const LIVE_FRAGMENT: &str = crate::regions::LIVE_WIRE;
 
 /// Where a wire fragment is fetched: the fragment's address with the filters.
 #[must_use]

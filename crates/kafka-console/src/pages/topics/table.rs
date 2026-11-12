@@ -1,11 +1,10 @@
-//! The table of records, the same on the Messages page in every state.
-
 use maud::{Markup, html};
 
 use crate::base::{Base, segment};
 use crate::format::{bytes, clock_ms, number};
 use crate::model::{Kind, RecordRow, Shown, Standing};
 use crate::ui::button::{State, state};
+use crate::ui::datatable::{Col, DataTable, Row, Width, data_table, row_markup};
 use crate::ui::table::middle;
 
 fn cell(s: &Shown, what: &str) -> Markup {
@@ -34,7 +33,27 @@ fn standing(s: Standing) -> Markup {
     }
 }
 
-fn row(r: &RecordRow, topic: &str, query: &str, base: &Base) -> Markup {
+const COLS: [Col<'static>; 7] = [
+    Col::new("Partition", Width::Px(88)),
+    Col::new("Offset", Width::Px(96)),
+    Col::new("Timestamp", Width::Px(118)),
+    Col::new("Key", Width::Pct(18)),
+    Col::new("Value", Width::Fill),
+    Col::new("Value size", Width::Px(96)).right(),
+    Col::new("For read_committed", Width::Px(150)),
+];
+
+/// The table's id; its rows are `records-r-<partition>-<offset>`.
+pub(super) const RECORDS: &str = "records";
+
+fn spec(tail: bool) -> DataTable<'static> {
+    let t = DataTable::new(RECORDS, "Records, newest first", &COLS)
+        .compact()
+        .empty("No records to list.");
+    if tail { t.tail() } else { t }
+}
+
+fn row(r: &RecordRow, topic: &str, query: &str, base: &Base) -> Row {
     // The drawer's address carries the page's own query, so closing the drawer returns to the same filtered page.
     let href = base.url(&format!(
         "/topics/{}/messages/{}/{}{query}",
@@ -47,33 +66,42 @@ fn row(r: &RecordRow, topic: &str, query: &str, base: &Base) -> Markup {
     } else {
         "color:var(--text)"
     };
-    html! {
-        tr {
-            td class="mono" { (r.partition) }
-            td class="mono" { a class="lnk" href=(href) data-dialog { (number(r.offset)) } }
-            td class="mono dim" data-vary { (clock_ms(r.timestamp_ms)) }
-            td class="mono key mid-cell" { (key_cell(&r.key)) }
-            td class="mono" style={"font-size:12.5px;" (tone)} { (cell(&r.value, "value")) }
-            td class="mono r" { (bytes(r.value.bytes)) }
-            td { (standing(r.standing)) }
-        }
-    }
+    let value = html! { span class="ell mono" style={"font-size:12.5px;" (tone)} title=(r.value.preview) { (cell(&r.value, "value")) } };
+    Row::new(
+        format!("{}-{}", r.partition, r.offset),
+        vec![
+            html! { span class="mono" { (r.partition) } },
+            html! { a class="lnk mono" href=(href) data-dialog { (number(r.offset)) } },
+            html! { span class="mono dim" { (clock_ms(r.timestamp_ms)) } },
+            html! { span class="mono key" { (key_cell(&r.key)) } },
+            value,
+            html! { span class="mono" { (bytes(r.value.bytes)) } },
+            standing(r.standing),
+        ],
+    )
 }
 
 /// The table: one row per record, newest first. `query` is the page's query (with its `?`, or nothing): a record opens in a
-/// drawer over this same page.
+/// drawer over this same page. `tail`: the body takes new rows at the top from the Live tail.
 #[must_use]
-pub(super) fn records(rows: &[RecordRow], topic: &str, query: &str, base: &Base) -> Markup {
-    html! {
-        table class="t" {
-            thead { tr {
-                th scope="col" { "Partition" } th scope="col" { "Offset" } th scope="col" { "Timestamp" }
-                th scope="col" { "Key" } th scope="col" { "Value" } th scope="col" class="r" { "Value size" }
-                th scope="col" { "For read_committed" }
-            } }
-            tbody { @for r in rows { (row(r, topic, query, base)) } }
-        }
-    }
+pub(super) fn records(
+    rows: &[RecordRow],
+    topic: &str,
+    query: &str,
+    base: &Base,
+    tail: bool,
+) -> Markup {
+    data_table(
+        &spec(tail),
+        rows.iter().map(|r| row(r, topic, query, base)).collect(),
+    )
+}
+
+/// The rows of a tail's event, in the form the table draws them.
+#[must_use]
+pub fn tail_rows(rows: &[RecordRow], topic: &str, query: &str, base: &Base) -> Markup {
+    let t = spec(true);
+    html! { @for r in rows { (row_markup(&t, &row(r, topic, query, base))) } }
 }
 
 #[cfg(test)]
@@ -102,7 +130,7 @@ mod tests {
             value: shown(Kind::Text, hostile),
             standing: Standing::AboveLso,
         };
-        let m = records(&[r], "a/b", "", &Base::root()).into_string();
+        let m = records(&[r], "a/b", "", &Base::root(), false).into_string();
         assert!(!m.contains("<img") && !m.contains("</script>"), "{m}");
         assert!(
             m.contains("&lt;/script&gt;&lt;img src=x onerror=alert(1)&gt;&quot;'"),
@@ -130,6 +158,7 @@ mod tests {
             "t",
             "",
             &Base::root(),
+            false,
         )
         .into_string();
         assert!(

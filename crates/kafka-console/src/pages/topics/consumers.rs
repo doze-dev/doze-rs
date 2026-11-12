@@ -73,7 +73,7 @@ fn sentence(v: &ConsumersView) -> Markup {
     html! {
         p class="sent" style="margin:0 0 16px;max-width:900px" {
             b { (n) } " consumer " (if n == 1 { "group has" } else { "groups have" }) " committed offsets on " span class="mono" { (v.head.name) } "."
-            @if let Some(ms) = last { " The latest commit was " (ago(v.head.now_ms - ms)) "." }
+            @if let Some(ms) = last { " The latest commit was at " (crate::format::stamp(ms, v.head.now_ms)) "." }
             @if v.readers.len() < n { " The " (v.readers.len()) " furthest behind are listed." }
         }
     }

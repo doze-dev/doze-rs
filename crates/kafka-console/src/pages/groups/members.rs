@@ -3,7 +3,7 @@
 
 use maud::{Markup, html};
 
-use super::common::{On, group_tabs, group_url, head, reset_and_delete, sentence_fragment, switch};
+use super::common::{On, group_tabs, group_url, head, reset_and_delete, stats_fragment, switch};
 use super::detail::part_list;
 use crate::base::{Base, segment};
 use crate::format::ago;
@@ -25,10 +25,10 @@ fn secs(ms: u64) -> String {
     crate::groups_words::seconds(ms)
 }
 
-fn heard(m: &GroupMemberRow) -> String {
+fn heard(h: &GroupHead, m: &GroupMemberRow) -> String {
     m.heard_ago_ms.map_or_else(
         || "not told".to_owned(),
-        |ms| ago(i64::try_from(ms).unwrap_or(0)),
+        |ms| crate::format::stamp(h.now_ms - i64::try_from(ms).unwrap_or(0), h.now_ms),
     )
 }
 
@@ -41,7 +41,7 @@ fn row(h: &GroupHead, m: &GroupMemberRow, base: &Base, open: Option<&str>) -> Ma
             td { (role(h, m)) }
             td class="r mono" { (m.epoch) }
             td class="mono" { @if m.session_ms > 0 { (secs(m.session_ms)) } @else { "—" } }
-            td class="mono" data-vary { (heard(m)) }
+            td class="mono" data-vary { (heard(h, m)) }
         }
     }
 }
@@ -132,7 +132,7 @@ pub fn members_page(v: &GroupLagView, base: &Base) -> Markup {
 pub fn members_page_open(v: &GroupLagView, base: &Base, open: Option<&str>) -> Markup {
     let h = &v.head;
     html! {
-        (head(h, sentence_fragment(h, base, &group_sentence(h, &v.topics), false), reset_and_delete(h, base)))
+        (head(h, stats_fragment(h, base), reset_and_delete(h, base)))
         (switch(h, base, "/members"))
         (group_tabs(h, base, On::Members))
         table class="t" {
@@ -181,7 +181,7 @@ pub fn member_drawer(h: &GroupHead, m: &GroupMemberRow, base: &Base) -> Markup {
                 dt { "Generation" } dd class="mono" { (m.epoch) }
                 dt { "Session timeout" } dd class="mono" {
                     @if m.session_ms > 0 { (secs(m.session_ms)) } @else { "—" }
-                    span class="sub" data-vary { (heard(m)) " since its last heartbeat" }
+                    span class="sub" data-vary { (heard(h, m)) " is when it last sent a heartbeat" }
                 }
                 dt { "Rebalance timeout" } dd class="mono" { @match m.rebalance_ms { Some(r) => (secs(r)), None => "not sent" } }
                 dt { "Static instance id" } dd {

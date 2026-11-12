@@ -96,6 +96,12 @@ pub fn pager(left: &str, button: Markup) -> Markup {
     html! { div class="pager" { span { (left) } (button) } }
 }
 
+/// [`pager`] whose left side is markup (a line made of metric slots).
+#[must_use]
+pub fn pager_with(left: Markup, button: Markup) -> Markup {
+    html! { div class="pager" { span class="nowrap" { (left) } (button) } }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
