@@ -1,0 +1,8 @@
+<!--screen {"id":"lab-rule-create","title":"New rehearsal","kind":"dialog","from":"lab-home","via":"Button: New rehearsal","ops":["doze:SlowTopic","doze:FailTopic"],"refs":["grounding:K11"],"data":"lab","extras":["lab-rule"],"crumbs":[]} -->
+<h2>New rehearsal</h2>
+<div class="body"><p style="margin:0 0 18px">A rule bends requests to one topic for a few minutes, then ends. Choose how.</p>
+<div class="choice">
+<a class="opt on" href="@lab-slow"><div class="opt-row"><span class="radio on"></span><div><div class="t1">Slow a topic</div><div class="t2">Add delay to Produce or Fetch. Nothing fails; everything takes longer.</div></div></div></a>
+<a class="opt" href="@lab-fail"><div class="opt-row"><span class="radio"></span><div><div class="t1">Fail some requests</div><div class="t2">Answer 1 in N with an error Kafka has, such as REQUEST_TIMED_OUT.</div></div></div></a></div>
+<p class="help" style="margin:18px 0 0">Dropping a connection, expiring a member, forcing a rebalance and running the cleaner do not need a rule. They happen once and are on the page behind this one.</p></div>
+<div class="foot"><a class="btn" href="@lab-home">Cancel</a><a class="btn pri" href="@lab-slow">Next</a></div>

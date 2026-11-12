@@ -1,0 +1,44 @@
+<!--screen {"id":"connect","title":"Connect an app","kind":"page","from":"home","via":"Button: Connect an app","ops":["Metadata"],"refs":["grounding:K1","cat:SEC-189","go:console/home.go","go:console/templates/connect.html"],"data":"now","extras":["endpoint","copy-as","teaching"],"crumbs":[]} -->
+<div class="page-h"><div><h1>Connect an app</h1><p class="sub">It is an ordinary Kafka broker, so it is an ordinary Kafka client. Only the address is yours to fill in; here it already is.</p></div><div class="acts"><button class="btn" type="button" data-ui="copy">[[g:copy 16]]Copy as client.properties</button></div></div>
+<div class="g2" style="align-items:start">
+<div class="card" data-extra="endpoint"><h2>Address</h2><p class="lede">Bootstrap from this address. Clients are then told where to reconnect.</p>
+<div class="stack-y" style="gap:8px"><div class="conn"><span class="node self mono" style="height:36px;font-size:15px">127.0.0.1:9092</span><span class="sp"></span><button class="btn sm" type="button" data-ui="copy">[[g:copy 16]]Copy</button></div><div class="help">The listener, set by <span class="mono">--listen</span>. It is on loopback, so only this machine can reach it.</div></div>
+<div class="hr"></div>
+<h2 style="margin:0 0 6px">From another machine or a container</h2>
+<p class="help" style="margin:0 0 12px">Listen on every interface and advertise an address the other side can use. <a class="lnk" href="@connect-advertised">Why the advertised host matters</a>.</p>
+<pre class="code">doze-kafka --listen 0.0.0.0:9092 \
+  --advertised-host 192.168.1.20 \
+  --advertised-port 9092</pre></div>
+<div class="card"><div class="row sb"><h2>Advertised listener</h2><span class="st ok">Reachable</span></div><p class="lede">After Metadata a client reconnects to the <b>advertised</b> address. This broker advertises 127.0.0.1:9092, which is the address it listens on, and answers there.</p>
+<div class="rules">
+<div class="r ok">[[g:check 16]]<div>The listener answers<span class="sub">Dialled 127.0.0.1:9092 and asked ApiVersions</span></div><span class="v">2 ms</span></div>
+<div class="r ok">[[g:check 16]]<div>It says where clients should reconnect<span class="sub">Metadata names this broker at 127.0.0.1:9092: the advertised host and port equal the listener</span></div><span class="v">Metadata</span></div>
+<div class="r ok">[[g:check 16]]<div>That address is reachable<span class="sub">Dialled the advertised address back and got an answer</span></div><span class="v">2 ms</span></div>
+</div><div class="row" style="margin-top:16px"><a class="btn" href="@connect-advertised">[[g:info 16]]How the check works, and the bad case</a></div></div>
+</div>
+<div class="sec" style="margin-top:40px"><div class="row sb" style="margin-bottom:16px"><div><h2>Snippets by client</h2><p class="help" style="margin:0">The address is filled in. Pick how to copy it.</p></div><div class="row" data-extra="copy-as"><span class="dim">Copy as</span><div class="seg"><button type="button" class="on" data-ui="tab">Code</button><button type="button" data-ui="tab">Properties</button><button type="button" data-ui="tab">Environment</button></div></div></div>
+<div class="g2"><div class="card"><div class="row sb"><div class="title-row" style="gap:10px">[[g:code 16 d-data]]<h2 style="margin:0">franz-go</h2><span class="pill mono">go</span></div><button class="btn sm" type="button" data-ui="copy">[[g:copy 16]]Copy</button></div><pre class="code" style="margin-top:16px"><span class="k">cl</span>, err := kgo.NewClient(
+    kgo.SeedBrokers(<span class="s">"127.0.0.1:9092"</span>),
+    kgo.ClientID(<span class="s">"payments"</span>),
+)</pre></div><div class="card"><div class="row sb"><div class="title-row" style="gap:10px">[[g:code 16 d-data]]<h2 style="margin:0">sarama</h2><span class="pill mono">go</span></div><button class="btn sm" type="button" data-ui="copy">[[g:copy 16]]Copy</button></div><pre class="code" style="margin-top:16px">cfg := sarama.NewConfig()
+cfg.ClientID = <span class="s">"orders"</span>
+client, err := sarama.NewClient(
+    []string{<span class="s">"127.0.0.1:9092"</span>}, cfg)</pre></div><div class="card"><div class="row sb"><div class="title-row" style="gap:10px">[[g:code 16 d-data]]<h2 style="margin:0">librdkafka and kcat</h2><span class="pill mono">c · py</span></div><button class="btn sm" type="button" data-ui="copy">[[g:copy 16]]Copy</button></div><pre class="code" style="margin-top:16px"><span class="c"># kcat</span>
+kcat -b 127.0.0.1:9092 -X client.id=admin-cli -L
+
+<span class="c"># librdkafka properties</span>
+bootstrap.servers=127.0.0.1:9092
+client.id=fulfilment</pre></div><div class="card"><div class="row sb"><div class="title-row" style="gap:10px">[[g:code 16 d-data]]<h2 style="margin:0">kafkajs</h2><span class="pill mono">ts</span></div><button class="btn sm" type="button" data-ui="copy">[[g:copy 16]]Copy</button></div><pre class="code" style="margin-top:16px">const kafka = new Kafka({
+  clientId: <span class="s">'notifications'</span>,
+  brokers: [<span class="s">'127.0.0.1:9092'</span>],
+})</pre></div><div class="card"><div class="row sb"><div class="title-row" style="gap:10px">[[g:code 16 d-data]]<h2 style="margin:0">Java client</h2><span class="pill mono">java</span></div><button class="btn sm" type="button" data-ui="copy">[[g:copy 16]]Copy</button></div><pre class="code" style="margin-top:16px">bootstrap.servers=127.0.0.1:9092
+client.id=my-app
+acks=all
+enable.idempotence=true</pre></div>
+<div class="card"><h2>Name your app</h2><p class="lede">Set <span class="mono">client.id</span> to the app's own name. The wire shows every request under that name, so <span class="mono">payments</span> and <span class="mono">fulfilment</span> appear as themselves, not as a default like <span class="mono">rdkafka</span>.</p>
+<div class="teach"><b>No credentials needed.</b> <span class="dim">The top bar says Open: any client that can reach the address may connect. If SASL is on, add the three lines below. <a class="lnk" href="@access">Access</a> lists the mechanisms the broker offers.</span></div></div></div>
+<div class="card" style="margin-top:24px" data-extra="teaching"><div class="row sb"><div class="title-row" style="gap:10px">[[g:lock 16 d-config]]<h2 style="margin:0">When SASL is on</h2></div><button class="btn sm" type="button" data-ui="copy">[[g:copy 16]]Copy</button></div><p class="lede" style="margin-top:8px">These are Kafka's own client settings. Use <span class="mono">SASL_SSL</span> when the broker serves TLS; a PLAIN password crosses the network as it is without it.</p>
+<pre class="code" style="margin-top:8px">security.protocol=SASL_PLAINTEXT
+sasl.mechanism=SCRAM-SHA-256
+sasl.jaas.config=org.apache.kafka.common.security.scram.ScramLoginModule required \
+  username="&lt;user&gt;" password="&lt;password&gt;";</pre></div></div>

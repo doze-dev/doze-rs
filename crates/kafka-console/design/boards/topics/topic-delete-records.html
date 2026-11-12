@@ -1,0 +1,15 @@
+<!--screen {"id":"topic-delete-records","title":"Delete records","kind":"dialog","from":"topic-partitions","via":"Button: Delete records","ops":["DeleteRecords"],"refs":["cat:ADM-2","grounding:K9"],"data":"now","extras":["api-preview","teaching"],"crumbs":[]} -->
+<h2>Delete records from <span class="mono">orders-0</span></h2>
+<div class="body"><div class="form" style="gap:18px">
+<div class="field"><label>Delete everything before offset</label><div class="input mono"><input type="text" value="16000"><span class="unit">log start now 0 · end 16,104</span></div>
+<div class="teach" data-extra="teaching"><div><b>Kafka says</b> the log start moves to this offset; earlier records are no longer served.</div><div><b>Range</b> 0 up to the high watermark (16,104). -1 means the high watermark: delete everything.</div><div><b>Takes effect</b> at once, kept through a restart. Below or at the start changes nothing; past the high watermark is OFFSET_OUT_OF_RANGE.</div><div><b>Here</b> it cannot be undone, and the last stable offset never falls below the new start.</div></div></div>
+<div class="callout warn" style="margin:0">[[g:warn 18]]<div><b>This removes 16,000 records</b>: offsets 0 to 15,999 of orders-0. Offset 16,000 stays and becomes the log start. A consumer positioned below it gets OFFSET_OUT_OF_RANGE and follows its <span class="mono">auto.offset.reset</span>. payments-workers is at 16,092: it is not affected.</div></div>
+<div class="help">On a topic that only compacts this is refused: <a class="lnk" href="@topic-delete-records-refused">see POLICY_VIOLATION</a>.</div>
+<div class="apicall" data-extra="api-preview"><div class="hd">[[g:api 14]]The call</div><pre class="code"><span class="k">DeleteRecords</span> v2
+  topics[0]
+    name: <span class="s">orders</span>
+    partitions[0]
+      partition_index: 0
+      offset: 16000
+  timeout_ms: 30000</pre></div></div></div>
+<div class="foot"><a class="btn" href="@topic-partitions">Cancel</a><a class="btn danger fill" href="@topic-partitions" data-op="DeleteRecords">Delete 16,000 records</a></div>

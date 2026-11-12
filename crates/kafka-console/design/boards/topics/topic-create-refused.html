@@ -1,0 +1,17 @@
+<!--screen {"id":"topic-create-refused","title":"Create refused","kind":"state","from":"topic-create-review","via":"Link: see that refusal","ops":["CreateTopics"],"refs":["cat:T1","cat:T2","cat:T3","cat:T9"],"data":"now","extras":["refusal","api-preview"],"crumbs":[["Create topic","@topic-create"]]} -->
+<div class="page-h"><div><h1>Create topic</h1><p class="sub">The topic was not created.</p></div></div>
+<div class="steps"><span class="s done"><i>[[g:check 12]]</i>Name and partitions</span><span class="bar"></span><span class="s done"><i>[[g:check 12]]</i>Configuration</span><span class="bar"></span><span class="s on"><i>3</i>Review and create</span></div>
+<div class="split wide"><div class="stack-y">
+<div class="callout refused" data-extra="refusal">[[g:warn 18]]<div><b>Refused · TOPIC_ALREADY_EXISTS (36)</b><br>Topic 'orders.retry' already exists.<br><span class="dim">The name is taken. Between your review and the click, a client wrote to <span class="mono">orders.retry</span>, and with <span class="mono">--auto-create-topics</span> on the broker made it with 1 partition and the defaults.</span><br><b>What would pass</b> another name, or open the topic that is there and add partitions to it (partitions can only go up).</div></div>
+<div class="card"><h2>What you can do</h2><div class="row wrap" style="margin-top:12px"><a class="btn pri" href="@topic-detail">Open the existing topic</a><a class="btn" href="@topic-create">Choose another name</a><a class="btn" href="@topics-list">Back to topics</a></div></div>
+<div class="card"><h2>The other refusals of this call</h2><p class="lede">Each topic in a CreateTopics is answered on its own, with Kafka's code.</p>
+<div class="rules"><div class="r no">[[g:warn 16]]<div><span class="mono">INVALID_TOPIC_EXCEPTION (17)</span><span class="sub">the name has a character Kafka forbids, or collides: "Topic 'orders_dlq' collides with existing topic: orders.dlq"</span></div><span class="v">name</span></div>
+<div class="r no">[[g:warn 16]]<div><span class="mono">INVALID_PARTITIONS (37)</span><span class="sub">zero or fewer partitions, or more than <span class="mono">--max-partitions</span> (1,000)</span></div><span class="v">partitions</span></div>
+<div class="r no">[[g:warn 16]]<div><span class="mono">INVALID_CONFIG (40)</span><span class="sub">a value Kafka would not accept, naming the first bad key</span></div><span class="v">config</span></div></div></div></div>
+<div class="stack-y"><div class="apicall" data-extra="api-preview"><div class="hd">[[g:api 14]]The answer</div><pre class="code"><span class="k">CreateTopics</span> v7 response
+  topics[0]
+    name: <span class="s">orders.retry</span>
+    error_code: <span class="s">36 TOPIC_ALREADY_EXISTS</span>
+    error_message: Topic 'orders.retry' already exists.
+    num_partitions: -1
+    replication_factor: -1</pre><p class="help" style="margin:12px 0 0">A refused topic answers -1 partitions and -1 replication factor.</p></div></div></div>

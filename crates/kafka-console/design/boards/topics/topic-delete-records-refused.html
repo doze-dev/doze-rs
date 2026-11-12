@@ -1,0 +1,13 @@
+<!--screen {"id":"topic-delete-records-refused","title":"Delete records refused","kind":"state","from":"topic-delete-records","via":"Link: see POLICY_VIOLATION","ops":["DeleteRecords"],"refs":["cat:ADM-2","cat:ADM-1"],"data":"now","extras":["refusal","api-preview"],"crumbs":[["orders","@topic-detail"],["Partitions","@topic-partitions"]]} -->
+<div class="page-h"><div><div class="title-row"><h1 class="mono">inventory.levels</h1><span class="pill mono">compact</span></div><p class="sent" style="margin:10px 0 0;max-width:760px">Delete records on a topic that only compacts. The partition was not touched: log start is still 0.</p></div></div>
+<div class="split wide"><div class="stack-y">
+<div class="callout refused" data-extra="refusal">[[g:warn 18]]<div><b>Refused · POLICY_VIOLATION (44)</b><br>Request parameters do not satisfy the configured policy.<br><span class="dim">Rule: on a topic whose cleanup.policy is only compact, records are removed by the cleaner (the latest value of each key stays), not by offset. That is Kafka's own text for this code; this broker answers it for every partition of such a topic.</span><br><b>What would pass</b> add <span class="mono">delete</span> to cleanup.policy (<span class="mono">delete,compact</span>), then records before an offset can go. <a class="lnk" href="@config/config-edit-list">Edit cleanup.policy</a></div></div>
+<div class="card"><h2>What removes records here instead</h2><div class="rules"><div class="r ok">[[g:check 16]]<div>The cleaner<span class="sub">keeps the latest record of every key, drops the rest; due when more than 50 % of the log is dirty</span></div><span class="v">compaction</span></div>
+<div class="r ok">[[g:check 16]]<div>A tombstone<span class="sub">a record with a key and no value; it and the records it deletes go after delete.retention.ms (1 d)</span></div><span class="v">deletion</span></div>
+<div class="r no">[[g:x 16]]<div>Retention<span class="sub">does not apply: the policy is compact only</span></div><span class="v">not here</span></div></div>
+<div class="row" style="margin-top:12px"><a class="btn" href="@log/topic-log">See what compaction did to this log</a></div></div></div>
+<div class="stack-y"><div class="apicall" data-extra="api-preview"><div class="hd">[[g:api 14]]The answer</div><pre class="code"><span class="k">DeleteRecords</span> v2 response
+  topic: <span class="s">inventory.levels</span>
+  partition_index: 0
+  low_watermark: -1
+  error_code: <span class="s">44 POLICY_VIOLATION</span></pre></div></div></div>

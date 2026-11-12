@@ -1,0 +1,25 @@
+<!--screen {"id":"topic-create-config","title":"Configuration","kind":"page","from":"topic-create","via":"Button: Next","ops":["CreateTopics"],"refs":["cat:T4","cat:ADM-1","grounding:K10"],"data":"now","extras":["teaching","api-preview","copy-as"],"crumbs":[["Create topic","@topic-create"]]} -->
+<div class="page-h"><div><h1>Create topic</h1><p class="sub">What the topic does with old records. Kafka's own sentence, the default and when it takes effect sit under each field.</p></div></div>
+<div class="steps"><span class="s done"><i>[[g:check 12]]</i>Name and partitions</span><span class="bar"></span><span class="s on"><i>2</i>Configuration</span><span class="bar"></span><span class="s "><i>3</i>Review and create</span></div>
+<div class="split wide"><div class="card"><div class="form">
+<div class="field"><div class="lab">cleanup.policy</div>
+<div class="opt-row"><span class="radio on"></span><div><div class="t1">delete</div><div class="t2">old segments go when they pass the retention time or size</div></div></div>
+<div class="opt-row"><span class="radio"></span><div><div class="t1">compact</div><div class="t2">keep the latest record for every key; a record with no key is refused</div></div></div>
+<div class="opt-row"><span class="radio"></span><div><div class="t1">delete,compact</div><div class="t2">both: compact what is kept, and drop what is too old</div></div></div>
+<div class="teach" data-extra="teaching"><div><b>Kafka says</b> the "delete" policy (the default) will discard old segments when their retention time or size limit has been reached. The "compact" policy retains the latest value for each key.</div><div><b>Default</b> <span class="mono">delete</span>.</div><div><b>Range</b> <span class="mono">delete</span>, <span class="mono">compact</span>, or both.</div><div><b>Takes effect</b> read for each request; the cleaner looks every 15 s, retention every 5 m.</div><div><b>Here</b> only <span class="mono">compact</span> makes keyless records refused (INVALID_RECORD).</div></div></div>
+<div class="field"><label for="r">retention.ms</label><div class="input mono"><input id="r" type="text" value="604800000"><span class="unit">= 7 d</span></div>
+<div class="teach" data-extra="teaching"><div><b>Kafka says</b> the maximum time we will retain a log before we discard old log segments, when using the "delete" policy. If set to -1, no time limit is applied.</div><div><b>Default</b> <span class="mono">604800000</span> (7 d).</div><div><b>Range</b> -1, or 0 and up.</div><div><b>Takes effect</b> at the next retention pass (<span class="mono">--log-retention-check-interval</span>, 5 m); the active segment is never deleted.</div><div><b>Here</b> <span class="mono">clickstream</span> sets 3600000 (1 h) and so deletes the most.</div></div></div>
+<div class="actions-bar"><a class="btn" href="@topic-create">Back</a><a class="btn pri" href="@topic-create-review">Next: review</a></div></div></div>
+<div class="stack-y"><div class="apicall" data-extra="api-preview"><div class="hd">[[g:api 14]]The call</div><pre class="code"><span class="k">CreateTopics</span> v7
+  topics[0]
+    name: <span class="s">orders.retry</span>
+    num_partitions: 3
+    replication_factor: 1
+    configs:
+      <span class="s">cleanup.policy</span> = delete
+      <span class="s">retention.ms</span> = 604800000
+  validate_only: false</pre></div><div class="apicall" data-extra="copy-as" style="margin-top:16px"><div class="hd">[[g:code 14]]Or from a terminal</div><pre class="code"><span class="c"># the same, with Kafka's own tool</span>
+kafka-topics.sh --bootstrap-server 127.0.0.1:9092 \
+  --create --topic orders.retry --partitions 3 \
+  --config cleanup.policy=delete \
+  --config retention.ms=604800000</pre><div class="row" style="margin-top:12px"><button class="btn sm" type="button" data-ui="copy">[[g:copy 14]]Copy</button></div></div></div></div>

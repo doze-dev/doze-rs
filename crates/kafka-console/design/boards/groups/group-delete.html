@@ -1,0 +1,7 @@
+<!--screen {"id":"group-delete","title":"Delete group","kind":"dialog","from":"group-detail","via":"Button: Delete group","ops":["DeleteGroups"],"refs":["cat:G9","grounding:K3","go:console/groups_boards.go"],"data":"now","extras":["teaching"],"crumbs":[]} -->
+<h2>Delete search-indexer?</h2>
+<div class="body">
+<p style="margin:0 0 16px">Deleting a group removes the group and its 7 committed offsets: clickstream 0 to 5 and inventory.levels-0. The app would start again from its <span class="mono">auto.offset.reset</span>.</p>
+<div class="callout warn" data-extra="teaching">[[g:warn 18]]<div><b>This group is not empty.</b> search-indexer-1 is a member. DeleteGroups only accepts an empty group, so Kafka will refuse with NON_EMPTY_GROUP. Stop the app first, or try it to see the answer.</div></div>
+</div>
+<div class="foot"><a class="btn" href="@group-detail">Cancel</a><a class="btn danger fill" href="@group-delete-refused" data-op="DeleteGroups">Delete group</a></div>

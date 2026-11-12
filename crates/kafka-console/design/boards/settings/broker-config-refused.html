@@ -1,0 +1,20 @@
+<!--screen {"id":"broker-config-refused","title":"Refused: cannot update dynamically","kind":"state","from":"broker-config-edit","via":"Link: what Kafka says","ops":["IncrementalAlterConfigs"],"refs":["cat:ADM-7","cat:ADM-D2","code:crates/kafka-broker/src/configs/broker.rs"],"data":"now","extras":["refusal","api-preview"],"crumbs":[]} -->
+<div class="page-h"><div><div class="title-row"><h1>Refused</h1><span class="st refused">Refused</span></div><p class="sub">A tool asked to change a config that cannot change while the broker runs. Kafka says no, and so does this broker, in the same words. <b>The console never offers it</b>; this is what <span class="mono">kafka-configs.sh</span> or another client would see.</p></div>
+<div class="acts"><a class="btn" href="@settings-home">[[g:back 16]]Back to Settings</a></div></div>
+<div class="callout refused" data-extra="refusal" style="margin-bottom:28px">[[g:warn 18]]<div><span class="rw refused">Refused <span class="mono">INVALID_REQUEST (42)</span></span><div style="margin-top:6px;font-size:15px" class="mono bright">Cannot update these configs dynamically: [num.partitions]</div><div style="margin-top:8px">The rule: only five broker configs act on a running broker. <span class="mono">num.partitions</span> is read once, at start.</div></div></div>
+<div class="split wide"><div class="stack-y">
+<div class="card"><h2>What would pass</h2><p class="sent" style="margin:8px 0 14px">Start the broker with the flag that sets it. For <span class="mono">num.partitions</span> that is <span class="mono">--default-partitions</span>, now 1.</p>
+<div class="row wrap"><span class="pill mono">--default-partitions 3</span><a class="lnk" href="@settings-home">All flags</a></div></div>
+<div class="card"><h2>The other ways a change is refused</h2><p class="lede" style="margin-bottom:12px">All are INVALID_REQUEST (42), with Kafka's text. The first is the one above.</p>
+<div class="rules">
+<div class="r no"><span class="gl" style="color:var(--refused)">[[g:warn 16]]</span><div>Not a Kafka config<span class="sub mono" style="font-size:12.5px;color:var(--text)">Unknown Dynamic Configuration: foo.bar.</span><span class="sub">a name the broker does not have</span></div></div>
+<div class="r no"><span class="gl" style="color:var(--refused)">[[g:warn 16]]</span><div>Too small or not a number<span class="sub mono" style="font-size:12.5px;color:var(--text)">Invalid value 524288 for configuration log.segment.bytes: Value must be at least 1048576</span><span class="sub">log.segment.bytes is at least 1 MiB</span></div></div>
+<div class="r no"><span class="gl" style="color:var(--refused)">[[g:warn 16]]</span><div>Another broker's id<span class="sub mono" style="font-size:12.5px;color:var(--text)">Unexpected broker id, expected 1, but received 2</span><span class="sub">this broker is node 1</span></div></div>
+</div></div></div>
+<div class="stack-y"><div class="apicall" data-extra="api-preview"><div class="hd">[[g:code 14]]The call that was refused</div><pre class="code" style="margin:0">IncrementalAlterConfigs v1
+  BROKER "" (all brokers)
+  SET num.partitions = 3
+
+-> INVALID_REQUEST (42)</pre></div>
+<div class="card"><h2>Fixed while it runs</h2><p class="lede" style="margin-bottom:12px">Kafka configs this broker holds but does not change at run time.</p><div class="row wrap" style="gap:8px">
+<span class="tag">num.partitions</span><span class="tag">auto.create.topics.enable</span><span class="tag">log.dirs</span><span class="tag">listeners</span><span class="tag">advertised.listeners</span><span class="tag">log.retention.check.interval.ms</span><span class="tag">group.initial.rebalance.delay.ms</span><span class="tag">offsets.retention.minutes</span><span class="tag">transactional.id.expiration.ms</span><span class="tag">broker.id</span><span class="tag">node.id</span></div></div></div></div>

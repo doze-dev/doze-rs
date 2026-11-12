@@ -1,0 +1,21 @@
+<!--screen {"id":"connect-first-request","title":"First request landed","kind":"state","from":"home","via":"Link: what a first request looks like","ops":["ApiVersions","Metadata"],"refs":["grounding:K1","grounding:K2","cat:V2"],"data":"capture","needs":["wire"],"extras":["live-sentence","story"],"crumbs":[]} -->
+<div class="page-h"><div><h1>A new client just connected</h1><p class="sub" data-extra="live-sentence"><b class="mono">admin-cli</b> sent its first request at 21:52:07, from 127.0.0.1:50731. It speaks Kafka as <span class="mono">librdkafka</span>, and the broker answered every request.</p></div><div class="acts"><a class="btn pri" href="@live">[[g:live 16]]Open Live</a></div></div>
+<div class="banner">[[g:check 18]]<span><b>It works.</b> The client reached the listener, negotiated versions and got a Metadata answer. Nothing it asked for was refused.</span></div>
+<div class="g2" style="align-items:start">
+<div class="card"><h2>Who it is</h2><dl class="kv sm" style="margin-top:12px">
+<dt>client.id</dt><dd class="mono">admin-cli</dd>
+<dt>Software</dt><dd>librdkafka <span class="dim">(from ApiVersions)</span></dd>
+<dt>From</dt><dd class="mono">127.0.0.1:50731</dd>
+<dt>First request</dt><dd class="mono">21:52:07.118</dd>
+<dt>Version range</dt><dd>ApiVersions v3, Metadata v12 so far<span class="sub">Each API is spoken at the highest version both sides know.</span></dd>
+</dl></div>
+<div class="card" data-extra="story"><h2>What it asked, in order</h2><div class="story" style="margin-top:16px">
+<div class="ev"><div class="tm">21:52:07.118</div><div class="dot"><i></i></div><div class="tx"><b>ApiVersions v3</b><br>It asked which APIs and versions this broker offers. The Kafka 4 profile answered.</div></div>
+<div class="ev"><div class="tm">21:52:07.121</div><div class="dot"><i></i></div><div class="tx"><b>Metadata v12</b><br>It asked for every topic. The broker listed 9 topics and told it to reconnect to 127.0.0.1:9092.</div></div>
+<div class="ev idle"><div class="tm">next</div><div class="dot"><i></i></div><div class="tx dim">Waiting for its next request: a produce, a fetch or a group call.</div></div>
+</div></div></div>
+<div class="sec" style="margin-top:40px"><h2>The wire for this client</h2><p class="lede">The same rows Live shows, filtered to <span class="mono">admin-cli</span>.</p>
+<table class="t wire"><thead><tr><th style="width:130px">Time</th><th style="width:170px">API</th><th>Target</th><th style="width:330px">Result</th><th class="r" style="width:90px">Took</th></tr></thead><tbody>
+<tr><td class="tm">21:52:07.121</td><td><b class="mono">Metadata v12</b></td><td class="mono">all topics</td><td><span class="st ok">Done</span> <span class="dim">9 topics</span></td><td class="mono r">1 ms</td></tr><tr><td class="tm">21:52:07.118</td><td><b class="mono">ApiVersions v3</b></td><td class="mono">-</td><td><span class="st ok">Done</span> <span class="dim">Kafka 4 profile</span></td><td class="mono r">1 ms</td></tr>
+</tbody></table>
+<div class="callout" style="margin-top:24px">[[g:info 18]]<div><b>Next:</b> send a record and watch it land. <span class="mono">echo hi | kcat -P -b 127.0.0.1:9092 -t orders -X client.id=admin-cli</span>, then open <a class="lnk" href="@topics/topics-list">Topics</a>.</div></div></div>

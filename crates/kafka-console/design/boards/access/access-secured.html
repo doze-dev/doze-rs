@@ -1,0 +1,54 @@
+<!--screen {"id":"access-secured","title":"Access with security on","kind":"state","from":"access-open","via":"Button: See the page with security on","security":"sasl=scram,acls,tls","ops":["DescribeAcls","DescribeUserScramCredentials","DeleteAcls"],"refs":["cat:SEC-1","cat:SEC-16","cat:SEC-19","cat:SEC-23","cat:SEC-26","cat:SEC-140","cat:SEC-169","cat:SEC-172","cat:SEC-188","cat:SEC-189","cat:SEC-191","code:crates/doze-kafka/src/cli.rs","code:crates/kafka-broker/src/authorizer.rs"],"data":"now","extras":["new"],"crumbs":[]} -->
+<div class="page-h"><div><div class="title-row"><h1>Access</h1><span class="st ok">Sign-in required</span><span class="new" data-extra="new">New</span></div>
+<p class="sub">Clients sign in with SCRAM over TLS, and ACLs decide what each one may do. Everything below is read from the broker; no password, key or salt is ever shown.</p></div><div class="acts"><button class="btn" type="button" data-op="DescribeAcls">[[g:refresh 16]]Read again</button></div></div>
+<div class="callout" style="margin-bottom:32px">[[g:info 18]]<div><b>A different instance from the rest of this canvas.</b> Every other board is the open broker. This one is the same page for a broker started with <span class="mono">--sasl-mechanisms SCRAM-SHA-256,SCRAM-SHA-512 --acl-default deny --acl-super-user User:admin --tls-cert ~/larder/tls/broker.pem</span>; the top bar chip says so.</div></div>
+
+<div class="g3">
+<div class="card"><div class="row sb"><h2>Authentication</h2><span class="st ok">On</span></div>
+<p class="lede">A client must log in before it may send anything but ApiVersions.</p>
+<div class="stack-y" style="gap:18px"><div><div class="eyebrow" style="margin-bottom:4px">Mechanisms</div><div class="mono">SCRAM-SHA-256, SCRAM-SHA-512</div><div class="help" style="margin:4px 0 0">PLAIN is off: a stored SCRAM user cannot use it</div></div><div><div class="eyebrow" style="margin-bottom:4px">Users</div><div class="mono">1 from flags, 3 stored</div></div><div><div class="eyebrow" style="margin-bottom:4px">A failed login</div><div class="mono">waits 100 ms</div><div class="help" style="margin:4px 0 0"><span class="mono">--sasl-failed-login-delay</span>, then the connection closes</div></div></div></div>
+<div class="card"><div class="row sb"><h2>Authorizer</h2><span class="st ok">Denies by default</span></div>
+<p class="lede">A caller is the principal it logged in as. A resource no ACL covers is refused to everyone.</p>
+<div class="stack-y" style="gap:18px"><div><div class="eyebrow" style="margin-bottom:4px">Default</div><div class="mono">--acl-default deny</div></div><div><div class="eyebrow" style="margin-bottom:4px">ACLs</div><div class="mono">8</div><div class="help" style="margin:4px 0 0">7 allow, 1 deny</div></div><div><div class="eyebrow" style="margin-bottom:4px">Super users</div><div class="mono">User:admin</div><div class="help" style="margin:4px 0 0">never refused, DENY included</div></div></div></div>
+<div class="card"><div class="row sb"><h2>Encryption</h2><span class="st ok">TLS on</span></div>
+<p class="lede">Clients must connect with TLS 1.2 or newer; a plaintext client is closed with no answer.</p>
+<div class="stack-y" style="gap:18px"><div><div class="eyebrow" style="margin-bottom:4px">Certificate</div><div class="mono">~/larder/tls/broker.pem</div><div class="help" style="margin:4px 0 0">the chain, leaf first</div></div><div><div class="eyebrow" style="margin-bottom:4px">Private key</div><div>Read at start</div><div class="help" style="margin:4px 0 0">its contents are printed nowhere</div></div><div><div class="eyebrow" style="margin-bottom:4px">Listener</div><div class="mono">127.0.0.1:9092</div></div></div></div>
+</div>
+
+<div class="sec" style="margin-top:40px"><div class="row sb"><div><h2>Users</h2><p class="lede" style="margin:0">What DescribeUserScramCredentials returns: a name, a mechanism and an iteration count. A user from the flags or a file is re-applied at every start and cannot be changed over the API.</p></div></div>
+<table class="t" style="margin-top:16px"><thead><tr><th>User</th><th>From</th><th>Mechanisms</th><th>Iterations</th></tr></thead><tbody>
+<tr><td class="name mono">admin</td><td><span class="pill">Flags</span><span class="sub">a super user</span></td><td class="mono">SCRAM-SHA-256, SCRAM-SHA-512</td><td class="mono">4,096</td></tr>
+<tr><td class="name mono">payments</td><td><span class="pill">Stored</span></td><td class="mono">SCRAM-SHA-256</td><td class="mono">4,096</td></tr>
+<tr><td class="name mono">orders</td><td><span class="pill">Stored</span></td><td class="mono">SCRAM-SHA-512</td><td class="mono">4,096</td></tr>
+<tr><td class="name mono">catalog</td><td><span class="pill">Stored</span></td><td class="mono">SCRAM-SHA-256</td><td class="mono">4,096</td></tr>
+</tbody></table>
+<p class="help" style="margin:14px 0 0">A stored user is made and removed with Kafka's own tools, for example <span class="mono">kafka-configs.sh --alter --add-config 'SCRAM-SHA-256=[password=...]'</span>, which call AlterUserScramCredentials. This page does not take a password.</p></div>
+
+<div class="sec" style="margin-top:40px"><div class="row sb"><div><h2>ACLs</h2><p class="lede" style="margin:0">What DescribeAcls returns, grouped as Kafka groups them. A DENY wins over any ALLOW; an ALLOW of Read, Write, Delete or Alter also allows Describe.</p></div><a class="btn pri" href="@access-acl-create">[[g:plus 16]]Create ACL</a></div>
+<table class="t" style="margin-top:16px"><thead><tr><th>Resource</th><th>Pattern</th><th>Principal</th><th>Host</th><th>Operation</th><th>Permission</th><th></th></tr></thead><tbody>
+<tr><td class="name"><span class="dim">Topic</span> <span class="mono">orders</span></td><td>Literal</td><td class="mono">User:orders</td><td class="mono">*</td><td class="mono">Write</td><td><span class="st ok">Allow</span></td><td class="r"><a class="btn sm" href="@access-acl-delete">[[g:trash 14]]Delete</a></td></tr>
+<tr><td class="name"><span class="dim">Topic</span> <span class="mono">orders</span></td><td>Literal</td><td class="mono">User:payments</td><td class="mono">*</td><td class="mono">Read</td><td><span class="st ok">Allow</span></td><td class="r"><button class="btn sm" type="button" data-op="DeleteAcls">[[g:trash 14]]Delete</button></td></tr>
+<tr><td class="name"><span class="dim">Topic</span> <span class="mono">payments.</span></td><td>Prefixed</td><td class="mono">User:payments</td><td class="mono">*</td><td class="mono">Write</td><td><span class="st ok">Allow</span></td><td class="r"><button class="btn sm" type="button" data-op="DeleteAcls">[[g:trash 14]]Delete</button></td></tr>
+<tr><td class="name"><span class="dim">Topic</span> <span class="mono">inventory.levels</span></td><td>Literal</td><td class="mono">User:catalog</td><td class="mono">*</td><td class="mono">Write</td><td><span class="st ok">Allow</span></td><td class="r"><button class="btn sm" type="button" data-op="DeleteAcls">[[g:trash 14]]Delete</button></td></tr>
+<tr><td class="name"><span class="dim">Group</span> <span class="mono">payments-workers</span></td><td>Literal</td><td class="mono">User:payments</td><td class="mono">*</td><td class="mono">Read</td><td><span class="st ok">Allow</span></td><td class="r"><button class="btn sm" type="button" data-op="DeleteAcls">[[g:trash 14]]Delete</button></td></tr>
+<tr><td class="name"><span class="dim">Transactional id</span> <span class="mono">orders-eos</span></td><td>Literal</td><td class="mono">User:orders</td><td class="mono">*</td><td class="mono">Write</td><td><span class="st ok">Allow</span></td><td class="r"><button class="btn sm" type="button" data-op="DeleteAcls">[[g:trash 14]]Delete</button></td></tr>
+<tr><td class="name"><span class="dim">Cluster</span> <span class="mono">kafka-cluster</span></td><td>Literal</td><td class="mono">User:orders</td><td class="mono">*</td><td class="mono">IdempotentWrite</td><td><span class="st ok">Allow</span></td><td class="r"><button class="btn sm" type="button" data-op="DeleteAcls">[[g:trash 14]]Delete</button></td></tr>
+<tr><td class="name"><span class="dim">Topic</span> <span class="mono">customer.profiles</span></td><td>Literal</td><td class="mono">User:report-job</td><td class="mono">*</td><td class="mono">Read</td><td><span class="st warn">Deny</span></td><td class="r"><button class="btn sm" type="button" data-op="DeleteAcls">[[g:trash 14]]Delete</button></td></tr>
+</tbody></table></div>
+
+<div class="g2" style="margin-top:40px">
+<div class="card"><h2>The console</h2><p class="lede">It reads and writes the broker the way a client does, as one more principal, and it has no login of its own.</p>
+<dl class="kv sm">
+<dt>Principal</dt><dd class="mono">User:__console<span class="sub" style="font-family:Inter,sans-serif">reserved: no user, credential or <span class="mono">--acl-super-user</span> may take the name</span></dd>
+<dt>Rights</dt><dd>Super user<span class="sub">so the ACLs above never stop the console</span></dd>
+<dt>Listens on</dt><dd class="mono">127.0.0.1:9093<span class="sub" style="font-family:Inter,sans-serif">loopback; with SASL or TLS on, anywhere else is refused at start unless <span class="mono">--console-unprotected</span></span></dd>
+<dt>Allowed hosts</dt><dd>IP addresses and <span class="mono">localhost</span><span class="sub">none added with <span class="mono">--console-allow-host</span></span></dd>
+<dt>Writes</dt><dd>Same origin only</dd>
+</dl></div>
+<div class="card"><h2>What the broker said at start</h2><p class="lede">Three warnings, each only when its condition holds. None does, so it started quietly.</p>
+<div class="rules">
+<div class="r ok">[[g:check 16]]<div>Console served beyond loopback with SASL or TLS on<span class="sub">The console is on <span class="mono">127.0.0.1:9093</span></span></div><span class="v">not the case</span></div>
+<div class="r ok">[[g:check 16]]<div>SASL without TLS beyond loopback<span class="sub">TLS is on, and the listener is loopback</span></div><span class="v">not the case</span></div>
+<div class="r ok">[[g:check 16]]<div>SASL on with <span class="mono">--acl-default allow</span><span class="sub">The default is deny</span></div><span class="v">not the case</span></div>
+</div></div>
+</div>

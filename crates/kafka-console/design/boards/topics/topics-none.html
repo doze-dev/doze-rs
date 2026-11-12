@@ -1,0 +1,10 @@
+<!--screen {"id":"topics-none","title":"No topics yet","kind":"state","from":"topics-list","via":"Page state: no topics","ops":["Metadata"],"refs":["cat:T9","grounding:K9"],"data":"now","extras":["teaching","copy-as"],"crumbs":[]} -->
+<div class="page-h"><div><h1>Topics</h1><p class="sub">Nothing has been created or written yet.</p></div><div class="acts"><a class="btn pri" href="@topic-create">[[g:plus 16]]Create topic</a></div></div>
+<div class="tabs"><a class="tab on" href="@topics-list">Topics<span class="n">0</span></a><a class="tab" href="@groups">Groups<span class="n">0</span></a></div>
+<div class="empty" data-extra="teaching"><span class="ic">[[g:topic 22 d-data]]</span><h3>This broker holds no topics</h3>
+<p>A topic is a named log of records, split into partitions. Create one here, or let a client make it: <span class="mono">--auto-create-topics</span> is on, so the first request for a name that does not exist creates it with <span class="mono">--default-partitions</span> (1).</p>
+<a class="btn pri" href="@topic-create">[[g:plus 16]]Create topic</a></div>
+<div class="sec" style="margin-top:32px"><h2>Or from your app</h2><p class="lede">Writing to a topic that does not exist creates it, and the console shows it here as soon as the request lands.</p>
+<pre class="code" data-extra="copy-as"><span class="c"># kcat, from the machine the broker runs on</span>
+echo '{"order_id":"ord-88412"}' | kcat -P -b 127.0.0.1:9092 -t orders -k ord-88412</pre>
+<div class="row" style="margin-top:12px"><button class="btn sm" type="button" data-ui="copy">[[g:copy 14]]Copy</button><span class="dim">To <span class="mono">127.0.0.1:9092</span>, the listener</span></div></div>
