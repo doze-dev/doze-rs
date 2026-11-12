@@ -22,10 +22,10 @@ pub use doze_fs::sim;
 
 pub use error::StorageError;
 pub use log::{
-    Appended, LogConfig, LogReader, PartitionLog, Retention, SegmentInfo, Ticket, Trust,
-    segments_on_disk,
+    Appended, Budget, LogConfig, LogReader, PartitionLog, Retention, SegmentInfo, SegmentWalk,
+    Ticket, Tombstone, Trust, Walk, segments_on_disk,
 };
-pub use retention::enforce_closed;
+pub use retention::{count_to_drop, enforce_closed};
 
 #[cfg(test)]
 mod testutil;

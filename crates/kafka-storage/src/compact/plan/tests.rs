@@ -196,3 +196,52 @@ fn the_minimum_lag_is_about_the_newest_record_and_the_edge_is_not_too_new() {
     assert!(judge(&[seg(0, 100, 1, 9_000), seg(10, 1, 1, 1)], 0, 40, 20, &p).is_some());
     assert!(judge(&[seg(0, 100, 1, 9_001)], 0, 40, 10, &p).is_none());
 }
+
+#[test]
+fn the_reading_says_what_stops_cleaning_and_agrees_with_the_verdict_whatever_the_log() {
+    // Segments 0..100 (clean), 100..200, 200..300 (dirty), the active one from 300.
+    let s = segs(&[(0, 100, 1), (100, 100, 2), (200, 100, 9_999)]);
+    let r = reading(&s, 100, 1_000, 300, &P);
+    assert_eq!(
+        (r.limit, r.upto, r.first_dirty, r.dirty_start),
+        (Limit::Active, 300, 100, 100)
+    );
+    assert_eq!((r.dirty_bytes, r.clean_bytes), (200, 100));
+    // An open transaction at 250 stops it there.
+    let r = reading(&s, 100, 250, 300, &P);
+    assert_eq!((r.limit, r.upto), (Limit::Transaction, 250));
+    // A minimum lag makes the newest dirty segment too new: cleaning stops at its base.
+    let lagged = Params {
+        min_lag_ms: 5_000,
+        ..P
+    };
+    let r = reading(&s, 100, 1_000, 300, &lagged);
+    assert_eq!((r.limit, r.upto), (Limit::TooNew, 200));
+    assert_eq!(r.ratio(), Some(0.5));
+    // The reading is the verdict's own numbers: due exactly when judge says so, with the same figures.
+    for ratio in [0.0, 0.3, 0.5, 0.7] {
+        let p = Params {
+            min_dirty_ratio: ratio,
+            ..P
+        };
+        let (r, plan) = (
+            reading(&s, 100, 1_000, 300, &p),
+            judge(&s, 100, 1_000, 300, &p),
+        );
+        assert_eq!(
+            plan.is_some(),
+            r.ratio().is_some_and(|x| x > ratio) || r.waited_too_long
+        );
+        if let Some(plan) = plan {
+            assert_eq!(
+                (plan.upto, plan.dirty_bytes, plan.clean_bytes),
+                (r.upto, r.dirty_bytes, r.clean_bytes)
+            );
+        }
+    }
+    assert_eq!(
+        reading(&[], 0, 0, 0, &P).ratio(),
+        None,
+        "nothing dirty has no share"
+    );
+}
