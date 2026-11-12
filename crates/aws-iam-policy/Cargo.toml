@@ -13,3 +13,4 @@ workspace = true
 
 [dependencies]
 serde_json = "1"
+aws-core = { path = "../aws-core" }

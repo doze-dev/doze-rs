@@ -8,8 +8,12 @@
 
 mod check;
 mod document;
+mod eval;
 
 pub use check::{Kind, PolicyError, check};
 pub use document::{
     Condition, Document, Effect, Matcher, Principal, PrincipalKind, Principals, Statement, parse,
+};
+pub use eval::{
+    Context, Decision, Layer, Matched, Policies, Request, Subject, Verdict, evaluate, substitute,
 };

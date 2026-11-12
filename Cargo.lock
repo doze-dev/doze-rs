@@ -216,6 +216,7 @@ dependencies = [
 name = "aws-iam-policy"
 version = "0.0.0"
 dependencies = [
+ "aws-core",
  "serde_json",
 ]
 
