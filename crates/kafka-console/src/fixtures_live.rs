@@ -137,8 +137,8 @@ fn refused_links(rows: &[WireRow]) -> Vec<WireRefusal> {
 /// A poll that found nothing, the oldest row of the tape: "Idle polls hidden" hides it, and turning that off shows it.
 fn idle_poll() -> WireRow {
     let mut r = steady_rows().remove(0);
-    // It opens the drawer of a row the fixtures have (the world has no request of its own for it).
-    r.id = 9;
+    // It opens the drawer of a request the fixtures have (the world has no request of its own for it).
+    r.id = 99;
     r.at_ms = at("22:14:21.000");
     r.target_sub = None;
     r.detail = "no records".to_owned();
