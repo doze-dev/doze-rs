@@ -18,7 +18,7 @@ const PAGE = `
   <button id="sasl" data-copy-from="sasl-lines" data-js-only hidden>Copy</button><pre id="sasl-lines">security.protocol=SASL_PLAINTEXT</pre>
   <button id="chip" data-copy="127.0.0.1:9092">chip</button>
 </div>
-<form id="check" data-ajax data-target="probe-home" action="/connect/advertised/check" method="post"><input type="hidden" name="back" value="home"><button>Check</button></form>
+<form id="check" action="/connect/advertised/check" method="post" hx-post="/connect/advertised/check" hx-target="#probe-home" hx-select="#probe-home" hx-swap="morph:outerHTML show:none" hx-headers='{"X-Fragment":"1"}'><input type="hidden" name="back" value="home"><button>Check</button></form>
 <div class="frag" id="probe-home" data-frag="/fragments/probe-home"><p id="p">before</p></div>`;
 
 const home = (marker: string, q = "x") => `<div class="frag" id="home-live" data-frag="/fragments/home-live"><p id="marker">${marker}</p><input id="q" name="q" value="${q}"></div>`;
@@ -264,11 +264,11 @@ describe("a form", () => {
     expect(p.forms).toEqual([]);
   });
 
-  test("is submitted as the browser would when the post fails", async () => {
+  test("is submitted as the browser would when the request cannot be made", async () => {
     const p = await started();
     p.document.getElementById("check")!.dispatchEvent(new p.window.Event("submit", { bubbles: true, cancelable: true }));
     await p.flush();
-    p.pending[0].answer({ status: 500 });
+    p.pending[0].fail(new Error("network"));
     await p.flush();
     expect(p.forms.length).toBe(1);
   });

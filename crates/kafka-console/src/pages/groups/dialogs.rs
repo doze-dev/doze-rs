@@ -12,9 +12,9 @@ use crate::model::{
     GroupDeleteView, GroupHead, GroupPhase, OffsetDeleteView, Refusal, ResetRow, ResetView,
 };
 use crate::ui::code::block;
+use crate::ui::components::{Choice, Select, select};
 use crate::ui::dialog::{cancel, modal};
 use crate::ui::glyph::{Glyph, glyph};
-use crate::ui::glyph_groups::{GroupGlyph, group_glyph};
 use crate::ui::notice::{Tone, callout};
 
 fn field(id: &str, label: &str, control: Markup) -> Markup {
@@ -110,17 +110,37 @@ fn option(
 
 fn topic_field(v: &ResetView) -> Markup {
     let n = v.rows.len();
+    let labels: Vec<String> = v
+        .topics
+        .iter()
+        .map(|t| {
+            if *t == v.topic {
+                format!(
+                    "{t}, {}",
+                    if n == 1 {
+                        "its partition".to_owned()
+                    } else {
+                        format!("all {n} partitions")
+                    }
+                )
+            } else {
+                t.clone()
+            }
+        })
+        .collect();
+    let choices: Vec<Choice<'_>> = v
+        .topics
+        .iter()
+        .zip(&labels)
+        .map(|(t, l)| Choice::new(t, l))
+        .collect();
     field(
         "reset-topic",
         "Topic",
-        html! {
-            div class="input sel mono" {
-                select id="reset-topic" name="topic" {
-                    @for t in &v.topics { option value=(t) selected[*t == v.topic] { (t) @if *t == v.topic { ", " (if n == 1 { "its partition".to_owned() } else { format!("all {n} partitions") }) } } }
-                }
-                (group_glyph(GroupGlyph::ChevD, 16, ""))
-            }
-        },
+        select(&Select {
+            class: "dz-block mono",
+            ..Select::new("reset-topic", "topic", "Topic", &choices, &v.topic)
+        }),
     )
 }
 

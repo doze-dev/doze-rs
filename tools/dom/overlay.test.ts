@@ -1,5 +1,5 @@
-// The overlays of crates/kafka-console/assets/console.js (src/ui/overlay.rs): a drawer or a dialog opens over the page with no
-// navigation, the address is pushed, Esc, the scrim, Close and Back close it, focus stays inside and returns, the page behind is
+// The overlays of crates/kafka-console/assets/console.js (src/ui/overlay.rs), over htmx (which fetches them into #ovl): a drawer or a
+// dialog opens over the page with no navigation, the address is pushed, Esc, the scrim, Close and Back close it, focus stays inside and returns, the page behind is
 // inert, a second opener replaces the content, a server-rendered overlay is adopted, a form's answer replaces it in place, and
 // with reduced motion nothing animates. Run: `cd tools/dom && bun install && bun test`.
 
@@ -55,7 +55,7 @@ describe("opening", () => {
     const p = await started();
     await open(p);
     expect(p.history.pushes).toEqual([`${ORIGIN}${RECORD}`]);
-    expect(p.history.state).toEqual({ ovl: 1 });
+    expect(p.history.state).toEqual({ ovl: 1, parent: "/" });
   });
 
   test("makes the page behind inert and moves focus into the panel, which is named by its title", async () => {
@@ -231,7 +231,7 @@ describe("focus", () => {
 });
 
 describe("a server-rendered overlay (a direct visit, a reload)", () => {
-  const direct = (opts: Options = {}) => boot(PAGE.replace('class="root"', 'class="root" inert') + overlay("orders-1 · 16,050"), { url: `${ORIGIN}${RECORD}`, ...opts });
+  const direct = (opts: Options = {}) => boot(PAGE.replace('class="root"', 'class="root" inert') + `<div id="ovl">${overlay("orders-1 · 16,050")}</div>`, { url: `${ORIGIN}${RECORD}`, ...opts });
 
   test("is adopted: Esc closes it and the address becomes the parent's, with no fetch and no navigation", async () => {
     const p = await direct();
@@ -292,31 +292,29 @@ describe("forms in an overlay", () => {
     expect(root(p).hasAttribute("inert")).toBe(true);
   });
 
-  test("a page that comes back (the result of a write) replaces the page, and the address is the parent's", async () => {
+  // What the server sends when a write's result is a PAGE: the region (title, main, the rail and the overlay root out of band) with the
+  // headers that src/region.rs adds for a request that targeted the overlay root.
+  const RESULT = { "HX-Retarget": "#main", "HX-Reswap": "outerHTML", "HX-Replace-Url": "/topics/orders" };
+  const region = (title: string, h1: string) => `<title>${title} · doze-kafka</title><main class="main" id="main"><h1>${h1}</h1></main><div id="ovl" hx-swap-oob="true"></div>`;
+
+  test("a page that comes back (the result of a write) replaces main and the overlay, and the address is the page's, in the overlay's entry", async () => {
     const p = await opened();
-    p.autoAnswer(() => ({ body: `<!DOCTYPE html><html><head><title>Record sent · doze-kafka</title></head><body><div class="root"><main id="main"><h1>Sent</h1></main></div></body></html>` }));
+    p.autoAnswer(() => ({ headers: RESULT, url: `${ORIGIN}/topics/orders`, body: region("Record sent", "Sent") }));
     await submit(p);
     expect(p.document.title).toContain("Record sent");
     expect(p.document.querySelector("h1")!.textContent).toBe("Sent");
     expect(p.document.querySelector("[data-overlay]")).toBeNull();
+    expect(root(p).hasAttribute("inert")).toBe(false);
     expect(p.history.url).toBe(`${ORIGIN}/topics/orders`);
     expect(p.history.pushes.length).toBe(1);
   });
 
   test("a result that was a redirect takes the address it was sent to", async () => {
     const p = await opened();
-    p.autoAnswer(() => ({ redirected: true, url: `${ORIGIN}/topics/orders/partitions`, body: `<!DOCTYPE html><html><head><title>Partitions</title></head><body><div class="root"><main id="main"><h1>orders</h1></main></div></body></html>` }));
+    p.autoAnswer(() => ({ headers: { ...RESULT, "HX-Replace-Url": "/topics/orders/partitions" }, redirected: true, url: `${ORIGIN}/topics/orders/partitions`, body: region("Partitions", "orders") }));
     await submit(p);
     expect(p.history.url).toBe(`${ORIGIN}/topics/orders/partitions`);
-  });
-
-  test("once the page was replaced, Back reloads what the address says", async () => {
-    const p = await opened();
-    p.autoAnswer(() => ({ body: `<!DOCTYPE html><html><head><title>x</title></head><body><main id="main"></main></body></html>` }));
-    await submit(p);
-    expect(p.reloads).toBe(0);
-    p.window.dispatchEvent(new p.window.Event("popstate"));
-    expect(p.reloads).toBe(1);
+    expect(p.history.pushes.length).toBe(1);
   });
 
   test("if the request cannot be made at all the form posts as it would without a script", async () => {

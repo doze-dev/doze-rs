@@ -333,18 +333,18 @@ fn motion_rules() -> (String, String, String) {
 #[test]
 fn the_motion_is_gentle_and_only_for_people_who_have_not_asked_for_less() {
     let (css, outside, motion) = motion_rules();
-    // The numbers of the brief: scrim 160 ms, drawer 220 ms, dialog 180 ms, closing 140 ms; the page 180 ms.
+    // The numbers of the UX brief: scrim 180 ms, drawer 240 ms (translateX(100%) to 0), dialog 180 ms (scale .98), closing 180 ms; the page 180 ms.
     for want in [
-        ".ovl-in .scrim{animation:ovl-fade 160ms ease-out both}",
-        ".ovl-in.ovl-drawer .drawer-panel{animation:ovl-slide 220ms",
-        ".ovl-in.ovl-dialog .modal{animation:ovl-rise 180ms ease-out both}",
-        ".ovl-out .scrim{animation:ovl-fade-out 140ms ease-in both}",
-        ".ovl-out.ovl-drawer .drawer-panel{animation:ovl-slide-out 140ms ease-in both}",
-        ".ovl-out.ovl-dialog .modal{animation:ovl-rise-out 140ms ease-in both}",
+        ".ovl-in .scrim{animation:ovl-fade 180ms ease-out both}",
+        ".ovl-in.ovl-drawer .drawer-panel{animation:ovl-slide 240ms cubic-bezier(.22,1,.36,1) both}",
+        ".ovl-in.ovl-dialog .modal{animation:ovl-pop 180ms cubic-bezier(.22,1,.36,1) both}",
+        ".ovl-out .scrim{animation:ovl-fade-out 180ms ease-in both}",
+        ".ovl-out.ovl-drawer .drawer-panel{animation:ovl-slide-out 180ms cubic-bezier(.4,0,1,1) both}",
+        ".ovl-out.ovl-dialog .modal{animation:ovl-pop-out 160ms ease-in both}",
         "@view-transition{navigation:auto}",
         ".topbar{view-transition-name:topbar}",
         ".rail{view-transition-name:rail}",
-        "::view-transition-new(main){animation:vt-in 180ms ease-out both}",
+        "::view-transition-new(main){animation:vt-in 180ms cubic-bezier(.22,1,.36,1) both}",
     ] {
         assert!(
             motion.contains(want),

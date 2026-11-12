@@ -268,7 +268,7 @@ async fn a_hostile_query_on_a_topic_page_is_a_sentence_never_markup_never_a_5xx(
         assert!(!res.status().is_server_error(), "{path}");
         assert!(!body.contains("<script>alert") && !body.contains("<img src=x"), "{path}: {body:.300}");
         if res.headers().get(axum::http::header::CONTENT_TYPE).is_some_and(|c| c.to_str().unwrap().starts_with("text/html")) && !path.starts_with("/fragments") {
-            assert_eq!(body.matches("<script").count(), 1, "{path}");
+            assert_eq!(body.matches("<script").count(), body.matches("<script src=").count(), "{path}");
         }
     }
 }

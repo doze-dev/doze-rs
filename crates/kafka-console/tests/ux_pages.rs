@@ -401,10 +401,16 @@ async fn no_page_has_an_expander_that_is_a_link_with_a_query() {
                 "{path}: {link}"
             );
         }
-        assert!(
-            !doc.contains("aria-expanded"),
-            "{path}: a disclosure is a <details>"
-        );
+        // A popup trigger (a Select, a menu) carries aria-expanded; an expander is a <details> and carries none.
+        for (i, _) in doc.match_indices("aria-expanded") {
+            let from = doc[..i].rfind('<').unwrap_or(0);
+            let to = doc[i..].find('>').map_or(doc.len(), |n| i + n);
+            assert!(
+                doc[from..to].contains("aria-haspopup"),
+                "{path}: a disclosure is a <details>: {}",
+                &doc[from..to]
+            );
+        }
     }
     let (_, deep) = page("/topics/orders/config?open=where:segment.bytes").await;
     assert!(deep.contains("id=\"where-segment.bytes\" open>"));

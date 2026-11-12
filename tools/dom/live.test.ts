@@ -70,7 +70,8 @@ describe("pause", () => {
   });
 
   test("Resume on a page that was paused by the server (a plain link) is followed, not intercepted", async () => {
-    const p = await boot(`<a id="r" href="/live" data-resume>Resume</a>`);
+    // (a page with no htmx boost: here the question is only whether OUR script takes the click)
+    const p = await boot(`<a id="r" href="/live" data-resume>Resume</a>`, { plain: true });
     const e = new p.window.MouseEvent("click", { bubbles: true, cancelable: true });
     p.document.getElementById("r")!.dispatchEvent(e);
     expect(e.defaultPrevented).toBe(false);
@@ -107,8 +108,12 @@ describe("the keyboard", () => {
 describe("filters", () => {
   test("a select that is marked applies its form when it changes", async () => {
     const p = await started();
+    // The form is submitted through its submit event (requestSubmit), which is what htmx (or the browser) answers.
+    const form = p.document.getElementById("f")!.closest("form") as HTMLFormElement;
+    let asked = 0;
+    form.requestSubmit = () => void asked++;
     p.document.getElementById("f")!.dispatchEvent(new p.window.Event("change", { bubbles: true }));
-    expect(p.forms.length).toBe(1);
+    expect(asked).toBe(1);
   });
 });
 

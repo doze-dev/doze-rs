@@ -7,10 +7,11 @@
 <title>Connect an app · doze-kafka</title>
 <link rel="icon" type="image/svg+xml" href="/k/static/favicon.svg">
 <link rel="stylesheet" href="/k/static/console.css">
+<meta name="htmx-config" content="{&quot;allowEval&quot;:false,&quot;allowScriptTags&quot;:false,&quot;selfRequestsOnly&quot;:true,&quot;historyCacheSize&quot;:0,&quot;includeIndicatorStyles&quot;:false,&quot;scrollIntoViewOnBoost&quot;:false,&quot;defaultSettleDelay&quot;:0,&quot;defaultSwapStyle&quot;:&quot;outerHTML&quot;,&quot;responseHandling&quot;:[{&quot;code&quot;:&quot;204&quot;,&quot;swap&quot;:false},{&quot;code&quot;:&quot;.*&quot;,&quot;swap&quot;:true}]}">
 <script src="/k/static/console.js" defer>
 </script>
 </head>
-<body data-stream="/k/events?watch=home-instance,home-sentence">
+<body hx-boost="true" hx-target="#main" hx-swap="outerHTML transition:true show:window:top" hx-ext="morph">
 <a class="skip" href="#main">Skip to the page</a>
 <div class="root">
 <div class="banner bad" role="alert">
@@ -44,7 +45,7 @@
 </div>
 </header>
 <div class="frame">
-<nav class="rail" aria-label="Spaces">
+<nav class="rail" id="rail" aria-label="Spaces">
 <div class="nav">
 <a class="ni" href="/k/">
 <svg class="gl" width="20" height="20" viewBox="0 0 16 16" aria-hidden="true">
@@ -99,7 +100,7 @@
 <kbd>⌘K</kbd>jump</span>
 </div>
 </nav>
-<main class="main" id="main">
+<main class="main" id="main" data-stream="/k/events?watch=home-instance,home-sentence">
 <nav class="crumbs" aria-label="Breadcrumb">
 <a href="/k/">Home</a>
 <svg class="gl" width="12" height="12" viewBox="0 0 16 16" aria-hidden="true">
@@ -112,6 +113,8 @@
 <h1>Connect an app</h1>
 </main>
 </div>
+</div>
+<div id="ovl">
 </div>
 </body>
 </html>

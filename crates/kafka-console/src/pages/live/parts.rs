@@ -77,5 +77,8 @@ pub(super) fn filter_link(
     label: Markup,
 ) -> Markup {
     let href = format!("{}{}", base.url("/live"), q.with(field, value).to_query());
-    html! { a class="cell-filter" href=(href) title={"Show only " (value)} { (label) } }
+    html! {
+        a class="cell-filter" href=(href) title={"Show only " (value)} hx-get=(href) hx-target={"#" (LIVE_FRAGMENT)} hx-select={"#" (LIVE_FRAGMENT)}
+            hx-swap=(crate::ui::client::IN_PLACE_SWAP) hx-push-url="true" data-nopreload="false" { (label) }
+    }
 }

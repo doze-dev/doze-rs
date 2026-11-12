@@ -58,6 +58,7 @@ pub mod phrases;
 pub mod probe;
 pub mod recorder;
 pub mod refusal;
+pub mod region;
 pub mod routes;
 pub mod serve;
 pub mod snippets;
