@@ -110,7 +110,14 @@ impl Users {
         mechanisms: &[Mechanism],
     ) -> Result<Self, CredentialsError> {
         let kinds: Vec<Kind> = mechanisms.iter().filter_map(|&m| Kind::of(m)).collect();
-        Ok(Self::new(credentials.with_scram(&kinds)?))
+        let derived = credentials.with_scram(&kinds)?;
+        // Only PLAIN needs a password once the verifiers are made: without it none is kept (SEC-D59).
+        let kept = if mechanisms.contains(&Mechanism::Plain) {
+            derived
+        } else {
+            derived.forget_passwords()
+        };
+        Ok(Self::new(kept))
     }
 
     /// No bootstrap user: what a broker without SASL has.

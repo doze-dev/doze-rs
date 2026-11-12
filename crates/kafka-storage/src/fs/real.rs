@@ -20,19 +20,22 @@ impl Fs for RealFs {
     }
 
     fn open_or_create(&self, path: &Path) -> io::Result<(RealFile, bool)> {
-        // `create_new` is atomic: whichever call gets AlreadyExists knows it did not make the file.
-        match OpenOptions::new()
-            .read(true)
-            .write(true)
-            .create_new(true)
-            .open(path)
-        {
-            Ok(file) => Ok((RealFile(file), true)),
-            Err(e) if e.kind() == io::ErrorKind::AlreadyExists => {
-                Ok((self.open_existing(path)?, false))
-            }
-            Err(e) => Err(e),
+        self.create(path, false)
+    }
+
+    fn open_or_create_private(&self, path: &Path) -> io::Result<(RealFile, bool)> {
+        self.create(path, true)
+    }
+
+    #[cfg(unix)]
+    fn restrict_to_owner(&self, path: &Path) -> io::Result<bool> {
+        use std::os::unix::fs::PermissionsExt;
+        let mode = std::fs::metadata(path)?.permissions().mode();
+        if mode & 0o077 == 0 {
+            return Ok(false);
         }
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))?;
+        Ok(true)
     }
 
     fn rename(&self, from: &Path, to: &Path) -> io::Result<()> {
@@ -88,6 +91,29 @@ impl Fs for RealFs {
     fn sync_dir(&self, _path: &Path) -> io::Result<()> {
         // Windows cannot flush a directory handle; its renames and creates are flushed with the file.
         Ok(())
+    }
+}
+
+impl RealFs {
+    /// `open_or_create`, with the file made for its owner alone if `private` (on Unix).
+    fn create(&self, path: &Path, private: bool) -> io::Result<(RealFile, bool)> {
+        let mut options = OpenOptions::new();
+        options.read(true).write(true).create_new(true);
+        #[cfg(unix)]
+        if private {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.mode(0o600);
+        }
+        #[cfg(not(unix))]
+        let _ = private;
+        // `create_new` is atomic: whichever call gets AlreadyExists knows it did not make the file.
+        match options.open(path) {
+            Ok(file) => Ok((RealFile(file), true)),
+            Err(e) if e.kind() == io::ErrorKind::AlreadyExists => {
+                Ok((self.open_existing(path)?, false))
+            }
+            Err(e) => Err(e),
+        }
     }
 }
 

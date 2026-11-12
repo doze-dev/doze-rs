@@ -36,7 +36,7 @@ fn challenged(m: Mechanism, first: &[u8]) -> (Session, SaslAuthenticateResponse)
         if r.error_code == 0 {
             Fate::Open
         } else {
-            Fate::Closing
+            Fate::Failed
         }
     );
     (s, r)
@@ -92,7 +92,7 @@ fn a_wrong_password_is_58_naming_the_mechanism_and_closes() {
         let text = format!("{BAD}{m}");
         assert_eq!(
             (r.error_code, message(&r), fate),
-            (58, Some(text.as_str()), Fate::Closing)
+            (58, Some(text.as_str()), Fate::Failed)
         );
         assert!(r.auth_bytes.is_empty() && !s.is_authenticated());
     }
@@ -142,14 +142,14 @@ fn a_token_of_the_wrong_kind_for_the_step_is_58() {
     let (r, fate) = authenticate(&mut s, &all(), &token(b"c=biws,r=NC.,p=AAAA")).unwrap();
     assert_eq!(
         (r.error_code, message(&r), fate),
-        (58, Some(text.as_str()), Fate::Closing)
+        (58, Some(text.as_str()), Fate::Failed)
     );
     for second in [&b"n,,n=alice,r=NC."[..], b"\0alice\0alice-secret", b""] {
         let (mut s, _) = challenged(Mechanism::ScramSha256, b"n,,n=alice,r=NC.");
         let (r, fate) = authenticate(&mut s, &all(), &token(second)).unwrap();
         assert_eq!(
             (r.error_code, message(&r), fate),
-            (58, Some(text.as_str()), Fate::Closing)
+            (58, Some(text.as_str()), Fate::Failed)
         );
     }
 }

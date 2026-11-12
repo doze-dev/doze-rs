@@ -154,15 +154,20 @@ fn a_stored_credential_of_a_mechanism_that_is_off_cannot_log_in() {
 }
 
 #[test]
-fn a_start_with_nobody_to_log_in_is_refused_unless_it_was_meant() {
+fn a_start_with_nobody_who_could_log_in_is_refused() {
+    // SEC-176: there is no flag to mean it; a user must be configured, or stored for a SCRAM mechanism that is on.
     let users = Arc::new(Users::none());
     let a = Authenticator::over(&[ScramSha256], Arc::clone(&users)).unwrap();
-    assert_eq!(a.ensure_users(false), Err(SetupError::NoUsers));
-    assert_eq!(a.ensure_users(true), Ok(()));
+    assert_eq!(a.ensure_users(), Err(SetupError::NoUsers));
     stored_bob(&users, Kind::Sha256);
-    assert_eq!(a.ensure_users(false), Ok(()));
+    assert_eq!(a.ensure_users(), Ok(()));
     assert_eq!(
-        Authenticator::over(&[], users).unwrap_err(),
+        Authenticator::over(&[], Arc::clone(&users)).unwrap_err(),
         SetupError::NoMechanism
     );
+    // A stored credential cannot log in over PLAIN, or with a SCRAM mechanism that is off.
+    let plain = Authenticator::over(&[Plain], Arc::clone(&users)).unwrap();
+    assert_eq!(plain.ensure_users(), Err(SetupError::NoUsers));
+    let other = Authenticator::over(&[ScramSha512, Plain], users).unwrap();
+    assert_eq!(other.ensure_users(), Err(SetupError::NoUsers));
 }

@@ -17,6 +17,9 @@ The numbers are checked by `tools/check-security-catalogue.ts` (`bun tools/check
 twice, none is referenced (here, in the other docs or in a source comment) without a definition, every deviation is in the index below, and every
 test name quoted in this file is a `fn` in the Rust sources.
 
+The first independent audit of the authentication half found one major and a list of minors; they are fixed on branch `p8h` (SEC-190 to SEC-198, deviations SEC-D70 to D73) and the rules they changed (SEC-4, SEC-9, SEC-161, SEC-175, SEC-176, SEC-189, the deviations
+SEC-D4, D5, D51, D56, D59) say so where they stand.
+
 ## Index
 
 | Rules | Topic | Slice | Where |
@@ -29,6 +32,8 @@ test name quoted in this file is a `fn` in the Rust sources.
 | SEC-140 to SEC-154 | TLS behind the `tls` feature | 8e | "TLS, slice 8e" |
 | SEC-160 to SEC-179 | the SCRAM credential APIs (50, 51), the stored table, the users file and variable | 8f | after SEC-154 |
 | SEC-180 to SEC-189 | the allowed-hosts guard, `--console-allow-host`, `--console-unprotected`, the start-up rule and notes | 8g | "The allowed-hosts guard" |
+| SEC-190 to SEC-198 | the fixes of the first audit of the authentication half: super-user credentials, the open-ACL note, the failed-login delay, file modes, the stranger cap, the clean close, the crypto vectors | audit fixes | "Audit fixes of the authentication half" |
+
 | SEC-210 to SEC-222 | fixes after the audit of the authorization half: regex subscriptions, Metadata bits and order, DeleteTopics, by-type, the second model, super-user separators | 8h audit | "Audit fixes, authorization half" |
 
 Deviations from Apache Kafka (and one from the Go edition) by number. Every one is a decision, not a bug; each has a row in `debt.md` section I.
@@ -36,8 +41,8 @@ Deviations from Apache Kafka (and one from the Go edition) by number. Every one 
 - **SEC-D1** a request in the middle of a login (other than ApiVersions and SaslHandshake) closes unanswered
 - **SEC-D2** the 30 s login budget from the accept
 - **SEC-D3** SaslHandshake v0 is not served
-- **SEC-D4** no 100 ms delay before a failed login is answered
-- **SEC-D5** passwords are not zeroed on drop
+- **SEC-D4** (withdrawn: the 100 ms delay is rule SEC-192)
+- **SEC-D5** passwords are not zeroed on drop (and are not kept at all unless PLAIN is offered, SEC-198)
 - **SEC-D6** `Session::Unauthenticated` carries a `versions_answered` flag
 - **SEC-D7** the ACL APIs and authorizer work with SASL off, for `User:ANONYMOUS`
 - **SEC-D8** no long message on a CLUSTER_AUTHORIZATION_FAILED
@@ -71,19 +76,24 @@ Deviations from Apache Kafka (and one from the Go edition) by number. Every one 
 - **SEC-D47** the advertised host is not checked against the certificate
 - **SEC-D48** a `tls` build needs a C compiler
 - **SEC-D50** two layers of users, bootstrap and stored; the API refuses a bootstrap user with 93
-- **SEC-D51** the credential APIs work with SASL off: an open broker lets anyone manage users
+- **SEC-D51** the credential APIs work with SASL off, and with `--acl-default allow` any login may manage users (super users' credentials excepted, SEC-D70)
 - **SEC-D52** credential results are in the request's order, or by name
 - **SEC-D53** `metadata.version` is not modelled
 - **SEC-D54** Describe with a null user list from a denied caller answers 31 where Kafka throws
 - **SEC-D55** a changed credential applies to new logins; no re-authentication
-- **SEC-D56** credentials are a table in `meta.redb`, not records in a metadata log
+- **SEC-D56** credentials are a table in `meta.redb` (mode 0600, SEC-193), not records in a metadata log
 - **SEC-D57** an unusable stored row is left and named at warn
 - **SEC-D58** the environment variable is not cleared
-- **SEC-D59** file and variable passwords are ASCII and held for the life of the process
+- **SEC-D59** file and variable passwords are ASCII and held for the life of the process only when PLAIN is offered
 - **SEC-D60** the guard has no `.doze` special case (the Go edition's guard has one)
 - **SEC-D61** the guard is stricter than the Go edition's in five shapes
 - **SEC-D62** a configuration that cannot start exits 2 (it exited 1 before slice 8g)
 - **SEC-D63** the console flags have nothing to act on until Phase 9
+- **SEC-D70** only a super user may change a super user's SCRAM credential (Kafka has no such rule)
+- **SEC-D71** a stranger's frame is at most 64 KiB (Kafka's `sasl.server.max.receive.size` is 512 KiB)
+- **SEC-D72** no `--sasl-allow-empty-users` (the Go edition has it)
+- **SEC-D73** only a failed login (58) is delayed; Kafka delays every authentication failure
+
 - **SEC-D80** a regex subscription is resolved per member, with that member's own rights, not per expression with the rights of the heartbeat that triggered a refresh
 - **SEC-D81** Kafka's own walk throws or never ends on some names (`findAclRule`); this broker answers by the rules
 - **SEC-D82** the PREFIXED ACLs of a type are scanned on every check (admin scale: thousands of prefixes)
@@ -114,11 +124,11 @@ is "out of order" from a stranger and "a bad body" from a logged-in client. Test
 `connection::tests::login::a_strangers_body_is_not_decoded_but_a_logged_in_clients_is`.
 
 ## SEC-4. Limits before the login
-A stranger's frame is capped at 512 KiB (Kafka's `sasl.server.max.receive.size`; it was 1 MiB), whatever the API; a logged-in
+A stranger's frame is capped at 64 KiB (Kafka's `sasl.server.max.receive.size` is 512 KiB and it was 1 MiB here; the audit made it 64 KiB, **deviation SEC-D71**, SEC-194), whatever the API; a logged-in
 client's cap is the API's own (Produce 100 MiB). From the accept, a connection has 30 s to finish logging in, counted once and
 not restarted by each request (**deviation SEC-D2**: Kafka has no such limit; the Go edition has this one). Test:
-`frame::tests::an_unauthenticated_connection_is_capped_at_half_a_mib`, `frame::tests::the_caps_are_exact`,
-`connection::tests::login::a_stranger_frame_is_held_to_512_kib_and_a_logged_in_one_is_not`,
+`frame::tests::an_unauthenticated_connection_is_capped_at_64_kib`, `frame::tests::the_caps_are_exact`,
+`connection::tests::login::a_stranger_frame_is_held_to_64_kib_and_a_logged_in_one_is_not`,
 `..::a_connection_that_does_not_log_in_within_the_budget_is_closed_however_it_trickles`, `..::the_budget_ends_with_the_login`.
 
 ## SEC-5. A request in the middle of a login
@@ -165,8 +175,8 @@ SaslAuthenticate error 58 (SASL_AUTHENTICATION_FAILED), `ErrorMessage` the SEC-8
 shut down before the connection ends, so the client reads the text and not a reset (the harness reads the 58). The next request gets
 nothing. Test: `session::steps::tests::every_recorded_refusal_is_58_with_kafkas_text_and_closes`,
 `connection::tests::login::a_failed_login_is_flushed_before_the_close_and_ends_the_connection`,
-`tests/sasl::a_wrong_password_is_answered_then_the_connection_is_closed`. Unlike Kafka there is no 100 ms delay before the answer
-(`connection.failed.authentication.delay.ms`; not observable in any recording).
+`tests/sasl::a_wrong_password_is_answered_then_the_connection_is_closed`. As in Kafka the answer comes after `connection.failed.authentication.delay.ms`, 100 ms (SEC-192, **deviation SEC-D73**; not observable in any recording), and the
+close is a clean end even with requests pipelined behind the login (SEC-195).
 
 ## SEC-10. A login is final: afterwards both SASL APIs are 34 and the connection stays
 After success, SaslAuthenticate (the same token, another user's valid one, a wrong one, none) is error 34 with `SaslAuthenticate
@@ -247,7 +257,7 @@ and non-UTF-8 text are refused. Every refusal is the one generic 58 (SEC-47). Te
 ## SEC-43. The checks at client-first run in Kafka's order, and an unknown user is refused here (recorded `unknown-user-*`, `authzid-*`)
 The shape (SEC-42), a `tokenauth=true` extension (SEC-D13), the user's verifier, and only then the authorization id. An unknown user, a known user
 with another hash off, and a delegation-token login are answered the generic 58 **at client-first**, and a wrong password only at client-final (SEC-45):
-the stage in which the refusal comes tells whether a user exists, exactly as in Kafka (the recording shows it, so it is kept). With the user
+the stage in which the refusal comes tells whether a user exists, exactly as in Kafka (the recording shows it, so it is kept; SEC-197 says what that means for a name that is secret). With the user
 found, an `a=` that is not empty and not the user is `Authentication failed: Client requested an authorization id that is different from
 username` (the one SCRAM text that is not generic); an unknown user with an `a=` gets the generic text, not this one (`authzid-other-user-unknown-user`).
 The id is compared **as sent** (escapes and all) with the **unescaped** name, as Kafka does: for a user called `a,b=c`, `a=a=2Cb=3Dc` is refused,
@@ -854,6 +864,8 @@ DescribeUserScramCredentialsRequest.java:63-76); Alter answers 31 for each disti
 AlterUserScramCredentialsRequest.java:67-83), and nothing is changed. The check precedes every rule below. Messages are null (**deviation SEC-D8**, the long message of `authorizeClusterOperation` is not reproduced). Test:
 `kafka-broker tests/user_scram_use::a_caller_without_the_right_is_refused_in_the_shape_kafka_answers`, `..::alter_needs_alter_on_the_cluster_and_describe_needs_describe_which_alter_implies`,
 `kafka-server tests/users_api::a_user_made_by_an_admin_logs_in_*` (a user who is not a super user gets 31 on a real socket).
+**Read this with the default:** on a broker with SASL on and `--acl-default allow` the right is everybody's, so every logged-in user may make, replace and delete the credential of any user who is not a super user, and may rewrite the ACLs (SEC-23). A super user's credential is the exception
+(SEC-190, **deviation SEC-D70**); the takeover chain it closes is in SEC-D51. The start says it (SEC-191).
 
 ## SEC-162. The client sends the salted password; the broker does no PBKDF2 (SCM:260-282)
 An upsertion carries `Salt`, `Iterations` and `SaltedPassword = Hi(password, salt, iterations)`, computed by the client. The broker derives `StoredKey = H(HMAC(SaltedPassword, "Client Key"))` and
@@ -930,14 +942,16 @@ not set. A bad entry stops the start with `DOZE_KAFKA_SASL_USERS: entry N: ...` 
 
 ## SEC-175. The three sources add up, once
 Flag, then file, then variable; a user given twice anywhere (within a source or across them) stops the start with `SASL user "alice" is given more than once`, naming the user and no password. Users from the file or the variable without `--sasl-mechanisms` stop the start (`no mechanism is enabled`), as
-`--sasl-user` does, and so does `--sasl-allow-empty-users` (it needs `--sasl-mechanisms`). Test: `cli::tests::users::the_three_sources_add_up_in_the_order_flag_file_environment`, `..::a_user_given_twice_across_sources_is_refused_naming_the_user_and_never_a_password`,
+`--sasl-user` does. Test: `cli::tests::users::the_three_sources_add_up_in_the_order_flag_file_environment`, `..::a_user_given_twice_across_sources_is_refused_naming_the_user_and_never_a_password`,
 `..::users_from_the_file_or_the_environment_without_a_mechanism_are_refused`.
 
-## SEC-176. SASL with nobody to log in: refused, unless a stored user exists or it was meant (`--sasl-allow-empty-users`)
-Mechanisms with no user in any source still stop the start (`SASL is enabled but no credentials are configured; give --sasl-user, --sasl-users-file or DOZE_KAFKA_SASL_USERS, or start with --sasl-allow-empty-users ...`), but a stored credential counts as a user, and that is known only when the database is open: so with no database in the data
-directory the refusal is immediate and nothing is created, and with one it comes after the stored users are loaded (`Authenticator::ensure_users`). `--sasl-allow-empty-users` starts it anyway: the way to run a secured broker whose first user is made over the API by a super user (`--acl-super-user`); with no super user and no stored user nobody can log in, and the start says nothing more. **The bootstrap story:** the first user comes
-from a flag, a file or the variable, or (with the flag) from the API as a super user, which itself needs a login or the open-broker posture (SEC-D51). Test: `cli::tests::users::mechanisms_without_a_user_are_refused_unless_a_stored_user_may_exist_or_it_was_meant`, `kafka-auth authenticator::tests::a_start_with_nobody_to_log_in_is_refused_unless_it_was_meant`,
-`tests/process users::a_secured_broker_with_no_user_starts_only_when_that_was_asked_for`.
+## SEC-176. SASL with nobody who could log in is refused (**deviation SEC-D72**: there is no `--sasl-allow-empty-users`)
+Mechanisms with no user in any source stop the start: `SASL is enabled but no credentials are configured, so nobody could ever log in; give the first user with --sasl-user USER:PASSWORD, --sasl-users-file FILE or the environment variable DOZE_KAFKA_SASL_USERS (a user made later over the API is kept in the data directory, but needs a super user to make it)`.
+A stored credential counts as a user, and that is known only when the database is open: so with no database in the data directory the refusal is immediate and nothing is created, and with one it comes after the stored users are loaded (`Authenticator::ensure_users`), which counts a bootstrap user, or a stored credential of
+a SCRAM mechanism that is on (a stored credential cannot log in over PLAIN, SEC-170, so a PLAIN-only broker with stored users and no configured one is refused too). A restart of a broker whose users were all made over the API starts. The flag that started a broker with no user at all (`--sasl-allow-empty-users`) is removed: with nobody able to
+log in, no super user could ever make the first user over the API, so it was a dead start (found by the first audit); it is now an unknown flag. **The bootstrap story:** the first user comes from a flag, a file or the variable; or the broker is started once without SASL (SEC-D51) and makes users over the API, which later starts find stored.
+The help of `--sasl-mechanisms` says so. Test: `cli::tests::users::mechanisms_without_a_user_are_refused_unless_a_stored_user_may_exist`, `..::users_from_the_file_or_the_environment_without_a_mechanism_are_refused` (the flag is unknown), `kafka-auth authenticator::tests::a_start_with_nobody_who_could_log_in_is_refused`,
+`tests/process users::a_secured_broker_with_no_user_anywhere_is_refused_and_one_with_stored_users_starts`.
 
 ## SEC-177. A users file others can read is warned about
 On Unix, if `mode & 0o077` is not zero the start logs at warn `--sasl-users-file PATH is readable by group or others (mode 644); run chmod 600 on it`: the path and the mode, nothing of the content. It is only a warning: the broker starts. Not on other platforms.
@@ -1013,9 +1027,72 @@ loopback address (`127.0.0.1`, `[::1]`, `localhost`) or a broker with neither SA
 ## SEC-189. Start-up notes: what the operator's choices leave open
 Said once at warn before the broker listens: **the console served beyond loopback although SASL or TLS is on** (`--console-unprotected`: `the console is served on ADDR with no login and over plain HTTP although
 SASL is on (--console-unprotected): that will ...`), and **SASL without TLS on a listen address other machines can reach** (`SASL is on without TLS and --listen ADDR can be reached from other machines: logins
-(a PLAIN password is sent as it is) and messages cross the network unencrypted`). No note for a loopback listener, or for no SASL. Test:
+(a PLAIN password is sent as it is) and messages cross the network unencrypted`). A third, **SASL with `--acl-default allow`**, is SEC-191. No note for a loopback listener, or for no SASL. Test:
 `cli::tests::console::unprotected_accepts_the_start_and_the_start_says_what_it_left_open`, `..::sasl_without_tls_on_an_address_other_machines_reach_is_noted`,
 `tests/process console::unprotected_starts_the_broker_and_the_log_says_what_is_open`.
+
+## Audit fixes of the authentication half, branch p8h (SEC-190 to SEC-198)
+
+Found by the first independent audit (HEAD 909d147 plus 8g) and fixed on branch `p8h`; each rule has a test that failed on the code before the fix.
+
+## SEC-190. A super user's SCRAM credential is only for a super user to change (**deviation SEC-D70**)
+An Alter or a Delete aimed at a user name that is one of `--acl-super-user` (`User:<name>`) is refused with CLUSTER_AUTHORIZATION_FAILED (31), no message, for that user's result, unless the caller is itself a super
+user. **The chain it closes:** with SASL on and `--acl-default allow` (the default) every logged-in user holds ALTER on the cluster (SEC-161), so any login could replace or delete the stored credential of a super user, or make one
+for a super-user name that has none yet, and log in as it: every ACL is then bypassed, and a DENY that names the attacker is bypassed by taking a fresh identity. The rule is judged after the name and the mechanism and after the
+refusal of a bootstrap user (SEC-172: a super user configured at start is 93 to everyone, super users included, so the bootstrap rule is unchanged) and before the iteration count and the existence check, so a Delete of a super user
+that has no credential is also 31, not `RESOURCE_NOT_FOUND`; like every refusal it ends that user's part of the request (SEC-165), and the other users of the request are served (the answer lists what happened, then the refusals, SEC-166).
+A super user may manage anyone, another super user included. **What it does not do:** with allow-everything any user may still rewrite the ACLs (CreateAcls and DeleteAcls need only ALTER on the cluster, SEC-23), so it protects the
+credentials of the super users and nothing else: a shared broker needs `--acl-default deny` with ACLs (SEC-191). Test: `kafka-broker tests/user_scram_super::a_user_who_is_not_a_super_user_cannot_set_the_credential_of_one`,
+`..::a_user_who_is_not_a_super_user_cannot_replace_or_delete_the_stored_credential_of_one`, `..::a_request_that_names_a_super_user_and_others_is_refused_for_the_super_user_alone`,
+`..::a_super_user_may_still_manage_anyone_including_another_super_user`, `..::others_are_still_managed_by_anyone_and_a_broker_without_super_users_is_unchanged`, `..::a_super_user_configured_at_start_stays_refused_to_everyone`.
+
+## SEC-191. SASL with `--acl-default allow` is said at start
+SASL on and `--acl-default allow` (the default) says once at warn, and starts: `SASL is on and --acl-default is allow, so every logged-in user may do everything, including managing users: use --acl-default deny with ACLs, or
+--acl-super-user`. No note with `deny`, or with no SASL. The help of `--acl-default` and `--acl-super-user` says the same in its own words (with allow, every logged-in user may manage users and ACLs; only the credentials of the super users are kept from
+them, SEC-190). It joins the two other notes of SEC-189, which stand: the note for **SASL without TLS on a listen address other machines can reach** (a PLAIN password crosses the network as it is) exists since slice 8g and is checked again here.
+Test: `cli::tests::console::sasl_with_the_allow_default_is_noted_and_deny_or_no_sasl_is_not`, `..::sasl_without_tls_on_an_address_other_machines_reach_is_noted`.
+
+## SEC-192. A failed login is answered after `connection.failed.authentication.delay.ms` (default 100 ms) (replaces **SEC-D4**; **deviation SEC-D73**)
+Every login that is answered SASL_AUTHENTICATION_FAILED, PLAIN or SCRAM, at either token (an unknown user at client-first, a wrong password at client-final), is answered only after the delay, as Kafka does (kafka-semantics 3.3; Selector 628-629, 901-917), and the answer is still written and flushed before the
+connection is closed (SEC-9, SEC-195). `Timeouts::failed_login` in `kafka-server`, default 100 ms, set by `--sasl-failed-login-delay` (a duration as the other duration flags; `0` answers at once). It is per connection and the connection is closed after one failure, so it slows a guess
+(PLAIN was 18,600 a second on one machine) to ten a second per connection and bounds nothing else: guesses on many connections are not slowed, and the connection limit is the other bound. **Not delayed:** a close with no answer (a SCRAM proof the wrong length, SEC-48), a success,
+and the other errors (SEC-D73). A stop during the delay ends the connection at once without the answer (`End::Stopped`); the delay is a `select` against the stop token. Test: `connection::tests::delay::the_delay_is_kafkas_hundred_milliseconds_unless_set`,
+`..::a_failed_plain_login_is_answered_after_the_delay_and_not_before`, `..::a_delay_of_zero_answers_at_once`, `..::every_scram_refusal_that_is_answered_waits_and_the_silent_close_does_not`, `..::what_is_not_a_failed_login_is_not_delayed`,
+`..::a_stop_during_the_delay_ends_the_connection_without_waiting_for_it`, `cli::tests::users::more::the_failed_login_delay_is_kafkas_hundred_milliseconds_unless_the_flag_says_otherwise`.
+
+## SEC-193. The metadata database and the TLS key are for their owner only
+`meta.redb` holds every stored user's salt, `StoredKey` and `ServerKey`, from which a password can be guessed offline (SEC-162), so it is made with mode 0600 **when it is created** (`Fs::open_or_create_private`, `O_CREAT` with the mode, never made and then narrowed: it is
+not open to others for a moment), and a database an earlier build made with the umask's mode is narrowed to 0600 when it is opened (`Fs::restrict_to_owner`), said once at info: `the metadata database (it holds SCRAM keys) was readable by group or others and is now readable by its owner only`; one that cannot be narrowed (not ours) is
+said at warn and the broker starts. Only on Unix; the simulated disk has no modes. The staged file the database is made as (`meta.redb.tmp`) is private too. The partition logs and the other files are as the umask makes them (they hold messages, not keys).
+**The TLS key:** with `--tls-key` readable by group or others the start warns `--tls-key PATH is readable by group or others (mode 644); run chmod 600 on it`, as the users file does (SEC-177): the path and the mode, nothing of the content; the broker starts.
+Test: `kafka-meta tests/file_mode::a_database_is_made_readable_by_its_owner_only`, `..::a_database_an_earlier_build_made_open_is_narrowed_when_it_is_opened`, `kafka-storage fs::tests::a_private_file_on_the_real_disk_is_owner_only_and_an_open_one_is_narrowed`,
+`..::the_simulated_file_system_makes_private_files_and_has_no_modes_to_narrow`, `tests/process users::the_metadata_database_is_owner_only_and_an_open_one_from_an_earlier_build_is_narrowed`, `cli::tests::tls::a_key_file_others_can_read_is_warned_about_and_a_private_one_is_not`.
+
+## SEC-194. A stranger's frame is at most 64 KiB, and is never read into a pooled buffer (**deviation SEC-D71**; decision D10)
+The cap before the login (SEC-4) is 64 KiB for every API, down from 512 KiB (Kafka's `sasl.server.max.receive.size` default) and the 1 MiB before that: a token, a handshake and an ApiVersions are under 1 KiB. The cost it bounds: 1000 strangers each sending 300 KiB of a claimed 512 KiB frame took the
+process from 5 MB to 325 MB (release build), which stayed after they closed; the connection limit (2048) made that a gigabyte. With the cap the same 1000 connections are refused at the length, 5 MB. A stranger that sends 60 KiB of a legal 64 KiB frame, 1000 times, costs 70 MB while it holds the sockets.
+And what a stranger reads is never put on the pool's shelves (`frames::into_pool`: only a peer that has logged in gets a pooled buffer, the pool being for big Produce requests), so a frame of exactly 64 KiB, which is the size from which the pool takes buffers, is read as any other and freed. Test:
+`frame::tests::an_unauthenticated_connection_is_capped_at_64_kib`, `frame::tests::the_caps_are_exact`, `connection::tests::login::a_stranger_frame_is_held_to_64_kib_and_a_logged_in_one_is_not`, `frames::tests::only_a_peer_that_has_logged_in_gets_a_pooled_buffer`.
+
+## SEC-195. A refused client reads the answer and then an end, not a reset
+After the answer to a refusal is written and flushed the server shuts its side down (the client sees the end at once), then reads and throws away whatever the client sent behind the refusal until the client closes its side or 250 ms have passed, and only then closes. Closing a socket that still
+holds unread bytes sends a reset, and a client that pipelined requests behind a failed login (a library that sends the handshake, the token and a request without waiting) saw an error where it expected an end: on the audit's machine the answer was read in all 100 runs but the client saw a reset in all 100.
+Applies to every close that follows an answer (a failed login, an unsupported mechanism, an ApiVersions or handshake in the middle of a login), over TLS too (the drain reads through the TLS stream). Test, on a real socket with 4000 requests behind the refusal, 40 rounds:
+`kafka-server tests/refusal_close::a_refused_login_with_bytes_behind_it_is_answered_in_full_and_then_ends_cleanly` (it asserts the 58, then an end and not a reset, and the end within 150 ms: with the shutdown missing the end comes only when the drain gives up, at 250 ms; with the drain missing it is a reset),
+and the in-memory `connection::tests::login::a_failed_login_is_flushed_before_the_close_and_ends_the_connection`, `connection::tests::scram::a_wrong_password_is_flushed_before_the_close`.
+
+## SEC-196. The crypto is checked against an independent implementation
+`kafka-auth/tests/crypto_vectors` runs 224 PBKDF2-HMAC-SHA-256 and SHA-512 vectors and 160 base64 vectors made by bun's `node:crypto` and `Buffer` (`tools/gen-crypto-vectors.ts` makes `vectors.txt`; run it to change them), with password lengths on both sides of the hash block sizes (0 to 300 bytes),
+salts of 0 to 40 bytes and 1, 2, 3, 4096 and 5000 iterations, and base64 of every length from 0 to 69 bytes, encoded and decoded (strict and lax), and a list of non-canonical texts the strict decoder refuses. It adds to SEC-15's RFC and OpenSSL vectors and the `pbkdf2` crate differential. Test:
+`kafka-auth tests/crypto_vectors::pbkdf2_matches_node_crypto_for_both_hashes`, `..::base64_matches_node_buffer_both_ways_for_every_length`, `..::base64_refuses_what_is_not_the_canonical_form`.
+
+## SEC-197. SCRAM names a user that exists, as Kafka does (documentation)
+An unknown user is refused at client-first (SEC-43) and a known one is sent a challenge, so a SCRAM client can tell whether a name exists by which message refuses it. That matches Kafka (the recording shows it) and is kept. **"An unknown user costs the same as a wrong password" is true of PLAIN only** (SEC-8: one text,
+one answer, one stage); for SCRAM the wrong-password answer comes a round trip later than the unknown-user one. With the delay of SEC-192 both are answered after it. A broker whose user names are secret is not what this is.
+
+## SEC-198. Passwords are kept only when PLAIN is offered (extends **SEC-D5**, **SEC-D59**)
+`Users::derive` makes the SCRAM verifiers of the configured users and then, if PLAIN is not among the mechanisms offered, drops every plaintext password (`Credentials::forget_passwords`): the names and the verifiers stay, `Credentials::password` finds nothing, and PLAIN is not offered to ask. With PLAIN offered the
+passwords are kept, because PLAIN compares the password itself. The flag's text in the process's own arguments (`ps`) and the parsed `Args` are not cleared (SEC-D58). Test: `kafka-auth users::tests::plaintext_is_kept_only_when_plain_is_offered`.
 
 ## Audit fixes, authorization half (SEC-210 to SEC-222)
 The independent audit of the authorization half (2026-11-12) found one major bypass and a handful of small ones; each fix started from a test that failed on
@@ -1113,9 +1190,9 @@ returns if the machine has no IPv6 loopback. Test: `an_ipv4_peer_is_matched_as_d
   own shape with 34 and then closes. (Recorded `request-before-token-who`; the Go edition has the same difference.)
 - **SEC-D2.** The 30 s login budget from the accept. Kafka has none.
 - **SEC-D3.** SaslHandshake v0 (raw tokens) is not served; the request closes the connection.
-- **SEC-D4.** No `connection.failed.authentication.delay.ms` (100 ms) before a failure is answered.
-- **SEC-D5.** Passwords are not zeroed on drop (no `zeroize` dependency; the weight rule). They live in the process for its life and are
-  never printed.
+- **SEC-D4.** (Withdrawn by the first audit: the broker now waits `connection.failed.authentication.delay.ms`, 100 ms, before it answers a failed login: rule SEC-192, with its own deviation SEC-D73.)
+- **SEC-D5.** Passwords are not zeroed on drop (no `zeroize` dependency; the weight rule). Where a password is kept (a broker that offers PLAIN) it lives in the process for its life and is
+  never printed; a broker that offers SCRAM alone keeps none after the verifiers are made (SEC-198).
 - **SEC-D6.** `Session::Unauthenticated` carries a flag (`versions_answered`) that the plan's enum did not (SEC-12 needs it).
 - **SEC-D7.** The ACL APIs and the authorizer work with SASL off, enforced for `User:ANONYMOUS` (decision D4, the Go edition's behaviour).
   Kafka without an authorizer answers SECURITY_DISABLED (54) and enforces nothing.
@@ -1195,18 +1272,28 @@ returns if the machine has no IPv6 loopback. Test: `an_ipv4_peer_is_matched_as_d
 - **SEC-D50.** Two layers of users (SEC-172). Kafka has one store, the cluster metadata, and its PLAIN users live in a JAAS file outside it; here the users of the flags, the file and the variable are derived at every start and never stored. If a name is in both layers the bootstrap user wins for every
   mechanism and the stored entries under the name are shadowed, not deleted. An Alter or Delete aimed at a bootstrap user is refused with `UNACCEPTABLE_CREDENTIAL` (93) and a message that names the three sources: Kafka has no such case, and 93 (a credential it will not accept) is the closest of its codes; the check sits after the
   name and the mechanism and before the iteration count and the existence check, and, like every error, it ends the user's part of the request (SEC-165). The alternative, letting the API override a bootstrap user until the next start, would make the broker's login depend on the order of events.
-- **SEC-D51.** The two APIs work with SASL off (decision D4): the authorizer then governs by `User:ANONYMOUS`, and with `--acl-default allow` (the default) and no ACL **anybody who can connect may make, replace and delete users** and list them. That is the same open-broker posture as the ACL APIs (SEC-D7) and as
-  every other API of a broker with no flags: it matters only if SASL is on, and then the users made are the only ones SASL checks. A broker that must not allow it needs `--acl-default deny` with a super user. Kafka without an authorizer answers `SECURITY_DISABLED` (54) to the ACL APIs, but its credential APIs have no such case (ControllerApis checks `authorizeClusterOperation`, which succeeds with no authorizer).
+- **SEC-D51.** The two APIs work with SASL off (decision D4): the authorizer then governs by `User:ANONYMOUS`, and with `--acl-default allow` (the default) and no ACL **anybody who can connect may make, replace and delete users** and list them. With SASL on and the same default,
+  **every logged-in user may do the same, and that was a takeover chain**: replace or delete the stored credential of a super user (or make one for a super-user name that had none), log in as it and bypass every ACL, a DENY naming the attacker included. Since the first audit the credentials of the
+  `--acl-super-user` principals are refused to every caller that is not a super user (SEC-190, SEC-D70) and the start says what the default leaves open (SEC-191); every other user is still every logged-in user's to manage, and with allow-everything every logged-in user may rewrite the ACLs too (SEC-23). That is the same open-broker posture as the ACL APIs (SEC-D7) and as
+  every other API of a broker with no flags: it matters only if SASL is on, and then the users made are the only ones SASL checks. A broker that must not allow it needs `--acl-default deny` with ACLs and a super user. Kafka without an authorizer answers `SECURITY_DISABLED` (54) to the ACL APIs, but its credential APIs have no such case (ControllerApis checks `authorizeClusterOperation`, which succeeds with no authorizer).
 - **SEC-D52.** The order of the results of Alter and of Describe is the request's (Alter: deletions that happened, upsertions that happened, refusals) or by name (Describe with no list), not a Java hash map's, which no client depends on (SCM:229-257, ScramImage.java:96-127).
 - **SEC-D53.** Metadata.version is not modelled: Kafka's `UNSUPPORTED_VERSION` `The current metadata.version does not support SCRAM` (SCM:195, 216) is unreachable here, as a broker of 4.x always supports SCRAM.
 - **SEC-D54.** Describe with a **null** user list from a caller who is denied: Kafka's `getErrorResponse` iterates `data.users()` without a null check (DescribeUserScramCredentialsRequest.java:70), so the denial of a describe-all request throws a NullPointerException there and the client sees whatever the error path then does. Here it is the top-level 31 with no entries (what the same code does for an empty list). Not verified against a running Kafka.
 - **SEC-D55.** A changed or deleted credential applies to new logins; a connection that is logged in stays logged in, as in Kafka with `connections.max.reauth.ms` at its default of 0. Kafka with re-authentication on checks again at the next re-login; this broker has no re-authentication (kafka-semantics 3.7, out of scope).
 - **SEC-D56.** The credentials are kept in a table of the broker's own database (`meta.redb`), key mechanism then user, value salt, iterations and the two keys, not as `UserScramCredentialRecord`s in a replicated metadata log. A data directory made by a build without this slice has no such table and reads as none; one written by this build and opened by an older one has a table the older one ignores. The keys are not encrypted at rest (a stolen `meta.redb` lets someone check
-  passwords offline, not log in: SEC-162).
+  passwords offline, not log in: SEC-162); the file is made readable by its owner only (mode 0600 at creation) and an older one is narrowed when it is opened, so another local user cannot read it (SEC-193; found by the first audit when it was 644).
 - **SEC-D57.** A stored row the broker cannot use is left in the table and named at warn (SEC-171); Kafka would fail to replay the log. Deleting such a row over the API is `RESOURCE_NOT_FOUND`, because the snapshot does not have it.
 - **SEC-D58.** The environment variable is read once and not cleared (`set_var` is unsafe on edition 2024 and the process is multi-threaded): it is visible to other processes of the same user for the life of the broker. `--sasl-users-file` with mode 600 is the one that does not leave the password in `ps`, in `/proc/<pid>/cmdline` or in `environ`.
-- **SEC-D59.** Passwords in the file and the variable are ASCII without NUL, as the flag's (no SASLprep: Phase 8 "Not in this phase"), and are held in memory for the life of the process (SEC-D5). A stored credential holds no password at all.
+- **SEC-D59.** Passwords in the file and the variable are ASCII without NUL, as the flag's (no SASLprep: Phase 8 "Not in this phase"), and are held in memory for the life of the process (SEC-D5) only when PLAIN is offered; with SCRAM alone they are dropped once the verifiers are made (SEC-198). A stored credential holds no password at all.
 
+- **SEC-D70.** Only a super user may change the SCRAM credential of a super user. Kafka has no such rule: any caller with ALTER on the cluster may set and delete any user's credential, and a super user is a principal, not a stored user. It is here because this broker's default (`--acl-default allow`) gives ALTER on the cluster to every
+  logged-in user, so without the rule a login is a takeover of every super user (SEC-D51). The refusal is CLUSTER_AUTHORIZATION_FAILED (31) with no message, for the user's result only (SEC-190), where Kafka's other refusal of a credential, `UNACCEPTABLE_CREDENTIAL`, is for a credential it will not accept. It does not
+  stop a user from taking over a name that is not a super user, or from rewriting the ACLs, with allow-everything; `--acl-default deny` does (SEC-191).
+- **SEC-D71.** A stranger's frame is at most 64 KiB, not Kafka's 512 KiB (`sasl.server.max.receive.size`, the default, SEC-4). A dev broker with a 2048-connection limit should not hold a gigabyte for strangers (measured 325 MB for 1000, SEC-194); a SASL token is under 1 KiB. A client that sends a larger frame before it logs in (none of
+  the four libraries does) is closed with no answer. Replaces the 512 KiB of decision D10.
+- **SEC-D72.** There is no `--sasl-allow-empty-users`, which the Go edition has. With it a broker started with SASL on and nobody to log in, so that no super user could ever make the first user over the API (the API needs a login, or the open posture that SASL ends); the flag made a dead start. A broker with SASL on and
+  no user anywhere (flag, file, variable, or a stored credential for a SCRAM mechanism that is on) is refused with the way to give the first user (SEC-176). To make the first user over the API, start without SASL, or with a user from a flag, file or variable and a super user.
+- **SEC-D73.** Only a failed login, the answer SASL_AUTHENTICATION_FAILED (58), waits for the failed-login delay (SEC-192). Kafka delays every `AuthenticationException` it answers, which includes `UNSUPPORTED_SASL_MECHANISM` and `ILLEGAL_SASL_STATE`; those two are answered at once here, as they give a guesser nothing to guess.
 - **SEC-D60.** The guard has no `.doze` special case: the Go edition's allows the shared `.doze` zone, this one allows exactly what SEC-181 lists and a name the operator needs is listed with
   `--console-allow-host` (PLAN.md, the allowed-hosts guard "with no `.doze` special case").
 - **SEC-D61.** The guard is stricter than the Go edition's in five shapes, all of which no browser sends in a `Host` header: a bare IPv6 literal (`::1`), brackets around anything but an IPv6 literal (`[localhost]`,

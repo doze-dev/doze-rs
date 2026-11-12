@@ -14,7 +14,7 @@ use std::time::Duration;
 use anyhow::{Result, bail};
 use clap::{Parser, ValueEnum};
 use kafka_broker::{Config as BrokerConfig, Defaults};
-use kafka_server::Config as ServerConfig;
+use kafka_server::{Config as ServerConfig, Timeouts};
 use kafka_wire::profile::{KafkaMajor, Profile};
 
 use crate::duration;
@@ -104,7 +104,9 @@ pub(crate) struct Args {
     #[arg(long, value_enum, default_value = "text")]
     pub(crate) log_format: LogFormat,
     /// SASL mechanisms to offer, comma separated (PLAIN, SCRAM-SHA-256, SCRAM-SHA-512; a SCRAM mechanism is
-    /// derived from each user's password at start). Needs --sasl-user. Without it, no client is asked to log in.
+    /// derived from each user's password at start). With it somebody must be able to log in: give --sasl-user,
+    /// --sasl-users-file or DOZE_KAFKA_SASL_USERS, or start on a data directory that holds users made over the API.
+    /// Without it, no client is asked to log in.
     #[arg(long, value_delimiter = ',')]
     sasl_mechanisms: Vec<String>,
     /// A user that may log in, as user:password (split at the first colon; repeatable). Needs
@@ -117,16 +119,20 @@ pub(crate) struct Args {
     /// from these are re-applied at every start, never stored, and cannot be changed over the API.
     #[arg(long, value_name = "FILE")]
     sasl_users_file: Option<PathBuf>,
-    /// Start with SASL on although no user is configured and none is stored. The first user is then made over the API
-    /// (AlterUserScramCredentials) by a super user (--acl-super-user): without one nobody can ever log in.
-    #[arg(long)]
-    sasl_allow_empty_users: bool,
+    /// How long a failed login waits before it is answered, to make guessing passwords slow (Kafka's
+    /// connection.failed.authentication.delay.ms, 100ms; 0 = at once). Applies to every login that is refused.
+    #[arg(long, default_value = "100ms", value_parser = duration::parse)]
+    sasl_failed_login_delay: Duration,
 
     /// What a resource that no ACL covers allows: allow (the default, so that a broker with no ACLs refuses nothing)
-    /// or deny (Kafka's own default). ACLs you create are enforced either way.
+    /// or deny (Kafka's own default). ACLs you create are enforced either way. With SASL on, allow means every
+    /// logged-in user may do everything, including managing users and ACLs (only the credentials of --acl-super-user
+    /// principals are kept from them): use deny with ACLs for a broker that is shared.
     #[arg(long, default_value = "allow")]
     acl_default: acl::AclDefault,
     /// A principal that ACLs never refuse, as Type:name such as User:admin (repeatable, or separated by commas or semicolons).
+    /// Only a super user may set or delete the SCRAM credential of a super user over the API: with --acl-default allow,
+    /// naming the administrators here is what stops any other login from taking their place.
     #[arg(long, value_name = "PRINCIPAL")]
     acl_super_user: Vec<String>,
 
@@ -169,8 +175,6 @@ pub(crate) struct Args {
 pub(crate) struct Settings {
     pub(crate) broker: BrokerConfig,
     pub(crate) server: ServerConfig,
-    /// `--sasl-allow-empty-users`: a start with SASL on and no user at all is meant.
-    pub(crate) allow_empty_users: bool,
     /// The console flags (nothing serves a console before Phase 9).
     pub(crate) console: Console,
     /// What the operator chose that leaves something open, to be said once at start.
@@ -232,11 +236,11 @@ impl Args {
             users: &self.sasl_user,
             users_file: self.sasl_users_file.as_deref(),
             env: sasl::users_from_env(env)?,
-            allow_empty: self.sasl_allow_empty_users,
             data_dir: &self.data_dir,
         })?;
         broker.users = sasl.users;
-        let (console, warnings) = self.console_rule(sasl.authenticator.is_some(), tls_on)?;
+        let (console, mut warnings) = self.console_rule(sasl.authenticator.is_some(), tls_on)?;
+        warnings.extend(tls::key_warning(self.tls_key.as_ref()));
         let server = ServerConfig {
             sasl: sasl.authenticator,
             #[cfg(feature = "tls")]
@@ -245,12 +249,15 @@ impl Args {
             advertised_host: self.advertised_host.clone(),
             advertised_port: self.advertised_port,
             profile: Profile::new(major),
+            timeouts: Timeouts {
+                failed_login: self.sasl_failed_login_delay,
+                ..Timeouts::default()
+            },
             ..ServerConfig::default()
         };
         Ok(Settings {
             broker,
             server,
-            allow_empty_users: self.sasl_allow_empty_users,
             console,
             warnings,
         })
@@ -266,6 +273,7 @@ impl Args {
             sasl,
             tls,
             listen: self.listen,
+            acl_allow: self.acl_default == acl::AclDefault::Allow,
         })
     }
 

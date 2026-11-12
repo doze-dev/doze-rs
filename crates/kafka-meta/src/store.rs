@@ -51,11 +51,25 @@ const FILE: &str = "meta.redb";
 /// carry a write's own pages.
 const CACHE_BYTES: usize = 1 << 20;
 
+/// Who could read the database file when it was opened. It holds the SCRAM salts and keys, from which a password can
+/// be guessed offline, so it is made for its owner alone (SEC-193).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FileMode {
+    /// Owner only: as it was made, or already.
+    Private,
+    /// Group or others could read it (an earlier build made it so): narrowed to owner only now.
+    Narrowed,
+    /// Group or others can read it and it could not be narrowed (it is not ours, say).
+    Wide,
+}
+
 /// The broker's metadata. Reads are served from memory; a write is durable (flushed) before it returns, and
 /// a crash at any point leaves it done or not done, never half. Writes are one at a time.
 #[derive(Debug)]
 pub struct MetaStore {
     db: Database,
+    /// Who could read the file at open.
+    file_mode: FileMode,
     /// What the topics are, in memory, changed only by a write that has committed.
     shared: Shared,
     /// Held for the whole of a topic change, from the checks to the registry update, so that two changes
@@ -82,14 +96,27 @@ impl MetaStore {
             }
             Err(e) => return Err(e.into()),
         };
+        // A database an earlier build made open to others is closed to them now; one that cannot be is reported.
+        let file_mode = match fs.restrict_to_owner(&path) {
+            Ok(false) => FileMode::Private,
+            Ok(true) => FileMode::Narrowed,
+            Err(_) => FileMode::Wide,
+        };
         let db = builder().create_with_backend(FileBackend(file))?;
         let shared = Shared::load(&db)?;
         Ok(Self {
             db,
+            file_mode,
             shared,
             write: Mutex::new(()),
             ids: Mutex::new(producer_ids::Block::default()),
         })
+    }
+
+    /// Who could read the database file when it was opened.
+    #[must_use]
+    pub fn file_mode(&self) -> FileMode {
+        self.file_mode
     }
 
     /// Closes the database, flushing it once more. (Dropping the store closes it too, but cannot say if that
@@ -121,7 +148,7 @@ fn make<F: Fs>(fs: &F, dir: &Path, path: &Path) -> Result<(), MetaError> {
     let staged = dir.join(format!("{FILE}.tmp"));
     // Whatever an earlier attempt left is not trusted.
     fs.remove_file(&staged)?;
-    let (file, _) = fs.open_or_create(&staged)?;
+    let (file, _) = fs.open_or_create_private(&staged)?;
     let db = builder().create_with_backend(FileBackend(file))?;
     let txn = db.begin_write()?;
     txn.open_table(TOPICS)?;

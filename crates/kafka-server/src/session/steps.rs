@@ -23,6 +23,9 @@ pub(crate) enum Fate {
     Open,
     /// It is closed, after the answer has been written and flushed: a client is told why it failed.
     Closing,
+    /// As [`Fate::Closing`], and the answer (SASL_AUTHENTICATION_FAILED) is held back for the failed-login delay first
+    /// (SEC-192).
+    Failed,
 }
 
 /// The text of the answer to a SaslAuthenticate on a connection that has already logged in.
@@ -77,7 +80,7 @@ pub(crate) fn authenticate(
     match session {
         Session::Handshaken(Mechanism::Plain) => match auth.plain(token) {
             Ok(principal) => Ok(logged_in(session, principal, Vec::new())),
-            Err(refusal) => Ok((failed(&refusal.to_string()), Fate::Closing)),
+            Err(refusal) => Ok((failed(&refusal.to_string()), Fate::Failed)),
         },
         Session::Handshaken(mechanism) => match auth.scram_first(*mechanism, token) {
             Ok((challenge, awaiting)) => {
@@ -120,7 +123,7 @@ fn refused(refusal: &scram::Refusal) -> Result<(SaslAuthenticateResponse, Fate),
     if refusal.is_silent() {
         return Err(Hangup);
     }
-    Ok((failed(&refusal.to_string()), Fate::Closing))
+    Ok((failed(&refusal.to_string()), Fate::Failed))
 }
 
 /// The answer to a SaslHandshake that comes at the wrong time: ILLEGAL_SASL_STATE and no mechanisms.

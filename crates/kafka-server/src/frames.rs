@@ -47,7 +47,7 @@ pub(crate) async fn next<S: AsyncRead + Unpin>(
     let mut deadline = (!buf.is_empty()).then(|| Instant::now() + timeouts.frame);
     loop {
         if let Some(len) = decoder.length(buf).map_err(End::Wire)?
-            && pool::pooled(len as usize)
+            && into_pool(decoder, len as usize)
             && buf.len() < 4 + len as usize
         {
             // A big frame is read straight into a buffer that is kept for the next one.
@@ -77,6 +77,12 @@ pub(crate) async fn next<S: AsyncRead + Unpin>(
     }
 }
 
+/// Whether a frame of `len` bytes is read into a pooled buffer: a big one, from a peer that has logged in. What a
+/// stranger sends is never kept for the next frame (SEC-194).
+fn into_pool(decoder: &FrameDecoder, len: usize) -> bool {
+    decoder.is_authenticated() && pool::pooled(len)
+}
+
 /// A frame of `len` bytes whose length prefix and first bytes are in `buf`, read into a pooled buffer.
 async fn pooled<S: AsyncRead + Unpin>(
     stream: &mut S,
@@ -103,4 +109,22 @@ async fn pooled<S: AsyncRead + Unpin>(
         }
     }
     Ok(POOL.share(frame))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use kafka_wire::frame::Trust;
+
+    #[test]
+    fn only_a_peer_that_has_logged_in_gets_a_pooled_buffer() {
+        // SEC-194: a stranger's frame, at the size the pool would take, is read as any other and freed.
+        let mut d = FrameDecoder::new(Trust::Anonymous);
+        for len in [pool::MIN, pool::MIN + 1, 1 << 20] {
+            assert!(!into_pool(&d, len), "{len} from a stranger");
+        }
+        d.set_authenticated();
+        assert!(into_pool(&d, pool::MIN) && into_pool(&d, 1 << 20));
+        assert!(!into_pool(&d, pool::MIN - 1) && !into_pool(&d, pool::MAX + 1));
+    }
 }

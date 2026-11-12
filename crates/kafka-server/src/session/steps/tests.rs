@@ -120,7 +120,7 @@ fn every_recorded_refusal_is_58_with_kafkas_text_and_closes() {
         let (r, fate) = authenticate(&mut s, &authenticator(), &token(bytes)).unwrap();
         assert_eq!(
             (r.error_code, message(&r), fate),
-            (58, Some(text), Fate::Closing)
+            (58, Some(text), Fate::Failed)
         );
         assert!(r.auth_bytes.is_empty());
         assert!(!s.is_authenticated(), "{bytes:?} must not log in");

@@ -43,3 +43,36 @@ pub(super) fn load(cert: Option<&String>, key: Option<&String>) -> Result<Loaded
     }
     Ok(())
 }
+
+/// What to say at start about the key file: it is warned about if group or others can read it (SEC-193), as the users
+/// file is, because whoever reads it can pose as this broker.
+#[cfg(feature = "tls")]
+pub(super) fn key_warning(key: Option<&std::path::PathBuf>) -> Option<String> {
+    let key = key?;
+    readable_by_others(key).map(|mode| {
+        format!(
+            "--tls-key {} is readable by group or others (mode {mode:03o}); run chmod 600 on it",
+            key.display()
+        )
+    })
+}
+
+/// Without the feature there is no key.
+#[cfg(not(feature = "tls"))]
+pub(super) fn key_warning(_key: Option<&String>) -> Option<String> {
+    None
+}
+
+/// The mode of `path` if group or others have any access to it.
+#[cfg(all(feature = "tls", unix))]
+fn readable_by_others(path: &std::path::Path) -> Option<u32> {
+    use std::os::unix::fs::PermissionsExt;
+    let mode = std::fs::metadata(path).ok()?.permissions().mode();
+    (mode & 0o077 != 0).then_some(mode & 0o777)
+}
+
+/// Permissions are not looked at where there is no such thing as a mode.
+#[cfg(all(feature = "tls", not(unix)))]
+fn readable_by_others(_path: &std::path::Path) -> Option<u32> {
+    None
+}

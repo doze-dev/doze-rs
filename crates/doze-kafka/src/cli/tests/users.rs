@@ -209,17 +209,14 @@ fn users_from_the_file_or_the_environment_without_a_mechanism_are_refused() {
     assert!(said.contains("no mechanism is enabled"), "{said}");
     let said = settings(&[], Some("alice:pw")).unwrap_err();
     assert!(said.contains("no mechanism is enabled"), "{said}");
-    let said = settings(&["--sasl-allow-empty-users"], None).unwrap_err();
-    assert!(
-        said.contains("--sasl-allow-empty-users") && said.contains("--sasl-mechanisms"),
-        "{said}"
-    );
+    // SEC-176: the flag that meant a start with nobody to log in is gone.
+    assert!(args(&["--sasl-allow-empty-users"]).is_err());
     // The variable alone, empty, is nothing.
     assert!(settings(&[], Some("")).unwrap().server.sasl.is_none());
 }
 
 #[test]
-fn mechanisms_without_a_user_are_refused_unless_a_stored_user_may_exist_or_it_was_meant() {
+fn mechanisms_without_a_user_are_refused_unless_a_stored_user_may_exist() {
     let dir = Scratch::new("empty");
     let data = dir.0.join("data");
     std::fs::create_dir_all(&data).unwrap();
@@ -232,27 +229,17 @@ fn mechanisms_without_a_user_are_refused_unless_a_stored_user_may_exist_or_it_wa
         "{said}"
     );
     assert!(
-        said.contains("--sasl-users-file") && said.contains("--sasl-allow-empty-users"),
+        said.contains("--sasl-user")
+            && said.contains("--sasl-users-file")
+            && said.contains("DOZE_KAFKA_SASL_USERS"),
         "{said}"
     );
+    assert!(!said.contains("allow-empty"), "{said}");
     assert!(!data.join("meta.redb").exists());
-    // On purpose: the first user is made over the API by a super user.
-    let flags = [&base[..], &["--sasl-allow-empty-users"]].concat();
-    let set = settings(&flags, None).unwrap();
-    assert!(set.allow_empty_users);
-    assert_eq!(set.server.sasl.as_ref().unwrap().user_count(), 0);
     // A database that may hold stored users: the start goes on, and the broker looks once it has opened it.
     std::fs::write(data.join("meta.redb"), b"x").unwrap();
     let set = settings(&base, None).unwrap();
-    assert!(!set.allow_empty_users);
-    assert!(
-        set.server
-            .sasl
-            .as_ref()
-            .unwrap()
-            .ensure_users(false)
-            .is_err()
-    );
+    assert!(set.server.sasl.as_ref().unwrap().ensure_users().is_err());
 }
 
 mod more;

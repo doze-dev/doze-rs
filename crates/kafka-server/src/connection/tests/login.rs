@@ -22,7 +22,7 @@ fn needing_login(timeouts: Timeouts) -> Context<SimFs> {
     ctx
 }
 
-fn start_login(
+pub(super) fn start_login(
     timeouts: Timeouts,
 ) -> (
     DuplexStream,
@@ -39,13 +39,13 @@ fn start_login(
     (client, task, stop)
 }
 
-fn handshake(id: i32) -> Bytes {
+pub(super) fn handshake(id: i32) -> Bytes {
     let mut body = SaslHandshakeRequest::default();
     body.mechanism = StrBytes::from_static_str("PLAIN");
     framed(&request_payload(ApiKey::SaslHandshake, 1, id, None, &body))
 }
 
-fn token(id: i32, bytes: &'static [u8]) -> Bytes {
+pub(super) fn token(id: i32, bytes: &'static [u8]) -> Bytes {
     let mut body = SaslAuthenticateRequest::default();
     body.auth_bytes = Bytes::from_static(bytes);
     framed(&request_payload(
@@ -58,7 +58,7 @@ fn token(id: i32, bytes: &'static [u8]) -> Bytes {
 }
 
 /// The answer to a SaslAuthenticate v2: its error code.
-async fn read_token_answer(client: &mut DuplexStream) -> i16 {
+pub(super) async fn read_token_answer(client: &mut DuplexStream) -> i16 {
     let mut len = [0; 4];
     client.read_exact(&mut len).await.unwrap();
     let mut payload = vec![0; u32::from_be_bytes(len) as usize];
@@ -128,7 +128,7 @@ async fn a_failed_login_is_flushed_before_the_close_and_ends_the_connection() {
 }
 
 #[tokio::test]
-async fn a_stranger_frame_is_held_to_512_kib_and_a_logged_in_one_is_not() {
+async fn a_stranger_frame_is_held_to_64_kib_and_a_logged_in_one_is_not() {
     let (mut client, task, _stop) = start_login(Timeouts::default());
     client.write_all(&(600_000u32).to_be_bytes()).await.unwrap();
     client
@@ -137,7 +137,7 @@ async fn a_stranger_frame_is_held_to_512_kib_and_a_logged_in_one_is_not() {
         .unwrap();
     assert!(matches!(
         task.await.unwrap(),
-        End::Wire(WireError::FrameTooLarge { limit: 524_288, .. })
+        End::Wire(WireError::FrameTooLarge { limit: 65_536, .. })
     ));
     let (mut client, _task, _stop) = start_login(Timeouts::default());
     login(&mut client).await;

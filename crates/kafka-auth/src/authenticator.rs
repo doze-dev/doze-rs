@@ -71,14 +71,18 @@ impl Authenticator {
         &self.users
     }
 
-    /// Refuses a start where SASL is on and nobody could ever log in: no configured user and no stored one. A
-    /// broker started that way on purpose says so (`allow_empty`), and its first user is made over the API by a
-    /// super user.
+    /// Refuses a start where SASL is on and nobody could ever log in: no configured user, and no stored credential
+    /// of a SCRAM mechanism that is on (a stored credential cannot log in over PLAIN). There is no way to mean it:
+    /// with nobody to log in no super user could ever make the first user over the API (SEC-176).
     ///
     /// # Errors
     /// [`SetupError::NoUsers`].
-    pub fn ensure_users(&self, allow_empty: bool) -> Result<(), SetupError> {
-        if allow_empty || !self.users.is_empty() {
+    pub fn ensure_users(&self) -> Result<(), SetupError> {
+        let stored = self.users.stored();
+        let stored_can = stored
+            .iter()
+            .any(|(_, v)| self.offers(v.kind().mechanism()));
+        if !self.users.bootstrap().is_empty() || stored_can {
             Ok(())
         } else {
             Err(SetupError::NoUsers)

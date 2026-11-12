@@ -22,5 +22,5 @@ pub use life::{ConsumerLife, GroupLife};
 pub use names::Collision;
 pub use offsets::{Committed, GroupOffset, OffsetCommit, StoredOffset};
 pub use record::Topic;
-pub use store::{MetaStore, random_topic_id};
+pub use store::{FileMode, MetaStore, random_topic_id};
 pub use txn::{TxnOffset, TxnRecord, TxnState};

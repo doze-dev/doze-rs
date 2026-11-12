@@ -98,8 +98,8 @@ the catalogue lists, one row each; the second is what the slices reported left u
 | SEC-D1 | A request in the middle of a login other than ApiVersions and SaslHandshake closes unanswered (Kafka answers 34 in the request's shape, then closes) | decided: the Go edition does the same; recorded `request-before-token-who`; answering needs the body of a stranger's request, which is never decoded |
 | SEC-D2 | A 30 s login budget from the accept (Kafka has none) | decided: a dev broker should not sit open to a silent socket (D10); the Go edition's rule |
 | SEC-D3 | SaslHandshake v0 (raw tokens) is not served | decided: no client of the four libraries uses it; Kafka 1.x tools only (`I14`) |
-| SEC-D4 | No 100 ms `connection.failed.authentication.delay.ms` before a failure is answered | decided: the delay slows a local attacker nobody has; see `I15` |
-| SEC-D5 | Passwords are not zeroed on drop | decided: no `zeroize` dependency (weight rule); they are never printed; see `I16` |
+| SEC-D4 | (withdrawn) the 100 ms `connection.failed.authentication.delay.ms` is built | done: the first audit measured 18.6k PLAIN guesses a second; SEC-192, `--sasl-failed-login-delay`; the narrower SEC-D73 stands |
+| SEC-D5 | Passwords are not zeroed on drop (and a SCRAM-only broker keeps none) | decided: no `zeroize` dependency (weight rule); they are never printed; SEC-198 drops them when PLAIN is off; see `I16` |
 | SEC-D6 | `Session::Unauthenticated` carries a `versions_answered` flag the plan's enum did not | decided: SEC-12 needs it; an implementation detail |
 | SEC-D7 | The ACL APIs and the authorizer work with SASL off, enforced for `User:ANONYMOUS` (Kafka without an authorizer answers 54) | decided: owner's D4; it is what lets `--acl-default deny` be used without SASL |
 | SEC-D8 | A CLUSTER_AUTHORIZATION_FAILED carries no long message | decided: Kafka's embeds a request dump that cannot be reproduced; the code is Kafka's; see `I10` |
@@ -133,19 +133,24 @@ the catalogue lists, one row each; the second is what the slices reported left u
 | SEC-D47 | The advertised host is not checked against the certificate | decided: Kafka's broker does not either |
 | SEC-D48 | A `tls` build needs a C compiler (ring) | decided: the feature is off by default; the default build needs none |
 | SEC-D50 | Two layers of users (bootstrap and stored); the API refuses a bootstrap user with 93 | decided: the alternative makes login depend on the order of events |
-| SEC-D51 | The credential APIs work with SASL off, so an open broker lets anyone manage users | decided: the same posture as SEC-D7; `--acl-default deny` with a super user closes it |
+| SEC-D51 | The credential APIs work with SASL off, and with `--acl-default allow` any login may manage users | decided: the same posture as SEC-D7; the audit found it a takeover of the super users, closed by SEC-D70 and said at start (SEC-191); `--acl-default deny` with ACLs closes the rest |
 | SEC-D52 | Credential results in the request's order, or by name | decided: Kafka's order is a hash map's |
 | SEC-D53 | `metadata.version` is not modelled | decided: a broker of 4.x always supports SCRAM |
 | SEC-D54 | Describe with a null user list from a denied caller answers 31 where Kafka throws | decided, unsure: not verified against a running Kafka; `I1` |
 | SEC-D55 | A changed credential applies to new logins; no re-authentication | decided: Kafka's default `connections.max.reauth.ms` is 0; see `I13` |
-| SEC-D56 | Credentials are a table in `meta.redb`, not records in a metadata log | decided: there is no replicated log; keys are not encrypted at rest |
+| SEC-D56 | Credentials are a table in `meta.redb`, not records in a metadata log | decided: there is no replicated log; keys are not encrypted at rest, and the file is owner-only (SEC-193) |
 | SEC-D57 | An unusable stored credential row is left and named at warn | decided: Kafka would fail to replay its log |
 | SEC-D58 | The environment variable of users is read once and not cleared | decided: `set_var` is unsafe on edition 2024; the file with mode 600 is the answer |
-| SEC-D59 | File and variable passwords are ASCII without NUL and held for the life of the process | decided: no SASLprep (not in this phase); as SEC-D5 |
+| SEC-D59 | File and variable passwords are ASCII without NUL and held for the life of the process when PLAIN is offered | decided: no SASLprep (not in this phase); as SEC-D5 |
 | SEC-D60 | The guard has no `.doze` special case | decided: PLAN.md line 19; a name the operator needs is listed with `--console-allow-host` |
 | SEC-D61 | The guard refuses five shapes the Go edition's allows: a bare IPv6 literal, brackets around anything but an IPv6 literal, an IP literal with a trailing dot, a name with characters outside letters, digits, `-` and `_` (or a non-ASCII one), a name over 253 bytes or a label over 63 | decided: a refusal costs a flag, an acceptance costs the defence; no browser sends any of them |
 | SEC-D62 | Every configuration that cannot start exits 2 (it exited 1) | decided: the Go edition's code, and clap's own for a bad flag; no test or script read 1 |
 | SEC-D63 | `--console-allow-host` and `--console-unprotected` are parsed and kept and nothing acts on them; a console address is "on" unless `--console=false` | decided: there is no console listener before Phase 9 (`I21`); the start-up rule was built now because its inputs exist |
+| SEC-D70 | Only a super user may change a super user's SCRAM credential (Kafka has no such rule) | decided: the default `--acl-default allow` gives ALTER on the cluster to every login, so without it a login took over every super user (SEC-190); the first audit's major finding |
+| SEC-D71 | A stranger's frame is at most 64 KiB (Kafka's default is 512 KiB) | decided: 1000 strangers at 300 KiB each were 325 MB (SEC-194); a token is under 1 KiB; replaces the 512 KiB of D10 |
+| SEC-D72 | No `--sasl-allow-empty-users` (the Go edition has it) | decided: a start nobody could log in to was a dead start (SEC-176); the first user comes from a flag, a file, the variable, or a broker started without SASL |
+| SEC-D73 | Only a failed login (58) waits for the failed-login delay; Kafka delays every authentication failure | decided: the other two (33, 34) give a guesser nothing (SEC-192) |
+
 | SEC-D80 | A regex subscription is resolved per member, with its own rights, at each heartbeat that changes them (Kafka: per expression, with the rights of the heartbeat that triggered a refresh) | decided: stricter than Kafka, which could hand a member a topic another member of the same text was allowed |
 | SEC-D81 | Kafka's `findAclRule` throws or never ends on some names; this broker answers by the rules | decided: nothing can depend on a throw or a hang |
 | SEC-D82 | The PREFIXED ACLs of a type are scanned on every check | open at admin scale (thousands of prefixes); fine for tens; a sorted index is the fix, covered by the two model tests |
@@ -170,7 +175,7 @@ the catalogue lists, one row each; the second is what the slices reported left u
 | I12 | Client certificates and mTLS principals (`ssl.client.auth`, `ssl.principal.mapping.rules`) | owner: out of scope in the plan ("Not in this phase"); the Go edition has the same limit; build if asked |
 | I13 | Re-authentication (KIP-368, `connections.max.reauth.ms`) | owner: out of scope; a logged-in connection stays logged in, and a changed credential applies to new logins |
 | I14 | SaslHandshake v0 (raw SASL tokens) | owner: build if a Kafka 1.x client must log in |
-| I15 | The 100 ms failed-login delay (`connection.failed.authentication.delay.ms`) | owner: decide if a brute-force slowdown is wanted on a dev broker; a few lines |
+| I15 | The 100 ms failed-login delay (`connection.failed.authentication.delay.ms`) | done: built after the first audit, SEC-192 |
 | I16 | Zeroing secrets on drop (`zeroize`) | owner: weight versus hygiene; `zeroize` is already in the `tls` build as ring's dependency, so it costs nothing there |
 | I17 | The APIs the broker does not serve have no authorization row: `DescribeLogDirs` and the rest of the admin surface outside the Phase 8 matrix, and `DescribeCluster` and the telemetry pair (the rows `version-matrix` still differs on) | moved: Phase 9 for DescribeCluster and the telemetry APIs; each other API joins the matrix, with its test, in the phase that serves it |
 | I18 | A build with the `tls` feature on Windows needs the MSVC build tools (ring); not verified, the `windows` CI job compiles the default build only | moved: a Windows developer, or the CI when a Windows job for the feature is wanted |
@@ -178,6 +183,9 @@ the catalogue lists, one row each; the second is what the slices reported left u
 | I20 | The `Access` facts view of the console (principals, mechanisms, the rule that applies) listed under 8g in the plan | moved: Phase 9, with the console |
 | I21 | The allowed-hosts guard is a pure function with flags and the start-up rule; nothing is mounted on it | moved: Phase 9 mounts it on the console and the registry; the mount must call `kafka_auth::hostguard::allowed` and answer 403 |
 | I22 | Catalogue stale cite found by `tools/check-security-catalogue.ts`: the header of `kafka-server/tests/tls_redaction.rs` cited a rule number past the end of the TLS range (the private-key rule is SEC-152) | done: corrected in the test file's header |
+| I23 | Fixes of the first audit of the authentication half (branch `p8h`): SEC-190 to SEC-198, SEC-D70 to D73 (a super user's credential, the open-ACL note, the failed-login delay, file modes, the stranger cap and pool, the clean close, the crypto vectors, no `--sasl-allow-empty-users`, no plaintext kept for SCRAM alone) | done on `p8h`, merge and the re-audit pending |
+| I24 | With `--acl-default allow` and SASL on every logged-in user may rewrite the ACLs and manage every user who is not a super user (SEC-D51, SEC-191); the broker says it at start and does not forbid it | decided: the default is the broker's promise to a developer; `--acl-default deny` with ACLs and a super user is the shared-broker posture |
+| I25 | A stored credential, the TLS key and the users file are protected by file mode only; the partition logs and the data directory are as the umask makes them; the plaintext of a `--sasl-user` flag stays in the process arguments (`ps`) | owner: the flag's value cannot be hidden from `ps` by the process; the file and variable avoid it (SEC-D58) |
 
 ## Carried into later phases, by name
 - **Phase 7 (compaction), done:** the log walks advance by the last offset delta and a stored batch may hold fewer records than it

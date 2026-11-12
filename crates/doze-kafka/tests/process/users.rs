@@ -143,39 +143,78 @@ fn a_users_file_others_can_read_is_warned_about_without_its_content() {
     let _ = std::fs::remove_dir_all(&users);
 }
 
-#[test]
-fn a_secured_broker_with_no_user_starts_only_when_that_was_asked_for() {
-    let data = scratch("users-empty");
+/// The refusal of `flags` on `data`, in words.
+fn refused(data: &Path, flags: &[&str]) -> String {
     let output = Command::new(env!("CARGO_BIN_EXE_doze-kafka"))
         .args(["--listen", "127.0.0.1:0", "--data-dir"])
-        .arg(&data)
-        .args(["--sasl-mechanisms", "SCRAM-SHA-256"])
+        .arg(data)
+        .args(flags)
         .output()
         .unwrap();
-    let said = String::from_utf8_lossy(&output.stderr);
-    assert!(!output.status.success() && said.contains("no credentials are configured"));
+    let said = String::from_utf8_lossy(&output.stderr).into_owned();
+    assert!(!output.status.success(), "{said}");
+    said
+}
+
+#[test]
+fn a_secured_broker_with_no_user_anywhere_is_refused_and_one_with_stored_users_starts() {
+    // SEC-176: there is no flag to start with nobody able to log in.
+    let data = scratch("users-empty");
+    let secured = ["--sasl-mechanisms", "SCRAM-SHA-256"];
+    let said = refused(&data, &secured);
+    assert!(said.contains("no credentials are configured"), "{said}");
+    assert!(said.contains("--sasl-user USER:PASSWORD"), "{said}");
+    assert!(!said.contains("allow-empty"), "{said}");
     assert!(
         !data.join("meta.redb").exists(),
         "nothing was created: {said}"
     );
-    // On purpose: it starts, and nobody can log in.
-    let flags = [
-        "--sasl-mechanisms",
-        "SCRAM-SHA-256",
-        "--sasl-allow-empty-users",
-    ];
-    let mut broker = start_with(&data, &flags);
-    assert_eq!(log_in(&mut broker.connect(), "anyone", "anything").0, 58);
-    assert!(broker.terminate().success());
-    // The database exists now and holds no user: without the flag the start is refused after it is opened.
-    let output = Command::new(env!("CARGO_BIN_EXE_doze-kafka"))
-        .args(["--listen", "127.0.0.1:0", "--data-dir"])
-        .arg(&data)
-        .args(["--sasl-mechanisms", "SCRAM-SHA-256"])
-        .output()
-        .unwrap();
-    let said = String::from_utf8_lossy(&output.stderr);
-    assert!(!output.status.success(), "{said}");
+    assert!(!refused(&data, &["--sasl-allow-empty-users"]).contains("no credentials"));
+    // A broker without SASL makes a user over the API (SEC-D51) and then the database holds one.
+    let mut open = start_with(&data, &["--acl-default", "allow"]);
+    let req = make_user("carol", "carol-stored-planted");
+    let made: AlterUserScramCredentialsResponse = call(
+        &mut open.connect(),
+        ApiKey::AlterUserScramCredentials,
+        0,
+        &req,
+    );
+    assert_eq!(made.results[0].error_code, 0);
+    assert!(open.terminate().success());
+    // PLAIN cannot use a stored credential, so that start is refused once the database is read.
+    let said = refused(&data, &["--sasl-mechanisms", "PLAIN"]);
     assert!(said.contains("no credentials are configured"), "{said}");
+    // SCRAM can: the stored user logs in with no user on the command line.
+    let mut broker = start_with(&data, &secured);
+    assert_eq!(
+        log_in(&mut broker.connect(), "carol", "carol-stored-planted"),
+        (0, 0)
+    );
+    assert!(broker.terminate().success());
+    let _ = std::fs::remove_dir_all(&data);
+    // A database that holds no user at all is refused after it is opened.
+    let empty = scratch("users-empty-db");
+    let mut open = start_with(&empty, &["--acl-default", "allow"]);
+    assert!(open.terminate().success());
+    let said = refused(&empty, &secured);
+    assert!(said.contains("no credentials are configured"), "{said}");
+    let _ = std::fs::remove_dir_all(&empty);
+}
+
+#[test]
+fn the_metadata_database_is_owner_only_and_an_open_one_from_an_earlier_build_is_narrowed() {
+    // SEC-193: the file holds the SCRAM salts and keys.
+    let data = scratch("db-mode");
+    let path = data.join("meta.redb");
+    let mode = || std::fs::metadata(&path).unwrap().permissions().mode() & 0o777;
+    let mut first = start_with(&data, &[]);
+    assert_eq!(mode(), 0o600);
+    assert!(first.terminate().success());
+    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o644)).unwrap();
+    let mut again = start_with(&data, &[]);
+    assert_eq!(mode(), 0o600);
+    assert!(again.terminate().success());
+    let log = again.log.lock().unwrap().clone();
+    assert!(log.contains("now readable by its owner only"), "{log}");
     let _ = std::fs::remove_dir_all(&data);
 }
