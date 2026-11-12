@@ -21,7 +21,7 @@ fn story_parent(s: &Shared, v: &StoryView) -> Parent {
         rail: Rail::Resources,
         title: "Story".to_owned(),
         crumbs: trail(&v.head.id, Some("Story")),
-        watch: s.source.watching(crate::live_updates::STORY),
+        watch: s.source.watching(crate::story_ids::STORY_IDS),
         main: page::story_page(v, &s.base),
     }
 }

@@ -112,8 +112,7 @@
       },
       // Alpine owns an `x-show` element's `style`: the server's copy (closed) must not close it.
       beforeAttributeUpdated: (name, node) => {
-        if (name === 'style' && node.hasAttribute && (node.hasAttribute('x-show') || node.hasAttribute('data-hold'))) return false;
-        if (name === 'data-hold') return false;
+        if (name === 'style' && node.hasAttribute && (node.hasAttribute('x-show'))) return false;
         // A disclosure the person opened or shut stays as they left it: a filter that morphs its region does not undo it.
         if ((name === 'open' || name === 'data-touched') && node.tagName === 'DETAILS' && node.hasAttribute('data-touched')) return false;
         return true;
@@ -129,64 +128,13 @@
       const target = el.id && document.getElementById(el.id);
       if (target) window.Idiomorph.morph(target, el, { morphStyle: 'outerHTML' });
     }
-    rel();
   }
-
-  // Relative times ("4 s ago") are the one text that changes with no change of data. They are kept by the browser: every second each
-  // one is recomputed from what the server said and the time since it said it, with no request and nothing else touched; and the
-  // server's ETag does not see them (src/handlers.rs), so a fragment is fetched anew only when something really changed.
-  const REL = /(\d+(?:\.\d)?) ([smhd]) ago/;
-  const SEC = { s: 1000, m: 60000, h: 3600000, d: 86400000 };
-  const relText = (ms) => {
-    const d = Math.max(0, ms);
-    if (d < 1000) return Math.floor(d / 1000) + '.' + Math.floor((d % 1000) / 100) + ' s';
-    if (d < 60000) return Math.floor(d / 1000) + ' s';
-    if (d < 3600000) return Math.floor(d / 60000) + ' m';
-    if (d < 86400000) return Math.floor(d / 3600000) + ' h';
-    return Math.floor(d / 86400000) + ' d';
-  };
-  const relNodes = new Map(); // text node -> { base ms, at (when it was read), whole (the node's text has " ago" in it) }
-  function rel(root) {
-    const now = Date.now();
-    const walker = document.createTreeWalker(root || document.getElementById('main') || document.body, NodeFilter.SHOW_TEXT);
-    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
-      const e = n.parentElement;
-      if (!e || e.closest('script,style,textarea,[data-no-rel]')) continue;
-      const have = relNodes.get(n);
-      if (have && have.shown === n.data) continue; // it is still what we wrote
-      let m = REL.exec(n.data);
-      let whole = true;
-      if (!m && /^\d+(?:\.\d)? [smhd]$/.test(n.data) && (e.tagName === 'B' || e.tagName === 'STRONG') && e.nextSibling && e.nextSibling.nodeType === 3 && /^ ago/.test(e.nextSibling.data)) { m = [n.data, ...n.data.split(' ')]; whole = false; }
-      if (m) relNodes.set(n, { base: parseFloat(m[1]) * SEC[m[2]], at: now, whole, shown: n.data });
-      else if (have) relNodes.delete(n);
-    }
-  }
-  setInterval(() => {
-    const now = Date.now();
-    for (const [n, r] of relNodes) {
-      if (!n.isConnected) { relNodes.delete(n); continue; }
-      // Somebody else wrote the text (a morph brought the server's): start again from what it says.
-      if (n.data !== r.shown) { const m = REL.exec(n.data); if (m) { r.base = parseFloat(m[1]) * SEC[m[2]]; r.at = now; r.shown = n.data; } else relNodes.delete(n); continue; }
-      const t = relText(r.base + (now - r.at));
-      const next = r.whole ? n.data.replace(REL, t + ' ago') : t;
-      if (next !== n.data) {
-        // A sentence that holds a time never gets SHORTER than it has been: if a longer number wraps it onto another line the block
-        // keeps the room, so nothing below it moves back and forth every few seconds (it may grow once, never shrink).
-        const block = n.parentElement && n.parentElement.closest('p,.sub,.sent,.lede,dd,td');
-        const before = block ? block.offsetHeight : 0;
-        n.data = next; r.shown = next;
-        if (block && block.offsetHeight !== before) { const h = Math.max(before, block.offsetHeight); block.style.minHeight = h + 'px'; block.setAttribute('data-hold', ''); }
-      }
-    }
-  }, 1000);
-  document.addEventListener('htmx:afterSettle', () => rel());
 
   // A fragment: fetched again on a tick. The script keeps the ETag and sends it (spike 1: a browser turns a 304 into a 200
   // for fetch), and the newest request wins per fragment (spike 4).
   const etags = {}, ctl = {};
   // A fetch that came back (even with 304) says the console's process is there: the banner of a lost connection goes.
   const reached = () => { const b = banner(); if (b) b.hidden = true; };
-  // (The pace is the server's: it names a fragment only when it changed, and not oftener than a person can follow: src/stream.rs.)
   async function refresh(id) {
     const url = attr(document.getElementById(id), 'data-frag');
     if (!url) return;
@@ -218,32 +166,15 @@
   const overlayOpen = () => !!document.querySelector('[data-overlay],dialog[open]');
   const parse = (html) => { const t = document.createElement('template'); t.innerHTML = html; return t.content; };
   const showHeld = (n) => document.querySelectorAll('[data-held]').forEach((el) => { el.textContent = new Intl.NumberFormat('en-US').format(n); });
-  // A reader who has scrolled down the tape is not pushed: the new rows wait (a pill says how many) until they ask or come back to the top.
-  const away = () => (window.scrollY || 0) > 160;
-  function pill(n) {
-    let p = document.querySelector('.new-pill');
-    if (n === null) { if (p) p.hidden = true; return; }
-    if (!p) {
-      p = document.createElement('button');
-      p.type = 'button'; p.className = 'new-pill';
-      p.addEventListener('click', () => { window.scrollTo({ top: 0, left: 0, behavior: 'instant' }); release(); });
-      document.body.appendChild(p);
-    }
-    p.textContent = n === 1 ? '1 new row' : new Intl.NumberFormat('en-US').format(n) + ' new rows';
-    p.hidden = false;
-  }
   function holds(id, html) {
     const el = document.getElementById(id);
     if (!el || seenOf(el) === null) return false;
-    if (pausedAt === null && !overlayOpen() && !away()) { delete held[id]; pill(null); return false; }
+    if (pausedAt === null && !overlayOpen()) { delete held[id]; return false; }
     held[id] = html;
     if (pausedAt !== null) showHeld(Math.max(0, seenOf(parse(html)) - pausedAt));
-    else if (!overlayOpen()) pill(Math.max(0, seenOf(parse(html)) - (seenOf(el) || 0)));
     return true;
   }
-  addEventListener('scroll', () => { if (pausedAt === null && !overlayOpen() && !away() && Object.keys(held).length) release(); }, { passive: true });
   function release() {
-    pill(null);
     for (const id of Object.keys(held)) { const html = held[id]; delete held[id]; const b = rowsOn(id); apply(html); markNew(id, b); }
   }
   const rowsOn = (id) => { const el = document.getElementById(id); return el ? new Set([...el.querySelectorAll('tr[data-row]')].map((r) => r.getAttribute('data-row'))) : new Set(); };
@@ -526,21 +457,14 @@
   // ==== 7. The stream ====
   // One connection while the page is on screen. A tick names the fragments to fetch again. The address is on `main`: a swap
   // of main (a navigation) brings the next page's own, and the stream is opened again for it.
-  let es = null, wait = 1000, timer = 0, streamUrl = null, fragKey = '';
+  let es = null, wait = 1000, timer = 0, streamUrl = null;
   const close = () => { clearTimeout(timer); if (es) es.close(); es = null; };
-  const fragsOf = (url) => {
-    const ids = (new URL(url, location.href).searchParams.get('watch') || '').split(',').filter(Boolean);
-    return ids.map((id) => attr(document.getElementById(id), 'data-frag')).filter(Boolean).map((u) => '&f=' + encodeURIComponent(u)).join('');
-  };
   const wanted = () => attr(document.getElementById('main'), 'data-stream') || attr(document.body, 'data-stream');
   const connect = () => {
     close();
     streamUrl = wanted();
     if (!streamUrl || !window.EventSource) return;
-    // The stream is told each fragment's address (its data-frag), so that it can tell a change of what a fragment says from a tick:
-    // it names a fragment only when that fragment changed (and not oftener than a person can follow: src/stream.rs).
-    fragKey = fragsOf(streamUrl);
-    es = new EventSource(streamUrl + fragKey);
+    es = new EventSource(streamUrl);
     es.addEventListener('tick', (e) => e.data.split(',').filter(Boolean).forEach(refresh));
     es.onopen = () => { wait = 1000; const b = banner(); if (b) b.hidden = true; };
     // Reconnect for ever with a growing wait (spike 3): the console left open while the broker is down must come back.
@@ -634,7 +558,7 @@
     pageUrl = ovl && ovl.parent ? ovl.parent : here();
     sync();
     reveal();
-    { const w = wanted(); if (w !== streamUrl || (w && fragsOf(w) !== fragKey)) connect(); }
+    if (wanted() !== streamUrl) connect();
   });
   hx('load', reveal);
   // A page swapped into main takes focus (a screen reader reads the new page), without scrolling.
@@ -680,7 +604,6 @@
   document.addEventListener('mouseout', () => clearTimeout(rest));
   document.addEventListener('focusin', (e) => preload(e.target.closest && e.target.closest('a[href]')));
 
-  rel();
   adopt();
   connect();
 })();

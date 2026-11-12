@@ -15,6 +15,7 @@ use crate::form::{get, parse};
 use crate::model::{GroupFilter, GroupLagView};
 use crate::pages::groups as page;
 use crate::state::Shared;
+use crate::stream_groups::{GROUP_IDS, GROUPS_IDS, LAG_IDS};
 use crate::trail::{Place, borrowed};
 use crate::ui::shell::Rail;
 
@@ -66,7 +67,7 @@ pub async fn groups(State(s): State<Shared>, RawQuery(query): RawQuery) -> Respo
         StatusCode::OK,
         title,
         &Place::Groups.steps(),
-        s.source.watching(crate::live_updates::GROUPS),
+        s.source.watching(GROUPS_IDS),
         main,
     )
     .await
@@ -86,7 +87,7 @@ pub(super) fn group_parent(s: &Shared, view: &GroupLagView) -> Parent {
         rail: Rail::Resources,
         title: view.head.id.clone(),
         crumbs: trail(&view.head.id, None),
-        watch: s.source.watching(crate::live_updates::GROUP),
+        watch: s.source.watching(GROUP_IDS),
         main: page::group_page(view, &s.base),
     }
 }
@@ -105,7 +106,7 @@ pub(super) fn members_parent(s: &Shared, view: &GroupLagView, open: Option<&str>
         rail: Rail::Resources,
         title: "Members".to_owned(),
         crumbs: trail(&view.head.id, Some("Members")),
-        watch: s.source.watching(crate::live_updates::GROUP),
+        watch: s.source.watching(GROUP_IDS),
         main: page::members_page_open(view, &s.base, open),
     }
 }
@@ -126,7 +127,7 @@ pub(super) fn lag_parent(s: &Shared, mut view: GroupLagView, flash: Option<Strin
         rail: Rail::Resources,
         title: "Lag".to_owned(),
         crumbs: trail(&view.head.id, Some("Lag")),
-        watch: s.source.watching(crate::live_updates::GROUP),
+        watch: s.source.watching(LAG_IDS),
         main: page::lag_page(&view, &s.base),
     }
 }
