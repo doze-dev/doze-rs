@@ -166,3 +166,35 @@ async fn the_document_names_the_scripts_in_load_order_and_configures_htmx_withou
     assert_eq!(doc.matches("<script").count(), s.assets.urls.scripts.len());
     assert!(!doc.contains("<script>"), "an inline script");
 }
+
+#[tokio::test]
+async fn a_page_answered_to_a_post_from_an_overlay_takes_the_address_of_the_page_behind_it() {
+    let (app, _) = app("/", &[]);
+    let post = |parent: &str| {
+        Request::builder()
+            .method("POST")
+            .uri("/topics/orders/produce")
+            .header(header::HOST, HOST)
+            .header(header::ORIGIN, format!("http://{HOST}"))
+            .header(header::CONTENT_TYPE, "application/x-www-form-urlencoded")
+            .header("hx-request", "true")
+            .header("hx-target", "ovl")
+            .header("x-overlay-parent", parent)
+            .body(Body::from("value=v"))
+            .unwrap()
+    };
+    let (res, _) = send(&app, post("/topics/orders")).await;
+    if res.headers().get("x-overlay").is_none() && res.status().is_success() {
+        assert_eq!(
+            res.headers().get("hx-replace-url").unwrap(),
+            "/topics/orders"
+        );
+    }
+    // A parent that is not a same-origin path is never echoed.
+    for bad in ["https://evil.example/", "//evil.example/x"] {
+        let (res, _) = send(&app, post(bad)).await;
+        if let Some(v) = res.headers().get("hx-replace-url") {
+            assert_eq!(v, "false", "{bad}");
+        }
+    }
+}

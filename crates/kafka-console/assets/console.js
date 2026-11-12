@@ -91,6 +91,16 @@
   const changed = new Set(), added = [];
   const mark = (el) => { if (el) changed.add(el); };
   const quiet = (el) => el && el.nodeType === 1 && el.hasAttribute('data-open');
+  // What a component's script did to its elements (shown the enhanced control, hid the plain one, named it) is not in the server's
+  // markup: carry it over to the new node, so that a swap of a region that holds a Select (the Live toolbar) does not undo it.
+  function keepEnhanced(a, b) {
+    if (a.classList.contains('is-on')) b.classList.add('is-on');
+    if (!a.hidden && a.matches('.dz-trigger,.dz-field,.dz-menu-btn,.dz-pov-btn')) b.hidden = false;
+    if (a.classList.contains('dz-native') && a.getAttribute('aria-hidden')) { b.setAttribute('aria-hidden', 'true'); b.tabIndex = -1; }
+    if (a.matches('.dz-trigger,.dz-input')) {
+      for (const n of ['aria-labelledby', 'aria-label']) if (a.hasAttribute(n) && !b.hasAttribute(n)) b.setAttribute(n, a.getAttribute(n));
+    }
+  }
   if (window.Idiomorph) {
     const d = window.Idiomorph.defaults;
     d.ignoreActiveValue = true;
@@ -98,6 +108,7 @@
       // A component that is open (a menu, a select's list) is left as the person has it.
       beforeNodeMorphed: (a, b) => {
         if (quiet(a)) return false;
+        if (a.nodeType === 1 && b.nodeType === 1) keepEnhanced(a, b);
         if (a.nodeType === 3 && a.data !== b.data) mark(a.parentElement);
         return true;
       },
@@ -330,7 +341,7 @@
       opening = null;
       window.htmx.ajax('GET', at.href, { target: '#ovl', swap: 'innerHTML', headers: { 'X-Fragment': '1' } });
     } else {
-      window.htmx.ajax('POST', f.action, { target: '#ovl', swap: 'innerHTML', values: Object.fromEntries(data), headers: { 'X-Fragment': '1' } })
+      window.htmx.ajax('POST', f.action, { target: '#ovl', swap: 'innerHTML', values: Object.fromEntries(data), headers: { 'X-Fragment': '1', 'X-Overlay-Parent': ovl.parent } })
         .catch(() => f.submit());
     }
   }, true);

@@ -1135,20 +1135,6 @@
   },
   {
     "board": "live-load",
-    "field": "button",
-    "selector": "All apps [-] -> ui:filter",
-    "reason": "improvement: the filter chip is a native select (it works with no script, with the keyboard and with a screen reader, and keeps the choice in the address); the board draws a button",
-    "expires": "close"
-  },
-  {
-    "board": "live-load",
-    "field": "button",
-    "selector": "All topics [-] -> ui:filter",
-    "reason": "improvement: the filter chip is a native select (it works with no script, with the keyboard and with a screen reader, and keeps the choice in the address); the board draws a button",
-    "expires": "close"
-  },
-  {
-    "board": "live-load",
     "field": "link",
     "selector": "live-load|live-paused|live-quiet|live-wire",
     "reason": "improvement: client, API and topic cells, Close and Pause link to the Live page filtered or as it was; the filters live in the address so they can be shared and survive a reload",
@@ -1163,20 +1149,6 @@
   },
   {
     "board": "live-paused",
-    "field": "button",
-    "selector": "All apps [-] -> ui:filter",
-    "reason": "improvement: the filter chip is a native select (it works with no script, with the keyboard and with a screen reader, and keeps the choice in the address); the board draws a button",
-    "expires": "close"
-  },
-  {
-    "board": "live-paused",
-    "field": "button",
-    "selector": "All topics [-] -> ui:filter",
-    "reason": "improvement: the filter chip is a native select (it works with no script, with the keyboard and with a screen reader, and keeps the choice in the address); the board draws a button",
-    "expires": "close"
-  },
-  {
-    "board": "live-paused",
     "field": "link",
     "selector": "request-detail|request-fenced|request-refused|request-too-large",
     "reason": "improvement: every row's time is a link to its drawer (the board links only a few), so any request can be opened",
@@ -1184,37 +1156,9 @@
   },
   {
     "board": "live-quiet",
-    "field": "button",
-    "selector": "All apps [-] -> ui:filter",
-    "reason": "improvement: the filter chip is a native select (it works with no script, with the keyboard and with a screen reader, and keeps the choice in the address); the board draws a button",
-    "expires": "close"
-  },
-  {
-    "board": "live-quiet",
-    "field": "button",
-    "selector": "All topics [-] -> ui:filter",
-    "reason": "improvement: the filter chip is a native select (it works with no script, with the keyboard and with a screen reader, and keeps the choice in the address); the board draws a button",
-    "expires": "close"
-  },
-  {
-    "board": "live-quiet",
     "field": "link",
     "selector": "live-load|live-paused|live-quiet|live-wire",
     "reason": "improvement: client, API and topic cells, Close and Pause link to the Live page filtered or as it was; the filters live in the address so they can be shared and survive a reload",
-    "expires": "close"
-  },
-  {
-    "board": "live-wire",
-    "field": "button",
-    "selector": "All apps [-] -> ui:filter",
-    "reason": "improvement: the filter chip is a native select (it works with no script, with the keyboard and with a screen reader, and keeps the choice in the address); the board draws a button",
-    "expires": "close"
-  },
-  {
-    "board": "live-wire",
-    "field": "button",
-    "selector": "All topics [-] -> ui:filter",
-    "reason": "improvement: the filter chip is a native select (it works with no script, with the keyboard and with a screen reader, and keeps the choice in the address); the board draws a button",
     "expires": "close"
   },
   {
@@ -1563,6 +1507,38 @@
     "field": "title",
     "selector": "Nothing yet",
     "reason": "[p9o] The tool gives a state its parent's title (the Live page, or Home); the page's breadcrumb carries the state as the board's own breadcrumb does (Live, then Paused, Nothing yet or A busy minute; Home, then First request landed).",
+    "expires": "close"
+  },
+  {
+    "board": "group-reset-offsets",
+    "field": "button",
+    "selector": "orders, all 3 partitions [-] -> none",
+    "render": "fixture",
+    "reason": "improvement: the Topic field is a Select component (a combobox button and a listbox over a real <select>, docs/port/console/components.md); the board draws a styled box with no button",
+    "expires": "close"
+  },
+  {
+    "board": "group-reset-offsets",
+    "field": "button",
+    "selector": "orders, all # partitions [-] -> none",
+    "render": "live",
+    "reason": "improvement: the Topic field is a Select component (a combobox button and a listbox over a real <select>, docs/port/console/components.md); the board draws a styled box with no button",
+    "expires": "close"
+  },
+  {
+    "board": "topic-produce",
+    "field": "button",
+    "selector": "2 [-] -> none",
+    "render": "fixture",
+    "reason": "improvement: the Partition field is a Select component (a combobox button and a listbox over a real <select>, docs/port/console/components.md); the board draws a styled box with no button",
+    "expires": "close"
+  },
+  {
+    "board": "topic-produce",
+    "field": "button",
+    "selector": "# [-] -> none",
+    "render": "live",
+    "reason": "improvement: the Partition field is a Select component (a combobox button and a listbox over a real <select>, docs/port/console/components.md); the board draws a styled box with no button",
     "expires": "close"
   }
 ]

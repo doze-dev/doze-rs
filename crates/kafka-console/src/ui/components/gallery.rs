@@ -97,10 +97,8 @@ pub fn region(c: &Chosen) -> Markup {
     }
 }
 
-/// The gallery page's `main`.
-#[must_use]
-pub fn page(c: &Chosen, base: &crate::base::Base) -> Markup {
-    let colours = [
+fn colours_and_clients() -> (Vec<Choice<'static>>, Vec<Choice<'static>>) {
+    let colours = vec![
         Choice::new("r", "Red"),
         Choice::new("g", "Green").desc("the second one"),
         Choice::new("b", HOSTILE),
@@ -112,7 +110,26 @@ pub fn page(c: &Chosen, base: &crate::base::Base) -> Markup {
         "checkout-svc",
         "billing-batch",
     ];
-    let cc: Vec<Choice<'_>> = clients.iter().map(|n| Choice::new(n, n)).collect();
+    (colours, clients.iter().map(|n| Choice::new(n, n)).collect())
+}
+
+fn choice_sections() -> Markup {
+    let (colours, cc) = colours_and_clients();
+    html! {
+        (section("Select", "Single choice. Keyboard: Enter, Space or the arrows open; arrows, Home, End and letters move; Enter chooses; Esc closes.", html! {
+            (select(&Select::new("s-plain", "colour", "Colour", &colours, "g")))
+            (select(&Select { placeholder: "Pick a colour", ..Select::new("s-empty", "colour2", "Colour", &colours, "") }))
+            (select(&Select { disabled: true, ..Select::new("s-dis", "colour3", "Colour", &colours, "r") }))
+            (select(&Select { class: "dz-chip", ..Select::new("s-chip", "client", "Client", &cc, "") }))
+        }))
+        (section("Combobox", "Searchable. Type to filter; with free text it offers to use what you typed.", html! {
+            (combobox(&Combobox::new("c-client", "cclient", "Client", &cc, "")))
+            (combobox(&Combobox { create: true, placeholder: "Any client id", ..Combobox::new("c-free", "cfree", "Client id", &cc, "") }))
+        }))
+    }
+}
+
+fn floating_sections() -> Markup {
     let items = [
         MenuItem::Link {
             label: "Open the topic",
@@ -157,29 +174,28 @@ pub fn page(c: &Chosen, base: &crate::base::Base) -> Markup {
         },
     ];
     html! {
+        (section("Dropdown menu", "A \"...\" button, as in the last cell of a row: the menu opens under it, its right edge on the button's. Arrows move, Esc returns to the button.", html! {
+            div style="margin-left:200px" { (menu(&Menu { id: "m1", label: "Actions for orders", items: &items })) }
+        }))
+        (section("Tooltip and popover", "A tooltip is 400 ms of hover or focus; a popover opens on click.", html! {
+            (tip("t1", "Copy the address", &html! { button class="btn sm" type="button" { "Hover me" } }))
+            (tip("t2", HOSTILE, &html! { span class="mono" tabindex="0" { "a truncated value…" } }))
+            (popover("p1", "Details", &html! { p style="margin:0 0 6px" { b { "orders-0" } } p class="help" style="margin:0" { "A small floating card with its own text." } }))
+        }))
+        (section("Segmented control", "A row of links, one stop in the Tab order; arrows move focus.", seg("Partitions", &rows, None)))
+    }
+}
+
+/// The gallery page's `main`.
+#[must_use]
+pub fn page(c: &Chosen, base: &crate::base::Base) -> Markup {
+    html! {
         (page_header("Component gallery", html! { p class="sub" { "Every component and state. Examples build only." } }, html! {}))
         div class="gal" {
             (section("In place", "These controls change only the region below and push the address; scroll, focus and typed text stay.", demo_form(c, base)))
             (region(c))
-            (section("Select", "Single choice. Keyboard: Enter, Space or the arrows open; arrows, Home, End and letters move; Enter chooses; Esc closes.", html! {
-                (select(&Select::new("s-plain", "colour", "Colour", &colours, "g")))
-                (select(&Select { placeholder: "Pick a colour", ..Select::new("s-empty", "colour2", "Colour", &colours, "") }))
-                (select(&Select { disabled: true, ..Select::new("s-dis", "colour3", "Colour", &colours, "r") }))
-                (select(&Select { class: "dz-chip", ..Select::new("s-chip", "client", "Client", &cc, "") }))
-            }))
-            (section("Combobox", "Searchable. Type to filter; with free text it offers to use what you typed.", html! {
-                (combobox(&Combobox::new("c-client", "cclient", "Client", &cc, "")))
-                (combobox(&Combobox { create: true, placeholder: "Any client id", ..Combobox::new("c-free", "cfree", "Client id", &cc, "") }))
-            }))
-            (section("Dropdown menu", "A \"...\" button. Arrows move, Esc returns to the button.", html! {
-                (menu(&Menu { id: "m1", label: "Actions for orders", items: &items }))
-            }))
-            (section("Tooltip and popover", "A tooltip is 400 ms of hover or focus; a popover opens on click.", html! {
-                (tip("t1", "Copy the address", &html! { button class="btn sm" type="button" { "Hover me" } }))
-                (tip("t2", HOSTILE, &html! { span class="mono" tabindex="0" { "a truncated value…" } }))
-                (popover("p1", "Details", &html! { p style="margin:0 0 6px" { b { "orders-0" } } p class="help" style="margin:0" { "A small floating card with its own text." } }))
-            }))
-            (section("Segmented control", "A row of links, one stop in the Tab order; arrows move focus.", seg("Partitions", &rows, None)))
+            (choice_sections())
+            (floating_sections())
             (section("Overlays", "A drawer and a dialog.", html! {
                 (client::dialog_link("btn", &base.url("/topics/orders/produce"), html! { "Open a dialog" }))
                 (client::dialog_link("btn", &base.url("/topics/orders/messages/1/16050"), html! { "Open a drawer" }))

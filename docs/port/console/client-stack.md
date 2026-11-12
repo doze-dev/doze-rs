@@ -1,6 +1,6 @@
 # The console's client stack: htmx 2 + idiomorph + Alpine (CSP build)
 
-**Decided 2026-11-12 (UX foundation, CON-650 to CON-699). Supersedes D4a of `phase9.md`** ("our own script, no third-party JavaScript"), which was right about bytes and CSP and wrong about what the console is: the owner opened the built pages and every interaction was a full-document GET (a scroll jump, a flash, a native `<select>`, a drawer that nudged 28 px). The Go console used htmx and Alpine; the Rust console now does too, with the two constraints D4a was right about kept: **`default-src 'self'`, no `unsafe-eval`, no inline script**, and every page working with no script.
+**Decided 2026-11-12 (UX foundation, CON-650 to CON-658). Supersedes D4a of `phase9.md`** ("our own script, no third-party JavaScript"), which was right about bytes and CSP and wrong about what the console is: the owner opened the built pages and every interaction was a full-document GET (a scroll jump, a flash, a native `<select>`, a drawer that nudged 28 px). The Go console used htmx and Alpine; the Rust console now does too, with the two constraints D4a was right about kept: **`default-src 'self'`, no `unsafe-eval`, no inline script**, and every page working with no script.
 
 ## What is adopted, and why each piece
 

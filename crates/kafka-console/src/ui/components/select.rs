@@ -21,6 +21,8 @@ pub struct Select<'a> {
     pub disabled: bool,
     /// Extra classes on the root (`chip` for the Live filters).
     pub class: &'a str,
+    /// The `data-ui` kind of the button (the boards name a filter chip's button `filter`).
+    pub ui: Option<&'a str>,
 }
 
 impl<'a> Select<'a> {
@@ -42,6 +44,7 @@ impl<'a> Select<'a> {
             auto_submit: false,
             disabled: false,
             class: "",
+            ui: None,
         }
     }
 }
@@ -65,7 +68,7 @@ fn select_html(s: &Select<'_>) -> Markup {
                 @if !chosen && !s.value.is_empty() { option value=(s.value) selected { (s.value) } }
             }
             button type="button" class="dz-trigger" x-ref="trigger" role="combobox" aria-haspopup="listbox" aria-expanded="false" xb-aria-expanded="open" aria-controls=(list_id)
-                data-placeholder=(s.placeholder) disabled[s.disabled] hidden {
+                data-placeholder=(s.placeholder) data-ui=[s.ui] disabled[s.disabled] hidden {
                 span class={"dz-value" @if !chosen { " muted" }} { (now) }
                 (icon(Icon::Chevron, "dz-chev"))
             }

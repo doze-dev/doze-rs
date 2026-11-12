@@ -67,6 +67,13 @@ pub async fn layer(req: Request, next: Next) -> Response {
         .map(ToString::to_string)
         .unwrap_or_default();
     let is_get = req.method() == axum::http::Method::GET;
+    // The page behind the overlay the script posted from (a same-origin path only): where a page answered to a POST belongs.
+    let parent = req
+        .headers()
+        .get("x-overlay-parent")
+        .and_then(|v| v.to_str().ok())
+        .filter(|p| p.starts_with('/') && !p.starts_with("//") && !p.contains(['\r', '\n']))
+        .map(ToOwned::to_owned);
     let preloading = is_true(&req, HX_PRELOADED) && req.method() == axum::http::Method::GET;
     let mut res = REGION.scope(hx && !restore, next.run(req)).await;
     let h = res.headers_mut();
@@ -92,8 +99,12 @@ pub async fn layer(req: Request, next: Next) -> Response {
             h.insert(HeaderName::from_static(k), HeaderValue::from_static(v));
         }
         // The page's own address replaces the overlay's, when this answer is a page's own GET (the redirect after a write). A
-        // POST answered with a page directly has no address of its own to give: the overlay's stays.
-        let at = if is_get { here } else { "false".to_owned() };
+        // POST answered with a page directly has none: the page behind the overlay it came from (or, told of none, the overlay's) stays.
+        let at = if is_get {
+            here
+        } else {
+            parent.unwrap_or_else(|| "false".to_owned())
+        };
         if let Ok(v) = HeaderValue::from_str(&at) {
             h.insert(HeaderName::from_static("hx-replace-url"), v);
         }

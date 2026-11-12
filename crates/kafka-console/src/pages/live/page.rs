@@ -51,6 +51,7 @@ fn select_chip(name: &str, all: &str, current: &str, options: &[String]) -> Mark
     }
     select(&Select {
         auto_submit: true,
+        ui: Some("filter"),
         placeholder: all,
         class: if current.is_empty() {
             "dz-chip"

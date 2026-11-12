@@ -70,9 +70,9 @@ nav["nav-view-transition"] = async (t) => {
   t.ok((await p.eval<number>("window.__vt")) >= 1, "the navigation ran inside a view transition");
   const d = await p.eval<{ nw: string; old: string }>(`(() => ({ nw: getComputedStyle(document.documentElement, '::view-transition-new(main)').animationDuration, old: getComputedStyle(document.documentElement, '::view-transition-old(main)').animationDuration }))()`);
   t.ok(d.nw === "0.18s" || d.nw === "" , `new page fades in over 180 ms (got ${d.nw})`);
-  const css = await p.eval<string>(`[...document.styleSheets].flatMap((s) => [...s.cssRules]).map((r) => r.cssText).filter((c) => c.includes('view-transition')).join('\\n')`);
-  t.ok(/vt-in 0\.18s/.test(css) || /vt-in 180ms/.test(css), "the CSS cross-fades the new main in 180 ms");
-  t.ok(/translateY\(5px\)/.test(await p.eval<string>(`[...document.styleSheets].flatMap((s) => [...s.cssRules]).filter((r) => r.name === 'vt-in').map((r) => r.cssText).join('')`)), "with a 5 px rise");
+  const css = await p.eval<string>(`[...document.styleSheets].flatMap((s) => [...s.cssRules]).flatMap((r) => (r.cssRules ? [...r.cssRules] : [r])).map((r) => r.cssText).filter((c) => c.includes('view-transition')).join('\\n')`);
+  t.ok(/::view-transition-new\(main\)[^}]*180ms[^}]*vt-in/.test(css), "the CSS cross-fades the new main in 180 ms");
+  t.ok(/translateY\(5px\)/.test(await p.eval<string>(`[...document.styleSheets].flatMap((s) => [...s.cssRules]).flatMap((r) => (r.cssRules ? [r, ...r.cssRules] : [r])).filter((r) => r.name === 'vt-in').map((r) => r.cssText).join('')`)), "with a 5 px rise");
 };
 
 // The pointer resting on a link fetches its page ahead; the click is answered from the cache.
