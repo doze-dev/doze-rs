@@ -94,9 +94,14 @@ mod tests {
         let a = ask();
         let shut = toggled(&a, "where:segment.bytes");
         assert!(shut.open.is_empty());
-        let both = toggled(&a, "text:retention.ms");
-        assert_eq!(both.open, ["where:segment.bytes", "text:retention.ms"]);
-        assert_eq!(toggled(&both, "text:retention.ms"), a);
+        let other = toggled(&a, "text:retention.ms");
+        assert_eq!(other.open, ["text:retention.ms"], "opened alone");
+        let mut two = a.clone();
+        two.open.push("text:retention.ms".to_owned());
+        assert_eq!(
+            toggled(&two, "text:retention.ms").open,
+            ["where:segment.bytes"]
+        );
     }
 
     #[test]
