@@ -313,52 +313,8 @@ impl Flow<'_> {
         }
         self.ws();
         match self.rest().chars().next() {
-            Some('[') => {
-                self.i += 1;
-                let mut items = Vec::new();
-                loop {
-                    self.ws();
-                    if self.rest().starts_with(']') {
-                        self.i += 1;
-                        return Ok(Value::Array(items));
-                    }
-                    items.push(self.value(depth + 1)?);
-                    self.ws();
-                    if self.rest().starts_with(',') {
-                        self.i += 1;
-                    } else if !self.rest().starts_with(']') {
-                        return Err("a flow list is not closed".into());
-                    }
-                }
-            }
-            Some('{') => {
-                self.i += 1;
-                let mut map = Map::new();
-                loop {
-                    self.ws();
-                    if self.rest().starts_with('}') {
-                        self.i += 1;
-                        return Ok(Value::Object(map));
-                    }
-                    let key = match self.value(depth + 1)? {
-                        Value::String(s) => s,
-                        other => other.to_string(),
-                    };
-                    self.ws();
-                    if !self.rest().starts_with(':') {
-                        return Err("a flow map entry has no `:`".into());
-                    }
-                    self.i += 1;
-                    let v = self.value(depth + 1)?;
-                    map.insert(key, v);
-                    self.ws();
-                    if self.rest().starts_with(',') {
-                        self.i += 1;
-                    } else if !self.rest().starts_with('}') {
-                        return Err("a flow map is not closed".into());
-                    }
-                }
-            }
+            Some('[') => self.list(depth),
+            Some('{') => self.map(depth),
             Some(q @ ('"' | '\'')) => {
                 let end = self
                     .rest()
@@ -382,53 +338,53 @@ impl Flow<'_> {
             None => Err("a flow collection ends early".into()),
         }
     }
-}
 
-/// A JSON value written as YAML (for exports asked for as YAML).
-pub(crate) fn write(v: &Value) -> String {
-    let mut out = String::new();
-    emit(v, 0, &mut out);
-    out
-}
-
-fn scalar(v: &Value) -> String {
-    match v {
-        Value::String(s) => Value::String(s.clone()).to_string(),
-        other => other.to_string(),
+    fn list(&mut self, depth: usize) -> R<Value> {
+        self.i += 1;
+        let mut items = Vec::new();
+        loop {
+            self.ws();
+            if self.rest().starts_with(']') {
+                self.i += 1;
+                return Ok(Value::Array(items));
+            }
+            items.push(self.value(depth + 1)?);
+            self.ws();
+            if self.rest().starts_with(',') {
+                self.i += 1;
+            } else if !self.rest().starts_with(']') {
+                return Err("a flow list is not closed".into());
+            }
+        }
     }
-}
 
-fn emit(v: &Value, indent: usize, out: &mut String) {
-    let pad = " ".repeat(indent);
-    match v {
-        Value::Object(o) if !o.is_empty() => {
-            for (k, x) in o {
-                let key = Value::String(k.clone()).to_string();
-                match x {
-                    Value::Object(m) if !m.is_empty() => {
-                        out.push_str(&format!("{pad}{key}:\n"));
-                        emit(x, indent + 2, out);
-                    }
-                    Value::Array(a) if !a.is_empty() => {
-                        out.push_str(&format!("{pad}{key}:\n"));
-                        emit(x, indent, out);
-                    }
-                    _ => out.push_str(&format!("{pad}{key}: {}\n", scalar(x))),
-                }
+    fn map(&mut self, depth: usize) -> R<Value> {
+        self.i += 1;
+        let mut map = Map::new();
+        loop {
+            self.ws();
+            if self.rest().starts_with('}') {
+                self.i += 1;
+                return Ok(Value::Object(map));
+            }
+            let key = match self.value(depth + 1)? {
+                Value::String(s) => s,
+                other => other.to_string(),
+            };
+            self.ws();
+            if !self.rest().starts_with(':') {
+                return Err("a flow map entry has no `:`".into());
+            }
+            self.i += 1;
+            let v = self.value(depth + 1)?;
+            map.insert(key, v);
+            self.ws();
+            if self.rest().starts_with(',') {
+                self.i += 1;
+            } else if !self.rest().starts_with('}') {
+                return Err("a flow map is not closed".into());
             }
         }
-        Value::Array(a) if !a.is_empty() => {
-            for x in a {
-                match x {
-                    Value::Object(m) if !m.is_empty() => {
-                        out.push_str(&format!("{pad}-\n"));
-                        emit(x, indent + 2, out);
-                    }
-                    _ => out.push_str(&format!("{pad}- {}\n", scalar(x))),
-                }
-            }
-        }
-        other => out.push_str(&format!("{pad}{}\n", scalar(other))),
     }
 }
 
@@ -462,6 +418,6 @@ mod tests {
         assert!(parse("a: 1\n---\nb: 2").is_err());
         assert!(parse(&"[".repeat(100)).is_err() || parse(&"[".repeat(100)).is_ok());
         let v = json!({"a": {"b": [1, {"c": "d: e"}], "f": true}, "g": "x"});
-        assert_eq!(parse(&write(&v)).unwrap(), v);
+        assert_eq!(parse(&crate::openapi::to_yaml(&v)).unwrap(), v);
     }
 }

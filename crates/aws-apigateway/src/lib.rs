@@ -42,7 +42,7 @@ use aws_wire::ApiError;
 use aws_wire::handler::reply_json;
 use aws_wire::rest::{RestReply, RestService, Upload};
 use aws_wire::service::{BoxFuture, Call, Reply, Service, Web, WebReply, WebRequest};
-use doze_runtime::{Clock, Ctx, Keyed, Tasks};
+use doze_runtime::{Clock, Ctx, Keyed};
 
 use crate::core::{Answer, Api, Ask, Core};
 
@@ -54,7 +54,6 @@ const HOME_REGION: &str = "us-east-1";
 pub(crate) struct Inner {
     actors: Keyed<Core>,
     pub(crate) dir: PathBuf,
-    pub(crate) tasks: Tasks,
     pub(crate) clock: Arc<dyn Clock>,
     pub(crate) peers: Option<Arc<Peers>>,
     pub(crate) plane: plane::State,
@@ -84,7 +83,6 @@ pub fn services(ctx: Arc<Ctx>) -> (ApiGateway, ApiGatewayV2) {
     let inner = Arc::new(Inner {
         actors: Keyed::new("apigateway", Arc::clone(&ctx), HOME_REGION),
         dir: ctx.dir.clone(),
-        tasks: ctx.tasks.clone(),
         clock: Arc::clone(&ctx.clock),
         peers,
         plane: plane::State::default(),
@@ -257,12 +255,12 @@ pub mod fuzz {
 
     /// An HTTP integration's answer.
     pub fn http_answer(raw: &[u8]) {
-        drop(crate::plane::client_parse(raw));
+        crate::plane::client_parse(raw);
     }
 
     /// A JSON Web Token.
     pub fn jwt(text: &str) {
-        drop(crate::plane::jwt_decode(text));
+        crate::plane::jwt_decode(text);
     }
 
     /// An OpenAPI document (JSON or the YAML subset).

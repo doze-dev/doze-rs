@@ -21,7 +21,6 @@ pub(crate) struct Mapped {
 pub(crate) struct Backend {
     /// What selection patterns are matched against.
     pub(crate) selector: String,
-    pub(crate) status: Option<u16>,
     pub(crate) headers: Vec<(String, String)>,
     pub(crate) body: String,
 }
@@ -121,6 +120,19 @@ fn full_match(pattern: &str, s: &str) -> bool {
     regex_lite::Regex::new(&format!("^(?s:{pattern})$")).is_ok_and(|r| r.is_match(s))
 }
 
+/// The integration response whose selection pattern matches, else the default one (no pattern).
+fn select<'a>(route: &'a Route, selector: &str) -> Option<&'a Value> {
+    let rs = crate::doc::obj(&route.integration, "integrationResponses")?;
+    let pattern = |r: &Value| {
+        crate::doc::text(r, "selectionPattern")
+            .filter(|p| !p.is_empty())
+            .map(str::to_owned)
+    };
+    rs.values()
+        .find(|r| pattern(r).is_some_and(|p| full_match(&p, selector)))
+        .or_else(|| rs.values().find(|r| pattern(r).is_none()))
+}
+
 /// The integration response for a backend's answer, then its template and header mappings.
 pub(crate) fn respond(
     found: &Found,
@@ -129,20 +141,7 @@ pub(crate) fn respond(
     context: &Value,
     backend: Backend,
 ) -> WebReply {
-    let responses = crate::doc::obj(&route.integration, "integrationResponses");
-    let picked = responses.and_then(|rs| {
-        rs.values()
-            .find(|r| {
-                crate::doc::text(r, "selectionPattern")
-                    .filter(|p| !p.is_empty())
-                    .is_some_and(|p| full_match(p, &backend.selector))
-            })
-            .or_else(|| {
-                rs.values()
-                    .find(|r| crate::doc::text(r, "selectionPattern").is_none_or(str::is_empty))
-            })
-    });
-    let Some(resp) = picked else {
+    let Some(resp) = select(route, &backend.selector) else {
         return config_error(
             found,
             req,
@@ -263,7 +262,6 @@ pub(crate) fn mock(found: &Found, route: &Route, req: &Incoming, context: &Value
         .unwrap_or(200);
     let backend = Backend {
         selector: status.to_string(),
-        status: u16::try_from(status).ok(),
         headers: Vec::new(),
         body: String::new(),
     };

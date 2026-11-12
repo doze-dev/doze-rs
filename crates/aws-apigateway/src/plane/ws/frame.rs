@@ -6,6 +6,9 @@ use sha1::{Digest, Sha1};
 /// The largest message assembled.
 pub(crate) const MAX_MESSAGE: usize = 1024 * 1024;
 
+/// One frame: its FIN bit, opcode, payload, and how many bytes it took.
+type Frame = (bool, u8, Vec<u8>, usize);
+
 /// What a client sent.
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) enum In {
@@ -19,7 +22,7 @@ pub(crate) enum In {
 /// One frame read from the front of `buf`: its FIN bit, opcode, payload, and how many bytes it took; `Ok(None)` when more bytes are
 /// needed.
 // fuzz:parser fuzz_ws_frame
-pub(crate) fn frame(buf: &[u8]) -> Result<Option<(bool, u8, Vec<u8>, usize)>, String> {
+pub(crate) fn frame(buf: &[u8]) -> Result<Option<Frame>, String> {
     let (Some(&b0), Some(&b1)) = (buf.first(), buf.get(1)) else {
         return Ok(None);
     };

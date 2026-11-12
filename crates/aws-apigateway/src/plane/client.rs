@@ -72,14 +72,10 @@ pub(crate) async fn call(out: &Out) -> Result<In, String> {
             "Content-Length: {}\r\nConnection: close\r\n\r\n",
             out.body.len()
         ));
-        stream
-            .write_all(head.as_bytes())
-            .await
-            .map_err(|e| e.to_string())?;
-        stream
-            .write_all(&out.body)
-            .await
-            .map_err(|e| e.to_string())?;
+        // One write for the head and the body: a server that reads the request in one go gets all of it.
+        let mut wire = head.into_bytes();
+        wire.extend_from_slice(&out.body);
+        stream.write_all(&wire).await.map_err(|e| e.to_string())?;
         let mut raw = Vec::new();
         let mut buf = [0u8; 8192];
         loop {
@@ -196,20 +192,7 @@ fn url_of(found: &Found, route: &Route, req: &Incoming, ctx: &Value, keep_query:
             query.push((q.to_owned(), v));
         }
     }
-    if !query.is_empty() {
-        let q: Vec<String> = query
-            .iter()
-            .map(|(k, v)| {
-                format!(
-                    "{}={}",
-                    aws_core::uri::encode(k.as_bytes(), false),
-                    aws_core::uri::encode(v.as_bytes(), false)
-                )
-            })
-            .collect();
-        url.push(if url.contains('?') { '&' } else { '?' });
-        url.push_str(&q.join("&"));
-    }
+    super::mapping::with_query(&mut url, &query);
     url
 }
 
@@ -328,7 +311,6 @@ pub(crate) async fn send(
     let a = call(&out).await?;
     Ok(Backend {
         selector: a.status.to_string(),
-        status: Some(a.status),
         headers: a.headers,
         body: String::from_utf8_lossy(&a.body).into_owned(),
     })

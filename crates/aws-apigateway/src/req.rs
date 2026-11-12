@@ -3,7 +3,7 @@
 
 use aws_wire::ApiError;
 use aws_wire::service::{Call, Caller};
-use serde_json::{Map, Value};
+use serde_json::Value;
 
 /// One decoded request.
 #[derive(Debug)]
@@ -51,11 +51,6 @@ impl Req {
 
     pub(crate) fn value(&self, key: &str) -> Option<&Value> {
         self.body.get(key).filter(|v| !v.is_null())
-    }
-
-    /// The members of the request (empty when the body was not an object).
-    pub(crate) fn members(&self) -> Map<String, Value> {
-        self.body.as_object().cloned().unwrap_or_default()
     }
 
     /// Epoch seconds, as v1 writes a timestamp, to the millisecond (two things made in one second are told apart, as AWS's slower

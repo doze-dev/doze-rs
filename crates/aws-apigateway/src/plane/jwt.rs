@@ -25,7 +25,7 @@ pub(crate) struct Token {
 
 fn b64url(s: &str) -> Option<Vec<u8>> {
     let mut t = s.replace('-', "+").replace('_', "/");
-    while t.len() % 4 != 0 {
+    while !t.len().is_multiple_of(4) {
         t.push('=');
     }
     aws_core::base64::decode(&t)

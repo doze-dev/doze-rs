@@ -58,7 +58,24 @@ fn operation(m: &Value, ext: bool, oas3: bool, authorizers: &Map<String, Value>)
     if let Some(n) = m.get("operationName") {
         op.insert("operationId".into(), n.clone());
     }
-    let params: Vec<Value> = obj(m, "requestParameters")
+    let params = parameters(m, oas3);
+    if !params.is_empty() {
+        op.insert("parameters".into(), Value::Array(params));
+    }
+    op.insert("responses".into(), responses(m, oas3));
+    let security = security(m, authorizers);
+    if !security.is_empty() {
+        op.insert("security".into(), Value::Array(security));
+    }
+    if ext && let Some(i) = m.get("methodIntegration") {
+        op.insert("x-amazon-apigateway-integration".into(), integration_ext(i));
+    }
+    Value::Object(op)
+}
+
+/// A method's `requestParameters` as OpenAPI parameters.
+fn parameters(m: &Value, oas3: bool) -> Vec<Value> {
+    obj(m, "requestParameters")
         .into_iter()
         .flatten()
         .filter_map(|(k, req)| {
@@ -82,10 +99,11 @@ fn operation(m: &Value, ext: bool, oas3: bool, authorizers: &Map<String, Value>)
             );
             Some(p)
         })
-        .collect();
-    if !params.is_empty() {
-        op.insert("parameters".into(), Value::Array(params));
-    }
+        .collect()
+}
+
+/// A method's responses, with their models.
+fn responses(m: &Value, oas3: bool) -> Value {
     let mut responses = Map::new();
     for (code, r) in obj(m, "methodResponses").into_iter().flatten() {
         let mut out = json!({"description": format!("{code} response")});
@@ -110,7 +128,11 @@ fn operation(m: &Value, ext: bool, oas3: bool, authorizers: &Map<String, Value>)
         }
         responses.insert(code.clone(), out);
     }
-    op.insert("responses".into(), Value::Object(responses));
+    Value::Object(responses)
+}
+
+/// A method's security requirements: its authorizer, IAM, and an API key.
+fn security(m: &Value, authorizers: &Map<String, Value>) -> Vec<Value> {
     let kind = text(m, "authorizationType").unwrap_or("NONE");
     let mut security = Vec::new();
     if let Some(name) = text(m, "authorizerId")
@@ -124,13 +146,7 @@ fn operation(m: &Value, ext: bool, oas3: bool, authorizers: &Map<String, Value>)
     if m.get("apiKeyRequired").and_then(Value::as_bool) == Some(true) {
         security.push(json!({"api_key": []}));
     }
-    if !security.is_empty() {
-        op.insert("security".into(), Value::Array(security));
-    }
-    if ext && let Some(i) = m.get("methodIntegration") {
-        op.insert("x-amazon-apigateway-integration".into(), integration_ext(i));
-    }
-    Value::Object(op)
+    security
 }
 
 fn schemes(authorizers: &Map<String, Value>, ext: bool) -> Map<String, Value> {
@@ -158,6 +174,30 @@ fn schemes(authorizers: &Map<String, Value>, ext: bool) -> Map<String, Value> {
         out.insert(text(a, "name").unwrap_or_default().to_owned(), s);
     }
     out
+}
+
+/// The `paths` of a REST deployment's snapshot.
+fn rest_paths(
+    snap: &Value,
+    ext: bool,
+    oas3: bool,
+    authorizers: &Map<String, Value>,
+) -> Map<String, Value> {
+    let mut paths = Map::new();
+    for res in obj(snap, "resources").into_iter().flatten().map(|(_, v)| v) {
+        let Some(methods) = obj(res, "resourceMethods") else {
+            continue;
+        };
+        let item: Map<String, Value> = methods
+            .iter()
+            .map(|(verb, m)| (verb_key(verb), operation(m, ext, oas3, authorizers)))
+            .collect();
+        paths.insert(
+            text(res, "path").unwrap_or("/").to_owned(),
+            Value::Object(item),
+        );
+    }
+    paths
 }
 
 /// `GetExport`.
@@ -193,20 +233,7 @@ pub(crate) fn v1(core: &mut Core, r: &Req) -> Res {
     let ext = wanted.contains("integrations") || wanted.contains("apigateway");
     let api = snap.get("api").cloned().unwrap_or(Value::Null);
     let authorizers = obj(snap, "authorizers").cloned().unwrap_or_default();
-    let mut paths = Map::new();
-    for res in obj(snap, "resources").into_iter().flatten().map(|(_, v)| v) {
-        let Some(methods) = obj(res, "resourceMethods") else {
-            continue;
-        };
-        let item: Map<String, Value> = methods
-            .iter()
-            .map(|(verb, m)| (verb_key(verb), operation(m, ext, oas3, &authorizers)))
-            .collect();
-        paths.insert(
-            text(res, "path").unwrap_or("/").to_owned(),
-            Value::Object(item),
-        );
-    }
+    let paths = rest_paths(snap, ext, oas3, &authorizers);
     let host = format!("{id}.execute-api.{}.amazonaws.com", r.region());
     let info = json!({"title": text(&api, "name"), "version": text(&api, "version").map_or_else(|| r.now_iso(), str::to_owned)});
     let schemas: Map<String, Value> = obj(snap, "models")
@@ -259,6 +286,37 @@ fn payload(doc: &Value, yaml: bool, name: &str) -> Value {
     })
 }
 
+/// An HTTP API route as an OpenAPI operation, with its integration and authorizer.
+fn route_operation(config: &Value, route: &Value, ext: bool) -> Value {
+    let key = text(route, "routeKey").unwrap_or_default();
+    let mut op =
+        json!({"responses": {"default": {"description": format!("Default response for {key}")}}});
+    if ext
+        && let Some(i) = text(route, "target")
+            .and_then(|t| t.strip_prefix("integrations/"))
+            .and_then(|i| config.pointer(&format!("/integrations/{i}")))
+    {
+        let mut e = json!({"payloadFormatVersion": i.get("payloadFormatVersion"), "type": lower(i.get("integrationType")),
+            "httpMethod": i.get("integrationMethod"), "uri": i.get("integrationUri"), "connectionType": i.get("connectionType"),
+            "timeoutInMillis": i.get("timeoutInMillis")});
+        if let Some(o) = e.as_object_mut() {
+            o.retain(|_, v| !v.is_null());
+        }
+        crate::doc::put(&mut op, "x-amazon-apigateway-integration", e);
+    }
+    if let Some(name) = text(route, "authorizerId")
+        .and_then(|a| config.pointer(&format!("/authorizers/{a}")))
+        .and_then(|a| text(a, "name"))
+    {
+        let scopes = route
+            .get("authorizationScopes")
+            .cloned()
+            .unwrap_or(json!([]));
+        crate::doc::put(&mut op, "security", json!([{name: scopes}]));
+    }
+    op
+}
+
 /// `ExportApi` (v2).
 pub(crate) fn v2(core: &mut Core, r: &Req) -> Res {
     let id = r.s("ApiId");
@@ -286,32 +344,8 @@ pub(crate) fn v2(core: &mut Core, r: &Req) -> Res {
     for route in obj(config, "routes").into_iter().flatten().map(|(_, v)| v) {
         let key = text(route, "routeKey").unwrap_or_default();
         let (verb, path) = key.split_once(' ').unwrap_or(("ANY", key));
-        let mut op = json!({"responses": {"default": {"description": format!("Default response for {key}")}}});
-        if ext
-            && let Some(i) = text(route, "target")
-                .and_then(|t| t.strip_prefix("integrations/"))
-                .and_then(|i| config.pointer(&format!("/integrations/{i}")))
-        {
-            let mut e = json!({"payloadFormatVersion": i.get("payloadFormatVersion"), "type": lower(i.get("integrationType")),
-                "httpMethod": i.get("integrationMethod"), "uri": i.get("integrationUri"), "connectionType": i.get("connectionType"),
-                "timeoutInMillis": i.get("timeoutInMillis")});
-            if let Some(o) = e.as_object_mut() {
-                o.retain(|_, v| !v.is_null());
-            }
-            crate::doc::put(&mut op, "x-amazon-apigateway-integration", e);
-        }
-        if let Some(name) = text(route, "authorizerId")
-            .and_then(|a| config.pointer(&format!("/authorizers/{a}")))
-            .and_then(|a| text(a, "name"))
-        {
-            crate::doc::put(
-                &mut op,
-                "security",
-                json!([{name: route.get("authorizationScopes").cloned().unwrap_or(json!([]))}]),
-            );
-        }
         let entry = paths.entry(path.to_owned()).or_insert_with(|| json!({}));
-        crate::doc::put(entry, &verb_key(verb), op);
+        crate::doc::put(entry, &verb_key(verb), route_operation(config, route, ext));
     }
     let mut out = json!({"openapi": "3.0.1", "info": {"title": text(&api, "name"), "version": text(&api, "version").map_or_else(|| r.now_iso(), str::to_owned)},
         "paths": paths, "x-amazon-apigateway-importexport-version": "1.0"});

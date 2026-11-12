@@ -2,7 +2,6 @@
 //! authorizer, the API key, request validation, the integration, then the access log.
 
 use aws_wire::service::WebReply;
-use bytes::Bytes;
 use serde_json::Value;
 
 use super::custom::{self, Backend};
@@ -273,13 +272,7 @@ async fn lambda_backend(
     };
     Ok(Backend {
         selector,
-        status: None,
         headers: vec![("Content-Type".into(), "application/json".into())],
         body: text,
     })
-}
-
-/// A body as bytes, for the replies that carry one.
-pub(crate) fn bytes(s: String) -> Bytes {
-    Bytes::from(s)
 }

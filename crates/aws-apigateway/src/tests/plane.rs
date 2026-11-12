@@ -216,9 +216,29 @@ pub(crate) async fn backend(status: u16) -> String {
     let addr = listener.local_addr().unwrap();
     tokio::spawn(async move {
         while let Ok((mut s, _)) = listener.accept().await {
+            let mut got = Vec::new();
             let mut buf = vec![0u8; 8192];
-            let n = s.read(&mut buf).await.unwrap_or(0);
-            let req = String::from_utf8_lossy(&buf[..n]).into_owned();
+            // The head, then as many body bytes as it declares.
+            loop {
+                let n = s.read(&mut buf).await.unwrap_or(0);
+                got.extend_from_slice(&buf[..n]);
+                let text = String::from_utf8_lossy(&got).into_owned();
+                let Some((head, body)) = text.split_once("\r\n\r\n") else {
+                    if n == 0 { break } else { continue }
+                };
+                let want = head
+                    .lines()
+                    .find_map(|l| {
+                        l.to_ascii_lowercase()
+                            .strip_prefix("content-length:")
+                            .map(|v| v.trim().parse::<usize>().unwrap_or(0))
+                    })
+                    .unwrap_or(0);
+                if body.len() >= want || n == 0 {
+                    break;
+                }
+            }
+            let req = String::from_utf8_lossy(&got).into_owned();
             let line = req.lines().next().unwrap_or_default().to_owned();
             let body_in = req.split("\r\n\r\n").nth(1).unwrap_or_default().to_owned();
             let out = json!({"line": line, "body": body_in}).to_string();

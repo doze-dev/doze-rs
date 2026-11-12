@@ -88,14 +88,6 @@ pub(crate) struct Env {
     pub(crate) input: Input,
 }
 
-/// Reads a template.
-///
-/// # Errors
-/// What [`parse::parse`] refuses.
-pub(crate) fn parse(text: &str) -> Result<Vec<Node>, Error> {
-    parse::parse(text)
-}
-
 /// Runs a template.
 ///
 /// # Errors

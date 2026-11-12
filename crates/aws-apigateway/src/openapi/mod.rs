@@ -5,9 +5,11 @@
 //! refused with `failOnWarnings`), never silently dropped. Export writes the same document back from a stage.
 
 pub(crate) mod export;
+mod rest_paths;
 pub(crate) mod v1;
 pub(crate) mod v2;
 mod yaml;
+mod yaml_write;
 
 use aws_wire::ApiError;
 use serde_json::Value;
@@ -36,7 +38,7 @@ pub(crate) fn read(text: &str) -> Result<Value, String> {
 
 /// A document written as YAML.
 pub(crate) fn to_yaml(v: &Value) -> String {
-    yaml::write(v)
+    yaml_write::write(v)
 }
 
 /// The document a request carries in `body` (a blob, base64 in the request JSON, for v1; a string for v2).

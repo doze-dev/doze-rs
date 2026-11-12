@@ -62,6 +62,43 @@ fn form(body: &str) -> Map<String, Value> {
         .collect()
 }
 
+/// The operation and request an `action/` or `path/` URI and the mapped body make.
+fn request_of(
+    uri: &str,
+    service: &str,
+    rest: &str,
+    mapped: &str,
+) -> Result<(String, Map<String, Value>), String> {
+    let parsed: Option<Map<String, Value>> = serde_json::from_str::<Value>(mapped)
+        .ok()
+        .and_then(|v| v.as_object().cloned());
+    if let Some(action) = rest.strip_prefix("action/") {
+        let body = parsed.unwrap_or_else(|| form(mapped));
+        return Ok((action.split('&').next().unwrap_or(action).to_owned(), body));
+    }
+    let path = rest
+        .strip_prefix("path/")
+        .ok_or_else(|| format!("{uri} names neither an action nor a path"))?;
+    let action = query_pairs(mapped)
+        .into_iter()
+        .find(|(k, _)| k == "Action")
+        .map(|(_, v)| v)
+        .or_else(|| path.split_once("?Action=").map(|(_, a)| a.to_owned()))
+        .ok_or("an AWS path integration needs an Action")?;
+    if service != "sqs" {
+        return Err(format!(
+            "path integrations to {service} are not built in doze-aws (action integrations are)"
+        ));
+    }
+    let queue = path.split('?').next().unwrap_or(path);
+    let mut b = parsed.unwrap_or_else(|| form(mapped));
+    b.insert(
+        "QueueUrl".into(),
+        json!(format!("http://localhost/{queue}")),
+    );
+    Ok((action, b))
+}
+
 /// A REST API's `AWS` integration.
 pub(crate) async fn rest(
     inner: &Inner,
@@ -89,35 +126,7 @@ pub(crate) async fn rest(
         _ => return Err(format!("{uri} is not an AWS integration URI")),
     };
     let service = service.rsplit('.').next().unwrap_or(service);
-    let parsed: Option<Map<String, Value>> = serde_json::from_str::<Value>(&mapped.body)
-        .ok()
-        .and_then(|v| v.as_object().cloned());
-    let (operation, mut body) = if let Some(action) = rest.strip_prefix("action/") {
-        let body = parsed.unwrap_or_else(|| form(&mapped.body));
-        (action.split('&').next().unwrap_or(action).to_owned(), body)
-    } else if let Some(path) = rest.strip_prefix("path/") {
-        let fields = form(&mapped.body);
-        let action = query_pairs(&mapped.body)
-            .into_iter()
-            .find(|(k, _)| k == "Action")
-            .map(|(_, v)| v)
-            .or_else(|| path.split_once("?Action=").map(|(_, a)| a.to_owned()))
-            .ok_or("an AWS path integration needs an Action")?;
-        if service != "sqs" {
-            return Err(format!(
-                "path integrations to {service} are not built in doze-aws (action integrations are)"
-            ));
-        }
-        let queue = path.split('?').next().unwrap_or(path);
-        let mut b = parsed.unwrap_or(fields);
-        b.insert(
-            "QueueUrl".into(),
-            json!(format!("http://localhost/{queue}")),
-        );
-        (action, b)
-    } else {
-        return Err(format!("{uri} names neither an action nor a path"));
-    };
+    let (operation, mut body) = request_of(&uri, service, rest, &mapped.body)?;
     if service == "sqs"
         && let Some(url) = body
             .get("QueueUrl")
@@ -138,7 +147,6 @@ pub(crate) async fn rest(
     .await;
     Ok(Backend {
         selector: status.to_string(),
-        status: Some(status),
         headers: vec![("Content-Type".into(), "application/json".into())],
         body: answer.to_string(),
     })

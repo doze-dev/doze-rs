@@ -234,27 +234,7 @@ fn mappings_v1(core: &mut Core, op: V1, r: &Req, name: &str) -> Res {
             let m = d
                 .pointer_mut(&format!("/mappings/{id}"))
                 .ok_or_else(no_mapping)?;
-            let patches: Vec<_> = r
-                .patches()
-                .into_iter()
-                .map(|p| crate::patch::Patch {
-                    path: match p.path.as_str() {
-                        "/basePath" => "/key".into(),
-                        "/restapiId" | "/restApiId" => "/apiId".into(),
-                        other => other.into(),
-                    },
-                    ..p
-                })
-                .collect();
-            apply(
-                m,
-                &patches,
-                &[
-                    f("/key", Kind::Str),
-                    f("/apiId", Kind::Str),
-                    f("/stage", Kind::Str),
-                ],
-            )?;
+            patch_mapping(m, r)?;
             Ok(mapping_v1(m).into())
         }
         V1::DeleteBasePathMapping => {
@@ -264,6 +244,28 @@ fn mappings_v1(core: &mut Core, op: V1, r: &Req, name: &str) -> Res {
         }
         _ => Err(crate::errors::refused(&format!("{op:?}"))),
     }
+}
+
+/// `UpdateBasePathMapping`'s patches (`/basePath`, `/restapiId`, `/stage`) on a mapping record.
+fn patch_mapping(m: &mut Value, r: &Req) -> Result<(), ApiError> {
+    let patches: Vec<_> = r
+        .patches()
+        .into_iter()
+        .map(|p| crate::patch::Patch {
+            path: match p.path.as_str() {
+                "/basePath" => "/key".into(),
+                "/restapiId" | "/restApiId" => "/apiId".into(),
+                other => other.into(),
+            },
+            ..p
+        })
+        .collect();
+    let fields = [
+        f("/key", Kind::Str),
+        f("/apiId", Kind::Str),
+        f("/stage", Kind::Str),
+    ];
+    apply(m, &patches, &fields)
 }
 
 /// A v2 domain-name or API-mapping operation.

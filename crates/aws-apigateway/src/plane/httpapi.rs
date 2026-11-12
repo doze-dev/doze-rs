@@ -118,6 +118,26 @@ async fn proxy(
 /// An `HTTP_PROXY` integration: the request passed to the URL (its `{variables}` filled from the route's), with the integration's
 /// parameter mappings (`overwrite:path`, `append:`/`overwrite:`/`remove:` on `header.x` and `querystring.x`).
 async fn http(found: &Found, route: &Route, req: &Incoming, extra: &Context) -> WebReply {
+    let out = request_of(found, route, req, extra);
+    match client::call(&out).await {
+        Ok(a) => reply::of(a.status, a.headers, a.body),
+        Err(why) if why.contains("timed out") => reply::message(504, "Gateway Timeout"),
+        Err(why) => {
+            tracing::warn!(
+                "execute-api {}: HTTP integration failed: {why}",
+                found.api_id()
+            );
+            reply::of(
+                500,
+                vec![("Content-Type".into(), "application/json".into())],
+                Bytes::from_static(b"{\"message\":\"Internal Server Error\"}"),
+            )
+        }
+    }
+}
+
+/// The request an `HTTP_PROXY` integration sends.
+fn request_of(found: &Found, route: &Route, req: &Incoming, extra: &Context) -> Out {
     let integration = &route.integration;
     let mut url = super::lambda::fill_vars(
         text(integration, "integrationUri").unwrap_or_default(),
@@ -162,20 +182,7 @@ async fn http(found: &Found, route: &Route, req: &Incoming, extra: &Context) -> 
         };
         apply_mapping(action, target, value, &mut url, &mut headers, &mut query);
     }
-    if !query.is_empty() {
-        let q: Vec<String> = query
-            .iter()
-            .map(|(k, v)| {
-                format!(
-                    "{}={}",
-                    aws_core::uri::encode(k.as_bytes(), false),
-                    aws_core::uri::encode(v.as_bytes(), false)
-                )
-            })
-            .collect();
-        url.push(if url.contains('?') { '&' } else { '?' });
-        url.push_str(&q.join("&"));
-    }
+    super::mapping::with_query(&mut url, &query);
     let method = match text(integration, "integrationMethod") {
         Some(m) if m != "ANY" => m.to_owned(),
         _ => req.method.clone(),
@@ -184,27 +191,12 @@ async fn http(found: &Found, route: &Route, req: &Incoming, extra: &Context) -> 
         .get("timeoutInMillis")
         .and_then(Value::as_u64)
         .unwrap_or(30_000);
-    let out = Out {
+    Out {
         method,
         url,
         headers,
         body: req.body.clone(),
         timeout: std::time::Duration::from_millis(timeout),
-    };
-    match client::call(&out).await {
-        Ok(a) => reply::of(a.status, a.headers, a.body),
-        Err(why) if why.contains("timed out") => reply::message(504, "Gateway Timeout"),
-        Err(why) => {
-            tracing::warn!(
-                "execute-api {}: HTTP integration failed: {why}",
-                found.api_id()
-            );
-            reply::of(
-                500,
-                vec![("Content-Type".into(), "application/json".into())],
-                Bytes::from_static(b"{\"message\":\"Internal Server Error\"}"),
-            )
-        }
     }
 }
 

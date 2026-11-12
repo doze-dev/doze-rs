@@ -33,9 +33,3 @@ pub(crate) fn refused(op: &str) -> ApiError {
         format!("{op} is not built in doze-aws."),
     )
 }
-
-/// v2 words a missing thing as `Invalid <Thing> identifier specified <account>:<id>`? Only the API is recorded; the others name the
-/// thing and the id `(memory)`.
-pub(crate) fn v2_missing(thing: &str, id: &str) -> ApiError {
-    not_found(format!("Unable to find {thing} with id '{id}'"))
-}

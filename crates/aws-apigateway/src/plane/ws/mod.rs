@@ -19,7 +19,7 @@ use tokio::sync::mpsc;
 use super::{Find, Kind, reply};
 use crate::Inner;
 
-pub(crate) use frame::{MAX_MESSAGE, accept_key, frame as read_frame};
+use frame::accept_key;
 
 /// How many messages may wait for a slow client before a post to it is refused.
 const QUEUE: usize = 256;
@@ -141,6 +141,21 @@ fn connection_id() -> String {
     aws_core::base64::encode(&b)
 }
 
+/// Records an open connection; the receiver its session reads posts from.
+fn register(inner: &Inner, id: &str, api: &str, req: &super::Incoming) -> mpsc::Receiver<Out> {
+    let (tx, rx) = mpsc::channel(QUEUE);
+    let conn = Conn {
+        api: api.to_owned(),
+        tx,
+        connected_ms: req.now_ms,
+        last_ms: req.now_ms,
+        source_ip: "127.0.0.1".into(),
+        user_agent: req.header("user-agent").unwrap_or_default().to_owned(),
+    };
+    inner.plane.ws.with(|m| m.insert(id.to_owned(), conn));
+    rx
+}
+
 /// A request to open a WebSocket at an API's stage.
 pub(crate) async fn upgrade(inner: Arc<Inner>, request: WebRequest) -> Upgrade {
     let refuse = |status: u16, msg: &str| Upgrade::Refused(reply::message(status, msg));
@@ -170,10 +185,10 @@ pub(crate) async fn upgrade(inner: Arc<Inner>, request: WebRequest) -> Upgrade {
     let incoming = super::Incoming {
         method: "GET".into(),
         query: super::mapping::query_pairs(&request.query),
-        raw_query: request.query.clone(),
-        headers: request.headers.clone(),
+        raw_query: request.query,
+        headers: request.headers,
         body: Bytes::new(),
-        host: request.host.clone(),
+        host: request.host,
         request_id: aws_wire::RequestId::new().as_str().to_owned(),
         now_ms: inner.clock.now_ms(),
     };
@@ -188,21 +203,7 @@ pub(crate) async fn upgrade(inner: Arc<Inner>, request: WebRequest) -> Upgrade {
             },
         );
     }
-    let (tx, rx) = mpsc::channel(QUEUE);
-    let agent = incoming.header("user-agent").unwrap_or_default().to_owned();
-    inner.plane.ws.with(|m| {
-        m.insert(
-            id.clone(),
-            Conn {
-                api: addr.api.clone(),
-                tx,
-                connected_ms: incoming.now_ms,
-                last_ms: incoming.now_ms,
-                source_ip: "127.0.0.1".into(),
-                user_agent: agent,
-            },
-        );
-    });
+    let rx = register(&inner, &id, &addr.api, &incoming);
     let headers = vec![
         ("Upgrade".to_owned(), "websocket".to_owned()),
         ("Connection".to_owned(), "Upgrade".to_owned()),

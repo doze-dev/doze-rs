@@ -25,6 +25,12 @@ fn kind(part: &str) -> Seg {
     }
 }
 
+/// The variables a template binds, by name.
+type Params = Vec<(String, String)>;
+
+/// How specific an HTTP route is: its segments, then whether its method is exact rather than `ANY`.
+type HttpRank = (Vec<Seg>, bool);
+
 fn var_name(part: &str) -> &str {
     part.trim_start_matches('{')
         .trim_end_matches('}')
@@ -32,7 +38,7 @@ fn var_name(part: &str) -> &str {
 }
 
 /// How a template matches `path`: the variables it binds, and its rank (higher is more specific), or `None`.
-fn fit(template: &[&str], path: &[String]) -> Option<(Vec<(String, String)>, Vec<Seg>)> {
+fn fit(template: &[&str], path: &[String]) -> Option<(Params, Vec<Seg>)> {
     let mut params = Vec::new();
     let mut rank = Vec::new();
     for (i, part) in template.iter().enumerate() {
@@ -61,7 +67,7 @@ fn fit(template: &[&str], path: &[String]) -> Option<(Vec<(String, String)>, Vec
 /// The REST method for `path` and `method` in a deployment's snapshot.
 pub(crate) fn rest(snap: &Value, path: &[String], method: &str) -> Option<Route> {
     let resources = obj(snap, "resources")?;
-    let mut best: Option<(Vec<Seg>, &Value, Vec<(String, String)>)> = None;
+    let mut best: Option<(Vec<Seg>, &Value, Params)> = None;
     for res in resources.values() {
         let template = text(res, "path").unwrap_or("/");
         let parts: Vec<&str> = template.split('/').filter(|s| !s.is_empty()).collect();
@@ -91,7 +97,7 @@ pub(crate) fn rest(snap: &Value, path: &[String], method: &str) -> Option<Route>
 /// The HTTP API route for `path` and `method`.
 pub(crate) fn http(config: &Value, path: &[String], method: &str) -> Option<Route> {
     let routes = obj(config, "routes")?;
-    let mut best: Option<((Vec<Seg>, bool), &Value, Vec<(String, String)>)> = None;
+    let mut best: Option<(HttpRank, &Value, Params)> = None;
     let mut fallback = None;
     for route in routes.values() {
         let key = text(route, "routeKey").unwrap_or_default();

@@ -21,6 +21,25 @@ pub(crate) fn query_pairs(raw: &str) -> Vec<(String, String)> {
         .collect()
 }
 
+/// `url` with `query` added, each name and value percent-encoded.
+pub(crate) fn with_query(url: &mut String, query: &[(String, String)]) {
+    if query.is_empty() {
+        return;
+    }
+    let q: Vec<String> = query
+        .iter()
+        .map(|(k, v)| {
+            format!(
+                "{}={}",
+                aws_core::uri::encode(k.as_bytes(), false),
+                aws_core::uri::encode(v.as_bytes(), false)
+            )
+        })
+        .collect();
+    url.push(if url.contains('?') { '&' } else { '?' });
+    url.push_str(&q.join("&"));
+}
+
 /// The value at a JSONPath (`$`, `$.a.b`, `$['a']`, `$.a[0]`, `$.a[*].b`) in `doc`.
 pub(crate) fn jsonpath(doc: &Value, path: &str) -> Option<Value> {
     let rest = path.trim().strip_prefix('$')?;
@@ -31,7 +50,8 @@ pub(crate) fn jsonpath(doc: &Value, path: &str) -> Option<Value> {
         let (step, next) = if let Some(after) = s.strip_prefix('.') {
             let end = after.find(['.', '[']).unwrap_or(after.len());
             (Step::Key(after.get(..end)?.to_owned()), after.get(end..)?)
-        } else if let Some(after) = s.strip_prefix('[') {
+        } else {
+            let after = s.strip_prefix('[')?;
             let end = after.find(']')?;
             let inner = after.get(..end)?.trim();
             let step = if inner == "*" {
@@ -42,8 +62,6 @@ pub(crate) fn jsonpath(doc: &Value, path: &str) -> Option<Value> {
                 Step::Key(inner.trim_matches(['\'', '"']).to_owned())
             };
             (step, after.get(end + 1..)?)
-        } else {
-            return None;
         };
         if matches!(step, Step::All) {
             spread = true;

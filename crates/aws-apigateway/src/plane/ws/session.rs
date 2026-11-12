@@ -66,6 +66,53 @@ fn event(e: &Ev<'_>) -> Value {
     e
 }
 
+/// A Lambda proxy integration of a WebSocket route: the function's `statusCode` and `body`.
+async fn proxy(inner: &Inner, found: &Found, route: &Route, ev: &Value) -> (u16, String) {
+    let uri = text(&route.integration, "integrationUri").unwrap_or_default();
+    let Some(function) = lambda::function_of(uri, found.variables()) else {
+        return (500, String::new());
+    };
+    let arn = format!(
+        "arn:aws:execute-api:{}:{}:{}/{}/{}",
+        found.region,
+        found.account,
+        found.api_id(),
+        found.stage_name,
+        route.resource_path
+    );
+    match lambda::invoke(
+        inner,
+        &found.account,
+        &function,
+        &arn,
+        ev.to_string().as_bytes(),
+    )
+    .await
+    {
+        Ok(out) if out.error.is_none() => {
+            let v: Value = serde_json::from_slice(&out.payload).unwrap_or(Value::Null);
+            let status = v
+                .get("statusCode")
+                .and_then(Value::as_u64)
+                .and_then(|s| u16::try_from(s).ok())
+                .unwrap_or(200);
+            let body = v.get("body").map_or_else(
+                || String::from_utf8_lossy(&out.payload).into_owned(),
+                crate::doc::plain,
+            );
+            (status, body)
+        }
+        Ok(_) => (502, String::new()),
+        Err(why) => {
+            tracing::warn!(
+                "websocket {}: the function could not be invoked: {why}",
+                found.api_id()
+            );
+            (500, String::new())
+        }
+    }
+}
+
 /// Runs a route's integration; its status and body.
 async fn integrate(
     inner: &Inner,
@@ -76,53 +123,7 @@ async fn integrate(
 ) -> (u16, String) {
     let i = &route.integration;
     match text(i, "integrationType").unwrap_or_default() {
-        "AWS_PROXY" => {
-            let Some(function) = lambda::function_of(
-                text(i, "integrationUri").unwrap_or_default(),
-                found.variables(),
-            ) else {
-                return (500, String::new());
-            };
-            let arn = format!(
-                "arn:aws:execute-api:{}:{}:{}/{}/{}",
-                found.region,
-                found.account,
-                found.api_id(),
-                found.stage_name,
-                route.resource_path
-            );
-            match lambda::invoke(
-                inner,
-                &found.account,
-                &function,
-                &arn,
-                ev.to_string().as_bytes(),
-            )
-            .await
-            {
-                Ok(out) if out.error.is_none() => {
-                    let v: Value = serde_json::from_slice(&out.payload).unwrap_or(Value::Null);
-                    let status = v
-                        .get("statusCode")
-                        .and_then(Value::as_u64)
-                        .and_then(|s| u16::try_from(s).ok())
-                        .unwrap_or(200);
-                    let body = v.get("body").map_or_else(
-                        || String::from_utf8_lossy(&out.payload).into_owned(),
-                        crate::doc::plain,
-                    );
-                    (status, body)
-                }
-                Ok(_) => (502, String::new()),
-                Err(why) => {
-                    tracing::warn!(
-                        "websocket {}: the function could not be invoked: {why}",
-                        found.api_id()
-                    );
-                    (500, String::new())
-                }
-            }
-        }
+        "AWS_PROXY" => proxy(inner, found, route, ev).await,
         "MOCK" => {
             let template = route
                 .integration_responses
@@ -290,7 +291,7 @@ pub(super) async fn run(
                 }
                 inner.plane.ws.touch(&id, inner.clock.now_ms());
                 loop {
-                    let msg = match reader.next() { Ok(Some(m)) => m, Ok(None) => break, Err(e) => break 'conn };
+                    let msg = match reader.next() { Ok(Some(m)) => m, Ok(None) => break, Err(_) => break 'conn };
                     let out = match msg {
                         In::Text(t) => message(&inner, &found, &id, &t, connected).await.map(|a| encode(1, a.as_bytes())),
                         In::Binary(b) => message(&inner, &found, &id, &String::from_utf8_lossy(&b), connected).await.map(|a| encode(1, a.as_bytes())),

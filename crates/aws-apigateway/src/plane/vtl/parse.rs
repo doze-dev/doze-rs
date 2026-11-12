@@ -42,7 +42,7 @@ pub(crate) fn parse(s: &str) -> R<Vec<Node>> {
     let (nodes, end) = p.block()?;
     match end {
         End::Eof => Ok(nodes),
-        End::Else | End::ElseIf(_) | End::End => {
+        End::Else | End::ElseIf(_) | End::Stop => {
             err("#else, #elseif or #end without #if or #foreach")
         }
     }
@@ -51,7 +51,7 @@ pub(crate) fn parse(s: &str) -> R<Vec<Node>> {
 /// What ended a block.
 pub(super) enum End {
     Eof,
-    End,
+    Stop,
     Else,
     ElseIf(Expr),
 }
@@ -167,7 +167,7 @@ impl P<'_> {
                 let n = self.foreach()?;
                 done(n, nodes, text);
             }
-            "end" => return Ok(Some(End::End)),
+            "end" => return Ok(Some(End::Stop)),
             "else" => return Ok(Some(End::Else)),
             "elseif" => {
                 let cond = self.paren_expr()?;
@@ -231,12 +231,12 @@ impl P<'_> {
             let (body, end) = self.block()?;
             arms.push((cond, body));
             match end {
-                End::End => return Ok(Node::If(arms, None)),
+                End::Stop => return Ok(Node::If(arms, None)),
                 End::ElseIf(next) => cond = next,
                 End::Else => {
                     let (body, end) = self.block()?;
                     return match end {
-                        End::End => Ok(Node::If(arms, Some(body))),
+                        End::Stop => Ok(Node::If(arms, Some(body))),
                         _ => err("#else must end with #end"),
                     };
                 }
@@ -265,7 +265,7 @@ impl P<'_> {
         }
         let (body, end) = self.block()?;
         match end {
-            End::End => Ok(Node::Foreach(var.root, over, body)),
+            End::Stop => Ok(Node::Foreach(var.root, over, body)),
             _ => err("#foreach without #end"),
         }
     }

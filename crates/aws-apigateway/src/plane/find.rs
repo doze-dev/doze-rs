@@ -4,7 +4,7 @@
 
 use serde_json::{Map, Value};
 
-use super::{Find, Found, Kind, Miss, Route};
+use super::{Find, Found, Kind, Miss};
 use crate::core::Core;
 use crate::doc::{obj, text};
 

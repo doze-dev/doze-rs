@@ -323,6 +323,24 @@ fn allowed(found: &Found, req: &Incoming, policy: &Value, arn: &str) -> Result<(
     }
 }
 
+/// The values an HTTP API authorizer's identity sources name; `None` when one is missing.
+fn v2_identity(auth: &Value, found: &Found, route: &Route, req: &Incoming) -> Option<Vec<String>> {
+    let vars = found
+        .variables()
+        .map_or(Value::Null, |m| Value::Object(m.clone()));
+    let raw = event::raw_path(found);
+    let ctx = json!({"identity": {"sourceIp": "127.0.0.1", "userAgent": req.header("user-agent")}});
+    auth.get("identitySource")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_str)
+        .map(|src| {
+            Some(v2_source(src, req, &route.params, &raw, &ctx, &vars)).filter(|v| !v.is_empty())
+        })
+        .collect()
+}
+
 /// An HTTP API's Lambda authorizer.
 pub(crate) async fn lambda_v2(
     inner: &Inner,
@@ -338,25 +356,7 @@ pub(crate) async fn lambda_v2(
             "the route names an authorizer that does not exist",
         ));
     };
-    let vars = found
-        .variables()
-        .map_or(Value::Null, |m| Value::Object(m.clone()));
-    let raw = event::raw_path(found);
-    let ctx = json!({"identity": {"sourceIp": "127.0.0.1", "userAgent": req.header("user-agent")}});
-    let mut identity = Vec::new();
-    for src in auth
-        .get("identitySource")
-        .and_then(Value::as_array)
-        .into_iter()
-        .flatten()
-        .filter_map(Value::as_str)
-    {
-        let v = v2_source(src, req, &route.params, &raw, &ctx, &vars);
-        if v.is_empty() {
-            return Err(unauthorized(found, req));
-        }
-        identity.push(v);
-    }
+    let identity = v2_identity(auth, found, route, req).ok_or_else(|| unauthorized(found, req))?;
     let route_arn = format!(
         "arn:aws:execute-api:{}:{}:{}/{}/{}{}",
         found.region,
