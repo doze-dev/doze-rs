@@ -2,7 +2,7 @@
 //! attributes or the message body, and fan-out to SQS through the peer bus, as a state machine behind a lazy actor per region. State is
 //! on disk, and survives an idle reap and a restart.
 //!
-//! **What is stored and not delivered:** only SQS is delivered to. Subscriptions for `http`, `https`, `email`, `email-json`, `lambda` and
+//! **What is stored and not delivered:** SQS and Lambda are delivered to. Subscriptions for `http`, `https`, `email`, `email-json` and
 //! `firehose` are kept (the first four wait for a confirmation token no one is sent), and SMS and mobile-push messages are accepted
 //! (decision D1) and sent nowhere; the log says so for each. The SMS sandbox and origination numbers are refused by name.
 
