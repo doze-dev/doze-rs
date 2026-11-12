@@ -77,7 +77,7 @@ accepted (not known to be refused). Still refused by name: `SubscribeToShard` (H
 
 ## Tests
 
-`aws-kinesis`: 37 (was 21): 16 new in `tests/reshard.rs` (recorded split shape; `UPDATING` and the second-reshard refusal; reading a closed
+`aws-kinesis`: 37 (was 21): 16 new in `tests/reshard.rs`, `tests/scaling.rs` and `tests/state.rs` (recorded split shape; `UPDATING` and the second-reshard refusal; reading a closed
 shard to its end with and without a `Limit`, and an iterator made before the split; routing and ordering after a split; split-point and
 shard refusals; merge, merge refusals; doubling, halving, uneven counts; count bounds, `ON_DEMAND`, unknown stream; the 500-shard limit;
 every `ShardFilter` type, their refusals and filter-preserving paging; retention forgetting a closed shard; restart after a reshard; the

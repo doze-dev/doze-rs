@@ -13,6 +13,8 @@ use crate::core::Core;
 mod persistence;
 mod refusals;
 mod reshard;
+mod scaling;
+mod state;
 mod streams;
 
 pub(crate) struct World {
