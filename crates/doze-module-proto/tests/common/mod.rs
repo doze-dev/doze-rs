@@ -36,6 +36,10 @@ pub fn manifest(caps: u64) -> Manifest {
         console: None,
         actions: vec![],
         targets: vec![],
+        description: None,
+        homepage: None,
+        source: None,
+        example_label: None,
     }
 }
 

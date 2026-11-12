@@ -46,6 +46,20 @@ impl Module for Echo {
             backend_socket: Some("echo.sock".into()),
             example: "echo \"e\" {\n  version = \"2\"\n}\n".into(),
             console: Some(console()),
+            targets: [
+                "aarch64-apple-darwin",
+                "aarch64-unknown-linux-gnu",
+                "x86_64-unknown-linux-gnu",
+                "x86_64-pc-windows-msvc",
+                "aarch64-pc-windows-msvc",
+            ]
+            .map(String::from)
+            .to_vec(),
+            description: Some(
+                "An engine that echoes lines, for testing the SDK, the host and the release tool."
+                    .into(),
+            ),
+            example_label: Some("e".into()),
             ..About::default()
         }
     }

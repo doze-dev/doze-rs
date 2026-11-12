@@ -211,7 +211,11 @@ impl<M: Module> Server<M> {
             example: a.example,
             console: a.console,
             actions: a.actions,
-            targets: Vec::new(),
+            targets: a.targets,
+            description: a.description,
+            homepage: a.homepage,
+            source: a.source,
+            example_label: a.example_label,
         }
     }
 
@@ -253,6 +257,16 @@ impl<M: Module> Server<M> {
 
     /// The module binary's main: takes the channel doze started it with, serves, and exits when the host goes.
     pub fn run(self) -> std::process::ExitCode {
+        // The release tool reads the manifest without a host: `<module> --describe` prints it (CBOR) and exits.
+        if std::env::args().skip(1).any(|a| a == "--describe") {
+            return match doze_module_proto::msg::encode(&self.manifest()) {
+                Ok(bytes) => match std::io::Write::write_all(&mut std::io::stdout(), &bytes) {
+                    Ok(()) => std::process::ExitCode::SUCCESS,
+                    Err(e) => crate::exit_with(&e.to_string()),
+                },
+                Err(e) => crate::exit_with(&e.to_string()),
+            };
+        }
         let rt = match tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()

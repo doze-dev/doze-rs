@@ -65,8 +65,8 @@ jobs:
         run: |
           d=$(ls -d /usr/lib/postgresql/*/bin 2>/dev/null | sort -V | tail -1 || true)
           if [ -n "$d" ]; then echo "PGBIN=$d" >> "$GITHUB_ENV"; fi
-      - run: cargo clippy -p doze-os -p doze-module-proto -p doze-module -p doze-module-derive -p doze-module-host -p doze-module-test --all-targets -- -D warnings
-      - run: cargo test -p doze-os -p doze-module-proto -p doze-module -p doze-module-host -p doze-module-test --no-fail-fast -- --nocapture
+      - run: cargo clippy -p doze-os -p doze-module-proto -p doze-module -p doze-module-derive -p doze-module-host -p doze-module-test -p doze-module-release --all-targets -- -D warnings
+      - run: cargo test -p doze-os -p doze-module-proto -p doze-module -p doze-module-host -p doze-module-test -p doze-module-release --no-fail-fast -- --nocapture
 
   # Windows (docs/port/aws/phase0.md, spike S2): the whole workspace must at least compile there. Tests join as crates are made
   # portable; a red job here is information about what is still Unix-only, not noise.

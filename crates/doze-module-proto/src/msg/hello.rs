@@ -103,6 +103,16 @@ pub struct Manifest {
     /// The targets this module supports (PLAN.md D12), e.g. "x86_64-pc-windows-msvc".
     #[n(15)]
     pub targets: Vec<String>,
+    /// Docs prose and links for the registry's page (meta.yaml).
+    #[n(16)]
+    pub description: Option<String>,
+    #[n(17)]
+    pub homepage: Option<String>,
+    #[n(18)]
+    pub source: Option<String>,
+    /// The instance label used in `example`.
+    #[n(19)]
+    pub example_label: Option<String>,
 }
 
 /// The shape of a module's configuration block: the core validates against it before the module sees anything.

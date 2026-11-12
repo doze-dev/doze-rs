@@ -35,6 +35,13 @@ pub struct About {
     pub example: String,
     pub console: Option<ConsoleSpec>,
     pub actions: Vec<Action>,
+    /// The targets the module supports (PLAN.md D12); releases publish only these, and only where acceptance passed.
+    pub targets: Vec<String>,
+    /// For the registry page: a paragraph, links, and the label the example uses.
+    pub description: Option<String>,
+    pub homepage: Option<String>,
+    pub source: Option<String>,
+    pub example_label: Option<String>,
 }
 
 /// What a handler is given: the decoded spec, the instance, and the call it serves.
