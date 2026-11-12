@@ -291,9 +291,9 @@ fn a_tooltip_is_the_title_without_a_script_and_a_described_tooltip_with_one() {
 #[test]
 fn a_popover_is_a_button_and_a_dialog_card_that_shows_inline_without_a_script() {
     let m = popover("p", "Details", &html! { p { "body" } }).into_string();
-    assert!(m.contains(r#"aria-haspopup="dialog" aria-expanded="false" :aria-expanded="open" aria-controls="p" hidden"#), "{m}");
+    assert!(m.contains(r#"aria-haspopup="dialog" aria-expanded="false" :aria-expanded="open" aria-controls="p" id="p-btn" hidden"#), "{m}");
     assert!(
-        m.contains(r#"role="dialog" id="p" aria-label="Details""#) && m.contains("<p>body</p>"),
+        m.contains(r#"role="dialog" id="p" aria-labelledby="p-btn""#) && m.contains("<p>body</p>"),
         "{m}"
     );
 }
