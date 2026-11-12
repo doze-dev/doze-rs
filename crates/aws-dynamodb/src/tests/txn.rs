@@ -206,6 +206,21 @@ fn transaction_rules() {
 }
 
 #[test]
+fn a_transaction_carries_at_most_four_megabytes() {
+    let mut w = world();
+    let blob = "x".repeat(390 * 1024);
+    let puts = |n: usize| -> Vec<Value> {
+        (0..n)
+            .map(|i| json!({"Put": {"TableName": "tab3", "Item": {"pk": {"S": format!("k{i}")}, "blob": {"S": blob}}}}))
+            .collect()
+    };
+    w.ok("TransactWriteItems", json!({"TransactItems": puts(10)}));
+    let e = w.err("TransactWriteItems", json!({"TransactItems": puts(11)}));
+    assert!(message(&e).contains("4 MB"));
+    assert_eq!(w.ok("GetItem", json!({"TableName": "tab3", "Key": {"pk": {"S": "k10"}}})), json!({}));
+}
+
+#[test]
 fn transact_get_keeps_the_order() {
     let mut w = world();
     w.put("tab3", json!({"pk": {"S": "a"}, "n": {"N": "1"}}));

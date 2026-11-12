@@ -20,4 +20,8 @@ doze-kafka 9000000 159 8192 --listen 127.0.0.1:{port} --data-dir {data}
 # operations), the Query codec, session signing). Same rule.
 # 2026-11-12, with policy enforcement (evaluator, simulator, authorizer): 5,097,200 B, 198 packages, 3.3 MB idle (+133 KB, no package). Same rule; the limit
 # is 7,000,000 B (macOS size times 1.3 plus 5% is 6,957,678).
-doze-aws 7000000 203 6144 --listen 127.0.0.1:{port} --data-dir {data}
+# 2026-11-12, with DynamoDB (A10; aws-dynamodb, aws-expr and the DynamoDB model tables, nothing else new at run time): 5,851,040 B, 202 packages, 3,456 KB idle
+# (+753,840 B and +4 packages over policy enforcement: three are ours (aws-dynamodb, aws-expr, aws-model-dynamodb); the tool counted one more that was not
+# traced). No new third-party crate: redb, postcard, serde_json and tokio::sync are already linked. Limits unchanged: the macOS size is 84% of the byte
+# limit and one package is left.
+doze-aws 7000000 203 6144--listen 127.0.0.1:{port} --data-dir {data}

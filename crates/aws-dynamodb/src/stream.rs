@@ -136,7 +136,7 @@ pub(crate) fn stream_arn(region: &str, account: &str, table: &str, label: &str) 
 pub(crate) fn label_of(ms: i64) -> String {
     let secs = ms.div_euclid(1000);
     let iso = format_iso8601(secs);
-    let head = iso.trim_end_matches('Z');
+    let head = iso.get(..19).unwrap_or(&iso);
     format!("{head}.{:03}", ms.rem_euclid(1000))
 }
 

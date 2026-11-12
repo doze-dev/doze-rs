@@ -285,6 +285,8 @@ fn update_table_changes_billing_streams_and_indexes() {
         .unwrap()
         .to_owned();
     assert!(arn.contains(":table/orders/stream/"));
+    let label = arn.rsplit_once("/stream/").unwrap().1;
+    assert!(label.len() == 23 && label.as_bytes()[10] == b'T' && label.as_bytes()[19] == b'.', "{label}");
     let e = w.err("UpdateTable", json!({"TableName": "orders", "StreamSpecification": {"StreamEnabled": true, "StreamViewType": "KEYS_ONLY"}}));
     assert!(message(&e).starts_with("Table already has an enabled stream"));
     w.ok(

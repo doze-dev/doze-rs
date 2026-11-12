@@ -2,7 +2,7 @@
 
 use std::collections::BTreeSet;
 
-use aws_expr::{Cond, Item, Update, item_to_json, parse_update};
+use aws_expr::{Cond, Item, Update, item_size, item_to_json, parse_update};
 use aws_wire::ApiError;
 use serde_json::{Value as Json, json};
 
@@ -13,6 +13,8 @@ use crate::req::{Exprs, array_of, finish, inv, str_of, table_name, validation};
 use crate::stage::{item_key, key_bytes, key_of, validate_item};
 
 const MAX_ACTIONS: usize = 100;
+/// The most item data one transaction may carry. The text of the refusal is `(memory)`.
+const MAX_BYTES: usize = 4 * 1024 * 1024;
 /// How long a client request token keeps a transaction from being applied twice.
 const TOKEN_MS: i64 = 10 * 60 * 1000;
 
@@ -89,8 +91,12 @@ impl Core {
             return Ok(Json::Null);
         }
         let olds = self.reasons(&steps)?;
+        let mut bytes = 0;
         for (step, old) in steps.iter().zip(&olds) {
-            self.apply(cx, step, old.as_ref())?;
+            bytes += self.apply(cx, step, old.as_ref())?;
+        }
+        if bytes > MAX_BYTES {
+            return Err(validation("Transaction request cannot include more than 4 MB of items"));
         }
         self.remember(cx);
         Ok(Json::Null)
@@ -174,13 +180,13 @@ impl Core {
         Ok(olds)
     }
 
-    /// Applies one action of a transaction that passed.
-    fn apply(&mut self, cx: &Cx<'_>, s: &Step, old: Option<&Item>) -> Result<(), ApiError> {
+    /// Applies one action of a transaction that passed, and says how many bytes of item it wrote.
+    fn apply(&mut self, cx: &Cx<'_>, s: &Step, old: Option<&Item>) -> Result<usize, ApiError> {
         match &s.act {
-            Act::Check => Ok(()),
-            Act::Put(item) => self.stage(&s.t, cx.now_ms, old, Some(item), false),
-            Act::Delete if old.is_some() => self.stage(&s.t, cx.now_ms, old, None, false),
-            Act::Delete => Ok(()),
+            Act::Check => Ok(0),
+            Act::Put(item) => self.stage(&s.t, cx.now_ms, old, Some(item), false).map(|()| item_size(item)),
+            Act::Delete if old.is_some() => self.stage(&s.t, cx.now_ms, old, None, false).map(|()| 0),
+            Act::Delete => Ok(0),
             Act::Update(key, update) => {
                 let mut new = old.cloned().unwrap_or_else(|| key.clone());
                 if let Some(u) = update {
@@ -190,7 +196,7 @@ impl Core {
                     u.apply(&mut new, &names).map_err(inv)?;
                 }
                 validate_item(&s.t, &new)?;
-                self.stage(&s.t, cx.now_ms, old, Some(&new), false)
+                self.stage(&s.t, cx.now_ms, old, Some(&new), false).map(|()| item_size(&new))
             }
         }
     }
