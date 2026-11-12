@@ -189,9 +189,7 @@ than the estimate in `phase9.md` (0.8 to 0.95 MB on Linux), so the gate rises by
 | default (the console) | 5,521,456 B, 150 packages, idle 5,936 KB (7,184 KB after two page loads) | 5,971,376 B, 150 packages, idle 6,532 KB, 3 threads |
 | the console's step | +1,220,224 B (+28%), +28 packages | +1,310,744 B (+28%), +28 packages |
 
-Where the megabyte goes (by the crate's own breakdown at the slice): axum, hyper, tower and their parts about 0.35 MB, maud and the page code about 0.45 MB, the
-embedded assets (CSS, two fonts, the script) about 0.14 MB, the rest the backend, the probe, the stream and `ConsoleView`. The estimate had the assets and the
-pages as 100 to 200 KB and 200 KB; the pages are larger (five boards of markup built in code), and later slices will add to it (nine more slices of pages).
+Where the megabyte goes is only partly measured: the embedded assets (CSS, two fonts, the script) are about 140 KB (the agent's count); the HTTP stack was measured by the research at +309 KB and 25 packages (darwin); the rest, about 0.7 MB, is the pages' markup built in code, the backend, the probe, the stream and `ConsoleView`, and was not split further (a `cargo bloat` pass is a task for the first slice that adds a lot of pages). The estimate had the pages and recorder as 100 to 200 KB and 80 KB; the pages are larger than that, and nine more slices of pages follow.
 
 There is no x86_64 machine here and no CI has run, so the ubuntu x86_64 figure is an **estimate from two measurements that agree**: the darwin figure times the
 ratio measured at the close of Phase 7 (4,899,328 B on ubuntu x86_64 over 4,029,504 B on darwin, 1.216) gives 6.71 MB for the default build and 5.23 MB for the lean
