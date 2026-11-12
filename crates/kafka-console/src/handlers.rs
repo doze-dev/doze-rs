@@ -2,6 +2,7 @@
 
 mod access;
 mod config;
+mod consumers;
 mod fragments;
 mod groups;
 mod groups_dialogs;
@@ -17,9 +18,11 @@ mod story;
 mod topics;
 mod topics_dialogs;
 mod topics_write;
+mod unbuilt;
 
 pub use access::{access, acl_create, acl_create_form, acl_delete, acl_delete_form};
 pub use config::{config, config_edit, config_edit_form, config_reset, config_reset_form};
+pub use consumers::consumers as topic_consumers;
 pub use fragments::{check, fragment};
 pub use groups::{
     group as group_page, groups as groups_list, lag as group_lag, members as group_members,
@@ -40,7 +43,7 @@ pub use log::{
     log as topic_log, log_fragment, producers as topic_producers, txn as topic_txn,
     txn_held as topic_txn_held,
 };
-pub use pages::{advertised, connect, home, method_not_allowed, not_found, planned};
+pub use pages::{advertised, connect, home, method_not_allowed, not_found};
 pub use plain::{events, health, static_file};
 pub use settings::{settings, settings_edit, settings_edit_form};
 pub(crate) use story::fragment as story_fragment;
@@ -54,6 +57,7 @@ pub use topics_dialogs::{
     produce, produce_form,
 };
 pub use topics_write::{create, create_form};
+pub use unbuilt::unbuilt;
 
 use axum::http::header::{CACHE_CONTROL, CONTENT_TYPE, ETAG};
 use axum::http::{HeaderMap, StatusCode, header::IF_NONE_MATCH};

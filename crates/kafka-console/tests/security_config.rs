@@ -62,7 +62,15 @@ fn hostile_text_in_every_field_of_every_config_page_comes_out_inert() {
             .take(8)
             .collect();
         page.ask.replication = true;
-        inert(&pages::config_page(&page, &base).into_string(), "the page");
+        inert(
+            &pages::config_page(
+                &page,
+                Some(&kafka_console::fixtures_topics::head("orders").unwrap()),
+                &base,
+            )
+            .into_string(),
+            "the page",
+        );
 
         let f = ConfigFields {
             key: "cleanup.policy",

@@ -2,46 +2,11 @@
 
 use maud::{Markup, html};
 
-use super::common::{Acts, topic_head, topic_tabs, topic_url};
-use super::messages::{messages_url, reading};
-use super::table::records;
+use super::common::topic_url;
 use crate::base::Base;
 use crate::format::number;
-use crate::model::{Hold, MessageQuery, MessagesView, PartitionRow};
-use crate::ui::glyph::Glyph;
+use crate::model::{Hold, MessagesView, PartitionRow};
 use crate::ui::kafka::{Mark, ruler, sec};
-use crate::ui::notice::{Tone, callout};
-
-fn toolbar(v: &MessagesView, base: &Base) -> Markup {
-    html! {
-        div class="toolbar" {
-            (reading(v, base, true))
-            span class="sp" {}
-            span class="dim" { "The console reads read_uncommitted by default, so you can see everything" }
-        }
-    }
-}
-
-fn banner(v: &MessagesView) -> Markup {
-    let held: Vec<&PartitionRow> = v.head.parts.iter().filter(|p| p.held() > 0).collect();
-    if held.is_empty() {
-        return html! {};
-    }
-    let total: i64 = held.iter().map(|p| p.held()).sum();
-    let per: Vec<String> = held
-        .iter()
-        .map(|p| format!("{} on {}-{}", p.held(), v.head.name, p.partition))
-        .collect();
-    let ids: Vec<&str> = v.head.txns.iter().map(|t| t.id.as_str()).collect();
-    html! {
-        div style="margin-bottom:24px" { (callout(Tone::Warn, Glyph::Warn, html! {
-            b { (total) " record" @if total != 1 { "s are" } @else { " is" } " held back from read_committed consumers" }
-            ": " (crate::words::list_and(&per))
-            @if !ids.is_empty() { ", all in " @if ids.len() == 1 { "transaction " } @else { "transactions " } (crate::words::list_and(&ids)) }
-            ". Until it commits or aborts, a consumer reading read_committed stops at the last stable offset and sees nothing past it."
-        })) }
-    }
-}
 
 fn zoomed(p: &PartitionRow, topic: &str) -> Markup {
     let from = (p.end - 14).max(p.start);
@@ -126,27 +91,10 @@ fn held_url(v: &MessagesView, base: &Base) -> String {
     }
 }
 
-fn reader_sees(v: &MessagesView, base: &Base) -> Markup {
-    let plain = messages_url(base, &v.head.name, &MessageQuery::default());
-    html! {
-        div class="sec" {
-            h2 { "What a read_committed reader sees" }
-            (records(&v.rows, &v.head.name, &v.query.to_query(), base))
-            p class="help" style="margin-top:12px" {
-                @match v.head.held() {
-                    0 => { "Nothing is held back, so this is every record the table shows; " },
-                    1 => { "The held record is not listed here; " },
-                    n => { "The " (n) " held records are not listed here; " },
-                }
-                a class="lnk" href=(plain) { "read_uncommitted shows them" } ", each marked Above LSO."
-            }
-        }
-    }
-}
-
-/// The page.
+/// What explains the level: where each reader stops (the partition most held back, zoomed), what each isolation level gets,
+/// and who is held back. The Messages page puts it in the section under the table that is open while it reads `read_committed`.
 #[must_use]
-pub(super) fn committed_page(v: &MessagesView, base: &Base, _query: &str) -> Markup {
+pub(super) fn more(v: &MessagesView, base: &Base) -> Markup {
     let focus = v
         .head
         .parts
@@ -154,12 +102,7 @@ pub(super) fn committed_page(v: &MessagesView, base: &Base, _query: &str) -> Mar
         .max_by_key(|p| (p.held(), -i64::from(p.partition)))
         .or_else(|| v.head.parts.first());
     html! {
-        (topic_head(&v.head, base, Acts::Full))
-        (topic_tabs(&v.head, base))
-        (toolbar(v, base))
-        (banner(v))
         @if let Some(p) = focus { div class="g2" { (zoomed(p, &v.head.name)) (levels(p)) } }
-        (holds(v, base))
-        (reader_sees(v, base))
+        @if v.head.held() > 0 { (holds(v, base)) }
     }
 }

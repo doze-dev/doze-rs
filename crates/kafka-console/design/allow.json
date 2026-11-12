@@ -2970,5 +2970,207 @@
     "selector": "group-story",
     "reason": "improvement: the Story tab is a link to the Story page, with the count of the ring; the board draws it as plain text, as the Story was not built.",
     "expires": "close"
+  },
+  {
+    "board": "config-refused",
+    "field": "link",
+    "reason": "improvement: [ux-pages] the Consumers tab is a page inside the topic (/topics/{topic}/consumers), not a link to the Groups list: the groups that read this topic, with their lag on its partitions (CON-705)",
+    "expires": "close"
+  },
+  {
+    "board": "config-saved",
+    "field": "link",
+    "reason": "improvement: [ux-pages] the Consumers tab is a page inside the topic (/topics/{topic}/consumers), not a link to the Groups list: the groups that read this topic, with their lag on its partitions (CON-705)",
+    "expires": "close"
+  },
+  {
+    "board": "topic-config",
+    "field": "table",
+    "reason": "improvement: [ux-pages] \"Where from\", \"Kafka's text\" and the replication section are native <details> disclosures that open in place with no navigation (CON-708): their panels and the replication table are in the page, shut, so the structure gate sees their tables and definition lists; the board draws them as links that navigate and opened rows",
+    "expires": "close"
+  },
+  {
+    "board": "topic-config",
+    "field": "table.col",
+    "reason": "improvement: [ux-pages] \"Where from\", \"Kafka's text\" and the replication section are native <details> disclosures that open in place with no navigation (CON-708): their panels and the replication table are in the page, shut, so the structure gate sees their tables and definition lists; the board draws them as links that navigate and opened rows",
+    "expires": "close"
+  },
+  {
+    "board": "topic-config",
+    "field": "table.rows",
+    "reason": "improvement: [ux-pages] \"Where from\", \"Kafka's text\" and the replication section are native <details> disclosures that open in place with no navigation (CON-708): their panels and the replication table are in the page, shut, so the structure gate sees their tables and definition lists; the board draws them as links that navigate and opened rows",
+    "expires": "close"
+  },
+  {
+    "board": "topic-config",
+    "field": "dt",
+    "reason": "improvement: [ux-pages] \"Where from\", \"Kafka's text\" and the replication section are native <details> disclosures that open in place with no navigation (CON-708): their panels and the replication table are in the page, shut, so the structure gate sees their tables and definition lists; the board draws them as links that navigate and opened rows",
+    "expires": "close"
+  },
+  {
+    "board": "topic-config",
+    "field": "link",
+    "reason": "improvement: [ux-pages] the Consumers tab is a page inside the topic (/topics/{topic}/consumers), not a link to the Groups list: the groups that read this topic, with their lag on its partitions (CON-705); the head and its buttons (Partitions, Produce, Delete topic) are the topic's own, the same on every tab (CON-706)",
+    "expires": "close"
+  },
+  {
+    "board": "topic-create",
+    "field": "title",
+    "reason": "improvement: [ux-pages] the breadcrumb is the entity path, so every step of the Create-topic flow (and its refusal) is Resources > Topics > New topic; the step is the page's own stepper, not a step of the path (CON-700)",
+    "expires": "close",
+    "render": "live"
+  },
+  {
+    "board": "topic-create-config",
+    "field": "title",
+    "reason": "improvement: [ux-pages] the breadcrumb is the entity path, so every step of the Create-topic flow (and its refusal) is Resources > Topics > New topic; the step is the page's own stepper, not a step of the path (CON-700)",
+    "expires": "close",
+    "render": "live"
+  },
+  {
+    "board": "topic-create-refused",
+    "field": "title",
+    "reason": "improvement: [ux-pages] the breadcrumb is the entity path, so every step of the Create-topic flow (and its refusal) is Resources > Topics > New topic; the step is the page's own stepper, not a step of the path (CON-700)",
+    "expires": "close",
+    "render": "live"
+  },
+  {
+    "board": "topic-create-review",
+    "field": "title",
+    "reason": "improvement: [ux-pages] the breadcrumb is the entity path, so every step of the Create-topic flow (and its refusal) is Resources > Topics > New topic; the step is the page's own stepper, not a step of the path (CON-700)",
+    "expires": "close",
+    "render": "live"
+  },
+  {
+    "board": "topic-detail",
+    "field": "link",
+    "reason": "improvement: [ux-pages] the five tabs of a topic share one header component; the board draws the Consumers tab as a link to the Groups space (CON-705, CON-706)",
+    "expires": "close"
+  },
+  {
+    "board": "topic-messages-empty",
+    "field": "link",
+    "reason": "improvement: [ux-pages] the five tabs of a topic share one header component; the board draws the Consumers tab as a link to the Groups space (CON-705, CON-706)",
+    "expires": "close"
+  },
+  {
+    "board": "topic-messages-filtered",
+    "field": "link",
+    "reason": "improvement: [ux-pages] the five tabs of a topic share one header component; the board draws the Consumers tab as a link to the Groups space (CON-705, CON-706)",
+    "expires": "close"
+  },
+  {
+    "board": "topic-offline",
+    "field": "link",
+    "reason": "improvement: [ux-pages] the five tabs of a topic share one header component; the board draws the Consumers tab as a link to the Groups space (CON-705, CON-706)",
+    "expires": "close"
+  },
+  {
+    "board": "topic-readcommitted",
+    "field": "link",
+    "reason": "improvement: [ux-pages] the five tabs of a topic share one header component; the board draws the Consumers tab as a link to the Groups space (CON-705, CON-706)",
+    "expires": "close"
+  },
+  {
+    "board": "topic-wire",
+    "field": "link",
+    "reason": "improvement: [ux-pages] the five tabs of a topic share one header component; the board draws the Consumers tab as a link to the Groups space (CON-705, CON-706)",
+    "expires": "close"
+  },
+  {
+    "board": "topic-detail",
+    "field": "button",
+    "reason": "improvement: [ux-pages] one Messages toolbar in every state: the partition control, find, time and, at the right, Reading as with read_uncommitted then read_committed (as buttons of the same form), and a second row of the filters that are on; the board draws a different toolbar per state and changes the page when the isolation level changes (CON-707)",
+    "expires": "close"
+  },
+  {
+    "board": "topic-messages-filtered",
+    "field": "button",
+    "reason": "improvement: [ux-pages] one Messages toolbar in every state: the partition control, find, time and, at the right, Reading as with read_uncommitted then read_committed (as buttons of the same form), and a second row of the filters that are on; the board draws a different toolbar per state and changes the page when the isolation level changes (CON-707)",
+    "expires": "close"
+  },
+  {
+    "board": "topic-messages-filtered",
+    "field": "op",
+    "reason": "improvement: [ux-pages] one Messages page for every state: the explainers (the call, why filter by offset and, for read_committed, the offsets and who is held back) are one section under the table that is open while reading read_committed (CON-707)",
+    "expires": "close"
+  },
+  {
+    "board": "topic-readcommitted",
+    "field": "button",
+    "reason": "improvement: [ux-pages] one Messages toolbar in every state: the partition control, find, time and, at the right, Reading as with read_uncommitted then read_committed (as buttons of the same form), and a second row of the filters that are on; the board draws a different toolbar per state and changes the page when the isolation level changes (CON-707)",
+    "expires": "close"
+  },
+  {
+    "board": "topic-readcommitted",
+    "field": "op",
+    "reason": "improvement: [ux-pages] one Messages page for every state: the explainers (the call, why filter by offset and, for read_committed, the offsets and who is held back) are one section under the table that is open while reading read_committed (CON-707)",
+    "expires": "close"
+  },
+  {
+    "board": "topic-detail",
+    "field": "heading",
+    "reason": "improvement: [ux-pages] one Messages page for every state: the explainers (the call, why filter by offset and, for read_committed, the offsets and who is held back) are one section under the table that is open while reading read_committed (CON-707)",
+    "expires": "close"
+  },
+  {
+    "board": "topic-detail",
+    "field": "card",
+    "reason": "improvement: [ux-pages] one Messages page for every state: the explainers (the call, why filter by offset and, for read_committed, the offsets and who is held back) are one section under the table that is open while reading read_committed (CON-707)",
+    "expires": "close"
+  },
+  {
+    "board": "topic-detail",
+    "field": "extra",
+    "reason": "improvement: [ux-pages] one Messages page for every state: the explainers (the call, why filter by offset and, for read_committed, the offsets and who is held back) are one section under the table that is open while reading read_committed (CON-707)",
+    "expires": "close"
+  },
+  {
+    "board": "topic-readcommitted",
+    "field": "heading",
+    "reason": "improvement: [ux-pages] one Messages page for every state: the explainers (the call, why filter by offset and, for read_committed, the offsets and who is held back) are one section under the table that is open while reading read_committed (CON-707)",
+    "expires": "close"
+  },
+  {
+    "board": "topic-readcommitted",
+    "field": "card",
+    "reason": "improvement: [ux-pages] one Messages page for every state: the explainers (the call, why filter by offset and, for read_committed, the offsets and who is held back) are one section under the table that is open while reading read_committed (CON-707)",
+    "expires": "close"
+  },
+  {
+    "board": "topic-readcommitted",
+    "field": "extra",
+    "reason": "improvement: [ux-pages] one Messages page for every state: the explainers (the call, why filter by offset and, for read_committed, the offsets and who is held back) are one section under the table that is open while reading read_committed (CON-707)",
+    "expires": "close"
+  },
+  {
+    "board": "topic-readcommitted",
+    "field": "state",
+    "reason": "improvement: [ux-pages] one Messages toolbar in every state: the partition control, find, time and, at the right, Reading as with read_uncommitted then read_committed (as buttons of the same form), and a second row of the filters that are on; the board draws a different toolbar per state and changes the page when the isolation level changes (CON-707)",
+    "expires": "close"
+  },
+  {
+    "board": "topic-messages-filtered",
+    "field": "state",
+    "reason": "improvement: [ux-pages] one Messages toolbar in every state: the partition control, find, time and, at the right, Reading as with read_uncommitted then read_committed (as buttons of the same form), and a second row of the filters that are on; the board draws a different toolbar per state and changes the page when the isolation level changes (CON-707)",
+    "expires": "close"
+  },
+  {
+    "board": "topic-messages-filtered",
+    "field": "note",
+    "reason": "improvement: [ux-pages] the open-transaction callout stays above the toolbar in every state of a topic that has one open; the board drops it when a partition is chosen, which moved the toolbar (CON-707)",
+    "expires": "close"
+  },
+  {
+    "board": "topic-readcommitted",
+    "field": "note",
+    "reason": "improvement: [ux-pages] the open-transaction callout is the one callout in every state; the board draws a different 'held back' callout and a different page for read_committed (CON-707)",
+    "expires": "close"
+  },
+  {
+    "board": "topics-filtered",
+    "field": "extra",
+    "reason": "improvement: [ux-pages] the sentence under the tabs is about the broker and stays when a filter is typed, so typing moves nothing (the board drops it)",
+    "expires": "close"
   }
 ]

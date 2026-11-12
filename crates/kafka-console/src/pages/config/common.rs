@@ -52,7 +52,7 @@ pub(super) fn page_head(h: &ConfigHead, sentence: &[Span], acts: Markup) -> Mark
     }
 }
 
-/// The tabs of a topic, Config showing. Consumers goes to the topic's own page, as the boards draw it.
+/// The tabs of a topic, Config showing, for the result pages (saved, refused) that carry their own head.
 #[must_use]
 pub(super) fn config_tabs(topic: &str, base: &Base) -> Markup {
     let t = base.url(&format!("/topics/{}", segment(topic)));
@@ -66,7 +66,7 @@ pub(super) fn config_tabs(topic: &str, base: &Base) -> Markup {
         tab("Messages", t.clone(), false),
         tab("Log", format!("{t}/log"), false),
         tab("Config", format!("{t}/config"), true),
-        tab("Consumers", t.clone(), false),
+        tab("Consumers", format!("{t}/consumers"), false),
         tab("Producers", format!("{t}/producers"), false),
     ])
 }

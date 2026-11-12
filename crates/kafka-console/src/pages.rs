@@ -21,7 +21,7 @@ pub use common::{PROBE_ADVERTISED, PROBE_CONNECT, PROBE_HOME, probe_fragment_url
 pub use config::{
     config_page, config_refused, config_saved, config_url, edit_dialog as config_edit_dialog,
     edit_url as config_edit_url, no_config as config_no_key, reset_dialog as config_reset_dialog,
-    reset_url as config_reset_url, toggled as config_toggled, token as config_token,
+    reset_url as config_reset_url, token as config_token,
 };
 pub use connect::{connect, probe_connect};
 pub use home::{HOME_LIVE, callout_body, home, live_fragment, probe_home};
@@ -30,7 +30,7 @@ pub use log::{
     LOG_CARDS, LOG_RULER, LOG_SENTENCE, log_cards_fragment, log_page, log_ruler_fragment,
     log_sentence_fragment, log_url,
 };
-pub use notice::{not_found, planned};
+pub use notice::{not_found, unavailable, unavailable_what};
 pub use producers::{
     PRODUCERS_SENTENCE, PRODUCERS_TABLE, no_txn, producers_page, producers_sentence_fragment,
     producers_table_fragment, producers_url, txn_held_page, txn_held_url, txn_page, txn_url,

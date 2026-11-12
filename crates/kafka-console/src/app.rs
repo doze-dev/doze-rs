@@ -24,6 +24,7 @@ fn method_router(route: &Route) -> MethodRouter<Shared> {
         (Handler::TopicMessages, _) => get(handlers::topic_messages),
         (Handler::TopicRecord, _) => get(handlers::topic_record),
         (Handler::TopicPartitions, _) => get(handlers::topic_partitions),
+        (Handler::TopicConsumers, _) => get(handlers::topic_consumers),
         (Handler::Fragment, _) => get(handlers::fragment),
         (Handler::Live, _) => get(handlers::live),
         (Handler::LiveClients, _) => get(handlers::live_clients),
@@ -77,8 +78,11 @@ fn method_router(route: &Route) -> MethodRouter<Shared> {
         (Handler::AclDeleteForm, _) => get(handlers::acl_delete_form),
         (Handler::AclDelete, _) => post(handlers::acl_delete),
         (Handler::Planned(title), _) => get(
-            move |axum::extract::State(s): axum::extract::State<Shared>| async move {
-                handlers::planned(s, title).await
+            move |axum::extract::State(s): axum::extract::State<Shared>,
+                  params: axum::extract::RawPathParams,
+                  headers: axum::http::HeaderMap,
+                  uri: axum::http::Uri| async move {
+                handlers::unbuilt(s, title, params, headers, uri.path()).await
             },
         ),
     }

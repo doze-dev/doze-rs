@@ -11,6 +11,7 @@ use crate::gather;
 use crate::model::{Checked, CreateResult, Draft, Step, Template};
 use crate::pages;
 use crate::state::Shared;
+use crate::trail::{Place, borrowed};
 use crate::ui::shell::Rail;
 
 /// What the fields of a form say the draft is: the starting point sets the configs unless the form carries its own.
@@ -32,30 +33,21 @@ pub(super) async fn draft_of(s: &Shared, fields: &[(String, String)]) -> Draft {
     d
 }
 
-fn crumbs(step: Step) -> Vec<(&'static str, Option<&'static str>)> {
-    let mut out = vec![("Topics", Some("/topics"))];
-    match step {
-        Step::Name => out.push(("Create topic", None)),
-        Step::Config => out.extend([
-            ("Create topic", Some("/topics/new")),
-            ("Configuration", None),
-        ]),
-        Step::Review => out.extend([
-            ("Create topic", Some("/topics/new")),
-            ("Review and create", None),
-        ]),
-    }
-    out
+/// The trail of the Create-topic flow: its steps are the page's own stepper, not steps of the path.
+fn crumbs(_step: Step) -> Vec<crate::trail::Step> {
+    Place::NewTopic.steps()
 }
 
 pub(super) async fn page(
     s: &Shared,
     status: StatusCode,
     title: &str,
-    crumbs: &[(&str, Option<&str>)],
+    crumbs: &[crate::trail::Step],
     main: maud::Markup,
 ) -> Response {
-    let doc = s.document(Rail::Resources, title, crumbs, &[], main).await;
+    let doc = s
+        .document(Rail::Resources, title, &borrowed(crumbs), &[], main)
+        .await;
     (status, html(&doc)).into_response()
 }
 
@@ -88,12 +80,14 @@ pub async fn create(State(s): State<Shared>, body: Bytes) -> Response {
     match s.source.create_topic(draft.clone(), check).await {
         CreateResult::Created(c) => {
             let main = pages::created(&c, &s.base);
-            let crumbs = [
-                ("Topics", Some("/topics")),
-                ("Create topic", Some("/topics/new")),
-                ("Topic created", None),
-            ];
-            page(&s, StatusCode::OK, "Topic created", &crumbs, main).await
+            page(
+                &s,
+                StatusCode::OK,
+                "Topic created",
+                &crumbs(Step::Name),
+                main,
+            )
+            .await
         }
         CreateResult::Checked(done @ Checked { .. }) => {
             let mut view = s.source.create_form(draft, Step::Review).await;
@@ -108,16 +102,11 @@ pub async fn create(State(s): State<Shared>, body: Bytes) -> Response {
             .await
         }
         CreateResult::Refused(r) => {
-            let crumbs = [
-                ("Topics", Some("/topics")),
-                ("Create topic", Some("/topics/new")),
-                ("Create refused", None),
-            ];
             page(
                 &s,
                 StatusCode::OK,
                 "Create refused",
-                &crumbs,
+                &crumbs(Step::Name),
                 pages::create_refused(&r, &s.base),
             )
             .await

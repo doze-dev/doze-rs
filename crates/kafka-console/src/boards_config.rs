@@ -58,7 +58,12 @@ fn refused(base: &Base, f: ConfigFields<'_>) -> Option<Drawn> {
 
 /// A dialog board: the Config page with the dialog over it, as a direct visit to the dialog's address shows it.
 fn dialog_over(base: &Base, overlay: Markup) -> Option<Drawn> {
-    let parent = pages::config_page(&larder::page(TOPIC, ConfigAsk::default())?, base);
+    let head = crate::fixtures_topics::head(TOPIC)?;
+    let parent = pages::config_page(
+        &larder::page(TOPIC, ConfigAsk::default())?,
+        Some(&head),
+        base,
+    );
     Some(("Config".to_owned(), over(parent, overlay)))
 }
 
@@ -78,7 +83,11 @@ fn board(id: &str, base: &Base) -> Option<Drawn> {
                 ..ConfigAsk::default()
             };
             let page = larder::page(TOPIC, ask)?;
-            Some(plain("Config", pages::config_page(&page, base)))
+            let head = crate::fixtures_topics::head(TOPIC)?;
+            Some(plain(
+                "Config",
+                pages::config_page(&page, Some(&head), base),
+            ))
         }
         "config-edit" => dialog(base, fields("min.cleanable.dirty.ratio", None, "0.7", None)),
         "config-edit-list" => dialog(

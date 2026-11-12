@@ -49,7 +49,7 @@ fn when(h: &GroupHead, ms: i64) -> String {
     }
 }
 
-fn cell_lag(r: &LagRow) -> Markup {
+pub(crate) fn cell_lag(r: &LagRow) -> Markup {
     match r.lag {
         Lag::Behind(n) => html! { (lagbar(r.bar, Some(n))) },
         Lag::CaughtUp => html! { (lagbar(0, Some(0))) },
@@ -108,7 +108,7 @@ fn row(r: &LagRow, h: &GroupHead, ahead: bool) -> Markup {
             }
             td { (cell_lag(r)) }
             @match r.last_commit_ms {
-                Some(ms) => td class="mono" data-vary { (when(h, ms)) },
+                Some(ms) => td class="mono" data-vary { (crate::ui::table::when(&when(h, ms), ms)) },
                 None => td class="dim" { "never" },
             }
         }

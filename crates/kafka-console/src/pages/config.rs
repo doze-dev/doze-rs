@@ -12,7 +12,7 @@ mod saved;
 
 pub use common::{config_url, edit_url, reset_url};
 pub use dialog::edit_dialog;
-pub use links::{toggled, token};
+pub use links::token;
 pub use page::{config_page, no_config};
 pub use refused::config_refused;
 pub use reset::reset_dialog;

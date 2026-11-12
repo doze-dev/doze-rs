@@ -3,15 +3,17 @@
 
 use maud::{Markup, html};
 
-use super::common::{Acts, spans, topic_head, topic_tabs, topic_url, txn_callout};
+use super::bar::bar;
+use super::common::{TopicTab, spans, topic_frame, topic_url, txn_callout};
 use super::table::records;
 use crate::base::Base;
 use crate::format::number;
 use crate::model::{MessageQuery, MessagesView, Reading};
 use crate::ui::button::{Size, State, Variant, opener, state};
 use crate::ui::client;
+use crate::ui::disclosure::{Look, disclosure};
 use crate::ui::glyph::{Glyph, glyph};
-use crate::ui::kafka::{apicall, empty, filter_box, pager, sec};
+use crate::ui::kafka::{apicall, empty, pager, sec};
 use crate::words::reach_sentence;
 
 /// The fragment that holds the table and what is said about it.
@@ -33,7 +35,7 @@ fn older(v: &MessagesView, base: &Base) -> Markup {
     };
     html! {
         @if v.reach.more && v.query.limit < crate::model::MOST_LIMIT {
-            a class="btn sm" data-ui="page" href=(messages_url(base, &v.head.name, &q)) { "Older" }
+            a class="btn sm" data-ui="page" href=(format!("{}#topic-bar", messages_url(base, &v.head.name, &q))) { "Older" }
         }
     }
 }
@@ -65,6 +67,7 @@ pub fn messages_fragment(v: &MessagesView, base: &Base, page_query: &str) -> Mar
         &url,
         html! {
             (notes(v))
+            (isolation_note(v))
             @if v.query.filtered() {
                 p class="sent" style="margin:0 0 16px;max-width:900px" { (spans(&reach_sentence(v))) }
             }
@@ -74,116 +77,6 @@ pub fn messages_fragment(v: &MessagesView, base: &Base, page_query: &str) -> Mar
                 (records(&v.rows, &v.head.name, &v.query.to_query(), base))
                 @if !v.query.filtered() { (pager(&line(v), older(v, base))) }
             }
-        },
-    )
-}
-
-/// The segmented control of partitions, as buttons of a plain GET form.
-fn partition_seg(v: &MessagesView) -> Markup {
-    html! {
-        div class="seg" aria-label="Partition" {
-            button class={@if v.query.partition.is_none() { "on" }} type="submit" name="partition" value="" data-ui="select" { "All partitions" }
-            @for p in &v.head.parts {
-                button class={@if v.query.partition == Some(p.partition) { "on" }} type="submit" name="partition" value=(p.partition) data-ui="select" { (p.partition) }
-            }
-        }
-    }
-}
-
-/// The two ways of reading, the one showing as a chip and the other as a link.
-pub(super) fn reading(v: &MessagesView, base: &Base, other: bool) -> Markup {
-    let url = |r: Reading| {
-        let q = MessageQuery {
-            reading: r,
-            ..v.query.clone()
-        };
-        messages_url(base, &v.head.name, &q)
-    };
-    let (on, off) = match v.query.reading {
-        Reading::Uncommitted => (Reading::Uncommitted, Reading::Committed),
-        Reading::Committed => (Reading::Committed, Reading::Uncommitted),
-    };
-    html! {
-        span class="dim" { "Reading as" }
-        @if v.query.reading == Reading::Committed {
-            a class="fchip" href=(url(off)) { (off.word()) }
-            span class="fchip on" { (on.word()) }
-        } @else {
-            span class="fchip on" { (on.word()) }
-            @if other { a class="fchip" href=(url(off)) { (off.word()) } }
-        }
-    }
-}
-
-fn from_held(v: &MessagesView, base: &Base) -> Markup {
-    let Some(p) = v.head.parts.iter().find(|p| p.held() > 0) else {
-        return html! {};
-    };
-    let q = MessageQuery {
-        partition: Some(p.partition),
-        offset: Some(p.last_stable),
-        ..MessageQuery::default()
-    };
-    html! {
-        a class="btn sm" href=(messages_url(base, &v.head.name, &q)) data-op="Fetch" {
-            (glyph(Glyph::Filter, 14, "")) "Show " (v.head.name) "-" (p.partition) " from " (number(p.last_stable))
-        }
-    }
-}
-
-fn form(v: &MessagesView, base: &Base, inner: Markup) -> Markup {
-    html! {
-        form class="toolbar" method="get" action=(format!("{}/messages", topic_url(base, &v.head.name))) {
-            // The button Enter presses in the find box: not a control of the page, so it is out of the board's reckoning.
-            input type="submit" value="Show" aria-label="Show records" hidden data-scaffold;
-            @if v.query.reading == Reading::Committed { input type="hidden" name="isolation" value="read_committed"; }
-            (inner)
-        }
-    }
-}
-
-pub(super) fn detail_toolbar(v: &MessagesView, base: &Base) -> Markup {
-    form(
-        v,
-        base,
-        html! {
-            (partition_seg(v))
-            (filter_box("find", "Key, or offset", "Find by key or offset", ""))
-            (from_held(v, base))
-            span class="sp" {}
-            (reading(v, base, true))
-        },
-    )
-}
-
-fn chip(on: bool, label: &str, value: &str) -> Markup {
-    html! { span class={"fchip" @if on { " on" }} { (label) @if on { " " (value) } } }
-}
-
-fn filtered_toolbar(v: &MessagesView, base: &Base) -> Markup {
-    let q = &v.query;
-    let clear = messages_url(
-        base,
-        &v.head.name,
-        &MessageQuery {
-            reading: q.reading,
-            ..MessageQuery::default()
-        },
-    );
-    form(
-        v,
-        base,
-        html! {
-            (partition_seg(v))
-            (chip(q.partition.is_some(), "Partition", &q.partition.map(|p| p.to_string()).unwrap_or_default()))
-            @if q.partition.is_some() { input type="hidden" name="partition" value=(q.partition.unwrap_or(0)); }
-            (chip(q.offset.is_some(), "From offset", &q.offset.map(number).unwrap_or_default()))
-            label class={"fchip" @if q.time.is_some() { " on" }} { "Time " input type="text" name="time" value=(q.time.as_ref().map_or("", |t| t.1.as_str())) placeholder="2026-11-09 22:13" aria-label="From time (UTC)" size="16"; }
-            label class={"fchip" @if q.key.is_some() { " on" }} { "Key " input type="text" name="key" value=(q.key.as_deref().unwrap_or("")) placeholder="exact key" aria-label="Key" size="14"; }
-            @if let Some(o) = q.offset { input type="hidden" name="offset" value=(o); }
-            a class="btn sm" data-ui="clear" href=(clear) { (glyph(Glyph::X, 14, "")) "Clear filters" }
-            span class="sp" {}
-            (reading(v, base, false))
         },
     )
 }
@@ -219,26 +112,49 @@ fn why_offset() -> Markup {
     }
 }
 
-fn detail(v: &MessagesView, base: &Base, query: &str) -> Markup {
+/// What is said about the read at the top of the data: for `read_committed`, where each reader stops and what is held back.
+fn isolation_note(v: &MessagesView) -> Markup {
+    if v.query.reading != Reading::Committed {
+        return html! {};
+    }
     html! {
-        (topic_head(&v.head, base, Acts::Full))
-        (topic_tabs(&v.head, base))
-        @if v.query.reading == Reading::Uncommitted { (txn_callout(&v.head, base)) }
-        (detail_toolbar(v, base))
-        (messages_fragment(v, base, query))
-        div class="row wrap" style="margin-top:20px;gap:24px" {
-            span class="row" { (state(State::Ok, &format!("{} of {} partitions online", v.head.parts.len() - v.head.offline().len(), v.head.parts.len()))) }
+        p class="help" role="status" style="margin:0 0 12px" {
+            @match v.head.held() {
+                0 => { "Reading as read_committed. Nothing is held back, so this is every record the table shows." },
+                1 => { "Reading as read_committed. One record is held back (it is above the last stable offset) and is not listed; read_uncommitted shows it, marked Above LSO." },
+                n => { "Reading as read_committed. " (n) " records are held back (they are above the last stable offset) and are not listed; read_uncommitted shows them, each marked Above LSO." },
+            }
         }
     }
 }
 
-fn filtered(v: &MessagesView, base: &Base, query: &str) -> Markup {
+/// The explainers under the table, in one section that is open when the page is reading `read_committed` (it is the part
+/// of the page that explains that level) and closed otherwise: opening or closing it moves only what is below it.
+fn explainers(v: &MessagesView, base: &Base) -> Markup {
+    let committed = v.query.reading == Reading::Committed;
+    disclosure(
+        Look::Plain,
+        Some("topic-explained"),
+        committed,
+        html! { "How this read works" },
+        html! {
+            @if committed { (super::committed::more(v, base)) }
+            div class="g2" style=(if committed { "margin-top:24px" } else { "" }) { div { (call_preview(v)) } (why_offset()) }
+        },
+    )
+}
+
+fn detail(v: &MessagesView, base: &Base, query: &str) -> Markup {
     html! {
-        (topic_head(&v.head, base, Acts::Full))
-        (topic_tabs(&v.head, base))
-        (filtered_toolbar(v, base))
+        (topic_frame(&v.head, base, TopicTab::Messages))
+        // Whenever the topic has an open transaction, whatever is being filtered or read: the structure does not depend on the state.
+        (txn_callout(&v.head, base))
+        (bar(v, base))
         (messages_fragment(v, base, query))
-        div class="g2" style="margin-top:32px" { div { (call_preview(v)) } (why_offset()) }
+        div class="row wrap" style="margin-top:20px;gap:24px" {
+            span class="row" { (state(State::Ok, &format!("{} of {} partitions online", v.head.parts.len() - v.head.offline().len(), v.head.parts.len()))) }
+        }
+        div style="margin-top:24px" { (explainers(v, base)) }
     }
 }
 
@@ -255,8 +171,7 @@ fn empty_topic(v: &MessagesView, base: &Base, listen: &str) -> Markup {
         v.head.name
     );
     html! {
-        (topic_head(&v.head, base, Acts::Empty))
-        (topic_tabs(&v.head, base))
+        (topic_frame(&v.head, base, TopicTab::Messages))
         (empty(
             Glyph::Queue, "d-msg", Some("teaching"),
             html! { "No records yet" },
@@ -281,12 +196,6 @@ pub fn messages_page(v: &MessagesView, base: &Base, listen: &str, query: &str) -
         && v.query.reading == Reading::Uncommitted
     {
         return super::offline::offline_page(&v.head, base);
-    }
-    if v.query.reading == Reading::Committed {
-        return super::committed::committed_page(v, base, query);
-    }
-    if v.query.filtered() {
-        return filtered(v, base, query);
     }
     detail(v, base, query)
 }

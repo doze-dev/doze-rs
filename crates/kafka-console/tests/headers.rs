@@ -19,7 +19,7 @@ const CSP: &str = "default-src 'self'; style-src 'self' 'unsafe-inline'; base-ur
 fn assert_all_five(h: &HeaderMap, what: &str) {
     assert_eq!(h[header::CONTENT_SECURITY_POLICY], CSP, "{what}: CSP");
     assert_eq!(h[header::X_CONTENT_TYPE_OPTIONS], "nosniff", "{what}");
-    assert_eq!(h[header::REFERRER_POLICY], "no-referrer", "{what}");
+    assert_eq!(h[header::REFERRER_POLICY], "same-origin", "{what}");
     assert_eq!(h[header::X_FRAME_OPTIONS], "DENY", "{what}");
     assert!(
         h.contains_key(header::CACHE_CONTROL),

@@ -231,8 +231,9 @@ pub fn live_fragment(v: &LiveView, base: &Base) -> Markup {
         html! {
             span hidden data-seen=(v.seen) data-newest=(v.newest_id) {}
             (page_header("Live", sentence(v), acts))
-            (held_banner(v))
             (toolbar(v, base, v.state != LiveState::Quiet && v.paused_at_ms.is_none()))
+            // Under the toolbar, so that pausing (which shows it) moves the tape and never the filters above it.
+            (held_banner(v))
             @if v.state == LiveState::Quiet { (quiet_card(v, base)) }
             @if v.paused_at_ms.is_none() { (refusals(v, base)) }
             @if v.state == LiveState::Busy && v.paused_at_ms.is_none() {
