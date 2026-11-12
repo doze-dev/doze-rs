@@ -11,6 +11,23 @@ use crate::state::Shared;
 use crate::ui::client::HEADER_FRAGMENT;
 
 /// A fragment by its id: the parts of Home that change while it is open, and the three renderings of the check.
+/// A fragment's markup by id and query, wherever it lives: what the stream hashes to know whether it changed for one subscriber.
+pub(crate) async fn render(s: &Shared, id: &str, query: &Option<String>) -> Option<maud::Markup> {
+    if let Some(m) = super::groups_fragment(s, id, query).await {
+        return Some(m);
+    }
+    if let Some(m) = super::live_fragment(s, id, query).await {
+        return Some(m);
+    }
+    if let Some(m) = super::story_fragment(s, id, query).await {
+        return Some(m);
+    }
+    if let Some(m) = topics_fragment(s, id, query).await {
+        return Some(m);
+    }
+    home_markup(s, id).await
+}
+
 pub async fn fragment(
     State(s): State<Shared>,
     Path(id): Path<String>,
@@ -70,16 +87,22 @@ async fn topics_fragment(s: &Shared, id: &str, query: &Option<String>) -> Option
     }
 }
 
-async fn fragment_of_home(s: &Shared, id: &str, headers: &HeaderMap) -> Response {
-    let markup = match id {
+async fn home_markup(s: &Shared, id: &str) -> Option<maud::Markup> {
+    Some(match id {
         // Home's fragment is made of what the broker holds: it never dials (the check is run by the page load and by a person).
         pages::HOME_LIVE => pages::live_fragment(&s.source.home_live().await, &s.base),
         pages::PROBE_HOME => pages::probe_home(&s.source.probe(false).await, &s.base),
         pages::PROBE_CONNECT => pages::probe_connect(&s.source.probe(false).await, &s.base),
         pages::PROBE_ADVERTISED => pages::probe_advertised(&s.source.probe(false).await, &s.base),
-        _ => return StatusCode::NOT_FOUND.into_response(),
-    };
-    etagged(headers, &markup)
+        _ => return None,
+    })
+}
+
+async fn fragment_of_home(s: &Shared, id: &str, headers: &HeaderMap) -> Response {
+    match home_markup(s, id).await {
+        Some(markup) => etagged(headers, &markup),
+        None => StatusCode::NOT_FOUND.into_response(),
+    }
 }
 
 /// Runs the advertised-listener check now. With a script the answer is the fragment to swap in; without one it is a

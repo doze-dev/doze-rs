@@ -34,7 +34,8 @@ describe("the stream", () => {
   test("opens one stream for the page and a tick fetches the fragments it names", async () => {
     const p = await started();
     expect(p.streams.length).toBe(1);
-    expect(p.streams[0].url).toBe("/events?watch=home-live,other");
+    // The stream is told each fragment's address, so that it can name a fragment only when it changed.
+    expect(p.streams[0].url).toBe("/events?watch=home-live,other&f=%2Ffragments%2Fhome-live&f=%2Ffragments%2Fother");
     p.tick("home-live,other");
     await p.flush();
     expect(p.calls.map((c) => c.url)).toEqual(["/fragments/home-live", "/fragments/other"]);

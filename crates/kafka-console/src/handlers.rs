@@ -21,6 +21,7 @@ mod unbuilt;
 
 pub use config::{config, config_edit, config_edit_form, config_reset, config_reset_form};
 pub use consumers::consumers as topic_consumers;
+pub(crate) use fragments::render as fragment_markup;
 pub use fragments::{check, fragment};
 #[cfg(feature = "examples")]
 pub use gallery::gallery;
@@ -87,7 +88,11 @@ pub fn has_tag(headers: &HeaderMap, tag: &str) -> bool {
 /// A fragment with an ETag over its text: a browser that has it already gets a 304 and nothing is swapped.
 #[must_use]
 pub fn etagged(headers: &HeaderMap, markup: &Markup) -> Response {
-    let tag = format!("\"{}\"", fingerprint(markup.0.as_bytes()));
+    // Time passing is not a change: a fragment's tag ignores what its relative times say.
+    let tag = format!(
+        "\"{}\"",
+        fingerprint(crate::live_updates::without_relative_times(&markup.0).as_bytes())
+    );
     let mut res = if has_tag(headers, &tag) {
         StatusCode::NOT_MODIFIED.into_response()
     } else {

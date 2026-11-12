@@ -11,7 +11,6 @@ use super::overlays::{self, Parent};
 use crate::model::{MessageQuery, TopicHead};
 use crate::pages::topics as page;
 use crate::state::Shared;
-use crate::stream::{TOPIC_IDS, TOPICS_IDS};
 use crate::trail::{Place, TopicPage, borrowed};
 use crate::ui::shell::Rail;
 
@@ -44,7 +43,7 @@ pub async fn topics(State(s): State<Shared>, RawQuery(query): RawQuery) -> Respo
             Rail::Resources,
             "Topics",
             &borrowed(&Place::Topics.steps()),
-            s.source.watching(TOPICS_IDS),
+            s.source.watching(crate::live_updates::TOPICS),
             main,
         )
         .await,
@@ -102,11 +101,8 @@ pub(super) async fn messages_parent(
         rail: Rail::Resources,
         title: view.head.name.clone(),
         crumbs: Place::Topic(&view.head.name).steps(),
-        watch: s.source.watching(if docked {
-            crate::live_ids::TOPIC_DETAIL_IDS
-        } else {
-            TOPIC_IDS
-        }),
+        // Calm: the header, the table and the dock change when the page is asked again (docs/port/console/live-updates.md).
+        watch: s.source.watching(crate::live_updates::TOPIC),
         main,
     })
 }

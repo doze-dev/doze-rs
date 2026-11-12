@@ -182,7 +182,7 @@ button.btn{font-family:inherit;cursor:pointer}
 .cell-filter:hover{text-decoration:underline;text-decoration-color:var(--line2);text-underline-offset:3px}
 table.wire tbody tr:hover td{background:var(--well)}
 table.wire tbody tr:focus-within td{background:var(--sel)}
-table.wire tbody tr.new td{background:var(--sel)}
+table.wire tbody tr.fresh td{background:var(--sel)}
 @media (prefers-reduced-motion:no-preference){table.wire tbody td{transition:background-color .22s ease}}
 
 /* ---- Pages (UX pass): bars that do not move, disclosures, the Consumers tab, calm numbers ---- */
@@ -416,3 +416,10 @@ p,.sub,.lede,.help{text-wrap:pretty}
 @media (max-width:1180px){.stats{grid-template-columns:repeat(3,minmax(0,1fr))}}
 .home-grid.quiet>.card:nth-child(3){grid-column:2;grid-row:1 / span 2}
 @media (max-width:1180px){.home-grid.quiet>.card:nth-child(3){grid-column:auto;grid-row:auto}}
+
+/* The tape: a row that has just arrived is tinted for a moment (its own background, nothing else), and a reader who has scrolled away is
+   told how many rows wait, in a pill that does not move the page. */
+.new-pill{position:fixed;z-index:40;top:64px;left:50%;transform:translateX(-50%);height:32px;padding:0 14px;border:1px solid var(--accent);border-radius:999px;background:#fff;color:var(--accent);font:inherit;font-size:13px;font-weight:500;box-shadow:0 6px 18px -6px rgba(23,20,31,.25);cursor:pointer}
+.new-pill[hidden]{display:none}
+.dz-chip .dz-field{min-width:11rem;height:36px;border-radius:999px;padding:0 10px 0 12px;box-shadow:none;background:transparent}
+.dz-chip.on .dz-field{background:var(--sel);border-color:#cdbff4}

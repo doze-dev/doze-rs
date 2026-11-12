@@ -90,7 +90,7 @@ fn topic_head(t: &LagTopic, v: &GroupLagView, base: &Base, cols: usize) -> Marku
     }
     let committed = t.rows.iter().any(|r| r.committed.is_some());
     html! {
-        tr { td colspan=(cols) style="background:var(--well);height:44px" {
+        tr id=(format!("lagh-{}", t.name)) { td colspan=(cols) style="background:var(--well);height:44px" {
             a class="lnk mono" href=(base.url(&format!("/topics/{}", segment(&t.name)))) { (t.name) }
             " " span class="dim" { "\u{a0}" (bits.join(", ")) }
             @if !committed { span class="mono bright" style="float:right" { "lag not known" } }
@@ -103,7 +103,7 @@ fn topic_head(t: &LagTopic, v: &GroupLagView, base: &Base, cols: usize) -> Marku
 
 fn row(r: &LagRow, h: &GroupHead, ahead: bool) -> Markup {
     html! {
-        tr class=[(ahead && matches!(r.lag, Lag::PastEnd(_))).then_some("sel")] {
+        tr id=(format!("lag-{}-{}", r.topic, r.partition)) class=[(ahead && matches!(r.lag, Lag::PastEnd(_))).then_some("sel")] {
             td class="name mono" { (r.topic) "-" (r.partition) }
             td class="r mono" { @match r.end { Some(e) => (number(e)), None => span class="dim" { "—" } } }
             @match r.committed {

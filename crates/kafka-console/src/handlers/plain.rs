@@ -29,7 +29,30 @@ pub async fn events(State(s): State<Shared>, RawQuery(query): RawQuery) -> Respo
     let Ok(permit) = Arc::clone(&s.streams).try_acquire_owned() else {
         return crate::limits::busy("The console has as many event streams open as it allows.");
     };
-    stream::response(s.ticker.watch(), ids, s.stop.clone(), permit).into_response()
+    // What the page says each fragment's address is (its `data-frag`): with it the stream tells a change from a tick, per fragment.
+    let watched: Vec<stream::Watched> = fields
+        .iter()
+        .filter(|(k, _)| k == "f")
+        .filter_map(|(_, v)| {
+            let path = s.base.strip(v.split('?').next()?)?;
+            let id = path.strip_prefix("/fragments/")?;
+            ids.iter().any(|i| i == id).then(|| stream::Watched {
+                id: id.to_owned(),
+                query: v.split_once('?').map(|(_, q)| q.to_owned()),
+            })
+        })
+        .collect();
+    let every = crate::form::get(&fields, "every").and_then(|v| v.parse::<u64>().ok());
+    stream::response(
+        s.clone(),
+        s.ticker.watch(),
+        ids,
+        watched,
+        every,
+        s.stop.clone(),
+        permit,
+    )
+    .into_response()
 }
 
 /// A file of the manifest by its hashed name, cached for a year: the name changes when the file does.

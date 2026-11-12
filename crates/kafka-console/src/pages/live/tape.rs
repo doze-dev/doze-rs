@@ -143,7 +143,8 @@ fn target(r: &WireRow, base: &Base, q: &WireQuery, filterable: bool) -> Markup {
 pub(super) fn row(r: &WireRow, base: &Base, q: &WireQuery, layout: Layout) -> Markup {
     let filterable = layout == Layout::Live;
     html! {
-        tr data-row=(r.id) {
+        // The row is its request: a stable id, so that an update inserts the new rows and leaves every other one as it is.
+        tr id=(format!("wire-{}", r.id)) data-row=(r.id) {
             (time(r, base, q, layout))
             @if layout != Layout::First { (client(r, base, q)) }
             (api(r, base, q, filterable))

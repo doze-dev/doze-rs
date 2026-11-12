@@ -49,7 +49,7 @@ fn row(r: &TopicRow, v: &TopicsView, base: &Base) -> Markup {
     let href = base.url(&format!("/topics/{}", segment(&r.name)));
     let sub = sub_line(r);
     html! {
-        tr {
+        tr id=(format!("t-{}", r.name)) {
             td class="name mid-cell" {
                 @if r.internal {
                     span class="mono" { (r.name) } " " span class="tag" { "internal" }

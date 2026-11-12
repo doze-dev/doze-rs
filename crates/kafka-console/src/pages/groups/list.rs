@@ -85,7 +85,7 @@ fn lag_cell(l: &RowLag) -> Markup {
 fn row(r: &GroupRow, v: &GroupsView, base: &Base) -> Markup {
     let sub = name_sub(r, v.now_ms);
     html! {
-        tr {
+        tr id=(format!("g-{}", r.id)) {
             td class="name" {
                 a class="mono" href=(group_url(base, &r.id, "")) { (r.id) }
                 @if let Some(s) = sub { span class="sub" data-vary { (s) } }

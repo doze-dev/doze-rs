@@ -39,7 +39,9 @@ export async function inPlace(t: T, p: Page, s: Spec): Promise<void> {
   await p.resetShift();
   const y0 = await p.scrollY();
   const box0 = await p.eval<Record<string, number[] | null>>(BOXES(s.above));
-  const hist0 = await p.eval<number>("history.length");
+  // history.length stops growing at 50 entries in a long session: count the calls that make entries instead.
+  await p.eval("if (!window.__hw) { window.__hw = 1; window.__hp = 0; window.__hrp = 0; const ps = history.pushState.bind(history), rs = history.replaceState.bind(history); history.pushState = (...a) => { window.__hp++; return ps(...a); }; history.replaceState = (...a) => { window.__hrp++; return rs(...a); }; }");
+  const hist0 = await p.eval<number>("window.__hp");
   const focus0 = s.focus === "same" ? await p.eval<string>("(document.activeElement && (document.activeElement.id || document.activeElement.getAttribute('aria-label') || document.activeElement.textContent.trim().slice(0, 30))) || ''") : "";
   await s.act();
   await p.waitFor(s.done, 4000);
@@ -59,7 +61,7 @@ export async function inPlace(t: T, p: Page, s: Spec): Promise<void> {
   t.num(`${n}: cls`, cls);
   t.ok(cls < 0.02, `${n}: layout shift ${cls} under 0.02`);
   if (s.url) { const u = await p.eval<string>("location.pathname + location.search"); t.ok(s.url.test(u), `${n}: the address is ${u}`); }
-  const hist1 = await p.eval<number>("history.length");
+  const hist1 = await p.eval<number>("window.__hp");
   const want = s.history ?? "push";
   if (want === "push") t.ok(hist1 === hist0 + 1, `${n}: the history grew by one (${hist0} -> ${hist1})`);
   else t.ok(hist1 === hist0, `${n}: the history did not grow (${hist0} -> ${hist1})`);

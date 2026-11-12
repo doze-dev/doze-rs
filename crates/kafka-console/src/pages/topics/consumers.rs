@@ -29,7 +29,7 @@ fn bits(r: &TopicReader, topic: &str) -> Markup {
 fn group_head(r: &TopicReader, v: &ConsumersView, base: &Base) -> Markup {
     let behind = r.block.behind;
     html! {
-        tr { td colspan="4" class="grp" {
+        tr id=(format!("cg-{}", r.id)) { td colspan="4" class="grp" {
             a class="lnk mono" href=(base.url(&format!("/groups/{}", segment(&r.id)))) { (r.id) }
             span class="grp-bits" { (bits(r, &v.head.name)) }
             span class="mono bright grp-n" { @if behind > 0 { (number(behind)) " behind" } @else { "0 behind" } }
@@ -37,9 +37,9 @@ fn group_head(r: &TopicReader, v: &ConsumersView, base: &Base) -> Markup {
     }
 }
 
-fn partition_row(p: &crate::model::LagRow) -> Markup {
+fn partition_row(group: &str, p: &crate::model::LagRow) -> Markup {
     html! {
-        tr {
+        tr id=(format!("cp-{group}-{}-{}", p.topic, p.partition)) {
             td class="name mono" { (p.topic) "-" (p.partition) }
             td class="r mono" { @match p.end { Some(e) => (number(e)), None => span class="dim" { "—" } } }
             @match p.committed {
@@ -60,7 +60,7 @@ fn table(v: &ConsumersView, base: &Base) -> Markup {
             tbody {
                 @for r in &v.readers {
                     (group_head(r, v, base))
-                    @for p in &r.block.rows { (partition_row(p)) }
+                    @for p in &r.block.rows { (partition_row(&r.id, p)) }
                 }
             }
         }
