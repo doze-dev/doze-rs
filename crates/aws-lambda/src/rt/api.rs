@@ -60,12 +60,19 @@ pub(crate) struct Shared {
 
 impl Shared {
     pub(crate) fn new(inbox: mpsc::Receiver<Work>) -> Self {
-        Self { inbox: AsyncMutex::new(inbox), current: Mutex::new(None), init_error: Mutex::new(None) }
+        Self {
+            inbox: AsyncMutex::new(inbox),
+            current: Mutex::new(None),
+            init_error: Mutex::new(None),
+        }
     }
 
     /// Forgets the invocation in flight, which closes its channel: whoever waits sees the process went away.
     pub(crate) fn drop_current(&self) {
-        self.current.lock().unwrap_or_else(PoisonError::into_inner).take();
+        self.current
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .take();
     }
 
     fn set_current(&self, id: String, sink: mpsc::Sender<Chunk>) {
@@ -74,7 +81,10 @@ impl Shared {
 
     fn sink_of(&self, id: &str) -> Option<mpsc::Sender<Chunk>> {
         let current = self.current.lock().unwrap_or_else(PoisonError::into_inner);
-        current.as_ref().filter(|(i, _)| i == id).map(|(_, s)| s.clone())
+        current
+            .as_ref()
+            .filter(|(i, _)| i == id)
+            .map(|(_, s)| s.clone())
     }
 
     fn finish(&self, id: &str) {
@@ -86,16 +96,25 @@ impl Shared {
 }
 
 /// Accepts connections until `stop` is cancelled.
-pub(crate) async fn serve(listener: TcpListener, shared: Arc<Shared>, stop: CancellationToken, tasks: doze_runtime::Tasks) {
+pub(crate) async fn serve(
+    listener: TcpListener,
+    shared: Arc<Shared>,
+    stop: CancellationToken,
+    tasks: doze_runtime::Tasks,
+) {
     loop {
-        let Some(Ok((stream, _))) = stop.run_until_cancelled(listener.accept()).await else { return };
+        let Some(Ok((stream, _))) = stop.run_until_cancelled(listener.accept()).await else {
+            return;
+        };
         let (shared, stop) = (Arc::clone(&shared), stop.clone());
         tasks.spawn(async move {
             let service = service_fn(move |req| {
                 let shared = Arc::clone(&shared);
                 async move { Ok::<_, Infallible>(route(&shared, req).await) }
             });
-            let conn = http1::Builder::new().title_case_headers(true).serve_connection(TokioIo::new(stream), service);
+            let conn = http1::Builder::new()
+                .title_case_headers(true)
+                .serve_connection(TokioIo::new(stream), service);
             drop(stop.run_until_cancelled(conn).await);
         });
     }
@@ -119,7 +138,10 @@ async fn route(shared: &Shared, req: Request<Incoming>) -> Response<Full<Bytes>>
         (Method::POST, ["invocation", id, "error"]) => error(shared, id, req).await,
         (Method::POST, ["init", "error"]) => {
             let body = collect(req.into_body(), 1 << 20).await.unwrap_or_default();
-            *shared.init_error.lock().unwrap_or_else(PoisonError::into_inner) = Some(body);
+            *shared
+                .init_error
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner) = Some(body);
             reply(StatusCode::ACCEPTED, "{\"status\":\"OK\"}")
         }
         _ => reply(StatusCode::NOT_FOUND, "{\"errorType\":\"NotFound\"}"),
@@ -132,7 +154,9 @@ async fn next(shared: &Shared) -> Response<Full<Bytes>> {
     };
     shared.set_current(work.id.clone(), work.sink.clone());
     // The receiver may have given up (the caller went away); the work is run anyway, as Lambda would.
-    drop(work.started.send(()));
+    if work.started.send(()).is_err() {
+        tracing::debug!("the caller stopped waiting before the function fetched its invocation");
+    }
     let mut r = Response::new(Full::new(work.payload));
     let mut set = |name: &'static str, value: &str| {
         if let Ok(v) = http::HeaderValue::from_str(value) {
@@ -146,25 +170,39 @@ async fn next(shared: &Shared) -> Response<Full<Bytes>> {
     if let Some(cc) = &work.client_context {
         set("Lambda-Runtime-Client-Context", cc);
     }
-    r.headers_mut().insert("content-type", http::HeaderValue::from_static("application/json"));
+    r.headers_mut().insert(
+        "content-type",
+        http::HeaderValue::from_static("application/json"),
+    );
     r
 }
 
 /// The whole body, up to `limit` bytes; `None` when it is longer.
 async fn collect(body: Incoming, limit: usize) -> Option<Bytes> {
-    Limited::new(body, limit).collect().await.ok().map(http_body_util::Collected::to_bytes)
+    Limited::new(body, limit)
+        .collect()
+        .await
+        .ok()
+        .map(http_body_util::Collected::to_bytes)
 }
 
 async fn response(shared: &Shared, id: &str, req: Request<Incoming>) -> Response<Full<Bytes>> {
     let Some(sink) = shared.sink_of(id) else {
-        return reply(StatusCode::BAD_REQUEST, "{\"errorType\":\"InvalidStateTransition\"}");
+        return reply(
+            StatusCode::BAD_REQUEST,
+            "{\"errorType\":\"InvalidStateTransition\"}",
+        );
     };
     let streaming = req
         .headers()
         .get("lambda-runtime-function-response-mode")
         .and_then(|v| v.to_str().ok())
         .is_some_and(|v| v.eq_ignore_ascii_case("streaming"));
-    if let Some(t) = req.headers().get("content-type").and_then(|v| v.to_str().ok()) {
+    if let Some(t) = req
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+    {
         drop(sink.send(Chunk::Type(t.to_owned())).await);
     }
     if streaming {
@@ -191,7 +229,9 @@ async fn response(shared: &Shared, id: &str, req: Request<Incoming>) -> Response
                 drop(sink.send(Chunk::End).await);
             }
             None => {
-                let msg = format!("{{\"errorType\":\"Function.ResponseSizeTooLarge\",\"errorMessage\":\"Response payload size exceeded maximum allowed payload size ({MAX_RESPONSE} bytes).\"}}");
+                let msg = format!(
+                    "{{\"errorType\":\"Function.ResponseSizeTooLarge\",\"errorMessage\":\"Response payload size exceeded maximum allowed payload size ({MAX_RESPONSE} bytes).\"}}"
+                );
                 drop(sink.send(Chunk::Fail(Bytes::from(msg))).await);
             }
         }
@@ -202,7 +242,10 @@ async fn response(shared: &Shared, id: &str, req: Request<Incoming>) -> Response
 
 async fn error(shared: &Shared, id: &str, req: Request<Incoming>) -> Response<Full<Bytes>> {
     let Some(sink) = shared.sink_of(id) else {
-        return reply(StatusCode::BAD_REQUEST, "{\"errorType\":\"InvalidStateTransition\"}");
+        return reply(
+            StatusCode::BAD_REQUEST,
+            "{\"errorType\":\"InvalidStateTransition\"}",
+        );
     };
     let body = collect(req.into_body(), 1 << 20).await.unwrap_or_default();
     drop(sink.send(Chunk::Fail(body)).await);

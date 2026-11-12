@@ -75,8 +75,15 @@ impl Core {
         let function = self.find(r, &f)?;
         let key = f.qualifier.clone().unwrap_or_default();
         let sid = r.text("StatementId");
-        let mut statements = function.policies.get(&key).map(|d| statements_of(d)).unwrap_or_default();
-        if statements.iter().any(|s| s.get("Sid").and_then(Value::as_str) == Some(sid)) {
+        let mut statements = function
+            .policies
+            .get(&key)
+            .map(|d| statements_of(d))
+            .unwrap_or_default();
+        if statements
+            .iter()
+            .any(|s| s.get("Sid").and_then(Value::as_str) == Some(sid))
+        {
             return Err(conflict(format!(
                 "The statement id ({sid}) provided already exists. Please provide a new statement id, or remove the existing statement."
             )));
@@ -84,43 +91,66 @@ impl Core {
         if let Some(rev) = r.opt("RevisionId")
             && rev != function.latest.revision
         {
-            return Err(precondition("The Revision Id provided does not match the latest Revision Id. Call the GetPolicy API to retrieve the latest Revision Id"));
+            return Err(precondition(
+                "The Revision Id provided does not match the latest Revision Id. Call the GetPolicy API to retrieve the latest Revision Id",
+            ));
         }
         let resource = self.arn(r, &f.name, f.qualifier.as_deref());
         let added = statement(r, &resource);
         statements.push(added.clone());
-        self.find_mut(r, &f)?.policies.insert(key, document(statements).to_string());
-        Ok(Out { json: json!({"Statement": added.to_string()}), status: Some(201) })
+        self.find_mut(r, &f)?
+            .policies
+            .insert(key, document(statements).to_string());
+        Ok(Out {
+            json: json!({"Statement": added.to_string()}),
+            status: Some(201),
+        })
     }
 
     pub(crate) fn remove_permission(&mut self, r: &Req) -> Result<Out, ApiError> {
         let f = r.function()?;
         let function = self.find(r, &f)?;
         let key = f.qualifier.clone().unwrap_or_default();
-        let mut statements = function.policies.get(&key).map(|d| statements_of(d)).unwrap_or_default();
+        let mut statements = function
+            .policies
+            .get(&key)
+            .map(|d| statements_of(d))
+            .unwrap_or_default();
         let sid = r.text("StatementId");
         if statements.is_empty() {
-            return Err(not_found("No policy is associated with the given resource."));
+            return Err(not_found(
+                "No policy is associated with the given resource.",
+            ));
         }
         let before = statements.len();
         statements.retain(|s| s.get("Sid").and_then(Value::as_str) != Some(sid));
         if statements.len() == before {
-            return Err(not_found(format!("Statement {sid} is not found in resource policy.")));
+            return Err(not_found(format!(
+                "Statement {sid} is not found in resource policy."
+            )));
         }
         let function = self.find_mut(r, &f)?;
         if statements.is_empty() {
             function.policies.remove(&key);
         } else {
-            function.policies.insert(key, document(statements).to_string());
+            function
+                .policies
+                .insert(key, document(statements).to_string());
         }
-        Ok(Out { json: json!({}), status: Some(204) })
+        Ok(Out {
+            json: json!({}),
+            status: Some(204),
+        })
     }
 
     pub(crate) fn get_policy(&self, r: &Req) -> Result<Out, ApiError> {
         let f = r.function()?;
         let function = self.find(r, &f)?;
         let key = f.qualifier.clone().unwrap_or_default();
-        let doc = function.policies.get(&key).ok_or_else(|| not_found(NO_POLICY))?;
+        let doc = function
+            .policies
+            .get(&key)
+            .ok_or_else(|| not_found(NO_POLICY))?;
         Ok(json!({"Policy": doc, "RevisionId": function.latest.revision}).into())
     }
 
@@ -133,14 +163,18 @@ impl Core {
         let f = self.function_of_arn(r)?;
         self.find(r, &f)?;
         let policy = r.text("Policy");
-        let parsed: Value = serde_json::from_str(policy).map_err(|_| invalid("The provided policy is not valid JSON."))?;
+        let parsed: Value = serde_json::from_str(policy)
+            .map_err(|_| invalid("The provided policy is not valid JSON."))?;
         if !parsed.is_object() {
             return Err(invalid("The provided policy is not a JSON object."));
         }
         let (key, revision) = (f.qualifier.clone().unwrap_or_default(), uuid()?);
         let function = self.find_mut(r, &f)?;
         function.policies.insert(key, policy.to_owned());
-        Ok(Out { json: json!({"Policy": policy, "RevisionId": revision}), status: Some(201) })
+        Ok(Out {
+            json: json!({"Policy": policy, "RevisionId": revision}),
+            status: Some(201),
+        })
     }
 
     pub(crate) fn get_resource_policy(&self, r: &Req) -> Result<Out, ApiError> {
@@ -156,8 +190,13 @@ impl Core {
     pub(crate) fn delete_resource_policy(&mut self, r: &Req) -> Result<Out, ApiError> {
         let f = self.function_of_arn(r)?;
         self.find(r, &f)?;
-        self.find_mut(r, &f)?.policies.remove(&f.qualifier.clone().unwrap_or_default());
-        Ok(Out { json: json!({}), status: Some(204) })
+        self.find_mut(r, &f)?
+            .policies
+            .remove(&f.qualifier.clone().unwrap_or_default());
+        Ok(Out {
+            json: json!({}),
+            status: Some(204),
+        })
     }
 }
 
@@ -167,9 +206,18 @@ mod tests {
 
     #[test]
     fn a_principal_is_shaped_by_what_it_is() {
-        assert_eq!(principal("sns.amazonaws.com"), json!({"Service": "sns.amazonaws.com"}));
-        assert_eq!(principal("111122223333"), json!({"AWS": "arn:aws:iam::111122223333:root"}));
+        assert_eq!(
+            principal("sns.amazonaws.com"),
+            json!({"Service": "sns.amazonaws.com"})
+        );
+        assert_eq!(
+            principal("111122223333"),
+            json!({"AWS": "arn:aws:iam::111122223333:root"})
+        );
         assert_eq!(principal("*"), json!("*"));
-        assert_eq!(principal("arn:aws:iam::1:role/r"), json!({"AWS": "arn:aws:iam::1:role/r"}));
+        assert_eq!(
+            principal("arn:aws:iam::1:role/r"),
+            json!({"AWS": "arn:aws:iam::1:role/r"})
+        );
     }
 }

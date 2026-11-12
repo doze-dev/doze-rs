@@ -69,25 +69,52 @@ pub(crate) fn launch(spec: &Spec) -> Result<(PathBuf, Vec<String>), String> {
         return entrypoint(&spec.root).map(|p| (p, Vec::new()));
     }
     if rt.starts_with("python") {
-        return Ok((tool(it.python.as_deref(), "python3"), vec![shim("bootstrap.py"), handler]));
+        return Ok((
+            tool(it.python.as_deref(), "python3"),
+            vec![shim("bootstrap.py"), handler],
+        ));
     }
     if rt.starts_with("nodejs") {
-        return Ok((tool(it.node.as_deref(), "node"), vec![shim("bootstrap.mjs"), handler]));
+        return Ok((
+            tool(it.node.as_deref(), "node"),
+            vec![shim("bootstrap.mjs"), handler],
+        ));
     }
     if rt.starts_with("ruby") {
-        return Ok((tool(it.ruby.as_deref(), "ruby"), vec![shim("bootstrap.rb"), handler]));
+        return Ok((
+            tool(it.ruby.as_deref(), "ruby"),
+            vec![shim("bootstrap.rb"), handler],
+        ));
     }
     if rt.starts_with("java") {
-        let cp = format!("{}:{}", spec.root.display(), spec.root.join("lib").join("*").display());
-        let args = ["-cp", &cp, "com.amazonaws.services.lambda.runtime.api.client.AWSLambda", &handler];
-        return Ok((tool(it.java.as_deref(), "java"), args.map(str::to_owned).to_vec()));
+        let cp = format!(
+            "{}:{}",
+            spec.root.display(),
+            spec.root.join("lib").join("*").display()
+        );
+        let args = [
+            "-cp",
+            &cp,
+            "com.amazonaws.services.lambda.runtime.api.client.AWSLambda",
+            &handler,
+        ];
+        return Ok((
+            tool(it.java.as_deref(), "java"),
+            args.map(str::to_owned).to_vec(),
+        ));
     }
     if rt.starts_with("dotnet") {
         let assembly = handler.split("::").next().unwrap_or(&handler);
-        let dll = spec.root.join(format!("{assembly}.dll")).to_string_lossy().into_owned();
+        let dll = spec
+            .root
+            .join(format!("{assembly}.dll"))
+            .to_string_lossy()
+            .into_owned();
         return Ok((tool(it.dotnet.as_deref(), "dotnet"), vec![dll]));
     }
-    Err(format!("The runtime {rt} cannot be run locally; set Command to the launch line of a process that speaks the Runtime API."))
+    Err(format!(
+        "The runtime {rt} cannot be run locally; set Command to the launch line of a process that speaks the Runtime API."
+    ))
 }
 
 fn tool(configured: Option<&str>, default: &str) -> PathBuf {
@@ -132,7 +159,10 @@ fn layer_paths(layer: &Path) -> Vec<(&'static str, PathBuf)> {
 
 fn prepend(env: &mut BTreeMap<String, String>, key: &str, dirs: &[PathBuf]) {
     let sep = if cfg!(windows) { ";" } else { ":" };
-    let mut parts: Vec<String> = dirs.iter().map(|d| d.to_string_lossy().into_owned()).collect();
+    let mut parts: Vec<String> = dirs
+        .iter()
+        .map(|d| d.to_string_lossy().into_owned())
+        .collect();
     if let Some(old) = env.get(key).filter(|v| !v.is_empty()) {
         parts.push(old.clone());
     }
@@ -143,7 +173,9 @@ fn prepend(env: &mut BTreeMap<String, String>, key: &str, dirs: &[PathBuf]) {
 /// own, the endpoints that lead a function's SDK back here, and the function's own variables; layer search paths come last and
 /// are only ever put in front of what is there.
 pub(crate) fn environment(spec: &Spec, api: &str) -> BTreeMap<String, String> {
-    let mut env: BTreeMap<String, String> = std::env::vars().filter(|(k, _)| !k.starts_with("AWS_")).collect();
+    let mut env: BTreeMap<String, String> = std::env::vars()
+        .filter(|(k, _)| !k.starts_with("AWS_"))
+        .collect();
     let mut set = |k: &str, v: String| {
         env.insert(k.to_owned(), v);
     };
@@ -159,7 +191,10 @@ pub(crate) fn environment(spec: &Spec, api: &str) -> BTreeMap<String, String> {
     set("AWS_REGION", spec.region.clone());
     set("AWS_DEFAULT_REGION", spec.region.clone());
     set("LAMBDA_TASK_ROOT", spec.root.to_string_lossy().into_owned());
-    set("LAMBDA_RUNTIME_DIR", spec.shims.to_string_lossy().into_owned());
+    set(
+        "LAMBDA_RUNTIME_DIR",
+        spec.shims.to_string_lossy().into_owned(),
+    );
     set("TZ", ":UTC".to_owned());
     set("AWS_ACCESS_KEY_ID", spec.creds.key.clone());
     set("AWS_SECRET_ACCESS_KEY", spec.creds.secret.clone());
@@ -182,7 +217,11 @@ pub(crate) fn environment(spec: &Spec, api: &str) -> BTreeMap<String, String> {
     for (var, dirs) in by_var {
         prepend(&mut env, var, &dirs);
     }
-    let layer_list: Vec<String> = spec.layers.iter().map(|l| l.to_string_lossy().into_owned()).collect();
+    let layer_list: Vec<String> = spec
+        .layers
+        .iter()
+        .map(|l| l.to_string_lossy().into_owned())
+        .collect();
     env.insert("LAMBDA_LAYERS_DIRS".to_owned(), layer_list.join(":"));
     env
 }
@@ -208,7 +247,12 @@ mod tests {
             log_stream: "s".into(),
             endpoint: "http://127.0.0.1:4566".into(),
             shims: PathBuf::from("/shims"),
-            creds: Creds { key: "ASIAX".into(), secret: "s".into(), token: "t".into(), expires_ms: 0 },
+            creds: Creds {
+                key: "ASIAX".into(),
+                secret: "s".into(),
+                token: "t".into(),
+                expires_ms: 0,
+            },
             interpreters: Interpreters::default(),
             json_logs: false,
         }
@@ -217,9 +261,22 @@ mod tests {
     #[test]
     fn each_runtime_family_has_its_launch_line() {
         let (program, args) = launch(&spec("python3.12")).unwrap();
-        assert_eq!((program, args), (PathBuf::from("python3"), vec!["/shims/bootstrap.py".to_owned(), "index.handler".to_owned()]));
-        assert_eq!(launch(&spec("nodejs22.x")).unwrap().0, PathBuf::from("node"));
-        assert!(launch(&spec("provided.al2023")).unwrap_err().contains("bootstrap"));
+        assert_eq!(
+            (program, args),
+            (
+                PathBuf::from("python3"),
+                vec!["/shims/bootstrap.py".to_owned(), "index.handler".to_owned()]
+            )
+        );
+        assert_eq!(
+            launch(&spec("nodejs22.x")).unwrap().0,
+            PathBuf::from("node")
+        );
+        assert!(
+            launch(&spec("provided.al2023"))
+                .unwrap_err()
+                .contains("bootstrap")
+        );
         assert!(launch(&spec("cobol")).is_err());
         let mut own = spec("provided.al2023");
         own.command = Some(vec!["deno".into(), "run".into()]);
@@ -229,12 +286,19 @@ mod tests {
     #[test]
     fn the_function_wins_over_lambdas_own_variables_and_host_aws_variables_are_dropped() {
         let mut s = spec("python3.12");
-        s.vars.insert("AWS_ENDPOINT_URL".into(), "http://elsewhere".into());
+        s.vars
+            .insert("AWS_ENDPOINT_URL".into(), "http://elsewhere".into());
         s.vars.insert("GREETING".into(), "hi".into());
         let env = environment(&s, "127.0.0.1:9");
-        assert_eq!(env.get("AWS_ENDPOINT_URL").map(String::as_str), Some("http://elsewhere"));
+        assert_eq!(
+            env.get("AWS_ENDPOINT_URL").map(String::as_str),
+            Some("http://elsewhere")
+        );
         assert_eq!(env.get("GREETING").map(String::as_str), Some("hi"));
-        assert_eq!(env.get("AWS_LAMBDA_RUNTIME_API").map(String::as_str), Some("127.0.0.1:9"));
+        assert_eq!(
+            env.get("AWS_LAMBDA_RUNTIME_API").map(String::as_str),
+            Some("127.0.0.1:9")
+        );
         assert_eq!(env.get("TZ").map(String::as_str), Some(":UTC"));
     }
 }

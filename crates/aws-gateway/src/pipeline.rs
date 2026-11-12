@@ -127,12 +127,10 @@ pub(crate) async fn respond(shared: &Shared, req: http::Request<Incoming>) -> Re
             .flatten()
     });
     if let Some(claim) = claim
-        && let Some(entry) = shared
-            .entry(&claim.service)
-            .filter(|e| {
-                let meta = e.service.meta();
-                meta.speaks(Protocol::RestXml) || meta.speaks(Protocol::RestJson1)
-            })
+        && let Some(entry) = shared.entry(&claim.service).filter(|e| {
+            let meta = e.service.meta();
+            meta.speaks(Protocol::RestXml) || meta.speaks(Protocol::RestJson1)
+        })
     {
         return crate::rest::respond(shared, entry, &id, &parts, body, claim).await;
     }

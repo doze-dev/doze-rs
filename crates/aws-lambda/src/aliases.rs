@@ -16,21 +16,37 @@ fn shown(arn: String, a: &Alias) -> Value {
     out.insert("FunctionVersion".into(), json!(a.version));
     out.insert("Description".into(), json!(a.description));
     out.insert("RevisionId".into(), json!(a.revision));
-    if let Some(w) = a.weights.as_deref().and_then(|w| serde_json::from_str::<Value>(w).ok()) {
-        out.insert("RoutingConfig".into(), json!({"AdditionalVersionWeights": w}));
+    if let Some(w) = a
+        .weights
+        .as_deref()
+        .and_then(|w| serde_json::from_str::<Value>(w).ok())
+    {
+        out.insert(
+            "RoutingConfig".into(),
+            json!({"AdditionalVersionWeights": w}),
+        );
     }
     Value::Object(out)
 }
 
 fn weights_of(r: &Req) -> Result<Option<String>, ApiError> {
-    let Some(w) = r.value("RoutingConfig").and_then(|c| c.get("AdditionalVersionWeights")) else {
+    let Some(w) = r
+        .value("RoutingConfig")
+        .and_then(|c| c.get("AdditionalVersionWeights"))
+    else {
         return Ok(None);
     };
-    let total: f64 = w.as_object().map_or(0.0, |o| o.values().filter_map(Value::as_f64).sum());
+    let total: f64 = w
+        .as_object()
+        .map_or(0.0, |o| o.values().filter_map(Value::as_f64).sum());
     if total > 1.0 {
-        return Err(invalid("Additional version weights must total at most 1.0."));
+        return Err(invalid(
+            "Additional version weights must total at most 1.0.",
+        ));
     }
-    Ok(w.as_object().filter(|o| !o.is_empty()).map(|_| w.to_string()))
+    Ok(w.as_object()
+        .filter(|o| !o.is_empty())
+        .map(|_| w.to_string()))
 }
 
 impl Core {
@@ -39,7 +55,11 @@ impl Core {
         let f = self.functions.get(name);
         let there = version == LATEST
             || f.is_some_and(|f| f.versions.iter().any(|v| v.number.to_string() == version));
-        if there { Ok(()) } else { Err(no_function(&self.arn(r, name, Some(version)))) }
+        if there {
+            Ok(())
+        } else {
+            Err(no_function(&self.arn(r, name, Some(version))))
+        }
     }
 
     pub(crate) fn create_alias(&mut self, r: &Req) -> Result<Out, ApiError> {
@@ -55,7 +75,11 @@ impl Core {
             weights: weights_of(r)?,
             revision: uuid()?,
         };
-        if let Some(w) = r.value("RoutingConfig").and_then(|c| c.get("AdditionalVersionWeights")).and_then(Value::as_object) {
+        if let Some(w) = r
+            .value("RoutingConfig")
+            .and_then(|c| c.get("AdditionalVersionWeights"))
+            .and_then(Value::as_object)
+        {
             for v in w.keys() {
                 self.require_version(r, &f.name, v)?;
             }
@@ -66,7 +90,10 @@ impl Core {
         }
         let out = shown(arn, &alias);
         function.aliases.push(alias);
-        Ok(Out { json: out, status: Some(201) })
+        Ok(Out {
+            json: out,
+            status: Some(201),
+        })
     }
 
     fn alias_of<'a>(&'a self, r: &Req) -> Result<(&'a Alias, String), ApiError> {
@@ -93,7 +120,9 @@ impl Core {
         if let Some(rev) = r.opt("RevisionId")
             && rev != current.revision
         {
-            return Err(precondition("The Revision Id provided does not match the latest Revision Id. Call the GetFunction/GetAlias API to retrieve the latest Revision Id"));
+            return Err(precondition(
+                "The Revision Id provided does not match the latest Revision Id. Call the GetFunction/GetAlias API to retrieve the latest Revision Id",
+            ));
         }
         let f = r.function()?;
         if let Some(v) = r.opt("FunctionVersion") {
@@ -125,7 +154,10 @@ impl Core {
         function.policies.remove(&name);
         function.event_invoke.remove(&name);
         function.provisioned.remove(&name);
-        Ok(Out { json: json!({}), status: Some(204) })
+        Ok(Out {
+            json: json!({}),
+            status: Some(204),
+        })
     }
 
     pub(crate) fn list_aliases(&self, r: &Req) -> Result<Out, ApiError> {
@@ -143,14 +175,22 @@ impl Core {
             .map(|a| shown(self.arn(r, &f.name, Some(&a.name)), a))
             .collect();
         Ok(page(r, rows, "Aliases", |v| {
-            v.get("Name").and_then(Value::as_str).unwrap_or_default().to_owned()
+            v.get("Name")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_owned()
         })
         .into())
     }
 
     /// The alias chosen for an invocation by `name` (weighted routing picks between its version and the additional one by `draw`, a
     /// number in `[0, 1)`).
-    pub(crate) fn alias_version(&self, function: &crate::model::Function, name: &str, draw: f64) -> Option<String> {
+    pub(crate) fn alias_version(
+        &self,
+        function: &crate::model::Function,
+        name: &str,
+        draw: f64,
+    ) -> Option<String> {
         let alias = function.aliases.iter().find(|a| a.name == name)?;
         let weights: Option<Map<String, Value>> = alias
             .weights

@@ -27,7 +27,13 @@ async fn a_provided_function_answers_and_fails_and_times_out() {
         return;
     }
     let w = World::new();
-    w.create("sh", "provided.al2023", "bootstrap", &[("bootstrap", BOOTSTRAP, 0o755)]).await;
+    w.create(
+        "sh",
+        "provided.al2023",
+        "bootstrap",
+        &[("bootstrap", BOOTSTRAP, 0o755)],
+    )
+    .await;
     let ok = w.invoke("sh", &json!({"n": 1})).await;
     assert_eq!(ok["StatusCode"], 200);
     assert_eq!(ok["ExecutedVersion"], "$LATEST");
@@ -40,10 +46,16 @@ async fn a_provided_function_answers_and_fails_and_times_out() {
     assert_eq!(failed["Payload"]["errorMessage"], "asked to fail");
 
     // The process that failed is the one that answers the next call: a handled error does not end it.
-    assert_eq!(w.invoke("sh", &json!({"n": 2})).await["Payload"]["echo"], json!({"n": 2}));
+    assert_eq!(
+        w.invoke("sh", &json!({"n": 2})).await["Payload"]["echo"],
+        json!({"n": 2})
+    );
 
     w.ok("UpdateFunctionConfiguration", json!({"FunctionName": "sh", "Timeout": 1, "Environment": {"Variables": {"HELLO": "there"}}})).await;
-    assert_eq!(w.invoke("sh", &json!({"n": 3})).await["Payload"]["hello"], "there");
+    assert_eq!(
+        w.invoke("sh", &json!({"n": 3})).await["Payload"]["hello"],
+        "there"
+    );
     let slow = w.invoke("sh", &json!({"sleep": true})).await;
     assert_eq!(slow["FunctionError"], "Unhandled");
     let msg = slow["Payload"]["errorMessage"].as_str().unwrap();
@@ -58,9 +70,18 @@ async fn a_python_function_runs_through_the_embedded_client() {
     }
     let w = World::new();
     let source = b"import os\ndef handler(event, context):\n    if event.get('fail'):\n        raise ValueError('asked to fail')\n    return {'echo': event, 'fn': context.function_name, 'version': context.function_version}\n";
-    w.create("py", "python3.12", "index.handler", &[("index.py", source, 0o644)]).await;
+    w.create(
+        "py",
+        "python3.12",
+        "index.handler",
+        &[("index.py", source, 0o644)],
+    )
+    .await;
     let ok = w.invoke("py", &json!({"n": 1})).await;
-    assert_eq!(ok["Payload"], json!({"echo": {"n": 1}, "fn": "py", "version": "$LATEST"}));
+    assert_eq!(
+        ok["Payload"],
+        json!({"echo": {"n": 1}, "fn": "py", "version": "$LATEST"})
+    );
     let bad = w.invoke("py", &json!({"fail": true})).await;
     assert_eq!(bad["FunctionError"], "Unhandled");
     assert_eq!(bad["Payload"]["errorType"], "ValueError");
@@ -74,7 +95,13 @@ async fn shutdown_leaves_no_function_process_behind() {
         return;
     }
     let w = World::new();
-    w.create("sh", "provided.al2023", "bootstrap", &[("bootstrap", BOOTSTRAP, 0o755)]).await;
+    w.create(
+        "sh",
+        "provided.al2023",
+        "bootstrap",
+        &[("bootstrap", BOOTSTRAP, 0o755)],
+    )
+    .await;
     w.invoke("sh", &json!({})).await;
     let tasks = w.tasks.clone();
     tasks.shutdown().await;

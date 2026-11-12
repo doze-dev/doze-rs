@@ -37,7 +37,23 @@ fn backoff(attempt: i64) -> Duration {
 }
 
 /// The batch description a failure destination receives.
-fn failure_doc(run: &Run, kind: &str, shard: &str, batch: &[Rec], condition: &str, attempts: i64, last: &super::Invoked) -> Value {
+/// What a failed batch is described by.
+struct Failure<'a> {
+    kind: &'a str,
+    shard: &'a str,
+    batch: &'a [Rec],
+    condition: &'a str,
+    attempts: i64,
+}
+
+fn failure_doc(run: &Run, f: &Failure<'_>, last: &super::Invoked) -> Value {
+    let Failure {
+        kind,
+        shard,
+        batch,
+        condition,
+        attempts,
+    } = *f;
     let first = batch.first();
     let end = batch.last();
     json!({
@@ -70,7 +86,11 @@ fn first_failure(payload: &[u8], batch: &[Rec]) -> Result<Option<u128>, ()> {
     };
     let mut lowest: Option<u128> = None;
     for item in list {
-        let id = item.get("itemIdentifier").and_then(Value::as_str).filter(|s| !s.is_empty()).ok_or(())?;
+        let id = item
+            .get("itemIdentifier")
+            .and_then(Value::as_str)
+            .filter(|s| !s.is_empty())
+            .ok_or(())?;
         let rec = batch.iter().find(|r| r.pos == id).ok_or(())?;
         lowest = Some(lowest.map_or(rec.seq, |l| l.min(rec.seq)));
     }
@@ -81,10 +101,16 @@ fn first_failure(payload: &[u8], batch: &[Rec]) -> Result<Option<u128>, ()> {
 async fn deliver(run: &Run, kind: &str, shard: &str, records: Vec<Rec>) -> Delivered {
     let retries = run.int("MaximumRetryAttempts", -1);
     let max_age = run.int("MaximumRecordAgeInSeconds", -1);
-    let bisect = run.cfg.get("BisectBatchOnFunctionError").and_then(Value::as_bool).unwrap_or(false);
+    let bisect = run
+        .cfg
+        .get("BisectBatchOnFunctionError")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
     let mut stack = vec![records];
     while let Some(mut batch) = stack.pop() {
-        let Some(last_pos) = batch.last().map(|r| r.pos.clone()) else { continue };
+        let Some(last_pos) = batch.last().map(|r| r.pos.clone()) else {
+            continue;
+        };
         if max_age >= 0 {
             let now = run.inner.clock.now_ms();
             batch.retain(|r| (now - r.arrived_ms) / 1000 <= max_age);
@@ -109,7 +135,7 @@ async fn deliver(run: &Run, kind: &str, shard: &str, records: Vec<Rec>) -> Deliv
                         break;
                     }
                 }
-            } else {
+            } else if done.ran {
                 run.note("FAILED").await;
             }
             if bisect && batch.len() > 1 {
@@ -120,7 +146,14 @@ async fn deliver(run: &Run, kind: &str, shard: &str, records: Vec<Rec>) -> Deliv
                 break;
             }
             if retries >= 0 && attempt > retries {
-                let doc = failure_doc(run, kind, shard, &batch, "RetryAttemptsExhausted", attempt, &done);
+                let failure = Failure {
+                    kind,
+                    shard,
+                    batch: &batch,
+                    condition: "RetryAttemptsExhausted",
+                    attempts: attempt,
+                };
+                let doc = failure_doc(run, &failure, &done);
                 run.on_failure(&doc).await;
                 break;
             }
@@ -138,9 +171,17 @@ async fn deliver(run: &Run, kind: &str, shard: &str, records: Vec<Rec>) -> Deliv
 
 /// A Kinesis record as Lambda delivers it.
 fn kinesis_record(r: &Value, shard: &str, arn: &str, region: &str, role: &str) -> Rec {
-    let text = |k: &str| r.get(k).and_then(Value::as_str).unwrap_or_default().to_owned();
+    let text = |k: &str| {
+        r.get(k)
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_owned()
+    };
     let seq = text("SequenceNumber");
-    let arrival = r.get("ApproximateArrivalTimestamp").and_then(Value::as_f64).unwrap_or(0.0);
+    let arrival = r
+        .get("ApproximateArrivalTimestamp")
+        .and_then(Value::as_f64)
+        .unwrap_or(0.0);
     let data = text("Data");
     let doc = json!({
         "kinesis": {
@@ -161,9 +202,14 @@ fn kinesis_record(r: &Value, shard: &str, arn: &str, region: &str, role: &str) -
     // Filters see the data as JSON when it is, and the record's fields at the top as well.
     let decoded = aws_core::base64::decode(&data)
         .and_then(|b| String::from_utf8(b).ok())
-        .map_or(Value::Null, |s| serde_json::from_str(&s).unwrap_or(Value::String(s)));
+        .map_or(Value::Null, |s| {
+            serde_json::from_str(&s).unwrap_or(Value::String(s))
+        });
     let mut filter = doc.clone();
-    if let (Some(f), Some(k)) = (filter.as_object_mut(), doc.get("kinesis").and_then(Value::as_object)) {
+    if let (Some(f), Some(k)) = (
+        filter.as_object_mut(),
+        doc.get("kinesis").and_then(Value::as_object),
+    ) {
         for (key, v) in k {
             f.entry(key.clone()).or_insert_with(|| v.clone());
         }
@@ -172,90 +218,169 @@ fn kinesis_record(r: &Value, shard: &str, arn: &str, region: &str, role: &str) -
             inner.insert("data".into(), decoded);
         }
     }
-    Rec { seq: seq.parse().unwrap_or(0), pos: seq, doc, filter, arrived_ms: (arrival * 1000.0) as i64 }
+    Rec {
+        seq: seq.parse().unwrap_or(0),
+        pos: seq,
+        doc,
+        filter,
+        arrived_ms: (arrival * 1000.0) as i64,
+    }
 }
 
 /// The poller of one Kinesis mapping.
 pub(super) async fn kinesis(run: Run, kinesis: Arc<aws_kinesis::Kinesis>) {
-    let Some(peers) = run.inner.peers.clone() else { return };
-    let arn = run.source_arn().to_owned();
-    let role = run.text("FunctionArn").to_owned();
-    let mut iterators: HashMap<String, String> = HashMap::new();
+    let Some(peers) = run.inner.peers.clone() else {
+        return;
+    };
+    let mut poll = Poll {
+        arn: run.source_arn().to_owned(),
+        role: run.text("FunctionArn").to_owned(),
+        batch: run.int("BatchSize", 100).clamp(1, 10_000),
+        iterators: HashMap::new(),
+        peers,
+        run,
+    };
     let mut appended = kinesis.appended();
-    let batch = run.int("BatchSize", 100).clamp(1, 10_000);
     loop {
-        if run.stop.is_cancelled() {
+        if poll.run.stop.is_cancelled() {
             return;
         }
         appended.mark_unchanged();
-        let listed = peers.call("lambda", &run.caller, "kinesis", "ListShards", &json!({"StreamARN": arn})).await;
-        let shards: Vec<String> = listed
-            .ok()
-            .and_then(|l| l.get("Shards").and_then(Value::as_array).cloned())
-            .unwrap_or_default()
-            .iter()
-            .filter_map(|s| s.get("ShardId").and_then(Value::as_str).map(str::to_owned))
-            .collect();
         let mut any = false;
-        for shard in shards {
-            let Some(iterator) = shard_iterator(&run, &peers, &arn, &shard, &mut iterators).await else { continue };
-            let got = peers.call("lambda", &run.caller, "kinesis", "GetRecords", &json!({"StreamARN": arn, "ShardIterator": iterator, "Limit": batch})).await;
-            let Ok(got) = got else {
-                iterators.remove(&shard);
-                continue;
-            };
-            match got.get("NextShardIterator").and_then(Value::as_str) {
-                Some(next) => {
-                    iterators.insert(shard.clone(), next.to_owned());
-                }
-                None => {
-                    iterators.remove(&shard);
-                }
-            }
-            let records: Vec<Rec> = got
-                .get("Records")
-                .and_then(Value::as_array)
-                .into_iter()
-                .flatten()
-                .map(|r| kinesis_record(r, &shard, &arn, &run.region, &role))
-                .collect();
+        for shard in poll.shards().await {
+            let records = poll.read(&shard).await;
             if records.is_empty() {
                 continue;
             }
             any = true;
-            if matches!(deliver(&run, "KinesisBatchInfo", &shard, records).await, Delivered::Stopped) {
+            if matches!(
+                deliver(&poll.run, "KinesisBatchInfo", &shard, records).await,
+                Delivered::Stopped
+            ) {
                 return;
             }
         }
         if !any {
             tokio::select! {
                 changed = appended.changed() => if changed.is_err() { return },
-                () = run.stop.cancelled() => return,
+                () = poll.run.stop.cancelled() => return,
             }
         }
     }
 }
 
+/// What the Kinesis poller holds: the stream, and where it is in each shard.
+struct Poll {
+    run: Run,
+    peers: Arc<aws_peers::Peers>,
+    arn: String,
+    role: String,
+    batch: i64,
+    iterators: HashMap<String, String>,
+}
+
+impl Poll {
+    async fn kinesis(&self, op: &'static str, body: Value) -> Option<Value> {
+        self.peers
+            .call("lambda", &self.run.caller, "kinesis", op, &body)
+            .await
+            .ok()
+    }
+
+    /// The shards of the stream, parents before children.
+    async fn shards(&self) -> Vec<String> {
+        let listed = self
+            .kinesis("ListShards", json!({"StreamARN": self.arn}))
+            .await;
+        listed
+            .and_then(|l| l.get("Shards").and_then(Value::as_array).cloned())
+            .unwrap_or_default()
+            .iter()
+            .filter_map(|s| s.get("ShardId").and_then(Value::as_str).map(str::to_owned))
+            .collect()
+    }
+
+    /// The next records of a shard, and the iterator after them kept.
+    async fn read(&mut self, shard: &str) -> Vec<Rec> {
+        let Some(iterator) = shard_iterator(
+            &self.run,
+            &self.peers,
+            &self.arn,
+            shard,
+            &mut self.iterators,
+        )
+        .await
+        else {
+            return Vec::new();
+        };
+        let ask = json!({"StreamARN": self.arn, "ShardIterator": iterator, "Limit": self.batch});
+        let Some(got) = self.kinesis("GetRecords", ask).await else {
+            self.iterators.remove(shard);
+            return Vec::new();
+        };
+        match got.get("NextShardIterator").and_then(Value::as_str) {
+            Some(next) => {
+                self.iterators.insert(shard.to_owned(), next.to_owned());
+            }
+            None => {
+                self.iterators.remove(shard);
+            }
+        }
+        let records = got
+            .get("Records")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten();
+        records
+            .map(|r| kinesis_record(r, shard, &self.arn, &self.run.region, &self.role))
+            .collect()
+    }
+}
+
 /// The iterator for a shard: the one held, or one made from the saved position or the mapping's starting position.
-async fn shard_iterator(run: &Run, peers: &aws_peers::Peers, arn: &str, shard: &str, held: &mut HashMap<String, String>) -> Option<String> {
+async fn shard_iterator(
+    run: &Run,
+    peers: &aws_peers::Peers,
+    arn: &str,
+    shard: &str,
+    held: &mut HashMap<String, String>,
+) -> Option<String> {
     if let Some(it) = held.get(shard) {
         return Some(it.clone());
     }
     let mut ask = json!({"StreamARN": arn, "ShardId": shard});
     match run.position(shard).await {
         Some(pos) => {
-            ask["ShardIteratorType"] = json!("AFTER_SEQUENCE_NUMBER");
-            ask["StartingSequenceNumber"] = json!(pos);
+            crate::set(
+                &mut ask,
+                "ShardIteratorType",
+                json!("AFTER_SEQUENCE_NUMBER"),
+            );
+            crate::set(&mut ask, "StartingSequenceNumber", json!(pos));
         }
         None => {
-            let start = run.cfg.get("StartingPosition").and_then(Value::as_str).unwrap_or("LATEST");
-            ask["ShardIteratorType"] = json!(start);
+            let start = run
+                .cfg
+                .get("StartingPosition")
+                .and_then(Value::as_str)
+                .unwrap_or("LATEST");
+            crate::set(&mut ask, "ShardIteratorType", json!(start));
             if start == "AT_TIMESTAMP" {
-                ask["Timestamp"] = run.cfg.get("StartingPositionTimestamp").cloned().unwrap_or(json!(0));
+                crate::set(
+                    &mut ask,
+                    "Timestamp",
+                    run.cfg
+                        .get("StartingPositionTimestamp")
+                        .cloned()
+                        .unwrap_or(json!(0)),
+                );
             }
         }
     }
-    let got = peers.call("lambda", &run.caller, "kinesis", "GetShardIterator", &ask).await.ok()?;
+    let got = peers
+        .call("lambda", &run.caller, "kinesis", "GetShardIterator", &ask)
+        .await
+        .ok()?;
     let it = got.get("ShardIterator")?.as_str()?.to_owned();
     held.insert(shard.to_owned(), it.clone());
     Some(it)
@@ -264,7 +389,9 @@ async fn shard_iterator(run: &Run, peers: &aws_peers::Peers, arn: &str, shard: &
 /// The poller of one DynamoDB stream mapping.
 pub(super) async fn dynamodb(run: Run, ddb: Arc<aws_dynamodb::Dynamodb>) {
     let arn = run.source_arn().to_owned();
-    let batch = usize::try_from(run.int("BatchSize", 100)).unwrap_or(100).clamp(1, 10_000);
+    let batch = usize::try_from(run.int("BatchSize", 100))
+        .unwrap_or(100)
+        .clamp(1, 10_000);
     let stream = "stream";
     let mut after: u64 = match run.position(stream).await.and_then(|p| p.parse().ok()) {
         Some(p) => p,
@@ -286,8 +413,14 @@ pub(super) async fn dynamodb(run: Run, ddb: Arc<aws_dynamodb::Dynamodb>) {
                     .iter()
                     .map(|r| {
                         let mut doc = r.to_event(&run.region);
-                        doc["eventSourceARN"] = json!(arn);
-                        Rec { pos: r.seq.to_string(), seq: u128::from(r.seq), filter: doc.clone(), doc, arrived_ms: r.time_ms }
+                        crate::set(&mut doc, "eventSourceARN", json!(arn));
+                        Rec {
+                            pos: r.seq.to_string(),
+                            seq: u128::from(r.seq),
+                            filter: doc.clone(),
+                            doc,
+                            arrived_ms: r.time_ms,
+                        }
                     })
                     .collect()
             })
@@ -295,7 +428,10 @@ pub(super) async fn dynamodb(run: Run, ddb: Arc<aws_dynamodb::Dynamodb>) {
         if let Some(last) = records.last() {
             waiter.abort();
             after = u64::try_from(last.seq).unwrap_or(after);
-            if matches!(deliver(&run, "DDBStreamBatchInfo", stream, records).await, Delivered::Stopped) {
+            if matches!(
+                deliver(&run, "DDBStreamBatchInfo", stream, records).await,
+                Delivered::Stopped
+            ) {
                 return;
             }
             continue;
@@ -312,7 +448,11 @@ pub(super) async fn dynamodb(run: Run, ddb: Arc<aws_dynamodb::Dynamodb>) {
 async fn start_of(run: &Run, ddb: &aws_dynamodb::Dynamodb, arn: &str) -> u64 {
     let latest = run.cfg.get("StartingPosition").and_then(Value::as_str) != Some("TRIM_HORIZON");
     let start = if latest {
-        ddb.stream_records(&run.region, arn, 0, usize::MAX).await.ok().and_then(|b| b.records.last().map(|r| r.seq)).unwrap_or(0)
+        ddb.stream_records(&run.region, arn, 0, usize::MAX)
+            .await
+            .ok()
+            .and_then(|b| b.records.last().map(|r| r.seq))
+            .unwrap_or(0)
     } else {
         0
     };

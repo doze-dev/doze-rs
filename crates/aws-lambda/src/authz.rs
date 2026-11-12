@@ -12,7 +12,9 @@ use crate::req::Req;
 impl Core {
     /// Every thing `call` asks to do. Empty for a request that is not understood (it is refused on its own terms).
     pub(crate) fn needs(&self, call: &Call) -> Vec<Need> {
-        let Some(op) = Operation::from_index(call.op) else { return Vec::new() };
+        let Some(op) = Operation::from_index(call.op) else {
+            return Vec::new();
+        };
         let r = Req::new(call);
         let action = format!("lambda:{op:?}");
         let mut needs = self.resource_need(op, &r, &action);
@@ -21,10 +23,16 @@ impl Core {
             _ => None,
         };
         if let Some(role) = role {
-            needs.push(Need::new("iam:PassRole", role).with("iam:PassedToService", vec!["lambda.amazonaws.com".to_owned()]));
+            needs.push(Need::new("iam:PassRole", role).with(
+                "iam:PassedToService",
+                vec!["lambda.amazonaws.com".to_owned()],
+            ));
         }
         if op == Operation::CreateFunction && r.value("Tags").is_some() {
-            let f = r.function().ok().map(|f| arn::function(r.region(), r.account(), &f.name, None));
+            let f = r
+                .function()
+                .ok()
+                .map(|f| arn::function(r.region(), r.account(), &f.name, None));
             needs.extend(f.map(|a| Need::new("lambda:TagResource", a)));
         }
         needs
@@ -49,18 +57,28 @@ impl Core {
                 let name = r.text("LayerName");
                 let version = r.int("VersionNumber").and_then(|v| u32::try_from(v).ok());
                 let name = name.rsplit(':').next().unwrap_or(name);
-                vec![Need::new(action, arn::layer(r.region(), r.account(), name, version))]
+                vec![Need::new(
+                    action,
+                    arn::layer(r.region(), r.account(), name, version),
+                )]
             }
-            Operation::GetLayerVersionByArn => vec![Need::new("lambda:GetLayerVersion", r.text("Arn"))],
+            Operation::GetLayerVersionByArn => {
+                vec![Need::new("lambda:GetLayerVersion", r.text("Arn"))]
+            }
             Operation::GetEventSourceMapping
             | Operation::UpdateEventSourceMapping
             | Operation::DeleteEventSourceMapping => {
-                vec![Need::new(action, arn::mapping(r.region(), r.account(), r.text("UUID")))]
+                vec![Need::new(
+                    action,
+                    arn::mapping(r.region(), r.account(), r.text("UUID")),
+                )]
             }
             Operation::TagResource | Operation::UntagResource | Operation::ListTags => {
                 vec![Need::new(action, r.text("Resource"))]
             }
-            Operation::PutResourcePolicy | Operation::GetResourcePolicy | Operation::DeleteResourcePolicy => {
+            Operation::PutResourcePolicy
+            | Operation::GetResourcePolicy
+            | Operation::DeleteResourcePolicy => {
                 vec![Need::new(action, r.text("ResourceArn"))]
             }
             Operation::GetCodeSigningConfig
@@ -75,11 +93,17 @@ impl Core {
 
     /// A need on the function a request names, with its policy.
     fn function_need(&self, r: &Req, action: &str) -> Vec<Need> {
-        let Ok(f) = r.function() else { return vec![Need::new(action, "*")] };
+        let Ok(f) = r.function() else {
+            return vec![Need::new(action, "*")];
+        };
         let policy = self
             .functions
             .get(&f.name)
-            .and_then(|function| function.policies.get(&f.qualifier.clone().unwrap_or_default()))
+            .and_then(|function| {
+                function
+                    .policies
+                    .get(&f.qualifier.clone().unwrap_or_default())
+            })
             .cloned();
         let target = arn::function(r.region(), r.account(), &f.name, f.qualifier.as_deref());
         vec![Need::new(action, target).with_policy(policy)]

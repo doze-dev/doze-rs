@@ -38,7 +38,11 @@ pub(crate) fn throttled(reason: &str) -> ApiError {
 }
 
 pub(crate) fn refused(op: &str) -> ApiError {
-    ApiError::new(501, "NotImplemented", format!("{op} is not built in doze-aws."))
+    ApiError::new(
+        501,
+        "NotImplemented",
+        format!("{op} is not built in doze-aws."),
+    )
 }
 
 /// A function that cannot run here (a container image): stored and listed, and an invoke says why.

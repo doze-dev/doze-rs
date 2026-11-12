@@ -25,17 +25,36 @@ fn node_ok(p: &Value) -> bool {
 
 fn cond_ok(c: &Value) -> bool {
     match c {
-        Value::Object(o) => o.len() == 1 && o.keys().all(|k| matches!(k.as_str(), "prefix" | "suffix" | "equals-ignore-case" | "wildcard" | "anything-but" | "numeric" | "exists" | "cidr")),
+        Value::Object(o) => {
+            o.len() == 1
+                && o.keys().all(|k| {
+                    matches!(
+                        k.as_str(),
+                        "prefix"
+                            | "suffix"
+                            | "equals-ignore-case"
+                            | "wildcard"
+                            | "anything-but"
+                            | "numeric"
+                            | "exists"
+                            | "cidr"
+                    )
+                })
+        }
         _ => true,
     }
 }
 
 /// Whether `event` matches `pattern`.
 pub(crate) fn matches(pattern: &Value, event: &Value) -> bool {
-    let Value::Object(p) = pattern else { return false };
+    let Value::Object(p) = pattern else {
+        return false;
+    };
     p.iter().all(|(k, v)| {
         if k == "$or" {
-            return v.as_array().is_some_and(|alts| alts.iter().any(|a| matches(a, event)));
+            return v
+                .as_array()
+                .is_some_and(|alts| alts.iter().any(|a| matches(a, event)));
         }
         let field = event.get(k);
         match v {
@@ -53,17 +72,25 @@ pub(crate) fn matches(pattern: &Value, event: &Value) -> bool {
 fn leaf(conds: &[Value], field: Option<&Value>) -> bool {
     let absent = |c: &Value| c.get("exists").and_then(Value::as_bool) == Some(false);
     let present = |c: &Value| c.get("exists").and_then(Value::as_bool) == Some(true);
-    let Some(f) = field else { return conds.iter().any(absent) };
+    let Some(f) = field else {
+        return conds.iter().any(absent);
+    };
     let values: Vec<&Value> = match f {
         Value::Array(items) => items.iter().collect(),
         one => vec![one],
     };
-    conds.iter().any(|c| present(c) || (!absent(c) && values.iter().any(|v| one(c, v))))
+    conds
+        .iter()
+        .any(|c| present(c) || (!absent(c) && values.iter().any(|v| one(c, v))))
 }
 
 fn one(cond: &Value, v: &Value) -> bool {
-    let Some(o) = cond.as_object() else { return scalar_eq(cond, v) };
-    let Some((op, arg)) = o.iter().next() else { return false };
+    let Some(o) = cond.as_object() else {
+        return scalar_eq(cond, v);
+    };
+    let Some((op, arg)) = o.iter().next() else {
+        return false;
+    };
     let s = v.as_str();
     match (op.as_str(), arg) {
         ("prefix", Value::String(p)) => s.is_some_and(|s| s.starts_with(p.as_str())),
@@ -71,7 +98,10 @@ fn one(cond: &Value, v: &Value) -> bool {
         ("equals-ignore-case", Value::String(p)) => s.is_some_and(|s| s.eq_ignore_ascii_case(p)),
         ("wildcard", Value::String(p)) => s.is_some_and(|s| wild(p, s)),
         ("anything-but", Value::Array(xs)) => !xs.iter().any(|x| scalar_eq(x, v)),
-        ("anything-but", Value::Object(inner)) => !inner.iter().next().is_some_and(|(k, a)| one(&serde_json::json!({ k.as_str(): a }), v)),
+        ("anything-but", Value::Object(inner)) => !inner
+            .iter()
+            .next()
+            .is_some_and(|(k, a)| one(&serde_json::json!({ k.as_str(): a }), v)),
         ("anything-but", x) => !scalar_eq(x, v),
         ("numeric", Value::Array(ops)) => v.as_f64().is_some_and(|n| numeric(ops, n)),
         _ => false,
@@ -106,12 +136,16 @@ fn wild(pattern: &str, s: &str) -> bool {
     let mut rest = s;
     for (i, part) in parts.iter().enumerate() {
         if i == 0 {
-            let Some(r) = rest.strip_prefix(part) else { return false };
+            let Some(r) = rest.strip_prefix(part) else {
+                return false;
+            };
             rest = r;
         } else if i == parts.len() - 1 {
             return rest.ends_with(part);
         } else {
-            let Some(at) = rest.find(part) else { return false };
+            let Some(at) = rest.find(part) else {
+                return false;
+            };
             rest = rest.get(at + part.len()..).unwrap_or_default();
         }
     }
@@ -126,16 +160,21 @@ mod tests {
 
     #[test]
     fn exact_values_nesting_and_the_condition_operators() {
-        let event = json!({"body": {"kind": "order", "n": 7, "tags": ["a", "b"]}, "eventName": "INSERT"});
+        let event =
+            json!({"body": {"kind": "order", "n": 7, "tags": ["a", "b"]}, "eventName": "INSERT"});
         let yes = |p: Value| matches(&p, &event);
         assert!(yes(json!({"eventName": ["INSERT", "MODIFY"]})));
         assert!(!yes(json!({"eventName": ["REMOVE"]})));
         assert!(yes(json!({"body": {"kind": [{"prefix": "ord"}]}})));
-        assert!(yes(json!({"body": {"n": [{"numeric": [">", 5, "<=", 7]}]}})));
+        assert!(yes(
+            json!({"body": {"n": [{"numeric": [">", 5, "<=", 7]}]}})
+        ));
         assert!(yes(json!({"body": {"tags": ["b"]}})));
         assert!(yes(json!({"body": {"missing": [{"exists": false}]}})));
         assert!(yes(json!({"body": {"kind": [{"anything-but": ["x"]}]}})));
-        assert!(yes(json!({"$or": [{"eventName": ["REMOVE"]}, {"body": {"n": [7]}}]})));
+        assert!(yes(
+            json!({"$or": [{"eventName": ["REMOVE"]}, {"body": {"n": [7]}}]})
+        ));
         assert!(!yes(json!({"body": {"kind": [{"suffix": "x"}]}})));
         assert!(yes(json!({"eventName": [{"wildcard": "I*RT"}]})));
     }

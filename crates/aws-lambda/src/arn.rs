@@ -118,15 +118,38 @@ mod tests {
     #[test]
     fn every_form_names_the_same_function() {
         let p = |t: &str, q: Option<&str>| parse(t, q, "us-east-1", "111122223333").unwrap();
-        let plain = FnRef { name: "f".into(), qualifier: None };
+        let plain = FnRef {
+            name: "f".into(),
+            qualifier: None,
+        };
         assert_eq!(p("f", None), plain);
-        assert_eq!(p("arn:aws:lambda:us-east-1:111122223333:function:f", None), plain);
+        assert_eq!(
+            p("arn:aws:lambda:us-east-1:111122223333:function:f", None),
+            plain
+        );
         assert_eq!(p("111122223333:function:f", None), plain);
-        let live = FnRef { name: "f".into(), qualifier: Some("live".into()) };
+        let live = FnRef {
+            name: "f".into(),
+            qualifier: Some("live".into()),
+        };
         assert_eq!(p("f:live", None), live);
         assert_eq!(p("f", Some("live")), live);
-        assert_eq!(p("arn:aws:lambda:us-east-1:111122223333:function:f:live", Some("live")), live);
+        assert_eq!(
+            p(
+                "arn:aws:lambda:us-east-1:111122223333:function:f:live",
+                Some("live")
+            ),
+            live
+        );
         assert!(parse("f:live", Some("other"), "us-east-1", "111122223333").is_err());
-        assert!(parse("arn:aws:lambda:eu-west-1:111122223333:function:f", None, "us-east-1", "111122223333").is_err());
+        assert!(
+            parse(
+                "arn:aws:lambda:eu-west-1:111122223333:function:f",
+                None,
+                "us-east-1",
+                "111122223333"
+            )
+            .is_err()
+        );
     }
 }

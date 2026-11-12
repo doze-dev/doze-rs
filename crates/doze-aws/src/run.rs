@@ -53,7 +53,10 @@ pub(crate) async fn run(args: Args) -> Result<()> {
     let sqs = Arc::new(aws_sqs::Sqs::new(Arc::new(ctx("sqs"))));
     let dynamodb = Arc::new(aws_dynamodb::Dynamodb::new(Arc::new(ctx("dynamodb"))));
     let kinesis = Arc::new(aws_kinesis::Kinesis::new(Arc::new(ctx("kinesis"))));
-    let lambda = Arc::new(aws_lambda::Lambda::with_config(Arc::new(ctx("lambda")), lambda_config(&args)));
+    let lambda = Arc::new(aws_lambda::Lambda::with_config(
+        Arc::new(ctx("lambda")),
+        lambda_config(&args),
+    ));
     lambda.connect(aws_lambda::Sources {
         sqs: Arc::clone(&sqs),
         kinesis: Arc::clone(&kinesis),

@@ -64,7 +64,10 @@ fn parse_failure(payload: &[u8]) -> ApiError {
         Ok(_) => return invalid_content("Could not parse request body into json."),
         Err(e) => {
             let first = text.trim_start().chars().next();
-            let bad = text.chars().nth(e.column().saturating_sub(1)).unwrap_or('?');
+            let bad = text
+                .chars()
+                .nth(e.column().saturating_sub(1))
+                .unwrap_or('?');
             if first == Some('{') && bad != '"' {
                 format!(
                     "Unexpected character ('{bad}' (code {})): was expecting double-quote to start field name\n at [Source: REDACTED (`StreamReadFeature.INCLUDE_SOURCE_IN_LOCATION` disabled); line: {}, column: {}]",
@@ -77,12 +80,17 @@ fn parse_failure(payload: &[u8]) -> ApiError {
             }
         }
     };
-    invalid_content(format!("Could not parse request body into json: Could not parse payload into json: {detail}"))
+    invalid_content(format!(
+        "Could not parse request body into json: Could not parse payload into json: {detail}"
+    ))
 }
 
 /// The payload of an invoke request: absent is `{}`; what is there must be JSON.
 pub(crate) fn payload_of(r: &Req) -> Result<Bytes, ApiError> {
-    let bytes = r.opt("Payload").and_then(base64::decode).unwrap_or_default();
+    let bytes = r
+        .opt("Payload")
+        .and_then(base64::decode)
+        .unwrap_or_default();
     if bytes.is_empty() {
         return Ok(Bytes::from_static(b"{}"));
     }
@@ -100,7 +108,12 @@ fn client_context_of(r: &Req) -> Option<String> {
 
 impl Inner {
     /// Finds what is needed to run the function a request names, as the actor sees it.
-    pub(crate) async fn resolve(&self, call: &Call, r: &Req, url: bool) -> Result<Box<Resolved>, ApiError> {
+    pub(crate) async fn resolve(
+        &self,
+        call: &Call,
+        r: &Req,
+        url: bool,
+    ) -> Result<Box<Resolved>, ApiError> {
         let f = r.function()?;
         let draw = aws_seal::random_below(1_000_000).map_or(0.0, |n| n as f64 / 1_000_000.0);
         let ask = Resolving {
@@ -112,33 +125,53 @@ impl Inner {
             url,
             internal: false,
         };
-        match self.ask(&call.caller.region, Ask::Resolve(Box::new(ask))).await? {
+        match self
+            .ask(&call.caller.region, Ask::Resolve(Box::new(ask)))
+            .await?
+        {
             Answer::Resolved(done) => done,
-            _ => Err(ApiError::internal("Lambda answered a resolution with something else")),
+            _ => Err(ApiError::internal(
+                "Lambda answered a resolution with something else",
+            )),
         }
     }
 
     /// The launch specification for a resolved function.
-    fn spec(&self, rs: &Resolved, caller: &Caller, creds: crate::rt::spec::Creds) -> Result<Spec, ApiError> {
+    fn spec(
+        &self,
+        rs: &Resolved,
+        caller: &Caller,
+        creds: crate::rt::spec::Creds,
+    ) -> Result<Spec, ApiError> {
         if rs.code.image.is_some() {
             return Err(not_runnable(
                 "Container-image functions cannot run on doze-aws: it runs functions as host processes and pulls no images. Use a zip package, or set Command to the launch line of a process that speaks the Runtime API.",
             ));
         }
-        let text = |k: &str| rs.config.get(k).and_then(Value::as_str).unwrap_or_default().to_owned();
+        let text = |k: &str| {
+            rs.config
+                .get(k)
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_owned()
+        };
         let vars = rs
             .config
             .get("Environment")
             .and_then(|e| e.get("Variables"))
             .and_then(Value::as_object)
-            .map(|o| o.iter().filter_map(|(k, v)| Some((k.clone(), v.as_str()?.to_owned()))).collect())
+            .map(|o| {
+                o.iter()
+                    .filter_map(|(k, v)| Some((k.clone(), v.as_str()?.to_owned())))
+                    .collect()
+            })
             .unwrap_or_default();
         let logging = rs.config.get("LoggingConfig");
-        let command = rs
-            .config
-            .get("Command")
-            .and_then(Value::as_array)
-            .map(|a| a.iter().filter_map(|v| v.as_str().map(str::to_owned)).collect());
+        let command = rs.config.get("Command").and_then(Value::as_array).map(|a| {
+            a.iter()
+                .filter_map(|v| v.as_str().map(str::to_owned))
+                .collect()
+        });
         Ok(Spec {
             name: rs.name.clone(),
             version: rs.version.clone(),
@@ -148,7 +181,11 @@ impl Inner {
             command,
             root: rs.root.clone(),
             vars,
-            memory: rs.config.get("MemorySize").and_then(Value::as_i64).unwrap_or(128),
+            memory: rs
+                .config
+                .get("MemorySize")
+                .and_then(Value::as_i64)
+                .unwrap_or(128),
             layers: self.layer_paths(rs),
             log_group: logging
                 .and_then(|l| l.get("LogGroup"))
@@ -159,7 +196,10 @@ impl Inner {
             shims: PathBuf::new(),
             creds,
             interpreters: Default::default(),
-            json_logs: logging.and_then(|l| l.get("LogFormat")).and_then(Value::as_str) == Some("JSON"),
+            json_logs: logging
+                .and_then(|l| l.get("LogFormat"))
+                .and_then(Value::as_str)
+                == Some("JSON"),
         })
     }
 
@@ -178,14 +218,28 @@ impl Inner {
     }
 
     fn timeout_of(rs: &Resolved) -> Duration {
-        Duration::from_secs(u64::try_from(rs.config.get("Timeout").and_then(Value::as_i64).unwrap_or(3)).unwrap_or(3).max(1))
+        Duration::from_secs(
+            u64::try_from(
+                rs.config
+                    .get("Timeout")
+                    .and_then(Value::as_i64)
+                    .unwrap_or(3),
+            )
+            .unwrap_or(3)
+            .max(1),
+        )
     }
 
     /// Runs the function once and waits for its answer.
     ///
     /// # Errors
     /// Reserved concurrency is used up, or the function cannot run here (an image).
-    pub(crate) async fn run_function(&self, rs: &Resolved, caller: &Caller, input: Input) -> Result<RunOut, ApiError> {
+    pub(crate) async fn run_function(
+        &self,
+        rs: &Resolved,
+        caller: &Caller,
+        input: Input,
+    ) -> Result<RunOut, ApiError> {
         match self.start(rs, caller, input).await? {
             Ok(started) => Ok(self.drive(started, None).await),
             Err(failed) => Ok(failed),
@@ -194,11 +248,34 @@ impl Inner {
 
     /// Hands the invocation to a process. `Ok(Err(_))` is an invocation that failed before it began (the process could not be
     /// launched), answered like any other function error.
-    pub(crate) async fn start(&self, rs: &Resolved, caller: &Caller, input: Input) -> Result<Result<Started, RunOut>, ApiError> {
-        let role = rs.config.get("Role").and_then(Value::as_str).unwrap_or_default();
-        let creds = self.roles.credentials(self.peers.as_deref(), caller, role, &rs.name, self.clock.now_ms()).await;
+    pub(crate) async fn start(
+        &self,
+        rs: &Resolved,
+        caller: &Caller,
+        input: Input,
+    ) -> Result<Result<Started, RunOut>, ApiError> {
+        let role = rs
+            .config
+            .get("Role")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        let creds = self
+            .roles
+            .credentials(
+                self.peers.as_deref(),
+                caller,
+                role,
+                &rs.name,
+                self.clock.now_ms(),
+            )
+            .await;
         let spec = self.spec(rs, caller, creds)?;
-        let (group, version, memory, json_logs) = (spec.log_group.clone(), rs.version.clone(), spec.memory, spec.json_logs);
+        let (group, version, memory, json_logs) = (
+            spec.log_group.clone(),
+            rs.version.clone(),
+            spec.memory,
+            spec.json_logs,
+        );
         let ask = RunAsk {
             key: format!("{}/{}/{}/{}", rs.region, rs.name, rs.version, rs.revision),
             function: format!("{}/{}", rs.region, rs.name),
@@ -213,58 +290,116 @@ impl Inner {
         let (timeout, start_ms) = (ask.timeout, self.clock.now_ms());
         let running = match self.rt.begin(ask).await {
             Ok(r) => r,
-            Err(None) => return Err(throttled("ReservedFunctionConcurrentInvocationLimitExceeded")),
+            Err(None) => {
+                return Err(throttled(
+                    "ReservedFunctionConcurrentInvocationLimitExceeded",
+                ));
+            }
             Err(Some(why)) => return Ok(Err(launch_failure(&why))),
         };
-        Ok(Ok(Started { running, group, version, memory, json_logs, name: rs.name.clone(), timeout, start_ms, caller: caller.clone() }))
+        Ok(Ok(Started {
+            running,
+            group,
+            version,
+            memory,
+            json_logs,
+            name: rs.name.clone(),
+            timeout,
+            start_ms,
+            caller: caller.clone(),
+        }))
     }
 
     /// Waits for the invocation to end, and writes its log. With `stream`, the response is sent on as it arrives (framed as an event
     /// stream) instead of being kept.
-    pub(crate) async fn drive(&self, started: Started, stream: Option<&tokio::sync::mpsc::Sender<std::io::Result<Bytes>>>) -> RunOut {
-        let Started { mut running, group, version, memory, json_logs, name, timeout, start_ms, caller } = started;
+    pub(crate) async fn drive(
+        &self,
+        started: Started,
+        stream: Option<&tokio::sync::mpsc::Sender<std::io::Result<Bytes>>>,
+    ) -> RunOut {
+        let Started {
+            mut running,
+            group,
+            version,
+            memory,
+            json_logs,
+            name,
+            timeout,
+            start_ms,
+            caller,
+        } = started;
         let id = running.id.clone();
-        let mut out = RunOut { payload: Bytes::new(), error: false, request_id: id.clone(), content_type: None, log: String::new() };
-        let (mut healthy, mut status) = (true, None);
-        match running.started().await {
-            Err(failure) => {
-                (healthy, status, out.error) = (false, Some("error"), true);
-                out.payload = init_document(&failure, &id, timeout);
-            }
-            Ok(()) => loop {
-                match running.next().await {
-                    Event::Chunk(Chunk::Type(t)) => out.content_type = Some(t),
-                    Event::Chunk(Chunk::Data(b)) => match stream {
-                        Some(tx) => drop(tx.send(Ok(Bytes::from(crate::eventstream::chunk(&b)))).await),
-                        None => out.payload = join(&out.payload, &b),
-                    },
-                    Event::Chunk(Chunk::End) => break,
-                    Event::Chunk(Chunk::Fail(body)) => {
-                        (out.error, out.payload, status) = (true, body, Some("error"));
-                        break;
-                    }
-                    Event::Timeout => {
-                        (healthy, out.error, status) = (false, true, Some("timeout"));
-                        let at = format_iso8601(self.clock.now_ms() / 1000);
-                        out.payload = crate::rt::timeout_document(&id, &at, timeout);
-                        break;
-                    }
-                    Event::Crashed => {
-                        (healthy, out.error, status) = (false, true, Some("error"));
-                        out.payload = exit_document(&id, running.exit_status().as_deref());
-                        break;
-                    }
-                }
-            },
-        }
+        let mut out = RunOut {
+            payload: Bytes::new(),
+            error: false,
+            request_id: id.clone(),
+            content_type: None,
+            log: String::new(),
+        };
+        let (healthy, status) = self.wait(&mut running, &mut out, stream, timeout).await;
         let end_ms = self.clock.now_ms();
         let fin = running.finish(healthy, &self.rt).await;
-        let report = Report { id: &id, version: &version, duration_ms: fin.duration_ms, init_ms: fin.init_ms, memory, status, json: json_logs };
+        let report = Report {
+            id: &id,
+            version: &version,
+            duration_ms: fin.duration_ms,
+            init_ms: fin.init_ms,
+            memory,
+            status,
+            json: json_logs,
+        };
         let rows = events(start_ms, end_ms.max(start_ms), &fin.lines, &report);
         out.log = rows.iter().map(|(_, m)| m.as_str()).collect();
         self.echo(&name, &fin.lines);
-        self.logger.write(self.peers.as_deref(), &caller, &group, &fin.stream, rows).await;
+        self.logger
+            .write(self.peers.as_deref(), &caller, &group, &fin.stream, rows)
+            .await;
         out
+    }
+
+    /// Waits for the process to answer, takes what it says into `out`, and reports whether the process is still good and how the
+    /// invocation ended if it did not succeed.
+    async fn wait(
+        &self,
+        running: &mut crate::rt::Running,
+        out: &mut RunOut,
+        stream: Option<&tokio::sync::mpsc::Sender<std::io::Result<Bytes>>>,
+        timeout: Duration,
+    ) -> (bool, Option<&'static str>) {
+        let id = running.id.clone();
+        if let Err(failure) = running.started().await {
+            out.error = true;
+            out.payload = init_document(&failure, &id, timeout);
+            return (false, Some("error"));
+        }
+        loop {
+            match running.next().await {
+                Event::Chunk(Chunk::Type(t)) => out.content_type = Some(t),
+                Event::Chunk(Chunk::Data(b)) => match stream {
+                    Some(tx) => drop(
+                        tx.send(Ok(Bytes::from(crate::eventstream::chunk(&b))))
+                            .await,
+                    ),
+                    None => out.payload = join(&out.payload, &b),
+                },
+                Event::Chunk(Chunk::End) => return (true, None),
+                Event::Chunk(Chunk::Fail(body)) => {
+                    (out.error, out.payload) = (true, body);
+                    return (true, Some("error"));
+                }
+                Event::Timeout => {
+                    out.error = true;
+                    let at = format_iso8601(self.clock.now_ms() / 1000);
+                    out.payload = crate::rt::timeout_document(&id, &at, timeout);
+                    return (false, Some("timeout"));
+                }
+                Event::Crashed => {
+                    out.error = true;
+                    out.payload = exit_document(&id, running.exit_status().as_deref());
+                    return (false, Some("error"));
+                }
+            }
+        }
     }
 
     /// Prints what the function wrote to our own log, unless it is quiet.
@@ -280,21 +415,37 @@ impl Inner {
     /// `Invoke`.
     pub(crate) async fn invoke(self: &Arc<Self>, call: Call) -> Result<RestReply, ApiError> {
         let r = Req::new(&call);
-        let kind = r.opt("InvocationType").unwrap_or("RequestResponse").to_owned();
+        let kind = r
+            .opt("InvocationType")
+            .unwrap_or("RequestResponse")
+            .to_owned();
         let payload = payload_of(&r)?;
         let rs = self.resolve(&call, &r, false).await?;
         let executed = rs.version.clone();
         match kind.as_str() {
-            "DryRun" => Ok(RestReply { json: json!({"StatusCode": 204}), ..RestReply::default() }),
+            "DryRun" => Ok(RestReply {
+                json: json!({"StatusCode": 204}),
+                ..RestReply::default()
+            }),
             "Event" => {
                 self.async_invocation(rs, call.caller.clone(), payload, client_context_of(&r));
-                Ok(RestReply { json: json!({"StatusCode": 202}), ..RestReply::default() })
+                Ok(RestReply {
+                    json: json!({"StatusCode": 202}),
+                    ..RestReply::default()
+                })
             }
             _ => {
-                let input = Input { payload, client_context: client_context_of(&r), trace_id: trace_of(&call) };
+                let input = Input {
+                    payload,
+                    client_context: client_context_of(&r),
+                    trace_id: trace_of(&call),
+                };
                 let out = self.run_function(&rs, &call.caller, input).await?;
                 let tail = r.opt("LogType") == Some("Tail");
-                Ok(RestReply { json: sync_reply(&out, &executed, tail), ..RestReply::default() })
+                Ok(RestReply {
+                    json: sync_reply(&out, &executed, tail),
+                    ..RestReply::default()
+                })
             }
         }
     }
@@ -321,7 +472,10 @@ fn sync_reply(out: &RunOut, executed: &str, tail: bool) -> Value {
 fn trace_of(call: &Call) -> String {
     let id = call.id.as_str().replace('-', "");
     let root: String = id.chars().take(24).collect();
-    format!("Root=1-{}-{root};Sampled=0", id.chars().take(8).collect::<String>())
+    format!(
+        "Root=1-{}-{root};Sampled=0",
+        id.chars().take(8).collect::<String>()
+    )
 }
 
 fn join(a: &Bytes, b: &Bytes) -> Bytes {
@@ -337,7 +491,9 @@ fn join(a: &Bytes, b: &Bytes) -> Bytes {
 /// A process that could not be started is a function error, as a broken init is on AWS: a 200 with the reason in the payload.
 fn launch_failure(why: &str) -> RunOut {
     RunOut {
-        payload: Bytes::from(json!({"errorMessage": why, "errorType": "Runtime.LaunchError"}).to_string()),
+        payload: Bytes::from(
+            json!({"errorMessage": why, "errorType": "Runtime.LaunchError"}).to_string(),
+        ),
         error: true,
         request_id: aws_seal::uuid_v4().unwrap_or_default(),
         content_type: None,
@@ -357,7 +513,10 @@ fn init_document(failure: &InitFailure, id: &str, timeout: Duration) -> Bytes {
 }
 
 fn exit_document(id: &str, status: Option<&str>) -> Bytes {
-    let how = status.map_or_else(|| "exit status 1".to_owned(), |s| s.replace("exit status: ", "exit status "));
+    let how = status.map_or_else(
+        || "exit status 1".to_owned(),
+        |s| s.replace("exit status: ", "exit status "),
+    );
     Bytes::from(json!({"errorMessage": format!("RequestId: {id} Error: Runtime exited with error: {how}"), "errorType": "Runtime.ExitError"}).to_string())
 }
 

@@ -19,7 +19,12 @@ impl Core {
         let f = r.function()?;
         self.find(r, &f)?;
         let n = r.int("ReservedConcurrentExecutions").unwrap_or(0);
-        let others: i64 = self.functions.iter().filter(|(k, _)| *k != f.name).filter_map(|(_, f)| f.reserved).sum();
+        let others: i64 = self
+            .functions
+            .iter()
+            .filter(|(k, _)| *k != f.name)
+            .filter_map(|(_, f)| f.reserved)
+            .sum();
         if ACCOUNT_CONCURRENCY - others - n < MIN_UNRESERVED {
             return Err(invalid(format!(
                 "Specified ReservedConcurrentExecutions for function decreases account's UnreservedConcurrentExecution below its minimum value of [{MIN_UNRESERVED}]."
@@ -32,18 +37,27 @@ impl Core {
     pub(crate) fn get_concurrency(&self, r: &Req) -> Result<Out, ApiError> {
         let f = r.function()?;
         let function = self.find(r, &f)?;
-        Ok(function.reserved.map_or(json!({}), |n| json!({"ReservedConcurrentExecutions": n})).into())
+        Ok(function
+            .reserved
+            .map_or(json!({}), |n| json!({"ReservedConcurrentExecutions": n}))
+            .into())
     }
 
     pub(crate) fn delete_concurrency(&mut self, r: &Req) -> Result<Out, ApiError> {
         let f = r.function()?;
         self.find_mut(r, &f)?.reserved = None;
-        Ok(Out { json: json!({}), status: Some(204) })
+        Ok(Out {
+            json: json!({}),
+            status: Some(204),
+        })
     }
 
     fn provisioned_view(&self, r: &Req, name: &str, qualifier: &str, stored: &str) -> Value {
         let cfg: Value = serde_json::from_str(stored).unwrap_or(Value::Null);
-        let n = cfg.get("ProvisionedConcurrentExecutions").and_then(Value::as_i64).unwrap_or(0);
+        let n = cfg
+            .get("ProvisionedConcurrentExecutions")
+            .and_then(Value::as_i64)
+            .unwrap_or(0);
         json!({
             "RequestedProvisionedConcurrentExecutions": n,
             "AvailableProvisionedConcurrentExecutions": n,
@@ -59,7 +73,9 @@ impl Core {
         let q = r.function()?.qualifier;
         match q {
             Some(q) if q != LATEST => Ok(q),
-            _ => Err(invalid("Provisioned concurrency needs a version or alias qualifier.")),
+            _ => Err(invalid(
+                "Provisioned concurrency needs a version or alias qualifier.",
+            )),
         }
     }
 
@@ -75,7 +91,10 @@ impl Core {
         .to_string();
         let view = self.provisioned_view(r, &f.name, &q, &stored);
         self.find_mut(r, &f)?.provisioned.insert(q, stored);
-        Ok(Out { json: view, status: Some(202) })
+        Ok(Out {
+            json: view,
+            status: Some(202),
+        })
     }
 
     pub(crate) fn get_provisioned(&self, r: &Req) -> Result<Out, ApiError> {
@@ -96,9 +115,14 @@ impl Core {
         let f = r.function()?;
         let there = self.find_mut(r, &f)?.provisioned.remove(&q).is_some();
         if !there {
-            return Err(not_found("No Provisioned Concurrency Config found for this function."));
+            return Err(not_found(
+                "No Provisioned Concurrency Config found for this function.",
+            ));
         }
-        Ok(Out { json: json!({}), status: Some(204) })
+        Ok(Out {
+            json: json!({}),
+            status: Some(204),
+        })
     }
 
     pub(crate) fn list_provisioned(&self, r: &Req) -> Result<Out, ApiError> {
@@ -110,7 +134,10 @@ impl Core {
             .map(|(q, s)| self.provisioned_view(r, &f.name, q, s))
             .collect();
         Ok(page(r, rows, "ProvisionedConcurrencyConfigs", |v| {
-            v.get("FunctionArn").and_then(Value::as_str).unwrap_or_default().to_owned()
+            v.get("FunctionArn")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_owned()
         })
         .into())
     }
@@ -121,7 +148,10 @@ impl Core {
 
     fn event_invoke_view(&self, r: &Req, name: &str, key: &str, stored: &str) -> Value {
         let mut cfg: Map<String, Value> = serde_json::from_str(stored).unwrap_or_default();
-        cfg.insert("FunctionArn".into(), json!(self.arn(r, name, (key != LATEST).then_some(key))));
+        cfg.insert(
+            "FunctionArn".into(),
+            json!(self.arn(r, name, (key != LATEST).then_some(key))),
+        );
         Value::Object(cfg)
     }
 
@@ -132,13 +162,20 @@ impl Core {
         self.snap_of(r, function, f.qualifier.as_deref())?;
         let mut cfg: Map<String, Value> = if merge {
             let current = function.event_invoke.get(&key).ok_or_else(|| {
-                not_found(format!("The function {} doesn't have an EventInvokeConfig", self.arn(r, &f.name, f.qualifier.as_deref())))
+                not_found(format!(
+                    "The function {} doesn't have an EventInvokeConfig",
+                    self.arn(r, &f.name, f.qualifier.as_deref())
+                ))
             })?;
             serde_json::from_str(current).unwrap_or_default()
         } else {
             Map::new()
         };
-        for k in ["MaximumRetryAttempts", "MaximumEventAgeInSeconds", "DestinationConfig"] {
+        for k in [
+            "MaximumRetryAttempts",
+            "MaximumEventAgeInSeconds",
+            "DestinationConfig",
+        ] {
             if let Some(v) = r.value(k) {
                 cfg.insert(k.into(), v.clone());
             }
@@ -173,7 +210,10 @@ impl Core {
                 self.arn(r, &f.name, f.qualifier.as_deref())
             )));
         }
-        Ok(Out { json: json!({}), status: Some(204) })
+        Ok(Out {
+            json: json!({}),
+            status: Some(204),
+        })
     }
 
     pub(crate) fn list_event_invoke(&self, r: &Req) -> Result<Out, ApiError> {
@@ -185,7 +225,10 @@ impl Core {
             .map(|(k, s)| self.event_invoke_view(r, &f.name, k, s))
             .collect();
         Ok(page(r, rows, "FunctionEventInvokeConfigs", |v| {
-            v.get("FunctionArn").and_then(Value::as_str).unwrap_or_default().to_owned()
+            v.get("FunctionArn")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_owned()
         })
         .into())
     }
@@ -195,9 +238,15 @@ impl Core {
         let resource = r.text("Resource");
         if resource.contains(":event-source-mapping:") {
             let uuid = resource.rsplit(':').next().unwrap_or_default();
-            return self.mappings.get(uuid).map(|_| Tagged::Mapping(uuid.to_owned())).ok_or_else(|| {
-                not_found(format!("The resource you requested does not exist: {resource}"))
-            });
+            return self
+                .mappings
+                .get(uuid)
+                .map(|_| Tagged::Mapping(uuid.to_owned()))
+                .ok_or_else(|| {
+                    not_found(format!(
+                        "The resource you requested does not exist: {resource}"
+                    ))
+                });
         }
         let f = crate::arn::parse(resource, None, r.region(), r.account())?;
         self.find(r, &f)?;
@@ -210,7 +259,10 @@ impl Core {
             Tagged::Function(n) => self.functions.get_mut(&n).map(|f| f.tags.extend(tags)),
             Tagged::Mapping(u) => self.mappings.get_mut(&u).map(|m| m.tags.extend(tags)),
         };
-        Ok(Out { json: json!({}), status: Some(204) })
+        Ok(Out {
+            json: json!({}),
+            status: Some(204),
+        })
     }
 
     pub(crate) fn untag_resource(&mut self, r: &Req) -> Result<Out, ApiError> {
@@ -218,13 +270,26 @@ impl Core {
             .value("tagKeys")
             .or_else(|| r.value("TagKeys"))
             .and_then(Value::as_array)
-            .map(|a| a.iter().filter_map(|k| k.as_str().map(str::to_owned)).collect())
+            .map(|a| {
+                a.iter()
+                    .filter_map(|k| k.as_str().map(str::to_owned))
+                    .collect()
+            })
             .unwrap_or_default();
         match self.tag_target(r)? {
-            Tagged::Function(n) => self.functions.get_mut(&n).map(|f| f.tags.retain(|k, _| !keys.contains(k))),
-            Tagged::Mapping(u) => self.mappings.get_mut(&u).map(|m| m.tags.retain(|k, _| !keys.contains(k))),
+            Tagged::Function(n) => self
+                .functions
+                .get_mut(&n)
+                .map(|f| f.tags.retain(|k, _| !keys.contains(k))),
+            Tagged::Mapping(u) => self
+                .mappings
+                .get_mut(&u)
+                .map(|m| m.tags.retain(|k, _| !keys.contains(k))),
         };
-        Ok(Out { json: json!({}), status: Some(204) })
+        Ok(Out {
+            json: json!({}),
+            status: Some(204),
+        })
     }
 
     pub(crate) fn list_tags(&mut self, r: &Req) -> Result<Out, ApiError> {

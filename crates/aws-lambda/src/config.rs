@@ -8,6 +8,10 @@ use crate::errors::invalid;
 use crate::model::{Code, Snap};
 use crate::req::Req;
 
+/// The runtimes AWS accepts for a new function, in the order its validation message lists them (recorded 2026-11-09). The model also
+/// lists the runtimes AWS has since retired; creating or updating a function with one of those is refused.
+pub(crate) const RUNTIMES: &str = "nodejs20.x, python3.14, provided.al2023, python3.15, python3.12, python3.13, nodejs24.x, nodejs22.x, nodejs26.x, java25, python3.10, python3.11, java21, ruby3.3, ruby3.4, ruby4.0, ruby3.2, python3.8, python3.9, java17.al2023, java17, nodejs16.x, dotnet10, dotnet8, java8.al2023, java11, dotnet6, nodejs18.x, provided.al2, java8.al2, java11.al2023";
+
 /// The members a caller sets on a function, by `CreateFunction` and `UpdateFunctionConfiguration`. `Command` is a doze extension:
 /// the launch line, replacing the one the runtime would give.
 const SETTABLE: &[&str] = &[
@@ -76,8 +80,16 @@ pub(crate) fn merge(config: &mut Map<String, Value>, r: &Req) {
 /// Checks a configuration beyond what the model's constraints say.
 ///
 /// # Errors
-/// A reserved environment variable.
+/// A runtime AWS has retired, or a reserved environment variable.
 pub(crate) fn check(config: &Map<String, Value>) -> Result<(), ApiError> {
+    if let Some(rt) = config.get("Runtime").and_then(Value::as_str)
+        && !rt.starts_with("arn:")
+        && !RUNTIMES.split(", ").any(|r| r == rt)
+    {
+        return Err(invalid(format!(
+            "The runtime parameter of {rt} is no longer supported for creating or updating AWS Lambda functions. We recommend you use a supported runtime while creating or updating functions."
+        )));
+    }
     let vars = config
         .get("Environment")
         .and_then(|e| e.get("Variables"))
@@ -126,9 +138,19 @@ pub(crate) fn render(s: &Shown<'_>) -> Value {
     out.insert("FunctionName".into(), json!(s.name));
     out.insert("FunctionArn".into(), json!(s.arn));
     out.insert("Version".into(), json!(s.version));
-    out.insert("Description".into(), get("Description").unwrap_or(json!("")));
+    out.insert(
+        "Description".into(),
+        get("Description").unwrap_or(json!("")),
+    );
     out.insert("Role".into(), get("Role").unwrap_or(Value::Null));
-    for key in ["Runtime", "Handler", "KMSKeyArn", "DeadLetterConfig", "FileSystemConfigs", "ImageConfig"] {
+    for key in [
+        "Runtime",
+        "Handler",
+        "KMSKeyArn",
+        "DeadLetterConfig",
+        "FileSystemConfigs",
+        "ImageConfig",
+    ] {
         if let Some(v) = get(key) {
             out.insert(key.into(), v);
         }
@@ -139,11 +161,23 @@ pub(crate) fn render(s: &Shown<'_>) -> Value {
     out.insert("CodeSha256".into(), json!(s.snap.code.sha256));
     out.insert("LastModified".into(), json!(stamp(s.snap.modified_ms)));
     out.insert("RevisionId".into(), json!(s.snap.revision));
-    out.insert("PackageType".into(), get("PackageType").unwrap_or(json!(package_type(&s.snap.code))));
-    out.insert("Architectures".into(), get("Architectures").unwrap_or(json!(["x86_64"])));
-    out.insert("EphemeralStorage".into(), get("EphemeralStorage").unwrap_or(json!({"Size": 512})));
+    out.insert(
+        "PackageType".into(),
+        get("PackageType").unwrap_or(json!(package_type(&s.snap.code))),
+    );
+    out.insert(
+        "Architectures".into(),
+        get("Architectures").unwrap_or(json!(["x86_64"])),
+    );
+    out.insert(
+        "EphemeralStorage".into(),
+        get("EphemeralStorage").unwrap_or(json!({"Size": 512})),
+    );
     out.insert("TracingConfig".into(), json!({"Mode": tracing_mode(&cfg)}));
-    out.insert("SnapStart".into(), json!({"ApplyOn": snap_start(&cfg), "OptimizationStatus": "Off"}));
+    out.insert(
+        "SnapStart".into(),
+        json!({"ApplyOn": snap_start(&cfg), "OptimizationStatus": "Off"}),
+    );
     out.insert("LoggingConfig".into(), logging(&cfg, s.name));
     out.insert("State".into(), json!("Active"));
     out.insert("LastUpdateStatus".into(), json!("Successful"));
@@ -158,7 +192,10 @@ pub(crate) fn render(s: &Shown<'_>) -> Value {
             .collect();
         out.insert("Layers".into(), Value::Array(shown));
     }
-    if let Some(vpc) = cfg.get("VpcConfig").filter(|v| v.as_object().is_some_and(|o| !o.is_empty())) {
+    if let Some(vpc) = cfg
+        .get("VpcConfig")
+        .filter(|v| v.as_object().is_some_and(|o| !o.is_empty()))
+    {
         out.insert("VpcConfig".into(), vpc_shown(vpc));
     }
     Value::Object(out)
@@ -218,8 +255,16 @@ mod tests {
     #[test]
     fn reserved_variables_are_refused_by_name() {
         let mut cfg = Map::new();
-        cfg.insert("Environment".into(), json!({"Variables": {"AWS_REGION": "x", "OK": "y"}}));
+        cfg.insert(
+            "Environment".into(),
+            json!({"Variables": {"AWS_REGION": "x", "OK": "y"}}),
+        );
         let err = check(&cfg).unwrap_err();
-        assert!(err.message.ends_with("Reserved keys used in this request: AWS_REGION"), "{}", err.message);
+        assert!(
+            err.message
+                .ends_with("Reserved keys used in this request: AWS_REGION"),
+            "{}",
+            err.message
+        );
     }
 }

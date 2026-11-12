@@ -29,13 +29,20 @@ impl Core {
 
     /// The function the request names, mutably.
     pub(crate) fn find_mut(&mut self, r: &Req, f: &FnRef) -> Result<&mut Function, ApiError> {
-        let missing = no_function(&arn::function(r.region(), r.account(), &f.name, f.qualifier.as_deref()));
+        let missing = no_function(&arn::function(
+            r.region(),
+            r.account(),
+            &f.name,
+            f.qualifier.as_deref(),
+        ));
         self.functions.get_mut(&f.name).ok_or(missing)
     }
 
     /// The size of a layer version by ARN; 0 for one not kept here.
     pub(crate) fn layer_size(&self, layer_arn: &str) -> u64 {
-        let Some((_, _, name, version)) = arn::split_layer(layer_arn) else { return 0 };
+        let Some((_, _, name, version)) = arn::split_layer(layer_arn) else {
+            return 0;
+        };
         self.layers
             .get(name)
             .and_then(|l| l.versions.iter().find(|v| v.number == version))
@@ -43,7 +50,14 @@ impl Core {
     }
 
     /// The configuration of `snap` as shown.
-    pub(crate) fn shown(&self, r: &Req, name: &str, snap: &Snap, version: &str, qualifier: Option<&str>) -> Value {
+    pub(crate) fn shown(
+        &self,
+        r: &Req,
+        name: &str,
+        snap: &Snap,
+        version: &str,
+        qualifier: Option<&str>,
+    ) -> Value {
         let shown_arn = match (qualifier, version) {
             (Some(q), _) => self.arn(r, name, Some(q)),
             (None, LATEST) => self.arn(r, name, None),
@@ -59,12 +73,21 @@ impl Core {
     }
 
     /// The snapshot a version or alias names, and the version it is: `$LATEST`, a number, or the version an alias points to.
-    pub(crate) fn snap_of<'a>(&self, r: &Req, f: &'a Function, qualifier: Option<&str>) -> Result<(&'a Snap, String), ApiError> {
+    pub(crate) fn snap_of<'a>(
+        &self,
+        r: &Req,
+        f: &'a Function,
+        qualifier: Option<&str>,
+    ) -> Result<(&'a Snap, String), ApiError> {
         let missing = || no_function(&self.arn(r, &f.name, qualifier));
         match qualifier {
             None | Some(LATEST) => Ok((&f.latest, LATEST.to_owned())),
             Some(q) => {
-                let version = f.aliases.iter().find(|a| a.name == q).map_or(q, |a| a.version.as_str());
+                let version = f
+                    .aliases
+                    .iter()
+                    .find(|a| a.name == q)
+                    .map_or(q, |a| a.version.as_str());
                 if version == LATEST {
                     return Ok((&f.latest, LATEST.to_owned()));
                 }
@@ -99,7 +122,12 @@ impl Core {
         let tags = tags_of(r.value("Tags"));
         let mut function = Function {
             name: f.name.clone(),
-            latest: Snap { config: Value::Object(cfg).to_string(), code, revision: uuid()?, modified_ms: now },
+            latest: Snap {
+                config: Value::Object(cfg).to_string(),
+                code,
+                revision: uuid()?,
+                modified_ms: now,
+            },
             versions: Vec::new(),
             next_version: 1,
             aliases: Vec::new(),
@@ -112,29 +140,46 @@ impl Core {
             extras: BTreeMap::new(),
         };
         if let Some(arn) = r.opt("CodeSigningConfigArn") {
-            function.extras.insert("CodeSigningConfigArn".into(), arn.to_owned());
+            function
+                .extras
+                .insert("CodeSigningConfigArn".into(), arn.to_owned());
         }
         let publish = r.flag("Publish").unwrap_or(false);
-        let version = if publish { Some(Self::publish(&mut function, None, now)?) } else { None };
+        let version = if publish {
+            Some(Self::publish(&mut function, None, now)?)
+        } else {
+            None
+        };
         self.functions.insert(f.name.clone(), function);
         let function = self.find(r, &f)?;
         let shown = match version {
             Some(n) => {
-                let v = function.versions.iter().find(|p| p.number == n).map(|p| &p.snap);
-                v.map_or(Value::Null, |s| self.shown(r, &f.name, s, &n.to_string(), None))
+                let v = function
+                    .versions
+                    .iter()
+                    .find(|p| p.number == n)
+                    .map(|p| &p.snap);
+                v.map_or(Value::Null, |s| {
+                    self.shown(r, &f.name, s, &n.to_string(), None)
+                })
             }
             None => self.shown(r, &f.name, &function.latest, LATEST, None),
         };
         // The answer carries the revision of the function as it was made; it becomes active under another, as on AWS.
         let settled = uuid()?;
         self.find_mut(r, &f)?.latest.revision = settled;
-        Ok(Out { json: shown, status: Some(201) })
+        Ok(Out {
+            json: shown,
+            status: Some(201),
+        })
     }
 
     /// A role AWS would refuse (it is not there, or does not trust Lambda).
     fn check_role(&self, staged: &Staged) -> Result<(), ApiError> {
         if staged.role == Some(false) {
-            return Err(invalid("The role defined for the function cannot be assumed by Lambda."));
+            return Err(invalid(
+                "The role defined for the function cannot be assumed by Lambda.",
+            ));
         }
         Ok(())
     }
@@ -146,17 +191,23 @@ impl Core {
             return Ok(());
         }
         if cfg.get("Runtime").is_none() || cfg.get("Handler").is_none() {
-            return Err(invalid("Runtime and Handler are required for functions with a Zip package type."));
+            return Err(invalid(
+                "Runtime and Handler are required for functions with a Zip package type.",
+            ));
         }
         Ok(())
     }
 
     /// The layers a function names must be layer versions that exist, or belong to another account (kept, and flagged when it runs).
     pub(crate) fn check_layers(&self, r: &Req, cfg: &Map<String, Value>) -> Result<(), ApiError> {
-        let Some(layers) = cfg.get("Layers").and_then(Value::as_array) else { return Ok(()) };
+        let Some(layers) = cfg.get("Layers").and_then(Value::as_array) else {
+            return Ok(());
+        };
         for layer in layers.iter().filter_map(Value::as_str) {
             let Some((region, account, name, version)) = arn::split_layer(layer) else {
-                return Err(invalid(format!("Layer version {layer} is not a valid layer version ARN.")));
+                return Err(invalid(format!(
+                    "Layer version {layer} is not a valid layer version ARN."
+                )));
             };
             let ours = region == self.region && account == r.account();
             let found = self
@@ -184,7 +235,10 @@ impl Core {
             out.insert("Tags".into(), json!(function.tags));
         }
         if let Some(n) = function.reserved {
-            out.insert("Concurrency".into(), json!({"ReservedConcurrentExecutions": n}));
+            out.insert(
+                "Concurrency".into(),
+                json!({"ReservedConcurrentExecutions": n}),
+            );
         }
         Ok(Value::Object(out).into())
     }
@@ -194,7 +248,11 @@ impl Core {
         if let Some(image) = &snap.code.image {
             return json!({"RepositoryType": "ECR", "ImageUri": image, "ResolvedImageUri": image});
         }
-        let id = if snap.code.id.is_empty() { "local" } else { &snap.code.id };
+        let id = if snap.code.id.is_empty() {
+            "local"
+        } else {
+            &snap.code.id
+        };
         json!({
             "RepositoryType": "S3",
             "Location": format!("{}/_aws/lambda/code/{}/{id}", r.caller.endpoint, r.region()),
@@ -205,7 +263,9 @@ impl Core {
         let f = r.function()?;
         let function = self.find(r, &f)?;
         let (snap, version) = self.snap_of(r, function, f.qualifier.as_deref())?;
-        Ok(self.shown(r, &f.name, snap, &version, f.qualifier.as_deref()).into())
+        Ok(self
+            .shown(r, &f.name, snap, &version, f.qualifier.as_deref())
+            .into())
     }
 
     pub(crate) fn list_functions(&self, r: &Req) -> Result<Out, ApiError> {
@@ -214,7 +274,9 @@ impl Core {
         let mut names: Vec<&str> = self.functions.iter().map(|(n, _)| n).collect();
         names.sort_unstable();
         for name in names {
-            let Some(f) = self.functions.get(name) else { continue };
+            let Some(f) = self.functions.get(name) else {
+                continue;
+            };
             rows.push(self.shown(r, name, &f.latest, LATEST, None));
             if all {
                 for v in &f.versions {
@@ -225,7 +287,9 @@ impl Core {
         Ok(page(r, rows, "Functions", |v| {
             format!(
                 "{}\u{0}{}",
-                v.get("FunctionName").and_then(Value::as_str).unwrap_or_default(),
+                v.get("FunctionName")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default(),
                 v.get("Version").and_then(Value::as_str).unwrap_or_default()
             )
         })
@@ -240,7 +304,10 @@ impl Core {
             rows.push(self.shown(r, &f.name, &v.snap, &v.number.to_string(), None));
         }
         Ok(page(r, rows, "Versions", |v| {
-            v.get("Version").and_then(Value::as_str).unwrap_or_default().to_owned()
+            v.get("Version")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_owned()
         })
         .into())
     }
@@ -253,7 +320,9 @@ impl Core {
                 self.functions.remove(&f.name);
             }
             Some(LATEST) => {
-                return Err(invalid("Deletion of $LATEST is not supported. To delete the function, omit the qualifier."));
+                return Err(invalid(
+                    "Deletion of $LATEST is not supported. To delete the function, omit the qualifier.",
+                ));
             }
             Some(q) => {
                 let number: u32 = q.parse().map_err(|_| {
@@ -267,17 +336,27 @@ impl Core {
                         "Unable to delete function version {q} because an alias refers to it."
                     )));
                 }
-                self.find_mut(r, &f)?.versions.retain(|v| v.number != number);
+                self.find_mut(r, &f)?
+                    .versions
+                    .retain(|v| v.number != number);
             }
         }
         self.sweep_code();
-        Ok(Out { json: json!({}), status: Some(204) })
+        Ok(Out {
+            json: json!({}),
+            status: Some(204),
+        })
     }
 
     /// Publishes the current `$LATEST` of `function` as a new version, or answers the version that already holds the same
     /// configuration and code.
-    pub(crate) fn publish(function: &mut Function, description: Option<&str>, now: i64) -> Result<u32, ApiError> {
-        let mut cfg: Map<String, Value> = serde_json::from_str(&function.latest.config).unwrap_or_default();
+    pub(crate) fn publish(
+        function: &mut Function,
+        description: Option<&str>,
+        now: i64,
+    ) -> Result<u32, ApiError> {
+        let mut cfg: Map<String, Value> =
+            serde_json::from_str(&function.latest.config).unwrap_or_default();
         if let Some(d) = description {
             cfg.insert("Description".into(), json!(d));
         }
@@ -299,7 +378,12 @@ impl Core {
         function.next_version += 1;
         function.versions.push(Published {
             number,
-            snap: Snap { config: text, code: function.latest.code.clone(), revision: uuid()?, modified_ms: now },
+            snap: Snap {
+                config: text,
+                code: function.latest.code.clone(),
+                revision: uuid()?,
+                modified_ms: now,
+            },
         });
         Ok(number)
     }
@@ -332,16 +416,31 @@ impl Core {
             v.snap.code = crate::code::freeze(&dir, &v.snap.code)?;
         }
         let function = self.find(r, &f)?;
-        let snap = function.versions.iter().find(|v| v.number == number).map(|v| &v.snap);
-        let shown = snap.map_or(Value::Null, |s| self.shown(r, &f.name, s, &number.to_string(), None));
-        Ok(Out { json: shown, status: Some(201) })
+        let snap = function
+            .versions
+            .iter()
+            .find(|v| v.number == number)
+            .map(|v| &v.snap);
+        let shown = snap.map_or(Value::Null, |s| {
+            self.shown(r, &f.name, s, &number.to_string(), None)
+        });
+        Ok(Out {
+            json: shown,
+            status: Some(201),
+        })
     }
 
-    pub(crate) fn update_function_code(&mut self, r: &Req, staged: &Staged) -> Result<Out, ApiError> {
+    pub(crate) fn update_function_code(
+        &mut self,
+        r: &Req,
+        staged: &Staged,
+    ) -> Result<Out, ApiError> {
         let f = r.function()?;
         let function = self.find(r, &f)?;
         if f.qualifier.as_deref().is_some_and(|q| q != LATEST) {
-            return Err(invalid("This API only supports unqualified ARN or $LATEST."));
+            return Err(invalid(
+                "This API only supports unqualified ARN or $LATEST.",
+            ));
         }
         if let Some(rev) = r.opt("RevisionId")
             && rev != function.latest.revision
@@ -357,7 +456,9 @@ impl Core {
         let now = self.now_ms();
         let publish = r.flag("Publish").unwrap_or(false) && r.flag("DryRun") != Some(true);
         if r.flag("DryRun") == Some(true) {
-            return Ok(self.shown(r, &f.name, &self.find(r, &f)?.latest, LATEST, None).into());
+            return Ok(self
+                .shown(r, &f.name, &self.find(r, &f)?.latest, LATEST, None)
+                .into());
         }
         let revision = uuid()?;
         let function = self.find_mut(r, &f)?;
@@ -365,11 +466,16 @@ impl Core {
         function.latest.revision = revision;
         function.latest.modified_ms = now;
         if let Some(archs) = r.value("Architectures") {
-            let mut cfg: Map<String, Value> = serde_json::from_str(&function.latest.config).unwrap_or_default();
+            let mut cfg: Map<String, Value> =
+                serde_json::from_str(&function.latest.config).unwrap_or_default();
             cfg.insert("Architectures".into(), archs.clone());
             function.latest.config = Value::Object(cfg).to_string();
         }
-        let version = if publish { Some(Self::publish(function, None, now)?) } else { None };
+        let version = if publish {
+            Some(Self::publish(function, None, now)?)
+        } else {
+            None
+        };
         self.sweep_code();
         let function = self.find(r, &f)?;
         let shown = match version.and_then(|n| function.versions.iter().find(|v| v.number == n)) {
@@ -379,11 +485,17 @@ impl Core {
         Ok(shown.into())
     }
 
-    pub(crate) fn update_function_configuration(&mut self, r: &Req, staged: &Staged) -> Result<Out, ApiError> {
+    pub(crate) fn update_function_configuration(
+        &mut self,
+        r: &Req,
+        staged: &Staged,
+    ) -> Result<Out, ApiError> {
         let f = r.function()?;
         let function = self.find(r, &f)?;
         if f.qualifier.as_deref().is_some_and(|q| q != LATEST) {
-            return Err(invalid("This API only supports unqualified ARN or $LATEST."));
+            return Err(invalid(
+                "This API only supports unqualified ARN or $LATEST.",
+            ));
         }
         if let Some(rev) = r.opt("RevisionId")
             && rev != function.latest.revision
@@ -393,7 +505,8 @@ impl Core {
             ));
         }
         self.check_role(staged)?;
-        let mut cfg: Map<String, Value> = serde_json::from_str(&function.latest.config).unwrap_or_default();
+        let mut cfg: Map<String, Value> =
+            serde_json::from_str(&function.latest.config).unwrap_or_default();
         config::merge(&mut cfg, r);
         config::check(&cfg)?;
         self.check_layers(r, &cfg)?;
@@ -422,8 +535,15 @@ pub(crate) fn tags_of(v: Option<&Value>) -> BTreeMap<String, String> {
 }
 
 /// A page of `rows` under the key `key`: `Marker` is the sort key of the last row sent, `MaxItems` the page size.
-pub(crate) fn page(r: &Req, rows: Vec<Value>, key: &str, sort_key: impl Fn(&Value) -> String) -> Value {
-    let max = usize::try_from(r.int("MaxItems").unwrap_or(50)).unwrap_or(50).clamp(1, 10_000);
+pub(crate) fn page(
+    r: &Req,
+    rows: Vec<Value>,
+    key: &str,
+    sort_key: impl Fn(&Value) -> String,
+) -> Value {
+    let max = usize::try_from(r.int("MaxItems").unwrap_or(50))
+        .unwrap_or(50)
+        .clamp(1, 10_000);
     let marker = r.opt("Marker");
     let mut rest: Vec<Value> = rows
         .into_iter()

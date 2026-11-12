@@ -24,13 +24,17 @@ pub(crate) struct Sessions {
 
 /// The role name of `arn:aws:iam::<account>:role/<path>/<name>`.
 fn role_name(arn: &str) -> Option<&str> {
-    arn.split_once(":role/").map(|(_, rest)| rest.rsplit('/').next().unwrap_or(rest))
+    arn.split_once(":role/")
+        .map(|(_, rest)| rest.rsplit('/').next().unwrap_or(rest))
 }
 
 /// Whether a trust policy document lets the Lambda service assume the role.
 pub(crate) fn trusts_lambda(document: &str) -> bool {
-    let decoded = aws_core::uri::decode_str(document).map_or_else(|| document.to_owned(), std::borrow::Cow::into_owned);
-    let Ok(doc) = serde_json::from_str::<Value>(&decoded) else { return false };
+    let decoded = aws_core::uri::decode_str(document)
+        .map_or_else(|| document.to_owned(), std::borrow::Cow::into_owned);
+    let Ok(doc) = serde_json::from_str::<Value>(&decoded) else {
+        return false;
+    };
     let statements = match doc.get("Statement") {
         Some(Value::Array(a)) => a.clone(),
         Some(one @ Value::Object(_)) => vec![one.clone()],
@@ -40,7 +44,10 @@ pub(crate) fn trusts_lambda(document: &str) -> bool {
         s.get("Effect").and_then(Value::as_str) == Some("Allow")
             && match s.get("Principal") {
                 Some(Value::String(p)) => p == "*",
-                Some(p) => mentions(p.get("Service"), "lambda.amazonaws.com") || mentions(p.get("AWS"), "*"),
+                Some(p) => {
+                    mentions(p.get("Service"), "lambda.amazonaws.com")
+                        || mentions(p.get("AWS"), "*")
+                }
                 None => false,
             }
     })
@@ -58,10 +65,24 @@ fn mentions(v: Option<&Value>, want: &str) -> bool {
 pub(crate) async fn check(peers: Option<&Peers>, caller: &Caller, role: &str) -> Option<bool> {
     let peers = peers.filter(|p| p.mode() != Mode::Off)?;
     let name = role_name(role)?;
-    let acting = Caller { service: Some("lambda".to_owned()), ..caller.clone() };
-    match peers.call("lambda", &acting, "iam", "GetRole", &json!({"RoleName": name})).await {
+    let acting = Caller {
+        service: Some("lambda".to_owned()),
+        ..caller.clone()
+    };
+    match peers
+        .call(
+            "lambda",
+            &acting,
+            "iam",
+            "GetRole",
+            &json!({"RoleName": name}),
+        )
+        .await
+    {
         Ok(got) => {
-            let doc = got.pointer("/Role/AssumeRolePolicyDocument").and_then(Value::as_str)?;
+            let doc = got
+                .pointer("/Role/AssumeRolePolicyDocument")
+                .and_then(Value::as_str)?;
             Some(trusts_lambda(doc) || peers.mode() != Mode::Enforce)
         }
         Err(e) if e.code == "NoSuchEntity" => (peers.mode() == Mode::Enforce).then_some(false),
@@ -72,28 +93,62 @@ pub(crate) async fn check(peers: Option<&Peers>, caller: &Caller, role: &str) ->
 impl Sessions {
     /// Credentials for a process of function `name` that runs as `role`: a session, or the local test identity when there is no
     /// role to assume or nothing to assume it.
-    pub(crate) async fn credentials(&self, peers: Option<&Peers>, caller: &Caller, role: &str, name: &str, now_ms: i64) -> Creds {
+    pub(crate) async fn credentials(
+        &self,
+        peers: Option<&Peers>,
+        caller: &Caller,
+        role: &str,
+        name: &str,
+        now_ms: i64,
+    ) -> Creds {
         let key = format!("{role}/{name}");
-        if let Some(c) = self.made.lock().unwrap_or_else(PoisonError::into_inner).get(&key)
+        if let Some(c) = self
+            .made
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .get(&key)
             && c.expires_ms - now_ms > 600_000
         {
             return c.clone();
         }
-        let Some(peers) = peers.filter(|p| p.mode() != Mode::Off) else { return crate::rt::test_credentials() };
-        let acting = Caller { service: Some("lambda".to_owned()), ..caller.clone() };
-        let ask = json!({"RoleArn": role, "RoleSessionName": name.chars().take(64).collect::<String>(), "DurationSeconds": 3600});
-        let Ok(got) = peers.call("lambda", &acting, "sts", "AssumeRole", &ask).await else {
+        let Some(peers) = peers.filter(|p| p.mode() != Mode::Off) else {
             return crate::rt::test_credentials();
         };
-        let Some(c) = got.get("Credentials") else { return crate::rt::test_credentials() };
-        let text = |k: &str| c.get(k).and_then(Value::as_str).unwrap_or_default().to_owned();
+        let acting = Caller {
+            service: Some("lambda".to_owned()),
+            ..caller.clone()
+        };
+        let ask = json!({"RoleArn": role, "RoleSessionName": name.chars().take(64).collect::<String>(), "DurationSeconds": 3600});
+        let Ok(got) = peers
+            .call("lambda", &acting, "sts", "AssumeRole", &ask)
+            .await
+        else {
+            return crate::rt::test_credentials();
+        };
+        let Some(c) = got.get("Credentials") else {
+            return crate::rt::test_credentials();
+        };
+        let text = |k: &str| {
+            c.get(k)
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_owned()
+        };
         let expires_ms = match c.get("Expiration") {
             Some(Value::Number(n)) => n.as_f64().map_or(0, |s| (s * 1000.0) as i64),
             Some(Value::String(s)) => aws_core::time::parse_rfc3339(s).map_or(0, |s| s * 1000),
             _ => 0,
         };
-        let made = Creds { key: text("AccessKeyId"), secret: text("SecretAccessKey"), token: text("SessionToken"), expires_ms };
-        self.made.lock().unwrap_or_else(PoisonError::into_inner).insert(key, made.clone());
+        let made = Creds {
+            key: text("AccessKeyId"),
+            secret: text("SecretAccessKey"),
+            token: text("SessionToken"),
+            expires_ms,
+        };
+        self.made
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .insert(key, made.clone());
         made
     }
 }
@@ -108,7 +163,10 @@ mod tests {
         let ec2 = lambda.replace("lambda", "ec2");
         assert!(trusts_lambda(lambda));
         assert!(!trusts_lambda(&ec2));
-        assert!(trusts_lambda(&aws_core::uri::encode(lambda.as_bytes(), false)));
+        assert!(trusts_lambda(&aws_core::uri::encode(
+            lambda.as_bytes(),
+            false
+        )));
         assert_eq!(role_name("arn:aws:iam::1:role/service-role/r"), Some("r"));
     }
 }

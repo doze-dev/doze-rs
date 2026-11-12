@@ -292,34 +292,124 @@ mod lambda_tests {
             .map(|m| TABLES.op(m.op).unwrap().name.to_owned())
     }
 
+    const CASES: &[(&str, &str, &str, &str)] = &[
+        ("POST", "/2015-03-31/functions", "", "CreateFunction"),
+        ("GET", "/2015-03-31/functions", "", "ListFunctions"),
+        ("GET", "/2015-03-31/functions/f", "", "GetFunction"),
+        (
+            "GET",
+            "/2015-03-31/functions/f/configuration",
+            "",
+            "GetFunctionConfiguration",
+        ),
+        (
+            "PUT",
+            "/2015-03-31/functions/f/configuration",
+            "",
+            "UpdateFunctionConfiguration",
+        ),
+        (
+            "PUT",
+            "/2015-03-31/functions/f/code",
+            "",
+            "UpdateFunctionCode",
+        ),
+        (
+            "POST",
+            "/2015-03-31/functions/f/invocations",
+            "Qualifier=1",
+            "Invoke",
+        ),
+        (
+            "POST",
+            "/2021-11-15/functions/f/response-streaming-invocations",
+            "",
+            "InvokeWithResponseStream",
+        ),
+        (
+            "DELETE",
+            "/2015-03-31/functions/f",
+            "Qualifier=1",
+            "DeleteFunction",
+        ),
+        (
+            "POST",
+            "/2015-03-31/functions/f/versions",
+            "",
+            "PublishVersion",
+        ),
+        ("GET", "/2015-03-31/functions/f/aliases", "", "ListAliases"),
+        (
+            "GET",
+            "/2015-03-31/functions/f/aliases/live",
+            "",
+            "GetAlias",
+        ),
+        (
+            "POST",
+            "/2015-03-31/event-source-mappings/",
+            "",
+            "CreateEventSourceMapping",
+        ),
+        (
+            "GET",
+            "/2015-03-31/event-source-mappings/u",
+            "",
+            "GetEventSourceMapping",
+        ),
+        (
+            "POST",
+            "/2015-03-31/functions/f/policy",
+            "",
+            "AddPermission",
+        ),
+        (
+            "DELETE",
+            "/2015-03-31/functions/f/policy/sid",
+            "",
+            "RemovePermission",
+        ),
+        ("GET", "/2018-10-31/layers", "", "ListLayers"),
+        (
+            "GET",
+            "/2018-10-31/layers",
+            "find=LayerVersion&Arn=x",
+            "GetLayerVersionByArn",
+        ),
+        (
+            "POST",
+            "/2018-10-31/layers/l/versions",
+            "",
+            "PublishLayerVersion",
+        ),
+        (
+            "POST",
+            "/2021-10-31/functions/f/url",
+            "",
+            "CreateFunctionUrlConfig",
+        ),
+        (
+            "PUT",
+            "/2017-10-31/functions/f/concurrency",
+            "",
+            "PutFunctionConcurrency",
+        ),
+        (
+            "POST",
+            "/2017-03-31/tags/arn%3Aaws%3Alambda%3Aus-east-1%3A1%3Afunction%3Af",
+            "",
+            "TagResource",
+        ),
+    ];
+
     #[test]
     fn lambda_routes_by_path_shape_and_literal_query() {
-        let cases: &[(&str, &str, &str, &str)] = &[
-            ("POST", "/2015-03-31/functions", "", "CreateFunction"),
-            ("GET", "/2015-03-31/functions", "", "ListFunctions"),
-            ("GET", "/2015-03-31/functions/f", "", "GetFunction"),
-            ("GET", "/2015-03-31/functions/f/configuration", "", "GetFunctionConfiguration"),
-            ("PUT", "/2015-03-31/functions/f/configuration", "", "UpdateFunctionConfiguration"),
-            ("PUT", "/2015-03-31/functions/f/code", "", "UpdateFunctionCode"),
-            ("POST", "/2015-03-31/functions/f/invocations", "Qualifier=1", "Invoke"),
-            ("POST", "/2021-11-15/functions/f/response-streaming-invocations", "", "InvokeWithResponseStream"),
-            ("DELETE", "/2015-03-31/functions/f", "Qualifier=1", "DeleteFunction"),
-            ("POST", "/2015-03-31/functions/f/versions", "", "PublishVersion"),
-            ("GET", "/2015-03-31/functions/f/aliases", "", "ListAliases"),
-            ("GET", "/2015-03-31/functions/f/aliases/live", "", "GetAlias"),
-            ("POST", "/2015-03-31/event-source-mappings/", "", "CreateEventSourceMapping"),
-            ("GET", "/2015-03-31/event-source-mappings/u", "", "GetEventSourceMapping"),
-            ("POST", "/2015-03-31/functions/f/policy", "", "AddPermission"),
-            ("DELETE", "/2015-03-31/functions/f/policy/sid", "", "RemovePermission"),
-            ("GET", "/2018-10-31/layers", "", "ListLayers"),
-            ("GET", "/2018-10-31/layers", "find=LayerVersion&Arn=x", "GetLayerVersionByArn"),
-            ("POST", "/2018-10-31/layers/l/versions", "", "PublishLayerVersion"),
-            ("POST", "/2021-10-31/functions/f/url", "", "CreateFunctionUrlConfig"),
-            ("PUT", "/2017-10-31/functions/f/concurrency", "", "PutFunctionConcurrency"),
-            ("POST", "/2017-03-31/tags/arn%3Aaws%3Alambda%3Aus-east-1%3A1%3Afunction%3Af", "", "TagResource"),
-        ];
-        for (method, path, query, want) in cases {
-            assert_eq!(find(method, path, query).as_deref(), Some(*want), "{method} {path}?{query}");
+        for (method, path, query, want) in CASES {
+            assert_eq!(
+                find(method, path, query).as_deref(),
+                Some(*want),
+                "{method} {path}?{query}"
+            );
         }
         assert_eq!(find("PATCH", "/2015-03-31/functions", ""), None);
     }

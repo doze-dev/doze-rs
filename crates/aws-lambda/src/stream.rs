@@ -22,7 +22,10 @@ use crate::req::Req;
 struct Frames(mpsc::Receiver<io::Result<Bytes>>);
 
 impl ByteStream for Frames {
-    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<io::Result<Bytes>>> {
+    fn poll_next(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Option<io::Result<Bytes>>> {
         self.0.poll_recv(cx)
     }
 }
@@ -34,9 +37,16 @@ impl Inner {
         let rs = self.resolve(&call, &r, false).await?;
         let executed = rs.version.clone();
         if r.opt("InvocationType") == Some("DryRun") {
-            return Ok(RestReply { json: json!({"StatusCode": 204}), ..RestReply::default() });
+            return Ok(RestReply {
+                json: json!({"StatusCode": 204}),
+                ..RestReply::default()
+            });
         }
-        let input = Input { payload, client_context: None, trace_id: String::new() };
+        let input = Input {
+            payload,
+            client_context: None,
+            trace_id: String::new(),
+        };
         let started = match self.start(&rs, &call.caller, input).await? {
             Ok(s) => s,
             // A function that could not be launched answers as an error in the stream.
@@ -47,9 +57,17 @@ impl Inner {
         let tail = r.opt("LogType") == Some("Tail");
         self.tasks.spawn(async move {
             let out = me.drive(started, Some(&tx)).await;
-            let error = out.error.then(|| ("Unhandled", String::from_utf8_lossy(&out.payload).into_owned()));
+            let error = out.error.then(|| {
+                (
+                    "Unhandled",
+                    String::from_utf8_lossy(&out.payload).into_owned(),
+                )
+            });
             let log = tail.then(|| aws_core::base64::encode(out.log.as_bytes()));
-            let done = crate::eventstream::complete(error.as_ref().map(|(c, d)| (*c, d.as_str())), log.as_deref());
+            let done = crate::eventstream::complete(
+                error.as_ref().map(|(c, d)| (*c, d.as_str())),
+                log.as_deref(),
+            );
             drop(tx.send(Ok(Bytes::from(done))).await);
         });
         Ok(RestReply {
@@ -64,7 +82,11 @@ impl Inner {
         let msg = String::from_utf8_lossy(payload).into_owned();
         let done = crate::eventstream::complete(Some(("Unhandled", &msg)), None);
         drop(tx.try_send(Ok(Bytes::from(done))));
-        RestReply { json: stream_headers(executed), status: None, body: Some(Box::pin(Frames(rx))) }
+        RestReply {
+            json: stream_headers(executed),
+            status: None,
+            body: Some(Box::pin(Frames(rx))),
+        }
     }
 }
 

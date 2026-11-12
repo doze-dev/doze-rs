@@ -51,7 +51,11 @@ pub(crate) async fn stage(
     caller: &Caller,
     spec: &Value,
 ) -> Result<Code, ApiError> {
-    let text = |k: &str| spec.get(k).and_then(Value::as_str).filter(|s| !s.is_empty());
+    let text = |k: &str| {
+        spec.get(k)
+            .and_then(Value::as_str)
+            .filter(|s| !s.is_empty())
+    };
     if let Some(image) = text("ImageUri") {
         return Ok(Code {
             id: String::new(),
@@ -132,7 +136,9 @@ fn fingerprint(root: &Path) -> String {
         if seen > 20_000 {
             break;
         }
-        let Ok(meta) = std::fs::metadata(&path) else { continue };
+        let Ok(meta) = std::fs::metadata(&path) else {
+            continue;
+        };
         let modified = meta
             .modified()
             .ok()
@@ -158,16 +164,20 @@ async fn fetch(
     key: &str,
     version: Option<&str>,
 ) -> Result<Vec<u8>, ApiError> {
-    let peers = peers.ok_or_else(|| invalid("S3 is not running, so the code cannot be read from it."))?;
+    let peers =
+        peers.ok_or_else(|| invalid("S3 is not running, so the code cannot be read from it."))?;
     peers
         .authorize(
             caller,
-            vec![Need::new("s3:GetObject", format!("arn:aws:s3:::{bucket}/{key}"))],
+            vec![Need::new(
+                "s3:GetObject",
+                format!("arn:aws:s3:::{bucket}/{key}"),
+            )],
         )
         .await?;
     let mut body = json!({"Bucket": bucket, "Key": key});
     if let Some(v) = version {
-        body["VersionId"] = json!(v);
+        crate::set(&mut body, "VersionId", json!(v));
     }
     let mut reply = peers
         .call_rest("lambda", caller, "s3", "GetObject", &body)
@@ -198,7 +208,9 @@ async fn fetch(
 
 /// Removes the directories of `code/` that none of `keep` names. Called after anything that drops a reference.
 pub(crate) fn sweep(base: &Path, keep: &std::collections::BTreeSet<String>) {
-    let Ok(read) = std::fs::read_dir(base.join("code")) else { return };
+    let Ok(read) = std::fs::read_dir(base.join("code")) else {
+        return;
+    };
     for entry in read.filter_map(Result::ok) {
         let name = entry.file_name().to_string_lossy().into_owned();
         if !keep.contains(&name) {

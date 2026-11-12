@@ -31,11 +31,9 @@ const VERSION: u8 = 1;
 /// What the actor is asked.
 pub(crate) enum Ask {
     /// A management operation. `staged` is the code already written for it, when the operation brings some.
-    Call { call: Call, staged: Staged },
+    Call { call: Box<Call>, staged: Staged },
     /// What a runner needs to invoke a function.
     Resolve(Box<Resolving>),
-    /// The mapping an event source poller works for, and what it needs.
-    Mapping(String),
     /// Every mapping that is enabled, for starting pollers.
     Enabled,
     /// A function URL by its id: which function, and how to call it.
@@ -46,8 +44,6 @@ pub(crate) enum Ask {
     Position(String),
     /// Notes what a mapping's last invocation did.
     Result { uuid: String, result: String },
-    /// The function ARNs of every function of the region, for the runner's retirement of workers.
-    Functions,
 }
 
 impl std::fmt::Debug for Ask {
@@ -80,7 +76,11 @@ impl From<Value> for Out {
 
 /// What the actor answers.
 pub(crate) enum Answer {
-    Reply { reply: Result<Out, ApiError>, durable: Option<Ack>, retire: Vec<String> },
+    Reply {
+        reply: Result<Out, ApiError>,
+        durable: Option<Ack>,
+        retire: Vec<String>,
+    },
     Resolved(Result<Box<Resolved>, ApiError>),
     Value(Option<Value>),
     Many(Vec<Value>),
@@ -144,17 +144,15 @@ impl doze_runtime::Service for Core {
 
     async fn handle(&mut self, ask: Ask) -> Answer {
         match ask {
-            Ask::Call { call, staged } => self.call(call, staged).await,
+            Ask::Call { call, staged } => self.call(*call, staged).await,
             Ask::Resolve(r) => Answer::Resolved(self.resolve(&r).await),
-            Ask::Mapping(uuid) => Answer::Value(self.mapping_view(&uuid)),
             Ask::Enabled => Answer::Many(self.enabled_mappings()),
             Ask::Url(id) => Answer::Value(self.url_target(&id)),
             Ask::Checkpoint { key, value } => self.checkpoint(&key, value),
-            Ask::Position(key) => Answer::Value(self.checkpoints.get(&key).map(|s| Value::String(s.clone()))),
+            Ask::Position(key) => {
+                Answer::Value(self.checkpoints.get(&key).map(|s| Value::String(s.clone())))
+            }
             Ask::Result { uuid, result } => self.note_result(&uuid, result),
-            Ask::Functions => Answer::Many(
-                self.functions.iter().map(|(n, _)| Value::String(n.to_owned())).collect(),
-            ),
         }
     }
 
@@ -166,8 +164,16 @@ impl doze_runtime::Service for Core {
 }
 
 impl Core {
-    pub(crate) fn open_in(dir: &Path, clock: Arc<dyn Clock>, peers: Option<Arc<Peers>>) -> Result<Self, StoreError> {
-        let db = Db::open(dir, FILE, &[FUNCTIONS, LAYERS, MAPPINGS, SIGNING, CHECKPOINTS])?;
+    pub(crate) fn open_in(
+        dir: &Path,
+        clock: Arc<dyn Clock>,
+        peers: Option<Arc<Peers>>,
+    ) -> Result<Self, StoreError> {
+        let db = Db::open(
+            dir,
+            FILE,
+            &[FUNCTIONS, LAYERS, MAPPINGS, SIGNING, CHECKPOINTS],
+        )?;
         let read = db.read()?;
         let core = Self {
             functions: Records::load(FUNCTIONS, "function", VERSION, &read)?,
@@ -182,24 +188,10 @@ impl Core {
             region: crate::region_of(dir),
         };
         drop(read);
-        Ok(Self { db: Some(db), ..core })
-    }
-
-    /// Lambda with no disk (the rules alone are under test).
-    #[cfg(test)]
-    pub(crate) fn in_memory(clock: Arc<dyn Clock>, dir: &Path) -> Self {
-        Self {
-            functions: Records::new(FUNCTIONS, "function", VERSION),
-            layers: Records::new(LAYERS, "layer", VERSION),
-            mappings: Records::new(MAPPINGS, "event source mapping", VERSION),
-            signing: Records::new(SIGNING, "code signing configuration", VERSION),
-            checkpoints: Records::new(CHECKPOINTS, "checkpoint", VERSION),
-            peers: None,
-            clock,
-            db: None,
-            dir: dir.to_path_buf(),
-            region: "us-east-1".to_owned(),
-        }
+        Ok(Self {
+            db: Some(db),
+            ..core
+        })
     }
 
     pub(crate) fn now_ms(&self) -> i64 {
@@ -226,7 +218,11 @@ impl Core {
             }
         }
         let ack = self.flush().ok().flatten();
-        Answer::Reply { reply: Ok(Out::default()), durable: ack, retire: Vec::new() }
+        Answer::Reply {
+            reply: Ok(Out::default()),
+            durable: ack,
+            retire: Vec::new(),
+        }
     }
 
     async fn call(&mut self, call: Call, staged: Staged) -> Answer {
@@ -234,12 +230,24 @@ impl Core {
             && peers.mode() != Mode::Off
             && let Err(refusal) = peers.authorize(&call.caller, self.needs(&call)).await
         {
-            return Answer::Reply { reply: Err(denied(refusal)), durable: None, retire: Vec::new() };
+            return Answer::Reply {
+                reply: Err(denied(refusal)),
+                durable: None,
+                retire: Vec::new(),
+            };
         }
-        if matches!(Operation::from_index(call.op), Some(Operation::CreateEventSourceMapping | Operation::UpdateEventSourceMapping)) {
-            let update = Operation::from_index(call.op) == Some(Operation::UpdateEventSourceMapping);
+        if matches!(
+            Operation::from_index(call.op),
+            Some(Operation::CreateEventSourceMapping | Operation::UpdateEventSourceMapping)
+        ) {
+            let update =
+                Operation::from_index(call.op) == Some(Operation::UpdateEventSourceMapping);
             if let Err(e) = self.check_source(&Req::new(&call), update).await {
-                return Answer::Reply { reply: Err(e), durable: None, retire: Vec::new() };
+                return Answer::Reply {
+                    reply: Err(e),
+                    durable: None,
+                    retire: Vec::new(),
+                };
             }
         }
         let before = self.snapshot_names();
@@ -252,7 +260,11 @@ impl Core {
             }
         };
         let retire = self.changed_since(&before);
-        Answer::Reply { reply, durable, retire }
+        Answer::Reply {
+            reply,
+            durable,
+            retire,
+        }
     }
 
     /// Every operation of the model is either run here or refused by name; the dispatch is exhaustive over the model.
@@ -264,7 +276,9 @@ impl Core {
         match op {
             Operation::CreateFunction => self.create_function(&r, staged),
             Operation::UpdateFunctionCode => self.update_function_code(&r, staged),
-            Operation::UpdateFunctionConfiguration => self.update_function_configuration(&r, staged),
+            Operation::UpdateFunctionConfiguration => {
+                self.update_function_configuration(&r, staged)
+            }
             Operation::GetFunction => self.get_function(&r),
             Operation::GetFunctionConfiguration => self.get_function_configuration(&r),
             Operation::ListFunctions => self.list_functions(&r),
@@ -298,7 +312,12 @@ impl Core {
         }
     }
 
-    fn dispatch_layers(&mut self, op: Operation, r: &Req, staged: &Staged) -> Result<Out, ApiError> {
+    fn dispatch_layers(
+        &mut self,
+        op: Operation,
+        r: &Req,
+        staged: &Staged,
+    ) -> Result<Out, ApiError> {
         match op {
             Operation::GetLayerVersion => self.get_layer_version(r),
             Operation::GetLayerVersionByArn => self.get_layer_version_by_arn(r),
@@ -326,7 +345,8 @@ impl Core {
             Operation::GetProvisionedConcurrencyConfig => self.get_provisioned(r),
             Operation::DeleteProvisionedConcurrencyConfig => self.delete_provisioned(r),
             Operation::ListProvisionedConcurrencyConfigs => self.list_provisioned(r),
-            Operation::PutFunctionEventInvokeConfig | Operation::UpdateFunctionEventInvokeConfig => {
+            Operation::PutFunctionEventInvokeConfig
+            | Operation::UpdateFunctionEventInvokeConfig => {
                 self.put_event_invoke(r, op == Operation::UpdateFunctionEventInvokeConfig)
             }
             Operation::GetFunctionEventInvokeConfig => self.get_event_invoke(r),
@@ -398,7 +418,11 @@ impl Core {
     fn changed_since(&self, before: &[(String, String)]) -> Vec<String> {
         let mut out: Vec<String> = before
             .iter()
-            .filter(|(n, rev)| self.functions.get(n).is_none_or(|f| f.latest.revision != *rev))
+            .filter(|(n, rev)| {
+                self.functions
+                    .get(n)
+                    .is_none_or(|f| f.latest.revision != *rev)
+            })
             .map(|(n, _)| n.clone())
             .collect();
         out.sort();
@@ -410,7 +434,11 @@ impl Core {
             m.last_result = Some(result);
         }
         let ack = self.flush().ok().flatten();
-        Answer::Reply { reply: Ok(Out::default()), durable: ack, retire: Vec::new() }
+        Answer::Reply {
+            reply: Ok(Out::default()),
+            durable: ack,
+            retire: Vec::new(),
+        }
     }
 }
 

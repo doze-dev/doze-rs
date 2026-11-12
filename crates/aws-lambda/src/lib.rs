@@ -120,14 +120,22 @@ impl Lambda {
     /// Registers Lambda with settings.
     #[must_use]
     pub fn with_config(ctx: Arc<Ctx>, config: Config) -> Self {
-        let peers = ctx.ext.as_ref().and_then(|e| Arc::clone(e).downcast::<Peers>().ok());
+        let peers = ctx
+            .ext
+            .as_ref()
+            .and_then(|e| Arc::clone(e).downcast::<Peers>().ok());
         let inner = Arc::new(Inner {
             actors: Keyed::new("lambda", Arc::clone(&ctx), HOME_REGION),
             dir: ctx.dir.clone(),
             tasks: ctx.tasks.clone(),
             clock: Arc::clone(&ctx.clock),
             peers,
-            rt: Runtime::new(ctx.tasks.clone(), Arc::clone(&ctx.clock), config.runtime.clone(), ctx.dir.clone()),
+            rt: Runtime::new(
+                ctx.tasks.clone(),
+                Arc::clone(&ctx.clock),
+                config.runtime.clone(),
+                ctx.dir.clone(),
+            ),
             logger: rt::logs::Logger::default(),
             roles: role::Sessions::default(),
             config,
@@ -148,7 +156,13 @@ impl Lambda {
 
     /// Tells functions where the other services are (`http://127.0.0.1:4566`), for `AWS_ENDPOINT_URL`.
     pub fn set_endpoint(&self, endpoint: &str) {
-        endpoint.clone_into(&mut self.inner.endpoint.lock().unwrap_or_else(PoisonError::into_inner));
+        endpoint.clone_into(
+            &mut self
+                .inner
+                .endpoint
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner),
+        );
     }
 
     /// Starts the pollers of the mappings that were enabled when the process last stopped.
@@ -159,38 +173,68 @@ impl Lambda {
 
 /// The region a service directory is for: `regions/<region>` below the service's own, or the home region.
 pub(crate) fn region_of(dir: &Path) -> String {
-    let name = dir.file_name().and_then(|n| n.to_str()).unwrap_or(HOME_REGION);
-    let in_regions = dir.parent().and_then(Path::file_name).is_some_and(|p| p == "regions");
-    if in_regions { name.to_owned() } else { HOME_REGION.to_owned() }
+    let name = dir
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or(HOME_REGION);
+    let in_regions = dir
+        .parent()
+        .and_then(Path::file_name)
+        .is_some_and(|p| p == "regions");
+    if in_regions {
+        name.to_owned()
+    } else {
+        HOME_REGION.to_owned()
+    }
 }
 
 impl Inner {
     /// Asks the actor of `region`.
     pub(crate) async fn ask(&self, region: &str, ask: Ask) -> Result<Answer, ApiError> {
-        let actor = self.actors.actor(region).map_err(|e| ApiError::internal(e.to_string()))?;
-        actor.call(ask).await.map_err(|e| ApiError::internal(e.to_string()))
+        let actor = self
+            .actors
+            .actor(region)
+            .map_err(|e| ApiError::internal(e.to_string()))?;
+        actor
+            .call(ask)
+            .await
+            .map_err(|e| ApiError::internal(e.to_string()))
     }
 
     pub(crate) fn endpoint_for(&self, _caller: &aws_wire::service::Caller) -> String {
-        self.endpoint.lock().unwrap_or_else(PoisonError::into_inner).clone()
+        self.endpoint
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone()
     }
 
     /// The directory the files of `region` are in.
     pub(crate) fn region_dir(&self, region: &str) -> PathBuf {
-        if region == HOME_REGION { self.dir.clone() } else { self.dir.join("regions").join(region) }
+        if region == HOME_REGION {
+            self.dir.clone()
+        } else {
+            self.dir.join("regions").join(region)
+        }
     }
 
     /// Learns where the gateway is from a request that reached it (a client's `Host` is the address functions can use too).
     fn note_endpoint(&self, call: &Call) {
         if call.caller.endpoint.starts_with("http") {
-            call.caller.endpoint.clone_into(&mut self.endpoint.lock().unwrap_or_else(PoisonError::into_inner));
+            call.caller
+                .endpoint
+                .clone_into(&mut self.endpoint.lock().unwrap_or_else(PoisonError::into_inner));
         }
-        call.caller.account_id.clone_into(&mut self.account.lock().unwrap_or_else(PoisonError::into_inner));
+        call.caller
+            .account_id
+            .clone_into(&mut self.account.lock().unwrap_or_else(PoisonError::into_inner));
     }
 
     /// The account the requests seen so far were for (a function URL request carries none).
     pub(crate) fn account_of(&self, _region: &str) -> String {
-        self.account.lock().unwrap_or_else(PoisonError::into_inner).clone()
+        self.account
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone()
     }
 
     /// Runs a call: the operations that run a function are done beside the actor, the others in it, with the code or the role they
@@ -209,24 +253,47 @@ impl Inner {
         let region = call.caller.region.clone();
         let r = Req::new(&call);
         let staged = self.stage(op, &r).await?;
-        let answer = self.ask(&region, Ask::Call { call, staged }).await?;
-        let Answer::Reply { reply, durable, retire } = answer else {
-            return Err(ApiError::internal("Lambda answered a call with something else"));
+        let answer = self
+            .ask(
+                &region,
+                Ask::Call {
+                    call: Box::new(call),
+                    staged,
+                },
+            )
+            .await?;
+        let Answer::Reply {
+            reply,
+            durable,
+            retire,
+        } = answer
+        else {
+            return Err(ApiError::internal(
+                "Lambda answered a call with something else",
+            ));
         };
         if let Some(saved) = durable {
-            saved.await.map_err(|e| ApiError::internal(format!("could not save: {e}")))?;
+            saved
+                .await
+                .map_err(|e| ApiError::internal(format!("could not save: {e}")))?;
         }
         for name in retire {
             self.rt.retire(&format!("{region}/{name}"));
         }
         if matches!(
             op,
-            Operation::CreateEventSourceMapping | Operation::UpdateEventSourceMapping | Operation::DeleteEventSourceMapping
+            Operation::CreateEventSourceMapping
+                | Operation::UpdateEventSourceMapping
+                | Operation::DeleteEventSourceMapping
         ) {
             poll::sync(self, &region).await;
         }
         let out = reply?;
-        Ok(RestReply { json: out.json, status: out.status, body: None })
+        Ok(RestReply {
+            json: out.json,
+            status: out.status,
+            body: None,
+        })
     }
 
     /// What an operation needs read before its state is touched: the code it brings, and the role it names.
@@ -242,8 +309,10 @@ impl Inner {
         if let Some(spec) = spec {
             staged.code = Some(code::stage(&base, self.peers.as_deref(), &r.caller, spec).await?);
         }
-        if matches!(op, Operation::CreateFunction | Operation::UpdateFunctionConfiguration)
-            && let Some(role) = r.opt("Role")
+        if matches!(
+            op,
+            Operation::CreateFunction | Operation::UpdateFunctionConfiguration
+        ) && let Some(role) = r.opt("Role")
         {
             staged.role = role::check(self.peers.as_deref(), &r.caller, role).await;
         }
@@ -286,10 +355,14 @@ impl Service for Lambda {
     /// model's list also says it may be an ARN (recorded 2026-11-09).
     fn invalid(&self, violation: &Violation) -> ApiError {
         let mut e = aws_wire::service::default_invalid(&TABLES, violation);
-        if let Violation::Enum { member, .. } = violation
+        if let Violation::Enum { member, value } = violation
             && TABLES.member(*member).is_some_and(|m| m.name == "Runtime")
         {
-            e.message.push_str(" or be a valid ARN");
+            e.message = format!(
+                "1 validation error detected: Value '{}' at 'runtime' failed to satisfy constraint: Member must satisfy enum value set: [{}] or be a valid ARN",
+                value.as_deref().unwrap_or("null"),
+                config::RUNTIMES
+            );
         }
         if matches!(violation, Violation::Syntax { .. } | Violation::TooDeep) {
             return errors::invalid_content("Could not parse request body into json.");
@@ -299,7 +372,11 @@ impl Service for Lambda {
 }
 
 impl RestService for Lambda {
-    fn call_rest(&self, call: Call, _upload: Option<Box<dyn Upload>>) -> BoxFuture<'_, Result<RestReply, ApiError>> {
+    fn call_rest(
+        &self,
+        call: Call,
+        _upload: Option<Box<dyn Upload>>,
+    ) -> BoxFuture<'_, Result<RestReply, ApiError>> {
         Box::pin(async move { self.inner.run(call).await })
     }
 }
@@ -309,7 +386,10 @@ impl Web for Lambda {
         web::owns(host, path)
     }
 
-    fn serve(&self, request: aws_wire::service::WebRequest) -> BoxFuture<'_, aws_wire::service::WebReply> {
+    fn serve(
+        &self,
+        request: aws_wire::service::WebRequest,
+    ) -> BoxFuture<'_, aws_wire::service::WebReply> {
         Box::pin(web::serve(Arc::clone(&self.inner), request))
     }
 }
@@ -317,6 +397,13 @@ impl Web for Lambda {
 /// The JSON `Value` of a number as the integer it is, for the sake of callers that compare.
 pub(crate) fn int(v: &Value) -> Option<i64> {
     v.as_i64().or_else(|| v.as_f64().map(|f| f as i64))
+}
+
+/// Sets a member of a JSON object (a value that is not one is left as it is).
+pub(crate) fn set(v: &mut Value, key: &str, value: Value) {
+    if let Some(o) = v.as_object_mut() {
+        o.insert(key.to_owned(), value);
+    }
 }
 
 #[cfg(test)]

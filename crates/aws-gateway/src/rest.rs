@@ -274,11 +274,7 @@ struct Head<'a> {
 }
 
 /// The input of a restJson1 operation; the body is only named for the error (a body that is not JSON is the service's to word).
-fn json_in(
-    tables: &Tables,
-    shape: u32,
-    p: &Input<'_>,
-) -> Option<serde_json::Value> {
+fn json_in(tables: &Tables, shape: u32, p: &Input<'_>) -> Option<serde_json::Value> {
     jsonin::to_json(tables, shape, p).ok()
 }
 

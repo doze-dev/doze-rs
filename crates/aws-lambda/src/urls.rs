@@ -13,11 +13,20 @@ use crate::req::Req;
 /// The host part of the address a URL is served at: `<id>.lambda-url.<region>.<endpoint host>`, which `*.localhost` resolves to the
 /// loopback in browsers and curl; the path form `/_aws/lambda-url/<region>/<id>/` serves the same URL to a client that cannot.
 pub(crate) fn address(endpoint: &str, id: &str, region: &str) -> String {
-    let rest = endpoint.trim_start_matches("http://").trim_start_matches("https://");
+    let rest = endpoint
+        .trim_start_matches("http://")
+        .trim_start_matches("https://");
     let (host, port) = rest.rsplit_once(':').map_or((rest, ""), |(h, p)| (h, p));
-    let local = host == "localhost" || host == "127.0.0.1" || host == "[::1]" || host.parse::<std::net::IpAddr>().is_ok();
+    let local = host == "localhost"
+        || host == "127.0.0.1"
+        || host == "[::1]"
+        || host.parse::<std::net::IpAddr>().is_ok();
     let suffix = if local { "localhost" } else { host };
-    let port = if port.is_empty() { String::new() } else { format!(":{port}") };
+    let port = if port.is_empty() {
+        String::new()
+    } else {
+        format!(":{port}")
+    };
     format!("http://{id}.lambda-url.{region}.{suffix}{port}/")
 }
 
@@ -25,10 +34,17 @@ impl Core {
     fn url_view(&self, r: &Req, name: &str, u: &Url) -> Value {
         let qualifier = (!u.qualifier.is_empty()).then_some(u.qualifier.as_str());
         let mut out = Map::new();
-        out.insert("FunctionUrl".into(), json!(address(&r.caller.endpoint, &u.id, r.region())));
+        out.insert(
+            "FunctionUrl".into(),
+            json!(address(&r.caller.endpoint, &u.id, r.region())),
+        );
         out.insert("FunctionArn".into(), json!(self.arn(r, name, qualifier)));
         out.insert("AuthType".into(), json!(u.auth));
-        if let Some(c) = u.cors.as_deref().and_then(|c| serde_json::from_str::<Value>(c).ok()) {
+        if let Some(c) = u
+            .cors
+            .as_deref()
+            .and_then(|c| serde_json::from_str::<Value>(c).ok())
+        {
             out.insert("Cors".into(), c);
         }
         out.insert("CreationTime".into(), json!(u.created));
@@ -68,12 +84,17 @@ impl Core {
         };
         let function = self.find_mut(r, &f)?;
         if function.urls.iter().any(|u| u.qualifier == q) {
-            return Err(conflict("Failed to create function url config for [functionArn = ".to_owned()
-                + &crate::arn::function(r.region(), r.account(), &f.name, None)
-                + "]. Error message:  FunctionUrlConfig exists for this Lambda function"));
+            return Err(conflict(
+                "Failed to create function url config for [functionArn = ".to_owned()
+                    + &crate::arn::function(r.region(), r.account(), &f.name, None)
+                    + "]. Error message:  FunctionUrlConfig exists for this Lambda function",
+            ));
         }
         function.urls.push(url.clone());
-        Ok(Out { json: self.url_view(r, &f.name, &url), status: Some(201) })
+        Ok(Out {
+            json: self.url_view(r, &f.name, &url),
+            status: Some(201),
+        })
     }
 
     fn url_of(&self, r: &Req) -> Result<(String, Url), ApiError> {
@@ -107,7 +128,11 @@ impl Core {
         url.modified = stamp(self.now_ms());
         let f = r.function()?;
         let function = self.find_mut(r, &f)?;
-        if let Some(slot) = function.urls.iter_mut().find(|u| u.qualifier == url.qualifier) {
+        if let Some(slot) = function
+            .urls
+            .iter_mut()
+            .find(|u| u.qualifier == url.qualifier)
+        {
             *slot = url.clone();
         }
         Ok(self.url_view(r, &name, &url).into())
@@ -116,16 +141,28 @@ impl Core {
     pub(crate) fn delete_url(&mut self, r: &Req) -> Result<Out, ApiError> {
         let (_, url) = self.url_of(r)?;
         let f = r.function()?;
-        self.find_mut(r, &f)?.urls.retain(|u| u.qualifier != url.qualifier);
-        Ok(Out { json: json!({}), status: Some(204) })
+        self.find_mut(r, &f)?
+            .urls
+            .retain(|u| u.qualifier != url.qualifier);
+        Ok(Out {
+            json: json!({}),
+            status: Some(204),
+        })
     }
 
     pub(crate) fn list_urls(&self, r: &Req) -> Result<Out, ApiError> {
         let f = r.function()?;
         let function = self.find(r, &f)?;
-        let rows = function.urls.iter().map(|u| self.url_view(r, &f.name, u)).collect();
+        let rows = function
+            .urls
+            .iter()
+            .map(|u| self.url_view(r, &f.name, u))
+            .collect();
         Ok(page(r, rows, "FunctionUrlConfigs", |v| {
-            v.get("FunctionArn").and_then(Value::as_str).unwrap_or_default().to_owned()
+            v.get("FunctionArn")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_owned()
         })
         .into())
     }
@@ -134,8 +171,10 @@ impl Core {
     pub(crate) fn url_target(&self, id: &str) -> Option<Value> {
         self.functions.iter().find_map(|(name, f)| {
             let u = f.urls.iter().find(|u| u.id == id)?;
-            Some(json!({"name": name, "qualifier": u.qualifier, "auth": u.auth, "cors": u.cors,
-                "invokeMode": u.invoke_mode, "region": self.region}))
+            Some(
+                json!({"name": name, "qualifier": u.qualifier, "auth": u.auth, "cors": u.cors,
+                "invokeMode": u.invoke_mode, "region": self.region}),
+            )
         })
     }
 }

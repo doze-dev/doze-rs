@@ -221,14 +221,20 @@ mod tests {
 
     #[test]
     fn files_are_unpacked_with_their_modes() {
-        let zip = build(&[("a/b.txt", b"hello", 0o644), ("bootstrap", b"#!/bin/sh\n", 0o755)]);
+        let zip = build(&[
+            ("a/b.txt", b"hello", 0o644),
+            ("bootstrap", b"#!/bin/sh\n", 0o755),
+        ]);
         let dir = scratch("modes");
         extract(&zip, &dir).unwrap();
         assert_eq!(std::fs::read(dir.join("a/b.txt")).unwrap(), b"hello");
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            let mode = std::fs::metadata(dir.join("bootstrap")).unwrap().permissions().mode();
+            let mode = std::fs::metadata(dir.join("bootstrap"))
+                .unwrap()
+                .permissions()
+                .mode();
             assert_eq!(mode & 0o111, 0o111);
         }
         drop(std::fs::remove_dir_all(&dir));
@@ -237,7 +243,10 @@ mod tests {
     #[test]
     fn what_is_not_a_zip_or_escapes_is_refused() {
         let dir = scratch("bad");
-        assert_eq!(extract(b"this is not a zip", &dir), Err(ZipError::Malformed));
+        assert_eq!(
+            extract(b"this is not a zip", &dir),
+            Err(ZipError::Malformed)
+        );
         let escape = build(&[("../x", b"1", 0o644)]);
         assert_eq!(extract(&escape, &dir), Err(ZipError::Malformed));
         let mut damaged = build(&[("a", b"hello", 0o644)]);

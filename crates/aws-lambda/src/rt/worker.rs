@@ -32,7 +32,6 @@ pub(crate) struct Worker {
     kill: CancellationToken,
     lines: Mutex<Vec<Line>>,
     seen: AtomicU64,
-    pub(crate) created_ms: i64,
     last_used_ms: AtomicI64,
     /// Whether it has served an invocation (the first one pays for the start and reports it as `Init Duration`).
     pub(crate) warm: AtomicBool,
@@ -49,16 +48,33 @@ impl Worker {
     ///
     /// # Errors
     /// The command cannot be had or run (no interpreter, no `bootstrap`).
-    pub(crate) async fn start(spec: Spec, tasks: &Tasks, clock: &Arc<dyn Clock>, idle: Duration) -> Result<Arc<Self>, LaunchError> {
+    pub(crate) async fn start(
+        spec: Spec,
+        tasks: &Tasks,
+        clock: &Arc<dyn Clock>,
+        idle: Duration,
+    ) -> Result<Arc<Self>, LaunchError> {
         let (program, args) = launch(&spec).map_err(LaunchError)?;
-        let listener = TcpListener::bind(("127.0.0.1", 0)).await.map_err(|e| LaunchError(e.to_string()))?;
-        let api = listener.local_addr().map_err(|e| LaunchError(e.to_string()))?.to_string();
+        let listener = TcpListener::bind(("127.0.0.1", 0))
+            .await
+            .map_err(|e| LaunchError(e.to_string()))?;
+        let api = listener
+            .local_addr()
+            .map_err(|e| LaunchError(e.to_string()))?
+            .to_string();
         let mut command = Command::new(&program);
         command
             .args(&args)
             .env_clear()
             .envs(environment(&spec, &api))
-            .current_dir(if spec.root.is_dir() { spec.root.clone() } else { spec.root.parent().map(std::path::Path::to_path_buf).unwrap_or_default() })
+            .current_dir(if spec.root.is_dir() {
+                spec.root.clone()
+            } else {
+                spec.root
+                    .parent()
+                    .map(std::path::Path::to_path_buf)
+                    .unwrap_or_default()
+            })
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
@@ -66,7 +82,9 @@ impl Worker {
         // Its own process group, so that ending it ends what it started too.
         #[cfg(unix)]
         command.process_group(0);
-        let mut child = command.spawn().map_err(|e| LaunchError(format!("{}: {e}", program.display())))?;
+        let mut child = command
+            .spawn()
+            .map_err(|e| LaunchError(format!("{}: {e}", program.display())))?;
         let (tx, rx) = mpsc::channel(8);
         let shared = Arc::new(Shared::new(rx));
         let now = clock.now_ms();
@@ -80,7 +98,6 @@ impl Worker {
             kill: CancellationToken::new(),
             lines: Mutex::new(Vec::new()),
             seen: AtomicU64::new(0),
-            created_ms: now,
             last_used_ms: AtomicI64::new(now),
             warm: AtomicBool::new(false),
             exit: Mutex::new(None),
@@ -94,13 +111,23 @@ impl Worker {
         }
         tasks.spawn(serve(listener, shared, worker.kill.clone(), tasks.clone()));
         tasks.spawn(supervise(child, Arc::clone(&worker), stop.clone()));
-        tasks.spawn(reap_idle(Arc::clone(&worker), Arc::clone(clock), idle, stop));
+        tasks.spawn(reap_idle(
+            Arc::clone(&worker),
+            Arc::clone(clock),
+            idle,
+            stop,
+        ));
         Ok(worker)
     }
 
     /// Takes the worker for an invocation, if it is alive and free.
     pub(crate) fn claim(&self) -> bool {
-        !self.dead.load(Ordering::Acquire) && !self.retired.load(Ordering::Acquire) && self.busy.compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire).is_ok()
+        !self.dead.load(Ordering::Acquire)
+            && !self.retired.load(Ordering::Acquire)
+            && self
+                .busy
+                .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+                .is_ok()
     }
 
     /// Gives the worker back after an invocation.
@@ -154,7 +181,10 @@ impl Worker {
     }
 
     fn push(&self, at: i64, line: String) {
-        self.lines.lock().unwrap_or_else(PoisonError::into_inner).push((at, line));
+        self.lines
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .push((at, line));
         self.seen.fetch_add(1, Ordering::AcqRel);
     }
 }
@@ -202,14 +232,28 @@ async fn end(child: &mut tokio::process::Child) {
     #[cfg(unix)]
     if let Some(pid) = child.id() {
         // WHY: the group is killed through kill(1) because signalling a group needs a libc call, which this crate does not make.
-        drop(Command::new("kill").arg("-KILL").arg("--").arg(format!("-{pid}")).stdout(Stdio::null()).stderr(Stdio::null()).status().await);
+        drop(
+            Command::new("kill")
+                .arg("-KILL")
+                .arg("--")
+                .arg(format!("-{pid}"))
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .status()
+                .await,
+        );
     }
     drop(child.start_kill());
     drop(child.wait().await);
 }
 
 /// Ends the worker once it has been idle for `idle`; sleeps until the moment that could happen, and does nothing while it works.
-async fn reap_idle(worker: Arc<Worker>, clock: Arc<dyn Clock>, idle: Duration, stop: CancellationToken) {
+async fn reap_idle(
+    worker: Arc<Worker>,
+    clock: Arc<dyn Clock>,
+    idle: Duration,
+    stop: CancellationToken,
+) {
     let idle_ms = i64::try_from(idle.as_millis()).unwrap_or(i64::MAX);
     loop {
         let wait = if worker.busy.load(Ordering::Acquire) {

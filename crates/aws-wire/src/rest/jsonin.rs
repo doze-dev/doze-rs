@@ -82,7 +82,9 @@ fn is_blank(body: &[u8]) -> bool {
 fn payload(m: &MemberRef<'_>, body: &[u8], object: Option<&Map<String, Value>>) -> Option<Value> {
     match m.kind {
         K_STREAM => None,
-        K_STR => (!body.is_empty()).then(|| Value::String(String::from_utf8_lossy(body).into_owned())),
+        K_STR => {
+            (!body.is_empty()).then(|| Value::String(String::from_utf8_lossy(body).into_owned()))
+        }
         K_BLOB => (!body.is_empty()).then(|| Value::String(aws_core::base64::encode(body))),
         K_STRUCT | K_UNION => object.map(|o| Value::Object(o.clone())),
         _ => None,
@@ -98,7 +100,11 @@ mod tests {
     use super::*;
 
     fn input(op: &str) -> u32 {
-        TABLES.op(TABLES.find_op(op).unwrap()).unwrap().input.unwrap()
+        TABLES
+            .op(TABLES.find_op(op).unwrap())
+            .unwrap()
+            .input
+            .unwrap()
     }
 
     fn member_of(op: &str, name: &str) -> u32 {
@@ -114,7 +120,12 @@ mod tests {
         headers.insert("x-amz-invocation-type", HeaderValue::from_static("Event"));
         let labels = [(member_of("Invoke", "FunctionName"), "f".to_owned())];
         let q = [("Qualifier".to_owned(), "live".to_owned())];
-        let p = Parts { labels: &labels, query: &q, headers: &headers, body: b"{\"a\":1}" };
+        let p = Parts {
+            labels: &labels,
+            query: &q,
+            headers: &headers,
+            body: b"{\"a\":1}",
+        };
         let v = to_json(&TABLES, input("Invoke"), &p).unwrap();
         assert_eq!(v["FunctionName"], "f");
         assert_eq!(v["Qualifier"], "live");
@@ -133,13 +144,21 @@ mod tests {
         assert_eq!(v["Name"], "live");
         assert_eq!(v["RoutingConfig"]["AdditionalVersionWeights"]["2"], 0.1);
         let bad = Parts { body: b"[1]", ..p };
-        assert_eq!(to_json(&TABLES, input("CreateAlias"), &bad), Err(ReadError::MalformedJson));
+        assert_eq!(
+            to_json(&TABLES, input("CreateAlias"), &bad),
+            Err(ReadError::MalformedJson)
+        );
     }
 
     #[test]
     fn an_empty_body_is_no_members() {
         let labels = [(member_of("GetFunction", "FunctionName"), "f".to_owned())];
-        let p = Parts { labels: &labels, query: &[], headers: &HeaderMap::new(), body: b"" };
+        let p = Parts {
+            labels: &labels,
+            query: &[],
+            headers: &HeaderMap::new(),
+            body: b"",
+        };
         let v = to_json(&TABLES, input("GetFunction"), &p).unwrap();
         assert_eq!(v, serde_json::json!({"FunctionName": "f"}));
     }

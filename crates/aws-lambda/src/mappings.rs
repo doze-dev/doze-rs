@@ -67,8 +67,14 @@ impl Core {
     fn mapping_json(&self, m: &Mapping, state: Option<&str>) -> Value {
         let mut out: Map<String, Value> = serde_json::from_str(&m.config).unwrap_or_default();
         out.insert("UUID".into(), json!(m.uuid));
-        out.insert("EventSourceMappingArn".into(), json!(arn::mapping(&self.region, account_of(&out), &m.uuid)));
-        out.insert("State".into(), json!(state.unwrap_or_else(|| state_name(m.enabled))));
+        out.insert(
+            "EventSourceMappingArn".into(),
+            json!(arn::mapping(&self.region, account_of(&out), &m.uuid)),
+        );
+        out.insert(
+            "State".into(),
+            json!(state.unwrap_or_else(|| state_name(m.enabled))),
+        );
         out.insert("StateTransitionReason".into(), json!("USER_INITIATED"));
         out.insert("LastModified".into(), json!(m.modified_ms as f64 / 1000.0));
         if let Some(result) = &m.last_result {
@@ -78,6 +84,7 @@ impl Core {
     }
 
     pub(crate) fn create_mapping(&mut self, r: &Req, _staged: &Staged) -> Result<Out, ApiError> {
+        check_filters(r)?;
         let source_arn = r.text("EventSourceArn");
         let Some(source) = Source::of(source_arn) else {
             return Err(unsupported_source(source_arn));
@@ -95,14 +102,16 @@ impl Core {
         cfg.insert("EventSourceArn".into(), json!(source_arn));
         cfg.insert("AccountId".into(), json!(r.account()));
         cfg.entry("BatchSize").or_insert(json!(source.batch()));
-        cfg.entry("MaximumBatchingWindowInSeconds").or_insert(json!(0));
+        cfg.entry("MaximumBatchingWindowInSeconds")
+            .or_insert(json!(0));
         cfg.entry("FunctionResponseTypes").or_insert(json!([]));
         if source != Source::Sqs {
             cfg.entry("StartingPosition").or_insert(json!("LATEST"));
             cfg.entry("ParallelizationFactor").or_insert(json!(1));
             cfg.entry("MaximumRecordAgeInSeconds").or_insert(json!(-1));
             cfg.entry("MaximumRetryAttempts").or_insert(json!(-1));
-            cfg.entry("BisectBatchOnFunctionError").or_insert(json!(false));
+            cfg.entry("BisectBatchOnFunctionError")
+                .or_insert(json!(false));
             cfg.entry("TumblingWindowInSeconds").or_insert(json!(0));
         }
         let _ = function;
@@ -118,13 +127,16 @@ impl Core {
         };
         let shown = self.mapping_json(&m, Some(if enabled { "Creating" } else { "Disabled" }));
         self.mappings.insert(id, m);
-        Ok(Out { json: shown, status: Some(202) })
+        Ok(Out {
+            json: shown,
+            status: Some(202),
+        })
     }
 
     fn mapping_of(&self, r: &Req) -> Result<&Mapping, ApiError> {
-        self.mappings.get(r.text("UUID")).ok_or_else(|| {
-            not_found("The resource you requested does not exist.")
-        })
+        self.mappings
+            .get(r.text("UUID"))
+            .ok_or_else(|| not_found("The resource you requested does not exist."))
     }
 
     pub(crate) fn get_mapping(&self, r: &Req) -> Result<Out, ApiError> {
@@ -132,6 +144,7 @@ impl Core {
     }
 
     pub(crate) fn update_mapping(&mut self, r: &Req) -> Result<Out, ApiError> {
+        check_filters(r)?;
         let mut m = self.mapping_of(r)?.clone();
         let mut cfg: Map<String, Value> = serde_json::from_str(&m.config).unwrap_or_default();
         for k in SETTABLE {
@@ -142,7 +155,10 @@ impl Core {
         if r.opt("FunctionName").is_some() {
             let f = r.function()?;
             self.find(r, &f)?;
-            cfg.insert("FunctionArn".into(), json!(self.arn(r, &f.name, f.qualifier.as_deref())));
+            cfg.insert(
+                "FunctionArn".into(),
+                json!(self.arn(r, &f.name, f.qualifier.as_deref())),
+            );
         }
         if let Some(e) = r.flag("Enabled") {
             m.enabled = e;
@@ -151,27 +167,44 @@ impl Core {
         m.modified_ms = self.now_ms();
         let shown = self.mapping_json(&m, Some("Updating"));
         self.mappings.insert(m.uuid.clone(), m);
-        Ok(Out { json: shown, status: Some(202) })
+        Ok(Out {
+            json: shown,
+            status: Some(202),
+        })
     }
 
     pub(crate) fn delete_mapping(&mut self, r: &Req) -> Result<Out, ApiError> {
         let m = self.mapping_of(r)?.clone();
         self.mappings.remove(&m.uuid);
         let prefix = format!("{}/", m.uuid);
-        let keys: Vec<String> = self.checkpoints.with_prefix(&prefix).map(|(k, _)| k.to_owned()).collect();
+        let keys: Vec<String> = self
+            .checkpoints
+            .with_prefix(&prefix)
+            .map(|(k, _)| k.to_owned())
+            .collect();
         for k in keys {
             self.checkpoints.remove(&k);
         }
-        Ok(Out { json: self.mapping_json(&m, Some("Deleting")), status: Some(202) })
+        Ok(Out {
+            json: self.mapping_json(&m, Some("Deleting")),
+            status: Some(202),
+        })
     }
 
     pub(crate) fn list_mappings(&self, r: &Req) -> Result<Out, ApiError> {
-        let (source, function) = (r.opt("EventSourceArn"), r.function().ok().filter(|_| r.opt("FunctionName").is_some()));
+        let (source, function) = (
+            r.opt("EventSourceArn"),
+            r.function()
+                .ok()
+                .filter(|_| r.opt("FunctionName").is_some()),
+        );
         let mut rows: Vec<Value> = self
             .mappings
             .iter()
             .map(|(_, m)| self.mapping_json(m, None))
-            .filter(|v| source.is_none_or(|s| v.get("EventSourceArn").and_then(Value::as_str) == Some(s)))
+            .filter(|v| {
+                source.is_none_or(|s| v.get("EventSourceArn").and_then(Value::as_str) == Some(s))
+            })
             .filter(|v| {
                 function.as_ref().is_none_or(|f| {
                     v.get("FunctionArn")
@@ -182,7 +215,10 @@ impl Core {
             .collect();
         rows.sort_by_key(|v| v.get("UUID").and_then(Value::as_str).map(str::to_owned));
         Ok(page(r, rows, "EventSourceMappings", |v| {
-            v.get("UUID").and_then(Value::as_str).unwrap_or_default().to_owned()
+            v.get("UUID")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_owned()
         })
         .into())
     }
@@ -191,7 +227,7 @@ impl Core {
     pub(crate) fn mapping_view(&self, uuid: &str) -> Option<Value> {
         let m = self.mappings.get(uuid)?;
         let mut v = self.mapping_json(m, None);
-        v["Enabled"] = json!(m.enabled);
+        crate::set(&mut v, "Enabled", json!(m.enabled));
         Some(v)
     }
 
@@ -207,16 +243,32 @@ impl Core {
     /// The checks of a mapping's source that need the source service: the queue exists and hides messages at least as long as the
     /// function runs (SQS); the stream exists.
     pub(crate) async fn check_source(&self, r: &Req, update: bool) -> Result<(), ApiError> {
-        let Some(peers) = self.peers.clone() else { return Ok(()) };
+        let Some(peers) = self.peers.clone() else {
+            return Ok(());
+        };
         let (source_arn, function_name) = if update {
             let m = self.mapping_of(r)?;
             let cfg: Value = serde_json::from_str(&m.config).unwrap_or(Value::Null);
-            let text = |k: &str| cfg.get(k).and_then(Value::as_str).unwrap_or_default().to_owned();
-            (text("EventSourceArn"), r.opt("FunctionName").map_or_else(|| text("FunctionArn"), str::to_owned))
+            let text = |k: &str| {
+                cfg.get(k)
+                    .and_then(Value::as_str)
+                    .unwrap_or_default()
+                    .to_owned()
+            };
+            (
+                text("EventSourceArn"),
+                r.opt("FunctionName")
+                    .map_or_else(|| text("FunctionArn"), str::to_owned),
+            )
         } else {
-            (r.text("EventSourceArn").to_owned(), r.text("FunctionName").to_owned())
+            (
+                r.text("EventSourceArn").to_owned(),
+                r.text("FunctionName").to_owned(),
+            )
         };
-        let Some(source) = Source::of(&source_arn) else { return Err(unsupported_source(&source_arn)) };
+        let Some(source) = Source::of(&source_arn) else {
+            return Err(unsupported_source(&source_arn));
+        };
         let f = arn::parse(&function_name, None, &self.region, r.account())?;
         let function = self.find(r, &f)?;
         let timeout = serde_json::from_str::<Value>(&function.latest.config)
@@ -237,8 +289,28 @@ impl Core {
     }
 }
 
+/// The filter patterns of a mapping must be valid patterns.
+fn check_filters(r: &Req) -> Result<(), ApiError> {
+    let filters = r
+        .value("FilterCriteria")
+        .and_then(|c| c.get("Filters"))
+        .and_then(Value::as_array);
+    for f in filters.into_iter().flatten() {
+        if !f
+            .get("Pattern")
+            .and_then(Value::as_str)
+            .is_some_and(crate::poll::filter::valid)
+        {
+            return Err(invalid("Invalid filter pattern definition."));
+        }
+    }
+    Ok(())
+}
+
 fn account_of(cfg: &Map<String, Value>) -> &str {
-    cfg.get("AccountId").and_then(Value::as_str).unwrap_or("000000000000")
+    cfg.get("AccountId")
+        .and_then(Value::as_str)
+        .unwrap_or("000000000000")
 }
 
 /// A source Lambda has and doze-aws does not poll (Kafka, MQ, DocumentDB, self-managed): refused by name, never faked.
@@ -247,7 +319,9 @@ fn unsupported_source(arn: &str) -> ApiError {
         ApiError::new(
             501,
             "NotImplemented",
-            format!("Event source {arn} is not built in doze-aws: only SQS queues, Kinesis streams and DynamoDB streams are polled."),
+            format!(
+                "Event source {arn} is not built in doze-aws: only SQS queues, Kinesis streams and DynamoDB streams are polled."
+            ),
         )
     } else {
         invalid(format!("Invalid event source ARN: {arn}"))

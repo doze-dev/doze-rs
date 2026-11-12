@@ -62,7 +62,8 @@ pub fn render(tables: &Tables, op: u32, out: &Value, status: Option<u16>) -> Ren
             .iter()
             .any(|(k, _)| k.eq_ignore_ascii_case("content-type"));
         if !has_type {
-            r.headers.push(("content-type".to_owned(), "application/json".to_owned()));
+            r.headers
+                .push(("content-type".to_owned(), "application/json".to_owned()));
         }
     }
     r
@@ -72,7 +73,9 @@ fn payload(r: &mut Rendered, m: &MemberRef<'_>, value: Option<&Value>) {
     match (m.kind, value) {
         (K_STREAM | K_EVENT, _) => r.streams = true,
         (K_STR, Some(Value::String(s))) => r.body = s.clone().into_bytes(),
-        (K_BLOB, Some(Value::String(s))) => r.body = aws_core::base64::decode(s).unwrap_or_default(),
+        (K_BLOB, Some(Value::String(s))) => {
+            r.body = aws_core::base64::decode(s).unwrap_or_default()
+        }
         (K_STRUCT, Some(v)) => r.body = v.to_string().into_bytes(),
         _ => {}
     }
@@ -144,7 +147,10 @@ mod tests {
         let out = json!({"StatusCode": 200, "FunctionError": "Unhandled", "ExecutedVersion": "$LATEST",
             "Payload": aws_core::base64::encode(b"{\"a\":1}")});
         let r = render(&TABLES, op("Invoke"), &out, None);
-        assert_eq!((r.status, r.body.as_slice()), (200, b"{\"a\":1}".as_slice()));
+        assert_eq!(
+            (r.status, r.body.as_slice()),
+            (200, b"{\"a\":1}".as_slice())
+        );
         assert_eq!(header_of(&r, "X-Amz-Function-Error"), Some("Unhandled"));
         assert_eq!(header_of(&r, "X-Amz-Executed-Version"), Some("$LATEST"));
         let dry = render(&TABLES, op("Invoke"), &json!({"StatusCode": 204}), None);
@@ -167,10 +173,19 @@ mod tests {
     fn an_error_names_its_code_in_a_header() {
         let e = ApiError::new(404, "ResourceNotFoundException", "Function not found: x");
         let r = error(&e);
-        assert_eq!(header_of(&r, "x-amzn-ErrorType"), Some("ResourceNotFoundException"));
+        assert_eq!(
+            header_of(&r, "x-amzn-ErrorType"),
+            Some("ResourceNotFoundException")
+        );
         let body: Value = serde_json::from_slice(&r.body).unwrap();
-        assert_eq!(body, json!({"Type": "User", "Message": "Function not found: x"}));
+        assert_eq!(
+            body,
+            json!({"Type": "User", "Message": "Function not found: x"})
+        );
         let v = error(&ApiError::new(400, "ValidationException", "bad"));
-        assert_eq!(serde_json::from_slice::<Value>(&v.body).unwrap(), json!({"message": "bad"}));
+        assert_eq!(
+            serde_json::from_slice::<Value>(&v.body).unwrap(),
+            json!({"message": "bad"})
+        );
     }
 }

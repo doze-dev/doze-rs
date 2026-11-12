@@ -41,7 +41,10 @@ pub struct RuntimeConfig {
 
 impl Default for RuntimeConfig {
     fn default() -> Self {
-        Self { idle: Duration::from_secs(600), interpreters: Interpreters::default() }
+        Self {
+            idle: Duration::from_secs(600),
+            interpreters: Interpreters::default(),
+        }
     }
 }
 
@@ -102,7 +105,6 @@ pub(crate) struct Running {
     pub(crate) timeout: Duration,
     function: String,
     clock: Arc<dyn Clock>,
-    pub(crate) cold: bool,
 }
 
 /// How an invocation ended, for the log and the report.
@@ -115,14 +117,29 @@ pub(crate) struct Finished {
 }
 
 impl Runtime {
-    pub(crate) fn new(tasks: Tasks, clock: Arc<dyn Clock>, config: RuntimeConfig, dir: PathBuf) -> Self {
-        Self { tasks, clock, config, dir, slots: Mutex::new(HashMap::new()), inflight: Mutex::new(HashMap::new()) }
+    pub(crate) fn new(
+        tasks: Tasks,
+        clock: Arc<dyn Clock>,
+        config: RuntimeConfig,
+        dir: PathBuf,
+    ) -> Self {
+        Self {
+            tasks,
+            clock,
+            config,
+            dir,
+            slots: Mutex::new(HashMap::new()),
+            inflight: Mutex::new(HashMap::new()),
+        }
     }
 
     fn slot(&self, key: &str) -> Arc<Slot> {
         let mut slots = self.slots.lock().unwrap_or_else(PoisonError::into_inner);
         Arc::clone(slots.entry(key.to_owned()).or_insert_with(|| {
-            Arc::new(Slot { workers: Mutex::new(Vec::new()), permits: Arc::new(Semaphore::new(MAX_WORKERS)) })
+            Arc::new(Slot {
+                workers: Mutex::new(Vec::new()),
+                permits: Arc::new(Semaphore::new(MAX_WORKERS)),
+            })
         }))
     }
 
@@ -131,7 +148,12 @@ impl Runtime {
         let prefix = format!("{function}/");
         let slots = self.slots.lock().unwrap_or_else(PoisonError::into_inner);
         for (_, slot) in slots.iter().filter(|(k, _)| k.starts_with(&prefix)) {
-            for w in slot.workers.lock().unwrap_or_else(PoisonError::into_inner).iter() {
+            for w in slot
+                .workers
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+                .iter()
+            {
                 w.retire();
             }
         }
@@ -156,7 +178,6 @@ impl Runtime {
             workers.retain(|w| !w.is_dead());
             workers.iter().find(|w| fresh(w, now) && w.claim()).cloned()
         };
-        let cold = warm.is_none();
         let worker = match warm {
             Some(w) => w,
             None => match self.spawn(&mut ask, &slot).await {
@@ -184,7 +205,9 @@ impl Runtime {
         if !worker.send(work).await {
             worker.kill();
             self.drop_inflight(&ask.function);
-            return Err(Some("the function process went away before it was given the invocation".to_owned()));
+            return Err(Some(
+                "the function process went away before it was given the invocation".to_owned(),
+            ));
         }
         Ok(Running {
             id,
@@ -197,12 +220,12 @@ impl Runtime {
             timeout: ask.timeout,
             function: ask.function,
             clock: Arc::clone(&self.clock),
-            cold,
         })
     }
 
     async fn spawn(&self, ask: &mut Ask, slot: &Slot) -> Result<Arc<Worker>, String> {
-        shims::ensure(&self.dir).map_err(|e| format!("the runtime clients could not be written: {e}"))?;
+        shims::ensure(&self.dir)
+            .map_err(|e| format!("the runtime clients could not be written: {e}"))?;
         ask.spec.shims = shims::dir(&self.dir);
         ask.spec.interpreters = self.config.interpreters.clone();
         ask.spec.log_stream = logs::stream_name(&ask.spec.version, self.clock.now_ms());
@@ -210,7 +233,10 @@ impl Runtime {
             .await
             .map_err(|e| e.0)?;
         assert_claimed(&worker);
-        slot.workers.lock().unwrap_or_else(PoisonError::into_inner).push(Arc::clone(&worker));
+        slot.workers
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .push(Arc::clone(&worker));
         Ok(worker)
     }
 
@@ -253,7 +279,9 @@ impl Running {
     /// Waits until the process has fetched the invocation; `Err` with the reason when it never does (it failed to start, or took
     /// longer than the init budget).
     pub(crate) async fn started(&mut self) -> Result<(), InitFailure> {
-        let Some(rx) = self.started.take() else { return Ok(()) };
+        let Some(rx) = self.started.take() else {
+            return Ok(());
+        };
         tokio::select! {
             got = tokio::time::timeout(INIT_BUDGET, rx) => match got {
                 Ok(Ok(())) => {
@@ -268,7 +296,13 @@ impl Running {
     }
 
     fn died_in_init(&self) -> InitFailure {
-        let reported = self.worker.shared.init_error.lock().unwrap_or_else(PoisonError::into_inner).clone();
+        let reported = self
+            .worker
+            .shared
+            .init_error
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone();
         InitFailure::Exited(reported)
     }
 
@@ -284,7 +318,11 @@ impl Running {
 
     /// How the process ended, if it has.
     pub(crate) fn exit_status(&self) -> Option<String> {
-        self.worker.exit.lock().unwrap_or_else(PoisonError::into_inner).clone()
+        self.worker
+            .exit
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone()
     }
 
     /// Ends the invocation: the process is given back to the pool when it is `healthy` and ended otherwise; the output it wrote is
@@ -326,5 +364,10 @@ pub(crate) fn timeout_document(id: &str, at: &str, timeout: Duration) -> Bytes {
 
 /// Credentials for a function that runs as no role.
 pub(crate) fn test_credentials() -> Creds {
-    Creds { key: "test".to_owned(), secret: "test".to_owned(), token: String::new(), expires_ms: 0 }
+    Creds {
+        key: "test".to_owned(),
+        secret: "test".to_owned(),
+        token: String::new(),
+        expires_ms: 0,
+    }
 }
