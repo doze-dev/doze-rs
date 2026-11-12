@@ -105,6 +105,12 @@ pub trait Service: Send + Sync + 'static {
     fn invalid(&self, violation: &Violation) -> ApiError {
         default_invalid(self.tables(), violation)
     }
+
+    /// [`Service::invalid`] for a service whose wording quotes the request (DynamoDB prints a rejected batch as Java does). The
+    /// default ignores the body.
+    fn invalid_in(&self, violation: &Violation, _body: &str) -> ApiError {
+        self.invalid(violation)
+    }
 }
 
 /// The Coral front end's wording of a failed model check. A bad enum value is worded as AWS worded it when the SSM scenario

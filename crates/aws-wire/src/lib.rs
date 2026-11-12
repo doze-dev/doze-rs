@@ -17,5 +17,5 @@ mod request_id;
 pub mod service;
 
 pub use auth_error::{Family, from_auth};
-pub use error::{ApiError, Fault};
+pub use error::{ApiError, BodyFields, Fault};
 pub use request_id::RequestId;

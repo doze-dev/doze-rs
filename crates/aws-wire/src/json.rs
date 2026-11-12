@@ -163,6 +163,12 @@ pub fn failure(
     quote(&mut body, &format!("{namespace}#{wire_code}"));
     body.extend_from_slice(br#","message":"#);
     quote(&mut body, &err.message);
+    for (name, raw) in err.body.iter().flat_map(|b| &b.0) {
+        body.push(b',');
+        quote(&mut body, name);
+        body.push(b':');
+        body.extend_from_slice(raw.as_bytes());
+    }
     body.push(b'}');
     builder.body(body).unwrap_or_default()
 }

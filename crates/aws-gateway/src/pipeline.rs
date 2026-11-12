@@ -261,7 +261,7 @@ fn decode_call(
                 body.as_str()
             };
             decode(tables, &entry.patterns, shape, text, &mut arena)
-                .map_err(|v| entry.service.invalid(&v))?
+                .map_err(|v| entry.service.invalid_in(&v, text))?
         }
         None => NIL,
     };

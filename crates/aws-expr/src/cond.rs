@@ -45,6 +45,21 @@ impl Cond {
     }
 }
 
+impl Cond {
+    /// The top-level attributes the condition looks at, with repeats.
+    #[must_use]
+    pub fn roots(&self) -> Vec<&str> {
+        match self {
+            Self::And(a, b) | Self::Or(a, b) => a.roots().into_iter().chain(b.roots()).collect(),
+            Self::Not(a) => a.roots(),
+            Self::Cmp(_, a, b) => [a, b].into_iter().filter_map(root_of).collect(),
+            Self::Between(a, b, c) => [a, b, c].into_iter().filter_map(root_of).collect(),
+            Self::In(a, rest) => std::iter::once(a).chain(rest).filter_map(root_of).collect(),
+            Self::Func(_, args) => args.iter().filter_map(root_of).collect(),
+        }
+    }
+}
+
 /// The value an operand stands for in `item`.
 pub(crate) fn operand<'a>(op: &'a Operand, item: &'a Item) -> Option<Cow<'a, Value>> {
     match op {
@@ -119,6 +134,14 @@ fn contains(whole: &Value, part: &Value) -> bool {
         (Value::Bs(s), Value::B(p)) => s.contains(p),
         (Value::L(l), p) => l.contains(p),
         _ => false,
+    }
+}
+
+/// The attribute an operand reads, if it reads one.
+fn root_of(o: &Operand) -> Option<&str> {
+    match o {
+        Operand::Path(p) | Operand::Size(p) | Operand::IfNotExists(p, _) => Some(p.root()),
+        Operand::Value(_) | Operand::ListAppend(..) => None,
     }
 }
 
