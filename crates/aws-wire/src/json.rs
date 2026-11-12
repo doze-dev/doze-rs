@@ -64,6 +64,46 @@ pub fn route(meta: &ServiceMeta, tables: &Tables, parts: &Parts) -> Result<u32, 
     tables.find_op(operation).ok_or_else(unknown)
 }
 
+/// Whether the request is in the Query protocol (a form body, no `X-Amz-Target`): what an SDK old enough to predate a service's
+/// JSON protocol sends.
+#[must_use]
+pub fn is_query_request(parts: &Parts) -> bool {
+    !parts.headers.contains_key("x-amz-target")
+        && parts
+            .headers
+            .get(header::CONTENT_TYPE)
+            .and_then(|v| v.to_str().ok())
+            .is_some_and(|v| v.starts_with("application/x-www-form-urlencoded"))
+}
+
+/// The refusal for a Query client of a service that serves JSON only (a settled decision: one protocol per service). It is
+/// XML, so that the old client can read it: it could not parse a JSON error and would show its own parse failure instead.
+#[must_use]
+pub fn query_refusal(meta: &ServiceMeta, id: &RequestId) -> Response<Vec<u8>> {
+    let message = format!(
+        "{} is served over the AWS JSON protocol only; this request used the Query protocol. Upgrade the SDK or CLI to a release that uses the JSON protocol for {}.",
+        meta.sdk_id, meta.sdk_id
+    );
+    let mut text = String::with_capacity(message.len());
+    for c in message.chars() {
+        match c {
+            '&' => text.push_str("&amp;"),
+            '<' => text.push_str("&lt;"),
+            '>' => text.push_str("&gt;"),
+            other => text.push(other),
+        }
+    }
+    let body = format!(
+        "<ErrorResponse><Error><Type>Sender</Type><Code>UnsupportedProtocol</Code><Message>{text}</Message></Error><RequestId>{id}</RequestId></ErrorResponse>"
+    );
+    Response::builder()
+        .status(StatusCode::BAD_REQUEST)
+        .header(header::CONTENT_TYPE, "text/xml")
+        .header("x-amzn-RequestId", id.as_str())
+        .body(body.into_bytes())
+        .unwrap_or_default()
+}
+
 /// The 200 answer for a body already encoded.
 #[must_use]
 pub fn success(version: Version, id: &RequestId, body: Vec<u8>) -> Response<Vec<u8>> {

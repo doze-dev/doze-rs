@@ -200,6 +200,27 @@ async fn requests_that_cannot_be_routed_are_refused_by_name() {
     running.shutdown().await;
 }
 
+#[tokio::test]
+async fn a_query_client_of_a_json_service_is_told_so_in_xml() {
+    let (running, addr) = start(Auth::Trust).await;
+    let auth = format!("AWS4-HMAC-SHA256 {SCOPE}");
+    let headers = [
+        ("Content-Type", "application/x-www-form-urlencoded"),
+        ("X-Amz-Date", "20130524T000000Z"),
+        ("Authorization", auth.as_str()),
+    ];
+    let (status, head, body) = send(addr, &headers, "Action=ListQueues&Version=2012-11-05").await;
+    assert_eq!(status, 400, "{body}");
+    assert!(head.contains("content-type: text/xml"), "{head}");
+    assert!(
+        body.starts_with(
+            "<ErrorResponse><Error><Type>Sender</Type><Code>UnsupportedProtocol</Code>"
+        ) && body.contains("Upgrade the SDK or CLI"),
+        "{body}"
+    );
+    running.shutdown().await;
+}
+
 /// A request signed the way an SDK signs it, with `secret`.
 fn signed(
     addr: SocketAddr,

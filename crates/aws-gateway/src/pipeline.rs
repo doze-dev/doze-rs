@@ -124,6 +124,9 @@ async fn handle(
             .finish(parts, hash.as_deref())
             .map_err(|e| fail(&from_auth(&e, Family::Coral)))?;
     }
+    if json::is_query_request(parts) {
+        return Err(Box::new(json::query_refusal(meta, id)));
+    }
     let op = json::route(meta, tables, parts).map_err(|e| fail(&e))?;
     let caller = Caller {
         access_key_id: claim.access_key_id,
