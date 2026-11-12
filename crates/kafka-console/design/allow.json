@@ -1386,5 +1386,37 @@
     "selector": "Deny [-] -> ui:tab",
     "reason": "[p9h] Applies to, Name matches and Permission are radio inputs drawn as the segmented control: a button of the segment would do nothing without a script.",
     "expires": "close"
+  },
+  {
+    "board": "settings-home",
+    "field": "state",
+    "selector": "st ok",
+    "reason": "[p9h] The board draws the Last stop of a data directory that was stopped cleanly (st ok); a broker with a new data directory, as the test one is, has no earlier stop (st idle, None yet).",
+    "expires": "close",
+    "render": "live"
+  },
+  {
+    "board": "settings-home",
+    "field": "state",
+    "selector": "st idle",
+    "reason": "[p9h] See the st ok entry.",
+    "expires": "close",
+    "render": "live"
+  },
+  {
+    "board": "broker-config-edit",
+    "field": "button",
+    "selector": "This broker (#) [-] -> ui:select",
+    "reason": "[p9h] Applies to, Name matches and Permission are radio inputs drawn as the segmented control: a button of the segment would do nothing without a script.",
+    "expires": "close",
+    "render": "live"
+  },
+  {
+    "board": "access-secured",
+    "field": "note",
+    "selector": "callout",
+    "reason": "[p9h] The canvas callout (see the fixture entry), as the live render prints it.",
+    "expires": "close",
+    "render": "live"
   }
 ]
