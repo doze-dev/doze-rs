@@ -95,7 +95,7 @@ fn connect(s: &str) -> ConnectView {
 fn shell(s: &str, main: maud::Markup, base: &Base) -> String {
     let urls = AssetUrls {
         css: base.url("/static/c.css"),
-        script: base.url("/static/c.js"),
+        scripts: vec![base.url("/static/c.js")],
         favicon: base.url("/static/f.svg"),
     };
     let chrome = Chrome {

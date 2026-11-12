@@ -30,7 +30,13 @@ fn every_file_of_assets_is_in_the_manifest_and_every_entry_has_its_file() {
 #[test]
 fn a_licence_is_kept_for_every_third_party_file() {
     let names: BTreeSet<_> = MANIFEST.iter().map(|f| f.name).collect();
-    for licence in ["inter.LICENSE.txt", "jetbrains-mono.LICENSE.txt"] {
+    for licence in [
+        "inter.LICENSE.txt",
+        "jetbrains-mono.LICENSE.txt",
+        "htmx.LICENSE.txt",
+        "idiomorph.LICENSE.txt",
+        "alpine.LICENSE.txt",
+    ] {
         assert!(names.contains(licence), "{licence}");
         assert!(
             std::fs::read_to_string(dir("assets").join(licence))
@@ -87,7 +93,9 @@ fn every_served_file_is_found_by_its_hashed_name_and_the_stylesheet_names_its_fo
         assert!(css.contains(&format!("url({name})")), "{font}");
         assert_eq!(assets.get(name).unwrap().content_type, "font/woff2");
     }
-    for url in [&assets.urls.script, &assets.urls.favicon] {
+    let urls = assets.urls.scripts.iter().chain([&assets.urls.favicon]);
+    assert_eq!(assets.urls.scripts.len(), SCRIPT_ORDER.len());
+    for url in urls {
         assert!(
             assets.get(url.rsplit('/').next().unwrap()).is_some(),
             "{url}"
@@ -100,8 +108,30 @@ fn every_served_file_is_found_by_its_hashed_name_and_the_stylesheet_names_its_fo
 }
 
 #[test]
-fn the_shipped_files_weigh_what_the_plan_says() {
-    // About 140 KB in all, fonts included: no library ships (the plan budgeted 190 to 200 KB with htmx).
+fn the_shipped_files_weigh_what_the_stack_decision_says() {
+    // 337 KB in all, fonts included (docs/port/console/client-stack.md): about 140 KB before the stack, 155 KB of vendored
+    // script with it, and the console's own two scripts.
     let total = Assets::build(&Base::root()).total_bytes();
-    assert!((120_000..200_000).contains(&total), "{total}");
+    assert!((250_000..420_000).contains(&total), "{total}");
+}
+
+#[test]
+fn the_vendored_script_stays_within_the_budget_of_the_stack_decision() {
+    let vendored: usize = MANIFEST
+        .iter()
+        .filter(|f| f.kind == Kind::Js && f.name.ends_with(".min.js"))
+        .map(|f| f.bytes.map_or(0, <[u8]>::len))
+        .sum();
+    assert!(vendored < 160_000, "vendored script is {vendored} bytes");
+    assert!(vendored > 100_000, "vendored script is {vendored} bytes: is a library missing?");
+}
+
+#[test]
+fn no_script_of_ours_evaluates_a_string() {
+    for name in ["console.js", "components.js"] {
+        let text = std::fs::read_to_string(dir("assets").join(name)).unwrap();
+        for banned in ["eval(", "new Function", "setTimeout(\"", "innerHTML ="] {
+            assert!(!text.contains(banned), "{name} uses {banned}");
+        }
+    }
 }

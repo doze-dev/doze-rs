@@ -52,9 +52,10 @@ fn the_markup_uses_the_attribute_names_the_constants_say() {
         holder.contains(&format!(" {ATTR_ADDRESS}=\"1.2.3.4:5\"")),
         "{holder}"
     );
-    let body = body(Some("/events?watch=a"), html! {}).into_string();
+    // The body boosts every link and form; the stream's address is on `main` (the shell's tests), where a swap renews it.
+    let body = body(html! {}).into_string();
     assert!(
-        body.contains(&format!(" {ATTR_STREAM}=\"/events?watch=a\"")),
+        body.starts_with(r##"<body hx-boost="true" hx-target="#main""##) && body.contains("preload=\"mouseover\""),
         "{body}"
     );
     let frag = fragment("home-instance", "/fragments/home-instance", html! { "x" }).into_string();

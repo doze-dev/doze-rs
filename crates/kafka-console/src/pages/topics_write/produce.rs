@@ -5,8 +5,8 @@ use maud::{Markup, html};
 use super::{field, opt, submit, topic_url};
 use crate::base::Base;
 use crate::model::{ProduceRefused, ProduceView, Span, Teach};
+use crate::ui::components::{Choice, Select, select};
 use crate::ui::dialog::{cancel, modal};
-use crate::ui::glyph_extra::{Extra, glyph_extra};
 use crate::ui::layout::card;
 use crate::ui::write::{apicall, field_error, refused, teach, text_input};
 
@@ -14,18 +14,13 @@ use crate::ui::write::{apicall, field_error, refused, teach, text_input};
 const MOST_HEADERS: usize = 8;
 
 fn partition_select(v: &ProduceView) -> Markup {
-    html! {
-        div class="input mono sel" {
-            select id="pp" name="partition" {
-                option value="" selected[v.partition.is_empty()] { "auto" }
-                @for p in 0..v.partitions {
-                    @let value = p.to_string();
-                    option value=(value) selected[v.partition == value] { (p) }
-                }
-            }
-            (glyph_extra(Extra::ChevD, 14))
-        }
-    }
+    let values: Vec<String> = (0..v.partitions).map(|p| p.to_string()).collect();
+    let mut choices = vec![Choice::new("", "auto").desc("the producer's partitioner picks")];
+    choices.extend(values.iter().map(|p| Choice::new(p, p)));
+    select(&Select {
+        class: "dz-block mono",
+        ..Select::new("pp", "partition", "Partition", &choices, &v.partition)
+    })
 }
 
 fn header_rows(v: &ProduceView) -> Markup {

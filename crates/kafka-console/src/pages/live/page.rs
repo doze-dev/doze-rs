@@ -11,6 +11,7 @@ use crate::format::number;
 use crate::model::{LiveState, LiveView, Span};
 use crate::ui::button::{Size, Variant, link};
 use crate::ui::client;
+use crate::ui::components::{Choice, Select, select};
 use crate::ui::glyph::{Glyph, glyph};
 use crate::ui::glyph_live::{LiveGlyph, live_glyph};
 use crate::ui::kafka::{filter_box, pager};
@@ -40,17 +41,20 @@ fn pause(v: &LiveView, base: &Base) -> Markup {
     }
 }
 
-fn select(name: &str, all: &str, current: &str, options: &[String]) -> Markup {
-    html! {
-        label class="fchip" {
-            select name=(name) aria-label=(all) data-autosubmit {
-                option value="" selected[current.is_empty()] { (all) }
-                @for o in options { option value=(o) selected[o == current] { (o) } }
-                @if !current.is_empty() && !options.iter().any(|o| o == current) { option value=(current) selected { (current) } }
-            }
-            (live_glyph(LiveGlyph::ChevD, 14))
-        }
+/// A filter that is a Select: the first choice is "all" (an empty value), the rest are what the wire has seen. A value the filter
+/// holds that the wire no longer shows stays a choice, so the page never lies about what it is filtering by.
+fn select_chip(name: &str, all: &str, current: &str, options: &[String]) -> Markup {
+    let mut choices = vec![Choice::new("", all)];
+    choices.extend(options.iter().map(|o| Choice::new(o, o)));
+    if !current.is_empty() && !options.iter().any(|o| o == current) {
+        choices.push(Choice::new(current, current));
     }
+    select(&Select {
+        auto_submit: true,
+        placeholder: all,
+        class: if current.is_empty() { "dz-chip" } else { "dz-chip on" },
+        ..Select::new(&format!("live-{name}"), name, all, &choices, current)
+    })
 }
 
 fn toggle(name: &str, on: bool, label: Markup) -> Markup {
@@ -62,11 +66,12 @@ fn toggle(name: &str, on: bool, label: Markup) -> Markup {
 fn toolbar(v: &LiveView, base: &Base, with_search: bool) -> Markup {
     let q = &v.query;
     html! {
-        form class="toolbar" method="get" action=(base.url("/live")) data-live-filters {
+        form class="toolbar" method="get" action=(base.url("/live")) data-live-filters
+            hx-get=(base.url("/live")) hx-target={"#" (LIVE_FRAGMENT)} hx-select={"#" (LIVE_FRAGMENT)} hx-swap=(client::IN_PLACE_SWAP) hx-push-url="true" {
             input type="submit" value="Filter" aria-label="Filter the wire" hidden data-scaffold;
             @if with_search { (filter_box("q", "Filter by client, API or topic", "Filter the wire", &q.text)) }
-            (select("client", "All apps", &q.client, &v.clients_ids))
-            (select("topic", "All topics", &q.topic, &v.topics_seen))
+            (select_chip("client", "All apps", &q.client, &v.clients_ids))
+            (select_chip("topic", "All topics", &q.topic, &v.topics_seen))
             // A toggle's own button carries its new value; the hidden fields keep the other's state.
             (toggle("refused", q.refused_only, html! { (glyph(Glyph::Filter, 14, "")) "Refused only" }))
             // "Idle polls hidden" is on by default: its button says what a click does by what it is now.

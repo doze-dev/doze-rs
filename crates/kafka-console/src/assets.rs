@@ -1,7 +1,20 @@
 //! The files the console ships: one manifest of `include_bytes!` lines, served under content-hashed names.
 //!
-//! Third-party files, with where they came from (npm registry tarballs, 2026-11-12):
-//! No third-party script ships: the client layer is `console.js`, ours. Only the fonts are third-party.
+//! Third-party files, with where they came from (npm registry tarballs, 2026-11-12). The client stack is decided in
+//! `docs/port/console/client-stack.md`; the versions are pinned here and there:
+//!
+//! - `htmx-2.0.11.min.js`: `htmx.org` 2.0.11 `dist/htmx.min.js`, 0BSD (`htmx.LICENSE.txt`),
+//!   `sha256 d6fdc75f204e6bdefa99b69bf1e6d4ac69b8a364f77929f45c13476b4000f717`.
+//! - `idiomorph-ext-0.8.0.min.js`: `idiomorph` 0.8.0 `dist/idiomorph-ext.min.js`, 0BSD (`idiomorph.LICENSE.txt`),
+//!   `sha256 5811b9a7eda14878b7dab4378bf60432e1bb6f11fcfb970cc26540642650181e`.
+//! - `htmx-preload-2.1.2.min.js`: `htmx-ext-preload` 2.1.2 `dist/preload.min.js`, 0BSD (`htmx.LICENSE.txt`),
+//!   `sha256 2ac8ccf77deee4f8e87366d6b606085eed755b02513746ead7573395e717d26e`.
+//! - `alpine-csp-3.17.5.min.js`: `@alpinejs/csp` 3.17.5 `dist/cdn.min.js` (the build that evaluates no string), MIT
+//!   (`alpine.LICENSE.txt`), `sha256 48c170c92032e527cbae71b8ce75cf1f96ca06fa869a6120ef0fe438d8e92c36`.
+//! - `alpine-anchor-3.17.5.min.js`: `@alpinejs/anchor` 3.17.5 `dist/cdn.min.js` (Floating UI inside), MIT,
+//!   `sha256 ab491df26e53b7ff6e502e0fa403b1960ce742a1e4498f209d8247ecf3e9e486`.
+//!
+//! `console.js` (product logic: Live, the palette, copy) and `components.js` (the Alpine components) are ours. The fonts:
 //!
 //! - `inter-latin-wght-normal.woff2`: `@fontsource-variable/inter` 5.3.0, Latin subset, OFL 1.1 (`inter.LICENSE.txt`),
 //!   `sha256 3100e775e8616cd2611beecfa23a4263d7037586789b43f035236a2e6fbd4c62`.
@@ -50,10 +63,31 @@ macro_rules! file {
 pub const MANIFEST: &[File] = &[
     file!("console.css", Css),
     file!("console.js", Js),
+    file!("components.js", Js),
+    file!("htmx-2.0.11.min.js", Js),
+    file!("idiomorph-ext-0.8.0.min.js", Js),
+    file!("htmx-preload-2.1.2.min.js", Js),
+    file!("alpine-anchor-3.17.5.min.js", Js),
+    file!("alpine-csp-3.17.5.min.js", Js),
     file!("favicon.svg", Svg),
     file!("inter-latin-wght-normal.woff2", Font),
     file!("jetbrains-mono-latin-400-normal.woff2", Font),
     file!("jetbrains-mono-latin-500-normal.woff2", Font),
+    File {
+        name: "htmx.LICENSE.txt",
+        kind: Kind::Licence,
+        bytes: None,
+    },
+    File {
+        name: "idiomorph.LICENSE.txt",
+        kind: Kind::Licence,
+        bytes: None,
+    },
+    File {
+        name: "alpine.LICENSE.txt",
+        kind: Kind::Licence,
+        bytes: None,
+    },
     File {
         name: "inter.LICENSE.txt",
         kind: Kind::Licence,
@@ -64,6 +98,17 @@ pub const MANIFEST: &[File] = &[
         kind: Kind::Licence,
         bytes: None,
     },
+];
+
+/// The scripts of a page, in load order.
+pub const SCRIPT_ORDER: [&str; 7] = [
+    "htmx-2.0.11.min.js",
+    "idiomorph-ext-0.8.0.min.js",
+    "htmx-preload-2.1.2.min.js",
+    "console.js",
+    "components.js",
+    "alpine-anchor-3.17.5.min.js",
+    "alpine-csp-3.17.5.min.js",
 ];
 
 /// A file ready to serve.
@@ -77,7 +122,9 @@ pub struct Served {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AssetUrls {
     pub css: String,
-    pub script: String,
+    /// The scripts, in the order a page loads them (all deferred, so they run in this order): htmx and its extensions, our
+    /// two files (which register on `alpine:init`), then Alpine's plugin and Alpine itself, which starts when it runs.
+    pub scripts: Vec<String>,
     pub favicon: String,
 }
 
@@ -157,7 +204,7 @@ impl Assets {
         };
         let urls = AssetUrls {
             css: url("console.css"),
-            script: url("console.js"),
+            scripts: SCRIPT_ORDER.iter().map(|n| url(n)).collect(),
             favicon: url("favicon.svg"),
         };
         Self { by_name, urls }

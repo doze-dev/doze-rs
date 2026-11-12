@@ -1,19 +1,17 @@
-// The console's own script: no library. Pages are complete without it; this adds what a script can: controls that need one
-// (copy), fragments that refetch when the server says they changed, forms that swap their answer in place, drawers and
-// dialogs that open over the page they were asked from, and the banner when the stream is lost. Every name below is defined in src/ui/client.rs, and a test checks that they agree.
-// Measured by the D4a spike (docs/port/phase9/client-spike.md); the rules it found are marked (spike n).
+// The console's product logic, on top of the client stack (htmx 2 + idiomorph + Alpine CSP; docs/port/console/client-stack.md).
 //
-// One file, one request, no build step. It is past the ~200 lines at which the D4a spike said to reconsider writing our own, and
-// the owner's call is to keep it: it stays readable as sections, in this order, each one standing on the ones above it:
-//   1. Helpers and the copy buttons      (attr, reveal, copy, "Copied")
-//   2. Fragments                         (morph, fade, apply, refresh by ETag)
-//   3. Live                              (pause and resume, the tape held aside while paused or while a drawer is open, new rows, j/k on the tape)
-//   4. Overlays                          (open, close, history, focus, form answers, page swap, adoption of a server-rendered one)
-//   5. The jump palette                  (⌘K, arrows, Enter)
-//   6. j and k through the rows          (and through the records of an open drawer)
-//   7. The stream                        (one EventSource, ticks, the banner)
-// The Live section asks "is an overlay open?" of the DOM (`[data-overlay]`) and the Overlays section lets the tape catch up when
-// the last one goes, so neither knows the other's internals. Tests: tools/dom (console, overlay, polish and live suites).
+// What the libraries do and this file does not: htmx boosts every link and form (a navigation swaps `main` and keeps the shell),
+// pushes the history, restores a page on Back, preloads on intent and cross-fades with a View Transition; idiomorph edits the page
+// into the new one so focus, typed text and scroll stay; Alpine (components.js) runs the Select, Combobox, menu and tooltip.
+// What this file keeps, because it is the product: the copy buttons, the Live tape (pause, what is held back, new rows), the
+// stream's ticks and fragments (ETag), overlays (a drawer or dialog opens over its page, with its own history entry),
+// the ⌘K palette's keys, j and k, and the small seams to the stack: scroll memory, the progress hint, focus after a swap.
+// Every name below is defined in src/ui/client.rs, and a test checks that they agree. Tests: tools/dom.
+//
+// Sections, each standing on the ones above it:
+//   1. Helpers and the copy buttons      2. Fragments (morph, fade, refresh by ETag)      3. Live (pause, held, new rows)
+//   4. Overlays (htmx.ajax into #ovl, history, focus)      5. The palette      6. j and k      7. The stream
+//   8. Navigation (scroll, progress, focus, preload on focus)
 (() => {
   // ==== 1. Helpers and the copy buttons ====
   const attr = (el, name) => (el ? el.getAttribute(name) : null);
@@ -26,6 +24,12 @@
   reveal();
   // Motion only for people who have not asked for less of it.
   const reduced = () => !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  // A click this file owns (a pause, an overlay opener, a copy): taken before htmx's own handler on a boosted link sees it.
+  const own = (selector, fn) => document.addEventListener('click', (e) => {
+    const el = e.target.closest && e.target.closest(selector);
+    if (!el || e.defaultPrevented || e.metaKey || e.ctrlKey || e.shiftKey || e.button) return;
+    if (fn(el, e) !== false) { e.preventDefault(); e.stopPropagation(); }
+  }, true);
 
   // Copy: the text of the button, or of the element it names. "Copy as" changes the form of the address, for the buttons
   // that carry the address (the client snippets, data-copy-forms) and for no other: a card that copies its own lines copies those.
@@ -81,23 +85,35 @@
   }
 
   // ==== 2. Fragments ====
-  // Edit the nodes on screen into the new ones, so focus, typed text, caret and scroll position stay. What really changed is
-  // remembered, so that only it fades in (below): an unchanged answer changes nothing and moves nothing.
-  const changed = new Set();
-  function morph(a, b) {
-    if (a.nodeType !== b.nodeType || a.nodeName !== b.nodeName) { if (a.parentElement) changed.add(a.parentElement); return a.replaceWith(b); }
-    if (a.nodeType === 3) { if (a.data !== b.data) { a.data = b.data; if (a.parentElement) changed.add(a.parentElement); } return; }
-    if (a.nodeType !== 1) return;
-    const focused = a === document.activeElement;
-    for (const { name, value } of [...b.attributes]) if (a.getAttribute(name) !== value && !(focused && name === 'value')) a.setAttribute(name, value);
-    for (const { name } of [...a.attributes]) if (!b.hasAttribute(name)) a.removeAttribute(name);
-    if (a.localName === 'input' && !focused && a.value !== b.value) a.value = b.value;
-    const ac = [...a.childNodes], bc = [...b.childNodes];
-    bc.forEach((n, i) => { if (ac[i]) morph(ac[i], n); else { a.append(n); changed.add(a); } });
-    ac.slice(bc.length).forEach((n) => { n.remove(); changed.add(a); });
+  // Idiomorph edits the nodes on screen into the new ones, so focus, typed text, caret and scroll position stay. What really
+  // changed is remembered, so that only it fades in (below): an unchanged answer changes nothing and moves nothing. The same
+  // configuration serves htmx's own `morph` swaps (a filter, a chip, a pager) through Idiomorph.defaults.
+  const changed = new Set(), added = [];
+  const mark = (el) => { if (el) changed.add(el); };
+  const quiet = (el) => el && el.nodeType === 1 && el.hasAttribute('data-open');
+  if (window.Idiomorph) {
+    const d = window.Idiomorph.defaults;
+    d.ignoreActiveValue = true;
+    Object.assign(d.callbacks, {
+      // A component that is open (a menu, a select's list) is left as the person has it.
+      beforeNodeMorphed: (a, b) => {
+        if (quiet(a)) return false;
+        if (a.nodeType === 3 && a.data !== b.data) mark(a.parentElement);
+        return true;
+      },
+      beforeNodeAdded: (n) => { added.push(n); return true; },
+      beforeNodeRemoved: (n) => { mark(n.parentElement); return true; },
+      // Alpine owns an `x-show` element's `style`: the server's copy (closed) must not close it.
+      beforeAttributeUpdated: (name, node) => {
+        if (name === 'style' && node.hasAttribute && node.hasAttribute('x-show')) return false;
+        mark(node);
+        return true;
+      },
+    });
   }
   // A very short fade (opacity only, 120 ms) on what changed.
   function fade() {
+    for (const n of added.splice(0)) if (n.parentElement) changed.add(n.parentElement);
     const els = [...changed].filter((el) => el.isConnected);
     changed.clear();
     if (reduced()) return;
@@ -107,9 +123,14 @@
   function apply(html) {
     const t = document.createElement('template');
     t.innerHTML = html;
-    for (const el of t.content.children) { const target = el.id && document.getElementById(el.id); if (target) morph(target, el); }
+    for (const el of t.content.children) {
+      const target = el.id && document.getElementById(el.id);
+      if (target) window.Idiomorph.morph(target, el, { morphStyle: 'outerHTML' });
+    }
     fade();
   }
+  // htmx's morph swaps (a filter, a chip) fade what changed, too.
+  document.addEventListener('htmx:afterSwap', fade);
 
   // A fragment: fetched again on a tick. The script keeps the ETag and sends it (spike 1: a browser turns a 304 into a 200
   // for fetch), and the newest request wins per fragment (spike 4).
@@ -186,52 +207,31 @@
     btn.setAttribute('data-pause', '');
     release();
   }
-  document.addEventListener('click', (e) => {
-    const p = e.target.closest('[data-pause]');
-    if (p && !e.defaultPrevented) { e.preventDefault(); pause(p); return; }
-    const r = e.target.closest('[data-resume]');
-    if (r && pausedAt !== null) { e.preventDefault(); resume(r); }
-  });
+  own('[data-pause]', (p) => pause(p));
+  own('[data-resume]', (r) => (pausedAt !== null ? resume(r) : false));
   // A drawer that closes lets the tape catch up. Keys: j and k move between the rows' links; Enter opens the one in focus.
   document.addEventListener('click', () => setTimeout(() => { if (pausedAt === null && !overlayOpen()) release(); }, 0));
-  document.addEventListener('keydown', (e) => {
-    if (e.metaKey || e.ctrlKey || e.altKey || (e.key !== 'j' && e.key !== 'k')) return;
-    const tag = e.target && e.target.tagName;
-    if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || overlayOpen()) return;
-    const links = [...document.querySelectorAll('table.wire td.tm a')];
-    if (!links.length) return;
-    const at = links.indexOf(document.activeElement);
-    const next = e.key === 'j' ? Math.min(links.length - 1, at + 1) : Math.max(0, at < 0 ? 0 : at - 1);
-    links[next].focus();
-    e.preventDefault();
-  });
   // A filter that is a select applies as soon as it changes (without a script it is applied with the Enter key or the button).
-  document.addEventListener('change', (e) => { const s = e.target.closest && e.target.closest('select[data-autosubmit]'); if (s && s.form) s.form.submit(); });
-
-  // A form that is not in an overlay: posted in place; the answer is the fragment named by data-target. If that fails the
-  // form posts as it would without us.
-  async function postInPlace(f) {
-    try {
-      const r = await fetch(f.action, { method: 'POST', body: new URLSearchParams(new FormData(f)), headers: { 'X-Fragment': '1' } });
-      if (!r.ok) throw new Error(String(r.status));
-      apply(await r.text());
-    } catch (err) { f.submit(); }
-  }
+  // `requestSubmit` goes through the form's submit event, which htmx (or the browser) answers.
+  document.addEventListener('change', (e) => {
+    const s = e.target.closest && e.target.closest('[data-autosubmit]');
+    const f = s && (s.form || s.closest('form'));
+    if (f) { if (f.requestSubmit) f.requestSubmit(); else f.submit(); }
+  });
 
   // ==== 4. Overlays ====
-  // A drawer or a dialog (src/ui/overlay.rs) opens over the page it was asked from, with no navigation. The
-  // address is pushed, so Back closes it; Esc, the scrim and the Close control close it too. The page behind is inert, focus
-  // stays inside, and closing returns focus to what opened it. A server-rendered overlay (a direct visit, a reload) is adopted.
-  let ovl = null; // { el, opener, pushed, y }
-  let swapped = false; // the page was replaced by an answer: the history no longer describes it
+  // A drawer or a dialog (src/ui/overlay.rs) opens over the page it was asked from, with no navigation: htmx fetches it into the
+  // overlay root (#ovl). The address is pushed with a mark of ours, so Back closes it (htmx must not restore a page for that:
+  // the popstate below takes the entries that are ours); Esc, the scrim and the Close control close it too. The page behind is
+  // inert, focus stays inside, and closing returns focus to what opened it. A server-rendered overlay (a direct visit, a
+  // reload) is adopted.
+  let ovl = null; // { el, opener, pushed, y, parent }
+  let opening = null; // { opener, push, parent } while a request for an overlay is out
+  const root = () => document.getElementById('ovl');
   const panelOf = (el) => el.querySelector('[role=dialog]');
   const pageRoot = () => document.querySelector('.root:not([data-overlay])');
-  const asOverlay = (html) => {
-    const t = document.createElement('template');
-    t.innerHTML = html;
-    return t.content.querySelector('[data-overlay]');
-  };
-  const focusables = (p) => [...p.querySelectorAll('a[href],button,input,select,textarea,[tabindex]')].filter((e) => !e.disabled && !e.hidden && e.tabIndex >= 0);
+  const here = () => location.pathname + location.search;
+  const sameUrl = (a, b) => { try { const x = new URL(a, location.href), y = new URL(b, location.href); return x.pathname + x.search === y.pathname + y.search; } catch (e) { return false; } };
   // Focus goes to the first field of a form, else to the panel itself (its title is read out).
   function focusIn(el) {
     const p = panelOf(el);
@@ -239,13 +239,12 @@
     const first = p.querySelector('[autofocus]') || p.querySelector('input:not([type=hidden]):not([readonly]),select,textarea');
     (first || p).focus({ preventScroll: true });
   }
-  function mount(el, opener, animate) {
-    ovl = { el, opener, pushed: false, y: window.scrollY || 0 };
-    document.body.append(el);
-    reveal();
+  function mount(el, o) {
+    ovl = { el, opener: o.opener, pushed: false, y: window.scrollY || 0, parent: o.parent };
     const r = pageRoot();
     if (r) r.setAttribute('inert', '');
-    if (animate && !reduced()) el.classList.add('ovl-in');
+    if (o.animate && !reduced()) el.classList.add('ovl-in');
+    reveal();
     focusIn(el);
   }
   // Closing is the opening in reverse and a little faster; with reduced motion it is at once.
@@ -269,7 +268,7 @@
     o.el.classList.remove('ovl-in');
     o.el.classList.add('ovl-out');
     o.el.addEventListener('animationend', finish, { once: true });
-    setTimeout(finish, 200);
+    setTimeout(finish, 220);
   }
   // Close: back to the address that was there, through the history if the script pushed this one.
   function dismiss() {
@@ -278,100 +277,97 @@
     else if (ovl.el.hasAttribute('data-transient')) teardown();
     else { history.replaceState(null, '', attr(ovl.el, 'data-close') || location.href); teardown(); }
   }
-  // Put an overlay's content in place of the open one (the next record, a form's answer) without closing it.
-  function replaceOverlay(el, url) {
-    ovl.el.replaceWith(el);
-    ovl.el = el;
-    reveal();
-    if (url) history.replaceState({ ovl: 1 }, '', url);
-    focusIn(el);
-  }
-  async function openOverlay(url, opener, push) {
-    let el;
-    try {
-      const r = await fetch(url, { headers: { 'X-Fragment': '1' } });
-      if (!r.headers.get('x-overlay')) throw new Error(String(r.status));
-      el = asOverlay(await r.text());
-      if (!el) throw new Error('no overlay');
-    } catch (err) { location.href = url; return; }
-    if (ovl) return replaceOverlay(el, push ? url : null);
-    mount(el, opener, true);
+  // The root holds an overlay that was just swapped in (or none): bring our state in line with the DOM. Run after every htmx swap.
+  function sync() {
+    const el = root() && root().querySelector('[data-overlay]');
+    if (!el) {
+      if (ovl) { const r = pageRoot(); if (r) r.removeAttribute('inert'); ovl = null; }
+      return;
+    }
+    if (ovl && ovl.el === el) return;
+    if (ovl) { ovl.el = el; reveal(); focusIn(el); return; } // the next record, a form's answer: in place, not coming in again
+    const o = opening || { opener: null, push: false, parent: here(), animate: false };
+    opening = null;
+    const fresh = !!o.opener || o.animate;
+    mount(el, { opener: o.opener, parent: o.parent, animate: fresh });
     if (el.hasAttribute('data-transient')) jumpSelect(0);
-    if (push) { history.pushState({ ovl: 1 }, '', url); ovl.pushed = true; }
+    if (o.push) { history.pushState({ ovl: 1, parent: o.parent }, '', o.push); ovl.pushed = true; }
   }
-  // A page came back instead of an overlay (the result of a write): it replaces this one, softly where the browser can.
-  function swapPage(html, url) {
-    const doc = new DOMParser().parseFromString(html, 'text/html');
-    history.replaceState(null, '', url || (ovl && attr(ovl.el, 'data-close')) || location.href);
-    swapped = true;
-    const put = () => {
-      ovl = null;
-      document.title = doc.title;
-      document.body.setAttribute('data-stream', attr(doc.body, 'data-stream') || '');
-      document.body.replaceChildren(...doc.body.childNodes);
-      reveal();
-      const m = document.getElementById('main');
-      if (m) { m.setAttribute('tabindex', '-1'); m.focus({ preventScroll: true }); }
-      listen();
-    };
-    if (document.startViewTransition && !reduced()) document.startViewTransition(put); else put();
+  function openOverlay(url, opener, push, animate) {
+    opening = { opener, push: push ? url : null, parent: here(), animate: !!animate };
+    // The overlay (or, if the address answered something else, the page) comes back through htmx; if it cannot, go there.
+    const failed = () => { opening = null; location.href = url; };
+    const req = window.htmx.ajax('GET', url, { target: '#ovl', swap: 'innerHTML', headers: { 'X-Fragment': '1' } });
+    if (req && req.then) req.then(() => { if (!root() || !root().querySelector('[data-overlay]')) failed(); }, failed);
   }
+  own('[data-dialog]', (a) => { openOverlay(a.href, a, true); });
+  own('[data-dialog-close],[data-overlay-close]', (c) => { if (!ovl || !ovl.el.contains(c)) return false; dismiss(); });
   // A form of an overlay: posted in place. An overlay comes back (a refusal, a field to fix) and replaces this one; a page
-  // comes back (the result) and replaces the page. If the request cannot be made at all the form posts as it would without us.
+  // comes back (the result of a write) and the layer told htmx to swap it into main and replace this address with its own.
   // A submit control that asks for a GET (formmethod, like a dialog's Preview) never writes: its answer is fetched with the
   // fields in the address, and the overlay that comes back replaces this one and takes that address.
-  async function submitOverlay(f, submitter) {
-    const via = (submitter && submitter.getAttribute('formmethod')) || f.getAttribute('method') || 'post';
-    const reading = via.toLowerCase() === 'get';
-    const data = new FormData(f, submitter || undefined);
-    f.setAttribute('aria-busy', 'true');
-    let r, at = null;
-    try {
-      if (reading) {
-        at = new URL((submitter && submitter.getAttribute('formaction')) || f.action, location.href);
-        at.search = new URLSearchParams(data).toString();
-        r = await fetch(at.href, { headers: { 'X-Fragment': '1' } });
-      } else {
-        r = await fetch(f.action, { method: 'POST', body: new URLSearchParams(data), headers: { 'X-Fragment': '1' } });
-      }
-    } catch (err) { if (reading) location.href = at.href; else f.submit(); return; }
-    const text = await r.text();
-    if (r.headers.get('x-overlay')) { const el = asOverlay(text); if (el) return replaceOverlay(el, reading ? at.href : null); }
-    swapPage(text, r.redirected ? r.url : null);
-  }
-
-  document.addEventListener('click', (e) => {
-    const closer = e.target.closest('[data-dialog-close],[data-overlay-close]');
-    if (closer && ovl && ovl.el.contains(closer)) { e.preventDefault(); dismiss(); return; }
-    const a = e.target.closest('a[data-dialog]');
-    if (!a || e.defaultPrevented || e.metaKey || e.ctrlKey || e.shiftKey || e.button) return;
-    e.preventDefault();
-    openOverlay(a.href, a, true);
-  });
   document.addEventListener('submit', (e) => {
     const f = e.target.closest ? e.target.closest('form') : null;
-    if (!f) return;
-    if (ovl && ovl.el.contains(f)) { e.preventDefault(); submitOverlay(f, e.submitter); return; }
-    if (f.hasAttribute('data-ajax')) { e.preventDefault(); postInPlace(f); }
-  });
+    if (!f || !ovl || !ovl.el.contains(f)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const sub = e.submitter;
+    const via = ((sub && sub.getAttribute('formmethod')) || f.getAttribute('method') || 'post').toLowerCase();
+    const data = new FormData(f, sub || undefined);
+    f.setAttribute('aria-busy', 'true');
+    if (via === 'get') {
+      const at = new URL((sub && sub.getAttribute('formaction')) || f.action, location.href);
+      at.search = new URLSearchParams(data).toString();
+      history.replaceState({ ovl: 1, parent: ovl.parent }, '', at.href);
+      opening = null;
+      window.htmx.ajax('GET', at.href, { target: '#ovl', swap: 'innerHTML', headers: { 'X-Fragment': '1' } });
+    } else {
+      window.htmx.ajax('POST', f.action, { target: '#ovl', swap: 'innerHTML', values: Object.fromEntries(data), headers: { 'X-Fragment': '1' } })
+        .catch(() => f.submit());
+    }
+  }, true);
   document.addEventListener('keydown', (e) => {
     if (!ovl) return;
     if (e.key === 'Escape' && !e.defaultPrevented) { e.preventDefault(); dismiss(); return; }
     if (e.key !== 'Tab') return;
-    const p = panelOf(ovl.el), f = focusables(p), at = document.activeElement;
+    // The page behind is inert, so Tab cannot leave through it; this keeps it going round inside the panel.
+    const p = panelOf(ovl.el), f = [...p.querySelectorAll('a[href],button,input,select,textarea,[tabindex]')].filter((n) => !n.disabled && !n.hidden && n.tabIndex >= 0 && n.getClientRects().length), at = document.activeElement;
     if (!f.length) { e.preventDefault(); p.focus(); return; }
     const first = f[0], last = f[f.length - 1];
     if (e.shiftKey && (at === first || !p.contains(at))) { e.preventDefault(); last.focus(); }
     else if (!e.shiftKey && (at === last || !p.contains(at))) { e.preventDefault(); first.focus(); }
   });
+  // Back and Forward. An entry of ours (an overlay) beside its parent page is handled here, before htmx (a capture listener on
+  // the window runs first, and stopping it keeps htmx from putting a whole page back for what is only an overlay).
+  addEventListener('popstate', (e) => {
+    const st = history.state, now = location.pathname + location.search;
+    if (ovl && !(st && st.ovl)) {
+      if (sameUrl(now, ovl.parent)) { e.stopImmediatePropagation(); teardown(); } else { teardown(true); }
+    } else if (!ovl && st && st.ovl && sameUrl(st.parent, pageUrl)) {
+      e.stopImmediatePropagation();
+      openOverlay(location.href, null, false, true);
+    } else if (ovl && st && st.ovl && !sameUrl(now, attr(ovl.el, 'data-url') || now)) {
+      e.stopImmediatePropagation();
+      openOverlay(location.href, null, false);
+    }
+  }, true);
+  // A server-rendered overlay is adopted: the same closing, the same Back.
+  function adopt() {
+    const first = root() && root().querySelector('[data-overlay]');
+    if (!first) return;
+    const parent = attr(first, 'data-close') || here();
+    mount(first, { opener: null, parent, animate: false });
+    history.replaceState({ ovl: 1, parent }, '', location.href);
+  }
+
   // ==== 5. The jump palette ====
   // ⌘K or Ctrl+K, or a click on the top bar's search, opens the palette (/jump, an overlay with no page behind it of its
-  // own: no history entry). Typing narrows the topics, the arrows move, Enter goes there, Esc closes.
+  // own: no history entry). Typing narrows the names, the arrows move, Enter goes there, Esc closes.
   const palette = () => attr(document.querySelector('[data-palette]'), 'data-palette');
   function openPalette() {
     if (ovl) { if (ovl.el.hasAttribute('data-transient')) dismiss(); return; }
     const url = palette();
-    if (url) openOverlay(url, document.activeElement, false);
+    if (url) openOverlay(url, document.activeElement, false, true);
   }
   const jumpLinks = () => (ovl ? [...ovl.el.querySelectorAll('.jump-list li:not([hidden]) a')] : []);
   function jumpSelect(to) {
@@ -399,11 +395,12 @@
   // ==== 6. j and k through the rows ====
   // j and k move through the rows of the page's table (a row's first link takes the focus; Enter opens it, as on any link). With
   // a drawer open they are the next and the previous record: the opener's neighbours in its table.
-  const typing = (t) => t && (/^(input|textarea|select)$/i.test(t.tagName) || t.isContentEditable);
+  const typing = (t) => t && (/^(input|textarea|select)$/i.test(t.tagName) || t.isContentEditable || (t.closest && t.closest('[role=listbox],[role=menu]')));
   const rowLinks = () => [...document.querySelectorAll('main table.t tbody tr')].map((tr) => tr.querySelector('a[href]')).filter(Boolean);
+  const tapeLinks = () => [...document.querySelectorAll('table.wire td.tm a')];
   document.addEventListener('keydown', (e) => {
     if ((e.key !== 'j' && e.key !== 'k') || e.metaKey || e.ctrlKey || e.altKey || e.defaultPrevented || typing(e.target)) return;
-    const links = rowLinks();
+    const links = rowLinks().length ? rowLinks() : tapeLinks();
     if (!links.length) return;
     const from = ovl ? ovl.opener : document.activeElement && document.activeElement.closest('tr') ? document.activeElement.closest('tr').querySelector('a[href]') : null;
     const at = links.indexOf(from);
@@ -414,26 +411,17 @@
     next.focus();
   });
 
-  // Back and Forward: the history says whether an overlay belongs on this entry.
-  addEventListener('popstate', () => {
-    if (swapped) { location.reload(); return; }
-    const want = !!(history.state && history.state.ovl);
-    if (ovl && !want) teardown();
-    else if (!ovl && want) openOverlay(location.href, null, false);
-  });
-  // A server-rendered overlay is adopted: the same closing, the same Back.
-  const first = document.querySelector('[data-overlay]');
-  if (first) { ovl = { el: first, opener: null, pushed: false, y: 0 }; history.replaceState({ ovl: 1 }, '', location.href); focusIn(first); }
-
   // ==== 7. The stream ====
-  // One connection while the page is on screen. A tick names the fragments to fetch again.
-  let es = null, wait = 1000, timer = 0;
+  // One connection while the page is on screen. A tick names the fragments to fetch again. The address is on `main`: a swap
+  // of main (a navigation) brings the next page's own, and the stream is opened again for it.
+  let es = null, wait = 1000, timer = 0, streamUrl = null;
   const close = () => { clearTimeout(timer); if (es) es.close(); es = null; };
+  const wanted = () => attr(document.getElementById('main'), 'data-stream') || attr(document.body, 'data-stream');
   const connect = () => {
     close();
-    const url = attr(document.body, 'data-stream');
-    if (!url || !window.EventSource) return;
-    es = new EventSource(url);
+    streamUrl = wanted();
+    if (!streamUrl || !window.EventSource) return;
+    es = new EventSource(streamUrl);
     es.addEventListener('tick', (e) => e.data.split(',').filter(Boolean).forEach(refresh));
     es.onopen = () => { wait = 1000; const b = banner(); if (b) b.hidden = true; };
     // Reconnect for ever with a growing wait (spike 3): the console left open while the broker is down must come back.
@@ -445,10 +433,65 @@
       wait = Math.min(wait * 2, 15000);
     };
   };
-  const listen = connect;
   // A page in the back/forward cache or a hidden tab must not hold a stream open: a browser allows 6 connections per origin (spike 2).
   document.addEventListener('visibilitychange', () => (document.hidden ? close() : connect()));
   addEventListener('pagehide', close);
   addEventListener('pageshow', (e) => { if (e.persisted) connect(); });
+
+  // ==== 8. Navigation: the seams to htmx ====
+  // Scroll: a new page starts at the top (the swap says so), Back puts the page where it was left, and a control that changes only
+  // its own region keeps the scroll (its swap says show:none). Scroll is remembered per address for the session.
+  let pageUrl = here();
+  const store = (() => { try { return window.sessionStorage; } catch (e) { return null; } })();
+  const remember = () => { if (store) { try { store.setItem('doze:y:' + pageUrl, String(window.scrollY || 0)); } catch (e) { /* storage is full or off */ } } };
+  if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+  let slow = 0;
+  const hx = (name, fn) => document.addEventListener('htmx:' + name, fn);
+  hx('beforeRequest', (e) => {
+    const h = e.detail.requestConfig && e.detail.requestConfig.headers;
+    if (h && h['HX-Preloaded']) return;
+    if (e.detail.elt === document.body || (e.detail.requestConfig && e.detail.requestConfig.boosted)) remember();
+    // A thin hint only when a request is slow: nothing for a fast one.
+    clearTimeout(slow);
+    slow = setTimeout(() => document.documentElement.classList.add('is-loading'), 250);
+  });
+  const done = () => { clearTimeout(slow); document.documentElement.classList.remove('is-loading'); };
+  hx('afterRequest', done);
+  hx('sendError', (e) => { done(); const p = e.detail.pathInfo && e.detail.pathInfo.requestPath; if (p && e.detail.requestConfig && e.detail.requestConfig.boosted) location.href = p; });
+  // After any swap: our state follows the DOM (an overlay came or went), new controls are revealed, the stream follows the page.
+  hx('afterSettle', () => {
+    pageUrl = ovl && ovl.parent ? ovl.parent : here();
+    sync();
+    reveal();
+    if (wanted() !== streamUrl) connect();
+  });
+  hx('load', reveal);
+  // A page swapped into main takes focus (a screen reader reads the new page), without scrolling.
+  hx('afterSwap', (e) => {
+    const t = e.detail.target;
+    if (!t || t.id !== 'main' || e.detail.requestConfig.headers['HX-Boosted'] === undefined) return;
+    const m = document.getElementById('main');
+    if (m) { m.setAttribute('tabindex', '-1'); m.focus({ preventScroll: true }); }
+  });
+  // Back and Forward restore the page (htmx fetches it); the scroll it had comes back with it.
+  hx('historyRestore', () => {
+    pageUrl = here();
+    let y = 0;
+    if (store) { try { y = Number(store.getItem('doze:y:' + pageUrl)) || 0; } catch (e) { y = 0; } }
+    if (window.scrollTo) window.scrollTo(0, y);
+    reveal();
+    sync();
+    connect();
+  });
+  hx('pushedIntoHistory', () => { pageUrl = here(); });
+  hx('replacedInHistory', () => { pageUrl = here(); });
+  addEventListener('pagehide', remember);
+  // Preload on intent: htmx's extension does the pointer (after a short rest); keyboard focus is the same intent.
+  document.addEventListener('focusin', (e) => {
+    const a = e.target.closest && e.target.closest('a[href]');
+    if (a && a.closest('[preload]') && a.getAttribute('preload') !== 'false' && window.Event) a.dispatchEvent(new Event('mouseover'));
+  });
+
+  adopt();
   connect();
 })();

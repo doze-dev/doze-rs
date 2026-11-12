@@ -129,9 +129,9 @@ fn topbar(page: &Page<'_>) -> Markup {
     }
 }
 
-fn rail(page: &Page<'_>) -> Markup {
+fn rail(page: &Page<'_>, oob: bool) -> Markup {
     html! {
-        nav class="rail" aria-label="Spaces" {
+        nav class="rail" id="rail" aria-label="Spaces" hx-swap-oob=[oob.then_some("true")] {
             div class="nav" {
                 @for r in Rail::ALL {
                     @let on = r == page.active;
@@ -178,6 +178,26 @@ pub fn document_over(page: &Page<'_>, over: Over) -> Markup {
 fn document_with(page: &Page<'_>, main: Markup, overlay: Option<Markup>) -> Markup {
     let stream =
         (!page.watch.is_empty()).then(|| client::stream_url(&page.base.url("/events"), page.watch));
+    // The page's own part: the breadcrumb, the stream banner and the content. It is the same markup in a whole document and in
+    // the region an htmx request is answered with.
+    let main_el = html! {
+        main class="main" id="main" data-stream=[stream.as_deref()] {
+            (crumbs(page))
+            (super::notice::banner_bad(Some(client::ID_BANNER), true, html! {
+                b { "Live updates are paused." }
+                " The console lost its connection to the broker's process. It is trying again; the page itself is still right as of its last load."
+            }))
+            (main)
+        }
+    };
+    if crate::region::wanted() {
+        return html! {
+            title { (page.title) " · doze-kafka" }
+            (main_el)
+            (rail(page, true))
+            div id=(client::ID_OVERLAY_ROOT) hx-swap-oob="true" { @if let Some(o) = &overlay { (o) } }
+        };
+    }
     html! {
         (DOCTYPE)
         html lang="en" {
@@ -187,9 +207,9 @@ fn document_with(page: &Page<'_>, main: Markup, overlay: Option<Markup>) -> Mark
                 title { (page.title) " · doze-kafka" }
                 link rel="icon" type="image/svg+xml" href=(page.assets.favicon);
                 link rel="stylesheet" href=(page.assets.css);
-                (client::head(&page.assets.script))
+                (client::head(&page.assets.scripts))
             }
-            (client::body(stream.as_deref(), html! {
+            (client::body(html! {
                 a class="skip" href="#main" { "Skip to the page" }
                 div class="root" inert[overlay.is_some()] {
                     @if page.chrome.unprotected {
@@ -200,18 +220,12 @@ fn document_with(page: &Page<'_>, main: Markup, overlay: Option<Markup>) -> Mark
                     }
                     (topbar(page))
                     div class="frame" {
-                        (rail(page))
-                        main class="main" id="main" {
-                            (crumbs(page))
-                            (super::notice::banner_bad(Some(client::ID_BANNER), true, html! {
-                                b { "Live updates are paused." }
-                                " The console lost its connection to the broker's process. It is trying again; the page itself is still right as of its last load."
-                            }))
-                            (main)
-                        }
+                        (rail(page, false))
+                        (main_el)
                     }
                 }
-                @if let Some(o) = &overlay { (o) }
+                // The overlay root: where an overlay is put, whether the server rendered it open or a script opened it.
+                div id=(client::ID_OVERLAY_ROOT) { @if let Some(o) = &overlay { (o) } }
             }))
         }
     }

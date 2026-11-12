@@ -4,6 +4,7 @@
 pub mod button;
 pub mod client;
 pub mod code;
+pub mod components;
 pub mod dialog;
 pub mod filter;
 pub mod form;
