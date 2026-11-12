@@ -32,6 +32,8 @@ pub struct Parsed {
     pub name: String,
     /// The declared `version`, if any.
     pub version: String,
+    /// The declared `port` (the instance's own, a core argument), if any.
+    pub port: Option<u16>,
     /// The block without the core's arguments.
     pub spec: Node,
 }
@@ -81,6 +83,10 @@ pub fn parse_block(src: &str, schema: &Schema) -> Result<Parsed, HclError> {
         Some(Value::String(v) | Value::Number(v)) => v.clone(),
         _ => String::new(),
     };
+    let port = match spec.get("port").map(|n| &n.value) {
+        Some(Value::Number(p)) => p.parse::<u16>().ok(),
+        _ => None,
+    };
     let Value::Map(mut entries) = spec.value else {
         return Err(HclError("a block body".into()));
     };
@@ -89,6 +95,7 @@ pub fn parse_block(src: &str, schema: &Schema) -> Result<Parsed, HclError> {
         engine: block.ident.as_str().to_string(),
         name: label(name),
         version,
+        port,
         spec: Node {
             span: spec.span,
             value: Value::Map(entries),

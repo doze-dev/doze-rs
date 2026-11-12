@@ -1304,8 +1304,10 @@ dependencies = [
  "doze-module-release",
  "doze-module-test",
  "doze-os",
+ "hex",
  "minicbor",
  "serde_json",
+ "sha2",
  "tokio",
 ]
 
@@ -1360,6 +1362,18 @@ dependencies = [
  "hex",
  "sha2",
  "yaml-rust2",
+]
+
+[[package]]
+name = "doze-module-temporal"
+version = "0.0.0"
+dependencies = [
+ "doze-module",
+ "doze-module-proto",
+ "doze-module-test",
+ "doze-os",
+ "serde_json",
+ "tokio",
 ]
 
 [[package]]
