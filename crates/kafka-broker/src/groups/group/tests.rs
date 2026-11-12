@@ -193,6 +193,7 @@ fn join_request(member: Option<&str>) -> JoinRequest {
         client_host: "/127.0.0.1".into(),
         issued: true,
         id_first: false,
+        rights: None,
     }
 }
 
@@ -274,6 +275,7 @@ fn when_the_last_consumer_protocol_member_leaves_the_group_is_classic_again_and_
                 member_id: id("old"),
                 instance: None,
                 generation,
+                rights: None,
             },
         )
     });

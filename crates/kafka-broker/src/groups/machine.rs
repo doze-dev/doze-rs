@@ -70,6 +70,8 @@ struct Member {
     syncing: Option<Token>,
     /// The arming of its session timer that counts.
     session_gen: u64,
+    /// What its principal may DESCRIBE, as its last JoinGroup said; kept for the day the group becomes a consumer group.
+    rights: Option<crate::authorizer::TopicRights>,
 }
 
 /// A rebalance in progress.

@@ -64,6 +64,7 @@ fn join(member: &str) -> Event {
             client_host: "/127.0.0.1".into(),
             issued: true,
             id_first: false,
+            rights: None,
         },
     )
 }

@@ -30,6 +30,7 @@ impl<F: Fs> Broker<F> {
                         .as_ref()
                         .map(|i| InstanceId::new(i.as_str())),
                     generation: req.generation_id,
+                    rights: self.guard(caller).topic_rights(),
                 };
                 match self.groups.ask(&group, Req::Heartbeat(beat)).await {
                     Some(Answer::Heartbeat(error)) => error,

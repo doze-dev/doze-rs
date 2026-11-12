@@ -41,7 +41,9 @@ impl ConsumerGroup {
             Event::Sync(token, req) => {
                 self.classic_sync(token, &req, &source.topics(), now, &mut out)
             }
-            Event::Heartbeat(token, req) => self.classic_heartbeat(token, &req, now, &mut out),
+            Event::Heartbeat(token, req) => {
+                self.classic_heartbeat(token, &req, &source.topics(), now, &mut out)
+            }
             Event::Leave(token, targets) => self.classic_leave(token, &targets, &mut out),
         }
         out
@@ -83,7 +85,7 @@ impl ConsumerGroup {
         let mut subscribed: BTreeSet<String> = self
             .members
             .values()
-            .flat_map(|m| m.subscribed.iter().cloned())
+            .flat_map(|m| m.visible_names().cloned())
             .collect();
         if self.members.values().any(|m| m.pattern.is_some()) {
             subscribed.extend(

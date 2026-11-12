@@ -42,6 +42,10 @@ pub struct Seat<'a> {
     pub owned: Vec<(Uuid, Vec<i32>)>,
     /// Every topic id it was ever assigned a partition of.
     pub ever: BTreeSet<Uuid>,
+    /// Its static instance id, if it has one.
+    pub instance: Option<&'static str>,
+    /// Every topic id it was assigned a partition of since `fresh` was last taken.
+    pub fresh: BTreeSet<Uuid>,
 }
 
 impl<'a> Seat<'a> {
@@ -56,6 +60,32 @@ impl<'a> Seat<'a> {
         let mut req = join_848(group, member, &[]);
         req.subscribed_topic_names = None;
         req.subscribed_topic_regex = Some(gx::text(regex));
+        Self::start(rig, who, group, member, None, req).await
+    }
+
+    /// Joins with these names (and no expression), as a static member if `instance` is given.
+    pub async fn join_names(
+        rig: &'a Rig,
+        who: Caller,
+        group: &'static str,
+        member: &'static str,
+        instance: Option<&'static str>,
+        names: &[&str],
+    ) -> Seat<'a> {
+        let req = join_848(group, member, names);
+        Self::start(rig, who, group, member, instance, req).await
+    }
+
+    /// Sends the join `req` (the instance is put on it) and heartbeats a few times; the join must succeed.
+    pub async fn start(
+        rig: &'a Rig,
+        who: Caller,
+        group: &'static str,
+        member: &'static str,
+        instance: Option<&'static str>,
+        mut req: kafka_wire::messages::ConsumerGroupHeartbeatRequest,
+    ) -> Seat<'a> {
+        req.instance_id = instance.map(gx::text);
         let mut seat = Seat {
             rig,
             who,
@@ -64,11 +94,20 @@ impl<'a> Seat<'a> {
             epoch: 0,
             owned: Vec::new(),
             ever: BTreeSet::new(),
+            instance,
+            fresh: BTreeSet::new(),
         };
         let r = seat.send(req).await;
         assert_eq!(r, 0, "the join");
         seat.beats(4).await;
         seat
+    }
+
+    /// A static member goes away to come back (epoch -2).
+    pub async fn leave_for_now(&mut self) {
+        let mut req = beat_848(self.group, self.member, -2, None);
+        req.instance_id = self.instance.map(gx::text);
+        assert_eq!(self.send(req).await, 0);
     }
 
     pub async fn send(&mut self, req: kafka_wire::messages::ConsumerGroupHeartbeatRequest) -> i16 {
@@ -82,6 +121,7 @@ impl<'a> Seat<'a> {
                     .map(|t| (t.topic_id, t.partitions.clone()))
                     .collect();
                 self.ever.extend(self.owned.iter().map(|(id, _)| *id));
+                self.fresh.extend(self.owned.iter().map(|(id, _)| *id));
             }
         }
         r.error_code
@@ -91,7 +131,8 @@ impl<'a> Seat<'a> {
     pub async fn beats(&mut self, n: usize) {
         for _ in 0..n {
             let owned = self.owned.clone();
-            let req = beat_848(self.group, self.member, self.epoch, Some(&owned));
+            let mut req = beat_848(self.group, self.member, self.epoch, Some(&owned));
+            req.instance_id = self.instance.map(gx::text);
             assert_eq!(self.send(req).await, 0);
         }
     }

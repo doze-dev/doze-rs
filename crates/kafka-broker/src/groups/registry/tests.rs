@@ -49,6 +49,7 @@ fn join(member: Option<&MemberId>, instance: Option<&str>) -> Req {
         rebalance_ms: 30_000,
         issued: false,
         id_first: member.is_none() && instance.is_none(),
+        rights: None,
     })
 }
 

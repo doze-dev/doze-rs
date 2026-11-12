@@ -19,6 +19,8 @@ pub(crate) struct Seat {
     pub(crate) assignment: Bytes,
     pub(crate) session_ms: u64,
     pub(crate) rebalance_ms: u64,
+    /// What its principal may DESCRIBE (`None`: everything), from its last JoinGroup.
+    pub(crate) rights: Option<crate::authorizer::TopicRights>,
 }
 
 /// A classic group's members and its generation.
