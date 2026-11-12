@@ -134,6 +134,9 @@ impl doze_runtime::Service for Core {
                     Out::json(json!({"Actions": done, "Armed": self.has_lifecycle_rules()}));
                 return self.commit(result).await;
             }
+            // Reads that change nothing and are asked without a request of their own.
+            Ask::Configs(bucket) => return self.configs(&bucket),
+            Ask::Website(bucket, key) => return self.website(&bucket, &key),
         };
         self.last_caller = Some(call.caller.clone());
         let req = Req::new(&call, staged);

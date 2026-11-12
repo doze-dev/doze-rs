@@ -10,6 +10,7 @@
 mod body;
 mod cbor;
 mod config;
+mod cors;
 mod pipeline;
 mod presign;
 mod query;
