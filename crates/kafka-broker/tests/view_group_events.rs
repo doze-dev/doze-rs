@@ -178,10 +178,19 @@ async fn a_member_that_goes_silent_is_a_session_that_expired() {
     // The session (10 s) and then the rebalance have to run out; the group's task keeps its own clock.
     tokio::time::pause();
     tokio::time::advance(Duration::from_secs(11)).await;
-    // The first heartbeat after is refused: the member is gone.
+    // The group's task runs the expiry in its own turn: let it, then look (it was racy to look at once).
+    let mut seen = Vec::new();
+    for _ in 0..50 {
+        seen = events(&rig, "quiet").await;
+        if seen.iter().any(|e| e.cause == Some(Cause::SessionExpired)) {
+            break;
+        }
+        tokio::time::advance(Duration::from_millis(100)).await;
+        tokio::task::yield_now().await;
+    }
+    // A heartbeat after that is refused: the member is gone.
     let r = rig.heartbeat("quiet", &member, 1).await;
     assert_ne!(r.error_code, 0);
-    let seen = events(&rig, "quiet").await;
     assert!(
         seen.iter().any(|e| e.cause == Some(Cause::SessionExpired)),
         "{seen:?}"
