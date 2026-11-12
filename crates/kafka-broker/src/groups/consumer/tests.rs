@@ -3,6 +3,7 @@
 mod fetch;
 mod ownership;
 mod protocol;
+mod rights;
 mod simulation;
 
 use std::collections::BTreeMap;
@@ -80,6 +81,7 @@ pub(super) fn join(member: &str) -> Heartbeat {
         owned: Some(vec![]),
         client_id: "client".into(),
         client_host: "/127.0.0.1".into(),
+        rights: None,
     }
 }
 

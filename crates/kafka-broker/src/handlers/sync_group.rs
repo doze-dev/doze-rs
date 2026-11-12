@@ -1,15 +1,38 @@
 //! SyncGroup.
 
+use kafka_auth::authz::operation;
 use kafka_storage::fs::Fs;
 use kafka_wire::ids::{GroupId, InstanceId, MemberId};
 use kafka_wire::messages::{SyncGroupRequest, SyncGroupResponse};
 use kafka_wire::{ResponseError, StrBytes};
 
 use crate::groups::{Answer, Req, SyncRequest};
-use crate::{Broker, Outcome};
+use crate::{Broker, Caller, Outcome};
 
 impl<F: Fs> Broker<F> {
-    pub(crate) async fn sync_group(&self, req: &SyncGroupRequest) -> Outcome {
+    /// Hands out the assignment. The caller must be allowed to READ the group; Kafka looks first for the protocol
+    /// a SyncGroup of v5 or later must name, and says so (23) to a caller that is refused as well.
+    pub(crate) async fn sync_group(
+        &self,
+        version: i16,
+        caller: &Caller,
+        req: &SyncGroupRequest,
+    ) -> Outcome {
+        if !self
+            .guard(caller)
+            .group(operation::READ, req.group_id.as_str())
+        {
+            let nameless =
+                version >= 5 && (req.protocol_type.is_none() || req.protocol_name.is_none());
+            return respond(
+                Some(if nameless {
+                    ResponseError::InconsistentGroupProtocol
+                } else {
+                    ResponseError::GroupAuthorizationFailed
+                }),
+                None,
+            );
+        }
         let Ok(group) = GroupId::parse(req.group_id.as_str()) else {
             return respond(Some(ResponseError::InvalidGroupId), None);
         };

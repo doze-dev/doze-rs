@@ -1,0 +1,9 @@
+<!--screen {"id":"log-compact-now","kind":"dialog","title":"Compact now","from":"topic-log","via":"Button: Compact now","ops":["doze:ForceClean"],"refs":["cat:CMP-1","cat:CMP-5"],"data":"lab","crumbs":[],"extras":["lab-rule"]} -->
+<h2>Run the cleaner on inventory.levels now?</h2>
+<div class="body"><p style="margin:0 0 12px">A rehearsal. The cleaner looks at partition 0 now instead of at its next look in 15 s, and runs one round if the planner says it is due. It is: 61 % dirty against 50 %.</p>
+<div class="rules" data-extra="lab-rule">
+<div class="r ok">[[g:check 16]]<div>Rewrites segments 5, 6 and 7<span class="sub">24.0 MiB, one at a time, each swapped in whole</span></div><span class="v">3 segments</span></div>
+<div class="r ok">[[g:check 16]]<div>Moves the checkpoint<span class="sub">from 39,195 to 61,300, the start of the active segment</span></div><span class="v">61,300</span></div>
+<div class="r ok">[[g:check 16]]<div>Changes no config<span class="sub">Offsets do not move; readers see the same latest values</span></div><span class="v">safe</span></div>
+</div></div>
+<div class="foot"><a class="btn" href="@topic-log">Cancel</a><a class="btn pri" href="@topic-log" data-op="doze:ForceClean">[[g:flask 16]]Run the cleaner</a></div>

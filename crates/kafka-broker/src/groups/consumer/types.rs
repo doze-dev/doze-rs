@@ -80,6 +80,8 @@ pub(crate) struct Heartbeat {
     pub(crate) owned: Option<Vec<(Uuid, Vec<i32>)>>,
     pub(crate) client_id: String,
     pub(crate) client_host: String,
+    /// What the caller may DESCRIBE, for the member's pattern to be held to (`None`: everything).
+    pub(crate) rights: Option<crate::authorizer::TopicRights>,
 }
 
 /// The answer to a ConsumerGroupHeartbeat.

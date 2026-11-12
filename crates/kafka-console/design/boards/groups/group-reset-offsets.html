@@ -1,0 +1,24 @@
+<!--screen {"id":"group-reset-offsets","title":"Reset offsets","kind":"dialog","from":"lag-ahead","via":"Button: Reset offsets","ops":["OffsetCommit"],"refs":["cat:C11","cat:G4","grounding:K4","go:console/groups_boards.go"],"data":"now","extras":["api-preview","teaching"],"crumbs":[]} -->
+<h2>Reset offsets of analytics</h2>
+<div class="body">
+<p style="margin:0 0 16px">Moves where analytics will read next. Nothing is read or deleted; only the committed offsets change.</p>
+<div class="callout" style="margin-bottom:20px">[[g:check 18]]<div><b>analytics has no members,</b> so Kafka accepts a commit with no generation. With a member in the group it would be refused.</div></div>
+<div class="field"><div class="lab">Topic</div><div class="input sel mono"><span>orders, all 3 partitions</span>[[g:chev-d 16]]</div></div>
+<div class="field" style="margin-top:16px"><div class="lab">Reset to</div>
+<div class="stack-y" style="gap:10px">
+<div class="opt-row"><span class="radio"></span><div><div class="t1">Earliest</div></div></div>
+<div class="opt-row"><span class="radio on"></span><div><div class="t1">Latest</div><div class="t2">The log end of each partition, asked of ListOffsets</div></div></div>
+<div class="opt-row"><span class="radio"></span><div><div class="t1">A specific offset</div></div></div>
+<div class="opt-row"><span class="radio"></span><div><div class="t1">A time</div></div></div>
+</div></div>
+<div class="eyebrow" style="margin:20px 0 8px">Preview</div>
+<table class="t" data-extra="teaching"><thead><tr><th>Partition</th><th class="r">Committed now</th><th class="r">After</th><th class="r">Lag after</th></tr></thead><tbody>
+<tr><td class="name mono">orders-0</td><td class="r mono">16,200</td><td class="r mono">16,104</td><td class="r mono">0</td></tr>
+<tr><td class="name mono">orders-1</td><td class="r mono">16,030</td><td class="r mono">16,051</td><td class="r mono">0</td></tr>
+<tr><td class="name mono">orders-2</td><td class="r mono">16,058</td><td class="r mono">16,058</td><td class="r mono">0</td></tr>
+</tbody></table>
+<div class="code" data-extra="api-preview" style="margin-top:16px;font-size:12.5px"><span class="c">ListOffsets</span> orders-0,1,2 latest
+<span class="c">OffsetCommit</span> group=analytics generation=-1
+  orders-0=16104 orders-1=16051 orders-2=16058</div>
+</div>
+<div class="foot"><a class="btn" href="@lag-ahead">Cancel</a><button class="btn pri" type="button" data-op="OffsetCommit">Reset 3 offsets</button></div>

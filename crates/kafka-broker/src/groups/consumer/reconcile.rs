@@ -7,6 +7,7 @@ use kafka_wire::ids::MemberId;
 use super::assign::{Assignor, Partition, Partitions, Subscribed, assign};
 use super::member::Member;
 use super::{ConsumerGroup, Topics};
+use crate::authorizer::permits;
 use crate::groups::machine::{Effect, Millis, TimerKind};
 
 impl ConsumerGroup {
@@ -196,8 +197,8 @@ impl ConsumerGroup {
                 let subscribers: Vec<MemberId> = names
                     .iter()
                     .filter(|(m, set)| {
-                        set.contains(t.name.as_str())
-                            || m.pattern.as_ref().is_some_and(|p| p.matches(&t.name))
+                        (set.contains(t.name.as_str()) && permits(m.rights.as_ref(), &t.name))
+                            || m.pattern_takes(&t.name)
                     })
                     .map(|(m, _)| m.id.clone())
                     .collect();

@@ -102,3 +102,30 @@ CreatePartitions, DeleteRecords) now match their rows of `version-matrix`, which
 pass and 15 fail, every failure of Phase 8 (`acl-unknown-codes`, `sasl-plain`, `sasl-scram`, `idempotent-write-from-topic-write`,
 `version-matrix` in its ACL rows) or Phase 9 (`telemetry-*`, DescribeCluster). No recording covers compaction itself;
 `interop/` scenario `compaction` (franz-go, sarama, librdkafka) and `compaction.md` do.
+
+**Phase 8, slice 8b (2026-11-12).** `sasl-plain` (whole: its fixture's CreateAcls works and the 13 `*-who` probes answer 29),
+`acl-unknown-codes` (77 steps) and `idempotent-write-from-topic-write` pass. `version-matrix` has no ACL row left among its differences; it
+differs only on DescribeCluster v0 to v2 and GetTelemetrySubscriptions and PushTelemetry (Phase 9). The harness passes `--acl-default deny`
+and `--acl-super-user User:admin` for these scenarios and both are honoured.
+
+**Phase 8 result (2026-11-12, built, audits pending).** A full replay of the 58 scenarios: **47 pass and 11 fail** (43 and 15 at the close of Phase 7). The eleven are the ten `telemetry-*` scenarios and
+`version-matrix`, which still differs on DescribeCluster v0 to v2 and the telemetry rows (GetTelemetrySubscriptions, PushTelemetry): Phase 9. `sasl-plain`, `sasl-scram`, `acl-unknown-codes` and
+`idempotent-write-from-topic-write` pass whole, and `version-matrix` has no ACL or SASL row left among its differences. The harness passes `--sasl-mechanisms`, `--sasl-user`, `--acl-default deny` and
+`--acl-super-user User:admin`, and all are honoured. Slice 8g changed no behaviour the replay sees (a guard that nothing mounts, two flags the harness does not pass, and a start-up rule it does not meet);
+the replay was not re-run for it.
+
+**What is not recorded, and so rests on Kafka's source** (`behaviours/security.md` says "(source)" per rule; the gap is `debt.md` I1):
+- **The authorization matrix, except Metadata and InitProducerId.** Only those two denials are in a recording (`sasl-plain`'s identity probes and `idempotent-write-from-topic-write`). The topic APIs
+  (CreateTopics, DeleteTopics, Produce, Fetch, ListOffsets, DeleteRecords, CreatePartitions, DescribeConfigs, AlterConfigs, IncrementalAlterConfigs, DescribeProducers), the group APIs (13), the transaction APIs (7)
+  and the authorized-operations fields are written from `KafkaApis.scala`, `ControllerApis.scala` and their helpers, with the line in each test. The one real risk of the phase is a reading that differs from the JVM.
+- **TLS.** No scenario speaks TLS; the evidence is the loopback tests and `interop/run.sh -tls` (sarama, franz-go, kafka-go and librdkafka over SASL_SSL and SSL).
+- **The credential APIs** (`AlterUserScramCredentials`, `DescribeUserScramCredentials`, APIs 50 and 51): source-derived tests only, plus `kafka-configs.sh`-shape requests through the raw client.
+- Smaller gaps: the long text of a cluster-authorization failure, the order of DescribeAcls and DeleteAcls results, the 10,000-ACL limit, re-authentication, and a few answers marked "unsure" in the catalogue (SEC-D34 to SEC-D36, SEC-D54).
+
+**Proposal: record an `authz-matrix` scenario against `apache/kafka:4.3.1`** (decision D9 of `phase8.md`; the owner approves, the author runs it). One broker with SASL PLAIN, three users (`admin` a super user, `alice`
+holding a set of ACLs, `bob` none), `allow.everyone.if.no.acl.found=false`, then each API in the families above called by `bob` (denied), by `alice` with the right ACL and with a weaker or an unrelated one, and by
+`admin`, at the versions the broker offers, in the order the catalogue's tests use, with the answers recorded step by step in the Go harness's format. Replaying it against this broker is the diff; every difference is
+either a bug in a test's reading of the source (fix the rule and the catalogue) or a deviation to write down. It would settle SEC-D20 and SEC-D34 to SEC-D36 and SEC-D54, the cluster-authorization text and the
+unspecified orders, and add the recording of `Metadata`'s authorized-operations fields and of the credential APIs. It needs the Go harness's recorder (`conformance/` in the Go repository) and Docker.
+**Docker here (checked 2026-11-12):** the client is installed (`docker --version`: 29.7.1), but there is no daemon: `docker ps` fails with "failed to connect to the docker API at
+unix:///Users/srini/.colima/default/docker.sock", so Colima is not running. No container was started; recording needs `colima start` first (and the image `apache/kafka:4.3.1`).

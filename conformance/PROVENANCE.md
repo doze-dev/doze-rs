@@ -10,7 +10,7 @@ Changes from the original:
 - Scenarios corrected where AWS contradicted the original author (each has a comment with the date): SQS
   `test_invalid_policy` (no Principal is accepted), `test_move_task_cancel` (a second cancel is answered), and
   `test_add_permission_rules` (AWS verifies the principal account exists and accepts any label).
-- Snapshots in `snapshots/` are recordings from real AWS (account `821712915674`, us-east-1) made with
+- Snapshots in `snapshots/` are recordings from real AWS (the recorder account, us-east-1; its id is kept out of the repository) made with
   `CONFORMANCE_TARGET=aws CONFORMANCE_RECORD=1`.
 
 Run against a server that is already up (the Go-only boot path is not used here):
@@ -19,5 +19,5 @@ Run against a server that is already up (the Go-only boot path is not used here)
 
 Record (needs `aws sso login --profile doze-rec-main`, and `tools/aws-rec/teardown.ts` afterwards):
 
-    AWS_PROFILE=doze-rec-main CONFORMANCE_TARGET=aws CONFORMANCE_AWS_ACCOUNT=821712915674 CONFORMANCE_RECORD=1 \
+    AWS_PROFILE=doze-rec-main CONFORMANCE_TARGET=aws CONFORMANCE_AWS_ACCOUNT=$DOZE_REC_ACCOUNT CONFORMANCE_RECORD=1 \
       uv run --frozen pytest tests/test_<service>.py

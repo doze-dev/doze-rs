@@ -202,6 +202,7 @@ impl GroupMachine {
             };
             member.session_ms = to_ms(req.session_ms);
             member.rebalance_ms = to_ms(req.rebalance_ms);
+            member.rights.clone_from(&req.rights);
             member.protocols == req.protocols
         };
         let answer_now = match self.state {
@@ -274,5 +275,6 @@ fn new_member(id: &MemberId, req: &JoinRequest) -> Member {
         joined: None,
         syncing: None,
         session_gen: 0,
+        rights: req.rights.clone(),
     }
 }

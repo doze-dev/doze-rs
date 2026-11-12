@@ -11,10 +11,18 @@ publish.workspace = true
 [lints]
 workspace = true
 
+[features]
+# The read-only view the web console uses for what the protocol does not say (`ConsoleView`). Off in a build with no
+# console, so the lean broker carries none of it.
+inspect = []
+
 [dependencies]
 kafka-wire = { path = "../kafka-wire" }
 kafka-storage = { path = "../kafka-storage" }
 kafka-meta = { path = "../kafka-meta" }
+kafka-auth = { path = "../kafka-auth" }
+# The ACLs in force: a snapshot read with one atomic load.
+arc-swap = "1"
 thiserror = "2"
 bytes = "1"
 # Regular-expression topic subscriptions (ConsumerGroupHeartbeat v1): small, no dependencies.
@@ -32,3 +40,5 @@ flate2 = "1"
 tokio = { version = "1", default-features = false, features = ["rt", "macros", "test-util"] }
 kafka-storage = { path = "../kafka-storage", features = ["sim"] }
 kafka-wire = { path = "../kafka-wire", features = ["test-support"] }
+# A SCRAM client, to log in as a user the tests have made.
+kafka-auth = { path = "../kafka-auth", features = ["client"] }

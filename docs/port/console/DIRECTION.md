@@ -25,12 +25,12 @@ was refused. The console is a place where a developer **understands their Kafka*
 1. **Home**: both addresses with snippets for franz-go, sarama, librdkafka, kcat and Java; the advertised-listener check; a
    first-request detector; the instance at a glance (uptime, last stop clean or not, weight).
 2. **Live**: the requests as they happen, as one table, newest first: app (`client.id`), API and version, topics, result, time; a
-   refusal is a row that explains itself. (The transit-line map of apps, topics and groups, its drawers and the scrubbed 3 h window
+   refusal is a row that explains itself. The window is the recorder ring (the last 2,000 rows, said with its computed span), never a promised 3 hours. (The transit-line map of apps, topics and groups, its drawers and the scrubbed 3 h window
    were drawn and then dropped by the owner on 2026-11-10: out of this design, no lag trend either. See REALITY.md.)
 3. **Resources**: the kinds join through a descriptor, not new chrome: **Topics** (Messages, Log, Config, Consumers, Producers),
    **Groups** (Members, Lag, Story), **Transactions** (open, since, timeout, what they hold back); Schemas join in Phase 10.
-4. **Access** (Phase 8): one honest page, Open, that says what is on and off and that principals and ACLs arrive with security
-   work. No previews of ACLs or denied requests are drawn.
+4. **Access** (Phase 8): one honest page that says what is on and off (sign-in, ACLs, TLS, the console principal) and lists the ACLs and users read only (canvas corrected 2026-11-12; Phase 8 is built).
+   No previews of ACLs or denied requests are drawn.
 5. **Lab**: a short list of rehearsals, each with an expiry and a visible rule on the connection layer; no disk faults (those stay
    in the tests).
 6. **Settings**: one page in sections: the five dynamic broker configs, the Kafka version profile, the cleaner and retention

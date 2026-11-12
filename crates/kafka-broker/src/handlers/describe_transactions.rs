@@ -2,6 +2,7 @@
 
 use std::collections::BTreeMap;
 
+use kafka_auth::authz::operation;
 use kafka_meta::TxnState;
 use kafka_storage::fs::Fs;
 use kafka_wire::ResponseError as E;
@@ -13,12 +14,26 @@ use kafka_wire::messages::{
     ListTransactionsResponse, ProducerId, TopicName, TransactionalId,
 };
 
-use crate::{Broker, Outcome};
+use crate::{Broker, Caller, Outcome};
 
 impl<F: Fs> Broker<F> {
-    pub(crate) async fn describe_transactions(&self, req: &DescribeTransactionsRequest) -> Outcome {
+    /// Describes each transactional id asked about. One the caller may not DESCRIBE is an entry of 53 and nothing else;
+    /// of one it may, the caller is shown the topics it may DESCRIBE.
+    pub(crate) async fn describe_transactions(
+        &self,
+        caller: &Caller,
+        req: &DescribeTransactionsRequest,
+    ) -> Outcome {
+        let guard = self.guard(caller);
         let mut resp = DescribeTransactionsResponse::default();
         for id in &req.transactional_ids {
+            if !guard.txn(operation::DESCRIBE, id.0.as_str()) {
+                let mut refused = TransactionState::default();
+                refused.transactional_id = id.clone();
+                refused.error_code = E::TransactionalIdAuthorizationFailed.code();
+                resp.transaction_states.push(refused);
+                continue;
+            }
             let mut s = TransactionState::default();
             s.transactional_id = id.clone();
             s.producer_id = ProducerId(-1);
@@ -47,6 +62,7 @@ impl<F: Fs> Broker<F> {
                     }
                     s.topics = by_topic
                         .into_iter()
+                        .filter(|(topic, _)| guard.topic(operation::DESCRIBE, topic))
                         .map(|(topic, partitions)| {
                             let mut t = TopicData::default();
                             t.topic = TopicName(StrBytes::from_string(topic.to_owned()));
@@ -62,8 +78,14 @@ impl<F: Fs> Broker<F> {
         Outcome::Respond(Response::DescribeTransactions(resp))
     }
 
-    pub(crate) async fn list_transactions(&self, req: &ListTransactionsRequest) -> Outcome {
+    /// Lists the transactional ids the caller may DESCRIBE.
+    pub(crate) async fn list_transactions(
+        &self,
+        caller: &Caller,
+        req: &ListTransactionsRequest,
+    ) -> Outcome {
         use kafka_wire::messages::list_transactions_response::TransactionState as Listed;
+        let guard = self.guard(caller);
         let mut resp = ListTransactionsResponse::default();
         let mut rows: Vec<Listed> = Vec::new();
         for entry in self.txns.all() {
@@ -85,6 +107,9 @@ impl<F: Fs> Broker<F> {
             };
             let long_enough = req.duration_filter < 0
                 || crate::clock::now().get().saturating_sub(began) > req.duration_filter;
+            if !guard.txn(operation::DESCRIBE, &e.rec.id) {
+                continue;
+            }
             if e.rec.producer_id < 0 || !wanted_state || !wanted_producer || !long_enough {
                 continue;
             }

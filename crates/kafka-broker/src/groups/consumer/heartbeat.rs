@@ -177,6 +177,9 @@ impl ConsumerGroup {
                 changed = true;
             }
         }
+        // A right to DESCRIBE given or taken since the last heartbeat, or the principal being another than the one that
+        // left the names and the partitions, changes what the member may have; what it holds of the rest goes now.
+        changed |= self.refresh_rights(&id, req.rights.clone(), topics, now, out);
         self.reset_session(&id, now, out);
         if changed {
             self.bump_and_reassign(topics, now);

@@ -49,6 +49,23 @@ pub(crate) fn parse(text: &str) -> Result<Duration, String> {
     Ok(total)
 }
 
+/// A failed-login delay: a duration of at most [`kafka_server::MOST_FAILED_LOGIN_DELAY`] (SEC-236). A longer wait holds a
+/// connection and a task for every guess, so it is refused at start rather than cut quietly.
+///
+/// # Errors
+/// What is wrong with it, in words for the person who typed it.
+pub(crate) fn failed_login_delay(text: &str) -> Result<Duration, String> {
+    let delay = parse(text)?;
+    let most = kafka_server::MOST_FAILED_LOGIN_DELAY;
+    if delay > most {
+        return Err(format!(
+            "{text:?} is longer than the {most:?} a failed login may be made to wait: a longer wait holds a connection \
+             for every guess"
+        ));
+    }
+    Ok(delay)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -1,5 +1,6 @@
 //! OffsetCommit: a group's progress, stored in the metadata database.
 
+use kafka_auth::authz::operation;
 use kafka_meta::{Committed, MetaError, OffsetCommit, StoredOffset};
 use kafka_storage::fs::Fs;
 use kafka_wire::ResponseError;
@@ -10,14 +11,28 @@ use kafka_wire::messages::offset_commit_response::{
 use kafka_wire::messages::{OffsetCommitRequest, OffsetCommitResponse};
 
 use crate::groups::{Answer, CommitRequest, Req};
-use crate::{Broker, Outcome, blocking, clock};
+use crate::{Broker, Caller, Outcome, blocking, clock};
 
 /// Kafka's `offset.metadata.max.bytes`: the longest text a commit may carry.
 const MAX_METADATA: usize = 4096;
 
 impl<F: Fs> Broker<F> {
-    pub(crate) async fn offset_commit(&self, version: i16, req: &OffsetCommitRequest) -> Outcome {
-        let fence = self.commit_fence(version, req).await;
+    /// Stores what each partition of the request says its group has reached.
+    ///
+    /// The caller must be allowed to READ the group (30 for every partition if not), and each topic it commits to (29 for
+    /// that topic's partitions): before the topic is looked for, and before the group is asked about the committer.
+    pub(crate) async fn offset_commit(
+        &self,
+        version: i16,
+        caller: &Caller,
+        req: &OffsetCommitRequest,
+    ) -> Outcome {
+        let guard = self.guard(caller);
+        if !guard.group(operation::READ, req.group_id.as_str()) {
+            return blanket(req, ResponseError::GroupAuthorizationFailed);
+        }
+        let barred = |name: &str| !guard.topic(operation::READ, name);
+        let fence = self.fence_unless_barred(version, req, &barred).await;
         let mut resp = OffsetCommitResponse::default();
         // Each partition is judged; those that pass are stored together in one write.
         let mut to_store: Vec<OffsetCommit> = Vec::new();
@@ -28,6 +43,7 @@ impl<F: Fs> Broker<F> {
             out.name = topic.name.clone();
             out.topic_id = topic.topic_id;
             let name = TopicName::parse(topic.name.as_str()).ok();
+            let refused_topic = barred(topic.name.as_str());
             for (p, partition) in topic.partitions.iter().enumerate() {
                 let mut answer = OffsetCommitResponsePartition::default();
                 answer.partition_index = partition.partition_index;
@@ -38,7 +54,9 @@ impl<F: Fs> Broker<F> {
                     .committed_metadata
                     .as_ref()
                     .map_or("", |m| m.as_str());
-                let refusal = if let Some(e) = fence {
+                let refusal = if refused_topic {
+                    Some(ResponseError::TopicAuthorizationFailed)
+                } else if let Some(e) = fence {
                     Some(e)
                 } else if known.is_none() {
                     Some(ResponseError::UnknownTopicOrPartition)
@@ -74,6 +92,22 @@ impl<F: Fs> Broker<F> {
             self.store(req, &to_store, &slots, &mut resp);
         }
         Outcome::Respond(kafka_wire::api::Response::OffsetCommit(resp))
+    }
+
+    /// [`Self::commit_fence`], except that Kafka asks the group nothing when no topic is left to commit to.
+    async fn fence_unless_barred(
+        &self,
+        version: i16,
+        req: &OffsetCommitRequest,
+        barred: &impl Fn(&str) -> bool,
+    ) -> Option<ResponseError> {
+        let none_left =
+            !req.topics.is_empty() && req.topics.iter().all(|t| barred(t.name.as_str()));
+        if none_left {
+            None
+        } else {
+            self.commit_fence(version, req).await
+        }
     }
 
     /// May this group's offsets be written by this committer? `None`: yes.
@@ -154,4 +188,22 @@ impl<F: Fs> Broker<F> {
             }
         }
     }
+}
+
+/// The answer when the whole request is refused: every partition of every topic, with the code.
+fn blanket(req: &OffsetCommitRequest, error: ResponseError) -> Outcome {
+    let mut resp = OffsetCommitResponse::default();
+    for topic in &req.topics {
+        let mut out = OffsetCommitResponseTopic::default();
+        out.name = topic.name.clone();
+        out.topic_id = topic.topic_id;
+        for partition in &topic.partitions {
+            let mut answer = OffsetCommitResponsePartition::default();
+            answer.partition_index = partition.partition_index;
+            answer.error_code = error.code();
+            out.partitions.push(answer);
+        }
+        resp.topics.push(out);
+    }
+    Outcome::Respond(kafka_wire::api::Response::OffsetCommit(resp))
 }

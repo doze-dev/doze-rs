@@ -12,9 +12,9 @@ Test: `tests/frame_chunking.rs::any_split_gives_the_same_frames`, `frame::tests:
 
 ### W2. The size cap depends on the API
 Produce 100 MiB; PushTelemetry 1 MiB + 4096; every other request 1 MiB. A connection that has not
-authenticated may send at most 1 MiB whatever the API. The cap is picked from the API key, which is the
+authenticated may send at most 128 KiB whatever the API (Kafka's `sasl.server.max.receive.size` is 512 KiB; it was 1 MiB before Phase 8, the audit made it 64 KiB and the replay raised it to 128 KiB, because the recorded Kafka takes a 64 KiB token: SEC-4, SEC-194, SEC-D71). The cap is picked from the API key, which is the
 first two bytes of the payload, before any of the body is read.
-Test: `frame::tests::the_caps_are_exact` (the literal sizes, one under and one over), `frame::tests::an_unauthenticated_connection_is_capped_at_one_mib`
+Test: `frame::tests::the_caps_are_exact` (the literal sizes, one under and one over), `frame::tests::an_unauthenticated_connection_is_capped_at_128_kib`
 
 ### W3. A length over every cap is refused on the length alone
 No waiting for a key that may never come. A length under 2 cannot hold a key and is refused.

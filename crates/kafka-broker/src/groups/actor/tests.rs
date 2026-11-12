@@ -64,6 +64,7 @@ fn join(member: &str) -> Event {
             client_host: "/127.0.0.1".into(),
             issued: true,
             id_first: false,
+            rights: None,
         },
     )
 }
@@ -107,6 +108,7 @@ fn a_record_is_written_for_a_groups_first_member_and_not_for_each_classic_member
         owned: Some(Vec::new()),
         client_id: "consumer".into(),
         client_host: "/127.0.0.1".into(),
+        rights: None,
     };
     step(
         &mut keeper,

@@ -1,0 +1,41 @@
+<!--screen {"id":"home","title":"Home","kind":"page","from":"index","via":"Rail: Home","ops":["Metadata"],"refs":["grounding:K1","cat:V2","cat:B4","go:console/home.go"],"data":"capture","needs":["wire"],"extras":["endpoint","live-sentence"],"crumbs":[]} -->
+<div class="page-h"><div><h1>Home</h1><p class="sub" data-extra="live-sentence">Running <b>3 d 4 h</b>, last stop clean. 9 apps appear on the wire, which reaches back to 19:12, and the last request landed 1 s ago.</p></div><div class="acts"><a class="btn pri" href="@connect">[[g:code 16]]Connect an app</a></div></div>
+<div class="callout" data-extra="live-sentence" style="margin-bottom:32px">[[g:check 18]]<div><b>Nothing needs you.</b> No transaction is near its timeout, no partition is offline and the data directory is writable. When something does, it shows here, for example <a class="lnk" href="@home-attention">a transaction close to its timeout</a>.</div></div>
+<div class="split">
+<div class="stack-y">
+<div class="card" data-extra="endpoint"><div class="row sb"><h2>Address</h2><a class="lnk" href="@connect">Snippets for every client</a></div>
+<p class="lede">Point any Kafka client at this address. It is where the broker listens and, below, where it tells clients to reconnect.</p>
+<div class="stack-y" style="gap:8px"><div class="conn"><span class="node self mono" style="height:36px;font-size:15px">127.0.0.1:9092</span><span class="sp"></span><button class="btn sm" type="button" data-ui="copy">[[g:copy 16]]Copy</button></div><div class="help">The listener, set by <span class="mono">--listen</span>. On loopback it is reachable from this machine only.</div></div>
+<div class="hr"></div>
+<div class="row sb"><div class="title-row"><h2 style="margin:0">Advertised listener</h2><span class="st ok">Reachable</span></div><button class="btn sm" type="button" data-op="Metadata">[[g:refresh 16]]Check again</button></div>
+<p class="lede" style="margin-top:6px">A client asks for Metadata and then reconnects to the address in the answer, not to the one you gave it. Here that is 127.0.0.1:9092, the address the listener binds.</p>
+<div class="rules">
+<div class="r ok">[[g:check 16]]<div>The listener answers<span class="sub">Dialled 127.0.0.1:9092 and asked ApiVersions</span></div><span class="v">2 ms</span></div>
+<div class="r ok">[[g:check 16]]<div>It says where clients should reconnect<span class="sub">Metadata names this broker at 127.0.0.1:9092: the advertised host and port equal the listener</span></div><span class="v">Metadata</span></div>
+<div class="r ok">[[g:check 16]]<div>That address is reachable<span class="sub">Dialled the advertised address back and got an answer</span></div><span class="v">2 ms</span></div>
+</div>
+</div>
+
+</div>
+<div class="stack-y"><div class="card" data-extra="live-sentence">
+<div class="row sb"><h2>This instance</h2><span class="st ok">Running</span></div>
+<p class="lede">Up 3 d 4 h. The last stop was clean, so every partition was trusted on start.</p>
+<dl class="kv sm">
+<dt>Started</dt><dd class="mono">Nov 6 18:02</dd>
+<dt>Up for</dt><dd class="mono">3 d 4 h</dd>
+<dt>Last stop</dt><dd><span class="st ok">Clean</span></dd>
+<dt>Open partitions</dt><dd><span class="mono">21 of 64</span><span class="sub">Opened on first use</span></dd>
+<dt>Descriptors</dt><dd><span class="mono">118</span><span class="sub">Segments and indexes</span></dd>
+<dt>Idle memory</dt><dd><span class="mono">4.5 MB</span><span class="sub">Measured on Linux only</span></dd>
+<dt>Threads</dt><dd class="mono">3</dd>
+<dt>Version profile</dt><dd>Kafka 4</dd>
+<dt>Access</dt><dd><a class="lnk" href="@access">Open</a><span class="sub">No sign-in, no ACLs, plain TCP</span></dd>
+</dl>
+<p class="help" style="margin:14px 0 0">Data directory <span class="mono">~/larder/data/kafka</span></p>
+<div class="row" style="margin-top:20px"><a class="btn" href="@settings/settings-home">[[g:settings 16]]Weight and data in Settings</a></div>
+</div><div class="card"><div class="row sb"><h2>Next: connect something new</h2><span class="st ok">Listening</span></div>
+<p class="lede">Waiting for a client id this broker has not seen. When one sends its first request it appears here, with the versions it speaks. See <a class="lnk" href="@connect-first-request">what a first request looks like</a>.</p>
+<div class="stack-y" style="gap:12px"><pre class="code">kcat -b 127.0.0.1:9092 -X client.id=admin-cli -L</pre></div>
+<div class="row" style="margin-top:20px"><a class="btn pri" href="@connect">[[g:code 16]]Connect an app</a><a class="btn" href="@live">[[g:live 16]]Open Live</a></div></div></div>
+</div>
+<div class="row wrap" data-scaffold style="margin-top:40px;gap:20px;color:var(--dim);font-size:13px"><span>Other moments of this page</span><a class="lnk" href="@home-quiet">First run, nothing connected</a><a class="lnk" href="@home-attention">Something needs you</a></div>

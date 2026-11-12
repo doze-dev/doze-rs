@@ -176,3 +176,10 @@ holds the entry when it is forgotten looks the id up again. Test: `transactions_
 - A batch that compaction has thinned (fewer records than its offset span) is not representable by the batch header reader,
   which insists that the record count agrees with the last offset delta: Phase 7 (compaction) relaxes that and walks by the
   last offset delta (`debt.md`).
+
+## TX-15. Authorization is asked before any of the rules above (Phase 8, slice 8d-2; rules SEC-114 to SEC-120 in `security.md`) (source)
+In InitProducerId, AddPartitionsToTxn, AddOffsetsToTxn, TxnOffsetCommit and EndTxn the caller's rights are judged first, in Kafka's order: WRITE on the transactional id
+(53), then for AddOffsetsToTxn and TxnOffsetCommit READ on the group (30), then for AddPartitionsToTxn WRITE and for TxnOffsetCommit READ on each topic (29, before the topic
+is looked for). So the empty-id rules of TX-5 (INVALID_REQUEST, INVALID_PRODUCER_ID_MAPPING) and the unknown-topic and state rules of TX-6, TX-7 and TX-9 are the answer only for a
+caller that is allowed. With the default allowing and no ACL stored nothing is refused, so every rule above holds unchanged. DescribeTransactions and ListTransactions
+show only what the caller may DESCRIBE (TX-13).

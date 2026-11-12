@@ -2,6 +2,7 @@
 
 use std::collections::BTreeMap;
 
+use kafka_auth::authz::operation;
 use kafka_meta::Topic;
 use kafka_storage::StorageError;
 use kafka_storage::fs::Fs;
@@ -14,7 +15,7 @@ use kafka_wire::messages::delete_records_response::{
 use kafka_wire::messages::{DeleteRecordsRequest, DeleteRecordsResponse};
 
 use crate::partitions::Trim;
-use crate::{Broker, Outcome};
+use crate::{Broker, Caller, Outcome};
 
 /// What Kafka answers a partition that failed: no low watermark.
 const NONE: i64 = -1;
@@ -28,9 +29,17 @@ impl<F: Fs> Broker<F> {
     /// watermark; an offset at or below the start changes nothing. The answer is the low watermark now in force. A
     /// topic that names no partition has no entry in the answer, and a partition named twice is answered once, for the
     /// last offset given.
-    pub(crate) async fn delete_records(&self, req: &DeleteRecordsRequest) -> Outcome {
+    ///
+    /// The caller must be allowed to DELETE each topic; a topic it may not is answered 29 on each of its partitions,
+    /// before it is looked for, so one that is not there is hidden (`KafkaApis.handleDeleteRecordsRequest`).
+    pub(crate) async fn delete_records(
+        &self,
+        caller: &Caller,
+        req: &DeleteRecordsRequest,
+    ) -> Outcome {
         let mut resp = DeleteRecordsResponse::default();
         for t in &req.topics {
+            let allowed = self.topic_allows(caller, &t.name.0, operation::DELETE);
             let topic = TopicName::parse(&t.name.0)
                 .ok()
                 .and_then(|n| self.meta.topic(&n));
@@ -45,7 +54,11 @@ impl<F: Fs> Broker<F> {
             let mut out = DeleteRecordsTopicResult::default();
             out.name = t.name.clone();
             for (index, offset) in asked {
-                let (code, low) = self.delete_in(topic.as_deref(), index, offset).await;
+                let (code, low) = if allowed {
+                    self.delete_in(topic.as_deref(), index, offset).await
+                } else {
+                    (Some(E::TopicAuthorizationFailed), NONE)
+                };
                 let mut answer = DeleteRecordsPartitionResult::default();
                 answer.partition_index = index;
                 answer.low_watermark = low;

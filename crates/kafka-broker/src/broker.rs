@@ -2,18 +2,19 @@
 
 use std::sync::Arc;
 
-use kafka_meta::MetaStore;
+use kafka_meta::{FileMode, MetaStore};
 use kafka_storage::Trust;
 use kafka_storage::fs::{Fs, RealFs};
 use kafka_storage::marker::{StopState, record_clean_stop};
-use kafka_wire::api::{Request, Response};
-use kafka_wire::header::RequestHead;
 use kafka_wire::messages::ApiKey;
 use kafka_wire::profile::ApiSet;
 
+use crate::authorizer::Authorizer;
 use crate::groups::{ConsumerConfig, Groups, Settings, member_ids};
 use crate::partitions::Partitions;
-use crate::{BrokerError, Config, Listener, Outcome, blocking};
+use crate::{BrokerError, Config, blocking};
+
+mod dispatch;
 
 /// The APIs this broker has a handler for. ApiVersions advertises exactly these (and only those the Kafka
 /// version being stood for offers), and a request for any other is not accepted. A phase adds the APIs it
@@ -53,6 +54,11 @@ const SERVED: &[ApiKey] = &[
     ApiKey::TxnOffsetCommit,
     ApiKey::DescribeTransactions,
     ApiKey::ListTransactions,
+    ApiKey::DescribeAcls,
+    ApiKey::CreateAcls,
+    ApiKey::DeleteAcls,
+    ApiKey::DescribeUserScramCredentials,
+    ApiKey::AlterUserScramCredentials,
 ];
 
 /// The broker, over a file system (the real one, or a simulated disk in tests).
@@ -69,6 +75,9 @@ pub struct Broker<F: Fs = RealFs> {
     pub(crate) txns: crate::txn::Txns,
     /// When this run began, in milliseconds since the epoch.
     pub(crate) started_ms: i64,
+    /// Whether the data directory was new when this run opened it (there was no metadata database).
+    #[cfg_attr(not(feature = "inspect"), allow(dead_code))]
+    pub(crate) first_start: bool,
     /// Counts changes to the set of topics that a waiting fetch must notice (a deletion).
     pub(crate) topics_changed: tokio::sync::watch::Sender<u64>,
     /// What the last stop vouched for.
@@ -79,6 +88,16 @@ pub struct Broker<F: Fs = RealFs> {
     /// Held for the whole of a change to the configs of a topic or of the broker: what is changed is worked out from what
     /// is there, so two changes at once would each be worked out from the same old configs and one would undo the other.
     pub(crate) config_admin: tokio::sync::Mutex<()>,
+    /// What the ACLs allow each caller to do: the set in force, and the rules to apply it with.
+    pub(crate) authz: Authorizer,
+    /// Held for the whole of a change to the ACLs, from the set it starts from to the one swapped in: a change is
+    /// worked out from the ACLs there are, so two at once would each start from the same set and one would be lost.
+    pub(crate) acl_admin: tokio::sync::Mutex<()>,
+    /// The users that can log in: the ones configured at start, and the SCRAM credentials stored over the API.
+    pub(crate) users: Arc<kafka_auth::Users>,
+    /// Held for the whole of a change to the stored credentials, from the snapshot it starts from to the one swapped
+    /// in, for the reason `acl_admin` is.
+    pub(crate) user_admin: tokio::sync::Mutex<()>,
     /// Set when the broker is stopping: a round of cleaning that is running gives up (it is looked at between batches).
     pub(crate) stop_cleaning: Arc<std::sync::atomic::AtomicBool>,
 }
@@ -88,9 +107,27 @@ impl<F: Fs> Broker<F> {
     ///
     /// # Errors
     /// The data directory or the metadata database cannot be made or read.
-    pub fn open(fs: F, config: Config) -> Result<Self, BrokerError> {
+    pub fn open(fs: F, mut config: Config) -> Result<Self, BrokerError> {
+        // The console's own principal is a super user of every broker (SEC-241); nobody else can be it (SEC-240).
+        config
+            .super_users
+            .insert(kafka_auth::Principal::console().as_str().to_owned());
         kafka_storage::fs::create_dirs_durably(&fs, &config.data_dir)?;
+        // A data directory with no metadata database is a new one: its "last stop" is no stop at all.
+        let first_start = !fs
+            .list_dir(&config.data_dir)?
+            .iter()
+            .any(|e| e.name.starts_with("meta.redb"));
         let meta = Arc::new(MetaStore::open(&fs, &config.data_dir)?);
+        match meta.file_mode() {
+            FileMode::Private => {}
+            FileMode::Narrowed => tracing::info!(
+                "the metadata database (it holds SCRAM keys) was readable by group or others and is now readable by its owner only"
+            ),
+            FileMode::Wide => tracing::warn!(
+                "the metadata database (it holds SCRAM keys) is readable by group or others and could not be narrowed: run chmod 600 on meta.redb"
+            ),
+        }
         // Read, and removed before anything is written: a marker that came back after a power cut would vouch for a
         // log this run was in the middle of writing.
         let stop = StopState::begin(&fs, &config.data_dir)?;
@@ -102,6 +139,13 @@ impl<F: Fs> Broker<F> {
             stop.clone(),
             Arc::clone(&meta),
         );
+        let authz = Authorizer::new(
+            meta.acls()?,
+            config.acl_default_allow,
+            config.super_users.clone(),
+        );
+        let users = Arc::clone(&config.users);
+        crate::users::load(&meta, &users)?;
         let millis = |d: std::time::Duration| u64::try_from(d.as_millis()).unwrap_or(u64::MAX);
         let meta_txns = meta.txns()?;
         let groups = Groups::new(
@@ -124,10 +168,15 @@ impl<F: Fs> Broker<F> {
             groups,
             txns: crate::txn::Txns::load(meta_txns),
             started_ms: crate::clock::now().get(),
+            first_start,
             topics_changed: tokio::sync::watch::channel(0).0,
             stop,
             topic_admin: tokio::sync::Mutex::new(()),
             config_admin: tokio::sync::Mutex::new(()),
+            authz,
+            acl_admin: tokio::sync::Mutex::new(()),
+            users,
+            user_admin: tokio::sync::Mutex::new(()),
             stop_cleaning: Arc::default(),
         })
     }
@@ -164,100 +213,16 @@ impl<F: Fs> Broker<F> {
         self.partitions.open_count()
     }
 
+    /// Whether the last stop was clean (the console's view says so).
+    #[cfg(feature = "inspect")]
+    pub(crate) fn stop_was_clean(&self) -> bool {
+        self.stop.was_clean()
+    }
+
     /// The APIs this broker serves.
     #[must_use]
     pub fn served(&self) -> ApiSet {
         ApiSet::of(SERVED)
-    }
-
-    /// Handles one request. ApiVersions never gets here: the connection answers it from the version profile,
-    /// before the connection is known to be allowed anything else.
-    #[expect(
-        clippy::cognitive_complexity,
-        reason = "an exhaustive match over every API, with no wildcard, so that an API with no handler does not compile"
-    )]
-    pub async fn handle(
-        &self,
-        listener: &Listener,
-        head: &RequestHead,
-        request: Request,
-    ) -> Outcome {
-        match request {
-            Request::Metadata(r) => {
-                let (answer, wanted) = blocking::run(|| self.metadata(listener, &r, head.version));
-                self.create_wanted(wanted).await;
-                respond(Response::Metadata(answer))
-            }
-            Request::CreateTopics(r) => {
-                respond(Response::CreateTopics(self.create_topics(&r).await))
-            }
-            Request::DeleteTopics(r) => {
-                respond(Response::DeleteTopics(self.delete_topics(&r).await))
-            }
-            Request::Produce(r) => self.produce(head.version, r).await,
-            Request::Fetch(r) => self.fetch(head.version, r).await,
-            Request::ListOffsets(r) => respond(Response::ListOffsets(
-                self.list_offsets(head.version, &r).await,
-            )),
-            Request::FindCoordinator(r) => respond(Response::FindCoordinator(
-                self.find_coordinator(head.version, listener, &r),
-            )),
-            Request::JoinGroup(r) => {
-                self.join_group(head.version, &client_of(listener, head), &r)
-                    .await
-            }
-            Request::SyncGroup(r) => self.sync_group(&r).await,
-            Request::Heartbeat(r) => self.heartbeat(&r).await,
-            Request::LeaveGroup(r) => self.leave_group(head.version, &r).await,
-            Request::OffsetCommit(r) => self.offset_commit(head.version, &r).await,
-            Request::OffsetFetch(r) => self.offset_fetch(&r).await,
-            Request::OffsetDelete(r) => self.offset_delete(&r).await,
-            Request::DescribeGroups(r) => self.describe_groups(&r).await,
-            Request::ListGroups(r) => self.list_groups(&r).await,
-            Request::DeleteGroups(r) => self.delete_groups(&r).await,
-            Request::ConsumerGroupHeartbeat(r) => {
-                self.consumer_group_heartbeat(head.version, &client_of(listener, head), &r)
-                    .await
-            }
-            Request::ConsumerGroupDescribe(r) => self.consumer_group_describe(&r).await,
-            Request::DeleteRecords(r) => self.delete_records(&r).await,
-            Request::CreatePartitions(r) => self.create_partitions(&r).await,
-            Request::DescribeConfigs(r) => self.describe_configs(&r),
-            Request::AlterConfigs(r) => self.alter_configs(&r).await,
-            Request::IncrementalAlterConfigs(r) => self.incremental_alter_configs(&r).await,
-            Request::DescribeProducers(r) => self.describe_producers(&r).await,
-            Request::InitProducerId(r) => respond(Response::InitProducerId(
-                self.init_producer_id(head.version, &r).await,
-            )),
-            Request::AddPartitionsToTxn(r) => self.add_partitions_to_txn(head.version, &r).await,
-            Request::AddOffsetsToTxn(r) => self.add_offsets_to_txn(head.version, &r).await,
-            Request::EndTxn(r) => self.end_txn_request(head.version, &r).await,
-            Request::TxnOffsetCommit(r) => self.txn_offset_commit(&r).await,
-            Request::DescribeTransactions(r) => self.describe_transactions(&r).await,
-            Request::ListTransactions(r) => self.list_transactions(&r).await,
-            // Not served yet. Each moves out of this arm into a handler when its phase lands.
-            Request::ApiVersions(_)
-            | Request::SaslHandshake(_)
-            | Request::DescribeAcls(_)
-            | Request::CreateAcls(_)
-            | Request::DeleteAcls(_)
-            | Request::SaslAuthenticate(_)
-            | Request::DescribeCluster(_)
-            | Request::GetTelemetrySubscriptions(_)
-            | Request::PushTelemetry(_) => Outcome::Close,
-        }
-    }
-}
-
-fn respond(response: Response) -> Outcome {
-    Outcome::Respond(response)
-}
-
-/// The client of a request: its own name, and where it connected from.
-fn client_of<'a>(listener: &'a Listener, head: &'a RequestHead) -> crate::handlers::Client<'a> {
-    crate::handlers::Client {
-        id: head.client_id.as_deref().unwrap_or(""),
-        host: &listener.client_host,
     }
 }
 

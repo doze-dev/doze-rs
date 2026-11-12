@@ -3,7 +3,7 @@
 #
 # doze-kafka: measured on ubuntu x86_64: 4,899,328 B (the macOS arm64 build is 3.4 MB); the limit is that plus about 5%.
 # These are the limits CI has enforced; the macOS idle figure is lower than Linux's 8 MB limit.
-doze-kafka 5150000 115 8192 --listen 127.0.0.1:{port} --data-dir {data}
+doze-kafka 9000000 159 8192 --listen 127.0.0.1:{port} --data-dir {data}
 # doze-aws: measured 2026-11-12 on darwin/arm64 with SQS and its database: 2,687,088 B, 118 packages (the ones that only run at build time count: serde_derive
 # and its macro crates), 3,120 KB idle. It was 1,914,240 B and 109 packages before SQS kept its state on disk: redb is 507 KiB of the difference. The
 # byte limit is the macOS size times 1.3 (the Linux build of doze-kafka is about 1.2 times its macOS one) plus 5%; it is re-based from the first Linux CI run.

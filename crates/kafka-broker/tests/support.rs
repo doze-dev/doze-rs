@@ -10,7 +10,7 @@
 
 use std::path::Path;
 
-use kafka_broker::{Broker, Config, Listener};
+use kafka_broker::{Broker, Caller, Config, Listener};
 use kafka_storage::fs::Fs;
 use kafka_storage::sim::SimFs;
 use kafka_wire::StrBytes;
@@ -55,6 +55,11 @@ pub fn at() -> Listener {
     }
 }
 
+/// The caller of every request that does not say otherwise: nobody in particular, from the loopback address.
+pub fn caller() -> Caller {
+    Caller::anonymous(Some("127.0.0.1".parse().unwrap()))
+}
+
 pub fn head(key: ApiKey, version: i16) -> RequestHead {
     RequestHead {
         key,
@@ -67,8 +72,13 @@ pub fn head(key: ApiKey, version: i16) -> RequestHead {
 impl Rig {
     /// Puts `request` to the broker at `version` and returns what it answers.
     pub async fn ask(&self, version: i16, request: Request) -> Response {
+        self.ask_as(&caller(), version, request).await
+    }
+
+    /// [`Rig::ask`] for `caller`.
+    pub async fn ask_as(&self, caller: &Caller, version: i16, request: Request) -> Response {
         let head = head(request.api_key(), version);
-        match self.broker.handle(&at(), &head, request).await {
+        match self.broker.handle(&at(), caller, &head, request).await {
             kafka_broker::Outcome::Respond(response) => {
                 // What the broker answers must be writable at the version it was asked at: a field set that the
                 // version does not have closes the connection.
@@ -83,8 +93,13 @@ impl Rig {
     /// [`Rig::ask`] for a client connected from `peer` (an address).
     pub async fn ask_from(&self, peer: &str, version: i16, request: Request) -> Response {
         let head = head(request.api_key(), version);
-        let listener = at().seen_from(peer.parse().unwrap());
-        match self.broker.handle(&listener, &head, request).await {
+        let peer = peer.parse().unwrap();
+        let listener = at().seen_from(peer);
+        match self
+            .broker
+            .handle(&listener, &Caller::anonymous(Some(peer)), &head, request)
+            .await
+        {
             kafka_broker::Outcome::Respond(response) => response,
             other => panic!("no response: {other:?}"),
         }
@@ -232,6 +247,8 @@ pub fn rig_with(tweak: impl FnOnce(&mut Config)) -> Rig {
 }
 
 // (Explicit paths: this file is a test target of its own as well as a module of the others.)
+#[path = "support/acls.rs"]
+pub mod acls;
 #[path = "support/compact.rs"]
 mod compact;
 #[path = "support/configs.rs"]
@@ -252,6 +269,8 @@ pub use groups::join_request;
 mod produce;
 #[path = "support/txn.rs"]
 mod txn;
+#[path = "support/users.rs"]
+pub mod users;
 
 pub use compact::{clean_rounds, compacted, consume, delete_records, from, txn_produce};
 pub use configs::{BROKER, Op, TOPIC as TOPIC_RESOURCE};

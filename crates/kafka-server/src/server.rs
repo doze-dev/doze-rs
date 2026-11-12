@@ -6,6 +6,7 @@ use std::sync::Arc;
 
 use kafka_broker::Broker;
 use kafka_storage::fs::Fs;
+use kafka_wire::messages::ApiKey;
 use kafka_wire::profile::Features;
 use tokio::net::TcpListener;
 use tokio::sync::Semaphore;
@@ -32,13 +33,15 @@ impl Server {
         let ctx = Arc::new(Context {
             listener: config.advertise(addr),
             profile: config.profile,
-            features: Features {
-                served: broker.served(),
-                ..Features::default()
-            },
+            features: features(&config, &broker),
             broker,
             timeouts: config.timeouts,
+            auth: config.sasl,
         });
+        #[cfg(feature = "tls")]
+        let tls = config.tls.as_ref().map(crate::TlsConfig::acceptor);
+        #[cfg(not(feature = "tls"))]
+        let tls = ();
         let limit = Arc::new(Semaphore::new(config.max_connections));
         let (stop, tasks) = (CancellationToken::new(), TaskTracker::new());
         tasks.spawn(accept::run(
@@ -47,8 +50,27 @@ impl Server {
             limit,
             stop.clone(),
             tasks.clone(),
+            tls,
         ));
         Ok(Running { addr, stop, tasks })
+    }
+}
+
+/// What ApiVersions may list: the broker's APIs, and the two SASL ones only if the server has an authenticator to
+/// answer them with.
+fn features<F: Fs>(config: &Config, broker: &Broker<F>) -> Features {
+    let sasl = config.sasl.is_some();
+    let served = broker.served();
+    Features {
+        sasl,
+        served: if sasl {
+            served
+                .with(ApiKey::SaslHandshake)
+                .with(ApiKey::SaslAuthenticate)
+        } else {
+            served
+        },
+        ..Features::default()
     }
 }
 

@@ -1,5 +1,6 @@
 //! TxnOffsetCommit: consumer offsets staged with a transaction, applied if it commits.
 
+use kafka_auth::authz::operation;
 use kafka_meta::TxnOffset;
 use kafka_storage::fs::Fs;
 use kafka_wire::ResponseError as E;
@@ -11,16 +12,36 @@ use kafka_wire::messages::txn_offset_commit_response::{
 use kafka_wire::messages::{TxnOffsetCommitRequest, TxnOffsetCommitResponse};
 
 use crate::groups::CommitRequest;
+use crate::handlers::group_guard::Guard;
 use crate::txn::rules;
-use crate::{Broker, Outcome};
+use crate::{Broker, Caller, Outcome};
 
 impl<F: Fs> Broker<F> {
-    pub(crate) async fn txn_offset_commit(&self, req: &TxnOffsetCommitRequest) -> Outcome {
-        let code = self.stage_offsets(req).await;
+    /// The caller must be allowed to WRITE the transactional id (53 on every partition of the request), then to READ the
+    /// group (30 on every partition), and each topic is READ in turn (29 on its partitions): in that order, and before the
+    /// topic is looked for.
+    pub(crate) async fn txn_offset_commit(
+        &self,
+        caller: &Caller,
+        req: &TxnOffsetCommitRequest,
+    ) -> Outcome {
+        let guard = self.guard(caller);
+        let whole = if !guard.txn(operation::WRITE, req.transactional_id.0.as_str()) {
+            Some(E::TransactionalIdAuthorizationFailed)
+        } else if !guard.group(operation::READ, req.group_id.0.as_str()) {
+            Some(E::GroupAuthorizationFailed)
+        } else {
+            None
+        };
+        let code = match whole {
+            Some(_) => whole,
+            None => self.stage_offsets(&guard, req).await,
+        };
         let mut resp = TxnOffsetCommitResponse::default();
         for t in &req.topics {
             let mut rt = TxnOffsetCommitResponseTopic::default();
             rt.name = t.name.clone();
+            let barred = !guard.topic(operation::READ, t.name.0.as_str());
             for p in &t.partitions {
                 let mut rp = TxnOffsetCommitResponsePartition::default();
                 rp.partition_index = p.partition_index;
@@ -32,6 +53,8 @@ impl<F: Fs> Broker<F> {
                     });
                 // A partition that is not there is said so whatever else is wrong; the others share the request's answer.
                 rp.error_code = match code {
+                    Some(c) if whole.is_some() => c.code(),
+                    _ if barred => E::TopicAuthorizationFailed.code(),
                     _ if !known => E::UnknownTopicOrPartition.code(),
                     Some(c) => c.code(),
                     None => 0,
@@ -44,7 +67,7 @@ impl<F: Fs> Broker<F> {
     }
 
     /// Stages the offsets of the partitions that exist. `Some`: why none were.
-    async fn stage_offsets(&self, req: &TxnOffsetCommitRequest) -> Option<E> {
+    async fn stage_offsets(&self, guard: &Guard<'_>, req: &TxnOffsetCommitRequest) -> Option<E> {
         // In Kafka's order: the group's id, then the producer's right to write to the transaction (an id nobody owns,
         // including the empty one, is no producer's), then the committer's place in the group.
         let id = req.transactional_id.0.as_str();
@@ -81,7 +104,7 @@ impl<F: Fs> Broker<F> {
         if let Some(code) = self.ask_group_to_commit(&group, committer).await {
             return Some(code);
         }
-        let staged = self.offsets_of(req, group.as_str());
+        let staged = self.offsets_of(guard, req, group.as_str());
         if staged.is_empty() {
             return None;
         }
@@ -98,10 +121,16 @@ impl<F: Fs> Broker<F> {
     }
 
     /// The offsets of the request for partitions that exist.
-    fn offsets_of(&self, req: &TxnOffsetCommitRequest, group: &str) -> Vec<TxnOffset> {
+    fn offsets_of(
+        &self,
+        guard: &Guard<'_>,
+        req: &TxnOffsetCommitRequest,
+        group: &str,
+    ) -> Vec<TxnOffset> {
         let group_name = group.to_owned();
         req.topics
             .iter()
+            .filter(|t| guard.topic(operation::READ, t.name.0.as_str()))
             .flat_map(|t| {
                 let size = TopicName::parse(&t.name.0)
                     .ok()

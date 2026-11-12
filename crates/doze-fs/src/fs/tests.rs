@@ -137,3 +137,103 @@ fn the_real_file_system_keeps_the_contract() {
 fn the_simulated_file_system_keeps_the_contract() {
     contract(&SimFs::new(), Path::new("/"));
 }
+
+/// A private file is made, and then found, as `open_or_create` does; on the real disk of a system with modes, only its
+/// owner can read it, and `restrict_to_owner` closes a file that was open (SEC-193).
+fn a_private_file_is_made_and_found_like_any<F: Fs>(fs: &F, root: &Path) -> PathBuf {
+    let path = root.join("secret");
+    let (file, created) = fs.open_or_create_private(&path).unwrap();
+    assert!(created);
+    file.write_all_at(b"keys", 0).unwrap();
+    let (again, created) = fs.open_or_create_private(&path).unwrap();
+    assert!(!created);
+    assert_eq!(again.size().unwrap(), 4);
+    path
+}
+
+#[test]
+fn the_simulated_file_system_makes_private_files_and_has_no_modes_to_narrow() {
+    let fs = SimFs::new();
+    let path = a_private_file_is_made_and_found_like_any(&fs, Path::new("/"));
+    assert!(!fs.restrict_to_owner(&path).unwrap());
+}
+
+#[cfg(unix)]
+#[test]
+fn a_private_file_on_the_real_disk_is_owner_only_and_an_open_one_is_narrowed() {
+    use std::os::unix::fs::PermissionsExt;
+    let scratch = Scratch::new();
+    let path = a_private_file_is_made_and_found_like_any(&RealFs, &scratch.0);
+    let mode = |p: &Path| std::fs::metadata(p).unwrap().permissions().mode() & 0o777;
+    assert_eq!(mode(&path), 0o600);
+    assert!(
+        !RealFs.restrict_to_owner(&path).unwrap(),
+        "nothing to narrow"
+    );
+    // An ordinary file keeps the umask's mode, and is narrowed on request; a missing one is an error.
+    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o664)).unwrap();
+    assert!(RealFs.restrict_to_owner(&path).unwrap());
+    assert_eq!(mode(&path), 0o600);
+    assert!(
+        RealFs
+            .restrict_to_owner(&scratch.0.join("nowhere"))
+            .is_err()
+    );
+}
+
+/// Every mode a secret file may be found in: group and others are taken away together or not at all, whichever of the six
+/// bits is set, and an owner-only file (with or without the execute bit) is left as it is (SEC-193, SEC-237).
+#[cfg(unix)]
+#[test]
+fn restrict_to_owner_narrows_every_mode_that_group_or_others_can_use() {
+    use std::os::unix::fs::PermissionsExt;
+    let scratch = Scratch::new();
+    let path = scratch.0.join("modes");
+    drop(RealFs.open_or_create_private(&path).unwrap());
+    let mode = |p: &Path| std::fs::metadata(p).unwrap().permissions().mode() & 0o777;
+    let set = |m: u32| std::fs::set_permissions(&path, std::fs::Permissions::from_mode(m)).unwrap();
+    for (found, narrowed) in [
+        (0o640, true),
+        (0o604, true),
+        (0o660, true),
+        (0o606, true),
+        (0o620, true),
+        (0o602, true),
+        (0o644, true),
+        (0o664, true),
+        (0o777, true),
+        (0o070, true),
+        (0o007, true),
+        (0o600, false),
+        (0o700, false),
+        (0o400, false),
+    ] {
+        set(found);
+        assert_eq!(
+            RealFs.restrict_to_owner(&path).unwrap(),
+            narrowed,
+            "{found:o}"
+        );
+        let want = if narrowed { 0o600 } else { found };
+        assert_eq!(mode(&path), want, "{found:o}");
+    }
+}
+
+/// A private file that is there already is opened as it is, whatever its mode; one that is made is made owner-only.
+#[cfg(unix)]
+#[test]
+fn open_or_create_private_makes_owner_only_and_leaves_an_existing_file_alone() {
+    use std::os::unix::fs::PermissionsExt;
+    let scratch = Scratch::new();
+    let mode = |p: &Path| std::fs::metadata(p).unwrap().permissions().mode() & 0o777;
+    let made = scratch.0.join("made");
+    assert!(RealFs.open_or_create_private(&made).unwrap().1);
+    assert_eq!(mode(&made), 0o600);
+    for found in [0o640, 0o604, 0o700] {
+        let old = scratch.0.join(format!("old-{found:o}"));
+        std::fs::write(&old, b"x").unwrap();
+        std::fs::set_permissions(&old, std::fs::Permissions::from_mode(found)).unwrap();
+        assert!(!RealFs.open_or_create_private(&old).unwrap().1);
+        assert_eq!(mode(&old), found, "{found:o}");
+    }
+}

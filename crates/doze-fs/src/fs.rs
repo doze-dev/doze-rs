@@ -42,6 +42,27 @@ pub trait Fs: Clone + Send + Sync + 'static {
     /// Anything the system refuses, including a missing parent directory.
     fn open_or_create(&self, path: &Path) -> io::Result<(Self::File, bool)>;
 
+    /// [`Fs::open_or_create`] for a file that holds secrets: one made here can be read and written by its owner
+    /// alone (mode 0600 on Unix, set when the file is made, not after, so it is never open to others, not for a
+    /// moment). A file that was there already is opened as it is. On a system with no modes, and on the simulated
+    /// disk, this is `open_or_create`.
+    ///
+    /// # Errors
+    /// Anything the system refuses, including a missing parent directory.
+    fn open_or_create_private(&self, path: &Path) -> io::Result<(Self::File, bool)> {
+        self.open_or_create(path)
+    }
+
+    /// Takes away the access of group and others to a file that has it (leaving mode 0600); says whether it changed
+    /// anything. For a secret file an earlier version made open. Does nothing, and says so, where there are no modes.
+    ///
+    /// # Errors
+    /// The file cannot be looked at or changed (it is not ours, say).
+    fn restrict_to_owner(&self, path: &Path) -> io::Result<bool> {
+        let _ = path;
+        Ok(false)
+    }
+
     /// Renames a file, replacing any file at the new name.
     ///
     /// # Errors

@@ -1,0 +1,45 @@
+<!--screen {"id":"group-story","title":"Story","kind":"page","from":"group-rebalancing","via":"Tab: Story","ops":["DescribeGroups"],"refs":["grounding:K3","grounding:K10","go:console/traffic_story.go","go:internal/broker/groupevents.go","code:crates/kafka-broker/src/groups/machine/rebalance.rs"],"data":"capture","needs":["rebalance"],"extras":["story","live-sentence","new"],"crumbs":[["fulfilment","@group-rebalancing"]]} -->
+<div class="page-h"><div><div class="title-row"><h1 class="mono">fulfilment</h1><span class="st warn">Rebalancing</span><span class="pill">classic</span><span class="pill">range</span><span class="pill">generation 31 forming</span></div><p class="sub"><span data-extra="live-sentence">fulfilment has rebalanced 4 times in the last 6 h, each for a different reason: a topic changed, a member timed out, a member joined, a member left. The newest is still going: py-1 has 2.1 s of 5 s left to rejoin.</span></p></div><div class="acts"><a class="btn" href="@group-wire">[[g:list 16]]Group wire</a></div></div>
+<div class="toolbar" style="margin:-12px 0 28px"><span class="dim">[[g:group 16]] Switch group</span><span class="fchip mono dim">analytics</span><span class="fchip on mono">fulfilment</span><span class="fchip mono dim">payments-workers</span><a class="fchip mono" href="@group-detail">search-indexer</a></div>
+<div class="tabs"><a class="tab" href="@group-rebalancing">Members<span class="n">1</span></a><a class="tab" href="@lag-no-commits">Lag<span class="n">21</span></a><span class="tab on">Story<span class="n">4</span></span></div>
+<div class="split wide">
+<div>
+<div class="card" style="margin-bottom:32px" data-extra="story">
+<div class="row sb" style="margin-bottom:6px"><h2 style="margin:0">Now</h2><span class="st warn">Rebalancing</span></div>
+<p class="sent" style="margin:0 0 16px">Generation 31 began at <b>22:14:19.4</b> when <b>fulfilment-py-2</b> left. It is waiting for <b>fulfilment-py-1</b>.</p>
+<div class="lagbar"><div class="tr"><i class="warn" style="--p:58%"></i></div><span class="n" style="min-width:140px">2.1 s of 5 s left</span></div>
+</div>
+<h2 style="margin-bottom:20px">Generations, newest first</h2>
+<div class="story" data-extra="story">
+<div class="ev warn"><div class="tm">22:14:19</div><div class="dot"><i></i></div><div class="tx"><div><span class="cause">Member left</span><b>Generation 31 is forming</b></div><div class="dim" style="margin-top:6px"><b class='bright'>fulfilment-py-2</b> sent LeaveGroup. Members 2 to 1.</div><div class="dim" style="margin-top:6px">Not rejoined: <b class='bright'>fulfilment-py-1</b>. 2.1 s left of 5 s.</div><div class="row wrap" style="margin-top:10px;gap:8px"><span class="dim">In the group:</span><span class="pill mono">py-1</span><span class="pill mono">py-2 left</span></div><div style="margin-top:10px"><a class="lnk" href="@story-rebalance">Open this rebalance</a></div></div></div>
+<div class="ev "><div class="tm">22:09:02</div><div class="dot"><i></i></div><div class="tx"><div><span class="cause">Member joined</span><b>Generation 30</b></div><div class="dim" style="margin-top:6px"><b class='bright'>fulfilment-py-2</b> joined. Members 1 to 2. Settled in 1.1 s.</div><div class="dim" style="margin-top:6px">py-1 holds payments.settled-0, -1 and pick-lists-0; py-2 holds payments.settled-2 and -3. Lasted 5 m 17 s.</div><div class="row wrap" style="margin-top:10px;gap:8px"><span class="dim">In the group:</span><span class="pill mono">py-1</span><span class="pill mono">py-2</span></div></div></div>
+<div class="ev bad"><div class="tm">19:44:51</div><div class="dot"><i></i></div><div class="tx"><div><span class="cause">Session expired</span><b>Generation 29</b></div><div class="dim" style="margin-top:6px"><b class='bright'>fulfilment-py-3</b> sent no heartbeat for 10 s, its session timeout. Members 2 to 1. Settled in 0.3 s.</div><div class="dim" style="margin-top:6px">py-1 held all five partitions. Lasted 2 h 24 m.</div><div class="row wrap" style="margin-top:10px;gap:8px"><span class="dim">In the group:</span><span class="pill mono">py-1</span></div></div></div>
+<div class="ev idle"><div class="tm">16:02:10</div><div class="dot"><i></i></div><div class="tx"><div><span class="cause">Topic changed</span><b>Generation 28</b></div><div class="dim" style="margin-top:6px"><b class='bright'>payments.settled</b> was given another partition by CreatePartitions, 3 to 4. Every member had to join again. Settled in 0.8 s.</div><div class="dim" style="margin-top:6px">py-1 held payments.settled-0, -1 and pick-lists-0; py-3 held payments.settled-2 and -3. Lasted 3 h 42 m.</div><div class="row wrap" style="margin-top:10px;gap:8px"><span class="dim">In the group:</span><span class="pill mono">py-1</span><span class="pill mono">py-3</span></div></div></div>
+</div>
+<p class="help" style="margin-top:4px;max-width:none">Generations 1 to 27 are older than the ring keeps: 200 events per group, emptied at a restart.</p>
+</div>
+
+<div class="stack-y">
+<div class="card" data-extra="new"><div class="row sb" style="margin-bottom:8px"><h2 style="margin:0">Where the cause comes from</h2><span class="new">New</span></div>
+<p class="help" style="max-width:none">Kafka's protocol has no call that says why a group rebalanced; a client sees only that it must rejoin. The broker knows, because it is the one deciding. It records the cause at that moment, with the member and how long the rebalance took.</p>
+<div class="hr" style="margin:16px 0"></div>
+<div class="eyebrow" style="margin-bottom:10px">The causes it can name</div>
+<div class="stack-y" style="gap:12px">
+<div><span class="cause">Member joined</span><span class="help">a new member, or the first of an empty group</span></div>
+<div><span class="cause">Member left</span><span class="help">LeaveGroup, sent by the client</span></div>
+<div><span class="cause">Session expired</span><span class="help">no heartbeat within the session timeout</span></div>
+<div><span class="cause">Topic changed</span><span class="help">partitions added to a subscribed topic</span></div>
+<div><span class="cause">Rejoined with new protocols</span><span class="help">a member changed what it offers</span></div>
+<div><span class="cause">Rebalance timeout</span><span class="help">members did not rejoin in time</span></div></div></div>
+<div class="card"><h2>Is it flapping?</h2>
+<p class="help" style="max-width:none">Not by the rule: one session expiry in 6 h, and a clean leave never counts. fulfilment-py-2 did join and leave within 5 m 17 s; worth a look if it repeats.</p>
+<a class="btn" href="@story-flapping" style="margin-top:12px">[[g:search 16]]Check the rule</a></div>
+<div class="card" data-extra="story"><div class="row sb" style="margin-bottom:8px"><h2 style="margin:0">What a calm group looks like</h2><span class="st ok">Stable</span></div>
+<p class="help" style="max-width:none"><b class="mono">search-indexer</b>, for contrast: one rebalance in the last 6 h, and nothing has moved since. Its Story tab holds only this event.</p>
+<div class="story" style="margin-top:14px">
+<div class="ev "><div class="tm">18:30:12</div><div class="dot"><i></i></div><div class="tx"><div><span class="cause">Member joined</span><b>Generation 8</b></div><div class="dim" style="margin-top:6px"><b class='bright'>search-indexer-1</b> joined an empty group and led it. Members 0 to 1. Settled in 0.2 s.</div><div class="dim" style="margin-top:6px">It holds clickstream-0 to 5 and inventory.levels-0. Lasted 3 h 44 m so far.</div></div></div>
+</div>
+<div class="hr" style="margin:16px 0"></div>
+<p class="help" style="max-width:none">A quiet story is a good one. No member has come, gone or timed out since 18:30, so the lag on this group is not caused by rebalancing: the one member is reading, slowly. Look at <a class="lnk" href="@group-lag">its Lag</a> and at how many partitions one process holds.</p></div>
+</div>
+</div>

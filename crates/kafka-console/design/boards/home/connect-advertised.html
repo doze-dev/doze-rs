@@ -1,0 +1,29 @@
+<!--screen {"id":"connect-advertised","title":"Advertised listener","kind":"state","from":"connect","via":"Button: How the check works","ops":["Metadata"],"refs":["grounding:K1","cat:B4","go:console/templates/connect.html"],"data":"now","extras":["api-preview","teaching"],"crumbs":[["Connect","@connect"]]} -->
+<div class="page-h"><div><h1>Advertised listener</h1><p class="sub">The trap: a client reaches the broker, is told another address, and cannot reach that one. This check does the same two steps a client does, from the broker's side.</p></div><div class="acts"><button class="btn" type="button" data-op="Metadata">[[g:refresh 16]]Check again</button></div></div>
+<div class="g2" style="align-items:start">
+<div class="card"><div class="row sb"><h2>This instance</h2><span class="st ok">Reachable</span></div><p class="lede">Advertised host and port equal the listener, so a client that reached it once can always reach it again.</p>
+<div class="rules">
+<div class="r ok">[[g:check 16]]<div>The listener answers<span class="sub">Dialled 127.0.0.1:9092 and asked ApiVersions</span></div><span class="v">2 ms</span></div>
+<div class="r ok">[[g:check 16]]<div>It says where clients should reconnect<span class="sub">Metadata names this broker at 127.0.0.1:9092: the advertised host and port equal the listener</span></div><span class="v">Metadata</span></div>
+<div class="r ok">[[g:check 16]]<div>That address is reachable<span class="sub">Dialled the advertised address back and got an answer</span></div><span class="v">2 ms</span></div>
+</div></div>
+<div class="card"><div class="row sb"><h2>A bad case, for comparison</h2><span class="st bad">Not reachable</span></div><p class="lede">Not this instance: the same broker started with <span class="mono">--advertised-host broker.internal</span> on a machine that cannot resolve that name.</p>
+<div class="rules">
+<div class="r ok">[[g:check 16]]<div>The listener answers<span class="sub">Dialled 127.0.0.1:9092 and asked ApiVersions</span></div><span class="v">2 ms</span></div>
+<div class="r ok">[[g:check 16]]<div>It says where clients should reconnect<span class="sub">Metadata names this broker at <span class="mono">broker.internal:9092</span></span></div><span class="v">Metadata</span></div>
+<div class="r no">[[g:x 16]]<div>That address is not reachable<span class="sub">Dialled <span class="mono">broker.internal:9092</span>: no such host</span></div><span class="v">failed</span></div>
+</div></div></div>
+<div class="sec" style="margin-top:40px"><h2>What your client sees in the bad case</h2>
+<div class="callout warn">[[g:warn 18]]<div>The first request works, which is why this is confusing. Then the client logs a failure to connect to <span class="mono">broker.internal:9092</span> and every produce and fetch times out. Nothing is wrong with the address you typed.</div></div></div>
+<div class="g2" style="margin-top:40px;align-items:start">
+<div class="card" data-extra="api-preview"><h2>The call behind the check</h2><p class="lede">One request, the same one every client sends first.</p>
+<pre class="code"><span class="k">Metadata</span> v12
+  topics: <span class="s">[]</span>
+
+→ brokers: [{ host: <span class="s">"127.0.0.1"</span>, port: <span class="s">9092</span> }]
+  then dial 127.0.0.1:9092 and send ApiVersions</pre></div>
+<div class="card" data-extra="teaching"><h2>What to set</h2><p class="lede">One broker, one address: set the advertised host to a name or IP the client can reach, and the port it can reach it on.</p>
+<pre class="code">doze-kafka --listen 0.0.0.0:9092 \
+  --advertised-host 192.168.1.20 \
+  --advertised-port 9092</pre>
+<div class="teach" style="margin-top:16px"><b>From a container, 127.0.0.1 is the container.</b> <span class="dim">This check runs on the broker's side and cannot see inside your container's network: if clients there fail while this says Reachable, set a host name that the container resolves.</span></div></div></div>

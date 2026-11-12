@@ -1,0 +1,24 @@
+<!--screen {"id":"topic-create","title":"Create topic","kind":"page","from":"topics-list","via":"Button: Create topic","ops":["CreateTopics"],"refs":["cat:T1","cat:T2","cat:T3","grounding:K10","go:console/routes.go"],"data":"now","extras":["teaching","api-preview","copy-as"],"crumbs":[]} -->
+<div class="page-h"><div><h1>Create topic</h1><p class="sub">Three steps. The call on the right is the one that will be sent; it changes as you type.</p></div></div>
+<div class="steps"><span class="s on"><i>1</i>Name and partitions</span><span class="bar"></span><span class="s "><i>2</i>Configuration</span><span class="bar"></span><span class="s "><i>3</i>Review and create</span></div>
+<div class="split wide"><div class="card"><div class="form">
+<div class="field"><label for="n">Name</label><div class="input mono"><input id="n" type="text" value="orders.retry"></div>
+<div class="teach" data-extra="teaching"><div><b>Kafka says</b> legal characters are ASCII letters and digits, <span class="mono">.</span> <span class="mono">_</span> and <span class="mono">-</span>, at most 249 of them.</div><div><b>Default</b> none: a topic needs a name.</div><div><b>Range</b> 1 to 249 characters, not <span class="mono">.</span> or <span class="mono">..</span>.</div><div><b>Takes effect</b> at once; the name can never be changed, only deleted and made again.</div><div><b>Here</b> <span class="mono">a.b</span> and <span class="mono">a_b</span> collide, and names that differ only in letter case are refused. The name is free.</div></div></div>
+<div class="field"><label for="p">Partitions</label><div class="input mono"><input id="p" type="text" value="3"><span class="unit">of 1 to 1,000</span></div>
+<div class="teach" data-extra="teaching"><div><b>Kafka says</b> the number of partitions to create in the topic, or -1 for the default.</div><div><b>Default</b> <span class="mono">1</span> here (<span class="mono">--default-partitions</span>).</div><div><b>Range</b> 1 to 1,000 (<span class="mono">--max-partitions</span>); above that is refused INVALID_PARTITIONS.</div><div><b>Takes effect</b> at once. It can be raised later, never lowered.</div><div><b>Here</b> order is kept inside a partition only. One broker holds all of them, with replication factor 1.</div></div></div>
+<div class="field"><div class="lab">Start from</div><div class="choice">
+<div class="opt on"><div class="opt-row"><span class="radio on"></span><div><div class="t1">Event log</div><div class="t2">delete, keeps 7 d (what <span class="mono">orders</span> uses)</div></div></div></div>
+<div class="opt"><div class="opt-row"><span class="radio"></span><div><div class="t1">Compacted state</div><div class="t2">compact: the latest value for each key (<span class="mono">inventory.levels</span>)</div></div></div></div>
+<div class="opt"><div class="opt-row"><span class="radio"></span><div><div class="t1">Short lived</div><div class="t2">delete, keeps 1 h (<span class="mono">clickstream</span>)</div></div></div></div></div>
+<div class="help">A starting point only: the next step shows every value it sets.</div></div>
+<div class="actions-bar"><a class="btn" href="@topics-list">Cancel</a><a class="btn pri" href="@topic-create-config">Next: configuration</a></div></div></div>
+<div class="stack-y"><div class="apicall" data-extra="api-preview"><div class="hd">[[g:api 14]]The call</div><pre class="code"><span class="k">CreateTopics</span> v7
+  topics[0]
+    name: <span class="s">orders.retry</span>
+    num_partitions: 3
+    replication_factor: 1
+    configs: <span class="c">(none yet: all defaults)</span>
+  validate_only: false</pre><p class="help" style="margin:12px 0 0">Replication factor is always 1: this broker is the only broker.</p></div><div class="apicall" data-extra="copy-as" style="margin-top:16px"><div class="hd">[[g:code 14]]Or from a terminal</div><pre class="code"><span class="c"># the same, with Kafka's own tool</span>
+kafka-topics.sh --bootstrap-server 127.0.0.1:9092 \
+  --create --topic orders.retry --partitions 3 \
+  --config cleanup.policy=delete</pre><div class="row" style="margin-top:12px"><button class="btn sm" type="button" data-ui="copy">[[g:copy 14]]Copy</button></div></div></div></div>

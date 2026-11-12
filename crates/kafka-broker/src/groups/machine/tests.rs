@@ -75,6 +75,7 @@ pub(super) fn join_request(member: Option<&str>, names: &[&str]) -> JoinRequest 
         session_ms: 10_000,
         rebalance_ms: 30_000,
         id_first: false,
+        rights: None,
     }
 }
 
@@ -167,6 +168,7 @@ impl Group {
             member_id: id(member),
             instance: None,
             generation,
+            rights: None,
         };
         self.send(|t| Event::Heartbeat(t, req))
     }

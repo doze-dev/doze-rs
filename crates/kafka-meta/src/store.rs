@@ -1,6 +1,8 @@
 //! The metadata database: one redb file, opened over the file seam.
 
+mod acls;
 mod broker_configs;
+mod credentials;
 mod lives;
 mod offsets;
 mod producer_ids;
@@ -33,6 +35,15 @@ pub(super) const TXNS: TableDefinition<'static, &str, &[u8]> = TableDefinition::
 pub(super) const BROKER_CONFIGS: TableDefinition<'static, &str, &str> =
     TableDefinition::new("broker_configs");
 
+/// The ACLs: the seven fields (the key) to the record. A database made before ACLs existed has no such table, and
+/// the reads below take that as none.
+pub(super) const ACLS: TableDefinition<'static, &[u8], &[u8]> = TableDefinition::new("acls");
+
+/// The SCRAM credentials: mechanism and user (the key) to the record. Absent from a database made before they could be
+/// kept, which the reads take as none and the first write makes.
+pub(super) const CREDENTIALS: TableDefinition<'static, &[u8], &[u8]> =
+    TableDefinition::new("credentials");
+
 pub(super) const COUNTERS: TableDefinition<'static, &str, u64> = TableDefinition::new("counters");
 
 const FILE: &str = "meta.redb";
@@ -40,11 +51,25 @@ const FILE: &str = "meta.redb";
 /// carry a write's own pages.
 const CACHE_BYTES: usize = 1 << 20;
 
+/// Who could read the database file when it was opened. It holds the SCRAM salts and keys, from which a password can
+/// be guessed offline, so it is made for its owner alone (SEC-193).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FileMode {
+    /// Owner only: as it was made, or already.
+    Private,
+    /// Group or others could read it (an earlier build made it so): narrowed to owner only now.
+    Narrowed,
+    /// Group or others can read it and it could not be narrowed (it is not ours, say).
+    Wide,
+}
+
 /// The broker's metadata. Reads are served from memory; a write is durable (flushed) before it returns, and
 /// a crash at any point leaves it done or not done, never half. Writes are one at a time.
 #[derive(Debug)]
 pub struct MetaStore {
     db: Store,
+    /// Who could read the file at open.
+    file_mode: FileMode,
     /// What the topics are, in memory, changed only by a write that has committed.
     shared: Shared,
     /// Held for the whole of a topic change, from the checks to the registry update, so that two changes
@@ -69,15 +94,30 @@ impl MetaStore {
             txn.open_table(GROUP_LIVES)?;
             txn.open_table(TXNS)?;
             txn.open_table(BROKER_CONFIGS)?;
+            txn.open_table(ACLS)?;
+            txn.open_table(CREDENTIALS)?;
             Ok(())
         })?;
+        // A database an earlier build made open to others is closed to them now; one that cannot be is reported.
+        let file_mode = match fs.restrict_to_owner(&dir.join(FILE)) {
+            Ok(false) => FileMode::Private,
+            Ok(true) => FileMode::Narrowed,
+            Err(_) => FileMode::Wide,
+        };
         let shared = Shared::load(&db)?;
         Ok(Self {
             db,
+            file_mode,
             shared,
             write: Mutex::new(()),
             ids: Mutex::new(producer_ids::Block::default()),
         })
+    }
+
+    /// Who could read the database file when it was opened.
+    #[must_use]
+    pub fn file_mode(&self) -> FileMode {
+        self.file_mode
     }
 
     /// Closes the database, flushing it once more. (Dropping the store closes it too, but cannot say if that

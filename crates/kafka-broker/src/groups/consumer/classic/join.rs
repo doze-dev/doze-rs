@@ -97,6 +97,9 @@ impl ConsumerGroup {
         };
         member.left = false;
         self.members.insert(id.clone(), member);
+        // Its principal's rights, as the join brought them: what it was left by a member it replaced, or holds from before
+        // a right was taken away, goes before anything is told (SEC-231).
+        changed |= self.refresh_rights(&id, req.rights.clone(), topics, now, out);
         self.reset_session(&id, now, out);
         if changed {
             self.bump_and_reassign(topics, now);

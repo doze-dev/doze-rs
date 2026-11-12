@@ -1,0 +1,140 @@
+<!--screen {"id":"settings-home","title":"Settings","kind":"page","from":"index","via":"Rail: Settings","ops":["DescribeConfigs","ApiVersions"],"refs":["cat:ADM-7","cat:ADM-6","cat:ADM-D4","cat:B3","cat:TX-11","cat:TX-12","grounding:K16","code:crates/kafka-broker/src/configs/broker.rs","code:crates/kafka-broker/src/configs/view.rs","code:crates/doze-kafka/src/cli.rs","code:crates/doze-kafka/src/descriptors.rs","code:crates/kafka-broker/src/partitions/registry.rs","code:crates/kafka-wire/src/api.rs","code:crates/kafka-wire/src/profile.rs","code:crates/kafka-broker/src/broker.rs"],"data":"now","extras":["live-sentence","teaching"],"crumbs":[]} -->
+<div class="page-h"><div><h1>Settings</h1><p class="sub">This broker's own configuration, explained. <b>Five settings can change while it runs</b>; everything else was fixed when it started and is shown read only.</p></div></div>
+<div class="tabs"><a class="tab on" href="#broker-configs">Broker configs</a><a class="tab" href="#version-profile">Version profile</a><a class="tab" href="#intervals">Intervals</a><a class="tab" href="#weight">Weight</a><a class="tab" href="#data">Data</a><a class="tab" href="#flags">Flags</a></div>
+<p class="sent" data-extra="live-sentence" style="margin:-8px 0 28px"><b>0</b> of the 5 are set at run time: all five are at the values the broker was started with. Running <b>3 d 4 h</b> since Nov 6 18:02, version profile <b>Kafka 4</b>.</p>
+
+<div class="sec" id="broker-configs"><h2>Broker configs</h2><p class="lede">Source says where the value in force comes from: a dynamic setting first, then the flag it started with, then Kafka's own default. A topic that sets its own value keeps it.</p>
+<table class="t"><thead><tr><th>Config</th><th>Value</th><th>Source</th><th>Takes effect</th><th></th></tr></thead><tbody>
+<tr><td class="name"><span class="mono">log.segment.bytes</span><span class="sub">A partition rolls to a new segment past this size</span></td><td class="mono">134,217,728<span class="sub" style="font-family:Inter,sans-serif">128 MiB</span></td><td><span class="pill">Static broker</span><span class="sub">flag --segment-bytes; Kafka's default is 1 GiB</span></td><td>At the next append of each open partition</td><td class="r"><a class="btn sm" href="@broker-config-edit">[[g:edit 14]]Edit</a></td></tr>
+<tr><td class="name"><span class="mono">log.index.interval.bytes</span><span class="sub">One sparse index entry per this many bytes</span></td><td class="mono">4,096<span class="sub" style="font-family:Inter,sans-serif">4 KiB</span></td><td><span class="pill">Default</span><span class="sub">Kafka's default</span></td><td>At the next append of each open partition</td><td class="r"><a class="btn sm" href="@broker-config-edit">[[g:edit 14]]Edit</a></td></tr>
+<tr><td class="name"><span class="mono">message.max.bytes</span><span class="sub">The largest record batch a topic accepts</span></td><td class="mono">1,048,588<span class="sub" style="font-family:Inter,sans-serif">1 MiB + 12 B</span></td><td><span class="pill">Default</span><span class="sub">Kafka's default</span></td><td>On the next request</td><td class="r"><a class="btn sm" href="@broker-config-edit">[[g:edit 14]]Edit</a></td></tr>
+<tr><td class="name"><span class="mono">log.retention.bytes</span><span class="sub">Delete the oldest segments past this size per partition</span></td><td class="mono">-1<span class="sub" style="font-family:Inter,sans-serif">no limit</span></td><td><span class="pill">Default</span><span class="sub">Kafka's default</span></td><td>At the next retention pass, every 5&nbsp;m</td><td class="r"><a class="btn sm" href="@broker-config-edit">[[g:edit 14]]Edit</a></td></tr>
+<tr><td class="name"><span class="mono">log.retention.ms</span><span class="sub">Delete segments older than this</span></td><td class="mono">-1<span class="sub" style="font-family:Inter,sans-serif">no limit</span></td><td><span class="pill">Static broker</span><span class="sub">flag --retention-ms 0 means none; Kafka's default is 7 d</span></td><td>At the next retention pass, every 5&nbsp;m</td><td class="r"><a class="btn sm" href="@broker-config-edit">[[g:edit 14]]Edit</a></td></tr>
+</tbody></table>
+<p class="help" style="margin:14px 0 0" data-extra="teaching">A change is kept on disk and is still there after a restart. It applies to all brokers or to this one (there is one). These are the only five: another config is refused <a class="lnk" href="@broker-config-refused">in Kafka's words</a>.</p></div>
+
+<div class="sec" id="version-profile"><h2>Version profile</h2><p class="lede">The Kafka the broker stands for, and the APIs a client is offered: <b class="mono">--kafka-version 4</b>, <b>38 APIs</b>, each with the versions a real Kafka 4 broker offers, never more. It is what ApiVersions answers. A client picks, for each API, the highest version both sides have: today <b>fulfilment</b> speaks Fetch v12 and <b>orders</b> Produce v9, both inside the ranges.</p>
+<table class="t" style="table-layout:fixed"><colgroup><col style="width:32%"><col style="width:20%"><col></colgroup><thead><tr><th>API</th><th>Versions</th><th>Family</th></tr></thead><tbody>
+<tr><td class="mono name">Produce</td><td class="mono">v3 to v9</td><td class="dim">Produce and fetch</td></tr>
+<tr><td class="mono name">Fetch</td><td class="mono">v4 to v13</td><td class="dim">Produce and fetch</td></tr>
+<tr><td class="mono name">ListOffsets</td><td class="mono">v1 to v7</td><td class="dim">Produce and fetch</td></tr>
+<tr><td class="mono name">DeleteRecords</td><td class="mono">v0 to v2</td><td class="dim">Produce and fetch</td></tr>
+<tr><td class="mono name">ApiVersions</td><td class="mono">v0 to v4</td><td class="dim">Metadata and bootstrapping</td></tr>
+<tr><td class="mono name">Metadata</td><td class="mono">v0 to v12</td><td class="dim">Metadata and bootstrapping</td></tr>
+<tr><td class="mono name">FindCoordinator</td><td class="mono">v0 to v4</td><td class="dim">Metadata and bootstrapping</td></tr>
+</tbody></table>
+<details style="margin-top:12px"><summary class="btn sm" style="list-style:none;cursor:pointer">[[g:chev-d 14]]Show all 38 APIs</summary>
+<table class="t" style="table-layout:fixed;margin-top:12px"><colgroup><col style="width:32%"><col style="width:20%"><col></colgroup><tbody>
+<tr><td class="mono name">CreateTopics</td><td class="mono">v2 to v7</td><td class="dim">Topics and configs</td></tr>
+<tr><td class="mono name">DeleteTopics</td><td class="mono">v1 to v6</td><td class="dim">Topics and configs</td></tr>
+<tr><td class="mono name">CreatePartitions</td><td class="mono">v0 to v3</td><td class="dim">Topics and configs</td></tr>
+<tr><td class="mono name">DescribeConfigs</td><td class="mono">v1 to v4</td><td class="dim">Topics and configs</td></tr>
+<tr><td class="mono name">AlterConfigs</td><td class="mono">v0 to v2</td><td class="dim">Topics and configs</td></tr>
+<tr><td class="mono name">IncrementalAlterConfigs</td><td class="mono">v0 to v1</td><td class="dim">Topics and configs</td></tr>
+<tr><td class="mono name">JoinGroup</td><td class="mono">v0 to v9</td><td class="dim">Classic groups</td></tr>
+<tr><td class="mono name">SyncGroup</td><td class="mono">v0 to v5</td><td class="dim">Classic groups</td></tr>
+<tr><td class="mono name">Heartbeat</td><td class="mono">v0 to v4</td><td class="dim">Classic groups</td></tr>
+<tr><td class="mono name">LeaveGroup</td><td class="mono">v0 to v5</td><td class="dim">Classic groups</td></tr>
+<tr><td class="mono name">DescribeGroups</td><td class="mono">v0 to v5</td><td class="dim">Classic groups</td></tr>
+<tr><td class="mono name">ListGroups</td><td class="mono">v0 to v5</td><td class="dim">Classic groups</td></tr>
+<tr><td class="mono name">DeleteGroups</td><td class="mono">v0 to v2</td><td class="dim">Classic groups</td></tr>
+<tr><td class="mono name">ConsumerGroupHeartbeat</td><td class="mono">v0 to v1</td><td class="dim">Consumer groups (KIP-848) and offsets</td></tr>
+<tr><td class="mono name">ConsumerGroupDescribe</td><td class="mono">v0 to v1</td><td class="dim">Consumer groups (KIP-848) and offsets</td></tr>
+<tr><td class="mono name">OffsetCommit</td><td class="mono">v2 to v9</td><td class="dim">Consumer groups (KIP-848) and offsets</td></tr>
+<tr><td class="mono name">OffsetFetch</td><td class="mono">v1 to v9</td><td class="dim">Consumer groups (KIP-848) and offsets</td></tr>
+<tr><td class="mono name">OffsetDelete</td><td class="mono">v0 only</td><td class="dim">Consumer groups (KIP-848) and offsets</td></tr>
+<tr><td class="mono name">InitProducerId</td><td class="mono">v0 to v4</td><td class="dim">Producers and transactions</td></tr>
+<tr><td class="mono name">AddPartitionsToTxn</td><td class="mono">v0 to v3</td><td class="dim">Producers and transactions</td></tr>
+<tr><td class="mono name">AddOffsetsToTxn</td><td class="mono">v0 to v3</td><td class="dim">Producers and transactions</td></tr>
+<tr><td class="mono name">EndTxn</td><td class="mono">v0 to v3</td><td class="dim">Producers and transactions</td></tr>
+<tr><td class="mono name">TxnOffsetCommit</td><td class="mono">v0 to v3</td><td class="dim">Producers and transactions</td></tr>
+<tr><td class="mono name">DescribeProducers</td><td class="mono">v0 only</td><td class="dim">Producers and transactions</td></tr>
+<tr><td class="mono name">DescribeTransactions</td><td class="mono">v0 only</td><td class="dim">Producers and transactions</td></tr>
+<tr><td class="mono name">ListTransactions</td><td class="mono">v0 to v1</td><td class="dim">Producers and transactions</td></tr>
+<tr><td class="mono name">DescribeAcls</td><td class="mono">v1 to v3</td><td class="dim">Security: ACLs and users</td></tr>
+<tr><td class="mono name">CreateAcls</td><td class="mono">v1 to v3</td><td class="dim">Security: ACLs and users</td></tr>
+<tr><td class="mono name">DeleteAcls</td><td class="mono">v1 to v3</td><td class="dim">Security: ACLs and users</td></tr>
+<tr><td class="mono name">DescribeUserScramCredentials</td><td class="mono">v0 only</td><td class="dim">Security: ACLs and users</td></tr>
+<tr><td class="mono name">AlterUserScramCredentials</td><td class="mono">v0 only</td><td class="dim">Security: ACLs and users</td></tr>
+</tbody></table></details>
+<p class="help" style="margin:16px 0 0">Produce starts at v3 and Fetch at v4, the first versions that carry record batch format v2, the only format the log stores. OffsetCommit and OffsetFetch stop at v9: from v10 the wire form uses topic ids, which this broker does not use. Nine APIs lose their oldest versions at Kafka 4 (KIP-896); the other profiles, 1 to 3, are chosen at start with <span class="mono">--kafka-version</span>. <b>Offered only with SASL on:</b> SaslHandshake (v1) and SaslAuthenticate (v0 to v2), which makes 40; this broker has SASL off. <b>Not offered:</b> DescribeCluster, GetTelemetrySubscriptions and PushTelemetry (no handler yet).</p></div>
+
+<div class="sec" id="intervals"><h2>Intervals</h2><p class="lede">How often the broker looks at things on its own. <b>Read only: set when the broker starts.</b> Retention is applied every <b>5 m</b>. The cleaner looks every <b>15 s</b>; its last round was on <b>inventory.levels</b> at <b>21:31</b>, and the next look finds it due.</p>
+<table class="t"><thead><tr><th>Interval</th><th>Value</th><th>Flag</th><th>Default</th><th>What it does</th></tr></thead><tbody>
+<tr><td class="name">Retention check<span class="sub">applies retention.ms and retention.bytes to every delete topic</span></td><td class="mono">5m</td><td class="mono">--log-retention-check-interval</td><td class="mono">5m</td><td class="dim">Must be above 0</td></tr>
+<tr><td class="name">Cleaner look<span class="sub">checks compacted topics and cleans the ones that are due</span></td><td class="mono">15s</td><td class="mono">--log-cleaner-interval</td><td class="mono">15s</td><td class="dim">Must be above 0</td></tr>
+<tr><td class="name">Flush after a write<span class="sub">an acks=1 write is flushed within this time (0 flushes at once)</span></td><td class="mono">500ms</td><td class="mono">--fsync-interval</td><td class="mono">500ms</td><td class="dim">acks=all flushes before it answers</td></tr>
+<tr><td class="name">Offsets retention<span class="sub">committed offsets of an empty group are kept this long</span></td><td class="mono">168h</td><td class="mono">--offsets-retention</td><td class="mono">168h</td><td class="dim">7 d; analytics' expire in 3 d 2 h</td></tr>
+<tr><td class="name">First rebalance wait<span class="sub">a new group waits this long for more members to join</span></td><td class="mono">200ms</td><td class="mono">--group-initial-rebalance-delay</td><td class="mono">200ms</td><td class="dim">0 does not wait</td></tr>
+<tr><td class="name">Consumer session<span class="sub">a KIP-848 member silent this long is removed</span></td><td class="mono">45s</td><td class="mono">--consumer-session-timeout</td><td class="mono">45s</td><td class="dim">Must be above 0</td></tr>
+</tbody></table>
+<p class="help" style="margin:14px 0 0">A transaction past its timeout is aborted by a check every <span class="mono">500 ms</span>, and its producer is fenced. That check has no flag, and the timeout belongs to each producer (orders-eos: 60 s). A running broker cannot change these: Kafka refuses with "Cannot update these configs dynamically", and so does this one. To change an interval, stop the broker and start it with the flag.</p></div>
+
+<div class="sec" id="weight"><h2>Weight</h2><p class="lede">What this instance costs your machine. Weight is a feature: idle memory is measured in the tests and may only rise with a written reason. Right now <b>21</b> partitions are open of the <b>64</b> it will keep open, using <b>118</b> file descriptors.</p>
+<div class="g4">
+<div class="card" style="padding:24px"><div class="eyebrow">Idle memory</div><div class="big" style="margin-top:8px">4.5<small>MB</small></div><p class="help" style="margin:10px 0 0">resident, 3 threads; read on Linux only</p></div>
+<div class="card" style="padding:24px"><div class="eyebrow">Open partitions</div><div class="big" style="margin-top:8px">21<small>of 64</small></div><div class="lagbar" style="margin-top:12px"><div class="tr"><i style="--p:33%"></i></div></div></div>
+<div class="card" style="padding:24px"><div class="eyebrow">File descriptors</div><div class="big" style="margin-top:8px">118<small>open</small></div><p class="help" style="margin:10px 0 0">held by open partitions, their segments and indexes</p></div>
+<div class="card" style="padding:24px"><div class="eyebrow">Binary</div><div class="big" style="margin-top:8px">4.0<small>MB</small></div><p class="help" style="margin:10px 0 0">the broker program</p></div></div>
+<dl class="kv sm" style="margin-top:24px"><dt>Allowed open</dt><dd>64<span class="sub">the lower of --max-open-partitions (512) and what this process's limit on file descriptors leaves, at 4 each</span></dd></dl>
+<p class="help" style="margin:8px 0 0">Partitions open when asked for: all 21 partitions of the 9 topics are open now, and the least recently used closes, after a flush, once the limit is reached. The cleaner holds nothing while idle: a round builds a key map of at most 16 MiB and drops it when the round ends. Big requests reuse buffers from a pool of at most 64 MiB, so memory after a heavy produce stays near what it was.</p></div>
+
+<div class="sec" id="data"><h2>Data</h2><p class="lede">Everything this broker keeps lives in one directory. Stop it cleanly and the directory can be copied, moved or deleted as a whole. It holds <b>187 MiB</b>; the last stop was <b>clean</b>, so the start on Nov 6 at 18:02 trusted what it found.</p>
+<div class="g2" style="align-items:start">
+<div class="card"><h2>The data directory</h2><div class="row" style="margin:12px 0 18px"><span class="conn" style="padding:10px 14px"><span class="node self">~/larder/data/kafka</span></span><button class="btn sm" type="button" data-ui="copy">[[g:copy 14]]Copy path</button></div>
+<dl class="kv sm"><dt>Set by</dt><dd class="mono">--data-dir</dd><dt>Size</dt><dd class="mono">187 MiB</dd><dt>Partitions on disk</dt><dd>21<span class="sub">in 9 topics; __consumer_offsets keeps no log here</span></dd><dt>Last stop</dt><dd><span class="st ok">Clean</span><span class="sub">the stop was recorded, so every partition was trusted at start without being read back</span></dd><dt>Inside</dt><dd>The metadata database<span class="sub">topics and their configs, committed offsets, transactional ids, the five dynamic broker configs</span><span class="sub">and one directory for each partition, named for its topic and number, such as orders-0, with its segments and their indexes</span></dd></dl></div>
+<div class="card"><h2>What a restart does</h2><p class="sent" style="margin:8px 0 14px">SIGTERM or Ctrl-C is a clean stop: every open partition is flushed and closed and the stop is recorded, while a kill is not, and the next start distrusts every partition and the first flush covers what it reads back (nothing acknowledged is lost). Your data is where it was, including topics, records, configs, committed offsets, producer ids and open transactions (orders-eos stays Ongoing and its 60 s timeout is not started again), while connections, group members, the wire's 2,000 rows and Lab rules start again from nothing. Stored ACLs and the users made over the API stay; users from flags are re-applied.</p>
+<p class="help" style="margin:0">A write that asked for acks=all is flushed before it is answered; one with acks=1 within <span class="mono">500 ms</span>, set by <span class="mono">--fsync-interval</span>.</p></div></div></div>
+
+<div class="sec" id="flags"><h2>Flags</h2><p class="lede">What the broker was started with, each with its default. <b>Read only: set at start.</b> <b>1</b> flag differs from its default: <span class="mono">--data-dir</span>. The rest are as shipped.</p>
+<table class="t" style="table-layout:fixed"><colgroup><col style="width:27%"><col style="width:20%"><col style="width:17%"><col></colgroup><thead><tr><th>Flag</th><th>Value</th><th>Default</th><th>What it does</th></tr></thead><tbody>
+<tr><td class="mono name">--data-dir</td><td class="mono">~/larder/data/kafka</td><td class="mono dim">./data</td><td>Metadata database and partition logs <span class="pill">set</span></td></tr>
+</tbody></table>
+<details style="margin-top:12px"><summary class="btn sm" style="list-style:none;cursor:pointer">[[g:chev-d 14]]Show all 37 flags</summary>
+<table class="t" style="table-layout:fixed;margin-top:12px"><colgroup><col style="width:27%"><col style="width:20%"><col style="width:17%"><col></colgroup><tbody>
+<tr><td colspan="4" style="background:var(--well);height:44px"><b>Network and storage</b></td></tr>
+<tr><td class="mono name">--listen</td><td class="mono">127.0.0.1:9092</td><td class="mono dim">127.0.0.1:9092</td><td>Serve on this host and port</td></tr>
+<tr><td class="mono name">--advertised-host</td><td class="mono">unset</td><td class="mono dim">the listen address</td><td>Host told to clients in Metadata; see Connect for the trap</td></tr>
+<tr><td class="mono name">--advertised-port</td><td class="mono">unset</td><td class="mono dim">the port bound</td><td>Port told to clients in Metadata</td></tr>
+<tr><td class="mono name">--data-dir</td><td class="mono">~/larder/data/kafka</td><td class="mono dim">./data</td><td>Metadata database and partition logs <span class="pill">set</span></td></tr>
+<tr><td class="mono name">--segment-bytes</td><td class="mono">134,217,728</td><td class="mono dim">128 MiB</td><td>Roll a segment past this size <a class="pill" href="#broker-configs">also dynamic</a></td></tr>
+<tr><td class="mono name">--index-interval-bytes</td><td class="mono">4,096</td><td class="mono dim">4 KiB</td><td>One sparse index entry per this many bytes <a class="pill" href="#broker-configs">also dynamic</a></td></tr>
+<tr><td class="mono name">--message-max-bytes</td><td class="mono">1,048,588</td><td class="mono dim">1,048,588</td><td>Largest batch a topic accepts unless it sets max.message.bytes <a class="pill" href="#broker-configs">also dynamic</a></td></tr>
+<tr><td class="mono name">--retention-bytes</td><td class="mono">0</td><td class="mono dim">0</td><td>Delete old segments past this size; 0 means none <a class="pill" href="#broker-configs">also dynamic</a></td></tr>
+<tr><td class="mono name">--retention-ms</td><td class="mono">0</td><td class="mono dim">0</td><td>Delete segments older than this; 0 means none <a class="pill" href="#broker-configs">also dynamic</a></td></tr>
+<tr><td colspan="4" style="background:var(--well);height:44px"><b>Topics and partitions</b></td></tr>
+<tr><td class="mono name">--auto-create-topics</td><td class="mono">true</td><td class="mono dim">true</td><td>Create an unknown topic when a client asks about it</td></tr>
+<tr><td class="mono name">--default-partitions</td><td class="mono">1</td><td class="mono dim">1</td><td>Partitions of an auto-created topic</td></tr>
+<tr><td class="mono name">--max-partitions</td><td class="mono">1000</td><td class="mono dim">1000</td><td>Most partitions one topic may have</td></tr>
+<tr><td class="mono name">--max-open-partitions</td><td class="mono">512</td><td class="mono dim">512</td><td>Partitions kept open at once; the least recently used close and open again when asked</td></tr>
+<tr><td colspan="4" style="background:var(--well);height:44px"><b>Cleaning, retention and groups</b></td></tr>
+<tr><td class="mono name">--log-retention-check-interval</td><td class="mono">5m</td><td class="mono dim">5m</td><td>How often retention is applied</td></tr>
+<tr><td class="mono name">--log-cleaner-interval</td><td class="mono">15s</td><td class="mono dim">15s</td><td>How often compacted topics are looked at</td></tr>
+<tr><td class="mono name">--log-cleaner-enable</td><td class="mono">true</td><td class="mono dim">true</td><td>Clean topics whose cleanup.policy says compact</td></tr>
+<tr><td class="mono name">--offsets-retention</td><td class="mono">168h</td><td class="mono dim">168h</td><td>How long an empty group's offsets are kept</td></tr>
+<tr><td class="mono name">--group-initial-rebalance-delay</td><td class="mono">200ms</td><td class="mono dim">200ms</td><td>Wait for more members at a group's first rebalance</td></tr>
+<tr><td class="mono name">--consumer-session-timeout</td><td class="mono">45s</td><td class="mono dim">45s</td><td>Silence after which a KIP-848 member is removed</td></tr>
+<tr><td class="mono name">--fsync-interval</td><td class="mono">500ms</td><td class="mono dim">500ms</td><td>Flush delay of an acks=1 write</td></tr>
+<tr><td colspan="4" style="background:var(--well);height:44px"><b>Profile and process</b></td></tr>
+<tr><td class="mono name">--kafka-version</td><td class="mono">4</td><td class="mono dim">4</td><td>Kafka major to stand for, 1 to 4; sets the APIs offered</td></tr>
+<tr><td class="mono name">--worker-threads</td><td class="mono">2</td><td class="mono dim">2</td><td>Threads running the broker's work; each idle one is memory</td></tr>
+<tr><td class="mono name">--log-level</td><td class="mono">info</td><td class="mono dim">info</td><td>error, warn, info, debug or trace</td></tr>
+<tr><td class="mono name">--log-format</td><td class="mono">text</td><td class="mono dim">text</td><td>text or json</td></tr>
+<tr><td colspan="4" style="background:var(--well);height:44px"><b>Security: sign-in, ACLs and TLS</b></td></tr>
+<tr><td class="mono name">--sasl-mechanisms</td><td class="mono">none</td><td class="mono dim">none</td><td>SASL mechanisms to offer: PLAIN, SCRAM-SHA-256, SCRAM-SHA-512. Without it nobody logs in</td></tr>
+<tr><td class="mono name">--sasl-user</td><td class="mono">none</td><td class="mono dim">none</td><td>A login as user:password, repeatable. A password is never shown here and shows in <span class="mono">ps</span>: prefer the file</td></tr>
+<tr><td class="mono name">--sasl-users-file</td><td class="mono">unset</td><td class="mono dim">unset</td><td>A file of user:password lines, so passwords stay out of <span class="mono">ps</span>; <span class="mono">DOZE_KAFKA_SASL_USERS</span> does the same from the environment</td></tr>
+<tr><td class="mono name">--sasl-failed-login-delay</td><td class="mono">100ms</td><td class="mono dim">100ms</td><td>A failed login is answered after this wait; 0 answers at once</td></tr>
+<tr><td class="mono name">--acl-default</td><td class="mono">allow</td><td class="mono dim">allow</td><td>What a resource no ACL covers allows: allow, or deny as Kafka does</td></tr>
+<tr><td class="mono name">--acl-super-user</td><td class="mono">none</td><td class="mono dim">none</td><td>A principal ACLs never refuse, as User:name; repeatable</td></tr>
+<tr><td class="mono name">--tls-cert</td><td class="mono">unset</td><td class="mono dim">unset</td><td>PEM certificate chain to serve TLS with; needs the <span class="mono">tls</span> feature and --tls-key</td></tr>
+<tr><td class="mono name">--tls-key</td><td class="mono">unset</td><td class="mono dim">unset</td><td>PEM private key of that certificate; its contents are never shown</td></tr>
+<tr><td colspan="4" style="background:var(--well);height:44px"><b>Console</b></td></tr>
+<tr><td class="mono name">--console</td><td class="mono">true</td><td class="mono dim">true</td><td>Serve the console beside the broker</td></tr>
+<tr><td class="mono name">--console-addr</td><td class="mono">127.0.0.1:9093</td><td class="mono dim">127.0.0.1:9093</td><td>Where the console listens</td></tr>
+<tr><td class="mono name">--console-prefix</td><td class="mono">/</td><td class="mono dim">/</td><td>The path the console is served under</td></tr>
+<tr><td class="mono name">--console-allow-host</td><td class="mono">none</td><td class="mono dim">none</td><td>A Host name the console answers to besides localhost and IP addresses; repeatable</td></tr>
+<tr><td class="mono name">--console-unprotected</td><td class="mono">false</td><td class="mono dim">false</td><td>Accept a console beyond loopback although SASL or TLS is on</td></tr>
+</tbody></table></details>
+<p class="help" style="margin:20px 0 10px"><b>Refused at start, with exit code 2.</b> A broker that ignored a security flag would be open while looking closed, so it will not start with SASL and nobody who could log in, with a certificate it cannot read, or with the console beyond loopback while SASL or TLS is on (unless <span class="mono">--console-unprotected</span> accepts it).</p>
+<div class="row wrap" style="gap:10px"><span class="tag">[[g:lock 12]]Exit 2</span><a class="lnk" href="@access/access-open">What is on, in Access</a></div></div>

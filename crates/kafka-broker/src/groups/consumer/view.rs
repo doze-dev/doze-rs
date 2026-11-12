@@ -40,7 +40,8 @@ impl ConsumerGroup {
                     client_id: m.client_id.clone(),
                     client_host: m.client_host.clone(),
                     epoch: if m.left { -2 } else { m.epoch },
-                    subscribed: m.subscribed.clone(),
+                    // Only the names its own principal may DESCRIBE (SEC-232).
+                    subscribed: m.visible_names().cloned().collect(),
                     regex: m
                         .pattern
                         .as_ref()

@@ -1,0 +1,16 @@
+<!--screen {"id":"lab-empty","title":"No rehearsals yet","kind":"state","from":"lab-home","via":"Button: Clear history","ops":[],"refs":["grounding:K11"],"data":"lab","extras":["teaching"],"crumbs":[]} -->
+<div class="page-h"><div><h1>Lab</h1>
+<p class="sub">Rehearse a failure on purpose and watch what your app does. <b>Nothing is bent right now</b>: no rule is active and none has ended in the last hour.</p></div>
+<div class="acts"><a class="btn pri" href="@lab-rule-create">[[g:plus 16]]New rehearsal</a></div></div>
+<div class="empty" data-extra="teaching"><div class="ic">[[g:flask 24]]</div><h3>No rehearsals yet</h3>
+<p>Slow one topic for ten minutes, or fail one request in five, then watch the wire to see what your producers and consumers do. Each rule ends by itself and every request it touches carries a lab tag.</p>
+<a class="btn pri" href="@lab-rule-create">[[g:plus 16]]New rehearsal</a></div>
+<div class="g2" style="margin-top:32px">
+<div class="card"><h2>What you can rehearse</h2><div class="rules" style="margin-top:8px">
+<div class="r ok"><span class="gl">[[g:clock 16]]</span><div>Slow a topic<span class="sub">Produce or Fetch, plus a delay, for minutes</span></div></div>
+<div class="r ok"><span class="gl">[[g:warn 16]]</span><div>Fail some requests<span class="sub">1 in N, with an error Kafka has</span></div></div>
+<div class="r ok"><span class="gl">[[g:link 16]]</span><div>Drop a connection<span class="sub">one app's, once</span></div></div>
+<div class="r ok"><span class="gl">[[g:clock 16]]</span><div>Expire a member's session<span class="sub">as a missed heartbeat would</span></div></div>
+<div class="r ok"><span class="gl">[[g:refresh 16]]</span><div>Force a rebalance, run the cleaner now<span class="sub">one group, one compacted topic</span></div></div></div></div>
+<div class="stack-y"><div class="card"><h2>Where you will see a rule</h2><p class="sent" style="margin:8px 0 14px">Every request a rule touches is tagged <span class="tag">[[g:flask 12]]lab</span> on the wire, and the rule keeps its own count of hits.</p><a class="lnk" href="@live/live-lab-rule">Rows tagged lab on Live</a></div>
+<div class="card"><h2>What the Lab does not do</h2><div class="callout" style="margin-top:12px">[[g:info 18]]<div><b>No disk faults.</b> A full disk or a failed flush needs a hook that production code does not have, so those stay in the tests, where the broker is run on a simulated disk.</div></div></div></div></div>

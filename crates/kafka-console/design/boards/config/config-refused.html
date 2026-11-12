@@ -1,0 +1,12 @@
+<!--screen {"id":"config-refused","kind":"state","title":"Refused: lag conflict","from":"config-edit-lag","via":"Button: Save (min 7200000, max 3600000)","ops":["IncrementalAlterConfigs"],"refs":["cat:ADM-5","code:crates/kafka-broker/src/topic_config.rs"],"data":"now","extras":["refusal","live-sentence"],"crumbs":[]} -->
+<div class="page-h"><div><div class="title-row"><h1 class="mono">inventory.levels</h1><span class="st ok">Compacted</span></div><p class="sub" data-extra="live-sentence">Nothing was changed. Kafka checks the two lags together and found the minimum above the maximum.</p></div><div class="acts"><a class="btn" href="@topic-config">Back to the config</a></div></div>
+<div class="tabs"><a class="tab" href="@topics/topic-detail">Messages</a><a class="tab" href="@log/topic-log">Log</a><a class="tab on" href="@config/topic-config">Config</a><a class="tab" href="@topics/topic-detail">Consumers</a><a class="tab" href="@producers/topic-producers">Producers</a></div>
+<div class="callout refused" data-extra="refusal" style="margin-bottom:24px">[[g:shield 16]]<div><span class="st refused">Refused</span> <span class="mono">INVALID_CONFIG (40)</span><br><b>conflict topic config setting min.compaction.lag.ms (7200000) &gt; max.compaction.lag.ms (3600000)</b></div></div>
+<div class="g2">
+<div class="card"><h2>What you sent</h2><pre class="code" style="margin-top:12px">IncrementalAlterConfigs v1
+  TOPIC inventory.levels
+  min.compaction.lag.ms  SET  7200000
+  max.compaction.lag.ms  SET  3600000</pre><p class="help" style="margin-top:12px">Both keys were in one request, so both were refused. Other resources in the same request are answered on their own.</p></div>
+<div class="card"><h2>What would pass</h2><p class="lede">min is how long a record waits at least, max how long at most: min cannot be above max.</p>
+<dl class="kv sm"><dt>min</dt><dd class="mono">3600000<span class="sub">1 h: left alone for an hour</span></dd><dt>max</dt><dd class="mono">7200000<span class="sub">2 h: cleaned after two, whatever the ratio</span></dd></dl>
+<div class="row" style="margin-top:16px"><a class="btn" href="@config-edit-lag">Edit again</a></div></div></div>

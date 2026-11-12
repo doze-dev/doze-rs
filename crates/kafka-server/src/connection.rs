@@ -4,22 +4,22 @@ use std::io;
 use std::sync::Arc;
 
 use bytes::BytesMut;
-use kafka_broker::{Broker, Listener, Outcome};
+use kafka_auth::Authenticator;
+use kafka_broker::{Broker, Caller, Listener};
 use kafka_storage::fs::Fs;
 use kafka_wire::WireError;
-use kafka_wire::api::Response;
-use kafka_wire::api_versions;
 use kafka_wire::frame::{FrameDecoder, Trust};
-use kafka_wire::header;
-use kafka_wire::incoming::Incoming;
 use kafka_wire::messages::ApiKey;
 use kafka_wire::profile::{Features, Profile};
-use kafka_wire::response;
-use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
-use tokio::time::timeout;
+use tokio::io::{AsyncRead, AsyncWrite};
+use tokio::time::Instant;
 use tokio_util::sync::CancellationToken;
+use tracing::debug;
 
+use crate::session::Session;
 use crate::{Timeouts, frames};
+
+mod exchange;
 
 /// A read buffer starts this size and is given back to this size once a large request has been handled, so a
 /// connection that sent one big Produce does not hold its memory for ever.
@@ -34,9 +34,11 @@ pub(crate) struct Context<F: Fs> {
     pub(crate) profile: Profile,
     pub(crate) features: Features,
     pub(crate) timeouts: Timeouts,
+    /// Who may log in. `None`: nobody is asked to, and a connection is served from its first request.
+    pub(crate) auth: Option<Arc<Authenticator>>,
 }
 
-/// Why a connection ended.
+/// Why a connection ended. None of these texts holds anything a client sent.
 #[derive(Debug, thiserror::Error)]
 pub(crate) enum End {
     #[error("the client closed the connection")]
@@ -55,68 +57,66 @@ pub(crate) enum End {
     Refused(ApiKey),
     #[error("a kind of request this server does not know")]
     Unknown,
+    #[error("the login was refused")]
+    LoginFailed,
+    #[error("the login was cut off without an answer")]
+    LoginAbandoned,
+    #[error("a {0:?} request was made out of order in the login")]
+    OutOfOrder(ApiKey),
+    #[error("no login within the time allowed")]
+    LoginTooSlow,
+    /// The kind of failure, in words of ours (`tls::kind`); never what the client sent.
+    #[cfg(feature = "tls")]
+    #[error("the TLS handshake failed: {0}")]
+    Handshake(&'static str),
+    #[cfg(feature = "tls")]
+    #[error("the TLS handshake took too long")]
+    HandshakeTooSlow,
 }
 
-/// Serves `stream` until the client goes, something is wrong with it, or `stop` is cancelled.
+/// Serves `stream` until the client goes, something is wrong with it, or `stop` is cancelled. `accepted` is when the
+/// connection arrived: the login budget counts from there, so a TLS handshake that came first has used some of it.
 pub(crate) async fn serve<S: AsyncRead + AsyncWrite + Unpin, F: Fs>(
-    mut stream: S,
+    stream: &mut S,
     ctx: &Context<F>,
     peer: Option<std::net::IpAddr>,
+    accepted: Instant,
     stop: &CancellationToken,
 ) -> End {
     // What the broker is told of this connection: where it is from, for the group APIs that show members.
     let listener = peer.map_or_else(|| ctx.listener.clone(), |p| ctx.listener.seen_from(p));
+    // And who it is: nobody in particular until a login says otherwise (and for good, if the server asks for none).
+    let mut caller = Caller::anonymous(peer);
     let mut buf = BytesMut::with_capacity(BUFFER);
-    let mut decoder = FrameDecoder::new(Trust::Authenticated);
+    // A broker that wants a login starts every connection as a stranger, held to a small frame and a deadline.
+    let mut session = ctx.auth.as_ref().map(|_| Session::new());
+    let mut login_by = session.as_ref().map(|_| accepted + ctx.timeouts.pre_auth);
+    let mut decoder = FrameDecoder::new(if session.is_some() {
+        Trust::Anonymous
+    } else {
+        Trust::Authenticated
+    });
     loop {
-        let frame =
-            match frames::next(&mut stream, &mut buf, &mut decoder, &ctx.timeouts, stop).await {
-                Ok(frame) => frame,
-                Err(end) => return end,
-            };
-        if let Err(end) = exchange(&mut stream, (ctx, &listener), frame, stop).await {
+        let wait = (&ctx.timeouts, login_by);
+        let frame = match frames::next_before(stream, &mut buf, &mut decoder, wait, stop).await {
+            Ok(frame) => frame,
+            Err(end) => return end,
+        };
+        let ears = (ctx, &listener, &caller);
+        if let Err(end) = exchange::exchange(stream, ears, &mut session, frame, stop).await {
             return end;
+        }
+        if login_by.is_some() && session.as_ref().is_some_and(Session::is_authenticated) {
+            decoder.set_authenticated();
+            login_by = None;
+            if let Some(who) = session.as_ref().and_then(Session::principal) {
+                debug!(principal = %who, "logged in");
+                caller = Caller::new(who.clone(), peer);
+            }
         }
         if buf.is_empty() && buf.capacity() > KEEP {
             buf = BytesMut::with_capacity(BUFFER);
         }
-    }
-}
-
-/// One request, from its frame to the end of its answer.
-async fn exchange<S: AsyncWrite + Unpin, F: Fs>(
-    stream: &mut S,
-    (ctx, listener): (&Context<F>, &Listener),
-    frame: bytes::Bytes,
-    stop: &CancellationToken,
-) -> Result<(), End> {
-    let (head, body) = header::split(frame).map_err(End::Wire)?;
-    let incoming = Incoming::decode(head, body, ctx.profile, ctx.features).map_err(End::Wire)?;
-    let (id, version, response) = match incoming {
-        Incoming::ApiVersions { head, body } => {
-            let (version, answer) =
-                api_versions::answer(ctx.profile, ctx.features, head.version, body.as_ref());
-            (head.correlation_id, version, Response::ApiVersions(answer))
-        }
-        Incoming::Request { head, request } => {
-            // A handler may wait a long time (a long-poll Fetch): stopping the server does not wait for it.
-            let outcome = tokio::select! {
-                o = ctx.broker.handle(listener, &head, request) => o,
-                () = stop.cancelled() => return Err(End::Stopped),
-            };
-            match outcome {
-                Outcome::Respond(response) => (head.correlation_id, head.version, response),
-                Outcome::NoResponse => return Ok(()),
-                _ => return Err(End::Refused(head.key)),
-            }
-        }
-        _ => return Err(End::Unknown),
-    };
-    let bytes = response::encode(id, version, &response).map_err(End::Wire)?;
-    match timeout(ctx.timeouts.write, stream.write_all(&bytes)).await {
-        Err(_) => Err(End::Slow),
-        Ok(Err(e)) => Err(End::Io(e)),
-        Ok(Ok(())) => Ok(()),
     }
 }
 

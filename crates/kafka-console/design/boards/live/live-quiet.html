@@ -1,0 +1,13 @@
+<!--screen {"id":"live-quiet","refs":["grounding:K2","grounding:K14","go:console/routes.go"],"data":"capture","needs":["wire"],"crumbs":[],"title":"Nothing yet","kind":"state","from":"live-wire","via":"State: the wire is empty","ops":[],"extras":["live-sentence"]} -->
+<div class="page-h"><div><h1>Live</h1><p class="sub" data-extra="live-sentence">Nothing has reached the broker since it started at 22:12. It is listening on 127.0.0.1:9092. The wire starts empty at every start and keeps the last 2,000 rows.</p></div><div class="acts"><button class="btn" type="button" data-ui="pause">Pause</button></div></div>
+<div class="toolbar">
+<button class="fchip" type="button" data-ui="filter">All apps[[g:chev-d 14]]</button>
+<button class="fchip" type="button" data-ui="filter">All topics[[g:chev-d 14]]</button>
+<button class="fchip" type="button" data-ui="filter">[[g:filter 14]]Refused only</button>
+<button class="fchip on" type="button" data-ui="toggle">Idle polls hidden</button>
+<span class="sp"></span>
+</div>
+<div class="card">
+<div class="row" style="gap:32px;align-items:flex-start"><div style="flex:1"><h3 style="margin:0 0 6px;font-size:16px">Send the first request</h3><p class="help" style="margin:0 0 12px">Any Kafka client will do. Name it with <span class="mono">client.id</span> and it shows up as itself.</p><pre class="code">echo hi | kcat -P -b 127.0.0.1:9092 -t orders -X client.id=admin-cli</pre></div>
+<div class="row" style="flex:none;padding-top:30px;gap:10px"><a class="btn pri" href="@home/connect">[[g:code 16]]Snippets for your client</a><a class="btn" href="@topics/topic-create">[[g:plus 16]]Create a topic</a></div></div></div>
+<div class="wire-dock" style="margin-top:8px"><h2>The wire</h2><p class="lede">Rows appear here as requests arrive, newest first.</p><div class="empty" style="padding:40px 32px"><div class="ic">[[g:live 22]]</div><h3>No requests yet</h3><p style="margin:0">The first one is a good one to watch: ApiVersions, then Metadata, then whatever your client does next.</p></div></div>

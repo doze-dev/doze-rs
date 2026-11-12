@@ -54,6 +54,9 @@ pub(crate) struct JoinRequest {
     pub(crate) issued: bool,
     /// JoinGroup v4 and later: a client without an id is given one and told to come back with it.
     pub(crate) id_first: bool,
+    /// What the caller may DESCRIBE (`None`: everything): a consumer group gives a classic member only the topics of
+    /// its subscription that this lets through, and keeps it for the member's life there (SEC-231).
+    pub(crate) rights: Option<crate::authorizer::TopicRights>,
 }
 
 /// A SyncGroup.
@@ -82,6 +85,8 @@ pub(crate) struct HeartbeatRequest {
     pub(crate) instance: Option<InstanceId>,
     /// The generation it believes it is in.
     pub(crate) generation: i32,
+    /// What the caller may DESCRIBE (`None`: everything), kept up to date for a classic member of a consumer group.
+    pub(crate) rights: Option<crate::authorizer::TopicRights>,
 }
 
 /// A member as DescribeGroups shows it.

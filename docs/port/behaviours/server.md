@@ -1,7 +1,7 @@
 # Behaviours: server (kafka-server)
 
 How a connection is served, distilled from the Go source (`internal/protocol/conn.go`, `server.go` at `4081fa6`).
-TLS, SASL and the pre-authentication budget are Phase 8; the traffic observer is Phase 9.
+SASL, the login session and the pre-authentication budget are Phase 8 slice 8a, and TLS (the `tls` cargo feature; the handshake, its place in the pre-auth budget, close_notify at a stop) is Phase 8 slice 8e (`security.md`, SEC-140 to SEC-154); the traffic observer is Phase 9.
 
 ### V1. One request at a time, in order
 A connection reads a frame, answers it, then reads the next. A client may send its next request before it has the
@@ -37,6 +37,12 @@ Test: `tests/tcp::connections_past_the_limit_are_closed_and_a_freed_place_is_reu
 Stopping the server closes every connection, including one waiting on a handler (a long-poll Fetch), and returns
 once their tasks are gone; nothing listens afterwards.
 Test: `tests/tcp::shutdown_closes_idle_connections_and_returns`, `connection::tests::stopping_the_server_ends_a_connection_that_is_waiting_for_a_request`
+
+### V8. TLS wraps the accepted socket inside the connection's task (feature `tls`)
+`accept` takes the socket and its peer address, then spawns the task; the task runs the handshake (bounded by the pre-auth budget counted from the accept, and by the stop), then the same
+`connection::serve` over the TLS stream, then writes a close_notify (at most 1 s). Nothing in the connection loop knows about TLS; a build without the feature has none of this code and the field
+`Config::tls` does not exist. `serve` takes the stream by `&mut` so the caller can finish it, and the instant of the accept so the login budget includes the handshake.
+Test: `tests/tls::*`, `connection::tests::*` (unchanged apart from the new arguments).
 
 ### Long polls, acks=0 and big frames
 A stop interrupts a handler that waits: `tcp::stopping_the_server_does_not_wait_out_a_fetch_that_is_waiting_for_records`.

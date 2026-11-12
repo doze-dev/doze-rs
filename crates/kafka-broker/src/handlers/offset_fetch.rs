@@ -12,9 +12,12 @@ use kafka_wire::messages::offset_fetch_response::{
 };
 use kafka_wire::messages::{OffsetFetchRequest, OffsetFetchResponse, TopicName as WireName};
 
-use crate::{Broker, Outcome, blocking};
+use kafka_auth::authz::operation;
+
+use crate::{Broker, Caller, Outcome, blocking};
 
 mod check;
+mod guard;
 
 /// One answer: the offset, or -1 with nothing.
 struct Found {
@@ -51,7 +54,17 @@ const UNSTABLE_OFFSET_COMMIT: i16 = 88;
 type Asked<'a> = Option<Vec<(&'a WireName, &'a [i32])>>;
 
 impl<F: Fs> Broker<F> {
-    pub(crate) async fn offset_fetch(&self, req: &OffsetFetchRequest) -> Outcome {
+    /// What each group asked about has committed.
+    ///
+    /// The caller must be allowed to DESCRIBE the group (30, in the shape of the version), and sees the topics it may
+    /// DESCRIBE (see `guard.rs`).
+    pub(crate) async fn offset_fetch(
+        &self,
+        version: i16,
+        caller: &Caller,
+        req: &OffsetFetchRequest,
+    ) -> Outcome {
+        let guard = self.guard(caller);
         let mut resp = OffsetFetchResponse::default();
         if req.groups.is_empty() {
             // Versions 0 to 7: one group, named at the top.
@@ -60,10 +73,15 @@ impl<F: Fs> Broker<F> {
                     .map(|t| (&t.name, t.partition_indexes.as_slice()))
                     .collect()
             });
+            if !guard.group(operation::DESCRIBE, req.group_id.as_str()) {
+                guard::refuse_old(version, &asked, &mut resp);
+                return Outcome::Respond(kafka_wire::api::Response::OffsetFetch(resp));
+            }
             let pending = self
                 .pending_if(req.require_stable, req.group_id.as_str())
                 .await;
-            for (name, found) in self.answer(req.group_id.as_str(), asked, &pending) {
+            for (name, found) in self.answer_guarded(&guard, req.group_id.as_str(), asked, &pending)
+            {
                 let mut topic = OffsetFetchResponseTopic::default();
                 topic.name = name;
                 topic.partitions = found.into_iter().map(single).collect();
@@ -74,6 +92,11 @@ impl<F: Fs> Broker<F> {
                 let mut group = OffsetFetchResponseGroup::default();
                 group.group_id = g.group_id.clone();
                 let member = g.member_id.as_ref().map(|m| m.as_str());
+                if !guard.group(operation::DESCRIBE, g.group_id.as_str()) {
+                    group.error_code = kafka_wire::ResponseError::GroupAuthorizationFailed.code();
+                    resp.groups.push(group);
+                    continue;
+                }
                 if let Some(e) = self
                     .member_refusal(g.group_id.as_str(), member, g.member_epoch)
                     .await
@@ -90,7 +113,9 @@ impl<F: Fs> Broker<F> {
                         .map(|t| (&t.name, t.partition_indexes.as_slice()))
                         .collect()
                 });
-                for (name, found) in self.answer(g.group_id.as_str(), asked, &pending) {
+                for (name, found) in
+                    self.answer_guarded(&guard, g.group_id.as_str(), asked, &pending)
+                {
                     let mut topic = OffsetFetchResponseTopics::default();
                     topic.name = name;
                     topic.partitions = found.into_iter().map(batched).collect();

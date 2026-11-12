@@ -5,7 +5,9 @@ use kafka_broker::Config as BrokerConfig;
 use kafka_protocol::protocol::{Decodable, StrBytes};
 use kafka_storage::sim::SimFs;
 use kafka_wire::WireError;
-use kafka_wire::messages::{ApiKey, ApiVersionsRequest, ApiVersionsResponse, CreateAclsRequest};
+use kafka_wire::messages::{
+    ApiKey, ApiVersionsRequest, ApiVersionsResponse, DescribeClusterRequest,
+};
 use kafka_wire::testing::{framed, request_payload};
 use tokio::io::{AsyncReadExt, AsyncWriteExt, DuplexStream, duplex};
 use tokio::time::sleep;
@@ -27,6 +29,7 @@ fn context(timeouts: Timeouts) -> Context<SimFs> {
         },
         broker,
         timeouts,
+        auth: None,
     }
 }
 
@@ -70,7 +73,7 @@ fn start(
     let ctx = context(timeouts);
     let task = tokio::spawn({
         let stop = stop.clone();
-        async move { serve(server, &ctx, None, &stop).await }
+        async move { serve(&mut { server }, &ctx, None, Instant::now(), &stop).await }
     });
     (client, task, stop)
 }
@@ -92,18 +95,19 @@ async fn requests_are_answered_in_order_whether_they_arrive_together_or_a_byte_a
 #[tokio::test]
 async fn an_api_the_broker_does_not_serve_closes_the_connection_without_an_answer() {
     let (mut client, task, _stop) = start(Timeouts::default(), 4096);
-    let acls = request_payload(
-        ApiKey::CreateAcls,
-        3,
+    // (DescribeCluster is Phase 9's.)
+    let cluster = request_payload(
+        ApiKey::DescribeCluster,
+        1,
         1,
         None,
-        &CreateAclsRequest::default(),
+        &DescribeClusterRequest::default(),
     );
-    client.write_all(&framed(&acls)).await.unwrap();
+    client.write_all(&framed(&cluster)).await.unwrap();
     assert!(matches!(
         task.await.unwrap(),
         End::Wire(WireError::NotAdvertised {
-            key: ApiKey::CreateAcls,
+            key: ApiKey::DescribeCluster,
             ..
         })
     ));
@@ -265,4 +269,7 @@ async fn a_big_frame_that_trickles_in_has_the_frame_budget_too() {
     assert!(matches!(task.await.unwrap(), End::Slow));
 }
 
+mod delay;
+mod login;
+mod scram;
 mod served;

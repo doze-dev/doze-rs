@@ -5,6 +5,8 @@ mod control;
 mod descriptors;
 mod duration;
 mod run;
+#[cfg(feature = "console")]
+mod web;
 
 use anyhow::Result;
 use clap::Parser;
@@ -12,7 +14,14 @@ use clap::Parser;
 fn main() -> Result<()> {
     let args = cli::Args::parse();
     run::logging(&args);
-    let mut settings = args.settings()?;
+    // A configuration that cannot start exits 2, as a bad flag does (clap's own code), before anything is opened.
+    let mut settings = match args.settings() {
+        Ok(settings) => settings,
+        Err(e) => {
+            eprintln!("Error: {e:#}");
+            std::process::exit(2);
+        }
+    };
     let descriptors = descriptors::raise();
     let open = descriptors::open_partitions(
         settings.broker.max_open_partitions,
@@ -27,11 +36,41 @@ fn main() -> Result<()> {
     }
     settings.broker.max_open_descriptors =
         descriptors::open_files(descriptors, settings.server.max_connections);
-    for flag in args.ignored() {
-        tracing::warn!(
-            "{flag} is accepted and ignored: that part of doze-kafka is not in this edition yet"
+    if let Some(sasl) = &settings.server.sasl {
+        let offered: Vec<_> = sasl.offered().iter().map(|m| m.name()).collect();
+        tracing::info!(
+            mechanisms = %offered.join(","),
+            configured_users = sasl.user_count(),
+            "SASL is on: clients must log in"
         );
     }
+    #[cfg(feature = "tls")]
+    if let Some(tls) = &settings.server.tls {
+        // The certificate's file, never the key's content (nor the key file's name: it says nothing a log needs).
+        tracing::info!(cert = %tls.cert_file().display(), "TLS is on: clients must connect with TLS (1.2 or newer)");
+    }
+    for flag in args.ignored() {
+        if flag.starts_with("--console") {
+            tracing::warn!(
+                "{flag} is accepted and ignored: this build has no console (it is built without the `console` feature)"
+            );
+        } else {
+            tracing::warn!(
+                "{flag} is accepted and ignored: that part of doze-kafka is not in this edition yet"
+            );
+        }
+    }
+    for warning in &settings.warnings {
+        tracing::warn!("{warning}");
+    }
+    tracing::debug!(
+        console = settings.console.enabled,
+        wanted = ?settings.console.addr,
+        prefix = %settings.console.prefix,
+        allow_hosts = ?settings.console.allow_hosts,
+        unprotected = settings.console.unprotected,
+        "console flags"
+    );
     let _lock = doze_runtime::DataDirLock::take(&args.data_dir, "doze-kafka")?;
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(args.worker_threads)

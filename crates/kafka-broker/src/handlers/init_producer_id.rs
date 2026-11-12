@@ -1,11 +1,12 @@
 //! InitProducerId.
 
+use kafka_auth::authz::{CLUSTER_NAME, operation, resource};
 use kafka_storage::fs::Fs;
 use kafka_wire::ResponseError;
 use kafka_wire::messages::{InitProducerIdRequest, InitProducerIdResponse, ProducerId};
 
 use crate::txn::rules;
-use crate::{Broker, blocking};
+use crate::{Broker, Caller, blocking};
 
 /// The longest transactional id kept (it is kept for good, in memory and on disk).
 const MOST_BYTES: usize = 4096;
@@ -14,9 +15,14 @@ impl<F: Fs> Broker<F> {
     /// Hands out a producer id (epoch 0). Producers default to idempotence and ask for one before they produce
     /// anything, so refusing puts a client into a fatal state. With a transactional id the caller becomes the owner of
     /// that id's transactions, fencing whoever held it.
+    ///
+    /// Before anything else is looked at, the caller must be allowed: to WRITE the transactional id (53 if not); or,
+    /// with no id, to IDEMPOTENT_WRITE on the cluster or WRITE to at least one topic (31 if not). The second is
+    /// Kafka's rule since KIP-679: a producer that may write somewhere may be given a producer id.
     pub(crate) async fn init_producer_id(
         &self,
         version: i16,
+        caller: &Caller,
         req: &InitProducerIdRequest,
     ) -> InitProducerIdResponse {
         let mut resp = InitProducerIdResponse::default();
@@ -26,6 +32,9 @@ impl<F: Fs> Broker<F> {
             resp.producer_epoch = -1;
             resp
         };
+        if let Some(code) = self.refusal_for(caller, req) {
+            return refuse(resp, code);
+        }
         if let Some(id) = &req.transactional_id {
             // An empty id is not "no id" (that is null).
             if id.0.is_empty() || id.0.len() > MOST_BYTES {
@@ -59,6 +68,30 @@ impl<F: Fs> Broker<F> {
                 tracing::error!(error = %e, "reserving producer ids failed");
                 refuse(resp, ResponseError::KafkaStorageError)
             }
+        }
+    }
+
+    /// Why the caller may not be given a producer id, if it may not.
+    fn refusal_for(&self, caller: &Caller, req: &InitProducerIdRequest) -> Option<ResponseError> {
+        match &req.transactional_id {
+            // (KafkaApis.scala:1608-1614: WRITE, and for a two-phase commit TWO_PHASE_COMMIT as well.)
+            Some(id) => {
+                let may = |op| {
+                    self.authz
+                        .allows(caller, resource::TRANSACTIONAL_ID, id.0.as_str(), op)
+                };
+                (!may(operation::WRITE) || (req.enable_2_pc && !may(operation::TWO_PHASE_COMMIT)))
+                    .then_some(ResponseError::TransactionalIdAuthorizationFailed)
+            }
+            None => (!self.authz.allows(
+                caller,
+                resource::CLUSTER,
+                CLUSTER_NAME,
+                operation::IDEMPOTENT_WRITE,
+            ) && !self
+                .authz
+                .allows_some(caller, operation::WRITE, resource::TOPIC))
+            .then_some(ResponseError::ClusterAuthorizationFailed),
         }
     }
 }

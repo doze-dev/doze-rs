@@ -49,6 +49,7 @@ fn join(member: Option<&MemberId>, instance: Option<&str>) -> Req {
         rebalance_ms: 30_000,
         issued: false,
         id_first: member.is_none() && instance.is_none(),
+        rights: None,
     })
 }
 
@@ -246,6 +247,7 @@ async fn a_join_that_is_refused_is_told_why_even_where_the_group_is_not_there() 
         owned: Some(vec![]),
         client_id: "c".into(),
         client_host: "/127.0.0.1".into(),
+        rights: None,
     };
     let ask = |h: Heartbeat| {
         let groups = &groups;

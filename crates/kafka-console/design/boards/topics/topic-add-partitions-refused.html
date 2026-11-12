@@ -1,0 +1,10 @@
+<!--screen {"id":"topic-add-partitions-refused","title":"Add partitions refused","kind":"dialog","from":"topic-add-partitions","via":"Button: Add partitions (with 2)","ops":["CreatePartitions"],"refs":["cat:ADM-8"],"data":"now","extras":["refusal","api-preview"],"crumbs":[],"over":"topic-partitions"} -->
+<h2>Add partitions to <span class="mono">orders</span></h2>
+<div class="body"><div class="form" style="gap:18px">
+<div class="field"><label>Partitions after <span class="opt">now 3</span></label><div class="input mono err"><input type="text" value="2"></div><div class="help err">2 is below the 3 partitions there are.</div></div>
+<div class="callout refused" data-extra="refusal">[[g:warn 18]]<div><b>Refused · INVALID_PARTITIONS (37)</b><br>The topic orders currently has 3 partition(s); 2 would not be an increase.<br><span class="dim">Rule: a topic's partition count can only go up. The same count is refused too: "Topic already has 3 partition(s)." Nothing changed.</span><br><b>What would pass</b> any total from 4 to 1,000.</div></div>
+<div class="apicall" data-extra="api-preview"><div class="hd">[[g:api 14]]The answer</div><pre class="code"><span class="k">CreatePartitions</span> v3 response
+  name: <span class="s">orders</span>
+  error_code: <span class="s">37 INVALID_PARTITIONS</span>
+  error_message: The topic orders currently has 3 partition(s); 2 would not be an increase.</pre></div></div></div>
+<div class="foot"><a class="btn" href="@topic-partitions">Cancel</a><a class="btn pri" href="@topic-add-partitions">Change the count</a></div>

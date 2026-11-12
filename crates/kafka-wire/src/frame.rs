@@ -13,6 +13,12 @@ use crate::error::WireError;
 const CONTROL_CAP: u32 = 1 << 20;
 /// Produce is the only request that carries record data; Kafka's own default maximum request size.
 const PRODUCE_CAP: u32 = 100 << 20;
+/// What a stranger may send before it has logged in. Kafka's `sasl.server.max.receive.size` is 512 KiB; this broker is
+/// stricter on purpose (decision D10, SEC-4): 1000 strangers each holding most of 512 KiB were 320 MB, and an ApiVersions
+/// request, a SaslHandshake and a login token (under 1 KiB) are all far under 128 KiB. The recorded Apache Kafka accepts a
+/// 64 KiB SASL token (the `token-of-64k-authenticate` step of `sasl-plain`) and answers it, so the cap must sit above
+/// that token and its header: 128 KiB.
+const ANONYMOUS_CAP: u32 = 128 << 10;
 /// PushTelemetry: the 1 MiB of metrics a client is told it may send, and room for the header around it.
 const PUSH_TELEMETRY_CAP: u32 = (1 << 20) + 4096;
 /// How much of a frame is trusted up front. A frame bigger than this is buffered as its bytes arrive, so
@@ -20,7 +26,7 @@ const PUSH_TELEMETRY_CAP: u32 = (1 << 20) + 4096;
 const CHUNK: usize = 64 << 10;
 
 /// How far the peer of a connection is trusted. An anonymous one may send only what ApiVersions and the
-/// SASL exchange need, which is far under the 1 MiB control cap, whatever the API.
+/// SASL exchange need, which is far under 128 KiB, whatever the API.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Trust {
     /// Not yet logged in.
@@ -40,7 +46,7 @@ fn cap_for(key: i16, trust: Trust) -> u32 {
     };
     match trust {
         Trust::Authenticated => cap,
-        Trust::Anonymous => cap.min(CONTROL_CAP),
+        Trust::Anonymous => cap.min(ANONYMOUS_CAP),
     }
 }
 
@@ -63,6 +69,12 @@ impl FrameDecoder {
     /// The connection has logged in: it may now send frames up to each API's own cap.
     pub fn set_authenticated(&mut self) {
         self.trust = Trust::Authenticated;
+    }
+
+    /// Whether the peer is trusted (logged in, or on a broker that needs no login).
+    #[must_use]
+    pub fn is_authenticated(&self) -> bool {
+        self.trust == Trust::Authenticated
     }
 
     /// The length of the frame at the front of `src`, once enough of it has arrived to judge: how much a frame
@@ -139,16 +151,19 @@ mod tests {
     }
 
     #[test]
-    fn an_unauthenticated_connection_is_capped_at_one_mib() {
+    fn an_unauthenticated_connection_is_capped_at_128_kib() {
+        // Stricter than Kafka's `sasl.server.max.receive.size` (512 KiB), and than the 1 MiB it was.
         let mut src = header(2 << 20, ApiKey::Produce as i16);
         let mut d = FrameDecoder::new(Trust::Anonymous);
         assert_eq!(
             d.decode(&mut src),
             Err(WireError::FrameTooLarge {
                 len: 2 << 20,
-                limit: CONTROL_CAP
+                limit: ANONYMOUS_CAP
             })
         );
+        assert_eq!(ANONYMOUS_CAP, 128 << 10);
+        assert!(!d.is_authenticated());
         d.set_authenticated();
         let mut src = header(2 << 20, ApiKey::Produce as i16);
         assert_eq!(d.decode(&mut src), Ok(None));
@@ -190,13 +205,28 @@ mod tests {
                 "{key:?} over {cap}"
             );
         }
-        // Anonymous, every API is held to 1 MiB.
+        // Anonymous, every API is held to 128 KiB.
+        const ONE_TWENTY_EIGHT_KIB: u32 = MIB / 8;
         let mut d = FrameDecoder::new(Trust::Anonymous);
-        assert_eq!(d.decode(&mut header(MIB, ApiKey::Produce as i16)), Ok(None));
-        assert!(
-            d.decode(&mut header(MIB + 1, ApiKey::Produce as i16))
-                .is_err()
-        );
+        for key in [
+            ApiKey::Produce,
+            ApiKey::ApiVersions,
+            ApiKey::SaslAuthenticate,
+        ] {
+            assert_eq!(
+                d.decode(&mut header(ONE_TWENTY_EIGHT_KIB, key as i16)),
+                Ok(None),
+                "{key:?}"
+            );
+            assert_eq!(
+                d.decode(&mut header(ONE_TWENTY_EIGHT_KIB + 1, key as i16)),
+                Err(WireError::FrameTooLarge {
+                    len: ONE_TWENTY_EIGHT_KIB + 1,
+                    limit: ONE_TWENTY_EIGHT_KIB
+                }),
+                "{key:?}"
+            );
+        }
     }
 
     #[test]

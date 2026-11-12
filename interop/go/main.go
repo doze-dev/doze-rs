@@ -42,7 +42,24 @@ func main() {
 	addr := flag.String("broker", "127.0.0.1:9092", "host:port of the broker")
 	only := flag.String("only", "", "run one scenario by name")
 	custom := flag.String("members", "", "run a group of these clients (comma-separated names, in the order they join), named custom")
+	sasl := flag.Bool("sasl", false, "run the SASL cells (PLAIN, SCRAM-SHA-256, SCRAM-SHA-512 for each library) against a broker started with SASL, instead of the scenarios")
+	tlsCA := flag.String("tls-ca", "", "run the TLS cells over SASL_SSL at -broker and SSL at -broker-ssl, trusting this CA file (interop/run.sh -tls)")
+	sslAddr := flag.String("broker-ssl", "", "host:port of a broker with TLS and no SASL (with -tls-ca)")
 	flag.Parse()
+	if *tlsCA != "" {
+		if !runTLS(*addr, *sslAddr, *tlsCA) {
+			os.Exit(1)
+		}
+		return
+	}
+	if *sasl {
+		ok := runSasl(*addr)
+		// Then the users made over the API (AlterUserScramCredentials), by the same libraries.
+		if !runUsers(*addr) || !ok {
+			os.Exit(1)
+		}
+		return
+	}
 	sar, fra, seg, rdk := sarama{*addr}, franz{addr: *addr}, segment{*addr}, rdkafka{addr: *addr}
 	// The same two libraries on the new group protocol (KIP-848); the broker assigns.
 	fra8, rdk8 := franz{addr: *addr, kip848: true}, rdkafka{addr: *addr, kip848: true}

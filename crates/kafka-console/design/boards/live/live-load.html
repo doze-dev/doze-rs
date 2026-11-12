@@ -1,0 +1,45 @@
+<!--screen {"id":"live-load","refs":["grounding:K2","grounding:K14","go:console/routes.go"],"data":"capture","needs":["wire"],"crumbs":[],"title":"A busy minute","kind":"state","from":"live-wire","via":"State: a busy minute","ops":[],"extras":["live-sentence"]} -->
+<div class="page-h"><div><h1>Live</h1><p class="sub" data-extra="live-sentence">A busy minute: 412 produce requests to one topic. Repeats fold into one row with a count and the span they cover.</p></div><div class="acts"><button class="btn" type="button" data-ui="pause">Pause</button></div></div>
+<div class="toolbar">
+<button class="fchip" type="button" data-ui="filter">All apps[[g:chev-d 14]]</button>
+<button class="fchip" type="button" data-ui="filter">All topics[[g:chev-d 14]]</button>
+<button class="fchip" type="button" data-ui="filter">[[g:filter 14]]Refused only</button>
+<button class="fchip on" type="button" data-ui="toggle">Idle polls hidden</button>
+<span class="sp"></span>
+<a class="btn sm" href="@live-clients">[[g:network 16]]Clients · 9</a></div>
+<div class="callout" style="margin-bottom:24px">[[g:info 18]]<div><b>Repeats fold into one row.</b> A line carrying more than a request a second would only be a wall of identical rows, so the wire folds the repeats into one row with a count (<span class="fold">× 412</span>) and the span they cover.</div></div>
+<div class="wire-dock" style="margin-top:8px"><div class="row sb"><div><h2>The wire, folded</h2><p class="lede">Repeats of the same call fold into one row. 7 rows stand for 571 requests.</p></div></div><table class="t wire"><thead><tr><th style="width:142px">Time</th><th style="width:190px">Client</th><th style="width:200px">API</th><th>Target</th><th style="width:270px">Result</th><th class="r" style="width:130px">Took</th></tr></thead><tbody><tr><td class="tm">22:41:07.912<span class="sub">since 22:40:08</span></td>
+<td><span class="mono">notifications</span> <span class="pill mono">ts</span></td>
+<td><b class="mono">Produce</b> <span class="dim mono">v9</span> <span class="fold">× 412</span></td>
+<td class="mono" style="white-space:nowrap">clickstream<span class="sub">6 partitions</span></td>
+<td><span class="st ok">Done</span> <span class="dim">about 36 records each</span></td><td class="mono r" style="white-space:nowrap">4 ms<span class="sub">median</span></td></tr>
+<tr><td class="tm">22:41:07.604<span class="sub">since 22:40:09</span></td>
+<td><span class="mono">search-indexer</span> <span class="pill mono">go</span></td>
+<td><b class="mono">Fetch</b> <span class="dim mono">v12</span> <span class="fold">× 118</span></td>
+<td class="mono" style="white-space:nowrap">clickstream-3<span class="sub">from 151,204</span></td>
+<td><span class="st ok">Done</span> <span class="dim">2 batches, 38 KiB each</span></td><td class="mono r" style="white-space:nowrap">9 ms<span class="sub">median</span></td></tr>
+<tr><td class="tm">22:41:06.231</td>
+<td><span class="mono">orders</span> <span class="pill mono">go</span></td>
+<td><b class="mono">Produce</b> <span class="dim mono">v9</span> <span class="tag">txn</span></td>
+<td class="mono" style="white-space:nowrap">orders-0</td>
+<td><span class="st ok">Done</span> <span class="dim">4 records</span></td><td class="mono r" style="white-space:nowrap">3 ms</td></tr>
+<tr><td class="tm">22:41:05.870<span class="sub">since 22:40:21</span></td>
+<td><span class="mono">catalog</span> <span class="pill mono">go</span></td>
+<td><b class="mono">Produce</b> <span class="dim mono">v9</span> <span class="fold">× 6</span></td>
+<td class="mono" style="white-space:nowrap">inventory.levels-0</td>
+<td><span class="st ok">Done</span> <span class="dim">1 record each</span></td><td class="mono r" style="white-space:nowrap">2 ms</td></tr>
+<tr><td class="tm">22:41:04.110<span class="sub">since 22:40:12</span></td>
+<td><span class="mono">payments</span> <span class="pill mono">go</span></td>
+<td><b class="mono">OffsetCommit</b> <span class="dim mono">v9</span> <span class="fold">× 21</span></td>
+<td class="mono" style="white-space:nowrap">payments-workers</td>
+<td><span class="st ok">Done</span></td><td class="mono r" style="white-space:nowrap">1 ms</td></tr>
+<tr><td class="tm">22:41:02.774<span class="sub">since 22:40:15</span></td>
+<td><span class="mono">fulfilment</span> <span class="pill mono">py</span></td>
+<td><b class="mono">Fetch</b> <span class="dim mono">v12</span> <span class="fold">× 9</span></td>
+<td class="mono" style="white-space:nowrap">payments.settled-1<span class="sub">from 7,611</span></td>
+<td><span class="st ok">Done</span> <span class="dim">1 batch, 211 B</span></td><td class="mono r" style="white-space:nowrap">14 ms<span class="sub">median</span></td></tr>
+<tr><td class="tm">22:40:51.020<span class="sub">since 22:40:11</span></td>
+<td><span class="mono">payments</span> <span class="pill mono">go</span></td>
+<td><b class="mono">Produce</b> <span class="dim mono">v9</span> <span class="fold">× 4</span></td>
+<td class="mono" style="white-space:nowrap">payments.settled-2</td>
+<td><span class="st ok">Done</span> <span class="dim">1 record</span></td><td class="mono r" style="white-space:nowrap">2 ms</td></tr></tbody></table></div>

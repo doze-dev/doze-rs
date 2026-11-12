@@ -1,0 +1,10 @@
+{
+  "name": "board-pixels",
+  "private": true,
+  "type": "module",
+  "description": "Optional, manual pixel check of one console page against its canvas board. Never run in CI.",
+  "dependencies": {
+    "pixelmatch": "^6.0.0",
+    "pngjs": "^7.0.0"
+  }
+}

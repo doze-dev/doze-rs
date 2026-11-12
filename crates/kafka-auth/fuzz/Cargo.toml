@@ -1,0 +1,45 @@
+[package]
+name = "kafka-auth-fuzz"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+kafka-auth = { path = ".." }
+
+# Not part of the main workspace: fuzzing needs a nightly toolchain.
+[workspace]
+
+[[bin]]
+name = "plain"
+path = "fuzz_targets/plain.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "acl_filter"
+path = "fuzz_targets/acl_filter.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "scram_first"
+path = "fuzz_targets/scram_first.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "scram_final"
+path = "fuzz_targets/scram_final.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "hostguard"
+path = "fuzz_targets/hostguard.rs"
+test = false
+doc = false

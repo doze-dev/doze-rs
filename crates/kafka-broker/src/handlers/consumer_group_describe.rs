@@ -1,5 +1,6 @@
 //! ConsumerGroupDescribe (KIP-848): a consumer group's state, epochs and members with what each holds and is to hold.
 
+use kafka_auth::authz::operation;
 use kafka_storage::fs::Fs;
 use kafka_wire::ResponseError as E;
 use kafka_wire::StrBytes;
@@ -13,22 +14,62 @@ use kafka_wire::messages::{
 
 use super::consumer_group_heartbeat::by_topic;
 use crate::groups::{Partitions, kafka_order};
-use crate::{Broker, Outcome};
+use crate::handlers::group_guard::Guard;
+use crate::{Broker, Caller, Outcome};
+
+/// Kafka's words for a group the caller may not see all of (`KafkaApis.scala:2711`).
+const HIDDEN_TOPIC: &str =
+    "The group has described topic(s) that the client is not authorized to describe.";
+
+/// Whether a member of the group holds, or is to hold, a topic the caller may not DESCRIBE.
+fn holds_hidden_topic(guard: &Guard<'_>, group: &DescribedGroup) -> bool {
+    group
+        .members
+        .iter()
+        .flat_map(|m| [&m.assignment, &m.target_assignment])
+        .flat_map(|a| a.topic_partitions.iter())
+        .any(|tp| !guard.topic(operation::DESCRIBE, tp.topic_name.as_str()))
+}
 
 impl<F: Fs> Broker<F> {
     /// Describes each group named, in the order Kafka answers (that of DescribeGroups).
+    ///
+    /// A group the caller may not DESCRIBE is an entry with 30 and nothing else, ahead of the others. A group with a
+    /// member that holds or is to hold a topic the caller may not DESCRIBE is replaced by an entry of 29 with no members.
+    /// The operations the caller may do to a group are given if the request asks.
     pub(crate) async fn consumer_group_describe(
         &self,
+        caller: &Caller,
         req: &ConsumerGroupDescribeRequest,
     ) -> Outcome {
+        let guard = self.guard(caller);
         let mut resp = ConsumerGroupDescribeResponse::default();
-        let asked: Vec<String> = req
-            .group_ids
-            .iter()
-            .map(|g| g.0.as_str().to_owned())
-            .collect();
+        let mut asked: Vec<String> = Vec::new();
+        for g in &req.group_ids {
+            if guard.group(operation::DESCRIBE, g.0.as_str()) {
+                asked.push(g.0.as_str().to_owned());
+            } else {
+                let mut refused = DescribedGroup::default();
+                refused.group_id = g.clone();
+                refused.error_code = E::GroupAuthorizationFailed.code();
+                resp.groups.push(refused);
+            }
+        }
         for name in kafka_order(&asked) {
-            resp.groups.push(self.describe_consumer_group(&name).await);
+            let mut described = self.describe_consumer_group(&name).await;
+            if req.include_authorized_operations && described.error_code == 0 {
+                described.authorized_operations = guard.group_operations(&name);
+            }
+            resp.groups.push(described);
+        }
+        for group in &mut resp.groups {
+            if holds_hidden_topic(&guard, group) {
+                let mut hidden = DescribedGroup::default();
+                hidden.group_id = group.group_id.clone();
+                hidden.error_code = E::TopicAuthorizationFailed.code();
+                hidden.error_message = Some(StrBytes::from_static_str(HIDDEN_TOPIC));
+                *group = hidden;
+            }
         }
         Outcome::Respond(kafka_wire::api::Response::ConsumerGroupDescribe(resp))
     }

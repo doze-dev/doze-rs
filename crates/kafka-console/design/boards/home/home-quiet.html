@@ -1,0 +1,43 @@
+<!--screen {"id":"home-quiet","title":"First run","kind":"state","from":"home","via":"Link: First run, nothing connected","ops":["Metadata"],"refs":["grounding:K1","go:console/templates/connect.html"],"data":"now","extras":["endpoint","live-sentence"],"crumbs":[]} -->
+<div class="page-h"><div><h1>Your broker is up</h1><p class="sub" data-extra="live-sentence">Nothing has connected yet, and that is fine. It is listening on 127.0.0.1:9092 and will say so the moment a client arrives.</p></div><div class="acts"></div></div>
+<div class="callout" style="margin-bottom:32px">[[g:info 18]]<div><b>Nothing to look after yet.</b> This broker has no topics and no clients. The next step is to send it something.</div></div>
+<div class="split">
+<div class="stack-y">
+<div class="card" data-extra="endpoint"><div class="row sb"><h2>Address</h2><a class="lnk" href="@connect">Snippets for every client</a></div>
+<p class="lede">Point any Kafka client at this address. It is where the broker listens and, below, where it tells clients to reconnect.</p>
+<div class="stack-y" style="gap:8px"><div class="conn"><span class="node self mono" style="height:36px;font-size:15px">127.0.0.1:9092</span><span class="sp"></span><button class="btn sm" type="button" data-ui="copy">[[g:copy 16]]Copy</button></div><div class="help">The listener, set by <span class="mono">--listen</span>. On loopback it is reachable from this machine only.</div></div>
+<div class="hr"></div>
+<div class="row sb"><div class="title-row"><h2 style="margin:0">Advertised listener</h2><span class="st ok">Reachable</span></div><button class="btn sm" type="button" data-op="Metadata">[[g:refresh 16]]Check again</button></div>
+<p class="lede" style="margin-top:6px">A client asks for Metadata and then reconnects to the address in the answer, not to the one you gave it. Here that is 127.0.0.1:9092, the address the listener binds.</p>
+<div class="rules">
+<div class="r ok">[[g:check 16]]<div>The listener answers<span class="sub">Dialled 127.0.0.1:9092 and asked ApiVersions</span></div><span class="v">2 ms</span></div>
+<div class="r ok">[[g:check 16]]<div>It says where clients should reconnect<span class="sub">Metadata names this broker at 127.0.0.1:9092: the advertised host and port equal the listener</span></div><span class="v">Metadata</span></div>
+<div class="r ok">[[g:check 16]]<div>That address is reachable<span class="sub">Dialled the advertised address back and got an answer</span></div><span class="v">2 ms</span></div>
+</div>
+</div>
+<div class="card"><div class="row sb"><h2>Waiting for your first request</h2><span class="st idle">Listening</span></div>
+<p class="lede">The moment a client sends its first request, this card says who it is: its <span class="mono">client.id</span>, the software and the versions it speaks. Three steps get one through, each a command you can paste.</p>
+<div class="stack-y" style="gap:16px">
+<div class="opt-row"><span class="pill mono">1</span><div style="flex:1"><div class="t1">Ask the broker what it has</div><pre class="code" style="margin-top:8px">kcat -b 127.0.0.1:9092 -L</pre></div></div>
+<div class="opt-row"><span class="pill mono">2</span><div style="flex:1"><div class="t1">Send a message (auto-create makes the topic, 1 partition)</div><pre class="code" style="margin-top:8px">echo "hello" | kcat -P -b 127.0.0.1:9092 -t orders -X client.id=admin-cli</pre></div></div>
+<div class="opt-row"><span class="pill mono">3</span><div style="flex:1"><div class="t1">Watch it arrive</div><div class="help">Open Live: the request is the first row on the wire, <a class="lnk" href="@live">with its caller, topic and result</a>.</div></div></div>
+</div>
+<div class="row" style="margin-top:20px"><a class="btn pri" href="@connect">[[g:code 16]]Snippets for your client</a><a class="btn" href="@topics/topic-create">[[g:plus 16]]Create a topic first</a></div></div>
+</div>
+<div class="stack-y"><div class="card" data-extra="live-sentence">
+<div class="row sb"><h2>This instance</h2><span class="st ok">Running</span></div>
+<p class="lede">Started 2 min ago on a new data directory.</p>
+<dl class="kv sm">
+<dt>Started</dt><dd class="mono">Nov 9 22:12</dd>
+<dt>Last stop</dt><dd>None yet</dd>
+<dt>Open partitions</dt><dd class="mono">0 of 64</dd>
+<dt>Idle memory</dt><dd><span class="mono">3.1 MB</span><span class="sub">Measured on Linux only</span></dd>
+<dt>Threads</dt><dd class="mono">3</dd>
+<dt>Version profile</dt><dd>Kafka 4</dd>
+<dt>Access</dt><dd><a class="lnk" href="@access">Open</a><span class="sub">No sign-in, no ACLs, plain TCP</span></dd>
+</dl>
+<p class="help" style="margin:14px 0 0">Data directory <span class="mono">~/larder/data/kafka</span></p>
+<div class="row" style="margin-top:20px"><a class="btn" href="@settings/settings-home">[[g:settings 16]]Weight and data in Settings</a></div>
+</div></div>
+</div>
+<div class="row wrap" data-scaffold style="margin-top:40px;gap:20px;color:var(--dim);font-size:13px"><span>Other moments of this page</span><a class="lnk" href="@home">Steady state</a><a class="lnk" href="@home-attention">Something needs you</a></div>

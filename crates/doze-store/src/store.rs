@@ -97,7 +97,7 @@ fn make<F: Fs>(
     let staged = dir.join(format!("{file}.tmp"));
     // Whatever an earlier attempt left is not trusted.
     fs.remove_file(&staged)?;
-    let (opened, _) = fs.open_or_create(&staged)?;
+    let (opened, _) = fs.open_or_create_private(&staged)?;
     let db = builder(cache_bytes).create_with_backend(FileBackend(opened))?;
     let txn = db.begin_write()?;
     init(&txn)?;

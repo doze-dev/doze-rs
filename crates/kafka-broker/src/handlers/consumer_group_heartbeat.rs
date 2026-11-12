@@ -1,6 +1,7 @@
 //! ConsumerGroupHeartbeat (KIP-848): one request that joins, keeps on and leaves a consumer group, answered with
 //! what the member is to own now. The checks of the request itself are Kafka's, in its order and with its words.
 
+use kafka_auth::authz::operation;
 use kafka_storage::fs::Fs;
 use kafka_wire::ResponseError as E;
 use kafka_wire::StrBytes;
@@ -10,9 +11,10 @@ use kafka_wire::messages::ConsumerGroupHeartbeatRequest;
 use kafka_wire::messages::ConsumerGroupHeartbeatResponse;
 use kafka_wire::messages::consumer_group_heartbeat_response::{Assignment, TopicPartitions};
 
+use crate::authorizer::TopicRights;
 use crate::groups::{Answer, Heartbeat, Req};
 use crate::handlers::Client;
-use crate::{Broker, Outcome};
+use crate::{Broker, Caller, Outcome};
 
 /// The interval members are asked to heartbeat at. It also bounds how fast a handoff goes (a couple of intervals), so it
 /// is short: this is a development broker.
@@ -21,13 +23,23 @@ const HEARTBEAT_INTERVAL_MS: i32 = 1000;
 const MOST_BYTES: usize = 4096;
 
 impl<F: Fs> Broker<F> {
+    /// Before the request is looked at: the caller must be allowed to READ the group (30), and to DESCRIBE every topic
+    /// it subscribes to (29 if there is one it may not; the answer then has no message, as in Kafka). Once per request,
+    /// here, and not in the group.
     pub(crate) async fn consumer_group_heartbeat(
         &self,
         version: i16,
+        caller: &Caller,
         client: &Client<'_>,
         req: &ConsumerGroupHeartbeatRequest,
     ) -> Outcome {
-        let typed = match check(version, client, req) {
+        if let Some(error) = self.heartbeat_refusal(caller, req) {
+            let mut resp = ConsumerGroupHeartbeatResponse::default();
+            resp.error_code = error.code();
+            resp.error_message = None;
+            return Outcome::Respond(kafka_wire::api::Response::ConsumerGroupHeartbeat(resp));
+        }
+        let typed = match check(version, client, req, self.guard(caller).topic_rights()) {
             Ok(typed) => typed,
             Err((error, words)) => return Outcome::Respond(respond(&refusal(error, &words))),
         };
@@ -46,6 +58,21 @@ impl<F: Fs> Broker<F> {
             ),
         };
         Outcome::Respond(respond(&answer))
+    }
+}
+
+impl<F: Fs> Broker<F> {
+    /// Why the caller may not heartbeat to this group with this subscription, if it may not.
+    fn heartbeat_refusal(&self, caller: &Caller, req: &ConsumerGroupHeartbeatRequest) -> Option<E> {
+        let guard = self.guard(caller);
+        if !guard.group(operation::READ, req.group_id.0.as_str()) {
+            return Some(E::GroupAuthorizationFailed);
+        }
+        let names = req.subscribed_topic_names.as_deref().unwrap_or_default();
+        names
+            .iter()
+            .any(|t| !guard.topic(operation::DESCRIBE, t.0.as_str()))
+            .then_some(E::TopicAuthorizationFailed)
     }
 }
 
@@ -107,6 +134,7 @@ fn check(
     version: i16,
     client: &Client<'_>,
     r: &ConsumerGroupHeartbeatRequest,
+    rights: Option<TopicRights>,
 ) -> Result<Heartbeat, Refused> {
     let bad = |words: &str| Err((E::InvalidRequest, words.to_owned()));
     let group = r.group_id.0.as_str();
@@ -146,6 +174,7 @@ fn check(
         }),
         client_id: client.id.to_owned(),
         client_host: client.host.to_owned(),
+        rights,
     })
 }
 

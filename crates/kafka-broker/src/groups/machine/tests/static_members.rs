@@ -102,6 +102,7 @@ fn heartbeat_checks_the_instance_as_well_as_the_id() {
         member_id: member.clone(),
         instance: Some(instance("someone-else")),
         generation: 1,
+        rights: None,
     };
     let t = g.send(|t| Event::Heartbeat(t, hb.clone()));
     assert_eq!(g.heartbeat_answer(t), Some(E::UnknownMemberId));

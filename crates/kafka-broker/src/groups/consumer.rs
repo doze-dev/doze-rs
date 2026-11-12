@@ -24,6 +24,7 @@ mod member;
 mod pattern;
 pub(crate) mod protocol;
 mod reconcile;
+mod rights;
 mod step;
 mod timers;
 mod types;

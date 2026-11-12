@@ -56,6 +56,24 @@ pub fn answer(
     (version, resp)
 }
 
+/// The answer to an ApiVersions request that arrives in the middle of a SASL login: ILLEGAL_SASL_STATE and no
+/// APIs, at the request's own version (v0 when that is not served), as Apache Kafka answers it. The request's
+/// body is not needed, so a stranger's is never read.
+#[must_use]
+pub fn illegal_state(profile: Profile, version: i16) -> (i16, ApiVersionsResponse) {
+    let (min, max) = profile.range(ApiKey::ApiVersions).unwrap_or((0, 0));
+    let mut resp = ApiVersionsResponse::default();
+    resp.error_code = ResponseError::IllegalSaslState.code();
+    (
+        if (min..=max).contains(&version) {
+            version
+        } else {
+            0
+        },
+        resp,
+    )
+}
+
 fn named_well(q: &ApiVersionsRequest) -> bool {
     valid_client_software(&q.client_software_name)
         && valid_client_software(&q.client_software_version)

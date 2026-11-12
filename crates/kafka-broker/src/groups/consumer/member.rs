@@ -4,6 +4,7 @@ use kafka_wire::ids::{InstanceId, MemberId};
 
 use super::assign::{Assignor, Partitions};
 use super::pattern::Pattern;
+use crate::authorizer::{TopicRights, permits};
 use crate::groups::machine::Protocol;
 
 /// What a member that arrived by the classic JoinGroup keeps of it: it is still told what to do by the classic APIs.
@@ -29,6 +30,8 @@ pub(super) struct Member {
     pub(super) assignor: Option<Assignor>,
     pub(super) subscribed: Vec<String>,
     pub(super) pattern: Option<Pattern>,
+    /// What its last heartbeat could DESCRIBE: a pattern matches only those topics. `None`: all of them.
+    pub(super) rights: Option<TopicRights>,
     /// The group epoch it has caught up to.
     pub(super) epoch: i32,
     /// Its epoch before that: a heartbeat still carrying it is a retry, not a fenced member.
@@ -62,6 +65,7 @@ impl Member {
             assignor: None,
             subscribed: Vec::new(),
             pattern: None,
+            rights: None,
             epoch: 0,
             prev_epoch: 0,
             target: Partitions::new(),
@@ -76,9 +80,20 @@ impl Member {
         }
     }
 
-    /// Whether the member wants this topic.
-    pub(super) fn subscribes(&self, topic: &str) -> bool {
-        self.subscribed.iter().any(|t| t == topic)
-            || self.pattern.as_ref().is_some_and(|p| p.matches(topic))
+    /// Whether the member's pattern matches the topic and the member may DESCRIBE it (Kafka's
+    /// `filterTopicDescribeAuthorizedTopics`).
+    pub(super) fn pattern_takes(&self, topic: &str) -> bool {
+        self.pattern
+            .as_ref()
+            .is_some_and(|p| p.matches(topic) && permits(self.rights.as_ref(), topic))
+    }
+
+    /// The names it subscribed to (or inherited) that its own principal may DESCRIBE: the ones that are shown, counted and
+    /// assigned from. Kafka checks a name once, when it is sent; here it is held to the right at every heartbeat, as a
+    /// match is (SEC-230, SEC-232).
+    pub(super) fn visible_names(&self) -> impl Iterator<Item = &String> {
+        self.subscribed
+            .iter()
+            .filter(|t| permits(self.rights.as_ref(), t))
     }
 }

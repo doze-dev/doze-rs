@@ -1,0 +1,20 @@
+<!--screen {"id":"group-members","title":"Members","kind":"state","from":"group-detail","via":"Link: All columns, and who holds which partition","ops":["DescribeGroups","OffsetCommit"],"refs":["cat:G7","cat:C3","grounding:K3","go:console/groups_boards.go"],"data":"now","extras":["teaching"],"crumbs":[["search-indexer","@group-detail"]]} -->
+<div class="page-h"><div><div class="title-row"><h1 class="mono">search-indexer</h1><span class="st ok">Stable</span><span class="pill">classic</span><span class="pill">roundrobin</span><span class="pill">generation 8</span></div><p class="sub">One member holds all 7 partitions. Roundrobin deals partitions one by one to the members that subscribe, so a second app instance would take every other one.</p></div><div class="acts"><a class="btn" href="@group-reset-refused" data-op="OffsetCommit">[[g:refresh 16]]Reset offsets</a><a class="btn danger" href="@group-delete">[[g:trash 16]]Delete group</a></div></div>
+<div class="toolbar" style="margin:-12px 0 28px"><span class="dim">[[g:group 16]] Switch group</span><a class="fchip mono" href="@lag-ahead">analytics</a><a class="fchip mono" href="@group-rebalancing">fulfilment</a><a class="fchip mono" href="@group-detail-848">payments-workers</a><span class="fchip on mono">search-indexer</span></div>
+<div class="tabs"><span class="tab on">Members<span class="n">1</span></span><a class="tab" href="@group-lag">Lag<span class="n">18,240</span></a><span class="tab">Story<span class="n">1</span></span></div>
+<table class="t"><thead><tr><th>Member id</th><th>Client id</th><th>Host</th><th>Role</th><th class="r">Generation</th><th>Session</th><th>Last heartbeat</th></tr></thead><tbody>
+<tr class="sel"><td class="name"><a class="mono" href="@member-detail">search-indexer-1</a></td><td class="mono">search-indexer</td><td class="mono">127.0.0.1</td><td>Leader</td><td class="r mono">8</td><td class="mono">45 s</td><td class="mono">1.0 s ago</td></tr>
+</tbody></table>
+
+<div class="sec" style="margin-top:40px"><h2>Who holds which partition</h2>
+<p class="lede">The assignment the leader computed at generation 8. Each box is a partition of a topic this group reads.</p>
+<div class="card" data-extra="teaching">
+<div class="stack-y">
+<div class="row wrap" style="gap:10px"><a class="lnk mono" href="@topics/topic-detail" style="width:160px">clickstream</a>
+<span class="tag">0</span><span class="tag">1</span><span class="tag">2</span><span class="tag">3</span><span class="tag">4</span><span class="tag">5</span><span class="dim">all six: search-indexer-1</span></div>
+<div class="row wrap" style="gap:10px"><a class="lnk mono" href="@topics/topic-detail" style="width:160px">inventory.levels</a>
+<span class="tag">0</span><span class="dim">search-indexer-1</span></div>
+</div>
+<div class="hr"></div>
+<p class="help" style="max-width:none">This is one process reading seven partitions. Lag on clickstream grows when a single consumer cannot keep up; a second instance with the same group.id would split these partitions at the next rebalance.</p>
+</div></div>

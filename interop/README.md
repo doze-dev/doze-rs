@@ -7,6 +7,9 @@ through `kcat` (a process of its own, which is also what lets one be killed with
     interop/run.sh -only churn           # one scenario by name
     FRANZ_LOG=1 interop/run.sh -only franz-go    # franz-go's debug log (its join, balance and sync steps)
 
+    interop/run.sh -sasl                 the SASL cells (below) against a broker started with SASL on
+    interop/run.sh -tls                  the TLS cells (below): the broker built with --features tls, over SASL_SSL and SSL
+
 Against a broker already running: `cd interop/go && go run . -broker 127.0.0.1:9092`.
 
 ## The scenarios
@@ -23,6 +26,31 @@ read until all have been seen, and the members leave (which commits). Every memb
 librdkafka member is killed with SIGKILL, so the broker is told nothing and its seat must go when its 6 s session runs
 out (checked: between 4 s and 7.5 s later); a new sarama member joins. Every record must still be read (some twice:
 what the killed member read and had not committed), and at the end every partition's committed offset must be its end.
+
+## SASL (`-sasl`)
+
+A mode of its own, so the scenarios above stay as they are (they run with no login). `run.sh -sasl` starts the broker with
+`--sasl-mechanisms PLAIN,SCRAM-SHA-512,SCRAM-SHA-256 --sasl-user alice:alice-secret-pw` (`SASL_PASSWORD` changes the password) and
+runs one cell for each library and mechanism: sarama, franz-go, kafka-go and librdkafka (kcat) with PLAIN, SCRAM-SHA-256 and
+SCRAM-SHA-512, twelve in all (and the users step below). A cell makes a topic (franz-go over PLAIN), writes 20 keyed records and reads them back with the
+library's own producer and consumer, then logs in with a wrong password, which must fail with an authentication error within
+15 s (the output prints the words each library gave). sarama gets its SCRAM client from `xdg-go/scram`, as its documentation
+says; the others have SCRAM built in or in their own `sasl` packages. `interop/go/sasl.go`.
+
+**Users made over the API (`interop/go/users.go`, the second half of `-sasl`).** Fourteen more lines. franz-go's `kadm` makes a user, `dave`, with `AlterUserScramCredentials` (SCRAM-SHA-256 at 4096 iterations, SCRAM-SHA-512 at 8192; kadm
+salts the password and runs PBKDF2 itself, in Go) through a login as `alice`, who is configured at start; `DescribeUserScramCredentials` lists both users; an attempt to take over `alice` is refused (93). Then the eight cells above run again, as
+`dave` with SCRAM-SHA-256 and SCRAM-SHA-512 (a wrong password refused). Then: PLAIN with the right password is refused by every library (a stored SCRAM verifier cannot give a password back); `dave`'s SCRAM-SHA-512 credential is deleted and
+every library is refused with it while SCRAM-SHA-256 still logs in; the SCRAM-SHA-256 one is deleted and every library is refused; a second deletion is `RESOURCE_NOT_FOUND` and `dave` is no longer described. The broker of `-sasl` has no ACL, so any
+logged-in user may manage users (the open-broker posture, SEC-D51 in `docs/port/behaviours/security.md`). Needs `github.com/twmb/franz-go/pkg/kadm` (in `go.mod`).
+
+## TLS (`-tls`)
+
+Another mode of its own (needs `openssl`; LibreSSL, which macOS ships, works). `run.sh -tls` builds the broker with `--features tls` (a C compiler, for ring), makes a
+throwaway CA and a server certificate for `localhost` and `127.0.0.1` (the two-step `ecparam` key and `-sha256`, because LibreSSL's one-line forms write a key
+or a signature that rustls refuses), and starts two brokers: one with the certificate and `--sasl-mechanisms SCRAM-SHA-512` (SASL_SSL), one with the certificate alone (SSL).
+Each of sarama, franz-go, kafka-go and librdkafka (kcat) trusts that CA and nothing else, and on each listener writes 20 keyed records and reads them back. Then the
+refusal that listener allows: a wrong password on SASL_SSL (an authentication error, within 15 s), and on SSL a client that does not have the CA, which must fail as a
+certificate failure. Eight cells. `interop/go/tls.go` (the cells are the ones of `sasl.go`, with `secure` set).
 
 ## What the clients taught
 
