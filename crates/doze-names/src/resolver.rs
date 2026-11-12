@@ -171,7 +171,21 @@ fn asked_from_here(ip: IpAddr) -> bool {
 }
 
 /// A peer's address for tests: a free loopback UDP port nothing uses.
+///
+/// Picked below every system's ephemeral range (Linux starts at 32768, macOS and Windows at 49152). A port the OS
+/// handed out and this function released is the next one it hands to someone else's `bind(":0")`: a test asking the
+/// resolver from an ephemeral client socket could take the very port the resolver was about to bind, and the
+/// take-over test failed that way under a parallel run.
 pub fn free_udp_addr() -> std::io::Result<SocketAddr> {
+    static NEXT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+    let seed = std::process::id().wrapping_mul(7919);
+    for _ in 0..512 {
+        let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let port = 20000 + u16::try_from(seed.wrapping_add(n.wrapping_mul(97)) % 12000).unwrap_or(0);
+        if let Ok(s) = std::net::UdpSocket::bind(("127.0.0.1", port)) {
+            return s.local_addr();
+        }
+    }
     std::net::UdpSocket::bind("127.0.0.1:0")?.local_addr()
 }
 
