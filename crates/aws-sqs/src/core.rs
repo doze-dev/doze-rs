@@ -21,6 +21,7 @@ pub(crate) struct Core {
     pub(crate) queues: BTreeMap<String, Queue>,
     /// When each deleted queue was deleted: its name cannot be used again for a minute.
     pub(crate) deleted: BTreeMap<String, i64>,
+    pub(crate) tasks: Vec<crate::moves::Task>,
     pub(crate) clock: Arc<dyn Clock>,
 }
 
@@ -33,6 +34,7 @@ impl doze_runtime::Service for Core {
         Ok(Self {
             queues: BTreeMap::new(),
             deleted: BTreeMap::new(),
+            tasks: Vec::new(),
             clock: Arc::clone(&ctx.clock),
         })
     }
@@ -47,11 +49,13 @@ impl Core {
         self.clock.now_ms()
     }
 
-    /// Every operation of the model has an arm: the ones this build does not do are refused by name, on purpose.
+    /// Every operation of the model has an arm, and the match is exhaustive: a model that gains an operation stops the build here.
     pub(crate) fn dispatch(&mut self, call: &Call) -> Reply {
         let Some(op) = Operation::from_index(call.op) else {
             return Err(ApiError::internal("unknown operation index"));
         };
+        let now = self.now_ms();
+        self.advance_tasks(now);
         match op {
             Operation::CreateQueue => self.create_queue(call),
             Operation::DeleteQueue => self.delete_queue(call),
@@ -61,6 +65,12 @@ impl Core {
             Operation::ListQueues => self.list_queues(call),
             Operation::PurgeQueue => self.purge_queue(call),
             Operation::SendMessage => self.send_message(call),
+            Operation::StartMessageMoveTask => self.start_message_move_task(call),
+            Operation::ListMessageMoveTasks => self.list_message_move_tasks(call),
+            Operation::CancelMessageMoveTask => self.cancel_message_move_task(call),
+            Operation::AddPermission => self.add_permission(call),
+            Operation::RemovePermission => self.remove_permission(call),
+            Operation::ListDeadLetterSourceQueues => self.list_dead_letter_source_queues(call),
             Operation::TagQueue => self.tag_queue(call),
             Operation::UntagQueue => self.untag_queue(call),
             Operation::ListQueueTags => self.list_queue_tags(call),
@@ -70,12 +80,6 @@ impl Core {
             Operation::SendMessageBatch => self.send_message_batch(call),
             Operation::ChangeMessageVisibilityBatch => self.change_message_visibility_batch(call),
             Operation::ChangeMessageVisibility => self.change_message_visibility(call),
-            Operation::AddPermission
-            | Operation::CancelMessageMoveTask
-            | Operation::ListDeadLetterSourceQueues
-            | Operation::ListMessageMoveTasks
-            | Operation::RemovePermission
-            | Operation::StartMessageMoveTask => Err(not_built(op)),
         }
     }
 
@@ -93,12 +97,6 @@ impl Core {
     }
 }
 
-/// An operation the model has and this build does not do yet.
-fn not_built(op: Operation) -> ApiError {
-    ApiError::new(501, "NotImplemented", format!("{op:?} is not built yet."))
-}
-
-/// A queue of another account, or an address that is not a queue's: AWS names the endpoint, not the URL.
 pub(crate) fn invalid_address(call: &Call) -> ApiError {
     ApiError::modeled(
         "InvalidAddress",

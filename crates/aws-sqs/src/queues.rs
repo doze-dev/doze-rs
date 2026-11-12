@@ -35,13 +35,20 @@ impl Core {
         let name = v
             .get(Create::QUEUE_NAME)
             .ok_or_else(|| missing("QueueName"))?;
-        let asked = attrs::parse(v.get(Create::ATTRIBUTES).into_iter().flatten())?;
+        let mut asked = attrs::parse(v.get(Create::ATTRIBUTES).into_iter().flatten())?;
         // The kind of queue decides what its name may be, and the name is checked before the rest.
         let fifo = asked
             .stored
             .get("FifoQueue")
             .is_some_and(|v| v.eq_ignore_ascii_case("true"));
         check_name(name, fifo)?;
+        let current = self
+            .queues
+            .get(name)
+            .map(|q| q.stored.clone())
+            .unwrap_or_default();
+        attrs::check_kind(&asked, &current, fifo, true)?;
+        self.check_documents(call, name, &mut asked)?;
         if let Some(existing) = self.queues.get(name) {
             if let Some(attr) = asked.differs_from(existing) {
                 return Err(ApiError::modeled(
@@ -52,7 +59,6 @@ impl Core {
                 ));
             }
         } else {
-            attrs::check_kind(&asked, &BTreeMap::new(), fifo, true)?;
             let now = self.now_ms();
             if self.deleted.get(name).is_some_and(|at| now - at < WAIT_MS) {
                 return Err(ApiError::modeled(
@@ -157,7 +163,9 @@ impl Core {
         let queue_url = v
             .get(SetAttrs::QUEUE_URL)
             .ok_or_else(|| missing("QueueUrl"))?;
-        let asked = attrs::parse(v.get(SetAttrs::ATTRIBUTES).into_iter().flatten())?;
+        let mut asked = attrs::parse(v.get(SetAttrs::ATTRIBUTES).into_iter().flatten())?;
+        let source = self.queue_mut(call, queue_url)?.name.clone();
+        self.check_documents(call, &source, &mut asked)?;
         let now = self.now_ms();
         let queue = self.queue_mut(call, queue_url)?;
         attrs::check_kind(&asked, &queue.stored, queue.is_fifo(), false)?;
@@ -256,12 +264,12 @@ fn check_name(name: &str, fifo: bool) -> Result<(), ApiError> {
 }
 
 /// A paging token binds the page to the request that made it: it carries the prefix and the last name, in hex.
-fn encode_token(prefix: &str, last: &str) -> String {
+pub(crate) fn encode_token(prefix: &str, last: &str) -> String {
     aws_core::hex::encode(format!("{prefix}\0{last}").as_bytes())
 }
 
 /// The last name of a token made for this `prefix`; a token for another request, or not a token, is refused.
-fn decode_token(token: &str, prefix: &str) -> Result<String, ApiError> {
+pub(crate) fn decode_token(token: &str, prefix: &str) -> Result<String, ApiError> {
     let refused = || {
         invalid_parameter(
             "Invalid NextToken value. If you are passing in NextToken, you must not change the other request parameters.",

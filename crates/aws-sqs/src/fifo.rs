@@ -154,6 +154,7 @@ mod tests {
             group_id: Some(group.into()),
             dedup_id: None,
             sequence: None,
+            source_arn: None,
         }
     }
 

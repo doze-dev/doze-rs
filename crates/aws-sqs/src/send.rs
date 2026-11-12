@@ -107,6 +107,7 @@ impl Queue {
             group_id: out.group_id.map(str::to_owned),
             dedup_id: dedup_id.clone(),
             sequence: accepted.sequence.clone(),
+            source_arn: None,
         });
         Ok(accepted)
     }

@@ -78,6 +78,8 @@ impl Core {
         let ask = ReceiveAsk::read(&v)?;
         let now = self.now_ms();
         let account = call.caller.account_id.clone();
+        let source = self.queue_mut(call, queue_url)?.name.clone();
+        self.redrive_due(call, &source, now);
         let queue = self.queue_mut(call, queue_url)?;
         let hidden_for = ask
             .visibility
@@ -329,7 +331,7 @@ fn ranged(
 }
 
 /// A receipt handle: 48 hex digits. AWS's are longer and opaque; what matters is that a client cannot make one up.
-fn new_handle() -> String {
+pub(crate) fn new_handle() -> String {
     let mut bytes = [0u8; 24];
     // WHY: with no randomness the handle is all zeros; a collision costs one wrong-message delete in a test environment that has
     // no entropy source, which is not a place anyone runs this.
@@ -376,6 +378,7 @@ fn system_attributes(m: &Message, want: &[&str], account: &str) -> Vec<(String, 
     put("MessageGroupId", m.group_id.clone());
     put("MessageDeduplicationId", m.dedup_id.clone());
     put("SequenceNumber", m.sequence.clone());
+    put("DeadLetterQueueSourceArn", m.source_arn.clone());
     out
 }
 

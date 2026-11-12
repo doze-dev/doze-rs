@@ -31,6 +31,7 @@ impl World {
         let core = Core {
             queues: BTreeMap::new(),
             deleted: BTreeMap::new(),
+            tasks: Vec::new(),
             clock: clock.clone(),
         };
         Self {
@@ -313,16 +314,6 @@ fn the_refusals_aws_recorded() {
             "InvalidAttributeName".into(),
             "Unknown Attribute QueueArn.".into()
         )
-    );
-    // An unbuilt operation says so.
-    assert_eq!(
-        w.run(
-            Operation::AddPermission,
-            &json!({"QueueUrl": url, "Label": "l", "AWSAccountIds": ["1"], "Actions": ["SendMessage"]})
-        )
-        .unwrap_err()
-        .status,
-        501
     );
 }
 

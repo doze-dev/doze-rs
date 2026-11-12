@@ -19,8 +19,8 @@ doze-runtime = { path = "../doze-runtime" }
 aws-core = { path = "../aws-core" }
 md-5 = "0.11"
 sha2 = "0.11"
+serde_json = "1"
 getrandom = "0.4"
 
 [dev-dependencies]
-serde_json = "1"
 tokio = { version = "1", default-features = false, features = ["rt", "macros", "time"] }

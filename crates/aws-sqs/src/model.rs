@@ -56,6 +56,8 @@ pub(crate) struct Message {
     pub(crate) dedup_id: Option<String>,
     /// A FIFO queue's sequence number for the message.
     pub(crate) sequence: Option<String>,
+    /// The queue this message was moved from, when it is in a dead-letter queue.
+    pub(crate) source_arn: Option<String>,
 }
 
 impl Message {
