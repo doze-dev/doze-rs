@@ -1,0 +1,1 @@
+{"FunctionName":"f","Runtime":"python3.12","Role":"arn:aws:iam::111122223333:role/r","Handler":"index.handler","Code":{"ZipFile":"UEsFBgAAAAAAAAAAAAAAAAAAAAAAAA=="},"Environment":{"Variables":{"A":"1"}},"Layers":[],"Timeout":10,"Command":["sh","run.sh"]}
