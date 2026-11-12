@@ -223,6 +223,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "aws-kinesis"
+version = "0.0.0"
+dependencies = [
+ "aws-core",
+ "aws-model-kinesis",
+ "aws-peers",
+ "aws-schema",
+ "aws-seal",
+ "aws-testkit",
+ "aws-wire",
+ "doze-runtime",
+ "doze-store",
+ "md-5",
+ "serde",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "aws-kms"
 version = "0.0.0"
 dependencies = [
@@ -1068,6 +1087,7 @@ dependencies = [
  "aws-auth",
  "aws-gateway",
  "aws-iam",
+ "aws-kinesis",
  "aws-kms",
  "aws-peers",
  "aws-secrets",
