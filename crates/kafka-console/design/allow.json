@@ -2012,5 +2012,69 @@
     "render": "live",
     "reason": "improvement: the list's toolbar (filter, Show internal, Refresh) is the same in every state, so a filter that matches nothing changes only the region under it (UX finding 8); the board's chip and Clear filter are the card's Clear filter, which swaps in place",
     "expires": "close"
+  },
+  {
+    "board": "groups-list",
+    "field": "button",
+    "selector": "All4 [-] -> ui:filter",
+    "render": "fixture",
+    "reason": "improvement: the four states of the Groups list are a Segmented control (links with the counts), each an in-place swap of the list, so the filter keeps the scroll and the focus",
+    "expires": "close"
+  },
+  {
+    "board": "groups-list",
+    "field": "button",
+    "selector": "All# [-] -> ui:filter",
+    "render": "live",
+    "reason": "improvement: the four states of the Groups list are a Segmented control (links with the counts), each an in-place swap of the list, so the filter keeps the scroll and the focus",
+    "expires": "close"
+  },
+  {
+    "board": "groups-list",
+    "field": "button",
+    "selector": "Stable2 [-] -> ui:filter",
+    "render": "fixture",
+    "reason": "improvement: the four states of the Groups list are a Segmented control (links with the counts), each an in-place swap of the list, so the filter keeps the scroll and the focus",
+    "expires": "close"
+  },
+  {
+    "board": "groups-list",
+    "field": "button",
+    "selector": "Stable# [-] -> ui:filter",
+    "render": "live",
+    "reason": "improvement: the four states of the Groups list are a Segmented control (links with the counts), each an in-place swap of the list, so the filter keeps the scroll and the focus",
+    "expires": "close"
+  },
+  {
+    "board": "groups-list",
+    "field": "button",
+    "selector": "Rebalancing1 [-] -> ui:filter",
+    "render": "fixture",
+    "reason": "improvement: the four states of the Groups list are a Segmented control (links with the counts), each an in-place swap of the list, so the filter keeps the scroll and the focus",
+    "expires": "close"
+  },
+  {
+    "board": "groups-list",
+    "field": "button",
+    "selector": "Rebalancing# [-] -> ui:filter",
+    "render": "live",
+    "reason": "improvement: the four states of the Groups list are a Segmented control (links with the counts), each an in-place swap of the list, so the filter keeps the scroll and the focus",
+    "expires": "close"
+  },
+  {
+    "board": "groups-list",
+    "field": "button",
+    "selector": "Empty1 [-] -> ui:filter",
+    "render": "fixture",
+    "reason": "improvement: the four states of the Groups list are a Segmented control (links with the counts), each an in-place swap of the list, so the filter keeps the scroll and the focus",
+    "expires": "close"
+  },
+  {
+    "board": "groups-list",
+    "field": "button",
+    "selector": "Empty# [-] -> ui:filter",
+    "render": "live",
+    "reason": "improvement: the four states of the Groups list are a Segmented control (links with the counts), each an in-place swap of the list, so the filter keeps the scroll and the focus",
+    "expires": "close"
   }
 ]

@@ -23,12 +23,20 @@ Two passes. The first (slice p9o, 2026-11-13) is at the end of this file. The se
 | 15 | a click during a page change | the second click aimed at the element that was going: the address and the page disagreed | it waits for the swap; the later click wins over a slower earlier answer (CON-757) | scenarios `transitions-fast-clicks-do-not-stack`, `transitions-overtaken-click-never-lands-late` |
 | 16 | reduced motion | the browser's default fade between pages still ran | `::view-transition-*` animation off (CON-757) | scenario `transitions-reduced-motion-runs-none` |
 
+| 17 | Live, every filter | **no filter changed anything** on the fixtures server (the tape ignored the query); the search box did not ask until Enter | the fixtures tape passes rows through the recorder's rules (an idle poll row included); the search box asks 250 ms after the last key, replaces the history entry; every filter of every page has a scenario that counts rows (CON-760); a Rust test does the same against a real broker's tape | `filters-live-change-the-tape` (16 rows, 3 for a typed client, 4 for a client or a topic, 2 refused) |
+| 18 | the Produce dialog and every overlay | taller than the window, cut off, the buttons out of reach | a flex column: fixed title, scrolling body, foot in view; drawers 100dvh (CON-761) | `target/ux/overlay-produce-1280x720.png`, `overlay-produce-800x600.png`; 19 overlays at 3 sizes |
+| 19 | Home | a thin right column, long values, a layout that overflowed | a strip of six figures, Address and "This instance" in 7 to 5 (second at least 380 px, stacked under 1180), the way on across the page (CON-764) | `target/ux/home-1024.png`, `home-1280.png`, `home-1440.png`, `home-1920.png` |
+| 20 | a Select's list | as wide as a narrow trigger: "fulfilme nt" | as wide as its longest option up to 420 px, one line with an ellipsis (CON-762) | `target/ux/select-menu-width.png` |
+| 21 | every focused control | a purple rectangle inside the search pill; three different ring styles | one ring system (CON-763) | `target/ux/focus-0.png` to `focus-18.png` |
+| 22 | the create-topic form at 1024 | three choice cards ran out of their card | the row wraps | scenario `every-page-fits-at-1024` |
+
 Looked at and left (the page is right): Home, Connect, Planned pages, the group Members, Lag and Story, Consumers, the dialogs.
 
 ## Backlog from this pass
 
 | P | Where | What |
 |---|---|---|
+| 2 | the Produce dialog | the teaching lines under a field ("Kafka says / Default / Takes effect / Here") are four lines each; a compact disclosure under the field would shorten the dialog (the dialog scrolls and its buttons stay in view, so it is a refinement) |
 | 2 | the top bar | its right edge is 24 px from the window and the page's is 48 px: the chips do not line up with the page's right edge |
 | 2 | Live | "Clients · 9" is a small button (32 px) beside 36 px chips; its text and the chips' differ by a pixel in centre |
 | 2 | Live at 1024 | the toolbar wraps: "Clients · 9" drops to a second row; the refused callout's list leaves a gap line |

@@ -261,3 +261,41 @@ async fn a_console_without_a_recorder_says_the_wire_is_empty_and_the_broker_with
     );
     w.stop().await;
 }
+
+/// CON-760: against a real broker with real traffic, each filter of the Live page changes the rows (and the page keeps it in the
+/// fragment the stream refreshes).
+#[tokio::test]
+async fn every_filter_of_the_live_page_changes_the_rows_of_a_real_tape() {
+    let (w, rec) = recorded("tape-filters", false).await;
+    traffic(&w).await;
+    let app = router(&w, &rec);
+    let rows = |doc: &str| doc.matches("<tr").count();
+    let (_, all) = page(&app, get("/live?idle=0")).await;
+    assert!(rows(&all) > 6, "the tape has rows: {}", rows(&all));
+    for q in [
+        "client=fulfilment",
+        "topic=orders",
+        "api=Produce",
+        "refused=1",
+        "q=Metadata",
+    ] {
+        let (status, doc) = page(&app, get(&format!("/live?idle=0&{q}"))).await;
+        assert_eq!(status, StatusCode::OK, "{q}");
+        assert!(
+            rows(&doc) < rows(&all) && rows(&doc) > 1,
+            "{q}: the filter changed the rows ({} of {})",
+            rows(&doc),
+            rows(&all)
+        );
+        assert!(
+            doc.contains("data-frag=\"/fragments/live-wire?"),
+            "{q}: the fragment"
+        );
+    }
+    let (_, with_idle) = page(&app, get("/live?idle=0")).await;
+    let (_, without) = page(&app, get("/live")).await;
+    assert!(
+        rows(&with_idle) >= rows(&without),
+        "showing the idle polls never shows fewer rows"
+    );
+}

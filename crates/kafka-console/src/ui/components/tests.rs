@@ -38,11 +38,15 @@ fn a_select_is_a_real_select_underneath_and_a_listbox_on_top() {
         "{m}"
     );
     assert!(
-        m.contains(r#"id="colour-o1" data-value="g" data-label="Green" aria-selected="true""#),
+        m.contains(
+            r#"id="colour-o1" data-value="g" data-label="Green" title="Green" aria-selected="true""#
+        ),
         "{m}"
     );
     assert!(
-        m.contains(r#"id="colour-o0" data-value="r" data-label="Red" aria-selected="false""#),
+        m.contains(
+            r#"id="colour-o0" data-value="r" data-label="Red" title="Red" aria-selected="false""#
+        ),
         "{m}"
     );
     // Alpine's attributes, spelled the way Alpine reads them.

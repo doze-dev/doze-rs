@@ -318,8 +318,14 @@ pub fn live_fragment(v: &HomeView, base: &Base) -> Markup {
             (callout_body(v, base))
             (stats(v))
             // Two balanced columns (7 to 5, the second never under 380 px; one column under 1180 px), then the way on across the page.
-            div class="home-grid" { (address_card(v, base)) (instance_card(v, base)) }
-            div class="home-next" { (next_card(v, base)) }
+            // The first run keeps the board's order (the address, the three steps, then the instance); the grid puts the instance
+            // beside them.
+            @if quiet {
+                div class="home-grid quiet" { (address_card(v, base)) (next_card(v, base)) (instance_card(v, base)) }
+            } @else {
+                div class="home-grid" { (address_card(v, base)) (instance_card(v, base)) }
+                div class="home-next" { (next_card(v, base)) }
+            }
         },
     )
 }
