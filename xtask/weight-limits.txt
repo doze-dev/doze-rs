@@ -20,4 +20,7 @@ doze-kafka 9000000 159 8192 --listen 127.0.0.1:{port} --data-dir {data}
 # operations), the Query codec, session signing). Same rule.
 # 2026-11-12, with policy enforcement (evaluator, simulator, authorizer): 5,097,200 B, 198 packages, 3.3 MB idle (+133 KB, no package). Same rule; the limit
 # is 7,000,000 B (macOS size times 1.3 plus 5% is 6,957,678).
+# 2026-11-12, with S3 (A9; branch aws-a9-s3, on top of the same IAM/STS base as above): 5,819,344 B, 202 packages, 3,568 KB idle (+722 KB, +4 packages, +0.25 MB idle over
+# policy enforcement: the S3 model's tables, the restXml codec (router, XML in and out), the S3 service with its checksums and blob store). The limits are not
+# moved by this stage: it fits inside them on its own. The integrator folds the other services of this round in and re-bases them from the combined build.
 doze-aws 7000000 203 6144 --listen 127.0.0.1:{port} --data-dir {data}

@@ -219,7 +219,16 @@ impl Core {
         let Some(peers) = self.peers.as_ref().filter(|p| p.mode() != Mode::Off) else {
             return Ok(());
         };
-        peers.authorize(&req.call.caller, self.needs(req)).await
+        // S3 calls a refusal `AccessDenied`; the authorizer words it for the Coral services, which call it `AccessDeniedException`.
+        peers
+            .authorize(&req.call.caller, self.needs(req))
+            .await
+            .map_err(|mut e| {
+                if e.code == "AccessDeniedException" {
+                    e.code = "AccessDenied".into();
+                }
+                e
+            })
     }
 
     /// Writes what the call changed and waits until it is on disk; a call that failed changes nothing.
