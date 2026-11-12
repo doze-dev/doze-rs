@@ -14,6 +14,6 @@ cargo +nightly fuzz run hostguard corpus/hostguard seeds/hostguard -- -max_len=4
 ```
 
 The first directory is the fuzzer's own corpus (ignored by git); `seeds/` is read-only input and must come second.
-The largest token a stranger can send is the pre-login frame cap, 64 KiB. An ACL request is only read after the
+The largest token a stranger can send is the pre-login frame cap, 128 KiB. An ACL request is only read after the
 login, so its target is capped at a few KiB: the strings it builds are four characters at most. A `Host` header is a
 few hundred bytes in practice (the guard refuses any name over 253), so its target is capped at 4 KiB.

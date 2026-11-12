@@ -90,7 +90,7 @@ Deviations from Apache Kafka (and one from the Go edition) by number. Every one 
 - **SEC-D62** a configuration that cannot start exits 2 (it exited 1 before slice 8g)
 - **SEC-D63** the console flags have nothing to act on until Phase 9
 - **SEC-D70** only a super user may change a super user's SCRAM credential (Kafka has no such rule)
-- **SEC-D71** a stranger's frame is at most 64 KiB (Kafka's `sasl.server.max.receive.size` is 512 KiB)
+- **SEC-D71** a stranger's frame is at most 128 KiB (Kafka's `sasl.server.max.receive.size` is 512 KiB)
 - **SEC-D72** no `--sasl-allow-empty-users` (the Go edition has it)
 - **SEC-D73** only a failed login (58) is delayed; Kafka delays every authentication failure
 
@@ -127,11 +127,11 @@ is "out of order" from a stranger and "a bad body" from a logged-in client. Test
 `connection::tests::login::a_strangers_body_is_not_decoded_but_a_logged_in_clients_is`.
 
 ## SEC-4. Limits before the login
-A stranger's frame is capped at 64 KiB (Kafka's `sasl.server.max.receive.size` is 512 KiB and it was 1 MiB here; the audit made it 64 KiB, **deviation SEC-D71**, SEC-194), whatever the API; a logged-in
+A stranger's frame is capped at 128 KiB (Kafka's `sasl.server.max.receive.size` is 512 KiB and it was 1 MiB here; the audit made it 64 KiB and the replay raised it to 128 KiB, **deviation SEC-D71**, SEC-194), whatever the API; a logged-in
 client's cap is the API's own (Produce 100 MiB). From the accept, a connection has 30 s to finish logging in, counted once and
 not restarted by each request (**deviation SEC-D2**: Kafka has no such limit; the Go edition has this one). Test:
-`frame::tests::an_unauthenticated_connection_is_capped_at_64_kib`, `frame::tests::the_caps_are_exact`,
-`connection::tests::login::a_stranger_frame_is_held_to_64_kib_and_a_logged_in_one_is_not`,
+`frame::tests::an_unauthenticated_connection_is_capped_at_128_kib`, `frame::tests::the_caps_are_exact`,
+`connection::tests::login::a_stranger_frame_is_held_to_128_kib_and_a_logged_in_one_is_not`,
 `..::a_connection_that_does_not_log_in_within_the_budget_is_closed_however_it_trickles`, `..::the_budget_ends_with_the_login`.
 
 ## SEC-5. A request in the middle of a login
@@ -1071,11 +1071,11 @@ said at warn and the broker starts. Only on Unix; the simulated disk has no mode
 Test: `kafka-meta tests/file_mode::a_database_is_made_readable_by_its_owner_only`, `..::a_database_an_earlier_build_made_open_is_narrowed_when_it_is_opened`, `kafka-storage fs::tests::a_private_file_on_the_real_disk_is_owner_only_and_an_open_one_is_narrowed`,
 `..::the_simulated_file_system_makes_private_files_and_has_no_modes_to_narrow`, `tests/process users::the_metadata_database_is_owner_only_and_an_open_one_from_an_earlier_build_is_narrowed`, `cli::tests::tls::a_key_file_others_can_read_is_warned_about_and_a_private_one_is_not`.
 
-## SEC-194. A stranger's frame is at most 64 KiB, and is never read into a pooled buffer (**deviation SEC-D71**; decision D10)
-The cap before the login (SEC-4) is 64 KiB for every API, down from 512 KiB (Kafka's `sasl.server.max.receive.size` default) and the 1 MiB before that: a token, a handshake and an ApiVersions are under 1 KiB. The cost it bounds: 1000 strangers each sending 300 KiB of a claimed 512 KiB frame took the
-process from 5 MB to 325 MB (release build), which stayed after they closed; the connection limit (2048) made that a gigabyte. With the cap the same 1000 connections are refused at the length, 5 MB. A stranger that sends 60 KiB of a legal 64 KiB frame, 1000 times, takes the process from 12.8 MB to 83.7 MB while it holds the sockets, **and the process stays at 83.7 MB after they close** (the allocator keeps the memory for the next connections and does not give it back); it is bounded, not returned.
-And what a stranger reads is never put on the pool's shelves (`frames::into_pool`: only a peer that has logged in gets a pooled buffer, the pool being for big Produce requests), so a frame of exactly 64 KiB, which is the size from which the pool takes buffers, is read as any other and freed. Test:
-`frame::tests::an_unauthenticated_connection_is_capped_at_64_kib`, `frame::tests::the_caps_are_exact`, `connection::tests::login::a_stranger_frame_is_held_to_64_kib_and_a_logged_in_one_is_not`, `frames::tests::only_a_peer_that_has_logged_in_gets_a_pooled_buffer`.
+## SEC-194. A stranger's frame is at most 128 KiB, and is never read into a pooled buffer (**deviation SEC-D71**; decision D10)
+The cap before the login (SEC-4) is 128 KiB for every API, down from 512 KiB (Kafka's `sasl.server.max.receive.size` default) and the 1 MiB before that: a token, a handshake and an ApiVersions are under 1 KiB. It is not lower because the recorded Apache Kafka takes a 64 KiB token and answers it 58 (`sasl-plain`, step `token-of-64k-authenticate`): the audit's first choice, exactly 64 KiB, turned that frame (token plus header) into a closed connection, which only the replay caught, and 128 KiB is twice the recorded token. Test: `connection::tests::login::a_64_kib_login_token_is_judged_and_answered_as_the_recorded_kafka_does`. The cost it bounds: 1000 strangers each sending 300 KiB of a claimed 512 KiB frame took the
+process from 5 MB to 325 MB (release build), which stayed after they closed; the connection limit (2048) made that a gigabyte. With the cap the same 1000 connections are refused at the length, 5 MB. A stranger that sends 60 KiB of a legal 64 KiB frame, 1000 times, took the process from 12.8 MB to 83.7 MB while it held the sockets (measured at the 64 KiB cap; at 128 KiB the bound is about twice that per 1000 sockets, an estimate that was not re-measured), **and the process stays at 83.7 MB after they close** (the allocator keeps the memory for the next connections and does not give it back); it is bounded, not returned.
+And what a stranger reads is never put on the pool's shelves (`frames::into_pool`: only a peer that has logged in gets a pooled buffer, the pool being for big Produce requests), so a stranger's frame of any size up to 128 KiB, the 64 KiB from which the pool takes buffers included, is read as any other and freed. Test:
+`frame::tests::an_unauthenticated_connection_is_capped_at_128_kib`, `frame::tests::the_caps_are_exact`, `connection::tests::login::a_stranger_frame_is_held_to_128_kib_and_a_logged_in_one_is_not`, `frames::tests::only_a_peer_that_has_logged_in_gets_a_pooled_buffer`.
 
 ## SEC-195. A refused client reads the answer and then an end, not a reset
 After the answer to a refusal is written and flushed the server shuts its side down (the client sees the end at once), then reads and throws away whatever the client sent behind the refusal until the client closes its side or 250 ms have passed, and only then closes. Closing a socket that still
@@ -1365,7 +1365,7 @@ arguments reads, and answering 91 for an absent super-user name would give the c
 - **SEC-D70.** Only a super user may change the SCRAM credential of a super user. Kafka has no such rule: any caller with ALTER on the cluster may set and delete any user's credential, and a super user is a principal, not a stored user. It is here because this broker's default (`--acl-default allow`) gives ALTER on the cluster to every
   logged-in user, so without the rule a login is a takeover of every super user (SEC-D51). The refusal is CLUSTER_AUTHORIZATION_FAILED (31) with no message, for the user's result only (SEC-190), where Kafka's other refusal of a credential, `UNACCEPTABLE_CREDENTIAL`, is for a credential it will not accept. It does not
   stop a user from taking over a name that is not a super user, or from rewriting the ACLs, with allow-everything; `--acl-default deny` does (SEC-191). **It tells the super-user names:** a Delete of a name with no credential is 31 for a super user's name and 91 for any other, to a caller that is not a super user, so a caller with ALTER on the cluster can list the names of the super users (SEC-238).
-- **SEC-D71.** A stranger's frame is at most 64 KiB, not Kafka's 512 KiB (`sasl.server.max.receive.size`, the default, SEC-4). A dev broker with a 2048-connection limit should not hold a gigabyte for strangers (measured 325 MB for 1000, SEC-194); a SASL token is under 1 KiB. A client that sends a larger frame before it logs in (none of
+- **SEC-D71.** A stranger's frame is at most 128 KiB, not Kafka's 512 KiB (`sasl.server.max.receive.size`, the default, SEC-4). A dev broker with a 2048-connection limit should not hold a gigabyte for strangers (measured 325 MB for 1000, SEC-194); a SASL token is under 1 KiB. A client that sends a larger frame before it logs in (none of
   the four libraries does) is closed with no answer. Replaces the 512 KiB of decision D10.
 - **SEC-D72.** There is no `--sasl-allow-empty-users`, which the Go edition has. With it a broker started with SASL on and nobody to log in, so that no super user could ever make the first user over the API (the API needs a login, or the open posture that SASL ends); the flag made a dead start. A broker with SASL on and
   no user anywhere (flag, file, variable, or a stored credential for a SCRAM mechanism that is on) is refused with the way to give the first user (SEC-176). To make the first user over the API, start without SASL, or with a user from a flag, file or variable and a super user.
