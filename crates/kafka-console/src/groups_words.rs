@@ -126,18 +126,6 @@ fn last_commit(h: &GroupHead) -> Option<String> {
         .map(|ms| format!("Last commit {}.", ago(h.now_ms - ms)))
 }
 
-/// How the group came to be rebalancing, when the group has said: `fulfilment-py-2 left 3 s ago, so the group is rebalancing.`
-fn lead_in(h: &GroupHead) -> Option<Vec<S>> {
-    let last = h.story.last.as_ref().filter(|l| l.forming)?;
-    let (who, clause) = crate::story::last_clause(last);
-    let mut out = Vec::new();
-    if let Some(w) = who {
-        out.push(S::strong(w));
-    }
-    out.push(S::text(format!("{clause}, so the group is rebalancing.")));
-    Some(out)
-}
-
 fn rebalancing(h: &GroupHead, topics: &[LagTopic]) -> Vec<S> {
     let mut out = Vec::new();
     if let Some(lead) = lead_in(h) {
@@ -161,24 +149,6 @@ fn rebalancing(h: &GroupHead, topics: &[LagTopic]) -> Vec<S> {
         )),
     }
     finish(out, topics)
-}
-
-/// " It is waiting for py-1 to rejoin: 2.1 s of the 5 s rebalance timeout are left."
-fn waiting_clause(h: &GroupHead) -> Vec<S> {
-    match &h.rebalance {
-        Some(r) if !r.waiting_for.is_empty() => vec![
-            S::text(" It is waiting for "),
-            S::strong(list_and(&r.waiting_for)),
-            S::text(format!(
-                " to rejoin: {} of the {} rebalance timeout are left.",
-                span_precise(r.remaining_ms),
-                span_precise(r.timeout_ms),
-            )),
-        ],
-        _ => vec![S::text(
-            " Every member has joined again and the leader is working out who holds what.",
-        )],
-    }
 }
 
 /// The topics it reads, at the end of the sentence.
@@ -235,32 +205,6 @@ fn holding(h: &GroupHead, topics: &[LagTopic]) -> Vec<S> {
         out.extend(reads(&read));
     }
     out.push(S::text("."));
-    out
-}
-
-/// " The last rebalance was 6 h ago: payments-3c joined." (what the group has said of itself).
-fn last_rebalance(h: &GroupHead) -> Vec<S> {
-    let Some(last) = h.story.last.as_ref().filter(|l| !l.forming) else {
-        return Vec::new();
-    };
-    let ago = crate::story::ago_near(last.ago_ms);
-    let mut out = vec![S::text(format!(" The last rebalance was {ago}: "))];
-    let verb = match last.cause {
-        crate::model::StoryCause::MemberLeft => "left",
-        crate::model::StoryCause::SessionExpired => "timed out",
-        crate::model::StoryCause::MemberJoined => "joined",
-        _ => "",
-    };
-    match (&last.who, verb) {
-        (Some(w), v) if !v.is_empty() => {
-            out.push(S::strong(crate::story::member_label(w)));
-            out.push(S::text(format!(" {v}.")));
-        }
-        _ => out.push(S::text(format!(
-            "{}.",
-            crate::story::cause_phrase(last.cause)
-        ))),
-    }
     out
 }
 
@@ -462,44 +406,11 @@ fn expiring_sentence(h: &GroupHead, topics: &[LagTopic], retention_ms: i64) -> V
     }
 }
 
-/// The line above the list while a classic group is rebalancing.
-#[must_use]
-pub fn attention_sentence(a: &GroupAttention) -> Vec<S> {
-    let mut v = vec![S::strong(format!("{} is rebalancing.", a.id)), S::text(" ")];
-    if let Some(last) = a.last.as_ref().filter(|l| l.forming) {
-        let (who, clause) = crate::story::last_clause(last);
-        if let Some(w) = who {
-            v.push(S::mono(w));
-        }
-        v.push(S::text(format!("{clause} and the group is waiting for ")));
-        v.push(S::mono(if a.waiting_for.is_empty() {
-            "the leader".to_owned()
-        } else {
-            list_and(&a.waiting_for)
-        }));
-        v.push(S::text(format!(
-            " to rejoin, {} of {} left.",
-            span_precise(a.remaining_ms),
-            span_precise(a.timeout_ms)
-        )));
-    } else if a.waiting_for.is_empty() {
-        v.push(S::text(
-            "Every member has joined again and the leader is working out who holds what.",
-        ));
-    } else {
-        v.push(S::text("It is waiting for "));
-        v.push(S::mono(list_and(&a.waiting_for)));
-        v.push(S::text(format!(
-            " to rejoin, {} of {} left.",
-            span_precise(a.remaining_ms),
-            span_precise(a.timeout_ms)
-        )));
-    }
-    v
-}
-
 mod refusals;
+mod story;
 pub use refusals::{delete_reading, description, kafka_refusal, reset_reading};
+pub use story::attention_sentence;
+use story::{last_rebalance, lead_in, waiting_clause};
 
 #[cfg(test)]
 mod tests;
