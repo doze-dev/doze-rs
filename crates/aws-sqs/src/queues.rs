@@ -9,10 +9,18 @@ use aws_model_sqs::keys::{
 use aws_wire::ApiError;
 use aws_wire::service::{Call, Reply};
 
+use std::collections::BTreeMap;
+
 use crate::attrs;
-use crate::core::{Core, empty, invalid_parameter, missing, no_such_queue, reply, request};
+use crate::core::{
+    Core, empty, invalid_address, invalid_parameter, missing, no_such_queue, reply, request,
+};
 use crate::model::Queue;
+use crate::tags;
 use crate::url;
+
+/// How long a deleted queue's name, and a purge, are held (the minute AWS holds them).
+const WAIT_MS: i64 = 60_000;
 
 /// What a queue name may be, as the message AWS gives says.
 const NAME_RULE: &str =
@@ -39,7 +47,18 @@ impl Core {
                 return Err(invalid_parameter(NAME_RULE));
             }
             let now = self.now_ms();
+            if self.deleted.get(name).is_some_and(|at| now - at < WAIT_MS) {
+                return Err(ApiError::modeled(
+                    "QueueDeletedRecently",
+                    "You must wait 60 seconds after deleting a queue before you can create another with the same name.",
+                ));
+            }
             let (attrs, stored) = asked.into_attrs();
+            let tags = tags::check(
+                name,
+                &BTreeMap::new(),
+                v.get(Create::TAGS).into_iter().flatten(),
+            )?;
             let queue = Queue {
                 name: name.to_owned(),
                 attrs,
@@ -47,6 +66,8 @@ impl Core {
                 created_secs: now / 1000,
                 modified_secs: now / 1000,
                 messages: Vec::new(),
+                tags: tags.into_iter().collect(),
+                purged_ms: None,
             };
             self.queues.insert(name.to_owned(), queue);
         }
@@ -63,6 +84,8 @@ impl Core {
             .ok_or_else(|| missing("QueueUrl"))?;
         let name = self.queue_mut(call, queue_url)?.name.clone();
         self.queues.remove(&name);
+        let now = self.now_ms();
+        self.deleted.insert(name, now);
         empty()
     }
 
@@ -74,7 +97,10 @@ impl Core {
         let account = v
             .get(GetUrl::QUEUE_OWNER_AWS_ACCOUNT_ID)
             .unwrap_or(&call.caller.account_id);
-        if account != call.caller.account_id || !self.queues.contains_key(name) {
+        if account != call.caller.account_id {
+            return Err(invalid_address(call));
+        }
+        if !self.queues.contains_key(name) {
             return Err(no_such_queue());
         }
         let queue_url = url::build(&call.caller.endpoint, account, name);
@@ -135,25 +161,30 @@ impl Core {
     pub(crate) fn list_queues(&mut self, call: &Call) -> Reply {
         let v = request::<List>(call)?;
         let prefix = v.get(List::QUEUE_NAME_PREFIX).unwrap_or("");
-        let after = v.get(List::NEXT_TOKEN);
+        let after = v
+            .get(List::NEXT_TOKEN)
+            .map(|token| decode_token(token, prefix))
+            .transpose()?;
         let limit = match v.get(List::MAX_RESULTS) {
             None => usize::MAX,
             Some(n) if (1..=1000).contains(&n) => usize::try_from(n).unwrap_or(1000),
-            Some(n) => {
-                return Err(invalid_parameter(format!(
-                    "Value {n} for parameter MaxResults is invalid. Reason: MaxResults must be an integer between 1 and 1000, if provided."
-                )));
+            Some(_) => {
+                return Err(invalid_parameter(
+                    "Value for parameter MaxResults is invalid. Reason: MaxResults must be an integer between 1 and 1000.",
+                ));
             }
         };
         let mut names: Vec<&str> = self
             .queues
             .keys()
             .map(String::as_str)
-            .filter(|n| n.starts_with(prefix) && after.is_none_or(|a| *n > a))
+            .filter(|n| n.starts_with(prefix) && after.as_deref().is_none_or(|a| *n > a))
             .collect();
         let more = names.len() > limit;
         names.truncate(limit);
-        let next = more.then(|| names.last().copied()).flatten();
+        let next = more
+            .then(|| names.last().map(|last| encode_token(prefix, last)))
+            .flatten();
         let urls: Vec<String> = names
             .iter()
             .map(|n| url::build(&call.caller.endpoint, &call.caller.account_id, n))
@@ -166,7 +197,7 @@ impl Core {
                     }
                 });
             }
-            if let Some(token) = next {
+            if let Some(token) = &next {
                 o.put(Listed::NEXT_TOKEN, token);
             }
         })
@@ -175,7 +206,19 @@ impl Core {
     pub(crate) fn purge_queue(&mut self, call: &Call) -> Reply {
         let v = request::<Purge>(call)?;
         let queue_url = v.get(Purge::QUEUE_URL).ok_or_else(|| missing("QueueUrl"))?;
-        self.queue_mut(call, queue_url)?.messages.clear();
+        let now = self.now_ms();
+        let queue = self.queue_mut(call, queue_url)?;
+        if queue.purged_ms.is_some_and(|at| now - at < WAIT_MS) {
+            return Err(ApiError::modeled(
+                "PurgeQueueInProgress",
+                format!(
+                    "Only one PurgeQueue operation on {} is allowed every 60 seconds.",
+                    queue.name
+                ),
+            ));
+        }
+        queue.messages.clear();
+        queue.purged_ms = Some(now);
         empty()
     }
 }
@@ -187,4 +230,26 @@ fn valid_name(name: &str) -> bool {
         && stem
             .chars()
             .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+}
+
+/// A paging token binds the page to the request that made it: it carries the prefix and the last name, in hex.
+fn encode_token(prefix: &str, last: &str) -> String {
+    aws_core::hex::encode(format!("{prefix}\0{last}").as_bytes())
+}
+
+/// The last name of a token made for this `prefix`; a token for another request, or not a token, is refused.
+fn decode_token(token: &str, prefix: &str) -> Result<String, ApiError> {
+    let refused = || {
+        invalid_parameter(
+            "Invalid NextToken value. If you are passing in NextToken, you must not change the other request parameters.",
+        )
+    };
+    let text = aws_core::hex::decode(token)
+        .and_then(|b| String::from_utf8(b).ok())
+        .ok_or_else(refused)?;
+    let (made_for, last) = text.split_once('\0').ok_or_else(refused)?;
+    if made_for != prefix {
+        return Err(refused());
+    }
+    Ok(last.to_owned())
 }

@@ -24,7 +24,7 @@ impl Queue {
             return Err(bad_handle());
         }
         self.messages
-            .retain(|m| m.handle.as_deref() != Some(handle));
+            .retain(|m| !m.handles.iter().any(|h| h == handle));
         Ok(())
     }
 
@@ -41,26 +41,27 @@ impl Queue {
             43_200,
             0,
             "VisibilityTimeout",
-            "Must be between 0 and 43200, if provided.",
+            "VisibilityTimeout must be an integer between 0 and 43200.",
         )?;
         if !well_formed(handle) {
             return Err(bad_handle());
         }
-        let Some(m) = self
+        // A message that is gone, or not in flight, is the same answer: the handle is of no use.
+        let refused = || {
+            invalid_parameter(format!(
+                "Value {handle} for parameter ReceiptHandle is invalid. Reason: Message does not exist or is not available for visibility timeout change."
+            ))
+        };
+        let m = self
             .messages
             .iter_mut()
-            .find(|m| m.handle.as_deref() == Some(handle))
-        else {
-            return Err(ApiError::modeled(
-                "MessageNotInflight",
-                "Message does not exist or is not available for visibility timeout change.",
-            ));
-        };
-        if !m.in_flight(now_ms) {
-            return Err(ApiError::modeled(
-                "MessageNotInflight",
-                "Message is not in flight.",
-            ));
+            .find(|m| m.handles.iter().any(|h| h == handle))
+            .filter(|m| m.in_flight(now_ms))
+            .ok_or_else(refused)?;
+        if now_ms + timeout * 1000 > m.received_ms + 43_200_000 {
+            return Err(invalid_parameter(format!(
+                "Value {timeout} for parameter VisibilityTimeout is invalid. Reason: Total VisibilityTimeout for the message is beyond the limit [43200 seconds]."
+            )));
         }
         m.visible_at_ms = now_ms + timeout * 1000;
         Ok(())
@@ -180,7 +181,8 @@ fn take(
     m.first_received_ms.get_or_insert(now);
     m.visible_at_ms = now + hidden_for;
     let handle = new_handle();
-    m.handle = Some(handle.clone());
+    m.received_ms = now;
+    m.handles.push(handle.clone());
     Taken {
         id: m.id.clone(),
         handle,

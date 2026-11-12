@@ -43,8 +43,10 @@ pub(crate) struct Message {
     pub(crate) visible_at_ms: i64,
     pub(crate) receive_count: u32,
     pub(crate) first_received_ms: Option<i64>,
-    /// The receipt handle of the latest receive.
-    pub(crate) handle: Option<String>,
+    /// Every receipt handle this message has been given. An old one still names the message: a delete with it succeeds.
+    pub(crate) handles: Vec<String>,
+    /// When the receive that put it in flight happened: a message can be kept in flight for twelve hours from this.
+    pub(crate) received_ms: i64,
     /// The sender's message attributes.
     pub(crate) attributes: Vec<Attr>,
     /// The system attributes the sender set (only `AWSTraceHeader` exists).
@@ -56,12 +58,12 @@ pub(crate) struct Message {
 impl Message {
     /// Whether it is in flight: received, and not yet visible again.
     pub(crate) fn in_flight(&self, now_ms: i64) -> bool {
-        self.handle.is_some() && self.visible_at_ms > now_ms
+        !self.handles.is_empty() && self.visible_at_ms > now_ms
     }
 
     /// Whether it is waiting out its send delay.
     pub(crate) fn delayed(&self, now_ms: i64) -> bool {
-        self.handle.is_none() && self.visible_at_ms > now_ms
+        self.handles.is_empty() && self.visible_at_ms > now_ms
     }
 }
 
@@ -75,4 +77,7 @@ pub(crate) struct Queue {
     pub(crate) created_secs: i64,
     pub(crate) modified_secs: i64,
     pub(crate) messages: Vec<Message>,
+    pub(crate) tags: BTreeMap<String, String>,
+    /// When the queue was last purged: AWS allows one purge a minute.
+    pub(crate) purged_ms: Option<i64>,
 }

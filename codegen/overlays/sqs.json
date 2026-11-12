@@ -10,11 +10,40 @@
         },
         "smithy.api#pattern": "^[a-zA-Z0-9_-]+(\\.fifo)?$"
       }
+    },
+    "com.amazonaws.sqs#LooseAttributeMap": {
+      "type": "map",
+      "key": {
+        "target": "com.amazonaws.sqs#String"
+      },
+      "value": {
+        "target": "com.amazonaws.sqs#String"
+      }
+    },
+    "com.amazonaws.sqs#LooseAttributeNameList": {
+      "type": "list",
+      "member": {
+        "target": "com.amazonaws.sqs#String"
+      }
+    },
+    "com.amazonaws.sqs#LooseSystemAttributeMap": {
+      "type": "map",
+      "key": {
+        "target": "com.amazonaws.sqs#String"
+      },
+      "value": {
+        "target": "com.amazonaws.sqs#MessageSystemAttributeValue"
+      }
     }
   },
   "retarget": {
     "com.amazonaws.sqs#CreateQueueRequest$QueueName": "com.amazonaws.sqs#QueueName",
     "com.amazonaws.sqs#GetQueueUrlRequest$QueueName": "com.amazonaws.sqs#QueueName",
-    "com.amazonaws.sqs#ReceiveMessageRequest$AttributeNames": "com.amazonaws.sqs#MessageSystemAttributeList"
+    "com.amazonaws.sqs#ReceiveMessageRequest$AttributeNames": "com.amazonaws.sqs#MessageSystemAttributeList",
+    "com.amazonaws.sqs#CreateQueueRequest$Attributes": "com.amazonaws.sqs#LooseAttributeMap",
+    "com.amazonaws.sqs#SetQueueAttributesRequest$Attributes": "com.amazonaws.sqs#LooseAttributeMap",
+    "com.amazonaws.sqs#GetQueueAttributesRequest$AttributeNames": "com.amazonaws.sqs#LooseAttributeNameList",
+    "com.amazonaws.sqs#SendMessageRequest$MessageSystemAttributes": "com.amazonaws.sqs#LooseSystemAttributeMap",
+    "com.amazonaws.sqs#SendMessageBatchRequestEntry$MessageSystemAttributes": "com.amazonaws.sqs#LooseSystemAttributeMap"
   }
 }

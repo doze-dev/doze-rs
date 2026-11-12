@@ -19,6 +19,8 @@ use crate::url;
 #[derive(Debug)]
 pub(crate) struct Core {
     pub(crate) queues: BTreeMap<String, Queue>,
+    /// When each deleted queue was deleted: its name cannot be used again for a minute.
+    pub(crate) deleted: BTreeMap<String, i64>,
     pub(crate) clock: Arc<dyn Clock>,
 }
 
@@ -30,6 +32,7 @@ impl doze_runtime::Service for Core {
     async fn open(ctx: &Ctx, _name: &'static str) -> Result<Self, Infallible> {
         Ok(Self {
             queues: BTreeMap::new(),
+            deleted: BTreeMap::new(),
             clock: Arc::clone(&ctx.clock),
         })
     }
@@ -58,6 +61,9 @@ impl Core {
             Operation::ListQueues => self.list_queues(call),
             Operation::PurgeQueue => self.purge_queue(call),
             Operation::SendMessage => self.send_message(call),
+            Operation::TagQueue => self.tag_queue(call),
+            Operation::UntagQueue => self.untag_queue(call),
+            Operation::ListQueueTags => self.list_queue_tags(call),
             Operation::ReceiveMessage => self.receive_message(call),
             Operation::DeleteMessage => self.delete_message(call),
             Operation::DeleteMessageBatch => self.delete_message_batch(call),
@@ -68,11 +74,8 @@ impl Core {
             | Operation::CancelMessageMoveTask
             | Operation::ListDeadLetterSourceQueues
             | Operation::ListMessageMoveTasks
-            | Operation::ListQueueTags
             | Operation::RemovePermission
-            | Operation::StartMessageMoveTask
-            | Operation::TagQueue
-            | Operation::UntagQueue => Err(not_built(op)),
+            | Operation::StartMessageMoveTask => Err(not_built(op)),
         }
     }
 
@@ -82,14 +85,9 @@ impl Core {
         call: &Call,
         queue_url: &str,
     ) -> Result<&mut Queue, ApiError> {
-        let (account, name) = url::parse(queue_url).ok_or_else(|| {
-            ApiError::modeled(
-                "InvalidAddress",
-                format!("The address {queue_url} is not valid for this endpoint."),
-            )
-        })?;
+        let (account, name) = url::parse(queue_url).ok_or_else(|| invalid_address(call))?;
         if account != call.caller.account_id {
-            return Err(no_such_queue());
+            return Err(invalid_address(call));
         }
         self.queues.get_mut(name).ok_or_else(no_such_queue)
     }
@@ -98,6 +96,17 @@ impl Core {
 /// An operation the model has and this build does not do yet.
 fn not_built(op: Operation) -> ApiError {
     ApiError::new(501, "NotImplemented", format!("{op:?} is not built yet."))
+}
+
+/// A queue of another account, or an address that is not a queue's: AWS names the endpoint, not the URL.
+pub(crate) fn invalid_address(call: &Call) -> ApiError {
+    ApiError::modeled(
+        "InvalidAddress",
+        format!(
+            "The address {}/ is not valid for this endpoint.",
+            call.caller.endpoint
+        ),
+    )
 }
 
 pub(crate) fn no_such_queue() -> ApiError {

@@ -30,6 +30,7 @@ impl World {
         let clock = Arc::new(ManualClock::at(1_700_000_000_000));
         let core = Core {
             queues: BTreeMap::new(),
+            deleted: BTreeMap::new(),
             clock: clock.clone(),
         };
         Self {

@@ -13,6 +13,7 @@ mod model;
 mod msgattr;
 mod queues;
 mod send;
+mod tags;
 mod url;
 
 #[cfg(test)]
