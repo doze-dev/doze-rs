@@ -33,6 +33,8 @@ interface Args {
   pagePng?: string;
   canvas?: string;
   masks: Rect[];
+  /** Rows cut out of the BOARD image, "y,h": the canvas draws a "Reached from" line inside the page that the real page does not have. */
+  cut: [number, number] | null;
   threshold: number;
   failPct: number;
   out: string;
@@ -42,7 +44,7 @@ interface Args {
 type Rect = [number, number, number, number];
 
 export function parseArgs(argv: string[]): Args {
-  const a: Args = { ids: [], masks: [], threshold: 0.1, failPct: 1.5, out: join(root, "target/board-diff/pixels"), chrome: DEFAULT_CHROME, all: false };
+  const a: Args = { ids: [], masks: [], cut: null, threshold: 0.1, failPct: 1.5, out: join(root, "target/board-diff/pixels"), chrome: DEFAULT_CHROME, all: false };
   for (let i = 0; i < argv.length; i++) {
     const t = argv[i];
     const need = () => {
@@ -55,6 +57,11 @@ export function parseArgs(argv: string[]): Args {
     else if (t === "--page-png") a.pagePng = resolve(need());
     else if (t === "--canvas") a.canvas = resolve(need());
     else if (t === "--mask") a.masks.push(...need().split(";").filter(Boolean).map(parseRect));
+    else if (t === "--cut") {
+      const p = need().split(",").map(Number);
+      if (p.length !== 2 || p.some((n) => !Number.isFinite(n) || n < 0)) throw new Error("--cut wants y,h");
+      a.cut = [p[0], p[1]];
+    }
     else if (t === "--threshold") a.threshold = Number(need());
     else if (t === "--fail-pct") a.failPct = Number(need());
     else if (t === "--out") a.out = resolve(need());
@@ -120,6 +127,15 @@ function paint(img: PNG, masks: Rect[]): void {
       }
   }
 }
+function cutRows(img: PNG, cut: [number, number] | null): PNG {
+  if (!cut) return img;
+  const [y, n] = cut;
+  const h = img.height - n;
+  const out = new PNG({ width: img.width, height: h });
+  PNG.bitblt(img, out, 0, 0, img.width, y, 0, 0);
+  PNG.bitblt(img, out, 0, y + n, img.width, img.height - y - n, 0, y);
+  return out;
+}
 function crop(img: PNG, w: number, h: number): PNG {
   if (img.width === w && img.height === h) return img;
   const out = new PNG({ width: w, height: h });
@@ -139,8 +155,8 @@ export interface PixelResult {
   sideBySide: string;
 }
 
-export function compareImages(id: string, boardPng: string, pagePng: string, a: Pick<Args, "masks" | "threshold" | "failPct" | "out">): PixelResult {
-  let board = readPng(boardPng);
+export function compareImages(id: string, boardPng: string, pagePng: string, a: Pick<Args, "masks" | "threshold" | "failPct" | "out"> & { cut?: [number, number] | null }): PixelResult {
+  let board = cutRows(readPng(boardPng), a.cut ?? null);
   let page = readPng(pagePng);
   const w = Math.min(board.width, page.width);
   const h = Math.min(board.height, page.height);

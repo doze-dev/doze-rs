@@ -162,7 +162,7 @@ module's declared stop command), file locks, owner-only directories (0700 vs ACL
 `#[cfg(unix)]` or `#[cfg(windows)]`. ⚑ The Windows half needs Win32 calls that are `unsafe` (socket
 duplication, Job objects); the workspace forbids `unsafe`. Proposal: `doze-os` alone may use it, each block
 with a `// SAFETY:` line, wrapped in safe functions, and covered by the W0 tests; prefer a maintained safe
-wrapper crate wherever one exists.
+wrapper crate wherever one exists. **Approved by the owner 2026-11-12.**
 
 **D12. Compatibility is data, proven by tests.** The module manifest lists the targets the module supports;
 the release tool builds and publishes an artifact for a target **only if the module's acceptance tests passed
