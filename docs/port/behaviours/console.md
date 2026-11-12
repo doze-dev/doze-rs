@@ -374,8 +374,26 @@ Open in place with no navigation, push the address, Esc, the scrim, Close and Ba
 ## CON-405. The motion is gentle and only for people who have not asked for less
 Scrim 160 ms, drawer 220 ms with ease-out, dialog 180 ms, closing 140 ms, the page 180 ms with a 4 px rise; opacity and transform only; the top bar and the rail keep their own view-transition names; all of it inside `prefers-reduced-motion: no-preference`. A fragment that changed fades 120 ms where it changed and an unchanged one does not move. Test: `tests/overlays::the_motion_is_gentle_and_only_for_people_who_have_not_asked_for_less`, `tools/dom/overlay.test.ts`.
 
-## CON-406. Jump to a topic
-`/jump` is the palette to a script (the overlay alone, with no history entry) and a page of links with a plain GET filter to a browser; ⌘K and Ctrl+K open it, typing narrows, the arrows and Enter go, Esc closes. Test: `tests/overlays::the_jump_palette_is_an_overlay_alone_to_a_script_and_a_page_of_links_to_a_browser`, `tools/dom/polish.test.ts`.
+## CON-406. Jump to a topic or a group
+`/jump` is the palette to a script (the overlay alone, with no history entry) and a page of links with a plain GET filter to a browser; ⌘K and Ctrl+K open it, typing narrows, the arrows and Enter go, Esc closes. It lists the topics, then the groups (ListGroups through the Backend), each with a visible `topic` or `group` tag; at most 500 names; every name is text and a link made by `segment` (CON-410). Test: `tests/overlays::the_jump_palette_is_an_overlay_alone_to_a_script_and_a_page_of_links_to_a_browser`, `tools/dom/polish.test.ts`.
 
 ## CON-407. j and k, and a copy that says it copied
 `j` and `k` move through the rows of the page's table (and through the records of an open drawer), never in a field; a copy button says "Copied" for a moment in the width it had. Test: `tools/dom/polish.test.ts`.
+
+## CON-408. The Groups and Config dialogs and the member drawer are overlays
+The member drawer (`member-detail`) is a drawer over the Members page; Reset offsets and Delete offsets are dialogs over the group's Lag page (Delete offsets over the Lag page with the expiring offsets), Delete group over the group's page; the four edit and reset dialogs of Config are dialogs over the topic's Config page. A direct visit is the parent page (its heading, its landmarks) with the overlay open, closing is a link to the parent's address, a script is sent the overlay alone, and the buttons and links that open them are openers (`data-dialog`). Test: `tests/overlays::a_direct_visit_is_the_parent_page_with_the_overlay_open_on_it`, `tests/overlays::a_script_is_sent_the_overlay_alone_marked_as_one`, `tests/overlays::the_buttons_that_open_a_group_dialog_or_a_member_are_openers`.
+
+## CON-409. A refusal answers in the dialog, a result is a page
+Kafka's refusal of Delete offsets (GROUP_SUBSCRIBED_TO_TOPIC) and an invalid Config or Reset field answer the dialog again (an overlay to a script, the parent with the dialog open to a browser), in Kafka's words; a write that worked is a redirect to the page that shows it, and a refusal the boards draw as a page (Reset refused, Delete refused, Refused, Saved) is that page. Test: `tests/overlays::a_refusal_in_a_dialog_answers_the_dialog_over_its_parent_and_a_result_is_a_page`.
+
+## CON-410. Overlays and palette entries of hostile names are inert
+A hostile group id, member id or topic name in an overlay address is text in the page that says there is none, with no overlay over it; in the palette every name is escaped in the link, the `title` and the text. Test: `tests/overlays::the_overlays_of_a_hostile_group_or_member_name_are_text_in_the_page_that_says_there_is_none`, `pages::jump::tests::a_hostile_name_is_text_in_a_link_made_by_segment_and_the_tag_says_which_it_is`, `tests/live_groups_more::the_jump_palette_lists_the_groups_a_real_broker_lists_and_a_hostile_group_id_is_text`.
+
+## CON-411. A control that asks for a GET in an overlay never writes
+The Reset dialog's Preview (`formmethod="get"`) is fetched as a GET with the fields in the address and the overlay that comes back replaces the dialog and takes that address; the dialog's own POST is the only thing that writes. Test: `tools/dom/overlay.test.ts` (a Preview control in an overlay never writes).
+
+## CON-412. A table's header sticks under the top bar
+Every `table.t` header is `position: sticky` at 52 px (the top bar's height) and the table is not its own scroll container (the cells draw the corners, the borders are separate); inside an overlay the header does not stick. Test: `tests/tables::a_table_header_sticks_under_the_top_bar_and_the_table_is_not_its_scroll_container`.
+
+## CON-413. A long key or name gives way in the middle
+A key in the Messages table, a topic name in the list and a member id keep their last ten characters and lose their start to an ellipsis when the cell is narrow; the whole text is the hover and is in the page for a copy; short texts are untouched; a hostile text is escaped. Test: `ui::table::tests::a_short_text_is_left_alone_and_a_long_one_is_split_before_its_last_ten_characters`, `ui::table::tests::the_two_halves_are_the_whole_text_and_never_cut_a_character`, `ui::table::tests::a_hostile_text_is_escaped_in_the_title_and_in_both_halves`, `tests/tables::a_long_key_gives_way_in_the_middle_and_keeps_its_end`.

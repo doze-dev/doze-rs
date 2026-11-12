@@ -1,12 +1,18 @@
 //! Tables: the sticky header and the middle ellipsis (`docs/port/console/polish.md`, P1). The CSS is what makes them work, so
 //! the rules are checked in the stylesheet the console ships.
-#![allow(clippy::unwrap_used, clippy::expect_used, clippy::indexing_slicing)]
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::indexing_slicing,
+    clippy::panic
+)]
 
 const CSS: &str = include_str!("../assets/console.css");
 
 /// The rule that is last for a selector, so that what overrides the kit is what is checked.
 fn last_rule<'a>(selector: &str) -> &'a str {
-    let at = CSS.rfind(&format!("\n{selector}{{"))
+    let at = CSS
+        .rfind(&format!("\n{selector}{{"))
         .unwrap_or_else(|| panic!("no rule for {selector}"));
     let rest = &CSS[at..];
     &rest[..rest.find('}').unwrap() + 1]

@@ -14,6 +14,10 @@ The owner's rule (2026-11-13): a board of kind `drawer` or `dialog` is NOT a pag
 
 A server-rendered overlay is adopted by the script at load: the same Esc, scrim, Close and Back, with no fetch.
 
+A submit control that asks for a GET (`formmethod="get"`, the Reset dialog's Preview) is fetched as a GET with the form's fields in the address and never posts; the overlay that comes back replaces this one and takes that address.
+
+Built so far: Topics (record drawer, Produce, Add partitions, Delete records, Delete topic), Groups (member drawer over Members; Reset offsets and Delete offsets over Lag; Delete group over the group page: `handlers/groups_dialogs.rs`, parents in `handlers/groups.rs`) and Config (edit and reset over the Config page: `config_parent` in `handlers/config.rs`).
+
 ## Motion
 
 Opening: the scrim fades in 160 ms; a drawer slides in 220 ms (`translateX(28px)` to 0 with opacity, `cubic-bezier(.2,.7,.3,1)`); a dialog fades and rises 8 px in 180 ms. Closing is the reverse, 140 ms, ease-in. Nothing bounces. Only `opacity` and `transform` move. Everything is inside `@media (prefers-reduced-motion: no-preference)`; with reduced motion the overlay appears and goes at once (the script checks `matchMedia` too, so it does not wait for an `animationend` that never comes).
