@@ -1,0 +1,56 @@
+# W0 spike (docs/port/modules/PLAN.md): the module transport, Job objects, socket
+# duplication, graceful stop, real postgres and executable lookup on Windows, with
+# macOS and Linux alongside for comparison. Runs only on the w0-windows branch.
+name: w0
+
+on:
+  push:
+    branches: [w0-windows]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  w0:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, windows-11-arm, ubuntu-24.04, ubuntu-24.04-arm, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    defaults:
+      run:
+        shell: bash
+        working-directory: spikes/w0-windows
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          rustflags: ""
+      - name: build
+        run: cargo build --release
+      - name: find postgres
+        run: |
+          if [ -n "${PGBIN:-}" ]; then echo "PGBIN preset: $PGBIN"; exit 0; fi
+          d=$(ls -d /usr/lib/postgresql/*/bin 2>/dev/null | sort -V | tail -1 || true)
+          if [ -n "$d" ]; then echo "PGBIN=$d" >> "$GITHUB_ENV"; echo "PGBIN=$d"; else echo "no postgres on this runner"; fi
+          echo "whoami: $(whoami)"
+      - name: host (transport scenarios)
+        if: always()
+        run: ./target/release/w0-windows host
+      - name: orphan (host killed)
+        if: always()
+        run: ./target/release/w0-windows orphan
+      - name: break (graceful stop)
+        if: always()
+        run: ./target/release/w0-windows break
+      - name: pg (real postgres)
+        if: always()
+        run: ./target/release/w0-windows pg
+      - name: which (executable lookup)
+        if: always()
+        run: ./target/release/w0-windows which
+      - name: binary size
+        if: always()
+        run: ls -l target/release/ | grep -E 'w0-windows(\.exe)?$'
