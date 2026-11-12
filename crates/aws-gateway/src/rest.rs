@@ -2,8 +2,8 @@
 //! answer), with the operation found from the method, path and query, the input read from path, query, headers and an XML body,
 //! and the payload of an upload or a download streamed instead of held.
 
-use aws_auth::claim::{Claim, Placement};
-use aws_auth::{AuthError, Pending};
+use aws_auth::Pending;
+use aws_auth::claim::Claim;
 use aws_schema::arena::{Arena, NIL};
 use aws_schema::json::decode;
 use aws_schema::tables::{K_STREAM, Tables};
@@ -19,32 +19,8 @@ use hyper::body::Incoming;
 
 use crate::body::RespBody;
 use crate::pipeline::{Entry, Shared, authenticate, read_body, session_token};
+use crate::presign::{check_presigned, pairs};
 use crate::upload::{Framing, upload};
-
-/// The claim of a SigV2 presigned URL (`AWSAccessKeyId`, `Expires`, `Signature`), as far as it means anything without the secret:
-/// who it names, and that it expires at the absolute time it carries.
-pub(crate) fn sigv2_claim(parts: &Parts) -> Option<Claim> {
-    let q = pairs(parts.uri.query()?);
-    let get = |name: &str| q.iter().find(|(k, _)| k == name).map(|(_, v)| v.clone());
-    let expires: i64 = get("Expires")?.parse().ok()?;
-    let signature = get("Signature")?;
-    Some(Claim {
-        placement: Placement::Query,
-        access_key_id: get("AWSAccessKeyId")?,
-        scope_date: String::new(),
-        region: "us-east-1".to_owned(),
-        service: "s3".to_owned(),
-        signed_headers: Vec::new(),
-        signature: Vec::new(),
-        signature_hex: signature,
-        amz_date: String::new(),
-        // The URL is good until `expires`: signed "at" that moment for a lifetime of nothing.
-        request_time: expires,
-        expires_in: Some(0),
-        session_token: None,
-        content_sha256: None,
-    })
-}
 
 /// Answers a request to the REST service `entry`.
 pub(crate) async fn respond(
@@ -166,21 +142,6 @@ fn bucket_of_host(host: &str) -> Option<(String, String)> {
     Some((bucket, rest))
 }
 
-fn pairs(query: &str) -> Vec<(String, String)> {
-    let decode = |s: &str| {
-        let spaced = s.replace('+', " ");
-        aws_core::uri::decode_str(&spaced).map_or(spaced.clone(), std::borrow::Cow::into_owned)
-    };
-    query
-        .split('&')
-        .filter(|p| !p.is_empty())
-        .map(|p| {
-            let (k, v) = p.split_once('=').unwrap_or((p, ""));
-            (decode(k), decode(v))
-        })
-        .collect()
-}
-
 /// Whether the operation's input has a streaming blob.
 fn streams(tables: &Tables, op: u32) -> bool {
     let Some(shape) = tables
@@ -193,36 +154,6 @@ fn streams(tables: &Tables, op: u32) -> bool {
     (shape.first..shape.first + shape.count)
         .filter_map(|i| tables.member(i))
         .any(|m| m.kind == K_STREAM)
-}
-
-/// In trust mode the signature is not checked, but a presigned URL that has expired, or that names a signed header the request does
-/// not carry, would be refused by S3 whatever the key, so it is refused here.
-fn check_presigned(claim: &Claim, parts: &Parts) -> Result<(), ApiError> {
-    if claim.placement != Placement::Query {
-        return Ok(());
-    }
-    if let Some(expires_in) = claim.expires_in {
-        let now = doze_runtime::Clock::now_ms(&doze_runtime::SystemClock) / 1000;
-        if now > claim.request_time + expires_in {
-            let err = AuthError::PresignExpired {
-                request_time: claim.request_time,
-                expires_in,
-                server_time: now,
-            };
-            return Err(from_auth(&err, Family::S3));
-        }
-    }
-    let missing = claim
-        .signed_headers
-        .iter()
-        .find(|h| h.as_str() != "host" && !parts.headers.contains_key(h.as_str()));
-    match missing {
-        Some(h) => Err(from_auth(
-            &AuthError::MissingSignedHeader(h.clone()),
-            Family::S3,
-        )),
-        None => Ok(()),
-    }
 }
 
 /// The body: read whole for an operation without a stream, or opened as an upload (and the signature finished) for one with.

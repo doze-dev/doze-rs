@@ -10,6 +10,7 @@
 mod body;
 mod config;
 mod pipeline;
+mod presign;
 mod query;
 mod rest;
 mod server;

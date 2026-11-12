@@ -104,7 +104,9 @@ pub(crate) async fn respond(shared: &Shared, req: http::Request<Incoming>) -> Re
         Ok(found) => found,
         // boto3 signs an S3 presigned URL with SigV2 unless told otherwise, and S3 accepts it. With no keys to check it against, a
         // trusting gateway takes the access key as given and holds the URL to its expiry.
-        Err(AuthError::UnsupportedAlgorithm) if shared.trusts() => crate::rest::sigv2_claim(&parts),
+        Err(AuthError::UnsupportedAlgorithm) if shared.trusts() => {
+            crate::presign::sigv2_claim(&parts)
+        }
         Err(_) => None,
     };
     if let Some(claim) = claim
