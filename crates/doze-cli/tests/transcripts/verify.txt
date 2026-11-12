@@ -9,8 +9,8 @@ $ doze modules verify
 exit 0
 stdout:
 | registry key ed25519 642a…09 (built into this doze)
-| ✓ postgres 0.2.5  sha256 2005…f4c8 matches the signed index (not downloaded here)
-| ✓ valkey   0.2.1  sha256 869a…5f9e matches the signed index and this machine's copy
+| ✓ postgres 0.2.5  sha256 620e…b4c5 matches the signed index (not downloaded here)
+| ✓ valkey   0.2.1  sha256 aec1…f903 matches the signed index and this machine's copy
 |   2 of 2 verified on {triple}
 json exit 0
 json:
@@ -22,13 +22,13 @@ json:
 |     "key": "642a…09",
 |     "modules": [
 |       {
-|         "detail": "sha256 2005…f4c8 matches the signed index (not downloaded here)",
+|         "detail": "sha256 620e…b4c5 matches the signed index (not downloaded here)",
 |         "module": "postgres",
 |         "state": "verified",
 |         "version": "0.2.5"
 |       },
 |       {
-|         "detail": "sha256 869a…5f9e matches the signed index and this machine's copy",
+|         "detail": "sha256 aec1…f903 matches the signed index and this machine's copy",
 |         "module": "valkey",
 |         "state": "verified",
 |         "version": "0.2.1"
@@ -40,8 +40,8 @@ json:
 tty exit 0
 tty stdout:
 | registry key ed25519 642a…09 ⟨2m(built into this doze)⟨0m
-| ⟨32m✓⟨0m postgres 0.2.5  sha256 2005…f4c8 matches the signed index (not downloaded here)
-| ⟨32m✓⟨0m valkey   0.2.1  sha256 869a…5f9e matches the signed index and this machine's copy
+| ⟨32m✓⟨0m postgres 0.2.5  sha256 620e…b4c5 matches the signed index (not downloaded here)
+| ⟨32m✓⟨0m valkey   0.2.1  sha256 aec1…f903 matches the signed index and this machine's copy
 |   2 of 2 verified on {triple}
 tty stderr:
 | fetching postgres from the registry…⟨cr⟩⟨Kfetching valkey from the registry…⟨cr⟩⟨K

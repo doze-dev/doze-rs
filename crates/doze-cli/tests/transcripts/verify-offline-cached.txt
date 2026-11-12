@@ -7,8 +7,8 @@ $ doze modules verify
 exit 11
 stdout:
 | registry key ed25519 642a…09 (built into this doze)
-| ! postgres 0.2.5  sha256 2005…f4c8 matches this machine's copy of the signed index (not downloaded here)
-| ! valkey   0.2.1  sha256 869a…5f9e matches this machine's copy of the signed index (not downloaded here)
+| ! postgres 0.2.5  sha256 620e…b4c5 matches this machine's copy of the signed index (not downloaded here)
+| ! valkey   0.2.1  sha256 aec1…f903 matches this machine's copy of the signed index (not downloaded here)
 |   2 of 2 verified on {triple}
 stderr:
 | ! the registry can't be reached: postgres, valkey checked only against this machine's copy of the index
@@ -23,13 +23,13 @@ json:
 |     "key": "642a…09",
 |     "modules": [
 |       {
-|         "detail": "sha256 2005…f4c8 matches this machine's copy of the signed index (not downloaded here)",
+|         "detail": "sha256 620e…b4c5 matches this machine's copy of the signed index (not downloaded here)",
 |         "module": "postgres",
 |         "state": "verified_offline",
 |         "version": "0.2.5"
 |       },
 |       {
-|         "detail": "sha256 869a…5f9e matches this machine's copy of the signed index (not downloaded here)",
+|         "detail": "sha256 aec1…f903 matches this machine's copy of the signed index (not downloaded here)",
 |         "module": "valkey",
 |         "state": "verified_offline",
 |         "version": "0.2.1"

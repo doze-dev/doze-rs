@@ -41,9 +41,10 @@ fn sign_hex(key: &SigningKey, hex: &str) -> String {
     Base64::encode_string(&key.sign(hex.as_bytes()).to_bytes())
 }
 
-/// The sha256 the fixture says a module's archive has.
-pub(crate) fn archive_sha(module: &str, version: &str, triple: &str) -> String {
-    signed::sha256_hex(format!("{module}-{version}-{triple}").as_bytes())
+/// The sha256 the fixture says a module's archive has: the same for every platform, so a transcript reads the same
+/// on each.
+pub(crate) fn archive_sha(module: &str, version: &str) -> String {
+    signed::sha256_hex(format!("{module}-{version}").as_bytes())
 }
 
 /// A temporary directory tree, removed when dropped.
@@ -102,7 +103,7 @@ pub(crate) fn index_for(module: &str, releases: &[(&str, i64, &str)]) -> Index {
         let artifacts = TRIPLES
             .iter()
             .map(|t| {
-                let sha = archive_sha(module, v, t);
+                let sha = archive_sha(module, v);
                 let url = format!("https://example.invalid/{module}-{v}-{t}.tar.gz");
                 (
                     t.to_string(),
@@ -194,16 +195,17 @@ pub(crate) fn write_registry(dir: &Path) {
     );
 }
 
-/// The project's lock pinning valkey 0.2.1 and postgres 0.2.5 with the fixture's hashes (`tamper` changes one).
+/// The project's lock pinning valkey 0.2.1 and postgres 0.2.5 with the fixture's hashes (`tamper` changes valkey's
+/// for this platform, so the mismatch named is the one that matters here, on every platform).
 pub(crate) fn lock_text(tamper: bool) -> String {
     let mut out = String::from("doze: 0.2.1\nengines: {}\nmodules:\n");
     for (m, v, p) in [("postgres", "0.2.5", 2), ("valkey", "0.2.1", 1)] {
         out.push_str(&format!("    doze/{m}:\n        version: {v}\n        protocol: {p}\n        engines:\n            - \"8\"\n            - \"9\"\n        hashes:\n"));
         for t in TRIPLES {
-            let sha = if tamper && m == "valkey" {
+            let sha = if tamper && m == "valkey" && *t == doze_cli::platform::triple() {
                 "0".repeat(64)
             } else {
-                archive_sha(m, v, t)
+                archive_sha(m, v)
             };
             out.push_str(&format!("            {t}: sha256:{sha}\n"));
         }

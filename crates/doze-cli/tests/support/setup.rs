@@ -31,7 +31,7 @@ pub(crate) fn prepare(setup: &[String]) -> (Sandbox, FakeHost) {
                 let dir = sb.home().join(format!("modules/doze/{m}/{v}-{t}"));
                 std::fs::create_dir_all(&dir).unwrap();
                 let sha = if verb == "copy" {
-                    fixture::archive_sha(m, v, &t)
+                    fixture::archive_sha(m, v)
                 } else {
                     "1".repeat(64)
                 };
