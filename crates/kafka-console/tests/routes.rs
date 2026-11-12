@@ -53,7 +53,7 @@ async fn every_row_of_the_table_has_a_handler_and_every_handler_a_row() {
     // And what is not a row is not answered: the router is built from the table and from nothing else.
     for path in [
         "/nope",
-        "/topics/orders",
+        "/topics/orders/nope",
         "/connect/advertised/",
         "/static",
         "/fragments",

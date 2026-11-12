@@ -12,8 +12,10 @@ use kafka_storage::fs::Fs;
 
 use crate::{Broker, Caller};
 
+mod partition_files;
 mod process;
 
+pub use partition_files::PartitionFiles;
 pub use process::Process;
 
 /// What the last stop left.

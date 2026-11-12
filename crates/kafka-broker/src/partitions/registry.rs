@@ -108,6 +108,16 @@ impl<F: Fs> Partitions<F> {
             .is_some_and(|e| e.slot.get().is_some())
     }
 
+    /// The partition if it is open now; nothing is opened, and it is not counted as used (so looking at it does not
+    /// keep it from being closed).
+    #[cfg(feature = "inspect")]
+    pub(crate) fn peek(&self, topic: TopicId, partition: PartitionId) -> Option<Arc<Partition<F>>> {
+        self.registry()
+            .open
+            .get(&(topic, partition))
+            .and_then(|e| e.slot.get().cloned())
+    }
+
     pub(crate) fn open_count(&self) -> usize {
         self.registry()
             .open

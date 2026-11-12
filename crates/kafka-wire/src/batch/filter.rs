@@ -156,7 +156,7 @@ impl Batch {
     }
 
     /// The records section, inflated.
-    fn inflated(&self, max_inflated: u64) -> Result<Vec<u8>, RecordsRefused> {
+    pub(super) fn inflated(&self, max_inflated: u64) -> Result<Vec<u8>, RecordsRefused> {
         let body = self.as_bytes().get(HEADER_LEN..).unwrap_or_default();
         let mut inflated = Vec::new();
         inflate::open(self.attributes().compression(), body, max_inflated)

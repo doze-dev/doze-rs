@@ -19,6 +19,11 @@ pub enum Handler {
     Connect,
     Advertised,
     Check,
+    Topics,
+    Topic,
+    TopicMessages,
+    TopicRecord,
+    TopicPartitions,
     Fragment,
     Events,
     Static,
@@ -81,7 +86,68 @@ pub const ROUTES: &[Route] = &[
     get("/healthz", &[], Handler::Health),
     // The rest of the design, built by later slices: each says it is not built yet.
     get("/live", &["live-wire"], Handler::Planned("Live")),
-    get("/topics", &["topics-list"], Handler::Planned("Topics")),
+    get(
+        "/topics",
+        &["topics-list", "topics-none", "topics-filtered"],
+        Handler::Topics,
+    ),
+    get(
+        "/topics/{topic}",
+        &["topic-detail", "topic-offline"],
+        Handler::Topic,
+    ),
+    get(
+        "/topics/{topic}/messages",
+        &[
+            "topic-messages-empty",
+            "topic-messages-filtered",
+            "topic-readcommitted",
+        ],
+        Handler::TopicMessages,
+    ),
+    get(
+        "/topics/{topic}/messages/{partition}/{offset}",
+        &["topic-record", "topic-record-binary"],
+        Handler::TopicRecord,
+    ),
+    get(
+        "/topics/{topic}/partitions",
+        &["topic-partitions"],
+        Handler::TopicPartitions,
+    ),
+    // Screens of the same section that other slices (and p9b-write) build: each says it is not built yet. p9b-write replaces
+    // the four rows after `/topics/new` with its own handlers when the branches are merged.
+    get(
+        "/topics/{topic}/produce",
+        &["topic-produce", "topic-produce-keyless", "topic-produced"],
+        Handler::Planned("Produce"),
+    ),
+    get(
+        "/topics/{topic}/partitions/add",
+        &["topic-add-partitions", "topic-add-partitions-refused"],
+        Handler::Planned("Add partitions"),
+    ),
+    get(
+        "/topics/{topic}/delete-records",
+        &["topic-delete-records", "topic-delete-records-refused"],
+        Handler::Planned("Delete records"),
+    ),
+    get(
+        "/topics/{topic}/delete",
+        &["topic-delete", "topic-deleted"],
+        Handler::Planned("Delete topic"),
+    ),
+    get(
+        "/topics/{topic}/log",
+        &["topic-log"],
+        Handler::Planned("Log"),
+    ),
+    get(
+        "/topics/{topic}/config",
+        &["topic-config"],
+        Handler::Planned("Config"),
+    ),
+    get("/groups", &["groups-list"], Handler::Planned("Groups")),
     get(
         "/topics/new",
         &["topic-create"],
@@ -89,7 +155,7 @@ pub const ROUTES: &[Route] = &[
     ),
     get(
         "/topics/{topic}/producers",
-        &["txn-open"],
+        &["txn-open", "topic-producers", "txn-holding"],
         Handler::Planned("Producers"),
     ),
     get("/access", &["access-open"], Handler::Planned("Access")),

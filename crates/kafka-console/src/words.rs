@@ -156,5 +156,9 @@ pub fn attention_headline(count: usize) -> String {
     }
 }
 
+mod topics;
+
+pub use topics::{list_and, list_sentence, partitions_sentence, reach_sentence, retention, topic_sentence};
+
 #[cfg(test)]
 mod tests;

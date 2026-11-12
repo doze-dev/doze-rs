@@ -7,6 +7,7 @@ pub mod code;
 pub mod filter;
 pub mod form;
 pub mod glyph;
+pub mod kafka;
 pub mod layout;
 pub mod notice;
 pub mod shell;

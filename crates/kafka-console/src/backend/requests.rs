@@ -1,5 +1,19 @@
 //! One builder per request the console sends: typed, bounded, nothing the boards do not draw.
 
+mod configs;
+mod fetch;
+mod groups;
+mod metadata;
+mod offsets;
+mod producers;
+
+pub use configs::{KEYS as TOPIC_CONFIG_KEYS, describe_topic_configs};
+pub use fetch::{Isolation, RECORD_BYTES, TABLE_BYTES, fetch_partition};
+pub use groups::{committed_of, list_groups};
+pub use metadata::metadata_topics;
+pub use offsets::{Ask, EARLIEST, LATEST, list_offsets};
+pub use producers::describe_producers;
+
 use kafka_wire::StrBytes;
 use kafka_wire::api::Request;
 use kafka_wire::messages::list_offsets_request::{ListOffsetsPartition, ListOffsetsTopic};

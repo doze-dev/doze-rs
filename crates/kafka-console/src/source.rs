@@ -11,6 +11,8 @@ use crate::probe::Prober;
 use crate::snippets;
 use crate::ui::shell::Chrome;
 
+mod topics;
+
 /// A live broker: the in-process handle, how it was started, and the advertised-listener check.
 #[derive(Debug)]
 pub struct Live {
@@ -100,7 +102,7 @@ impl Source {
     #[must_use]
     pub fn watch(&self) -> &'static [&'static str] {
         match self {
-            Self::Live(_) => crate::stream::WATCHABLE,
+            Self::Live(_) => crate::stream::HOME_IDS,
             #[cfg(any(test, feature = "examples"))]
             Self::Fixture => &[],
         }

@@ -30,6 +30,7 @@ fuzz_target!(|data: &[u8]| {
             renumbering: false,
         };
         let _ = batch.scan(&rules, &"t-0");
+        let _ = batch.each_record_full(1 << 20, |_| true);
         let stamped = batch.stamped(Offset::ZERO, Some(TimestampMs::from_wire(1)));
         assert!(Batch::parse(stamped.to_bytes()).is_ok());
     }
