@@ -58,6 +58,21 @@ pub(crate) struct Key {
     pub(crate) rotation_days: i64,
     pub(crate) next_rotation_ms: Option<i64>,
     pub(crate) multi_region: bool,
+    pub(crate) grants: Vec<Grant>,
+}
+
+/// A grant: permission for a principal to use a key for some operations. Kept and listed; it is not evaluated until the IAM stage can.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub(crate) struct Grant {
+    pub(crate) id: String,
+    pub(crate) token: String,
+    pub(crate) name: Option<String>,
+    pub(crate) grantee: String,
+    pub(crate) retiring: Option<String>,
+    pub(crate) operations: Vec<String>,
+    pub(crate) context_subset: BTreeMap<String, String>,
+    pub(crate) context_equals: BTreeMap<String, String>,
+    pub(crate) created_ms: i64,
 }
 
 impl Key {

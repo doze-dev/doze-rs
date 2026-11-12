@@ -80,6 +80,13 @@ pub(crate) fn built(op: Operation) -> bool {
             | O::DisableKeyRotation
             | O::RotateKeyOnDemand
             | O::ListKeyRotations
+            | O::CreateGrant
+            | O::ListGrants
+            | O::ListRetirableGrants
+            | O::RevokeGrant
+            | O::RetireGrant
+            | O::GenerateDataKeyPair
+            | O::GenerateDataKeyPairWithoutPlaintext
     )
 }
 
@@ -257,6 +264,15 @@ impl Core {
             O::DisableKeyRotation => self.disable_key_rotation(call),
             O::RotateKeyOnDemand => self.rotate_key_on_demand(call),
             O::ListKeyRotations => self.list_key_rotations(call),
+            O::CreateGrant => self.create_grant(call),
+            O::ListGrants => self.list_grants(call),
+            O::ListRetirableGrants => self.list_retirable_grants(call),
+            O::RevokeGrant => self.revoke_grant(call),
+            O::RetireGrant => self.retire_grant(call),
+            O::GenerateDataKeyPair => self.generate_data_key_pair(call),
+            O::GenerateDataKeyPairWithoutPlaintext => {
+                self.generate_data_key_pair_without_plaintext(call)
+            }
             _ => Err(ApiError::new(
                 501,
                 "NotImplemented",

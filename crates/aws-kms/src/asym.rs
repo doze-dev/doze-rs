@@ -50,7 +50,7 @@ macro_rules! ecdsa {
             use ::$curve::ecdsa::signature::hazmat::{PrehashSigner, PrehashVerifier};
             use ::$curve::ecdsa::signature::{Signer, Verifier};
             use ::$curve::ecdsa::{Signature, SigningKey, VerifyingKey};
-            use ::$curve::pkcs8::EncodePublicKey;
+            use ::$curve::pkcs8::{EncodePrivateKey, EncodePublicKey};
 
             use super::Fail;
 
@@ -63,6 +63,12 @@ macro_rules! ecdsa {
                         .as_bytes()
                         .to_vec(),
                 )
+            }
+
+            /// The private key as a DER PKCS #8 `PrivateKeyInfo`.
+            pub(crate) fn private_key(secret: &[u8]) -> Option<Vec<u8>> {
+                let key = SigningKey::from_slice(secret).ok()?;
+                Some(key.to_pkcs8_der().ok()?.as_bytes().to_vec())
             }
 
             /// Signs the message, or, with `digest`, the message as a digest.
@@ -128,6 +134,17 @@ pub(crate) fn public_key(spec: Spec, secret: &[u8]) -> Option<Vec<u8>> {
             der.extend_from_slice(key.verifying_key().as_bytes());
             Some(der)
         }
+        _ => None,
+    }
+}
+
+/// The private key as a DER PKCS #8 `PrivateKeyInfo`, for a data key pair.
+pub(crate) fn private_key(spec: Spec, secret: &[u8]) -> Option<Vec<u8>> {
+    match spec {
+        Spec::EccP256 => p256::private_key(secret),
+        Spec::EccP384 => p384::private_key(secret),
+        Spec::EccP521 => p521::private_key(secret),
+        Spec::EccK1 => k256::private_key(secret),
         _ => None,
     }
 }

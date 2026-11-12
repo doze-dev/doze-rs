@@ -13,4 +13,4 @@ doze-kafka 5150000 115 8192 --listen 127.0.0.1:{port} --data-dir {data}
 # and the service). Same rule; four of room.
 # 2026-11-12, with KMS too: 3,858,704 B, 183 packages, 3.2 MB idle (+538 KB and +40 packages over Secrets Manager: the elliptic-curve crates (p256, p384,
 # p521, k256 and the field and group crates under them), ed25519-dalek, hmac and the KMS model's tables). Same rule; five packages of room.
-doze-aws 5300000 188 6144 --listen 127.0.0.1:{port} --data-dir {data}
+doze-aws 5400000 188 6144 --listen 127.0.0.1:{port} --data-dir {data}

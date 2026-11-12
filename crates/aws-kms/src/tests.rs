@@ -10,6 +10,7 @@ use serde_json::Value;
 use crate::Kms;
 use crate::core::Core;
 
+mod grants;
 mod keys;
 mod persistence;
 mod refusals;
@@ -94,7 +95,8 @@ fn what_is_not_built_is_refused_by_name() {
     for op in [
         "CreateCustomKeyStore",
         "DeriveSharedSecret",
-        "GenerateDataKeyPair",
+        "ImportKeyMaterial",
+        "ReplicateKey",
     ] {
         assert!(!w.h.serves(op), "{op} is refused");
     }

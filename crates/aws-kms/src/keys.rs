@@ -176,6 +176,7 @@ impl Core {
             rotation_days: 365,
             next_rotation_ms: None,
             multi_region,
+            grants: Vec::new(),
         };
         let shown = key.clone();
         self.keys.insert(id, key);

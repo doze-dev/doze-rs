@@ -1,7 +1,7 @@
 //! KMS: keys of the symmetric, HMAC, elliptic-curve and Ed25519 kinds, aliases, tags, key policies, rotation, encryption with
 //! encryption contexts and data keys, signing and MACs, as a state machine behind a lazy actor. State is on disk and the key
-//! material is sealed under the service's own key. Grants, imported key material, multi-region replicas, RSA keys, data key pairs
-//! and custom key stores are refused by name until they are built.
+//! material is sealed under the service's own key. Grants are kept and listed (not yet evaluated). Imported key material,
+//! multi-region replicas, RSA keys and custom key stores are refused by name until they are built.
 
 mod alias;
 mod asym;
@@ -9,6 +9,7 @@ mod cipher;
 mod core;
 mod crypto;
 mod find;
+mod grants;
 mod keys;
 mod model;
 mod policy;

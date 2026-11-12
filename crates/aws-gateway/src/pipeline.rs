@@ -92,24 +92,7 @@ async fn handle(
         )
     })?;
     let (meta, tables) = (entry.service.meta(), entry.service.tables());
-    let Some(version) = json::Version::of(meta) else {
-        let wire = if meta.speaks(Protocol::AwsQuery) {
-            "awsQuery"
-        } else {
-            "a REST or CBOR protocol"
-        };
-        return Err(early(
-            id,
-            &ApiError::new(
-                501,
-                "NotImplemented",
-                format!(
-                    "{} speaks {wire}, which this build does not serve yet.",
-                    meta.sdk_id
-                ),
-            ),
-        ));
-    };
+    let version = json::Version::of(meta).ok_or_else(|| early(id, &unserved_protocol(meta)))?;
     let fail = |e: &ApiError| -> Fail {
         Box::new(json::failure(
             meta,
@@ -155,6 +138,23 @@ async fn handle(
     let output = entry.service.call(call).await.map_err(|e| fail(&e))?;
     let encoded = encode_output(entry, op, &output.arena, output.root).map_err(|e| fail(&e))?;
     Ok(json::success(version, id, encoded))
+}
+
+/// What a service whose protocol this gateway does not speak yet is told.
+fn unserved_protocol(meta: &aws_schema::meta::ServiceMeta) -> ApiError {
+    let wire = if meta.speaks(Protocol::AwsQuery) {
+        "awsQuery"
+    } else {
+        "a REST or CBOR protocol"
+    };
+    ApiError::new(
+        501,
+        "NotImplemented",
+        format!(
+            "{} speaks {wire}, which this build does not serve yet.",
+            meta.sdk_id
+        ),
+    )
 }
 
 /// The scheme and host the caller used, for URLs in answers.

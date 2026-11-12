@@ -270,3 +270,66 @@ fn random(n: usize) -> Result<Vec<u8>, ApiError> {
     out.truncate(n);
     Ok(out)
 }
+
+impl Core {
+    /// A new key pair for a data key pair call: the private key as PKCS #8 and the public key as SPKI, both DER.
+    fn new_pair(spec: &str) -> Result<(Vec<u8>, Vec<u8>), ApiError> {
+        let curve = crate::spec::Spec::parse(spec)
+            .filter(|s| matches!(s, crate::spec::Spec::EccP256 | crate::spec::Spec::EccP384 | crate::spec::Spec::EccP521 | crate::spec::Spec::EccK1))
+            .ok_or_else(|| ApiError::modeled("UnsupportedOperationException", format!("The key pair spec {spec} is not built in doze-aws: only the elliptic-curve ones are.")))?;
+        let secret = crate::asym::generate(curve).ok_or_else(no_randomness)?;
+        let private = crate::asym::private_key(curve, &secret).ok_or_else(no_randomness)?;
+        let public = crate::asym::public_key(curve, &secret).ok_or_else(no_randomness)?;
+        Ok((private, public))
+    }
+
+    pub(crate) fn generate_data_key_pair(&mut self, call: &Call) -> Reply {
+        use aws_model_kms::keys::{
+            GenerateDataKeyPairRequest as Ask, GenerateDataKeyPairResponse as Made,
+        };
+        let v = request::<Ask>(call)?;
+        let spec = v.get(Ask::KEY_PAIR_SPEC).unwrap_or_default();
+        let (private, public) = Self::new_pair(spec)?;
+        let ctx = context(v.get(Ask::ENCRYPTION_CONTEXT));
+        let (blob, key, material) = self.seal_under(
+            call,
+            v.get(Ask::KEY_ID).unwrap_or_default(),
+            &ctx,
+            &private,
+            "GenerateDataKeyPair",
+        )?;
+        reply::<Made>(|o| {
+            o.put_blob(Made::PRIVATE_KEY_CIPHERTEXT_BLOB, &blob);
+            o.put_blob(Made::PRIVATE_KEY_PLAINTEXT, &private);
+            o.put_blob(Made::PUBLIC_KEY, &public);
+            o.put(Made::KEY_ID, &key.arn);
+            o.put(Made::KEY_PAIR_SPEC, spec);
+            o.put(Made::KEY_MATERIAL_ID, &material);
+        })
+    }
+
+    pub(crate) fn generate_data_key_pair_without_plaintext(&mut self, call: &Call) -> Reply {
+        use aws_model_kms::keys::{
+            GenerateDataKeyPairWithoutPlaintextRequest as Ask,
+            GenerateDataKeyPairWithoutPlaintextResponse as Made,
+        };
+        let v = request::<Ask>(call)?;
+        let spec = v.get(Ask::KEY_PAIR_SPEC).unwrap_or_default();
+        let (private, public) = Self::new_pair(spec)?;
+        let ctx = context(v.get(Ask::ENCRYPTION_CONTEXT));
+        let (blob, key, material) = self.seal_under(
+            call,
+            v.get(Ask::KEY_ID).unwrap_or_default(),
+            &ctx,
+            &private,
+            "GenerateDataKeyPairWithoutPlaintext",
+        )?;
+        reply::<Made>(|o| {
+            o.put_blob(Made::PRIVATE_KEY_CIPHERTEXT_BLOB, &blob);
+            o.put_blob(Made::PUBLIC_KEY, &public);
+            o.put(Made::KEY_ID, &key.arn);
+            o.put(Made::KEY_PAIR_SPEC, spec);
+            o.put(Made::KEY_MATERIAL_ID, &material);
+        })
+    }
+}
