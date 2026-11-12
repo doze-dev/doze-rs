@@ -325,7 +325,7 @@ html.is-loading::before{content:"";position:fixed;z-index:90;top:0;left:0;right:
 .dz-multi-clear .gl{width:12px;height:12px}
 @media (scripting:enabled){.dz-multi:not(.is-on) .dz-native{visibility:hidden}}
 /* Without a script: a details whose summary looks like the button and whose body is the checkboxes. */
-.dz-multi.is-on .dz-multi-plain{visibility:hidden}
+.dz-multi.is-on .dz-multi-plain{display:none}
 .dz-multi-plain{position:relative;height:auto;padding:0;border:0;background:none;border-radius:0}
 .dz-multi-plain summary{display:inline-flex;align-items:center;height:36px;padding:0 14px;border:1px solid var(--line2);border-radius:999px;font-size:13px;font-weight:500;cursor:pointer}
 .dz-multi.on .dz-multi-plain summary{background:var(--sel);border-color:#cdbff4;color:var(--bright)}

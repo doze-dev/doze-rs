@@ -77,7 +77,7 @@ export const scenarios: Record<string, (t: T) => Promise<void>> = {
     // Groups: a state.
     await p.goto("/groups");
     const groups = await rows(p, "#groups-table tbody tr");
-    await p.click("form.toolbar [aria-label=State] a:nth-child(2)");
+    await pick(p, "groups-state", "Stable");
     await p.waitFor("location.search.includes('state=stable')");
     await Bun.sleep(350);
     const stable = await rows(p, "#groups-table tbody tr");
