@@ -71,7 +71,7 @@ pub fn messages_fragment(v: &MessagesView, base: &Base, page_query: &str) -> Mar
             @if v.rows.is_empty() && v.query.filtered() {
                 p class="help" { "Nothing to list. Clear the filters to see the newest records." }
             } @else {
-                (records(&v.rows, &v.head.name, base))
+                (records(&v.rows, &v.head.name, &v.query.to_query(), base))
                 @if !v.query.filtered() { (pager(&line(v), older(v, base))) }
             }
         },

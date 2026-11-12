@@ -13,6 +13,7 @@ pub mod glyph_groups;
 pub mod kafka;
 pub mod layout;
 pub mod notice;
+pub mod overlay;
 pub mod shell;
 pub mod table;
 pub mod write;

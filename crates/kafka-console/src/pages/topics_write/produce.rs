@@ -127,14 +127,14 @@ fn body(v: &ProduceView) -> Markup {
     }
 }
 
-/// The dialog. `inline` is the full-page rendering (no script).
+/// The dialog, over the topic's Messages page.
 #[must_use]
-pub fn produce_dialog(v: &ProduceView, base: &Base, inline: bool) -> Markup {
+pub fn produce_dialog(v: &ProduceView, base: &Base) -> Markup {
     let action = topic_url(base, &v.topic, "/produce");
     modal(
         "produce",
         &action,
-        inline,
+        &topic_url(base, &v.topic, ""),
         html! { "Produce to " span class="mono" { (v.topic) } },
         body(v),
         html! {

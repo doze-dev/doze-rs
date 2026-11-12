@@ -25,9 +25,10 @@ fn standing(s: Standing) -> Markup {
     }
 }
 
-fn row(r: &RecordRow, topic: &str, base: &Base) -> Markup {
+fn row(r: &RecordRow, topic: &str, query: &str, base: &Base) -> Markup {
+    // The drawer's address carries the page's own query, so closing the drawer returns to the same filtered page.
     let href = base.url(&format!(
-        "/topics/{}/messages/{}/{}",
+        "/topics/{}/messages/{}/{}{query}",
         segment(topic),
         r.partition,
         r.offset
@@ -40,7 +41,7 @@ fn row(r: &RecordRow, topic: &str, base: &Base) -> Markup {
     html! {
         tr {
             td class="mono" { (r.partition) }
-            td class="mono" { a class="lnk" href=(href) { (number(r.offset)) } }
+            td class="mono" { a class="lnk" href=(href) data-dialog { (number(r.offset)) } }
             td class="mono dim" data-vary { (clock_ms(r.timestamp_ms)) }
             td class="mono" { (cell(&r.key, "key")) }
             td class="mono" style={"font-size:12.5px;" (tone)} { (cell(&r.value, "value")) }
@@ -50,9 +51,10 @@ fn row(r: &RecordRow, topic: &str, base: &Base) -> Markup {
     }
 }
 
-/// The table: one row per record, newest first.
+/// The table: one row per record, newest first. `query` is the page's query (with its `?`, or nothing): a record opens in a
+/// drawer over this same page.
 #[must_use]
-pub(super) fn records(rows: &[RecordRow], topic: &str, base: &Base) -> Markup {
+pub(super) fn records(rows: &[RecordRow], topic: &str, query: &str, base: &Base) -> Markup {
     html! {
         table class="t" {
             thead { tr {
@@ -60,7 +62,7 @@ pub(super) fn records(rows: &[RecordRow], topic: &str, base: &Base) -> Markup {
                 th scope="col" { "Key" } th scope="col" { "Value" } th scope="col" class="r" { "Value size" }
                 th scope="col" { "For read_committed" }
             } }
-            tbody { @for r in rows { (row(r, topic, base)) } }
+            tbody { @for r in rows { (row(r, topic, query, base)) } }
         }
     }
 }
@@ -91,7 +93,7 @@ mod tests {
             value: shown(Kind::Text, hostile),
             standing: Standing::AboveLso,
         };
-        let m = records(&[r], "a/b", &Base::root()).into_string();
+        let m = records(&[r], "a/b", "", &Base::root()).into_string();
         assert!(!m.contains("<img") && !m.contains("</script>"), "{m}");
         assert!(
             m.contains("&lt;/script&gt;&lt;img src=x onerror=alert(1)&gt;&quot;'"),
@@ -117,6 +119,7 @@ mod tests {
         let m = records(
             &[r(Kind::Null, Kind::Null), r(Kind::Empty, Kind::Binary)],
             "t",
+            "",
             &Base::root(),
         )
         .into_string();

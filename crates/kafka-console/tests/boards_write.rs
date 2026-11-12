@@ -394,7 +394,10 @@ fn the_dialogs_are_labelled_and_every_label_is_bound() {
         "topic-delete",
     ] {
         let doc = page(id);
-        assert!(doc.contains("role=\"dialog\" aria-labelledby=\""), "{id}");
+        assert!(
+            doc.contains("role=\"dialog\" aria-modal=\"true\" aria-labelledby=\""),
+            "{id}"
+        );
         let title = doc
             .split("aria-labelledby=\"")
             .nth(1)

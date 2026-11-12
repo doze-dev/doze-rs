@@ -32,12 +32,18 @@ pub const ATTR_COPY_AS: &str = "data-copy-as";
 pub const ATTR_COPY_FORMS: &str = "data-copy-forms";
 /// The address (bootstrap) the alternative copy forms are built from.
 pub const ATTR_ADDRESS: &str = "data-address";
-/// A link whose target is a dialog: with a script it opens over the page, without one it is an ordinary link to a page.
+/// A link whose target is an overlay (a drawer or a dialog): with a script it opens over the page, without one it is an
+/// ordinary link to the parent page with the overlay open on it.
 pub const ATTR_DIALOG: &str = "data-dialog";
-/// A control inside a dialog that closes it (Cancel): without a script it is a link back to the page.
+/// A control inside an overlay that closes it (Cancel, Close): without a script it is a link to the parent page.
 pub const ATTR_DIALOG_CLOSE: &str = "data-dialog-close";
-/// The class of the `<dialog>` the script makes to hold a dialog's body.
-pub const CLASS_DIALOG: &str = "dlg";
+/// The attribute of the overlay element (`ui::overlay::frame`); its value-less presence is how the script finds it.
+pub const ATTR_OVERLAY: &str = "data-overlay";
+/// The response header that says the body is an overlay element (and not a page): a script puts it in place.
+pub const HEADER_OVERLAY: &str = "x-overlay";
+/// The classes the script puts on an overlay while it comes in and while it goes out (the CSS animates them).
+pub const CLASS_OVERLAY_IN: &str = "ovl-in";
+pub const CLASS_OVERLAY_OUT: &str = "ovl-out";
 /// The class of an element that is a fragment of its own.
 pub const CLASS_FRAGMENT: &str = "frag";
 /// The id of the banner shown while the stream is lost.

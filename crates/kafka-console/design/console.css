@@ -15,8 +15,9 @@ html,body{background:#fbfaff}
 .skip:focus{left:0}
 /* A banner at the very top of the page (the console served beyond loopback with no login). */
 .root>.banner{margin:0;border-radius:0;border-width:0 0 1px 0;justify-content:center}
-/* Focus is always visible. */
-.root a:focus-visible,.root button:focus-visible,.root input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+/* Focus is always visible, in the page and in an overlay (which sits outside .root). */
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+#main:focus{outline:0}
 /* Forms inside a row sit like the control they hold. */
 .root form{margin:0;display:contents}
 /* The topbar search is a control of a later slice: drawn as the board draws it, and not offered. */
@@ -24,11 +25,68 @@ html,body{background:#fbfaff}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 /* A card's lede keeps its look when the lede sits inside a fragment (the check) and not directly in the card. */
 .card>.frag>.lede{margin:0 0 20px;color:var(--dim);font-size:13.5px}
-/* A dialog served as a page (no script): it sits in the page, not over it. With a script it is shown in a <dialog>. */
-.modal.page{position:static;transform:none;margin:24px 0 0;max-width:760px;width:100%}
-dialog.dlg{border:0;padding:0;background:transparent;max-width:none;overflow:visible}
-dialog.dlg::backdrop{background:rgba(23,20,31,.4)}
-dialog.dlg .modal{position:relative;left:auto;top:auto;transform:none;margin:0}
+/* Overlays (src/ui/overlay.rs): a drawer or a dialog over its parent page. The server renders them open (a direct visit works
+   with no script); the page behind is inert and does not scroll. The scrim is a link to the parent. */
+html:has(.ovl){overflow:hidden}
+/* An overlay is a .root too, so that it has the kit's tokens and element rules; it is transparent and fixed over the page. */
+.ovl.root{position:fixed;inset:0;z-index:50;width:auto;min-height:0;background:transparent;display:block}
+.ovl .scrim{position:fixed;inset:0;z-index:0;background:rgba(23,20,31,.40);cursor:default}
+.ovl-drawer .drawer-panel{position:fixed;z-index:1;top:52px;right:0;bottom:0;width:min(520px,100vw);overflow-y:auto;overscroll-behavior:contain;outline:0}
+.ovl-drawer .drawer-panel pre.code{max-height:min(46vh,440px);overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere}
+.ovl-drawer .drawer-panel h2{overflow-wrap:anywhere}
+.ovl.ovl-dialog{overflow-y:auto;overscroll-behavior:contain;display:flex;justify-content:center;align-items:flex-start;padding:clamp(24px,10vh,120px) 16px 32px}
+.ovl-dialog .modal{position:relative;z-index:1;left:auto;top:auto;transform:none;width:600px;max-width:100%;margin:0;outline:0}
+@media (max-width:640px){.ovl-drawer .drawer-panel{padding:24px 20px}.ovl-dialog .modal{padding:24px 20px}}
+/* Motion, gently: the scrim fades in 160 ms, a drawer slides in 220 ms with ease-out (a short move and opacity, not a swoosh),
+   a dialog fades and rises 8 px in 180 ms; closing is the reverse and a little faster (140 ms). Nothing bounces; only opacity
+   and transform move. With reduced motion there is none of it (the script also closes at once). */
+@media (prefers-reduced-motion:no-preference){
+.ovl-in .scrim{animation:ovl-fade 160ms ease-out both}
+.ovl-in.ovl-drawer .drawer-panel{animation:ovl-slide 220ms cubic-bezier(.2,.7,.3,1) both}
+.ovl-in.ovl-dialog .modal{animation:ovl-rise 180ms ease-out both}
+.ovl-out .scrim{animation:ovl-fade-out 140ms ease-in both}
+.ovl-out.ovl-drawer .drawer-panel{animation:ovl-slide-out 140ms ease-in both}
+.ovl-out.ovl-dialog .modal{animation:ovl-rise-out 140ms ease-in both}
+}
+@keyframes ovl-fade{from{opacity:0}}
+@keyframes ovl-fade-out{to{opacity:0}}
+@keyframes ovl-slide{from{opacity:0;transform:translateX(28px)}}
+@keyframes ovl-slide-out{to{opacity:0;transform:translateX(28px)}}
+@keyframes ovl-rise{from{opacity:0;transform:translateY(8px)}}
+@keyframes ovl-rise-out{to{opacity:0;transform:translateY(8px)}}
+/* Page to page: a cross-document view transition (Chrome and Safari 18; others simply navigate). The top bar and the rail
+   keep their own names, so they stay where they are and only the active item of the rail changes, softly; the page area fades
+   in 180 ms with a 4 px rise. Opacity and transform only. */
+@media (prefers-reduced-motion:no-preference){
+@view-transition{navigation:auto}
+.topbar{view-transition-name:topbar}
+.rail{view-transition-name:rail}
+.main{view-transition-name:main}
+::view-transition-group(root),::view-transition-group(topbar),::view-transition-group(rail){animation-duration:180ms}
+::view-transition-group(main){animation:none}
+::view-transition-old(root),::view-transition-new(root){animation-duration:180ms}
+::view-transition-old(main){animation:vt-out 120ms ease-in both}
+::view-transition-new(main){animation:vt-in 180ms ease-out both}
+}
+@keyframes vt-out{to{opacity:0}}
+@keyframes vt-in{from{opacity:0;transform:translateY(4px)}}
+/* Hover, focus and pressed states answer in 120 ms (colour, border and shadow only). */
+.btn,.ni,.chip,.tab,.seg button,.seg label,.input,.t td,.crumbs a,.lnk,.opt,.ni svg{transition:background-color .12s ease,border-color .12s ease,color .12s ease,box-shadow .12s ease}
+.btn:hover{background:#faf9fe;border-color:#b9b2cc}
+.btn.pri:hover{background:color-mix(in srgb,var(--accent) 88%,#000);border-color:color-mix(in srgb,var(--accent) 88%,#000)}
+.btn.danger:hover{background:#fdf3f5}
+.btn.danger.fill:hover{background:color-mix(in srgb,var(--bad) 88%,#000);border-color:color-mix(in srgb,var(--bad) 88%,#000)}
+.btn.ghost:hover{background:var(--well);border-color:transparent}
+.btn:active{background:var(--well)}
+.btn.pri:active{background:color-mix(in srgb,var(--accent) 78%,#000)}
+.btn.dis:hover{background:#fff;border-color:var(--line2)}
+.ni:hover{background:rgba(122,79,224,.07);color:var(--bright)}
+.ni.on:hover{background:var(--sel)}
+.tab:hover{color:var(--bright)}
+a.chip:hover,button.chip:hover{border-color:var(--line2);color:var(--bright)}
+.seg button:hover:not(.on){color:var(--bright)}
+.t tbody tr:hover td{background:#faf9ff}
+.t tbody tr.sel:hover td{background:var(--sel)}
 /* A field's error line and the radio rows of a form sit as the kit draws them when a real input is used. */
 .opt-row input[type=radio]{position:absolute;opacity:0;width:0;height:0}
 .opt-row:has(input:focus-visible) .radio{outline:2px solid var(--accent);outline-offset:2px}

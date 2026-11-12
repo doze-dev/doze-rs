@@ -4,6 +4,7 @@ mod config;
 mod fragments;
 mod groups;
 mod groups_fragments;
+mod overlays;
 mod pages;
 mod plain;
 mod topics;

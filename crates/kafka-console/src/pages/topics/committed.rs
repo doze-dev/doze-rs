@@ -122,7 +122,7 @@ fn reader_sees(v: &MessagesView, base: &Base) -> Markup {
     html! {
         div class="sec" {
             h2 { "What a read_committed reader sees" }
-            (records(&v.rows, &v.head.name, base))
+            (records(&v.rows, &v.head.name, &v.query.to_query(), base))
             p class="help" style="margin-top:12px" {
                 @match v.head.held() {
                     0 => { "Nothing is held back, so this is every record the table shows; " },

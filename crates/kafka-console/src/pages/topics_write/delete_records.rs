@@ -86,11 +86,11 @@ fn button_label(v: &DeleteRecordsView) -> String {
 
 /// The dialog for one partition.
 #[must_use]
-pub fn delete_records_dialog(v: &DeleteRecordsView, base: &Base, inline: bool) -> Markup {
+pub fn delete_records_dialog(v: &DeleteRecordsView, base: &Base) -> Markup {
     modal(
         "delete-records",
         &topic_url(base, &v.topic, "/delete-records"),
-        inline,
+        &topic_url(base, &v.topic, "/partitions"),
         html! { "Delete records from " span class="mono" { (format!("{}-{}", v.topic, v.partition)) } },
         body(v),
         html! {
