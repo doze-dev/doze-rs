@@ -19,6 +19,7 @@ use http::request::Parts;
 use http_body_util::{BodyExt, Limited};
 use hyper::body::Incoming;
 
+use crate::target::{extension, target_prefix};
 use crate::{Auth, Config};
 
 /// A registered service and the pattern cache for its model.
@@ -233,30 +234,6 @@ async fn handle(
     let output = entry.service.call(call).await.map_err(|e| fail(&e))?;
     let encoded = encode_output(entry, shapes, &output.arena, output.root).map_err(|e| fail(&e))?;
     Ok(json::success(version, id, encoded))
-}
-
-/// The prefix of the request's `X-Amz-Target` (`DynamoDBStreams_20120810`).
-fn target_prefix(parts: &Parts) -> Option<&str> {
-    parts
-        .headers
-        .get("x-amz-target")
-        .and_then(|v| v.to_str().ok())
-        .and_then(|t| t.split_once('.'))
-        .map(|(prefix, _)| prefix)
-}
-
-/// The operation index and the borrowed shapes of an operation the service adds to its model, when the target names one.
-fn extension(entry: &Entry, parts: &Parts) -> Option<(u32, u32)> {
-    let target = parts.headers.get("x-amz-target")?.to_str().ok()?;
-    let (prefix, name) = target.split_once('.')?;
-    if parts.method != http::Method::POST
-        || parts.uri.path() != "/"
-        || prefix != entry.service.meta().shape_name
-    {
-        return None;
-    }
-    let ext = entry.service.extension(name)?;
-    Some((ext.op, ext.shapes))
 }
 
 /// Who is calling, from the credential scope and the request head.

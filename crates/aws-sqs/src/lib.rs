@@ -11,6 +11,7 @@ mod messages;
 mod model;
 mod moves;
 mod msgattr;
+mod peek;
 mod persist;
 mod policy;
 mod queues;

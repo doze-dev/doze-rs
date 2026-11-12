@@ -16,6 +16,7 @@ mod query;
 mod rest;
 mod s3host;
 mod server;
+mod target;
 mod upload;
 mod web;
 
