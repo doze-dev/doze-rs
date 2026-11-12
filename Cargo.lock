@@ -1327,6 +1327,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "doze-bind"
+version = "0.0.0"
+dependencies = [
+ "doze-module-proto",
+ "doze-names",
+]
+
+[[package]]
 name = "doze-fs"
 version = "0.0.0"
 dependencies = [
