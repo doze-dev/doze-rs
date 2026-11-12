@@ -5,8 +5,8 @@ use std::io::{self, Write};
 use std::os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt};
 use std::path::Path;
 
-pub(super) fn file_id(meta: &std::fs::Metadata) -> u64 {
-    meta.ino()
+pub(super) fn file_id(path: &Path) -> Option<u64> {
+    std::fs::metadata(path).ok().map(|m| m.ino())
 }
 
 pub(super) fn make_private(path: &Path) -> io::Result<()> {

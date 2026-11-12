@@ -13,8 +13,18 @@ use windows_sys::Win32::Security::{
     DACL_SECURITY_INFORMATION, PROTECTED_DACL_SECURITY_INFORMATION,
 };
 
-pub(super) fn file_id(_meta: &std::fs::Metadata) -> u64 {
-    0
+pub(super) fn file_id(path: &Path) -> Option<u64> {
+    use std::os::windows::io::AsRawHandle;
+    use windows_sys::Win32::Storage::FileSystem::{
+        BY_HANDLE_FILE_INFORMATION, GetFileInformationByHandle,
+    };
+    let file = std::fs::File::open(path).ok()?;
+    // SAFETY: BY_HANDLE_FILE_INFORMATION is plain integers and FILETIMEs, for which all-zero bytes are a valid value.
+    let mut info: BY_HANDLE_FILE_INFORMATION = unsafe { std::mem::zeroed() };
+    // SAFETY: the handle is open for the duration of the call (`file` lives to the end of this function) and `info` is
+    // a valid, writable struct of the type the call fills.
+    let ok = unsafe { GetFileInformationByHandle(file.as_raw_handle(), &mut info) };
+    (ok != 0).then(|| (u64::from(info.nFileIndexHigh) << 32) | u64::from(info.nFileIndexLow))
 }
 
 pub(super) fn write_private(path: &Path, bytes: &[u8]) -> io::Result<()> {

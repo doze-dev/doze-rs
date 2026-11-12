@@ -83,10 +83,10 @@ pub fn clone_dir(src: &Path, dst: &Path) -> io::Result<()> {
     imp::clone_dir(src, dst)
 }
 
-/// The file's identity on its volume (the inode on Unix; 0 on Windows, where nothing needs it yet). A file replaced by
-/// a rename has a new one even when its time and size are the same as the old one's.
-pub fn file_id(meta: &std::fs::Metadata) -> u64 {
-    imp::file_id(meta)
+/// The identity of the file at `path` on its volume: the inode on Unix, the file index on Windows. A file replaced by a
+/// rename has a new one even when its time and size are the same as the old one's. `None` when it cannot be read.
+pub fn file_id(path: &Path) -> Option<u64> {
+    imp::file_id(path)
 }
 
 /// Runs `cp` (no shell) and turns a failure into an error carrying its message.
