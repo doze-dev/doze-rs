@@ -2,6 +2,7 @@
 
 use std::collections::BTreeMap;
 
+use crate::fifo::FifoState;
 use crate::msgattr::Attr;
 
 /// The settings of a queue that have numeric meaning.
@@ -53,6 +54,8 @@ pub(crate) struct Message {
     pub(crate) system: Vec<Attr>,
     pub(crate) group_id: Option<String>,
     pub(crate) dedup_id: Option<String>,
+    /// A FIFO queue's sequence number for the message.
+    pub(crate) sequence: Option<String>,
 }
 
 impl Message {
@@ -78,6 +81,7 @@ pub(crate) struct Queue {
     pub(crate) modified_secs: i64,
     pub(crate) messages: Vec<Message>,
     pub(crate) tags: BTreeMap<String, String>,
+    pub(crate) fifo: FifoState,
     /// When the queue was last purged: AWS allows one purge a minute.
     pub(crate) purged_ms: Option<i64>,
 }

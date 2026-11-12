@@ -10,6 +10,7 @@ use aws_wire::service::{Call, Reply};
 
 use crate::batch;
 use crate::core::{Core, invalid_parameter, missing, reply, request};
+use crate::fifo::{DEDUP_WINDOW_MS, Remembered};
 use crate::md5_hex;
 use crate::model::{Message, Queue};
 use crate::msgattr::{self, Attr};
@@ -25,26 +26,21 @@ pub(crate) struct Outgoing<'a> {
 }
 
 /// What a send answers with.
+#[derive(Clone)]
 pub(crate) struct Accepted {
     pub(crate) id: String,
     pub(crate) md5_of_body: String,
     pub(crate) md5_of_attrs: Option<String>,
     pub(crate) md5_of_system: Option<String>,
+    /// A FIFO queue's sequence number.
+    pub(crate) sequence: Option<String>,
 }
 
 impl Queue {
     /// Puts a message in the queue.
     pub(crate) fn send(&mut self, now_ms: i64, out: &Outgoing<'_>) -> Result<Accepted, ApiError> {
-        if !out.body.chars().all(allowed) {
-            let bad = out.body.chars().find(|c| !allowed(*c)).unwrap_or('\0');
-            return Err(ApiError::modeled(
-                "InvalidMessageContents",
-                format!(
-                    "Invalid binary character '#x{:x}' was found in the message body, the set of allowed characters is #x9 | #xA | #xD | [#x20-#xD7FF] | [#xE000-#xFFFD] | [#x10000-#x10FFFF].",
-                    bad as u32
-                ),
-            ));
-        }
+        let dedup_id = self.check_kind_of_send(out)?;
+        check_body(out.body)?;
         if out.body.len() + msgattr::size_of(&out.attrs) > self.attrs.max_message_size as usize {
             return Err(invalid_parameter(format!(
                 "One or more parameters are invalid. Reason: Message must be shorter than {} bytes.",
@@ -60,12 +56,42 @@ impl Queue {
                 )));
             }
         };
-        let accepted = Accepted {
+        let group = out.group_id.unwrap_or("");
+        if let Some(id) = dedup_id.as_deref()
+            && let Some(seen) = self.remembered(group, id, now_ms)
+        {
+            // A duplicate inside the window is accepted and not delivered again: it gets the original's answer.
+            return Ok(Accepted {
+                id: seen.message_id,
+                md5_of_body: seen.md5_of_body,
+                md5_of_attrs: seen.md5_of_attrs,
+                md5_of_system: seen.md5_of_system,
+                sequence: Some(seen.sequence),
+            });
+        }
+        let mut accepted = Accepted {
             id: aws_wire::RequestId::new().to_string(),
             md5_of_body: md5_hex(out.body.as_bytes()),
             md5_of_attrs: msgattr::md5_of(&out.attrs),
             md5_of_system: msgattr::md5_of(&out.system),
+            sequence: None,
         };
+        if self.is_fifo() {
+            let sequence = self.fifo.next_sequence();
+            accepted.sequence = Some(sequence.clone());
+            if let Some(id) = dedup_id.as_deref() {
+                let key = self.window_key(group, id);
+                self.fifo.window.push(Remembered {
+                    key,
+                    expires_ms: now_ms + DEDUP_WINDOW_MS,
+                    message_id: accepted.id.clone(),
+                    md5_of_body: accepted.md5_of_body.clone(),
+                    md5_of_attrs: accepted.md5_of_attrs.clone(),
+                    md5_of_system: accepted.md5_of_system.clone(),
+                    sequence,
+                });
+            }
+        }
         self.messages.push(Message {
             id: accepted.id.clone(),
             body: out.body.to_owned(),
@@ -79,9 +105,43 @@ impl Queue {
             attributes: out.attrs.clone(),
             system: out.system.clone(),
             group_id: out.group_id.map(str::to_owned),
-            dedup_id: out.dedup_id.map(str::to_owned),
+            dedup_id: dedup_id.clone(),
+            sequence: accepted.sequence.clone(),
         });
         Ok(accepted)
+    }
+
+    /// What the kind of queue requires of a send. On a FIFO queue: a group, and a deduplication id (the sender's, or made from
+    /// the body when the queue is content-based). On a standard queue: no deduplication id. Returns the id to use.
+    fn check_kind_of_send(&self, out: &Outgoing<'_>) -> Result<Option<String>, ApiError> {
+        if !self.is_fifo() {
+            if let Some(id) = out.dedup_id {
+                return Err(invalid_parameter(format!(
+                    "Value {id} for parameter MessageDeduplicationId is invalid. Reason: The request include parameter that is not valid for this queue type."
+                )));
+            }
+            return Ok(None);
+        }
+        if out.group_id.is_none_or(str::is_empty) {
+            return Err(missing("MessageGroupId"));
+        }
+        self.dedup_id_for(out.dedup_id, out.body).map(Some).ok_or_else(|| {
+            invalid_parameter("The queue should either have ContentBasedDeduplication enabled or MessageDeduplicationId provided explicitly")
+        })
+    }
+}
+
+/// The body holds only characters the XML 1.0 set allows.
+fn check_body(body: &str) -> Result<(), ApiError> {
+    match body.chars().find(|c| !allowed(*c)) {
+        None => Ok(()),
+        Some(bad) => Err(ApiError::modeled(
+            "InvalidMessageContents",
+            format!(
+                "Invalid binary character '#x{:x}' was found in the message body, the set of allowed characters is #x9 | #xA | #xD | [#x20-#xD7FF] | [#xE000-#xFFFD] | [#x10000-#x10FFFF].",
+                bad as u32
+            ),
+        )),
     }
 }
 
@@ -114,6 +174,9 @@ impl Core {
             }
             if let Some(m) = &a.md5_of_system {
                 o.put(Sent::MD5_OF_MESSAGE_SYSTEM_ATTRIBUTES, m);
+            }
+            if let Some(n) = &a.sequence {
+                o.put(Sent::SEQUENCE_NUMBER, n);
             }
         })
     }
@@ -158,39 +221,49 @@ impl Core {
                 )
             })
             .collect();
-        reply::<BatchSent>(|o| {
-            if results.iter().any(|(_, r)| r.is_ok()) {
-                o.put_list(BatchSent::SUCCESSFUL, |l| {
-                    for (id, a) in results
-                        .iter()
-                        .filter_map(|(id, r)| r.as_ref().ok().map(|a| (id, a)))
-                    {
-                        l.push(|e| {
-                            e.put(EntrySent::ID, id)
-                                .put(EntrySent::MESSAGE_ID, &a.id)
-                                .put(EntrySent::MD5_OF_MESSAGE_BODY, &a.md5_of_body);
-                            if let Some(m) = &a.md5_of_attrs {
-                                e.put(EntrySent::MD5_OF_MESSAGE_ATTRIBUTES, m);
-                            }
-                            if let Some(m) = &a.md5_of_system {
-                                e.put(EntrySent::MD5_OF_MESSAGE_SYSTEM_ATTRIBUTES, m);
-                            }
-                        });
-                    }
-                });
-            }
-            if results.iter().any(|(_, r)| r.is_err()) {
-                o.put_list(BatchSent::FAILED, |l| {
-                    for (id, err) in results
-                        .iter()
-                        .filter_map(|(id, r)| r.as_ref().err().map(|e| (id, e)))
-                    {
-                        l.push(|e| batch::write_failed(e, id, err));
-                    }
-                });
-            }
-        })
+        write_batch_result(&results)
     }
+}
+
+/// The answer to a batch: the entries that were sent, and those that failed.
+type Results<'a> = [(&'a str, Result<Accepted, ApiError>)];
+
+fn write_batch_result(results: &Results<'_>) -> Reply {
+    reply::<BatchSent>(|o| {
+        if results.iter().any(|(_, r)| r.is_ok()) {
+            o.put_list(BatchSent::SUCCESSFUL, |l| {
+                for (id, a) in results
+                    .iter()
+                    .filter_map(|(id, r)| r.as_ref().ok().map(|a| (id, a)))
+                {
+                    l.push(|e| {
+                        e.put(EntrySent::ID, id)
+                            .put(EntrySent::MESSAGE_ID, &a.id)
+                            .put(EntrySent::MD5_OF_MESSAGE_BODY, &a.md5_of_body);
+                        if let Some(m) = &a.md5_of_attrs {
+                            e.put(EntrySent::MD5_OF_MESSAGE_ATTRIBUTES, m);
+                        }
+                        if let Some(m) = &a.md5_of_system {
+                            e.put(EntrySent::MD5_OF_MESSAGE_SYSTEM_ATTRIBUTES, m);
+                        }
+                        if let Some(n) = &a.sequence {
+                            e.put(EntrySent::SEQUENCE_NUMBER, n);
+                        }
+                    });
+                }
+            });
+        }
+        if results.iter().any(|(_, r)| r.is_err()) {
+            o.put_list(BatchSent::FAILED, |l| {
+                for (id, err) in results
+                    .iter()
+                    .filter_map(|(id, r)| r.as_ref().err().map(|e| (id, e)))
+                {
+                    l.push(|e| batch::write_failed(e, id, err));
+                }
+            });
+        }
+    })
 }
 
 /// One batch entry as an outgoing message, or the reason it cannot be one.

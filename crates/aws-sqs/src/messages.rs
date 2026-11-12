@@ -10,6 +10,7 @@ use aws_wire::ApiError;
 use aws_wire::service::{Call, Reply};
 
 use crate::core::{Core, empty, invalid_parameter, missing, reply, request};
+use crate::fifo::{DEDUP_WINDOW_MS, pick};
 use crate::model::{Message, Queue};
 use crate::msgattr::{self, Attr, Value};
 
@@ -74,58 +75,40 @@ impl Core {
         let queue_url = v
             .get(Receive::QUEUE_URL)
             .ok_or_else(|| missing("QueueUrl"))?;
-        let max = ranged(
-            v.get(Receive::MAX_NUMBER_OF_MESSAGES),
-            1,
-            MAX_RECEIVE,
-            1,
-            "MaxNumberOfMessages",
-            "Must be between 1 and 10, if provided.",
-        )?;
-        let visibility = v.get(Receive::VISIBILITY_TIMEOUT);
-        if let Some(n) = visibility {
-            ranged(
-                Some(n),
-                0,
-                43_200,
-                0,
-                "VisibilityTimeout",
-                "Must be between 0 and 43200, if provided.",
-            )?;
-        }
-        ranged(
-            v.get(Receive::WAIT_TIME_SECONDS),
-            0,
-            20,
-            0,
-            "WaitTimeSeconds",
-            "Must be >= 0 and <= 20, if provided.",
-        )?;
-        let system: Vec<&str> = v
-            .get(Receive::MESSAGE_SYSTEM_ATTRIBUTE_NAMES)
-            .into_iter()
-            .flatten()
-            .chain(v.get(Receive::ATTRIBUTE_NAMES).into_iter().flatten())
-            .collect();
-        let user: Vec<&str> = v
-            .get(Receive::MESSAGE_ATTRIBUTE_NAMES)
-            .into_iter()
-            .flatten()
-            .collect();
+        let ask = ReceiveAsk::read(&v)?;
         let now = self.now_ms();
         let account = call.caller.account_id.clone();
         let queue = self.queue_mut(call, queue_url)?;
-        let hidden_for = visibility.unwrap_or(i64::from(queue.attrs.visibility_timeout)) * 1000;
+        let hidden_for = ask
+            .visibility
+            .unwrap_or(i64::from(queue.attrs.visibility_timeout))
+            * 1000;
         let keep_until = now - i64::from(queue.attrs.retention_seconds) * 1000;
         queue.messages.retain(|m| m.sent_ms > keep_until);
-        let limit = usize::try_from(max).unwrap_or(1);
-        let taken: Vec<Taken> = queue
-            .messages
-            .iter_mut()
-            .filter(|m| m.visible_at_ms <= now)
-            .take(limit)
-            .map(|m| take(m, now, hidden_for, (&system, &user), &account))
-            .collect();
+        let want = (ask.system.as_slice(), ask.user.as_slice());
+        // A retry of a receive that carried the same attempt id gets the same messages (with fresh handles).
+        let (indexes, fresh) = match retried(queue, ask.attempt, now) {
+            Some(indexes) => (indexes, false),
+            None => (pick(&queue.messages, now, ask.max, queue.is_fifo()), true),
+        };
+        let mut taken = Vec::with_capacity(indexes.len());
+        for i in &indexes {
+            let Some(m) = queue.messages.get_mut(*i) else {
+                continue;
+            };
+            taken.push(if fresh {
+                take(m, now, hidden_for, want, &account)
+            } else {
+                retake(m, want, &account)
+            });
+        }
+        if let (Some(id), true) = (ask.attempt, queue.is_fifo()) {
+            let ids = indexes
+                .iter()
+                .filter_map(|i| queue.messages.get(*i).map(|m| m.id.clone()))
+                .collect();
+            queue.fifo.attempt = Some((id.to_owned(), now, ids));
+        }
         write_received(&taken)
     }
 
@@ -159,6 +142,63 @@ impl Core {
     }
 }
 
+/// What a receive asked for, checked.
+struct ReceiveAsk<'a> {
+    max: usize,
+    visibility: Option<i64>,
+    system: Vec<&'a str>,
+    user: Vec<&'a str>,
+    attempt: Option<&'a str>,
+}
+
+impl<'a> ReceiveAsk<'a> {
+    fn read(v: &aws_schema::view::View<'a, Receive>) -> Result<Self, ApiError> {
+        let max = ranged(
+            v.get(Receive::MAX_NUMBER_OF_MESSAGES),
+            1,
+            MAX_RECEIVE,
+            1,
+            "MaxNumberOfMessages",
+            "Must be between 1 and 10, if provided.",
+        )?;
+        let visibility = v.get(Receive::VISIBILITY_TIMEOUT);
+        if let Some(n) = visibility {
+            ranged(
+                Some(n),
+                0,
+                43_200,
+                0,
+                "VisibilityTimeout",
+                "Must be between 0 and 43200, if provided.",
+            )?;
+        }
+        ranged(
+            v.get(Receive::WAIT_TIME_SECONDS),
+            0,
+            20,
+            0,
+            "WaitTimeSeconds",
+            "Must be >= 0 and <= 20, if provided.",
+        )?;
+        Ok(Self {
+            max: usize::try_from(max).unwrap_or(1),
+            visibility,
+            system: v
+                .get(Receive::MESSAGE_SYSTEM_ATTRIBUTE_NAMES)
+                .into_iter()
+                .flatten()
+                .chain(v.get(Receive::ATTRIBUTE_NAMES).into_iter().flatten())
+                .collect(),
+            user: v
+                .get(Receive::MESSAGE_ATTRIBUTE_NAMES)
+                .into_iter()
+                .flatten()
+                .collect(),
+            attempt: v.get(Receive::RECEIVE_REQUEST_ATTEMPT_ID),
+        })
+    }
+}
+
 /// A message as it was handed to a receiver.
 struct Taken {
     id: String,
@@ -167,6 +207,35 @@ struct Taken {
     body: String,
     system: Vec<(String, String)>,
     user: Vec<Attr>,
+}
+
+/// The messages a retry of an earlier receive should return, if `attempt` is that receive's id and the window has not passed.
+fn retried(queue: &Queue, attempt: Option<&str>, now_ms: i64) -> Option<Vec<usize>> {
+    let id = attempt.filter(|_| queue.is_fifo())?;
+    let (earlier, at, ids) = queue.fifo.attempt.as_ref()?;
+    if earlier != id || now_ms - at >= DEDUP_WINDOW_MS {
+        return None;
+    }
+    let indexes: Vec<usize> = queue
+        .messages
+        .iter()
+        .enumerate()
+        .filter(|(_, m)| ids.contains(&m.id))
+        .map(|(i, _)| i)
+        .collect();
+    // Only while they are all still in flight: if one was deleted or came back, this is a new receive.
+    (!indexes.is_empty()
+        && indexes
+            .iter()
+            .all(|i| queue.messages.get(*i).is_some_and(|m| m.in_flight(now_ms))))
+    .then_some(indexes)
+}
+
+/// Hands `m` out again for a retry: a new handle, and nothing else about it changes.
+fn retake(m: &mut Message, want: (&[&str], &[&str]), account: &str) -> Taken {
+    let handle = new_handle();
+    m.handles.push(handle.clone());
+    taken_from(m, handle, want, account)
 }
 
 /// Marks `m` received and hides it for `hidden_for` milliseconds. `want` is the system and the user attribute names asked for.
@@ -183,6 +252,10 @@ fn take(
     let handle = new_handle();
     m.received_ms = now;
     m.handles.push(handle.clone());
+    taken_from(m, handle, want, account)
+}
+
+fn taken_from(m: &Message, handle: String, want: (&[&str], &[&str]), account: &str) -> Taken {
     Taken {
         id: m.id.clone(),
         handle,
@@ -302,6 +375,7 @@ fn system_attributes(m: &Message, want: &[&str], account: &str) -> Vec<(String, 
     );
     put("MessageGroupId", m.group_id.clone());
     put("MessageDeduplicationId", m.dedup_id.clone());
+    put("SequenceNumber", m.sequence.clone());
     out
 }
 

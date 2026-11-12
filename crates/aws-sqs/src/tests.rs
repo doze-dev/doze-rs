@@ -317,8 +317,8 @@ fn the_refusals_aws_recorded() {
     // An unbuilt operation says so.
     assert_eq!(
         w.run(
-            Operation::TagQueue,
-            &json!({"QueueUrl": url, "Tags": {"a": "b"}})
+            Operation::AddPermission,
+            &json!({"QueueUrl": url, "Label": "l", "AWSAccountIds": ["1"], "Actions": ["SendMessage"]})
         )
         .unwrap_err()
         .status,

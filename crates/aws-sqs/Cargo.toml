@@ -18,6 +18,7 @@ aws-wire = { path = "../aws-wire" }
 doze-runtime = { path = "../doze-runtime" }
 aws-core = { path = "../aws-core" }
 md-5 = "0.11"
+sha2 = "0.11"
 getrandom = "0.4"
 
 [dev-dependencies]

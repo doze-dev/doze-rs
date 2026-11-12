@@ -10,6 +10,7 @@ import { createServer } from "node:net";
 const root = `${import.meta.dir}/../..`;
 const module_ = process.argv[2] ?? "sqs";
 const keyword = process.argv[3];
+const detail = process.argv.includes("--detail");
 const UV = process.env.UV_BIN ?? `${process.env.HOME}/.proto/tools/uv/0.12.19/uv`;
 const BIN = process.env.DOZE_AWS ?? `${root}/target/debug/doze-aws`;
 
@@ -34,6 +35,7 @@ for (const s of sections.slice(1)) {
   if (head[1]) {
     const labels = [...s.matchAll(/^E {13}\[(.+)\]$/gm)].map((m) => m[1]);
     console.log(`DIFF  ${name}: ${[...new Set(labels)].join(", ")}`);
+    if (detail) console.log(s.split("\n").filter((l) => /^E {11,}/.test(l)).slice(0, 60).join("\n"));
   } else {
     const err = s.split("\n").reverse().find((l) => /^E /.test(l)) ?? "";
     console.log(`STOP  ${name}: ${err.slice(2, 170)}`);

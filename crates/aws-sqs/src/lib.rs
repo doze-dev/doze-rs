@@ -8,6 +8,7 @@
 mod attrs;
 mod batch;
 mod core;
+mod fifo;
 mod messages;
 mod model;
 mod msgattr;

@@ -15,6 +15,7 @@ use crate::attrs;
 use crate::core::{
     Core, empty, invalid_address, invalid_parameter, missing, no_such_queue, reply, request,
 };
+use crate::fifo::FifoState;
 use crate::model::Queue;
 use crate::tags;
 use crate::url;
@@ -22,9 +23,11 @@ use crate::url;
 /// How long a deleted queue's name, and a purge, are held (the minute AWS holds them).
 const WAIT_MS: i64 = 60_000;
 
-/// What a queue name may be, as the message AWS gives says.
+/// What a standard queue's name may be, as the message AWS gives says.
 const NAME_RULE: &str =
     "Can only include alphanumeric characters, hyphens, or underscores. 1 to 80 in length";
+/// What a FIFO queue's name may be.
+const FIFO_NAME_RULE: &str = "The name of a FIFO queue can only include alphanumeric characters, hyphens, or underscores, must end with .fifo suffix and be 1 to 80 in length.";
 
 impl Core {
     pub(crate) fn create_queue(&mut self, call: &Call) -> Reply {
@@ -33,6 +36,12 @@ impl Core {
             .get(Create::QUEUE_NAME)
             .ok_or_else(|| missing("QueueName"))?;
         let asked = attrs::parse(v.get(Create::ATTRIBUTES).into_iter().flatten())?;
+        // The kind of queue decides what its name may be, and the name is checked before the rest.
+        let fifo = asked
+            .stored
+            .get("FifoQueue")
+            .is_some_and(|v| v.eq_ignore_ascii_case("true"));
+        check_name(name, fifo)?;
         if let Some(existing) = self.queues.get(name) {
             if let Some(attr) = asked.differs_from(existing) {
                 return Err(ApiError::modeled(
@@ -43,9 +52,7 @@ impl Core {
                 ));
             }
         } else {
-            if !valid_name(name) {
-                return Err(invalid_parameter(NAME_RULE));
-            }
+            attrs::check_kind(&asked, &BTreeMap::new(), fifo, true)?;
             let now = self.now_ms();
             if self.deleted.get(name).is_some_and(|at| now - at < WAIT_MS) {
                 return Err(ApiError::modeled(
@@ -53,12 +60,12 @@ impl Core {
                     "You must wait 60 seconds after deleting a queue before you can create another with the same name.",
                 ));
             }
-            let (attrs, stored) = asked.into_attrs();
             let tags = tags::check(
                 name,
                 &BTreeMap::new(),
                 v.get(Create::TAGS).into_iter().flatten(),
             )?;
+            let (attrs, stored) = asked.into_attrs();
             let queue = Queue {
                 name: name.to_owned(),
                 attrs,
@@ -67,6 +74,7 @@ impl Core {
                 modified_secs: now / 1000,
                 messages: Vec::new(),
                 tags: tags.into_iter().collect(),
+                fifo: FifoState::default(),
                 purged_ms: None,
             };
             self.queues.insert(name.to_owned(), queue);
@@ -152,6 +160,7 @@ impl Core {
         let asked = attrs::parse(v.get(SetAttrs::ATTRIBUTES).into_iter().flatten())?;
         let now = self.now_ms();
         let queue = self.queue_mut(call, queue_url)?;
+        attrs::check_kind(&asked, &queue.stored, queue.is_fifo(), false)?;
         asked.apply_to(&mut queue.attrs);
         queue.stored.extend(asked.stored);
         queue.modified_secs = now / 1000;
@@ -223,13 +232,27 @@ impl Core {
     }
 }
 
-/// 1 to 80 letters, digits, hyphens and underscores (`.fifo` is allowed on the end, and is a FIFO queue's business).
-fn valid_name(name: &str) -> bool {
-    let stem = name.strip_suffix(".fifo").unwrap_or(name);
-    (1..=80).contains(&stem.chars().count())
-        && stem
-            .chars()
-            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+/// A queue's name for its kind. A standard queue's is 1 to 80 letters, digits, hyphens and underscores; a FIFO queue's is the
+/// same with `.fifo` on the end, 80 in all.
+fn check_name(name: &str, fifo: bool) -> Result<(), ApiError> {
+    let stem = if fifo {
+        name.strip_suffix(".fifo")
+    } else {
+        Some(name)
+    };
+    let ok = name.chars().count() <= 80
+        && stem.is_some_and(|s| {
+            !s.is_empty()
+                && s.chars()
+                    .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+        });
+    if ok {
+        Ok(())
+    } else if fifo {
+        Err(invalid_parameter(FIFO_NAME_RULE))
+    } else {
+        Err(invalid_parameter(NAME_RULE))
+    }
 }
 
 /// A paging token binds the page to the request that made it: it carries the prefix and the last name, in hex.

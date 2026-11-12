@@ -103,7 +103,7 @@ impl Requested {
     }
 
     /// The first attribute this request sets to something other than `q` has: why `CreateQueue` for an existing name fails.
-    pub(crate) fn differs_from(&self, q: &Queue) -> Option<&'static str> {
+    pub(crate) fn differs_from(&self, q: &Queue) -> Option<&str> {
         let a = &q.attrs;
         let numeric = [
             (
@@ -128,10 +128,15 @@ impl Requested {
                 a.wait_seconds,
             ),
         ];
+        let stored = self
+            .stored
+            .iter()
+            .find(|(name, value)| q.stored.get(*name).is_some_and(|have| have != *value));
         numeric
             .into_iter()
             .find(|(_, asked, have)| asked.is_some_and(|n| n != *have))
             .map(|(name, ..)| name)
+            .or_else(|| stored.map(|(name, _)| name.as_str()))
     }
 }
 
@@ -182,12 +187,124 @@ pub(crate) fn render(
         .cloned()
         .unwrap_or_else(|| "true".to_owned());
     put("SqsManagedSseEnabled", sse);
+    if q.is_fifo() {
+        for (name, default) in fifo_defaults() {
+            if !q.stored.contains_key(name) {
+                put(name, default.to_owned());
+            }
+        }
+    }
     for (name, value) in &q.stored {
         if name != "SqsManagedSseEnabled" {
             put(name, value.clone());
         }
     }
     out
+}
+
+fn unknown(name: &str) -> ApiError {
+    ApiError::new(
+        400,
+        "InvalidAttributeName",
+        format!("Unknown Attribute {name}."),
+    )
+}
+
+fn is_bool(value: &str) -> bool {
+    value.eq_ignore_ascii_case("true") || value.eq_ignore_ascii_case("false")
+}
+
+/// The rules that tie attributes to the kind of queue and to each other. `fifo` is whether the queue is (or is being made)
+/// a FIFO queue; `current` the stored attributes it already has; `creating` whether this is `CreateQueue`.
+///
+/// Messages are those AWS gave in `test_fifo_attribute_rules`, `test_boolean_attribute_spelling`, `test_queue_type_cannot_change`
+/// and `test_kms_key_with_sqs_managed_encryption`. The booleans are case-insensitive, and the message for a bad one names the
+/// *value* where the parameter's name would be (AWS's wording). The one for `FifoThroughputLimit` on a standard queue is
+/// unrecorded.
+pub(crate) fn check_kind(
+    req: &Requested,
+    current: &BTreeMap<String, String>,
+    fifo: bool,
+    creating: bool,
+) -> Result<(), ApiError> {
+    for (name, value) in &req.stored {
+        let bad_bool = || {
+            ApiError::new(
+                400,
+                "InvalidAttributeValue",
+                format!("Invalid value for the parameter {value}."),
+            )
+        };
+        match name.as_str() {
+            "FifoQueue" if !creating => return Err(unknown(name)),
+            "FifoQueue" if !is_bool(value) => return Err(bad_bool()),
+            "ContentBasedDeduplication" if !fifo => return Err(unknown(name)),
+            "ContentBasedDeduplication" if !is_bool(value) => return Err(bad_bool()),
+            "DeduplicationScope" | "FifoThroughputLimit" if !fifo => {
+                return Err(ApiError::new(
+                    400,
+                    "InvalidAttributeName",
+                    format!("You can specify the {name} only when FifoQueue is set to true."),
+                ));
+            }
+            "DeduplicationScope" if !matches!(value.as_str(), "messageGroup" | "queue") => {
+                return Err(not_supported(name));
+            }
+            "FifoThroughputLimit"
+                if !matches!(value.as_str(), "perQueue" | "perMessageGroupId") =>
+            {
+                return Err(not_supported(name));
+            }
+            _ => {}
+        }
+    }
+    let merged = |name: &str| {
+        req.stored
+            .get(name)
+            .or_else(|| current.get(name))
+            .map(String::as_str)
+    };
+    if merged("FifoThroughputLimit") == Some("perMessageGroupId")
+        && merged("DeduplicationScope") != Some("messageGroup")
+    {
+        return Err(ApiError::new(
+            400,
+            "InvalidAttributeValue",
+            "Invalid value for the parameter FifoThroughputLimit. Reason: To set FifoThroughputLimit to perMessageGroupId, the DeduplicationScope must be messageGroup.",
+        ));
+    }
+    let key = merged("KmsMasterKeyId").is_some_and(|k| !k.is_empty());
+    if key
+        && req
+            .stored
+            .get("SqsManagedSseEnabled")
+            .is_some_and(|v| v.eq_ignore_ascii_case("true"))
+    {
+        return Err(ApiError::new(
+            400,
+            "InvalidAttributeName",
+            "You can use one type of server-side encryption (SSE) at one time. You can either enable KMS SSE or SQS SSE.",
+        ));
+    }
+    Ok(())
+}
+
+fn not_supported(name: &str) -> ApiError {
+    ApiError::new(
+        400,
+        "InvalidAttributeValue",
+        format!("Invalid value for the parameter {name}. Reason: not a supported value."),
+    )
+}
+
+/// The attributes a FIFO queue reports with their defaults when the caller never set them.
+pub(crate) fn fifo_defaults() -> [(&'static str, &'static str); 4] {
+    [
+        ("FifoQueue", "true"),
+        ("ContentBasedDeduplication", "false"),
+        ("DeduplicationScope", "queue"),
+        ("FifoThroughputLimit", "perQueue"),
+    ]
 }
 
 #[cfg(test)]
