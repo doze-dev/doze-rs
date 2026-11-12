@@ -260,6 +260,7 @@ fn what_a_classic_group_had_parked_is_answered_rebalance_in_progress_when_it_is_
 
 mod classic;
 mod classic_join;
+mod differential;
 mod invariants;
 mod invariants_classic;
 mod invariants_steps;
