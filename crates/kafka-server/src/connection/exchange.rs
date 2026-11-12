@@ -1,7 +1,7 @@
 //! One request, from its frame to the end of its answer.
 
 use bytes::Bytes;
-use kafka_broker::{Listener, Outcome};
+use kafka_broker::{Caller, Listener, Outcome};
 use kafka_storage::fs::Fs;
 use kafka_wire::api::{Request, Response};
 use kafka_wire::api_versions;
@@ -31,7 +31,7 @@ struct Answer {
 /// is decoded only for an API it may use.
 pub(super) async fn exchange<S: AsyncWrite + Unpin, F: Fs>(
     stream: &mut S,
-    (ctx, listener): (&Context<F>, &Listener),
+    (ctx, listener, caller): (&Context<F>, &Listener, &Caller),
     session: &mut Option<Session>,
     frame: Bytes,
     stop: &CancellationToken,
@@ -53,7 +53,7 @@ pub(super) async fn exchange<S: AsyncWrite + Unpin, F: Fs>(
         }
     }
     let incoming = Incoming::decode(head, body, ctx.profile, ctx.features).map_err(End::Wire)?;
-    let Some(answer) = answer(ctx, listener, session, incoming, stop).await? else {
+    let Some(answer) = answer(ctx, (listener, caller), session, incoming, stop).await? else {
         return Ok(());
     };
     let fate = answer.fate;
@@ -69,7 +69,7 @@ pub(super) async fn exchange<S: AsyncWrite + Unpin, F: Fs>(
 
 async fn answer<F: Fs>(
     ctx: &Context<F>,
-    listener: &Listener,
+    (listener, caller): (&Listener, &Caller),
     session: &mut Option<Session>,
     incoming: Incoming,
     stop: &CancellationToken,
@@ -96,7 +96,7 @@ async fn answer<F: Fs>(
             request => {
                 // A handler may wait a long time (a long-poll Fetch): stopping the server does not wait for it.
                 let outcome = tokio::select! {
-                    o = ctx.broker.handle(listener, &head, request) => o,
+                    o = ctx.broker.handle(listener, caller, &head, request) => o,
                     () = stop.cancelled() => return Err(End::Stopped),
                 };
                 match outcome {

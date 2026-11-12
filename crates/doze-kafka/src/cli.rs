@@ -1,6 +1,6 @@
 //! The command line.
 //!
-//! The flags that matter are here. The ones of parts that come in later phases (groups, ACLs, the console) are
+//! The flags that matter are here. The ones of parts that come in later phases (the console) are
 //! accepted and ignored, hidden from the help, so that the conformance harness, which passes them all, can run the
 //! scenarios of the parts that exist. A flag that would make the broker safer or different in a way a user would
 //! rely on is refused instead when it cannot be honoured: a broker that ignored `--tls-cert` would send in the
@@ -112,13 +112,17 @@ pub(crate) struct Args {
     #[arg(long, value_name = "USER:PASSWORD")]
     sasl_user: Vec<sasl::Login>,
 
+    /// What a resource that no ACL covers allows: allow (the default, so that a broker with no ACLs refuses nothing)
+    /// or deny (Kafka's own default). ACLs you create are enforced either way.
+    #[arg(long, default_value = "allow")]
+    acl_default: acl::AclDefault,
+    /// A principal that ACLs never refuse, as Type:name such as User:admin (repeatable, or comma separated).
+    #[arg(long, value_name = "PRINCIPAL")]
+    acl_super_user: Vec<String>,
+
     // Accepted and ignored until the phase that has them.
     #[arg(long, hide = true)]
     meta_db: Option<String>,
-    #[arg(long, hide = true)]
-    acl_default: Option<String>,
-    #[arg(long, hide = true, value_delimiter = ',')]
-    acl_super_user: Vec<String>,
     #[arg(long, hide = true, num_args = 0..=1, default_missing_value = "true")]
     console: Option<String>,
     #[arg(long, hide = true)]
@@ -169,6 +173,8 @@ impl Args {
         broker.log_cleaner_every = self.log_cleaner_interval;
         broker.log_cleaner_enable = self.log_cleaner_enable;
         broker.max_open_partitions = self.max_open_partitions;
+        broker.acl_default_allow = self.acl_default == acl::AclDefault::Allow;
+        broker.super_users = acl::super_users(&self.acl_super_user)?;
         broker.defaults = Defaults {
             segment_bytes: self.segment_bytes,
             index_interval_bytes: self.index_interval_bytes,
@@ -232,17 +238,11 @@ impl Args {
         if self.console.as_deref().is_some_and(|v| v != "false") {
             out.push("--console");
         }
-        // Allowing is what happens anyway, so only a flag that asks for more than is done is reported.
-        if self.acl_default.as_deref() == Some("deny") {
-            out.push("--acl-default deny");
-        }
-        if !self.acl_super_user.is_empty() {
-            out.push("--acl-super-user");
-        }
         out
     }
 }
 
+mod acl;
 mod sasl;
 
 #[cfg(test)]

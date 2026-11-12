@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use bytes::BytesMut;
 use kafka_auth::Authenticator;
-use kafka_broker::{Broker, Listener};
+use kafka_broker::{Broker, Caller, Listener};
 use kafka_storage::fs::Fs;
 use kafka_wire::WireError;
 use kafka_wire::frame::{FrameDecoder, Trust};
@@ -74,6 +74,8 @@ pub(crate) async fn serve<S: AsyncRead + AsyncWrite + Unpin, F: Fs>(
 ) -> End {
     // What the broker is told of this connection: where it is from, for the group APIs that show members.
     let listener = peer.map_or_else(|| ctx.listener.clone(), |p| ctx.listener.seen_from(p));
+    // And who it is: nobody in particular until a login says otherwise (and for good, if the server asks for none).
+    let mut caller = Caller::anonymous(peer);
     let mut buf = BytesMut::with_capacity(BUFFER);
     // A broker that wants a login starts every connection as a stranger, held to a small frame and a deadline.
     let mut session = ctx.auth.as_ref().map(|_| Session::new());
@@ -92,7 +94,7 @@ pub(crate) async fn serve<S: AsyncRead + AsyncWrite + Unpin, F: Fs>(
             Ok(frame) => frame,
             Err(end) => return end,
         };
-        let ears = (ctx, &listener);
+        let ears = (ctx, &listener, &caller);
         if let Err(end) = exchange::exchange(&mut stream, ears, &mut session, frame, stop).await {
             return end;
         }
@@ -101,6 +103,7 @@ pub(crate) async fn serve<S: AsyncRead + AsyncWrite + Unpin, F: Fs>(
             login_by = None;
             if let Some(who) = session.as_ref().and_then(Session::principal) {
                 debug!(principal = %who, "logged in");
+                caller = Caller::new(who.clone(), peer);
             }
         }
         if buf.is_empty() && buf.capacity() > KEEP {

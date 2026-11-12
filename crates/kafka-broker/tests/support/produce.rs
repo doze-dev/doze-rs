@@ -47,7 +47,7 @@ impl Rig {
     ) -> kafka_broker::Outcome {
         let head = head(ApiKey::Produce, version);
         self.broker
-            .handle(&at(), &head, Request::Produce(req))
+            .handle(&at(), &super::caller(), &head, Request::Produce(req))
             .await
     }
 

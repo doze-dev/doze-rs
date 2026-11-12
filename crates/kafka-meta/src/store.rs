@@ -1,5 +1,6 @@
 //! The metadata database: one redb file, opened over the file seam.
 
+mod acls;
 mod broker_configs;
 mod lives;
 mod offsets;
@@ -32,6 +33,10 @@ pub(super) const TXNS: TableDefinition<'static, &str, &[u8]> = TableDefinition::
 /// The broker's dynamic configs: `scope/name` to the value as text.
 pub(super) const BROKER_CONFIGS: TableDefinition<'static, &str, &str> =
     TableDefinition::new("broker_configs");
+
+/// The ACLs: the seven fields (the key) to the record. A database made before ACLs existed has no such table, and
+/// the reads below take that as none.
+pub(super) const ACLS: TableDefinition<'static, &[u8], &[u8]> = TableDefinition::new("acls");
 
 pub(super) const COUNTERS: TableDefinition<'static, &str, u64> = TableDefinition::new("counters");
 
@@ -119,6 +124,7 @@ fn make<F: Fs>(fs: &F, dir: &Path, path: &Path) -> Result<(), MetaError> {
     txn.open_table(GROUP_LIVES)?;
     txn.open_table(TXNS)?;
     txn.open_table(BROKER_CONFIGS)?;
+    txn.open_table(ACLS)?;
     txn.commit()?;
     // Closed by name, not by dropping: closing flushes once more, and a flush that fails must stop the
     // file being put in place (a dropped database would swallow it, and the file's later flushes may

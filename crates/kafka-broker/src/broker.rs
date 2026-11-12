@@ -6,14 +6,15 @@ use kafka_meta::MetaStore;
 use kafka_storage::Trust;
 use kafka_storage::fs::{Fs, RealFs};
 use kafka_storage::marker::{StopState, record_clean_stop};
-use kafka_wire::api::{Request, Response};
-use kafka_wire::header::RequestHead;
 use kafka_wire::messages::ApiKey;
 use kafka_wire::profile::ApiSet;
 
+use crate::authorizer::Authorizer;
 use crate::groups::{ConsumerConfig, Groups, Settings, member_ids};
 use crate::partitions::Partitions;
-use crate::{BrokerError, Config, Listener, Outcome, blocking};
+use crate::{BrokerError, Config, blocking};
+
+mod dispatch;
 
 /// The APIs this broker has a handler for. ApiVersions advertises exactly these (and only those the Kafka
 /// version being stood for offers), and a request for any other is not accepted. A phase adds the APIs it
@@ -53,6 +54,9 @@ const SERVED: &[ApiKey] = &[
     ApiKey::TxnOffsetCommit,
     ApiKey::DescribeTransactions,
     ApiKey::ListTransactions,
+    ApiKey::DescribeAcls,
+    ApiKey::CreateAcls,
+    ApiKey::DeleteAcls,
 ];
 
 /// The broker, over a file system (the real one, or a simulated disk in tests).
@@ -79,6 +83,11 @@ pub struct Broker<F: Fs = RealFs> {
     /// Held for the whole of a change to the configs of a topic or of the broker: what is changed is worked out from what
     /// is there, so two changes at once would each be worked out from the same old configs and one would undo the other.
     pub(crate) config_admin: tokio::sync::Mutex<()>,
+    /// What the ACLs allow each caller to do: the set in force, and the rules to apply it with.
+    pub(crate) authz: Authorizer,
+    /// Held for the whole of a change to the ACLs, from the set it starts from to the one swapped in: a change is
+    /// worked out from the ACLs there are, so two at once would each start from the same set and one would be lost.
+    pub(crate) acl_admin: tokio::sync::Mutex<()>,
     /// Set when the broker is stopping: a round of cleaning that is running gives up (it is looked at between batches).
     pub(crate) stop_cleaning: Arc<std::sync::atomic::AtomicBool>,
 }
@@ -101,6 +110,11 @@ impl<F: Fs> Broker<F> {
             defaults.clone(),
             stop.clone(),
             Arc::clone(&meta),
+        );
+        let authz = Authorizer::new(
+            meta.acls()?,
+            config.acl_default_allow,
+            config.super_users.clone(),
         );
         let millis = |d: std::time::Duration| u64::try_from(d.as_millis()).unwrap_or(u64::MAX);
         let meta_txns = meta.txns()?;
@@ -128,6 +142,8 @@ impl<F: Fs> Broker<F> {
             stop,
             topic_admin: tokio::sync::Mutex::new(()),
             config_admin: tokio::sync::Mutex::new(()),
+            authz,
+            acl_admin: tokio::sync::Mutex::new(()),
             stop_cleaning: Arc::default(),
         })
     }
@@ -168,96 +184,6 @@ impl<F: Fs> Broker<F> {
     #[must_use]
     pub fn served(&self) -> ApiSet {
         ApiSet::of(SERVED)
-    }
-
-    /// Handles one request. ApiVersions never gets here: the connection answers it from the version profile,
-    /// before the connection is known to be allowed anything else.
-    #[expect(
-        clippy::cognitive_complexity,
-        reason = "an exhaustive match over every API, with no wildcard, so that an API with no handler does not compile"
-    )]
-    pub async fn handle(
-        &self,
-        listener: &Listener,
-        head: &RequestHead,
-        request: Request,
-    ) -> Outcome {
-        match request {
-            Request::Metadata(r) => {
-                let (answer, wanted) = blocking::run(|| self.metadata(listener, &r, head.version));
-                self.create_wanted(wanted).await;
-                respond(Response::Metadata(answer))
-            }
-            Request::CreateTopics(r) => {
-                respond(Response::CreateTopics(self.create_topics(&r).await))
-            }
-            Request::DeleteTopics(r) => {
-                respond(Response::DeleteTopics(self.delete_topics(&r).await))
-            }
-            Request::Produce(r) => self.produce(head.version, r).await,
-            Request::Fetch(r) => self.fetch(head.version, r).await,
-            Request::ListOffsets(r) => respond(Response::ListOffsets(
-                self.list_offsets(head.version, &r).await,
-            )),
-            Request::FindCoordinator(r) => respond(Response::FindCoordinator(
-                self.find_coordinator(head.version, listener, &r),
-            )),
-            Request::JoinGroup(r) => {
-                self.join_group(head.version, &client_of(listener, head), &r)
-                    .await
-            }
-            Request::SyncGroup(r) => self.sync_group(&r).await,
-            Request::Heartbeat(r) => self.heartbeat(&r).await,
-            Request::LeaveGroup(r) => self.leave_group(head.version, &r).await,
-            Request::OffsetCommit(r) => self.offset_commit(head.version, &r).await,
-            Request::OffsetFetch(r) => self.offset_fetch(&r).await,
-            Request::OffsetDelete(r) => self.offset_delete(&r).await,
-            Request::DescribeGroups(r) => self.describe_groups(&r).await,
-            Request::ListGroups(r) => self.list_groups(&r).await,
-            Request::DeleteGroups(r) => self.delete_groups(&r).await,
-            Request::ConsumerGroupHeartbeat(r) => {
-                self.consumer_group_heartbeat(head.version, &client_of(listener, head), &r)
-                    .await
-            }
-            Request::ConsumerGroupDescribe(r) => self.consumer_group_describe(&r).await,
-            Request::DeleteRecords(r) => self.delete_records(&r).await,
-            Request::CreatePartitions(r) => self.create_partitions(&r).await,
-            Request::DescribeConfigs(r) => self.describe_configs(&r),
-            Request::AlterConfigs(r) => self.alter_configs(&r).await,
-            Request::IncrementalAlterConfigs(r) => self.incremental_alter_configs(&r).await,
-            Request::DescribeProducers(r) => self.describe_producers(&r).await,
-            Request::InitProducerId(r) => respond(Response::InitProducerId(
-                self.init_producer_id(head.version, &r).await,
-            )),
-            Request::AddPartitionsToTxn(r) => self.add_partitions_to_txn(head.version, &r).await,
-            Request::AddOffsetsToTxn(r) => self.add_offsets_to_txn(head.version, &r).await,
-            Request::EndTxn(r) => self.end_txn_request(head.version, &r).await,
-            Request::TxnOffsetCommit(r) => self.txn_offset_commit(&r).await,
-            Request::DescribeTransactions(r) => self.describe_transactions(&r).await,
-            Request::ListTransactions(r) => self.list_transactions(&r).await,
-            // Not served yet. Each moves out of this arm into a handler when its phase lands.
-            Request::ApiVersions(_)
-            | Request::SaslHandshake(_)
-            | Request::DescribeAcls(_)
-            | Request::CreateAcls(_)
-            | Request::DeleteAcls(_)
-            | Request::SaslAuthenticate(_)
-            | Request::DescribeCluster(_)
-            | Request::GetTelemetrySubscriptions(_)
-            | Request::PushTelemetry(_) => Outcome::Close,
-        }
-    }
-}
-
-fn respond(response: Response) -> Outcome {
-    Outcome::Respond(response)
-}
-
-/// The client of a request: its own name, and where it connected from.
-fn client_of<'a>(listener: &'a Listener, head: &'a RequestHead) -> crate::handlers::Client<'a> {
-    crate::handlers::Client {
-        id: head.client_id.as_deref().unwrap_or(""),
-        host: &listener.client_host,
     }
 }
 

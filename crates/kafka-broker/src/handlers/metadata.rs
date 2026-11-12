@@ -1,5 +1,6 @@
 //! Metadata: this broker, and the topics it has.
 
+use kafka_auth::authz::{CLUSTER_NAME, operation, resource};
 use kafka_meta::Topic;
 use kafka_storage::fs::Fs;
 use kafka_wire::ResponseError;
@@ -13,7 +14,16 @@ use kafka_wire::messages::{BrokerId, MetadataRequest, MetadataResponse, TopicNam
 use tracing::warn;
 
 use super::create_topics::name_message;
-use crate::{Broker, Listener};
+use crate::{Broker, Caller, Listener};
+
+/// Where an entry goes in the answer. Kafka lists what the caller may see first (in the order asked), then the
+/// topics it may describe but not create, then those it may not describe.
+#[derive(Clone, Copy)]
+enum Place {
+    Listed,
+    CreateDenied,
+    DescribeDenied,
+}
 
 impl<F: Fs> Broker<F> {
     /// Describes the single-node cluster: this broker is every partition's leader, the controller, and the only
@@ -21,9 +31,15 @@ impl<F: Fs> Broker<F> {
     ///
     /// Topics a client asked for that do not exist and may be created are returned beside the answer: they are made
     /// after it, and under the lock that serializes topic creation and deletion (see [`Broker::create_wanted`]).
+    ///
+    /// What `caller` may see is what it may DESCRIBE: a list of all topics holds only those, and a topic asked for
+    /// that it may not is answered 29 with its name and nothing else, whether it exists or not. A missing topic is
+    /// created for a caller that may CREATE it, on the cluster or on the topic; for one that may not, the answer is 29
+    /// and nothing is made.
     pub(crate) fn metadata(
         &self,
         at: &Listener,
+        caller: &Caller,
         req: &MetadataRequest,
         version: i16,
     ) -> (MetadataResponse, Vec<TopicName>) {
@@ -45,6 +61,7 @@ impl<F: Fs> Broker<F> {
                 .meta
                 .topics()
                 .iter()
+                .filter(|t| self.can_describe(caller, t.name.as_ref()))
                 .map(|t| self.described(t))
                 .collect();
             return (resp, Vec::new());
@@ -52,52 +69,96 @@ impl<F: Fs> Broker<F> {
         // Kafka before v4 never said whether a client wanted a topic created: it always did.
         let may_create = req.allow_auto_topic_creation || version < 4;
         let mut wanted = Vec::new();
+        let (mut create_denied, mut describe_denied) = (Vec::new(), Vec::new());
         for asked in req.topics.iter().flatten() {
-            resp.topics
-                .push(self.one_topic(asked, may_create, &mut wanted));
+            match self.one_topic(caller, asked, may_create, &mut wanted) {
+                (Place::Listed, t) => resp.topics.push(t),
+                (Place::CreateDenied, t) => create_denied.push(t),
+                (Place::DescribeDenied, t) => describe_denied.push(t),
+            }
         }
+        resp.topics.extend(create_denied);
+        resp.topics.extend(describe_denied);
         (resp, wanted)
     }
 
     fn one_topic(
         &self,
+        caller: &Caller,
         asked: &MetadataRequestTopic,
         may_create: bool,
         wanted: &mut Vec<TopicName>,
-    ) -> MetadataResponseTopic {
+    ) -> (Place, MetadataResponseTopic) {
         let Some(raw) = asked.name.as_ref().map(|n| &*n.0) else {
-            return self.topic_by_id(asked);
+            return self.topic_by_id(caller, asked);
         };
+        // Before the topic is looked for: a caller that may not describe it is not told whether it is there.
+        if !self.can_describe(caller, raw) {
+            let denied = failed(Some(raw), ResponseError::TopicAuthorizationFailed);
+            return (Place::DescribeDenied, denied);
+        }
         let name = match TopicName::parse(raw) {
             Ok(name) => name,
             // The difference between "unknown" and "invalid" tells a client its request can never succeed.
             Err(e) => {
                 warn!(topic = raw, why = %name_message(e, raw), "metadata asked for an invalid topic name");
-                return failed(Some(raw), ResponseError::InvalidTopicException);
+                let invalid = failed(Some(raw), ResponseError::InvalidTopicException);
+                return (Place::Listed, invalid);
             }
         };
         if let Some(topic) = self.meta.topic(&name) {
-            return self.described(&topic);
+            return (Place::Listed, self.described(&topic));
         }
         if may_create && self.config.auto_create_topics {
+            if !self.can_create(caller, raw) {
+                let denied = failed(Some(raw), ResponseError::TopicAuthorizationFailed);
+                return (Place::CreateDenied, denied);
+            }
             wanted.push(name);
         }
         // Kafka creates the topic after it has answered: the request that asked for it is told it does not exist
         // and the next one finds it. Answering with the new topic would hide, from a client that cannot cope
         // with that first answer, what it will meet there.
-        failed(Some(raw), ResponseError::UnknownTopicOrPartition)
+        let missing = failed(Some(raw), ResponseError::UnknownTopicOrPartition);
+        (Place::Listed, missing)
     }
 
-    fn topic_by_id(&self, asked: &MetadataRequestTopic) -> MetadataResponseTopic {
+    /// A topic asked for by id. The id of a topic that exists is not a secret, so one the caller may not describe is
+    /// answered 29 with the id and no name.
+    fn topic_by_id(
+        &self,
+        caller: &Caller,
+        asked: &MetadataRequestTopic,
+    ) -> (Place, MetadataResponseTopic) {
         let id = TopicId::from_uuid(asked.topic_id);
-        match id.and_then(|id| self.meta.topic_by_id(id)) {
-            Some(topic) => self.described(&topic),
-            None => {
-                let mut r = failed(None, ResponseError::UnknownTopicId);
-                r.topic_id = asked.topic_id;
-                r
+        let (place, mut r) = match id.and_then(|id| self.meta.topic_by_id(id)) {
+            Some(topic) if self.can_describe(caller, topic.name.as_ref()) => {
+                (Place::Listed, self.described(&topic))
             }
+            Some(_) => (
+                Place::DescribeDenied,
+                failed(None, ResponseError::TopicAuthorizationFailed),
+            ),
+            None => (Place::Listed, failed(None, ResponseError::UnknownTopicId)),
+        };
+        if r.error_code != 0 {
+            r.topic_id = asked.topic_id;
         }
+        (place, r)
+    }
+
+    fn can_describe(&self, caller: &Caller, topic: &str) -> bool {
+        self.authz
+            .allows(caller, resource::TOPIC, topic, operation::DESCRIBE)
+    }
+
+    /// CREATE on the cluster covers every topic; failing that, CREATE on the topic itself.
+    fn can_create(&self, caller: &Caller, topic: &str) -> bool {
+        self.authz
+            .allows(caller, resource::CLUSTER, CLUSTER_NAME, operation::CREATE)
+            || self
+                .authz
+                .allows(caller, resource::TOPIC, topic, operation::CREATE)
     }
 
     /// Makes the topics that Metadata requests asked for and found missing, one at a time, under the topic lock. One that

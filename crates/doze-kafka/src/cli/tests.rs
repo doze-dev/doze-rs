@@ -32,9 +32,16 @@ fn the_flags_the_conformance_harness_passes_are_all_accepted() {
     let parsed = args(&passed).unwrap();
     let settings = parsed.settings().unwrap();
     assert_eq!(settings.server.listen.port(), 45123);
+    assert_eq!(parsed.ignored(), ["--console"]);
+    assert!(!settings.broker.acl_default_allow);
     assert_eq!(
-        parsed.ignored(),
-        ["--console", "--acl-default deny", "--acl-super-user"]
+        settings
+            .broker
+            .super_users
+            .iter()
+            .map(String::as_str)
+            .collect::<Vec<_>>(),
+        ["User:admin", "User:root", "User:x"]
     );
 }
 
@@ -190,15 +197,48 @@ fn the_password_of_a_user_is_in_no_debug_output_of_the_arguments_or_the_settings
 }
 
 #[test]
-fn the_acl_flags_that_would_matter_are_reported_as_ignored_until_they_are_enforced() {
+fn the_acl_flags_set_what_the_broker_enforces_and_nothing_is_ignored() {
+    let open = args(&[]).unwrap().settings().unwrap().broker;
+    assert!(open.acl_default_allow && open.super_users.is_empty());
     let parsed = args(&["--acl-default", "deny", "--acl-super-user", "User:admin"]).unwrap();
-    assert_eq!(parsed.ignored(), ["--acl-default deny", "--acl-super-user"]);
-    assert!(
-        args(&["--acl-default", "allow"])
+    assert!(parsed.ignored().is_empty());
+    let broker = parsed.settings().unwrap().broker;
+    assert!(!broker.acl_default_allow);
+    assert_eq!(broker.super_users.len(), 1);
+    let allow = args(&["--acl-default", "allow"])
+        .unwrap()
+        .settings()
+        .unwrap();
+    assert!(allow.broker.acl_default_allow);
+}
+
+#[test]
+fn a_bad_acl_default_or_super_user_is_refused_in_the_go_editions_words() {
+    for bad in ["Allow", "", "yes", "deny "] {
+        let message = args(&["--acl-default", bad]).unwrap_err().to_string();
+        assert!(
+            message.contains("must be \"allow\" or \"deny\""),
+            "{bad:?}: {message}"
+        );
+    }
+    for bad in ["admin", "User:", ":admin", "User:ok,alice", ":"] {
+        let message = args(&["--acl-super-user", bad])
             .unwrap()
-            .ignored()
-            .is_empty()
-    );
+            .settings()
+            .unwrap_err()
+            .to_string();
+        assert!(
+            message.contains("must be written Type:name"),
+            "{bad:?}: {message}"
+        );
+    }
+    // Blanks between commas are dropped, as Kafka drops them from super.users.
+    let broker = args(&["--acl-super-user", "User:a, ,User:b,"])
+        .unwrap()
+        .settings()
+        .unwrap()
+        .broker;
+    assert_eq!(broker.super_users.len(), 2);
 }
 
 #[test]

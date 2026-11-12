@@ -7,7 +7,7 @@
     clippy::indexing_slicing
 )]
 
-use super::{Rig, at, head};
+use super::{Rig, at, caller, head};
 use bytes::Bytes;
 use kafka_broker::Outcome;
 use kafka_wire::StrBytes;
@@ -55,7 +55,7 @@ impl Rig {
     pub async fn join_outcome(&self, version: i16, req: JoinGroupRequest) -> Outcome {
         let request = Request::JoinGroup(req);
         self.broker
-            .handle(&at(), &head(request.api_key(), version), request)
+            .handle(&at(), &caller(), &head(request.api_key(), version), request)
             .await
     }
 

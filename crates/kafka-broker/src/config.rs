@@ -1,5 +1,6 @@
 //! What the broker is told at start.
 
+use std::collections::BTreeSet;
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -80,6 +81,11 @@ pub struct Config {
     /// The least time between two computations of a consumer group's target assignment (Kafka's
     /// `group.consumer.assignment.interval.ms`).
     pub consumer_assignment_interval: Duration,
+    /// What a resource that no ACL covers allows (`allow.everyone.if.no.acl.found`): true, so that a broker with no
+    /// ACLs refuses nothing. False is Kafka's own default.
+    pub acl_default_allow: bool,
+    /// Principals no ACL refuses anything (`super.users`), each as `Type:name`.
+    pub super_users: BTreeSet<String>,
 }
 
 impl Config {
@@ -107,6 +113,8 @@ impl Config {
             offsets_check_every: None,
             consumer_session_timeout: Duration::from_secs(45),
             consumer_assignment_interval: Duration::from_secs(1),
+            acl_default_allow: true,
+            super_users: BTreeSet::new(),
         }
     }
 }

@@ -268,5 +268,7 @@ fn a_second_broker_on_the_same_data_directory_is_refused() {
     let _ = std::fs::remove_dir_all(&data);
 }
 
+#[path = "process/acl.rs"]
+mod acl;
 #[path = "process/sasl.rs"]
 mod sasl;

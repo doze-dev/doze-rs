@@ -1,11 +1,15 @@
-# Security: SASL login (Phase 8)
+# Security: SASL login and ACLs (Phase 8)
 
-Slice 8a: SASL/PLAIN and the login session. (ACLs are slice 8b, SCRAM 8c, the authorization matrix 8d, TLS 8e: their rules join
-this file when they land.) What Apache Kafka 4.3.1 does, and the test that holds each. The source is the recordings
+Slice 8a: SASL/PLAIN and the login session (SEC-1 to SEC-15). Slice 8b: the authorizer, the three ACL APIs, and the first two
+handler checks, Metadata and InitProducerId (SEC-16 to SEC-30). (SCRAM is slice 8c, the authorization matrix 8d, TLS 8e: their
+rules join this file when they land.) What Apache Kafka 4.3.1 does, and the test that holds each. The source is the recordings
 (`conformance/recordings/sasl-plain.json`, the step names are the oracle's) where there is one, else Kafka 4.3.1's own source,
 read by item (`SaslServerAuthenticator` SSA, `PlainSaslServer`, `SocketServer`; the line numbers are in
 `phase8/kafka-semantics.md` 3.1 to 3.9 and 6): **(source)** marks those. The pure parts are in `crates/kafka-auth`, the login
-order in `crates/kafka-server/src/session*`, the flags in `crates/doze-kafka/src/cli/sasl.rs`.
+order in `crates/kafka-server/src/session*`, the flags in `crates/doze-kafka/src/cli/sasl.rs` and `cli/acl.rs`. The authorizer is
+`crates/kafka-auth/src/authz*` (pure), its stored form `crates/kafka-meta/src/{acl.rs,store/acls.rs}`, and its use
+`crates/kafka-broker/src/{authorizer.rs,caller.rs,handlers/*_acls.rs}`. Kafka source abbreviations are those of `phase8/kafka-semantics.md`
+(SAD = `StandardAuthorizerData.java`, KA = `KafkaApis.scala`, ACM = `AclControlManager.java`).
 
 ## SEC-1. SASL is opt-in; without it nothing changes
 No `--sasl-*` flag: no `Session` is made, the decoder trusts every connection, the connection loop has no extra branch, ApiVersions
@@ -122,12 +126,140 @@ canonical, padded) are in-tree on top of it, pinned by RFC 4231 (HMAC), FIPS 180
 SHA-256 and SHA-512, the RFC 7677 example's salted password, RFC 4648 base64 vectors, and a differential test against the `pbkdf2` crate
 (a dev-dependency). Unused by PLAIN: they exist for SCRAM (8c). Test: `kafka-auth crypto::tests::*`, `crypto::pbkdf2::tests::*`, `crypto::base64::tests::*`.
 
-## The oracle, slice 8a (2026-11-12)
-`sasl-plain` cannot be replayed whole yet: its fixture needs CreateACLs/DescribeACLs (slice 8b). With the fixture's ACL step made a no-op
+## The oracle, slice 8a (2026-11-12; superseded by 8b below)
+`sasl-plain` could not be replayed whole then: its fixture needs CreateACLs/DescribeACLs (slice 8b). With the fixture's ACL step made a no-op
 in a scratch copy of the harness, every login step of the 41 connections matches the recording (handshake, token, 33, 34, 58 with the
 exact texts, every close) except: `fixture-acls` (ACL API), and the 13 `*-who` Metadata probes that expect `for-bob` (or `for-alice`) to be
 error 29 (needs ACLs). The steps `request-before-token-who` and the three ApiVersions list steps are the Go edition's own known
 differences (SEC-D1 and the API list) and are not reported for a foreign binary.
+
+## The oracle, slice 8b (2026-11-12)
+`sasl-plain` now passes whole (its fixture's CreateAcls works and the 13 `*-who` probes answer 29, in Kafka's order of authorized topics
+first), as do `acl-unknown-codes` (all 77 steps: the closes, the -1 answers, the 42 texts) and `idempotent-write-from-topic-write`.
+`version-matrix` differs in no ACL row: DescribeAcls v1 to v3 with a 0 in the filter closes, and CreateAcls and DeleteAcls with an empty
+list answer an empty list; it still differs on DescribeCluster v0 to v2, GetTelemetrySubscriptions v0 and PushTelemetry v0 (Phase 9).
+
+## SEC-16. Who is checked, and when there is no SASL (decision D4; **deviation SEC-D7**)
+Every request is authorized as the connection's principal: `User:<user>` after a login, `User:ANONYMOUS` for a connection that never logged
+in (SASL off, or a broker started without it). The ACL APIs work and ACLs are enforced on a broker with no SASL; real Kafka with no
+authorizer answers SECURITY_DISABLED (54) and enforces nothing. With the default `--acl-default allow` and no ACL stored, nothing is
+refused, so a broker that uses none of this behaves as it did at the close of Phase 7 (a check is one atomic load and a length test:
+`Authorizer::allows`). Test: `kafka-server tests/acl::without_sasl_the_connection_is_the_anonymous_user_and_the_acls_bind_it`,
+`tests/acl::what_a_login_proves_is_what_the_acls_are_checked_against`, `kafka-broker tests/acls_access::with_no_sasl_the_anonymous_principal_is_checked_like_any_other`;
+the allow-all path is proved by every pre-existing broker, server and interop test passing unchanged.
+
+## SEC-17. The principal and the host that are matched (SAD:463-469, 492)
+An ACL's principal matches the session principal exactly (type and name, case-sensitive) or is the string `User:*`, which matches a
+principal of any type; `Group:*` is no wildcard. An ACL's host is `*` or the same text as the client's address: no CIDR, no prefix, no
+hostname. The address is written as Java's `getHostAddress` writes it (an IPv4-mapped IPv6 address is the IPv4 one; IPv6 is eight
+unshortened hexadecimal groups, `0:0:0:0:0:0:0:1`, so an ACL written `::1` never matches, as in Kafka). A connection with no peer address
+(a test) matches only `*`. Test: `kafka-auth authz::tests::the_wildcard_principal_is_exactly_user_star`, `..::names::a_host_is_star_or_the_same_text`,
+`kafka-broker caller::tests::*`, `tests/authz_metadata_rules::an_acl_for_a_host_applies_to_that_address_only`.
+
+## SEC-18. Which ACLs cover a resource, and the default (SAD:310-364, 422, 584-594)
+An ACL covers a resource of its type whose name it names exactly (LITERAL), or starts with its name (PREFIXED), or every resource of the type
+(LITERAL `*`). A LITERAL ACL whose name is only a prefix of the resource's covers nothing. Types are separate namespaces. **The default
+(`--acl-default`, Kafka's `allow.everyone.if.no.acl.found`) applies only when no ACL covers the resource, whoever it is for, whatever
+host or operation it names**; one ACL for anybody on a topic (or a prefix or the wildcard covering it) turns the default off for that topic,
+and the rest are refused. Test: `authz::tests::the_default_applies_only_to_a_resource_no_acl_covers`, `..::names::literal_prefixed_and_wildcard_names`,
+`..::names::the_cluster_resource_has_its_own_namespace`, `kafka-broker tests/authz_metadata_rules::the_default_applies_only_to_a_topic_nothing_covers`,
+`tests/authz_metadata_rules::prefixes_wildcards_and_the_any_user_are_honoured`.
+
+## SEC-19. DENY wins, and super users bypass everything (SAD:236-238, 424-429, 584-594)
+In order: a super user (`--acl-super-user`, the whole principal string) is allowed, DENY ACLs and the default notwithstanding; else any
+covering DENY that matches the principal, host and operation refuses, wherever it is found (a specific name, a prefix, or the wildcard,
+before or after the ALLOW); else any matching ALLOW permits; else the default if no ACL covers the resource; else refused. Test:
+`authz::tests::deny_wins_over_allow_whatever_the_order`, `..::a_super_user_bypasses_every_acl_including_a_deny`, the model test (SEC-29).
+
+## SEC-20. Operations: ALLOW implies, DENY is exact (SAD:495-520)
+ALL matches every operation, in an ALLOW and in a DENY. An ALLOW of READ, WRITE, DELETE, ALTER or DESCRIBE grants DESCRIBE; an ALLOW of
+ALTER_CONFIGS grants DESCRIBE_CONFIGS; any other operation must be equal (CREATE, IDEMPOTENT_WRITE and the rest imply nothing). A DENY is
+exact: DENY READ does not deny DESCRIBE, and an ALLOW READ still describes. Test: `authz::tests::a_deny_is_exact_and_an_allow_implies`,
+`kafka-broker tests/authz_metadata_rules::read_write_delete_and_alter_imply_describe_but_a_deny_is_exact`.
+
+## SEC-21. Kafka's asterisk quirk, kept (SAD:354-362, 398-405)
+Kafka's walk of the ACLs skips a LITERAL ACL whose name is a prefix of the resource's name, and that includes the wildcard `*` for a
+resource whose name starts with an asterisk and is not just `*` (a group or transactional id called `*x`): the wildcard does not cover
+it. Topic names cannot start so; a group id or transactional id can. Found by the model test (SEC-29) and kept for parity. Test:
+`authz::tests::names::literal_prefixed_and_wildcard_names` (the `*x` lines).
+
+## SEC-22. `authorizeByResourceType`, for InitProducerId (Authorizer.java 184-293)
+May the principal do an operation on at least one resource of a type? First the operation on a resource called `hardcode` is authorized
+as usual (so super users pass, and so does everyone when the default allows and no ACL covers that name). Then the ACLs of the type for
+this principal and host whose operation is equal or ALL (nothing implied) are collected: a DENY of `*` refuses at once; an ALLOW of `*`
+permits; an ALLOW of a name or prefix permits unless a DENY of the same name (literal against literal) or of a prefix of it (itself
+included) dominates it. Test: `authz::tests::by_type::*` (one test per sentence), the model test (SEC-29).
+
+## SEC-23. The ACL APIs: a 0 closes first, then who may use them
+In every one of CreateAcls, DeleteAcls and DescribeAcls a raw code of 0 (UNKNOWN) in a resource type, pattern type, operation or
+permission closes the connection before anything is authorized or stored (recorded: `*-0` steps); only the number 0 counts, so 99 and -1
+are read later. Then CreateAcls and DeleteAcls need ALTER on the cluster `kafka-cluster`, DescribeAcls DESCRIBE: a caller without it is
+CLUSTER_AUTHORIZATION_FAILED (31) on every result (DescribeAcls: top level; its `ErrorMessage` stays `""`). Test:
+`kafka-broker tests/acls_access::a_caller_with_nothing_on_the_cluster_is_refused_with_31_everywhere`,
+`..::describe_and_alter_on_the_cluster_open_the_apis_one_by_one_and_a_deny_closes_them`, `tests/acls::the_recorded_filter_steps_describe_and_delete`.
+
+## SEC-24. CreateAcls (recorded `acl-unknown-codes`; ACM:95-177, AclApis:84-138)
+After the close and the cluster check: a code only a filter can have (resource type ANY, pattern type ANY or MATCH, operation ANY,
+permission ANY) in any creation fails every result with -1 (UNKNOWN_SERVER_ERROR) and no message, as a request Kafka cannot build. Then each
+creation in turn, answered 42 (INVALID_REQUEST): CLUSTER with a name other than `kafka-cluster` ("The only valid name for the CLUSTER
+resource is kafka-cluster"); an empty name ("Invalid empty resource name"); a resource type, pattern type, operation or permission that is no
+value ("Invalid resourceType UNKNOWN", "Invalid patternType UNKNOWN" (only LITERAL and PREFIXED), "Invalid operation UNKNOWN", "Invalid
+permissionType UNKNOWN"); a principal with no colon ("Could not parse principal from \`x\` (no colon is present separating the principal type
+from the principal name)"). Nothing else is checked (the host may be empty, the principal `User:`, an operation meaningless for the type).
+A success is 0 with the **empty** message; one stored already or twice in the request is stored once and succeeds; the stored ACLs are one
+write, and the next request sees them. Test: `kafka-auth authz::tests::validate::{a_code_of_zero_is_found_in_each_field,any_and_match_cannot_be_created_at_all,a_creation_is_refused_in_kafkas_words_and_order,nothing_else_is_validated}`,
+`kafka-broker tests/acls::{the_recorded_create_steps_good_and_the_zeros,the_recorded_create_steps_any_and_the_codes_that_are_none,one_bad_item_in_a_request_decides_as_kafka_decides,the_other_refusals_of_a_creation_are_kafkas_words}`,
+`tests/acls_use::acls_are_listed_by_resource_and_come_back_as_sent`.
+
+## SEC-25. DeleteAcls (ACM:179-226)
+Each filter is judged against the ACLs as they were before the request: two filters that select the same ACL both list it and it is
+removed once, in one write. A filter whose resource type or pattern type is no value is 42 "Unknown patternFilter."; whose operation or
+permission is none, 42 "Unknown entryFilter." (the pattern half first). A filter that selects nothing succeeds with an empty list and **no**
+message (null, unlike CreateAcls and DescribeAcls). More than 10,000 ACLs removed by one request fail every filter with 42 "Cannot remove
+more than 10000 acls in a single delete operation." Test: `kafka-auth authz::tests::validate::a_filter_is_checked_in_two_halves`,
+`kafka-broker tests/acls::the_recorded_filter_steps_describe_and_delete`, `tests/acls_use::delete_lists_what_each_filter_matched_and_removes_it_once`.
+
+## SEC-26. DescribeAcls and the filter (ResourcePatternFilter.matches, AccessControlEntryFilter.matches)
+The answer is grouped by resource (type, name, pattern) and sorted (Kafka's order is a hash map's; a client sorts; tests compare sorted).
+`ErrorMessage` is `""`. A filter with a code that is no value (99, -1) matches nothing and is not an error. The filter: ANY and null match
+everything; strings are exact and case-sensitive (a filter host of `*` matches only ACLs whose host is the literal `*`); a name compares
+with equals when the filter pattern is ANY or the ACL's own (a PREFIXED filter does no prefix matching on PREFIXED ACLs); MATCH
+means "which ACLs apply to a resource of that name": the literal, the `*` literal, and the prefixes it starts. Test:
+`authz::tests::validate::{the_any_filter_matches_everything_and_nulls_are_any,a_name_filter_is_exact_unless_the_pattern_is_match,a_host_filter_star_matches_only_acls_whose_host_is_star}`,
+`tests/acls_use::a_filter_selects_by_each_field_and_match_means_which_apply`; fuzz target `acl_filter` (`// fuzz:parser acl_filter`, in
+`crates/kafka-auth/fuzz`; 1.6 million runs of it were clean when it was written).
+
+## SEC-27. Metadata (KA:880-1002; recorded `sasl-plain` identity probe)
+DESCRIBE on each topic asked for, checked **before** the topic is looked for, so a topic that does not exist is hidden exactly like one
+that does. A topic the caller may not describe is answered 29 with its name kept, no partitions, `IsInternal` false and a zero topic id
+(by id: no name, the id the cache knows); a list of all topics (null; at v0 also empty) holds only the topics it may describe, with no
+denied entries. Order of the answer, as Kafka's: what the caller may see in the order asked, then topics it may describe but not create,
+then those it may not describe (Kafka's order beyond four topics is a Scala set's; this one stays in request order within a group).
+Auto-creation of a missing topic that may be described needs CREATE on the cluster or on the topic, else the entry is 29 and nothing is
+made. Test: `kafka-broker tests/authz_metadata::the_recorded_identity_probe`, `..::a_topic_that_does_not_exist_is_hidden_the_same_way`,
+`..::a_list_of_all_topics_shows_only_those_the_caller_may_describe`, `..::by_id_a_denied_topic_is_29_with_the_id_and_no_name`,
+`tests/authz_metadata_rules::a_missing_topic_is_made_only_for_a_caller_that_may_create_it`.
+
+## SEC-28. InitProducerId (KA:1603-1666; recorded `idempotent-write-from-topic-write`)
+Checked first, before the id is judged. With a transactional id: WRITE on that id, else 53. With none: IDEMPOTENT_WRITE on the cluster, or
+`authorizeByResourceType(WRITE, TOPIC)` (SEC-22), else 31, so a principal that may write to any topic may be given a producer id. The
+refusal is the whole answer (producer id -1, epoch -1) and leaves no mark on the transactional id. Test: `kafka-broker tests/authz_init_producer_id::*`.
+
+## SEC-29. The authorizer is checked against a transcription of Kafka's
+`kafka-auth/tests/authz_model`: `StandardAuthorizerData.authorize`/`findAclRule`/`checkSection`/`findResult`/`MatchingRuleBuilder` and `authorizeByResourceType`
+transcribed (the ACLs kept in `StandardAcl.compareTo` order and walked from an exemplar with the jump to a shorter prefix), run against
+the real one on 6,000 random ACL sets of up to 13 ACLs, 30 random requests each, for both procedures (`AUTHZ_MODEL_SEEDS` sets the number); a
+second test counts that the random sets reach each branch. It found SEC-21. Test: `the_authorizer_agrees_with_kafkas_algorithm_on_random_acl_sets`,
+`the_random_sets_reach_every_branch_of_the_decision`.
+
+## SEC-30. Where ACLs live
+The seven fields as the wire carried them (so a client reads back what it stored), a version byte and postcard, in the table `acls` of the
+metadata database, keyed by the fields so a repeat lands on the same row; a database made before the table existed reads as no ACLs. A change
+is built from the set in force, written in one transaction under the store's write lock, then swapped in (an `ArcSwap` snapshot) while the
+broker's ACL lock is held, so two changes at once lose nothing and a failed write leaves the set as it was. The set is loaded at open. Test:
+`kafka-meta store::acls::tests::*`, the crash workload (`tests/crash`, adds and removes under every power cut),
+`kafka-broker tests/acls_access::{acls_outlive_a_restart_and_still_decide,changes_at_once_lose_nothing}`. Flags: `--acl-default allow|deny` (default
+`allow`), `--acl-super-user Type:name` (see `binary.md` B4).
 
 ## Deviations
 - **SEC-D1.** A request in the middle of a login other than ApiVersions and SaslHandshake closes unanswered; Kafka answers it in its
@@ -138,3 +270,15 @@ differences (SEC-D1 and the API list) and are not reported for a foreign binary.
 - **SEC-D5.** Passwords are not zeroed on drop (no `zeroize` dependency; the weight rule). They live in the process for its life and are
   never printed.
 - **SEC-D6.** `Session::Unauthenticated` carries a flag (`versions_answered`) that the plan's enum did not (SEC-12 needs it).
+- **SEC-D7.** The ACL APIs and the authorizer work with SASL off, enforced for `User:ANONYMOUS` (decision D4, the Go edition's behaviour).
+  Kafka without an authorizer answers SECURITY_DISABLED (54) and enforces nothing.
+- **SEC-D8.** A CLUSTER_AUTHORIZATION_FAILED on the ACL APIs carries no long message. Kafka's is `Request(processor=N, connectionId=...) needs
+  ALTER permission.`, which embeds a request dump and cannot be reproduced; here DescribeAcls says `""` and the results of CreateAcls and
+  DeleteAcls say nothing. The code is Kafka's.
+- **SEC-D9.** A super user must be written `Type:name` with both parts non-empty (the Go edition's rule); Kafka only needs a colon, so it
+  accepts `:x` and `User:`.
+- **SEC-D10.** DescribeAcls and DeleteAcls list resources and ACLs sorted; Kafka's order is a hash map's (unspecified).
+- **SEC-D11.** The ACL checks are in Metadata and InitProducerId only; every other handler is open to every principal until slice 8d. Metadata does
+  not compute the authorized-operations bitfields (`IncludeTopicAuthorizedOperations` and the cluster one answer the schema default). A CreateAcls of
+  more than 10,000 new ACLs is not limited (Kafka's outcome is unspecified, kafka-semantics U3). DescribeConfigs on the broker does not report
+  `allow.everyone.if.no.acl.found` or `super.users` (the Go edition does; real Kafka lists neither, so the recorded answers would differ).

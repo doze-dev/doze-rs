@@ -102,6 +102,11 @@ jobs:
         run: |
           mkdir -p corpus/plain
           cargo fuzz run plain corpus/plain seeds/plain -- -max_total_time=30 -max_len=524288
+      - name: Fuzz the ACL filter and the decision for 30 seconds
+        working-directory: crates/kafka-auth/fuzz
+        run: |
+          mkdir -p corpus/acl_filter
+          cargo fuzz run acl_filter corpus/acl_filter seeds/acl_filter -- -max_total_time=30 -max_len=4096
       - name: Fuzz recovery for 30 seconds
         working-directory: crates/kafka-storage/fuzz
         run: |

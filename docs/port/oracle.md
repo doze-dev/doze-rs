@@ -102,3 +102,8 @@ CreatePartitions, DeleteRecords) now match their rows of `version-matrix`, which
 pass and 15 fail, every failure of Phase 8 (`acl-unknown-codes`, `sasl-plain`, `sasl-scram`, `idempotent-write-from-topic-write`,
 `version-matrix` in its ACL rows) or Phase 9 (`telemetry-*`, DescribeCluster). No recording covers compaction itself;
 `interop/` scenario `compaction` (franz-go, sarama, librdkafka) and `compaction.md` do.
+
+**Phase 8, slice 8b (2026-11-12).** `sasl-plain` (whole: its fixture's CreateAcls works and the 13 `*-who` probes answer 29),
+`acl-unknown-codes` (77 steps) and `idempotent-write-from-topic-write` pass. `version-matrix` has no ACL row left among its differences; it
+differs only on DescribeCluster v0 to v2 and GetTelemetrySubscriptions and PushTelemetry (Phase 9). The harness passes `--acl-default deny`
+and `--acl-super-user User:admin` for these scenarios and both are honoured.

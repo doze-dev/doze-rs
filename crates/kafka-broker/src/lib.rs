@@ -1,8 +1,10 @@
-//! Request handlers and the state they keep: topics, partitions and their writers, producer ids (groups,
-//! transactions, ACLs and SCRAM arrive in later phases). No sockets here: the server hands a decoded request in and gets an [`Outcome`] back.
+//! Request handlers and the state they keep: topics, partitions and their writers, producer ids, groups,
+//! transactions and the ACLs that say who may do what (SCRAM arrives in a later slice). No sockets here: the server hands a decoded request in and gets an [`Outcome`] back.
 
+mod authorizer;
 mod blocking;
 mod broker;
+mod caller;
 mod cleaner;
 mod clock;
 mod config;
@@ -22,6 +24,7 @@ mod txn;
 mod txn_index;
 
 pub use broker::Broker;
+pub use caller::Caller;
 pub use config::{Config, Defaults};
 pub(crate) use configs::Live;
 pub use error::BrokerError;

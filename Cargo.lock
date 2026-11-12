@@ -523,9 +523,11 @@ dependencies = [
 name = "kafka-broker"
 version = "0.0.0"
 dependencies = [
+ "arc-swap",
  "bytes",
  "flate2",
  "getrandom",
+ "kafka-auth",
  "kafka-meta",
  "kafka-storage",
  "kafka-wire",
