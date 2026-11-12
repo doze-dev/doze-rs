@@ -48,6 +48,68 @@ jobs:
         env:
           RUSTDOCFLAGS: -D warnings
 
+  # doze-os and the module protocol on all five targets (docs/port/modules/PLAN.md D10): the only platform code and
+  # the only `unsafe` in the workspace, and the protocol that runs over it. The Windows runners run elevated, so the postgres test there proves engines start under doze's restricted
+  # token (postgres refuses an elevated one: spikes/w0-windows/REPORT.md).
+  os:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, ubuntu-24.04-arm, macos-latest, windows-latest, windows-11-arm]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - name: Postgres for the tree test (the Linux images ship one; the Windows x64 image sets PGBIN itself)
+        shell: bash
+        run: |
+          d=$(ls -d /usr/lib/postgresql/*/bin 2>/dev/null | sort -V | tail -1 || true)
+          if [ -n "$d" ]; then echo "PGBIN=$d" >> "$GITHUB_ENV"; fi
+      - run: cargo clippy -p doze-os -p doze-module-proto -p doze-module -p doze-module-derive -p doze-module-host -p doze-module-test -p doze-module-release -p doze-resp -p doze-module-valkey -p doze-module-kvrocks --all-targets -- -D warnings
+      - run: cargo test -p doze-os -p doze-module-proto -p doze-module -p doze-module-host -p doze-module-test -p doze-module-release -p doze-resp -p doze-module-valkey -p doze-module-kvrocks --no-fail-fast -- --nocapture
+
+  # Module acceptance (docs/port/modules/PLAN.md D12): each module boots the engine build doze-binaries publishes, on
+  # every target the module declares. DOZE_ACCEPTANCE turns a missing build into a failure, so a skip cannot pass for a
+  # pass; a release's `--accepted` may only come from this job.
+  modules:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-24.04, target: x86_64-unknown-linux-gnu }
+          - { os: ubuntu-24.04-arm, target: aarch64-unknown-linux-gnu }
+          - { os: macos-latest, target: aarch64-apple-darwin }
+    runs-on: ${{ matrix.os }}
+    env:
+      DOZE_ACCEPTANCE: "1"
+      # Every major a module declares is accepted on its newest build: valkey 9 and 8, kvrocks 2.
+      VALKEY: "9.1.1"
+      VALKEY8: "8.1.9"
+      KVROCKS: "2.16.0"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - name: The engine builds from doze-binaries
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET: ${{ matrix.target }}
+        run: |
+          # <variable>:<engine>:<version> — the variable names where that build's bin/ is.
+          for e in "DOZE_VALKEY_BINDIR:valkey:$VALKEY" "VALKEY8_BINDIR:valkey:$VALKEY8" "DOZE_KVROCKS_BINDIR:kvrocks:$KVROCKS"; do
+            var=${e%%:*}; rest=${e#*:}; name=${rest%%:*}; v=${rest#*:}
+            dir="$RUNNER_TEMP/engines/$name-$v"; art="$name-$v-$TARGET.tar.gz"
+            mkdir -p "$dir"
+            gh release download "$name" -R doze-dev/doze-binaries -p "$art" -p "$art.sha256" -D "$dir"
+            (cd "$dir" && shasum -a 256 -c "$art.sha256")
+            tar -xzf "$dir/$art" -C "$dir"
+            echo "$var=$dir/$name-$v-$TARGET/bin" >> "$GITHUB_ENV"
+          done
+      - run: cargo test -p doze-module-valkey -p doze-module-kvrocks --no-fail-fast -- --nocapture
+      - name: valkey's acceptance on its other major (8)
+        shell: bash
+        run: DOZE_VALKEY_BINDIR="$VALKEY8_BINDIR" cargo test -p doze-module-valkey --test acceptance --no-fail-fast -- --nocapture
+
   # Windows (docs/port/aws/phase0.md, spike S2): the whole workspace must at least compile there. Tests join as crates are made
   # portable; a red job here is information about what is still Unix-only, not noise.
   windows:
@@ -153,6 +215,18 @@ jobs:
             mkdir -p "corpus/$target"
             cargo fuzz run "$target" "corpus/$target" "seeds/$target" -- -max_total_time=30 -max_len=1048576
           done
+      - name: Fuzz the module protocol's frame decoder for 30 seconds
+        working-directory: crates/doze-module-proto/fuzz
+        run: |
+          mkdir -p corpus/fuzz_frame
+          cargo fuzz run fuzz_frame corpus/fuzz_frame -- -max_total_time=30 -max_len=1048576
+      - name: Fuzz the RESP parsers (replies; INFO and MONITOR text) for 30 seconds each
+        working-directory: crates/doze-resp/fuzz
+        run: |
+          mkdir -p corpus/fuzz_reply
+          cargo fuzz run fuzz_reply corpus/fuzz_reply -- -max_total_time=30 -max_len=65536
+          mkdir -p corpus/fuzz_text
+          cargo fuzz run fuzz_text corpus/fuzz_text -- -max_total_time=30 -max_len=65536
       - name: Fuzz the PLAIN token for 30 seconds
         working-directory: crates/kafka-auth/fuzz
         run: |

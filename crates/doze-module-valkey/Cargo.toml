@@ -1,0 +1,30 @@
+[package]
+name = "doze-module-valkey"
+version = "0.0.0"
+description = "The valkey module: a local Valkey server, booted on first connect and reaped when idle"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+doze-module = { path = "../doze-module" }
+doze-os = { path = "../doze-os" }
+doze-resp = { path = "../doze-resp" }
+
+[dev-dependencies]
+doze-module-test = { path = "../doze-module-test" }
+doze-module-proto = { path = "../doze-module-proto" }
+doze-os = { path = "../doze-os" }
+doze-resp = { path = "../doze-resp" }
+serde_json = "1"
+tokio ={ version = "1.54", features = ["rt", "macros", "net", "io-util"] }
+
+[[bin]]
+name = "doze-module-valkey"
+path = "src/main.rs"
+doc = false

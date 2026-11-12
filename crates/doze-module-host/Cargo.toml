@@ -1,0 +1,18 @@
+[package]
+name = "doze-module-host"
+version = "0.0.0"
+description = "Running doze modules from the host: launch, hello, typed calls, the host's services, a pool"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+doze-module-proto = { path = "../doze-module-proto" }
+doze-os = { path = "../doze-os" }
+minicbor = { version = "2.3", features = ["derive", "std"] }
+tokio = { version = "1.54", features = ["rt", "time", "process", "sync", "net"] }
