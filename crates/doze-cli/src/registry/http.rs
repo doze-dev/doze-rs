@@ -1,7 +1,13 @@
 //! One blocking GET with a deadline, and its failure in words a person can act on ("no DNS answer", "timed out after
 //! 3s"), never the library's error alone.
+//!
+//! Certificates are checked against this machine's own trust store (the keychain, /etc/ssl, the Windows store), so a
+//! proxy a company trusts is trusted here too. Not a bundled root list: `webpki-roots` is CDLA-Permissive-2.0, outside
+//! the licences deny.toml allows.
 
+use std::sync::{Arc, OnceLock};
 use std::time::Duration;
+use ureq::tls::{Certificate, RootCerts, TlsConfig};
 
 /// The most a registry file may be: indexes and docs are a few KiB.
 const LIMIT: u64 = 4 << 20;
@@ -17,14 +23,11 @@ pub(crate) enum Failure {
 
 /// GETs `url`, giving up after `timeout` in all.
 pub(crate) fn get(url: &str, timeout: Duration) -> Result<Vec<u8>, Failure> {
-    let agent: ureq::Agent = ureq::Agent::config_builder()
-        .timeout_global(Some(timeout))
-        .http_status_as_error(false)
-        .user_agent(concat!("doze-cli/", env!("CARGO_PKG_VERSION")))
-        .build()
-        .into();
-    let mut resp = agent
+    let mut resp = agent()
         .get(url)
+        .config()
+        .timeout_global(Some(timeout))
+        .build()
         .call()
         .map_err(|e| Failure::Unreachable(words(&e, timeout)))?;
     let status = resp.status().as_u16();
@@ -71,4 +74,27 @@ fn dns_failure(text: &str) -> bool {
     ]
     .iter()
     .any(|m| t.contains(m))
+}
+
+/// One agent for the run, built on first use: loading the trust store is the slow part, and only a command that goes
+/// out pays for it.
+fn agent() -> &'static ureq::Agent {
+    static AGENT: OnceLock<ureq::Agent> = OnceLock::new();
+    AGENT.get_or_init(|| {
+        let roots: Vec<Certificate<'static>> = rustls_native_certs::load_native_certs()
+            .certs
+            .iter()
+            .map(|c| Certificate::from_der(c.as_ref()).to_owned())
+            .collect();
+        let tls = TlsConfig::builder()
+            .unversioned_rustls_crypto_provider(Arc::new(rustls::crypto::ring::default_provider()))
+            .root_certs(RootCerts::new_with_certs(&roots))
+            .build();
+        ureq::Agent::config_builder()
+            .tls_config(tls)
+            .http_status_as_error(false)
+            .user_agent(concat!("doze-cli/", env!("CARGO_PKG_VERSION")))
+            .build()
+            .into()
+    })
 }

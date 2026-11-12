@@ -30,7 +30,10 @@ sha2 = "0.11"
 hex = "0.4"
 base64ct = { version = "1", features = ["alloc"] }
 # One blocking GET with a deadline: the registry, the release file. No async runtime in the CLI.
-ureq = { version = "3", default-features = false, features = ["rustls", "platform-verifier", "gzip"] }
+ureq = { version = "3", default-features = false, features = ["rustls-no-provider", "gzip"] }
+# TLS for ureq: ring as the provider (as doze-names), and this machine's trust store for roots.
+rustls = { version = "0.23", default-features = false, features = ["std", "tls12", "ring"] }
+rustls-native-certs = "0.8"
 
 [dev-dependencies]
 ed25519-dalek = { version = "3", default-features = false, features = [] }
