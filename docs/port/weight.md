@@ -200,11 +200,13 @@ Phase 8 close, which was thought to be at the edge of the old 5.15 MB gate, was 
 
 | Job | Binary | Packages | Idle RSS |
 |---|---|---|---|
-| `weight` (default, with the console) | **7.1 MB** (was 5.15) | **154** (was 126) | 8 MB (unchanged; 6.5 MB measured in the VM) |
+| `weight` (default, with the console) | **9 MB** (was 5.15; see below) | **154** (was 126) | 8 MB (unchanged; 6.5 MB measured in the VM) |
 | `weight-lean` (new; `--no-default-features`, and the console must not appear in its tree) | 5.5 MB | 126 | 8 MB |
-| `weight-tls` (default plus `tls`) | 8.2 MB (was 6.1) | 165 (was 137) | 8 MB |
+| `weight-tls` (default plus `tls`) | 10 MB (was 6.1; see below) | 165 (was 137) | 8 MB |
 
 So the rise is about **+1.55 MB on the default gate** (5.15 to 7.1 MB, of which about 0.08 MB is the old gate having been under the Phase 8 close and 1.3 to 1.5 MB is
 the console), not the 1 MB the owner allowed; the owner is told. If that is too much, the levers are: drop the two fonts for a system stack (-100 KB, D12: the pixel
 check then differs everywhere), compile the page code smaller (`opt-level = "s"` for `kafka-console` only: not measured), or split a slice. The idle memory limit
 holds with room (6.5 MB with the console on Linux, 7.2 MB on macOS after two page loads).
+
+**The owner's decision on the size (2026-11-12, after the numbers above):** 1.55 MB is fine, "even 2 MB is fine", and "anything less than 10 MB is fine". So the limits above were raised before any CI run: the default build to **9 MB** (the estimate of 6.7 MB plus 2 MB, 2.3 MB of room for the eight slices of pages still to come) and the TLS build to **10 MB**, the owner's ceiling. The lean build (5.5 MB), the package limits (154, 126, 165) and the idle memory limit (8 MB) are unchanged: the owner spoke about size, not about packages or memory. The rule stands: a slice that moves a number writes the reason here, and the 9 MB is for the pages, not for a dependency that could be avoided. The first CI run still replaces the estimate with a measurement.

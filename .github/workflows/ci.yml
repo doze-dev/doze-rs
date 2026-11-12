@@ -62,6 +62,8 @@ jobs:
   # times the 1.216 ratio of Phase 7 (4,899,328 on ubuntu x86_64 over 4,029,504 on darwin), and the doze-ubuntu VM
   # (aarch64 Linux, glibc) 5,971,376 B times about 1.12 for x86_64 code: both give about 6.7 MB. The limit is that plus
   # about 5%. The first CI run replaces the estimate with a measurement and the reason is then rewritten.
+  # THE OWNER'S CEILING (2026-11-12): "anything less than 10 MB is fine". So the gate is 9 MB, not 7.1: the 2 MB above the
+  # estimate is room for the eight slices of pages still to come (Phase 9 b to i), and it is spent only with a reason in weight.md.
   weight:
     runs-on: ubuntu-24.04
     steps:
@@ -80,7 +82,7 @@ jobs:
           kill $pid
           echo "binary $size B, $crates packages, idle $rss KB"
           # Measured on ubuntu x86_64: 4,899,328 B (the macOS arm64 build is 3.4 MB); the limit is that plus about 5%.
-          [ "$size" -le 7100000 ] || { echo "binary over 7.1 MB"; exit 1; }
+          [ "$size" -le 9000000 ] || { echo "binary over 9 MB"; exit 1; }
           # 115 until Phase 8 slice 8a (+12 for SASL: 122 with the limit 126), then the console (Phase 9a: axum, hyper, tower,
           # http, maud and what they need) took the count to 150 by this very method (measured on macOS and in the Linux VM);
           # the limit is 150 plus 4.
@@ -136,7 +138,7 @@ jobs:
           # The feature adds 838,928 B on macOS arm64; the default build (with the console) is estimated at 6.7 MB on ubuntu x86_64
           # (the job above), ring's x86_64 code being larger the step is taken as 0.9 MB: 6.7 + 0.9 = 7.6 MB, and 5 percent above
           # is 7.98, rounded up to 8,200,000 (an estimate until the first CI run, as above).
-          [ "$size" -le 8200000 ] || { echo "tls binary over 8.2 MB"; exit 1; }
+          [ "$size" -le 10000000 ] || { echo "tls binary over 10 MB (the owner's ceiling)"; exit 1; }
           # 150 for the default build with the console, plus the 11 lines the feature adds, plus 4.
           [ "$crates" -le 165 ] || { echo "more than 165 packages with tls"; exit 1; }
           [ "$rss" -le 8192 ] || { echo "idle resident memory over 8 MB with tls"; exit 1; }
