@@ -1,0 +1,37 @@
+[package]
+name = "aws-sfn"
+version = "0.0.0"
+description = "Step Functions: state machines, versions and aliases, activities, executions run by aws-asl, task integrations over the peer bus, as a state machine behind a lazy actor per region"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+aws-asl = { path = "../aws-asl" }
+aws-model-sfn = { path = "../aws-model-sfn" }
+aws-schema = { path = "../aws-schema" }
+aws-wire = { path = "../aws-wire" }
+aws-core = { path = "../aws-core" }
+aws-peers = { path = "../aws-peers" }
+doze-runtime = { path = "../doze-runtime" }
+doze-store = { path = "../doze-store" }
+getrandom = "0.4"
+serde_json = "1"
+serde = { version = "1", features = ["derive"] }
+tracing = "0.1"
+tokio = { version = "1", default-features = false, features = ["sync", "time", "macros", "net", "io-util"] }
+bytes = "1"
+
+[dev-dependencies]
+aws-testkit = { path = "../aws-testkit" }
+aws-sqs = { path = "../aws-sqs" }
+aws-sns = { path = "../aws-sns" }
+aws-dynamodb = { path = "../aws-dynamodb" }
+aws-logs = { path = "../aws-logs" }
+aws-eventbridge = { path = "../aws-eventbridge" }
+tokio = { version = "1", default-features = false, features = ["rt", "macros", "time", "test-util", "sync"] }

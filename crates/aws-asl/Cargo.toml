@@ -1,0 +1,24 @@
+[package]
+name = "aws-asl"
+version = "0.0.0"
+description = "The Amazon States Language: parsing, AWS's definition checks, JSONPath, intrinsic functions, JSONata, and a pure interpreter of executions"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+aws-core = { path = "../aws-core" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# JSONata (PLAN.md, spike D): pinned, young and single-author; passes 1,688 of the 1,690 official cases.
+jlens-core = "=0.31.0"
+# The regular expressions of a JSONPath filter (`=~`): the engine jlens-core already links, with the same features.
+regress = { package = "jlens-regress", version = "=0.31.0", default-features = false, features = ["std", "prohibit-unsafe"] }
+md-5 = "0.11"
+sha1 = "0.11"
+sha2 = "0.11"

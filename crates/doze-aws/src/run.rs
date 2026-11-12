@@ -37,6 +37,7 @@ pub(crate) async fn run(args: Args) -> Result<()> {
     config.credential_source = Some(iam.clone());
     let cloudwatch = Arc::new(aws_cloudwatch::Cloudwatch::new(Arc::new(ctx("cloudwatch"))));
     let eventbridge = Arc::new(Eventbridge::new(Arc::new(ctx("eventbridge"))));
+    let states = Arc::new(aws_sfn::Sfn::new(Arc::new(ctx("states"))));
     let (sqs, dynamodb, kinesis, lambda) = compute(&ctx, &args);
     let services: Vec<Arc<dyn Service>> = vec![
         iam,
@@ -53,6 +54,7 @@ pub(crate) async fn run(args: Args) -> Result<()> {
         cloudwatch.clone(),
         eventbridge.clone(),
         lambda.clone(),
+        states.clone(),
     ];
     let mut gateway = Gateway::new(config);
     for service in services {
@@ -69,6 +71,8 @@ pub(crate) async fn run(args: Args) -> Result<()> {
     // Event source mappings that were enabled when the process last stopped poll again; functions find the other services here.
     lambda.set_endpoint(&format!("http://{}", running.local_addr()));
     lambda.resume().await;
+    // Executions that were running when the process last stopped carry on: calls that were out are made again, waits re-armed.
+    states.resume().await;
     // The line a supervisor (and the conformance harness) waits for.
     tracing::info!("doze-aws listening on {}", running.local_addr());
     wait_for_stop().await;
