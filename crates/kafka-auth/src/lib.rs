@@ -11,6 +11,7 @@ pub mod authenticator;
 pub mod authz;
 pub mod credentials;
 pub mod crypto;
+pub mod hostguard;
 pub mod plain;
 pub mod principal;
 pub mod scram;

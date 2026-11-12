@@ -335,6 +335,7 @@ fn the_cleaner_looks_every_fifteen_seconds_unless_told_otherwise_and_a_zero_inte
     assert!(err.to_string().contains("--log-cleaner-interval"), "{err}");
 }
 
+mod console;
 mod users;
 
 #[cfg(feature = "tls")]

@@ -37,6 +37,10 @@ jobs:
       - run: cargo xtask lint-size
       # Every parser has a fuzz target (a `// fuzz:parser` marker with no target fails).
       - run: cargo xtask fuzz-check
+      # The Phase 8 catalogue: each SEC number defined once, none referenced without a definition, every deviation in the
+      # index, every test name it quotes a real `fn` (tools/check-security-catalogue.ts; bun is the only extra tool).
+      - uses: oven-sh/setup-bun@v2
+      - run: bun tools/check-security-catalogue.ts
       # Public docs build without broken links.
       - run: cargo doc --workspace --no-deps
         env:
@@ -140,6 +144,11 @@ jobs:
         run: |
           mkdir -p corpus/acl_filter
           cargo fuzz run acl_filter corpus/acl_filter seeds/acl_filter -- -max_total_time=30 -max_len=4096
+      - name: Fuzz the allowed-hosts guard for 30 seconds
+        working-directory: crates/kafka-auth/fuzz
+        run: |
+          mkdir -p corpus/hostguard
+          cargo fuzz run hostguard corpus/hostguard seeds/hostguard -- -max_total_time=30 -max_len=4096
       - name: Fuzz the two SCRAM messages for 30 seconds
         working-directory: crates/kafka-auth/fuzz
         run: |

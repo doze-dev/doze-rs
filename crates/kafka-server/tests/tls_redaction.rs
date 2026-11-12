@@ -1,4 +1,4 @@
-//! SEC-157: the private key, and what a client sends in a broken handshake, appear nowhere a person could read
+//! SEC-152: the private key, and what a client sends in a broken handshake, appear nowhere a person could read
 //! them: not in the log at any level, not in a `Debug` output, not in an error.
 //!
 //! A test binary of its own, with one test, so the logging it installs is the process's.

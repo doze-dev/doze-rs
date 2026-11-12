@@ -626,3 +626,30 @@ oracle replay 43 pass and 15 fail (all Phase 8 and 9), weight 4,029,504 B, 107 p
 third Phase 6 audit's fix (A12) was in the Phase 7 audit's scope. Method notes: a test that fixes "the Nth read fails" breaks when a
 fix changes the number of reads, so the fault point is swept; a failure that shows up once in a scratch copy is reproduced against
 the old code before it is called flaky (here it was the pre-fix defect, deterministic at seed 24).
+
+### Phase 8 (2026-11-12): security, SASL, ACLs, TLS and the allowed-hosts guard (draft entry: built, not closed)
+Built in seven slices on parallel branches, each merged to `main` with its gates (`phase8.md` has the ledger and the commit ids). **8a** the `kafka-auth` crate
+(RustCrypto `hmac`, `sha2`, `subtle` behind one file; PBKDF2 and base64 in-tree, checked against the RFC vectors and the `pbkdf2` crate), SASL/PLAIN, `Session` and the login
+gating (a stranger's body is never decoded; a failed login is answered, flushed, then closed), SEC-1 to SEC-15. **8b** the authorizer (Kafka's decision procedure, checked against a model
+transcribed from `StandardAuthorizerData` on 6000 random ACL sets), the ACL table, the three ACL APIs, the Metadata and InitProducerId checks, `--acl-default`, `--acl-super-user`, SEC-16 to SEC-30.
+**8c** SCRAM-SHA-256 and -512 (the exchange, the recorded parsers and refusals, constant-time proof check), SEC-40 to SEC-51. **8d** the authorization matrix on every other served handler (11 topic APIs,
+13 group APIs, 7 transaction APIs, one source-derived test per row), SEC-60 to SEC-72 and SEC-100 to SEC-123, with 25 and 40 hand-made mutations killed. **8e** TLS as the off-by-default cargo feature `tls`
+(rustls 0.23 on ring, PEM only, never a fallback to plaintext, the handshake inside the connection's own task), interop over SASL_SSL, a `weight-tls` CI job, SEC-140 to SEC-154. **8f** the SCRAM
+credential APIs 50 and 51 with a stored table, `--sasl-users-file`, `DOZE_KAFKA_SASL_USERS` and `--sasl-allow-empty-users`, SEC-160 to SEC-179. **8g** the allowed-hosts guard (a pure function in
+`kafka-auth`, 107 lines, no dependency, fuzzed 11 million runs without a finding, no `.doze` special case), `--console-allow-host` and `--console-unprotected` (parsed and kept; nothing serves a console
+before Phase 9), the start-up rule whose inputs exist (SASL or TLS on and a console address beyond loopback is refused, exit 2, unless `--console-unprotected`) and the start-up notes, SEC-180 to SEC-189;
+and the documentation closure: the catalogue index, `tools/check-security-catalogue.ts` (a CI step), `oracle.md`, `weight.md`, `debt.md` section I.
+
+Gates at the end of the build: fmt, clippy `-D warnings`, `cargo test --workspace` 1157 passed and 0 failed in 121 binaries (4 ignored on purpose; 1137 at the 8f merge, 20 new in 8g), the `tls` tests of `doze-kafka` and its clippy, lint-size (0 over the hard limit), fuzz-check (17 parsers), the catalogue checker (124 rules, 51
+deviations, 252 test names, no problem), interop 23 of 23 plain, 12 of 12 over SASL and 8 of 8 over TLS (recorded at the 8d-2 merge), oracle replay **47 pass and 11 fail** (the eleven are the ten
+`telemetry-*` scenarios and `version-matrix` on DescribeCluster and the telemetry rows: Phase 9; `sasl-plain`, `sasl-scram`, `acl-unknown-codes` and `idempotent-write-from-topic-write` pass whole).
+Weight, default build: 4,267,504 B (+238,000 B over Phase 7), 123 packages (107 before: the 12 of RustCrypto and `kafka-auth`), idle 4.96 MB; the `tls` build 5.02 MB and 134 packages at 8e (`weight.md`, "Phase 8 close").
+
+Decisions: RustCrypto for SASL (the owner's, D1: the cost is packages, the gate rose from 115 to 126); TLS a feature, not always on (D2); ACL APIs and the authorizer work with SASL off, for `User:ANONYMOUS` (D4,
+SEC-D7); SCRAM channel binding as Kafka (D6); the guard is pure and mounted in Phase 9 (D8); 51 deviations written down, each a row of `debt.md` I.1. **What is not known:** about 40 of the 45 matrix rows have no
+recording, only Kafka's source, so the one real risk of the phase is a reading that differs from the JVM; the proposal is an `authz-matrix` recording against `apache/kafka:4.3.1` (Docker here has a client and no
+daemon). The numbering of the catalogue collided between parallel slices once (SEC-D7 to D11 were used by two slices before a renumbering); the checker now fails on a duplicate, a dangling reference and a quoted test
+that does not exist, and found one stale cite (a test file's header) and nothing else. Method notes: slices that touch the same files were built in parallel worktrees and merged, with the gates re-run on each merge; a
+mutation run in a copy of the tree needs a target directory of its own (a shared one let the last mutant's build be taken for the worktree's).
+
+**Independent audits: pending.** Two audits of HEAD 909d147 are running; the phase is not marked done, and this entry gets its verdict, findings and fixes when they are in.

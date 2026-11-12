@@ -1,4 +1,4 @@
-# Debt register (Phases 0 to 7)
+# Debt register (Phases 0 to 8)
 
 Opened 2026-11-09 at the owner's instruction: nothing known is carried past Phase 6. Every item is cleared (with a test
 that fails when the behaviour is removed), or is blocked by a later phase's feature and moves into that phase's plan with
@@ -88,9 +88,94 @@ a named scenario, or is a decision that is written down with its reason, or is t
 | H11 | Second audit, minor 1: a transactional producer whose data DeleteRecords or retention took, but whose marker stayed, was refused (OUT_OF_ORDER_SEQUENCE_NUMBER) after a reopen and accepted before it | done: a marker found in the log at open, with nothing else known of its producer, leaves the sequences unknown (TX-4); `producers_after_trim`, `compaction_model` (fails at seed 24 on the old code) |
 | H12 | Second audit, minors 2 to 5 and its test gaps `m11`, `m13`, `m18`, `m20`, `m21`, `m23` | done or decided: `segment.ms` ADM-D7; the docs that contradicted the code corrected (ADM-1, S20, phase7.md, CMP-D1, which wrongly said Kafka deletes an empty segment: Kafka merges them by size); N8 and N9 as H7 and H8. The six gaps are killed. `m07` (no `dir_dirty` flag after a removal) is equivalent, because the checkpoint write flushes the directory and a lost removal is redone by the next round; `m22` (aborted ranges forgotten one round late) is a race-only property, decided |
 
+## I. Phase 8 (security: SASL, ACLs, TLS, the allowed-hosts guard), built 2026-11-12, audits pending
+Statuses as above. The catalogue is `behaviours/security.md` (index at its top; `tools/check-security-catalogue.ts` checks its numbers and test names). The first table is every deviation
+the catalogue lists, one row each; the second is what the slices reported left unfinished, and the audits.
+
+### I.1 Deviations (all `decided`; the number is the catalogue's)
+| # | Deviation | Status |
+|---|---|---|
+| SEC-D1 | A request in the middle of a login other than ApiVersions and SaslHandshake closes unanswered (Kafka answers 34 in the request's shape, then closes) | decided: the Go edition does the same; recorded `request-before-token-who`; answering needs the body of a stranger's request, which is never decoded |
+| SEC-D2 | A 30 s login budget from the accept (Kafka has none) | decided: a dev broker should not sit open to a silent socket (D10); the Go edition's rule |
+| SEC-D3 | SaslHandshake v0 (raw tokens) is not served | decided: no client of the four libraries uses it; Kafka 1.x tools only (`I14`) |
+| SEC-D4 | No 100 ms `connection.failed.authentication.delay.ms` before a failure is answered | decided: the delay slows a local attacker nobody has; see `I15` |
+| SEC-D5 | Passwords are not zeroed on drop | decided: no `zeroize` dependency (weight rule); they are never printed; see `I16` |
+| SEC-D6 | `Session::Unauthenticated` carries a `versions_answered` flag the plan's enum did not | decided: SEC-12 needs it; an implementation detail |
+| SEC-D7 | The ACL APIs and the authorizer work with SASL off, enforced for `User:ANONYMOUS` (Kafka without an authorizer answers 54) | decided: owner's D4; it is what lets `--acl-default deny` be used without SASL |
+| SEC-D8 | A CLUSTER_AUTHORIZATION_FAILED carries no long message | decided: Kafka's embeds a request dump that cannot be reproduced; the code is Kafka's; see `I10` |
+| SEC-D9 | A super user must be written `Type:name`, both parts non-empty | decided: the Go edition's rule; Kafka only needs a colon |
+| SEC-D10 | DescribeAcls and DeleteAcls list sorted | decided: Kafka's order is a hash map's; clients sort |
+| SEC-D11 | No limit of 10,000 new ACLs; DescribeConfigs does not report `allow.everyone.if.no.acl.found` or `super.users` | decided for now: Kafka's outcome for the first is unspecified, real Kafka lists neither setting; see `I8`, `I9` |
+| SEC-D12 | The server nonce is 18 random bytes in base64 (Kafka: base-36 of 130 bits) | decided: both unpredictable and printable; no client depends on the alphabet |
+| SEC-D13 | Several SCRAM extensions are signed in the order sent; `tokenauth=true` is an unknown user | decided: Kafka's order is a random `Map.copyOf` order; delegation tokens are out of scope |
+| SEC-D14 | Bootstrap users have 4096 iterations and a random 16-byte salt | decided: a bootstrap user has no admin client to choose them; users made over the API keep theirs (4096 to 16384, SEC-163) |
+| SEC-D15 | Derived SCRAM keys and proofs are not zeroed | decided: with SEC-D5 |
+| SEC-D16 | Results in the order asked where Kafka's order is a hash map's, a merge or a shuffle (DeleteTopics, Produce, DeleteRecords, Fetch, CreateTopics duplicates) | decided: clients match by name; the stated orders are kept |
+| SEC-D17 | CreateTopics refused for want of CREATE answers empty `configs`; `__cluster_metadata` and DeleteTopics' request-shape errors are not special-cased | decided: the "never null" rule; not authorization, so not added here |
+| SEC-D18 | An unsupported resource type is checked for the right, then answered 42; broker configs are validated by this broker's table | decided: the order Kafka asks in is kept; the table is the Phase 7 one |
+| SEC-D19 | A follower Fetch holding CLUSTER_ACTION is read like a consumer's; a nameless Metadata entry has no authorized-operations field | decided: no replication to serve; Kafka throws on the second |
+| SEC-D20 | The topic-API rules are written from the source and not recorded | decided: D9; recording is `I1` |
+| SEC-D30 | DeleteGroups with the same allowed name twice answers it twice | decided: pinned by `group_admin`; see `I11` |
+| SEC-D31 | SyncGroup v5+ with no protocol type or name is 23 up front only for a caller that is also refused | decided: an allowed caller's request goes to the group, which judges the names it is given |
+| SEC-D32 | AddPartitionsToTxn on the internal topics is 3 (or 29), not 29 | decided: those topics are not topics here |
+| SEC-D33 | InitProducerId's two-phase-commit check is unreachable | decided: v6 is not served |
+| SEC-D34 | A DescribeTransactions entry refused with 53 carries schema defaults | decided, unsure: from the source alone; settled by `I1` |
+| SEC-D35 | ConsumerGroupDescribe judges the topic names it has; a deleted topic's name is empty | decided, unsure: whether Kafka's coordinator gives `""` was not confirmed; `I1` |
+| SEC-D36 | FindCoordinator before v4 puts the error's own message in the answer | decided, unsure: read from `prepareOldResponse`, not recorded; `I1` |
+| SEC-D37 | Share groups, streams groups and AddPartitionsToTxn v4+ are not served, so not checked | decided: not served at all |
+| SEC-D40 | Client certificates and mutual TLS are out of scope | decided: the Go edition's limit; see `I12` |
+| SEC-D41 | `ssl.principal.mapping.rules` has nothing to map | decided: follows SEC-D40 |
+| SEC-D42 | Protocol versions and cipher suites are rustls's with ring (TLS 1.2 and 1.3, AEAD suites) | decided: no Kafka `ssl.*` counterpart; a TLS 1.1 or CBC-only client fails its handshake |
+| SEC-D43 | No certificate generation and no reload (a renewal needs a restart) | decided: `rcgen` would add 9 packages; the docs give the `openssl` recipe |
+| SEC-D44 | PEM only, one certificate, no SNI, ALPN or session tickets | decided: the dev case; weight |
+| SEC-D45 | A failed handshake may send a TLS alert record | decided: rustls writes it; the JVM does the same; no Kafka bytes are sent |
+| SEC-D46 | The pre-auth budget covers the handshake even with SASL off | decided: extends SEC-D2 |
+| SEC-D47 | The advertised host is not checked against the certificate | decided: Kafka's broker does not either |
+| SEC-D48 | A `tls` build needs a C compiler (ring) | decided: the feature is off by default; the default build needs none |
+| SEC-D50 | Two layers of users (bootstrap and stored); the API refuses a bootstrap user with 93 | decided: the alternative makes login depend on the order of events |
+| SEC-D51 | The credential APIs work with SASL off, so an open broker lets anyone manage users | decided: the same posture as SEC-D7; `--acl-default deny` with a super user closes it |
+| SEC-D52 | Credential results in the request's order, or by name | decided: Kafka's order is a hash map's |
+| SEC-D53 | `metadata.version` is not modelled | decided: a broker of 4.x always supports SCRAM |
+| SEC-D54 | Describe with a null user list from a denied caller answers 31 where Kafka throws | decided, unsure: not verified against a running Kafka; `I1` |
+| SEC-D55 | A changed credential applies to new logins; no re-authentication | decided: Kafka's default `connections.max.reauth.ms` is 0; see `I13` |
+| SEC-D56 | Credentials are a table in `meta.redb`, not records in a metadata log | decided: there is no replicated log; keys are not encrypted at rest |
+| SEC-D57 | An unusable stored credential row is left and named at warn | decided: Kafka would fail to replay its log |
+| SEC-D58 | The environment variable of users is read once and not cleared | decided: `set_var` is unsafe on edition 2024; the file with mode 600 is the answer |
+| SEC-D59 | File and variable passwords are ASCII without NUL and held for the life of the process | decided: no SASLprep (not in this phase); as SEC-D5 |
+| SEC-D60 | The guard has no `.doze` special case | decided: PLAN.md line 19; a name the operator needs is listed with `--console-allow-host` |
+| SEC-D61 | The guard refuses five shapes the Go edition's allows: a bare IPv6 literal, brackets around anything but an IPv6 literal, an IP literal with a trailing dot, a name with characters outside letters, digits, `-` and `_` (or a non-ASCII one), a name over 253 bytes or a label over 63 | decided: a refusal costs a flag, an acceptance costs the defence; no browser sends any of them |
+| SEC-D62 | Every configuration that cannot start exits 2 (it exited 1) | decided: the Go edition's code, and clap's own for a bad flag; no test or script read 1 |
+| SEC-D63 | `--console-allow-host` and `--console-unprotected` are parsed and kept and nothing acts on them; a console address is "on" unless `--console=false` | decided: there is no console listener before Phase 9 (`I21`); the start-up rule was built now because its inputs exist |
+
+### I.2 Left unfinished, and the audits
+| # | Item | Status |
+|---|---|---|
+| I1 | The authorization matrix is source-derived with no recording for every API except Metadata and InitProducerId. Families, each named so a recording can be checked off: **topic APIs** (CreateTopics, DeleteTopics, Produce, Fetch, ListOffsets, DeleteRecords, CreatePartitions, DescribeConfigs, AlterConfigs, IncrementalAlterConfigs, DescribeProducers, Metadata's authorized-operations fields: SEC-60 to SEC-72); **group APIs** (FindCoordinator, JoinGroup, SyncGroup, Heartbeat, LeaveGroup, ConsumerGroupHeartbeat, DescribeGroups, ConsumerGroupDescribe, ListGroups, OffsetCommit, OffsetFetch, DeleteGroups, OffsetDelete: SEC-101 to SEC-113); **transaction APIs** (AddPartitionsToTxn, AddOffsetsToTxn, TxnOffsetCommit, EndTxn, DescribeTransactions, ListTransactions, InitProducerId's transactional half: SEC-114 to SEC-120); **credential APIs** 50 and 51 (SEC-160 to SEC-169); **TLS** (SEC-140 to SEC-154: real clients in `interop/run.sh -tls` are the evidence). The proposal: record an `authz-matrix` scenario against `apache/kafka:4.3.1` (decision D9; details and the state of Docker here in `oracle.md`) | moved: owner to approve the recording; the author runs it, diffs, and corrects the rows and SEC-D20, D34 to D36 and D54 |
+| I2 | ACL APIs are not offered at `--kafka-version 1` (the vendored protocol crate cannot decode v0, which is all Kafka 1.x admin tools speak) | moved: decoding v0 ourselves is small and waits for someone who asks (D7); `wire.md` W10 |
+| I3 | Linux weight of the `tls` build is unmeasured (the `weight-tls` limits 6.1 MB and 137 packages come from the darwin delta and the spike) | moved: the CI's first run after the merge measures it; `weight.md` Phase 8 close |
+| I4 | The CI package gate rose in Phase 8 (115 to 126 at 8a for the RustCrypto crates; the default build is 123 by the CI method on darwin) and the binary limit has about 0.25% headroom on Linux if the darwin steps carry over | owner: after the first CI run, move the size limit to the CI's own measurement plus 5% with the reason in `weight.md`; the package gate has 3 spare |
+| I5 | The first independent audit of Phase 8 (HEAD 909d147) | pending: the audit is running; the author fills this row |
+| I6 | The second independent audit of Phase 8 (HEAD 909d147) | pending: the audit is running; the author fills this row |
+| I7 | Fixes and the re-audit | pending: after I5 and I6 |
+| I8 | A CreateAcls of more than 10,000 new ACLs is not limited (Kafka's outcome is unspecified, `kafka-semantics.md` U3) | owner: needs Kafka's real answer, which only a recording gives; a broker of one developer rarely has 10,000 ACLs |
+| I9 | DescribeConfigs on the broker does not report `allow.everyone.if.no.acl.found` or `super.users` (the Go edition does; real Kafka lists neither) | moved: with `authz-matrix` (I1); the console's Access page (Phase 9) shows both from the flags regardless |
+| I10 | The long text of CLUSTER_AUTHORIZATION_FAILED (`Request(processor=N, connectionId=...) needs ALTER permission.`) is not reproduced | moved: with I1; the code is right and clients read the code |
+| I11 | DeleteGroups with the same allowed name twice answers it twice; Kafka de-duplicates first (KA:1431) | owner: a small fix that changes a pinned Phase 5 behaviour (`group_admin`); decide whether to follow Kafka |
+| I12 | Client certificates and mTLS principals (`ssl.client.auth`, `ssl.principal.mapping.rules`) | owner: out of scope in the plan ("Not in this phase"); the Go edition has the same limit; build if asked |
+| I13 | Re-authentication (KIP-368, `connections.max.reauth.ms`) | owner: out of scope; a logged-in connection stays logged in, and a changed credential applies to new logins |
+| I14 | SaslHandshake v0 (raw SASL tokens) | owner: build if a Kafka 1.x client must log in |
+| I15 | The 100 ms failed-login delay (`connection.failed.authentication.delay.ms`) | owner: decide if a brute-force slowdown is wanted on a dev broker; a few lines |
+| I16 | Zeroing secrets on drop (`zeroize`) | owner: weight versus hygiene; `zeroize` is already in the `tls` build as ring's dependency, so it costs nothing there |
+| I17 | The APIs the broker does not serve have no authorization row: `DescribeLogDirs` and the rest of the admin surface outside the Phase 8 matrix, and `DescribeCluster` and the telemetry pair (the rows `version-matrix` still differs on) | moved: Phase 9 for DescribeCluster and the telemetry APIs; each other API joins the matrix, with its test, in the phase that serves it |
+| I18 | A build with the `tls` feature on Windows needs the MSVC build tools (ring); not verified, the `windows` CI job compiles the default build only | moved: a Windows developer, or the CI when a Windows job for the feature is wanted |
+| I19 | `phase8.md` D1 said "107 to about 121"; the real figure is 122 (8a) and 123 (since 8e, darwin count) | done: corrected in `phase8.md` |
+| I20 | The `Access` facts view of the console (principals, mechanisms, the rule that applies) listed under 8g in the plan | moved: Phase 9, with the console |
+| I21 | The allowed-hosts guard is a pure function with flags and the start-up rule; nothing is mounted on it | moved: Phase 9 mounts it on the console and the registry; the mount must call `kafka_auth::hostguard::allowed` and answer 403 |
+| I22 | Catalogue stale cite found by `tools/check-security-catalogue.ts`: the header of `kafka-server/tests/tls_redaction.rs` cited a rule number past the end of the TLS range (the private-key rule is SEC-152) | done: corrected in the test file's header |
+
 ## Carried into later phases, by name
 - **Phase 7 (compaction), done:** the log walks advance by the last offset delta and a stored batch may hold fewer records than it
   spans (`compaction.md` CMP-6); `segment.bytes` and the other topic configs act at runtime (`admin.md` ADM-6); batches are
   rewritten into the topic's `compression.type` at Produce (D4).
-- **Phase 8 (security):** `idempotent-write-from-topic-write`; ACLs on the transaction APIs (TRANSACTIONAL_ID_AUTHORIZATION_FAILED,
-  GROUP_AUTHORIZATION_FAILED on TxnOffsetCommit, TOPIC_AUTHORIZATION_FAILED on AddPartitionsToTxn).
+- **Phase 8 (security), built:** `idempotent-write-from-topic-write` and the ACLs on the transaction APIs are done; what is left is section I.
+- **Phase 9 (console, registry):** mounts the allowed-hosts guard (I21), the Access facts view (I20), DescribeCluster and the telemetry APIs (I17).

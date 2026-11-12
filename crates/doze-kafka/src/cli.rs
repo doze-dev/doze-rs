@@ -137,6 +137,15 @@ pub(crate) struct Args {
     console: Option<String>,
     #[arg(long, hide = true)]
     console_addr: Option<String>,
+    /// A host name the console answers to besides localhost and IP addresses (repeatable, or comma separated; `*`
+    /// turns the check off). It guards against DNS rebinding. The console arrives with Phase 9: today the flag is
+    /// checked and kept, and nothing listens for it to guard.
+    #[arg(long, value_name = "HOST", value_delimiter = ',')]
+    console_allow_host: Vec<String>,
+    /// Accept serving the console beyond loopback although SASL or TLS is on (it has no login and is plain HTTP, so
+    /// without this that start is refused). The console arrives with Phase 9: today only the start-up rule uses it.
+    #[arg(long)]
+    console_unprotected: bool,
 
     /// PEM certificate chain (leaf first) to serve TLS with. Needs --tls-key.
     #[cfg(feature = "tls")]
@@ -162,6 +171,10 @@ pub(crate) struct Settings {
     pub(crate) server: ServerConfig,
     /// `--sasl-allow-empty-users`: a start with SASL on and no user at all is meant.
     pub(crate) allow_empty_users: bool,
+    /// The console flags (nothing serves a console before Phase 9).
+    pub(crate) console: Console,
+    /// What the operator chose that leaves something open, to be said once at start.
+    pub(crate) warnings: Vec<String>,
 }
 
 impl Args {
@@ -178,6 +191,8 @@ impl Args {
         // Without the feature this refuses the flags, and a value that is `()` is all that is left of them.
         #[cfg_attr(not(feature = "tls"), allow(clippy::let_unit_value, unused_variables))]
         let tls = tls::load(self.tls_cert.as_ref(), self.tls_key.as_ref())?;
+        // Both flags are set or neither (and without the feature neither is accepted).
+        let tls_on = self.tls_cert.is_some();
         let Some(major) = KafkaMajor::new(self.kafka_version) else {
             bail!(
                 "--kafka-version must be 1, 2, 3 or 4, not {}",
@@ -221,6 +236,7 @@ impl Args {
             data_dir: &self.data_dir,
         })?;
         broker.users = sasl.users;
+        let (console, warnings) = self.console_rule(sasl.authenticator.is_some(), tls_on)?;
         let server = ServerConfig {
             sasl: sasl.authenticator,
             #[cfg(feature = "tls")]
@@ -235,6 +251,21 @@ impl Args {
             broker,
             server,
             allow_empty_users: self.sasl_allow_empty_users,
+            console,
+            warnings,
+        })
+    }
+
+    /// The console flags, and the start-up rule between them and what protects the broker.
+    fn console_rule(&self, sasl: bool, tls: bool) -> Result<(Console, Vec<String>)> {
+        console::setup(&console::Input {
+            console: self.console.as_deref(),
+            addr: self.console_addr.as_deref(),
+            allow_hosts: &self.console_allow_host,
+            unprotected: self.console_unprotected,
+            sasl,
+            tls,
+            listen: self.listen,
         })
     }
 
@@ -283,11 +314,19 @@ impl Args {
         if self.console.as_deref().is_some_and(|v| v != "false") {
             out.push("--console");
         }
+        if !self.console_allow_host.is_empty() {
+            out.push("--console-allow-host");
+        }
+        if self.console_unprotected {
+            out.push("--console-unprotected");
+        }
         out
     }
 }
 
 mod acl;
+mod console;
+pub(crate) use console::Console;
 mod sasl;
 pub(crate) use sasl::NO_USERS;
 mod tls;

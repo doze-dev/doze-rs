@@ -1,20 +1,88 @@
-# Security: SASL login and ACLs (Phase 8)
+# Security: SASL login, ACLs, TLS and the allowed-hosts guard (Phase 8)
 
-Slice 8a: SASL/PLAIN and the login session (SEC-1 to SEC-15). Slice 8b: the authorizer, the three ACL APIs, and the first two
-handler checks, Metadata and InitProducerId (SEC-16 to SEC-30). Slice 8c: SASL/SCRAM-SHA-256 and SCRAM-SHA-512 (SEC-40 to SEC-51).
-Slice 8d-1: the topic APIs (SEC-60 to SEC-72; groups and transactions are 8d-2). (The rest of the authorization matrix is slice 8d-2, TLS 8e: their rules join this file when they land.) What Apache Kafka 4.3.1 does, and the
+All seven slices of Phase 8 are built (status: **built, independent audits pending**, 2026-11-12; the ledger is in `phase8.md`). This file is the
+catalogue: what Apache Kafka 4.3.1 does (or, where the Go edition or this broker differs on purpose, what is done instead), and the
+test that holds each rule. The source is the recordings (`conformance/recordings/sasl-plain.json`, `sasl-scram.json`, `acl-unknown-codes.json`,
+`idempotent-write-from-topic-write.json`; the step names are the oracle's) where there is one, else Kafka 4.3.1's own source, read by
+item (`SaslServerAuthenticator` SSA, `PlainSaslServer`, `SocketServer`; the line numbers are in `phase8/kafka-semantics.md` 3.1 to 3.9 and 6):
+**(source)** marks those. Rules without a recording are written from the source and are only as right as the reading is (decision D9; the
+proposal to record them is in `oracle.md`). The pure parts are in `crates/kafka-auth` (PLAIN `plain.rs`; SCRAM `scram.rs`, `scram/parse.rs`,
+`scram/keys.rs`; the authorizer `authz*`; the guard `hostguard.rs`), the login order in `crates/kafka-server/src/session*`, TLS in
+`crates/kafka-server/src/tls.rs` (feature `tls`), the flags in `crates/doze-kafka/src/cli/{sasl,acl,tls,console}.rs`. The authorizer's stored form is
+`crates/kafka-meta/src/{acl.rs,store/acls.rs}`, and its use `crates/kafka-broker/src/{authorizer.rs,caller.rs,guard.rs,handlers/*}`. Kafka source
+abbreviations are those of `phase8/kafka-semantics.md` (SAD = `StandardAuthorizerData.java`, KA = `KafkaApis.scala`, ACM = `AclControlManager.java`,
+CA = `ControllerApis.scala`, SCM = `ScramControlManager.java`, KC = `KafkaChannel.java`).
 
-handler checks, Metadata and InitProducerId (SEC-16 to SEC-30). Slice 8c: SASL/SCRAM-SHA-256 and SCRAM-SHA-512 (SEC-40 to SEC-51). Slice 8e: TLS (SEC-140 to SEC-154). Slice 8f: users made at run time over
-`AlterUserScramCredentials` and `DescribeUserScramCredentials`, and the users file and environment variable (SEC-160 to SEC-179; deviations SEC-D50 to SEC-D59).
-(The authorization matrix is slice 8d: its rules join this file when they land.) What Apache Kafka 4.3.1 does, and the
-test that holds each. The source is the recordings (`conformance/recordings/sasl-plain.json`, the step names are the oracle's) where
-there is one, else Kafka 4.3.1's own source, read by item (`SaslServerAuthenticator` SSA, `PlainSaslServer`, `SocketServer`; the line
-numbers are in `phase8/kafka-semantics.md` 3.1 to 3.9 and 6): **(source)** marks those. The pure parts are in `crates/kafka-auth`
-(SCRAM: `scram.rs`, `scram/parse.rs`, `scram/keys.rs`), the login order in `crates/kafka-server/src/session*`, the flags in
-`crates/doze-kafka/src/cli/sasl.rs` and `cli/acl.rs`. The authorizer is `crates/kafka-auth/src/authz*` (pure), its stored form
-`crates/kafka-meta/src/{acl.rs,store/acls.rs}`, and its use `crates/kafka-broker/src/{authorizer.rs,caller.rs,handlers/*_acls.rs}`.
-Kafka source abbreviations are those of `phase8/kafka-semantics.md` (SAD = `StandardAuthorizerData.java`, KA = `KafkaApis.scala`,
-ACM = `AclControlManager.java`).
+The numbers are checked by `tools/check-security-catalogue.ts` (`bun tools/check-security-catalogue.ts`; a CI step): no SEC-n or SEC-Dn is defined
+twice, none is referenced (here, in the other docs or in a source comment) without a definition, every deviation is in the index below, and every
+test name quoted in this file is a `fn` in the Rust sources.
+
+## Index
+
+| Rules | Topic | Slice | Where |
+|---|---|---|---|
+| SEC-1 to SEC-15 | SASL opt-in, the login session, PLAIN, redaction, credentials, the crypto boundary | 8a | below |
+| SEC-16 to SEC-30 | the authorizer, the three ACL APIs, Metadata and InitProducerId checks, the model test | 8b | "The oracle, slice 8b" |
+| SEC-40 to SEC-51 | SCRAM-SHA-256 and SCRAM-SHA-512 | 8c | after SEC-15 |
+| SEC-60 to SEC-72 | ACL enforcement on the topic APIs | 8d-1 | "The topic APIs" |
+| SEC-100 to SEC-123 | ACL enforcement on the group and transaction APIs | 8d-2 | "Slice 8d-2" |
+| SEC-140 to SEC-154 | TLS behind the `tls` feature | 8e | "TLS, slice 8e" |
+| SEC-160 to SEC-179 | the SCRAM credential APIs (50, 51), the stored table, the users file and variable | 8f | after SEC-154 |
+| SEC-180 to SEC-189 | the allowed-hosts guard, `--console-allow-host`, `--console-unprotected`, the start-up rule and notes | 8g | "The allowed-hosts guard" |
+
+Deviations from Apache Kafka (and one from the Go edition) by number. Every one is a decision, not a bug; each has a row in `debt.md` section I.
+
+- **SEC-D1** a request in the middle of a login (other than ApiVersions and SaslHandshake) closes unanswered
+- **SEC-D2** the 30 s login budget from the accept
+- **SEC-D3** SaslHandshake v0 is not served
+- **SEC-D4** no 100 ms delay before a failed login is answered
+- **SEC-D5** passwords are not zeroed on drop
+- **SEC-D6** `Session::Unauthenticated` carries a `versions_answered` flag
+- **SEC-D7** the ACL APIs and authorizer work with SASL off, for `User:ANONYMOUS`
+- **SEC-D8** no long message on a CLUSTER_AUTHORIZATION_FAILED
+- **SEC-D9** a super user must be written `Type:name` with both parts non-empty
+- **SEC-D10** DescribeAcls and DeleteAcls results are sorted
+- **SEC-D11** no 10,000-ACL limit; DescribeConfigs does not report the two ACL settings
+- **SEC-D12** the server nonce is 18 random bytes in base64
+- **SEC-D13** several SCRAM extensions are signed in the order sent; no delegation tokens
+- **SEC-D14** bootstrap users have 4096 iterations and a random 16-byte salt
+- **SEC-D15** SCRAM intermediate values are not zeroed
+- **SEC-D16** results in the order asked where Kafka's order is a hash map's or a shuffle
+- **SEC-D17** CreateTopics refused for want of CREATE answers empty `configs`; `__cluster_metadata` and DeleteTopics shape errors not added
+- **SEC-D18** unsupported resource types are checked for the right, then answered 42
+- **SEC-D19** a follower Fetch with CLUSTER_ACTION is read like a consumer's; a nameless Metadata entry has no operations field
+- **SEC-D20** the topic-API rules are read from the source, not recorded
+- **SEC-D30** DeleteGroups with a repeated allowed name answers it twice
+- **SEC-D31** SyncGroup v5+ with no protocol type or name is 23 only for a caller also refused
+- **SEC-D32** AddPartitionsToTxn on the internal topics is 3, not 29
+- **SEC-D33** InitProducerId's two-phase-commit check is unreachable (v6 not served)
+- **SEC-D34** unsure: a DescribeTransactions entry refused with 53 carries schema defaults
+- **SEC-D35** unsure: ConsumerGroupDescribe and a deleted topic's empty name
+- **SEC-D36** unsure: FindCoordinator before v4 puts the error's own message in the answer
+- **SEC-D37** share groups, streams groups and AddPartitionsToTxn v4+ are not served
+- **SEC-D40** client certificates and mutual TLS are out of scope
+- **SEC-D41** `ssl.principal.mapping.rules` has nothing to map
+- **SEC-D42** protocol versions and cipher suites are rustls's with ring
+- **SEC-D43** no certificate generation and no reload
+- **SEC-D44** PEM only, one certificate, no SNI, ALPN or tickets
+- **SEC-D45** a failed handshake may send a TLS alert record
+- **SEC-D46** the pre-auth budget applies to the handshake with SASL off
+- **SEC-D47** the advertised host is not checked against the certificate
+- **SEC-D48** a `tls` build needs a C compiler
+- **SEC-D50** two layers of users, bootstrap and stored; the API refuses a bootstrap user with 93
+- **SEC-D51** the credential APIs work with SASL off: an open broker lets anyone manage users
+- **SEC-D52** credential results are in the request's order, or by name
+- **SEC-D53** `metadata.version` is not modelled
+- **SEC-D54** Describe with a null user list from a denied caller answers 31 where Kafka throws
+- **SEC-D55** a changed credential applies to new logins; no re-authentication
+- **SEC-D56** credentials are a table in `meta.redb`, not records in a metadata log
+- **SEC-D57** an unusable stored row is left and named at warn
+- **SEC-D58** the environment variable is not cleared
+- **SEC-D59** file and variable passwords are ASCII and held for the life of the process
+- **SEC-D60** the guard has no `.doze` special case (the Go edition's guard has one)
+- **SEC-D61** the guard is stricter than the Go edition's in five shapes
+- **SEC-D62** a configuration that cannot start exits 2 (it exited 1 before slice 8g)
+- **SEC-D63** the console flags have nothing to act on until Phase 9
 
 ## SEC-1. SASL is opt-in; without it nothing changes
 No `--sasl-*` flag: no `Session` is made, the decoder trusts every connection, the connection loop has no extra branch, ApiVersions
@@ -873,6 +941,71 @@ The passwords of the flag, the file and the variable are in no `Debug` output of
 franz-go's kadm makes the user (its own salt and PBKDF2), then sarama, franz-go, kafka-go and librdkafka log in as it with SCRAM-SHA-256 and SCRAM-SHA-512 and write and read 20 records; PLAIN with the right password is refused in each; the user configured at start cannot be taken over (93); the credentials are deleted one mechanism at a time and
 each deletion is refused at the next login by every library, the other mechanism still working until its own deletion; a second deletion is `RESOURCE_NOT_FOUND`. Test: `interop/run.sh -sasl` (the `users/` lines after the twelve cells), `interop/go/users.go`.
 
+## The allowed-hosts guard, slice 8g (SEC-180 to SEC-189)
+
+The Go edition has a DNS-rebinding guard for its two HTTP listeners (console and schema registry): `internal/hostguard`, `go-oracle-rust.md` B4. Kafka has none, and the Kafka protocol has no `Host`
+header, so there is no Kafka behaviour to copy: these rules are the Go edition's domain facts (what a rebinding page does and what a guard must refuse), written for this broker in Rust, with the
+Go edition's `.doze` special case removed (PLAN.md, "an explicit allowed-hosts guard ... with no `.doze` special case"). The guard is `crates/kafka-auth/src/hostguard.rs` (107 lines, no
+dependency), its tests `hostguard/tests.rs`, its fuzz target `crates/kafka-auth/fuzz/fuzz_targets/hostguard.rs`. **Nothing is mounted on it until Phase 9** (decision D8): the console and
+the registry do not exist yet.
+
+## SEC-180. A pure function: `allowed(host_header, extra) -> bool`
+No I/O, no allocation, no dependency; the same answer for the same text. `extra` is the operator's list (`--console-allow-host`). A listener will call it with the request's `Host` header and answer
+403 when it returns false. It guards the HTTP listeners only, never the Kafka port. Marked `// fuzz:parser hostguard`; `cargo xtask fuzz-check` fails without the target. Test:
+`hostguard::tests::ip_literals_localhost_and_names_under_it_are_allowed`, `..::the_shapes_a_rebinding_page_presents_are_refused`.
+
+## SEC-181. What is allowed with an empty list
+An IPv4 literal, an IPv6 literal in brackets, `localhost`, and any name under it (`app.localhost`); case is ignored. An IP literal can never be a rebinding name, so a LAN address works. Everything
+else is refused: `evil.example`, `localhost.evil.example`, `127.0.0.1.evil.example`, `xlocalhost`, `kafka.doze` (**deviation SEC-D60**). Test:
+`hostguard::tests::the_shapes_a_rebinding_page_presents_are_refused`, `..::a_header_in_any_case_is_judged_alike`.
+
+## SEC-182. A port is only trailing digits; brackets are only a pair around an IPv6 literal
+The last colon splits off a port, which is ASCII digits (and may be empty: `localhost:`). Anything else after it is part of what the header names, so `localhost:pw@evil.example`,
+`localhost:80a` and `localhost: 80` are refused. Text in brackets must parse as an IPv6 address and the closing bracket must be the end or be followed by `:` and digits. `::1` without brackets is refused
+(the colons would be a port), as are `[localhost]`, `[127.0.0.1]`, `[::1]x`, `[[::1]]` and a zone id (**deviation SEC-D61**). Test: `hostguard::tests::an_ipv6_literal_is_written_in_brackets_and_only_an_ipv6_literal_is`,
+`..::a_port_is_only_trailing_digits`.
+
+## SEC-183. A name is letters, digits, hyphens and underscores in sane labels
+Labels of ASCII letters, digits, `-` and `_`, none empty or over 63 bytes, 253 bytes in all; anything else (a space, `@`, `/`, `#`, `?`, `%`, a control character, a non-ASCII character) is no name and is
+refused whatever the list holds, so `a@localhost` and `a b.localhost` are not under `localhost`. A browser sends punycode, so non-ASCII text never names anyone (**SEC-D61**). A very long host is refused in
+bounded time. Test: `hostguard::tests::a_name_is_letters_digits_hyphens_and_underscores_in_labels_that_are_not_empty_or_too_long`, `..::non_ascii_names_are_refused_because_a_browser_sends_punycode`.
+
+## SEC-184. One trailing dot is the same name; an address has none
+`localhost.` and `Dev.Example.COM.` are the names without the dot (the list's entries too: `dev.example.com.` matches `dev.example.com`). Two dots make nobody's name. An IP literal with a dot after it is not an
+IP literal and is refused. Test: `hostguard::tests::a_trailing_dot_is_the_same_name_but_one_is_all_and_an_address_has_none`.
+
+## SEC-185. The list adds exact names; `*` turns the check off, except for an empty host
+A name in `extra` (trimmed, case ignored, one trailing dot ignored) is allowed; a pattern such as `*.example.com` is an exact (and so never matching) name; an entry with a port matches nothing. A `*` anywhere in
+the list allows any non-empty host, including text that is no name. An empty host (an empty header, `:80`, `.`) is refused even with `*`, as the Go edition does. Test:
+`hostguard::tests::the_list_adds_exact_names`, `..::a_star_in_the_list_turns_the_check_off_but_an_empty_header_still_fails`, `..::an_empty_header_is_never_allowed`.
+
+## SEC-186. The fuzz target
+`hostguard` takes any text (4 KiB at most) and checks, with no list, one listed name and `*`: no panic; what is let in with no list is ASCII with no control character, space, `@`, `/`, `\`, `#`, `?` or `%` and is an address, a
+bracketed host or ends in `localhost`; what only the list lets in is exactly the listed name (case, one trailing dot, a port); the list only ever adds; `*` never lets in an empty host. Seeds are in
+`fuzz/seeds/hostguard`; the CI `fuzz` job runs it for 30 seconds beside the others. Run for 40 seconds on a laptop: 11 million executions, no finding.
+
+## SEC-187. The flags: `--console-allow-host HOST` and `--console-unprotected`
+`--console-allow-host` is repeatable or comma separated (blanks dropped, case and dots left to the guard); `--console-unprotected` is a switch. Both are parsed, checked and kept in `Settings.console`; **the
+console does not exist before Phase 9, so nothing acts on them** (**deviation SEC-D63**): the help text of each says so, the start logs `--console-allow-host is accepted and ignored` like the other flags of
+later parts, and the values are logged at debug. Test: `cli::tests::console::the_flags_are_parsed_and_kept_and_say_in_their_help_that_nothing_serves_them_yet`.
+
+## SEC-188. The start-up rule: SASL or TLS on and a console beyond loopback is refused (exit 2)
+With SASL or TLS on, a `--console-addr` that other machines can reach (a wildcard or empty host, an address that is not loopback, a name other than `localhost`) stops the start, before the data directory is
+touched, with the Go edition's words: `config: the console has no login and is plain HTTP, and SASL is on: serving it on 0.0.0.0:9093 would let anyone who can reach that address act on the broker as a super
+user, without a password. Keep --console-addr on loopback (and put a proxy that authenticates in front of it), turn it off with --console=false, or accept this with --console-unprotected` (`SASL and TLS` or `TLS` for
+the other cases; with TLS and no SASL the consequence is `send topics and messages unencrypted to anyone who can reach that address`). `--console-unprotected` accepts it. A console turned off (`--console=false`), a
+loopback address (`127.0.0.1`, `[::1]`, `localhost`) or a broker with neither SASL nor TLS is not refused. An address that is not `host:port` is refused with `config: console address "x" is not host:port (for example
+127.0.0.1:9093)`. Every start refusal now exits **2** (**deviation SEC-D62**). Test: `cli::tests::console::sasl_and_a_console_beyond_loopback_is_refused_in_the_go_editions_words`,
+`..::loopback_a_turned_off_console_and_no_protection_all_start`, `..::a_console_address_that_is_not_host_and_port_is_refused`,
+`tests/process console::sasl_and_a_console_beyond_loopback_stop_the_start_with_exit_2_unless_unprotected`, `console::a_console_address_that_is_no_host_and_port_exits_2_too`.
+
+## SEC-189. Start-up notes: what the operator's choices leave open
+Said once at warn before the broker listens: **the console served beyond loopback although SASL or TLS is on** (`--console-unprotected`: `the console is served on ADDR with no login and over plain HTTP although
+SASL is on (--console-unprotected): that will ...`), and **SASL without TLS on a listen address other machines can reach** (`SASL is on without TLS and --listen ADDR can be reached from other machines: logins
+(a PLAIN password is sent as it is) and messages cross the network unencrypted`). No note for a loopback listener, or for no SASL. Test:
+`cli::tests::console::unprotected_accepts_the_start_and_the_start_says_what_it_left_open`, `..::sasl_without_tls_on_an_address_other_machines_reach_is_noted`,
+`tests/process console::unprotected_starts_the_broker_and_the_log_says_what_is_open`.
+
 ## Deviations
 - **SEC-D1.** A request in the middle of a login other than ApiVersions and SaslHandshake closes unanswered; Kafka answers it in its
   own shape with 34 and then closes. (Recorded `request-before-token-who`; the Go edition has the same difference.)
@@ -890,9 +1023,7 @@ each deletion is refused at the next login by every library, the other mechanism
 - **SEC-D9.** A super user must be written `Type:name` with both parts non-empty (the Go edition's rule); Kafka only needs a colon, so it
   accepts `:x` and `User:`.
 - **SEC-D10.** DescribeAcls and DeleteAcls list resources and ACLs sorted; Kafka's order is a hash map's (unspecified).
-- **SEC-D11.** (Slice 8d-1 closed two of the three items: the topic APIs now check (SEC-60 to SEC-70) and Metadata computes the authorized-operations
-  fields (SEC-71); the auto-creation CREATE check had been done in 8b (SEC-27). Still open until slice 8d-2: the group and transactional-id APIs are
-  open to every principal.) A CreateAcls of
+- **SEC-D11.** (This once also listed the topic, group and transactional-id APIs as unchecked; they are checked, SEC-60 to SEC-72 and SEC-100 to SEC-123.) A CreateAcls of
   more than 10,000 new ACLs is not limited (Kafka's outcome is unspecified, kafka-semantics U3). DescribeConfigs on the broker does not report
   `allow.everyone.if.no.acl.found` or `super.users` (the Go edition does; real Kafka lists neither, so the recorded answers would differ).
 - **SEC-D12.** The server nonce is 18 random bytes in base64 (24 characters); Kafka's is a base-36 rendering of 130 random bits (up to 26). Both are
@@ -902,7 +1033,7 @@ each deletion is refused at the next login by every library, the other mechanism
   delegation-token path of Kafka, answered here as an unknown user (the generic 58 at client-first, which is what Kafka answers when the token does not exist);
   there are no delegation tokens (out of scope).
 - **SEC-D14.** Every verifier has 4096 iterations and a random 16-byte salt. Kafka takes any count from 4096 to 16384 and the salt of whoever made the credential
-  (its admin client makes about 26 ASCII bytes); that needs `AlterUserScramCredentials`, which is slice 8f. A stored count under 4096, which Kafka refuses at
+  (its admin client makes about 26 ASCII bytes); a user made over `AlterUserScramCredentials` (slice 8f) keeps the count and salt its client chose (4096 to 16384, SEC-163). A stored count under 4096, which Kafka refuses at
   client-first, cannot occur.
 - **SEC-D15.** The derived keys, the salted password and the proof are `Vec`s that are not zeroed on drop (extends SEC-D5); the verifiers are kept for the life of
   the process, the intermediate values for the length of a call.
@@ -973,3 +1104,13 @@ each deletion is refused at the next login by every library, the other mechanism
 - **SEC-D57.** A stored row the broker cannot use is left in the table and named at warn (SEC-171); Kafka would fail to replay the log. Deleting such a row over the API is `RESOURCE_NOT_FOUND`, because the snapshot does not have it.
 - **SEC-D58.** The environment variable is read once and not cleared (`set_var` is unsafe on edition 2024 and the process is multi-threaded): it is visible to other processes of the same user for the life of the broker. `--sasl-users-file` with mode 600 is the one that does not leave the password in `ps`, in `/proc/<pid>/cmdline` or in `environ`.
 - **SEC-D59.** Passwords in the file and the variable are ASCII without NUL, as the flag's (no SASLprep: Phase 8 "Not in this phase"), and are held in memory for the life of the process (SEC-D5). A stored credential holds no password at all.
+
+- **SEC-D60.** The guard has no `.doze` special case: the Go edition's allows the shared `.doze` zone, this one allows exactly what SEC-181 lists and a name the operator needs is listed with
+  `--console-allow-host` (PLAN.md, the allowed-hosts guard "with no `.doze` special case").
+- **SEC-D61.** The guard is stricter than the Go edition's in five shapes, all of which no browser sends in a `Host` header: a bare IPv6 literal (`::1`), brackets around anything but an IPv6 literal (`[localhost]`,
+  `[127.0.0.1]`, `[dev.example.com]:1`), an IP literal with a trailing dot, a name with a character outside letters, digits, `-` and `_` (or any non-ASCII one: a space, `@` or a control character under `.localhost`,
+  or in a listed name), and a name over 253 bytes or a label over 63. A refusal costs a flag; an acceptance costs the defence.
+- **SEC-D62.** A configuration that cannot start (every refusal of the flags: SASL, TLS, ACL, numbers, the console rule) exits 2, as clap's own error for a bad flag does and as the Go edition's configuration errors
+  do; before slice 8g it exited 1 through `main`'s `Result`. Failures after the start (the data directory in use, an I/O error) still exit 1. No test or script read the code 1.
+- **SEC-D63.** `--console-allow-host` and `--console-unprotected` are parsed and kept and nothing acts on them (SEC-187): there is no console or registry listener before Phase 9. The rule on their inputs (SEC-188)
+  is built now. A console is taken as on unless `--console=false` (the Go edition's default), so an address given alone is judged; this broker has no default console address, so with no `--console-addr` no rule applies.
