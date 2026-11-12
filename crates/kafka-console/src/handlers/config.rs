@@ -112,7 +112,7 @@ async fn missing(s: &Shared, topic: &str, key: &str, why: ConfigMissing) -> Resp
     }
 }
 
-/// A dialog: alone for a script, else on a page of its own under its breadcrumb.
+/// A dialog: its body alone for a script; else its parent page with the dialog open on it (the overlay system draws it over the page).
 async fn dialog(
     s: &Shared,
     status: StatusCode,
@@ -123,8 +123,13 @@ async fn dialog(
     if h.contains_key(HEADER_FRAGMENT) {
         return (status, html(&make(false))).into_response();
     }
-    let (topic, title) = at;
-    shell(s, status, topic, Some(title), make(true)).await
+    // A direct visit shows the parent (the Config page) with the overlay open on it.
+    let (topic, _) = at;
+    let Some(parent) = s.source.config_page(topic, ConfigAsk::default()).await else {
+        return no_topic(s, topic).await;
+    };
+    let main = pages::config_with_overlay(pages::config_page(&parent, &s.base), make(true));
+    shell(s, status, topic, None, main).await
 }
 
 /// `GET /topics/{topic}/config`

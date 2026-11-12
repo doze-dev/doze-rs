@@ -299,3 +299,56 @@ Tagged in the code and in `debt.md` J91 to J120.
 - "What just happened" wire docks: the request recorder (slice 9e).
 - The Story tab and its count, "left 3 s ago", the last rebalance's age: the group event ring (slice 9f).
 - Members that left a group: the machine forgets them; only members present are drawn.
+## Config, the topic's configs (slice 9d, `p9d`; the rules from CON-250 up)
+
+## CON-250. The eight Config boards, fixtures and a real broker
+Each board is rendered from the larder and from a real broker and compared by `tools/board-diff.ts`; the edit dialogs and the reset dialog are drawn as overlays on their parent, the Config page. Test: `tests/boards_config::every_board_of_the_slice_renders_and_is_written_for_the_tool`, `tests/live_config::the_eight_boards_are_rendered_from_a_real_broker`.
+
+## CON-251. The page lists what the broker lists, with source, Kafka's text and when a change counts
+Every key DescribeConfigs lists for the topic is on the page (the replication group opens on request), with its value, its source, Kafka's first sentence, and a sentence for when a change counts whose seconds are the broker's own flags. Test: `tests/live_config::the_page_lists_what_the_broker_lists_with_its_source_and_when_a_change_counts`.
+
+## CON-252. Every key the broker lists has an effect sentence
+`config_effects::moment` has an entry for each of the 33 keys, and says "this broker keeps it and does nothing with it" for the ones it does not act on; a name that is not listed has none. Test: `tests/live_config::every_key_the_broker_lists_has_an_effect_sentence`, `config_effects::tests::every_listed_key_has_a_moment_and_a_sentence_and_a_name_that_is_not_listed_has_none`.
+
+## CON-253. A value is set with IncrementalAlterConfigs SET and read back
+Test: `tests/live_config::a_value_is_set_with_the_call_a_client_sends_and_read_back_from_the_broker`.
+
+## CON-254. A list is appended to and subtracted from
+Test: `tests/live_config::a_list_is_appended_to_and_subtracted_from`, `config_pass::tests::a_list_after_an_operation_is_what_the_boards_draw`.
+
+## CON-255. The two compaction lags are one request
+A crossed pair is refused whole, in Kafka's words, and nothing changes. Test: `tests/live_config::the_two_lags_are_saved_together_and_a_crossed_pair_is_refused_whole`.
+
+## CON-256. What would pass is what the broker accepted
+A candidate named by a refusal is shown only after `validate_only` took it; the other ranges are the broker's answers now. Test: `tests/live_config::a_refused_value_shows_kafkas_words_and_only_what_the_broker_accepted_as_what_would_pass`, `config_pass::tests::the_values_kafka_names_in_a_refusal_are_the_ones_to_try`.
+
+## CON-257. A reset is IncrementalAlterConfigs DELETE
+Test: `tests/live_config::a_reset_removes_the_topics_value_and_the_broker_takes_over`.
+
+## CON-258. Check is the same call with validate_only
+Test: `tests/live_config::a_check_is_the_same_call_with_validate_only_and_changes_nothing`.
+
+## CON-259. An empty form is the dialog again and no call
+Test: `tests/live_config::an_empty_value_is_the_dialog_again_with_the_error_and_no_call`.
+
+## CON-260. Without the right to alter, the save is refused as a client would be
+Test: `tests/live_config::on_a_broker_with_acls_the_page_reads_and_the_save_is_refused_as_a_client_would_be`.
+
+## CON-261. Hostile text is escaped and cannot forge a line of the call
+Test: `tests/live_config::hostile_text_is_escaped_and_cannot_forge_a_line_of_the_call`, `config_calls::tests::what_was_typed_cannot_start_a_line_of_its_own`.
+
+## CON-262. A GET of the Config pages never changes the broker
+Test: `tests/live_config::a_get_of_the_config_pages_never_changes_the_broker`.
+
+## CON-263. Every word under a value is made from the key and the value
+Durations, sizes, "no limit", the group a key is in, Kafka's first sentence. Test: `config_words::tests::a_value_is_said_in_words_where_it_helps_and_left_alone_where_it_does_not`.
+
+## CON-264. The dialogs teach from the row, the table and the typed values
+Test: `config_teach::tests::the_lags_are_taught_together_and_here_says_what_the_typed_pair_means`.
+
+### What these boards show that the broker cannot supply yet
+
+Tagged in the code and in `debt.md` J121 to J130.
+- The cleaner's state ("61 % of the log is dirty", "not due until 11.2 MiB more"): the cleaner keeps none a console may read.
+- The name of the flag behind a Static flag (`--segment-bytes`): the table knows the broker config, not the flag.
+- Segment sizes ("Segments 1 to 7 keep their size", "the active segment (0.6 MiB)"): the dialog does not read the log's files.

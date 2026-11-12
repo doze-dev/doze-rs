@@ -1072,7 +1072,7 @@
     "board": "config-edit",
     "field": "button",
     "selector": "Check [-] -> submit",
-    "reason": "[p9d] Check sends the same call with validate_only and changes nothing: the plan's 'preview is the real validator's answer'. The board draws Save alone.",
+    "reason": "improvement: Check sends the same call with validate_only and shows Kafka's own verdict with each config now and after, before anything is saved; the board draws Save alone.",
     "expires": "close"
   },
   {
@@ -1086,7 +1086,7 @@
     "board": "config-edit-list",
     "field": "button",
     "selector": "Check [-] -> submit",
-    "reason": "[p9d] Check sends the same call with validate_only and changes nothing: the plan's 'preview is the real validator's answer'. The board draws Save alone.",
+    "reason": "improvement: Check sends the same call with validate_only and shows Kafka's own verdict with each config now and after, before anything is saved; the board draws Save alone.",
     "expires": "close"
   },
   {
@@ -1100,7 +1100,7 @@
     "board": "config-edit-lag",
     "field": "button",
     "selector": "Check [-] -> submit",
-    "reason": "[p9d] Check sends the same call with validate_only and changes nothing: the plan's 'preview is the real validator's answer'. The board draws Save alone.",
+    "reason": "improvement: Check sends the same call with validate_only and shows Kafka's own verdict with each config now and after, before anything is saved; the board draws Save alone.",
     "expires": "close"
   },
   {
@@ -1156,13 +1156,13 @@
   {
     "board": "config-refused-value",
     "field": "button",
-    "reason": "[p9d] Besides Back to the config the page offers Edit again, which opens the dialog with what was typed (or with the value the broker accepted); the board offers only the way back.",
+    "reason": "improvement: besides Back to the config the page offers Edit again, which reopens the dialog with the value the broker accepted (or what was typed) instead of making the person start over.",
     "expires": "close"
   },
   {
     "board": "config-refused-value",
     "field": "link",
-    "reason": "[p9d] Edit again goes to the edit dialog (see the button entry).",
+    "reason": "improvement: Edit again goes to the edit dialog (see the button entry).",
     "expires": "close"
   }
 ]

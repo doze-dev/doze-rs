@@ -50,12 +50,18 @@ fn refused(base: &Base, f: ConfigFields<'_>) -> Option<Drawn> {
     Some(("Refused".to_owned(), pages::config_refused(&r, base)))
 }
 
+/// A dialog board: the Config page with the dialog open on it, as a direct visit to the dialog's address shows it.
+fn over(base: &Base, overlay: Markup) -> Option<Drawn> {
+    let parent = pages::config_page(&larder::page(TOPIC, ConfigAsk::default())?, base);
+    Some((
+        "Config".to_owned(),
+        pages::config_with_overlay(parent, overlay),
+    ))
+}
+
 fn dialog(base: &Base, f: ConfigFields<'_>) -> Option<Drawn> {
     let v = larder::form(TOPIC, f).ok()?;
-    Some((
-        pages::config_dialog_title(&v),
-        pages::config_edit_dialog(&v, base, true),
-    ))
+    over(base, pages::config_edit_overlay(&v, base, true))
 }
 
 fn board(id: &str, base: &Base) -> Option<Drawn> {
@@ -91,10 +97,7 @@ fn board(id: &str, base: &Base) -> Option<Drawn> {
         ),
         "config-reset" => {
             let v = larder::reset_form(TOPIC, "segment.bytes").ok()?;
-            Some((
-                "Reset to default".to_owned(),
-                pages::config_reset_dialog(&v, base, true),
-            ))
+            over(base, pages::config_reset_dialog(&v, base, true))
         }
         _ => None,
     }

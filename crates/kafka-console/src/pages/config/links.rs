@@ -36,14 +36,15 @@ pub fn token(kind: &str, key: &str) -> String {
     format!("{kind}:{key}")
 }
 
-/// The same page with `token` opened if it was shut and shut if it was open.
+/// The same page with `token` shut if it was open, else opened alone: a link never piles one open part on another, so the
+/// addresses of a page are as many as its parts, not the ways to open them (a direct address may still open several).
 #[must_use]
 pub fn toggled(ask: &ConfigAsk, token: &str) -> ConfigAsk {
     let mut next = ask.clone();
-    if let Some(at) = next.open.iter().position(|t| t == token) {
-        next.open.remove(at);
+    if next.open.iter().any(|t| t == token) {
+        next.open.retain(|t| t != token);
     } else {
-        next.open.push(token.to_owned());
+        next.open = vec![token.to_owned()];
     }
     next
 }
@@ -89,7 +90,7 @@ mod tests {
     }
 
     #[test]
-    fn an_expander_opens_when_shut_and_shuts_when_open() {
+    fn an_expander_opens_alone_when_shut_and_shuts_when_open() {
         let a = ask();
         let shut = toggled(&a, "where:segment.bytes");
         assert!(shut.open.is_empty());

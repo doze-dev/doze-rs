@@ -208,3 +208,17 @@ pub fn edit_dialog(v: &ConfigEditView, base: &Base, inline: bool) -> Markup {
 pub fn dialog_title(v: &ConfigEditView) -> String {
     title(v)
 }
+
+/// The overlay of the edit dialogs: only the dialog (its heading is `config-edit-title`, which labels it), for the
+/// overlay system to draw over the Config page. `inline` is the shell of 9b's `ui/dialog.rs` that sits in the page until
+/// the overlay system takes over.
+#[must_use]
+pub fn edit_overlay(v: &ConfigEditView, base: &Base, inline: bool) -> Markup {
+    edit_dialog(v, base, inline)
+}
+
+/// The Config page with an overlay open on it: the parent's content, then the overlay.
+#[must_use]
+pub fn with_overlay(parent: Markup, overlay: Markup) -> Markup {
+    html! { (parent) (overlay) }
+}

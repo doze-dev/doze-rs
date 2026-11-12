@@ -310,3 +310,13 @@ Statuses as above. Rules CON-100 and up in `behaviours/console.md`. The writing 
 | J101 | The list looks into at most 100 groups for their lag; more are cut with "First 100 of N groups" | decided |
 | J102 | `gather/protocol.rs` is a second small reader of the consumer protocol's bytes (the broker's is private to the group machines) | decided |
 | J103 | `fixtures_topics` was not cfg-gated and broke `cargo check -p kafka-console` without the `examples` feature; gated in p9c | closed |
+| J121 | The saved page's "What it does to this log" says what the broker does with the value and when; the board's verdict ("61 % dirty, not due") needs the cleaner's own state, which a console may not read | open: needs a cleaner view in `ConsoleView` |
+| J122 | The "Here" line of the edit dialogs is written for the lags and `cleanup.policy` only; for other keys the broker's table and the effects table say all there is | decided |
+| J123 | A Static flag row names the broker config behind it (`log.segment.bytes`), not the command-line flag (`--segment-bytes`) | open |
+| J124 | The reset dialog does not say how many segments keep their size or how big the active segment is: it does not read the log's files | open |
+| J125 | The board's expanders and chips are buttons that need a script; the page makes each a link that carries the state in the address (`?open=`, `?show=`, `?replication=1`), complete with no script | decided |
+| J126 | `ConfigRule` and `Pace` are two small additions to `ConsoleView` (`view/config_rules.rs`, `view/pace.rs`); `Backend::topic_config_rules` and `Backend::pace` read them | decided |
+| J127 | A mutation check by hand on `config_pass::after_of` and `config_effects::moment` was made at the slice close; a run over `gather/config*.rs` was not made | open |
+| J128 | The Consumers tab of the Config pages goes to the topic's own page as the boards draw it, where the Messages page links `/groups` | open: decide with 9c |
+| J129 | The effects table lists the keys the broker lists today; a key added to `topic_config::table` without an entry fails `every_key_the_broker_lists_has_an_effect_sentence` | decided |
+| J130 | The "Before and after" of a Check is worked out from the row and the typed value (list elements added once, taken out); the Saved page reads both sides from the broker | decided |

@@ -11,7 +11,7 @@ mod rows;
 mod saved;
 
 pub use common::{config_url, edit_url, reset_url};
-pub use dialog::{dialog_title, edit_dialog};
+pub use dialog::{dialog_title, edit_dialog, edit_overlay, with_overlay};
 pub use links::{toggled, token};
 pub use page::{config_page, no_config};
 pub use refused::config_refused;

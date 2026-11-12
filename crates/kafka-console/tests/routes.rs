@@ -25,6 +25,11 @@ fn concrete(pattern: &str, state: &kafka_console::state::State) -> String {
         .replace("{offset}", "16050")
         .replace("{group}", "search-indexer")
         .replace("{member}", "search-indexer-1")
+        + if pattern.ends_with("/config/edit") || pattern.ends_with("/config/reset") {
+            "?key=cleanup.policy"
+        } else {
+            ""
+        }
 }
 
 /// A body each POST row takes without complaint (the proof of origin is what the guard tests are about).
@@ -37,6 +42,8 @@ fn valid_body(pattern: &str) -> &'static str {
         "/topics/{topic}/partitions/add" => "count=5",
         "/topics/{topic}/delete-records" => "partition=0&offset=1",
         "/topics/{topic}/delete" => "confirm=orders",
+        "/topics/{topic}/config/edit" => "key=segment.bytes&value=2048",
+        "/topics/{topic}/config/reset" => "key=segment.bytes",
         _ => "back=home",
     }
 }

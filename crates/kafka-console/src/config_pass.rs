@@ -7,17 +7,22 @@ use crate::model::ConfigOp;
 const ONE_OF: &str = "must be one of: ";
 const BOUNDS: [&str; 2] = ["must be at least ", "must be no more than "];
 
-/// What follows the last `marker` in `message`: Kafka's own reason comes last, after the value that was typed.
-fn after<'a>(message: &'a str, marker: &str) -> Option<&'a str> {
+/// Where the last `marker` is in `message` and what follows it: Kafka's own reason comes last, after the value typed.
+fn after<'a>(message: &'a str, marker: &str) -> Option<(usize, &'a str)> {
     let at = message.rfind(marker)?;
-    message.get(at + marker.len()..)
+    Some((at, message.get(at + marker.len()..)?))
 }
 
 /// The values Kafka's refusal names: the choices of "must be one of: a, b", the bound of "must be at least N" and of
 /// "must be no more than N". Any other message names none.
 #[must_use]
 pub fn options(message: &str) -> Vec<String> {
-    if let Some(rest) = after(message, ONE_OF) {
+    let bound = BOUNDS
+        .iter()
+        .filter_map(|key| after(message, key))
+        .max_by_key(|(at, _)| *at);
+    let one_of = after(message, ONE_OF);
+    if let Some((_, rest)) = one_of.filter(|(at, _)| bound.is_none_or(|(b, _)| *at > b)) {
         return rest
             .split(',')
             .map(|o| o.trim().to_owned())
@@ -25,10 +30,8 @@ pub fn options(message: &str) -> Vec<String> {
             .take(8)
             .collect();
     }
-    BOUNDS
-        .iter()
-        .find_map(|key| after(message, key))
-        .and_then(|rest| rest.split_whitespace().next())
+    bound
+        .and_then(|(_, rest)| rest.split_whitespace().next())
         .map(|n| n.trim_end_matches('.').to_owned())
         .filter(|n| n.parse::<f64>().is_ok())
         .into_iter()
