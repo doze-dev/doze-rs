@@ -32,14 +32,7 @@ impl<F: Fs> Broker<F> {
             return blanket(req, ResponseError::GroupAuthorizationFailed);
         }
         let barred = |name: &str| !guard.topic(operation::READ, name);
-        // Kafka asks the group nothing when no topic is left to commit to.
-        let all_barred =
-            !req.topics.is_empty() && req.topics.iter().all(|t| barred(t.name.as_str()));
-        let fence = if all_barred {
-            None
-        } else {
-            self.commit_fence(version, req).await
-        };
+        let fence = self.fence_unless_barred(version, req, &barred).await;
         let mut resp = OffsetCommitResponse::default();
         // Each partition is judged; those that pass are stored together in one write.
         let mut to_store: Vec<OffsetCommit> = Vec::new();
@@ -99,6 +92,22 @@ impl<F: Fs> Broker<F> {
             self.store(req, &to_store, &slots, &mut resp);
         }
         Outcome::Respond(kafka_wire::api::Response::OffsetCommit(resp))
+    }
+
+    /// [`Self::commit_fence`], except that Kafka asks the group nothing when no topic is left to commit to.
+    async fn fence_unless_barred(
+        &self,
+        version: i16,
+        req: &OffsetCommitRequest,
+        barred: &impl Fn(&str) -> bool,
+    ) -> Option<ResponseError> {
+        let none_left =
+            !req.topics.is_empty() && req.topics.iter().all(|t| barred(t.name.as_str()));
+        if none_left {
+            None
+        } else {
+            self.commit_fence(version, req).await
+        }
     }
 
     /// May this group's offsets be written by this committer? `None`: yes.

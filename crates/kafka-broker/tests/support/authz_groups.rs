@@ -166,10 +166,19 @@ fn allows_all(
 
 /// The brokers `five_ways!` asks, each with the callers to ask as and what each is to be told.
 pub async fn variants(needs: &[Need]) -> Vec<Variant> {
-    let first = needs[0].code;
-    let mut out = Vec::new();
+    vec![
+        named(needs).await,
+        broad(needs).await,
+        wrong_prefix(needs).await,
+        default_open(),
+        default_closed_by_an_acl(needs).await,
+    ]
+}
 
-    // The right, named: granted, missing, against a DENY, DENY against ALLOW, and each need left out in turn.
+/// The right, named: granted, missing, against a DENY, DENY against ALLOW, each need left out in turn, and each
+/// made DESCRIBE only.
+async fn named(needs: &[Need]) -> Variant {
+    let first = needs[0].code;
     let rig = world();
     let mut acls = allows_all(needs, "alice", None);
     acls.extend(allows_all(needs, "carol", None));
@@ -210,13 +219,15 @@ pub async fn variants(needs: &[Need]) -> Vec<Variant> {
         }
     }
     grant(&rig, acls).await;
-    out.push(Variant {
+    Variant {
         label: "named",
         rig,
         cases,
-    });
+    }
+}
 
-    // Granted to any user, to a prefix of the name, to the wildcard name.
+/// Granted to any user, to a prefix of the name, to the wildcard name.
+async fn broad(needs: &[Need]) -> Variant {
     let rig = world();
     let mut acls = Vec::new();
     for n in needs {
@@ -234,10 +245,9 @@ pub async fn variants(needs: &[Need]) -> Vec<Variant> {
             ALLOW,
         ));
         acls.push(creation((n.res, "*", LITERAL), "User:grace", n.op, ALLOW));
-        acls.push(creation((n.res, "zz", PREFIXED), "User:heidi", n.op, ALLOW));
     }
     grant(&rig, acls).await;
-    out.push(Variant {
+    Variant {
         label: "any user, prefix, wildcard",
         rig,
         cases: vec![
@@ -247,9 +257,11 @@ pub async fn variants(needs: &[Need]) -> Vec<Variant> {
             case("grace", Expect::Pass),
             case("admin", Expect::Pass),
         ],
-    });
+    }
+}
 
-    // A prefix that is not the name's prefix covers nothing of it: only the default, which is closed.
+/// A prefix that is not the name's prefix covers nothing of it: only the default, which is closed.
+async fn wrong_prefix(needs: &[Need]) -> Variant {
     let rig = world();
     grant(
         &rig,
@@ -259,31 +271,34 @@ pub async fn variants(needs: &[Need]) -> Vec<Variant> {
             .collect(),
     )
     .await;
-    out.push(Variant {
+    Variant {
         label: "a prefix that is not the name's",
         rig,
-        cases: vec![case("heidi", Expect::Denied(first))],
-    });
+        cases: vec![case("heidi", Expect::Denied(needs[0].code))],
+    }
+}
 
-    // The default allows while nothing covers the resource; one ACL on it for anybody turns the default off.
-    let rig = rig_with(open);
-    let cases = vec![case("hank", Expect::Pass)];
-    out.push(Variant {
+/// The default allows while nothing covers the resource.
+fn default_open() -> Variant {
+    Variant {
         label: "default allows, nothing covers",
-        rig,
-        cases,
-    });
+        rig: rig_with(open),
+        cases: vec![case("hank", Expect::Pass)],
+    }
+}
+
+/// One ACL on the resource, for anybody, turns the default off.
+async fn default_closed_by_an_acl(needs: &[Need]) -> Variant {
     let rig = rig_with(open);
     grant(&rig, allows_all(needs, "alice", None)).await;
-    out.push(Variant {
+    Variant {
         label: "default allows, one ACL covers",
         rig,
         cases: vec![
             case("alice", Expect::Pass),
-            case("hank", Expect::Denied(first)),
+            case("hank", Expect::Denied(needs[0].code)),
         ],
-    });
-    out
+    }
 }
 
 /// Runs `$body` (an expression that awaits an API's answer and returns its error code) for every caller of

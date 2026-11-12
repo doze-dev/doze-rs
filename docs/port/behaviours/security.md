@@ -405,7 +405,7 @@ so each is written from Kafka 4.3.1's `KafkaApis.scala` (KA) and the request and
 `OffsetFetchResponse.groupError`, `DescribeGroupsResponse.groupError`, `OffsetDeleteResponse.Builder`, `ApiError.fromThrowable`), and the test
 that holds it cites the same lines. A recording of `authz-matrix` against `apache/kafka:4.3.1` (decision D9) would confirm or correct them.
 The checks are in `crates/kafka-broker/src/handlers/*.rs` through `handlers/group_guard.rs` (`Guard`); the tests are
-`kafka-broker tests/authz_{groups_classic,groups_848,offsets,transactions}.rs` with their harness in `tests/support/authz_{groups,calls,txn}.rs`,
+`kafka-broker tests/authz_{groups_classic,groups_848,offsets,transactions,txn_offsets}.rs` with their harness in `tests/support/authz_{groups,calls,txn}.rs`,
 and `kafka-server tests/acl_groups.rs` on a real socket.
 
 ## SEC-100. Where the checks are made, and the questions every API is asked
