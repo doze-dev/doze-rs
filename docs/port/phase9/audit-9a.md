@@ -1,0 +1,54 @@
+# Audit of Phase 9 slice 9a (the console crate, Home, Connect)
+
+Independent audit, 2026-11-12, of main at 7f747e1 (the auditor's detached worktree was identical in crates, tools and `ci.yml`). The auditor did not build the slice, attacked it on a real broker and in real Chrome, and applied 23 mutations. **Verdict: DONE WITH MINORS**, one MAJOR (A1). The fixes are tracked in `debt.md` section J (rows J21 and on) and in the fix commits on main that follow this file.
+
+## Findings
+
+| id | sev | where | what is wrong (repro) | fix asked |
+|---|---|---|---|---|
+| A1 | MAJOR | `backend/requests.rs:43` (`.take(20)`), `gather/attention.rs:31-49` | A real broker with 44 ongoing transactions (600 s timeout) and 3 with a 60 s timeout whose ids sort last: at 52 s Home says "Nothing needs you. No transaction is near its timeout." ListTransactions returns 47 ids, only the first 20 are described, so a near-timeout transaction beyond the 20th is never seen and "N things need you" undercounts. | Describe every id in chunks, or say "N+" when capped; a 25-transaction test. |
+| A2 | MINOR | `source.rs:50`, `probe.rs:224` | With `--advertised-port` on a counting TCP server and the live fragments polled every 2 s for 66 s: 9 dials (at 0, 30, 60 s, three each). CON-11 says "once at page load, never on a timer". Every fragment fetch runs `home()`, which calls the probe though those fragments do not show it; no single-flight; a dead advertised address stalls each fetch up to 1.5 s. | Fragments do not call the probe; single-flight; fix the CON-11 text. |
+| A3 | MINOR | `tick.rs:69,117`, `tick/tests.rs` | Mutation `task.abort()` to `drop(task)` survives: `running()` only tests that the handle is `Some`, so CON-19 (task only while a stream is connected) is untested. | Test real task liveness. |
+| A4 | MINOR | `headers.rs:15,24`, `tests/guard.rs` | Deleting `X-Frame-Options`, or `base-uri 'none'; form-action 'self'` from the CSP, survives. SEC-245 lists them; the test asserts only some fragments. | Assert the full CSP and all five headers. |
+| A5 | MINOR | `guard.rs:82-91` | Mutation `n > MAX_BODY*1000` survives: `DefaultBodyLimit` already returns 413, the test requests carry no Content-Length, so the layer is redundant and never exercised. | Remove it or test it over a socket. |
+| A6 | MINOR | `doze-kafka/src/web.rs:98` | Mutation `unprotected: false && ...` survives: the binary-to-banner wiring behind SEC-248 is untested. | A process test on `0.0.0.0`. |
+| A7 | MINOR | `doze-kafka/Cargo.toml:21` | Mutation `default = []` survives and CI's size limit is only an upper bound: D1 (the console is in the default build) has no check. | A CI or test check on `cargo tree`. |
+| A8 | MINOR | `assets/console.js:65` | Mutation `etags[id] = null` survives: the spike's rules are guarded only by string greps (J12). | A bun DOM test. |
+| A9 | MINOR | `console.js:13-19`, `pages/connect.rs:101` | In Chrome on `/connect`: click "Properties", then Copy on the "When SASL is on" card: the clipboard gets `bootstrap.servers=127.0.0.1:...`, not the SASL lines. | Apply "Copy as" to the snippet buttons only. |
+| A10 | MINOR | `doze-kafka/src/cli/console.rs:68` | `--console=0`, `no`, `off`, `FALSE`, `False` all leave the console listening; only the exact `false` turns it off, silently. | Parse a strict bool. |
+| A11 | MINOR | `doze-kafka/src/main.rs:75` | An explicit `--console-addr` that cannot be bound exits 2, but `dS1/lock` has been created; SEC-247 says "before anything is opened". | Bind first, or reword. |
+| A12 | MINOR | `serve.rs:64`, `descriptors.rs:19` | A partial head, a partial body and an idle connection all stay open after 25 s. 1,500 SSE streams are accepted (RSS 25 to 92 MB on the debug build, 1,662 descriptors, memory not returned). No timeouts or caps; the broker's descriptor budget does not count console connections. | A hyper header timeout, a connection and stream cap, count them in the budget. |
+| A13 | MINOR | `pages/home.rs:253-281` | Open `/` on an empty broker, create a topic, wait 4.5 s: the h1 still says "Your broker is up" and the "Waiting for your first request" card stays while the instance card has become steady. | Make the state-dependent region one fragment. |
+| A14 | MINOR | `kafka-broker/src/view/process.rs:40` | RSS is computed as pages x 4096: wrong on 16 KiB or 64 KiB page Linux aarch64 (4 to 16 times too small). | Read `VmRSS` from `/proc/self/status`. |
+| A15 | MINOR | `ci.yml:17-57`, `gate.md:102` | CI runs none of: the console catalogue checker, `boards-snapshot --check` (gate.md says it does), board-diff, the a11y lint, `cargo test`/`clippy --no-default-features`, the `origin` fuzz (J15). All green by hand. | Add the steps or correct the docs. |
+| A16 | NOTE | `ci.yml:84,138-141` | Stale comments ("plus 5%", "8,200,000") above limits that are now 9 and 10 MB. | Edit the comments. |
+| A17 | NOTE | `debt.md` J14, J17 | J14 and J17 are stale (limits are set, tools exist); J has no rows for A1, A2, A10 to A13. | Close and add rows. |
+| A18 | NOTE | `console.js:67,94` | One failed fragment fetch shows the "paused" banner and only `es.onopen` hides it. | Hide it on the next success. |
+| A19 | NOTE | `console.js:21` | `navigator.clipboard` is absent over `http://<LAN ip>`: the Copy buttons are shown and do nothing, silently. | An `execCommand` fallback. |
+| A20 | NOTE | `doze-kafka/src/cli/tests.rs:352` | Mutation: the reserved-name check applied to `--sasl-user` only (not file or env) survives. By hand, file and env are refused (exit 2). | Add rows. |
+| A21-A29 | NOTE | various | Static files ignore `If-None-Match` and `Range` (harmless). Words overclaim: "can always reach it again", "a client that reached X" when rule 1 failed (`words.rs:130,133`). A `NotChecked` result is cached 30 s. "Idle memory" is the current RSS. The descriptor count is off by one. A mutated process test hangs 290 s (no `.output()` timeout). Origin ignores scheme and first-header-wins (not exploitable). hyper's own 400/414 lack the security headers. The form decoder has no fuzz marker. | |
+
+## Mutations (23 applied; 13 caught, 10 survived)
+
+Caught: remove the host-guard layer; remove the same-origin layer; the security-headers layer moved innermost; allow `@` in the origin authority; cross-site `Sec-Fetch-Site` falls through; drop the stream `stop.cancelled()` arm; the SCRAM reserved-name check disabled; the console not made a super user; the form `+`; `MOST_FIELDS` 64 to 64,000; the base-prefix trim; a font dropped from the asset manifest; `beyond_loopback` always false.
+
+Survived: `X-Frame-Options` deleted (A4); the CSP `base-uri`/`form-action` dropped (A4); `body_limit` threshold x1000 (A5); the tick task not aborted (A3); `LISTENER_DEADLINE` 700 ms to 70 s; `DEADLINE` 1.5 s to 150 s (both: the probe's timeouts have no test); `console.js` ETag not kept (A8); `web.rs` `unprotected` false (A6); `default = []` (A7); the reserved-name check on `--sasl-user` only (A20).
+
+## Verified OK (what the auditor checked and found right)
+
+- Suites on the audit tree: 934 tests pass in `-p kafka-console -p kafka-auth -p kafka-broker`; the `doze-kafka` console tests pass default and lean; fmt, clippy (default and lean, `-D warnings`) and lint-size clean; the console catalogue (`--lean-tree`), `boards-snapshot --check`, board-diff (fixture and live renders from the real broker: home, home-attention, connect, connect-advertised), the a11y lint (0 findings), `bun test tools/test` (71) and `cargo deny check` pass.
+- Host guard, about 45 real-socket cases. Allowed: `127.0.0.1`, `localhost`, upper case, trailing dot, `[::1]`, `*.localhost`, IP literals. Refused: userinfo, `localhost.evil.com`, `evillocalhost`, `127.1`, `0x7f.1`, a decimal IP, a bad port, no Host, empty, punycode. The port range is unchecked; the first Host wins with two headers; `X-Forwarded-Host` is ignored.
+- Same-origin proof, 24 shapes: no proof, `null`, another port, userinfo, `same-site`/`none`/`cross-site` (even with a matching Origin) and Referer only all give 403. PUT, DELETE, PATCH, OPTIONS, TRACE and HEAD give 405 even with proof. A non-GET without proof is 403 everywhere, so no preflight can succeed.
+- Headers present on 200, 404, 405, 400, 403, 413 (Content-Length and chunked 2.5 MiB), 303, static files and the SSE head.
+- Paths: traversal (`..`, `%2e%2e`, backslash, `//`) gives 404; asset names are a hash-map lookup. Prefix: `//evil.com` normalises to `/evil.com` (no open redirect); `\evil.com`, `/{x}`, `/a%2fb`, `/*` exit 2.
+- Escaping: a hostile transactional id is entity-escaped in the page and the fragment; `data-copy` is escaped; no SASL secret or user name appears in any page.
+- Probe: addresses come from broker config only, no SSRF; 300 concurrent "Check again" POSTs finish in 44 ms. Stream: closed vocabulary; 10 streams shut down in under 1 s; after 8 back/forward cycles Chrome holds 1 connection.
+- Principal (SEC-240..249): `__console` is refused in `--sasl-user`, the users file, the env var, `--acl-super-user` and API 51 (upsert and delete); lookalikes are ordinary names; it is a super user and goes through the same `Broker::handle` entry as socket clients (`exchange.rs:105`).
+- Start-up: SEC-188 refuses before the data dir exists; a busy default console port warns and runs; `--console=false` idles at 5,088 KB against lean 5,024 KB; the lean tree has no axum, maud or hyper.
+- Chrome (4 runs, locked, 0 Chrome processes before and after): ticks refetch the fragments with 304 skipped for unchanged ones; the banner appears 3.5 s after the broker is killed and is gone 3.5 s after restart; "Check again" works with JS (swaps in place) and without (303 and reload); Copy works in Code mode.
+- Boards, every text node and link, all five pages: `connect` and `connect-advertised` are identical to their boards; Home's differences are exactly J1, J2, J4, J5, J6 and J16 and nothing is invented. State selection (quiet, steady, attention) is right on real data except A1.
+- Weight reproduced (release, darwin): default 5,521,456 B (exact) with 150 packages (exact), idle 6,016 KB (7,248 KB after two page loads); lean 4,301,248 B (the doc says 4,301,232; the 16 B is the worktree path) with 122 packages, idle 5,024 KB. The `weight.md` arithmetic is right; `Cargo.lock` added only axum's and maud's own tree; `ci.yml` parses and its limits are consistent (154 = 150+4, 126 = 122+4, 165 = 150+11+4).
+
+## Not checked by the auditor
+
+No x86_64 Linux or CI run (the limits are estimates); no Lima VM build; no Windows, Safari, Firefox or screen reader; no real reverse proxy or TLS in front; no pixel comparison (the canvas PNGs are not in the repo, so text and structure were compared and the screenshots looked at, no layout break seen); no `cargo fuzz`; no interop or replay; EMFILE not run to failure (A12 stopped at 1,662 descriptors).
