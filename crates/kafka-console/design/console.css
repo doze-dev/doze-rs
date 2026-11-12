@@ -311,6 +311,60 @@ html.is-loading::before{content:"";position:fixed;z-index:90;top:0;left:0;right:
 .dz-block .dz-trigger{width:100%;height:40px;border-radius:10px}
 .dz-block .dz-field{height:40px;border-radius:10px}
 .dz-block .dz-pop{min-width:100%}
+/* MultiSelect: the button says the selection compactly, a clear x sits beside the chevron, the popup holds a search field (with the chosen as removable tags), Select all / Clear, and the options with checks. */
+.sr-only{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.dz-multi{vertical-align:top}
+.dz-multi-box{position:relative;display:inline-flex}
+.dz-multi:not(.is-on) .dz-multi-box{display:none}
+.dz-multi .dz-trigger{max-width:280px}
+.dz-multi .dz-value{max-width:220px}
+.dz-multi-trigger.has .dz-value{margin-right:20px}
+.dz-multi-clear{position:absolute;right:30px;top:50%;transform:translateY(-50%);display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;padding:0;border:0;border-radius:999px;background:transparent;color:var(--dim);cursor:pointer}
+.dz-multi-clear:hover{background:rgba(23,20,31,.08);color:var(--bright)}
+.dz-multi-clear:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.dz-multi-clear .gl{width:12px;height:12px}
+@media (scripting:enabled){.dz-multi:not(.is-on) .dz-native{visibility:hidden}}
+/* Without a script: a details whose summary looks like the button and whose body is the checkboxes. */
+.dz-multi.is-on .dz-multi-plain{visibility:hidden}
+.dz-multi-plain{position:relative;height:auto;padding:0;border:0;background:none;border-radius:0}
+.dz-multi-plain summary{display:inline-flex;align-items:center;height:36px;padding:0 14px;border:1px solid var(--line2);border-radius:999px;font-size:13px;font-weight:500;cursor:pointer}
+.dz-multi.on .dz-multi-plain summary{background:var(--sel);border-color:#cdbff4;color:var(--bright)}
+.dz-multi-checks{position:absolute;z-index:60;top:100%;left:0;margin:6px 0 0;min-width:14rem;max-height:320px;overflow:auto;padding:8px;background:#fff;border:1px solid var(--line2);border-radius:8px;box-shadow:0 12px 32px -8px rgba(23,20,31,.20)}
+.dz-multi-check{display:flex;align-items:center;gap:8px;padding:4px 6px;white-space:nowrap}
+.dz-multi-check .dz-count{margin-left:auto}
+.dz-multi-checks .btn{margin-top:6px}
+.dz-multi.is-on .dz-multi-checks .btn{display:none}
+/* The popup */
+.dz-multi-pop{display:flex;flex-direction:column;min-width:15rem;max-height:min(420px,70vh);padding:0;overflow:hidden}
+.dz-multi-field{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;padding:8px 10px;border-bottom:1px solid var(--line)}
+.dz-multi-chips{display:contents}
+.dz-multi-field .dz-input{flex:1 1 90px;min-width:90px;height:24px}
+.dz-tag{display:inline-flex;align-items:center;max-width:100%;height:22px;padding:0 2px 0 8px;border-radius:999px;background:var(--sel);color:var(--bright);font-size:12px;line-height:20px}
+.dz-tag-t{max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dz-tag-x{width:18px;height:18px;padding:0;border:0;border-radius:999px;background:none;color:var(--dim);font-size:14px;line-height:1;cursor:pointer}
+.dz-tag-x:hover{background:rgba(23,20,31,.08);color:var(--bright)}
+.dz-multi-actions{display:flex;align-items:center;gap:14px;padding:5px 12px;border-bottom:1px solid var(--line);font-size:12px;line-height:18px;color:var(--dim)}
+.dz-multi-n{margin-right:auto;font-variant-numeric:tabular-nums}
+.dz-link{padding:2px 0;border:0;background:none;font:inherit;font-size:12px;color:var(--accent);cursor:pointer}
+.dz-link:hover:not(:disabled){text-decoration:underline}
+.dz-link:disabled{opacity:.4;cursor:default}
+.dz-link:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
+.dz-multi-list{flex:1 1 auto;min-height:0;max-height:264px;overflow-y:auto;overscroll-behavior:contain;padding:4px}
+.dz-multi-opt{padding-left:34px}
+.dz-multi-opt .dz-opt-t{flex:1}
+.dz-box{position:absolute;left:9px;top:8px;display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;box-sizing:border-box;border:1px solid #b9b2cc;border-radius:4px;background:#fff}
+.dz-box .dz-check{position:static;width:12px;height:12px;color:#fff;stroke-width:2}
+.dz-opt[aria-selected=true] .dz-box{background:var(--accent);border-color:var(--accent)}
+.dz-count{flex:none;margin-left:auto;padding-left:14px;font-size:12px;color:var(--dim);font-variant-numeric:tabular-nums}
+/* The chosen values under a toolbar: each a link that takes it off (in place, with the toolbar's own region). */
+.dz-picked{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;margin:-8px 0 16px}
+.dz-picked:empty{display:none}
+.dz-picked-k{font-size:12px;color:var(--dim)}
+.dz-picked a.dz-tag{height:26px;padding:0 4px 0 10px;text-decoration:none;color:var(--bright)}
+.dz-picked a.dz-tag:hover{background:#e4dcf8}
+.dz-picked a.dz-tag:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.dz-picked .dz-tag-x{pointer-events:none}
+.dz-picked .dz-link{margin-left:4px}
 /* Combobox: the kit's field, with the list under it */
 .dz-field{display:flex;align-items:center;gap:8px;height:36px;min-width:15rem;padding:0 8px 0 10px;background:#fff;border:1px solid var(--line2);border-radius:8px;box-shadow:0 1px 2px rgba(23,20,31,.04);transition:border-color .12s ease,box-shadow .12s ease}
 .dz-field:focus-within,.dz-combobox[data-open] .dz-field{border-color:var(--accent);box-shadow:0 0 0 3px rgba(122,79,224,.12)}

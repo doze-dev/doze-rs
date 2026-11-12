@@ -62,6 +62,7 @@ pub const MANIFEST: &[File] = &[
     file!("console.css", Css),
     file!("console.js", Js),
     file!("components.js", Js),
+    file!("multiselect.js", Js),
     file!("htmx-2.0.11.min.js", Js),
     file!("idiomorph-ext-0.8.0.min.js", Js),
     file!("alpine-anchor-3.17.5.min.js", Js),
@@ -98,11 +99,12 @@ pub const MANIFEST: &[File] = &[
 ];
 
 /// The scripts of a page, in load order.
-pub const SCRIPT_ORDER: [&str; 6] = [
+pub const SCRIPT_ORDER: [&str; 7] = [
     "htmx-2.0.11.min.js",
     "idiomorph-ext-0.8.0.min.js",
     "console.js",
     "components.js",
+    "multiselect.js",
     "alpine-anchor-3.17.5.min.js",
     "alpine-csp-3.17.5.min.js",
 ];
@@ -119,7 +121,7 @@ pub struct Served {
 pub struct AssetUrls {
     pub css: String,
     /// The scripts, in the order a page loads them (all deferred, so they run in this order): htmx and idiomorph, our
-    /// two files (which register on `alpine:init`), then Alpine's plugin and Alpine itself, which starts when it runs.
+    /// three files (which register on `alpine:init`), then Alpine's plugin and Alpine itself, which starts when it runs.
     pub scripts: Vec<String>,
     pub favicon: String,
 }

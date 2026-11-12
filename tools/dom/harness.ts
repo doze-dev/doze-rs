@@ -14,6 +14,7 @@ const SCRIPTS = {
   idiomorph: await read("idiomorph-ext-0.8.0.min.js"),
   console: CONSOLE,
   components: await read("components.js"),
+  multiselect: await read("multiselect.js"),
   anchor: await read("alpine-anchor-3.17.5.min.js"),
   alpine: await read("alpine-csp-3.17.5.min.js"),
 };
@@ -371,6 +372,7 @@ export async function boot(html: string, opts: Options = {}): Promise<Page> {
   window.eval(SCRIPTS.idiomorph);
   window.eval(SCRIPTS.console);
   window.eval(SCRIPTS.components);
+  window.eval(SCRIPTS.multiselect);
   if (opts.alpine) {
     window.eval(SCRIPTS.anchor);
     window.eval(SCRIPTS.alpine);

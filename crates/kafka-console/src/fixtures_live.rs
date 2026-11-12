@@ -6,7 +6,8 @@
 
 use crate::fixtures_topics::now as world_now;
 use crate::model::{
-    LiveState, LiveView, WireClass, WireDetail, WireQuery, WireRefusal, WireRow, WireWindow,
+    Facet, Facets, LiveState, LiveView, WireClass, WireDetail, WireQuery, WireRefusal, WireRow,
+    WireWindow,
 };
 use crate::pages::live::RequestLimits;
 use crate::recorder::errors;
@@ -167,9 +168,9 @@ fn has(hay: &str, needle: &str) -> bool {
 fn passes(r: &WireRow, q: &WireQuery) -> bool {
     let in_topics = |n: &str| r.topics.iter().any(|t| has(t, n));
     let in_group = |n: &str| r.group.as_deref().is_some_and(|g| has(g, n));
-    (q.client.is_empty() || has(&r.client, &q.client))
-        && (q.api.is_empty() || r.api.eq_ignore_ascii_case(&q.api))
-        && (q.topic.is_empty() || in_topics(&q.topic))
+    q.client_ok(&r.client)
+        && q.api_ok(r.api)
+        && q.topic_ok(r.topics.iter().map(String::as_str))
         && (q.group.is_empty() || in_group(&q.group))
         && (q.text.is_empty()
             || has(&r.client, &q.text)
@@ -180,6 +181,53 @@ fn passes(r: &WireRow, q: &WireQuery) -> bool {
         && (!q.hide_idle || !r.idle)
         && q.before.is_none_or(|b| r.id < b)
         && q.until.is_none_or(|u| r.id <= u)
+}
+
+/// The filters' options: the fixture tape's apps, APIs and topics (and the few more the larder's world has), each with its rows.
+fn facets(rows: &[WireRow]) -> Facets {
+    let list = |names: &[&str], of: &dyn Fn(&WireRow, &str) -> bool| {
+        names
+            .iter()
+            .map(|n| Facet {
+                value: (*n).to_owned(),
+                count: rows.iter().filter(|r| of(r, n)).count(),
+            })
+            .collect()
+    };
+    Facets {
+        clients: list(
+            &[
+                "admin-cli",
+                "catalog",
+                "fulfilment",
+                "notifications",
+                "orders",
+                "payments",
+                "search-indexer",
+            ],
+            &|r, n| r.client == n,
+        ),
+        apis: list(
+            &[
+                "Fetch",
+                "Metadata",
+                "OffsetCommit",
+                "Produce",
+                "InitProducerId",
+                "ApiVersions",
+            ],
+            &|r, n| r.api == n,
+        ),
+        topics: list(
+            &[
+                "clickstream",
+                "inventory.levels",
+                "orders",
+                "payments.settled",
+            ],
+            &|r, n| r.topics.iter().any(|t| t == n),
+        ),
+    }
 }
 
 /// The Live page in the state `hint` names: `paused`, `quiet`, `load`; anything else is the steady tape.
@@ -206,25 +254,7 @@ pub fn live(q: &WireQuery, hint: Option<&str>) -> LiveView {
         older: Some(1),
         held: None,
         paused_at_ms: None,
-        clients_ids: [
-            "admin-cli",
-            "catalog",
-            "fulfilment",
-            "notifications",
-            "orders",
-            "payments",
-            "search-indexer",
-        ]
-        .map(str::to_owned)
-        .to_vec(),
-        topics_seen: [
-            "clickstream",
-            "inventory.levels",
-            "orders",
-            "payments.settled",
-        ]
-        .map(str::to_owned)
-        .to_vec(),
+        facets: facets(&steady),
     };
     match hint {
         Some("paused") => {

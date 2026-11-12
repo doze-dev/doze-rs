@@ -12,6 +12,7 @@ mod clients;
 mod commands;
 mod docks;
 mod drawers;
+mod filters;
 mod first;
 mod page;
 mod parts;

@@ -4,6 +4,7 @@
 
 use maud::{Markup, html};
 
+use super::filters;
 use super::parts::{LIVE_FRAGMENT, request_url_in, wire_url};
 use super::tape::{Layout, table};
 use crate::base::Base;
@@ -11,7 +12,6 @@ use crate::format::number;
 use crate::model::{LiveState, LiveView, Span};
 use crate::ui::button::{Size, Variant, link};
 use crate::ui::client;
-use crate::ui::components::{Choice, Combobox, Select, combobox, select};
 use crate::ui::glyph::{Glyph, glyph};
 use crate::ui::glyph_live::{LiveGlyph, live_glyph};
 use crate::ui::kafka::pager;
@@ -41,43 +41,6 @@ fn pause(v: &LiveView, base: &Base) -> Markup {
     }
 }
 
-/// The longest list a filter shows as a plain Select; a longer one is a Combobox.
-const MOST_PLAIN: usize = 8;
-
-/// A filter that is a Select: the first choice is "all" (an empty value), the rest are what the wire has seen. A value the filter
-/// holds that the wire no longer shows stays a choice, so the page never lies about what it is filtering by.
-fn select_chip(name: &str, all: &str, current: &str, options: &[String]) -> Markup {
-    let mut choices = vec![Choice::new("", all)];
-    choices.extend(options.iter().map(|o| Choice::new(o, o)));
-    if !current.is_empty() && !options.iter().any(|o| o == current) {
-        choices.push(Choice::new(current, current));
-    }
-    // A list that can grow (every app, every topic the wire has seen) is searchable.
-    if choices.len() > MOST_PLAIN {
-        return combobox(&Combobox {
-            auto_submit: true,
-            placeholder: all,
-            class: if current.is_empty() {
-                "dz-chip"
-            } else {
-                "dz-chip on"
-            },
-            ..Combobox::new(&format!("live-{name}"), name, all, &choices, current)
-        });
-    }
-    select(&Select {
-        auto_submit: true,
-        ui: Some("filter"),
-        placeholder: all,
-        class: if current.is_empty() {
-            "dz-chip"
-        } else {
-            "dz-chip on"
-        },
-        ..Select::new(&format!("live-{name}"), name, all, &choices, current)
-    })
-}
-
 fn toggle(name: &str, on: bool, label: Markup) -> Markup {
     html! {
         button class={"fchip" @if on { " on" }} type="submit" name=(name) value=(if on { "0" } else { "1" }) data-ui="filter" aria-pressed=(on) { (label) }
@@ -91,13 +54,11 @@ fn toolbar(v: &LiveView, base: &Base, with_search: bool) -> Markup {
             hx-get=(base.url("/live")) hx-target={"#" (LIVE_FRAGMENT)} hx-select={"#" (LIVE_FRAGMENT)} hx-swap=(client::IN_PLACE_SWAP) hx-push-url="true" {
             input type="submit" value="Filter" aria-label="Filter the wire" hidden data-scaffold;
             @if with_search { (crate::ui::inplace::search_box(LIVE_FRAGMENT, &base.url("/live"), "q", "Filter by client, API or topic", "Filter the wire", &q.text)) }
-            (select_chip("client", "All apps", &q.client, &v.clients_ids))
-            (select_chip("topic", "All topics", &q.topic, &v.topics_seen))
+            (filters::controls(v))
             // A toggle's own button carries its new value; the hidden fields keep the other's state.
             (toggle("refused", q.refused_only, html! { (glyph(Glyph::Filter, 14, "")) "Refused only" }))
             // "Idle polls hidden" is on by default: its button says what a click does by what it is now.
             button class={"fchip" @if q.hide_idle { " on" }} type="submit" name="idle" value=(if q.hide_idle { "0" } else { "1" }) data-ui="toggle" aria-pressed=(q.hide_idle) { "Idle polls hidden" }
-            @if !q.api.is_empty() { input type="hidden" name="api" value=(q.api); }
             @if !q.group.is_empty() { input type="hidden" name="group" value=(q.group); }
             @if let Some(u) = q.until { input type="hidden" name="until" value=(u); }
             span class="sp" {}
@@ -201,6 +162,9 @@ fn held_row(v: &LiveView) -> Markup {
 }
 
 fn tape(v: &LiveView, base: &Base) -> Markup {
+    if v.rows.is_empty() && v.state != LiveState::Quiet && v.query.is_filtered() {
+        return filters::no_match(v, base);
+    }
     let table = table(&v.rows, base, &v.query, Layout::Live);
     if v.state == LiveState::Steady && v.paused_at_ms.is_none() {
         return html! { (table) (pager_row(v, base)) };
@@ -258,6 +222,7 @@ pub fn live_fragment(v: &LiveView, base: &Base) -> Markup {
             span hidden data-seen=(v.seen) data-newest=(v.newest_id) {}
             (page_header("Live", sentence(v), acts))
             (toolbar(v, base, v.state != LiveState::Quiet && v.paused_at_ms.is_none()))
+            (filters::picked(v, base))
             // Under the toolbar, so that pausing (which shows it) moves the tape and never the filters above it.
             (held_banner(v))
             @if v.state == LiveState::Quiet { (quiet_card(v, base)) }

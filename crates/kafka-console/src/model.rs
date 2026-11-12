@@ -27,8 +27,9 @@ pub use connect::{Access, ClientSnippet, ConnectView, ProbeView, Rule, Span, Tok
 pub use consumers::{ConsumersView, TopicReader};
 pub use home::{Attention, HeldBack, HomeState, HomeView, InstanceView, StopView};
 pub use live::{
-    ClientRow, ClientsView, FirstView, GroupWireView, LiveState, LiveView, SpokeView, WIRE_LIMIT,
-    WIRE_MOST, WireClass, WireDetail, WirePart, WireQuery, WireRefusal, WireRow, WireWindow,
+    ClientRow, ClientsView, Facet, Facets, FirstView, GroupWireView, LiveState, LiveView,
+    SpokeView, WIRE_LIMIT, WIRE_MOST, WireClass, WireDetail, WirePart, WireQuery, WireRefusal,
+    WireRow, WireWindow,
 };
 pub use log::{
     LogCleaner, LogCompaction, LogDurability, LogLimit, LogMoved, LogOther, LogOtherLink, LogPass,

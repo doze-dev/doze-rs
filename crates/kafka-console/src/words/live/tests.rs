@@ -27,8 +27,7 @@ fn view(state: LiveState) -> LiveView {
         older: None,
         held: None,
         paused_at_ms: None,
-        clients_ids: vec![],
-        topics_seen: vec![],
+        facets: crate::model::Facets::default(),
     }
 }
 

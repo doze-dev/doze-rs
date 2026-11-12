@@ -28,6 +28,41 @@ fn first_target(f: &Facts) -> Option<(String, Option<String>)> {
     Some((name, sub))
 }
 
+/// The target column of a row that passed a topic filter: the chosen topic it names, and a second line that says what else the
+/// request touched (a group's commit names the group; a Metadata lists the other topics). `None` when the usual target already
+/// leads with a chosen topic.
+#[must_use]
+pub fn target_through(row: &Row, wanted: &[String]) -> Option<(String, Option<String>)> {
+    let f = &*row.facts;
+    let hit: Vec<_> = f
+        .topics
+        .iter()
+        .filter(|t| wanted.iter().any(|w| **w == *t.name))
+        .collect();
+    let first = *hit.first()?;
+    if f.group.is_none() && f.topics.first().is_some_and(|t| t.name == first.name) {
+        return None;
+    }
+    let total = f.topics.len() + usize::try_from(f.topics_more).unwrap_or(0);
+    let parts = first.partitions.len() + usize::try_from(first.more).unwrap_or(0);
+    let name = match (first.partitions.as_slice(), first.more) {
+        ([p], 0) => format!("{}-{p}", first.name),
+        _ => first.name.to_string(),
+    };
+    let sub = if let Some(g) = &f.group {
+        Some(format!("group {g}"))
+    } else if hit.len() > 1 {
+        Some(format!("and {} more chosen", hit.len() - 1))
+    } else if total > 1 {
+        Some(format!("among {total} topics"))
+    } else if parts > 1 {
+        Some(format!("{parts} partitions"))
+    } else {
+        None
+    };
+    Some((name, sub))
+}
+
 /// The target column: what the request touched, and a second line.
 #[must_use]
 pub fn target(row: &Row) -> (String, Option<String>) {

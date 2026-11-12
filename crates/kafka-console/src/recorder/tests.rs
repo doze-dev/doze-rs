@@ -179,21 +179,21 @@ fn filters_by_client_api_topic_group_and_refusal() {
     assert_eq!(ask(WireQuery::default()), 3);
     assert_eq!(
         ask(WireQuery {
-            client: "CATA".into(),
+            client: vec!["catalog".into()],
             ..WireQuery::default()
         }),
         2
     );
     assert_eq!(
         ask(WireQuery {
-            api: "produce".into(),
+            api: vec!["Produce".into()],
             ..WireQuery::default()
         }),
         2
     );
     assert_eq!(
         ask(WireQuery {
-            topic: "inven".into(),
+            topic: vec!["inventory".into()],
             ..WireQuery::default()
         }),
         1

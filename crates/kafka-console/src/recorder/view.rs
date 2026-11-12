@@ -7,7 +7,7 @@ use super::phrase;
 use super::row::Row;
 use super::{Recorder, names, ring};
 use crate::model::live::{
-    LiveState, LiveView, WireClass, WireQuery, WireRefusal, WireRow, WireWindow,
+    Facet, Facets, LiveState, LiveView, WireClass, WireQuery, WireRefusal, WireRow, WireWindow,
 };
 
 /// The requests in a minute above which the page is "a busy minute".
@@ -31,6 +31,29 @@ pub(super) fn class_of(row: &Row) -> WireClass {
 
 /// A row as the tape shows it.
 pub(super) fn wire(row: &Row) -> WireRow {
+    wire_for(row, &WireQuery::default())
+}
+
+/// A row as the tape shows it for a person who filtered by topic: the topic it passed by leads (a Metadata that lists six topics,
+/// a group's commit, a Produce to two), so that a filtered tape never shows rows that do not say what they were filtered by.
+pub(super) fn wire_for(row: &Row, q: &WireQuery) -> WireRow {
+    let mut w = plain(row);
+    if q.topic.is_empty() {
+        return w;
+    }
+    if let Some((target, sub)) = phrase::target_through(row, &q.topic) {
+        w.target = target;
+        w.target_sub = sub;
+        // The row's cell links to its first topic: the one it passed by.
+        let hit = w.topics.iter().position(|t| q.topic.contains(t));
+        if let Some(i) = hit {
+            w.topics.swap(0, i);
+        }
+    }
+    w
+}
+
+fn plain(row: &Row) -> WireRow {
     let (target, target_sub) = phrase::target(row);
     let class = class_of(row);
     let detail = match class {
@@ -87,25 +110,103 @@ fn has(hay: &str, needle: &str) -> bool {
         .contains(&needle.to_ascii_lowercase())
 }
 
-/// Whether a row passes the person's filters.
-fn matches(row: &Row, q: &WireQuery) -> bool {
+/// How a row stands against each kind of filter. A row is shown when all four hold; a filter's own options count the rows that
+/// pass the other three (what choosing that option would leave).
+#[derive(Clone, Copy)]
+struct Verdict {
+    client: bool,
+    api: bool,
+    topic: bool,
+    rest: bool,
+}
+
+impl Verdict {
+    fn all(self) -> bool {
+        self.client && self.api && self.topic && self.rest
+    }
+}
+
+fn judge(row: &Row, q: &WireQuery) -> Verdict {
     let api = names::api(row.api);
     let in_topics = |n: &str| row.facts.topics.iter().any(|t| has(&t.name, n));
     let in_group = |n: &str| row.facts.group.as_deref().is_some_and(|g| has(g, n));
-    (q.client.is_empty() || has(&row.who.client, &q.client))
-        && (q.api.is_empty() || api.eq_ignore_ascii_case(&q.api))
-        && (q.kind.is_empty() || of_kind(row.api, &q.kind))
-        && (q.topic.is_empty() || in_topics(&q.topic))
-        && (q.group.is_empty() || in_group(&q.group))
-        && (q.text.is_empty()
-            || has(&row.who.client, &q.text)
-            || has(api, &q.text)
-            || in_topics(&q.text)
-            || in_group(&q.text))
-        && (!q.refused_only || class_of(row).is_refusal())
-        && (!q.hide_idle || !row.idle)
-        && q.before.is_none_or(|b| row.id < b)
-        && q.until.is_none_or(|u| row.id <= u)
+    Verdict {
+        client: q.client_ok(&row.who.client),
+        api: q.api_ok(api),
+        topic: q.topic_ok(row.facts.topics.iter().map(|t| &*t.name)),
+        rest: (q.kind.is_empty() || of_kind(row.api, &q.kind))
+            && (q.group.is_empty() || in_group(&q.group))
+            && (q.text.is_empty()
+                || has(&row.who.client, &q.text)
+                || has(api, &q.text)
+                || in_topics(&q.text)
+                || in_group(&q.text))
+            && (!q.refused_only || class_of(row).is_refusal())
+            && (!q.hide_idle || !row.idle)
+            && q.before.is_none_or(|b| row.id < b)
+            && q.until.is_none_or(|u| row.id <= u),
+    }
+}
+
+/// The most options a filter lists.
+const OPTIONS: usize = 50;
+
+/// The options of the filters, each with the rows it would leave: names sorted, the busiest kept when there are more than fit.
+fn facets(ring: &ring::Ring, q: &WireQuery) -> Facets {
+    let mut clients: BTreeMap<&str, usize> = BTreeMap::new();
+    let mut apis: BTreeMap<&str, usize> = BTreeMap::new();
+    let mut topics: BTreeMap<&str, usize> = BTreeMap::new();
+    for row in ring.iter() {
+        // A page back or a pause is the page's own state, not a filter: the options always count the whole tape.
+        let v = judge(
+            row,
+            &WireQuery {
+                before: None,
+                until: None,
+                ..q.clone()
+            },
+        );
+        if v.api && v.topic && v.rest {
+            *clients.entry(&row.who.client).or_default() += 1;
+        }
+        if v.client && v.topic && v.rest {
+            *apis.entry(names::api(row.api)).or_default() += 1;
+        }
+        if v.client && v.api && v.rest {
+            let mut seen: Vec<&str> = Vec::new();
+            for t in row.facts.topics.iter().map(|t| &*t.name) {
+                if !seen.contains(&t) {
+                    seen.push(t);
+                    *topics.entry(t).or_default() += 1;
+                }
+            }
+        }
+    }
+    let list = |m: BTreeMap<&str, usize>, chosen: &[String]| {
+        let mut all: Vec<(&str, usize)> = m.into_iter().collect();
+        if all.len() > OPTIONS {
+            // Keep the chosen ones and the busiest of the rest.
+            all.sort_by_key(|(n, c)| (!chosen.iter().any(|x| x == n), std::cmp::Reverse(*c)));
+            all.truncate(OPTIONS);
+            all.sort_unstable_by_key(|(n, _)| *n);
+        }
+        all.into_iter()
+            .map(|(value, count)| Facet {
+                value: value.to_owned(),
+                count,
+            })
+            .collect()
+    };
+    Facets {
+        clients: list(clients, &q.client),
+        apis: list(apis, &q.api),
+        topics: list(topics, &q.topic),
+    }
+}
+
+/// Whether a row passes the person's filters.
+fn matches(row: &Row, q: &WireQuery) -> bool {
+    judge(row, q).all()
 }
 
 impl Recorder {
@@ -128,9 +229,6 @@ impl Recorder {
                 .map(|r| u64::from(r.count))
                 .sum()
         });
-        let mut clients: Vec<&str> = ring.iter().map(|r| &*r.who.client).collect();
-        clients.sort_unstable();
-        clients.dedup();
         let state = state_of(ring, last_minute);
         LiveView {
             state,
@@ -152,8 +250,7 @@ impl Recorder {
             older,
             held,
             paused_at_ms: q.until.and_then(|u| ring.get(u).map(|r| r.last_ms)),
-            clients_ids: clients.iter().take(50).map(ToString::to_string).collect(),
-            topics_seen: topics_seen(ring),
+            facets: facets(ring, q),
         }
     }
 
@@ -203,15 +300,6 @@ fn window(ring: &ring::Ring) -> WireWindow {
     }
 }
 
-fn topics_seen(ring: &ring::Ring) -> Vec<String> {
-    let mut t: Vec<&str> = ring
-        .iter()
-        .flat_map(|r| r.facts.topics.iter().map(|t| &*t.name))
-        .collect();
-    t.sort_unstable();
-    t.dedup();
-    t.into_iter().take(50).map(ToString::to_string).collect()
-}
 /// The newest rows that pass the filters, up to the limit; how many pass; and where the next page back begins.
 fn page(ring: &ring::Ring, q: &WireQuery) -> (Vec<WireRow>, usize, Option<u64>) {
     let mut rows = Vec::new();
@@ -220,7 +308,7 @@ fn page(ring: &ring::Ring, q: &WireQuery) -> (Vec<WireRow>, usize, Option<u64>) 
     for row in ring.iter().rev().filter(|r| matches(r, q)) {
         matched += 1;
         if rows.len() < q.limit {
-            rows.push(wire(row));
+            rows.push(wire_for(row, q));
         } else if older.is_none() {
             older = rows.last().map(|r| r.id);
         }

@@ -131,7 +131,7 @@ fn the_vendored_script_stays_within_the_budget_of_the_stack_decision() {
 
 #[test]
 fn no_script_of_ours_evaluates_a_string() {
-    for name in ["console.js", "components.js"] {
+    for name in ["console.js", "components.js", "multiselect.js"] {
         let text = std::fs::read_to_string(dir("assets").join(name)).unwrap();
         for banned in ["eval(", "new Function", "setTimeout(\"", "document.write"] {
             assert!(!text.contains(banned), "{name} uses {banned}");

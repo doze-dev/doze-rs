@@ -59,7 +59,7 @@ pub fn topic_dock(
     expanded: bool,
 ) -> Markup {
     let q = WireQuery {
-        topic: topic.to_owned(),
+        topic: vec![topic.to_owned()],
         hide_idle: false,
         ..WireQuery::default()
     };
