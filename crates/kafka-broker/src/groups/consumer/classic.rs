@@ -86,6 +86,9 @@ impl ConsumerGroup {
             m.target = held.clone();
             m.assigned = held;
             m.rebalance_ms = i32::try_from(seat.rebalance_ms).unwrap_or(i32::MAX);
+            // What it held was the classic leader's to say; a topic its principal may not DESCRIBE is not held (SEC-234).
+            m.rights = seat.rights;
+            m.forget_hidden(topics);
             m.classic = Some(ClassicSeat {
                 protocols: seat.protocols,
                 protocol,
@@ -125,6 +128,7 @@ impl ConsumerGroup {
                     .ok()
                     .filter(|ms| *ms > 0)
                     .unwrap_or(seat.session_ms),
+                rights: m.rights.clone(),
             });
         }
         Some(Handover {

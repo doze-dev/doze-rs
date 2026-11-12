@@ -150,13 +150,15 @@ the catalogue lists, one row each; the second is what the slices reported left u
 | SEC-D71 | A stranger's frame is at most 64 KiB (Kafka's default is 512 KiB) | decided: 1000 strangers at 300 KiB each were 325 MB (SEC-194); a token is under 1 KiB; replaces the 512 KiB of D10 |
 | SEC-D72 | No `--sasl-allow-empty-users` (the Go edition has it) | decided: a start nobody could log in to was a dead start (SEC-176); the first user comes from a flag, a file, the variable, or a broker started without SASL |
 | SEC-D73 | Only a failed login (58) waits for the failed-login delay; Kafka delays every authentication failure | decided: the other two (33, 34) give a guesser nothing (SEC-192) |
-
 | SEC-D80 | A regex subscription is resolved per member, with its own rights, at each heartbeat that changes them (Kafka: per expression, with the rights of the heartbeat that triggered a refresh) | decided: stricter than Kafka, which could hand a member a topic another member of the same text was allowed |
 | SEC-D81 | Kafka's `findAclRule` throws or never ends on some names; this broker answers by the rules | decided: nothing can depend on a throw or a hang |
 | SEC-D82 | The PREFIXED ACLs of a type are scanned on every check | open at admin scale (thousands of prefixes); fine for tens; a sorted index is the fix, covered by the two model tests |
 | SEC-D83 | Metadata by id serves names beside ids and answers a repeated unknown id each time | decided: no client sends either |
 | SEC-D84 | DeleteTopics by an unknown name is 3 with no message; neither name nor id is not special-cased | decided: with SEC-D17 |
 | SEC-D85 | `--acl-super-user` splits on commas and semicolons | decided: the Go edition's separator and Kafka's |
+| SEC-D90 | A member's names and what it inherits (a static member's place, a classic subscription) are held to its own principal's DESCRIBE right at every heartbeat | decided: stricter than Kafka, which checks names once and copies a departed static member's state whole (SEC-230 to SEC-233) |
+| SEC-D91 | A classic member of a consumer group is given only topics its principal may DESCRIBE | decided: Kafka's coordinator assigns what the opaque subscription names (SEC-231) |
+| SEC-D92 | `--sasl-failed-login-delay` is at most 10 s | decided: Kafka has no limit; a wait of minutes holds a connection and a task per guess (SEC-236) |
 
 ### I.2 Left unfinished, and the audits
 | # | Item | Status |
@@ -186,6 +188,7 @@ the catalogue lists, one row each; the second is what the slices reported left u
 | I23 | Fixes of the first audit of the authentication half (branch `p8h`): SEC-190 to SEC-198, SEC-D70 to D73 (a super user's credential, the open-ACL note, the failed-login delay, file modes, the stranger cap and pool, the clean close, the crypto vectors, no `--sasl-allow-empty-users`, no plaintext kept for SCRAM alone) | done on `p8h`, merge and the re-audit pending |
 | I24 | With `--acl-default allow` and SASL on every logged-in user may rewrite the ACLs and manage every user who is not a super user (SEC-D51, SEC-191); the broker says it at start and does not forbid it | decided: the default is the broker's promise to a developer; `--acl-default deny` with ACLs and a super user is the shared-broker posture |
 | I25 | A stored credential, the TLS key and the users file are protected by file mode only; the partition logs and the data directory are as the umask makes them; the plaintext of a `--sasl-user` flag stays in the process arguments (`ps`) | owner: the flag's value cannot be hidden from `ps` by the process; the file and variable avoid it (SEC-D58) |
+| I26 | Fixes of the re-audit of the authorization half (branch `p8j`): SEC-230 to SEC-238, SEC-D90 to D92 (a static member's inherited topics, names revoked, classic members of a consumer group and a group changing kind, the failed-login cap and the lingering close at a stop, every file mode pinned, the super-user name documented) | done on `p8j`, merge and the next audit pending |
 
 ## Carried into later phases, by name
 - **Phase 7 (compaction), done:** the log walks advance by the last offset delta and a stored batch may hold fewer records than it

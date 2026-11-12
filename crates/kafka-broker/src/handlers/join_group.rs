@@ -57,6 +57,7 @@ impl<F: Fs> Broker<F> {
             // From version 4 a client with no member id is given one and comes back with it.
             issued: false,
             id_first: version >= 4,
+            rights: self.guard(caller).topic_rights(),
         };
         match self.groups.ask(&group, Req::Join(join)).await {
             Some(Answer::Join(answer)) => respond(version, &answer),

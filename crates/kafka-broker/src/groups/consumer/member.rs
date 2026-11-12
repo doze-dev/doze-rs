@@ -2,7 +2,6 @@
 
 use kafka_wire::ids::{InstanceId, MemberId};
 
-use super::Topics;
 use super::assign::{Assignor, Partitions};
 use super::pattern::Pattern;
 use crate::authorizer::{TopicRights, permits};
@@ -81,31 +80,20 @@ impl Member {
         }
     }
 
-    /// Whether the member wants this topic.
-    pub(super) fn subscribes(&self, topic: &str) -> bool {
-        self.subscribed.iter().any(|t| t == topic) || self.pattern_takes(topic)
-    }
-
     /// Whether the member's pattern matches the topic and the member may DESCRIBE it (Kafka's
-    /// `filterTopicDescribeAuthorizedTopics`: a name subscription was checked when it was made).
+    /// `filterTopicDescribeAuthorizedTopics`).
     pub(super) fn pattern_takes(&self, topic: &str) -> bool {
         self.pattern
             .as_ref()
             .is_some_and(|p| p.matches(topic) && permits(self.rights.as_ref(), topic))
     }
 
-    /// Takes the rights of the heartbeat just heard. `true` if they change which topics the pattern takes.
-    pub(super) fn take_rights(&mut self, new: Option<TopicRights>, topics: &Topics) -> bool {
-        if self.rights == new {
-            return false;
-        }
-        let old = std::mem::replace(&mut self.rights, new);
-        let Some(pattern) = &self.pattern else {
-            return false;
-        };
-        topics.all().any(|t| {
-            pattern.matches(&t.name)
-                && permits(old.as_ref(), &t.name) != permits(self.rights.as_ref(), &t.name)
-        })
+    /// The names it subscribed to (or inherited) that its own principal may DESCRIBE: the ones that are shown, counted and
+    /// assigned from. Kafka checks a name once, when it is sent; here it is held to the right at every heartbeat, as a
+    /// match is (SEC-230, SEC-232).
+    pub(super) fn visible_names(&self) -> impl Iterator<Item = &String> {
+        self.subscribed
+            .iter()
+            .filter(|t| permits(self.rights.as_ref(), t))
     }
 }

@@ -150,3 +150,57 @@ async fn a_stop_during_the_delay_ends_the_connection_without_waiting_for_it() {
         "no answer is written to a stopped server's client"
     );
 }
+
+#[tokio::test(start_paused = true)]
+async fn a_delay_longer_than_the_cap_waits_the_cap() {
+    // SEC-236: whoever builds the configuration, a refused login is held at most 10 s.
+    let (mut client, _task, _stop) = start_login(delayed(Duration::from_secs(3600)));
+    plain_handshake(&mut client).await;
+    let begun = Instant::now();
+    client
+        .write_all(&login::token(2, b"\0alice\0nope"))
+        .await
+        .unwrap();
+    assert_eq!(read_token_answer(&mut client).await, 58);
+    let waited = begun.elapsed();
+    assert!(waited >= crate::MOST_FAILED_LOGIN_DELAY, "{waited:?}");
+    assert!(
+        waited < crate::MOST_FAILED_LOGIN_DELAY + Duration::from_secs(1),
+        "{waited:?}"
+    );
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_stop_while_the_refused_client_lingers_ends_the_connection_at_once() {
+    // SEC-236: after the answer the server waits up to 250 ms for the client to close; a stop does not wait for that.
+    let (mut client, task, stop) = start_login(delayed(Duration::ZERO));
+    plain_handshake(&mut client).await;
+    client
+        .write_all(&login::token(2, b"\0alice\0nope"))
+        .await
+        .unwrap();
+    assert_eq!(read_token_answer(&mut client).await, 58);
+    let begun = Instant::now();
+    stop.cancel();
+    assert!(matches!(task.await.unwrap(), End::LoginFailed));
+    assert!(
+        begun.elapsed() < Duration::from_millis(100),
+        "{:?}",
+        begun.elapsed()
+    );
+    // The control: with no stop the same client holds the connection for the whole 250 ms.
+    let (mut client, task, _stop) = start_login(delayed(Duration::ZERO));
+    plain_handshake(&mut client).await;
+    client
+        .write_all(&login::token(2, b"\0alice\0nope"))
+        .await
+        .unwrap();
+    assert_eq!(read_token_answer(&mut client).await, 58);
+    let begun = Instant::now();
+    assert!(matches!(task.await.unwrap(), End::LoginFailed));
+    assert!(
+        begun.elapsed() >= Duration::from_millis(240),
+        "{:?}",
+        begun.elapsed()
+    );
+}

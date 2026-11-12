@@ -57,6 +57,7 @@ impl GroupMachine {
                 assignment: held,
                 session_ms: m.session_ms,
                 rebalance_ms: m.rebalance_ms,
+                rights: m.rights.clone(),
             });
         }
         Some(Handover {
@@ -97,6 +98,7 @@ impl GroupMachine {
                     joined: None,
                     syncing: None,
                     session_gen: 0,
+                    rights: seat.rights,
                 },
             );
         }

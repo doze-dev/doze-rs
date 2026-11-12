@@ -78,18 +78,21 @@ impl ConsumerGroup {
         &mut self,
         token: Token,
         req: &HeartbeatRequest,
+        topics: &Topics,
         now: Millis,
         out: &mut Vec<Effect>,
     ) {
-        let error = self.heartbeat_classic(req, now, out);
+        let error = self.heartbeat_classic(req, topics, now, out);
         out.push(Effect::Reply(token, Answer::Heartbeat(error)));
     }
 
     /// Keeps a classic member's session, and says whether it must rejoin: its generation is behind the group's, or what
-    /// it holds is not what it is to have and something can move now.
+    /// it holds is not what it is to have and something can move now. The rights of the heartbeat's caller are the
+    /// member's from now on, and a topic they no longer let through makes it rejoin (SEC-231).
     fn heartbeat_classic(
         &mut self,
         req: &HeartbeatRequest,
+        topics: &Topics,
         now: Millis,
         out: &mut Vec<Effect>,
     ) -> Option<E> {
@@ -106,7 +109,13 @@ impl ConsumerGroup {
         if req.generation != m.epoch {
             return Some(E::IllegalGeneration);
         }
-        let behind = m.epoch != self.target_epoch;
+        if self.refresh_rights(&req.member_id, req.rights.clone(), topics, now, out) {
+            self.bump_and_reassign(topics, now);
+        }
+        let behind = self
+            .members
+            .get(&req.member_id)
+            .is_some_and(|m| m.epoch != self.target_epoch);
         self.reset_session(&req.member_id, now, out);
         let rejoin = behind || self.must_rejoin(&req.member_id);
         // Told to rejoin to give something up, it has until its rebalance timeout to do it.

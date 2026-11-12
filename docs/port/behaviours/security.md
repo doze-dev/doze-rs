@@ -33,8 +33,8 @@ SEC-D4, D5, D51, D56, D59) say so where they stand.
 | SEC-160 to SEC-179 | the SCRAM credential APIs (50, 51), the stored table, the users file and variable | 8f | after SEC-154 |
 | SEC-180 to SEC-189 | the allowed-hosts guard, `--console-allow-host`, `--console-unprotected`, the start-up rule and notes | 8g | "The allowed-hosts guard" |
 | SEC-190 to SEC-198 | the fixes of the first audit of the authentication half: super-user credentials, the open-ACL note, the failed-login delay, file modes, the stranger cap, the clean close, the crypto vectors | audit fixes | "Audit fixes of the authentication half" |
-
 | SEC-210 to SEC-222 | fixes after the audit of the authorization half: regex subscriptions, Metadata bits and order, DeleteTopics, by-type, the second model, super-user separators | 8h audit | "Audit fixes, authorization half" |
+| SEC-230 to SEC-238 | the places a member's topics come from and whose right is applied: static takeover, names revoked, classic members, a group changing kind; the failed-login cap; file modes; the super-user name | re-audit C | "Re-audit of the authorization half" |
 
 Deviations from Apache Kafka (and one from the Go edition) by number. Every one is a decision, not a bug; each has a row in `debt.md` section I.
 
@@ -100,6 +100,9 @@ Deviations from Apache Kafka (and one from the Go edition) by number. Every one 
 - **SEC-D83** Metadata by id: names beside ids are served (Kafka drops them), and a repeated unknown id is answered each time
 - **SEC-D84** DeleteTopics by an unknown name answers 3 with no message; neither a name nor an id is not special-cased
 - **SEC-D85** `--acl-super-user` splits on commas and semicolons (the Go edition: commas; Kafka: semicolons)
+- **SEC-D90** a member's names and everything it inherits (a static member's place, a classic member's subscription) are held to its own principal's DESCRIBE right at every heartbeat (Kafka: names once, at the request; a static member's state copied whole)
+- **SEC-D91** a classic member of a consumer group is given only topics its principal may DESCRIBE (Kafka assigns what the opaque subscription names)
+- **SEC-D92** `--sasl-failed-login-delay` is at most 10 s (Kafka: no limit)
 
 ## SEC-1. SASL is opt-in; without it nothing changes
 No `--sasl-*` flag: no `Session` is made, the decoder trusts every connection, the connection loop has no extra branch, ApiVersions
@@ -749,7 +752,7 @@ message (the default-message exceptions leave it out), no member id, epoch 0, no
 judged (an empty member id is 30, not 42, to a caller that may not use the group). Test: `the_heartbeat_needs_read_on_the_group_and_describe_on_each_subscribed_topic`,
 `a_refused_heartbeat_is_the_code_alone_in_both_versions_and_makes_no_member`, `one_topic_the_caller_may_not_describe_among_several_refuses_the_subscription`,
 `authorization_comes_before_the_request_is_judged`.
-A `SubscribedTopicRegex` is not checked here: it is held to the same right when it is resolved (SEC-210).
+A `SubscribedTopicRegex` is not checked here: it is held to the same right when it is resolved (SEC-210); and the names are held to it again at every heartbeat (SEC-232).
 
 ## SEC-107. DescribeGroups (KA:1302-1348)
 DESCRIBE on each group. A refused group is an entry of its own: code 30, state `""`, protocol type and protocol `""`, no members, authorized operations
@@ -1070,7 +1073,7 @@ Test: `kafka-meta tests/file_mode::a_database_is_made_readable_by_its_owner_only
 
 ## SEC-194. A stranger's frame is at most 64 KiB, and is never read into a pooled buffer (**deviation SEC-D71**; decision D10)
 The cap before the login (SEC-4) is 64 KiB for every API, down from 512 KiB (Kafka's `sasl.server.max.receive.size` default) and the 1 MiB before that: a token, a handshake and an ApiVersions are under 1 KiB. The cost it bounds: 1000 strangers each sending 300 KiB of a claimed 512 KiB frame took the
-process from 5 MB to 325 MB (release build), which stayed after they closed; the connection limit (2048) made that a gigabyte. With the cap the same 1000 connections are refused at the length, 5 MB. A stranger that sends 60 KiB of a legal 64 KiB frame, 1000 times, costs 70 MB while it holds the sockets.
+process from 5 MB to 325 MB (release build), which stayed after they closed; the connection limit (2048) made that a gigabyte. With the cap the same 1000 connections are refused at the length, 5 MB. A stranger that sends 60 KiB of a legal 64 KiB frame, 1000 times, takes the process from 12.8 MB to 83.7 MB while it holds the sockets, **and the process stays at 83.7 MB after they close** (the allocator keeps the memory for the next connections and does not give it back); it is bounded, not returned.
 And what a stranger reads is never put on the pool's shelves (`frames::into_pool`: only a peer that has logged in gets a pooled buffer, the pool being for big Produce requests), so a frame of exactly 64 KiB, which is the size from which the pool takes buffers, is read as any other and freed. Test:
 `frame::tests::an_unauthenticated_connection_is_capped_at_64_kib`, `frame::tests::the_caps_are_exact`, `connection::tests::login::a_stranger_frame_is_held_to_64_kib_and_a_logged_in_one_is_not`, `frames::tests::only_a_peer_that_has_logged_in_gets_a_pooled_buffer`.
 
@@ -1092,7 +1095,7 @@ one answer, one stage); for SCRAM the wrong-password answer comes a round trip l
 
 ## SEC-198. Passwords are kept only when PLAIN is offered (extends **SEC-D5**, **SEC-D59**)
 `Users::derive` makes the SCRAM verifiers of the configured users and then, if PLAIN is not among the mechanisms offered, drops every plaintext password (`Credentials::forget_passwords`): the names and the verifiers stay, `Credentials::password` finds nothing, and PLAIN is not offered to ask. With PLAIN offered the
-passwords are kept, because PLAIN compares the password itself. The flag's text in the process's own arguments (`ps`) and the parsed `Args` are not cleared (SEC-D58). Test: `kafka-auth users::tests::plaintext_is_kept_only_when_plain_is_offered`.
+passwords are kept, because PLAIN compares the password itself. The flag's text in the process's own arguments (`ps`) and the parsed `Args` are not cleared (SEC-D58). **`DOZE_KAFKA_SASL_USERS` stays in the process's environment** for the life of the process (and in `/proc/<pid>/environ` on Linux, which the same user, and root, can read; `ps eww` shows it on some systems), because `set_var` is unsafe on edition 2024 and the process is multi-threaded: an operator who does not want the passwords there uses `--sasl-users-file` (mode 0600) and leaves the variable unset. Test: `kafka-auth users::tests::plaintext_is_kept_only_when_plain_is_offered`.
 
 ## Audit fixes, authorization half (SEC-210 to SEC-222)
 The independent audit of the authorization half (2026-11-12) found one major bypass and a handful of small ones; each fix started from a test that failed on
@@ -1113,6 +1116,8 @@ Test: `a_regex_is_assigned_only_topics_the_member_may_describe` (the audit's), `
 `a_deny_keeps_one_topic_out_of_the_match`, `a_super_user_is_assigned_every_topic_the_expression_matches`,
 `a_classic_member_in_a_group_with_a_regex_member_is_unaffected`, `two_members_with_one_expression_are_filtered_each_by_its_own_rights`,
 `a_topic_made_later_is_taken_only_if_the_member_may_describe_it` (`tests/authz_regex_848.rs`; those about rights that change are in `tests/authz_regex_rights_848.rs`).
+
+*(Every place a member's topics come from, not only the expression: SEC-230.)*
 
 ## SEC-211. A right granted or taken away is seen at the member's next heartbeat
 Kafka re-resolves when a refresh is due (new topics, an unresolved expression, or the refresh interval; at most every 10 s, GMM:3354-3373) and with the rights of whichever
@@ -1184,6 +1189,77 @@ unchanged: a duplicate counts once and is a success each time. Test: `tests/acls
 ## SEC-222. ACL hosts over a real socket
 An IPv4 peer is `127.0.0.1`, an IPv6 one `0:0:0:0:0:0:0:1`, and an ACL written `::1` matches neither (SEC-17), checked through a listener on each loopback. The IPv6 test says so and
 returns if the machine has no IPv6 loopback. Test: `an_ipv4_peer_is_matched_as_dotted_decimal`, `an_ipv6_peer_is_matched_as_eight_groups_without_shortening`.
+
+
+## Re-audit of the authorization half (SEC-230 to SEC-238)
+The second independent audit (re-audit C, 2026-11-12) found the same class of defect once more: an invariant enforced at the entry the first audit hit and not against the other sources of the same state. SEC-210 says no member is given a topic it may not DESCRIBE; it checked the
+expression, and not the names and the assignment a static member leaves for the principal that takes its place (the finding: bob, with READ on the group and no DESCRIBE on `secret`, took alice's instance id with a regex that matches nothing and was told `secret`'s id and partitions at the join and at every heartbeat after).
+This section lists **every place** a member's topics, matches or assignment are produced or inherited, says for each whether the DESCRIBE right of the principal that is asking is applied, and fixes the rest. Sources: GMM = `GroupMetadataManager.java`, KA = `KafkaApis.scala` (Kafka 4.3.1).
+
+## SEC-230. The places a member's topics come from, and whose right is applied (extends **SEC-210**, **SEC-213**)
+The rule: **a member is given, shown and left only the topics its own principal may DESCRIBE, as of its latest request** (a ConsumerGroupHeartbeat, or a classic JoinGroup or Heartbeat). The member keeps the rights of that request (`Member::rights`; `None` for a caller nothing narrows, which costs nothing, SEC-212); every source below is held to them (`Member::visible_names`, `Member::pattern_takes`, `ConsumerGroup::refresh_rights`).
+| Place | The requester's right applied before (audited `693da51`) | Now |
+|---|---|---|
+| Join, a new member's names (epoch 0) | yes, at the handler (SEC-106) | as before; and held at every later heartbeat (SEC-232) |
+| Join, a new member's expression | yes, when matched (SEC-210) | as before |
+| Rejoin or poll of a known member id | the expression only: the rights were replaced, the names were not looked at | names, matches and what it holds, at every heartbeat (SEC-232) |
+| A static member's place taken (a new member id for an instance id): the names, target, owned and being-revoked partitions of the one that left | **no**: copied whole (`join.rs`); the finding | the join heartbeat replaces the rights, and the inherited target and owned partitions the new principal may not DESCRIBE are withdrawn before the answer is built; the inherited names are filtered by the new rights (SEC-233, **SEC-D90**) |
+| A known member id used by another principal (a heartbeat naming it) | the expression only | as a change of rights: the same withdrawal (the member id is a bearer secret, as in Kafka) |
+| The assignor's input (`subscribed()`) | the expression only | names and expression |
+| Target against what the member owns (the targets are computed at most every assignment interval) | the expression only, and only when a target was due: a stale target or owned set stayed | at the heartbeat that finds new rights, the member's target is cut and what it owns of the rest becomes "to give up" at once, due or not (`Member::withdraw`); the time to give it up is armed (the rebalance timeout) |
+| Member expiry and the revocation timer | no state of topics is made | unchanged; the timer is armed for what was withdrawn (a member that never gives it up is removed) |
+| A classic JoinGroup into a consumer group: the subscription names and what it says it owns | **no** | the rights of the JoinGroup; the same withdrawal (SEC-231, **SEC-D91**) |
+| A classic Heartbeat | no | refreshes the rights; a right taken away makes it rejoin (REBALANCE_IN_PROGRESS) |
+| A classic SyncGroup | no | hands out the member's assignment as the join and the heartbeat left it, held to their rights |
+| A classic group becoming a consumer group (what each member held) | **no** | each member's rights travel with it (`Seat`) and what it held that they do not let through is dropped (SEC-234) |
+| A consumer group becoming a classic one again | the assignment bytes only | the rights go back with the seat (SEC-234) |
+| The group's subscribed set (ListGroups, OffsetDelete's GROUP_SUBSCRIBED_TO_TOPIC, offsets retention) | the expression's matches only (SEC-213) | names and matches the members may have |
+| ConsumerGroupDescribe | the group is refused (29) if a member holds a topic the *describer* may not DESCRIBE (SEC-108); a member's names shown as sent | the same; and a member's names are only those its own principal may DESCRIBE |
+| DescribeGroups of a classic group, and the member list a classic leader gets | group DESCRIBE only; the members' opaque subscription and assignment bytes | unchanged, as Kafka (SEC-231) |
+Test: `tests/authz_members_848.rs` (one test per row that changed), `tests/authz_members_migration_848.rs`, the random test of SEC-235, and `groups::consumer::tests::rights` (the group machine alone, with a clock).
+
+## SEC-231. A classic member of a consumer group is held to its principal's right (**deviation SEC-D91**)
+A classic JoinGroup that reaches a consumer group (a rolling upgrade, in either direction) is judged by the group, which decides the partitions: SyncGroup hands the member the topic names and partitions it was given. The subscription it sends is opaque metadata that Kafka's coordinator reads without asking about DESCRIBE, so a classic member naming
+`secret` was assigned it and told its partitions (the audited code did the same; found by this section's sweep, not by the auditor, who could not drive it). Now the JoinGroup handler gives the group the caller's rights (`JoinRequest::rights`, the same value the heartbeat hands over; `None` costs nothing), the member keeps them,
+and the join, like a consumer-protocol heartbeat, withdraws what the rights do not let through (`ConsumerGroup::refresh_rights`, also for the member whose place a classic join takes: `classic/join.rs`, the class of `join.rs` for the new protocol). The classic Heartbeat carries the rights too (`HeartbeatRequest::rights`): one that finds a change moves the group's epoch and
+answers REBALANCE_IN_PROGRESS, so a right taken away reaches a classic member at its next heartbeat, as it does a member of the new protocol. A SyncGroup carries no rights; it hands out the assignment as the join and the heartbeat left it, and a caller that uses another member's id gets what that member got (the member id is a bearer secret in Kafka too).
+**What a classic member can learn of another's subscription:** the leader of a *classic* group is sent every member's metadata in its JoinGroup response, and DescribeGroups returns each member's metadata and assignment to a caller with DESCRIBE on the group (KA:1302-1348, no topic is asked about). That is Kafka's behaviour and is kept: nothing there is assigned by the broker (the leader, a client, assigns from the Metadata it was given, which hides what it may not DESCRIBE), and the names in it
+are the members' own words. A consumer group's DescribeGroups describes no consumer-protocol member (SEC-107). The tests: `a_classic_member_is_not_assigned_a_topic_it_cannot_describe`, `a_classic_member_replacing_a_static_member_inherits_nothing_hidden` (`tests/authz_members_848.rs`), `groups::consumer::tests::rights::what_is_taken_away_is_given_up_inside_the_rebalance_timeout_or_the_member_goes`.
+
+## SEC-232. Names are held to the right at every heartbeat (revocation; **deviation SEC-D90**)
+Kafka checks DESCRIBE on `SubscribedTopicNames` once, when they are sent (KA:2604-2642), and not again: a member that subscribed while allowed keeps its topics after the right is denied. Here the names are held as the expression is (SEC-211): the member's effective subscription is what it sent **and** what its current rights let it DESCRIBE (`Member::visible_names`), re-evaluated at each heartbeat. A DENY issued after the
+subscription takes the topic away at the very heartbeat that finds it (the answer carries the assignment without it, inside the assignment interval as well), and what is revoked is given up by the usual two steps; lifting the DENY brings the topic back at the next heartbeat (the names are kept as sent, not cut). The group's subscribed set (OffsetDelete, retention, ListGroups) and the names ConsumerGroupDescribe shows are the effective ones. Test: `names_lose_their_topic_when_describe_is_denied_later_and_regain_it`,
+`the_heartbeat_that_finds_the_deny_does_not_carry_the_topic`, `the_names_a_taker_inherited_are_not_listed_for_it` (`tests/authz_members_848.rs`), `the_groups_subscribed_set_drops_a_name_whose_right_was_taken_away` (`tests/authz_members_migration_848.rs`), `a_right_taken_away_withdraws_what_the_member_owns_before_the_assignment_interval_is_over`.
+**What is left, said:** (1) a right is seen at the member's next request; between requests nothing is told to anybody. (2) The group's epoch is one number for all members, and a member's epoch follows it: when bob's expression matches a new topic that alice may not DESCRIBE, alice's epoch moves too (a topic nobody else may DESCRIBE moves no epoch, because it changes no member's matches). That shows alice one bit, that some other member of her group can see a new topic; no name, id or count. Kafka's epoch moves the same way
+(its group epoch is per group, GMM:3354-3460). SEC-213 did not say it; it is accepted as Kafka's.
+
+## SEC-233. A static member's place is taken by another principal (**deviation SEC-D90**)
+Kafka's `getOrMaybeSubscribeStaticConsumerGroupMember` builds the new member from the one that left, copying its subscribed names, expression, assignment and target, and then applies only what the new heartbeat sends (GMM). A principal with READ on the group that knows an instance id therefore inherits a departed member's topics. Here the new member starts with them (a restarted instance of the *same* principal keeps its partitions, which is the point of static membership) and the heartbeat that seats it
+replaces the rights with the new caller's: names, target and owned partitions that caller may not DESCRIBE are withdrawn before the answer, and stay out at every later heartbeat (SEC-232); what it owned of them becomes a revocation (nobody else is given those partitions until the departed member's holder says it has let go, or the rebalance timeout ends it). A principal that may DESCRIBE them inherits them as before. Test:
+`static_member_replaced_by_a_principal_who_cannot_describe_inherits_the_topic` (the audit's), `a_static_member_restarted_by_the_same_principal_keeps_its_partitions`, `a_principal_that_may_describe_the_topic_inherits_it` (`tests/authz_members_848.rs`), `a_static_member_replaced_by_a_principal_that_may_describe_nothing_inherits_nothing` (the machine alone).
+
+## SEC-234. A group changing kind keeps each member's rights
+A classic member keeps the rights of its last JoinGroup in the classic machine (`Member::rights`, set at the join and at each rejoin), hands them over in its `Seat` when a consumer-protocol member joins and the group becomes a consumer group, and takes them back in the seat when the last such member goes. On the way in, what each member was held to have by the classic leader (the bytes of its
+assignment) is cut to what its rights let through (`Member::forget_hidden`); nothing is told by this, the member learns what it holds only by its own JoinGroup and SyncGroup. Test: `an_upgraded_group_shows_a_classic_member_only_what_its_principal_may_describe`, `the_rights_survive_the_group_becoming_classic_and_a_consumer_group_again` (`tests/authz_members_migration_848.rs`),
+`a_classic_group_that_is_upgraded_does_not_hand_a_hidden_topic_to_its_member` (`tests/authz_members_848.rs`).
+
+## SEC-235. The invariant, tested against all the sources at once
+`tests/authz_members_random_848.rs`: 220 seeds of 40 steps (about 38,000 observations, about 9 s in a debug build). Each seed has three users and a pool of six topics; every step is one of: a topic made, a DESCRIBE ALLOW or DENY granted on a topic or a prefix, or all DENYs or all ALLOWs removed (a right taken away, granted and lifted), a static member's instance taken over by a random principal (with names it may describe, or an expression that matches nothing), a classic member
+of a random principal joining or rejoining with names from the whole pool, hidden ones included; half of the seeds start as a classic group holding what a leader gave it, which a member of the new protocol upgrades. Then every member of the new protocol heartbeats six times, every classic member heartbeats (and rejoins when told to), and the check: no assignment any member was given (every response), nothing a member owns, nothing a classic member was synced, and
+no name or target ConsumerGroupDescribe shows for a member, names a topic that member's principal may not DESCRIBE (asked of Metadata as that principal, the same authorizer). The audit's test of the same shape (600 seeds, regex members only) is kept in `authz_regex_848.rs`. Test: `random_changes_never_leave_a_member_a_topic_its_principal_cannot_describe`.
+
+## SEC-236. The failed-login wait is capped at 10 s, and the close after it ends at a stop
+`--sasl-failed-login-delay` above 10 s is refused at start with `"1h" is longer than the 10s a failed login may be made to wait` (a longer wait holds a connection and a task for every guess; `kafka_server::MOST_FAILED_LOGIN_DELAY`, and `failed_login_delay` cuts any other caller's value to it). The wait and the clean close of SEC-195 (the server's shutdown, then up to 250 ms of draining what the client sent) come after the frame that failed is read, so they are **outside the 30 s pre-auth
+budget**: a refused login holds its connection for at most the delay (10 s) and 250 ms more, plus the answer's write and the shutdown, each held to the 30 s write timeout if the client has stopped reading (those were already so). The drain and the shutdown are now cut by a stop like the wait (`hang_up` is a `select` against the stop token), so a stopping server does not wait 250 ms for each refused client. **Deviation SEC-D92.** Test:
+`connection::tests::delay::a_delay_longer_than_the_cap_waits_the_cap`, `..::a_stop_while_the_refused_client_lingers_ends_the_connection_at_once`, `cli::tests::users::more::a_failed_login_delay_over_ten_seconds_is_refused_at_start_and_ten_seconds_is_not`.
+
+## SEC-237. Every mode an owner-only file may be found in is pinned (extends **SEC-193**)
+The tests of SEC-193 used the modes 0644 and 0664. `restrict_to_owner` is now tried on 0640, 0604, 0660, 0606, 0620, 0602, 0644, 0664, 0777, 0070 and 0007 (all narrowed to 0600) and on 0600, 0700 and 0400 (left as they are), `open_or_create_private` on a new file (0600) and on existing ones of 0640, 0604 and 0700 (opened as they are), the metadata database on the modes an owner can still open, and the `FileMode::Wide` answer (a file whose access cannot be taken away, by a file
+system that refuses) is held by a wrapper over the simulated disk. Test: `kafka-storage fs::tests::restrict_to_owner_narrows_every_mode_that_group_or_others_can_use`, `..::open_or_create_private_makes_owner_only_and_leaves_an_existing_file_alone`, `kafka-meta tests/file_mode::a_database_found_with_any_group_or_other_bit_is_narrowed_and_an_owner_only_one_is_left`, `..::a_database_whose_access_cannot_be_taken_away_is_reported_wide`.
+
+## SEC-238. Deleting an absent user tells a super-user name from another (documentation; extends **SEC-D70**)
+A Delete of a user that has no credential is RESOURCE_NOT_FOUND (91) for a name that is not a super user, and CLUSTER_AUTHORIZATION_FAILED (31) for one that is, to a caller that is not a super user (SEC-190 judges the protection before the existence). So any caller with ALTER on the cluster can find out which names are super users by deleting names that have no credential. This is accepted: the super users are named on the command line (`--acl-super-user`), which the operator who may read the process
+arguments reads, and answering 91 for an absent super-user name would give the credential protection a hole (a Delete that is answered not-found for a name that later has a credential created is no protection) or make the error report of a legitimate delete wrong for every absent name. If the names of the super users are secret, the process arguments, the configuration and `--acl-default allow` are the larger exposure. No test beyond SEC-190's; the behaviour is the one it pins.
 
 ## Deviations
 - **SEC-D1.** A request in the middle of a login other than ApiVersions and SaslHandshake closes unanswered; Kafka answers it in its
@@ -1288,7 +1364,7 @@ returns if the machine has no IPv6 loopback. Test: `an_ipv4_peer_is_matched_as_d
 
 - **SEC-D70.** Only a super user may change the SCRAM credential of a super user. Kafka has no such rule: any caller with ALTER on the cluster may set and delete any user's credential, and a super user is a principal, not a stored user. It is here because this broker's default (`--acl-default allow`) gives ALTER on the cluster to every
   logged-in user, so without the rule a login is a takeover of every super user (SEC-D51). The refusal is CLUSTER_AUTHORIZATION_FAILED (31) with no message, for the user's result only (SEC-190), where Kafka's other refusal of a credential, `UNACCEPTABLE_CREDENTIAL`, is for a credential it will not accept. It does not
-  stop a user from taking over a name that is not a super user, or from rewriting the ACLs, with allow-everything; `--acl-default deny` does (SEC-191).
+  stop a user from taking over a name that is not a super user, or from rewriting the ACLs, with allow-everything; `--acl-default deny` does (SEC-191). **It tells the super-user names:** a Delete of a name with no credential is 31 for a super user's name and 91 for any other, to a caller that is not a super user, so a caller with ALTER on the cluster can list the names of the super users (SEC-238).
 - **SEC-D71.** A stranger's frame is at most 64 KiB, not Kafka's 512 KiB (`sasl.server.max.receive.size`, the default, SEC-4). A dev broker with a 2048-connection limit should not hold a gigabyte for strangers (measured 325 MB for 1000, SEC-194); a SASL token is under 1 KiB. A client that sends a larger frame before it logs in (none of
   the four libraries does) is closed with no answer. Replaces the 512 KiB of decision D10.
 - **SEC-D72.** There is no `--sasl-allow-empty-users`, which the Go edition has. With it a broker started with SASL on and nobody to log in, so that no super user could ever make the first user over the API (the API needs a login, or the open posture that SASL ends); the flag made a dead start. A broker with SASL on and
@@ -1317,3 +1393,8 @@ returns if the machine has no IPv6 loopback. Test: `an_ipv4_peer_is_matched_as_d
 - **SEC-D84.** DeleteTopics by an unknown **name** answers 3 with no message (Kafka: 3 with `This server does not host this topic-partition.`), and a topic with neither a name nor an id is not
   INVALID_REQUEST `Neither topic name nor id were specified.` (as in SEC-D17).
 - **SEC-D85.** The super-user separator (SEC-217): commas as the Go edition, semicolons as Kafka. A principal name containing either cannot be given on the flag (nor in Kafka's `super.users`).
+- **SEC-D90.** A member's subscribed names, and everything it inherits, are held to the DESCRIBE right of its own principal at every heartbeat (SEC-230 to SEC-233). Kafka checks `SubscribedTopicNames` once, at the request (KA:2604-2642), and builds a static member's replacement from the one that left, copying its names, expression, assignment and target (`getOrMaybeSubscribeStaticConsumerGroupMember`), so a principal with READ on the group that knows an instance
+  id inherits a departed member's topics, and a member whose right is taken away keeps its topics until it changes its subscription. Here neither: the topics a member may not DESCRIBE are withdrawn at the heartbeat that finds it, and the names it sent are kept (a right granted later brings the topic back without the client sending them again). Stricter, not looser. A client of Kafka could depend on neither.
+- **SEC-D91.** A classic member of a consumer group is given only the topics its principal may DESCRIBE (SEC-231). Kafka's coordinator assigns what the classic subscription names, which is opaque metadata nothing asks DESCRIBE about, and answers the topic names and partitions in SyncGroup. Here the classic JoinGroup and Heartbeat carry the caller's rights and the member is held to them as a member of the new protocol is. In a classic group (no member of the new protocol)
+  nothing changes: the leader, a client, assigns.
+- **SEC-D92.** `--sasl-failed-login-delay` is at most 10 s; a larger value is refused at start (SEC-236). Kafka's `connection.failed.authentication.delay.ms` has no limit (it must be below `connections.max.idle.ms`). A wait of minutes holds a connection and a task per guess.

@@ -78,3 +78,22 @@ fn the_failed_login_delay_is_kafkas_hundred_milliseconds_unless_the_flag_says_ot
     );
     assert!(args(&["--sasl-failed-login-delay", "soon"]).is_err());
 }
+
+#[test]
+fn a_failed_login_delay_over_ten_seconds_is_refused_at_start_and_ten_seconds_is_not() {
+    // SEC-236.
+    let delay = |flags: &[&str]| settings(flags, None).unwrap().server.timeouts.failed_login;
+    assert_eq!(
+        delay(&["--sasl-failed-login-delay", "10s"]),
+        std::time::Duration::from_secs(10)
+    );
+    for too_long in ["10001ms", "11s", "1h", "1m"] {
+        let refused = args(&["--sasl-failed-login-delay", too_long])
+            .unwrap_err()
+            .to_string();
+        assert!(
+            refused.contains("a failed login may be made to wait"),
+            "{too_long}: {refused}"
+        );
+    }
+}

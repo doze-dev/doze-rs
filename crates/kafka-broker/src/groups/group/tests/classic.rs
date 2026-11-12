@@ -10,6 +10,7 @@ pub(super) fn heartbeat_of(r: &mut Rig, name: &str, generation: i32) -> Option<E
                 member_id: id(name),
                 instance: None,
                 generation,
+                rights: None,
             },
         )
     });

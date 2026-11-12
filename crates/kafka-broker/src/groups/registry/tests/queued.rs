@@ -75,6 +75,7 @@ async fn the_other_requests_behind_a_deletion_are_answered_as_by_a_group_with_no
         member_id: MemberId::new("m").unwrap(),
         instance: None,
         generation: 1,
+        rights: None,
     });
     assert!(matches!(
         groups.put(&g, beat).await,
