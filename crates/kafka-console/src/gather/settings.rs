@@ -92,8 +92,24 @@ pub fn intervals(
     start: &StartFacts,
     live: (Option<SettingsRound>, Option<(String, String)>),
 ) -> SettingsIntervals {
+    SettingsIntervals {
+        rows: interval_rows(i, start, live.1.as_ref()),
+        transactions: spoken(i.transactions),
+        retention_every: spoken(i.retention_check),
+        cleaner_every: spoken(i.cleaner),
+        cleaner_on: i.cleaner_on,
+        round: live.0,
+    }
+}
+
+/// The six rows of the table: each flag's value, its default and what the value comes to.
+fn interval_rows(
+    i: &Intervals,
+    start: &StartFacts,
+    soonest: Option<&(String, String)>,
+) -> Vec<SettingsInterval> {
     let n = |s: &str| s.to_owned();
-    let rows = vec![
+    vec![
         interval(
             start,
             (
@@ -130,7 +146,7 @@ pub fn intervals(
                 "Offsets retention",
                 "committed offsets of an empty group are kept this long",
                 "--offsets-retention",
-                offsets_note(i, live.1.as_ref()),
+                offsets_note(i, soonest),
             ),
             i.offsets_retention,
         ),
@@ -154,15 +170,7 @@ pub fn intervals(
             ),
             i.consumer_session,
         ),
-    ];
-    SettingsIntervals {
-        rows,
-        transactions: spoken(i.transactions),
-        retention_every: spoken(i.retention_check),
-        cleaner_every: spoken(i.cleaner),
-        cleaner_on: i.cleaner_on,
-        round: live.0,
-    }
+    ]
 }
 
 /// The offsets-retention row says how long that is in words, from the value itself, and which group's offsets the sweep takes

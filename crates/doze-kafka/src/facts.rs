@@ -6,10 +6,13 @@
 //! never put in: the passwords of `--sasl-user` (only how many were given) and the key file of `--tls-key` (only whether one was).
 
 use clap::parser::ValueSource;
-use clap::{Arg, ArgAction, ArgMatches, Command, CommandFactory};
+use clap::{Arg, ArgAction, ArgMatches, Command};
 use kafka_console::model::SettingsFlag;
 
+#[cfg(test)]
 use crate::cli::Args;
+#[cfg(test)]
+use clap::CommandFactory;
 
 /// Flags the command line accepts and does nothing with: they are not the broker's settings, so the table leaves them out.
 #[cfg(test)]

@@ -132,8 +132,10 @@ impl Bound {
         server: &ServerConfig,
         kafka: &Kafka,
         broker: &Arc<Broker<RealFs>>,
-        recorder: Option<Arc<kafka_console::Recorder>>,
-        flags: Vec<kafka_console::model::SettingsFlag>,
+        (recorder, flags): (
+            Option<Arc<kafka_console::Recorder>>,
+            Vec<kafka_console::model::SettingsFlag>,
+        ),
     ) -> Result<Serving> {
         let addr = self.listener.local_addr()?;
         let listener = server.advertise(kafka.local_addr());

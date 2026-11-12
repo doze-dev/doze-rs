@@ -96,7 +96,7 @@ pub(crate) async fn serve(
     let _control = crate::control::serve(&broker);
     #[cfg(feature = "console")]
     let web = console_listener
-        .map(|bound| bound.serve(&console, &server, &running, &broker, recorder, flags))
+        .map(|bound| bound.serve(&console, &server, &running, &broker, (recorder, flags)))
         .transpose()
         .context("starting the console")?;
     stop.await;

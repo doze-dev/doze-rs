@@ -21,6 +21,7 @@ pub mod boards_access;
 pub mod boards_config;
 #[cfg(any(test, feature = "examples"))]
 pub mod boards_log;
+#[cfg(any(test, feature = "examples"))]
 pub mod boards_settings;
 #[cfg(any(test, feature = "examples"))]
 pub mod boards_write;
@@ -44,7 +45,9 @@ pub mod fixtures_config;
 pub mod fixtures_groups;
 #[cfg(any(test, feature = "examples"))]
 pub mod fixtures_live;
+#[cfg(any(test, feature = "examples"))]
 pub mod fixtures_log;
+#[cfg(any(test, feature = "examples"))]
 pub mod fixtures_settings;
 #[cfg(any(test, feature = "examples"))]
 pub mod fixtures_topics;
