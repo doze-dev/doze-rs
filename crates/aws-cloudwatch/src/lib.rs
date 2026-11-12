@@ -5,8 +5,14 @@
 //! old client can read, as for SQS.
 //!
 //! **Alarms are evaluated at their deadlines, not on a tick.** After every call the service works out the earliest time at which any
-//! alarm's state could change without new data (a period boundary at which an old datapoint leaves the window); one timer sleeps to
-//! it, and when no alarm can change the service holds no timer. A write of data judges the alarms on that metric at once.
+//! alarm's state could change without new data (the end of the minute holding a datapoint, or a minute at which an old one leaves
+//! the window); one timer sleeps to it, and when no alarm can change the service holds no timer. A write of data judges the alarms on
+//! that metric at once. As on AWS the window slides by the minute and ends at the last minute that is over, so the period still
+//! filling is never judged (`eval`).
+//!
+//! Percentiles are exact up to 1,024 observations per series per minute and from a uniform sample past that (`model::Bucket`).
+//! Metric data is kept for `Settings::retention` (a day by default). `AWS/Lambda` is held by Lambda until something reads it: a read
+//! takes it in first, and while an alarm watches the namespace Lambda sends it as it is made (`aws_peers::Made`).
 //!
 //! Built: `PutMetricData`, `GetMetricStatistics`, `GetMetricData` (a single `MetricStat` per query), `ListMetrics`; alarms
 //! (`PutMetricAlarm`, `PutCompositeAlarm`, describing, deleting, `SetAlarmState`, enabling and disabling actions, history, tags);
@@ -32,8 +38,10 @@ mod timers;
 mod tests;
 
 use std::sync::Arc;
+use std::time::Duration;
 
 use aws_model_cloudwatch::Operation;
+use aws_peers::Peers;
 use aws_model_cloudwatch::meta::META;
 use aws_model_cloudwatch::tables::TABLES;
 use aws_schema::json::Violation;
@@ -49,6 +57,29 @@ use crate::timers::Timers;
 /// The region whose files are kept in the service's directory itself.
 const HOME_REGION: &str = "us-east-1";
 
+/// Local settings: bounds of the local store, not AWS behaviour.
+#[derive(Clone, Copy, Debug)]
+pub struct Settings {
+    /// How long metric data is kept (`--cloudwatch-retention-hours`; default a day). AWS keeps one-minute data for 15 days; a
+    /// local store is disposable, and one flat retention is what a test can reason about.
+    pub retention: Duration,
+}
+
+impl Default for Settings {
+    fn default() -> Self {
+        Self {
+            retention: Duration::from_secs(86_400),
+        }
+    }
+}
+
+/// What every region's actor is handed in its [`Ctx`]: the bus, and the settings.
+#[derive(Debug)]
+pub(crate) struct Ext {
+    pub(crate) peers: Option<Arc<Peers>>,
+    pub(crate) settings: Settings,
+}
+
 /// The CloudWatch service. Nothing runs until the first request.
 #[derive(Debug)]
 pub struct Cloudwatch {
@@ -57,16 +88,70 @@ pub struct Cloudwatch {
     timers: Arc<Timers>,
     /// The service's directory, which `resume` looks through.
     dir: std::path::PathBuf,
+    /// The bus, through which data that other services hold until it is read (`AWS/Lambda`) is taken in before a read.
+    peers: Option<Arc<Peers>>,
 }
 
 impl Cloudwatch {
     /// Registers CloudWatch. `ctx` says where its files live and how it reads the time.
     #[must_use]
     pub fn new(ctx: Arc<Ctx>) -> Self {
+        Self::with_settings(ctx, Settings::default())
+    }
+
+    /// Registers CloudWatch with local settings.
+    #[must_use]
+    pub fn with_settings(ctx: Arc<Ctx>, settings: Settings) -> Self {
+        let peers = core::peers_of(&ctx);
+        let ctx = Arc::new(Ctx {
+            dir: ctx.dir.clone(),
+            idle: ctx.idle,
+            tasks: ctx.tasks.clone(),
+            clock: Arc::clone(&ctx.clock),
+            ext: Some(Arc::new(Ext {
+                peers: peers.clone(),
+                settings,
+            })),
+        });
         Self {
             dir: ctx.dir.clone(),
             timers: Timers::new(Arc::clone(&ctx)),
             actors: Keyed::new("cloudwatch", ctx, HOME_REGION),
+            peers,
+        }
+    }
+
+    /// Takes in, before a read, the data points other services hold for this region until something reads them (Lambda's
+    /// `AWS/Lambda` metrics). They arrive as a `PutMetricData` from the service that made them, through the bus, so they are checked
+    /// and stored as any other; this runs outside the region's actor, so it cannot wait on itself.
+    async fn take_produced(&self, call: &Call) {
+        let Some(peers) = self.peers.clone() else {
+            return;
+        };
+        let reads = Operation::from_index(call.op).is_some_and(|op| {
+            use Operation as O;
+            matches!(
+                op,
+                O::ListMetrics
+                    | O::GetMetricStatistics
+                    | O::GetMetricData
+                    | O::PutMetricAlarm
+                    | O::DescribeAlarms
+                    | O::DescribeAlarmsForMetric
+            )
+        });
+        if !reads {
+            return;
+        }
+        for made in peers.take_metrics(&call.caller.region) {
+            let mut caller = call.caller.clone();
+            caller.account_id = made.account;
+            if let Err(e) = peers
+                .call(made.service, &caller, "monitoring", "PutMetricData", &made.body)
+                .await
+            {
+                tracing::warn!(service = made.service, error = %e.message, "cloudwatch: produced metrics could not be taken in");
+            }
         }
     }
 
@@ -112,6 +197,7 @@ impl Cloudwatch {
     /// Sends the call to the actor of the region it was signed for, holds the answer until what it changed is on disk, and tells the
     /// region's timer when its alarms next need judging.
     async fn ask(&self, call: Call) -> Reply {
+        self.take_produced(&call).await;
         let region = call.caller.region.clone();
         let caller = call.caller.clone();
         let actor = match self.actors.actor(&region) {

@@ -123,6 +123,39 @@ fn a_regular_expression_is_reported_not_guessed() {
 }
 
 #[test]
+fn an_unquoted_star_tests_that_a_field_is_there_whatever_its_type() {
+    let has = "{ $.f = * }";
+    let lacks = "{ $.f != * }";
+    for (event, there) in [
+        (r#"{"f": "text"}"#, true),
+        (r#"{"f": ""}"#, true),
+        (r#"{"f": 42}"#, true),
+        (r#"{"f": 0.5}"#, true),
+        (r#"{"f": true}"#, true),
+        (r#"{"f": false}"#, true),
+        (r#"{"f": null}"#, true),
+        (r#"{"f": {"g": 1}}"#, true),
+        (r#"{"g": 1}"#, false),
+        (r#"{}"#, false),
+    ] {
+        assert_eq!(m(has, event), there, "{has} on {event}");
+        assert_eq!(m(lacks, event), !there, "{lacks} on {event}");
+    }
+    // A line that is not JSON is selected by neither.
+    assert!(!m(has, "plain text") && !m(lacks, "plain text"));
+    // Nested and combined.
+    assert!(m(
+        "{ $.a.b = * && $.c != * }",
+        r#"{"a": {"b": 7}, "d": 1}"#
+    ));
+    // A quoted star is a string pattern: it matches any string and nothing else.
+    assert!(m(r#"{ $.f = "*" }"#, r#"{"f": "x"}"#));
+    assert!(!m(r#"{ $.f = "*" }"#, r#"{"f": 3}"#));
+    // Only = and != take a bare star.
+    assert_eq!(parse("{ $.f > * }").unwrap_err(), PatternError::Invalid);
+}
+
+#[test]
 fn globs_match_runs() {
     assert!(glob("*", ""));
     assert!(glob("a*c", "abbbc"));

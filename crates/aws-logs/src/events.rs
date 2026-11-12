@@ -52,7 +52,10 @@ impl Core {
             .get(verdict.first_ok..verdict.end_ok)
             .unwrap_or_default();
         check_span(accepted)?;
-        self.metric_points(&group, accepted);
+        self.metric_points(&group, accepted, now);
+        if r.call.caller.service.as_deref() == Some("lambda") {
+            self.emf_points(accepted, now);
+        }
         if let Some(g) = self.groups.get(&group) {
             let group_arn = g.arn(r.region(), r.account());
             let lines: Vec<crate::forward::Line<'_>> = accepted
@@ -95,14 +98,24 @@ impl Core {
         if let Some(rejected) = verdict.rejected() {
             out.put("rejectedLogEventsInfo", rejected);
         }
+        if !accepted.is_empty() {
+            let count = self.held_of(&key) + accepted.len() as u64;
+            self.held.insert(key, count);
+            self.cap(&group);
+        }
         Ok(out)
     }
 
-    /// Removes the events of `group` older than its retention (lazily: when the group is written or read, not more than once a
-    /// minute).
+    /// Removes the events of `group` older than its retention or the local bound (`--logs-retention-days`), whichever is shorter
+    /// (lazily: when the group is written or read, not more than once a minute).
     pub(crate) fn sweep(&mut self, group: &str) {
         let now = self.now_ms();
-        let Some(days) = self.groups.get(group).and_then(|g| g.retention_days) else {
+        let Some(g) = self.groups.get(group) else {
+            return;
+        };
+        let by_group = g.retention_days.map(|days| now - days * 86_400_000);
+        let local = self.keep_ms.map(|keep| now.saturating_sub(keep));
+        let Some(cutoff) = by_group.into_iter().chain(local).max() else {
             return;
         };
         if self
@@ -113,7 +126,6 @@ impl Core {
             return;
         }
         self.swept.insert(group.to_owned(), now);
-        let cutoff = now - days * 86_400_000;
         let keys: Vec<String> = self
             .streams
             .with_prefix(&stream_key(group, ""))
@@ -124,11 +136,14 @@ impl Core {
                 continue;
             };
             let (from, to) = (event_key(no, 0, 0), event_key(no, cutoff, 0));
-            let removed = self.sum_bytes(&from, &to);
-            if removed == 0 && self.events_empty_before(&from, &to) {
+            let (removed, count) = self.sum_bytes(&from, &to);
+            if count == 0 {
                 continue;
             }
             self.events.delete_range(&from, &to);
+            if let Some(n) = self.held.get(&key).copied() {
+                self.held.insert(key.clone(), n.saturating_sub(count));
+            }
             if let Some(s) = self.streams.get_mut(&key) {
                 s.bytes = (s.bytes - removed).max(0);
                 if s.bytes == 0 {
@@ -142,47 +157,183 @@ impl Core {
         }
     }
 
-    /// The bytes the events in `from..to` count as.
-    fn sum_bytes(&self, from: &str, to: &str) -> i64 {
-        let (mut total, mut at) = (0i64, from.to_owned());
+    /// The bytes the events in `from..to` count as, and how many there are.
+    fn sum_bytes(&self, from: &str, to: &str) -> (i64, u64) {
+        let (mut total, mut count, mut at) = (0i64, 0u64, from.to_owned());
         while let Ok(rows) = self.events.scan(self.db.as_ref(), &at, to, 500, false) {
             let Some((last, _)) = rows.last() else {
                 break;
             };
             at = format!("{last}\u{0}");
+            count += rows.len() as u64;
             for (_, value) in &rows {
                 if let Ok(e) = record::decode::<Event>("event", VERSION, value) {
                     total += i64::try_from(e.message.len() + EVENT_OVERHEAD).unwrap_or(0);
                 }
             }
         }
-        total
+        (total, count)
     }
 
-    fn events_empty_before(&self, from: &str, to: &str) -> bool {
-        self.events
-            .scan(self.db.as_ref(), from, to, 1, false)
-            .is_ok_and(|rows| rows.is_empty())
+    /// The events a stream holds: kept as a count, or, for a stream from before the count was kept, counted once.
+    fn held_of(&mut self, key: &str) -> u64 {
+        if let Some(n) = self.held.get(key) {
+            return *n;
+        }
+        let Some(no) = self.streams.get(key).map(|s| s.no) else {
+            return 0;
+        };
+        let (_, count) = self.sum_bytes(&event_key(no, 0, 0), &format!("{:08x}", no + 1));
+        self.held.insert(key.to_owned(), count);
+        count
     }
 
-    /// The data points the group's metric filters make of `events`, held until the call is answered.
-    fn metric_points(&mut self, group: &str, events: &[Incoming]) {
+    /// Holds the group to `--logs-max-events`: past it, the oldest streams' oldest events go until the group is a tenth under the
+    /// cap (so the writes that follow do not each remove some). A local bound, not AWS behaviour. Only what is already on disk is
+    /// removed, so the batch just written stays.
+    fn cap(&mut self, group: &str) {
+        if self.max_events == 0 {
+            return;
+        }
+        let keys: Vec<String> = self
+            .streams
+            .with_prefix(&stream_key(group, ""))
+            .map(|(k, _)| k.to_owned())
+            .collect();
+        let mut total: u64 = keys.iter().map(|k| self.held_of(k)).sum();
+        if total <= self.max_events {
+            return;
+        }
+        let target = self.max_events - self.max_events / 10;
+        let mut by_age: Vec<(i64, String)> = keys
+            .into_iter()
+            .filter_map(|k| {
+                let first = self.streams.get(&k)?.first_ms?;
+                Some((first, k))
+            })
+            .collect();
+        by_age.sort();
+        for (_, key) in by_age {
+            if total <= target {
+                break;
+            }
+            let Some(no) = self.streams.get(&key).map(|s| s.no) else {
+                continue;
+            };
+            let end = format!("{:08x}", no + 1);
+            let need = usize::try_from(total - target).unwrap_or(usize::MAX);
+            let Ok(rows) = self
+                .events
+                .scan(self.db.as_ref(), &event_key(no, 0, 0), &end, need, false)
+            else {
+                continue;
+            };
+            let Some((last, _)) = rows.last() else {
+                continue;
+            };
+            let after = format!("{last}\u{0}");
+            let removed: i64 = rows
+                .iter()
+                .filter_map(|(_, v)| record::decode::<Event>("event", VERSION, v).ok())
+                .map(|e| i64::try_from(e.message.len() + EVENT_OVERHEAD).unwrap_or(0))
+                .sum();
+            let next = self
+                .events
+                .scan(self.db.as_ref(), &after, &end, 1, false)
+                .ok()
+                .and_then(|r| r.first().and_then(|(k, _)| ts_of(k)));
+            self.events.delete_range(&event_key(no, 0, 0), &after);
+            let gone = rows.len() as u64;
+            total = total.saturating_sub(gone);
+            let left = self.held_of(&key).saturating_sub(gone);
+            self.held.insert(key.clone(), left);
+            if let Some(s) = self.streams.get_mut(&key) {
+                s.bytes = (s.bytes - removed).max(0);
+                match next {
+                    Some(at) => s.first_ms = Some(at),
+                    None if s.bytes == 0 => {
+                        s.first_ms = None;
+                        s.last_ms = None;
+                    }
+                    None => {}
+                }
+            }
+        }
+    }
+
+    /// The data points the group's metric filters make of `events`, held until the call is answered. A filter none of whose events
+    /// match reports its `defaultValue`, if it has one, once in the minute: AWS's documentation says the default is "the value
+    /// reported to the metric filter during a period when logs are ingested but no matching logs are found", and that nothing is
+    /// reported for a period with no logs. Reported at the time of ingestion, and only by a filter without dimensions (AWS does not
+    /// take a default beside dimensions) (memory).
+    fn metric_points(&mut self, group: &str, events: &[Incoming], now: i64) {
         let Some(g) = self.groups.get(group) else {
             return;
         };
+        let minute = now.div_euclid(60_000);
+        let mut matched = Vec::new();
+        let mut defaults = Vec::new();
         for f in &g.metric_filters {
             let Ok(pattern) = pattern::parse(&f.pattern) else {
                 continue;
             };
             let t = &f.transformation;
-            let data: Vec<Value> = events
+            let hits: Vec<&Incoming> = events
                 .iter()
                 .filter(|e| pattern.matches(&e.message))
+                .collect();
+            if hits.is_empty() {
+                if let (Some(d), true, false) =
+                    (t.default, t.dimensions.is_empty(), events.is_empty())
+                {
+                    #[allow(clippy::cast_precision_loss)]
+                    let mut datum =
+                        json!({"MetricName": t.name, "Value": d, "Timestamp": now as f64 / 1000.0});
+                    if let Some(u) = &t.unit {
+                        datum.put("Unit", json!(u));
+                    }
+                    defaults.push((f.name.clone(), t.namespace.clone(), datum));
+                }
+                continue;
+            }
+            matched.push(f.name.clone());
+            let data: Vec<Value> = hits
+                .into_iter()
                 .filter_map(|e| datum(&pattern, t, e))
                 .collect();
             if !data.is_empty() {
                 self.emit
                     .push(json!({"Namespace": t.namespace, "MetricData": data}));
+            }
+        }
+        for name in matched {
+            self.defaulted.insert((group.to_owned(), name), minute);
+        }
+        for (name, namespace, datum) in defaults {
+            let key = (group.to_owned(), name);
+            if self.defaulted.get(&key) == Some(&minute) {
+                continue;
+            }
+            self.defaulted.insert(key, minute);
+            self.emit
+                .push(json!({"Namespace": namespace, "MetricData": [datum]}));
+        }
+    }
+
+    /// The data points the Embedded Metric Format lines among `events` make, held until the call is answered (see `emf`).
+    fn emf_points(&mut self, events: &[Incoming], now: i64) {
+        let mut by_namespace: std::collections::BTreeMap<String, Vec<Value>> =
+            std::collections::BTreeMap::new();
+        for e in events {
+            for (namespace, datum) in crate::emf::data_points(&e.message, now) {
+                by_namespace.entry(namespace).or_default().push(datum);
+            }
+        }
+        for (namespace, data) in by_namespace {
+            // PutMetricData takes at most 1,000 data points.
+            for chunk in data.chunks(1000) {
+                self.emit
+                    .push(json!({"Namespace": namespace, "MetricData": chunk}));
             }
         }
     }
@@ -203,6 +354,11 @@ impl Core {
             }
         }
     }
+}
+
+/// The time in an event's row key (stream, then time, then sequence, in fixed-width hex).
+fn ts_of(key: &str) -> Option<i64> {
+    key.get(8..24).and_then(|h| i64::from_str_radix(h, 16).ok())
 }
 
 /// A data point: the filter's value read from the event, at the event's time.

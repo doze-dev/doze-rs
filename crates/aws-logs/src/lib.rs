@@ -4,14 +4,20 @@
 //!
 //! Built: groups, streams, `PutLogEvents` (the sequence token is ignored, as AWS now does), `GetLogEvents`, `FilterLogEvents` with
 //! term, JSON and space-delimited patterns, retention (applied lazily, when a group is written or read), tags, the KMS key,
-//! deletion protection, metric filters (a matching event becomes a CloudWatch data point when CloudWatch is running),
-//! subscription filters (stored; nothing is delivered), and stored documents (resource, account and data protection policies,
-//! query definitions). Refused by name: Insights queries, Live Tail, export and import tasks, deliveries, destinations, anomaly
-//! detectors, transformers, integrations, scheduled queries and lookup tables.
+//! deletion protection, metric filters (a matching event becomes a CloudWatch data point when CloudWatch is running, and a batch
+//! with no match reports the filter's `defaultValue`), the Embedded Metric Format (a JSON line with `_aws.CloudWatchMetrics` that
+//! Lambda writes becomes CloudWatch data points: `emf`), subscription filters (they deliver to Lambda and Kinesis: `forward`), and
+//! stored documents (resource, account and data protection policies, query definitions). Refused by name: Insights queries, Live
+//! Tail, export and import tasks, deliveries, destinations, anomaly detectors, transformers, integrations, scheduled queries and
+//! lookup tables.
+//!
+//! A group keeps its events forever unless it has a retention, as on AWS; the store itself is bounded by [`Settings`] (a week and
+//! 100,000 events per group by default), which is doze's bound and not reported through the API.
 
 mod authz;
 mod core;
 mod docs;
+mod emf;
 mod events;
 mod filters;
 mod forward;
@@ -26,6 +32,7 @@ mod streams;
 mod tests;
 
 use std::sync::Arc;
+use std::time::Duration;
 
 use aws_model_cloudwatch_logs::Operation;
 use aws_model_cloudwatch_logs::meta::META;
@@ -41,6 +48,33 @@ use crate::core::Core;
 /// The region whose files are kept in the service's directory itself.
 const HOME_REGION: &str = "us-east-1";
 
+/// Local bounds on what the store keeps. They are doze's, not AWS's: AWS keeps a group's events forever unless the group has a
+/// retention, and that is what the API reports here too (`retentionInDays` is absent until set). These only stop a local store, in
+/// which every Lambda invocation writes, from growing without end. Applied lazily, when a group is written or read; nothing ticks.
+#[derive(Clone, Copy, Debug)]
+pub struct Settings {
+    /// Events older than this are removed, whatever the group's retention (`--logs-retention-days`; default 7, `0` keeps them).
+    pub retention: Option<Duration>,
+    /// The most events one group holds; past it the oldest go (`--logs-max-events`; default 100,000, `0` is no cap).
+    pub max_events: u64,
+}
+
+impl Default for Settings {
+    fn default() -> Self {
+        Self {
+            retention: Some(Duration::from_secs(7 * 86_400)),
+            max_events: 100_000,
+        }
+    }
+}
+
+/// What every region's actor is handed in its [`Ctx`]: the bus, and the settings.
+#[derive(Debug)]
+pub(crate) struct Ext {
+    pub(crate) peers: Option<Arc<aws_peers::Peers>>,
+    pub(crate) settings: Settings,
+}
+
 /// The CloudWatch Logs service. Nothing runs until the first request.
 #[derive(Debug)]
 pub struct Logs {
@@ -52,6 +86,22 @@ impl Logs {
     /// Registers CloudWatch Logs. `ctx` says where its files live and how it reads the time.
     #[must_use]
     pub fn new(ctx: Arc<Ctx>) -> Self {
+        Self::with_settings(ctx, Settings::default())
+    }
+
+    /// Registers CloudWatch Logs with local bounds.
+    #[must_use]
+    pub fn with_settings(ctx: Arc<Ctx>, settings: Settings) -> Self {
+        let ctx = Arc::new(Ctx {
+            dir: ctx.dir.clone(),
+            idle: ctx.idle,
+            tasks: ctx.tasks.clone(),
+            clock: Arc::clone(&ctx.clock),
+            ext: Some(Arc::new(Ext {
+                peers: core::peers_of(&ctx),
+                settings,
+            })),
+        });
         Self {
             actors: Keyed::new("logs", ctx, HOME_REGION),
         }

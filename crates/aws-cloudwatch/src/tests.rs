@@ -13,6 +13,7 @@ use crate::core::Core;
 mod alarms;
 mod cbor;
 mod metrics;
+mod producers;
 mod timer;
 
 /// 2023-11-14 22:13:20 UTC, a Tuesday, on a minute boundary.

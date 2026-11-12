@@ -11,6 +11,7 @@ pub(crate) struct Transformation {
     pub(crate) namespace: String,
     /// A number (`"1"`) or a selector (`"$.latency"`, `"$bytes"`).
     pub(crate) value: String,
+    /// Reported, once a minute at most, for a batch of events none of which match (see `events::metric_points`).
     pub(crate) default: Option<f64>,
     pub(crate) dimensions: BTreeMap<String, String>,
     pub(crate) unit: Option<String>,
@@ -27,8 +28,8 @@ pub(crate) struct MetricFilter {
     pub(crate) emit_system: Vec<String>,
 }
 
-/// A subscription filter: stored and returned. Nothing is delivered (the targets are Lambda, Kinesis, Firehose and
-/// destinations in other accounts).
+/// A subscription filter. The lines it matches are delivered to a Lambda function or a Kinesis stream (`forward`); a Firehose or a
+/// destination in another account is stored and not delivered.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct Subscription {
     pub(crate) name: String,
