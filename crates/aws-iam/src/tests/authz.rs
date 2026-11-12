@@ -28,7 +28,7 @@ fn user_with_key(w: &mut World, name: &str) -> String {
         .to_owned()
 }
 
-fn refusal(w: &World, c: &Caller, action: &str) -> Option<String> {
+fn refusal(w: &mut World, c: &Caller, action: &str) -> Option<String> {
     w.core
         .authorize(c, &[Need::new(action, QUEUE)])
         .err()
@@ -39,10 +39,13 @@ fn refusal(w: &World, c: &Caller, action: &str) -> Option<String> {
 fn the_root_and_keys_iam_did_not_issue_are_allowed_everything() {
     let mut w = World::new();
     w.core.mode = Mode::Enforce;
-    assert_eq!(refusal(&w, &caller("test", None), "sqs:DeleteQueue"), None);
+    assert_eq!(
+        refusal(&mut w, &caller("test", None), "sqs:DeleteQueue"),
+        None
+    );
     // A key that looks issued but is not known is not an identity either.
     assert_eq!(
-        refusal(&w, &caller("AKIAUNKNOWN", None), "sqs:DeleteQueue"),
+        refusal(&mut w, &caller("AKIAUNKNOWN", None), "sqs:DeleteQueue"),
         None
     );
 }
@@ -55,7 +58,7 @@ fn a_user_may_do_what_its_policies_allow_and_is_told_why_not() {
     let c = caller(&key, None);
     let arn = "arn:aws:iam::000000000000:user/alice";
     assert_eq!(
-        refusal(&w, &c, "sqs:SendMessage").unwrap(),
+        refusal(&mut w, &c, "sqs:SendMessage").unwrap(),
         format!(
             "User: {arn} is not authorized to perform: sqs:SendMessage on resource: {QUEUE} because no identity-based policy allows the sqs:SendMessage action"
         )
@@ -64,8 +67,8 @@ fn a_user_may_do_what_its_policies_allow_and_is_told_why_not() {
         "PutUserPolicy",
         &json!({"UserName": "alice", "PolicyName": "send", "PolicyDocument": SEND}),
     );
-    assert_eq!(refusal(&w, &c, "sqs:SendMessage"), None);
-    assert!(refusal(&w, &c, "sqs:DeleteQueue").is_some());
+    assert_eq!(refusal(&mut w, &c, "sqs:SendMessage"), None);
+    assert!(refusal(&mut w, &c, "sqs:DeleteQueue").is_some());
     // A deny wins, and is named.
     let deny = r#"{"Version":"2012-10-17","Statement":[{"Effect":"Deny","Action":"sqs:*","Resource":"*"}]}"#;
     w.ok(
@@ -73,13 +76,13 @@ fn a_user_may_do_what_its_policies_allow_and_is_told_why_not() {
         &json!({"UserName": "alice", "PolicyName": "deny", "PolicyDocument": deny}),
     );
     assert!(
-        refusal(&w, &c, "sqs:SendMessage")
+        refusal(&mut w, &c, "sqs:SendMessage")
             .unwrap()
             .ends_with("with an explicit deny in an identity-based policy")
     );
     // Soft mode says nothing to the caller.
     w.core.mode = Mode::Soft;
-    assert_eq!(refusal(&w, &c, "sqs:SendMessage"), None);
+    assert_eq!(refusal(&mut w, &c, "sqs:SendMessage"), None);
 }
 
 #[test]
@@ -102,7 +105,7 @@ fn a_boundary_limits_a_user_and_a_resource_policy_can_name_it_past_the_boundary(
         &json!({"UserName": "bob", "PermissionsBoundary": policy["Policy"]["Arn"]}),
     );
     assert!(
-        refusal(&w, &c, "sqs:SendMessage")
+        refusal(&mut w, &c, "sqs:SendMessage")
             .unwrap()
             .ends_with("because no permissions boundary allows the sqs:SendMessage action")
     );
@@ -138,8 +141,8 @@ fn a_role_session_has_its_roles_policies_and_its_session_policy() {
             .to_owned(),
     );
     let c = caller(&key, Some(&token));
-    assert_eq!(refusal(&w, &c, "sqs:SendMessage"), None);
-    let denied = refusal(&w, &c, "sqs:DeleteQueue").unwrap();
+    assert_eq!(refusal(&mut w, &c, "sqs:SendMessage"), None);
+    let denied = refusal(&mut w, &c, "sqs:DeleteQueue").unwrap();
     assert!(
         denied.starts_with("User: arn:aws:sts::000000000000:assumed-role/r/me is not authorized"),
         "{denied}"
@@ -152,7 +155,7 @@ fn a_role_session_has_its_roles_policies_and_its_session_policy() {
         assumed["Credentials"]["SessionToken"].as_str(),
     );
     assert!(
-        refusal(&w, &c, "sqs:SendMessage")
+        refusal(&mut w, &c, "sqs:SendMessage")
             .unwrap()
             .ends_with("because no session policy allows the sqs:SendMessage action")
     );
@@ -179,12 +182,15 @@ fn principal_tags_and_condition_keys_reach_the_policy() {
         "PutUserPolicy",
         &json!({"UserName": "carol", "PolicyName": "p", "PolicyDocument": doc}),
     );
-    assert_eq!(refusal(&w, &caller(&key, None), "sqs:SendMessage"), None);
+    assert_eq!(
+        refusal(&mut w, &caller(&key, None), "sqs:SendMessage"),
+        None
+    );
     w.ok(
         "TagUser",
         &json!({"UserName": "carol", "Tags": [{"Key": "team", "Value": "red"}]}),
     );
-    assert!(refusal(&w, &caller(&key, None), "sqs:SendMessage").is_some());
+    assert!(refusal(&mut w, &caller(&key, None), "sqs:SendMessage").is_some());
 }
 
 fn iam_as(
