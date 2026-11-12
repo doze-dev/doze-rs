@@ -24,10 +24,12 @@ fn main() -> Result<()> {
         }
     };
     let descriptors = descriptors::raise();
+    // Every connection that may be open holds a descriptor, the console's included (a stream is one).
+    let connections = descriptors::connections(&settings);
     let open = descriptors::open_partitions(
         settings.broker.max_open_partitions,
         descriptors,
-        settings.server.max_connections,
+        connections,
     );
     if open != settings.broker.max_open_partitions {
         tracing::info!(
@@ -35,8 +37,7 @@ fn main() -> Result<()> {
         );
         settings.broker.max_open_partitions = open;
     }
-    settings.broker.max_open_descriptors =
-        descriptors::open_files(descriptors, settings.server.max_connections);
+    settings.broker.max_open_descriptors = descriptors::open_files(descriptors, connections);
     if let Some(sasl) = &settings.server.sasl {
         let offered: Vec<_> = sasl.offered().iter().map(|m| m.name()).collect();
         tracing::info!(

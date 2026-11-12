@@ -24,6 +24,31 @@ pub(crate) fn raise() -> u64 {
     WANTED
 }
 
+/// The descriptors the console may hold: its listener and the connections it allows at once (audit A12), when there is a
+/// console. They come out of the same limit as the Kafka connections and the partitions' files.
+#[cfg(feature = "console")]
+pub(crate) fn console_connections(enabled: bool) -> usize {
+    if enabled {
+        kafka_console::MAX_CONNECTIONS + 1
+    } else {
+        0
+    }
+}
+
+/// A build without the console holds none for it.
+#[cfg(not(feature = "console"))]
+pub(crate) fn console_connections(_enabled: bool) -> usize {
+    0
+}
+
+/// The connections that may be open at once, Kafka's and the console's: each holds a descriptor.
+pub(crate) fn connections(settings: &crate::cli::Settings) -> usize {
+    settings
+        .server
+        .max_connections
+        .saturating_add(console_connections(settings.console.enabled))
+}
+
 /// How many files the open partitions may hold open between them at `limit` descriptors, given that `connections` may be
 /// open as well, each holding one: what is left after those and the reserve, and never fewer than 64.
 pub(crate) fn open_files(limit: u64, connections: usize) -> usize {
@@ -50,7 +75,7 @@ pub(crate) fn open_partitions(configured: usize, limit: u64, connections: usize)
 
 #[cfg(test)]
 mod tests {
-    use super::{open_files, open_partitions};
+    use super::{connections, console_connections, open_files, open_partitions};
 
     #[test]
     fn the_configured_number_stands_when_the_limit_has_room_for_it() {
@@ -79,6 +104,41 @@ mod tests {
      {
         assert_eq!(open_files(10_240, 2_048), 7_936);
         assert_eq!(open_files(300, 2_048), 64, "and never below sixty-four");
+    }
+
+    fn settings(extra: &[&str]) -> crate::cli::Settings {
+        let args = ["doze-kafka"].iter().chain(extra);
+        <crate::cli::Args as clap::Parser>::try_parse_from(args)
+            .unwrap()
+            .settings()
+            .unwrap()
+    }
+
+    #[test]
+    #[cfg(feature = "console")]
+    fn the_consoles_connections_and_listener_are_in_the_budget_when_there_is_a_console() {
+        assert_eq!(console_connections(false), 0);
+        assert_eq!(console_connections(true), 256 + 1);
+        let on = settings(&[]);
+        let off = settings(&["--console=false"]);
+        assert_eq!(connections(&off), off.server.max_connections);
+        assert_eq!(connections(&on), on.server.max_connections + 257);
+        // So the partitions get that much less of the limit.
+        assert!(
+            open_partitions(0, 10_240, connections(&on)) < open_partitions(0, 10_240, connections(&off))
+        );
+        assert_eq!(
+            open_files(10_240, connections(&off)) - open_files(10_240, connections(&on)),
+            257
+        );
+    }
+
+    #[test]
+    #[cfg(not(feature = "console"))]
+    fn a_build_without_the_console_holds_no_descriptors_for_it() {
+        assert_eq!(console_connections(true), 0);
+        let on = settings(&[]);
+        assert_eq!(connections(&on), on.server.max_connections);
     }
 
     #[test]

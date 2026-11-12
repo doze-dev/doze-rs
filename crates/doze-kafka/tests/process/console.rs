@@ -381,3 +381,42 @@ fn a_process_that_never_exits_fails_the_test_in_seconds_and_not_in_minutes() {
     assert!(outcome.is_err(), "a process that was still running was waited for");
     assert!(started.elapsed() < Duration::from_secs(5), "{:?}", started.elapsed());
 }
+
+/// `(partitions kept open, limit on open files)` from the line the binary logs when the limit lowers the open partitions.
+fn kept_open(broker: &Broker) -> (u64, u64) {
+    let log = broker.log.lock().unwrap().clone();
+    let line = log
+        .lines()
+        .find(|l| l.contains("keeping at most"))
+        .unwrap_or_else(|| panic!("the binary did not say it lowered the open partitions: {log}"));
+    let number = |after: &str| -> u64 {
+        let rest = &line[line.find(after).unwrap() + after.len()..];
+        rest.split(|c: char| !c.is_ascii_digit()).next().unwrap().parse().unwrap()
+    };
+    (number("keeping at most "), number("the limit on open files is "))
+}
+
+#[test]
+fn the_consoles_connections_come_out_of_the_descriptor_budget_of_the_partitions() {
+    // Unbounded partitions are bounded by what the limit leaves: the limit, less 256 kept back, less the Kafka connections
+    // that may be open (2,048) and, with a console, its listener and its 256 connections, shared four to a partition.
+    let (kept, limit) = {
+        let data = scratch("console-budget-on");
+        let mut broker = start_with(&data, &["--max-open-partitions", "0"]);
+        let seen = kept_open(&broker);
+        // (The signal handler is installed once everything is serving; a TERM before that is the default action.)
+        std::thread::sleep(Duration::from_millis(400));
+        assert!(broker.terminate().success());
+        let _ = std::fs::remove_dir_all(&data);
+        seen
+    };
+    let console = if cfg!(feature = "console") { 257 } else { 0 };
+    assert_eq!(kept, (limit - 256 - 2048 - console) / 4, "limit {limit}");
+    let data = scratch("console-budget-off");
+    let mut broker = start_with(&data, &["--max-open-partitions", "0", "--console=false"]);
+    let (kept, limit) = kept_open(&broker);
+    assert_eq!(kept, (limit - 256 - 2048) / 4, "limit {limit}, no console");
+    std::thread::sleep(Duration::from_millis(400));
+    assert!(broker.terminate().success());
+    let _ = std::fs::remove_dir_all(&data);
+}
