@@ -182,3 +182,24 @@ describe("a copy", () => {
     expect(b.hasAttribute("data-copied")).toBe(false);
   });
 });
+
+describe("after a result page replaced the page", () => {
+  test("the new top bar's search is offered and opens the palette too", async () => {
+    const p = await boot(PAGE);
+    const form = `<div class="ovl ovl-dialog root" data-overlay data-close="/t"><a class="scrim" href="/t" data-overlay-close></a><div class="modal" role="dialog" aria-modal="true" aria-labelledby="t" tabindex="-1"><form id="f" method="post" action="/x"><h2 id="t">D</h2><input name="a"><button type="submit">Go</button></form></div></div>`;
+    p.autoAnswer(() => ({ headers: OVL, body: form }));
+    p.click(p.document.getElementById("r1")!);
+    await p.flush();
+    p.autoAnswer(() => ({ body: `<!DOCTYPE html><html><head><title>Done</title></head><body><div class="root"><header class="topbar"><div class="search" data-palette="/jump"><input type="text" disabled aria-label="Jump"></div></header><main id="main"><h1>Done</h1></main></div></body></html>` }));
+    p.document.getElementById("f")!.dispatchEvent(new p.window.Event("submit", { bubbles: true, cancelable: true }));
+    await p.flush();
+    expect(p.document.querySelector("h1")!.textContent).toBe("Done");
+    const input = el(p, ".search input") as HTMLInputElement;
+    expect(input.disabled).toBe(false);
+    p.autoAnswer(() => ({ headers: OVL, body: palette(["orders"]) }));
+    p.click(input);
+    await p.flush();
+    expect(p.calls[p.calls.length - 1].url).toBe("/jump");
+    expect(el(p, "[data-overlay]")).not.toBeNull();
+  });
+});

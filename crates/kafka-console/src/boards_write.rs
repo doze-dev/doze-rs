@@ -107,6 +107,7 @@ pub fn render(id: &str, base: &Base) -> Option<String> {
     Some(document_over(&page, main).into_string())
 }
 
+#[allow(clippy::too_many_lines)]
 fn board(id: &str, base: &Base) -> Option<(&'static str, Over, Steps<'static>)> {
     Some(match id {
         "topic-create" => {

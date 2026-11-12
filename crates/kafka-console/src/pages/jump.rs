@@ -11,7 +11,7 @@ use crate::ui::layout::page_header;
 use crate::ui::overlay::{Kind, transient};
 
 /// The most names the palette lists; the page says when there are more.
-pub const MOST: usize = 500;
+pub(super) const MOST: usize = 500;
 
 fn list(names: &[String], base: &Base) -> Markup {
     html! {

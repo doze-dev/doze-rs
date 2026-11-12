@@ -304,7 +304,7 @@ vectors and the audit loop). The same miss is the risk here, so this is built bo
 | Slice | What is in the number | Sessions |
 |---|---|---|
 | 9a | crate, stack, guard and origin, CSS port, about 25 components, `Backend`, stream skeleton, the feature and `weight-console`, board tooling v1, 6 pages | 2.5 to 3.5 |
-| 9b | 25 screens, record decoding, produce, a 3-step create, five write dialogs, `partition_files` | 3 to 4.5 |
+| 9b | 25 screens, record decoding, produce, a 3-step create, five write dialogs, `partition_files` | 3 to 4.5 p9o: BUILT 2026-11-13: the overlay system (`ui/overlay.rs`, `docs/port/console/overlays.md`): a record is a drawer over the Messages page and the four write dialogs are dialogs over their parents, by direct visit as well; gentle motion and cross-document view transitions; the jump palette (⌘K), j and k, a copy that confirms. The 9b read builder's choice that a record is a page is reversed by the owner. |
 | 9c | 16 screens, KIP-848 and classic views, lag words, reset with preview, `group_detail` | 2 to 3 |
 | 9d | 8 screens, the effects table, the teaching text, the real-validator preview | 1.5 to 2 |
 | 9e | recorder, two hook calls, 40 summaries, the error table, redaction, connection table, Live, three drawers, two docks, first-request, folding, hot-path benchmark | 4 to 6 |

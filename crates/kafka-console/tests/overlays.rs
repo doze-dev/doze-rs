@@ -107,7 +107,7 @@ async fn a_direct_visit_is_the_parent_page_with_the_overlay_open_on_it() {
                 "{url}"
             );
             assert!(
-                local_links(&page).iter().any(|l| *l == want),
+                local_links(&page).contains(&want),
                 "{url}: {want} is linked"
             );
             assert!(

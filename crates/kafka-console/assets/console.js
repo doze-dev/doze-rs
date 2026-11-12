@@ -5,7 +5,11 @@
 (() => {
   const attr = (el, name) => (el ? el.getAttribute(name) : null);
   const banner = () => document.getElementById('stream-banner');
-  const reveal = () => document.querySelectorAll('[data-js-only]').forEach((el) => { el.hidden = false; });
+  const reveal = () => {
+    document.querySelectorAll('[data-js-only]').forEach((el) => { el.hidden = false; });
+    // The top bar's search is offered once there is a script to answer it (the palette): a field that opens it, not one to type in.
+    document.querySelectorAll('[data-palette] input').forEach((i) => { i.disabled = false; i.readOnly = true; });
+  };
   reveal();
   // Motion only for people who have not asked for less of it.
   const reduced = () => !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
@@ -283,12 +287,8 @@
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); jumpSelect(Math.max(0, Math.min(all.length - 1, at + (e.key === 'ArrowDown' ? 1 : -1)))); }
     else if (e.key === 'Enter' && all.length) { e.preventDefault(); (all[Math.max(0, at)]).click(); }
   });
-  const search = document.querySelector('[data-palette]');
-  if (search) {
-    const field = search.querySelector('input');
-    if (field) { field.disabled = false; field.readOnly = true; field.addEventListener('keydown', (e) => { if (e.key === 'Enter') openPalette(); }); }
-    search.addEventListener('click', () => openPalette());
-  }
+  document.addEventListener('click', (e) => { if (!ovl && e.target.closest('[data-palette]')) openPalette(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !ovl && e.target.closest && e.target.closest('[data-palette]')) openPalette(); });
 
   // j and k move through the rows of the page's table (a row's first link takes the focus; Enter opens it, as on any link). With
   // a drawer open they are the next and the previous record: the opener's neighbours in its table.

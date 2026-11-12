@@ -116,6 +116,7 @@ a.chip:hover,button.chip:hover{border-color:var(--line2);color:var(--bright)}
 .t tbody tr:focus-within td{background:#faf9ff}
 /* A link in a table cell has a hit area as tall as the row's comfort, with no change of layout. */
 .t td a.lnk{display:inline-block;padding:7px 8px;margin:-7px -8px;border-radius:6px}
+.t td.name a{display:inline-block;padding:7px 0;margin:-7px 0}
 button[data-copied]{color:var(--good);border-color:var(--good)}
 /* A field's error line and the radio rows of a form sit as the kit draws them when a real input is used. */
 .opt-row input[type=radio]{position:absolute;opacity:0;width:0;height:0}
