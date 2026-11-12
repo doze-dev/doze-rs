@@ -37,18 +37,24 @@ pub fn html(markup: &Markup) -> Response {
         .into_response()
 }
 
-/// A fragment with an ETag over its text: a browser that has it already gets a 304 and nothing is swapped.
+/// Whether the request's `If-None-Match` names `tag` (or is `*`): the browser already has this.
 #[must_use]
-pub fn etagged(headers: &HeaderMap, markup: &Markup) -> Response {
-    let tag = format!("\"{}\"", fingerprint(markup.0.as_bytes()));
-    let unchanged = headers
+pub fn has_tag(headers: &HeaderMap, tag: &str) -> bool {
+    headers
         .get(IF_NONE_MATCH)
         .and_then(|v| v.to_str().ok())
         .is_some_and(|v| {
             v.split(',')
-                .any(|t| t.trim().trim_start_matches("W/") == tag)
-        });
-    let mut res = if unchanged {
+                .map(str::trim)
+                .any(|t| t == "*" || t.trim_start_matches("W/") == tag)
+        })
+}
+
+/// A fragment with an ETag over its text: a browser that has it already gets a 304 and nothing is swapped.
+#[must_use]
+pub fn etagged(headers: &HeaderMap, markup: &Markup) -> Response {
+    let tag = format!("\"{}\"", fingerprint(markup.0.as_bytes()));
+    let mut res = if has_tag(headers, &tag) {
         StatusCode::NOT_MODIFIED.into_response()
     } else {
         html(markup)

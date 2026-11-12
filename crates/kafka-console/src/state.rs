@@ -3,10 +3,12 @@
 use std::sync::Arc;
 
 use maud::Markup;
+use tokio::sync::Semaphore;
 use tokio_util::sync::CancellationToken;
 
 use crate::assets::Assets;
 use crate::base::Base;
+use crate::limits::Limits;
 use crate::source::Source;
 use crate::tick::{FLOOR, Ticker};
 use crate::ui::shell::{Crumb, Page, Rail, document};
@@ -22,6 +24,8 @@ pub struct State {
     pub stop: CancellationToken,
     /// `--console-allow-host`.
     pub allow_hosts: Vec<String>,
+    /// One permit per event stream that may still be opened (the cap is [`Limits::max_streams`]).
+    pub streams: Arc<Semaphore>,
 }
 
 /// The state, shared.
@@ -35,6 +39,18 @@ impl State {
         allow_hosts: Vec<String>,
         stop: CancellationToken,
     ) -> Shared {
+        Self::with_limits(source, base, allow_hosts, stop, &Limits::default())
+    }
+
+    /// [`State::new`] with the limits given.
+    #[must_use]
+    pub fn with_limits(
+        source: Source,
+        base: Base,
+        allow_hosts: Vec<String>,
+        stop: CancellationToken,
+        limits: &Limits,
+    ) -> Shared {
         Arc::new(Self {
             assets: Assets::build(&base),
             source,
@@ -42,6 +58,7 @@ impl State {
             ticker: Ticker::new(FLOOR),
             stop,
             allow_hosts,
+            streams: Arc::new(Semaphore::new(limits.max_streams)),
         })
     }
 

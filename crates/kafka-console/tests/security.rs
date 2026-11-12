@@ -121,7 +121,7 @@ fn shell(s: &str, main: maud::Markup, base: &Base) -> String {
             },
         ],
         title: s,
-        watch: &["home-instance"],
+        watch: &["home-live"],
     };
     document(&page, main).into_string()
 }
@@ -192,9 +192,7 @@ fn hostile_text_in_every_field_of_every_page_comes_out_inert() {
         // The fragments are fetched alone and swapped in: they must be as clean as the page.
         let h = home(payload, HomeState::Attention(attention(payload)));
         for frag in [
-            pages::sentence_fragment(&h, &base),
-            pages::callout_fragment(&h, &base),
-            pages::instance_fragment(&h, &base),
+            pages::live_fragment(&h, &base),
             pages::probe_home(&h.probe, &base),
             pages::probe_connect(&h.probe, &base),
             pages::probe_advertised(&h.probe, &base),

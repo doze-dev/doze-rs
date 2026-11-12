@@ -1552,6 +1552,8 @@ dependencies = [
  "flate2",
  "futures-util",
  "http-body-util",
+ "hyper",
+ "hyper-util",
  "kafka-auth",
  "kafka-broker",
  "kafka-console",

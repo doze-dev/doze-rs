@@ -85,7 +85,7 @@ fn the_advertised_ledes_say_whether_the_two_addresses_are_one() {
     );
     assert_eq!(
         advertised_instance_lede(&p),
-        "Advertised host and port equal the listener, so a client that reached it once can always reach it again."
+        "Advertised host and port equal the listener, and the check reached that address."
     );
     p.same = false;
     p.advertised = "kafka.test:19092".into();
@@ -98,6 +98,30 @@ fn the_advertised_ledes_say_whether_the_two_addresses_are_one() {
 }
 
 #[test]
+fn the_instance_lede_claims_only_what_the_check_found() {
+    let mut p = fixtures::probe_ok();
+    // Nothing a check made once can promise "always": the words say what was done.
+    assert!(!advertised_instance_lede(&p).contains("always"));
+    // A listener that did not answer is never described as one a client reached.
+    p.same = false;
+    p.advertised = "kafka.test:19092".into();
+    p.verdict = Verdict::NotReachable;
+    p.rules[0].ok = false;
+    let said = advertised_instance_lede(&p);
+    assert!(!said.contains("reached"), "{said}");
+    assert!(
+        said.contains("kafka.test:19092") && said.contains(&p.listen),
+        "{said}"
+    );
+    // Not finished: nothing is claimed.
+    p.verdict = Verdict::NotChecked;
+    assert_eq!(
+        advertised_instance_lede(&p),
+        "The check did not finish in time: nothing is claimed. Check again."
+    );
+}
+
+#[test]
 fn a_verdict_has_one_word() {
     assert_eq!(verdict_word(Verdict::Reachable), "Reachable");
     assert_eq!(verdict_word(Verdict::NotReachable), "Not reachable");
@@ -107,11 +131,32 @@ fn a_verdict_has_one_word() {
 #[test]
 fn the_attention_headline_counts() {
     assert_eq!(
-        attention_headline(1),
+        attention_headline(1, 0),
         "1 thing needs you: a transaction is close to its timeout."
     );
     assert_eq!(
-        attention_headline(3),
+        attention_headline(3, 0),
         "3 things need you: 3 transactions are close to their timeout."
+    );
+}
+
+#[test]
+fn a_count_that_did_not_look_at_everything_is_a_floor_and_says_so() {
+    assert_eq!(
+        attention_headline(1, 4),
+        "At least 1 transaction is close to its timeout."
+    );
+    assert_eq!(
+        attention_headline(3, 1),
+        "At least 3 transactions are close to their timeout."
+    );
+    assert_eq!(unchecked_note(0), None);
+    assert_eq!(
+        unchecked_note(1).as_deref(),
+        Some("1 open transaction was not checked.")
+    );
+    assert_eq!(
+        unchecked_note(5).as_deref(),
+        Some("5 open transactions were not checked.")
     );
 }

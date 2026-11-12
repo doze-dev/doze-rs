@@ -14,6 +14,7 @@ fn the_script_uses_every_name_this_file_defines() {
         ATTR_JS_ONLY,
         ATTR_COPY,
         ATTR_COPY_FROM,
+        ATTR_COPY_FORMS,
         ATTR_COPY_AS,
         ATTR_ADDRESS,
         ID_BANNER,
@@ -33,6 +34,14 @@ fn the_markup_uses_the_attribute_names_the_constants_say() {
     );
     let from = copy_from_button("btn", "t", html! { "Copy" }).into_string();
     assert!(from.contains(&format!(" {ATTR_COPY_FROM}=\"t\"")), "{from}");
+    // Only the client snippets follow "Copy as": the button that copies a card's own lines does not carry the attribute.
+    let snippet = copy_snippet_button("btn", "t", html! { "Copy" }).into_string();
+    assert!(
+        snippet.contains(&format!(" {ATTR_COPY_FORMS}"))
+            && snippet.contains(&format!(" {ATTR_COPY_FROM}=\"t\"")),
+        "{snippet}"
+    );
+    assert!(!from.contains(ATTR_COPY_FORMS), "{from}");
     let seg = copy_as_button("code", true, "Code").into_string();
     assert!(
         seg.contains(&format!(" {ATTR_COPY_AS}=\"code\"")) && seg.contains("class=\"on\""),
@@ -141,8 +150,10 @@ fn the_script_follows_the_rules_the_spike_found_and_runs_under_the_strictest_pol
         SCRIPT.to_ascii_lowercase().contains(HEADER_FRAGMENT),
         "the form header is {HEADER_FRAGMENT}"
     );
+    // (Over 130 since the audit asked for the clipboard fallback and the banner's way back; the behaviour is tested in
+    // `tools/dom`, which runs this very file, so these are no longer the only guard.)
     assert!(
-        SCRIPT.lines().count() < 130,
+        SCRIPT.lines().count() < 160,
         "the script is small enough to read in one sitting"
     );
 }

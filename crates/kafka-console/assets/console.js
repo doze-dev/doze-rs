@@ -7,17 +7,39 @@
   const banner = document.getElementById('stream-banner');
   document.querySelectorAll('[data-js-only]').forEach((el) => { el.hidden = false; });
 
-  // Copy: the text of the button, or of the element it names; "Copy as" changes the form of the address.
+  // Copy: the text of the button, or of the element it names. "Copy as" changes the form of the address, for the buttons
+  // that carry the address (the client snippets, data-copy-forms) and for no other: a card that copies its own lines copies those.
   let copyAs = 'code';
   const address = () => attr(document.querySelector('[data-address]'), 'data-address') || '';
   const textOf = (btn) => {
     const own = attr(btn, 'data-copy');
     if (own !== null) return own;
-    if (copyAs === 'properties') return 'bootstrap.servers=' + address();
-    if (copyAs === 'environment') return 'KAFKA_BOOTSTRAP_SERVERS=' + address();
+    if (btn.hasAttribute('data-copy-forms')) {
+      if (copyAs === 'properties') return 'bootstrap.servers=' + address();
+      if (copyAs === 'environment') return 'KAFKA_BOOTSTRAP_SERVERS=' + address();
+    }
     const from = document.getElementById(attr(btn, 'data-copy-from'));
     return from ? from.textContent : '';
   };
+  // The clipboard API exists only in a secure context (https or localhost): over http://<LAN address> it is absent, and the
+  // old way (select the text of a field and ask the document to copy it) still works there.
+  function copyOld(text) {
+    const was = document.activeElement;
+    const field = document.createElement('textarea');
+    field.value = text;
+    field.setAttribute('readonly', '');
+    field.style.position = 'fixed';
+    field.style.opacity = '0';
+    document.body.append(field);
+    field.select();
+    try { document.execCommand('copy'); } catch (e) { /* nothing to do: the text is on the page */ }
+    field.remove();
+    if (was && was.focus) was.focus();
+  }
+  function copy(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).catch(() => copyOld(text));
+    else copyOld(text);
+  }
   document.addEventListener('click', (e) => {
     const pick = e.target.closest('[data-copy-as]');
     if (pick) {
@@ -26,7 +48,7 @@
       return;
     }
     const btn = e.target.closest('[data-copy],[data-copy-from]');
-    if (btn && navigator.clipboard) navigator.clipboard.writeText(textOf(btn));
+    if (btn) copy(textOf(btn));
   });
 
   // Edit the nodes on screen into the new ones, so focus, typed text, caret and scroll position stay.
@@ -52,6 +74,8 @@
   // A fragment: fetched again on a tick. The script keeps the ETag and sends it (spike 1: a browser turns a 304 into a 200
   // for fetch), and the newest request wins per fragment (spike 4).
   const etags = {}, ctl = {};
+  // A fetch that came back (even with 304) says the console's process is there: the banner of a lost connection goes.
+  const reached = () => { if (banner) banner.hidden = true; };
   async function refresh(id) {
     const url = attr(document.getElementById(id), 'data-frag');
     if (!url) return;
@@ -60,10 +84,11 @@
     try {
       const headers = etags[id] ? { 'If-None-Match': etags[id] } : {};
       const r = await fetch(url, { signal: c.signal, headers });
-      if (r.status === 304) return;
+      if (r.status === 304) { reached(); return; }
       if (!r.ok) throw new Error(String(r.status));
       etags[id] = r.headers.get('ETag');
       apply(await r.text());
+      reached();
     } catch (e) { if (e.name !== 'AbortError' && banner) banner.hidden = false; }
   }
 

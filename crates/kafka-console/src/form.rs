@@ -44,6 +44,7 @@ pub fn decode(raw: &str) -> String {
     String::from_utf8_lossy(&out).into_owned()
 }
 
+// fuzz:parser form
 /// The fields of a query string or a form body, in order.
 #[must_use]
 pub fn parse(input: &str) -> Vec<(String, String)> {

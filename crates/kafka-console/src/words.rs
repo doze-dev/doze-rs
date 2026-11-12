@@ -126,12 +126,23 @@ pub fn connect_advertised_lede(p: &ProbeView) -> Vec<Span> {
 #[must_use]
 pub fn advertised_instance_lede(p: &ProbeView) -> String {
     match (p.same, p.verdict) {
-        (_, Verdict::NotChecked) => "The check did not finish in time: nothing is claimed. Check again.".to_owned(),
-        (true, Verdict::Reachable) => "Advertised host and port equal the listener, so a client that reached it once can always reach it again.".to_owned(),
-        (true, Verdict::NotReachable) => "Advertised host and port equal the listener, yet a rule below failed.".to_owned(),
+        (_, Verdict::NotChecked) => {
+            "The check did not finish in time: nothing is claimed. Check again.".to_owned()
+        }
+        // Only what the check did: it dialled that address and it answered (the board adds "so a client that reached it once
+        // can always reach it again", which a check made once, from this machine, cannot promise).
+        (true, Verdict::Reachable) => {
+            "Advertised host and port equal the listener, and the check reached that address."
+                .to_owned()
+        }
+        (true, Verdict::NotReachable) => {
+            "Advertised host and port equal the listener, yet a rule below failed.".to_owned()
+        }
+        // (The board says "a client that reached {listen}": that is claimed only when the check reached it, and the rules
+        // below say whether it did.)
         (false, _) => format!(
-            "Advertised host and port differ from the listener: a client that reached {} is told to go to {}.",
-            p.listen, p.advertised
+            "Advertised host and port differ from the listener: a client is told to go to {}, not to {}.",
+            p.advertised, p.listen
         ),
     }
 }
@@ -146,13 +157,27 @@ pub fn verdict_word(v: Verdict) -> &'static str {
     }
 }
 
-/// The words of the callout when something needs someone (the one condition the boards draw).
+/// The words of the callout when something needs someone (the one condition the boards draw). With `unchecked` open
+/// transactions not looked at, the count is a floor and says so.
 #[must_use]
-pub fn attention_headline(count: usize) -> String {
-    if count == 1 {
-        "1 thing needs you: a transaction is close to its timeout.".to_owned()
-    } else {
-        format!("{count} things need you: {count} transactions are close to their timeout.")
+pub fn attention_headline(count: usize, unchecked: usize) -> String {
+    match (count, unchecked) {
+        (1, 0) => "1 thing needs you: a transaction is close to its timeout.".to_owned(),
+        (_, 0) => {
+            format!("{count} things need you: {count} transactions are close to their timeout.")
+        }
+        (1, _) => "At least 1 transaction is close to its timeout.".to_owned(),
+        (_, _) => format!("At least {count} transactions are close to their timeout."),
+    }
+}
+
+/// What Home says of the open transactions it did not look at (none: nothing to say).
+#[must_use]
+pub fn unchecked_note(unchecked: usize) -> Option<String> {
+    match unchecked {
+        0 => None,
+        1 => Some("1 open transaction was not checked.".to_owned()),
+        n => Some(format!("{n} open transactions were not checked.")),
     }
 }
 

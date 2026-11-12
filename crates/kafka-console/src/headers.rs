@@ -9,10 +9,25 @@ use axum::http::header::{
 use axum::middleware::Next;
 use axum::response::Response;
 
+/// The policy, as a literal that `concat!` can join.
+macro_rules! csp {
+    () => {
+        "default-src 'self'; style-src 'self' 'unsafe-inline'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
+    };
+}
+
 /// What a page may load and do. Scripts are the console's own files (no inline script, no eval); styles may be inline
 /// because positions on the ruler and the lag bars are custom properties (`style="--p:68%"`); nothing may frame it, and
 /// forms may only post to it.
-pub const CSP: &str = "default-src 'self'; style-src 'self' 'unsafe-inline'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'";
+pub const CSP: &str = csp!();
+
+/// The four headers that do not depend on the answer, as the lines of a hand-written HTTP head (for the 503 that a
+/// connection over the cap is answered with, which never reaches the router).
+pub const SECURITY_LINES: &str = concat!(
+    "Content-Security-Policy: ",
+    csp!(),
+    "\r\nX-Content-Type-Options: nosniff\r\nReferrer-Policy: no-referrer\r\nX-Frame-Options: DENY\r\n"
+);
 
 /// Adds the headers; a handler that set its own cache rule keeps it, any other answer is not stored.
 pub async fn security_headers(req: Request, next: Next) -> Response {

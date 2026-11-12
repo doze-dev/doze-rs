@@ -44,7 +44,7 @@ impl Ticker {
     pub fn watch(self: &Arc<Self>) -> Viewer {
         let mut p = self.producer.lock().unwrap_or_else(PoisonError::into_inner);
         p.viewers += 1;
-        if p.task.is_none() {
+        if p.task.as_ref().is_none_or(|t| t.is_finished()) {
             let tx = self.tx.clone();
             let period = self.period;
             p.task = Some(tokio::spawn(async move {
@@ -64,14 +64,15 @@ impl Ticker {
         }
     }
 
-    /// Whether the timer task exists.
+    /// Whether the timer task exists and has not ended.
     #[must_use]
     pub fn running(&self) -> bool {
         self.producer
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
             .task
-            .is_some()
+            .as_ref()
+            .is_some_and(|t| !t.is_finished())
     }
 
     /// How many streams are listening.

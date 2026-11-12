@@ -28,6 +28,8 @@ pub const ATTR_COPY: &str = "data-copy";
 pub const ATTR_COPY_FROM: &str = "data-copy-from";
 /// A button that sets what the page's copy buttons copy: `code`, `properties` or `environment`.
 pub const ATTR_COPY_AS: &str = "data-copy-as";
+/// A copy button whose text follows the "Copy as" control (the client snippets); a copy button without it copies its own text.
+pub const ATTR_COPY_FORMS: &str = "data-copy-forms";
 /// The address (bootstrap) the alternative copy forms are built from.
 pub const ATTR_ADDRESS: &str = "data-address";
 /// A link whose target is a dialog: with a script it opens over the page, without one it is an ordinary link to a page.
@@ -101,6 +103,12 @@ pub fn copy_chip(text: &str, label: Markup) -> Markup {
 #[must_use]
 pub fn copy_from_button(class: &str, target_id: &str, label: Markup) -> Markup {
     html! { button class=(class) type="button" data-ui="copy" data-copy-from=(target_id) data-js-only hidden { (label) } }
+}
+
+/// A button that copies the text of the element `target_id` in the form "Copy as" says (the client snippets).
+#[must_use]
+pub fn copy_snippet_button(class: &str, target_id: &str, label: Markup) -> Markup {
+    html! { button class=(class) type="button" data-ui="copy" data-copy-from=(target_id) data-copy-forms data-js-only hidden { (label) } }
 }
 
 /// A button of the "Copy as" control: sets what the copy buttons of the page copy.

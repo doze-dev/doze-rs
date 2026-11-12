@@ -2,7 +2,7 @@
 
 use super::*;
 
-const SASL: [&str; 4] = ["--sasl-mechanisms", "PLAIN", "--sasl-user", "u:pw-planted"];
+pub(super) const SASL: [&str; 4] = ["--sasl-mechanisms", "PLAIN", "--sasl-user", "u:pw-planted"];
 
 #[test]
 fn sasl_and_a_console_beyond_loopback_stop_the_start_with_exit_2_unless_unprotected() {
@@ -12,8 +12,7 @@ fn sasl_and_a_console_beyond_loopback_stop_the_start_with_exit_2_unless_unprotec
         .arg(&data)
         .args(SASL)
         .args(["--console-addr", "0.0.0.0:9093"])
-        .output()
-        .unwrap();
+        .output_within(PROCESS_WAIT);
     let said = String::from_utf8_lossy(&output.stderr);
     assert_eq!(output.status.code(), Some(2), "{said}");
     assert!(
@@ -34,8 +33,7 @@ fn a_console_address_that_is_no_host_and_port_exits_2_too() {
         .args(["--listen", "127.0.0.1:0", "--data-dir"])
         .arg(&data)
         .args(["--console-addr", "nonsense"])
-        .output()
-        .unwrap();
+        .output_within(PROCESS_WAIT);
     assert_eq!(output.status.code(), Some(2));
     assert!(String::from_utf8_lossy(&output.stderr).contains("is not host:port"));
     let _ = std::fs::remove_dir_all(&data);
@@ -74,7 +72,7 @@ fn unprotected_starts_the_broker_and_the_log_says_what_is_open() {
 
 /// The address the console says it is listening on.
 #[cfg(feature = "console")]
-fn console_addr(broker: &Broker) -> String {
+pub(super) fn console_addr(broker: &Broker) -> String {
     let deadline = Instant::now() + Duration::from_secs(10);
     loop {
         let log = broker.log.lock().unwrap().clone();
@@ -92,7 +90,7 @@ fn console_addr(broker: &Broker) -> String {
 
 /// One HTTP/1.1 request, answered to the end (the connection is closed after it).
 #[cfg(feature = "console")]
-fn http(addr: &str, head: &str, body: &str) -> String {
+pub(super) fn http(addr: &str, head: &str, body: &str) -> String {
     let mut s = TcpStream::connect(addr).unwrap();
     s.set_read_timeout(Some(Duration::from_secs(10))).unwrap();
     let request = format!(
@@ -163,7 +161,7 @@ fn a_stopping_broker_does_not_wait_for_an_open_console_stream() {
         .unwrap();
     write!(
         stream,
-        "GET /events?watch=home-instance HTTP/1.1\r\nHost: {addr}\r\n\r\n"
+        "GET /events?watch=home-live HTTP/1.1\r\nHost: {addr}\r\n\r\n"
     )
     .unwrap();
     let mut seen = Vec::new();
@@ -194,7 +192,13 @@ fn console_false_leaves_the_broker_as_it_was() {
     let mut broker = start_with(&data, &["--console=false"]);
     std::thread::sleep(Duration::from_millis(300));
     let log = broker.log.lock().unwrap().clone();
-    assert!(!log.contains("the console"), "{log}");
+    // It says that it is off (one line), and does nothing else: no listener, no address.
+    assert_eq!(
+        log.contains("the console is off (--console=false)"),
+        cfg!(feature = "console"),
+        "{log}"
+    );
+    assert!(!log.contains("the console is listening"), "{log}");
     assert!(broker.terminate().success());
     let _ = std::fs::remove_dir_all(&data);
 }
@@ -209,8 +213,7 @@ fn a_console_address_that_is_taken_stops_the_start_with_exit_2() {
         .args(["--listen", "127.0.0.1:0", "--data-dir"])
         .arg(&data)
         .args(["--console-addr", &addr])
-        .output()
-        .unwrap();
+        .output_within(PROCESS_WAIT);
     let said = String::from_utf8_lossy(&output.stderr);
     assert_eq!(output.status.code(), Some(2), "{said}");
     assert!(

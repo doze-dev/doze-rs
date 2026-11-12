@@ -1,8 +1,10 @@
 //! The answers that are not pages: the stream, the files, the health check.
 
+use std::sync::Arc;
+
 use axum::extract::{Path, RawQuery, State};
-use axum::http::StatusCode;
-use axum::http::header::{CACHE_CONTROL, CONTENT_TYPE};
+use axum::http::header::{ACCEPT_RANGES, CACHE_CONTROL, CONTENT_TYPE, ETAG};
+use axum::http::{HeaderMap, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 
 use crate::state::Shared;
@@ -23,22 +25,40 @@ pub async fn events(State(s): State<Shared>, RawQuery(query): RawQuery) -> Respo
             return (StatusCode::BAD_REQUEST, body).into_response();
         }
     };
-    stream::response(s.ticker.watch(), ids, s.stop.clone()).into_response()
+    // One permit per open stream, held by the stream until it ends: the 65th is told to come back.
+    let Ok(permit) = Arc::clone(&s.streams).try_acquire_owned() else {
+        return crate::limits::busy("The console has as many event streams open as it allows.");
+    };
+    stream::response(s.ticker.watch(), ids, s.stop.clone(), permit).into_response()
 }
 
 /// A file of the manifest by its hashed name, cached for a year: the name changes when the file does.
-pub async fn static_file(State(s): State<Shared>, Path(name): Path<String>) -> Response {
-    match s.assets.get(&name) {
-        Some(f) => (
-            [
-                (CONTENT_TYPE, f.content_type),
-                (CACHE_CONTROL, "public, max-age=31536000, immutable"),
-            ],
-            f.bytes.clone(),
-        )
-            .into_response(),
-        None => StatusCode::NOT_FOUND.into_response(),
+/// The hashed name is the ETag (it changes when the file does), so a browser that asks again gets a 304. A `Range` is
+/// ignored: the whole file is the answer (it is a few KB to 40 KB) and `Accept-Ranges: none` says so.
+pub async fn static_file(
+    State(s): State<Shared>,
+    Path(name): Path<String>,
+    headers: HeaderMap,
+) -> Response {
+    let Some(f) = s.assets.get(&name) else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
+    let tag = format!("\"{name}\"");
+    let mut res = if super::has_tag(&headers, &tag) {
+        StatusCode::NOT_MODIFIED.into_response()
+    } else {
+        ([(CONTENT_TYPE, f.content_type)], f.bytes.clone()).into_response()
+    };
+    let h = res.headers_mut();
+    h.insert(
+        CACHE_CONTROL,
+        HeaderValue::from_static("public, max-age=31536000, immutable"),
+    );
+    h.insert(ACCEPT_RANGES, HeaderValue::from_static("none"));
+    if let Ok(v) = HeaderValue::from_str(&tag) {
+        h.insert(ETAG, v);
     }
+    res
 }
 
 /// `GET /healthz`.

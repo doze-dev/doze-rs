@@ -1,6 +1,6 @@
 // Checks docs/port/behaviours/console.md (the Phase 9 console catalogue) against itself and the repository.
 //
-//   bun tools/check-console-catalogue.ts [--lean-tree]     (from anywhere; the root is found from this file)
+//   bun tools/check-console-catalogue.ts [--lean-tree] [--default-tree]     (from anywhere; the root is found from this file)
 //
 // It fails (exit 1) on:
 //   1. a rule defined twice: a heading `## CON-n.` with a number already defined;
@@ -8,7 +8,10 @@
 //   3. a test name quoted in the catalogue (`path::to::a_snake_case_test_name`) with no `fn` of that name in any Rust source, and a
 //      `file.rs` quoted that exists nowhere;
 //   4. with --lean-tree: `cargo tree -p doze-kafka --no-default-features -e normal` names axum, maud, hyper or tower (the lean build
-//      must carry no HTTP).
+//      must carry no HTTP);
+//   5. with --default-tree: `cargo tree -p doze-kafka -e normal` (the default build) does not name axum, maud, hyper and kafka-console
+//      (decision D1 of docs/port/phase9.md: the console is in the default build; `default = []` would silently take it out and
+//      the size limits, being upper bounds, would not notice).
 // Only the standard library is used.
 
 import { readdirSync, readFileSync, statSync } from "node:fs";
@@ -90,7 +93,17 @@ if (process.argv.includes("--lean-tree")) {
   lean = `, lean tree ${names.size - 1} packages with no HTTP`;
 }
 
-console.log(`console catalogue: ${defined.size} rules defined, ${references} references, ${tests} test names, ${files.length} files read${lean}`);
+let full = "";
+if (process.argv.includes("--default-tree")) {
+  const r = Bun.spawnSync(["cargo", "tree", "-p", "doze-kafka", "-e", "normal", "--prefix", "none"], { cwd: root });
+  if (r.exitCode !== 0) fail(`cargo tree failed: ${r.stderr.toString().slice(0, 200)}`);
+  const names = new Set(r.stdout.toString().split("\n").map((l) => l.split(" ")[0]));
+  const missing = ["axum", "maud", "hyper", "kafka-console"].filter((n) => !names.has(n));
+  if (missing.length) fail(`the default build's tree lacks ${missing.join(", ")}: the console is not in the default build (decision D1)`);
+  full = `, default tree ${names.size - 1} packages with the console`;
+}
+
+console.log(`console catalogue: ${defined.size} rules defined, ${references} references, ${tests} test names, ${files.length} files read${lean}${full}`);
 if (problems.length > 0) {
   for (const p of problems) console.log(`FAIL  ${p}`);
   console.log(`${problems.length} problem(s)`);

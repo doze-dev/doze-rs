@@ -332,7 +332,9 @@ impl Args {
         }
         let given = [
             (
-                self.console.as_deref().is_some_and(|v| v != "false"),
+                self.console
+                    .as_deref()
+                    .is_some_and(|v| console::switch(v) != Some(false)),
                 "--console",
             ),
             (self.console_addr.is_some(), "--console-addr"),

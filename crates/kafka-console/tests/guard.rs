@@ -16,7 +16,7 @@ use support::{HOST, app, get, post, send};
 fn concrete(pattern: &str, state: &kafka_console::state::State) -> String {
     let asset = state.assets.urls.css.rsplit('/').next().unwrap().to_owned();
     pattern
-        .replace("{id}", "home-instance")
+        .replace("{id}", "home-live")
         .replace("{name}", &asset)
         .replace("{topic}", "orders")
 }
@@ -144,7 +144,7 @@ async fn every_answer_carries_the_security_headers() {
         "/connect",
         "/nope",
         "/healthz",
-        "/fragments/home-instance",
+        "/fragments/home-live",
         state.assets.urls.css.as_str(),
     ] {
         let (res, _) = send(&app, get(path)).await;

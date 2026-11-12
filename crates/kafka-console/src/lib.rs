@@ -28,6 +28,7 @@ pub mod gather;
 pub mod guard;
 pub mod handlers;
 pub mod headers;
+pub mod limits;
 pub mod model;
 pub mod origin;
 pub mod pages;
@@ -50,5 +51,6 @@ pub mod write_source;
 
 pub use backend::Backend;
 pub use facts::Facts;
-pub use serve::{Running, Settings, start, start_on};
+pub use limits::{Limits, MAX_CONNECTIONS, MAX_STREAMS};
+pub use serve::{Running, Settings, start, start_on, start_with};
 pub use source::{Live, Source};

@@ -63,9 +63,8 @@ async fn topics_fragment(s: &Shared, id: &str, query: &Option<String>) -> Option
 
 async fn fragment_of_home(s: &Shared, id: &str, headers: &HeaderMap) -> Response {
     let markup = match id {
-        pages::HOME_SENTENCE => pages::sentence_fragment(&s.source.home(None).await, &s.base),
-        pages::HOME_CALLOUT => pages::callout_fragment(&s.source.home(None).await, &s.base),
-        pages::HOME_INSTANCE => pages::instance_fragment(&s.source.home(None).await, &s.base),
+        // Home's fragment is made of what the broker holds: it never dials (the check is run by the page load and by a person).
+        pages::HOME_LIVE => pages::live_fragment(&s.source.home_live().await, &s.base),
         pages::PROBE_HOME => pages::probe_home(&s.source.probe(false).await, &s.base),
         pages::PROBE_CONNECT => pages::probe_connect(&s.source.probe(false).await, &s.base),
         pages::PROBE_ADVERTISED => pages::probe_advertised(&s.source.probe(false).await, &s.base),

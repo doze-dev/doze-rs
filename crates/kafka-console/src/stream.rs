@@ -10,6 +10,7 @@ use std::time::Duration;
 
 use axum::response::sse::{Event, KeepAlive, Sse};
 use futures_util::stream::{self, Stream, StreamExt};
+use tokio::sync::OwnedSemaphorePermit;
 use tokio_util::sync::CancellationToken;
 
 use crate::tick::Viewer;
@@ -17,9 +18,7 @@ use crate::ui::client::EVENT_TICK;
 
 /// The fragments a stream may be asked to watch: a closed vocabulary.
 pub const WATCHABLE: &[&str] = &[
-    "home-sentence",
-    "home-callout",
-    "home-instance",
+    "home-live",
     "topics-sentence",
     "topics-table",
     "topic-sentence",
@@ -27,7 +26,7 @@ pub const WATCHABLE: &[&str] = &[
 ];
 
 /// What the Home page watches.
-pub const HOME_IDS: &[&str] = &["home-sentence", "home-callout", "home-instance"];
+pub const HOME_IDS: &[&str] = &["home-live"];
 /// What the topics list watches.
 pub const TOPICS_IDS: &[&str] = &["topics-sentence", "topics-table"];
 /// What a topic's Messages page watches.
@@ -62,17 +61,19 @@ pub fn events(
     viewer: Viewer,
     ids: Vec<String>,
     stop: CancellationToken,
+    slot: OwnedSemaphorePermit,
 ) -> impl Stream<Item = Result<Event, Infallible>> {
     let data = ids.join(",");
     let first = stream::once(std::future::ready(Ok(tick(&data))));
+    // The permit lives as long as the stream does, and is given back when it is dropped.
     let rest = stream::unfold(
-        (viewer, stop, data),
-        |(mut viewer, stop, data)| async move {
+        (viewer, stop, data, slot),
+        |(mut viewer, stop, data, slot)| async move {
             let heard = tokio::select! {
                 () = stop.cancelled() => false,
                 heard = viewer.changed() => heard,
             };
-            heard.then(|| (Ok(tick(&data)), (viewer, stop, data)))
+            heard.then(|| (Ok(tick(&data)), (viewer, stop, data, slot)))
         },
     );
     first.chain(rest)
@@ -83,8 +84,9 @@ pub fn response(
     viewer: Viewer,
     ids: Vec<String>,
     stop: CancellationToken,
+    slot: OwnedSemaphorePermit,
 ) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
-    Sse::new(events(viewer, ids, stop))
+    Sse::new(events(viewer, ids, stop, slot))
         .keep_alive(KeepAlive::new().interval(KEEP_ALIVE).text("keep-alive"))
 }
 
@@ -95,12 +97,10 @@ mod tests {
     #[test]
     fn only_the_closed_vocabulary_may_be_watched() {
         assert_eq!(parse_watch(""), Ok(vec![]));
-        assert_eq!(parse_watch("home-instance"), Ok(vec!["home-instance"]));
-        assert_eq!(
-            parse_watch("home-sentence,home-instance,home-sentence"),
-            Ok(vec!["home-sentence", "home-instance"])
-        );
-        assert_eq!(parse_watch("home-instance,evil"), Err("evil"));
+        assert_eq!(parse_watch("home-live"), Ok(vec!["home-live"]));
+        assert_eq!(parse_watch("home-live,home-live"), Ok(vec!["home-live"]));
+        assert_eq!(parse_watch("home-live,evil"), Err("evil"));
+        assert_eq!(parse_watch("home-instance"), Err("home-instance"));
         assert_eq!(parse_watch("../x"), Err("../x"));
         assert_eq!(parse_watch("a\nb"), Err("a\nb"));
     }
