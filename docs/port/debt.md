@@ -1,4 +1,4 @@
-# Debt register (Phases 0 to 8)
+# Debt register (Phases 0 to 9a)
 
 Opened 2026-11-09 at the owner's instruction: nothing known is carried past Phase 6. Every item is cleared (with a test
 that fails when the behaviour is removed), or is blocked by a later phase's feature and moves into that phase's plan with
@@ -198,4 +198,30 @@ the catalogue lists, one row each; the second is what the slices reported left u
   spans (`compaction.md` CMP-6); `segment.bytes` and the other topic configs act at runtime (`admin.md` ADM-6); batches are
   rewritten into the topic's `compression.type` at Produce (D4).
 - **Phase 8 (security), built:** `idempotent-write-from-topic-write` and the ACLs on the transaction APIs are done; what is left is section I.
-- **Phase 9 (console, registry):** mounts the allowed-hosts guard (I21), the Access facts view (I20), DescribeCluster and the telemetry APIs (I17).
+- **Phase 9 (console, registry):** the guard is mounted on the console (I21, done in 9a); the Access facts view (I20, slice 9h), DescribeCluster and the telemetry APIs (I17, slice 9i); section J is slice 9a.
+
+## J. Phase 9, slice 9a (the console: the crate, the shell, Home and Connect), built 2026-11-12, audits pending
+Statuses as above. The catalogue is `behaviours/console.md` (and SEC-240 to SEC-249 in `security.md`). I21 is done here (the guard is mounted on every console route, SEC-243); I20 moves to slice 9h.
+
+| # | What | Status |
+|---|---|---|
+| J1 | Home's sentence has no "N apps appear on the wire ... the last request landed N s ago" (REALITY 1): the recorder does not exist. The page says what the broker holds | moved: slice 9e |
+| J2 | Home's all-clear does not say "no partition is offline and the data directory is writable" (GROUNDING 2.2): only the transaction rule is checked | moved: slice 9b (`partition_state()`); the writability check is not planned |
+| J3 | Home's all-clear has no link to the attention state (a state chosen by data cannot be a link); the example is text | decided |
+| J4 | The first-request card ("Waiting for a client id this broker has not seen", the link to `connect-first-request`) and the quiet state's "no clients": no first-request detector, no connection table | moved: slice 9e |
+| J5 | The instance card's descriptors are all open files and sockets (the board says "Segments and indexes"); idle memory and threads are read on Linux only, "Not measured" elsewhere | decided (no safe way without `unsafe` or a spawn) |
+| J6 | Times are UTC and say so; the boards' times have no zone | decided (no safe, portable way to the local zone) |
+| J7 | The rail has no pinned items and no key hints; the search box is drawn disabled (no jump, no palette yet) | moved: slice 9b for the jump to a topic or group; pins are not planned (REALITY 5.5) |
+| J8 | Planned routes (`/live`, `/topics`, `/topics/new`, `/topics/{topic}/producers`, `/access`, `/lab`, `/settings`) answer a page that says it is not built yet | moved: the slice that builds each |
+| J9 | `connect-advertised` is its own route (`/connect/advertised`) and not a state of `/connect`: its board is a page with its own breadcrumb and a button from Connect | decided |
+| J10 | The banner "served beyond loopback, no login" shows when the console is bound beyond loopback, whether or not `--console-unprotected` is given (the banner says what is true; the flag only allows SASL or TLS to start with it) | decided |
+| J11 | The stream's ticks name every watched fragment and the fragments answer 304 when unchanged; the ticker is a 2 s floor timer. The recorder's and the group ring's own bumps do not exist | moved: slice 9e |
+| J12 | `console.js` is covered by string tests in Rust and a manual Chrome pass; no DOM test of its behaviour (no dependency-free DOM shim) | open: a bun DOM test if a dependency-free shim is found |
+| J13 | The advertised-listener dial resolves a name with the system resolver on a blocking thread: a "Check again" pressed repeatedly against a name that hangs holds a blocking-pool thread each until the resolver gives up | decided (dev tool; bounded by the pool) |
+| J14 | `tools/boards-snapshot.ts`, `tools/board-diff.ts` and `design/boards/**` are another agent's; this slice writes `target/board-diff/<id>.html` and `design/routes.json` for them | moved: the tooling agent |
+| J15 | No CI step runs the `origin` fuzz target (the target exists and `fuzz-check` passes; `ci.yml` is the lead's) | owner |
+| J16 | Chrome fidelity pass: remaining differences per board are in the 9a report (the "Reached from" and "Other moments" scaffolding, the dropped rail extras, "MiB" for the board's "MB", the UTC second line) | decided |
+| J17 | `weight-console` limits and `weight.md` are not set: the lead sets them from a Linux measurement; the darwin numbers are in the 9a report | owner |
+| J18 | A mutation run on `origin.rs`, `format.rs`, `words.rs` and `probe/judge.rs` was not done in this slice | open: before the phase audit |
+| J19 | `fixtures` and `boards` are in the library behind the `examples` feature; a release build without the feature has neither | decided |
+| J20 | `doze-kafka/src/cli.rs` is 361 lines (soft limit 300; it was 344): the console flags added to it | open: split the flag groups into files when the next flags land |

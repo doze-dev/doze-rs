@@ -30,3 +30,23 @@ fn mechanism_names_are_exact_and_case_sensitive() {
         assert_eq!(Mechanism::from_name(wrong), None, "{wrong:?}");
     }
 }
+
+#[test]
+fn the_consoles_principal_is_user_dunder_console_and_only_that_name_is_it() {
+    assert_eq!(Principal::console().as_str(), "User:__console");
+    assert_eq!(Principal::console(), Principal::user(CONSOLE_USER));
+    assert!(Principal::is_console("User:__console"));
+    for other in [
+        "User:__console2",
+        "User:_console",
+        "User:__Console",
+        "Group:__console",
+        "__console",
+        "User:",
+        "",
+        "User:__console ",
+        "user:__console",
+    ] {
+        assert!(!Principal::is_console(other), "{other:?}");
+    }
+}

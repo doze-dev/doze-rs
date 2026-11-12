@@ -15,6 +15,10 @@ workspace = true
 # TLS on the Kafka listener: --tls-cert and --tls-key. Off by default (weight is a feature); building it needs a C
 # compiler and assembler because of ring. See docs/port/weight.md.
 tls = ["kafka-server/tls", "dep:rustls"]
+# The web console, served beside the broker (`--console`, on by default). On in the default build: the owner's decision of
+# 2026-11-12 (docs/port/phase9.md, D1). `--no-default-features` is the lean broker with no HTTP in it at all.
+console = ["dep:kafka-console"]
+default = ["console"]
 
 [dependencies]
 kafka-auth = { path = "../kafka-auth" }
@@ -22,7 +26,7 @@ kafka-wire = { path = "../kafka-wire" }
 kafka-storage = { path = "../kafka-storage" }
 kafka-broker = { path = "../kafka-broker" }
 kafka-server = { path = "../kafka-server" }
-kafka-console = { path = "../kafka-console" }
+kafka-console = { path = "../kafka-console", optional = true }
 kafka-registry = { path = "../kafka-registry" }
 anyhow = "1"
 # The limit on open files: raised at start, and the open partitions sized to it.

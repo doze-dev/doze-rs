@@ -1,0 +1,16 @@
+{
+  "screens": {
+    "access-open": "/access",
+    "connect": "/connect",
+    "connect-advertised": "/connect/advertised",
+    "home": "/",
+    "home-attention": "/",
+    "home-quiet": "/",
+    "lab-home": "/lab",
+    "live-wire": "/live",
+    "settings-home": "/settings",
+    "topic-create": "/topics/new",
+    "topics-list": "/topics",
+    "txn-open": "/topics/{topic}/producers"
+  }
+}

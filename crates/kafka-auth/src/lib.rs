@@ -20,5 +20,5 @@ pub mod users;
 pub use authenticator::{Authenticator, SetupError};
 pub use credentials::{Credentials, CredentialsError, Secret};
 pub use plain::Refusal;
-pub use principal::{Mechanism, Principal};
+pub use principal::{CONSOLE_USER, Mechanism, Principal};
 pub use users::{Stored, Users};

@@ -6,6 +6,8 @@ mod descriptors;
 mod duration;
 mod lock;
 mod run;
+#[cfg(feature = "console")]
+mod web;
 
 use anyhow::Result;
 use clap::Parser;
@@ -49,18 +51,26 @@ fn main() -> Result<()> {
         tracing::info!(cert = %tls.cert_file().display(), "TLS is on: clients must connect with TLS (1.2 or newer)");
     }
     for flag in args.ignored() {
-        tracing::warn!(
-            "{flag} is accepted and ignored: that part of doze-kafka is not in this edition yet"
-        );
+        if flag.starts_with("--console") {
+            tracing::warn!(
+                "{flag} is accepted and ignored: this build has no console (it is built without the `console` feature)"
+            );
+        } else {
+            tracing::warn!(
+                "{flag} is accepted and ignored: that part of doze-kafka is not in this edition yet"
+            );
+        }
     }
     for warning in &settings.warnings {
         tracing::warn!("{warning}");
     }
     tracing::debug!(
-        console = ?settings.console.addr,
+        console = settings.console.enabled,
+        wanted = ?settings.console.addr,
+        prefix = %settings.console.prefix,
         allow_hosts = ?settings.console.allow_hosts,
         unprotected = settings.console.unprotected,
-        "console flags (no console to serve before Phase 9)"
+        "console flags"
     );
     let _lock = lock::DataDirLock::take(&args.data_dir)?;
     let runtime = tokio::runtime::Builder::new_multi_thread()

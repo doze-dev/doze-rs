@@ -1,4 +1,4 @@
-//! The console flags (parsed and kept; no console serves before Phase 9) and the start-up rule on their inputs.
+//! The console flags (parsed, checked and acted on by `web.rs`) and the start-up rule on their inputs.
 
 use super::*;
 
@@ -23,7 +23,7 @@ fn with_sasl<'a>(extra: &[&'a str]) -> Vec<&'a str> {
 }
 
 #[test]
-fn the_flags_are_parsed_and_kept_and_say_in_their_help_that_nothing_serves_them_yet() {
+fn the_console_flags_are_parsed_and_kept_and_their_help_says_what_they_do() {
     let set = settings(&[
         "--console-allow-host",
         "Dev.Example.com, host.docker.internal",
@@ -39,19 +39,45 @@ fn the_flags_are_parsed_and_kept_and_say_in_their_help_that_nothing_serves_them_
     assert!(set.console.unprotected);
     assert!(set.warnings.is_empty());
     let parsed = args(&["--console-allow-host", "a", "--console-unprotected"]).unwrap();
-    assert_eq!(
-        parsed.ignored(),
-        ["--console-allow-host", "--console-unprotected"]
-    );
+    let ignored: &[&str] = if cfg!(feature = "console") {
+        &[]
+    } else {
+        &["--console-allow-host", "--console-unprotected"]
+    };
+    assert_eq!(parsed.ignored(), ignored);
     let help = <Args as clap::CommandFactory>::command()
         .render_long_help()
         .to_string();
-    for flag in ["--console-allow-host", "--console-unprotected"] {
+    for flag in [
+        "--console",
+        "--console-addr",
+        "--console-prefix",
+        "--console-allow-host",
+        "--console-unprotected",
+    ] {
         assert!(help.contains(flag), "{flag} is hidden from --help");
     }
     let help = help.split_whitespace().collect::<Vec<_>>().join(" ");
-    assert!(help.matches("arrives with Phase 9").count() >= 2, "{help}");
+    assert!(!help.contains("Phase 9"), "{help}");
+    assert!(help.contains("127.0.0.1:9093"), "{help}");
     assert!(settings(&[]).unwrap().console == Console::default());
+}
+
+#[test]
+fn the_console_is_on_by_default_and_off_only_for_false_and_the_prefix_is_a_path() {
+    let set = |flags: &[&str]| settings(flags).unwrap().console;
+    assert!(set(&[]).enabled);
+    assert!(set(&["--console"]).enabled);
+    assert!(set(&["--console=true"]).enabled);
+    assert!(!set(&["--console=false"]).enabled);
+    assert_eq!(set(&[]).prefix, "/");
+    assert_eq!(set(&["--console-prefix", "/kafka/"]).prefix, "/kafka/");
+    for bad in ["/a b", "/a//b", "/../x", "/a/./b", "/é", "/a?b", "/a#b"] {
+        let said = settings(&["--console-prefix", bad]).unwrap_err();
+        assert!(said.contains("must be a path of letters"), "{bad}: {said}");
+    }
+    // A console that is off has no prefix to be wrong about.
+    assert!(!set(&["--console=false", "--console-prefix", "/a b"]).enabled);
 }
 
 #[test]

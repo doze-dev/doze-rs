@@ -90,7 +90,8 @@ impl Default for Config {
 
 impl Config {
     /// What a client is told to connect to, given the address that was bound.
-    pub(crate) fn advertise(&self, bound: SocketAddr) -> Listener {
+    #[must_use]
+    pub fn advertise(&self, bound: SocketAddr) -> Listener {
         let host = self.advertised_host.clone().unwrap_or_else(|| {
             if bound.ip().is_unspecified() {
                 "localhost".to_owned()

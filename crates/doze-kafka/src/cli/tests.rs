@@ -32,7 +32,13 @@ fn the_flags_the_conformance_harness_passes_are_all_accepted() {
     let parsed = args(&passed).unwrap();
     let settings = parsed.settings().unwrap();
     assert_eq!(settings.server.listen.port(), 45123);
-    assert_eq!(parsed.ignored(), ["--console"]);
+    // With a console in the build the console flags are acted on; without one they are named as ignored.
+    let ignored: &[&str] = if cfg!(feature = "console") {
+        &[]
+    } else {
+        &["--console", "--console-addr"]
+    };
+    assert_eq!(parsed.ignored(), ignored);
     assert!(!settings.broker.acl_default_allow);
     assert_eq!(
         settings
@@ -340,3 +346,32 @@ mod users;
 
 #[cfg(feature = "tls")]
 mod tls;
+
+#[test]
+fn a_sasl_user_named_for_the_console_is_refused_by_name_and_never_says_its_password() {
+    for flags in [
+        &[
+            "--sasl-mechanisms",
+            "PLAIN",
+            "--sasl-user",
+            "__console:pw-planted",
+        ][..],
+        &[
+            "--sasl-mechanisms",
+            "SCRAM-SHA-256",
+            "--sasl-user",
+            "ok:x",
+            "--sasl-user",
+            "__console:pw-planted",
+        ][..],
+    ] {
+        let said = sasl(flags).unwrap_err();
+        assert!(
+            said.contains("the user name __console is reserved for the web console"),
+            "{said}"
+        );
+        assert!(!said.contains("planted"), "{said}");
+    }
+    // A name that only starts the same is fine.
+    assert!(sasl(&["--sasl-mechanisms", "PLAIN", "--sasl-user", "__console2:pw"]).is_ok());
+}

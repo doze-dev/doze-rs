@@ -34,6 +34,7 @@ SEC-D4, D5, D51, D56, D59) say so where they stand.
 | SEC-180 to SEC-189 | the allowed-hosts guard, `--console-allow-host`, `--console-unprotected`, the start-up rule and notes | 8g | "The allowed-hosts guard" |
 | SEC-190 to SEC-198 | the fixes of the first audit of the authentication half: super-user credentials, the open-ACL note, the failed-login delay, file modes, the stranger cap, the clean close, the crypto vectors | audit fixes | "Audit fixes of the authentication half" |
 | SEC-210 to SEC-222 | fixes after the audit of the authorization half: regex subscriptions, Metadata bits and order, DeleteTopics, by-type, the second model, super-user separators | 8h audit | "Audit fixes, authorization half" |
+| SEC-240 to SEC-249 | the console: its reserved principal, the guard and the same-origin proof mounted on it, its default address and its exposure | 9a | "The console, slice 9a" |
 | SEC-230 to SEC-239 | the places a member's topics come from and whose right is applied: static takeover, names revoked, classic members, a group changing kind; the failed-login cap; file modes; the super-user name | re-audit C | "Re-audit of the authorization half" |
 
 Deviations from Apache Kafka (and one from the Go edition) by number. Every one is a decision, not a bug; each has a row in `debt.md` section I.
@@ -88,7 +89,8 @@ Deviations from Apache Kafka (and one from the Go edition) by number. Every one 
 - **SEC-D60** the guard has no `.doze` special case (the Go edition's guard has one)
 - **SEC-D61** the guard is stricter than the Go edition's in five shapes
 - **SEC-D62** a configuration that cannot start exits 2 (it exited 1 before slice 8g)
-- **SEC-D63** the console flags have nothing to act on until Phase 9
+- **SEC-D63** (withdrawn in 9a) the console flags had nothing to act on until Phase 9
+- **SEC-D64** the console has a default address and a busy default is not an error
 - **SEC-D70** only a super user may change a super user's SCRAM credential (Kafka has no such rule)
 - **SEC-D71** a stranger's frame is at most 128 KiB (Kafka's `sasl.server.max.receive.size` is 512 KiB)
 - **SEC-D72** no `--sasl-allow-empty-users` (the Go edition has it)
@@ -1014,9 +1016,9 @@ bracketed host or ends in `localhost`; what only the list lets in is exactly the
 `fuzz/seeds/hostguard`; the CI `fuzz` job runs it for 30 seconds beside the others. Run for 40 seconds on a laptop: 11 million executions, no finding.
 
 ## SEC-187. The flags: `--console-allow-host HOST` and `--console-unprotected`
-`--console-allow-host` is repeatable or comma separated (blanks dropped, case and dots left to the guard); `--console-unprotected` is a switch. Both are parsed, checked and kept in `Settings.console`; **the
-console does not exist before Phase 9, so nothing acts on them** (**deviation SEC-D63**): the help text of each says so, the start logs `--console-allow-host is accepted and ignored` like the other flags of
-later parts, and the values are logged at debug. Test: `cli::tests::console::the_flags_are_parsed_and_kept_and_say_in_their_help_that_nothing_serves_them_yet`.
+`--console-allow-host` is repeatable or comma separated (blanks dropped, case and dots left to the guard); `--console-unprotected` is a switch. Both are parsed, checked and kept in `Settings.console`, and **since Phase 9 slice 9a the
+console acts on them** (the guard is mounted on every route, SEC-243; **deviation SEC-D63** is withdrawn): a build with the `console` feature serves a console; a build without it still says `--console-allow-host is accepted and ignored`, and the values are logged at debug.
+Test: `cli::tests::console::the_console_flags_are_parsed_and_kept_and_their_help_says_what_they_do`, `cli::tests::console::the_console_is_on_by_default_and_off_only_for_false_and_the_prefix_is_a_path`.
 
 ## SEC-188. The start-up rule: SASL or TLS on and a console beyond loopback is refused (exit 2)
 With SASL or TLS on, a `--console-addr` that other machines can reach (a wildcard or empty host, an address that is not loopback, a name other than `localhost`) stops the start, before the data directory is
@@ -1267,6 +1269,40 @@ arguments reads, and answering 91 for an absent super-user name would give the c
 ## SEC-239. A classic group adopted by a consumer group drops what its members may not DESCRIBE, without a handover (**deviation SEC-D93**; extends **SEC-234**)
 When the first member of the new protocol joins a classic group of consumers, each classic member's held partitions become its owned and target sets (`ConsumerGroup::adopt`), minus the topics its principal's rights do not let it DESCRIBE (`Member::forget_hidden`). Those are not put in 'to give up': they are only a record of what the classic leader said, so they are dropped. The classic client still consumes them until it rejoins, and another member may be given them in the meantime. Kafka keeps the partitions of an adopted classic member until it rejoins. Recorded by the final audit, not decided: the alternative (marking them to give up, with the rebalance timeout) would keep a hidden topic in a member's state, which is what SEC-230 rules out, and hold the partitions for a client that was never told it lost them. The invariant simulation of SEC-231 pins that nothing hidden is recorded; nothing pins the overlap.
 
+## The console, slice 9a (SEC-240 to SEC-249)
+
+The web console (`crates/kafka-console`, Phase 9) reads and acts on the broker through `Broker::handle`, in the process, as the principal `User:__console`. Its own catalogue (routes, pages, the stream) is `console.md`; these are its security rules.
+
+## SEC-240. `User:__console` is reserved: no login, no credential, no flag can carry it
+The user name `__console` cannot be a `--sasl-user` (also from the users file and the environment variable: `the user name __console is reserved for the web console ...`, exit 2, the password never said); cannot be given a SCRAM credential over the API (an Upsertion or a Deletion answers UNACCEPTABLE_CREDENTIAL, 93, `The user name __console is reserved for the console and cannot have a credential`, whoever asks, a super user included); a stored credential row with that name (from a build that did not reserve it) is never put in force; and `User:__console` cannot be named in `--acl-super-user` (`is reserved: the web console's own principal is always a super user`). So nobody can log in as the console: it is only ever the in-process caller. Names that merely look like it (`__console2`, `__Console`) are ordinary. Test: `kafka-auth principal::tests::the_consoles_principal_is_user_dunder_console_and_only_that_name_is_it`, `kafka-broker tests/console_principal::no_credential_can_be_made_or_removed_for_the_consoles_name`, `..::a_name_that_only_looks_like_the_consoles_is_an_ordinary_user`, `users::tests::a_stored_credential_for_the_consoles_name_is_never_put_in_force`, `cli::tests::a_sasl_user_named_for_the_console_is_refused_by_name_and_never_says_its_password`, `cli::acl::tests::the_consoles_own_principal_cannot_be_named_as_a_super_user`.
+
+## SEC-241. The console is a super user of every broker (decision D5)
+`Broker::open` adds `User:__console` to the super users, whatever `--acl-default` and the stored ACLs say: no DENY stops it and an ACL-on broker is read by the console as it is. Every console call carries that principal and the loopback host. (The alternative, a console that is granted ACLs like a client, was not chosen: the console cannot be exposed beyond loopback unprotected anyway, SEC-188.) Test: `kafka-broker tests/console_principal::the_console_is_a_super_user_where_everyone_else_is_refused`, `..::a_deny_acl_does_not_stop_the_console`, `kafka-console tests/live::the_console_reads_a_broker_that_refuses_everyone_else_because_it_is_a_super_user`.
+
+## SEC-242. The console reads what the protocol hides through one read-only view that checks DESCRIBE
+`ConsoleView` (feature `inspect` of `kafka-broker`: off in a build with no console) has `&self` methods that return owned values and hold no writer; `instance()` answers only a caller that may DESCRIBE the cluster. Test: `kafka-broker view::tests::the_view_obeys_describe_on_the_cluster`.
+
+## SEC-243. The guard is mounted on every route, the refusal names the Host and the flag
+Every route, `/events`, `/static/*` and `/healthz` included, answers 403 for a `Host` that `hostguard::allowed` does not allow (SEC-180 to SEC-186), with a body that names the Host it saw (escaped) and `--console-allow-host`. Test: `kafka-console tests/guard::a_foreign_host_is_403_on_every_route_with_words_that_name_the_host_and_the_flag`, `..::an_allowed_host_is_served_and_a_hostile_one_is_escaped_in_the_refusal`, `tests/process console::the_console_serves_its_pages_beside_the_broker_and_refuses_what_it_should`.
+
+## SEC-244. Every request that changes anything carries a same-origin proof
+A pure function (`kafka-console origin.rs`, fuzz target `origin`): GET and HEAD pass; `Sec-Fetch-Site: same-origin` passes and any other value refuses; without it the `Origin` must be `http://` or `https://` with an authority equal to the `Host`, case apart (no path, userinfo or `null`); with neither header it is refused. 403 with words that say what to do. No GET changes anything. Test: `origin::tests::without_the_browsers_word_the_origin_must_equal_the_host`, `origin::tests::the_browsers_own_word_decides_when_it_gives_one`, `origin::tests::what_is_not_an_origin_is_refused`, `kafka-console tests/guard::a_post_needs_a_same_origin_proof_and_a_get_changes_nothing`.
+
+## SEC-245. Security headers on every answer; a body over 1 MiB is refused
+`Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-inline'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'` (no inline script, no eval), `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `X-Frame-Options: DENY`, and `Cache-Control: no-store` unless a handler sets its own, on every answer including the refusals; a request that says it is over 1 MiB is 413 unread. Test: `kafka-console tests/guard::every_answer_carries_the_security_headers`, `..::a_body_over_a_mebibyte_is_refused_unread`.
+
+## SEC-246. Nothing from the broker or the request is shown unescaped
+Pages are maud functions: text is escaped, and no component takes pre-rendered HTML; a topic name in a link is percent-encoded and a prefix is always a path. Test: `kafka-console tests/security::hostile_text_in_every_field_of_every_page_comes_out_inert`, `..::a_path_that_is_not_a_page_is_shown_escaped_and_with_the_security_headers`, `..::a_topic_name_in_a_link_is_encoded_and_a_prefix_is_always_a_path`.
+
+## SEC-247. The console's address: `127.0.0.1:9093` by default, and what cannot be bound
+Default `127.0.0.1:9093` when `--console` is not `false`. A busy default leaves the broker running with no console and a warning; an address given with `--console-addr` that cannot be bound stops the start with exit 2, before anything is opened (**deviation SEC-D64**: SEC-D63's `no default console address` is replaced). Test: `web::tests::a_default_address_that_is_taken_leaves_the_broker_with_no_console`, `web::tests::an_address_the_operator_gave_that_is_taken_is_an_error_that_says_so`, `tests/process console::a_console_address_that_is_taken_stops_the_start_with_exit_2`.
+
+## SEC-248. Served beyond loopback, every page says so
+A console bound to an address that is not loopback shows a banner on every page: `Served beyond loopback, no login.` (it has no login and acts as a super user). `--console-unprotected` is what lets SASL or TLS start with it (SEC-188). Test: `kafka-console ui::shell::tests::the_guard_banner_is_on_the_page_only_when_the_console_is_unprotected`.
+
+## SEC-249. A stopping broker does not wait for an open console stream
+Every stream ends with the console's cancellation token; the console stops before the server and the broker. Test: `kafka-console tests/stream::shutdown_while_ten_streams_are_open_completes_in_under_a_second`, `tests/process console::a_stopping_broker_does_not_wait_for_an_open_console_stream`.
+
 ## Deviations
 - **SEC-D1.** A request in the middle of a login other than ApiVersions and SaslHandshake closes unanswered; Kafka answers it in its
   own shape with 34 and then closes. (Recorded `request-before-token-who`; the Go edition has the same difference.)
@@ -1383,8 +1419,7 @@ When the first member of the new protocol joins a classic group of consumers, ea
   or in a listed name), and a name over 253 bytes or a label over 63. A refusal costs a flag; an acceptance costs the defence.
 - **SEC-D62.** A configuration that cannot start (every refusal of the flags: SASL, TLS, ACL, numbers, the console rule) exits 2, as clap's own error for a bad flag does and as the Go edition's configuration errors
   do; before slice 8g it exited 1 through `main`'s `Result`. Failures after the start (the data directory in use, an I/O error) still exit 1. No test or script read the code 1.
-- **SEC-D63.** `--console-allow-host` and `--console-unprotected` are parsed and kept and nothing acts on them (SEC-187): there is no console or registry listener before Phase 9. The rule on their inputs (SEC-188)
-  is built now. A console is taken as on unless `--console=false` (the Go edition's default), so an address given alone is judged; this broker has no default console address, so with no `--console-addr` no rule applies.
+- **SEC-D63.** (Withdrawn by Phase 9 slice 9a: the console exists and the guard is mounted on it, SEC-243.) Until then `--console-allow-host` and `--console-unprotected` were parsed and kept and nothing acted on them.
 - **SEC-D80.** A regex subscription is resolved per member and at every heartbeat that changes its rights (SEC-210, SEC-211). Kafka resolves per expression text, for the whole group, when a refresh is due
   (at most every 10 s, and then only for new topics, an unresolved expression or the refresh interval), with the rights of the heartbeat that triggered it: two members with the same text share one resolution,
   so a member's match can hold what another member was allowed, and a right granted is seen at the next refresh (minutes), not at the next heartbeat. Here no member is given a topic it may not DESCRIBE
@@ -1405,3 +1440,4 @@ When the first member of the new protocol joins a classic group of consumers, ea
   nothing changes: the leader, a client, assigns.
 - **SEC-D92.** `--sasl-failed-login-delay` is at most 10 s; a larger value is refused at start (SEC-236). Kafka's `connection.failed.authentication.delay.ms` has no limit (it must be below `connections.max.idle.ms`). A wait of minutes holds a connection and a task per guess.
 - **SEC-D93.** When a classic group becomes a consumer group, the partitions its members held of topics their principals may not DESCRIBE are dropped at once with no handover (SEC-239); Kafka keeps what an adopted member held until it rejoins. Another member may be given them while the old client still consumes them. Stricter on what is recorded, looser on overlap, for that case only.
+- **SEC-D64.** The console has a default address, `127.0.0.1:9093`, and a busy default is not an error (SEC-247). SEC-D63 said there was no default address.

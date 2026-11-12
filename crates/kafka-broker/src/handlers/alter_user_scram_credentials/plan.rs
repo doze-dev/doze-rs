@@ -38,6 +38,12 @@ pub(super) const CONFIGURED: Failure = failure(
     ResponseError::UnacceptableCredential,
     "The user is configured at start (--sasl-user, --sasl-users-file or DOZE_KAFKA_SASL_USERS) and cannot be changed over the API",
 );
+/// The console's user name is reserved: it is a super user of this broker, so a credential for it would be a way in as
+/// the console (SEC-240).
+pub(super) const RESERVED: Failure = failure(
+    ResponseError::UnacceptableCredential,
+    "The user name __console is reserved for the console and cannot have a credential",
+);
 /// A super user's credential asked for by a caller who is not one: CLUSTER_AUTHORIZATION_FAILED, with no message, as
 /// the refusal of the whole request is (SEC-190, SEC-D70).
 pub(super) const SUPER_USER: Failure = Failure {

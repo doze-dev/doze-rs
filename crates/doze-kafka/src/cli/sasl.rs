@@ -95,6 +95,9 @@ pub(super) fn setup(input: &Input<'_>) -> Result<Sasl> {
 /// user when it opens its database.
 pub(crate) const NO_USERS: &str = "SASL is enabled but no credentials are configured, so nobody could ever log in; give the first user with --sasl-user USER:PASSWORD, --sasl-users-file FILE or the environment variable DOZE_KAFKA_SASL_USERS (a user made later over the API is kept in the data directory, but needs a super user to make it)";
 
+/// The refusal of the console's own user name as a login (SEC-240).
+pub(super) const RESERVED_USER: &str = "the user name __console is reserved for the web console (it is a super user of the broker) and cannot be a SASL user; choose another name";
+
 /// Whether the data directory has a database, which may hold stored users. Without one it cannot, and the start is refused
 /// before anything is created; with one, whether it does is known only once the broker has opened it.
 fn may_hold_users(data_dir: &Path) -> bool {
@@ -119,6 +122,10 @@ fn pairs(input: &Input<'_>) -> Result<Vec<(String, String)>> {
     }
     if let Some(text) = &input.env {
         out.extend(source::parse_env(text).map_err(|e| anyhow!(e))?);
+    }
+    // Whoever logged in as the console's own user would be a super user (SEC-240). Only the name is said.
+    if out.iter().any(|(user, _)| user == kafka_auth::CONSOLE_USER) {
+        bail!("{RESERVED_USER}");
     }
     Ok(out)
 }

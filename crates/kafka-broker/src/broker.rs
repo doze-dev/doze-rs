@@ -75,6 +75,9 @@ pub struct Broker<F: Fs = RealFs> {
     pub(crate) txns: crate::txn::Txns,
     /// When this run began, in milliseconds since the epoch.
     pub(crate) started_ms: i64,
+    /// Whether the data directory was new when this run opened it (there was no metadata database).
+    #[cfg_attr(not(feature = "inspect"), allow(dead_code))]
+    pub(crate) first_start: bool,
     /// Counts changes to the set of topics that a waiting fetch must notice (a deletion).
     pub(crate) topics_changed: tokio::sync::watch::Sender<u64>,
     /// What the last stop vouched for.
@@ -104,8 +107,17 @@ impl<F: Fs> Broker<F> {
     ///
     /// # Errors
     /// The data directory or the metadata database cannot be made or read.
-    pub fn open(fs: F, config: Config) -> Result<Self, BrokerError> {
+    pub fn open(fs: F, mut config: Config) -> Result<Self, BrokerError> {
+        // The console's own principal is a super user of every broker (SEC-241); nobody else can be it (SEC-240).
+        config
+            .super_users
+            .insert(kafka_auth::Principal::console().as_str().to_owned());
         kafka_storage::fs::create_dirs_durably(&fs, &config.data_dir)?;
+        // A data directory with no metadata database is a new one: its "last stop" is no stop at all.
+        let first_start = !fs
+            .list_dir(&config.data_dir)?
+            .iter()
+            .any(|e| e.name.starts_with("meta.redb"));
         let meta = Arc::new(MetaStore::open(&fs, &config.data_dir)?);
         match meta.file_mode() {
             FileMode::Private => {}
@@ -156,6 +168,7 @@ impl<F: Fs> Broker<F> {
             groups,
             txns: crate::txn::Txns::load(meta_txns),
             started_ms: crate::clock::now().get(),
+            first_start,
             topics_changed: tokio::sync::watch::channel(0).0,
             stop,
             topic_admin: tokio::sync::Mutex::new(()),
@@ -198,6 +211,12 @@ impl<F: Fs> Broker<F> {
     #[must_use]
     pub fn open_partitions(&self) -> usize {
         self.partitions.open_count()
+    }
+
+    /// Whether the last stop was clean (the console's view says so).
+    #[cfg(feature = "inspect")]
+    pub(crate) fn stop_was_clean(&self) -> bool {
+        self.stop.was_clean()
     }
 
     /// The APIs this broker serves.
