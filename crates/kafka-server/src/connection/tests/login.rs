@@ -128,7 +128,7 @@ async fn a_failed_login_is_flushed_before_the_close_and_ends_the_connection() {
 }
 
 #[tokio::test]
-async fn a_stranger_frame_is_held_to_512_kib_and_a_logged_in_one_is_not() {
+async fn a_stranger_frame_is_held_to_64_kib_and_a_logged_in_one_is_not() {
     let (mut client, task, _stop) = start_login(Timeouts::default());
     client.write_all(&(600_000u32).to_be_bytes()).await.unwrap();
     client
@@ -137,7 +137,7 @@ async fn a_stranger_frame_is_held_to_512_kib_and_a_logged_in_one_is_not() {
         .unwrap();
     assert!(matches!(
         task.await.unwrap(),
-        End::Wire(WireError::FrameTooLarge { limit: 524_288, .. })
+        End::Wire(WireError::FrameTooLarge { limit: 65_536, .. })
     ));
     let (mut client, _task, _stop) = start_login(Timeouts::default());
     login(&mut client).await;
