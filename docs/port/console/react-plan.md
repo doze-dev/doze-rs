@@ -118,4 +118,17 @@ embedded. Binary (darwin, fat LTO) 6,161,072 B against 5,797,328 B after the wei
 zod's `new Function` probe was refused by the CSP and logged in Firefox; the palette lost Enter while an older answer was on screen,
 and gave the focus to nothing on close in Firefox and Safari (a clicked button is not focused there); Copy as replaced the history
 entry, so Back did not restore it; the drawer put the focus on a tooltip trigger, so the first Esc closed the tooltip; the WebKit focus
-escape above. The gate's results per browser are below (filled in by the last run).
+escape above.
+
+**The gate, last run** (Playwright 1.65.0, `workers: 1`, release binary): 29 scenarios per browser (shell 13, gallery 11, pages 6,
+less one shared: see `web/e2e/tests/`), **Firefox 29/29, WebKit 29/29, Chromium 29/29** against the seeded world, and the same 87/87
+with `E2E_URL` against a broker with live traffic (the demo workload). Rust: `cargo test -p kafka-console -p doze-kafka` 888 passed;
+fmt, clippy `-D warnings` (default and `--no-default-features`), lint-size (0 over hard), the console catalogue and the assets check
+green; `bun run typecheck`, `bun run lint` (0 warnings), `bun test` green. Two allowances in the gate, both written in the specs: a
+font download Firefox reports as aborted because the test navigated away first, and Safari's Tab (which skips buttons) is held to
+"never the page behind" rather than "always inside the dialog".
+
+**Left for later.** The gallery's TanStack Table and zod make its chunk 77 KB; a page that needs a table in R1 will pull Table into
+its own chunk the same way. The main chunk (184 KB gzipped) has room to shrink (lucide icons by path, Router's devtools-free build
+is already used). Screenshots for the review: scratchpad `r0/shots/` (Home, Connect, gallery in Firefox, WebKit, Chromium at 1440
+and 1024). The fonts are embedded twice until R5 removes the classic console.
