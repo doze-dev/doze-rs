@@ -136,3 +136,46 @@ def test_refusals(client, names, cleanup, snapshot):
     # "Increase" to what it already is: refused or a no-op is AWS's to say.
     snapshot.outcome("retention-not-an-increase", lambda: kinesis.increase_stream_retention_period(
         StreamName=name, RetentionPeriodHours=24))
+
+
+# Written ahead of a recording (2026-11-12): UNVERIFIED until recorded against AWS.
+
+def test_every_iterator_type(client, names, cleanup, snapshot, eventually):
+    import datetime
+    kinesis = client("kinesis")
+    name = stream(kinesis, names, cleanup)
+    first = kinesis.put_record(StreamName=name, Data=b"a", PartitionKey="k")["SequenceNumber"]
+    before = time.time()
+    time.sleep(2)
+    kinesis.put_record(StreamName=name, Data=b"b", PartitionKey="k")
+    kinesis.put_record(StreamName=name, Data=b"c", PartitionKey="k")
+    shard = kinesis.list_shards(StreamName=name)["Shards"][0]["ShardId"]
+
+    def read(**kw):
+        it = kinesis.get_shard_iterator(StreamName=name, ShardId=shard, **kw)["ShardIterator"]
+
+        def poll():
+            r = kinesis.get_records(ShardIterator=it)
+            assert r["Records"], "nothing yet"
+            return [x["Data"] for x in r["Records"]]
+        return eventually(poll, timeout=60)
+
+    snapshot.match("at-sequence", read(ShardIteratorType="AT_SEQUENCE_NUMBER", StartingSequenceNumber=first))
+    snapshot.match("after-sequence", read(ShardIteratorType="AFTER_SEQUENCE_NUMBER", StartingSequenceNumber=first))
+    snapshot.match("at-timestamp", read(ShardIteratorType="AT_TIMESTAMP",
+                                        Timestamp=datetime.datetime.fromtimestamp(before + 1, datetime.timezone.utc)))
+
+
+def test_consumers_policy_and_tags_by_arn(client, names, cleanup, snapshot):
+    kinesis = client("kinesis")
+    name = stream(kinesis, names, cleanup)
+    arn = kinesis.describe_stream_summary(StreamName=name)["StreamDescriptionSummary"]["StreamARN"]
+    made = kinesis.register_stream_consumer(StreamARN=arn, ConsumerName="c1")
+    snapshot.match("register", made, opaque=("ConsumerARN", "ConsumerCreationTimestamp"), drop=("ConsumerStatus",))
+    snapshot.match("list-consumers", kinesis.list_stream_consumers(StreamARN=arn),
+                   opaque=("ConsumerARN", "ConsumerCreationTimestamp"), drop=("ConsumerStatus",))
+    snapshot.error("delete-with-consumers", lambda: kinesis.delete_stream(StreamName=name))
+    kinesis.deregister_stream_consumer(StreamARN=arn, ConsumerName="c1")
+    snapshot.match("tag-by-arn", kinesis.tag_resource(ResourceARN=arn, Tags={"env": "dev"}))
+    snapshot.match("tags-by-arn", kinesis.list_tags_for_resource(ResourceARN=arn))
+    snapshot.error("no-policy", lambda: kinesis.get_resource_policy(ResourceARN=arn))

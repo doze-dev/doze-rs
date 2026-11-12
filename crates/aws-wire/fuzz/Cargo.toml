@@ -26,5 +26,7 @@ doc = false
 [[bin]]
 name = "fuzz_xml"
 path = "fuzz_targets/fuzz_xml.rs"
+name = "fuzz_cbor"
+path = "fuzz_targets/fuzz_cbor.rs"
 test = false
 doc = false

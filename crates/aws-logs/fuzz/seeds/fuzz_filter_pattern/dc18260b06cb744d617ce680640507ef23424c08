@@ -1,0 +1,2 @@
+{ ($.code >= `500 && $.level = "err*") || $.tag IS NULL }
+{"code":507,"level":"ezror","tags":[null]}

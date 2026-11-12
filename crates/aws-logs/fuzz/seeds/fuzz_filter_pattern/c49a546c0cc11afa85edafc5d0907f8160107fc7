@@ -1,0 +1,2 @@
+{ ($.c$.level = "err*") || $.tags[*] IS NULL }
+{"code":507,"level"

@@ -1,0 +1,2 @@
+ERROR -debug ?timeout ?"di -debsk full" EVR*
+ERROR disk full

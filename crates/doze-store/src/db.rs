@@ -6,6 +6,7 @@ use doze_fs::fs::{Fs, RealFs};
 use redb::{ReadTransaction, ReadableDatabase, TableDefinition};
 
 use crate::records::Changes;
+use crate::rows::Rows;
 use crate::{Ack, GroupCommit, Op, Store, StoreError};
 
 /// redb's page cache: a dev tool's records are few, and the idle heap is measured.
@@ -85,6 +86,25 @@ impl Db {
         let op: Op = Box::new(move |txn| {
             for c in &changes {
                 c.apply(txn)?;
+            }
+            Ok(())
+        });
+        Some(self.writer.submit(op))
+    }
+
+    /// Like [`Db::submit`], with the changes to row tables ([`crate::rows::RowTable`]) of the same call in the same transaction.
+    pub fn submit_with_rows(&self, changes: Vec<Changes>, rows: Vec<Rows>) -> Option<Ack> {
+        let changes: Vec<Changes> = changes.into_iter().filter(|c| !c.is_empty()).collect();
+        let rows: Vec<Rows> = rows.into_iter().filter(|r| !r.is_empty()).collect();
+        if changes.is_empty() && rows.is_empty() {
+            return None;
+        }
+        let op: Op = Box::new(move |txn| {
+            for c in &changes {
+                c.apply(txn)?;
+            }
+            for r in &rows {
+                r.apply(txn)?;
             }
             Ok(())
         });

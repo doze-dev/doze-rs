@@ -1,0 +1,1 @@
+{ ($.code >= 500 && $.level = "err*") || $.tags[*]= 500 && $.level = "err*") ull]}

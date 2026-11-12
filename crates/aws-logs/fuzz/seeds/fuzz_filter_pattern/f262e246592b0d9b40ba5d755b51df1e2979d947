@@ -1,0 +1,2 @@
+[ip, user, ..., status = 4  || status = 5*, size > 100]
+1 [10/Oct/2000:1] "GET /a.gif HTTP/1.0" 8 2326

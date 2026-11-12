@@ -1,0 +1,2 @@
+ERROR -debug ?timeout ?"disk full" ERR*
+ERROR disk full

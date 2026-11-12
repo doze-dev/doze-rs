@@ -127,3 +127,30 @@ def test_refusals(client, names, cleanup, snapshot):
         AlarmName=names("absent"), StateValue="OK", StateReason="x"))
     snapshot.error("bad-state", lambda: cw.set_alarm_state(
         AlarmName=name, StateValue="PANIC", StateReason="x"))
+
+
+# Written ahead of a recording (2026-11-12): UNVERIFIED until recorded against AWS.
+
+def test_composite_alarms_dashboards_and_history(client, names, cleanup, snapshot):
+    cw = client("cloudwatch")
+    base = names("alarm")
+    cw.put_metric_alarm(AlarmName=base, Namespace=f"dzc/{names('ns')}", MetricName="m", Statistic="Sum", Period=60,
+                        EvaluationPeriods=1, Threshold=1, ComparisonOperator="GreaterThanThreshold")
+    comp = names("composite")
+    cleanup(cw.delete_alarms, AlarmNames=[comp, base])
+    snapshot.match("put-composite", cw.put_composite_alarm(AlarmName=comp, AlarmRule=f"ALARM({base})"))
+    d = cw.describe_alarms(AlarmNames=[comp], AlarmTypes=["CompositeAlarm"])
+    snapshot.match("describe-composite", d, opaque=CLOCK, drop=("StateValue", "StateReason", "StateReasonData"))
+    cw.set_alarm_state(AlarmName=base, StateValue="ALARM", StateReason="forced")
+    h = cw.describe_alarm_history(AlarmName=base, HistoryItemType="StateUpdate")
+    snapshot.match("history", [i["HistorySummary"] for i in h["AlarmHistoryItems"]])
+
+    dash = names("dash")
+    cleanup(cw.delete_dashboards, DashboardNames=[dash])
+    body = '{"widgets":[{"type":"text","x":0,"y":0,"width":6,"height":3,"properties":{"markdown":"hello"}}]}'
+    snapshot.match("put-dashboard", cw.put_dashboard(DashboardName=dash, DashboardBody=body))
+    got = cw.get_dashboard(DashboardName=dash)
+    snapshot.match("get-dashboard", {"same-body": got["DashboardBody"] == body})
+    snapshot.match("list-dashboards", [e["DashboardName"] for e in cw.list_dashboards(DashboardNamePrefix=dash)["DashboardEntries"]])
+    snapshot.match("delete-dashboard", cw.delete_dashboards(DashboardNames=[dash]))
+    snapshot.error("get-deleted-dashboard", lambda: cw.get_dashboard(DashboardName=dash))

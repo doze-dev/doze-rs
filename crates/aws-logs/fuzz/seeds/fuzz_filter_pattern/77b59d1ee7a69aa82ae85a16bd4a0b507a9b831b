@@ -1,0 +1,2 @@
+{ ($.level = "err*") || $.tags[*] IS NULL }
+{"c ":[n| $.tags[.tcgs[*] IS N{U ($.L

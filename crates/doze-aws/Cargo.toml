@@ -22,6 +22,9 @@ aws-dynamodb = { path = "../aws-dynamodb" }
 aws-s3 = { path = "../aws-s3" }
 aws-iam = { path = "../aws-iam" }
 aws-sns = { path = "../aws-sns" }
+aws-kinesis = { path = "../aws-kinesis" }
+aws-logs = { path = "../aws-logs" }
+aws-cloudwatch = { path = "../aws-cloudwatch" }
 aws-peers = { path = "../aws-peers" }
 aws-wire = { path = "../aws-wire" }
 doze-runtime = { path = "../doze-runtime" }

@@ -48,6 +48,7 @@ pub(crate) async fn run(args: Args) -> Result<()> {
     peers.set_authorizer(iam.clone());
     // Under `--auth verify`, a key the command line does not name may be one IAM issued (an access key or a role session).
     config.credential_source = Some(iam.clone());
+    let cloudwatch = Arc::new(aws_cloudwatch::Cloudwatch::new(Arc::new(ctx("cloudwatch"))));
     let services: Vec<Arc<dyn Service>> = vec![
         iam,
         Arc::new(sts),
@@ -58,6 +59,9 @@ pub(crate) async fn run(args: Args) -> Result<()> {
         Arc::new(aws_sns::Sns::new(Arc::new(ctx("sns")))),
         Arc::new(aws_dynamodb::Dynamodb::new(Arc::new(ctx("dynamodb")))),
         Arc::new(aws_s3::S3::new(Arc::new(ctx("s3")))),
+        Arc::new(aws_kinesis::Kinesis::new(Arc::new(ctx("kinesis")))),
+        Arc::new(aws_logs::Logs::new(Arc::new(ctx("logs")))),
+        cloudwatch.clone(),
     ];
     let mut gateway = Gateway::new(config);
     for service in services {
@@ -68,6 +72,8 @@ pub(crate) async fn run(args: Args) -> Result<()> {
         .bind()
         .await
         .with_context(|| format!("listening on {}", args.listen))?;
+    // Alarms that were pending when the process last stopped are judged again; nothing else would wake their region.
+    cloudwatch.resume().await;
     // The line a supervisor (and the conformance harness) waits for.
     tracing::info!("doze-aws listening on {}", running.local_addr());
     wait_for_stop().await;

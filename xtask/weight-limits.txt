@@ -41,4 +41,12 @@ doze-kafka 9000000 159 8192 --listen 127.0.0.1:{port} --data-dir {data}
 # 2026-11-13, doze-aws moved to its own size-optimised profile (release-aws: opt-level "s", fat LTO; owner's choice, 2026-11-13): 4,660,320 B, 209 packages, 3,520 KB idle,
 # against 6,974,576 B at the same code under the release profile (-33%). A 1 GiB S3 upload and download took the same time. The byte limit is still the macOS size times
 # 1.2 plus 5% = 5,872,000, rounded to 5,900,000 B; packages and idle unchanged. Weighed with "cargo xtask weight doze-aws", which now builds that profile.
-doze-aws 5900000 213 6144 --listen 127.0.0.1:{port} --data-dir {data}
+# 2026-11-12, A11, with CloudWatch Logs, Kinesis and CloudWatch (and the CBOR codec, gzip request bodies): 6,300,816 B, 210 packages, 3,664 KB idle on
+# darwin/arm64 (+1.2 MB and +12 packages over policy enforcement: the three models' tables and services, the CBOR codec, and flate2 with its pure-Rust
+# backend for gzip, which botocore uses on PutMetricData past 10 KB). Same rule (macOS size times 1.3 plus 5% is 8,600,617); three packages of room.
+# The limit sits under the owner's 10 MB ceiling; the integrator re-bases it when the other A8 to A13 stages are merged.
+# 2026-11-13, all eleven services so far (SNS, DynamoDB, S3, Logs, Kinesis, CloudWatch merged; integrator): 5,371,872 B, 220 packages, 3,600 KB idle under release-aws
+# (+711 KB and +11 packages over the 4,660,320 B / 209 of SNS, DynamoDB and S3: Logs, Kinesis, CloudWatch, the CBOR codec and flate2). Byte limit = macOS size times 1.2
+# plus 5% = 6,768,000, rounded to 6,800,000 B; packages 224 (measured 220 plus 4). Idle unchanged at 6,144 KB. Package count is now the faster-growing number
+# (198 to 220 in one round): every new third-party package must be named in the stage note.
+doze-aws 6800000 224 6144 --listen 127.0.0.1:{port} --data-dir {data}

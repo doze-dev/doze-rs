@@ -1,0 +1,3 @@
+{ ($.code >= 500 && $.level = "err*") || $.tagsn[*] IS NULL }
+[{"code":5.07,"leve127.l":"error","tags":[null]}
+:[nu
