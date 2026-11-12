@@ -36,7 +36,7 @@ fn the_list_sentence_is_the_boards() {
     );
     let shown = world::topics("", true, None);
     assert!(plain(&list_sentence(&shown)).ends_with("The internal topic is shown."));
-    assert_eq!(plain(&list_sentence(&world::topics("pick", false, None))).contains("newest write"), false);
+    assert!(!plain(&list_sentence(&world::topics("pick", false, None))).contains("newest write"));
 }
 
 #[test]
@@ -67,7 +67,9 @@ fn an_offline_partition_is_named_and_the_others_are_said_to_work() {
         "notifications.email has 3 partitions. Partitions 0 and 2 work; partition 1 went offline after a failed flush and refuses writes until the machine restarts."
     );
     h.parts[0].offline = Some("x".to_owned());
-    assert!(plain(&topic_sentence(&h)).contains("Partition 2 works; partitions 0 and 1 went offline after a failed flush and refuse writes"));
+    assert!(plain(&topic_sentence(&h)).contains(
+        "Partition 2 works; partitions 0 and 1 went offline after a failed flush and refuse writes"
+    ));
     h.parts[2].offline = Some("x".to_owned());
     assert!(plain(&topic_sentence(&h)).contains("3 partitions are all offline"));
 }
@@ -88,7 +90,9 @@ fn a_transaction_with_nothing_held_back_yet_does_not_claim_a_lag() {
     for p in &mut h.parts {
         p.last_stable = p.end;
     }
-    assert!(plain(&topic_sentence(&h)).ends_with("read_committed consumers are not held back yet."));
+    assert!(
+        plain(&topic_sentence(&h)).ends_with("read_committed consumers are not held back yet.")
+    );
 }
 
 #[test]
@@ -106,14 +110,26 @@ fn the_partitions_sentence_names_the_partitions_a_transaction_holds_back() {
 
 #[test]
 fn what_a_read_did_is_said_in_the_boards_words() {
-    let q = MessageQuery { partition: Some(0), offset: Some(16_098), ..MessageQuery::default() };
+    let q = MessageQuery {
+        partition: Some(0),
+        offset: Some(16_098),
+        ..MessageQuery::default()
+    };
     let v = world::messages("orders", q, vec![]).unwrap();
     assert_eq!(
         plain(&reach_sentence(&v)),
         "The fetch returned 6 records, offsets 16,098 to 16,103, the end of the partition. \
          All 6 are at or above the last stable offset (16,098): a read_committed consumer would get none of them."
     );
-    let none = world::messages("orders", MessageQuery { reading: Reading::Committed, ..MessageQuery::default() }, vec![]).unwrap();
+    let none = world::messages(
+        "orders",
+        MessageQuery {
+            reading: Reading::Committed,
+            ..MessageQuery::default()
+        },
+        vec![],
+    )
+    .unwrap();
     assert!(!plain(&reach_sentence(&none)).contains("at or above"));
 }
 
@@ -123,7 +139,13 @@ fn a_search_that_found_nothing_says_how_much_it_looked_at() {
     v.rows.clear();
     v.reach.returned = 0;
     v.reach.scanned = Some((1_200, true));
-    assert_eq!(plain(&reach_sentence(&v)), "No record matched. The search looked at all 1,200 records of the partition.");
+    assert_eq!(
+        plain(&reach_sentence(&v)),
+        "No record matched. The search looked at all 1,200 records of the partition."
+    );
     v.reach.scanned = Some((8_000, false));
-    assert!(plain(&reach_sentence(&v)).contains("8,000 newest records the search looked at; it stopped at its limit"));
+    assert!(
+        plain(&reach_sentence(&v))
+            .contains("8,000 newest records the search looked at; it stopped at its limit")
+    );
 }

@@ -51,11 +51,21 @@ mod tests {
     #[test]
     fn each_ask_is_one_entry_in_order_and_the_isolation_is_the_requests() {
         let asks = [
-            Ask { partition: 0, timestamp: EARLIEST },
-            Ask { partition: 0, timestamp: LATEST },
-            Ask { partition: 1, timestamp: 1_700_000_000_000 },
+            Ask {
+                partition: 0,
+                timestamp: EARLIEST,
+            },
+            Ask {
+                partition: 0,
+                timestamp: LATEST,
+            },
+            Ask {
+                partition: 1,
+                timestamp: 1_700_000_000_000,
+            },
         ];
-        let Request::ListOffsets(r) = list_offsets("orders", &asks, Isolation::ReadCommitted) else {
+        let Request::ListOffsets(r) = list_offsets("orders", &asks, Isolation::ReadCommitted)
+        else {
             panic!("not ListOffsets");
         };
         assert_eq!(r.isolation_level, 1);
@@ -69,7 +79,12 @@ mod tests {
 
     #[test]
     fn a_request_is_bounded() {
-        let asks: Vec<Ask> = (0..10_000).map(|i| Ask { partition: i, timestamp: LATEST }).collect();
+        let asks: Vec<Ask> = (0..10_000)
+            .map(|i| Ask {
+                partition: i,
+                timestamp: LATEST,
+            })
+            .collect();
         let Request::ListOffsets(r) = list_offsets("t", &asks, Isolation::ReadUncommitted) else {
             panic!("not ListOffsets");
         };

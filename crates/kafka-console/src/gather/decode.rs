@@ -55,13 +55,15 @@ fn prefix(text: &str, cap: usize) -> &str {
 /// One line of at most [`PREVIEW_CHARS`] characters, with `…` when there was more.
 fn one_line(text: &str, more: bool) -> String {
     let mut out = String::new();
-    let mut count = 0;
-    for c in clean(text).chars() {
+    for (count, c) in clean(text).chars().enumerate() {
         if count == PREVIEW_CHARS {
             return format!("{out}…");
         }
-        out.push(if matches!(c, '\n' | '\r' | '\t') { ' ' } else { c });
-        count += 1;
+        out.push(if matches!(c, '\n' | '\r' | '\t') {
+            ' '
+        } else {
+            c
+        });
     }
     if more { format!("{out}…") } else { out }
 }
@@ -98,7 +100,9 @@ pub fn shown(value: Option<&[u8]>, len: u64) -> Shown {
 fn text_of(bytes: &[u8], kept_all: bool) -> Option<&str> {
     match std::str::from_utf8(bytes) {
         Ok(t) => Some(t),
-        Err(e) if e.error_len().is_none() && !kept_all => bytes.get(..e.valid_up_to()).and_then(|b| std::str::from_utf8(b).ok()),
+        Err(e) if e.error_len().is_none() && !kept_all => bytes
+            .get(..e.valid_up_to())
+            .and_then(|b| std::str::from_utf8(b).ok()),
         Err(_) => None,
     }
 }
@@ -207,17 +211,15 @@ fn string(b: &[u8], at: &mut usize) -> Option<()> {
                 *at += 1;
                 return Some(());
             }
-            b'\\' => {
-                match b.get(*at + 1)? {
-                    b'"' | b'\\' | b'/' | b'b' | b'f' | b'n' | b'r' | b't' => *at += 2,
-                    b'u' => {
-                        let hex = b.get(*at + 2..*at + 6)?;
-                        hex.iter().all(u8::is_ascii_hexdigit).then_some(())?;
-                        *at += 6;
-                    }
-                    _ => return None,
+            b'\\' => match b.get(*at + 1)? {
+                b'"' | b'\\' | b'/' | b'b' | b'f' | b'n' | b'r' | b't' => *at += 2,
+                b'u' => {
+                    let hex = b.get(*at + 2..*at + 6)?;
+                    hex.iter().all(u8::is_ascii_hexdigit).then_some(())?;
+                    *at += 6;
                 }
-            }
+                _ => return None,
+            },
             0..=0x1f => return None,
             _ => *at += 1,
         }

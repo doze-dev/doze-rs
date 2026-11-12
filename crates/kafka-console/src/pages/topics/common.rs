@@ -5,8 +5,8 @@ use maud::{Markup, html};
 use crate::base::{Base, segment};
 use crate::format::{clock, number, span_ms};
 use crate::model::{Cleanup, Span, TopicHead};
-use crate::ui::client;
 use crate::ui::button::{Size, State, Variant, link, pill_mono, state};
+use crate::ui::client;
 use crate::ui::glyph::Glyph;
 use crate::ui::kafka::{Tab, tabs, title_row};
 use crate::ui::layout::page_header;
@@ -36,7 +36,7 @@ pub(super) fn spans(parts: &[Span]) -> Markup {
 
 /// The policy as the pill says it.
 #[must_use]
-pub fn policy_word(c: Cleanup) -> &'static str {
+pub(super) fn policy_word(c: Cleanup) -> &'static str {
     match c {
         Cleanup::Delete => "delete",
         Cleanup::Compact => "compact",
@@ -46,7 +46,7 @@ pub fn policy_word(c: Cleanup) -> &'static str {
 
 /// Which buttons the head carries.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Acts {
+pub(super) enum Acts {
     /// Partitions, Produce, Delete topic.
     Full,
     /// Produce and Delete topic: a topic with nothing in it has no partitions page worth opening.
@@ -71,9 +71,27 @@ fn words(h: &TopicHead) -> Markup {
 
 fn buttons(h: &TopicHead, base: &Base, acts: Acts) -> Markup {
     let t = topic_url(base, &h.name);
-    let partitions = link(&format!("{t}/partitions"), Variant::Plain, Size::Normal, Some(Glyph::List), "Partitions");
-    let produce = link(&format!("{t}/produce"), Variant::Primary, Size::Normal, Some(Glyph::Send), "Produce");
-    let delete = link(&format!("{t}/delete"), Variant::Danger, Size::Normal, Some(Glyph::Trash), "Delete topic");
+    let partitions = link(
+        &format!("{t}/partitions"),
+        Variant::Plain,
+        Size::Normal,
+        Some(Glyph::List),
+        "Partitions",
+    );
+    let produce = link(
+        &format!("{t}/produce"),
+        Variant::Primary,
+        Size::Normal,
+        Some(Glyph::Send),
+        "Produce",
+    );
+    let delete = link(
+        &format!("{t}/delete"),
+        Variant::Danger,
+        Size::Normal,
+        Some(Glyph::Trash),
+        "Delete topic",
+    );
     html! {
         @match acts {
             Acts::Full => { (partitions) (produce) (delete) },
@@ -86,7 +104,7 @@ fn buttons(h: &TopicHead, base: &Base, acts: Acts) -> Markup {
 
 /// The sentence under the name.
 #[must_use]
-pub fn sentence_p(sentence: &[Span]) -> Markup {
+pub(super) fn sentence_p(sentence: &[Span]) -> Markup {
     html! { p class="sent" data-extra="live-sentence" style="margin:10px 0 0;max-width:760px" { (spans(sentence)) } }
 }
 
@@ -95,14 +113,17 @@ pub fn sentence_p(sentence: &[Span]) -> Markup {
 pub fn sentence_fragment(h: &TopicHead, base: &Base) -> Markup {
     client::fragment(
         TOPIC_SENTENCE,
-        &base.url(&format!("/fragments/{TOPIC_SENTENCE}?topic={}", segment(&h.name))),
+        &base.url(&format!(
+            "/fragments/{TOPIC_SENTENCE}?topic={}",
+            segment(&h.name)
+        )),
         sentence_p(&topic_sentence(h)),
     )
 }
 
 /// The head of a topic page: the name with its words, the sentence that follows the topic, and the buttons.
 #[must_use]
-pub fn head(h: &TopicHead, base: &Base, acts: Acts, sentence: Markup) -> Markup {
+pub(super) fn head(h: &TopicHead, base: &Base, acts: Acts, sentence: Markup) -> Markup {
     let title = html! {
         div {
             (title_row(&h.name, if acts == Acts::Partitions { html! {} } else { words(h) }))
@@ -116,31 +137,64 @@ pub fn head(h: &TopicHead, base: &Base, acts: Acts, sentence: Markup) -> Markup 
 
 /// The head with the topic's own sentence.
 #[must_use]
-pub fn topic_head(h: &TopicHead, base: &Base, acts: Acts) -> Markup {
+pub(super) fn topic_head(h: &TopicHead, base: &Base, acts: Acts) -> Markup {
     head(h, base, acts, sentence_fragment(h, base))
 }
 
 /// The tabs of a topic: Messages is the one showing.
 #[must_use]
-pub fn topic_tabs(h: &TopicHead, base: &Base) -> Markup {
+pub(super) fn topic_tabs(h: &TopicHead, base: &Base) -> Markup {
     let t = topic_url(base, &h.name);
     tabs(&[
-        Tab { label: "Messages", href: t.clone(), on: true, count: None },
-        Tab { label: "Log", href: format!("{t}/log"), on: false, count: None },
-        Tab { label: "Config", href: format!("{t}/config"), on: false, count: None },
-        Tab { label: "Consumers", href: base.url("/groups"), on: false, count: Some(h.tabs.consumers) },
-        Tab { label: "Producers", href: format!("{t}/producers"), on: false, count: Some(h.tabs.producers) },
+        Tab {
+            label: "Messages",
+            href: t.clone(),
+            on: true,
+            count: None,
+        },
+        Tab {
+            label: "Log",
+            href: format!("{t}/log"),
+            on: false,
+            count: None,
+        },
+        Tab {
+            label: "Config",
+            href: format!("{t}/config"),
+            on: false,
+            count: None,
+        },
+        Tab {
+            label: "Consumers",
+            href: base.url("/groups"),
+            on: false,
+            count: Some(h.tabs.consumers),
+        },
+        Tab {
+            label: "Producers",
+            href: format!("{t}/producers"),
+            on: false,
+            count: Some(h.tabs.producers),
+        },
     ])
 }
 
 /// The callout of an open transaction (the topic page and no other).
 #[must_use]
-pub fn txn_callout(h: &TopicHead, base: &Base) -> Markup {
+pub(super) fn txn_callout(h: &TopicHead, base: &Base) -> Markup {
     let Some(t) = h.txns.first() else {
         return html! {};
     };
-    let on: Vec<String> = t.partitions.iter().map(|(p, _)| format!("{}-{p}", h.name)).collect();
-    let held = h.parts.iter().filter(|p| p.held() > 0).max_by_key(|p| p.held());
+    let on: Vec<String> = t
+        .partitions
+        .iter()
+        .map(|(p, _)| format!("{}-{p}", h.name))
+        .collect();
+    let held = h
+        .parts
+        .iter()
+        .filter(|p| p.held() > 0)
+        .max_by_key(|p| p.held());
     let txn_url = format!("{}/producers", topic_url(base, &h.name));
     html! {
         div style="margin-bottom:24px" {

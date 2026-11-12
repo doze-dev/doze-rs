@@ -30,6 +30,9 @@ mod tests {
     #[test]
     fn headers_are_escaped_names_and_values() {
         let m = headers(&[("a<b".to_owned(), "\"c\"".to_owned())]).into_string();
-        assert_eq!(m, r#"<div class="hdrs"><div class="h"><span>a&lt;b</span><span>&quot;c&quot;</span></div></div>"#);
+        assert_eq!(
+            m,
+            r#"<div class="hdrs"><div class="h"><span>a&lt;b</span><span>&quot;c&quot;</span></div></div>"#
+        );
     }
 }

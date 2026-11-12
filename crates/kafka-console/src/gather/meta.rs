@@ -7,7 +7,7 @@ use crate::backend::{Backend, requests};
 
 /// A topic as Metadata names it.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct TopicMeta {
+pub(super) struct TopicMeta {
     pub name: String,
     pub id: Uuid,
     /// Its partition numbers.
@@ -28,7 +28,7 @@ fn from(t: &kafka_wire::messages::metadata_response::MetadataResponseTopic) -> O
 }
 
 /// Every topic the console may describe, by name.
-pub async fn all(b: &Backend) -> Option<Vec<TopicMeta>> {
+pub(super) async fn all(b: &Backend) -> Option<Vec<TopicMeta>> {
     let Ok(Response::Metadata(m)) = b.call(requests::metadata_all()).await else {
         return None;
     };
@@ -38,7 +38,7 @@ pub async fn all(b: &Backend) -> Option<Vec<TopicMeta>> {
 }
 
 /// One topic, if it exists and the console may describe it.
-pub async fn one(b: &Backend, name: &str) -> Option<TopicMeta> {
+pub(super) async fn one(b: &Backend, name: &str) -> Option<TopicMeta> {
     let Ok(Response::Metadata(m)) = b.call(requests::metadata_topics(&[name.to_owned()])).await
     else {
         return None;

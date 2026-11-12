@@ -3,7 +3,11 @@ use kafka_wire::batch::build::{BatchBuilder, Rec};
 
 use super::*;
 
-const KEEP: Keep = Keep { key: 16, value: 8, header: 8 };
+const KEEP: Keep = Keep {
+    key: 16,
+    value: 8,
+    header: 8,
+};
 
 fn rec(key: &str, value: &str) -> Rec {
     Rec {
@@ -16,7 +20,9 @@ fn rec(key: &str, value: &str) -> Rec {
 }
 
 fn batch(base: i64, n: usize, attributes: u16, producer: Option<i64>) -> Bytes {
-    let recs: Vec<Rec> = (0..n).map(|i| rec(&format!("k{}", base + i as i64), "a-long-value")).collect();
+    let recs: Vec<Rec> = (0..n)
+        .map(|i| rec(&format!("k{}", base + i as i64), "a-long-value"))
+        .collect();
     let mut b = BatchBuilder::from_records(1_000, &recs)
         .base_offset(base)
         .last_offset_delta(n as i32 - 1)
@@ -29,7 +35,13 @@ fn batch(base: i64, n: usize, attributes: u16, producer: Option<i64>) -> Bytes {
 
 /// A transaction marker batch at `base`: control and transactional, one record whose key is version 0 and type 0 (abort).
 fn marker(base: i64, producer: i64) -> Bytes {
-    let recs = [Rec { timestamp_delta: 0, offset_delta: None, key: Some(vec![0, 0, 0, 0]), value: Some(vec![0; 6]), headers: vec![] }];
+    let recs = [Rec {
+        timestamp_delta: 0,
+        offset_delta: None,
+        key: Some(vec![0, 0, 0, 0]),
+        value: Some(vec![0; 6]),
+        headers: vec![],
+    }];
     BatchBuilder::from_records(1_000, &recs)
         .base_offset(base)
         .last_offset_delta(0)
@@ -55,7 +67,11 @@ fn records_at_or_above_the_last_stable_offset_are_held_and_the_rest_are_committe
     let w = walk(&batch(100, 3, 0, None), 0, 100, 101, &[], (KEEP, 100));
     assert_eq!(
         standings(&w),
-        vec![(100, Standing::Committed), (101, Standing::AboveLso), (102, Standing::AboveLso)]
+        vec![
+            (100, Standing::Committed),
+            (101, Standing::AboveLso),
+            (102, Standing::AboveLso)
+        ]
     );
     assert!(!w.saw_txn);
     assert_eq!(w.next, Some(103));
@@ -77,7 +93,10 @@ fn keys_values_and_headers_are_kept_to_the_limit_and_counted_in_full() {
 #[test]
 fn the_batch_that_holds_the_offset_may_begin_before_it() {
     let w = walk(&batch(10, 5, 0, None), 0, 12, 100, &[], (KEEP, 100));
-    assert_eq!(w.rows.iter().map(|r| r.offset).collect::<Vec<_>>(), vec![12, 13, 14]);
+    assert_eq!(
+        w.rows.iter().map(|r| r.offset).collect::<Vec<_>>(),
+        vec![12, 13, 14]
+    );
 }
 
 #[test]
@@ -120,9 +139,16 @@ fn an_aborted_transaction_is_skipped_from_its_first_offset_to_its_marker() {
 
 #[test]
 fn a_producer_after_its_marker_is_not_aborted_again() {
-    let all = joined(&[batch(10, 1, 0x10, Some(7)), marker(11, 7), batch(12, 1, 0x10, Some(7))]);
+    let all = joined(&[
+        batch(10, 1, 0x10, Some(7)),
+        marker(11, 7),
+        batch(12, 1, 0x10, Some(7)),
+    ]);
     let w = walk(&all, 0, 10, 50, &[(7, 10)], (KEEP, 100));
-    assert_eq!(standings(&w), vec![(10, Standing::Aborted), (12, Standing::Committed)]);
+    assert_eq!(
+        standings(&w),
+        vec![(10, Standing::Aborted), (12, Standing::Committed)]
+    );
 }
 
 #[test]
@@ -130,12 +156,22 @@ fn a_window_that_begins_inside_the_transaction_still_skips_it() {
     // The Fetch began at 11; the aborted list says it began at 10 (before the window).
     let all = joined(&[batch(10, 3, 0x10, Some(7)), marker(13, 7)]);
     let w = walk(&all, 0, 11, 50, &[(7, 10)], (KEEP, 100));
-    assert_eq!(standings(&w), vec![(11, Standing::Aborted), (12, Standing::Aborted)]);
+    assert_eq!(
+        standings(&w),
+        vec![(11, Standing::Aborted), (12, Standing::Aborted)]
+    );
 }
 
 #[test]
 fn the_producer_and_the_sequence_of_each_record_are_reported() {
-    let w = walk(&batch(20, 3, 0x10, Some(4017)), 0, 20, 100, &[], (KEEP, 100));
+    let w = walk(
+        &batch(20, 3, 0x10, Some(4017)),
+        0,
+        20,
+        100,
+        &[],
+        (KEEP, 100),
+    );
     assert_eq!(w.rows[0].producer, Some((4017, 2, 100)));
     assert_eq!(w.rows[2].producer, Some((4017, 2, 102)));
     assert!(w.rows[0].transactional);
@@ -144,10 +180,16 @@ fn the_producer_and_the_sequence_of_each_record_are_reported() {
 #[test]
 fn bytes_that_are_not_batches_end_the_walk_without_a_panic() {
     for seed in 0..500_u32 {
-        let junk: Vec<u8> = (0..120_u32).map(|i| (seed.wrapping_mul(7919).wrapping_add(i * 31) >> 3) as u8).collect();
+        let junk: Vec<u8> = (0..120_u32)
+            .map(|i| (seed.wrapping_mul(7919).wrapping_add(i * 31) >> 3) as u8)
+            .collect();
         let _ = walk(&Bytes::from(junk), 0, 0, 10, &[(1, 0)], (KEEP, 10));
     }
     let mut good = batch(0, 3, 0, None).to_vec();
     good.truncate(good.len() - 5);
-    assert!(walk(&Bytes::from(good), 0, 0, 10, &[], (KEEP, 10)).rows.is_empty());
+    assert!(
+        walk(&Bytes::from(good), 0, 0, 10, &[], (KEEP, 10))
+            .rows
+            .is_empty()
+    );
 }

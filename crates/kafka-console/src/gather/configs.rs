@@ -14,7 +14,7 @@ const DEFAULT_RETENTION_MS: i64 = 604_800_000;
 
 /// What the pages say of a topic's configs.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct TopicConfigs {
+pub(super) struct TopicConfigs {
     pub cleanup: Cleanup,
     /// `retention.ms` in force (`-1` is for ever).
     pub retention_ms: i64,
@@ -34,7 +34,7 @@ impl Default for TopicConfigs {
 
 /// `cleanup.policy` as the topic pages group it.
 #[must_use]
-pub fn cleanup_of(policy: &str) -> Cleanup {
+pub(super) fn cleanup_of(policy: &str) -> Cleanup {
     let compact = policy.split(',').any(|p| p.trim() == "compact");
     let delete = policy.split(',').any(|p| p.trim() == "delete");
     match (compact, delete) {
@@ -45,7 +45,7 @@ pub fn cleanup_of(policy: &str) -> Cleanup {
 }
 
 /// The configs of these topics (at most 200), by name. A topic the console may not describe is left out.
-pub async fn of(b: &Backend, names: &[String]) -> HashMap<String, TopicConfigs> {
+pub(super) async fn of(b: &Backend, names: &[String]) -> HashMap<String, TopicConfigs> {
     let Ok(Response::DescribeConfigs(r)) = b.call(requests::describe_topic_configs(names)).await
     else {
         return HashMap::new();

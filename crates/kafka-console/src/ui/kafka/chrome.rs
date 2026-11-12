@@ -36,7 +36,14 @@ pub fn title_row(name: &str, beside: Markup) -> Markup {
 
 /// An empty state: a glyph in a colour class, a heading, a paragraph and what can be done about it.
 #[must_use]
-pub fn empty(icon: Glyph, class: &str, extra: Option<&str>, title: Markup, body: Markup, acts: Markup) -> Markup {
+pub fn empty(
+    icon: Glyph,
+    class: &str,
+    extra: Option<&str>,
+    title: Markup,
+    body: Markup,
+    acts: Markup,
+) -> Markup {
     html! {
         div class="empty" data-extra=[extra] {
             span class="ic" { (glyph(icon, 22, class)) }
@@ -96,8 +103,18 @@ mod tests {
     #[test]
     fn a_tab_that_is_showing_says_so_and_a_count_is_beside_the_label() {
         let m = tabs(&[
-            Tab { label: "Messages", href: "/topics/a".to_owned(), on: true, count: None },
-            Tab { label: "Consumers", href: "/groups".to_owned(), on: false, count: Some(2) },
+            Tab {
+                label: "Messages",
+                href: "/topics/a".to_owned(),
+                on: true,
+                count: None,
+            },
+            Tab {
+                label: "Consumers",
+                href: "/groups".to_owned(),
+                on: false,
+                count: Some(2),
+            },
         ])
         .into_string();
         assert_eq!(
@@ -109,14 +126,28 @@ mod tests {
     #[test]
     fn a_name_is_escaped_in_the_title_row_and_the_filter_box() {
         let t = title_row("<b>x</b>", html! {}).into_string();
-        assert_eq!(t, r#"<div class="title-row"><h1 class="mono">&lt;b&gt;x&lt;/b&gt;</h1></div>"#);
+        assert_eq!(
+            t,
+            r#"<div class="title-row"><h1 class="mono">&lt;b&gt;x&lt;/b&gt;</h1></div>"#
+        );
         let f = filter_box("q", "Find", "Find", "\"><img onerror=1>").into_string();
-        assert!(f.contains("value=\"&quot;&gt;&lt;img onerror=1&gt;\""), "{f}");
+        assert!(
+            f.contains("value=\"&quot;&gt;&lt;img onerror=1&gt;\""),
+            "{f}"
+        );
     }
 
     #[test]
     fn a_section_is_spaced_only_when_asked() {
-        assert!(sec(0, "H", None, html! {}).into_string().starts_with(r#"<div class="sec"><h2>H</h2>"#));
-        assert!(sec(32, "H", None, html! {}).into_string().contains(r#"style="margin-top:32px""#));
+        assert!(
+            sec(0, "H", None, html! {})
+                .into_string()
+                .starts_with(r#"<div class="sec"><h2>H</h2>"#)
+        );
+        assert!(
+            sec(32, "H", None, html! {})
+                .into_string()
+                .contains(r#"style="margin-top:32px""#)
+        );
     }
 }

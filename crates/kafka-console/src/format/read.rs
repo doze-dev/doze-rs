@@ -123,7 +123,13 @@ pub fn hex_dump(bytes: &[u8]) -> String {
         let hex: Vec<String> = line.iter().map(|b| format!("{b:02x}")).collect();
         let ascii: String = line
             .iter()
-            .map(|b| if (0x20..0x7f).contains(b) { char::from(*b) } else { '.' })
+            .map(|b| {
+                if (0x20..0x7f).contains(b) {
+                    char::from(*b)
+                } else {
+                    '.'
+                }
+            })
             .collect();
         out.push_str(&format!("{:04x}  {:<23}  {ascii}", i * 8, hex.join(" ")));
     }

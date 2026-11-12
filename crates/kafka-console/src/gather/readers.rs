@@ -9,17 +9,21 @@ use crate::backend::{Backend, requests};
 
 /// The groups of the broker and, for each topic, the groups with a committed offset on it.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct Readers {
+pub(super) struct Readers {
     pub groups: usize,
     pub by_topic: BTreeMap<String, BTreeSet<String>>,
 }
 
 /// Asks the broker. At most 200 groups are looked into (50 to a request).
-pub async fn all(b: &Backend) -> Readers {
+pub(super) async fn all(b: &Backend) -> Readers {
     let Ok(Response::ListGroups(list)) = b.call(requests::list_groups()).await else {
         return Readers::default();
     };
-    let names: Vec<String> = list.groups.iter().map(|g| g.group_id.0.to_string()).collect();
+    let names: Vec<String> = list
+        .groups
+        .iter()
+        .map(|g| g.group_id.0.to_string())
+        .collect();
     let mut out = Readers {
         groups: names.len(),
         by_topic: BTreeMap::new(),

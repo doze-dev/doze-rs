@@ -6,7 +6,7 @@ use crate::backend::{Backend, requests};
 
 /// An open transaction.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Open {
+pub(super) struct Open {
     pub id: String,
     pub producer_id: i64,
     pub producer_epoch: i16,
@@ -18,7 +18,7 @@ pub struct Open {
 }
 
 /// The ongoing transactions (at most the 20 the first page asks about).
-pub async fn ongoing(b: &Backend) -> Vec<Open> {
+pub(super) async fn ongoing(b: &Backend) -> Vec<Open> {
     let Ok(Response::ListTransactions(list)) = b.call(requests::list_ongoing_transactions()).await
     else {
         return Vec::new();

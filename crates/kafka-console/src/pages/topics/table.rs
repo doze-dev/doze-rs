@@ -26,8 +26,17 @@ fn standing(s: Standing) -> Markup {
 }
 
 fn row(r: &RecordRow, topic: &str, base: &Base) -> Markup {
-    let href = base.url(&format!("/topics/{}/messages/{}/{}", segment(topic), r.partition, r.offset));
-    let tone = if r.value.kind == Kind::Binary { "color:var(--dim)" } else { "color:var(--text)" };
+    let href = base.url(&format!(
+        "/topics/{}/messages/{}/{}",
+        segment(topic),
+        r.partition,
+        r.offset
+    ));
+    let tone = if r.value.kind == Kind::Binary {
+        "color:var(--dim)"
+    } else {
+        "color:var(--text)"
+    };
     html! {
         tr {
             td class="mono" { (r.partition) }
@@ -43,7 +52,7 @@ fn row(r: &RecordRow, topic: &str, base: &Base) -> Markup {
 
 /// The table: one row per record, newest first.
 #[must_use]
-pub fn records(rows: &[RecordRow], topic: &str, base: &Base) -> Markup {
+pub(super) fn records(rows: &[RecordRow], topic: &str, base: &Base) -> Markup {
     html! {
         table class="t" {
             thead { tr {
@@ -62,7 +71,13 @@ mod tests {
     use crate::model::Shown;
 
     fn shown(kind: Kind, preview: &str) -> Shown {
-        Shown { kind, bytes: 9, text: String::new(), clipped: false, preview: preview.to_owned() }
+        Shown {
+            kind,
+            bytes: 9,
+            text: String::new(),
+            clipped: false,
+            preview: preview.to_owned(),
+        }
     }
 
     #[test]
@@ -78,19 +93,42 @@ mod tests {
         };
         let m = records(&[r], "a/b", &Base::root()).into_string();
         assert!(!m.contains("<img") && !m.contains("</script>"), "{m}");
-        assert!(m.contains("&lt;/script&gt;&lt;img src=x onerror=alert(1)&gt;&quot;'"), "{m}");
-        assert!(m.contains(r#"href="/topics/a%2Fb/messages/1/16050""#), "{m}");
+        assert!(
+            m.contains("&lt;/script&gt;&lt;img src=x onerror=alert(1)&gt;&quot;'"),
+            "{m}"
+        );
+        assert!(
+            m.contains(r#"href="/topics/a%2Fb/messages/1/16050""#),
+            "{m}"
+        );
         assert!(m.contains(r#"<span class="st warn">Above LSO</span>"#));
     }
 
     #[test]
     fn null_empty_and_binary_have_their_own_words() {
         let r = |k, v| RecordRow {
-            partition: 0, offset: 1, timestamp_ms: 0,
-            key: shown(k, ""), value: shown(v, "binary · 0a"), standing: Standing::Committed,
+            partition: 0,
+            offset: 1,
+            timestamp_ms: 0,
+            key: shown(k, ""),
+            value: shown(v, "binary · 0a"),
+            standing: Standing::Committed,
         };
-        let m = records(&[r(Kind::Null, Kind::Null), r(Kind::Empty, Kind::Binary)], "t", &Base::root()).into_string();
-        assert!(m.contains(r#"<span class="dim">null</span>"#) && m.contains("null</span>") && m.contains("(deletion)"));
-        assert!(m.contains(r#"<span class="dim">empty</span>"#) && m.contains("color:var(--dim)\">binary · 0a"), "{m}");
+        let m = records(
+            &[r(Kind::Null, Kind::Null), r(Kind::Empty, Kind::Binary)],
+            "t",
+            &Base::root(),
+        )
+        .into_string();
+        assert!(
+            m.contains(r#"<span class="dim">null</span>"#)
+                && m.contains("null</span>")
+                && m.contains("(deletion)")
+        );
+        assert!(
+            m.contains(r#"<span class="dim">empty</span>"#)
+                && m.contains("color:var(--dim)\">binary · 0a"),
+            "{m}"
+        );
     }
 }

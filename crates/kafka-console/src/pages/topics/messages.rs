@@ -27,7 +27,10 @@ fn notes(v: &MessagesView) -> Markup {
 }
 
 fn older(v: &MessagesView, base: &Base) -> Markup {
-    let q = MessageQuery { limit: (v.query.limit * 2).min(crate::model::MOST_LIMIT), ..v.query.clone() };
+    let q = MessageQuery {
+        limit: (v.query.limit * 2).min(crate::model::MOST_LIMIT),
+        ..v.query.clone()
+    };
     html! {
         @if v.reach.more && v.query.limit < crate::model::MOST_LIMIT {
             a class="btn sm" data-ui="page" href=(messages_url(base, &v.head.name, &q)) { "Older" }
@@ -37,15 +40,26 @@ fn older(v: &MessagesView, base: &Base) -> Markup {
 
 fn line(v: &MessagesView) -> String {
     if v.query.filtered() {
-        return format!("Newest first · {}", crate::format::count(v.reach.returned, "record", "records"));
+        return format!(
+            "Newest first · {}",
+            crate::format::count(v.reach.returned, "record", "records")
+        );
     }
-    format!("Newest first · {} of {}", v.reach.returned, number(v.head.records()))
+    format!(
+        "Newest first · {} of {}",
+        v.reach.returned,
+        number(v.head.records())
+    )
 }
 
 /// The table region as a fragment: what is said about the read, the table, and the line under it.
 #[must_use]
 pub fn messages_fragment(v: &MessagesView, base: &Base, page_query: &str) -> Markup {
-    let url = base.url(&format!("/fragments/{MESSAGES_FRAGMENT}?topic={}&{}", crate::base::segment(&v.head.name), page_query.trim_start_matches('?')));
+    let url = base.url(&format!(
+        "/fragments/{MESSAGES_FRAGMENT}?topic={}&{}",
+        crate::base::segment(&v.head.name),
+        page_query.trim_start_matches('?')
+    ));
     client::fragment(
         MESSAGES_FRAGMENT,
         &url,
@@ -79,7 +93,10 @@ fn partition_seg(v: &MessagesView) -> Markup {
 /// The two ways of reading, the one showing as a chip and the other as a link.
 pub(super) fn reading(v: &MessagesView, base: &Base, other: bool) -> Markup {
     let url = |r: Reading| {
-        let q = MessageQuery { reading: r, ..v.query.clone() };
+        let q = MessageQuery {
+            reading: r,
+            ..v.query.clone()
+        };
         messages_url(base, &v.head.name, &q)
     };
     let (on, off) = match v.query.reading {
@@ -102,7 +119,11 @@ fn from_held(v: &MessagesView, base: &Base) -> Markup {
     let Some(p) = v.head.parts.iter().find(|p| p.held() > 0) else {
         return html! {};
     };
-    let q = MessageQuery { partition: Some(p.partition), offset: Some(p.last_stable), ..MessageQuery::default() };
+    let q = MessageQuery {
+        partition: Some(p.partition),
+        offset: Some(p.last_stable),
+        ..MessageQuery::default()
+    };
     html! {
         a class="btn sm" href=(messages_url(base, &v.head.name, &q)) data-op="Fetch" {
             (glyph(Glyph::Filter, 14, "")) "Show " (v.head.name) "-" (p.partition) " from " (number(p.last_stable))
@@ -122,13 +143,17 @@ fn form(v: &MessagesView, base: &Base, inner: Markup) -> Markup {
 }
 
 pub(super) fn detail_toolbar(v: &MessagesView, base: &Base) -> Markup {
-    form(v, base, html! {
-        (partition_seg(v))
-        (filter_box("find", "Key, or offset", "Find by key or offset", ""))
-        (from_held(v, base))
-        span class="sp" {}
-        (reading(v, base, true))
-    })
+    form(
+        v,
+        base,
+        html! {
+            (partition_seg(v))
+            (filter_box("find", "Key, or offset", "Find by key or offset", ""))
+            (from_held(v, base))
+            span class="sp" {}
+            (reading(v, base, true))
+        },
+    )
 }
 
 fn chip(on: bool, label: &str, value: &str) -> Markup {
@@ -137,33 +162,50 @@ fn chip(on: bool, label: &str, value: &str) -> Markup {
 
 fn filtered_toolbar(v: &MessagesView, base: &Base) -> Markup {
     let q = &v.query;
-    let clear = messages_url(base, &v.head.name, &MessageQuery { reading: q.reading, ..MessageQuery::default() });
-    form(v, base, html! {
-        (partition_seg(v))
-        (chip(q.partition.is_some(), "Partition", &q.partition.map(|p| p.to_string()).unwrap_or_default()))
-        @if q.partition.is_some() { input type="hidden" name="partition" value=(q.partition.unwrap_or(0)); }
-        (chip(q.offset.is_some(), "From offset", &q.offset.map(number).unwrap_or_default()))
-        label class={"fchip" @if q.time.is_some() { " on" }} { "Time " input type="text" name="time" value=(q.time.as_ref().map_or("", |t| t.1.as_str())) placeholder="2026-11-09 22:13" aria-label="From time (UTC)" size="16"; }
-        label class={"fchip" @if q.key.is_some() { " on" }} { "Key " input type="text" name="key" value=(q.key.as_deref().unwrap_or("")) placeholder="exact key" aria-label="Key" size="14"; }
-        @if let Some(o) = q.offset { input type="hidden" name="offset" value=(o); }
-        a class="btn sm" data-ui="clear" href=(clear) { (glyph(Glyph::X, 14, "")) "Clear filters" }
-        span class="sp" {}
-        (reading(v, base, false))
-    })
+    let clear = messages_url(
+        base,
+        &v.head.name,
+        &MessageQuery {
+            reading: q.reading,
+            ..MessageQuery::default()
+        },
+    );
+    form(
+        v,
+        base,
+        html! {
+            (partition_seg(v))
+            (chip(q.partition.is_some(), "Partition", &q.partition.map(|p| p.to_string()).unwrap_or_default()))
+            @if q.partition.is_some() { input type="hidden" name="partition" value=(q.partition.unwrap_or(0)); }
+            (chip(q.offset.is_some(), "From offset", &q.offset.map(number).unwrap_or_default()))
+            label class={"fchip" @if q.time.is_some() { " on" }} { "Time " input type="text" name="time" value=(q.time.as_ref().map_or("", |t| t.1.as_str())) placeholder="2026-11-09 22:13" aria-label="From time (UTC)" size="16"; }
+            label class={"fchip" @if q.key.is_some() { " on" }} { "Key " input type="text" name="key" value=(q.key.as_deref().unwrap_or("")) placeholder="exact key" aria-label="Key" size="14"; }
+            @if let Some(o) = q.offset { input type="hidden" name="offset" value=(o); }
+            a class="btn sm" data-ui="clear" href=(clear) { (glyph(Glyph::X, 14, "")) "Clear filters" }
+            span class="sp" {}
+            (reading(v, base, false))
+        },
+    )
 }
 
 fn call_preview(v: &MessagesView) -> Markup {
     let q = &v.query;
     let partition = q.partition.unwrap_or(0);
     let from = q.offset.unwrap_or(0);
-    let iso = if q.reading == Reading::Committed { "1 (read_committed)" } else { "0 (read_uncommitted)" };
+    let iso = if q.reading == Reading::Committed {
+        "1 (read_committed)"
+    } else {
+        "0 (read_uncommitted)"
+    };
     apicall(
         "The call",
         html! {
             span class="k" { "Fetch" } " v18\n  isolation_level: " (iso) "\n  topics[0]\n    topic: " span class="s" { (v.head.name) }
             "\n    partitions[0]\n      partition: " (partition) "\n      fetch_offset: " (from) "\n      partition_max_bytes: " (crate::backend::requests::TABLE_BYTES)
         },
-        Some(html! { "A key search reads the partition backwards from its end, a thousand offsets at a time, until enough records match or 8 MiB have been looked at; a time goes to the first record at or after it; an offset goes straight to the batch that holds it." }),
+        Some(
+            html! { "A key search reads the partition backwards from its end, a thousand offsets at a time, until enough records match or 8 MiB have been looked at; a time goes to the first record at or after it; an offset goes straight to the batch that holds it." },
+        ),
     )
 }
 
@@ -201,8 +243,17 @@ fn filtered(v: &MessagesView, base: &Base, query: &str) -> Markup {
 }
 
 fn empty_topic(v: &MessagesView, base: &Base, listen: &str) -> Markup {
-    let produce = link(&format!("{}/produce", topic_url(base, &v.head.name)), Variant::Primary, Size::Normal, Some(Glyph::Send), "Produce a record");
-    let cmd = format!("echo '{{\"order_id\":\"ord-88412\",\"error\":\"payment declined\"}}' \\\n  | kcat -P -b {listen} -t {} -k ord-88412", v.head.name);
+    let produce = link(
+        &format!("{}/produce", topic_url(base, &v.head.name)),
+        Variant::Primary,
+        Size::Normal,
+        Some(Glyph::Send),
+        "Produce a record",
+    );
+    let cmd = format!(
+        "echo '{{\"order_id\":\"ord-88412\",\"error\":\"payment declined\"}}' \\\n  | kcat -P -b {listen} -t {} -k ord-88412",
+        v.head.name
+    );
     html! {
         (topic_head(&v.head, base, Acts::Empty))
         (topic_tabs(&v.head, base))
@@ -225,7 +276,10 @@ pub fn messages_page(v: &MessagesView, base: &Base, listen: &str, query: &str) -
     if v.head.is_empty() && !v.query.filtered() && v.query.reading == Reading::Uncommitted {
         return empty_topic(v, base, listen);
     }
-    if !v.head.offline().is_empty() && !v.query.filtered() && v.query.reading == Reading::Uncommitted {
+    if !v.head.offline().is_empty()
+        && !v.query.filtered()
+        && v.query.reading == Reading::Uncommitted
+    {
         return super::offline::offline_page(&v.head, base);
     }
     if v.query.reading == Reading::Committed {

@@ -8,9 +8,8 @@ use crate::format::{ago, bytes};
 use crate::model::{Cleanup, TopicRow, TopicsState, TopicsView};
 use crate::ui::button::{Size, State, Variant, link, state};
 use crate::ui::client;
-use crate::ui::code::pre;
 use crate::ui::glyph::{Glyph, glyph};
-use crate::ui::kafka::{empty, filter_box, pager, sec, tabs, Tab};
+use crate::ui::kafka::{Tab, empty, filter_box, pager, sec, tabs};
 use crate::ui::layout::page_header;
 use crate::ui::notice::{Tone, callout};
 use crate::words::{list_sentence, retention};
@@ -93,7 +92,10 @@ fn shown(v: &TopicsView) -> String {
     let n = v.rows.iter().filter(|r| !r.internal).count();
     let of = if v.filter.is_empty() { v.total } else { n };
     if v.truncated {
-        format!("First {n} of {} topics, by name", crate::format::number(i64::try_from(v.total).unwrap_or(0)))
+        format!(
+            "First {n} of {} topics, by name",
+            crate::format::number(i64::try_from(v.total).unwrap_or(0))
+        )
     } else {
         format!("{n} of {of} topics")
     }
@@ -181,7 +183,15 @@ fn head(v: &TopicsView, base: &Base, sub: &str) -> Markup {
 }
 
 fn none(v: &TopicsView, base: &Base, listen: &str) -> Markup {
-    let create = || link(&base.url("/topics/new"), Variant::Primary, Size::Normal, Some(Glyph::Plus), "Create topic");
+    let create = || {
+        link(
+            &base.url("/topics/new"),
+            Variant::Primary,
+            Size::Normal,
+            Some(Glyph::Plus),
+            "Create topic",
+        )
+    };
     html! {
         (head(v, base, "Nothing has been created or written yet."))
         (empty(

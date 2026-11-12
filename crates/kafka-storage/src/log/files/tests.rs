@@ -12,7 +12,11 @@ fn a_log_of_several_segments_lists_each_with_its_base_and_size() {
     }
     let segments = log.reader().segments();
     let bases: Vec<i64> = segments.iter().map(|s| s.base.get()).collect();
-    assert_eq!(bases, vec![0, 2, 4], "oldest first, named for their first record");
+    assert_eq!(
+        bases,
+        vec![0, 2, 4],
+        "oldest first, named for their first record"
+    );
     let sizes: Vec<u64> = segments.iter().map(|s| s.bytes).collect();
     assert_eq!(sizes, vec![one() * 2, one() * 2, one()]);
     assert!(segments.iter().all(|s| s.modified_ms.is_some()));
@@ -64,7 +68,9 @@ fn a_failed_flush_is_the_offline_cause_a_reader_can_read() {
     assert_eq!(reader.offline_cause(), None);
     fs.fail(Op::Fsync, 1, Failure::Io);
     assert!(log.sync().is_err());
-    let cause = reader.offline_cause().expect("offline after the failed flush");
+    let cause = reader
+        .offline_cause()
+        .expect("offline after the failed flush");
     assert!(!cause.is_empty());
     assert!(log.is_offline());
     // Reads, and the facts about files, carry on.

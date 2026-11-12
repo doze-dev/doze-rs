@@ -16,7 +16,10 @@ fn text_is_text_and_a_complete_json_object_or_array_is_json() {
     for (bytes, kind) in [
         (&b"ord-88412"[..], Kind::Text),
         (br#"{"order_id":"ord-88412","qty":2}"#, Kind::Json),
-        (b"  [1, 2.5e3, -0, \"a\\u00e9\", true, null, {}]  ", Kind::Json),
+        (
+            b"  [1, 2.5e3, -0, \"a\\u00e9\", true, null, {}]  ",
+            Kind::Json,
+        ),
         (b"42", Kind::Text),
         (b"\"a string\"", Kind::Text),
         (br#"{"a":1"#, Kind::Text),
@@ -41,12 +44,19 @@ fn json_nested_past_the_depth_is_not_recognised_and_does_not_overflow_the_stack(
 
 #[test]
 fn bytes_that_are_not_utf8_are_binary_with_a_hex_dump_and_a_preview_of_eight_bytes() {
-    let bytes = [0x0a, 0x09, 0x6f, 0x72, 0x64, 0x2d, 0x38, 0x38, 0x34, 0xff, 0x00];
+    let bytes = [
+        0x0a, 0x09, 0x6f, 0x72, 0x64, 0x2d, 0x38, 0x38, 0x34, 0xff, 0x00,
+    ];
     let s = of(&bytes);
     assert_eq!(s.kind, Kind::Binary);
     assert_eq!(s.bytes, 11);
     assert_eq!(s.preview, "binary · 0a 09 6f 72 64 2d 38 38 …");
-    assert!(s.text.starts_with("0000  0a 09 6f 72 64 2d 38 38  ..ord-88\n0008  34 ff 00"), "{}", s.text);
+    assert!(
+        s.text
+            .starts_with("0000  0a 09 6f 72 64 2d 38 38  ..ord-88\n0008  34 ff 00"),
+        "{}",
+        s.text
+    );
     assert!(!s.clipped);
     // Eight bytes or fewer have nothing after them.
     assert_eq!(of(&[0xff, 0xfe]).preview, "binary · ff fe");
@@ -94,13 +104,18 @@ fn what_could_act_on_the_page_is_written_out() {
         s.text,
         "a⟨U+0000⟩b⟨U+202E⟩c⟨U+2066⟩d⟨U+007F⟩e⟨U+0085⟩f⟨U+FEFF⟩⟨U+2028⟩g\tn\nr\rz"
     );
-    assert!(!s.preview.contains('\u{202e}') && !s.preview.contains('\n') && !s.preview.contains('\t'));
+    assert!(
+        !s.preview.contains('\u{202e}') && !s.preview.contains('\n') && !s.preview.contains('\t')
+    );
 }
 
 #[test]
 fn a_cell_is_one_line_of_47_characters() {
     let s = of(br#"{"order_id":"ord-88418","customer":"c-3092","items":[1,2,3]}"#);
-    assert_eq!(s.preview, r#"{"order_id":"ord-88418","customer":"c-3092","it…"#);
+    assert_eq!(
+        s.preview,
+        r#"{"order_id":"ord-88418","customer":"c-3092","it…"#
+    );
     assert_eq!(s.preview.chars().count(), 48);
     let exact = "x".repeat(47);
     assert_eq!(of(exact.as_bytes()).preview, exact);

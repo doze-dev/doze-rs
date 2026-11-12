@@ -18,7 +18,12 @@ impl Source {
     }
 
     /// A topic's Messages for `query`; `None` if there is no such topic.
-    pub async fn messages(&self, name: &str, query: MessageQuery, notes: Vec<String>) -> Option<MessagesView> {
+    pub async fn messages(
+        &self,
+        name: &str,
+        query: MessageQuery,
+        notes: Vec<String>,
+    ) -> Option<MessagesView> {
         match self {
             Self::Live(l) => gather::messages(&l.backend, name, query, notes).await,
             #[cfg(any(test, feature = "examples"))]

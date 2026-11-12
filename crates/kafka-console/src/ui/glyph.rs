@@ -73,7 +73,9 @@ impl Glyph {
             Self::List => {
                 r#"<path d="M5.4 4h8M5.4 8h8M5.4 12h8"/><circle cx="2.8" cy="4" r=".7" fill="currentColor"/><circle cx="2.8" cy="8" r=".7" fill="currentColor"/><circle cx="2.8" cy="12" r=".7" fill="currentColor"/>"#
             }
-            Self::Send => r#"<path d="M2.6 8 13.4 2.8 10.2 13.2 7.6 9z"/><path d="M7.6 9 13.4 2.8"/>"#,
+            Self::Send => {
+                r#"<path d="M2.6 8 13.4 2.8 10.2 13.2 7.6 9z"/><path d="M7.6 9 13.4 2.8"/>"#
+            }
             Self::Trash => r#"<path d="M3 4.6h10M6.4 4.6V3h3.2v1.6M4.4 4.6l.6 8.4h6l.6-8.4"/>"#,
             Self::Filter => r#"<path d="M2.5 3.5h11L9.6 8.4V13l-3.2-1.2V8.4z"/>"#,
             Self::Topic => {

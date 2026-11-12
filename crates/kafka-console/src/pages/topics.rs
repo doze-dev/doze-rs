@@ -17,9 +17,9 @@ mod partitions;
 mod record;
 mod table;
 
+pub use common::{TOPIC_SENTENCE, sentence_fragment as topic_sentence_fragment};
 pub use common::{topic_url, unknown};
 pub use list::{LIST_FRAGMENT, LIST_SENTENCE, list_fragment, list_page, sentence_fragment};
 pub use messages::{MESSAGES_FRAGMENT, messages_fragment, messages_page};
-pub use common::{TOPIC_SENTENCE, sentence_fragment as topic_sentence_fragment};
 pub use partitions::partitions_page;
 pub use record::{no_record, record_page};

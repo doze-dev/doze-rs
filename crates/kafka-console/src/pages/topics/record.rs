@@ -24,7 +24,14 @@ fn kind_word(k: Kind) -> &'static str {
 }
 
 fn note(s: &Shown) -> String {
-    let size = if s.bytes == 1 { "1 byte".to_owned() } else { format!("{} bytes", number(i64::try_from(s.bytes).unwrap_or(i64::MAX))) };
+    let size = if s.bytes == 1 {
+        "1 byte".to_owned()
+    } else {
+        format!(
+            "{} bytes",
+            number(i64::try_from(s.bytes).unwrap_or(i64::MAX))
+        )
+    };
     match s.kind {
         Kind::Null => "null".to_owned(),
         _ => format!("{size} · {}", kind_word(s.kind)),
@@ -80,8 +87,12 @@ fn timestamp(v: &RecordView) -> Markup {
 
 fn producer(v: &RecordView) -> Markup {
     match v.producer {
-        Some((id, epoch, seq)) => html! { span class="mono" { (id) " · epoch " (epoch) @if seq >= 0 { " · sequence " (number(seq)) } } },
-        None => html! { "none " span class="sub" { "a plain producer: no producer id, so no epoch or sequence" } },
+        Some((id, epoch, seq)) => {
+            html! { span class="mono" { (id) " · epoch " (epoch) @if seq >= 0 { " · sequence " (number(seq)) } } }
+        }
+        None => {
+            html! { "none " span class="sub" { "a plain producer: no producer id, so no epoch or sequence" } }
+        }
     }
 }
 
@@ -100,9 +111,15 @@ fn transaction(v: &RecordView) -> Markup {
 
 fn position(v: &RecordView) -> Markup {
     match v.standing {
-        Standing::Committed => html! { (state(State::Ok, "Committed")) span class="sub" { "below the LSO of " (v.topic) "-" (v.partition) " (" (number(v.last_stable)) "): both isolation levels see it" } },
-        Standing::AboveLso => html! { (state(State::Warn, "Above LSO")) span class="sub" { "at or above the LSO of " (v.topic) "-" (v.partition) " (" (number(v.last_stable)) ")" } },
-        Standing::Aborted => html! { (state(State::Idle, "Aborted")) span class="sub" { "below the LSO, in a transaction that was aborted" } },
+        Standing::Committed => {
+            html! { (state(State::Ok, "Committed")) span class="sub" { "below the LSO of " (v.topic) "-" (v.partition) " (" (number(v.last_stable)) "): both isolation levels see it" } }
+        }
+        Standing::AboveLso => {
+            html! { (state(State::Warn, "Above LSO")) span class="sub" { "at or above the LSO of " (v.topic) "-" (v.partition) " (" (number(v.last_stable)) ")" } }
+        }
+        Standing::Aborted => {
+            html! { (state(State::Idle, "Aborted")) span class="sub" { "below the LSO, in a transaction that was aborted" } }
+        }
     }
 }
 
@@ -111,7 +128,20 @@ fn position(v: &RecordView) -> Markup {
 pub fn record_page(v: &RecordView, base: &Base) -> Markup {
     let back = topic_url(base, &v.topic);
     let binary = v.value.kind == Kind::Binary;
-    let hdrs: Vec<(String, String)> = v.headers.iter().map(|h| (h.key.clone(), if h.value.kind == Kind::Binary { h.value.preview.clone() } else { h.value.text.clone() })).collect();
+    let hdrs: Vec<(String, String)> = v
+        .headers
+        .iter()
+        .map(|h| {
+            (
+                h.key.clone(),
+                if h.value.kind == Kind::Binary {
+                    h.value.preview.clone()
+                } else {
+                    h.value.text.clone()
+                },
+            )
+        })
+        .collect();
     html! {
         div role="dialog" aria-labelledby="record-title" class="drawer-panel" style="position:relative;top:0;right:auto;bottom:auto;width:auto;max-width:640px;box-shadow:none;border:1px solid var(--line);border-radius:12px" {
             h2 class="mono" id="record-title" { (v.topic) "-" (v.partition) " · " (number(v.offset)) }

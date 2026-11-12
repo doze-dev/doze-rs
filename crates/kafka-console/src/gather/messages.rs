@@ -20,7 +20,11 @@ use crate::model::{
 };
 
 /// What a table keeps of each record: its key and the start of its value are enough for a cell.
-const TABLE: Keep = Keep { key: 4096, value: 512, header: 0 };
+const TABLE: Keep = Keep {
+    key: 4096,
+    value: 512,
+    header: 0,
+};
 /// How many offsets a key search looks at in one window.
 const WINDOW: i64 = 1000;
 
@@ -42,7 +46,11 @@ fn stop(head: &TopicHead, reading: Reading, partition: i32) -> (i64, i64) {
         .iter()
         .find(|p| p.partition == partition)
         .map_or((0, 0), |p| {
-            let end = if reading == Reading::Committed { p.last_stable } else { p.end };
+            let end = if reading == Reading::Committed {
+                p.last_stable
+            } else {
+                p.end
+            };
             (p.start, end)
         })
 }
@@ -57,7 +65,10 @@ struct Found {
 }
 
 async fn latest(b: &Backend, id: Uuid, head: &TopicHead, parts: &[i32], q: &MessageQuery) -> Found {
-    let mut out = Found { reached_end: true, ..Found::default() };
+    let mut out = Found {
+        reached_end: true,
+        ..Found::default()
+    };
     let n = i64::try_from(q.limit).unwrap_or(25);
     for &p in parts {
         let (start, end) = stop(head, q.reading, p);
@@ -77,11 +88,27 @@ async fn latest(b: &Backend, id: Uuid, head: &TopicHead, parts: &[i32], q: &Mess
     out
 }
 
-async fn from_offsets(b: &Backend, id: Uuid, head: &TopicHead, starts: &[(i32, i64)], q: &MessageQuery) -> Found {
-    let mut out = Found { reached_end: true, ..Found::default() };
+async fn from_offsets(
+    b: &Backend,
+    id: Uuid,
+    head: &TopicHead,
+    starts: &[(i32, i64)],
+    q: &MessageQuery,
+) -> Found {
+    let mut out = Found {
+        reached_end: true,
+        ..Found::default()
+    };
     for &(p, from) in starts {
         let (start, end) = stop(head, q.reading, p);
-        let w = read::forward(b, id, (p, from.max(start), end), q.reading, (TABLE, Some(q.limit))).await;
+        let w = read::forward(
+            b,
+            id,
+            (p, from.max(start), end),
+            q.reading,
+            (TABLE, Some(q.limit)),
+        )
+        .await;
         out.error = out.error.or(w.error);
         out.reached_end &= w.reached && w.rows.len() <= q.limit;
         // The oldest first: what was asked for is the start, so the cut is at the newest end.
@@ -94,11 +121,28 @@ async fn from_offsets(b: &Backend, id: Uuid, head: &TopicHead, starts: &[(i32, i
 }
 
 /// The first offset at or after `ms` on each of `parts`.
-async fn offsets_at(b: &Backend, topic: &str, parts: &[i32], ms: i64, reading: Reading) -> Vec<(i32, i64)> {
+async fn offsets_at(
+    b: &Backend,
+    topic: &str,
+    parts: &[i32],
+    ms: i64,
+    reading: Reading,
+) -> Vec<(i32, i64)> {
     use requests::{Ask, Isolation};
-    let asks: Vec<Ask> = parts.iter().map(|&p| Ask { partition: p, timestamp: ms }).collect();
-    let iso = if reading == Reading::Committed { Isolation::ReadCommitted } else { Isolation::ReadUncommitted };
-    let Ok(Response::ListOffsets(r)) = b.call(requests::list_offsets(topic, &asks, iso)).await else {
+    let asks: Vec<Ask> = parts
+        .iter()
+        .map(|&p| Ask {
+            partition: p,
+            timestamp: ms,
+        })
+        .collect();
+    let iso = if reading == Reading::Committed {
+        Isolation::ReadCommitted
+    } else {
+        Isolation::ReadUncommitted
+    };
+    let Ok(Response::ListOffsets(r)) = b.call(requests::list_offsets(topic, &asks, iso)).await
+    else {
         return Vec::new();
     };
     r.topics
@@ -115,7 +159,11 @@ async fn offsets_at(b: &Backend, topic: &str, parts: &[i32], ms: i64, reading: R
 
 async fn by_key(b: &Backend, id: Uuid, head: &TopicHead, parts: &[i32], q: &MessageQuery) -> Found {
     let wanted = q.key.as_deref().unwrap_or_default().as_bytes();
-    let mut out = Found { reached_end: true, scanned: Some((0, true)), ..Found::default() };
+    let mut out = Found {
+        reached_end: true,
+        scanned: Some((0, true)),
+        ..Found::default()
+    };
     let (mut looked, mut complete, mut bytes) = (0_u64, true, 0_usize);
     for &p in parts {
         let (start, end) = stop(head, q.reading, p);
@@ -130,7 +178,11 @@ async fn by_key(b: &Backend, id: Uuid, head: &TopicHead, parts: &[i32], q: &Mess
             out.error = out.error.or(w.error);
             bytes += w.bytes;
             looked += w.rows.len() as u64;
-            out.rows.extend(w.rows.into_iter().filter(|r| r.key.as_deref() == Some(wanted) && r.key_len == wanted.len() as u64));
+            out.rows.extend(
+                w.rows.into_iter().filter(|r| {
+                    r.key.as_deref() == Some(wanted) && r.key_len == wanted.len() as u64
+                }),
+            );
             to = from;
         }
     }
@@ -161,7 +213,10 @@ fn reach(rows: &[RecordRow], f: &Found, more: bool) -> Reach {
         first_offset: rows.iter().map(|r| r.offset).min(),
         last_offset: rows.iter().map(|r| r.offset).max(),
         reached_end: f.reached_end,
-        above_lso: rows.iter().filter(|r| r.standing == Standing::AboveLso).count(),
+        above_lso: rows
+            .iter()
+            .filter(|r| r.standing == Standing::AboveLso)
+            .count(),
         scanned: f.scanned,
         more,
     }
@@ -172,22 +227,42 @@ fn newest_first(rows: &mut [Raw], single: bool) {
     if single {
         rows.sort_by_key(|r| std::cmp::Reverse(r.offset));
     } else {
-        rows.sort_by_key(|r| (std::cmp::Reverse(r.timestamp), r.partition, std::cmp::Reverse(r.offset)));
+        rows.sort_by_key(|r| {
+            (
+                std::cmp::Reverse(r.timestamp),
+                r.partition,
+                std::cmp::Reverse(r.offset),
+            )
+        });
     }
 }
 
 /// The page for `query` on topic `name`; `None` if the topic does not exist (or may not be described).
-pub async fn page(b: &Backend, name: &str, query: MessageQuery, mut notes: Vec<String>) -> Option<MessagesView> {
+pub async fn page(
+    b: &Backend,
+    name: &str,
+    query: MessageQuery,
+    mut notes: Vec<String>,
+) -> Option<MessagesView> {
     let meta = meta::one(b, name).await?;
     let head = topic::head_of(b, &meta).await;
     let mut q = query;
     if q.partition.is_some_and(|p| !meta.partitions.contains(&p)) {
-        notes.push(format!("{} has no partition {}, so all partitions are shown.", head.name, q.partition.unwrap_or(0)));
+        notes.push(format!(
+            "{} has no partition {}, so all partitions are shown.",
+            head.name,
+            q.partition.unwrap_or(0)
+        ));
         q.partition = None;
     }
-    let parts: Vec<i32> = q.partition.map_or_else(|| meta.partitions.clone(), |p| vec![p]);
+    let parts: Vec<i32> = q
+        .partition
+        .map_or_else(|| meta.partitions.clone(), |p| vec![p]);
     if q.offset.is_some() && parts.len() != 1 {
-        notes.push("An offset belongs to one partition: choose a partition and the offset is used.".to_owned());
+        notes.push(
+            "An offset belongs to one partition: choose a partition and the offset is used."
+                .to_owned(),
+        );
         q.offset = None;
     }
     let mut found = search(b, &meta, &head, &parts, &q).await;
@@ -195,14 +270,29 @@ pub async fn page(b: &Backend, name: &str, query: MessageQuery, mut notes: Vec<S
         notes.push(crate::words::read_refused(code));
     }
     newest_first(&mut found.rows, parts.len() == 1);
-    let more = found.rows.len() > q.limit || (!q.filtered() && head.records() > i64::try_from(found.rows.len().min(q.limit)).unwrap_or(0));
+    let more = found.rows.len() > q.limit
+        || (!q.filtered()
+            && head.records() > i64::try_from(found.rows.len().min(q.limit)).unwrap_or(0));
     found.rows.truncate(q.limit);
     let rows: Vec<RecordRow> = found.rows.iter().map(row).collect();
     let reach = reach(&rows, &found, more);
-    Some(MessagesView { holds: holds(&head), head, query: q, notes, rows, reach })
+    Some(MessagesView {
+        holds: holds(&head),
+        head,
+        query: q,
+        notes,
+        rows,
+        reach,
+    })
 }
 
-async fn search(b: &Backend, meta: &TopicMeta, head: &TopicHead, parts: &[i32], q: &MessageQuery) -> Found {
+async fn search(
+    b: &Backend,
+    meta: &TopicMeta,
+    head: &TopicHead,
+    parts: &[i32],
+    q: &MessageQuery,
+) -> Found {
     if q.key.is_some() {
         return by_key(b, meta.id, head, parts, q).await;
     }

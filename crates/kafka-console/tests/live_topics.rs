@@ -20,11 +20,11 @@ use axum::http::StatusCode;
 use bytes::Bytes;
 use kafka_auth::Principal;
 use kafka_broker::{Broker, Caller, Config as BrokerConfig, Listener, Outcome};
+use kafka_console::Backend;
 use kafka_console::base::Base;
 use kafka_console::facts::Facts;
 use kafka_console::source::{Live, Source};
 use kafka_console::state::State;
-use kafka_console::Backend;
 use kafka_server::{Config as ServerConfig, Running, Server};
 use kafka_storage::fs::RealFs;
 use kafka_wire::StrBytes;
@@ -73,7 +73,13 @@ async fn world(name: &str, tweak: impl FnOnce(&mut BrokerConfig)) -> World {
         unprotected: false,
     };
     let backend = Backend::new(Arc::clone(&broker), listener, sc.profile);
-    World { dir, broker, server: Some(server), backend, facts }
+    World {
+        dir,
+        broker,
+        server: Some(server),
+        backend,
+        facts,
+    }
 }
 
 fn now_ms() -> i64 {
@@ -131,7 +137,9 @@ impl World {
         }
         let mut r = CreateTopicsRequest::default();
         r.topics = vec![t];
-        let Response::CreateTopics(r) = self.ask(7, Request::CreateTopics(r)).await else { panic!() };
+        let Response::CreateTopics(r) = self.ask(7, Request::CreateTopics(r)).await else {
+            panic!()
+        };
         assert_eq!(r.topics[0].error_code, 0, "{name}");
     }
 
@@ -147,7 +155,9 @@ impl World {
         r.acks = -1;
         r.timeout_ms = 5000;
         r.topic_data = vec![t];
-        let Response::Produce(r) = self.ask(9, Request::Produce(r)).await else { panic!() };
+        let Response::Produce(r) = self.ask(9, Request::Produce(r)).await else {
+            panic!()
+        };
         let p = &r.responses[0].partition_responses[0];
         assert_eq!(p.error_code, 0, "produce to {topic}-{partition}: {p:?}");
         p.base_offset
@@ -167,11 +177,19 @@ fn rec(i: i64, key: Option<&str>, value: &[u8], headers: &[(&str, &str)]) -> Rec
         offset_delta: None,
         key: key.map(|k| k.as_bytes().to_vec()),
         value: Some(value.to_vec()),
-        headers: headers.iter().map(|(k, v)| (k.as_bytes().to_vec(), v.as_bytes().to_vec())).collect(),
+        headers: headers
+            .iter()
+            .map(|(k, v)| (k.as_bytes().to_vec(), v.as_bytes().to_vec()))
+            .collect(),
     }
 }
 
-fn batch(recs: &[Rec], attributes: u16, body: Option<Vec<u8>>, producer: Option<(i64, i16)>) -> Bytes {
+fn batch(
+    recs: &[Rec],
+    attributes: u16,
+    body: Option<Vec<u8>>,
+    producer: Option<(i64, i16)>,
+) -> Bytes {
     let mut b = BatchBuilder::from_records(now_ms() - 10_000, recs)
         .last_offset_delta(i32::try_from(recs.len()).unwrap() - 1)
         .attributes(attributes);
@@ -197,7 +215,9 @@ async fn open_transaction(w: &World) -> (i64, i16) {
     let mut init = InitProducerIdRequest::default();
     init.transactional_id = Some(TransactionalId(StrBytes::from_static_str("orders-eos")));
     init.transaction_timeout_ms = 60_000;
-    let Response::InitProducerId(p) = w.ask(4, Request::InitProducerId(init)).await else { panic!() };
+    let Response::InitProducerId(p) = w.ask(4, Request::InitProducerId(init)).await else {
+        panic!()
+    };
     assert_eq!(p.error_code, 0);
     let mut add = AddPartitionsToTxnRequest::default();
     add.v3_and_below_transactional_id = TransactionalId(StrBytes::from_static_str("orders-eos"));
@@ -207,8 +227,13 @@ async fn open_transaction(w: &World) -> (i64, i16) {
     topic.name = TopicName(StrBytes::from_static_str("orders"));
     topic.partitions = vec![0, 1];
     add.v3_and_below_topics.push(topic);
-    let Response::AddPartitionsToTxn(r) = w.ask(3, Request::AddPartitionsToTxn(add)).await else { panic!() };
-    assert_eq!(r.results_by_topic_v3_and_below[0].results_by_partition[0].partition_error_code, 0);
+    let Response::AddPartitionsToTxn(r) = w.ask(3, Request::AddPartitionsToTxn(add)).await else {
+        panic!()
+    };
+    assert_eq!(
+        r.results_by_topic_v3_and_below[0].results_by_partition[0].partition_error_code,
+        0
+    );
     (p.producer_id.0, p.producer_epoch)
 }
 
@@ -218,45 +243,95 @@ fn gzip(data: &[u8]) -> Vec<u8> {
     e.finish().unwrap()
 }
 
-const BINARY: [u8; 12] = [0x0a, 0x09, 0xff, 0x00, 0xfe, 0x80, 0x2d, 0x38, 0x38, 0x34, 0x30, 0x39];
+const BINARY: [u8; 12] = [
+    0x0a, 0x09, 0xff, 0x00, 0xfe, 0x80, 0x2d, 0x38, 0x38, 0x34, 0x30, 0x39,
+];
 
 /// The seeded world: see the module comment.
 async fn seeded(name: &str, tweak: impl FnOnce(&mut BrokerConfig)) -> World {
     let w = world(name, tweak).await;
     w.create("orders", 3, &[]).await;
     w.create("orders.dlq", 1, &[]).await;
-    w.create("customer.profiles", 1, &[("cleanup.policy", "compact")]).await;
+    w.create("customer.profiles", 1, &[("cleanup.policy", "compact")])
+        .await;
     w.create("gz.events", 1, &[]).await;
-    let h = [("content-type", "application/json"), ("traceparent", "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01")];
-    let orders: Vec<Rec> = (0..4).map(|i| rec(i, Some(&format!("ord-{i}")), &json(&format!("ord-{i}")), &h)).collect();
+    let h = [
+        ("content-type", "application/json"),
+        (
+            "traceparent",
+            "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+        ),
+    ];
+    let orders: Vec<Rec> = (0..4)
+        .map(|i| rec(i, Some(&format!("ord-{i}")), &json(&format!("ord-{i}")), &h))
+        .collect();
     w.produce("orders", 0, plain(&orders), None).await;
-    let more: Vec<Rec> = (4..7).map(|i| rec(i, Some(&format!("ord-{i}")), &json(&format!("ord-{i}")), &h)).collect();
+    let more: Vec<Rec> = (4..7)
+        .map(|i| rec(i, Some(&format!("ord-{i}")), &json(&format!("ord-{i}")), &h))
+        .collect();
     w.produce("orders", 1, plain(&more), None).await;
-    let bin = [rec(0, Some("ord-bin"), &BINARY, &[]), rec(1, Some("ord-8"), &json("ord-8"), &[])];
+    let bin = [
+        rec(0, Some("ord-bin"), &BINARY, &[]),
+        rec(1, Some("ord-8"), &json("ord-8"), &[]),
+    ];
     w.produce("orders", 2, plain(&bin), None).await;
-    let profiles = [rec(0, Some("c-1"), b"{\"name\":\"a\"}", &[]), rec(1, Some("c-2"), b"{\"name\":\"b\"}", &[]), rec(2, Some("c-1"), b"{\"name\":\"a2\"}", &[])];
-    w.produce("customer.profiles", 0, plain(&profiles), None).await;
-    let zipped: Vec<Rec> = (0..3).map(|i| rec(i, Some(&format!("g-{i}")), &json(&format!("g-{i}")), &[])).collect();
-    w.produce("gz.events", 0, batch(&zipped, 1, Some(gzip(&encode_records(&zipped))), None), None).await;
+    let profiles = [
+        rec(0, Some("c-1"), b"{\"name\":\"a\"}", &[]),
+        rec(1, Some("c-2"), b"{\"name\":\"b\"}", &[]),
+        rec(2, Some("c-1"), b"{\"name\":\"a2\"}", &[]),
+    ];
+    w.produce("customer.profiles", 0, plain(&profiles), None)
+        .await;
+    let zipped: Vec<Rec> = (0..3)
+        .map(|i| rec(i, Some(&format!("g-{i}")), &json(&format!("g-{i}")), &[]))
+        .collect();
+    w.produce(
+        "gz.events",
+        0,
+        batch(&zipped, 1, Some(gzip(&encode_records(&zipped))), None),
+        None,
+    )
+    .await;
     let (pid, epoch) = open_transaction(&w).await;
-    let t0 = [rec(0, Some("txn-a"), &json("txn-a"), &h), rec(1, Some("txn-b"), &json("txn-b"), &h)];
-    w.produce("orders", 0, batch(&t0, 0x10, None, Some((pid, epoch))), Some("orders-eos")).await;
+    let t0 = [
+        rec(0, Some("txn-a"), &json("txn-a"), &h),
+        rec(1, Some("txn-b"), &json("txn-b"), &h),
+    ];
+    w.produce(
+        "orders",
+        0,
+        batch(&t0, 0x10, None, Some((pid, epoch))),
+        Some("orders-eos"),
+    )
+    .await;
     let t1 = [rec(0, Some("txn-c"), &json("txn-c"), &h)];
-    w.produce("orders", 1, batch(&t1, 0x10, None, Some((pid, epoch))), Some("orders-eos")).await;
+    w.produce(
+        "orders",
+        1,
+        batch(&t1, 0x10, None, Some((pid, epoch))),
+        Some("orders-eos"),
+    )
+    .await;
     w
 }
 
 fn live_dir() -> PathBuf {
     let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let root = manifest.parent().unwrap().parent().unwrap();
-    let target = std::env::var_os("CARGO_TARGET_DIR").map_or_else(|| root.join("target"), PathBuf::from);
+    let target =
+        std::env::var_os("CARGO_TARGET_DIR").map_or_else(|| root.join("target"), PathBuf::from);
     target.join("board-diff-live")
 }
 
 /// A page, asserted to be a 200, and written for the live board-diff under the board's id.
 async fn page(app: &Router, path: &str, id: Option<&str>) -> Doc {
     let (res, body) = send(app, get(path)).await;
-    assert_eq!(res.status(), StatusCode::OK, "{path}: {}", Doc(body.clone()));
+    assert_eq!(
+        res.status(),
+        StatusCode::OK,
+        "{path}: {}",
+        Doc(body.clone())
+    );
     if let Some(id) = id {
         let dir = live_dir();
         std::fs::create_dir_all(&dir).unwrap();
@@ -297,7 +372,8 @@ impl std::fmt::Display for Doc {
 }
 
 fn row_count(body: &str) -> usize {
-    body.matches("<td class=\"mono\"><a class=\"lnk\" href=\"/topics/").count()
+    body.matches("<td class=\"mono\"><a class=\"lnk\" href=\"/topics/")
+        .count()
 }
 
 #[tokio::test]
@@ -306,36 +382,91 @@ async fn every_route_answers_as_the_console_and_has_the_boards_parts() {
     let app = w.router();
     let list = page(&app, "/topics", Some("topics-list")).await;
     for name in ["orders", "orders.dlq", "customer.profiles", "gz.events"] {
-        assert!(list.contains(&format!(">{name}</a>")), "{name} in {list:.2000}");
+        assert!(
+            list.contains(&format!(">{name}</a>")),
+            "{name} in {list:.2000}"
+        );
     }
-    assert!(list.contains("4 topics hold <b>6</b> partitions."), "{list:.1500}");
-    assert!(list.contains("Transaction open") && list.contains("empty: no records yet"), "{list:.3000}");
+    assert!(
+        list.contains("4 topics hold <b>6</b> partitions."),
+        "{list:.1500}"
+    );
+    assert!(
+        list.contains("Transaction open") && list.contains("empty: no records yet"),
+        "{list:.3000}"
+    );
     assert!(list.contains("<span class=\"tag\">compact</span>"));
     page(&app, "/topics/orders?limit=5", Some("topic-detail")).await;
     let detail = page(&app, "/topics/orders", None).await;
-    assert!(detail.contains("Transaction orders-eos is open."), "{detail:.3000}");
+    assert!(
+        detail.contains("Transaction orders-eos is open."),
+        "{detail:.3000}"
+    );
     assert!(detail.contains("Above LSO") && detail.contains("Committed"));
-    assert!(detail.contains("Producers<span class=\"n\">1</span>"), "one active producer");
-    assert!(detail.contains("binary · 0a 09 ff 00 fe 80 2d 38 …"), "the binary value");
+    assert!(
+        detail.contains("Producers<span class=\"n\">1</span>"),
+        "one active producer"
+    );
+    assert!(
+        detail.contains("binary · 0a 09 ff 00 fe 80 2d 38 …"),
+        "the binary value"
+    );
     page(&app, "/topics/orders.dlq", Some("topic-messages-empty")).await;
     let lso = {
         let p = page(&app, "/topics/orders/partitions", Some("topic-partitions")).await;
-        assert!(p.contains("held 2") && p.contains("held 1") && p.contains("clear"), "{p:.4000}");
+        assert!(
+            p.contains("held 2") && p.contains("held 1") && p.contains("clear"),
+            "{p:.4000}"
+        );
         p
     };
     assert!(lso.contains("orders-0") && lso.contains("Delete records"));
-    page(&app, "/topics/orders/messages?partition=0&offset=4", Some("topic-messages-filtered")).await;
-    let rc = page(&app, "/topics/orders/messages?isolation=read_committed", Some("topic-readcommitted")).await;
-    assert!(rc.contains("held back from read_committed consumers"), "{rc:.3000}");
+    w.stop().await;
+}
+
+#[tokio::test]
+async fn the_reads_the_records_and_the_filters_answer_as_the_console_and_have_the_boards_parts() {
+    let w = seeded("reads", |_| {}).await;
+    let app = w.router();
+    page(
+        &app,
+        "/topics/orders/messages?partition=0&offset=4",
+        Some("topic-messages-filtered"),
+    )
+    .await;
+    let rc = page(
+        &app,
+        "/topics/orders/messages?isolation=read_committed",
+        Some("topic-readcommitted"),
+    )
+    .await;
+    assert!(
+        rc.contains("held back from read_committed consumers"),
+        "{rc:.3000}"
+    );
     assert!(rc.contains("orders-eos began at offset 4"), "{rc:.5000}");
     let filtered = page(&app, "/topics?q=zzz", Some("topics-filtered")).await;
     assert!(filtered.contains("No topic name contains"));
     // A record of the open transaction and one of the binary value.
     let rec = page(&app, "/topics/orders/messages/0/4", Some("topic-record")).await;
-    assert!(rec.contains("At or above the last stable offset."), "{rec:.3000}");
-    assert!(rec.contains("orders-eos") && rec.contains("Ongoing") && rec.contains("txn-a"), "{rec:.4000}");
-    let bin = page(&app, "/topics/orders/messages/2/0", Some("topic-record-binary")).await;
-    assert!(bin.contains("The value is not text.") && bin.contains("0000  0a 09 ff 00 fe 80 2d 38"), "{bin:.3000}");
+    assert!(
+        rec.contains("At or above the last stable offset."),
+        "{rec:.3000}"
+    );
+    assert!(
+        rec.contains("orders-eos") && rec.contains("Ongoing") && rec.contains("txn-a"),
+        "{rec:.4000}"
+    );
+    let bin = page(
+        &app,
+        "/topics/orders/messages/2/0",
+        Some("topic-record-binary"),
+    )
+    .await;
+    assert!(
+        bin.contains("The value is not text.") && bin.contains("0000  0a 09 ff 00 fe 80 2d 38"),
+        "{bin:.3000}"
+    );
     assert!(bin.contains("12 bytes · binary"));
     w.stop().await;
 }
@@ -354,13 +485,26 @@ async fn read_committed_stops_at_the_last_stable_offset_and_read_uncommitted_doe
     let w = seeded("isolation", |_| {}).await;
     let app = w.router();
     let all = page(&app, "/topics/orders/messages?partition=0", None).await;
-    let committed = page(&app, "/topics/orders/messages?partition=0&isolation=read_committed", None).await;
-    assert_eq!(row_count(&all), 6, "four records and the two of the open transaction");
+    let committed = page(
+        &app,
+        "/topics/orders/messages?partition=0&isolation=read_committed",
+        None,
+    )
+    .await;
+    assert_eq!(
+        row_count(&all),
+        6,
+        "four records and the two of the open transaction"
+    );
     assert_eq!(row_count(&committed), 4);
     assert_eq!(all.matches("st warn\">Above LSO").count(), 2);
     assert_eq!(committed.matches("st warn\">Above LSO").count(), 0);
     assert!(all.contains("txn-a") && !committed.contains("txn-a"));
-    assert!(all.contains("2 of them are at or above the last stable offset") || all.contains("Newest first"), "{all:.2500}");
+    assert!(
+        all.contains("2 of them are at or above the last stable offset")
+            || all.contains("Newest first"),
+        "{all:.2500}"
+    );
     w.stop().await;
 }
 
@@ -369,14 +513,23 @@ async fn a_compacted_topic_a_gzip_batch_headers_and_a_binary_value_are_shown_as_
     let w = seeded("shapes", |_| {}).await;
     let app = w.router();
     let c = page(&app, "/topics/customer.profiles", None).await;
-    assert!(c.contains("keeps the latest record of each key") && c.contains("compact"), "{c:.2500}");
+    assert!(
+        c.contains("keeps the latest record of each key") && c.contains("compact"),
+        "{c:.2500}"
+    );
     assert_eq!(row_count(&c), 3);
     let g = page(&app, "/topics/gz.events", None).await;
     assert_eq!(row_count(&g), 3);
     let one = page(&app, "/topics/gz.events/messages/0/1", None).await;
-    assert!(one.contains("g-1") && one.contains("<dt>Codec</dt><dd>gzip</dd>"), "{one:.3000}");
+    assert!(
+        one.contains("g-1") && one.contains("<dt>Codec</dt><dd>gzip</dd>"),
+        "{one:.3000}"
+    );
     let h = page(&app, "/topics/orders/messages/0/0", None).await;
-    assert!(h.contains("content-type") && h.contains("application/json") && h.contains("traceparent"), "{h:.3000}");
+    assert!(
+        h.contains("content-type") && h.contains("application/json") && h.contains("traceparent"),
+        "{h:.3000}"
+    );
     assert!(h.contains("<dt>Codec</dt><dd>none</dd>") && h.contains("Position"));
     w.stop().await;
 }
@@ -389,17 +542,45 @@ async fn the_filters_find_by_key_by_offset_and_by_time_and_a_bad_value_is_a_sent
     assert_eq!(row_count(&by_key), 1, "{by_key:.3000}");
     assert!(by_key.contains("The search found"), "{by_key:.2500}");
     let none = page(&app, "/topics/orders/messages?key=nobody", None).await;
-    assert!(none.contains("No record matched. The search looked at all"), "{none:.2500}");
+    assert!(
+        none.contains("No record matched. The search looked at all"),
+        "{none:.2500}"
+    );
     let from = page(&app, "/topics/orders/messages?partition=1&offset=1", None).await;
-    assert_eq!(row_count(&from), 2 + 1, "ord-5, ord-6 and the open transaction's record, from offset 1");
+    assert_eq!(
+        row_count(&from),
+        2 + 1,
+        "ord-5, ord-6 and the open transaction's record, from offset 1"
+    );
     let ms = now_ms() - 20_000;
-    let by_time = page(&app, &format!("/topics/orders/messages?partition=0&time={ms}"), None).await;
+    let by_time = page(
+        &app,
+        &format!("/topics/orders/messages?partition=0&time={ms}"),
+        None,
+    )
+    .await;
     assert!(row_count(&by_time) >= 1, "{by_time:.2500}");
-    let bad = page(&app, "/topics/orders/messages?partition=99&offset=-1&time=yesterday&limit=abc&isolation=x", None).await;
-    for sentence in ["is not an offset", "is not a time", "is not a number of records", "is not an isolation level", "has no partition 99"] {
+    let bad = page(
+        &app,
+        "/topics/orders/messages?partition=99&offset=-1&time=yesterday&limit=abc&isolation=x",
+        None,
+    )
+    .await;
+    for sentence in [
+        "is not an offset",
+        "is not a time",
+        "is not a number of records",
+        "is not an isolation level",
+        "has no partition 99",
+    ] {
         assert!(bad.contains(sentence), "{sentence}: {bad:.3000}");
     }
-    let huge = page(&app, "/topics/orders/messages?limit=99999999999999999999", None).await;
+    let huge = page(
+        &app,
+        "/topics/orders/messages?limit=99999999999999999999",
+        None,
+    )
+    .await;
     assert!(huge.contains("is not a number of records"));
     let capped = page(&app, "/topics/orders/messages?limit=100000", None).await;
     assert!(capped.contains("shows at most 200 records"));
@@ -429,7 +610,11 @@ async fn a_topic_name_of_249_bytes_fits_and_a_longer_one_is_no_topic() {
 async fn a_record_past_the_end_is_a_page_that_says_so_and_not_an_error() {
     let w = seeded("past", |_| {}).await;
     let app = w.router();
-    for path in ["/topics/orders/messages/0/9999", "/topics/orders/messages/9/0", "/topics/orders/messages/-1/0"] {
+    for path in [
+        "/topics/orders/messages/0/9999",
+        "/topics/orders/messages/9/0",
+        "/topics/orders/messages/-1/0",
+    ] {
         let (res, body) = send(&app, get(path)).await;
         assert_eq!(res.status(), StatusCode::NOT_FOUND, "{path}");
         assert!(body.contains("<html"), "{path} is a page in the shell");
@@ -454,19 +639,37 @@ async fn on_an_acl_broker_a_principal_that_may_describe_but_not_read_is_refused_
     let w = seeded("acl", |c| c.acl_default_allow = false).await;
     let mut r = CreateAclsRequest::default();
     r.creations = vec![creation("orders", "User:viewer", 8)];
-    let Response::CreateAcls(r) = w.ask(3, Request::CreateAcls(r)).await else { panic!() };
+    let Response::CreateAcls(r) = w.ask(3, Request::CreateAcls(r)).await else {
+        panic!()
+    };
     assert_eq!(r.results[0].error_code, 0);
-    let viewer = Caller::new(Principal::user("viewer"), Some("127.0.0.1".parse().unwrap()));
+    let viewer = Caller::new(
+        Principal::user("viewer"),
+        Some("127.0.0.1".parse().unwrap()),
+    );
     let app = w.router_as(viewer);
     let list = page(&app, "/topics", None).await;
-    assert!(list.contains(">orders</a>") && !list.contains(">gz.events</a>"), "only what it may describe: {list:.2500}");
+    assert!(
+        list.contains(">orders</a>") && !list.contains(">gz.events</a>"),
+        "only what it may describe: {list:.2500}"
+    );
     let t = page(&app, "/topics/orders", None).await;
-    assert!(t.contains("The broker refused the read: TOPIC_AUTHORIZATION_FAILED (29)."), "{t:.3000}");
+    assert!(
+        t.contains("The broker refused the read: TOPIC_AUTHORIZATION_FAILED (29)."),
+        "{t:.3000}"
+    );
     assert_eq!(row_count(&t), 0);
     let (res, _) = send(&app, get("/topics/gz.events")).await;
-    assert_eq!(res.status(), StatusCode::NOT_FOUND, "a topic it may not describe is not there");
+    assert_eq!(
+        res.status(),
+        StatusCode::NOT_FOUND,
+        "a topic it may not describe is not there"
+    );
     // Somebody with no right at all sees an empty broker.
-    let nobody = Caller::new(Principal::user("nobody"), Some("127.0.0.1".parse().unwrap()));
+    let nobody = Caller::new(
+        Principal::user("nobody"),
+        Some("127.0.0.1".parse().unwrap()),
+    );
     let none = page(&w.router_as(nobody), "/topics", None).await;
     assert!(none.contains("This broker holds no topics"), "{none:.1500}");
     // The console itself, a super user, reads everything.
@@ -498,7 +701,8 @@ async fn hostile_records_headers_and_names_from_a_real_broker_are_inert_on_every
         })
         .collect();
     for r in &recs {
-        w.produce(&name, 0, plain(std::slice::from_ref(r)), None).await;
+        w.produce(&name, 0, plain(std::slice::from_ref(r)), None)
+            .await;
     }
     let app = w.router();
     let mut pages = vec![
@@ -515,12 +719,27 @@ async fn hostile_records_headers_and_names_from_a_real_broker_are_inert_on_every
     }
     for path in pages {
         let doc = page(&app, &path, None).await;
-        for live in ["<script>alert", "<img src=x", "<svg/onload", "</script><script>"] {
+        for live in [
+            "<script>alert",
+            "<img src=x",
+            "<svg/onload",
+            "</script><script>",
+        ] {
             assert!(!doc.contains(live), "{path}: {live:?}");
         }
-        assert!(!doc.contains('\u{202e}') && !doc.contains('\u{2066}') && !doc.contains('\u{0}') && !doc.contains('\u{feff}'), "{path}: a control character came through");
+        assert!(
+            !doc.contains('\u{202e}')
+                && !doc.contains('\u{2066}')
+                && !doc.contains('\u{0}')
+                && !doc.contains('\u{feff}'),
+            "{path}: a control character came through"
+        );
         if !path.starts_with("/fragments") {
-            assert_eq!(doc.matches("<script").count(), 1, "{path}: only the console's own script");
+            assert_eq!(
+                doc.matches("<script").count(),
+                1,
+                "{path}: only the console's own script"
+            );
         }
     }
     // The 100 KB line is cut at 64 KiB and says how big it is.
@@ -529,7 +748,10 @@ async fn hostile_records_headers_and_names_from_a_real_broker_are_inert_on_every
     assert!(long.contains("Shown up to 64.0 KiB of 97.6 KiB"));
     // A value that was text with a NUL in it is still text, with the NUL written out.
     let nul = page(&app, &format!("/topics/{name}/messages/0/3"), None).await;
-    assert!(nul.contains("⟨U+0000⟩") && nul.contains("⟨U+202E⟩"), "{nul}");
+    assert!(
+        nul.contains("⟨U+0000⟩") && nul.contains("⟨U+202E⟩"),
+        "{nul}"
+    );
     w.stop().await;
 }
 
@@ -541,10 +763,15 @@ async fn a_fragment_is_what_the_page_holds_and_an_unchanged_one_is_a_304() {
     assert!(page_html.contains("data-stream=\"/events?watch=topic-sentence,topic-messages\""));
     let first = send(&app, get("/fragments/topic-messages?topic=orders")).await;
     assert_eq!(first.0.status(), StatusCode::OK);
-    let tag = first.0.headers()[axum::http::header::ETAG].to_str().unwrap().to_owned();
+    let tag = first.0.headers()[axum::http::header::ETAG]
+        .to_str()
+        .unwrap()
+        .to_owned();
     assert!(first.1.contains("ord-5"), "{}", first.1);
     let mut again = get("/fragments/topic-messages?topic=orders");
-    again.headers_mut().insert(axum::http::header::IF_NONE_MATCH, tag.parse().unwrap());
+    again
+        .headers_mut()
+        .insert(axum::http::header::IF_NONE_MATCH, tag.parse().unwrap());
     let (res, _) = send(&app, again).await;
     assert_eq!(res.status(), StatusCode::NOT_MODIFIED);
     let (res, _) = send(&app, get("/fragments/topic-messages?topic=nope")).await;

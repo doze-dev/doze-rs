@@ -18,7 +18,12 @@ fn rec(i: i64, key: Option<&str>, value: Option<&[u8]>, headers: &[(&str, &str)]
 
 fn recs() -> Vec<Rec> {
     vec![
-        rec(0, Some("k0"), Some(b"hello"), &[("h", "1"), ("trace", "abc")]),
+        rec(
+            0,
+            Some("k0"),
+            Some(b"hello"),
+            &[("h", "1"), ("trace", "abc")],
+        ),
         rec(1, None, Some(&[0xff, 0x00, 0xfe]), &[]),
         rec(2, Some("k2"), None, &[]),
     ]
@@ -72,7 +77,11 @@ fn headers_come_back_in_order_with_their_bytes() {
     let b = batch(0, encode_records(&recs()));
     let mut got = Vec::new();
     b.each_record_full(1 << 20, |r| {
-        got.extend(r.headers.iter().map(|(k, v)| (k.to_vec(), v.map(<[u8]>::to_vec))));
+        got.extend(
+            r.headers
+                .iter()
+                .map(|(k, v)| (k.to_vec(), v.map(<[u8]>::to_vec))),
+        );
         true
     })
     .unwrap();

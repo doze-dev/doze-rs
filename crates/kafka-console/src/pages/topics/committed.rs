@@ -8,9 +8,9 @@ use super::table::records;
 use crate::base::Base;
 use crate::format::number;
 use crate::model::{Hold, MessageQuery, MessagesView, PartitionRow};
+use crate::ui::glyph::Glyph;
 use crate::ui::kafka::{Mark, ruler, sec};
 use crate::ui::notice::{Tone, callout};
-use crate::ui::glyph::Glyph;
 
 fn toolbar(v: &MessagesView, base: &Base) -> Markup {
     html! {
@@ -28,7 +28,10 @@ fn banner(v: &MessagesView) -> Markup {
         return html! {};
     }
     let total: i64 = held.iter().map(|p| p.held()).sum();
-    let per: Vec<String> = held.iter().map(|p| format!("{} on {}-{}", p.held(), v.head.name, p.partition)).collect();
+    let per: Vec<String> = held
+        .iter()
+        .map(|p| format!("{} on {}-{}", p.held(), v.head.name, p.partition))
+        .collect();
     let ids: Vec<&str> = v.head.txns.iter().map(|t| t.id.as_str()).collect();
     html! {
         div style="margin-bottom:24px" { (callout(Tone::Warn, Glyph::Warn, html! {
@@ -45,8 +48,18 @@ fn zoomed(p: &PartitionRow, topic: &str) -> Markup {
     let span = (p.end - from).max(1) as f64;
     let at = |o: i64| (o - from) as f64 * 100.0 / span;
     let marks = [
-        Mark { name: "LSO", class: "lso", offset: p.last_stable, at: at(p.last_stable) },
-        Mark { name: "HW", class: "hw", offset: p.end, at: 100.0 },
+        Mark {
+            name: "LSO",
+            class: "lso",
+            offset: p.last_stable,
+            at: at(p.last_stable),
+        },
+        Mark {
+            name: "HW",
+            class: "hw",
+            offset: p.end,
+            at: 100.0,
+        },
     ];
     html! {
         div class="card" {
@@ -83,16 +96,23 @@ fn holds(v: &MessagesView, base: &Base) -> Markup {
             td { @match &h.txn { Some((id, first)) => { (id) " began at offset " (number(*first)) }, None => { span class="dim" { "no open transaction" } } } }
         } }
     };
-    sec(40, "Who this holds back", Some(html! { "Per partition, where a read_committed consumer stops. A group reading read_committed has its lag counted up to the last stable offset." }), html! {
-        table class="t" {
-            thead { tr { th scope="col" { "Partition" } th scope="col" class="r" { "High watermark" } th scope="col" class="r" { "Last stable offset" } th scope="col" class="r" { "Held back" } th scope="col" { "Why" } } }
-            tbody { @for h in &v.holds { (row(h)) } }
-        }
-        p class="help" style="margin-top:16px" {
-            "The transaction times out and the coordinator then aborts it and fences its producer. "
-            a class="lnk" href=(format!("{}/producers", topic_url(base, &v.head.name))) { "What it holds back" }
-        }
-    })
+    sec(
+        40,
+        "Who this holds back",
+        Some(
+            html! { "Per partition, where a read_committed consumer stops. A group reading read_committed has its lag counted up to the last stable offset." },
+        ),
+        html! {
+            table class="t" {
+                thead { tr { th scope="col" { "Partition" } th scope="col" class="r" { "High watermark" } th scope="col" class="r" { "Last stable offset" } th scope="col" class="r" { "Held back" } th scope="col" { "Why" } } }
+                tbody { @for h in &v.holds { (row(h)) } }
+            }
+            p class="help" style="margin-top:16px" {
+                "The transaction times out and the coordinator then aborts it and fences its producer. "
+                a class="lnk" href=(format!("{}/producers", topic_url(base, &v.head.name))) { "What it holds back" }
+            }
+        },
+    )
 }
 
 fn reader_sees(v: &MessagesView, base: &Base) -> Markup {
@@ -111,8 +131,13 @@ fn reader_sees(v: &MessagesView, base: &Base) -> Markup {
 
 /// The page.
 #[must_use]
-pub fn committed_page(v: &MessagesView, base: &Base, _query: &str) -> Markup {
-    let focus = v.head.parts.iter().max_by_key(|p| (p.held(), -i64::from(p.partition))).or_else(|| v.head.parts.first());
+pub(super) fn committed_page(v: &MessagesView, base: &Base, _query: &str) -> Markup {
+    let focus = v
+        .head
+        .parts
+        .iter()
+        .max_by_key(|p| (p.held(), -i64::from(p.partition)))
+        .or_else(|| v.head.parts.first());
     html! {
         (topic_head(&v.head, base, Acts::Full))
         (topic_tabs(&v.head, base))

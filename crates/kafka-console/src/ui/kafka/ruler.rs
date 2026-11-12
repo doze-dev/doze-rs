@@ -48,12 +48,28 @@ mod tests {
     #[test]
     fn the_ruler_splits_the_offsets_at_the_last_stable_one() {
         let marks = [
-            Mark { name: "LSO", class: "lso", offset: 16_098, at: 57.1 },
-            Mark { name: "HW", class: "hw", offset: 16_104, at: 100.0 },
+            Mark {
+                name: "LSO",
+                class: "lso",
+                offset: 16_098,
+                at: 57.1,
+            },
+            Mark {
+                name: "HW",
+                class: "hw",
+                offset: 16_104,
+                at: 100.0,
+            },
         ];
         let m = ruler(16_090, 16_098, 16_104, &marks).into_string();
-        assert!(m.contains(r#"style="flex:8"><span>16,090 to 16,097</span>"#), "{m}");
-        assert!(m.contains(r#"style="flex:6"><span>16,098 to 16,103: held</span>"#), "{m}");
+        assert!(
+            m.contains(r#"style="flex:8"><span>16,090 to 16,097</span>"#),
+            "{m}"
+        );
+        assert!(
+            m.contains(r#"style="flex:6"><span>16,098 to 16,103: held</span>"#),
+            "{m}"
+        );
         assert!(m.contains("--at:100.0%;transform:translateX(-100%)"), "{m}");
         assert!(m.contains("<b>16,098</b>"));
     }

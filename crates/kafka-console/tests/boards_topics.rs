@@ -87,8 +87,16 @@ fn the_list_has_the_boards_nine_topics_and_the_hidden_internal_one() {
             "Why it is read only.",
         ],
     );
-    assert!(d.contains("7.9 MiB") && d.contains("128.6 MiB") && d.contains("39.7 MiB"), "sizes");
-    assert!(d.contains(">0.2 s ago<") && d.contains(">41 s ago<") && d.contains(">3 d ago<") && d.contains(">never<"));
+    assert!(
+        d.contains("7.9 MiB") && d.contains("128.6 MiB") && d.contains("39.7 MiB"),
+        "sizes"
+    );
+    assert!(
+        d.contains(">0.2 s ago<")
+            && d.contains(">41 s ago<")
+            && d.contains(">3 d ago<")
+            && d.contains(">never<")
+    );
 }
 
 #[test]
@@ -97,13 +105,28 @@ fn the_empty_broker_and_the_filter_that_matches_nothing_have_their_own_pages() {
     in_order(
         "topics-none",
         &none,
-        &["<h1>Topics</h1>", "Nothing has been created or written yet.", "This broker holds no topics", "--auto-create-topics", "Or from your app", "kcat -P -b 127.0.0.1:9092 -t orders"],
+        &[
+            "<h1>Topics</h1>",
+            "Nothing has been created or written yet.",
+            "This broker holds no topics",
+            "--auto-create-topics",
+            "Or from your app",
+            "kcat -P -b 127.0.0.1:9092 -t orders",
+        ],
     );
     let filtered = doc("topics-filtered");
     in_order(
         "topics-filtered",
         &filtered,
-        &["Name contains refunds", "Clear filter", "No topic name contains", "refunds", "The filter looks at the 9 topic names", "pick_lists", "Create <span class=\"mono\">refunds</span>"],
+        &[
+            "Name contains refunds",
+            "Clear filter",
+            "No topic name contains",
+            "refunds",
+            "The filter looks at the 9 topic names",
+            "pick_lists",
+            "Create <span class=\"mono\">refunds</span>",
+        ],
     );
 }
 
@@ -146,12 +169,35 @@ fn the_topic_page_has_the_open_transaction_the_toolbar_and_the_ten_newest() {
 #[test]
 fn the_empty_topic_the_filtered_read_and_the_committed_read_are_their_boards() {
     let empty = doc("topic-messages-empty");
-    in_order("topic-messages-empty", &empty, &["orders.dlq", "has 1 partition", "and is empty: offsets 0 to 0, no write yet.", "No records yet", "Produce a record", "Or from your app"]);
+    in_order(
+        "topic-messages-empty",
+        &empty,
+        &[
+            "orders.dlq",
+            "has 1 partition",
+            "and is empty: offsets 0 to 0, no write yet.",
+            "No records yet",
+            "Produce a record",
+            "Or from your app",
+        ],
+    );
     let filtered = doc("topic-messages-filtered");
     in_order(
         "topic-messages-filtered",
         &filtered,
-        &["Partition 0", "From offset 16,098", "Clear filters", "The fetch returned", "<b>6</b>", "16,098", "16,103", "the end of the partition", "The call", "Fetch", "Why filter by offset"],
+        &[
+            "Partition 0",
+            "From offset 16,098",
+            "Clear filters",
+            "The fetch returned",
+            "<b>6</b>",
+            "16,098",
+            "16,103",
+            "the end of the partition",
+            "The call",
+            "Fetch",
+            "Why filter by offset",
+        ],
     );
     let committed = doc("topic-readcommitted");
     in_order(
@@ -183,13 +229,42 @@ fn the_record_pages_show_the_text_and_the_bytes() {
     in_order(
         "topic-record",
         &r,
-        &["orders-1 · 16,050", "One record, completely.", "At or above the last stable offset.", "9 bytes · text", "ord-88412", "86 bytes · JSON", "customer", "Headers", "content-type", "traceparent", "Timestamp", "22:14:17.402", "CreateTime", "Producer", "4017 · epoch 2", "orders-eos", "Ongoing"],
+        &[
+            "orders-1 · 16,050",
+            "One record, completely.",
+            "At or above the last stable offset.",
+            "9 bytes · text",
+            "ord-88412",
+            "86 bytes · JSON",
+            "customer",
+            "Headers",
+            "content-type",
+            "traceparent",
+            "Timestamp",
+            "22:14:17.402",
+            "CreateTime",
+            "Producer",
+            "4017 · epoch 2",
+            "orders-eos",
+            "Ongoing",
+        ],
     );
     let b = doc("topic-record-binary");
     in_order(
         "topic-record-binary",
         &b,
-        &["orders-2 · 16,056", "The value is not text.", "52 bytes that are not valid UTF-8", "52 bytes · binary", "0000  0a 09 6f 72 64 2d 38 38  ..ord-88", "0030  0a 1c 00 7f              ....", "No headers were sent with this record.", "Position", "below the LSO of orders-2 (16,058)", "Copy as hex"],
+        &[
+            "orders-2 · 16,056",
+            "The value is not text.",
+            "52 bytes that are not valid UTF-8",
+            "52 bytes · binary",
+            "0000  0a 09 6f 72 64 2d 38 38  ..ord-88",
+            "0030  0a 1c 00 7f              ....",
+            "No headers were sent with this record.",
+            "Position",
+            "below the LSO of orders-2 (16,058)",
+            "Copy as hex",
+        ],
     );
 }
 
@@ -199,12 +274,37 @@ fn the_partitions_and_the_offline_pages_are_their_boards() {
     in_order(
         "topic-partitions",
         &p,
-        &["3 partitions, <b>48,213</b> records, 7.9 MiB.", "Add partitions", "One broker.", "Log start", "High watermark", "Last stable offset", "orders-0", "16,104", "16,098", "held 6", "orders-2", "clear", "Where the numbers come from", "ListOffsets"],
+        &[
+            "3 partitions, <b>48,213</b> records, 7.9 MiB.",
+            "Add partitions",
+            "One broker.",
+            "Log start",
+            "High watermark",
+            "Last stable offset",
+            "orders-0",
+            "16,104",
+            "16,098",
+            "held 6",
+            "orders-2",
+            "clear",
+            "Where the numbers come from",
+            "ListOffsets",
+        ],
     );
     let o = doc("topic-offline");
     in_order(
         "topic-offline",
         &o,
-        &["Partition 1 offline", "Partitions 0 and 2 work;", "partition 1</b> went offline after a failed flush", "notifications.email-1 is offline.", "Input/output error (os error 5)", "What works and what does not", "KAFKA_STORAGE_ERROR (56)", "What restarting does", "Restart the machine, not only doze."],
+        &[
+            "Partition 1 offline",
+            "Partitions 0 and 2 work;",
+            "partition 1</b> went offline after a failed flush",
+            "notifications.email-1 is offline.",
+            "Input/output error (os error 5)",
+            "What works and what does not",
+            "KAFKA_STORAGE_ERROR (56)",
+            "What restarting does",
+            "Restart the machine, not only doze.",
+        ],
     );
 }

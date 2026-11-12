@@ -48,7 +48,7 @@ fn restart() -> Markup {
 
 /// The page: the cause in a banner, what still works, and what restarting does.
 #[must_use]
-pub fn offline_page(h: &TopicHead, base: &Base) -> Markup {
+pub(super) fn offline_page(h: &TopicHead, base: &Base) -> Markup {
     let down = h.offline();
     html! {
         (topic_head(h, base, Acts::Offline))

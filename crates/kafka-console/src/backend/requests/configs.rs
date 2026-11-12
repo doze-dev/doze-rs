@@ -29,11 +29,8 @@ pub fn describe_topic_configs(names: &[String]) -> Request {
             let mut res = DescribeConfigsResource::default();
             res.resource_type = TOPIC;
             res.resource_name = StrBytes::from_string(n.clone());
-            res.configuration_keys = Some(
-                KEYS.iter()
-                    .map(|k| StrBytes::from_static_str(k))
-                    .collect(),
-            );
+            res.configuration_keys =
+                Some(KEYS.iter().map(|k| StrBytes::from_static_str(k)).collect());
             res
         })
         .collect();
@@ -46,7 +43,8 @@ mod tests {
 
     #[test]
     fn one_resource_per_topic_asking_only_for_the_keys_the_pages_use() {
-        let Request::DescribeConfigs(r) = describe_topic_configs(&["a".to_owned(), "b".to_owned()]) else {
+        let Request::DescribeConfigs(r) = describe_topic_configs(&["a".to_owned(), "b".to_owned()])
+        else {
             panic!("not DescribeConfigs");
         };
         assert_eq!(r.resources.len(), 2);

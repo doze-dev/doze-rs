@@ -2,8 +2,8 @@
 
 use kafka_wire::StrBytes;
 use kafka_wire::api::Request;
-use kafka_wire::messages::TopicName;
 use kafka_wire::messages::DescribeProducersRequest;
+use kafka_wire::messages::TopicName;
 use kafka_wire::messages::describe_producers_request::TopicRequest;
 
 /// The producers of these partitions of a topic. At most 1,024 partitions.

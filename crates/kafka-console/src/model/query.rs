@@ -55,6 +55,15 @@ impl Default for MessageQuery {
     }
 }
 
+/// The first value of a field of the address that is not blank.
+fn get<'a>(fields: &'a [(String, String)], name: &str) -> Option<&'a str> {
+    fields
+        .iter()
+        .find(|(k, _)| k == name)
+        .map(|(_, v)| v.as_str())
+        .filter(|v| !v.trim().is_empty())
+}
+
 fn whole(text: &str) -> Option<i64> {
     let t = text.trim();
     (!t.is_empty() && t.bytes().all(|b| b.is_ascii_digit()))
@@ -66,40 +75,42 @@ impl MessageQuery {
     /// Whether any filter besides the isolation level is set.
     #[must_use]
     pub fn filtered(&self) -> bool {
-        self.partition.is_some() || self.offset.is_some() || self.time.is_some() || self.key.is_some()
+        self.partition.is_some()
+            || self.offset.is_some()
+            || self.time.is_some()
+            || self.key.is_some()
     }
 
     /// The query from the fields of an address or a form, and a sentence for each value that could not be used.
     #[must_use]
     pub fn parse(fields: &[(String, String)]) -> (Self, Vec<String>) {
-        let get = |name: &str| {
-            fields
-                .iter()
-                .find(|(k, _)| k == name)
-                .map(|(_, v)| v.as_str())
-                .filter(|v| !v.trim().is_empty())
-        };
         let mut q = Self::default();
         let mut notes = Vec::new();
-        if let Some(p) = get("partition") {
+        if let Some(p) = get(fields, "partition") {
             match p.trim().parse::<i32>().ok().filter(|n| *n >= 0) {
                 Some(n) => q.partition = Some(n),
-                None => notes.push(format!("{:?} is not a partition number, so all partitions are shown.", clip(p))),
+                None => notes.push(format!(
+                    "{:?} is not a partition number, so all partitions are shown.",
+                    clip(p)
+                )),
             }
         }
         // The one box: digits are an offset, anything else a key.
-        let find = get("find");
+        let find = get(fields, "find");
         let (find_offset, find_key) = match find {
             Some(f) if whole(f).is_some() => (Some(f), None),
             other => (None, other),
         };
-        if let Some(o) = get("offset").or(find_offset) {
+        if let Some(o) = get(fields, "offset").or(find_offset) {
             match whole(o) {
                 Some(n) => q.offset = Some(n),
-                None => notes.push(format!("{:?} is not an offset (a whole number from 0), so it is ignored.", clip(o))),
+                None => notes.push(format!(
+                    "{:?} is not an offset (a whole number from 0), so it is ignored.",
+                    clip(o)
+                )),
             }
         }
-        if let Some(t) = get("time") {
+        if let Some(t) = get(fields, "time") {
             match parse_time(t) {
                 Some(ms) => q.time = Some((ms, t.trim().to_owned())),
                 None => notes.push(format!(
@@ -108,14 +119,26 @@ impl MessageQuery {
                 )),
             }
         }
-        if let Some(k) = get("key").or(find_key) {
+        q.parse_rest(fields, find_key, &mut notes);
+        (q, notes)
+    }
+
+    /// The key, the isolation level and the limit.
+    fn parse_rest(
+        &mut self,
+        fields: &[(String, String)],
+        find_key: Option<&str>,
+        notes: &mut Vec<String>,
+    ) {
+        let q = self;
+        if let Some(k) = get(fields, "key").or(find_key) {
             if k.len() > MOST_KEY {
                 notes.push(format!("A key to look for is at most {MOST_KEY} bytes; this one is {}, so it is ignored.", k.len()));
             } else {
                 q.key = Some(k.to_owned());
             }
         }
-        match get("isolation") {
+        match get(fields, "isolation") {
             None | Some("read_uncommitted") => {}
             Some("read_committed") => q.reading = Reading::Committed,
             Some(other) => notes.push(format!(
@@ -123,17 +146,21 @@ impl MessageQuery {
                 clip(other)
             )),
         }
-        if let Some(l) = get("limit") {
+        if let Some(l) = get(fields, "limit") {
             match l.trim().parse::<usize>().ok().filter(|n| *n >= 1) {
                 Some(n) if n > MOST_LIMIT => {
                     q.limit = MOST_LIMIT;
-                    notes.push(format!("A page shows at most {MOST_LIMIT} records; showing {MOST_LIMIT}."));
+                    notes.push(format!(
+                        "A page shows at most {MOST_LIMIT} records; showing {MOST_LIMIT}."
+                    ));
                 }
                 Some(n) => q.limit = n,
-                None => notes.push(format!("{:?} is not a number of records, so {DEFAULT_LIMIT} are shown.", clip(l))),
+                None => notes.push(format!(
+                    "{:?} is not a number of records, so {DEFAULT_LIMIT} are shown.",
+                    clip(l)
+                )),
             }
         }
-        (q, notes)
     }
 
     /// The address's query part (with the leading `?`, or nothing) that gives this query back.

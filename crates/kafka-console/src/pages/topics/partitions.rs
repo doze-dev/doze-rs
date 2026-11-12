@@ -20,7 +20,11 @@ fn stable(p: &PartitionRow) -> Markup {
 }
 
 fn row(h: &TopicHead, p: &PartitionRow, base: &Base) -> Markup {
-    let del = format!("{}/delete-records?partition={}", topic_url(base, &h.name), p.partition);
+    let del = format!(
+        "{}/delete-records?partition={}",
+        topic_url(base, &h.name),
+        p.partition
+    );
     html! {
         tr {
             td class="mono" { (h.name) "-" (p.partition) @if p.offline.is_some() { " " (state(State::Bad, "Offline")) } }

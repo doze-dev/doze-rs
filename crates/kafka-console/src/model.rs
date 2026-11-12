@@ -13,7 +13,7 @@ mod topics;
 pub use connect::{Access, ClientSnippet, ConnectView, ProbeView, Rule, Span, Tok, Verdict};
 pub use home::{Attention, HeldBack, HomeState, HomeView, InstanceView, StopView};
 pub use messages::{
-    Hold, HeaderRow, Kind, MessagesView, Reach, RecordRow, RecordTxn, RecordView, Shown, Standing,
+    HeaderRow, Hold, Kind, MessagesView, Reach, RecordRow, RecordTxn, RecordView, Shown, Standing,
 };
 pub use query::{DEFAULT_LIMIT, MOST_KEY, MOST_LIMIT, MessageQuery, Reading};
 pub use topic::{OpenTxn, PartitionRow, TabCounts, TopicHead};

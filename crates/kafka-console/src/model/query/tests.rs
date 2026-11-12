@@ -14,14 +14,19 @@ fn no_filter_is_the_default_and_says_nothing() {
 
 #[test]
 fn each_filter_is_read_and_written_back() {
-    let (query, notes) = q("partition=0&offset=16098&key=ord-88410&isolation=read_committed&limit=10&time=2023-11-14+22%3A13");
+    let (query, notes) = q(
+        "partition=0&offset=16098&key=ord-88410&isolation=read_committed&limit=10&time=2023-11-14+22%3A13",
+    );
     assert!(notes.is_empty(), "{notes:?}");
     assert_eq!(query.partition, Some(0));
     assert_eq!(query.offset, Some(16_098));
     assert_eq!(query.key.as_deref(), Some("ord-88410"));
     assert_eq!(query.reading, Reading::Committed);
     assert_eq!(query.limit, 10);
-    assert_eq!(query.time, Some((1_699_999_980_000, "2023-11-14 22:13".to_owned())));
+    assert_eq!(
+        query.time,
+        Some((1_699_999_980_000, "2023-11-14 22:13".to_owned()))
+    );
     assert!(query.filtered());
     let again = q(query.to_query().trim_start_matches('?')).0;
     assert_eq!(again, query, "{}", query.to_query());
@@ -56,7 +61,13 @@ fn a_value_that_cannot_be_used_is_a_sentence_and_the_rest_still_works() {
         assert!(notes[0].contains(field), "{bad}: {notes:?}");
         assert_eq!(query.key.as_deref(), Some("k"), "{bad}");
         assert_eq!(
-            (query.partition, query.offset, query.time.clone(), query.reading, query.limit),
+            (
+                query.partition,
+                query.offset,
+                query.time.clone(),
+                query.reading,
+                query.limit
+            ),
             (None, None, None, Reading::Uncommitted, DEFAULT_LIMIT),
             "{bad}"
         );
@@ -76,7 +87,9 @@ fn a_huge_limit_is_cut_and_a_long_key_is_refused_with_a_sentence() {
 
 #[test]
 fn a_hostile_value_reaches_a_sentence_only_clipped_and_escaped_by_debug() {
-    let (_, notes) = q("partition=%3Cscript%3E%E2%80%AE+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+    let (_, notes) = q(
+        "partition=%3Cscript%3E%E2%80%AE+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    );
     assert_eq!(notes.len(), 1);
     assert!(notes[0].chars().count() < 160, "{}", notes[0]);
     assert!(!notes[0].contains('\u{202e}'), "{}", notes[0]);

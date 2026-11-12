@@ -7,7 +7,7 @@ use crate::model::{TopicRow, TopicsView};
 use crate::source::now_ms;
 
 /// The most rows a page shows.
-pub const MOST_ROWS: usize = 200;
+const MOST_ROWS: usize = 200;
 
 /// The topics whose name contains `filter`, as the list shows them.
 pub async fn list(b: &Backend, filter: &str, show_internal: bool) -> TopicsView {
@@ -44,7 +44,9 @@ pub async fn list(b: &Backend, filter: &str, show_internal: bool) -> TopicsView 
             empty: readable && bytes == 0,
             retention_ms: c.retention_set.then_some(c.retention_ms),
             // Only a topic with more segments than partitions has something to say: each partition has one.
-            segments: readable.then(|| files.iter().map(|f| f.segments).sum()).filter(|n: &usize| *n > t.partitions.len()),
+            segments: readable
+                .then(|| files.iter().map(|f| f.segments).sum())
+                .filter(|n: &usize| *n > t.partitions.len()),
             read_by: readers
                 .by_topic
                 .get(&t.name)

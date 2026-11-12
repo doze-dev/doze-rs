@@ -60,7 +60,12 @@ pub fn segments_on_disk<F: Fs>(fs: &F, dir: &Path) -> Result<Vec<SegmentInfo>, S
     let entries = match fs.list_dir(dir) {
         Ok(entries) => entries,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
-        Err(e) => return Err(StorageError::Io { doing: "listing a partition directory", source: e }),
+        Err(e) => {
+            return Err(StorageError::Io {
+                doing: "listing a partition directory",
+                source: e,
+            });
+        }
     };
     let mut out = Vec::new();
     for entry in entries.iter().filter(|e| !e.is_dir) {

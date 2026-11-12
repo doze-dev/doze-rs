@@ -3,7 +3,7 @@
 //! that cannot be read ends the walk with an error rather than a guess.
 
 use super::recode::read_varint;
-use super::{Batch, Refusal, RecordsRefused};
+use super::{Batch, RecordsRefused, Refusal};
 use crate::ids::Offset;
 
 /// The most headers one record is read with; a record that claims more is unreadable (it cannot hold them).
@@ -104,7 +104,8 @@ impl Batch {
                 .get(used..end)
                 .ok_or_else(|| unreadable("a record is cut short"))?;
             rest = rest.get(end..).unwrap_or_default();
-            let looked = parse(record, base, first).ok_or_else(|| unreadable("a record cannot be read"))?;
+            let looked =
+                parse(record, base, first).ok_or_else(|| unreadable("a record cannot be read"))?;
             if !look(&looked) {
                 break;
             }

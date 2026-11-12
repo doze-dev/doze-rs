@@ -119,7 +119,10 @@ mod tests {
     #[test]
     fn a_query_part_leaves_out_what_is_empty_and_encodes_the_rest() {
         assert_eq!(encode_query(&[("q", ""), ("internal", "")]), "");
-        assert_eq!(encode_query(&[("q", "a b&c"), ("internal", "1")]), "?q=a%20b%26c&internal=1");
+        assert_eq!(
+            encode_query(&[("q", "a b&c"), ("internal", "1")]),
+            "?q=a%20b%26c&internal=1"
+        );
         assert_eq!(decode("a%20b%26c"), "a b&c");
     }
 

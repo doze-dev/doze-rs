@@ -10,11 +10,11 @@ use kafka_wire::batch::{Batch, Batches, Compression, TimestampType};
 use crate::model::Standing;
 
 /// The most a batch is allowed to inflate to: the broker's own limit when it accepted the batch.
-pub const INFLATE_CAP: u64 = 64 << 20;
+const INFLATE_CAP: u64 = 64 << 20;
 
 /// How much of a key, a value and a header a [`Raw`] keeps (the rest is only counted).
 #[derive(Debug, Clone, Copy)]
-pub struct Keep {
+pub(super) struct Keep {
     pub key: usize,
     pub value: usize,
     pub header: usize,
@@ -22,7 +22,7 @@ pub struct Keep {
 
 /// A record, with the first bytes of its key, value and headers and their true sizes.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Raw {
+pub(super) struct Raw {
     pub partition: i32,
     pub offset: i64,
     pub timestamp: i64,
@@ -41,7 +41,7 @@ pub struct Raw {
 
 /// What walking an answer found.
 #[derive(Debug, Default)]
-pub struct Walked {
+pub(super) struct Walked {
     /// The records at or after the offset asked for, in log order.
     pub rows: Vec<Raw>,
     /// A batch of a transaction was met (so the aborted list matters).
@@ -81,7 +81,10 @@ impl Aborts {
         let mut pending = aborted.to_vec();
         pending.sort_unstable();
         pending.reverse();
-        Self { pending, active: BTreeSet::new() }
+        Self {
+            pending,
+            active: BTreeSet::new(),
+        }
     }
 
     /// Called at the start of each batch.
@@ -110,7 +113,7 @@ fn standing(offset: i64, lso: i64, aborted: bool) -> Standing {
 /// (the batch that holds it may begin earlier) are not returned. `lso` is the last stable offset and `aborted` the answer's
 /// `(producer id, first offset)` pairs; with none given, nothing is aborted. At most `limit` records are returned.
 #[must_use]
-pub fn walk(
+pub(super) fn walk(
     data: &Bytes,
     partition: i32,
     from: i64,
@@ -136,8 +139,17 @@ pub fn walk(
         }
         out.saw_txn |= attrs.is_transactional();
         let hidden = attrs.is_transactional()
-            && batch.producer().is_some_and(|p| aborts.active.contains(&p.id.get()));
-        batch_rows(&batch, partition, from, (lso, hidden), keep, &mut out.rows, limit);
+            && batch
+                .producer()
+                .is_some_and(|p| aborts.active.contains(&p.id.get()));
+        let at = Place {
+            partition,
+            from,
+            lso,
+            keep,
+            limit,
+        };
+        batch_rows(&batch, &at, hidden, &mut out.rows);
         if out.rows.len() >= limit {
             break;
         }
@@ -145,15 +157,17 @@ pub fn walk(
     out
 }
 
-fn batch_rows(
-    batch: &Batch,
+/// Where a walk is: which partition, from which offset, up to which last stable offset, and what it keeps.
+struct Place {
     partition: i32,
     from: i64,
-    (lso, aborted): (i64, bool),
+    lso: i64,
     keep: Keep,
-    rows: &mut Vec<Raw>,
     limit: usize,
-) {
+}
+
+fn batch_rows(batch: &Batch, at: &Place, aborted: bool, rows: &mut Vec<Raw>) {
+    let (partition, from, lso, keep, limit) = (at.partition, at.from, at.lso, at.keep, at.limit);
     let attrs = batch.attributes();
     let producer = batch.producer();
     let base_offset = batch.base_offset().map_or(0, |o| o.get());
@@ -181,7 +195,11 @@ fn batch_rows(
                 .take(64)
                 .map(|(k, v)| {
                     let (v, n) = kept(*v, keep.header);
-                    (k.get(..k.len().min(1024)).unwrap_or_default().to_vec(), v, n)
+                    (
+                        k.get(..k.len().min(1024)).unwrap_or_default().to_vec(),
+                        v,
+                        n,
+                    )
                 })
                 .collect(),
             producer: producer.map(|p| {

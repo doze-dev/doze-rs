@@ -311,7 +311,10 @@ use kafka_console::pages::topics as topic_pages;
 fn nasty() -> Vec<String> {
     let mut all: Vec<String> = HOSTILE.iter().map(|s| (*s).to_owned()).collect();
     all.push("a\u{202e}evil\u{2066}b\u{0}c\u{7f}d\u{85}e\u{feff}f\u{2028}g".to_owned());
-    all.push(format!("<img src=x onerror=alert(1)>{}", "A".repeat(200_000)));
+    all.push(format!(
+        "<img src=x onerror=alert(1)>{}",
+        "A".repeat(200_000)
+    ));
     all.push("\"><script>alert(1)</script>\n'<svg/onload=alert(1)>".to_owned());
     all
 }
@@ -346,10 +349,21 @@ fn hostile_record(s: &str) -> RecordView {
     r.key = value(s);
     r.value = value(s);
     r.headers = vec![
-        HeaderRow { key: s.to_owned(), value: value(s) },
-        HeaderRow { key: "x".to_owned(), value: shown(Some(&[0xff, 0xfe, 0x00]), 3) },
+        HeaderRow {
+            key: s.to_owned(),
+            value: value(s),
+        },
+        HeaderRow {
+            key: "x".to_owned(),
+            value: shown(Some(&[0xff, 0xfe, 0x00]), 3),
+        },
     ];
-    r.txn = Some(RecordTxn { id: Some(s.to_owned()), state: Some(s.to_owned()), since_ms: Some(0), timeout_ms: Some(1) });
+    r.txn = Some(RecordTxn {
+        id: Some(s.to_owned()),
+        state: Some(s.to_owned()),
+        since_ms: Some(0),
+        timeout_ms: Some(1),
+    });
     r.codec = s.to_owned();
     r
 }
@@ -361,29 +375,82 @@ fn hostile_keys_values_headers_and_names_are_inert_on_every_topic_page() {
         let p = payload.as_str();
         let queries = [
             MessageQuery::default(),
-            MessageQuery { partition: Some(0), offset: Some(16_098), ..MessageQuery::default() },
-            MessageQuery { reading: Reading::Committed, ..MessageQuery::default() },
-            MessageQuery { key: Some(p.chars().take(100).collect()), ..MessageQuery::default() },
+            MessageQuery {
+                partition: Some(0),
+                offset: Some(16_098),
+                ..MessageQuery::default()
+            },
+            MessageQuery {
+                reading: Reading::Committed,
+                ..MessageQuery::default()
+            },
+            MessageQuery {
+                key: Some(p.chars().take(100).collect()),
+                ..MessageQuery::default()
+            },
         ];
         for q in queries {
             let v = hostile_messages(p, q);
             let main = topic_pages::messages_page(&v, &base, p, &v.query.to_query());
             assert_inert(&shell(p, main, &base), p, "messages");
-            assert_inert(&shell(p, topic_pages::partitions_page(&v.head, &base), &base), p, "partitions");
-            let frag = format!("<script src=a></script>{}", topic_pages::messages_fragment(&v, &base, "").into_string());
+            assert_inert(
+                &shell(p, topic_pages::partitions_page(&v.head, &base), &base),
+                p,
+                "partitions",
+            );
+            let frag = format!(
+                "<script src=a></script>{}",
+                topic_pages::messages_fragment(&v, &base, "").into_string()
+            );
             assert_inert(&frag, p, "messages fragment");
-            let frag = format!("<script src=a></script>{}", topic_pages::topic_sentence_fragment(&v.head, &base).into_string());
+            let frag = format!(
+                "<script src=a></script>{}",
+                topic_pages::topic_sentence_fragment(&v.head, &base).into_string()
+            );
             assert_inert(&frag, p, "topic sentence");
         }
+    }
+}
+
+#[test]
+fn hostile_names_and_values_are_inert_on_the_offline_empty_record_and_unknown_pages() {
+    let base = Base::root();
+    for payload in nasty() {
+        let p = payload.as_str();
         let offline = hostile_messages(p, MessageQuery::default());
         assert!(!offline.head.offline().is_empty());
-        assert_inert(&shell(p, topic_pages::messages_page(&offline, &base, p, ""), &base), p, "offline");
-        let mut empty = world::messages("orders.dlq", MessageQuery::default(), vec![p.to_owned()]).unwrap();
+        assert_inert(
+            &shell(p, topic_pages::messages_page(&offline, &base, p, ""), &base),
+            p,
+            "offline",
+        );
+        let mut empty =
+            world::messages("orders.dlq", MessageQuery::default(), vec![p.to_owned()]).unwrap();
         empty.head.name = p.to_owned();
-        assert_inert(&shell(p, topic_pages::messages_page(&empty, &base, p, ""), &base), p, "empty topic");
-        assert_inert(&shell(p, topic_pages::record_page(&hostile_record(p), &base), &base), p, "record");
-        assert_inert(&shell(p, topic_pages::no_record(p, 1, 2, &base), &base), p, "no record");
-        assert_inert(&shell(p, topic_pages::unknown(p, &base), &base), p, "unknown topic");
+        assert_inert(
+            &shell(p, topic_pages::messages_page(&empty, &base, p, ""), &base),
+            p,
+            "empty topic",
+        );
+        assert_inert(
+            &shell(
+                p,
+                topic_pages::record_page(&hostile_record(p), &base),
+                &base,
+            ),
+            p,
+            "record",
+        );
+        assert_inert(
+            &shell(p, topic_pages::no_record(p, 1, 2, &base), &base),
+            p,
+            "no record",
+        );
+        assert_inert(
+            &shell(p, topic_pages::unknown(p, &base), &base),
+            p,
+            "unknown topic",
+        );
     }
 }
 
@@ -399,21 +466,51 @@ fn hostile_topic_names_in_the_list_come_out_inert() {
         v.filter.clone_from(&payload);
         v.newest = Some((payload.clone(), 0));
         let page = topic_pages::list_page(&v, &base, &payload, "").into_string();
-        assert_inert(&shell(&payload, maud::PreEscaped(page), &base), &payload, "list");
+        assert_inert(
+            &shell(&payload, maud::PreEscaped(page), &base),
+            &payload,
+            "list",
+        );
         let mut none = world::topics("", false, Some("none"));
         none.filter.clone_from(&payload);
-        assert_inert(&shell(&payload, topic_pages::list_page(&none, &base, &payload, ""), &base), &payload, "none");
+        assert_inert(
+            &shell(
+                &payload,
+                topic_pages::list_page(&none, &base, &payload, ""),
+                &base,
+            ),
+            &payload,
+            "none",
+        );
         let mut filtered = world::topics("zzz", false, None);
         filtered.filter.clone_from(&payload);
-        assert_inert(&shell(&payload, topic_pages::list_page(&filtered, &base, &payload, ""), &base), &payload, "filtered");
-        let frag = format!("<script src=a></script>{}{}", topic_pages::list_fragment(&v, &base, "").into_string(), topic_pages::sentence_fragment(&v, &base, "").into_string());
+        assert_inert(
+            &shell(
+                &payload,
+                topic_pages::list_page(&filtered, &base, &payload, ""),
+                &base,
+            ),
+            &payload,
+            "filtered",
+        );
+        let frag = format!(
+            "<script src=a></script>{}{}",
+            topic_pages::list_fragment(&v, &base, "").into_string(),
+            topic_pages::sentence_fragment(&v, &base, "").into_string()
+        );
         assert_inert(&frag, &payload, "list fragments");
     }
     // A row that is only a name: the link to it is encoded.
     let mut v = world::topics("", false, None);
-    v.rows[0] = TopicRow { name: "a/b?c=d\"e<f>".to_owned(), ..v.rows[0].clone() };
+    v.rows[0] = TopicRow {
+        name: "a/b?c=d\"e<f>".to_owned(),
+        ..v.rows[0].clone()
+    };
     let page = topic_pages::list_page(&v, &base, "x", "").into_string();
-    assert!(page.contains("href=\"/topics/a%2Fb%3Fc%3Dd%22e%3Cf%3E\""), "{page:.3000}");
+    assert!(
+        page.contains("href=\"/topics/a%2Fb%3Fc%3Dd%22e%3Cf%3E\""),
+        "{page:.3000}"
+    );
 }
 
 #[test]
@@ -469,11 +566,22 @@ async fn a_hostile_query_on_a_topic_page_is_a_sentence_never_markup_never_a_5xx(
 #[test]
 fn the_stream_vocabulary_is_closed_and_has_the_topics_ids() {
     use kafka_console::stream::{WATCHABLE, parse_watch};
-    for id in ["topics-sentence", "topics-table", "topic-sentence", "topic-messages"] {
+    for id in [
+        "topics-sentence",
+        "topics-table",
+        "topic-sentence",
+        "topic-messages",
+    ] {
         assert!(WATCHABLE.contains(&id), "{id}");
         assert_eq!(parse_watch(id), Ok(vec![id]));
     }
-    for bad in ["topic-evil", "topics-table,evil", "Topic-Messages", "topic-messages ", "../topic-messages"] {
+    for bad in [
+        "topic-evil",
+        "topics-table,evil",
+        "Topic-Messages",
+        "topic-messages ",
+        "../topic-messages",
+    ] {
         assert!(parse_watch(bad).is_err(), "{bad:?}");
     }
 }

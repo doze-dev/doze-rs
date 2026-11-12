@@ -34,13 +34,30 @@ pub async fn topics(State(s): State<Shared>, RawQuery(query): RawQuery) -> Respo
         .topics(&filter, internal, crate::form::get(&f, "state"))
         .await;
     let (title, rail_crumbs): (&str, Steps) = match view.state() {
-        crate::model::TopicsState::None => ("No topics yet", vec![("Home", Some("/")), ("Topics", None)]),
-        crate::model::TopicsState::Filtered => ("No topic matches", vec![("Home", Some("/")), ("Topics", None)]),
+        crate::model::TopicsState::None => {
+            ("No topics yet", vec![("Home", Some("/")), ("Topics", None)])
+        }
+        crate::model::TopicsState::Filtered => (
+            "No topic matches",
+            vec![("Home", Some("/")), ("Topics", None)],
+        ),
         crate::model::TopicsState::List => ("Topics", vec![("Home", Some("/")), ("Topics", None)]),
     };
-    let q = crate::form::encode_query(&[("q", &filter), ("internal", if internal { "1" } else { "" })]);
+    let q = crate::form::encode_query(&[
+        ("q", &filter),
+        ("internal", if internal { "1" } else { "" }),
+    ]);
     let main = page::list_page(&view, &s.base, &s.source.listen(), &q);
-    html(&s.document(Rail::Resources, title, &rail_crumbs, s.source.watching(TOPICS_IDS), main).await)
+    html(
+        &s.document(
+            Rail::Resources,
+            title,
+            &rail_crumbs,
+            s.source.watching(TOPICS_IDS),
+            main,
+        )
+        .await,
+    )
 }
 
 async fn not_found(s: &Shared, name: &str) -> Response {
@@ -50,7 +67,11 @@ async fn not_found(s: &Shared, name: &str) -> Response {
         .document(
             Rail::Resources,
             "No such topic",
-            &[("Home", Some("/")), ("Topics", Some("/topics")), (&shown, None)],
+            &[
+                ("Home", Some("/")),
+                ("Topics", Some("/topics")),
+                (&shown, None),
+            ],
             &[],
             main,
         )
@@ -65,9 +86,16 @@ fn state_title(v: &MessagesView) -> Option<String> {
     if v.head.is_empty() && !q.filtered() {
         return None;
     }
-    if !v.head.offline().is_empty() && !q.filtered() && q.reading == crate::model::Reading::Uncommitted {
+    if !v.head.offline().is_empty()
+        && !q.filtered()
+        && q.reading == crate::model::Reading::Uncommitted
+    {
         let down = v.head.offline();
-        return Some(format!("{} partition {} offline", v.head.name, crate::words::list_and(&down.iter().map(|p| p.partition).collect::<Vec<_>>())));
+        return Some(format!(
+            "{} partition {} offline",
+            v.head.name,
+            crate::words::list_and(&down.iter().map(|p| p.partition).collect::<Vec<_>>())
+        ));
     }
     if q.reading == crate::model::Reading::Committed {
         return Some("read_committed".to_owned());
@@ -109,22 +137,45 @@ async fn messages_response(s: Shared, name: String, query: Option<String>) -> Re
             shown.clone()
         }
     };
-    html(&s.document(Rail::Resources, &title, &steps, s.source.watching(TOPIC_IDS), main).await)
+    html(
+        &s.document(
+            Rail::Resources,
+            &title,
+            &steps,
+            s.source.watching(TOPIC_IDS),
+            main,
+        )
+        .await,
+    )
 }
 
 /// `/topics/{topic}`: the Messages tab with no filter.
-pub async fn topic(State(s): State<Shared>, Path(name): Path<String>, RawQuery(query): RawQuery) -> Response {
+pub async fn topic(
+    State(s): State<Shared>,
+    Path(name): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
     messages_response(s, name, query).await
 }
 
 /// `/topics/{topic}/messages`: the same page, with the filters it was asked for.
-pub async fn messages(State(s): State<Shared>, Path(name): Path<String>, RawQuery(query): RawQuery) -> Response {
+pub async fn messages(
+    State(s): State<Shared>,
+    Path(name): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
     messages_response(s, name, query).await
 }
 
 /// `/topics/{topic}/messages/{partition}/{offset}`.
-pub async fn record(State(s): State<Shared>, Path((name, partition, offset)): Path<(String, String, String)>) -> Response {
-    let (Some(p), Some(o)) = (partition.parse::<i32>().ok().filter(|p| *p >= 0), offset.parse::<i64>().ok().filter(|o| *o >= 0)) else {
+pub async fn record(
+    State(s): State<Shared>,
+    Path((name, partition, offset)): Path<(String, String, String)>,
+) -> Response {
+    let (Some(p), Some(o)) = (
+        partition.parse::<i32>().ok().filter(|p| *p >= 0),
+        offset.parse::<i64>().ok().filter(|o| *o >= 0),
+    ) else {
         return not_found(&s, &name).await;
     };
     if !valid(&name) {
@@ -137,7 +188,12 @@ pub async fn record(State(s): State<Shared>, Path((name, partition, offset)): Pa
     let title = format!("{name}-{p} offset {}", crate::format::number(o));
     let t = page::topic_url(&s.base, &name);
     let t = s.base.strip(&t).unwrap_or("/topics").to_owned();
-    let steps: Steps = vec![("Home", Some("/")), ("Topics", Some("/topics")), (&name, Some(&t)), (&title, None)];
+    let steps: Steps = vec![
+        ("Home", Some("/")),
+        ("Topics", Some("/topics")),
+        (&name, Some(&t)),
+        (&title, None),
+    ];
     html(&s.document(Rail::Resources, &title, &steps, &[], main).await)
 }
 
@@ -148,7 +204,11 @@ async fn gone(s: &Shared, name: &str, p: i32, o: i64) -> Response {
         .document(
             Rail::Resources,
             "No such record",
-            &[("Home", Some("/")), ("Topics", Some("/topics")), (&shown, None)],
+            &[
+                ("Home", Some("/")),
+                ("Topics", Some("/topics")),
+                (&shown, None),
+            ],
             &[],
             main,
         )
@@ -167,6 +227,14 @@ pub async fn partitions(State(s): State<Shared>, Path(name): Path<String>) -> Re
     let main = page::partitions_page(&head, &s.base);
     let t = page::topic_url(&s.base, &name);
     let t = s.base.strip(&t).unwrap_or("/topics").to_owned();
-    let steps: Steps = vec![("Home", Some("/")), ("Topics", Some("/topics")), (&name, Some(&t)), ("Partitions", None)];
-    html(&s.document(Rail::Resources, "Partitions", &steps, &[], main).await)
+    let steps: Steps = vec![
+        ("Home", Some("/")),
+        ("Topics", Some("/topics")),
+        (&name, Some(&t)),
+        ("Partitions", None),
+    ];
+    html(
+        &s.document(Rail::Resources, "Partitions", &steps, &[], main)
+            .await,
+    )
 }

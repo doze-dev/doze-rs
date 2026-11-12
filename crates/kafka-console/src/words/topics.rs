@@ -18,7 +18,8 @@ pub fn list_and<T: ToString>(items: &[T]) -> String {
 /// What Kafka said when it refused a read, in its own name and number: `TOPIC_AUTHORIZATION_FAILED (29)`.
 #[must_use]
 pub fn kafka_error(code: i16) -> String {
-    let name = kafka_wire::ResponseError::try_from_code(code).map_or_else(|| "NONE".to_owned(), |e| screaming(&e.to_string()));
+    let name = kafka_wire::ResponseError::try_from_code(code)
+        .map_or_else(|| "NONE".to_owned(), |e| screaming(&e.to_string()));
     format!("{name} ({code})")
 }
 
@@ -49,7 +50,11 @@ pub fn read_refused(code: i16) -> String {
 /// `7 d`, or `for ever` for -1.
 #[must_use]
 pub fn retention(ms: i64) -> String {
-    if ms < 0 { "for ever".to_owned() } else { span_ms(ms) }
+    if ms < 0 {
+        "for ever".to_owned()
+    } else {
+        span_ms(ms)
+    }
 }
 
 /// How the topic treats old records, as the first clause of its sentence: `keeps records for 7 d`.
@@ -116,12 +121,23 @@ fn offline_clause(n: usize, down: &[i32], up: &[i32]) -> Vec<Span> {
     if up.is_empty() {
         return vec![
             Span::text(format!("{} ", partitions(n))),
-            Span::text("are all offline after a failed flush and refuse writes until the machine restarts."),
+            Span::text(
+                "are all offline after a failed flush and refuse writes until the machine restarts.",
+            ),
         ];
     }
     vec![
-        Span::text(format!("Partition{} {} work{}; ", if up.len() == 1 { "" } else { "s" }, list_and(up), if up.len() == 1 { "s" } else { "" })),
-        Span::strong(format!("partition{} {}", if down.len() == 1 { "" } else { "s" }, list_and(down))),
+        Span::text(format!(
+            "Partition{} {} work{}; ",
+            if up.len() == 1 { "" } else { "s" },
+            list_and(up),
+            if up.len() == 1 { "s" } else { "" }
+        )),
+        Span::strong(format!(
+            "partition{} {}",
+            if down.len() == 1 { "" } else { "s" },
+            list_and(down)
+        )),
         Span::text(format!(
             " went offline after a failed flush and refuse{} writes until the machine restarts.",
             if down.len() == 1 { "s" } else { "" }
@@ -133,15 +149,26 @@ fn offline_clause(n: usize, down: &[i32], up: &[i32]) -> Vec<Span> {
 #[must_use]
 pub fn topic_sentence(h: &TopicHead) -> Vec<Span> {
     let n = h.parts.len();
-    let mut out = vec![Span::strong(h.name.clone()), Span::text(format!(" has {}", partitions(n)))];
+    let mut out = vec![
+        Span::strong(h.name.clone()),
+        Span::text(format!(" has {}", partitions(n))),
+    ];
     let down: Vec<i32> = h.offline().iter().map(|p| p.partition).collect();
     if !down.is_empty() {
-        let up: Vec<i32> = h.parts.iter().filter(|p| p.offline.is_none()).map(|p| p.partition).collect();
+        let up: Vec<i32> = h
+            .parts
+            .iter()
+            .filter(|p| p.offline.is_none())
+            .map(|p| p.partition)
+            .collect();
         out.push(Span::text(". "));
         out.extend(offline_clause(n, &down, &up));
         return out;
     }
-    out.push(Span::text(format!(", {}", keeps(h.cleanup, h.retention_ms))));
+    out.push(Span::text(format!(
+        ", {}",
+        keeps(h.cleanup, h.retention_ms)
+    )));
     if h.is_empty() {
         out.push(Span::text(", and is empty: offsets 0 to 0, no write yet."));
         return out;
@@ -165,18 +192,29 @@ fn txn_clause(h: &TopicHead) -> Vec<Span> {
     };
     let on: Vec<i32> = t.partitions.iter().map(|(p, _)| *p).collect();
     let mut out = vec![
-        Span::text(if h.txns.len() == 1 { " A transaction is open on " } else { " Transactions are open on " }),
+        Span::text(if h.txns.len() == 1 {
+            " A transaction is open on "
+        } else {
+            " Transactions are open on "
+        }),
         Span::strong(named(&h.name, &on)),
         Span::text(": "),
     ];
-    match h.parts.iter().filter(|p| p.held() > 0).max_by_key(|p| p.held()) {
+    match h
+        .parts
+        .iter()
+        .filter(|p| p.held() > 0)
+        .max_by_key(|p| p.held())
+    {
         Some(p) => out.push(Span::text(format!(
             "read_committed consumers are held {} behind on {}-{}.",
             count(usize::try_from(p.held()).unwrap_or(0), "record", "records"),
             h.name,
             p.partition
         ))),
-        None => out.push(Span::text("read_committed consumers are not held back yet.")),
+        None => out.push(Span::text(
+            "read_committed consumers are not held back yet.",
+        )),
     }
     out
 }
@@ -189,13 +227,26 @@ pub fn partitions_sentence(h: &TopicHead) -> Vec<Span> {
         Span::strong(number(h.records())),
         Span::text(format!(" records, {}.", bytes(h.bytes()))),
     ];
-    let moved: Vec<i32> = h.parts.iter().filter(|p| p.start > 0).map(|p| p.partition).collect();
+    let moved: Vec<i32> = h
+        .parts
+        .iter()
+        .filter(|p| p.start > 0)
+        .map(|p| p.partition)
+        .collect();
     if moved.is_empty() {
         out.push(Span::text(" The start is 0 on all of them."));
     } else {
-        out.push(Span::text(format!(" The start has moved on {}: records there were deleted.", named(&h.name, &moved))));
+        out.push(Span::text(format!(
+            " The start has moved on {}: records there were deleted.",
+            named(&h.name, &moved)
+        )));
     }
-    let held: Vec<i32> = h.parts.iter().filter(|p| p.held() > 0).map(|p| p.partition).collect();
+    let held: Vec<i32> = h
+        .parts
+        .iter()
+        .filter(|p| p.held() > 0)
+        .map(|p| p.partition)
+        .collect();
     if !held.is_empty() {
         out.push(Span::text(format!(
             " The last stable offset is below the high watermark on {}: an open transaction holds read_committed consumers back.",
@@ -212,8 +263,18 @@ pub fn reach_sentence(v: &MessagesView) -> Vec<Span> {
     let mut out = Vec::new();
     if r.returned == 0 {
         out.push(Span::text(match r.scanned {
-            Some((n, true)) => format!("No record matched. The search looked at all {} of the partition.", count(usize::try_from(n).unwrap_or(0), "record", "records")),
-            Some((n, false)) => format!("No record matched in the {} the search looked at; it stopped at its limit.", count(usize::try_from(n).unwrap_or(0), "newest record", "newest records")),
+            Some((n, true)) => format!(
+                "No record matched. The search looked at all {} of the partition.",
+                count(usize::try_from(n).unwrap_or(0), "record", "records")
+            ),
+            Some((n, false)) => format!(
+                "No record matched in the {} the search looked at; it stopped at its limit.",
+                count(
+                    usize::try_from(n).unwrap_or(0),
+                    "newest record",
+                    "newest records"
+                )
+            ),
             None => "The fetch returned no records.".to_owned(),
         }));
         return out;
@@ -224,13 +285,21 @@ pub fn reach_sentence(v: &MessagesView) -> Vec<Span> {
         None => "The fetch returned ".to_owned(),
     }));
     out.push(Span::strong(number(i64::try_from(r.returned).unwrap_or(0))));
-    out.push(Span::text(if r.returned == 1 { " record, offset " } else { " records, offsets " }));
+    out.push(Span::text(if r.returned == 1 {
+        " record, offset "
+    } else {
+        " records, offsets "
+    }));
     out.push(Span::strong(number(first)));
     if last != first {
         out.push(Span::text(" to "));
         out.push(Span::strong(number(last)));
     }
-    out.push(Span::text(if r.reached_end && r.scanned.is_none() { ", the end of the partition." } else { "." }));
+    out.push(Span::text(if r.reached_end && r.scanned.is_none() {
+        ", the end of the partition."
+    } else {
+        "."
+    }));
     if let Some((looked, complete)) = r.scanned {
         let n = number(i64::try_from(looked).unwrap_or(0));
         out.push(Span::text(if complete {

@@ -29,13 +29,27 @@ async fn topics_fragment(s: &Shared, id: &str, query: &Option<String>) -> Option
     let f = crate::form::parse(query.as_deref().unwrap_or(""));
     let filter = crate::form::get(&f, "q").unwrap_or("").trim().to_owned();
     let internal = crate::form::get(&f, "internal") == Some("1");
-    let q = crate::form::encode_query(&[("q", &filter), ("internal", if internal { "1" } else { "" })]);
+    let q = crate::form::encode_query(&[
+        ("q", &filter),
+        ("internal", if internal { "1" } else { "" }),
+    ]);
     match id {
-        t::LIST_SENTENCE => Some(t::sentence_fragment(&s.source.topics(&filter, internal, None).await, &s.base, &q)),
-        t::LIST_FRAGMENT => Some(t::list_fragment(&s.source.topics(&filter, internal, None).await, &s.base, &q)),
+        t::LIST_SENTENCE => Some(t::sentence_fragment(
+            &s.source.topics(&filter, internal, None).await,
+            &s.base,
+            &q,
+        )),
+        t::LIST_FRAGMENT => Some(t::list_fragment(
+            &s.source.topics(&filter, internal, None).await,
+            &s.base,
+            &q,
+        )),
         t::TOPIC_SENTENCE => {
             let name = crate::form::get(&f, "topic").unwrap_or("");
-            Some(t::topic_sentence_fragment(&s.source.topic_head(name).await?, &s.base))
+            Some(t::topic_sentence_fragment(
+                &s.source.topic_head(name).await?,
+                &s.base,
+            ))
         }
         t::MESSAGES_FRAGMENT => {
             let name = crate::form::get(&f, "topic").unwrap_or("");

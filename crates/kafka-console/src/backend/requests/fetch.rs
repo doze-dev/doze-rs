@@ -68,14 +68,19 @@ mod tests {
 
     #[test]
     fn a_fetch_never_waits_and_is_bounded_by_the_limit_it_was_given() {
-        let Request::Fetch(r) = fetch_partition(Uuid::from_u128(7), 2, 40, 1000, Isolation::ReadCommitted) else {
+        let Request::Fetch(r) =
+            fetch_partition(Uuid::from_u128(7), 2, 40, 1000, Isolation::ReadCommitted)
+        else {
             panic!("not a Fetch");
         };
         assert_eq!((r.max_wait_ms, r.min_bytes, r.max_bytes), (0, 0, 1000));
         assert_eq!(r.isolation_level, 1);
         assert_eq!(r.replica_id.0, -1);
         let p = &r.topics[0].partitions[0];
-        assert_eq!((p.partition, p.fetch_offset, p.partition_max_bytes), (2, 40, 1000));
+        assert_eq!(
+            (p.partition, p.fetch_offset, p.partition_max_bytes),
+            (2, 40, 1000)
+        );
         assert_eq!(r.topics[0].topic_id, Uuid::from_u128(7));
     }
 

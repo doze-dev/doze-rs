@@ -16,8 +16,14 @@ async fn bounds(b: &Backend, topic: &str, parts: &[i32]) -> Vec<(i64, i64, i64)>
     use requests::{Ask, EARLIEST, Isolation, LATEST};
     let mut asks = Vec::new();
     for &p in parts {
-        asks.push(Ask { partition: p, timestamp: EARLIEST });
-        asks.push(Ask { partition: p, timestamp: LATEST });
+        asks.push(Ask {
+            partition: p,
+            timestamp: EARLIEST,
+        });
+        asks.push(Ask {
+            partition: p,
+            timestamp: LATEST,
+        });
     }
     let answer = |r: Option<Response>| -> Vec<i64> {
         let Some(Response::ListOffsets(r)) = r else {
@@ -33,14 +39,40 @@ async fn bounds(b: &Backend, topic: &str, parts: &[i32]) -> Vec<(i64, i64, i64)>
             })
             .unwrap_or_default()
     };
-    let both = answer(b.call(requests::list_offsets(topic, &asks, Isolation::ReadUncommitted)).await.ok());
-    let latest: Vec<requests::Ask> = parts.iter().map(|&p| Ask { partition: p, timestamp: LATEST }).collect();
-    let stable = answer(b.call(requests::list_offsets(topic, &latest, Isolation::ReadCommitted)).await.ok());
+    let both = answer(
+        b.call(requests::list_offsets(
+            topic,
+            &asks,
+            Isolation::ReadUncommitted,
+        ))
+        .await
+        .ok(),
+    );
+    let latest: Vec<requests::Ask> = parts
+        .iter()
+        .map(|&p| Ask {
+            partition: p,
+            timestamp: LATEST,
+        })
+        .collect();
+    let stable = answer(
+        b.call(requests::list_offsets(
+            topic,
+            &latest,
+            Isolation::ReadCommitted,
+        ))
+        .await
+        .ok(),
+    );
     (0..parts.len())
         .map(|i| {
             let start = both.get(2 * i).copied().unwrap_or(0).max(0);
             let end = both.get(2 * i + 1).copied().unwrap_or(0).max(0);
-            let lso = stable.get(i).copied().unwrap_or(end).clamp(start, end.max(start));
+            let lso = stable
+                .get(i)
+                .copied()
+                .unwrap_or(end)
+                .clamp(start, end.max(start));
             (start, end, lso)
         })
         .collect()
@@ -48,17 +80,27 @@ async fn bounds(b: &Backend, topic: &str, parts: &[i32]) -> Vec<(i64, i64, i64)>
 
 /// The producers active on the topic: how many, and for each `(partition, producer id, open transaction's first offset)`.
 async fn producers(b: &Backend, topic: &str, parts: &[i32]) -> (usize, Vec<(i32, i64, i64)>) {
-    let Ok(Response::DescribeProducers(r)) = b.call(requests::describe_producers(topic, parts)).await
+    let Ok(Response::DescribeProducers(r)) =
+        b.call(requests::describe_producers(topic, parts)).await
     else {
         return (0, Vec::new());
     };
     let mut ids = std::collections::BTreeSet::new();
     let mut open = Vec::new();
-    for p in r.topics.iter().flat_map(|t| &t.partitions).filter(|p| p.error_code == 0) {
+    for p in r
+        .topics
+        .iter()
+        .flat_map(|t| &t.partitions)
+        .filter(|p| p.error_code == 0)
+    {
         for x in &p.active_producers {
             ids.insert(x.producer_id.0);
             if x.current_txn_start_offset >= 0 {
-                open.push((p.partition_index, x.producer_id.0, x.current_txn_start_offset));
+                open.push((
+                    p.partition_index,
+                    x.producer_id.0,
+                    x.current_txn_start_offset,
+                ));
             }
         }
     }
@@ -91,9 +133,9 @@ fn open_txns(topic: &str, all: &[txns::Open], starts: &[(i32, i64, i64)]) -> Vec
 }
 
 /// The head of a topic already looked up in Metadata.
-pub async fn head_of(b: &Backend, meta: &TopicMeta) -> TopicHead {
+pub(super) async fn head_of(b: &Backend, meta: &TopicMeta) -> TopicHead {
     let name = meta.name.as_str();
-    let configs = configs::of(b, &[meta.name.clone()]).await;
+    let configs = configs::of(b, std::slice::from_ref(&meta.name)).await;
     let c: TopicConfigs = configs.get(name).copied().unwrap_or_default();
     let offsets = bounds(b, name, &meta.partitions).await;
     let files = b.partition_files(name).unwrap_or_default();
@@ -124,7 +166,10 @@ pub async fn head_of(b: &Backend, meta: &TopicMeta) -> TopicHead {
         parts,
         txns: open_txns(name, &ongoing, &starts),
         tabs: TabCounts {
-            consumers: readers.by_topic.get(name).map_or(0, std::collections::BTreeSet::len),
+            consumers: readers
+                .by_topic
+                .get(name)
+                .map_or(0, std::collections::BTreeSet::len),
             producers: producer_count,
         },
         now_ms: now_ms(),
