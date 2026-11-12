@@ -216,4 +216,52 @@ mod tests {
         );
         drop(std::fs::remove_dir_all(&dir));
     }
+
+    #[tokio::test]
+    async fn state_is_kept_apart_by_the_region_a_call_was_signed_for() {
+        let dir = std::env::temp_dir().join(format!("doze-aws-regions-{}", std::process::id()));
+        let peers = bus(&dir);
+        let in_region = |region: &str| Caller {
+            region: region.into(),
+            ..caller()
+        };
+        let made = peers
+            .call(
+                "test",
+                &in_region("eu-west-1"),
+                "kms",
+                "CreateKey",
+                &json!({}),
+            )
+            .await
+            .unwrap();
+        let id = made["KeyMetadata"]["KeyId"].as_str().unwrap().to_owned();
+        let seen = |region: &str| {
+            let (peers, caller) = (Arc::clone(&peers), in_region(region));
+            async move {
+                peers
+                    .call("test", &caller, "kms", "ListKeys", &json!({}))
+                    .await
+                    .unwrap()["Keys"]
+                    .as_array()
+                    .unwrap()
+                    .len()
+            }
+        };
+        assert_eq!((seen("eu-west-1").await, seen("us-east-1").await), (1, 0));
+        let elsewhere = peers
+            .call(
+                "test",
+                &in_region("us-east-1"),
+                "kms",
+                "DescribeKey",
+                &json!({"KeyId": id}),
+            )
+            .await
+            .unwrap_err();
+        assert_eq!(elsewhere.code, "NotFoundException");
+        // The region the files are kept in for itself is the home region's: the others go in a directory of their own.
+        assert!(dir.join("regions").join("eu-west-1").exists());
+        drop(std::fs::remove_dir_all(&dir));
+    }
 }

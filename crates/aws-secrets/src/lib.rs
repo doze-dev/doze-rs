@@ -25,14 +25,18 @@ use aws_model_secrets_manager::tables::TABLES;
 use aws_schema::json::Violation;
 use aws_wire::ApiError;
 use aws_wire::service::{BoxFuture, Call, Reply, Service};
-use doze_runtime::{Ctx, Lazy};
+use doze_runtime::{Ctx, Keyed};
 
 use crate::core::{Answer, Core};
+
+/// The region whose files are kept in the service's directory itself (state written before regions were kept apart is its).
+const HOME_REGION: &str = "us-east-1";
 
 /// The Secrets Manager service. Nothing runs until the first request.
 #[derive(Debug)]
 pub struct Secrets {
-    actor: Lazy<Core>,
+    /// One actor per region: a queue, parameter, secret or key belongs to the region that made it.
+    actors: Keyed<Core>,
 }
 
 impl Secrets {
@@ -40,13 +44,22 @@ impl Secrets {
     #[must_use]
     pub fn new(ctx: Arc<Ctx>) -> Self {
         Self {
-            actor: Lazy::new("secretsmanager", ctx),
+            actors: Keyed::new("secretsmanager", ctx, HOME_REGION),
         }
+    }
+
+    /// Sends the call to the actor of the region it was signed for.
+    async fn call_actor(&self, call: Call) -> Result<Answer, String> {
+        let actor = self
+            .actors
+            .actor(&call.caller.region)
+            .map_err(|e| e.to_string())?;
+        actor.call(call).await.map_err(|e| e.to_string())
     }
 
     /// Asks the actor, and holds the answer until what it changed is on disk.
     async fn ask(&self, call: Call) -> Reply {
-        let mut answer = match self.actor.call(call).await {
+        let mut answer = match self.call_actor(call).await {
             Ok(answer) => answer,
             Err(e) => Answer {
                 reply: Err(ApiError::internal(e.to_string())),

@@ -31,7 +31,7 @@ use aws_schema::meta::ServiceMeta;
 use aws_schema::tables::Tables;
 use aws_wire::ApiError;
 use aws_wire::service::{BoxFuture, Call, Reply, Service};
-use doze_runtime::{Ctx, Lazy};
+use doze_runtime::{Ctx, Keyed};
 
 use crate::core::{Answer, Core};
 
@@ -41,10 +41,14 @@ pub(crate) fn md5_hex(bytes: &[u8]) -> String {
     aws_core::hex::encode(&Md5::digest(bytes))
 }
 
+/// The region whose files are kept in the service's directory itself (state written before regions were kept apart is its).
+const HOME_REGION: &str = "us-east-1";
+
 /// The SQS service. Nothing runs until the first request.
 #[derive(Debug)]
 pub struct Sqs {
-    actor: Lazy<Core>,
+    /// One actor per region: a queue, parameter, secret or key belongs to the region that made it.
+    actors: Keyed<Core>,
     /// Woken by anything that could give a waiting receive a message.
     arrived: tokio::sync::Notify,
 }
@@ -54,9 +58,18 @@ impl Sqs {
     #[must_use]
     pub fn new(ctx: Arc<Ctx>) -> Self {
         Self {
-            actor: Lazy::new("sqs", ctx),
+            actors: Keyed::new("sqs", ctx, HOME_REGION),
             arrived: tokio::sync::Notify::new(),
         }
+    }
+
+    /// Sends the call to the actor of the region it was signed for.
+    async fn call_actor(&self, call: Call) -> Result<Answer, String> {
+        let actor = self
+            .actors
+            .actor(&call.caller.region)
+            .map_err(|e| e.to_string())?;
+        actor.call(call).await.map_err(|e| e.to_string())
     }
 
     /// Asks the actor, and holds the answer until what it changed is on disk.
@@ -71,7 +84,7 @@ impl Sqs {
     }
 
     async fn ask_actor(&self, call: Call) -> Answer {
-        match self.actor.call(call).await {
+        match self.call_actor(call).await {
             Ok(answer) => answer,
             Err(e) => Answer {
                 reply: Err(ApiError::internal(e.to_string())),
