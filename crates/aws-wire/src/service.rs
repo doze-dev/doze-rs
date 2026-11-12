@@ -7,7 +7,7 @@ use std::pin::Pin;
 use aws_schema::arena::Arena;
 use aws_schema::json::Violation;
 use aws_schema::meta::ServiceMeta;
-use aws_schema::tables::Tables;
+use aws_schema::tables::{RangeRef, Tables};
 
 use crate::{ApiError, RequestId};
 
@@ -80,6 +80,12 @@ pub trait Service: Send + Sync + 'static {
     /// Its model's tables.
     fn tables(&self) -> &'static Tables;
 
+    /// Whether the service serves operation `op`. One it does not is refused by name (501 `NotImplemented`, `X-Doze-Not-Built`)
+    /// before its body is read, so a service need not carry validation tables for operations it will never run.
+    fn serves(&self, _op: u32) -> bool {
+        true
+    }
+
     /// Handles one call. An error names a modelled shape ([`ApiError::modeled`]) or states itself.
     fn call(&self, call: Call) -> BoxFuture<'_, Reply>;
 
@@ -91,7 +97,11 @@ pub trait Service: Send + Sync + 'static {
     }
 }
 
-/// The Coral front end's wording of a failed model check.
+/// The Coral front end's wording of a failed model check. A bad enum value is worded as AWS worded it when the SSM scenario
+/// was recorded (2026-11-09): `1 validation error detected: Value 'Sentence' at 'type' failed to satisfy constraint: Member must
+/// satisfy enum value set: [SecureString, StringList, String]`. That one case is the evidence for the whole shape, including the
+/// enum set listed in the reverse of the model's order; the length, range and pattern sentences follow the same convention
+/// from memory and are checked by whichever scenario first reaches them.
 #[must_use]
 pub fn default_invalid(tables: &Tables, violation: &Violation) -> ApiError {
     let member = |ix: u32| tables.member(ix).map_or("", |m| m.name);
@@ -106,26 +116,75 @@ pub fn default_invalid(tables: &Tables, violation: &Violation) -> ApiError {
         Violation::Missing { member: m, .. } => {
             format!("The request must contain the parameter {}.", member(*m))
         }
-        Violation::Length { member: m } => format!(
-            "Value at '{}' failed to satisfy its length constraint.",
-            member(*m)
-        ),
-        Violation::Range { member: m } => format!(
-            "Value at '{}' failed to satisfy its range constraint.",
-            member(*m)
-        ),
-        Violation::Pattern { member: m } => format!(
-            "Value at '{}' failed to satisfy its pattern constraint.",
-            member(*m)
-        ),
-        Violation::Enum { member: m } => format!(
-            "Value at '{}' is not one of the allowed values.",
-            member(*m)
-        ),
+        Violation::Length { member: m, value }
+        | Violation::Range { member: m, value }
+        | Violation::Pattern { member: m, value }
+        | Violation::Enum { member: m, value } => {
+            constraint(tables, violation, *m, value.as_deref())
+        }
         Violation::Union { .. } => "Exactly one member of a union may be set.".to_owned(),
         _ => "The request is not valid.".to_owned(),
     };
     ApiError::new(400, "ValidationException", message)
+}
+
+/// `Value 'x' at 'member' failed to satisfy constraint: Member must ...`.
+#[allow(clippy::cast_precision_loss)]
+fn constraint(tables: &Tables, violation: &Violation, ix: u32, value: Option<&str>) -> String {
+    let Some(m) = tables.member(ix) else {
+        return "The request is not valid.".to_owned();
+    };
+    let cons = tables.cons(m.cons);
+    let must = match (violation, cons) {
+        (Violation::Enum { .. }, Some(c)) => {
+            let mut values = tables.enum_values(c.enum_set);
+            values.reverse();
+            format!("satisfy enum value set: [{}]", values.join(", "))
+        }
+        (Violation::Pattern { .. }, Some(c)) => {
+            format!(
+                "satisfy regular expression pattern: {}",
+                c.pattern.unwrap_or_default()
+            )
+        }
+        (Violation::Length { .. }, Some(c)) => {
+            let n = value.map(|v| v.chars().count() as f64);
+            bound(
+                "length",
+                n,
+                c.len_min.map(|x| x as f64),
+                c.len_max.map(|x| x as f64),
+            )
+        }
+        (Violation::Range { .. }, Some(c)) => {
+            let (lo, hi) = match c.range {
+                Some(RangeRef::Int(a, b)) => (a.map(|x| x as f64), b.map(|x| x as f64)),
+                Some(RangeRef::Float(a, b)) => (a, b),
+                None => (None, None),
+            };
+            bound("value", value.and_then(|v| v.parse().ok()), lo, hi)
+        }
+        _ => "satisfy its constraint".to_owned(),
+    };
+    let mut name = m.name.to_owned();
+    if let Some(first) = name.get_mut(..1) {
+        first.make_ascii_lowercase();
+    }
+    format!(
+        "1 validation error detected: Value '{}' at '{name}' failed to satisfy constraint: Member must {must}",
+        value.unwrap_or("null")
+    )
+}
+
+/// `have length less than or equal to 10`: the bound the value broke (the upper one when it is not known which).
+#[allow(clippy::cast_precision_loss)]
+fn bound(what: &str, actual: Option<f64>, lo: Option<f64>, hi: Option<f64>) -> String {
+    let below = lo.filter(|lo| actual.is_some_and(|a| a < *lo));
+    match (below, hi) {
+        (Some(lo), _) => format!("have {what} greater than or equal to {lo}"),
+        (None, Some(hi)) => format!("have {what} less than or equal to {hi}"),
+        (None, None) => format!("have a valid {what}"),
+    }
 }
 
 #[cfg(test)]

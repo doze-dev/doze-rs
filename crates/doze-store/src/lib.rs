@@ -10,12 +10,15 @@
 //! Extracted from `kafka-meta` (A1); the group-commit writer is new.
 
 mod backend;
+mod db;
 mod error;
 mod group;
 pub mod record;
+pub mod records;
 mod store;
 
 pub use backend::FileBackend;
+pub use db::Db;
 pub use error::StoreError;
 pub use group::{Ack, GroupCommit, Op};
 pub use store::Store;

@@ -1,0 +1,30 @@
+[package]
+name = "aws-ssm"
+version = "0.0.0"
+description = "SSM Parameter Store: parameters, versions, labels and tags, as a state machine behind a lazy actor"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+aws-model-ssm = { path = "../aws-model-ssm" }
+aws-schema = { path = "../aws-schema" }
+aws-wire = { path = "../aws-wire" }
+aws-core = { path = "../aws-core" }
+doze-runtime = { path = "../doze-runtime" }
+doze-store = { path = "../doze-store" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+regex-lite = "0.1"
+getrandom = "0.4"
+aes-gcm = "0.11"
+
+[dev-dependencies]
+tokio = { version = "1", default-features = false, features = ["rt", "macros", "time", "test-util", "sync"] }
+aws-testkit = { path = "../aws-testkit" }
+serde_json = "1"

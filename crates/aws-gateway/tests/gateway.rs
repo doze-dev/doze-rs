@@ -38,6 +38,10 @@ impl Service for FakeSqs {
         &TABLES
     }
 
+    fn serves(&self, op: u32) -> bool {
+        TABLES.op(op).unwrap().name != "PurgeQueue"
+    }
+
     fn call(&self, call: Call) -> BoxFuture<'_, Reply> {
         Box::pin(async move {
             let name = TABLES.op(call.op).unwrap().name;
@@ -176,6 +180,24 @@ async fn a_body_the_model_refuses_never_reaches_the_service() {
         assert_eq!(status, 400, "{body}");
         assert!(answer.contains("ValidationException"), "{answer}");
     }
+    running.shutdown().await;
+}
+
+#[tokio::test]
+async fn an_operation_the_service_does_not_serve_is_refused_before_its_body_is_read() {
+    let (running, addr) = start(Auth::Trust).await;
+    let auth = format!("AWS4-HMAC-SHA256 {SCOPE}");
+    // The body is nonsense for the operation, and is never looked at: the refusal names the operation.
+    let (status, head, body) = send(
+        addr,
+        &trusting_headers("AmazonSQS.PurgeQueue", &auth),
+        "this is not json",
+    )
+    .await;
+    assert_eq!(status, 501, "{body}");
+    assert!(head.contains("x-doze-not-built: 1"), "{head}");
+    assert!(body.contains("NotImplemented"), "{body}");
+    assert!(body.contains("PurgeQueue is not built in doze-aws."), "{body}");
     running.shutdown().await;
 }
 

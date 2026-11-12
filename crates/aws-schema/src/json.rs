@@ -18,15 +18,38 @@ const MAX_DEPTH: u32 = 100;
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum Violation {
-    Syntax { at: usize },
+    Syntax {
+        at: usize,
+    },
     TooDeep,
-    Type { member: u32, expected: &'static str },
-    Missing { shape: u32, member: u32 },
-    Length { member: u32 },
-    Range { member: u32 },
-    Pattern { member: u32 },
-    Enum { member: u32 },
-    Union { shape: u32 },
+    Type {
+        member: u32,
+        expected: &'static str,
+    },
+    Missing {
+        shape: u32,
+        member: u32,
+    },
+    /// `value` is the offending value as text, when it is a scalar (a list or map has none to show).
+    Length {
+        member: u32,
+        value: Option<String>,
+    },
+    Range {
+        member: u32,
+        value: Option<String>,
+    },
+    Pattern {
+        member: u32,
+        value: Option<String>,
+    },
+    Enum {
+        member: u32,
+        value: Option<String>,
+    },
+    Union {
+        shape: u32,
+    },
     Table,
 }
 

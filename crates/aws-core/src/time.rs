@@ -49,6 +49,41 @@ pub fn parse_amz_date(s: &str) -> Option<i64> {
     Some(days_from_civil(y, mo, d) * 86_400 + h * 3600 + mi * 60 + se)
 }
 
+/// Parse an RFC 3339 / ISO 8601 timestamp (`2026-12-31T23:59:59Z`, `...59.250+02:00`) to unix seconds, dropping any fraction.
+// fuzz:parser fuzz_rfc3339
+#[must_use]
+pub fn parse_rfc3339(s: &str) -> Option<i64> {
+    let (date, rest) = s.split_once(['T', 't', ' '])?;
+    let mut d = date.splitn(3, '-');
+    let (y, mo, dd) = (
+        d.next()?.parse::<i64>().ok()?,
+        d.next()?.parse::<i64>().ok()?,
+        d.next()?.parse::<i64>().ok()?,
+    );
+    let split = rest.find(['Z', 'z', '+', '-'])?;
+    let (clock, offset) = (rest.get(..split)?, rest.get(split..)?);
+    let clock = clock.split_once('.').map_or(clock, |(whole, _)| whole);
+    let mut t = clock.splitn(3, ':');
+    let (h, mi, se) = (
+        t.next()?.parse::<i64>().ok()?,
+        t.next()?.parse::<i64>().ok()?,
+        t.next().map_or(Some(0), |x| x.parse::<i64>().ok())?,
+    );
+    if !(1..=12).contains(&mo) || !(1..=31).contains(&dd) || h > 23 || mi > 59 || se > 60 {
+        return None;
+    }
+    let shift = match offset.as_bytes().first()? {
+        b'Z' | b'z' if offset.len() == 1 => 0,
+        sign @ (b'+' | b'-') => {
+            let (oh, om) = offset.get(1..)?.split_once(':')?;
+            let secs = oh.parse::<i64>().ok()? * 3600 + om.parse::<i64>().ok()? * 60;
+            if *sign == b'+' { secs } else { -secs }
+        }
+        _ => return None,
+    };
+    Some(days_from_civil(y, mo, dd) * 86_400 + h * 3600 + mi * 60 + se - shift)
+}
+
 /// Format unix seconds as `YYYYMMDDTHHMMSSZ`.
 #[must_use]
 pub fn format_amz_date(secs: i64) -> String {
@@ -106,6 +141,26 @@ mod tests {
         );
         assert!(parse_amz_date("2013-05-24").is_none());
         assert!(parse_amz_date("20131324T000000Z").is_none());
+    }
+
+    #[test]
+    fn rfc3339_in_its_forms() {
+        let zulu = parse_rfc3339("2026-12-31T23:59:59Z").unwrap();
+        assert_eq!(format_iso8601(zulu), "2026-12-31T23:59:59.000Z");
+        // A fraction is dropped, and an offset moves the instant.
+        assert_eq!(parse_rfc3339("2026-12-31T23:59:59.999Z"), Some(zulu));
+        assert_eq!(parse_rfc3339("2027-01-01T01:59:59+02:00"), Some(zulu));
+        assert_eq!(parse_rfc3339("2026-12-31T18:59:59-05:00"), Some(zulu));
+        for bad in [
+            "",
+            "2026-12-31",
+            "2026-13-01T00:00:00Z",
+            "2026-12-31T25:00:00Z",
+            "2026-12-31T00:00:00",
+            "2026-12-31T00:00:00+0200",
+        ] {
+            assert_eq!(parse_rfc3339(bad), None, "{bad}");
+        }
     }
 
     #[test]

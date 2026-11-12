@@ -149,7 +149,7 @@ fn invalid(violation: &Violation) -> ApiError {
     let member = |ix: u32| TABLES.member(ix).map_or("", |m| m.name);
     match violation {
         Violation::Missing { member: m, .. } => core::missing(member(*m)),
-        Violation::Pattern { member: m } | Violation::Length { member: m }
+        Violation::Pattern { member: m, .. } | Violation::Length { member: m, .. }
             if member(*m) == "QueueName" =>
         {
             core::invalid_parameter(

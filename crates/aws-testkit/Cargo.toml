@@ -1,0 +1,17 @@
+[package]
+name = "aws-testkit"
+version = "0.0.0"
+description = "Test support for AWS services: a request decoded against a model, an answer read back as JSON"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+aws-schema = { path = "../aws-schema" }
+aws-wire = { path = "../aws-wire" }
+serde_json = "1"

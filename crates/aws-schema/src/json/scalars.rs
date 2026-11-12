@@ -31,7 +31,10 @@ impl D<'_> {
                 }
             };
             if !ok {
-                return Err(Violation::Range { member: mi });
+                return Err(Violation::Range {
+                    member: mi,
+                    value: Some(n.to_string()),
+                });
             }
         }
         Ok(Val::Int(n))
@@ -63,7 +66,10 @@ impl D<'_> {
                 }
             };
             if !ok {
-                return Err(Violation::Range { member: mi });
+                return Err(Violation::Range {
+                    member: mi,
+                    value: Some(f.to_string()),
+                });
             }
         }
         Ok(Val::Float(f))
@@ -87,16 +93,25 @@ impl D<'_> {
             if c.len_min.is_some() || c.len_max.is_some() {
                 let n = s.chars().count() as u64;
                 if c.len_min.is_some_and(|a| n < a) || c.len_max.is_some_and(|b| n > b) {
-                    return Err(Violation::Length { member: mi });
+                    return Err(Violation::Length {
+                        member: mi,
+                        value: Some(s.to_owned()),
+                    });
                 }
             }
             if c.enum_set != 0 && !self.t.enum_has(c.enum_set, s) {
-                return Err(Violation::Enum { member: mi });
+                return Err(Violation::Enum {
+                    member: mi,
+                    value: Some(s.to_owned()),
+                });
             }
             if let Some(p) = c.pattern
                 && !self.pats.matches(m.cons, p, s)
             {
-                return Err(Violation::Pattern { member: mi });
+                return Err(Violation::Pattern {
+                    member: mi,
+                    value: Some(s.to_owned()),
+                });
             }
         }
         Ok(v)
@@ -127,7 +142,10 @@ impl D<'_> {
         }
         let len = u32::try_from(self.ar.bin.len()).unwrap_or(0) - off;
         if out_of_bounds(c, u64::from(len)) {
-            return Err(Violation::Length { member: mi });
+            return Err(Violation::Length {
+                member: mi,
+                value: None,
+            });
         }
         Ok(Val::Blob(off, len))
     }

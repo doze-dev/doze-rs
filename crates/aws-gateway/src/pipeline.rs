@@ -128,6 +128,14 @@ async fn handle(
         return Err(Box::new(json::query_refusal(meta, id)));
     }
     let op = json::route(meta, tables, parts).map_err(|e| fail(&e))?;
+    if !entry.service.serves(op) {
+        let name = tables.op(op).map_or("", |o| o.name);
+        return Err(fail(&ApiError::new(
+            501,
+            "NotImplemented",
+            format!("{name} is not built in doze-aws."),
+        )));
+    }
     let caller = Caller {
         access_key_id: claim.access_key_id,
         account_id: shared.config.account_id.clone(),

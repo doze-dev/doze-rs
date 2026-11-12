@@ -7,4 +7,6 @@ doze-kafka 5150000 115 8192 --listen 127.0.0.1:{port} --data-dir {data}
 # doze-aws: measured 2026-11-12 on darwin/arm64 with SQS and its database: 2,687,088 B, 118 packages (the ones that only run at build time count: serde_derive
 # and its macro crates), 3,120 KB idle. It was 1,914,240 B and 109 packages before SQS kept its state on disk: redb is 507 KiB of the difference. The
 # byte limit is the macOS size times 1.3 (the Linux build of doze-kafka is about 1.2 times its macOS one) plus 5%; it is re-based from the first Linux CI run.
-doze-aws 3700000 120 6144 --listen 127.0.0.1:{port} --data-dir {data}
+# 2026-11-12, with SSM Parameter Store: 3,086,160 B, 139 packages, 3,232 KB idle (+399 KB and +21 packages over SQS alone: AES-GCM and its trait
+# crates for SecureString, regex-lite for AllowedPattern, the SSM model's tables). Same 1.3 times macOS plus 5%; the package limit leaves three of room.
+doze-aws 4250000 142 6144 --listen 127.0.0.1:{port} --data-dir {data}

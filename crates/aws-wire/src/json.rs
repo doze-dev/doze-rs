@@ -138,6 +138,9 @@ pub fn failure(
     };
     let status = StatusCode::from_u16(status).unwrap_or(StatusCode::BAD_REQUEST);
     let mut builder = base(status, version, id);
+    if err.status == 501 && err.code == "NotImplemented" {
+        builder = builder.header("x-doze-not-built", "1");
+    }
     if meta.query_compatible {
         let code = query_code.unwrap_or(err.code.as_ref());
         let who = if fault == Fault::Receiver {

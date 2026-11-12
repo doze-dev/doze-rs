@@ -47,7 +47,10 @@ impl D<'_> {
             }
         }
         if out_of_bounds(c, n) {
-            return Err(Violation::Length { member: mi });
+            return Err(Violation::Length {
+                member: mi,
+                value: None,
+            });
         }
         Ok(Val::Seq(first))
     }
@@ -107,7 +110,10 @@ impl D<'_> {
             }
         }
         if out_of_bounds(c, n) {
-            return Err(Violation::Length { member: mi });
+            return Err(Violation::Length {
+                member: mi,
+                value: None,
+            });
         }
         Ok(Val::Seq(first))
     }
