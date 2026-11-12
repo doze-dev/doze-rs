@@ -406,9 +406,11 @@ dependencies = [
  "aws-wire",
  "doze-runtime",
  "doze-store",
+ "flate2",
  "serde",
  "serde_json",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
