@@ -16,7 +16,7 @@ A server-rendered overlay is adopted by the script at load: the same Esc, scrim,
 
 A submit control that asks for a GET (`formmethod="get"`, the Reset dialog's Preview) is fetched as a GET with the form's fields in the address and never posts; the overlay that comes back replaces this one and takes that address.
 
-Built so far: Topics (record drawer, Produce, Add partitions, Delete records, Delete topic), Groups (member drawer over Members; Reset offsets and Delete offsets over Lag; Delete group over the group page: `handlers/groups_dialogs.rs`, parents in `handlers/groups.rs`) and Config (edit and reset over the Config page: `config_parent` in `handlers/config.rs`).
+Built so far: Topics (record drawer, Produce, Add partitions, Delete records, Delete topic), Groups (member drawer over Members; Reset offsets and Delete offsets over Lag; Delete group over the group page: `handlers/groups_dialogs.rs`, parents in `handlers/groups.rs`) Config (edit and reset over the Config page: `config_parent` in `handlers/config.rs`), Settings (the broker-config edit dialog over the Settings page: `settings_parent` in `handlers/settings.rs`) and Access (Create ACL and Delete ACL over the Access page: `access_parent` in `handlers/access.rs`).
 
 ## Motion
 
