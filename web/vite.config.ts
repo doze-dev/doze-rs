@@ -19,6 +19,9 @@ export default defineConfig({
     assetsInlineLimit: 0,
     modulePreload: { polyfill: false },
     target: "es2022",
+    // The main chunk is React, Radix, TanStack Router and Query (about 180 KiB gzipped): measured and written down in
+    // docs/port/weight.md, so the warning says nothing new.
+    chunkSizeWarningLimit: 700,
   },
   server: {
     proxy: { "/api": { target: process.env.DOZE_CONSOLE ?? "http://127.0.0.1:9093", headers: { "X-Console": "1" } } },

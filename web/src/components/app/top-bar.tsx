@@ -20,7 +20,7 @@ export function TopBar({ onPalette }: { onPalette: () => void }) {
         <span className="truncate">Jump to a topic or group</span>
         <kbd className="ml-auto rounded-[5px] border bg-card px-1.5 font-mono text-[11px] leading-[18px]">{mac ? "⌘K" : "Ctrl K"}</kbd>
       </button>
-      <div className="ml-auto flex min-w-0 items-center gap-2">
+      <div className="ml-auto flex shrink-0 items-center gap-2">
         {!s ? (
           <Skeleton className="h-[30px] w-72 rounded-full" />
         ) : (
@@ -45,7 +45,7 @@ export function TopBar({ onPalette }: { onPalette: () => void }) {
               </TooltipTrigger>
               <TooltipContent>Copy the bootstrap address</TooltipContent>
             </Tooltip>
-            <span className={`${chip} hidden lg:inline-flex`} data-testid="profile-chip">
+            <span className={`${chip} hidden xl:inline-flex`} data-testid="profile-chip">
               {s.profile}
             </span>
             <Tooltip>

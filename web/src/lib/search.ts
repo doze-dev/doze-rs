@@ -17,14 +17,14 @@ export function connectSearch(s: Record<string, unknown>): ConnectSearch {
 export type GallerySearch = {
   tab?: "messages" | "partitions" | "config";
   density?: "comfortable" | "compact";
-  rows?: "20" | "1000";
+  rows?: 1000;
   record?: string;
 };
 export function gallerySearch(s: Record<string, unknown>): GallerySearch {
   return {
     tab: oneOf(["messages", "partitions", "config"] as const, s.tab),
     density: oneOf(["comfortable", "compact"] as const, s.density),
-    rows: oneOf(["20", "1000"] as const, typeof s.rows === "number" ? String(s.rows) : s.rows),
+    rows: s.rows === 1000 || s.rows === "1000" ? 1000 : undefined,
     record: shortText(s.record),
   };
 }

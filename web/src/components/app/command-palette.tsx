@@ -10,7 +10,7 @@ const segment = (s: string) => encodeURIComponent(s);
 
 /** The ⌘K palette: Recents, Pages, Topics, Groups. Names come from `/api/v1/jump?q=` (the server filters); pages and recents
  * are filtered here. Choosing one goes there and remembers it. */
-export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
+export function CommandPalette({ open, onOpenChange, returnFocus }: { open: boolean; onOpenChange: (o: boolean) => void; returnFocus: () => HTMLElement | null }) {
   const [q, setQ] = useState("");
   const deferred = useDeferredValue(q.trim());
   const jump = useJump(deferred, open);
@@ -39,10 +39,21 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
   const needle = q.trim().toLowerCase();
   const pages = PAGES.filter((p) => !needle || p.label.toLowerCase().includes(needle) || (p.keywords ?? "").includes(needle));
   const shownRecents = recents.filter((r) => !needle || r.label.toLowerCase().includes(needle));
-  const topics = jump.data?.topics ?? [];
-  const groups = jump.data?.groups ?? [];
+  // While the answer for the newest text is on its way the previous one is shown (keepPreviousData), narrowed here by the
+  // same rule, so the list never offers a name the next answer will take away (Enter would land on nothing).
+  const match = (n: string) => !needle || n.toLowerCase().includes(needle);
+  const topics = (jump.data?.topics ?? []).filter(match);
+  const groups = (jump.data?.groups ?? []).filter(match);
   return (
-    <CommandDialog open={open} onOpenChange={onOpen} title="Jump to a topic or group" description="Type a name, then Enter" className="top-[18%] translate-y-0 sm:max-w-xl" showCloseButton={false} shouldFilter={false}>
+    <CommandDialog open={open} onOpenChange={onOpen} title="Jump to a topic or group" description="Type a name, then Enter" className="top-[18%] translate-y-0 sm:max-w-xl" showCloseButton={false} shouldFilter={false} onCloseAutoFocus={(e) => {
+        // Safari and Firefox on macOS do not focus a button that is clicked, so "the element focused before" can be the body:
+        // give the focus to the element that opened the palette (or the top bar's trigger).
+        const el = returnFocus();
+        if (el) {
+          e.preventDefault();
+          el.focus();
+        }
+      }}>
       <CommandInput placeholder="Jump to a topic, a group or a page…" value={q} onValueChange={setQ} data-testid="palette-input" />
       <CommandList className="max-h-[min(26rem,60vh)]" data-testid="palette-list">
         <CommandEmpty>{jump.isFetching ? "Looking…" : `Nothing is called “${q.trim()}”.`}</CommandEmpty>

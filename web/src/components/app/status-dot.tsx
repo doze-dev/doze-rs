@@ -12,9 +12,9 @@ const tones: Record<Tone, string> = {
 
 /** A state word with a dot of its colour (`Running`, `Reachable`, `Not checked`). The word carries the meaning; the colour
  * only repeats it. */
-export function StatusDot({ tone, children, className }: { tone: Tone; children: React.ReactNode; className?: string }) {
+export function StatusDot({ tone, children, className, ...rest }: { tone: Tone; children: React.ReactNode; className?: string } & React.HTMLAttributes<HTMLSpanElement>) {
   return (
-    <span className={cn("inline-flex items-center gap-1.5 text-[13px] font-semibold whitespace-nowrap", tones[tone], className)} data-tone={tone}>
+    <span {...rest} className={cn("inline-flex items-center gap-1.5 text-[13px] font-semibold whitespace-nowrap", tones[tone], className)} data-tone={tone}>
       <span aria-hidden className="size-2 shrink-0 rounded-full bg-current" />
       {children}
     </span>

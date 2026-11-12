@@ -1,5 +1,5 @@
 import { createRootRoute, createRoute, createRouter, lazyRouteComponent, Outlet } from "@tanstack/react-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { basePath } from "@/api/client";
 import { AppSidebar } from "@/components/app/app-sidebar";
 import { CommandPalette } from "@/components/app/command-palette";
@@ -12,15 +12,24 @@ import { NotFoundPage, PlannedPage } from "@/pages/planned";
 
 function Shell() {
   const [palette, setPalette] = useState(false);
+  // Where the focus goes back when the palette closes: what had it when the palette opened, else the top bar's trigger.
+  const opener = useRef<HTMLElement | null>(null);
+  const openPalette = (o: boolean) => {
+    if (o) {
+      const active = document.activeElement as HTMLElement | null;
+      opener.current = active && active !== document.body ? active : document.querySelector<HTMLElement>("[data-testid=palette-trigger]");
+    }
+    setPalette(o);
+  };
   return (
     <SidebarProvider className="[--sidebar-width:13rem]">
       <AppSidebar />
       <SidebarInset className="min-w-0 bg-background">
-        <TopBar onPalette={() => setPalette(true)} />
+        <TopBar onPalette={() => openPalette(true)} />
         <main id="main" className="mx-auto w-full max-w-[1600px] min-w-0 px-6 pt-6 pb-20 lg:px-10 xl:px-12" tabIndex={-1}>
           <Outlet />
         </main>
-        <CommandPalette open={palette} onOpenChange={setPalette} />
+        <CommandPalette open={palette} onOpenChange={openPalette} returnFocus={() => (opener.current?.isConnected ? opener.current : document.querySelector<HTMLElement>("[data-testid=palette-trigger]"))} />
       </SidebarInset>
     </SidebarProvider>
   );

@@ -3,26 +3,26 @@
 /// Every file of the bundle.
 pub const FILES: &[(&str, Served)] = &[
     (
-        "assets/gallery-D708v8vJ.js",
+        "assets/gallery-BzumiFqF.js",
         Served {
             content_type: "text/javascript; charset=utf-8",
-            bytes: include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/web-dist/assets/gallery-D708v8vJ.js.gz")),
+            bytes: include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/web-dist/assets/gallery-BzumiFqF.js.gz")),
             gzip: true,
         },
     ),
     (
-        "assets/index-BWXouZoU.js",
+        "assets/index-B0X0vP2c.js",
         Served {
             content_type: "text/javascript; charset=utf-8",
-            bytes: include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/web-dist/assets/index-BWXouZoU.js.gz")),
+            bytes: include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/web-dist/assets/index-B0X0vP2c.js.gz")),
             gzip: true,
         },
     ),
     (
-        "assets/index-Bevxy3Vl.css",
+        "assets/index-CCwTx9ja.css",
         Served {
             content_type: "text/css; charset=utf-8",
-            bytes: include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/web-dist/assets/index-Bevxy3Vl.css.gz")),
+            bytes: include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/web-dist/assets/index-CCwTx9ja.css.gz")),
             gzip: true,
         },
     ),

@@ -46,6 +46,7 @@ function SheetContent({
   children,
   side = "right",
   showCloseButton = true,
+  onOpenAutoFocus,
   ...props
 }: React.ComponentProps<typeof SheetPrimitive.Content> & {
   side?: "top" | "right" | "bottom" | "left"
@@ -55,9 +56,18 @@ function SheetContent({
     <SheetPortal>
       <SheetOverlay />
       <SheetPrimitive.Content
+        // A drawer reads first: the focus goes to the panel (named by its title), not to the first control in it, which may be a
+        // tooltip trigger that would open its tooltip and take the first Esc. A caller can still choose a field.
+        onOpenAutoFocus={
+          onOpenAutoFocus ??
+          ((e) => {
+            e.preventDefault()
+            ;(e.currentTarget as HTMLElement | null)?.focus()
+          })
+        }
         data-slot="sheet-content"
         className={cn(
-          "fixed z-50 flex flex-col gap-4 bg-background shadow-lg transition ease-in-out data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:animate-in data-[state=open]:duration-500",
+          "fixed z-50 flex flex-col gap-4 bg-background shadow-lg outline-none transition ease-out data-[state=closed]:animate-out data-[state=closed]:duration-150 data-[state=open]:animate-in data-[state=open]:duration-200",
           side === "right" &&
             "inset-y-0 right-0 h-full w-3/4 border-l data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right sm:max-w-sm",
           side === "left" &&

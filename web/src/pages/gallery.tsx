@@ -34,6 +34,10 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { number } from "@/lib/format";
 import type { GallerySearch } from "@/lib/search";
 
+// zod compiles object parsers with `new Function` unless told not to; the CSP (no eval) would refuse it and Firefox logs that
+// refusal as an error. Jitless parsing is plenty fast for a form.
+z.config({ jitless: true });
+
 
 const TOPICS: Option[] = ["orders", "orders.dlq", "payments.settled", "inventory.levels", "notifications.email", "clickstream", "pick-lists", "a-very-long-topic-name-that-needs-an-ellipsis.in-every-narrow-place.v2"].map((t, i) => ({ value: t, label: t, hint: number((i + 1) * 137) }));
 
@@ -292,7 +296,7 @@ export function GalleryPage() {
       window.history.back();
     } else set({ record: undefined });
   };
-  const rowsN = search.rows === "1000" ? 1000 : 20;
+  const rowsN = search.rows === 1000 ? 1000 : 20;
   const rows = useMemo(() => makeRows(rowsN), [rowsN]);
   const record = search.record ? rows.find((r) => r.id === search.record) : undefined;
   return (
@@ -507,7 +511,7 @@ export function GalleryPage() {
             <span className="text-[13px] text-muted-foreground" id="rows-l">
               Rows
             </span>
-            <ToggleGroup type="single" variant="outline" value={String(rowsN)} onValueChange={(v) => v && set({ rows: v === "20" ? undefined : "1000" })} aria-labelledby="rows-l" data-testid="rows" className="bg-card">
+            <ToggleGroup type="single" variant="outline" value={String(rowsN)} onValueChange={(v) => v && set({ rows: v === "20" ? undefined : 1000 })} aria-labelledby="rows-l" data-testid="rows" className="bg-card">
               <ToggleGroupItem value="20" className="px-3">
                 20
               </ToggleGroupItem>

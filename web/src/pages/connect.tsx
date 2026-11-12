@@ -183,7 +183,7 @@ export function ConnectPage() {
   const search = useSearch({ from: "/connect" });
   const navigate = useNavigate({ from: "/connect" });
   const as: CopyAs = search.as ?? "code";
-  const setAs = (a: CopyAs) => void navigate({ search: (s) => ({ ...s, as: a === "code" ? undefined : a }), replace: true, resetScroll: false });
+  const setAs = (a: CopyAs) => void navigate({ search: (s) => ({ ...s, as: a === "code" ? undefined : a }), resetScroll: false });
   return (
     <>
       <PageHeader
