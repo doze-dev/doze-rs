@@ -23,6 +23,18 @@ pub enum Handler {
     Events,
     Static,
     Health,
+    /// Slice 9b, topic writes: the Create-topic steps and the POST that makes the topic.
+    CreateForm,
+    Create,
+    /// The dialogs on a topic, and the POST of each.
+    ProduceForm,
+    Produce,
+    PartitionsAddForm,
+    PartitionsAdd,
+    DeleteRecordsForm,
+    DeleteRecords,
+    DeleteForm,
+    Delete,
     /// A screen of the design that a later slice builds: a page that says so (title).
     Planned(&'static str),
 }
@@ -49,6 +61,23 @@ const fn get(path: &'static str, screens: &'static [&'static str], handler: Hand
         method: Method::Get,
         mutates: false,
         op: None,
+        screens,
+        handler,
+    }
+}
+
+/// A POST that issues the Kafka API `op` and answers the boards `screens`.
+const fn write(
+    path: &'static str,
+    op: &'static str,
+    screens: &'static [&'static str],
+    handler: Handler,
+) -> Route {
+    Route {
+        path,
+        method: Method::Post,
+        mutates: true,
+        op: Some(op),
         screens,
         handler,
     }
@@ -82,16 +111,79 @@ pub const ROUTES: &[Route] = &[
     // The rest of the design, built by later slices: each says it is not built yet.
     get("/live", &["live-wire"], Handler::Planned("Live")),
     get("/topics", &["topics-list"], Handler::Planned("Topics")),
+    // Slice 9b, the topic writes (p9b-write).
     get(
         "/topics/new",
-        &["topic-create"],
-        Handler::Planned("Create a topic"),
+        &["topic-create", "topic-create-config", "topic-create-review"],
+        Handler::CreateForm,
+    ),
+    write(
+        "/topics/new",
+        "CreateTopics",
+        &["topic-created", "topic-create-refused"],
+        Handler::Create,
+    ),
+    get(
+        "/topics/{topic}/produce",
+        &["topic-produce"],
+        Handler::ProduceForm,
+    ),
+    write(
+        "/topics/{topic}/produce",
+        "Produce",
+        &["topic-produce-keyless", "topic-produced"],
+        Handler::Produce,
+    ),
+    get(
+        "/topics/{topic}/partitions/add",
+        &["topic-add-partitions"],
+        Handler::PartitionsAddForm,
+    ),
+    write(
+        "/topics/{topic}/partitions/add",
+        "CreatePartitions",
+        &["topic-add-partitions-refused"],
+        Handler::PartitionsAdd,
+    ),
+    get(
+        "/topics/{topic}/delete-records",
+        &["topic-delete-records"],
+        Handler::DeleteRecordsForm,
+    ),
+    write(
+        "/topics/{topic}/delete-records",
+        "DeleteRecords",
+        &["topic-delete-records-refused"],
+        Handler::DeleteRecords,
+    ),
+    get(
+        "/topics/{topic}/delete",
+        &["topic-delete"],
+        Handler::DeleteForm,
+    ),
+    write(
+        "/topics/{topic}/delete",
+        "DeleteTopics",
+        &["topic-deleted"],
+        Handler::Delete,
     ),
     get(
         "/topics/{topic}/producers",
-        &["txn-open"],
+        &["txn-open", "topic-producers"],
         Handler::Planned("Producers"),
     ),
+    // The tabs of a topic and the Groups space, for the links of the pages above (built by later slices).
+    get(
+        "/topics/{topic}/log",
+        &["topic-log"],
+        Handler::Planned("Log"),
+    ),
+    get(
+        "/topics/{topic}/config",
+        &["topic-config"],
+        Handler::Planned("Config"),
+    ),
+    get("/groups", &["groups-list"], Handler::Planned("Groups")),
     get("/access", &["access-open"], Handler::Planned("Access")),
     get("/lab", &["lab-home"], Handler::Planned("Lab")),
     get(

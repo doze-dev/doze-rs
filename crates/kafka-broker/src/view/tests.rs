@@ -53,3 +53,38 @@ async fn the_view_obeys_describe_on_the_cluster() {
     // The console is a super user of every broker, whatever the default says (SEC-241).
     assert!(broker.console_view().instance(&console()).is_some());
 }
+
+#[tokio::test]
+async fn the_create_form_is_taught_from_the_brokers_own_table_and_only_to_who_may_create() {
+    let broker = Broker::open(fs(), Config::new("/data".into())).unwrap();
+    let table = broker
+        .console_view()
+        .topic_config_defaults(&console())
+        .unwrap();
+    let cleanup = table.iter().find(|c| c.name == "cleanup.policy").unwrap();
+    assert_eq!(cleanup.default, "delete");
+    assert!(cleanup.doc.contains("retention policy"), "{}", cleanup.doc);
+    let retention = table.iter().find(|c| c.name == "retention.ms").unwrap();
+    // A bare `Config` keeps records for ever; the flags of `doze-kafka` say 7 days.
+    assert_eq!(retention.default, "-1");
+    let mut config = Config::new("/data".into());
+    config.acl_default_allow = false;
+    let closed = Broker::open(fs(), config).unwrap();
+    let nobody = Caller::anonymous(Some("127.0.0.1".parse().unwrap()));
+    assert_eq!(closed.console_view().topic_config_defaults(&nobody), None);
+}
+
+#[tokio::test]
+async fn the_partition_limits_are_the_flags_and_only_for_who_may_create() {
+    let broker = Broker::open(fs(), Config::new("/data".into())).unwrap();
+    let limits = broker.console_view().limits(&console()).unwrap();
+    assert_eq!(
+        (limits.max_partitions, limits.default_partitions),
+        (1000, 1)
+    );
+    let mut config = Config::new("/data".into());
+    config.acl_default_allow = false;
+    let closed = Broker::open(fs(), config).unwrap();
+    let nobody = Caller::anonymous(Some("127.0.0.1".parse().unwrap()));
+    assert_eq!(closed.console_view().limits(&nobody), None);
+}

@@ -146,3 +146,30 @@ fn the_script_follows_the_rules_the_spike_found_and_runs_under_the_strictest_pol
         "the script is small enough to read in one sitting"
     );
 }
+
+#[test]
+fn a_dialog_link_is_a_plain_link_a_script_can_open_over_the_page() {
+    let a = dialog_link("btn pri", "/topics/orders/produce", html! { "Produce" }).into_string();
+    assert_eq!(
+        a,
+        format!(r#"<a class="btn pri" href="/topics/orders/produce" {ATTR_DIALOG}>Produce</a>"#)
+    );
+    assert!(
+        super::super::dialog::cancel("/t")
+            .into_string()
+            .contains(ATTR_DIALOG_CLOSE)
+    );
+}
+
+#[test]
+fn the_script_opens_dialogs_by_the_names_this_file_defines() {
+    for name in [ATTR_DIALOG, ATTR_DIALOG_CLOSE, CLASS_DIALOG] {
+        assert!(SCRIPT.contains(name), "console.js never mentions {name:?}");
+    }
+    // A dialog is opened with the platform's own: focus is trapped and Escape closes it.
+    assert!(SCRIPT.contains("showModal"));
+    // The answer is a fragment (the dialog's body), asked for in the header the server looks for.
+    assert!(SCRIPT.contains("'X-Fragment'"));
+    // A dialog that cannot be fetched falls back to following the link.
+    assert!(SCRIPT.contains("location.href"));
+}

@@ -16,6 +16,7 @@ use kafka_wire::api::{Request, Response};
 use kafka_wire::header::RequestHead;
 use kafka_wire::profile::Profile;
 
+mod forms;
 pub mod requests;
 
 /// The client id the console's requests carry.

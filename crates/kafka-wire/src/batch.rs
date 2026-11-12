@@ -7,6 +7,7 @@
 mod attributes;
 #[cfg(any(test, feature = "test-support"))]
 pub mod build;
+mod compose;
 mod error;
 mod filter;
 mod header;
@@ -24,6 +25,7 @@ mod stamp;
 use bytes::Bytes;
 
 pub use attributes::{Attributes, Compression, TimestampType};
+pub use compose::{OneRecord, single_record};
 pub use error::{BatchError, Refusal};
 pub use filter::{Filtered, Rules, Seen};
 use header::Header;
