@@ -13,11 +13,16 @@ fn a_rule_that_is_refused_by_the_engine_comes_back_in_its_form_with_the_reason()
     for n in 0..50 {
         let mut f = blank(LabKind::Slow);
         f.topic = format!("t{n}");
-        assert!(matches!(make_rule(&lab, LabKind::Slow, f, Choices::default()), LabMade::Made(_)));
+        assert!(matches!(
+            make_rule(&lab, LabKind::Slow, f, Choices::default()),
+            LabMade::Made(_)
+        ));
     }
     let mut f = blank(LabKind::Slow);
     f.topic = "one-more".into();
-    let LabMade::Invalid(v) = make_rule(&lab, LabKind::Slow, f, Choices::default()) else { panic!() };
+    let LabMade::Invalid(v) = make_rule(&lab, LabKind::Slow, f, Choices::default()) else {
+        panic!()
+    };
     assert!(v.refused.unwrap().contains("50 rules"));
     assert!(v.preview.is_some());
 }
@@ -45,13 +50,19 @@ fn drop_once_needs_an_open_connection_and_a_plain_name() {
     let lab = lab();
     let f = drop_form(&[("catalog".into(), 2)], "catalog", "once");
     assert_eq!(f.call, "doze:DropConnection client=catalog once");
-    assert!(matches!(drop_it(&lab, f.clone(), 0, Some(3)), LabOnceDone::Invalid(_)));
+    assert!(matches!(
+        drop_it(&lab, f.clone(), 0, Some(3)),
+        LabOnceDone::Invalid(_)
+    ));
     assert!(matches!(drop_it(&lab, f, 2, Some(3)), LabOnceDone::Done));
     let r = lab.table().rules();
     assert_eq!(r[0].spec.max_hits, Some(2));
     assert_eq!(r[0].spec.matcher.up_to_conn, Some(3));
     let glob = drop_form(&[], "cat*", "5");
-    assert!(matches!(drop_it(&lab, glob, 0, None), LabOnceDone::Invalid(_)), "a pattern is not an app");
+    assert!(
+        matches!(drop_it(&lab, glob, 0, None), LabOnceDone::Invalid(_)),
+        "a pattern is not an app"
+    );
     let keep = drop_form(&[("catalog".into(), 1)], "catalog", "5");
     assert!(matches!(drop_it(&lab, keep, 1, None), LabOnceDone::Done));
 }
@@ -63,5 +74,8 @@ fn a_history_of_rehearsals_is_bounded() {
         lab.note(LabOnceKind::Clean, format!("{n}"), true);
     }
     assert_eq!(lab.once().len(), crate::lab::MOST_ONCE);
-    assert_eq!(lab.once()[0].sentence, format!("{}", crate::lab::MOST_ONCE + 29));
+    assert_eq!(
+        lab.once()[0].sentence,
+        format!("{}", crate::lab::MOST_ONCE + 29)
+    );
 }

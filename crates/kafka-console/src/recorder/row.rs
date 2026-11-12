@@ -82,7 +82,10 @@ impl Row {
             + size_of::<Facts>()
             + self.who.weight()
             + self.closed.as_ref().map_or(0, |s| s.len())
-            + self.lab.as_ref().map_or(0, |l| size_of::<LabTag>() + l.name.len())
+            + self
+                .lab
+                .as_ref()
+                .map_or(0, |l| size_of::<LabTag>() + l.name.len())
             + self.tooks.capacity() * size_of::<u32>()
             + f.topics
                 .iter()

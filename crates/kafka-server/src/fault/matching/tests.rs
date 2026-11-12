@@ -11,7 +11,10 @@ fn pat(s: &str) -> Pattern {
 #[test]
 fn an_empty_matcher_fits_everything_but_the_console() {
     let m = Matcher::default();
-    let (h, r) = (head(ApiKey::Produce, 9, "orders"), produce("orders", &[0], 1));
+    let (h, r) = (
+        head(ApiKey::Produce, 9, "orders"),
+        produce("orders", &[0], 1),
+    );
     let anyone = Principal::user("alice");
     assert!(m.fits(&ask(Some(1), &anyone, &h, Some(&r))));
     let console = Principal::console();
@@ -24,7 +27,10 @@ fn the_console_is_touched_only_by_a_rule_that_names_it() {
         principal: Some("User:__console".into()),
         ..Matcher::default()
     };
-    let (h, r) = (head(ApiKey::Produce, 9, "console"), produce("orders", &[0], 1));
+    let (h, r) = (
+        head(ApiKey::Produce, 9, "console"),
+        produce("orders", &[0], 1),
+    );
     let console = Principal::console();
     assert!(m.fits(&ask(None, &console, &h, Some(&r))));
     let other = Principal::user("alice");
@@ -34,7 +40,10 @@ fn the_console_is_touched_only_by_a_rule_that_names_it() {
 #[test]
 fn each_field_must_fit_and_a_field_left_empty_fits_anything() {
     let who = Principal::anonymous();
-    let (h, r) = (head(ApiKey::Produce, 9, "orders-go"), produce("orders", &[0, 2], 1));
+    let (h, r) = (
+        head(ApiKey::Produce, 9, "orders-go"),
+        produce("orders", &[0, 2], 1),
+    );
     let a = ask(None, &who, &h, Some(&r));
     let fits = |m: Matcher| m.fits(&a);
     assert!(fits(Matcher {

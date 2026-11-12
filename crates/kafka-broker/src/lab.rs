@@ -83,7 +83,12 @@ mod inspect {
 
     impl<F: Fs> ConsoleLab<'_, F> {
         /// Runs out the session of one member of a group now.
-        pub async fn expire_member(&self, caller: &Caller, group: &str, member: &str) -> LabOutcome {
+        pub async fn expire_member(
+            &self,
+            caller: &Caller,
+            group: &str,
+            member: &str,
+        ) -> LabOutcome {
             let Some(id) = self.group_id(caller, group) else {
                 return self.refused(caller, group);
             };
@@ -134,12 +139,18 @@ mod inspect {
         }
 
         /// Runs the cleaner's round on one partition now, if its planner finds one due.
-        pub async fn clean_now(&self, caller: &Caller, topic: &str, partition: i32) -> CleanOutcome {
+        pub async fn clean_now(
+            &self,
+            caller: &Caller,
+            topic: &str,
+            partition: i32,
+        ) -> CleanOutcome {
             let b = self.broker;
             if !b.topic_allows(caller, topic, operation::ALTER) {
                 return CleanOutcome::Denied;
             }
-            let (Ok(name), Some(id)) = (TopicName::parse(topic), PartitionId::new(partition)) else {
+            let (Ok(name), Some(id)) = (TopicName::parse(topic), PartitionId::new(partition))
+            else {
                 return CleanOutcome::NoSuchPartition;
             };
             let Some(t) = b.meta.topic(&name) else {
@@ -154,7 +165,8 @@ mod inspect {
             let began = clock::now().get();
             if let Err(e) = b.clean_partition(&t, id).await {
                 let why = e.to_string();
-                b.log_notes.failed(t.id, partition, clock::now().get(), &why);
+                b.log_notes
+                    .failed(t.id, partition, clock::now().get(), &why);
                 return CleanOutcome::Failed(why);
             }
             match b.log_notes.cleaner_of(t.id, partition).and_then(|n| n.last) {

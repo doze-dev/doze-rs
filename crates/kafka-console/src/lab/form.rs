@@ -129,7 +129,10 @@ fn delay_of(f: &LabFields, errors: &mut Errors) -> Option<(u32, u32)> {
     if delay.is_none() {
         errors.push(err(
             "delay",
-            &format!("Type a delay from 1 to {} ms.", number(i64::from(LONGEST_DELAY_MS))),
+            &format!(
+                "Type a delay from 1 to {} ms.",
+                number(i64::from(LONGEST_DELAY_MS))
+            ),
         ));
     }
     let jitter = if f.jitter.is_empty() {
@@ -138,13 +141,20 @@ fn delay_of(f: &LabFields, errors: &mut Errors) -> Option<(u32, u32)> {
         whole(&f.jitter, 0, LONGEST_DELAY_MS)
     };
     if jitter.is_none() {
-        errors.push(err("jitter", "Type the jitter in ms, from 0 to 60,000, or leave it empty."));
+        errors.push(err(
+            "jitter",
+            "Type the jitter in ms, from 0 to 60,000, or leave it empty.",
+        ));
     }
     delay.zip(jitter)
 }
 
 fn code_of(f: &LabFields, errors: &mut Errors) -> Option<i16> {
-    let code = f.code.parse::<i16>().ok().filter(|c| CODES.iter().any(|(k, _)| k == c));
+    let code = f
+        .code
+        .parse::<i16>()
+        .ok()
+        .filter(|c| CODES.iter().any(|(k, _)| k == c));
     if code.is_none() {
         errors.push(err("code", "Choose one of the errors."));
     }
@@ -168,7 +178,11 @@ pub fn spec_of(kind: LabKind, f: &LabFields) -> Result<Spec, Errors> {
     if share.is_none() {
         errors.push(err("share", "Choose how many of the requests."));
     }
-    let ends = f.ends.parse::<u64>().ok().filter(|m| ENDS.iter().any(|(k, _)| k == m));
+    let ends = f
+        .ends
+        .parse::<u64>()
+        .ok()
+        .filter(|m| ENDS.iter().any(|(k, _)| k == m));
     if ends.is_none() {
         errors.push(err("ends", "Choose when the rule ends."));
     }
@@ -178,7 +192,10 @@ pub fn spec_of(kind: LabKind, f: &LabFields) -> Result<Spec, Errors> {
         whole(&f.hits, 1, MOST_HITS).map(Some)
     };
     if max_hits.is_none() {
-        errors.push(err("hits", "Type a number of hits from 1, or leave it empty."));
+        errors.push(err(
+            "hits",
+            "Type a number of hits from 1, or leave it empty.",
+        ));
     }
     let effect = match kind {
         LabKind::Slow => delay_of(f, &mut errors).map(|(delay_ms, jitter_ms)| Effect::Slow {
@@ -188,8 +205,15 @@ pub fn spec_of(kind: LabKind, f: &LabFields) -> Result<Spec, Errors> {
         LabKind::Fail => code_of(f, &mut errors).map(|code| Effect::Fail { code }),
         LabKind::Drop => Some(Effect::Drop),
     };
-    let (Some(api), Some(topics), Some(client), Some(share), Some(ends), Some(max_hits), Some(effect)) =
-        (api, topics, client, share, ends, max_hits, effect)
+    let (
+        Some(api),
+        Some(topics),
+        Some(client),
+        Some(share),
+        Some(ends),
+        Some(max_hits),
+        Some(effect),
+    ) = (api, topics, client, share, ends, max_hits, effect)
     else {
         return Err(errors);
     };
@@ -239,7 +263,14 @@ pub fn preview(spec: &Spec) -> LabPreview {
     let mut line = |k: &str, v: String| rule.push((k.to_owned(), v));
     line("api", words::apis_words(&spec.matcher.apis));
     let topic = words::topics_words(&spec.matcher);
-    line("topic", if topic.is_empty() { "any".to_owned() } else { topic });
+    line(
+        "topic",
+        if topic.is_empty() {
+            "any".to_owned()
+        } else {
+            topic
+        },
+    );
     if let Some(c) = &spec.matcher.client {
         line("client", c.as_str().to_owned());
     }

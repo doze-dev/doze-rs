@@ -59,7 +59,13 @@ fn a_forced_expiry_removes_the_member_as_a_missed_session_does() {
     assert_eq!(done, Forced::Done);
     assert_eq!(causes, [Cause::SessionExpired]);
     assert_eq!(fast.view().epoch, timed.view().epoch);
-    let names = |r: &Rig| r.view().members.into_iter().map(|m| m.id).collect::<Vec<_>>();
+    let names = |r: &Rig| {
+        r.view()
+            .members
+            .into_iter()
+            .map(|m| m.id)
+            .collect::<Vec<_>>()
+    };
     assert_eq!(names(&fast), names(&timed));
     assert_eq!(names(&fast), [id("a")]);
 }
@@ -67,7 +73,10 @@ fn a_forced_expiry_removes_the_member_as_a_missed_session_does() {
 #[test]
 fn a_member_that_is_not_there_and_a_group_with_nobody_are_said_so() {
     let mut r = two();
-    assert_eq!(forced(&mut r, Force::Expire(id("zzz"))).0, Forced::NoSuchMember);
+    assert_eq!(
+        forced(&mut r, Force::Expire(id("zzz"))).0,
+        Forced::NoSuchMember
+    );
     let mut empty = rig(2);
     assert_eq!(forced(&mut empty, Force::Rebalance).0, Forced::Empty);
 }

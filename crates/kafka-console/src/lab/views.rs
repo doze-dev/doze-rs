@@ -102,13 +102,10 @@ pub fn home(lab: &Lab) -> LabHome {
 #[must_use]
 pub fn find(lab: &Lab, id: u32) -> Option<LabRule> {
     let table = lab.table();
-    table.rule(id).map(|r| rule_of(&r, None)).or_else(|| {
-        table
-            .ended()
-            .iter()
-            .find(|e| e.rule.id == id)
-            .map(ended_of)
-    })
+    table
+        .rule(id)
+        .map(|r| rule_of(&r, None))
+        .or_else(|| table.ended().iter().find(|e| e.rule.id == id).map(ended_of))
 }
 
 #[cfg(test)]

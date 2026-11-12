@@ -61,10 +61,14 @@ fn offset_fetch(
             f,
         )
     });
-    old || r.groups.iter().flat_map(|g| g.topics.iter().flatten()).any(|t| {
-        let ps = t.partition_indexes.iter().copied();
-        topic(named(&t.name, t.topic_id, names), ps, f)
-    })
+    old || r
+        .groups
+        .iter()
+        .flat_map(|g| g.topics.iter().flatten())
+        .any(|t| {
+            let ps = t.partition_indexes.iter().copied();
+            topic(named(&t.name, t.topic_id, names), ps, f)
+        })
 }
 
 /// One topic: `f` for each partition, or once with none if the entry names none.

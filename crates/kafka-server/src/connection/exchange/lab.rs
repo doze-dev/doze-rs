@@ -45,12 +45,7 @@ pub(super) fn dropped(watch: Option<&Watch>, pending: Option<Pending>, note: &No
 }
 
 /// The answer a failing rule makes; none for an API the lab cannot answer.
-fn failed(
-    head: &RequestHead,
-    request: &Request,
-    code: i16,
-    note: Arc<Note>,
-) -> Option<Answer> {
+fn failed(head: &RequestHead, request: &Request, code: i16, note: Arc<Note>) -> Option<Answer> {
     let response = fail_response(request, head.version, code)?;
     Some(Answer {
         id: head.correlation_id,
@@ -74,7 +69,6 @@ pub(super) fn wants_no_answer(request: &Request) -> bool {
     matches!(request, Request::Produce(r) if r.acks == 0)
 }
 
-
 /// A request with no body to answer a code to (ApiVersions): a rule may delay it or close the connection, and no more. `Err` is the
 /// close; `Ok` holds the rule that delayed it, if one did, and the request's observer token back.
 pub(super) async fn bend<F: Fs>(
@@ -88,7 +82,9 @@ pub(super) async fn bend<F: Fs>(
     };
     match act.effect {
         Applied::Drop => Err(dropped(ears.watch, pending, &act.note)),
-        Applied::Delay(d) if !wait(d, stop).await => Err(super::closed(ears.watch, pending, End::Stopped)),
+        Applied::Delay(d) if !wait(d, stop).await => {
+            Err(super::closed(ears.watch, pending, End::Stopped))
+        }
         Applied::Delay(_) => Ok((Some(act.note), pending)),
         Applied::Fail(_) => Ok((None, pending)),
     }

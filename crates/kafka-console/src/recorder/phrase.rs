@@ -193,7 +193,10 @@ pub fn took_sub(row: &Row) -> Option<String> {
     if let Some(lab) = &row.lab
         && let kafka_server::fault::Applied::Delay(d) = lab.applied
     {
-        return Some(format!("includes +{} ms", number(i64::try_from(d.as_millis()).unwrap_or(0))));
+        return Some(format!(
+            "includes +{} ms",
+            number(i64::try_from(d.as_millis()).unwrap_or(0))
+        ));
     }
     match (row.api, row.facts.wait_ms) {
         (ApiKey::Fetch, Some(w)) if w > 0 => {

@@ -92,6 +92,7 @@ pub(crate) const GROUPS: [(&str, &[&str]); 6] = [
             "console-prefix",
             "console-allow-host",
             "console-unprotected",
+            "lab",
         ],
     ),
 ];

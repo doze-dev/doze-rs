@@ -41,7 +41,10 @@ fn a_forced_expiry_leaves_the_group_as_the_session_timer_does() {
     assert_eq!(causes(&timed), [Cause::SessionExpired]);
     // And the rest of the group finds out the way it does: its next heartbeat says to rejoin.
     let hb = forced.heartbeat("m1", 1);
-    assert_eq!(forced.heartbeat_answer(hb), Some(ResponseError::RebalanceInProgress));
+    assert_eq!(
+        forced.heartbeat_answer(hb),
+        Some(ResponseError::RebalanceInProgress)
+    );
 }
 
 #[test]
@@ -71,7 +74,10 @@ fn a_forced_rebalance_makes_the_members_join_again_and_says_it_was_forced() {
     assert_eq!(causes(&g), [Cause::Forced]);
     assert_eq!(force(&mut g, Force::Rebalance), Forced::AlreadyRebalancing);
     let hb = g.heartbeat("m2", 1);
-    assert_eq!(g.heartbeat_answer(hb), Some(ResponseError::RebalanceInProgress));
+    assert_eq!(
+        g.heartbeat_answer(hb),
+        Some(ResponseError::RebalanceInProgress)
+    );
     let a = g.join(join_request(Some("m1"), &["range"]));
     let b = g.join(join_request(Some("m2"), &["range"]));
     assert_eq!((g.joined(a).generation, g.joined(b).generation), (2, 2));
@@ -93,9 +99,17 @@ fn a_forced_rebalance_parks_a_sync_waiting_on_the_leader_and_tells_it_to_join_ag
     g.advance(500);
     let (ja, jb) = (g.joined(a), g.joined(b));
     assert_eq!(g.machine.state(), State::CompletingRebalance);
-    let follower = if ja.leader == ja.member_id { jb.member_id } else { ja.member_id }.unwrap();
+    let follower = if ja.leader == ja.member_id {
+        jb.member_id
+    } else {
+        ja.member_id
+    }
+    .unwrap();
     let waiting = g.sync(follower.as_str(), ja.generation, &[]);
     assert!(g.answer(waiting).is_none());
     assert_eq!(force(&mut g, Force::Rebalance), Forced::Done);
-    assert_eq!(g.synced(waiting).error, Some(ResponseError::RebalanceInProgress));
+    assert_eq!(
+        g.synced(waiting).error,
+        Some(ResponseError::RebalanceInProgress)
+    );
 }

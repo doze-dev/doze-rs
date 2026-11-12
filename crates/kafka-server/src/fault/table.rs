@@ -333,7 +333,10 @@ fn choose(inner: &mut Inner, ask: &Ask<'_>) -> Option<(usize, Applied)> {
             continue;
         }
         let applied = applied(l.rule.spec.effect, draw);
-        if best.as_ref().is_none_or(|(_, b)| severity(applied) > severity(*b)) {
+        if best
+            .as_ref()
+            .is_none_or(|(_, b)| severity(applied) > severity(*b))
+        {
             best = Some((i, applied));
         }
     }

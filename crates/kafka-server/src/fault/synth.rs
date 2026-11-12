@@ -18,8 +18,8 @@ use kafka_wire::messages::{
     offset_fetch_response::OffsetFetchResponsePartition,
     offset_fetch_response::OffsetFetchResponsePartitions,
     offset_fetch_response::OffsetFetchResponseTopic,
-    offset_fetch_response::OffsetFetchResponseTopics,
-    produce_response::PartitionProduceResponse, produce_response::TopicProduceResponse,
+    offset_fetch_response::OffsetFetchResponseTopics, produce_response::PartitionProduceResponse,
+    produce_response::TopicProduceResponse,
 };
 
 /// The APIs a rule may fail, in the order the lab lists them.
@@ -70,20 +70,22 @@ pub fn fail_response(request: &Request, version: i16, code: i16) -> Option<Respo
         })),
         Request::OffsetCommit(r) => Response::OffsetCommit(offset_commit(r, code)),
         Request::OffsetFetch(r) => Response::OffsetFetch(offset_fetch(r, version, code)),
-        Request::ConsumerGroupHeartbeat(_) => Response::ConsumerGroupHeartbeat(only::<
-            ConsumerGroupHeartbeatResponse,
-        >(code, |r, c| {
-            r.error_code = c;
-            r.member_epoch = -1;
-        })),
-        Request::InitProducerId(_) => Response::InitProducerId(only::<InitProducerIdResponse>(
-            code,
-            |r, c| {
+        Request::ConsumerGroupHeartbeat(_) => {
+            Response::ConsumerGroupHeartbeat(only::<ConsumerGroupHeartbeatResponse>(
+                code,
+                |r, c| {
+                    r.error_code = c;
+                    r.member_epoch = -1;
+                },
+            ))
+        }
+        Request::InitProducerId(_) => {
+            Response::InitProducerId(only::<InitProducerIdResponse>(code, |r, c| {
                 r.error_code = c;
                 r.producer_id = kafka_wire::messages::ProducerId(-1);
                 r.producer_epoch = -1;
-            },
-        )),
+            }))
+        }
         Request::ApiVersions(_)
         | Request::SaslHandshake(_)
         | Request::SaslAuthenticate(_)
@@ -168,7 +170,11 @@ fn fetch(r: &kafka_wire::messages::FetchRequest, code: i16) -> FetchResponse {
     resp
 }
 
-fn metadata(r: &kafka_wire::messages::MetadataRequest, version: i16, code: i16) -> MetadataResponse {
+fn metadata(
+    r: &kafka_wire::messages::MetadataRequest,
+    version: i16,
+    code: i16,
+) -> MetadataResponse {
     let mut resp = MetadataResponse::default();
     // A code for the whole answer exists from v13; before it, the topics' own are all there is.
     if version >= 13 {

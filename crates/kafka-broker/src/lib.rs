@@ -13,8 +13,8 @@ mod error;
 mod groups;
 mod guard;
 mod handlers;
-mod listener;
 mod lab;
+mod listener;
 mod log_notes;
 #[cfg(feature = "inspect")]
 pub use log_notes::{DeletedNote, PassNote, RoundNote};
@@ -38,10 +38,10 @@ pub use config::{Config, Defaults};
 pub(crate) use configs::Live;
 pub use error::BrokerError;
 pub use groups::Cause;
-pub use listener::Listener;
-pub use outcome::Outcome;
 #[cfg(feature = "inspect")]
 pub use lab::{CleanOutcome, ConsoleLab, LabOutcome};
+pub use listener::Listener;
+pub use outcome::Outcome;
 #[cfg(feature = "inspect")]
 pub use view::{
     AbortedRange, AccessFacts, CleanerState, Compaction, ConfigHelp, ConfigRule, ConsoleView,

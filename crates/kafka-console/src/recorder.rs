@@ -22,8 +22,8 @@ pub mod clip;
 mod detail;
 pub mod errors;
 pub mod facts;
-pub mod names;
 mod lab;
+pub mod names;
 mod others;
 pub mod phrase;
 pub mod ring;
@@ -258,10 +258,7 @@ fn resolve(ids: &HashMap<Box<str>, Box<str>>, f: &mut Facts) {
 
 /// How a row may fold.
 fn fold_of(row: &Row) -> Fold {
-    if row.closed.is_some()
-        || row.lab.is_some()
-        || row.class != errors::Class::Ok
-        || row.fold == 0
+    if row.closed.is_some() || row.lab.is_some() || row.class != errors::Class::Ok || row.fold == 0
     {
         return Fold::Never;
     }

@@ -20,11 +20,11 @@ use std::time::{Duration, Instant};
 use bytes::Bytes;
 use kafka_auth::Principal;
 use kafka_broker::{Caller, LabOutcome};
+use kafka_console::Recorder;
 use kafka_console::gather::lab as glab;
 use kafka_console::lab::Lab;
 use kafka_console::model::lab::{LabFields, LabKind, LabMade, LabOnceDone};
 use kafka_console::model::live::LabDid;
-use kafka_console::Recorder;
 use kafka_protocol::protocol::{Decodable, Encodable};
 use kafka_server::fault::FaultTable;
 use kafka_wire::StrBytes;
@@ -78,9 +78,20 @@ impl Raw {
         }
     }
 
-    async fn try_call<R: Encodable>(&mut self, key: ApiKey, version: i16, body: &R) -> Option<Bytes> {
+    async fn try_call<R: Encodable>(
+        &mut self,
+        key: ApiKey,
+        version: i16,
+        body: &R,
+    ) -> Option<Bytes> {
         self.id += 1;
-        let req = framed(&request_payload(key, version, self.id, Some(self.client), body));
+        let req = framed(&request_payload(
+            key,
+            version,
+            self.id,
+            Some(self.client),
+            body,
+        ));
         let _ = self.stream.write_all(&req).await;
         let mut len = [0; 4];
         tokio::time::timeout(Duration::from_secs(5), self.stream.read_exact(&mut len))
@@ -160,20 +171,34 @@ async fn a_slow_rule_delays_a_fetch_and_the_wire_says_so() {
     let l = lab_world("lab-slow").await;
     let mut c = Raw::connect(&l.w, "slow-client").await;
     let began = Instant::now();
-    c.try_call(ApiKey::Fetch, 12, &fetch_req("orders")).await.unwrap();
+    c.try_call(ApiKey::Fetch, 12, &fetch_req("orders"))
+        .await
+        .unwrap();
     let plain = began.elapsed();
     let id = make(
         &l,
         LabKind::Slow,
-        &[("api", "fetch"), ("topic", "orders"), ("delay", "300"), ("share", "every"), ("ends", "5")],
+        &[
+            ("api", "fetch"),
+            ("topic", "orders"),
+            ("delay", "300"),
+            ("share", "every"),
+            ("ends", "5"),
+        ],
     )
     .await;
     let began = Instant::now();
-    let a = c.try_call(ApiKey::Fetch, 12, &fetch_req("orders")).await.unwrap();
+    let a = c
+        .try_call(ApiKey::Fetch, 12, &fetch_req("orders"))
+        .await
+        .unwrap();
     let slow = began.elapsed();
     let r: FetchResponse = body(ApiKey::Fetch, 12, a);
     assert_eq!(r.responses[0].partitions[0].error_code, 0);
-    assert!(slow >= Duration::from_millis(300), "{slow:?} vs plain {plain:?}");
+    assert!(
+        slow >= Duration::from_millis(300),
+        "{slow:?} vs plain {plain:?}"
+    );
     let hits = wire_hits(&l, id);
     assert_eq!(hits.len(), 1);
     let lab = hits[0].lab.clone().unwrap();
@@ -181,10 +206,18 @@ async fn a_slow_rule_delays_a_fetch_and_the_wire_says_so() {
     assert_eq!(hits[0].took_sub.as_deref(), Some("includes +300 ms"));
     let v = glab::rule(&l.lab, Some(&l.rec), id).unwrap();
     assert_eq!((v.rule.hits, v.rule.matched), (1, 1));
-    assert!(v.rule.sentence.starts_with("+300 ms on every Fetch request to orders"), "{}", v.rule.sentence);
+    assert!(
+        v.rule
+            .sentence
+            .starts_with("+300 ms on every Fetch request to orders"),
+        "{}",
+        v.rule.sentence
+    );
     assert!(glab::remove(&l.lab, id));
     let began = Instant::now();
-    c.try_call(ApiKey::Fetch, 12, &fetch_req("orders")).await.unwrap();
+    c.try_call(ApiKey::Fetch, 12, &fetch_req("orders"))
+        .await
+        .unwrap();
     assert!(began.elapsed() < Duration::from_millis(250));
     assert_eq!(wire_hits(&l, id).len(), 1, "the later fetch is not tagged");
     let home = glab::home(&l.lab, &l.w.backend).await;
@@ -196,9 +229,23 @@ async fn a_slow_rule_delays_a_fetch_and_the_wire_says_so() {
 #[tokio::test]
 async fn a_fail_rule_answers_produce_with_its_code_and_writes_nothing() {
     let l = lab_world("lab-fail").await;
-    make(&l, LabKind::Fail, &[("api", "produce"), ("topic", "orders"), ("share", "every"), ("code", "7"), ("ends", "5")]).await;
+    make(
+        &l,
+        LabKind::Fail,
+        &[
+            ("api", "produce"),
+            ("topic", "orders"),
+            ("share", "every"),
+            ("code", "7"),
+            ("ends", "5"),
+        ],
+    )
+    .await;
     let mut c = Raw::connect(&l.w, "fail-client").await;
-    let a = c.try_call(ApiKey::Produce, 9, &produce_req("orders")).await.unwrap();
+    let a = c
+        .try_call(ApiKey::Produce, 9, &produce_req("orders"))
+        .await
+        .unwrap();
     let r: ProduceResponse = body(ApiKey::Produce, 9, a);
     let p = &r.responses[0].partition_responses[0];
     assert_eq!((p.error_code, p.base_offset), (7, -1));
@@ -216,17 +263,46 @@ async fn drop_once_closes_the_connections_that_were_open_and_not_the_next_one() 
     let l = lab_world("lab-drop").await;
     let mut old = Raw::connect(&l.w, "catalog").await;
     let mut other = Raw::connect(&l.w, "payments").await;
-    old.try_call(ApiKey::Metadata, 12, &MetadataRequest::default()).await.unwrap();
-    other.try_call(ApiKey::Metadata, 12, &MetadataRequest::default()).await.unwrap();
+    old.try_call(ApiKey::Metadata, 12, &MetadataRequest::default())
+        .await
+        .unwrap();
+    other
+        .try_call(ApiKey::Metadata, 12, &MetadataRequest::default())
+        .await
+        .unwrap();
     let form = glab::drop_form(Some(&l.rec), "catalog", "once");
-    assert_eq!(form.choices.iter().map(|c| c.value.as_str()).collect::<Vec<_>>(), ["catalog", "payments"]);
-    assert_eq!(glab::drop_connections(&l.lab, Some(&l.rec), "catalog", "once"), LabOnceDone::Done);
-    assert!(old.try_call(ApiKey::Metadata, 12, &MetadataRequest::default()).await.is_none());
-    assert!(other.try_call(ApiKey::Metadata, 12, &MetadataRequest::default()).await.is_some());
+    assert_eq!(
+        form.choices
+            .iter()
+            .map(|c| c.value.as_str())
+            .collect::<Vec<_>>(),
+        ["catalog", "payments"]
+    );
+    assert_eq!(
+        glab::drop_connections(&l.lab, Some(&l.rec), "catalog", "once"),
+        LabOnceDone::Done
+    );
+    assert!(
+        old.try_call(ApiKey::Metadata, 12, &MetadataRequest::default())
+            .await
+            .is_none()
+    );
+    assert!(
+        other
+            .try_call(ApiKey::Metadata, 12, &MetadataRequest::default())
+            .await
+            .is_some()
+    );
     let mut fresh = Raw::connect(&l.w, "catalog").await;
-    assert!(fresh.try_call(ApiKey::Metadata, 12, &MetadataRequest::default()).await.is_some());
+    assert!(
+        fresh
+            .try_call(ApiKey::Metadata, 12, &MetadataRequest::default())
+            .await
+            .is_some()
+    );
     // An app with nothing open is told so.
-    let LabOnceDone::Invalid(f) = glab::drop_connections(&l.lab, Some(&l.rec), "nobody", "once") else {
+    let LabOnceDone::Invalid(f) = glab::drop_connections(&l.lab, Some(&l.rec), "nobody", "once")
+    else {
         panic!()
     };
     assert!(f.error.unwrap().contains("no connection open"));
@@ -284,25 +360,46 @@ async fn an_expired_member_and_a_forced_rebalance_go_through_the_groups_own_mach
     assert_eq!(form.choices.len(), 1);
     assert!(form.choices[0].label.contains(&a));
     // Rebalance first: the member is told to rejoin at its next heartbeat.
-    assert_eq!(glab::rebalance(&l.lab, &l.w.backend, "fulfilment").await, LabOnceDone::Done);
+    assert_eq!(
+        glab::rebalance(&l.lab, &l.w.backend, "fulfilment").await,
+        LabOnceDone::Done
+    );
     assert_eq!(heartbeat(&l.w, "fulfilment", &a, 1).await, 27);
-    let LabOnceDone::Invalid(again) = glab::rebalance(&l.lab, &l.w.backend, "fulfilment").await else {
+    let LabOnceDone::Invalid(again) = glab::rebalance(&l.lab, &l.w.backend, "fulfilment").await
+    else {
         panic!("a rebalance already running is said so")
     };
     assert!(again.refused.unwrap().contains("rebalancing already"));
     let events = l.w.backend.group_events("fulfilment").await.unwrap();
     let causes: Vec<_> = events.events.iter().map(|e| format!("{e:?}")).collect();
-    assert!(causes.iter().any(|c| c.contains("cause: Some(Forced)")), "{causes:?}");
+    assert!(
+        causes.iter().any(|c| c.contains("cause: Some(Forced)")),
+        "{causes:?}"
+    );
     // Another group, running: its member is expired, and the story says the session ran out.
     let b = classic_member(&l.w, "payments").await;
     let target = kafka_console::lab::act::member_value("payments", &b);
-    assert_eq!(glab::expire(&l.lab, &l.w.backend, &target).await, LabOnceDone::Done);
-    assert_eq!(heartbeat(&l.w, "payments", &b, 1).await, 25, "UNKNOWN_MEMBER_ID");
+    assert_eq!(
+        glab::expire(&l.lab, &l.w.backend, &target).await,
+        LabOnceDone::Done
+    );
+    assert_eq!(
+        heartbeat(&l.w, "payments", &b, 1).await,
+        25,
+        "UNKNOWN_MEMBER_ID"
+    );
     let events = l.w.backend.group_events("payments").await.unwrap();
     let causes: Vec<_> = events.events.iter().map(|e| format!("{e:?}")).collect();
-    assert!(causes.iter().any(|c| c.contains("cause: Some(SessionExpired)")), "{causes:?}");
+    assert!(
+        causes
+            .iter()
+            .any(|c| c.contains("cause: Some(SessionExpired)")),
+        "{causes:?}"
+    );
     // No such group or member.
-    let LabOnceDone::Invalid(f) = glab::rebalance(&l.lab, &l.w.backend, "nope").await else { panic!() };
+    let LabOnceDone::Invalid(f) = glab::rebalance(&l.lab, &l.w.backend, "nope").await else {
+        panic!()
+    };
     assert!(f.refused.unwrap().contains("no such group"));
     let home = glab::home(&l.lab, &l.w.backend).await;
     assert!(home.once.iter().filter(|o| o.ok).count() >= 2 && home.once.iter().any(|o| !o.ok));
@@ -320,13 +417,27 @@ async fn a_forced_rebalance_moves_a_consumer_group_to_the_next_epoch() {
     hb.rebalance_timeout_ms = 30_000;
     hb.subscribed_topic_names = Some(vec![TopicName(s("orders"))]);
     hb.topic_partitions = Some(vec![]);
-    let Response::ConsumerGroupHeartbeat(r) = l.w.ask(0, Request::ConsumerGroupHeartbeat(hb)).await else {
+    let Response::ConsumerGroupHeartbeat(r) = l.w.ask(0, Request::ConsumerGroupHeartbeat(hb)).await
+    else {
         panic!()
     };
     assert_eq!(r.error_code, 0, "{r:?}");
-    let before = l.w.backend.group_detail("payments-workers").await.unwrap().generation;
-    assert_eq!(glab::rebalance(&l.lab, &l.w.backend, "payments-workers").await, LabOnceDone::Done);
-    let after = l.w.backend.group_detail("payments-workers").await.unwrap().generation;
+    let before =
+        l.w.backend
+            .group_detail("payments-workers")
+            .await
+            .unwrap()
+            .generation;
+    assert_eq!(
+        glab::rebalance(&l.lab, &l.w.backend, "payments-workers").await,
+        LabOnceDone::Done
+    );
+    let after =
+        l.w.backend
+            .group_detail("payments-workers")
+            .await
+            .unwrap()
+            .generation;
     assert_eq!(after, before + 1);
     l.w.stop().await;
 }
@@ -336,26 +447,54 @@ async fn a_forced_rebalance_moves_a_consumer_group_to_the_next_epoch() {
 #[tokio::test]
 async fn compact_now_runs_the_real_round_and_refuses_with_a_sentence_otherwise() {
     let l = lab_world("lab-compact").await;
-    l.w.create_topic("inventory.levels", 1, &[("cleanup.policy", "compact"), ("segment.bytes", "1024")]).await;
-    let none = glab::compact_form(&l.w.backend, true, "inventory.levels", 0).await.unwrap();
+    l.w.create_topic(
+        "inventory.levels",
+        1,
+        &[("cleanup.policy", "compact"), ("segment.bytes", "1024")],
+    )
+    .await;
+    let none = glab::compact_form(&l.w.backend, true, "inventory.levels", 0)
+        .await
+        .unwrap();
     assert!(none.due.is_none() && none.blocked.is_some());
-    let err = glab::compact(&l.lab, &l.w.backend, "inventory.levels", 0).await.unwrap_err();
+    let err = glab::compact(&l.lab, &l.w.backend, "inventory.levels", 0)
+        .await
+        .unwrap_err();
     let why = err.refused.unwrap();
     assert!(why.contains("nothing"), "{why}");
     l.w.fill("inventory.levels", 120, 5).await;
-    let due = glab::compact_form(&l.w.backend, true, "inventory.levels", 0).await.unwrap();
-    assert!(due.due.as_deref().unwrap().contains("dirty against"), "{due:?}");
+    let due = glab::compact_form(&l.w.backend, true, "inventory.levels", 0)
+        .await
+        .unwrap();
+    assert!(
+        due.due.as_deref().unwrap().contains("dirty against"),
+        "{due:?}"
+    );
     let _ = keyed(&[]);
-    glab::compact(&l.lab, &l.w.backend, "inventory.levels", 0).await.unwrap();
-    let after = glab::compact_form(&l.w.backend, true, "inventory.levels", 0).await.unwrap();
+    glab::compact(&l.lab, &l.w.backend, "inventory.levels", 0)
+        .await
+        .unwrap();
+    let after = glab::compact_form(&l.w.backend, true, "inventory.levels", 0)
+        .await
+        .unwrap();
     assert!(after.due.is_none(), "the round left nothing due: {after:?}");
     let home = glab::home(&l.lab, &l.w.backend).await;
     assert_eq!(home.compact_target.as_deref(), Some("inventory.levels"));
-    assert!(home.once.iter().any(|o| o.ok && o.sentence.contains("Ran the cleaner")));
+    assert!(
+        home.once
+            .iter()
+            .any(|o| o.ok && o.sentence.contains("Ran the cleaner"))
+    );
     // A topic that does not compact.
-    let plain = glab::compact_form(&l.w.backend, true, "orders", 0).await.unwrap();
+    let plain = glab::compact_form(&l.w.backend, true, "orders", 0)
+        .await
+        .unwrap();
     assert!(plain.blocked.unwrap().contains("does not compact"));
-    assert!(glab::compact_form(&l.w.backend, true, "missing", 0).await.is_none());
+    assert!(
+        glab::compact_form(&l.w.backend, true, "missing", 0)
+            .await
+            .is_none()
+    );
     l.w.stop().await;
 }
 
@@ -364,11 +503,16 @@ async fn compact_now_runs_the_real_round_and_refuses_with_a_sentence_otherwise()
 async fn a_caller_without_the_right_is_refused_by_the_broker() {
     let l = lab_world("lab-acl").await;
     let a = classic_member(&l.w, "g").await;
-    let nobody = l.w.backend.acting_as(Caller::new(Principal::user("nobody"), None));
+    let nobody =
+        l.w.backend
+            .acting_as(Caller::new(Principal::user("nobody"), None));
     // The default allows everyone here, so deny by an ACL-free broker with default deny is the other world; with default allow the
     // member is expired for any caller, and a missing group is still said.
     assert_eq!(nobody.lab_expire("g", &a).await, LabOutcome::Done);
-    assert_eq!(nobody.lab_rebalance("absent").await, LabOutcome::NoSuchGroup);
+    assert_eq!(
+        nobody.lab_rebalance("absent").await,
+        LabOutcome::NoSuchGroup
+    );
     l.w.stop().await;
     let table = FaultTable::new();
     let t = Arc::clone(&table);
@@ -377,11 +521,20 @@ async fn a_caller_without_the_right_is_refused_by_the_broker() {
         sc.fault = Some(t);
     })
     .await;
-    let nobody = w.backend.acting_as(Caller::new(Principal::user("nobody"), None));
+    let nobody = w
+        .backend
+        .acting_as(Caller::new(Principal::user("nobody"), None));
     assert_eq!(nobody.lab_expire("g", "m").await, LabOutcome::Denied);
     assert_eq!(nobody.lab_rebalance("g").await, LabOutcome::Denied);
-    assert_eq!(nobody.lab_clean("orders", 0).await, kafka_broker::CleanOutcome::Denied);
-    assert_eq!(w.backend.lab_rebalance("g").await, LabOutcome::NoSuchGroup, "the console is a super user");
+    assert_eq!(
+        nobody.lab_clean("orders", 0).await,
+        kafka_broker::CleanOutcome::Denied
+    );
+    assert_eq!(
+        w.backend.lab_rebalance("g").await,
+        LabOutcome::NoSuchGroup,
+        "the console is a super user"
+    );
     w.stop().await;
 }
 
@@ -390,10 +543,35 @@ async fn a_caller_without_the_right_is_refused_by_the_broker() {
 async fn hostile_topic_and_client_patterns_are_kept_as_text_and_bad_fields_are_said() {
     let l = lab_world("lab-hostile").await;
     let hostile = "<img src=x onerror=alert(1)>";
-    let id = make(&l, LabKind::Slow, &[("api", "produce"), ("topic", hostile), ("client", "<script>"), ("delay", "10"), ("share", "every"), ("ends", "1")]).await;
+    let id = make(
+        &l,
+        LabKind::Slow,
+        &[
+            ("api", "produce"),
+            ("topic", hostile),
+            ("client", "<script>"),
+            ("delay", "10"),
+            ("share", "every"),
+            ("ends", "1"),
+        ],
+    )
+    .await;
     let v = glab::rule(&l.lab, Some(&l.rec), id).unwrap();
     assert!(v.rule.name.contains(hostile) && v.rule.sentence.contains(hostile));
-    let LabMade::Invalid(f) = glab::create(&l.lab, &l.w.backend, Some(&l.rec), LabKind::Slow, fields(&[("api", "delete-everything"), ("delay", "0"), ("share", "x"), ("ends", "99")])).await else {
+    let LabMade::Invalid(f) = glab::create(
+        &l.lab,
+        &l.w.backend,
+        Some(&l.rec),
+        LabKind::Slow,
+        fields(&[
+            ("api", "delete-everything"),
+            ("delay", "0"),
+            ("share", "x"),
+            ("ends", "99"),
+        ]),
+    )
+    .await
+    else {
         panic!()
     };
     let bad: Vec<&str> = f.errors.iter().map(|(k, _)| k.as_str()).collect();
@@ -402,9 +580,34 @@ async fn hostile_topic_and_client_patterns_are_kept_as_text_and_bad_fields_are_s
     }
     // The 51st rule is refused with the limit in words.
     for n in 0..49 {
-        make(&l, LabKind::Slow, &[("api", "produce"), ("topic", &format!("t{n}")), ("delay", "10"), ("share", "every"), ("ends", "1")]).await;
+        make(
+            &l,
+            LabKind::Slow,
+            &[
+                ("api", "produce"),
+                ("topic", &format!("t{n}")),
+                ("delay", "10"),
+                ("share", "every"),
+                ("ends", "1"),
+            ],
+        )
+        .await;
     }
-    let LabMade::Invalid(f) = glab::create(&l.lab, &l.w.backend, Some(&l.rec), LabKind::Slow, fields(&[("api", "fetch"), ("topic", "last"), ("delay", "10"), ("share", "every"), ("ends", "1")])).await else {
+    let LabMade::Invalid(f) = glab::create(
+        &l.lab,
+        &l.w.backend,
+        Some(&l.rec),
+        LabKind::Slow,
+        fields(&[
+            ("api", "fetch"),
+            ("topic", "last"),
+            ("delay", "10"),
+            ("share", "every"),
+            ("ends", "1"),
+        ]),
+    )
+    .await
+    else {
         panic!()
     };
     assert!(f.refused.unwrap().contains("50 rules"));

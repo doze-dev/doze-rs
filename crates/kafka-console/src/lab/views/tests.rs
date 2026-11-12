@@ -12,7 +12,9 @@ fn a_rule_in_force_and_one_over_are_the_same_view_with_and_without_an_end() {
     let lab = Lab::new(FaultTable::new());
     let mut f = blank(LabKind::Slow);
     f.topic = "orders".into();
-    let LabMade::Made(id) = make_rule(&lab, LabKind::Slow, f, Choices::default()) else { panic!() };
+    let LabMade::Made(id) = make_rule(&lab, LabKind::Slow, f, Choices::default()) else {
+        panic!()
+    };
     let h = home(&lab);
     assert_eq!(h.active.len(), 1);
     assert_eq!((h.active[0].id, h.active[0].ended), (id, None));

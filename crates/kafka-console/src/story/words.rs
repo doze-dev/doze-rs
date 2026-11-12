@@ -69,7 +69,9 @@ pub const fn cause_help(c: StoryCause) -> &'static str {
         StoryCause::BecameConsumer => {
             "a consumer-protocol member joined a classic group of consumers"
         }
-        StoryCause::Forced => "someone forced a rebalance from the Lab: no member or topic caused it"
+        StoryCause::Forced => {
+            "someone forced a rebalance from the Lab: no member or topic caused it"
+        }
     }
 }
 

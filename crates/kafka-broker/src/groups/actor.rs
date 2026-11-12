@@ -13,8 +13,8 @@ use super::consumer::{Heartbeat, HeartbeatAnswer, TopicSource};
 use super::events::Events;
 use super::group::Group;
 use super::machine::{
-    Answer, CommitRequest, Effect, Event, HeartbeatRequest, Force, JoinAnswer, JoinRequest, LeaveTarget,
-    Millis, SyncRequest, TimerKey, TimerKind, Token,
+    Answer, CommitRequest, Effect, Event, Force, HeartbeatRequest, JoinAnswer, JoinRequest,
+    LeaveTarget, Millis, SyncRequest, TimerKey, TimerKind, Token,
 };
 use kafka_meta::ConsumerLife;
 

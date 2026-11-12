@@ -4,7 +4,9 @@ use kafka_wire::ResponseError;
 
 use crate::groups::actor::Req;
 use crate::groups::consumer::HeartbeatAnswer;
-use crate::groups::machine::{Answer, Forced, JoinAnswer, LeaveResult, SyncAnswer, commit_to_no_group};
+use crate::groups::machine::{
+    Answer, Forced, JoinAnswer, LeaveResult, SyncAnswer, commit_to_no_group,
+};
 
 /// Whether a request may make a group that is not there: a JoinGroup from a client with no id, or with one it was given.
 pub(super) fn can_begin(req: &Req) -> bool {

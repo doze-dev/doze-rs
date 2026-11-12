@@ -8,10 +8,18 @@ fn fields(kind: LabKind, f: impl FnOnce(&mut LabFields)) -> LabFields {
 
 #[test]
 fn the_forms_open_with_the_boards_defaults_and_make_the_boards_rules() {
-    let slow = spec_of(LabKind::Slow, &fields(LabKind::Slow, |f| f.topic = "orders".into())).unwrap();
+    let slow = spec_of(
+        LabKind::Slow,
+        &fields(LabKind::Slow, |f| f.topic = "orders".into()),
+    )
+    .unwrap();
     assert_eq!(slow.name, "Slow produce to orders");
     assert_eq!(slow.ttl, Duration::from_secs(600));
-    let fail = spec_of(LabKind::Fail, &fields(LabKind::Fail, |f| f.topic = "inventory.levels".into())).unwrap();
+    let fail = spec_of(
+        LabKind::Fail,
+        &fields(LabKind::Fail, |f| f.topic = "inventory.levels".into()),
+    )
+    .unwrap();
     assert_eq!(fail.effect, Effect::Fail { code: 7 });
     assert_eq!(fail.ttl, Duration::from_secs(300));
 }
@@ -38,14 +46,32 @@ fn each_wrong_field_gets_its_own_sentence() {
 
 #[test]
 fn a_link_with_half_the_fields_opens_a_whole_form() {
-    let f = filled(LabKind::Slow, LabFields { topic: "t".into(), ..LabFields::default() });
-    assert_eq!((f.api.as_str(), f.delay.as_str(), f.share.as_str(), f.ends.as_str()), ("produce", "400", "4", "10"));
+    let f = filled(
+        LabKind::Slow,
+        LabFields {
+            topic: "t".into(),
+            ..LabFields::default()
+        },
+    );
+    assert_eq!(
+        (
+            f.api.as_str(),
+            f.delay.as_str(),
+            f.share.as_str(),
+            f.ends.as_str()
+        ),
+        ("produce", "400", "4", "10")
+    );
     assert_eq!(f.topic, "t");
 }
 
 #[test]
 fn the_preview_is_the_rule_and_what_the_wire_shows() {
-    let spec = spec_of(LabKind::Slow, &fields(LabKind::Slow, |f| f.topic = "orders".into())).unwrap();
+    let spec = spec_of(
+        LabKind::Slow,
+        &fields(LabKind::Slow, |f| f.topic = "orders".into()),
+    )
+    .unwrap();
     let p = preview(&spec);
     assert_eq!(p.rule[0], ("doze".into(), "SlowTopic".into()));
     assert!(p.rule.contains(&("delay".into(), "400ms".into())));

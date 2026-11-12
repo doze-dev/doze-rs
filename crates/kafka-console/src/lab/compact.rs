@@ -26,7 +26,8 @@ pub fn dialog(log: &LogView, lab_on: bool) -> LabCompact {
         v.blocked = Some(if log.cleanup == crate::model::Cleanup::Delete {
             "This topic does not compact (its cleanup.policy has no compact), so there is no cleaner round to run.".to_owned()
         } else {
-            "Nothing has been written to this partition yet, so there is nothing to clean.".to_owned()
+            "Nothing has been written to this partition yet, so there is nothing to clean."
+                .to_owned()
         });
         return v;
     };
@@ -60,11 +61,7 @@ pub fn dialog(log: &LogView, lab_on: bool) -> LabCompact {
 }
 
 /// Runs the round. `Ok` is that a round ran and was put in place; `Err` is the dialog again with what the broker said.
-pub async fn run(
-    lab: &Lab,
-    backend: &Backend,
-    mut v: LabCompact,
-) -> Result<(), Box<LabCompact>> {
+pub async fn run(lab: &Lab, backend: &Backend, mut v: LabCompact) -> Result<(), Box<LabCompact>> {
     let out = backend.lab_clean(&v.topic, v.partition).await;
     let name = format!("{}-{}", v.topic, v.partition);
     let (ok, text) = match out {
@@ -77,7 +74,10 @@ pub async fn run(
                 crate::format::number(r.clean_to)
             ),
         ),
-        CleanOutcome::Denied => (false, "The console may not run the cleaner on this topic.".to_owned()),
+        CleanOutcome::Denied => (
+            false,
+            "The console may not run the cleaner on this topic.".to_owned(),
+        ),
         CleanOutcome::NoSuchPartition => (false, "There is no such partition.".to_owned()),
         CleanOutcome::NotCompacted => (false, "The topic does not compact.".to_owned()),
         CleanOutcome::NothingDue => (
@@ -88,7 +88,11 @@ pub async fn run(
     };
     lab.note(
         LabOnceKind::Clean,
-        if ok { text.clone() } else { format!("Could not clean {name}: {text}") },
+        if ok {
+            text.clone()
+        } else {
+            format!("Could not clean {name}: {text}")
+        },
         ok,
     );
     if ok {

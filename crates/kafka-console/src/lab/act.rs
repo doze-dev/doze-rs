@@ -116,7 +116,11 @@ pub fn drop_form(clients: &[(String, usize)], target: &str, how: &str) -> LabOnc
     if clients.is_empty() {
         f.nothing = Some("No app has a connection open that has said who it is.".to_owned());
     }
-    let who = if target.is_empty() { "<client>" } else { target };
+    let who = if target.is_empty() {
+        "<client>"
+    } else {
+        target
+    };
     f.call = if how == "once" {
         format!("doze:DropConnection client={who} once")
     } else {
@@ -128,12 +132,7 @@ pub fn drop_form(clients: &[(String, usize)], target: &str, how: &str) -> LabOnc
 /// Drops an app's connections, or keeps dropping them for a while: a rule that ends by itself. `open` is how many connections the
 /// app has now, and `up_to` the highest connection number there is.
 #[must_use]
-pub fn drop_it(
-    lab: &Lab,
-    form: LabOnceForm,
-    open: usize,
-    up_to: Option<u64>,
-) -> LabOnceDone {
+pub fn drop_it(lab: &Lab, form: LabOnceForm, open: usize, up_to: Option<u64>) -> LabOnceDone {
     let mut f = form;
     let Some(client) = Pattern::new(&f.target).filter(|_| !f.target.contains(['*', '?'])) else {
         f.error = Some("Choose the app whose connections to close.".to_owned());
@@ -180,7 +179,10 @@ fn outcome_words(o: LabOutcome) -> (bool, &'static str) {
             "The broker has no such group in memory: it may have been deleted, or never had a member since the broker began.",
         ),
         LabOutcome::NoSuchMember => (false, "The group has no such member any more."),
-        LabOutcome::Empty => (false, "The group has no member, so there is nothing to rebalance."),
+        LabOutcome::Empty => (
+            false,
+            "The group has no member, so there is nothing to rebalance.",
+        ),
         LabOutcome::AlreadyRebalancing => (
             false,
             "The group is rebalancing already; wait for it to settle, then force another.",
@@ -198,7 +200,11 @@ pub fn split_member(value: &str) -> Option<(String, String)> {
 /// The value of a choice that names a group and one of its members.
 #[must_use]
 pub fn member_value(group: &str, member: &str) -> String {
-    format!("{}/{}", crate::base::segment(group), crate::base::segment(member))
+    format!(
+        "{}/{}",
+        crate::base::segment(group),
+        crate::base::segment(member)
+    )
 }
 
 /// Expires a member's session; the answer is the dialog again, with the broker's words, or that it is done.

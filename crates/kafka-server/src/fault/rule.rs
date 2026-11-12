@@ -72,7 +72,8 @@ fn glob(p: &[u8], n: &[u8]) -> bool {
             },
         }
     }
-    p.get(pi..).is_some_and(|rest| rest.iter().all(|&c| c == b'*'))
+    p.get(pi..)
+        .is_some_and(|rest| rest.iter().all(|&c| c == b'*'))
 }
 
 /// Which requests a rule touches. Every field that is set must fit; a field left empty fits anything.
@@ -190,7 +191,10 @@ impl Spec {
         self.check_share()?;
         self.check_matcher()?;
         match self.effect {
-            Effect::Slow { delay_ms, jitter_ms } => {
+            Effect::Slow {
+                delay_ms,
+                jitter_ms,
+            } => {
                 if delay_ms == 0 || delay_ms > LONGEST_DELAY_MS || jitter_ms > LONGEST_DELAY_MS {
                     return Err(AddError::BadDelay);
                 }

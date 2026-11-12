@@ -55,9 +55,16 @@ pub fn share_of(value: &str) -> Option<Share> {
         "every" => Some(Share::Every),
         v => {
             if let Some(p) = v.strip_prefix('p') {
-                return p.parse().ok().filter(|p| (1..=99).contains(p)).map(Share::Percent);
+                return p
+                    .parse()
+                    .ok()
+                    .filter(|p| (1..=99).contains(p))
+                    .map(Share::Percent);
             }
-            v.parse().ok().filter(|n| (2..=1000).contains(n)).map(Share::EveryNth)
+            v.parse()
+                .ok()
+                .filter(|n| (2..=1000).contains(n))
+                .map(Share::EveryNth)
         }
     }
 }
@@ -152,10 +159,7 @@ pub fn sentence(spec: &Spec) -> String {
             } else {
                 String::new()
             };
-            format!(
-                "+{delay_ms} ms{jitter} on {}{to}{from}.",
-                requests(spec)
-            )
+            format!("+{delay_ms} ms{jitter} on {}{to}{from}.", requests(spec))
         }
         Effect::Fail { code } => format!(
             "Answers {}{to}{from} with {}.",
@@ -254,7 +258,9 @@ pub fn kind_of(e: Effect) -> LabKind {
 #[must_use]
 pub fn refused_words(e: AddError) -> String {
     match e {
-        AddError::TooMany => "The Lab holds 50 rules at once. Clear one, or wait for one to end.".to_owned(),
+        AddError::TooMany => {
+            "The Lab holds 50 rules at once. Clear one, or wait for one to end.".to_owned()
+        }
         AddError::BadName => "The name is too long or holds a control character.".to_owned(),
         AddError::BadDuration => "A rule lasts from 1 second to 24 hours.".to_owned(),
         AddError::BadDelay => "A delay is from 1 ms to 60,000 ms.".to_owned(),
@@ -265,9 +271,13 @@ pub fn refused_words(e: AddError) -> String {
             "The Lab cannot make up an answer for {}: it would not be one error code.",
             names::api(api)
         ),
-        AddError::BadPartition => "A partition is a whole number from 0, at most 64 of them.".to_owned(),
+        AddError::BadPartition => {
+            "A partition is a whole number from 0, at most 64 of them.".to_owned()
+        }
         AddError::TooManyTopics => "A rule names at most 16 topics.".to_owned(),
-        AddError::BadHits => "A rule that stops after a number of hits needs at least 1.".to_owned(),
+        AddError::BadHits => {
+            "A rule that stops after a number of hits needs at least 1.".to_owned()
+        }
     }
 }
 

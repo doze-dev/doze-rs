@@ -1,6 +1,8 @@
 use bytes::Bytes;
 use kafka_wire::api::{Request, Response};
-use kafka_wire::messages::{ApiKey, FindCoordinatorRequest, OffsetCommitRequest, OffsetFetchRequest};
+use kafka_wire::messages::{
+    ApiKey, FindCoordinatorRequest, OffsetCommitRequest, OffsetFetchRequest,
+};
 use kafka_wire::profile::{KafkaMajor, Profile};
 use kafka_wire::{StrBytes, response};
 
@@ -40,7 +42,11 @@ fn codes(r: &Response) -> Vec<i16> {
             .flat_map(|t| t.partitions.iter().map(|p| p.error_code))
             .collect(),
         Response::OffsetFetch(r) => std::iter::once(r.error_code)
-            .chain(r.topics.iter().flat_map(|t| t.partitions.iter().map(|p| p.error_code)))
+            .chain(
+                r.topics
+                    .iter()
+                    .flat_map(|t| t.partitions.iter().map(|p| p.error_code)),
+            )
             .chain(r.groups.iter().flat_map(|g| {
                 std::iter::once(g.error_code).chain(
                     g.topics
@@ -124,14 +130,21 @@ fn every_failable_api_has_a_request_here_and_an_answer() {
 fn the_code_is_in_every_place_a_client_reads_one() {
     for req in requests() {
         let api = req.api_key();
-        let (low, high) = Profile::new(KafkaMajor::DEFAULT).range(api).unwrap();
-        for version in low..=high {
-            let r = fail_response(&req, version, 7).unwrap();
-            let found = codes(&r);
-            assert!(!found.is_empty(), "{api:?} v{version}");
-            // The top-level code of a shape a version does not use stays 0: what the version's own field says is the code.
-            assert!(found.contains(&7), "{api:?} v{version}: {found:?}");
-            assert!(found.iter().all(|c| *c == 7 || *c == 0), "{api:?} v{version}: {found:?}");
+        for major in KafkaMajor::RANGE.filter_map(KafkaMajor::new) {
+            let Some((low, high)) = Profile::new(major).range(api) else {
+                continue;
+            };
+            for version in low..=high {
+                let r = fail_response(&req, version, 7).unwrap();
+                let found = codes(&r);
+                assert!(!found.is_empty(), "{api:?} v{version}");
+                // The top-level code of a shape a version does not use stays 0: what the version's own field says is the code.
+                assert!(found.contains(&7), "{api:?} v{version}: {found:?}");
+                assert!(
+                    found.iter().all(|c| *c == 7 || *c == 0),
+                    "{api:?} v{version}: {found:?}"
+                );
+            }
         }
     }
 }
@@ -155,11 +168,17 @@ fn a_produce_answer_names_every_partition_asked_for_with_no_offset() {
 #[test]
 fn an_old_offset_fetch_carries_the_code_at_the_top_and_a_new_one_in_each_group() {
     let reqs = requests();
-    let req = reqs.iter().find(|r| r.api_key() == ApiKey::OffsetFetch).unwrap();
+    let req = reqs
+        .iter()
+        .find(|r| r.api_key() == ApiKey::OffsetFetch)
+        .unwrap();
     let Some(Response::OffsetFetch(old)) = fail_response(req, 7, 7) else {
         panic!()
     };
-    assert_eq!((old.error_code, old.groups.len(), old.topics.len()), (7, 0, 1));
+    assert_eq!(
+        (old.error_code, old.groups.len(), old.topics.len()),
+        (7, 0, 1)
+    );
     let Some(Response::OffsetFetch(new)) = fail_response(req, 9, 7) else {
         panic!()
     };
@@ -171,8 +190,10 @@ fn an_old_offset_fetch_carries_the_code_at_the_top_and_a_new_one_in_each_group()
 fn every_failable_answer_encodes_at_every_version_the_broker_serves() {
     for req in requests() {
         let api = req.api_key();
-        for major in [KafkaMajor::DEFAULT] {
-            let (low, high) = Profile::new(major).range(api).unwrap();
+        for major in KafkaMajor::RANGE.filter_map(KafkaMajor::new) {
+            let Some((low, high)) = Profile::new(major).range(api) else {
+                continue;
+            };
             for version in low..=high {
                 let r = fail_response(&req, version, 3).unwrap();
                 let bytes: Bytes = response::encode(1, version, &r)

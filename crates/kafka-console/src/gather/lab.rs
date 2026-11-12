@@ -8,8 +8,8 @@ use crate::lab::Lab;
 use crate::lab::act::{self, Choices};
 use crate::lab::{compact, views};
 use crate::model::lab::{
-    LabChoice, LabCompact, LabFields, LabForm, LabHome, LabKind, LabMade, LabOnceDone,
-    LabOnceForm, LabOnceKind, LabRuleView,
+    LabChoice, LabCompact, LabFields, LabForm, LabHome, LabKind, LabMade, LabOnceDone, LabOnceForm,
+    LabOnceKind, LabRuleView,
 };
 use crate::model::{Cleanup, LogView};
 use crate::recorder::Recorder;
@@ -31,7 +31,11 @@ pub async fn choices(backend: &Backend, recorder: Option<&Recorder>) -> Choices 
                 "{} partition{}{}.",
                 t.partitions,
                 if t.partitions == 1 { "" } else { "s" },
-                if t.cleanup == Cleanup::Delete { "" } else { ", compacted" }
+                if t.cleanup == Cleanup::Delete {
+                    ""
+                } else {
+                    ", compacted"
+                }
             )),
         })
         .collect();
@@ -114,7 +118,12 @@ pub fn drop_form(recorder: Option<&Recorder>, target: &str, how: &str) -> LabOnc
 
 /// Closes an app's connections: once, or for a while.
 #[must_use]
-pub fn drop_connections(lab: &Lab, recorder: Option<&Recorder>, target: &str, how: &str) -> LabOnceDone {
+pub fn drop_connections(
+    lab: &Lab,
+    recorder: Option<&Recorder>,
+    target: &str,
+    how: &str,
+) -> LabOnceDone {
     let form = drop_form(recorder, target, how);
     let open = recorder
         .map(Recorder::open_clients)
@@ -140,13 +149,22 @@ pub async fn expire_form(backend: &Backend, target: &str) -> LabOnceForm {
         call: String::new(),
         follows: None,
     };
-    for g in super::group_read::listed(backend).await.into_iter().take(MOST_GROUPS) {
-        let Some(d) = backend.group_detail(&g.id).await else { continue };
+    for g in super::group_read::listed(backend)
+        .await
+        .into_iter()
+        .take(MOST_GROUPS)
+    {
+        let Some(d) = backend.group_detail(&g.id).await else {
+            continue;
+        };
         for m in d.members.iter().take(MOST_MEMBERS) {
             f.choices.push(LabChoice {
                 value: act::member_value(&g.id, &m.id),
                 label: format!("{} · {}", g.id, m.id),
-                desc: Some(format!("{} ({}), {}, generation {}", m.client_id, m.client_host, d.state, d.generation)),
+                desc: Some(format!(
+                    "{} ({}), {}, generation {}",
+                    m.client_id, m.client_host, d.state, d.generation
+                )),
             });
         }
     }
@@ -170,17 +188,32 @@ pub async fn rebalance_form(backend: &Backend, target: &str) -> LabOnceForm {
     f.kind = LabOnceKind::Rebalance;
     f.target = target.to_owned();
     f.choices.clear();
-    for g in super::group_read::listed(backend).await.into_iter().take(MOST_GROUPS) {
-        let Some(d) = backend.group_detail(&g.id).await else { continue };
+    for g in super::group_read::listed(backend)
+        .await
+        .into_iter()
+        .take(MOST_GROUPS)
+    {
+        let Some(d) = backend.group_detail(&g.id).await else {
+            continue;
+        };
         if !d.members.is_empty() {
             f.choices.push(LabChoice {
                 value: g.id.clone(),
                 label: g.id.clone(),
-                desc: Some(format!("{}, {} member{}, generation {}", d.state, d.members.len(), if d.members.len() == 1 { "" } else { "s" }, d.generation)),
+                desc: Some(format!(
+                    "{}, {} member{}, generation {}",
+                    d.state,
+                    d.members.len(),
+                    if d.members.len() == 1 { "" } else { "s" },
+                    d.generation
+                )),
             });
         }
     }
-    f.nothing = f.choices.is_empty().then(|| "No group has a member right now.".to_owned());
+    f.nothing = f
+        .choices
+        .is_empty()
+        .then(|| "No group has a member right now.".to_owned());
     f.call = format!("doze:ForceRebalance group={target}");
     f
 }
@@ -191,7 +224,12 @@ pub async fn rebalance(lab: &Lab, backend: &Backend, target: &str) -> LabOnceDon
 }
 
 /// The Compact now dialog of a partition; `None` if there is no such topic.
-pub async fn compact_form(backend: &Backend, lab_on: bool, topic: &str, partition: i32) -> Option<LabCompact> {
+pub async fn compact_form(
+    backend: &Backend,
+    lab_on: bool,
+    topic: &str,
+    partition: i32,
+) -> Option<LabCompact> {
     let log: LogView = super::log_view(backend, topic, partition).await?;
     Some(compact::dialog(&log, lab_on))
 }
@@ -200,7 +238,12 @@ pub async fn compact_form(backend: &Backend, lab_on: bool, topic: &str, partitio
 ///
 /// # Errors
 /// The partition is not compacted, nothing is due, or the round failed: the dialog with its words.
-pub async fn compact(lab: &Lab, backend: &Backend, topic: &str, partition: i32) -> Result<(), Box<LabCompact>> {
+pub async fn compact(
+    lab: &Lab,
+    backend: &Backend,
+    topic: &str,
+    partition: i32,
+) -> Result<(), Box<LabCompact>> {
     let Some(v) = compact_form(backend, true, topic, partition).await else {
         return Err(Box::new(LabCompact {
             topic: topic.to_owned(),

@@ -23,8 +23,9 @@ mod targets;
 
 pub use matching::Ask;
 pub use rule::{
-    AddError, Effect, Ended, EndedWhy, FirstHit, LastHit, LONGEST_DELAY_MS, LONGEST_NAME,
-    LONGEST_PATTERN, LONGEST_RULE, Matcher, MOST_CLIENTS, MOST_RULES, Pattern, Rule, SHORTEST_RULE, Share, Spec,
+    AddError, Effect, Ended, EndedWhy, FirstHit, LONGEST_DELAY_MS, LONGEST_NAME, LONGEST_PATTERN,
+    LONGEST_RULE, LastHit, MOST_CLIENTS, MOST_RULES, Matcher, Pattern, Rule, SHORTEST_RULE, Share,
+    Spec,
 };
 pub use synth::{FAILABLE, can_fail, fail_response};
 pub use table::{Clock, FaultTable, MOST_ENDED, SystemClock};

@@ -18,7 +18,9 @@ use client::{Client, metadata_for};
 use kafka_broker::{Broker, Config as BrokerConfig};
 use kafka_protocol::protocol::StrBytes;
 use kafka_server::fault::{Effect, FaultTable, Matcher, Pattern, Share, Spec};
-use kafka_server::{Answer, Call, Config, ConnId, Observed, Observer, Opened, Pending, Running, Server};
+use kafka_server::{
+    Answer, Call, Config, ConnId, Observed, Observer, Opened, Pending, Running, Server,
+};
 use kafka_storage::sim::SimFs;
 use kafka_wire::batch::build::BatchBuilder;
 use kafka_wire::messages::fetch_request::{FetchPartition, FetchTopic};
@@ -56,7 +58,11 @@ async fn start() -> (Running, Arc<FaultTable>, Arc<Told>) {
         ..Config::default()
     };
     let broker = Broker::open(SimFs::new(), BrokerConfig::new("/data".into())).unwrap();
-    (Server::bind(config, Arc::new(broker)).await.unwrap(), table, told)
+    (
+        Server::bind(config, Arc::new(broker)).await.unwrap(),
+        table,
+        told,
+    )
 }
 
 fn rule(name: &str, apis: &[ApiKey], topic: Option<&str>, effect: Effect) -> Spec {
@@ -64,7 +70,10 @@ fn rule(name: &str, apis: &[ApiKey], topic: Option<&str>, effect: Effect) -> Spe
         name: name.to_owned(),
         matcher: Matcher {
             apis: apis.to_vec(),
-            topics: topic.map(|t| Pattern::new(t).unwrap()).into_iter().collect(),
+            topics: topic
+                .map(|t| Pattern::new(t).unwrap())
+                .into_iter()
+                .collect(),
             ..Matcher::default()
         },
         effect,
@@ -126,21 +135,33 @@ async fn a_slow_rule_delays_the_answer_by_its_delay_and_tags_the_request() {
     let mut c = Client::connect(&server).await;
     make_topic(&mut c, "orders").await;
     let began = Instant::now();
-    let _: ProduceResponse = c.call(ApiKey::Produce, 9, &produce_request("orders", 1)).await.unwrap();
+    let _: ProduceResponse = c
+        .call(ApiKey::Produce, 9, &produce_request("orders", 1))
+        .await
+        .unwrap();
     let plain = began.elapsed();
     table
         .add(rule(
             "Slow produce",
             &[ApiKey::Produce],
             Some("orders"),
-            Effect::Slow { delay_ms: 300, jitter_ms: 0 },
+            Effect::Slow {
+                delay_ms: 300,
+                jitter_ms: 0,
+            },
         ))
         .unwrap();
     let began = Instant::now();
-    let r: ProduceResponse = c.call(ApiKey::Produce, 9, &produce_request("orders", 1)).await.unwrap();
+    let r: ProduceResponse = c
+        .call(ApiKey::Produce, 9, &produce_request("orders", 1))
+        .await
+        .unwrap();
     let slow = began.elapsed();
     assert_eq!(r.responses[0].partition_responses[0].error_code, 0);
-    assert!(slow >= Duration::from_millis(300), "{slow:?} (plain {plain:?})");
+    assert!(
+        slow >= Duration::from_millis(300),
+        "{slow:?} (plain {plain:?})"
+    );
     assert!(slow < Duration::from_millis(2500), "{slow:?}");
     // Both records of both Produce requests are there: a delayed request is a request served, late.
     assert_eq!(fetch_end(&mut c, "orders").await, 4);
@@ -164,20 +185,30 @@ async fn a_fail_rule_answers_with_its_code_and_the_broker_never_sees_the_request
             Effect::Fail { code: 7 },
         ))
         .unwrap();
-    let r: ProduceResponse = c.call(ApiKey::Produce, 9, &produce_request("orders", 1)).await.unwrap();
+    let r: ProduceResponse = c
+        .call(ApiKey::Produce, 9, &produce_request("orders", 1))
+        .await
+        .unwrap();
     let part = &r.responses[0].partition_responses[0];
     assert_eq!((part.index, part.error_code, part.base_offset), (0, 7, -1));
     assert_eq!(fetch_end(&mut c, "orders").await, 0, "nothing was appended");
     // A produce that asks for no acknowledgement gets none, and appends nothing either.
-    c.send(ApiKey::Produce, 9, &produce_request("orders", 0)).await;
+    c.send(ApiKey::Produce, 9, &produce_request("orders", 0))
+        .await;
     assert_eq!(fetch_end(&mut c, "orders").await, 0);
     assert_eq!(table.rule(id).unwrap().hits, 2);
     // Another topic is served as usual.
     make_topic(&mut c, "payments").await;
-    let r: ProduceResponse = c.call(ApiKey::Produce, 9, &produce_request("payments", 1)).await.unwrap();
+    let r: ProduceResponse = c
+        .call(ApiKey::Produce, 9, &produce_request("payments", 1))
+        .await
+        .unwrap();
     assert_eq!(r.responses[0].partition_responses[0].error_code, 0);
     let seen = told.0.lock().unwrap().clone();
-    assert!(seen.iter().any(|s| s.0 == ApiKey::Produce && s.2.as_deref() == Some("Fail produce") && !s.1));
+    assert!(
+        seen.iter()
+            .any(|s| s.0 == ApiKey::Produce && s.2.as_deref() == Some("Fail produce") && !s.1)
+    );
     server.shutdown().await;
 }
 
@@ -187,7 +218,12 @@ async fn a_drop_rule_closes_the_connection_and_the_next_one_is_served_when_the_r
     let mut c = Client::connect(&server).await;
     make_topic(&mut c, "orders").await;
     let id = table
-        .add(rule("Drop metadata", &[ApiKey::Metadata], None, Effect::Drop))
+        .add(rule(
+            "Drop metadata",
+            &[ApiKey::Metadata],
+            None,
+            Effect::Drop,
+        ))
         .unwrap();
     let a: Option<MetadataResponse> = c.call(ApiKey::Metadata, 9, &metadata_for("orders")).await;
     assert!(a.is_none(), "the connection was closed with no answer");
@@ -195,7 +231,10 @@ async fn a_drop_rule_closes_the_connection_and_the_next_one_is_served_when_the_r
     let mut again = Client::connect(&server).await;
     make_topic(&mut again, "orders").await;
     let seen = told.0.lock().unwrap().clone();
-    assert!(seen.iter().any(|s| s.0 == ApiKey::Metadata && s.1 && s.2.as_deref() == Some("Drop metadata")));
+    assert!(
+        seen.iter()
+            .any(|s| s.0 == ApiKey::Metadata && s.1 && s.2.as_deref() == Some("Drop metadata"))
+    );
     server.shutdown().await;
 }
 
@@ -238,7 +277,11 @@ async fn start_sasl() -> (Running, Arc<FaultTable>, Arc<Told>) {
         ..Config::default()
     };
     let broker = Broker::open(SimFs::new(), BrokerConfig::new("/data".into())).unwrap();
-    (Server::bind(config, Arc::new(broker)).await.unwrap(), table, told)
+    (
+        Server::bind(config, Arc::new(broker)).await.unwrap(),
+        table,
+        told,
+    )
 }
 
 #[tokio::test]
@@ -251,12 +294,19 @@ async fn stopping_the_server_does_not_wait_for_a_delayed_answer() {
             "Very slow",
             &[ApiKey::Metadata],
             None,
-            Effect::Slow { delay_ms: 60_000, jitter_ms: 0 },
+            Effect::Slow {
+                delay_ms: 60_000,
+                jitter_ms: 0,
+            },
         ))
         .unwrap();
     c.send(ApiKey::Metadata, 9, &metadata_for("orders")).await;
     tokio::time::sleep(Duration::from_millis(100)).await;
     let began = Instant::now();
     server.shutdown().await;
-    assert!(began.elapsed() < Duration::from_secs(10), "{:?}", began.elapsed());
+    assert!(
+        began.elapsed() < Duration::from_secs(10),
+        "{:?}",
+        began.elapsed()
+    );
 }

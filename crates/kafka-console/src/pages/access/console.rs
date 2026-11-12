@@ -26,7 +26,7 @@ pub(super) fn console_card(v: &AccessView) -> Markup {
                 dt { "Who can use it" }
                 dd { "Anyone who can reach it" (sub(html! {
                     "there is no login: whoever opens the console acts as " span class="mono" { (c.principal) }
-                    " and may do what a super user may. What keeps others out is the address and the Host check below, nothing else."
+                    " and may do what a super user may, including starting Lab rules that delay, fail or drop requests (" span class="mono" { "--lab=false" } " turns that off). What keeps others out is the address and the Host check below, nothing else."
                 })) }
                 dt { "Listens on" }
                 dd class="mono" { (c.listens) (sub(html! { span style="font-family:Inter,sans-serif" {

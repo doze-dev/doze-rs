@@ -7,7 +7,13 @@ use super::{Answer, Effect, Force, Forced, GroupMachine, Millis, State, Token};
 use crate::groups::note::{Cause, Why};
 
 impl GroupMachine {
-    pub(super) fn force(&mut self, token: Token, force: &Force, now: Millis, out: &mut Vec<Effect>) {
+    pub(super) fn force(
+        &mut self,
+        token: Token,
+        force: &Force,
+        now: Millis,
+        out: &mut Vec<Effect>,
+    ) {
         let done = match force {
             Force::Expire(id) => self.force_expire(id, now, out),
             Force::Rebalance => self.force_rebalance(now, out),
@@ -31,7 +37,7 @@ impl GroupMachine {
             State::PreparingRebalance => Forced::AlreadyRebalancing,
             State::CompletingRebalance | State::Stable => {
                 let why = Why::new(Cause::Forced, None, self.members.len());
-                
+
                 self.rebalance_after_change(now, why, out);
                 Forced::Done
             }
