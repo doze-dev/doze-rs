@@ -231,6 +231,27 @@ impl Run {
     }
 }
 
+/// A task that waits for a source to say it has something, ended when dropped.
+pub(crate) struct Wake(tokio::task::JoinHandle<()>);
+
+impl Wake {
+    /// Starts waiting: the task is spawned, and the caller yields once before reading, so the wait is in place before the read it guards.
+    pub(crate) fn on<F: std::future::Future<Output = ()> + Send + 'static>(wait: F) -> Self {
+        Self(tokio::spawn(wait))
+    }
+
+    /// Resolves when the source has said so.
+    pub(crate) async fn fired(&mut self) {
+        drop((&mut self.0).await);
+    }
+}
+
+impl Drop for Wake {
+    fn drop(&mut self) {
+        self.0.abort();
+    }
+}
+
 /// Starts and stops pollers so they are the enabled mappings of `region`.
 pub(crate) async fn sync(inner: &Arc<Inner>, region: &str) {
     let Ok(Answer::Many(list)) = inner.ask(region, Ask::Enabled).await else {

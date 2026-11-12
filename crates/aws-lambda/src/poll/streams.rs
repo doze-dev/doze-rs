@@ -11,7 +11,7 @@ use std::time::Duration;
 use aws_core::time::format_iso8601;
 use serde_json::{Value, json};
 
-use super::Run;
+use super::{Run, Wake};
 
 /// One record of a stream: where it is, its event, and when it arrived.
 #[derive(Clone, Debug)]
@@ -401,7 +401,7 @@ pub(super) async fn dynamodb(run: Run, ddb: Arc<aws_dynamodb::Dynamodb>) {
         if run.stop.is_cancelled() {
             return;
         }
-        let waiter = tokio::spawn({
+        let mut waiter = Wake::on({
             let ddb = Arc::clone(&ddb);
             async move { ddb.stream_arrived().await }
         });
@@ -426,7 +426,7 @@ pub(super) async fn dynamodb(run: Run, ddb: Arc<aws_dynamodb::Dynamodb>) {
             })
             .unwrap_or_default();
         if let Some(last) = records.last() {
-            waiter.abort();
+            drop(waiter);
             after = u64::try_from(last.seq).unwrap_or(after);
             if matches!(
                 deliver(&run, "DDBStreamBatchInfo", stream, records).await,
@@ -437,7 +437,7 @@ pub(super) async fn dynamodb(run: Run, ddb: Arc<aws_dynamodb::Dynamodb>) {
             continue;
         }
         tokio::select! {
-            _ = waiter => {}
+            () = waiter.fired() => {}
             () = run.stop.cancelled() => return,
         }
     }

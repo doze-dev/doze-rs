@@ -10,7 +10,7 @@ use aws_wire::service::Caller;
 use serde_json::{Map, Value, json};
 use tokio::time::Instant;
 
-use super::Run;
+use super::{Run, Wake};
 use crate::errors::invalid;
 
 /// The queue's name and account from its ARN.
@@ -158,7 +158,7 @@ impl Run {
         let until = Instant::now() + window;
         let mut batch: Vec<Value> = Vec::new();
         loop {
-            let waiter = tokio::spawn({
+            let mut waiter = Wake::on({
                 let sqs = Arc::clone(sqs);
                 async move { sqs.message_arrived().await }
             });
@@ -173,21 +173,21 @@ impl Run {
             let found = !messages.is_empty();
             batch.extend(messages);
             if batch.len() >= want {
-                waiter.abort();
+                drop(waiter);
                 return batch;
             }
             if found {
-                waiter.abort();
+                drop(waiter);
                 continue;
             }
             // The queue is empty for now: a batch with something in it waits out the window for more.
             if batch.is_empty() || window.is_zero() {
-                waiter.abort();
+                drop(waiter);
                 return batch;
             }
             let left = until.saturating_duration_since(Instant::now());
             tokio::select! {
-                _ = waiter => {}
+                () = waiter.fired() => {}
                 () = tokio::time::sleep(left) => return batch,
                 () = self.stop.cancelled() => return batch,
             }
@@ -357,21 +357,21 @@ pub(crate) async fn run(run: Run, sqs: Arc<aws_sqs::Sqs>) {
         if run.stop.is_cancelled() {
             return;
         }
-        let waiter = tokio::spawn({
+        let mut waiter = Wake::on({
             let sqs = Arc::clone(&sqs);
             async move { sqs.message_arrived().await }
         });
         tokio::task::yield_now().await;
         let batch = run.gather(&peers, &q, &sqs).await;
         if !batch.is_empty() {
-            waiter.abort();
+            drop(waiter);
             run.handle(&peers, &q, batch).await;
             continue;
         }
         let hidden = run.has_hidden(&peers, &q).await;
         let wake = tokio::time::sleep(Duration::from_secs(1));
         tokio::select! {
-            _ = waiter => {}
+            () = waiter.fired() => {}
             () = wake, if hidden => {}
             () = run.stop.cancelled() => return,
         }

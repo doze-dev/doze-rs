@@ -45,15 +45,12 @@ pub fn to_json(tables: &Tables, shape: u32, p: &Parts<'_>) -> Result<Value, Read
         None
     };
     let mut out = Map::new();
-    // Body members first, so a bound member (a label, a header) of the same name is the bound one.
+    // The body's members first, so a bound member (a label, a header) of the same name is the bound one. A member the model does not
+    // know is kept: the decoder skips it, and a service that has a member of its own (Lambda's `Command`) reads it from the request.
     if let Some(map) = &body
         && !has_payload
     {
-        for (_, m) in members.iter().filter(|(_, m)| m.bind == 0) {
-            if let Some(v) = map.get(m.wire) {
-                out.insert(m.wire.to_owned(), v.clone());
-            }
-        }
+        out.extend(map.iter().map(|(k, v)| (k.clone(), v.clone())));
     }
     for (ix, m) in &members {
         let value = match m.bind {
