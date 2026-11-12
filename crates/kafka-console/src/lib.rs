@@ -51,6 +51,7 @@ pub mod pages;
 pub mod partitioner;
 pub mod phrases;
 pub mod probe;
+pub mod recorder;
 pub mod refusal;
 pub mod routes;
 pub mod serve;

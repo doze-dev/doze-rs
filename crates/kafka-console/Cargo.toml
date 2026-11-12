@@ -21,6 +21,8 @@ kafka-wire = { path = "../kafka-wire" }
 kafka-broker = { path = "../kafka-broker", features = ["inspect"] }
 kafka-storage = { path = "../kafka-storage" }
 kafka-auth = { path = "../kafka-auth" }
+# The Observer trait the recorder implements: the dependency points from the console to the server, never back.
+kafka-server = { path = "../kafka-server" }
 # The HTTP server and router: no default features (no macros, no json, no tracing, no HTTP/2, no websockets), only
 # what the pages need.
 axum = { version = "0.8", default-features = false, features = ["tokio", "http1"] }
@@ -43,7 +45,6 @@ flate2 = "1"
 kafka-wire = { path = "../kafka-wire", features = ["test-support"] }
 # The fixtures and the example the integration tests render pages from.
 kafka-console = { path = ".", features = ["examples"] }
-kafka-server = { path = "../kafka-server" }
 kafka-storage = { path = "../kafka-storage", features = ["sim"] }
 # `oneshot` on a Router, and the bodies of its answers.
 tower = { version = "0.5", default-features = false, features = ["util"] }
