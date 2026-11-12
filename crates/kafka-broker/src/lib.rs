@@ -36,12 +36,14 @@ pub use caller::Caller;
 pub use config::{Config, Defaults};
 pub(crate) use configs::Live;
 pub use error::BrokerError;
+pub use groups::Cause;
 pub use listener::Listener;
 pub use outcome::Outcome;
 #[cfg(feature = "inspect")]
 pub use view::{
     AbortedRange, AccessFacts, CleanerState, Compaction, ConfigHelp, ConfigRule, ConsoleView,
-    DataSize, Durability, GroupDetail, GroupKind, Instance, Intervals, LastStop, Limits, LogFacts,
-    LogPolicy, LogRetention, MOST_ENTRIES, MemberDetail, OffsetExpiry, Pace, PartitionFiles,
-    PartitionProducers, Process, ProducerBatch, ProducerWindow, RebalanceDetail,
+    DataSize, Durability, EventKind, GroupDetail, GroupEvent, GroupEvents, GroupKind, Instance,
+    Intervals, LastStop, Limits, LogFacts, LogPolicy, LogRetention, MOST_ENTRIES, MemberDetail,
+    MemberHold, OffsetExpiry, Pace, PartitionFiles, PartitionProducers, Process, ProducerBatch,
+    ProducerWindow, RebalanceDetail,
 };

@@ -75,7 +75,7 @@ pub(super) fn title(h: &GroupHead) -> Markup {
 
 /// The page head: title row, a sentence under it, and the actions at the right.
 #[must_use]
-pub(super) fn head(h: &GroupHead, sentence: Markup, acts: Markup) -> Markup {
+pub(crate) fn head(h: &GroupHead, sentence: Markup, acts: Markup) -> Markup {
     html! {
         div class="page-h" {
             div { (title(h)) div class="sub" { (sentence) } }
@@ -105,7 +105,7 @@ pub fn sentence_fragment(
 
 /// The chips that switch to another group's same page.
 #[must_use]
-pub(super) fn switch(h: &GroupHead, base: &Base, tail: &str) -> Markup {
+pub(crate) fn switch(h: &GroupHead, base: &Base, tail: &str) -> Markup {
     html! {
         div class="toolbar" style="margin:-12px 0 28px" {
             span class="dim" { (group_glyph(GroupGlyph::Group, 16, "")) " Switch group" }
@@ -125,9 +125,10 @@ pub(super) fn switch(h: &GroupHead, base: &Base, tail: &str) -> Markup {
 pub(super) enum On {
     Members,
     Lag,
+    Story,
 }
 
-/// The tabs. Story is drawn as the boards draw it and is not a link until the group event ring exists (9f).
+/// The tabs: Members, Lag, and Story, whose count is the rebalances the group has said it began (the ring of slice 9f).
 #[must_use]
 pub(super) fn group_tabs(h: &GroupHead, base: &Base, on: On) -> Markup {
     let lag = i64_usize(h.lag_total);
@@ -136,6 +137,7 @@ pub(super) fn group_tabs(h: &GroupHead, base: &Base, on: On) -> Markup {
             @for (label, href, here, count) in [
                 ("Members", group_url(base, &h.id, ""), on == On::Members, h.members.len()),
                 ("Lag", group_url(base, &h.id, "/lag"), on == On::Lag, lag),
+                ("Story", group_url(base, &h.id, "/story"), on == On::Story, h.story.count),
             ] {
                 @if here {
                     a class="tab on" href=(href) aria-current="page" { (label) span class="n" { (crate::format::number(i64::try_from(count).unwrap_or(0))) } }
@@ -143,13 +145,18 @@ pub(super) fn group_tabs(h: &GroupHead, base: &Base, on: On) -> Markup {
                     a class="tab" href=(href) { (label) span class="n" { (crate::format::number(i64::try_from(count).unwrap_or(0))) } }
                 }
             }
-            span class="tab" title="The story of a group needs the group event ring (slice 9f)" { "Story" }
         }
     }
 }
 
 fn i64_usize(n: i64) -> usize {
     usize::try_from(n.max(0)).unwrap_or(usize::MAX)
+}
+
+/// The tabs with Story showing: for the Story pages, which sit beside the group's own.
+#[must_use]
+pub(crate) fn story_tabs(h: &GroupHead, base: &Base) -> Markup {
+    group_tabs(h, base, On::Story)
 }
 
 /// The two buttons most group pages carry.

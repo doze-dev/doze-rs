@@ -46,6 +46,7 @@ pub fn parse_watch(value: &str) -> Result<Vec<&str>, &str> {
             && !crate::stream_groups::WATCHABLE.contains(&id)
             && !crate::live_ids::WATCHABLE.contains(&id)
             && !crate::stream_log::WATCHABLE.contains(&id)
+            && !crate::story_ids::WATCHABLE.contains(&id)
         {
             return Err(id);
         }

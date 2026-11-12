@@ -17,6 +17,9 @@ mod members;
 mod refused;
 
 pub use common::{GROUP_SENTENCE, group_url, sentence_fragment as group_sentence_fragment};
+pub(crate) use common::{
+    head as group_head, story_tabs as group_story_tabs, switch as group_switch,
+};
 pub use detail::group_page;
 pub use dialogs::{delete_dialog, offset_delete_dialog, reset_dialog};
 pub use lag::{LAG_SENTENCE, LAG_TABLE, lag_page, lag_sentence_fragment, lag_table_fragment};

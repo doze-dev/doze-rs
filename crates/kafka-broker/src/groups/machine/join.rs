@@ -9,6 +9,7 @@ use kafka_wire::ids::MemberId;
 use super::{
     Answer, Effect, GroupMachine, JoinAnswer, JoinRequest, Member, Millis, SESSION_MS, State, Token,
 };
+use crate::groups::note::{Cause, Named, Why};
 
 /// Who a JoinGroup comes from, once the id and instance it carries are understood.
 enum Who {
@@ -172,9 +173,16 @@ impl GroupMachine {
         member.joined = Some(token);
         self.members.insert(id.clone(), member);
         self.arm_session(&id, now, out);
+        let why = Why::new(
+            Cause::MemberJoined,
+            Some(Named::new(&id, &req.client_id, req.reason.clone())),
+            self.members.len() - 1,
+        );
         match self.state {
-            State::Empty => self.begin_rebalance(now, true, out),
-            State::CompletingRebalance | State::Stable => self.begin_rebalance(now, false, out),
+            State::Empty => self.begin_rebalance(now, true, why, out),
+            State::CompletingRebalance | State::Stable => {
+                self.begin_rebalance(now, false, why, out);
+            }
             State::PreparingRebalance => {
                 // A member that was not in the group arrived while it was holding for latecomers.
                 if let Some(hold) = self.rebalance.as_mut().and_then(|r| r.hold.as_mut()) {
@@ -221,7 +229,16 @@ impl GroupMachine {
                     out.push(Effect::Forget(old));
                 }
             }
-            self.begin_rebalance(now, false, out);
+            // The member is in the group already: it asks to join again with other protocols than before, or it is the
+            // leader of a running group, which Kafka rebalances for.
+            let cause = if same {
+                Cause::LeaderRejoined
+            } else {
+                Cause::ProtocolsChanged
+            };
+            let who = Named::new(id, &req.client_id, req.reason.clone());
+            let why = Why::new(cause, Some(who), self.members.len());
+            self.begin_rebalance(now, false, why, out);
         }
         self.arm_session(id, now, out);
         self.maybe_complete(now, out);

@@ -44,7 +44,7 @@ impl ConsumerGroup {
             Event::Heartbeat(token, req) => {
                 self.classic_heartbeat(token, &req, &source.topics(), now, &mut out)
             }
-            Event::Leave(token, targets) => self.classic_leave(token, &targets, &mut out),
+            Event::Leave(token, targets) => self.classic_leave(token, &targets, now, &mut out),
         }
         out
     }

@@ -1,6 +1,7 @@
 //! What happens when a timer runs out.
 
 use super::{Effect, GroupMachine, Millis, TimerKey, TimerKind};
+use crate::groups::note::{Cause, Named};
 
 impl GroupMachine {
     pub(super) fn timer(&mut self, key: &TimerKey, now: Millis, out: &mut Vec<Effect>) {
@@ -18,8 +19,10 @@ impl GroupMachine {
                     return;
                 }
                 let id = id.clone();
+                let gone: Vec<Named> = self.who_is(&id, None).into_iter().collect();
                 self.drop_member(&id, out);
-                self.rebalance_after_change(now, out);
+                let why = self.why_gone(Cause::SessionExpired, gone);
+                self.rebalance_after_change(now, why, out);
             }
             TimerKind::Rebalance => {
                 if self

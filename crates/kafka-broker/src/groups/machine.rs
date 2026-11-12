@@ -13,6 +13,7 @@ mod commit;
 mod join;
 mod leave;
 mod migrate;
+mod notes;
 mod rebalance;
 mod sync;
 mod timers;

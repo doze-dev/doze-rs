@@ -88,6 +88,7 @@ impl GroupMachine {
             }
         }
         self.state = State::Stable;
+        self.note_settled(now, out);
         let ids: Vec<_> = self.members.keys().cloned().collect();
         for id in ids {
             let Some(m) = self.members.get_mut(&id) else {

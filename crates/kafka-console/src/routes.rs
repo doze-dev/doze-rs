@@ -53,6 +53,10 @@ pub enum Handler {
     GroupMembers,
     GroupMember,
     GroupLag,
+    /// Slice 9f: the Story of a group, the flapping rule held against it, and one rebalance as a drawer over the Story.
+    Story,
+    StoryFlapping,
+    StoryRebalance,
     /// The dialogs on a group, and the POST of each.
     ResetForm,
     Reset,
@@ -373,11 +377,17 @@ pub const ROUTES: &[Route] = &[
         &[],
         Handler::OffsetsDelete,
     ),
-    // Built by later slices: 9f (the story) and 9e (the wire of a group).
+    // Slice 9f, the Story (p9f). `/story/flapping` is a fixed name and wins over `/story/{generation}`.
+    get("/groups/{group}/story", &["group-story"], Handler::Story),
     get(
-        "/groups/{group}/story",
-        &["group-story", "story-rebalance", "story-flapping"],
-        Handler::Planned("Story"),
+        "/groups/{group}/story/flapping",
+        &["story-flapping"],
+        Handler::StoryFlapping,
+    ),
+    get(
+        "/groups/{group}/story/{generation}",
+        &["story-rebalance"],
+        Handler::StoryRebalance,
     ),
     get("/lab", &["lab-home"], Handler::Planned("Lab")),
     // Slice 9h, Settings and Access (p9h).

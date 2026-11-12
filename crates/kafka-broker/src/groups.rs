@@ -2,12 +2,14 @@
 
 mod actor;
 mod consumer;
+pub(crate) mod events;
 #[cfg(feature = "inspect")]
 mod expiry;
 mod group;
 #[cfg(feature = "inspect")]
 mod inspect;
 mod machine;
+pub(crate) mod note;
 mod order;
 mod registry;
 mod retention;
@@ -28,6 +30,8 @@ pub(crate) use machine::{
     Answer, CommitRequest, Description, HeartbeatRequest, JoinAnswer, JoinRequest, LeaveTarget,
     Protocol, SyncRequest,
 };
+pub use note::Cause;
+pub(crate) use note::Reason;
 pub(crate) use order::{kafka_order, offsets_partition};
 pub(crate) use registry::member_ids;
 pub(crate) use registry::{Deleted, Groups};

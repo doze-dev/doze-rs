@@ -50,6 +50,8 @@ pub mod fixtures_log;
 #[cfg(any(test, feature = "examples"))]
 pub mod fixtures_settings;
 #[cfg(any(test, feature = "examples"))]
+pub mod fixtures_story;
+#[cfg(any(test, feature = "examples"))]
 pub mod fixtures_topics;
 #[cfg(any(test, feature = "examples"))]
 pub mod fixtures_write;
@@ -81,6 +83,8 @@ pub mod settings_words;
 pub mod snippets;
 pub mod source;
 pub mod state;
+pub mod story;
+pub mod story_ids;
 pub mod stream;
 pub mod stream_groups;
 pub mod stream_log;

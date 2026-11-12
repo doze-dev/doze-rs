@@ -205,7 +205,9 @@ async fn a_rebalance_in_progress_says_who_it_waits_for() {
     let detail = ok(&app, "/groups/fulfilment", Some("group-rebalancing")).await;
     assert!(
         detail.contains("Rebalancing")
-            && detail.contains("has not joined again")
+            && detail.contains("so the group is rebalancing")
+            && detail.contains("joined ")
+            && detail.contains("It is waiting for")
             && detail.contains("Not rejoined"),
         "{detail:.4000}"
     );

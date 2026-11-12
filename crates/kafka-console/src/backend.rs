@@ -141,6 +141,15 @@ impl Backend {
             .await
     }
 
+    /// What a group has said of itself (why it rebalanced, who it was about), if the console may describe it and the broker has
+    /// the group in memory.
+    pub async fn group_events(&self, group: &str) -> Option<kafka_broker::GroupEvents> {
+        self.broker
+            .console_view()
+            .group_events(&self.caller, group)
+            .await
+    }
+
     /// The facts of this run that the protocol does not say.
     #[must_use]
     pub fn instance(&self) -> Option<Instance> {

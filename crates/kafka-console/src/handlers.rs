@@ -13,6 +13,7 @@ mod overlays;
 mod pages;
 mod plain;
 mod settings;
+mod story;
 mod topics;
 mod topics_dialogs;
 mod topics_write;
@@ -42,6 +43,8 @@ pub use log::{
 pub use pages::{advertised, connect, home, method_not_allowed, not_found, planned};
 pub use plain::{events, health, static_file};
 pub use settings::{settings, settings_edit, settings_edit_form};
+pub(crate) use story::fragment as story_fragment;
+pub use story::{flapping as story_flapping, rebalance as story_rebalance, story as group_story};
 pub use topics::{
     messages as topic_messages, partitions as topic_partitions, record as topic_record, topic,
     topics,

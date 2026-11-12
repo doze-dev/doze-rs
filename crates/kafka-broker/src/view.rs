@@ -13,10 +13,12 @@ use kafka_storage::fs::Fs;
 use crate::{Broker, Caller};
 
 mod config_help;
+mod events;
 mod group_detail;
 mod process;
 
 pub use config_help::{ConfigHelp, Limits};
+pub use events::{EventKind, GroupEvent, GroupEvents, MemberHold};
 pub use group_detail::{GroupDetail, GroupKind, MemberDetail, OffsetExpiry, RebalanceDetail};
 mod config_rules;
 mod pace;

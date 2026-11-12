@@ -119,6 +119,8 @@ pub struct GroupHead {
     pub now_ms: i64,
     /// What a consumer group's members are given as a session (`--consumer-session-timeout`).
     pub session_ms: Option<u64>,
+    /// What the group has said of itself: how many rebalances the ring holds and the newest (the Story tab).
+    pub story: super::story::StoryFacts,
 }
 
 impl GroupHead {
@@ -159,6 +161,8 @@ pub struct GroupRow {
     pub last_commit_ms: Option<i64>,
     /// The first moment the sweep takes one of its commits.
     pub expires_ms: Option<i64>,
+    /// What the group has said of itself: the newest rebalance (the list says "last rebalance 6 h ago" of a consumer group).
+    pub story: super::story::StoryFacts,
 }
 
 /// Which state chip of the list is on.
@@ -212,6 +216,8 @@ pub struct GroupAttention {
     pub waiting_for: Vec<String>,
     pub remaining_ms: u64,
     pub timeout_ms: u64,
+    /// Why it began and how long ago, if the group has said (the Story).
+    pub last: Option<super::story::StoryLast>,
 }
 
 /// The Groups list.

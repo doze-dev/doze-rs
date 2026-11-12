@@ -1,8 +1,8 @@
 //! The words of the Groups pages: the sentence under a group's name, the lag sentences, the list's rebalancing line, Kafka's own
 //! descriptions of the codes a group write can answer, and the console's reading of each refusal.
 //!
-//! The sentences say only what the group machine says now. Why a group began a rebalance (a member left, one timed out, a
-//! topic changed) is not recorded until the event ring of slice 9f exists, so no sentence here gives a cause.
+//! The sentences say what the group machine says now and, where the broker's ring of notes has it (slice 9f), why the
+//! newest rebalance began; a group the broker has no notes of gives no cause, and nothing is made up.
 
 use crate::format::{ago, number, span_ms};
 use crate::lag::Lag;
@@ -128,6 +128,11 @@ fn last_commit(h: &GroupHead) -> Option<String> {
 
 fn rebalancing(h: &GroupHead, topics: &[LagTopic]) -> Vec<S> {
     let mut out = Vec::new();
+    if let Some(lead) = lead_in(h) {
+        out.extend(lead);
+        out.extend(waiting_clause(h));
+        return finish(out, topics);
+    }
     match &h.rebalance {
         Some(r) if !r.waiting_for.is_empty() => {
             out.push(S::strong(list_and(&r.waiting_for)));
@@ -143,6 +148,11 @@ fn rebalancing(h: &GroupHead, topics: &[LagTopic]) -> Vec<S> {
             "The group is rebalancing: every member has joined again and the leader is working out who holds what.",
         )),
     }
+    finish(out, topics)
+}
+
+/// The topics it reads, at the end of the sentence.
+fn finish(mut out: Vec<S>, topics: &[LagTopic]) -> Vec<S> {
     let read = topics_in_play(topics);
     if !read.is_empty() {
         out.push(S::text(" It reads "));
@@ -245,6 +255,9 @@ pub fn group_sentence(h: &GroupHead, topics: &[LagTopic]) -> Vec<S> {
         }
     }
     out.push(S::text(format!(" {}", lag_clause(topics))));
+    if h.protocol == GroupProtocol::Consumer {
+        out.extend(last_rebalance(h));
+    }
     if let Some(l) = last_commit(h) {
         out.push(S::text(format!(" {l}")));
     }
@@ -393,28 +406,11 @@ fn expiring_sentence(h: &GroupHead, topics: &[LagTopic], retention_ms: i64) -> V
     }
 }
 
-/// The line above the list while a classic group is rebalancing.
-#[must_use]
-pub fn attention_sentence(a: &GroupAttention) -> Vec<S> {
-    let mut v = vec![S::strong(format!("{} is rebalancing.", a.id)), S::text(" ")];
-    if a.waiting_for.is_empty() {
-        v.push(S::text(
-            "Every member has joined again and the leader is working out who holds what.",
-        ));
-    } else {
-        v.push(S::text("It is waiting for "));
-        v.push(S::mono(list_and(&a.waiting_for)));
-        v.push(S::text(format!(
-            " to rejoin, {} of {} left.",
-            span_precise(a.remaining_ms),
-            span_precise(a.timeout_ms)
-        )));
-    }
-    v
-}
-
 mod refusals;
+mod story;
 pub use refusals::{delete_reading, description, kafka_refusal, reset_reading};
+pub use story::attention_sentence;
+use story::{last_rebalance, lead_in, waiting_clause};
 
 #[cfg(test)]
 mod tests;

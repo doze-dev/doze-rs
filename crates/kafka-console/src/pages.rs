@@ -12,6 +12,7 @@ pub mod live;
 mod log;
 mod notice;
 mod producers;
+pub mod story;
 pub mod topics;
 mod topics_write;
 

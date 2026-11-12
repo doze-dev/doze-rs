@@ -27,6 +27,7 @@ fn concrete(pattern: &str, state: &kafka_console::state::State) -> String {
         .replace("{member}", "search-indexer-1")
         .replace("{request}", "1")
         .replace("{txn}", "orders-eos")
+        .replace("{generation}", "8")
         + if pattern == "/settings/config/edit" {
             // Slice 9h: a broker config is one of five, not a topic's.
             "?key=log.retention.ms"

@@ -73,7 +73,7 @@ pub async fn groups(State(s): State<Shared>, RawQuery(query): RawQuery) -> Respo
 }
 
 /// The breadcrumb of a group's page, or of a page under it: Resources, Groups, the group, and the page (no link on the last).
-fn trail(id: &str, last: Option<&str>) -> Vec<(String, Option<String>)> {
+pub(super) fn trail(id: &str, last: Option<&str>) -> Vec<(String, Option<String>)> {
     let path = format!("/groups/{}", segment(id));
     let shown: String = id.chars().take(60).collect();
     let mut out = vec![

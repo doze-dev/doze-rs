@@ -24,6 +24,8 @@ pub struct Loaded {
     pub described: Option<Described>,
     pub detail: Option<GroupDetail>,
     pub commits: Commits,
+    /// What the group has said of itself since the broker started (none when the broker has no such group in memory).
+    pub events: Option<kafka_broker::GroupEvents>,
 }
 
 /// Asks the broker about one group; `None` if nothing knows it (or the console may not describe it).
@@ -32,6 +34,7 @@ pub async fn load(b: &Backend, id: &str) -> Option<Loaded> {
     let described = read::describe(b, &ids).await.remove(id);
     let detail = b.group_detail(id).await;
     let commits = read::commits(b, &ids).await.remove(id);
+    let events = b.group_events(id).await;
     if described.is_none() && detail.is_none() && commits.as_ref().is_none_or(Commits::is_empty) {
         return None;
     }
@@ -39,6 +42,7 @@ pub async fn load(b: &Backend, id: &str) -> Option<Loaded> {
         described,
         detail,
         commits: commits.unwrap_or_default(),
+        events,
     })
 }
 
@@ -235,6 +239,7 @@ fn head(id: &str, l: &Loaded, chips: Vec<String>, topics: &[LagTopic]) -> GroupH
         empty_since_ms: detail.and_then(|d| d.empty_since_ms),
         now_ms: detail.map_or_else(now_ms, |d| d.now_ms),
         session_ms: None,
+        story: crate::story::facts_of(l.events.as_ref(), protocol),
     }
 }
 

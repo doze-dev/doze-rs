@@ -35,6 +35,14 @@ fn name_sub(r: &GroupRow, now: i64) -> Option<String> {
     {
         return Some(format!("offsets expire in {}", span_ms(at - now)));
     }
+    if r.protocol == GroupProtocol::Consumer
+        && let Some(last) = r.story.last.as_ref().filter(|l| !l.forming)
+    {
+        return Some(format!(
+            "last rebalance {}",
+            crate::story::ago_near(last.ago_ms)
+        ));
+    }
     r.last_commit_ms
         .map(|ms| format!("last commit {}", ago(now - ms)))
         .or_else(|| (!r.lag.any_commit).then(|| "no commits yet".to_owned()))
@@ -148,6 +156,7 @@ pub fn groups_live_fragment(v: &GroupsView, base: &Base) -> Markup {
                     (callout(Tone::Warn, Glyph::Warn, html! {
                         (spans(&attention_sentence(a), base)) " "
                         a class="lnk" href=(group_url(base, &a.id, "")) { "Open the group" }
+                        @if a.last.is_some() { " or " a class="lnk" href=(group_url(base, &a.id, "/story")) { "read its story" } }
                     }))
                 }
             }
