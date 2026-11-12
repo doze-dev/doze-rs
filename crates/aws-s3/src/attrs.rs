@@ -26,11 +26,21 @@ impl Core {
             out.insert("ObjectSize".into(), json!(v.size));
         }
         if wanted.contains(&"StorageClass") {
-            out.insert("StorageClass".into(), json!(v.meta.storage_class.as_deref().unwrap_or("STANDARD")));
+            out.insert(
+                "StorageClass".into(),
+                json!(v.meta.storage_class.as_deref().unwrap_or("STANDARD")),
+            );
         }
         if let (true, Some(c)) = (wanted.contains(&"Checksum"), &v.checksum) {
-            let kind = if c.kind == CKind::FullObject { "FULL_OBJECT" } else { "COMPOSITE" };
-            out.insert("Checksum".into(), json!({ c.algo.member(): c.value, "ChecksumType": kind }));
+            let kind = if c.kind == CKind::FullObject {
+                "FULL_OBJECT"
+            } else {
+                "COMPOSITE"
+            };
+            out.insert(
+                "Checksum".into(),
+                json!({ c.algo.member(): c.value, "ChecksumType": kind }),
+            );
         }
         if wanted.contains(&"ObjectParts") && !v.parts.is_empty() {
             let parts: Vec<Value> = v

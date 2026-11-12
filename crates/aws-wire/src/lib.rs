@@ -13,8 +13,8 @@ mod error;
 pub mod handler;
 pub mod json;
 pub mod query;
-pub mod rest;
 mod request_id;
+pub mod rest;
 pub mod service;
 
 pub use auth_error::{Family, from_auth};

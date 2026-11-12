@@ -31,14 +31,22 @@ pub(crate) fn rules_of(config: &str) -> Vec<Rule> {
     let doc: Value = serde_json::from_str(config).unwrap_or(Value::Null);
     doc.get("Rules")
         .and_then(Value::as_array)
-        .map(|rs| rs.iter().filter(|r| r.get("Status").and_then(Value::as_str) == Some("Enabled")).map(rule).collect())
+        .map(|rs| {
+            rs.iter()
+                .filter(|r| r.get("Status").and_then(Value::as_str) == Some("Enabled"))
+                .map(rule)
+                .collect()
+        })
         .unwrap_or_default()
 }
 
 fn rule(r: &Value) -> Rule {
     let filter = r.get("Filter");
     let and = filter.and_then(|f| f.get("And"));
-    let pick = |name: &str| and.and_then(|a| a.get(name)).or_else(|| filter.and_then(|f| f.get(name)));
+    let pick = |name: &str| {
+        and.and_then(|a| a.get(name))
+            .or_else(|| filter.and_then(|f| f.get(name)))
+    };
     let mut tags: Vec<(String, String)> = and
         .and_then(|a| a.get("Tags"))
         .and_then(Value::as_array)
@@ -62,15 +70,22 @@ fn rule(r: &Value) -> Rule {
             .and_then(Value::as_str)
             .and_then(crate::timeutil::parse_http_date)
             .map(|s| s * 1000),
-        expired_marker: r.pointer("/Expiration/ExpiredObjectDeleteMarker").and_then(Value::as_bool) == Some(true),
+        expired_marker: r
+            .pointer("/Expiration/ExpiredObjectDeleteMarker")
+            .and_then(Value::as_bool)
+            == Some(true),
         noncurrent_days: int(nc.and_then(|n| n.get("NoncurrentDays"))),
-        keep_noncurrent: int(nc.and_then(|n| n.get("NewerNoncurrentVersions"))).and_then(|n| usize::try_from(n).ok()),
+        keep_noncurrent: int(nc.and_then(|n| n.get("NewerNoncurrentVersions")))
+            .and_then(|n| usize::try_from(n).ok()),
         abort_days: int(r.pointer("/AbortIncompleteMultipartUpload/DaysAfterInitiation")),
     }
 }
 
 fn tag(t: &Value) -> Option<(String, String)> {
-    Some((t.get("Key")?.as_str()?.to_owned(), t.get("Value")?.as_str()?.to_owned()))
+    Some((
+        t.get("Key")?.as_str()?.to_owned(),
+        t.get("Value")?.as_str()?.to_owned(),
+    ))
 }
 
 impl Rule {
@@ -109,13 +124,22 @@ pub(crate) fn decide(rules: &[Rule], versions: &[Version], now_ms: i64) -> Vec<A
     for r in rules {
         let wants = |v: &Version| r.selects(&v.key, v.size, &v.tags);
         if !current.delete_marker && wants(current) {
-            let by_days = r.expire_days.is_some_and(|d| now_ms >= due_ms(current.modified_ms, d));
+            let by_days = r
+                .expire_days
+                .is_some_and(|d| now_ms >= due_ms(current.modified_ms, d));
             if by_days || r.expire_date_ms.is_some_and(|t| now_ms >= t) {
                 out.push(Action::Expire(current.key.clone()));
             }
         }
-        if current.delete_marker && r.expired_marker && versions.len() == 1 && r.selects(&current.key, 0, &[]) {
-            out.push(Action::Remove(current.key.clone(), current.version_id.clone()));
+        if current.delete_marker
+            && r.expired_marker
+            && versions.len() == 1
+            && r.selects(&current.key, 0, &[])
+        {
+            out.push(Action::Remove(
+                current.key.clone(),
+                current.version_id.clone(),
+            ));
         }
         noncurrent(r, versions, now_ms, &mut out);
     }
@@ -125,9 +149,13 @@ pub(crate) fn decide(rules: &[Rule], versions: &[Version], now_ms: i64) -> Vec<A
 /// Noncurrent versions become so when the next newer version is written; they go `NoncurrentDays` after that, and the newest
 /// `NewerNoncurrentVersions` of them stay regardless.
 fn noncurrent(r: &Rule, versions: &[Version], now_ms: i64, out: &mut Vec<Action>) {
-    let Some(days) = r.noncurrent_days else { return };
+    let Some(days) = r.noncurrent_days else {
+        return;
+    };
     for (i, older) in versions.iter().enumerate().skip(1) {
-        let Some(newer) = versions.get(i - 1) else { continue };
+        let Some(newer) = versions.get(i - 1) else {
+            continue;
+        };
         if r.keep_noncurrent.is_some_and(|n| i <= n) {
             continue;
         }
@@ -161,7 +189,13 @@ impl Core {
 
     /// Reads every key of the bucket and decides what the rules do to it.
     fn lifecycle_actions(&self, bucket: &str, rules: &[Rule], now: i64) -> Vec<Action> {
-        let q = crate::list::Query { bucket, prefix: "", delimiter: None, after: "", max: usize::MAX };
+        let q = crate::list::Query {
+            bucket,
+            prefix: "",
+            delimiter: None,
+            after: "",
+            max: usize::MAX,
+        };
         let mut actions = Vec::new();
         let mut group: Vec<Version> = Vec::new();
         let flush = |group: &mut Vec<Version>, actions: &mut Vec<Action>| {
@@ -172,7 +206,9 @@ impl Core {
             if group.first().is_some_and(|g| g.key != key) {
                 flush(&mut group, &mut actions);
             }
-            if let Ok(v) = doze_store::record::decode::<Version>("version", crate::core::VERSION, bytes) {
+            if let Ok(v) =
+                doze_store::record::decode::<Version>("version", crate::core::VERSION, bytes)
+            {
                 group.push(v);
             }
             true
@@ -189,7 +225,8 @@ impl Core {
             .with_prefix(&prefix)
             .filter(|(_, u)| {
                 rules.iter().any(|r| {
-                    r.abort_days.is_some_and(|d| now >= due_ms(u.initiated_ms, d))
+                    r.abort_days
+                        .is_some_and(|d| now >= due_ms(u.initiated_ms, d))
                         && u.key.starts_with(&r.prefix)
                         && r.tags.is_empty()
                 })
@@ -200,8 +237,14 @@ impl Core {
 
     fn apply(&mut self, bucket: &str, action: &Action) -> bool {
         match action {
-            Action::Expire(key) => self.remove_key(bucket, key, None).map(|r| self.note_lifecycle(bucket, key, &r)).is_ok(),
-            Action::Remove(key, id) => self.remove_key(bucket, key, Some(id)).map(|r| self.note_lifecycle(bucket, key, &r)).is_ok(),
+            Action::Expire(key) => self
+                .remove_key(bucket, key, None)
+                .map(|r| self.note_lifecycle(bucket, key, &r))
+                .is_ok(),
+            Action::Remove(key, id) => self
+                .remove_key(bucket, key, Some(id))
+                .map(|r| self.note_lifecycle(bucket, key, &r))
+                .is_ok(),
             Action::Abort(row) => {
                 self.remove_upload(row);
                 true
@@ -211,9 +254,11 @@ impl Core {
 
     /// Whether any bucket has an enabled lifecycle rule (the janitor stays armed while one does).
     pub(crate) fn has_lifecycle_rules(&self) -> bool {
-        self.buckets
-            .iter()
-            .any(|(_, b)| b.configs.get("lifecycle").is_some_and(|c| !rules_of(c).is_empty()))
+        self.buckets.iter().any(|(_, b)| {
+            b.configs
+                .get("lifecycle")
+                .is_some_and(|c| !rules_of(c).is_empty())
+        })
     }
 }
 
@@ -222,7 +267,14 @@ mod tests {
     use super::*;
     use serde_json::json;
 
-    fn version(key: &str, id: &str, modified_days: i64, size: u64, tags: &[(&str, &str)], marker: bool) -> Version {
+    fn version(
+        key: &str,
+        id: &str,
+        modified_days: i64,
+        size: u64,
+        tags: &[(&str, &str)],
+        marker: bool,
+    ) -> Version {
         Version {
             key: key.into(),
             version_id: id.into(),
@@ -235,7 +287,10 @@ mod tests {
             checksum: None,
             segs: Vec::new(),
             parts: Vec::new(),
-            tags: tags.iter().map(|(k, v)| ((*k).into(), (*v).into())).collect(),
+            tags: tags
+                .iter()
+                .map(|(k, v)| ((*k).into(), (*v).into()))
+                .collect(),
         }
     }
 
@@ -245,52 +300,95 @@ mod tests {
 
     #[test]
     fn a_rule_selects_by_prefix_tag_and_size_and_never_wider() {
-        let tagged = rules(json!({"Rules": [{"Status": "Enabled", "Filter": {"Tag": {"Key": "t", "Value": "1"}}, "Expiration": {"Days": 1}}]}));
+        let tagged = rules(
+            json!({"Rules": [{"Status": "Enabled", "Filter": {"Tag": {"Key": "t", "Value": "1"}}, "Expiration": {"Days": 1}}]}),
+        );
         let old = |tags: &[(&str, &str)]| vec![version("k", "null", 0, 10, tags, false)];
         let day = 10 * DAY_MS;
-        assert_eq!(decide(&tagged, &old(&[("t", "1")]), day), [Action::Expire("k".into())]);
-        assert!(decide(&tagged, &old(&[]), day).is_empty(), "an untagged object is not selected by a tag rule");
+        assert_eq!(
+            decide(&tagged, &old(&[("t", "1")]), day),
+            [Action::Expire("k".into())]
+        );
+        assert!(
+            decide(&tagged, &old(&[]), day).is_empty(),
+            "an untagged object is not selected by a tag rule"
+        );
         assert!(decide(&tagged, &old(&[("t", "2")]), day).is_empty());
 
-        let and = rules(json!({"Rules": [{"Status": "Enabled", "Filter": {"And": {"Prefix": "logs/", "ObjectSizeGreaterThan": 5, "Tags": [{"Key": "t", "Value": "1"}]}}, "Expiration": {"Days": 1}}]}));
-        let at = |key: &str, size: u64, tags: &[(&str, &str)]| vec![version(key, "null", 0, size, tags, false)];
+        let and = rules(
+            json!({"Rules": [{"Status": "Enabled", "Filter": {"And": {"Prefix": "logs/", "ObjectSizeGreaterThan": 5, "Tags": [{"Key": "t", "Value": "1"}]}}, "Expiration": {"Days": 1}}]}),
+        );
+        let at = |key: &str, size: u64, tags: &[(&str, &str)]| {
+            vec![version(key, "null", 0, size, tags, false)]
+        };
         assert_eq!(decide(&and, &at("logs/a", 6, &[("t", "1")]), day).len(), 1);
-        assert!(decide(&and, &at("logs/a", 5, &[("t", "1")]), day).is_empty(), "the size bound is exclusive");
+        assert!(
+            decide(&and, &at("logs/a", 5, &[("t", "1")]), day).is_empty(),
+            "the size bound is exclusive"
+        );
         assert!(decide(&and, &at("other/a", 6, &[("t", "1")]), day).is_empty());
         assert!(decide(&and, &at("logs/a", 6, &[]), day).is_empty());
-        let small = rules(json!({"Rules": [{"Status": "Enabled", "Filter": {"ObjectSizeLessThan": 5}, "Expiration": {"Days": 1}}]}));
+        let small = rules(
+            json!({"Rules": [{"Status": "Enabled", "Filter": {"ObjectSizeLessThan": 5}, "Expiration": {"Days": 1}}]}),
+        );
         assert_eq!(decide(&small, &at("k", 4, &[]), day).len(), 1);
         assert!(decide(&small, &at("k", 5, &[]), day).is_empty());
     }
 
     #[test]
     fn days_count_to_the_next_midnight() {
-        let r = rules(json!({"Rules": [{"Status": "Enabled", "Filter": {"Prefix": ""}, "Expiration": {"Days": 1}}]}));
+        let r = rules(
+            json!({"Rules": [{"Status": "Enabled", "Filter": {"Prefix": ""}, "Expiration": {"Days": 1}}]}),
+        );
         let mut v = version("k", "null", 5, 1, &[], false);
         v.modified_ms += 3_600_000; // 01:00 on day 5
-        assert!(decide(&r, std::slice::from_ref(&v), 6 * DAY_MS + 3_600_000).is_empty(), "a day on is not yet midnight after it");
+        assert!(
+            decide(&r, std::slice::from_ref(&v), 6 * DAY_MS + 3_600_000).is_empty(),
+            "a day on is not yet midnight after it"
+        );
         assert_eq!(decide(&r, std::slice::from_ref(&v), 7 * DAY_MS).len(), 1);
-        let disabled = rules(json!({"Rules": [{"Status": "Disabled", "Filter": {}, "Expiration": {"Days": 1}}]}));
+        let disabled = rules(
+            json!({"Rules": [{"Status": "Disabled", "Filter": {}, "Expiration": {"Days": 1}}]}),
+        );
         assert!(disabled.is_empty());
     }
 
     #[test]
     fn noncurrent_versions_go_after_their_days_and_markers_when_alone() {
-        let r = rules(json!({"Rules": [{"Status": "Enabled", "Filter": {}, "NoncurrentVersionExpiration": {"NoncurrentDays": 2}, "Expiration": {"ExpiredObjectDeleteMarker": true}}]}));
-        let versions = [version("k", "v3", 9, 1, &[], false), version("k", "v2", 5, 1, &[], false), version("k", "v1", 1, 1, &[], false)];
+        let r = rules(
+            json!({"Rules": [{"Status": "Enabled", "Filter": {}, "NoncurrentVersionExpiration": {"NoncurrentDays": 2}, "Expiration": {"ExpiredObjectDeleteMarker": true}}]}),
+        );
+        let versions = [
+            version("k", "v3", 9, 1, &[], false),
+            version("k", "v2", 5, 1, &[], false),
+            version("k", "v1", 1, 1, &[], false),
+        ];
         // v2 became noncurrent when v3 was written on day 9; v1 when v2 was, on day 5.
         let acts = decide(&r, &versions, 10 * DAY_MS);
         assert_eq!(acts, [Action::Remove("k".into(), "v1".into())]);
         let later = decide(&r, &versions, 12 * DAY_MS);
         assert_eq!(later.len(), 2);
         let lone = [version("m", "d1", 1, 0, &[], true)];
-        assert_eq!(decide(&r, &lone, DAY_MS), [Action::Remove("m".into(), "d1".into())]);
+        assert_eq!(
+            decide(&r, &lone, DAY_MS),
+            [Action::Remove("m".into(), "d1".into())]
+        );
     }
 
     #[test]
     fn the_newest_noncurrent_versions_can_be_kept() {
-        let r = rules(json!({"Rules": [{"Status": "Enabled", "Filter": {}, "NoncurrentVersionExpiration": {"NoncurrentDays": 1, "NewerNoncurrentVersions": 1}}]}));
-        let versions = [version("k", "v3", 9, 1, &[], false), version("k", "v2", 5, 1, &[], false), version("k", "v1", 1, 1, &[], false)];
-        assert_eq!(decide(&r, &versions, 20 * DAY_MS), [Action::Remove("k".into(), "v1".into())], "v2 is the one noncurrent version kept");
+        let r = rules(
+            json!({"Rules": [{"Status": "Enabled", "Filter": {}, "NoncurrentVersionExpiration": {"NoncurrentDays": 1, "NewerNoncurrentVersions": 1}}]}),
+        );
+        let versions = [
+            version("k", "v3", 9, 1, &[], false),
+            version("k", "v2", 5, 1, &[], false),
+            version("k", "v1", 1, 1, &[], false),
+        ];
+        assert_eq!(
+            decide(&r, &versions, 20 * DAY_MS),
+            [Action::Remove("k".into(), "v1".into())],
+            "v2 is the one noncurrent version kept"
+        );
     }
 }

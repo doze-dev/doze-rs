@@ -5,8 +5,8 @@ use aws_wire::ApiError;
 use serde_json::{Map, Value, json};
 
 use crate::core::Core;
-use crate::events::Kind;
 use crate::errors::malformed_xml;
+use crate::events::Kind;
 use crate::model::{Meta, Version, Versioning};
 use crate::put::new_version_id;
 use crate::req::{Answer, Out, Req};
@@ -31,7 +31,12 @@ const MAX_BATCH: usize = 1000;
 
 impl Core {
     /// Deletes `key` (or its version `id`) in `bucket`.
-    pub(crate) fn remove_key(&mut self, bucket: &str, key: &str, id: Option<&str>) -> Result<Removed, ApiError> {
+    pub(crate) fn remove_key(
+        &mut self,
+        bucket: &str,
+        key: &str,
+        id: Option<&str>,
+    ) -> Result<Removed, ApiError> {
         let state = self.require(bucket)?.versioning;
         if let Some(id) = id {
             return Ok(match self.find(bucket, key, id)? {
@@ -71,7 +76,13 @@ impl Core {
         }
     }
 
-    fn add_marker(&mut self, bucket: &str, key: &str, id: String, size: u64) -> Result<Removed, ApiError> {
+    fn add_marker(
+        &mut self,
+        bucket: &str,
+        key: &str,
+        id: String,
+        size: u64,
+    ) -> Result<Removed, ApiError> {
         let seq = self.next_seq(bucket);
         let marker = Version {
             key: key.to_owned(),
@@ -115,11 +126,18 @@ impl Core {
         let bucket = req.bucket();
         self.require(bucket)?;
         let delete = req.get("Delete").ok_or_else(malformed_xml)?;
-        let objects = delete.get("Objects").and_then(Value::as_array).cloned().unwrap_or_default();
+        let objects = delete
+            .get("Objects")
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default();
         if objects.is_empty() || objects.len() > MAX_BATCH {
             return Err(malformed_xml());
         }
-        let quiet = delete.get("Quiet").and_then(Value::as_bool).unwrap_or(false);
+        let quiet = delete
+            .get("Quiet")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
         let mut done = Vec::new();
         let mut seen = std::collections::HashSet::new();
         for o in &objects {
@@ -132,7 +150,11 @@ impl Core {
             self.note_removed(req, key, &r);
             done.push(deleted_entry(key, id, &r));
         }
-        Out::json(if quiet { json!({}) } else { json!({"Deleted": done}) })
+        Out::json(if quiet {
+            json!({})
+        } else {
+            json!({"Deleted": done})
+        })
     }
 }
 
@@ -142,8 +164,19 @@ impl Core {
         if !r.happened {
             return;
         }
-        let name = if r.created { "ObjectRemoved:DeleteMarkerCreated" } else { "ObjectRemoved:Delete" };
-        self.note(req, Kind::Object(name), key, r.size, "", r.version_id.as_deref());
+        let name = if r.created {
+            "ObjectRemoved:DeleteMarkerCreated"
+        } else {
+            "ObjectRemoved:Delete"
+        };
+        self.note(
+            req,
+            Kind::Object(name),
+            key,
+            r.size,
+            "",
+            r.version_id.as_deref(),
+        );
     }
 }
 

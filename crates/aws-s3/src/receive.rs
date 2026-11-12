@@ -26,7 +26,11 @@ impl Declared {
     pub(crate) fn of(v: &Value, x_amz_content_sha256: Option<&str>) -> Self {
         let mut want = Vec::new();
         let mut values = Vec::new();
-        if let Some(a) = v.get("ChecksumAlgorithm").and_then(Value::as_str).and_then(Algo::parse) {
+        if let Some(a) = v
+            .get("ChecksumAlgorithm")
+            .and_then(Value::as_str)
+            .and_then(Algo::parse)
+        {
             want.push(a);
         }
         for a in Algo::ALL {
@@ -43,7 +47,10 @@ impl Declared {
         Self {
             want,
             values,
-            md5: v.get("ContentMD5").and_then(Value::as_str).map(str::to_owned),
+            md5: v
+                .get("ContentMD5")
+                .and_then(Value::as_str)
+                .map(str::to_owned),
             sha256_hex: x_amz_content_sha256
                 .filter(|h| h.len() == 64 && h.bytes().all(|b| b.is_ascii_hexdigit()))
                 .map(str::to_ascii_lowercase),
@@ -56,7 +63,11 @@ fn read_failed(e: &std::io::Error) -> ApiError {
 }
 
 /// Writes `data` at `at` on a blocking thread.
-async fn write_at(file: std::sync::Arc<<RealFs as doze_fs::fs::Fs>::File>, data: bytes::Bytes, at: u64) -> Result<(), ApiError> {
+async fn write_at(
+    file: std::sync::Arc<<RealFs as doze_fs::fs::Fs>::File>,
+    data: bytes::Bytes,
+    at: u64,
+) -> Result<(), ApiError> {
     tokio::task::spawn_blocking(move || file.write_all_at(&data, at))
         .await
         .map_err(|e| ApiError::internal(e.to_string()))?
@@ -84,7 +95,11 @@ pub(crate) async fn receive(
     }
 }
 
-async fn fill(staging: &mut Staging<RealFs>, upload: &mut dyn Upload, d: &Declared) -> Result<Done, ApiError> {
+async fn fill(
+    staging: &mut Staging<RealFs>,
+    upload: &mut dyn Upload,
+    d: &Declared,
+) -> Result<Done, ApiError> {
     let mut want = d.want.clone();
     if d.sha256_hex.is_some() && !want.contains(&Algo::Sha256) {
         want.push(Algo::Sha256);
@@ -129,7 +144,10 @@ fn verify(done: &Done, d: &Declared, trailers: &[(String, String)]) -> Result<()
         }
     }
     let from_trailers = trailers.iter().filter_map(|(k, v)| {
-        Algo::ALL.into_iter().find(|a| a.header() == k).map(|a| (a, v.clone()))
+        Algo::ALL
+            .into_iter()
+            .find(|a| a.header() == k)
+            .map(|a| (a, v.clone()))
     });
     for (algo, want) in d.values.iter().cloned().chain(from_trailers) {
         if let Some((_, raw)) = done.sums.iter().find(|(a, _)| *a == algo)

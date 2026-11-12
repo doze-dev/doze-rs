@@ -27,7 +27,12 @@ pub(crate) fn defaults(kind: &str) -> Option<Value> {
 }
 
 /// Checks `body`, the configuration a request carries for `kind`, and may fill in what AWS fills in (notification ids).
-pub(crate) fn check(core: &Core, req: &Req<'_>, kind: &str, body: &mut Value) -> Result<(), ApiError> {
+pub(crate) fn check(
+    core: &Core,
+    req: &Req<'_>,
+    kind: &str,
+    body: &mut Value,
+) -> Result<(), ApiError> {
     match kind {
         "policy" => policy(core, req, body),
         "cors" => cors(body),
@@ -38,7 +43,11 @@ pub(crate) fn check(core: &Core, req: &Req<'_>, kind: &str, body: &mut Value) ->
         ),
         "ownership" => one_of(
             body.pointer("/Rules/0/ObjectOwnership"),
-            &["BucketOwnerEnforced", "BucketOwnerPreferred", "ObjectWriter"],
+            &[
+                "BucketOwnerEnforced",
+                "BucketOwnerPreferred",
+                "ObjectWriter",
+            ],
         ),
         "accelerate" => one_of(body.get("Status"), &["Enabled", "Suspended"]),
         "request-payment" => one_of(body.get("Payer"), &["BucketOwner", "Requester"]),
@@ -66,17 +75,25 @@ fn cors(body: &Value) -> Result<(), ApiError> {
         .filter(|r| !r.is_empty() && r.len() <= 100)
         .ok_or_else(malformed_xml)?;
     for r in rules {
-        let methods = r.get("AllowedMethods").and_then(Value::as_array).ok_or_else(malformed_xml)?;
+        let methods = r
+            .get("AllowedMethods")
+            .and_then(Value::as_array)
+            .ok_or_else(malformed_xml)?;
         for m in methods.iter().filter_map(Value::as_str) {
             if !["GET", "PUT", "POST", "DELETE", "HEAD"].contains(&m) {
                 return Err(ApiError::new(
                     400,
                     "InvalidRequest",
-                    format!("Found unsupported HTTP method in CORS config. Unsupported method is {m}"),
+                    format!(
+                        "Found unsupported HTTP method in CORS config. Unsupported method is {m}"
+                    ),
                 ));
             }
         }
-        if r.get("AllowedOrigins").and_then(Value::as_array).is_none_or(Vec::is_empty) {
+        if r.get("AllowedOrigins")
+            .and_then(Value::as_array)
+            .is_none_or(Vec::is_empty)
+        {
             return Err(malformed_xml());
         }
     }
@@ -87,7 +104,8 @@ fn cors(body: &Value) -> Result<(), ApiError> {
 /// the bucket blocks public policies.
 fn policy(core: &Core, req: &Req<'_>, body: &Value) -> Result<(), ApiError> {
     let text = body.as_str().ok_or_else(malformed_xml)?;
-    let doc: Value = serde_json::from_str(text).map_err(|_| malformed_policy("This policy contains invalid Json"))?;
+    let doc: Value = serde_json::from_str(text)
+        .map_err(|_| malformed_policy("This policy contains invalid Json"))?;
     let statements = match doc.get("Statement") {
         Some(Value::Array(a)) => a.clone(),
         Some(o @ Value::Object(_)) => vec![o.clone()],
@@ -103,7 +121,10 @@ fn policy(core: &Core, req: &Req<'_>, body: &Value) -> Result<(), ApiError> {
         if resources.is_empty() && s.get("NotResource").is_none() {
             return Err(malformed_policy("Missing required field Resource"));
         }
-        if resources.iter().any(|r| *r != "*" && *r != arn && !r.starts_with(&format!("{arn}/"))) {
+        if resources
+            .iter()
+            .any(|r| *r != "*" && *r != arn && !r.starts_with(&format!("{arn}/")))
+        {
             return Err(malformed_policy("Policy has invalid resource"));
         }
         public |= s.get("Effect").and_then(Value::as_str) == Some("Allow")
@@ -135,7 +156,10 @@ fn policy(core: &Core, req: &Req<'_>, body: &Value) -> Result<(), ApiError> {
 fn strings(v: Option<&Value>) -> Vec<String> {
     match v {
         Some(Value::String(s)) => vec![s.clone()],
-        Some(Value::Array(a)) => a.iter().filter_map(|x| x.as_str().map(str::to_owned)).collect(),
+        Some(Value::Array(a)) => a
+            .iter()
+            .filter_map(|x| x.as_str().map(str::to_owned))
+            .collect(),
         _ => Vec::new(),
     }
 }

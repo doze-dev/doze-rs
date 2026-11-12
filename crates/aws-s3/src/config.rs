@@ -34,23 +34,121 @@ const fn kind(
     under: Option<&'static str>,
     delete: Option<Operation>,
 ) -> Kind {
-    Kind { name, put, member, get, under, delete }
+    Kind {
+        name,
+        put,
+        member,
+        get,
+        under,
+        delete,
+    }
 }
 
 pub(crate) const KINDS: &[Kind] = &[
-    kind("cors", O::PutBucketCors, "CORSConfiguration", O::GetBucketCors, None, Some(O::DeleteBucketCors)),
-    kind("policy", O::PutBucketPolicy, "Policy", O::GetBucketPolicy, Some("Policy"), Some(O::DeleteBucketPolicy)),
-    kind("lifecycle", O::PutBucketLifecycleConfiguration, "LifecycleConfiguration", O::GetBucketLifecycleConfiguration, None, Some(O::DeleteBucketLifecycle)),
-    kind("encryption", O::PutBucketEncryption, "ServerSideEncryptionConfiguration", O::GetBucketEncryption, Some("ServerSideEncryptionConfiguration"), Some(O::DeleteBucketEncryption)),
-    kind("website", O::PutBucketWebsite, "WebsiteConfiguration", O::GetBucketWebsite, None, Some(O::DeleteBucketWebsite)),
-    kind("logging", O::PutBucketLogging, "BucketLoggingStatus", O::GetBucketLogging, None, None),
-    kind("notification", O::PutBucketNotificationConfiguration, "NotificationConfiguration", O::GetBucketNotificationConfiguration, None, None),
-    kind("ownership", O::PutBucketOwnershipControls, "OwnershipControls", O::GetBucketOwnershipControls, Some("OwnershipControls"), Some(O::DeleteBucketOwnershipControls)),
-    kind("public-access-block", O::PutPublicAccessBlock, "PublicAccessBlockConfiguration", O::GetPublicAccessBlock, Some("PublicAccessBlockConfiguration"), Some(O::DeletePublicAccessBlock)),
-    kind("accelerate", O::PutBucketAccelerateConfiguration, "AccelerateConfiguration", O::GetBucketAccelerateConfiguration, None, None),
-    kind("request-payment", O::PutBucketRequestPayment, "RequestPaymentConfiguration", O::GetBucketRequestPayment, None, None),
-    kind("replication", O::PutBucketReplication, "ReplicationConfiguration", O::GetBucketReplication, Some("ReplicationConfiguration"), Some(O::DeleteBucketReplication)),
-    kind("object-lock", O::PutObjectLockConfiguration, "ObjectLockConfiguration", O::GetObjectLockConfiguration, Some("ObjectLockConfiguration"), None),
+    kind(
+        "cors",
+        O::PutBucketCors,
+        "CORSConfiguration",
+        O::GetBucketCors,
+        None,
+        Some(O::DeleteBucketCors),
+    ),
+    kind(
+        "policy",
+        O::PutBucketPolicy,
+        "Policy",
+        O::GetBucketPolicy,
+        Some("Policy"),
+        Some(O::DeleteBucketPolicy),
+    ),
+    kind(
+        "lifecycle",
+        O::PutBucketLifecycleConfiguration,
+        "LifecycleConfiguration",
+        O::GetBucketLifecycleConfiguration,
+        None,
+        Some(O::DeleteBucketLifecycle),
+    ),
+    kind(
+        "encryption",
+        O::PutBucketEncryption,
+        "ServerSideEncryptionConfiguration",
+        O::GetBucketEncryption,
+        Some("ServerSideEncryptionConfiguration"),
+        Some(O::DeleteBucketEncryption),
+    ),
+    kind(
+        "website",
+        O::PutBucketWebsite,
+        "WebsiteConfiguration",
+        O::GetBucketWebsite,
+        None,
+        Some(O::DeleteBucketWebsite),
+    ),
+    kind(
+        "logging",
+        O::PutBucketLogging,
+        "BucketLoggingStatus",
+        O::GetBucketLogging,
+        None,
+        None,
+    ),
+    kind(
+        "notification",
+        O::PutBucketNotificationConfiguration,
+        "NotificationConfiguration",
+        O::GetBucketNotificationConfiguration,
+        None,
+        None,
+    ),
+    kind(
+        "ownership",
+        O::PutBucketOwnershipControls,
+        "OwnershipControls",
+        O::GetBucketOwnershipControls,
+        Some("OwnershipControls"),
+        Some(O::DeleteBucketOwnershipControls),
+    ),
+    kind(
+        "public-access-block",
+        O::PutPublicAccessBlock,
+        "PublicAccessBlockConfiguration",
+        O::GetPublicAccessBlock,
+        Some("PublicAccessBlockConfiguration"),
+        Some(O::DeletePublicAccessBlock),
+    ),
+    kind(
+        "accelerate",
+        O::PutBucketAccelerateConfiguration,
+        "AccelerateConfiguration",
+        O::GetBucketAccelerateConfiguration,
+        None,
+        None,
+    ),
+    kind(
+        "request-payment",
+        O::PutBucketRequestPayment,
+        "RequestPaymentConfiguration",
+        O::GetBucketRequestPayment,
+        None,
+        None,
+    ),
+    kind(
+        "replication",
+        O::PutBucketReplication,
+        "ReplicationConfiguration",
+        O::GetBucketReplication,
+        Some("ReplicationConfiguration"),
+        Some(O::DeleteBucketReplication),
+    ),
+    kind(
+        "object-lock",
+        O::PutObjectLockConfiguration,
+        "ObjectLockConfiguration",
+        O::GetObjectLockConfiguration,
+        Some("ObjectLockConfiguration"),
+        None,
+    ),
 ];
 
 /// The kind of configuration operation `op` reads, writes or removes.
@@ -63,7 +161,11 @@ pub(crate) fn kind_of(op: Operation) -> Option<&'static Kind> {
 impl Core {
     pub(crate) async fn configuration(&mut self, req: &Req<'_>, op: Operation) -> Answer {
         let Some(k) = kind_of(op) else {
-            return Err(ApiError::new(501, "NotImplemented", "This operation is not built in doze-aws."));
+            return Err(ApiError::new(
+                501,
+                "NotImplemented",
+                "This operation is not built in doze-aws.",
+            ));
         };
         self.require(req.bucket())?;
         if op == k.put {
@@ -118,7 +220,10 @@ impl Core {
             None => value.as_object().cloned().unwrap_or_default(),
         };
         if k.name == "lifecycle" {
-            out.insert("TransitionDefaultMinimumObjectSize".into(), json!("all_storage_classes_128K"));
+            out.insert(
+                "TransitionDefaultMinimumObjectSize".into(),
+                json!("all_storage_classes_128K"),
+            );
         }
         Out::json(Value::Object(out))
     }

@@ -62,7 +62,12 @@ impl Core {
     }
 
     /// The version of `key` called `id`.
-    pub(crate) fn find(&self, bucket: &str, key: &str, id: &str) -> Result<Option<Version>, ApiError> {
+    pub(crate) fn find(
+        &self,
+        bucket: &str,
+        key: &str,
+        id: &str,
+    ) -> Result<Option<Version>, ApiError> {
         Ok(self
             .versions_of(bucket, key)?
             .into_iter()

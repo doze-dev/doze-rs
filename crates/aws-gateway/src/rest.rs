@@ -58,7 +58,12 @@ pub(crate) async fn respond(
     let head = parts.method == Method::HEAD;
     match handle(shared, entry, id, parts, body, claim).await {
         Ok(response) => response,
-        Err(e) => finish(error(&e, id, head), id, None, e.status == 501 && e.code == "NotImplemented"),
+        Err(e) => finish(
+            error(&e, id, head),
+            id,
+            None,
+            e.status == 501 && e.code == "NotImplemented",
+        ),
     }
 }
 
@@ -71,7 +76,8 @@ async fn handle(
     claim: Claim,
 ) -> Result<Response<RespBody>, ApiError> {
     let tables = entry.service.tables();
-    let pending = authenticate(shared, parts, &claim.service).map_err(|e| from_auth(&e, Family::S3))?;
+    let pending =
+        authenticate(shared, parts, &claim.service).map_err(|e| from_auth(&e, Family::S3))?;
     if pending.is_none() {
         check_presigned(&claim, parts)?;
     }
@@ -79,12 +85,18 @@ async fn handle(
     let query = pairs(parts.uri.query().unwrap_or_default());
     let matched = entry
         .router(tables)
-        .find(parts.method.as_str(), &path, &query, |h| parts.headers.contains_key(h))
+        .find(parts.method.as_str(), &path, &query, |h| {
+            parts.headers.contains_key(h)
+        })
         .ok_or_else(unrouted)?;
     let op = matched.op;
     if !entry.service.serves(op) {
         let name = tables.op(op).map_or("", |o| o.name);
-        return Err(ApiError::new(501, "NotImplemented", format!("{name} is not built in doze-aws.")));
+        return Err(ApiError::new(
+            501,
+            "NotImplemented",
+            format!("{name} is not built in doze-aws."),
+        ));
     }
     let streaming = streams(tables, op);
     let (body_bytes, up) = take_body(shared, parts, body, pending, streaming).await?;
@@ -135,7 +147,11 @@ fn target(parts: &Parts) -> (String, String) {
 /// `s3` label after at least one other label (and any IP address) is a path-style host.
 fn bucket_of_host(host: &str) -> Option<(String, String)> {
     let name = host.rsplit_once(':').map_or(host, |(n, p)| {
-        if p.bytes().all(|b| b.is_ascii_digit()) { n } else { host }
+        if p.bytes().all(|b| b.is_ascii_digit()) {
+            n
+        } else {
+            host
+        }
     });
     if name.parse::<std::net::IpAddr>().is_ok() || name.starts_with('[') {
         return None;
@@ -167,7 +183,11 @@ fn pairs(query: &str) -> Vec<(String, String)> {
 
 /// Whether the operation's input has a streaming blob.
 fn streams(tables: &Tables, op: u32) -> bool {
-    let Some(shape) = tables.op(op).and_then(|o| o.input).and_then(|s| tables.shape(s)) else {
+    let Some(shape) = tables
+        .op(op)
+        .and_then(|o| o.input)
+        .and_then(|s| tables.shape(s))
+    else {
         return false;
     };
     (shape.first..shape.first + shape.count)
@@ -197,7 +217,10 @@ fn check_presigned(claim: &Claim, parts: &Parts) -> Result<(), ApiError> {
         .iter()
         .find(|h| h.as_str() != "host" && !parts.headers.contains_key(h.as_str()));
     match missing {
-        Some(h) => Err(from_auth(&AuthError::MissingSignedHeader(h.clone()), Family::S3)),
+        Some(h) => Err(from_auth(
+            &AuthError::MissingSignedHeader(h.clone()),
+            Family::S3,
+        )),
         None => Ok(()),
     }
 }
@@ -213,7 +236,9 @@ async fn take_body(
     if !streaming {
         let bytes = read_body(body, shared.max_body_bytes()).await?;
         if let Some(pending) = pending {
-            let hash = pending.needs_body_hash().then(|| aws_auth::key::sha256_hex(&bytes));
+            let hash = pending
+                .needs_body_hash()
+                .then(|| aws_auth::key::sha256_hex(&bytes));
             pending
                 .finish(parts, hash.as_deref())
                 .map_err(|e| from_auth(&e, Family::S3))?;
@@ -227,7 +252,10 @@ async fn take_body(
         .and_then(|v| v.to_str().ok())
         .filter(|h| h.len() == 64)
         .map(str::to_owned);
-    Ok((bytes::Bytes::new(), Some(upload(body, framing, length, claimed))))
+    Ok((
+        bytes::Bytes::new(),
+        Some(upload(body, framing, length, claimed)),
+    ))
 }
 
 /// How the payload is framed, and its declared length. The signature is finished here, before a byte of the payload is read.
@@ -251,7 +279,9 @@ fn framing_of(parts: &Parts, pending: Option<Pending>) -> Result<(Framing, Optio
                 "x-amz-content-sha256 must be UNSIGNED-PAYLOAD, STREAMING-UNSIGNED-PAYLOAD-TRAILER, STREAMING-AWS4-HMAC-SHA256-PAYLOAD, STREAMING-AWS4-HMAC-SHA256-PAYLOAD-TRAILER or a valid sha256 value.",
             ));
         }
-        let mut verified = pending.finish(parts, None).map_err(|e| from_auth(&e, Family::S3))?;
+        let mut verified = pending
+            .finish(parts, None)
+            .map_err(|e| from_auth(&e, Family::S3))?;
         auth = verified.take_chunk_auth();
     }
     let framing = if chunked {
@@ -318,12 +348,30 @@ fn decode_call(entry: &Entry, h: &Head<'_>, claim: Claim) -> Result<Call, ApiErr
 }
 
 /// The HTTP answer for a service's reply.
-fn answer(entry: &Entry, id: &RequestId, op: u32, head: bool, reply: RestReply) -> Response<RespBody> {
+fn answer(
+    entry: &Entry,
+    id: &RequestId,
+    op: u32,
+    head: bool,
+    reply: RestReply,
+) -> Response<RespBody> {
     let meta = entry.service.meta();
     let RestReply { json, status, body } = reply;
-    let mut r = render(entry.service.tables(), meta.xml_namespace, op, &json, status);
-    if !r.body.is_empty() && !r.headers.iter().any(|(k, _)| k.eq_ignore_ascii_case("content-type")) {
-        r.headers.push(("content-type".to_owned(), "application/xml".to_owned()));
+    let mut r = render(
+        entry.service.tables(),
+        meta.xml_namespace,
+        op,
+        &json,
+        status,
+    );
+    if !r.body.is_empty()
+        && !r
+            .headers
+            .iter()
+            .any(|(k, _)| k.eq_ignore_ascii_case("content-type"))
+    {
+        r.headers
+            .push(("content-type".to_owned(), "application/xml".to_owned()));
     }
     if head {
         r.body.clear();
@@ -333,7 +381,12 @@ fn answer(entry: &Entry, id: &RequestId, op: u32, head: bool, reply: RestReply) 
 }
 
 /// The response: status, headers, the identifying headers every S3 answer has, and the body.
-fn finish(r: Rendered, id: &RequestId, stream: Option<aws_wire::rest::Download>, not_built: bool) -> Response<RespBody> {
+fn finish(
+    r: Rendered,
+    id: &RequestId,
+    stream: Option<aws_wire::rest::Download>,
+    not_built: bool,
+) -> Response<RespBody> {
     let mut builder = Response::builder().status(r.status);
     for (k, v) in &r.headers {
         if let (Ok(name), Ok(value)) = (
@@ -367,9 +420,15 @@ mod tests {
     fn a_virtual_host_names_the_bucket() {
         let cases = [
             ("b.s3.amazonaws.com", Some(("b", "s3.amazonaws.com"))),
-            ("my.bucket.s3.us-west-2.amazonaws.com", Some(("my.bucket", "s3.us-west-2.amazonaws.com"))),
+            (
+                "my.bucket.s3.us-west-2.amazonaws.com",
+                Some(("my.bucket", "s3.us-west-2.amazonaws.com")),
+            ),
             ("b.s3.localhost:4566", Some(("b", "s3.localhost:4566"))),
-            ("b.s3-us-west-2.amazonaws.com", Some(("b", "s3-us-west-2.amazonaws.com"))),
+            (
+                "b.s3-us-west-2.amazonaws.com",
+                Some(("b", "s3-us-west-2.amazonaws.com")),
+            ),
             ("s3.amazonaws.com", None),
             ("127.0.0.1:4566", None),
             ("localhost:4566", None),

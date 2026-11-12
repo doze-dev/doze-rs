@@ -13,7 +13,9 @@ impl Core {
         let id = req.s("UploadId").unwrap_or_default();
         let upload = self.upload(bucket, key, id)?;
         let marker = req.int("PartNumberMarker").unwrap_or(0);
-        let max = req.int("MaxParts").map_or(MAX_KEYS, |m| usize::try_from(m).unwrap_or(0).min(MAX_KEYS));
+        let max = req
+            .int("MaxParts")
+            .map_or(MAX_KEYS, |m| usize::try_from(m).unwrap_or(0).min(MAX_KEYS));
         let part_prefix = format!("{id}\0");
         let all: Vec<(u32, &crate::model::PartRec)> = self
             .parts
@@ -49,7 +51,10 @@ impl Core {
         out.insert("MaxParts".into(), json!(max));
         out.insert("IsTruncated".into(), json!(truncated));
         out.insert("Parts".into(), Value::Array(parts));
-        out.insert("StorageClass".into(), json!(upload.meta.storage_class.as_deref().unwrap_or("STANDARD")));
+        out.insert(
+            "StorageClass".into(),
+            json!(upload.meta.storage_class.as_deref().unwrap_or("STANDARD")),
+        );
         out.insert("Owner".into(), owner(req.account()));
         out.insert("Initiator".into(), initiator(req.account()));
         if let Some(a) = upload.algo {
@@ -62,8 +67,13 @@ impl Core {
         let bucket = req.bucket();
         self.require(bucket)?;
         let prefix = req.s("Prefix").unwrap_or_default();
-        let (km, um) = (req.s("KeyMarker").unwrap_or_default(), req.s("UploadIdMarker").unwrap_or_default());
-        let max = req.int("MaxUploads").map_or(MAX_KEYS, |m| usize::try_from(m).unwrap_or(0).min(MAX_KEYS));
+        let (km, um) = (
+            req.s("KeyMarker").unwrap_or_default(),
+            req.s("UploadIdMarker").unwrap_or_default(),
+        );
+        let max = req
+            .int("MaxUploads")
+            .map_or(MAX_KEYS, |m| usize::try_from(m).unwrap_or(0).min(MAX_KEYS));
         let upload_prefix = format!("{bucket}\0");
         let mut all: Vec<&crate::model::Upload> = self
             .uploads

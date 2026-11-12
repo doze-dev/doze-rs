@@ -10,33 +10,34 @@
 mod attrs;
 mod authz;
 mod blob;
-mod complete;
-mod lifecycle_check;
-mod mplist;
-mod notify;
-mod timeutil;
-mod validate;
 mod buckets;
 mod checksum;
+mod complete;
 mod config;
 mod copy;
 mod core;
 mod delete;
 mod download;
 mod errors;
-mod janitor;
-mod lifecycle;
 mod events;
 mod get;
+mod idconfig;
+mod janitor;
+mod lifecycle;
+mod lifecycle_check;
 mod list;
 mod listv;
 mod model;
+mod mplist;
 mod multipart;
+mod notify;
 mod put;
 mod receive;
 mod req;
 mod store;
 mod tagging;
+mod timeutil;
+mod validate;
 mod versioning;
 
 use std::path::PathBuf;
@@ -121,7 +122,11 @@ impl Inner {
                 self.janitor.disarm_all();
                 return;
             }
-            let (me, tasks, clock) = (Arc::clone(self), self.tasks.clone(), Arc::clone(&self.clock));
+            let (me, tasks, clock) = (
+                Arc::clone(self),
+                self.tasks.clone(),
+                Arc::clone(&self.clock),
+            );
             self.tasks.spawn(janitor::run(me, tasks, clock));
         }
     }
@@ -129,8 +134,16 @@ impl Inner {
     pub(crate) async fn sweep_now(&self, region: &str) -> Result<Swept, ApiError> {
         let out = self.ask(region, Ask::Sweep).await?;
         Ok(Swept {
-            actions: out.json.get("Actions").and_then(serde_json::Value::as_u64).map_or(0, |n| usize::try_from(n).unwrap_or(0)),
-            armed: out.json.get("Armed").and_then(serde_json::Value::as_bool).unwrap_or(false),
+            actions: out
+                .json
+                .get("Actions")
+                .and_then(serde_json::Value::as_u64)
+                .map_or(0, |n| usize::try_from(n).unwrap_or(0)),
+            armed: out
+                .json
+                .get("Armed")
+                .and_then(serde_json::Value::as_bool)
+                .unwrap_or(false),
         })
     }
 
@@ -156,7 +169,11 @@ impl Inner {
         Blobs::new(RealFs, &dir)
     }
 
-    async fn run(self: &Arc<Self>, call: Call, upload: Option<Box<dyn Upload>>) -> Result<RestReply, ApiError> {
+    async fn run(
+        self: &Arc<Self>,
+        call: Call,
+        upload: Option<Box<dyn Upload>>,
+    ) -> Result<RestReply, ApiError> {
         let region = call.caller.region.clone();
         let op = Operation::from_index(call.op);
         let answer = match (op, upload) {
@@ -177,26 +194,30 @@ impl Inner {
 
     /// An operation that takes a body: the actor first checks the caller and the bucket, then the body is written and summed
     /// without the actor, then the actor keeps it.
-    async fn stream_in(
-        &self,
-        region: &str,
-        call: Call,
-        upload: &mut dyn Upload,
-    ) -> Answer {
+    async fn stream_in(&self, region: &str, call: Call, upload: &mut dyn Upload) -> Answer {
         self.ask(region, Ask::Gate(call.duplicate())).await?;
         let v: serde_json::Value = serde_json::from_str(&call.body).unwrap_or_default();
         let mut declared = Declared::of(&v, upload.sha256().as_deref());
         // A part's CRC64NVME gives the whole object its checksum when the upload is completed.
-        if Operation::from_index(call.op) == Some(Operation::UploadPart) && !declared.want.contains(&Algo::Crc64Nvme) {
+        if Operation::from_index(call.op) == Some(Operation::UploadPart)
+            && !declared.want.contains(&Algo::Crc64Nvme)
+        {
             declared.want.push(Algo::Crc64Nvme);
         }
         let staged = receive(&self.blobs(region), upload, &declared).await?;
         let blobs = self.blobs(region);
-        let kept = self.ask(region, Ask::Call(call, Some(req::Staged {
-            staging: staged.staging,
-            done: staged.done,
-        })))
-        .await;
+        let kept = self
+            .ask(
+                region,
+                Ask::Call(
+                    call,
+                    Some(req::Staged {
+                        staging: staged.staging,
+                        done: staged.done,
+                    }),
+                ),
+            )
+            .await;
         if kept.is_err() {
             // WHY: a staging file the actor did not take is swept at the next start; nothing refers to it.
             blobs.sweep(None);
@@ -251,7 +272,9 @@ impl Service for S3 {
                     | Violation::Range { member: m, .. }
                     | Violation::Pattern { member: m, .. }
                     | Violation::Enum { member: m, .. }
-                    | Violation::Type { member: m, .. } => format!("Invalid value for {}.", member(*m)),
+                    | Violation::Type { member: m, .. } => {
+                        format!("Invalid value for {}.", member(*m))
+                    }
                     _ => "The request is not valid.".to_owned(),
                 },
             ),

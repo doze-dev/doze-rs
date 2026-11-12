@@ -10,8 +10,8 @@ use serde_json::{Map, Value, json};
 use crate::blob::Staging;
 use crate::checksum::{Algo, Done, Sums};
 use crate::core::Core;
-use crate::events::Kind;
 use crate::errors::{invalid_argument, invalid_request, no_such_bucket, precondition_failed};
+use crate::events::Kind;
 use crate::get::{check_conditions, slices};
 use crate::model::{Seg, Version, Versioning};
 use crate::put::{add_checksum, check_key, meta_of, primary, tags_of};
@@ -84,17 +84,27 @@ fn read_piece(file: &File, from: u64, n: usize) -> std::io::Result<Vec<u8>> {
 impl Core {
     /// The source version of a copy, with its conditions checked.
     fn copy_source(&self, req: &Req<'_>) -> Result<Version, ApiError> {
-        let raw = req.s("CopySource").ok_or_else(|| invalid_argument("Copy Source must mention the source bucket and key: sourcebucket/sourcekey"))?;
+        let raw = req.s("CopySource").ok_or_else(|| {
+            invalid_argument(
+                "Copy Source must mention the source bucket and key: sourcebucket/sourcekey",
+            )
+        })?;
         let (b, k, id) = parse_source(raw).ok_or_else(|| {
-            invalid_argument("Copy Source must mention the source bucket and key: sourcebucket/sourcekey")
+            invalid_argument(
+                "Copy Source must mention the source bucket and key: sourcebucket/sourcekey",
+            )
         })?;
         if self.buckets.get(&b).is_none() {
             return Err(no_such_bucket(&b));
         }
         let v = self.readable(&b, &k, id.as_deref())?;
+        crate::get::check_readable(&v)?;
         let at = |name: &str| req.s(name).and_then(parse_http_date);
         let modified = v.modified_ms / 1000;
-        let etag_ok = |list: &str| list.split(',').any(|e| e.trim().trim_matches('"') == v.etag || e.trim() == "*");
+        let etag_ok = |list: &str| {
+            list.split(',')
+                .any(|e| e.trim().trim_matches('"') == v.etag || e.trim() == "*")
+        };
         if req.s("CopySourceIfMatch").is_some_and(|m| !etag_ok(m))
             || at("CopySourceIfUnmodifiedSince").is_some_and(|t| modified > t)
         {
@@ -115,13 +125,26 @@ impl Core {
         let dest = self.require(&bucket)?.versioning;
         let src = self.copy_source(req)?;
         let replace = req.s("MetadataDirective") == Some("REPLACE");
-        let same = src.key == key && req.s("CopySource").is_some_and(|c| c.trim_start_matches('/').starts_with(&format!("{bucket}/")));
-        if same && !replace && dest != Versioning::Enabled && req.s("StorageClass").is_none() && req.s("ServerSideEncryption").is_none() && req.s("WebsiteRedirectLocation").is_none() {
+        let same = src.key == key
+            && req
+                .s("CopySource")
+                .is_some_and(|c| c.trim_start_matches('/').starts_with(&format!("{bucket}/")));
+        if same
+            && !replace
+            && dest != Versioning::Enabled
+            && req.s("StorageClass").is_none()
+            && req.s("ServerSideEncryption").is_none()
+            && req.s("WebsiteRedirectLocation").is_none()
+        {
             return Err(invalid_request(
                 "This copy request is illegal because it is trying to copy an object to itself without changing the object's metadata, storage class, website redirect location or encryption attributes.",
             ));
         }
-        let algos = [req.s("ChecksumAlgorithm").and_then(Algo::parse).or(src.checksum.as_ref().map(|c| c.algo)).unwrap_or(Algo::Crc64Nvme)];
+        let algos = [req
+            .s("ChecksumAlgorithm")
+            .and_then(Algo::parse)
+            .or(src.checksum.as_ref().map(|c| c.algo))
+            .unwrap_or(Algo::Crc64Nvme)];
         let mut staging = self.blobs.begin().map_err(io_failed)?;
         let sl = slices(self, &src.segs, 0, src.size)?;
         let done = match copy_into(&mut staging, sl, &algos).await {
@@ -132,7 +155,11 @@ impl Core {
             }
         };
         let blob = self.blobs.publish(&staging).map_err(io_failed)?;
-        let mut meta = if replace { meta_of(req) } else { src.meta.clone() };
+        let mut meta = if replace {
+            meta_of(req)
+        } else {
+            src.meta.clone()
+        };
         let (sse, kms) = self.default_sse(&bucket);
         if let Some(s) = req.s("ServerSideEncryption") {
             meta.sse = Some(s.to_owned());
@@ -156,12 +183,22 @@ impl Core {
             etag: aws_core::hex::encode(&done.md5),
             meta,
             checksum: primary(&done),
-            segs: vec![Seg { blob, len: staging.len }],
+            segs: vec![Seg {
+                blob,
+                len: staging.len,
+            }],
             parts: Vec::new(),
             tags,
         };
         let stored = self.install(&bucket, v)?;
-        self.note(req, Kind::Object("ObjectCreated:Copy"), &stored.key, stored.size, &stored.etag, Some(&stored.version_id));
+        self.note(
+            req,
+            Kind::Object("ObjectCreated:Copy"),
+            &stored.key,
+            stored.size,
+            &stored.etag,
+            Some(&stored.version_id),
+        );
         Out::json(copy_output(&stored, &src, dest != Versioning::Off))
     }
 }

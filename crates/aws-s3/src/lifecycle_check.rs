@@ -26,7 +26,9 @@ pub(crate) fn rules(body: &Value) -> Result<(), ApiError> {
                 return Err(bad("ID length should not exceed allowed limit of 255"));
             }
             if ids.contains(&id) {
-                return Err(bad("Rule ID must be unique. Found same ID for more than one rule"));
+                return Err(bad(
+                    "Rule ID must be unique. Found same ID for more than one rule",
+                ));
             }
             ids.push(id);
         }
@@ -36,7 +38,10 @@ pub(crate) fn rules(body: &Value) -> Result<(), ApiError> {
 }
 
 fn rule(r: &Value) -> Result<(), ApiError> {
-    if !matches!(r.get("Status").and_then(Value::as_str), Some("Enabled" | "Disabled")) {
+    if !matches!(
+        r.get("Status").and_then(Value::as_str),
+        Some("Enabled" | "Disabled")
+    ) {
         return Err(malformed_xml());
     }
     if r.get("Prefix").is_some() && r.get("Filter").is_some() {
@@ -58,7 +63,10 @@ fn rule(r: &Value) -> Result<(), ApiError> {
         filter(f)?;
     }
     if let Some(e) = r.get("Expiration") {
-        let fields = ["Days", "Date", "ExpiredObjectDeleteMarker"].iter().filter(|k| e.get(**k).is_some()).count();
+        let fields = ["Days", "Date", "ExpiredObjectDeleteMarker"]
+            .iter()
+            .filter(|k| e.get(**k).is_some())
+            .count();
         if fields != 1 || e.get("Days").and_then(Value::as_i64).is_some_and(|d| d < 1) {
             return Err(malformed_xml());
         }
@@ -68,19 +76,39 @@ fn rule(r: &Value) -> Result<(), ApiError> {
 
 /// A filter holds one predicate, or `And` with at least two.
 fn filter(f: &Value) -> Result<(), ApiError> {
-    let direct = ["Prefix", "Tag", "ObjectSizeGreaterThan", "ObjectSizeLessThan"]
-        .iter()
-        .filter(|k| f.get(**k).is_some())
-        .count();
+    let direct = [
+        "Prefix",
+        "Tag",
+        "ObjectSizeGreaterThan",
+        "ObjectSizeLessThan",
+    ]
+    .iter()
+    .filter(|k| f.get(**k).is_some())
+    .count();
     match (f.get("And"), direct) {
         (None, 0 | 1) => Ok(()),
         (Some(and), 0) => {
-            let n = ["Prefix", "Tags", "ObjectSizeGreaterThan", "ObjectSizeLessThan"]
-                .iter()
-                .filter(|k| and.get(**k).is_some_and(|v| v.as_array().is_none_or(|a| !a.is_empty())))
-                .count();
-            let tags = and.get("Tags").and_then(Value::as_array).map_or(0, Vec::len);
-            if n + tags.saturating_sub(1) >= 2 { Ok(()) } else { Err(malformed_xml()) }
+            let n = [
+                "Prefix",
+                "Tags",
+                "ObjectSizeGreaterThan",
+                "ObjectSizeLessThan",
+            ]
+            .iter()
+            .filter(|k| {
+                and.get(**k)
+                    .is_some_and(|v| v.as_array().is_none_or(|a| !a.is_empty()))
+            })
+            .count();
+            let tags = and
+                .get("Tags")
+                .and_then(Value::as_array)
+                .map_or(0, Vec::len);
+            if n + tags.saturating_sub(1) >= 2 {
+                Ok(())
+            } else {
+                Err(malformed_xml())
+            }
         }
         _ => Err(malformed_xml()),
     }

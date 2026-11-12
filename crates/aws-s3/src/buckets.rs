@@ -21,8 +21,12 @@ pub(crate) fn valid_name(name: &str) -> bool {
         && edge(name.chars().last())
         && !name.contains("..")
         && name.parse::<std::net::Ipv4Addr>().is_err()
-        && !["xn--", "sthree-", "amzn-s3-demo-"].iter().any(|p| name.starts_with(p))
-        && !["-s3alias", "--ol-s3", ".mrap", "--x-s3"].iter().any(|s| name.ends_with(s))
+        && !["xn--", "sthree-", "amzn-s3-demo-"]
+            .iter()
+            .any(|p| name.starts_with(p))
+        && !["-s3alias", "--ol-s3", ".mrap", "--x-s3"]
+            .iter()
+            .any(|s| name.ends_with(s))
 }
 
 /// The owner every bucket and object answers with: one local account.
@@ -66,7 +70,9 @@ impl Core {
     }
 
     fn created(name: &str) -> Answer {
-        Out::json(json!({"Location": format!("/{name}"), "BucketArn": format!("arn:aws:s3:::{name}")}))
+        Out::json(
+            json!({"Location": format!("/{name}"), "BucketArn": format!("arn:aws:s3:::{name}")}),
+        )
     }
 
     pub(crate) fn delete_bucket(&mut self, req: &Req<'_>) -> Answer {
@@ -150,7 +156,16 @@ mod tests {
             assert!(valid_name(good), "{good}");
         }
         for bad in [
-            "ab", "Not_A_Bucket", "-abc", "abc-", "a..b", "192.168.1.1", "xn--abc", "abc-s3alias", &"a".repeat(64), "UPPER",
+            "ab",
+            "Not_A_Bucket",
+            "-abc",
+            "abc-",
+            "a..b",
+            "192.168.1.1",
+            "xn--abc",
+            "abc-s3alias",
+            &"a".repeat(64),
+            "UPPER",
         ] {
             assert!(!valid_name(bad), "{bad}");
         }

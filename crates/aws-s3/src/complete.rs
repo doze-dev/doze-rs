@@ -6,8 +6,8 @@ use serde_json::{Map, Value, json};
 
 use crate::checksum::{Algo, b64, combine, composite};
 use crate::core::Core;
-use crate::events::Kind;
 use crate::errors::malformed_xml;
+use crate::events::Kind;
 use crate::model::{CKind, Checksum, PartInfo, PartRec, Seg, Upload, Version};
 use crate::multipart::{part_row, upload_row};
 use crate::put::add_checksum;
@@ -39,7 +39,10 @@ fn listed(req: &Req<'_>) -> Result<Vec<Listed>, ApiError> {
         .ok_or_else(malformed_xml)?;
     let mut out = Vec::new();
     for p in parts {
-        let number = p.get("PartNumber").and_then(Value::as_i64).and_then(|n| u32::try_from(n).ok());
+        let number = p
+            .get("PartNumber")
+            .and_then(Value::as_i64)
+            .and_then(|n| u32::try_from(n).ok());
         let etag = p.get("ETag").and_then(Value::as_str);
         let (Some(number), Some(etag)) = (number, etag) else {
             return Err(malformed_xml());
@@ -102,14 +105,23 @@ impl Core {
             etag: multipart_etag(&chosen),
             meta: upload.meta.clone(),
             checksum: whole_checksum(&upload, &chosen),
-            segs: chosen.iter().map(|(_, p)| Seg { blob: p.blob.clone(), len: p.size }).collect(),
+            segs: chosen
+                .iter()
+                .map(|(_, p)| Seg {
+                    blob: p.blob.clone(),
+                    len: p.size,
+                })
+                .collect(),
             parts: chosen
                 .iter()
                 .map(|(n, p)| PartInfo {
                     number: *n,
                     size: p.size,
                     etag: p.etag.clone(),
-                    checksum: upload.algo.and_then(|a| p.sums.iter().find(|(x, _)| *x == a)).map(|(_, v)| v.clone()),
+                    checksum: upload
+                        .algo
+                        .and_then(|a| p.sums.iter().find(|(x, _)| *x == a))
+                        .map(|(_, v)| v.clone()),
                 })
                 .collect(),
             tags: upload.tags.clone(),
@@ -117,8 +129,21 @@ impl Core {
         let used: Vec<String> = chosen.iter().map(|(_, p)| p.blob.clone()).collect();
         let stored = self.install(&bucket, v)?;
         self.finish_upload(&upload_row(&bucket, &key, &id), &used);
-        self.note(req, Kind::Object("ObjectCreated:CompleteMultipartUpload"), &stored.key, stored.size, &stored.etag, Some(&stored.version_id));
-        Out::json(complete_output(&bucket, &key, req.call.caller.endpoint.as_str(), &stored, self.versioned(&bucket)))
+        self.note(
+            req,
+            Kind::Object("ObjectCreated:CompleteMultipartUpload"),
+            &stored.key,
+            stored.size,
+            &stored.etag,
+            Some(&stored.version_id),
+        );
+        Out::json(complete_output(
+            &bucket,
+            &key,
+            req.call.caller.endpoint.as_str(),
+            &stored,
+            self.versioned(&bucket),
+        ))
     }
 
     /// Removes the upload and its parts, keeping the blobs the object now owns.
@@ -128,7 +153,9 @@ impl Core {
     }
 
     pub(crate) fn versioned(&self, bucket: &str) -> bool {
-        self.buckets.get(bucket).is_some_and(|b| b.versioning != crate::model::Versioning::Off)
+        self.buckets
+            .get(bucket)
+            .is_some_and(|b| b.versioning != crate::model::Versioning::Off)
     }
 }
 
@@ -147,23 +174,39 @@ fn whole_checksum(upload: &Upload, parts: &[(u32, PartRec)]) -> Option<Checksum>
     let algo = upload.algo.unwrap_or(Algo::Crc64Nvme);
     let digests: Option<Vec<Vec<u8>>> = parts
         .iter()
-        .map(|(_, p)| p.sums.iter().find(|(a, _)| *a == algo).and_then(|(_, v)| aws_core::base64::decode(v)))
+        .map(|(_, p)| {
+            p.sums
+                .iter()
+                .find(|(a, _)| *a == algo)
+                .and_then(|(_, v)| aws_core::base64::decode(v))
+        })
         .collect();
     let digests = digests?;
     if upload.kind == Some(CKind::Composite) {
         let value = format!("{}-{}", b64(&composite(algo, &digests)), parts.len());
-        return Some(Checksum { algo, value, kind: CKind::Composite });
+        return Some(Checksum {
+            algo,
+            value,
+            kind: CKind::Composite,
+        });
     }
     let mut acc = digests.first()?.clone();
     for ((_, p), d) in parts.iter().zip(&digests).skip(1) {
         acc = combine(algo, &acc, d, p.size)?;
     }
-    Some(Checksum { algo, value: b64(&acc), kind: CKind::FullObject })
+    Some(Checksum {
+        algo,
+        value: b64(&acc),
+        kind: CKind::FullObject,
+    })
 }
 
 fn complete_output(bucket: &str, key: &str, endpoint: &str, v: &Version, versioned: bool) -> Value {
     let mut out = Map::new();
-    out.insert("Location".into(), json!(format!("{endpoint}/{bucket}/{key}")));
+    out.insert(
+        "Location".into(),
+        json!(format!("{endpoint}/{bucket}/{key}")),
+    );
     out.insert("Bucket".into(), json!(bucket));
     out.insert("Key".into(), json!(key));
     out.insert("ETag".into(), json!(format!("\"{}\"", v.etag)));

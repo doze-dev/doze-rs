@@ -48,7 +48,10 @@ pub fn render(
             4 => header(&mut r, m, value),
             5 => prefixed(&mut r, m, value),
             7 => {
-                if let Some(code) = value.and_then(Value::as_u64).and_then(|c| u16::try_from(c).ok()) {
+                if let Some(code) = value
+                    .and_then(Value::as_u64)
+                    .and_then(|c| u16::try_from(c).ok())
+                {
                     r.status = code;
                 }
             }
@@ -81,7 +84,11 @@ fn header_text(m: &MemberRef<'_>, v: &Value) -> Option<String> {
             let secs = n.as_f64()?.floor();
             #[allow(clippy::cast_possible_truncation)]
             let secs = secs as i64;
-            Some(if m.ts == 1 { n.to_string() } else { format_http_date(secs) })
+            Some(if m.ts == 1 {
+                n.to_string()
+            } else {
+                format_http_date(secs)
+            })
         }
         Value::Number(n) => Some(n.to_string()),
         Value::Array(items) => Some(
@@ -116,7 +123,9 @@ fn payload(
     match (m.kind, value) {
         (K_STREAM, _) => r.streams = true,
         (K_STR, Some(Value::String(s))) => r.body = s.clone().into_bytes(),
-        (K_BLOB, Some(Value::String(s))) => r.body = aws_core::base64::decode(s).unwrap_or_default(),
+        (K_BLOB, Some(Value::String(s))) => {
+            r.body = aws_core::base64::decode(s).unwrap_or_default()
+        }
         (K_STRUCT, Some(v)) => {
             let root = m.xml.unwrap_or(m.name);
             r.body = document(tables, namespace, root, m.target, v).into_bytes();
@@ -136,7 +145,10 @@ fn document(tables: &Tables, namespace: Option<&str>, root: &str, shape: u32, v:
         out.push('"');
     }
     out.push('>');
-    let sole_text = tables.shape(shape).filter(|s| s.count == 1).and_then(|s| tables.member(s.first));
+    let sole_text = tables
+        .shape(shape)
+        .filter(|s| s.count == 1)
+        .and_then(|s| tables.member(s.first));
     match sole_text.filter(|m| m.name == root && m.kind == K_STR) {
         Some(m) => {
             if let Some(Value::String(s)) = v.get(m.wire) {
@@ -203,11 +215,21 @@ mod tests {
         assert_eq!(r.status, 200);
         let body = text(&r);
         assert!(body.contains("<ListBucketResult xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><IsTruncated>false</IsTruncated>"), "{body}");
-        assert!(body.contains("<Contents><Key>a&amp;b</Key><LastModified>2023-11-14T22:13:20.000Z</LastModified>"), "{body}");
+        assert!(
+            body.contains(
+                "<Contents><Key>a&amp;b</Key><LastModified>2023-11-14T22:13:20.000Z</LastModified>"
+            ),
+            "{body}"
+        );
 
         let head = json!({"ETag": "\"x\"", "ContentLength": 5, "Metadata": {"origin": "here"}, "LastModified": 1_700_000_000});
         let r = render(&TABLES, META.xml_namespace, op("HeadObject"), &head, None);
-        let get = |n: &str| r.headers.iter().find(|(k, _)| k == n).map(|(_, v)| v.as_str());
+        let get = |n: &str| {
+            r.headers
+                .iter()
+                .find(|(k, _)| k == n)
+                .map(|(_, v)| v.as_str())
+        };
         assert_eq!(get("ETag"), Some("\"x\""));
         assert_eq!(get("Content-Length"), Some("5"));
         assert_eq!(get("x-amz-meta-origin"), Some("here"));
@@ -217,24 +239,47 @@ mod tests {
 
     #[test]
     fn a_string_payload_is_raw_and_a_structure_payload_has_its_own_root() {
-        let r = render(&TABLES, META.xml_namespace, op("GetBucketPolicy"), &json!({"Policy": "{\"a\":1}"}), None);
+        let r = render(
+            &TABLES,
+            META.xml_namespace,
+            op("GetBucketPolicy"),
+            &json!({"Policy": "{\"a\":1}"}),
+            None,
+        );
         assert_eq!(text(&r), "{\"a\":1}");
         let out = json!({"PublicAccessBlockConfiguration": {"BlockPublicAcls": true}});
-        let r = render(&TABLES, META.xml_namespace, op("GetPublicAccessBlock"), &out, None);
-        assert!(text(&r).contains("<PublicAccessBlockConfiguration xmlns="), "{}", text(&r));
+        let r = render(
+            &TABLES,
+            META.xml_namespace,
+            op("GetPublicAccessBlock"),
+            &out,
+            None,
+        );
+        assert!(
+            text(&r).contains("<PublicAccessBlockConfiguration xmlns="),
+            "{}",
+            text(&r)
+        );
         assert!(text(&r).contains("<BlockPublicAcls>true</BlockPublicAcls>"));
     }
 
     #[test]
     fn the_location_constraint_is_the_text_of_the_root() {
-        let r = render(&TABLES, META.xml_namespace, op("GetBucketLocation"), &json!({"LocationConstraint": "eu-west-1"}), None);
+        let r = render(
+            &TABLES,
+            META.xml_namespace,
+            op("GetBucketLocation"),
+            &json!({"LocationConstraint": "eu-west-1"}),
+            None,
+        );
         assert!(text(&r).ends_with("<LocationConstraint xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\">eu-west-1</LocationConstraint>"), "{}", text(&r));
     }
 
     #[test]
     fn an_error_names_its_code_and_extra_fields() {
         let id = RequestId::new();
-        let e = ApiError::new(404, "NoSuchKey", "The specified key does not exist.").with("Key", "k");
+        let e =
+            ApiError::new(404, "NoSuchKey", "The specified key does not exist.").with("Key", "k");
         let r = error(&e, &id, false);
         assert_eq!(r.status, 404);
         assert!(text(&r).contains("<Error><Code>NoSuchKey</Code><Message>The specified key does not exist.</Message><Key>k</Key><RequestId>"), "{}", text(&r));

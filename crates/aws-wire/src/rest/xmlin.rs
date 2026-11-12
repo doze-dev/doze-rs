@@ -155,7 +155,10 @@ impl Reader<'_> {
         }
         self.at += 1;
         self.skip_space();
-        let quote = self.peek().filter(|q| matches!(q, b'"' | b'\'')).ok_or(XmlError)?;
+        let quote = self
+            .peek()
+            .filter(|q| matches!(q, b'"' | b'\''))
+            .ok_or(XmlError)?;
         self.at += 1;
         self.skip_past(&[quote])
     }
@@ -179,7 +182,8 @@ impl Reader<'_> {
                 let start = self.at;
                 self.skip_past(b"]]>")?;
                 let raw = self.s.get(start..self.at - 3).ok_or(XmlError)?;
-                elem.text.push_str(std::str::from_utf8(raw).map_err(|_| XmlError)?);
+                elem.text
+                    .push_str(std::str::from_utf8(raw).map_err(|_| XmlError)?);
             } else if self.starts(b"<!--") {
                 self.skip_past(b"-->")?;
             } else if self.starts(b"<?") {
@@ -237,9 +241,7 @@ fn char_ref(entity: &str) -> Result<char, XmlError> {
         Some(hex) => u32::from_str_radix(hex, 16),
         None => digits.parse(),
     };
-    code.ok()
-        .and_then(char::from_u32)
-        .ok_or(XmlError)
+    code.ok().and_then(char::from_u32).ok_or(XmlError)
 }
 
 #[cfg(test)]

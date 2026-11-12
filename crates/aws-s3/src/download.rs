@@ -67,7 +67,10 @@ impl Pieces {
 }
 
 impl ByteStream for Pieces {
-    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<io::Result<Bytes>>> {
+    fn poll_next(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Option<io::Result<Bytes>>> {
         loop {
             if let Some(handle) = self.reading.as_mut() {
                 let done = match Pin::new(handle).poll(cx) {

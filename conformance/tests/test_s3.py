@@ -101,7 +101,9 @@ def test_versioning_and_delete_markers(client, names, cleanup, snapshot):
 def test_multipart_upload(client, names, cleanup, snapshot):
     s3 = client("s3")
     name = bucket(s3, names, cleanup)
-    u = ("UploadId",)
+    # NextUploadIdMarker is the id of the last upload listed: as opaque as the id (the first recording kept AWS's raw value, which no
+    # other run can equal; rewritten offline to the token on 2026-11-12).
+    u = ("UploadId", "NextUploadIdMarker")
 
     started = snapshot.match("create", s3.create_multipart_upload(Bucket=name, Key="big"), opaque=u)
     uid = started["UploadId"]

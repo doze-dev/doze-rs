@@ -54,11 +54,7 @@ impl Gateway {
     pub async fn bind(self) -> io::Result<Running> {
         let listener = TcpListener::bind(self.config.listen).await?;
         let addr = listener.local_addr()?;
-        let entries = self
-            .services
-            .into_iter()
-            .map(Entry::new)
-            .collect();
+        let entries = self.services.into_iter().map(Entry::new).collect();
         let shared = Arc::new(Shared::new(entries, self.config));
         let tasks = Tasks::new();
         tasks.spawn(accept(listener, shared, tasks.clone()));

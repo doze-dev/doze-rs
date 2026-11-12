@@ -196,7 +196,12 @@ fn crc_bytes(a: Algo, v: u64) -> Vec<u8> {
 }
 
 fn crc_value(a: Algo, raw: &[u8]) -> u64 {
-    raw.iter().fold(0u64, |v, b| (v << 8) | u64::from(*b)) & if spec(a).1 == 32 { 0xFFFF_FFFF } else { u64::MAX }
+    raw.iter().fold(0u64, |v, b| (v << 8) | u64::from(*b))
+        & if spec(a).1 == 32 {
+            0xFFFF_FFFF
+        } else {
+            u64::MAX
+        }
 }
 
 /// The checksum of two bodies joined, from the checksum of each and the length of the second (zlib's `crc32_combine`, for any
@@ -265,7 +270,12 @@ pub(crate) fn composite(a: Algo, digests: &[Vec<u8>]) -> Vec<u8> {
     let all: Vec<u8> = digests.iter().flatten().copied().collect();
     let mut s = Sums::new(&[a]);
     s.update(&all);
-    s.finish().sums.into_iter().next().map(|(_, d)| d).unwrap_or_default()
+    s.finish()
+        .sums
+        .into_iter()
+        .next()
+        .map(|(_, d)| d)
+        .unwrap_or_default()
 }
 
 /// `base64` of a raw digest.
@@ -286,24 +296,42 @@ mod tests {
     #[test]
     fn the_check_values_of_each_algorithm() {
         // The "check" value of each CRC in the catalogue of parametrised CRCs is the checksum of "123456789".
-        assert_eq!(aws_core::hex::encode(&sum(Algo::Crc32, b"123456789")), "cbf43926");
-        assert_eq!(aws_core::hex::encode(&sum(Algo::Crc32c, b"123456789")), "e3069283");
-        assert_eq!(aws_core::hex::encode(&sum(Algo::Crc64Nvme, b"123456789")), "ae8b14860a799888");
+        assert_eq!(
+            aws_core::hex::encode(&sum(Algo::Crc32, b"123456789")),
+            "cbf43926"
+        );
+        assert_eq!(
+            aws_core::hex::encode(&sum(Algo::Crc32c, b"123456789")),
+            "e3069283"
+        );
+        assert_eq!(
+            aws_core::hex::encode(&sum(Algo::Crc64Nvme, b"123456789")),
+            "ae8b14860a799888"
+        );
         // The recorded S3 values for "hello".
         assert_eq!(b64(&sum(Algo::Crc32, b"hello")), "NhCmhg==");
-        assert_eq!(aws_core::hex::encode(&sum(Algo::Sha1, b"abc")), "a9993e364706816aba3e25717850c26c9cd0d89d");
+        assert_eq!(
+            aws_core::hex::encode(&sum(Algo::Sha1, b"abc")),
+            "a9993e364706816aba3e25717850c26c9cd0d89d"
+        );
     }
 
     #[test]
     fn md5_is_the_etag_of_a_small_object() {
         let mut s = Sums::new(&[]);
         s.update(b"hello");
-        assert_eq!(aws_core::hex::encode(&s.finish().md5), "5d41402abc4b2a76b9719d911017c592");
+        assert_eq!(
+            aws_core::hex::encode(&s.finish().md5),
+            "5d41402abc4b2a76b9719d911017c592"
+        );
     }
 
     #[test]
     fn combining_two_checksums_is_the_checksum_of_the_joined_bytes() {
-        let (a, b) = (&b"hello "[..], &b"world, a longer second part than the first"[..]);
+        let (a, b) = (
+            &b"hello "[..],
+            &b"world, a longer second part than the first"[..],
+        );
         for algo in [Algo::Crc32, Algo::Crc32c, Algo::Crc64Nvme] {
             let joined = [a, b].concat();
             let got = combine(algo, &sum(algo, a), &sum(algo, b), b.len() as u64);
@@ -317,12 +345,22 @@ mod tests {
         // The recorded upload: 5 MiB of 'a', then ten 'b' (om/L0dM0gF4= on AWS).
         let first = vec![b'a'; 5 * 1024 * 1024];
         let second = vec![b'b'; 10];
-        let got = combine(Algo::Crc64Nvme, &sum(Algo::Crc64Nvme, &first), &sum(Algo::Crc64Nvme, &second), 10).unwrap();
+        let got = combine(
+            Algo::Crc64Nvme,
+            &sum(Algo::Crc64Nvme, &first),
+            &sum(Algo::Crc64Nvme, &second),
+            10,
+        )
+        .unwrap();
         assert_eq!(b64(&got), "om/L0dM0gF4=");
     }
 }
 
 /// All ones of the CRC's width: the value it starts from and the value it is inverted against.
 const fn mask(a: Algo) -> u64 {
-    if spec(a).1 == 32 { 0xFFFF_FFFF } else { u64::MAX }
+    if spec(a).1 == 32 {
+        0xFFFF_FFFF
+    } else {
+        u64::MAX
+    }
 }

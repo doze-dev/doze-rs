@@ -94,6 +94,7 @@ pub(crate) fn built(op: Operation) -> bool {
             | O::GetBucketVersioning
             | O::PutBucketVersioning
     ) || crate::config::kind_of(op).is_some()
+        || crate::idconfig::is_id_config(op)
 }
 
 impl doze_runtime::Service for Core {
@@ -118,7 +119,8 @@ impl doze_runtime::Service for Core {
             Ask::Sweep => {
                 let done = self.sweep_lifecycle();
                 self.sync_marker();
-                let result = Out::json(json!({"Actions": done, "Armed": self.has_lifecycle_rules()}));
+                let result =
+                    Out::json(json!({"Actions": done, "Armed": self.has_lifecycle_rules()}));
                 return self.commit(result).await;
             }
         };
@@ -183,7 +185,9 @@ impl Core {
     fn live_blobs(&self) -> HashSet<String> {
         let mut live: HashSet<String> = self.parts.iter().map(|(_, p)| p.blob.clone()).collect();
         let scanned = self.db.scan(VERSIONS, "", |_, bytes| {
-            if let Ok(v) = doze_store::record::decode::<crate::model::Version>("version", VERSION, bytes) {
+            if let Ok(v) =
+                doze_store::record::decode::<crate::model::Version>("version", VERSION, bytes)
+            {
                 live.extend(v.segs.into_iter().map(|s| s.blob));
             }
             true
@@ -225,9 +229,12 @@ impl Core {
             self.rollback();
             return result;
         }
-        let ack = self.flush().map_err(|e| ApiError::internal(format!("could not save: {e}")))?;
+        let ack = self
+            .flush()
+            .map_err(|e| ApiError::internal(format!("could not save: {e}")))?;
         if let Some(ack) = ack {
-            ack.await.map_err(|e| ApiError::internal(format!("could not save: {e}")))?;
+            ack.await
+                .map_err(|e| ApiError::internal(format!("could not save: {e}")))?;
         }
         for blob in doomed {
             self.blobs.remove(&blob);
@@ -264,7 +271,11 @@ impl Core {
     async fn dispatch(&mut self, req: Req<'_>) -> Answer {
         use Operation as O;
         let Some(op) = Operation::from_index(req.call.op).filter(|op| built(*op)) else {
-            return Err(ApiError::new(501, "NotImplemented", "This operation is not built in doze-aws."));
+            return Err(ApiError::new(
+                501,
+                "NotImplemented",
+                "This operation is not built in doze-aws.",
+            ));
         };
         match op {
             O::CreateBucket => self.create_bucket(&req),
@@ -273,15 +284,19 @@ impl Core {
             O::ListBuckets => self.list_buckets(&req),
             O::GetBucketLocation => self.get_bucket_location(&req),
             O::PutObject => self.put_object(req).await,
-            O::GetObject | O::HeadObject => self.get_object(&req),
+            O::GetObject | O::HeadObject => self.get_object(&req, op == O::HeadObject),
             O::DeleteObject => self.delete_object(&req),
             O::DeleteObjects => self.delete_objects(&req),
             O::CopyObject => self.copy_object(&req).await,
             O::ListObjects | O::ListObjectsV2 => self.list_objects(&req, op == O::ListObjectsV2),
             O::ListObjectVersions => self.list_object_versions(&req),
             O::GetObjectAttributes => self.get_object_attributes(&req),
-            O::GetObjectTagging | O::GetBucketTagging => self.get_tagging(&req, op == O::GetBucketTagging),
-            O::PutObjectTagging | O::PutBucketTagging => self.put_tagging(&req, op == O::PutBucketTagging),
+            O::GetObjectTagging | O::GetBucketTagging => {
+                self.get_tagging(&req, op == O::GetBucketTagging)
+            }
+            O::PutObjectTagging | O::PutBucketTagging => {
+                self.put_tagging(&req, op == O::PutBucketTagging)
+            }
             O::DeleteObjectTagging | O::DeleteBucketTagging => {
                 self.delete_tagging(&req, op == O::DeleteBucketTagging)
             }
@@ -294,6 +309,7 @@ impl Core {
             O::AbortMultipartUpload => self.abort_upload(&req),
             O::ListParts => self.list_parts(&req),
             O::ListMultipartUploads => self.list_uploads(&req),
+            other if crate::idconfig::is_id_config(other) => self.id_config(&req, other),
             other => self.configuration(&req, other).await,
         }
     }

@@ -24,7 +24,14 @@ fn id_text() -> String {
         b.fill(0);
     }
     b.iter()
-        .map(|x| char::from(CHARS.get(usize::from(*x) % CHARS.len()).copied().unwrap_or(b'0')))
+        .map(|x| {
+            char::from(
+                CHARS
+                    .get(usize::from(*x) % CHARS.len())
+                    .copied()
+                    .unwrap_or(b'0'),
+            )
+        })
         .collect()
 }
 
@@ -97,7 +104,11 @@ impl Core {
         out.insert("ServerSideEncryption".into(), json!(sse));
         if let (Some(a), Some(k)) = (algo, kind) {
             out.insert("ChecksumAlgorithm".into(), json!(a.name()));
-            let kind = if k == CKind::FullObject { "FULL_OBJECT" } else { "COMPOSITE" };
+            let kind = if k == CKind::FullObject {
+                "FULL_OBJECT"
+            } else {
+                "COMPOSITE"
+            };
             out.insert("ChecksumType".into(), json!(kind));
         }
         Out::json(Value::Object(out))
@@ -108,7 +119,9 @@ impl Core {
         req.int("PartNumber")
             .filter(|n| (1..=MAX_PART).contains(n))
             .and_then(|n| u32::try_from(n).ok())
-            .ok_or_else(|| invalid_argument("Part number must be an integer between 1 and 10000, inclusive"))
+            .ok_or_else(|| {
+                invalid_argument("Part number must be an integer between 1 and 10000, inclusive")
+            })
     }
 
     pub(crate) fn upload_part(&mut self, mut req: Req<'_>) -> Answer {
@@ -125,16 +138,30 @@ impl Core {
             .publish(&staged.staging)
             .map_err(|e| ApiError::internal(format!("the part could not be stored: {e}")))?;
         let etag = aws_core::hex::encode(&staged.done.md5);
-        let sums: Vec<(Algo, String)> = staged.done.sums.iter().map(|(a, raw)| (*a, b64(raw))).collect();
+        let sums: Vec<(Algo, String)> = staged
+            .done
+            .sums
+            .iter()
+            .map(|(a, raw)| (*a, b64(raw)))
+            .collect();
         let echo = declared_in(&req);
-        let out = part_output(&etag, &sums, &echo, self.uploads.get(&upload_row(&bucket, &key, &id)));
-        self.set_part(&id, number, PartRec {
-            blob,
-            size: staged.staging.len,
-            etag,
-            modified_ms: self.now_ms(),
-            sums,
-        });
+        let out = part_output(
+            &etag,
+            &sums,
+            &echo,
+            self.uploads.get(&upload_row(&bucket, &key, &id)),
+        );
+        self.set_part(
+            &id,
+            number,
+            PartRec {
+                blob,
+                size: staged.staging.len,
+                etag,
+                modified_ms: self.now_ms(),
+                sums,
+            },
+        );
         Out::json(out)
     }
 
@@ -152,10 +179,11 @@ impl Core {
         let id = req.s("UploadId").unwrap_or_default().to_owned();
         let number = Self::part_number(req)?;
         self.upload(&bucket, &key, &id)?;
-        let (sb, sk, sv) = req
-            .s("CopySource")
-            .and_then(parse_source)
-            .ok_or_else(|| invalid_argument("Copy Source must mention the source bucket and key: sourcebucket/sourcekey"))?;
+        let (sb, sk, sv) = req.s("CopySource").and_then(parse_source).ok_or_else(|| {
+            invalid_argument(
+                "Copy Source must mention the source bucket and key: sourcebucket/sourcekey",
+            )
+        })?;
         if self.buckets.get(&sb).is_none() {
             return Err(no_such_bucket(&sb));
         }
@@ -163,9 +191,17 @@ impl Core {
         let (from, len) = match req.s("CopySourceRange").map(|r| parse_range(r, src.size)) {
             None | Some(Span::Whole) => (0, src.size),
             Some(Span::Bytes(a, b)) => (a, b - a + 1),
-            Some(Span::Unsatisfiable) => return Err(invalid_range(src.size, req.s("CopySourceRange").unwrap_or_default())),
+            Some(Span::Unsatisfiable) => {
+                return Err(invalid_range(
+                    src.size,
+                    req.s("CopySourceRange").unwrap_or_default(),
+                ));
+            }
         };
-        let mut staging = self.blobs.begin().map_err(|e| ApiError::internal(e.to_string()))?;
+        let mut staging = self
+            .blobs
+            .begin()
+            .map_err(|e| ApiError::internal(e.to_string()))?;
         let parts = slices(self, &src.segs, from, len)?;
         let want = [Algo::Crc64Nvme];
         let done = match copy_into(&mut staging, parts, &want).await {
@@ -175,12 +211,27 @@ impl Core {
                 return Err(e);
             }
         };
-        let blob = self.blobs.publish(&staging).map_err(|e| ApiError::internal(e.to_string()))?;
+        let blob = self
+            .blobs
+            .publish(&staging)
+            .map_err(|e| ApiError::internal(e.to_string()))?;
         let etag = aws_core::hex::encode(&done.md5);
         let modified = self.now_ms();
         let sums = done.sums.iter().map(|(a, raw)| (*a, b64(raw))).collect();
-        self.set_part(&id, number, PartRec { blob, size: staging.len, etag: etag.clone(), modified_ms: modified, sums });
-        Out::json(json!({"CopyPartResult": {"ETag": format!("\"{etag}\""), "LastModified": modified / 1000}}))
+        self.set_part(
+            &id,
+            number,
+            PartRec {
+                blob,
+                size: staging.len,
+                etag: etag.clone(),
+                modified_ms: modified,
+                sums,
+            },
+        );
+        Out::json(
+            json!({"CopyPartResult": {"ETag": format!("\"{etag}\""), "LastModified": modified / 1000}}),
+        )
     }
 
     pub(crate) fn abort_upload(&mut self, req: &Req<'_>) -> Answer {
@@ -194,7 +245,11 @@ impl Core {
 
 /// The checksum algorithms a part request declared, which the answer echoes.
 fn declared_in(req: &Req<'_>) -> Vec<Algo> {
-    let mut v: Vec<Algo> = req.s("ChecksumAlgorithm").and_then(Algo::parse).into_iter().collect();
+    let mut v: Vec<Algo> = req
+        .s("ChecksumAlgorithm")
+        .and_then(Algo::parse)
+        .into_iter()
+        .collect();
     for a in Algo::ALL {
         if req.s(a.member()).is_some() && !v.contains(&a) {
             v.push(a);
@@ -203,7 +258,12 @@ fn declared_in(req: &Req<'_>) -> Vec<Algo> {
     v
 }
 
-fn part_output(etag: &str, sums: &[(Algo, String)], echo: &[Algo], upload: Option<&Upload>) -> Value {
+fn part_output(
+    etag: &str,
+    sums: &[(Algo, String)],
+    echo: &[Algo],
+    upload: Option<&Upload>,
+) -> Value {
     let mut out = Map::new();
     out.insert("ETag".into(), json!(format!("\"{etag}\"")));
     let wanted = echo.iter().copied().chain(upload.and_then(|u| u.algo));

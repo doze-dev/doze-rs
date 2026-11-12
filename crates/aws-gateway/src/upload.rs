@@ -60,14 +60,18 @@ fn broken(e: &dyn std::fmt::Display) -> ApiError {
 
 fn framing(e: &ChunkError) -> ApiError {
     match e {
-        ChunkError::BadSignature | ChunkError::BadTrailerSignature | ChunkError::MissingSignature => {
-            ApiError::new(
-                403,
-                "SignatureDoesNotMatch",
-                "The request signature we calculated does not match the signature you provided. Check your key and signing method.",
-            )
-        }
-        other => ApiError::new(400, "IncompleteBody", format!("The aws-chunked body is not valid: {other}")),
+        ChunkError::BadSignature
+        | ChunkError::BadTrailerSignature
+        | ChunkError::MissingSignature => ApiError::new(
+            403,
+            "SignatureDoesNotMatch",
+            "The request signature we calculated does not match the signature you provided. Check your key and signing method.",
+        ),
+        other => ApiError::new(
+            400,
+            "IncompleteBody",
+            format!("The aws-chunked body is not valid: {other}"),
+        ),
     }
 }
 

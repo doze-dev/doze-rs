@@ -73,19 +73,16 @@ impl Router {
                 query
                     .iter()
                     .any(|(qk, qv)| qk == k && v.as_ref().is_none_or(|v| v == qv))
-            }) && r.need_query.iter().all(|k| query.iter().any(|(qk, _)| qk == k))
+            }) && r
+                .need_query
+                .iter()
+                .all(|k| query.iter().any(|(qk, _)| qk == k))
                 && r.need_header.iter().all(|h| has_header(h));
             if !fits || best.as_ref().is_some_and(|(s, _)| *s >= r.score) {
                 continue;
             }
             if let Some(labels) = r.labels(&raw) {
-                best = Some((
-                    r.score,
-                    Matched {
-                        op: r.op,
-                        labels,
-                    },
-                ));
+                best = Some((r.score, Matched { op: r.op, labels }));
             }
         }
         best.map(|(_, m)| m)
@@ -141,13 +138,15 @@ fn route_of(tables: &Tables, op: u32, o: &OpRef<'_>) -> RouteDef {
         .trim_start_matches('/')
         .split('/')
         .filter(|s| !s.is_empty())
-        .map(|s| match s.strip_prefix('{').and_then(|s| s.strip_suffix('}')) {
-            Some(name) => name.strip_suffix('+').map_or_else(
-                || Seg::Label(label_of(name)),
-                |greedy| Seg::Greedy(label_of(greedy)),
-            ),
-            None => Seg::Lit(s.to_owned()),
-        })
+        .map(
+            |s| match s.strip_prefix('{').and_then(|s| s.strip_suffix('}')) {
+                Some(name) => name.strip_suffix('+').map_or_else(
+                    || Seg::Label(label_of(name)),
+                    |greedy| Seg::Greedy(label_of(greedy)),
+                ),
+                None => Seg::Lit(s.to_owned()),
+            },
+        )
         .collect();
     let lits: Vec<(String, Option<String>)> = query
         .split('&')

@@ -16,9 +16,13 @@ pub(crate) fn no_such_key(key: &str) -> ApiError {
 
 pub(crate) fn no_such_version(key: &str, version: &str) -> ApiError {
     // (memory) AWS words an absent version of an existing key this way.
-    e(404, "NoSuchVersion", "The specified version does not exist.")
-        .with("Key", key)
-        .with("VersionId", version)
+    e(
+        404,
+        "NoSuchVersion",
+        "The specified version does not exist.",
+    )
+    .with("Key", key)
+    .with("VersionId", version)
 }
 
 pub(crate) fn no_such_upload(id: &str) -> ApiError {
@@ -31,11 +35,21 @@ pub(crate) fn no_such_upload(id: &str) -> ApiError {
 }
 
 pub(crate) fn bucket_not_empty(bucket: &str) -> ApiError {
-    e(409, "BucketNotEmpty", "The bucket you tried to delete is not empty").with("BucketName", bucket)
+    e(
+        409,
+        "BucketNotEmpty",
+        "The bucket you tried to delete is not empty",
+    )
+    .with("BucketName", bucket)
 }
 
 pub(crate) fn invalid_bucket_name(bucket: &str) -> ApiError {
-    e(400, "InvalidBucketName", "The specified bucket is not valid.").with("BucketName", bucket)
+    e(
+        400,
+        "InvalidBucketName",
+        "The specified bucket is not valid.",
+    )
+    .with("BucketName", bucket)
 }
 
 pub(crate) fn already_owned(bucket: &str) -> ApiError {
@@ -57,9 +71,13 @@ pub(crate) fn precondition_failed(condition: &str) -> ApiError {
 }
 
 pub(crate) fn invalid_range(size: u64, requested: &str) -> ApiError {
-    e(416, "InvalidRange", "The requested range is not satisfiable")
-        .with("ActualObjectSize", size.to_string())
-        .with("RangeRequested", requested)
+    e(
+        416,
+        "InvalidRange",
+        "The requested range is not satisfiable",
+    )
+    .with("ActualObjectSize", size.to_string())
+    .with("RangeRequested", requested)
 }
 
 pub(crate) fn invalid_argument(message: &str) -> ApiError {
@@ -97,8 +115,14 @@ pub(crate) fn key_too_long() -> ApiError {
 /// A configuration that is not there: the code and words differ for each kind (recorded).
 pub(crate) fn no_config(kind: &str) -> ApiError {
     let (code, message) = match kind {
-        "cors" => ("NoSuchCORSConfiguration", "The CORS configuration does not exist"),
-        "lifecycle" => ("NoSuchLifecycleConfiguration", "The lifecycle configuration does not exist"),
+        "cors" => (
+            "NoSuchCORSConfiguration",
+            "The CORS configuration does not exist",
+        ),
+        "lifecycle" => (
+            "NoSuchLifecycleConfiguration",
+            "The lifecycle configuration does not exist",
+        ),
         "policy" => ("NoSuchBucketPolicy", "The bucket policy does not exist"),
         "website" => (
             "NoSuchWebsiteConfiguration",

@@ -98,7 +98,12 @@ fn passes(entry: &Value, key: &str) -> bool {
         .unwrap_or_default();
     rules.iter().all(|r| {
         let value = r.get("Value").and_then(Value::as_str).unwrap_or_default();
-        match r.get("Name").and_then(Value::as_str).map(str::to_ascii_lowercase).as_deref() {
+        match r
+            .get("Name")
+            .and_then(Value::as_str)
+            .map(str::to_ascii_lowercase)
+            .as_deref()
+        {
             Some("prefix") => key.starts_with(value),
             Some("suffix") => key.ends_with(value),
             _ => true,
@@ -108,7 +113,15 @@ fn passes(entry: &Value, key: &str) -> bool {
 
 impl Core {
     /// Notes an event for delivery once the call's changes are on disk.
-    pub(crate) fn note(&mut self, req: &crate::req::Req<'_>, kind: Kind, key: &str, size: u64, etag: &str, version: Option<&str>) {
+    pub(crate) fn note(
+        &mut self,
+        req: &crate::req::Req<'_>,
+        kind: Kind,
+        key: &str,
+        size: u64,
+        etag: &str,
+        version: Option<&str>,
+    ) {
         self.events.push(Event {
             kind,
             bucket: req.bucket().to_owned(),
@@ -170,7 +183,11 @@ impl Core {
             ("TopicConfigurations", "TopicArn"),
             ("LambdaFunctionConfigurations", "LambdaFunctionArn"),
         ] {
-            let entries = config.get(list).and_then(Value::as_array).map(Vec::as_slice).unwrap_or_default();
+            let entries = config
+                .get(list)
+                .and_then(Value::as_array)
+                .map(Vec::as_slice)
+                .unwrap_or_default();
             for entry in entries {
                 let patterns: Vec<&str> = entry
                     .get("Events")
@@ -178,11 +195,15 @@ impl Core {
                     .map(|e| e.iter().filter_map(Value::as_str).collect())
                     .unwrap_or_default();
                 // A test event goes to every destination; a real one to those whose events and filter fit it.
-                let fits = event.kind == Kind::Test || (covers(&patterns, &name) && passes(entry, &event.key));
+                let fits = event.kind == Kind::Test
+                    || (covers(&patterns, &name) && passes(entry, &event.key));
                 if !fits {
                     continue;
                 }
-                let arn = entry.get(arn_member).and_then(Value::as_str).unwrap_or_default();
+                let arn = entry
+                    .get(arn_member)
+                    .and_then(Value::as_str)
+                    .unwrap_or_default();
                 let id = entry.get("Id").and_then(Value::as_str).unwrap_or_default();
                 match list {
                     "QueueConfigurations" => self.to_queue(event, arn, id).await,
@@ -201,15 +222,30 @@ impl Core {
         let Some(peers) = &self.peers else { return };
         let name = arn.rsplit(':').next().unwrap_or_default();
         let asked = peers
-            .call("s3", &event.caller, "sqs", "GetQueueUrl", &json!({"QueueName": name}))
+            .call(
+                "s3",
+                &event.caller,
+                "sqs",
+                "GetQueueUrl",
+                &json!({"QueueName": name}),
+            )
             .await;
-        let Some(url) = asked.ok().and_then(|v| v.get("QueueUrl").and_then(Value::as_str).map(str::to_owned)) else {
+        let Some(url) = asked
+            .ok()
+            .and_then(|v| v.get("QueueUrl").and_then(Value::as_str).map(str::to_owned))
+        else {
             return;
         };
         let body = event.body(config_id).to_string();
         // WHY: the queue may have been deleted since the configuration was put; S3 does not fail the request that caused the event.
         if peers
-            .call("s3", &event.caller, "sqs", "SendMessage", &json!({"QueueUrl": url, "MessageBody": body}))
+            .call(
+                "s3",
+                &event.caller,
+                "sqs",
+                "SendMessage",
+                &json!({"QueueUrl": url, "MessageBody": body}),
+            )
             .await
             .is_err()
         {

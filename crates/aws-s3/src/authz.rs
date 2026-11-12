@@ -19,9 +19,12 @@ fn action(op: Operation, versioned: bool) -> String {
         O::GetObject | O::HeadObject | O::GetObjectAttributes => v("GetObject", "GetObjectVersion"),
         O::DeleteObject => v("DeleteObject", "DeleteObjectVersion"),
         O::DeleteObjects => "DeleteObject",
-        O::PutObject | O::CreateMultipartUpload | O::UploadPart | O::UploadPartCopy | O::CompleteMultipartUpload | O::CopyObject => {
-            "PutObject"
-        }
+        O::PutObject
+        | O::CreateMultipartUpload
+        | O::UploadPart
+        | O::UploadPartCopy
+        | O::CompleteMultipartUpload
+        | O::CopyObject => "PutObject",
         O::ListParts => "ListMultipartUploadParts",
         O::ListMultipartUploads => "ListBucketMultipartUploads",
         O::GetObjectTagging => v("GetObjectTagging", "GetObjectVersionTagging"),
@@ -29,7 +32,9 @@ fn action(op: Operation, versioned: bool) -> String {
         O::DeleteObjectTagging => v("DeleteObjectTagging", "DeleteObjectVersionTagging"),
         O::PutBucketCors | O::DeleteBucketCors => "PutBucketCORS",
         O::GetBucketCors => "GetBucketCORS",
-        O::PutBucketLifecycleConfiguration | O::DeleteBucketLifecycle => "PutLifecycleConfiguration",
+        O::PutBucketLifecycleConfiguration | O::DeleteBucketLifecycle => {
+            "PutLifecycleConfiguration"
+        }
         O::GetBucketLifecycleConfiguration => "GetLifecycleConfiguration",
         O::PutBucketEncryption | O::DeleteBucketEncryption => "PutEncryptionConfiguration",
         O::GetBucketEncryption => "GetEncryptionConfiguration",
@@ -41,6 +46,28 @@ fn action(op: Operation, versioned: bool) -> String {
         O::GetBucketReplication => "GetReplicationConfiguration",
         O::PutObjectLockConfiguration => "PutBucketObjectLockConfiguration",
         O::GetObjectLockConfiguration => "GetBucketObjectLockConfiguration",
+        O::PutBucketAnalyticsConfiguration | O::DeleteBucketAnalyticsConfiguration => {
+            "PutAnalyticsConfiguration"
+        }
+        O::GetBucketAnalyticsConfiguration | O::ListBucketAnalyticsConfigurations => {
+            "GetAnalyticsConfiguration"
+        }
+        O::PutBucketInventoryConfiguration | O::DeleteBucketInventoryConfiguration => {
+            "PutInventoryConfiguration"
+        }
+        O::GetBucketInventoryConfiguration | O::ListBucketInventoryConfigurations => {
+            "GetInventoryConfiguration"
+        }
+        O::PutBucketMetricsConfiguration | O::DeleteBucketMetricsConfiguration => {
+            "PutMetricsConfiguration"
+        }
+        O::GetBucketMetricsConfiguration | O::ListBucketMetricsConfigurations => {
+            "GetMetricsConfiguration"
+        }
+        O::PutBucketIntelligentTieringConfiguration
+        | O::DeleteBucketIntelligentTieringConfiguration => "PutIntelligentTieringConfiguration",
+        O::GetBucketIntelligentTieringConfiguration
+        | O::ListBucketIntelligentTieringConfigurations => "GetIntelligentTieringConfiguration",
         O::DeleteBucketTagging => "PutBucketTagging",
         O::DeletePublicAccessBlock => "PutBucketPublicAccessBlock",
         O::DeleteBucketOwnershipControls => "PutBucketOwnershipControls",
@@ -59,10 +86,17 @@ impl Core {
             return Vec::new();
         };
         let bucket = req.bucket();
-        let policy = self.buckets.get(bucket).and_then(|b| b.configs.get("policy")).cloned();
+        let policy = self
+            .buckets
+            .get(bucket)
+            .and_then(|b| b.configs.get("policy"))
+            .cloned();
         let bucket_arn = format!("arn:aws:s3:::{bucket}");
-        let on_bucket = |act: String| Need::new(act, bucket_arn.clone()).with_policy(policy.clone());
-        let on_object = |act: String, key: &str| Need::new(act, format!("{bucket_arn}/{key}")).with_policy(policy.clone());
+        let on_bucket =
+            |act: String| Need::new(act, bucket_arn.clone()).with_policy(policy.clone());
+        let on_object = |act: String, key: &str| {
+            Need::new(act, format!("{bucket_arn}/{key}")).with_policy(policy.clone())
+        };
         let versioned = req.s("VersionId").is_some();
         let act = action(op, versioned);
         use Operation as O;
@@ -87,13 +121,72 @@ impl Core {
             O::CopyObject => {
                 let mut v = vec![on_object(act, req.key())];
                 if let Some((b, k, _)) = req.s("CopySource").and_then(crate::copy::parse_source) {
-                    let src_policy = self.buckets.get(&b).and_then(|x| x.configs.get("policy")).cloned();
-                    v.push(Need::new("s3:GetObject", format!("arn:aws:s3:::{b}/{k}")).with_policy(src_policy));
+                    let src_policy = self
+                        .buckets
+                        .get(&b)
+                        .and_then(|x| x.configs.get("policy"))
+                        .cloned();
+                    v.push(
+                        Need::new("s3:GetObject", format!("arn:aws:s3:::{b}/{k}"))
+                            .with_policy(src_policy),
+                    );
                 }
                 v
             }
             _ if req.get("Key").is_some() => vec![on_object(act, req.key())],
             _ => vec![on_bucket(act)],
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn actions_are_named_as_iam_names_them() {
+        use Operation as O;
+        let cases = [
+            (O::ListObjectsV2, false, "s3:ListBucket"),
+            (O::HeadBucket, false, "s3:ListBucket"),
+            (O::ListBuckets, false, "s3:ListAllMyBuckets"),
+            (O::GetObject, false, "s3:GetObject"),
+            (O::GetObject, true, "s3:GetObjectVersion"),
+            (O::DeleteObject, true, "s3:DeleteObjectVersion"),
+            (O::CreateMultipartUpload, false, "s3:PutObject"),
+            (O::ListParts, false, "s3:ListMultipartUploadParts"),
+            (
+                O::ListMultipartUploads,
+                false,
+                "s3:ListBucketMultipartUploads",
+            ),
+            (O::PutBucketCors, false, "s3:PutBucketCORS"),
+            (
+                O::DeleteBucketLifecycle,
+                false,
+                "s3:PutLifecycleConfiguration",
+            ),
+            (
+                O::GetBucketEncryption,
+                false,
+                "s3:GetEncryptionConfiguration",
+            ),
+            (
+                O::PutBucketNotificationConfiguration,
+                false,
+                "s3:PutBucketNotification",
+            ),
+            (
+                O::PutBucketAnalyticsConfiguration,
+                false,
+                "s3:PutAnalyticsConfiguration",
+            ),
+            (O::CreateBucket, false, "s3:CreateBucket"),
+            (O::AbortMultipartUpload, false, "s3:AbortMultipartUpload"),
+            (O::PutBucketPolicy, false, "s3:PutBucketPolicy"),
+        ];
+        for (op, versioned, want) in cases {
+            assert_eq!(action(op, versioned), want, "{op:?}");
         }
     }
 }

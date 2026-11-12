@@ -175,7 +175,11 @@ mod tests {
         let id = b.publish(&done).unwrap();
         let mut half = b.begin().unwrap();
         write(&mut half, b"partial");
-        let after = fs.power_cut(Cut { data: DataCut::Drop, names: NameCut::Durable, seed: 1 });
+        let after = fs.power_cut(Cut {
+            data: DataCut::Drop,
+            names: NameCut::Durable,
+            seed: 1,
+        });
         let b2 = blobs(&after, "run2");
         let mut buf = [0u8; 5];
         assert_eq!(b2.open(&id).unwrap().read_at(&mut buf, 0).unwrap(), 5);

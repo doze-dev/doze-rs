@@ -57,7 +57,11 @@ pub fn to_json(tables: &Tables, shape: u32, p: &Parts<'_>) -> Result<Value, Read
     };
     for (ix, m) in &members {
         let value = match m.bind {
-            1 => p.labels.iter().find(|(l, _)| l == ix).map(|(_, v)| Value::String(v.clone())),
+            1 => p
+                .labels
+                .iter()
+                .find(|(l, _)| l == ix)
+                .map(|(_, v)| Value::String(v.clone())),
             2 => query(m, p.query),
             3 => None,
             4 => header(m, p.headers),
@@ -75,7 +79,10 @@ pub fn to_json(tables: &Tables, shape: u32, p: &Parts<'_>) -> Result<Value, Read
 
 fn query(m: &MemberRef<'_>, pairs: &[(String, String)]) -> Option<Value> {
     let name = m.bind_str?;
-    let mut hits = pairs.iter().filter(|(k, _)| k == name).map(|(_, v)| v.as_str());
+    let mut hits = pairs
+        .iter()
+        .filter(|(k, _)| k == name)
+        .map(|(_, v)| v.as_str());
     if m.kind == K_LIST {
         let items: Vec<Value> = hits.map(|v| Value::String(v.to_owned())).collect();
         return (!items.is_empty()).then_some(Value::Array(items));
@@ -117,7 +124,10 @@ fn prefixed(m: &MemberRef<'_>, headers: &HeaderMap) -> Option<Value> {
 fn payload(tables: &Tables, m: &MemberRef<'_>, body: &[u8]) -> Result<Option<Value>, ReadError> {
     match m.kind {
         K_STREAM => Ok(None),
-        K_STR => Ok((!body.is_empty()).then(|| Value::String(String::from_utf8_lossy(body).into_owned()))),
+        K_STR => {
+            Ok((!body.is_empty())
+                .then(|| Value::String(String::from_utf8_lossy(body).into_owned())))
+        }
         K_BLOB => Ok((!body.is_empty()).then(|| Value::String(aws_core::base64::encode(body)))),
         K_STRUCT | K_UNION if !body.is_empty() => {
             let root = parse(body)?;
@@ -176,8 +186,14 @@ fn entries(tables: &Tables, m: &MemberRef<'_>, e: &Elem) -> Map<String, Value> {
         .iter()
         .filter(|c| c.name == "entry")
         .filter_map(|c| {
-            let key = c.children.iter().find(|x| x.name == k.xml.unwrap_or("key"))?;
-            let val = c.children.iter().find(|x| x.name == v.xml.unwrap_or("value"))?;
+            let key = c
+                .children
+                .iter()
+                .find(|x| x.name == k.xml.unwrap_or("key"))?;
+            let val = c
+                .children
+                .iter()
+                .find(|x| x.name == v.xml.unwrap_or("value"))?;
             Some((key.text.clone(), from_elem(tables, &v, val)))
         })
         .collect()
@@ -226,7 +242,11 @@ mod tests {
     use super::*;
 
     fn input(op: &str) -> u32 {
-        TABLES.op(TABLES.find_op(op).unwrap()).unwrap().input.unwrap()
+        TABLES
+            .op(TABLES.find_op(op).unwrap())
+            .unwrap()
+            .input
+            .unwrap()
     }
 
     fn member_of(op: &str, name: &str) -> u32 {
@@ -246,36 +266,71 @@ mod tests {
             (member_of("PutObject", "Bucket"), "b".to_owned()),
             (member_of("PutObject", "Key"), "k".to_owned()),
         ];
-        let p = Parts { labels: &labels, query: &[], headers: &headers, body: b"" };
+        let p = Parts {
+            labels: &labels,
+            query: &[],
+            headers: &headers,
+            body: b"",
+        };
         let v = to_json(&TABLES, input("PutObject"), &p).unwrap();
         assert_eq!(v["Bucket"], "b");
         assert_eq!(v["ContentType"], "text/plain");
         assert_eq!(v["Metadata"]["origin"], "here");
-        assert!(v.get("Body").is_none(), "the stream is the service's to read");
+        assert!(
+            v.get("Body").is_none(),
+            "the stream is the service's to read"
+        );
 
-        let q = [("max-keys".to_owned(), "5".to_owned()), ("prefix".to_owned(), "a/".to_owned())];
+        let q = [
+            ("max-keys".to_owned(), "5".to_owned()),
+            ("prefix".to_owned(), "a/".to_owned()),
+        ];
         let labels = [(member_of("ListObjectsV2", "Bucket"), "b".to_owned())];
-        let p = Parts { labels: &labels, query: &q, headers: &headers, body: b"" };
+        let p = Parts {
+            labels: &labels,
+            query: &q,
+            headers: &headers,
+            body: b"",
+        };
         let v = to_json(&TABLES, input("ListObjectsV2"), &p).unwrap();
-        assert_eq!((v["MaxKeys"].as_i64(), v["Prefix"].as_str()), (Some(5), Some("a/")));
+        assert_eq!(
+            (v["MaxKeys"].as_i64(), v["Prefix"].as_str()),
+            (Some(5), Some("a/"))
+        );
     }
 
     #[test]
     fn an_xml_payload_becomes_the_member_it_names() {
         let body = b"<Delete><Quiet>true</Quiet><Object><Key>a</Key></Object><Object><Key>b</Key><VersionId>1</VersionId></Object></Delete>";
         let labels = [(member_of("DeleteObjects", "Bucket"), "b".to_owned())];
-        let p = Parts { labels: &labels, query: &[], headers: &HeaderMap::new(), body };
+        let p = Parts {
+            labels: &labels,
+            query: &[],
+            headers: &HeaderMap::new(),
+            body,
+        };
         let v = to_json(&TABLES, input("DeleteObjects"), &p).unwrap();
         assert_eq!(v["Delete"]["Quiet"], true);
         assert_eq!(v["Delete"]["Objects"][1]["VersionId"], "1");
-        let bad = Parts { body: b"<Delete", ..p };
-        assert_eq!(to_json(&TABLES, input("DeleteObjects"), &bad), Err(ReadError::MalformedXml));
+        let bad = Parts {
+            body: b"<Delete",
+            ..p
+        };
+        assert_eq!(
+            to_json(&TABLES, input("DeleteObjects"), &bad),
+            Err(ReadError::MalformedXml)
+        );
     }
 
     #[test]
     fn a_string_payload_is_the_body() {
         let labels = [(member_of("PutBucketPolicy", "Bucket"), "b".to_owned())];
-        let p = Parts { labels: &labels, query: &[], headers: &HeaderMap::new(), body: b"{\"a\":1}" };
+        let p = Parts {
+            labels: &labels,
+            query: &[],
+            headers: &HeaderMap::new(),
+            body: b"{\"a\":1}",
+        };
         let v = to_json(&TABLES, input("PutBucketPolicy"), &p).unwrap();
         assert_eq!(v["Policy"], "{\"a\":1}");
     }

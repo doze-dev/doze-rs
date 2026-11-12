@@ -4,8 +4,8 @@ use aws_wire::ApiError;
 use serde_json::{Value, json};
 
 use crate::core::Core;
-use crate::events::Kind;
 use crate::errors::{malformed_xml, no_config, no_such_key};
+use crate::events::Kind;
 use crate::req::{Answer, Out, Req};
 
 /// S3's limits on tags: ten per object, keys to 128 characters, values to 256.
@@ -28,8 +28,14 @@ fn tag_set(tagging: &Value, limit: usize) -> Result<Vec<(String, String)>, ApiEr
     }
     let mut out: Vec<(String, String)> = Vec::new();
     for t in set {
-        let k = t.get("Key").and_then(Value::as_str).ok_or_else(malformed_xml)?;
-        let v = t.get("Value").and_then(Value::as_str).ok_or_else(malformed_xml)?;
+        let k = t
+            .get("Key")
+            .and_then(Value::as_str)
+            .ok_or_else(malformed_xml)?;
+        let v = t
+            .get("Value")
+            .and_then(Value::as_str)
+            .ok_or_else(malformed_xml)?;
         if k.is_empty() || k.chars().count() > MAX_KEY {
             return Err(invalid_tag("The TagKey you have provided is invalid"));
         }
@@ -37,7 +43,9 @@ fn tag_set(tagging: &Value, limit: usize) -> Result<Vec<(String, String)>, ApiEr
             return Err(invalid_tag("The TagValue you have provided is invalid"));
         }
         if out.iter().any(|(x, _)| x == k) {
-            return Err(invalid_tag("Cannot provide multiple Tags with the same key"));
+            return Err(invalid_tag(
+                "Cannot provide multiple Tags with the same key",
+            ));
         }
         out.push((k.to_owned(), v.to_owned()));
     }
@@ -45,14 +53,19 @@ fn tag_set(tagging: &Value, limit: usize) -> Result<Vec<(String, String)>, ApiEr
 }
 
 fn tags_json(tags: &[(String, String)]) -> Vec<Value> {
-    tags.iter().map(|(k, v)| json!({"Key": k, "Value": v})).collect()
+    tags.iter()
+        .map(|(k, v)| json!({"Key": k, "Value": v}))
+        .collect()
 }
 
 impl Core {
     pub(crate) fn get_tagging(&self, req: &Req<'_>, bucket_level: bool) -> Answer {
         if bucket_level {
             let b = self.require(req.bucket())?;
-            let stored = b.configs.get("tagging").ok_or_else(|| no_config("tagging"))?;
+            let stored = b
+                .configs
+                .get("tagging")
+                .ok_or_else(|| no_config("tagging"))?;
             return Out::json(serde_json::from_str(stored).unwrap_or(Value::Null));
         }
         let v = self.readable(req.bucket(), req.key(), req.s("VersionId"))?;
@@ -80,7 +93,14 @@ impl Core {
         let mut v = self.readable(req.bucket(), req.key(), req.s("VersionId"))?;
         v.tags = tags;
         self.put_row(req.bucket(), &v)?;
-        self.note(req, Kind::Object("ObjectTagging:Put"), &v.key, v.size, &v.etag, Some(&v.version_id));
+        self.note(
+            req,
+            Kind::Object("ObjectTagging:Put"),
+            &v.key,
+            v.size,
+            &v.etag,
+            Some(&v.version_id),
+        );
         let mut out = json!({});
         if v.version_id != "null"
             && let Some(o) = out.as_object_mut()
@@ -100,10 +120,23 @@ impl Core {
         }
         let mut v = self
             .readable(req.bucket(), req.key(), req.s("VersionId"))
-            .map_err(|e| if e.code == "NoSuchKey" { no_such_key(req.key()) } else { e })?;
+            .map_err(|e| {
+                if e.code == "NoSuchKey" {
+                    no_such_key(req.key())
+                } else {
+                    e
+                }
+            })?;
         v.tags.clear();
         self.put_row(req.bucket(), &v)?;
-        self.note(req, Kind::Object("ObjectTagging:Delete"), &v.key, v.size, &v.etag, Some(&v.version_id));
+        self.note(
+            req,
+            Kind::Object("ObjectTagging:Delete"),
+            &v.key,
+            v.size,
+            &v.etag,
+            Some(&v.version_id),
+        );
         Out::empty()
     }
 }

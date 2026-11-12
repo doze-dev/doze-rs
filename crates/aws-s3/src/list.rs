@@ -23,7 +23,11 @@ impl Enc {
     }
 
     pub(crate) fn text(self, s: &str) -> String {
-        if self.0 { aws_core::uri::encode(s.as_bytes(), false) } else { s.to_owned() }
+        if self.0 {
+            aws_core::uri::encode(s.as_bytes(), false)
+        } else {
+            s.to_owned()
+        }
     }
 }
 
@@ -107,7 +111,10 @@ impl Core {
         let mut last_key: Option<String> = None;
         let mut last_fold: Option<String> = None;
         let mut truncated = false;
-        let skip_under = q.delimiter.filter(|d| q.after.ends_with(d)).map(|_| q.after);
+        let skip_under = q
+            .delimiter
+            .filter(|d| q.after.ends_with(d))
+            .map(|_| q.after);
         let mut bad = false;
         self.walk(q, |key, bytes| {
             if last_key.as_deref() == Some(key) || skip_under.is_some_and(|s| key.starts_with(s)) {
@@ -158,10 +165,14 @@ impl Core {
         self.require(bucket)?;
         let prefix = req.s("Prefix").unwrap_or_default();
         let delimiter = req.s("Delimiter").filter(|d| !d.is_empty());
-        let max = req.int("MaxKeys").map_or(MAX_KEYS, |m| usize::try_from(m).unwrap_or(0).min(MAX_KEYS));
+        let max = req
+            .int("MaxKeys")
+            .map_or(MAX_KEYS, |m| usize::try_from(m).unwrap_or(0).min(MAX_KEYS));
         let token = req.s("ContinuationToken").and_then(decode_token);
         let after = if v2 {
-            token.clone().or_else(|| req.s("StartAfter").map(str::to_owned))
+            token
+                .clone()
+                .or_else(|| req.s("StartAfter").map(str::to_owned))
         } else {
             req.s("Marker").map(str::to_owned)
         };
@@ -172,7 +183,14 @@ impl Core {
             after: after.as_deref().unwrap_or_default(),
             max,
         };
-        let page = if max == 0 { Page { entries: Vec::new(), next: None } } else { self.page(&q)? };
+        let page = if max == 0 {
+            Page {
+                entries: Vec::new(),
+                next: None,
+            }
+        } else {
+            self.page(&q)?
+        };
         let enc = Enc::of(req);
         let mut out = Map::new();
         out.insert("Name".into(), json!(bucket));
@@ -185,13 +203,21 @@ impl Core {
         if req.s("EncodingType").is_some() {
             out.insert("EncodingType".into(), json!("url"));
         }
-        let (contents, prefixes) = split(&page, enc, !v2 || req.flag("FetchOwner") == Some(true), req.account());
+        let (contents, prefixes) = split(
+            &page,
+            enc,
+            !v2 || req.flag("FetchOwner") == Some(true),
+            req.account(),
+        );
         out.insert("Contents".into(), Value::Array(contents));
         out.insert("CommonPrefixes".into(), Value::Array(prefixes));
         if v2 {
             v2_fields(req, &page, enc, &mut out);
         } else {
-            out.insert("Marker".into(), json!(enc.text(req.s("Marker").unwrap_or_default())));
+            out.insert(
+                "Marker".into(),
+                json!(enc.text(req.s("Marker").unwrap_or_default())),
+            );
             if let (Some(next), Some(_)) = (&page.next, delimiter) {
                 out.insert("NextMarker".into(), json!(enc.text(next)));
             }
@@ -232,10 +258,13 @@ fn split(page: &Page, enc: Enc, with_owner: bool, account: &str) -> (Vec<Value>,
                 );
                 if let Some(c) = &v.checksum {
                     o.insert("ChecksumAlgorithm".into(), json!(algo_name(Some(c))));
-                    o.insert("ChecksumType".into(), json!(match c.kind {
-                        crate::model::CKind::FullObject => "FULL_OBJECT",
-                        crate::model::CKind::Composite => "COMPOSITE",
-                    }));
+                    o.insert(
+                        "ChecksumType".into(),
+                        json!(match c.kind {
+                            crate::model::CKind::FullObject => "FULL_OBJECT",
+                            crate::model::CKind::Composite => "COMPOSITE",
+                        }),
+                    );
                 }
                 if with_owner {
                     o.insert("Owner".into(), owner(account));

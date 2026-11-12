@@ -37,7 +37,11 @@ pub(crate) fn armed_regions(base: &Path) -> Vec<String> {
         found.push(HOME_REGION.to_owned());
     }
     for e in fs.list_dir(&base.join("regions")).unwrap_or_default() {
-        if e.is_dir && fs.open_existing(&base.join("regions").join(&e.name).join(MARKER)).is_ok() {
+        if e.is_dir
+            && fs
+                .open_existing(&base.join("regions").join(&e.name).join(MARKER))
+                .is_ok()
+        {
             found.push(e.name);
         }
     }
@@ -58,7 +62,13 @@ impl Janitor {
     }
 
     pub(crate) fn regions(&self) -> Vec<String> {
-        self.state.lock().unwrap_or_else(PoisonError::into_inner).regions.iter().cloned().collect()
+        self.state
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .regions
+            .iter()
+            .cloned()
+            .collect()
     }
 
     /// Drops a region with no rules left; true when none remain (the task ends).
@@ -82,8 +92,13 @@ impl Janitor {
 pub(crate) async fn run(inner: Arc<crate::Inner>, tasks: Tasks, clock: Arc<dyn Clock>) {
     let stopping = tasks.stopping();
     loop {
-        let wait = Duration::from_millis(u64::try_from(until_midnight(clock.now_ms())).unwrap_or(1000));
-        if stopping.run_until_cancelled(tokio::time::sleep(wait)).await.is_none() {
+        let wait =
+            Duration::from_millis(u64::try_from(until_midnight(clock.now_ms())).unwrap_or(1000));
+        if stopping
+            .run_until_cancelled(tokio::time::sleep(wait))
+            .await
+            .is_none()
+        {
             return;
         }
         for region in inner.janitor.regions() {

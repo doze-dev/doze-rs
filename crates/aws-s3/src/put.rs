@@ -7,8 +7,8 @@ use serde_json::{Map, Value, json};
 
 use crate::checksum::{Algo, Done, b64};
 use crate::core::Core;
-use crate::events::Kind;
 use crate::errors::{invalid_argument, key_too_long, precondition_failed};
+use crate::events::Kind;
 use crate::model::{CKind, Checksum, Meta, Seg, Version, Versioning};
 use crate::req::{Answer, Out, Req};
 
@@ -67,7 +67,14 @@ pub(crate) fn new_version_id() -> String {
         b.fill(0);
     }
     b.iter()
-        .map(|x| char::from(CHARS.get(usize::from(*x) % CHARS.len()).copied().unwrap_or(b'0')))
+        .map(|x| {
+            char::from(
+                CHARS
+                    .get(usize::from(*x) % CHARS.len())
+                    .copied()
+                    .unwrap_or(b'0'),
+            )
+        })
         .collect()
 }
 
@@ -108,17 +115,27 @@ impl Core {
             .and_then(|b| b.configs.get("encryption"))
             .and_then(|c| serde_json::from_str::<Value>(c).ok())
             .and_then(|c| {
-                let d = c.get("Rules")?.get(0)?.get("ApplyServerSideEncryptionByDefault")?.clone();
+                let d = c
+                    .get("Rules")?
+                    .get(0)?
+                    .get("ApplyServerSideEncryptionByDefault")?
+                    .clone();
                 Some((
                     d.get("SSEAlgorithm")?.as_str()?.to_owned(),
-                    d.get("KMSMasterKeyID").and_then(Value::as_str).map(str::to_owned),
+                    d.get("KMSMasterKeyID")
+                        .and_then(Value::as_str)
+                        .map(str::to_owned),
                 ))
             });
         found.unwrap_or_else(|| ("AES256".to_owned(), None))
     }
 
     /// A conditional write: `If-None-Match: *` and `If-Match`.
-    fn check_write_conditions(&self, req: &Req<'_>, current: Option<&Version>) -> Result<(), ApiError> {
+    fn check_write_conditions(
+        &self,
+        req: &Req<'_>,
+        current: Option<&Version>,
+    ) -> Result<(), ApiError> {
         let live = current.filter(|v| !v.delete_marker);
         if req.s("IfNoneMatch") == Some("*") && live.is_some() {
             return Err(precondition_failed("If-None-Match"));
@@ -169,7 +186,14 @@ impl Core {
             tags: req.s("Tagging").map(tags_of).unwrap_or_default(),
         };
         let stored = self.install(&bucket, v)?;
-        self.note(&req, Kind::Object("ObjectCreated:Put"), &stored.key, stored.size, &stored.etag, Some(&stored.version_id));
+        self.note(
+            &req,
+            Kind::Object("ObjectCreated:Put"),
+            &stored.key,
+            stored.size,
+            &stored.etag,
+            Some(&stored.version_id),
+        );
         Out::json(self.put_output(&bucket, &stored))
     }
 
@@ -183,7 +207,11 @@ impl Core {
         if let Some(k) = &v.meta.sse_kms_key {
             out.insert("SSEKMSKeyId".into(), json!(k));
         }
-        if self.buckets.get(bucket).is_some_and(|b| b.versioning != Versioning::Off) {
+        if self
+            .buckets
+            .get(bucket)
+            .is_some_and(|b| b.versioning != Versioning::Off)
+        {
             out.insert("VersionId".into(), json!(v.version_id));
         }
         Value::Object(out)

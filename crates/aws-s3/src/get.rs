@@ -4,7 +4,9 @@ use aws_wire::ApiError;
 use serde_json::{Map, Value, json};
 
 use crate::core::Core;
-use crate::errors::{invalid_range, no_such_key, no_such_version, not_modified, precondition_failed};
+use crate::errors::{
+    invalid_range, no_such_key, no_such_version, not_modified, precondition_failed,
+};
 use crate::model::{Seg, Version, Versioning};
 use crate::put::add_checksum;
 use crate::req::{Answer, Out, Req, Slice};
@@ -46,11 +48,20 @@ pub(crate) fn parse_range(header: &str, size: u64) -> Span {
 }
 
 fn bounded(a: u64, b: u64, size: u64) -> Span {
-    if a >= size { Span::Unsatisfiable } else { Span::Bytes(a, b) }
+    if a >= size {
+        Span::Unsatisfiable
+    } else {
+        Span::Bytes(a, b)
+    }
 }
 
 /// The slices of `segs` that make up bytes `from` to `from + len`.
-pub(crate) fn slices(core: &Core, segs: &[Seg], from: u64, len: u64) -> Result<Vec<Slice>, ApiError> {
+pub(crate) fn slices(
+    core: &Core,
+    segs: &[Seg],
+    from: u64,
+    len: u64,
+) -> Result<Vec<Slice>, ApiError> {
     let mut out = Vec::new();
     let (mut at, end) = (0u64, from + len);
     for seg in segs {
@@ -73,7 +84,12 @@ pub(crate) fn slices(core: &Core, segs: &[Seg], from: u64, len: u64) -> Result<V
 
 impl Core {
     /// The version a read names: the one given, else the newest; a delete marker is not an object.
-    pub(crate) fn readable(&self, bucket: &str, key: &str, id: Option<&str>) -> Result<Version, ApiError> {
+    pub(crate) fn readable(
+        &self,
+        bucket: &str,
+        key: &str,
+        id: Option<&str>,
+    ) -> Result<Version, ApiError> {
         self.require(bucket)?;
         if let Some(id) = id {
             let v = self
@@ -96,9 +112,12 @@ impl Core {
             .ok_or_else(|| no_such_key(key))
     }
 
-    pub(crate) fn get_object(&self, req: &Req<'_>) -> Answer {
+    pub(crate) fn get_object(&self, req: &Req<'_>, head: bool) -> Answer {
         let (bucket, key) = (req.bucket(), req.key());
         let v = self.readable(bucket, key, req.s("VersionId"))?;
+        if !head {
+            check_readable(&v)?;
+        }
         check_conditions(req, &v)?;
         let (span, part) = self.span_of(req, &v)?;
         let (from, len) = match span {
@@ -109,11 +128,18 @@ impl Core {
             }
         };
         let ranged = !matches!(span, Span::Whole) || part.is_some();
-        let mut out = self.object_headers(bucket, &v, len == v.size && req.s("ChecksumMode") == Some("ENABLED"));
+        let mut out = self.object_headers(
+            bucket,
+            &v,
+            len == v.size && req.s("ChecksumMode") == Some("ENABLED"),
+        );
         out.insert("ContentLength".into(), json!(len));
         let status = if ranged {
             let last = (from + len).saturating_sub(1);
-            out.insert("ContentRange".into(), json!(format!("bytes {from}-{last}/{}", v.size)));
+            out.insert(
+                "ContentRange".into(),
+                json!(format!("bytes {from}-{last}/{}", v.size)),
+            );
             Some(206)
         } else {
             None
@@ -145,12 +171,21 @@ impl Core {
             }
             return Err(invalid_range(v.size, &format!("partNumber={n}")));
         }
-        Ok((req.s("Range").map_or(Span::Whole, |r| parse_range(r, v.size)), None))
+        Ok((
+            req.s("Range")
+                .map_or(Span::Whole, |r| parse_range(r, v.size)),
+            None,
+        ))
     }
 
     /// The headers that describe an object, as the output members that carry them. The checksum is included when the whole object
     /// is sent.
-    pub(crate) fn object_headers(&self, bucket: &str, v: &Version, whole: bool) -> Map<String, Value> {
+    pub(crate) fn object_headers(
+        &self,
+        bucket: &str,
+        v: &Version,
+        whole: bool,
+    ) -> Map<String, Value> {
         let mut out = Map::new();
         out.insert("AcceptRanges".into(), json!("bytes"));
         out.insert("ETag".into(), json!(format!("\"{}\"", v.etag)));
@@ -188,7 +223,10 @@ impl Core {
         if v.tag_count() > 0 {
             out.insert("TagCount".into(), json!(v.tag_count()));
         }
-        let versioned = self.buckets.get(bucket).is_some_and(|b| b.versioning != Versioning::Off);
+        let versioned = self
+            .buckets
+            .get(bucket)
+            .is_some_and(|b| b.versioning != Versioning::Off);
         if versioned || v.version_id != "null" {
             out.insert("VersionId".into(), json!(v.version_id));
         }
@@ -197,6 +235,25 @@ impl Core {
         }
         out
     }
+}
+
+/// An object in an archive storage class cannot be read until restored; restoring is not built, so it cannot be read here.
+pub(crate) fn check_readable(v: &Version) -> Result<(), ApiError> {
+    if matches!(
+        v.meta.storage_class.as_deref(),
+        Some("GLACIER" | "DEEP_ARCHIVE")
+    ) {
+        return Err(ApiError::new(
+            403,
+            "InvalidObjectState",
+            "The operation is not valid for the object's storage class",
+        )
+        .with(
+            "StorageClass",
+            v.meta.storage_class.clone().unwrap_or_default(),
+        ));
+    }
+    Ok(())
 }
 
 /// `response-content-type` and the other query overrides of a read.

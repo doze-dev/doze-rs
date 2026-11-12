@@ -28,17 +28,29 @@ fn new_id() -> String {
 impl Core {
     /// Checks a notification configuration: every entry has events and a destination, the destination queues exist, and entries
     /// without an id get one.
-    pub(crate) async fn check_notification(&self, req: &Req<'_>, body: &mut Value) -> Result<(), ApiError> {
+    pub(crate) async fn check_notification(
+        &self,
+        req: &Req<'_>,
+        body: &mut Value,
+    ) -> Result<(), ApiError> {
         for (list, arn_member) in TARGETS {
             let Some(entries) = body.get_mut(list).and_then(Value::as_array_mut) else {
                 continue;
             };
             for entry in entries {
-                let arn = entry.get(arn_member).and_then(Value::as_str).ok_or_else(malformed_xml)?.to_owned();
+                let arn = entry
+                    .get(arn_member)
+                    .and_then(Value::as_str)
+                    .ok_or_else(malformed_xml)?
+                    .to_owned();
                 let events_ok = entry
                     .get("Events")
                     .and_then(Value::as_array)
-                    .is_some_and(|e| !e.is_empty() && e.iter().all(|x| x.as_str().is_some_and(|s| s.starts_with("s3:"))));
+                    .is_some_and(|e| {
+                        !e.is_empty()
+                            && e.iter()
+                                .all(|x| x.as_str().is_some_and(|s| s.starts_with("s3:")))
+                    });
                 if !events_ok {
                     return Err(malformed_xml());
                 }
@@ -65,12 +77,20 @@ impl Core {
             return Ok(());
         };
         let asked = peers
-            .call("s3", &req.call.caller, "sqs", "GetQueueUrl", &json!({"QueueName": name}))
+            .call(
+                "s3",
+                &req.call.caller,
+                "sqs",
+                "GetQueueUrl",
+                &json!({"QueueName": name}),
+            )
             .await;
         match asked {
             Ok(_) => Ok(()),
             // (memory) the wording of S3's refusal of a destination it cannot validate.
-            Err(_) => Err(invalid_argument("Unable to validate the following destination configurations")),
+            Err(_) => Err(invalid_argument(
+                "Unable to validate the following destination configurations",
+            )),
         }
     }
 }

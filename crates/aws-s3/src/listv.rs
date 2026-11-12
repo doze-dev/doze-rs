@@ -37,7 +37,11 @@ fn version_entry(v: &Version, latest: bool, enc: Enc, account: &str) -> Value {
         );
         if let Some(c) = &v.checksum {
             o.insert("ChecksumAlgorithm".into(), json!(algo_name(Some(c))));
-            let kind = if c.kind == CKind::FullObject { "FULL_OBJECT" } else { "COMPOSITE" };
+            let kind = if c.kind == CKind::FullObject {
+                "FULL_OBJECT"
+            } else {
+                "COMPOSITE"
+            };
             o.insert("ChecksumType".into(), json!(kind));
         }
     }
@@ -50,8 +54,13 @@ impl Core {
         self.require(bucket)?;
         let prefix = req.s("Prefix").unwrap_or_default();
         let delimiter = req.s("Delimiter").filter(|d| !d.is_empty());
-        let max = req.int("MaxKeys").map_or(MAX_KEYS, |m| usize::try_from(m).unwrap_or(0).min(MAX_KEYS));
-        let (key_marker, version_marker) = (req.s("KeyMarker").unwrap_or_default(), req.s("VersionIdMarker"));
+        let max = req
+            .int("MaxKeys")
+            .map_or(MAX_KEYS, |m| usize::try_from(m).unwrap_or(0).min(MAX_KEYS));
+        let (key_marker, version_marker) = (
+            req.s("KeyMarker").unwrap_or_default(),
+            req.s("VersionIdMarker"),
+        );
         let q = Query {
             bucket,
             prefix,
@@ -65,7 +74,10 @@ impl Core {
         out.insert("Name".into(), json!(bucket));
         out.insert("Prefix".into(), json!(enc.text(prefix)));
         out.insert("KeyMarker".into(), json!(enc.text(key_marker)));
-        out.insert("VersionIdMarker".into(), json!(version_marker.unwrap_or_default()));
+        out.insert(
+            "VersionIdMarker".into(),
+            json!(version_marker.unwrap_or_default()),
+        );
         out.insert("MaxKeys".into(), json!(max));
         out.insert("IsTruncated".into(), json!(found.next.is_some()));
         if let Some(d) = delimiter {
@@ -80,12 +92,22 @@ impl Core {
         }
         out.insert("Versions".into(), Value::Array(found.versions));
         out.insert("DeleteMarkers".into(), Value::Array(found.markers));
-        let prefixes: Vec<Value> = found.prefixes.iter().map(|p| json!({"Prefix": enc.text(p)})).collect();
+        let prefixes: Vec<Value> = found
+            .prefixes
+            .iter()
+            .map(|p| json!({"Prefix": enc.text(p)}))
+            .collect();
         out.insert("CommonPrefixes".into(), Value::Array(prefixes));
         Out::json(Value::Object(out))
     }
 
-    fn collect(&self, q: &Query<'_>, version_marker: Option<&str>, enc: Enc, account: &str) -> Result<Found, ApiError> {
+    fn collect(
+        &self,
+        q: &Query<'_>,
+        version_marker: Option<&str>,
+        enc: Enc,
+        account: &str,
+    ) -> Result<Found, ApiError> {
         let mut f = Found::default();
         let mut count = 0usize;
         let mut current: Option<String> = None;
@@ -133,7 +155,11 @@ impl Core {
             count += 1;
             f.next = Some((v.key.clone(), v.version_id.clone()));
             let entry = version_entry(&v, latest, enc, account);
-            if v.delete_marker { f.markers.push(entry) } else { f.versions.push(entry) }
+            if v.delete_marker {
+                f.markers.push(entry)
+            } else {
+                f.versions.push(entry)
+            }
             true
         })?;
         if bad {
@@ -154,11 +180,18 @@ impl Core {
             return Ok(false);
         };
         let rows = self.versions_of(q.bucket, k)?;
-        let later_version = rows.iter().position(|v| &v.version_id == id).is_some_and(|i| i + 1 < rows.len());
+        let later_version = rows
+            .iter()
+            .position(|v| &v.version_id == id)
+            .is_some_and(|i| i + 1 < rows.len());
         if later_version {
             return Ok(true);
         }
-        let probe = Query { after: k, max: 1, ..*q };
+        let probe = Query {
+            after: k,
+            max: 1,
+            ..*q
+        };
         let mut more = false;
         self.walk(&probe, |_, _| {
             more = true;

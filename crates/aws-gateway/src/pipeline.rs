@@ -2,6 +2,7 @@
 
 use std::collections::HashMap;
 
+use crate::body::RespBody;
 use aws_auth::claim::Claim;
 use aws_auth::{AuthError, Endpoint, begin};
 use aws_schema::arena::{Arena, NIL};
@@ -12,7 +13,6 @@ use aws_schema::patterns::Patterns;
 use aws_wire::service::{Call, Caller, Service};
 use aws_wire::{ApiError, Family, RequestId, from_auth, json};
 use bytes::Bytes;
-use crate::body::RespBody;
 use doze_runtime::{Clock, SystemClock};
 use http::Response;
 use http::request::Parts;
@@ -39,7 +39,10 @@ impl Entry {
     }
 
     /// The routes of the service's model.
-    pub(crate) fn router(&self, tables: &aws_schema::tables::Tables) -> &aws_wire::rest::route::Router {
+    pub(crate) fn router(
+        &self,
+        tables: &aws_schema::tables::Tables,
+    ) -> &aws_wire::rest::route::Router {
         self.routes
             .get_or_init(|| aws_wire::rest::route::Router::new(tables))
     }
@@ -93,10 +96,7 @@ pub(crate) type Out = Response<Vec<u8>>;
 pub(crate) type Fail = Box<Out>;
 
 /// Answers a request. Never fails: a failure is an error answer.
-pub(crate) async fn respond(
-    shared: &Shared,
-    req: http::Request<Incoming>,
-) -> Response<RespBody> {
+pub(crate) async fn respond(shared: &Shared, req: http::Request<Incoming>) -> Response<RespBody> {
     let id = RequestId::new();
     let (parts, body) = req.into_parts();
     // A REST service (S3) streams its bodies and words its errors its own way, so it has its own path.
