@@ -16,7 +16,14 @@ use crate::doc::Doc;
 use crate::errors::{no_api, refused};
 use crate::req::{Req, Res};
 
+pub(crate) use apis::{new_api, valid_part};
+pub(crate) use extras::new_model;
 pub(crate) use paging::page;
+
+/// What `GetRestApi` shows of a stored API.
+pub(crate) fn view(doc: &Value) -> Value {
+    Value::Object(apis::api_view(doc))
+}
 
 /// The operations not built, and why: client certificates, VPC links and domain-name access associations need network or certificate
 /// infrastructure; documentation parts and versions, SDK generation and the SDK types are publishing (STAY CUT in SCOPE.md); usage is

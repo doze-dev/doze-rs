@@ -107,6 +107,41 @@ pub struct WebReply {
     pub body: bytes::Bytes,
 }
 
+/// A connection a service has taken over after an HTTP upgrade (a WebSocket): bytes in and out.
+pub trait Socket: Send {
+    /// Reads into `buf`; 0 at the end of the connection.
+    fn read<'a>(&'a mut self, buf: &'a mut [u8]) -> BoxFuture<'a, std::io::Result<usize>>;
+
+    /// Writes all of `buf`.
+    fn write_all<'a>(&'a mut self, buf: &'a [u8]) -> BoxFuture<'a, std::io::Result<()>>;
+}
+
+/// What runs on an upgraded connection until it ends.
+pub type Session = Box<dyn FnOnce(Box<dyn Socket>) -> BoxFuture<'static, ()> + Send>;
+
+/// The answer to a request to upgrade the connection.
+pub enum Upgrade {
+    /// Not upgraded: the answer instead.
+    Refused(WebReply),
+    /// Upgraded: the `101 Switching Protocols` headers, and the session that takes the connection.
+    Accepted {
+        headers: Vec<(String, String)>,
+        session: Session,
+    },
+}
+
+impl std::fmt::Debug for Upgrade {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Refused(r) => f.debug_tuple("Refused").field(&r.status).finish(),
+            Self::Accepted { headers, .. } => f
+                .debug_struct("Accepted")
+                .field("headers", headers)
+                .finish_non_exhaustive(),
+        }
+    }
+}
+
 /// A service with addresses of its own that are not signed API calls (a Lambda function URL).
 pub trait Web: Send + Sync {
     /// Whether a request to this host and path is the service's. Cheap and pure: it runs for every request that is not signed.
@@ -114,6 +149,12 @@ pub trait Web: Send + Sync {
 
     /// Answers the request.
     fn serve(&self, request: WebRequest) -> BoxFuture<'_, WebReply>;
+
+    /// Answers a request to upgrade the connection (`Upgrade: websocket`) to an address the service owns. The default refuses: a
+    /// service that takes connections over (API Gateway's WebSocket APIs) says so.
+    fn upgrade(&self, request: WebRequest) -> BoxFuture<'_, Upgrade> {
+        Box::pin(async move { Upgrade::Refused(self.serve(request).await) })
+    }
 }
 
 /// A service the gateway can route to.

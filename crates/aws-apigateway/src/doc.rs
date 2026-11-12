@@ -84,9 +84,11 @@ pub(crate) fn items(map: Option<&Map<String, Value>>) -> Vec<Value> {
         .unwrap_or_default()
 }
 
-/// A map member's value as a JSON object, or an empty one.
-pub(crate) fn map_or_empty(v: Option<&Value>) -> Value {
-    v.filter(|v| v.is_object())
-        .cloned()
-        .unwrap_or_else(|| Value::Object(Map::new()))
+/// A JSON value as text (a string without its quotes, null as nothing).
+pub(crate) fn plain(v: &Value) -> String {
+    match v {
+        Value::String(s) => s.clone(),
+        Value::Null => String::new(),
+        other => other.to_string(),
+    }
 }

@@ -7,6 +7,8 @@ mod apis;
 mod parts;
 mod stages;
 
+pub(crate) use apis::new_api;
+
 use aws_model_apigatewayv2::Operation;
 use aws_wire::ApiError;
 use serde_json::{Map, Value, json};

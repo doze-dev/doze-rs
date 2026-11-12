@@ -223,6 +223,10 @@ macro_rules! service {
             fn serve(&self, request: WebRequest) -> BoxFuture<'_, WebReply> {
                 Box::pin(plane::serve(Arc::clone(&self.inner), request))
             }
+
+            fn upgrade(&self, request: WebRequest) -> BoxFuture<'_, aws_wire::service::Upgrade> {
+                Box::pin(plane::ws::upgrade(Arc::clone(&self.inner), request))
+            }
         }
     };
 }
@@ -259,6 +263,11 @@ pub mod fuzz {
     /// A JSON Web Token.
     pub fn jwt(text: &str) {
         drop(crate::plane::jwt_decode(text));
+    }
+
+    /// An OpenAPI document (JSON or the YAML subset).
+    pub fn openapi(text: &str) {
+        drop(crate::openapi::read(text));
     }
 }
 

@@ -20,7 +20,7 @@ pub(super) fn dispatch(core: &mut Core, op: Operation, r: &Req) -> Option<Res> {
         Operation::UpdateRestApi => update(core, r),
         Operation::DeleteRestApi => delete(core, r),
         Operation::ImportRestApi => crate::openapi::v1::import(core, r),
-        Operation::PutRestApi => crate::openapi::v1::put(core, r),
+        Operation::PutRestApi => crate::openapi::v1::put_rest_api(core, r),
         Operation::GetExport => crate::openapi::v1::export(core, r),
         Operation::CreateResource => create_resource(core, r),
         Operation::GetResource => get_resource(core, r),

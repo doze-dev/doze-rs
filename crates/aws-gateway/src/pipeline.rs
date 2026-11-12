@@ -53,10 +53,12 @@ pub(crate) struct Shared {
     entries: Vec<Entry>,
     by_signing_name: HashMap<&'static str, usize>,
     config: Config,
+    /// Where sessions on upgraded connections run, so a shutdown ends them too.
+    tasks: doze_runtime::Tasks,
 }
 
 impl Shared {
-    pub(crate) fn new(entries: Vec<Entry>, config: Config) -> Self {
+    pub(crate) fn new(entries: Vec<Entry>, config: Config, tasks: doze_runtime::Tasks) -> Self {
         let by_signing_name = entries
             .iter()
             .enumerate()
@@ -66,7 +68,13 @@ impl Shared {
             entries,
             by_signing_name,
             config,
+            tasks,
         }
+    }
+
+    /// The gateway's task set.
+    pub(crate) fn tasks(&self) -> &doze_runtime::Tasks {
+        &self.tasks
     }
 
     /// The largest request body read.
@@ -128,8 +136,8 @@ pub(crate) type Fail = Box<Out>;
 /// Answers a request. Never fails: a failure is an error answer.
 pub(crate) async fn respond(shared: &Shared, req: http::Request<Incoming>) -> Response<RespBody> {
     let id = RequestId::new();
-    let (parts, body) = req.into_parts();
-    let body = match crate::web::serve(shared, &id, &parts, body).await {
+    let (mut parts, body) = req.into_parts();
+    let body = match crate::web::serve(shared, &id, &mut parts, body).await {
         Ok(response) => return response,
         Err(body) => body,
     };
