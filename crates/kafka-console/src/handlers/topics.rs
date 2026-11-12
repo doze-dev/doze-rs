@@ -34,14 +34,18 @@ pub async fn topics(State(s): State<Shared>, RawQuery(query): RawQuery) -> Respo
         .topics(&filter, internal, crate::form::get(&f, "state"))
         .await;
     let (title, rail_crumbs): (&str, Steps) = match view.state() {
-        crate::model::TopicsState::None => {
-            ("No topics yet", vec![("Home", Some("/")), ("Topics", None)])
-        }
+        crate::model::TopicsState::None => (
+            "No topics yet",
+            vec![("Resources", Some("/topics")), ("Topics", None)],
+        ),
         crate::model::TopicsState::Filtered => (
             "No topic matches",
-            vec![("Home", Some("/")), ("Topics", None)],
+            vec![("Resources", Some("/topics")), ("Topics", None)],
         ),
-        crate::model::TopicsState::List => ("Topics", vec![("Home", Some("/")), ("Topics", None)]),
+        crate::model::TopicsState::List => (
+            "Topics",
+            vec![("Resources", Some("/topics")), ("Topics", None)],
+        ),
     };
     let q = crate::form::encode_query(&[
         ("q", &filter),
@@ -68,7 +72,7 @@ async fn not_found(s: &Shared, name: &str) -> Response {
             Rail::Resources,
             "No such topic",
             &[
-                ("Home", Some("/")),
+                ("Resources", Some("/topics")),
                 ("Topics", Some("/topics")),
                 (&shown, None),
             ],
@@ -125,7 +129,7 @@ async fn messages_response(s: Shared, name: String, query: Option<String>) -> Re
     let t = page::topic_url(&s.base, &name);
     let t = s.base.strip(&t).unwrap_or("/topics").to_owned();
     let shown = view.head.name.clone();
-    let mut steps: Steps = vec![("Home", Some("/")), ("Topics", Some("/topics"))];
+    let mut steps: Steps = vec![("Resources", Some("/topics")), ("Topics", Some("/topics"))];
     let title = match &last {
         Some(l) => {
             steps.push((&shown, Some(&t)));
@@ -189,7 +193,7 @@ pub async fn record(
     let t = page::topic_url(&s.base, &name);
     let t = s.base.strip(&t).unwrap_or("/topics").to_owned();
     let steps: Steps = vec![
-        ("Home", Some("/")),
+        ("Resources", Some("/topics")),
         ("Topics", Some("/topics")),
         (&name, Some(&t)),
         (&title, None),
@@ -205,7 +209,7 @@ async fn gone(s: &Shared, name: &str, p: i32, o: i64) -> Response {
             Rail::Resources,
             "No such record",
             &[
-                ("Home", Some("/")),
+                ("Resources", Some("/topics")),
                 ("Topics", Some("/topics")),
                 (&shown, None),
             ],
@@ -228,7 +232,7 @@ pub async fn partitions(State(s): State<Shared>, Path(name): Path<String>) -> Re
     let t = page::topic_url(&s.base, &name);
     let t = s.base.strip(&t).unwrap_or("/topics").to_owned();
     let steps: Steps = vec![
-        ("Home", Some("/")),
+        ("Resources", Some("/topics")),
         ("Topics", Some("/topics")),
         (&name, Some(&t)),
         ("Partitions", None),

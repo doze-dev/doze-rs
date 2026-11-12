@@ -47,6 +47,16 @@ pub fn read_refused(code: i16) -> String {
     format!("The broker refused the read: {}.{why}", kafka_error(code))
 }
 
+/// A transaction's timeout the way the board writes it: `60 s` up to two minutes, then as a span.
+#[must_use]
+pub fn timeout(ms: i64) -> String {
+    if ms > 0 && ms <= 120_000 && ms % 1000 == 0 {
+        format!("{} s", ms / 1000)
+    } else {
+        span_ms(ms)
+    }
+}
+
 /// `7 d`, or `for ever` for -1.
 #[must_use]
 pub fn retention(ms: i64) -> String {
@@ -191,15 +201,18 @@ fn txn_clause(h: &TopicHead) -> Vec<Span> {
         return Vec::new();
     };
     let on: Vec<i32> = t.partitions.iter().map(|(p, _)| *p).collect();
-    let mut out = vec![
-        Span::text(if h.txns.len() == 1 {
-            " A transaction is open on "
-        } else {
-            " Transactions are open on "
-        }),
-        Span::strong(named(&h.name, &on)),
-        Span::text(": "),
-    ];
+    let mut out = vec![Span::text(if h.txns.len() == 1 {
+        " A transaction is open on "
+    } else {
+        " Transactions are open on "
+    })];
+    for (i, name) in on.iter().enumerate() {
+        if i > 0 {
+            out.push(Span::text(if i + 1 == on.len() { " and " } else { ", " }));
+        }
+        out.push(Span::strong(format!("{}-{name}", h.name)));
+    }
+    out.push(Span::text(": "));
     match h
         .parts
         .iter()

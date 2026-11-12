@@ -295,7 +295,8 @@ fn text_row(
     RecordRow {
         partition,
         offset,
-        timestamp_ms: parse_time(&format!("2026-11-09 {at}")).unwrap_or(0) + at_ms(at),
+        timestamp_ms: parse_time(&format!("2026-11-09 {}", at.get(..8).unwrap_or(at))).unwrap_or(0)
+            + at_ms(at),
         key: shown(Some(order.as_bytes()), order.len() as u64),
         value: v,
         standing,

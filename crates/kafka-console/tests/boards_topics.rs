@@ -148,7 +148,7 @@ fn the_topic_page_has_the_open_transaction_the_toolbar_and_the_ten_newest() {
             "Consumers<span class=\"n\">2</span>",
             "Producers<span class=\"n\">3</span>",
             "Transaction orders-eos is open.",
-            "Producer 4017 (epoch 2) began it at 22:13:33 UTC on orders-0 and orders-1; the timeout is 1 min.",
+            "Producer 4017 (epoch 2) began it at 22:13:33 UTC on orders-0 and orders-1; the timeout is 60 s.",
             "held 6 records behind",
             "All partitions",
             "Show orders-0 from 16,098",

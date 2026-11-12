@@ -160,7 +160,7 @@ mod topics;
 
 pub use topics::{
     kafka_error, list_and, list_sentence, partitions_sentence, reach_sentence, read_refused,
-    retention, topic_sentence,
+    retention, timeout, topic_sentence,
 };
 
 #[cfg(test)]

@@ -50,7 +50,7 @@ type Content = (
     Vec<(&'static str, Option<&'static str>)>,
 );
 
-const HOME: (&str, Option<&str>) = ("Home", Some("/"));
+const HOME: (&str, Option<&str>) = ("Resources", Some("/topics"));
 const TOPICS: (&str, Option<&str>) = ("Topics", Some("/topics"));
 
 /// The list in its three states.

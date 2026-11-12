@@ -11,7 +11,7 @@ use crate::ui::glyph::Glyph;
 use crate::ui::kafka::{Tab, tabs, title_row};
 use crate::ui::layout::page_header;
 use crate::ui::notice::{Tone, callout};
-use crate::words::{list_and, topic_sentence};
+use crate::words::{list_and, timeout, topic_sentence};
 
 /// The fragment that holds the sentence under a topic's name.
 pub const TOPIC_SENTENCE: &str = "topic-sentence";
@@ -201,7 +201,7 @@ pub(super) fn txn_callout(h: &TopicHead, base: &Base) -> Markup {
             (callout(Tone::Warn, Glyph::Warn, html! {
                 b { "Transaction " (t.id) " is open." }
                 " Producer " (t.producer_id) " (epoch " (t.producer_epoch) ") began it at " (clock(t.since_ms)) " UTC on "
-                (list_and(&on)) "; the timeout is " (span_ms(t.timeout_ms)) ". "
+                (list_and(&on)) "; the timeout is " (timeout(t.timeout_ms)) ". "
                 @if let Some(p) = held {
                     "The last stable offset of " (h.name) "-" (p.partition) " is " (number(p.last_stable))
                     " while its high watermark is " (number(p.end)) ", so a read_committed consumer is held "
