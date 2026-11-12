@@ -131,6 +131,14 @@ fn slash(v: &Json) -> Json {
     }
 }
 
+/// A program path as on Unix: forward slashes, and no `.exe` (on Windows a module names `kvrocks.exe`, rightly).
+fn program(v: &Json) -> Json {
+    match slash(v) {
+        Json::String(s) => Json::String(s.strip_suffix(".exe").unwrap_or(&s).to_string()),
+        other => other,
+    }
+}
+
 /// The parts of a Go answer that must match (wording, hashes and nulls aside).
 fn comparable(a: &Json) -> Json {
     if a.get("decode_error").is_some() {
@@ -146,7 +154,7 @@ fn comparable(a: &Json) -> Json {
         .unwrap_or_default();
     let plan: Vec<Json> = f(a, "plan").as_array().map(|ps| ps.iter().map(|p| {
         let list = |k: &str| f(p, k).as_array().cloned().unwrap_or_default();
-        json!({ "name": f(p, "name"), "program": slash(f(p, "program")), "args": slash(&Json::Array(list("args"))),
+        json!({ "name": f(p, "name"), "program": program(f(p, "program")), "args": slash(&Json::Array(list("args"))),
                 "env_added": f(p, "env_added"), "after": list("after"), "ready": slash(f(p, "ready")), "hooks": list("hooks") })
     }).collect()).unwrap_or_default();
     json!({ "refused": false, "env_var": f(a, "env_var"), "url": f(a, "url"), "objects": objects, "plan": plan,
