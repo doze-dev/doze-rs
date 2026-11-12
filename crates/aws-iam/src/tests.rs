@@ -11,6 +11,7 @@ use crate::core::{Core, Which};
 use crate::{Iam, Sts, services};
 
 mod authz;
+mod details;
 mod entities;
 mod persistence;
 mod policies;
@@ -146,7 +147,7 @@ fn every_operation_the_list_names_is_run_and_the_rest_are_refused() {
         "UploadServerCertificate",
         "EnableMFADevice",
         "GenerateCredentialReport",
-        "GetAccountAuthorizationDetails",
+        "ListMFADevices",
     ] {
         assert!(!w.iam.serves(name), "{name} is refused");
     }

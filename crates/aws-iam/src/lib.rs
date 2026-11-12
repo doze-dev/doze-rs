@@ -9,6 +9,7 @@ mod account;
 mod attached;
 mod authz;
 mod core;
+mod details;
 mod entity;
 mod errors;
 mod gather;
@@ -219,6 +220,7 @@ impl Service for Sts {
                     | O::GetFederationToken
                     | O::GetAccessKeyInfo
                     | O::DecodeAuthorizationMessage
+                    | O::AssumeRoot
             )
         )
     }

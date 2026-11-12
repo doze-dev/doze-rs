@@ -20,7 +20,7 @@ impl Core {
     }
 
     /// The profile with its roles written out.
-    fn profile_json(&self, p: &Profile, full: bool) -> Value {
+    pub(crate) fn profile_json(&self, p: &Profile, full: bool) -> Value {
         let roles = p
             .roles
             .iter()

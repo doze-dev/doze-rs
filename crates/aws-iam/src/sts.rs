@@ -78,6 +78,7 @@ impl Core {
                 self.assume_with_token(r, "WebIdentityToken")
             }
             Some(Operation::AssumeRoleWithSAML) => self.assume_with_token(r, "SAMLAssertion"),
+            Some(Operation::AssumeRoot) => self.assume_root(r),
             Some(Operation::GetSessionToken) => self.get_session_token(r),
             Some(Operation::GetFederationToken) => self.get_federation_token(r),
             Some(Operation::GetAccessKeyInfo) => self.get_access_key_info(r),
@@ -152,6 +153,24 @@ impl Core {
             "AssumedRoleUser": {"AssumedRoleId": s.id, "Arn": format!("arn:aws:sts::{}:assumed-role/{name}/{session_name}", r.account())},
             "SourceIdentity": s.source_identity,
         }))
+    }
+
+    /// `AssumeRoot`: short-lived credentials (at most 900 seconds) for the root of the target account, to do one privileged task.
+    /// Like the other soft-mode sessions it carries no policy of its own yet; the task policy is not evaluated.
+    fn assume_root(&self, r: &Req<'_>) -> Result<Value, ApiError> {
+        let target = r.s("TargetPrincipal");
+        let duration = r.int("DurationSeconds").unwrap_or(MIN_SECS);
+        let s = self.session(
+            Who {
+                kind: SessionKind::Role,
+                subject: &format!("arn:aws:iam::{target}:root"),
+                name: "root",
+                id: format!("{target}:root"),
+                secs: duration,
+            },
+            r,
+        )?;
+        Ok(json!({"Credentials": self.credentials(&s), "SourceIdentity": s.source_identity}))
     }
 
     /// `AssumeRoleWithWebIdentity` and `AssumeRoleWithSAML`: the token or assertion is not checked (signatures are not validated); the

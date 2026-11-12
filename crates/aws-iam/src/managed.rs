@@ -68,7 +68,7 @@ impl Core {
     }
 
     /// How many entities have the policy attached, and how many use it as a boundary.
-    fn uses(&self, arn: &str) -> (usize, usize) {
+    pub(crate) fn uses(&self, arn: &str) -> (usize, usize) {
         let attached = self
             .entities
             .iter()
