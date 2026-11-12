@@ -15,5 +15,11 @@ pub const WATCHABLE: &[&str] = &[LIVE_WIRE, TOPIC_WIRE, GROUP_WIRE];
 pub const LIVE_IDS: &[&str] = &[LIVE_WIRE];
 /// What a topic's wire page watches.
 pub const TOPIC_WIRE_IDS: &[&str] = &[TOPIC_WIRE];
+/// What a topic's Messages page watches: its own two and the dock.
+pub const TOPIC_DETAIL_IDS: &[&str] = &[
+    crate::pages::topics::TOPIC_SENTENCE,
+    crate::pages::topics::MESSAGES_FRAGMENT,
+    TOPIC_WIRE,
+];
 /// What a group's wire page watches.
 pub const GROUP_WIRE_IDS: &[&str] = &[GROUP_WIRE];

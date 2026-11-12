@@ -72,7 +72,7 @@ pub fn topic_dock(
             div class="wire-dock" data-extra="wire-dock" {
                 div class="row sb" {
                     div {
-                        h2 { "On the wire: " (topic) }
+                        h2 { "On the wire" @if expanded { ": " (topic) } }
                         p class="lede" { "Client requests that touched this topic, " (reach_line(w, now_ms)) ". A Fetch that returns nothing is folded." }
                     }
                     @if expanded { a class="btn sm" href=(t) { "Collapse to the dock" } }

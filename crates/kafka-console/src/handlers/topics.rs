@@ -126,6 +126,18 @@ async fn messages_response(s: Shared, name: String, query: Option<String>) -> Re
     let q = view.query.to_query();
     let main = page::messages_page(&view, &s.base, &s.source.listen(), &q);
     let last = state_title(&view);
+    // The plain Messages page carries the topic's wire dock (slice 9e): the last requests that touched it.
+    let docked = last.is_none()
+        && !view.head.is_empty()
+        && view.head.offline().is_empty()
+        && view.query.reading == crate::model::Reading::Uncommitted
+        && !view.query.filtered();
+    let main = if docked {
+        let (rows, window, now) = s.source.topic_wire(&name).await;
+        maud::html! { (main) (crate::pages::live::topic_dock(&name, &rows, &window, now, &s.base, false)) }
+    } else {
+        main
+    };
     let t = page::topic_url(&s.base, &name);
     let t = s.base.strip(&t).unwrap_or("/topics").to_owned();
     let shown = view.head.name.clone();
@@ -146,7 +158,11 @@ async fn messages_response(s: Shared, name: String, query: Option<String>) -> Re
             Rail::Resources,
             &title,
             &steps,
-            s.source.watching(TOPIC_IDS),
+            s.source.watching(if docked {
+                crate::live_ids::TOPIC_DETAIL_IDS
+            } else {
+                TOPIC_IDS
+            }),
             main,
         )
         .await,

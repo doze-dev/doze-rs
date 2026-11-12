@@ -307,6 +307,21 @@ pub fn request(which: &str) -> Option<(WireDetail, RequestLimits)> {
     }
 }
 
+/// The drawer of the row with this id in the world's tape (any row of the steady tape; 99 is the fenced producer).
+#[must_use]
+pub fn request_by_id(id: u64) -> Option<(WireDetail, RequestLimits)> {
+    if id == 99 {
+        return request("fenced");
+    }
+    let row = steady_rows().into_iter().find(|r| r.id == id)?;
+    request(match row.code {
+        87 => "refused",
+        10 => "too-large",
+        _ if row.api == "Fetch" => "detail",
+        _ => return Some((detail_of(row, |_| {}), RequestLimits::default())),
+    })
+}
+
 fn fenced() -> WireDetail {
     let row = wr(&Spec {
         id: 99,

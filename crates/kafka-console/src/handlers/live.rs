@@ -63,8 +63,17 @@ fn fragment_or_page(
 }
 
 /// `/live/{id}`: one request in a drawer over the tape; which drawer, the data chooses.
-pub async fn request(State(s): State<Shared>, Path(id): Path<u64>, headers: HeaderMap) -> Response {
-    let Some((d, limits)) = s.source.request(id).await else {
+pub async fn request(
+    State(s): State<Shared>,
+    Path(id): Path<String>,
+    headers: HeaderMap,
+) -> Response {
+    // An id is a number; anything else is a request that is not on the tape.
+    let found = match id.parse::<u64>() {
+        Ok(id) => s.source.request(id).await,
+        Err(_) => None,
+    };
+    let Some((d, limits)) = found else {
         let main = html! { div class="empty" { h2 { "That request is no longer on the wire" } p { "The recorder keeps a bounded tape, and this row has fallen off it. " a class="lnk" href=(s.base.url("/live")) { "Back to Live" } "." } } };
         let page = s
             .document(

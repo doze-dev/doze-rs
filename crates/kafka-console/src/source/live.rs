@@ -73,16 +73,7 @@ impl Source {
                 Some((d, limits))
             }
             #[cfg(any(test, feature = "examples"))]
-            Self::Fixture => {
-                let which = match id {
-                    1 => "detail",
-                    2 => "refused",
-                    3 => "fenced",
-                    4 => "too-large",
-                    _ => return None,
-                };
-                crate::fixtures_live::request(which)
-            }
+            Self::Fixture => crate::fixtures_live::request_by_id(id),
         }
     }
 

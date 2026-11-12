@@ -148,7 +148,7 @@ pub const ROUTES: &[Route] = &[
     ),
     get("/live/clients", &["live-clients"], Handler::LiveClients),
     get(
-        "/live/{id}",
+        "/live/{request}",
         &[
             "request-detail",
             "request-refused",

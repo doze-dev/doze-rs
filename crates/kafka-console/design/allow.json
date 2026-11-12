@@ -224,66 +224,6 @@
     "expires": "close"
   },
   {
-    "board": "topic-detail",
-    "field": "link",
-    "selector": "topic-wire",
-    "reason": "p9b-read: the wire recorder (slice 9e) does not exist yet, so the 'On the wire' dock is not drawn (debt J21).",
-    "expires": "9e"
-  },
-  {
-    "board": "topic-detail",
-    "field": "heading",
-    "selector": "h2 On the wire",
-    "reason": "p9b-read: the wire recorder (slice 9e) does not exist yet, so the 'On the wire' dock is not drawn (debt J21).",
-    "expires": "9e"
-  },
-  {
-    "board": "topic-detail",
-    "field": "table",
-    "reason": "p9b-read: the wire recorder (slice 9e) does not exist yet, so the 'On the wire' dock is not drawn (debt J21).",
-    "expires": "9e"
-  },
-  {
-    "board": "topic-detail",
-    "field": "table.col",
-    "reason": "p9b-read: the wire recorder (slice 9e) does not exist yet, so the 'On the wire' dock is not drawn (debt J21).",
-    "expires": "9e"
-  },
-  {
-    "board": "topic-detail",
-    "field": "table.rows",
-    "reason": "p9b-read: the wire recorder (slice 9e) does not exist yet, so the 'On the wire' dock is not drawn (debt J21).",
-    "expires": "9e"
-  },
-  {
-    "board": "topic-detail",
-    "field": "button",
-    "selector": "Expand the wire [sm] -> to:topic-wire",
-    "reason": "p9b-read: the wire recorder (slice 9e) does not exist yet, so the 'On the wire' dock is not drawn (debt J21).",
-    "expires": "9e"
-  },
-  {
-    "board": "topic-detail",
-    "field": "extra",
-    "selector": "wire-dock",
-    "reason": "p9b-read: the wire recorder (slice 9e) does not exist yet, so the 'On the wire' dock is not drawn (debt J21).",
-    "expires": "9e"
-  },
-  {
-    "board": "topic-detail",
-    "field": "state",
-    "selector": "rw ok in rows",
-    "reason": "p9b-read: the wire recorder (slice 9e) does not exist yet, so the 'On the wire' dock is not drawn (debt J21).",
-    "expires": "9e"
-  },
-  {
-    "board": "topic-detail",
-    "field": "state",
-    "selector": "st refused in rows",
-    "reason": "p9b-read: the wire recorder (slice 9e) does not exist yet, so the 'On the wire' dock is not drawn (debt J21).",
-    "expires": "9e"
-  },
-  {
     "board": "topic-messages-filtered",
     "field": "link",
     "selector": "topic-messages-empty|topic-messages-filtered|topic-readcommitted",
@@ -1437,25 +1377,9 @@
   },
   {
     "board": "live-paused",
-    "field": "heading",
-    "selector": "h2 The wire, as of 22:14:23.6",
-    "reason": "the pause time in the heading is the moment of this page, not the board's",
-    "render": "live",
-    "expires": "close"
-  },
-  {
-    "board": "live-paused",
     "field": "state",
     "selector": "st refused in rows",
     "reason": "live data: what a real broker's traffic made of this part (the states and names in rows, the topic a request touched, the time of a pause) is data, and the live render compares structure only; the fixture render holds the board's own",
-    "render": "live",
-    "expires": "close"
-  },
-  {
-    "board": "live-paused",
-    "field": "heading",
-    "selector": "h2 The wire, as of 14:11:55.6",
-    "reason": "the pause time in the heading is the moment of this page, not the board's",
     "render": "live",
     "expires": "close"
   },
@@ -1502,6 +1426,100 @@
     "field": "state",
     "selector": "st warn",
     "reason": "live data: what a real broker's traffic made of this part (the states and names in rows, the topic a request touched, the time of a pause) is data, and the live render compares structure only; the fixture render holds the board's own",
+    "render": "live",
+    "expires": "close"
+  },
+  {
+    "board": "live-paused",
+    "field": "heading",
+    "render": "live",
+    "reason": "live data: the time of the pause in the heading is the moment of this page, not the board's",
+    "expires": "close"
+  },
+  {
+    "board": "topic-detail",
+    "field": "link",
+    "selector": "request-detail|request-fenced|request-refused|request-too-large",
+    "reason": "improvement: every row's time is a link to its drawer (the board's dock rows are not links), so any request can be opened",
+    "render": "fixture",
+    "expires": "close"
+  },
+  {
+    "board": "topic-detail",
+    "field": "link",
+    "selector": "live-load|live-paused|live-quiet|live-wire",
+    "reason": "improvement: client, API and topic cells link to the Live page filtered by them; the filters live in the address so they can be shared and survive a reload",
+    "expires": "close"
+  },
+  {
+    "board": "topic-detail",
+    "field": "table",
+    "selector": "wire",
+    "reason": "live data: the live world's topic has no client request on the wire, so the dock says so and draws no table",
+    "render": "live",
+    "expires": "close"
+  },
+  {
+    "board": "topic-detail",
+    "field": "table.col",
+    "selector": "Time",
+    "reason": "live data: the live world's topic has no client request on the wire, so the dock says so and draws no table",
+    "render": "live",
+    "expires": "close"
+  },
+  {
+    "board": "topic-detail",
+    "field": "table.col",
+    "selector": "Client",
+    "reason": "live data: the live world's topic has no client request on the wire, so the dock says so and draws no table",
+    "render": "live",
+    "expires": "close"
+  },
+  {
+    "board": "topic-detail",
+    "field": "table.col",
+    "selector": "API",
+    "reason": "live data: the live world's topic has no client request on the wire, so the dock says so and draws no table",
+    "render": "live",
+    "expires": "close"
+  },
+  {
+    "board": "topic-detail",
+    "field": "table.col",
+    "selector": "Topic and partition",
+    "reason": "live data: the live world's topic has no client request on the wire, so the dock says so and draws no table",
+    "render": "live",
+    "expires": "close"
+  },
+  {
+    "board": "topic-detail",
+    "field": "table.col",
+    "selector": "Result",
+    "reason": "live data: the live world's topic has no client request on the wire, so the dock says so and draws no table",
+    "render": "live",
+    "expires": "close"
+  },
+  {
+    "board": "topic-detail",
+    "field": "table.col",
+    "selector": "Took",
+    "reason": "live data: the live world's topic has no client request on the wire, so the dock says so and draws no table",
+    "render": "live",
+    "expires": "close"
+  },
+  {
+    "board": "topic-detail",
+    "field": "state",
+    "selector": "rw ok in rows",
+    "reason": "live data: the live world's topic has no client request on the wire, so the dock says so and draws no table",
+    "render": "live",
+    "expires": "close"
+  },
+  {
+    "board": "topic-detail",
+    "field": "state",
+    "selector": "st refused in rows",
+    "reason": "live data: the live world's topic has no client request on the wire, so the dock says so and draws no table",
     "render": "live",
     "expires": "close"
   }
