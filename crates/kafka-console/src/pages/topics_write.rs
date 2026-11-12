@@ -40,7 +40,10 @@ fn topic_url(base: &Base, topic: &str, tail: &str) -> String {
 pub fn no_topic(topic: &str, base: &Base) -> Markup {
     html! {
         (page_header("No such topic", html! { p class="sub" { "There is no topic called " span class="mono" { (topic) } "." } }, html! {}))
-        div class="row" { (link(&base.url("/topics"), Variant::Primary, Size::Normal, Some(Glyph::ArrowR), "Back to topics")) }
+        div class="row" {
+            (link(&base.url("/topics"), Variant::Primary, Size::Normal, Some(Glyph::ArrowR), "Back to topics"))
+            (link(&base.url("/jump"), Variant::Plain, Size::Normal, Some(Glyph::Search), "Find a topic"))
+        }
     }
 }
 

@@ -199,6 +199,7 @@
     } catch (err) { location.href = url; return; }
     if (ovl) return replaceOverlay(el, push ? url : null);
     mount(el, opener, true);
+    if (el.hasAttribute('data-transient')) jumpSelect(0);
     if (push) { history.pushState({ ovl: 1 }, '', url); ovl.pushed = true; }
   }
   // A page came back instead of an overlay (the result of a write): it replaces this one, softly where the browser can.

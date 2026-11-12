@@ -56,6 +56,8 @@ describe("the jump palette", () => {
     expect(p.history.pushes).toEqual([]);
     expect(p.document.activeElement?.id).toBe("jump-q");
     expect(el(p, ".root:not([data-overlay])").hasAttribute("inert")).toBe(true);
+    // The first topic is already the one Enter goes to.
+    expect(el(p, ".jump-list a.sel").textContent).toBe("orders");
     const q = await boot(PAGE);
     q.autoAnswer(() => ({ headers: OVL, body: palette(["orders"]) }));
     key(q, "k", { ctrlKey: true }, q.document.body);

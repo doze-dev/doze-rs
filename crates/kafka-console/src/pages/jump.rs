@@ -58,14 +58,16 @@ pub fn jump_overlay(names: &[String], total: usize, base: &Base) -> Markup {
 pub fn jump_page(names: &[String], total: usize, filter: &str, base: &Base) -> Markup {
     html! {
         (page_header("Jump to a topic", html! { p class="sub" { "Every topic of this broker, by name. A topic page has its Messages, Partitions and the rest." } }, html! {}))
-        form class="toolbar" method="get" action=(base.url("/jump")) role="search" {
+        form class="toolbar jump-form" method="get" action=(base.url("/jump")) role="search" {
             div class="input mono" {
                 (glyph(Glyph::Search, 16, ""))
                 input id="q" type="text" name="q" value=(filter) placeholder="Part of a name" aria-label="Part of a topic name";
             }
             button class="btn" type="submit" { "Filter" }
         }
-        @if names.is_empty() { p class="help" { "No topic is named like that." } } @else { (list(names, base)) }
-        (more(total))
+        div class="jump-page" {
+            @if names.is_empty() { p class="help" { "No topic is named like that." } } @else { (list(names, base)) }
+            (more(total))
+        }
     }
 }

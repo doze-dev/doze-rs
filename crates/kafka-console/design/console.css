@@ -76,6 +76,9 @@ html:has(.ovl){overflow:hidden}
 }
 @keyframes vt-out{to{opacity:0}}
 @keyframes vt-in{from{opacity:0;transform:translateY(4px)}}
+/* A field shows its focus on its box (the kit's own input), once, not twice. */
+.input:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px rgba(122,79,224,.12)}
+.input input:focus-visible,.input textarea:focus-visible,.input select:focus-visible{outline:0}
 /* The jump palette (an overlay with no page of its own): a field, the topics, one line of keys. */
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .ovl[data-transient] .modal{width:560px;padding:20px 20px 16px}
@@ -88,6 +91,9 @@ html:has(.ovl){overflow:hidden}
 .jump-item:hover,.jump-item.sel{background:var(--sel);color:var(--bright)}
 .jump-item.sel svg{color:var(--accent)}
 .jump-empty{padding:8px 12px}
+.jump-form .input{width:auto;flex:0 1 420px}
+.jump-page{max-width:520px}
+.jump-page .jump-list{max-height:none}
 .jump-keys{margin:12px 0 0;padding:10px 12px 0;border-top:1px solid var(--line);display:flex;align-items:center;gap:6px}
 .jump-keys kbd:not(:first-child){margin-left:10px}
 /* Hover, focus and pressed states answer in 120 ms (colour, border and shadow only). */

@@ -218,6 +218,9 @@ pub(super) fn txn_callout(h: &TopicHead, base: &Base) -> Markup {
 pub fn unknown(name: &str, base: &Base) -> Markup {
     html! {
         (page_header("No such topic", html! { p class="sub" { "There is no topic called " span class="mono" { (name) } ", or the console may not describe it." } }, html! {}))
-        div class="row" { (link(&base.url("/topics"), Variant::Primary, Size::Normal, Some(Glyph::ArrowR), "Back to Topics")) }
+        div class="row" {
+            (link(&base.url("/topics"), Variant::Primary, Size::Normal, Some(Glyph::ArrowR), "Back to Topics"))
+            (link(&base.url("/jump"), Variant::Plain, Size::Normal, Some(Glyph::Search), "Find a topic"))
+        }
     }
 }
