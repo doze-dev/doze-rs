@@ -2322,5 +2322,259 @@
     "selector": "h2 This log has nothing in it",
     "reason": "[p9g] The empty state's title is an h2 in the page and an h3 on the canvas (an h3 straight under the h1 skips a level); the CSS styles both alike.",
     "expires": "close"
+  },
+  {
+    "board": "settings-home",
+    "field": "link",
+    "selector": "broker-config-refused",
+    "reason": "[p9h] The board's link to the refused state is a POST: it asks the broker for a dry run (validate_only) of num.partitions and shows Kafka's real answer, so it is a button of a form, not an address (a GET never asks the broker to alter anything).",
+    "expires": "close"
+  },
+  {
+    "board": "settings-home",
+    "field": "button",
+    "selector": "in Kafka's words [-] -> submit",
+    "reason": "[p9h] The link to the refused state, as a button of a one-field form that posts the dry run (see the link entry).",
+    "expires": "close"
+  },
+  {
+    "board": "broker-config-edit",
+    "field": "button",
+    "selector": "All brokers [-] -> ui:select",
+    "reason": "[p9h] Applies to, Name matches and Permission are radio inputs drawn as the segmented control: a button of the segment would do nothing without a script.",
+    "expires": "close"
+  },
+  {
+    "board": "broker-config-edit",
+    "field": "button",
+    "selector": "This broker (1) [-] -> ui:select",
+    "reason": "[p9h] Applies to, Name matches and Permission are radio inputs drawn as the segmented control: a button of the segment would do nothing without a script.",
+    "expires": "close"
+  },
+  {
+    "board": "broker-config-edit",
+    "field": "link",
+    "selector": "broker-config-saved",
+    "reason": "[p9h] A result state is the answer to the form's POST, not an address: Save is a submit button that carries data-op, and the saved state is what it answers.",
+    "expires": "close"
+  },
+  {
+    "board": "broker-config-edit",
+    "field": "link",
+    "selector": "broker-config-refused",
+    "reason": "[p9h] The board's link to the refused state is a POST: it asks the broker for a dry run (validate_only) of num.partitions and shows Kafka's real answer, so it is a button of a form, not an address (a GET never asks the broker to alter anything).",
+    "expires": "close"
+  },
+  {
+    "board": "broker-config-edit",
+    "field": "button",
+    "selector": "what Kafka says [-] -> submit",
+    "reason": "[p9h] The link to the refused state, as a submit button that posts the dry run (see the link entry).",
+    "expires": "close"
+  },
+  {
+    "board": "broker-config-edit",
+    "field": "button",
+    "selector": "Check [-] -> submit",
+    "reason": "improvement: Check sends the same call with validate_only and shows what Kafka would say before anything is changed (the topic config dialogs of 9d have it, and a broker config is the one a mistake costs most). It also moves the select to the config chosen, with no script.",
+    "expires": "close"
+  },
+  {
+    "board": "broker-config-refused",
+    "field": "title",
+    "reason": "[p9h] The gate takes a state's title from its parent (Edit log.retention.ms); the page's breadcrumb says where the person is: Settings, then Refused.",
+    "expires": "close"
+  },
+  {
+    "board": "broker-config-saved",
+    "field": "title",
+    "reason": "[p9h] The gate takes a state's title from its parent (Edit log.retention.ms); the page's breadcrumb says where the person is: Settings, then Saved.",
+    "expires": "close"
+  },
+  {
+    "board": "access-open",
+    "field": "button",
+    "selector": "See the page with security on [-] -> to:access-secured",
+    "reason": "[p9h] The button is a canvas device that shows a second broker. One address serves both boards by data (a broker with security on shows access-secured), so there is no page to go to.",
+    "expires": "close"
+  },
+  {
+    "board": "access-open",
+    "field": "link",
+    "selector": "access-secured",
+    "reason": "[p9h] See the button entry: the secured board is the same address with another broker.",
+    "expires": "close"
+  },
+  {
+    "board": "access-open",
+    "field": "extra",
+    "selector": "new",
+    "reason": "[p9h] The New tag marks a board that is new on the canvas (grounding); a page does not carry a badge for what the canvas added.",
+    "expires": "close"
+  },
+  {
+    "board": "access-open",
+    "field": "button",
+    "selector": "Create ACL [pri] -> to:access-acl-create",
+    "reason": "improvement: an open broker takes ACLs too (they bind User:ANONYMOUS, and the first one turns the default off for its resource), so Create ACL is offered on both; the board draws it only for the secured broker.",
+    "expires": "close"
+  },
+  {
+    "board": "access-open",
+    "field": "link",
+    "selector": "access-acl-create",
+    "reason": "improvement: see the Create ACL button entry.",
+    "expires": "close"
+  },
+  {
+    "board": "access-open",
+    "field": "dt",
+    "selector": "Who can use it",
+    "reason": "improvement: the console card says in a row of its own that anyone who can reach the console acts as User:__console (there is no login), which the board leaves to the lede.",
+    "expires": "close"
+  },
+  {
+    "board": "access-secured",
+    "field": "dt",
+    "selector": "Who can use it",
+    "reason": "improvement: the console card says in a row of its own that anyone who can reach the console acts as User:__console (there is no login), which the board leaves to the lede.",
+    "expires": "close"
+  },
+  {
+    "board": "access-secured",
+    "field": "heading",
+    "selector": "h2 What the broker said at start",
+    "reason": "[p9h] The board writes 'said' for the secured broker and 'says' for the open one; the page is one address and says 'says' of every broker.",
+    "expires": "close"
+  },
+  {
+    "board": "access-secured",
+    "field": "heading",
+    "selector": "h2 What the broker says at start",
+    "reason": "[p9h] See the other heading entry: one word apart.",
+    "expires": "close"
+  },
+  {
+    "board": "access-secured",
+    "field": "card",
+    "selector": "What the broker said at start",
+    "reason": "[p9h] See the heading entry: the same card, one word apart.",
+    "expires": "close"
+  },
+  {
+    "board": "access-secured",
+    "field": "card",
+    "selector": "What the broker says at start",
+    "reason": "[p9h] See the heading entry: the same card, one word apart.",
+    "expires": "close"
+  },
+  {
+    "board": "access-secured",
+    "field": "table.col",
+    "selector": "table#0: Iterations",
+    "reason": "[p9h] The iteration count of a credential is part of one: no code of the console reads it, so no part of a credential can reach a page. The users table lists the name, where it came from and the mechanisms.",
+    "expires": "close"
+  },
+  {
+    "board": "access-secured",
+    "field": "button",
+    "selector": "Delete [sm] -> to:access-acl-delete",
+    "reason": "[p9h] A Delete is a link that opens the dialog (data-dialog) and carries data-op=DeleteAcls on every row; the board draws a link on the first row and a button on the others.",
+    "expires": "close"
+  },
+  {
+    "board": "access-secured",
+    "field": "button",
+    "selector": "Delete [sm] -> op:DeleteAcls",
+    "reason": "[p9h] A Delete is a link that opens the dialog (data-dialog) and carries data-op=DeleteAcls on every row; the board draws a link on the first row and a button on the others.",
+    "expires": "close"
+  },
+  {
+    "board": "access-secured",
+    "field": "op",
+    "selector": "DeleteAcls",
+    "reason": "[p9h] See the Delete entries: every row's Delete names its API, eight of eight.",
+    "expires": "close"
+  },
+  {
+    "board": "access-secured",
+    "field": "note",
+    "selector": "callout: A different instance from the rest of this canvas.",
+    "reason": "[p9h] The 'A different instance from the rest of this canvas' callout explains to a reader of the canvas why this board has another top bar chip; a page is of one broker.",
+    "expires": "close"
+  },
+  {
+    "board": "access-secured",
+    "field": "extra",
+    "selector": "new",
+    "reason": "[p9h] The New tag marks a board that is new on the canvas (grounding); a page does not carry a badge for what the canvas added.",
+    "expires": "close"
+  },
+  {
+    "board": "access-secured",
+    "field": "extra",
+    "selector": "teaching",
+    "reason": "[p9h] The console card carries its teaching text in both states, where the board has it on the open one only.",
+    "expires": "close"
+  },
+  {
+    "board": "access-acl-create",
+    "field": "button",
+    "selector": "Literal [-] -> ui:tab",
+    "reason": "[p9h] Applies to, Name matches and Permission are radio inputs drawn as the segmented control: a button of the segment would do nothing without a script.",
+    "expires": "close"
+  },
+  {
+    "board": "access-acl-create",
+    "field": "button",
+    "selector": "Prefixed [-] -> ui:tab",
+    "reason": "[p9h] Applies to, Name matches and Permission are radio inputs drawn as the segmented control: a button of the segment would do nothing without a script.",
+    "expires": "close"
+  },
+  {
+    "board": "access-acl-create",
+    "field": "button",
+    "selector": "Allow [-] -> ui:tab",
+    "reason": "[p9h] Applies to, Name matches and Permission are radio inputs drawn as the segmented control: a button of the segment would do nothing without a script.",
+    "expires": "close"
+  },
+  {
+    "board": "access-acl-create",
+    "field": "button",
+    "selector": "Deny [-] -> ui:tab",
+    "reason": "[p9h] Applies to, Name matches and Permission are radio inputs drawn as the segmented control: a button of the segment would do nothing without a script.",
+    "expires": "close"
+  },
+  {
+    "board": "settings-home",
+    "field": "state",
+    "selector": "st ok",
+    "reason": "[p9h] The board draws the Last stop of a data directory that was stopped cleanly (st ok); a broker with a new data directory, as the test one is, has no earlier stop (st idle, None yet).",
+    "expires": "close",
+    "render": "live"
+  },
+  {
+    "board": "settings-home",
+    "field": "state",
+    "selector": "st idle",
+    "reason": "[p9h] See the st ok entry.",
+    "expires": "close",
+    "render": "live"
+  },
+  {
+    "board": "broker-config-edit",
+    "field": "button",
+    "selector": "This broker (#) [-] -> ui:select",
+    "reason": "[p9h] Applies to, Name matches and Permission are radio inputs drawn as the segmented control: a button of the segment would do nothing without a script.",
+    "expires": "close",
+    "render": "live"
+  },
+  {
+    "board": "access-secured",
+    "field": "note",
+    "selector": "callout",
+    "reason": "[p9h] The canvas callout (see the fixture entry), as the live render prints it.",
+    "expires": "close",
+    "render": "live"
   }
 ]

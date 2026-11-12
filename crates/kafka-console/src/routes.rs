@@ -73,6 +73,16 @@ pub enum Handler {
     TopicProducers,
     TopicTxn,
     TopicTxnHeld,
+    /// Slice 9h, Settings: the page, the edit dialog of a dynamic broker config and its POST.
+    Settings,
+    SettingsEditForm,
+    SettingsEdit,
+    /// Slice 9h, Access: the page, the Create ACL and Delete ACL dialogs and the POST of each.
+    Access,
+    AclCreateForm,
+    AclCreate,
+    AclDeleteForm,
+    AclDelete,
     /// A screen of the design that a later slice builds: a page that says so (title).
     Planned(&'static str),
 }
@@ -369,13 +379,37 @@ pub const ROUTES: &[Route] = &[
         &["group-story", "story-rebalance", "story-flapping"],
         Handler::Planned("Story"),
     ),
-    get("/access", &["access-open"], Handler::Planned("Access")),
     get("/lab", &["lab-home"], Handler::Planned("Lab")),
+    // Slice 9h, Settings and Access (p9h).
+    get("/settings", &["settings-home"], Handler::Settings),
     get(
-        "/settings",
-        &["settings-home"],
-        Handler::Planned("Settings"),
+        "/settings/config/edit",
+        &["broker-config-edit"],
+        Handler::SettingsEditForm,
     ),
+    write(
+        "/settings/config/edit",
+        "IncrementalAlterConfigs",
+        &["broker-config-saved", "broker-config-refused"],
+        Handler::SettingsEdit,
+    ),
+    get(
+        "/access",
+        &["access-open", "access-secured"],
+        Handler::Access,
+    ),
+    get(
+        "/access/acls/new",
+        &["access-acl-create"],
+        Handler::AclCreateForm,
+    ),
+    write("/access/acls/new", "CreateAcls", &[], Handler::AclCreate),
+    get(
+        "/access/acls/delete",
+        &["access-acl-delete"],
+        Handler::AclDeleteForm,
+    ),
+    write("/access/acls/delete", "DeleteAcls", &[], Handler::AclDelete),
 ];
 
 /// The paths a row is registered under for a prefix: the root is `/` and, under a prefix, both `/k` and `/k/`.

@@ -58,3 +58,18 @@ pub use groups::{
     GroupsView, LagRow, LagState, LagTopic, OffsetDeleteView, RefusalStep, ResetMode, ResetRow,
     ResetView, RowLag,
 };
+
+mod access;
+mod settings;
+
+pub use access::{
+    AccessAcls, AccessAuth, AccessAuthz, AccessConsole, AccessFrom, AccessTls, AccessUser,
+    AccessView, AccessWarning, AclCreateResult, AclCreateView, AclDeleteResult, AclDeleteView,
+    AclEntry, AclInput, AclPattern, AclPermission,
+};
+pub use settings::{
+    SettingsApi, SettingsChecked, SettingsConfigRow, SettingsConfigs, SettingsData,
+    SettingsEditView, SettingsFlag, SettingsHead, SettingsInterval, SettingsIntervals,
+    SettingsLine, SettingsProfile, SettingsRefused, SettingsResult, SettingsSaved, SettingsScope,
+    SettingsTeach, SettingsView, SettingsWeight,
+};

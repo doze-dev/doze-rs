@@ -65,6 +65,14 @@ fn method_router(route: &Route) -> MethodRouter<Shared> {
         (Handler::TopicProducers, _) => get(handlers::topic_producers),
         (Handler::TopicTxn, _) => get(handlers::topic_txn),
         (Handler::TopicTxnHeld, _) => get(handlers::topic_txn_held),
+        (Handler::Settings, _) => get(handlers::settings),
+        (Handler::SettingsEditForm, _) => get(handlers::settings_edit_form),
+        (Handler::SettingsEdit, _) => post(handlers::settings_edit),
+        (Handler::Access, _) => get(handlers::access),
+        (Handler::AclCreateForm, _) => get(handlers::acl_create_form),
+        (Handler::AclCreate, _) => post(handlers::acl_create),
+        (Handler::AclDeleteForm, _) => get(handlers::acl_delete_form),
+        (Handler::AclDelete, _) => post(handlers::acl_delete),
         (Handler::Planned(title), _) => get(
             move |axum::extract::State(s): axum::extract::State<Shared>| async move {
                 handlers::planned(s, title).await

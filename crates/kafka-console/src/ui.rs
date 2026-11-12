@@ -12,6 +12,7 @@ pub mod glyph_extra;
 pub mod glyph_groups;
 pub mod glyph_live;
 pub mod glyph_log;
+pub mod glyph_settings;
 pub mod kafka;
 pub mod layout;
 pub mod notice;

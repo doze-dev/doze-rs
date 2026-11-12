@@ -13,6 +13,7 @@ use crate::ui::shell::Chrome;
 
 mod groups;
 mod live;
+mod settings;
 mod topics;
 
 pub use live::is_quiet;
@@ -25,6 +26,8 @@ pub struct Live {
     pub prober: Prober,
     /// What the broker was asked, if the console was started with a recorder (slice 9e).
     pub recorder: Option<std::sync::Arc<crate::recorder::Recorder>>,
+    /// The flags and the rest of how the binary started the broker (empty where not known).
+    pub start: crate::facts_start::StartFacts,
 }
 
 impl Live {
@@ -36,7 +39,15 @@ impl Live {
             facts,
             prober,
             recorder: None,
+            start: crate::facts_start::StartFacts::default(),
         }
+    }
+
+    /// The same, told how the binary started the broker: the Settings and Access pages say it.
+    #[must_use]
+    pub fn with_start(mut self, start: crate::facts_start::StartFacts) -> Self {
+        self.start = start;
+        self
     }
 
     async fn access(&self) -> Access {

@@ -563,3 +563,110 @@ Tagged in the code (`pages/log.rs`, `pages/producers.rs`) and in `debt.md` J231 
 - "On the wire" (the last requests that touched the topic) and "Seen as" (the client name of a producer): the request recorder, slice 9e.
 - "Flushed through offset N": the log does not keep how far its flush got; the Durability card says how the log is flushed and what the last stop left.
 - The first entries of a segment's index; the epoch history of a producer ("raised from 1 at 17:14:11"); the offsets a transaction staged; whether the producer or the timeout aborted.
+
+## Settings and Access (slice 9h, CON-550 to CON-581)
+
+The Settings page (`/settings`, its edit dialog `/settings/config/edit` and the saved and refused answers of its POST) and the Access page (`/access`, the Create ACL and Delete ACL dialogs and their POSTs). Boards: `settings-home`, `broker-config-edit`, `broker-config-refused`, `broker-config-saved`, `access-open`, `access-secured`, `access-acl-create`, `access-acl-delete`. Debt rows J261 to J278.
+
+## CON-550. The Settings boards render, whole, and are written for the board-diff
+Test: `tests/boards_settings::every_board_of_the_slice_renders_and_is_written_for_the_tool`.
+
+## CON-551. The Settings page has the sections of its board, in order, with the board's numbers
+Broker configs, Version profile, Intervals, Weight, Data, Flags. Test: `tests/boards_settings::the_settings_page_has_the_parts_of_its_board_in_order`.
+
+## CON-552. The edit dialog is the board's, over the Settings page
+Config, Applies to, New value with the teaching (Now, Allowed, Takes effect, Who sees it), the call. Test: `tests/boards_settings::the_edit_dialog_is_the_boards_over_its_parent`.
+
+## CON-553. The saved and refused states carry their boards' words
+Test: `tests/boards_settings::the_saved_and_refused_states_carry_their_boards_words`.
+
+## CON-554. The Access boards render, whole, and are written for the board-diff
+Test: `tests/boards_access::every_board_of_the_slice_renders_and_is_written_for_the_tool`.
+
+## CON-555. The open Access page has the parts of its board, in order
+Test: `tests/boards_access::the_open_page_has_the_parts_of_its_board_in_order`.
+
+## CON-556. The secured Access page has the parts of its board, in order, with eight ACLs and no iteration count
+Test: `tests/boards_access::the_secured_page_has_the_parts_of_its_board_in_order`.
+
+## CON-557. The two ACL dialogs are the boards', over the Access page
+Test: `tests/boards_access::the_two_dialogs_are_the_boards_over_their_parent`.
+
+## CON-558. The page says what a secured broker holds, by name only
+Mechanisms, the user from flags and the stored one (`Flags` and `Stored`), the super users without the console's own, the default, the failed-login delay. Test: `tests/live_access::the_page_says_what_a_secured_broker_holds_by_name_only`.
+
+## CON-559. An ACL made and deleted through the pages is seen through DescribeAcls
+Create is CreateAcls; Delete is DeleteAcls with every field of the one ACL, so no other can match; a second delete says the ACL is gone. Test: `tests/live_access::an_acl_made_and_deleted_through_the_pages_is_seen_through_describeacls`.
+
+## CON-560. Each refusal is Kafka's own, and a missing field asks the broker nothing
+INVALID_REQUEST with the broker's sentence (a principal with no colon, the CLUSTER resource's one name), CLUSTER_AUTHORIZATION_FAILED (31) for a caller that may not alter the cluster, for each write and for the page. Test: `tests/live_access::each_refusal_is_kafkas_own_and_a_missing_field_asks_the_broker_nothing`.
+
+## CON-561. Hostile ACL names are escaped and inject neither a header nor a line of the call
+Test: `tests/live_access::hostile_names_are_escaped_and_inject_nothing`.
+
+## CON-562. A GET of either page or dialog changes nothing
+Test: `tests/live_access::a_get_of_either_page_or_dialog_changes_nothing`.
+
+## CON-563. The console is a super user: a broker that denies by default still shows its page
+Test: `tests/live_access_secrets::the_console_is_a_super_user_so_a_denying_broker_still_shows_its_page`.
+
+## CON-564. No planted password, salt or key is in any page, fragment, stream or Debug
+A real SCRAM user from flags (planted password) and a stored one (planted salt and salted password), each secret in its text, hex and base64, and the stored and server keys read from the broker's own verifiers. Test: `tests/live_access_secrets::no_planted_password_salt_or_key_is_in_any_page_fragment_stream_or_debug`.
+
+## CON-565. The stream of a secured console carries ticks and nothing else
+Test: `tests/live_access_secrets::the_stream_of_a_secured_console_carries_ticks_and_nothing_else`.
+
+## CON-566. The Settings page lists the five, their sources and the intervals of this run, from the broker's own answers
+Test: `tests/live_settings::the_page_lists_the_five_with_their_sources_and_the_intervals_of_this_run`.
+
+## CON-567. A save is the call the dialog drew, and the broker keeps it for the scope chosen
+All brokers is the resource `""` (source 3), this broker its node id (source 2). Test: `tests/live_settings::a_save_is_the_call_the_dialog_drew_and_the_broker_keeps_it_for_the_scope_chosen`.
+
+## CON-568. A check changes nothing, and each refusal is Kafka's own
+Too small, not a number, a config that cannot change (a dry run, `validate_only`, asked by the link of the page), a forged key (always a dry run), an empty value (no call), the select moved (no call). Test: `tests/live_settings::a_check_changes_nothing_and_each_refusal_is_kafkas_own`.
+
+## CON-569. The rule the dialog teaches is the rule the broker holds
+The least value of each config is taken and one less is refused, by the broker. Test: `tests/live_settings_more::the_rule_the_dialog_teaches_is_the_rule_the_broker_holds`.
+
+## CON-570. Hostile text on Settings is escaped and cannot start a line of the call
+Test: `tests/live_settings_more::hostile_text_is_escaped_and_cannot_start_a_line_of_the_call`.
+
+## CON-571. A caller without rights is refused in Kafka's words, and the page still draws
+Test: `tests/live_settings_more::a_caller_without_rights_is_refused_in_kafkas_words_and_the_page_still_draws`.
+
+## CON-572. The Settings boards and the open Access board render from a real broker
+Written to `target/board-diff-live/` for the board-diff. Test: `tests/live_boards_settings_access::the_settings_boards_and_the_open_access_board_render_from_a_real_broker`.
+
+## CON-573. The secured Access board and the two ACL dialogs render from a real broker
+Test: `tests/live_boards_settings_access::the_secured_access_board_and_the_acl_dialogs_render_from_a_real_broker`.
+
+## CON-574. The flags table is clap's own list of flags
+A flag added to the command line is in the table with no change to it, and the test fails until the flag has a group (or is named as accepted and ignored). Test: `doze-kafka/src/facts/tests::the_table_is_exactly_the_list_of_flags_clap_has_less_the_ones_that_are_accepted_and_ignored`.
+
+## CON-575. A password and a key file are never in the table
+`--sasl-user` says how many were given; `--tls-key` says one was; a flag whose value is named like a secret that the table does not redact fails the test. Test: `a_password_and_a_key_file_are_never_in_the_table`, `every_flag_whose_value_is_named_like_a_secret_is_one_the_table_redacts`.
+
+## CON-576. What a delete comes to is decided by the broker's own rules
+The ACLs that would be left, judged by `kafka_auth::authz::Rules` (a DENY wins, an ALLOW implies Describe, an ACL for anybody else turns the default off): the board's case reads "User:orders is then refused: its next Produce is answered TOPIC_AUTHORIZATION_FAILED (29)". Test: `acl_words::tests::the_boards_delete_is_judged_as_the_board_says_it`.
+
+## CON-577. Every API a Kafka profile offers has a family on the version profile
+Test: `settings_words::tests::every_api_a_kafka_profile_offers_has_a_family_and_a_place_and_no_two_share_one`.
+
+## CON-578. The weight limits the page names are the ones weight.md writes
+Test: `settings_words::tests::the_limits_are_the_ones_weight_md_writes`.
+
+## CON-579. A start-up warning holds exactly when the broker would say it
+SEC-188 (console beyond loopback with SASL or TLS on), SEC-189 (SASL without TLS beyond loopback), SEC-191 (SASL with `--acl-default allow`). Test: `access_words::tests::each_warning_holds_exactly_when_the_broker_would_say_it_at_start`.
+
+## CON-580. The broker's view names users and super users and holds no secret
+`ConsoleView::access` (DESCRIBE on the cluster), `intervals` (DESCRIBE_CONFIGS) and `data_size`. Test: `view::tests::access_names_the_flag_users_and_the_super_users_and_never_what_they_log_in_with`.
+
+## CON-581. The writes the console issues are the ones the boards draw
+CreateAcls and DeleteAcls join the list. Test: `actions::tests::actions_match_boards`.
+
+### What these boards show that the broker cannot supply yet
+
+Tagged in the code and in `debt.md` J261 to J278.
+- "Today fulfilment speaks Fetch v12 and orders Produce v9" (the wire recorder, 9e), "its last round was on inventory.levels at 21:31" (the cleaner's rounds, 9g) and "analytics' offsets expire in 3 d 2 h" (a group's own clock, Groups): the sentences say what the broker holds now and name none of them.
+- The iteration count column of the users table: not read by any code of the console (J264).
+- Idle memory and threads on a system that does not let a process read them (macOS): the tile says "Measured on Linux only".

@@ -20,6 +20,7 @@ mod config;
 mod forms;
 mod log_views;
 pub mod requests;
+mod settings;
 
 /// The client id the console's requests carry.
 pub const CLIENT_ID: &str = "console";

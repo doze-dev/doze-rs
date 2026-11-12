@@ -4,15 +4,30 @@ mod cli;
 mod control;
 mod descriptors;
 mod duration;
+#[cfg(feature = "console")]
+mod facts;
 mod run;
 #[cfg(feature = "console")]
 mod web;
 
 use anyhow::Result;
-use clap::Parser;
+use clap::{CommandFactory, FromArgMatches};
+
+/// `Parser::parse`, taken apart: the matches say which flags were given, which Settings shows.
+fn parse() -> (cli::Args, run::Flags) {
+    let mut cmd = cli::Args::command();
+    let matches = cmd.get_matches_mut();
+    let args = cli::Args::from_arg_matches(&matches).unwrap_or_else(|e| e.exit());
+    #[cfg(feature = "console")]
+    let flags = facts::flags(&cmd, &matches);
+    #[cfg(not(feature = "console"))]
+    #[allow(clippy::let_unit_value)]
+    let flags = ();
+    (args, flags)
+}
 
 fn main() -> Result<()> {
-    let args = cli::Args::parse();
+    let (args, flags) = parse();
     run::logging(&args);
     // A configuration that cannot start exits 2, as a bad flag does (clap's own code), before anything is opened.
     let mut settings = match args.settings() {
@@ -81,7 +96,7 @@ fn main() -> Result<()> {
     #[cfg_attr(not(feature = "console"), allow(clippy::let_unit_value))]
     let console = bind_console(&runtime, &settings);
     let _lock = doze_runtime::DataDirLock::take(&args.data_dir, "doze-kafka")?;
-    runtime.block_on(run::serve(settings, console))
+    runtime.block_on(run::serve(settings, console, flags))
 }
 
 /// The console's address is had before anything is created, the data directory and its lock file included (SEC-247): one the

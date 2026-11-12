@@ -91,3 +91,6 @@ pub fn latest_offset(topic: &str, partition: i32, isolation_level: i8) -> Reques
     r.topics = vec![t];
     Request::ListOffsets(r)
 }
+
+pub mod acls;
+pub mod broker_configs;

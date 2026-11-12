@@ -26,11 +26,13 @@ pub use pace::Pace;
 mod log_facts;
 mod partition_files;
 mod producers;
+mod settings;
 
 pub use log_facts::{CleanerState, Compaction, Durability, LogFacts, LogPolicy, LogRetention};
 pub use partition_files::PartitionFiles;
 pub use process::Process;
 pub use producers::{AbortedRange, PartitionProducers, ProducerBatch, ProducerWindow};
+pub use settings::{AccessFacts, DataSize, Intervals, MOST_ENTRIES};
 
 /// What the last stop left.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

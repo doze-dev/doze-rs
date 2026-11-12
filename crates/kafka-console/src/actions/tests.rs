@@ -27,6 +27,7 @@ fn actions_match_boards() {
         .iter()
         .chain(&GROUP_WRITE_BOARDS)
         .chain(config::BOARDS.iter())
+        .chain(access::BOARDS.iter())
         .flat_map(|id| ops_of(id))
         .collect();
     let listed: BTreeSet<String> = Action::ALL.iter().map(|a| a.op().to_owned()).collect();

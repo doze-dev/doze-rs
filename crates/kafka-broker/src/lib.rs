@@ -40,8 +40,8 @@ pub use listener::Listener;
 pub use outcome::Outcome;
 #[cfg(feature = "inspect")]
 pub use view::{
-    AbortedRange, CleanerState, Compaction, ConfigHelp, ConfigRule, ConsoleView, Durability,
-    GroupDetail, GroupKind, Instance, LastStop, Limits, LogFacts, LogPolicy, LogRetention,
-    MemberDetail, OffsetExpiry, Pace, PartitionFiles, PartitionProducers, Process, ProducerBatch,
-    ProducerWindow, RebalanceDetail,
+    AbortedRange, AccessFacts, CleanerState, Compaction, ConfigHelp, ConfigRule, ConsoleView,
+    DataSize, Durability, GroupDetail, GroupKind, Instance, Intervals, LastStop, Limits, LogFacts,
+    LogPolicy, LogRetention, MOST_ENTRIES, MemberDetail, OffsetExpiry, Pace, PartitionFiles,
+    PartitionProducers, Process, ProducerBatch, ProducerWindow, RebalanceDetail,
 };
