@@ -18,6 +18,7 @@ mod partitions;
 mod produce;
 pub mod protocol;
 mod records;
+pub mod story;
 
 pub use attention::{Looked, MAX_DESCRIBED, near_timeout, nearest, nearest_capped};
 pub use home::{choose, counts, instance_view};

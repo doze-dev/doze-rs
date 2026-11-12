@@ -58,6 +58,8 @@ pub struct GroupEvent {
     pub more: u32,
     /// What the client said when it joined or left, clipped to 128 bytes.
     pub reason: Option<String>,
+    /// The session timeout the member had, where the broker knew it (a member that expired: how long it was silent).
+    pub session_ms: Option<u64>,
     /// How many members the group had before and after a rebalance began or an epoch moved.
     pub members_before: Option<u32>,
     pub members_after: Option<u32>,
@@ -124,6 +126,7 @@ fn event_of(r: &Recorded, now_ms: i64) -> GroupEvent {
         client: None,
         more: 0,
         reason: None,
+        session_ms: None,
         members_before: None,
         members_after: None,
         wait_ms: None,
@@ -201,6 +204,7 @@ impl GroupEvent {
         self.member = Some(w.member.to_string());
         self.client = (!w.client.is_empty()).then(|| w.client.to_string());
         self.reason = w.reason.as_ref().map(|r| r.as_str().to_owned());
+        self.session_ms = w.session_ms;
     }
 }
 

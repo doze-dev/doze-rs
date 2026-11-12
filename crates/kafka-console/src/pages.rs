@@ -10,6 +10,7 @@ mod home;
 mod jump;
 pub mod live;
 mod notice;
+pub mod story;
 pub mod topics;
 mod topics_write;
 

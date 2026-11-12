@@ -103,6 +103,7 @@ fn row(e: &Entry, topics: &[LagTopic]) -> GroupRow {
         lag: row_lag(topics, !e.loaded.commits.is_empty()),
         last_commit_ms: detail.and_then(|x| x.offsets.iter().map(|o| o.committed_ms).max()),
         expires_ms: detail.and_then(|x| x.offsets.iter().filter_map(|o| o.expires_ms).min()),
+        story: crate::story::facts_of(e.loaded.events.as_ref(), protocol),
     }
 }
 
@@ -118,6 +119,7 @@ fn attention(entries: &[Entry]) -> Option<GroupAttention> {
             waiting_for: r.waiting_for.clone(),
             remaining_ms: r.remaining_ms,
             timeout_ms: r.timeout_ms,
+            last: crate::story::facts_of(e.loaded.events.as_ref(), protocol).last,
         })
     })
 }
@@ -199,6 +201,7 @@ pub async fn groups(b: &Backend, filter: &str, state: GroupFilter) -> GroupsView
                 described: described.get(&g.id).cloned(),
                 detail: b.group_detail(&g.id).await,
                 commits: commits.remove(&g.id).unwrap_or_default(),
+                events: b.group_events(&g.id).await,
             },
         });
     }

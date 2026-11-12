@@ -90,14 +90,23 @@ pub(crate) struct Named {
     pub(crate) client: Box<str>,
     /// What it said when it joined or left, if it said.
     pub(crate) reason: Option<Reason>,
+    /// The session timeout it had, in milliseconds, where the machine knows it.
+    pub(crate) session_ms: Option<u64>,
 }
 
 impl Named {
+    /// The same, with the session timeout the member had.
+    pub(crate) fn with_session(mut self, ms: u64) -> Self {
+        self.session_ms = Some(ms);
+        self
+    }
+
     pub(crate) fn new(member: &MemberId, client: &str, reason: Option<Reason>) -> Self {
         Self {
             member: member.clone(),
             client: clip(client, CLIENT_BYTES).into(),
             reason,
+            session_ms: None,
         }
     }
 }

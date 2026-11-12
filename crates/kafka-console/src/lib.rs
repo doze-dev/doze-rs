@@ -35,6 +35,8 @@ pub mod fixtures_groups;
 #[cfg(any(test, feature = "examples"))]
 pub mod fixtures_live;
 #[cfg(any(test, feature = "examples"))]
+pub mod fixtures_story;
+#[cfg(any(test, feature = "examples"))]
 pub mod fixtures_topics;
 #[cfg(any(test, feature = "examples"))]
 pub mod fixtures_write;
@@ -61,6 +63,7 @@ pub mod serve;
 pub mod snippets;
 pub mod source;
 pub mod state;
+pub mod story;
 pub mod stream;
 pub mod stream_groups;
 pub mod teach;

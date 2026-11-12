@@ -10,6 +10,7 @@ mod live;
 mod overlays;
 mod pages;
 mod plain;
+mod story;
 mod topics;
 mod topics_dialogs;
 mod topics_write;
@@ -33,6 +34,7 @@ pub use live::{
 };
 pub use pages::{advertised, connect, home, method_not_allowed, not_found, planned};
 pub use plain::{events, health, static_file};
+pub use story::{flapping as story_flapping, rebalance as story_rebalance, story as group_story};
 pub use topics::{
     messages as topic_messages, partitions as topic_partitions, record as topic_record, topic,
     topics,

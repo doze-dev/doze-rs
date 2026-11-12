@@ -17,7 +17,7 @@ impl GroupMachine {
         }
         self.members
             .get(id)
-            .map(|m| Named::new(id, &m.client_id, reason))
+            .map(|m| Named::new(id, &m.client_id, reason).with_session(m.session_ms))
     }
 
     /// Why a rebalance began because members `gone` left or went silent (named before they were taken out).

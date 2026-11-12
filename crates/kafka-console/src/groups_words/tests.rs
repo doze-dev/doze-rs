@@ -27,8 +27,8 @@ fn a_stable_classic_group_is_told_by_its_member_its_topics_and_its_lag() {
 }
 
 #[test]
-fn a_consumer_group_in_step_says_nothing_is_moving_and_gives_no_cause() {
-    let g = world::group("payments-workers", false).unwrap();
+fn a_consumer_group_in_step_says_nothing_is_moving_and_when_and_why_it_last_rebalanced() {
+    let mut g = world::group("payments-workers", false).unwrap();
     let s = flat(&group_sentence(&g.head, &g.topics));
     assert!(
         s.starts_with("Three members hold orders (3 partitions)."),
@@ -38,20 +38,28 @@ fn a_consumer_group_in_step_says_nothing_is_moving_and_gives_no_cause() {
         "Every member holds exactly what the broker targeted for epoch 14, so nothing is moving."
     ));
     assert!(
-        !s.contains("joined") && !s.contains("because"),
-        "no cause: {s}"
+        s.contains(" The last rebalance was 6 h ago: payments-3c joined."),
+        "the ring of notes says why: {s}"
+    );
+    // A group the broker has no notes of (it was restarted) gives no cause: nothing is made up.
+    g.head.story = crate::model::StoryFacts::default();
+    let s = flat(&group_sentence(&g.head, &g.topics));
+    assert!(
+        !s.contains("joined") && !s.contains("last rebalance"),
+        "{s}"
     );
 }
 
 #[test]
-fn a_rebalance_names_who_is_waited_for_and_the_time_left_and_never_a_cause() {
-    let g = world::group("fulfilment", false).unwrap();
+fn a_rebalance_names_who_left_how_long_ago_and_who_is_waited_for_with_the_time_left() {
+    let mut g = world::group("fulfilment", false).unwrap();
+    let s = flat(&group_sentence(&g.head, &g.topics));
+    assert!(s.starts_with("fulfilment-py-2 left 3 s ago, so the group is rebalancing. It is waiting for fulfilment-py-1 to rejoin: 2.1 s of the 5 s rebalance timeout are left."), "{s}");
+    // With no notes the sentence says only what the machine says now, as before the ring.
+    g.head.story = crate::model::StoryFacts::default();
     let s = flat(&group_sentence(&g.head, &g.topics));
     assert!(s.starts_with("fulfilment-py-1 has not joined again, so the group is rebalancing. It is waiting for it: 2.1 s of the 5 s rebalance timeout are left."), "{s}");
-    assert!(
-        !s.contains("left 3 s ago"),
-        "that needs the event ring (9f)"
-    );
+    assert!(!s.contains("left 3 s ago"));
 }
 
 #[test]

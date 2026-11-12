@@ -181,6 +181,7 @@ fn analytics() -> (Listed, Loaded) {
             described: Some(described(GroupProtocol::Classic, "Empty", None, Vec::new())),
             detail: Some(d),
             commits: c,
+            events: crate::fixtures_story::events("analytics"),
         },
     )
 }
@@ -250,6 +251,7 @@ fn fulfilment() -> (Listed, Loaded) {
             )),
             detail: Some(d),
             commits: c,
+            events: crate::fixtures_story::events("fulfilment"),
         },
     )
 }
@@ -286,6 +288,7 @@ fn payments_workers() -> (Listed, Loaded) {
             described: Some(desc),
             detail: Some(d),
             commits: c,
+            events: crate::fixtures_story::events("payments-workers"),
         },
     )
 }
@@ -327,6 +330,7 @@ fn search_indexer() -> (Listed, Loaded) {
             )),
             detail: Some(d),
             commits: c,
+            events: crate::fixtures_story::events("search-indexer"),
         },
     )
 }

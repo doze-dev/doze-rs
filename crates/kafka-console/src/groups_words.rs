@@ -1,8 +1,8 @@
 //! The words of the Groups pages: the sentence under a group's name, the lag sentences, the list's rebalancing line, Kafka's own
 //! descriptions of the codes a group write can answer, and the console's reading of each refusal.
 //!
-//! The sentences say only what the group machine says now. Why a group began a rebalance (a member left, one timed out, a
-//! topic changed) is not recorded until the event ring of slice 9f exists, so no sentence here gives a cause.
+//! The sentences say what the group machine says now and, where the broker's ring of notes has it (slice 9f), why the
+//! newest rebalance began; a group the broker has no notes of gives no cause, and nothing is made up.
 
 use crate::format::{ago, number, span_ms};
 use crate::lag::Lag;
@@ -126,8 +126,25 @@ fn last_commit(h: &GroupHead) -> Option<String> {
         .map(|ms| format!("Last commit {}.", ago(h.now_ms - ms)))
 }
 
+/// How the group came to be rebalancing, when the group has said: `fulfilment-py-2 left 3 s ago, so the group is rebalancing.`
+fn lead_in(h: &GroupHead) -> Option<Vec<S>> {
+    let last = h.story.last.as_ref().filter(|l| l.forming)?;
+    let (who, clause) = crate::story::last_clause(last);
+    let mut out = Vec::new();
+    if let Some(w) = who {
+        out.push(S::strong(w));
+    }
+    out.push(S::text(format!("{clause}, so the group is rebalancing.")));
+    Some(out)
+}
+
 fn rebalancing(h: &GroupHead, topics: &[LagTopic]) -> Vec<S> {
     let mut out = Vec::new();
+    if let Some(lead) = lead_in(h) {
+        out.extend(lead);
+        out.extend(waiting_clause(h));
+        return finish(out, topics);
+    }
     match &h.rebalance {
         Some(r) if !r.waiting_for.is_empty() => {
             out.push(S::strong(list_and(&r.waiting_for)));
@@ -143,6 +160,29 @@ fn rebalancing(h: &GroupHead, topics: &[LagTopic]) -> Vec<S> {
             "The group is rebalancing: every member has joined again and the leader is working out who holds what.",
         )),
     }
+    finish(out, topics)
+}
+
+/// " It is waiting for py-1 to rejoin: 2.1 s of the 5 s rebalance timeout are left."
+fn waiting_clause(h: &GroupHead) -> Vec<S> {
+    match &h.rebalance {
+        Some(r) if !r.waiting_for.is_empty() => vec![
+            S::text(" It is waiting for "),
+            S::strong(list_and(&r.waiting_for)),
+            S::text(format!(
+                " to rejoin: {} of the {} rebalance timeout are left.",
+                span_precise(r.remaining_ms),
+                span_precise(r.timeout_ms),
+            )),
+        ],
+        _ => vec![S::text(
+            " Every member has joined again and the leader is working out who holds what.",
+        )],
+    }
+}
+
+/// The topics it reads, at the end of the sentence.
+fn finish(mut out: Vec<S>, topics: &[LagTopic]) -> Vec<S> {
     let read = topics_in_play(topics);
     if !read.is_empty() {
         out.push(S::text(" It reads "));
@@ -198,6 +238,32 @@ fn holding(h: &GroupHead, topics: &[LagTopic]) -> Vec<S> {
     out
 }
 
+/// " The last rebalance was 6 h ago: payments-3c joined." (what the group has said of itself).
+fn last_rebalance(h: &GroupHead) -> Vec<S> {
+    let Some(last) = h.story.last.as_ref().filter(|l| !l.forming) else {
+        return Vec::new();
+    };
+    let ago = crate::story::ago_near(last.ago_ms);
+    let mut out = vec![S::text(format!(" The last rebalance was {ago}: "))];
+    let verb = match last.cause {
+        crate::model::StoryCause::MemberLeft => "left",
+        crate::model::StoryCause::SessionExpired => "timed out",
+        crate::model::StoryCause::MemberJoined => "joined",
+        _ => "",
+    };
+    match (&last.who, verb) {
+        (Some(w), v) if !v.is_empty() => {
+            out.push(S::strong(crate::story::member_label(w)));
+            out.push(S::text(format!(" {v}.")));
+        }
+        _ => out.push(S::text(format!(
+            "{}.",
+            crate::story::cause_phrase(last.cause)
+        ))),
+    }
+    out
+}
+
 /// The sentence under a group's name on its Members page.
 #[must_use]
 pub fn group_sentence(h: &GroupHead, topics: &[LagTopic]) -> Vec<S> {
@@ -245,6 +311,9 @@ pub fn group_sentence(h: &GroupHead, topics: &[LagTopic]) -> Vec<S> {
         }
     }
     out.push(S::text(format!(" {}", lag_clause(topics))));
+    if h.protocol == GroupProtocol::Consumer {
+        out.extend(last_rebalance(h));
+    }
     if let Some(l) = last_commit(h) {
         out.push(S::text(format!(" {l}")));
     }
@@ -397,7 +466,23 @@ fn expiring_sentence(h: &GroupHead, topics: &[LagTopic], retention_ms: i64) -> V
 #[must_use]
 pub fn attention_sentence(a: &GroupAttention) -> Vec<S> {
     let mut v = vec![S::strong(format!("{} is rebalancing.", a.id)), S::text(" ")];
-    if a.waiting_for.is_empty() {
+    if let Some(last) = a.last.as_ref().filter(|l| l.forming) {
+        let (who, clause) = crate::story::last_clause(last);
+        if let Some(w) = who {
+            v.push(S::mono(w));
+        }
+        v.push(S::text(format!("{clause} and the group is waiting for ")));
+        v.push(S::mono(if a.waiting_for.is_empty() {
+            "the leader".to_owned()
+        } else {
+            list_and(&a.waiting_for)
+        }));
+        v.push(S::text(format!(
+            " to rejoin, {} of {} left.",
+            span_precise(a.remaining_ms),
+            span_precise(a.timeout_ms)
+        )));
+    } else if a.waiting_for.is_empty() {
         v.push(S::text(
             "Every member has joined again and the leader is working out who holds what.",
         ));

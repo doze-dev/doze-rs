@@ -12,9 +12,13 @@ impl ConsumerGroup {
         if !CAPTURE {
             return None;
         }
-        self.members
-            .get(id)
-            .map(|m| Named::new(id, &m.client_id, reason))
+        self.members.get(id).map(|m| {
+            let session = m
+                .classic
+                .as_ref()
+                .map_or(self.cfg.session_ms, |c| c.session_ms);
+            Named::new(id, &m.client_id, reason).with_session(session)
+        })
     }
 
     /// The group's epoch was `before` and may have moved: if it did, say why.
