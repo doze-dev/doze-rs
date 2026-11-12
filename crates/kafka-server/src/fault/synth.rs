@@ -47,10 +47,6 @@ pub fn can_fail(api: ApiKey) -> bool {
 /// The response to `request` (sent at `version`) that carries `code` everywhere a client reads one, or `None` for an API the lab
 /// cannot answer ([`can_fail`] says which).
 #[must_use]
-#[expect(
-    clippy::too_many_lines,
-    reason = "one match over every API with no wildcard, so that an API added to the broker is decided here"
-)]
 pub fn fail_response(request: &Request, version: i16, code: i16) -> Option<Response> {
     Some(match request {
         Request::Produce(r) => Response::Produce(produce(r, code)),

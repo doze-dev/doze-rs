@@ -316,10 +316,10 @@ fn spent(l: &Live) -> bool {
 fn choose(inner: &mut Inner, ask: &Ask<'_>) -> Option<(usize, Applied)> {
     let mut best: Option<(usize, Applied)> = None;
     for i in 0..inner.rules.len() {
-        let fires = match inner.rules.get(i) {
-            Some(l) if l.rule.enabled && l.rule.spec.matcher.fits(ask) => true,
-            _ => false,
-        };
+        let fires = inner
+            .rules
+            .get(i)
+            .is_some_and(|l| l.rule.enabled && l.rule.spec.matcher.fits(ask));
         if !fires {
             continue;
         }

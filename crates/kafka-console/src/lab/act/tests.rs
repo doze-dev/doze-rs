@@ -33,7 +33,7 @@ fn a_replaced_rule_keeps_the_count() {
     for _ in 0..3 {
         let mut f = blank(LabKind::Fail);
         f.topic = "orders".into();
-        make_rule(&lab, LabKind::Fail, f, Choices::default());
+        let _ = make_rule(&lab, LabKind::Fail, f, Choices::default());
     }
     assert_eq!(lab.table().len(), 1);
 }
