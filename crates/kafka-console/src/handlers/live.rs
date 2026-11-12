@@ -29,11 +29,15 @@ pub async fn live(State(s): State<Shared>, RawQuery(query): RawQuery) -> Respons
     let q = WireQuery::parse(&f);
     let view = s.source.live(&q, crate::form::get(&f, "state")).await;
     let main = live_page(&view, &s.base);
+    let crumbs: Vec<(&str, Option<&str>)> = match crate::pages::live::state_crumb(&view) {
+        Some(last) => vec![("Live", Some("/live")), (last, None)],
+        None => vec![LIVE],
+    };
     html(
         &s.document(
             Rail::Live,
             "Live",
-            &[LIVE],
+            &crumbs,
             s.source.watching(LIVE_IDS),
             main,
         )
@@ -125,8 +129,14 @@ pub async fn first(State(s): State<Shared>) -> Response {
     };
     let main = first_page(&v, &s.base);
     html(
-        &s.document(Rail::Home, "Home", &[("Home", None)], &[], main)
-            .await,
+        &s.document(
+            Rail::Home,
+            "Home",
+            &[("Home", Some("/")), ("First request landed", None)],
+            &[],
+            main,
+        )
+        .await,
     )
 }
 

@@ -468,6 +468,8 @@ table.t{overflow:visible;border-collapse:separate;border-spacing:0}
 .t tbody tr:last-child td:first-child{border-bottom-left-radius:13px}
 .t tbody tr:last-child td:last-child{border-bottom-right-radius:13px}
 .ovl .t thead th{position:static}
+/* The tape's time, client and API cells never wrap (a group's wire has a long last column that would otherwise squeeze them to two lines). */
+table.wire td:nth-child(-n+3){white-space:nowrap}
 /* A choice that takes a value shows its field only while it is the one chosen (the Reset dialog): CSS alone, no script. */
 .opt-row .opt-in{display:none}
 .opt-row:has(input[type=radio]:checked) .opt-in{display:block}

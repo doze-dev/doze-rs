@@ -1508,5 +1508,61 @@
     "selector": "st warn",
     "reason": "9c: the group page, its header (state word and pills) and its route are slice 9c's; this page links to /groups/{group} and carries a plain title row",
     "expires": "9c"
+  },
+  {
+    "board": "connect-first-request",
+    "field": "title",
+    "selector": "Home",
+    "reason": "[p9o] The tool gives a state its parent's title (the Live page, or Home); the page's breadcrumb carries the state as the board's own breadcrumb does (Live, then Paused, Nothing yet or A busy minute; Home, then First request landed).",
+    "expires": "close"
+  },
+  {
+    "board": "connect-first-request",
+    "field": "title",
+    "selector": "First request landed",
+    "reason": "[p9o] The tool gives a state its parent's title (the Live page, or Home); the page's breadcrumb carries the state as the board's own breadcrumb does (Live, then Paused, Nothing yet or A busy minute; Home, then First request landed).",
+    "expires": "close"
+  },
+  {
+    "board": "live-load",
+    "field": "title",
+    "selector": "Live",
+    "reason": "[p9o] The tool gives a state its parent's title (the Live page, or Home); the page's breadcrumb carries the state as the board's own breadcrumb does (Live, then Paused, Nothing yet or A busy minute; Home, then First request landed).",
+    "expires": "close"
+  },
+  {
+    "board": "live-load",
+    "field": "title",
+    "selector": "A busy minute",
+    "reason": "[p9o] The tool gives a state its parent's title (the Live page, or Home); the page's breadcrumb carries the state as the board's own breadcrumb does (Live, then Paused, Nothing yet or A busy minute; Home, then First request landed).",
+    "expires": "close"
+  },
+  {
+    "board": "live-paused",
+    "field": "title",
+    "selector": "Live",
+    "reason": "[p9o] The tool gives a state its parent's title (the Live page, or Home); the page's breadcrumb carries the state as the board's own breadcrumb does (Live, then Paused, Nothing yet or A busy minute; Home, then First request landed).",
+    "expires": "close"
+  },
+  {
+    "board": "live-paused",
+    "field": "title",
+    "selector": "Paused",
+    "reason": "[p9o] The tool gives a state its parent's title (the Live page, or Home); the page's breadcrumb carries the state as the board's own breadcrumb does (Live, then Paused, Nothing yet or A busy minute; Home, then First request landed).",
+    "expires": "close"
+  },
+  {
+    "board": "live-quiet",
+    "field": "title",
+    "selector": "Live",
+    "reason": "[p9o] The tool gives a state its parent's title (the Live page, or Home); the page's breadcrumb carries the state as the board's own breadcrumb does (Live, then Paused, Nothing yet or A busy minute; Home, then First request landed).",
+    "expires": "close"
+  },
+  {
+    "board": "live-quiet",
+    "field": "title",
+    "selector": "Nothing yet",
+    "reason": "[p9o] The tool gives a state its parent's title (the Live page, or Home); the page's breadcrumb carries the state as the board's own breadcrumb does (Live, then Paused, Nothing yet or A busy minute; Home, then First request landed).",
+    "expires": "close"
   }
 ]
