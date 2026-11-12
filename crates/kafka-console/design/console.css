@@ -90,6 +90,7 @@ html:has(.ovl){overflow:hidden}
 .jump-item svg{color:var(--dim);flex:none}
 .jump-item:hover,.jump-item.sel{background:var(--sel);color:var(--bright)}
 .jump-item.sel svg{color:var(--accent)}
+.jump-kind{margin-left:auto;font-size:11.5px;color:var(--dim);letter-spacing:.02em}
 .jump-empty{padding:8px 12px}
 .jump-form .input{width:auto;flex:0 1 420px}
 .jump-page{max-width:520px}

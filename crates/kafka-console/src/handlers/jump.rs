@@ -1,4 +1,4 @@
-//! Jump to a topic: `/jump` is the palette to a script (the overlay alone) and a page of links to a browser.
+//! Jump to a topic or a group: `/jump` is the palette to a script (the overlay alone) and a page of links to a browser.
 
 use axum::extract::{RawQuery, State};
 use axum::http::{HeaderMap, StatusCode};
@@ -22,25 +22,34 @@ pub async fn jump(
         .trim()
         .to_owned();
     let all = s.source.topics("", false, None).await;
+    let groups = s.source.group_names().await;
+    let total = all.total + groups.len();
     if wants_fragment(&headers) {
-        let names: Vec<String> = all.rows.iter().map(|r| r.name.clone()).collect();
-        return fragment(
-            StatusCode::OK,
-            &pages::jump_overlay(&names, all.total, &s.base),
-        );
+        let topics: Vec<String> = all.rows.iter().map(|r| r.name.clone()).collect();
+        let items = pages::JumpItem::all(&topics, &groups);
+        return fragment(StatusCode::OK, &pages::jump_overlay(&items, total, &s.base));
     }
-    let view = if filter.is_empty() {
-        all
+    let (topics, groups): (Vec<String>, Vec<String>) = if filter.is_empty() {
+        (all.rows.iter().map(|r| r.name.clone()).collect(), groups)
     } else {
-        s.source.topics(&filter, false, None).await
+        let want = filter.to_lowercase();
+        let topics = s.source.topics(&filter, false, None).await;
+        let groups = groups
+            .into_iter()
+            .filter(|g| g.to_lowercase().contains(&want))
+            .collect();
+        (topics.rows.iter().map(|r| r.name.clone()).collect(), groups)
     };
-    let names: Vec<String> = view.rows.iter().map(|r| r.name.clone()).collect();
-    let main = pages::jump_page(&names, view.total, &filter, &s.base);
+    let items = pages::JumpItem::all(&topics, &groups);
+    let main = pages::jump_page(&items, total, &filter, &s.base);
     html(
         &s.document(
             Rail::Resources,
-            "Jump to a topic",
-            &[("Resources", Some("/topics")), ("Jump to a topic", None)],
+            "Jump to a topic or group",
+            &[
+                ("Resources", Some("/topics")),
+                ("Jump to a topic or group", None),
+            ],
             &[],
             main,
         )

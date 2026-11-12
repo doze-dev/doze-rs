@@ -111,3 +111,26 @@ async fn a_hostile_group_id_is_escaped_and_encoded_on_every_page() {
     }
     w.stop().await;
 }
+
+#[tokio::test]
+async fn the_jump_palette_lists_the_groups_a_real_broker_lists_and_a_hostile_group_id_is_text() {
+    let w = with_orders("g-jump", |_| {}).await;
+    commit(&w, "analytics", "orders", &[(0, 1)]).await;
+    commit(&w, "<img src=x onerror=alert(1)>", "orders", &[(0, 1)]).await;
+    let app = w.router();
+    let page = ok(&app, "/jump", None).await;
+    assert!(
+        page.contains("href=\"/groups/analytics\"")
+            && page.contains("<span class=\"jump-kind\">group</span>"),
+        "{page:.3000}"
+    );
+    assert!(
+        page.contains("href=\"/topics/orders\""),
+        "the topics are there too"
+    );
+    assert!(!page.contains("<img"), "{page:.3000}");
+    assert!(
+        page.contains("href=\"/groups/%3Cimg"),
+        "the address is escaped"
+    );
+}

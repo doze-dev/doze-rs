@@ -273,16 +273,36 @@ async fn the_jump_palette_is_an_overlay_alone_to_a_script_and_a_page_of_links_to
         "{alone}"
     );
     assert!(!alone.contains("<html"));
+    // The groups are in it, after the topics, each with the word that says which it is.
+    assert!(
+        alone.contains("href=\"/kafka/groups/search-indexer\" data-jump=\"search-indexer\""),
+        "{alone}"
+    );
+    assert!(alone.contains("<span class=\"jump-kind\">group</span>"));
+    assert!(alone.contains("<span class=\"jump-kind\">topic</span>"));
+    assert!(
+        alone.find("/kafka/topics/orders").unwrap()
+            < alone.find("/kafka/groups/analytics").unwrap(),
+        "topics first, then groups"
+    );
     // With no script it is a page: the same names as plain links, and a filter that is a plain GET.
     let (res, page) = send(&app, get("/kafka/jump?q=inventory")).await;
     assert_eq!(res.status(), StatusCode::OK);
-    assert!(page.contains("<h1>Jump to a topic</h1>"), "{page:.300}");
+    assert!(
+        page.contains("<h1>Jump to a topic or group</h1>"),
+        "{page:.300}"
+    );
     assert!(page.contains("/kafka/topics/inventory.levels"));
     assert!(
         !page.contains("href=\"/kafka/topics/orders\""),
         "the filter applies"
     );
     assert!(!page.contains("data-overlay"));
+    // The filter applies to the groups too: no group is named like inventory, and one is named like search.
+    assert!(!page.contains("/kafka/groups/"), "{page:.2000}");
+    let (_, page) = send(&app, get("/kafka/jump?q=SEARCH")).await;
+    assert!(page.contains("/kafka/groups/search-indexer"));
+    assert!(!page.contains("/kafka/groups/analytics"));
 }
 
 /// The CSS the console ships, then what is outside the `prefers-reduced-motion: no-preference` blocks, then what is inside.

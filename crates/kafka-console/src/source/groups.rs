@@ -20,6 +20,23 @@ impl Source {
         }
     }
 
+    /// Every group id the broker lists (ListGroups, as the console's principal), by id: what the jump palette offers.
+    pub async fn group_names(&self) -> Vec<String> {
+        match self {
+            Self::Live(l) => gather::group_read::listed(&l.backend)
+                .await
+                .into_iter()
+                .map(|g| g.id)
+                .collect(),
+            #[cfg(any(test, feature = "examples"))]
+            Self::Fixture => crate::fixtures_groups::groups("", GroupFilter::All, None)
+                .rows
+                .into_iter()
+                .map(|r| r.id)
+                .collect(),
+        }
+    }
+
     /// One group with its lag; `None` if there is no such group or the console may not describe it.
     pub async fn group(&self, id: &str, expiring: bool) -> Option<GroupLagView> {
         match self {
