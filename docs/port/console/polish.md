@@ -31,6 +31,7 @@ Looked at and left (the page is right): Home, Connect, Planned pages, the group 
 |---|---|---|
 | 2 | the top bar | its right edge is 24 px from the window and the page's is 48 px: the chips do not line up with the page's right edge |
 | 2 | Live | "Clients · 9" is a small button (32 px) beside 36 px chips; its text and the chips' differ by a pixel in centre |
+| 2 | Live at 1024 | the toolbar wraps: "Clients · 9" drops to a second row; the refused callout's list leaves a gap line |
 | 2 | Messages | a value shows its preview only; hover shows no more (J385) |
 | 3 | the palette | second-level jumps (a topic's tabs); no loading state needed while the answer is local (J383) |
 | 3 | every table | sticky headers (J203) |

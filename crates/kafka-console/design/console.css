@@ -358,6 +358,6 @@ html.is-loading::before{content:"";position:fixed;z-index:90;top:0;left:0;right:
 h1,h2,h3{text-wrap:balance}
 p,.sub,.lede,.help{text-wrap:pretty}
 .t td.key{white-space:nowrap}
-.t td.val{max-width:340px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.t td.val{max-width:0;width:34%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* Reduced motion: the page change is a swap with no cross-fade (the browser's own default for a view transition would fade). */
 @media (prefers-reduced-motion:reduce){::view-transition-group(*),::view-transition-old(*),::view-transition-new(*){animation:none!important}}
