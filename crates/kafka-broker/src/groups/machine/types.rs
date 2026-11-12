@@ -233,6 +233,8 @@ pub(crate) enum Answer {
     ConsumerHeartbeat(crate::groups::consumer::HeartbeatAnswer),
     /// To a request for what the group has said of itself (the actor answers; no machine does).
     Events(Vec<crate::groups::events::Recorded>),
+    /// To a forced step.
+    Forced(Forced),
 }
 
 /// Which clock a timer is.
@@ -280,6 +282,33 @@ pub(crate) enum Event {
     TopicsChanged,
     /// A timer ran out.
     Timer(TimerKey),
+    /// The console's Lab forces a step the group would take by itself: see [`Force`].
+    Force(Token, Force),
+}
+
+/// What the Lab forces on a group. Each is the step the group takes for the same cause by itself, taken now: a member's session
+/// timer running out, or a change the members cause (a new epoch, a new generation). Nothing is a transition of its own.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum Force {
+    /// A member's session runs out.
+    Expire(MemberId),
+    /// The group starts a rebalance (classic) or moves to a new epoch (the new protocol).
+    Rebalance,
+}
+
+/// What came of a [`Force`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Forced {
+    /// It was taken.
+    Done,
+    /// There is no such group in memory.
+    NoSuchGroup,
+    /// The group has no such member.
+    NoSuchMember,
+    /// The group has nobody to rebalance.
+    Empty,
+    /// A rebalance is already running.
+    AlreadyRebalancing,
 }
 
 /// What the machine asks of whoever drives it.

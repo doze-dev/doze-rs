@@ -132,9 +132,10 @@ impl Bound {
         server: &ServerConfig,
         kafka: &Kafka,
         broker: &Arc<Broker<RealFs>>,
-        (recorder, flags): (
+        (recorder, flags, lab): (
             Option<Arc<kafka_console::Recorder>>,
             Vec<kafka_console::model::SettingsFlag>,
+            Option<Arc<kafka_server::fault::FaultTable>>,
         ),
     ) -> Result<Serving> {
         let addr = self.listener.local_addr()?;
@@ -145,6 +146,9 @@ impl Bound {
         let mut live = kafka_console::Live::new(backend, facts).with_start(start);
         if let Some(r) = recorder {
             live = live.with_recorder(r);
+        }
+        if let Some(table) = lab {
+            live = live.with_lab(table);
         }
         let source = kafka_console::Source::Live(Box::new(live));
         let settings = kafka_console::Settings {

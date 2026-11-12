@@ -23,6 +23,9 @@ pub(crate) struct Console {
     pub(crate) allow_hosts: Vec<String>,
     /// `--console-unprotected`.
     pub(crate) unprotected: bool,
+    /// The Lab is on: `--lab` (the default) with a console to make rules from, and not the default-off of a protected broker
+    /// whose console is served beyond loopback.
+    pub(crate) lab: bool,
 }
 
 impl Default for Console {
@@ -33,6 +36,7 @@ impl Default for Console {
             prefix: "/".to_owned(),
             allow_hosts: Vec::new(),
             unprotected: false,
+            lab: true,
         }
     }
 }
@@ -49,6 +53,8 @@ pub(super) struct Input<'a> {
     pub(super) prefix: &'a str,
     pub(super) allow_hosts: &'a [String],
     pub(super) unprotected: bool,
+    /// `--lab`: a boolean; absent is on, unless the console is beyond loopback with SASL or TLS on.
+    pub(super) lab: Option<&'a str>,
     pub(super) sasl: bool,
     pub(super) tls: bool,
     pub(super) listen: SocketAddr,
@@ -128,14 +134,43 @@ pub(super) fn setup(input: &Input<'_>) -> Result<(Console, Vec<String>)> {
     if on {
         check_prefix(input.prefix)?;
     }
+    let lab = lab_rule(input, on, protection, &mut notes)?;
     let console = Console {
         enabled: on,
         addr: input.addr.map(str::to_owned),
         prefix: input.prefix.to_owned(),
         allow_hosts,
         unprotected: input.unprotected,
+        lab,
     };
     Ok((console, notes))
+}
+
+/// Whether the Lab is on, and what it is said to leave open. The Lab needs the console to make rules from; a broker with SASL or TLS
+/// whose console is served beyond loopback (accepted with `--console-unprotected`) starts with it off unless `--lab=true` asks.
+fn lab_rule(
+    input: &Input<'_>,
+    console_on: bool,
+    protection: Option<&str>,
+    notes: &mut Vec<String>,
+) -> Result<bool> {
+    let asked = match input.lab {
+        None => None,
+        Some(text) => Some(switch(text).ok_or_else(|| {
+            anyhow::anyhow!(
+                "config: --lab takes true, false, 1, 0, yes, no, on or off, not {text:?}; the Lab stays on only when it is asked for plainly"
+            )
+        })?),
+    };
+    let beyond = console_on && input.addr.is_some_and(beyond_loopback);
+    let lab = console_on && asked.unwrap_or(!(beyond && protection.is_some()));
+    if console_on && beyond && lab {
+        notes.push("the Lab is on and the console is served beyond loopback: anyone who can reach the console can inject faults into the broker's connections (--lab=false turns it off)".to_owned());
+    }
+    if console_on && beyond && !lab && asked.is_none() {
+        notes.push("the Lab is off because the console is served beyond loopback with SASL or TLS on (--lab=true switches it on)".to_owned());
+    }
+    Ok(lab)
 }
 
 /// Whether `addr` is `host:port` with a numeric port, as `--console-addr` is written (the host may be empty: `:9093`).

@@ -1,6 +1,7 @@
 //! The group machine, driven by a number for a clock and a map for timers: no sleeps, no tasks.
 
 mod commit;
+mod force;
 mod membership;
 mod notes;
 mod properties;

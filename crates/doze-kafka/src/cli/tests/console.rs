@@ -114,7 +114,9 @@ fn loopback_a_turned_off_console_and_no_protection_all_start() {
     ] {
         let set = settings(&flags).unwrap_or_else(|e| panic!("{flags:?}: {e}"));
         assert!(
-            set.warnings.iter().all(|w| !w.contains("console")),
+            set.warnings
+                .iter()
+                .all(|w| w.starts_with("the Lab") || !w.contains("console")),
             "{:?}",
             set.warnings
         );
@@ -132,7 +134,8 @@ fn unprotected_accepts_the_start_and_the_start_says_what_it_left_open() {
     assert_eq!(
         set.warnings,
         [
-            "the console is served on 0.0.0.0:9093 with no login and over plain HTTP although SASL is on (--console-unprotected): that will let anyone who can reach that address act on the broker as a super user, without a password"
+            "the console is served on 0.0.0.0:9093 with no login and over plain HTTP although SASL is on (--console-unprotected): that will let anyone who can reach that address act on the broker as a super user, without a password",
+            "the Lab is off because the console is served beyond loopback with SASL or TLS on (--lab=true switches it on)"
         ]
     );
     assert_eq!(set.console.addr.as_deref(), Some("0.0.0.0:9093"));

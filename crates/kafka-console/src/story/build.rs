@@ -21,6 +21,7 @@ const fn cause_of(c: Cause) -> StoryCause {
         Cause::RightsChanged => StoryCause::RightsChanged,
         Cause::BecameClassic => StoryCause::BecameClassic,
         Cause::BecameConsumer => StoryCause::BecameConsumer,
+        Cause::Forced => StoryCause::Forced,
     }
 }
 

@@ -59,11 +59,22 @@ pub(crate) async fn serve(
     let recorder = console_listener
         .as_ref()
         .map(|_| kafka_console::Recorder::new());
+    // The Lab: the fault table the server consults and the console makes rules in. Not installed with `--lab=false`: then a request
+    // costs one `Option` test and no rule can exist.
+    #[cfg(feature = "console")]
+    let lab =
+        (console.lab && console_listener.is_some()).then(kafka_server::fault::FaultTable::new);
     #[cfg(feature = "console")]
     let server = {
         let mut server = server;
         if let Some(r) = &recorder {
             server.observer = Some(r.clone());
+        }
+        if let Some(t) = &lab {
+            server.fault = Some(t.clone());
+            tracing::info!(
+                "the Lab is on (--lab): rules that delay, fail or drop requests can be made from the console, are kept in memory only, and none exists now"
+            );
         }
         server
     };
@@ -96,7 +107,7 @@ pub(crate) async fn serve(
     let _control = crate::control::serve(&broker);
     #[cfg(feature = "console")]
     let web = console_listener
-        .map(|bound| bound.serve(&console, &server, &running, &broker, (recorder, flags)))
+        .map(|bound| bound.serve(&console, &server, &running, &broker, (recorder, flags, lab)))
         .transpose()
         .context("starting the console")?;
     stop.await;

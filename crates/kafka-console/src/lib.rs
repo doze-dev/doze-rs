@@ -62,6 +62,7 @@ pub mod groups_words;
 pub mod guard;
 pub mod handlers;
 pub mod headers;
+pub mod lab;
 pub mod lag;
 pub mod limits;
 pub mod log_ruler;

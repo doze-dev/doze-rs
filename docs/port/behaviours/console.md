@@ -931,3 +931,33 @@ The control is a `<details>` of real checkboxes named after the field, with an A
 
 ## CON-857. The Groups states and the Messages partitions take several values
 `/groups?state=stable&state=empty` lists the groups in either state (a MultiSelect with the count of each, instead of the Segmented control); `/topics/t/messages?partition=0&partition=2` reads those partitions (a topic with few partitions keeps the Segmented control and gains "More", a MultiSelect; one with many has the MultiSelect alone; a chip for each partition takes it off; an offset still needs exactly one). Test: `groups_states_and_messages_partitions_take_several_values`, `several_partitions_are_a_repeated_field_ascending_once_each_and_bounded`, `states_are_a_repeated_field_and_a_group_shows_in_any_of_them`. Supersedes the Segmented states and partitions of CON-753.
+
+## CON-930. A rule is described by a sentence made once from the rule
+`+400 ms on 1 in 4 Produce requests to orders.`, `Answers 1 in 5 Fetch requests to inventory.levels with REQUEST_TIMED_OUT.`: the board's words, with no number that follows the broker, so a sentence never changes while a rule runs. Names come from the rule (`Slow produce to orders`, `Fail inventory.levels fetches`). Test: `a_sentence_is_the_boards_and_holds_no_number_that_follows_the_broker`, `a_drop_says_whose_connections_and_when`.
+
+## CON-931. A Lab form says what to fix, field by field, and previews before it starts
+The Slow and Fail forms open with the boards' defaults (a link with half the fields opens a whole form); a field that is wrong gets its own sentence; the preview is the rule the form makes, the sentence, and what the wire would show, worked out without making anything; text is cut to a length no rule needs. Test: `the_forms_open_with_the_boards_defaults_and_make_the_boards_rules`, `each_wrong_field_gets_its_own_sentence`, `a_link_with_half_the_fields_opens_a_whole_form`, `the_preview_is_the_rule_and_what_the_wire_shows`, `text_is_cut_to_a_length_no_rule_needs`.
+
+## CON-932. The engine's refusal comes back inside the form, in words
+A rule the engine will not take (the 51st) returns the form with the reason, and the preview; a replaced rule does not count twice. Test: `a_rule_that_is_refused_by_the_engine_comes_back_in_its_form_with_the_reason`, `a_replaced_rule_keeps_the_count`, `every_refusal_of_the_engine_has_a_sentence`.
+
+## CON-933. The Lab page is the table's rules, the ones that ended in the last hour, and the rehearsals kept (200 at most)
+A rule in force and one that is over are the same view with and without an end; the rehearsals that happen once (expire, rebalance, clean) leave a line, refused ones too. Clear history forgets both. Test: `a_rule_in_force_and_one_over_are_the_same_view_with_and_without_an_end`, `a_history_of_rehearsals_is_bounded`, `an_expired_member_and_a_forced_rebalance_go_through_the_groups_own_machine`.
+
+## CON-934. Drop is a rule that ends by itself
+"Once" is a rule limited to the connections open now and as many hits as there are of them, for a minute; "keep dropping" is a rule by client for 1 or 5 minutes. An app with no connection open, or a pattern in place of a name, is refused in words. Test: `drop_once_needs_an_open_connection_and_a_plain_name`, `drop_once_closes_the_connections_that_were_open_and_not_the_next_one`.
+
+## CON-935. A member choice survives any name
+The expire dialog's choices carry the group and the member in one value that round-trips hostile names. Test: `a_member_choice_round_trips_hostile_names`.
+
+## CON-936. A rule's page lists the requests it touched, from the wire
+The view-model of a rule carries the newest rows the recorder holds for it (each tagged with the rule, its name and what it did), and says when older ones may have left the ring. Test: `a_slow_rule_delays_a_fetch_and_the_wire_says_so`.
+
+## CON-937. Compact now shows the planner's verdict and refuses with a sentence
+The dialog says whether a round is due (`61 % dirty against 50 %`), what it would rewrite and where the checkpoint would move; it says why not for a topic that does not compact, a partition nothing was written to, a cleaner that is off, or nothing due. Test: `compact_now_runs_the_real_round_and_refuses_with_a_sentence_otherwise`.
+
+## CON-938. The wire names the errors the Lab makes up
+REQUEST_TIMED_OUT (7) and NOT_LEADER_OR_FOLLOWER (6) have rows of the error table, so a failed row says `REQUEST_TIMED_OUT (7)` and not `ERROR_7`. Test: `a_rows_name_and_code_are_the_protocol_crates_own`.
+
+## CON-939. The story names a forced rebalance
+A rebalance forced from the Lab is the cause "Forced from the Lab", for both protocols. Test: `a_forced_rebalance_makes_the_members_join_again_and_says_it_was_forced`.

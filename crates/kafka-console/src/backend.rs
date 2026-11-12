@@ -18,6 +18,7 @@ use kafka_wire::profile::Profile;
 
 mod config;
 mod forms;
+mod lab;
 mod log_views;
 pub mod requests;
 mod settings;

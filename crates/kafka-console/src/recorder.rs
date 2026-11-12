@@ -22,6 +22,7 @@ pub mod clip;
 mod detail;
 pub mod errors;
 pub mod facts;
+mod lab;
 pub mod names;
 mod others;
 pub mod phrase;
@@ -204,6 +205,13 @@ fn finish(inner: &mut Inner, begun: Begun, seen: &Observed<'_>, took: u32) -> Ro
         tooks: vec![took],
         idle,
         fold: 0,
+        lab: seen.fault.map(|n| {
+            Box::new(row::LabTag {
+                rule: n.rule,
+                name: clip::name(&n.name),
+                applied: n.applied,
+            })
+        }),
     };
     row.fold = fold_key(&row);
     row
@@ -250,7 +258,8 @@ fn resolve(ids: &HashMap<Box<str>, Box<str>>, f: &mut Facts) {
 
 /// How a row may fold.
 fn fold_of(row: &Row) -> Fold {
-    if row.closed.is_some() || row.class != errors::Class::Ok || row.fold == 0 {
+    if row.closed.is_some() || row.lab.is_some() || row.class != errors::Class::Ok || row.fold == 0
+    {
         return Fold::Never;
     }
     match row.api {

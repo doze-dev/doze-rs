@@ -33,6 +33,14 @@ impl Who {
 /// The most took samples a folded row keeps.
 pub const SAMPLES: usize = 64;
 
+/// Which Lab rule touched a request, and what it did.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LabTag {
+    pub rule: u32,
+    pub name: Box<str>,
+    pub applied: kafka_server::fault::Applied,
+}
+
 /// A row: one request, or several of the same kind folded together.
 #[derive(Debug)]
 pub struct Row {
@@ -60,6 +68,8 @@ pub struct Row {
     pub idle: bool,
     /// Rows with the same non-zero key may be folded; zero never folds.
     pub fold: u64,
+    /// The Lab rule that touched the request, if one did.
+    pub lab: Option<Box<LabTag>>,
 }
 
 impl Row {
@@ -72,6 +82,10 @@ impl Row {
             + size_of::<Facts>()
             + self.who.weight()
             + self.closed.as_ref().map_or(0, |s| s.len())
+            + self
+                .lab
+                .as_ref()
+                .map_or(0, |l| size_of::<LabTag>() + l.name.len())
             + self.tooks.capacity() * size_of::<u32>()
             + f.topics
                 .iter()

@@ -29,6 +29,25 @@ impl WireClass {
     }
 }
 
+/// Which Lab rule touched a request: its number (the link back to it), its name and what it did.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LabTag {
+    pub rule: u32,
+    pub name: String,
+    pub what: LabDid,
+}
+
+/// What a Lab rule did to a request.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LabDid {
+    /// Made the answer wait this many milliseconds.
+    Delayed(u32),
+    /// Answered with an error of its own making.
+    Failed,
+    /// Closed the connection.
+    Dropped,
+}
+
 /// One row of the tape, for display.
 #[derive(Debug, Clone, PartialEq)]
 pub struct WireRow {
@@ -60,6 +79,8 @@ pub struct WireRow {
     pub took_sub: Option<String>,
     /// A poll that found nothing (hidden by "Idle polls hidden").
     pub idle: bool,
+    /// The Lab rule that touched the request, if one did.
+    pub lab: Option<LabTag>,
 }
 
 /// What the person asked the tape to show.

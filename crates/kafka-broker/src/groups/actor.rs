@@ -13,8 +13,8 @@ use super::consumer::{Heartbeat, HeartbeatAnswer, TopicSource};
 use super::events::Events;
 use super::group::Group;
 use super::machine::{
-    Answer, CommitRequest, Effect, Event, HeartbeatRequest, JoinAnswer, JoinRequest, LeaveTarget,
-    Millis, SyncRequest, TimerKey, TimerKind, Token,
+    Answer, CommitRequest, Effect, Event, Force, HeartbeatRequest, JoinAnswer, JoinRequest,
+    LeaveTarget, Millis, SyncRequest, TimerKey, TimerKind, Token,
 };
 use kafka_meta::ConsumerLife;
 
@@ -30,6 +30,8 @@ pub(crate) enum Req {
     Delete,
     ConsumerHeartbeat(Heartbeat),
     TopicsChanged,
+    /// A step the Lab forces.
+    Force(Force),
     /// What the group has said of itself (answered by the task, not the machine).
     Events,
 }
@@ -274,6 +276,7 @@ fn event_of(token: Token, req: Req) -> Event {
         Req::Delete => Event::Delete(token),
         Req::ConsumerHeartbeat(r) => Event::ConsumerHeartbeat(token, r),
         Req::TopicsChanged => Event::TopicsChanged,
+        Req::Force(f) => Event::Force(token, f),
         // Answered before it gets here.
         Req::Events => Event::TopicsChanged,
     }

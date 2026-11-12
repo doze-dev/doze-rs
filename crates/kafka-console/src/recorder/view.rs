@@ -91,6 +91,17 @@ fn plain(row: &Row) -> WireRow {
         },
         took_sub: phrase::took_sub(row),
         idle: row.idle,
+        lab: row.lab.as_ref().map(|l| crate::model::live::LabTag {
+            rule: l.rule,
+            name: l.name.to_string(),
+            what: match l.applied {
+                kafka_server::fault::Applied::Delay(d) => crate::model::live::LabDid::Delayed(
+                    u32::try_from(d.as_millis()).unwrap_or(u32::MAX),
+                ),
+                kafka_server::fault::Applied::Fail(_) => crate::model::live::LabDid::Failed,
+                kafka_server::fault::Applied::Drop => crate::model::live::LabDid::Dropped,
+            },
+        }),
     }
 }
 

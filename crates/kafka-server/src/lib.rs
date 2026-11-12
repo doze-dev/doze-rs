@@ -12,6 +12,7 @@ mod accept;
 mod config;
 mod connection;
 mod connections;
+pub mod fault;
 mod frames;
 mod observer;
 mod pool;

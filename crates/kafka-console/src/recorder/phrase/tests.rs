@@ -34,6 +34,7 @@ fn row(api: ApiKey, f: impl FnOnce(&mut Facts)) -> Row {
         tooks: vec![14_000],
         idle: false,
         fold: 0,
+        lab: None,
     }
 }
 

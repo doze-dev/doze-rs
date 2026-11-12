@@ -13,6 +13,7 @@ mod error;
 mod groups;
 mod guard;
 mod handlers;
+mod lab;
 mod listener;
 mod log_notes;
 #[cfg(feature = "inspect")]
@@ -37,6 +38,8 @@ pub use config::{Config, Defaults};
 pub(crate) use configs::Live;
 pub use error::BrokerError;
 pub use groups::Cause;
+#[cfg(feature = "inspect")]
+pub use lab::{CleanOutcome, ConsoleLab, LabOutcome};
 pub use listener::Listener;
 pub use outcome::Outcome;
 #[cfg(feature = "inspect")]
