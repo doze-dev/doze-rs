@@ -14,11 +14,15 @@ use kafka_meta::AclRecord;
 
 use crate::Caller;
 
+mod rights;
+
+pub(crate) use self::rights::{TopicRights, permits};
+
 /// The authorizer of one broker.
 #[derive(Debug)]
 pub(crate) struct Authorizer {
     set: ArcSwap<AclSet>,
-    rules: Rules,
+    rules: Arc<Rules>,
 }
 
 impl Authorizer {
@@ -29,10 +33,10 @@ impl Authorizer {
     ) -> Self {
         Self {
             set: ArcSwap::from_pointee(set_of(stored)),
-            rules: Rules {
+            rules: Arc::new(Rules {
                 default_allow,
                 super_users,
-            },
+            }),
         }
     }
 
@@ -54,6 +58,22 @@ impl Authorizer {
         }
         self.rules
             .authorize_by_resource_type(&set, who.subject(), op, kind)
+    }
+
+    /// What `who` may DESCRIBE, as a value to keep: `None` if it is not narrowed at all (the default allows and no ACL
+    /// is stored, or it is a super user), which costs one atomic load and no allocation.
+    pub(crate) fn describe_rights(&self, who: &Caller) -> Option<TopicRights> {
+        let set = self.set.load();
+        if (set.is_empty() && self.rules.default_allow)
+            || self.rules.super_users.contains(who.principal().as_str())
+        {
+            return None;
+        }
+        Some(TopicRights::new(
+            arc_swap::Guard::into_inner(set),
+            Arc::clone(&self.rules),
+            who,
+        ))
     }
 
     /// The ACLs now in force.

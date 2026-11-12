@@ -80,6 +80,7 @@ pub(super) fn join(member: &str) -> Heartbeat {
         owned: Some(vec![]),
         client_id: "client".into(),
         client_host: "/127.0.0.1".into(),
+        rights: None,
     }
 }
 

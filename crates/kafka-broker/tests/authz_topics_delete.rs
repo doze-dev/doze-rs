@@ -220,3 +220,23 @@ async fn delete_implies_describe_but_a_deny_of_describe_hides_the_topic_from_the
         1
     );
 }
+
+/// `RCM.java` 1025-1028: an id nobody holds is UNKNOWN_TOPIC_ID (100) with Kafka's own words, to a caller that may
+/// delete everything and to one that may delete nothing; a name nobody holds stays 3 (SEC-D84).
+#[tokio::test]
+async fn delete_topics_by_an_unknown_id_is_100_and_by_an_unknown_name_is_3() {
+    let rig = rig_with_topics(&["t"]).await;
+    let ghost = kafka_wire::Uuid::from_u128(0xfeed_f00d);
+    for who in [admin(), user("nobody")] {
+        let r = rig.delete_topic_ids_as(&who, &[ghost]).await;
+        assert_eq!(r[0].error_code, 100, "{who:?}");
+        assert_eq!(r[0].topic_id, ghost);
+        assert!(r[0].name.is_none());
+        assert_eq!(
+            r[0].error_message.as_deref(),
+            Some("This server does not host this topic ID.")
+        );
+    }
+    let r = rig.delete_topics_as(&admin(), 5, &["ghost"]).await;
+    assert_eq!(r[0].error_code, UNKNOWN_TOPIC_OR_PARTITION);
+}

@@ -11,6 +11,7 @@ use kafka_wire::messages::ConsumerGroupHeartbeatRequest;
 use kafka_wire::messages::ConsumerGroupHeartbeatResponse;
 use kafka_wire::messages::consumer_group_heartbeat_response::{Assignment, TopicPartitions};
 
+use crate::authorizer::TopicRights;
 use crate::groups::{Answer, Heartbeat, Req};
 use crate::handlers::Client;
 use crate::{Broker, Caller, Outcome};
@@ -38,7 +39,7 @@ impl<F: Fs> Broker<F> {
             resp.error_message = None;
             return Outcome::Respond(kafka_wire::api::Response::ConsumerGroupHeartbeat(resp));
         }
-        let typed = match check(version, client, req) {
+        let typed = match check(version, client, req, self.guard(caller).topic_rights()) {
             Ok(typed) => typed,
             Err((error, words)) => return Outcome::Respond(respond(&refusal(error, &words))),
         };
@@ -133,6 +134,7 @@ fn check(
     version: i16,
     client: &Client<'_>,
     r: &ConsumerGroupHeartbeatRequest,
+    rights: Option<TopicRights>,
 ) -> Result<Heartbeat, Refused> {
     let bad = |words: &str| Err((E::InvalidRequest, words.to_owned()));
     let group = r.group_id.0.as_str();
@@ -172,6 +174,7 @@ fn check(
         }),
         client_id: client.id.to_owned(),
         client_host: client.host.to_owned(),
+        rights,
     })
 }
 

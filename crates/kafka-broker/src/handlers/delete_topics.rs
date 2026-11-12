@@ -14,6 +14,9 @@ use kafka_wire::messages::{DeleteTopicsRequest, DeleteTopicsResponse, TopicName 
 use crate::guard::TOPIC_DENIED;
 use crate::{Broker, Caller, blocking};
 
+/// `Errors.UNKNOWN_TOPIC_ID`'s message, which Kafka sends with the code.
+const UNKNOWN_ID_WORDS: &str = "This server does not host this topic ID.";
+
 /// A topic a request names, by name (every version) or by id (v6 and later).
 struct Target<'a> {
     name: Option<&'a str>,
@@ -67,7 +70,14 @@ impl<F: Fs> Broker<F> {
             .or_else(|| found.as_ref().map(|t| t.name.to_string()))
             .map(|n| WireName(StrBytes::from_string(n)));
         let Some(topic) = found else {
-            r.error_code = ResponseError::UnknownTopicOrPartition.code();
+            // By id Kafka says so in its own words (`ReplicationControlManager.deleteTopic`); by name it is a topic-partition
+            // that is not hosted. (Neither a name nor an id is INVALID_REQUEST there: SEC-D17.)
+            if target.name.is_none() && !target.id.is_nil() {
+                r.error_code = ResponseError::UnknownTopicId.code();
+                r.error_message = Some(StrBytes::from_static_str(UNKNOWN_ID_WORDS));
+            } else {
+                r.error_code = ResponseError::UnknownTopicOrPartition.code();
+            }
             return r;
         };
         // The registry first, so that nothing new opens the topic's partitions; then the partitions that are open

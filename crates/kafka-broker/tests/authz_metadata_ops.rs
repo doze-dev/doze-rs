@@ -113,13 +113,13 @@ async fn a_topics_operations_are_the_ones_the_caller_may_do_with_the_implied_des
         expect("owner", ("t", 0, ALL_TOPIC)).await;
         // A DENY of one operation takes that one away and no other.
         expect("careful", ("t", 0, ALL_TOPIC & !bit(6))).await;
-        // ALTER_CONFIGS grants DESCRIBE_CONFIGS but not DESCRIBE: the topic is hidden (29, name kept) and the bits
-        // are still told, by name.
-        expect("configurer", ("t", 29, bit(11) | bit(10))).await;
+        // ALTER_CONFIGS grants DESCRIBE_CONFIGS but not DESCRIBE: the topic is hidden (29, name kept), and a refused
+        // entry has no bits: Kafka sets them on the entries it found (KA:973-979) and appends the refused ones after,
+        // with the schema's default (SEC-71).
+        expect("configurer", ("t", 29, NOT_ASKED)).await;
         // WRITE allows WRITE; DESCRIBE is denied outright (and WRITE's implication does not override a DENY).
-        expect("writer", ("t", 29, bit(4))).await;
-        // Nothing: the entry is refused and has no operations.
-        expect("stranger", ("t", 29, 0)).await;
+        expect("writer", ("t", 29, NOT_ASKED)).await;
+        expect("stranger", ("t", 29, NOT_ASKED)).await;
     }
 }
 

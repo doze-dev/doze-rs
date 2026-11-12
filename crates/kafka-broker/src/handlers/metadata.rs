@@ -16,10 +16,12 @@ use tracing::warn;
 use super::create_topics::name_message;
 use crate::{Broker, Caller, Listener};
 
-/// Where an entry goes in the answer. Kafka lists what the caller may see first (in the order asked), then the
-/// topics it may describe but not create, then those it may not describe.
+/// Where an entry goes in the answer (`KafkaApis.scala` 983-985). Kafka lists the topic ids nobody knows first, then
+/// what the caller may see (in the order asked), then the topics it may describe but not create, then those it may
+/// not describe.
 #[derive(Clone, Copy)]
 enum Place {
+    UnknownId,
     Listed,
     CreateDenied,
     DescribeDenied,
@@ -51,11 +53,9 @@ impl<F: Fs> Broker<F> {
         (resp, wanted)
     }
 
-    /// The authorized-operations fields, when they were asked for (`KafkaApis.handleTopicMetadataRequest`, 960 to 981).
-    /// Each topic entry has the operations the caller may do on the topic of that name, whether the entry is the topic
-    /// or a refusal (an entry with no name, a topic asked for by an id nobody knows or may not describe, has none to
-    /// say); the cluster's are 0 if the caller may not DESCRIBE the cluster. A field not asked for stays the
-    /// schema's default, as does one the version does not have.
+    /// The cluster's authorized operations, when they were asked for (`KafkaApis.handleTopicMetadataRequest`, 960 to
+    /// 972): 0 if the caller may not DESCRIBE the cluster. A field not asked for stays the schema's default, as does
+    /// one the version does not have.
     fn with_operations(
         &self,
         caller: &Caller,
@@ -63,17 +63,28 @@ impl<F: Fs> Broker<F> {
         version: i16,
         resp: &mut MetadataResponse,
     ) {
-        if version < 8 {
-            return;
-        }
-        if req.include_cluster_authorized_operations && version <= 10 {
+        if (8..=10).contains(&version) && req.include_cluster_authorized_operations {
             resp.cluster_authorized_operations = self.cluster_operations(caller);
         }
-        if req.include_topic_authorized_operations {
-            for t in &mut resp.topics {
-                if let Some(name) = &t.name {
-                    t.topic_authorized_operations = self.topic_operations(caller, &name.0);
-                }
+    }
+
+    /// The topics' authorized operations, when they were asked for (v8 and later; 973 to 980). Only the entries Kafka
+    /// built from `topicMetadata` have them: the topics the caller may describe (and, of those, the ones that do not
+    /// exist). The entries refused for DESCRIBE or CREATE and the unknown ids are appended afterwards and keep the
+    /// schema's default.
+    fn with_topic_operations(
+        &self,
+        caller: &Caller,
+        req: &MetadataRequest,
+        version: i16,
+        listed: &mut [MetadataResponseTopic],
+    ) {
+        if version < 8 || !req.include_topic_authorized_operations {
+            return;
+        }
+        for t in listed {
+            if let Some(name) = &t.name {
+                t.topic_authorized_operations = self.topic_operations(caller, &name.0);
             }
         }
     }
@@ -106,19 +117,25 @@ impl<F: Fs> Broker<F> {
                 .filter(|t| self.can_describe(caller, t.name.as_ref()))
                 .map(|t| self.described(t))
                 .collect();
+            self.with_topic_operations(caller, req, version, &mut resp.topics);
             return (resp, Vec::new());
         }
         // Kafka before v4 never said whether a client wanted a topic created: it always did.
         let may_create = req.allow_auto_topic_creation || version < 4;
         let mut wanted = Vec::new();
+        let (mut unknown_ids, mut listed) = (Vec::new(), Vec::new());
         let (mut create_denied, mut describe_denied) = (Vec::new(), Vec::new());
         for asked in req.topics.iter().flatten() {
             match self.one_topic(caller, asked, may_create, &mut wanted) {
-                (Place::Listed, t) => resp.topics.push(t),
+                (Place::UnknownId, t) => unknown_ids.push(t),
+                (Place::Listed, t) => listed.push(t),
                 (Place::CreateDenied, t) => create_denied.push(t),
                 (Place::DescribeDenied, t) => describe_denied.push(t),
             }
         }
+        self.with_topic_operations(caller, req, version, &mut listed);
+        resp.topics = unknown_ids;
+        resp.topics.extend(listed);
         resp.topics.extend(create_denied);
         resp.topics.extend(describe_denied);
         (resp, wanted)
@@ -181,7 +198,7 @@ impl<F: Fs> Broker<F> {
                 Place::DescribeDenied,
                 failed(None, ResponseError::TopicAuthorizationFailed),
             ),
-            None => (Place::Listed, failed(None, ResponseError::UnknownTopicId)),
+            None => (Place::UnknownId, failed(None, ResponseError::UnknownTopicId)),
         };
         if r.error_code != 0 {
             r.topic_id = asked.topic_id;
