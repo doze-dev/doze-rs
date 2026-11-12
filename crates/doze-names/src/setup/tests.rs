@@ -51,10 +51,13 @@ fn check_sees_a_daemon_from_an_older_setup() {
 fn the_macos_script_boots_out_before_bootstrap() {
     let s = mac(Path::new("/r"));
     let plist = mac::launchd_plist(&s, 501, 20);
+    let p = |path: &Path| path.display().to_string();
     let args = format!(
-        "<string>/r/Library/PrivilegedHelperTools/dev.doze.netd</string>\n    <string>{}</string>\n    \
-         <string>/Users/me/.doze/names.json</string>\n    <string>501</string>\n    <string>20</string>",
-        crate::HELPER_ARG
+        "<string>{}</string>\n    <string>{}</string>\n    <string>{}</string>\n    <string>501</string>\n    \
+         <string>20</string>",
+        p(&s.paths.helper),
+        crate::HELPER_ARG,
+        p(&s.registry())
     );
     assert!(plist.contains(&args), "{plist}");
     let script = mac::plan_for(&s, &plist).script;
@@ -63,27 +66,34 @@ fn the_macos_script_boots_out_before_bootstrap() {
             .find(needle)
             .unwrap_or_else(|| panic!("no {needle:?} in\n{script}"))
     };
-    let job = "'/r/Library/LaunchDaemons/dev.doze.netd.plist'";
+    let job = shell_quote(&p(&s.paths.launchd_job));
     assert!(
         at(&format!("launchctl bootout system {job}"))
             < at(&format!("launchctl bootstrap system {job}"))
     );
     assert!(
-        at("launchctl bootout system '/r/Library/LaunchDaemons/dev.doze.loopback.plist'")
-            < at("cp -f ")
+        at(&format!(
+            "launchctl bootout system {}",
+            shell_quote(&p(&s.paths.old_launchd_job))
+        )) < at("cp -f ")
     );
     assert!(
-        at(
-            "cp -f '/Applications/Doze.app/Contents/MacOS/doze' '/r/Library/PrivilegedHelperTools/dev.doze.netd'"
-        ) > 0
+        at(&format!(
+            "cp -f '/Applications/Doze.app/Contents/MacOS/doze' {}",
+            shell_quote(&p(&s.paths.helper))
+        )) > 0
     );
     let port = crate::trust_store::mac_resolver_port();
     assert!(script.ends_with(&format!(
-        "printf 'nameserver 127.0.0.1\\nport {port}\\n' > '/r/etc/resolver/doze'\n"
+        "printf 'nameserver 127.0.0.1\\nport {port}\\n' > {}\n",
+        shell_quote(&p(&s.paths.resolver_dir.join("doze")))
     )));
     let un = mac::uninstall_plan(&s, &["echo cleanup".into()]).script;
     assert!(
-        un.contains("rm -f '/r/etc/resolver/doze'") && un.ends_with("echo cleanup\n"),
+        un.contains(&format!(
+            "rm -f {}",
+            shell_quote(&p(&s.paths.resolver_dir.join("doze")))
+        )) && un.ends_with("echo cleanup\n"),
         "{un}"
     );
 }

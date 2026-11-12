@@ -134,8 +134,13 @@ fn trust_and_untrust(os: Os, ip: IpAddr) {
         let said = resolvectl(DOMAIN);
         assert!(said.contains(&ip.to_string()), "resolvectl: {said}");
     }
-    let bundle = req.ca.as_ref().unwrap().bundle().unwrap();
-    assert!(std::fs::metadata(bundle).unwrap().len() > 1000);
+    let ca = req.ca.as_ref().unwrap();
+    let bundle = std::fs::read_to_string(ca.bundle().unwrap()).unwrap();
+    let root = std::fs::read_to_string(ca.root_path()).unwrap();
+    assert!(
+        bundle.contains(root.trim()),
+        "the bundle carries the doze root"
+    );
 
     let mut out = Vec::new();
     untrust(os, &mut options(&mut out), &req).unwrap();

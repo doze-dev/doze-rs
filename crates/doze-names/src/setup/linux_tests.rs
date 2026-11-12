@@ -96,15 +96,20 @@ fn the_daemon_unit_runs_as_the_person_after_the_interface() {
         "Group=1000\n".into(),
         format!("After={ZONE_UNIT_NAME}\n"),
         format!(
-            "ExecStart=/usr/local/libexec/doze-netd {} /home/me/.doze/names.json\n",
-            crate::HELPER_ARG
+            "ExecStart={} {} {}\n",
+            s.paths.netd_program.display(),
+            crate::HELPER_ARG,
+            s.registry().display()
         ),
         "Restart=always\n".into(),
         format!("{}\n", netd_stamp()),
     ] {
         assert!(u.contains(&want), "the unit lacks {want:?}:\n{u}");
     }
-    assert_eq!(netd_serves(&u), Some("/home/me/.doze/names.json"));
+    assert_eq!(
+        netd_serves(&u),
+        Some(s.registry().display().to_string().as_str())
+    );
     let dir = std::env::temp_dir().join(format!("doze-names-unit-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     let path = dir.join("doze-netd.service");
