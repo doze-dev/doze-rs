@@ -88,11 +88,11 @@ Conformance account `111122223333`, run as the earlier entries do (release binar
 ```
 cargo xtask conformance --cmd "target/release/doze-aws --listen {addr} --data-dir {data} --account 111122223333" dynamodb
 module           labels  exact  wording  behaviour  unverified
-dynamodb             84     53        0          0          31
-total: 84 labels, 63% exact, 63% ignoring wording
+dynamodb             89     53        0          0          36
+total: 89 labels, 59% exact, 59% ignoring wording
 ```
 
-**Read it as: 53 of 53 recorded labels exact (100%; the Go edition on the same recordings: 68% exact, 91% ignoring wording). The 31 other
+**Read it as: 53 of 53 recorded labels exact (100%; the Go edition on the same recordings: 68% exact, 91% ignoring wording). The 36 other
 labels are in 8 scenarios written before AWS answered them (`test_dynamodb.py`, below the 2026-11-12 comment); they pass against
 doze-aws and are UNVERIFIED until recorded.** The recording needs the owner's recorder policy to allow `dynamodb:UpdateTable`,
 `UpdateContinuousBackups`, `DescribeContinuousBackups`, `TagResource`, `UntagResource`, `ListTagsOfResource` and `TransactGetItems`
@@ -165,13 +165,15 @@ a transaction), stopped with SIGTERM and started again: the query, the index que
 
 ## Weight (ready to paste)
 
-With DynamoDB the whole binary is 5,851,040 B (macOS arm64 release, thin LTO; 5,097,200 B before), 202 packages in the weight tool's
+With DynamoDB the whole binary is 5,834,528 B (macOS arm64 release, thin LTO; 5,097,200 B before), 202 packages in the weight tool's
 count (198 before; three are the new crates `aws-dynamodb`, `aws-expr`, `aws-model-dynamodb`, the fourth was not traced) and idles at
-3,456 KB (3.3 MB before). No third-party crate was added: `redb`, `postcard`, `serde_json` and `tokio::sync` were already linked. The cost
-is the DynamoDB model's tables, the expression engine and the service: +753,840 B. The limits in `xtask/weight-limits.txt` stand
+3,504 KB (3.3 MB before). No third-party crate was added: `redb`, `postcard`, `serde_json` and `tokio::sync` were already linked. The cost
+is the DynamoDB model's tables, the expression engine and the service: +737,328 B. The limits in `xtask/weight-limits.txt` stand
 (7,000,000 B, 203 packages, 6,144 KB); one package is left, so the next service moves the package limit. Nothing is opened until the
 first request, items stay on disk, and the only data kept in memory while the service is live is one record per table.
 
 ## Gates
 
-See the report that accompanies this note for the exit code of `cargo xtask gates` at the last commit.
+`cargo xtask gates > <file> 2>&1; echo exit=$?` at commit 37762286 (before this note's last numbers were edited): exit 0, "gates: all
+passed" (fmt, clippy, codegen, lint-size, fuzz-check, test). Run in a scratch file of its own: a shared scratch name was overwritten by
+another agent's run once, which is why the first attempt was discarded.
