@@ -71,7 +71,11 @@ and STS sections). All changes are in `crates/aws-iam`; nothing outside it chang
 
 ## Evidence
 
-- `cargo test -p aws-iam`: 52 passed (was 29 at A7 and 43 before this branch's new test file); `aws-iam-policy` 21 passed.
+- `cargo test -p aws-iam`: 52 passed (19 new: 3 access log, 4 managed documents, 3 SAML reader, 8 in `tests/usage.rs`, 1 in
+  `tests/sessions.rs`); `aws-iam-policy` 21 passed.
+- Weight (`cargo xtask weight doze-aws`, darwin/arm64, release-aws): **4,950,592 B, 233 packages, idle 4,528 to 4,544 KB**, against
+  4,917,280 B, 233 packages, 4,464 KB for the base of this branch (`5cc7e6aa`): **+33 KB, no package**, idle within a run's noise
+  (+64 to +80 KB, nothing new runs at idle). Limit 7,900,000 B / 240 / 6,144 KB: ok.
 - `cargo clippy --workspace --all-targets` clean; `cargo fmt --all`.
 - Scoreboard (`cargo xtask conformance ... iam` / `sts` on the release-aws binary): **iam 45 labels, 36 exact, 9 unverified;
   sts 2 of 2 exact** (unchanged).
@@ -102,4 +106,3 @@ and STS sections). All changes are in `crates/aws-iam`; nothing outside it chang
 - Does AWS refuse a SAML assertion with no `RoleSessionName` attribute (and with what)? Recordable once a SAML provider exists in the
   recorder account.
 - Services cannot yet tell "no resource" from "resource not resolved" (both `*`), so `UnresolvedResources` over-counts list calls.
-- Weight: see the report; the delta of this branch alone is measured against its base.
