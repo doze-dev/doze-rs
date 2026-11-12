@@ -1,7 +1,8 @@
-//! Delivery: what happens to a published message at each subscription. **SQS is delivered to** (through the peer bus, as SNS, with the
-//! envelope or raw). Every other protocol is **not delivered, and not pretended to be**: the subscription is kept, the message is not
-//! sent anywhere, and the log says so. That is `sms`, `application` (decision D1: stored, nothing sent), `email`, `email-json`,
-//! `http` and `https` (their subscriptions wait for a confirmation token that no one is sent), `lambda` (waits for Lambda) and `firehose`.
+//! Delivery: what happens to a published message at each subscription. **SQS and Lambda are delivered to** through the peer bus, as
+//! SNS: a queue gets the envelope or the raw message, a function is invoked asynchronously with AWS's `Records[].Sns` event and the
+//! topic as its `SourceArn`. Every other protocol is **not delivered, and not pretended to be**: the subscription is kept, the message
+//! is not sent anywhere, and the log says so. That is `sms`, `application` (decision D1: stored, nothing sent), `email`, `email-json`,
+//! `http` and `https` (their subscriptions wait for a confirmation token that no one is sent) and `firehose`.
 
 use aws_iam_policy::{Context, Policies, Request, Subject};
 use aws_peers::Mode;
@@ -29,15 +30,19 @@ impl Core {
     /// Delivers to each subscription, in turn. A delivery that fails is logged and does not stop the others.
     pub(crate) async fn fan_out(&self, p: &Published<'_>, subs: &[Subscription]) {
         for sub in subs {
-            if sub.protocol == "sqs" {
-                if let Err(why) = self.to_queue(p, sub).await {
-                    tracing::warn!(
-                        subscription = %sub.arn,
-                        endpoint = %sub.endpoint,
-                        "SNS could not deliver to the queue: {why}"
-                    );
-                }
-            } else {
+            let delivered = match sub.protocol.as_str() {
+                "sqs" => Some(self.to_queue(p, sub).await),
+                "lambda" => Some(self.to_function(p, sub).await),
+                _ => None,
+            };
+            if let Some(Err(why)) = delivered {
+                tracing::warn!(
+                    subscription = %sub.arn,
+                    endpoint = %sub.endpoint,
+                    "SNS could not deliver to the {}: {why}",
+                    sub.protocol
+                );
+            } else if delivered.is_none() {
                 tracing::debug!(
                     subscription = %sub.arn,
                     protocol = %sub.protocol,
@@ -67,6 +72,34 @@ impl Core {
         let body = self.queue_message(p, sub, &url);
         peers
             .call("sns", &caller, "sqs", "SendMessage", &body)
+            .await
+            .map(|_| ())
+            .map_err(|e| e.message)
+    }
+
+    /// Invokes the subscribed function asynchronously with the notification event, in the function's own region and account.
+    async fn to_function(&self, p: &Published<'_>, sub: &Subscription) -> Result<(), String> {
+        let peers = self.peers.clone().ok_or("no function service is running")?;
+        let function = arn::split(&sub.endpoint, "Endpoint").map_err(|e| e.message)?;
+        let mut caller = p.caller.clone();
+        caller.region = function.region.to_owned();
+        caller.account_id = function.account.to_owned();
+        let ctx = Envelope {
+            message_id: p.message_id,
+            topic_arn: &p.topic.arn,
+            subscription_arn: &sub.arn,
+            timestamp: p.timestamp,
+            endpoint: &p.caller.endpoint,
+        };
+        let event = envelope::lambda_event(&ctx, p.message, &p.message.text_for("lambda"));
+        let body = json!({
+            "FunctionName": sub.endpoint,
+            "InvocationType": "Event",
+            "Payload": aws_core::base64::encode(event.as_bytes()),
+            "SourceArn": p.topic.arn,
+        });
+        peers
+            .call_rest("sns", &caller, "lambda", "Invoke", &body)
             .await
             .map(|_| ())
             .map_err(|e| e.message)

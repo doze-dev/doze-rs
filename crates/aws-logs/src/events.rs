@@ -53,6 +53,23 @@ impl Core {
             .unwrap_or_default();
         check_span(accepted)?;
         self.metric_points(&group, accepted);
+        if let Some(g) = self.groups.get(&group) {
+            let group_arn = g.arn(r.region(), r.account());
+            let lines: Vec<crate::forward::Line<'_>> = accepted
+                .iter()
+                .map(|e| crate::forward::Line {
+                    ts: e.ts,
+                    message: &e.message,
+                })
+                .collect();
+            let origin = crate::forward::Origin {
+                owner: r.account(),
+                group: &group,
+                stream: r.s("logStreamName"),
+                group_arn: &group_arn,
+            };
+            self.queue_forwards(&origin, &lines);
+        }
         let stream = self.streams.get_mut(&key).ok_or_else(no_stream)?;
         for e in accepted {
             let bytes = record::encode(

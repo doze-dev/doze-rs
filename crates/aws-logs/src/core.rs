@@ -44,6 +44,8 @@ pub(crate) struct Core {
     pub(crate) swept: HashMap<String, i64>,
     /// Metric data points the last call made through metric filters, for CloudWatch (sent once the call is answered).
     pub(crate) emit: Vec<Value>,
+    /// What subscription filters deliver, once the call is answered.
+    pub(crate) forward: Vec<crate::forward::Forward>,
 }
 
 /// What the actor answers: the reply, and the commit it must wait for.
@@ -131,6 +133,7 @@ impl doze_runtime::Service for Core {
             }
         };
         self.send_metrics(&call).await;
+        self.send_forwards(&call).await;
         Answer { reply, durable }
     }
 
@@ -198,6 +201,7 @@ impl Core {
             patterns: Patterns::new(&TABLES),
             swept: HashMap::new(),
             emit: Vec::new(),
+            forward: Vec::new(),
         }
     }
 
