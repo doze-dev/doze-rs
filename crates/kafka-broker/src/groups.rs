@@ -25,11 +25,13 @@ pub(crate) use expiry::first_expiry;
 pub(crate) use group::Settings;
 #[cfg(feature = "inspect")]
 pub(crate) use inspect::{Inspect, MemberInspect};
+pub(crate) use machine::Force;
 pub(crate) use machine::State;
 pub(crate) use machine::{
     Answer, CommitRequest, Description, HeartbeatRequest, JoinAnswer, JoinRequest, LeaveTarget,
     Protocol, SyncRequest,
 };
+pub(crate) use machine::Forced;
 pub use note::Cause;
 pub(crate) use note::Reason;
 pub(crate) use order::{kafka_order, offsets_partition};

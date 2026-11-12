@@ -41,6 +41,8 @@ pub use groups::Cause;
 pub use listener::Listener;
 pub use outcome::Outcome;
 #[cfg(feature = "inspect")]
+pub use lab::{CleanOutcome, ConsoleLab, LabOutcome};
+#[cfg(feature = "inspect")]
 pub use view::{
     AbortedRange, AccessFacts, CleanerState, Compaction, ConfigHelp, ConfigRule, ConsoleView,
     DataSize, Durability, EventKind, GroupDetail, GroupEvent, GroupEvents, GroupKind, Instance,

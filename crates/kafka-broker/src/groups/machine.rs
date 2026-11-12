@@ -10,6 +10,7 @@
 
 mod admin;
 mod commit;
+mod force;
 mod join;
 mod leave;
 mod migrate;
@@ -30,7 +31,7 @@ use kafka_wire::ids::{InstanceId, MemberId};
 pub(crate) use commit::{CommitRequest, commit_to_no_group};
 pub(crate) use join::refusal;
 pub(crate) use types::{
-    Answer, Description, Effect, Event, HeartbeatRequest, JoinAnswer, JoinMember, JoinRequest,
+    Answer, Description, Effect, Event, Force, Forced, HeartbeatRequest, JoinAnswer, JoinMember, JoinRequest,
     LeaveResult, LeaveTarget, MemberDescription, Millis, Protocol, SyncAnswer, SyncRequest,
     TimerKey, TimerKind, Token,
 };
@@ -147,6 +148,7 @@ impl GroupMachine {
             Event::Describe(token) => self.describe(token, now, &mut out),
             Event::Delete(token) => self.delete(token, &mut out),
             Event::Timer(key) => self.timer(&key, now, &mut out),
+            Event::Force(token, force) => self.force(token, &force, now, &mut out),
             // A consumer group's: the owner of the group hands these to the right machine.
             Event::ConsumerHeartbeat(..) | Event::TopicsChanged => {}
         }

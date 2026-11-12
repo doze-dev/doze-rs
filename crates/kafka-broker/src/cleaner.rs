@@ -44,7 +44,7 @@ impl<F: Fs> Broker<F> {
         }
     }
 
-    async fn clean_partition(&self, topic: &Topic, id: PartitionId) -> Result<(), StorageError> {
+    pub(crate) async fn clean_partition(&self, topic: &Topic, id: PartitionId) -> Result<(), StorageError> {
         let was_open = self.partitions.is_open(topic.id, id);
         let Some(partition) = self.partitions.get_unless_empty(topic, id).await? else {
             return Ok(());
