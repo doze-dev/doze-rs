@@ -217,7 +217,7 @@ async fn an_open_transaction_close_to_its_timeout_is_what_needs_someone() {
         "{body}"
     );
     assert!(body.contains("<span class=\"mono\">orders-0</span>"));
-    assert!(body.contains("/topics/orders/producers"));
+    assert!(body.contains("/topics/orders/transactions/"));
     let (_, frag) = send(&app, get("/fragments/home-live")).await;
     assert!(
         frag.contains("1 thing needs you"),

@@ -111,10 +111,19 @@ fn holds(v: &MessagesView, base: &Base) -> Markup {
                 @if let Some(t) = v.head.txns.first() {
                 "The transaction times out at " (crate::words::timeout(t.timeout_ms)) ": the coordinator then aborts it and fences producer " (t.producer_id) ". "
             } @else { "A transaction that times out is aborted by the coordinator and its producer is fenced. " }
-                a class="lnk" href=(format!("{}/producers", topic_url(base, &v.head.name))) { "What it holds back" }
+                a class="lnk" href=(held_url(v, base)) { "What it holds back" }
             }
         },
     )
+}
+
+/// Where "What it holds back" goes: the page of who the open transaction holds back, else the producers (slice 9g).
+fn held_url(v: &MessagesView, base: &Base) -> String {
+    let topic = topic_url(base, &v.head.name);
+    match v.head.txns.first() {
+        Some(t) => format!("{topic}/transactions/{}/held", crate::base::segment(&t.id)),
+        None => format!("{topic}/producers"),
+    }
 }
 
 fn reader_sees(v: &MessagesView, base: &Base) -> Markup {

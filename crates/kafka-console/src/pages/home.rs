@@ -54,9 +54,11 @@ fn fraction(held: i64, of: i64) -> i64 {
 
 fn attention(a: &Attention, unchecked: usize, base: &Base) -> Markup {
     let p = fraction(a.elapsed_secs, a.timeout_secs);
+    // The transaction's own page (slice 9g).
     let txn_url = base.url(&format!(
-        "/topics/{}/producers",
-        crate::base::segment(&a.topic)
+        "/topics/{}/transactions/{}",
+        crate::base::segment(&a.topic),
+        crate::base::segment(&a.transactional_id)
     ));
     html! {
         div style="flex:1" {
