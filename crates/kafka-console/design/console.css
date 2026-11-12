@@ -25,6 +25,12 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 /* A card's lede keeps its look when the lede sits inside a fragment (the check) and not directly in the card. */
 .card>.frag>.lede{margin:0 0 20px;color:var(--dim);font-size:13.5px}
+/* The shell stays put: the top bar and the rail do not scroll away with a long page (the drawer sits right under the bar). */
+.topbar{position:sticky;top:0;z-index:30}
+.rail{position:sticky;top:52px;align-self:flex-start;height:calc(100vh - 52px);overflow-y:auto}
+/* A long name or value never breaks the header: it wraps where it must. */
+.page-h h1,.page-h .title-row h1,.crumbs .cur{overflow-wrap:anywhere;min-width:0}
+.page-h>div{min-width:0}
 /* Overlays (src/ui/overlay.rs): a drawer or a dialog over its parent page. The server renders them open (a direct visit works
    with no script); the page behind is inert and does not scroll. The scrim is a link to the parent. */
 html:has(.ovl){overflow:hidden}
@@ -34,7 +40,7 @@ html:has(.ovl){overflow:hidden}
 .ovl-drawer .drawer-panel{position:fixed;z-index:1;top:52px;right:0;bottom:0;width:min(520px,100vw);overflow-y:auto;overscroll-behavior:contain;outline:0}
 .ovl-drawer .drawer-panel pre.code{max-height:min(46vh,440px);overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere}
 .ovl-drawer .drawer-panel h2{overflow-wrap:anywhere}
-.ovl.ovl-dialog{overflow-y:auto;overscroll-behavior:contain;display:flex;justify-content:center;align-items:flex-start;padding:clamp(24px,10vh,120px) 16px 32px}
+.ovl.ovl-dialog{overflow-y:auto;overscroll-behavior:contain;display:flex;flex-direction:row;justify-content:center;align-items:flex-start;padding:clamp(24px,10vh,120px) 16px 32px}
 .ovl-dialog .modal{position:relative;z-index:1;left:auto;top:auto;transform:none;width:600px;max-width:100%;margin:0;outline:0}
 @media (max-width:640px){.ovl-drawer .drawer-panel{padding:24px 20px}.ovl-dialog .modal{padding:24px 20px}}
 /* Motion, gently: the scrim fades in 160 ms, a drawer slides in 220 ms with ease-out (a short move and opacity, not a swoosh),
@@ -70,6 +76,20 @@ html:has(.ovl){overflow:hidden}
 }
 @keyframes vt-out{to{opacity:0}}
 @keyframes vt-in{from{opacity:0;transform:translateY(4px)}}
+/* The jump palette (an overlay with no page of its own): a field, the topics, one line of keys. */
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.ovl[data-transient] .modal{width:560px;padding:20px 20px 16px}
+.ovl.ovl-dialog[data-transient]{padding-top:clamp(24px,14vh,140px)}
+.jump .input{margin-bottom:10px}
+.jump-list{list-style:none;margin:0;padding:0;max-height:min(46vh,380px);overflow-y:auto}
+.jump-list li[hidden]{display:none}
+.jump-item{display:flex;align-items:center;gap:10px;height:40px;padding:0 12px;border-radius:9px;color:var(--text);font-size:14px;transition:background-color .12s ease,color .12s ease}
+.jump-item svg{color:var(--dim);flex:none}
+.jump-item:hover,.jump-item.sel{background:var(--sel);color:var(--bright)}
+.jump-item.sel svg{color:var(--accent)}
+.jump-empty{padding:8px 12px}
+.jump-keys{margin:12px 0 0;padding:10px 12px 0;border-top:1px solid var(--line);display:flex;align-items:center;gap:6px}
+.jump-keys kbd:not(:first-child){margin-left:10px}
 /* Hover, focus and pressed states answer in 120 ms (colour, border and shadow only). */
 .btn,.ni,.chip,.tab,.seg button,.seg label,.input,.t td,.crumbs a,.lnk,.opt,.ni svg{transition:background-color .12s ease,border-color .12s ease,color .12s ease,box-shadow .12s ease}
 .btn:hover{background:#faf9fe;border-color:#b9b2cc}
@@ -87,6 +107,8 @@ a.chip:hover,button.chip:hover{border-color:var(--line2);color:var(--bright)}
 .seg button:hover:not(.on){color:var(--bright)}
 .t tbody tr:hover td{background:#faf9ff}
 .t tbody tr.sel:hover td{background:var(--sel)}
+.t tbody tr:focus-within td{background:#faf9ff}
+button[data-copied]{color:var(--good);border-color:var(--good)}
 /* A field's error line and the radio rows of a form sit as the kit draws them when a real input is used. */
 .opt-row input[type=radio]{position:absolute;opacity:0;width:0;height:0}
 .opt-row:has(input:focus-visible) .radio{outline:2px solid var(--accent);outline-offset:2px}

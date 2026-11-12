@@ -60,6 +60,18 @@ pub fn frame(kind: Kind, label_id: &str, close_href: &str, body: Markup) -> Mark
     }
 }
 
+/// An overlay with no page of its own to return to (the jump palette): a script opens it in place and closes it with no
+/// history entry; `home_href` is where its scrim leads without a script.
+#[must_use]
+pub fn transient(kind: Kind, label_id: &str, home_href: &str, body: Markup) -> Markup {
+    html! {
+        div class=(kind.class()) data-overlay data-transient data-close=(home_href) {
+            a class="scrim" href=(home_href) tabindex="-1" aria-hidden="true" data-overlay-close {}
+            div class=(kind.panel()) role="dialog" aria-modal="true" aria-labelledby=(label_id) tabindex="-1" { (body) }
+        }
+    }
+}
+
 /// A parent's `main` with an overlay (made by [`frame`], usually by the overlay's own page function) over it.
 #[must_use]
 pub const fn over(parent_main: Markup, overlay: Markup) -> Over {

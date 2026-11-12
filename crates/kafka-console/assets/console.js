@@ -51,8 +51,17 @@
       return;
     }
     const btn = e.target.closest('[data-copy],[data-copy-from]');
-    if (btn) copy(textOf(btn));
+    if (btn) { copy(textOf(btn)); confirmCopy(btn); }
   });
+  // A copy says so, gently: the label becomes "Copied" for a moment, in the width it had, and is announced.
+  function confirmCopy(btn) {
+    if (btn.hasAttribute('data-copied')) return;
+    const was = btn.innerHTML, w = btn.getBoundingClientRect ? btn.getBoundingClientRect().width : 0;
+    btn.setAttribute('data-copied', '');
+    if (w) btn.style.minWidth = w + 'px';
+    btn.textContent = 'Copied';
+    setTimeout(() => { btn.innerHTML = was; btn.style.minWidth = ''; btn.removeAttribute('data-copied'); }, 1400);
+  }
 
   // Edit the nodes on screen into the new ones, so focus, typed text, caret and scroll position stay. What really changed is
   // remembered, so that only it fades in (below): an unchanged answer changes nothing and moves nothing.
@@ -138,6 +147,7 @@
   function mount(el, opener, animate) {
     ovl = { el, opener, pushed: false, y: window.scrollY || 0 };
     document.body.append(el);
+    reveal();
     const r = pageRoot();
     if (r) r.setAttribute('inert', '');
     if (animate && !reduced()) el.classList.add('ovl-in');
@@ -168,12 +178,14 @@
   function dismiss() {
     if (!ovl) return;
     if (ovl.pushed) history.back();
+    else if (ovl.el.hasAttribute('data-transient')) teardown();
     else { history.replaceState(null, '', attr(ovl.el, 'data-close') || location.href); teardown(); }
   }
   // Put an overlay's content in place of the open one (the next record, a form's answer) without closing it.
   function replaceOverlay(el, url) {
     ovl.el.replaceWith(el);
     ovl.el = el;
+    reveal();
     if (url) history.replaceState({ ovl: 1 }, '', url);
     focusIn(el);
   }
@@ -242,6 +254,58 @@
     if (e.shiftKey && (at === first || !p.contains(at))) { e.preventDefault(); last.focus(); }
     else if (!e.shiftKey && (at === last || !p.contains(at))) { e.preventDefault(); first.focus(); }
   });
+  // ---- Jump: ⌘K or Ctrl+K, or a click on the top bar's search, opens the palette (/jump, an overlay with no page behind it of its
+  // own: no history entry). Typing narrows the topics, the arrows move, Enter goes there, Esc closes.
+  const palette = () => attr(document.querySelector('[data-palette]'), 'data-palette');
+  function openPalette() {
+    if (ovl) { if (ovl.el.hasAttribute('data-transient')) dismiss(); return; }
+    const url = palette();
+    if (url) openOverlay(url, document.activeElement, false);
+  }
+  const jumpLinks = () => (ovl ? [...ovl.el.querySelectorAll('.jump-list li:not([hidden]) a')] : []);
+  function jumpSelect(to) {
+    const all = jumpLinks();
+    all.forEach((a, i) => { a.classList.toggle('sel', i === to); if (i === to) { a.setAttribute('aria-current', 'true'); if (a.scrollIntoView) a.scrollIntoView({ block: 'nearest' }); } else a.removeAttribute('aria-current'); });
+  }
+  document.addEventListener('input', (e) => {
+    if (!ovl || !e.target.hasAttribute || !e.target.hasAttribute('data-jump-input')) return;
+    const q = e.target.value.trim().toLowerCase(), items = [...ovl.el.querySelectorAll('.jump-list li')];
+    items.forEach((li) => { li.hidden = !!q && !attr(li.firstElementChild, 'data-jump').includes(q); });
+    const none = ovl.el.querySelector('.jump-empty');
+    if (none) none.hidden = !items.length || items.some((li) => !li.hidden);
+    jumpSelect(0);
+  });
+  document.addEventListener('keydown', (e) => {
+    if ((e.metaKey || e.ctrlKey) && !e.altKey && (e.key === 'k' || e.key === 'K')) { e.preventDefault(); openPalette(); return; }
+    if (!ovl || !ovl.el.hasAttribute('data-transient')) return;
+    const all = jumpLinks(), at = all.findIndex((a) => a.classList.contains('sel'));
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); jumpSelect(Math.max(0, Math.min(all.length - 1, at + (e.key === 'ArrowDown' ? 1 : -1)))); }
+    else if (e.key === 'Enter' && all.length) { e.preventDefault(); (all[Math.max(0, at)]).click(); }
+  });
+  const search = document.querySelector('[data-palette]');
+  if (search) {
+    const field = search.querySelector('input');
+    if (field) { field.disabled = false; field.readOnly = true; field.addEventListener('keydown', (e) => { if (e.key === 'Enter') openPalette(); }); }
+    search.addEventListener('click', () => openPalette());
+  }
+
+  // j and k move through the rows of the page's table (a row's first link takes the focus; Enter opens it, as on any link). With
+  // a drawer open they are the next and the previous record: the opener's neighbours in its table.
+  const typing = (t) => t && (/^(input|textarea|select)$/i.test(t.tagName) || t.isContentEditable);
+  const rowLinks = () => [...document.querySelectorAll('main table.t tbody tr')].map((tr) => tr.querySelector('a[href]')).filter(Boolean);
+  document.addEventListener('keydown', (e) => {
+    if ((e.key !== 'j' && e.key !== 'k') || e.metaKey || e.ctrlKey || e.altKey || e.defaultPrevented || typing(e.target)) return;
+    const links = rowLinks();
+    if (!links.length) return;
+    const from = ovl ? ovl.opener : document.activeElement && document.activeElement.closest('tr') ? document.activeElement.closest('tr').querySelector('a[href]') : null;
+    const at = links.indexOf(from);
+    const next = links[at < 0 ? (e.key === 'j' ? 0 : links.length - 1) : at + (e.key === 'j' ? 1 : -1)];
+    e.preventDefault();
+    if (!next) return;
+    if (ovl) { if (next.hasAttribute('data-dialog')) { ovl.opener = next; openOverlay(next.href, next, true); } return; }
+    next.focus();
+  });
+
   // Back and Forward: the history says whether an overlay belongs on this entry.
   addEventListener('popstate', () => {
     if (swapped) { location.reload(); return; }

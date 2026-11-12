@@ -110,9 +110,10 @@ fn topbar(page: &Page<'_>) -> Markup {
     html! {
         header class="topbar" {
             div class="brand" { span class="wm" { "doze-kafka" } }
-            div class="search" {
+            div class="search" data-palette=(page.base.url("/jump")) {
                 (glyph(Glyph::Search, 16, ""))
-                // Jump to a topic or group arrives with the Topics and Groups pages; until then it is drawn, not offered.
+                // Without a script the field is drawn, not offered (the Jump page has the same list as links); a script enables it
+                // and opens the palette on a click or Enter, as ⌘K does.
                 input type="text" placeholder="Jump to a topic or group" aria-label="Jump to a topic or group" disabled;
                 kbd { "⌘K" }
             }
@@ -138,6 +139,11 @@ fn rail(page: &Page<'_>) -> Markup {
                         (glyph(r.glyph(), 20, "")) (r.label())
                     }
                 }
+            }
+            // The keys the script answers to (the boards draw them): hidden when there is no script to answer.
+            div class="hints" data-js-only hidden {
+                span { kbd { "j" } kbd { "k" } "move" }
+                span { kbd { "⌘K" } "jump" }
             }
         }
     }

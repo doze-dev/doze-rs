@@ -4,6 +4,7 @@ mod config;
 mod fragments;
 mod groups;
 mod groups_fragments;
+mod jump;
 mod overlays;
 mod pages;
 mod plain;
@@ -20,6 +21,7 @@ pub use groups::{
     reset as group_reset, reset_form as group_reset_form,
 };
 pub use groups_fragments::groups_fragment;
+pub use jump::jump;
 pub use pages::{advertised, connect, home, method_not_allowed, not_found, planned};
 pub use plain::{events, health, static_file};
 pub use topics::{

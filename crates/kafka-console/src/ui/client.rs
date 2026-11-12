@@ -37,6 +37,13 @@ pub const ATTR_ADDRESS: &str = "data-address";
 pub const ATTR_DIALOG: &str = "data-dialog";
 /// A control inside an overlay that closes it (Cancel, Close): without a script it is a link to the parent page.
 pub const ATTR_DIALOG_CLOSE: &str = "data-dialog-close";
+/// The top bar's search: its value is the address of the jump palette, which a click or ⌘K / Ctrl+K opens in place.
+pub const ATTR_PALETTE: &str = "data-palette";
+/// An overlay with no page of its own to return to (the palette): closed with no history entry.
+pub const ATTR_TRANSIENT: &str = "data-transient";
+/// The palette's field, and what each of its links carries to be matched against (the lower-cased name).
+pub const ATTR_JUMP_INPUT: &str = "data-jump-input";
+pub const ATTR_JUMP: &str = "data-jump";
 /// The attribute of the overlay element (`ui::overlay::frame`); its value-less presence is how the script finds it.
 pub const ATTR_OVERLAY: &str = "data-overlay";
 /// The response header that says the body is an overlay element (and not a page): a script puts it in place.

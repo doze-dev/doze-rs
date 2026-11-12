@@ -212,3 +212,35 @@ async fn an_overlay_with_no_parent_topic_is_the_page_that_says_so() {
     assert_eq!(res.status(), StatusCode::NOT_FOUND);
     assert!(page.contains("No such topic") || page.contains("There is no topic called"));
 }
+
+#[tokio::test]
+async fn the_jump_palette_is_an_overlay_alone_to_a_script_and_a_page_of_links_to_a_browser() {
+    let (app, _) = app("/kafka", &[]);
+    let mut ask = get("/kafka/jump");
+    ask.headers_mut().insert("x-fragment", "1".parse().unwrap());
+    let (res, alone) = send(&app, ask).await;
+    assert_eq!(res.status(), StatusCode::OK);
+    assert_eq!(res.headers()["x-overlay"], "1");
+    assert!(
+        alone.starts_with("<div class=\"ovl ovl-dialog root\" data-overlay data-transient"),
+        "{alone:.200}"
+    );
+    assert!(
+        alone.contains("aria-labelledby=\"jump-title\"") && alone.contains("id=\"jump-title\"")
+    );
+    assert!(
+        alone.contains("href=\"/kafka/topics/orders\" data-jump=\"orders\""),
+        "{alone}"
+    );
+    assert!(!alone.contains("<html"));
+    // With no script it is a page: the same names as plain links, and a filter that is a plain GET.
+    let (res, page) = send(&app, get("/kafka/jump?q=inventory")).await;
+    assert_eq!(res.status(), StatusCode::OK);
+    assert!(page.contains("<h1>Jump to a topic</h1>"), "{page:.300}");
+    assert!(page.contains("/kafka/topics/inventory.levels"));
+    assert!(
+        !page.contains("href=\"/kafka/topics/orders\""),
+        "the filter applies"
+    );
+    assert!(!page.contains("data-overlay"));
+}

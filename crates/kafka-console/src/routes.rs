@@ -59,6 +59,8 @@ pub enum Handler {
     ConfigEdit,
     ConfigResetForm,
     ConfigReset,
+    /// Jump to a topic: the palette to a script, a page of links to a browser.
+    Jump,
     /// A screen of the design that a later slice builds: a page that says so (title).
     Planned(&'static str),
 }
@@ -130,6 +132,7 @@ pub const ROUTES: &[Route] = &[
     },
     get("/fragments/{id}", &[], Handler::Fragment),
     get("/events", &[], Handler::Events),
+    get("/jump", &[], Handler::Jump),
     get("/static/{name}", &[], Handler::Static),
     get("/healthz", &[], Handler::Health),
     // The rest of the design, built by later slices: each says it is not built yet.

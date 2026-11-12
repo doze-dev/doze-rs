@@ -54,6 +54,7 @@ fn method_router(route: &Route) -> MethodRouter<Shared> {
         (Handler::ConfigEdit, _) => post(handlers::config_edit),
         (Handler::ConfigResetForm, _) => get(handlers::config_reset_form),
         (Handler::ConfigReset, _) => post(handlers::config_reset),
+        (Handler::Jump, _) => get(handlers::jump),
         (Handler::Planned(title), _) => get(
             move |axum::extract::State(s): axum::extract::State<Shared>| async move {
                 handlers::planned(s, title).await

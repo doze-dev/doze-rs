@@ -7,6 +7,7 @@ mod config;
 mod connect;
 pub mod groups;
 mod home;
+mod jump;
 mod notice;
 pub mod topics;
 mod topics_write;
@@ -22,6 +23,7 @@ pub use config::{
 };
 pub use connect::{connect, probe_connect};
 pub use home::{HOME_LIVE, callout_body, home, live_fragment, probe_home};
+pub use jump::{jump_overlay, jump_page};
 pub use notice::{not_found, planned};
 pub use topics_write::{
     add_partitions_dialog, create_page, create_refused, created, delete_dialog,
