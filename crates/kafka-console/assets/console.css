@@ -593,5 +593,5 @@ table.consumers td.grp .grp-bits{margin-left:12px}
 .sec .t td{vertical-align:top}
 .ni.on.is-soon{opacity:1}
 .ni .soon{margin-left:auto}
-/* A sentence that is one line in one state and two in another keeps two lines of room, so a view switch moves nothing under it. */
-#group-lag-sentence{min-height:44px}
+/* A sentence that is one line in one state and two in another keeps three lines of room, so a view switch moves nothing under it. */
+.page-h .sub:has(#group-lag-sentence){min-height:66px}
