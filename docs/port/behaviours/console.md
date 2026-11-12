@@ -668,7 +668,7 @@ CreateAcls and DeleteAcls join the list. Test: `actions::tests::actions_match_bo
 Tagged in the code and in `debt.md` J261 to J278.
 - Idle memory and threads on a system that does not let a process read them (macOS): the tile says "Measured on Linux only".
 
-## Integration of 9g and 9h, and what they left open (slice p9x; CON-582 to CON-588)
+## Integration of 9g and 9h, and what they left open (slice p9x; CON-582 to CON-589)
 
 ## CON-582. Settings names the clients, the cleaner's last round and a group's expiry from what the broker holds
 "Today fulfilment speaks Fetch v12 and orders Produce v9, all inside the ranges" is the newest client of the tape that used each of Fetch and Produce with the version of its newest request (a client with no id is nobody; a version outside the range offered is named as outside); "Its last round was on inventory.levels at 21:31 UTC, and the next look finds it due" is the newest round the cleaner put in place on a topic the console may describe, and the planner's own verdict on that log now; "analytics' expire in 3 d 2 h" on the Offsets retention row is the soonest date the sweep takes a group's offsets. With no recorder no client is named; with no round the page says none was put in place since the broker started; with no date no group is named. Test: `live_settings_wired::settings_names_the_clients_the_last_round_and_the_expiry_from_what_the_broker_holds`, `pages::settings::tests::the_sentences_from_the_recorder_and_the_cleaner_say_only_what_they_were_given`, `settings_live::tests::a_version_outside_the_range_or_of_an_api_not_offered_is_not_inside`.
@@ -783,3 +783,6 @@ Tables and counters use tabular figures; a row of a table shows hover and keyboa
 
 ## CON-588. Log, Producers and a transaction use the topic's own head and trail
 The five tabs of a topic, and a transaction under Producers, start with the same head and the same tab row (`topic_frame`), byte for byte but the tab that is on (`tests/ux_pages::the_tabs_of_a_topic_share_one_header`); what a page used to carry in its head (the words of the log, the partition, the sentence that follows the data, a transaction's state and its buttons) is its first block under the tabs. The breadcrumb of these pages and of Settings and Access is a `trail::Place` (`TopicPage(topic, Log | Producers)`, `Transaction`, `TransactionHeld`, `Settings`, `Access`): a saved or refused page, a dialog and a partition chip do not change it. A producer's batches are a native `<details>` (never a link with `?open=`), open for the producer that holds a transaction and for the ids a deep link names. Test: `ux_pages::no_breadcrumb_carries_a_query_value_a_mode_or_a_state_and_the_title_is_its_last_step`, `ux_pages::no_page_has_an_expander_that_is_a_link_with_a_query`, `pages::producers::tests::each_producer_is_a_native_disclosure_open_for_the_one_with_a_transaction_and_a_deep_link_opens_another`.
+
+## CON-589. A dialog's field to fix is a 200 to a script and a 422 to a plain POST
+Test: `overlays_more::a_field_to_fix_is_a_200_to_a_script_and_a_422_to_a_plain_post`.

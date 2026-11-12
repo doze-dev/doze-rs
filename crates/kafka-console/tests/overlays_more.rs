@@ -166,3 +166,22 @@ async fn a_request_that_is_not_on_the_tape_and_a_hostile_id_are_the_page_that_sa
         );
     }
 }
+
+/// CON-589: a field to fix in a dialog is a 200 to a script (a browser's console logs every 4xx a fetch gets) and a 422 to a
+/// plain POST; both are the dialog, and the script's is marked as an overlay.
+#[tokio::test]
+async fn a_field_to_fix_is_a_200_to_a_script_and_a_422_to_a_plain_post() {
+    let (app, _) = app("/", &[]);
+    let body = "key=log.retention.ms&was=log.retention.ms&scope=all&value=";
+    let mut script = support::post("/settings/config/edit", body);
+    script
+        .headers_mut()
+        .insert("x-fragment", "1".parse().unwrap());
+    let (res, alone) = send(&app, script).await;
+    assert_eq!(res.status(), StatusCode::OK);
+    assert_eq!(res.headers()["x-overlay"], "1");
+    assert!(alone.contains("Type a value."), "{alone:.300}");
+    let (res, page) = send(&app, support::post("/settings/config/edit", body)).await;
+    assert_eq!(res.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    assert!(page.contains("Type a value.") && page.contains("data-overlay"));
+}

@@ -31,9 +31,16 @@ pub(super) fn wants_fragment(headers: &HeaderMap) -> bool {
     headers.contains_key(HEADER_FRAGMENT)
 }
 
-/// The overlay element alone, marked so that a script knows it is an overlay and not a page.
+/// The overlay element alone, marked so that a script knows it is an overlay and not a page. A script reads the element and the
+/// mark, never the status, and a browser logs every 4xx a fetch gets as an error in its console: so a field to fix (422) is a
+/// 200 to a script, while the same answer to a plain POST keeps its 422.
 #[must_use]
 pub(super) fn fragment(status: StatusCode, overlay: &Markup) -> Response {
+    let status = if status == StatusCode::UNPROCESSABLE_ENTITY {
+        StatusCode::OK
+    } else {
+        status
+    };
     (
         status,
         [
