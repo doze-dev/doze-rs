@@ -3,11 +3,11 @@
 use maud::{Markup, html};
 
 use super::tail::ruler;
-use super::txn::{txn_head, txn_tabs};
+use super::txn::txn_head;
 use super::txn_url;
 use crate::base::{Base, segment};
 use crate::format::number;
-use crate::model::{ProducersView, TxnView};
+use crate::model::{ProducersView, TopicHead, TxnView};
 use crate::producers_words::holding_sentence;
 use crate::ui::glyph::Glyph;
 use crate::ui::notice::{Tone, callout};
@@ -40,7 +40,7 @@ pub(super) fn section(v: &ProducersView, base: &Base) -> Markup {
 
 /// The page that says who is held: the two isolation levels side by side and what a Fetch answers.
 #[must_use]
-pub fn txn_held_page(v: &TxnView, base: &Base) -> Markup {
+pub fn txn_held_page(v: &TxnView, head: &TopicHead, base: &Base) -> Markup {
     let p = v.parts.iter().find(|p| p.partition == v.tail_partition);
     let (end, stable) = p.map_or((0, 0), |p| (p.end, p.last_stable));
     let here = p.map_or(0, |p| p.held());
@@ -50,10 +50,9 @@ pub fn txn_held_page(v: &TxnView, base: &Base) -> Markup {
         v.tail_partition
     );
     html! {
-        (txn_head(v, base, spans(&holding_sentence(v)), html! {
+        (txn_head(v, head, base, spans(&holding_sentence(v)), html! {
             a class="btn" href=(messages) { "The same, as a consumer sees it" }
         }))
-        (txn_tabs(v, base))
         div class="g2" {
             div class="card" { h2 { "read_uncommitted" } p class="lede" { "The default of most clients." }
                 dl class="kv sm" {

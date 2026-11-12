@@ -16,17 +16,13 @@ use crate::gather::access_dialogs::{AclFields, entry_of, input_of, missing};
 use crate::model::{AclCreateResult, AclDeleteResult, AclEntry};
 use crate::pages;
 use crate::state::Shared;
+use crate::trail::{Place, borrowed};
 use crate::ui::shell::Rail;
 
 async fn shell(s: &Shared, status: StatusCode, main: Markup) -> Response {
+    let steps = Place::Access.steps();
     let doc = s
-        .document(
-            Rail::Access,
-            "Access",
-            &[("Home", Some("/")), ("Access", None)],
-            &[],
-            main,
-        )
+        .document(Rail::Access, "Access", &borrowed(&steps), &[], main)
         .await;
     (status, html(&doc)).into_response()
 }
@@ -37,10 +33,7 @@ async fn access_parent(s: &Shared, state: Option<&str>) -> Parent {
     Parent {
         rail: Rail::Access,
         title: "Access".to_owned(),
-        crumbs: vec![
-            ("Home".to_owned(), Some("/".to_owned())),
-            ("Access".to_owned(), None),
-        ],
+        crumbs: Place::Access.steps(),
         watch: &[],
         main: pages::access_page(&view, &s.base),
     }

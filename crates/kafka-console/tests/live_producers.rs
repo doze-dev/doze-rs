@@ -54,8 +54,8 @@ async fn the_producers_page_names_the_transaction_that_holds_the_stable_offset()
     assert_eq!(status, StatusCode::OK);
     assert!(doc.contains("<span class=\"st warn\">Transaction open</span>"));
     assert!(
-        doc.contains(&format!("<td class=\"name mono\">{id}</td>"))
-            && doc.contains(&format!("<td class=\"name mono\">{}</td>", t.0))
+        doc.contains(&format!("id=\"producer-{id}\""))
+            && doc.contains(&format!("id=\"producer-{}\"", t.0))
     );
     assert!(doc.contains("href=\"/topics/orders/transactions/orders-eos\""));
     assert!(

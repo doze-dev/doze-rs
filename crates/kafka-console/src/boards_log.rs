@@ -40,7 +40,8 @@ fn docked(topic: &str, main: Markup, base: &Base) -> Markup {
 
 fn log(topic: &'static str, base: &Base) -> Option<Drawn> {
     let v = larder::log(topic, 0)?;
-    let page = pages::log_page(&v, base, fixtures::ADDRESS);
+    let head = crate::fixtures_topics::head(topic)?;
+    let page = pages::log_page(&v, &head, base, fixtures::ADDRESS);
     Some((
         topic,
         vec![("Log".to_owned(), None)],
@@ -60,7 +61,11 @@ fn board(id: &str, base: &Base) -> Option<Drawn> {
             Some((
                 "orders",
                 vec![("Producers".to_owned(), None)],
-                docked("orders", pages::producers_page(&v, base), base),
+                docked(
+                    "orders",
+                    pages::producers_page(&v, &crate::fixtures_topics::head("orders")?, base),
+                    base,
+                ),
             ))
         }
         "txn-open" => {
@@ -71,7 +76,7 @@ fn board(id: &str, base: &Base) -> Option<Drawn> {
                     ("Producers".to_owned(), Some(producers)),
                     ("orders-eos".to_owned(), None),
                 ],
-                pages::txn_page(&v, base),
+                pages::txn_page(&v, &crate::fixtures_topics::head("orders")?, base),
             ))
         }
         "txn-holding" => {
@@ -84,7 +89,7 @@ fn board(id: &str, base: &Base) -> Option<Drawn> {
                     ("orders-eos".to_owned(), Some(txn)),
                     ("What it holds back".to_owned(), None),
                 ],
-                pages::txn_held_page(&v, base),
+                pages::txn_held_page(&v, &crate::fixtures_topics::head("orders")?, base),
             ))
         }
         _ => None,

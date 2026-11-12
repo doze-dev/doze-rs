@@ -83,8 +83,8 @@ async fn a_compacted_log_is_drawn_from_what_the_cleaner_left() {
     let facts = w.backend.log_facts("inventory.levels", 0).await.unwrap();
     assert_eq!(after.matches("<details").count(), facts.segments.len());
     assert!(
-        !after.contains("class=\"btn pri\""),
-        "no button writes anything"
+        !after.contains("<form") && !after.contains("Compact now"),
+        "no form and no button of the page writes anything (the topic's own head has its links)"
     );
     w.stop().await;
 }
@@ -323,6 +323,9 @@ async fn a_get_of_these_pages_reads_and_changes_nothing() {
         ApiKey::ListOffsets,
         ApiKey::DescribeConfigs,
         ApiKey::DescribeProducers,
+        // The topic's own head says how many groups read it (the tab's count): a read.
+        ApiKey::ListGroups,
+        ApiKey::OffsetFetch,
     ];
     for call in log.lock().unwrap().iter() {
         assert!(reads.contains(call), "a GET called {call:?}");

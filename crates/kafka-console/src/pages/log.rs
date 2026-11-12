@@ -20,12 +20,12 @@ mod ruler;
 use maud::{Markup, html};
 
 use crate::base::{Base, segment};
-use crate::model::{LogState, LogView};
+use crate::model::{LogState, LogView, TopicHead};
 use crate::ui::client;
 
+pub(crate) use head::lead;
 use head::log_head;
 pub use head::log_sentence_fragment;
-pub(crate) use head::topic_tabs;
 
 /// The fragments of the page that follow the data.
 pub const LOG_SENTENCE: &str = "log-sentence";
@@ -79,10 +79,10 @@ fn cards(v: &LogView, base: &Base) -> Markup {
 
 /// The page.
 #[must_use]
-pub fn log_page(v: &LogView, base: &Base, listen: &str) -> Markup {
+pub fn log_page(v: &LogView, head: &TopicHead, base: &Base, listen: &str) -> Markup {
     let state = v.state();
     html! {
-        (log_head(v, base))
+        (log_head(v, head, base))
         @if state == LogState::NotDue { (planner::not_due_callout(v)) }
         (log_ruler_fragment(v, base))
         @if state == LogState::Empty {

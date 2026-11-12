@@ -2112,20 +2112,6 @@
   },
   {
     "board": "topic-producers",
-    "field": "button",
-    "selector": "Hide batches [sm] -> to:topic-producers",
-    "reason": "improvement: [p9g] A producer's batches open and close with a link (the page is the same with that row open), so it works with no script; the board draws buttons that need one.",
-    "expires": "close"
-  },
-  {
-    "board": "topic-producers",
-    "field": "button",
-    "selector": "Batches [sm] -> to:topic-producers",
-    "reason": "improvement: [p9g] A producer's batches open and close with a link (the page is the same with that row open), so it works with no script; the board draws buttons that need one.",
-    "expires": "close"
-  },
-  {
-    "board": "topic-producers",
     "field": "heading",
     "selector": "h2 Aborted transactions remembered: 2",
     "reason": "[p9g] The number of segments, of tables rows and of partitions is the data's: the larder draws the boards' numbers, a live broker has its own.",
@@ -3171,6 +3157,391 @@
     "board": "topics-filtered",
     "field": "extra",
     "reason": "improvement: [ux-pages] the sentence under the tabs is about the broker and stays when a filter is typed, so typing moves nothing (the board drops it)",
+    "expires": "close"
+  },
+  {
+    "board": "log-empty",
+    "field": "button",
+    "selector": "Produce [pri] -> to:topic-produce",
+    "reason": "improvement: the topic's own head and tabs (its state words, Partitions, Produce and Delete, the link of the Consumers tab) are the same on every tab of a topic, where the board draws a head of its own for this page (the owner's rule: the header does not move between tabs).",
+    "expires": "close"
+  },
+  {
+    "board": "log-empty",
+    "field": "button",
+    "selector": "Delete topic [danger] -> to:topic-delete|topic-deleted",
+    "reason": "improvement: the topic's own head and tabs (its state words, Partitions, Produce and Delete, the link of the Consumers tab) are the same on every tab of a topic, where the board draws a head of its own for this page (the owner's rule: the header does not move between tabs).",
+    "expires": "close"
+  },
+  {
+    "board": "log-empty",
+    "field": "link",
+    "selector": "?/topics/orders.dlq/consumers",
+    "reason": "improvement: the topic's own head and tabs (its state words, Partitions, Produce and Delete, the link of the Consumers tab) are the same on every tab of a topic, where the board draws a head of its own for this page (the owner's rule: the header does not move between tabs).",
+    "expires": "close"
+  },
+  {
+    "board": "log-empty",
+    "field": "link",
+    "selector": "topic-delete|topic-deleted",
+    "reason": "improvement: the topic's own head and tabs (its state words, Partitions, Produce and Delete, the link of the Consumers tab) are the same on every tab of a topic, where the board draws a head of its own for this page (the owner's rule: the header does not move between tabs).",
+    "expires": "close"
+  },
+  {
+    "board": "log-planner",
+    "field": "button",
+    "selector": "Partitions [-] -> to:topic-partitions",
+    "reason": "improvement: the topic's own head and tabs (its state words, Partitions, Produce and Delete, the link of the Consumers tab) are the same on every tab of a topic, where the board draws a head of its own for this page (the owner's rule: the header does not move between tabs).",
+    "expires": "close"
+  },
+  {
+    "board": "log-planner",
+    "field": "button",
+    "selector": "Produce [pri] -> to:topic-produce|topic-produce-keyless|topic-produced",
+    "reason": "improvement: the topic's own head and tabs (its state words, Partitions, Produce and Delete, the link of the Consumers tab) are the same on every tab of a topic, where the board draws a head of its own for this page (the owner's rule: the header does not move between tabs).",
+    "expires": "close"
+  },
+  {
+    "board": "log-planner",
+    "field": "button",
+    "selector": "Delete topic [danger] -> to:topic-delete|topic-deleted",
+    "reason": "improvement: the topic's own head and tabs (its state words, Partitions, Produce and Delete, the link of the Consumers tab) are the same on every tab of a topic, where the board draws a head of its own for this page (the owner's rule: the header does not move between tabs).",
+    "expires": "close"
+  },
+  {
+    "board": "log-planner",
+    "field": "link",
+    "selector": "?/topics/customer.profiles/consumers",
+    "reason": "improvement: the topic's own head and tabs (its state words, Partitions, Produce and Delete, the link of the Consumers tab) are the same on every tab of a topic, where the board draws a head of its own for this page (the owner's rule: the header does not move between tabs).",
+    "expires": "close"
+  },
+  {
+    "board": "log-planner",
+    "field": "link",
+    "selector": "topic-delete|topic-deleted",
+    "reason": "improvement: the topic's own head and tabs (its state words, Partitions, Produce and Delete, the link of the Consumers tab) are the same on every tab of a topic, where the board draws a head of its own for this page (the owner's rule: the header does not move between tabs).",
+    "expires": "close"
+  },
+  {
+    "board": "log-planner",
+    "field": "link",
+    "selector": "topic-partitions",
+    "reason": "improvement: the topic's own head and tabs (its state words, Partitions, Produce and Delete, the link of the Consumers tab) are the same on every tab of a topic, where the board draws a head of its own for this page (the owner's rule: the header does not move between tabs).",
+    "expires": "close"
+  },
+  {
+    "board": "log-planner",
+    "field": "link",
+    "selector": "topic-produce|topic-produce-keyless|topic-produced",
+    "reason": "improvement: the topic's own head and tabs (its state words, Partitions, Produce and Delete, the link of the Consumers tab) are the same on every tab of a topic, where the board draws a head of its own for this page (the owner's rule: the header does not move between tabs).",
+    "expires": "close"
+  },
+  {
+    "board": "log-retention",
+    "field": "button",
+    "selector": "Partitions [-] -> to:topic-partitions",
+    "reason": "improvement: the topic's own head and tabs (its state words, Partitions, Produce and Delete, the link of the Consumers tab) are the same on every tab of a topic, where the board draws a head of its own for this page (the owner's rule: the header does not move between tabs).",
+    "expires": "close"
+  },
+  {
+    "board": "log-retention",
+    "field": "button",
+    "selector": "Produce [pri] -> to:topic-produce|topic-produce-keyless|topic-produced",
+    "reason": "improvement: the topic's own head and tabs (its state words, Partitions, Produce and Delete, the link of the Consumers tab) are the same on every tab of a topic, where the board draws a head of its own for this page (the owner's rule: the header does not move between tabs).",
+    "expires": "close"
+  },
+  {
+    "board": "log-retention",
+    "field": "button",
+    "selector": "Delete topic [danger] -> to:topic-delete|topic-deleted",
+    "reason": "improvement: the topic's own head and tabs (its state words, Partitions, Produce and Delete, the link of the Consumers tab) are the same on every tab of a topic, where the board draws a head of its own for this page (the owner's rule: the header does not move between tabs).",
+    "expires": "close"
+  },
+  {
+    "board": "log-retention",
+    "field": "link",
+    "selector": "?/topics/orders/consumers",
+    "reason": "improvement: the topic's own head and tabs (its state words, Partitions, Produce and Delete, the link of the Consumers tab) are the same on every tab of a topic, where the board draws a head of its own for this page (the owner's rule: the header does not move between tabs).",
+    "expires": "close"
+  },
+  {
+    "board": "log-retention",
+    "field": "link",
+    "selector": "topic-delete|topic-deleted",
+    "reason": "improvement: the topic's own head and tabs (its state words, Partitions, Produce and Delete, the link of the Consumers tab) are the same on every tab of a topic, where the board draws a head of its own for this page (the owner's rule: the header does not move between tabs).",
+    "expires": "close"
+  },
+  {
+    "board": "log-retention",
+    "field": "link",
+    "selector": "topic-partitions",
+    "reason": "improvement: the topic's own head and tabs (its state words, Partitions, Produce and Delete, the link of the Consumers tab) are the same on every tab of a topic, where the board draws a head of its own for this page (the owner's rule: the header does not move between tabs).",
+    "expires": "close"
+  },
+  {
+    "board": "log-retention",
+    "field": "link",
+    "selector": "topic-produce|topic-produce-keyless|topic-produced",
+    "reason": "improvement: the topic's own head and tabs (its state words, Partitions, Produce and Delete, the link of the Consumers tab) are the same on every tab of a topic, where the board draws a head of its own for this page (the owner's rule: the header does not move between tabs).",
+    "expires": "close"
+  },
+  {
+    "board": "log-retention",
+    "field": "state",
+    "selector": "st warn",
+    "reason": "improvement: the topic's own head and tabs (its state words, Partitions, Produce and Delete, the link of the Consumers tab) are the same on every tab of a topic, where the board draws a head of its own for this page (the owner's rule: the header does not move between tabs).",
+    "render": "fixture",
+    "expires": "close"
+  },
+  {
+    "board": "topic-log",
+    "field": "button",
+    "selector": "Partitions [-] -> to:topic-partitions",
+    "reason": "improvement: the topic's own head and tabs (its state words, Partitions, Produce and Delete, the link of the Consumers tab) are the same on every tab of a topic, where the board draws a head of its own for this page (the owner's rule: the header does not move between tabs).",
+    "expires": "close"
+  },
+  {
+    "board": "topic-log",
+    "field": "button",
+    "selector": "Produce [pri] -> to:topic-produce|topic-produce-keyless|topic-produced",
+    "reason": "improvement: the topic's own head and tabs (its state words, Partitions, Produce and Delete, the link of the Consumers tab) are the same on every tab of a topic, where the board draws a head of its own for this page (the owner's rule: the header does not move between tabs).",
+    "expires": "close"
+  },
+  {
+    "board": "topic-log",
+    "field": "button",
+    "selector": "Delete topic [danger] -> to:topic-delete|topic-deleted",
+    "reason": "improvement: the topic's own head and tabs (its state words, Partitions, Produce and Delete, the link of the Consumers tab) are the same on every tab of a topic, where the board draws a head of its own for this page (the owner's rule: the header does not move between tabs).",
+    "expires": "close"
+  },
+  {
+    "board": "topic-log",
+    "field": "link",
+    "selector": "?/topics/inventory.levels/consumers",
+    "reason": "improvement: the topic's own head and tabs (its state words, Partitions, Produce and Delete, the link of the Consumers tab) are the same on every tab of a topic, where the board draws a head of its own for this page (the owner's rule: the header does not move between tabs).",
+    "expires": "close"
+  },
+  {
+    "board": "topic-log",
+    "field": "link",
+    "selector": "topic-delete|topic-deleted",
+    "reason": "improvement: the topic's own head and tabs (its state words, Partitions, Produce and Delete, the link of the Consumers tab) are the same on every tab of a topic, where the board draws a head of its own for this page (the owner's rule: the header does not move between tabs).",
+    "expires": "close"
+  },
+  {
+    "board": "topic-log",
+    "field": "link",
+    "selector": "topic-partitions",
+    "reason": "improvement: the topic's own head and tabs (its state words, Partitions, Produce and Delete, the link of the Consumers tab) are the same on every tab of a topic, where the board draws a head of its own for this page (the owner's rule: the header does not move between tabs).",
+    "expires": "close"
+  },
+  {
+    "board": "topic-log",
+    "field": "link",
+    "selector": "topic-produce|topic-produce-keyless|topic-produced",
+    "reason": "improvement: the topic's own head and tabs (its state words, Partitions, Produce and Delete, the link of the Consumers tab) are the same on every tab of a topic, where the board draws a head of its own for this page (the owner's rule: the header does not move between tabs).",
+    "expires": "close"
+  },
+  {
+    "board": "topic-log",
+    "field": "state",
+    "selector": "st ok",
+    "reason": "improvement: the topic's own head and tabs (its state words, Partitions, Produce and Delete, the link of the Consumers tab) are the same on every tab of a topic, where the board draws a head of its own for this page (the owner's rule: the header does not move between tabs).",
+    "render": "fixture",
+    "expires": "close"
+  },
+  {
+    "board": "topic-producers",
+    "field": "table.rows",
+    "selector": "has rows",
+    "reason": "improvement: a producer is a native disclosure that opens in place (an expander is never a link), in a list that has the board's columns, where the board draws a table with a link per row.",
+    "render": "fixture",
+    "expires": "close"
+  },
+  {
+    "board": "topic-producers",
+    "field": "button",
+    "selector": "Partitions [-] -> to:topic-partitions",
+    "reason": "improvement: the topic's own head and tabs (its state words, Partitions, Produce and Delete, the link of the Consumers tab) are the same on every tab of a topic, where the board draws a head of its own for this page (the owner's rule: the header does not move between tabs).",
+    "expires": "close"
+  },
+  {
+    "board": "topic-producers",
+    "field": "button",
+    "selector": "Produce [pri] -> to:topic-produce|topic-produce-keyless|topic-produced",
+    "reason": "improvement: the topic's own head and tabs (its state words, Partitions, Produce and Delete, the link of the Consumers tab) are the same on every tab of a topic, where the board draws a head of its own for this page (the owner's rule: the header does not move between tabs).",
+    "expires": "close"
+  },
+  {
+    "board": "topic-producers",
+    "field": "button",
+    "selector": "Delete topic [danger] -> to:topic-delete|topic-deleted",
+    "reason": "improvement: the topic's own head and tabs (its state words, Partitions, Produce and Delete, the link of the Consumers tab) are the same on every tab of a topic, where the board draws a head of its own for this page (the owner's rule: the header does not move between tabs).",
+    "expires": "close"
+  },
+  {
+    "board": "topic-producers",
+    "field": "link",
+    "selector": "?/topics/orders/consumers",
+    "reason": "improvement: the topic's own head and tabs (its state words, Partitions, Produce and Delete, the link of the Consumers tab) are the same on every tab of a topic, where the board draws a head of its own for this page (the owner's rule: the header does not move between tabs).",
+    "expires": "close"
+  },
+  {
+    "board": "topic-producers",
+    "field": "link",
+    "selector": "topic-delete|topic-deleted",
+    "reason": "improvement: the topic's own head and tabs (its state words, Partitions, Produce and Delete, the link of the Consumers tab) are the same on every tab of a topic, where the board draws a head of its own for this page (the owner's rule: the header does not move between tabs).",
+    "expires": "close"
+  },
+  {
+    "board": "topic-producers",
+    "field": "link",
+    "selector": "topic-partitions",
+    "reason": "improvement: the topic's own head and tabs (its state words, Partitions, Produce and Delete, the link of the Consumers tab) are the same on every tab of a topic, where the board draws a head of its own for this page (the owner's rule: the header does not move between tabs).",
+    "expires": "close"
+  },
+  {
+    "board": "topic-producers",
+    "field": "link",
+    "selector": "topic-produce|topic-produce-keyless|topic-produced",
+    "reason": "improvement: the topic's own head and tabs (its state words, Partitions, Produce and Delete, the link of the Consumers tab) are the same on every tab of a topic, where the board draws a head of its own for this page (the owner's rule: the header does not move between tabs).",
+    "expires": "close"
+  },
+  {
+    "board": "topic-producers",
+    "field": "state",
+    "selector": "st refused",
+    "reason": "improvement: a producer is a native disclosure that opens in place (an expander is never a link), in a list that has the board's columns, where the board draws a table with a link per row.",
+    "expires": "close"
+  },
+  {
+    "board": "topic-producers",
+    "field": "state",
+    "selector": "st warn",
+    "reason": "improvement: the topic's own head and tabs (its state words, Partitions, Produce and Delete, the link of the Consumers tab) are the same on every tab of a topic, where the board draws a head of its own for this page (the owner's rule: the header does not move between tabs).",
+    "render": "fixture",
+    "expires": "close"
+  },
+  {
+    "board": "topic-producers",
+    "field": "state",
+    "selector": "st refused in rows",
+    "reason": "improvement: a producer is a native disclosure that opens in place (an expander is never a link), in a list that has the board's columns, where the board draws a table with a link per row.",
+    "render": "live",
+    "expires": "close"
+  },
+  {
+    "board": "txn-open",
+    "field": "button",
+    "selector": "Partitions [-] -> to:topic-partitions",
+    "reason": "improvement: the topic's own head and tabs (its state words, Partitions, Produce and Delete, the link of the Consumers tab) are the same on every tab of a topic, where the board draws a head of its own for this page (the owner's rule: the header does not move between tabs).",
+    "expires": "close"
+  },
+  {
+    "board": "txn-open",
+    "field": "button",
+    "selector": "Produce [pri] -> to:topic-produce|topic-produce-keyless|topic-produced",
+    "reason": "improvement: the topic's own head and tabs (its state words, Partitions, Produce and Delete, the link of the Consumers tab) are the same on every tab of a topic, where the board draws a head of its own for this page (the owner's rule: the header does not move between tabs).",
+    "expires": "close"
+  },
+  {
+    "board": "txn-open",
+    "field": "button",
+    "selector": "Delete topic [danger] -> to:topic-delete|topic-deleted",
+    "reason": "improvement: the topic's own head and tabs (its state words, Partitions, Produce and Delete, the link of the Consumers tab) are the same on every tab of a topic, where the board draws a head of its own for this page (the owner's rule: the header does not move between tabs).",
+    "expires": "close"
+  },
+  {
+    "board": "txn-open",
+    "field": "link",
+    "selector": "?/topics/orders/consumers",
+    "reason": "improvement: the topic's own head and tabs (its state words, Partitions, Produce and Delete, the link of the Consumers tab) are the same on every tab of a topic, where the board draws a head of its own for this page (the owner's rule: the header does not move between tabs).",
+    "expires": "close"
+  },
+  {
+    "board": "txn-open",
+    "field": "link",
+    "selector": "topic-delete|topic-deleted",
+    "reason": "improvement: the topic's own head and tabs (its state words, Partitions, Produce and Delete, the link of the Consumers tab) are the same on every tab of a topic, where the board draws a head of its own for this page (the owner's rule: the header does not move between tabs).",
+    "expires": "close"
+  },
+  {
+    "board": "txn-open",
+    "field": "link",
+    "selector": "topic-partitions",
+    "reason": "improvement: the topic's own head and tabs (its state words, Partitions, Produce and Delete, the link of the Consumers tab) are the same on every tab of a topic, where the board draws a head of its own for this page (the owner's rule: the header does not move between tabs).",
+    "expires": "close"
+  },
+  {
+    "board": "txn-open",
+    "field": "link",
+    "selector": "topic-produce|topic-produce-keyless|topic-produced",
+    "reason": "improvement: the topic's own head and tabs (its state words, Partitions, Produce and Delete, the link of the Consumers tab) are the same on every tab of a topic, where the board draws a head of its own for this page (the owner's rule: the header does not move between tabs).",
+    "expires": "close"
+  },
+  {
+    "board": "txn-open",
+    "field": "state",
+    "selector": "st warn",
+    "reason": "improvement: the topic's own head and tabs (its state words, Partitions, Produce and Delete, the link of the Consumers tab) are the same on every tab of a topic, where the board draws a head of its own for this page (the owner's rule: the header does not move between tabs).",
+    "render": "fixture",
+    "expires": "close"
+  },
+  {
+    "board": "txn-holding",
+    "field": "button",
+    "selector": "Partitions [-] -> to:topic-partitions",
+    "reason": "improvement: the topic's own head and tabs (its state words, Partitions, Produce and Delete, the link of the Consumers tab) are the same on every tab of a topic, where the board draws a head of its own for this page (the owner's rule: the header does not move between tabs).",
+    "expires": "close"
+  },
+  {
+    "board": "txn-holding",
+    "field": "button",
+    "selector": "Produce [pri] -> to:topic-produce|topic-produce-keyless|topic-produced",
+    "reason": "improvement: the topic's own head and tabs (its state words, Partitions, Produce and Delete, the link of the Consumers tab) are the same on every tab of a topic, where the board draws a head of its own for this page (the owner's rule: the header does not move between tabs).",
+    "expires": "close"
+  },
+  {
+    "board": "txn-holding",
+    "field": "button",
+    "selector": "Delete topic [danger] -> to:topic-delete|topic-deleted",
+    "reason": "improvement: the topic's own head and tabs (its state words, Partitions, Produce and Delete, the link of the Consumers tab) are the same on every tab of a topic, where the board draws a head of its own for this page (the owner's rule: the header does not move between tabs).",
+    "expires": "close"
+  },
+  {
+    "board": "txn-holding",
+    "field": "link",
+    "selector": "?/topics/orders/consumers",
+    "reason": "improvement: the topic's own head and tabs (its state words, Partitions, Produce and Delete, the link of the Consumers tab) are the same on every tab of a topic, where the board draws a head of its own for this page (the owner's rule: the header does not move between tabs).",
+    "expires": "close"
+  },
+  {
+    "board": "txn-holding",
+    "field": "link",
+    "selector": "topic-delete|topic-deleted",
+    "reason": "improvement: the topic's own head and tabs (its state words, Partitions, Produce and Delete, the link of the Consumers tab) are the same on every tab of a topic, where the board draws a head of its own for this page (the owner's rule: the header does not move between tabs).",
+    "expires": "close"
+  },
+  {
+    "board": "txn-holding",
+    "field": "link",
+    "selector": "topic-partitions",
+    "reason": "improvement: the topic's own head and tabs (its state words, Partitions, Produce and Delete, the link of the Consumers tab) are the same on every tab of a topic, where the board draws a head of its own for this page (the owner's rule: the header does not move between tabs).",
+    "expires": "close"
+  },
+  {
+    "board": "txn-holding",
+    "field": "link",
+    "selector": "topic-produce|topic-produce-keyless|topic-produced",
+    "reason": "improvement: the topic's own head and tabs (its state words, Partitions, Produce and Delete, the link of the Consumers tab) are the same on every tab of a topic, where the board draws a head of its own for this page (the owner's rule: the header does not move between tabs).",
+    "expires": "close"
+  },
+  {
+    "board": "txn-holding",
+    "field": "state",
+    "selector": "st warn",
+    "reason": "improvement: the topic's own head and tabs (its state words, Partitions, Produce and Delete, the link of the Consumers tab) are the same on every tab of a topic, where the board draws a head of its own for this page (the owner's rule: the header does not move between tabs).",
+    "render": "fixture",
     "expires": "close"
   }
 ]

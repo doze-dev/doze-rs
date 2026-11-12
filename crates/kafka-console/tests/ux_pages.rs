@@ -109,7 +109,17 @@ const PAGES: &[&str] = &[
     "/topics/orders/consumers",
     "/topics/orders/wire",
     "/topics/orders/log",
+    "/topics/orders/log?partition=1",
+    "/topics/inventory.levels/log",
+    "/topics/customer.profiles/log",
+    "/topics/orders.dlq/log",
     "/topics/orders/producers",
+    "/topics/orders/producers?partition=1",
+    "/topics/orders/producers?open=4023",
+    "/topics/orders/transactions/orders-eos",
+    "/topics/orders/transactions/orders-eos/held",
+    "/topics/orders/transactions/nope",
+    "/topics/nope/log",
     "/topics/nope",
     "/groups",
     "/groups/fulfilment",
@@ -126,8 +136,12 @@ const PAGES: &[&str] = &[
     "/live/clients",
     "/live/12",
     "/access",
+    "/access?state=secured",
+    "/access/acls/new",
     "/lab",
     "/settings",
+    "/settings/config/edit?key=log.retention.ms",
+    "/settings/config/edit?key=nope",
     "/jump",
     "/nowhere",
 ];
@@ -216,13 +230,7 @@ async fn an_unbuilt_screen_is_one_designed_page_and_never_home_under_another_tit
         .map(|s| &s[..s.find('"').unwrap()])
         .collect();
     assert!(!home_extras.is_empty());
-    for (path, crumb, name) in [
-        ("/lab", "Lab", "Lab"),
-        ("/access", "Access", "Access"),
-        ("/settings", "Settings", "Settings"),
-        ("/topics/orders/log", "Log", "Log"),
-        ("/topics/orders/producers", "Producers", "Producers"),
-    ] {
+    for (path, crumb, name) in [("/lab", "Lab", "Lab")] {
         let (status, doc) = page(path).await;
         assert_eq!(status, StatusCode::OK, "{path}");
         assert!(doc.contains("Not available in this edition"), "{path}");
@@ -262,7 +270,7 @@ async fn the_unbuilt_page_goes_back_to_where_the_visitor_came_from_or_to_the_sec
         &router,
         from(
             Some("http://127.0.0.1:9093/topics/orders/messages?partition=1"),
-            "/topics/orders/log",
+            "/lab",
         ),
     )
     .await;
@@ -271,12 +279,8 @@ async fn the_unbuilt_page_goes_back_to_where_the_visitor_came_from_or_to_the_sec
             && own.contains("Go back"),
         "{own:.200}"
     );
-    let (_, foreign) = send(
-        &router,
-        from(Some("http://evil.test/x"), "/topics/orders/log"),
-    )
-    .await;
-    assert!(foreign.contains("href=\"/topics/orders\"") && foreign.contains("Back to the topic"));
+    let (_, foreign) = send(&router, from(Some("http://evil.test/x"), "/lab")).await;
+    assert!(foreign.contains("Back to Home") && !foreign.contains("evil.test"));
     let (_, none) = send(&router, from(None, "/lab")).await;
     assert!(none.contains("Back to Home"));
 }
@@ -290,16 +294,22 @@ fn frame(doc: &str) -> String {
         .replace(" aria-current=\"page\"", "")
 }
 
-/// CON-706: Messages, Config and Consumers start with the same head and the same tabs, byte for byte but the tab that is on.
+/// CON-706: Messages, Config, Consumers, Log and Producers (and a transaction) start with the same head and the same tabs, byte for byte but the tab that is on.
 #[tokio::test]
 async fn the_tabs_of_a_topic_share_one_header() {
     let (_, messages) = page("/topics/orders").await;
     let (_, config) = page("/topics/orders/config").await;
     let (_, consumers) = page("/topics/orders/consumers").await;
+    let (_, log) = page("/topics/orders/log").await;
+    let (_, producers) = page("/topics/orders/producers").await;
+    let (_, txn) = page("/topics/orders/transactions/orders-eos").await;
     let (_, filtered) = page("/topics/orders/messages?partition=1&isolation=read_committed").await;
     let m = frame(&messages);
     assert_eq!(m, frame(&config));
     assert_eq!(m, frame(&consumers));
+    assert_eq!(m, frame(&log), "the Log tab");
+    assert_eq!(m, frame(&producers), "the Producers tab");
+    assert_eq!(m, frame(&txn), "a transaction, under Producers");
     assert_eq!(m, frame(&filtered));
     assert!(
         m.contains("Consumers<span class=\"n\">2</span>")

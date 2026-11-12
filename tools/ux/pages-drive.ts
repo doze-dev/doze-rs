@@ -87,7 +87,7 @@ export const messagesStable: Scenario = async (p, base) => {
 /** Finding 7 and the shared header: the tabs of a topic share one header and one tab row, to the pixel. */
 export const topicTabsStable: Scenario = async (p, base) => {
   const notes: string[] = [];
-  const pages = ["", "/config", "/consumers"];
+  const pages = ["", "/config", "/consumers", "/log", "/producers", "/transactions/orders-eos"];
   const seen: Record<string, Record<string, Box | null>> = {};
   for (const tail of pages) {
     await p.goto(`${base}/topics/orders${tail}`);
@@ -127,6 +127,15 @@ export const breadcrumbs: Scenario = async (p, base) => {
     ["/topics/orders/partitions", ["Resources", "Topics", "orders", "Partitions"]],
     ["/topics/orders/config", ["Resources", "Topics", "orders", "Config"]],
     ["/topics/orders/consumers", ["Resources", "Topics", "orders", "Consumers"]],
+    ["/topics/orders/log", ["Resources", "Topics", "orders", "Log"]],
+    ["/topics/orders/log?partition=1", ["Resources", "Topics", "orders", "Log"]],
+    ["/topics/orders/producers", ["Resources", "Topics", "orders", "Producers"]],
+    ["/topics/orders/producers?open=4023", ["Resources", "Topics", "orders", "Producers"]],
+    ["/topics/orders/transactions/orders-eos", ["Resources", "Topics", "orders", "Producers", "orders-eos"]],
+    ["/topics/orders/transactions/orders-eos/held", ["Resources", "Topics", "orders", "Producers", "orders-eos", "What it holds back"]],
+    ["/settings", ["Settings"]],
+    ["/access", ["Access"]],
+    ["/access?state=secured", ["Access"]],
     ["/groups/fulfilment", ["Resources", "Groups", "fulfilment"]],
     ["/groups/fulfilment/lag", ["Resources", "Groups", "fulfilment", "Lag"]],
     ["/live", ["Live"]],

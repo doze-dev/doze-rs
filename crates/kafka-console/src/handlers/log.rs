@@ -8,10 +8,10 @@ use kafka_wire::ids::TopicName;
 use maud::Markup;
 
 use super::html;
-use crate::base::segment;
 use crate::form::{get, parse};
 use crate::pages;
 use crate::state::Shared;
+use crate::trail::{Place, TopicPage, borrowed};
 use crate::ui::shell::Rail;
 
 /// The most producers a page may be asked to open.
@@ -47,11 +47,7 @@ async fn no_topic(s: &Shared, topic: &str) -> Response {
         .document(
             Rail::Resources,
             "No such topic",
-            &[
-                ("Resources", Some("/topics")),
-                ("Topics", Some("/topics")),
-                ("No such topic", None),
-            ],
+            &borrowed(&Place::NoTopic.steps()),
             &[],
             main,
         )
@@ -59,28 +55,12 @@ async fn no_topic(s: &Shared, topic: &str) -> Response {
     (StatusCode::NOT_FOUND, html(&doc)).into_response()
 }
 
-type Steps<'a> = Vec<(&'a str, Option<&'a str>)>;
-
-/// A page of a topic: `Resources > Topics > topic > tail...`.
-async fn shell(
-    s: &Shared,
-    topic: &str,
-    tail: &[(&str, Option<String>)],
-    watch: &[&'static str],
-    main: Markup,
-) -> Response {
-    let t = format!("/topics/{}", segment(topic));
-    let mut steps: Steps = vec![
-        ("Resources", Some("/topics")),
-        ("Topics", Some("/topics")),
-        (topic, Some(&t)),
-    ];
-    for (label, path) in tail {
-        steps.push((label, path.as_deref()));
-    }
-    let title = tail.last().map_or(topic, |l| l.0);
+/// A page of a topic, with the trail of its place and its last step as the title.
+async fn shell(s: &Shared, place: Place<'_>, watch: &[&'static str], main: Markup) -> Response {
+    let steps = place.steps();
+    let title = steps.last().map_or("", |l| l.0.as_str());
     html(
-        &s.document(Rail::Resources, title, &steps, watch, main)
+        &s.document(Rail::Resources, title, &borrowed(&steps), watch, main)
             .await,
     )
     .into_response()
@@ -104,11 +84,18 @@ pub async fn log(
     let Some(v) = s.source.log(&topic, partition_of(&q)).await else {
         return no_topic(&s, &topic).await;
     };
-    let main = docked(&s, &topic, pages::log_page(&v, &s.base, &s.source.listen())).await;
-    shell(
+    let Some(head) = s.source.topic_head(&topic).await else {
+        return no_topic(&s, &topic).await;
+    };
+    let main = docked(
         &s,
         &topic,
-        &[("Log", None)],
+        pages::log_page(&v, &head, &s.base, &s.source.listen()),
+    )
+    .await;
+    shell(
+        &s,
+        Place::TopicPage(&topic, TopicPage::Log),
         s.source.watching(crate::stream_log::LOG_WATCH),
         main,
     )
@@ -131,11 +118,13 @@ pub async fn producers(
     else {
         return no_topic(&s, &topic).await;
     };
-    let main = docked(&s, &topic, pages::producers_page(&v, &s.base)).await;
+    let Some(head) = s.source.topic_head(&topic).await else {
+        return no_topic(&s, &topic).await;
+    };
+    let main = docked(&s, &topic, pages::producers_page(&v, &head, &s.base)).await;
     shell(
         &s,
-        &topic,
-        &[("Producers", None)],
+        Place::TopicPage(&topic, TopicPage::Producers),
         s.source.watching(crate::stream_log::PRODUCERS_WATCH),
         main,
     )
@@ -145,15 +134,7 @@ pub async fn producers(
 async fn no_txn(s: &Shared, topic: &str, id: &str) -> Response {
     let shown: String = id.chars().take(80).collect();
     let main = pages::no_txn(topic, &shown, &s.base);
-    let p = format!("/topics/{}/producers", segment(topic));
-    let r = shell(
-        s,
-        topic,
-        &[("Producers", Some(p)), ("No such transaction", None)],
-        &[],
-        main,
-    )
-    .await;
+    let r = shell(s, Place::TopicPage(topic, TopicPage::Producers), &[], main).await;
     let (mut parts, body) = r.into_parts();
     parts.status = StatusCode::NOT_FOUND;
     Response::from_parts(parts, body)
@@ -167,16 +148,11 @@ pub async fn txn(State(s): State<Shared>, Path((topic, id)): Path<(String, Strin
     let Some(v) = s.source.txn(&topic, &id).await else {
         return no_txn(&s, &topic, &id).await;
     };
-    let main = pages::txn_page(&v, &s.base);
-    let p = format!("/topics/{}/producers", segment(&topic));
-    shell(
-        &s,
-        &topic,
-        &[("Producers", Some(p)), (&id, None)],
-        &[],
-        main,
-    )
-    .await
+    let Some(head) = s.source.topic_head(&topic).await else {
+        return no_topic(&s, &topic).await;
+    };
+    let main = pages::txn_page(&v, &head, &s.base);
+    shell(&s, Place::Transaction(&topic, &id), &[], main).await
 }
 
 /// `GET /topics/{topic}/transactions/{id}/held`
@@ -190,21 +166,11 @@ pub async fn txn_held(
     let Some(v) = s.source.txn(&topic, &id).await else {
         return no_txn(&s, &topic, &id).await;
     };
-    let main = pages::txn_held_page(&v, &s.base);
-    let p = format!("/topics/{}/producers", segment(&topic));
-    let t = format!("/topics/{}/transactions/{}", segment(&topic), segment(&id));
-    shell(
-        &s,
-        &topic,
-        &[
-            ("Producers", Some(p)),
-            (&id, Some(t)),
-            ("What it holds back", None),
-        ],
-        &[],
-        main,
-    )
-    .await
+    let Some(head) = s.source.topic_head(&topic).await else {
+        return no_topic(&s, &topic).await;
+    };
+    let main = pages::txn_held_page(&v, &head, &s.base);
+    shell(&s, Place::TransactionHeld(&topic, &id), &[], main).await
 }
 
 /// The fragments of these pages, by id; `None` for an id that is not one of them.

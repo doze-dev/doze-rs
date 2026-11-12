@@ -2,44 +2,15 @@
 
 use maud::{Markup, html};
 
-use super::{producers_url, txn_url};
+use super::txn_url;
 use crate::base::Base;
 use crate::format::{clock, date_time, number, span_ms};
 use crate::model::{ProdBatch, ProdRow, ProducersView};
 use crate::ui::button::{State, state};
-use crate::ui::glyph::{Glyph, glyph};
 use crate::ui::glyph_log::{LogGlyph, log_glyph};
 
 fn is_open(v: &ProducersView, p: &ProdRow) -> bool {
     v.opened.contains(&p.id) || (v.opened.is_empty() && p.txn.is_some())
-}
-
-/// The link that shows or hides a producer's batches: a plain GET, so it works with no script.
-fn toggle(v: &ProducersView, p: &ProdRow, base: &Base, open: bool) -> Markup {
-    let mut ids: Vec<i64> = if v.opened.is_empty() {
-        v.producers
-            .iter()
-            .filter(|x| x.txn.is_some())
-            .map(|x| x.id)
-            .collect()
-    } else {
-        v.opened.clone()
-    };
-    if open {
-        ids.retain(|i| *i != p.id);
-    } else {
-        ids.push(p.id);
-    }
-    let mut href = producers_url(base, &v.topic, v.partition);
-    let q: Vec<String> = ids.iter().map(ToString::to_string).collect();
-    href.push(if href.contains('?') { '&' } else { '?' });
-    href.push_str("open=");
-    href.push_str(&q.join(","));
-    html! {
-        a class="btn sm ghost" href=(href) aria-expanded=(open) {
-            @if open { (log_glyph(LogGlyph::ChevD, 14, "")) "Hide batches" } @else { (glyph(Glyph::ChevR, 14, "")) "Batches" }
-        }
-    }
 }
 
 fn batch_row(b: &ProdBatch) -> Markup {
@@ -56,9 +27,9 @@ fn batch_row(b: &ProdBatch) -> Markup {
 fn batches(v: &ProducersView, p: &ProdRow) -> Markup {
     let last = p.batches.first();
     html! {
-        tr {
-            td colspan="7" style="background:var(--well)" {
-                div class="stack-y" style="gap:14px;padding:8px 4px" {
+        div style="background:var(--well);border-top:1px solid var(--line)" {
+            div {
+                div class="stack-y" style="gap:14px;padding:12px 16px" {
                     div class="row sb" {
                         b { "Producer " (p.id) ", the last " (p.batches.len()) @if p.batches.len() == 1 { " batch " } @else { " batches " } (v.topic) "-" (v.partition) " remembers" }
                         span class="dim" {
@@ -81,24 +52,33 @@ fn batches(v: &ProducersView, p: &ProdRow) -> Markup {
     }
 }
 
+/// The columns of the list: a producer's cells, one grid for the header and every row.
+const GRID: &str = "display:grid;grid-template-columns:110px 70px 130px 90px minmax(0,1fr) minmax(0,1fr) 150px;gap:16px;align-items:center;";
+
+/// A producer: a native disclosure (it opens in place and never navigates), the cells as its summary and the batches it
+/// remembers as its body. `?open=` is only a deep link that renders it open.
 fn row(v: &ProducersView, p: &ProdRow, base: &Base) -> Markup {
     let open = is_open(v, p);
     html! {
-        tr {
-            td class="name mono" { (p.id) }
-            td class="mono" { (p.epoch) }
-            td class="mono" { (p.last_sequence.map_or_else(|| "unknown".to_owned(), |s| number(i64::from(s)))) }
-            td class="mono" data-vary="" { (span_ms((v.now_ms - p.last_used_ms).max(0))) }
-            td {
-                @if let Some(t) = &p.txn {
-                    a class="lnk" href=(txn_url(base, &v.topic, &t.id)) { (t.id) }
-                    span class="sub" { (t.state) @if let Some(f) = t.from { ", from offset " (number(f)) } }
-                } @else { span class="dim" { "none" } span class="sub" { "idempotent only" } }
+        details class="disc disc-row" open[open] id=(format!("producer-{}", p.id)) style="border-bottom:1px solid var(--line)" {
+            summary style={(GRID) "padding:10px 16px;min-height:56px;cursor:pointer"} {
+                span class="mono" style="font-weight:500;color:var(--bright)" { (p.id) }
+                span class="mono" { (p.epoch) }
+                span class="mono" { (p.last_sequence.map_or_else(|| "unknown".to_owned(), |s| number(i64::from(s)))) }
+                span class="mono" data-vary="" { (span_ms((v.now_ms - p.last_used_ms).max(0))) }
+                span {
+                    @if let Some(t) = &p.txn {
+                        a class="lnk" href=(txn_url(base, &v.topic, &t.id)) { (t.id) }
+                        span class="sub" style="display:block;font-size:12.5px;color:var(--dim)" { (t.state) @if let Some(f) = t.from { ", from offset " (number(f)) } }
+                    } @else { span class="dim" { "none" } span class="sub" style="display:block;font-size:12.5px;color:var(--dim)" { "idempotent only" } }
+                }
+                span class="mono" {
+                    @if p.seen_as.is_empty() { span class="dim" { "not known" } span class="sub" style="display:block;font-size:12.5px;color:var(--dim)" { "a name appears when the wire recorder has seen the producer write" } } @else { (p.seen_as.join(", ")) }
+                }
+                span class="dim" style="display:flex;align-items:center;gap:6px;justify-content:flex-end" { "Batches" (log_glyph(LogGlyph::ChevD, 16, "")) }
             }
-            td class="mono" { @if p.seen_as.is_empty() { span class="dim" { "not known" } span class="sub" { "a name appears when the wire recorder has seen the producer write" } } @else { (p.seen_as.join(", ")) } }
-            td class="r" { (toggle(v, p, base, open)) }
+            (batches(v, p))
         }
-        @if open { (batches(v, p)) }
     }
 }
 
@@ -109,12 +89,12 @@ pub(super) fn section(v: &ProducersView, base: &Base) -> Markup {
         div class="sec" {
             h2 { "Producers on " (v.topic) "-" (v.partition) }
             p class="lede" { "What DescribeProducers says: the id, its epoch, the last sequence the partition accepted, and when it last wrote. Open a row to see the last batches the partition remembers for that producer." }
-            table class="t" {
-                thead { tr {
-                    th scope="col" { "Producer id" } th scope="col" { "Epoch" } th scope="col" { "Last sequence" } th scope="col" { "Idle" }
-                    th scope="col" { "Transaction" } th scope="col" { "Seen as" } th scope="col" {}
-                } }
-                tbody { @for p in &v.producers { (row(v, p, base)) } }
+            div role="table" aria-label="Producers" style="background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden" {
+                div role="row" style={(GRID) "padding:8px 16px;height:44px;background:var(--well);border-bottom:1px solid var(--line);font-size:12px;font-weight:500;letter-spacing:.07em;text-transform:uppercase;color:var(--dim)"} {
+                    span role="columnheader" { "Producer id" } span role="columnheader" { "Epoch" } span role="columnheader" { "Last sequence" } span role="columnheader" { "Idle" }
+                    span role="columnheader" { "Transaction" } span role="columnheader" { "Seen as" } span {}
+                }
+                @for p in &v.producers { (row(v, p, base)) }
             }
             @if v.producers.is_empty() { p class="help" style="margin-top:12px" { "No producer has written to this partition lately." } }
             p class="help" style="margin-top:12px" { "The broker keeps producer ids, not client ids. A producer id silent for 1 day is forgotten on the partition." }

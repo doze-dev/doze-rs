@@ -8,14 +8,14 @@ use super::tail::ruler;
 use super::{producers_url, txn_url};
 use crate::base::Base;
 use crate::format::{clock, number, span_ms};
-use crate::model::{TxnRow, TxnView};
-use crate::pages::log::topic_tabs;
+use crate::model::{TopicHead, TxnRow, TxnView};
+use crate::pages::log::lead;
+use crate::pages::topics::{TopicTab, topic_frame};
 use crate::producers_words::{
     holds_sentence, left_ms, running_ms, timeout_percent, timeout_text, txn_sentence, unended_parts,
 };
 use crate::ui::button::{Size, State, Variant, link, pill_mono, state};
 use crate::ui::glyph::Glyph;
-use crate::ui::kafka::title_row;
 use crate::ui::layout::{kv, value_with_sub};
 use crate::ui::notice::{Tone, callout};
 use crate::ui::write::spans;
@@ -38,24 +38,21 @@ fn tone(s: &str) -> State {
     }
 }
 
-/// The head: the topic's name with its words, the sentence, and the actions.
-pub(super) fn txn_head(v: &TxnView, base: &Base, sentence: Markup, acts: Markup) -> Markup {
-    let _ = base;
+/// The topic's head and tabs with Producers on, then what is about this transaction: its state, the sentence, and the actions.
+pub(super) fn txn_head(
+    v: &TxnView,
+    head: &TopicHead,
+    base: &Base,
+    sentence: Markup,
+    acts: Markup,
+) -> Markup {
     html! {
-        div class="page-h" {
-            div {
-                (title_row(&v.topic, html! {
-                    @if v.txn.ongoing() { (state(State::Warn, "Transaction open")) } @else { (state(tone(&v.txn.state), &v.txn.state)) }
-                }))
-                p class="sub" data-extra="live-sentence" { (sentence) }
-            }
-            div class="acts" { (acts) }
-        }
+        (topic_frame(head, base, TopicTab::Producers))
+        (lead(
+            html! { @if v.txn.ongoing() { (state(State::Warn, "Transaction open")) } @else { (state(tone(&v.txn.state), &v.txn.state)) } },
+            html! { div class="row sb" { p class="sub" data-extra="live-sentence" { (sentence) } div class="acts" { (acts) } } },
+        ))
     }
-}
-
-pub(super) fn txn_tabs(v: &TxnView, base: &Base) -> Markup {
-    topic_tabs(&v.topic, base, "Producers")
 }
 
 fn partitions_cell(v: &TxnView) -> Markup {
@@ -154,11 +151,10 @@ fn unended(v: &TxnView) -> Markup {
 
 /// The page of the transaction.
 #[must_use]
-pub fn txn_page(v: &TxnView, base: &Base) -> Markup {
+pub fn txn_page(v: &TxnView, head: &TopicHead, base: &Base) -> Markup {
     let held = v.held();
     html! {
-        (txn_head(v, base, spans(&txn_sentence(v)), html! {}))
-        (txn_tabs(v, base))
+        (txn_head(v, head, base, spans(&txn_sentence(v)), html! {}))
         div class="split wide" {
             (the_transaction(v))
             div class="stack-y" {

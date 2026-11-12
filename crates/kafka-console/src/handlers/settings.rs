@@ -15,6 +15,7 @@ use crate::gather::settings_edit::SettingsFields;
 use crate::model::{SettingsEditView, SettingsResult};
 use crate::pages;
 use crate::state::Shared;
+use crate::trail::{Place, borrowed};
 use crate::ui::shell::Rail;
 
 /// The longest text a field of the form is read to.
@@ -24,17 +25,12 @@ fn cut(s: &str) -> String {
     s.chars().take(MOST).collect()
 }
 
-async fn shell(s: &Shared, status: StatusCode, tail: Option<&str>, main: Markup) -> Response {
-    let mut steps: Vec<(&str, Option<&str>)> = vec![("Home", Some("/"))];
-    let title = tail.unwrap_or("Settings");
-    match tail {
-        Some(t) => {
-            steps.push(("Settings", Some("/settings")));
-            steps.push((t, None));
-        }
-        None => steps.push(("Settings", None)),
-    }
-    let doc = s.document(Rail::Settings, title, &steps, &[], main).await;
+/// A page of Settings: what became of an edit (saved, refused) is the page's own words, not a step of the trail.
+async fn shell(s: &Shared, status: StatusCode, _tail: Option<&str>, main: Markup) -> Response {
+    let steps = Place::Settings.steps();
+    let doc = s
+        .document(Rail::Settings, "Settings", &borrowed(&steps), &[], main)
+        .await;
     (status, html(&doc)).into_response()
 }
 
@@ -55,10 +51,7 @@ async fn settings_parent(s: &Shared) -> Parent {
     Parent {
         rail: Rail::Settings,
         title: "Settings".to_owned(),
-        crumbs: vec![
-            ("Home".to_owned(), Some("/".to_owned())),
-            ("Settings".to_owned(), None),
-        ],
+        crumbs: Place::Settings.steps(),
         watch: &[],
         main: pages::settings_page(&view, &s.base),
     }

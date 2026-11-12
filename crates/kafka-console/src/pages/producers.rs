@@ -17,12 +17,12 @@ mod txn;
 use maud::{Markup, html};
 
 use crate::base::{Base, segment};
-use crate::model::ProducersView;
-use crate::pages::log::topic_tabs;
+use crate::model::{ProducersView, TopicHead};
+use crate::pages::log::lead;
+use crate::pages::topics::{TopicTab, topic_frame};
 use crate::producers_words::producers_sentence;
 use crate::ui::button::{State, pill_mono, state};
 use crate::ui::client;
-use crate::ui::kafka::title_row;
 use crate::ui::write::spans;
 
 pub use hold::txn_held_page;
@@ -101,19 +101,13 @@ fn partition_seg(v: &ProducersView) -> Markup {
 
 /// The page.
 #[must_use]
-pub fn producers_page(v: &ProducersView, base: &Base) -> Markup {
+pub fn producers_page(v: &ProducersView, head: &TopicHead, base: &Base) -> Markup {
     html! {
-        div class="page-h" {
-            div {
-                (title_row(&v.topic, html! {
-                    @if !v.open.is_empty() { (state(State::Warn, "Transaction open")) " " }
-                    (pill_mono(&format!("partition {} of {}", v.partition, v.partitions)))
-                }))
-                (producers_sentence_fragment(v, base))
-            }
-            div class="acts" {}
-        }
-        (topic_tabs(&v.topic, base, "Producers"))
+        (topic_frame(head, base, TopicTab::Producers))
+        (lead(html! {
+            @if !v.open.is_empty() { (state(State::Warn, "Transaction open")) " " }
+            (pill_mono(&format!("partition {} of {}", v.partition, v.partitions)))
+        }, producers_sentence_fragment(v, base)))
         (partition_seg(v))
         (producers_table_fragment(v, base))
         @if v.held() > 0 { (hold::section(v, base)) }

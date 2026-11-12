@@ -3,32 +3,13 @@
 use maud::{Markup, html};
 
 use super::{LOG_SENTENCE, fragment_url};
-use crate::base::{Base, segment};
+use crate::base::Base;
 use crate::log_words::{head_sentence, state_word};
-use crate::model::{Cleanup, LogView};
+use crate::model::{Cleanup, LogView, TopicHead};
+use crate::pages::topics::{TopicTab, topic_frame};
 use crate::ui::button::{pill_mono, state};
 use crate::ui::client;
-use crate::ui::kafka::{Tab, tabs, title_row};
 use crate::ui::write::spans;
-
-/// The tabs of a topic. Consumers goes to the topic's own page, as the boards draw it.
-#[must_use]
-pub(crate) fn topic_tabs(topic: &str, base: &Base, on: &str) -> Markup {
-    let t = base.url(&format!("/topics/{}", segment(topic)));
-    let tab = |label: &'static str, href: String| Tab {
-        label,
-        href,
-        on: label == on,
-        count: None,
-    };
-    tabs(&[
-        tab("Messages", t.clone()),
-        tab("Log", format!("{t}/log")),
-        tab("Config", format!("{t}/config")),
-        tab("Consumers", t.clone()),
-        tab("Producers", format!("{t}/producers")),
-    ])
-}
 
 /// The sentence under the name, as a fragment that refreshes while the page is open.
 #[must_use]
@@ -53,15 +34,24 @@ fn beside(v: &LogView) -> Markup {
     }
 }
 
-/// The title row, the sentence and the tabs.
+/// What this tab says first, under the topic's own head and tabs (the same on every tab of the topic): the words of the log (due,
+/// compacted, which partition) and the sentence that follows the data.
 #[must_use]
-pub(super) fn log_head(v: &LogView, base: &Base) -> Markup {
+pub(crate) fn lead(words: Markup, sentence: Markup) -> Markup {
     html! {
-        div class="page-h" {
-            div { (title_row(&v.topic, beside(v))) (log_sentence_fragment(v, base)) }
-            div class="acts" {}
+        div class="tab-lead" {
+            div class="row" style="gap:8px;align-items:center;margin-bottom:8px" { (words) }
+            (sentence)
         }
-        (topic_tabs(&v.topic, base, "Log"))
+    }
+}
+
+/// The topic's head and tabs with Log on, the lead, and the partition chips.
+#[must_use]
+pub(super) fn log_head(v: &LogView, head: &TopicHead, base: &Base) -> Markup {
+    html! {
+        (topic_frame(head, base, TopicTab::Log))
+        (lead(beside(v), log_sentence_fragment(v, base)))
         (partitions(v, base))
     }
 }

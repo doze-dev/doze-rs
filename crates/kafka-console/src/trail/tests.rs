@@ -69,6 +69,8 @@ fn the_last_step_has_no_link_and_every_other_step_links() {
         Place::Lab,
         Place::NotFound,
         Place::NotAllowed,
+        Place::Transaction("a", "t"),
+        Place::TransactionHeld("a", "t"),
     ];
     for p in places {
         let steps = p.steps();
@@ -92,6 +94,9 @@ fn every_link_of_a_trail_is_a_page_the_console_serves() {
         Place::Topic("orders"),
         Place::TopicPage("orders", TopicPage::Producers),
         Place::TopicPage("a b/c", TopicPage::Wire),
+        Place::TopicPage("orders", TopicPage::Log),
+        Place::Transaction("orders", "orders-eos"),
+        Place::TransactionHeld("orders", "orders eos"),
         Place::GroupPage("fulfilment", "Members"),
         Place::NoTopic,
         Place::NoGroup,

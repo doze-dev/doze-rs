@@ -1,37 +1,52 @@
 use super::*;
+
+fn head() -> TopicHead {
+    crate::fixtures_topics::head("orders").unwrap()
+}
 use crate::fixtures_log::{producers, txn_view};
 
 fn page() -> String {
-    producers_page(&producers("orders", 0, Vec::new()).unwrap(), &Base::root()).into_string()
+    producers_page(
+        &producers("orders", 0, Vec::new()).unwrap(),
+        &head(),
+        &Base::root(),
+    )
+    .into_string()
 }
 
 #[test]
-fn the_producer_with_an_open_transaction_shows_its_five_batches_and_the_others_a_link_to_open_theirs()
+fn each_producer_is_a_native_disclosure_open_for_the_one_with_a_transaction_and_a_deep_link_opens_another()
  {
     let p = page();
+    assert_eq!(p.matches("<details class=\"disc disc-row\"").count(), 3);
+    assert!(
+        p.contains("<details class=\"disc disc-row\" open id=\"producer-4017\""),
+        "4017 holds the transaction"
+    );
+    assert!(
+        p.contains("<details class=\"disc disc-row\" id=\"producer-4023\""),
+        "the others are shut"
+    );
     assert!(p.contains("Producer 4017, the last 5 batches orders-0 remembers"));
     assert!(p.contains("22,915 to 22,918"));
-    assert!(p.contains("Hide batches"));
-    assert_eq!(p.matches("btn sm ghost").count(), 3);
-    assert_eq!(p.matches("aria-expanded=\"false\"").count(), 2);
-    assert!(!p.contains("Producer 4023, the last"));
-    let opened =
-        producers_page(&producers("orders", 0, vec![4023]).unwrap(), &Base::root()).into_string();
-    assert!(opened.contains("Producer 4023, the last"));
-    assert!(!opened.contains("Producer 4017, the last"));
+    let opened = producers_page(
+        &producers("orders", 0, vec![4023]).unwrap(),
+        &head(),
+        &Base::root(),
+    )
+    .into_string();
+    assert!(opened.contains("<details class=\"disc disc-row\" open id=\"producer-4023\""));
+    assert!(opened.contains("<details class=\"disc disc-row\" id=\"producer-4017\""));
 }
 
 #[test]
-fn the_toggle_links_keep_the_other_open_rows_and_work_without_a_script() {
+fn no_producer_row_is_a_link_with_a_query_and_nothing_says_aria_expanded() {
     let p = page();
     assert!(
-        p.contains("href=\"/topics/orders/producers?open=4017,4023\""),
-        "{p:.0}"
+        !p.contains("producers?open="),
+        "an expander is a <details>, never a link"
     );
-    assert!(
-        p.contains("href=\"/topics/orders/producers?open=\""),
-        "hiding the only open row leaves none"
-    );
+    assert!(!p.contains("aria-expanded"));
 }
 
 #[test]
@@ -58,7 +73,7 @@ fn the_tail_mark_sits_at_the_left_edge_of_its_cell() {
 #[test]
 fn a_producer_is_shown_with_a_name_only_when_the_recorder_gave_one() {
     let mut v = producers("orders", 0, Vec::new()).unwrap();
-    let p = producers_page(&v, &Base::root()).into_string();
+    let p = producers_page(&v, &head(), &Base::root()).into_string();
     assert!(p.contains("orders (go, sarama)") && p.contains("admin-cli (kcat)"));
     assert_eq!(
         p.matches("not known").count(),
@@ -68,24 +83,24 @@ fn a_producer_is_shown_with_a_name_only_when_the_recorder_gave_one() {
     for row in &mut v.producers {
         row.seen_as.clear();
     }
-    let p = producers_page(&v, &Base::root()).into_string();
+    let p = producers_page(&v, &head(), &Base::root()).into_string();
     assert_eq!(p.matches("not known").count(), 3);
     assert!(!p.contains("orders (go, sarama)"));
     // A hostile client id is text.
     v.producers[0].seen_as = vec!["<img src=x> (go)".to_owned()];
-    let p = producers_page(&v, &Base::root()).into_string();
+    let p = producers_page(&v, &head(), &Base::root()).into_string();
     assert!(!p.contains("<img src=x>") && p.contains("&lt;img src=x&gt; (go)"));
 }
 
 #[test]
 fn the_transaction_page_has_the_countdown_and_the_two_ways_on() {
     let v = txn_view("orders", "orders-eos").unwrap();
-    let p = txn_page(&v, &Base::root()).into_string();
+    let p = txn_page(&v, &head(), &Base::root()).into_string();
     assert!(p.contains("41 s of 60 s"));
     assert!(p.contains("19 s left, then the broker aborts it and fences the producer"));
     assert!(p.contains("href=\"/topics/orders/transactions/orders-eos/held\""));
     assert!(p.contains("Offsets staged") && p.contains("not listed"));
-    let held = txn_held_page(&v, &Base::root()).into_string();
+    let held = txn_held_page(&v, &head(), &Base::root()).into_string();
     assert!(
         held.contains("<dd class=\"mono\">16,103</dd>")
             && held.contains("<dd class=\"mono\">16,097</dd>")
@@ -99,7 +114,7 @@ fn hostile_ids_are_escaped_in_every_place_they_appear() {
     v.open[0].id = "<script>x</script>".to_owned();
     v.producers[0].txn.as_mut().unwrap().id = "<script>x</script>".to_owned();
     v.topic = "<i>t</i>".to_owned();
-    let p = producers_page(&v, &Base::root()).into_string();
+    let p = producers_page(&v, &head(), &Base::root()).into_string();
     assert!(!p.contains("<script>x") && !p.contains("<i>t</i>"));
     assert!(
         p.contains("%3Cscript%3Ex%3C/script%3E") || p.contains("%3Cscript%3Ex%3C%2Fscript%3E"),

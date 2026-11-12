@@ -52,6 +52,9 @@ pub enum Place<'a> {
     /// A topic, on any of its Messages states (a partition, an isolation level, a time are not part of the place).
     Topic(&'a str),
     TopicPage(&'a str, TopicPage),
+    /// A transaction of a topic (`orders`, `orders-eos`), and the page of who it holds back: pages under Producers.
+    Transaction(&'a str, &'a str),
+    TransactionHeld(&'a str, &'a str),
     /// A name that is no topic.
     NoTopic,
     Groups,
@@ -128,6 +131,28 @@ impl Place<'_> {
                     link("Topics", "/topics"),
                     link(&shown(name), &topic_path(name)),
                     last(page.label()),
+                ],
+            ),
+            Self::Transaction(topic, id) => with(
+                &resources(),
+                vec![
+                    link("Topics", "/topics"),
+                    link(&shown(topic), &topic_path(topic)),
+                    link("Producers", &format!("{}/producers", topic_path(topic))),
+                    last(&shown(id)),
+                ],
+            ),
+            Self::TransactionHeld(topic, id) => with(
+                &resources(),
+                vec![
+                    link("Topics", "/topics"),
+                    link(&shown(topic), &topic_path(topic)),
+                    link("Producers", &format!("{}/producers", topic_path(topic))),
+                    link(
+                        &shown(id),
+                        &format!("{}/transactions/{}", topic_path(topic), segment(id)),
+                    ),
+                    last("What it holds back"),
                 ],
             ),
             Self::NoTopic => with(

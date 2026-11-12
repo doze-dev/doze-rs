@@ -1,8 +1,18 @@
 use super::*;
+
+fn head(topic: &str) -> TopicHead {
+    crate::fixtures_topics::head(topic).unwrap()
+}
 use crate::fixtures_log::log;
 
 fn page(topic: &str) -> String {
-    log_page(&log(topic, 0).unwrap(), &Base::root(), "127.0.0.1:9092").into_string()
+    log_page(
+        &log(topic, 0).unwrap(),
+        &head(topic),
+        &Base::root(),
+        "127.0.0.1:9092",
+    )
+    .into_string()
 }
 
 #[test]
@@ -64,7 +74,9 @@ fn a_topic_name_that_is_hostile_is_escaped_everywhere_it_is_shown() {
     v.topic = "<script>alert(1)</script>\"'".to_owned();
     v.others[0].topic = "<img src=x onerror=1>".to_owned();
     v.tombstones[0].key = "<b>key</b>".to_owned();
-    let p = log_page(&v, &Base::root(), "127.0.0.1:9092").into_string();
+    let mut h = head("inventory.levels");
+    h.name = v.topic.clone();
+    let p = log_page(&v, &h, &Base::root(), "127.0.0.1:9092").into_string();
     for raw in ["<script>alert", "<img src=x", "<b>key</b>"] {
         assert!(!p.contains(raw), "{raw}");
     }
