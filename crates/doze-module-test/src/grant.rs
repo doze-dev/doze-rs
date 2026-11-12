@@ -1,5 +1,6 @@
 //! What the core grants an instance before it plans: for each listener a loopback address and a backend for the
-//! engine, a socket file on Unix and a loopback port on Windows (PLAN.md D13).
+//! engine: a socket file on Unix, a loopback port on Windows or for an engine that cannot listen on a socket (PLAN.md
+//! D13, `Listener::tcp`).
 
 use crate::sandbox::{Sandbox, free_port};
 use doze_module_proto::msg::instance::{Address, Granted, Instance, Listener};
@@ -16,7 +17,8 @@ pub(crate) fn grant(
     let socket_dir = sandbox.socket_dir(&inst.name).map_err(|e| e.to_string())?;
     for l in listeners {
         let port = free_port().map_err(|e| e.to_string())?;
-        let backend = if cfg!(unix) {
+        // A socket where the system has them and the engine can listen on one; loopback TCP otherwise.
+        let backend = if cfg!(unix) && !l.tcp {
             Address::Unix(
                 socket_dir
                     .join(format!("{}.sock", l.name))

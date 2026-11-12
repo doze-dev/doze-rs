@@ -1,0 +1,21 @@
+[package]
+name = "doze-module-temporal-fuzz"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+# Not part of the main workspace: fuzzing needs a nightly toolchain. The module is a binary crate, so the parser is
+# included by path.
+[workspace]
+
+[[bin]]
+name = "fuzz_duration"
+path = "fuzz_targets/fuzz_duration.rs"
+test = false
+doc = false
