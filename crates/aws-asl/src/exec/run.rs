@@ -261,8 +261,6 @@ pub(crate) fn reset(f: &mut Frame) {
     f.deadline = 0;
     f.heartbeat_at = 0;
     f.heartbeat_secs = 0;
-    f.limit = 0;
-    f.tolerated = None;
 }
 
 fn pass(v: &View<'_>, raw: &Value, result: Option<&Value>) -> Move {

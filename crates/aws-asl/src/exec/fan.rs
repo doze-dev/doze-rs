@@ -106,6 +106,11 @@ impl Exec {
     fn spawn(&mut self, cx: Cx<'_>, id: u32, state: &State, plan: Plan, step: &mut Step) {
         let env = cx.env;
         let distributed = matches!(&state.kind, Kind::Map(m) if m.distributed);
+        // The limits first: a Map Run is described from the frame when its event is kept.
+        if let Some(parent) = self.frame_mut(id) {
+            parent.limit = plan.limit;
+            parent.tolerated = plan.tolerated;
+        }
         let started = match &state.kind {
             Kind::Parallel { .. } => self
                 .recorder(step, env)

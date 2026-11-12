@@ -161,6 +161,7 @@ async fn a_distributed_map_has_a_map_run() {
     let run = runs["mapRuns"][0]["mapRunArn"].as_str().unwrap().to_owned();
     let described = w.ok("DescribeMapRun", json!({"mapRunArn": run})).await;
     assert_eq!(described["status"], "SUCCEEDED");
+    assert_eq!(described["maxConcurrency"], 2);
     assert_eq!(described["itemCounts"]["succeeded"], 2);
     assert_eq!(described["itemCounts"]["failed"], 1);
     w.stop().await;
