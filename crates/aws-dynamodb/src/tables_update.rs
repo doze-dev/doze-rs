@@ -1,4 +1,7 @@
 //! UpdateTable: billing, global secondary indexes, the stream, encryption, table class and deletion protection.
+//!
+//! Wording: the messages in `conformance/snapshots/test_dynamodb.json` (recorded 2026-11-09) are AWS's own; every other message in this file is
+//! `(memory)`: from the developer guide and from use, and unchecked until a recording reaches it.
 
 use aws_wire::ApiError;
 use serde_json::{Value as Json, json};

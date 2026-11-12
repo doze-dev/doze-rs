@@ -1,4 +1,7 @@
 //! TransactGetItems and TransactWriteItems: all or nothing, with AWS's reasons when it is nothing.
+//!
+//! Wording: the messages in `conformance/snapshots/test_dynamodb.json` (recorded 2026-11-09) are AWS's own; every other message in this file is
+//! `(memory)`: from the developer guide and from use, and unchecked until a recording reaches it.
 
 use std::collections::BTreeSet;
 
@@ -96,7 +99,9 @@ impl Core {
             bytes += self.apply(cx, step, old.as_ref())?;
         }
         if bytes > MAX_BYTES {
-            return Err(validation("Transaction request cannot include more than 4 MB of items"));
+            return Err(validation(
+                "Transaction request cannot include more than 4 MB of items",
+            ));
         }
         self.remember(cx);
         Ok(Json::Null)
@@ -184,8 +189,12 @@ impl Core {
     fn apply(&mut self, cx: &Cx<'_>, s: &Step, old: Option<&Item>) -> Result<usize, ApiError> {
         match &s.act {
             Act::Check => Ok(0),
-            Act::Put(item) => self.stage(&s.t, cx.now_ms, old, Some(item), false).map(|()| item_size(item)),
-            Act::Delete if old.is_some() => self.stage(&s.t, cx.now_ms, old, None, false).map(|()| 0),
+            Act::Put(item) => self
+                .stage(&s.t, cx.now_ms, old, Some(item), false)
+                .map(|()| item_size(item)),
+            Act::Delete if old.is_some() => {
+                self.stage(&s.t, cx.now_ms, old, None, false).map(|()| 0)
+            }
             Act::Delete => Ok(0),
             Act::Update(key, update) => {
                 let mut new = old.cloned().unwrap_or_else(|| key.clone());
@@ -196,7 +205,8 @@ impl Core {
                     u.apply(&mut new, &names).map_err(inv)?;
                 }
                 validate_item(&s.t, &new)?;
-                self.stage(&s.t, cx.now_ms, old, Some(&new), false).map(|()| item_size(&new))
+                self.stage(&s.t, cx.now_ms, old, Some(&new), false)
+                    .map(|()| item_size(&new))
             }
         }
     }

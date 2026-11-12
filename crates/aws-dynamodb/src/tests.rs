@@ -15,6 +15,7 @@ mod items;
 mod persistence;
 mod queries;
 mod refusals;
+mod service;
 mod tables;
 mod txn;
 

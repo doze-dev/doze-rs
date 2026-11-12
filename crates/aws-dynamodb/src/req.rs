@@ -1,5 +1,8 @@
 //! Reading a request: its JSON body (already checked against the model by the gateway), the expression names and values, the
 //! members that name a table, and the legacy parameters this service refuses.
+//!
+//! Wording: the messages in `conformance/snapshots/test_dynamodb.json` (recorded 2026-11-09) are AWS's own; every other message in this file is
+//! `(memory)`: from the developer guide and from use, and unchecked until a recording reaches it.
 
 use aws_expr::{Invalid, NameMap, Scope, Value, ValueMap};
 use aws_model_dynamodb::Operation;

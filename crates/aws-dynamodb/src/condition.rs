@@ -1,4 +1,7 @@
 //! The parts of a request that are shared by the item operations: the condition, the projection, what to return, the capacity report.
+//!
+//! Wording: the messages in `conformance/snapshots/test_dynamodb.json` (recorded 2026-11-09) are AWS's own; every other message in this file is
+//! `(memory)`: from the developer guide and from use, and unchecked until a recording reaches it.
 
 use aws_expr::{
     Cond, Item, Kind, Path, Scope, item_from_json, item_to_json, parse_condition, parse_projection,

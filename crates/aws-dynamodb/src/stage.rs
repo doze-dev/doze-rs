@@ -1,5 +1,8 @@
 //! The one way an item changes: `stage` turns "this item was X and is now Y" into the writes it needs (the item, its index entries,
 //! its time-to-live entry, its stream record), after the checks every write shares.
+//!
+//! Wording: the messages in `conformance/snapshots/test_dynamodb.json` (recorded 2026-11-09) are AWS's own; every other message in this file is
+//! `(memory)`: from the developer guide and from use, and unchecked until a recording reaches it.
 
 use aws_expr::{Item, MAX_DEPTH, Number, Value, item_size};
 use aws_wire::ApiError;

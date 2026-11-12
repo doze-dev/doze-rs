@@ -1,4 +1,7 @@
 //! Query and Scan: what a request asks, turned into a plan (where to read, in which order, what to keep).
+//!
+//! Wording: the messages in `conformance/snapshots/test_dynamodb.json` (recorded 2026-11-09) are AWS's own; every other message in this file is
+//! `(memory)`: from the developer guide and from use, and unchecked until a recording reaches it.
 
 use aws_expr::{Cond, Kind, Path, Range, Scope, parse_condition, parse_key_condition};
 use aws_wire::ApiError;

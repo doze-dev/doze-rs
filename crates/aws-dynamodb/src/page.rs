@@ -1,4 +1,7 @@
 //! Running a planned read: one page of a query or scan, with the limit, the 1 MB bound, the filter and the key to continue from.
+//!
+//! Wording: the messages in `conformance/snapshots/test_dynamodb.json` (recorded 2026-11-09) are AWS's own; every other message in this file is
+//! `(memory)`: from the developer guide and from use, and unchecked until a recording reaches it.
 
 use aws_expr::{Item, item_size, item_to_json};
 use aws_wire::ApiError;
