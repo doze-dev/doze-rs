@@ -47,10 +47,16 @@ fn start(data: &Path) -> Broker {
 
 /// [`start`], with more flags.
 fn start_with(data: &Path, flags: &[&str]) -> Broker {
+    start_with_env(data, flags, &[])
+}
+
+/// [`start_with`], with environment variables set for the process.
+fn start_with_env(data: &Path, flags: &[&str], env: &[(&str, &str)]) -> Broker {
     let mut child = Command::new(env!("CARGO_BIN_EXE_doze-kafka"))
         .args(["--listen", "127.0.0.1:0", "--data-dir"])
         .arg(data)
         .args(flags)
+        .envs(env.iter().copied())
         .stderr(Stdio::piped())
         .spawn()
         .unwrap();
@@ -280,3 +286,5 @@ mod sasl;
 #[cfg(feature = "tls")]
 #[path = "process/tls.rs"]
 mod tls;
+#[path = "process/users.rs"]
+mod users;

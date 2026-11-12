@@ -1,0 +1,179 @@
+//! The binary with a users file, the environment variable and the credential API: a user made over the wire survives the
+//! process, and the bootstrap passwords are in no log line.
+
+use std::os::unix::fs::PermissionsExt;
+
+use super::*;
+use kafka_auth::scram::Kind;
+use kafka_auth::scram::client::Client;
+use kafka_protocol::messages::alter_user_scram_credentials_request::ScramCredentialUpsertion;
+use kafka_protocol::messages::{
+    AlterUserScramCredentialsRequest, AlterUserScramCredentialsResponse, SaslAuthenticateRequest,
+    SaslAuthenticateResponse, SaslHandshakeRequest, SaslHandshakeResponse,
+};
+
+/// A SCRAM-SHA-256 login as `user`: the error code of the first and of the second token.
+fn log_in(s: &mut TcpStream, user: &str, password: &str) -> (i16, i16) {
+    let mut hs = SaslHandshakeRequest::default();
+    hs.mechanism = StrBytes::from_static_str("SCRAM-SHA-256");
+    let said: SaslHandshakeResponse = call(s, ApiKey::SaslHandshake, 1, &hs);
+    assert_eq!(said.error_code, 0);
+    let me = Client::new(Kind::Sha256, user, password, "process-nonce.");
+    let mut auth = SaslAuthenticateRequest::default();
+    auth.auth_bytes = Bytes::from(me.first());
+    let first: SaslAuthenticateResponse = call(s, ApiKey::SaslAuthenticate, 2, &auth);
+    if first.error_code != 0 {
+        return (first.error_code, 0);
+    }
+    auth.auth_bytes = Bytes::from(me.last(&first.auth_bytes, None, "").message);
+    let done: SaslAuthenticateResponse = call(s, ApiKey::SaslAuthenticate, 2, &auth);
+    (0, done.error_code)
+}
+
+fn file(dir: &Path, text: &str, mode: u32) -> PathBuf {
+    std::fs::create_dir_all(dir).unwrap();
+    let path = dir.join("users");
+    std::fs::write(&path, text).unwrap();
+    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(mode)).unwrap();
+    path
+}
+
+#[test]
+fn users_from_a_file_and_the_environment_log_in_and_one_made_over_the_api_outlives_the_process() {
+    let data = scratch("users-api");
+    let users = scratch("users-api-file");
+    let path = file(&users, "# bootstrap\nadmin:admin-file-planted\n", 0o600);
+    let flags = [
+        "--sasl-mechanisms",
+        "SCRAM-SHA-256",
+        "--sasl-users-file",
+        path.to_str().unwrap(),
+        "--acl-default",
+        "deny",
+        "--acl-super-user",
+        "User:admin",
+        "--log-level",
+        "trace",
+    ];
+    let env = [("DOZE_KAFKA_SASL_USERS", "bob:bob-env-planted")];
+    let mut broker = start_with_env(&data, &flags, &env);
+    assert_eq!(
+        log_in(&mut broker.connect(), "bob", "bob-env-planted"),
+        (0, 0)
+    );
+    let mut admin = broker.connect();
+    assert_eq!(log_in(&mut admin, "admin", "admin-file-planted"), (0, 0));
+    // The client sends the salted password: the broker never sees the password.
+    let (salt, iterations) = (b"salt-of-carol".to_vec(), 4096);
+    let mut up = ScramCredentialUpsertion::default();
+    up.name = StrBytes::from_static_str("carol");
+    up.mechanism = 1;
+    up.iterations = iterations;
+    up.salt = Bytes::from(salt.clone());
+    let salted = Kind::Sha256.salted_password(
+        b"carol-api-planted",
+        &salt,
+        std::num::NonZeroU32::new(4096).unwrap(),
+    );
+    up.salted_password = Bytes::from(salted);
+    let mut req = AlterUserScramCredentialsRequest::default();
+    req.upsertions.push(up);
+    let made: AlterUserScramCredentialsResponse =
+        call(&mut admin, ApiKey::AlterUserScramCredentials, 0, &req);
+    assert_eq!(
+        (made.results[0].user.as_str(), made.results[0].error_code),
+        ("carol", 0)
+    );
+    assert_eq!(
+        log_in(&mut broker.connect(), "carol", "carol-api-planted"),
+        (0, 0)
+    );
+    let status = broker.terminate();
+    assert!(status.success(), "{status:?}");
+
+    // Started again: the configured users come from the file and the variable again, and carol from the database.
+    let mut again = start_with_env(&data, &flags, &env);
+    for (user, password) in [
+        ("bob", "bob-env-planted"),
+        ("admin", "admin-file-planted"),
+        ("carol", "carol-api-planted"),
+    ] {
+        assert_eq!(
+            log_in(&mut again.connect(), user, password),
+            (0, 0),
+            "{user}"
+        );
+    }
+    assert_eq!(log_in(&mut again.connect(), "carol", "other").1, 58);
+    std::thread::sleep(Duration::from_millis(300));
+    for broker in [&broker, &again] {
+        let log = broker.log.lock().unwrap().clone();
+        assert!(log.contains("SASL users"), "{log}");
+        assert!(!log.contains("planted"), "a secret is in the log:\n{log}");
+    }
+    drop((broker, again));
+    let _ = std::fs::remove_dir_all(&data);
+    let _ = std::fs::remove_dir_all(&users);
+}
+
+#[test]
+fn a_users_file_others_can_read_is_warned_about_without_its_content() {
+    let data = scratch("users-mode");
+    let users = scratch("users-mode-file");
+    let path = file(&users, "alice:alice-mode-planted\n", 0o644);
+    let broker = start_with(
+        &data,
+        &[
+            "--sasl-mechanisms",
+            "SCRAM-SHA-256",
+            "--sasl-users-file",
+            path.to_str().unwrap(),
+            "--log-level",
+            "trace",
+        ],
+    );
+    let log = broker.log.lock().unwrap().clone();
+    assert!(log.contains("readable by group or others"), "{log}");
+    assert!(log.contains("chmod 600"), "{log}");
+    assert!(!log.contains("planted"), "{log}");
+    drop(broker);
+    let _ = std::fs::remove_dir_all(&data);
+    let _ = std::fs::remove_dir_all(&users);
+}
+
+#[test]
+fn a_secured_broker_with_no_user_starts_only_when_that_was_asked_for() {
+    let data = scratch("users-empty");
+    let output = Command::new(env!("CARGO_BIN_EXE_doze-kafka"))
+        .args(["--listen", "127.0.0.1:0", "--data-dir"])
+        .arg(&data)
+        .args(["--sasl-mechanisms", "SCRAM-SHA-256"])
+        .output()
+        .unwrap();
+    let said = String::from_utf8_lossy(&output.stderr);
+    assert!(!output.status.success() && said.contains("no credentials are configured"));
+    assert!(
+        !data.join("meta.redb").exists(),
+        "nothing was created: {said}"
+    );
+    // On purpose: it starts, and nobody can log in.
+    let flags = [
+        "--sasl-mechanisms",
+        "SCRAM-SHA-256",
+        "--sasl-allow-empty-users",
+    ];
+    let mut broker = start_with(&data, &flags);
+    assert_eq!(log_in(&mut broker.connect(), "anyone", "anything").0, 58);
+    assert!(broker.terminate().success());
+    // The database exists now and holds no user: without the flag the start is refused after it is opened.
+    let output = Command::new(env!("CARGO_BIN_EXE_doze-kafka"))
+        .args(["--listen", "127.0.0.1:0", "--data-dir"])
+        .arg(&data)
+        .args(["--sasl-mechanisms", "SCRAM-SHA-256"])
+        .output()
+        .unwrap();
+    let said = String::from_utf8_lossy(&output.stderr);
+    assert!(!output.status.success(), "{said}");
+    assert!(said.contains("no credentials are configured"), "{said}");
+    let _ = std::fs::remove_dir_all(&data);
+}
