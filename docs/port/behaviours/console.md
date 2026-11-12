@@ -624,3 +624,18 @@ Below 1180 px the rail keeps its icons (the names are tooltips), the page's padd
 
 ## CON-759. A filter field shows its focus once, on its box; headings balance and paragraphs avoid a widow
 `.finput:focus-within` draws the ring and the input draws none; headings use `text-wrap: balance`, paragraphs `text-wrap: pretty`. Test: in Chrome the screenshots under `target/ux/shots/`; no automated check.
+
+## CON-760. Every filter changes the data it filters
+On the Live page the search box (asks again 250 ms after the last key), "All apps", "All topics", "Refused only" and "Idle polls hidden" change the rows; so do the Topics list's filter and toggle, the Groups states, the Messages partition and key, and the Config chips. The fixtures tape used to ignore the query (no filter did anything); it now passes each row through the recorder's own rules (`fixtures_live::passes`), the stream's fragment keeps the filter, Back brings the earlier rows back. A control that looks right and changes nothing is the defect this rule is for. Test: `tests/ux_pages::every_filter_of_the_live_page_changes_the_rows`; in Chrome `filters-live-change-the-tape` (rows 16 to 3 for a typed client, 16 to 4 for a client or a topic, 16 to 2 for refused only, a different set with idle polls shown) and `filters-lists-change-the-data`; the recorder's own rule is `recorder::tests::filters_by_client_api_topic_group_and_refusal`.
+
+## CON-761. An overlay fits the window and scrolls inside itself
+A dialog is a flex column at most 100dvh less 48 px tall: the title is fixed, the body scrolls (`overflow-y: auto`, `overscroll-behavior: contain`), the foot with the buttons stays in view; a drawer is as tall as the window on the right edge and scrolls inside itself; the page behind never scrolls. Measured for 19 overlays (produce, delete, add partitions, delete records, config edit and reset, reset offsets, delete group, offset delete, member, story, record, request and clients drawers) at 1280 by 720, 1024 by 640 and 800 by 600: every panel inside the window, every foot in view with its buttons, every body that is longer than the window scrolls. Test: in Chrome `overlays-fit-and-scroll-at-three-sizes`.
+
+## CON-762. A list opened from a Select or a Combobox fits its options
+The list is at least as wide as its trigger and as wide as its longest option up to 420 px (and never wider than the window less 32 px), each option is one line with an ellipsis and its label in `title`; no word is broken in the middle. Test: in Chrome `select-menu-fits-its-labels`.
+
+## CON-763. One focus system
+A focused control shows exactly one ring: 2 px, the primary colour at 45 %, 2 px off the outermost shape, following its radius (forced-colors: `Highlight`). A box around an input (the top bar's search, a filter field, a form field, a Combobox) draws it on the box and its input draws none; a control that is its own shape draws it on itself. Test: in Chrome `focus-one-ring-on-the-outer-shape` (19 kinds of control, one ring each, the screenshots `target/ux/focus-*.png`).
+
+## CON-764. Home is a strip of figures, two balanced columns and the way on
+A strip of six figures (running, partitions open, topics, memory, threads, profile), then the Address card (with the advertised-listener check) and "This instance" in two columns of 7 to 5 (the second never under 380 px; one column under 1180 px), then the call to action across the page. Nothing overflows or is clipped at 1024, 1280, 1440 and 1920 px, and no other built page overflows at 1024. Test: in Chrome `home-fits-at-four-widths` and `every-page-fits-at-1024` (27 pages).

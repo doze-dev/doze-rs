@@ -37,6 +37,16 @@ UX agent 2's page scenarios (breadcrumbs, the Consumers tab, Planned, the Messag
 | `palette.ts` | `palette-sections-and-recents`, `tooltip-shared-for-title-and-icon-buttons`, `row-menu-opens-an-overlay` | Topics, Groups, Pages headings, a section with no match loses its heading, the place just opened is the first recent and only a kind and a name are stored, the empty state; the shared tooltip appears at 400 ms with the exact time and gives the `title` back; the row menu is inside the content and its Edit opens the dialog |
 | `transitions.ts` | `transitions-no-document-flash-across-pages`, `transitions-forms-swap-in-place`, `transitions-reduced-motion-runs-none`, `transitions-fast-clicks-do-not-stack`, `transitions-overtaken-click-never-lands-late`, `transitions-back-forward-restore-scroll` | see "Transitions, measured" below |
 
+The owner's review of the preview build added five more files (CON-760 to CON-764):
+
+| File | Scenarios | Asserts |
+|---|---|---|
+| `filters.ts` | `filters-live-change-the-tape`, `filters-lists-change-the-data` | for every filter of Live, Topics, Groups, Messages and Config: pick a value (the enhanced Select by mouse, the search box by typing) and the ROWS change (counted before and after), the address follows, Back restores the earlier rows, the stream fragment keeps the filter |
+| `overlays-fit.ts` | `overlays-fit-and-scroll-at-three-sizes` | 19 overlays at 1280x720, 1024x640, 800x600: the panel inside the window, a dialog's foot and every button in view without scrolling, the body scrolls when longer, a drawer from top to bottom on the right edge, the page behind does not scroll |
+| `popups.ts` | `select-menu-fits-its-labels` | the list is as wide as its longest option (420 px at most), not narrower than the trigger, one line per option, an ellipsis, `title`, inside the window |
+| `focus.ts` | `focus-one-ring-on-the-outer-shape` | 19 kinds of control, focused: exactly one 2 px ring in the primary colour, on the outermost shape; the input inside a box draws none |
+| `overflow.ts` | `home-fits-at-four-widths`, `every-page-fits-at-1024` | Home at 1024, 1280, 1440, 1920 (not wider than the window, no element's content wider than its box, two columns 7 to 5 with the second at least 380 px, stacked under 1180); 27 other pages at 1024 |
+
 ## Transitions, measured (CON-757)
 
 Run against the fixtures server, Chrome 152, 1280 by 800:
