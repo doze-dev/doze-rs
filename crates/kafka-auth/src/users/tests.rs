@@ -158,3 +158,30 @@ fn debug_output_names_users_and_shows_no_key() {
         assert!(!shown.contains(planted), "{shown}");
     }
 }
+
+#[test]
+fn plaintext_is_kept_only_when_plain_is_offered() {
+    // SEC-D59: with SCRAM alone the passwords are forgotten once the verifiers are made.
+    let pairs = || [("alice".to_owned(), "alice-secret".to_owned())];
+    let scram_only = Users::derive(
+        Credentials::new(pairs()).unwrap(),
+        &[Mechanism::ScramSha256, Mechanism::ScramSha512],
+    )
+    .unwrap();
+    assert!(scram_only.bootstrap().password(b"alice").is_none());
+    assert!(scram_only.is_bootstrap("alice") && scram_only.bootstrap().len() == 1);
+    assert!(scram_only.bootstrap().has_user("alice") && !scram_only.bootstrap().is_empty());
+    assert!(logs_in(&scram_only, Kind::Sha256, "alice", "alice-secret"));
+    assert!(logs_in(&scram_only, Kind::Sha512, "alice", "alice-secret"));
+    assert!(!logs_in(&scram_only, Kind::Sha256, "alice", "wrong"));
+    assert_eq!(
+        scram_only.bootstrap().names().collect::<Vec<_>>(),
+        ["alice"]
+    );
+    let with_plain = Users::derive(
+        Credentials::new(pairs()).unwrap(),
+        &[Mechanism::Plain, Mechanism::ScramSha256],
+    )
+    .unwrap();
+    assert!(with_plain.bootstrap().password(b"alice").is_some());
+}

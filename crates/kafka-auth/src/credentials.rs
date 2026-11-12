@@ -4,7 +4,7 @@
 //! SCRAM mechanism that is on, with a salt of its own; nothing is stored, so the verifiers are made again, with
 //! new salts, at every start.
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fmt;
 use std::sync::Arc;
 
@@ -58,7 +58,10 @@ pub enum CredentialsError {
 /// The configured users and their passwords. Built once at start; nothing is stored.
 #[derive(Clone, Default)]
 pub struct Credentials {
-    users: BTreeMap<String, Secret>,
+    /// Every user, whether or not their password is still held.
+    names: BTreeSet<String>,
+    /// The passwords still held: all of them, until [`Credentials::forget_passwords`].
+    secrets: BTreeMap<String, Secret>,
     scram: HashMap<Kind, BTreeMap<String, Arc<Verifier>>>,
 }
 
@@ -71,18 +74,28 @@ impl Credentials {
     where
         I: IntoIterator<Item = (String, String)>,
     {
-        let mut users = BTreeMap::new();
+        let mut secrets = BTreeMap::new();
         for (name, password) in pairs {
             validate(&name, &password)?;
             let secret = Secret(password.into_bytes().into_boxed_slice());
-            if users.insert(name.clone(), secret).is_some() {
+            if secrets.insert(name.clone(), secret).is_some() {
                 return Err(CredentialsError::Duplicate(name));
             }
         }
         Ok(Self {
-            users,
+            names: secrets.keys().cloned().collect(),
+            secrets,
             scram: HashMap::new(),
         })
+    }
+
+    /// These credentials without the passwords: the names and the SCRAM verifiers stay, and [`Credentials::password`]
+    /// finds nothing. For a broker that offers no PLAIN, which is the only use a password has once the verifiers are
+    /// made (SEC-D59). Call it after [`Credentials::with_scram`]: a verifier cannot be made from a forgotten password.
+    #[must_use]
+    pub fn forget_passwords(mut self) -> Self {
+        self.secrets.clear();
+        self
     }
 
     /// These credentials with a SCRAM verifier for every user under each of `kinds`: `ITERATIONS` rounds and a
@@ -93,7 +106,7 @@ impl Credentials {
     pub fn with_scram(mut self, kinds: &[Kind]) -> Result<Self, CredentialsError> {
         for &kind in kinds {
             let mut verifiers = BTreeMap::new();
-            for (name, password) in &self.users {
+            for (name, password) in &self.secrets {
                 let mut salt = [0u8; 16];
                 getrandom::fill(&mut salt).map_err(|_| CredentialsError::NoEntropy)?;
                 let verifier = Verifier::derive(kind, password.expose(), &salt, ITERATIONS);
@@ -113,12 +126,12 @@ impl Credentials {
     /// Whether there is a user called `name`.
     #[must_use]
     pub fn has_user(&self, name: &str) -> bool {
-        self.users.contains_key(name)
+        self.names.contains(name)
     }
 
     /// The names of the users.
     pub fn names(&self) -> impl Iterator<Item = &str> {
-        self.users.keys().map(String::as_str)
+        self.names.iter().map(String::as_str)
     }
 
     /// The mechanisms `name` has a SCRAM verifier for, with the iteration count of each, in mechanism order.
@@ -135,19 +148,19 @@ impl Credentials {
     pub fn password(&self, name: &[u8]) -> Option<&Secret> {
         std::str::from_utf8(name)
             .ok()
-            .and_then(|name| self.users.get(name))
+            .and_then(|name| self.secrets.get(name))
     }
 
     /// How many users there are.
     #[must_use]
     pub fn len(&self) -> usize {
-        self.users.len()
+        self.names.len()
     }
 
     /// Whether there are no users.
     #[must_use]
     pub fn is_empty(&self) -> bool {
-        self.users.is_empty()
+        self.names.is_empty()
     }
 }
 
@@ -175,7 +188,7 @@ impl fmt::Debug for Credentials {
     /// The names of the users, and nothing of their passwords.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Credentials")
-            .field("users", &self.users.keys().collect::<Vec<_>>())
+            .field("users", &self.names)
             .field("scram", &self.scram.keys().collect::<Vec<_>>())
             .finish_non_exhaustive()
     }
