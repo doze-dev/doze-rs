@@ -38,11 +38,11 @@ fn who_sees_it_says_the_topics_that_follow_the_ones_that_keep_theirs_and_the_one
     let (main, dim) = who_sees("log.retention.ms", &board_world());
     assert_eq!(
         text(&main),
-        "the topics with no retention.ms of their own: payments.settled, pick-lists, pick-lists.dlq, orders.dlq"
+        "the topics with no retention.ms of their own: payments.settled, pick-lists, pick-lists.dlq, orders.dlq."
     );
     assert_eq!(
         dim,
-        "orders (7 d), notifications.email (1 d), clickstream (1 h) keep theirs. inventory.levels, customer.profiles are compact only: retention does not apply."
+        "orders (7 d), notifications.email (1 d) and clickstream (1 h) keep theirs. inventory.levels and customer.profiles are compact only: retention does not apply."
     );
 }
 
@@ -57,7 +57,7 @@ fn a_long_list_is_cut_and_a_cut_look_says_so() {
     };
     let (main, dim) = who_sees("log.segment.bytes", &f);
     assert!(
-        text(&main).ends_with("t0, t1, t2, t3, t4, t5 and 3 more"),
+        text(&main).ends_with("t0, t1, t2, t3, t4, t5 and 3 more."),
         "{}",
         text(&main)
     );
@@ -133,5 +133,22 @@ fn a_row_is_set_at_run_time_only_for_a_dynamic_source() {
     assert_eq!(
         source_label(ConfigSource::DynamicDefault),
         "Dynamic default broker"
+    );
+}
+
+#[test]
+fn a_list_in_a_sentence_says_and_before_the_last_name_and_counts_what_it_cuts() {
+    let n = |v: &[&str]| v.iter().map(|s| (*s).to_owned()).collect::<Vec<_>>();
+    assert_eq!(prose(&[]), "");
+    assert_eq!(prose(&n(&["a"])), "a");
+    assert_eq!(prose(&n(&["a", "b"])), "a and b");
+    assert_eq!(prose(&n(&["a", "b", "c"])), "a, b and c");
+    assert_eq!(
+        prose(&n(&["a", "b", "c", "d", "e", "f"])),
+        "a, b, c, d, e and f"
+    );
+    assert_eq!(
+        prose(&n(&["a", "b", "c", "d", "e", "f", "g", "h"])),
+        "a, b, c, d, e, f and 2 more"
     );
 }

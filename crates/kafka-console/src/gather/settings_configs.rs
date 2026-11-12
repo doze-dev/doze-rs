@@ -184,6 +184,18 @@ fn list(names: &[String]) -> String {
     }
 }
 
+/// The names as a sentence says them: `a`, `a and b`, `a, b and c`, and past six `a, b, c, d, e, f and 3 more`.
+fn prose(names: &[String]) -> String {
+    const MOST: usize = 6;
+    let shown = &names[..names.len().min(MOST)];
+    match (shown.split_last(), names.len() > MOST) {
+        (None, _) => String::new(),
+        (Some(_), true) => format!("{} and {} more", shown.join(", "), names.len() - MOST),
+        (Some((last, [])), false) => last.clone(),
+        (Some((last, head)), false) => format!("{} and {last}", head.join(", ")),
+    }
+}
+
 fn topics(n: usize) -> String {
     if n == 1 {
         "1 topic".to_owned()
@@ -208,6 +220,7 @@ pub fn who_sees(key: &str, f: &Followers) -> (Vec<Span>, String) {
     let mut main = vec![
         Span::text(format!("the topics with no {own_key} of their own: ")),
         Span::mono(list(&f.following)),
+        Span::text("."),
     ];
     if f.following.is_empty() {
         main = vec![Span::text(format!(
@@ -221,12 +234,12 @@ pub fn who_sees(key: &str, f: &Followers) -> (Vec<Span>, String) {
             .iter()
             .map(|(n, v)| format!("{n} ({})", seen_as(key, v)))
             .collect();
-        dim.push_str(&format!("{} keep theirs. ", list(&kept)));
+        dim.push_str(&format!("{} keep theirs. ", prose(&kept)));
     }
     if !f.compact_only.is_empty() {
         dim.push_str(&format!(
             "{} {} compact only: retention does not apply. ",
-            list(&f.compact_only),
+            prose(&f.compact_only),
             if f.compact_only.len() == 1 {
                 "is"
             } else {

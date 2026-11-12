@@ -241,6 +241,7 @@ fn view(
                 vec![
                     Span::text("the topics with no retention.ms of their own: "),
                     Span::mono("payments.settled, pick-lists, pick-lists.dlq, orders.dlq"),
+                    Span::text("."),
                 ],
                 "orders (7 d), notifications.email (1 d) and clickstream (1 h) keep theirs. inventory.levels and customer.profiles are compact only: retention does not apply.",
             ),

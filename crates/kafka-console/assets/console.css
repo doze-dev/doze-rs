@@ -533,6 +533,6 @@ button.lnk{background:none;border:0;padding:0;font:inherit;color:var(--accent);c
 button.lnk:hover{text-decoration:underline}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 /* Settings: the section tabs scroll to their section gently, and the section that was asked for says so for a moment. */
-@media (prefers-reduced-motion:no-preference){html{scroll-behavior:smooth}.sec:target>h2{animation:sec-asked .9s ease-out 1}}
+@media (prefers-reduced-motion:no-preference){html:has(nav.tabs a[href^="#"]){scroll-behavior:smooth}.sec:target>h2{animation:sec-asked .9s ease-out 1}}
 @keyframes sec-asked{from{color:var(--accent)}to{color:inherit}}
 .sec{scroll-margin-top:24px}
