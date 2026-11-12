@@ -416,3 +416,70 @@ async fn on_an_open_broker_one_deny_hides_one_topic_from_one_caller() {
     bob.beats(6).await;
     assert!(bob.owns(open) && !bob.owns(secret), "{:?}", bob.owned);
 }
+
+/// The expression matches only a topic the member may not describe: it holds nothing, and the right, once granted, is
+/// the only thing that has changed what the pattern takes (so the epoch must move for it alone).
+#[tokio::test]
+async fn a_right_granted_on_the_only_topic_the_expression_matches_is_taken_up() {
+    let rig = world();
+    make_topic(&rig, "secret", 3).await;
+    grant(&rig, vec![allow(GROUP, "g", "User:alice", READ)]).await;
+    let secret = id_of(&rig, "secret").await;
+    let mut seat = Seat::join_regex(&rig, user("alice"), "g", "m", "sec.*").await;
+    assert!(seat.owned.is_empty() && seat.ever.is_empty());
+    grant(&rig, vec![allow(TOPIC, "secret", "User:alice", DESCRIBE)]).await;
+    seat.beats(6).await;
+    assert!(seat.owns(secret), "{:?}", seat.owned);
+}
+
+/// An ACL change that leaves what the pattern takes as it was does not move the group's epoch (the new snapshot is a
+/// new value, but the topics it takes are the same).
+#[tokio::test]
+async fn an_acl_change_that_leaves_the_matches_alone_does_not_move_the_group_epoch() {
+    let rig = world();
+    make_topic(&rig, "open", 2).await;
+    grant(
+        &rig,
+        vec![
+            allow(GROUP, "g", "User:alice", READ),
+            allow(TOPIC, "open", "User:alice", DESCRIBE),
+        ],
+    )
+    .await;
+    let mut seat = Seat::join_regex(&rig, user("alice"), "g", "m", ".*").await;
+    let epoch =
+        || async { calls::describe_848(&rig, &admin(), 1, &["g"], false).await[0].group_epoch };
+    let before = epoch().await;
+    grant(&rig, vec![allow(GROUP, "other", "User:bob", READ)]).await;
+    seat.beats(4).await;
+    assert_eq!(epoch().await, before);
+}
+
+/// The group's subscribed set (what OffsetDelete refuses with GROUP_SUBSCRIBED_TO_TOPIC) holds the topics the pattern
+/// takes, not every topic it matches: a topic the member may not describe is not one the group is subscribed to.
+#[tokio::test]
+async fn the_groups_subscribed_set_holds_only_what_the_pattern_takes() {
+    let rig = world();
+    make_topic(&rig, "secret", 1).await;
+    make_topic(&rig, "open", 1).await;
+    grant(
+        &rig,
+        vec![
+            allow(GROUP, "g", "User:alice", READ),
+            allow(TOPIC, "open", "User:alice", DESCRIBE),
+        ],
+    )
+    .await;
+    let _seat = Seat::join_regex(&rig, user("alice"), "g", "m", ".*").await;
+    let r = calls::offset_delete(&rig, &admin(), "g", &[("open", 0), ("secret", 0)]).await;
+    let codes: Vec<_> = r
+        .topics
+        .iter()
+        .map(|t| (t.name.as_str().to_owned(), t.partitions[0].error_code))
+        .collect();
+    assert_eq!(codes.len(), 2, "{codes:?}");
+    for (topic, code) in &codes {
+        // 86: the group is subscribed to it.
+        assert_eq!(*code == 86, topic == "open", "{codes:?}");
+    }
+}

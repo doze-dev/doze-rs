@@ -1042,7 +1042,8 @@ Kafka re-resolves when a refresh is due (new topics, an unresolved expression, o
 heartbeat triggers it. Here each heartbeat (the expression need not be sent again) replaces the member's rights; if the topics its pattern matches differ between the old
 and the new rights the group's epoch moves and the targets are recomputed (`Member::take_rights`); the same rights (same ACL snapshot, same caller) cost one comparison.
 A topic that gains the member's DESCRIBE is picked up, one that loses it is revoked by the usual two-step handover. Test:
-`a_describe_right_granted_later_is_taken_up_by_the_next_heartbeat`, `a_describe_right_taken_away_revokes_the_topic`.
+`a_describe_right_granted_later_is_taken_up_by_the_next_heartbeat`, `a_describe_right_taken_away_revokes_the_topic`,
+`a_right_granted_on_the_only_topic_the_expression_matches_is_taken_up`, `an_acl_change_that_leaves_the_matches_alone_does_not_move_the_group_epoch`.
 
 ## SEC-212. The open broker pays nothing
 With the default allowing and no ACL stored, or for a super user, `Authorizer::describe_rights` is one atomic load and returns `None`: no `Arc` is cloned, no caller copied,
@@ -1056,7 +1057,7 @@ topic the *describer* may not DESCRIBE (SEC-108, KA:2644-2728), so another membe
 are the names it was allowed to send and its `SubscribedTopicRegex` is the text it sent, as in Kafka. (c) The group's subscribed set (OffsetDelete's
 `GROUP_SUBSCRIBED_TO_TOPIC`, the offsets-retention check) is built from the same `pattern_takes`, and OffsetDelete asks READ on the topic first. (d) DescribeGroups describes no
 consumer-protocol member (SEC-107). (e) A classic member's metadata reaches the leader of a classic group exactly as it was sent, as Kafka's JoinGroup does. Nothing else
-needed a change. Test: `two_members_with_one_expression_are_filtered_each_by_its_own_rights` (ConsumerGroupDescribe of both members).
+needed a change. Test: `two_members_with_one_expression_are_filtered_each_by_its_own_rights` (ConsumerGroupDescribe of both members), `the_groups_subscribed_set_holds_only_what_the_pattern_takes` (OffsetDelete).
 
 ## SEC-214. Metadata: the authorized-operations bits are on the entries Kafka found only (KA:960-985)
 `topicMetadata` (the topics the caller may DESCRIBE, found or not found) gets `TopicAuthorizedOperations` (KA:973-979); the entries refused for CREATE (29, name, no id) and for
