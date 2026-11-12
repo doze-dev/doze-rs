@@ -350,11 +350,6 @@ pub const ROUTES: &[Route] = &[
         &["group-story", "story-rebalance", "story-flapping"],
         Handler::Planned("Story"),
     ),
-    get(
-        "/groups/{group}/wire",
-        &["group-wire"],
-        Handler::Planned("Wire"),
-    ),
     get("/access", &["access-open"], Handler::Planned("Access")),
     get("/lab", &["lab-home"], Handler::Planned("Lab")),
     get(
