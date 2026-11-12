@@ -33,19 +33,31 @@ pub struct Action {
     pub input_hint: Option<String>,
 }
 
-/// How the host should draw the module's console: panels of data and a layout over them.
+/// How the host draws the module's console and what the module adds to the app's own pages (the Go SDK's
+/// `engine.ConsoleSpec`, kept whole: the app renders `extend` blocks on the instance overview). The module gives data
+/// and layout; the host draws, so every module's console looks like the rest of the app.
 #[derive(Debug, Clone, PartialEq, Eq, Encode, Decode)]
 pub struct ConsoleSpec {
+    /// The data the console draws: tables, counters, streams.
     #[n(0)]
     pub panels: Vec<Panel>,
+    /// Tabs laying the panels out; with none the host lays them out itself (tables side by side, streams below).
     #[n(1)]
     #[cbor(default)]
     pub tabs: Vec<Tab>,
     /// A web console the module serves, as a template over the instance's address ("http://{address}/_console").
     #[n(2)]
     pub web_url: Option<String>,
+    /// The tab the console opens on: "console", "web", or none for the host's default for the kind.
+    #[n(3)]
+    pub front: Option<String>,
+    /// Blocks the module adds to the app's generic instance overview, each after one of its cards.
+    #[n(4)]
+    #[cbor(default)]
+    pub extend: Vec<Extension>,
 }
 
+/// A data panel.
 #[derive(Debug, Clone, PartialEq, Eq, Encode, Decode)]
 pub struct Panel {
     #[n(0)]
@@ -55,26 +67,34 @@ pub struct Panel {
     /// "table", "counters" or "stream".
     #[n(2)]
     pub kind: String,
-    /// For a table: the resource kind it lists. For a stream: the table panel whose selection it follows.
+    /// For a table or counters: the resource kind it lists.
     #[n(3)]
     pub source: String,
     #[n(4)]
     pub columns: Vec<Column>,
+    /// For a stream: the table panel whose selected row picks what to stream.
+    #[n(5)]
+    pub select: Option<String>,
 }
 
+/// A column of a table, a field of a stream row.
 #[derive(Debug, Clone, PartialEq, Eq, Encode, Decode)]
 pub struct Column {
+    /// "name", "status", or a key of the resource's info (or the row's cells).
     #[n(0)]
     pub key: String,
     #[n(1)]
     pub title: String,
-    /// How the host formats it: "", "count", "rate", "lag", "state", "time", "code".
+    /// How the host formats and colours it: "", "count", "rate", "lag", "state", "time", "code". A "rate" column's
+    /// key names an info value that is a running total; the host shows how fast it grows.
     #[n(2)]
     pub role: String,
+    /// "left" or "right".
     #[n(3)]
-    pub right: bool,
+    pub align: String,
 }
 
+/// One tab of the console.
 #[derive(Debug, Clone, PartialEq, Eq, Encode, Decode)]
 pub struct Tab {
     #[n(0)]
@@ -82,20 +102,48 @@ pub struct Tab {
     #[n(1)]
     pub title: String,
     #[n(2)]
-    pub layout: Layout,
+    pub body: Node,
 }
 
-/// A row or column of blocks, or a block that draws a panel.
+/// A block on the app's overview of the instance, after the card named.
 #[derive(Debug, Clone, PartialEq, Eq, Encode, Decode)]
-pub enum Layout {
+pub struct Extension {
+    /// "connect", "awake", "vitals" or "recent".
     #[n(0)]
-    Row(#[n(0)] Vec<Layout>),
+    pub after: String,
     #[n(1)]
-    Col(#[n(0)] Vec<Layout>),
+    pub node: Node,
+}
+
+/// A layout node. Containers: "row" and "col" (children laid out by weight). Blocks: "table", "stat", "detail",
+/// "stream", "actions", "note", "chart". The kind is a string on purpose: a host that meets a kind it does not know
+/// draws a placeholder card and the rest of the layout as usual, so a newer module never breaks an older app.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Encode, Decode)]
+pub struct Node {
+    #[n(0)]
+    pub kind: String,
+    #[n(1)]
+    pub id: String,
     #[n(2)]
-    Panel(#[n(0)] String),
+    pub title: String,
     #[n(3)]
-    Note(#[n(0)] String),
+    pub weight: u32,
+    /// The panel a block draws.
+    #[n(4)]
+    pub panel: String,
+    /// A "detail" or "stream" follows the row selected in this table block.
+    #[n(5)]
+    pub from: String,
+    /// A note's text.
+    #[n(6)]
+    pub text: String,
+    /// An "actions" block's actions; none means all.
+    #[n(7)]
+    #[cbor(default)]
+    pub actions: Vec<String>,
+    #[n(8)]
+    #[cbor(default)]
+    pub children: Vec<Node>,
 }
 
 /// `tail` arguments: stream rows of a stream panel.

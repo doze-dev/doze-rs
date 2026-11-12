@@ -125,6 +125,16 @@ async fn the_manifest_comes_from_the_derive_and_the_registrations() {
         caps::OBJECTS | caps::WIRE,
         "capabilities must be exactly what was registered"
     );
+    // The module powers a block on the app's overview page, and picks the tab its console opens on.
+    let console = m.console.expect("the echo module has a console");
+    assert_eq!(console.front.as_deref(), Some("console"));
+    assert_eq!(
+        (
+            console.extend[0].after.as_str(),
+            console.extend[0].node.kind.as_str()
+        ),
+        ("vitals", "stat")
+    );
 }
 
 #[tokio::test(flavor = "current_thread")]
@@ -198,6 +208,7 @@ async fn the_required_calls_and_a_fetch_callback() {
         (c.env_var.as_str(), c.url.as_str()),
         ("ECHO_URL", "echo:///e")
     );
+    assert_eq!(c.env.get("ECHO_TOKEN").map(String::as_str), Some("doze"));
     let args = ResolveArgs {
         instance: inst.clone(),
         target: "t".into(),

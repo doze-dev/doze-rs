@@ -126,7 +126,19 @@ async fn required<M: Module>(m: Arc<M>, call: Incoming, peer: Peer) {
             let Some((inst, call)) = args::<Instance>(call) else {
                 return;
             };
-            with_cx!(m, inst, call, peer, |cx| Ok::<_, Error>(m.network(&cx)));
+            with_cx!(m, inst, call, peer, |cx| {
+                let listeners = m.network(&cx);
+                let errs = doze_module_proto::network::validate(&listeners);
+                if errs.is_empty() {
+                    Ok(listeners)
+                } else {
+                    // A module bug, not the user's config: say so plainly.
+                    Err(Error::new(
+                        ErrorKind::Internal,
+                        format!("the module declared invalid listeners: {}", errs.join("; ")),
+                    ))
+                }
+            });
         }
         Method::Connection => {
             let Some((inst, call)) = args::<Instance>(call) else {

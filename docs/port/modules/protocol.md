@@ -24,6 +24,7 @@ what goes over them.
 | 13 | **One warm process per type for the daemon's life**, 8 to 15 MB each in Go | Rust modules idle at 1 to 6 MB and start in 0.1 to 4 ms (S0, W0), so the host may stop an idle module and start it on demand |
 | 14 | AutoMTLS ceremony available, never used, P-521 only (plugin spike) | None: an OS channel only the two processes hold; on Windows the host verifies the client's pid |
 | 15 | `Object.Hash` is SHA-256 of a Go struct's JSON: language- and field-order-dependent | Hash over canonical CBOR of the object's declared fields, defined in the protocol, so a Rust module and a future one agree |
+| 16 | Modules power their own blocks in the app (`Extend` after the overview's cards, `Front`, table/stat/detail/stream/actions/note/chart blocks) and name their listeners (routes `@`, `label`, `prefix-@`); core guessed aws's extra variables from an `AWS_ENDPOINT_URL` prefix | **Kept whole, one gap closed**: `ConsoleSpec` carries `front`, `extend` and the Go layout node with its kind as a string (an older app draws a placeholder for a kind it does not know); the route and listener rules are ported with the Go test cases (`network.rs`), checked by the SDK on the module's answer and available to the core; `Connection.env` lets a module name every variable a client needs, so the core's aws guess goes away |
 
 ## Frame
 

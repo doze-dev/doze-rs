@@ -45,6 +45,7 @@ impl Module for Echo {
             default_port: 7000,
             backend_socket: Some("echo.sock".into()),
             example: "echo \"e\" {\n  version = \"2\"\n}\n".into(),
+            console: Some(console()),
             ..About::default()
         }
     }
@@ -80,6 +81,8 @@ impl Module for Echo {
         Ok(Connection {
             env_var: "ECHO_URL".into(),
             url: format!("echo://{addr}/{}", cx.instance.name),
+            // What aws needs and protocol 1's core guessed: more variables a client must set.
+            env: BTreeMap::from([("ECHO_TOKEN".to_string(), "doze".to_string())]),
         })
     }
 
@@ -185,5 +188,40 @@ impl doze_module::caps::Wire for Echo {
         let spliced = tokio::io::copy_bidirectional(&mut client, &mut backend).await;
         host.release().await?;
         spliced.map(drop).map_err(io)
+    }
+}
+
+/// A console with a stat block added to the app's overview after its "vitals" card: a module powering its own block in
+/// the app's page.
+fn console() -> doze_module::proto::msg::console::ConsoleSpec {
+    use doze_module::proto::msg::console::{Column, ConsoleSpec, Extension, Node, Panel};
+    let channels = Panel {
+        id: "channels".into(),
+        title: "Channels".into(),
+        kind: "counters".into(),
+        source: "channel".into(),
+        columns: vec![Column {
+            key: "size".into(),
+            title: "Size".into(),
+            role: "count".into(),
+            align: "right".into(),
+        }],
+        select: None,
+    };
+    let stat = Node {
+        kind: "stat".into(),
+        panel: "channels".into(),
+        title: "Channels".into(),
+        ..Node::default()
+    };
+    ConsoleSpec {
+        panels: vec![channels],
+        tabs: vec![],
+        web_url: None,
+        front: Some("console".into()),
+        extend: vec![Extension {
+            after: "vitals".into(),
+            node: stat,
+        }],
     }
 }

@@ -35,6 +35,7 @@ async fn a_call_and_its_answer() {
         let _ = c.responder.ok(&Connection {
             env_var: "ECHO_URL".into(),
             url: "echo://x".into(),
+            env: Default::default(),
         });
     });
     let (host, _m) = connected(0, nothing(), module).await;

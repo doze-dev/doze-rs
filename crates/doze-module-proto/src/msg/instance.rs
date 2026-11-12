@@ -110,6 +110,11 @@ pub struct Connection {
     pub env_var: String,
     #[n(1)]
     pub url: String,
+    /// More variables a client of this engine needs (aws: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION). The
+    /// module says so; protocol 1's core guessed it from an `AWS_ENDPOINT_URL` prefix.
+    #[n(2)]
+    #[cbor(default)]
+    pub env: BTreeMap<String, String>,
 }
 
 /// One structural object an instance manages (role, database, queue). `hash` is defined by the protocol: SHA-256 of the
