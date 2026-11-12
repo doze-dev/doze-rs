@@ -433,3 +433,6 @@ async fn a_field_of_the_size_of_the_body_limit_is_read_and_a_larger_body_is_refu
     let (res, _) = send(&app, support::post("/topics/orders/produce", &over)).await;
     assert_eq!(res.status(), axum::http::StatusCode::PAYLOAD_TOO_LARGE);
 }
+// The Topics pages (slice 9b, reading half) are in `security/topics.rs`: they share the helpers above.
+#[path = "security/topics.rs"]
+mod topics;

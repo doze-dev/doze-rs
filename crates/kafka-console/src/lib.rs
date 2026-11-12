@@ -21,6 +21,7 @@ pub mod facts;
 pub mod fixtures;
 #[cfg(any(test, feature = "examples"))]
 pub mod fixtures_write;
+pub mod fixtures_topics;
 pub mod form;
 pub mod format;
 pub mod gather;

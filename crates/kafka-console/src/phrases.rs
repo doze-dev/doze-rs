@@ -2,7 +2,8 @@
 //! holds, what a transaction holds back. Pure functions (tables of cases in `tests.rs`).
 
 use crate::format::{civil, number, span_ms};
-use crate::model::{Span, TopicHead};
+use crate::model::Span;
+use crate::model::write::TopicHead;
 
 /// `22:14:41.208`, the time of day in UTC with milliseconds.
 #[must_use]

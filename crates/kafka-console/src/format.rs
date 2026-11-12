@@ -150,5 +150,9 @@ pub fn clock(ms: i64) -> String {
     format!("{:02}:{:02}:{:02}", c.hour, c.minute, c.second)
 }
 
+mod read;
+
+pub use read::{ago, clock_ms, hex_dump, hex_prefix, parse_time};
+
 #[cfg(test)]
 mod tests;

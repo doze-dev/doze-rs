@@ -121,6 +121,14 @@ impl Backend {
         }
     }
 
+    /// The files of each partition of `topic` (size, last write, offline cause), if the console may describe it.
+    #[must_use]
+    pub fn partition_files(&self, topic: &str) -> Option<Vec<kafka_broker::PartitionFiles>> {
+        self.broker
+            .console_view()
+            .partition_files(&self.caller, topic)
+    }
+
     /// The facts of this run that the protocol does not say.
     #[must_use]
     pub fn instance(&self) -> Option<Instance> {

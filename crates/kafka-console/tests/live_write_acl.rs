@@ -89,6 +89,7 @@ async fn a_get_never_asks_the_broker_to_change_anything() {
         ApiKey::DescribeTransactions,
         ApiKey::ApiVersions,
         ApiKey::Fetch,
+        ApiKey::DescribeProducers,
     ];
     let calls = log.lock().unwrap().clone();
     assert!(

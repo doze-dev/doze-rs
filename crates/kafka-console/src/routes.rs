@@ -19,6 +19,11 @@ pub enum Handler {
     Connect,
     Advertised,
     Check,
+    Topics,
+    Topic,
+    TopicMessages,
+    TopicRecord,
+    TopicPartitions,
     Fragment,
     Events,
     Static,
@@ -110,7 +115,36 @@ pub const ROUTES: &[Route] = &[
     get("/healthz", &[], Handler::Health),
     // The rest of the design, built by later slices: each says it is not built yet.
     get("/live", &["live-wire"], Handler::Planned("Live")),
-    get("/topics", &["topics-list"], Handler::Planned("Topics")),
+    // Slice 9b, the topic reads (p9b-read).
+    get(
+        "/topics",
+        &["topics-list", "topics-none", "topics-filtered"],
+        Handler::Topics,
+    ),
+    get(
+        "/topics/{topic}",
+        &["topic-detail", "topic-offline"],
+        Handler::Topic,
+    ),
+    get(
+        "/topics/{topic}/messages",
+        &[
+            "topic-messages-empty",
+            "topic-messages-filtered",
+            "topic-readcommitted",
+        ],
+        Handler::TopicMessages,
+    ),
+    get(
+        "/topics/{topic}/messages/{partition}/{offset}",
+        &["topic-record", "topic-record-binary"],
+        Handler::TopicRecord,
+    ),
+    get(
+        "/topics/{topic}/partitions",
+        &["topic-partitions"],
+        Handler::TopicPartitions,
+    ),
     // Slice 9b, the topic writes (p9b-write).
     get(
         "/topics/new",
@@ -169,7 +203,7 @@ pub const ROUTES: &[Route] = &[
     ),
     get(
         "/topics/{topic}/producers",
-        &["txn-open", "topic-producers"],
+        &["txn-open", "topic-producers", "txn-holding"],
         Handler::Planned("Producers"),
     ),
     // The tabs of a topic and the Groups space, for the links of the pages above (built by later slices).

@@ -24,6 +24,13 @@ pub enum Glyph {
     ChevR,
     Lock,
     Plus,
+    List,
+    Send,
+    Trash,
+    Filter,
+    Topic,
+    Queue,
+    Api,
 }
 
 impl Glyph {
@@ -63,6 +70,23 @@ impl Glyph {
                 r#"<rect x="3.4" y="7" width="9.2" height="6.4" rx="1.8"/><path d="M5.4 7V5.4a2.6 2.6 0 0 1 5.2 0V7"/>"#
             }
             Self::Plus => r#"<path d="M8 3.2v9.6M3.2 8h9.6"/>"#,
+            Self::List => {
+                r#"<path d="M5.4 4h8M5.4 8h8M5.4 12h8"/><circle cx="2.8" cy="4" r=".7" fill="currentColor"/><circle cx="2.8" cy="8" r=".7" fill="currentColor"/><circle cx="2.8" cy="12" r=".7" fill="currentColor"/>"#
+            }
+            Self::Send => {
+                r#"<path d="M2.6 8 13.4 2.8 10.2 13.2 7.6 9z"/><path d="M7.6 9 13.4 2.8"/>"#
+            }
+            Self::Trash => r#"<path d="M3 4.6h10M6.4 4.6V3h3.2v1.6M4.4 4.6l.6 8.4h6l.6-8.4"/>"#,
+            Self::Filter => r#"<path d="M2.5 3.5h11L9.6 8.4V13l-3.2-1.2V8.4z"/>"#,
+            Self::Topic => {
+                r#"<circle cx="3.8" cy="8" r="1.6"/><path d="M5.4 8H8.6"/><path d="M8.6 4h4M8.6 8h4M8.6 12h4"/><path d="M8.6 4v8"/>"#
+            }
+            Self::Queue => {
+                r#"<rect x="2" y="2" width="12" height="3.2" rx="1.6"/><rect x="2" y="6.4" width="12" height="3.2" rx="1.6"/><rect x="2" y="10.8" width="12" height="3.2" rx="1.6"/>"#
+            }
+            Self::Api => {
+                r#"<circle cx="3.8" cy="8" r="1.8"/><circle cx="12.2" cy="3.8" r="1.8"/><circle cx="12.2" cy="12.2" r="1.8"/><path d="M5.5 7.2 10.5 4.6M5.5 8.8l5 2.6"/>"#
+            }
         }
     }
 }

@@ -1,7 +1,7 @@
 //! The fragments a page fetches alone, and the form that asks for a new check.
 
 use axum::body::Bytes;
-use axum::extract::{Path, State};
+use axum::extract::{Path, RawQuery, State};
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Redirect, Response};
 
@@ -14,9 +14,55 @@ use crate::ui::client::HEADER_FRAGMENT;
 pub async fn fragment(
     State(s): State<Shared>,
     Path(id): Path<String>,
+    RawQuery(query): RawQuery,
     headers: HeaderMap,
 ) -> Response {
-    let markup = match id.as_str() {
+    let Some(markup) = topics_fragment(&s, &id, &query).await else {
+        return fragment_of_home(&s, &id, &headers).await;
+    };
+    etagged(&headers, &markup)
+}
+
+/// The fragments of the Topics pages, by id; `None` for an id that is not one of them.
+async fn topics_fragment(s: &Shared, id: &str, query: &Option<String>) -> Option<maud::Markup> {
+    use crate::pages::topics as t;
+    let f = crate::form::parse(query.as_deref().unwrap_or(""));
+    let filter = crate::form::get(&f, "q").unwrap_or("").trim().to_owned();
+    let internal = crate::form::get(&f, "internal") == Some("1");
+    let q = crate::form::encode_query(&[
+        ("q", &filter),
+        ("internal", if internal { "1" } else { "" }),
+    ]);
+    match id {
+        t::LIST_SENTENCE => Some(t::sentence_fragment(
+            &s.source.topics(&filter, internal, None).await,
+            &s.base,
+            &q,
+        )),
+        t::LIST_FRAGMENT => Some(t::list_fragment(
+            &s.source.topics(&filter, internal, None).await,
+            &s.base,
+            &q,
+        )),
+        t::TOPIC_SENTENCE => {
+            let name = crate::form::get(&f, "topic").unwrap_or("");
+            Some(t::topic_sentence_fragment(
+                &s.source.topic_head(name).await?,
+                &s.base,
+            ))
+        }
+        t::MESSAGES_FRAGMENT => {
+            let name = crate::form::get(&f, "topic").unwrap_or("");
+            let (mq, notes) = crate::model::MessageQuery::parse(&f);
+            let view = s.source.messages(name, mq, notes).await?;
+            Some(t::messages_fragment(&view, &s.base, &view.query.to_query()))
+        }
+        _ => None,
+    }
+}
+
+async fn fragment_of_home(s: &Shared, id: &str, headers: &HeaderMap) -> Response {
+    let markup = match id {
         pages::HOME_SENTENCE => pages::sentence_fragment(&s.source.home(None).await, &s.base),
         pages::HOME_CALLOUT => pages::callout_fragment(&s.source.home(None).await, &s.base),
         pages::HOME_INSTANCE => pages::instance_fragment(&s.source.home(None).await, &s.base),
@@ -25,7 +71,7 @@ pub async fn fragment(
         pages::PROBE_ADVERTISED => pages::probe_advertised(&s.source.probe(false).await, &s.base),
         _ => return StatusCode::NOT_FOUND.into_response(),
     };
-    etagged(&headers, &markup)
+    etagged(headers, &markup)
 }
 
 /// Runs the advertised-listener check now. With a script the answer is the fragment to swap in; without one it is a

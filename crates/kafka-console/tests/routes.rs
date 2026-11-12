@@ -21,6 +21,8 @@ fn concrete(pattern: &str, state: &kafka_console::state::State) -> String {
         .replace("{id}", "home-instance")
         .replace("{name}", &asset)
         .replace("{topic}", "orders")
+        .replace("{partition}", "1")
+        .replace("{offset}", "16050")
 }
 
 /// A body each POST row takes without complaint (the proof of origin is what the guard tests are about).
@@ -67,7 +69,7 @@ async fn every_row_of_the_table_has_a_handler_and_every_handler_a_row() {
     // And what is not a row is not answered: the router is built from the table and from nothing else.
     for path in [
         "/nope",
-        "/topics/orders",
+        "/topics/orders/nope",
         "/connect/advertised/",
         "/static",
         "/fragments",

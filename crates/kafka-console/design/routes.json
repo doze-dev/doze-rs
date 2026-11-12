@@ -22,12 +22,23 @@
     "topic-delete-records": "/topics/{topic}/delete-records",
     "topic-delete-records-refused": "/topics/{topic}/delete-records",
     "topic-deleted": "/topics/{topic}/delete",
+    "topic-detail": "/topics/{topic}",
     "topic-log": "/topics/{topic}/log",
+    "topic-messages-empty": "/topics/{topic}/messages",
+    "topic-messages-filtered": "/topics/{topic}/messages",
+    "topic-offline": "/topics/{topic}",
+    "topic-partitions": "/topics/{topic}/partitions",
     "topic-produce": "/topics/{topic}/produce",
     "topic-produce-keyless": "/topics/{topic}/produce",
     "topic-produced": "/topics/{topic}/produce",
     "topic-producers": "/topics/{topic}/producers",
+    "topic-readcommitted": "/topics/{topic}/messages",
+    "topic-record": "/topics/{topic}/messages/{partition}/{offset}",
+    "topic-record-binary": "/topics/{topic}/messages/{partition}/{offset}",
+    "topics-filtered": "/topics",
     "topics-list": "/topics",
+    "topics-none": "/topics",
+    "txn-holding": "/topics/{topic}/producers",
     "txn-open": "/topics/{topic}/producers"
   }
 }

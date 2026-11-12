@@ -58,6 +58,21 @@ pub fn parse(input: &str) -> Vec<(String, String)> {
         .collect()
 }
 
+/// A query part (with its `?`) from fields; a field with an empty value is left out, and nothing at all is nothing.
+#[must_use]
+pub fn encode_query(fields: &[(&str, &str)]) -> String {
+    let parts: Vec<String> = fields
+        .iter()
+        .filter(|(_, v)| !v.is_empty())
+        .map(|(k, v)| format!("{k}={}", crate::base::segment(v)))
+        .collect();
+    if parts.is_empty() {
+        String::new()
+    } else {
+        format!("?{}", parts.join("&"))
+    }
+}
+
 /// The first value of a field.
 #[must_use]
 pub fn get<'a>(fields: &'a [(String, String)], name: &str) -> Option<&'a str> {
@@ -115,6 +130,16 @@ mod tests {
         assert_eq!(get(&f, "y"), Some("&"));
         assert_eq!(get(&f, "z"), None);
         assert_eq!(f.len(), 4);
+    }
+
+    #[test]
+    fn a_query_part_leaves_out_what_is_empty_and_encodes_the_rest() {
+        assert_eq!(encode_query(&[("q", ""), ("internal", "")]), "");
+        assert_eq!(
+            encode_query(&[("q", "a b&c"), ("internal", "1")]),
+            "?q=a%20b%26c&internal=1"
+        );
+        assert_eq!(decode("a%20b%26c"), "a b&c");
     }
 
     #[test]

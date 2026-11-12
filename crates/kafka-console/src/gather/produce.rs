@@ -8,9 +8,10 @@ use kafka_wire::messages::produce_response::PartitionProduceResponse;
 use super::forms::{self, TopicFacts};
 use crate::backend::{Backend, requests::topics_write};
 use crate::calls::{self, Outcome, RecordText};
+use crate::model::write::{RecordRow, TopicHead};
 use crate::model::{
-    ProduceErrors, ProduceInput, ProduceRefused, ProduceResult, ProduceView, Produced, RecordRow,
-    TopicHead, Visibility,
+    ProduceErrors, ProduceInput, ProduceRefused, ProduceResult, ProduceView, Produced,
+    Visibility,
 };
 use crate::{partitioner, refusal, validate};
 

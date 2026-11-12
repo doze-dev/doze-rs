@@ -5,15 +5,25 @@
 
 mod connect;
 mod home;
+mod messages;
+mod query;
+mod topic;
+mod topics;
 
 pub use connect::{Access, ClientSnippet, ConnectView, ProbeView, Rule, Span, Tok, Verdict};
 pub use home::{Attention, HeldBack, HomeState, HomeView, InstanceView, StopView};
 
-mod write;
+pub(crate) mod write;
 
 pub use write::{
     AddView, Checked, CreateRefused, CreateResult, CreateView, Created, DeleteRecordsRefused,
     DeleteRecordsView, DeleteView, Deleted, Draft, Errors, InUse, Lines, ProduceErrors,
-    ProduceInput, ProduceRefused, ProduceResult, ProduceView, Produced, RecordRow, RecordsDeleted,
-    Refusal, Remaining, Step, Teach, Template, TopicHead, Visibility,
+    ProduceInput, ProduceRefused, ProduceResult, ProduceView, Produced, RecordsDeleted, Refusal,
+    Remaining, Step, Teach, Template, Visibility,
 };
+pub use messages::{
+    HeaderRow, Hold, Kind, MessagesView, Reach, RecordRow, RecordTxn, RecordView, Shown, Standing,
+};
+pub use query::{DEFAULT_LIMIT, MOST_KEY, MOST_LIMIT, MessageQuery, Reading};
+pub use topic::{CallVersions, OpenTxn, PartitionRow, TabCounts, TopicHead};
+pub use topics::{Cleanup, TopicRow, TopicsState, TopicsView};

@@ -16,7 +16,22 @@ use crate::tick::Viewer;
 use crate::ui::client::EVENT_TICK;
 
 /// The fragments a stream may be asked to watch: a closed vocabulary.
-pub const WATCHABLE: &[&str] = &["home-sentence", "home-callout", "home-instance"];
+pub const WATCHABLE: &[&str] = &[
+    "home-sentence",
+    "home-callout",
+    "home-instance",
+    "topics-sentence",
+    "topics-table",
+    "topic-sentence",
+    "topic-messages",
+];
+
+/// What the Home page watches.
+pub const HOME_IDS: &[&str] = &["home-sentence", "home-callout", "home-instance"];
+/// What the topics list watches.
+pub const TOPICS_IDS: &[&str] = &["topics-sentence", "topics-table"];
+/// What a topic's Messages page watches.
+pub const TOPIC_IDS: &[&str] = &["topic-sentence", "topic-messages"];
 
 /// The comment line sent every 15 s.
 pub const KEEP_ALIVE: Duration = Duration::from_secs(15);

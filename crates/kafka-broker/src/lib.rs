@@ -35,4 +35,4 @@ pub use error::BrokerError;
 pub use listener::Listener;
 pub use outcome::Outcome;
 #[cfg(feature = "inspect")]
-pub use view::{ConfigHelp, ConsoleView, Instance, LastStop, Limits, Process};
+pub use view::{ConfigHelp, ConsoleView, Instance, LastStop, Limits, PartitionFiles, Process};
