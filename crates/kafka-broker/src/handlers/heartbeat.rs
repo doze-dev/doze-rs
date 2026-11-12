@@ -1,19 +1,25 @@
 //! Heartbeat.
 
+use kafka_auth::authz::operation;
 use kafka_storage::fs::Fs;
 use kafka_wire::ResponseError;
 use kafka_wire::ids::{GroupId, InstanceId, MemberId};
 use kafka_wire::messages::{HeartbeatRequest, HeartbeatResponse};
 
 use crate::groups::{Answer, HeartbeatRequest as Beat, Req};
-use crate::{Broker, Outcome};
+use crate::{Broker, Caller, Outcome};
 
 impl<F: Fs> Broker<F> {
-    pub(crate) async fn heartbeat(&self, req: &HeartbeatRequest) -> Outcome {
+    pub(crate) async fn heartbeat(&self, caller: &Caller, req: &HeartbeatRequest) -> Outcome {
+        // The caller must be allowed to READ the group, once, here and not in the group.
+        let allowed = self
+            .guard(caller)
+            .group(operation::READ, req.group_id.as_str());
         let error = match (
             GroupId::parse(req.group_id.as_str()),
             MemberId::new(req.member_id.as_str()),
         ) {
+            _ if !allowed => Some(ResponseError::GroupAuthorizationFailed),
             (Err(_), _) => Some(ResponseError::InvalidGroupId),
             (Ok(_), None) => Some(ResponseError::UnknownMemberId),
             (Ok(group), Some(member_id)) => {

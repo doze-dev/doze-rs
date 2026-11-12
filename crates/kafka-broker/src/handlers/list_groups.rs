@@ -2,19 +2,24 @@
 
 use std::collections::BTreeMap;
 
+use kafka_auth::authz::operation;
 use kafka_storage::fs::Fs;
 use kafka_wire::StrBytes;
 use kafka_wire::messages::list_groups_response::ListedGroup;
 use kafka_wire::messages::{GroupId as WireGroupId, ListGroupsRequest, ListGroupsResponse};
 
 use super::describe_groups::state_name;
-use crate::{Broker, Outcome, blocking};
+use crate::{Broker, Caller, Outcome, blocking};
 
 impl<F: Fs> Broker<F> {
     /// Every group there is: those in memory, and those known only by their committed offsets (which outlive the
     /// members, and a restart), by id. The state and type filters (v4, v5) match without regard to case, as Kafka's
     /// do.
-    pub(crate) async fn list_groups(&self, req: &ListGroupsRequest) -> Outcome {
+    ///
+    /// A caller that may DESCRIBE the cluster sees every group; any other sees those it may DESCRIBE.
+    pub(crate) async fn list_groups(&self, caller: &Caller, req: &ListGroupsRequest) -> Outcome {
+        let guard = self.guard(caller);
+        let sees_all = guard.cluster(operation::DESCRIBE);
         let mut resp = ListGroupsResponse::default();
         // (protocol type, state, group type)
         let mut all: BTreeMap<String, (String, &'static str, &'static str)> = BTreeMap::new();
@@ -56,6 +61,9 @@ impl<F: Fs> Broker<F> {
                     .any(|f| f.as_str().eq_ignore_ascii_case(value))
         };
         for (id, (protocol_type, state, group_type)) in all {
+            if !sees_all && !guard.group(operation::DESCRIBE, &id) {
+                continue;
+            }
             if !wanted(&req.states_filter, state) || !wanted(&req.types_filter, group_type) {
                 continue;
             }

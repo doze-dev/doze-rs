@@ -1,5 +1,6 @@
 //! DescribeGroups.
 
+use kafka_auth::authz::operation;
 use kafka_storage::fs::Fs;
 use kafka_wire::StrBytes;
 use kafka_wire::ids::GroupId;
@@ -7,16 +8,40 @@ use kafka_wire::messages::describe_groups_response::{DescribedGroup, DescribedGr
 use kafka_wire::messages::{DescribeGroupsRequest, DescribeGroupsResponse};
 
 use crate::groups::{Description, State, kafka_order};
-use crate::{Broker, Outcome, blocking};
+use crate::{Broker, Caller, Outcome, blocking};
 
 impl<F: Fs> Broker<F> {
     /// Describes each group named, in the order Kafka answers. A group the broker has never heard of is Dead (not an
     /// error), and one known only by its committed offsets is Empty.
-    pub(crate) async fn describe_groups(&self, req: &DescribeGroupsRequest) -> Outcome {
+    ///
+    /// A group the caller may not DESCRIBE is an entry of its own with 30 and nothing else, and those come first, in the
+    /// order asked; the rest follow, each with the operations the caller may do to it if the request asks (v3 and later).
+    pub(crate) async fn describe_groups(
+        &self,
+        version: i16,
+        caller: &Caller,
+        req: &DescribeGroupsRequest,
+    ) -> Outcome {
+        let guard = self.guard(caller);
         let mut resp = DescribeGroupsResponse::default();
-        let asked: Vec<String> = req.groups.iter().map(|g| g.0.as_str().to_owned()).collect();
+        let mut asked: Vec<String> = Vec::new();
+        for g in &req.groups {
+            if guard.group(operation::DESCRIBE, g.0.as_str()) {
+                asked.push(g.0.as_str().to_owned());
+            } else {
+                let mut refused = DescribedGroup::default();
+                refused.group_id = g.clone();
+                refused.error_code = kafka_wire::ResponseError::GroupAuthorizationFailed.code();
+                resp.groups.push(refused);
+            }
+        }
+        let operations = version >= 3 && req.include_authorized_operations;
         for name in kafka_order(&asked) {
-            resp.groups.push(self.describe_group(&name).await);
+            let mut described = self.describe_group(&name).await;
+            if operations && described.error_code == 0 {
+                described.authorized_operations = guard.group_operations(&name);
+            }
+            resp.groups.push(described);
         }
         Outcome::Respond(kafka_wire::api::Response::DescribeGroups(resp))
     }
