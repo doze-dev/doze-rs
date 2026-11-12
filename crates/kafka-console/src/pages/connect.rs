@@ -72,7 +72,7 @@ fn snippet_card(i: usize, s: &crate::model::ClientSnippet) -> Markup {
     card(html! {
         div class="row sb" {
             div class="title-row" style="gap:10px" { (glyph(Glyph::Code, 16, "d-data")) h2 style="margin:0" { (s.name) } span class="pill mono" { (s.tag) } }
-            (client::copy_from_button("btn sm", &id, html! { (glyph(Glyph::Copy, 16, "")) "Copy" }))
+            (client::copy_snippet_button("btn sm", &id, html! { (glyph(Glyph::Copy, 16, "")) "Copy" }))
         }
         (block(&s.code, Some(&id), Some("margin-top:16px")))
     })

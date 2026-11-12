@@ -1,0 +1,9 @@
+{
+  "name": "console-dom",
+  "private": true,
+  "type": "module",
+  "description": "Runs assets/console.js in a DOM (happy-dom) with a scripted fetch and EventSource: the behaviour tests of the client script. Dev only; the console ships no library.",
+  "devDependencies": {
+    "happy-dom": "21.0.4"
+  }
+}
