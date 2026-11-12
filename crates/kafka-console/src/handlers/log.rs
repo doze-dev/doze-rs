@@ -12,7 +12,6 @@ use crate::base::segment;
 use crate::form::{get, parse};
 use crate::pages;
 use crate::state::Shared;
-use crate::stream_log::{LOG_IDS, PRODUCERS_IDS};
 use crate::ui::shell::Rail;
 
 /// The most producers a page may be asked to open.
@@ -87,6 +86,12 @@ async fn shell(
     .into_response()
 }
 
+/// The page with the topic's "On the wire" dock under it, as the Messages page has it: the last requests that touched the topic.
+async fn docked(s: &Shared, topic: &str, main: Markup) -> Markup {
+    let (rows, window, now) = s.source.topic_wire(topic).await;
+    maud::html! { (main) (crate::pages::live::topic_dock(topic, &rows, &window, now, &s.base, false)) }
+}
+
 /// `GET /topics/{topic}/log`
 pub async fn log(
     State(s): State<Shared>,
@@ -99,12 +104,12 @@ pub async fn log(
     let Some(v) = s.source.log(&topic, partition_of(&q)).await else {
         return no_topic(&s, &topic).await;
     };
-    let main = pages::log_page(&v, &s.base, &s.source.listen());
+    let main = docked(&s, &topic, pages::log_page(&v, &s.base, &s.source.listen())).await;
     shell(
         &s,
         &topic,
         &[("Log", None)],
-        s.source.watching(LOG_IDS),
+        s.source.watching(crate::stream_log::LOG_WATCH),
         main,
     )
     .await
@@ -126,12 +131,12 @@ pub async fn producers(
     else {
         return no_topic(&s, &topic).await;
     };
-    let main = pages::producers_page(&v, &s.base);
+    let main = docked(&s, &topic, pages::producers_page(&v, &s.base)).await;
     shell(
         &s,
         &topic,
         &[("Producers", None)],
-        s.source.watching(PRODUCERS_IDS),
+        s.source.watching(crate::stream_log::PRODUCERS_WATCH),
         main,
     )
     .await

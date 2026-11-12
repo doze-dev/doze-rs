@@ -23,7 +23,17 @@ impl Source {
         opened: Vec<i64>,
     ) -> Option<ProducersView> {
         match self {
-            Self::Live(l) => gather::producers_view(&l.backend, topic, partition, opened).await,
+            Self::Live(l) => {
+                let mut v = gather::producers_view(&l.backend, topic, partition, opened).await?;
+                if let Some(r) = &l.recorder {
+                    let ids: Vec<i64> = v.producers.iter().map(|p| p.id).collect();
+                    let mut seen = r.seen_as(&ids);
+                    for p in &mut v.producers {
+                        p.seen_as = seen.remove(&p.id).unwrap_or_default();
+                    }
+                }
+                Some(v)
+            }
             #[cfg(any(test, feature = "examples"))]
             Self::Fixture => crate::fixtures_log::producers(topic, partition, opened),
         }

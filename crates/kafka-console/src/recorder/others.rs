@@ -114,6 +114,47 @@ impl Recorder {
             .collect()
     }
 
+    /// The clients the tape saw write with each of the producer ids `pids` (a Produce, or its answer, carried the id), as
+    /// `client (tag, tag)` with the library tags its ApiVersions gave, newest first and at most three each; a producer the tape
+    /// never saw write is not in the answer.
+    #[must_use]
+    pub fn seen_as(&self, pids: &[i64]) -> BTreeMap<i64, Vec<String>> {
+        let inner = self.lock();
+        let mut seen: BTreeMap<i64, Vec<(String, Vec<String>)>> = BTreeMap::new();
+        for r in inner.ring.iter().rev().filter(|r| !r.who.client.is_empty()) {
+            let Some((pid, _)) = r.facts.producer else {
+                continue;
+            };
+            if !pids.contains(&pid) {
+                continue;
+            }
+            let list = seen.entry(pid).or_default();
+            let tag = r.who.software.as_deref().and_then(names::tag);
+            if let Some(at) = list.iter().position(|(c, _)| **c == *r.who.client) {
+                if let Some(t) = tag.filter(|t| !list[at].1.contains(t)) {
+                    list[at].1.push(t);
+                }
+            } else if list.len() < 3 {
+                list.push((r.who.client.to_string(), tag.into_iter().collect()));
+            }
+        }
+        seen.into_iter()
+            .map(|(pid, v)| {
+                let said = v
+                    .into_iter()
+                    .map(|(c, tags)| {
+                        if tags.is_empty() {
+                            c
+                        } else {
+                            format!("{c} ({})", tags.join(", "))
+                        }
+                    })
+                    .collect();
+                (pid, said)
+            })
+            .collect()
+    }
+
     /// The newest client the tape first heard of, and what it asked, for the first-request page.
     #[must_use]
     pub fn first(&self) -> Option<FirstView> {

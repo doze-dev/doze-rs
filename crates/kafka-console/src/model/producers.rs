@@ -41,6 +41,9 @@ pub struct ProdRow {
     pub txn: Option<ProdTxn>,
     /// The last batches, newest first.
     pub batches: Vec<ProdBatch>,
+    /// The clients the wire recorder saw write with this producer id, as `orders (go, sarama)`, newest first; empty where
+    /// there is no recorder or it did not see the producer write.
+    pub seen_as: Vec<String>,
 }
 
 /// A transaction that was aborted and that the partition still remembers.

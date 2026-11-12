@@ -126,6 +126,7 @@ fn producer_row(
                 state: t.state.clone(),
                 from: w.open_from,
             }),
+        seen_as: Vec::new(),
         batches: w
             .batches
             .iter()

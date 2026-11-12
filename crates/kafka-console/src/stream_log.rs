@@ -4,6 +4,10 @@
 pub const LOG_IDS: &[&str] = &["log-sentence", "log-ruler", "log-cards"];
 /// What a topic's Producers page watches.
 pub const PRODUCERS_IDS: &[&str] = &["producers-sentence", "producers-table"];
+/// What the Log page watches with the topic's wire dock under it (slice 9e's `topic-wire`).
+pub const LOG_WATCH: &[&str] = &["log-sentence", "log-ruler", "log-cards", "topic-wire"];
+/// What the Producers page watches with the wire dock.
+pub const PRODUCERS_WATCH: &[&str] = &["producers-sentence", "producers-table", "topic-wire"];
 /// Every id above: the stream's vocabulary for these pages.
 pub const WATCHABLE: &[&str] = &[
     "log-sentence",

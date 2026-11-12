@@ -56,10 +56,25 @@ fn the_tail_mark_sits_at_the_left_edge_of_its_cell() {
 }
 
 #[test]
-fn a_producer_is_never_shown_with_a_name_the_broker_does_not_know() {
-    let p = page();
-    assert!(p.contains("not known"));
+fn a_producer_is_shown_with_a_name_only_when_the_recorder_gave_one() {
+    let mut v = producers("orders", 0, Vec::new()).unwrap();
+    let p = producers_page(&v, &Base::root()).into_string();
+    assert!(p.contains("orders (go, sarama)") && p.contains("admin-cli (kcat)"));
+    assert_eq!(
+        p.matches("not known").count(),
+        1,
+        "the third was never seen"
+    );
+    for row in &mut v.producers {
+        row.seen_as.clear();
+    }
+    let p = producers_page(&v, &Base::root()).into_string();
+    assert_eq!(p.matches("not known").count(), 3);
     assert!(!p.contains("orders (go, sarama)"));
+    // A hostile client id is text.
+    v.producers[0].seen_as = vec!["<img src=x> (go)".to_owned()];
+    let p = producers_page(&v, &Base::root()).into_string();
+    assert!(!p.contains("<img src=x>") && p.contains("&lt;img src=x&gt; (go)"));
 }
 
 #[test]

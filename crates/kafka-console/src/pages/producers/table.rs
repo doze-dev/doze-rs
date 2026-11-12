@@ -95,7 +95,7 @@ fn row(v: &ProducersView, p: &ProdRow, base: &Base) -> Markup {
                     span class="sub" { (t.state) @if let Some(f) = t.from { ", from offset " (number(f)) } }
                 } @else { span class="dim" { "none" } span class="sub" { "idempotent only" } }
             }
-            td class="dim" { "not known" span class="sub" { "a name appears when the wire recorder has seen the producer write" } }
+            td class="mono" { @if p.seen_as.is_empty() { span class="dim" { "not known" } span class="sub" { "a name appears when the wire recorder has seen the producer write" } } @else { (p.seen_as.join(", ")) } }
             td class="r" { (toggle(v, p, base, open)) }
         }
         @if open { (batches(v, p)) }

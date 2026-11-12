@@ -24,12 +24,27 @@ pub const IDS: [&str; 7] = [
 /// A board: the topic, the tail of its breadcrumb (label and path), and what is in `<main>`.
 type Drawn = (&'static str, Vec<(String, Option<String>)>, Markup);
 
+/// A page with the topic's wire dock under it, as the handlers draw the Log and Producers pages of a topic the larder's wire knows.
+fn docked(topic: &str, main: Markup, base: &Base) -> Markup {
+    let (rows, window) = crate::fixtures_live::topic_wire(topic);
+    let dock = pages::live::topic_dock(
+        topic,
+        &rows,
+        &window,
+        crate::fixtures_live::now(),
+        base,
+        false,
+    );
+    maud::html! { (main) (dock) }
+}
+
 fn log(topic: &'static str, base: &Base) -> Option<Drawn> {
     let v = larder::log(topic, 0)?;
+    let page = pages::log_page(&v, base, fixtures::ADDRESS);
     Some((
         topic,
         vec![("Log".to_owned(), None)],
-        pages::log_page(&v, base, fixtures::ADDRESS),
+        docked(topic, page, base),
     ))
 }
 
@@ -45,7 +60,7 @@ fn board(id: &str, base: &Base) -> Option<Drawn> {
             Some((
                 "orders",
                 vec![("Producers".to_owned(), None)],
-                pages::producers_page(&v, base),
+                docked("orders", pages::producers_page(&v, base), base),
             ))
         }
         "txn-open" => {

@@ -73,8 +73,15 @@ fn batches(rows: &[Row]) -> Vec<ProdBatch> {
     rows.iter().map(|r| batch(r.0, r.1, r.2, r.3)).collect()
 }
 
-/// The three producers `orders-0` remembers.
+/// The three producers `orders-0` remembers, with the names the recorder gave two of them.
 fn orders_rows(n: i64) -> Vec<ProdRow> {
+    let mut rows = orders_rows_plain(n);
+    rows[0].seen_as = vec!["orders (go, sarama)".to_owned()];
+    rows[1].seen_as = vec!["admin-cli (kcat)".to_owned()];
+    rows
+}
+
+fn orders_rows_plain(n: i64) -> Vec<ProdRow> {
     let row = |id, epoch, last, idle_s: i64, txn: Option<ProdTxn>, rows: &[Row]| ProdRow {
         id,
         epoch,
@@ -82,6 +89,7 @@ fn orders_rows(n: i64) -> Vec<ProdRow> {
         last_used_ms: n - idle_s * 1000,
         txn,
         batches: batches(rows),
+        seen_as: Vec::new(),
     };
     let open = ProdTxn {
         id: "orders-eos".to_owned(),

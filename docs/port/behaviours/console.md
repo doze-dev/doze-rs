@@ -521,7 +521,7 @@ Test: `pages::log::tests::the_four_boards_are_the_four_states_of_one_page_chosen
 Test: `producers_words::tests::the_producers_page_says_what_the_open_transaction_holds_back`, `with_no_transaction_the_stable_offset_is_the_high_watermark_and_with_no_producer_it_says_so`, `a_transaction_is_described_with_its_clock_its_timeout_and_what_it_holds`, `what_it_holds_back_counts_records_per_partition`, `if_it_is_not_ended_the_sentence_names_the_time_the_markers_and_the_new_epoch`, `the_page_that_says_who_is_held_counts_the_distance_in_words`.
 
 ## CON-525. The Producers page has a toggle that works without a script, and never names a client it has not seen
-Test: `pages::producers::tests::the_producer_with_an_open_transaction_shows_its_five_batches_and_the_others_a_link_to_open_theirs`, `the_toggle_links_keep_the_other_open_rows_and_work_without_a_script`, `the_tail_marks_the_stable_offset_and_counts_the_held_records`, `a_producer_is_never_shown_with_a_name_the_broker_does_not_know`, `the_transaction_page_has_the_countdown_and_the_two_ways_on`.
+Test: `pages::producers::tests::the_producer_with_an_open_transaction_shows_its_five_batches_and_the_others_a_link_to_open_theirs`, `the_toggle_links_keep_the_other_open_rows_and_work_without_a_script`, `the_tail_marks_the_stable_offset_and_counts_the_held_records`, `a_producer_is_shown_with_a_name_only_when_the_recorder_gave_one`, `the_transaction_page_has_the_countdown_and_the_two_ways_on`.
 
 ## CON-530. A compacted log is drawn from what the cleaner left
 Test: `a_compacted_log_is_drawn_from_what_the_cleaner_left` (`tests/live_log.rs`).
@@ -560,7 +560,6 @@ Test: `the_fragments_are_watchable_and_answer_with_a_tag`; `stream_log::tests::e
 
 Tagged in the code (`pages/log.rs`, `pages/producers.rs`) and in `debt.md` J231 to J248.
 - "Compact now" is Lab: not built, no button stands where it stood.
-- "On the wire" (the last requests that touched the topic) and "Seen as" (the client name of a producer): the request recorder, slice 9e.
 - "Flushed through offset N": the log does not keep how far its flush got; the Durability card says how the log is flushed and what the last stop left.
 - The first entries of a segment's index; the epoch history of a producer ("raised from 1 at 17:14:11"); the offsets a transaction staged; whether the producer or the timeout aborted.
 
@@ -669,7 +668,7 @@ CreateAcls and DeleteAcls join the list. Test: `actions::tests::actions_match_bo
 Tagged in the code and in `debt.md` J261 to J278.
 - Idle memory and threads on a system that does not let a process read them (macOS): the tile says "Measured on Linux only".
 
-## Integration of 9g and 9h, and what they left open (slice p9x; CON-582 to CON-586)
+## Integration of 9g and 9h, and what they left open (slice p9x; CON-582 to CON-587)
 
 ## CON-582. Settings names the clients, the cleaner's last round and a group's expiry from what the broker holds
 "Today fulfilment speaks Fetch v12 and orders Produce v9, all inside the ranges" is the newest client of the tape that used each of Fetch and Produce with the version of its newest request (a client with no id is nobody; a version outside the range offered is named as outside); "Its last round was on inventory.levels at 21:31 UTC, and the next look finds it due" is the newest round the cleaner put in place on a topic the console may describe, and the planner's own verdict on that log now; "analytics' expire in 3 d 2 h" on the Offsets retention row is the soonest date the sweep takes a group's offsets. With no recorder no client is named; with no round the page says none was put in place since the broker started; with no date no group is named. Test: `live_settings_wired::settings_names_the_clients_the_last_round_and_the_expiry_from_what_the_broker_holds`, `pages::settings::tests::the_sentences_from_the_recorder_and_the_cleaner_say_only_what_they_were_given`, `settings_live::tests::a_version_outside_the_range_or_of_an_api_not_offered_is_not_inside`.
@@ -685,3 +684,6 @@ The iteration count of a SCRAM credential is a public parameter (the server-firs
 
 ## CON-586. The palette also goes to the pages
 Home, Live, Topics, Groups, Access, Settings and Connect come first, each tagged `page` and going to its own address under the base; with no script the filtered page keeps the pages the filter names. Test: `jump::tests::the_pages_come_first_each_goes_to_its_own_address_and_a_filter_keeps_the_ones_it_names`.
+
+## CON-587. The Log and Producers pages have the topic's wire dock, and a producer is named by the client that wrote
+The dock (the last requests that touched the topic, from the recorder) sits under every page of the two tabs and is watched with the page; "Seen as" lists the clients whose Produce carried the producer's id, with the library tags their ApiVersions gave, at most three, newest first, and "not known" for a producer the tape never saw write; a hostile client id is text. Test: `live_log_wired::a_producer_is_named_by_the_client_that_wrote_and_the_dock_is_under_both_pages`, `pages::producers::tests::a_producer_is_shown_with_a_name_only_when_the_recorder_gave_one`.

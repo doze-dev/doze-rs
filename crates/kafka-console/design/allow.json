@@ -1559,13 +1559,6 @@
   },
   {
     "board": "topic-log",
-    "field": "heading",
-    "selector": "h2 On the wire",
-    "reason": "[p9g] The wire dock (the last requests that touched the topic) needs the request recorder: slice 9e (debt J232).",
-    "expires": "9e"
-  },
-  {
-    "board": "topic-log",
     "field": "table",
     "reason": "[p9g] The wire dock (the last requests that touched the topic) needs the request recorder: slice 9e (debt J232).",
     "expires": "9e"
@@ -1573,12 +1566,6 @@
   {
     "board": "topic-log",
     "field": "table.col",
-    "reason": "[p9g] The wire dock (the last requests that touched the topic) needs the request recorder: slice 9e (debt J232).",
-    "expires": "9e"
-  },
-  {
-    "board": "topic-log",
-    "field": "table.rows",
     "reason": "[p9g] The wire dock (the last requests that touched the topic) needs the request recorder: slice 9e (debt J232).",
     "expires": "9e"
   },
@@ -1644,13 +1631,6 @@
     "selector": "card:page: First entries",
     "reason": "[p9g] The first entries of a segment's index are not shown: no accessor reads them (debt J235).",
     "expires": "close"
-  },
-  {
-    "board": "topic-log",
-    "field": "extra",
-    "selector": "wire-dock",
-    "reason": "[p9g] The wire dock (the last requests that touched the topic) needs the request recorder: slice 9e (debt J232).",
-    "expires": "9e"
   },
   {
     "board": "topic-log",
@@ -2112,13 +2092,6 @@
   },
   {
     "board": "topic-producers",
-    "field": "heading",
-    "selector": "h2 On the wire",
-    "reason": "[p9g] The wire dock (the last requests that touched the topic) needs the request recorder: slice 9e (debt J232).",
-    "expires": "9e"
-  },
-  {
-    "board": "topic-producers",
     "field": "table",
     "reason": "[p9g] The wire dock (the last requests that touched the topic) needs the request recorder: slice 9e (debt J232).",
     "expires": "9e"
@@ -2126,12 +2099,6 @@
   {
     "board": "topic-producers",
     "field": "table.col",
-    "reason": "[p9g] The wire dock (the last requests that touched the topic) needs the request recorder: slice 9e (debt J232).",
-    "expires": "9e"
-  },
-  {
-    "board": "topic-producers",
-    "field": "table.rows",
     "reason": "[p9g] The wire dock (the last requests that touched the topic) needs the request recorder: slice 9e (debt J232).",
     "expires": "9e"
   },
@@ -2148,13 +2115,6 @@
     "selector": "Batches [sm] -> ui:expand",
     "reason": "improvement: [p9g] A producer's batches open and close with a link (the page is the same with that row open), so it works with no script; the board draws buttons that need one.",
     "expires": "close"
-  },
-  {
-    "board": "topic-producers",
-    "field": "extra",
-    "selector": "wire-dock",
-    "reason": "[p9g] The wire dock (the last requests that touched the topic) needs the request recorder: slice 9e (debt J232).",
-    "expires": "9e"
   },
   {
     "board": "topic-producers",
@@ -2569,5 +2529,256 @@
     "reason": "[p9h] The canvas callout (see the fixture entry), as the live render prints it.",
     "expires": "close",
     "render": "live"
+  },
+  {
+    "board": "log-empty",
+    "field": "heading",
+    "selector": "h2 On the wire",
+    "reason": "improvement: the topic's On the wire dock (slice 9e's recorder) sits under every page of the Log and Producers tabs, where the board draws it on topic-log and topic-producers only; a row's time opens the request in Live.",
+    "expires": "close"
+  },
+  {
+    "board": "log-empty",
+    "field": "button",
+    "selector": "Expand the wire [sm] -> to:topic-wire",
+    "reason": "improvement: the topic's On the wire dock (slice 9e's recorder) sits under every page of the Log and Producers tabs, where the board draws it on topic-log and topic-producers only; a row's time opens the request in Live.",
+    "expires": "close"
+  },
+  {
+    "board": "log-empty",
+    "field": "link",
+    "selector": "live-load|live-paused|live-quiet|live-wire",
+    "reason": "improvement: the topic's On the wire dock (slice 9e's recorder) sits under every page of the Log and Producers tabs, where the board draws it on topic-log and topic-producers only; a row's time opens the request in Live.",
+    "expires": "close"
+  },
+  {
+    "board": "log-empty",
+    "field": "link",
+    "selector": "topic-wire",
+    "reason": "improvement: the topic's On the wire dock (slice 9e's recorder) sits under every page of the Log and Producers tabs, where the board draws it on topic-log and topic-producers only; a row's time opens the request in Live.",
+    "expires": "close"
+  },
+  {
+    "board": "log-empty",
+    "field": "extra",
+    "selector": "wire-dock",
+    "reason": "improvement: the topic's On the wire dock (slice 9e's recorder) sits under every page of the Log and Producers tabs, where the board draws it on topic-log and topic-producers only; a row's time opens the request in Live.",
+    "expires": "close"
+  },
+  {
+    "board": "log-planner",
+    "field": "heading",
+    "selector": "h2 On the wire",
+    "reason": "improvement: the topic's On the wire dock (slice 9e's recorder) sits under every page of the Log and Producers tabs, where the board draws it on topic-log and topic-producers only; a row's time opens the request in Live.",
+    "expires": "close"
+  },
+  {
+    "board": "log-planner",
+    "field": "button",
+    "selector": "Expand the wire [sm] -> to:topic-wire",
+    "reason": "improvement: the topic's On the wire dock (slice 9e's recorder) sits under every page of the Log and Producers tabs, where the board draws it on topic-log and topic-producers only; a row's time opens the request in Live.",
+    "expires": "close"
+  },
+  {
+    "board": "log-planner",
+    "field": "link",
+    "selector": "live-load|live-paused|live-quiet|live-wire",
+    "reason": "improvement: the topic's On the wire dock (slice 9e's recorder) sits under every page of the Log and Producers tabs, where the board draws it on topic-log and topic-producers only; a row's time opens the request in Live.",
+    "expires": "close"
+  },
+  {
+    "board": "log-planner",
+    "field": "link",
+    "selector": "topic-wire",
+    "reason": "improvement: the topic's On the wire dock (slice 9e's recorder) sits under every page of the Log and Producers tabs, where the board draws it on topic-log and topic-producers only; a row's time opens the request in Live.",
+    "expires": "close"
+  },
+  {
+    "board": "log-planner",
+    "field": "extra",
+    "selector": "wire-dock",
+    "reason": "improvement: the topic's On the wire dock (slice 9e's recorder) sits under every page of the Log and Producers tabs, where the board draws it on topic-log and topic-producers only; a row's time opens the request in Live.",
+    "expires": "close"
+  },
+  {
+    "board": "log-retention",
+    "field": "heading",
+    "selector": "h2 On the wire",
+    "reason": "improvement: the topic's On the wire dock (slice 9e's recorder) sits under every page of the Log and Producers tabs, where the board draws it on topic-log and topic-producers only; a row's time opens the request in Live.",
+    "expires": "close"
+  },
+  {
+    "board": "log-retention",
+    "field": "table",
+    "selector": "wire",
+    "reason": "improvement: the topic's On the wire dock (slice 9e's recorder) sits under every page of the Log and Producers tabs, where the board draws it on topic-log and topic-producers only; a row's time opens the request in Live.",
+    "render": "fixture",
+    "expires": "close"
+  },
+  {
+    "board": "log-retention",
+    "field": "table.col",
+    "selector": "Time",
+    "reason": "improvement: the topic's On the wire dock (slice 9e's recorder) sits under every page of the Log and Producers tabs, where the board draws it on topic-log and topic-producers only; a row's time opens the request in Live.",
+    "render": "fixture",
+    "expires": "close"
+  },
+  {
+    "board": "log-retention",
+    "field": "table.col",
+    "selector": "Client",
+    "reason": "improvement: the topic's On the wire dock (slice 9e's recorder) sits under every page of the Log and Producers tabs, where the board draws it on topic-log and topic-producers only; a row's time opens the request in Live.",
+    "render": "fixture",
+    "expires": "close"
+  },
+  {
+    "board": "log-retention",
+    "field": "table.col",
+    "selector": "API",
+    "reason": "improvement: the topic's On the wire dock (slice 9e's recorder) sits under every page of the Log and Producers tabs, where the board draws it on topic-log and topic-producers only; a row's time opens the request in Live.",
+    "render": "fixture",
+    "expires": "close"
+  },
+  {
+    "board": "log-retention",
+    "field": "table.col",
+    "selector": "Topic and partition",
+    "reason": "improvement: the topic's On the wire dock (slice 9e's recorder) sits under every page of the Log and Producers tabs, where the board draws it on topic-log and topic-producers only; a row's time opens the request in Live.",
+    "render": "fixture",
+    "expires": "close"
+  },
+  {
+    "board": "log-retention",
+    "field": "table.col",
+    "selector": "Result",
+    "reason": "improvement: the topic's On the wire dock (slice 9e's recorder) sits under every page of the Log and Producers tabs, where the board draws it on topic-log and topic-producers only; a row's time opens the request in Live.",
+    "render": "fixture",
+    "expires": "close"
+  },
+  {
+    "board": "log-retention",
+    "field": "table.col",
+    "selector": "Took",
+    "reason": "improvement: the topic's On the wire dock (slice 9e's recorder) sits under every page of the Log and Producers tabs, where the board draws it on topic-log and topic-producers only; a row's time opens the request in Live.",
+    "render": "fixture",
+    "expires": "close"
+  },
+  {
+    "board": "log-retention",
+    "field": "table.rows",
+    "selector": "has rows",
+    "reason": "improvement: the topic's On the wire dock (slice 9e's recorder) sits under every page of the Log and Producers tabs, where the board draws it on topic-log and topic-producers only; a row's time opens the request in Live.",
+    "render": "fixture",
+    "expires": "close"
+  },
+  {
+    "board": "log-retention",
+    "field": "button",
+    "selector": "Expand the wire [sm] -> to:topic-wire",
+    "reason": "improvement: the topic's On the wire dock (slice 9e's recorder) sits under every page of the Log and Producers tabs, where the board draws it on topic-log and topic-producers only; a row's time opens the request in Live.",
+    "expires": "close"
+  },
+  {
+    "board": "log-retention",
+    "field": "link",
+    "selector": "live-load|live-paused|live-quiet|live-wire",
+    "reason": "improvement: the topic's On the wire dock (slice 9e's recorder) sits under every page of the Log and Producers tabs, where the board draws it on topic-log and topic-producers only; a row's time opens the request in Live.",
+    "expires": "close"
+  },
+  {
+    "board": "log-retention",
+    "field": "link",
+    "selector": "request-detail|request-fenced|request-refused|request-too-large",
+    "reason": "improvement: the topic's On the wire dock (slice 9e's recorder) sits under every page of the Log and Producers tabs, where the board draws it on topic-log and topic-producers only; a row's time opens the request in Live.",
+    "render": "fixture",
+    "expires": "close"
+  },
+  {
+    "board": "log-retention",
+    "field": "link",
+    "selector": "topic-wire",
+    "reason": "improvement: the topic's On the wire dock (slice 9e's recorder) sits under every page of the Log and Producers tabs, where the board draws it on topic-log and topic-producers only; a row's time opens the request in Live.",
+    "expires": "close"
+  },
+  {
+    "board": "log-retention",
+    "field": "extra",
+    "selector": "wire-dock",
+    "reason": "improvement: the topic's On the wire dock (slice 9e's recorder) sits under every page of the Log and Producers tabs, where the board draws it on topic-log and topic-producers only; a row's time opens the request in Live.",
+    "expires": "close"
+  },
+  {
+    "board": "log-retention",
+    "field": "state",
+    "selector": "rw ok in rows",
+    "reason": "improvement: the topic's On the wire dock (slice 9e's recorder) sits under every page of the Log and Producers tabs, where the board draws it on topic-log and topic-producers only; a row's time opens the request in Live.",
+    "render": "fixture",
+    "expires": "close"
+  },
+  {
+    "board": "log-retention",
+    "field": "state",
+    "selector": "st refused in rows",
+    "reason": "improvement: the topic's On the wire dock (slice 9e's recorder) sits under every page of the Log and Producers tabs, where the board draws it on topic-log and topic-producers only; a row's time opens the request in Live.",
+    "render": "fixture",
+    "expires": "close"
+  },
+  {
+    "board": "topic-log",
+    "field": "button",
+    "selector": "Expand the wire [sm] -> to:topic-wire",
+    "reason": "improvement: the topic's On the wire dock (slice 9e's recorder) sits under every page of the Log and Producers tabs, where the board draws it on topic-log and topic-producers only; a row's time opens the request in Live.",
+    "expires": "close"
+  },
+  {
+    "board": "topic-log",
+    "field": "link",
+    "selector": "live-load|live-paused|live-quiet|live-wire",
+    "reason": "improvement: the topic's On the wire dock (slice 9e's recorder) sits under every page of the Log and Producers tabs, where the board draws it on topic-log and topic-producers only; a row's time opens the request in Live.",
+    "expires": "close"
+  },
+  {
+    "board": "topic-log",
+    "field": "link",
+    "selector": "request-detail|request-fenced|request-refused|request-too-large",
+    "reason": "improvement: the topic's On the wire dock (slice 9e's recorder) sits under every page of the Log and Producers tabs, where the board draws it on topic-log and topic-producers only; a row's time opens the request in Live.",
+    "render": "fixture",
+    "expires": "close"
+  },
+  {
+    "board": "topic-log",
+    "field": "link",
+    "selector": "topic-wire",
+    "reason": "improvement: the topic's On the wire dock (slice 9e's recorder) sits under every page of the Log and Producers tabs, where the board draws it on topic-log and topic-producers only; a row's time opens the request in Live.",
+    "expires": "close"
+  },
+  {
+    "board": "topic-producers",
+    "field": "button",
+    "selector": "Expand the wire [sm] -> to:topic-wire",
+    "reason": "improvement: the topic's On the wire dock (slice 9e's recorder) sits under every page of the Log and Producers tabs, where the board draws it on topic-log and topic-producers only; a row's time opens the request in Live.",
+    "expires": "close"
+  },
+  {
+    "board": "topic-producers",
+    "field": "link",
+    "selector": "live-load|live-paused|live-quiet|live-wire",
+    "reason": "improvement: the topic's On the wire dock (slice 9e's recorder) sits under every page of the Log and Producers tabs, where the board draws it on topic-log and topic-producers only; a row's time opens the request in Live.",
+    "expires": "close"
+  },
+  {
+    "board": "topic-producers",
+    "field": "link",
+    "selector": "request-detail|request-fenced|request-refused|request-too-large",
+    "reason": "improvement: the topic's On the wire dock (slice 9e's recorder) sits under every page of the Log and Producers tabs, where the board draws it on topic-log and topic-producers only; a row's time opens the request in Live.",
+    "render": "fixture",
+    "expires": "close"
+  },
+  {
+    "board": "topic-producers",
+    "field": "link",
+    "selector": "topic-wire",
+    "reason": "improvement: the topic's On the wire dock (slice 9e's recorder) sits under every page of the Log and Producers tabs, where the board draws it on topic-log and topic-producers only; a row's time opens the request in Live.",
+    "expires": "close"
   }
 ]
