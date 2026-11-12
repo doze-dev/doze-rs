@@ -8,7 +8,7 @@ use super::table::records;
 use crate::base::Base;
 use crate::format::number;
 use crate::model::{MessageQuery, MessagesView, Reading};
-use crate::ui::button::{Size, State, Variant, link, state};
+use crate::ui::button::{Size, State, Variant, opener, state};
 use crate::ui::client;
 use crate::ui::glyph::{Glyph, glyph};
 use crate::ui::kafka::{apicall, empty, filter_box, pager, sec};
@@ -243,7 +243,7 @@ fn filtered(v: &MessagesView, base: &Base, query: &str) -> Markup {
 }
 
 fn empty_topic(v: &MessagesView, base: &Base, listen: &str) -> Markup {
-    let produce = link(
+    let produce = opener(
         &format!("{}/produce", topic_url(base, &v.head.name)),
         Variant::Primary,
         Size::Normal,
