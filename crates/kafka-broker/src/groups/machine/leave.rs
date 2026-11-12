@@ -4,6 +4,7 @@ use kafka_wire::ResponseError;
 use kafka_wire::ids::MemberId;
 
 use super::{Answer, Effect, GroupMachine, LeaveResult, LeaveTarget, Millis, Token};
+use crate::groups::note::{Cause, Named};
 
 impl GroupMachine {
     pub(super) fn leave(
@@ -15,10 +16,15 @@ impl GroupMachine {
     ) {
         let mut results = Vec::with_capacity(targets.len());
         let mut left: Vec<MemberId> = Vec::new();
+        // Named they were, for the note, while they are still in the group.
+        let mut gone: Vec<Named> = Vec::new();
         for t in targets {
             let found = self.who_leaves(t);
             let error = match found {
                 Ok(id) => {
+                    if !left.contains(&id) {
+                        gone.extend(self.who_is(&id, t.reason.clone()));
+                    }
                     left.push(id);
                     None
                 }
@@ -36,7 +42,8 @@ impl GroupMachine {
         out.push(Effect::Reply(token, Answer::Leave(results)));
         // Members that were not there do not disturb the group; members that were do.
         if !left.is_empty() {
-            self.rebalance_after_change(now, out);
+            let why = self.why_gone(Cause::MemberLeft, gone);
+            self.rebalance_after_change(now, why, out);
         }
     }
 

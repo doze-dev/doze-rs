@@ -52,6 +52,6 @@ pub(super) fn unknown(req: &Req) -> Option<Answer> {
                 words,
             ))
         }
-        Req::Describe | Req::Delete | Req::TopicsChanged => return None,
+        Req::Describe | Req::Delete | Req::TopicsChanged | Req::Events => return None,
     })
 }

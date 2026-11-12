@@ -99,7 +99,7 @@ impl Rig {
                 Effect::Disarm(kind) => {
                     self.timers.remove(&kind);
                 }
-                Effect::Forget(_) => {}
+                Effect::Forget(_) | Effect::Note(_) => {}
             }
         }
         token
@@ -180,6 +180,7 @@ impl Rig {
 
 fn join_request(member: Option<&str>) -> JoinRequest {
     JoinRequest {
+        reason: None,
         member_id: member.map(id),
         instance: None,
         protocol_type: "consumer".into(),
@@ -268,5 +269,6 @@ mod liveness;
 mod liveness_clients;
 mod liveness_sim;
 mod migration;
+mod notes;
 mod sim;
 mod timers;

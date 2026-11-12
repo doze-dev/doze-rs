@@ -33,10 +33,12 @@ pub use caller::Caller;
 pub use config::{Config, Defaults};
 pub(crate) use configs::Live;
 pub use error::BrokerError;
+pub use groups::Cause;
 pub use listener::Listener;
 pub use outcome::Outcome;
 #[cfg(feature = "inspect")]
 pub use view::{
-    ConfigHelp, ConfigRule, ConsoleView, GroupDetail, GroupKind, Instance, LastStop, Limits,
-    MemberDetail, OffsetExpiry, Pace, PartitionFiles, Process, RebalanceDetail,
+    ConfigHelp, ConfigRule, ConsoleView, EventKind, GroupDetail, GroupEvent, GroupEvents,
+    GroupKind, Instance, LastStop, Limits, MemberDetail, MemberHold, OffsetExpiry, Pace,
+    PartitionFiles, Process, RebalanceDetail,
 };

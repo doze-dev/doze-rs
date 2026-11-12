@@ -10,6 +10,7 @@ use crate::groups::machine::{
     Answer, Effect, HeartbeatRequest, LeaveResult, LeaveTarget, Millis, SyncAnswer, SyncRequest,
     Token,
 };
+use crate::groups::note::{Cause, Named};
 
 impl ConsumerGroup {
     pub(in crate::groups::consumer) fn classic_sync(
@@ -114,7 +115,13 @@ impl ConsumerGroup {
         // when the targets are not due to be computed yet and its generation is still the last one computed.
         let changed = self.refresh_rights(&req.member_id, req.rights.clone(), topics, now, out);
         if changed {
+            let (before, who, was) = (
+                self.epoch,
+                self.who_is(&req.member_id, None),
+                self.members.len(),
+            );
             self.bump_and_reassign(topics, now);
+            self.bumped(before, Cause::RightsChanged, who, was, now, out);
         }
         let behind = self
             .members
@@ -133,9 +140,12 @@ impl ConsumerGroup {
         &mut self,
         token: Token,
         targets: &[LeaveTarget],
+        now: Millis,
         out: &mut Vec<Effect>,
     ) {
         let mut removed = false;
+        let (before, was) = (self.epoch, self.members.len());
+        let mut gone: Vec<Named> = Vec::new();
         let mut results = Vec::with_capacity(targets.len());
         for t in targets {
             let found = match (&t.member_id, &t.instance) {
@@ -145,6 +155,7 @@ impl ConsumerGroup {
             };
             let error = match found {
                 Some(id) => {
+                    gone.extend(self.who_is(&id, t.reason.clone()));
                     self.remove_member(&id, out);
                     removed = true;
                     None
@@ -159,6 +170,14 @@ impl ConsumerGroup {
         }
         if removed {
             self.bump_for_removal();
+            self.bumped(
+                before,
+                Cause::MemberLeft,
+                gone.into_iter().next(),
+                was,
+                now,
+                out,
+            );
         }
         out.push(Effect::Reply(token, Answer::Leave(results)));
     }

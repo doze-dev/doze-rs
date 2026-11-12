@@ -21,6 +21,7 @@ mod fetch;
 mod heartbeat;
 mod join;
 mod member;
+mod notes;
 mod pattern;
 pub(crate) mod protocol;
 mod reconcile;

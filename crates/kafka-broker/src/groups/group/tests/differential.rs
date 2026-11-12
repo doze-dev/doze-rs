@@ -185,6 +185,7 @@ impl Run {
         }];
         let statik = self.rng.pct(15);
         let req = JoinRequest {
+            reason: None,
             member_id: (!fresh).then(|| MemberId::new(&format!("m-{}", NAMES[i])).unwrap()),
             instance: statik.then(|| InstanceId::new(&format!("i-{}", NAMES[i]))),
             protocol_type: "consumer".into(),
@@ -256,6 +257,7 @@ impl Run {
     fn classic_leave(&mut self, i: usize) {
         let by_instance = self.rng.pct(20);
         let target = LeaveTarget {
+            reason: None,
             member_id: (!by_instance).then(|| MemberId::new(&format!("m-{}", NAMES[i])).unwrap()),
             instance: by_instance.then(|| InstanceId::new(&format!("i-{}", NAMES[i]))),
         };
@@ -423,8 +425,13 @@ const REACHED: [&str; 9] = [
     "forget",
 ];
 
-/// The hash of `SEEDS` sequences of `STEPS` steps, on the machine as it was before it took notes.
-const BEFORE_NOTES: u64 = 4_074_371_788_659_210_500;
+/// The hash of `SEEDS` sequences of `STEPS` steps, on the machine as it was before it took notes: what a description
+/// says of the group includes what the console is told (feature `inspect`), so there is one for each build.
+const BEFORE_NOTES: u64 = if cfg!(feature = "inspect") {
+    13_341_928_589_880_267_117
+} else {
+    4_074_371_788_659_210_500
+};
 
 #[test]
 fn the_machine_does_what_it_did_before_it_took_notes() {

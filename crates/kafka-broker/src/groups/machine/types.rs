@@ -57,6 +57,8 @@ pub(crate) struct JoinRequest {
     /// What the caller may DESCRIBE (`None`: everything): a consumer group gives a classic member only the topics of
     /// its subscription that this lets through, and keeps it for the member's life there (SEC-231).
     pub(crate) rights: Option<crate::authorizer::TopicRights>,
+    /// JoinGroup v5 and later: why the client says it joins, clipped. Only a note keeps it; nothing decides by it.
+    pub(crate) reason: Option<crate::groups::note::Reason>,
 }
 
 /// A SyncGroup.
@@ -127,6 +129,8 @@ pub(crate) struct LeaveTarget {
     pub(crate) member_id: Option<MemberId>,
     /// Its instance id, if the request gave one.
     pub(crate) instance: Option<InstanceId>,
+    /// LeaveGroup v5 and later: why the client says it leaves, clipped. Only a note keeps it.
+    pub(crate) reason: Option<crate::groups::note::Reason>,
 }
 
 /// A member as the leader is told of it.
@@ -227,6 +231,8 @@ pub(crate) enum Answer {
     Delete(Option<ResponseError>),
     /// To a ConsumerGroupHeartbeat.
     ConsumerHeartbeat(crate::groups::consumer::HeartbeatAnswer),
+    /// To a request for what the group has said of itself (the actor answers; no machine does).
+    Events(Vec<crate::groups::events::Recorded>),
 }
 
 /// Which clock a timer is.
@@ -290,6 +296,9 @@ pub(crate) enum Effect {
     },
     /// Forget the timer of this kind.
     Disarm(TimerKind),
+    /// Something the machine says of itself: why a rebalance began, what came of it. Nothing depends on it; whoever
+    /// drives the machine may keep it or drop it.
+    Note(crate::groups::note::Note),
     /// A request is replaced by a later one (a JoinGroup sent again) and will never be answered: whoever waits for
     /// it can stop.
     Forget(Token),

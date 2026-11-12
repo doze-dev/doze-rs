@@ -8,6 +8,7 @@ use super::join::{Parsed, parse};
 use super::pattern::Pattern;
 use super::{ConsumerGroup, Heartbeat, HeartbeatAnswer, Topics};
 use crate::groups::machine::{Answer, Effect, Millis, Token};
+use crate::groups::note::Cause;
 
 pub(super) fn not_a_member(member: &str, group: &str) -> String {
     format!("Member {member} is not a member of group {group}.")
@@ -111,8 +112,10 @@ impl ConsumerGroup {
             self.reset_session(&id, now, out);
             return Self::done(&id, req.epoch);
         }
+        let (before, was, who) = (self.epoch, self.members.len(), self.who_is(&id, None));
         self.remove_member(&id, out);
         self.bump_for_removal();
+        self.bumped(before, Cause::MemberLeft, who, was, now, out);
         self.check_downgrade = true;
         Self::done(&id, req.epoch)
     }
@@ -147,6 +150,7 @@ impl ConsumerGroup {
             return answer;
         }
         let mut changed = false;
+        let was = self.members.len();
         let seated = if joining {
             self.seat(&id, req, &mut changed, out)
         } else {
@@ -155,6 +159,8 @@ impl ConsumerGroup {
         if let Err(refused) = seated {
             return refused;
         }
+        // Why the group's epoch is to move, for the note: the first of the reasons below.
+        let mut cause = changed.then_some(Cause::MemberJoined);
         if let Some(m) = self.members.get_mut(&id) {
             m.client_id.clone_from(&req.client_id);
             m.client_host.clone_from(&req.client_host);
@@ -165,24 +171,34 @@ impl ConsumerGroup {
             {
                 m.subscribed.clone_from(names);
                 changed = true;
+                cause.get_or_insert(Cause::SubscriptionChanged);
             }
             if let Some(text) = &req.regex
                 && text != m.pattern.as_ref().map_or("", Pattern::text)
             {
                 m.pattern = pattern;
                 changed = true;
+                cause.get_or_insert(Cause::SubscriptionChanged);
             }
             if req.assignor.is_some() && assignor != m.assignor {
                 m.assignor = assignor;
                 changed = true;
+                cause.get_or_insert(Cause::SubscriptionChanged);
             }
         }
         // A right to DESCRIBE given or taken since the last heartbeat, or the principal being another than the one that
         // left the names and the partitions, changes what the member may have; what it holds of the rest goes now.
-        changed |= self.refresh_rights(&id, req.rights.clone(), topics, now, out);
+        let rights = self.refresh_rights(&id, req.rights.clone(), topics, now, out);
+        if rights {
+            cause.get_or_insert(Cause::RightsChanged);
+        }
+        changed |= rights;
         self.reset_session(&id, now, out);
         if changed {
+            let (before, who) = (self.epoch, self.who_is(&id, None));
             self.bump_and_reassign(topics, now);
+            let cause = cause.unwrap_or(Cause::MemberJoined);
+            self.bumped(before, cause, who, was, now, out);
         } else {
             self.assign_if_due(topics, now);
         }

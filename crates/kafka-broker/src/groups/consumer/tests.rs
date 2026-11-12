@@ -128,7 +128,7 @@ impl Rig {
             Effect::Disarm(kind) => {
                 self.timers.remove(&kind);
             }
-            Effect::Reply(..) | Effect::Forget(_) => {}
+            Effect::Reply(..) | Effect::Forget(_) | Effect::Note(_) => {}
         }
     }
 
