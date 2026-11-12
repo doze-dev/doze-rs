@@ -158,3 +158,93 @@ async fn events_reach_the_queue_that_the_configuration_names() {
     running.shutdown().await;
     tasks.shutdown().await;
 }
+
+#[tokio::test]
+async fn a_bucket_that_asks_for_it_puts_its_events_on_the_default_bus() {
+    let dir = std::env::temp_dir().join(format!("aws-s3-eventbridge-{}", std::process::id()));
+    std::fs::remove_dir_all(&dir).ok();
+    let tasks = Tasks::new();
+    let peers = Peers::new();
+    let ext: Arc<dyn std::any::Any + Send + Sync> = peers.clone();
+    let ctx = |name: &str| {
+        Arc::new(Ctx {
+            dir: dir.join(name),
+            idle: Duration::from_secs(300),
+            tasks: tasks.clone(),
+            clock: Arc::new(SystemClock),
+            ext: Some(Arc::clone(&ext)),
+        })
+    };
+    let store: Arc<dyn aws_wire::service::Service> = Arc::new(aws_s3::S3::new(ctx("s3")));
+    peers.register(Arc::new(aws_sqs::Sqs::new(ctx("sqs"))));
+    peers.register(Arc::new(aws_eventbridge::Eventbridge::new(ctx("events"))));
+    peers.register(Arc::clone(&store));
+    // The rule below is the account's, so the requests to S3 must be that account's too.
+    let mut config = Config::new("127.0.0.1:0".parse().unwrap());
+    config.account_id = "111122223333".into();
+    let running = Gateway::new(config).with(store).bind().await.unwrap();
+    let addr = running.local_addr();
+    let call = |service: &'static str, op: &'static str, body: Value| {
+        let peers = peers.clone();
+        async move {
+            peers
+                .call("test", &caller(), service, op, &body)
+                .await
+                .unwrap()
+        }
+    };
+    let made = call("sqs", "CreateQueue", json!({"QueueName": "seen"})).await;
+    let url = made["QueueUrl"].as_str().unwrap().to_owned();
+    let attrs = json!({"QueueUrl": url, "AttributeNames": ["QueueArn"]});
+    let queue = call("sqs", "GetQueueAttributes", attrs).await["Attributes"]["QueueArn"].clone();
+    let pattern = json!({"source": ["aws.s3"], "detail": {"bucket": {"name": ["watched"]}}});
+    call(
+        "events",
+        "PutRule",
+        json!({"Name": "s3", "EventPattern": pattern.to_string()}),
+    )
+    .await;
+    call(
+        "events",
+        "PutTargets",
+        json!({"Rule": "s3", "Targets": [{"Id": "q", "Arn": queue}]}),
+    )
+    .await;
+    assert_eq!(s3(addr, "PUT", "/watched", "").await, 200);
+    // Without the setting nothing reaches the bus.
+    assert_eq!(s3(addr, "PUT", "/watched/before.txt", "x").await, 200);
+    let config =
+        "<NotificationConfiguration><EventBridgeConfiguration/></NotificationConfiguration>";
+    assert_eq!(s3(addr, "PUT", "/watched?notification", config).await, 200);
+    assert_eq!(s3(addr, "PUT", "/watched/in/a.txt", "hello").await, 200);
+    assert_eq!(s3(addr, "DELETE", "/watched/in/a.txt", "").await, 204);
+
+    let events = drain(&peers, &url).await;
+    let kinds: Vec<(&str, &str)> = events
+        .iter()
+        .map(|e| {
+            (
+                e["detail-type"].as_str().unwrap(),
+                e["detail"]["reason"].as_str().unwrap(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        kinds,
+        [
+            ("Object Created", "PutObject"),
+            ("Object Deleted", "DeleteObject")
+        ],
+        "{events:?}"
+    );
+    let created = &events[0];
+    assert_eq!(created["source"], "aws.s3");
+    assert_eq!(created["resources"], json!(["arn:aws:s3:::watched"]));
+    assert_eq!(created["detail"]["bucket"]["name"], "watched");
+    assert_eq!(created["detail"]["object"]["key"], "in/a.txt");
+    assert_eq!(created["detail"]["object"]["size"], 5);
+    assert_eq!(events[1]["detail"]["deletion-type"], "Permanently Deleted");
+
+    running.shutdown().await;
+    tasks.shutdown().await;
+}

@@ -545,6 +545,7 @@ version = "0.0.0"
 dependencies = [
  "aws-auth",
  "aws-core",
+ "aws-eventbridge",
  "aws-gateway",
  "aws-model-s3",
  "aws-peers",
