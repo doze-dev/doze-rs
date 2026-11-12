@@ -8,6 +8,7 @@ use axum::response::{IntoResponse, Redirect, Response};
 use super::{etagged, html};
 use crate::pages;
 use crate::state::Shared;
+use crate::ui::client::HEADER_FRAGMENT;
 
 /// A fragment by its id: the parts of Home that change while it is open, and the three renderings of the check.
 pub async fn fragment(
@@ -37,7 +38,7 @@ pub async fn check(State(s): State<Shared>, headers: HeaderMap, body: Bytes) -> 
         _ => return (StatusCode::BAD_REQUEST, "back must be home or advertised").into_response(),
     };
     let probe = s.source.probe(true).await;
-    if headers.contains_key("hx-request") {
+    if headers.contains_key(HEADER_FRAGMENT) {
         let markup = if target == pages::PROBE_HOME {
             pages::probe_home(&probe, &s.base)
         } else {

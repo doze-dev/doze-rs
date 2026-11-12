@@ -1,7 +1,8 @@
 //! The files the console ships: one manifest of `include_bytes!` lines, served under content-hashed names.
 //!
 //! Third-party files, with where they came from (npm registry tarballs, 2026-11-12):
-//! - `htmx.min.js`: htmx 2.0.11, 0BSD (`htmx.LICENSE.txt`), `sha256 d6fdc75f204e6bdefa99b69bf1e6d4ac69b8a364f77929f45c13476b4000f717`.
+//! No third-party script ships: the client layer is `console.js`, ours. Only the fonts are third-party.
+//!
 //! - `inter-latin-wght-normal.woff2`: `@fontsource-variable/inter` 5.3.0, Latin subset, OFL 1.1 (`inter.LICENSE.txt`),
 //!   `sha256 3100e775e8616cd2611beecfa23a4263d7037586789b43f035236a2e6fbd4c62`.
 //! - `jetbrains-mono-latin-400-normal.woff2` and `-500-`: `@fontsource/jetbrains-mono` 5.3.0, Latin subset, OFL 1.1
@@ -49,16 +50,10 @@ macro_rules! file {
 pub const MANIFEST: &[File] = &[
     file!("console.css", Css),
     file!("console.js", Js),
-    file!("htmx.min.js", Js),
     file!("favicon.svg", Svg),
     file!("inter-latin-wght-normal.woff2", Font),
     file!("jetbrains-mono-latin-400-normal.woff2", Font),
     file!("jetbrains-mono-latin-500-normal.woff2", Font),
-    File {
-        name: "htmx.LICENSE.txt",
-        kind: Kind::Licence,
-        bytes: None,
-    },
     File {
         name: "inter.LICENSE.txt",
         kind: Kind::Licence,
@@ -82,7 +77,6 @@ pub struct Served {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AssetUrls {
     pub css: String,
-    pub htmx: String,
     pub script: String,
     pub favicon: String,
 }
@@ -163,7 +157,6 @@ impl Assets {
         };
         let urls = AssetUrls {
             css: url("console.css"),
-            htmx: url("htmx.min.js"),
             script: url("console.js"),
             favicon: url("favicon.svg"),
         };

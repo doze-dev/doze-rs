@@ -2,16 +2,22 @@
 //!
 //! The pages are server-rendered and correct with JavaScript off: each fragment is also a plain GET, each form a plain
 //! POST. What a script adds is only enhancement: fragments that refresh when the server says they changed, forms that
-//! swap their result in place, copy buttons. The script today is htmx 2 plus `console.js` (about 40 lines over
-//! `EventSource`). If the client layer is replaced (Datastar, a script of our own), this file, `assets/console.js`
-//! and the vendored file change, and no page does. A test checks that `console.js` uses the names defined here.
+//! swap their result in place, copy buttons. The script is `console.js`, ours (no library: about 80 lines over `EventSource` and
+//! `fetch`, chosen by the D4a spike). If the client layer is ever replaced, this file and `assets/console.js` change, and no page
+//! does. The pages emit plain data-attributes and ids; the script reads them. A test checks that `console.js` uses the names defined here.
 
 use maud::{Markup, html};
 
 /// The server-sent event that names the fragments that changed.
 pub const EVENT_TICK: &str = "tick";
-/// The DOM event a fragment listens for to fetch itself again.
-pub const EVENT_REFRESH: &str = "doze:tick";
+/// The attribute of a fragment that holds the URL it is fetched from.
+pub const ATTR_FRAG: &str = "data-frag";
+/// A form the script posts in place (the server answers with the fragment named by `data-target`).
+pub const ATTR_AJAX: &str = "data-ajax";
+/// The id of the fragment a posted form's answer replaces.
+pub const ATTR_TARGET: &str = "data-target";
+/// The request header that says "I want the fragment, not a redirect".
+pub const HEADER_FRAGMENT: &str = "x-fragment";
 /// The attribute of `<body>` that holds the URL of the stream.
 pub const ATTR_STREAM: &str = "data-stream";
 /// A control that only works with a script: hidden until the script reveals it.
@@ -28,17 +34,10 @@ pub const ATTR_ADDRESS: &str = "data-address";
 pub const CLASS_FRAGMENT: &str = "frag";
 /// The id of the banner shown while the stream is lost.
 pub const ID_BANNER: &str = "stream-banner";
-/// The htmx options: no eval, no script tags in answers, no injected style, same-origin requests only.
-const HTMX_CONFIG: &str = r#"{"allowEval":false,"allowScriptTags":false,"includeIndicatorStyles":false,"selfRequestsOnly":true,"historyCacheSize":0,"refreshOnHistoryMiss":true}"#;
-
 /// What goes in `<head>` for the client layer.
 #[must_use]
-pub fn head(htmx_url: &str, script_url: &str) -> Markup {
-    html! {
-        meta name="htmx-config" content=(HTMX_CONFIG);
-        script src=(htmx_url) defer {}
-        script src=(script_url) defer {}
-    }
+pub fn head(script_url: &str) -> Markup {
+    html! { script src=(script_url) defer {} }
 }
 
 /// The attributes of `<body>` for a page that listens to the stream: where it is. The watched ids are in the URL.
@@ -52,14 +51,14 @@ pub fn body(stream_url: Option<&str>, content: Markup) -> Markup {
 #[must_use]
 pub fn fragment(id: &str, url: &str, content: Markup) -> Markup {
     html! {
-        div class=(CLASS_FRAGMENT) id=(id) hx-get=(url) hx-trigger=(EVENT_REFRESH) hx-swap="outerHTML" { (content) }
+        div class=(CLASS_FRAGMENT) id=(id) data-frag=(url) { (content) }
     }
 }
 
 /// A part of a page that is fetched alone but only refreshed by a person (a form's result): no stream trigger.
 #[must_use]
 pub fn fragment_static(id: &str, url: &str, content: Markup) -> Markup {
-    html! { div class=(CLASS_FRAGMENT) id=(id) data-fragment-url=(url) { (content) } }
+    html! { div class=(CLASS_FRAGMENT) id=(id) data-frag=(url) { (content) } }
 }
 
 /// A form that posts to `action` with no script (the server redirects back), and with one swaps the answer in
@@ -67,7 +66,7 @@ pub fn fragment_static(id: &str, url: &str, content: Markup) -> Markup {
 #[must_use]
 pub fn form(action: &str, target: &str, hidden: &[(&str, &str)], content: Markup) -> Markup {
     html! {
-        form method="post" action=(action) hx-post=(action) hx-target=(format!("#{target}")) hx-swap="outerHTML" {
+        form method="post" action=(action) data-ajax data-target=(target) {
             @for (name, value) in hidden { input type="hidden" name=(name) value=(value); }
             (content)
         }

@@ -4,7 +4,7 @@
 //! Pages are maud functions of view-models ([`model`]); view-models are made from broker answers ([`gather`]) or, for
 //! tests and the design boards, from fixtures; the route table ([`routes`]) is the one list the router is built from.
 //! The pure parts (formatting, the same-origin rule, the words of the pages) are plain functions with tables of cases.
-//! The client layer (htmx and one small script) is behind [`ui::client`] alone, and every page is complete without it.
+//! The client layer (one small script of our own, no library) is behind [`ui::client`] alone, and every page is complete without it.
 
 pub mod app;
 pub mod assets;

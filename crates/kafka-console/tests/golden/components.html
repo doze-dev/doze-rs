@@ -35,8 +35,8 @@
 </pre>
 <pre class="code" style="margin-top:8px">kcat -b 127.0.0.1:9092 -L</pre>
 <button class="btn sm" type="button" data-copy="127.0.0.1:9092" data-js-only hidden>Copy</button>
-<div class="frag" id="home-instance" hx-get="/fragments/home-instance" hx-trigger="doze:tick" hx-swap="outerHTML">x</div>
-<form method="post" action="/connect/advertised/check" hx-post="/connect/advertised/check" hx-target="#probe-home" hx-swap="outerHTML">
+<div class="frag" id="home-instance" data-frag="/fragments/home-instance">x</div>
+<form method="post" action="/connect/advertised/check" data-ajax data-target="probe-home">
 <input type="hidden" name="back" value="home">
 <button type="submit">Check again</button>
 </form>

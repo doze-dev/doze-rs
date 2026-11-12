@@ -158,11 +158,7 @@ async fn wait_for(mut done: impl FnMut() -> bool) {
 async fn an_unknown_fragment_is_refused_before_a_stream_is_opened() {
     let c = console().await;
     let mut s = open(c.local_addr(), "nonsense").await;
-    let mut rest = String::new();
-    tokio::time::timeout(Duration::from_secs(2), s.read_to_string(&mut rest))
-        .await
-        .unwrap()
-        .ok();
+    let rest = read_until(&mut s, "is not a fragment", Duration::from_secs(2)).await;
     assert!(rest.starts_with("HTTP/1.1 400"), "{rest}");
     assert_eq!(c.state().ticker.viewers(), 0);
     c.shutdown().await;

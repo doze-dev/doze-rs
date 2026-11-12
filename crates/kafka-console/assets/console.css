@@ -368,3 +368,5 @@ html,body{background:#fbfaff}
 /* The topbar search is a control of a later slice: drawn as the board draws it, and not offered. */
 .search input:disabled{cursor:not-allowed}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+/* A card's lede keeps its look when the lede sits inside a fragment (the check) and not directly in the card. */
+.card>.frag>.lede{margin:0 0 20px;color:var(--dim);font-size:13.5px}

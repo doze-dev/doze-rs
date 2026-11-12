@@ -30,11 +30,7 @@ fn every_file_of_assets_is_in_the_manifest_and_every_entry_has_its_file() {
 #[test]
 fn a_licence_is_kept_for_every_third_party_file() {
     let names: BTreeSet<_> = MANIFEST.iter().map(|f| f.name).collect();
-    for licence in [
-        "htmx.LICENSE.txt",
-        "inter.LICENSE.txt",
-        "jetbrains-mono.LICENSE.txt",
-    ] {
+    for licence in ["inter.LICENSE.txt", "jetbrains-mono.LICENSE.txt"] {
         assert!(names.contains(licence), "{licence}");
         assert!(
             std::fs::read_to_string(dir("assets").join(licence))
@@ -72,7 +68,7 @@ fn a_name_changes_with_its_content_and_only_then() {
     assert_ne!(fingerprint(b""), fingerprint(b"\0"));
     assert_eq!(fingerprint(b"").len(), 12);
     assert_eq!(hashed("console.css", "abc"), "console.abc.css");
-    assert_eq!(hashed("htmx.min.js", "abc"), "htmx.min.abc.js");
+    assert_eq!(hashed("console.min.js", "abc"), "console.min.abc.js");
 }
 
 #[test]
@@ -91,7 +87,7 @@ fn every_served_file_is_found_by_its_hashed_name_and_the_stylesheet_names_its_fo
         assert!(css.contains(&format!("url({name})")), "{font}");
         assert_eq!(assets.get(name).unwrap().content_type, "font/woff2");
     }
-    for url in [&assets.urls.htmx, &assets.urls.script, &assets.urls.favicon] {
+    for url in [&assets.urls.script, &assets.urls.favicon] {
         assert!(
             assets.get(url.rsplit('/').next().unwrap()).is_some(),
             "{url}"
@@ -105,7 +101,7 @@ fn every_served_file_is_found_by_its_hashed_name_and_the_stylesheet_names_its_fo
 
 #[test]
 fn the_shipped_files_weigh_what_the_plan_says() {
-    // About 190 to 200 KB in all (the plan's asset budget), fonts included.
+    // About 140 KB in all, fonts included: no library ships (the plan budgeted 190 to 200 KB with htmx).
     let total = Assets::build(&Base::root()).total_bytes();
-    assert!((150_000..260_000).contains(&total), "{total}");
+    assert!((120_000..200_000).contains(&total), "{total}");
 }

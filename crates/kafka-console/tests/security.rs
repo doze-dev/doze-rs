@@ -95,7 +95,6 @@ fn connect(s: &str) -> ConnectView {
 fn shell(s: &str, main: maud::Markup, base: &Base) -> String {
     let urls = AssetUrls {
         css: base.url("/static/c.css"),
-        htmx: base.url("/static/h.js"),
         script: base.url("/static/c.js"),
         favicon: base.url("/static/f.svg"),
     };
@@ -147,10 +146,10 @@ fn assert_inert(doc: &str, payload: &str, what: &str) {
             "{what}: {live:?} came through for {payload:?}"
         );
     }
-    // The only scripts are the console's own two files.
+    // The only script is the console's own file.
     assert_eq!(
         doc.matches("<script").count(),
-        2,
+        1,
         "{what}: a script tag that is not the console's, for {payload:?}"
     );
     assert!(
@@ -205,10 +204,7 @@ fn hostile_text_in_every_field_of_every_page_comes_out_inert() {
             pages::probe_connect(&h.probe, &base),
             pages::probe_advertised(&h.probe, &base),
         ] {
-            let doc = format!(
-                "<script src=a></script><script src=b></script>{}",
-                frag.into_string()
-            );
+            let doc = format!("<script src=a></script>{}", frag.into_string());
             assert_inert(&doc, payload, "fragment");
         }
     }
@@ -277,7 +273,7 @@ async fn a_path_that_is_not_a_page_is_shown_escaped_and_with_the_security_header
             !body.contains("<script>alert") && !body.contains("<img src=x"),
             "{path}: {body:.400}"
         );
-        assert_eq!(body.matches("<script").count(), 2, "{path}");
+        assert_eq!(body.matches("<script").count(), 1, "{path}");
     }
 }
 

@@ -199,8 +199,7 @@ async fn the_check_form_comes_back_to_its_page_without_a_script_and_swaps_a_frag
         assert_eq!(res.headers()[header::LOCATION], to);
     }
     let mut req = post("/k/connect/advertised/check", "back=home");
-    req.headers_mut()
-        .insert("hx-request", "true".parse().unwrap());
+    req.headers_mut().insert("x-fragment", "1".parse().unwrap());
     let (res, body) = send(&app, req).await;
     assert_eq!(res.status(), StatusCode::OK);
     assert!(
@@ -269,10 +268,6 @@ async fn every_href_and_src_of_every_page_resolves_under_the_base() {
         assert!(
             seen.iter()
                 .any(|u| u.contains("/static/console.") && u.ends_with(".css"))
-        );
-        assert!(
-            seen.iter()
-                .any(|u| u.contains("/static/htmx.min.") && u.ends_with(".js"))
         );
         assert!(
             seen.iter()

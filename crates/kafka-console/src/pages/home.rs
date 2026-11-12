@@ -117,7 +117,12 @@ pub fn callout_fragment(v: &HomeView, base: &Base) -> Markup {
 
 fn rows(i: &InstanceView, quiet: bool) -> Vec<(&'static str, Markup)> {
     let mono = |s: String| html! { span class="mono" { (s) } };
-    let mut out = vec![("Started", html! { span class="mono" { (i.started) } })];
+    // The board's time has no zone; this one is UTC, said on a second line (the card's value column is narrow).
+    let (day, zone) = i
+        .started
+        .rsplit_once(' ')
+        .unwrap_or((i.started.as_str(), ""));
+    let mut out = vec![("Started", value_with_sub(mono(day.to_owned()), zone))];
     if !quiet {
         out.push(("Up for", mono(crate::format::span(i.up_secs))));
     }

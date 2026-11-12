@@ -167,7 +167,7 @@ pub fn document(page: &Page<'_>, main: Markup) -> Markup {
                 title { (page.title) " · doze-kafka" }
                 link rel="icon" type="image/svg+xml" href=(page.assets.favicon);
                 link rel="stylesheet" href=(page.assets.css);
-                (client::head(&page.assets.htmx, &page.assets.script))
+                (client::head(&page.assets.script))
             }
             (client::body(stream.as_deref(), html! {
                 a class="skip" href="#main" { "Skip to the page" }

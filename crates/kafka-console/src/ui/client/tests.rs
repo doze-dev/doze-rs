@@ -7,7 +7,9 @@ const SCRIPT: &str = include_str!("../../../assets/console.js");
 fn the_script_uses_every_name_this_file_defines() {
     for name in [
         EVENT_TICK,
-        EVENT_REFRESH,
+        ATTR_FRAG,
+        ATTR_AJAX,
+        ATTR_TARGET,
         ATTR_STREAM,
         ATTR_JS_ONLY,
         ATTR_COPY,
@@ -49,7 +51,7 @@ fn the_markup_uses_the_attribute_names_the_constants_say() {
     let frag = fragment("home-instance", "/fragments/home-instance", html! { "x" }).into_string();
     assert!(
         frag.contains(&format!("class=\"{CLASS_FRAGMENT}\""))
-            && frag.contains(&format!("hx-trigger=\"{EVENT_REFRESH}\"")),
+            && frag.contains(&format!(" {ATTR_FRAG}=\"/fragments/home-instance\"")),
         "{frag}"
     );
 }
@@ -63,7 +65,7 @@ fn a_form_posts_with_no_script_and_swaps_its_target_with_one() {
         html! { button { "Go" } },
     )
     .into_string();
-    assert!(f.starts_with(r##"<form method="post" action="/connect/advertised/check" hx-post="/connect/advertised/check" hx-target="#probe-home" hx-swap="outerHTML">"##), "{f}");
+    assert!(f.starts_with(r#"<form method="post" action="/connect/advertised/check" data-ajax data-target="probe-home">"#), "{f}");
     assert!(
         f.contains(r#"<input type="hidden" name="back" value="home">"#),
         "{f}"
@@ -84,5 +86,63 @@ fn nothing_the_script_needs_is_shown_without_it() {
         copy_button("btn", "x", html! {})
             .into_string()
             .contains(" hidden")
+    );
+}
+
+#[test]
+fn the_script_follows_the_rules_the_spike_found_and_runs_under_the_strictest_policy() {
+    // D4a (docs/port/phase9/client-spike.md): each trap is a line of the script, and a test that the line is still there.
+    for (rule, needle) in [
+        (
+            "the script sends If-None-Match itself, a browser turns a 304 into a 200 for fetch",
+            "'If-None-Match'",
+        ),
+        ("and skips the swap on a 304", "r.status === 304"),
+        (
+            "the newest request wins per fragment",
+            "new AbortController()",
+        ),
+        (
+            "the stream is closed when the page is hidden",
+            "visibilitychange",
+        ),
+        ("and when it goes to the back/forward cache", "'pagehide'"),
+        ("and reopened when it comes back", "'pageshow'"),
+        (
+            "the focused input keeps its value",
+            "focused && name === 'value'",
+        ),
+        (
+            "the reconnect waits longer and longer",
+            "Math.min(wait * 2, 15000)",
+        ),
+    ] {
+        assert!(
+            SCRIPT.contains(needle),
+            "{rule}: {needle:?} is not in console.js"
+        );
+    }
+    // Never gives up: no retry counter, no limit on reconnecting.
+    assert!(
+        !SCRIPT.contains("retries") && !SCRIPT.contains("giveUp") && !SCRIPT.contains("attempts")
+    );
+    // Runs under `default-src 'self'` with no unsafe-eval: nothing evaluates text, nothing is injected inline.
+    for banned in [
+        "eval(",
+        "new Function",
+        "setTimeout(\"",
+        "document.write",
+        "importScripts",
+        "javascript:",
+    ] {
+        assert!(!SCRIPT.contains(banned), "console.js uses {banned:?}");
+    }
+    assert!(
+        SCRIPT.to_ascii_lowercase().contains(HEADER_FRAGMENT),
+        "the form header is {HEADER_FRAGMENT}"
+    );
+    assert!(
+        SCRIPT.lines().count() < 130,
+        "the script is small enough to read in one sitting"
     );
 }

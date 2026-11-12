@@ -8,7 +8,6 @@ use axum::response::{IntoResponse, Response};
 use super::html;
 use crate::pages;
 use crate::state::Shared;
-use crate::stream::WATCHABLE;
 use crate::ui::shell::Rail;
 
 /// Home, in the state its data calls for.
@@ -19,7 +18,7 @@ pub async fn home(State(s): State<Shared>, RawQuery(query): RawQuery) -> Respons
     let main = pages::home(&view, &s.base);
     let title = crate::words::home_title(&view.state);
     html(
-        &s.document(Rail::Home, title, &[("Home", None)], WATCHABLE, main)
+        &s.document(Rail::Home, title, &[("Home", None)], s.source.watch(), main)
             .await,
     )
 }
