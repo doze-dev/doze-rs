@@ -292,7 +292,7 @@ impl FaultPlan for FaultTable {
             return Verdict::Pass;
         };
         let wall = self.clock.wall_ms();
-        let note = record(&mut inner, index, ask, wall);
+        let note = record(&mut inner, index, ask, wall, applied);
         if inner.rules.get(index).is_some_and(spent) {
             inner.end(index, EndedWhy::Spent, wall);
             self.recount(&inner);
@@ -384,9 +384,19 @@ fn severity(a: Applied) -> (u8, u128) {
 }
 
 /// Puts the hit in the rule's record, and makes the note the request carries on.
-fn record(inner: &mut Inner, index: usize, ask: &Ask<'_>, wall: i64) -> Arc<Note> {
+fn record(
+    inner: &mut Inner,
+    index: usize,
+    ask: &Ask<'_>,
+    wall: i64,
+    applied: Applied,
+) -> Arc<Note> {
     let Some(l) = inner.rules.get_mut(index) else {
-        return Arc::new(Note::default());
+        return Arc::new(Note {
+            rule: 0,
+            name: Arc::from(""),
+            applied,
+        });
     };
     let rule = &mut l.rule;
     rule.hits += 1;
@@ -425,6 +435,7 @@ fn record(inner: &mut Inner, index: usize, ask: &Ask<'_>, wall: i64) -> Arc<Note
     Arc::new(Note {
         rule: rule.id,
         name: Arc::clone(&rule.name),
+        applied,
     })
 }
 

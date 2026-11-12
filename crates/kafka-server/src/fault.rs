@@ -63,12 +63,14 @@ pub enum Applied {
 }
 
 /// Which rule touched a request: carried to the observer, so the wire can say so.
-#[derive(Debug, Default, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Note {
     /// The rule's number.
     pub rule: u32,
     /// Its name at the time.
     pub name: Arc<str>,
+    /// What it did to the request.
+    pub applied: Applied,
 }
 
 /// Decides, for each request, whether anything is done to it. Called on the connection's task, one request at a time: the work

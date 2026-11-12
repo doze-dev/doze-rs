@@ -67,6 +67,7 @@ pub(crate) fn wr(s: &Spec<'_>) -> WireRow {
         }
     });
     WireRow {
+        lab: None,
         id: s.id,
         at_ms: at(s.time),
         since_ms: None,

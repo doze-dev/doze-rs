@@ -79,6 +79,7 @@ pub(super) fn what(g: &StoryGen) -> Markup {
             StoryCause::RightsChanged => { "A right to read a topic was given to, or taken from, the principal of " (some_who(w)) "." },
             StoryCause::BecameClassic => { "The last consumer-protocol member left, so the group is a classic group again and every member joins again." },
             StoryCause::BecameConsumer => { "A member of the new protocol joined a classic group of consumers: it is a consumer group now, its members staying." },
+            StoryCause::Forced => { "A rebalance was forced from the Lab. No member joined or left and no topic changed; the group moved on as it does when one does." },
         }
         @if let Some(ms) = g.settled_ms.or(g.formed_ms) { " Settled in " (crate::groups_words::span_precise(ms)) "." }
     }

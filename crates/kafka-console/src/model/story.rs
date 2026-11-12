@@ -18,11 +18,13 @@ pub enum StoryCause {
     RightsChanged,
     BecameClassic,
     BecameConsumer,
+    /// Forced from the Lab.
+    Forced,
 }
 
 impl StoryCause {
     /// Every cause, in the order the Story page lists them.
-    pub const ALL: [Self; 11] = [
+    pub const ALL: [Self; 12] = [
         Self::MemberJoined,
         Self::MemberLeft,
         Self::SessionExpired,
@@ -34,6 +36,7 @@ impl StoryCause {
         Self::RightsChanged,
         Self::BecameClassic,
         Self::BecameConsumer,
+        Self::Forced,
     ];
 }
 
