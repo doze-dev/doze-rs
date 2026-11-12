@@ -2,9 +2,9 @@
 
 use kafka_wire::ids::{InstanceId, MemberId};
 
+use super::Topics;
 use super::assign::{Assignor, Partitions};
 use super::pattern::Pattern;
-use super::Topics;
 use crate::authorizer::{TopicRights, permits};
 use crate::groups::machine::Protocol;
 

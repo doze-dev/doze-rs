@@ -222,7 +222,7 @@ async fn delete_implies_describe_but_a_deny_of_describe_hides_the_topic_from_the
 }
 
 /// `RCM.java` 1025-1028: an id nobody holds is UNKNOWN_TOPIC_ID (100) with Kafka's own words, to a caller that may
-/// delete everything and to one that may delete nothing; a name nobody holds stays 3 (SEC-D84).
+/// delete everything and to one that may delete nothing; a name nobody holds stays 3 (SEC-216, SEC-D84).
 #[tokio::test]
 async fn delete_topics_by_an_unknown_id_is_100_and_by_an_unknown_name_is_3() {
     let rig = rig_with_topics(&["t"]).await;

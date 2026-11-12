@@ -146,6 +146,12 @@ the catalogue lists, one row each; the second is what the slices reported left u
 | SEC-D61 | The guard refuses five shapes the Go edition's allows: a bare IPv6 literal, brackets around anything but an IPv6 literal, an IP literal with a trailing dot, a name with characters outside letters, digits, `-` and `_` (or a non-ASCII one), a name over 253 bytes or a label over 63 | decided: a refusal costs a flag, an acceptance costs the defence; no browser sends any of them |
 | SEC-D62 | Every configuration that cannot start exits 2 (it exited 1) | decided: the Go edition's code, and clap's own for a bad flag; no test or script read 1 |
 | SEC-D63 | `--console-allow-host` and `--console-unprotected` are parsed and kept and nothing acts on them; a console address is "on" unless `--console=false` | decided: there is no console listener before Phase 9 (`I21`); the start-up rule was built now because its inputs exist |
+| SEC-D80 | A regex subscription is resolved per member, with its own rights, at each heartbeat that changes them (Kafka: per expression, with the rights of the heartbeat that triggered a refresh) | decided: stricter than Kafka, which could hand a member a topic another member of the same text was allowed |
+| SEC-D81 | Kafka's `findAclRule` throws or never ends on some names; this broker answers by the rules | decided: nothing can depend on a throw or a hang |
+| SEC-D82 | The PREFIXED ACLs of a type are scanned on every check | open at admin scale (thousands of prefixes); fine for tens; a sorted index is the fix, covered by the two model tests |
+| SEC-D83 | Metadata by id serves names beside ids and answers a repeated unknown id each time | decided: no client sends either |
+| SEC-D84 | DeleteTopics by an unknown name is 3 with no message; neither name nor id is not special-cased | decided: with SEC-D17 |
+| SEC-D85 | `--acl-super-user` splits on commas and semicolons | decided: the Go edition's separator and Kafka's |
 
 ### I.2 Left unfinished, and the audits
 | # | Item | Status |

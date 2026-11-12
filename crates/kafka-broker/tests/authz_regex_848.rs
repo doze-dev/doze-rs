@@ -126,7 +126,11 @@ async fn a_regex_is_assigned_only_topics_the_member_may_describe() {
     .await;
     let (secret, open) = (id_of(&rig, "secret").await, id_of(&rig, "open").await);
     let seat = Seat::join_regex(&rig, user("alice"), "g", "m", ".*").await;
-    assert!(!seat.ever.contains(&secret), "assigned `secret`: {:?}", seat.ever);
+    assert!(
+        !seat.ever.contains(&secret),
+        "assigned `secret`: {:?}",
+        seat.ever
+    );
     assert!(seat.owns(open), "the topic she may describe is hers");
     // The partitions are the whole of `open`.
     assert_eq!(seat.owned, vec![(open, vec![0, 1])]);
@@ -201,7 +205,12 @@ async fn a_describe_right_taken_away_revokes_the_topic() {
     assert!(seat.owns(secret) && seat.owns(open));
     grant(
         &rig,
-        vec![creation((TOPIC, "secret", gx::LITERAL), "User:alice", DESCRIBE, DENY)],
+        vec![creation(
+            (TOPIC, "secret", gx::LITERAL),
+            "User:alice",
+            DESCRIBE,
+            DENY,
+        )],
     )
     .await;
     seat.beats(6).await;
@@ -238,7 +247,12 @@ async fn a_super_user_is_assigned_every_topic_the_expression_matches() {
     make_topic(&rig, "open", 2).await;
     grant(
         &rig,
-        vec![creation((TOPIC, "secret", gx::LITERAL), "User:admin", DESCRIBE, DENY)],
+        vec![creation(
+            (TOPIC, "secret", gx::LITERAL),
+            "User:admin",
+            DESCRIBE,
+            DENY,
+        )],
     )
     .await;
     let (secret, open) = (id_of(&rig, "secret").await, id_of(&rig, "open").await);
@@ -274,7 +288,11 @@ async fn two_members_with_one_expression_are_filtered_each_by_its_own_rights() {
     assert!(boss.owns(secret), "{:?}", boss.owned);
     // What ConsumerGroupDescribe shows to the one who may describe both, for each member.
     let d = &calls::describe_848(&rig, &admin(), 1, &["g"], false).await[0];
-    let alices = d.members.iter().find(|m| m.member_id.as_str() == "alice").unwrap();
+    let alices = d
+        .members
+        .iter()
+        .find(|m| m.member_id.as_str() == "alice")
+        .unwrap();
     let hers: Vec<Uuid> = alices
         .assignment
         .topic_partitions
@@ -335,7 +353,12 @@ async fn a_topic_made_later_is_taken_only_if_the_member_may_describe_it() {
         &rig,
         vec![
             allow(GROUP, "g", "User:alice", READ),
-            creation((TOPIC, "orders-", gx::PREFIXED), "User:alice", DESCRIBE, gx::ALLOW),
+            creation(
+                (TOPIC, "orders-", gx::PREFIXED),
+                "User:alice",
+                DESCRIBE,
+                gx::ALLOW,
+            ),
         ],
     )
     .await;
@@ -344,7 +367,12 @@ async fn a_topic_made_later_is_taken_only_if_the_member_may_describe_it() {
     make_topic(&rig, "orders-hidden", 2).await;
     grant(
         &rig,
-        vec![creation((TOPIC, "orders-hidden", gx::LITERAL), "User:alice", DESCRIBE, DENY)],
+        vec![creation(
+            (TOPIC, "orders-hidden", gx::LITERAL),
+            "User:alice",
+            DESCRIBE,
+            DENY,
+        )],
     )
     .await;
     seat.beats(8).await;
@@ -368,11 +396,20 @@ async fn on_an_open_broker_one_deny_hides_one_topic_from_one_caller() {
     assert!(everything.owns(secret) && everything.owns(open));
     grant(
         &rig,
-        vec![creation((TOPIC, "secret", gx::LITERAL), "User:alice", DESCRIBE, DENY)],
+        vec![creation(
+            (TOPIC, "secret", gx::LITERAL),
+            "User:alice",
+            DESCRIBE,
+            DENY,
+        )],
     )
     .await;
     let alice = Seat::join_regex(&rig, user("alice"), "g2", "m", ".*").await;
-    assert!(alice.owns(open) && !alice.ever.contains(&secret), "{:?}", alice.ever);
+    assert!(
+        alice.owns(open) && !alice.ever.contains(&secret),
+        "{:?}",
+        alice.ever
+    );
     // Bob is not named by the ACL, but once a topic has one the default no longer allows it to anybody (Kafka's rule):
     // he keeps `open` and loses `secret` at his next heartbeat.
     let mut bob = everything;

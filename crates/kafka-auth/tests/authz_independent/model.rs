@@ -66,12 +66,7 @@ fn lower_bound(acls: &[M], ex: &M) -> usize {
     acls.partition_point(|a| cmp(a, ex) == Ordering::Less)
 }
 
-fn find_result(
-    op: i8,
-    principals: &[(S, S)],
-    host: &S,
-    acl: &M,
-) -> Option<bool> {
+fn find_result(op: i8, principals: &[(S, S)], host: &S, acl: &M) -> Option<bool> {
     let ap = parse_principal(&acl.principal).expect("stored acls have a colon");
     if !principals.contains(&ap) {
         return None;
@@ -224,7 +219,16 @@ pub fn model_by_type(
     op: i8,
     rt: i8,
 ) -> Result<bool, String> {
-    if model_authorize(acls, default_allow, supers, principal, host, rt, "hardcode", op)? {
+    if model_authorize(
+        acls,
+        default_allow,
+        supers,
+        principal,
+        host,
+        rt,
+        "hardcode",
+        op,
+    )? {
         return Ok(true);
     }
     let me = parse_principal(&u(principal)).unwrap();
@@ -298,4 +302,3 @@ pub fn model_by_type(
     }
     Ok(false)
 }
-

@@ -74,11 +74,7 @@ mod tests {
     fn nobody_is_narrowed_when_the_default_allows_and_nothing_is_stored_or_for_a_super_user() {
         let open = Authorizer::new(Vec::new(), true, BTreeSet::new());
         assert!(open.describe_rights(&caller("alice")).is_none());
-        let closed = Authorizer::new(
-            Vec::new(),
-            false,
-            BTreeSet::from(["User:root".to_owned()]),
-        );
+        let closed = Authorizer::new(Vec::new(), false, BTreeSet::from(["User:root".to_owned()]));
         assert!(closed.describe_rights(&caller("root")).is_none());
         let narrowed = closed.describe_rights(&caller("alice"));
         assert!(narrowed.is_some_and(|r| !r.may_describe("t")));

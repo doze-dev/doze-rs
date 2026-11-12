@@ -41,7 +41,21 @@ impl Rng {
     }
 }
 
-const ALPHA: &[&str] = &["a", "b", "*", "!", "~", "h", "hard", "code", "hardcode", "\u{e9}", "\u{1F600}", "\u{ff5e}", "\u{e000}"];
+const ALPHA: &[&str] = &[
+    "a",
+    "b",
+    "*",
+    "!",
+    "~",
+    "h",
+    "hard",
+    "code",
+    "hardcode",
+    "\u{e9}",
+    "\u{1F600}",
+    "\u{ff5e}",
+    "\u{e000}",
+];
 
 fn name(r: &mut Rng, allow_empty: bool) -> String {
     loop {
@@ -100,7 +114,15 @@ fn run(seed: u64, cases: usize, max_acls: usize, types: i8) -> (usize, usize, Ve
             super_users: supers.iter().cloned().collect::<BTreeSet<_>>(),
         };
         for _ in 0..12 {
-            let principal = *r.pick(&["User:a", "User:b", "User:su", "Group:x", "User:a:b", "User:ANONYMOUS", "User:*"]);
+            let principal = *r.pick(&[
+                "User:a",
+                "User:b",
+                "User:su",
+                "Group:x",
+                "User:a:b",
+                "User:ANONYMOUS",
+                "User:*",
+            ]);
             let host = *r.pick(&["1.2.3.4", "0:0:0:0:0:0:0:1", "9.9.9.9", "", "5.6.7.8"]);
             let rt = 2 + r.below(types as usize) as i8;
             let rn = if r.below(3) == 0 && !real.is_empty() {
@@ -114,11 +136,15 @@ fn run(seed: u64, cases: usize, max_acls: usize, types: i8) -> (usize, usize, Ve
                 name(&mut r, true)
             };
             let op = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 99, 0][r.below(18)];
-            let want = model_authorize(&model, default_allow, &supers, principal, host, rt, &rn, op);
+            let want =
+                model_authorize(&model, default_allow, &supers, principal, host, rt, &rn, op);
             let got = rules.authorize(
                 &set,
                 Subject { principal, host },
-                Resource { kind: rt, name: &rn },
+                Resource {
+                    kind: rt,
+                    name: &rn,
+                },
                 op,
             );
             checked += 1;
@@ -159,11 +185,13 @@ fn run(seed: u64, cases: usize, max_acls: usize, types: i8) -> (usize, usize, Ve
             }
         }
     }
-    let real_dis = dis.iter().filter(|d| !d.starts_with("KAFKA-THROWS") && *d != "D").count();
+    let real_dis = dis
+        .iter()
+        .filter(|d| !d.starts_with("KAFKA-THROWS") && *d != "D")
+        .count();
     let dcount = dis.iter().filter(|d| *d == "D").count();
     (checked, throws, dis, real_dis + dcount)
 }
-
 
 /// How many times fewer random ACL sets each of the four runs draws than the audit did: 100,000 sets of 12 requests, 2.13
 /// million checks, which took about a minute in a debug build. A third is about 710,000 checks and a few seconds.
@@ -185,13 +213,19 @@ fn the_authorizer_agrees_with_an_independent_transcription_of_kafka() {
         total += c;
         throws += t;
         bad += b;
-        shown.extend(d.into_iter().filter(|x| x != "D" && !x.starts_with("KAFKA-THROWS")));
+        shown.extend(
+            d.into_iter()
+                .filter(|x| x != "D" && !x.starts_with("KAFKA-THROWS")),
+        );
     }
     eprintln!("checked {total}, Kafka throws or loops in {throws}, disagreements {bad}");
     for d in shown.iter().take(20) {
         eprintln!("{d}");
     }
-    assert!(throws > 0, "the generator no longer reaches the names on which Kafka's own walk fails");
+    assert!(
+        throws > 0,
+        "the generator no longer reaches the names on which Kafka's own walk fails"
+    );
     assert_eq!(bad, 0, "disagreements");
 }
 
@@ -209,10 +243,27 @@ fn a_wildcard_allow_survives_a_deny_of_the_hardcoded_name() {
         permission,
     };
     let rules = Rules::default();
-    let who = Subject { principal: "User:u", host: "1.2.3.4" };
+    let who = Subject {
+        principal: "User:u",
+        host: "1.2.3.4",
+    };
     for deny in [acl("hardcode", 3, 2), acl("h", 4, 2), acl("hardcode", 4, 2)] {
         let set = AclSet::new([acl("*", 3, 3), deny.clone()]);
-        assert!(!rules.authorize(&set, who, Resource { kind: 2, name: "hardcode" }, 4), "{deny:?}");
-        assert!(rules.authorize_by_resource_type(&set, who, 4, 2), "{deny:?}");
+        assert!(
+            !rules.authorize(
+                &set,
+                who,
+                Resource {
+                    kind: 2,
+                    name: "hardcode"
+                },
+                4
+            ),
+            "{deny:?}"
+        );
+        assert!(
+            rules.authorize_by_resource_type(&set, who, 4, 2),
+            "{deny:?}"
+        );
     }
 }

@@ -31,7 +31,7 @@ impl FromStr for AclDefault {
 
 /// The super users: each flag is one principal or a list, each written `Type:name`. The separator is a comma (the Go
 /// edition's) or a semicolon (Kafka's `super.users`): taken as one principal, `User:a;User:b` would name a user
-/// called `a;User:b` and leave nobody a super user (SEC-D87).
+/// called `a;User:b` and leave nobody a super user (SEC-D85).
 pub(super) fn super_users(flags: &[String]) -> Result<BTreeSet<String>> {
     let mut out = BTreeSet::new();
     for principal in flags
@@ -78,7 +78,10 @@ mod tests {
     fn every_part_of_a_semicolon_list_is_checked_for_type_and_name() {
         for bad in ["User:a;admin", "admin;User:a", "User:a;User:", "User:a;:x"] {
             let message = users(&[bad]).unwrap_err().to_string();
-            assert!(message.contains("must be written Type:name"), "{bad}: {message}");
+            assert!(
+                message.contains("must be written Type:name"),
+                "{bad}: {message}"
+            );
         }
     }
 }

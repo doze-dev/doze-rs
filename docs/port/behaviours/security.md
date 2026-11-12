@@ -29,6 +29,7 @@ test name quoted in this file is a `fn` in the Rust sources.
 | SEC-140 to SEC-154 | TLS behind the `tls` feature | 8e | "TLS, slice 8e" |
 | SEC-160 to SEC-179 | the SCRAM credential APIs (50, 51), the stored table, the users file and variable | 8f | after SEC-154 |
 | SEC-180 to SEC-189 | the allowed-hosts guard, `--console-allow-host`, `--console-unprotected`, the start-up rule and notes | 8g | "The allowed-hosts guard" |
+| SEC-210 to SEC-222 | fixes after the audit of the authorization half: regex subscriptions, Metadata bits and order, DeleteTopics, by-type, the second model, super-user separators | 8h audit | "Audit fixes, authorization half" |
 
 Deviations from Apache Kafka (and one from the Go edition) by number. Every one is a decision, not a bug; each has a row in `debt.md` section I.
 
@@ -83,6 +84,12 @@ Deviations from Apache Kafka (and one from the Go edition) by number. Every one 
 - **SEC-D61** the guard is stricter than the Go edition's in five shapes
 - **SEC-D62** a configuration that cannot start exits 2 (it exited 1 before slice 8g)
 - **SEC-D63** the console flags have nothing to act on until Phase 9
+- **SEC-D80** a regex subscription is resolved per member, with that member's own rights, not per expression with the rights of the heartbeat that triggered a refresh
+- **SEC-D81** Kafka's own walk throws or never ends on some names (`findAclRule`); this broker answers by the rules
+- **SEC-D82** the PREFIXED ACLs of a type are scanned on every check (admin scale: thousands of prefixes)
+- **SEC-D83** Metadata by id: names beside ids are served (Kafka drops them), and a repeated unknown id is answered each time
+- **SEC-D84** DeleteTopics by an unknown name answers 3 with no message; neither a name nor an id is not special-cased
+- **SEC-D85** `--acl-super-user` splits on commas and semicolons (the Go edition: commas; Kafka: semicolons)
 
 ## SEC-1. SASL is opt-in; without it nothing changes
 No `--sasl-*` flag: no `Session` is made, the decoder trusts every connection, the connection loop has no extra branch, ApiVersions
@@ -373,6 +380,8 @@ resource whose name starts with an asterisk and is not just `*` (a group or tran
 it. Topic names cannot start so; a group id or transactional id can. Found by the model test (SEC-29) and kept for parity. Test:
 `authz::tests::names::literal_prefixed_and_wildcard_names` (the `*x` lines).
 
+Kafka's walk has two defects of its own that this broker does not copy (SEC-220, **deviation SEC-D81**).
+
 ## SEC-22. `authorizeByResourceType`, for InitProducerId (Authorizer.java 184-293)
 May the principal do an operation on at least one resource of a type? First the operation on a resource called `hardcode` is authorized
 as usual (so super users pass, and so does everyone when the default allows and no ACL covers that name). Then the ACLs of the type for
@@ -423,7 +432,7 @@ means "which ACLs apply to a resource of that name": the literal, the `*` litera
 DESCRIBE on each topic asked for, checked **before** the topic is looked for, so a topic that does not exist is hidden exactly like one
 that does. A topic the caller may not describe is answered 29 with its name kept, no partitions, `IsInternal` false and a zero topic id
 (by id: no name, the id the cache knows); a list of all topics (null; at v0 also empty) holds only the topics it may describe, with no
-denied entries. Order of the answer, as Kafka's: what the caller may see in the order asked, then topics it may describe but not create,
+denied entries. Order of the answer, as Kafka's (KA:983-985): the topic ids nobody knows first (SEC-215), then what the caller may see in the order asked, then topics it may describe but not create,
 then those it may not describe (Kafka's order beyond four topics is a Scala set's; this one stays in request order within a group).
 Auto-creation of a missing topic that may be described needs CREATE on the cluster or on the topic, else the entry is 29 and nothing is
 made. Test: `kafka-broker tests/authz_metadata::the_recorded_identity_probe`, `..::a_topic_that_does_not_exist_is_hidden_the_same_way`,
@@ -440,7 +449,7 @@ refusal is the whole answer (producer id -1, epoch -1) and leaves no mark on the
 transcribed (the ACLs kept in `StandardAcl.compareTo` order and walked from an exemplar with the jump to a shorter prefix), run against
 the real one on 6,000 random ACL sets of up to 13 ACLs, 30 random requests each, for both procedures (`AUTHZ_MODEL_SEEDS` sets the number); a
 second test counts that the random sets reach each branch. It found SEC-21. Test: `the_authorizer_agrees_with_kafkas_algorithm_on_random_acl_sets`,
-`the_random_sets_reach_every_branch_of_the_decision`.
+`the_random_sets_reach_every_branch_of_the_decision`. A second, independent transcription is SEC-219.
 
 ## SEC-30. Where ACLs live
 The seven fields as the wire carried them (so a client reads back what it stored), a version byte and postcard, in the table `acls` of the
@@ -569,9 +578,10 @@ Per topic, in Kafka's order: a name that cannot be a topic's (INVALID_TOPIC_EXCE
 unknown topic.) Test: `describe_producers_refuses_each_partition_with_the_error_text_and_judges_the_name_first`.
 
 ## SEC-71. Metadata: the authorized-operations fields (source: KA:960-981, AH:62-76; test `authz_metadata_ops.rs`)
-From v8, with `IncludeTopicAuthorizedOperations`, every topic entry has a bit `1 << code` for each of READ, WRITE, CREATE, DELETE, ALTER, DESCRIBE,
+From v8, with `IncludeTopicAuthorizedOperations`, every topic entry **that Kafka found** (the topics the caller may DESCRIBE, existing or not) has a bit `1 << code` for each of READ, WRITE, CREATE, DELETE, ALTER, DESCRIBE,
 DESCRIBE_CONFIGS and ALTER_CONFIGS that the caller is allowed on the topic of that name (ALL is never a bit; the implications of SEC-20 count, a
-DENY is exact), also for the entries that are refused, by name. With `IncludeClusterAuthorizedOperations` (v8 to v10 only) the cluster's: 0 if the
+DENY is exact). **The entries refused for DESCRIBE or CREATE do not have them** (corrected by the audit, SEC-214: `KafkaApis.scala` 973-979 sets the bits on
+`topicMetadata` only, and the refused entries are appended after, with the schema default). With `IncludeClusterAuthorizedOperations` (v8 to v10 only) the cluster's: 0 if the
 caller may not DESCRIBE the cluster, else a bit for each of CREATE, ALTER, DESCRIBE, CLUSTER_ACTION, DESCRIBE_CONFIGS, ALTER_CONFIGS and
 IDEMPOTENT_WRITE it may. A field not asked for, or not in the version, is the schema default (-2147483648). A super user, and a broker with no ACLs and the default
 allowing, have every bit. The auto-creation check (CREATE on the cluster or the topic, 29 instead of 3) was already SEC-27. Test: all of
@@ -729,6 +739,7 @@ message (the default-message exceptions leave it out), no member id, epoch 0, no
 judged (an empty member id is 30, not 42, to a caller that may not use the group). Test: `the_heartbeat_needs_read_on_the_group_and_describe_on_each_subscribed_topic`,
 `a_refused_heartbeat_is_the_code_alone_in_both_versions_and_makes_no_member`, `one_topic_the_caller_may_not_describe_among_several_refuses_the_subscription`,
 `authorization_comes_before_the_request_is_judged`.
+A `SubscribedTopicRegex` is not checked here: it is held to the same right when it is resolved (SEC-210).
 
 ## SEC-107. DescribeGroups (KA:1302-1348)
 DESCRIBE on each group. A refused group is an entry of its own: code 30, state `""`, protocol type and protocol `""`, no members, authorized operations
@@ -1006,6 +1017,96 @@ SASL is on (--console-unprotected): that will ...`), and **SASL without TLS on a
 `cli::tests::console::unprotected_accepts_the_start_and_the_start_says_what_it_left_open`, `..::sasl_without_tls_on_an_address_other_machines_reach_is_noted`,
 `tests/process console::unprotected_starts_the_broker_and_the_log_says_what_is_open`.
 
+## Audit fixes, authorization half (SEC-210 to SEC-222)
+The independent audit of the authorization half (2026-11-12) found one major bypass and a handful of small ones; each fix started from a test that failed on
+the audited code (finding 2's, on the metadata bits, is shown red by the mutation that puts the bits back). Source abbreviations as above, with TRR =
+`group-coordinator/.../modern/consumer/TopicRegexResolver.java` and GMM = `GroupMetadataManager.java` (Kafka 4.3.1).
+
+## SEC-210. A regex subscription never brings a topic the member may not DESCRIBE (TRR:74-117, 135-164; GMM:3376-3380)
+Kafka matches every topic name against each expression (TRR:96-104), then `filterTopicDescribeAuthorizedTopics` authorizes DESCRIBE on every matched topic with the
+request context it was given (the heartbeat that scheduled the refresh, GMM:3376-3380) and removes the denied ones (`removeAll(deniedTopics)`, TRR:164) before the
+result is stored and assigned from (GMM:3395-3460). With no authorizer it removes nothing (TRR:136). Before this fix a heartbeat carrying only the expression
+`.*` from a caller with READ on the group and DESCRIBE on one topic was assigned every topic: the existence, the id and the partition count of each hidden topic,
+and names by probing with expressions. Here the handler hands the group machine the caller's right as a value with every heartbeat (`TopicRights`: the ACL snapshot
+in force, the rules and the caller; `None` for a caller that nothing narrows), the member keeps the latest, and its pattern **takes** a topic only if it matches **and**
+the member may DESCRIBE it (`Member::pattern_takes`, used by the assignor's input and by the group's subscribed set). Names in `SubscribedTopicNames` keep their
+check at the request (SEC-106). The filter runs before the assignor, never after, so no partition of a hidden topic is ever a target. Super users see every match
+(`describe_rights` is `None`), a DENY removes a topic from an ALLOW of all, a classic member is not touched (its subscription is names). **Deviation SEC-D80.**
+Test: `a_regex_is_assigned_only_topics_the_member_may_describe` (the audit's), `a_regex_that_matches_only_describable_topics_gets_all_of_them`,
+`a_deny_keeps_one_topic_out_of_the_match`, `a_super_user_is_assigned_every_topic_the_expression_matches`,
+`a_classic_member_in_a_group_with_a_regex_member_is_unaffected`, `two_members_with_one_expression_are_filtered_each_by_its_own_rights`,
+`a_topic_made_later_is_taken_only_if_the_member_may_describe_it` (all in `tests/authz_regex_848.rs`).
+
+## SEC-211. A right granted or taken away is seen at the member's next heartbeat
+Kafka re-resolves when a refresh is due (new topics, an unresolved expression, or the refresh interval; at most every 10 s, GMM:3354-3373) and with the rights of whichever
+heartbeat triggers it. Here each heartbeat (the expression need not be sent again) replaces the member's rights; if the topics its pattern matches differ between the old
+and the new rights the group's epoch moves and the targets are recomputed (`Member::take_rights`); the same rights (same ACL snapshot, same caller) cost one comparison.
+A topic that gains the member's DESCRIBE is picked up, one that loses it is revoked by the usual two-step handover. Test:
+`a_describe_right_granted_later_is_taken_up_by_the_next_heartbeat`, `a_describe_right_taken_away_revokes_the_topic`.
+
+## SEC-212. The open broker pays nothing
+With the default allowing and no ACL stored, or for a super user, `Authorizer::describe_rights` is one atomic load and returns `None`: no `Arc` is cloned, no caller copied,
+no topic asked about, and the member's `rights` stays `None`, which `permits` as everything. A broker with ACLs allocates one small value per heartbeat. Test:
+`nobody_is_narrowed_when_the_default_allows_and_nothing_is_stored_or_for_a_super_user`, `rights_are_the_same_until_the_acls_or_the_caller_change`,
+`on_an_open_broker_one_deny_hides_one_topic_from_one_caller`; every existing group test is the rest of the proof.
+
+## SEC-213. The other paths a hidden topic could take through the 848 machine, checked
+(a) The assignment sent to a member and the targets are computed from `pattern_takes` only (SEC-210). (b) ConsumerGroupDescribe already hides a group whose members hold a
+topic the *describer* may not DESCRIBE (SEC-108, KA:2644-2728), so another member's assignment never reaches a caller who cannot see it; a member's `SubscribedTopicNames`
+are the names it was allowed to send and its `SubscribedTopicRegex` is the text it sent, as in Kafka. (c) The group's subscribed set (OffsetDelete's
+`GROUP_SUBSCRIBED_TO_TOPIC`, the offsets-retention check) is built from the same `pattern_takes`, and OffsetDelete asks READ on the topic first. (d) DescribeGroups describes no
+consumer-protocol member (SEC-107). (e) A classic member's metadata reaches the leader of a classic group exactly as it was sent, as Kafka's JoinGroup does. Nothing else
+needed a change. Test: `two_members_with_one_expression_are_filtered_each_by_its_own_rights` (ConsumerGroupDescribe of both members).
+
+## SEC-214. Metadata: the authorized-operations bits are on the entries Kafka found only (KA:960-985)
+`topicMetadata` (the topics the caller may DESCRIBE, found or not found) gets `TopicAuthorizedOperations` (KA:973-979); the entries refused for CREATE (29, name, no id) and for
+DESCRIBE (29) are built before and appended after (KA:983-985) and keep the schema default (-2147483648); so does the entry of an unknown id. This corrects SEC-71, which gave
+the refused entries their bits by name. A list of all topics has them on every entry it shows. Test: `an_entry_refused_for_describe_keeps_the_default_authorized_operations` (the
+audit's), `an_entry_refused_for_create_has_none_and_the_topic_found_has_its_own`, `an_entry_for_a_topic_not_there_has_the_bits_of_its_name`,
+`a_topics_operations_are_the_ones_the_caller_may_do_with_the_implied_describe` (`authz_metadata_ops.rs`, corrected).
+
+## SEC-215. Metadata: the topic ids nobody knows come first (KA:903-905, 983-985)
+`completeTopicMetadata = unknownTopicIdsTopicMetadata ++ topicMetadata ++ unauthorizedForCreateTopicMetadata ++ unauthorizedForDescribeTopicMetadata`: the UNKNOWN_TOPIC_ID (100)
+entries are ahead of everything, then the found ones, then those refused for CREATE, then those refused for DESCRIBE. Before, an unknown id kept its place in the request.
+**Deviation SEC-D83.** Test: `unknown_topic_ids_come_first`.
+
+## SEC-216. DeleteTopics by an id nobody holds is UNKNOWN_TOPIC_ID (RCM:1025-1028; Errors.java:388)
+Not 3: `deleteTopic` throws `UnknownTopicIdException` and the answer carries the code's own words, `This server does not host this topic ID.`, with the id and no name, to a
+caller that may delete everything and to one that may delete nothing (an id is no secret, SEC-62). A name nobody holds stays 3 (**deviation SEC-D84**). Test:
+`delete_topics_by_an_unknown_id_is_100_and_by_an_unknown_name_is_3`.
+
+## SEC-217. `--acl-super-user` splits on commas and semicolons
+The flag takes one principal, or a list separated by `,` (the Go edition) or `;` (Kafka's `super.users`, split on `;` and trimmed), repeatable, each part written `Type:name` (SEC-D9).
+Before, `User:a;User:b` was accepted as the one principal `a;User:b` and nobody was a super user: an operator locked out of their own broker. **Deviation SEC-D85.**
+Test: `a_list_may_be_separated_by_commas_or_semicolons`, `every_part_of_a_semicolon_list_is_checked_for_type_and_name`.
+
+## SEC-218. `authorizeByResourceType`: an ALLOW of `*` survives a DENY that covers `hardcode` (Authorizer.java 184-293)
+The name `hardcode` is asked first (SEC-22) and a DENY that covers it (the literal `hardcode`, a prefix such as `h`) refuses *that* question; the walk of the type's ACLs then still
+permits on an ALLOW of `*`, because a DENY of a name or prefix is looked at only for the other allows. A mutation that dropped the wildcard allow survived the first model test. Test:
+`a_wildcard_allow_survives_a_deny_of_the_hardcoded_name` (`kafka-auth tests/authz_independent`).
+
+## SEC-219. A second, independent model
+`kafka-auth/tests/authz_independent` transcribes `StandardAuthorizerData` and `authorizeByResourceType` again, apart from `authz_model`: UTF-16 names, one sorted set walked from an exemplar,
+names drawn from an alphabet that reaches `hardcode`'s neighbourhood, `*`'s, the astral and private-use planes. The audit ran 2.13 million checks with no disagreement; the lifted
+test draws a third of that (710,641 checks, about 5 s in a debug build; `SCALE_DOWN` in the file). Where Kafka itself throws or never ends (SEC-220) the case is counted and not
+compared. Test: `the_authorizer_agrees_with_an_independent_transcription_of_kafka`.
+
+## SEC-220. Kafka's own defects in `findAclRule`, not copied (SAD:394-419; **deviation SEC-D81**)
+The second section of the walk (the `*` exemplar, SAD:350-362) truncates the exemplar with `exemplar.resourceName().substring(0, matchesUpTo)` (SAD:411-412), where
+`matchesUpTo` is measured against the *resource* name, not against the exemplar (`*`, one character). For an ACL whose name sorts below `*` (a first character such as `$`, `!`,
+a space) and shares **two or more** leading characters with the resource, Kafka throws `StringIndexOutOfBoundsException`; sharing **exactly one**, the truncation gives back the same
+exemplar and the loop never ends. This broker answers every such request by the rules (a set lookup: the ACLs that cover the name, DENY first, SEC-18 to SEC-20), which is what Kafka
+means. The independent model finds them: in its generator about one check in 215 (3,290 of 710,641) is a throw or a loop (the audit measured 9,546 of 2.13 million with its own
+generator). Test: `the_authorizer_agrees_with_an_independent_transcription_of_kafka` (which asserts that the generator reaches such names).
+
+## SEC-221. CreateAcls looks the stored ACLs up in a set
+`store_acls` told the new ACLs from the stored by comparing each with each (N times M) on a worker other requests wait for; it builds a hash set of the stored ones. The answer is
+unchanged: a duplicate counts once and is a success each time. Test: `tests/acls_use`, which holds the duplicate rules.
+
+## SEC-222. ACL hosts over a real socket
+An IPv4 peer is `127.0.0.1`, an IPv6 one `0:0:0:0:0:0:0:1`, and an ACL written `::1` matches neither (SEC-17), checked through a listener on each loopback. The IPv6 test says so and
+returns if the machine has no IPv6 loopback. Test: `an_ipv4_peer_is_matched_as_dotted_decimal`, `an_ipv6_peer_is_matched_as_eight_groups_without_shortening`.
+
 ## Deviations
 - **SEC-D1.** A request in the middle of a login other than ApiVersions and SaslHandshake closes unanswered; Kafka answers it in its
   own shape with 34 and then closes. (Recorded `request-before-token-who`; the Go edition has the same difference.)
@@ -1114,3 +1215,17 @@ SASL is on (--console-unprotected): that will ...`), and **SASL without TLS on a
   do; before slice 8g it exited 1 through `main`'s `Result`. Failures after the start (the data directory in use, an I/O error) still exit 1. No test or script read the code 1.
 - **SEC-D63.** `--console-allow-host` and `--console-unprotected` are parsed and kept and nothing acts on them (SEC-187): there is no console or registry listener before Phase 9. The rule on their inputs (SEC-188)
   is built now. A console is taken as on unless `--console=false` (the Go edition's default), so an address given alone is judged; this broker has no default console address, so with no `--console-addr` no rule applies.
+- **SEC-D80.** A regex subscription is resolved per member and at every heartbeat that changes its rights (SEC-210, SEC-211). Kafka resolves per expression text, for the whole group, when a refresh is due
+  (at most every 10 s, and then only for new topics, an unresolved expression or the refresh interval), with the rights of the heartbeat that triggered it: two members with the same text share one resolution,
+  so a member's match can hold what another member was allowed, and a right granted is seen at the next refresh (minutes), not at the next heartbeat. Here no member is given a topic it may not DESCRIBE
+  and a change is seen at once. Stricter, not looser.
+- **SEC-D81.** Kafka's `findAclRule` throws or never ends on a resource whose name shares leading characters with an ACL name sorting below `*` (SEC-220). This broker answers by the rules. A client of Kafka
+  would have had an error or a hung request there; none can depend on it.
+- **SEC-D82.** `covering` (`kafka-auth authz/rules.rs`) tests every PREFIXED ACL of the resource type on every check: Kafka walks a sorted set and visits only the prefixes of the name. Exact and fast at the scale
+  this broker is for (tens of ACLs; a check is a hash lookup plus the prefixes); an operator with several thousand PREFIXED ACLs of one type pays a scan of them per request. A sorted index by name, found by
+  the longest prefixes, would remove it and is not built (the model tests of SEC-29 and SEC-219 would hold it). CreateAcls no longer has its own N-times-M step (SEC-221).
+- **SEC-D83.** Metadata by id: a request that carries ids and names serves both; Kafka serves the ids and drops the names (`KafkaApis.scala` 897-912). The same unknown id asked twice is answered twice; Kafka
+  keeps a set and answers it once. Neither is something a client sends.
+- **SEC-D84.** DeleteTopics by an unknown **name** answers 3 with no message (Kafka: 3 with `This server does not host this topic-partition.`), and a topic with neither a name nor an id is not
+  INVALID_REQUEST `Neither topic name nor id were specified.` (as in SEC-D17).
+- **SEC-D85.** The super-user separator (SEC-217): commas as the Go edition, semicolons as Kafka. A principal name containing either cannot be given on the flag (nor in Kafka's `super.users`).

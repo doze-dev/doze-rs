@@ -1,5 +1,5 @@
 //! Which Metadata entries carry the authorized-operations bits, and where the entries go. Source: `KafkaApis.scala` 973-985
-//! (SEC-71, SEC-D83): the bits are set on `topicMetadata` only; the entries refused for CREATE or DESCRIBE and the topic ids
+//! (SEC-214, SEC-215, SEC-D83): the bits are set on `topicMetadata` only; the entries refused for CREATE or DESCRIBE and the topic ids
 //! nobody knows are added afterwards (the unknown ids ahead of everything, the refused ones at the end) and keep the schema's
 //! default.
 #![allow(
@@ -24,7 +24,12 @@ use topics::*;
 
 const DEFAULT: i32 = i32::MIN;
 
-async fn ask(rig: &Rig, who: &Caller, version: i16, topics: Vec<MetadataRequestTopic>) -> MetadataResponse {
+async fn ask(
+    rig: &Rig,
+    who: &Caller,
+    version: i16,
+    topics: Vec<MetadataRequestTopic>,
+) -> MetadataResponse {
     let mut req = MetadataRequest::default();
     req.allow_auto_topic_creation = true;
     req.include_topic_authorized_operations = true;
@@ -54,13 +59,19 @@ async fn an_entry_refused_for_describe_keeps_the_default_authorized_operations()
     let rig = rig_with_topics(&["t"]).await;
     grant(
         &rig,
-        vec![allow("t", "User:alice", READ), deny("t", "User:alice", DESCRIBE)],
+        vec![
+            allow("t", "User:alice", READ),
+            deny("t", "User:alice", DESCRIBE),
+        ],
     )
     .await;
     for version in 8..=12 {
         let r = ask(&rig, &user("alice"), version, vec![by_name("t")]).await;
         assert_eq!(r.topics[0].error_code, 29);
-        assert_eq!(r.topics[0].topic_authorized_operations, DEFAULT, "v{version}");
+        assert_eq!(
+            r.topics[0].topic_authorized_operations, DEFAULT,
+            "v{version}"
+        );
     }
 }
 
@@ -77,11 +88,23 @@ async fn an_entry_refused_for_create_has_none_and_the_topic_found_has_its_own() 
         ],
     )
     .await;
-    let r = ask(&rig, &user("alice"), 12, vec![by_name("ghost"), by_name("t")]).await;
+    let r = ask(
+        &rig,
+        &user("alice"),
+        12,
+        vec![by_name("ghost"), by_name("t")],
+    )
+    .await;
     let seen: Vec<_> = r
         .topics
         .iter()
-        .map(|t| (t.name.as_ref().unwrap().0.to_string(), t.error_code, t.topic_authorized_operations))
+        .map(|t| {
+            (
+                t.name.as_ref().unwrap().0.to_string(),
+                t.error_code,
+                t.topic_authorized_operations,
+            )
+        })
         .collect();
     assert_eq!(
         seen,
@@ -101,7 +124,12 @@ async fn an_entry_for_a_topic_not_there_has_the_bits_of_its_name() {
         &rig,
         vec![
             allow("ghost", "User:alice", DESCRIBE),
-            creation((CLUSTER, "kafka-cluster", LITERAL), "User:alice", CREATE, ALLOW),
+            creation(
+                (CLUSTER, "kafka-cluster", LITERAL),
+                "User:alice",
+                CREATE,
+                ALLOW,
+            ),
         ],
     )
     .await;
@@ -134,13 +162,23 @@ async fn unknown_topic_ids_come_first() {
     };
     let (t, hidden) = (id("t").await, id("hidden").await);
     let ghost = Uuid::from_u128(0x1234_5678);
-    let r = ask(&rig, &user("alice"), 12, vec![by_id(hidden), by_id(t), by_id(ghost)]).await;
+    let r = ask(
+        &rig,
+        &user("alice"),
+        12,
+        vec![by_id(hidden), by_id(t), by_id(ghost)],
+    )
+    .await;
     let seen: Vec<(i16, Uuid, i32)> = r
         .topics
         .iter()
         .map(|e| (e.error_code, e.topic_id, e.topic_authorized_operations))
         .collect();
-    assert_eq!(seen.iter().map(|s| s.0).collect::<Vec<_>>(), [100, 0, 29], "{seen:?}");
+    assert_eq!(
+        seen.iter().map(|s| s.0).collect::<Vec<_>>(),
+        [100, 0, 29],
+        "{seen:?}"
+    );
     assert_eq!(seen[0].1, ghost);
     assert_eq!(seen[0].2, DEFAULT);
     assert_eq!(seen[2], (29, hidden, DEFAULT));

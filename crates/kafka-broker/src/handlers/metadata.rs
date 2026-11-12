@@ -198,7 +198,10 @@ impl<F: Fs> Broker<F> {
                 Place::DescribeDenied,
                 failed(None, ResponseError::TopicAuthorizationFailed),
             ),
-            None => (Place::UnknownId, failed(None, ResponseError::UnknownTopicId)),
+            None => (
+                Place::UnknownId,
+                failed(None, ResponseError::UnknownTopicId),
+            ),
         };
         if r.error_code != 0 {
             r.topic_id = asked.topic_id;
