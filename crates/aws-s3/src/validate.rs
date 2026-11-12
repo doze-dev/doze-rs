@@ -36,6 +36,7 @@ pub(crate) fn check(
     match kind {
         "policy" => policy(core, req, body),
         "cors" => cors(body),
+        "object-lock" => crate::lock::check_configuration(core, req, body),
         "lifecycle" => crate::lifecycle_check::rules(body),
         "encryption" => one_of(
             body.pointer("/Rules/0/ApplyServerSideEncryptionByDefault/SSEAlgorithm"),
@@ -127,10 +128,7 @@ fn policy(core: &Core, req: &Req<'_>, body: &Value) -> Result<(), ApiError> {
         {
             return Err(malformed_policy("Policy has invalid resource"));
         }
-        public |= s.get("Effect").and_then(Value::as_str) == Some("Allow")
-            && s.get("Condition").is_none()
-            && (strings(s.get("Principal")).contains(&"*".to_owned())
-                || strings(s.pointer("/Principal/AWS")).contains(&"*".to_owned()));
+        public |= statement_is_public(s);
     }
     let blocked = core
         .require(req.bucket())?
@@ -150,6 +148,25 @@ fn policy(core: &Core, req: &Req<'_>, body: &Value) -> Result<(), ApiError> {
         ));
     }
     Ok(())
+}
+
+/// Whether a statement grants to everyone: an `Allow` for principal `*` (or `{"AWS": "*"}`) with no `Condition`. AWS also counts a
+/// condition that does not name the caller as leaving it public, and weighs `Deny` statements; this is the narrower rule the Go
+/// edition used and the stage's `BlockPublicPolicy` check already applies. (memory)
+fn statement_is_public(s: &Value) -> bool {
+    s.get("Effect").and_then(Value::as_str) == Some("Allow")
+        && s.get("Condition").is_none()
+        && (strings(s.get("Principal")).contains(&"*".to_owned())
+            || strings(s.pointer("/Principal/AWS")).contains(&"*".to_owned()))
+}
+
+/// Whether a policy document makes its bucket public (`GetBucketPolicyStatus`).
+pub(crate) fn grants_public(doc: &Value) -> bool {
+    match doc.get("Statement") {
+        Some(Value::Array(a)) => a.iter().any(statement_is_public),
+        Some(s @ Value::Object(_)) => statement_is_public(s),
+        _ => false,
+    }
 }
 
 /// A string or a list of strings as a list.

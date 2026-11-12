@@ -1,11 +1,10 @@
 //! ListObjectVersions: every version and delete marker, a key's newest first, paged by a key marker and a version marker.
 
 use aws_wire::ApiError;
-use doze_store::record;
 use serde_json::{Map, Value, json};
 
 use crate::buckets::owner;
-use crate::core::{Core, VERSION};
+use crate::core::Core;
 use crate::list::{Enc, MAX_KEYS, Query, fold};
 use crate::model::{CKind, Version};
 use crate::put::algo_name;
@@ -135,7 +134,7 @@ impl Core {
                 }
                 return true;
             }
-            let Ok(v) = record::decode::<Version>("version", VERSION, bytes) else {
+            let Ok(v) = crate::store::decode_version(bytes) else {
                 bad = true;
                 return false;
             };

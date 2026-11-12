@@ -125,6 +125,9 @@ impl Core {
         let src = self.copy_source(req)?;
         let replace = req.s("MetadataDirective") == Some("REPLACE");
         check_not_onto_itself(req, &src, &bucket, replace, dest)?;
+        // The copy has the lock its own request names (or the bucket's default), never the source's.
+        let lock = self.new_lock(&bucket, crate::lock::requested(req, self.now_ms())?)?;
+        self.guard_replace(&bucket, &key)?;
         let algo = req
             .s("ChecksumAlgorithm")
             .and_then(Algo::parse)
@@ -149,6 +152,7 @@ impl Core {
             segs: vec![Seg { blob, len }],
             parts: Vec::new(),
             tags,
+            lock,
         };
         let stored = self.install(&bucket, v)?;
         self.note(req, Kind::Object("ObjectCreated:Copy"), &stored);

@@ -190,6 +190,8 @@ impl Core {
         };
         if let Some(b) = self.buckets.get_mut(req.bucket()) {
             b.configs.insert(k.name.to_owned(), text);
+            // Object Lock, once on, stays on (and with it versioning, which cannot then be suspended).
+            b.object_lock |= k.name == "object-lock";
         }
         if k.name == "notification" {
             self.note_raw(req, crate::events::Kind::Test, "", 0, None);
@@ -205,10 +207,14 @@ impl Core {
     }
 
     fn get_config(&self, req: &Req<'_>, k: &Kind) -> Answer {
-        let stored = self.require(req.bucket())?.configs.get(k.name);
-        let value = match stored {
+        let bucket = self.require(req.bucket())?;
+        let value = match bucket.configs.get(k.name) {
             Some(text) if k.name == "policy" => Value::String(text.clone()),
             Some(text) => serde_json::from_str(text).unwrap_or(Value::Null),
+            // A bucket made with Object Lock has it on, with no default retention, until a configuration says otherwise.
+            None if k.name == "object-lock" && bucket.object_lock => {
+                json!({"ObjectLockEnabled": "Enabled"})
+            }
             None => defaults(k.name).ok_or_else(|| no_config(k.name))?,
         };
         let mut out = match k.under {

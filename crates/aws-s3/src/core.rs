@@ -13,7 +13,7 @@ use doze_store::records::{Changes, Records};
 use doze_store::{Db, StoreError};
 
 use crate::blob::Blobs;
-use crate::model::{Bucket, PartRec, Upload};
+use crate::model::{Bucket, Lock, PartRec, Upload};
 use crate::req::{Answer, Ask, Out, Req};
 use serde_json::json;
 
@@ -24,6 +24,10 @@ pub(crate) const PARTS: &str = "parts";
 pub(crate) const VERSIONS: &str = "versions";
 /// The version of every record here. A change of a record's shape is a new version with a branch that reads the old one.
 pub(crate) const VERSION: u8 = 1;
+/// The record version of a row of the versions table: 2 added the Object Lock state; 1 is still read.
+pub(crate) const ROW_VERSION: u8 = 2;
+/// The Object Lock settings an upload in progress was started with (only uploads that named some have a row).
+pub(crate) const UPLOAD_LOCKS: &str = "upload_locks";
 /// The region whose files are kept in the service's directory itself.
 pub(crate) const HOME: &str = "us-east-1";
 /// Present while the service is open: finding it at start means the last run did not close.
@@ -42,6 +46,8 @@ pub(crate) struct Core {
     pub(crate) buckets: Records<Bucket>,
     pub(crate) uploads: Records<Upload>,
     pub(crate) parts: Records<PartRec>,
+    /// By upload row: the Object Lock settings the upload was started with.
+    pub(crate) upload_locks: Records<Lock>,
     pub(crate) batch: Batch,
     pub(crate) db: Db,
     pub(crate) blobs: Blobs<RealFs>,
@@ -93,6 +99,11 @@ pub(crate) fn built(op: Operation) -> bool {
             | O::ListMultipartUploads
             | O::GetBucketVersioning
             | O::PutBucketVersioning
+            | O::GetObjectRetention
+            | O::PutObjectRetention
+            | O::GetObjectLegalHold
+            | O::PutObjectLegalHold
+            | O::GetBucketPolicyStatus
     ) || crate::config::kind_of(op).is_some()
         || crate::idconfig::is_id_config(op)
 }
@@ -146,17 +157,23 @@ impl Core {
         clock: Arc<dyn Clock>,
         peers: Option<Arc<Peers>>,
     ) -> Result<Self, StoreError> {
-        let db = Db::open(dir, FILE, &[BUCKETS, UPLOADS, PARTS, VERSIONS])?;
+        let db = Db::open(
+            dir,
+            FILE,
+            &[BUCKETS, UPLOADS, PARTS, VERSIONS, UPLOAD_LOCKS],
+        )?;
         let read = db.read()?;
         let buckets = Records::load(BUCKETS, "bucket", VERSION, &read)?;
         let uploads = Records::load(UPLOADS, "upload", VERSION, &read)?;
         let parts = Records::load(PARTS, "part", VERSION, &read)?;
+        let upload_locks = Records::load(UPLOAD_LOCKS, "upload lock", VERSION, &read)?;
         drop(read);
         let blobs = Blobs::new(RealFs, dir);
         let core = Self {
             buckets,
             uploads,
             parts,
+            upload_locks,
             batch: Batch::default(),
             db,
             blobs,
@@ -185,9 +202,7 @@ impl Core {
     fn live_blobs(&self) -> HashSet<String> {
         let mut live: HashSet<String> = self.parts.iter().map(|(_, p)| p.blob.clone()).collect();
         let scanned = self.db.scan(VERSIONS, "", |_, bytes| {
-            if let Ok(v) =
-                doze_store::record::decode::<crate::model::Version>("version", VERSION, bytes)
-            {
+            if let Ok(v) = crate::store::decode_version(bytes) {
                 live.extend(v.segs.into_iter().map(|s| s.blob));
             }
             true
@@ -263,6 +278,7 @@ impl Core {
         self.buckets.stage().ok();
         self.uploads.stage().ok();
         self.parts.stage().ok();
+        self.upload_locks.stage().ok();
     }
 
     fn flush(&mut self) -> Result<Option<doze_store::Ack>, StoreError> {
@@ -271,6 +287,7 @@ impl Core {
             self.buckets.stage()?,
             self.uploads.stage()?,
             self.parts.stage()?,
+            self.upload_locks.stage()?,
             Changes::of_rows(VERSIONS, batch.puts, batch.deletes),
         ];
         Ok(self.db.submit(changes))
@@ -311,6 +328,11 @@ impl Core {
             }
             O::GetBucketVersioning => self.get_versioning(&req),
             O::PutBucketVersioning => self.put_versioning(&req),
+            O::GetObjectRetention => self.get_retention(&req),
+            O::PutObjectRetention => self.put_retention(&req),
+            O::GetObjectLegalHold => self.get_legal_hold(&req),
+            O::PutObjectLegalHold => self.put_legal_hold(&req),
+            O::GetBucketPolicyStatus => self.get_policy_status(&req),
             O::CreateMultipartUpload => self.create_upload(&req),
             O::UploadPart => self.upload_part(req),
             O::UploadPartCopy => self.upload_part_copy(&req).await,
