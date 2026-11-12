@@ -106,7 +106,8 @@
       // Alpine owns an `x-show` element's `style`: the server's copy (closed) must not close it.
       beforeAttributeUpdated: (name, node) => {
         if (name === 'style' && node.hasAttribute && node.hasAttribute('x-show')) return false;
-        mark(node);
+        // htmx's own bookkeeping classes (htmx-added, htmx-settling) coming and going are no change of the page.
+        if (!(name === 'class' && /(^| )htmx-/.test(node.className || ''))) mark(node);
         return true;
       },
     });

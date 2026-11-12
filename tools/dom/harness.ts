@@ -102,7 +102,9 @@ export interface Page {
   animated: Element[];
   window: Window;
   document: Window["document"];
-  /** Every fetch, in order, answered or not. */
+  /** What the page asked the window to scroll to, in order. */
+  scrolls: Array<[number, number]>;
+  /** Every fetch and every XMLHttpRequest (htmx's), in order, answered or not. */
   calls: Call[];
   /** The fetches not yet answered. */
   pending: Pending[];
@@ -288,6 +290,16 @@ export async function boot(html: string, opts: Options = {}): Promise<Page> {
     }
   }
   (window as unknown as { XMLHttpRequest: unknown }).XMLHttpRequest = FakeXHR;
+  // happy-dom's queueMicrotask is a setTimeout, and the timers here are run by hand: Alpine's flush must be a real microtask.
+  (window as unknown as { queueMicrotask: unknown }).queueMicrotask = (fn: () => void) => queueMicrotask(fn);
+  // Floating UI (inside Alpine's anchor plugin) watches its elements with observers that happy-dom has no layout for.
+  for (const name of ["ResizeObserver", "IntersectionObserver"]) {
+    (window as unknown as Record<string, unknown>)[name] = class {
+      observe(): void {}
+      unobserve(): void {}
+      disconnect(): void {}
+    };
+  }
   // htmx asks `root instanceof Document`; in happy-dom's scope the window's own document is not one. Say that it is.
   const Doc = window.Document as unknown as { [Symbol.hasInstance]?: unknown };
   Object.defineProperty(Doc, Symbol.hasInstance, { value: (o: unknown) => o === window.document, configurable: true });
@@ -300,11 +312,16 @@ export async function boot(html: string, opts: Options = {}): Promise<Page> {
 
   FakeEventSource.all = [];
   if (!opts.noEventSource) (window as unknown as { EventSource: unknown }).EventSource = FakeEventSource;
+  // Timers are run by hand (`runTimers`), except when Alpine is on: it flushes its own queue with setTimeout, so they run for real
+  // (and a test that waits for a delay waits that long, or reads `timers` for what was asked).
+  const realSet = window.setTimeout.bind(window), realClear = window.clearTimeout.bind(window);
   (window as unknown as { setTimeout: unknown }).setTimeout = (fn: () => void, ms: number) => {
     timers.push({ fn, ms, cleared: false });
+    if (opts.alpine) return realSet(() => { if (!timers.find((t) => t.fn === fn)?.cleared) fn(); }, ms);
     return timers.length;
   };
   (window as unknown as { clearTimeout: unknown }).clearTimeout = (id: number) => {
+    if (opts.alpine) { realClear(id); return; }
     const t = timers[id - 1];
     if (t) t.cleared = true;
   };
@@ -338,7 +355,8 @@ export async function boot(html: string, opts: Options = {}): Promise<Page> {
   Object.defineProperty(window.location, "search", { get: () => new URL(history.url).search, configurable: true });
   Object.defineProperty(window.location, "reload", { value: () => void reloads++, configurable: true });
   (window as unknown as { matchMedia: unknown }).matchMedia = (q: string) => ({ matches: !!opts.reduced && q.includes("reduce"), media: q });
-  (window as unknown as { scrollTo: unknown }).scrollTo = () => {};
+  const scrolls: Array<[number, number]> = [];
+  (window as unknown as { scrollTo: unknown }).scrollTo = (x: number, y: number) => void scrolls.push([x, y]);
   const animated: Element[] = [];
   (window.Element.prototype as unknown as { animate: unknown }).animate = function (this: Element) {
     animated.push(this);
@@ -368,6 +386,7 @@ export async function boot(html: string, opts: Options = {}): Promise<Page> {
       return reloads;
     },
     animated,
+    scrolls,
     window,
     document,
     calls,
