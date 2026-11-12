@@ -1,8 +1,6 @@
 # Phase 8: security (SASL, ACLs, TLS)
 
-Status: **BUILT, audits pending (2026-11-12).** All seven slices are built and gated (ledger below); the replay is 47 pass and 11 fail (the eleven are Phase 9); the catalogue is `behaviours/security.md`. Two independent audits are running; this phase is not marked done until both say so and their fixes are re-audited. Evidence: `phase8/kafka-semantics.md` (Kafka 4.3.1 source, cited),
-`phase8/go-oracle-rust.md` (the recorded oracle, the Go edition, the Rust touchpoints), `phase8/prior-art-weight.md` (prior art,
-measured weight). Catalogue: `behaviours/security.md` (index at its top, checked by `tools/check-security-catalogue.ts`); debts and left-open items: `debt.md` section I.
+Status: **DONE (2026-11-12).** All seven slices are built and every audit finding is fixed (four independent audit rounds: authentication, authorization, a re-audit, and a final focused audit of the group-machine fixes; `debt.md` I5 to I7 and I27, I28). Gates at 46d2937: fmt and clippy (default and `tls`), 1239 tests (177 with `tls`), lint-size, fuzz-check (17 parsers), the catalogue checker (156 rules, 65 deviations), interop 23/23 plain, 26/26 SASL and 8/8 TLS, the replay 47 pass and 11 fail (the eleven are Phase 9). What is not known: the authorization matrix is source-derived (an `authz-matrix` recording is proposed), and the Linux weight is unmeasured. The slice ledger and the original plan follow.
 
 **Ledger** (merge commits on `main`, `git log --first-parent`; the gates are those the merge recorded):
 
