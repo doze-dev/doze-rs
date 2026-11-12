@@ -237,12 +237,14 @@ dependencies = [
  "aws-sns",
  "aws-sqs",
  "aws-testkit",
+ "aws-webhook",
  "aws-wire",
  "doze-runtime",
  "doze-store",
  "serde",
  "serde_json",
  "tokio",
+ "tokio-util",
  "tracing",
 ]
 
@@ -813,6 +815,13 @@ dependencies = [
  "aws-schema",
  "aws-wire",
  "serde_json",
+]
+
+[[package]]
+name = "aws-webhook"
+version = "0.0.0"
+dependencies = [
+ "tokio",
 ]
 
 [[package]]
