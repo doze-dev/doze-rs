@@ -1353,6 +1353,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "doze-desk"
+version = "0.0.0"
+dependencies = [
+ "async-channel",
+ "doze-control",
+ "doze-display",
+ "doze-projects",
+ "serde_json",
+ "tempfile",
+ "thiserror",
+]
+
+[[package]]
 name = "doze-display"
 version = "0.0.0"
 dependencies = [

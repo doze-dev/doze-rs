@@ -1,0 +1,685 @@
+{
+  "w": 1430,
+  "h": 674,
+  "caps": [
+    {
+      "text": "Who calls whom",
+      "sub": "left to right, the way a request travels",
+      "x": 24,
+      "y": 16
+    },
+    {
+      "text": "Nobody calls these",
+      "sub": "they work from events",
+      "x": 24,
+      "y": 420
+    },
+    {
+      "text": "Shared by the stack",
+      "sub": "one line each would be 17 lines; the chips on each card say who uses what",
+      "x": 24,
+      "y": 544
+    }
+  ],
+  "band": 534,
+  "nodes": [
+    {
+      "name": "storefront",
+      "x": 24,
+      "y": 192,
+      "w": 214,
+      "h": 74,
+      "lang": "ts",
+      "chips": [],
+      "quiet": "no shared services",
+      "fold": {
+        "glyph": "✓",
+        "tone": "good",
+        "title": "before it: install-storefront ✓ 18m ago"
+      },
+      "calls": [
+        "gateway"
+      ],
+      "callers": [],
+      "uses": [],
+      "detail": {
+        "head": "TypeScript · 61 MB · dozing",
+        "rows": [
+          {
+            "k": "needs",
+            "v": "gateway"
+          },
+          {
+            "k": "needed by",
+            "v": "nobody calls it"
+          },
+          {
+            "k": "before it",
+            "v": "install-storefront ✓",
+            "tone": "ok",
+            "dim": "18m ago"
+          }
+        ]
+      }
+    },
+    {
+      "name": "gateway",
+      "x": 310,
+      "y": 192,
+      "w": 214,
+      "h": 74,
+      "lang": "go",
+      "chips": [
+        "redis"
+      ],
+      "calls": [
+        "identity",
+        "catalog",
+        "orders",
+        "fulfilment",
+        "recommendations"
+      ],
+      "callers": [
+        "storefront"
+      ],
+      "uses": [
+        "redis"
+      ],
+      "detail": {
+        "head": "Go · 46 MB · awake",
+        "rows": [
+          {
+            "k": "needs",
+            "v": "identity, catalog, orders, fulfilment, recommendations · and redis below"
+          },
+          {
+            "k": "needed by",
+            "v": "storefront"
+          },
+          {
+            "k": "before it",
+            "v": "nothing",
+            "tone": "dim"
+          }
+        ]
+      }
+    },
+    {
+      "name": "identity",
+      "x": 596,
+      "y": 52,
+      "w": 250,
+      "h": 74,
+      "lang": "go",
+      "chips": [
+        "postgres",
+        "kafka"
+      ],
+      "fold": {
+        "glyph": "✓",
+        "tone": "good",
+        "title": "before it: migrate-identity ✓ 17m ago"
+      },
+      "calls": [],
+      "callers": [
+        "gateway"
+      ],
+      "uses": [
+        "postgres",
+        "kafka"
+      ],
+      "detail": {
+        "head": "Go · 42 MB · awake",
+        "rows": [
+          {
+            "k": "needs",
+            "v": "postgres, kafka below"
+          },
+          {
+            "k": "needed by",
+            "v": "gateway"
+          },
+          {
+            "k": "before it",
+            "v": "migrate-identity ✓",
+            "tone": "ok",
+            "dim": "17m ago"
+          }
+        ]
+      }
+    },
+    {
+      "name": "fulfilment",
+      "x": 596,
+      "y": 192,
+      "w": 250,
+      "h": 74,
+      "lang": "py",
+      "chips": [
+        "kafka",
+        "aws"
+      ],
+      "fold": {
+        "glyph": "✓",
+        "tone": "good",
+        "title": "before it: install-fulfilment ✓ 18m ago"
+      },
+      "calls": [
+        "orders"
+      ],
+      "callers": [
+        "gateway"
+      ],
+      "uses": [
+        "kafka",
+        "aws"
+      ],
+      "detail": {
+        "head": "Python · 52 MB · awake",
+        "rows": [
+          {
+            "k": "needs",
+            "v": "orders · and kafka, aws below"
+          },
+          {
+            "k": "needed by",
+            "v": "gateway"
+          },
+          {
+            "k": "before it",
+            "v": "install-fulfilment ✓",
+            "tone": "ok",
+            "dim": "18m ago"
+          }
+        ]
+      }
+    },
+    {
+      "name": "recommendations",
+      "x": 596,
+      "y": 332,
+      "w": 250,
+      "h": 74,
+      "lang": "py",
+      "chips": [
+        "postgres",
+        "kafka",
+        "redis"
+      ],
+      "fold": {
+        "glyph": "✓",
+        "tone": "good",
+        "title": "before it: migrate-recommendations ✓ 16m ago · install-recommendations ✓ 18m ago"
+      },
+      "calls": [
+        "catalog"
+      ],
+      "callers": [
+        "gateway"
+      ],
+      "uses": [
+        "postgres",
+        "kafka",
+        "redis"
+      ],
+      "detail": {
+        "head": "Python · 58 MB · awake",
+        "rows": [
+          {
+            "k": "needs",
+            "v": "catalog · and postgres, kafka, redis below"
+          },
+          {
+            "k": "needed by",
+            "v": "gateway"
+          },
+          {
+            "k": "before it",
+            "v": "migrate-recommendations ✓ · install-recommendations ✓",
+            "tone": "ok",
+            "dim": "16m ago"
+          }
+        ]
+      }
+    },
+    {
+      "name": "orders",
+      "x": 918,
+      "y": 192,
+      "w": 214,
+      "h": 74,
+      "lang": "go",
+      "chips": [
+        "postgres",
+        "kafka"
+      ],
+      "fold": {
+        "glyph": "✓",
+        "tone": "good",
+        "title": "before it: migrate-orders ✓ 16m ago"
+      },
+      "calls": [
+        "catalog"
+      ],
+      "callers": [
+        "fulfilment",
+        "gateway"
+      ],
+      "uses": [
+        "postgres",
+        "kafka"
+      ],
+      "detail": {
+        "head": "Go · 47 MB · awake",
+        "rows": [
+          {
+            "k": "needs",
+            "v": "catalog · and postgres, kafka below"
+          },
+          {
+            "k": "needed by",
+            "v": "gateway, fulfilment · they keep it awake"
+          },
+          {
+            "k": "before it",
+            "v": "migrate-orders ✓",
+            "tone": "ok",
+            "dim": "16m ago"
+          }
+        ]
+      }
+    },
+    {
+      "name": "catalog",
+      "x": 1204,
+      "y": 192,
+      "w": 214,
+      "h": 74,
+      "lang": "go",
+      "chips": [
+        "postgres",
+        "aws"
+      ],
+      "fold": {
+        "glyph": "✓",
+        "tone": "good",
+        "title": "before it: migrate-catalog ✓ 17m ago"
+      },
+      "calls": [],
+      "callers": [
+        "gateway",
+        "orders",
+        "recommendations"
+      ],
+      "uses": [
+        "postgres",
+        "aws"
+      ],
+      "detail": {
+        "head": "Go · 47 MB · awake",
+        "rows": [
+          {
+            "k": "needs",
+            "v": "postgres, aws below"
+          },
+          {
+            "k": "needed by",
+            "v": "gateway, recommendations, orders · they keep it awake"
+          },
+          {
+            "k": "before it",
+            "v": "migrate-catalog ✓",
+            "tone": "ok",
+            "dim": "17m ago"
+          }
+        ]
+      }
+    },
+    {
+      "name": "payments",
+      "x": 24,
+      "y": 444,
+      "w": 214,
+      "h": 74,
+      "lane": true,
+      "lang": "go",
+      "chips": [
+        "postgres",
+        "kafka",
+        "redis"
+      ],
+      "fold": {
+        "glyph": "✓",
+        "tone": "good",
+        "title": "before it: migrate-payments ✓ 16m ago"
+      },
+      "calls": [],
+      "callers": [],
+      "uses": [
+        "postgres",
+        "kafka",
+        "redis"
+      ],
+      "detail": {
+        "head": "Go · 47 MB · awake",
+        "rows": [
+          {
+            "k": "needs",
+            "v": "postgres, kafka, redis below"
+          },
+          {
+            "k": "needed by",
+            "v": "nobody calls it"
+          },
+          {
+            "k": "before it",
+            "v": "migrate-payments ✓",
+            "tone": "ok",
+            "dim": "16m ago"
+          }
+        ]
+      }
+    },
+    {
+      "name": "notifications",
+      "x": 310,
+      "y": 444,
+      "w": 214,
+      "h": 74,
+      "lane": true,
+      "lang": "ts",
+      "chips": [
+        "kafka",
+        "mailpit"
+      ],
+      "fold": {
+        "glyph": "✓",
+        "tone": "good",
+        "title": "before it: install-notifications ✓ 18m ago"
+      },
+      "calls": [],
+      "callers": [],
+      "uses": [
+        "kafka",
+        "mailpit"
+      ],
+      "detail": {
+        "head": "TypeScript · 45 MB · awake",
+        "rows": [
+          {
+            "k": "needs",
+            "v": "kafka, mailpit below"
+          },
+          {
+            "k": "needed by",
+            "v": "nobody calls it"
+          },
+          {
+            "k": "before it",
+            "v": "install-notifications ✓",
+            "tone": "ok",
+            "dim": "18m ago"
+          }
+        ]
+      }
+    }
+  ],
+  "shared": [
+    {
+      "name": "mailpit",
+      "x": 24,
+      "y": 570,
+      "w": 214,
+      "h": 88,
+      "what": "brought in by you",
+      "used": "used by 1",
+      "only": "notifications",
+      "users": [
+        "notifications"
+      ],
+      "detail": {
+        "head": "brought in by you · 24 MB · awake",
+        "rows": [
+          {
+            "k": "used by",
+            "v": "notifications"
+          }
+        ]
+      }
+    },
+    {
+      "name": "redis",
+      "x": 310,
+      "y": 570,
+      "w": 214,
+      "h": 88,
+      "what": "valkey 9",
+      "used": "used by 3",
+      "users": [
+        "gateway",
+        "payments",
+        "recommendations"
+      ],
+      "detail": {
+        "head": "valkey 9 · 5 MB · awake",
+        "rows": [
+          {
+            "k": "used by",
+            "v": "gateway, payments, recommendations"
+          }
+        ]
+      }
+    },
+    {
+      "name": "kafka",
+      "x": 596,
+      "y": 570,
+      "w": 250,
+      "h": 88,
+      "what": "kafka 4",
+      "used": "used by 6",
+      "users": [
+        "fulfilment",
+        "identity",
+        "notifications",
+        "orders",
+        "payments",
+        "recommendations"
+      ],
+      "detail": {
+        "head": "kafka 4 · 24 MB · awake",
+        "rows": [
+          {
+            "k": "used by",
+            "v": "fulfilment, identity, notifications, orders, payments, recommendations"
+          }
+        ]
+      }
+    },
+    {
+      "name": "postgres",
+      "x": 918,
+      "y": 570,
+      "w": 214,
+      "h": 88,
+      "what": "postgres 18",
+      "used": "used by 5",
+      "users": [
+        "catalog",
+        "identity",
+        "orders",
+        "payments",
+        "recommendations"
+      ],
+      "detail": {
+        "head": "postgres 18 · 13 MB · awake",
+        "rows": [
+          {
+            "k": "used by",
+            "v": "catalog, identity, orders, payments, recommendations"
+          }
+        ]
+      }
+    },
+    {
+      "name": "aws",
+      "x": 1204,
+      "y": 570,
+      "w": 214,
+      "h": 88,
+      "what": "aws",
+      "used": "used by 2",
+      "users": [
+        "catalog",
+        "fulfilment"
+      ],
+      "detail": {
+        "head": "aws · 25 MB · awake",
+        "rows": [
+          {
+            "k": "used by",
+            "v": "catalog, fulfilment"
+          }
+        ]
+      }
+    }
+  ],
+  "edges": [
+    {
+      "from": "storefront",
+      "to": "gateway",
+      "d": "M238 229 C 274 229, 256 229, 292 229 L 300 229"
+    },
+    {
+      "from": "gateway",
+      "to": "identity",
+      "d": "M524 229 L 536 229 Q 548 229, 548 217 L 548 107 Q 548 89, 566 89 L 586 89"
+    },
+    {
+      "from": "gateway",
+      "to": "fulfilment",
+      "d": "M524 229 C 560 229, 542 229, 578 229 L 586 229"
+    },
+    {
+      "from": "gateway",
+      "to": "recommendations",
+      "d": "M524 229 L 536 229 Q 548 229, 548 241 L 548 351 Q 548 369, 566 369 L 586 369"
+    },
+    {
+      "from": "gateway",
+      "to": "orders",
+      "d": "M496 192 L 496 175.5 Q 496 159, 512.5 159 L 929.5 159 Q 946 159, 946 175.5 L 946 182"
+    },
+    {
+      "from": "gateway",
+      "to": "catalog",
+      "d": "M496 266 L 496 282.5 Q 496 299, 512.5 299 L 1215.5 299 Q 1232 299, 1232 282.5 L 1232 276"
+    },
+    {
+      "from": "fulfilment",
+      "to": "orders",
+      "d": "M846 229 C 882 229, 864 229, 900 229 L 908 229"
+    },
+    {
+      "from": "recommendations",
+      "to": "catalog",
+      "d": "M846 369 L 1316 369 Q 1334 369, 1334 351 L 1334 276"
+    },
+    {
+      "from": "orders",
+      "to": "catalog",
+      "d": "M1132 229 C 1168 229, 1150 229, 1186 229 L 1194 229"
+    }
+  ],
+  "lines": [
+    {
+      "from": "gateway",
+      "to": "redis",
+      "d": "M310 247 L 292 247 Q 274 247, 274 265 L 274 526 Q 274 544, 292 544 L 404 544 Q 417 544, 417 557 L 417 570"
+    },
+    {
+      "from": "identity",
+      "to": "postgres",
+      "d": "M596 107 L 578 107 Q 560 107, 560 125 L 560 526 Q 560 544, 578 544 L 1012 544 Q 1025 544, 1025 557 L 1025 570"
+    },
+    {
+      "from": "identity",
+      "to": "kafka",
+      "d": "M596 107 L 578 107 Q 560 107, 560 125 L 560 526 Q 560 544, 578 544 L 708 544 Q 721 544, 721 557 L 721 570"
+    },
+    {
+      "from": "fulfilment",
+      "to": "kafka",
+      "d": "M596 247 L 578 247 Q 560 247, 560 265 L 560 526 Q 560 544, 578 544 L 708 544 Q 721 544, 721 557 L 721 570"
+    },
+    {
+      "from": "fulfilment",
+      "to": "aws",
+      "d": "M596 247 L 578 247 Q 560 247, 560 265 L 560 526 Q 560 544, 578 544 L 1298 544 Q 1311 544, 1311 557 L 1311 570"
+    },
+    {
+      "from": "recommendations",
+      "to": "postgres",
+      "d": "M721 406 C 721 488, 1025 480, 1025 562 L 1025 570"
+    },
+    {
+      "from": "recommendations",
+      "to": "kafka",
+      "d": "M721 406 C 721 488, 721 480, 721 562 L 721 570"
+    },
+    {
+      "from": "recommendations",
+      "to": "redis",
+      "d": "M721 406 L 721 526 Q 721 544, 703 544 L 430 544 Q 417 544, 417 557 L 417 570"
+    },
+    {
+      "from": "orders",
+      "to": "postgres",
+      "d": "M1025 266 C 1025 418, 1025 410, 1025 562 L 1025 570"
+    },
+    {
+      "from": "orders",
+      "to": "kafka",
+      "d": "M1025 266 C 1025 418, 721 410, 721 562 L 721 570"
+    },
+    {
+      "from": "catalog",
+      "to": "postgres",
+      "d": "M1311 266 C 1311 418, 1025 410, 1025 562 L 1025 570"
+    },
+    {
+      "from": "catalog",
+      "to": "aws",
+      "d": "M1311 266 C 1311 418, 1311 410, 1311 562 L 1311 570"
+    },
+    {
+      "from": "payments",
+      "to": "postgres",
+      "d": "M131 518 C 131 544, 1025 536, 1025 562 L 1025 570"
+    },
+    {
+      "from": "payments",
+      "to": "kafka",
+      "d": "M131 518 C 131 544, 721 536, 721 562 L 721 570"
+    },
+    {
+      "from": "payments",
+      "to": "redis",
+      "d": "M131 518 C 131 544, 417 536, 417 562 L 417 570"
+    },
+    {
+      "from": "notifications",
+      "to": "kafka",
+      "d": "M417 518 C 417 544, 721 536, 721 562 L 721 570"
+    },
+    {
+      "from": "notifications",
+      "to": "mailpit",
+      "d": "M417 518 C 417 544, 131 536, 131 562 L 131 570"
+    }
+  ],
+  "detail": {
+    "x": 970,
+    "y": 14
+  }
+}
