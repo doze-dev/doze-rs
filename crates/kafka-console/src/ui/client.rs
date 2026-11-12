@@ -76,7 +76,7 @@ pub fn form(action: &str, target: &str, hidden: &[(&str, &str)], content: Markup
 /// A button that copies `text`; only shown when a script can do it.
 #[must_use]
 pub fn copy_button(class: &str, text: &str, label: Markup) -> Markup {
-    html! { button class=(class) type="button" data-copy=(text) data-js-only hidden { (label) } }
+    html! { button class=(class) type="button" data-ui="copy" data-copy=(text) data-js-only hidden { (label) } }
 }
 
 /// The address chip of the top bar: always shown (it is the address), and copies it when a script can.
@@ -88,13 +88,13 @@ pub fn copy_chip(text: &str, label: Markup) -> Markup {
 /// A button that copies the text of the element `target_id`.
 #[must_use]
 pub fn copy_from_button(class: &str, target_id: &str, label: Markup) -> Markup {
-    html! { button class=(class) type="button" data-copy-from=(target_id) data-js-only hidden { (label) } }
+    html! { button class=(class) type="button" data-ui="copy" data-copy-from=(target_id) data-js-only hidden { (label) } }
 }
 
 /// A button of the "Copy as" control: sets what the copy buttons of the page copy.
 #[must_use]
 pub fn copy_as_button(kind: &str, on: bool, label: &str) -> Markup {
-    html! { button class=(super::filter::seg_class(on)) type="button" data-copy-as=(kind) data-js-only hidden { (label) } }
+    html! { button class=(super::filter::seg_class(on)) type="button" data-ui="tab" data-copy-as=(kind) data-js-only hidden { (label) } }
 }
 
 /// The element that carries the address the alternative copy forms are built from.

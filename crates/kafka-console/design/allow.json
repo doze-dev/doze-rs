@@ -1,1 +1,23 @@
-[]
+[
+  {
+    "board": "home",
+    "field": "link",
+    "selector": "connect-first-request",
+    "reason": "The first-request card needs the recorder (what the first request of a new client looks like): slice 9e. Until then Home shows the how-to-connect text (debt J1-J7).",
+    "expires": "9e"
+  },
+  {
+    "board": "home",
+    "field": "link",
+    "selector": "home-attention",
+    "reason": "The all-clear sentence links to the attention state of the same page on the board; a state is not a route, so it is plain text (debt J1-J7).",
+    "expires": "close"
+  },
+  {
+    "board": "home-attention",
+    "field": "link",
+    "selector": "connect-first-request",
+    "reason": "The first-request card needs the recorder: slice 9e (debt J1-J7).",
+    "expires": "9e"
+  }
+]

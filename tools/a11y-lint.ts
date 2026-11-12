@@ -119,7 +119,8 @@ export function lintPage(html: string, file: string): { findings: Finding[]; css
   const hasLiveSentence = all.some((e) => e.attrs["data-extra"] === "live-sentence");
   for (const e of all) {
     const live = (e.attrs["aria-live"] && e.attrs["aria-live"] !== "off") || e.attrs.role === "status" || e.attrs.role === "log";
-    if (live && !hasLiveSentence) add("live-region", `${label(e)} is a live region, but the page has no data-extra="live-sentence"`);
+    // A live region that is hidden at load (the lost-stream banner) speaks only when it is shown: that is its job.
+    if (live && !hasLiveSentence && !("hidden" in e.attrs)) add("live-region", `${label(e)} is a live region, but the page has no data-extra="live-sentence"`);
   }
 
   // status words

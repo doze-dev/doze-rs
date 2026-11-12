@@ -132,7 +132,7 @@ export function frontMatter(html: string): FrontMatter | null {
 const norm = (s: string): string => s.replace(/\[\[g:[^\]]*\]\]/g, "").replace(/\s+/g, " ").trim();
 const vary = (e: El): boolean => "data-vary" in e.attrs;
 const scaffold = (e: El): boolean =>
-  "data-scaffold" in e.attrs || hasClass(e, "from") || hasClass(e, "crumbs") || hasClass(e, "rail") || hasClass(e, "topbar");
+  "data-scaffold" in e.attrs || e.attrs.id === "stream-banner" || hasClass(e, "from") || hasClass(e, "crumbs") || hasClass(e, "rail") || hasClass(e, "topbar");
 
 /** Text of an element: data-vary and scaffolding dropped. */
 function text(el: El): string {

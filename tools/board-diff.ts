@@ -98,7 +98,9 @@ export function runDiff(o: DiffOptions): Report {
   for (const id of ids) if (!snap.boards[id]) errors.push(`unknown board id "${id}"`);
   if (errors.length) return empty(2);
 
-  const routes = readJson<Routes>(o.routes);
+  // The Rust test writes { "screens": { id: pattern } }; the tool tests pass the flat map. Both are read.
+  const rawRoutes = readJson<Routes & { screens?: Routes }>(o.routes);
+  const routes: Routes | null = rawRoutes && typeof rawRoutes.screens === "object" ? rawRoutes.screens : rawRoutes;
   if (!routes) notes.push(`${o.routes} is missing: rendered links cannot be resolved to screens, so every link is "unresolved" (?path)`);
   const opts: Options = { routes, base: o.base };
 

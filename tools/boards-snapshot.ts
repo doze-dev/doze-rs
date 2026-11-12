@@ -9,7 +9,7 @@
 
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { boardsDir, designDir, loadBoards, parseArgs } from "./lib/boards.ts";
+import { boardSignature, boardsDir, designDir, loadBoards, parseArgs } from "./lib/boards.ts";
 import { type Signature, SIGNATURE_VERSION, signature, stableStringify } from "./board-signature.ts";
 
 export interface Snapshot {
@@ -28,6 +28,9 @@ export function buildSnapshot(dir: string = boardsDir): { snapshot: Snapshot; pr
     if (b.fm.id !== b.id) problems.push(`${b.section}/${b.id}: front matter id is "${b.fm.id}"`);
     snapshot.boards[b.id] = { section: b.section, signature: signature(b.html) };
   }
+  // A state of a page has the page's title (one route, one breadcrumb); see pageTitle.
+  const fms = new Map(boards.map((b) => [b.id, b.fm as Record<string, unknown>]));
+  for (const b of boards) if (snapshot.boards[b.id]) snapshot.boards[b.id].signature = boardSignature(b, fms);
   for (const [id, { signature: s }] of Object.entries(snapshot.boards)) {
     for (const l of s.links) if (!ids.has(l)) problems.push(`${id}: links to "${l}", which is not a board`);
     for (const b of s.buttons) if (b.action.startsWith("to:") && !ids.has(b.action.slice(3))) problems.push(`${id}: button "${b.label}" goes to "${b.action.slice(3)}", which is not a board`);

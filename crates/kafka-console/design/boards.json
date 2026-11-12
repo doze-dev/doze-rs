@@ -470,7 +470,7 @@
           }
         ],
         "tabs": [],
-        "title": "Access with security on",
+        "title": "Access",
         "version": 1
       }
     },
@@ -623,7 +623,7 @@
         },
         "tables": [],
         "tabs": [],
-        "title": "Refused: cannot update dynamically",
+        "title": "Edit log.retention.ms",
         "version": 1
       }
     },
@@ -732,7 +732,7 @@
           }
         ],
         "tabs": [],
-        "title": "Saved",
+        "title": "Edit log.retention.ms",
         "version": 1
       }
     },
@@ -1017,7 +1017,7 @@
             "on": false
           }
         ],
-        "title": "Refused: lag conflict",
+        "title": "Edit compaction lag",
         "version": 1
       }
     },
@@ -1123,7 +1123,7 @@
             "on": false
           }
         ],
-        "title": "Refused: invalid value",
+        "title": "Edit cleanup.policy",
         "version": 1
       }
     },
@@ -1287,7 +1287,7 @@
             "on": false
           }
         ],
-        "title": "Saved",
+        "title": "Edit min.cleanable.dirty.ratio",
         "version": 1
       }
     },
@@ -1670,7 +1670,7 @@
           }
         ],
         "tabs": [],
-        "title": "First request landed",
+        "title": "Home",
         "version": 1
       }
     },
@@ -2501,7 +2501,7 @@
             "on": false
           }
         ],
-        "title": "fulfilment",
+        "title": "search-indexer",
         "version": 1
       }
     },
@@ -3050,7 +3050,7 @@
             "on": true
           }
         ],
-        "title": "No groups yet",
+        "title": "Groups",
         "version": 1
       }
     },
@@ -3326,7 +3326,7 @@
         },
         "tables": [],
         "tabs": [],
-        "title": "Something needs you",
+        "title": "Home",
         "version": 1
       }
     },
@@ -3450,7 +3450,7 @@
         },
         "tables": [],
         "tabs": [],
-        "title": "First run",
+        "title": "Home",
         "version": 1
       }
     },
@@ -3552,7 +3552,7 @@
           }
         ],
         "tabs": [],
-        "title": "Slow produce to orders",
+        "title": "Lab",
         "version": 1
       }
     },
@@ -3715,7 +3715,7 @@
         "states": {},
         "tables": [],
         "tabs": [],
-        "title": "No rehearsals yet",
+        "title": "Lab",
         "version": 1
       }
     },
@@ -3850,7 +3850,7 @@
         },
         "tables": [],
         "tabs": [],
-        "title": "Fail inventory.levels fetches",
+        "title": "Lab",
         "version": 1
       }
     },
@@ -4407,7 +4407,7 @@
             "on": false
           }
         ],
-        "title": "Lag: past the end",
+        "title": "Lag",
         "version": 1
       }
     },
@@ -4514,7 +4514,7 @@
             "on": false
           }
         ],
-        "title": "Lag: offsets expiring",
+        "title": "Lag",
         "version": 1
       }
     },
@@ -4765,7 +4765,7 @@
           }
         ],
         "tabs": [],
-        "title": "A rehearsal on the wire",
+        "title": "Live",
         "version": 1
       }
     },
@@ -4867,7 +4867,7 @@
           }
         ],
         "tabs": [],
-        "title": "A busy minute",
+        "title": "Live",
         "version": 1
       }
     },
@@ -4973,7 +4973,7 @@
           }
         ],
         "tabs": [],
-        "title": "Paused",
+        "title": "Live",
         "version": 1
       }
     },
@@ -5069,7 +5069,7 @@
         "states": {},
         "tables": [],
         "tabs": [],
-        "title": "Nothing yet",
+        "title": "Live",
         "version": 1
       }
     },
@@ -5329,7 +5329,7 @@
             "on": false
           }
         ],
-        "title": "Empty log",
+        "title": "inventory.levels",
         "version": 1
       }
     },
@@ -5423,7 +5423,7 @@
             "on": false
           }
         ],
-        "title": "Why not yet?",
+        "title": "inventory.levels",
         "version": 1
       }
     },
@@ -5523,7 +5523,7 @@
             "on": false
           }
         ],
-        "title": "Retention",
+        "title": "inventory.levels",
         "version": 1
       }
     },
@@ -7563,7 +7563,7 @@
           }
         ],
         "tabs": [],
-        "title": "Topic deleted",
+        "title": "Delete orders",
         "version": 1
       }
     },
@@ -9462,7 +9462,7 @@
             "on": false
           }
         ],
-        "title": "No topic matches",
+        "title": "Topics",
         "version": 1
       }
     },
@@ -9645,7 +9645,7 @@
             "on": false
           }
         ],
-        "title": "No topics yet",
+        "title": "Topics",
         "version": 1
       }
     },
@@ -9757,7 +9757,7 @@
             "on": true
           }
         ],
-        "title": "What it holds back",
+        "title": "orders-eos",
         "version": 1
       }
     },

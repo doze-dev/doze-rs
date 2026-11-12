@@ -12,7 +12,14 @@
 // It is NOT the Rust renderer. It is the reference the tooling's own tests use: a board rendered by this must diff clean
 // against its own snapshot, and every deliberate mutation of it must be caught.
 
-import { type BoardFile } from "../lib/boards.ts";
+import { type BoardFile, loadBoards, pageTitle } from "../lib/boards.ts";
+
+let fronts: Map<string, Record<string, unknown>> | null = null;
+/** The front matter of every committed board, by id (a state's page title is its parent's). */
+function allFronts(): Map<string, Record<string, unknown>> {
+  fronts ??= new Map(loadBoards().map((b) => [b.id, b.fm as Record<string, unknown>]));
+  return fronts;
+}
 import { type Routes, SECTION_ENTRY } from "../board-signature.ts";
 import { findAll, hasClass, parse } from "../lib/html.ts";
 
@@ -56,7 +63,7 @@ export function renderBoard(b: BoardFile, routes: Routes, opts: { base?: string 
   const overlay = b.fm.kind === "dialog" || b.fm.kind === "drawer";
   if (overlay) body = labelFirstHeading(body, "dlg-title");
 
-  const title = String(b.fm.title);
+  const title = pageTitle(b.fm as Record<string, unknown>, allFronts());
   const chev = glyphSvg("chev-r", "12", undefined);
   const crumbs = `<nav class="crumbs" aria-label="Breadcrumb"><a href="${pathOf("home")}">Home</a>${chev}<span class="cur" aria-current="page">${esc(title)}</span></nav>`;
   const from = `<div class="from" data-scaffold>Reached from <a href="${pathOf(String(b.fm.from === "index" ? "home" : b.fm.from).split("/").pop()!)}">${esc(String(b.fm.from))}</a> <span class="via">${esc(String(b.fm.via ?? ""))}</span></div>`;

@@ -26,15 +26,15 @@
 <input type="search" name="q" placeholder="Filter topics" value="" aria-label="Filter topics">
 </label>
 <div class="seg">
-<button class="on" type="button" data-copy-as="code" data-js-only hidden>Code</button>
-<button class="" type="button" data-copy-as="properties" data-js-only hidden>Properties</button>
+<button class="on" type="button" data-ui="tab" data-copy-as="code" data-js-only hidden>Code</button>
+<button class="" type="button" data-ui="tab" data-copy-as="properties" data-js-only hidden>Properties</button>
 </div>
 <pre class="code" id="snippet-0">
 <span class="k">cl</span>, err := kgo.NewClient(
 <span class="s">&quot;127.0.0.1:9092&quot;</span>
 </pre>
 <pre class="code" style="margin-top:8px">kcat -b 127.0.0.1:9092 -L</pre>
-<button class="btn sm" type="button" data-copy="127.0.0.1:9092" data-js-only hidden>Copy</button>
+<button class="btn sm" type="button" data-ui="copy" data-copy="127.0.0.1:9092" data-js-only hidden>Copy</button>
 <div class="frag" id="home-instance" data-frag="/fragments/home-instance">x</div>
 <form method="post" action="/connect/advertised/check" data-ajax data-target="probe-home">
 <input type="hidden" name="back" value="home">

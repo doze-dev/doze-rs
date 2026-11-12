@@ -2,7 +2,7 @@
 
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { type FrontMatter, frontMatter } from "../board-signature.ts";
+import { type FrontMatter, frontMatter, type Signature, signature } from "../board-signature.ts";
 
 export const root = resolve(import.meta.dir, "../..");
 export const designDir = join(root, "crates/kafka-console/design");
@@ -55,4 +55,24 @@ export function parseArgs(argv: string[], valued: string[]): { flags: Set<string
     } else flags.add(name);
   }
   return { flags, values, rest };
+}
+
+/**
+ * The title a board's page has: its front-matter title, except for a STATE of a page ("Something needs you" is Home in
+ * a different moment), whose page title is its parent's. The real page has one route and one breadcrumb for all states.
+ */
+export function pageTitle(fm: Record<string, unknown>, byId: Map<string, Record<string, unknown>>): string {
+  const own = Array.isArray(fm.crumbs) && fm.crumbs.length > 0; // a state with its own breadcrumb is a screen of its own
+  if (fm.kind === "state" && typeof fm.from === "string" && !own) {
+    const parent = byId.get(fm.from);
+    if (parent) return pageTitle(parent, byId);
+  }
+  return String(fm.title ?? "");
+}
+
+/** The signature of a board: `signature(html)` with a state's title replaced by its page's (see pageTitle). */
+export function boardSignature(b: BoardFile, byId: Map<string, Record<string, unknown>>): Signature {
+  const s = signature(b.html);
+  if (s.title !== null) s.title = pageTitle(b.fm as Record<string, unknown>, byId);
+  return s;
 }

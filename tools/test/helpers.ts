@@ -1,6 +1,6 @@
 // Shared by the tool tests: the boards, a render of each, the mutations, and a one-call comparison.
 
-import { type BoardFile, loadBoards } from "../lib/boards.ts";
+import { type BoardFile, boardSignature, loadBoards } from "../lib/boards.ts";
 import { compare, type Difference } from "../lib/compare.ts";
 import { type Mode, type Routes, type Signature, signature } from "../board-signature.ts";
 import { renderBoard, syntheticRoutes } from "./render-board.ts";
@@ -12,7 +12,7 @@ export const routes: Routes = syntheticRoutes(boards);
 export const render = (b: BoardFile): string => renderBoard(b, routes);
 
 /** The signature of a board, from its source (not from boards.json, so tests of mutated boards work). */
-export const boardSig = (b: BoardFile): Signature => signature(b.html);
+export const boardSig = (b: BoardFile): Signature => boardSignature(b, new Map(boards.map((x) => [x.id, x.fm as Record<string, unknown>])));
 export const pageSig = (html: string): Signature => signature(html, { routes });
 
 export function diff(b: BoardFile, html: string, mode: Mode = "strict"): Difference[] {
