@@ -199,3 +199,17 @@ fn a_count_that_is_not_above_the_partitions_there_are_is_told_so() {
         "1 is below the 1,000 partitions there are."
     );
 }
+
+#[test]
+fn a_count_to_send_only_has_to_be_a_number() {
+    assert_eq!(count_to_send("3"), Ok(3));
+    assert_eq!(count_to_send(" 0 "), Ok(0));
+    assert_eq!(count_to_send("-1"), Ok(-1));
+    assert_eq!(count_to_send("5000"), Ok(5000));
+    assert!(
+        count_to_send("three").is_err()
+            && count_to_send("").is_err()
+            && count_to_send("3.5").is_err()
+    );
+    assert!(count_to_send("99999999999").is_err());
+}

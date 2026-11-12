@@ -125,6 +125,17 @@ pub fn not_above(wanted: i32, have: i32) -> Option<String> {
     }
 }
 
+/// A partition count to put to the broker as typed: only that it is a whole number that fits, so that what the broker
+/// refuses (0, a count over its limit) is refused in the broker's words and not in the console's.
+///
+/// # Errors
+/// The sentence, when it is not a number at all.
+pub fn count_to_send(raw: &str) -> Result<i32, String> {
+    let n = whole(raw)?;
+    i32::try_from(n)
+        .map_err(|_| "That is more partitions than a number of this size can hold.".to_owned())
+}
+
 /// `retention.ms`: -1 (no limit), or 0 and up.
 ///
 /// # Errors

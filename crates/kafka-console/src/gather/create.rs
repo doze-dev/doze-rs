@@ -165,9 +165,9 @@ pub fn landing_view(draft: Draft, wanted: Step, i: &Inputs) -> CreateView {
 
 /// Sends the create (or, for "Check only", the same call with `validate_only`) and says what came of it.
 pub async fn create(b: &Backend, draft: Draft, validate_only: bool, address: &str) -> CreateResult {
-    let Ok(partitions) = validate::partitions(&draft.partitions, None) else {
+    let Ok(partitions) = validate::count_to_send(&draft.partitions) else {
         let e = Errors {
-            partitions: validate::partitions(&draft.partitions, None).err(),
+            partitions: validate::count_to_send(&draft.partitions).err(),
             ..Errors::default()
         };
         return CreateResult::Invalid(Box::new(view_at(

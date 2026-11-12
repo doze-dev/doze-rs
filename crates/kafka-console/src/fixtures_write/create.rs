@@ -77,9 +77,9 @@ fn refused(draft: &Draft, r: crate::model::Refusal) -> CreateResult {
 /// What CreateTopics answers in the larder: the same refusals, with the broker's words, for the same reasons.
 #[must_use]
 pub fn create_topic(draft: Draft, validate_only: bool) -> CreateResult {
-    let Ok(partitions) = validate::partitions(&draft.partitions, None) else {
+    let Ok(partitions) = validate::count_to_send(&draft.partitions) else {
         let e = Errors {
-            partitions: validate::partitions(&draft.partitions, None).err(),
+            partitions: validate::count_to_send(&draft.partitions).err(),
             ..Errors::default()
         };
         return CreateResult::Invalid(Box::new(gather::create_view(

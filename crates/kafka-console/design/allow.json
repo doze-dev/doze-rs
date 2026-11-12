@@ -136,6 +136,22 @@
   {
     "board": "topic-produce",
     "field": "button",
+    "selector": "all (-#) [-] -> ui:select",
+    "render": "live",
+    "reason": "[p9b-write] acks is three radio inputs drawn as the segmented control: a button of the segment would do nothing without a script.",
+    "expires": "close"
+  },
+  {
+    "board": "topic-produce",
+    "field": "button",
+    "selector": "# [-] -> ui:select",
+    "render": "live",
+    "reason": "[p9b-write] acks is three radio inputs drawn as the segmented control: a button of the segment would do nothing without a script.",
+    "expires": "close"
+  },
+  {
+    "board": "topic-produce",
+    "field": "button",
     "selector": "Cancel [-] -> to:topic-detail",
     "reason": "[p9b-write] TEMPORARY: the target page is built by the parallel read builder (p9b-read); remove when the two branches are merged and the link resolves.",
     "expires": "9b"
@@ -204,6 +220,14 @@
     "field": "state",
     "reason": "[p9b-write] The wire table under a refused produce (\"What the wire recorded\") needs the request recorder: slice 9e (debt J41).",
     "expires": "9e"
+  },
+  {
+    "board": "topic-produced",
+    "field": "state",
+    "selector": "st warn in rows",
+    "render": "live",
+    "reason": "[p9b-write] The board lists the newest records of every partition, some held back above the last stable offset; the page lists the record just sent, the other partitions' newest records needing the record decoder of the read builder.",
+    "expires": "close"
   },
   {
     "board": "topic-add-partitions",
