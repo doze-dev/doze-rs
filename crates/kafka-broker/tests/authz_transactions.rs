@@ -244,6 +244,44 @@ async fn a_refused_id_or_group_fails_every_partition_asked_whether_or_not_it_is_
 }
 
 #[tokio::test]
+async fn offsets_of_a_refused_topic_are_not_staged_with_the_transaction() {
+    let rig = world();
+    make_topic(&rig, "t", 1).await;
+    make_topic(&rig, "u", 1).await;
+    grant(
+        &rig,
+        vec![
+            allow(TXN_ID, "tid", "User:alice", WRITE),
+            allow(GROUP, "grp", "User:alice", READ),
+            allow(TOPIC, "t", "User:alice", READ),
+        ],
+    )
+    .await;
+    let alice = user("alice");
+    let producer = tx::init_txn(&rig, &alice, "tid").await.unwrap();
+    assert_eq!(
+        tx::add_offsets(&rig, &alice, "tid", producer, "grp").await,
+        0
+    );
+    let staged = tx::txn_offset_commit(
+        &rig,
+        &alice,
+        "tid",
+        producer,
+        "grp",
+        &[("t", &[0]), ("u", &[0])],
+    )
+    .await;
+    let codes: Vec<i16> = tx::offset_codes(&staged).iter().map(|c| c.2).collect();
+    assert_eq!(codes, [0, 29]);
+    assert_eq!(tx::end_txn(&rig, &alice, 3, "tid", producer, true).await, 0);
+    // The commit made t's offset the group's; u's was never staged.
+    let got = calls::fetch(&rig, &admin(), 7, "grp", None).await;
+    let names: Vec<String> = got.topics.iter().map(|t| t.name.to_string()).collect();
+    assert_eq!(names, ["t"]);
+}
+
+#[tokio::test]
 async fn a_refused_topic_is_29_on_its_partitions_and_hidden_existence_holds() {
     let rig = world();
     make_topic(&rig, "t", 1).await;

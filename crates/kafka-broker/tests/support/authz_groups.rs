@@ -197,6 +197,17 @@ pub async fn variants(needs: &[Need]) -> Vec<Variant> {
             label: format!("{who} (everything but the {i}th)"),
             expect: Expect::Denied(n.code),
         });
+        // Only DESCRIBE where the API needs more: DESCRIBE is implied by the stronger rights, never the other way.
+        if n.op != DESCRIBE {
+            let weak = format!("weak{i}");
+            acls.extend(allows_all(needs, &weak, Some(i)));
+            acls.push(allow(n.res, n.name, &principal(&weak), DESCRIBE));
+            cases.push(Case {
+                who: user(&weak),
+                label: format!("{weak} (only DESCRIBE for the {i}th)"),
+                expect: Expect::Denied(n.code),
+            });
+        }
     }
     grant(&rig, acls).await;
     out.push(Variant {
