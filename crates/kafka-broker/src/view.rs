@@ -24,9 +24,11 @@ mod pace;
 pub use config_rules::ConfigRule;
 pub use pace::Pace;
 mod partition_files;
+mod settings;
 
 pub use partition_files::PartitionFiles;
 pub use process::Process;
+pub use settings::{AccessFacts, DataSize, Intervals, MOST_ENTRIES};
 
 /// What the last stop left.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

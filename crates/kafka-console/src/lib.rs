@@ -6,6 +6,8 @@
 //! The pure parts (formatting, the same-origin rule, the words of the pages) are plain functions with tables of cases.
 //! The client layer (one small script of our own, no library) is behind [`ui::client`] alone, and every page is complete without it.
 
+pub mod access_words;
+pub mod acl_words;
 pub mod actions;
 pub mod app;
 pub mod assets;
@@ -14,7 +16,11 @@ pub mod base;
 #[cfg(any(test, feature = "examples"))]
 pub mod boards;
 #[cfg(any(test, feature = "examples"))]
+pub mod boards_access;
+#[cfg(any(test, feature = "examples"))]
 pub mod boards_config;
+#[cfg(any(test, feature = "examples"))]
+pub mod boards_settings;
 #[cfg(any(test, feature = "examples"))]
 pub mod boards_write;
 pub mod calls;
@@ -26,12 +32,17 @@ pub mod config_source;
 pub mod config_teach;
 pub mod config_words;
 pub mod facts;
+pub mod facts_start;
 #[cfg(any(test, feature = "examples"))]
 pub mod fixtures;
+#[cfg(any(test, feature = "examples"))]
+pub mod fixtures_access;
 #[cfg(any(test, feature = "examples"))]
 pub mod fixtures_config;
 #[cfg(any(test, feature = "examples"))]
 pub mod fixtures_groups;
+#[cfg(any(test, feature = "examples"))]
+pub mod fixtures_settings;
 #[cfg(any(test, feature = "examples"))]
 pub mod fixtures_topics;
 #[cfg(any(test, feature = "examples"))]
@@ -54,6 +65,7 @@ pub mod probe;
 pub mod refusal;
 pub mod routes;
 pub mod serve;
+pub mod settings_words;
 pub mod snippets;
 pub mod source;
 pub mod state;

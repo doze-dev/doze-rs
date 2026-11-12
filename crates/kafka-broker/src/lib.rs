@@ -37,6 +37,7 @@ pub use listener::Listener;
 pub use outcome::Outcome;
 #[cfg(feature = "inspect")]
 pub use view::{
-    ConfigHelp, ConfigRule, ConsoleView, GroupDetail, GroupKind, Instance, LastStop, Limits,
-    MemberDetail, OffsetExpiry, Pace, PartitionFiles, Process, RebalanceDetail,
+    AccessFacts, ConfigHelp, ConfigRule, ConsoleView, DataSize, GroupDetail, GroupKind, Instance,
+    Intervals, LastStop, Limits, MOST_ENTRIES, MemberDetail, OffsetExpiry, Pace, PartitionFiles,
+    Process, RebalanceDetail,
 };

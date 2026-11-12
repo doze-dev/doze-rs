@@ -19,6 +19,7 @@ use kafka_wire::profile::Profile;
 mod config;
 mod forms;
 pub mod requests;
+mod settings;
 
 /// The client id the console's requests carry.
 pub const CLIENT_ID: &str = "console";

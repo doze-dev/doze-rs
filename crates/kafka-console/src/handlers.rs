@@ -1,15 +1,18 @@
 //! The handlers: each asks the source for a model, renders it, and answers.
 
+mod access;
 mod config;
 mod fragments;
 mod groups;
 mod groups_fragments;
 mod pages;
 mod plain;
+mod settings;
 mod topics;
 mod topics_dialogs;
 mod topics_write;
 
+pub use access::{access, acl_create, acl_create_form, acl_delete, acl_delete_form};
 pub use config::{config, config_edit, config_edit_form, config_reset, config_reset_form};
 pub use fragments::{check, fragment};
 pub use groups::{
@@ -21,6 +24,7 @@ pub use groups::{
 pub use groups_fragments::groups_fragment;
 pub use pages::{advertised, connect, home, method_not_allowed, not_found, planned};
 pub use plain::{events, health, static_file};
+pub use settings::{settings, settings_edit, settings_edit_form};
 pub use topics::{
     messages as topic_messages, partitions as topic_partitions, record as topic_record, topic,
     topics,

@@ -23,11 +23,15 @@ pub enum Action {
     DeleteGroups,
     /// Slice 9d: set, append to, subtract from, check (`validate_only`) and reset a topic's config.
     IncrementalAlterConfigs,
+    /// Slice 9h: make one ACL (the Create ACL dialog).
+    CreateAcls,
+    /// Slice 9h: delete one ACL by every one of its fields (the Delete ACL dialog).
+    DeleteAcls,
 }
 
 impl Action {
     /// Every write of the console.
-    pub const ALL: [Self; 9] = [
+    pub const ALL: [Self; 11] = [
         Self::CreateTopics,
         Self::Produce,
         Self::CreatePartitions,
@@ -37,6 +41,8 @@ impl Action {
         Self::OffsetDelete,
         Self::DeleteGroups,
         Self::IncrementalAlterConfigs,
+        Self::CreateAcls,
+        Self::DeleteAcls,
     ];
 
     /// The name a form carries in `data-op`: Kafka's own name for the API.
@@ -52,6 +58,8 @@ impl Action {
             Self::OffsetDelete => "OffsetDelete",
             Self::DeleteGroups => "DeleteGroups",
             Self::IncrementalAlterConfigs => "IncrementalAlterConfigs",
+            Self::CreateAcls => "CreateAcls",
+            Self::DeleteAcls => "DeleteAcls",
         }
     }
 
@@ -88,6 +96,7 @@ pub const GROUP_WRITE_BOARDS: [&str; 5] = [
     "group-delete-refused",
     "group-offset-delete",
 ];
+pub mod access;
 pub mod config;
 
 #[cfg(test)]

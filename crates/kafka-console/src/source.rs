@@ -12,6 +12,7 @@ use crate::snippets;
 use crate::ui::shell::Chrome;
 
 mod groups;
+mod settings;
 mod topics;
 
 /// A live broker: the in-process handle, how it was started, and the advertised-listener check.
@@ -20,6 +21,8 @@ pub struct Live {
     pub backend: Backend,
     pub facts: Facts,
     pub prober: Prober,
+    /// The flags and the rest of how the binary started the broker (empty where not known).
+    pub start: crate::facts_start::StartFacts,
 }
 
 impl Live {
@@ -30,7 +33,15 @@ impl Live {
             backend,
             facts,
             prober,
+            start: crate::facts_start::StartFacts::default(),
         }
+    }
+
+    /// The same, told how the binary started the broker: the Settings and Access pages say it.
+    #[must_use]
+    pub fn with_start(mut self, start: crate::facts_start::StartFacts) -> Self {
+        self.start = start;
+        self
     }
 
     async fn access(&self) -> Access {
