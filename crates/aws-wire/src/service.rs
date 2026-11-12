@@ -116,6 +116,16 @@ pub trait Web: Send + Sync {
     fn serve(&self, request: WebRequest) -> BoxFuture<'_, WebReply>;
 }
 
+/// An operation a service adds to its model: the request is read as the input of model operation `shapes`, the answer written as
+/// its output, and the call carries `op`, an index the model does not use (so the service can tell it apart).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Extension {
+    /// The index the call carries: past the model's operations.
+    pub op: u32,
+    /// The model operation whose input and output shapes it borrows.
+    pub shapes: u32,
+}
+
 /// A service the gateway can route to.
 pub trait Service: Send + Sync + 'static {
     /// What its model says about it.
@@ -133,6 +143,12 @@ pub trait Service: Send + Sync + 'static {
     /// Whether every client error is answered 400, whatever status the model gives it (KMS does this).
     fn flat_client_errors(&self) -> bool {
         false
+    }
+
+    /// An operation this service adds to its model, by the name in `X-Amz-Target` (SQS's `DozePeek`, which the console reads a
+    /// queue with). Not an AWS operation: the default is none. Only a JSON-protocol service is asked.
+    fn extension(&self, _name: &str) -> Option<Extension> {
+        None
     }
 
     /// Handles one call. An error names a modelled shape ([`ApiError::modeled`]) or states itself.

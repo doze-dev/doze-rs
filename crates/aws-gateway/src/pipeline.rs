@@ -52,6 +52,9 @@ impl Entry {
 pub(crate) struct Shared {
     entries: Vec<Entry>,
     by_signing_name: HashMap<&'static str, usize>,
+    /// Every service by the name of its service shape (the `X-Amz-Target` prefix of the JSON protocols): two services that share a
+    /// signing name (DynamoDB and DynamoDB Streams both sign as `dynamodb`) are told apart by it.
+    by_target: HashMap<&'static str, usize>,
     config: Config,
 }
 
@@ -62,9 +65,15 @@ impl Shared {
             .enumerate()
             .map(|(i, e)| (e.service.meta().signing_name, i))
             .collect();
+        let by_target = entries
+            .iter()
+            .enumerate()
+            .map(|(i, e)| (e.service.meta().shape_name, i))
+            .collect();
         Self {
             entries,
             by_signing_name,
+            by_target,
             config,
         }
     }
@@ -93,6 +102,16 @@ impl Shared {
         self.by_signing_name
             .get(signing_name)
             .and_then(|&i| self.entries.get(i))
+    }
+
+    /// The service a JSON request is for: the one whose service shape its `X-Amz-Target` names, when that service signs as
+    /// `signing_name`; otherwise the one registered under the signing name.
+    pub(crate) fn entry_for(&self, signing_name: &str, parts: &Parts) -> Option<&Entry> {
+        let by_target = target_prefix(parts)
+            .and_then(|prefix| self.by_target.get(prefix))
+            .and_then(|&i| self.entries.get(i))
+            .filter(|e| e.service.meta().signing_name == signing_name);
+        by_target.or_else(|| self.entry(signing_name))
     }
 }
 
@@ -150,7 +169,7 @@ async fn handle(
     let claim = Claim::parse(parts)
         .map_err(|e| early(id, &from_auth(&e, Family::Coral)))?
         .ok_or_else(|| early(id, &from_auth(&AuthError::Missing, Family::Coral)))?;
-    let entry = shared.entry(&claim.service).ok_or_else(|| {
+    let entry = shared.entry_for(&claim.service, parts).ok_or_else(|| {
         early(
             id,
             &ApiError::new(
@@ -197,16 +216,47 @@ async fn handle(
     if json::is_query_request(parts) {
         return Err(Box::new(json::query_refusal(meta, id)));
     }
-    let op = json::route(meta, tables, parts).map_err(|e| fail(&e))?;
-    if let Some(refusal) = unbuilt(entry, op) {
+    // An operation the service adds to its model (SQS's `DozePeek`) borrows a model operation's shapes.
+    let (op, shapes) = match json::route(meta, tables, parts) {
+        Ok(op) => (op, op),
+        Err(e) => extension(entry, parts).ok_or_else(|| fail(&e))?,
+    };
+    if op == shapes
+        && let Some(refusal) = unbuilt(entry, op)
+    {
         return Err(fail(&refusal));
     }
     let bytes = inflate(parts, bytes, shared.max_body_bytes()).map_err(|e| fail(&e))?;
     let caller = caller_of(shared, parts, claim);
-    let call = decode_call(entry, op, id, caller, bytes).map_err(|e| fail(&e))?;
+    let mut call = decode_call(entry, shapes, id, caller, bytes).map_err(|e| fail(&e))?;
+    call.op = op;
     let output = entry.service.call(call).await.map_err(|e| fail(&e))?;
-    let encoded = encode_output(entry, op, &output.arena, output.root).map_err(|e| fail(&e))?;
+    let encoded = encode_output(entry, shapes, &output.arena, output.root).map_err(|e| fail(&e))?;
     Ok(json::success(version, id, encoded))
+}
+
+/// The prefix of the request's `X-Amz-Target` (`DynamoDBStreams_20120810`).
+fn target_prefix(parts: &Parts) -> Option<&str> {
+    parts
+        .headers
+        .get("x-amz-target")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|t| t.split_once('.'))
+        .map(|(prefix, _)| prefix)
+}
+
+/// The operation index and the borrowed shapes of an operation the service adds to its model, when the target names one.
+fn extension(entry: &Entry, parts: &Parts) -> Option<(u32, u32)> {
+    let target = parts.headers.get("x-amz-target")?.to_str().ok()?;
+    let (prefix, name) = target.split_once('.')?;
+    if parts.method != http::Method::POST
+        || parts.uri.path() != "/"
+        || prefix != entry.service.meta().shape_name
+    {
+        return None;
+    }
+    let ext = entry.service.extension(name)?;
+    Some((ext.op, ext.shapes))
 }
 
 /// Who is calling, from the credential scope and the request head.

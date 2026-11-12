@@ -223,6 +223,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "aws-dynamodb-streams"
+version = "0.0.0"
+dependencies = [
+ "aws-core",
+ "aws-dynamodb",
+ "aws-model-dynamodb-streams",
+ "aws-peers",
+ "aws-schema",
+ "aws-testkit",
+ "aws-wire",
+ "doze-runtime",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "aws-eventbridge"
 version = "0.0.0"
 dependencies = [
@@ -450,6 +466,13 @@ dependencies = [
 
 [[package]]
 name = "aws-model-dynamodb"
+version = "0.0.0"
+dependencies = [
+ "aws-schema",
+]
+
+[[package]]
+name = "aws-model-dynamodb-streams"
 version = "0.0.0"
 dependencies = [
  "aws-schema",
@@ -1295,6 +1318,7 @@ dependencies = [
  "aws-auth",
  "aws-cloudwatch",
  "aws-dynamodb",
+ "aws-dynamodb-streams",
  "aws-eventbridge",
  "aws-gateway",
  "aws-iam",
