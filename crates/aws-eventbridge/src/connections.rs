@@ -1,6 +1,6 @@
 //! Connections: the credentials an API destination calls with. Basic, API key and OAuth client credentials are stored. The secrets are
 //! kept in the record and never returned: `DescribeConnection` answers without a password, key value or client secret, and without
-//! the value of any parameter marked `IsValueSecret`, as AWS does. Nothing calls out with them yet (see `destinations.rs`).
+//! the value of any parameter marked `IsValueSecret`, as AWS does. An API destination's request uses them (`deliver_http.rs`).
 //!
 //! The states a call answers (`CREATING`, `UPDATING`, `DELETING`, `DEAUTHORIZING`) are the ones AWS documents for the transition;
 //! a described connection is `AUTHORIZED` or `DEAUTHORIZED`. The wording of refusals is from memory.

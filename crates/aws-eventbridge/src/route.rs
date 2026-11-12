@@ -83,7 +83,19 @@ impl Core {
     ) -> Option<(String, String, Event)> {
         match self.send(&d, caller).await {
             Outcome::Sent => None,
-            Outcome::Forward { account, bus } => Some((account, bus, d.event)),
+            Outcome::Forward {
+                region,
+                account,
+                bus,
+            } if region == caller.region => Some((account, bus, d.event)),
+            Outcome::Forward {
+                region,
+                account,
+                bus,
+            } => {
+                self.forward_to_region(caller, &region, &account, &bus, &d.event);
+                None
+            }
             Outcome::NotLocal(why) => {
                 tracing::warn!(rule = %d.rule_arn, target = %d.target.id, "not delivered: {why}");
                 None

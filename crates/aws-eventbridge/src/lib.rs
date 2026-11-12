@@ -4,8 +4,9 @@
 //!
 //! **Events** are delivered in the call that puts them, through the peer bus, to SQS queues, SNS topics, Kinesis streams, CloudWatch
 //! Logs groups and event buses of the region; to Step Functions and Lambda once those services run. A target on any other service is
-//! stored and returned as sent, and **not delivered**: the log says so. API destinations are stored and described; no HTTP request is
-//! made to them. Other services put events on the default bus through [`publish`].
+//! stored and returned as sent, and **not delivered**: the log says so. An API destination is called with one HTTP request when its
+//! connection is Basic or API key and its endpoint is `http://`; OAuth connections and `https://` endpoints are stored and not called.
+//! Other services put events on the default bus through [`publish`].
 //!
 //! **Schedules are deadline-driven, not ticked.** After every call the service works out the earliest time a scheduled rule or a retry is
 //! due; one timer sleeps to it and ends when nothing is pending.
@@ -19,9 +20,11 @@ mod buses;
 mod connections;
 mod core;
 mod deliver;
+mod deliver_http;
 mod destinations;
 mod event;
 mod events;
+mod http;
 mod input;
 mod jsonpath;
 mod model;

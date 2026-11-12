@@ -17,6 +17,7 @@ mod archives;
 mod buses;
 mod connections;
 mod delivery;
+mod http;
 mod persistence;
 mod refusals;
 mod rules;

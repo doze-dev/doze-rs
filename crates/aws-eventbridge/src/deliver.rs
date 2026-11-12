@@ -35,8 +35,9 @@ pub(crate) struct Delivery {
 #[derive(Debug)]
 pub(crate) enum Outcome {
     Sent,
-    /// The target is an event bus of this region: the event goes on to it.
+    /// The target is an event bus: the event goes on to it (in this region by the next turn of the loop, in another by a task).
     Forward {
+        region: String,
         account: String,
         bus: String,
     },
@@ -64,7 +65,7 @@ impl Failure {
         })
     }
 
-    fn fatal(code: &str, message: impl Into<String>) -> Outcome {
+    pub(crate) fn fatal(code: &str, message: impl Into<String>) -> Outcome {
         Outcome::Failed(Self {
             code: code.to_owned(),
             message: message.into(),
@@ -99,17 +100,12 @@ impl Core {
                 self.to_peer(d, caller, "lambda", "Invoke", body).await
             }
             "events" => match crate::names::Parts::of(arn) {
-                Some(p) if p.kind == "event-bus" && p.region == caller.region => Outcome::Forward {
+                Some(p) if p.kind == "event-bus" => Outcome::Forward {
+                    region: region.to_owned(),
                     account: account.to_owned(),
                     bus: p.tail.to_owned(),
                 },
-                Some(p) if p.kind == "event-bus" => {
-                    let _ = region;
-                    Outcome::NotLocal(format!(
-                        "event buses of {} are in another region's state",
-                        p.region
-                    ))
-                }
+                Some(p) if p.kind == "api-destination" => self.to_api_destination(d).await,
                 _ => Outcome::NotLocal("this events target is not an event bus".to_owned()),
             },
             other => Outcome::NotLocal(format!(
