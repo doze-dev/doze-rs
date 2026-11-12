@@ -3,7 +3,7 @@
 use maud::{Markup, html};
 
 use crate::base::{Base, segment};
-use crate::format::{clock, number, span_ms};
+use crate::format::{clock, number};
 use crate::model::{Cleanup, Span, TopicHead};
 use crate::ui::button::{Size, State, Variant, link, pill_mono, state};
 use crate::ui::client;

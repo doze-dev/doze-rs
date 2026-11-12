@@ -1,6 +1,7 @@
 use super::*;
 use crate::fixtures_topics as world;
 use crate::model::{MessageQuery, Reading};
+use crate::words::reach_sentence;
 
 fn plain(spans: &[Span]) -> String {
     spans

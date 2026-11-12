@@ -137,7 +137,7 @@ fn toolbar(v: &TopicsView, base: &Base) -> Markup {
     }
 }
 
-fn internal_note(v: &TopicsView) -> Markup {
+fn internal_note(v: &TopicsView, base: &Base) -> Markup {
     let row = TopicRow::internal();
     html! {
         div style="margin-top:24px" {
@@ -148,7 +148,8 @@ fn internal_note(v: &TopicsView) -> Markup {
                     table class="t" style="margin-top:12px;background:var(--bg)" { tbody { (row_internal(&row)) } }
                     p style="margin:12px 0 0" {
                         b { "Why it is read only." } " " span class="mono" { "__consumer_offsets" }
-                        " is Kafka's own name for the place the group coordinator keeps each group's committed offsets, spread over 50 partitions. This broker keeps commits in its own store and answers Kafka's offset calls from it, so there is no log here to read, produce to, delete from, or change. The name is shown because Kafka clients and tools know it; the 50 partitions decide which coordinator slot a group lands in."
+                        " is Kafka's own name for the place the group coordinator keeps each group's committed offsets, spread over 50 partitions. This broker keeps commits in its own store and answers Kafka's offset calls from it, so there is no log here to read, produce to, delete from, or change. The name is shown because Kafka clients and tools know it; the 50 partitions decide which coordinator slot a group lands in. Look at a group's commits on its Lag tab instead: "
+                        a class="lnk" href=(base.url("/groups")) { "open Groups" } "."
                     }
                 }
             }))
@@ -205,7 +206,7 @@ fn none(v: &TopicsView, base: &Base, listen: &str) -> Markup {
             create(),
         ))
         (sec(32, "Or from your app", Some(html! { "Writing to a topic that does not exist creates it, and the console shows it here as soon as the request lands." }), html! {
-            pre class="code" data-extra="copy-as" { (format!("# kcat, from the machine the broker runs on\necho '{{\"order_id\":\"ord-88412\"}}' | kcat -P -b {listen} -t orders -k ord-88412")) }
+            pre class="code" data-extra="copy-as" { span class="c" { "# kcat, from the machine the broker runs on" } "\n" (format!("echo '{{\"order_id\":\"ord-88412\"}}' | kcat -P -b {listen} -t orders -k ord-88412")) }
             div class="row" style="margin-top:12px" {
                 (client::copy_button("btn sm", &format!("echo '{{\"order_id\":\"ord-88412\"}}' | kcat -P -b {listen} -t orders -k ord-88412"), html! { (glyph(Glyph::Copy, 14, "")) "Copy" }))
                 span class="dim" { "To " span class="mono" { (listen) } ", the listener" }
@@ -241,7 +242,7 @@ fn steady(v: &TopicsView, base: &Base, query: &str) -> Markup {
         @if v.filter.is_empty() { (sentence_fragment(v, base, query)) }
         (toolbar(v, base))
         (list_fragment(v, base, query))
-        (internal_note(v))
+        (internal_note(v, base))
     }
 }
 

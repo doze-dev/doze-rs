@@ -156,11 +156,13 @@ pub fn attention_headline(count: usize) -> String {
     }
 }
 
+mod reach;
 mod topics;
 
+pub use reach::reach_sentence;
 pub use topics::{
-    kafka_error, list_and, list_sentence, partitions_sentence, reach_sentence, read_refused,
-    retention, timeout, topic_sentence,
+    kafka_error, list_and, list_sentence, partitions_sentence, read_refused, retention, timeout,
+    topic_sentence,
 };
 
 #[cfg(test)]
