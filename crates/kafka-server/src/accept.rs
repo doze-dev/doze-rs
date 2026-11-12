@@ -34,6 +34,8 @@ pub(crate) async fn run<F: Fs>(
     tasks: TaskTracker,
     tls: Tls,
 ) {
+    // Shared by the connection tasks (a build without TLS shares a `()`).
+    let tls = Arc::new(tls);
     let mut backoff = Duration::ZERO;
     let mut refused = 0u64;
     loop {
@@ -67,7 +69,7 @@ pub(crate) async fn run<F: Fs>(
         };
         // Requests are small and answered one at a time: waiting to coalesce them only adds latency.
         let _ = socket.set_nodelay(true);
-        let (ctx, stop, tls) = (Arc::clone(&ctx), stop.clone(), tls.clone());
+        let (ctx, stop, tls) = (Arc::clone(&ctx), stop.clone(), Arc::clone(&tls));
         let arrived = Instant::now();
         // Everything from here, the TLS handshake included, is the connection's own task: a client that is slow to
         // handshake holds a place in the limit and nothing else. The peer's address is the socket's, taken before.

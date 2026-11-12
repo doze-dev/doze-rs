@@ -39,11 +39,22 @@ impl io::Write for Logged {
 
 /// The body lines of every key file: any of them in a text is key material in it.
 fn key_lines() -> Vec<String> {
-    ["ec-key-pkcs8.pem", "ec-key-sec1.pem", "rsa-key-pkcs8.pem", "rsa-key-pkcs1.pem"]
-        .iter()
-        .flat_map(|f| std::fs::read_to_string(fixture(f)).unwrap().lines().map(str::to_owned).collect::<Vec<_>>())
-        .filter(|l| !l.starts_with("-----") && l.len() > 20)
-        .collect()
+    [
+        "ec-key-pkcs8.pem",
+        "ec-key-sec1.pem",
+        "rsa-key-pkcs8.pem",
+        "rsa-key-pkcs1.pem",
+    ]
+    .iter()
+    .flat_map(|f| {
+        std::fs::read_to_string(fixture(f))
+            .unwrap()
+            .lines()
+            .map(str::to_owned)
+            .collect::<Vec<_>>()
+    })
+    .filter(|l| !l.starts_with("-----") && l.len() > 20)
+    .collect()
 }
 
 #[tokio::test]
@@ -59,7 +70,11 @@ async fn the_key_and_a_clients_broken_bytes_are_in_no_log_error_or_debug_output(
     // The errors and Debug of a load that fails and one that works.
     let loaded = TlsConfig::load(fixture("ec-chain.pem"), fixture("ec-key-pkcs8.pem")).unwrap();
     said.push(format!("{loaded:?}"));
-    for (cert, key) in [("ec-chain.pem", "rsa-key-pkcs8.pem"), ("ec-key-sec1.pem", "ec-key-sec1.pem"), ("ec-chain.pem", "ec-chain.pem")] {
+    for (cert, key) in [
+        ("ec-chain.pem", "rsa-key-pkcs8.pem"),
+        ("ec-key-sec1.pem", "ec-key-sec1.pem"),
+        ("ec-chain.pem", "ec-chain.pem"),
+    ] {
         let e = TlsConfig::load(fixture(cert), fixture(key)).unwrap_err();
         said.push(format!("{e} {e:?}"));
     }
@@ -68,23 +83,44 @@ async fn the_key_and_a_clients_broken_bytes_are_in_no_log_error_or_debug_output(
     let mut good = dial(&server).await;
     assert!(good.versions().await.is_some());
     let mut http = TcpStream::connect(server.local_addr()).await.unwrap();
-    http.write_all(b"GET /planted-client-bytes-5521 HTTP/1.1\r\n\r\n").await.unwrap();
+    http.write_all(b"GET /planted-client-bytes-5521 HTTP/1.1\r\n\r\n")
+        .await
+        .unwrap();
     let mut got = Vec::new();
     let _ = http.read_to_end(&mut got).await;
     let mut junk = TcpStream::connect(server.local_addr()).await.unwrap();
-    junk.write_all(b"\x16\x03\x01\x00\x10planted-client-bytes-5521").await.unwrap();
+    junk.write_all(b"\x16\x03\x01\x00\x10planted-client-bytes-5521")
+        .await
+        .unwrap();
     let _ = junk.read_to_end(&mut got).await;
-    assert!(handshake(&server, &connector("other-root.pem")).await.is_err());
+    assert!(
+        handshake(&server, &connector("other-root.pem"))
+            .await
+            .is_err()
+    );
     drop(good);
     tokio::time::sleep(Duration::from_millis(300)).await;
     server.shutdown().await;
 
     let log = String::from_utf8_lossy(&logged.0.lock().unwrap()).into_owned();
-    assert!(log.contains("connection closed"), "the log was captured: {log:?}");
-    assert!(log.contains("the TLS handshake failed: not a TLS handshake"), "{log}");
-    let everything = format!("{log}\n{}\n{}", said.join("\n"), String::from_utf8_lossy(&got));
+    assert!(
+        log.contains("connection closed"),
+        "the log was captured: {log:?}"
+    );
+    assert!(
+        log.contains("the TLS handshake failed: not a TLS handshake"),
+        "{log}"
+    );
+    let everything = format!(
+        "{log}\n{}\n{}",
+        said.join("\n"),
+        String::from_utf8_lossy(&got)
+    );
     assert!(!everything.contains("planted-client-bytes"), "{everything}");
     for line in key_lines() {
-        assert!(!everything.contains(&line), "key material in the output: {line}");
+        assert!(
+            !everything.contains(&line),
+            "key material in the output: {line}"
+        );
     }
 }

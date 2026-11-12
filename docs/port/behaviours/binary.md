@@ -34,7 +34,14 @@ start, in the Go edition's words, and none of those messages repeats a password.
 a verifier for every user (4096 iterations, a random 16-byte salt per user and mechanism; nothing is stored), so a password is
 the same for PLAIN and for both SCRAM hashes. The flag order is kept for the configuration; a SaslHandshake answer lists the
 mechanisms in Java `HashSet` order whatever the flag says (SEC-7). The passwords are in no `Debug` output of the arguments or the settings and
-in no log line (SEC-13). **Refused** (the channel would otherwise be in the clear): `--tls-cert --tls-key`.
+in no log line (SEC-13).
+**TLS is real, behind a cargo feature** (Phase 8, slice 8e; rules SEC-140 to SEC-154): a build with `--features tls` (off by default; it needs a C compiler) takes `--tls-cert FILE` (a PEM chain, leaf
+first) and `--tls-key FILE` (PKCS#8, SEC1 or RSA, unencrypted), both or neither. One alone stops the start with `config: TLS needs both --tls-cert and --tls-key, or neither`; a file that cannot be
+used stops it with `config: cannot load the TLS certificate and key (--tls-cert X, --tls-key Y): <reason>` (the Go edition's words), before anything is bound, and the broker never falls back to
+plaintext. The start logs `TLS is on` with the certificate's path, never the key. TLS and SASL are independent (SSL, SASL_SSL). **Refused** (the channel would otherwise be in the clear): in a build
+**without** the feature, `--tls-cert` and `--tls-key` stop the start, exit non-zero, with a message that says to rebuild with `--features tls`; the flags are hidden from `--help` there and shown in a build that has them.
+Test: `cli::tests::tls_is_refused_and_not_ignored_*` (default build), `cli::tests::tls::*` (`--features tls`), `tests/process` `sasl::flags_that_cannot_be_honoured_stop_the_start_and_say_why`,
+`tls::a_broker_started_with_a_certificate_serves_tls_refuses_plaintext_and_prints_no_key`, `tls::a_certificate_that_cannot_be_used_stops_the_start_and_no_plaintext_listener_is_left`.
 Test: `cli::tests::*` (`the_acl_flags_set_what_the_broker_enforces_and_nothing_is_ignored`, `a_bad_acl_default_or_super_user_is_refused_in_the_go_editions_words`), `duration::tests::*`, `tests/process` `acl::acl_flags_that_cannot_work_stop_the_start_in_the_go_editions_words`,
 `acl::a_deny_default_with_no_sasl_binds_the_anonymous_user_and_a_restart_keeps_the_acls`, `sasl::flags_that_cannot_be_honoured_stop_the_start_and_say_why`,
 `sasl::a_broker_started_with_sasl_logs_a_client_in_and_serves_it_and_prints_no_password`,

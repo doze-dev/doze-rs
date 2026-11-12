@@ -30,7 +30,9 @@ use tokio_rustls::client::TlsStream;
 use crate::client::Client;
 
 pub(crate) fn fixture(name: &str) -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/tls-fixtures").join(name)
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/tls-fixtures")
+        .join(name)
 }
 
 /// How a test wants the broker.
@@ -56,9 +58,16 @@ impl Default for Opts {
 }
 
 pub(crate) async fn start(opts: Opts) -> Running {
-    let users = [("alice", crate::client::SECRET), ("bob", crate::client::BOB_SECRET)]
-        .map(|(u, p)| (u.to_owned(), p.to_owned()));
-    let mechanisms = [Mechanism::Plain, Mechanism::ScramSha512, Mechanism::ScramSha256];
+    let users = [
+        ("alice", crate::client::SECRET),
+        ("bob", crate::client::BOB_SECRET),
+    ]
+    .map(|(u, p)| (u.to_owned(), p.to_owned()));
+    let mechanisms = [
+        Mechanism::Plain,
+        Mechanism::ScramSha512,
+        Mechanism::ScramSha256,
+    ];
     let auth = Authenticator::new(&mechanisms, Credentials::new(users).unwrap()).unwrap();
     let mut config = Config {
         listen: SocketAddr::from((Ipv4Addr::LOCALHOST, 0)),

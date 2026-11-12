@@ -43,7 +43,15 @@ func main() {
 	only := flag.String("only", "", "run one scenario by name")
 	custom := flag.String("members", "", "run a group of these clients (comma-separated names, in the order they join), named custom")
 	sasl := flag.Bool("sasl", false, "run the SASL cells (PLAIN, SCRAM-SHA-256, SCRAM-SHA-512 for each library) against a broker started with SASL, instead of the scenarios")
+	tlsCA := flag.String("tls-ca", "", "run the TLS cells over SASL_SSL at -broker and SSL at -broker-ssl, trusting this CA file (interop/run.sh -tls)")
+	sslAddr := flag.String("broker-ssl", "", "host:port of a broker with TLS and no SASL (with -tls-ca)")
 	flag.Parse()
+	if *tlsCA != "" {
+		if !runTLS(*addr, *sslAddr, *tlsCA) {
+			os.Exit(1)
+		}
+		return
+	}
 	if *sasl {
 		if !runSasl(*addr) {
 			os.Exit(1)

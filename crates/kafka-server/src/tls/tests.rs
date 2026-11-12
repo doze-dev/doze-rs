@@ -3,7 +3,9 @@
 use super::*;
 
 fn fixture(name: &str) -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/tls-fixtures").join(name)
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/tls-fixtures")
+        .join(name)
 }
 
 fn scratch(name: &str, text: &str) -> PathBuf {
@@ -35,9 +37,13 @@ fn a_chain_loads_with_a_key_in_any_of_the_three_formats() {
 #[test]
 fn a_missing_file_is_named() {
     let missing = fixture("nowhere.pem");
-    let said = TlsConfig::load(&missing, fixture("ec-key-sec1.pem")).unwrap_err().to_string();
+    let said = TlsConfig::load(&missing, fixture("ec-key-sec1.pem"))
+        .unwrap_err()
+        .to_string();
     assert!(said.contains("nowhere.pem"), "{said}");
-    let said = TlsConfig::load(fixture("ec-chain.pem"), &missing).unwrap_err().to_string();
+    let said = TlsConfig::load(fixture("ec-chain.pem"), &missing)
+        .unwrap_err()
+        .to_string();
     assert!(said.contains("nowhere.pem"), "{said}");
 }
 
@@ -61,7 +67,10 @@ fn a_key_that_belongs_to_another_certificate_is_a_mismatch_naming_both_files() {
     let said = load("ec-chain.pem", "rsa-key-pkcs8.pem").unwrap_err();
     assert!(matches!(said, TlsError::Mismatch { .. }), "{said}");
     let text = said.to_string();
-    assert!(text.contains("ec-chain.pem") && text.contains("rsa-key-pkcs8.pem"), "{text}");
+    assert!(
+        text.contains("ec-chain.pem") && text.contains("rsa-key-pkcs8.pem"),
+        "{text}"
+    );
     let said = load("rsa-chain.pem", "ec-key-sec1.pem").unwrap_err();
     assert!(matches!(said, TlsError::Mismatch { .. }), "{said}");
 }
@@ -76,9 +85,18 @@ fn an_encrypted_key_is_recognised_and_garbage_is_not_echoed() {
     assert!(matches!(said, TlsError::EncryptedKey { .. }), "{said}");
     // A section that opens and never closes, and one with a body that is not base64: the parser's errors quote lines.
     for (name, body) in [
-        ("open.pem", "-----BEGIN PRIVATE KEY-----\nSECRETKEYMATERIALplanted7731\n"),
-        ("base64.pem", "-----BEGIN PRIVATE KEY-----\n!!planted-secret-9921!!\n-----END PRIVATE KEY-----\n"),
-        ("junk-key.pem", "-----BEGIN PRIVATE KEY-----\nAAAAAAAAplantedAAAA\n-----END PRIVATE KEY-----\n"),
+        (
+            "open.pem",
+            "-----BEGIN PRIVATE KEY-----\nSECRETKEYMATERIALplanted7731\n",
+        ),
+        (
+            "base64.pem",
+            "-----BEGIN PRIVATE KEY-----\n!!planted-secret-9921!!\n-----END PRIVATE KEY-----\n",
+        ),
+        (
+            "junk-key.pem",
+            "-----BEGIN PRIVATE KEY-----\nAAAAAAAAplantedAAAA\n-----END PRIVATE KEY-----\n",
+        ),
     ] {
         let file = scratch(name, body);
         let said = TlsConfig::load(fixture("ec-chain.pem"), &file).unwrap_err();
@@ -91,7 +109,10 @@ fn an_encrypted_key_is_recognised_and_garbage_is_not_echoed() {
 #[test]
 fn the_key_is_in_no_debug_output_and_the_files_are_named_instead() {
     let loaded = load("ec-chain.pem", "ec-key-pkcs8.pem").unwrap();
-    let config = crate::Config { tls: Some(loaded), ..crate::Config::default() };
+    let config = crate::Config {
+        tls: Some(loaded),
+        ..crate::Config::default()
+    };
     let shown = format!("{config:?}");
     assert!(shown.contains("ec-key-pkcs8.pem"), "{shown}");
     let key_body: String = std::fs::read_to_string(fixture("ec-key-pkcs8.pem"))

@@ -90,9 +90,7 @@ pub(crate) async fn serve<S: AsyncRead + AsyncWrite + Unpin, F: Fs>(
     let mut buf = BytesMut::with_capacity(BUFFER);
     // A broker that wants a login starts every connection as a stranger, held to a small frame and a deadline.
     let mut session = ctx.auth.as_ref().map(|_| Session::new());
-    let mut login_by = session
-        .as_ref()
-        .map(|_| accepted + ctx.timeouts.pre_auth);
+    let mut login_by = session.as_ref().map(|_| accepted + ctx.timeouts.pre_auth);
     let mut decoder = FrameDecoder::new(if session.is_some() {
         Trust::Anonymous
     } else {
@@ -100,8 +98,7 @@ pub(crate) async fn serve<S: AsyncRead + AsyncWrite + Unpin, F: Fs>(
     });
     loop {
         let wait = (&ctx.timeouts, login_by);
-        let frame = match frames::next_before(stream, &mut buf, &mut decoder, wait, stop).await
-        {
+        let frame = match frames::next_before(stream, &mut buf, &mut decoder, wait, stop).await {
             Ok(frame) => frame,
             Err(end) => return end,
         };

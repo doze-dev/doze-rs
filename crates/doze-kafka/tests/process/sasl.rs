@@ -8,7 +8,11 @@ fn flags_that_cannot_be_honoured_stop_the_start_and_say_why() {
     for (flags, why) in [
         (
             &["--tls-cert", "c.pem"][..],
-            if cfg!(feature = "tls") { "TLS needs both --tls-cert and --tls-key" } else { "--features tls" },
+            if cfg!(feature = "tls") {
+                "TLS needs both --tls-cert and --tls-key"
+            } else {
+                "--features tls"
+            },
         ),
         (
             &[

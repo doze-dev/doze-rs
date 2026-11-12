@@ -124,7 +124,12 @@ impl Drop for Broker {
     }
 }
 
-fn call<S: Read + Write, Q: Encodable, A: Decodable>(s: &mut S, key: ApiKey, version: i16, q: &Q) -> A {
+fn call<S: Read + Write, Q: Encodable, A: Decodable>(
+    s: &mut S,
+    key: ApiKey,
+    version: i16,
+    q: &Q,
+) -> A {
     let payload = request_payload(key, version, 7, Some("process-test"), q);
     s.write_all(&framed(&payload)).unwrap();
     let mut len = [0; 4];

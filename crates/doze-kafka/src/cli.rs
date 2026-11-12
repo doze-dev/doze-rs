@@ -128,12 +128,21 @@ pub(crate) struct Args {
     #[arg(long, hide = true)]
     console_addr: Option<String>,
 
-    /// PEM certificate chain (leaf first) to serve TLS with. Needs --tls-key; a build without the `tls` feature refuses it.
-    #[arg(long, value_name = "FILE", hide = !cfg!(feature = "tls"))]
+    /// PEM certificate chain (leaf first) to serve TLS with. Needs --tls-key.
+    #[cfg(feature = "tls")]
+    #[arg(long, value_name = "FILE")]
     tls_cert: Option<PathBuf>,
     /// PEM private key of the certificate (PKCS#8, SEC1 or RSA, not encrypted). Needs --tls-cert.
-    #[arg(long, value_name = "FILE", hide = !cfg!(feature = "tls"))]
+    #[cfg(feature = "tls")]
+    #[arg(long, value_name = "FILE")]
     tls_key: Option<PathBuf>,
+    // Without the feature the two flags are accepted, hidden, to be refused with a message that names the feature.
+    #[cfg(not(feature = "tls"))]
+    #[arg(long, hide = true)]
+    tls_cert: Option<String>,
+    #[cfg(not(feature = "tls"))]
+    #[arg(long, hide = true)]
+    tls_key: Option<String>,
 }
 
 /// What the command line comes to once it has been checked.
@@ -146,6 +155,8 @@ pub(crate) struct Settings {
 impl Args {
     /// Checks the arguments and turns them into the configuration of the broker and the server.
     pub(crate) fn settings(&self) -> Result<Settings> {
+        // Without the feature this refuses the flags, and a value that is `()` is all that is left of them.
+        #[cfg_attr(not(feature = "tls"), allow(clippy::let_unit_value, unused_variables))]
         let tls = tls::load(self.tls_cert.as_ref(), self.tls_key.as_ref())?;
         let Some(major) = KafkaMajor::new(self.kafka_version) else {
             bail!(

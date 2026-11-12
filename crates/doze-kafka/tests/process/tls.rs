@@ -27,12 +27,15 @@ impl Broker {
         for der in CertificateDer::pem_file_iter(fixture("root.pem")).unwrap() {
             roots.add(der.unwrap()).unwrap();
         }
-        let config = ClientConfig::builder_with_provider(Arc::new(rustls::crypto::ring::default_provider()))
-            .with_safe_default_protocol_versions()
-            .unwrap()
-            .with_root_certificates(roots)
-            .with_no_client_auth();
-        let conn = ClientConnection::new(Arc::new(config), ServerName::try_from("localhost").unwrap()).unwrap();
+        let config =
+            ClientConfig::builder_with_provider(Arc::new(rustls::crypto::ring::default_provider()))
+                .with_safe_default_protocol_versions()
+                .unwrap()
+                .with_root_certificates(roots)
+                .with_no_client_auth();
+        let conn =
+            ClientConnection::new(Arc::new(config), ServerName::try_from("localhost").unwrap())
+                .unwrap();
         StreamOwned::new(conn, self.connect())
     }
 }
@@ -53,7 +56,13 @@ fn a_broker_started_with_a_certificate_serves_tls_refuses_plaintext_and_prints_n
     assert_eq!(&fetch(&mut s, "t")[8..], &sent[8..]);
     // Plaintext on the TLS port: closed, and not a byte of Kafka comes back.
     let mut plain = broker.connect();
-    let request = framed(&request_payload(ApiKey::ApiVersions, 3, 1, Some("t"), &kafka_protocol::messages::ApiVersionsRequest::default()));
+    let request = framed(&request_payload(
+        ApiKey::ApiVersions,
+        3,
+        1,
+        Some("t"),
+        &kafka_protocol::messages::ApiVersionsRequest::default(),
+    ));
     plain.write_all(&request).unwrap();
     let mut said = Vec::new();
     let _ = plain.read_to_end(&mut said);
@@ -62,8 +71,15 @@ fn a_broker_started_with_a_certificate_serves_tls_refuses_plaintext_and_prints_n
     assert!(broker.terminate().success());
     let log = broker.log.lock().unwrap().clone();
     assert!(log.contains("TLS is on"), "{log}");
-    assert!(log.contains("ec-chain.pem"), "the certificate is named: {log}");
-    for line in std::fs::read_to_string(fixture("ec-key-pkcs8.pem")).unwrap().lines().filter(|l| !l.starts_with("-----")) {
+    assert!(
+        log.contains("ec-chain.pem"),
+        "the certificate is named: {log}"
+    );
+    for line in std::fs::read_to_string(fixture("ec-key-pkcs8.pem"))
+        .unwrap()
+        .lines()
+        .filter(|l| !l.starts_with("-----"))
+    {
         assert!(!log.contains(line), "key material in the log:\n{log}");
     }
     drop(s);
@@ -88,7 +104,10 @@ fn a_certificate_that_cannot_be_used_stops_the_start_and_no_plaintext_listener_i
         let said = String::from_utf8_lossy(&output.stderr);
         assert!(!output.status.success(), "{why}");
         assert!(said.contains(why), "{said}");
-        assert!(!said.contains("listening"), "it never got as far as a listener: {said}");
+        assert!(
+            !said.contains("listening"),
+            "it never got as far as a listener: {said}"
+        );
     }
     let _ = std::fs::remove_dir_all(&data);
 }

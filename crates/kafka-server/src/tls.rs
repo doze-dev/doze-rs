@@ -30,9 +30,13 @@ pub enum TlsError {
     Read { file: String, source: io::Error },
     #[error("{file} holds no certificate (expected PEM, \"-----BEGIN CERTIFICATE-----\")")]
     NoCertificate { file: String },
-    #[error("{file} holds no private key (expected PEM: PKCS#8, SEC1 \"EC PRIVATE KEY\" or \"RSA PRIVATE KEY\")")]
+    #[error(
+        "{file} holds no private key (expected PEM: PKCS#8, SEC1 \"EC PRIVATE KEY\" or \"RSA PRIVATE KEY\")"
+    )]
     NoKey { file: String },
-    #[error("the private key in {file} is encrypted; decrypt it first (openssl pkey -in KEY -out PLAIN)")]
+    #[error(
+        "the private key in {file} is encrypted; decrypt it first (openssl pkey -in KEY -out PLAIN)"
+    )]
     EncryptedKey { file: String },
     #[error("{file} is not valid PEM")]
     BadPem { file: String },
@@ -93,21 +97,33 @@ fn read(file: &Path) -> Result<Vec<u8>, TlsError> {
     })
 }
 
-fn build(cert_pem: &[u8], key_pem: &[u8], files: (&Path, &Path)) -> Result<Arc<ServerConfig>, TlsError> {
+fn build(
+    cert_pem: &[u8],
+    key_pem: &[u8],
+    files: (&Path, &Path),
+) -> Result<Arc<ServerConfig>, TlsError> {
     let (cert_file, key_file) = (files.0.display().to_string(), files.1.display().to_string());
     // The parser's own error would repeat the offending line of the file, which in a key file is key material.
     let chain = CertificateDer::pem_slice_iter(cert_pem)
         .collect::<Result<Vec<_>, PemError>>()
-        .map_err(|_| TlsError::BadPem { file: cert_file.clone() })?;
+        .map_err(|_| TlsError::BadPem {
+            file: cert_file.clone(),
+        })?;
     if chain.is_empty() {
         return Err(TlsError::NoCertificate { file: cert_file });
     }
     let key = PrivateKeyDer::from_pem_slice(key_pem).map_err(|e| match e {
         PemError::NoItemsFound if key_pem.windows(9).any(|w| w == b"ENCRYPTED") => {
-            TlsError::EncryptedKey { file: key_file.clone() }
+            TlsError::EncryptedKey {
+                file: key_file.clone(),
+            }
         }
-        PemError::NoItemsFound => TlsError::NoKey { file: key_file.clone() },
-        _ => TlsError::BadPem { file: key_file.clone() },
+        PemError::NoItemsFound => TlsError::NoKey {
+            file: key_file.clone(),
+        },
+        _ => TlsError::BadPem {
+            file: key_file.clone(),
+        },
     })?;
     let provider = Arc::new(default_provider());
     let config = ServerConfig::builder_with_provider(provider)
@@ -116,7 +132,10 @@ fn build(cert_pem: &[u8], key_pem: &[u8], files: (&Path, &Path)) -> Result<Arc<S
         .with_no_client_auth()
         .with_single_cert(chain, key)
         .map_err(|e| match e {
-            rustls::Error::InconsistentKeys(_) => TlsError::Mismatch { cert: cert_file, key: key_file },
+            rustls::Error::InconsistentKeys(_) => TlsError::Mismatch {
+                cert: cert_file,
+                key: key_file,
+            },
             _ => TlsError::BadKey { file: key_file },
         })?;
     Ok(Arc::new(config))
@@ -142,7 +161,10 @@ pub(crate) async fn accept(
 
 /// What went wrong, in words of ours. rustls' own texts can quote what the peer sent.
 fn kind(e: &io::Error) -> &'static str {
-    match e.get_ref().and_then(|inner| inner.downcast_ref::<rustls::Error>()) {
+    match e
+        .get_ref()
+        .and_then(|inner| inner.downcast_ref::<rustls::Error>())
+    {
         Some(rustls::Error::InvalidMessage(_)) => "not a TLS handshake",
         Some(rustls::Error::AlertReceived(_)) => "the client sent an alert",
         Some(rustls::Error::PeerIncompatible(_)) => "no protocol version or cipher suite in common",
