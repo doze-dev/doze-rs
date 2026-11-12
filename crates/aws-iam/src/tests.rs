@@ -14,6 +14,7 @@ mod entities;
 mod persistence;
 mod policies;
 mod sessions;
+mod simulate;
 
 pub(crate) const START: i64 = 1_700_000_000_000;
 
@@ -136,7 +137,7 @@ fn every_operation_the_list_names_is_run_and_the_rest_are_refused() {
         "UploadServerCertificate",
         "EnableMFADevice",
         "GenerateCredentialReport",
-        "SimulatePrincipalPolicy",
+        "GetAccountAuthorizationDetails",
     ] {
         assert!(!w.iam.serves(name), "{name} is refused");
     }

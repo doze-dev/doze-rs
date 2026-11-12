@@ -12,6 +12,10 @@ use crate::req::Req;
 
 /// The operations IAM runs.
 pub(crate) const BUILT: &[Op] = &[
+    Op::SimulateCustomPolicy,
+    Op::SimulatePrincipalPolicy,
+    Op::GetContextKeysForCustomPolicy,
+    Op::GetContextKeysForPrincipalPolicy,
     Op::CreateUser,
     Op::GetUser,
     Op::UpdateUser,
@@ -218,6 +222,10 @@ impl Core {
     /// Keys, profiles, and the account and its providers.
     fn run_rest(&mut self, op: Op, r: &Req<'_>) -> Result<Value, ApiError> {
         match op {
+            Op::SimulateCustomPolicy => self.simulate_custom(r),
+            Op::SimulatePrincipalPolicy => self.simulate_principal(r),
+            Op::GetContextKeysForCustomPolicy => self.context_keys_custom(r),
+            Op::GetContextKeysForPrincipalPolicy => self.context_keys_principal(r),
             Op::CreateAccessKey => self.create_access_key(r),
             Op::ListAccessKeys => self.list_access_keys(r),
             Op::UpdateAccessKey => self.update_access_key(r),

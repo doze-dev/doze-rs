@@ -10,6 +10,7 @@ mod attached;
 mod core;
 mod entity;
 mod errors;
+mod gather;
 mod groups;
 mod keys;
 mod managed;
@@ -19,6 +20,7 @@ mod profiles;
 mod providers;
 mod req;
 mod session;
+mod simulate;
 mod sts;
 mod view;
 

@@ -9,6 +9,7 @@
 mod check;
 mod document;
 mod eval;
+mod keys;
 
 pub use check::{Kind, PolicyError, check};
 pub use document::{
@@ -17,3 +18,4 @@ pub use document::{
 pub use eval::{
     Context, Decision, Layer, Matched, Policies, Request, Subject, Verdict, evaluate, substitute,
 };
+pub use keys::context_keys;
