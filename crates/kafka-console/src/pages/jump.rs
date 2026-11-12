@@ -201,6 +201,37 @@ mod tests {
     }
 
     #[test]
+    fn the_pages_come_first_each_goes_to_its_own_address_and_a_filter_keeps_the_ones_it_names() {
+        let items = JumpItem::all(&["orders".to_owned()], &["analytics".to_owned()]);
+        let pages: Vec<&JumpItem> = items.iter().filter(|i| i.kind == JumpKind::Page).collect();
+        assert_eq!(
+            pages.len(),
+            7,
+            "seven pages: Home, Live, Topics, Groups, Access, Settings, Connect"
+        );
+        let m = jump_overlay(&items, 2, &Base::root()).into_string();
+        for (name, path) in PAGES {
+            assert!(
+                m.contains(&format!(
+                    "href=\"{path}\" data-jump=\"{}\"",
+                    name.to_lowercase()
+                )),
+                "{name} goes to {path}"
+            );
+        }
+        assert!(m.contains("<span class=\"jump-kind\">page</span>"));
+        // The names the filter keeps are the ones that contain it (the palette filters as you type).
+        let kept: Vec<&str> = pages
+            .iter()
+            .filter(|i| i.name.to_lowercase().contains("set"))
+            .map(|i| i.name.as_str())
+            .collect();
+        assert_eq!(kept, ["Settings"]);
+        let under = jump_overlay(&items, 2, &Base::new("/kafka")).into_string();
+        assert!(under.contains("href=\"/kafka/live\""), "{under}");
+    }
+
+    #[test]
     fn the_palette_lists_the_most_it_may_and_says_so() {
         let m = jump_overlay(&many(MOST + 5), MOST + 5, &Base::root()).into_string();
         assert_eq!(m.matches("class=\"jump-item\"").count(), MOST);
