@@ -249,3 +249,9 @@ table.consumers td.grp .grp-bits{margin-left:12px}
 .ni .soon{margin-left:auto}
 /* A sentence that is one line in one state and two in another keeps three lines of room, so a view switch moves nothing under it. */
 .page-h .sub:has(#group-lag-sentence){min-height:66px}
+/* Row one never wraps at a normal width: the find box gives way, "Reading as" stays at the right. Row two holds the time box and the filters on one line. */
+.bar .bar-row{flex-wrap:nowrap}
+.bar .bar-row .finput{flex:1 1 220px;min-width:180px}
+.bar .bar-row .seg,.bar .bar-row .dim{flex:none}
+.bar-chips .bar-time input{height:30px;width:150px;font-size:12.5px;border-radius:999px;padding:0 12px}
+.bar-chips .btn.sm{flex:none}

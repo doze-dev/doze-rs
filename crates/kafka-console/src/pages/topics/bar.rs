@@ -1,7 +1,7 @@
 //! The toolbar of the Messages page: ONE layout that never moves.
 //!
-//! Row one is always the partitions, the find box, the time box, (the shortcut to a held record when the topic has one) and,
-//! at the right, "Reading as" with its two levels in a fixed order. Row two is always there and always one line tall: the
+//! Row one is always the partitions, the find box and, at the right, "Reading as" with its two levels in a fixed order. Row two
+//! is always there and always one line tall: the time box, (the shortcut to a held record when the topic has one) and the
 //! filters that are on, each with a way to take it off, or a quiet sentence when none is. Choosing a partition, a filter or an
 //! isolation level changes the data under the toolbar and what the second row says, never where anything is.
 //!
@@ -82,7 +82,7 @@ fn chip(v: &MessagesView, base: &Base, label: &str, without: &MessageQuery) -> M
     }
 }
 
-/// Row two: the filters that are on, or one quiet sentence.
+/// Row two: the time box, the shortcut to a held record, the filters that are on, or one quiet sentence.
 fn chips(v: &MessagesView, base: &Base) -> Markup {
     let q = &v.query;
     let without = |f: fn(&mut MessageQuery)| {
@@ -92,6 +92,8 @@ fn chips(v: &MessagesView, base: &Base) -> Markup {
     };
     html! {
         div class="bar-chips" {
+            label class="bar-time" { span class="sr" { "From time (UTC)" } input type="text" name="time" value=(q.time.as_ref().map_or("", |t| t.1.as_str())) placeholder="From time, UTC" size="16"; }
+            (from_held(v, base))
             @if q.filtered() {
                 @if let Some(p) = q.partition { (chip(v, base, &format!("Partition {p}"), &without(|c| c.partition = None))) }
                 @if let Some(o) = q.offset { (chip(v, base, &format!("From offset {}", number(o)), &without(|c| c.offset = None))) }
@@ -119,8 +121,6 @@ pub(super) fn bar(v: &MessagesView, base: &Base) -> Markup {
             div class="bar-row" {
                 (partition_seg(v))
                 (filter_box("find", "Key, or offset", "Find by key or offset", &find))
-                label class="bar-time" { span class="sr" { "From time (UTC)" } input type="text" name="time" value=(q.time.as_ref().map_or("", |t| t.1.as_str())) placeholder="From time, UTC" size="16"; }
-                (from_held(v, base))
                 span class="sp" {}
                 (reading_seg(v))
             }

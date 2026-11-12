@@ -310,7 +310,8 @@ async fn the_tabs_of_a_topic_share_one_header() {
 
 /// The controls of the Messages toolbar, in order: the names and labels a person would read off it.
 fn controls(doc: &str) -> Vec<String> {
-    let row = between(doc, "<div class=\"bar-row\">", "<input type=\"hidden\"");
+    let row = between(doc, "<div class=\"bar-row\">", "<div class=\"bar-chips\">");
+    let row = row.split("<input type=\"hidden\"").next().unwrap_or(row);
     let mut out = Vec::new();
     for part in row.split('<').skip(1) {
         if part.starts_with("button") {
@@ -368,11 +369,7 @@ async fn the_messages_toolbar_is_one_layout_and_the_callout_stays_in_every_state
     }
     let f = first.unwrap();
     assert_eq!(f.last().map(String::as_str), Some("read_committed"));
-    assert!(
-        f.contains(&"All partitions".to_owned())
-            && f.contains(&"find".to_owned())
-            && f.contains(&"time".to_owned())
-    );
+    assert!(f.contains(&"All partitions".to_owned()) && f.contains(&"find".to_owned()));
 }
 
 /// CON-707: the second row of the toolbar names the filters that are on, each with a link that takes it off.
