@@ -114,6 +114,7 @@ pub trait Module: Send + Sync + 'static {
             port: 0,
             http: false,
             routes: Vec::new(),
+            tcp: false,
         }]
     }
 

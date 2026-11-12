@@ -45,7 +45,8 @@ pub struct ConsoleSpec {
     #[n(1)]
     #[cbor(default)]
     pub tabs: Vec<Tab>,
-    /// A web console the module serves, as a template over the instance's address ("http://{address}/_console").
+    /// A web console the module serves, as a template over the instance's address ("http://{address}/_console"), or a
+    /// named listener's (`{address:ui}`: temporal's Web UI is its own listener).
     #[n(2)]
     pub web_url: Option<String>,
     /// The tab the console opens on: "console", "web", or none for the host's default for the kind.

@@ -100,6 +100,11 @@ pub struct Listener {
     #[n(3)]
     #[cbor(default)]
     pub routes: Vec<String>,
+    /// The engine cannot listen on a Unix socket (temporal's gRPC server, the ferret gateway, kafka): the host grants
+    /// it a loopback TCP backend even where it grants others sockets (D13).
+    #[n(4)]
+    #[cbor(default)]
+    pub tcp: bool,
 }
 
 /// The connection string doze surfaces for an instance.

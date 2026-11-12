@@ -9,7 +9,7 @@
 use crate::hcl;
 use doze_module_host::Running;
 use doze_module_proto::msg::instance::Toolchain;
-use doze_module_proto::msg::instance::{Address, Granted, Instance};
+use doze_module_proto::msg::instance::{Address, Granted, Instance, Listener};
 use doze_module_proto::msg::run::{Plan, Ready, WithToolchain};
 use serde_json::{Value as Json, json};
 use std::collections::BTreeMap;
@@ -77,6 +77,30 @@ fn instance(case: &Json, parsed: hcl::Parsed, backend: &str) -> Instance {
     }
 }
 
+/// Grants each listener that needs TCP (`Listener::tcp`) the way a protocol-1 host did: the engine listened on its
+/// conventional port itself (the instance's `port` for "main", its own `port` for the others). Go modules of that kind
+/// (temporal) bound those ports directly, so this is the grant under which their answers are comparable.
+fn regrant(inst: &mut Instance, listeners: &[Listener], main_port: u16) {
+    for l in listeners.iter().filter(|l| l.tcp) {
+        let main = l.name == doze_module_proto::network::MAIN;
+        let port = if main { main_port } else { l.port };
+        let backend = format!("127.0.0.1:{port}");
+        let addr = if main {
+            "127.0.0.1:7777".to_string()
+        } else {
+            backend.clone()
+        };
+        let scheme = if l.http { "http" } else { "tcp" };
+        let granted = Granted {
+            url: format!("{scheme}://{addr}"),
+            addr,
+            hosts: vec![],
+            backend: Address::Tcp(backend),
+        };
+        inst.listeners.insert(l.name.clone(), granted);
+    }
+}
+
 /// The Rust module's answers for one case, in the oracle's shape.
 async fn answer(m: &Running, case: &Json, golden: &Json) -> Json {
     let src = f(case, "hcl").as_str().unwrap_or_default();
@@ -85,9 +109,13 @@ async fn answer(m: &Running, case: &Json, golden: &Json) -> Json {
         Err(e) => return json!({ "decode_error": e.to_string() }),
     };
     let backend = f(golden, "backend").as_str().unwrap_or_default();
-    let inst = instance(case, parsed, backend);
+    let main_port = parsed.port.unwrap_or(m.manifest.default_port);
+    let mut inst = instance(case, parsed, backend);
     if let Err(e) = m.decode(&inst).await {
         return json!({ "decode_error": e.message });
+    }
+    if let Ok(listeners) = m.network(&inst).await {
+        regrant(&mut inst, &listeners, main_port);
     }
     let mut out = json!({ "backend": backend });
     if let Ok(c) = m.connection(&inst).await {
@@ -139,6 +167,14 @@ fn program(v: &Json) -> Json {
     }
 }
 
+/// A readiness check as on Unix: an `exec` check names a program too, and on Windows that program carries `.exe`.
+fn ready_command(v: &Json) -> Json {
+    match slash(v) {
+        Json::String(s) => Json::String(s.replacen(".exe ", " ", 1)),
+        other => other,
+    }
+}
+
 /// The parts of a Go answer that must match (wording, hashes and nulls aside).
 fn comparable(a: &Json) -> Json {
     if a.get("decode_error").is_some() {
@@ -155,7 +191,7 @@ fn comparable(a: &Json) -> Json {
     let plan: Vec<Json> = f(a, "plan").as_array().map(|ps| ps.iter().map(|p| {
         let list = |k: &str| f(p, k).as_array().cloned().unwrap_or_default();
         json!({ "name": f(p, "name"), "program": program(f(p, "program")), "args": slash(&Json::Array(list("args"))),
-                "env_added": f(p, "env_added"), "after": list("after"), "ready": slash(f(p, "ready")), "hooks": list("hooks") })
+                "env_added": f(p, "env_added"), "after": list("after"), "ready": ready_command(f(p, "ready")), "hooks": list("hooks") })
     }).collect()).unwrap_or_default();
     json!({ "refused": false, "env_var": f(a, "env_var"), "url": f(a, "url"), "objects": objects, "plan": plan,
             "plan_error": a.get("plan_error").is_some() })

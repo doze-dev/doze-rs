@@ -65,8 +65,8 @@ jobs:
         run: |
           d=$(ls -d /usr/lib/postgresql/*/bin 2>/dev/null | sort -V | tail -1 || true)
           if [ -n "$d" ]; then echo "PGBIN=$d" >> "$GITHUB_ENV"; fi
-      - run: cargo clippy -p doze-os -p doze-module-proto -p doze-module -p doze-module-derive -p doze-module-host -p doze-module-test -p doze-module-release -p doze-resp -p doze-module-valkey -p doze-module-kvrocks --all-targets -- -D warnings
-      - run: cargo test -p doze-os -p doze-module-proto -p doze-module -p doze-module-host -p doze-module-test -p doze-module-release -p doze-resp -p doze-module-valkey -p doze-module-kvrocks --no-fail-fast -- --nocapture
+      - run: cargo clippy -p doze-os -p doze-module-proto -p doze-module -p doze-module-derive -p doze-module-host -p doze-module-test -p doze-module-release -p doze-resp -p doze-module-valkey -p doze-module-kvrocks -p doze-module-temporal --all-targets -- -D warnings
+      - run: cargo test -p doze-os -p doze-module-proto -p doze-module -p doze-module-host -p doze-module-test -p doze-module-release -p doze-resp -p doze-module-valkey -p doze-module-kvrocks -p doze-module-temporal --no-fail-fast -- --nocapture
 
   # Module acceptance (docs/port/modules/PLAN.md D12): each module boots the engine build doze-binaries publishes, on
   # every target the module declares. DOZE_ACCEPTANCE turns a missing build into a failure, so a skip cannot pass for a
@@ -86,6 +86,7 @@ jobs:
       VALKEY: "9.1.1"
       VALKEY8: "8.1.9"
       KVROCKS: "2.16.0"
+      TEMPORAL: "1.8.2"
     steps:
       - uses: actions/checkout@v4
       - uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -96,7 +97,7 @@ jobs:
           TARGET: ${{ matrix.target }}
         run: |
           # <variable>:<engine>:<version> — the variable names where that build's bin/ is.
-          for e in "DOZE_VALKEY_BINDIR:valkey:$VALKEY" "VALKEY8_BINDIR:valkey:$VALKEY8" "DOZE_KVROCKS_BINDIR:kvrocks:$KVROCKS"; do
+          for e in "DOZE_VALKEY_BINDIR:valkey:$VALKEY" "VALKEY8_BINDIR:valkey:$VALKEY8" "DOZE_KVROCKS_BINDIR:kvrocks:$KVROCKS" "DOZE_TEMPORAL_BINDIR:temporal:$TEMPORAL"; do
             var=${e%%:*}; rest=${e#*:}; name=${rest%%:*}; v=${rest#*:}
             dir="$RUNNER_TEMP/engines/$name-$v"; art="$name-$v-$TARGET.tar.gz"
             mkdir -p "$dir"
@@ -105,7 +106,7 @@ jobs:
             tar -xzf "$dir/$art" -C "$dir"
             echo "$var=$dir/$name-$v-$TARGET/bin" >> "$GITHUB_ENV"
           done
-      - run: cargo test -p doze-module-valkey -p doze-module-kvrocks --no-fail-fast -- --nocapture
+      - run: cargo test -p doze-module-valkey -p doze-module-kvrocks -p doze-module-temporal --no-fail-fast -- --nocapture
       - name: valkey's acceptance on its other major (8)
         shell: bash
         run: DOZE_VALKEY_BINDIR="$VALKEY8_BINDIR" cargo test -p doze-module-valkey --test acceptance --no-fail-fast -- --nocapture
@@ -227,6 +228,11 @@ jobs:
           cargo fuzz run fuzz_reply corpus/fuzz_reply -- -max_total_time=30 -max_len=65536
           mkdir -p corpus/fuzz_text
           cargo fuzz run fuzz_text corpus/fuzz_text -- -max_total_time=30 -max_len=65536
+      - name: Fuzz temporal's duration parser for 30 seconds
+        working-directory: crates/doze-module-temporal/fuzz
+        run: |
+          mkdir -p corpus/fuzz_duration
+          cargo fuzz run fuzz_duration corpus/fuzz_duration -- -max_total_time=30
       - name: Fuzz the PLAIN token for 30 seconds
         working-directory: crates/kafka-auth/fuzz
         run: |
