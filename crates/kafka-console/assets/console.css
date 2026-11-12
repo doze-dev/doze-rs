@@ -708,3 +708,22 @@ p,.sub,.lede,.help{text-wrap:pretty}
 /* Reduced motion: the page change is a swap with no cross-fade (the browser's own default for a view transition would fade). */
 @media (prefers-reduced-motion:reduce){::view-transition-group(*),::view-transition-old(*),::view-transition-new(*){animation:none!important}}
 .dz-opt-t{flex:1 1 auto}.dz-item{overflow:hidden;text-overflow:ellipsis}
+
+/* ===== ONE focus system (shadcn-like) =====
+   A 2 px ring, the primary colour at about 45 %, 2 px off the OUTERMOST shape of the control, following its radius; no second border,
+   no ring inside a ring. A control that is its own shape (a button, a link, a chip, a tab, a segment, a trigger, a menu button, a
+   row's link) draws it on itself; a field that is a box around an input (.search, .input, .finput, .dz-field, a chip that holds an
+   input) draws it on the BOX (:focus-within) and its input draws none. A menu item or an option shows focus by its highlight. */
+:root{--ring:rgba(122,79,224,.45)}
+:where(a,button,input,select,textarea,summary,[tabindex]):focus-visible,
+.opt-row:has(input:focus-visible) :is(.radio,.check),.seg label:has(input:focus-visible),.fchip:has(select:focus-visible),
+.t a:focus-visible,.crumbs a:focus-visible,.tab:focus-visible,.ni:focus-visible,.disc>summary:focus-visible,
+.dz-trigger:focus-visible,.dz-menu-btn:focus-visible,.dz-seg-i:focus-visible,.dz-pov-btn:focus-visible{outline:2px solid var(--ring);outline-offset:2px}
+.search:focus-within,.input:focus-within,.finput:focus-within,.dz-field:focus-within,.fchip:has(input:focus-visible){outline:2px solid var(--ring);outline-offset:2px;border-color:var(--accent);box-shadow:none}
+.search input:focus-visible,.input :is(input,textarea,select):focus-visible,.finput input:focus-visible,.dz-input:focus-visible,.fchip input:focus-visible{outline:0}
+.dz[data-open] .dz-trigger,.dz-combobox[data-open] .dz-field{border-color:var(--accent);box-shadow:none}
+.dz-opt:focus-visible,.dz-item:focus-visible{outline:0}
+#main:focus,#main:focus-visible{outline:0}
+@media (forced-colors:active){
+:where(a,button,input,select,textarea,summary,[tabindex]):focus-visible,.search:focus-within,.input:focus-within,.finput:focus-within,.dz-field:focus-within,.fchip:has(input:focus-visible),.dz-trigger:focus-visible,.dz-seg-i:focus-visible{outline:2px solid Highlight;outline-offset:2px}
+}
