@@ -60,7 +60,7 @@ fn main() -> Result<()> {
     }
     tracing::debug!(
         console = settings.console.enabled,
-        addr = ?settings.console.addr,
+        wanted = ?settings.console.addr,
         prefix = %settings.console.prefix,
         allow_hosts = ?settings.console.allow_hosts,
         unprotected = settings.console.unprotected,

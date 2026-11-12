@@ -346,3 +346,32 @@ mod users;
 
 #[cfg(feature = "tls")]
 mod tls;
+
+#[test]
+fn a_sasl_user_named_for_the_console_is_refused_by_name_and_never_says_its_password() {
+    for flags in [
+        &[
+            "--sasl-mechanisms",
+            "PLAIN",
+            "--sasl-user",
+            "__console:pw-planted",
+        ][..],
+        &[
+            "--sasl-mechanisms",
+            "SCRAM-SHA-256",
+            "--sasl-user",
+            "ok:x",
+            "--sasl-user",
+            "__console:pw-planted",
+        ][..],
+    ] {
+        let said = sasl(flags).unwrap_err();
+        assert!(
+            said.contains("the user name __console is reserved for the web console"),
+            "{said}"
+        );
+        assert!(!said.contains("planted"), "{said}");
+    }
+    // A name that only starts the same is fine.
+    assert!(sasl(&["--sasl-mechanisms", "PLAIN", "--sasl-user", "__console2:pw"]).is_ok());
+}

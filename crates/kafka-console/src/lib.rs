@@ -10,6 +10,8 @@ pub mod app;
 pub mod assets;
 pub mod backend;
 pub mod base;
+#[cfg(any(test, feature = "examples"))]
+pub mod boards;
 pub mod facts;
 #[cfg(any(test, feature = "examples"))]
 pub mod fixtures;

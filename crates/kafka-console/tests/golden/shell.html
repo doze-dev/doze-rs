@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Connect an app · doze-kafka</title>
+<link rel="icon" type="image/svg+xml" href="/k/static/favicon.svg">
+<link rel="stylesheet" href="/k/static/console.css">
+<meta name="htmx-config" content="{&quot;allowEval&quot;:false,&quot;allowScriptTags&quot;:false,&quot;includeIndicatorStyles&quot;:false,&quot;selfRequestsOnly&quot;:true,&quot;historyCacheSize&quot;:0,&quot;refreshOnHistoryMiss&quot;:true}">
+<script src="/k/static/htmx.js" defer>
+</script>
+<script src="/k/static/console.js" defer>
+</script>
+</head>
+<body data-stream="/k/events?watch=home-instance,home-sentence">
+<a class="skip" href="#main">Skip to the page</a>
+<div class="root">
+<div class="banner bad" role="alert">
+<b>Served beyond loopback, no login.</b> Anyone who can reach this address can use the console, and the console acts on the broker as a super user.</div>
+<header class="topbar">
+<div class="brand">
+<span class="wm">doze-kafka</span>
+</div>
+<div class="search">
+<svg class="gl" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+<circle cx="7" cy="7" r="4.5"/>
+<path d="M10.4 10.4 14 14"/>
+</svg>
+<input type="text" placeholder="Jump to a topic or group" aria-label="Jump to a topic or group" disabled>
+<kbd>⌘K</kbd>
+</div>
+<div class="tbr">
+<button class="chip" type="button" data-copy="127.0.0.1:9092" title="Copy the address" aria-label="Copy address 127.0.0.1:9092">
+<span class="mono">127.0.0.1:9092</span>
+<svg class="gl" width="14" height="14" viewBox="0 0 16 16" aria-hidden="true">
+<rect x="5.4" y="5.4" width="7.6" height="7.6" rx="1.8"/>
+<path d="M3 10.2V4.8A1.8 1.8 0 0 1 4.8 3H10"/>
+</svg>
+</button>
+<span class="chip">Kafka 4 profile</span>
+<a class="chip" href="/k/access" aria-label="Access: SASL SCRAM + TLS">
+<svg class="gl" width="14" height="14" viewBox="0 0 16 16" aria-hidden="true">
+<rect x="3.4" y="7" width="9.2" height="6.4" rx="1.8"/>
+<path d="M5.4 7V5.4a2.6 2.6 0 0 1 5.2 0V7"/>
+</svg>SASL SCRAM + TLS</a>
+</div>
+</header>
+<div class="frame">
+<nav class="rail" aria-label="Spaces">
+<div class="nav">
+<a class="ni" href="/k/">
+<svg class="gl" width="20" height="20" viewBox="0 0 16 16" aria-hidden="true">
+<path d="M2.8 7.4 8 3l5.2 4.4"/>
+<path d="M4 6.6V13h8V6.6"/>
+<path d="M6.8 13v-3.2h2.4V13"/>
+</svg>Home</a>
+<a class="ni" href="/k/live">
+<svg class="gl" width="20" height="20" viewBox="0 0 16 16" aria-hidden="true">
+<circle cx="8" cy="8" r="1.4" fill="currentColor"/>
+<path d="M5.1 5.3a4 4 0 0 0 0 5.4"/>
+<path d="M10.9 5.3a4 4 0 0 1 0 5.4"/>
+<path d="M2.9 3.5a6.9 6.9 0 0 0 0 9"/>
+<path d="M13.1 3.5a6.9 6.9 0 0 1 0 9"/>
+</svg>Live</a>
+<a class="ni on" href="/k/topics" aria-current="page">
+<svg class="gl" width="20" height="20" viewBox="0 0 16 16" aria-hidden="true">
+<rect x="2.8" y="2.8" width="4.4" height="4.4" rx="1.2"/>
+<rect x="8.8" y="2.8" width="4.4" height="4.4" rx="1.2"/>
+<rect x="2.8" y="8.8" width="4.4" height="4.4" rx="1.2"/>
+<rect x="8.8" y="8.8" width="4.4" height="4.4" rx="1.2"/>
+</svg>Resources</a>
+<a class="ni" href="/k/access">
+<svg class="gl" width="20" height="20" viewBox="0 0 16 16" aria-hidden="true">
+<circle cx="5.6" cy="8" r="2.7"/>
+<path d="M8.3 8H13.6"/>
+<path d="M11.6 8v2"/>
+<path d="M13.6 8v1.4"/>
+</svg>Access</a>
+<a class="ni" href="/k/lab">
+<svg class="gl" width="20" height="20" viewBox="0 0 16 16" aria-hidden="true">
+<path d="M6.4 2.8h3.2"/>
+<path d="M7 2.8v4L3.7 12.3a1.1 1.1 0 0 0 1 1.7h6.6a1.1 1.1 0 0 0 1-1.7L9 6.8v-4"/>
+<path d="M5.3 10h5.4"/>
+</svg>Lab</a>
+<a class="ni" href="/k/settings">
+<svg class="gl" width="20" height="20" viewBox="0 0 16 16" aria-hidden="true">
+<path d="M2.8 5h10.4"/>
+<path d="M2.8 11h10.4"/>
+<circle cx="5.6" cy="5" r="1.6"/>
+<circle cx="10.4" cy="11" r="1.6"/>
+</svg>Settings</a>
+</div>
+</nav>
+<main class="main" id="main">
+<nav class="crumbs" aria-label="Breadcrumb">
+<a href="/k/">Home</a>
+<svg class="gl" width="12" height="12" viewBox="0 0 16 16" aria-hidden="true">
+<path d="M6 3.5 10.5 8 6 12.5"/>
+</svg>
+<span class="cur">Connect an app</span>
+</nav>
+<div class="banner bad" id="stream-banner" hidden role="status">
+<b>Live updates are paused.</b> The console lost its connection to the broker's process. It is trying again; the page itself is still right as of its last load.</div>
+<h1>Connect an app</h1>
+</main>
+</div>
+</div>
+</body>
+</html>

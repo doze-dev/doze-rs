@@ -1,0 +1,42 @@
+<table class="t">
+<thead>
+<tr>
+<th scope="col">Topic</th>
+<th scope="col" class="r">Records</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<a href="/topics/orders">orders</a>
+</td>
+<td class="r">48,213</td>
+</tr>
+</tbody>
+</table>
+<div class="field">
+<label for="topic-name">Topic name</label>
+<input id="topic-name" name="name" class="input">
+<div class="help">Up to 249 bytes</div>
+</div>
+<div class="teach">
+<b>Partitions are fixed up front.</b> <span class="dim">You can add more later, never take them away.</span>
+</div>
+<label class="finput">
+<input type="search" name="q" placeholder="Filter topics" value="" aria-label="Filter topics">
+</label>
+<div class="seg">
+<button class="on" type="button" data-copy-as="code" data-js-only hidden>Code</button>
+<button class="" type="button" data-copy-as="properties" data-js-only hidden>Properties</button>
+</div>
+<pre class="code" id="snippet-0">
+<span class="k">cl</span>, err := kgo.NewClient(
+<span class="s">&quot;127.0.0.1:9092&quot;</span>
+</pre>
+<pre class="code" style="margin-top:8px">kcat -b 127.0.0.1:9092 -L</pre>
+<button class="btn sm" type="button" data-copy="127.0.0.1:9092" data-js-only hidden>Copy</button>
+<div class="frag" id="home-instance" hx-get="/fragments/home-instance" hx-trigger="doze:tick" hx-swap="outerHTML">x</div>
+<form method="post" action="/connect/advertised/check" hx-post="/connect/advertised/check" hx-target="#probe-home" hx-swap="outerHTML">
+<input type="hidden" name="back" value="home">
+<button type="submit">Check again</button>
+</form>

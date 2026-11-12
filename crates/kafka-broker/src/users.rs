@@ -83,3 +83,49 @@ pub(crate) fn load(meta: &MetaStore, users: &Users) -> Result<(), BrokerError> {
     users.replace_stored(stored);
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use kafka_meta::{CredentialId, CredentialRecord};
+    use kafka_storage::fs::Fs;
+    use kafka_storage::sim::SimFs;
+
+    use super::*;
+
+    fn record() -> CredentialRecord {
+        CredentialRecord {
+            salt: vec![1; 16],
+            iterations: 4096,
+            stored_key: vec![2; 32],
+            server_key: vec![3; 32],
+        }
+    }
+
+    #[test]
+    fn a_stored_credential_for_the_consoles_name_is_never_put_in_force() {
+        let fs = SimFs::new();
+        fs.create_dir_all(std::path::Path::new("/data")).unwrap();
+        let meta = MetaStore::open(&fs, std::path::Path::new("/data")).unwrap();
+        let row = |user: &str| {
+            (
+                CredentialId {
+                    user: user.to_owned(),
+                    mechanism: SHA_256,
+                },
+                record(),
+            )
+        };
+        meta.alter_credentials(&[row("alice"), row(kafka_auth::CONSOLE_USER)], &[])
+            .unwrap();
+        let users = Users::none();
+        load(&meta, &users).unwrap();
+        let stored = users.stored();
+        assert!(stored.verifier(Kind::Sha256, "alice").is_some());
+        assert!(
+            stored
+                .verifier(Kind::Sha256, kafka_auth::CONSOLE_USER)
+                .is_none(),
+            "a login as the console would be a super user"
+        );
+    }
+}

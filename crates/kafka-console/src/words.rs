@@ -34,7 +34,7 @@ pub fn home_sub(v: &HomeView) -> Vec<Span> {
             Span::text("Running "),
             Span::strong(span(v.instance.up_secs)),
             Span::text(format!(
-                ", {}. {}",
+                "{} {}",
                 last_stop_short(v.instance.last_stop),
                 holds()
             )),
@@ -42,11 +42,12 @@ pub fn home_sub(v: &HomeView) -> Vec<Span> {
     }
 }
 
+/// What follows the running time: the board's ", last stop clean." and its two other cases.
 fn last_stop_short(stop: StopView) -> &'static str {
     match stop {
-        StopView::Clean => "last stop clean",
-        StopView::Unclean => "last stop not clean",
-        StopView::None => "a new data directory",
+        StopView::Clean => ", last stop clean.",
+        StopView::Unclean => ", last stop not clean.",
+        StopView::None => " on a new data directory.",
     }
 }
 

@@ -21,6 +21,19 @@ fn the_steady_sentence_says_how_long_and_how_it_stopped_and_what_it_holds() {
 }
 
 #[test]
+fn the_steady_sentence_has_a_form_for_each_last_stop() {
+    let mut v = fixtures::home(HomeState::Steady);
+    v.instance.last_stop = StopView::Unclean;
+    assert!(plain(&home_sub(&v)).starts_with("Running 3 d 4 h, last stop not clean. It holds"));
+    v.instance.last_stop = StopView::None;
+    v.instance.up_secs = 7;
+    assert_eq!(
+        plain(&home_sub(&v)),
+        "Running 7 s on a new data directory. It holds 9 topics and 21 partitions."
+    );
+}
+
+#[test]
 fn the_quiet_sentence_names_the_listener_and_claims_no_client() {
     let v = fixtures::home(HomeState::Quiet);
     assert_eq!(home_title(&v.state), "Your broker is up");

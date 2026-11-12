@@ -53,15 +53,14 @@ fn start_with(data: &Path, flags: &[&str]) -> Broker {
 /// [`start_with`], with environment variables set for the process.
 fn start_with_env(data: &Path, flags: &[&str], env: &[(&str, &str)]) -> Broker {
     let mut child = Command::new(env!("CARGO_BIN_EXE_doze-kafka"))
-        // Every test broker has a console of its own on a free port (a flag after this one wins).
-        .args([
-            "--listen",
-            "127.0.0.1:0",
-            "--console-addr",
-            "127.0.0.1:0",
-            "--data-dir",
-        ])
+        .args(["--listen", "127.0.0.1:0", "--data-dir"])
         .arg(data)
+        // Every test broker has a console of its own on a free port, unless the test chose an address.
+        .args(
+            ["--console-addr", "127.0.0.1:0"]
+                .iter()
+                .filter(|_| !flags.contains(&"--console-addr")),
+        )
         .args(flags)
         .envs(env.iter().copied())
         .stderr(Stdio::piped())
