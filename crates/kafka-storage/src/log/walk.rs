@@ -341,3 +341,41 @@ fn open_batch<F: Fs>(
         push_gap(seg, spent, first, count);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn spent(gaps: usize) -> Spent {
+        Spent {
+            left: Budget {
+                gaps,
+                ..Budget::default()
+            },
+            partial: false,
+        }
+    }
+
+    #[test]
+    fn gaps_that_touch_are_one_range_and_gaps_apart_are_two() {
+        let (mut seg, mut s) = (SegmentWalk::default(), spent(10));
+        push_gap(&mut seg, &mut s, 0, 2);
+        push_gap(&mut seg, &mut s, 2, 3);
+        push_gap(&mut seg, &mut s, 10, 1);
+        push_gap(&mut seg, &mut s, 11, 0);
+        assert_eq!(seg.gaps, [(0, 5), (10, 1)]);
+        assert!(!s.partial);
+    }
+
+    #[test]
+    fn a_gap_past_the_budget_is_counted_and_says_the_walk_is_partial() {
+        let (mut seg, mut s) = (SegmentWalk::default(), spent(1));
+        push_gap(&mut seg, &mut s, 0, 2);
+        push_gap(&mut seg, &mut s, 10, 4);
+        assert_eq!(
+            (seg.gaps.as_slice(), seg.unplaced, s.partial),
+            ([(0, 2)].as_slice(), 4, true)
+        );
+        assert_eq!(seg.removed(), 6);
+    }
+}
