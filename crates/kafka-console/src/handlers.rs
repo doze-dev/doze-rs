@@ -4,6 +4,8 @@ mod access;
 mod config;
 mod consumers;
 mod fragments;
+#[cfg(feature = "examples")]
+mod gallery;
 mod groups;
 mod groups_dialogs;
 mod groups_fragments;
@@ -24,6 +26,8 @@ pub use access::{access, acl_create, acl_create_form, acl_delete, acl_delete_for
 pub use config::{config, config_edit, config_edit_form, config_reset, config_reset_form};
 pub use consumers::consumers as topic_consumers;
 pub use fragments::{check, fragment};
+#[cfg(feature = "examples")]
+pub use gallery::gallery;
 pub use groups::{
     group as group_page, groups as groups_list, lag as group_lag, members as group_members,
 };

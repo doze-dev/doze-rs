@@ -140,8 +140,8 @@ async fn hostile_records_headers_and_names_from_a_real_broker_are_inert_on_every
         if !path.starts_with("/fragments") {
             assert_eq!(
                 doc.matches("<script").count(),
-                1,
-                "{path}: only the console's own script"
+                doc.matches("<script src=").count(),
+                "{path}: only the console's own script files, no inline script"
             );
         }
     }

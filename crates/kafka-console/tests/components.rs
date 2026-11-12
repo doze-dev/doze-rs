@@ -46,7 +46,7 @@ fn the_shell() {
     let base = Base::new("/k");
     let urls = AssetUrls {
         css: "/k/static/console.css".into(),
-        script: "/k/static/console.js".into(),
+        scripts: vec!["/k/static/console.js".into()],
         favicon: "/k/static/favicon.svg".into(),
     };
     let chrome = Chrome {

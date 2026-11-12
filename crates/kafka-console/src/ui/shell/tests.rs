@@ -81,7 +81,8 @@ fn a_page_that_watches_opens_a_stream_and_one_that_does_not_has_none() {
         "/k",
     );
     assert!(
-        some.contains(r#"<body data-stream="/k/events?watch=home-instance,home-sentence">"#),
+        some.contains(r#"data-stream="/k/events?watch=home-instance,home-sentence""#)
+            && some.contains(r#"<main class="main" id="main" data-stream"#),
         "{some}"
     );
 }

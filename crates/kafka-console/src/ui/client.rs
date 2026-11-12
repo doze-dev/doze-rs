@@ -12,10 +12,6 @@ use maud::{Markup, html};
 pub const EVENT_TICK: &str = "tick";
 /// The attribute of a fragment that holds the URL it is fetched from.
 pub const ATTR_FRAG: &str = "data-frag";
-/// A form the script posts in place (the server answers with the fragment named by `data-target`).
-pub const ATTR_AJAX: &str = "data-ajax";
-/// The id of the fragment a posted form's answer replaces.
-pub const ATTR_TARGET: &str = "data-target";
 /// The request header that says "I want the fragment, not a redirect".
 pub const HEADER_FRAGMENT: &str = "x-fragment";
 /// The attribute of `<body>` that holds the URL of the stream.
@@ -55,16 +51,53 @@ pub const CLASS_OVERLAY_OUT: &str = "ovl-out";
 pub const CLASS_FRAGMENT: &str = "frag";
 /// The id of the banner shown while the stream is lost.
 pub const ID_BANNER: &str = "stream-banner";
-/// What goes in `<head>` for the client layer.
+/// The id of the overlay root: the element every overlay is put in (the target of the requests that open one).
+pub const ID_OVERLAY_ROOT: &str = "ovl";
+/// htmx's configuration, as the document says it (a `<meta>`, so that no inline script is needed). Why each line is there:
+/// `allowEval` off and `allowScriptTags` off keep the CSP (no `unsafe-eval`, no inline script) true of htmx; `selfRequestsOnly`
+/// refuses a request to another origin; `historyCacheSize` 0 keeps page snapshots (message values!) out of `localStorage` and
+/// always restores a fresh page; `includeIndicatorStyles` off because the console draws its own; `scrollIntoViewOnBoost` off
+/// because the swap says where to scroll; `defaultSettleDelay` 0 because nothing waits 20 ms to settle; every status except 204 swaps, so that a refusal (422) and a 404 page are shown.
+pub const HTMX_CONFIG: &str = r#"{"allowEval":false,"allowScriptTags":false,"selfRequestsOnly":true,"historyCacheSize":0,"includeIndicatorStyles":false,"scrollIntoViewOnBoost":false,"defaultSettleDelay":0,"defaultSwapStyle":"outerHTML","responseHandling":[{"code":"204","swap":false},{"code":".*","swap":true}]}"#;
+/// What goes in `<head>` for the client layer: htmx's configuration and the scripts, in load order (all deferred).
 #[must_use]
-pub fn head(script_url: &str) -> Markup {
-    html! { script src=(script_url) defer {} }
+pub fn head(script_urls: &[String]) -> Markup {
+    html! {
+        meta name="htmx-config" content=(HTMX_CONFIG);
+        @for u in script_urls { script src=(u) defer {} }
+    }
 }
 
-/// The attributes of `<body>` for a page that listens to the stream: where it is. The watched ids are in the URL.
+/// `<body>`: every link and form in it is boosted (a script swaps `main` and keeps the shell), they work as plain ones without
+/// one. A page swap cross-fades (`transition:true`) and starts at the top; a control that changes only the data it owns says
+/// so with [`in_place_link`] or [`in_place_form`]. The script fetches a link's page ahead when the pointer rests on it or it takes focus.
 #[must_use]
-pub fn body(stream_url: Option<&str>, content: Markup) -> Markup {
-    html! { body data-stream=[stream_url] { (content) } }
+pub fn body(content: Markup) -> Markup {
+    html! {
+        body hx-boost="true" hx-target="#main" hx-swap="outerHTML transition:true show:window:top" hx-ext="morph" { (content) }
+    }
+}
+
+/// How a control that changes only the region `target_id` of its own page asks for it: the answer is the page's region, the part
+/// with that id is picked out of it and morphed into place (focus, typed text and scroll stay where they are), the address is
+/// pushed, and nothing cross-fades. `target_id` is a literal of the page, never data.
+pub const IN_PLACE_SWAP: &str = "morph:outerHTML show:none";
+
+/// A link that changes only the region `target_id` (a chip, a sort, a pager): a plain link with no script.
+#[must_use]
+pub fn in_place_link(target_id: &str, class: &str, href: &str, content: Markup) -> Markup {
+    html! {
+        a class=(class) href=(href) hx-get=(href) hx-target={"#" (target_id)} hx-select={"#" (target_id)} hx-swap=(IN_PLACE_SWAP) hx-push-url="true" data-nopreload="false" { (content) }
+    }
+}
+
+/// A GET form that changes only the region `target_id` (a toolbar's filters): a plain GET with no script. A control in it with
+/// `data-autosubmit` submits it on change.
+#[must_use]
+pub fn in_place_form(target_id: &str, class: &str, action: &str, content: Markup) -> Markup {
+    html! {
+        form class=(class) method="get" action=(action) hx-get=(action) hx-target={"#" (target_id)} hx-select={"#" (target_id)} hx-swap=(IN_PLACE_SWAP) hx-push-url="true" hx-trigger="submit" { (content) }
+    }
 }
 
 /// A part of a page that can be fetched alone at `url` and is fetched again when the stream says `id` changed.
@@ -87,7 +120,7 @@ pub fn fragment_static(id: &str, url: &str, content: Markup) -> Markup {
 #[must_use]
 pub fn form(action: &str, target: &str, hidden: &[(&str, &str)], content: Markup) -> Markup {
     html! {
-        form method="post" action=(action) data-ajax data-target=(target) {
+        form method="post" action=(action) hx-post=(action) hx-target={"#" (target)} hx-select={"#" (target)} hx-swap="morph:outerHTML show:none" hx-headers=r#"{"X-Fragment":"1"}"# {
             @for (name, value) in hidden { input type="hidden" name=(name) value=(value); }
             (content)
         }

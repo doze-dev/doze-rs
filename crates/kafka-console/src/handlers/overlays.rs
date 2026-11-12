@@ -25,10 +25,14 @@ pub(super) struct Parent {
     pub main: Markup,
 }
 
-/// Whether the request is a script's: it wants the overlay element alone.
+/// Whether the request is a script's: it wants the overlay element alone (an htmx request that targets the overlay root, or a
+/// request that says so with `X-Fragment`).
 #[must_use]
 pub(super) fn wants_fragment(headers: &HeaderMap) -> bool {
     headers.contains_key(HEADER_FRAGMENT)
+        || headers
+            .get(crate::region::HX_TARGET)
+            .is_some_and(|t| t.as_bytes() == crate::region::OVERLAY_ROOT.as_bytes())
 }
 
 /// The overlay element alone, marked so that a script knows it is an overlay and not a page. A script reads the element and the

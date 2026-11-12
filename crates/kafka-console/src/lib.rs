@@ -77,6 +77,7 @@ pub mod probe;
 pub mod producers_words;
 pub mod recorder;
 pub mod refusal;
+pub mod region;
 pub mod routes;
 pub mod serve;
 pub mod settings_words;

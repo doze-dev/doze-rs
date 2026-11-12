@@ -9,6 +9,7 @@ use axum::routing::{MethodRouter, get, post};
 use crate::guard::{MAX_BODY, body_limit, host_guard, same_origin};
 use crate::handlers;
 use crate::headers::security_headers;
+use crate::region;
 use crate::routes::{Handler, Method, ROUTES, Route, paths};
 use crate::state::Shared;
 
@@ -99,6 +100,11 @@ pub fn router(state: Shared) -> Router {
             routes = routes.route(&path, method_router(route));
         }
     }
+    // The component gallery exists only where the fixtures do (the examples build): a release build has no such address.
+    #[cfg(feature = "examples")]
+    {
+        routes = routes.route(&state.base.url("/gallery"), get(handlers::gallery));
+    }
     routes
         .fallback(handlers::not_found)
         .method_not_allowed_fallback(handlers::method_not_allowed)
@@ -106,6 +112,7 @@ pub fn router(state: Shared) -> Router {
         .layer(from_fn(body_limit))
         .layer(from_fn(same_origin))
         .layer(from_fn_with_state(state.clone(), host_guard))
+        .layer(from_fn(region::layer))
         .layer(from_fn(security_headers))
         .with_state(state)
 }

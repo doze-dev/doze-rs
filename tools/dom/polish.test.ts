@@ -46,7 +46,7 @@ describe("the jump palette", () => {
     p.autoAnswer(() => ({ headers: OVL, body: palette(["orders"]) }));
     p.click(input);
     await p.flush();
-    expect(p.calls[0].url).toBe("/jump");
+    expect(p.calls[0].url).toBe("http://127.0.0.1:9093/jump");
     expect(el(p, "[data-overlay]")).not.toBeNull();
   });
 
@@ -199,7 +199,7 @@ describe("after a result page replaced the page", () => {
     p.autoAnswer(() => ({ headers: OVL, body: palette(["orders"]) }));
     p.click(input);
     await p.flush();
-    expect(p.calls[p.calls.length - 1].url).toBe("/jump");
+    expect(p.calls[p.calls.length - 1].url).toBe("http://127.0.0.1:9093/jump");
     expect(el(p, "[data-overlay]")).not.toBeNull();
   });
 });

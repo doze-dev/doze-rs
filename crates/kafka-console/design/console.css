@@ -33,33 +33,36 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 .page-h>div{min-width:0}
 /* Overlays (src/ui/overlay.rs): a drawer or a dialog over its parent page. The server renders them open (a direct visit works
    with no script); the page behind is inert and does not scroll. The scrim is a link to the parent. */
+/* The page keeps the room of its scrollbar, so locking the scroll under an overlay moves nothing. */
+html{scrollbar-gutter:stable}
 html:has(.ovl){overflow:hidden}
 /* An overlay is a .root too, so that it has the kit's tokens and element rules; it is transparent and fixed over the page. */
 .ovl.root{position:fixed;inset:0;z-index:50;width:auto;min-height:0;background:transparent;display:block}
 .ovl .scrim{position:fixed;inset:0;z-index:0;background:rgba(23,20,31,.40);cursor:default}
-.ovl-drawer .drawer-panel{position:fixed;z-index:1;top:52px;right:0;bottom:0;width:min(520px,100vw);overflow-y:auto;overscroll-behavior:contain;outline:0}
+/* The drawer is as tall as the window, from y=0 to the bottom, on the right edge, above the top bar and the rail (the overlay is z-index 50, the bar 30). */
+.ovl-drawer .drawer-panel{position:fixed;z-index:1;top:0;right:0;bottom:0;width:min(480px,100vw);overflow-y:auto;overscroll-behavior:contain;outline:0;border-left:1px solid var(--line);box-shadow:-16px 0 40px rgba(23,20,31,.16)}
 .ovl-drawer .drawer-panel pre.code{max-height:min(46vh,440px);overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere}
 .ovl-drawer .drawer-panel h2{overflow-wrap:anywhere}
 .ovl.ovl-dialog{overflow-y:auto;overscroll-behavior:contain;display:flex;flex-direction:row;justify-content:center;align-items:flex-start;padding:clamp(24px,10vh,120px) 16px 32px}
 .ovl-dialog .modal{position:relative;z-index:1;left:auto;top:auto;transform:none;width:600px;max-width:100%;margin:0;outline:0}
 @media (max-width:640px){.ovl-drawer .drawer-panel{padding:24px 20px}.ovl-dialog .modal{padding:24px 20px}}
-/* Motion, gently: the scrim fades in 160 ms, a drawer slides in 220 ms with ease-out (a short move and opacity, not a swoosh),
-   a dialog fades and rises 8 px in 180 ms; closing is the reverse and a little faster (140 ms). Nothing bounces; only opacity
-   and transform move. With reduced motion there is none of it (the script also closes at once). */
+/* Motion, gently: the scrim fades in 180 ms; a drawer slides in FROM THE RIGHT EDGE over 240 ms (translateX(100%) to 0, ease-out
+   cubic-bezier(.22,1,.36,1)) and out over 180 ms; a dialog fades in and scales from .98 over 180 ms. Nothing bounces; only opacity and
+   transform move. With reduced motion there is none of it (the script also closes at once). */
 @media (prefers-reduced-motion:no-preference){
-.ovl-in .scrim{animation:ovl-fade 160ms ease-out both}
-.ovl-in.ovl-drawer .drawer-panel{animation:ovl-slide 220ms cubic-bezier(.2,.7,.3,1) both}
-.ovl-in.ovl-dialog .modal{animation:ovl-rise 180ms ease-out both}
-.ovl-out .scrim{animation:ovl-fade-out 140ms ease-in both}
-.ovl-out.ovl-drawer .drawer-panel{animation:ovl-slide-out 140ms ease-in both}
-.ovl-out.ovl-dialog .modal{animation:ovl-rise-out 140ms ease-in both}
+.ovl-in .scrim{animation:ovl-fade 180ms ease-out both}
+.ovl-in.ovl-drawer .drawer-panel{animation:ovl-slide 240ms cubic-bezier(.22,1,.36,1) both}
+.ovl-in.ovl-dialog .modal{animation:ovl-pop 180ms cubic-bezier(.22,1,.36,1) both}
+.ovl-out .scrim{animation:ovl-fade-out 180ms ease-in both}
+.ovl-out.ovl-drawer .drawer-panel{animation:ovl-slide-out 180ms cubic-bezier(.4,0,1,1) both}
+.ovl-out.ovl-dialog .modal{animation:ovl-pop-out 160ms ease-in both}
 }
 @keyframes ovl-fade{from{opacity:0}}
 @keyframes ovl-fade-out{to{opacity:0}}
-@keyframes ovl-slide{from{opacity:0;transform:translateX(28px)}}
-@keyframes ovl-slide-out{to{opacity:0;transform:translateX(28px)}}
-@keyframes ovl-rise{from{opacity:0;transform:translateY(8px)}}
-@keyframes ovl-rise-out{to{opacity:0;transform:translateY(8px)}}
+@keyframes ovl-slide{from{transform:translateX(100%)}}
+@keyframes ovl-slide-out{to{transform:translateX(100%)}}
+@keyframes ovl-pop{from{opacity:0;transform:scale(.98)}}
+@keyframes ovl-pop-out{to{opacity:0;transform:scale(.98)}}
 /* Page to page: a cross-document view transition (Chrome and Safari 18; others simply navigate). The top bar and the rail
    keep their own names, so they stay where they are and only the active item of the rail changes, softly; the page area fades
    in 180 ms with a 4 px rise. Opacity and transform only. */
@@ -72,10 +75,10 @@ html:has(.ovl){overflow:hidden}
 ::view-transition-group(main){animation:none}
 ::view-transition-old(root),::view-transition-new(root){animation-duration:180ms}
 ::view-transition-old(main){animation:vt-out 120ms ease-in both}
-::view-transition-new(main){animation:vt-in 180ms ease-out both}
+::view-transition-new(main){animation:vt-in 180ms cubic-bezier(.22,1,.36,1) both}
 }
 @keyframes vt-out{to{opacity:0}}
-@keyframes vt-in{from{opacity:0;transform:translateY(4px)}}
+@keyframes vt-in{from{opacity:0;transform:translateY(5px)}}
 /* A field shows its focus on its box (the kit's own input), once, not twice. */
 .input:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px rgba(122,79,224,.12)}
 .input input:focus-visible,.input textarea:focus-visible,.input select:focus-visible{outline:0}
@@ -265,3 +268,82 @@ table.consumers td.grp .grp-bits{margin-left:12px}
 .bar .bar-row .seg,.bar .bar-row .dim{flex:none}
 .bar-chips .bar-time input{height:30px;width:150px;font-size:12.5px;border-radius:999px;padding:0 12px}
 .bar-chips .btn.sm{flex:none}
+/* ---- Components (src/ui/components; assets/components.js): the shadcn look on the kit's tokens ---------------------------- */
+/* Page transitions: a thin hint, drawn only when a request takes longer than 250 ms (the script adds .is-loading). */
+html.is-loading::before{content:"";position:fixed;z-index:90;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--accent) 50%,transparent);background-size:40% 100%;background-repeat:no-repeat;animation:dz-load 1s ease-in-out infinite}
+@keyframes dz-load{from{background-position:-40% 0}to{background-position:140% 0}}
+/* Every component: a box that anchors its popup. Before the script has made it, the plain control is shown (or, with a script
+   on the way, kept out of sight so that nothing flashes); once it has, the plain control stays in the form but is not seen. */
+.dz{position:relative;display:inline-block;font-size:14px;line-height:20px}
+.dz-native{font:inherit;font-size:14px;height:36px;border:1px solid var(--line2);border-radius:8px;padding:0 10px;background:#fff;color:var(--text)}
+.dz.is-on .dz-native{position:absolute;opacity:0;pointer-events:none;width:1px;height:1px;overflow:hidden}
+@media (scripting:enabled){.dz-select:not(.is-on) .dz-native,.dz-combobox:not(.is-on) .dz-native{visibility:hidden}.dz-menu:not(.is-on) .dz-pop,.dz-pov:not(.is-on) .dz-pop{display:none}}
+/* The popup: 1px border, radius 8, a soft shadow, 4px inside. */
+.dz-pop{z-index:60;box-sizing:border-box;min-width:8rem;max-width:min(420px,92vw);max-height:min(320px,60vh);overflow-y:auto;overscroll-behavior:contain;padding:4px;background:#fff;color:var(--text);border:1px solid var(--line2);border-radius:8px;box-shadow:0 12px 32px -8px rgba(23,20,31,.20),0 2px 6px rgba(23,20,31,.06)}
+@media (prefers-reduced-motion:no-preference){.dz-pop{animation:dz-in 120ms cubic-bezier(.22,1,.36,1) both}}
+@keyframes dz-in{from{opacity:0;transform:translateY(-3px) scale(.985)}}
+/* Select */
+.dz-trigger{display:inline-flex;align-items:center;justify-content:space-between;gap:10px;min-width:9rem;height:36px;padding:0 10px 0 12px;font:inherit;font-size:14px;color:var(--text);background:#fff;border:1px solid var(--line2);border-radius:8px;box-shadow:0 1px 2px rgba(23,20,31,.04);cursor:pointer;text-align:left;transition:border-color .12s ease,box-shadow .12s ease}
+.dz-trigger:hover{border-color:#b9b2cc}
+.dz-trigger:focus-visible,.dz-menu-btn:focus-visible,.dz-seg-i:focus-visible,.dz-input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.dz[data-open] .dz-trigger{border-color:var(--accent);box-shadow:0 0 0 3px rgba(122,79,224,.12)}
+.dz-trigger:disabled{opacity:.5;cursor:not-allowed}
+.dz-value{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dz-value.muted{color:var(--dim)}
+.dz-chev{flex:none;color:var(--dim);transition:transform .12s ease}
+.dz[data-open] .dz-trigger .dz-chev{transform:rotate(180deg)}
+.dz-opt{position:relative;display:flex;align-items:center;gap:8px;min-height:32px;padding:6px 10px 6px 30px;border-radius:6px;color:var(--text);cursor:default;user-select:none}
+.dz-opt[hidden]{display:none}
+.dz-opt-t{display:flex;flex-direction:column;min-width:0}
+.dz-opt-label{overflow-wrap:anywhere}
+.dz-desc{font-size:12px;line-height:16px;color:var(--dim)}
+.dz-check{position:absolute;left:9px;top:9px;visibility:hidden;color:var(--accent)}
+.dz-opt[aria-selected=true] .dz-check{visibility:visible}
+.dz-opt[aria-selected=true]{color:var(--bright)}
+.dz-opt[data-active],.dz-item:hover,.dz-item:focus-visible{background:var(--sel);color:var(--bright);outline:0}
+.dz-opt[aria-disabled=true]{opacity:.45}
+.dz-empty{padding:10px;color:var(--dim);text-align:center}
+/* A Select that is a chip of a toolbar (Live), and one that fills its row (a dialog's field). */
+.dz-chip .dz-trigger{height:36px;min-width:0;padding:0 12px 0 14px;border-radius:999px;background:transparent;box-shadow:none;font-size:13px;font-weight:500}
+.dz-chip.on .dz-trigger{background:var(--sel);border-color:#cdbff4;color:var(--bright)}
+.dz-block{display:block}
+.dz-block .dz-trigger{width:100%;height:40px;border-radius:10px}
+.dz-block .dz-field{height:40px;border-radius:10px}
+.dz-block .dz-pop{min-width:100%}
+/* Combobox: the kit's field, with the list under it */
+.dz-field{display:flex;align-items:center;gap:8px;height:36px;min-width:15rem;padding:0 8px 0 10px;background:#fff;border:1px solid var(--line2);border-radius:8px;box-shadow:0 1px 2px rgba(23,20,31,.04);transition:border-color .12s ease,box-shadow .12s ease}
+.dz-field:focus-within,.dz-combobox[data-open] .dz-field{border-color:var(--accent);box-shadow:0 0 0 3px rgba(122,79,224,.12)}
+.dz-field[hidden]{display:none}
+.dz-lead{flex:none;color:var(--dim)}
+.dz-input{flex:1;min-width:0;border:0;outline:0;background:transparent;font:inherit;font-size:14px;color:var(--text)}
+.dz-input:focus-visible{outline:0}
+.dz-chev-btn{border:0;background:none;padding:0;display:inline-flex;cursor:pointer}
+/* Menu */
+.dz-menu-btn{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;padding:0;color:var(--dim);background:transparent;border:1px solid transparent;border-radius:8px;cursor:pointer;transition:background-color .12s ease,color .12s ease}
+.dz-menu-btn:hover,.dz-menu[data-open] .dz-menu-btn{background:var(--well);color:var(--bright)}
+.dz-menu-btn[hidden]{display:none}
+.dz-item{display:flex;align-items:center;gap:8px;width:100%;box-sizing:border-box;min-height:32px;padding:6px 10px;border:0;border-radius:6px;background:none;font:inherit;font-size:14px;color:var(--text);text-align:left;text-decoration:none;cursor:default;white-space:nowrap}
+.dz-item.danger{color:#a3253d}
+.dz-item.danger:hover,.dz-item.danger:focus-visible{background:#fdf3f5;color:#a3253d}
+.dz-sep{height:1px;margin:4px -4px;background:var(--line)}
+.dz-menu:not(.is-on) .dz-pop{position:static;display:flex;flex-wrap:wrap;gap:4px;min-width:0;max-height:none;padding:0;border:0;box-shadow:none;background:none;animation:none}
+.dz-menu:not(.is-on) .dz-sep{display:none}
+.dz-menu:not(.is-on) .dz-item{width:auto;border:1px solid var(--line2);background:#fff}
+/* Tooltip: dark, small, never in the way of the pointer */
+.dz-tip{display:inline-flex}
+.dz-tip-pop{max-width:280px;min-width:0;padding:5px 9px;background:var(--bright);color:#fff;border:0;border-radius:6px;font-size:12px;line-height:16px;pointer-events:none;overflow-wrap:anywhere;white-space:normal;animation-duration:100ms}
+/* Popover: a card */
+.dz-pov-card{width:max-content;max-width:min(360px,92vw);padding:14px 16px}
+.dz-pov-btn[hidden]{display:none}
+.dz-pov:not(.is-on) .dz-pov-card{position:static;margin-top:8px;box-shadow:none}
+/* Segmented control made of links */
+.seg a.dz-seg-i{display:inline-flex;align-items:center;height:30px;padding:0 14px;border-radius:8px;font-size:13px;font-weight:500;color:var(--text);text-decoration:none;white-space:nowrap;transition:background-color .12s ease,color .12s ease,box-shadow .12s ease}
+.seg a.dz-seg-i.on{background:#fff;color:var(--bright);box-shadow:0 0 0 1px var(--line),0 1px 2px rgba(58,53,80,.12)}
+.seg a.dz-seg-i:hover:not(.on){color:var(--bright)}
+/* The palette's group headings */
+.jump-h{list-style:none;padding:10px 12px 4px;font-size:11.5px;font-weight:500;letter-spacing:.07em;text-transform:uppercase;color:var(--dim)}
+/* The gallery (examples build only) */
+.gal{display:grid;gap:28px}
+.gal section{padding:20px 24px;background:#fff;border:1px solid var(--line);border-radius:14px}
+.gal h2{margin:0 0 4px;font-size:16px;font-weight:600;color:var(--bright)}
+.gal .row{display:flex;flex-wrap:wrap;align-items:flex-start;gap:16px;margin-top:14px}
