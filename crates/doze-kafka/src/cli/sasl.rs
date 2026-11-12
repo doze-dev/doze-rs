@@ -1,5 +1,5 @@
-//! The SASL flags: `--sasl-mechanisms`, `--sasl-user`, `--sasl-users-file`, the variable `DOZE_KAFKA_SASL_USERS` and
-//! `--sasl-allow-empty-users`, checked in the Go edition's words. The users from these are the **bootstrap** users:
+//! The SASL flags: `--sasl-mechanisms`, `--sasl-user`, `--sasl-users-file` and the variable `DOZE_KAFKA_SASL_USERS`,
+//! checked in the Go edition's words. The users from these are the **bootstrap** users:
 //! derived at every start and never stored (the users made over the API are the stored ones).
 
 use std::convert::Infallible;
@@ -41,7 +41,6 @@ pub(super) struct Input<'a> {
     pub(super) users_file: Option<&'a Path>,
     /// The value of `DOZE_KAFKA_SASL_USERS`, if it is set and not empty.
     pub(super) env: Option<String>,
-    pub(super) allow_empty: bool,
     pub(super) data_dir: &'a Path,
 }
 
@@ -64,11 +63,6 @@ pub(super) fn setup(input: &Input<'_>) -> Result<Sasl> {
                 "SASL users are configured but no mechanism is enabled; add --sasl-mechanisms (PLAIN, SCRAM-SHA-256 or SCRAM-SHA-512), or drop the users"
             );
         }
-        if input.allow_empty {
-            bail!(
-                "--sasl-allow-empty-users needs --sasl-mechanisms; without SASL nobody is asked to log in"
-            );
-        }
         return Ok(Sasl {
             authenticator: None,
             users: Arc::new(Users::none()),
@@ -86,7 +80,7 @@ pub(super) fn setup(input: &Input<'_>) -> Result<Sasl> {
         })
         .collect::<Result<Vec<_>>>()?;
     let pairs = pairs(input)?;
-    if pairs.is_empty() && !input.allow_empty && !may_hold_users(input.data_dir) {
+    if pairs.is_empty() && !may_hold_users(input.data_dir) {
         bail!("{NO_USERS}");
     }
     let users = Arc::new(Users::derive(Credentials::new(pairs)?, &mechanisms)?);
@@ -99,7 +93,7 @@ pub(super) fn setup(input: &Input<'_>) -> Result<Sasl> {
 
 /// The words of the refusal to start with SASL on and nobody to log in; the broker says them too, if it finds no stored
 /// user when it opens its database.
-pub(crate) const NO_USERS: &str = "SASL is enabled but no credentials are configured; give --sasl-user, --sasl-users-file or DOZE_KAFKA_SASL_USERS, or start with --sasl-allow-empty-users to make the first user over the API (as a super user)";
+pub(crate) const NO_USERS: &str = "SASL is enabled but no credentials are configured, so nobody could ever log in; give the first user with --sasl-user USER:PASSWORD, --sasl-users-file FILE or the environment variable DOZE_KAFKA_SASL_USERS (a user made later over the API is kept in the data directory, but needs a super user to make it)";
 
 /// Whether the data directory has a database, which may hold stored users. Without one it cannot, and the start is refused
 /// before anything is created; with one, whether it does is known only once the broker has opened it.

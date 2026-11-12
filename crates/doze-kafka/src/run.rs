@@ -27,16 +27,11 @@ pub(crate) fn logging(args: &Args) {
 /// Opens the broker, serves until told to stop, then stops cleanly: the server first, so nothing new arrives, then
 /// the broker, which flushes every partition and records that it did.
 pub(crate) async fn serve(settings: Settings) -> Result<()> {
-    let Settings {
-        broker,
-        server,
-        allow_empty_users,
-        ..
-    } = settings;
+    let Settings { broker, server, .. } = settings;
     let broker = Arc::new(Broker::open(RealFs, broker).context("opening the broker's data")?);
     // The users stored over the API are loaded now, so only now is it known whether anybody can log in.
     if let Some(sasl) = &server.sasl {
-        sasl.ensure_users(allow_empty_users)
+        sasl.ensure_users()
             .map_err(|_| anyhow::anyhow!(crate::cli::NO_USERS))?;
         tracing::info!(
             configured = sasl.user_count(),
