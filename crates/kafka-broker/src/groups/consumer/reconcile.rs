@@ -102,6 +102,7 @@ impl ConsumerGroup {
         let generation = self.arm(TimerKind::Session(id.clone()), now.plus(session), out);
         if let Some(m) = self.members.get_mut(id) {
             m.session_gen = generation;
+            m.heard = now;
         }
     }
 

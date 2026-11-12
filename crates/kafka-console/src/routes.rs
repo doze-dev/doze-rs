@@ -40,6 +40,19 @@ pub enum Handler {
     DeleteRecords,
     DeleteForm,
     Delete,
+    /// Slice 9c, groups: the list, a group, its members and a member, its lag.
+    Groups,
+    Group,
+    GroupMembers,
+    GroupMember,
+    GroupLag,
+    /// The dialogs on a group, and the POST of each.
+    ResetForm,
+    Reset,
+    GroupDeleteForm,
+    GroupDelete,
+    OffsetsDeleteForm,
+    OffsetsDelete,
     /// A screen of the design that a later slice builds: a page that says so (title).
     Planned(&'static str),
 }
@@ -217,7 +230,72 @@ pub const ROUTES: &[Route] = &[
         &["topic-config"],
         Handler::Planned("Config"),
     ),
-    get("/groups", &["groups-list"], Handler::Planned("Groups")),
+    // Slice 9c, groups (p9c).
+    get("/groups", &["groups-list", "groups-none"], Handler::Groups),
+    get(
+        "/groups/{group}",
+        &["group-detail", "group-detail-848", "group-rebalancing"],
+        Handler::Group,
+    ),
+    get(
+        "/groups/{group}/members",
+        &["group-members"],
+        Handler::GroupMembers,
+    ),
+    get(
+        "/groups/{group}/members/{member}",
+        &["member-detail"],
+        Handler::GroupMember,
+    ),
+    get(
+        "/groups/{group}/lag",
+        &["group-lag", "lag-no-commits", "lag-ahead", "lag-expiring"],
+        Handler::GroupLag,
+    ),
+    get(
+        "/groups/{group}/reset",
+        &["group-reset-offsets"],
+        Handler::ResetForm,
+    ),
+    write(
+        "/groups/{group}/reset",
+        "OffsetCommit",
+        &["group-reset-refused"],
+        Handler::Reset,
+    ),
+    get(
+        "/groups/{group}/delete",
+        &["group-delete"],
+        Handler::GroupDeleteForm,
+    ),
+    write(
+        "/groups/{group}/delete",
+        "DeleteGroups",
+        &["group-delete-refused"],
+        Handler::GroupDelete,
+    ),
+    get(
+        "/groups/{group}/offsets/delete",
+        &["group-offset-delete"],
+        Handler::OffsetsDeleteForm,
+    ),
+    write(
+        "/groups/{group}/offsets/delete",
+        "OffsetDelete",
+        &[],
+        Handler::OffsetsDelete,
+    ),
+    // Built by later slices: 9f (the story) and 9e (the wire of a group).
+    get(
+        "/groups/{group}/story",
+        &["group-story", "story-rebalance", "story-flapping"],
+        Handler::Planned("Story"),
+    ),
+    get(
+        "/groups/{group}/wire",
+        &["group-wire"],
+        Handler::Planned("Wire"),
+    ),
     get("/access", &["access-open"], Handler::Planned("Access")),
     get("/lab", &["lab-home"], Handler::Planned("Lab")),
     get(

@@ -115,6 +115,9 @@ pub(crate) struct Description {
     pub(crate) subscribed: Option<std::collections::BTreeSet<String>>,
     /// Set if this is a consumer group, which the classic APIs do not describe.
     pub(crate) consumer: Option<crate::groups::consumer::ConsumerView>,
+    /// What the console is told besides (feature `inspect`).
+    #[cfg(feature = "inspect")]
+    pub(crate) inspect: crate::groups::Inspect,
 }
 
 /// One member a LeaveGroup names, by id or by static instance.

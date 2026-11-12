@@ -129,6 +129,15 @@ impl Backend {
             .partition_files(&self.caller, topic)
     }
 
+    /// What the protocol hides about one group (leader, timeouts, last heartbeat, when the sweep takes its commits), if the
+    /// console may describe it.
+    pub async fn group_detail(&self, group: &str) -> Option<kafka_broker::GroupDetail> {
+        self.broker
+            .console_view()
+            .group_detail(&self.caller, group)
+            .await
+    }
+
     /// The facts of this run that the protocol does not say.
     #[must_use]
     pub fn instance(&self) -> Option<Instance> {

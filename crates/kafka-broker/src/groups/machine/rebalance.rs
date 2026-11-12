@@ -45,6 +45,7 @@ impl GroupMachine {
         let hold = (hold && self.initial_delay_ms > 0)
             .then(|| self.open_window(now, deadline, false, out));
         self.rebalance = Some(Rebalance {
+            began: now,
             deadline,
             generation,
             hold,

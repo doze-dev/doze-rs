@@ -275,6 +275,7 @@ fn new_member(id: &MemberId, req: &JoinRequest) -> Member {
         joined: None,
         syncing: None,
         session_gen: 0,
+        heard: Millis(0),
         rights: req.rights.clone(),
     }
 }

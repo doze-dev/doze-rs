@@ -63,7 +63,9 @@ async fn a_get_never_asks_the_broker_to_change_anything() {
             .path
             .replace("{topic}", "orders")
             .replace("{id}", "home-sentence")
-            .replace("{name}", "x");
+            .replace("{name}", "x")
+            .replace("{group}", "g")
+            .replace("{member}", "m");
         if path == "/events" {
             continue;
         }
@@ -84,6 +86,7 @@ async fn a_get_never_asks_the_broker_to_change_anything() {
         ApiKey::DescribeConfigs,
         ApiKey::ListGroups,
         ApiKey::DescribeGroups,
+        ApiKey::ConsumerGroupDescribe,
         ApiKey::OffsetFetch,
         ApiKey::ListTransactions,
         ApiKey::DescribeTransactions,

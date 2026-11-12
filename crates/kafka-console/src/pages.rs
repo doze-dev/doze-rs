@@ -4,6 +4,7 @@
 mod advertised;
 mod common;
 mod connect;
+pub mod groups;
 mod home;
 mod notice;
 pub mod topics;

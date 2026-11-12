@@ -70,12 +70,18 @@ struct Member {
     syncing: Option<Token>,
     /// The arming of its session timer that counts.
     session_gen: u64,
+    /// When it was last heard from (its session timer was last armed), on the machine's clock; only the console reads it.
+    #[cfg_attr(not(feature = "inspect"), allow(dead_code))]
+    heard: Millis,
     /// What its principal may DESCRIBE, as its last JoinGroup said; kept for the day the group becomes a consumer group.
     rights: Option<crate::authorizer::TopicRights>,
 }
 
 /// A rebalance in progress.
 struct Rebalance {
+    /// When it began, on the machine's clock; only the console reads it.
+    #[cfg_attr(not(feature = "inspect"), allow(dead_code))]
+    began: Millis,
     /// When members that have not rejoined are dropped.
     deadline: Millis,
     generation: u64,
@@ -137,7 +143,7 @@ impl GroupMachine {
             Event::Heartbeat(token, request) => self.heartbeat(token, &request, now, &mut out),
             Event::Leave(token, targets) => self.leave(token, &targets, now, &mut out),
             Event::Commit(token, request) => self.commit(token, &request, &mut out),
-            Event::Describe(token) => self.describe(token, &mut out),
+            Event::Describe(token) => self.describe(token, now, &mut out),
             Event::Delete(token) => self.delete(token, &mut out),
             Event::Timer(key) => self.timer(&key, now, &mut out),
             // A consumer group's: the owner of the group hands these to the right machine.
@@ -209,6 +215,7 @@ impl GroupMachine {
         let generation = self.next_arming();
         if let Some(m) = self.members.get_mut(id) {
             m.session_gen = generation;
+            m.heard = now;
             out.push(Effect::Arm {
                 key: TimerKey {
                     kind: TimerKind::Session(id.clone()),

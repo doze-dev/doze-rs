@@ -1,6 +1,8 @@
 //! The handlers: each asks the source for a model, renders it, and answers.
 
 mod fragments;
+mod groups;
+mod groups_fragments;
 mod pages;
 mod plain;
 mod topics;
@@ -8,6 +10,13 @@ mod topics_dialogs;
 mod topics_write;
 
 pub use fragments::{check, fragment};
+pub use groups::{
+    delete as group_delete, delete_form as group_delete_form, group as group_page,
+    groups as groups_list, lag as group_lag, member as group_member, members as group_members,
+    offset_delete as offsets_delete, offset_delete_form as offsets_delete_form,
+    reset as group_reset, reset_form as group_reset_form,
+};
+pub use groups_fragments::groups_fragment;
 pub use pages::{advertised, connect, home, method_not_allowed, not_found, planned};
 pub use plain::{events, health, static_file};
 pub use topics::{

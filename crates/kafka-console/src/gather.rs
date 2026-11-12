@@ -4,9 +4,14 @@ mod attention;
 mod create;
 mod delete;
 mod forms;
+pub mod group;
+pub mod group_read;
+mod group_write;
+pub mod groups;
 mod home;
 mod partitions;
 mod produce;
+pub mod protocol;
 mod records;
 
 pub use attention::{Looked, MAX_DESCRIBED, near_timeout, nearest, nearest_capped};
@@ -36,3 +41,11 @@ pub use messages::page as messages;
 pub use record::one as record;
 pub use topic::head as topic_head;
 pub use topics::list as topics;
+
+pub use group::{group, lag_state};
+pub use group_write::{
+    Bounds, DeleteGroupResult, OffsetDeleteResult, ResetResult, delete as delete_group,
+    delete_form as delete_group_form, offset_delete, offset_delete_form, parse_mode, plan_rows,
+    reset as reset_offsets, reset_form,
+};
+pub use groups::{MOST_ROWS as GROUPS_MOST_ROWS, groups};

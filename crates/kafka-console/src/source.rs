@@ -11,6 +11,7 @@ use crate::probe::Prober;
 use crate::snippets;
 use crate::ui::shell::Chrome;
 
+mod groups;
 mod topics;
 
 /// A live broker: the in-process handle, how it was started, and the advertised-listener check.

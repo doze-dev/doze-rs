@@ -13,9 +13,11 @@ use kafka_storage::fs::Fs;
 use crate::{Broker, Caller};
 
 mod config_help;
+mod group_detail;
 mod process;
 
 pub use config_help::{ConfigHelp, Limits};
+pub use group_detail::{GroupDetail, GroupKind, MemberDetail, OffsetExpiry, RebalanceDetail};
 mod partition_files;
 
 pub use partition_files::PartitionFiles;

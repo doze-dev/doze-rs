@@ -98,6 +98,7 @@ impl GroupMachine {
                     joined: None,
                     syncing: None,
                     session_gen: 0,
+                    heard: Millis(0),
                     rights: seat.rights,
                 },
             );

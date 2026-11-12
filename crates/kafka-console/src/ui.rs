@@ -9,6 +9,7 @@ pub mod filter;
 pub mod form;
 pub mod glyph;
 pub mod glyph_extra;
+pub mod glyph_groups;
 pub mod kafka;
 pub mod layout;
 pub mod notice;

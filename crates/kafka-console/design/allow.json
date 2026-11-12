@@ -488,5 +488,585 @@
     "reason": "Same as the entry above: the extra side of the same difference.",
     "expires": "close",
     "render": "live"
+  },
+  {
+    "board": "groups-list",
+    "field": "link",
+    "selector": "group-detail-848",
+    "reason": "[p9c] One address serves several states of a group page (the data chooses: /groups/{group} is group-detail, group-detail-848 or group-rebalancing; /lag is four states), and a switch-group chip links to the same tab of another group, so the link the board draws to a particular state of another group is the same address; routes.json maps an address to several screens and the tool counts one of them.",
+    "expires": "close"
+  },
+  {
+    "board": "groups-list",
+    "field": "link",
+    "selector": "group-rebalancing",
+    "reason": "[p9c] One address serves several states of a group page (the data chooses: /groups/{group} is group-detail, group-detail-848 or group-rebalancing; /lag is four states), and a switch-group chip links to the same tab of another group, so the link the board draws to a particular state of another group is the same address; routes.json maps an address to several screens and the tool counts one of them.",
+    "expires": "close"
+  },
+  {
+    "board": "groups-list",
+    "field": "link",
+    "selector": "group-story",
+    "reason": "[p9c] The group event ring and the Story page (slice 9f) do not exist yet: the Story tab is drawn without a link, a member that left is not remembered, and a cause is not given (debt J94).",
+    "expires": "9f"
+  },
+  {
+    "board": "groups-list",
+    "field": "link",
+    "selector": "lag-ahead",
+    "reason": "[p9c] One address serves several states of a group page (the data chooses: /groups/{group} is group-detail, group-detail-848 or group-rebalancing; /lag is four states), and a switch-group chip links to the same tab of another group, so the link the board draws to a particular state of another group is the same address; routes.json maps an address to several screens and the tool counts one of them.",
+    "expires": "close"
+  },
+  {
+    "board": "groups-none",
+    "field": "heading",
+    "selector": "h3 Groups are made by consumers, not here",
+    "reason": "[p9c] The empty state's heading is an h2 in the page (an h3 under the h1 skips a level); the board draws an h3.",
+    "expires": "close"
+  },
+  {
+    "board": "groups-none",
+    "field": "heading",
+    "selector": "h2 Groups are made by consumers, not here",
+    "reason": "[p9c] The empty state's heading is an h2 in the page (an h3 under the h1 skips a level); the board draws an h3.",
+    "expires": "close"
+  },
+  {
+    "board": "group-detail",
+    "field": "heading",
+    "selector": "h2 What just happened",
+    "reason": "[p9c] The wire recorder (slice 9e) does not exist yet, so the 'What just happened' dock is not drawn (debt J93).",
+    "expires": "9e"
+  },
+  {
+    "board": "group-detail",
+    "field": "table",
+    "reason": "[p9c] The wire recorder (slice 9e) does not exist yet, so the 'What just happened' dock is not drawn (debt J93).",
+    "expires": "9e"
+  },
+  {
+    "board": "group-detail",
+    "field": "table.col",
+    "reason": "[p9c] The wire recorder (slice 9e) does not exist yet, so the 'What just happened' dock is not drawn (debt J93).",
+    "expires": "9e"
+  },
+  {
+    "board": "group-detail",
+    "field": "table.rows",
+    "reason": "[p9c] The wire recorder (slice 9e) does not exist yet, so the 'What just happened' dock is not drawn (debt J93).",
+    "expires": "9e"
+  },
+  {
+    "board": "group-detail",
+    "field": "link",
+    "selector": "group-rebalancing",
+    "reason": "[p9c] One address serves several states of a group page (the data chooses: /groups/{group} is group-detail, group-detail-848 or group-rebalancing; /lag is four states), and a switch-group chip links to the same tab of another group, so the link the board draws to a particular state of another group is the same address; routes.json maps an address to several screens and the tool counts one of them.",
+    "expires": "close"
+  },
+  {
+    "board": "group-detail",
+    "field": "link",
+    "selector": "lag-ahead",
+    "reason": "[p9c] One address serves several states of a group page (the data chooses: /groups/{group} is group-detail, group-detail-848 or group-rebalancing; /lag is four states), and a switch-group chip links to the same tab of another group, so the link the board draws to a particular state of another group is the same address; routes.json maps an address to several screens and the tool counts one of them.",
+    "expires": "close"
+  },
+  {
+    "board": "group-detail",
+    "field": "extra",
+    "selector": "wire-dock",
+    "reason": "[p9c] The wire recorder (slice 9e) does not exist yet, so the 'What just happened' dock is not drawn (debt J93).",
+    "expires": "9e"
+  },
+  {
+    "board": "group-detail",
+    "field": "state",
+    "selector": "st ok in rows",
+    "reason": "[p9c] The wire recorder (slice 9e) does not exist yet, so the 'What just happened' dock is not drawn (debt J93).",
+    "expires": "9e"
+  },
+  {
+    "board": "group-detail-848",
+    "field": "heading",
+    "selector": "h2 What just happened",
+    "reason": "[p9c] The wire recorder (slice 9e) does not exist yet, so the 'What just happened' dock is not drawn (debt J93).",
+    "expires": "9e"
+  },
+  {
+    "board": "group-detail-848",
+    "field": "table",
+    "reason": "[p9c] The wire recorder (slice 9e) does not exist yet, so the 'What just happened' dock is not drawn (debt J93).",
+    "expires": "9e"
+  },
+  {
+    "board": "group-detail-848",
+    "field": "table.col",
+    "reason": "[p9c] The wire recorder (slice 9e) does not exist yet, so the 'What just happened' dock is not drawn (debt J93).",
+    "expires": "9e"
+  },
+  {
+    "board": "group-detail-848",
+    "field": "table.rows",
+    "reason": "[p9c] The wire recorder (slice 9e) does not exist yet, so the 'What just happened' dock is not drawn (debt J93).",
+    "expires": "9e"
+  },
+  {
+    "board": "group-detail-848",
+    "field": "button",
+    "selector": "Delete group [danger] -> op:DeleteGroups",
+    "reason": "[p9c] A Delete group, Reset offsets or Preview control is a link to a dialog (or a button of a form) where the board draws a button or a link of the other kind; the Kafka API named is the same.",
+    "expires": "close"
+  },
+  {
+    "board": "group-detail-848",
+    "field": "link",
+    "selector": "group-rebalancing",
+    "reason": "[p9c] One address serves several states of a group page (the data chooses: /groups/{group} is group-detail, group-detail-848 or group-rebalancing; /lag is four states), and a switch-group chip links to the same tab of another group, so the link the board draws to a particular state of another group is the same address; routes.json maps an address to several screens and the tool counts one of them.",
+    "expires": "close"
+  },
+  {
+    "board": "group-detail-848",
+    "field": "extra",
+    "selector": "wire-dock",
+    "reason": "[p9c] The wire recorder (slice 9e) does not exist yet, so the 'What just happened' dock is not drawn (debt J93).",
+    "expires": "9e"
+  },
+  {
+    "board": "group-detail-848",
+    "field": "op",
+    "selector": "DeleteGroups",
+    "reason": "[p9c] A Delete group, Reset offsets or Preview control is a link to a dialog (or a button of a form) where the board draws a button or a link of the other kind; the Kafka API named is the same.",
+    "expires": "close"
+  },
+  {
+    "board": "group-detail-848",
+    "field": "button",
+    "selector": "Delete group [danger] -> to:group-delete|group-delete-refused",
+    "reason": "[p9c] A Delete group, Reset offsets or Preview control is a link to a dialog (or a button of a form) where the board draws a button or a link of the other kind; the Kafka API named is the same.",
+    "expires": "close"
+  },
+  {
+    "board": "group-detail-848",
+    "field": "link",
+    "selector": "group-delete|group-delete-refused",
+    "reason": "[p9c] One address serves several states of a group page (the data chooses: /groups/{group} is group-detail, group-detail-848 or group-rebalancing; /lag is four states), and a switch-group chip links to the same tab of another group, so the link the board draws to a particular state of another group is the same address; routes.json maps an address to several screens and the tool counts one of them.",
+    "expires": "close"
+  },
+  {
+    "board": "group-detail-848",
+    "field": "link",
+    "selector": "group-reset-offsets|group-reset-refused",
+    "reason": "[p9c] One address serves several states of a group page (the data chooses: /groups/{group} is group-detail, group-detail-848 or group-rebalancing; /lag is four states), and a switch-group chip links to the same tab of another group, so the link the board draws to a particular state of another group is the same address; routes.json maps an address to several screens and the tool counts one of them.",
+    "expires": "close"
+  },
+  {
+    "board": "group-members",
+    "field": "link",
+    "selector": "group-rebalancing",
+    "reason": "[p9c] One address serves several states of a group page (the data chooses: /groups/{group} is group-detail, group-detail-848 or group-rebalancing; /lag is four states), and a switch-group chip links to the same tab of another group, so the link the board draws to a particular state of another group is the same address; routes.json maps an address to several screens and the tool counts one of them.",
+    "expires": "close"
+  },
+  {
+    "board": "group-members",
+    "field": "link",
+    "selector": "lag-ahead",
+    "reason": "[p9c] One address serves several states of a group page (the data chooses: /groups/{group} is group-detail, group-detail-848 or group-rebalancing; /lag is four states), and a switch-group chip links to the same tab of another group, so the link the board draws to a particular state of another group is the same address; routes.json maps an address to several screens and the tool counts one of them.",
+    "expires": "close"
+  },
+  {
+    "board": "group-members",
+    "field": "link",
+    "selector": "group-members",
+    "reason": "[p9c] One address serves several states of a group page (the data chooses: /groups/{group} is group-detail, group-detail-848 or group-rebalancing; /lag is four states), and a switch-group chip links to the same tab of another group, so the link the board draws to a particular state of another group is the same address; routes.json maps an address to several screens and the tool counts one of them.",
+    "expires": "close"
+  },
+  {
+    "board": "member-detail",
+    "field": "heading",
+    "selector": "h2 search-indexer-1",
+    "reason": "[p9c] A live page names the member and the topic it holds from the broker (a generated member id, orders) where the board draws search-indexer-1 and clickstream.",
+    "expires": "close"
+  },
+  {
+    "board": "member-detail",
+    "field": "button",
+    "selector": "Open clickstream [-] -> to:topic-detail",
+    "reason": "[p9c] A live page names the member and the topic it holds from the broker (a generated member id, orders) where the board draws search-indexer-1 and clickstream.",
+    "expires": "close"
+  },
+  {
+    "board": "member-detail",
+    "field": "heading",
+    "selector": "h2 doze-4dc51fba30446e8aa79c206fac7f7e36",
+    "reason": "[p9c] A live page names the member and the topic it holds from the broker (a generated member id, orders) where the board draws search-indexer-1 and clickstream.",
+    "expires": "close"
+  },
+  {
+    "board": "member-detail",
+    "field": "button",
+    "selector": "Open orders [-] -> to:topic-detail",
+    "reason": "[p9c] A live page names the member and the topic it holds from the broker (a generated member id, orders) where the board draws search-indexer-1 and clickstream.",
+    "expires": "close"
+  },
+  {
+    "board": "group-rebalancing",
+    "field": "title",
+    "selector": "search-indexer",
+    "reason": "[p9c] A state of a page is titled by its parent in the board (a group in a rebalance is titled by the group page); the page is titled by the group's own name.",
+    "expires": "close"
+  },
+  {
+    "board": "group-rebalancing",
+    "field": "heading",
+    "selector": "h2 What just happened",
+    "reason": "[p9c] The wire recorder (slice 9e) does not exist yet, so the 'What just happened' dock is not drawn (debt J93).",
+    "expires": "9e"
+  },
+  {
+    "board": "group-rebalancing",
+    "field": "table",
+    "reason": "[p9c] The wire recorder (slice 9e) does not exist yet, so the 'What just happened' dock is not drawn (debt J93).",
+    "expires": "9e"
+  },
+  {
+    "board": "group-rebalancing",
+    "field": "table.col",
+    "reason": "[p9c] The wire recorder (slice 9e) does not exist yet, so the 'What just happened' dock is not drawn (debt J93).",
+    "expires": "9e"
+  },
+  {
+    "board": "group-rebalancing",
+    "field": "table.rows",
+    "reason": "[p9c] The wire recorder (slice 9e) does not exist yet, so the 'What just happened' dock is not drawn (debt J93).",
+    "expires": "9e"
+  },
+  {
+    "board": "group-rebalancing",
+    "field": "button",
+    "selector": "Delete group [danger] -> op:DeleteGroups",
+    "reason": "[p9c] A Delete group, Reset offsets or Preview control is a link to a dialog (or a button of a form) where the board draws a button or a link of the other kind; the Kafka API named is the same.",
+    "expires": "close"
+  },
+  {
+    "board": "group-rebalancing",
+    "field": "button",
+    "selector": "Open the group's wire [sm] -> to:group-wire",
+    "reason": "[p9c] The wire recorder (slice 9e) does not exist yet, so the 'What just happened' dock is not drawn (debt J93).",
+    "expires": "9e"
+  },
+  {
+    "board": "group-rebalancing",
+    "field": "link",
+    "selector": "group-detail-848",
+    "reason": "[p9c] One address serves several states of a group page (the data chooses: /groups/{group} is group-detail, group-detail-848 or group-rebalancing; /lag is four states), and a switch-group chip links to the same tab of another group, so the link the board draws to a particular state of another group is the same address; routes.json maps an address to several screens and the tool counts one of them.",
+    "expires": "close"
+  },
+  {
+    "board": "group-rebalancing",
+    "field": "link",
+    "selector": "group-story",
+    "reason": "[p9c] The group event ring and the Story page (slice 9f) do not exist yet: the Story tab is drawn without a link, a member that left is not remembered, and a cause is not given (debt J94).",
+    "expires": "9f"
+  },
+  {
+    "board": "group-rebalancing",
+    "field": "link",
+    "selector": "group-wire",
+    "reason": "[p9c] The wire recorder (slice 9e) does not exist yet, so the 'What just happened' dock is not drawn (debt J93).",
+    "expires": "9e"
+  },
+  {
+    "board": "group-rebalancing",
+    "field": "link",
+    "selector": "lag-no-commits",
+    "reason": "[p9c] One address serves several states of a group page (the data chooses: /groups/{group} is group-detail, group-detail-848 or group-rebalancing; /lag is four states), and a switch-group chip links to the same tab of another group, so the link the board draws to a particular state of another group is the same address; routes.json maps an address to several screens and the tool counts one of them.",
+    "expires": "close"
+  },
+  {
+    "board": "group-rebalancing",
+    "field": "extra",
+    "selector": "wire-dock",
+    "reason": "[p9c] The wire recorder (slice 9e) does not exist yet, so the 'What just happened' dock is not drawn (debt J93).",
+    "expires": "9e"
+  },
+  {
+    "board": "group-rebalancing",
+    "field": "op",
+    "selector": "DeleteGroups",
+    "reason": "[p9c] A Delete group, Reset offsets or Preview control is a link to a dialog (or a button of a form) where the board draws a button or a link of the other kind; the Kafka API named is the same.",
+    "expires": "close"
+  },
+  {
+    "board": "group-rebalancing",
+    "field": "state",
+    "selector": "st idle in rows",
+    "reason": "[p9c] The group event ring and the Story page (slice 9f) do not exist yet: the Story tab is drawn without a link, a member that left is not remembered, and a cause is not given (debt J94).",
+    "expires": "9f"
+  },
+  {
+    "board": "group-rebalancing",
+    "field": "state",
+    "selector": "st ok in rows",
+    "reason": "[p9c] The wire recorder (slice 9e) does not exist yet, so the 'What just happened' dock is not drawn (debt J93).",
+    "expires": "9e"
+  },
+  {
+    "board": "group-rebalancing",
+    "field": "title",
+    "selector": "fulfilment",
+    "reason": "[p9c] A state of a page is titled by its parent in the board (a group in a rebalance is titled by the group page); the page is titled by the group's own name.",
+    "expires": "close"
+  },
+  {
+    "board": "group-rebalancing",
+    "field": "button",
+    "selector": "Delete group [danger] -> to:group-delete|group-delete-refused",
+    "reason": "[p9c] A Delete group, Reset offsets or Preview control is a link to a dialog (or a button of a form) where the board draws a button or a link of the other kind; the Kafka API named is the same.",
+    "expires": "close"
+  },
+  {
+    "board": "group-rebalancing",
+    "field": "link",
+    "selector": "group-delete|group-delete-refused",
+    "reason": "[p9c] One address serves several states of a group page (the data chooses: /groups/{group} is group-detail, group-detail-848 or group-rebalancing; /lag is four states), and a switch-group chip links to the same tab of another group, so the link the board draws to a particular state of another group is the same address; routes.json maps an address to several screens and the tool counts one of them.",
+    "expires": "close"
+  },
+  {
+    "board": "group-rebalancing",
+    "field": "link",
+    "selector": "group-reset-offsets|group-reset-refused",
+    "reason": "[p9c] One address serves several states of a group page (the data chooses: /groups/{group} is group-detail, group-detail-848 or group-rebalancing; /lag is four states), and a switch-group chip links to the same tab of another group, so the link the board draws to a particular state of another group is the same address; routes.json maps an address to several screens and the tool counts one of them.",
+    "expires": "close"
+  },
+  {
+    "board": "group-lag",
+    "field": "link",
+    "selector": "lag-no-commits",
+    "reason": "[p9c] One address serves several states of a group page (the data chooses: /groups/{group} is group-detail, group-detail-848 or group-rebalancing; /lag is four states), and a switch-group chip links to the same tab of another group, so the link the board draws to a particular state of another group is the same address; routes.json maps an address to several screens and the tool counts one of them.",
+    "expires": "close"
+  },
+  {
+    "board": "group-lag",
+    "field": "link",
+    "selector": "group-offset-delete",
+    "reason": "[p9c] One address serves several states of a group page (the data chooses: /groups/{group} is group-detail, group-detail-848 or group-rebalancing; /lag is four states), and a switch-group chip links to the same tab of another group, so the link the board draws to a particular state of another group is the same address; routes.json maps an address to several screens and the tool counts one of them.",
+    "expires": "close"
+  },
+  {
+    "board": "lag-no-commits",
+    "field": "link",
+    "selector": "group-story",
+    "reason": "[p9c] The group event ring and the Story page (slice 9f) do not exist yet: the Story tab is drawn without a link, a member that left is not remembered, and a cause is not given (debt J94).",
+    "expires": "9f"
+  },
+  {
+    "board": "lag-no-commits",
+    "field": "link",
+    "selector": "lag-ahead",
+    "reason": "[p9c] One address serves several states of a group page (the data chooses: /groups/{group} is group-detail, group-detail-848 or group-rebalancing; /lag is four states), and a switch-group chip links to the same tab of another group, so the link the board draws to a particular state of another group is the same address; routes.json maps an address to several screens and the tool counts one of them.",
+    "expires": "close"
+  },
+  {
+    "board": "lag-no-commits",
+    "field": "link",
+    "selector": "group-offset-delete",
+    "reason": "[p9c] One address serves several states of a group page (the data chooses: /groups/{group} is group-detail, group-detail-848 or group-rebalancing; /lag is four states), and a switch-group chip links to the same tab of another group, so the link the board draws to a particular state of another group is the same address; routes.json maps an address to several screens and the tool counts one of them.",
+    "expires": "close"
+  },
+  {
+    "board": "lag-no-commits",
+    "field": "link",
+    "selector": "group-reset-offsets|group-reset-refused",
+    "reason": "[p9c] One address serves several states of a group page (the data chooses: /groups/{group} is group-detail, group-detail-848 or group-rebalancing; /lag is four states), and a switch-group chip links to the same tab of another group, so the link the board draws to a particular state of another group is the same address; routes.json maps an address to several screens and the tool counts one of them.",
+    "expires": "close"
+  },
+  {
+    "board": "lag-ahead",
+    "field": "button",
+    "selector": "When do these expire? [-] -> to:lag-expiring",
+    "reason": "[p9c] A Delete group, Reset offsets or Preview control is a link to a dialog (or a button of a form) where the board draws a button or a link of the other kind; the Kafka API named is the same.",
+    "expires": "close"
+  },
+  {
+    "board": "lag-ahead",
+    "field": "button",
+    "selector": "Delete group [danger] -> op:DeleteGroups",
+    "reason": "[p9c] A Delete group, Reset offsets or Preview control is a link to a dialog (or a button of a form) where the board draws a button or a link of the other kind; the Kafka API named is the same.",
+    "expires": "close"
+  },
+  {
+    "board": "lag-ahead",
+    "field": "link",
+    "selector": "lag-expiring",
+    "reason": "[p9c] One address serves several states of a group page (the data chooses: /groups/{group} is group-detail, group-detail-848 or group-rebalancing; /lag is four states), and a switch-group chip links to the same tab of another group, so the link the board draws to a particular state of another group is the same address; routes.json maps an address to several screens and the tool counts one of them.",
+    "expires": "close"
+  },
+  {
+    "board": "lag-ahead",
+    "field": "link",
+    "selector": "lag-no-commits",
+    "reason": "[p9c] One address serves several states of a group page (the data chooses: /groups/{group} is group-detail, group-detail-848 or group-rebalancing; /lag is four states), and a switch-group chip links to the same tab of another group, so the link the board draws to a particular state of another group is the same address; routes.json maps an address to several screens and the tool counts one of them.",
+    "expires": "close"
+  },
+  {
+    "board": "lag-ahead",
+    "field": "op",
+    "selector": "DeleteGroups",
+    "reason": "[p9c] A Delete group, Reset offsets or Preview control is a link to a dialog (or a button of a form) where the board draws a button or a link of the other kind; the Kafka API named is the same.",
+    "expires": "close"
+  },
+  {
+    "board": "lag-ahead",
+    "field": "button",
+    "selector": "When do these expire? [-] -> to:group-lag",
+    "reason": "[p9c] A Delete group, Reset offsets or Preview control is a link to a dialog (or a button of a form) where the board draws a button or a link of the other kind; the Kafka API named is the same.",
+    "expires": "close"
+  },
+  {
+    "board": "lag-ahead",
+    "field": "button",
+    "selector": "Delete group [danger] -> to:group-delete|group-delete-refused",
+    "reason": "[p9c] A Delete group, Reset offsets or Preview control is a link to a dialog (or a button of a form) where the board draws a button or a link of the other kind; the Kafka API named is the same.",
+    "expires": "close"
+  },
+  {
+    "board": "lag-ahead",
+    "field": "link",
+    "selector": "group-delete|group-delete-refused",
+    "reason": "[p9c] One address serves several states of a group page (the data chooses: /groups/{group} is group-detail, group-detail-848 or group-rebalancing; /lag is four states), and a switch-group chip links to the same tab of another group, so the link the board draws to a particular state of another group is the same address; routes.json maps an address to several screens and the tool counts one of them.",
+    "expires": "close"
+  },
+  {
+    "board": "lag-ahead",
+    "field": "link",
+    "selector": "group-detail|group-detail-848|group-rebalancing",
+    "reason": "[p9c] One address serves several states of a group page (the data chooses: /groups/{group} is group-detail, group-detail-848 or group-rebalancing; /lag is four states), and a switch-group chip links to the same tab of another group, so the link the board draws to a particular state of another group is the same address; routes.json maps an address to several screens and the tool counts one of them.",
+    "expires": "close"
+  },
+  {
+    "board": "lag-expiring",
+    "field": "link",
+    "selector": "lag-no-commits",
+    "reason": "[p9c] One address serves several states of a group page (the data chooses: /groups/{group} is group-detail, group-detail-848 or group-rebalancing; /lag is four states), and a switch-group chip links to the same tab of another group, so the link the board draws to a particular state of another group is the same address; routes.json maps an address to several screens and the tool counts one of them.",
+    "expires": "close"
+  },
+  {
+    "board": "lag-expiring",
+    "field": "link",
+    "selector": "group-detail|group-detail-848|group-rebalancing",
+    "reason": "[p9c] One address serves several states of a group page (the data chooses: /groups/{group} is group-detail, group-detail-848 or group-rebalancing; /lag is four states), and a switch-group chip links to the same tab of another group, so the link the board draws to a particular state of another group is the same address; routes.json maps an address to several screens and the tool counts one of them.",
+    "expires": "close"
+  },
+  {
+    "board": "lag-expiring",
+    "field": "link",
+    "selector": "group-reset-offsets|group-reset-refused",
+    "reason": "[p9c] One address serves several states of a group page (the data chooses: /groups/{group} is group-detail, group-detail-848 or group-rebalancing; /lag is four states), and a switch-group chip links to the same tab of another group, so the link the board draws to a particular state of another group is the same address; routes.json maps an address to several screens and the tool counts one of them.",
+    "expires": "close"
+  },
+  {
+    "board": "group-reset-offsets",
+    "field": "button",
+    "selector": "Preview [-] -> ui:refresh",
+    "reason": "[p9c] A Delete group, Reset offsets or Preview control is a link to a dialog (or a button of a form) where the board draws a button or a link of the other kind; the Kafka API named is the same.",
+    "expires": "close"
+  },
+  {
+    "board": "group-reset-refused",
+    "field": "heading",
+    "selector": "h2 What just happened",
+    "reason": "[p9c] The wire recorder (slice 9e) does not exist yet, so the 'What just happened' dock is not drawn (debt J93).",
+    "expires": "9e"
+  },
+  {
+    "board": "group-reset-refused",
+    "field": "table",
+    "reason": "[p9c] The wire recorder (slice 9e) does not exist yet, so the 'What just happened' dock is not drawn (debt J93).",
+    "expires": "9e"
+  },
+  {
+    "board": "group-reset-refused",
+    "field": "table.col",
+    "reason": "[p9c] The wire recorder (slice 9e) does not exist yet, so the 'What just happened' dock is not drawn (debt J93).",
+    "expires": "9e"
+  },
+  {
+    "board": "group-reset-refused",
+    "field": "table.rows",
+    "reason": "[p9c] The wire recorder (slice 9e) does not exist yet, so the 'What just happened' dock is not drawn (debt J93).",
+    "expires": "9e"
+  },
+  {
+    "board": "group-reset-refused",
+    "field": "extra",
+    "selector": "wire-dock",
+    "reason": "[p9c] The wire recorder (slice 9e) does not exist yet, so the 'What just happened' dock is not drawn (debt J93).",
+    "expires": "9e"
+  },
+  {
+    "board": "group-reset-refused",
+    "field": "state",
+    "selector": "st ok in rows",
+    "reason": "[p9c] The wire recorder (slice 9e) does not exist yet, so the 'What just happened' dock is not drawn (debt J93).",
+    "expires": "9e"
+  },
+  {
+    "board": "group-reset-refused",
+    "field": "state",
+    "selector": "st refused in rows",
+    "reason": "[p9c] The wire recorder (slice 9e) does not exist yet, so the 'What just happened' dock is not drawn (debt J93).",
+    "expires": "9e"
+  },
+  {
+    "board": "group-delete",
+    "field": "link",
+    "selector": "group-delete-refused",
+    "reason": "[p9c] One address serves several states of a group page (the data chooses: /groups/{group} is group-detail, group-detail-848 or group-rebalancing; /lag is four states), and a switch-group chip links to the same tab of another group, so the link the board draws to a particular state of another group is the same address; routes.json maps an address to several screens and the tool counts one of them.",
+    "expires": "close"
+  },
+  {
+    "board": "group-delete-refused",
+    "field": "heading",
+    "selector": "h2 What just happened",
+    "reason": "[p9c] The wire recorder (slice 9e) does not exist yet, so the 'What just happened' dock is not drawn (debt J93).",
+    "expires": "9e"
+  },
+  {
+    "board": "group-delete-refused",
+    "field": "table",
+    "reason": "[p9c] The wire recorder (slice 9e) does not exist yet, so the 'What just happened' dock is not drawn (debt J93).",
+    "expires": "9e"
+  },
+  {
+    "board": "group-delete-refused",
+    "field": "table.col",
+    "reason": "[p9c] The wire recorder (slice 9e) does not exist yet, so the 'What just happened' dock is not drawn (debt J93).",
+    "expires": "9e"
+  },
+  {
+    "board": "group-delete-refused",
+    "field": "table.rows",
+    "reason": "[p9c] The wire recorder (slice 9e) does not exist yet, so the 'What just happened' dock is not drawn (debt J93).",
+    "expires": "9e"
+  },
+  {
+    "board": "group-delete-refused",
+    "field": "extra",
+    "selector": "wire-dock",
+    "reason": "[p9c] The wire recorder (slice 9e) does not exist yet, so the 'What just happened' dock is not drawn (debt J93).",
+    "expires": "9e"
+  },
+  {
+    "board": "group-delete-refused",
+    "field": "state",
+    "selector": "st ok in rows",
+    "reason": "[p9c] The wire recorder (slice 9e) does not exist yet, so the 'What just happened' dock is not drawn (debt J93).",
+    "expires": "9e"
+  },
+  {
+    "board": "group-delete-refused",
+    "field": "state",
+    "selector": "st refused in rows",
+    "reason": "[p9c] The wire recorder (slice 9e) does not exist yet, so the 'What just happened' dock is not drawn (debt J93).",
+    "expires": "9e"
   }
 ]

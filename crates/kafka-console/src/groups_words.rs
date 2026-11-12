@@ -1,0 +1,574 @@
+//! The words of the Groups pages: the sentence under a group's name, the lag sentences, the list's rebalancing line, Kafka's own
+//! descriptions of the codes a group write can answer, and the console's reading of each refusal.
+//!
+//! The sentences say only what the group machine says now. Why a group began a rebalance (a member left, one timed out, a
+//! topic changed) is not recorded until the event ring of slice 9f exists, so no sentence here gives a cause.
+
+use crate::format::{ago, number, span_ms};
+use crate::lag::Lag;
+use crate::model::{
+    GroupAttention, GroupHead, GroupPhase, GroupProtocol, GroupSpan as S, LagTopic, RefusalStep,
+};
+use crate::refusal::{code_name, refusal};
+use crate::words::list_and;
+
+/// `one`, `two`, ... `ten`, else the digits.
+#[must_use]
+pub fn number_word(n: usize) -> String {
+    const WORDS: [&str; 11] = [
+        "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
+    ];
+    WORDS.get(n).map_or_else(
+        || number(i64::try_from(n).unwrap_or(i64::MAX)),
+        |w| (*w).to_owned(),
+    )
+}
+
+fn capital(s: &str) -> String {
+    let mut c = s.chars();
+    c.next()
+        .map_or_else(String::new, |f| f.to_uppercase().chain(c).collect())
+}
+
+/// `1 member`, `3 members`.
+#[must_use]
+pub fn members_word(n: usize) -> String {
+    if n == 1 {
+        "1 member".to_owned()
+    } else {
+        format!("{n} members")
+    }
+}
+
+/// `clickstream (6 partitions) and inventory.levels (1)`.
+fn reads(topics: &[&LagTopic]) -> Vec<S> {
+    let mut out = Vec::new();
+    for (i, t) in topics.iter().enumerate() {
+        match (i, topics.len()) {
+            (0, _) => {}
+            (i, n) if i + 1 == n => out.push(S::text(" and ")),
+            _ => out.push(S::text(", ")),
+        }
+        out.push(S::topic(&t.name));
+        let n = t.partitions;
+        out.push(S::text(if i == 0 {
+            format!(" ({n} {})", if n == 1 { "partition" } else { "partitions" })
+        } else {
+            format!(" ({n})")
+        }));
+    }
+    out
+}
+
+/// The topics a group has something on (committed or held).
+fn topics_in_play(topics: &[LagTopic]) -> Vec<&LagTopic> {
+    topics
+        .iter()
+        .filter(|t| !t.holders.is_empty() || t.rows.iter().any(|r| r.committed.is_some()))
+        .collect()
+}
+
+/// What the lag comes to, as a clause.
+fn lag_clause(topics: &[LagTopic]) -> String {
+    let committed: Vec<&LagTopic> = topics
+        .iter()
+        .filter(|t| t.rows.iter().any(|r| r.committed.is_some()))
+        .collect();
+    if committed.is_empty() {
+        return "It has committed nothing yet, so there is no lag to show.".to_owned();
+    }
+    let ahead = committed
+        .iter()
+        .flat_map(|t| &t.rows)
+        .find(|r| matches!(r.lag, Lag::PastEnd(_)));
+    if let Some(r) = ahead
+        && let Lag::PastEnd(by) = r.lag
+    {
+        return format!(
+            "Its commit on {}-{} is {} past the end of the log.",
+            r.topic,
+            r.partition,
+            number(by)
+        );
+    }
+    let behind: Vec<&&LagTopic> = committed.iter().filter(|t| t.behind > 0).collect();
+    let caught: Vec<String> = committed
+        .iter()
+        .filter(|t| t.behind == 0)
+        .map(|t| t.name.clone())
+        .collect();
+    match (behind.as_slice(), caught.as_slice()) {
+        ([], caught) => format!("It is caught up on {}.", list_and(caught)),
+        (behind, []) => format!(
+            "It is {} behind.",
+            list_and(
+                &behind
+                    .iter()
+                    .map(|t| format!("{} records on {}", number(t.behind), t.name))
+                    .collect::<Vec<_>>()
+            )
+        ),
+        (behind, caught) => format!(
+            "It is {} behind; {} {} caught up.",
+            list_and(
+                &behind
+                    .iter()
+                    .map(|t| format!("{} records on {}", number(t.behind), t.name))
+                    .collect::<Vec<_>>()
+            ),
+            list_and(caught),
+            if caught.len() == 1 { "is" } else { "are" }
+        ),
+    }
+}
+
+fn last_commit(h: &GroupHead) -> Option<String> {
+    h.last_commit_ms
+        .map(|ms| format!("Last commit {}.", ago(h.now_ms - ms)))
+}
+
+fn rebalancing(h: &GroupHead, topics: &[LagTopic]) -> Vec<S> {
+    let mut out = Vec::new();
+    match &h.rebalance {
+        Some(r) if !r.waiting_for.is_empty() => {
+            out.push(S::strong(list_and(&r.waiting_for)));
+            out.push(S::text(format!(
+                " {} not joined again, so the group is rebalancing. It is waiting for {}: {} of the {} rebalance timeout are left.",
+                if r.waiting_for.len() == 1 { "has" } else { "have" },
+                if r.waiting_for.len() == 1 { "it" } else { "them" },
+                span_precise(r.remaining_ms),
+                span_precise(r.timeout_ms),
+            )));
+        }
+        _ => out.push(S::text(
+            "The group is rebalancing: every member has joined again and the leader is working out who holds what.",
+        )),
+    }
+    let read = topics_in_play(topics);
+    if !read.is_empty() {
+        out.push(S::text(" It reads "));
+        out.extend(reads(&read));
+        out.push(S::text("."));
+    }
+    out
+}
+
+/// `2.1 s`, `45 s`, `3 min`: tenths of a second below a minute.
+#[must_use]
+pub fn span_precise(ms: u64) -> String {
+    if ms < 60_000 {
+        if ms % 1000 < 100 {
+            return format!("{} s", ms / 1000);
+        }
+        format!("{}.{} s", ms / 1000, ms % 1000 / 100)
+    } else {
+        span_ms(i64::try_from(ms).unwrap_or(i64::MAX))
+    }
+}
+
+fn holding(h: &GroupHead, topics: &[LagTopic]) -> Vec<S> {
+    let mut out = Vec::new();
+    let n = h.members.len();
+    if h.protocol == GroupProtocol::Consumer {
+        out.push(S::text(format!(
+            "{} {} ",
+            capital(&number_word(n)),
+            if n == 1 {
+                "member holds"
+            } else {
+                "members hold"
+            }
+        )));
+    } else if n == 1 {
+        out.push(S::text("One member, "));
+        out.push(S::strong(h.members.first().map_or("", |m| m.id.as_str())));
+        out.push(S::text(", reads "));
+    } else {
+        out.push(S::text(format!(
+            "{} members read ",
+            capital(&number_word(n))
+        )));
+    }
+    let read = topics_in_play(topics);
+    if read.is_empty() {
+        out.push(S::text("no topic yet"));
+    } else {
+        out.extend(reads(&read));
+    }
+    out.push(S::text("."));
+    out
+}
+
+/// The sentence under a group's name on its Members page.
+#[must_use]
+pub fn group_sentence(h: &GroupHead, topics: &[LagTopic]) -> Vec<S> {
+    let mut out = match h.phase {
+        GroupPhase::Rebalancing if h.protocol == GroupProtocol::Classic => {
+            return rebalancing(h, topics);
+        }
+        GroupPhase::Empty => {
+            let mut v = vec![S::mono(&h.id), S::text(" has no members.")];
+            if h.commits > 0 {
+                v.push(S::text(format!(
+                    " It has {} committed {}.",
+                    h.commits,
+                    if h.commits == 1 { "offset" } else { "offsets" }
+                )));
+            }
+            v
+        }
+        _ => holding(h, topics),
+    };
+    if h.protocol == GroupProtocol::Consumer {
+        match h.phase {
+            GroupPhase::Stable => out.push(S::text(format!(
+                " Every member holds exactly what the broker targeted for epoch {}, so nothing is moving.",
+                h.generation
+            ))),
+            GroupPhase::Assigning => out.push(S::text(format!(
+                " The group moved to epoch {} and the targets are yet to be computed, at the next heartbeat.",
+                h.generation
+            ))),
+            GroupPhase::Reconciling => {
+                let behind = h
+                    .members
+                    .iter()
+                    .filter(|m| m.holds != m.target || m.epoch != h.target_epoch.unwrap_or(m.epoch))
+                    .count();
+                out.push(S::text(format!(
+                    " {} of them {} not yet where the broker wants {}.",
+                    capital(&number_word(behind)),
+                    if behind == 1 { "is" } else { "are" },
+                    if behind == 1 { "it" } else { "them" },
+                )));
+            }
+            _ => {}
+        }
+    }
+    out.push(S::text(format!(" {}", lag_clause(topics))));
+    if let Some(l) = last_commit(h) {
+        out.push(S::text(format!(" {l}")));
+    }
+    out
+}
+
+/// The sentence under the name on the Lag page, by state.
+#[must_use]
+pub fn lag_sentence(
+    h: &GroupHead,
+    topics: &[LagTopic],
+    state: crate::model::LagState,
+    retention_ms: i64,
+) -> Vec<S> {
+    use crate::model::LagState;
+    match state {
+        LagState::Ahead => ahead_sentence(h, topics),
+        LagState::NoCommits => no_commits_sentence(h, topics),
+        LagState::Expiring => expiring_sentence(h, topics, retention_ms),
+        LagState::Normal => {
+            let mut s = lag_overview(topics);
+            s.push_str(&match h.last_commit_ms {
+                Some(ms) => format!(" The group committed {}.", ago(h.now_ms - ms)),
+                None => String::new(),
+            });
+            s.push_str(
+                " Lag is the log end minus the committed offset, so it counts records the app has not finished with, not records it has not fetched.",
+            );
+            vec![S::text(s)]
+        }
+    }
+}
+
+fn lag_overview(topics: &[LagTopic]) -> String {
+    let committed: Vec<&LagTopic> = topics
+        .iter()
+        .filter(|t| t.rows.iter().any(|r| r.committed.is_some()))
+        .collect();
+    let behind: Vec<String> = committed
+        .iter()
+        .filter(|t| t.behind > 0)
+        .map(|t| format!("{} records behind on {}", number(t.behind), t.name))
+        .collect();
+    let none: Vec<String> = committed
+        .iter()
+        .filter(|t| t.behind == 0)
+        .map(|t| t.name.clone())
+        .collect();
+    match (behind.is_empty(), none.is_empty()) {
+        (true, true) => "Nothing is committed, so nothing can be behind.".to_owned(),
+        (true, false) => format!("Caught up on {}.", list_and(&none)),
+        (false, true) => format!("{}.", capital(&behind.join(", "))),
+        (false, false) => format!(
+            "{}, none on {}.",
+            capital(&behind.join(", ")),
+            list_and(&none)
+        ),
+    }
+}
+
+fn ahead_sentence(h: &GroupHead, topics: &[LagTopic]) -> Vec<S> {
+    let first = topics
+        .iter()
+        .flat_map(|t| &t.rows)
+        .find(|r| matches!(r.lag, Lag::PastEnd(_)));
+    let Some((r, by)) = first.and_then(|r| match r.lag {
+        Lag::PastEnd(by) => Some((r, by)),
+        _ => None,
+    }) else {
+        return vec![S::text("")];
+    };
+    vec![S::text(format!(
+        "{} committed {} on {}-{}, but the log ends at {}: the commit is {} past the end. Lag cannot be a negative number, so the console says where the commit is instead.",
+        h.id,
+        number(r.committed.unwrap_or(0)),
+        r.topic,
+        r.partition,
+        number(r.end.unwrap_or(0)),
+        number(by)
+    ))]
+}
+
+fn no_commits_sentence(h: &GroupHead, topics: &[LagTopic]) -> Vec<S> {
+    let mut s = lag_overview(topics);
+    let none: Vec<String> = topics
+        .iter()
+        .filter(|t| t.rows.iter().all(|r| r.lag == Lag::NoCommit) && !t.rows.is_empty())
+        .map(|t| t.name.clone())
+        .collect();
+    let some: Vec<String> = topics
+        .iter()
+        .filter(|t| {
+            t.rows.iter().any(|r| r.lag == Lag::NoCommit)
+                && t.rows.iter().any(|r| r.committed.is_some())
+        })
+        .map(|t| t.name.clone())
+        .collect();
+    if !none.is_empty() {
+        s.push_str(&format!(
+            " {} {} no committed offset, so its lag is not known: the broker has nothing to subtract.",
+            list_and(&none),
+            if none.len() == 1 { "has" } else { "have" }
+        ));
+    }
+    if !some.is_empty() {
+        s.push_str(&format!(
+            " Some partitions of {} have no committed offset, so theirs is not known.",
+            list_and(&some)
+        ));
+    }
+    if h.phase == GroupPhase::Rebalancing && h.members.iter().all(|m| m.holds.is_empty()) {
+        s.push_str(&format!(
+            " Nobody holds a partition until generation {} forms.",
+            h.generation + 1
+        ));
+    }
+    vec![S::text(s)]
+}
+
+fn expiring_sentence(h: &GroupHead, topics: &[LagTopic], retention_ms: i64) -> Vec<S> {
+    let first = topics
+        .iter()
+        .flat_map(|t| &t.rows)
+        .filter_map(|r| r.expires_ms)
+        .min();
+    let n = h.commits;
+    let retention = span_ms(retention_ms);
+    match first {
+        Some(at) => vec![S::text(format!(
+            "The broker forgets {}' {} committed {} on {}, in {}. The group has no members, and offsets are kept for {retention}.",
+            h.id,
+            n,
+            if n == 1 { "offset" } else { "offsets" },
+            crate::format::date_time(at),
+            span_ms(at - h.now_ms),
+        ))],
+        None => vec![S::text(format!(
+            "The broker does not forget {}' committed offsets while things stay as they are: {} Offsets are kept for {retention} once they can be.",
+            h.id,
+            if h.members.is_empty() {
+                "the group may yet have members."
+            } else {
+                "the group has members, and a group with members keeps what it subscribes to."
+            }
+        ))],
+    }
+}
+
+/// The line above the list while a classic group is rebalancing.
+#[must_use]
+pub fn attention_sentence(a: &GroupAttention) -> Vec<S> {
+    let mut v = vec![S::strong(format!("{} is rebalancing.", a.id)), S::text(" ")];
+    if a.waiting_for.is_empty() {
+        v.push(S::text(
+            "Every member has joined again and the leader is working out who holds what.",
+        ));
+    } else {
+        v.push(S::text("It is waiting for "));
+        v.push(S::mono(list_and(&a.waiting_for)));
+        v.push(S::text(format!(
+            " to rejoin, {} of {} left.",
+            span_precise(a.remaining_ms),
+            span_precise(a.timeout_ms)
+        )));
+    }
+    v
+}
+
+// --- Kafka's words and the console's reading of a refusal ---
+
+/// Kafka's own description of the codes a group write can answer (its `Errors.java`).
+#[must_use]
+pub fn description(code: i16) -> &'static str {
+    match code {
+        3 => "This server does not host this topic-partition.",
+        12 => "The metadata field of the offset request was too large.",
+        14 => "The coordinator is loading and hence can't process requests.",
+        15 => "The coordinator is not available.",
+        16 => "This is not the correct coordinator.",
+        22 => "Specified group generation id is not valid.",
+        24 => "The configured groupId is invalid.",
+        25 => "The coordinator is not aware of this member.",
+        27 => "The group is rebalancing, so a rejoin is needed.",
+        29 => "Topic authorization failed.",
+        30 => "Group authorization failed.",
+        68 => "The group is not empty.",
+        69 => "The group id does not exist.",
+        82 => {
+            "The broker rejected this static consumer since another consumer with the same group.instance.id has registered with a different member.id."
+        }
+        86 => {
+            "Deleting offsets of a topic is forbidden while the consumer group is actively subscribed to it."
+        }
+        113 => {
+            "The member epoch is stale. The member must retry after receiving its updated member epoch via the ConsumerGroupHeartbeat API."
+        }
+        _ => "The server experienced an unexpected error when processing the request.",
+    }
+}
+
+/// Kafka's code and sentence for an answer to a group write.
+#[must_use]
+pub fn kafka_refusal(code: i16) -> crate::model::Refusal {
+    let mut r = refusal(code, None);
+    r.name = code_name(code);
+    r.message = description(code).to_owned();
+    r
+}
+
+fn members_now(h: &GroupHead) -> String {
+    match h.members.len() {
+        1 => "1 member now".to_owned(),
+        n => format!("{n} members now"),
+    }
+}
+
+fn leave_step(h: &GroupHead, then: &str) -> RefusalStep {
+    let who = if h.members.len() == 1 {
+        h.members.first().map_or_else(String::new, |m| m.id.clone())
+    } else {
+        format!("the {} members", h.members.len())
+    };
+    let session = h
+        .members
+        .iter()
+        .map(|m| m.session_ms)
+        .max()
+        .filter(|s| *s > 0)
+        .map(|s| span_ms(i64::try_from(s).unwrap_or(0)));
+    RefusalStep {
+        blocking: true,
+        title: then.to_owned(),
+        sub: match session {
+            Some(s) => format!("{who} leaves, or its {s} session runs out."),
+            None => format!("{who} leaves, or its session runs out."),
+        },
+        value: members_now(h),
+    }
+}
+
+/// The rule and the steps for a reset that Kafka refused.
+#[must_use]
+pub fn reset_reading(h: &GroupHead, code: i16) -> (Vec<S>, Vec<RefusalStep>) {
+    match code {
+        25 | 22 | 27 => (
+            vec![S::text(format!(
+                "A commit with no generation, which is what a reset is, is accepted only while the group has no members. {} {}, so Kafka asks which member is committing.",
+                h.id,
+                match h.members.len() {
+                    0 => "has none now".to_owned(),
+                    1 => format!(
+                        "has one, {}",
+                        h.members.first().map_or("", |m| m.id.as_str())
+                    ),
+                    n => format!("has {n}"),
+                }
+            ))],
+            vec![
+                leave_step(h, "1. Stop the app"),
+                RefusalStep {
+                    blocking: false,
+                    title: "2. The group is Empty, and the same reset is accepted".to_owned(),
+                    sub: "The preview shows each partition before anything is sent.".to_owned(),
+                    value: String::new(),
+                },
+                RefusalStep {
+                    blocking: false,
+                    title: "3. Start the app again".to_owned(),
+                    sub: "It resumes from the new offsets.".to_owned(),
+                    value: String::new(),
+                },
+            ],
+        ),
+        _ => (
+            vec![S::text(
+                "Kafka answered the commit with this code, and nothing was stored.",
+            )],
+            Vec::new(),
+        ),
+    }
+}
+
+/// The rule and the steps for a group delete that Kafka refused.
+#[must_use]
+pub fn delete_reading(h: &GroupHead, code: i16) -> (Vec<S>, Vec<RefusalStep>) {
+    match code {
+        68 => (
+            vec![S::text(
+                "DeleteGroups checks in this order: a group with members is refused; an empty one is deleted with its offsets; a group with nothing in it is not found (GROUP_ID_NOT_FOUND, 69).",
+            )],
+            vec![RefusalStep {
+                blocking: true,
+                title: "Every member has to leave".to_owned(),
+                sub: "Stop the app, or wait out its session after it dies.".to_owned(),
+                value: members_now(h),
+            }],
+        ),
+        69 => (
+            vec![S::text(
+                "The group has no members, no committed offsets and no record: there is nothing to delete.",
+            )],
+            Vec::new(),
+        ),
+        _ => (
+            vec![S::text(
+                "Kafka answered the delete with this code, and nothing was deleted.",
+            )],
+            Vec::new(),
+        ),
+    }
+}
+
+#[cfg(test)]
+mod tests;
+
+/// A timeout the way a person says it: `45 s`, `60 s`, `3 min`.
+#[must_use]
+pub fn seconds(ms: u64) -> String {
+    if ms < 120_000 && ms % 1000 == 0 {
+        format!("{} s", ms / 1000)
+    } else if ms < 60_000 {
+        span_precise(ms)
+    } else {
+        span_ms(i64::try_from(ms).unwrap_or(i64::MAX))
+    }
+}

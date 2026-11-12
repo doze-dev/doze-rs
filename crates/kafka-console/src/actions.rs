@@ -15,16 +15,25 @@ pub enum Action {
     DeleteRecords,
     /// Slice 9b: delete a topic.
     DeleteTopics,
+    /// Slice 9c: move a group's committed offsets (a commit with no generation, which Kafka accepts for an empty group).
+    OffsetCommit,
+    /// Slice 9c: forget a group's commits on a topic.
+    OffsetDelete,
+    /// Slice 9c: delete an empty group.
+    DeleteGroups,
 }
 
 impl Action {
     /// Every write of the console.
-    pub const ALL: [Self; 5] = [
+    pub const ALL: [Self; 8] = [
         Self::CreateTopics,
         Self::Produce,
         Self::CreatePartitions,
         Self::DeleteRecords,
         Self::DeleteTopics,
+        Self::OffsetCommit,
+        Self::OffsetDelete,
+        Self::DeleteGroups,
     ];
 
     /// The name a form carries in `data-op`: Kafka's own name for the API.
@@ -36,6 +45,9 @@ impl Action {
             Self::CreatePartitions => "CreatePartitions",
             Self::DeleteRecords => "DeleteRecords",
             Self::DeleteTopics => "DeleteTopics",
+            Self::OffsetCommit => "OffsetCommit",
+            Self::OffsetDelete => "OffsetDelete",
+            Self::DeleteGroups => "DeleteGroups",
         }
     }
 
@@ -47,7 +59,7 @@ impl Action {
 }
 
 /// The boards of the slices that write, by id: the ones whose `data-op` names the test compares with [`Action::ALL`].
-pub const WRITE_BOARDS: [&str; 14] = [
+pub const WRITE_BOARDS: [&str; 19] = [
     "topic-create",
     "topic-create-config",
     "topic-create-review",
@@ -62,6 +74,11 @@ pub const WRITE_BOARDS: [&str; 14] = [
     "topic-delete-records-refused",
     "topic-delete",
     "topic-deleted",
+    "group-reset-offsets",
+    "group-reset-refused",
+    "group-delete",
+    "group-delete-refused",
+    "group-offset-delete",
 ];
 
 #[cfg(test)]

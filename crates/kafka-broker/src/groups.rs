@@ -2,7 +2,11 @@
 
 mod actor;
 mod consumer;
+#[cfg(feature = "inspect")]
+mod expiry;
 mod group;
+#[cfg(feature = "inspect")]
+mod inspect;
 mod machine;
 mod order;
 mod registry;
@@ -14,7 +18,11 @@ pub(crate) use actor::Req;
 pub(crate) use consumer::assign::Partitions;
 pub(crate) use consumer::fetch_refusal;
 pub(crate) use consumer::{Config as ConsumerConfig, Heartbeat, HeartbeatAnswer};
+#[cfg(feature = "inspect")]
+pub(crate) use expiry::first_expiry;
 pub(crate) use group::Settings;
+#[cfg(feature = "inspect")]
+pub(crate) use inspect::{Inspect, MemberInspect};
 pub(crate) use machine::State;
 pub(crate) use machine::{
     Answer, CommitRequest, Description, HeartbeatRequest, JoinAnswer, JoinRequest, LeaveTarget,
@@ -23,4 +31,4 @@ pub(crate) use machine::{
 pub(crate) use order::{kafka_order, offsets_partition};
 pub(crate) use registry::member_ids;
 pub(crate) use registry::{Deleted, Groups};
-pub(crate) use retention::{Members, View, expired};
+pub(crate) use retention::{Members, View, expired, members_of};
