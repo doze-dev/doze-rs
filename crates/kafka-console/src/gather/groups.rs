@@ -184,6 +184,7 @@ async fn noteworthy(
                     described: described.get(&g.id).cloned(),
                     detail: b.group_detail(&g.id).await,
                     commits: Default::default(),
+                    events: None,
                 },
             });
         }

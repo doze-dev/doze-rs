@@ -222,7 +222,6 @@ async fn an_unbuilt_screen_is_one_designed_page_and_never_home_under_another_tit
         ("/settings", "Settings", "Settings"),
         ("/topics/orders/log", "Log", "Log"),
         ("/topics/orders/producers", "Producers", "Producers"),
-        ("/groups/fulfilment/story", "Story", "Story"),
     ] {
         let (status, doc) = page(path).await;
         assert_eq!(status, StatusCode::OK, "{path}");

@@ -88,6 +88,7 @@ pub async fn consumers(b: &Backend, name: &str) -> Option<ConsumersView> {
             described: described.remove(id),
             detail: b.group_detail(id).await,
             commits: commits.remove(id).unwrap_or_default(),
+            events: None,
         };
         let protocol = loaded
             .described
