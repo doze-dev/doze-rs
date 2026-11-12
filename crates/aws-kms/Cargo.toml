@@ -1,0 +1,35 @@
+[package]
+name = "aws-kms"
+version = "0.0.0"
+description = "KMS: keys, aliases, encryption, signing and MACs, as a state machine behind a lazy actor"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+aws-model-kms = { path = "../aws-model-kms" }
+aws-schema = { path = "../aws-schema" }
+aws-wire = { path = "../aws-wire" }
+aws-core = { path = "../aws-core" }
+aws-seal = { path = "../aws-seal" }
+doze-runtime = { path = "../doze-runtime" }
+doze-store = { path = "../doze-store" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+aes-gcm = "0.11"
+hmac = "0.13"
+sha2 = "0.11"
+p256 = { version = "0.14", default-features = false, features = ["ecdsa", "pkcs8", "std"] }
+p384 = { version = "0.14", default-features = false, features = ["ecdsa", "pkcs8", "std"] }
+p521 = { version = "0.14", default-features = false, features = ["ecdsa", "pkcs8", "std"] }
+k256 = { version = "0.14", default-features = false, features = ["ecdsa", "pkcs8", "std"] }
+ed25519-dalek = { version = "3", default-features = false, features = [] }
+
+[dev-dependencies]
+aws-testkit = { path = "../aws-testkit" }
+tokio = { version = "1", default-features = false, features = ["rt", "macros", "time", "test-util", "sync"] }

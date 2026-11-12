@@ -26,6 +26,11 @@ UUID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}
 INLINE_BYTES = 1024
 
 
+# Ids a service makes up for itself and never repeats: present, and the same one each time, is all there is to compare. KMS's key
+# material ids are a hash of random material, so no two keys (and no two runs) share one.
+ALWAYS_OPAQUE = frozenset(("CurrentKeyMaterialId", "KeyMaterialId"))
+
+
 class Normalizer:
     def __init__(self, account, endpoints=(), endpoint_patterns=(), region=None):
         """account: the id this target answers as.
@@ -68,7 +73,7 @@ class Normalizer:
 
     def value(self, v, opaque=(), drop=(), unordered=(), _key=None):
         kw = dict(opaque=opaque, drop=drop, unordered=unordered)
-        if _key in opaque and v is not None:
+        if (_key in opaque or _key in ALWAYS_OPAQUE) and v is not None:
             # Present, and the same one each time it appears — but what it
             # says is the service's own business.
             return self._token(_key, _stable(v))

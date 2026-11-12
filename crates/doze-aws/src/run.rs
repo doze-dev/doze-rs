@@ -42,6 +42,7 @@ pub(crate) async fn run(args: Args) -> Result<()> {
         .with(Arc::new(aws_secrets::Secrets::new(Arc::new(ctx(
             "secretsmanager",
         )))))
+        .with(Arc::new(aws_kms::Kms::new(Arc::new(ctx("kms")))))
         .bind()
         .await
         .with_context(|| format!("listening on {}", args.listen))?;

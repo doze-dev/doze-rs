@@ -120,11 +120,19 @@ pub fn failure(
     version: Version,
     id: &RequestId,
     err: &ApiError,
+    flat_client_errors: bool,
 ) -> Response<Vec<u8>> {
     let modeled = err.shape.as_deref().and_then(|name| lookup(tables, name));
     let (status, fault, wire_code, query_code) = match &modeled {
         Some(m) => (
-            m.status,
+            // Most services answer with the status the model gives the error. A few do not: KMS models 404 for NotFoundException and
+            // 409 for AlreadyExistsException and answers 400 for all of them (recorded 2026-11-09), so those services ask for flat
+            // client errors. A server fault keeps its own status either way.
+            if flat_client_errors && m.status < 500 {
+                400
+            } else {
+                m.status
+            },
             m.fault,
             m.name.as_str(),
             Some(m.query_code.as_str()),
@@ -276,7 +284,7 @@ mod tests {
     fn a_modelled_error_takes_its_status_and_codes_from_the_model() {
         let id = RequestId::new();
         let err = ApiError::modeled("QueueDoesNotExist", "The specified queue does not exist.");
-        let r = failure(&META, &TABLES, Version::V10, &id, &err);
+        let r = failure(&META, &TABLES, Version::V10, &id, &err, false);
         assert_eq!(r.status(), 400);
         assert_eq!(r.headers()["content-type"], "application/x-amz-json-1.0");
         assert_eq!(r.headers()["x-amzn-requestid"], id.as_str());
@@ -293,7 +301,7 @@ mod tests {
     #[test]
     fn an_error_the_model_lacks_states_itself() {
         let err = ApiError::new(400, "InvalidSignatureException", "bad \"sig\"");
-        let r = failure(&META, &TABLES, Version::V11, &RequestId::new(), &err);
+        let r = failure(&META, &TABLES, Version::V11, &RequestId::new(), &err, false);
         assert_eq!(r.status(), 400);
         assert_eq!(r.headers()["content-type"], "application/x-amz-json-1.1");
         // A query-compatible service names the code the Query protocol would, modelled or not.

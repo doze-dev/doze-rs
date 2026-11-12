@@ -40,7 +40,7 @@
         "AWSAccountId": "<account>",
         "Arn": "arn:aws:kms:us-east-1:<account>:key/<uuid:1>",
         "CreationDate": "<datetime>",
-        "CurrentKeyMaterialId": "2487a979ada2c16ea16ef08e5546388daac917a38a4aaef7ac4bbb815928c089",
+        "CurrentKeyMaterialId": "<CurrentKeyMaterialId:1>",
         "CustomerMasterKeySpec": "SYMMETRIC_DEFAULT",
         "Description": "",
         "Enabled": true,
@@ -195,7 +195,7 @@
         "AWSAccountId": "<account>",
         "Arn": "arn:aws:kms:us-east-1:<account>:key/<uuid:1>",
         "CreationDate": "<datetime>",
-        "CurrentKeyMaterialId": "7dad629431c6980e8f05d0f0b368cfd069007ef8ea637bb855181791c09748f1",
+        "CurrentKeyMaterialId": "<CurrentKeyMaterialId:1>",
         "CustomerMasterKeySpec": "SYMMETRIC_DEFAULT",
         "Description": "",
         "Enabled": false,
@@ -230,7 +230,7 @@
         "AWSAccountId": "<account>",
         "Arn": "arn:aws:kms:us-east-1:<account>:key/<uuid:1>",
         "CreationDate": "<datetime>",
-        "CurrentKeyMaterialId": "7dad629431c6980e8f05d0f0b368cfd069007ef8ea637bb855181791c09748f1",
+        "CurrentKeyMaterialId": "<CurrentKeyMaterialId:1>",
         "CustomerMasterKeySpec": "SYMMETRIC_DEFAULT",
         "Description": "",
         "Enabled": false,
@@ -277,7 +277,7 @@
         "AWSAccountId": "<account>",
         "Arn": "arn:aws:kms:us-east-1:<account>:key/<uuid:1>",
         "CreationDate": "<datetime>",
-        "CurrentKeyMaterialId": "7dad629431c6980e8f05d0f0b368cfd069007ef8ea637bb855181791c09748f1",
+        "CurrentKeyMaterialId": "<CurrentKeyMaterialId:1>",
         "CustomerMasterKeySpec": "SYMMETRIC_DEFAULT",
         "DeletionDate": "<datetime>",
         "Description": "",
@@ -378,7 +378,7 @@
         "AWSAccountId": "<account>",
         "Arn": "arn:aws:kms:us-east-1:<account>:key/<uuid:1>",
         "CreationDate": "<datetime>",
-        "CurrentKeyMaterialId": "b1d1b40e1e3dc3a1046af9bc273e00069cdba4d6b3f0c0ca5c06c1737852c8fb",
+        "CurrentKeyMaterialId": "<CurrentKeyMaterialId:1>",
         "CustomerMasterKeySpec": "SYMMETRIC_DEFAULT",
         "Description": "conformance",
         "Enabled": true,
@@ -400,7 +400,7 @@
     "data-key": {
       "CiphertextBlob": "<CiphertextBlob:2>",
       "KeyId": "arn:aws:kms:us-east-1:<account>:key/<uuid:1>",
-      "KeyMaterialId": "b1d1b40e1e3dc3a1046af9bc273e00069cdba4d6b3f0c0ca5c06c1737852c8fb",
+      "KeyMaterialId": "<KeyMaterialId:1>",
       "Plaintext": "<Plaintext:1>",
       "ResponseMetadata": {
         "HTTPStatusCode": 200
@@ -409,7 +409,7 @@
     "data-key-opens": {
       "EncryptionAlgorithm": "SYMMETRIC_DEFAULT",
       "KeyId": "arn:aws:kms:us-east-1:<account>:key/<uuid:1>",
-      "KeyMaterialId": "b1d1b40e1e3dc3a1046af9bc273e00069cdba4d6b3f0c0ca5c06c1737852c8fb",
+      "KeyMaterialId": "<KeyMaterialId:1>",
       "Plaintext": "<Plaintext:1>",
       "ResponseMetadata": {
         "HTTPStatusCode": 200
@@ -418,7 +418,7 @@
     "decrypt": {
       "EncryptionAlgorithm": "SYMMETRIC_DEFAULT",
       "KeyId": "arn:aws:kms:us-east-1:<account>:key/<uuid:1>",
-      "KeyMaterialId": "b1d1b40e1e3dc3a1046af9bc273e00069cdba4d6b3f0c0ca5c06c1737852c8fb",
+      "KeyMaterialId": "<KeyMaterialId:1>",
       "Plaintext": {
         "<bytes>": "attack at dawn"
       },
@@ -429,7 +429,7 @@
     "decrypt-with-context": {
       "EncryptionAlgorithm": "SYMMETRIC_DEFAULT",
       "KeyId": "arn:aws:kms:us-east-1:<account>:key/<uuid:1>",
-      "KeyMaterialId": "b1d1b40e1e3dc3a1046af9bc273e00069cdba4d6b3f0c0ca5c06c1737852c8fb",
+      "KeyMaterialId": "<KeyMaterialId:1>",
       "Plaintext": {
         "<bytes>": "x"
       },
@@ -460,7 +460,7 @@
         "AWSAccountId": "<account>",
         "Arn": "arn:aws:kms:us-east-1:<account>:key/<uuid:1>",
         "CreationDate": "<datetime>",
-        "CurrentKeyMaterialId": "b1d1b40e1e3dc3a1046af9bc273e00069cdba4d6b3f0c0ca5c06c1737852c8fb",
+        "CurrentKeyMaterialId": "<CurrentKeyMaterialId:1>",
         "CustomerMasterKeySpec": "SYMMETRIC_DEFAULT",
         "Description": "conformance",
         "Enabled": true,

@@ -110,7 +110,16 @@ async fn handle(
             ),
         ));
     };
-    let fail = |e: &ApiError| -> Fail { Box::new(json::failure(meta, tables, version, id, e)) };
+    let fail = |e: &ApiError| -> Fail {
+        Box::new(json::failure(
+            meta,
+            tables,
+            version,
+            id,
+            e,
+            entry.service.flat_client_errors(),
+        ))
+    };
     let authed = authenticate(shared, parts, claim.service.as_str())
         .map_err(|e| fail(&from_auth(&e, Family::Coral)))?;
     let bytes = read_body(body, shared.config.max_body_bytes)

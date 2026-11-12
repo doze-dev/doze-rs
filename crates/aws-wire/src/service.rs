@@ -86,6 +86,11 @@ pub trait Service: Send + Sync + 'static {
         true
     }
 
+    /// Whether every client error is answered 400, whatever status the model gives it (KMS does this).
+    fn flat_client_errors(&self) -> bool {
+        false
+    }
+
     /// Handles one call. An error names a modelled shape ([`ApiError::modeled`]) or states itself.
     fn call(&self, call: Call) -> BoxFuture<'_, Reply>;
 
