@@ -321,3 +321,5 @@ fn fold_key(row: &Row) -> u64 {
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_facets;

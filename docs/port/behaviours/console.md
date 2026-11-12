@@ -862,7 +862,7 @@ A focused control shows exactly one ring: 2 px, the primary colour at 45 %, 2 px
 ## CON-764. Home is a strip of figures, two balanced columns and the way on
 A strip of six figures (running, partitions open, topics, memory, threads, profile), then the Address card (with the advertised-listener check) and "This instance" in two columns of 7 to 5 (the second never under 380 px; one column under 1180 px), then the call to action across the page. Nothing overflows or is clipped at 1024, 1280, 1440 and 1920 px, and no other built page overflows at 1024. Test: in Chrome `home-fits-at-four-widths` and `every-page-fits-at-1024` (27 pages).
 
-# The multi-select pass (CON-850 to CON-859)
+# The multi-select pass (CON-850 to CON-857)
 
 Branch `ux-multiselect`. The owner, on the real Live page: "The topics filter does not seem to work. It should be a multi select." The filter did narrow the rows; it did not look as if it had, and it could not take two values. Code: `ui/components/multiselect.rs`, `assets/multiselect.js`, `pages/live/filters.rs`, `recorder/view.rs`, `model/live.rs`, `model/group_states.rs`, `model/query.rs`; Chrome scenarios `tools/ux/scenarios/multiselect.ts`.
 

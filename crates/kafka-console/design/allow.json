@@ -3631,5 +3631,35 @@
     "render": "live",
     "reason": "improvement: the four states of the Groups list are a Segmented control (links with the counts), each an in-place swap of the list, so the filter keeps the scroll and the focus",
     "expires": "close"
+  },
+  {
+    "board": "live-load",
+    "field": "button",
+    "reason": "improvement: the apps, APIs and topics are MultiSelects (CON-851): each is a button with a clear x and, in its popup, Select all and Clear, and without a script a details of checkboxes with an Apply button; the board draws one chip per filter that takes a single value",
+    "expires": "close"
+  },
+  {
+    "board": "live-paused",
+    "field": "button",
+    "reason": "improvement: the apps, APIs and topics are MultiSelects (CON-851): each is a button with a clear x and, in its popup, Select all and Clear, and without a script a details of checkboxes with an Apply button; the board draws one chip per filter that takes a single value",
+    "expires": "close"
+  },
+  {
+    "board": "live-quiet",
+    "field": "button",
+    "reason": "improvement: the apps, APIs and topics are MultiSelects (CON-851): each is a button with a clear x and, in its popup, Select all and Clear, and without a script a details of checkboxes with an Apply button; the board draws one chip per filter that takes a single value",
+    "expires": "close"
+  },
+  {
+    "board": "live-wire",
+    "field": "button",
+    "reason": "improvement: the apps, APIs and topics are MultiSelects (CON-851): each is a button with a clear x and, in its popup, Select all and Clear, and without a script a details of checkboxes with an Apply button; the board draws one chip per filter that takes a single value",
+    "expires": "close"
+  },
+  {
+    "board": "groups-list",
+    "field": "button",
+    "reason": "improvement: the Groups states are a MultiSelect (CON-857): a group shows in any of the states chosen; the button, its clear x, Select all, Clear and (without a script) Apply replace the board's four state chips",
+    "expires": "close"
   }
 ]
