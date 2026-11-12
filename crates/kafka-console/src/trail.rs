@@ -133,28 +133,8 @@ impl Place<'_> {
                     last(page.label()),
                 ],
             ),
-            Self::Transaction(topic, id) => with(
-                &resources(),
-                vec![
-                    link("Topics", "/topics"),
-                    link(&shown(topic), &topic_path(topic)),
-                    link("Producers", &format!("{}/producers", topic_path(topic))),
-                    last(&shown(id)),
-                ],
-            ),
-            Self::TransactionHeld(topic, id) => with(
-                &resources(),
-                vec![
-                    link("Topics", "/topics"),
-                    link(&shown(topic), &topic_path(topic)),
-                    link("Producers", &format!("{}/producers", topic_path(topic))),
-                    link(
-                        &shown(id),
-                        &format!("{}/transactions/{}", topic_path(topic), segment(id)),
-                    ),
-                    last("What it holds back"),
-                ],
-            ),
+            Self::Transaction(topic, id) => transaction_steps(topic, id, false),
+            Self::TransactionHeld(topic, id) => transaction_steps(topic, id, true),
             Self::NoTopic => with(
                 &resources(),
                 vec![link("Topics", "/topics"), last("No such topic")],
@@ -184,6 +164,23 @@ impl Place<'_> {
             Self::NotAllowed => vec![link("Home", "/"), last("Not allowed")],
         }
     }
+}
+
+/// `Resources > Topics > orders > Producers > orders-eos`, and `> What it holds back` under it.
+fn transaction_steps(topic: &str, id: &str, held: bool) -> Vec<Step> {
+    let mut tail = vec![
+        link("Topics", "/topics"),
+        link(&shown(topic), &topic_path(topic)),
+        link("Producers", &format!("{}/producers", topic_path(topic))),
+    ];
+    if held {
+        let at = format!("{}/transactions/{}", topic_path(topic), segment(id));
+        tail.push(link(&shown(id), &at));
+        tail.push(last("What it holds back"));
+    } else {
+        tail.push(last(&shown(id)));
+    }
+    with(&resources(), tail)
 }
 
 fn with(head: &[Step], tail: Vec<Step>) -> Vec<Step> {

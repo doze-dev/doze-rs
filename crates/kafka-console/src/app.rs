@@ -12,7 +12,9 @@ use crate::headers::security_headers;
 use crate::routes::{Handler, Method, ROUTES, Route, paths};
 use crate::state::Shared;
 
-/// The handler of a row. The match has no wildcard: a handler that is not wired does not compile.
+/// The handler of a row. The match has no wildcard: a handler that is not wired does not compile. It is a table, one line a
+/// row, so it is as long as the console has handlers.
+#[allow(clippy::too_many_lines)]
 fn method_router(route: &Route) -> MethodRouter<Shared> {
     match (route.handler, route.method) {
         (Handler::Home, _) => get(handlers::home),

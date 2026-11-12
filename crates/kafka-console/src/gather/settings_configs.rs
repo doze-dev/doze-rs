@@ -187,7 +187,7 @@ fn list(names: &[String]) -> String {
 /// The names as a sentence says them: `a`, `a and b`, `a, b and c`, and past six `a, b, c, d, e, f and 3 more`.
 fn prose(names: &[String]) -> String {
     const MOST: usize = 6;
-    let shown = &names[..names.len().min(MOST)];
+    let shown = names.get(..MOST).unwrap_or(names);
     match (shown.split_last(), names.len() > MOST) {
         (None, _) => String::new(),
         (Some(_), true) => format!("{} and {} more", shown.join(", "), names.len() - MOST),

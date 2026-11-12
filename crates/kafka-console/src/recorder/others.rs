@@ -130,9 +130,9 @@ impl Recorder {
             }
             let list = seen.entry(pid).or_default();
             let tag = r.who.software.as_deref().and_then(names::tag);
-            if let Some(at) = list.iter().position(|(c, _)| **c == *r.who.client) {
-                if let Some(t) = tag.filter(|t| !list[at].1.contains(t)) {
-                    list[at].1.push(t);
+            if let Some((_, tags)) = list.iter_mut().find(|(c, _)| **c == *r.who.client) {
+                if let Some(t) = tag.filter(|t| !tags.contains(t)) {
+                    tags.push(t);
                 }
             } else if list.len() < 3 {
                 list.push((r.who.client.to_string(), tag.into_iter().collect()));

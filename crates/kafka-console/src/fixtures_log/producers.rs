@@ -76,11 +76,16 @@ fn batches(rows: &[Row]) -> Vec<ProdBatch> {
 /// The three producers `orders-0` remembers, with the names the recorder gave two of them.
 fn orders_rows(n: i64) -> Vec<ProdRow> {
     let mut rows = orders_rows_plain(n);
-    rows[0].seen_as = vec!["orders (go, sarama)".to_owned()];
-    rows[1].seen_as = vec!["admin-cli (kcat)".to_owned()];
+    for (row, name) in rows
+        .iter_mut()
+        .zip(["orders (go, sarama)", "admin-cli (kcat)"])
+    {
+        row.seen_as = vec![name.to_owned()];
+    }
     rows
 }
 
+#[allow(clippy::too_many_lines)]
 fn orders_rows_plain(n: i64) -> Vec<ProdRow> {
     let row = |id, epoch, last, idle_s: i64, txn: Option<ProdTxn>, rows: &[Row]| ProdRow {
         id,
