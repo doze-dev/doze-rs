@@ -11,6 +11,7 @@ mod config;
 mod configs;
 mod error;
 mod groups;
+mod guard;
 mod handlers;
 mod listener;
 mod logs;

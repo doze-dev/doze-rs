@@ -1,24 +1,27 @@
 //! Produce.
 
+mod answer;
 mod check;
 mod request;
 
 use std::sync::Arc;
 
+use kafka_auth::authz::{operation, resource};
 use kafka_meta::Topic;
 use kafka_storage::fs::Fs;
 use kafka_wire::api::Response;
 use kafka_wire::batch::TimestampType;
 use kafka_wire::ids::{PartitionId, TimestampMs, TopicId, TopicName};
-use kafka_wire::messages::produce_request::PartitionProduceData;
+use kafka_wire::messages::produce_request::{PartitionProduceData, TopicProduceData};
 use kafka_wire::messages::produce_response::{
     BatchIndexAndErrorMessage, PartitionProduceResponse, TopicProduceResponse,
 };
 use kafka_wire::messages::{ProduceRequest, ProduceResponse};
 use kafka_wire::{ResponseError, StrBytes};
 
-use crate::partitions::{Partition, Pending, Written, gone};
-use crate::{Broker, Outcome, blocking, clock};
+use crate::partitions::{Partition, Pending};
+use crate::{Broker, Caller, Outcome, blocking, clock};
+use answer::{blank, failed, finish, storage_fault};
 use check::Accepted;
 use request::{refused_everywhere, request_refusal};
 
@@ -45,11 +48,25 @@ struct Txn<'a> {
 impl<F: Fs> Broker<F> {
     /// Appends each partition's batch to its log. `acks=0` is not answered (and a connection that cannot be told
     /// it was refused is closed); `acks=1` is answered once the batch is written; `acks=-1` once it is flushed.
-    pub(crate) async fn produce(&self, version: i16, req: ProduceRequest) -> Outcome {
+    ///
+    /// Before any batch is looked at the caller must be allowed: to WRITE the transactional id if any batch is
+    /// transactional (53 on every partition if not), and to WRITE each topic (29 on that topic's partitions if not,
+    /// before the topic is looked for). Produce asks for nothing else: an idempotent producer needs no
+    /// IDEMPOTENT_WRITE here (`KafkaApis.handleProduceRequest`).
+    pub(crate) async fn produce(
+        &self,
+        version: i16,
+        caller: &Caller,
+        req: ProduceRequest,
+    ) -> Outcome {
         let acks = req.acks;
-        let response = match request_refusal(&req) {
+        let may_write_txn = |id: &str| {
+            self.authz
+                .allows(caller, resource::TRANSACTIONAL_ID, id, operation::WRITE)
+        };
+        let response = match request_refusal(&req, may_write_txn) {
             Some((code, message)) => refused_everywhere(&req, code, message.as_deref()),
-            None => self.produce_partitions(version, &req).await,
+            None => self.produce_partitions(version, caller, &req).await,
         };
         if acks == 0 {
             // No answer can carry an error, so a refusal is told by dropping the connection, as Kafka does.
@@ -67,7 +84,12 @@ impl<F: Fs> Broker<F> {
         Outcome::Respond(Response::Produce(response))
     }
 
-    async fn produce_partitions(&self, version: i16, req: &ProduceRequest) -> ProduceResponse {
+    async fn produce_partitions(
+        &self,
+        version: i16,
+        caller: &Caller,
+        req: &ProduceRequest,
+    ) -> ProduceResponse {
         // Every partition's batch is queued with its writer before any answer is waited for, so the writers work
         // at once and each flushes a group.
         let durable = req.acks == -1;
@@ -79,12 +101,16 @@ impl<F: Fs> Broker<F> {
         let mut staged = Vec::new();
         for t in &req.topic_data {
             let topic = self.topic_of(version, t.topic_id, &t.name);
+            let allowed = self.may_write(caller, version, t, topic.as_deref());
             let mut stages = Vec::new();
             for p in &t.partition_data {
-                stages.push(
+                stages.push(if allowed {
                     self.start(version, durable, &txn, topic.as_deref(), p)
-                        .await,
-                );
+                        .await
+                } else {
+                    let code = ResponseError::TopicAuthorizationFailed;
+                    Stage::Done(failed(p.index, code, None))
+                });
             }
             staged.push((t, stages));
         }
@@ -99,6 +125,24 @@ impl<F: Fs> Broker<F> {
             resp.responses.push(r);
         }
         resp
+    }
+
+    /// Whether the caller may WRITE the topic a request entry names, asked once for the entry and before the topic
+    /// is looked for. From v13 a topic is named by id and the check is on the name the id stands for, so an id that
+    /// stands for nothing is not checked: it is unknown to everyone.
+    fn may_write(
+        &self,
+        caller: &Caller,
+        version: i16,
+        t: &TopicProduceData,
+        found: Option<&Topic>,
+    ) -> bool {
+        let name = match found {
+            Some(topic) => topic.name.as_ref(),
+            None if version >= 13 => return true,
+            None => t.name.0.as_str(),
+        };
+        self.topic_allows(caller, name, operation::WRITE)
     }
 
     /// The topic a request names: by id from v13, by name before.
@@ -210,79 +254,4 @@ impl<F: Fs> Broker<F> {
         }
         r
     }
-}
-
-/// Waits for a queued append to be written (and, for `acks=-1`, flushed) and builds its answer.
-async fn finish<F: Fs>(stage: Stage<F>, durable: bool) -> PartitionProduceResponse {
-    match stage {
-        Stage::Done(done) => done,
-        Stage::Waiting {
-            answer,
-            partition,
-            pending,
-            appended_at,
-        } => wait_for(answer, &partition, pending, appended_at, durable).await,
-    }
-}
-
-async fn wait_for<F: Fs>(
-    mut answer: PartitionProduceResponse,
-    partition: &Partition<F>,
-    pending: Pending,
-    appended_at: Option<TimestampMs>,
-    durable: bool,
-) -> PartitionProduceResponse {
-    let appended = match pending.await {
-        Ok(Ok(Written::Appended(appended))) => appended,
-        // A retry of a batch already written is answered as the first was: where it went, and its timestamp as stored.
-        Ok(Ok(Written::Duplicate { offset, timestamp })) => {
-            answer.base_offset = offset.get();
-            answer.log_append_time_ms = timestamp;
-            answer.log_start_offset = partition.reader().start_offset().get();
-            return answer;
-        }
-        Ok(Ok(Written::Refused(code))) => {
-            let mut refused = failed(answer.index, code, None);
-            refused.log_start_offset = partition.reader().start_offset().get();
-            return refused;
-        }
-        Ok(Err(e)) => return storage_fault(answer.index, &e),
-        Err(_) => return storage_fault(answer.index, &gone()),
-    };
-    if durable {
-        // acks=all is a promise that the record is on disk: if the disk says otherwise the producer hears it.
-        if let Err(e) = appended.ticket.durable().await {
-            return storage_fault(answer.index, &e);
-        }
-    }
-    answer.base_offset = appended.first_offset.get();
-    answer.log_append_time_ms = appended_at.map_or(-1, TimestampMs::get);
-    answer.log_start_offset = partition.reader().start_offset().get();
-    answer
-}
-
-/// An answer with no error and no offsets yet.
-fn blank(index: i32) -> PartitionProduceResponse {
-    let mut r = PartitionProduceResponse::default();
-    r.index = index;
-    r.base_offset = -1;
-    r.log_append_time_ms = -1;
-    r.log_start_offset = -1;
-    r.error_message = None;
-    r
-}
-
-/// An answer that carries an error and no offsets.
-fn failed(index: i32, code: ResponseError, message: Option<String>) -> PartitionProduceResponse {
-    let mut r = blank(index);
-    r.error_code = code.code();
-    r.error_message = message.map(StrBytes::from_string);
-    r
-}
-
-/// A write or flush that failed, as Kafka answers a full disk: the code, no offsets and no message (the cause is
-/// in the broker's log, not in a client's).
-fn storage_fault(index: i32, e: &kafka_storage::StorageError) -> PartitionProduceResponse {
-    tracing::error!(error = %e, partition = index, "a produce could not be stored");
-    failed(index, ResponseError::KafkaStorageError, None)
 }

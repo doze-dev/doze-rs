@@ -29,15 +29,15 @@ impl<F: Fs> Broker<F> {
                 respond(Response::Metadata(answer))
             }
             Request::CreateTopics(r) => {
-                respond(Response::CreateTopics(self.create_topics(&r).await))
+                respond(Response::CreateTopics(self.create_topics(caller, &r).await))
             }
             Request::DeleteTopics(r) => {
-                respond(Response::DeleteTopics(self.delete_topics(&r).await))
+                respond(Response::DeleteTopics(self.delete_topics(caller, &r).await))
             }
-            Request::Produce(r) => self.produce(head.version, r).await,
-            Request::Fetch(r) => self.fetch(head.version, r).await,
+            Request::Produce(r) => self.produce(head.version, caller, r).await,
+            Request::Fetch(r) => self.fetch(head.version, caller, r).await,
             Request::ListOffsets(r) => respond(Response::ListOffsets(
-                self.list_offsets(head.version, &r).await,
+                self.list_offsets(head.version, caller, &r).await,
             )),
             Request::FindCoordinator(r) => respond(Response::FindCoordinator(
                 self.find_coordinator(head.version, listener, &r),
@@ -60,12 +60,12 @@ impl<F: Fs> Broker<F> {
                     .await
             }
             Request::ConsumerGroupDescribe(r) => self.consumer_group_describe(&r).await,
-            Request::DeleteRecords(r) => self.delete_records(&r).await,
-            Request::CreatePartitions(r) => self.create_partitions(&r).await,
-            Request::DescribeConfigs(r) => self.describe_configs(&r),
-            Request::AlterConfigs(r) => self.alter_configs(&r).await,
-            Request::IncrementalAlterConfigs(r) => self.incremental_alter_configs(&r).await,
-            Request::DescribeProducers(r) => self.describe_producers(&r).await,
+            Request::DeleteRecords(r) => self.delete_records(caller, &r).await,
+            Request::CreatePartitions(r) => self.create_partitions(caller, &r).await,
+            Request::DescribeConfigs(r) => self.describe_configs(caller, &r),
+            Request::AlterConfigs(r) => self.alter_configs(caller, &r).await,
+            Request::IncrementalAlterConfigs(r) => self.incremental_alter_configs(caller, &r).await,
+            Request::DescribeProducers(r) => self.describe_producers(caller, &r).await,
             Request::InitProducerId(r) => respond(Response::InitProducerId(
                 self.init_producer_id(head.version, caller, &r).await,
             )),

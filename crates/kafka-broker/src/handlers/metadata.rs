@@ -1,6 +1,6 @@
 //! Metadata: this broker, and the topics it has.
 
-use kafka_auth::authz::{CLUSTER_NAME, operation, resource};
+use kafka_auth::authz::operation;
 use kafka_meta::Topic;
 use kafka_storage::fs::Fs;
 use kafka_wire::ResponseError;
@@ -36,7 +36,49 @@ impl<F: Fs> Broker<F> {
     /// that it may not is answered 29 with its name and nothing else, whether it exists or not. A missing topic is
     /// created for a caller that may CREATE it, on the cluster or on the topic; for one that may not, the answer is 29
     /// and nothing is made.
+    ///
+    /// From v8 a client may ask what it is allowed to do with each topic it is told of, and (v8 to v10) with the
+    /// cluster: see [`Broker::with_operations`].
     pub(crate) fn metadata(
+        &self,
+        at: &Listener,
+        caller: &Caller,
+        req: &MetadataRequest,
+        version: i16,
+    ) -> (MetadataResponse, Vec<TopicName>) {
+        let (mut resp, wanted) = self.metadata_topics(at, caller, req, version);
+        self.with_operations(caller, req, version, &mut resp);
+        (resp, wanted)
+    }
+
+    /// The authorized-operations fields, when they were asked for (`KafkaApis.handleTopicMetadataRequest`, 960 to 981).
+    /// Each topic entry has the operations the caller may do on the topic of that name, whether the entry is the topic
+    /// or a refusal (an entry with no name, a topic asked for by an id nobody knows or may not describe, has none to
+    /// say); the cluster's are 0 if the caller may not DESCRIBE the cluster. A field not asked for stays the
+    /// schema's default, as does one the version does not have.
+    fn with_operations(
+        &self,
+        caller: &Caller,
+        req: &MetadataRequest,
+        version: i16,
+        resp: &mut MetadataResponse,
+    ) {
+        if version < 8 {
+            return;
+        }
+        if req.include_cluster_authorized_operations && version <= 10 {
+            resp.cluster_authorized_operations = self.cluster_operations(caller);
+        }
+        if req.include_topic_authorized_operations {
+            for t in &mut resp.topics {
+                if let Some(name) = &t.name {
+                    t.topic_authorized_operations = self.topic_operations(caller, &name.0);
+                }
+            }
+        }
+    }
+
+    fn metadata_topics(
         &self,
         at: &Listener,
         caller: &Caller,
@@ -148,17 +190,13 @@ impl<F: Fs> Broker<F> {
     }
 
     fn can_describe(&self, caller: &Caller, topic: &str) -> bool {
-        self.authz
-            .allows(caller, resource::TOPIC, topic, operation::DESCRIBE)
+        self.topic_allows(caller, topic, operation::DESCRIBE)
     }
 
     /// CREATE on the cluster covers every topic; failing that, CREATE on the topic itself.
     fn can_create(&self, caller: &Caller, topic: &str) -> bool {
-        self.authz
-            .allows(caller, resource::CLUSTER, CLUSTER_NAME, operation::CREATE)
-            || self
-                .authz
-                .allows(caller, resource::TOPIC, topic, operation::CREATE)
+        self.cluster_allows(caller, operation::CREATE)
+            || self.topic_allows(caller, topic, operation::CREATE)
     }
 
     /// Makes the topics that Metadata requests asked for and found missing, one at a time, under the topic lock. One that

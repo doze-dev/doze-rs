@@ -2,7 +2,7 @@
 //! the order asked, and change what the broker does from then on.
 
 mod resource;
-pub(crate) use resource::{BROKER, TOPIC, unsupported};
+pub(crate) use resource::{BROKER, BROKER_LOGGER, CLIENT_METRICS, GROUP, TOPIC, unsupported};
 
 use kafka_storage::fs::Fs;
 use kafka_wire::StrBytes;
@@ -17,7 +17,7 @@ use kafka_wire::messages::{
 };
 
 use crate::configs::{Change, Op, Refusal};
-use crate::{Broker, Outcome};
+use crate::{Broker, Caller, Outcome};
 use resource::Resource;
 
 fn message(refusal: &Refusal) -> Option<StrBytes> {
@@ -29,10 +29,14 @@ fn code(refusal: &Option<Refusal>) -> i16 {
 }
 
 impl<F: Fs> Broker<F> {
-    pub(crate) async fn alter_configs(&self, req: &AlterConfigsRequest) -> Outcome {
+    pub(crate) async fn alter_configs(
+        &self,
+        caller: &Caller,
+        req: &AlterConfigsRequest,
+    ) -> Outcome {
         let resources: Vec<Resource> = req.resources.iter().map(legacy).collect();
         let results = self
-            .alter_resources(&resources, req.validate_only, true)
+            .alter_resources(caller, &resources, req.validate_only, true)
             .await;
         let mut resp = AlterConfigsResponse::default();
         for (r, result) in req.resources.iter().zip(&results) {
@@ -48,11 +52,12 @@ impl<F: Fs> Broker<F> {
 
     pub(crate) async fn incremental_alter_configs(
         &self,
+        caller: &Caller,
         req: &IncrementalAlterConfigsRequest,
     ) -> Outcome {
         let resources: Vec<Resource> = req.resources.iter().map(incremental).collect();
         let results = self
-            .alter_resources(&resources, req.validate_only, false)
+            .alter_resources(caller, &resources, req.validate_only, false)
             .await;
         let mut resp = IncrementalAlterConfigsResponse::default();
         for (r, result) in req.resources.iter().zip(&results) {

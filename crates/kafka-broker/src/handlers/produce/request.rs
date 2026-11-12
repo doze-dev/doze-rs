@@ -9,8 +9,12 @@ use super::{Refused, failed};
 
 /// What fails the whole request before any partition is looked at: a \`required acks\` that is not -1, 0 or 1; and
 /// Kafka's look at every partition's first batch, which fails a request it cannot take apart there and one that has
-/// a transactional batch and no transactional id.
-pub(super) fn request_refusal(req: &ProduceRequest) -> Option<Refused> {
+/// a transactional batch and no transactional id, or one the caller may not WRITE (`may_write_txn`; Kafka asks that before
+/// anything else, `KafkaApis.handleProduceRequest`).
+pub(super) fn request_refusal(
+    req: &ProduceRequest,
+    may_write_txn: impl Fn(&str) -> bool,
+) -> Option<Refused> {
     if !(-1..=1).contains(&req.acks) {
         return Some((ResponseError::InvalidRequiredAcks, None));
     }
@@ -22,8 +26,13 @@ pub(super) fn request_refusal(req: &ProduceRequest) -> Option<Refused> {
             Err(e) => return Some((code_of(&e), e.kafka_message())),
         }
     }
-    (transactional && req.transactional_id.is_none())
-        .then_some((ResponseError::TransactionalIdAuthorizationFailed, None))
+    // (Asked only when a batch is transactional: a request that is not has no use for the id's ACLs.)
+    let refused = transactional
+        && !req
+            .transactional_id
+            .as_ref()
+            .is_some_and(|id| may_write_txn(id.0.as_str()));
+    refused.then_some((ResponseError::TransactionalIdAuthorizationFailed, None))
 }
 
 fn code_of(e: &ProduceError) -> ResponseError {

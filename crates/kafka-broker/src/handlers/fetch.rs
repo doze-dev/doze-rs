@@ -6,6 +6,7 @@ mod wait;
 use std::sync::Arc;
 use std::time::Duration;
 
+use kafka_auth::authz::operation;
 use kafka_meta::Topic;
 use kafka_storage::fs::Fs;
 use kafka_wire::ResponseError;
@@ -16,7 +17,7 @@ use kafka_wire::messages::{FetchRequest, FetchResponse};
 use tokio::time::{Instant, timeout_at};
 
 use crate::partitions::{Partition, Stability};
-use crate::{Broker, Outcome};
+use crate::{Broker, Caller, Outcome};
 use round::Budget;
 
 /// The longest a Fetch waits for data, whatever the client asked for. A wait is inside a connection that cannot
@@ -65,7 +66,10 @@ pub(super) struct Wanted<'a, F: Fs> {
 impl<F: Fs> Broker<F> {
     /// Reads each requested partition from its fetch offset. If the request's `min_bytes` is not met it waits, up
     /// to `max_wait_ms`, for a produce to any of the partitions, and answers with what has accumulated.
-    pub(crate) async fn fetch(&self, version: i16, req: FetchRequest) -> Outcome {
+    ///
+    /// Who may read what is decided when the partitions are resolved, before any is looked for (see
+    /// [`Broker::resolve_all`]), so a refusal is an answer at once like any other error.
+    pub(crate) async fn fetch(&self, version: i16, caller: &Caller, req: FetchRequest) -> Outcome {
         // Fetch sessions (KIP-227) are not kept: every response says session 0, so a conforming client keeps
         // sending full fetches. One that continues a session anyway is told it does not exist.
         if req.session_id != 0 && req.session_epoch > 0 {
@@ -73,7 +77,7 @@ impl<F: Fs> Broker<F> {
             resp.error_code = ResponseError::FetchSessionIdNotFound.code();
             return Outcome::Respond(Response::Fetch(resp));
         }
-        let (mut wanted, mut watching) = self.resolve_and_watch(version, &req).await;
+        let (mut wanted, mut watching) = self.resolve_and_watch(version, caller, &req).await;
         let min_bytes = usize::try_from(req.min_bytes.max(1)).unwrap_or(1);
         let waits =
             Duration::from_millis(u64::try_from(req.max_wait_ms).unwrap_or(0)).min(MAX_WAIT);
@@ -94,7 +98,7 @@ impl<F: Fs> Broker<F> {
             // A change, or the deadline, then read again. A topic that changed means what was resolved is out of
             // date (a deleted one now answers as unknown).
             if let Ok(wait::Woke::Topics) = timeout_at(deadline, watching.changed()).await {
-                (wanted, watching) = self.resolve_and_watch(version, &req).await;
+                (wanted, watching) = self.resolve_and_watch(version, caller, &req).await;
             }
         }
     }
@@ -106,26 +110,59 @@ impl<F: Fs> Broker<F> {
     async fn resolve_and_watch<'a>(
         &self,
         version: i16,
+        caller: &Caller,
         req: &'a FetchRequest,
     ) -> (Vec<Wanted<'a, F>>, wait::Watching) {
         let topics = self.topics_changed.subscribe();
-        let wanted = self.resolve_all(version, req).await;
+        let wanted = self.resolve_all(version, caller, req).await;
         let watching = wait::Watching::new(&wanted, topics);
         (wanted, watching)
     }
 
-    /// Finds every partition the request names, opening those that exist.
-    async fn resolve_all<'a>(&self, version: i16, req: &'a FetchRequest) -> Vec<Wanted<'a, F>> {
+    /// Finds every partition the request names, opening those that exist. A topic the caller may not read is
+    /// answered 29 on each of its partitions, before the topic is looked for (`KafkaApis.handleFetchRequest`).
+    async fn resolve_all<'a>(
+        &self,
+        version: i16,
+        caller: &Caller,
+        req: &'a FetchRequest,
+    ) -> Vec<Wanted<'a, F>> {
+        // A request from a follower (a broker id, not -1) is the cluster's, checked once for the whole request.
+        let follower =
+            (req.replica_id.0 >= 0).then(|| self.cluster_allows(caller, operation::CLUSTER_ACTION));
         let mut out = Vec::new();
         for t in &req.topics {
             let topic = self.fetch_topic(version, t);
+            let allowed =
+                follower.unwrap_or_else(|| self.may_read(caller, version, t, topic.as_deref()));
             let mut places = Vec::new();
             for p in &t.partitions {
-                places.push(self.place(topic.as_deref(), t, p.partition).await);
+                places.push(if allowed {
+                    self.place(topic.as_deref(), t, p.partition).await
+                } else {
+                    Place::Error(ResponseError::TopicAuthorizationFailed)
+                });
             }
             out.push(Wanted { request: t, places });
         }
         out
+    }
+
+    /// Whether a consumer may READ the topic an entry names. From v13 the entry names it by id, and the check is on the
+    /// name the id stands for: an id that stands for nothing is unknown to everyone, and not checked.
+    fn may_read(
+        &self,
+        caller: &Caller,
+        version: i16,
+        t: &FetchTopic,
+        found: Option<&Topic>,
+    ) -> bool {
+        let name = match found {
+            Some(topic) => topic.name.as_ref(),
+            None if version >= 13 => return true,
+            None => t.topic.0.as_str(),
+        };
+        self.topic_allows(caller, name, operation::READ)
     }
 
     fn fetch_topic(&self, version: i16, t: &FetchTopic) -> Option<Arc<Topic>> {

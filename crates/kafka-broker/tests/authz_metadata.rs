@@ -16,7 +16,7 @@ use support::{Rig, rig_with, topic};
 /// The fixture of `sasl-plain`: for-alice and for-bob, each described by its own user.
 async fn fixture() -> Rig {
     let rig = rig_with(closed_world);
-    rig.create(vec![topic("for-alice", 1), topic("for-bob", 1)], false)
+    rig.create_as_admin(vec![topic("for-alice", 1), topic("for-bob", 1)], false)
         .await;
     grant(
         &rig,

@@ -1,6 +1,7 @@
 //! DescribeConfigs: the configs of a topic or of the broker, each with where its value comes from (source:
 //! `ConfigHelper.describeConfigs`).
 
+use kafka_auth::authz::{operation, resource};
 use kafka_storage::fs::Fs;
 use kafka_wire::ResponseError as E;
 use kafka_wire::StrBytes;
@@ -15,10 +16,13 @@ use kafka_wire::messages::{DescribeConfigsRequest, DescribeConfigsResponse};
 
 use crate::configs::view::{self, View};
 use crate::configs::{Live, synonyms};
-use crate::handlers::alter_configs::{BROKER, TOPIC, unsupported};
+use crate::guard::{CLUSTER_DENIED, GROUP_DENIED, TOPIC_DENIED};
+use crate::handlers::alter_configs::{
+    BROKER, BROKER_LOGGER, CLIENT_METRICS, GROUP, TOPIC, unsupported,
+};
 use crate::handlers::create_topics::name_message;
 use crate::topic_config::{self, Entry, Source};
-use crate::{Broker, Outcome};
+use crate::{Broker, Caller, Outcome};
 
 /// Why a resource has no configs to give.
 struct Refused(E, Option<String>);
@@ -36,12 +40,27 @@ fn synonym(name: &str, value: &str, source: i8) -> Synonym {
 }
 
 impl<F: Fs> Broker<F> {
-    pub(crate) fn describe_configs(&self, req: &DescribeConfigsRequest) -> Outcome {
+    /// The caller must be allowed to DESCRIBE_CONFIGS the resource (which an ALTER_CONFIGS ACL grants): on the topic, on
+    /// the cluster for a broker, or on the group; a resource it may not is answered 29, 31 or 30 with that error's
+    /// words and no configs, before the resource is looked for. The answers for the resources it may come first, then
+    /// those it may not (`ConfigHelper.handleDescribeConfigsRequest`).
+    pub(crate) fn describe_configs(
+        &self,
+        caller: &Caller,
+        req: &DescribeConfigsRequest,
+    ) -> Outcome {
         let mut resp = DescribeConfigsResponse::default();
+        let mut refused = Vec::new();
         for r in &req.resources {
             let mut out = DescribeConfigsResult::default();
             out.resource_type = r.resource_type;
             out.resource_name = r.resource_name.clone();
+            if let Some((code, message)) = self.describe_denial(caller, r) {
+                out.error_code = code.code();
+                out.error_message = Some(text(message));
+                refused.push(out);
+                continue;
+            }
             match self.configs_of(r, req) {
                 Ok(configs) => out.configs = configs,
                 Err(Refused(code, message)) => {
@@ -51,7 +70,41 @@ impl<F: Fs> Broker<F> {
             }
             resp.results.push(out);
         }
+        resp.results.extend(refused);
         Outcome::Respond(Response::DescribeConfigs(resp))
+    }
+
+    /// Why the caller may not have the resource's configs, if it may not. A resource type nothing here knows is nobody's
+    /// to refuse: it is answered as the type it is not (see `unsupported`).
+    fn describe_denial(
+        &self,
+        caller: &Caller,
+        r: &DescribeConfigsResource,
+    ) -> Option<(E, &'static str)> {
+        let name = r.resource_name.as_str();
+        let ask = |kind: i8| {
+            self.authz
+                .allows(caller, kind, name, operation::DESCRIBE_CONFIGS)
+        };
+        let cluster = || self.cluster_allows(caller, operation::DESCRIBE_CONFIGS);
+        let (allowed, error, message) = match r.resource_type {
+            TOPIC => (
+                ask(resource::TOPIC),
+                E::TopicAuthorizationFailed,
+                TOPIC_DENIED,
+            ),
+            // BROKER, BROKER_LOGGER and CLIENT_METRICS are the cluster's.
+            BROKER | BROKER_LOGGER | CLIENT_METRICS => {
+                (cluster(), E::ClusterAuthorizationFailed, CLUSTER_DENIED)
+            }
+            GROUP => (
+                ask(resource::GROUP),
+                E::GroupAuthorizationFailed,
+                GROUP_DENIED,
+            ),
+            _ => return None,
+        };
+        (!allowed).then_some((error, message))
     }
 
     fn configs_of(

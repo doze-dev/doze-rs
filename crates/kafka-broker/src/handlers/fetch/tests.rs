@@ -19,12 +19,16 @@ async fn a_change_to_the_topics_wakes_a_waiting_fetch_once_and_not_again_until_t
     topic.partitions.push(FetchPartition::default());
     req.topics.push(topic);
 
-    let (_wanted, mut watching) = broker.resolve_and_watch(12, &req).await;
+    let (_wanted, mut watching) = broker
+        .resolve_and_watch(12, &crate::Caller::anonymous(None), &req)
+        .await;
     broker.topics_changed.send_modify(|n| *n += 1);
     assert_eq!(watching.changed().await, Woke::Topics);
     // What the fetch does on that wake: look again and watch again. The change it just saw must not be seen a second
     // time, or the fetch would loop at full speed until its wait ran out.
-    let (_wanted, mut watching) = broker.resolve_and_watch(12, &req).await;
+    let (_wanted, mut watching) = broker
+        .resolve_and_watch(12, &crate::Caller::anonymous(None), &req)
+        .await;
     let again = tokio::time::timeout(Duration::from_millis(50), watching.changed()).await;
     assert!(
         again.is_err(),
