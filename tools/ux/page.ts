@@ -104,7 +104,7 @@ export class Page {
   async exists(sel: string): Promise<boolean> { return this.eval<boolean>(`!!document.querySelector(${JSON.stringify(sel)})`); }
   async text(sel: string): Promise<string> { return this.eval<string>(`(document.querySelector(${JSON.stringify(sel)}) || {}).textContent || ''`); }
   async scrollY(): Promise<number> { return this.eval<number>("window.scrollY"); }
-  async scrollTo(y: number): Promise<void> { await this.eval(`window.scrollTo(0, ${y})`); await Bun.sleep(60); }
+  async scrollTo(y: number): Promise<void> { await this.eval(`window.scrollTo({ top: ${y}, behavior: "instant" })`); await Bun.sleep(60); }
   async activeId(): Promise<string> { return this.eval<string>("(document.activeElement && (document.activeElement.id || document.activeElement.getAttribute('data-test') || document.activeElement.tagName)) || ''"); }
 
   /** Layout-shift total since the last `resetShift` (the sum of `layout-shift` entries without recent input). */
@@ -118,7 +118,7 @@ export class Page {
 
   /** A real click at the centre of the element (scrolled into view first, like a person would). */
   async click(sel: string, opts: { scroll?: boolean } = {}): Promise<void> {
-    if (opts.scroll !== false) await this.eval(`document.querySelector(${JSON.stringify(sel)}).scrollIntoView({ block: 'nearest' })`);
+    if (opts.scroll !== false) await this.eval(`document.querySelector(${JSON.stringify(sel)}).scrollIntoView({ block: 'nearest', behavior: 'instant' })`);
     const r = await this.rect(sel);
     const x = r.x + r.width / 2, y = r.y + r.height / 2;
     await this.move(x, y);
@@ -127,7 +127,7 @@ export class Page {
   }
 
   async hover(sel: string): Promise<void> {
-    await this.eval(`document.querySelector(${JSON.stringify(sel)}).scrollIntoView({ block: 'center' })`);
+    await this.eval(`document.querySelector(${JSON.stringify(sel)}).scrollIntoView({ block: 'center', behavior: 'instant' })`);
     const r = await this.rect(sel);
     await this.move(r.x + r.width / 2, r.y + r.height / 2);
   }
@@ -154,6 +154,12 @@ export class Page {
     writeFileSync(path, Buffer.from(r.data, "base64"));
     return path;
   }
+
+  /** The window's size (CSS pixels). */
+  async viewport(width: number, height: number): Promise<void> { await this.cmd("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: false }); }
+
+  /** Emulates a media feature (`prefers-reduced-motion`: "reduce" or "no-preference") for the whole tab. */
+  async emulateMedia(name: string, value: string): Promise<void> { await this.cmd("Emulation.setEmulatedMedia", { features: [{ name, value }] }); }
 
   /** Slows the whole tab's animations to `rate` of real time (0 pauses), for a frame-by-frame look. */
   async animationRate(rate: number): Promise<void> { await this.cmd("Animation.enable"); await this.cmd("Animation.setPlaybackRate", { playbackRate: rate }); }

@@ -19,7 +19,7 @@ use crate::model::{Cleanup, ConfigPage, ConfigRow, ConfigShow, TopicHead};
 use crate::pages::topics::{TopicTab, topic_frame};
 use crate::ui::disclosure::{Look, disclosure};
 use crate::ui::glyph::Glyph;
-use crate::ui::kafka::filter_box;
+use crate::ui::inplace;
 use crate::ui::notice::{Tone, callout};
 
 const HEAD: [(&str, &str); 4] = [
@@ -71,13 +71,20 @@ fn matches(r: &ConfigRow, q: &str, show: ConfigShow) -> bool {
     }
 }
 
+/// The id of the region the toolbar and the sections share: a chip or the filter changes it and nothing else of the page.
+const CONFIG_VIEW: &str = "config-view";
+
 fn chip(label: &str, on: bool, href: &str, count: Option<usize>) -> Markup {
-    html! {
-        a class={"fchip" @if on { " on" }} href=(href) {
+    inplace::chip_link(
+        CONFIG_VIEW,
+        &format!("fchip{}", if on { " on" } else { "" }),
+        href,
+        on,
+        html! {
             (label)
             @if let Some(n) = count { span class="tab" { span class="n" { (number(i64::try_from(n).unwrap_or(0))) } } }
-        }
-    }
+        },
+    )
 }
 
 fn toolbar(p: &ConfigPage, base: &Base) -> Markup {
@@ -88,15 +95,16 @@ fn toolbar(p: &ConfigPage, base: &Base) -> Markup {
         url(base, &p.head.name, &a, None)
     };
     let changed = p.rows.iter().filter(|r| r.changed()).count();
+    let action = config_url(base, &p.head.name, "");
     html! {
-        form class="toolbar" method="get" action=(config_url(base, &p.head.name, "")) {
-            (filter_box("q", "Filter by name or by what it does", "Filter configs", &ask.q))
+        (inplace::form(CONFIG_VIEW, None, "toolbar", None, &action, html! {
+            (inplace::search_box(CONFIG_VIEW, &action, "q", "Filter by name or by what it does", "Filter configs", &ask.q))
             @if ask.show != ConfigShow::All { input type="hidden" name="show" value=(ask.show.word()); }
             (chip("All", ask.show == ConfigShow::All, &with(ConfigShow::All), Some(p.rows.len())))
             (chip("Changed", ask.show == ConfigShow::Changed, &with(ConfigShow::Changed), Some(changed)))
             (chip("Compaction", ask.show == ConfigShow::Compaction, &with(ConfigShow::Compaction), None))
             (chip("Segments", ask.show == ConfigShow::Segments, &with(ConfigShow::Segments), None))
-        }
+        }))
     }
 }
 
@@ -195,9 +203,11 @@ pub fn config_page(p: &ConfigPage, head: Option<&TopicHead>, base: &Base) -> Mar
         @else { (page_head(&p.head, &sentence, html! {})) (config_tabs(&p.head.name, base)) }
         // What this tab says of the topic, under the tabs.
         p class="sent" data-extra="live-sentence" style="margin:0 0 20px;max-width:900px" { (crate::ui::write::spans(&sentence)) }
-        (toolbar(p, base))
-        div style="margin-bottom:28px" { (explainer()) }
-        (sections(p, &c, base))
+        (inplace::region(CONFIG_VIEW, html! {
+            (toolbar(p, base))
+            div style="margin-bottom:28px" { (explainer()) }
+            (sections(p, &c, base))
+        }))
     }
 }
 

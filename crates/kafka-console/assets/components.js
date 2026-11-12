@@ -353,3 +353,114 @@ document.addEventListener('alpine:init', () => {
     };
   });
 });
+
+// ---- Keep every floating card inside the page ----------------------------------------------------------------------------
+// Floating UI (inside x-anchor) flips and shifts a card to stay in the window, but it knows only the window: a menu opened from a
+// trigger near the left of the content (anchored bottom-end, 200 px wide) shifts to 5 px from the window's edge, over the rail.
+// Whatever the anchor wrote, a card that is shown is nudged sideways (by a margin, which the anchor never touches) so that it is
+// right of the rail and inside the window. Vertically Floating UI's flip is right and a nudge would move a card under the pointer.
+// It converges in one pass and runs only when a card's style changes.
+(() => {
+  const GAP = 8;
+  function fit(pop) {
+    if (!pop.isConnected) return;
+    if (pop.style.display === 'none') { if (pop.style.marginLeft) pop.style.marginLeft = ''; return; }
+    // A list is at least as wide as what opened it, and as wide as its longest option up to 420 px (the CSS): never a column the width of
+    // a narrow trigger with words broken in the middle.
+    const root = pop.closest('.dz'), ref = root && root.querySelector('.dz-trigger,.dz-field');
+    if (ref && pop.matches('[role=listbox]')) { const w = Math.round(ref.getBoundingClientRect().width) + 'px'; if (pop.style.minWidth !== w) pop.style.minWidth = w; }
+    const ml = parseFloat(pop.style.marginLeft) || 0;
+    const r = pop.getBoundingClientRect();
+    if (!r.width) return;
+    // Where the anchor put it: the box without the nudge of an earlier pass (a margin moves an absolute box by exactly itself).
+    const left = r.left - ml, right = r.right - ml;
+    const rail = document.getElementById('rail');
+    const minX = Math.max(GAP, rail ? rail.getBoundingClientRect().right + GAP : 0);
+    const maxX = document.documentElement.clientWidth - GAP;
+    let dx = 0;
+    if (left < minX) dx = minX - left; else if (right > maxX) dx = Math.max(maxX - right, minX - left);
+    if (Math.abs(dx - ml) >= 0.5) pop.style.marginLeft = dx + 'px';
+  }
+  const seen = new WeakSet();
+  const mo = new MutationObserver((list) => {
+    for (const m of list) {
+      const el = m.target;
+      if (el.nodeType === 1 && el.classList.contains('dz-pop')) requestAnimationFrame(() => fit(el));
+    }
+  });
+  const watch = () => { document.querySelectorAll('.dz-pop:not(.dz-tip-shared)').forEach((p) => { if (!seen.has(p)) { seen.add(p); mo.observe(p, { attributes: true, attributeFilter: ['style'] }); } }); };
+  document.addEventListener('alpine:initialized', watch);
+  document.addEventListener('htmx:afterSettle', watch);
+  document.addEventListener('focusin', watch);
+  document.addEventListener('click', watch, true);
+})();
+
+// ---- Tooltips for what the browser would show a plain `title` for ----------------------------------------------------------
+// A truncated middle-ellipsis value, an exact time behind a relative one, an icon button: each has its text in `title` or
+// `aria-label`, which the browser shows late and in its own style. One shared card shows it the way the Tooltip component does
+// (400 ms after the pointer rests, at once on keyboard focus, gone on leave, blur or Esc), with the `title` set aside while shown so
+// the browser's own does not also appear. The text is set with `textContent`. Without this script the `title` is still there.
+(() => {
+  let tip = null, on = null, timer = 0, held = null;
+  const textOf = (el) => {
+    const t = el.getAttribute('title');
+    if (t) return t;
+    // A rail item whose name is hidden (the narrow window) says it.
+    if (el.matches('.ni')) return getComputedStyle(el).fontSize === '0px' ? [...el.childNodes].filter((n) => n.nodeType === 3).map((n) => n.data).join('').trim() : '';
+    if (el.matches('button,a') && !el.textContent.trim()) return el.getAttribute('aria-label') || '';
+    return '';
+  };
+  const candidate = (n) => {
+    const el = n && n.closest && n.closest('[title],.ni,button[aria-label],a[aria-label]');
+    if (!el || el.closest('.dz-tip,.dz-pop,[role=listbox],[role=menu]') || (el.matches('button,a') && !el.getAttribute('title') && !el.matches('.ni') && el.textContent.trim())) return null;
+    return textOf(el) ? el : null;
+  };
+  function show(el) {
+    hide();
+    const text = textOf(el);
+    if (!text) return;
+    if (!tip) {
+      tip = document.createElement('div');
+      tip.className = 'dz-pop dz-tip-pop dz-tip-shared';
+      tip.id = 'dz-tip-shared';
+      tip.setAttribute('role', 'tooltip');
+      tip.style.position = 'fixed';
+      tip.style.pointerEvents = 'none';
+      document.body.appendChild(tip);
+    }
+    on = el;
+    if (el.hasAttribute('title')) { held = el.getAttribute('title'); el.removeAttribute('title'); }
+    el.setAttribute('aria-describedby', 'dz-tip-shared');
+    tip.textContent = text;
+    tip.style.display = 'block';
+    const r = el.getBoundingClientRect(), w = tip.getBoundingClientRect();
+    const rail = document.getElementById('rail');
+    const minX = rail ? rail.getBoundingClientRect().right + 8 : 8;
+    let x = Math.min(Math.max(minX, r.left + r.width / 2 - w.width / 2), document.documentElement.clientWidth - w.width - 8);
+    let y = r.bottom + 6;
+    if (y + w.height > window.innerHeight - 8) y = r.top - w.height - 6;
+    tip.style.left = x + 'px';
+    tip.style.top = y + 'px';
+  }
+  function hide() {
+    clearTimeout(timer);
+    if (tip) tip.style.display = 'none';
+    if (on) {
+      if (held !== null) on.setAttribute('title', held);
+      on.removeAttribute('aria-describedby');
+    }
+    on = null; held = null;
+  }
+  document.addEventListener('mouseover', (e) => {
+    const el = candidate(e.target);
+    if (el === on) return;
+    hide();
+    if (el) timer = setTimeout(() => show(el), 400);
+  });
+  document.addEventListener('mouseout', (e) => { if (!on || !e.relatedTarget || !on.contains(e.relatedTarget)) hide(); });
+  document.addEventListener('focusin', (e) => { const el = candidate(e.target); if (el) show(el); });
+  document.addEventListener('focusout', hide);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && on) hide(); }, true);
+  document.addEventListener('mousedown', hide, true);
+  document.addEventListener('htmx:beforeSwap', hide);
+})();

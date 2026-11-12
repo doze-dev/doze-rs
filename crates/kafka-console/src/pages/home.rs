@@ -175,6 +175,35 @@ fn rows(i: &InstanceView, quiet: bool) -> Vec<(&'static str, Markup)> {
     out
 }
 
+/// One small figure of the strip under the title: a label, the figure, and a line under it when the figure needs one.
+fn stat(label: &str, figure: Markup, sub: Option<&str>) -> Markup {
+    html! {
+        div class="stat" {
+            span class="k" { (label) }
+            span class="v" { (figure) }
+            @if let Some(s) = sub { span class="s" { (s) } }
+        }
+    }
+}
+
+/// The strip of small figures: whether it runs and for how long, the partitions open of the most it keeps open, the topics, memory,
+/// threads and the profile. Every figure is also in a card below (the strip is the glance, the card is the sentence).
+fn stats(v: &HomeView) -> Markup {
+    let i = &v.instance;
+    let quiet = v.state == HomeState::Quiet;
+    let mono = |t: String| html! { span class="mono" { (t) } };
+    html! {
+        div class="stats" role="group" aria-label="At a glance" {
+            (stat("Running", if quiet { html! { "Listening" } } else { mono(crate::format::span(i.up_secs)) }, Some(if quiet { "no request yet" } else { "up" })))
+            (stat("Open partitions", mono(words::open_partitions(i)), Some("opened on first use")))
+            (stat("Topics", mono(number(i64::try_from(v.topics).unwrap_or(0))), Some(&format!("{} partitions", number(i64::try_from(v.partitions).unwrap_or(0))))))
+            (stat("Memory", i.resident_bytes.map_or_else(|| html! { "Not measured" }, |b| mono(bytes(b))), Some(if i.resident_bytes.is_some() { "resident now" } else { "measured on Linux only" })))
+            (stat("Threads", i.threads.map_or_else(|| html! { "Not measured" }, |t| mono(t.to_string())), None))
+            (stat("Version profile", html! { (i.profile) }, None))
+        }
+    }
+}
+
 /// The "This instance" card.
 fn instance_card(v: &HomeView, base: &Base) -> Markup {
     let i = &v.instance;
@@ -289,9 +318,15 @@ pub fn live_fragment(v: &HomeView, base: &Base) -> Markup {
         html! {
             (page_header(home_title(&v.state), sentence(v), acts))
             (callout_body(v, base))
-            div class="split" {
-                div class="stack-y" { (address_card(v, base)) @if quiet { (next_card(v, base)) } }
-                div class="stack-y" { (instance_card(v, base)) @if !quiet { (next_card(v, base)) } }
+            (stats(v))
+            // Two balanced columns (7 to 5, the second never under 380 px; one column under 1180 px), then the way on across the page.
+            // The first run keeps the board's order (the address, the three steps, then the instance); the grid puts the instance
+            // beside them.
+            @if quiet {
+                div class="home-grid quiet" { (address_card(v, base)) (next_card(v, base)) (instance_card(v, base)) }
+            } @else {
+                div class="home-grid" { (address_card(v, base)) (instance_card(v, base)) }
+                div class="home-next" { (next_card(v, base)) }
             }
         },
     )

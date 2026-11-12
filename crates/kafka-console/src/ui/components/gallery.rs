@@ -73,6 +73,7 @@ fn demo_form(c: &Chosen, base: &crate::base::Base) -> Markup {
             label: v,
             href,
             current: c.view == *v || (c.view.is_empty() && v == "all"),
+            count: None,
         })
         .collect();
     html! {
@@ -156,21 +157,25 @@ fn floating_sections() -> Markup {
             label: "All partitions",
             href: "?p=all",
             current: true,
+            count: None,
         },
         SegItem {
             label: "0",
             href: "?p=0",
             current: false,
+            count: None,
         },
         SegItem {
             label: "1",
             href: "?p=1",
             current: false,
+            count: None,
         },
         SegItem {
             label: "2",
             href: "?p=2",
             current: false,
+            count: None,
         },
     ];
     html! {

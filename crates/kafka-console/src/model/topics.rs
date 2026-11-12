@@ -92,7 +92,7 @@ impl TopicsView {
     pub fn state(&self) -> TopicsState {
         if self.total == 0 {
             TopicsState::None
-        } else if self.rows.is_empty() && !self.filter.is_empty() {
+        } else if self.rows.iter().all(|r| r.internal) && !self.filter.is_empty() {
             TopicsState::Filtered
         } else {
             TopicsState::List

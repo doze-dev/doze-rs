@@ -92,7 +92,7 @@ describe("a control that owns a region", () => {
     expect(p.scrolls).toEqual([]);
   });
 
-  test("what changed fades, and an answer that changes nothing animates nothing", async () => {
+  test("nothing fades: a changed answer changes its text and animates nothing (an opacity dip was the flicker)", async () => {
     const p = await started();
     p.autoAnswer(() => ({ body: `<main id="main"><div id="region"><p id="n">before</p></div></main>` }));
     p.click(p.document.getElementById("inplace")!);
@@ -101,7 +101,8 @@ describe("a control that owns a region", () => {
     p.autoAnswer(() => ({ body: `<main id="main"><div id="region"><p id="n">different</p></div></main>` }));
     p.click(p.document.getElementById("inplace")!);
     await p.flush();
-    expect(p.animated.map((e) => e.id)).toEqual(["n"]);
+    expect(p.document.getElementById("n")!.textContent).toBe("different");
+    expect(p.animated.map((e) => e.id)).toEqual([]);
   });
 });
 
@@ -132,7 +133,7 @@ describe("history", () => {
     // htmx has put the page at /topics back (it fetched it again): the scroll goes with it.
     p.history.entries[p.history.index].url = `${ORIGIN}/topics`;
     p.document.body.dispatchEvent(new p.window.CustomEvent("htmx:historyRestore", { bubbles: true, detail: {} }));
-    expect(p.scrolls[p.scrolls.length - 1]).toEqual([0, 321]);
+    expect(p.scrolls[p.scrolls.length - 1][0]).toEqual({ top: 321, left: 0, behavior: "instant" }); // instant: the page has `scroll-behavior: smooth`, a restore must not glide
   });
 });
 

@@ -108,7 +108,7 @@ pub(crate) fn icon(i: Icon, class: &str) -> Markup {
 pub(crate) fn options(id: &str, choices: &[Choice<'_>], value: &str) -> Markup {
     html! {
         @for (n, c) in choices.iter().enumerate() {
-            div class="dz-opt" role="option" id=(format!("{id}-o{n}")) data-value=(c.value) data-label=(c.label)
+            div class="dz-opt" role="option" id=(format!("{id}-o{n}")) data-value=(c.value) data-label=(c.label) title=(c.label)
                 aria-selected=(if c.value == value { "true" } else { "false" }) aria-disabled=[c.disabled.then_some("true")] {
                 (icon(Icon::Check, "dz-check"))
                 span class="dz-opt-t" { span class="dz-opt-label" { (c.label) } @if let Some(d) = c.desc { span class="dz-desc" { (d) } } }

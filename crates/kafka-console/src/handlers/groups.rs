@@ -56,6 +56,11 @@ pub async fn groups(State(s): State<Shared>, RawQuery(query): RawQuery) -> Respo
     } else {
         "Groups"
     };
+    crate::region::canonical(&format!(
+        "{}{}",
+        s.base.url("/groups"),
+        crate::form::encode_query(&[("q", &filter), ("state", state.value())])
+    ));
     let main = page::groups_page(&view, &s.base, &s.source.listen());
     shell(
         &s,
@@ -137,6 +142,15 @@ pub async fn lag(
     let Some(view) = s.source.group(&id, get(&f, "expiring") == Some("1")).await else {
         return gone(&s, &id).await;
     };
+    crate::region::canonical(&format!(
+        "{}{}",
+        page::group_url(&s.base, &id, "/lag"),
+        if get(&f, "expiring") == Some("1") {
+            "?expiring=1"
+        } else {
+            ""
+        }
+    ));
     let parent = lag_parent(&s, view, flash(get(&f, "done")));
     html(&page_of(&s, parent).await)
 }

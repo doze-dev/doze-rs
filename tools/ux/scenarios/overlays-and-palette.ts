@@ -1,6 +1,7 @@
 // Forms in overlays, the palette, Live's filters: the interactions that cross the overlay and navigation layers.
 import { join } from "node:path";
 import type { T } from "../drive.ts";
+import { pad } from "../inplace.ts";
 
 export const scenarios = {
   // A refusal (the dialog comes back with a field to fix) stays in the overlay; a result page replaces main and the overlay.
@@ -66,6 +67,8 @@ export const scenarios = {
     await p.goto("/live");
     await p.waitFor("!!document.querySelector('form[data-live-filters] .dz-select')");
     await p.eval("window.__marker = 'same-document'");
+    // The filter now narrows the tape, so the page may be shorter than the scroll: keep it long (a spacer after the region).
+    await pad(p, 1500);
     await p.scrollTo(80);
     const y0 = await p.scrollY();
     const bar0 = await p.rect("form[data-live-filters]");

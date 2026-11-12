@@ -85,11 +85,10 @@
   }
 
   // ==== 2. Fragments ====
-  // Idiomorph edits the nodes on screen into the new ones, so focus, typed text, caret and scroll position stay. What really
-  // changed is remembered, so that only it fades in (below): an unchanged answer changes nothing and moves nothing. The same
-  // configuration serves htmx's own `morph` swaps (a filter, a chip, a pager) through Idiomorph.defaults.
-  const changed = new Set(), added = [];
-  const mark = (el) => { if (el) changed.add(el); };
+  // Idiomorph edits the nodes on screen into the new ones, so focus, typed text, caret and scroll position stay; rows have ids, so a
+  // row that is still there is the same element and only new rows are added. NOTHING fades or dips: an update that changes a figure or
+  // a sentence changes its text and nothing else (a fade of a parent block, an opacity dip, was the flicker); only a brand-new row of
+  // the tape is tinted for a moment (markNew, below). The same configuration serves htmx's own `morph` swaps through Idiomorph.defaults.
   const quiet = (el) => el && el.nodeType === 1 && el.hasAttribute('data-open');
   // What a component's script did to its elements (shown the enhanced control, hid the plain one, named it) is not in the server's
   // markup: carry it over to the new node, so that a swap of a region that holds a Select (the Live toolbar) does not undo it.
@@ -109,28 +108,18 @@
       beforeNodeMorphed: (a, b) => {
         if (quiet(a)) return false;
         if (a.nodeType === 1 && b.nodeType === 1) keepEnhanced(a, b);
-        if (a.nodeType === 3 && a.data !== b.data) mark(a.parentElement);
         return true;
       },
-      beforeNodeAdded: (n) => { added.push(n); return true; },
-      beforeNodeRemoved: (n) => { mark(n.parentElement); return true; },
       // Alpine owns an `x-show` element's `style`: the server's copy (closed) must not close it.
       beforeAttributeUpdated: (name, node) => {
-        if (name === 'style' && node.hasAttribute && node.hasAttribute('x-show')) return false;
-        // htmx's own bookkeeping classes (htmx-added, htmx-settling) coming and going are no change of the page.
-        if (!(name === 'class' && /(^| )htmx-/.test(node.className || ''))) mark(node);
+        if (name === 'style' && node.hasAttribute && (node.hasAttribute('x-show'))) return false;
+        // A disclosure the person opened or shut stays as they left it: a filter that morphs its region does not undo it.
+        if ((name === 'open' || name === 'data-touched') && node.tagName === 'DETAILS' && node.hasAttribute('data-touched')) return false;
         return true;
       },
     });
   }
-  // A very short fade (opacity only, 120 ms) on what changed.
-  function fade() {
-    for (const n of added.splice(0)) if (n.parentElement) changed.add(n.parentElement);
-    const els = [...changed].filter((el) => el.isConnected);
-    changed.clear();
-    if (reduced()) return;
-    els.forEach((el) => { if (el.animate) el.animate([{ opacity: 0.45 }, { opacity: 1 }], { duration: 120, easing: 'ease-out' }); });
-  }
+  document.addEventListener('click', (e) => { const sm = e.target.closest && e.target.closest('details > summary'); if (sm) sm.parentElement.setAttribute('data-touched', ''); }, true);
   // An answer is HTML whose top-level elements have ids: each one morphs into the element with that id.
   function apply(html) {
     const t = document.createElement('template');
@@ -139,10 +128,7 @@
       const target = el.id && document.getElementById(el.id);
       if (target) window.Idiomorph.morph(target, el, { morphStyle: 'outerHTML' });
     }
-    fade();
   }
-  // htmx's morph swaps (a filter, a chip) fade what changed, too.
-  document.addEventListener('htmx:afterSwap', fade);
 
   // A fragment: fetched again on a tick. The script keeps the ETag and sends it (spike 1: a browser turns a 304 into a 200
   // for fetch), and the newest request wins per fragment (spike 4).
@@ -197,8 +183,8 @@
     if (!el || before.size === 0) return;
     el.querySelectorAll('tr[data-row]').forEach((r) => {
       if (before.has(r.getAttribute('data-row'))) return;
-      r.classList.add('new');
-      setTimeout(() => r.classList.remove('new'), 1600);
+      r.classList.add('fresh');
+      setTimeout(() => r.classList.remove('fresh'), 1200);
     });
   }
   function pause(btn) {
@@ -257,6 +243,7 @@
     if (r) r.setAttribute('inert', '');
     if (o.animate && !reduced()) el.classList.add('ovl-in');
     reveal();
+    if (el.hasAttribute('data-transient')) paintRecents(el);
     focusIn(el);
   }
   // Closing is the opening in reverse and a little faster; with reduced motion it is at once.
@@ -273,7 +260,7 @@
       if (pausedAt === null && !document.querySelector('[data-overlay]')) release();
       const r = pageRoot();
       if (r) r.removeAttribute('inert');
-      if (window.scrollTo) window.scrollTo(0, o.y);
+      if (window.scrollTo) window.scrollTo({ top: o.y, left: 0, behavior: 'instant' });
       if (o.opener && o.opener.isConnected) o.opener.focus({ preventScroll: true });
     };
     if (now || reduced()) return finish();
@@ -393,14 +380,51 @@
     const all = jumpLinks();
     all.forEach((a, i) => { a.classList.toggle('sel', i === to); if (i === to) { a.setAttribute('aria-current', 'true'); if (a.scrollIntoView) a.scrollIntoView({ block: 'nearest' }); } else a.removeAttribute('aria-current'); });
   }
+  // Recents: the last five places opened from the palette, kept in this browser (localStorage) as a kind and a name, nothing else.
+  // They are painted as COPIES of the list's own rows (never built from the stored text), so a stored name is only ever matched
+  // against what the server rendered and never becomes markup.
+  const RECENT = 'doze:recent';
+  const recent = () => { try { const r = JSON.parse(window.localStorage.getItem(RECENT) || '[]'); return Array.isArray(r) ? r.filter((x) => x && typeof x.n === 'string' && typeof x.k === 'string').slice(0, 5) : []; } catch (e) { return []; } };
+  const rowsOf = (list) => [...list.querySelectorAll('li:not(.jump-h) > a.jump-item')];
+  const nameOf = (a) => (a.querySelector('.mono') || {}).textContent, kindOf = (a) => (a.querySelector('.jump-kind') || {}).textContent;
+  function paintRecents(el) {
+    const list = el.querySelector('.jump-list');
+    if (!list || list.querySelector('[data-recent]')) return;
+    const have = rowsOf(list), picked = [];
+    for (const r of recent()) { const a = have.find((x) => nameOf(x) === r.n && kindOf(x) === r.k); if (a) picked.push(a.parentElement.cloneNode(true)); }
+    if (!picked.length) return;
+    const h = document.createElement('li');
+    h.className = 'jump-h'; h.setAttribute('role', 'presentation'); h.textContent = 'Recent';
+    [h, ...picked].forEach((li) => li.setAttribute('data-recent', ''));
+    list.prepend(h, ...picked);
+  }
+  function rememberPlace(a) {
+    const n = nameOf(a), k = kindOf(a);
+    if (!n || !k) return;
+    try { window.localStorage.setItem(RECENT, JSON.stringify([{ k, n }, ...recent().filter((x) => !(x.n === n && x.k === k))].slice(0, 5))); } catch (e) { /* storage is off or full */ }
+  }
+  // A heading is shown only while a row of its section is.
+  function headings(list) {
+    let head = null, any = false;
+    const close = () => { if (head) head.hidden = !any; };
+    for (const li of list.children) {
+      if (li.classList.contains('jump-h')) { close(); head = li; any = false; } else if (!li.hidden) any = true;
+    }
+    close();
+  }
   document.addEventListener('input', (e) => {
     if (!ovl || !e.target.hasAttribute || !e.target.hasAttribute('data-jump-input')) return;
-    const q = e.target.value.trim().toLowerCase(), items = [...ovl.el.querySelectorAll('.jump-list li')];
-    items.forEach((li) => { li.hidden = !!q && !attr(li.firstElementChild, 'data-jump').includes(q); });
+    const q = e.target.value.trim().toLowerCase(), list = ovl.el.querySelector('.jump-list');
+    const items = [...list.children].filter((li) => !li.classList.contains('jump-h'));
+    items.forEach((li) => { li.hidden = !!q && (li.hasAttribute('data-recent') || !attr(li.firstElementChild, 'data-jump').includes(q)); });
+    // The recents' heading goes with them while something is typed.
+    list.querySelectorAll('.jump-h[data-recent]').forEach((h) => { h.hidden = !!q; });
+    headings(list);
     const none = ovl.el.querySelector('.jump-empty');
     if (none) none.hidden = !items.length || items.some((li) => !li.hidden);
     jumpSelect(0);
   });
+  document.addEventListener('click', (e) => { const a = e.target.closest && e.target.closest('.jump-item'); if (a && ovl && ovl.el.hasAttribute('data-transient')) rememberPlace(a); }, true);
   document.addEventListener('keydown', (e) => {
     if ((e.metaKey || e.ctrlKey) && !e.altKey && (e.key === 'k' || e.key === 'K')) { e.preventDefault(); openPalette(); return; }
     if (!ovl || !ovl.el.hasAttribute('data-transient')) return;
@@ -483,6 +507,52 @@
     if (elt && elt.tagName === 'FORM') elt.submit();
     else if (p && e.detail.requestConfig && e.detail.requestConfig.boosted) location.href = p;
   });
+  // Page changes are latest-wins: a click that follows a click on another link is the page the person wants, so an earlier answer that
+  // is slower than the later one must not land after it. (An abort would say so in the console; this just does not swap the old one.)
+  // And a click that comes while the page's swap is on its way (the cross-fade runs the swap on the next frame, so `main` is about to be
+  // replaced) would aim at the element that is going: it waits for the swap to settle, then clicks again.
+  let navSeq = 0, landing = false, waiting = null, landingTimer = 0;
+  const land = (on) => {
+    landing = on;
+    clearTimeout(landingTimer);
+    if (on) landingTimer = setTimeout(() => land(false), 1500);
+    else if (waiting) {
+      let w = waiting.el;
+      const href = waiting.href;
+      waiting = null;
+      // The element the person clicked may be gone with the swap (the rail is swapped too): its twin in the new page is the one.
+      if (!w.isConnected && href) w = [...document.querySelectorAll('a[href]')].find((a) => a.getAttribute('href') === href) || w;
+      if (w.isConnected) { if (w.tagName === 'FORM') w.requestSubmit(); else w.click(); }
+    }
+  };
+  hx('beforeRequest', (e) => {
+    const c = e.detail.requestConfig;
+    if (!(e.detail.target && e.detail.target.id === 'main') || (c && c.headers && c.headers['HX-Preloaded'])) return;
+    if (landing) { e.preventDefault(); waiting = { el: e.detail.elt, href: e.detail.elt.getAttribute && e.detail.elt.getAttribute('href') }; return; }
+    e.detail.xhr.navSeq = ++navSeq;
+  });
+  hx('beforeSwap', (e) => {
+    const n = e.detail.xhr && e.detail.xhr.navSeq;
+    if (n && n !== navSeq) { e.detail.shouldSwap = false; return; }
+    if (n && e.detail.shouldSwap) land(true);
+  });
+  hx('afterSettle', () => { if (landing) land(false); });
+  hx('swapError', () => land(false));
+  hx('targetError', () => land(false));
+  // A control that changes one region asks for the page and picks the region out of it (hx-select). If the answer has no such region
+  // (the page the state calls for is a different one: an offline topic, an empty list) nothing would be swapped and the target would
+  // be emptied: take the address the way a browser with no script would.
+  hx('beforeSwap', (e) => {
+    const d = e.detail, elt = d.requestConfig && d.requestConfig.elt;
+    const sel = elt && elt.closest && elt.closest('[hx-select]');
+    const want = sel && sel.getAttribute('hx-select');
+    if (!want || want[0] !== '#' || !d.shouldSwap || d.requestConfig.boosted) return;
+    if (typeof d.serverResponse === 'string' && !d.serverResponse.includes('id="' + want.slice(1) + '"')) {
+      d.shouldSwap = false;
+      const p = d.pathInfo && (d.pathInfo.finalRequestPath || d.pathInfo.requestPath);
+      if (p) location.assign(p);
+    }
+  });
   // After any swap: our state follows the DOM (an overlay came or went), new controls are revealed, the stream follows the page.
   hx('afterSettle', () => {
     pageUrl = ovl && ovl.parent ? ovl.parent : here();
@@ -503,11 +573,14 @@
     pageUrl = here();
     let y = 0;
     if (store) { try { y = Number(store.getItem('doze:y:' + pageUrl)) || 0; } catch (e) { y = 0; } }
-    if (window.scrollTo) window.scrollTo(0, y);
+    if (window.scrollTo) window.scrollTo({ top: y, left: 0, behavior: 'instant' });
     reveal();
     sync();
     connect();
   });
+  // Leaving a page by Back or Forward: its scroll is kept too (a click's beforeRequest does that for a forward move), so that the way
+  // back to it finds it where it was left.
+  addEventListener('popstate', () => remember(), true);
   hx('pushedIntoHistory', () => { pageUrl = here(); });
   hx('replacedInHistory', () => { pageUrl = here(); });
   addEventListener('pagehide', remember);

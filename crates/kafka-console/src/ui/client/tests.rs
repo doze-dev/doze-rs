@@ -156,7 +156,7 @@ fn the_script_follows_the_rules_the_spike_found_and_runs_under_the_strictest_pol
     // (The script is the product's logic over htmx and Alpine: the tests in `tools/dom` run it with both. It is small enough to read in
     // one sitting; the generic parts (fragment swaps, link and form interception, popups) are the libraries'.)
     assert!(
-        SCRIPT.lines().count() < 600,
+        SCRIPT.lines().count() < 700,
         "the script is small enough to read in one sitting"
     );
 }

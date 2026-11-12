@@ -20,3 +20,22 @@ Every label, value and description is **text**: maud escapes it and the script c
 ## Adding one
 
 A maud function with a `…Spec` struct, the `x-data="dzName"` and the stand-in names for the dotted Alpine attributes (`xo-click` for `x-on:click.outside`, `xa-bottom-start-4` for `x-anchor.bottom-start.offset.4`, `xb-aria-expanded` for `:aria-expanded`; maud cannot spell them, `components::alpine` puts the real ones back), the CSS in `design/console.css` (`.dz-…`; regenerate `assets/console.css` with `DOZE_UPDATE_DESIGN=1 cargo test -p kafka-console --lib assets`), a `A.data('dzName', …)` in `assets/components.js` (state in a closure, behaviour as named methods, the options are the server's elements and are never built from strings), a row above, markup tests, DOM tests, a gallery entry and a scenario.
+
+## Where each is used (the integration pass)
+
+| Component | Where | Why there |
+|---|---|---|
+| Segmented control | the partitions of a topic's Messages (up to 8), "Reading as", the Groups states (with `SegItem.count`) | a few mutually exclusive choices, one Tab stop, arrows; each is a link, so a choice is an address |
+| Select | the partitions of a topic past 8, the Live "All apps" / "All topics" filters (up to 8 choices) | a list that opens; a real `<select>` with no script |
+| Combobox | the Live client and topic filters past 8 choices | a list that grows with the traffic must be searchable |
+| Popover | Messages "From time (UTC)": a field, what to write, Apply | the field is part of the toolbar's form, so Enter or Apply asks for the time and every other control carries it |
+| DropdownMenu | the actions of a topic's own config value (Edit, Reset to the inherited value); a value that is not on the topic has one action and keeps its button | two or more actions in a row |
+| Tooltip | the Tooltip component for a trigger that carries its own; **one shared card for every `title` and every text-less button's `aria-label`** (`components.js`, last block) | no id per use, the `title` is the no-script fallback |
+
+## In-place helpers (`ui/inplace.rs`)
+
+`region(id, content)` a wrapper that is the region; `link`, `link_with(.., Opts{label, ui, op}, ..)`, `chip_link` (a chip of a group, `aria-current`), `form(target, id, class, style, action, content)` (a toolbar, submit buttons inside are the controls), `search_box` and `search_input(&Search{..})` (the filter field: 250 ms after the last key, replaces the history entry, a newer request replaces the older, the rest of the form travels with it). The handler calls `region::canonical(<clean address>)`; the layer puts it in the history (CON-751). A `#anchor` stays in a link and is left out of the request.
+
+## Cards stay clear of the rail
+
+`components.js` (the block "Keep every floating card inside the page") nudges a shown `.dz-pop` sideways by a margin so it sits right of the rail and inside the window; it runs when the anchor rewrites the card's `style` and converges in one pass. Vertical placement is Floating UI's flip: a vertical nudge moved a card under the pointer mid-click (found by `select-mouse-and-outside`) and was dropped.

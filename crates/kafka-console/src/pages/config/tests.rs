@@ -97,11 +97,19 @@ fn an_expander_is_a_native_disclosure_that_is_open_only_for_a_deep_link_and_neve
         "{shut:.100}"
     );
     assert!(
-        !shut.contains("open="),
+        !shut.split("<details").skip(1).any(|d| d
+            .split('>')
+            .next()
+            .unwrap_or("")
+            .contains(" open")),
         "no address opens a part of the page"
     );
     assert!(
-        !shut.contains("aria-expanded"),
+        !shut.split("<summary").skip(1).any(|d| d
+            .split('>')
+            .next()
+            .unwrap_or("")
+            .contains("aria-expanded")),
         "a disclosure says its own state"
     );
     let open = page_of(ConfigAsk {
@@ -144,9 +152,8 @@ fn the_places_a_value_can_come_from_are_marked_by_the_one_that_wins() {
 fn every_edit_and_reset_is_a_plain_link_a_script_can_open_over_the_page() {
     let doc = page_of(ConfigAsk::default());
     assert!(doc.contains("<a class=\"btn sm\" href=\"/topics/inventory.levels/config/edit?key=segment.ms\" data-dialog>Edit</a>"));
-    assert!(doc.contains(
-        "href=\"/topics/inventory.levels/config/reset?key=cleanup.policy\" data-dialog>Reset</a>"
-    ));
+    // A value that is on the topic has two actions, so they are a menu (Edit, Reset to the inherited value); each is still a link.
+    assert!(doc.contains("href=\"/topics/inventory.levels/config/reset?key=cleanup.policy\" data-dialog>Reset to the inherited value</a>"));
     assert!(
         !doc.contains("config/reset?key=segment.ms"),
         "only what the topic sets can be reset"

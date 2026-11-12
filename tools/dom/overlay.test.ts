@@ -354,11 +354,11 @@ describe("a fragment that changed fades in, softly, and one that did not does no
     await p.flush();
   };
 
-  test("only what changed is animated, for 120 ms, with opacity alone", async () => {
+  test("what changed changes its text and nothing is animated (no block dips in opacity)", async () => {
     const p = await started({ stream: "/events?watch=rows" });
     await tick(p, rows("two"));
     expect(p.document.getElementById("n")!.textContent).toBe("two");
-    expect(p.animated.map((e) => e.id)).toEqual(["n"]);
+    expect(p.animated).toEqual([]);
   });
 
   test("an unchanged answer animates nothing", async () => {

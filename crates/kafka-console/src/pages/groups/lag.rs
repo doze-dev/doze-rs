@@ -13,7 +13,11 @@ use crate::model::{GroupHead, GroupLagView, LagRow, LagState, LagTopic};
 use crate::ui::client;
 use crate::ui::glyph::{Glyph, glyph};
 use crate::ui::glyph_groups::{GroupGlyph, group_glyph};
+use crate::ui::inplace;
 use crate::ui::notice::{Tone, callout};
+
+/// The region of the Lag tab: everything under the flash, which the state (`?expiring=1`) changes as a whole.
+pub(super) const LAG_VIEW: &str = "group-lag-view";
 
 /// The fragments of the Lag tab: the sentence and the table.
 pub const LAG_SENTENCE: &str = "group-lag-sentence";
@@ -86,7 +90,7 @@ fn topic_head(t: &LagTopic, v: &GroupLagView, base: &Base, cols: usize) -> Marku
     }
     let committed = t.rows.iter().any(|r| r.committed.is_some());
     html! {
-        tr { td colspan=(cols) style="background:var(--well);height:44px" {
+        tr id=(format!("lagh-{}", t.name)) { td colspan=(cols) style="background:var(--well);height:44px" {
             a class="lnk mono" href=(base.url(&format!("/topics/{}", segment(&t.name)))) { (t.name) }
             " " span class="dim" { "\u{a0}" (bits.join(", ")) }
             @if !committed { span class="mono bright" style="float:right" { "lag not known" } }
@@ -99,7 +103,7 @@ fn topic_head(t: &LagTopic, v: &GroupLagView, base: &Base, cols: usize) -> Marku
 
 fn row(r: &LagRow, h: &GroupHead, ahead: bool) -> Markup {
     html! {
-        tr class=[(ahead && matches!(r.lag, Lag::PastEnd(_))).then_some("sel")] {
+        tr id=(format!("lag-{}-{}", r.topic, r.partition)) class=[(ahead && matches!(r.lag, Lag::PastEnd(_))).then_some("sel")] {
             td class="name mono" { (r.topic) "-" (r.partition) }
             td class="r mono" { @match r.end { Some(e) => (number(e)), None => span class="dim" { "—" } } }
             @match r.committed {
@@ -183,7 +187,7 @@ fn acts(v: &GroupLagView, base: &Base) -> Markup {
         @match v.state {
             LagState::Ahead => {
                 (reset(true))
-                a class="btn" href=(format!("{}?expiring=1", group_url(base, &h.id, "/lag"))) { (group_glyph(GroupGlyph::Clock, 16, "")) "When do these expire?" }
+                (inplace::link(LAG_VIEW, "btn", &format!("{}?expiring=1", group_url(base, &h.id, "/lag")), None, html! { (group_glyph(GroupGlyph::Clock, 16, "")) "When do these expire?" }))
                 a class="btn danger" href=(group_url(base, &h.id, "/delete")) data-dialog { (glyph(Glyph::Trash, 16, "")) "Delete group" }
             },
             LagState::Expiring => { (delete_offsets) (reset(false)) },
@@ -337,6 +341,9 @@ pub fn lag_page(v: &GroupLagView, base: &Base) -> Markup {
         @if let Some(f) = &v.flash {
             div class="banner" style="margin-top:24px" { (glyph(Glyph::Check, 18, "")) span { (f) } }
         }
+        // The state is the data and the address (`?expiring=1`): asking when the offsets expire changes the buttons, the table and
+        // what is said under it, in place, so the whole page body is the region.
+        (inplace::region(LAG_VIEW, html! {
         (head(h, lag_sentence_fragment(v, base), acts(v, base)))
         (switch(h, base, "/lag"))
         (group_tabs(h, base, On::Lag))
@@ -355,5 +362,6 @@ pub fn lag_page(v: &GroupLagView, base: &Base) -> Markup {
             LagState::Ahead => (explain_ahead(v, base)),
             LagState::Expiring => (explain_expiring(v)),
         }
+        }))
     }
 }

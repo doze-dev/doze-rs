@@ -399,7 +399,7 @@ fn the_dialogs_are_labelled_and_every_label_is_bound() {
             "{id}"
         );
         let title = doc
-            .split("aria-labelledby=\"")
+            .split("aria-modal=\"true\" aria-labelledby=\"")
             .nth(1)
             .unwrap()
             .split('"')
