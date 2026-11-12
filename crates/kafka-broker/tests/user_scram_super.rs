@@ -130,7 +130,7 @@ async fn a_super_user_may_still_manage_anyone_including_another_super_user() {
 }
 
 #[tokio::test]
-async fn a_user_who_is_not_a_super_user_still_manages_other_users_and_a_broker_without_super_users_is_unchanged()
+async fn others_are_still_managed_by_anyone_and_a_broker_without_super_users_is_unchanged()
  {
     let rig = rig_with(open_with_supers);
     let r = user("mallory");

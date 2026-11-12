@@ -15,11 +15,12 @@ measured weight). Catalogue: `behaviours/security.md` (index at its top, checked
 | 8e | c8a5391 | TLS behind the `tls` feature; SEC-140 to SEC-154, SEC-D40 to D48; the `weight-tls` CI job | loopback tests, interop `-tls` cells |
 | 8d-1 | 9dcfb4f | ACL enforcement on the topic APIs; SEC-60 to SEC-72, SEC-D16 to D20 | 25 of 25 mutations killed |
 | 8d-2 | 6ef2b3d | ACL enforcement on the group and transaction APIs; SEC-100 to SEC-123, SEC-D30 to D37 | 1074 tests, interop 23/23, 12/12 SASL, 8/8 TLS, replay 47/11; 40 of 40 mutations killed |
-| 8f | 909d147 | credential APIs 50 and 51, the stored table, `--sasl-users-file`, `DOZE_KAFKA_SASL_USERS`, `--sasl-allow-empty-users`; SEC-160 to SEC-179, SEC-D50 to D59 | 1137 tests |
+| 8f | 909d147 | credential APIs 50 and 51, the stored table, `--sasl-users-file`, `DOZE_KAFKA_SASL_USERS`, `--sasl-allow-empty-users` (removed by the first audit, SEC-D72); SEC-160 to SEC-179, SEC-D50 to D59 | 1137 tests |
 | 8g | branch `p8g` (not merged) | the allowed-hosts guard (`kafka-auth/src/hostguard.rs`, fuzz target, CI step), `--console-allow-host`, `--console-unprotected`, the start-up rule and notes, exit code 2; the catalogue index and its checker; `oracle.md`, `weight.md`, `debt.md`, `PLAN.md`; SEC-180 to SEC-189, SEC-D60 to D63 | fmt, clippy (also with `tls`), `lint-size`, `fuzz-check`, the catalogue checker, 1157 workspace tests |
+| audit fixes (authentication half) | branch `p8h` | the first audit's findings: a super user's SCRAM credential (major), the open-ACL note, the failed-login delay, file modes, the 64 KiB stranger cap and pool, the clean close, the crypto vectors, no `--sasl-allow-empty-users`, no plaintext kept for SCRAM alone; SEC-190 to SEC-198, SEC-D70 to D73 | `debt.md` I23 |
 | audits | pending | two independent audits of HEAD 909d147 and of the 8g delta; fixes; re-audit | |
 
-What is not done and who decides is `debt.md` I1 to I22: chiefly the recording of `authz-matrix` (D9, needs Docker, which has a client but no running daemon on the owner's machine), and the owner's calls on mTLS, re-authentication, SASL v0, the failed-login delay and zeroing.
+What is not done and who decides is `debt.md` I1 to I25: chiefly the recording of `authz-matrix` (D9, needs Docker, which has a client but no running daemon on the owner's machine), and the owner's calls on mTLS, re-authentication, SASL v0, the failed-login delay and zeroing.
 
 Goal: a client can be made to prove who it is (SASL PLAIN, SCRAM-SHA-256, SCRAM-SHA-512), what it may do is decided by ACLs the
 way Apache Kafka 4.3.1 decides it, and the channel can be TLS. All of it opt-in: with none of it configured the broker behaves
@@ -69,7 +70,7 @@ secret-redaction gate passes; the weight gates hold; two independent audits say 
 | D7 | `--kafka-version 1` and the ACL APIs | **Keep the pinned deviation** (not offered): Kafka 1.x admin tools speak only v0, which the vendored protocol crate cannot decode | Decoding v0 ourselves is a small later item if anyone asks |
 | D8 | Allowed-hosts guard | **A pure function with a fuzz target and its flags in 8g; mounted by the console in Phase 9.** It guards the HTTP listeners (DNS rebinding), not the Kafka port. **Built:** `kafka-auth/src/hostguard.rs` (not `doze-kafka`), `--console-allow-host`, `--console-unprotected`, and the start-up rule whose inputs exist (SEC-180 to SEC-189, SEC-D60 to D63) | There is nothing to mount it on until Phase 9 |
 | D9 | Handler denials with no recording | **Write each from the Kafka source (file:line in the test), then record `authz-matrix` against `apache/kafka:4.3.1` if Docker is available and diff. Built: every row is from the source; the recording is not made (Docker has no daemon here); the proposal is in `oracle.md` and `debt.md` I1** | The one real risk of the phase is a source reading that differs from the JVM; a recording is the cure. Needs the Go harness's recorder and Docker |
-| D10 | Pre-auth limits | A stranger's frame is capped at Kafka's `sasl.server.max.receive.size` (512 KiB; built, SEC-4); 30 s from accept to the first complete login (the Go edition's rule; Kafka has none) | Unrecorded; a dev broker should not sit open to a silent socket |
+| D10 | Pre-auth limits | A stranger's frame is capped at **64 KiB** (built, SEC-4, SEC-194; Kafka's `sasl.server.max.receive.size` is 512 KiB and this broker is stricter on purpose, SEC-D71; the first audit measured 325 MB for 1000 strangers at 300 KiB each, which the 512 KiB left to a gigabyte at the connection limit); 30 s from accept to the first complete login (the Go edition's rule; Kafka has none) | Unrecorded; a dev broker should not sit open to a silent socket |
 
 ## Design
 
