@@ -41,24 +41,17 @@ fn a_failed_dial_says_why_in_a_few_words() {
     );
     assert_eq!(why(&Error::from(ErrorKind::TimedOut)), "timed out");
     assert_eq!(
-        why(&Error::new(
-            ErrorKind::Other,
+        why(&Error::other(
             "failed to lookup address information: Name or service not known"
         )),
         "no such host"
     );
     assert_eq!(
-        why(&Error::new(
-            ErrorKind::Other,
-            "nodename nor servname provided"
-        )),
+        why(&Error::other("nodename nor servname provided")),
         "no such host"
     );
     assert_eq!(
-        why(&Error::new(
-            ErrorKind::Other,
-            "something with a secret path /etc/x"
-        )),
+        why(&Error::other("something with a secret path /etc/x")),
         "could not connect"
     );
 }

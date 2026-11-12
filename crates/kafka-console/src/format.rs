@@ -44,7 +44,7 @@ pub fn number(n: i64) -> String {
         out.push('-');
     }
     for (i, c) in digits.chars().enumerate() {
-        if i > 0 && (digits.len() - i) % 3 == 0 {
+        if i > 0 && (digits.len() - i).is_multiple_of(3) {
             out.push(',');
         }
         out.push(c);
@@ -66,7 +66,7 @@ pub fn bytes(n: u64) -> String {
         unit += 1;
     }
     let shift = 10 * (unit + 1);
-    let tenths = (n & ((1 << shift) - 1)) * 10 >> shift;
+    let tenths = ((n & ((1 << shift) - 1)) * 10) >> shift;
     let name = UNITS.get(unit).copied().unwrap_or("TiB");
     format!("{}.{tenths} {name}", n >> shift)
 }

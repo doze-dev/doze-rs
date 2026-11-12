@@ -111,10 +111,10 @@ impl Drop for Viewer {
             .lock()
             .unwrap_or_else(PoisonError::into_inner);
         p.viewers = p.viewers.saturating_sub(1);
-        if p.viewers == 0 {
-            if let Some(task) = p.task.take() {
-                task.abort();
-            }
+        if p.viewers == 0
+            && let Some(task) = p.task.take()
+        {
+            task.abort();
         }
     }
 }
