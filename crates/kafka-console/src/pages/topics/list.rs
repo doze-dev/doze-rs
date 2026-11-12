@@ -219,7 +219,7 @@ fn filtered(v: &TopicsView, base: &Base) -> Markup {
             html! { "The filter looks at the " (v.total) " topic names; internal topics are hidden. Names are matched as typed, so " span class="mono" { "pick-lists" } " will not match " span class="mono" { "pick_lists" } "." },
             html! { div class="row" {
                 a class="btn" href=(clear) data-ui="clear" { "Clear filter" }
-                (link(&format!("{}?name={}", base.url("/topics/new"), segment(&v.filter)), Variant::Primary, Size::Normal, Some(Glyph::Plus), &format!("Create {}", v.filter)))
+                a class="btn pri" href=(format!("{}?name={}", base.url("/topics/new"), segment(&v.filter))) { (glyph(Glyph::Plus, 16, "")) "Create " span class="mono" { (v.filter) } }
             } },
         ))
     }

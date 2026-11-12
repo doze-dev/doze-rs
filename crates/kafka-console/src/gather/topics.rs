@@ -43,7 +43,8 @@ pub async fn list(b: &Backend, filter: &str, show_internal: bool) -> TopicsView 
                 .any(|o| o.topics.iter().any(|(topic, _)| *topic == t.name)),
             empty: readable && bytes == 0,
             retention_ms: c.retention_set.then_some(c.retention_ms),
-            segments: readable.then(|| files.iter().map(|f| f.segments).sum()),
+            // Only a topic with more segments than partitions has something to say: each partition has one.
+            segments: readable.then(|| files.iter().map(|f| f.segments).sum()).filter(|n: &usize| *n > t.partitions.len()),
             read_by: readers
                 .by_topic
                 .get(&t.name)

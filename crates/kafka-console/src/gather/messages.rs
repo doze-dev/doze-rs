@@ -191,6 +191,9 @@ pub async fn page(b: &Backend, name: &str, query: MessageQuery, mut notes: Vec<S
         q.offset = None;
     }
     let mut found = search(b, &meta, &head, &parts, &q).await;
+    if let Some(code) = found.error.filter(|c| *c != 0) {
+        notes.push(crate::words::read_refused(code));
+    }
     newest_first(&mut found.rows, parts.len() == 1);
     let more = found.rows.len() > q.limit || (!q.filtered() && head.records() > i64::try_from(found.rows.len().min(q.limit)).unwrap_or(0));
     found.rows.truncate(q.limit);

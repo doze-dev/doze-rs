@@ -103,7 +103,7 @@ fn the_empty_broker_and_the_filter_that_matches_nothing_have_their_own_pages() {
     in_order(
         "topics-filtered",
         &filtered,
-        &["Name contains refunds", "Clear filter", "No topic name contains", "refunds", "The filter looks at the 9 topic names", "pick_lists", "Create refunds"],
+        &["Name contains refunds", "Clear filter", "No topic name contains", "refunds", "The filter looks at the 9 topic names", "pick_lists", "Create <span class=\"mono\">refunds</span>"],
     );
 }
 

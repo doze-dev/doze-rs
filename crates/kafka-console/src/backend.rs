@@ -53,6 +53,15 @@ impl Backend {
         }
     }
 
+    /// The same handle acting as another caller. For the tests that show a refusal as a client would meet it: the console
+    /// itself is a super user, so nothing the console does is ever refused. Not part of a release build.
+    #[cfg(any(test, feature = "examples"))]
+    #[must_use]
+    pub fn acting_as(mut self, caller: Caller) -> Self {
+        self.caller = caller;
+        self
+    }
+
     /// The caller of every call: the console's principal.
     #[must_use]
     pub fn caller(&self) -> &Caller {
