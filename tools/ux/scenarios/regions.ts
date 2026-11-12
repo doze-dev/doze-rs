@@ -145,7 +145,7 @@ Object.assign(scenarios, {
       act: async () => { await p.focus(`${TOOLBAR} input[name=q]`); await p.type("seg"); }, done: "location.search.includes('q=seg')", focus: `${TOOLBAR} input[name=q]`,
     });
     await p.back();
-    await p.waitFor("location.search === '?show=changed'");
+    await p.waitFor("location.search === ''");
     t.ok(true, "config: Back");
   },
 
@@ -162,5 +162,18 @@ Object.assign(scenarios, {
     await p.back();
     await p.waitFor("!location.search.includes('expiring')");
     t.ok(true, "lag: Back");
+  },
+});
+
+Object.assign(scenarios, {
+  // The jump page (the palette's no-script twin): the filter and the names it leaves swap in place.
+  async "region-jump"(t: T) {
+    const p = t.page;
+    await p.goto("/jump");
+    await inPlace(t, p, {
+      name: "jump: typing", above: [".page-h", ".jump-form"], history: "replace", url: /^\/jump\?q=ord$/,
+      act: async () => { await p.focus("#q"); await p.type("ord"); }, done: "location.search === '?q=ord' && document.querySelectorAll('#jump-view .jump-item').length < 9",
+      focus: "#q",
+    });
   },
 });

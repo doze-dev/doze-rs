@@ -26,7 +26,8 @@ export interface Row {
   cls: number;
   /** The click replaced `main` (a boosted navigation): a cross-fade and a scroll to the top, not an in-place update. */
   mainSwapped: boolean;
-  verdict: "in place" | "main swap" | "reload" | "JUMP";
+  /** navigation: a crumb, a tab or a step of a form is a move to another page (a cross-fade of `main` and the top of the new page is right). */
+  verdict: "in place" | "navigation" | "main swap" | "reload" | "JUMP";
 }
 
 export const PAGES = [
@@ -75,6 +76,7 @@ const ENUMERATE = `(() => {
   for (const e of document.querySelectorAll('main a[href], main summary, main form button, main form input[type=submit]')) {
     if (!visible(e)) continue;
     let kind, target = '';
+    const nav = !!e.closest('nav.crumbs, .tabs') || /^Next[: ]/.test(label(e));
     if (e.tagName === 'A') {
       const u = new URL(e.href, location.href);
       if (u.origin !== location.origin || u.pathname !== here || (u.search === location.search && u.hash === location.hash)) continue;
@@ -82,7 +84,7 @@ const ENUMERATE = `(() => {
     } else if (e.tagName === 'SUMMARY') kind = 'summary';
     else kind = 'form button';
     e.dataset.auditIdx = String(i);
-    out.push({ idx: i++, kind, label: label(e), target });
+    out.push({ idx: i++, kind, label: label(e), target, nav });
   }
   return out;
 })()`;
@@ -93,7 +95,7 @@ async function parts(p: Page): Promise<Record<string, Box | null>> {
 
 export async function auditPage(p: Page, base: string, path: string, limit = 60): Promise<Row[]> {
   await p.goto(base + path);
-  const controls = (await p.eval<{ idx: number; kind: string; label: string; target: string }[]>(ENUMERATE)).slice(0, limit);
+  const controls = (await p.eval<{ idx: number; kind: string; label: string; target: string; nav: boolean }[]>(ENUMERATE)).slice(0, limit);
   const rows: Row[] = [];
   const seen = new Set<string>();
   for (const c of controls) {
@@ -119,9 +121,9 @@ export async function auditPage(p: Page, base: string, path: string, limit = 60)
     const shifted = moved(before, after, 1);
     const cls = await p.cls();
     let verdict: Row["verdict"] = "in place";
-    if (navigated) verdict = sy0 > 0 || shifted.length ? "JUMP" : "reload";
+    if (navigated) verdict = c.nav ? "navigation" : sy0 > 0 || shifted.length ? "JUMP" : "reload";
     else if ((sy1 !== sy0 && !(sy1 >= maxScroll - 1 && sy1 < sy0)) || shifted.length) verdict = "JUMP";
-    else if (mainSwapped) verdict = "main swap";
+    else if (mainSwapped) verdict = c.nav ? "navigation" : "main swap";
     rows.push({ page: path, control: c.label || "(no text)", kind: c.kind, target: c.target, navigated, scrollBefore: sy0, scrollAfter: sy1, moved: shifted, cls, mainSwapped, verdict });
   }
   return rows;

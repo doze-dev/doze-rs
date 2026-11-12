@@ -106,11 +106,27 @@ pub fn search_box(
     html! {
         div class="finput" {
             (glyph(Glyph::Search, 16, ""))
-            input type="text" name=(name) placeholder=(placeholder) value=(value) aria-label=(label) autocomplete="off" spellcheck="false"
-                hx-get=(action) hx-include="closest form" hx-trigger="input changed delay:250ms, search" hx-sync="this:replace"
-                hx-target={"#" (target)} hx-select={"#" (target)} hx-swap=(IN_PLACE_SWAP) hx-push-url="false" hx-replace-url="true"
-                hx-headers=(REPLACING);
+            (search_input(target, action, name, None, placeholder, label, value))
         }
+    }
+}
+
+/// The input of [`search_box`] alone, for a toolbar that draws its own frame around it.
+#[must_use]
+pub fn search_input(
+    target: &str,
+    action: &str,
+    name: &str,
+    id: Option<&str>,
+    placeholder: &str,
+    label: &str,
+    value: &str,
+) -> Markup {
+    html! {
+        input type="text" id=[id] name=(name) placeholder=(placeholder) value=(value) aria-label=(label) autocomplete="off" spellcheck="false"
+            hx-get=(action) hx-include="closest form" hx-trigger="input changed delay:250ms, search" hx-sync="this:replace"
+            hx-target={"#" (target)} hx-select={"#" (target)} hx-swap=(IN_PLACE_SWAP) hx-push-url="false" hx-replace-url="true"
+            hx-headers=(REPLACING);
     }
 }
 

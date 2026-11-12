@@ -7,8 +7,12 @@ use maud::{Markup, html};
 use crate::base::{Base, segment};
 use crate::ui::glyph::{Glyph, glyph};
 use crate::ui::glyph_groups::{GroupGlyph, group_glyph};
+use crate::ui::inplace;
 use crate::ui::layout::page_header;
 use crate::ui::overlay::{Kind, transient};
+
+/// The region of the page: the filter and the names it leaves.
+const JUMP_VIEW: &str = "jump-view";
 
 /// The most names the palette lists; the page says when there are more.
 pub(super) const MOST: usize = 500;
@@ -110,17 +114,19 @@ pub fn jump_overlay(items: &[JumpItem], total: usize, base: &Base) -> Markup {
 pub fn jump_page(items: &[JumpItem], total: usize, filter: &str, base: &Base) -> Markup {
     html! {
         (page_header("Jump to a topic or group", html! { p class="sub" { "Every topic and every group of this broker, by name. A topic page has its Messages, Partitions and the rest; a group page its members and lag." } }, html! {}))
-        form class="toolbar jump-form" method="get" action=(base.url("/jump")) role="search" {
-            div class="input mono" {
-                (glyph(Glyph::Search, 16, ""))
-                input id="q" type="text" name="q" value=(filter) placeholder="Part of a name" aria-label="Part of a topic or group name";
+        (inplace::region(JUMP_VIEW, html! {
+            form class="toolbar jump-form" method="get" action=(base.url("/jump")) role="search" hx-get=(base.url("/jump")) hx-target={"#" (JUMP_VIEW)} hx-select={"#" (JUMP_VIEW)} hx-swap=(crate::ui::client::IN_PLACE_SWAP) hx-push-url="true" hx-trigger="submit" {
+                div class="input mono" {
+                    (glyph(Glyph::Search, 16, ""))
+                    (inplace::search_input(JUMP_VIEW, &base.url("/jump"), "q", Some("q"), "Part of a name", "Part of a topic or group name", filter))
+                }
+                button class="btn" type="submit" { "Filter" }
             }
-            button class="btn" type="submit" { "Filter" }
-        }
-        div class="jump-page" {
-            @if items.is_empty() { p class="help" { "No topic or group is named like that." } } @else { (list(items, base)) }
-            (more(total))
-        }
+            div class="jump-page" {
+                @if items.is_empty() { p class="help" { "No topic or group is named like that." } } @else { (list(items, base)) }
+                (more(total))
+            }
+        }))
     }
 }
 

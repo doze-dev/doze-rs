@@ -353,3 +353,41 @@ document.addEventListener('alpine:init', () => {
     };
   });
 });
+
+// ---- Keep every floating card inside the page ----------------------------------------------------------------------------
+// Floating UI (inside x-anchor) flips and shifts a card to stay in the window, but it knows only the window: a menu opened from a
+// trigger near the left of the content (anchored bottom-end, 200 px wide) shifts to 5 px from the window's edge, over the rail.
+// Whatever the anchor wrote, a card that is shown is nudged (by a margin, which the anchor never touches) so that it is inside the
+// content: right of the rail, under the top bar, inside the window. It converges in one pass and runs only when a card's style changes.
+(() => {
+  const GAP = 8;
+  function fit(pop) {
+    if (!pop.isConnected) return;
+    if (pop.style.display === 'none') { if (pop.style.marginLeft || pop.style.marginTop) { pop.style.marginLeft = ''; pop.style.marginTop = ''; } return; }
+    const r = pop.getBoundingClientRect();
+    if (!r.width) return;
+    const rail = document.getElementById('rail'), bar = document.querySelector('.topbar');
+    const minX = Math.max(GAP, rail ? rail.getBoundingClientRect().right + GAP : 0);
+    const minY = bar ? bar.getBoundingClientRect().bottom + GAP : GAP;
+    const maxX = document.documentElement.clientWidth - GAP, maxY = window.innerHeight - GAP;
+    let dx = 0, dy = 0;
+    if (r.left < minX) dx = minX - r.left; else if (r.right > maxX) dx = Math.max(maxX - r.right, minX - r.left);
+    if (r.top < minY) dy = minY - r.top; else if (r.bottom > maxY) dy = Math.max(maxY - r.bottom, minY - r.top);
+    if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) return;
+    const ml = parseFloat(pop.style.marginLeft) || 0, mt = parseFloat(pop.style.marginTop) || 0;
+    pop.style.marginLeft = ml + dx + 'px';
+    pop.style.marginTop = mt + dy + 'px';
+  }
+  const seen = new WeakSet();
+  const mo = new MutationObserver((list) => {
+    for (const m of list) {
+      const el = m.target;
+      if (el.nodeType === 1 && el.classList.contains('dz-pop')) requestAnimationFrame(() => fit(el));
+    }
+  });
+  const watch = () => { document.querySelectorAll('.dz-pop').forEach((p) => { if (!seen.has(p)) { seen.add(p); mo.observe(p, { attributes: true, attributeFilter: ['style'] }); } }); };
+  document.addEventListener('alpine:initialized', watch);
+  document.addEventListener('htmx:afterSettle', watch);
+  document.addEventListener('focusin', watch);
+  document.addEventListener('click', watch, true);
+})();

@@ -41,6 +41,11 @@ pub async fn jump(
         (topics.rows.iter().map(|r| r.name.clone()).collect(), groups)
     };
     let items = pages::JumpItem::all(&topics, &groups);
+    crate::region::canonical(&format!(
+        "{}{}",
+        s.base.url("/jump"),
+        crate::form::encode_query(&[("q", &filter)])
+    ));
     let main = pages::jump_page(&items, total, &filter, &s.base);
     html(
         &s.document(
