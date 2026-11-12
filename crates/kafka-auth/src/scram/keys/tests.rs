@@ -119,3 +119,12 @@ fn a_verifier_prints_neither_a_key_nor_the_salt() {
         assert!(!shown.contains(&secret), "{shown}");
     }
 }
+
+/// A proof with bytes after the right ones is not the right proof (the comparison must not stop at the hash size).
+#[test]
+fn a_right_proof_with_bytes_added_is_wrong() {
+    let v = verifier(Kind::Sha256);
+    let mut proof = base64::decode(b"dHzbZapWIk4jUhN+Ute9ytag9zjfMHgsqmmiz7AndVQ=").unwrap();
+    proof.push(0);
+    assert!(!v.proof_is_right(auth_message().as_bytes(), &proof));
+}

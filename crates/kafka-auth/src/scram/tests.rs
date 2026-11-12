@@ -8,6 +8,9 @@ use client::Client;
 use super::*;
 use crate::credentials::Credentials;
 
+mod finals;
+mod firsts;
+
 const SN: &str = "SN";
 const NC: &str = "NC.";
 
@@ -180,91 +183,6 @@ fn an_authzid_must_be_the_user_and_is_judged_after_the_user_exists() {
     }
 }
 
-/// first-*: the seventeen refusals at client-first, and the two that are accepted.
-#[test]
-fn every_recorded_malformed_first_is_the_generic_refusal() {
-    let tokens: [&[u8]; 17] = [
-        b"",
-        b"this is not a scram message",
-        b"n=alice,r=NC.",
-        b"n,,n=alice",
-        b"n,,n=alice,r=",
-        b"n,,r=NC.",
-        b"n,,n=,r=NC.",
-        b"n,,r=NC.,n=alice",
-        b"p=tls-unique,,n=alice,r=NC.",
-        b"y,,n=alice,r=NC.",
-        b"x,,n=alice,r=NC.",
-        b"n,,n=al=ice,r=NC.",
-        b"n,,n=alic=65,r=NC.",
-        b"n,,n=alice,r=NC.,,",
-        b"n,,n=alice,r=nonce\xff",
-        b"\0alice\0alice-secret",
-        b"n,,n=alice,r=NC.,x",
-    ];
-    for kind in Kind::ALL {
-        for token in tokens {
-            let r = start(&users(), kind, token).unwrap_err();
-            assert_eq!(
-                r,
-                rejected(kind, Why::BadFirst),
-                "{:?}",
-                String::from_utf8_lossy(token)
-            );
-        }
-    }
-}
-
-/// first-mandatory-extension: accepted, then the proof fails because Kafka signs a message without it.
-/// first-optional-extension: accepted and signed, the login succeeds.
-#[test]
-fn a_reserved_extension_is_not_signed_and_a_plain_extension_is() {
-    for kind in Kind::ALL {
-        let reserved = alice(kind).with_signed_prefix("m=ext,");
-        assert_eq!(
-            good(kind, &reserved).unwrap_err(),
-            rejected(kind, Why::BadProof)
-        );
-        let reserved_unsigned = alice(kind).with_header("n,,m=ext,");
-        assert!(good(kind, &reserved_unsigned).is_ok());
-        let optional = alice(kind).with_extensions(",x=ext");
-        assert!(good(kind, &optional).is_ok());
-        let two = alice(kind).with_extensions(",x=ext,yy=a=b");
-        assert!(good(kind, &two).is_ok());
-        // A name sent twice counts once, with its last value: signing both is wrong, signing the last is right.
-        let twice = alice(kind).with_extensions(",x=one,x=two");
-        assert_eq!(
-            good(kind, &twice).unwrap_err(),
-            rejected(kind, Why::BadProof)
-        );
-        let users = users();
-        let token = [alice(kind).first(), b",x=one,x=two".to_vec()].concat();
-        let (sf, awaiting) = start(&users, kind, &token).unwrap();
-        let signs_last = alice(kind).with_extensions(",x=two");
-        assert!(
-            awaiting
-                .finish(&signs_last.last(&sf, None, "").message)
-                .is_ok()
-        );
-    }
-}
-
-#[test]
-fn delegation_token_logins_are_refused_as_an_unknown_user() {
-    for value in ["true", "TRUE", "True"] {
-        let c = alice(Kind::Sha256).with_extensions(&format!(",tokenauth={value}"));
-        let r = start(&users(), Kind::Sha256, &c.first()).unwrap_err();
-        assert_eq!(r, rejected(Kind::Sha256, Why::TokenAuth));
-    }
-    for value in ["false", "yes", "1", ""] {
-        let c = alice(Kind::Sha256).with_extensions(&format!(",tokenauth={value}"));
-        assert_eq!(
-            start(&users(), Kind::Sha256, &c.first()).is_ok(),
-            !value.is_empty()
-        );
-    }
-}
-
 /// replay-elsewhere: a final message made for another exchange (another server nonce) is refused.
 #[test]
 fn a_final_message_from_another_exchange_is_refused() {
@@ -342,4 +260,34 @@ fn an_iteration_count_is_what_the_client_is_told() {
     assert_eq!(String::from_utf8(sf).unwrap(), "r=CS,s=c2FsdA==,i=5000");
 }
 
-mod finals;
+/// A user whose name holds `,` and `=` logs in through the escapes; an authzid is compared as sent (escaped)
+/// with the unescaped name, as Kafka does, so even the user's own name in escaped form is refused as an authzid.
+#[test]
+fn a_name_with_a_comma_and_an_equals_sign_logs_in_by_its_escapes() {
+    let pairs = [("a,b=c".to_owned(), "pw".to_owned())];
+    let users = Credentials::new(pairs)
+        .unwrap()
+        .with_scram(&Kind::ALL)
+        .unwrap();
+    for kind in Kind::ALL {
+        let c = Client::new(kind, "a,b=c", "pw", NC);
+        assert_eq!(c.first(), b"n,,n=a=2Cb=3Dc,r=NC.");
+        let (sf, awaiting) = first(kind, &c.first(), SN, |u| users.verifier(kind, u)).unwrap();
+        let (_, who) = awaiting.finish(&c.last(&sf, None, "").message).unwrap();
+        assert_eq!(who.as_str(), "User:a,b=c");
+        let escaped = c.clone().with_header("n,a=a=2Cb=3Dc,");
+        let r = first(kind, &escaped.first(), SN, |u| users.verifier(kind, u));
+        assert_eq!(r.unwrap_err(), Refusal::AuthzId);
+    }
+}
+
+/// Whatever finds the verifier, one of the other hash is never used: a SHA-256 verifier cannot answer a SHA-512 login.
+#[test]
+fn a_lookup_that_returns_the_other_hashs_verifier_is_not_believed() {
+    let users = users();
+    let sha256 = users.verifier(Kind::Sha256, "alice").unwrap();
+    let r = first(Kind::Sha512, &alice(Kind::Sha512).first(), SN, |_| {
+        Some(sha256)
+    });
+    assert_eq!(r.unwrap_err(), rejected(Kind::Sha512, Why::UnknownUser));
+}

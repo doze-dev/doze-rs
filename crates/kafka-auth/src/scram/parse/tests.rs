@@ -143,6 +143,8 @@ fn the_recorded_malformed_finals_are_refused() {
         format!("c=biws,{nonce},p=AA AA"),              // white space
         format!("c=biws,{nonce},p=A-A_"),               // url-safe alphabet
         format!("c=biws,{nonce},x=ext"),                // an attribute for the proof
+        format!("c=biws,{nonce},x=AAAA"),               // one that happens to be base64
+        format!("c=biws,{nonce},=AAAA"),                // no name
         format!("c=biws,{nonce},,{proof}"),             // an empty field
         format!("c=biws,{nonce},{proof}\0"),            // a NUL
         format!("c=biws,r=N C,{proof}"),                // a space in the nonce
@@ -185,4 +187,19 @@ fn a_proof_of_any_length_is_read() {
     assert_eq!(done("c=biws,r=N,p=AAAA").unwrap().proof.len(), 3);
     let long = format!("c=biws,r=N,p={}", "A".repeat(4096));
     assert_eq!(done(&long).unwrap().proof.len(), 3072);
+}
+
+/// Kafka's classes start at `\x01`: a NUL is refused in every field that could hold one.
+#[test]
+fn a_nul_is_refused_wherever_it_could_hide() {
+    for bad in [
+        "n,,n=al\0ice,r=NC.",
+        "n,a=al\0ice,n=alice,r=NC.",
+        "n,,m=e\0t,n=alice,r=NC.",
+        "n,,n=alice,r=NC.,x=e\0t",
+    ] {
+        assert!(!accepted(bad), "{bad:?}");
+    }
+    assert!(done("c=biws,r=NC.SN,x=e\0t,p=AAAA").is_none());
+    assert!(done("c=biws,r=NC.SN,x=et,p=AAAA").is_some());
 }
