@@ -77,7 +77,14 @@ impl Core {
         }
         let sync = mode.starts_with(".sync");
         let link = sync.then(|| (parent.arn.clone(), d.frame, d.seq, mode == ".sync:2"));
-        let child = self.begin(launch, &arn, &name, input, None, link);
+        let begin = crate::executions::Begin {
+            arn: arn.clone(),
+            name,
+            input,
+            trace: None,
+            parent: link,
+        };
+        let child = self.begin(launch, begin);
         let started = json!({"ExecutionArn": arn, "StartDate": child.start_ms});
         self.store(child);
         self.queue.push_back(Work::Run(arn));

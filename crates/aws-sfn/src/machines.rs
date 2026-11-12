@@ -61,7 +61,7 @@ impl Core {
         let mut out = json!({"stateMachineArn": arn, "creationDate": secs(now)});
         if r.flag("publish") {
             let v = publish(&mut m, r.opt("versionDescription"), now);
-            out["stateMachineVersionArn"] = json!(v);
+            crate::req::set(&mut out, "stateMachineVersionArn", json!(v));
         }
         self.machines.insert(arn, m);
         Ok(out)
@@ -122,7 +122,7 @@ impl Core {
         let mut out = json!({"updateDate": secs(now), "revisionId": m.revision});
         if r.flag("publish") {
             let v = publish(m, r.opt("versionDescription"), now);
-            out["stateMachineVersionArn"] = json!(v);
+            crate::req::set(&mut out, "stateMachineVersionArn", json!(v));
         }
         Ok(out)
     }
@@ -181,7 +181,7 @@ impl Core {
             .collect();
         let mut out = json!({"stateMachines": page});
         if from + size < all.len() {
-            out["nextToken"] = json!(token(from + size));
+            crate::req::set(&mut out, "nextToken", json!(token(from + size)));
         }
         Ok(out)
     }
@@ -291,13 +291,25 @@ fn describe(m: &Machine) -> Value {
 
 fn describe_version(m: &Machine, v: &Version) -> Value {
     let mut out = describe(m);
-    out["stateMachineArn"] = json!(format!("{}:{}", m.arn, v.number));
-    out["definition"] = json!(v.definition);
-    out["roleArn"] = json!(v.role_arn);
-    out["creationDate"] = secs(v.created_ms);
-    out["revisionId"] = json!(v.revision);
-    out["loggingConfiguration"] = block(v.logging.as_deref(), logging_default());
-    out["tracingConfiguration"] = block(v.tracing.as_deref(), json!({"enabled": false}));
+    crate::req::set(
+        &mut out,
+        "stateMachineArn",
+        json!(format!("{}:{}", m.arn, v.number)),
+    );
+    crate::req::set(&mut out, "definition", json!(v.definition));
+    crate::req::set(&mut out, "roleArn", json!(v.role_arn));
+    crate::req::set(&mut out, "creationDate", secs(v.created_ms));
+    crate::req::set(&mut out, "revisionId", json!(v.revision));
+    crate::req::set(
+        &mut out,
+        "loggingConfiguration",
+        block(v.logging.as_deref(), logging_default()),
+    );
+    crate::req::set(
+        &mut out,
+        "tracingConfiguration",
+        block(v.tracing.as_deref(), json!({"enabled": false})),
+    );
     if let (Some(d), Some(o)) = (&v.description, out.as_object_mut()) {
         o.insert("description".into(), json!(d));
     }

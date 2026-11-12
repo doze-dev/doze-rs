@@ -10,104 +10,115 @@ use super::{
 
 const TYPES: &str = "[Task, Wait, Pass, Succeed, Fail, Choice, Parallel, Map]";
 
+/// Each type's own fields in JSONPath, then in JSONata.
+const FIELDS: &[(&str, &[&str], &[&str])] = &[
+    ("Pass", &["Result", "ResultPath", "Parameters"], &[]),
+    (
+        "Task",
+        &[
+            "Resource",
+            "Parameters",
+            "ResultSelector",
+            "ResultPath",
+            "Retry",
+            "Catch",
+            "TimeoutSeconds",
+            "TimeoutSecondsPath",
+            "HeartbeatSeconds",
+            "HeartbeatSecondsPath",
+            "Credentials",
+        ],
+        &[
+            "Resource",
+            "Arguments",
+            "Retry",
+            "Catch",
+            "TimeoutSeconds",
+            "HeartbeatSeconds",
+            "Credentials",
+        ],
+    ),
+    ("Choice", &["Choices", "Default"], &["Choices", "Default"]),
+    (
+        "Wait",
+        &["Seconds", "SecondsPath", "Timestamp", "TimestampPath"],
+        &["Seconds", "Timestamp"],
+    ),
+    (
+        "Fail",
+        &["Error", "ErrorPath", "Cause", "CausePath"],
+        &["Error", "Cause"],
+    ),
+    (
+        "Parallel",
+        &[
+            "Branches",
+            "Parameters",
+            "ResultSelector",
+            "ResultPath",
+            "Retry",
+            "Catch",
+        ],
+        &["Branches", "Arguments", "Retry", "Catch"],
+    ),
+    (
+        "Map",
+        &[
+            "ItemProcessor",
+            "Iterator",
+            "ItemsPath",
+            "ItemSelector",
+            "Parameters",
+            "MaxConcurrency",
+            "MaxConcurrencyPath",
+            "ItemReader",
+            "ItemBatcher",
+            "ResultWriter",
+            "ResultSelector",
+            "ResultPath",
+            "Retry",
+            "Catch",
+            "ToleratedFailureCount",
+            "ToleratedFailureCountPath",
+            "ToleratedFailurePercentage",
+            "ToleratedFailurePercentagePath",
+            "Label",
+        ],
+        &[
+            "ItemProcessor",
+            "Items",
+            "ItemSelector",
+            "MaxConcurrency",
+            "ItemReader",
+            "ItemBatcher",
+            "ResultWriter",
+            "Retry",
+            "Catch",
+            "ToleratedFailureCount",
+            "ToleratedFailurePercentage",
+            "Label",
+            "Arguments",
+        ],
+    ),
+];
+
 /// The fields every state of a language may carry, then each type's own.
 fn allowed(kind: &str, lang: Lang) -> Vec<&'static str> {
     let mut all = vec!["Type", "Comment", "QueryLanguage", "Assign"];
-    let flow = !matches!(kind, "Choice" | "Succeed" | "Fail");
-    if flow {
+    if !matches!(kind, "Choice" | "Succeed" | "Fail") {
         all.extend(["Next", "End"]);
     }
-    match lang {
-        Lang::JsonPath => {
-            if kind != "Fail" {
-                all.extend(["InputPath", "OutputPath"]);
-            }
-            all.extend(match kind {
-                "Pass" => &["Result", "ResultPath", "Parameters"][..],
-                "Task" => &[
-                    "Resource",
-                    "Parameters",
-                    "ResultSelector",
-                    "ResultPath",
-                    "Retry",
-                    "Catch",
-                    "TimeoutSeconds",
-                    "TimeoutSecondsPath",
-                    "HeartbeatSeconds",
-                    "HeartbeatSecondsPath",
-                    "Credentials",
-                ],
-                "Choice" => &["Choices", "Default"],
-                "Wait" => &["Seconds", "SecondsPath", "Timestamp", "TimestampPath"],
-                "Fail" => &["Error", "ErrorPath", "Cause", "CausePath"],
-                "Parallel" => &[
-                    "Branches",
-                    "Parameters",
-                    "ResultSelector",
-                    "ResultPath",
-                    "Retry",
-                    "Catch",
-                ],
-                "Map" => &[
-                    "ItemProcessor",
-                    "Iterator",
-                    "ItemsPath",
-                    "ItemSelector",
-                    "Parameters",
-                    "MaxConcurrency",
-                    "MaxConcurrencyPath",
-                    "ItemReader",
-                    "ItemBatcher",
-                    "ResultWriter",
-                    "ResultSelector",
-                    "ResultPath",
-                    "Retry",
-                    "Catch",
-                    "ToleratedFailureCount",
-                    "ToleratedFailureCountPath",
-                    "ToleratedFailurePercentage",
-                    "ToleratedFailurePercentagePath",
-                    "Label",
-                ],
-                _ => &[],
-            });
+    if kind != "Fail" {
+        match lang {
+            Lang::JsonPath => all.extend(["InputPath", "OutputPath"]),
+            Lang::Jsonata => all.push("Output"),
         }
-        Lang::Jsonata => {
-            if kind != "Fail" {
-                all.push("Output");
-            }
-            all.extend(match kind {
-                "Task" => &[
-                    "Resource",
-                    "Arguments",
-                    "Retry",
-                    "Catch",
-                    "TimeoutSeconds",
-                    "HeartbeatSeconds",
-                    "Credentials",
-                ][..],
-                "Choice" => &["Choices", "Default"],
-                "Wait" => &["Seconds", "Timestamp"],
-                "Fail" => &["Error", "Cause"],
-                "Parallel" => &["Branches", "Arguments", "Retry", "Catch"],
-                "Map" => &[
-                    "ItemProcessor",
-                    "Items",
-                    "ItemSelector",
-                    "MaxConcurrency",
-                    "ItemReader",
-                    "ItemBatcher",
-                    "ResultWriter",
-                    "Retry",
-                    "Catch",
-                    "ToleratedFailureCount",
-                    "ToleratedFailurePercentage",
-                    "Label",
-                    "Arguments",
-                ],
-                _ => &[],
-            });
-        }
+    }
+    if let Some((_, path, ata)) = FIELDS.iter().find(|(k, ..)| *k == kind) {
+        all.extend(match lang {
+            Lang::JsonPath => *path,
+            Lang::Jsonata => *ata,
+        });
     }
     all
 }

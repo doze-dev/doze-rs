@@ -175,3 +175,10 @@ pub(crate) fn put(m: &mut Map<String, Value>, k: &str, v: Option<Value>) {
         m.insert(k.to_owned(), v);
     }
 }
+
+/// Sets member `k` of a JSON object.
+pub(crate) fn set(v: &mut Value, k: &str, x: Value) {
+    if let Some(m) = v.as_object_mut() {
+        m.insert(k.to_owned(), x);
+    }
+}

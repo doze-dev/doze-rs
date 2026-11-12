@@ -29,6 +29,47 @@ pub(crate) struct Launch {
     pub(crate) endpoint: String,
 }
 
+/// Who an execution is: its ARN and name, its input, and what started it.
+pub(crate) struct Begin {
+    pub(crate) arn: String,
+    pub(crate) name: String,
+    pub(crate) input: String,
+    pub(crate) trace: Option<String>,
+    /// A `.sync` parent: `(ARN, frame, call, .sync:2)`.
+    pub(crate) parent: Option<(String, u32, u32, bool)>,
+}
+
+/// The record of a new execution.
+fn record(l: Launch, b: Begin, exec: Exec, now: i64) -> Execution {
+    Execution {
+        arn: b.arn,
+        name: b.name,
+        machine_arn: l.machine_arn,
+        version_arn: l.version_arn,
+        alias_arn: l.alias_arn,
+        express: l.express,
+        status: Run::Running,
+        start_ms: now,
+        stop_ms: None,
+        input: b.input,
+        output: None,
+        error: None,
+        cause: None,
+        trace_header: b.trace,
+        definition: l.definition,
+        role_arn: l.role_arn,
+        exec,
+        endpoint: l.endpoint,
+        map_run: None,
+        redrive_ms: None,
+        events: 0,
+        parents: b.parent.into_iter().collect(),
+        logging: l.logging,
+        activity: Vec::new(),
+        redrive_tokens: Vec::new(),
+    }
+}
+
 impl Core {
     /// Resolves a state machine, version or alias ARN (an alias picks one of its versions by weight).
     pub(crate) fn launch(&self, given: &str) -> Result<Launch, ApiError> {
@@ -82,9 +123,7 @@ impl Core {
         }
         let input = r.opt("input").unwrap_or("{}").to_owned();
         check_input(&input)?;
-        let name = r
-            .opt("name")
-            .map_or_else(|| crate::util::uuid(), str::to_owned);
+        let name = r.opt("name").map_or_else(crate::util::uuid, str::to_owned);
         if !valid_name(&name) {
             return Err(invalid_name(&name));
         }
@@ -99,7 +138,16 @@ impl Core {
             ));
         }
         let trace = r.opt("traceHeader").map(str::to_owned);
-        let e = self.begin(l, &arn, &name, input, trace, None);
+        let e = self.begin(
+            l,
+            Begin {
+                arn: arn.clone(),
+                name,
+                input,
+                trace,
+                parent: None,
+            },
+        );
         let start = e.start_ms;
         self.store(e);
         self.queue.push_back(Work::Run(arn.clone()));
@@ -125,15 +173,7 @@ impl Core {
     }
 
     /// A new execution with its `ExecutionStarted` event kept.
-    pub(crate) fn begin(
-        &mut self,
-        l: Launch,
-        arn: &str,
-        name: &str,
-        input: String,
-        trace: Option<String>,
-        parent: Option<(String, u32, u32, bool)>,
-    ) -> Execution {
+    pub(crate) fn begin(&mut self, l: Launch, b: Begin) -> Execution {
         let now = self.now_ms();
         let def = self.definition(&l.definition);
         let mut extra = Vec::new();
@@ -144,66 +184,26 @@ impl Core {
             extra.push(("stateMachineVersionArn".to_owned(), json!(v)));
         }
         let start = Start {
-            arn: arn.to_owned(),
-            name: name.to_owned(),
+            arn: b.arn.clone(),
+            name: b.name.clone(),
             machine_arn: l
                 .version_arn
                 .clone()
                 .unwrap_or_else(|| l.machine_arn.clone()),
             machine_name: l.machine_name.clone(),
             role_arn: l.role_arn.clone(),
-            input: input.clone(),
+            input: b.input.clone(),
             started_extra: extra,
         };
-        let (exec, first) = match &def {
-            Some(d) => Exec::start(d, start, now),
-            None => (
-                Exec::default(),
-                aws_asl::Event {
-                    id: 1,
-                    prev: 0,
-                    ms: now,
-                    kind: "ExecutionStarted".into(),
-                    details: None,
-                },
-            ),
-        };
-        let mut e = Execution {
-            arn: arn.to_owned(),
-            name: name.to_owned(),
-            machine_arn: l.machine_arn,
-            version_arn: l.version_arn,
-            alias_arn: l.alias_arn,
-            express: l.express,
-            status: Run::Running,
-            start_ms: now,
-            stop_ms: None,
-            input,
-            output: None,
-            error: None,
-            cause: None,
-            trace_header: trace,
-            definition: l.definition,
-            role_arn: l.role_arn,
-            exec,
-            endpoint: l.endpoint,
-            map_run: None,
-            redrive_ms: None,
-            events: 0,
-            parents: parent.into_iter().collect(),
-            logging: l.logging,
-            activity: Vec::new(),
-            redrive_tokens: Vec::new(),
-        };
-        if let Some(d) = def {
-            self.absorb(
-                &mut e,
-                &d,
-                aws_asl::Step {
-                    events: vec![first],
-                    ..aws_asl::Step::default()
-                },
-            );
+        let started = def.as_ref().map(|d| Exec::start(d, start, now));
+        let (exec, first) = started.map_or((Exec::default(), None), |(x, ev)| (x, Some(ev)));
+        let mut e = record(l, b, exec, now);
+        if let (Some(d), Some(first)) = (def, first) {
+            let step = aws_asl::Step {
+                events: vec![first],
+                ..aws_asl::Step::default()
+            };
+            self.absorb(&mut e, &d, step);
         }
         self.notice(&e);
         e
@@ -216,7 +216,7 @@ impl Core {
             // (memory)
             return Err(invalid_arn(
                 "Arn",
-                &format!("Resource type not valid in this context: express"),
+                "Resource type not valid in this context: express",
             ));
         }
         if p.kind != "execution" {
@@ -299,7 +299,7 @@ impl Core {
         let page: Vec<Value> = all.iter().skip(from).take(size).map(|e| item(e)).collect();
         let mut out = json!({"executions": page});
         if from + size < all.len() {
-            out["nextToken"] = json!(token(from + size));
+            crate::req::set(&mut out, "nextToken", json!(token(from + size)));
         }
         Ok(out)
     }

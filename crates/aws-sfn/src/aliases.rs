@@ -194,7 +194,7 @@ impl Core {
         let (from, size) = (r.page_from()?, r.page_size(100));
         let mut out = json!({"stateMachineAliases": all.iter().skip(from).take(size).cloned().collect::<Vec<_>>()});
         if from + size < all.len() {
-            out["nextToken"] = json!(token(from + size));
+            crate::req::set(&mut out, "nextToken", json!(token(from + size)));
         }
         Ok(out)
     }

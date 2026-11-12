@@ -143,11 +143,6 @@ impl doze_runtime::Service for Core {
 }
 
 impl Core {
-    #[cfg(test)]
-    pub(crate) fn in_memory(clock: Arc<dyn Clock>, peers: Option<Arc<Peers>>) -> Self {
-        Self::with(clock, Tables::empty(), peers, None)
-    }
-
     pub(crate) fn open_in(
         dir: &Path,
         clock: Arc<dyn Clock>,
@@ -300,19 +295,6 @@ struct Tables {
     executions: Records<Execution>,
     map_runs: Records<MapRun>,
     history: RowTable,
-}
-
-impl Tables {
-    #[cfg(test)]
-    fn empty() -> Self {
-        Self {
-            machines: Records::new(MACHINES, "state machine", VERSION),
-            activities: Records::new(ACTIVITIES, "activity", VERSION),
-            executions: Records::new(EXECUTIONS, "execution", VERSION),
-            map_runs: Records::new(MAP_RUNS, "map run", VERSION),
-            history: RowTable::new(HISTORY, true),
-        }
-    }
 }
 
 /// The bus the host handed this service, if it did.

@@ -102,10 +102,9 @@ impl Core {
         for (k, e) in self.executions.iter() {
             if e.status == Run::Running
                 && e.activity.iter().any(|a| a.activity == given && !a.taken)
+                && oldest.as_ref().is_none_or(|(t, _)| e.start_ms < *t)
             {
-                if oldest.as_ref().is_none_or(|(t, _)| e.start_ms < *t) {
-                    oldest = Some((e.start_ms, k.to_owned()));
-                }
+                oldest = Some((e.start_ms, k.to_owned()));
             }
         }
         let Some((_, key)) = oldest else {
