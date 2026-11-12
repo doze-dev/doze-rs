@@ -141,3 +141,22 @@ fn the_two_sasl_apis_need_both_the_feature_and_a_handler() {
         assert!(profile(4).check(key, 1, on).is_ok());
     }
 }
+
+#[test]
+fn the_scram_credential_apis_are_offered_from_kafka_2_at_version_0_and_not_at_1() {
+    // The recorded brokers (tests/data/api-versions.json): cp-kafka 6.2 (Kafka 2.8), 3.9.1 and 4.3.1 list both at
+    // 0..0; the 1.x broker lists neither, so `--kafka-version 1` does not offer them.
+    for key in [
+        ApiKey::DescribeUserScramCredentials,
+        ApiKey::AlterUserScramCredentials,
+    ] {
+        assert_eq!(profile(1).range(key), None, "{key:?} at 1");
+        for major in 2..=4 {
+            assert_eq!(
+                profile(major).range(key),
+                Some((0, 0)),
+                "{key:?} at {major}"
+            );
+        }
+    }
+}
