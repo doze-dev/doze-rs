@@ -945,7 +945,7 @@ each deletion is refused at the next login by every library, the other mechanism
 
 The Go edition has a DNS-rebinding guard for its two HTTP listeners (console and schema registry): `internal/hostguard`, `go-oracle-rust.md` B4. Kafka has none, and the Kafka protocol has no `Host`
 header, so there is no Kafka behaviour to copy: these rules are the Go edition's domain facts (what a rebinding page does and what a guard must refuse), written for this broker in Rust, with the
-Go edition's `.doze` special case removed (PLAN.md, "an explicit allowed-hosts guard ... with no `.doze` special case"). The guard is `crates/kafka-auth/src/hostguard.rs` (100 lines, no
+Go edition's `.doze` special case removed (PLAN.md, "an explicit allowed-hosts guard ... with no `.doze` special case"). The guard is `crates/kafka-auth/src/hostguard.rs` (107 lines, no
 dependency), its tests `hostguard/tests.rs`, its fuzz target `crates/kafka-auth/fuzz/fuzz_targets/hostguard.rs`. **Nothing is mounted on it until Phase 9** (decision D8): the console and
 the registry do not exist yet.
 

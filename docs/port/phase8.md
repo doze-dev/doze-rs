@@ -1,8 +1,25 @@
 # Phase 8: security (SASL, ACLs, TLS)
 
-Status: IN PROGRESS (2026-11-12). Slice 8a done and gated (kafka-auth, Session and the login gating, `--sasl-mechanisms`/`--sasl-user`; 815 tests, interop 23/23, replay unchanged at 43/15, packages 107 to 122 with the CI gate raised to 126, `sasl-plain` login steps match the recording); 8b next. Evidence: `phase8/kafka-semantics.md` (Kafka 4.3.1 source, cited),
+Status: **BUILT, audits pending (2026-11-12).** All seven slices are built and gated (ledger below); the replay is 47 pass and 11 fail (the eleven are Phase 9); the catalogue is `behaviours/security.md`. Two independent audits are running; this phase is not marked done until both say so and their fixes are re-audited. Evidence: `phase8/kafka-semantics.md` (Kafka 4.3.1 source, cited),
 `phase8/go-oracle-rust.md` (the recorded oracle, the Go edition, the Rust touchpoints), `phase8/prior-art-weight.md` (prior art,
-measured weight). Catalogue to write: `behaviours/security.md`.
+measured weight). Catalogue: `behaviours/security.md` (index at its top, checked by `tools/check-security-catalogue.ts`); debts and left-open items: `debt.md` section I.
+
+**Ledger** (merge commits on `main`, `git log --first-parent`; the gates are those the merge recorded):
+
+| Slice | Commit | What | Gates recorded |
+|---|---|---|---|
+| plan | 2d4fffb, 2132087 | research, decisions, the owner's choice of RustCrypto | |
+| 8a | 39e54f9 | SASL PLAIN, `kafka-auth`, `Session` and the login gating; SEC-1 to SEC-15 | 815 tests, interop 23/23, replay 43/15, packages 107 to 122, CI gate 126 |
+| 8b | ea64049 | the authorizer, three ACL APIs, Metadata and InitProducerId checks, `--acl-default`, `--acl-super-user`; SEC-16 to SEC-30 | model test on 6000 random ACL sets; `sasl-plain`, `acl-unknown-codes`, `idempotent-write-from-topic-write` pass |
+| 8c | 7d90033 | SCRAM-SHA-256 and -512; SEC-40 to SEC-51 (deviations renumbered to SEC-D12 to D15) | 950 tests, interop 23/23 and 12/12 in SASL mode, replay 47/11 |
+| 8e | c8a5391 | TLS behind the `tls` feature; SEC-140 to SEC-154, SEC-D40 to D48; the `weight-tls` CI job | loopback tests, interop `-tls` cells |
+| 8d-1 | 9dcfb4f | ACL enforcement on the topic APIs; SEC-60 to SEC-72, SEC-D16 to D20 | 25 of 25 mutations killed |
+| 8d-2 | 6ef2b3d | ACL enforcement on the group and transaction APIs; SEC-100 to SEC-123, SEC-D30 to D37 | 1074 tests, interop 23/23, 12/12 SASL, 8/8 TLS, replay 47/11; 40 of 40 mutations killed |
+| 8f | 909d147 | credential APIs 50 and 51, the stored table, `--sasl-users-file`, `DOZE_KAFKA_SASL_USERS`, `--sasl-allow-empty-users`; SEC-160 to SEC-179, SEC-D50 to D59 | 1137 tests |
+| 8g | branch `p8g` (not merged) | the allowed-hosts guard (`kafka-auth/src/hostguard.rs`, fuzz target, CI step), `--console-allow-host`, `--console-unprotected`, the start-up rule and notes, exit code 2; the catalogue index and its checker; `oracle.md`, `weight.md`, `debt.md`, `PLAN.md`; SEC-180 to SEC-189, SEC-D60 to D63 | fmt, clippy (also with `tls`), `lint-size`, `fuzz-check`, the catalogue checker, 1157 workspace tests |
+| audits | pending | two independent audits of HEAD 909d147 and of the 8g delta; fixes; re-audit | |
+
+What is not done and who decides is `debt.md` I1 to I22: chiefly the recording of `authz-matrix` (D9, needs Docker, which has a client but no running daemon on the owner's machine), and the owner's calls on mTLS, re-authentication, SASL v0, the failed-login delay and zeroing.
 
 Goal: a client can be made to prove who it is (SASL PLAIN, SCRAM-SHA-256, SCRAM-SHA-512), what it may do is decided by ACLs the
 way Apache Kafka 4.3.1 decides it, and the channel can be TLS. All of it opt-in: with none of it configured the broker behaves
@@ -43,16 +60,16 @@ secret-redaction gate passes; the weight gates hold; two independent audits say 
 
 | # | Question | Taken | Why, and what changes if it is overturned |
 |---|---|---|---|
-| D1 | Crypto for SCRAM and PLAIN | **RustCrypto crates, chosen by the owner (2026-11-12): `hmac`, `sha2` and `subtle`, with PBKDF2 (about 15 lines over HMAC) and base64 (about 30) written in-tree**, pinned by RFC 6070/7677/5802 and NIST vectors. `ring` only behind the `tls` feature | Pure Rust, no crypto primitives of our own, no C compiler. **The cost is packages: 107 to about 121 (the spike measured +14 with `pbkdf2` and `base64` as crates, +12 without them), over the 115 CI gate.** Slice 8a measures the real number on the broker, raises the gate in `ci.yml` and writes the reason in `weight.md` (proposed: 125, so the next small dependency needs no second exception). Size is about +50 KB. A hand-written or `ring` backend stays possible later: the boundary is `kafka-auth::crypto` and the swap is one file |
+| D1 | Crypto for SCRAM and PLAIN | **RustCrypto crates, chosen by the owner (2026-11-12): `hmac`, `sha2` and `subtle`, with PBKDF2 (about 15 lines over HMAC) and base64 (about 30) written in-tree**, pinned by RFC 6070/7677/5802 and NIST vectors. `ring` only behind the `tls` feature | Pure Rust, no crypto primitives of our own, no C compiler. **The cost is packages: 107 to 122 (the spike measured +14 with `pbkdf2` and `base64` as crates, +12 without them; the broker is +15 lines of `cargo tree`, 12 distinct packages; 123 by the darwin count since slice 8e), over the 115 CI gate.** Slice 8a measured it, raised the gate in `ci.yml` to 126 and wrote the reason in `weight.md`. Size is about +50 KB. A hand-written or `ring` backend stays possible later: the boundary is `kafka-auth::crypto` and the swap is one file |
 | D2 | TLS | **Cargo feature `tls`, off by default** (`rustls` 0.23 + `tokio-rustls`, provider `ring`, PEM through `rustls-pki-types`). PEM files only, any error aborts startup, never a fallback to plaintext. No cert generation, no client certificates | +0.87 MB cannot be always on. CI gains a second weight job for `--features tls`. If the owner wants TLS in the default binary the CI limits must rise (about 5.8 MB Linux, 121 packages) |
 | D3 | Users and credentials | **Slices 8a-8c: flags only, as the Go edition** (`--sasl-user`, derived at start, nothing stored). **Slice 8f: Kafka's `AlterUserScramCredentials` / `DescribeUserScramCredentials`** (APIs 50, 51) with a credential table in `kafka-meta`, so `kafka-configs.sh` and admin clients can manage users at runtime | The flags alone cannot add a user to a running broker; the API alone locks you out (every comparable system has a bootstrap user). 50/51 are not recorded: source-derived tests only. Dropping 8f costs nothing else |
 | D4 | Authorization when SASL is off | **As the Go edition**: the ACL APIs always work and are stored; ACLs are enforced for the principal `User:ANONYMOUS`; `--acl-default allow` is the default, so an empty ACL set changes nothing | Kafka without an authorizer answers `SECURITY_DISABLED` (54) and enforces nothing; that is a deliberate difference (deviation `SEC-D7` in `behaviours/security.md`, written in slice 8b; D1 to D6 are 8a's). It is what lets `--acl-default deny` be used without SASL |
-| D5 | A request in the middle of a login | **As Kafka where recorded**: the second ApiVersions, a handshake out of order and a SaslHandshake/ApiVersions mid-token are answered with `ILLEGAL_SASL_STATE` (34) in the request's own shape; anything else closes | Needs the stranger's header only, not its body, for all but those two APIs. Unrecorded cases follow the Kafka source |
-| D6 | SCRAM channel binding | **As Kafka**: `n,,` and `c=eSws` log in; `p=` binding is refused | Kafka parity is what the oracle records; the Go edition refuses it (known difference) |
+| D5 | A request in the middle of a login | **As Kafka where recorded**: an ApiVersions after the handshake and a second SaslHandshake are answered with `ILLEGAL_SASL_STATE` (34) in the request's own shape, then the connection closes; anything else closes unanswered, **including a second ApiVersions before the handshake (recorded `versions-twice`) and every other API (SEC-D1: Kafka answers those in their own shape; the Go edition closes, as built)** | Needs the stranger's header only, not its body, for all but those two APIs. Unrecorded cases follow the Kafka source |
+| D6 | SCRAM channel binding | **As Kafka**: the header `n,,` logs in; `y,,`, `p=...` and any other header are refused at client-first; the client-final channel binding is never compared with the header (`c=eSws` after `n,,` logs in) | Kafka parity is what the oracle records; the Go edition refuses the mismatch (known difference; SEC-47 and the SCRAM rules) |
 | D7 | `--kafka-version 1` and the ACL APIs | **Keep the pinned deviation** (not offered): Kafka 1.x admin tools speak only v0, which the vendored protocol crate cannot decode | Decoding v0 ourselves is a small later item if anyone asks |
-| D8 | Allowed-hosts guard | **A pure function with a fuzz target and its flags in 8g; mounted by the console in Phase 9.** It guards the HTTP listeners (DNS rebinding), not the Kafka port | There is nothing to mount it on until Phase 9 |
-| D9 | Handler denials with no recording | **Write each from the Kafka source (file:line in the test), then record `authz-matrix` against `apache/kafka:4.3.1` if Docker is available and diff** | The one real risk of the phase is a source reading that differs from the JVM; a recording is the cure. Needs the Go harness's recorder and Docker |
-| D10 | Pre-auth limits | A stranger's frame is capped at Kafka's `sasl.server.max.receive.size` (512 KiB; the wire crate has 1 MiB today); 30 s from accept to the first complete login (the Go edition's rule; Kafka has none) | Unrecorded; a dev broker should not sit open to a silent socket |
+| D8 | Allowed-hosts guard | **A pure function with a fuzz target and its flags in 8g; mounted by the console in Phase 9.** It guards the HTTP listeners (DNS rebinding), not the Kafka port. **Built:** `kafka-auth/src/hostguard.rs` (not `doze-kafka`), `--console-allow-host`, `--console-unprotected`, and the start-up rule whose inputs exist (SEC-180 to SEC-189, SEC-D60 to D63) | There is nothing to mount it on until Phase 9 |
+| D9 | Handler denials with no recording | **Write each from the Kafka source (file:line in the test), then record `authz-matrix` against `apache/kafka:4.3.1` if Docker is available and diff. Built: every row is from the source; the recording is not made (Docker has no daemon here); the proposal is in `oracle.md` and `debt.md` I1** | The one real risk of the phase is a source reading that differs from the JVM; a recording is the cure. Needs the Go harness's recorder and Docker |
+| D10 | Pre-auth limits | A stranger's frame is capped at Kafka's `sasl.server.max.receive.size` (512 KiB; built, SEC-4); 30 s from accept to the first complete login (the Go edition's rule; Kafka has none) | Unrecorded; a dev broker should not sit open to a silent socket |
 
 ## Design
 
@@ -85,9 +102,9 @@ the API's own code (29 topic, 30 group, 31 cluster, 53 transactional id), per it
 | `kafka-broker` | `caller.rs`, `authorizer.rs`, `handlers/{create_acls,describe_acls,delete_acls}.rs`, `handlers/{describe,alter}_user_scram_credentials.rs` (8f); **split `broker.rs`** (`handle` into `broker/dispatch.rs`); one check in each served handler (list in 8d) |
 | `kafka-server` | `session.rs`, `session/steps.rs`, `tls.rs` (feature), `connection.rs` (split `exchange` out), `config.rs`, `frames.rs` (pre-auth budget), `accept.rs` (handshake in the spawned task) |
 | `kafka-wire` | `api_versions.rs` (the illegal-state answer) |
-| `doze-kafka` | `cli.rs` (the flags; rewrite `cli/tests.rs` and `tests/process.rs`), `hostguard.rs` (8g) |
+| `doze-kafka` | `cli.rs` (the flags; rewrite `cli/tests.rs` and `tests/process.rs`), `cli/console.rs` (8g: the console flags and the start-up rule; the guard itself is `kafka-auth/src/hostguard.rs`) |
 | tests | `kafka-testkit` gets the raw-protocol client with SASL helpers the plan promised; `interop/go` gains SASL and ACL cells; fuzz targets `plain`, `scram_first`, `scram_final`, `acl_filter` |
-| docs | `behaviours/security.md`, `oracle.md`, `weight.md`, `debt.md`, `PLAN.md` log, a facts view for the console's Access page |
+| docs | `behaviours/security.md`, `oracle.md`, `weight.md`, `debt.md`, `PLAN.md` log (the facts view for the console's Access page moved to Phase 9: `debt.md` I20) |
 
 ## Slices
 
@@ -99,7 +116,7 @@ the API's own code (29 topic, 30 group, 31 cluster, 53 transactional id), per it
 | 8d | The authorization matrix on every remaining served handler (about 45 APIs, the Phase 6 transaction APIs included), one test per row from the source; secret-redaction tests; the fuzz targets | a test per matrix row; every non-security scenario and `interop/` unchanged (the allow-all path is exact); interop with an ACL'd user (allowed and denied) |
 | 8e | TLS behind `tls`: acceptor, handshake in the spawned task, peer address taken before the handshake; client interop over SASL_SSL; a CI weight job for the feature | loopback TLS tests; franz-go, sarama, librdkafka over SASL_SSL; weight of the `tls` build recorded |
 | 8f | `AlterUserScramCredentials` / `DescribeUserScramCredentials` with the credential table (D3); a users file or environment source for bootstrap passwords so they stay out of `ps` | tests from the source; `kafka-configs.sh`-shape requests through the raw client; a restart keeps the credentials |
-| 8g | The allowed-hosts guard (pure, fuzzed, flags); the catalogue; `oracle.md`, `weight.md`, `debt.md`; the Access facts view; independent audit, fixes, re-audit | the done-when list above |
+| 8g | The allowed-hosts guard (pure, fuzzed, flags); the catalogue; `oracle.md`, `weight.md`, `debt.md`; the Access facts view (moved to Phase 9); independent audit, fixes, re-audit | the done-when list above. **Built; the audit is pending** |
 
 Order is 8a, 8b, 8c, 8d, 8e, 8f, 8g. 8e and 8f do not depend on each other. If `authz-matrix` can be recorded (D9), it is done after
 8d, before the audit, and its diff is the first thing the audit reads.
