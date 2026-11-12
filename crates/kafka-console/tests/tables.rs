@@ -82,3 +82,9 @@ fn a_long_key_gives_way_in_the_middle_and_keeps_its_end() {
         "a cell must be bounded for the ellipsis to apply"
     );
 }
+
+#[test]
+fn a_choice_that_takes_a_value_shows_its_field_only_while_it_is_chosen_with_no_script() {
+    assert!(CSS.contains("\n.opt-row .opt-in{display:none}"));
+    assert!(CSS.contains("\n.opt-row:has(input[type=radio]:checked) .opt-in{display:block}"));
+}

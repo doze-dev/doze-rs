@@ -122,6 +122,9 @@ table.t{overflow:visible;border-collapse:separate;border-spacing:0}
 .t tbody tr:last-child td:first-child{border-bottom-left-radius:13px}
 .t tbody tr:last-child td:last-child{border-bottom-right-radius:13px}
 .ovl .t thead th{position:static}
+/* A choice that takes a value shows its field only while it is the one chosen (the Reset dialog): CSS alone, no script. */
+.opt-row .opt-in{display:none}
+.opt-row:has(input[type=radio]:checked) .opt-in{display:block}
 /* A long key or name in a cell: its start gives way to an ellipsis, its last ten characters stay (ui::table::middle). */
 .mid{display:inline-flex;max-width:100%;min-width:0;vertical-align:bottom}
 .mid-a{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}

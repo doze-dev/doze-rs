@@ -101,7 +101,7 @@ fn option(
                 div class="t1" { (title) }
                 @if let Some(s) = sub { div class="t2" { (s) } }
                 @if let Some(label) = input {
-                    div class="t2" { div class="input mono" { input type="text" name="value" aria-label=(label) value=(if v.to == value { v.value.as_str() } else { "" }) autocomplete="off" spellcheck="false"; } }
+                    div class="t2 opt-in" { div class="input mono" { input type="text" name="value" aria-label=(label) value=(if v.to == value { v.value.as_str() } else { "" }) autocomplete="off" spellcheck="false"; } }
                 }
             }
         }
