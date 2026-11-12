@@ -130,7 +130,9 @@ impl Rig {
 
     /// The id of a topic, as the super user's Metadata says it.
     pub async fn id_of(&self, name: &str) -> kafka_wire::Uuid {
-        let r = self.metadata(12, Some(&[name]), false).await;
+        let r = self
+            .metadata_as(&crate::support::acls::admin(), 12, Some(&[name]), false)
+            .await;
         r.topics[0].topic_id
     }
 
@@ -331,8 +333,8 @@ impl Rig {
             r.resource_type = *kind;
             r.resource_name = text(name);
             let mut c = AlterableConfig::default();
-            c.name = text("retention.ms");
-            c.value = Some(text("5000"));
+            c.name = text(change_for(*kind).0);
+            c.value = Some(text(change_for(*kind).1));
             r.configs.push(c);
             req.resources.push(r);
         }
@@ -362,9 +364,9 @@ impl Rig {
             r.resource_type = *kind;
             r.resource_name = text(name);
             let mut c = AlterableConfig::default();
-            c.name = text("retention.ms");
+            c.name = text(change_for(*kind).0);
             c.config_operation = 0;
-            c.value = Some(text("5000"));
+            c.value = Some(text(change_for(*kind).1));
             r.configs.push(c);
             req.resources.push(r);
         }
@@ -426,4 +428,14 @@ pub async fn rig_with_topics(names: &[&str]) -> Rig {
 /// Gives `acls` to the cluster as the super user.
 pub async fn grant(rig: &Rig, acls: Vec<AclCreation>) {
     crate::support::acls::grant(rig, acls).await;
+}
+
+/// The change the AlterConfigs helpers make to a resource of `kind`: one that is valid for it (a topic's retention, or
+/// the broker's retention bytes), so that a request that is refused is refused for its rights and nothing else.
+fn change_for(kind: i8) -> (&'static str, &'static str) {
+    if kind == 4 {
+        ("log.retention.bytes", "9000")
+    } else {
+        ("retention.ms", "5000")
+    }
 }
