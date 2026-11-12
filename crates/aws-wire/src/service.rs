@@ -25,6 +25,8 @@ pub struct Caller {
     /// The AWS service acting for the caller, when one is (SSM encrypting a `SecureString` through KMS): `None` for a request that
     /// came in over the wire. It is what `kms:ViaService` would say.
     pub service: Option<String>,
+    /// The session token the request carried (`X-Amz-Security-Token`), when it carried one.
+    pub session_token: Option<String>,
 }
 
 /// One decoded request, owned, so it can cross to the task that owns the service.
@@ -152,7 +154,11 @@ fn constraint(tables: &Tables, violation: &Violation, ix: u32, value: Option<&st
         (Violation::Pattern { .. }, Some(c)) => {
             format!(
                 "satisfy regular expression pattern: {}",
-                c.pattern.unwrap_or_default()
+                // AWS prints the pattern as the model writes it, without the anchors the tables add.
+                c.pattern
+                    .unwrap_or_default()
+                    .trim_start_matches('^')
+                    .trim_end_matches('$')
             )
         }
         (Violation::Length { .. }, Some(c)) => {

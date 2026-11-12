@@ -1,0 +1,22 @@
+[package]
+name = "aws-wire-fuzz"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+aws-wire = { path = ".." }
+aws-model-iam = { path = "../../aws-model-iam" }
+
+# Not part of the main workspace: fuzzing needs a nightly toolchain.
+[workspace]
+
+[[bin]]
+name = "fuzz_form"
+path = "fuzz_targets/fuzz_form.rs"
+test = false
+doc = false

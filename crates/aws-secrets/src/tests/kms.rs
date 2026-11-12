@@ -14,6 +14,7 @@ impl World {
             region: "us-east-1".into(),
             endpoint: "http://localhost:4566".into(),
             service: None,
+            session_token: None,
         };
         let peers = self.bus.peers.clone();
         self.bus

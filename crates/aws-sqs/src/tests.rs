@@ -379,6 +379,7 @@ fn call_of(patterns: &Patterns, op: Operation, request: &Value) -> Result<Call, 
         region: "us-east-1".into(),
         endpoint: "http://localhost:4566".into(),
         service: None,
+        session_token: None,
     };
     Ok(Call {
         op: op.index(),

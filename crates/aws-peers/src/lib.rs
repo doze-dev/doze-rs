@@ -149,6 +149,7 @@ mod tests {
             region: "us-east-1".into(),
             endpoint: "http://localhost".into(),
             service: None,
+            session_token: None,
         }
     }
 

@@ -6,8 +6,8 @@ mod common;
 mod connect;
 mod home;
 mod notice;
-mod topics_write;
 pub mod topics;
+mod topics_write;
 
 pub use advertised::{advertised, probe_advertised};
 pub use common::{PROBE_ADVERTISED, PROBE_CONNECT, PROBE_HOME, probe_fragment_url};

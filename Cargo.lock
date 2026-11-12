@@ -185,9 +185,38 @@ dependencies = [
  "http-body-util",
  "hyper",
  "hyper-util",
+ "serde_json",
  "tokio",
  "tokio-util",
  "tracing",
+]
+
+[[package]]
+name = "aws-iam"
+version = "0.0.0"
+dependencies = [
+ "aws-core",
+ "aws-iam-policy",
+ "aws-model-iam",
+ "aws-model-sts",
+ "aws-schema",
+ "aws-seal",
+ "aws-testkit",
+ "aws-wire",
+ "doze-runtime",
+ "doze-store",
+ "hmac",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tokio",
+]
+
+[[package]]
+name = "aws-iam-policy"
+version = "0.0.0"
+dependencies = [
+ "serde_json",
 ]
 
 [[package]]
@@ -576,10 +605,12 @@ version = "0.0.0"
 dependencies = [
  "aws-auth",
  "aws-core",
+ "aws-model-iam",
  "aws-model-sqs",
  "aws-schema",
  "getrandom 0.4.3",
  "http",
+ "serde_json",
  "thiserror",
 ]
 
@@ -1031,6 +1062,7 @@ dependencies = [
  "anyhow",
  "aws-auth",
  "aws-gateway",
+ "aws-iam",
  "aws-kms",
  "aws-peers",
  "aws-secrets",

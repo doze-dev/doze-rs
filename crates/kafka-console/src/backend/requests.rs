@@ -1,13 +1,13 @@
 //! One builder per request the console sends: typed, bounded, nothing the boards do not draw.
 
-pub mod forms;
-pub mod topics_write;
 mod configs;
 mod fetch;
+pub mod forms;
 mod groups;
 mod metadata;
 mod offsets;
 mod producers;
+pub mod topics_write;
 
 pub use configs::{KEYS as TOPIC_CONFIG_KEYS, describe_topic_configs};
 pub use fetch::{Isolation, RECORD_BYTES, TABLE_BYTES, fetch_partition};

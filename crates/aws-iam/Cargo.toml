@@ -1,0 +1,32 @@
+[package]
+name = "aws-iam"
+version = "0.0.0"
+description = "IAM and STS: the identities of an account, their policies and keys, and the sessions roles give out"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+aws-model-iam = { path = "../aws-model-iam" }
+aws-model-sts = { path = "../aws-model-sts" }
+aws-schema = { path = "../aws-schema" }
+aws-wire = { path = "../aws-wire" }
+aws-core = { path = "../aws-core" }
+aws-seal = { path = "../aws-seal" }
+aws-iam-policy = { path = "../aws-iam-policy" }
+doze-runtime = { path = "../doze-runtime" }
+doze-store = { path = "../doze-store" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+hmac = "0.13"
+sha2 = "0.11"
+tokio = { version = "1", default-features = false, features = ["sync", "time"] }
+
+[dev-dependencies]
+aws-testkit = { path = "../aws-testkit" }
+tokio = { version = "1", default-features = false, features = ["rt", "macros", "time", "test-util", "sync"] }

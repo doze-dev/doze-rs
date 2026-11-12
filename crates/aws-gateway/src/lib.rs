@@ -5,10 +5,11 @@
 //! matched to an operation, decoded and validated against the model, handed to the service as an owned
 //! [`aws_wire::service::Call`], and answered. Nothing here knows what any service does.
 //!
-//! Only the awsJson protocols are served so far; a service that speaks another is refused by name with a 501.
+//! The awsJson and awsQuery protocols are served so far; a service that speaks another is refused by name with a 501.
 
 mod config;
 mod pipeline;
+mod query;
 mod server;
 
 pub use config::{Auth, Config};

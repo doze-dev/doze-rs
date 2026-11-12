@@ -47,16 +47,26 @@ impl Shared {
         }
     }
 
-    fn entry(&self, signing_name: &str) -> Option<&Entry> {
+    /// The largest request body read.
+    pub(crate) fn max_body_bytes(&self) -> usize {
+        self.config.max_body_bytes
+    }
+
+    /// The account every request is for.
+    pub(crate) fn account_id(&self) -> &str {
+        &self.config.account_id
+    }
+
+    pub(crate) fn entry(&self, signing_name: &str) -> Option<&Entry> {
         self.by_signing_name
             .get(signing_name)
             .and_then(|&i| self.entries.get(i))
     }
 }
 
-type Out = Response<Vec<u8>>;
+pub(crate) type Out = Response<Vec<u8>>;
 /// An error answer, boxed so the `Err` of a `Result` stays small.
-type Fail = Box<Out>;
+pub(crate) type Fail = Box<Out>;
 
 /// Answers a request. Never fails: a failure is an error answer.
 pub(crate) async fn respond(
@@ -92,7 +102,12 @@ async fn handle(
         )
     })?;
     let (meta, tables) = (entry.service.meta(), entry.service.tables());
-    let version = json::Version::of(meta).ok_or_else(|| early(id, &unserved_protocol(meta)))?;
+    let Some(version) = json::Version::of(meta) else {
+        if meta.speaks(Protocol::AwsQuery) {
+            return crate::query::handle(shared, entry, id, parts, body, claim).await;
+        }
+        return Err(early(id, &unserved_protocol(meta)));
+    };
     let fail = |e: &ApiError| -> Fail {
         Box::new(json::failure(
             meta,
@@ -134,6 +149,7 @@ async fn handle(
         region: claim.region,
         endpoint: endpoint_of(parts),
         service: None,
+        session_token: session_token(parts),
     };
     let call = decode_call(entry, op, id, caller, bytes).map_err(|e| fail(&e))?;
     let output = entry.service.call(call).await.map_err(|e| fail(&e))?;
@@ -158,8 +174,17 @@ fn unserved_protocol(meta: &aws_schema::meta::ServiceMeta) -> ApiError {
     )
 }
 
+/// The session token the request carried.
+pub(crate) fn session_token(parts: &Parts) -> Option<String> {
+    parts
+        .headers
+        .get("x-amz-security-token")
+        .and_then(|v| v.to_str().ok())
+        .map(str::to_owned)
+}
+
 /// The scheme and host the caller used, for URLs in answers.
-fn endpoint_of(parts: &Parts) -> String {
+pub(crate) fn endpoint_of(parts: &Parts) -> String {
     let host = parts
         .headers
         .get(http::header::HOST)
@@ -174,7 +199,7 @@ fn early(id: &RequestId, err: &ApiError) -> Fail {
 }
 
 /// Checks the head of the request in `Verify` mode; `None` in `Trust` mode.
-fn authenticate(
+pub(crate) fn authenticate(
     shared: &Shared,
     parts: &Parts,
     signing_name: &str,
@@ -194,7 +219,7 @@ fn authenticate(
     begin(parts, now, endpoint, creds.as_ref()).map(Some)
 }
 
-async fn read_body(body: Incoming, limit: usize) -> Result<Bytes, ApiError> {
+pub(crate) async fn read_body(body: Incoming, limit: usize) -> Result<Bytes, ApiError> {
     match Limited::new(body, limit).collect().await {
         Ok(collected) => Ok(collected.to_bytes()),
         Err(e) if e.is::<http_body_util::LengthLimitError>() => Err(ApiError::new(

@@ -18,6 +18,10 @@ pub struct Harness<S: Service> {
     patterns: Patterns,
     account: String,
     region: String,
+    /// The session token the calls carry, when a test sets one.
+    pub session_token: Option<String>,
+    /// The access key id the calls carry.
+    pub access_key_id: String,
 }
 
 impl<S: Service> Harness<S> {
@@ -29,6 +33,8 @@ impl<S: Service> Harness<S> {
             patterns,
             account: "000000000000".into(),
             region: "us-east-1".into(),
+            session_token: None,
+            access_key_id: "test".into(),
         }
     }
 
@@ -54,19 +60,23 @@ impl<S: Service> Harness<S> {
     /// The service's wording of a failed check.
     pub fn call(&self, op: u32, request: &Value) -> Result<Call, ApiError> {
         let body = request.to_string();
-        let shape = self.tables().op(op).unwrap().input.unwrap();
         let mut arena = Arena::new();
-        let root = decode(self.tables(), &self.patterns, shape, &body, &mut arena)
-            .map_err(|v| self.service.invalid(&v))?;
+        // An operation with no input takes no body.
+        let root = match self.tables().op(op).unwrap().input {
+            Some(shape) => decode(self.tables(), &self.patterns, shape, &body, &mut arena)
+                .map_err(|v| self.service.invalid(&v))?,
+            None => NIL,
+        };
         Ok(Call {
             op,
             id: RequestId::new(),
             caller: Caller {
-                access_key_id: "test".into(),
+                access_key_id: self.access_key_id.clone(),
                 account_id: self.account.clone(),
                 region: self.region.clone(),
                 endpoint: "http://localhost:4566".into(),
                 service: None,
+                session_token: self.session_token.clone(),
             },
             body,
             arena,

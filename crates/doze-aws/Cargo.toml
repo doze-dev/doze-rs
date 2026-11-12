@@ -18,6 +18,7 @@ aws-sqs = { path = "../aws-sqs" }
 aws-ssm = { path = "../aws-ssm" }
 aws-secrets = { path = "../aws-secrets" }
 aws-kms = { path = "../aws-kms" }
+aws-iam = { path = "../aws-iam" }
 aws-peers = { path = "../aws-peers" }
 aws-wire = { path = "../aws-wire" }
 doze-runtime = { path = "../doze-runtime" }

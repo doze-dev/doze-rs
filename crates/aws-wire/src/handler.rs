@@ -38,3 +38,33 @@ pub fn empty() -> Reply {
         root: NIL,
     })
 }
+
+/// An answer written as JSON, for a handler that builds its answer as a `serde_json::Value`: the value is read into the operation's
+/// output shape (its structure must fit; the size limits and required members of the model are not held against it). `null` is an answer with nothing in it.
+///
+/// # Errors
+/// An internal error when the value is not a valid output of the operation (a fault of the handler's, not of the caller).
+pub fn reply_json(
+    tables: &aws_schema::tables::Tables,
+    patterns: &aws_schema::patterns::Patterns,
+    op: u32,
+    value: &serde_json::Value,
+) -> Reply {
+    let Some(shape) = tables
+        .op(op)
+        .and_then(|o| o.output)
+        .filter(|_| !value.is_null())
+    else {
+        return empty();
+    };
+    let mut arena = Arena::new();
+    let text = value.to_string();
+    let root = aws_schema::json::decode_lenient(tables, patterns, shape, &text, &mut arena)
+        .map_err(|v| {
+            ApiError::internal(format!(
+                "a handler wrote an answer its own model refuses: {v:?}"
+            ))
+        })?;
+    arena.detach(&text);
+    Ok(Output { arena, root })
+}

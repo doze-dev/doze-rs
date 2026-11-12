@@ -62,6 +62,19 @@ impl Arena {
         self.nodes.reserve((body_len / 8).min(4096) + 8);
     }
 
+    /// Makes the tree stand alone: every string that points into the body it was decoded from is copied into the arena's own text,
+    /// so the tree can be written out after the body is gone (an answer a handler built as JSON and decoded into the output shape).
+    pub fn detach(&mut self, body: &str) {
+        for n in &mut self.nodes {
+            if let Val::Str(o, l) = n.val {
+                let s = body.get(o as usize..(o + l) as usize).unwrap_or_default();
+                let at = u32::try_from(self.text.len()).unwrap_or(0);
+                self.text.push_str(s);
+                n.val = Val::Esc(at, l);
+            }
+        }
+    }
+
     pub fn push(&mut self, n: Node) -> u32 {
         let i = u32::try_from(self.nodes.len()).unwrap_or(NIL - 1);
         self.nodes.push(n);

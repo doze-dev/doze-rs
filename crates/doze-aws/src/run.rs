@@ -42,7 +42,10 @@ pub(crate) async fn run(args: Args) -> Result<()> {
             Auth::Verify(Arc::new(creds))
         }
     };
+    let (iam, sts) = aws_iam::services(Arc::new(ctx("iam")));
     let services: Vec<Arc<dyn Service>> = vec![
+        Arc::new(iam),
+        Arc::new(sts),
         Arc::new(aws_sqs::Sqs::new(Arc::new(ctx("sqs")))),
         Arc::new(aws_ssm::Ssm::new(Arc::new(ctx("ssm")))),
         Arc::new(aws_secrets::Secrets::new(Arc::new(ctx("secretsmanager")))),
