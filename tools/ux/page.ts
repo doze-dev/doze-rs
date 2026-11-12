@@ -155,6 +155,9 @@ export class Page {
     return path;
   }
 
+  /** Emulates a media feature (`prefers-reduced-motion`: "reduce" or "no-preference") for the whole tab. */
+  async emulateMedia(name: string, value: string): Promise<void> { await this.cmd("Emulation.setEmulatedMedia", { features: [{ name, value }] }); }
+
   /** Slows the whole tab's animations to `rate` of real time (0 pauses), for a frame-by-frame look. */
   async animationRate(rate: number): Promise<void> { await this.cmd("Animation.enable"); await this.cmd("Animation.setPlaybackRate", { playbackRate: rate }); }
 }

@@ -106,26 +106,30 @@ pub fn search_box(
     html! {
         div class="finput" {
             (glyph(Glyph::Search, 16, ""))
-            (search_input(target, action, name, None, placeholder, label, value))
+            (search_input(&Search { target, action, name, id: None, placeholder, label, value }))
         }
     }
 }
 
 /// The input of [`search_box`] alone, for a toolbar that draws its own frame around it.
+#[derive(Debug, Clone, Copy)]
+pub struct Search<'a> {
+    pub target: &'a str,
+    pub action: &'a str,
+    pub name: &'a str,
+    pub id: Option<&'a str>,
+    pub placeholder: &'a str,
+    pub label: &'a str,
+    pub value: &'a str,
+}
+
+/// The input of a [`Search`].
 #[must_use]
-pub fn search_input(
-    target: &str,
-    action: &str,
-    name: &str,
-    id: Option<&str>,
-    placeholder: &str,
-    label: &str,
-    value: &str,
-) -> Markup {
+pub fn search_input(s: &Search<'_>) -> Markup {
     html! {
-        input type="text" id=[id] name=(name) placeholder=(placeholder) value=(value) aria-label=(label) autocomplete="off" spellcheck="false"
-            hx-get=(action) hx-include="closest form" hx-trigger="input changed delay:250ms, search" hx-sync="this:replace"
-            hx-target={"#" (target)} hx-select={"#" (target)} hx-swap=(IN_PLACE_SWAP) hx-push-url="false" hx-replace-url="true"
+        input type="text" id=[s.id] name=(s.name) placeholder=(s.placeholder) value=(s.value) aria-label=(s.label) autocomplete="off" spellcheck="false"
+            hx-get=(s.action) hx-include="closest form" hx-trigger="input changed delay:250ms, search" hx-sync="this:replace"
+            hx-target={"#" (s.target)} hx-select={"#" (s.target)} hx-swap=(IN_PLACE_SWAP) hx-push-url="false" hx-replace-url="true"
             hx-headers=(REPLACING);
     }
 }

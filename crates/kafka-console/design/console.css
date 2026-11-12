@@ -190,9 +190,8 @@ table.wire tbody tr.new td{background:var(--sel)}
 .bar{display:block;margin:0 0 16px}
 .bar .bar-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;min-height:36px}
 .bar .bar-row .sp{flex:1 1 0;min-width:0}
-.bar .bar-time input{height:36px;box-sizing:border-box;width:172px;padding:0 12px;border:1px solid var(--line2);border-radius:10px;background:#fff;font:inherit;font-size:13.5px;color:var(--text)}
 .bar .bar-time input::placeholder{color:var(--dim);opacity:1}
-.bar-chips{display:flex;align-items:center;gap:8px;height:36px;margin-top:10px;overflow:hidden;white-space:nowrap}
+.bar-chips{display:flex;align-items:center;gap:8px;height:36px;margin-top:10px;white-space:nowrap}
 .bar-chips .fchip{height:30px;padding:0 10px 0 12px;font-size:12.5px}
 .fchip.rm{text-decoration:none;color:var(--bright)}
 .fchip.rm:hover{border-color:var(--accent)}
@@ -256,7 +255,9 @@ table.consumers td.grp .grp-bits{margin-left:12px}
 .bar .bar-row{flex-wrap:nowrap}
 .bar .bar-row .finput{flex:1 1 220px;min-width:180px}
 .bar .bar-row .seg,.bar .bar-row .dim{flex:none}
-.bar-chips .bar-time input{height:30px;width:150px;font-size:12.5px;border-radius:999px;padding:0 12px}
+.bar-chips .bar-time{display:flex;flex-direction:column;align-items:flex-start;white-space:normal;width:260px}
+.bar-chips .bar-time-l{font-size:12.5px;font-weight:500;color:var(--bright);margin-bottom:6px}
+.bar-chips .bar-time input{height:34px;width:100%;box-sizing:border-box;font:inherit;font-size:13.5px;padding:0 12px;border:1px solid var(--line2);border-radius:8px;background:#fff;color:var(--text)}
 .bar-chips .btn.sm{flex:none}
 /* ---- Components (src/ui/components; assets/components.js): the shadcn look on the kit's tokens ---------------------------- */
 /* Page transitions: a thin hint, drawn only when a request takes longer than 250 ms (the script adds .is-loading). */
@@ -338,3 +339,25 @@ html.is-loading::before{content:"";position:fixed;z-index:90;top:0;left:0;right:
 .gal section{padding:20px 24px;background:#fff;border:1px solid var(--line);border-radius:14px}
 .gal h2{margin:0 0 4px;font-size:16px;font-weight:600;color:var(--bright)}
 .gal .row{display:flex;flex-wrap:wrap;align-items:flex-start;gap:16px;margin-top:14px}
+
+/* A narrow window (a laptop with the console beside an editor): the rail keeps only its icons (the name is a tooltip), the page gets
+   its room back, and a table cell is a little tighter, so that no page scrolls sideways at 1024 px. */
+@media (max-width:1180px){
+.rail{width:64px;padding:22px 8px 24px}
+.ni{font-size:0;gap:0;justify-content:center;padding:0;position:relative}
+.ni .soon{display:none}
+.ni.is-soon svg{opacity:.55}
+.hints{display:none}
+.main{padding:24px 28px 72px}
+.t th,.t td{padding-left:12px;padding-right:12px}
+}
+
+/* One focus ring, on the box, for the filter fields; headings balance their lines and paragraphs avoid a one-word last line. */
+.finput:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px rgba(122,79,224,.12)}
+.finput input:focus-visible{outline:0}
+h1,h2,h3{text-wrap:balance}
+p,.sub,.lede,.help{text-wrap:pretty}
+.t td.key{white-space:nowrap}
+.t td.val{max-width:340px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* Reduced motion: the page change is a swap with no cross-fade (the browser's own default for a view transition would fade). */
+@media (prefers-reduced-motion:reduce){::view-transition-group(*),::view-transition-old(*),::view-transition-new(*){animation:none!important}}

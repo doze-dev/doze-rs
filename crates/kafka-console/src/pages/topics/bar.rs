@@ -16,7 +16,7 @@ use super::messages::{TOPIC_VIEW, messages_url};
 use crate::base::Base;
 use crate::format::number;
 use crate::model::{MessageQuery, MessagesView, Reading};
-use crate::ui::components::{Choice, SegItem, Select, seg, select};
+use crate::ui::components::{Choice, SegItem, Select, popover, seg, select};
 use crate::ui::glyph::{Glyph, glyph};
 use crate::ui::inplace::{self, Opts};
 use crate::ui::kafka::filter_box;
@@ -51,24 +51,25 @@ fn partition_pick(v: &MessagesView, base: &Base) -> Markup {
             ..Select::new("topic-partition", "partition", "Partition", &choices, &now)
         });
     }
-    let links: Vec<String> = std::iter::once(to(None))
-        .chain(v.head.parts.iter().map(|p| to(Some(p.partition))))
-        .collect();
-    let labels: Vec<String> = std::iter::once("All partitions".to_owned())
-        .chain(v.head.parts.iter().map(|p| p.partition.to_string()))
-        .collect();
-    let items: Vec<SegItem<'_>> = labels
+    // Each segment: its label, the page with that partition, and whether it is the one in the query.
+    let mut rows: Vec<(String, String, bool)> = vec![(
+        "All partitions".to_owned(),
+        to(None),
+        v.query.partition.is_none(),
+    )];
+    rows.extend(v.head.parts.iter().map(|p| {
+        (
+            p.partition.to_string(),
+            to(Some(p.partition)),
+            v.query.partition == Some(p.partition),
+        )
+    }));
+    let items: Vec<SegItem<'_>> = rows
         .iter()
-        .zip(&links)
-        .enumerate()
-        .map(|(i, (label, href))| SegItem {
+        .map(|(label, href, current)| SegItem {
             label,
             href,
-            current: if i == 0 {
-                v.query.partition.is_none()
-            } else {
-                v.query.partition == Some(v.head.parts[i - 1].partition)
-            },
+            current: *current,
             count: None,
         })
         .collect();
@@ -138,6 +139,20 @@ fn chip(v: &MessagesView, base: &Base, label: &str, without: &MessageQuery) -> M
     }
 }
 
+/// "From time": a Popover with a proper field (what to write, an Apply), in the row's fixed place. The field is part of the form, so
+/// Enter or Apply asks for the time, and every other control of the toolbar carries it along.
+fn time_pick(q: &MessageQuery) -> Markup {
+    let body = html! {
+        div class="bar-time" {
+            label class="bar-time-l" for="bar-time-in" { "From time (UTC)" }
+            input id="bar-time-in" type="text" name="time" value=(q.time.as_ref().map_or("", |t| t.1.as_str())) placeholder="2026-11-09 22:13" size="22" autocomplete="off" spellcheck="false";
+            p class="help" style="margin:8px 0 12px" { "Or milliseconds since the epoch. The first record at or after it." }
+            button class="btn sm pri" type="submit" { "Apply" }
+        }
+    };
+    popover("topic-time", "From time", &body)
+}
+
 /// Row two: the time box, the shortcut to a held record, the filters that are on, or one quiet sentence.
 fn chips(v: &MessagesView, base: &Base) -> Markup {
     let q = &v.query;
@@ -148,7 +163,7 @@ fn chips(v: &MessagesView, base: &Base) -> Markup {
     };
     html! {
         div class="bar-chips" {
-            label class="bar-time" { span class="sr" { "From time (UTC)" } input type="text" name="time" value=(q.time.as_ref().map_or("", |t| t.1.as_str())) placeholder="From time, UTC" size="16"; }
+            (time_pick(q))
             (from_held(v, base))
             @if q.filtered() {
                 @if let Some(p) = q.partition { (chip(v, base, &format!("Partition {p}"), &without(|c| c.partition = None))) }

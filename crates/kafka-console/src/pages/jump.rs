@@ -153,7 +153,7 @@ pub fn jump_page(items: &[JumpItem], total: usize, filter: &str, base: &Base) ->
             form class="toolbar jump-form" method="get" action=(base.url("/jump")) role="search" hx-get=(base.url("/jump")) hx-target={"#" (JUMP_VIEW)} hx-select={"#" (JUMP_VIEW)} hx-swap=(crate::ui::client::IN_PLACE_SWAP) hx-push-url="true" hx-trigger="submit" {
                 div class="input mono" {
                     (glyph(Glyph::Search, 16, ""))
-                    (inplace::search_input(JUMP_VIEW, &base.url("/jump"), "q", Some("q"), "Part of a name", "Part of a topic or group name", filter))
+                    (inplace::search_input(&inplace::Search { target: JUMP_VIEW, action: &base.url("/jump"), name: "q", id: Some("q"), placeholder: "Part of a name", label: "Part of a topic or group name", value: filter }))
                 }
                 button class="btn" type="submit" { "Filter" }
             }

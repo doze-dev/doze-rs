@@ -521,6 +521,38 @@
     if (elt && elt.tagName === 'FORM') elt.submit();
     else if (p && e.detail.requestConfig && e.detail.requestConfig.boosted) location.href = p;
   });
+  // Page changes are latest-wins: a click that follows a click on another link is the page the person wants, so an earlier answer that
+  // is slower than the later one must not land after it. (An abort would say so in the console; this just does not swap the old one.)
+  // And a click that comes while the page's swap is on its way (the cross-fade runs the swap on the next frame, so `main` is about to be
+  // replaced) would aim at the element that is going: it waits for the swap to settle, then clicks again.
+  let navSeq = 0, landing = false, waiting = null, landingTimer = 0;
+  const land = (on) => {
+    landing = on;
+    clearTimeout(landingTimer);
+    if (on) landingTimer = setTimeout(() => land(false), 1500);
+    else if (waiting) {
+      let w = waiting.el;
+      const href = waiting.href;
+      waiting = null;
+      // The element the person clicked may be gone with the swap (the rail is swapped too): its twin in the new page is the one.
+      if (!w.isConnected && href) w = [...document.querySelectorAll('a[href]')].find((a) => a.getAttribute('href') === href) || w;
+      if (w.isConnected) { if (w.tagName === 'FORM') w.requestSubmit(); else w.click(); }
+    }
+  };
+  hx('beforeRequest', (e) => {
+    const c = e.detail.requestConfig;
+    if (!(e.detail.target && e.detail.target.id === 'main') || (c && c.headers && c.headers['HX-Preloaded'])) return;
+    if (landing) { e.preventDefault(); waiting = { el: e.detail.elt, href: e.detail.elt.getAttribute && e.detail.elt.getAttribute('href') }; return; }
+    e.detail.xhr.navSeq = ++navSeq;
+  });
+  hx('beforeSwap', (e) => {
+    const n = e.detail.xhr && e.detail.xhr.navSeq;
+    if (n && n !== navSeq) { e.detail.shouldSwap = false; return; }
+    if (n && e.detail.shouldSwap) land(true);
+  });
+  hx('afterSettle', () => { if (landing) land(false); });
+  hx('swapError', () => land(false));
+  hx('targetError', () => land(false));
   // A control that changes one region asks for the page and picks the region out of it (hx-select). If the answer has no such region
   // (the page the state calls for is a different one: an offline topic, an empty list) nothing would be swapped and the target would
   // be emptied: take the address the way a browser with no script would.
@@ -560,6 +592,9 @@
     sync();
     connect();
   });
+  // Leaving a page by Back or Forward: its scroll is kept too (a click's beforeRequest does that for a forward move), so that the way
+  // back to it finds it where it was left.
+  addEventListener('popstate', () => remember(), true);
   hx('pushedIntoHistory', () => { pageUrl = here(); });
   hx('replacedInHistory', () => { pageUrl = here(); });
   addEventListener('pagehide', remember);

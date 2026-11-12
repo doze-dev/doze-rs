@@ -187,12 +187,12 @@ fn states(v: &GroupsView, base: &Base) -> Markup {
     let items: Vec<SegItem<'_>> = all
         .iter()
         .zip(&hrefs)
-        .enumerate()
-        .map(|(i, ((w, label), href))| SegItem {
+        .zip(v.counts)
+        .map(|(((w, label), href), n)| SegItem {
             label,
             href,
             current: v.state == *w,
-            count: Some(v.counts[i]),
+            count: Some(n),
         })
         .collect();
     seg("State", &items, Some(GROUPS_VIEW))

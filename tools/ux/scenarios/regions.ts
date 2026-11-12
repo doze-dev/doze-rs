@@ -177,3 +177,24 @@ Object.assign(scenarios, {
     });
   },
 });
+
+Object.assign(scenarios, {
+  // "From time" is a Popover with a proper field: open it, write a time, Enter; the chip appears in the same row, nothing moves.
+  async "region-messages-time"(t: T) {
+    const p = t.page;
+    await p.goto("/topics/orders/messages");
+    await pad(p);
+    await p.scrollTo(100);
+    await p.click(`${BAR} .dz-pov-btn`, { scroll: false });
+    await p.waitFor(`document.querySelector('${BAR} .dz-pov-btn').getAttribute('aria-expanded') === 'true'`);
+    await Bun.sleep(150);
+    await p.shot(`${t.shots}/region-messages-time.png`);
+    const r = await p.rect(`${BAR} .dz-pov-card`);
+    t.ok(r.left >= 184 && r.right <= 1280, `the card is inside the content (${r.left}..${r.right})`);
+    await p.focus(`${BAR} #bar-time-in`);
+    await inPlace(t, p, {
+      name: "messages: a time", above: MSG_ABOVE, url: /time=2026/,
+      act: async () => { await p.type("2026-11-09 22:13"); await p.key("Enter"); }, done: "!!document.querySelector('#topic-bar [aria-label^=\"Remove the filter From\"]')",
+    });
+  },
+});

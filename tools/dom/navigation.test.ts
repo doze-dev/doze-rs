@@ -132,7 +132,7 @@ describe("history", () => {
     // htmx has put the page at /topics back (it fetched it again): the scroll goes with it.
     p.history.entries[p.history.index].url = `${ORIGIN}/topics`;
     p.document.body.dispatchEvent(new p.window.CustomEvent("htmx:historyRestore", { bubbles: true, detail: {} }));
-    expect(p.scrolls[p.scrolls.length - 1]).toEqual([0, 321]);
+    expect(p.scrolls[p.scrolls.length - 1][0]).toEqual({ top: 321, left: 0, behavior: "instant" }); // instant: the page has `scroll-behavior: smooth`, a restore must not glide
   });
 });
 

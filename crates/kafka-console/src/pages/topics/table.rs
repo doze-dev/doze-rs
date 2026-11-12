@@ -53,7 +53,7 @@ fn row(r: &RecordRow, topic: &str, query: &str, base: &Base) -> Markup {
             td class="mono" { a class="lnk" href=(href) data-dialog { (number(r.offset)) } }
             td class="mono dim" data-vary { (clock_ms(r.timestamp_ms)) }
             td class="mono key mid-cell" { (key_cell(&r.key)) }
-            td class="mono" style={"font-size:12.5px;" (tone)} { (cell(&r.value, "value")) }
+            td class="mono val" style={"font-size:12.5px;" (tone)} { (cell(&r.value, "value")) }
             td class="mono r" { (bytes(r.value.bytes)) }
             td { (standing(r.standing)) }
         }

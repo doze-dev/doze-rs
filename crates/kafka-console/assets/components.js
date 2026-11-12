@@ -401,12 +401,14 @@ document.addEventListener('alpine:init', () => {
   const textOf = (el) => {
     const t = el.getAttribute('title');
     if (t) return t;
+    // A rail item whose name is hidden (the narrow window) says it.
+    if (el.hasAttribute('data-tip')) return getComputedStyle(el).fontSize === '0px' ? el.getAttribute('data-tip') : '';
     if (el.matches('button,a') && !el.textContent.trim()) return el.getAttribute('aria-label') || '';
     return '';
   };
   const candidate = (n) => {
-    const el = n && n.closest && n.closest('[title],button[aria-label],a[aria-label]');
-    if (!el || el.closest('.dz-tip,.dz-pop,[role=listbox],[role=menu]') || (el.matches('button,a') && !el.getAttribute('title') && el.textContent.trim())) return null;
+    const el = n && n.closest && n.closest('[title],[data-tip],button[aria-label],a[aria-label]');
+    if (!el || el.closest('.dz-tip,.dz-pop,[role=listbox],[role=menu]') || (el.matches('button,a') && !el.getAttribute('title') && !el.hasAttribute('data-tip') && el.textContent.trim())) return null;
     return textOf(el) ? el : null;
   };
   function show(el) {
