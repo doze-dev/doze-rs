@@ -61,13 +61,19 @@ fn unprotected_starts_the_broker_and_the_log_says_what_is_open() {
         log.contains("the console is served on 0.0.0.0:0 with no login and over plain HTTP although SASL is on (--console-unprotected)"),
         "{log}"
     );
-    assert!(!log.contains("is accepted and ignored"), "{log}");
+    // A build with a console acts on the flags; one without says it ignores them.
+    assert_eq!(
+        log.contains("is accepted and ignored"),
+        !cfg!(feature = "console"),
+        "{log}"
+    );
     assert!(!log.contains("planted"), "{log}");
     assert!(broker.terminate().success());
     let _ = std::fs::remove_dir_all(&data);
 }
 
 /// The address the console says it is listening on.
+#[cfg(feature = "console")]
 fn console_addr(broker: &Broker) -> String {
     let deadline = Instant::now() + Duration::from_secs(10);
     loop {
@@ -85,6 +91,7 @@ fn console_addr(broker: &Broker) -> String {
 }
 
 /// One HTTP/1.1 request, answered to the end (the connection is closed after it).
+#[cfg(feature = "console")]
 fn http(addr: &str, head: &str, body: &str) -> String {
     let mut s = TcpStream::connect(addr).unwrap();
     s.set_read_timeout(Some(Duration::from_secs(10))).unwrap();
@@ -99,6 +106,7 @@ fn http(addr: &str, head: &str, body: &str) -> String {
 }
 
 #[test]
+#[cfg(feature = "console")]
 fn the_console_serves_its_pages_beside_the_broker_and_refuses_what_it_should() {
     let data = scratch("console-serves");
     let mut broker = start(&data);
@@ -144,6 +152,7 @@ fn the_console_serves_its_pages_beside_the_broker_and_refuses_what_it_should() {
 }
 
 #[test]
+#[cfg(feature = "console")]
 fn a_stopping_broker_does_not_wait_for_an_open_console_stream() {
     let data = scratch("console-stream");
     let mut broker = start(&data);
@@ -191,6 +200,7 @@ fn console_false_leaves_the_broker_as_it_was() {
 }
 
 #[test]
+#[cfg(feature = "console")]
 fn a_console_address_that_is_taken_stops_the_start_with_exit_2() {
     let data = scratch("console-taken");
     let taken = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
@@ -211,6 +221,7 @@ fn a_console_address_that_is_taken_stops_the_start_with_exit_2() {
 }
 
 #[test]
+#[cfg(feature = "console")]
 fn a_prefix_moves_every_page_under_it() {
     let data = scratch("console-prefix");
     let mut broker = start_with(&data, &["--console-prefix", "/kafka"]);
@@ -227,6 +238,25 @@ fn a_prefix_moves_every_page_under_it() {
     );
     let bare = http(&addr, &format!("GET /connect HTTP/1.1\r\nHost: {addr}"), "");
     assert!(bare.starts_with("HTTP/1.1 404"), "{bare}");
+    assert!(broker.terminate().success());
+    let _ = std::fs::remove_dir_all(&data);
+}
+
+#[test]
+#[cfg(not(feature = "console"))]
+fn a_build_without_a_console_says_it_ignores_the_console_flags_and_serves_none() {
+    let data = scratch("console-lean");
+    let mut broker = start_with(
+        &data,
+        &["--console-addr", "127.0.0.1:0", "--console-prefix", "/k"],
+    );
+    std::thread::sleep(Duration::from_millis(300));
+    let log = broker.log.lock().unwrap().clone();
+    assert!(
+        log.contains("--console-addr is accepted and ignored: this build has no console"),
+        "{log}"
+    );
+    assert!(!log.contains("the console is listening"), "{log}");
     assert!(broker.terminate().success());
     let _ = std::fs::remove_dir_all(&data);
 }

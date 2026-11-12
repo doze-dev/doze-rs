@@ -51,9 +51,15 @@ fn main() -> Result<()> {
         tracing::info!(cert = %tls.cert_file().display(), "TLS is on: clients must connect with TLS (1.2 or newer)");
     }
     for flag in args.ignored() {
-        tracing::warn!(
-            "{flag} is accepted and ignored: that part of doze-kafka is not in this edition yet"
-        );
+        if flag.starts_with("--console") {
+            tracing::warn!(
+                "{flag} is accepted and ignored: this build has no console (it is built without the `console` feature)"
+            );
+        } else {
+            tracing::warn!(
+                "{flag} is accepted and ignored: that part of doze-kafka is not in this edition yet"
+            );
+        }
     }
     for warning in &settings.warnings {
         tracing::warn!("{warning}");
