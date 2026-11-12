@@ -20,6 +20,7 @@ aws-secrets = { path = "../aws-secrets" }
 aws-kms = { path = "../aws-kms" }
 aws-iam = { path = "../aws-iam" }
 aws-kinesis = { path = "../aws-kinesis" }
+aws-logs = { path = "../aws-logs" }
 aws-peers = { path = "../aws-peers" }
 aws-wire = { path = "../aws-wire" }
 doze-runtime = { path = "../doze-runtime" }

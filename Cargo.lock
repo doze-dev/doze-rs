@@ -155,6 +155,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "aws-cloudwatch"
+version = "0.0.0"
+dependencies = [
+ "aws-core",
+ "aws-model-cloudwatch",
+ "aws-peers",
+ "aws-schema",
+ "aws-testkit",
+ "aws-wire",
+ "doze-runtime",
+ "doze-store",
+ "serde",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "aws-core"
 version = "0.0.0"
 
@@ -269,6 +286,24 @@ dependencies = [
  "serde_json",
  "sha1",
  "sha2",
+ "tokio",
+]
+
+[[package]]
+name = "aws-logs"
+version = "0.0.0"
+dependencies = [
+ "aws-core",
+ "aws-model-cloudwatch-logs",
+ "aws-peers",
+ "aws-schema",
+ "aws-seal",
+ "aws-testkit",
+ "aws-wire",
+ "doze-runtime",
+ "doze-store",
+ "serde",
+ "serde_json",
  "tokio",
 ]
 
@@ -1089,6 +1124,7 @@ dependencies = [
  "aws-iam",
  "aws-kinesis",
  "aws-kms",
+ "aws-logs",
  "aws-peers",
  "aws-secrets",
  "aws-sqs",
