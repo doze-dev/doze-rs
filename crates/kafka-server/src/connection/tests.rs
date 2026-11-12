@@ -36,6 +36,7 @@ fn context_of(timeouts: Timeouts, config: BrokerConfig) -> Context<SimFs> {
         timeouts,
         auth: None,
         observer: None,
+        fault: None,
         numbers: crate::connections::Numbers::default(),
     }
 }

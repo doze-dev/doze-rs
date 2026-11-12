@@ -14,6 +14,7 @@ mod groups;
 mod guard;
 mod handlers;
 mod listener;
+mod lab;
 mod log_notes;
 #[cfg(feature = "inspect")]
 pub use log_notes::{DeletedNote, PassNote, RoundNote};
