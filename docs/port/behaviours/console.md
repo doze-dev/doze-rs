@@ -521,7 +521,7 @@ Test: `pages::log::tests::the_four_boards_are_the_four_states_of_one_page_chosen
 Test: `producers_words::tests::the_producers_page_says_what_the_open_transaction_holds_back`, `with_no_transaction_the_stable_offset_is_the_high_watermark_and_with_no_producer_it_says_so`, `a_transaction_is_described_with_its_clock_its_timeout_and_what_it_holds`, `what_it_holds_back_counts_records_per_partition`, `if_it_is_not_ended_the_sentence_names_the_time_the_markers_and_the_new_epoch`, `the_page_that_says_who_is_held_counts_the_distance_in_words`.
 
 ## CON-525. The Producers page has a toggle that works without a script, and never names a client it has not seen
-Test: `pages::producers::tests::the_producer_with_an_open_transaction_shows_its_five_batches_and_the_others_a_link_to_open_theirs`, `the_toggle_links_keep_the_other_open_rows_and_work_without_a_script`, `the_tail_marks_the_stable_offset_and_counts_the_held_records`, `a_producer_is_shown_with_a_name_only_when_the_recorder_gave_one`, `the_transaction_page_has_the_countdown_and_the_two_ways_on`.
+Test: `pages::producers::tests::each_producer_is_a_native_disclosure_open_for_the_one_with_a_transaction_and_a_deep_link_opens_another`, `no_producer_row_is_a_link_with_a_query_and_nothing_says_aria_expanded`, `the_tail_marks_the_stable_offset_and_counts_the_held_records`, `a_producer_is_shown_with_a_name_only_when_the_recorder_gave_one`, `the_transaction_page_has_the_countdown_and_the_two_ways_on`.
 
 ## CON-530. A compacted log is drawn from what the cleaner left
 Test: `a_compacted_log_is_drawn_from_what_the_cleaner_left` (`tests/live_log.rs`).
