@@ -3,15 +3,15 @@
 use aws_model_secrets_manager::keys::{
     DescribeSecretRequest as Describe, DescribeSecretResponse as Described, Filter,
     ListSecretVersionIdsRequest as Versions, ListSecretVersionIdsResponse as Listed,
-    ListSecretsRequest as List, ListSecretsResponse as Secrets, SecretListEntry as Entry,
-    SecretVersionsListEntry as VersionEntry, Tag,
+    ListSecretsRequest as List, ListSecretsResponse as Secrets, RotationRulesType as Rules,
+    SecretListEntry as Entry, SecretVersionsListEntry as VersionEntry, Tag,
 };
 use aws_schema::build::Object;
 use aws_wire::handler::{reply, request};
 use aws_wire::service::{Call, Reply};
 
 use crate::core::{Core, invalid_parameter};
-use crate::model::Secret;
+use crate::model::{Rotation, Secret};
 
 const DEFAULT_KEY: &str = "DefaultEncryptionKey";
 const LIST_PAGE: usize = 100;
@@ -65,7 +65,7 @@ impl Cond {
     }
 }
 
-fn describe_into(s: &Secret, d: &mut Object<'_, Described>) {
+fn describe_into(s: &Secret, r: Option<&Rotation>, d: &mut Object<'_, Described>) {
     d.put(Described::ARN, &s.arn);
     d.put(Described::NAME, &s.name);
     if let Some(t) = &s.kind {
@@ -78,6 +78,21 @@ fn describe_into(s: &Secret, d: &mut Object<'_, Described>) {
         d.put(Described::KMS_KEY_ID, k);
     }
     d.put_time(Described::LAST_CHANGED_DATE, seconds(s.changed_ms));
+    if let Some(r) = r {
+        d.put_bool(Described::ROTATION_ENABLED, r.enabled);
+        if let Some(f) = &r.function {
+            d.put(Described::ROTATION_LAMBDA_ARN, f);
+        }
+        if r.after_days.is_some() || r.schedule.is_some() || r.duration.is_some() {
+            d.put_object(Described::ROTATION_RULES, |o| rules_into(r, o));
+        }
+        if let Some(at) = r.last_ms {
+            d.put_time(Described::LAST_ROTATED_DATE, seconds(at));
+        }
+        if let Some(at) = r.next_ms() {
+            d.put_time(Described::NEXT_ROTATION_DATE, seconds(at));
+        }
+    }
     if let Some(a) = s.accessed_day_ms {
         d.put_time(Described::LAST_ACCESSED_DATE, seconds(a));
     }
@@ -108,7 +123,19 @@ fn describe_into(s: &Secret, d: &mut Object<'_, Described>) {
     d.put_time(Described::CREATED_DATE, seconds(s.created_ms));
 }
 
-fn list_entry(s: &Secret, d: &mut Object<'_, Entry>) {
+fn rules_into(r: &Rotation, o: &mut Object<'_, Rules>) {
+    if let Some(n) = r.after_days {
+        o.put_int(Rules::AUTOMATICALLY_AFTER_DAYS, n);
+    }
+    if let Some(x) = &r.duration {
+        o.put(Rules::DURATION, x);
+    }
+    if let Some(x) = &r.schedule {
+        o.put(Rules::SCHEDULE_EXPRESSION, x);
+    }
+}
+
+fn list_entry(s: &Secret, r: Option<&Rotation>, d: &mut Object<'_, Entry>) {
     d.put(Entry::ARN, &s.arn);
     d.put(Entry::NAME, &s.name);
     if let Some(t) = &s.kind {
@@ -121,6 +148,21 @@ fn list_entry(s: &Secret, d: &mut Object<'_, Entry>) {
         d.put(Entry::KMS_KEY_ID, k);
     }
     d.put_time(Entry::LAST_CHANGED_DATE, seconds(s.changed_ms));
+    if let Some(r) = r {
+        d.put_bool(Entry::ROTATION_ENABLED, r.enabled);
+        if let Some(f) = &r.function {
+            d.put(Entry::ROTATION_LAMBDA_ARN, f);
+        }
+        if r.after_days.is_some() || r.schedule.is_some() || r.duration.is_some() {
+            d.put_object(Entry::ROTATION_RULES, |o| rules_into(r, o));
+        }
+        if let Some(at) = r.last_ms {
+            d.put_time(Entry::LAST_ROTATED_DATE, seconds(at));
+        }
+        if let Some(at) = r.next_ms() {
+            d.put_time(Entry::NEXT_ROTATION_DATE, seconds(at));
+        }
+    }
     if let Some(a) = s.accessed_day_ms {
         d.put_time(Entry::LAST_ACCESSED_DATE, seconds(a));
     }
@@ -155,7 +197,8 @@ impl Core {
     pub(crate) fn describe_secret(&mut self, call: &Call) -> Reply {
         let v = request::<Describe>(call)?;
         let s = self.secret(v.get(Describe::SECRET_ID).unwrap_or_default())?;
-        reply::<Described>(|d| describe_into(s, d))
+        let r = self.rotations.get(&s.name);
+        reply::<Described>(|d| describe_into(s, r, d))
     }
 
     pub(crate) fn list_secrets(&mut self, call: &Call) -> Reply {
@@ -219,7 +262,7 @@ impl Core {
         reply::<Secrets>(|o| {
             o.put_list(Secrets::SECRET_LIST, |l| {
                 for s in &page {
-                    l.push(|d| list_entry(s, d));
+                    l.push(|d| list_entry(s, self.rotations.get(&s.name), d));
                 }
             });
             if let Some(t) = &token {
