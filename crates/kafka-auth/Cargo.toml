@@ -18,6 +18,8 @@ subtle = { version = "2.6.1", default-features = false }
 thiserror = "2"
 # The server nonce and the salts of the verifiers (already in the build through the broker).
 getrandom = "0.4"
+# The stored users: a snapshot read with one atomic load (already in the build through the broker).
+arc-swap = "1"
 
 [features]
 # A SCRAM client, for the tests of the crates that use this one. Off in a release build.

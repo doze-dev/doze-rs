@@ -1,9 +1,12 @@
 //! What a broker needs to decide a login: the mechanisms it offers and the users it knows.
 
+use std::sync::Arc;
+
 use crate::credentials::{Credentials, CredentialsError};
 use crate::plain::{self, Refusal};
 use crate::principal::{Mechanism, Principal};
 use crate::scram::{self, Awaiting, Kind, Why};
+use crate::users::Users;
 
 /// A configuration that cannot work. The text never holds a password.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
@@ -20,12 +23,13 @@ pub enum SetupError {
     Scram(#[from] CredentialsError),
 }
 
-/// The mechanisms a listener offers and the users that may log in. Immutable once built, so it is shared by
-/// every connection without a lock.
+/// The mechanisms a listener offers and the users that may log in. The mechanisms are fixed once built; the users are
+/// two layers (see [`Users`]), the second of which changes at run time behind a snapshot, so a connection never
+/// takes a lock to log in.
 #[derive(Debug)]
 pub struct Authenticator {
     offered: Vec<Mechanism>,
-    credentials: Credentials,
+    users: Arc<Users>,
 }
 
 impl Authenticator {
@@ -40,12 +44,42 @@ impl Authenticator {
         if credentials.is_empty() {
             return Err(SetupError::NoUsers);
         }
-        let kinds: Vec<Kind> = mechanisms.iter().filter_map(|&m| Kind::of(m)).collect();
-        let credentials = credentials.with_scram(&kinds)?;
+        Self::over(mechanisms, Arc::new(Users::derive(credentials, mechanisms)?))
+    }
+
+    /// An authenticator offering `mechanisms` to `users`, which may have no one yet: the broker that shares them
+    /// loads the stored users when it opens, and the caller then asks [`Authenticator::ensure_users`].
+    ///
+    /// # Errors
+    /// No mechanism.
+    pub fn over(mechanisms: &[Mechanism], users: Arc<Users>) -> Result<Self, SetupError> {
+        if mechanisms.is_empty() {
+            return Err(SetupError::NoMechanism);
+        }
         Ok(Self {
             offered: java_hash_set_order(mechanisms),
-            credentials,
+            users,
         })
+    }
+
+    /// The users, both layers.
+    #[must_use]
+    pub fn users(&self) -> &Arc<Users> {
+        &self.users
+    }
+
+    /// Refuses a start where SASL is on and nobody could ever log in: no configured user and no stored one. A
+    /// broker started that way on purpose says so (`allow_empty`), and its first user is made over the API by a
+    /// super user.
+    ///
+    /// # Errors
+    /// [`SetupError::NoUsers`].
+    pub fn ensure_users(&self, allow_empty: bool) -> Result<(), SetupError> {
+        if allow_empty || !self.users.is_empty() {
+            Ok(())
+        } else {
+            Err(SetupError::NoUsers)
+        }
     }
 
     /// The mechanisms offered, in the order a SaslHandshake answer lists them: the order Kafka lists them in,
@@ -55,10 +89,10 @@ impl Authenticator {
         &self.offered
     }
 
-    /// How many users may log in.
+    /// How many users configured at start may log in (the stored ones come and go).
     #[must_use]
     pub fn user_count(&self) -> usize {
-        self.credentials.len()
+        self.users.bootstrap_len()
     }
 
     /// Whether `mechanism` is offered.
@@ -82,16 +116,17 @@ impl Authenticator {
         let kind = kind.ok_or(rejected(Why::UnknownUser))?;
         let nonce = scram::fresh_nonce().ok_or(rejected(Why::NoEntropy))?;
         scram::first(kind, token, &nonce, |user| {
-            self.credentials.verifier(kind, user)
+            self.users.verifier(kind, user)
         })
     }
 
-    /// Judges a PLAIN token.
+    /// Judges a PLAIN token. Only the users configured at start can log in this way: a stored SCRAM verifier cannot
+    /// give a password back to be compared.
     ///
     /// # Errors
     /// The first check the token fails.
     pub fn plain(&self, token: &[u8]) -> Result<Principal, Refusal> {
-        plain::check(token, &self.credentials)
+        plain::check(token, self.users.bootstrap())
     }
 }
 
