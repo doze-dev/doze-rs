@@ -33,6 +33,12 @@ test = false
 doc = false
 
 [[bin]]
+name = "fuzz_ws_frame"
+path = "fuzz_targets/fuzz_ws_frame.rs"
+test = false
+doc = false
+
+[[bin]]
 name = "fuzz_openapi"
 path = "fuzz_targets/fuzz_openapi.rs"
 test = false

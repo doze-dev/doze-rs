@@ -21,6 +21,19 @@ use crate::Inner;
 
 use frame::accept_key;
 
+/// Reads every message out of `raw` as a session would (for the fuzz target): how many were read before the end or an error.
+pub(crate) fn read_all(raw: &[u8]) -> usize {
+    let mut reader = frame::Reader::default();
+    if reader.push(raw).is_err() {
+        return 0;
+    }
+    let mut n = 0;
+    while let Ok(Some(_)) = reader.next() {
+        n += 1;
+    }
+    n
+}
+
 /// How many messages may wait for a slow client before a post to it is refused.
 const QUEUE: usize = 256;
 

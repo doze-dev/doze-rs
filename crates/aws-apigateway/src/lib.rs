@@ -263,6 +263,11 @@ pub mod fuzz {
         crate::plane::jwt_decode(text);
     }
 
+    /// WebSocket frames from a client.
+    pub fn ws_frames(raw: &[u8]) {
+        crate::plane::ws::read_all(raw);
+    }
+
     /// An OpenAPI document (JSON or the YAML subset).
     pub fn openapi(text: &str) {
         drop(crate::openapi::read(text));
