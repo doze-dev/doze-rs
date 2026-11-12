@@ -13,7 +13,8 @@
 import { join } from "node:path";
 import type { T } from "../drive.ts";
 
-const LIVE = process.env.LIVE_URL ?? "http://127.0.0.1:9094";
+// Opt-in: set LIVE_URL to a real broker's console (with traffic); without it the scenario passes quietly.
+const LIVE = process.env.LIVE_URL ?? "";
 
 const INSTALL = `(() => {
   const wire = document.getElementById('live-wire');
@@ -58,6 +59,7 @@ const INSTALL = `(() => {
 })()`;
 
 async function reachable(): Promise<boolean> {
+  if (!LIVE) return false;
   try { return (await fetch(LIVE + "/live", { signal: AbortSignal.timeout(2000) })).ok; } catch { return false; }
 }
 

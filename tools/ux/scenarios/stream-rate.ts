@@ -5,7 +5,8 @@
 // without a change, Live at most 10 per 10 s.
 import type { T } from "../drive.ts";
 
-const LIVE = process.env.LIVE_URL ?? "http://127.0.0.1:9094";
+// Opt-in: set LIVE_URL to a real broker's console (with traffic); without it the scenario passes quietly.
+const LIVE = process.env.LIVE_URL ?? "";
 
 async function ticks(url: string, seconds: number): Promise<number> {
   const ctl = new AbortController();
@@ -34,6 +35,7 @@ const PAGES: [string, string][] = [
 
 export const scenarios: Record<string, (t: T) => Promise<void>> = {
   async "stream-rate"(t: T) {
+    if (!LIVE) { t.num("skipped", "set LIVE_URL"); return; }
     try { await fetch(LIVE + "/live", { signal: AbortSignal.timeout(2000) }); } catch { t.num("skipped", "no real broker at " + LIVE); return; }
     const jobs = PAGES.map(async ([name, path]) => {
       const html = await (await fetch(LIVE + path)).text();

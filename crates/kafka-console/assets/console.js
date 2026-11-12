@@ -112,7 +112,8 @@
       },
       // Alpine owns an `x-show` element's `style`: the server's copy (closed) must not close it.
       beforeAttributeUpdated: (name, node) => {
-        if (name === 'style' && node.hasAttribute && node.hasAttribute('x-show')) return false;
+        if (name === 'style' && node.hasAttribute && (node.hasAttribute('x-show') || node.hasAttribute('data-hold'))) return false;
+        if (name === 'data-hold') return false;
         // A disclosure the person opened or shut stays as they left it: a filter that morphs its region does not undo it.
         if ((name === 'open' || name === 'data-touched') && node.tagName === 'DETAILS' && node.hasAttribute('data-touched')) return false;
         return true;
@@ -168,7 +169,14 @@
       if (n.data !== r.shown) { const m = REL.exec(n.data); if (m) { r.base = parseFloat(m[1]) * SEC[m[2]]; r.at = now; r.shown = n.data; } else relNodes.delete(n); continue; }
       const t = relText(r.base + (now - r.at));
       const next = r.whole ? n.data.replace(REL, t + ' ago') : t;
-      if (next !== n.data) { n.data = next; r.shown = next; }
+      if (next !== n.data) {
+        // A sentence that holds a time never gets SHORTER than it has been: if a longer number wraps it onto another line the block
+        // keeps the room, so nothing below it moves back and forth every few seconds (it may grow once, never shrink).
+        const block = n.parentElement && n.parentElement.closest('p,.sub,.sent,.lede,dd,td');
+        const before = block ? block.offsetHeight : 0;
+        n.data = next; r.shown = next;
+        if (block && block.offsetHeight !== before) { const h = Math.max(before, block.offsetHeight); block.style.minHeight = h + 'px'; block.setAttribute('data-hold', ''); }
+      }
     }
   }, 1000);
   document.addEventListener('htmx:afterSettle', () => rel());

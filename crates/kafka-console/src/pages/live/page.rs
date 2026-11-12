@@ -119,7 +119,7 @@ fn refusals(v: &LiveView, base: &Base) -> Markup {
             div style="flex:1" {
                 b { "Refused among the rows kept: " (v.refused_total + denied) "." }
                 " Kafka's own refusals" @if denied > 0 { " and the ACLs' denials (" (denied) ")" } ", with the rule behind each."
-                div class="row wrap" style="gap:28px;margin-top:8px" {
+                div class="row wrap refusal-links" style="gap:8px 28px;margin-top:8px" {
                     @for r in &v.refused {
                         a class="lnk" href=(request_url_in(base, r.id, q)) data-dialog {
                             span class="mono" { (r.code_name) " (" (r.code) ")" } " · " (r.client) " · " span data-vary { (crate::format::clock(r.at_ms)) }

@@ -769,3 +769,10 @@ p,.sub,.lede,.help{text-wrap:pretty}
 .new-pill[hidden]{display:none}
 .dz-chip .dz-field{min-width:11rem;height:36px;border-radius:999px;padding:0 10px 0 12px;box-shadow:none;background:transparent}
 .dz-chip.on .dz-field{background:var(--sel);border-color:#cdbff4}
+
+/* A slot whose content changes does not change its size (no layout depends on a live value): the list of refusals above the tape is
+   always two lines tall (the newest that fit; the drawer of each has the rest), so a new refusal moves nothing. */
+.refusal-links{height:52px;overflow:hidden;align-content:flex-start}
+.wire-dock>h2,.wire-dock>.lede{min-height:0}
+/* Figures keep their width as they change. */
+.sub .mono,.sub b,.sent .mono,.sent b,.tab .n,.pill,.mono.r,td.mono,.stat .v,.kv dd .mono{font-variant-numeric:tabular-nums}
