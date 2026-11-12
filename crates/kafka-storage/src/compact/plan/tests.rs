@@ -245,3 +245,16 @@ fn the_reading_says_what_stops_cleaning_and_agrees_with_the_verdict_whatever_the
         "nothing dirty has no share"
     );
 }
+
+#[test]
+fn a_transaction_open_exactly_at_the_active_segment_is_the_active_segment_that_stops_cleaning() {
+    let s = segs(&[(0, 100, 1), (100, 100, 2), (200, 100, 3)]);
+    let r = reading(&s, 100, 300, 300, &P);
+    assert_eq!(
+        (r.limit, r.upto),
+        (Limit::Active, 300),
+        "a tie is the active segment's"
+    );
+    let r = reading(&s, 100, 299, 300, &P);
+    assert_eq!((r.limit, r.upto), (Limit::Transaction, 299));
+}

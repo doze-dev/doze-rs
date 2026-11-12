@@ -1908,5 +1908,19 @@
     "selector": "h2 Segments",
     "reason": "improvement: [p9g] Every Log page, in any state, carries the ruler with its heading, the Durability card and the Segments table (and a compacted one the Last round and Deletions cards, and a link to the Log of the other topics): what is true of a log is true whichever state it is in. The board draws them only on the due state.",
     "expires": "close"
+  },
+  {
+    "board": "log-empty",
+    "field": "heading",
+    "selector": "h3 This log has nothing in it",
+    "reason": "[p9g] The empty state's title is an h2 in the page and an h3 on the canvas (an h3 straight under the h1 skips a level); the CSS styles both alike.",
+    "expires": "close"
+  },
+  {
+    "board": "log-empty",
+    "field": "heading",
+    "selector": "h2 This log has nothing in it",
+    "reason": "[p9g] The empty state's title is an h2 in the page and an h3 on the canvas (an h3 straight under the h1 skips a level); the CSS styles both alike.",
+    "expires": "close"
   }
 ]

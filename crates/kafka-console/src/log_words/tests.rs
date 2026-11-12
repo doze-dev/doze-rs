@@ -217,3 +217,17 @@ fn a_share_is_a_whole_per_cent_and_a_ratio_reads_as_the_config_does() {
         ("0.5".to_owned(), "0.7".to_owned(), "1".to_owned())
     );
 }
+
+#[test]
+fn a_share_exactly_at_the_threshold_is_not_over_it() {
+    let mut v = view("customer.profiles");
+    let c = v.compaction.as_mut().unwrap();
+    (c.planner.dirty_bytes, c.planner.clean_bytes) = (100, 100);
+    let r = rules(&v);
+    assert_eq!(
+        (r[1].tone, r[1].value.as_str()),
+        (RuleTone::No, "50 % \u{2264} 50 %")
+    );
+    v.compaction.as_mut().unwrap().planner.dirty_bytes = 101;
+    assert_eq!(rules(&v)[1].tone, RuleTone::Ok);
+}

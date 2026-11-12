@@ -353,7 +353,7 @@ Tagged in the code and in `debt.md` J121 to J130.
 - The name of the flag behind a Static flag (`--segment-bytes`): the table knows the broker config, not the flag.
 - Segment sizes ("Segments 1 to 7 keep their size", "the active segment (0.6 MiB)"): the dialog does not read the log's files.
 
-## Slice 9g: the Log page and Producers (CON-500 to CON-549)
+## Slice 9g: the Log page and Producers (rules numbered from CON-500)
 
 Boards `topic-log`, `log-planner`, `log-retention`, `log-empty`, `topic-producers`, `txn-open`, `txn-holding`. Routes: `/topics/{topic}/log` (the four Log boards: the data chooses), `/topics/{topic}/producers`, `/topics/{topic}/transactions/{txn}` (`txn-open`, a route of its own because it is a page about one transactional id, not about a partition) and `/topics/{topic}/transactions/{txn}/held` (`txn-holding`, reached by the button "Who is held"). All are read-only pages: a GET changes nothing and no page has a form.
 

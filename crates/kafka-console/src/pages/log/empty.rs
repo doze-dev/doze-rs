@@ -20,7 +20,7 @@ pub(super) fn empty(v: &LogView, base: &Base, listen: &str) -> Markup {
     html! {
         div class="empty" {
             div class="ic" { (log_glyph(LogGlyph::Log, 24, "")) }
-            h3 { "This log has nothing in it" }
+            h2 { "This log has nothing in it" }
             p {
                 "The first record written lands at offset " (v.end) ". Segments appear when the active one reaches "
                 span class="mono" { "segment.bytes" } " (" (bytes(v.segment_bytes)) ")" (rolls) "."
