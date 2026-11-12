@@ -425,13 +425,6 @@
   {
     "board": "groups-list",
     "field": "link",
-    "selector": "group-story",
-    "reason": "[p9c] The group event ring and the Story page (slice 9f) do not exist yet: the Story tab is drawn without a link, a member that left is not remembered, and a cause is not given (debt J94).",
-    "expires": "9f"
-  },
-  {
-    "board": "groups-list",
-    "field": "link",
     "selector": "lag-ahead",
     "reason": "[p9c] One address serves several states of a group page (the data chooses: /groups/{group} is group-detail, group-detail-848 or group-rebalancing; /lag is four states), and a switch-group chip links to the same tab of another group, so the link the board draws to a particular state of another group is the same address; routes.json maps an address to several screens and the tool counts one of them.",
     "expires": "close"
@@ -674,13 +667,6 @@
   {
     "board": "group-rebalancing",
     "field": "link",
-    "selector": "group-story",
-    "reason": "[p9c] The group event ring and the Story page (slice 9f) do not exist yet: the Story tab is drawn without a link, a member that left is not remembered, and a cause is not given (debt J94).",
-    "expires": "9f"
-  },
-  {
-    "board": "group-rebalancing",
-    "field": "link",
     "selector": "group-wire",
     "reason": "[p9c] The wire recorder (slice 9e) does not exist yet, so the 'What just happened' dock is not drawn (debt J93).",
     "expires": "9e"
@@ -705,13 +691,6 @@
     "selector": "DeleteGroups",
     "reason": "[p9c] A Delete group, Reset offsets or Preview control is a link to a dialog (or a button of a form) where the board draws a button or a link of the other kind; the Kafka API named is the same.",
     "expires": "close"
-  },
-  {
-    "board": "group-rebalancing",
-    "field": "state",
-    "selector": "st idle in rows",
-    "reason": "[p9c] The group event ring and the Story page (slice 9f) do not exist yet: the Story tab is drawn without a link, a member that left is not remembered, and a cause is not given (debt J94).",
-    "expires": "9f"
   },
   {
     "board": "group-rebalancing",
@@ -761,13 +740,6 @@
     "selector": "group-offset-delete",
     "reason": "[p9c] One address serves several states of a group page (the data chooses: /groups/{group} is group-detail, group-detail-848 or group-rebalancing; /lag is four states), and a switch-group chip links to the same tab of another group, so the link the board draws to a particular state of another group is the same address; routes.json maps an address to several screens and the tool counts one of them.",
     "expires": "close"
-  },
-  {
-    "board": "lag-no-commits",
-    "field": "link",
-    "selector": "group-story",
-    "reason": "[p9c] The group event ring and the Story page (slice 9f) do not exist yet: the Story tab is drawn without a link, a member that left is not remembered, and a cause is not given (debt J94).",
-    "expires": "9f"
   },
   {
     "board": "lag-no-commits",
@@ -1538,13 +1510,6 @@
     "expires": "close"
   },
   {
-    "board": "story-flapping",
-    "field": "link",
-    "selector": "group-story",
-    "reason": "[p9f] The tab that is showing is a link to its own page marked aria-current, as on the other group pages; the board draws plain text.",
-    "expires": "close"
-  },
-  {
     "board": "story-rebalance",
     "field": "button",
     "selector": "Close [-] -> to:group-story",
@@ -1556,6 +1521,182 @@
     "field": "link",
     "selector": "group-story",
     "reason": "improvement: the Close control and the scrim are real links to the Story behind the drawer, so that closing works with no script.",
+    "expires": "close"
+  },
+  {
+    "board": "group-delete-refused",
+    "field": "link",
+    "selector": "group-story",
+    "reason": "improvement: the Story tab is a link to the Story page, with the count of the ring; the board draws it as plain text, as the Story was not built.",
+    "expires": "close"
+  },
+  {
+    "board": "group-detail",
+    "field": "link",
+    "selector": "group-story",
+    "reason": "improvement: the Story tab is a link to the Story page, with the count of the ring; the board draws it as plain text, as the Story was not built.",
+    "expires": "close"
+  },
+  {
+    "board": "group-detail-848",
+    "field": "link",
+    "selector": "group-story",
+    "reason": "improvement: the Story tab is a link to the Story page, with the count of the ring; the board draws it as plain text, as the Story was not built.",
+    "expires": "close"
+  },
+  {
+    "board": "group-lag",
+    "field": "link",
+    "selector": "group-story",
+    "reason": "improvement: the Story tab is a link to the Story page, with the count of the ring; the board draws it as plain text, as the Story was not built.",
+    "expires": "close"
+  },
+  {
+    "board": "group-members",
+    "field": "link",
+    "selector": "group-story",
+    "reason": "improvement: the Story tab is a link to the Story page, with the count of the ring; the board draws it as plain text, as the Story was not built.",
+    "expires": "close"
+  },
+  {
+    "board": "group-reset-refused",
+    "field": "link",
+    "selector": "group-story",
+    "reason": "improvement: the Story tab is a link to the Story page, with the count of the ring; the board draws it as plain text, as the Story was not built.",
+    "expires": "close"
+  },
+  {
+    "board": "group-story",
+    "field": "state",
+    "selector": "st ok",
+    "render": "live",
+    "reason": "live data: the contrast card needs a second, calm group, and the live world has one group; the fixture render holds the board's own",
+    "expires": "close"
+  },
+  {
+    "board": "story-rebalance",
+    "field": "heading",
+    "selector": "h2 Generation 31",
+    "render": "live",
+    "reason": "live data: the live world's group, its generation numbers, members and states are what the broker has (a settled generation where the board draws one still forming); the fixture render holds the board's own",
+    "expires": "close"
+  },
+  {
+    "board": "story-rebalance",
+    "field": "heading",
+    "selector": "h2 Generation 2",
+    "render": "live",
+    "reason": "live data: the live world's group, its generation numbers, members and states are what the broker has (a settled generation where the board draws one still forming); the fixture render holds the board's own",
+    "expires": "close"
+  },
+  {
+    "board": "story-rebalance",
+    "field": "dt",
+    "selector": "Not rejoined",
+    "render": "live",
+    "reason": "live data: the live world's group, its generation numbers, members and states are what the broker has (a settled generation where the board draws one still forming); the fixture render holds the board's own",
+    "expires": "close"
+  },
+  {
+    "board": "story-rebalance",
+    "field": "dt",
+    "selector": "If nobody rejoins",
+    "render": "live",
+    "reason": "live data: the live world's group, its generation numbers, members and states are what the broker has (a settled generation where the board draws one still forming); the fixture render holds the board's own",
+    "expires": "close"
+  },
+  {
+    "board": "story-rebalance",
+    "field": "dt",
+    "selector": "Lasted",
+    "render": "live",
+    "reason": "live data: the live world's group, its generation numbers, members and states are what the broker has (a settled generation where the board draws one still forming); the fixture render holds the board's own",
+    "expires": "close"
+  },
+  {
+    "board": "story-rebalance",
+    "field": "state",
+    "selector": "st warn",
+    "render": "live",
+    "reason": "live data: the live world's group, its generation numbers, members and states are what the broker has (a settled generation where the board draws one still forming); the fixture render holds the board's own",
+    "expires": "close"
+  },
+  {
+    "board": "story-rebalance",
+    "field": "state",
+    "selector": "st ok",
+    "render": "live",
+    "reason": "live data: the live world's group, its generation numbers, members and states are what the broker has (a settled generation where the board draws one still forming); the fixture render holds the board's own",
+    "expires": "close"
+  },
+  {
+    "board": "story-flapping",
+    "field": "heading",
+    "selector": "h2 The rule, against fulfilment",
+    "render": "live",
+    "reason": "live data: the live world's group, its generation numbers, members and states are what the broker has (a settled generation where the board draws one still forming); the fixture render holds the board's own",
+    "expires": "close"
+  },
+  {
+    "board": "story-flapping",
+    "field": "heading",
+    "selector": "h2 The rule, against flaky",
+    "render": "live",
+    "reason": "live data: the live world's group, its generation numbers, members and states are what the broker has (a settled generation where the board draws one still forming); the fixture render holds the board's own",
+    "expires": "close"
+  },
+  {
+    "board": "story-flapping",
+    "field": "card",
+    "selector": "The rule, against fulfilment",
+    "render": "live",
+    "reason": "live data: the live world's group, its generation numbers, members and states are what the broker has (a settled generation where the board draws one still forming); the fixture render holds the board's own",
+    "expires": "close"
+  },
+  {
+    "board": "story-flapping",
+    "field": "card",
+    "selector": "The rule, against flaky",
+    "render": "live",
+    "reason": "live data: the live world's group, its generation numbers, members and states are what the broker has (a settled generation where the board draws one still forming); the fixture render holds the board's own",
+    "expires": "close"
+  },
+  {
+    "board": "story-flapping",
+    "field": "state",
+    "selector": "st warn",
+    "render": "live",
+    "reason": "live data: the live world's group, its generation numbers, members and states are what the broker has (a settled generation where the board draws one still forming); the fixture render holds the board's own",
+    "expires": "close"
+  },
+  {
+    "board": "story-flapping",
+    "field": "state",
+    "selector": "st ok",
+    "render": "live",
+    "reason": "live data: the live world's group, its generation numbers, members and states are what the broker has (a settled generation where the board draws one still forming); the fixture render holds the board's own",
+    "expires": "close"
+  },
+  {
+    "board": "lag-ahead",
+    "field": "link",
+    "selector": "group-story",
+    "reason": "improvement: the Story tab is a link to the Story page, with the count of the ring; the board draws it as plain text, as the Story was not built.",
+    "expires": "close"
+  },
+  {
+    "board": "lag-expiring",
+    "field": "link",
+    "selector": "group-story",
+    "reason": "improvement: the Story tab is a link to the Story page, with the count of the ring; the board draws it as plain text, as the Story was not built.",
+    "expires": "close"
+  },
+  {
+    "board": "group-rebalancing",
+    "field": "state",
+    "selector": "st idle in rows",
+    "render": "live",
+    "reason": "live data: the live rebalance began with a member joining, so no member left and the table has no Left row; the fixture render holds the board's own",
     "expires": "close"
   }
 ]

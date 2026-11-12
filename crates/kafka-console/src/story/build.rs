@@ -5,7 +5,7 @@ use kafka_broker::{Cause, EventKind, GroupEvent, GroupEvents};
 use super::flap::flap_of;
 use crate::model::{
     GroupHead, GroupPhase, GroupProtocol, StoryCalm, StoryCause, StoryDropped, StoryFacts,
-    StoryGen, StoryHold, StoryLast, StoryNow, StoryTone, StoryView, StoryWho,
+    StoryGen, StoryHold, StoryJoin, StoryLast, StoryLeft, StoryNow, StoryTone, StoryView, StoryWho,
 };
 
 const fn cause_of(c: Cause) -> StoryCause {
@@ -169,8 +169,40 @@ pub fn facts_of(events: Option<&GroupEvents>, protocol: GroupProtocol) -> StoryF
         return StoryFacts::default();
     };
     let gens = generations_of(events, protocol, events.now_ms);
+    let joins: Vec<StoryJoin> = gens
+        .iter()
+        .filter(|g| g.cause == StoryCause::MemberJoined)
+        .filter_map(|g| {
+            g.who.as_ref().map(|w| StoryJoin {
+                member: w.member.clone(),
+                ago_ms: gap(events.now_ms, g.at_ms),
+                generation: g.generation,
+            })
+        })
+        .collect();
+    let left = gens
+        .first()
+        .filter(|g| {
+            g.forming && matches!(g.cause, StoryCause::MemberLeft | StoryCause::SessionExpired)
+        })
+        .and_then(|g| {
+            let w = g.who.as_ref()?;
+            Some(StoryLeft {
+                member: w.member.clone(),
+                held: g
+                    .moves
+                    .iter()
+                    .find(|(m, _)| *m == w.member)
+                    .map(|(_, t)| t.clone())
+                    .unwrap_or_default(),
+                ago_ms: gap(events.now_ms, g.at_ms),
+                cause: g.cause,
+            })
+        });
     StoryFacts {
         count: gens.len(),
+        joins,
+        left,
         last: gens.first().map(|g| StoryLast {
             cause: g.cause,
             generation: g.generation,

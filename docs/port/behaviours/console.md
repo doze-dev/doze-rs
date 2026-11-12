@@ -264,7 +264,7 @@ The classic leader, the generation, the session and rebalance timeouts of each m
 A consumer group of the new protocol is Dead to DescribeGroups; the page asks ConsumerGroupDescribe and shows epoch, target epoch, assignor, and each member's target and assigned partitions. Test: `live_groups::a_consumer_group_of_the_new_protocol_is_described_by_its_own_api`.
 
 ## CON-206. The sentences say only what the group machine says now
-No sentence gives the cause of a rebalance (a member left, timed out, a topic changed): that needs the event ring of slice 9f. Tests: `groups_words::tests::a_rebalance_names_who_is_waited_for_and_the_time_left_and_never_a_cause`, `groups_words::tests::a_consumer_group_in_step_says_nothing_is_moving_and_gives_no_cause`, `groups_words::tests::a_stable_classic_group_is_told_by_its_member_its_topics_and_its_lag`, `groups_words::tests::the_lag_sentences_per_state`.
+A sentence gives the cause of the newest rebalance (a member left, timed out, a topic changed) only when the broker's ring of notes has it (slice 9f, CON-611); a group the broker has no notes of says what the machine says now. Tests: `groups_words::tests::a_rebalance_names_who_left_how_long_ago_and_who_is_waited_for_with_the_time_left`, `groups_words::tests::a_consumer_group_in_step_says_nothing_is_moving_and_when_and_why_it_last_rebalanced`, `groups_words::tests::a_stable_classic_group_is_told_by_its_member_its_topics_and_its_lag`, `groups_words::tests::the_lag_sentences_per_state`.
 
 ## CON-207. A reset is a commit with no generation, and the broker's refusal is shown in its words
 Reset offsets sends OffsetCommit with generation -1 and no member (what `kafka-consumer-groups --reset-offsets` sends); the preview is the same computation as the write (earliest, latest, an offset, a time, a shift, current; each kept within the log). On a group with a member Kafka answers UNKNOWN_MEMBER_ID (25) and the page shows that code, its words ("The coordinator is not aware of this member."), the console's reading of the rule and what would pass. Tests: `live_groups::a_reset_of_an_empty_group_moves_its_offsets_and_a_group_with_a_member_is_refused_in_kafkas_words`, `groups_words::tests::the_reading_of_a_refused_reset_counts_the_members_and_a_delete_names_the_rule`, `backend::requests::groups_read::tests::a_reset_is_a_commit_that_names_no_generation_and_no_member`.
@@ -471,7 +471,7 @@ Tagged in `docs/port/debt.md` J151 to J170: "waited 480 ms" (the recorder knows 
 ## CON-415. An open drawer holds the tape, and closing it lets the tape catch up
 While a Live drawer is open (adopted from the server or opened in place) what the stream brings is kept aside with no banner; closing it by Esc, the Close control or Back brings the newest in. Test: `tools/dom/live.test.ts` (a Live drawer opened by the overlay system holds the tape).
 
-# Slice 9f: the group event ring and the Story (CON-600 to CON-649)
+# Slice 9f: the group event ring and the Story (CON-600 to CON-616)
 
 Three boards: `group-story` (a page), `story-rebalance` (a drawer over the Story page), `story-flapping` (a state: the rule held against the group). The heart of the slice is in `kafka-broker`: the only slice that touches the group state machines, so the rule is absolute: a note is an extra effect, never a different transition.
 

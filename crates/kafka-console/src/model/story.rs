@@ -114,6 +114,28 @@ pub struct StoryFacts {
     /// Generations begun, or epochs moved, that the ring still holds.
     pub count: usize,
     pub last: Option<StoryLast>,
+    /// When each member that joined last did, and the generation or epoch it began (the consumer group's member rows).
+    pub joins: Vec<StoryJoin>,
+    /// The member whose going began the newest rebalance, while it is forming: it is not in the group any more.
+    pub left: Option<StoryLeft>,
+}
+
+/// A member that left or timed out and began the rebalance now forming.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StoryLeft {
+    pub member: String,
+    /// What it held, by topic (the generation before noted it).
+    pub held: Vec<(String, Vec<i32>)>,
+    pub ago_ms: u64,
+    pub cause: StoryCause,
+}
+
+/// A member that joined: how long ago, and the generation or epoch that began.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StoryJoin {
+    pub member: String,
+    pub ago_ms: u64,
+    pub generation: i32,
 }
 
 /// The newest rebalance, for a sentence.

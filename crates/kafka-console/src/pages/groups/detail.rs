@@ -202,11 +202,12 @@ fn status(m: &GroupMemberRow, target_epoch: i32) -> (&'static str, &'static str)
     }
 }
 
-fn consumer_member(m: &GroupMemberRow, target_epoch: i32) -> Markup {
+fn consumer_member(h: &GroupHead, m: &GroupMemberRow, target_epoch: i32) -> Markup {
     let (class, word) = status(m, target_epoch);
+    let joined = h.story.joins.iter().find(|j| j.member == m.id);
     html! {
         tr {
-            td class="name mono" { (m.id) }
+            td class="name mono" { (m.id) @if let Some(j) = joined { span class="sub" data-vary { "joined " (crate::story::ago_near(j.ago_ms)) ", took group epoch " (j.generation - 1) " to " (j.generation) } } }
             td class="mono" { (m.client_id) }
             td class="r mono" { (m.epoch) }
             td class="mono" { (part_list(&m.target)) }
@@ -295,7 +296,7 @@ fn consumer(v: &GroupLagView, base: &Base) -> Markup {
                     th scope="col" { "Member" } th scope="col" { "Client id" } th scope="col" class="r" { "Member epoch" }
                     th scope="col" { "Target" } th scope="col" { "Assigned" } th scope="col" { "Status" }
                 } }
-                tbody { @for m in &h.members { (consumer_member(m, target)) } }
+                tbody { @for m in &h.members { (consumer_member(h, m, target)) } }
             }
         }
         div class="g2" { (where_a_group_can_be(h)) (consumer_reads(&v.topics, base)) }
@@ -358,6 +359,28 @@ fn what_next(h: &GroupHead) -> Markup {
     }
 }
 
+/// The member that left and began this rebalance, from the story: it is no longer in the group.
+fn left_row(l: &crate::model::StoryLeft) -> Markup {
+    let held: Vec<GroupPart> = l
+        .held
+        .iter()
+        .flat_map(|(t, ps)| {
+            ps.iter().map(move |p| GroupPart {
+                topic: t.clone(),
+                partition: *p,
+            })
+        })
+        .collect();
+    html! {
+        tr {
+            td class="name mono dim" title=(l.member) { (crate::story::member_label(&l.member)) span class="sub" { "from the story, no longer in the group" } }
+            td { span class="st idle" { "Left" } }
+            td class="mono dim" { (part_list(&held)) }
+            td class="mono" data-vary { (crate::story::ago_near(l.ago_ms)) span class="sub" { @if l.cause == crate::model::StoryCause::MemberLeft { "LeaveGroup" } @else { "session expired" } } }
+        }
+    }
+}
+
 fn rebalancing_members(h: &GroupHead) -> Markup {
     html! {
         div class="sec" style="margin:40px 0 0" {
@@ -376,6 +399,7 @@ fn rebalancing_members(h: &GroupHead) -> Markup {
                             td class="mono" data-vary { (heard(m)) @if !m.rejoined { span class="sub" { "told to rejoin" } } }
                         }
                     }
+                    @if let Some(l) = &h.story.left { (left_row(l)) }
                 }
             }
         }
