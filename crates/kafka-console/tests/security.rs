@@ -25,7 +25,7 @@ const HOSTILE: [&str; 6] = [
     "'><svg/onload=alert(1)>",
     "</pre><script>x</script>",
     "javascript:alert(1)",
-    "&lt;already&gt; & \" ' <b>",
+    "&lt;already&gt; & \" ' <b>x</b>",
 ];
 
 fn access(s: &str) -> Access {
@@ -134,15 +134,10 @@ fn assert_inert(doc: &str, payload: &str, what: &str) {
         "<svg/onload",
         "</pre><script>",
         "<script>x",
-        "<b>",
+        "<b>x</b>",
     ] {
-        // The fixtures' own markup has `<b>`; a payload's would be followed by its text.
-        if live == "<b>" && !payload.contains("<b>") {
-            continue;
-        }
-        let hostile_b = live == "<b>" && doc.contains("<b> ") && payload.contains("& \" ' <b>");
         assert!(
-            !doc.contains(live) || (live == "<b>" && !hostile_b),
+            !doc.contains(live),
             "{what}: {live:?} came through for {payload:?}"
         );
     }
