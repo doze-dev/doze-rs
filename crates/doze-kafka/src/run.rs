@@ -33,6 +33,10 @@ pub(crate) async fn serve(settings: Settings) -> Result<()> {
         console,
         ..
     } = settings;
+    // Asked for first: a stop that arrives before the handlers exist takes the default action and kills the process
+    // with nothing flushed. Seen on Linux, where a supervisor (or a test) that waits for "listening" and stops the
+    // broker at once got there before the old code had registered them.
+    let stop = stopped();
     // The console's address is had before anything is opened: one the operator chose that cannot be bound stops the start.
     #[cfg(feature = "console")]
     let console_listener = match crate::web::bind(&console).await {
@@ -71,7 +75,7 @@ pub(crate) async fn serve(settings: Settings) -> Result<()> {
         .map(|bound| bound.serve(&console, &server, &running, &broker))
         .transpose()
         .context("starting the console")?;
-    stopped().await;
+    stop.await;
     tracing::info!("stopping");
     // The console first: nothing it shows or does outlives the broker it reads.
     #[cfg(feature = "console")]
@@ -84,24 +88,31 @@ pub(crate) async fn serve(settings: Settings) -> Result<()> {
     Ok(())
 }
 
-/// Resolves when the process is asked to stop (SIGINT or SIGTERM).
-async fn stopped() {
+/// Registers for SIGINT and SIGTERM now, and resolves when either arrives. Registration happens when this is called,
+/// not when the result is first awaited.
+fn stopped() -> impl std::future::Future<Output = ()> {
     #[cfg(unix)]
     {
         use tokio::signal::unix::{SignalKind, signal};
-        let (Ok(mut term), Ok(mut int)) = (
+        let streams = (
             signal(SignalKind::terminate()),
             signal(SignalKind::interrupt()),
-        ) else {
-            return std::future::pending().await;
-        };
-        tokio::select! {
-            _ = term.recv() => {}
-            _ = int.recv() => {}
+        );
+        async move {
+            let (Ok(mut term), Ok(mut int)) = streams else {
+                return std::future::pending().await;
+            };
+            tokio::select! {
+                _ = term.recv() => {}
+                _ = int.recv() => {}
+            }
         }
     }
     #[cfg(not(unix))]
     {
-        let _ = tokio::signal::ctrl_c().await;
+        // ctrl_c registers its handler on first poll; on Windows nothing sends a stop before startup is done.
+        async {
+            let _ = tokio::signal::ctrl_c().await;
+        }
     }
 }
