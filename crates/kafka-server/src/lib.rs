@@ -18,7 +18,7 @@ mod session;
 #[cfg(feature = "tls")]
 mod tls;
 
-pub use config::{Config, Timeouts};
+pub use config::{Config, MOST_FAILED_LOGIN_DELAY, Timeouts};
 pub use server::{Running, Server};
 #[cfg(feature = "tls")]
 pub use tls::{TlsConfig, TlsError};

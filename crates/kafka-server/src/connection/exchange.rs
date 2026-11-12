@@ -16,6 +16,7 @@ use tokio::time::timeout;
 use tokio_util::sync::CancellationToken;
 
 use super::{Context, End};
+use crate::config::MOST_FAILED_LOGIN_DELAY;
 use crate::session::steps::{self, Fate};
 use crate::session::{Session, Verdict};
 
@@ -49,7 +50,7 @@ pub(super) async fn exchange<S: AsyncRead + AsyncWrite + Unpin, F: Fs>(
                 if stays_open {
                     return Ok(());
                 }
-                hang_up(stream, ctx).await;
+                hang_up(stream, ctx, stop).await;
                 return Err(End::OutOfOrder(head.key));
             }
         }
@@ -66,7 +67,7 @@ pub(super) async fn exchange<S: AsyncRead + AsyncWrite + Unpin, F: Fs>(
     match fate {
         Fate::Open => Ok(()),
         Fate::Closing | Fate::Failed => {
-            hang_up(stream, ctx).await;
+            hang_up(stream, ctx, stop).await;
             Err(End::LoginFailed)
         }
     }
@@ -182,11 +183,12 @@ fn open(id: i32, version: i16, response: Response) -> Answer {
 
 /// Waits the failed-login delay before a refusal is answered (SEC-192); a stop does not wait for it.
 async fn failed_login_delay<F: Fs>(ctx: &Context<F>, stop: &CancellationToken) -> Result<(), End> {
-    if ctx.timeouts.failed_login.is_zero() {
+    let wait = ctx.timeouts.failed_login.min(MOST_FAILED_LOGIN_DELAY);
+    if wait.is_zero() {
         return Ok(());
     }
     tokio::select! {
-        () = tokio::time::sleep(ctx.timeouts.failed_login) => Ok(()),
+        () = tokio::time::sleep(wait) => Ok(()),
         () = stop.cancelled() => Err(End::Stopped),
     }
 }
@@ -198,8 +200,19 @@ const LINGER: Duration = Duration::from_millis(250);
 ///
 /// The server's side is shut down first, so the client sees the end at once. Then what the client sent behind the
 /// refusal is read and thrown away until it closes its side or [`LINGER`] is over: closing a socket that still holds
-/// unread bytes sends a reset, which can discard an answer the client has not yet read.
-async fn hang_up<S: AsyncRead + AsyncWrite + Unpin, F: Fs>(stream: &mut S, ctx: &Context<F>) {
+/// unread bytes sends a reset, which can discard an answer the client has not yet read. A stop ends the wait at once.
+async fn hang_up<S: AsyncRead + AsyncWrite + Unpin, F: Fs>(
+    stream: &mut S,
+    ctx: &Context<F>,
+    stop: &CancellationToken,
+) {
+    tokio::select! {
+        () = linger(stream, ctx) => {}
+        () = stop.cancelled() => {}
+    }
+}
+
+async fn linger<S: AsyncRead + AsyncWrite + Unpin, F: Fs>(stream: &mut S, ctx: &Context<F>) {
     if !matches!(
         timeout(ctx.timeouts.write, stream.shutdown()).await,
         Ok(Ok(()))

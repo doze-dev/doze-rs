@@ -6,6 +6,10 @@ use kafka_auth::Authenticator;
 use kafka_broker::Listener;
 use kafka_wire::profile::{KafkaMajor, Profile};
 
+/// The longest a failed login may be made to wait before it is answered. A longer wait holds a connection and a task for
+/// each guess, so it is refused when the broker starts (the command line) and cut here for any other caller (SEC-236).
+pub const MOST_FAILED_LOGIN_DELAY: Duration = Duration::from_secs(10);
+
 /// How long a connection may take at each step. The defaults are Kafka's own where it has one.
 #[derive(Debug, Clone, Copy)]
 pub struct Timeouts {
@@ -23,7 +27,10 @@ pub struct Timeouts {
     pub pre_auth: Duration,
     /// How long a failed login waits before it is answered, to make guessing a password slow
     /// (`connection.failed.authentication.delay.ms`, 100 ms in Kafka). Every login that is answered
-    /// SASL_AUTHENTICATION_FAILED waits; a close with no answer, and any other answer, does not. Zero answers at once.
+    /// SASL_AUTHENTICATION_FAILED waits; a close with no answer, and any other answer, does not. Zero answers at once. More
+    /// than [`MOST_FAILED_LOGIN_DELAY`] waits that long. The wait and the clean close after the answer (250 ms) are outside
+    /// `pre_auth`, which ends at the frame that fails: a refused login holds its connection for at most
+    /// `failed_login` + 250 ms more.
     pub failed_login: Duration,
 }
 
