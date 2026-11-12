@@ -10,7 +10,9 @@ use aws_schema::patterns::Patterns;
 use aws_wire::ApiError;
 use aws_wire::handler::reply_json;
 use aws_wire::service::{Call, Reply};
-use doze_runtime::{Clock, Ctx};
+use std::sync::atomic::AtomicUsize;
+
+use doze_runtime::{Clock, Ctx, Tasks};
 use doze_store::records::Records;
 use doze_store::{Ack, Db, StoreError};
 use serde_json::Value;
@@ -43,6 +45,10 @@ pub(crate) struct Core {
     pub(crate) clock: Arc<dyn Clock>,
     pub(crate) db: Option<Db>,
     patterns: Patterns,
+    /// Where the POSTs to `http` endpoints run, off the actor.
+    pub(crate) tasks: Tasks,
+    /// How many of those POSTs are waiting or under way.
+    pub(crate) webhooks: Arc<AtomicUsize>,
 }
 
 /// What the actor answers: the reply, and the commit it must wait for.
@@ -72,7 +78,9 @@ impl doze_runtime::Service for Core {
     type Error = StoreError;
 
     async fn open(ctx: &Ctx, _name: &'static str) -> Result<Self, StoreError> {
-        Self::open_in(&ctx.dir, Arc::clone(&ctx.clock), peers_of(ctx))
+        let mut core = Self::open_in(&ctx.dir, Arc::clone(&ctx.clock), peers_of(ctx))?;
+        core.tasks = ctx.tasks.clone();
+        Ok(core)
     }
 
     async fn handle(&mut self, call: Call) -> Answer {
@@ -148,6 +156,8 @@ impl Core {
             clock,
             db,
             patterns: Patterns::new(&TABLES),
+            tasks: Tasks::new(),
+            webhooks: Arc::default(),
         }
     }
 

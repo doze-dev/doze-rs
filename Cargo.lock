@@ -750,6 +750,7 @@ name = "aws-sns"
 version = "0.0.0"
 dependencies = [
  "aws-core",
+ "aws-gateway",
  "aws-iam-policy",
  "aws-model-sns",
  "aws-peers",
@@ -757,13 +758,16 @@ dependencies = [
  "aws-seal",
  "aws-sqs",
  "aws-testkit",
+ "aws-webhook",
  "aws-wire",
+ "bytes",
  "doze-runtime",
  "doze-store",
  "serde",
  "serde_json",
  "sha2",
  "tokio",
+ "tokio-util",
  "tracing",
 ]
 

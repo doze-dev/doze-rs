@@ -1,8 +1,9 @@
 //! Delivery: what happens to a published message at each subscription. **SQS and Lambda are delivered to** through the peer bus, as
 //! SNS: a queue gets the envelope or the raw message, a function is invoked asynchronously with AWS's `Records[].Sns` event and the
-//! topic as its `SourceArn`. Every other protocol is **not delivered, and not pretended to be**: the subscription is kept, the message
-//! is not sent anywhere, and the log says so. That is `sms`, `application` (decision D1: stored, nothing sent), `email`, `email-json`,
-//! `http` and `https` (their subscriptions wait for a confirmation token that no one is sent) and `firehose`.
+//! topic as its `SourceArn`; an `http` endpoint is POSTed the notification off the actor (`webhook.rs`). Every other protocol is **not
+//! delivered, and not pretended to be**: the subscription is kept, the message is not sent anywhere, and the log says so. That is
+//! `sms`, `application` (decision D1: stored, nothing sent), `email`, `email-json` (their subscriptions wait for a confirmation token
+//! that no one is sent), `https` (no TLS client: kept pending, and the log says why) and `firehose`.
 
 use aws_iam_policy::{Context, Policies, Request, Subject};
 use aws_peers::Mode;
@@ -33,6 +34,7 @@ impl Core {
             let delivered = match sub.protocol.as_str() {
                 "sqs" => Some(self.to_queue(p, sub).await),
                 "lambda" => Some(self.to_function(p, sub).await),
+                "http" | "https" => Some(self.to_endpoint(p, sub)),
                 _ => None,
             };
             if let Some(Err(why)) = delivered {

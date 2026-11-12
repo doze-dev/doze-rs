@@ -2,12 +2,15 @@
 //! attributes or the message body, and fan-out to SQS through the peer bus, as a state machine behind a lazy actor per region. State is
 //! on disk, and survives an idle reap and a restart.
 //!
-//! **What is stored and not delivered:** SQS and Lambda are delivered to. Subscriptions for `http`, `https`, `email`, `email-json` and
-//! `firehose` are kept (the first four wait for a confirmation token no one is sent), and SMS and mobile-push messages are accepted
-//! (decision D1) and sent nowhere; the log says so for each. The SMS sandbox and origination numbers are refused by name.
+//! **What is stored and not delivered:** SQS, Lambda and `http` endpoints are delivered to (an `http` endpoint is sent its
+//! `SubscriptionConfirmation` and confirms through the `SubscribeURL`, `webhook.rs`). Subscriptions for `https` (no TLS client),
+//! `email`, `email-json` and `firehose` are kept (the first three wait for a confirmation no one is sent), and SMS and mobile-push
+//! messages are accepted (decision D1) and sent nowhere; the log says so for each. The SMS sandbox and origination numbers are refused
+//! by name.
 
 mod arn;
 mod authz;
+mod confirm;
 mod core;
 mod deliver;
 mod envelope;
@@ -25,6 +28,8 @@ mod subs;
 mod tags;
 mod topic_attrs;
 mod topics;
+mod webhook;
+mod wildcard;
 
 use std::sync::Arc;
 
@@ -32,7 +37,7 @@ use aws_model_sns::Operation;
 use aws_model_sns::meta::META;
 use aws_model_sns::tables::TABLES;
 use aws_wire::ApiError;
-use aws_wire::service::{BoxFuture, Call, Reply, Service};
+use aws_wire::service::{BoxFuture, Call, Reply, Service, Web, WebReply, WebRequest};
 use doze_runtime::{Ctx, Keyed};
 
 use crate::core::{Answer, Core};
@@ -98,6 +103,21 @@ impl Service for Sns {
 
     fn call(&self, call: Call) -> BoxFuture<'_, Reply> {
         Box::pin(self.ask(call))
+    }
+
+    fn web(&self) -> Option<&dyn Web> {
+        Some(self)
+    }
+}
+
+/// The `SubscribeURL` an `http` endpoint is sent: an unsigned `ConfirmSubscription`, as AWS's is.
+impl Web for Sns {
+    fn owns(&self, _host: &str, path: &str) -> bool {
+        path == webhook::CONFIRM_PATH
+    }
+
+    fn serve(&self, request: WebRequest) -> BoxFuture<'_, WebReply> {
+        Box::pin(self.confirm_by_url(request))
     }
 }
 

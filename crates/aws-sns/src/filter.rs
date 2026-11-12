@@ -3,7 +3,7 @@
 //! must match. A key `$or` holds an array of objects, any of which may match.
 //!
 //! The operators are the ones SNS documents: exact values (strings, numbers, `true`, `false`, `null`), `prefix`, `suffix`,
-//! `equals-ignore-case`, `anything-but` (a value, a list, or a `prefix` / `suffix`), `numeric`, `exists` and `cidr`. The words of the
+//! `equals-ignore-case`, `wildcard`, `anything-but` (a value, a list, or a `prefix` / `suffix` / `wildcard`), `numeric`, `exists` and `cidr`. The words of the
 //! refusals are from memory except the one for text that is not JSON, which carries the parser's message as Jackson worded it (recorded
 //! 2026-11-09, for the one mistake the scenario makes).
 
@@ -40,6 +40,8 @@ pub(crate) enum Cond {
     ButExact(Vec<Cond>),
     ButPrefix(String),
     ButSuffix(String),
+    Wildcard(String),
+    ButWildcard(String),
     /// Every comparison must hold (`[">", 1, "<=", 5]`).
     Numeric(Vec<(Cmp, f64)>),
     Exists(bool),
@@ -167,6 +169,9 @@ fn operator(m: &serde_json::Map<String, Value>) -> Result<Cond, String> {
     match name.as_str() {
         "prefix" => text("prefix").map(Cond::Prefix),
         "suffix" => text("suffix").map(Cond::Suffix),
+        "wildcard" => {
+            text("wildcard").and_then(|w| crate::wildcard::check(&w).map(|()| Cond::Wildcard(w)))
+        }
         "equals-ignore-case" => text("equals-ignore-case").map(Cond::EqualsIgnoreCase),
         "exists" => arg
             .as_bool()
@@ -228,6 +233,7 @@ fn anything_but(arg: &Value) -> Result<Cond, String> {
         Value::Object(m) => match operator(m)? {
             Cond::Prefix(p) => Ok(Cond::ButPrefix(p)),
             Cond::Suffix(s) => Ok(Cond::ButSuffix(s)),
+            Cond::Wildcard(w) => Ok(Cond::ButWildcard(w)),
             _ => Err("Unsupported anything-but pattern".into()),
         },
         Value::Array(items) => Ok(Cond::ButExact(
@@ -297,6 +303,7 @@ mod tests {
         assert!(err(r#"{"a":[{"numeric":["~",1]}]}"#).contains("numeric range operator"));
         assert!(err(r#"{"a":[[1]]}"#).contains("Match value"));
         assert!(err(r#"{"a":[{"cidr":"10.0.0.0"}]}"#).contains("CIDR"));
+        assert!(err(r#"{"a":[{"wildcard":"a**b"}]}"#).contains("Consecutive wildcard"));
         assert!(err(r#"{"a":"x"}"#).contains("must be followed by an array"));
         assert!(err(r#"{"a":[1],"b":[1],"c":[1],"d":[1],"e":[1],"f":[1]}"#).contains("5 keys"));
     }
