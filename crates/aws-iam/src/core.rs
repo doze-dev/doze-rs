@@ -5,10 +5,11 @@
 use std::path::Path;
 use std::sync::Arc;
 
+use aws_peers::{Mode, Need, Peers};
 use aws_schema::patterns::Patterns;
 use aws_wire::ApiError;
 use aws_wire::handler::reply_json;
-use aws_wire::service::{Call, Reply};
+use aws_wire::service::{Call, Caller, Reply};
 use doze_runtime::{Clock, Ctx};
 use doze_store::records::Records;
 use doze_store::{Ack, Db, StoreError};
@@ -37,16 +38,20 @@ pub(crate) enum Which {
 
 /// What the actor is asked.
 #[derive(Debug)]
-pub(crate) struct Ask {
-    pub(crate) which: Which,
-    pub(crate) call: Call,
+pub(crate) enum Ask {
+    /// A request for IAM or STS.
+    Call { which: Which, call: Call },
+    /// A service asks whether a caller may do what a request asks.
+    Authorize { caller: Caller, needs: Vec<Need> },
 }
 
-/// What the actor answers: the reply, and the commit it must wait for.
+/// What the actor answers.
 #[derive(Debug)]
-pub(crate) struct Answer {
-    pub(crate) reply: Reply,
-    pub(crate) durable: Option<Ack>,
+pub(crate) enum Answer {
+    /// The reply, and the commit it must wait for.
+    Call { reply: Reply, durable: Option<Ack> },
+    /// Yes, or the refusal.
+    Authorize(Result<(), ApiError>),
 }
 
 /// All of the account's identities. Owned by one task, so no operation needs a lock.
@@ -60,6 +65,7 @@ pub(crate) struct Core {
     account: Records<Account>,
     pub(crate) clock: Arc<dyn Clock>,
     pub(crate) db: Option<Db>,
+    pub(crate) mode: Mode,
     iam: Patterns,
     sts: Patterns,
 }
@@ -70,11 +76,25 @@ impl doze_runtime::Service for Core {
     type Error = StoreError;
 
     async fn open(ctx: &Ctx, _name: &'static str) -> Result<Self, StoreError> {
-        Self::open_in(&ctx.dir, Arc::clone(&ctx.clock))
+        let mut core = Self::open_in(&ctx.dir, Arc::clone(&ctx.clock))?;
+        if let Some(peers) = ctx
+            .ext
+            .as_ref()
+            .and_then(|e| Arc::clone(e).downcast::<Peers>().ok())
+        {
+            core.mode = peers.mode();
+        }
+        Ok(core)
     }
 
     async fn handle(&mut self, ask: Ask) -> Answer {
-        let mut reply = self.dispatch(ask.which, &ask.call);
+        let (which, call) = match ask {
+            Ask::Authorize { caller, needs } => {
+                return Answer::Authorize(self.authorize(&caller, &needs));
+            }
+            Ask::Call { which, call } => (which, call),
+        };
+        let mut reply = self.dispatch(which, &call);
         let durable = match self.flush() {
             Ok(ack) => ack,
             Err(e) => {
@@ -82,7 +102,7 @@ impl doze_runtime::Service for Core {
                 None
             }
         };
-        Answer { reply, durable }
+        Answer::Call { reply, durable }
     }
 
     async fn close(self) {
@@ -132,6 +152,7 @@ impl Core {
             account: t.account,
             clock,
             db,
+            mode: Mode::default(),
             iam: Patterns::new(&aws_model_iam::tables::TABLES),
             sts: Patterns::new(&aws_model_sts::tables::TABLES),
         }

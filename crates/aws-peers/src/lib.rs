@@ -6,7 +6,10 @@
 //! A service never calls one that calls it back while it waits (that would wait forever); the order in use is SSM and Secrets
 //! Manager to KMS, SSM to Secrets Manager, and, later, S3, SNS, EventBridge and Lambda to SQS, SNS and Lambda.
 
+mod authz;
 pub mod envelope;
+
+pub use authz::{Authorizer, Mode, Need};
 
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
@@ -28,6 +31,8 @@ struct Entry {
 #[derive(Default)]
 pub struct Peers {
     entries: RwLock<HashMap<&'static str, Entry>>,
+    authorizer: RwLock<Option<Arc<dyn Authorizer>>>,
+    mode: authz::ModeCell,
 }
 
 impl std::fmt::Debug for Peers {

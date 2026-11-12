@@ -116,6 +116,7 @@ impl Core {
             boundary: boundary_refs.as_deref(),
             session: None,
             resource: (!resource.is_empty()).then_some(resource_refs.as_slice()),
+            resource_gate: false,
         };
         let mut results = Vec::new();
         for action in &actions {

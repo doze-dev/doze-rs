@@ -57,7 +57,11 @@ mod tests {
         .unwrap();
         assert_eq!(
             context_keys(&[&d]),
-            ["AWS:USERNAME", "aws:PrincipalTag/team", "aws:RequestTag/team"]
+            [
+                "AWS:USERNAME",
+                "aws:PrincipalTag/team",
+                "aws:RequestTag/team"
+            ]
         );
     }
 }

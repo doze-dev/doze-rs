@@ -373,3 +373,25 @@ fn the_decision_names_the_statements_that_applied() {
         (1, Some("yes"))
     );
 }
+
+#[test]
+fn a_gated_resource_needs_its_own_policy_to_let_identity_policies_count() {
+    let a = allow("kms:Decrypt", "*");
+    let root = doc(
+        r#"{"Statement":{"Effect":"Allow","Principal":{"AWS":"arn:aws:iam::111122223333:root"},"Action":"kms:*","Resource":"*"}}"#,
+    );
+    let c = Context::new();
+    let identity_docs = [&a];
+    let decide = |resource: Option<&[&Document]>| {
+        let p = Policies {
+            identity: &identity_docs,
+            resource,
+            resource_gate: true,
+            ..Policies::default()
+        };
+        ask(&p, "kms:Decrypt", "*", &c).allowed()
+    };
+    assert!(!decide(Some(&[])));
+    assert!(!decide(None));
+    assert!(decide(Some(&[&root])));
+}

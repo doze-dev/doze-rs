@@ -199,6 +199,7 @@ dependencies = [
  "aws-iam-policy",
  "aws-model-iam",
  "aws-model-sts",
+ "aws-peers",
  "aws-schema",
  "aws-seal",
  "aws-testkit",
@@ -210,6 +211,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "tokio",
+ "tracing",
 ]
 
 [[package]]

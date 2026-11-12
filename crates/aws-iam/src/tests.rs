@@ -10,6 +10,7 @@ use serde_json::Value;
 use crate::core::{Core, Which};
 use crate::{Iam, Sts, services};
 
+mod authz;
 mod entities;
 mod persistence;
 mod policies;

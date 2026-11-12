@@ -93,6 +93,9 @@ pub struct Policies<'a> {
     pub session: Option<&'a [&'a Document]>,
     /// The policy on the resource, when it has one.
     pub resource: Option<&'a [&'a Document]>,
+    /// The resource insists on being named in its own policy before an identity policy counts (a KMS key: its key policy must allow
+    /// the caller or the account, or no IAM policy can).
+    pub resource_gate: bool,
 }
 
 /// One request.
@@ -120,8 +123,11 @@ pub fn evaluate(policies: &Policies<'_>, request: &Request<'_>) -> Decision {
     let resource = policies
         .resource
         .map(|d| found.layer(Layer::Resource, d, request));
-    let granted = resource.is_some_and(|r| r.direct)
-        || (identity.allow && boundary.is_none_or(|b| b.allow) && session.is_none_or(|s| s.allow));
+    let granted = resource.as_ref().is_some_and(|r| r.direct)
+        || (identity.allow
+            && boundary.is_none_or(|b| b.allow)
+            && session.is_none_or(|s| s.allow)
+            && (!policies.resource_gate || resource.as_ref().is_some_and(|r| r.allow)));
     let verdict = if found.denied {
         Verdict::ExplicitDeny
     } else if granted {

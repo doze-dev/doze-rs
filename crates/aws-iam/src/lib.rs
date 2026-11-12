@@ -7,6 +7,7 @@
 
 mod account;
 mod attached;
+mod authz;
 mod core;
 mod entity;
 mod errors;
@@ -26,9 +27,10 @@ mod view;
 
 use std::sync::Arc;
 
+use aws_peers::{Authorizer, Need};
 use aws_schema::json::Violation;
 use aws_wire::ApiError;
-use aws_wire::service::{BoxFuture, Call, Reply, Service};
+use aws_wire::service::{BoxFuture, Call, Caller, Reply, Service};
 use doze_runtime::{Ctx, Lazy};
 
 use crate::core::{Answer, Ask, Core, Which};
@@ -42,19 +44,48 @@ struct Shared {
 impl Shared {
     /// Asks the actor, and holds the answer until what it changed is on disk.
     async fn ask(&self, which: Which, call: Call) -> Reply {
-        let mut answer = match self.actor.call(Ask { which, call }).await {
-            Ok(answer) => answer,
-            Err(e) => Answer {
-                reply: Err(ApiError::internal(e.to_string())),
-                durable: None,
-            },
+        let (mut reply, durable) = match self.actor.call(Ask::Call { which, call }).await {
+            Ok(Answer::Call { reply, durable }) => (reply, durable),
+            Ok(Answer::Authorize(_)) => (
+                Err(ApiError::internal("IAM answered a call with a verdict")),
+                None,
+            ),
+            Err(e) => (Err(ApiError::internal(e.to_string())), None),
         };
-        if let Some(saved) = answer.durable.take()
+        if let Some(saved) = durable
             && let Err(e) = saved.await
         {
-            answer.reply = Err(ApiError::internal(format!("could not save: {e}")));
+            reply = Err(ApiError::internal(format!("could not save: {e}")));
         }
-        answer.reply
+        reply
+    }
+
+    /// Asks the actor whether `caller` may do `needs`.
+    async fn authorize(&self, caller: &Caller, needs: Vec<Need>) -> Result<(), ApiError> {
+        match self
+            .actor
+            .call(Ask::Authorize {
+                caller: caller.clone(),
+                needs,
+            })
+            .await
+        {
+            Ok(Answer::Authorize(verdict)) => verdict,
+            Ok(Answer::Call { .. }) => {
+                Err(ApiError::internal("IAM answered a question with a reply"))
+            }
+            Err(e) => Err(ApiError::internal(e.to_string())),
+        }
+    }
+}
+
+impl Authorizer for Iam {
+    fn authorize<'a>(
+        &'a self,
+        caller: &'a Caller,
+        needs: Vec<Need>,
+    ) -> BoxFuture<'a, Result<(), ApiError>> {
+        Box::pin(self.0.authorize(caller, needs))
     }
 }
 

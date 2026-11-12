@@ -16,6 +16,8 @@ aws-model-iam = { path = "../aws-model-iam" }
 aws-model-sts = { path = "../aws-model-sts" }
 aws-schema = { path = "../aws-schema" }
 aws-wire = { path = "../aws-wire" }
+aws-peers = { path = "../aws-peers" }
+tracing = "0.1"
 aws-core = { path = "../aws-core" }
 aws-seal = { path = "../aws-seal" }
 aws-iam-policy = { path = "../aws-iam-policy" }
