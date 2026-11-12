@@ -257,7 +257,7 @@ fn next_card(v: &HomeView, base: &Base) -> Markup {
     }
     html! { div class="card" {
         (title_row("Next: connect something new", state(State::Ok, "Listening")))
-        p class="lede" { "Point a client at the address and name it with client.id, so that it appears as itself. Snippets for every client are on Connect." }
+        p class="lede" { "Waiting for a client id this broker has not seen. When one sends its first request it appears here, with the versions it speaks. See " a class="lnk" href=(base.url("/connect/first-request")) { "what a first request looks like" } ". Point a client at the address and name it with client.id, so that it appears as itself." }
         div class="stack-y" style="gap:12px" { (pre(&first_command(&v.listen), None, None)) }
         div class="row" style="margin-top:20px" {
             (btn("Connect an app", Variant::Primary, Glyph::Code, &connect))

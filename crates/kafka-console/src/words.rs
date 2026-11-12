@@ -34,11 +34,28 @@ pub fn home_sub(v: &HomeView) -> Vec<Span> {
             Span::text("Running "),
             Span::strong(span(v.instance.up_secs)),
             Span::text(format!(
-                "{} {}",
+                "{} {}{}",
                 last_stop_short(v.instance.last_stop),
-                holds()
+                holds(),
+                spoke_sentence(v.spoke.as_ref())
             )),
         ],
+    }
+}
+
+/// What the recorder adds to Home's sentence: how many clients the wire knows, how far back it reaches, how long ago the last
+/// request landed. Nothing when this console has no recorder; a plain "no client has spoken" for an empty tape.
+fn spoke_sentence(s: Option<&crate::model::SpokeView>) -> String {
+    let Some(s) = s else { return String::new() };
+    match (s.apps, s.oldest_ms, s.ago_ms) {
+        (0, _, _) => " No client has spoken yet.".to_owned(),
+        (n, Some(oldest), Some(ago)) => format!(
+            " {} appear on the wire, which reaches back to {}, and the last request landed {}.",
+            count(n, "app", "apps"),
+            live::hhmm(oldest),
+            crate::format::ago(ago)
+        ),
+        (n, _, _) => format!(" {} appear on the wire.", count(n, "app", "apps")),
     }
 }
 

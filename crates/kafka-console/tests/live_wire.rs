@@ -17,16 +17,16 @@ use std::sync::Arc;
 use axum::Router;
 use axum::http::StatusCode;
 use bytes::Bytes;
+use kafka_console::Recorder;
 use kafka_console::base::Base;
 use kafka_console::model::WireQuery;
 use kafka_console::source::{Live, Source};
 use kafka_console::state::State;
-use kafka_console::Recorder;
 use kafka_protocol::protocol::Encodable;
 use kafka_wire::StrBytes;
 use kafka_wire::batch::build::{BatchBuilder, Rec};
-use kafka_wire::messages::produce_request::{PartitionProduceData, TopicProduceData};
 use kafka_wire::messages::fetch_request::{FetchPartition, FetchTopic};
+use kafka_wire::messages::produce_request::{PartitionProduceData, TopicProduceData};
 use kafka_wire::messages::*;
 use kafka_wire::testing::{framed, request_payload};
 use support::get;
@@ -44,14 +44,32 @@ struct Wire {
 impl Wire {
     async fn connect(w: &World) -> Self {
         let addr = w.server.as_ref().unwrap().local_addr();
-        Self { stream: TcpStream::connect(addr).await.unwrap(), next: 1 }
+        Self {
+            stream: TcpStream::connect(addr).await.unwrap(),
+            next: 1,
+        }
     }
 
     /// One request and its whole answer (the payload after the length).
-    async fn call<R: Encodable>(&mut self, key: ApiKey, version: i16, client: &str, body: &R) -> Bytes {
+    async fn call<R: Encodable>(
+        &mut self,
+        key: ApiKey,
+        version: i16,
+        client: &str,
+        body: &R,
+    ) -> Bytes {
         let id = self.next;
         self.next += 1;
-        self.stream.write_all(&framed(&request_payload(key, version, id, Some(client), body))).await.unwrap();
+        self.stream
+            .write_all(&framed(&request_payload(
+                key,
+                version,
+                id,
+                Some(client),
+                body,
+            )))
+            .await
+            .unwrap();
         let mut len = [0; 4];
         self.stream.read_exact(&mut len).await.unwrap();
         let mut payload = vec![0; u32::from_be_bytes(len) as usize];
@@ -87,7 +105,11 @@ fn produce(topic: &str, batch: Bytes, txn: Option<&str>) -> ProduceRequest {
 }
 
 fn batch(key: Option<&str>, value: Vec<u8>, producer: Option<(i64, i16)>) -> Bytes {
-    let rec = Rec { key: key.map(|k| k.as_bytes().to_vec()), value: Some(value), ..Rec::default() };
+    let rec = Rec {
+        key: key.map(|k| k.as_bytes().to_vec()),
+        value: Some(value),
+        ..Rec::default()
+    };
     let mut b = BatchBuilder::from_records(1_700_000_000_000, &[rec]).last_offset_delta(0);
     if let Some((id, epoch)) = producer {
         b = b.producer(id, epoch, 0).attributes(0x10);
@@ -119,7 +141,12 @@ fn init(txn: &str) -> InitProducerIdRequest {
 
 fn router(w: &World, recorder: &Arc<Recorder>) -> Router {
     let live = Live::new(w.backend.clone(), w.facts.clone()).with_recorder(Arc::clone(recorder));
-    let state = State::new(Source::Live(Box::new(live)), Base::root(), vec![], CancellationToken::new());
+    let state = State::new(
+        Source::Live(Box::new(live)),
+        Base::root(),
+        vec![],
+        CancellationToken::new(),
+    );
     kafka_console::app::router(state)
 }
 
@@ -138,28 +165,89 @@ async fn recorded(name: &str, deny: bool) -> (World, Arc<Recorder>) {
 /// The traffic of the larder: a Python consumer, a Go transactional producer, an admin tool that is refused, and a hostile name.
 async fn traffic(w: &World) {
     w.create_topic("orders", 1, &[]).await;
-    w.create_topic("inventory.levels", 1, &[("cleanup.policy", "compact")]).await;
+    w.create_topic("inventory.levels", 1, &[("cleanup.policy", "compact")])
+        .await;
     let mut py = Wire::connect(w).await;
-    py.call(ApiKey::ApiVersions, 3, "fulfilment", &versions("confluent-kafka-python")).await;
-    py.call(ApiKey::Metadata, 12, "fulfilment", &MetadataRequest::default()).await;
+    py.call(
+        ApiKey::ApiVersions,
+        3,
+        "fulfilment",
+        &versions("confluent-kafka-python"),
+    )
+    .await;
+    py.call(
+        ApiKey::Metadata,
+        12,
+        "fulfilment",
+        &MetadataRequest::default(),
+    )
+    .await;
     for _ in 0..25 {
-        py.call(ApiKey::Fetch, 12, "fulfilment", &fetch("orders")).await;
+        py.call(ApiKey::Fetch, 12, "fulfilment", &fetch("orders"))
+            .await;
     }
     let mut go = Wire::connect(w).await;
-    go.call(ApiKey::ApiVersions, 3, "orders", &versions("sarama")).await;
-    let first = go.call(ApiKey::InitProducerId, 4, "orders", &init("orders-eos")).await;
-    go.call(ApiKey::InitProducerId, 4, "orders", &init("orders-eos")).await;
+    go.call(ApiKey::ApiVersions, 3, "orders", &versions("sarama"))
+        .await;
+    let first = go
+        .call(ApiKey::InitProducerId, 4, "orders", &init("orders-eos"))
+        .await;
+    go.call(ApiKey::InitProducerId, 4, "orders", &init("orders-eos"))
+        .await;
     // The first epoch (0) is fenced now: a produce that carries it is refused. The answer is: correlation id, a tagged-fields
     // byte (header v1), throttle (4), error (2), then the producer id (8) and epoch (2).
     let pid = i64::from_be_bytes(first[11..19].try_into().unwrap());
-    go.call(ApiKey::Produce, 9, "orders", &produce("orders", batch(Some("k"), b"x".to_vec(), Some((pid, 0))), Some("orders-eos"))).await;
+    go.call(
+        ApiKey::Produce,
+        9,
+        "orders",
+        &produce(
+            "orders",
+            batch(Some("k"), b"x".to_vec(), Some((pid, 0))),
+            Some("orders-eos"),
+        ),
+    )
+    .await;
     let mut cli = Wire::connect(w).await;
-    cli.call(ApiKey::ApiVersions, 3, "admin-cli", &versions("librdkafka")).await;
-    cli.call(ApiKey::Produce, 9, "admin-cli", &produce("inventory.levels", batch(None, b"FV-TOM-V:12".to_vec(), None), None)).await;
-    cli.call(ApiKey::Produce, 9, "admin-cli", &produce("orders", batch(Some("k"), vec![b'z'; 1_300_000], None), None)).await;
-    cli.call(ApiKey::Produce, 9, "admin-cli", &produce("orders", batch(Some("k"), b"hello".to_vec(), None), None)).await;
+    cli.call(ApiKey::ApiVersions, 3, "admin-cli", &versions("librdkafka"))
+        .await;
+    cli.call(
+        ApiKey::Produce,
+        9,
+        "admin-cli",
+        &produce(
+            "inventory.levels",
+            batch(None, b"FV-TOM-V:12".to_vec(), None),
+            None,
+        ),
+    )
+    .await;
+    cli.call(
+        ApiKey::Produce,
+        9,
+        "admin-cli",
+        &produce(
+            "orders",
+            batch(Some("k"), vec![b'z'; 1_300_000], None),
+            None,
+        ),
+    )
+    .await;
+    cli.call(
+        ApiKey::Produce,
+        9,
+        "admin-cli",
+        &produce("orders", batch(Some("k"), b"hello".to_vec(), None), None),
+    )
+    .await;
     let mut bad = Wire::connect(w).await;
-    bad.call(ApiKey::ApiVersions, 3, "<script>alert(1)</script>", &versions("<img src=x onerror=alert(2)>")).await;
+    bad.call(
+        ApiKey::ApiVersions,
+        3,
+        "<script>alert(1)</script>",
+        &versions("<img src=x onerror=alert(2)>"),
+    )
+    .await;
 }
 
 #[tokio::test]
@@ -170,14 +258,31 @@ async fn the_tape_shows_what_the_clients_did_and_what_was_refused() {
     let (status, live) = page(&app, get("/live?idle=0")).await;
     assert_eq!(status, StatusCode::OK);
     for want in [
-        "INVALID_RECORD (87)", "MESSAGE_TOO_LARGE (10)", "Refused", "fulfilment", "Produce", "Metadata", "orders-0", "× 25", "1 record", "caught up, no records",
-        "Refused among the rows kept:", "data-extra=\"live-sentence\"", "requests in the last minute.",
+        "INVALID_RECORD (87)",
+        "MESSAGE_TOO_LARGE (10)",
+        "Refused",
+        "fulfilment",
+        "Produce",
+        "Metadata",
+        "orders-0",
+        "× 25",
+        "1 record",
+        "caught up, no records",
+        "Refused among the rows kept:",
+        "data-extra=\"live-sentence\"",
+        "requests in the last minute.",
     ] {
         assert!(live.contains(want), "{want:?} in {live:.6000}");
     }
-    assert!(live.contains("INVALID_PRODUCER_EPOCH (47)") || live.contains("PRODUCER_FENCED (90)"), "the fenced producer");
+    assert!(
+        live.contains("INVALID_PRODUCER_EPOCH (47)") || live.contains("PRODUCER_FENCED (90)"),
+        "the fenced producer"
+    );
     // A hostile client name and software are text.
-    assert!(!live.contains("<script>alert(1)") && !live.contains("<img src=x"), "{live:.4000}");
+    assert!(
+        !live.contains("<script>alert(1)") && !live.contains("<img src=x"),
+        "{live:.4000}"
+    );
     assert!(live.contains("&lt;script&gt;alert(1)&lt;/script&gt;"));
     // Idle polls are hidden by default and the fold is one row.
     let (_, quiet) = page(&app, get("/live")).await;
@@ -190,8 +295,21 @@ async fn each_refusal_opens_its_own_drawer_with_kafkas_words_and_the_rule() {
     let (w, rec) = recorded("drawers", false).await;
     traffic(&w).await;
     let app = router(&w, &rec);
-    let tape = rec.tape(&WireQuery { hide_idle: false, limit: 100, ..WireQuery::default() }, kafka_console::source::now_ms());
-    let id_of = |code: i16| tape.rows.iter().find(|r| r.code == code).map(|r| r.id).unwrap_or_else(|| panic!("no row with code {code}"));
+    let tape = rec.tape(
+        &WireQuery {
+            hide_idle: false,
+            limit: 100,
+            ..WireQuery::default()
+        },
+        kafka_console::source::now_ms(),
+    );
+    let id_of = |code: i16| {
+        tape.rows
+            .iter()
+            .find(|r| r.code == code)
+            .map(|r| r.id)
+            .unwrap_or_else(|| panic!("no row with code {code}"))
+    };
     let drawer = |id: u64| {
         let app = app.clone();
         async move {
@@ -201,28 +319,66 @@ async fn each_refusal_opens_its_own_drawer_with_kafkas_words_and_the_rule() {
         }
     };
     let refused = drawer(id_of(87)).await;
-    for want in ["INVALID_RECORD (87)", "Kafka's words", "The rule", "What would pass", "cleanup.policy=compact", "kcat -P -K:", "Written", "Nothing", "Produce with a key"] {
+    for want in [
+        "INVALID_RECORD (87)",
+        "Kafka's words",
+        "The rule",
+        "What would pass",
+        "cleanup.policy=compact",
+        "kcat -P -K:",
+        "Written",
+        "Nothing",
+        "Produce with a key",
+    ] {
         assert!(refused.contains(want), "{want:?} in {refused:.5000}");
     }
     let large = drawer(id_of(10)).await;
-    for want in ["MESSAGE_TOO_LARGE (10)", "Batch size is within the limit", "1,048,588", "the broker value applies", "Raise max.message.bytes"] {
+    for want in [
+        "MESSAGE_TOO_LARGE (10)",
+        "Batch size is within the limit",
+        "1,048,588",
+        "the broker value applies",
+        "Raise max.message.bytes",
+    ] {
         assert!(large.contains(want), "{want:?} in {large:.5000}");
     }
-    let fenced_code = tape.rows.iter().find(|r| matches!(r.code, 47 | 90)).map(|r| r.code).expect("a fenced row");
+    let fenced_code = tape
+        .rows
+        .iter()
+        .find(|r| matches!(r.code, 47 | 90))
+        .map(|r| r.code)
+        .expect("a fenced row");
     let fenced = drawer(id_of(fenced_code)).await;
-    for want in ["How it came to this", "InitProducerId", "What would pass", "orders-eos"] {
+    for want in [
+        "How it came to this",
+        "InitProducerId",
+        "What would pass",
+        "orders-eos",
+    ] {
         assert!(fenced.contains(want), "{want:?} in {fenced:.5000}");
     }
     let done = tape.rows.iter().find(|r| r.api == "Fetch").unwrap().id;
     let detail = drawer(done).await;
-    for want in ["Fetch v12", "What the broker kept.", "Copy as", "kcat -C", "Correlation id", "confluent-kafka-python"] {
+    for want in [
+        "Fetch v12",
+        "What the broker kept.",
+        "Copy as",
+        "kcat -C",
+        "Correlation id",
+        "confluent-kafka-python",
+    ] {
         assert!(detail.contains(want), "{want:?} in {detail:.5000}");
     }
     let (status, gone) = page(&app, get("/live/999999")).await;
     assert_eq!(status, StatusCode::NOT_FOUND);
     assert!(gone.contains("no longer on the wire"));
     let (_, clients) = page(&app, get("/live/clients")).await;
-    for want in ["fulfilment", "admin-cli", "confluent-kafka-python", "Only clients that are connected now."] {
+    for want in [
+        "fulfilment",
+        "admin-cli",
+        "confluent-kafka-python",
+        "Only clients that are connected now.",
+    ] {
         assert!(clients.contains(want), "{want:?} in {clients:.3000}");
     }
     assert!(!clients.contains("<script>alert(1)"));
@@ -236,13 +392,25 @@ async fn the_docks_the_first_request_and_home_come_from_the_same_tape() {
     let app = router(&w, &rec);
     let (status, topic) = page(&app, get("/topics/orders/wire")).await;
     assert_eq!(status, StatusCode::OK);
-    for want in ["On the wire: orders", "Collapse to the dock", "orders-0", "Topic and partition"] {
+    for want in [
+        "On the wire: orders",
+        "Collapse to the dock",
+        "orders-0",
+        "Topic and partition",
+    ] {
         assert!(topic.contains(want), "{want:?} in {topic:.3000}");
     }
     let (_, group_page) = page(&app, get("/groups/fulfilment/wire")).await;
-    assert!(group_page.contains("Every client request that touched fulfilment"), "{group_page:.1500}");
+    assert!(
+        group_page.contains("Every client request that touched fulfilment"),
+        "{group_page:.1500}"
+    );
     let (_, first) = page(&app, get("/connect/first-request")).await;
-    assert!(first.contains("A new client just connected") && first.contains("sent its first request at"), "{first:.2500}");
+    assert!(
+        first.contains("A new client just connected")
+            && first.contains("sent its first request at"),
+        "{first:.2500}"
+    );
     w.stop().await;
 }
 
@@ -251,42 +419,78 @@ async fn an_acl_refusal_is_amber_denied_and_not_violet() {
     let (w, rec) = recorded("denied", true).await;
     w.create_topic("orders", 1, &[]).await;
     let mut c = Wire::connect(&w).await;
-    c.call(ApiKey::ApiVersions, 3, "intruder", &versions("kcat")).await;
-    c.call(ApiKey::Produce, 9, "intruder", &produce("orders", batch(Some("k"), b"v".to_vec(), None), None)).await;
+    c.call(ApiKey::ApiVersions, 3, "intruder", &versions("kcat"))
+        .await;
+    c.call(
+        ApiKey::Produce,
+        9,
+        "intruder",
+        &produce("orders", batch(Some("k"), b"v".to_vec(), None), None),
+    )
+    .await;
     let app = router(&w, &rec);
     let (_, live) = page(&app, get("/live")).await;
-    assert!(live.contains("TOPIC_AUTHORIZATION_FAILED (29)"), "{live:.4000}");
-    assert!(live.contains("<span class=\"st warn\">Denied</span>"), "amber, with the word");
+    assert!(
+        live.contains("TOPIC_AUTHORIZATION_FAILED (29)"),
+        "{live:.4000}"
+    );
+    assert!(
+        live.contains("<span class=\"st warn\">Denied</span>"),
+        "amber, with the word"
+    );
     assert!(!live.contains("st refused\">Denied"));
-    let id = rec.tape(&WireQuery::default(), kafka_console::source::now_ms()).rows.iter().find(|r| r.code == 29).unwrap().id;
+    let id = rec
+        .tape(&WireQuery::default(), kafka_console::source::now_ms())
+        .rows
+        .iter()
+        .find(|r| r.code == 29)
+        .unwrap()
+        .id;
     let (_, d) = page(&app, get(&format!("/live/{id}"))).await;
-    for want in ["TOPIC_AUTHORIZATION_FAILED (29)", "An ACL allows this", "Add an ACL for the principal on the topic", "callout warn"] {
+    for want in [
+        "TOPIC_AUTHORIZATION_FAILED (29)",
+        "An ACL allows this",
+        "Add an ACL for the principal on the topic",
+        "callout warn",
+    ] {
         assert!(d.contains(want), "{want:?} in {d:.4000}");
     }
     w.stop().await;
 }
 
 #[tokio::test]
-async fn a_console_without_a_recorder_says_the_wire_is_empty_and_the_broker_without_an_observer_is_unchanged() {
+async fn a_console_without_a_recorder_says_the_wire_is_empty_and_the_broker_without_an_observer_is_unchanged()
+ {
     // No observer installed: the broker serves, nothing is recorded, the page is honest.
     let w = world("none", |_, _| {}).await;
     w.create_topic("orders", 1, &[]).await;
     let mut c = Wire::connect(&w).await;
-    let answer = c.call(ApiKey::ApiVersions, 3, "app", &versions("sarama")).await;
+    let answer = c
+        .call(ApiKey::ApiVersions, 3, "app", &versions("sarama"))
+        .await;
     assert!(answer.len() > 20, "the broker answers as it always did");
     let live = Live::new(w.backend.clone(), w.facts.clone());
-    let state = State::new(Source::Live(Box::new(live)), Base::root(), vec![], CancellationToken::new());
+    let state = State::new(
+        Source::Live(Box::new(live)),
+        Base::root(),
+        vec![],
+        CancellationToken::new(),
+    );
     let app = kafka_console::app::router(state);
     let (status, live) = page(&app, get("/live")).await;
     assert_eq!(status, StatusCode::OK);
-    assert!(live.contains("Nothing has reached the broker"), "{live:.1500}");
+    assert!(
+        live.contains("Nothing has reached the broker"),
+        "{live:.1500}"
+    );
     w.stop().await;
 }
 
 fn live_dir() -> std::path::PathBuf {
     let manifest = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let root = manifest.parent().unwrap().parent().unwrap();
-    let target = std::env::var_os("CARGO_TARGET_DIR").map_or_else(|| root.join("target"), std::path::PathBuf::from);
+    let target = std::env::var_os("CARGO_TARGET_DIR")
+        .map_or_else(|| root.join("target"), std::path::PathBuf::from);
     target.join("board-diff-live")
 }
 
@@ -320,13 +524,47 @@ async fn the_live_render_of_the_boards_over_a_real_broker() {
     let app = router(&w, &rec);
     let wire = board(&app, "/live", "live-wire").await;
     assert!(wire.contains("Refused among the rows kept"));
-    let tape = rec.tape(&WireQuery { hide_idle: false, limit: 100, ..WireQuery::default() }, kafka_console::source::now_ms());
-    let id = |f: &dyn Fn(&kafka_console::model::WireRow) -> bool| tape.rows.iter().find(|r| f(r)).unwrap().id;
-    board(&app, &format!("/live?until={}", id(&|r| r.api == "Metadata")), "live-paused").await;
-    board(&app, &format!("/live/{}", id(&|r| r.api == "Fetch")), "request-detail").await;
-    board(&app, &format!("/live/{}", id(&|r| r.code == 87)), "request-refused").await;
-    board(&app, &format!("/live/{}", id(&|r| r.code == 10)), "request-too-large").await;
-    board(&app, &format!("/live/{}", id(&|r| matches!(r.code, 47 | 90))), "request-fenced").await;
+    let tape = rec.tape(
+        &WireQuery {
+            hide_idle: false,
+            limit: 100,
+            ..WireQuery::default()
+        },
+        kafka_console::source::now_ms(),
+    );
+    let id = |f: &dyn Fn(&kafka_console::model::WireRow) -> bool| {
+        tape.rows.iter().find(|r| f(r)).unwrap().id
+    };
+    board(
+        &app,
+        &format!("/live?until={}", id(&|r| r.api == "Metadata")),
+        "live-paused",
+    )
+    .await;
+    board(
+        &app,
+        &format!("/live/{}", id(&|r| r.api == "Fetch")),
+        "request-detail",
+    )
+    .await;
+    board(
+        &app,
+        &format!("/live/{}", id(&|r| r.code == 87)),
+        "request-refused",
+    )
+    .await;
+    board(
+        &app,
+        &format!("/live/{}", id(&|r| r.code == 10)),
+        "request-too-large",
+    )
+    .await;
+    board(
+        &app,
+        &format!("/live/{}", id(&|r| matches!(r.code, 47 | 90))),
+        "request-fenced",
+    )
+    .await;
     board(&app, "/live/clients", "live-clients").await;
     board(&app, "/connect/first-request", "connect-first-request").await;
     board(&app, "/topics/orders/wire", "topic-wire").await;
@@ -336,11 +574,30 @@ async fn the_live_render_of_the_boards_over_a_real_broker() {
     let (w, rec) = recorded("render-busy", false).await;
     w.create_topic("clickstream", 1, &[]).await;
     let mut c = Wire::connect(&w).await;
-    c.call(ApiKey::ApiVersions, 3, "notifications", &versions("kafkajs")).await;
+    c.call(
+        ApiKey::ApiVersions,
+        3,
+        "notifications",
+        &versions("kafkajs"),
+    )
+    .await;
     for i in 0..150 {
-        c.call(ApiKey::Produce, 9, "notifications", &produce("clickstream", batch(Some("k"), format!("v{i}").into_bytes(), None), None)).await;
+        c.call(
+            ApiKey::Produce,
+            9,
+            "notifications",
+            &produce(
+                "clickstream",
+                batch(Some("k"), format!("v{i}").into_bytes(), None),
+                None,
+            ),
+        )
+        .await;
     }
     let busy = board(&router(&w, &rec), "/live", "live-load").await;
-    assert!(busy.contains("A busy minute: 15") && busy.contains("× 150"), "{busy:.3000}");
+    assert!(
+        busy.contains("A busy minute: 15") && busy.contains("× 150"),
+        "{busy:.3000}"
+    );
     w.stop().await;
 }

@@ -150,10 +150,12 @@ fn the_script_follows_the_rules_the_spike_found_and_runs_under_the_strictest_pol
         SCRIPT.to_ascii_lowercase().contains(HEADER_FRAGMENT),
         "the form header is {HEADER_FRAGMENT}"
     );
+    // (Slice 9e's Live adds about 90 lines: pause with a held-back count, marked new rows, j and k, select filters; the DOM tests
+    // in `tools/dom/live.test.ts` run them. The spike's flip condition of about 200 lines of client logic is crossed: see the 9e report.)
     // (Over 130 since the audit asked for the clipboard fallback and the banner's way back; the behaviour is tested in
     // `tools/dom`, which runs this very file, so these are no longer the only guard.)
     assert!(
-        SCRIPT.lines().count() < 160,
+        SCRIPT.lines().count() < 260,
         "the script is small enough to read in one sitting"
     );
 }

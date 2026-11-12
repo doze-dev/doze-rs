@@ -85,6 +85,7 @@ impl Recorder {
             requests: ring.requests(),
             oldest_ms: ring.iter().next().map(|r| r.first_ms),
             last_ms: last.map(|r| r.last_ms),
+            ago_ms: last.map(|r| crate::source::now_ms().saturating_sub(r.last_ms)),
             last_client: last.map(|r| r.who.client.to_string()),
         }
     }

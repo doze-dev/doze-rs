@@ -676,6 +676,7 @@ pub fn spoke() -> crate::model::SpokeView {
         requests: 2000,
         oldest_ms: Some(at("19:12:00.000")),
         last_ms: Some(now() - 1000),
+        ago_ms: Some(1000),
         last_client: Some("fulfilment".to_owned()),
     }
 }

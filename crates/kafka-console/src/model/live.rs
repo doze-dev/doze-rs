@@ -263,6 +263,8 @@ pub struct SpokeView {
     pub requests: u64,
     pub oldest_ms: Option<i64>,
     pub last_ms: Option<i64>,
+    /// How long ago the last request landed, in milliseconds.
+    pub ago_ms: Option<i64>,
     pub last_client: Option<String>,
 }
 

@@ -72,7 +72,7 @@ fn the_quiet_and_busy_and_paused_sentences() {
     p.paused_at_ms = Some(1_000_000_000_000 + 23_600);
     assert_eq!(
         text(&live_sentence(&p)),
-        "Paused at 01:46:23.6. Everything below is as it was then."
+        "Paused at 01:47:03.6. Everything below is as it was then."
     );
 }
 

@@ -73,6 +73,7 @@ impl Live {
             probe,
             instance,
             unchecked: looked.unchecked,
+            spoke: self.recorder.as_ref().map(|r| r.spoke()),
         }
     }
 }
