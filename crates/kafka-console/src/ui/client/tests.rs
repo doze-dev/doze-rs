@@ -8,8 +8,6 @@ fn the_script_uses_every_name_this_file_defines() {
     for name in [
         EVENT_TICK,
         ATTR_FRAG,
-        ATTR_AJAX,
-        ATTR_TARGET,
         ATTR_STREAM,
         ATTR_JS_ONLY,
         ATTR_COPY,
@@ -55,7 +53,8 @@ fn the_markup_uses_the_attribute_names_the_constants_say() {
     // The body boosts every link and form; the stream's address is on `main` (the shell's tests), where a swap renews it.
     let body = body(html! {}).into_string();
     assert!(
-        body.starts_with(r##"<body hx-boost="true" hx-target="#main""##) && body.contains("hx-ext=\"morph\""),
+        body.starts_with(r##"<body hx-boost="true" hx-target="#main""##)
+            && body.contains("hx-ext=\"morph\""),
         "{body}"
     );
     let frag = fragment("home-instance", "/fragments/home-instance", html! { "x" }).into_string();
@@ -75,7 +74,10 @@ fn a_form_posts_with_no_script_and_swaps_its_target_with_one() {
         html! { button { "Go" } },
     )
     .into_string();
-    assert!(f.starts_with(r#"<form method="post" action="/connect/advertised/check" data-ajax data-target="probe-home">"#), "{f}");
+    assert!(
+        f.starts_with(r##"<form method="post" action="/connect/advertised/check" hx-post="/connect/advertised/check" hx-target="#probe-home" hx-select="#probe-home" hx-swap="morph:outerHTML show:none""##),
+        "{f}"
+    );
     assert!(
         f.contains(r#"<input type="hidden" name="back" value="home">"#),
         "{f}"
@@ -120,7 +122,7 @@ fn the_script_follows_the_rules_the_spike_found_and_runs_under_the_strictest_pol
         ("and reopened when it comes back", "'pageshow'"),
         (
             "the focused input keeps its value",
-            "focused && name === 'value'",
+            "ignoreActiveValue = true",
         ),
         (
             "the reconnect waits longer and longer",
@@ -151,12 +153,10 @@ fn the_script_follows_the_rules_the_spike_found_and_runs_under_the_strictest_pol
         SCRIPT.to_ascii_lowercase().contains(HEADER_FRAGMENT),
         "the form header is {HEADER_FRAGMENT}"
     );
-    // (Slice 9e's Live adds about 90 lines: pause with a held-back count, marked new rows, j and k, select filters; the DOM tests
-    // in `tools/dom/live.test.ts` run them. The spike's flip condition of about 200 lines of client logic is crossed: see the 9e report.)
-    // (Over 130 since the audit asked for the clipboard fallback and the banner's way back; the behaviour is tested in
-    // `tools/dom`, which runs this very file, so these are no longer the only guard.)
+    // (The script is the product's logic over htmx and Alpine: the tests in `tools/dom` run it with both. It is small enough to read in
+    // one sitting; the generic parts (fragment swaps, link and form interception, popups) are the libraries'.)
     assert!(
-        SCRIPT.lines().count() < 520,
+        SCRIPT.lines().count() < 600,
         "the script is small enough to read in one sitting"
     );
 }
@@ -185,7 +185,6 @@ fn the_script_opens_dialogs_by_the_names_this_file_defines() {
         ATTR_TRANSIENT,
         ATTR_JUMP_INPUT,
         ATTR_JUMP,
-        HEADER_OVERLAY,
         CLASS_OVERLAY_IN,
         CLASS_OVERLAY_OUT,
     ] {

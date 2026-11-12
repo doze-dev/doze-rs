@@ -52,7 +52,11 @@ fn select_chip(name: &str, all: &str, current: &str, options: &[String]) -> Mark
     select(&Select {
         auto_submit: true,
         placeholder: all,
-        class: if current.is_empty() { "dz-chip" } else { "dz-chip on" },
+        class: if current.is_empty() {
+            "dz-chip"
+        } else {
+            "dz-chip on"
+        },
         ..Select::new(&format!("live-{name}"), name, all, &choices, current)
     })
 }

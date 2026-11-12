@@ -61,6 +61,12 @@ pub async fn layer(req: Request, next: Next) -> Response {
         .get(HX_TARGET)
         .and_then(|v| v.to_str().ok())
         .is_some_and(|t| t == OVERLAY_ROOT);
+    let here = req
+        .uri()
+        .path_and_query()
+        .map(ToString::to_string)
+        .unwrap_or_default();
+    let is_get = req.method() == axum::http::Method::GET;
     let preloading = is_true(&req, HX_PRELOADED) && req.method() == axum::http::Method::GET;
     let mut res = REGION.scope(hx && !restore, next.run(req)).await;
     let h = res.headers_mut();
@@ -82,9 +88,14 @@ pub async fn layer(req: Request, next: Next) -> Response {
         for (k, v) in [
             ("hx-retarget", "#main"),
             ("hx-reswap", "outerHTML transition:true show:window:top"),
-            ("hx-replace-url", "true"),
         ] {
             h.insert(HeaderName::from_static(k), HeaderValue::from_static(v));
+        }
+        // The page's own address replaces the overlay's, when this answer is a page's own GET (the redirect after a write). A
+        // POST answered with a page directly has no address of its own to give: the overlay's stays.
+        let at = if is_get { here } else { "false".to_owned() };
+        if let Ok(v) = HeaderValue::from_str(&at) {
+            h.insert(HeaderName::from_static("hx-replace-url"), v);
         }
     }
     res

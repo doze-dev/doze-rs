@@ -3,7 +3,9 @@
 
 use maud::{Markup, html};
 
-use super::{Choice, Combobox, Menu, MenuItem, Select, SegItem, combobox, menu, popover, seg, select, tip};
+use super::{
+    Choice, Combobox, Menu, MenuItem, SegItem, Select, combobox, menu, popover, seg, select, tip,
+};
 use crate::ui::client::{self, in_place_form};
 use crate::ui::layout::page_header;
 
@@ -28,7 +30,12 @@ impl Chosen {
     pub fn from_query(query: &str) -> Self {
         let f = crate::form::parse(query);
         let get = |k| crate::form::get(&f, k).unwrap_or("").to_owned();
-        Self { partition: get("partition"), topic: get("topic"), client: get("client"), view: get("view") }
+        Self {
+            partition: get("partition"),
+            topic: get("topic"),
+            client: get("client"),
+            view: get("view"),
+        }
     }
 }
 
@@ -37,15 +44,37 @@ fn section(title: &str, note: &str, body: Markup) -> Markup {
 }
 
 fn demo_form(c: &Chosen, base: &crate::base::Base) -> Markup {
-    let partitions = [Choice::new("", "All partitions"), Choice::new("0", "0"), Choice::new("1", "1").desc("leader 2"), Choice::new("2", "2")];
+    let partitions = [
+        Choice::new("", "All partitions"),
+        Choice::new("0", "0"),
+        Choice::new("1", "1").desc("leader 2"),
+        Choice::new("2", "2"),
+    ];
     let topics: Vec<String> = (1..=40).map(|n| format!("topic.{n:02}")).collect();
     let mut tc = vec![Choice::new("", "Any topic")];
     tc.extend(topics.iter().map(|t| Choice::new(t, t)));
     let seg_items: Vec<(String, String)> = ["all", "ok", "refused"]
         .iter()
-        .map(|v| ((*v).to_owned(), format!("{}?view={v}&partition={}&topic={}", base.url("/gallery"), c.partition, c.topic)))
+        .map(|v| {
+            (
+                (*v).to_owned(),
+                format!(
+                    "{}?view={v}&partition={}&topic={}",
+                    base.url("/gallery"),
+                    c.partition,
+                    c.topic
+                ),
+            )
+        })
         .collect();
-    let items: Vec<SegItem<'_>> = seg_items.iter().map(|(v, href)| SegItem { label: v, href, current: c.view == *v || (c.view.is_empty() && v == "all") }).collect();
+    let items: Vec<SegItem<'_>> = seg_items
+        .iter()
+        .map(|(v, href)| SegItem {
+            label: v,
+            href,
+            current: c.view == *v || (c.view.is_empty() && v == "all"),
+        })
+        .collect();
     html! {
         (in_place_form(REGION, "toolbar", &base.url("/gallery"), html! {
             (select(&Select { auto_submit: true, placeholder: "All partitions", ..Select::new("g-partition", "partition", "Partition", &partitions, &c.partition) }))
@@ -71,16 +100,62 @@ pub fn region(c: &Chosen) -> Markup {
 /// The gallery page's `main`.
 #[must_use]
 pub fn page(c: &Chosen, base: &crate::base::Base) -> Markup {
-    let colours = [Choice::new("r", "Red"), Choice::new("g", "Green").desc("the second one"), Choice::new("b", HOSTILE), Choice::new("n", "Not on offer").disabled()];
-    let clients = ["admin-cli", "search-indexer", "checkout-svc", "billing-batch"];
+    let colours = [
+        Choice::new("r", "Red"),
+        Choice::new("g", "Green").desc("the second one"),
+        Choice::new("b", HOSTILE),
+        Choice::new("n", "Not on offer").disabled(),
+    ];
+    let clients = [
+        "admin-cli",
+        "search-indexer",
+        "checkout-svc",
+        "billing-batch",
+    ];
     let cc: Vec<Choice<'_>> = clients.iter().map(|n| Choice::new(n, n)).collect();
     let items = [
-        MenuItem::Link { label: "Open the topic", href: "/topics/orders", dialog: false, danger: false },
-        MenuItem::Link { label: "Produce a record", href: "/topics/orders/produce", dialog: true, danger: false },
+        MenuItem::Link {
+            label: "Open the topic",
+            href: "/topics/orders",
+            dialog: false,
+            danger: false,
+        },
+        MenuItem::Link {
+            label: "Produce a record",
+            href: "/topics/orders/produce",
+            dialog: true,
+            danger: false,
+        },
         MenuItem::Separator,
-        MenuItem::Link { label: "Delete topic", href: "/topics/orders/delete", dialog: true, danger: true },
+        MenuItem::Link {
+            label: "Delete topic",
+            href: "/topics/orders/delete",
+            dialog: true,
+            danger: true,
+        },
     ];
-    let rows = [SegItem { label: "All partitions", href: "?p=all", current: true }, SegItem { label: "0", href: "?p=0", current: false }, SegItem { label: "1", href: "?p=1", current: false }, SegItem { label: "2", href: "?p=2", current: false }];
+    let rows = [
+        SegItem {
+            label: "All partitions",
+            href: "?p=all",
+            current: true,
+        },
+        SegItem {
+            label: "0",
+            href: "?p=0",
+            current: false,
+        },
+        SegItem {
+            label: "1",
+            href: "?p=1",
+            current: false,
+        },
+        SegItem {
+            label: "2",
+            href: "?p=2",
+            current: false,
+        },
+    ];
     html! {
         (page_header("Component gallery", html! { p class="sub" { "Every component and state. Examples build only." } }, html! {}))
         div class="gal" {

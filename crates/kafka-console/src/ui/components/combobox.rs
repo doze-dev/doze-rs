@@ -3,7 +3,7 @@
 
 use maud::{Markup, html};
 
-use super::{Choice, Icon, icon, options, shown, alpine};
+use super::{Choice, Icon, alpine, icon, options, shown};
 
 /// A Combobox. For free text (`create`) the form control is a text field named `name`; otherwise a `<select>`.
 #[derive(Debug, Clone, Copy)]
@@ -22,8 +22,24 @@ pub struct Combobox<'a> {
 
 impl<'a> Combobox<'a> {
     #[must_use]
-    pub const fn new(id: &'a str, name: &'a str, label: &'a str, choices: &'a [Choice<'a>], value: &'a str) -> Self {
-        Self { id, name, label, choices, value, placeholder: "Search", create: false, auto_submit: false, class: "" }
+    pub const fn new(
+        id: &'a str,
+        name: &'a str,
+        label: &'a str,
+        choices: &'a [Choice<'a>],
+        value: &'a str,
+    ) -> Self {
+        Self {
+            id,
+            name,
+            label,
+            choices,
+            value,
+            placeholder: "Search",
+            create: false,
+            auto_submit: false,
+            class: "",
+        }
     }
 }
 

@@ -285,7 +285,14 @@
       return;
     }
     if (ovl && ovl.el === el) return;
-    if (ovl) { ovl.el = el; reveal(); focusIn(el); return; } // the next record, a form's answer: in place, not coming in again
+    if (ovl) { // the next record, a form's answer: in place, not coming in again
+      ovl.el = el;
+      if (opening && opening.push) history.replaceState({ ovl: 1, parent: ovl.parent }, '', opening.push);
+      opening = null;
+      reveal();
+      focusIn(el);
+      return;
+    }
     const o = opening || { opener: null, push: false, parent: here(), animate: false };
     opening = null;
     const fresh = !!o.opener || o.animate;
@@ -457,7 +464,13 @@
   });
   const done = () => { clearTimeout(slow); document.documentElement.classList.remove('is-loading'); };
   hx('afterRequest', done);
-  hx('sendError', (e) => { done(); const p = e.detail.pathInfo && e.detail.pathInfo.requestPath; if (p && e.detail.requestConfig && e.detail.requestConfig.boosted) location.href = p; });
+  // A request that could not be made at all falls back to what the browser would do: follow the link, post the form.
+  hx('sendError', (e) => {
+    done();
+    const elt = e.detail.elt, p = e.detail.pathInfo && e.detail.pathInfo.requestPath;
+    if (elt && elt.tagName === 'FORM') elt.submit();
+    else if (p && e.detail.requestConfig && e.detail.requestConfig.boosted) location.href = p;
+  });
   // After any swap: our state follows the DOM (an overlay came or went), new controls are revealed, the stream follows the page.
   hx('afterSettle', () => {
     pageUrl = ovl && ovl.parent ? ovl.parent : here();

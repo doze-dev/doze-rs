@@ -4,15 +4,26 @@
 
 use maud::{Markup, html};
 
-use super::{Icon, icon, alpine};
+use super::{Icon, alpine, icon};
 
 /// One entry of a menu.
 #[derive(Debug, Clone, Copy)]
 pub enum MenuItem<'a> {
     /// A link, which may open an overlay (`dialog`: `data-dialog`).
-    Link { label: &'a str, href: &'a str, dialog: bool, danger: bool },
+    Link {
+        label: &'a str,
+        href: &'a str,
+        dialog: bool,
+        danger: bool,
+    },
     /// A button of the form `form` (an id on the page) that submits it with `name=value`.
-    Button { label: &'a str, form: &'a str, name: &'a str, value: &'a str, danger: bool },
+    Button {
+        label: &'a str,
+        form: &'a str,
+        name: &'a str,
+        value: &'a str,
+        danger: bool,
+    },
     Separator,
 }
 

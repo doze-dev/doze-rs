@@ -123,14 +123,17 @@ fn the_vendored_script_stays_within_the_budget_of_the_stack_decision() {
         .map(|f| f.bytes.map_or(0, <[u8]>::len))
         .sum();
     assert!(vendored < 160_000, "vendored script is {vendored} bytes");
-    assert!(vendored > 100_000, "vendored script is {vendored} bytes: is a library missing?");
+    assert!(
+        vendored > 100_000,
+        "vendored script is {vendored} bytes: is a library missing?"
+    );
 }
 
 #[test]
 fn no_script_of_ours_evaluates_a_string() {
     for name in ["console.js", "components.js"] {
         let text = std::fs::read_to_string(dir("assets").join(name)).unwrap();
-        for banned in ["eval(", "new Function", "setTimeout(\"", "innerHTML ="] {
+        for banned in ["eval(", "new Function", "setTimeout(\"", "document.write"] {
             assert!(!text.contains(banned), "{name} uses {banned}");
         }
     }

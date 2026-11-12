@@ -115,13 +115,25 @@ fn topic_field(v: &ResetView) -> Markup {
         .iter()
         .map(|t| {
             if *t == v.topic {
-                format!("{t}, {}", if n == 1 { "its partition".to_owned() } else { format!("all {n} partitions") })
+                format!(
+                    "{t}, {}",
+                    if n == 1 {
+                        "its partition".to_owned()
+                    } else {
+                        format!("all {n} partitions")
+                    }
+                )
             } else {
                 t.clone()
             }
         })
         .collect();
-    let choices: Vec<Choice<'_>> = v.topics.iter().zip(&labels).map(|(t, l)| Choice::new(t, l)).collect();
+    let choices: Vec<Choice<'_>> = v
+        .topics
+        .iter()
+        .zip(&labels)
+        .map(|(t, l)| Choice::new(t, l))
+        .collect();
     field(
         "reset-topic",
         "Topic",

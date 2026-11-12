@@ -141,10 +141,10 @@ fn assert_inert(doc: &str, payload: &str, what: &str) {
             "{what}: {live:?} came through for {payload:?}"
         );
     }
-    // The only script is the console's own file.
+    // The only scripts are the console's own files (each a `<script src>`: there is no inline script).
     assert_eq!(
         doc.matches("<script").count(),
-        1,
+        doc.matches("<script src=").count(),
         "{what}: a script tag that is not the console's, for {payload:?}"
     );
     assert!(
@@ -266,7 +266,11 @@ async fn a_path_that_is_not_a_page_is_shown_escaped_and_with_the_security_header
             !body.contains("<script>alert") && !body.contains("<img src=x"),
             "{path}: {body:.400}"
         );
-        assert_eq!(body.matches("<script").count(), 1, "{path}");
+        assert_eq!(
+            body.matches("<script").count(),
+            body.matches("<script src=").count(),
+            "{path}"
+        );
     }
 }
 

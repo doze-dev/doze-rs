@@ -11,8 +11,8 @@ mod combobox;
 #[cfg(feature = "examples")]
 pub mod gallery;
 mod menu;
-mod select;
 mod seg;
+mod select;
 mod tip;
 
 pub use combobox::{Combobox, combobox};
@@ -118,7 +118,11 @@ pub(crate) fn options(id: &str, choices: &[Choice<'_>], value: &str) -> Markup {
 }
 
 /// The chosen choice's label, or the placeholder.
-pub(crate) fn shown<'a>(choices: &[Choice<'a>], value: &str, placeholder: &'a str) -> (&'a str, bool) {
+pub(crate) fn shown<'a>(
+    choices: &[Choice<'a>],
+    value: &str,
+    placeholder: &'a str,
+) -> (&'a str, bool) {
     choices
         .iter()
         .find(|c| c.value == value)

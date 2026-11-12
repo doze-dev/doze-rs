@@ -31,6 +31,8 @@ export class Page {
   logs: string[] = [];
   /** Requests the page made (url and the htmx headers), newest last. */
   requests: Array<{ url: string; method: string; headers: Record<string, string> }> = [];
+  /** Responses and whether the browser had them already (its memory or disk cache), newest last. */
+  served: Array<{ url: string; cached: boolean }> = [];
   constructor(private b: Browser, private sessionId: string, private base: string) {
     b.on((method, p, sid) => {
       if (sid !== sessionId) return;
@@ -41,6 +43,9 @@ export class Page {
       } else if (method === "Log.entryAdded") {
         const e = (p as { entry: { level: string; text: string; url?: string } }).entry;
         if (e.level === "error" || e.level === "warning") this.logs.push(`log.${e.level}: ${e.text} ${e.url ?? ""}`);
+      } else if (method === "Network.responseReceived") {
+        const r = (p as { response: { url: string; fromDiskCache?: boolean; fromPrefetchCache?: boolean } }).response;
+        this.served.push({ url: r.url, cached: !!(r.fromDiskCache || r.fromPrefetchCache) });
       } else if (method === "Network.requestWillBeSent") {
         const r = (p as { request: { url: string; method: string; headers: Record<string, string> } }).request;
         this.requests.push({ url: r.url, method: r.method, headers: r.headers });
@@ -55,7 +60,12 @@ export class Page {
     await this.cmd("Emulation.setDeviceMetricsOverride", { width: 1280, height: 800, deviceScaleFactor: 1, mobile: false });
   }
 
-  clearLogs(): void { this.logs = []; this.requests = []; }
+  clearLogs(): void { this.logs = []; this.requests = []; this.served = []; }
+
+  /** Slows every request by `latency` ms (0 turns it off). */
+  async latency(ms: number): Promise<void> {
+    await this.cmd("Network.emulateNetworkConditions", { offline: false, latency: ms, downloadThroughput: -1, uploadThroughput: -1 });
+  }
 
   async goto(path: string): Promise<void> {
     await this.cmd("Page.navigate", { url: path.startsWith("http") ? path : this.base + path });

@@ -5,7 +5,20 @@
 import { Window } from "happy-dom";
 
 // CONSOLE_JS names another file to run (the script before a change, to see a test fail on it).
-const SCRIPT = await Bun.file(process.env.CONSOLE_JS ?? new URL("../../crates/kafka-console/assets/console.js", import.meta.url).pathname).text();
+const ASSETS = new URL("../../crates/kafka-console/assets/", import.meta.url).pathname;
+const read = (name: string) => Bun.file(ASSETS + name).text();
+// CONSOLE_JS names another console.js to run (the script before a change, to see a test fail on it).
+const CONSOLE = process.env.CONSOLE_JS ? await Bun.file(process.env.CONSOLE_JS).text() : await read("console.js");
+const SCRIPTS = {
+  htmx: await read("htmx-2.0.11.min.js"),
+  idiomorph: await read("idiomorph-ext-0.8.0.min.js"),
+  console: CONSOLE,
+  components: await read("components.js"),
+  anchor: await read("alpine-anchor-3.17.5.min.js"),
+  alpine: await read("alpine-csp-3.17.5.min.js"),
+};
+// htmx's configuration is the document's own (src/ui/client.rs HTMX_CONFIG): the tests read it from there.
+const HTMX_CONFIG = /HTMX_CONFIG: &str = r#"(.*?)"#;/.exec(await Bun.file(new URL("../../crates/kafka-console/src/ui/client.rs", import.meta.url).pathname).text())![1];
 
 export type Reply = { status?: number; etag?: string; body?: string; headers?: Record<string, string>; redirected?: boolean; url?: string };
 
@@ -120,14 +133,27 @@ export interface Options {
   reduced?: boolean;
   /** The address the page is at (default the console's root). */
   url?: string;
+  /** No boost attributes on the body (a page that is not the shell). */
+  plain?: boolean;
+  /** Start Alpine (the components). Off by default: the tests of console.js do not need it. */
+  alpine?: boolean;
 }
 
 /** Boots `html` (a body) with the script. */
 export async function boot(html: string, opts: Options = {}): Promise<Page> {
   const window = new Window({ url: opts.url ?? "http://127.0.0.1:9093/", width: 1024, height: 768 });
   const document = window.document;
+  document.head.innerHTML = `<meta name="htmx-config" content='${HTMX_CONFIG}'><title></title>`;
   document.body.innerHTML = html;
-  if (opts.stream) document.body.setAttribute("data-stream", opts.stream);
+  // The overlay root and the body's boost attributes are the shell's (src/ui/shell.rs, client::body).
+  if (!document.getElementById("ovl")) document.body.insertAdjacentHTML("beforeend", '<div id="ovl"></div>');
+  if (!opts.plain) {
+    document.body.setAttribute("hx-boost", "true");
+    document.body.setAttribute("hx-target", "#main");
+    document.body.setAttribute("hx-swap", "outerHTML transition:true show:window:top");
+    document.body.setAttribute("hx-ext", "morph");
+  }
+  if (opts.stream) (document.getElementById("main") ?? document.body).setAttribute("data-stream", opts.stream);
   const calls: Call[] = [];
   const pending: Pending[] = [];
   const timers: Timer[] = [];
@@ -192,6 +218,86 @@ export async function boot(html: string, opts: Options = {}): Promise<Page> {
     });
   };
 
+  // htmx's requests are XMLHttpRequests: the same calls, the same answers as a fetch.
+  class FakeXHR {
+    readyState = 0;
+    status = 0;
+    statusText = "";
+    responseText = "";
+    response = "";
+    responseURL = "";
+    responseType = "";
+    timeout = 0;
+    upload = { addEventListener(): void {} };
+    addEventListener(): void {}
+    onload: (() => void) | null = null;
+    onerror: (() => void) | null = null;
+    onabort: (() => void) | null = null;
+    ontimeout: (() => void) | null = null;
+    private method = "GET";
+    private url = "";
+    private headers: Record<string, string> = {};
+    private replyHeaders: Record<string, string> = {};
+    open(method: string, url: string): void {
+      this.method = method;
+      this.url = new URL(url, history.url).href;
+    }
+    setRequestHeader(k: string, v: string): void {
+      this.headers[k] = v;
+    }
+    overrideMimeType(): void {}
+    getResponseHeader(n: string): string | null {
+      const h = Object.entries(this.replyHeaders).find(([k]) => k.toLowerCase() === n.toLowerCase());
+      return h ? h[1] : null;
+    }
+    getAllResponseHeaders(): string {
+      return Object.entries(this.replyHeaders).map(([k, v]) => `${k}: ${v}`).join("\r\n");
+    }
+    abort(): void {
+      const at = pending.findIndex((q) => (q as unknown as { xhr?: FakeXHR }).xhr === this);
+      if (at >= 0) pending.splice(at, 1);
+      this.onabort?.();
+    }
+    send(body?: unknown): void {
+      const call: Call = { url: this.url, method: this.method, headers: { ...this.headers }, signal: undefined, body };
+      calls.push(call);
+      const p = {
+        ...call,
+        xhr: this,
+        answer: (r: Reply) => {
+          const at = pending.indexOf(p as unknown as Pending);
+          if (at >= 0) pending.splice(at, 1);
+          this.status = r.status ?? 200;
+          this.responseText = this.response = r.body ?? "";
+          this.responseURL = r.url ?? this.url;
+          this.replyHeaders = { ...(r.headers ?? {}), ...(r.etag ? { ETag: r.etag } : {}) };
+          this.readyState = 4;
+          this.onload?.();
+        },
+        fail: () => {
+          const at = pending.indexOf(p as unknown as Pending);
+          if (at >= 0) pending.splice(at, 1);
+          this.onerror?.();
+        },
+      } as Pending & { xhr: FakeXHR };
+      if (auto) {
+        const r = auto(call);
+        if (r instanceof Error) p.fail(r);
+        else p.answer(r);
+      } else pending.push(p);
+    }
+  }
+  (window as unknown as { XMLHttpRequest: unknown }).XMLHttpRequest = FakeXHR;
+  // htmx asks `root instanceof Document`; in happy-dom's scope the window's own document is not one. Say that it is.
+  const Doc = window.Document as unknown as { [Symbol.hasInstance]?: unknown };
+  Object.defineProperty(Doc, Symbol.hasInstance, { value: (o: unknown) => o === window.document, configurable: true });
+  // htmx asks an XPathEvaluator for elements with hx-on:* attributes; the console uses none.
+  (window as unknown as { XPathEvaluator: unknown }).XPathEvaluator = class {
+    createExpression() {
+      return { evaluate: () => ({ iterateNext: () => null }) };
+    }
+  };
+
   FakeEventSource.all = [];
   if (!opts.noEventSource) (window as unknown as { EventSource: unknown }).EventSource = FakeEventSource;
   (window as unknown as { setTimeout: unknown }).setTimeout = (fn: () => void, ms: number) => {
@@ -228,6 +334,8 @@ export async function boot(html: string, opts: Options = {}): Promise<Page> {
   const navigated: string[] = [];
   let reloads = 0;
   Object.defineProperty(window.location, "href", { get: () => history.url, set: (v: string) => void navigated.push(String(v)), configurable: true });
+  Object.defineProperty(window.location, "pathname", { get: () => new URL(history.url).pathname, configurable: true });
+  Object.defineProperty(window.location, "search", { get: () => new URL(history.url).search, configurable: true });
   Object.defineProperty(window.location, "reload", { value: () => void reloads++, configurable: true });
   (window as unknown as { matchMedia: unknown }).matchMedia = (q: string) => ({ matches: !!opts.reduced && q.includes("reduce"), media: q });
   (window as unknown as { scrollTo: unknown }).scrollTo = () => {};
@@ -237,7 +345,18 @@ export async function boot(html: string, opts: Options = {}): Promise<Page> {
     return {};
   };
 
-  window.eval(SCRIPT);
+  window.eval(SCRIPTS.htmx);
+  // A browser reads the <meta name="htmx-config"> when the document is ready; happy-dom never says so: apply it the same way.
+  const htmx = (window as unknown as { htmx: { config: object; process: (e: Element) => void } }).htmx;
+  Object.assign(htmx.config, JSON.parse(HTMX_CONFIG));
+  htmx.process(document.body as unknown as Element);
+  window.eval(SCRIPTS.idiomorph);
+  window.eval(SCRIPTS.console);
+  window.eval(SCRIPTS.components);
+  if (opts.alpine) {
+    window.eval(SCRIPTS.anchor);
+    window.eval(SCRIPTS.alpine);
+  }
 
   const flush = async () => {
     for (let i = 0; i < 6; i++) await new Promise((r) => setImmediate(r));

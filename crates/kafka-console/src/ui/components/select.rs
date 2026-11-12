@@ -4,7 +4,7 @@
 
 use maud::{Markup, html};
 
-use super::{Choice, Icon, icon, options, shown, alpine};
+use super::{Choice, Icon, alpine, icon, options, shown};
 
 /// A Select. `id` and `name` are the `<select>`'s; `label` is its accessible name when no `<label for=id>` is drawn.
 #[derive(Debug, Clone, Copy)]
@@ -25,8 +25,24 @@ pub struct Select<'a> {
 
 impl<'a> Select<'a> {
     #[must_use]
-    pub const fn new(id: &'a str, name: &'a str, label: &'a str, choices: &'a [Choice<'a>], value: &'a str) -> Self {
-        Self { id, name, label, choices, value, placeholder: "Choose", auto_submit: false, disabled: false, class: "" }
+    pub const fn new(
+        id: &'a str,
+        name: &'a str,
+        label: &'a str,
+        choices: &'a [Choice<'a>],
+        value: &'a str,
+    ) -> Self {
+        Self {
+            id,
+            name,
+            label,
+            choices,
+            value,
+            placeholder: "Choose",
+            auto_submit: false,
+            disabled: false,
+            class: "",
+        }
     }
 }
 

@@ -12,10 +12,6 @@ use maud::{Markup, html};
 pub const EVENT_TICK: &str = "tick";
 /// The attribute of a fragment that holds the URL it is fetched from.
 pub const ATTR_FRAG: &str = "data-frag";
-/// A form the script posts in place (the server answers with the fragment named by `data-target`).
-pub const ATTR_AJAX: &str = "data-ajax";
-/// The id of the fragment a posted form's answer replaces.
-pub const ATTR_TARGET: &str = "data-target";
 /// The request header that says "I want the fragment, not a redirect".
 pub const HEADER_FRAGMENT: &str = "x-fragment";
 /// The attribute of `<body>` that holds the URL of the stream.
@@ -61,8 +57,8 @@ pub const ID_OVERLAY_ROOT: &str = "ovl";
 /// `allowEval` off and `allowScriptTags` off keep the CSP (no `unsafe-eval`, no inline script) true of htmx; `selfRequestsOnly`
 /// refuses a request to another origin; `historyCacheSize` 0 keeps page snapshots (message values!) out of `localStorage` and
 /// always restores a fresh page; `includeIndicatorStyles` off because the console draws its own; `scrollIntoViewOnBoost` off
-/// because the swap says where to scroll; every status except 204 swaps, so that a refusal (422) and a 404 page are shown.
-pub const HTMX_CONFIG: &str = r#"{"allowEval":false,"allowScriptTags":false,"selfRequestsOnly":true,"historyCacheSize":0,"includeIndicatorStyles":false,"scrollIntoViewOnBoost":false,"defaultSwapStyle":"outerHTML","responseHandling":[{"code":"204","swap":false},{"code":".*","swap":true}]}"#;
+/// because the swap says where to scroll; `defaultSettleDelay` 0 because nothing waits 20 ms to settle; every status except 204 swaps, so that a refusal (422) and a 404 page are shown.
+pub const HTMX_CONFIG: &str = r#"{"allowEval":false,"allowScriptTags":false,"selfRequestsOnly":true,"historyCacheSize":0,"includeIndicatorStyles":false,"scrollIntoViewOnBoost":false,"defaultSettleDelay":0,"defaultSwapStyle":"outerHTML","responseHandling":[{"code":"204","swap":false},{"code":".*","swap":true}]}"#;
 /// What goes in `<head>` for the client layer: htmx's configuration and the scripts, in load order (all deferred).
 #[must_use]
 pub fn head(script_urls: &[String]) -> Markup {
@@ -124,7 +120,7 @@ pub fn fragment_static(id: &str, url: &str, content: Markup) -> Markup {
 #[must_use]
 pub fn form(action: &str, target: &str, hidden: &[(&str, &str)], content: Markup) -> Markup {
     html! {
-        form method="post" action=(action) data-ajax data-target=(target) hx-post=(action) hx-target={"#" (target)} hx-select={"#" (target)} hx-swap="morph:outerHTML show:none" hx-headers=r#"{"X-Fragment":"1"}"# {
+        form method="post" action=(action) hx-post=(action) hx-target={"#" (target)} hx-select={"#" (target)} hx-swap="morph:outerHTML show:none" hx-headers=r#"{"X-Fragment":"1"}"# {
             @for (name, value) in hidden { input type="hidden" name=(name) value=(value); }
             (content)
         }
