@@ -12,12 +12,14 @@
 //! A container-image function is stored and listed; invoking it says why it cannot run.
 
 mod aliases;
+mod answer;
 mod arn;
 mod async_invoke;
 mod authz;
 mod code;
 mod config;
 mod core;
+mod dispatch;
 mod errors;
 mod eventstream;
 mod functions;
@@ -34,6 +36,7 @@ mod rt;
 mod settings;
 mod signing;
 mod stream;
+mod updates;
 mod urls;
 mod web;
 mod zipread;

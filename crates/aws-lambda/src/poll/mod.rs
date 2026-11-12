@@ -5,6 +5,7 @@
 //! one are remembered in `mappings.armed`, so a restart resumes them.
 
 pub(crate) mod filter;
+mod kinesis;
 pub(crate) mod sqs;
 mod streams;
 
@@ -359,7 +360,7 @@ async fn poller(run: Run) {
     };
     match Source::of(run.source_arn()) {
         Some(Source::Sqs) => sqs::run(run, sources.sqs).await,
-        Some(Source::Kinesis) => streams::kinesis(run, sources.kinesis).await,
+        Some(Source::Kinesis) => kinesis::kinesis(run, sources.kinesis).await,
         Some(Source::DynamoDb) => streams::dynamodb(run, sources.dynamodb).await,
         None => {}
     }

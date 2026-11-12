@@ -15,7 +15,8 @@ use serde_json::{Value, json};
 use tokio::sync::mpsc;
 
 use crate::Inner;
-use crate::invoke::{Input, payload_of};
+use crate::answer::payload_of;
+use crate::invoke::Input;
 use crate::req::Req;
 
 /// The body of the answer: what the driving task sends.

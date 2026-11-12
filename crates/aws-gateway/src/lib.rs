@@ -14,6 +14,7 @@ mod pipeline;
 mod presign;
 mod query;
 mod rest;
+mod s3host;
 mod server;
 mod upload;
 mod web;
