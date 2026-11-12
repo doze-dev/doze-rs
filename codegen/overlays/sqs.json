@@ -4,13 +4,17 @@
       "type": "string",
       "traits": {
         "smithy.api#documentation": "<p>Queue names: at most 80 characters of alphanumerics, hyphens and underscores; a FIFO name must also end in <code>.fifo</code>. From the prose of the SQS CreateQueue documentation; the vendored model carries no constraint traits at all.</p>",
-        "smithy.api#length": { "min": 1, "max": 80 },
+        "smithy.api#length": {
+          "min": 1,
+          "max": 80
+        },
         "smithy.api#pattern": "^[a-zA-Z0-9_-]+(\\.fifo)?$"
       }
     }
   },
   "retarget": {
     "com.amazonaws.sqs#CreateQueueRequest$QueueName": "com.amazonaws.sqs#QueueName",
-    "com.amazonaws.sqs#GetQueueUrlRequest$QueueName": "com.amazonaws.sqs#QueueName"
+    "com.amazonaws.sqs#GetQueueUrlRequest$QueueName": "com.amazonaws.sqs#QueueName",
+    "com.amazonaws.sqs#ReceiveMessageRequest$AttributeNames": "com.amazonaws.sqs#MessageSystemAttributeList"
   }
 }

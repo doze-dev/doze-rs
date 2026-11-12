@@ -2,6 +2,8 @@
 
 use std::collections::BTreeMap;
 
+use crate::msgattr::Attr;
+
 /// The settings of a queue that have numeric meaning.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct Attrs {
@@ -43,6 +45,12 @@ pub(crate) struct Message {
     pub(crate) first_received_ms: Option<i64>,
     /// The receipt handle of the latest receive.
     pub(crate) handle: Option<String>,
+    /// The sender's message attributes.
+    pub(crate) attributes: Vec<Attr>,
+    /// The system attributes the sender set (only `AWSTraceHeader` exists).
+    pub(crate) system: Vec<Attr>,
+    pub(crate) group_id: Option<String>,
+    pub(crate) dedup_id: Option<String>,
 }
 
 impl Message {

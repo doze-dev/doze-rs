@@ -60,16 +60,16 @@ impl Core {
             Operation::SendMessage => self.send_message(call),
             Operation::ReceiveMessage => self.receive_message(call),
             Operation::DeleteMessage => self.delete_message(call),
+            Operation::DeleteMessageBatch => self.delete_message_batch(call),
+            Operation::SendMessageBatch => self.send_message_batch(call),
+            Operation::ChangeMessageVisibilityBatch => self.change_message_visibility_batch(call),
             Operation::ChangeMessageVisibility => self.change_message_visibility(call),
             Operation::AddPermission
             | Operation::CancelMessageMoveTask
-            | Operation::ChangeMessageVisibilityBatch
-            | Operation::DeleteMessageBatch
             | Operation::ListDeadLetterSourceQueues
             | Operation::ListMessageMoveTasks
             | Operation::ListQueueTags
             | Operation::RemovePermission
-            | Operation::SendMessageBatch
             | Operation::StartMessageMoveTask
             | Operation::TagQueue
             | Operation::UntagQueue => Err(not_built(op)),

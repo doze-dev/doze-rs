@@ -6,10 +6,13 @@
 //! [`core`]'s dispatch, and an unbuilt one answers `501 NotImplemented` by name.
 
 mod attrs;
+mod batch;
 mod core;
 mod messages;
 mod model;
+mod msgattr;
 mod queues;
+mod send;
 mod url;
 
 #[cfg(test)]
@@ -27,6 +30,12 @@ use aws_wire::service::{BoxFuture, Call, Reply, Service};
 use doze_runtime::{Ctx, Lazy};
 
 use crate::core::Core;
+
+/// MD5 of some bytes, as lower-case hex.
+pub(crate) fn md5_hex(bytes: &[u8]) -> String {
+    use md5::{Digest, Md5};
+    aws_core::hex::encode(&Md5::digest(bytes))
+}
 
 /// The SQS service. Nothing runs until the first request.
 #[derive(Debug)]
