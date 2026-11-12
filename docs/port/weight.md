@@ -288,7 +288,7 @@ no observer 28.9 us to 28.4 us per request, recorder installed 33.1 us to 29.1 u
 `interop/run.sh` (sarama, franz-go, kafka-go, librdkafka, transactions, compaction, churn) passes on the final build.
 
 **The assets.** The stylesheet and the nine scripts are `include_bytes!` of their `.gz` files (`assets/<name>.gz`, made by `bun tools/assets-compress.ts`, which also takes `--check`). gzip, not brotli: a browser offers `br` only over https and the
-console is http on loopback (brotli at level 11 would be about 15% smaller again). The stylesheet is compressed with its `@asset:<font>` placeholders already replaced by the fonts' hashed names (the tool has the same FNV-1a
+console is http on loopback (brotli at level 11 would be 11 to 13% smaller again, about 11 KB). The stylesheet is compressed with its `@asset:<font>` placeholders already replaced by the fonts' hashed names (the tool has the same FNV-1a
 `fingerprint` as `assets.rs`), so nothing is rewritten or copied to the heap at start (the old code made a `Vec` copy of every asset: about 400 KB of heap, the reason idle fell too). A served file's hashed name is the fingerprint of the embedded bytes.
 `static_file` answers `Content-Encoding: gzip` with those bytes to a client whose `Accept-Encoding` lists gzip (or `*`) with a quality above zero, and inflates them (flate2, which the broker links already) for any other, with its own ETag
 (`"name.identity"`) and `Vary: Accept-Encoding`. Fonts (woff2) and the favicon are untouched. Tests: every `.gz` must inflate to exactly its source (so a stale one fails `cargo test -p kafka-console`, with the command to run in the message),
@@ -311,6 +311,6 @@ The owner's ceiling of 10 MB stands: the default estimate is 2.6 MB under it, th
 
 **Levers not pulled, and what each costs.** (1) `EnvFilter` to `tracing_subscriber::filter::Targets` (no `env-filter` feature, so no regex): -233,008 B on darwin (5,797,328 to 5,564,320 B) and several packages
 (`matchers`, `regex-automata`, `regex-syntax`), at the price of the span and field directives of `RUST_LOG` (`target[span{field=value}]=level`, regexes on values); plain `target=level,...` lists and `--log-level` keep working. Not applied: it narrows a documented input.
-(2) `kafka-broker` at "z": -180,288 B (5,617,040 B), but it is the request handlers of the hot path. Not applied. (3) Brotli for the assets: about -14 KB and only over https. (4) The two JetBrains Mono weights or a system font stack: -43 KB / -91 KB, a visible change (D12). None is needed to meet 9.0 MB.
+(2) `kafka-broker` at "z": -180,288 B (5,617,040 B), but it is the request handlers of the hot path. Not applied. (3) Brotli for the assets: about -11 KB, and only over https. (4) Dropping the two JetBrains Mono weights (-43 KB) or all three fonts for a system stack (-91 KB): a visible change (D12). None is needed to meet 9.0 MB.
 
 **A side effect in the same profile.** `[profile.release]` is the workspace's, so `doze-aws` is also built with fat LTO: 3,897,792 B (4,447,712 B when last recorded), 194 packages, 3,232 KB idle. Its limit (6,100,000 B) is not touched here; it can be lowered by whoever owns that job.
