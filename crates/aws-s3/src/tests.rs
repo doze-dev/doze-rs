@@ -36,7 +36,6 @@ async fn what_has_no_local_meaning_is_refused_by_name() {
         "UpdateObjectEncryption",
         "WriteGetObjectResponse",
         "RenameObject",
-        "GetBucketPolicyStatus",
         "CreateBucketMetadataConfiguration",
         "GetObjectAnnotation",
     ] {
@@ -60,11 +59,16 @@ async fn what_has_no_local_meaning_is_refused_by_name() {
         "PutBucketVersioning",
         "GetObjectAttributes",
         "PutObjectTagging",
+        "GetObjectRetention",
+        "PutObjectRetention",
+        "GetObjectLegalHold",
+        "PutObjectLegalHold",
+        "GetBucketPolicyStatus",
     ] {
         assert!(serves(built), "{built} must be served");
     }
     let n = (0..TABLES.n_ops()).filter(|i| s3.serves(*i)).count();
-    assert!((75..=85).contains(&n), "{n} operations served");
+    assert!((80..=90).contains(&n), "{n} operations served");
 }
 
 #[test]

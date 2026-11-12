@@ -19,6 +19,8 @@ use doze_runtime::{Ctx, SystemClock, Tasks};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 
+pub(crate) mod lab;
+
 pub(crate) struct Server {
     running: Running,
     pub(crate) tasks: Tasks,

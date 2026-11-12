@@ -30,17 +30,20 @@ pub(crate) struct Removed {
 const MAX_BATCH: usize = 1000;
 
 impl Core {
-    /// Deletes `key` (or its version `id`) in `bucket`.
+    /// Deletes `key` (or its version `id`) in `bucket`. A version that Object Lock holds is not removed (`AccessDenied`), unless it is
+    /// GOVERNANCE retention and the caller asks to `bypass` it; adding a delete marker is never stopped.
     pub(crate) fn remove_key(
         &mut self,
         bucket: &str,
         key: &str,
         id: Option<&str>,
+        bypass: bool,
     ) -> Result<Removed, ApiError> {
         let state = self.require(bucket)?.versioning;
         if let Some(id) = id {
             return Ok(match self.find(bucket, key, id)? {
                 Some(v) => {
+                    self.guard_removal(&v, bypass)?;
                     self.drop_row(bucket, &v);
                     Removed {
                         version_id: Some(id.to_owned()),
@@ -58,6 +61,9 @@ impl Core {
         match state {
             Versioning::Off => {
                 for v in &existing {
+                    self.guard_removal(v, bypass)?;
+                }
+                for v in &existing {
                     self.drop_row(bucket, v);
                 }
                 Ok(Removed {
@@ -68,6 +74,9 @@ impl Core {
             }
             Versioning::Enabled => self.add_marker(bucket, key, new_version_id(), size),
             Versioning::Suspended => {
+                for v in existing.iter().filter(|v| v.version_id == "null") {
+                    self.guard_removal(v, bypass)?;
+                }
                 for v in existing.iter().filter(|v| v.version_id == "null") {
                     self.drop_row(bucket, v);
                 }
@@ -97,6 +106,7 @@ impl Core {
             segs: Vec::new(),
             parts: Vec::new(),
             tags: Vec::new(),
+            lock: crate::model::Lock::default(),
         };
         self.put_row(bucket, &marker)?;
         Ok(Removed {
@@ -110,7 +120,8 @@ impl Core {
 
     pub(crate) fn delete_object(&mut self, req: &Req<'_>) -> Answer {
         let (bucket, key) = (req.bucket(), req.key());
-        let removed = self.remove_key(bucket, key, req.s("VersionId"))?;
+        let bypass = req.flag("BypassGovernanceRetention") == Some(true);
+        let removed = self.remove_key(bucket, key, req.s("VersionId"), bypass)?;
         self.note_removed(req, key, &removed);
         let mut out = Map::new();
         if removed.marker {
@@ -138,7 +149,9 @@ impl Core {
             .get("Quiet")
             .and_then(Value::as_bool)
             .unwrap_or(false);
+        let bypass = req.flag("BypassGovernanceRetention") == Some(true);
         let mut done = Vec::new();
+        let mut refused = Vec::new();
         let mut seen = std::collections::HashSet::new();
         for o in &objects {
             let key = o.get("Key").and_then(Value::as_str).unwrap_or_default();
@@ -146,15 +159,33 @@ impl Core {
             if !seen.insert((key.to_owned(), id.map(str::to_owned))) {
                 continue;
             }
-            let r = self.remove_key(bucket, key, id)?;
-            self.note_removed(req, key, &r);
-            done.push(deleted_entry(key, id, &r));
+            match self.remove_key(bucket, key, id, bypass) {
+                Ok(r) => {
+                    self.note_removed(req, key, &r);
+                    done.push(deleted_entry(key, id, &r));
+                }
+                // A key Object Lock holds is reported, and the others go on.
+                Err(e) if e.code == "AccessDenied" => {
+                    let mut entry = Map::new();
+                    entry.insert("Key".into(), json!(key));
+                    if let Some(id) = id {
+                        entry.insert("VersionId".into(), json!(id));
+                    }
+                    entry.insert("Code".into(), json!(e.code));
+                    entry.insert("Message".into(), json!(e.message));
+                    refused.push(Value::Object(entry));
+                }
+                Err(e) => return Err(e),
+            }
         }
-        Out::json(if quiet {
-            json!({})
-        } else {
-            json!({"Deleted": done})
-        })
+        let mut out = Map::new();
+        if !quiet {
+            out.insert("Deleted".into(), json!(done));
+        }
+        if !refused.is_empty() {
+            out.insert("Errors".into(), json!(refused));
+        }
+        Out::json(Value::Object(out))
     }
 }
 

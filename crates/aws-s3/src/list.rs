@@ -1,11 +1,10 @@
 //! ListObjects and ListObjectsV2: the newest version of each key, in key order, cut at a prefix, folded at a delimiter, and paged.
 
 use aws_wire::ApiError;
-use doze_store::record;
 use serde_json::{Map, Value, json};
 
 use crate::buckets::owner;
-use crate::core::{Core, VERSION, VERSIONS};
+use crate::core::{Core, VERSIONS};
 use crate::model::Version;
 use crate::put::algo_name;
 use crate::req::{Answer, Out, Req};
@@ -133,7 +132,7 @@ impl Core {
                 entries.push(Entry::Prefix(f));
                 return true;
             }
-            let Ok(v) = record::decode::<Version>("version", VERSION, bytes) else {
+            let Ok(v) = crate::store::decode_version(bytes) else {
                 bad = true;
                 return false;
             };

@@ -80,8 +80,30 @@ fn action(op: Operation, versioned: bool) -> String {
 }
 
 impl Core {
-    /// Every thing `req` asks to do.
+    /// Every thing `req` asks to do. A request that asks to bypass GOVERNANCE retention also needs `s3:BypassGovernanceRetention` on
+    /// each object it acts on.
     pub(crate) fn needs(&self, req: &Req<'_>) -> Vec<Need> {
+        let mut needs = self.object_needs(req);
+        let bypasses = matches!(
+            Operation::from_index(req.call.op),
+            Some(
+                Operation::DeleteObject | Operation::DeleteObjects | Operation::PutObjectRetention
+            )
+        ) && req.flag("BypassGovernanceRetention") == Some(true);
+        if bypasses {
+            let extra: Vec<Need> = needs
+                .iter()
+                .map(|n| Need {
+                    action: "s3:BypassGovernanceRetention".to_owned(),
+                    ..n.clone()
+                })
+                .collect();
+            needs.extend(extra);
+        }
+        needs
+    }
+
+    fn object_needs(&self, req: &Req<'_>) -> Vec<Need> {
         let Some(op) = Operation::from_index(req.call.op) else {
             return Vec::new();
         };

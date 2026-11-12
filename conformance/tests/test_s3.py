@@ -455,3 +455,131 @@ def test_refused_by_name(client, names, cleanup, snapshot):
     s3.put_object(Bucket=name, Key="k", Body=b"x")
     snapshot.error("object-acl", lambda: s3.get_object_acl(Bucket=name, Key="k"))
     snapshot.error("restore", lambda: s3.restore_object(Bucket=name, Key="k", RestoreRequest={"Days": 1}))
+
+
+# Object Lock and the bucket policy status (2026-11-13): UNVERIFIED until recorded. Every retention here is GOVERNANCE and a day long,
+# so that cleaning up after a run (bypass the retention, switch the holds off) works on AWS as it does here.
+
+
+def lock_bucket(s3, names, cleanup, label="lock"):
+    import botocore.exceptions
+
+    name = names(label)
+    s3.create_bucket(Bucket=name, ObjectLockEnabledForBucket=True)
+
+    def release_and_delete():
+        for page in s3.get_paginator("list_object_versions").paginate(Bucket=name):
+            for v in page.get("Versions", []) + page.get("DeleteMarkers", []):
+                try:
+                    s3.put_object_legal_hold(Bucket=name, Key=v["Key"], VersionId=v["VersionId"], LegalHold={"Status": "OFF"})
+                except botocore.exceptions.ClientError:
+                    pass
+                s3.delete_object(Bucket=name, Key=v["Key"], VersionId=v["VersionId"], BypassGovernanceRetention=True)
+        s3.delete_bucket(Bucket=name)
+
+    cleanup(release_and_delete)
+    return name
+
+
+def tomorrow(days=1):
+    import datetime
+
+    return datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=days)
+
+
+def test_object_lock_configuration_and_the_default_retention(client, names, cleanup, snapshot):
+    s3 = client("s3")
+    plain = bucket(s3, names, cleanup, "plain")
+    snapshot.error("lock-configuration-of-an-unlocked-bucket", lambda: s3.get_object_lock_configuration(Bucket=plain))
+    s3.put_object(Bucket=plain, Key="k", Body=b"x")
+    snapshot.error("retention-on-an-unlocked-bucket", lambda: s3.get_object_retention(Bucket=plain, Key="k"))
+    snapshot.error("put-retention-on-an-unlocked-bucket", lambda: s3.put_object_retention(
+        Bucket=plain, Key="k", Retention={"Mode": "GOVERNANCE", "RetainUntilDate": tomorrow()}))
+    snapshot.error("lock-headers-on-an-unlocked-bucket", lambda: s3.put_object(
+        Bucket=plain, Key="locked", Body=b"x", ObjectLockMode="GOVERNANCE", ObjectLockRetainUntilDate=tomorrow()))
+
+    name = lock_bucket(s3, names, cleanup)
+    snapshot.match("enabled-with-no-rule", s3.get_object_lock_configuration(Bucket=name))
+    default = {"ObjectLockEnabled": "Enabled", "Rule": {"DefaultRetention": {"Mode": "GOVERNANCE", "Days": 1}}}
+    snapshot.match("put-default-retention", s3.put_object_lock_configuration(Bucket=name, ObjectLockConfiguration=default))
+    snapshot.match("default-retention", s3.get_object_lock_configuration(Bucket=name))
+    snapshot.error("both-days-and-years", lambda: s3.put_object_lock_configuration(Bucket=name, ObjectLockConfiguration={
+        "ObjectLockEnabled": "Enabled", "Rule": {"DefaultRetention": {"Mode": "GOVERNANCE", "Days": 1, "Years": 1}}}))
+
+    s3.put_object(Bucket=name, Key="k", Body=b"x")
+    head = s3.head_object(Bucket=name, Key="k")
+    assert head["ObjectLockMode"] == "GOVERNANCE" and head["ObjectLockRetainUntilDate"] > tomorrow(0)
+    snapshot.match("object-takes-the-default", {"ObjectLockMode": head["ObjectLockMode"]})
+    explicit = tomorrow(3)
+    s3.put_object(Bucket=name, Key="explicit", Body=b"x", ObjectLockMode="GOVERNANCE", ObjectLockRetainUntilDate=explicit)
+    got = s3.get_object_retention(Bucket=name, Key="explicit")
+    assert abs((got["Retention"]["RetainUntilDate"] - explicit).total_seconds()) < 2
+    snapshot.match("explicit-retention", got)
+
+    snapshot.error("mode-without-a-date", lambda: s3.put_object(Bucket=name, Key="x", Body=b"x", ObjectLockMode="GOVERNANCE"))
+    snapshot.error("a-date-in-the-past", lambda: s3.put_object(
+        Bucket=name, Key="x", Body=b"x", ObjectLockMode="GOVERNANCE", ObjectLockRetainUntilDate=tomorrow(-1)))
+
+
+def test_object_lock_retention_blocks_deletes_and_governance_can_be_bypassed(client, names, cleanup, snapshot):
+    s3 = client("s3")
+    name = lock_bucket(s3, names, cleanup)
+    version = s3.put_object(Bucket=name, Key="k", Body=b"x")["VersionId"]
+    snapshot.error("no-retention-yet", lambda: s3.get_object_retention(Bucket=name, Key="k"))
+    snapshot.match("put-retention", s3.put_object_retention(
+        Bucket=name, Key="k", Retention={"Mode": "GOVERNANCE", "RetainUntilDate": tomorrow(2)}))
+    snapshot.match("retention", s3.get_object_retention(Bucket=name, Key="k"))
+
+    # A delete that names no version only adds a marker; one that names the version is refused.
+    marker = s3.delete_object(Bucket=name, Key="k")
+    assert marker["DeleteMarker"] is True
+    snapshot.error("delete-the-version", lambda: s3.delete_object(Bucket=name, Key="k", VersionId=version))
+    batch = s3.delete_objects(Bucket=name, Delete={"Objects": [{"Key": "k", "VersionId": version}]})
+    snapshot.match("batch-delete-the-version", batch, opaque=("VersionId",))
+    s3.delete_object(Bucket=name, Key="k", VersionId=marker["VersionId"])
+
+    snapshot.error("shorten-without-bypass", lambda: s3.put_object_retention(
+        Bucket=name, Key="k", VersionId=version, Retention={"Mode": "GOVERNANCE", "RetainUntilDate": tomorrow(1)}))
+    snapshot.match("extend", s3.put_object_retention(
+        Bucket=name, Key="k", VersionId=version, Retention={"Mode": "GOVERNANCE", "RetainUntilDate": tomorrow(3)}))
+    snapshot.match("shorten-with-bypass", s3.put_object_retention(
+        Bucket=name, Key="k", VersionId=version, BypassGovernanceRetention=True,
+        Retention={"Mode": "GOVERNANCE", "RetainUntilDate": tomorrow(1)}))
+    snapshot.match("delete-with-bypass", s3.delete_object(
+        Bucket=name, Key="k", VersionId=version, BypassGovernanceRetention=True), opaque=("VersionId",))
+
+
+def test_object_lock_legal_hold(client, names, cleanup, snapshot):
+    s3 = client("s3")
+    name = lock_bucket(s3, names, cleanup)
+    version = s3.put_object(Bucket=name, Key="k", Body=b"x")["VersionId"]
+    snapshot.error("no-legal-hold-yet", lambda: s3.get_object_legal_hold(Bucket=name, Key="k"))
+    snapshot.match("hold-on", s3.put_object_legal_hold(Bucket=name, Key="k", LegalHold={"Status": "ON"}))
+    snapshot.match("legal-hold", s3.get_object_legal_hold(Bucket=name, Key="k"))
+    snapshot.match("head-shows-the-hold", {"ObjectLockLegalHoldStatus": s3.head_object(Bucket=name, Key="k")["ObjectLockLegalHoldStatus"]})
+    snapshot.error("delete-under-hold", lambda: s3.delete_object(Bucket=name, Key="k", VersionId=version))
+    snapshot.error("bypass-does-not-lift-a-hold", lambda: s3.delete_object(
+        Bucket=name, Key="k", VersionId=version, BypassGovernanceRetention=True))
+    snapshot.match("hold-off", s3.put_object_legal_hold(Bucket=name, Key="k", LegalHold={"Status": "OFF"}))
+    snapshot.match("legal-hold-off", s3.get_object_legal_hold(Bucket=name, Key="k"))
+    snapshot.match("delete-after-hold", s3.delete_object(Bucket=name, Key="k", VersionId=version), opaque=("VersionId",))
+
+
+def test_bucket_policy_status(client, names, cleanup, snapshot, target):
+    import json
+
+    s3 = client("s3")
+    name = bucket(s3, names, cleanup)
+    snapshot.error("no-policy", lambda: s3.get_bucket_policy_status(Bucket=name))
+    private = {"Version": "2012-10-17", "Statement": [{
+        "Effect": "Allow", "Principal": {"AWS": f"arn:aws:iam::{target.account}:root"},
+        "Action": "s3:GetObject", "Resource": f"arn:aws:s3:::{name}/*"}]}
+    s3.put_bucket_policy(Bucket=name, Policy=json.dumps(private))
+    snapshot.match("private-policy", s3.get_bucket_policy_status(Bucket=name))
+
+    s3.put_public_access_block(Bucket=name, PublicAccessBlockConfiguration={
+        "BlockPublicAcls": False, "IgnorePublicAcls": False, "BlockPublicPolicy": False, "RestrictPublicBuckets": False})
+    public = {"Version": "2012-10-17", "Statement": [{
+        "Effect": "Allow", "Principal": "*", "Action": "s3:GetObject", "Resource": f"arn:aws:s3:::{name}/*"}]}
+    s3.put_bucket_policy(Bucket=name, Policy=json.dumps(public))
+    snapshot.match("public-policy", s3.get_bucket_policy_status(Bucket=name))

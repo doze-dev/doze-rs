@@ -233,6 +233,7 @@ impl Core {
         if whole {
             add_checksum(&mut out, v.checksum.as_ref());
         }
+        crate::lock::describe(&v.lock, &mut out);
         out
     }
 }

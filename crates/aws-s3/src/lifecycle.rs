@@ -206,9 +206,7 @@ impl Core {
             if group.first().is_some_and(|g| g.key != key) {
                 flush(&mut group, &mut actions);
             }
-            if let Ok(v) =
-                doze_store::record::decode::<Version>("version", crate::core::VERSION, bytes)
-            {
+            if let Ok(v) = crate::store::decode_version(bytes) {
                 group.push(v);
             }
             true
@@ -238,11 +236,11 @@ impl Core {
     fn apply(&mut self, bucket: &str, action: &Action) -> bool {
         match action {
             Action::Expire(key) => self
-                .remove_key(bucket, key, None)
+                .remove_key(bucket, key, None, false)
                 .map(|r| self.note_lifecycle(bucket, key, &r))
                 .is_ok(),
             Action::Remove(key, id) => self
-                .remove_key(bucket, key, Some(id))
+                .remove_key(bucket, key, Some(id), false)
                 .map(|r| self.note_lifecycle(bucket, key, &r))
                 .is_ok(),
             Action::Abort(row) => {
@@ -291,6 +289,7 @@ mod tests {
                 .iter()
                 .map(|(k, v)| ((*k).into(), (*v).into()))
                 .collect(),
+            lock: crate::model::Lock::default(),
         }
     }
 

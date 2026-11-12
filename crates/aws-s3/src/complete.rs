@@ -99,6 +99,8 @@ impl Core {
         let list = listed(req)?;
         let chosen = self.matched_parts(&id, &list)?;
         let size: u64 = chosen.iter().map(|(_, p)| p.size).sum();
+        let lock = self.new_lock(&bucket, self.upload_lock(&upload_row(&bucket, &key, &id)))?;
+        self.guard_replace(&bucket, &key)?;
         let v = Version {
             key: key.clone(),
             version_id: String::new(),
@@ -129,6 +131,7 @@ impl Core {
                 })
                 .collect(),
             tags: upload.tags.clone(),
+            lock,
         };
         let used: Vec<String> = chosen.iter().map(|(_, p)| p.blob.clone()).collect();
         let stored = self.install(&bucket, v)?;

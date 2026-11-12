@@ -27,6 +27,7 @@ mod lifecycle;
 mod lifecycle_check;
 mod list;
 mod listv;
+mod lock;
 mod model;
 mod mplist;
 mod multipart;

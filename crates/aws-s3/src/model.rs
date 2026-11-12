@@ -82,6 +82,47 @@ pub(crate) struct PartInfo {
     pub(crate) checksum: Option<String>,
 }
 
+/// The mode of an object's retention.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) enum Mode {
+    /// Can be shortened, removed or overridden by a caller who asks to bypass it (and is allowed to).
+    Governance,
+    /// Cannot be shortened, removed or overridden by anyone until it expires.
+    Compliance,
+}
+
+impl Mode {
+    pub(crate) const fn name(self) -> &'static str {
+        match self {
+            Self::Governance => "GOVERNANCE",
+            Self::Compliance => "COMPLIANCE",
+        }
+    }
+
+    pub(crate) fn parse(s: &str) -> Option<Self> {
+        match s {
+            "GOVERNANCE" => Some(Self::Governance),
+            "COMPLIANCE" => Some(Self::Compliance),
+            _ => None,
+        }
+    }
+}
+
+/// An object version's retention: a mode and the instant it lasts until.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) struct Retention {
+    pub(crate) mode: Mode,
+    pub(crate) until_ms: i64,
+}
+
+/// What Object Lock holds on an object version.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) struct Lock {
+    pub(crate) retention: Option<Retention>,
+    /// `None` until a legal hold was ever set (AWS answers a read of it with an error); `Some(false)` is `OFF`.
+    pub(crate) legal_hold: Option<bool>,
+}
+
 /// An object version, or a delete marker.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct Version {
@@ -99,6 +140,44 @@ pub(crate) struct Version {
     pub(crate) segs: Vec<Seg>,
     pub(crate) parts: Vec<PartInfo>,
     pub(crate) tags: Vec<(String, String)>,
+    pub(crate) lock: Lock,
+}
+
+/// A version row as record version 1 wrote it, before Object Lock: read, and given no lock.
+#[derive(Clone, Debug, Deserialize)]
+pub(crate) struct VersionV1 {
+    key: String,
+    version_id: String,
+    seq: u64,
+    delete_marker: bool,
+    modified_ms: i64,
+    size: u64,
+    etag: String,
+    meta: Meta,
+    checksum: Option<Checksum>,
+    segs: Vec<Seg>,
+    parts: Vec<PartInfo>,
+    tags: Vec<(String, String)>,
+}
+
+impl From<VersionV1> for Version {
+    fn from(v: VersionV1) -> Self {
+        Self {
+            key: v.key,
+            version_id: v.version_id,
+            seq: v.seq,
+            delete_marker: v.delete_marker,
+            modified_ms: v.modified_ms,
+            size: v.size,
+            etag: v.etag,
+            meta: v.meta,
+            checksum: v.checksum,
+            segs: v.segs,
+            parts: v.parts,
+            tags: v.tags,
+            lock: Lock::default(),
+        }
+    }
 }
 
 /// A multipart upload in progress.
