@@ -127,7 +127,8 @@ async fn a_topic_can_be_deleted_by_its_id() {
     let unknown = rig.delete_by_id(kafka_wire::Uuid::from_u128(7)).await;
     assert_eq!(
         (unknown[0].error_code, unknown[0].name.is_none()),
-        (3, true)
+        // UNKNOWN_TOPIC_ID, as Kafka's `deleteTopic` throws it (SEC-216); it was 3 before the audit.
+        (100, true)
     );
     let gone = rig.delete_by_id(made[0].topic_id).await;
     assert_eq!(
