@@ -49,19 +49,7 @@ pub(crate) async fn run(args: Args) -> Result<()> {
     // Under `--auth verify`, a key the command line does not name may be one IAM issued (an access key or a role session).
     config.credential_source = Some(iam.clone());
     let cloudwatch = Arc::new(aws_cloudwatch::Cloudwatch::new(Arc::new(ctx("cloudwatch"))));
-    // Lambda wakes its event source pollers from the sources themselves, so it is handed them (the bus does not carry a wake-up).
-    let sqs = Arc::new(aws_sqs::Sqs::new(Arc::new(ctx("sqs"))));
-    let dynamodb = Arc::new(aws_dynamodb::Dynamodb::new(Arc::new(ctx("dynamodb"))));
-    let kinesis = Arc::new(aws_kinesis::Kinesis::new(Arc::new(ctx("kinesis"))));
-    let lambda = Arc::new(aws_lambda::Lambda::with_config(
-        Arc::new(ctx("lambda")),
-        lambda_config(&args),
-    ));
-    lambda.connect(aws_lambda::Sources {
-        sqs: Arc::clone(&sqs),
-        kinesis: Arc::clone(&kinesis),
-        dynamodb: Arc::clone(&dynamodb),
-    });
+    let (sqs, dynamodb, kinesis, lambda) = compute(&ctx, &args);
     let services: Vec<Arc<dyn Service>> = vec![
         iam,
         Arc::new(sts),
@@ -98,6 +86,32 @@ pub(crate) async fn run(args: Args) -> Result<()> {
     running.shutdown().await;
     tasks.shutdown().await;
     Ok(())
+}
+
+/// SQS, DynamoDB, Kinesis and Lambda, made together: Lambda wakes its event source pollers from the sources themselves, so it is
+/// handed them (the peer bus does not carry a wake-up).
+fn compute(
+    ctx: &impl Fn(&str) -> Ctx,
+    args: &Args,
+) -> (
+    Arc<aws_sqs::Sqs>,
+    Arc<aws_dynamodb::Dynamodb>,
+    Arc<aws_kinesis::Kinesis>,
+    Arc<aws_lambda::Lambda>,
+) {
+    let sqs = Arc::new(aws_sqs::Sqs::new(Arc::new(ctx("sqs"))));
+    let dynamodb = Arc::new(aws_dynamodb::Dynamodb::new(Arc::new(ctx("dynamodb"))));
+    let kinesis = Arc::new(aws_kinesis::Kinesis::new(Arc::new(ctx("kinesis"))));
+    let lambda = Arc::new(aws_lambda::Lambda::with_config(
+        Arc::new(ctx("lambda")),
+        lambda_config(args),
+    ));
+    lambda.connect(aws_lambda::Sources {
+        sqs: Arc::clone(&sqs),
+        kinesis: Arc::clone(&kinesis),
+        dynamodb: Arc::clone(&dynamodb),
+    });
+    (sqs, dynamodb, kinesis, lambda)
 }
 
 /// How Lambda runs functions: the idle time and quiet flag from the command line, and the interpreters from `DOZE_LAMBDA_PYTHON`,
