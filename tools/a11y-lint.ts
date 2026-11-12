@@ -14,7 +14,7 @@
 //   th-scope      every th has scope, or sits in a thead (a column header)
 //   tabindex      no positive tabindex
 //   dialog-label  a dialog has aria-labelledby that points at an element with text
-//   live-region   aria-live / role=status|log only on a page that has data-extra="live-sentence"
+//   live-region   aria-live / role=status|log only on a page that has data-extra="live-sentence" or a refreshable region (data-frag)
 //   status-word   .st and .rw have text (never colour alone)
 //   motion        animations or transitions in the CSS need a prefers-reduced-motion block
 //   contrast      WCAG AA (4.5:1) for the text/background pairs in the kit CSS, computed from its custom properties
@@ -116,7 +116,8 @@ export function lintPage(html: string, file: string): { findings: Finding[]; css
   }
 
   // live regions
-  const hasLiveSentence = all.some((e) => e.attrs["data-extra"] === "live-sentence");
+  // A page with something that changes in it (a live sentence of the boards, or a region a Refresh replaces: `data-frag`) may announce.
+  const hasLiveSentence = all.some((e) => e.attrs["data-extra"] === "live-sentence" || "data-frag" in e.attrs);
   for (const e of all) {
     const live = (e.attrs["aria-live"] && e.attrs["aria-live"] !== "off") || e.attrs.role === "status" || e.attrs.role === "log";
     // A live region that is hidden at load (the lost-stream banner) speaks only when it is shown: that is its job.
