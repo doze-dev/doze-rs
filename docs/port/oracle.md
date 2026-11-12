@@ -118,6 +118,10 @@ the replay was not re-run for it.
 (47 and 11 at the close of Phase 8). The timing scenarios (`telemetry-interval`, `-terminating`, `-instance-binding-spaced`) run in real time against the fixed five-second interval (**deviation SEC-D100**). What rests on Kafka's source and not on a recording: the endpoint-type refusals of DescribeCluster (W25) and its
 authorized-operations bits (SEC-291); the bounds of the telemetry store (W34), which no recording reaches.
 
+**A false regression (2026-11-13, `debt.md` J498).** `offsets-retention-restart` failed on main and at `f14d65ac`, but `2b553b3f` failed it the same way: the harness copy in use had an
+`Env.Quiet` that drops every ConsumerGroupHeartbeat, so the script's keep-alive for the two KIP-848 groups never reached the broker. Against a copy whose `harness.go` is the Go repository's, main (`63f53366`)
+passes it and the full replay is **58 pass and 0 fail** (267 s). Before bisecting a replay failure, check that the "good" end still passes against the same harness, and diff the harness against the Go repository.
+
 **What is not recorded, and so rests on Kafka's source** (`behaviours/security.md` says "(source)" per rule; the gap is `debt.md` I1):
 - **The authorization matrix, except Metadata and InitProducerId.** Only those two denials are in a recording (`sasl-plain`'s identity probes and `idempotent-write-from-topic-write`). The topic APIs
   (CreateTopics, DeleteTopics, Produce, Fetch, ListOffsets, DeleteRecords, CreatePartitions, DescribeConfigs, AlterConfigs, IncrementalAlterConfigs, DescribeProducers), the group APIs (13), the transaction APIs (7)
