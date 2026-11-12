@@ -556,6 +556,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "aws-sns"
+version = "0.0.0"
+dependencies = [
+ "aws-core",
+ "aws-iam-policy",
+ "aws-model-sns",
+ "aws-peers",
+ "aws-schema",
+ "aws-seal",
+ "aws-sqs",
+ "aws-testkit",
+ "aws-wire",
+ "doze-runtime",
+ "doze-store",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "aws-sqs"
 version = "0.0.0"
 dependencies = [
@@ -1072,6 +1094,7 @@ dependencies = [
  "aws-kms",
  "aws-peers",
  "aws-secrets",
+ "aws-sns",
  "aws-sqs",
  "aws-ssm",
  "aws-wire",
