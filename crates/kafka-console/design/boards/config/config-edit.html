@@ -1,0 +1,15 @@
+<!--screen {"id":"config-edit","kind":"dialog","title":"Edit min.cleanable.dirty.ratio","from":"topic-config","via":"Button: Edit (min.cleanable.dirty.ratio)","ops":["IncrementalAlterConfigs"],"refs":["cat:ADM-5","cat:ADM-6","code:crates/kafka-broker/src/topic_config/table.rs"],"data":"now","crumbs":[],"extras":["teaching","api-preview"]} -->
+<h2>Edit min.cleanable.dirty.ratio</h2>
+<div class="body"><div class="form" style="gap:18px">
+<div class="field"><label for="v">New value for <span class="mono">inventory.levels</span></label><div class="input mono"><input id="v" type="text" value="0.7"></div>
+<div class="teach" data-extra="teaching">
+<div><b>What it is</b> how much of the log may be dirty before the cleaner takes it</div>
+<div><b>Now</b> <span class="mono">0.5</span>, Kafka's default; nothing is set on this topic</div>
+<div><b>Allowed</b> a number from 0 to 1</div>
+<div><b>Takes effect</b> at the cleaner's next look, within 15 s; the save rewrites nothing</div>
+<div><b>Here</b> at 0.7 this log, 61 % dirty, would wait until more than 70 % is</div></div></div>
+<div class="apicall" data-extra="api-preview"><div class="hd">[[g:code 14]]The call</div><pre class="code" style="margin:0">IncrementalAlterConfigs v1
+  TOPIC inventory.levels
+  min.cleanable.dirty.ratio  SET  0.7</pre></div>
+</div></div>
+<div class="foot"><a class="btn" href="@topic-config">Cancel</a><a class="btn pri" href="@config-saved" data-op="IncrementalAlterConfigs">Save</a></div>

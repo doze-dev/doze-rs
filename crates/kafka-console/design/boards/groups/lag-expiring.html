@@ -1,0 +1,18 @@
+<!--screen {"id":"lag-expiring","title":"Lag: offsets expiring","kind":"state","from":"lag-ahead","via":"Button: When do these expire?","ops":["OffsetFetch","OffsetDelete","OffsetCommit"],"refs":["grounding:K4","cat:R1","cat:R3","go:console/groups_boards.go"],"data":"now","extras":["lag-line","live-sentence","teaching"],"crumbs":[]} -->
+<div class="page-h"><div><div class="title-row"><h1 class="mono">analytics</h1><span class="st idle">Empty</span><span class="pill">classic</span><span class="pill">no members</span></div><p class="sub"><span data-extra="live-sentence">The broker forgets analytics' 3 committed offsets on Nov 13 at 00:14, in 3 d 2 h. The group has no members, and offsets are kept for 7 d.</span></p></div><div class="acts"><a class="btn" href="@group-offset-delete" data-op="OffsetDelete">[[g:trash 16]]Delete offsets</a><button class="btn" type="button" data-op="OffsetCommit">[[g:refresh 16]]Reset offsets</button></div></div>
+<div class="toolbar" style="margin:-12px 0 28px"><span class="dim">[[g:group 16]] Switch group</span><span class="fchip on mono">analytics</span><a class="fchip mono" href="@lag-no-commits">fulfilment</a><span class="fchip mono dim">payments-workers</span><a class="fchip mono" href="@group-lag">search-indexer</a></div>
+<div class="tabs"><span class="tab">Members<span class="n">0</span></span><span class="tab on">Lag<span class="n">3</span></span><span class="tab">Story<span class="n">0</span></span></div>
+<div class="card" style="margin-bottom:32px"><h2>Retention window</h2>
+<p class="help" style="max-width:none;margin-bottom:16px">7 d (<span class="mono">--offsets-retention 168h</span>), counted from the last commit, Nov 6 at 00:14.</p>
+<div class="lagbar"><span class="mono dim">Nov 6 00:14</span><div class="tr"><i class="warn" style="--p:56%"></i></div><span class="mono dim" style="min-width:0">Nov 13 00:14</span></div>
+<div class="row sb" style="margin-top:10px"><span class="help">3 d 22 h gone</span><span class="help bright">3 d 2 h left</span></div></div>
+<table class="t" data-extra="lag-line"><thead><tr><th>Partition</th><th class="r">Log end</th><th class="r">Committed</th><th>Forgotten at</th><th>Last commit</th></tr></thead><tbody>
+<tr><td colspan="5" style="background:var(--well);height:44px"><a class="lnk mono" href="@topics/topic-detail">orders</a> <span class="dim">&nbsp;3 partitions, no member holds any</span></td></tr>
+<tr><td class="name mono">orders-0</td><td class="r mono">16,104</td><td class="r mono">16,200</td><td><span class="mono">Nov 13 00:14</span></td><td class="mono">Nov 6 00:14</td></tr>
+<tr><td class="name mono">orders-1</td><td class="r mono">16,051</td><td class="r mono">16,030</td><td><span class="mono">Nov 13 00:14</span></td><td class="mono">Nov 6 00:14</td></tr>
+<tr><td class="name mono">orders-2</td><td class="r mono">16,058</td><td class="r mono">16,058</td><td><span class="mono">Nov 13 00:14</span></td><td class="mono">Nov 6 00:14</td></tr>
+</tbody></table>
+<div class="g2" style="margin-top:24px" data-extra="teaching">
+<div class="callout">[[g:info 18]]<div><b>What happens then.</b> At the first sweep after that time the offsets go. A group with no members and no offsets is forgotten, and the id is free: a consumer that joins as analytics afterwards is a new group and starts at its <span class="mono">auto.offset.reset</span>.</div></div>
+<div class="callout warn">[[g:warn 18]]<div><b>To keep them,</b> start a consumer in analytics before then: a group with members keeps what it subscribes to.</div></div>
+</div>

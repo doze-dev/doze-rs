@@ -1,0 +1,26 @@
+<!--screen {"id":"topic-produced","title":"Record sent","kind":"state","from":"topic-produce","via":"Button: Send","ops":["Produce"],"refs":["cat:P1","cat:P2","grounding:K5"],"data":"now","extras":["live-sentence","api-preview"],"crumbs":[["orders","@topic-detail"]]} -->
+<div class="banner" style="margin-top:24px">[[g:check 18]]<span><b>Sent to orders-2 at offset 16,058.</b> Timestamp 22:14:41.208, acknowledged after the flush (acks -1).</span></div>
+<div class="page-h"><div><div class="title-row"><h1 class="mono">orders</h1><span class="pill mono">delete</span><span class="st warn">Transaction open</span></div>
+<p class="sent" data-extra="live-sentence" style="margin:10px 0 0;max-width:760px"><b>orders</b> has 3 partitions, keeps records for 7 d, holds <b>48,214</b> records (7.9 MiB) and was last written just now. A transaction is open on <b>orders-0</b> and <b>orders-1</b>: read_committed consumers are held 6 records behind on orders-0.</p></div><div class="acts"><a class="btn" href="@topic-partitions">[[g:list 16]]Partitions</a><a class="btn pri" href="@topic-produce">[[g:send 16]]Produce</a><a class="btn danger" href="@topic-delete">[[g:trash 16]]Delete topic</a></div></div>
+<div class="tabs">
+<a class="tab on" href="@topic-detail">Messages</a>
+<a class="tab" href="@log/topic-log">Log</a>
+<a class="tab" href="@config/topic-config">Config</a>
+<a class="tab" href="@groups/groups-list">Consumers<span class="n">2</span></a>
+<a class="tab" href="@producers/topic-producers">Producers<span class="n">3</span></a>
+</div>
+<div><table class="t"><thead><tr><th>Partition</th><th>Offset</th><th>Timestamp</th><th>Key</th><th>Value</th><th class="r">Value size</th><th>For read_committed</th></tr></thead><tbody>
+<tr class="hot"><td class="mono">2</td><td class="mono">16,058</td><td class="mono dim">22:14:41.208</td><td class="mono">ord-88420</td><td class="mono" style="font-size:12.5px">{"order_id":"ord-88420","customer":"c-3092","it…</td><td class="mono r">91 B</td><td><span class="st ok">Committed</span></td></tr>
+<tr><td class="mono">0</td><td class="mono">16,103</td><td class="mono dim">22:14:21.771</td><td class="mono">ord-88418</td><td class="mono" style="font-size:12.5px;color:var(--text)">{"order_id":"ord-88418","customer":"c-3092","it…</td><td class="mono r">91 B</td><td><span class="st warn">Above LSO</span></td></tr>
+<tr><td class="mono">0</td><td class="mono">16,102</td><td class="mono dim">22:14:21.770</td><td class="mono">ord-88417</td><td class="mono" style="font-size:12.5px;color:var(--text)">{"order_id":"ord-88417","customer":"c-5518","it…</td><td class="mono r">88 B</td><td><span class="st warn">Above LSO</span></td></tr>
+<tr><td class="mono">0</td><td class="mono">16,101</td><td class="mono dim">22:14:21.769</td><td class="mono">ord-88416</td><td class="mono" style="font-size:12.5px;color:var(--text)">{"order_id":"ord-88416","customer":"c-7710","it…</td><td class="mono r">86 B</td><td><span class="st warn">Above LSO</span></td></tr>
+<tr><td class="mono">0</td><td class="mono">16,100</td><td class="mono dim">22:14:21.769</td><td class="mono">ord-88415</td><td class="mono" style="font-size:12.5px;color:var(--text)">{"order_id":"ord-88415","customer":"c-2204","it…</td><td class="mono r">97 B</td><td><span class="st warn">Above LSO</span></td></tr>
+</tbody></table>
+<div class="pager"><span>Newest first · 5 of 48,214</span></div></div>
+<div class="g2" style="margin-top:32px"><div><div class="apicall" data-extra="api-preview"><div class="hd">[[g:api 14]]The answer</div><pre class="code"><span class="k">Produce</span> v9 response
+  topic: <span class="s">orders</span>
+  partition: 2
+  error_code: 0
+  base_offset: <span class="s">16058</span>
+  log_append_time_ms: -1
+  log_start_offset: 0</pre><p class="help" style="margin:12px 0 0">The log chose the offset; the producer only supplies the record. -1 means the topic keeps the producer's time (CreateTime).</p></div></div><div class="card"><h2>Is it visible?</h2><p class="lede">Yes, to both isolation levels.</p><p style="margin:0">orders-2 has no open transaction: its last stable offset equals its high watermark, 16,059 now. A consumer reading read_committed gets offset 16,058 as soon as it asks. The transaction on orders-0 and orders-1 does not hold it back.</p></div></div>

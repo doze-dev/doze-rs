@@ -1,0 +1,95 @@
+<!--screen {"id":"live-wire","refs":["grounding:K2","grounding:K14","go:console/routes.go"],"data":"capture","needs":["wire"],"crumbs":[],"title":"Live","kind":"page","from":"index","via":"Rail: Live","ops":[],"extras":["live-sentence"]} -->
+<div class="page-h"><div><h1>Live</h1><p class="sub" data-extra="live-sentence">Everything your apps send, newest first. The broker keeps its last 2,000 rows in memory and older ones fall off; repeats fold into one row, so quiet apps cost little. Right now they reach back to 19:12, 3 h 2 min.</p></div><div class="acts"><a class="btn" href="@live-paused">Pause</a></div></div>
+<div class="toolbar"><label class="finput">[[g:search 16]]<input type="text" placeholder="Filter by client, API or topic" aria-label="Filter the wire"></label>
+<button class="fchip" type="button" data-ui="filter">All apps[[g:chev-d 14]]</button>
+<button class="fchip" type="button" data-ui="filter">All topics[[g:chev-d 14]]</button>
+<button class="fchip" type="button" data-ui="filter">[[g:filter 14]]Refused only</button>
+<button class="fchip on" type="button" data-ui="toggle">Idle polls hidden</button>
+<span class="sp"></span>
+<a class="btn sm" href="@live-clients">[[g:network 16]]Clients · 9</a></div>
+<div class="callout refused" style="margin-bottom:24px">[[g:warn 18]]<div style="flex:1"><b>Refused among the rows kept: 3.</b> Kafka's own refusals, with the rule behind each.
+<div class="row wrap" style="gap:28px;margin-top:8px"><a class="lnk" href="@request-refused"><span class="mono">INVALID_RECORD (87)</span> · admin-cli · 22:14:20</a><a class="lnk" href="@request-too-large"><span class="mono">MESSAGE_TOO_LARGE (10)</span> · orders · 22:14:16</a><a class="lnk" href="@request-fenced"><span class="mono">INVALID_PRODUCER_EPOCH (47)</span> · orders · 19:31:08</a></div></div></div>
+<table class="t wire"><thead><tr><th style="width:142px">Time</th><th style="width:190px">Client</th><th style="width:200px">API</th><th>Target</th><th style="width:270px">Result</th><th class="r" style="width:130px">Took</th></tr></thead><tbody><tr><td class="tm"><a class="lnk" href="@request-detail">22:14:22.904</a></td>
+<td><span class="mono">fulfilment</span> <span class="pill mono">py</span></td>
+<td><b class="mono">Fetch</b> <span class="dim mono">v12</span></td>
+<td class="mono" style="white-space:nowrap">payments.settled-1<span class="sub">from 7,402</span></td>
+<td><span class="st ok">Done</span> <span class="dim">1 batch, 211 B</span></td><td class="mono r" style="white-space:nowrap">14 ms<span class="sub">waited 480 ms</span></td></tr>
+<tr><td class="tm">22:14:22.311</td>
+<td><span class="mono">catalog</span> <span class="pill mono">go</span></td>
+<td><b class="mono">Produce</b> <span class="dim mono">v9</span></td>
+<td class="mono" style="white-space:nowrap">inventory.levels-0</td>
+<td><span class="st ok">Done</span> <span class="dim">1 record</span></td><td class="mono r" style="white-space:nowrap">2 ms</td></tr>
+<tr><td class="tm">22:14:21.774</td>
+<td><span class="mono">orders</span> <span class="pill mono">go</span></td>
+<td><b class="mono">Produce</b> <span class="dim mono">v9</span> <span class="tag">txn</span></td>
+<td class="mono" style="white-space:nowrap">orders-0</td>
+<td><span class="st ok">Done</span> <span class="dim">4 records</span></td><td class="mono r" style="white-space:nowrap">3 ms</td></tr>
+<tr><td class="tm">22:14:21.190</td>
+<td><span class="mono">payments</span> <span class="pill mono">go</span></td>
+<td><b class="mono">OffsetCommit</b> <span class="dim mono">v9</span></td>
+<td class="mono" style="white-space:nowrap">payments-workers</td>
+<td><span class="st ok">Done</span></td><td class="mono r" style="white-space:nowrap">1 ms</td></tr>
+<tr class="hot"><td class="tm"><a class="lnk" href="@request-refused">22:14:20.664</a></td>
+<td><span class="mono">admin-cli</span> <span class="pill mono">kcat</span></td>
+<td><b class="mono">Produce</b> <span class="dim mono">v9</span></td>
+<td class="mono" style="white-space:nowrap">inventory.levels-0</td>
+<td><span class="st refused">Refused</span> <span class="mono">INVALID_RECORD (87)</span><span class="sub">Compacted topic cleanup.policy=compact requires every record to have a key</span></td><td class="mono r" style="white-space:nowrap">1 ms</td></tr>
+<tr><td class="tm">22:14:19.411</td>
+<td><span class="mono">fulfilment</span> <span class="pill mono">py</span></td>
+<td><b class="mono">LeaveGroup</b> <span class="dim mono">v5</span></td>
+<td class="mono" style="white-space:nowrap">fulfilment<span class="sub">by fulfilment-py-2</span></td>
+<td><span class="st ok">Done</span></td><td class="mono r" style="white-space:nowrap">1 ms</td></tr>
+<tr><td class="tm">22:14:18.002</td>
+<td><span class="mono">search-indexer</span> <span class="pill mono">go</span></td>
+<td><b class="mono">Fetch</b> <span class="dim mono">v12</span></td>
+<td class="mono" style="white-space:nowrap">clickstream-3<span class="sub">from 150,519</span></td>
+<td><span class="st ok">Done</span> <span class="dim">2 batches, 38 KiB</span></td><td class="mono r" style="white-space:nowrap">9 ms</td></tr>
+<tr><td class="tm"><a class="lnk" href="@request-too-large">22:14:16.300</a></td>
+<td><span class="mono">orders</span> <span class="pill mono">go</span></td>
+<td><b class="mono">Produce</b> <span class="dim mono">v9</span></td>
+<td class="mono" style="white-space:nowrap">orders-1</td>
+<td><span class="st refused">Refused</span> <span class="mono">MESSAGE_TOO_LARGE (10)</span><span class="sub">1,203,441 B over max.message.bytes 1,048,588</span></td><td class="mono r" style="white-space:nowrap">2 ms</td></tr>
+<tr><td class="tm">22:14:14.612</td>
+<td><span class="mono">payments</span> <span class="pill mono">go</span></td>
+<td><b class="mono">Produce</b> <span class="dim mono">v9</span></td>
+<td class="mono" style="white-space:nowrap">payments.settled-2</td>
+<td><span class="st ok">Done</span> <span class="dim">1 record</span></td><td class="mono r" style="white-space:nowrap">2 ms</td></tr>
+<tr><td class="tm">22:14:09.118</td>
+<td><span class="mono">search-indexer</span> <span class="pill mono">go</span></td>
+<td><b class="mono">OffsetCommit</b> <span class="dim mono">v9</span></td>
+<td class="mono" style="white-space:nowrap">search-indexer</td>
+<td><span class="st ok">Done</span></td><td class="mono r" style="white-space:nowrap">1 ms</td></tr>
+<tr><td class="tm">22:13:58.402</td>
+<td><span class="mono">catalog</span> <span class="pill mono">go</span></td>
+<td><b class="mono">Produce</b> <span class="dim mono">v9</span></td>
+<td class="mono" style="white-space:nowrap">inventory.levels-0</td>
+<td><span class="st ok">Done</span> <span class="dim">3 records</span></td><td class="mono r" style="white-space:nowrap">2 ms</td></tr>
+<tr><td class="tm">22:13:45.612</td>
+<td><span class="mono">notifications</span> <span class="pill mono">ts</span></td>
+<td><b class="mono">Produce</b> <span class="dim mono">v9</span></td>
+<td class="mono" style="white-space:nowrap">clickstream-4</td>
+<td><span class="st ok">Done</span> <span class="dim">9,640 records</span></td><td class="mono r" style="white-space:nowrap">38 ms</td></tr>
+<tr><td class="tm">22:13:40.208</td>
+<td><span class="mono">orders</span> <span class="pill mono">go</span></td>
+<td><b class="mono">Produce</b> <span class="dim mono">v9</span> <span class="tag">txn</span></td>
+<td class="mono" style="white-space:nowrap">orders-0</td>
+<td><span class="st ok">Done</span> <span class="dim">3 records</span></td><td class="mono r" style="white-space:nowrap">3 ms</td></tr>
+<tr><td class="tm">22:13:33.118</td>
+<td><span class="mono">orders</span> <span class="pill mono">go</span></td>
+<td><b class="mono">AddPartitionsToTxn</b> <span class="dim mono">v4</span></td>
+<td class="mono" style="white-space:nowrap">orders-0</td>
+<td><span class="st ok">Done</span></td><td class="mono r" style="white-space:nowrap">2 ms</td></tr>
+<tr><td class="tm">22:13:31.640</td>
+<td><span class="mono">payments</span> <span class="pill mono">go</span></td>
+<td><b class="mono">Produce</b> <span class="dim mono">v9</span></td>
+<td class="mono" style="white-space:nowrap">pick-lists-0</td>
+<td><span class="st ok">Done</span> <span class="dim">1 record</span></td><td class="mono r" style="white-space:nowrap">2 ms</td></tr>
+<tr><td class="tm">22:09:02.377</td>
+<td><span class="mono">fulfilment</span> <span class="pill mono">py</span></td>
+<td><b class="mono">JoinGroup</b> <span class="dim mono">v9</span></td>
+<td class="mono" style="white-space:nowrap">fulfilment<span class="sub">generation 30</span></td>
+<td><span class="st ok">Done</span></td><td class="mono r" style="white-space:nowrap">11 ms</td></tr></tbody></table>
+<div class="pager"><span>Showing the newest 16 of 2,000 rows · back to 19:12 · idle polls hidden</span><button class="btn sm" type="button" data-ui="page">[[g:chev-l 14]]Newer</button><button class="btn sm" type="button" data-ui="page">Older[[g:chev-r 14]]</button></div>
+<div class="callout" style="margin-top:32px">[[g:flask 18]]<div><b>A rehearsal leaves a mark.</b> When a Lab rule slows or fails a request, its row carries a <span class="tag">lab</span> tag. <a class="lnk" href="@live-lab-rule">See the wire while a rule is active</a>.</div></div>
+
+<div class="row wrap" data-scaffold style="margin-top:40px;gap:20px;color:var(--dim);font-size:13px"><span>Other moments of this page</span><a class="lnk" href="@live-load">A busy minute</a><a class="lnk" href="@live-quiet">Nothing yet, the wire is empty</a></div>

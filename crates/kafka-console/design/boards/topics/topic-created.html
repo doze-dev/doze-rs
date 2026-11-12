@@ -1,0 +1,9 @@
+<!--screen {"id":"topic-created","title":"Topic created","kind":"state","from":"topic-create-review","via":"Button: Create topic","ops":["CreateTopics"],"refs":["cat:T1","cat:T6","cat:T7"],"data":"now","extras":["copy-as"],"crumbs":[["Create topic","@topic-create"]]} -->
+<div class="banner" style="margin-top:24px">[[g:check 18]]<span><b>Created orders.retry.</b> 3 partitions, cleanup.policy delete, retention 7 d. It is on disk now: it will be there after a power cut.</span></div>
+<div class="page-h"><div><h1 class="mono">orders.retry</h1><p class="sub">Empty: offsets 0 to 0 on all 3 partitions. Nothing has written to it and no group reads it.</p></div><div class="acts"><a class="btn pri" href="@topic-produce">[[g:send 16]]Produce a record</a><a class="btn" href="@topic-detail">Open topic</a></div></div>
+<div class="sec"><h2>Next steps</h2><p class="lede">Write a first record, then read it back with a consumer in a group.</p>
+<div class="g2"><div class="card"><h2>1 · Produce</h2><p class="lede">From your app, or from a terminal.</p><pre class="code" data-extra="copy-as">echo '{"order_id":"ord-88420"}' \
+  | kcat -P -b 127.0.0.1:9092 \
+    -t orders.retry -k ord-88420</pre><div class="row" style="margin-top:12px"><button class="btn sm" type="button" data-ui="copy">[[g:copy 14]]Copy</button></div></div>
+<div class="card"><h2>2 · Add a consumer</h2><p class="lede">A group id makes it a consumer group; the console lists it under Groups.</p><pre class="code" data-extra="copy-as">kcat -C -b 127.0.0.1:9092 \
+  -G orders-retry-workers orders.retry</pre><div class="row" style="margin-top:12px"><button class="btn sm" type="button" data-ui="copy">[[g:copy 14]]Copy</button><a class="btn sm" href="@groups">Open Groups</a></div></div></div></div>

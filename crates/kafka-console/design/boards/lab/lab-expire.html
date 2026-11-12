@@ -1,0 +1,9 @@
+<!--screen {"id":"lab-expire","title":"Expire a member's session","kind":"dialog","from":"lab-home","via":"Card: Expire a member's session","ops":["doze:ExpireMember"],"refs":["grounding:K3","grounding:K11"],"data":"lab","extras":["api-preview"],"crumbs":[]} -->
+<h2>Expire a member's session</h2>
+<div class="body"><p style="margin:0 0 18px">Remove one member from its group as the coordinator does when heartbeats stop. The app is still running; the group simply no longer has it.</p>
+<div class="form" style="gap:20px">
+<div class="field"><div class="lab">Group and member</div><div class="input sel mono"><span>fulfilment · fulfilment-py-1</span>[[g:chev-d 14]]</div>
+<div class="help">Classic group, range, rebalancing now. fulfilment-py-1 is the only member left.</div></div>
+<div class="teach"><b>What follows.</b> The member is removed, the group has no one left, and the story records <b>session expired</b> as the cause, as it did at 19:44:51 for fulfilment-py-3. <span class="dim">The app finds out at its next heartbeat or commit and has to rejoin.</span></div>
+<div class="apicall" data-extra="api-preview" style="padding:14px 18px"><div class="hd">[[g:code 14]]What it does</div><span class="mono" style="font-size:13px">doze:ExpireMember group=fulfilment member=fulfilment-py-1</span></div></div></div>
+<div class="foot"><a class="btn" href="@lab-home">Cancel</a><a class="btn pri" href="@lab-home" data-op="doze:ExpireMember">Expire session</a></div>

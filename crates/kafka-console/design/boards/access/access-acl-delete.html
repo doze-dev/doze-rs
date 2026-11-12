@@ -1,0 +1,19 @@
+<!--screen {"id":"access-acl-delete","title":"Delete ACL","kind":"dialog","from":"access-secured","via":"Row button: Delete","ops":["DeleteAcls"],"refs":["cat:SEC-19","cat:SEC-23","cat:SEC-25","cat:SEC-30"],"data":"now","extras":["api-preview"],"crumbs":[]} -->
+<h2>Delete this ACL?</h2>
+<div class="body"><dl class="kv sm" style="margin-bottom:16px">
+<dt>Resource</dt><dd>Topic <span class="mono">orders</span>, literal</dd>
+<dt>Principal</dt><dd class="mono">User:orders</dd>
+<dt>Host</dt><dd class="mono">*</dd>
+<dt>Operation</dt><dd><span class="mono">Write</span> <span class="st ok">Allow</span></dd>
+</dl>
+<div class="callout warn" style="margin-bottom:16px">[[g:warn 18]]<div><b>It takes effect on the next request.</b> <span class="mono">orders</span> is also covered by the Read ACL for <span class="mono">User:payments</span>, so the default stays off for it and <span class="mono">User:orders</span> is then refused: its next Produce is answered TOPIC_AUTHORIZATION_FAILED (29). A connection that is already open stays open, and every request on it is checked again. Only the exact ACL is removed.</div></div>
+<div class="apicall" data-extra="api-preview"><div class="hd">[[g:api 14]]The call, asked as User:__console</div><pre class="code"><span class="k">DeleteAcls</span> v3
+  filters[0]
+    resource_type_filter: <span class="s">TOPIC</span>
+    resource_name_filter: <span class="s">orders</span>
+    pattern_type_filter: <span class="s">LITERAL</span>
+    principal_filter: <span class="s">User:orders</span>
+    host_filter: <span class="s">*</span>
+    operation: <span class="s">WRITE</span>
+    permission_type: <span class="s">ALLOW</span></pre></div></div>
+<div class="foot"><a class="btn" href="@access-secured">Cancel</a><a class="btn danger fill" href="@access-secured" data-op="DeleteAcls">Delete ACL</a></div>

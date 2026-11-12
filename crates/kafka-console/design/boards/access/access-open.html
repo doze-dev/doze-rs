@@ -1,0 +1,38 @@
+<!--screen {"id":"access-open","title":"Access","kind":"page","from":"index","via":"Rail: Access","ops":["DescribeAcls","DescribeUserScramCredentials"],"refs":["cat:SEC-1","cat:SEC-16","cat:SEC-18","cat:SEC-26","cat:SEC-169","cat:SEC-172","cat:SEC-188","cat:SEC-189","cat:SEC-191","code:crates/doze-kafka/src/cli.rs","code:crates/kafka-broker/src/authorizer.rs","grounding:K12"],"data":"now","extras":["teaching","new"],"crumbs":[]} -->
+<div class="page-h"><div><div class="title-row"><h1>Access</h1><span class="st idle">Open</span><span class="new" data-extra="new">New</span></div>
+<p class="sub">Anyone who can reach <b class="mono">127.0.0.1:9092</b> may read, write and change anything: nobody signs in, no ACL exists and the default allows. This page shows each of those three switches and what it holds.</p></div><div class="acts"><button class="btn" type="button" data-op="DescribeAcls">[[g:refresh 16]]Read again</button></div></div>
+
+<div class="g3">
+<div class="card"><div class="row sb"><h2>Authentication</h2><span class="st idle">Off</span></div>
+<p class="lede">Who a client proves it is. Off, so every connection is accepted as it arrives.</p>
+<div class="stack-y" style="gap:18px"><div><div class="eyebrow" style="margin-bottom:4px">Mechanisms</div><div>None</div><div class="help" style="margin:4px 0 0">PLAIN, SCRAM-SHA-256 and SCRAM-SHA-512 come with <span class="mono">--sasl-mechanisms</span></div></div><div><div class="eyebrow" style="margin-bottom:4px">Users</div><div class="mono">0 from flags, 0 stored</div><div class="help" style="margin:4px 0 0">names only; a password or key is never shown</div></div><div><div class="eyebrow" style="margin-bottom:4px">Caller</div><div>Its own <span class="mono">client.id</span></div><div class="help" style="margin:4px 0 0">self-declared and not checked; for an ACL it is <span class="mono">User:ANONYMOUS</span></div></div></div></div>
+<div class="card"><div class="row sb"><h2>Authorizer</h2><span class="st ok">Allows by default</span></div>
+<p class="lede">What a caller may do. No ACL covers anything, so the default decides, and it says allow.</p>
+<div class="stack-y" style="gap:18px"><div><div class="eyebrow" style="margin-bottom:4px">Default</div><div class="mono">--acl-default allow</div><div class="help" style="margin:4px 0 0">for a resource no ACL covers; <span class="mono">deny</span> is Kafka's own</div></div><div><div class="eyebrow" style="margin-bottom:4px">ACLs</div><div class="mono">0</div></div><div><div class="eyebrow" style="margin-bottom:4px">Super users</div><div>None</div><div class="help" style="margin:4px 0 0">a super user is never refused, DENY included</div></div></div></div>
+<div class="card"><div class="row sb"><h2>Encryption</h2><span class="st idle">Off</span></div>
+<p class="lede">Plain TCP between client and broker. Messages and, with SASL, a PLAIN password cross it as they are.</p>
+<div class="stack-y" style="gap:18px"><div><div class="eyebrow" style="margin-bottom:4px">TLS</div><div>Off</div><div class="help" style="margin:4px 0 0">an optional feature of the build, turned on with <span class="mono">--tls-cert</span> and <span class="mono">--tls-key</span></div></div><div><div class="eyebrow" style="margin-bottom:4px">Certificate</div><div>None</div></div><div><div class="eyebrow" style="margin-bottom:4px">Listener</div><div class="mono">127.0.0.1:9092</div><div class="help" style="margin:4px 0 0">loopback: this machine only</div></div></div></div>
+</div>
+
+<div class="sec" style="margin-top:40px"><div class="row sb"><div><h2>ACLs</h2><p class="lede" style="margin:0">What DescribeAcls returns, read only. Even with no sign-in, ACLs bind <span class="mono">User:ANONYMOUS</span>, so a broker that has them is not open to everything.</p></div><a class="btn" href="@access-secured">[[g:eye 16]]See the page with security on</a></div>
+<table class="t" style="margin-top:16px"><thead><tr><th>Resource</th><th>Pattern</th><th>Principal</th><th>Host</th><th>Operation</th><th>Permission</th></tr></thead><tbody>
+<tr><td colspan="6" style="padding:0"><div class="empty" style="border:0;border-radius:0;padding:36px 32px"><h3>No ACLs</h3><p style="margin:0">With <span class="mono">--acl-default allow</span> nothing is refused for lack of one. The first ACL on a topic turns the default off for that topic and refuses everyone it does not name.</p></div></td></tr>
+</tbody></table></div>
+
+<div class="g2" style="margin-top:40px">
+<div class="card" data-extra="teaching"><h2>The console</h2><p class="lede">It reads and writes the broker the way a client does, as one more principal, and it has no login of its own.</p>
+<dl class="kv sm">
+<dt>Principal</dt><dd class="mono">User:__console<span class="sub" style="font-family:Inter,sans-serif">reserved: no user or credential may take the name</span></dd>
+<dt>Rights</dt><dd>Super user<span class="sub">so an ACL never stops the console; <span class="mono">--acl-super-user</span> does not list it</span></dd>
+<dt>Listens on</dt><dd class="mono">127.0.0.1:9093<span class="sub" style="font-family:Inter,sans-serif">loopback; <span class="mono">--console-addr</span></span></dd>
+<dt>Allowed hosts</dt><dd>IP addresses and <span class="mono">localhost</span><span class="sub">any other <span class="mono">Host</span> header is answered 403; add one with <span class="mono">--console-allow-host</span> (none added)</span></dd>
+<dt>Writes</dt><dd>Same origin only<span class="sub">a change from another site's page is answered 403</span></dd>
+</dl></div>
+<div class="card"><h2>What the broker says at start</h2><p class="lede">Three warnings, each printed once and only when its condition holds. None does here, so it started quietly.</p>
+<div class="rules">
+<div class="r ok">[[g:check 16]]<div>Console served beyond loopback with SASL or TLS on<span class="sub">Only if <span class="mono">--console-unprotected</span> accepts it; here SASL and TLS are off</span></div><span class="v">not the case</span></div>
+<div class="r ok">[[g:check 16]]<div>SASL without TLS beyond loopback<span class="sub">A PLAIN password would cross the network as it is</span></div><span class="v">not the case</span></div>
+<div class="r ok">[[g:check 16]]<div>SASL on with <span class="mono">--acl-default allow</span><span class="sub">Every logged-in user could manage users and ACLs: use <span class="mono">deny</span> or <span class="mono">--acl-super-user</span></span></div><span class="v">not the case</span></div>
+</div>
+<p class="help" style="margin:14px 0 0">Past loopback with SASL or TLS on, the broker refuses to start the console (exit 2) unless <span class="mono">--console-unprotected</span> accepts it.</p></div>
+</div>

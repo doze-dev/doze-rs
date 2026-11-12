@@ -1,0 +1,15 @@
+<!--screen {"id":"topic-produce-keyless","title":"Produce refused: no key","kind":"state","from":"topic-produce","via":"Link: see that refusal","ops":["Produce"],"refs":["cat:P13","grounding:K6","go:console/routes.go"],"data":"now","extras":["refusal","api-preview"],"crumbs":[["orders","@topic-detail"],["Produce","@topic-produce"]]} -->
+<div class="page-h"><div><div class="title-row"><h1 class="mono">inventory.levels</h1><span class="pill mono">compact</span></div><p class="sent" style="margin:10px 0 0">A compacted topic keeps the latest record for every key. Without a key a record has nothing to be the latest of.</p></div></div>
+<div class="split wide"><div class="stack-y"><div class="card"><h2>Produce to inventory.levels</h2><div class="form" style="margin-top:16px;gap:18px">
+<div class="field"><label>Key <span class="opt">required on this topic</span></label><div class="input mono err"><span class="ph">empty</span></div><div class="help err">A compacted topic needs a key on every record.</div></div>
+<div class="field"><label>Value</label><div class="input mono">{"sku":"FV-TOM-V","on_hand":412}</div></div>
+<div class="row"><button class="btn pri dis" type="button" data-op="Produce">Send</button><span class="dim">Sent once: the broker answered below.</span></div></div></div>
+<div class="callout refused" data-extra="refusal">[[g:warn 18]]<div><b>Refused · INVALID_RECORD (87)</b><br>Compacted topic cleanup.policy=compact requires every record to have a key<br><span class="dim">Rule: the topic's cleanup.policy is compact, and this broker refuses a keyless record instead of storing one the cleaner would drop. The batch was not written; no offset was used.</span><br><b>What would pass</b> give the record a key, such as <span class="mono">FV-TOM-V</span>. A key with no value is a deletion (a tombstone) and is accepted.</div></div>
+</div>
+<div class="stack-y"><div class="apicall" data-extra="api-preview"><div class="hd">[[g:api 14]]The answer</div><pre class="code"><span class="k">Produce</span> v9 response
+  topic: <span class="s">inventory.levels</span>
+  partition: 0
+  error_code: <span class="s">87 INVALID_RECORD</span>
+  base_offset: -1
+  record_errors: first 3 listed</pre></div><a class="btn" href="@topic-produce">Back to Produce</a></div></div>
+<div class="sec" style="margin-top:32px"><h2>What the wire recorded</h2><table class="t wire"><thead><tr><th>Time</th><th>Client</th><th>API</th><th>Topic and partition</th><th>Result</th><th class="r">Took</th></tr></thead><tbody><tr class="hot"><td class="tm">22:14:20.664</td><td>admin-cli</td><td class="mono">Produce v9</td><td class="mono">inventory.levels-0</td><td><span class="st refused">Refused <span class="mono">INVALID_RECORD (87)</span></span><span class="sub">Compacted topic cleanup.policy=compact requires every record to have a key</span></td><td class="mono r">1 ms</td></tr></tbody></table></div>

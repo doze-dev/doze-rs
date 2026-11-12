@@ -1,0 +1,13 @@
+<!--screen {"id":"request-too-large","refs":["grounding:K6","cat:P5","cat:P4"],"data":"capture","needs":["wire","refusal"],"crumbs":[],"title":"MESSAGE_TOO_LARGE","kind":"drawer","from":"live-wire","via":"Row: a refused request","ops":["Produce"],"extras":["refusal","teaching"]} -->
+<div class="row sb" style="align-items:flex-start"><div><h2 class="mono">MESSAGE_TOO_LARGE (10)</h2><div class="sent"><span class="st refused">Refused</span> · Produce v9 · orders-1</div></div><button class="btn sm ghost" type="button" data-ui="close" aria-label="Close">[[g:x 16]]Close</button></div><div class="hr" style="margin:16px 0 20px"></div>
+<div class="callout refused" data-extra="refusal">[[g:warn 18]]<div><b>Kafka's words</b><br>The request included a message larger than the max message size the server will accept.<br><span class="mono" style="font-size:12.5px">1,203,441 B over max.message.bytes 1,048,588.</span></div></div>
+<h3 style="margin:24px 0 4px;font-size:14px" data-extra="teaching">The rule</h3>
+<p class="help" style="margin:0 0 6px">A batch larger than the limit is refused whole. The topic's own <span class="mono">max.message.bytes</span> wins; with none set, the broker's <span class="mono">message.max.bytes</span> applies.</p>
+<div class="rules">
+<div class="r no" style="--warn:var(--refused)">[[g:x 16]]<div>Batch size is within the limit<span class="sub">1,203,441 B sent, 154,853 B over</span></div><span class="v">1,048,588 B</span></div>
+<div class="r ok">[[g:check 16]]<div>Where the limit comes from<span class="sub">orders sets none: the broker value applies</span></div><span class="v">broker</span></div>
+</div>
+<h3 style="margin:24px 0 8px;font-size:14px">What would pass</h3>
+<p class="help" style="margin:0">Send smaller batches (lower the producer's batch size), compress them, or raise the limit on this topic.</p>
+<dl class="kv sm" style="margin-top:8px"><dt>Client</dt><dd><span class="mono">orders</span> <span class="dim">(go, sarama)</span></dd><dt>At</dt><dd class="mono">22:14:16.300 · 2 ms</dd><dt>Written</dt><dd>Nothing</dd></dl>
+<div class="row wrap" style="margin-top:20px;gap:10px"><a class="btn pri" href="@config/config-edit">[[g:edit 16]]Raise max.message.bytes</a><a class="btn" href="@topics/topic-detail">Open orders</a></div>

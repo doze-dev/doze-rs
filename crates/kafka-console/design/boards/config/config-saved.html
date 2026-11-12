@@ -1,0 +1,15 @@
+<!--screen {"id":"config-saved","kind":"state","title":"Saved","from":"config-edit","via":"Button: Save","ops":[],"refs":["cat:ADM-5","cat:ADM-6"],"data":"now","crumbs":[],"extras":["live-sentence"]} -->
+<div class="page-h"><div><div class="title-row"><h1 class="mono">inventory.levels</h1><span class="st ok">Compacted</span></div><p class="sub" data-extra="live-sentence"><b>min.cleanable.dirty.ratio</b> is now <b>0.7</b>, set on this topic. The other 32 configs are unchanged; the cleaner sees the new value at its next look.</p></div><div class="acts"><a class="btn" href="@topic-config">Back to the config</a></div></div>
+<div class="tabs"><a class="tab" href="@topics/topic-detail">Messages</a><a class="tab" href="@log/topic-log">Log</a><a class="tab on" href="@config/topic-config">Config</a><a class="tab" href="@topics/topic-detail">Consumers</a><a class="tab" href="@producers/topic-producers">Producers</a></div>
+<div class="banner">[[g:check 16]]<div><b>Saved.</b> IncrementalAlterConfigs answered <span class="mono">0</span> for <span class="mono">inventory.levels</span>.</div></div>
+<div class="g2">
+<div class="card"><h2>Before and after</h2>
+<table class="t" style="margin-top:12px"><thead><tr><th>Config</th><th>Before</th><th>Now</th></tr></thead><tbody>
+<tr><td class="mono bright">min.cleanable.dirty.ratio</td><td class="mono">0.5<span class="sub"><span class="tag dim">Default</span></span></td><td class="mono">0.7<span class="sub"><span class="tag">Dynamic topic</span></span></td></tr></tbody></table></div>
+<div class="card"><h2>What it does to this log</h2><p class="sent">61 % of the log is dirty. The cleaner now waits for more than <b>70 %</b>, so the next look will find it <b>not due</b> until about 11.2 MiB more of the log is dirty.</p>
+<p class="sent" style="margin-top:12px">A change does not rewrite anything. Each kind of config is read at its own moment; this one is read at every look of the cleaner.</p>
+<div class="story" style="margin-top:16px">
+<div class="ev"><div class="tm">now</div><div class="dot"><i></i></div><div class="tx"><b>Saved.</b> The ratio is 0.7 on the topic.</div></div>
+<div class="ev idle"><div class="tm">within 15 s</div><div class="dot"><i></i></div><div class="tx">The cleaner's next look reads it. 61 % is not more than 70 %.</div></div>
+<div class="ev idle"><div class="tm">next look</div><div class="dot"><i></i></div><div class="tx"><span class="cause">verdict</span>Not due. Segments 5 to 7 stay dirty, nothing is rewritten.</div></div>
+</div></div></div>

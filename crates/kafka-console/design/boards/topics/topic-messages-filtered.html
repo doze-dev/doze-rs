@@ -1,0 +1,30 @@
+<!--screen {"id":"topic-messages-filtered","title":"orders-0 from 16,098","kind":"state","from":"topic-detail","via":"Button: Show orders-0 from 16,098","ops":["Fetch"],"refs":["cat:F1","cat:F8","grounding:K5"],"data":"now","extras":["live-sentence","api-preview"],"crumbs":[["orders","@topic-detail"]]} -->
+<div class="page-h"><div><div class="title-row"><h1 class="mono">orders</h1><span class="pill mono">delete</span><span class="st warn">Transaction open</span></div>
+<p class="sent" data-extra="live-sentence" style="margin:10px 0 0;max-width:760px"><b>orders</b> has 3 partitions, keeps records for 7 d, holds <b>48,213</b> records (7.9 MiB) and was last written 4 s ago. A transaction is open on <b>orders-0</b> and <b>orders-1</b>: read_committed consumers are held 6 records behind on orders-0.</p></div><div class="acts"><a class="btn" href="@topic-partitions">[[g:list 16]]Partitions</a><a class="btn pri" href="@topic-produce">[[g:send 16]]Produce</a><a class="btn danger" href="@topic-delete">[[g:trash 16]]Delete topic</a></div></div>
+<div class="tabs">
+<a class="tab on" href="@topic-detail">Messages</a>
+<a class="tab" href="@log/topic-log">Log</a>
+<a class="tab" href="@config/topic-config">Config</a>
+<a class="tab" href="@groups/groups-list">Consumers<span class="n">2</span></a>
+<a class="tab" href="@producers/topic-producers">Producers<span class="n">3</span></a>
+</div>
+<div class="toolbar"><div class="seg"><button type="button" data-ui="select">All partitions</button><button class="on" type="button" data-ui="select">0</button><button type="button" data-ui="select">1</button><button type="button" data-ui="select">2</button></div>
+<span class="fchip on">Partition 0</span><span class="fchip on">From offset 16,098</span><span class="fchip">Time</span><span class="fchip">Key</span>
+<button class="btn sm" type="button" data-ui="clear">[[g:x 14]]Clear filters</button><span class="sp"></span><span class="dim">Reading as</span><span class="fchip on">read_uncommitted</span></div>
+<div><p class="sent" style="margin:0 0 16px;max-width:900px">The fetch returned <b>6</b> records, offsets <b>16,098</b> to <b>16,103</b>, the end of the partition. All 6 are at or above the last stable offset (16,098): a read_committed consumer would get none of them.</p>
+<table class="t"><thead><tr><th>Partition</th><th>Offset</th><th>Timestamp</th><th>Key</th><th>Value</th><th class="r">Value size</th><th>For read_committed</th></tr></thead><tbody>
+<tr><td class="mono">0</td><td class="mono">16,103</td><td class="mono dim">22:14:21.771</td><td class="mono">ord-88418</td><td class="mono" style="font-size:12.5px;color:var(--text)">{"order_id":"ord-88418","customer":"c-3092","it…</td><td class="mono r">91 B</td><td><span class="st warn">Above LSO</span></td></tr>
+<tr><td class="mono">0</td><td class="mono">16,102</td><td class="mono dim">22:14:21.770</td><td class="mono">ord-88417</td><td class="mono" style="font-size:12.5px;color:var(--text)">{"order_id":"ord-88417","customer":"c-5518","it…</td><td class="mono r">88 B</td><td><span class="st warn">Above LSO</span></td></tr>
+<tr><td class="mono">0</td><td class="mono">16,101</td><td class="mono dim">22:14:21.769</td><td class="mono">ord-88416</td><td class="mono" style="font-size:12.5px;color:var(--text)">{"order_id":"ord-88416","customer":"c-7710","it…</td><td class="mono r">86 B</td><td><span class="st warn">Above LSO</span></td></tr>
+<tr><td class="mono">0</td><td class="mono">16,100</td><td class="mono dim">22:14:21.769</td><td class="mono">ord-88415</td><td class="mono" style="font-size:12.5px;color:var(--text)">{"order_id":"ord-88415","customer":"c-2204","it…</td><td class="mono r">97 B</td><td><span class="st warn">Above LSO</span></td></tr>
+<tr><td class="mono">0</td><td class="mono">16,099</td><td class="mono dim">22:14:11.690</td><td class="mono">ord-88411</td><td class="mono" style="font-size:12.5px;color:var(--text)">{"order_id":"ord-88411","customer":"c-4630","it…</td><td class="mono r">93 B</td><td><span class="st warn">Above LSO</span></td></tr>
+<tr><td class="mono">0</td><td class="mono">16,098</td><td class="mono dim">22:13:33.208</td><td class="mono">ord-88410</td><td class="mono" style="font-size:12.5px;color:var(--text)">{"order_id":"ord-88410","customer":"c-9061","it…</td><td class="mono r">90 B</td><td><span class="st warn">Above LSO</span></td></tr>
+</tbody></table></div>
+<div class="g2" style="margin-top:32px"><div><div class="apicall" data-extra="api-preview"><div class="hd">[[g:api 14]]The call</div><pre class="code"><span class="k">Fetch</span> v12
+  isolation_level: 0 <span class="c">(read_uncommitted)</span>
+  topics[0]
+    topic: <span class="s">orders</span>
+    partitions[0]
+      partition: 0
+      fetch_offset: 16098
+      partition_max_bytes: 1048576</pre><p class="help" style="margin:12px 0 0">The key and time filters read the log from the start of the partition; an offset goes straight to the batch that holds it.</p></div></div><div class="card"><h2>Why filter by offset</h2><p class="lede">Ask for exactly the records you want to look at.</p><p style="margin:0">A Fetch names a partition and an offset and gets whole batches from the one that holds it, up to the byte limit. Asking from 16,098 returns the first record of the open transaction onward. A key search has no such shortcut: it reads from the start of the partition.</p></div></div>

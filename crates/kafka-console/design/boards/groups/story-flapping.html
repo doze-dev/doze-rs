@@ -1,0 +1,21 @@
+<!--screen {"id":"story-flapping","title":"Flapping","kind":"state","from":"group-story","via":"Button: Check the rule","ops":[],"refs":["grounding:K3","go:console/groups_boards.go"],"data":"capture","needs":["rebalance"],"extras":["story","teaching","new"],"crumbs":[["fulfilment","@group-rebalancing"],["Story","@group-story"]]} -->
+<div class="page-h"><div><div class="title-row"><h1 class="mono">fulfilment</h1><span class="st warn">Rebalancing</span><span class="pill">classic</span><span class="pill">range</span><span class="pill">generation 31 forming</span></div><p class="sub">A group is flapping when the same member keeps timing out and coming back. fulfilment is <b>not</b> flapping: it has one session expiry in 6 h, and a member that leaves cleanly never counts.</p></div><div class="acts"><a class="btn" href="@group-story">[[g:back 16]]Back to the story</a></div></div>
+<div class="tabs"><a class="tab" href="@group-rebalancing">Members<span class="n">1</span></a><a class="tab" href="@lag-no-commits">Lag<span class="n">21</span></a><span class="tab on">Story<span class="n">4</span></span></div>
+<div class="g2" style="align-items:start">
+<div class="card"><h2>The rule, against fulfilment</h2><p class="lede">Three or more expired-then-joined cycles in 10 minutes.</p>
+<div class="rules" data-extra="teaching">
+<div class="r ok"><span class="gl">[[g:check 16]]</span><div>Expired, then joined, 3 times in 10 minutes<span class="sub">Last 10 minutes: 1 join (22:09:02), 1 clean leave (22:14:19), 0 expiries.</span></div><span class="v">0 cycles</span></div>
+<div class="r ok"><span class="gl">[[g:check 16]]</span><div>A leave is not a timeout<span class="sub">py-2 sent LeaveGroup. The broker was told; nothing ran out.</span></div><span class="v">not counted</span></div>
+<div class="r ok"><span class="gl">[[g:check 16]]</span><div>Session expiries in 6 h<span class="sub">fulfilment-py-3 at 19:44:51 only.</span></div><span class="v">1</span></div>
+<div class="r no"><span class="gl">[[g:warn 16]]</span><div>A member joined and left within 6 minutes<span class="sub">py-2, 22:09:02 to 22:14:19. Not flapping; watch it.</span></div><span class="v">5 m 17 s</span></div>
+</div></div>
+<div class="card" data-extra="new"><div class="row sb" style="margin-bottom:6px"><h2 style="margin:0">What it looks like when it is</h2><span class="pill">Illustration, not your group</span></div>
+<p class="lede">A client pauses longer than its session timeout, is dropped, comes back, and does it again. The gaps are steady.</p>
+<div class="story" data-extra="story">
+<div class="ev bad"><div class="tm">+0:00</div><div class="dot"><i></i></div><div class="tx"><div><span class="cause">Session expired</span><b>Member timed out</b></div><div class="dim" style="margin-top:6px">No heartbeat for 10.0 s, its session timeout.</div></div></div>
+<div class="ev "><div class="tm">+0:04</div><div class="dot"><i></i></div><div class="tx"><div><span class="cause">Member joined</span><b>Same member is back</b></div><div class="dim" style="margin-top:6px">The group rebalances again.</div></div></div>
+<div class="ev bad"><div class="tm">+0:30</div><div class="dot"><i></i></div><div class="tx"><div><span class="cause">Session expired</span><b>Member timed out</b></div><div class="dim" style="margin-top:6px">30.1 s after the last expiry.</div></div></div>
+<div class="ev "><div class="tm">+0:34</div><div class="dot"><i></i></div><div class="tx"><div><span class="cause">Member joined</span><b>Same member is back</b></div><div class="dim" style="margin-top:6px">The pattern is named at the third cycle.</div></div></div>
+</div>
+<div class="callout" style="margin-top:8px">[[g:info 18]]<div><b>Where to look.</b> The app spends longer between polls than its session allows: slow processing, a pause, a debugger. Raise <span class="mono">session.timeout.ms</span> or do less between polls. To see this happen, <a class="lnk" href="@lab/lab-expire">expire a member's session in Lab</a>.</div></div></div>
+</div>
