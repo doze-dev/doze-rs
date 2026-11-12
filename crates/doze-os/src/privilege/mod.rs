@@ -61,6 +61,33 @@ pub fn relaunch_unprivileged() -> io::Result<Option<i32>> {
     }
 }
 
+/// The real user and group ids of this process (not the effective ones: under sudo both are root's; `SUDO_UID` says
+/// who asked). `None` on Windows, which has no numeric ids.
+pub fn ids() -> Option<(u32, u32)> {
+    #[cfg(unix)]
+    {
+        Some(unix::ids())
+    }
+    #[cfg(windows)]
+    {
+        None
+    }
+}
+
+/// The home directory of the user with this uid, from the user database: for a program run under sudo, whose `HOME`
+/// may be root's, to find the person's own. `None` on Windows, or when the user is unknown.
+pub fn home_of(uid: u32) -> Option<std::path::PathBuf> {
+    #[cfg(unix)]
+    {
+        unix::home_of(uid)
+    }
+    #[cfg(windows)]
+    {
+        let _ = uid;
+        None
+    }
+}
+
 /// Gives up root for good, becoming `uid`/`gid` (supplementary groups: `gid` alone). For a daemon started as root
 /// to do one privileged thing (open a tunnel, add a route) and nothing else: call it before any thread starts, since
 /// the change must cover the whole process. Checked afterwards: a process that could get root back is an error.
