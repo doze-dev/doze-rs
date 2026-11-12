@@ -159,6 +159,7 @@ ${markdown(rows)}`;
     console.log(`${rows.length} rows -> ${args[mdAt + 1]}`);
     process.exit(0);
   }
+  const flag = (name: string, d: number) => (args.includes(name) ? Number(args[args.indexOf(name) + 1]) : d);
   const base = args.find((a) => a.startsWith("http"))!.replace(/\/$/, "");
   const from = Number(args[args.indexOf("--from") + 1] || 0);
   const to = Number(args[args.indexOf("--to") + 1] || PAGES.length);
@@ -168,7 +169,7 @@ ${markdown(rows)}`;
   try {
     const page = await browser.page();
     for (const path of PAGES.slice(from, to)) {
-      const got = await auditPage(page, base, path, Number(args[args.indexOf("--limit") + 1] || 60), Number(args[args.indexOf("--offset") + 1] || 0));
+      const got = await auditPage(page, base, path, flag("--limit", 60), flag("--offset", 0));
       rows.push(...got);
       console.log(`${path}: ${got.map((r) => r.verdict).join(", ") || "no same-page control"}`);
     }
