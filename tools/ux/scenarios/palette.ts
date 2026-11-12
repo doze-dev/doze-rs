@@ -33,14 +33,14 @@ export const scenarios: Record<string, (t: T) => Promise<void>> = {
   async "tooltip-shared-for-title-and-icon-buttons"(t: T) {
     const p = t.page;
     await p.goto("/topics");
-    const sel = "main .when[title]";
+    const sel = "main time[data-rel][title]";
     t.ok(await p.exists(sel), "the list has an exact time on hover");
     const title = await p.eval<string>(`document.querySelector(${JSON.stringify(sel)}).getAttribute('title')`);
     await p.hover(sel);
     await Bun.sleep(150);
     t.ok(await p.eval("!document.getElementById('dz-tip-shared') || getComputedStyle(document.getElementById('dz-tip-shared')).display === 'none'"), "nothing before 400 ms");
     await Bun.sleep(450);
-    t.ok(await p.eval(`(() => { const e = document.getElementById('dz-tip-shared'); return !!e && getComputedStyle(e).display !== 'none' && e.textContent === ${JSON.stringify(title)}; })()`), "the card shows the exact time");
+    t.ok(await p.eval(`(() => { const e = document.getElementById('dz-tip-shared'); return !!e && getComputedStyle(e).display !== 'none' && e.textContent.startsWith(${JSON.stringify(title)}); })()`), "the card shows the exact time (and, once the pointer is on it, how long ago)");
     t.ok(await p.eval(`!document.querySelector(${JSON.stringify(sel)}) || true`), "ok");
     await p.shot(`${t.shots}/tooltip-shared.png`);
     await p.move(5, 400);

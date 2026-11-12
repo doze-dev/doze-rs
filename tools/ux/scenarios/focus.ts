@@ -8,7 +8,7 @@ const CASES: [string, string, string][] = [
   ["/topics", ".search input", "top bar search (a box around an input)"],
   ["/topics", "form.toolbar .finput input", "filter field"],
   ["/topics", "form.toolbar button[name=internal]", "toggle chip"],
-  ["/topics", "form.toolbar button[data-ui=refresh]", "button"],
+  ["/topics", "form.toolbar button[data-ui=toggle]", "button"],
   ["/topics", ".tabs a.tab:not(.on)", "tab"],
   ["/topics", "main table.t a.mono", "row link"],
   ["/topics", "nav.crumbs a", "crumb"],

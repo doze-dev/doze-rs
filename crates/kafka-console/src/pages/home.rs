@@ -191,7 +191,7 @@ fn strip(v: &HomeView) -> Markup {
     let (apps, last) = match &v.spoke {
         Some(s) => (
             Stat::new("Apps on the wire", n(s.apps)).unit(match s.oldest_ms {
-                Some(ms) => format!("wire back to {} UTC", crate::words::live::hhmm(ms)),
+                Some(ms) => format!("back to {} UTC", crate::words::live::hhmm(ms)),
                 None => "no request yet".to_owned(),
             }),
             match s.last_ms {

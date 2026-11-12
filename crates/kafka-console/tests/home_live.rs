@@ -90,7 +90,7 @@ async fn creating_a_topic_flips_title_sentence_and_cards_in_the_one_fragment_wit
     assert!(steady.contains("Next: connect something new"), "{steady}");
     assert!(steady.contains("Nothing needs you."), "{steady}");
     assert!(
-        steady.contains(r#"<span class="k">Topics</span><span class="v" style="min-width:5ch" title="1">1</span><span class="s">1 partitions</span>"#),
+        steady.contains(r#"<span class="k">Topics</span><span class="v" title="1">1</span><span class="s">1 partitions</span>"#),
         "{steady}"
     );
     assert_ne!(res.headers()[header::ETAG], quiet_tag);

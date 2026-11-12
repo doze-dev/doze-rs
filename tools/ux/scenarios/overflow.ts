@@ -14,6 +14,8 @@ const CHECK = `(() => {
     if (!r.width || !r.height) continue;
     const s = getComputedStyle(e);
     if (s.display === 'inline' || s.display === 'contents') continue;
+    // A table cell or a value that gives way to an ellipsis, with its full text in title, is a truncation by design (CON-808), not an overflow.
+    if (s.overflowX === "hidden" && s.textOverflow === "ellipsis") continue;
     if (e.scrollWidth > e.clientWidth + 1 && !/auto|scroll/.test(s.overflowX)) bad.push(e.tagName + '.' + String(e.className).slice(0, 30) + ' ' + e.scrollWidth + '>' + e.clientWidth + ' "' + (e.textContent || '').trim().slice(0, 24) + '"');
   }
   return { doc, bad: bad.slice(0, 6), count: bad.length };

@@ -27,6 +27,6 @@ pub use drawers::{
 };
 pub use first::first_page;
 pub use page::{LIVE_STATS, live_fragment, live_page, state_crumb, stats_fragment};
-pub use parts::{LIVE_FRAGMENT, wire_url};
+pub use parts::{LIVE_FRAGMENT, LIVE_VIEW, wire_url};
 pub use refusals::{fenced_body, refused_body, too_large_body};
 pub use tape::{Layout, table, tail_rows};

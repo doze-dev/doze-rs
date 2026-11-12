@@ -34,8 +34,8 @@ fn standing(s: Standing) -> Markup {
 }
 
 const COLS: [Col<'static>; 7] = [
-    Col::new("Partition", Width::Px(96)),
-    Col::new("Offset", Width::Px(84)),
+    Col::new("Partition", Width::Px(92)),
+    Col::new("Offset", Width::Px(96)),
     Col::new("Timestamp", Width::Px(128)),
     Col::new("Key", Width::Pct(16)),
     Col::new("Value", Width::Fill),

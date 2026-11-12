@@ -5,7 +5,7 @@ import type { T } from "../drive.ts";
 import type { Page } from "../page.ts";
 
 const rows = (p: Page, sel: string) => p.eval<number>(`document.querySelectorAll(${JSON.stringify(sel)}).length`);
-const WIRE = "table.wire tbody tr";
+const WIRE = ".dt-t tbody tr";
 
 async function pick(p: Page, id: string, text: string): Promise<void> {
   const trig = `.dz:has(#${id}) .dz-trigger, .dz:has(#${id}) .dz-input`;

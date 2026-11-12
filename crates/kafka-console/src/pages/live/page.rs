@@ -7,7 +7,7 @@
 
 use maud::{Markup, html};
 
-use super::parts::{LIVE_FRAGMENT, request_url_in, wire_url};
+use super::parts::{LIVE_FRAGMENT, LIVE_VIEW, request_url_in, wire_url};
 use super::tape::Layout;
 use crate::base::Base;
 use crate::format::number;
@@ -70,9 +70,9 @@ fn toolbar(v: &LiveView, base: &Base) -> Markup {
     let q = &v.query;
     html! {
         form class="toolbar" method="get" action=(base.url("/live")) data-live-filters
-            hx-get=(base.url("/live")) hx-target={"#" (LIVE_FRAGMENT)} hx-select={"#" (LIVE_FRAGMENT)} hx-swap=(client::IN_PLACE_SWAP) hx-push-url="true" {
+            hx-get=(base.url("/live")) hx-target={"#" (LIVE_VIEW)} hx-select={"#" (LIVE_VIEW)} hx-swap=(client::IN_PLACE_SWAP) hx-push-url="true" {
             input type="submit" value="Filter" aria-label="Filter the wire" hidden data-scaffold;
-            (crate::ui::inplace::search_box(LIVE_FRAGMENT, &base.url("/live"), "q", "Filter by client, API or topic", "Filter the wire", &q.text))
+            (crate::ui::inplace::search_box(LIVE_VIEW, &base.url("/live"), "q", "Filter by client, API or topic", "Filter the wire", &q.text))
             (select_chip("client", "All apps", &q.client, &v.clients_ids))
             (select_chip("topic", "All topics", &q.topic, &v.topics_seen))
             // A toggle's own button carries its new value; the hidden fields keep the other's state.
@@ -227,9 +227,11 @@ pub fn live_page(v: &LiveView, base: &Base) -> Markup {
             html! {},
         ))
         (stats_fragment(v, base))
-        (toolbar(v, base))
-        (crate::ui::tail::tail_bar(LIVE_FRAGMENT, true))
-        (live_fragment(v, base))
+        (crate::ui::inplace::region(LIVE_VIEW, html! {
+            (toolbar(v, base))
+            (crate::ui::tail::tail_bar(LIVE_FRAGMENT, true))
+            (live_fragment(v, base))
+        }))
     }
 }
 

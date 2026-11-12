@@ -8,6 +8,9 @@ use crate::model::{WireClass, WireQuery, WireRow};
 /// The id of the Live fragment.
 pub const LIVE_FRAGMENT: &str = crate::regions::LIVE_WIRE;
 
+/// The region the filters, the tail control and the tape share: a filter changes it and nothing above it (the strip, the title).
+pub const LIVE_VIEW: &str = "live-view";
+
 /// Where a wire fragment is fetched: the fragment's address with the filters.
 #[must_use]
 pub fn wire_url(base: &Base, id: &str, query: &str) -> String {
@@ -78,7 +81,7 @@ pub(super) fn filter_link(
 ) -> Markup {
     let href = format!("{}{}", base.url("/live"), q.with(field, value).to_query());
     html! {
-        a class="cell-filter" href=(href) title={"Show only " (value)} hx-get=(href) hx-target={"#" (LIVE_FRAGMENT)} hx-select={"#" (LIVE_FRAGMENT)}
+        a class="cell-filter" href=(href) title={"Show only " (value)} hx-get=(href) hx-target={"#" (LIVE_VIEW)} hx-select={"#" (LIVE_VIEW)}
             hx-swap=(crate::ui::client::IN_PLACE_SWAP) hx-push-url="true" data-nopreload="false" { (label) }
     }
 }

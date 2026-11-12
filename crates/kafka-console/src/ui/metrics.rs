@@ -79,17 +79,19 @@ impl Stat {
             .ch(11)
     }
 
-    fn one(&self, extra: &str) -> Markup {
-        let style = format!("min-width:{}ch", self.ch);
+    /// One metric. `reserve`: the figure keeps `ch` characters of width (a strip whose tiles size themselves); a grid of tiles
+    /// has its columns fixed by the grid and needs none.
+    fn one(&self, extra: &str, reserve: bool) -> Markup {
+        let style = reserve.then(|| format!("min-width:{}ch", self.ch));
         let class = if self.mono { "v mono" } else { "v" };
         let title = self.tip.as_deref().unwrap_or(&self.value);
         html! {
             div class={"stat" (extra)} {
                 span class="k" { (self.label) }
                 @if let Some(iso) = &self.time {
-                    time class=(class) style=(style) datetime=(iso) title=(title) data-rel { (self.value) }
+                    time class=(class) style=[style.as_deref()] datetime=(iso) title=(title) data-rel { (self.value) }
                 } @else {
-                    span class=(class) style=(style) title=(title) { (self.value) }
+                    span class=(class) style=[style.as_deref()] title=(title) { (self.value) }
                 }
                 @if let Some(u) = &self.unit { span class="s" { (u) } }
             }
@@ -124,19 +126,19 @@ pub fn slot(value: &str, ch: u8) -> Markup {
 /// A strip of metrics in one bordered row, compact: the strip of a data page, under its title. Never holds a sentence.
 #[must_use]
 pub fn stat_strip(stats: &[Stat]) -> Markup {
-    html! { div class="stats compact" role="group" { @for s in stats { (s.one("")) } } }
+    html! { div class="stats compact" role="group" { @for s in stats { (s.one("", true)) } } }
 }
 
 /// Metrics as a grid of tiles, one card each: the glance at the top of Home, where there is room for them.
 #[must_use]
 pub fn stat_tiles(stats: &[Stat]) -> Markup {
-    html! { div class="stats" role="group" { @for s in stats { (s.one("")) } } }
+    html! { div class="stats" role="group" { @for s in stats { (s.one("", false)) } } }
 }
 
 /// A single metric as a tile.
 #[must_use]
 pub fn stat_tile(stat: &Stat) -> Markup {
-    html! { div class="stats tile" role="group" { (stat.one("")) } }
+    html! { div class="stats tile" role="group" { (stat.one("", false)) } }
 }
 
 #[cfg(test)]
@@ -154,15 +156,17 @@ mod tests {
 
     #[test]
     fn a_tip_replaces_the_value_on_hover_and_a_time_is_a_time_element() {
-        let m = stat_tile(
-            &Stat::new("Last write", "14:32:05")
-                .time("2026-11-13T14:32:05Z")
-                .tip("2026-11-13 14:32:05 UTC")
-                .mono(),
-        )
+        let m = stat_strip(&[Stat::new("Last write", "14:32:05")
+            .time("2026-11-13T14:32:05Z")
+            .tip("2026-11-13 14:32:05 UTC")
+            .mono()])
         .into_string();
         assert!(m.contains(r#"<time class="v mono" style="min-width:8ch" datetime="2026-11-13T14:32:05Z" title="2026-11-13 14:32:05 UTC" data-rel>14:32:05</time>"#), "{m}");
-        assert!(m.starts_with(r#"<div class="stats tile""#));
+        let tile = stat_tile(&Stat::new("Topics", "7")).into_string();
+        assert!(
+            tile.starts_with(r#"<div class="stats tile""#) && !tile.contains("min-width"),
+            "{tile}"
+        );
     }
 
     #[test]
