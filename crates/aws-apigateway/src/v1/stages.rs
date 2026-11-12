@@ -290,7 +290,28 @@ const STAGE_FIELDS: &[Field] = &[
     f("/canarySettings", Kind::Str),
 ];
 
+/// Execution logging needs the account's CloudWatch role first, as AWS says (`(memory)` for the words).
+fn check_logging(core: &Core, r: &Req) -> Result<(), ApiError> {
+    let wants = r.patches().iter().any(|p| {
+        let v = p.value.as_deref().unwrap_or_default();
+        (p.path.ends_with("/logging/loglevel") && !v.eq_ignore_ascii_case("OFF"))
+            || (p.path.ends_with("/logging/dataTrace") && v == "true")
+    });
+    let role = core
+        .account
+        .get("account")
+        .and_then(|d| text(&d.0, "cloudwatchRoleArn"))
+        .is_some_and(|r| !r.is_empty());
+    if wants && !role {
+        return Err(bad(
+            "CloudWatch Logs role ARN must be set in account settings to enable logging",
+        ));
+    }
+    Ok(())
+}
+
 fn update_stage(core: &mut Core, r: &Req) -> Res {
+    check_logging(core, r)?;
     let doc = api_mut(core, r)?;
     let name = r.s("stageName");
     let mut s = stage(doc, name)?.clone();
