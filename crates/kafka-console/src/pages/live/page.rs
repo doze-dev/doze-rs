@@ -250,3 +250,17 @@ pub fn live_fragment(v: &LiveView, base: &Base) -> Markup {
 pub fn live_page(v: &LiveView, base: &Base) -> Markup {
     live_fragment(v, base)
 }
+
+/// The last step of the breadcrumb when the page is in a state the boards name (Paused, Nothing yet, A busy minute); none for
+/// the plain tape.
+#[must_use]
+pub fn state_crumb(v: &LiveView) -> Option<&'static str> {
+    if v.paused_at_ms.is_some() {
+        return Some("Paused");
+    }
+    match v.state {
+        LiveState::Quiet => Some("Nothing yet"),
+        LiveState::Busy => Some("A busy minute"),
+        LiveState::Steady => None,
+    }
+}

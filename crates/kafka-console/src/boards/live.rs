@@ -58,11 +58,15 @@ fn plain(main: Markup) -> Over {
 #[allow(clippy::too_many_lines)] // one arm per board
 fn content(id: &str, base: &Base) -> Option<Content> {
     let live = |hint: &str| {
+        let steps = match page::state_crumb(&world::live(&WireQuery::default(), Some(hint))) {
+            Some(last) => vec![("Live", Some("/live")), (last, None)],
+            None => vec![("Live", None)],
+        };
         (
             plain(live_page(hint, base)),
             "Live".to_owned(),
             Rail::Live,
-            vec![("Live", None)],
+            steps,
             LIVE_IDS,
         )
     };
@@ -98,7 +102,7 @@ fn content(id: &str, base: &Base) -> Option<Content> {
             plain(page::first_page(&world::first(), base)),
             "Home".to_owned(),
             Rail::Home,
-            vec![("Home", None)],
+            vec![("Home", Some("/")), ("First request landed", None)],
             &[],
         ),
         "topic-wire" => {

@@ -26,7 +26,7 @@ pub use drawers::{
     request_drawer,
 };
 pub use first::first_page;
-pub use page::{live_fragment, live_page};
+pub use page::{live_fragment, live_page, state_crumb};
 pub use parts::{LIVE_FRAGMENT, wire_url};
 pub use refusals::{fenced_body, refused_body, too_large_body};
 pub use tape::{Layout, table};
