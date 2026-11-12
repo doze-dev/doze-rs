@@ -235,7 +235,12 @@ async fn a_topic_name_of_249_bytes_fits_and_a_longer_one_is_no_topic() {
     w.create(&name, 1, &[]).await;
     let app = w.router();
     let list = page(&app, "/topics", None).await;
-    assert!(list.contains(&format!(">{name}</a>")));
+    // The list cuts its middle for the eye and keeps all of it for the hover and for a copy.
+    let tail = &name[239..];
+    assert!(
+        list.contains(&format!("<span class=\"mid\" title=\"{name}\"><span class=\"mid-a\">{}</span><span class=\"mid-b\">{tail}</span></span>", &name[..239])),
+        "{list:.1500}"
+    );
     let t = page(&app, &format!("/topics/{name}"), None).await;
     assert!(t.contains(&format!("<h1 class=\"mono\">{name}</h1>")));
     let (res, _) = send(&app, get(&format!("/topics/{}", "n".repeat(250)))).await;

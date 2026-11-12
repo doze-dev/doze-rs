@@ -112,6 +112,21 @@ html:has(.ovl){overflow:hidden}
 .tab:hover{color:var(--bright)}
 a.chip:hover,button.chip:hover{border-color:var(--line2);color:var(--bright)}
 .seg button:hover:not(.on){color:var(--bright)}
+/* Tables: the header stays under the top bar (52 px) while a long table scrolls. The kit clips the corners with overflow:hidden,
+   which makes the table the scroll container of its own header; here the cells draw the corners, and the borders are separate
+   so that the stuck header carries its own. Inside an overlay (it scrolls by itself) the header does not stick. */
+table.t{overflow:visible;border-collapse:separate;border-spacing:0}
+.t thead th{position:sticky;top:52px;z-index:2}
+.t thead th:first-child{border-top-left-radius:13px}
+.t thead th:last-child{border-top-right-radius:13px}
+.t tbody tr:last-child td:first-child{border-bottom-left-radius:13px}
+.t tbody tr:last-child td:last-child{border-bottom-right-radius:13px}
+.ovl .t thead th{position:static}
+/* A long key or name in a cell: its start gives way to an ellipsis, its last ten characters stay (ui::table::middle). */
+.mid{display:inline-flex;max-width:100%;min-width:0;vertical-align:bottom}
+.mid-a{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.mid-b{white-space:nowrap;flex:none}
+.t td.mid-cell{max-width:360px}
 .t tbody tr:hover td{background:#faf9ff}
 .t tbody tr.sel:hover td{background:var(--sel)}
 .t tbody tr:focus-within td{background:#faf9ff}

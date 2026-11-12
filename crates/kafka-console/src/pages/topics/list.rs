@@ -12,6 +12,7 @@ use crate::ui::glyph::{Glyph, glyph};
 use crate::ui::kafka::{Tab, empty, filter_box, pager, sec, tabs};
 use crate::ui::layout::page_header;
 use crate::ui::notice::{Tone, callout};
+use crate::ui::table::middle;
 use crate::words::{list_sentence, retention};
 
 /// The fragments of the list: the sentence and the table.
@@ -48,11 +49,11 @@ fn row(r: &TopicRow, v: &TopicsView, base: &Base) -> Markup {
     let sub = sub_line(r);
     html! {
         tr {
-            td class="name" {
+            td class="name mid-cell" {
                 @if r.internal {
                     span class="mono" { (r.name) } " " span class="tag" { "internal" }
                 } @else {
-                    a class="mono" href=(href) { (r.name) }
+                    a class="mono" href=(href) { (middle(&r.name)) }
                     @if r.offline > 0 { " " (state(State::Bad, "Offline")) }
                     @if r.txn_open { " " (state(State::Warn, "Transaction open")) }
                 }

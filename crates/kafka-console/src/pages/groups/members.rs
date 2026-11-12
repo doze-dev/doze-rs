@@ -11,6 +11,7 @@ use crate::groups_words::{group_sentence, number_word};
 use crate::model::{GroupHead, GroupLagView, GroupMemberRow, GroupPart, GroupProtocol, LagTopic};
 use crate::ui::button::{Size, Variant, link};
 use crate::ui::overlay::{Kind, close, frame};
+use crate::ui::table::middle;
 
 fn role(h: &GroupHead, m: &GroupMemberRow) -> &'static str {
     match (h.protocol, m.leader) {
@@ -34,7 +35,7 @@ fn heard(m: &GroupMemberRow) -> String {
 fn row(h: &GroupHead, m: &GroupMemberRow, base: &Base) -> Markup {
     html! {
         tr {
-            td class="name" { a class="mono" href=(group_url(base, &h.id, &format!("/members/{}", segment(&m.id)))) data-dialog { (m.id) } }
+            td class="name mid-cell" { a class="mono" href=(group_url(base, &h.id, &format!("/members/{}", segment(&m.id)))) data-dialog { (middle(&m.id)) } }
             td class="mono" { (m.client_id) }
             td class="mono" { (m.host) }
             td { (role(h, m)) }

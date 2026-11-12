@@ -6,6 +6,7 @@ use crate::base::{Base, segment};
 use crate::format::{bytes, clock_ms, number};
 use crate::model::{Kind, RecordRow, Shown, Standing};
 use crate::ui::button::{State, state};
+use crate::ui::table::middle;
 
 fn cell(s: &Shown, what: &str) -> Markup {
     html! {
@@ -14,6 +15,14 @@ fn cell(s: &Shown, what: &str) -> Markup {
             Kind::Empty => span class="dim" { "empty" },
             _ => (s.preview),
         }
+    }
+}
+
+/// A key can be long (a UUID with a prefix, a path): its middle gives way, its end stays, the hover has all of it.
+fn key_cell(s: &Shown) -> Markup {
+    match s.kind {
+        Kind::Null | Kind::Empty => cell(s, "key"),
+        _ => middle(&s.preview),
     }
 }
 
@@ -43,7 +52,7 @@ fn row(r: &RecordRow, topic: &str, query: &str, base: &Base) -> Markup {
             td class="mono" { (r.partition) }
             td class="mono" { a class="lnk" href=(href) data-dialog { (number(r.offset)) } }
             td class="mono dim" data-vary { (clock_ms(r.timestamp_ms)) }
-            td class="mono" { (cell(&r.key, "key")) }
+            td class="mono key mid-cell" { (key_cell(&r.key)) }
             td class="mono" style={"font-size:12.5px;" (tone)} { (cell(&r.value, "value")) }
             td class="mono r" { (bytes(r.value.bytes)) }
             td { (standing(r.standing)) }
