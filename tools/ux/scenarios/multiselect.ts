@@ -285,3 +285,34 @@ async function staysPut(p: Page, y0: number): Promise<boolean> {
 async function isOpen(p: Page, id: string): Promise<boolean> {
   return p.eval<boolean>(`document.querySelector('${ms(id)}').hasAttribute('data-open')`);
 }
+
+// Against a real broker with traffic (opt-in: LIVE_URL, as live-flicker.ts; the fixtures tape has rows of its own that are not requests):
+// the owner's report, "the topics filter does not seem to work". Every row that stays says the topic it passed by in its Target cell,
+// and none belongs only to a topic whose name merely contains the chosen one (orders.dlq under orders).
+const LIVE = process.env.LIVE_URL ?? "";
+scenarios["multiselect-real-topic-filter-shows-only-and-says-the-topic"] = async (t: T) => {
+  if (!LIVE) { t.num("skipped", "no LIVE_URL"); return; }
+  const p = t.page;
+  await p.goto(`${LIVE}/live`);
+  await p.waitFor(`document.querySelectorAll('${WIRE}').length > 3`, 8000);
+  await openBy(p, "live-topic");
+  const names = await options(p, "live-topic");
+  const topic = names.includes("orders") ? "orders" : names[0];
+  t.ok(names.includes("orders.dlq") || names.length > 1, `the filter lists the broker's topics: ${names.join(", ")}`);
+  await tick(p, "live-topic", topic);
+  await p.key("Escape");
+  await p.waitFor(`new URLSearchParams(location.search).getAll('topic').join() === ${JSON.stringify(topic)}`, 4000);
+  await Bun.sleep(600);
+  const r = await p.eval<{ n: number; bad: string[]; dlq: number }>(`(() => {
+    const topic = ${JSON.stringify(topic)};
+    const rows = [...document.querySelectorAll('${WIRE}')];
+    const cell = (r) => r.children[3].innerText.replace(/\\s+/g, ' ').trim();
+    const says = (txt) => txt.split(' ').some((w) => w === topic || new RegExp('^' + topic.replace(/[.*+?^$()|[\\]\\\\]/g, '\\\\$&') + '-[0-9]+$').test(w));
+    return { n: rows.length, bad: rows.filter((r) => !says(cell(r))).map(cell), dlq: rows.filter((r) => cell(r).startsWith(topic + '.')).length };
+  })()`);
+  t.num("rows", r.n);
+  t.ok(r.n > 0, "the topic has rows");
+  t.ok(r.bad.length === 0, `every row says ${topic} in its Target cell (not: ${r.bad.slice(0, 3).join(" | ")})`);
+  t.ok(r.dlq === 0, `no row of a topic that only starts with ${topic}`);
+  await p.shot(`${t.shots}/ms-real-topic.png`, { x: 184, y: 230, width: 1096, height: 560 });
+};
