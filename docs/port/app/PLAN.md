@@ -523,7 +523,7 @@ The ★ items are 1, 4, 5, 9, 13, 14, 16, 18, 20 and 23. In order of importance:
 
 | Crate | What | Depends on | GPUI? |
 |---|---|---|---|
-| `doze-control` | Control protocol 2: every op, topic and field from `internal/control/types.go` as serde types; a sans-IO NDJSON codec; a blocking client (std `UnixStream` + a thread, as the spike proved) with hello, ids, cancel, subscribe streams and reconnect back-off (500 ms → 5 s). A `test-support` **fixture daemon** that serves scripted frames on a real socket. Shared later with the Rust CLI and (server half) the Rust daemon | serde, serde_json, async-channel | no |
+| `doze-control` | Control protocol 2: every op, topic and field from `internal/control/types.go` as serde types; a sans-IO NDJSON codec; a blocking client (std `UnixStream` + a thread, as the spike proved) with hello, ids, cancel, subscribe streams and reconnect back-off (500 ms → 5 s). A `test-support` **fixture daemon** that serves scripted frames on a real socket. Shared later with the Rust CLI and (server half) the Rust daemon | serde, serde_json, async-channel, doze-os (the blocking socket in `doze_os::local`; doze-os also compiles tokio, which this crate does not call) | no |
 | `doze-projects` | Project records (`projects/*/project.json`, schema 1), socket discovery, stale-pid check, stack keys; read-only for the Go formats | doze-os | no |
 | `doze-display` | The words: Look (word, glyph, tone), because, tallies, vitals, durations, rates, fuzzy match. Port of Go's `internal/display` (1,915 lines). Shared with the Rust CLI ("same words") | — | no |
 | `doze-journal` | Read-only reader of the Go journal on disk (`internal/journal`, 291 lines) for Activity and Away | — | no |
