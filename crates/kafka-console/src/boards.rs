@@ -10,11 +10,13 @@ use crate::stream::HOME_IDS;
 
 mod groups;
 mod live;
+mod story;
 mod topics_read;
 
 use crate::ui::shell::{Crumb, Page, Rail, document};
 pub use groups::{IDS as GROUPS_IDS, render as render_groups};
 pub use live::{IDS as LIVE_IDS_BOARDS, render as render_live};
+pub use story::{IDS as STORY_IDS, render as render_story};
 pub use topics_read::{
     IDS as TOPICS_READ_IDS, document_for, parent as topics_read_parent,
     render as render_topics_read,

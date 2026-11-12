@@ -64,6 +64,7 @@ pub mod snippets;
 pub mod source;
 pub mod state;
 pub mod story;
+pub mod story_ids;
 pub mod stream;
 pub mod stream_groups;
 pub mod teach;

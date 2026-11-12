@@ -21,7 +21,7 @@ fn story_parent(s: &Shared, v: &StoryView) -> Parent {
         rail: Rail::Resources,
         title: "Story".to_owned(),
         crumbs: trail(&v.head.id, Some("Story")),
-        watch: &[],
+        watch: s.source.watching(crate::story_ids::STORY_IDS),
         main: page::story_page(v, &s.base),
     }
 }
@@ -92,4 +92,19 @@ async fn missing(s: &Shared, uri: &Uri) -> Response {
         )
         .await;
     (StatusCode::NOT_FOUND, html(&doc)).into_response()
+}
+
+/// The fragments of the Story page, by id: what the stream tells it to fetch again; `None` for an id that is not one.
+pub(crate) async fn fragment(s: &Shared, id: &str, query: &Option<String>) -> Option<maud::Markup> {
+    use crate::story_ids::{STORY_NOW, STORY_SENTENCE};
+    if id != STORY_NOW && id != STORY_SENTENCE {
+        return None;
+    }
+    let f = crate::form::parse(query.as_deref().unwrap_or(""));
+    let view = s.source.story(crate::form::get(&f, "group")?).await?;
+    Some(if id == STORY_NOW {
+        page::now_fragment(&view, &s.base)
+    } else {
+        page::sentence_fragment(&view, &s.base)
+    })
 }

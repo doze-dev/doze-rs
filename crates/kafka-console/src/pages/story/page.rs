@@ -8,7 +8,9 @@ use crate::base::Base;
 use crate::model::{GroupHead, StoryView};
 use crate::pages::groups::{group_head, group_story_tabs, group_switch, group_url};
 use crate::story::{cause_phrase, lasted};
+use crate::story_ids::{STORY_NOW, STORY_SENTENCE};
 use crate::ui::button::{Size, Variant, link};
+use crate::ui::client;
 use crate::ui::glyph::Glyph;
 
 /// `/groups/{group}/story` and what follows it.
@@ -60,11 +62,15 @@ fn reasons(v: &StoryView) -> String {
 }
 
 fn footnote(v: &StoryView) -> Markup {
+    let oldest = v.generations.last().map_or(0, |g| g.generation);
     html! {
         p class="help" style="margin-top:4px;max-width:none" {
-            @if v.full { "The ring is full: the oldest notes were let go. " }
-            "The broker keeps " (v.events_per_group) " events per group, for 100 groups, in memory only: a restart empties them."
-            @if let Some(first) = v.generations.last() { " The oldest generation here is " (first.generation) "." }
+            @if v.full && oldest > 1 {
+                "Generations 1 to " (oldest - 1) " are older than the ring keeps: "
+            } @else {
+                "This is everything since the broker started: the ring keeps "
+            }
+            (v.events_per_group) " events per group, emptied at a restart."
         }
     }
 }
@@ -81,12 +87,12 @@ pub fn story_page(v: &StoryView, base: &Base) -> Markup {
         "Group wire",
     );
     html! {
-        (group_head(h, sentence(v), wire))
+        (group_head(h, sentence_fragment(v, base), wire))
         (group_switch(h, base, "/story"))
         (group_story_tabs(h, base))
         div class="split wide" {
             div {
-                (now(v, base))
+                (now_fragment(v, base))
                 h2 style="margin-bottom:20px" { "Generations, newest first" }
                 @if v.generations.is_empty() {
                     p class="help" style="max-width:none" { "Nothing to tell yet. The first member to join, leave or time out is the first line of the story." }
@@ -124,4 +130,31 @@ fn still_going(v: &StoryView) -> Markup {
             } @else { " has not rejoined." }
         }
     }
+}
+
+fn fragment_url(base: &Base, id: &str, group: &str) -> String {
+    base.url(&format!(
+        "/fragments/{id}?group={}",
+        crate::base::segment(group)
+    ))
+}
+
+/// The sentence under the name, in its fragment: it follows the group while the page is open.
+#[must_use]
+pub fn sentence_fragment(v: &StoryView, base: &Base) -> Markup {
+    client::fragment(
+        STORY_SENTENCE,
+        &fragment_url(base, STORY_SENTENCE, &v.head.id),
+        html! { span data-extra="live-sentence" data-vary { (sentence(v)) } },
+    )
+}
+
+/// The Now card, in its fragment: the time the members have left counts down as the page refreshes.
+#[must_use]
+pub fn now_fragment(v: &StoryView, base: &Base) -> Markup {
+    client::fragment(
+        STORY_NOW,
+        &fragment_url(base, STORY_NOW, &v.head.id),
+        now(v, base),
+    )
 }
