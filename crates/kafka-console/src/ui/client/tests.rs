@@ -37,7 +37,8 @@ fn the_markup_uses_the_attribute_names_the_constants_say() {
     // Only the client snippets follow "Copy as": the button that copies a card's own lines does not carry the attribute.
     let snippet = copy_snippet_button("btn", "t", html! { "Copy" }).into_string();
     assert!(
-        snippet.contains(&format!(" {ATTR_COPY_FORMS}")) && snippet.contains(&format!(" {ATTR_COPY_FROM}=\"t\"")),
+        snippet.contains(&format!(" {ATTR_COPY_FORMS}"))
+            && snippet.contains(&format!(" {ATTR_COPY_FROM}=\"t\"")),
         "{snippet}"
     );
     assert!(!from.contains(ATTR_COPY_FORMS), "{from}");

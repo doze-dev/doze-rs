@@ -125,7 +125,8 @@ mod tests {
         assert_eq!(connections(&on), on.server.max_connections + 257);
         // So the partitions get that much less of the limit.
         assert!(
-            open_partitions(0, 10_240, connections(&on)) < open_partitions(0, 10_240, connections(&off))
+            open_partitions(0, 10_240, connections(&on))
+                < open_partitions(0, 10_240, connections(&off))
         );
         assert_eq!(
             open_files(10_240, connections(&off)) - open_files(10_240, connections(&on)),

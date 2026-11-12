@@ -236,7 +236,10 @@ fn the_memory_figure_says_it_is_what_is_resident_now_under_the_boards_label() {
         &Base::root(),
     )
     .into_string();
-    assert!(page.contains("<dt>Idle memory</dt>"), "the board's label stays");
+    assert!(
+        page.contains("<dt>Idle memory</dt>"),
+        "the board's label stays"
+    );
     assert!(
         page.contains("Resident now. Measured on Linux only"),
         "the figure is the current resident memory, and says so"

@@ -78,18 +78,26 @@ fn main() -> Result<()> {
         .thread_name("doze-kafka")
         .enable_all()
         .build()?;
-    // The console's address is had before anything is created, the data directory and its lock file included (SEC-247):
-    // one the operator chose that cannot be bound stops the start with exit 2, as every start that cannot be honoured does.
-    #[cfg(feature = "console")]
-    let console = match runtime.block_on(web::bind(&settings.console)) {
+    // (In a build without the console this is the unit value: there is nothing to bind.)
+    #[cfg_attr(not(feature = "console"), allow(clippy::let_unit_value))]
+    let console = bind_console(&runtime, &settings);
+    let _lock = lock::DataDirLock::take(&args.data_dir)?;
+    runtime.block_on(run::serve(settings, console))
+}
+
+/// The console's address is had before anything is created, the data directory and its lock file included (SEC-247): one the
+/// operator chose that cannot be bound stops the start with exit 2, as every start that cannot be honoured does.
+#[cfg(feature = "console")]
+fn bind_console(runtime: &tokio::runtime::Runtime, settings: &cli::Settings) -> run::ConsoleBound {
+    match runtime.block_on(web::bind(&settings.console)) {
         Ok(bound) => bound,
         Err(e) => {
             eprintln!("Error: {e:#}");
             std::process::exit(2);
         }
-    };
-    #[cfg(not(feature = "console"))]
-    let console = ();
-    let _lock = lock::DataDirLock::take(&args.data_dir)?;
-    runtime.block_on(run::serve(settings, console))
+    }
 }
+
+/// A build without the console binds none.
+#[cfg(not(feature = "console"))]
+fn bind_console(_: &tokio::runtime::Runtime, _: &cli::Settings) -> run::ConsoleBound {}

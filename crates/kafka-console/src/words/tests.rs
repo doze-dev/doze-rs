@@ -109,7 +109,10 @@ fn the_instance_lede_claims_only_what_the_check_found() {
     p.rules[0].ok = false;
     let said = advertised_instance_lede(&p);
     assert!(!said.contains("reached"), "{said}");
-    assert!(said.contains("kafka.test:19092") && said.contains(&p.listen), "{said}");
+    assert!(
+        said.contains("kafka.test:19092") && said.contains(&p.listen),
+        "{said}"
+    );
     // Not finished: nothing is claimed.
     p.verdict = Verdict::NotChecked;
     assert_eq!(

@@ -89,8 +89,10 @@ pub async fn request_timeout(State(limit): State<Duration>, req: Request, next: 
                 },
             )
                 .into_response();
-            res.headers_mut()
-                .insert(axum::http::header::CONNECTION, HeaderValue::from_static("close"));
+            res.headers_mut().insert(
+                axum::http::header::CONNECTION,
+                HeaderValue::from_static("close"),
+            );
             res
         }
     }

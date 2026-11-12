@@ -92,7 +92,11 @@ async fn every_kind_of_answer_carries_all_five_headers_with_their_whole_values()
     assert_eq!(res.status(), StatusCode::PAYLOAD_TOO_LARGE);
     assert_all_five(res.headers(), "413 declared");
     let big = "a".repeat((1 << 20) + 1);
-    let (res, _) = send(&app, post("/connect/advertised/check", &format!("back={big}"))).await;
+    let (res, _) = send(
+        &app,
+        post("/connect/advertised/check", &format!("back={big}")),
+    )
+    .await;
     assert_eq!(res.status(), StatusCode::PAYLOAD_TOO_LARGE);
     assert_all_five(res.headers(), "413 undeclared");
     // 303: the redirect of the check form.
@@ -122,7 +126,8 @@ async fn a_cache_rule_a_handler_set_is_kept_and_any_other_answer_is_not_stored()
 }
 
 #[tokio::test]
-async fn a_body_that_says_it_is_over_a_mebibyte_is_refused_before_it_is_read_on_every_kind_of_route() {
+async fn a_body_that_says_it_is_over_a_mebibyte_is_refused_before_it_is_read_on_every_kind_of_route()
+ {
     let (app, _) = app("/", &[]);
     // A route that reads a body: the declared length alone refuses it, though the body that follows is tiny.
     let mut declared = post("/connect/advertised/check", "back=home");
@@ -142,9 +147,10 @@ async fn a_body_that_says_it_is_over_a_mebibyte_is_refused_before_it_is_read_on_
     assert!(body.contains("That is too large"), "{body}");
     // Exactly the limit is allowed.
     let mut exact = post("/connect/advertised/check", "back=home");
-    exact
-        .headers_mut()
-        .insert(header::CONTENT_LENGTH, (1 << 20).to_string().parse().unwrap());
+    exact.headers_mut().insert(
+        header::CONTENT_LENGTH,
+        (1 << 20).to_string().parse().unwrap(),
+    );
     let (res, _) = send(&app, exact).await;
     assert_eq!(res.status(), StatusCode::SEE_OTHER);
 }
@@ -176,7 +182,10 @@ async fn a_static_file_answers_304_to_its_own_etag_and_ignores_a_range() {
     for (sent, want) in [
         ("\"other\"", StatusCode::OK),
         (format!("W/{etag}").leak() as &str, StatusCode::NOT_MODIFIED),
-        (format!("\"a\", {etag}").leak() as &str, StatusCode::NOT_MODIFIED),
+        (
+            format!("\"a\", {etag}").leak() as &str,
+            StatusCode::NOT_MODIFIED,
+        ),
         ("*", StatusCode::NOT_MODIFIED),
     ] {
         let mut r = get(&css);
@@ -203,7 +212,8 @@ async fn with_two_host_headers_the_guard_and_the_origin_proof_read_the_same_firs
     let (app, _) = app("/", &[]);
     let two = |origin: &str| {
         let mut r = post("/connect/advertised/check", "back=home");
-        r.headers_mut().insert(header::ORIGIN, origin.parse().unwrap());
+        r.headers_mut()
+            .insert(header::ORIGIN, origin.parse().unwrap());
         r.headers_mut()
             .append(header::HOST, "evil.example".parse().unwrap());
         r
@@ -214,7 +224,8 @@ async fn with_two_host_headers_the_guard_and_the_origin_proof_read_the_same_firs
     assert_eq!(res.status(), StatusCode::FORBIDDEN);
     // And the allowed host cannot be the second one.
     let mut r = get("/");
-    r.headers_mut().insert(header::HOST, "evil.example".parse().unwrap());
+    r.headers_mut()
+        .insert(header::HOST, "evil.example".parse().unwrap());
     r.headers_mut().append(header::HOST, HOST.parse().unwrap());
     assert_eq!(send(&app, r).await.0.status(), StatusCode::FORBIDDEN);
 }

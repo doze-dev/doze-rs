@@ -62,7 +62,11 @@ async fn the_task_really_stops_when_the_last_viewer_goes_and_does_not_tick_on_it
     drop(v);
     // A task that was only forgotten (its handle dropped, not aborted) would go on ticking for ever.
     tokio::time::sleep(Duration::from_secs(120)).await;
-    assert_eq!(value(&t), while_watched, "the task outlived its last viewer");
+    assert_eq!(
+        value(&t),
+        while_watched,
+        "the task outlived its last viewer"
+    );
     // A viewer after that starts a task that ticks again.
     let _again = t.watch();
     tokio::time::sleep(Duration::from_secs(5)).await;

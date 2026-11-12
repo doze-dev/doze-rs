@@ -332,7 +332,10 @@ fn a_console_address_that_cannot_be_bound_stops_the_start_before_anything_is_cre
         .output_within(PROCESS_WAIT);
     let said = String::from_utf8_lossy(&output.stderr);
     assert_eq!(output.status.code(), Some(2), "{said}");
-    assert!(said.contains("the console address cannot be used"), "{said}");
+    assert!(
+        said.contains("the console address cannot be used"),
+        "{said}"
+    );
     // SEC-247: before anything is opened. Not the directory, not the lock file in it.
     assert!(
         !data.exists(),
@@ -351,19 +354,30 @@ fn a_console_flag_that_is_not_a_boolean_exits_2_before_anything_is_created() {
         .output_within(PROCESS_WAIT);
     let said = String::from_utf8_lossy(&output.stderr);
     assert_eq!(output.status.code(), Some(2), "{said}");
-    assert!(said.contains("--console takes true, false, 1, 0, yes, no, on or off"), "{said}");
+    assert!(
+        said.contains("--console takes true, false, 1, 0, yes, no, on or off"),
+        "{said}"
+    );
     assert!(!data.exists());
 }
 
 #[test]
 #[cfg(feature = "console")]
 fn a_console_that_is_off_says_so_in_the_start_banner() {
-    for flag in ["--console=false", "--console=off", "--console=0", "--console=NO"] {
+    for flag in [
+        "--console=false",
+        "--console=off",
+        "--console=0",
+        "--console=NO",
+    ] {
         let data = scratch("console-off-says");
         let mut broker = start_with(&data, &[flag]);
         std::thread::sleep(Duration::from_millis(300));
         let log = broker.log.lock().unwrap().clone();
-        assert!(log.contains("the console is off (--console=false)"), "{flag}: {log}");
+        assert!(
+            log.contains("the console is off (--console=false)"),
+            "{flag}: {log}"
+        );
         assert!(!log.contains("the console is listening"), "{flag}: {log}");
         assert!(broker.terminate().success());
         let _ = std::fs::remove_dir_all(&data);
@@ -378,8 +392,15 @@ fn a_process_that_never_exits_fails_the_test_in_seconds_and_not_in_minutes() {
             .arg("60")
             .output_within(Duration::from_secs(1))
     });
-    assert!(outcome.is_err(), "a process that was still running was waited for");
-    assert!(started.elapsed() < Duration::from_secs(5), "{:?}", started.elapsed());
+    assert!(
+        outcome.is_err(),
+        "a process that was still running was waited for"
+    );
+    assert!(
+        started.elapsed() < Duration::from_secs(5),
+        "{:?}",
+        started.elapsed()
+    );
 }
 
 /// `(partitions kept open, limit on open files)` from the line the binary logs when the limit lowers the open partitions.
@@ -391,9 +412,16 @@ fn kept_open(broker: &Broker) -> (u64, u64) {
         .unwrap_or_else(|| panic!("the binary did not say it lowered the open partitions: {log}"));
     let number = |after: &str| -> u64 {
         let rest = &line[line.find(after).unwrap() + after.len()..];
-        rest.split(|c: char| !c.is_ascii_digit()).next().unwrap().parse().unwrap()
+        rest.split(|c: char| !c.is_ascii_digit())
+            .next()
+            .unwrap()
+            .parse()
+            .unwrap()
     };
-    (number("keeping at most "), number("the limit on open files is "))
+    (
+        number("keeping at most "),
+        number("the limit on open files is "),
+    )
 }
 
 #[test]

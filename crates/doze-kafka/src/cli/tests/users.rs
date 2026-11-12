@@ -253,19 +253,28 @@ fn the_consoles_own_name_is_refused_from_every_source_by_name_and_without_its_pa
     for (what, flags, env) in [
         (
             "file",
-            vec!["--sasl-users-file".to_owned(), dir.file("u1", &format!("{ok}\n{bad}\n"))],
+            vec![
+                "--sasl-users-file".to_owned(),
+                dir.file("u1", &format!("{ok}\n{bad}\n")),
+            ],
             None,
         ),
         (
             "file, first line",
-            vec!["--sasl-users-file".to_owned(), dir.file("u2", &format!("{bad}\n{ok}\n"))],
+            vec![
+                "--sasl-users-file".to_owned(),
+                dir.file("u2", &format!("{bad}\n{ok}\n")),
+            ],
             None,
         ),
         ("env", vec![], Some(format!("{ok},{bad}"))),
         ("env, alone", vec![], Some(bad.to_owned())),
         (
             "file and env together, the name only in the env",
-            vec!["--sasl-users-file".to_owned(), dir.file("u3", &format!("{ok}\n"))],
+            vec![
+                "--sasl-users-file".to_owned(),
+                dir.file("u3", &format!("{ok}\n")),
+            ],
             Some(bad.to_owned()),
         ),
     ] {
@@ -274,9 +283,9 @@ fn the_consoles_own_name_is_refused_from_every_source_by_name_and_without_its_pa
             .copied()
             .chain(flags.iter().map(String::as_str))
             .collect();
-        let said = settings(&flags, env.as_deref()).err().unwrap_or_else(|| {
-            panic!("{what}: the console's own name was accepted as a login")
-        });
+        let said = settings(&flags, env.as_deref())
+            .err()
+            .unwrap_or_else(|| panic!("{what}: the console's own name was accepted as a login"));
         assert!(
             said.contains("the user name __console is reserved for the web console"),
             "{what}: {said}"

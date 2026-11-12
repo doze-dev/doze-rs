@@ -49,12 +49,12 @@ pub async fn nearest_capped(b: &Backend, now_ms: i64, cap: usize) -> Looked {
     let ids: Vec<String> = list
         .transaction_states
         .iter()
+        .take(cap)
         .map(|t| t.transactional_id.0.to_string())
         .collect();
-    let looked_at = ids.len().min(cap);
-    let unchecked = ids.len() - looked_at;
+    let unchecked = list.transaction_states.len() - ids.len();
     let mut close = Vec::new();
-    for chunk in ids[..looked_at].chunks(requests::DESCRIBE_CHUNK) {
+    for chunk in ids.chunks(requests::DESCRIBE_CHUNK) {
         let Ok(Response::DescribeTransactions(d)) =
             b.call(requests::describe_transactions(chunk)).await
         else {

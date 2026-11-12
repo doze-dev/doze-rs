@@ -100,13 +100,24 @@ async fn a_partial_head_a_silent_connection_and_an_idle_one_are_closed_after_the
     let started = Instant::now();
     let (_, closed) = read_to_close(&mut partial, Duration::from_secs(3)).await;
     assert!(closed, "a partial head was still open after three seconds");
-    assert!(started.elapsed() < Duration::from_millis(1800), "{:?}", started.elapsed());
+    assert!(
+        started.elapsed() < Duration::from_millis(1800),
+        "{:?}",
+        started.elapsed()
+    );
     // Nothing at all.
     let mut silent = dial(addr).await;
     let started = Instant::now();
     let (_, closed) = read_to_close(&mut silent, Duration::from_secs(3)).await;
-    assert!(closed, "a silent connection was still open after three seconds");
-    assert!(started.elapsed() < Duration::from_millis(1800), "{:?}", started.elapsed());
+    assert!(
+        closed,
+        "a silent connection was still open after three seconds"
+    );
+    assert!(
+        started.elapsed() < Duration::from_millis(1800),
+        "{:?}",
+        started.elapsed()
+    );
     // A request that was answered and then nothing (keep-alive).
     let mut idle = dial(addr).await;
     idle.write_all(format!("GET /healthz HTTP/1.1\r\nHost: {addr}\r\n\r\n").as_bytes())
@@ -115,7 +126,10 @@ async fn a_partial_head_a_silent_connection_and_an_idle_one_are_closed_after_the
     let seen = read_until(&mut idle, "ok\n", Duration::from_secs(2)).await;
     assert!(seen.starts_with("HTTP/1.1 200"), "{seen}");
     let (_, closed) = read_to_close(&mut idle, Duration::from_secs(3)).await;
-    assert!(closed, "an idle keep-alive connection was still open after three seconds");
+    assert!(
+        closed,
+        "an idle keep-alive connection was still open after three seconds"
+    );
     c.shutdown().await;
 }
 
@@ -136,16 +150,22 @@ async fn a_body_that_stops_arriving_is_answered_408_and_the_connection_closed() 
     let (seen, closed) = read_to_close(&mut s, Duration::from_secs(3)).await;
     assert!(seen.starts_with("HTTP/1.1 408"), "{seen}");
     assert!(
-        seen.to_ascii_lowercase().contains("content-security-policy: default-src 'self'"),
+        seen.to_ascii_lowercase()
+            .contains("content-security-policy: default-src 'self'"),
         "the 408 has the security headers: {seen}"
     );
     assert!(closed, "{seen}");
-    assert!(started.elapsed() < Duration::from_millis(1800), "{:?}", started.elapsed());
+    assert!(
+        started.elapsed() < Duration::from_millis(1800),
+        "{:?}",
+        started.elapsed()
+    );
     c.shutdown().await;
 }
 
 #[tokio::test]
-async fn the_connection_over_the_cap_is_told_to_come_back_and_closing_connections_frees_the_slots() {
+async fn the_connection_over_the_cap_is_told_to_come_back_and_closing_connections_frees_the_slots()
+{
     let limits = Limits {
         header_timeout: Duration::from_secs(20),
         request_timeout: Duration::from_secs(20),
@@ -169,7 +189,10 @@ async fn the_connection_over_the_cap_is_told_to_come_back_and_closing_connection
     let lower = seen.to_ascii_lowercase();
     assert!(seen.starts_with("HTTP/1.1 503"), "{seen}");
     assert!(lower.contains("retry-after: 1"), "{seen}");
-    assert!(lower.contains("content-security-policy: default-src 'self'"), "{seen}");
+    assert!(
+        lower.contains("content-security-policy: default-src 'self'"),
+        "{seen}"
+    );
     assert!(lower.contains("x-frame-options: deny"), "{seen}");
     assert!(lower.contains("x-content-type-options: nosniff"), "{seen}");
     assert!(lower.contains("referrer-policy: no-referrer"), "{seen}");
@@ -180,11 +203,17 @@ async fn the_connection_over_the_cap_is_told_to_come_back_and_closing_connection
     for _ in 0..2 {
         let mut again = dial(addr).await;
         again
-            .write_all(format!("GET /healthz HTTP/1.1\r\nHost: {addr}\r\nConnection: close\r\n\r\n").as_bytes())
+            .write_all(
+                format!("GET /healthz HTTP/1.1\r\nHost: {addr}\r\nConnection: close\r\n\r\n")
+                    .as_bytes(),
+            )
             .await
             .unwrap();
         let (seen, _) = read_to_close(&mut again, Duration::from_secs(3)).await;
-        assert!(seen.starts_with("HTTP/1.1 200"), "a freed slot was not given back: {seen}");
+        assert!(
+            seen.starts_with("HTTP/1.1 200"),
+            "a freed slot was not given back: {seen}"
+        );
     }
     drop(held);
     c.shutdown().await;
@@ -211,14 +240,24 @@ async fn the_stream_over_the_cap_is_refused_and_a_stream_that_ends_gives_its_slo
     let lower = seen.to_ascii_lowercase();
     assert!(seen.starts_with("HTTP/1.1 503"), "{seen}");
     assert!(lower.contains("retry-after: 1"), "{seen}");
-    assert!(lower.contains("content-security-policy: default-src 'self'"), "{seen}");
+    assert!(
+        lower.contains("content-security-policy: default-src 'self'"),
+        "{seen}"
+    );
     assert!(lower.contains("event streams open"), "{seen}");
     // Pages are not streams: they are still served.
     let mut page = dial(addr).await;
-    page.write_all(format!("GET /healthz HTTP/1.1\r\nHost: {addr}\r\nConnection: close\r\n\r\n").as_bytes())
-        .await
-        .unwrap();
-    assert!(read_to_close(&mut page, Duration::from_secs(2)).await.0.starts_with("HTTP/1.1 200"));
+    page.write_all(
+        format!("GET /healthz HTTP/1.1\r\nHost: {addr}\r\nConnection: close\r\n\r\n").as_bytes(),
+    )
+    .await
+    .unwrap();
+    assert!(
+        read_to_close(&mut page, Duration::from_secs(2))
+            .await
+            .0
+            .starts_with("HTTP/1.1 200")
+    );
     // One stream goes; the console notices on its next write, and the slot is free.
     streams.pop();
     let deadline = Instant::now() + Duration::from_secs(8);
@@ -229,7 +268,10 @@ async fn the_stream_over_the_cap_is_refused_and_a_stream_that_ends_gives_its_slo
         if seen.starts_with("HTTP/1.1 200") {
             break;
         }
-        assert!(Instant::now() < deadline, "the slot of a stream that ended was never given back: {seen}");
+        assert!(
+            Instant::now() < deadline,
+            "the slot of a stream that ended was never given back: {seen}"
+        );
         tokio::time::sleep(Duration::from_millis(150)).await;
     }
     drop(streams);
