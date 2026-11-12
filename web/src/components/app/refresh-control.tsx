@@ -38,7 +38,7 @@ export function RefreshControl({ updatedAt, fetching, onRefresh, className }: { 
         <TooltipContent>The time of the data on this page. It changes only when new data arrives.</TooltipContent>
       </Tooltip>
       <Select value={interval} onValueChange={(v) => setInterval(parseInterval(v) as IntervalValue)}>
-        <SelectTrigger size="sm" className="w-[7.5rem] bg-card" aria-label="Refresh every" data-testid="refresh-interval">
+        <SelectTrigger size="sm" className="w-[9.25rem] bg-card" aria-label="Refresh every" data-testid="refresh-interval">
           <SelectValue />
         </SelectTrigger>
         <SelectContent align="end">

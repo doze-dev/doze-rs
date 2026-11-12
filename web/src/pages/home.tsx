@@ -224,10 +224,10 @@ function NextCard({ r }: { r: HomeResponse }) {
         <CardTitle className="text-[17px]">Next: connect something new</CardTitle>
         <StatusDot tone="ok">Listening</StatusDot>
       </CardHeader>
-      <CardContent className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-end">
+      <CardContent className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] xl:items-end">
         <p className="text-[13.5px] text-muted-foreground">Point a client at the address and name it with client.id, so that it appears as itself on the wire. When a client id this broker has not seen sends its first request, it shows in Live with the versions it speaks.</p>
         <CodeValue value={r.words.first_command} label="Command" />
-        <div className="flex flex-wrap gap-2 lg:col-span-2">
+        <div className="flex flex-wrap gap-2 xl:col-span-2">
           <Button asChild>
             <Link to="/connect">
               <CodeIcon /> Connect an app

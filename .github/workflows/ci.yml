@@ -161,6 +161,26 @@ jobs:
           [ "$crates" -le 173 ] || { echo "more than 173 packages with tls"; exit 1; }
           [ "$rss" -le 8192 ] || { echo "idle resident memory over 8 MB with tls"; exit 1; }
 
+  # The React console (web/, docs/port/console/react-plan.md): its built bundle is committed in crates/kafka-console/web-dist
+  # so that `cargo build` needs no bun. This rebuilds it from the locked dependencies and fails if the result differs from what
+  # is committed, then runs the type check, the lint and the unit tests. The Playwright gate (web/e2e) is a local gate: it needs
+  # three browsers and the release binary (web/README.md).
+  web:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.0
+      - run: bun install --frozen-lockfile
+        working-directory: web
+      - run: bun run build
+        working-directory: web
+      - name: The committed bundle is the one the sources build
+        run: git diff --exit-code --stat -- crates/kafka-console/web-dist web/src/api/types
+      - run: bun run typecheck && bun run lint && bun test
+        working-directory: web
+
   # deny.toml sets `all-features = true`, so this checks the `tls` feature's crates (ring, rustls) too.
   supply-chain:
     runs-on: ubuntu-24.04

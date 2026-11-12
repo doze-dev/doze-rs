@@ -48,9 +48,9 @@ export function StatTile({ stat, className }: { stat: Stat; className?: string }
 /** A row of figures that wraps into a grid (at least 170 px each): never a sentence. */
 export function StatStrip({ stats, className }: { stats: Stat[]; className?: string }) {
   return (
-    <dl className={cn("grid grid-cols-[repeat(auto-fit,minmax(170px,1fr))] gap-3", className)} data-slot="stat-strip">
+    <dl className={cn("flex flex-wrap gap-3", className)} data-slot="stat-strip">
       {stats.map((s) => (
-        <StatTile key={s.label} stat={s} />
+        <StatTile key={s.label} stat={s} className="flex-1 basis-[170px]" />
       ))}
     </dl>
   );

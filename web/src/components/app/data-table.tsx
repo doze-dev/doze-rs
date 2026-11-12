@@ -27,7 +27,7 @@ export function DataTable<T>({ data, columns, rowId, empty, maxHeight = 560, cla
   const scroller = useRef<HTMLDivElement>(null);
   const v = useVirtualizer({ count: virtual ? rows.length : 0, getScrollElement: () => scroller.current, estimateSize: () => ROW, overscan: 12 });
   const items = virtual ? v.getVirtualItems() : [];
-  const shown = virtual ? items.map((i) => rows[i.index]!) : rows;
+  const shown = virtual ? items.map((i) => ({ row: rows[i.index]!, at: i.index })) : rows.map((row, at) => ({ row, at }));
   const padTop = virtual && items.length ? items[0]!.start : 0;
   const padBottom = virtual && items.length ? v.getTotalSize() - items[items.length - 1]!.end : 0;
   const cols = table.getVisibleLeafColumns();
@@ -63,8 +63,8 @@ export function DataTable<T>({ data, columns, rowId, empty, maxHeight = 560, cla
         </thead>
         <tbody>
           {padTop > 0 && <tr aria-hidden style={{ height: padTop }} />}
-          {shown.map((r) => (
-            <tr key={r.id} id={`r-${r.id}`} data-row={r.id} aria-rowindex={r.index + 2} className={cn("group h-10", onRowClick && "cursor-pointer")} onClick={onRowClick ? () => onRowClick(r.original) : undefined}>
+          {shown.map(({ row: r, at }) => (
+            <tr key={r.id} id={`r-${r.id}`} data-row={r.id} aria-rowindex={at + 2} className={cn("group h-10", onRowClick && "cursor-pointer")} onClick={onRowClick ? () => onRowClick(r.original) : undefined}>
               {r.getVisibleCells().map((c) => {
                 const meta = (c.column.columnDef as DataColumn<T>).meta;
                 const raw = c.getValue();

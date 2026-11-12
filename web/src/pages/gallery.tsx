@@ -89,9 +89,9 @@ const COLUMNS: DataColumn<Row>[] = [
   },
 ];
 
-function Section({ id, title, children, description }: { id: string; title: string; description?: string; children: React.ReactNode }) {
+function Section({ id, title, children, description, className }: { id: string; title: string; description?: string; children: React.ReactNode; className?: string }) {
   return (
-    <Card className="min-w-0" data-testid={`g-${id}`} id={id}>
+    <Card className={`min-w-0 ${className ?? ""}`} data-testid={`g-${id}`} id={id}>
       <CardHeader>
         <CardTitle className="text-[16px]">{title}</CardTitle>
         {description && <CardDescription>{description}</CardDescription>}
@@ -119,7 +119,7 @@ function TheForm() {
     <Form {...form}>
       <form
         noValidate
-        className="grid gap-5 md:grid-cols-2"
+        className="grid items-start gap-5 md:grid-cols-2"
         data-testid="g-form-el"
         onSubmit={form.handleSubmit((v) => {
           setSubmitted(v);
@@ -171,7 +171,7 @@ function TheForm() {
             <FormItem>
               <FormLabel>Copy configs from</FormLabel>
               <FormControl>
-                <Combobox options={TOPICS} value={field.value || null} onChange={(v) => field.onChange(v ?? "")} placeholder="Choose a topic…" search="Search topics…" aria-label="Copy configs from" />
+                <Combobox options={TOPICS} value={field.value || null} onChange={(v) => field.onChange(v ?? "")} placeholder="Choose a topic…" search="Search topics…" aria-label="Copy configs from" className="w-full" />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -184,7 +184,7 @@ function TheForm() {
             <FormItem>
               <FormLabel>Topics to watch</FormLabel>
               <FormControl>
-                <MultiSelect options={TOPICS} value={field.value} onChange={field.onChange} noun="topics" aria-label="Topics to watch" />
+                <MultiSelect options={TOPICS} value={field.value} onChange={field.onChange} noun="topics" aria-label="Topics to watch" triggerClassName="w-full" className="min-w-0" />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -506,7 +506,7 @@ export function GalleryPage() {
           </EmptyState>
         </Section>
 
-        <Section id="table" title="DataTable" description="Fixed columns, ellipsis with the whole value on hover, sticky header, stable row ids; virtual past 500 rows.">
+        <Section id="table" className="xl:col-span-2" title="DataTable" description="Fixed columns, ellipsis with the whole value on hover, sticky header, stable row ids; virtual past 500 rows.">
           <div className="flex items-center gap-3">
             <span className="text-[13px] text-muted-foreground" id="rows-l">
               Rows

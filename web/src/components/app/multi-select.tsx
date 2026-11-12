@@ -18,16 +18,16 @@ export function summary(chosen: string[], options: Option[], noun: string): stri
 
 /** Several values from a list (CON-851): a button that says the selection, a popup with a search field, a checkbox per
  * option with its count, Select all and Clear; the chosen show as chips under it, each removable. */
-export function MultiSelect({ options, value, onChange, noun = "items", className, "aria-label": ariaLabel, chips = true }: { options: Option[]; value: string[]; onChange: (v: string[]) => void; noun?: string; className?: string; "aria-label"?: string; chips?: boolean }) {
+export function MultiSelect({ options, value, onChange, noun = "items", className, triggerClassName = "w-64", "aria-label": ariaLabel, chips = true }: { options: Option[]; value: string[]; onChange: (v: string[]) => void; noun?: string; className?: string; triggerClassName?: string; "aria-label"?: string; chips?: boolean }) {
   const [open, setOpen] = useState(false);
   const toggle = (v: string) => onChange(value.includes(v) ? value.filter((x) => x !== v) : [...value, v]);
   const ordered = [...options.filter((o) => value.includes(o.value)), ...options.filter((o) => !value.includes(o.value))];
   return (
     <div className={cn("flex flex-col gap-2", className)} data-slot="multi-select">
-      <div className="flex items-center gap-1">
+      <div className="flex min-w-0 items-center gap-1">
         <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger asChild>
-            <Button variant="outline" role="combobox" aria-expanded={open} aria-label={ariaLabel} className="w-64 justify-between bg-card font-normal">
+            <Button variant="outline" role="combobox" aria-expanded={open} aria-label={ariaLabel} className={cn("min-w-0 shrink justify-between bg-card font-normal", triggerClassName)}>
               <span className="truncate" data-testid="multi-summary">
                 {summary(value, options, noun)}
               </span>

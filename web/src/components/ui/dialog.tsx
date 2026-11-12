@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { cn } from "@/lib/utils"
+import { InertPage } from "@/hooks/use-inert-page"
 import { XIcon } from "lucide-react"
 import { Dialog as DialogPrimitive } from "radix-ui"
 
@@ -66,6 +67,7 @@ function DialogContent({
         )}
         {...props}
       >
+        <InertPage />
         {children}
         {showCloseButton && (
           <DialogPrimitive.Close

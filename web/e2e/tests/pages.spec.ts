@@ -37,6 +37,7 @@ test("Connect: Copy as changes what Copy copies, is in the address, and Back res
   await expect(page.locator("h1")).toHaveText("Connect an app");
   await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toHaveText("Home");
   const snippets = page.getByTestId("snippet");
+  await expect(snippets.first()).toBeVisible();
   expect(await snippets.count()).toBeGreaterThanOrEqual(4);
   const group = page.getByTestId("copy-as");
   await group.getByRole("radio", { name: "Properties" }).click();
@@ -52,6 +53,7 @@ test("Connect: Copy as changes what Copy copies, is in the address, and Back res
   // The keyboard moves the choice too (roving focus, arrows).
   await group.getByRole("radio", { name: "Properties" }).focus();
   await page.keyboard.press("ArrowLeft");
+  await expect(group.getByRole("radio", { name: "Code" })).toBeFocused();
   await page.keyboard.press("Space");
   await expect(group.getByRole("radio", { name: "Code" })).toHaveAttribute("aria-checked", "true");
   await expect(page).not.toHaveURL(/as=/);

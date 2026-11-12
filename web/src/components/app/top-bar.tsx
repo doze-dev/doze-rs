@@ -45,7 +45,7 @@ export function TopBar({ onPalette }: { onPalette: () => void }) {
               </TooltipTrigger>
               <TooltipContent>Copy the bootstrap address</TooltipContent>
             </Tooltip>
-            <span className={`${chip} hidden xl:inline-flex`} data-testid="profile-chip">
+            <span className={`${chip.replace("inline-flex", "")} hidden xl:inline-flex`} data-testid="profile-chip">
               {s.profile}
             </span>
             <Tooltip>

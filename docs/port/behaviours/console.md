@@ -961,3 +961,52 @@ REQUEST_TIMED_OUT (7) and NOT_LEADER_OR_FOLLOWER (6) have rows of the error tabl
 
 ## CON-939. The story names a forced rebalance
 A rebalance forced from the Lab is the cause "Forced from the Lab", for both protocols. Test: `a_forced_rebalance_makes_the_members_join_again_and_says_it_was_forced`.
+
+# The React console, slice R0 (rules 1000 to 1014; 1015 to 1049 kept for R1 to R5)
+
+Branch `react-r0`, the plan in `docs/port/console/react-plan.md`. The page layer is React + shadcn/ui in `web/`, built by bun and Vite into `crates/kafka-console/web-dist/` (committed) and embedded in the binary: one process. The JSON API is `api.rs`, the bundle is `web.rs`, the router that joins them and the classic console is `app::console`. The browser gate is Playwright in `web/e2e` (Firefox, WebKit, Chromium), run locally against the release binary; its scenarios are named below in words. Numbers from 1015 up to 1049 are kept for the slices R1 to R5.
+
+## CON-1000. The React console answers every page address with index.html
+Every GET under the console's root that is not `/api/`, `/assets/`, `/classic/` or a file of the bundle answers `index.html` (`no-cache`), so a deep link (`/topics/orders`, `/gallery?record=r7`) opens that page. Test: `every_page_address_answers_index_html_so_a_deep_link_works`; Playwright "a deep link opens the page as it was".
+
+## CON-1001. The bundle is embedded gzipped and served by the classic console's own mechanism
+Text files are the `.gz` that `pack` of `tools/assets-compress.ts` makes, held as `assets::Served` and answered by `handlers::plain::packed`: gzip as it is to a client that accepts it, inflated for another, ETag and 304; hashed files are `immutable` for a year. Test: `a_hashed_file_is_gzip_to_a_client_that_accepts_it_and_cached_for_a_year`, `every_text_file_of_the_bundle_inflates_to_its_source`.
+
+## CON-1002. A stale bundle fails the tests
+`web-dist/source-hash.txt` is the FNV-1a hash of the `web/` sources the bundle was built from; the test computes it the same way. CI rebuilds the bundle and fails on any difference. Test: `the_embedded_bundle_was_built_from_the_current_web_sources`.
+
+## CON-1003. No inline script, no evaluated string
+`index.html` loads its script by `src` only and no script file calls `eval(` or `new Function(`; zod (in the gallery chunk only) runs jitless, so the CSP never refuses anything (the browser gate fails on the console error a refusal logs). Test: `the_bundle_has_no_inline_script_and_evaluates_no_string`.
+
+## CON-1004. index.html follows the prefix
+At start the two relative references of `index.html` are made absolute under `--console-prefix` and a `<meta name="doze-base">` names the root for the client's router and fetches; a hostile prefix is escaped. Test: `index_html_is_rewritten_for_the_root_and_the_prefix`, `the_built_index_points_at_files_the_bundle_has`, `under_a_prefix_everything_moves_with_it`.
+
+## CON-1005. The API answers only the console's own fetch
+Every `/api/v1/` request must carry `X-Console: 1` (a page on another site cannot send it without a CORS preflight, which is never granted) and no `Sec-Fetch-Site` other than `same-origin`; a refusal is `{code, message}` JSON, 403. Test: `the_api_answers_json_only_to_the_consoles_own_fetch`.
+
+## CON-1006. A change through the API needs the same-origin proof as well
+A POST passes `origin::check` (Origin equal to Host, or `Sec-Fetch-Site: same-origin`); a GET of a POST route is 405 and an unknown `/api/` address is a JSON 404; a POST to a page address is 405. Test: `a_change_through_the_api_needs_the_same_origin_proof_too`.
+
+## CON-1007. Home, Connect, the shell and the palette are the view-models, serialised
+`/api/v1/home` (the HomeView and the words Rust decides), `/api/v1/connect`, `/api/v1/shell` (address, profile, security chip, counts, the classic console's address), `/api/v1/jump?q=` (topics and groups containing the text, any case, at most 200 of each), `POST /api/v1/probe`. Test: `the_api_says_what_home_connect_the_shell_and_the_palette_need`.
+
+## CON-1008. The TypeScript types are generated from the Rust types
+`ts-rs` (a dev-dependency) writes `web/src/api/types/*.ts`; a stale or an extra file fails the test. Test: `the_typescript_types_of_the_api_are_current`.
+
+## CON-1009. No memory figure anywhere
+The owner (2026-11-13): "don't show memory". `InstanceView::resident_bytes` is never serialised and Home shows no memory tile. Test: `a_home_answer_carries_no_memory_figure`; Playwright "Home: one h1, the figures as stat tiles, no memory figure anywhere".
+
+## CON-1010. The classic console stays under /classic/ until R5
+The maud console is served under `{prefix}/classic` with every link there; `/healthz` answers at both roots. Test: `the_classic_console_lives_under_classic_with_its_links_there`.
+
+## CON-1011. The host guard, the headers and the limits stand in front of all of it
+The CSP is `default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'`. Test: `the_host_guard_and_the_security_headers_stand_in_front_of_all_of_it`.
+
+## CON-1012. No planted secret reaches a JSON answer
+The planted-secret gate reads every GET endpoint of the API over a real broker with SASL. Test: `no_planted_secret_reaches_the_recorder_the_stream_or_a_page`.
+
+## CON-1013. A hostile name is JSON text
+React escapes text and no HTML is ever injected; the API returns what it was given as a string. Test: `a_hostile_name_in_the_palette_comes_back_as_json_text`.
+
+## CON-1014. Every control works in Firefox, WebKit and Chromium
+The Playwright gate drives the shell (sidebar, collapse, chips, palette, RefreshControl), the gallery (Button, Input, Textarea, Select, Combobox, MultiSelect, RadioGroup, Switch, Checkbox, ToggleGroup, Tabs, Dialog, Sheet, DropdownMenu, Popover, Tooltip, Toast, StatStrip, CodeValue, EmptyState, DataTable), Home and Connect, with the mouse and the keyboard, asserting outcomes; every test fails on a console error; no page scrolls sideways at 1024, 1280, 1440 and 1920; an interval refresh moves nothing. Files: `web/e2e/tests/shell.spec.ts`, `gallery.spec.ts`, `pages.spec.ts`. Results per browser in `docs/port/console/react-plan.md` ("R0 done").

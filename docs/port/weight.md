@@ -314,3 +314,28 @@ The owner's ceiling of 10 MB stands: the default estimate is 2.6 MB under it, th
 (2) `kafka-broker` at "z": -180,288 B (5,617,040 B), but it is the request handlers of the hot path. Not applied. (3) Brotli for the assets: about -11 KB, and only over https. (4) Dropping the two JetBrains Mono weights (-43 KB) or all three fonts for a system stack (-91 KB): a visible change (D12). None is needed to meet 9.0 MB.
 
 **A side effect in the same profile.** `[profile.release]` is the workspace's, so `doze-aws` is also built with fat LTO: 3,897,792 B (4,447,712 B when last recorded), 194 packages, 3,232 KB idle. Its limit (6,100,000 B) is not touched here; it can be lowered by whoever owns that job.
+
+## The React console, slice R0 (2026-11-13, branch `react-r0`)
+
+The console's new page layer (React + shadcn/ui, `web/`) is built into `crates/kafka-console/web-dist/` and embedded in the binary with the
+weight pass's own mechanism: text files as their `.gz` (`pack` of `tools/assets-compress.ts`), served by `handlers::plain::packed`, fonts as
+they are. The classic console stays embedded (under `/classic/`) until slice R5 removes it with its maud page layer, htmx, Alpine and
+idiomorph.
+
+| | Raw | Embedded (gzip) |
+|---|---|---|
+| main chunk (React, Radix, TanStack Router and Query, the shell, Home, Connect) | 595,914 B | 183,580 B |
+| gallery chunk (loaded only on `/gallery`: TanStack Table, react-hook-form, zod) | 271,601 B | 77,483 B |
+| stylesheet (Tailwind v4, the kit's tokens) | 78,503 B | 13,289 B |
+| fonts (Inter, JetBrains Mono 400 and 500; a second copy of the classic console's until R5) | 91,256 B | 91,256 B |
+| index.html, favicon | | 476 B |
+| **total** | 1,037,274 B | **366,084 B** |
+
+Binary on darwin (arm64, fat LTO): **6,161,072 B** against the weight pass's **5,797,328 B**: +363,744 B, which is the embedded bundle
+(366,084 B) and the API (serde derives on the view-models, the JSON handlers; the merged Lab engine is in the same build). Packages: 160
+lines (limit 161): serde, serde_json and tower were already in the tree (tracing-subscriber, axum), so the console naming them adds no
+package; `ts-rs` is a dev-dependency only. Under the 7,800,000 B limit; no limit moved.
+
+What R5 takes back: the classic assets (about 105 KB gzipped plus the 91 KB of fonts a second time) and the maud page layer (an estimated
+1 MB of code). Levers not pulled: zod in the main chunk was avoided (search params are parsed by hand, `src/lib/search.ts`); brotli
+would save about 15% of the JS but browsers ask for it only over https.
