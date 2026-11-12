@@ -159,14 +159,23 @@ async fn pg(args: &[String]) -> std::io::Result<()> {
             .stderr(std::process::Stdio::null());
         c
     };
-    let st = quiet("initdb")
+    // initdb exits when done (it leaves no server behind), so its output can be captured for the failure message.
+    let out = quiet("initdb")
         .arg("-D")
         .arg(&data)
         .args(["-U", "postgres", "-A", "trust", "--no-sync"])
-        .status()
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .output()
         .await?;
-    if !st.success() {
-        return Err(std::io::Error::other(format!("initdb: {st}")));
+    if !out.status.success() {
+        let why = [out.stdout, out.stderr].concat();
+        let why = String::from_utf8_lossy(&why);
+        return Err(std::io::Error::other(format!(
+            "initdb: {}: {}",
+            out.status,
+            why.trim()
+        )));
     }
     let port = std::net::TcpListener::bind("127.0.0.1:0")?
         .local_addr()?
