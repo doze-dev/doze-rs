@@ -98,16 +98,12 @@ impl Queue {
             md5_of_body: accepted.md5_of_body.clone(),
             sent_ms: now_ms,
             visible_at_ms: now_ms + i64::from(delay) * 1000,
-            receive_count: 0,
-            first_received_ms: None,
-            handles: Vec::new(),
-            received_ms: 0,
             attributes: out.attrs.clone(),
             system: out.system.clone(),
             group_id: out.group_id.map(str::to_owned),
             dedup_id: dedup_id.clone(),
             sequence: accepted.sequence.clone(),
-            source_arn: None,
+            ..Message::default()
         });
         Ok(accepted)
     }

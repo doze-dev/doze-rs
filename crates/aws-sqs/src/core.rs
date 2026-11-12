@@ -1,7 +1,6 @@
 //! The state a SQS service owns, and the dispatch from an operation to the code that does it.
 
-use std::collections::BTreeMap;
-use std::convert::Infallible;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
 use aws_model_sqs::Operation;
@@ -11,8 +10,10 @@ use aws_schema::view::{Shape, View};
 use aws_wire::ApiError;
 use aws_wire::service::{Call, Output, Reply};
 use doze_runtime::{Clock, Ctx};
+use doze_store::{Ack, StoreError};
 
 use crate::model::Queue;
+use crate::persist::Persist;
 use crate::url;
 
 /// All of SQS: its queues, and the clock it reads. Owned by one task, so no operation needs a lock.
@@ -25,41 +26,83 @@ pub(crate) struct Core {
     /// Set by a receive that found nothing and may be waited on: how many seconds the caller is willing to wait.
     pub(crate) poll: Option<u32>,
     pub(crate) clock: Arc<dyn Clock>,
+    /// The database, when there is one (a test of the rules alone has none).
+    pub(crate) persist: Option<Persist>,
+    /// Queues whose header or FIFO state may have changed in the call being served.
+    pub(crate) touched: BTreeSet<String>,
+    /// Queues deleted in the call being served.
+    pub(crate) removed: Vec<String>,
+    /// The bytes last written for `deleted` and `tasks`.
+    pub(crate) written_meta: Vec<u8>,
 }
 
-/// What the actor answers: the reply, and whether the caller may wait for a better one (a receive that found nothing).
+/// What the actor answers: the reply, whether the caller may wait for a better one (a receive that found nothing), and the
+/// commit the reply must wait for.
 #[derive(Debug)]
 pub(crate) struct Answer {
     pub(crate) reply: Reply,
     pub(crate) poll: Option<u32>,
+    pub(crate) durable: Option<Ack>,
 }
 
 impl doze_runtime::Service for Core {
     type Request = Call;
     type Response = Answer;
-    type Error = Infallible;
+    type Error = StoreError;
 
-    async fn open(ctx: &Ctx, _name: &'static str) -> Result<Self, Infallible> {
-        Ok(Self {
-            queues: BTreeMap::new(),
-            deleted: BTreeMap::new(),
-            tasks: Vec::new(),
-            poll: None,
-            clock: Arc::clone(&ctx.clock),
-        })
+    async fn open(ctx: &Ctx, _name: &'static str) -> Result<Self, StoreError> {
+        let persist = Persist::open(&ctx.dir)?;
+        Ok(Self::restore(Arc::clone(&ctx.clock), Some(persist)))
     }
 
     async fn handle(&mut self, call: Call) -> Answer {
         self.poll = None;
-        let reply = self.dispatch(&call);
+        let mut reply = self.dispatch(&call);
+        let durable = match self.flush() {
+            Ok(ack) => ack,
+            Err(e) => {
+                reply = Err(ApiError::internal(format!("could not save: {e}")));
+                None
+            }
+        };
         Answer {
             reply,
             poll: self.poll.take(),
+            durable,
+        }
+    }
+
+    async fn close(self) {
+        if let Some(persist) = self.persist {
+            persist.close();
         }
     }
 }
 
 impl Core {
+    /// An empty SQS with no disk.
+    pub(crate) fn new(clock: Arc<dyn Clock>) -> Self {
+        Self {
+            queues: BTreeMap::new(),
+            deleted: BTreeMap::new(),
+            tasks: Vec::new(),
+            poll: None,
+            clock,
+            persist: None,
+            touched: BTreeSet::new(),
+            removed: Vec::new(),
+            written_meta: Vec::new(),
+        }
+    }
+
+    /// The queue called `name`, to be changed: its header and FIFO state are written after the call if they differ.
+    pub(crate) fn queue_named(&mut self, name: &str) -> Option<&mut Queue> {
+        if !self.touched.contains(name) {
+            self.touched.insert(name.to_owned());
+        }
+        self.queues.get_mut(name)
+    }
+
     pub(crate) fn now_ms(&self) -> i64 {
         self.clock.now_ms()
     }
@@ -108,7 +151,7 @@ impl Core {
         if account != call.caller.account_id {
             return Err(invalid_address(call));
         }
-        self.queues.get_mut(name).ok_or_else(no_such_queue)
+        self.queue_named(name).ok_or_else(no_such_queue)
     }
 }
 

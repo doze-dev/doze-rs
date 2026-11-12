@@ -10,7 +10,7 @@ use crate::Sqs;
 
 fn service() -> Arc<Sqs> {
     let ctx = Ctx {
-        dir: std::path::PathBuf::new(),
+        dir: Box::leak(Box::new(TempDir::new())).0.clone(),
         idle: Duration::from_secs(3600),
         tasks: Tasks::new(),
         clock: Arc::new(doze_runtime::SystemClock),
@@ -28,7 +28,8 @@ async fn run(sqs: &Sqs, patterns: &Patterns, op: Operation, request: Value) -> V
 }
 
 /// A receive that waits does not stop the service from taking a send, and returns as soon as the send lands.
-#[tokio::test(start_paused = true)]
+// Real time: the writer is a thread, and a paused clock would jump ahead while the service waits for it.
+#[tokio::test]
 async fn a_waiting_receive_returns_when_a_message_arrives() {
     let (sqs, patterns) = (service(), Patterns::new(&TABLES));
     let url = run(
@@ -55,8 +56,8 @@ async fn a_waiting_receive_returns_when_a_message_arrives() {
             .await
         })
     };
-    tokio::time::sleep(Duration::from_secs(3)).await;
-    assert!(!waiter.is_finished(), "still waiting after 3 s of 20");
+    tokio::time::sleep(Duration::from_millis(600)).await;
+    assert!(!waiter.is_finished(), "still waiting after 0.6 s of 20");
     run(
         &sqs,
         &patterns,
@@ -67,13 +68,14 @@ async fn a_waiting_receive_returns_when_a_message_arrives() {
     let got = waiter.await.unwrap();
     assert_eq!(got["Messages"][0]["Body"], "hello");
     assert!(
-        started.elapsed() < Duration::from_secs(5),
+        started.elapsed() < Duration::from_secs(4),
         "it did not wait out the 20 s: {:?}",
         started.elapsed()
     );
 }
 
-#[tokio::test(start_paused = true)]
+// Real time: the writer is a thread, and a paused clock would jump ahead while the service waits for it.
+#[tokio::test]
 async fn a_receive_with_nothing_to_find_waits_the_whole_time_then_answers_empty() {
     let (sqs, patterns) = (service(), Patterns::new(&TABLES));
     let url = run(
@@ -91,18 +93,19 @@ async fn a_receive_with_nothing_to_find_waits_the_whole_time_then_answers_empty(
         &sqs,
         &patterns,
         Operation::ReceiveMessage,
-        json!({"QueueUrl": url, "WaitTimeSeconds": 5}),
+        json!({"QueueUrl": url, "WaitTimeSeconds": 2}),
     )
     .await;
     assert_eq!(got, json!({}));
     assert!(
-        started.elapsed() >= Duration::from_secs(5),
+        started.elapsed() >= Duration::from_secs(2),
         "{:?}",
         started.elapsed()
     );
 }
 
-#[tokio::test(start_paused = true)]
+// Real time: the writer is a thread, and a paused clock would jump ahead while the service waits for it.
+#[tokio::test]
 async fn the_queues_default_wait_applies_when_the_request_names_none() {
     let (sqs, patterns) = (service(), Patterns::new(&TABLES));
     let created = run(

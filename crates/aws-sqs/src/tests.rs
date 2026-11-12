@@ -2,7 +2,6 @@
 //! so visibility and delay are exact.
 #![allow(clippy::unwrap_used, clippy::indexing_slicing, clippy::panic)]
 
-use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use aws_model_sqs::Operation;
@@ -28,13 +27,7 @@ struct World {
 impl World {
     fn new() -> Self {
         let clock = Arc::new(ManualClock::at(1_700_000_000_000));
-        let core = Core {
-            queues: BTreeMap::new(),
-            deleted: BTreeMap::new(),
-            tasks: Vec::new(),
-            poll: None,
-            clock: clock.clone(),
-        };
+        let core = Core::new(clock.clone());
         Self {
             core,
             clock,
@@ -45,8 +38,12 @@ impl World {
     /// Runs one operation: the request as JSON in, the answer as JSON (or the error) out.
     fn run(&mut self, op: Operation, request: &Value) -> Result<Value, ApiError> {
         let call = call_of(&self.patterns, op, request)?;
-        let out = self.core.dispatch(&call)?;
-        Ok(output_json(op, &out))
+        let out = self.core.dispatch(&call);
+        // What the call changed is on disk (if there is a disk) before its answer is looked at.
+        if let Some(saved) = self.core.flush().unwrap() {
+            saved.wait().unwrap();
+        }
+        Ok(output_json(op, &out?))
     }
 
     fn ok(&mut self, op: Operation, request: &Value) -> Value {
@@ -406,3 +403,23 @@ fn output_json(op: Operation, out: &aws_wire::service::Output) -> Value {
 }
 
 mod long_poll;
+mod persistence;
+
+/// A directory of its own that goes away with it.
+struct TempDir(std::path::PathBuf);
+
+impl TempDir {
+    fn new() -> Self {
+        static NEXT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+        let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let path = std::env::temp_dir().join(format!("doze-aws-sqs-{}-{n}", std::process::id()));
+        std::fs::create_dir_all(&path).unwrap();
+        Self(path)
+    }
+}
+
+impl Drop for TempDir {
+    fn drop(&mut self) {
+        drop(std::fs::remove_dir_all(&self.0));
+    }
+}

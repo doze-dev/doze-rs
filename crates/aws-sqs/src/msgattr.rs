@@ -10,6 +10,7 @@ use aws_model_sqs::keys::{
 use aws_schema::view::View;
 use aws_wire::ApiError;
 use md5::{Digest, Md5};
+use serde::{Deserialize, Serialize};
 
 use crate::core::invalid_parameter;
 
@@ -17,14 +18,14 @@ use crate::core::invalid_parameter;
 const MAX_ATTRIBUTES: usize = 10;
 
 /// The value of an attribute.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) enum Value {
     Text(String),
     Binary(Vec<u8>),
 }
 
 /// One message attribute.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct Attr {
     pub(crate) name: String,
     pub(crate) data_type: String,

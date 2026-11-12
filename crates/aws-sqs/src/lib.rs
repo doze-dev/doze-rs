@@ -1,9 +1,6 @@
-//! SQS: standard queues, as a state machine behind a lazy actor.
-//!
-//! What is built: create, delete, list and look up queues; read and set their attributes; send, receive, delete and
-//! re-time messages; purge. What is not yet: FIFO queues and groups, batches, message attributes, long polling, tags,
-//! permissions, dead-letter redrive and move tasks, persistence. Every operation the model has is named in
-//! [`core`]'s dispatch, and an unbuilt one answers `501 NotImplemented` by name.
+//! SQS: all 23 operations, as a state machine behind a lazy actor. Standard and FIFO queues, batches, message attributes,
+//! long polling, tags, permissions, dead-letter queues and move tasks. State is on disk ([`persist`]): it survives an idle
+//! reap and a restart. Every operation the model has is named in [`core`]'s dispatch.
 
 mod attrs;
 mod batch;
@@ -13,6 +10,7 @@ mod messages;
 mod model;
 mod moves;
 mod msgattr;
+mod persist;
 mod policy;
 mod queues;
 mod redrive;
@@ -60,12 +58,24 @@ impl Sqs {
         }
     }
 
+    /// Asks the actor, and holds the answer until what it changed is on disk.
     async fn ask(&self, call: Call) -> Answer {
+        let mut answer = self.ask_actor(call).await;
+        if let Some(saved) = answer.durable.take()
+            && let Err(e) = saved.await
+        {
+            answer.reply = Err(ApiError::internal(format!("could not save: {e}")));
+        }
+        answer
+    }
+
+    async fn ask_actor(&self, call: Call) -> Answer {
         match self.actor.call(call).await {
             Ok(answer) => answer,
             Err(e) => Answer {
                 reply: Err(ApiError::internal(e.to_string())),
                 poll: None,
+                durable: None,
             },
         }
     }

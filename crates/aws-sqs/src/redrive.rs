@@ -14,7 +14,7 @@ use serde_json::{Value, json};
 
 use crate::attrs::Requested;
 use crate::core::{Core, invalid_parameter, missing, reply, request};
-use crate::model::{Message, Queue};
+use crate::model::Queue;
 use crate::policy::{self, arn};
 use crate::url;
 
@@ -160,16 +160,13 @@ impl Core {
             return;
         }
         let source_arn = arn(&call.caller.region, &call.caller.account_id, source);
-        let Some(queue) = self.queues.get_mut(source) else {
+        let Some(queue) = self.queue_named(source) else {
             return;
         };
-        let (due, keep): (Vec<Message>, Vec<Message>) = std::mem::take(&mut queue.messages)
-            .into_iter()
-            .partition(|m| {
-                m.visible_at_ms <= now_ms && m.receive_count >= policy.max_receive_count
-            });
-        queue.messages = keep;
-        if let Some(dead_letters) = self.queues.get_mut(&target) {
+        let due = queue.messages.remove_where(|m| {
+            m.visible_at_ms <= now_ms && m.receive_count >= policy.max_receive_count
+        });
+        if let Some(dead_letters) = self.queue_named(&target) {
             for mut m in due {
                 m.handles.clear();
                 m.visible_at_ms = now_ms;

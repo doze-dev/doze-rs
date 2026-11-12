@@ -16,6 +16,10 @@ aws-model-sqs = { path = "../aws-model-sqs" }
 aws-schema = { path = "../aws-schema" }
 aws-wire = { path = "../aws-wire" }
 doze-runtime = { path = "../doze-runtime" }
+doze-store = { path = "../doze-store" }
+doze-fs = { path = "../doze-fs" }
+redb = "=4.5.0"
+serde = { version = "1", features = ["derive"] }
 aws-core = { path = "../aws-core" }
 md-5 = "0.11"
 sha2 = "0.11"

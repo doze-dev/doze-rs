@@ -55,9 +55,7 @@ impl Queue {
         };
         let m = self
             .messages
-            .iter_mut()
-            .find(|m| m.handles.iter().any(|h| h == handle))
-            .filter(|m| m.in_flight(now_ms))
+            .find_mut(|m| m.handles.iter().any(|h| h == handle) && m.in_flight(now_ms))
             .ok_or_else(refused)?;
         if now_ms + timeout * 1000 > m.received_ms + 43_200_000 {
             return Err(invalid_parameter(format!(

@@ -10,16 +10,12 @@ use doze_runtime::{Ctx, DataDirLock, SystemClock, Tasks};
 
 use crate::cli::{Args, AuthMode};
 
-/// How long a service may sit idle before its actor closes. Until services keep state on disk, closing one would lose it,
-/// so this is "never" in practice (a year).
-const IDLE: Duration = Duration::from_secs(365 * 24 * 60 * 60);
-
 pub(crate) async fn run(args: Args) -> Result<()> {
     let _lock = DataDirLock::take(&args.data_dir, "doze-aws")?;
     let tasks = Tasks::new();
     let ctx = |name: &str| Ctx {
         dir: args.data_dir.join(name),
-        idle: IDLE,
+        idle: Duration::from_secs(args.idle_secs),
         tasks: tasks.clone(),
         clock: Arc::new(SystemClock),
     };

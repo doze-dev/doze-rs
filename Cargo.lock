@@ -413,10 +413,15 @@ dependencies = [
  "aws-model-sqs",
  "aws-schema",
  "aws-wire",
+ "doze-fs",
  "doze-runtime",
+ "doze-store",
  "getrandom 0.4.3",
  "md-5",
+ "redb",
+ "serde",
  "serde_json",
+ "sha2",
  "tokio",
 ]
 

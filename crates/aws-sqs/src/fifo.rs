@@ -6,6 +6,7 @@
 
 use std::collections::HashSet;
 
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use crate::model::{Message, Queue};
@@ -14,7 +15,7 @@ use crate::model::{Message, Queue};
 pub(crate) const DEDUP_WINDOW_MS: i64 = 5 * 60 * 1000;
 
 /// What one remembered deduplication id answers with, so a duplicate gets the original's answer.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct Remembered {
     /// The id, qualified by the group when the scope is per group.
     pub(crate) key: String,
@@ -27,7 +28,7 @@ pub(crate) struct Remembered {
 }
 
 /// A FIFO queue's bookkeeping. A standard queue has the empty one.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub(crate) struct FifoState {
     pub(crate) next_sequence: u64,
     pub(crate) window: Vec<Remembered>,
@@ -136,6 +137,7 @@ mod tests {
 
     fn message(group: &str, visible_at_ms: i64, in_flight: bool) -> Message {
         Message {
+            ord: 0,
             id: String::new(),
             body: String::new(),
             md5_of_body: String::new(),

@@ -16,6 +16,7 @@ use aws_model_sqs::keys::{
 };
 use aws_wire::ApiError;
 use aws_wire::service::{Call, Reply};
+use serde::{Deserialize, Serialize};
 
 use crate::core::{Core, invalid_parameter, missing, reply, request};
 use crate::model::Message;
@@ -25,7 +26,7 @@ const DEFAULT_PER_SECOND: i64 = 500;
 /// How long a finished task's moved count stays at 0.
 const COUNTER_LAG_MS: i64 = 5_000;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) enum Status {
     Running,
     Completed,
@@ -43,7 +44,7 @@ impl Status {
 }
 
 /// One task.
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub(crate) struct Task {
     handle: String,
     source_arn: String,
@@ -130,11 +131,11 @@ impl Core {
             return 0;
         };
         let mut moving: Vec<Message> = Vec::new();
-        if let Some(q) = self.queues.get_mut(name) {
+        if let Some(q) = self.queue_named(name) {
             let take = usize::try_from(count)
                 .unwrap_or(usize::MAX)
                 .min(q.messages.len());
-            moving.extend(q.messages.drain(..take));
+            moving.extend(q.messages.take_front(take));
         }
         let mut moved = 0;
         for mut m in moving {
@@ -146,13 +147,13 @@ impl Core {
             m.visible_at_ms = now_ms;
             m.source_arn = None;
             let home = target.as_deref().and_then(|a| a.rsplit(':').next());
-            match home.and_then(|n| self.queues.get_mut(n)) {
+            match home.and_then(|n| self.queue_named(n)) {
                 Some(q) => {
                     q.messages.push(m);
                     moved += 1;
                 }
                 None => {
-                    if let Some(q) = self.queues.get_mut(name) {
+                    if let Some(q) = self.queue_named(name) {
                         q.messages.push(m);
                     }
                 }

@@ -16,12 +16,12 @@ use crate::core::{
     Core, empty, invalid_address, invalid_parameter, missing, no_such_queue, reply, request,
 };
 use crate::fifo::FifoState;
-use crate::model::Queue;
+use crate::model::{Messages, Queue};
 use crate::tags;
 use crate::url;
 
 /// How long a deleted queue's name, and a purge, are held (the minute AWS holds them).
-const WAIT_MS: i64 = 60_000;
+pub(crate) const WAIT_MS: i64 = 60_000;
 
 /// What a standard queue's name may be, as the message AWS gives says.
 const NAME_RULE: &str =
@@ -78,12 +78,14 @@ impl Core {
                 stored,
                 created_secs: now / 1000,
                 modified_secs: now / 1000,
-                messages: Vec::new(),
+                messages: Messages::default(),
                 tags: tags.into_iter().collect(),
                 fifo: FifoState::default(),
                 purged_ms: None,
+                written: crate::persist::Written::default(),
             };
             self.queues.insert(name.to_owned(), queue);
+            self.touched.insert(name.to_owned());
         }
         let queue_url = url::build(&call.caller.endpoint, &call.caller.account_id, name);
         reply::<Created>(|o| {
@@ -98,6 +100,7 @@ impl Core {
             .ok_or_else(|| missing("QueueUrl"))?;
         let name = self.queue_mut(call, queue_url)?.name.clone();
         self.queues.remove(&name);
+        self.removed.push(name.clone());
         let now = self.now_ms();
         self.deleted.insert(name, now);
         empty()

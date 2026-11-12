@@ -33,6 +33,10 @@ pub(crate) struct Args {
     /// The secret key `--auth verify` accepts.
     #[arg(long, default_value = "test")]
     pub(crate) secret_key: String,
+    /// Seconds without a request before a service lets go of its memory and its files (it starts again, with its state, on the
+    /// next request).
+    #[arg(long, default_value_t = 300)]
+    pub(crate) idle_secs: u64,
     /// The account every request is for.
     #[arg(long, default_value = "000000000000")]
     pub(crate) account: String,
