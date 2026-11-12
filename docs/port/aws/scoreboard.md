@@ -8,7 +8,7 @@ Baseline (Stage 0.3, re-run 2026-11-12): Go doze-aws (origin/main f8c31a1) again
 | Service | Fidelity (Rust) | Fidelity (Go, same snapshots) | Binary delta | Idle RSS delta | Sessions est. | Sessions actual | Audit rounds | Open decisions |
 |---|---|---|---|---|---|---|---|---|
 | Foundation (A0 to A4) | | | | | 31 to 49 | | | |
-| SQS | **tracer bullet, 2026-11-12:** 61 exact of 116 labels reached (34% of all 182); standard-queue core only, FIFO, batches, attributes, tags, permissions, dead letters, move tasks and long polling unbuilt | 44% exact / 73% ignoring wording (182 labels) | whole binary 1.63 MiB (macOS arm64), SQS included | idle 3.0 MB against Go's 31.4 MB | 5 to 7 (+1 for redrive tasks, owner decision 2026-11-12; the 7-session trigger stays) | | | |
+| SQS | **177 of 181 labels exact (97%); 98% ignoring wording** (2026-11-12). Unbuilt: long polling, persistence, the Query protocol | 44% exact / 73% ignoring wording (182 labels) | whole binary 1.83 MiB (macOS arm64), SQS included | idle 3.0 MB against Go's 31.4 MB | 5 to 7 (+1 for redrive tasks, owner decision 2026-11-12; the 7-session trigger stays) | about 3 (A5 up to the tracer bullet, then the rest of the service in one long session) | 0 | the ten-copies quirk; Query protocol on the gateway |
 | SSM | | 52% exact / 76% ignoring wording (33 labels) | | | | | | |
 | Secrets Manager | | 48% exact / 81% ignoring wording (27 labels) | | | | | | |
 | KMS | | 33% exact / 69% ignoring wording (45 labels) | | | | | | |
