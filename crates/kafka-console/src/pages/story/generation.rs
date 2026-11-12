@@ -86,10 +86,13 @@ pub(super) fn what(g: &StoryGen) -> Markup {
 
 /// The second line: what each member held, who did not come back, how long it lasted.
 fn then(g: &StoryGen, newest: bool) -> Markup {
+    // The generation running now says what its members hold; an older one, what they held.
+    let present = newest && !g.forming;
+    let alone = g.holds.len() == 1;
     let held: Vec<String> = g
         .holds
         .iter()
-        .map(|h| holds_phrase(&h.member, &h.topics))
+        .map(|h| holds_phrase(&h.member, &h.topics, present, alone))
         .collect();
     html! {
         @for d in &g.dropped {
@@ -97,7 +100,7 @@ fn then(g: &StoryGen, newest: bool) -> Markup {
         }
         @if !held.is_empty() { (held.join("; ")) ". " }
         @if let Some(ms) = g.lasted_ms {
-            @if newest { "Has lasted " (lasted(ms)) " so far." } @else { "Lasted " (lasted(ms)) "." }
+            @if newest { "Lasted " (lasted(ms)) " so far." } @else { "Lasted " (lasted(ms)) "." }
         }
     }
 }

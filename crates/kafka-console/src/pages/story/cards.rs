@@ -152,7 +152,7 @@ pub(super) fn calm(v: &StoryView, base: &Base) -> Markup {
                 b class="mono" { a class="lnk" href=(base.url(&format!("/groups/{}/story", segment(&c.group)))) { (c.group) } }
                 ", for contrast: " (c.count) @if c.count == 1 { " rebalance" } @else { " rebalances" } " since the broker started, and nothing has moved since " (clock(g.at_ms)) ". Its Story tab holds " @if c.count == 1 { "only this event." } @else { "these events." }
             }
-            div class="story" style="margin-top:14px" { (generation(g, &v.head, base, false, false)) }
+            div class="story" style="margin-top:14px" { (generation(g, &v.head, base, true, false)) }
             div class="hr" style="margin:16px 0" {}
             p class="help" style="max-width:none" {
                 "A quiet story is a good one. No member has come, gone or timed out since " (clock(g.at_ms)) ", so the lag on that group is not caused by rebalancing. Look at "
@@ -185,5 +185,29 @@ const fn listed(classic: bool, c: StoryCause) -> bool {
                 | StoryCause::SubscriptionChanged
                 | StoryCause::RebalanceTimeout
         )
+    }
+}
+
+/// `A quiet story is a good one`: what it means that nothing has moved.
+#[must_use]
+pub(super) fn quiet(v: &StoryView, base: &Base) -> Markup {
+    let since = v
+        .generations
+        .first()
+        .map_or_else(String::new, |g| clock(g.at_ms));
+    html! {
+        div class="card" {
+            h2 { "A quiet story is a good one" }
+            p class="help" style="max-width:none" {
+                "No member has come, gone or timed out since " (since) ". "
+                @if v.head.lag_total > 0 {
+                    "So the lag on this group is not caused by rebalancing: look at "
+                    a class="lnk" href=(crate::pages::groups::group_url(base, &v.head.id, "/lag")) { "its Lag" }
+                    " and at how many partitions one process holds."
+                } @else {
+                    "So there is nothing in the story to explain."
+                }
+            }
+        }
     }
 }

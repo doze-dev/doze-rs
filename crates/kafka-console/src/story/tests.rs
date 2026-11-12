@@ -74,9 +74,16 @@ fn partitions_are_said_as_the_boards_say_them() {
         assert_eq!(parts_phrase(&held), said);
     }
     assert_eq!(
-        holds_phrase("fulfilment-py-1", &[]),
+        holds_phrase("fulfilment-py-1", &[], false, true),
         "fulfilment-py-1 held nothing"
     );
+    assert_eq!(
+        holds_phrase("fulfilment-py-1", &[], true, false),
+        "fulfilment-py-1 holds nothing"
+    );
+    let one = vec![("t".to_owned(), vec![0])];
+    assert_eq!(holds_phrase("a", &one, true, true), "It holds t-0");
+    assert_eq!(holds_phrase("a", &one, false, true), "a held t-0");
 }
 
 #[test]

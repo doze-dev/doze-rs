@@ -157,13 +157,25 @@ fn runs(sorted: &[i32]) -> Vec<(i32, i32)> {
     out
 }
 
-/// What a member held: `py-1 holds payments.settled-0, -1 and pick-lists-0`.
+/// What a member held: `py-1 held payments.settled-0, -1 and pick-lists-0`; `present` says it in the present tense, and
+/// `alone` (the only member) as `It holds ...`.
 #[must_use]
-pub fn holds_phrase(member: &str, topics: &[(String, Vec<i32>)]) -> String {
-    if topics.is_empty() {
-        format!("{} held nothing", member_label(member))
+pub fn holds_phrase(
+    member: &str,
+    topics: &[(String, Vec<i32>)],
+    present: bool,
+    alone: bool,
+) -> String {
+    let who = if alone && present {
+        "It".to_owned()
     } else {
-        format!("{} held {}", member_label(member), parts_phrase(topics))
+        member_label(member)
+    };
+    let verb = if present { "holds" } else { "held" };
+    if topics.is_empty() {
+        format!("{who} {verb} nothing")
+    } else {
+        format!("{who} {verb} {}", parts_phrase(topics))
     }
 }
 

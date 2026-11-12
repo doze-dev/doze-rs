@@ -2,16 +2,17 @@
 
 use maud::{Markup, html};
 
-use super::cards::{calm, causes, flapping_card, now};
+use super::cards::{calm, causes, flapping_card, now, quiet};
 use super::generation::generation;
 use crate::base::Base;
 use crate::model::{GroupHead, StoryView};
 use crate::pages::groups::{group_head, group_story_tabs, group_switch, group_url};
-use crate::story::{cause_phrase, lasted};
+use crate::story::{cause_phrase, is_quiet, lasted};
 use crate::story_ids::{STORY_NOW, STORY_SENTENCE};
 use crate::ui::button::{Size, Variant, link};
 use crate::ui::client;
 use crate::ui::glyph::Glyph;
+use crate::ui::glyph_groups::{GroupGlyph, group_glyph};
 
 /// `/groups/{group}/story` and what follows it.
 #[must_use]
@@ -24,7 +25,9 @@ fn sentence(v: &StoryView) -> Markup {
     let n = v.generations.len();
     let id = &v.head.id;
     html! {
-        @if !v.in_memory {
+        @if is_quiet(v) {
+            (quiet_sentence(v))
+        } @else if !v.in_memory {
             span class="mono" { (id) } " has nothing in the broker's memory: it was started after the group last had members, so what happened before is not kept."
         } @else if n == 0 {
             span class="mono" { (id) } " has not rebalanced since the broker started."
@@ -75,9 +78,31 @@ fn footnote(v: &StoryView) -> Markup {
     }
 }
 
+/// The page of a group with a quiet story: one rebalance, and nothing since. No Now card and no cards of causes: a line, and
+/// the reason a quiet story is a good one.
+fn quiet_page(v: &StoryView, base: &Base) -> Markup {
+    let h: &GroupHead = &v.head;
+    let lag = html! { a class="btn" href=(group_url(base, &h.id, "/lag")) { (group_glyph(GroupGlyph::Back, 16, "")) "See its lag" } };
+    html! {
+        (group_head(h, sentence_fragment(v, base), lag))
+        (group_switch(h, base, "/story"))
+        (group_story_tabs(h, base))
+        div class="split wide" {
+            div {
+                div class="story" data-extra="story" { @for g in &v.generations { (generation(g, h, base, true, true)) } }
+                (footnote(v))
+            }
+            (quiet(v, base))
+        }
+    }
+}
+
 /// The page.
 #[must_use]
 pub fn story_page(v: &StoryView, base: &Base) -> Markup {
+    if is_quiet(v) {
+        return quiet_page(v, base);
+    }
     let h: &GroupHead = &v.head;
     let wire = link(
         &group_url(base, &h.id, "/wire"),
@@ -157,4 +182,30 @@ pub fn now_fragment(v: &StoryView, base: &Base) -> Markup {
         &fragment_url(base, STORY_NOW, &v.head.id),
         now(v, base),
     )
+}
+
+/// "One rebalance in the last 6 h: search-indexer-1 joined at 18:30:12, 3 h 44 m ago. Nothing has moved since."
+fn quiet_sentence(v: &StoryView) -> Markup {
+    let Some(g) = v.generations.first() else {
+        return html! {};
+    };
+    let ago = lasted(g.lasted_ms.unwrap_or(0));
+    html! {
+        "One rebalance in the last " (ago) ": "
+        @match &g.who {
+            Some(w) => { span class="bright" title=(w.member) { (crate::story::member_label(&w.member)) } " " (verb(g.cause)) },
+            None => (cause_phrase(g.cause)),
+        }
+        " at " (crate::format::clock(g.at_ms)) ", " (ago) " ago. Nothing has moved since."
+    }
+}
+
+fn verb(c: crate::model::StoryCause) -> &'static str {
+    use crate::model::StoryCause::{MemberJoined, MemberLeft, SessionExpired};
+    match c {
+        MemberLeft => "left",
+        SessionExpired => "timed out",
+        MemberJoined => "joined",
+        _ => "was the cause",
+    }
 }

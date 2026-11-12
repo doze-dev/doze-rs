@@ -86,6 +86,7 @@ fn the_story_has_the_boards_four_generations_newest_first_and_its_cards() {
             "What a calm group looks like",
             "search-indexer",
             "joined an empty group and led it. Members 0 to 1. Settled in 0.2 s.",
+            "It holds clickstream-0 to 5 and inventory.levels-0. Lasted 3 h 44 m so far.",
         ],
     );
 }
@@ -148,5 +149,32 @@ fn the_flapping_page_holds_the_rule_against_the_group_and_draws_the_pattern() {
             "Where to look.",
             "session.timeout.ms",
         ],
+    );
+}
+
+#[test]
+fn a_group_with_one_rebalance_and_nothing_since_has_the_quiet_story() {
+    let v = kafka_console::fixtures_story::story("search-indexer").unwrap();
+    let page = kafka_console::pages::story::story_page(&v, &Base::root()).into_string();
+    in_order(
+        "quiet",
+        &page,
+        &[
+            "One rebalance in the last 3 h 44 m: ",
+            "search-indexer-1",
+            " joined at 18:30:12, 3 h 44 m ago. Nothing has moved since.",
+            "See its lag",
+            "Story<span class=\"n\">1</span>",
+            "Member joined",
+            "Generation 8",
+            "It holds clickstream-0 to 5 and inventory.levels-0. Lasted 3 h 44 m so far.",
+            "A quiet story is a good one",
+            "No member has come, gone or timed out since 18:30:12.",
+            "So the lag on this group is not caused by rebalancing",
+        ],
+    );
+    assert!(
+        !page.contains(">Now</h2>") && !page.contains("Where the cause comes from"),
+        "no cards to read"
     );
 }

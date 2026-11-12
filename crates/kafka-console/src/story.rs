@@ -7,7 +7,7 @@ mod build;
 mod flap;
 mod words;
 
-pub use build::{calm_of, causes_of, facts_of, generations_of, now_of, view_of};
+pub use build::{calm_of, causes_of, facts_of, generations_of, is_quiet, now_of, view_of};
 pub use flap::{NEEDS, WINDOW_MS, cycles, flap_of};
 pub use words::{
     ago_near, cause_help, cause_phrase, cause_title, holds_phrase, last_clause, lasted,

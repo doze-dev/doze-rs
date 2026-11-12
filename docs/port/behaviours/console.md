@@ -471,7 +471,7 @@ Tagged in `docs/port/debt.md` J151 to J170: "waited 480 ms" (the recorder knows 
 ## CON-415. An open drawer holds the tape, and closing it lets the tape catch up
 While a Live drawer is open (adopted from the server or opened in place) what the stream brings is kept aside with no banner; closing it by Esc, the Close control or Back brings the newest in. Test: `tools/dom/live.test.ts` (a Live drawer opened by the overlay system holds the tape).
 
-# Slice 9f: the group event ring and the Story (CON-600 to CON-616)
+# Slice 9f: the group event ring and the Story (CON-600 to CON-617)
 
 Three boards: `group-story` (a page), `story-rebalance` (a drawer over the Story page), `story-flapping` (a state: the rule held against the group). The heart of the slice is in `kafka-broker`: the only slice that touches the group state machines, so the rule is absolute: a note is an extra effect, never a different transition.
 
@@ -528,3 +528,6 @@ The Story, the drawer and the flapping page of a group the caller may not DESCRI
 
 ### What these boards show that the broker cannot supply, and what the page does instead
 Tagged in `docs/port/debt.md` J291 to J302: "Topic changed" on a classic group is "Leader rejoined" (a client sees the change and its leader joins again); the topic that changed is not named; "last told to rejoin" is "last heard"; a member joining a rebalance already forming is folded into it; the causes' phrases are the boards', since no recording carries a Kafka reason.
+
+## CON-617. A group with one rebalance and nothing since has a quiet story
+Stable, one generation, none forming: the sentence is one line ("One rebalance in the last 3 h 44 m: search-indexer-1 joined at 18:30:12, 3 h 44 m ago. Nothing has moved since."), there is no Now card and no cards of causes, the one generation is the whole timeline, and a card says why a quiet story is a good one (the lag is not caused by rebalancing; look at Lag). The header's button is "See its lag". This is the `group-story-calm` frame of the canvas, which is not one of the three boards. Test: `boards_story::a_group_with_one_rebalance_and_nothing_since_has_the_quiet_story`.
