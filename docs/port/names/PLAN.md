@@ -233,6 +233,11 @@ elevated Windows runners). Tests never touch the real zone: a private home with 
   setup and puts it back): install as the user with sudo, all four steps ✓, `resolvectl query web.n5e2e.doze` →
   `127.0.20.73 -- link: doze0` answered by our netd unit (the claiming process stood by: "doze-netd is serving"),
   the declared domain routed and the CA in the bundle (`openssl verify -CApath` OK), untrust and uninstall leave
-  nothing ✓. **Windows**: the same test in the elevated CI runner (job `os`, windows-latest). **macOS**: needs the
+  nothing ✓. **Windows (CI run 43326745604, windows-latest, elevated): passed**: the NRPT rule ("✓ resolver route ·
+  an NRPT rule sends .doze to 127.0.0.53"), the claiming process serving 127.0.0.53:53 and `web.n5e2e.doze` answered
+  through getaddrinfo (the DNS client following the rule to a loopback server on 53: the open question of the
+  Windows design, now settled), the domain routed by its own rule, the CA added by certutil and found in the Root
+  store by SHA-256, untrust and uninstall leaving none. Not proven there: a non-administrator's read of the rules
+  and the store (the runner is elevated), and UAC through privesc (no prompt is ever shown on a runner). **macOS**: needs the
   owner once, `scripts/names-setup-e2e-darwin.sh` (keeps Go's job, daemon copy and resolver file and restores them).
 - **Not started**: N6 (wiring into doze-aws, doze-kafka and the core).

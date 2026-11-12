@@ -98,6 +98,20 @@ fn powershell_gets_the_script_encoded_whole() {
     assert_eq!(base64(b"f"), "Zg==");
     assert_eq!(base64(b"fo"), "Zm8=");
     assert_eq!(base64(b"foobar"), "Zm9vYmFy");
+    assert_eq!(
+        base64(&[
+            0x65, 0, 0x63, 0, 0x68, 0, 0x6f, 0, 0x20, 0, 0x27, 0, 0xe9, 0, 0x27, 0
+        ]),
+        "ZQBjAGgAbwAgACcA6QAnAA=="
+    );
     let args = powershell_args("echo 'é'");
-    assert_eq!(args.last().unwrap(), "ZQBjAGgAbwAgACcA6QAnAA==");
+    let whole: Vec<u8> = format!("{QUIET}echo 'é'")
+        .encode_utf16()
+        .flat_map(u16::to_le_bytes)
+        .collect();
+    assert_eq!(
+        args.last().unwrap(),
+        &base64(&whole),
+        "progress off, then the script"
+    );
 }

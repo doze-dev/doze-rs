@@ -97,8 +97,11 @@ fn direct(plan: &Plan) -> Command {
 }
 
 /// The arguments that run a PowerShell script exactly as written: base64 of its UTF-16, so no quote in it meets a
-/// command line's quoting rules (PowerShell 5.1 strips embedded double quotes from `-Command`).
+/// command line's quoting rules (PowerShell 5.1 strips embedded double quotes from `-Command`). Progress records are
+/// turned off first: with its output redirected, PowerShell writes them as CLIXML ("Preparing modules for first use")
+/// into the person's terminal (seen on the Windows runner).
 pub(crate) fn powershell_args(script: &str) -> Vec<String> {
+    let script = format!("{QUIET}{script}");
     let utf16: Vec<u8> = script.encode_utf16().flat_map(u16::to_le_bytes).collect();
     vec![
         "-NoProfile".into(),
@@ -109,6 +112,8 @@ pub(crate) fn powershell_args(script: &str) -> Vec<String> {
         base64(&utf16),
     ]
 }
+
+const QUIET: &str = "$ProgressPreference = 'SilentlyContinue'\n";
 
 /// Under the system's own administrator prompt.
 fn prompt(plan: &Plan) -> Result<(), Error> {
