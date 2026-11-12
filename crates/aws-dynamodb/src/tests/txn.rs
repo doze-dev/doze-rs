@@ -210,12 +210,23 @@ fn a_batch_get_response_stops_at_sixteen_megabytes_and_hands_back_the_rest() {
     let mut w = world();
     let blob = "x".repeat(390 * 1024);
     for i in 0..45 {
-        w.put("tab3", json!({"pk": {"S": format!("k{i}")}, "blob": {"S": blob}}));
+        w.put(
+            "tab3",
+            json!({"pk": {"S": format!("k{i}")}, "blob": {"S": blob}}),
+        );
     }
-    let keys: Vec<Value> = (0..45).map(|i| json!({"pk": {"S": format!("k{i}")}})).collect();
-    let out = w.ok("BatchGetItem", json!({"RequestItems": {"tab3": {"Keys": keys}}}));
+    let keys: Vec<Value> = (0..45)
+        .map(|i| json!({"pk": {"S": format!("k{i}")}}))
+        .collect();
+    let out = w.ok(
+        "BatchGetItem",
+        json!({"RequestItems": {"tab3": {"Keys": keys}}}),
+    );
     let got = out["Responses"]["tab3"].as_array().unwrap().len();
-    let left = out["UnprocessedKeys"]["tab3"]["Keys"].as_array().unwrap().len();
+    let left = out["UnprocessedKeys"]["tab3"]["Keys"]
+        .as_array()
+        .unwrap()
+        .len();
     assert_eq!(got + left, 45);
     assert!(got >= 41 && left >= 1, "{got} returned, {left} handed back");
 }
