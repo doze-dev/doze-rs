@@ -7,7 +7,6 @@ use aws_model_secrets_manager::keys::{
     PutSecretValueResponse as Put_, Tag, UpdateSecretRequest as Update,
     UpdateSecretResponse as Updated,
 };
-use aws_seal::Sealer;
 use aws_wire::ApiError;
 use aws_wire::handler::{reply, request};
 use aws_wire::service::{Call, Reply};
@@ -48,41 +47,30 @@ fn check_name(name: &str) -> Result<(), ApiError> {
     }
 }
 
-/// Adds a version holding `value` to `secret`. It gets `stages` (or `AWSCURRENT`); a stage lives on one version, so it
-/// leaves the one that had it, and a version that loses `AWSCURRENT` to the new one becomes `AWSPREVIOUS`. Returns the
-/// version id: the caller's token when it gave one, and then asking again with the same value is the same version.
+/// A version ready to be added: its id, and its sealed value (none when the caller asked again for a version that exists).
+pub(crate) struct Prepared {
+    pub(crate) id: String,
+    pub(crate) sealed: Option<Vec<u8>>,
+}
+
+/// Adds the prepared version of `value` to `secret`. It gets `stages` (or `AWSCURRENT`); a stage lives on one version, so it
+/// leaves the one that had it, and a version that loses `AWSCURRENT` to the new one becomes `AWSPREVIOUS`. Returns the version id.
 pub(crate) fn add_version(
-    sealer: &Sealer,
     secret: &mut Secret,
-    token: Option<&str>,
-    value: &Value,
+    prepared: Prepared,
+    binary: bool,
     stages: Option<Vec<String>>,
     now: i64,
-) -> Result<String, ApiError> {
-    let id = match token {
-        Some(t) => t.to_owned(),
-        None => aws_seal::uuid_v4().ok_or_else(|| ApiError::internal("no randomness"))?,
+) -> String {
+    let Prepared { id, sealed } = prepared;
+    let Some(sealed) = sealed else {
+        return id;
     };
-    let sealed = sealer
-        .seal(&value.0)
-        .ok_or_else(|| ApiError::internal("the value could not be sealed"))?;
-    if let Some(same) = secret.versions.get(&id) {
-        let before = sealer.open(&same.sealed);
-        if before.as_deref() == Some(value.0.as_slice()) && same.binary == value.1 {
-            return Ok(id);
-        }
-        // (memory)
-        return Err(ApiError::modeled(
-            "ResourceExistsException",
-            "You can't modify an existing secret version, but you can create a new secret version with a different value.",
-        ));
-    }
     let stages: BTreeSet<String> = stages.map_or_else(
         || BTreeSet::from([CURRENT.to_owned()]),
         |s| s.into_iter().collect(),
     );
-    let takes_current = stages.contains(CURRENT);
-    let displaced = if takes_current {
+    let displaced = if stages.contains(CURRENT) {
         secret.staged(CURRENT).map(|(id, _)| id.to_owned())
     } else {
         None
@@ -102,7 +90,7 @@ pub(crate) fn add_version(
         id.clone(),
         Version {
             sealed,
-            binary: value.1,
+            binary,
             stages,
             created_ms: now,
             accessed_day_ms: None,
@@ -110,7 +98,7 @@ pub(crate) fn add_version(
     );
     prune(secret, now);
     secret.changed_ms = now;
-    Ok(id)
+    id
 }
 
 /// Drops the versions with no label that are a day old, and the oldest of those past the most a secret keeps.
@@ -133,6 +121,37 @@ fn prune(secret: &mut Secret, now: i64) {
 }
 
 impl Core {
+    /// Decides the id of a new version of `secret` (the caller's token, or a new one) and seals the value under the secret's key. The
+    /// same token with the same value is the version already there; the same token with another value is refused.
+    pub(crate) async fn prepare_version(
+        &self,
+        call: &Call,
+        secret: &Secret,
+        token: Option<&str>,
+        value: &Value,
+    ) -> Result<Prepared, ApiError> {
+        let id = match token {
+            Some(t) => t.to_owned(),
+            None => aws_seal::uuid_v4().ok_or_else(|| ApiError::internal("no randomness"))?,
+        };
+        if let Some(same) = secret.versions.get(&id) {
+            let before = self.kms_open(call, secret, &id, &same.sealed).await?;
+            if before == value.0 && same.binary == value.1 {
+                return Ok(Prepared { id, sealed: None });
+            }
+            // (memory)
+            return Err(ApiError::modeled(
+                "ResourceExistsException",
+                "You can't modify an existing secret version, but you can create a new secret version with a different value.",
+            ));
+        }
+        let sealed = self.kms_seal(call, secret, &id, &value.0).await?;
+        Ok(Prepared {
+            id,
+            sealed: Some(sealed),
+        })
+    }
+
     /// Whether a new secret may take `name`.
     fn name_is_free(&self, name: &str) -> Result<(), ApiError> {
         let Some(existing) = self.secrets.get(name) else {
@@ -151,7 +170,7 @@ impl Core {
         })
     }
 
-    pub(crate) fn create_secret(&mut self, call: &Call) -> Reply {
+    pub(crate) async fn create_secret(&mut self, call: &Call) -> Reply {
         let v = request::<Create>(call)?;
         let name = v.get(Create::NAME).unwrap_or_default();
         check_name(name)?;
@@ -194,14 +213,12 @@ impl Core {
             policy: None,
         };
         let version = match &value {
-            Some(value) => Some(add_version(
-                &self.sealer,
-                &mut secret,
-                v.get(Create::CLIENT_REQUEST_TOKEN),
-                value,
-                None,
-                now,
-            )?),
+            Some(value) => {
+                let prepared = self
+                    .prepare_version(call, &secret, v.get(Create::CLIENT_REQUEST_TOKEN), value)
+                    .await?;
+                Some(add_version(&mut secret, prepared, value.1, None, now))
+            }
             None => None,
         };
         let arn = secret.arn.clone();
@@ -215,7 +232,7 @@ impl Core {
         })
     }
 
-    pub(crate) fn put_secret_value(&mut self, call: &Call) -> Reply {
+    pub(crate) async fn put_secret_value(&mut self, call: &Call) -> Reply {
         let v = request::<Put>(call)?;
         let name = self.locate_live(v.get(Put::SECRET_ID).unwrap_or_default())?;
         let value = value_of(v.get(Put::SECRET_STRING), v.get(Put::SECRET_BINARY))?
@@ -227,18 +244,15 @@ impl Core {
             .get(Put::VERSION_STAGES)
             .map(|s| s.map(str::to_owned).collect());
         let now = self.now_ms();
+        let current = self.secrets.get(&name).ok_or_else(crate::core::not_found)?;
+        let prepared = self
+            .prepare_version(call, current, v.get(Put::CLIENT_REQUEST_TOKEN), &value)
+            .await?;
         let secret = self
             .secrets
             .get_mut(&name)
             .ok_or_else(crate::core::not_found)?;
-        let id = add_version(
-            &self.sealer,
-            secret,
-            v.get(Put::CLIENT_REQUEST_TOKEN),
-            &value,
-            stages,
-            now,
-        )?;
+        let id = add_version(secret, prepared, value.1, stages, now);
         let (arn, shown) = (
             secret.arn.clone(),
             secret
@@ -259,37 +273,38 @@ impl Core {
         })
     }
 
-    pub(crate) fn update_secret(&mut self, call: &Call) -> Reply {
+    pub(crate) async fn update_secret(&mut self, call: &Call) -> Reply {
         let v = request::<Update>(call)?;
         let name = self.locate_live(v.get(Update::SECRET_ID).unwrap_or_default())?;
         let value = value_of(v.get(Update::SECRET_STRING), v.get(Update::SECRET_BINARY))?;
         let now = self.now_ms();
-        let secret = self
+        // Changed on a copy, so a refusal from KMS leaves the secret as it was.
+        let mut draft = self
             .secrets
-            .get_mut(&name)
-            .ok_or_else(crate::core::not_found)?;
+            .get(&name)
+            .ok_or_else(crate::core::not_found)?
+            .clone();
         if let Some(d) = v.get(Update::DESCRIPTION) {
-            secret.description = Some(d.to_owned());
+            draft.description = Some(d.to_owned());
         }
         if let Some(k) = v.get(Update::KMS_KEY_ID) {
-            secret.kms_key_id = Some(k.to_owned());
+            draft.kms_key_id = Some(k.to_owned());
         }
         if let Some(t) = v.get(Update::TYPE) {
-            secret.kind = Some(t.to_owned());
+            draft.kind = Some(t.to_owned());
         }
-        secret.changed_ms = now;
+        draft.changed_ms = now;
         let version = match &value {
-            Some(value) => Some(add_version(
-                &self.sealer,
-                secret,
-                v.get(Update::CLIENT_REQUEST_TOKEN),
-                value,
-                None,
-                now,
-            )?),
+            Some(value) => {
+                let prepared = self
+                    .prepare_version(call, &draft, v.get(Update::CLIENT_REQUEST_TOKEN), value)
+                    .await?;
+                Some(add_version(&mut draft, prepared, value.1, None, now))
+            }
             None => None,
         };
-        let arn = secret.arn.clone();
+        let arn = draft.arn.clone();
+        self.secrets.insert(name.clone(), draft);
         reply::<Updated>(|o| {
             o.put(Updated::ARN, &arn);
             o.put(Updated::NAME, &name);

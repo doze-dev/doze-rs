@@ -3,6 +3,7 @@
 
 use std::sync::Arc;
 
+use aws_peers::Peers;
 use aws_testkit::{Harness, TempDir};
 use doze_runtime::{Ctx, ManualClock, SystemClock, Tasks};
 use serde_json::{Value, json};
@@ -11,32 +12,72 @@ use crate::Ssm;
 use crate::core::Core;
 
 mod parameters;
+mod peers;
 mod persistence;
 mod refusals;
+
+/// The services SSM calls, running for real beside it: KMS (and Secrets Manager, for a reference), on a runtime the test drives.
+pub(crate) struct Bus {
+    pub(crate) peers: Arc<Peers>,
+    pub(crate) rt: tokio::runtime::Runtime,
+    _dir: TempDir,
+}
+
+impl Bus {
+    pub(crate) fn new() -> Self {
+        let dir = temp();
+        let peers = Peers::new();
+        let ext: Arc<dyn std::any::Any + Send + Sync> = peers.clone();
+        let ctx = |name: &str| {
+            Arc::new(Ctx {
+                dir: dir.path().join(name),
+                idle: std::time::Duration::from_secs(300),
+                tasks: Tasks::new(),
+                clock: Arc::new(SystemClock),
+                ext: Some(Arc::clone(&ext)),
+            })
+        };
+        peers.register(Arc::new(aws_kms::Kms::new(ctx("kms"))));
+        peers.register(Arc::new(aws_secrets::Secrets::new(ctx("secretsmanager"))));
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        Self {
+            peers,
+            rt,
+            _dir: dir,
+        }
+    }
+}
 
 pub(crate) struct World {
     pub(crate) core: Core,
     pub(crate) clock: Arc<ManualClock>,
+    pub(crate) bus: Bus,
     h: Harness<Ssm>,
 }
 
 impl World {
     pub(crate) fn new() -> Self {
         let clock = Arc::new(ManualClock::at(1_700_000_000_000));
-        let core = Core::in_memory(clock.clone()).unwrap();
-        Self::with(core, clock)
+        let bus = Bus::new();
+        let core = Core::in_memory(clock.clone(), Some(bus.peers.clone()));
+        Self::with(core, clock, bus)
     }
 
-    pub(crate) fn with(core: Core, clock: Arc<ManualClock>) -> Self {
+    pub(crate) fn with(core: Core, clock: Arc<ManualClock>, bus: Bus) -> Self {
         let ctx = Ctx {
             dir: std::env::temp_dir().join("doze-aws-ssm-unused"),
             idle: std::time::Duration::from_secs(300),
             tasks: Tasks::new(),
             clock: Arc::new(SystemClock),
+            ext: None,
         };
         Self {
             core,
             clock,
+            bus,
             h: Harness::new(Ssm::new(Arc::new(ctx))),
         }
     }
@@ -45,7 +86,7 @@ impl World {
     pub(crate) fn run(&mut self, op: &str, request: &Value) -> Result<Value, aws_wire::ApiError> {
         let ix = self.h.op(op);
         let call = self.h.call(ix, request)?;
-        let out = self.core.dispatch(&call);
+        let out = self.bus.rt.block_on(self.core.dispatch(&call));
         // What the call changed is on disk (if there is a disk) before its answer is looked at.
         if let Some(saved) = self.core.flush().unwrap() {
             saved.wait().unwrap();
@@ -57,7 +98,7 @@ impl World {
     pub(crate) fn rows_of(&mut self, op: &str, request: &Value) -> usize {
         let ix = self.h.op(op);
         let call = self.h.call(ix, request).unwrap();
-        self.core.dispatch(&call).unwrap();
+        self.bus.rt.block_on(self.core.dispatch(&call)).unwrap();
         self.core.params.stage().unwrap().rows()
     }
 

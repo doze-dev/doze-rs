@@ -14,6 +14,7 @@ fn service() -> Arc<Sqs> {
         idle: Duration::from_secs(3600),
         tasks: Tasks::new(),
         clock: Arc::new(doze_runtime::SystemClock),
+        ext: None,
     };
     Arc::new(Sqs::new(Arc::new(ctx)))
 }

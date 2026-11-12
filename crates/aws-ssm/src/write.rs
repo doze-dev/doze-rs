@@ -43,7 +43,7 @@ struct Asked<'a> {
 }
 
 impl Core {
-    pub(crate) fn put_parameter(&mut self, call: &Call) -> Reply {
+    pub(crate) async fn put_parameter(&mut self, call: &Call) -> Reply {
         let v = request::<Put>(call)?;
         let name = v.get(Put::NAME).unwrap_or_default().trim();
         name::check_write(name)?;
@@ -66,23 +66,27 @@ impl Core {
                 .collect()
             })
             .unwrap_or_default();
-        self.write(&Asked {
-            name,
-            value: v.get(Put::VALUE).unwrap_or_default(),
-            kind,
-            key_id: v.get(Put::KEY_ID),
-            description: v.get(Put::DESCRIPTION),
-            pattern: v.get(Put::ALLOWED_PATTERN),
-            data_type: v.get(Put::DATA_TYPE),
-            tier: v.get(Put::TIER),
-            policies: v.get(Put::POLICIES),
-            tags,
-            overwrite: v.get(Put::OVERWRITE).unwrap_or(false),
-            by: format!("arn:aws:iam::{}:root", call.caller.account_id),
-        })
+        self.write(
+            call,
+            &Asked {
+                name,
+                value: v.get(Put::VALUE).unwrap_or_default(),
+                kind,
+                key_id: v.get(Put::KEY_ID),
+                description: v.get(Put::DESCRIPTION),
+                pattern: v.get(Put::ALLOWED_PATTERN),
+                data_type: v.get(Put::DATA_TYPE),
+                tier: v.get(Put::TIER),
+                policies: v.get(Put::POLICIES),
+                tags,
+                overwrite: v.get(Put::OVERWRITE).unwrap_or(false),
+                by: format!("arn:aws:iam::{}:root", call.caller.account_id),
+            },
+        )
+        .await
     }
 
-    fn write(&mut self, a: &Asked<'_>) -> Reply {
+    async fn write(&mut self, call: &Call, a: &Asked<'_>) -> Reply {
         let before = self.params.get(a.name);
         if before.is_some() && !a.overwrite {
             return Err(ApiError::modeled(
@@ -103,7 +107,9 @@ impl Core {
             ));
         }
         let parsed = a.policies.map(policy::parse).transpose()?;
-        let version = self.next_version(a, before.map(|p| &p.latest), parsed.as_ref())?;
+        let prev = before.map(|p| &p.latest);
+        let sealed = self.secure_blob(call, a, prev).await?;
+        let version = self.next_version(a, prev, parsed.as_ref(), sealed)?;
         let (number, advanced) = (version.number, version.advanced);
         let expires = match &parsed {
             Some(p) => p.expires_ms,
@@ -123,6 +129,7 @@ impl Core {
         a: &Asked<'_>,
         prev: Option<&Version>,
         parsed: Option<&policy::Parsed>,
+        sealed: Option<Vec<u8>>,
     ) -> Result<Version, ApiError> {
         let kind = match (a.kind, prev) {
             (Some(kind), _) => kind,
@@ -158,18 +165,12 @@ impl Core {
             }
             None => prev.map_or_else(|| "text".to_owned(), |p| p.data_type.clone()),
         };
-        let value = if kind == Kind::SecureString {
-            self.sealer
-                .seal(a.value.as_bytes())
-                .ok_or_else(|| ApiError::internal("the value could not be sealed"))?
-        } else {
-            a.value.as_bytes().to_vec()
-        };
+        let value = sealed.unwrap_or_else(|| a.value.as_bytes().to_vec());
         let key_id = (kind == Kind::SecureString).then(|| {
             a.key_id
                 .map(str::to_owned)
                 .or_else(|| prev.and_then(|p| p.key_id.clone()))
-                .unwrap_or_else(|| "alias/aws/ssm".to_owned())
+                .unwrap_or_else(|| crate::kms::DEFAULT_KEY.to_owned())
         });
         Ok(Version {
             number: prev.map_or(1, |p| p.number + 1),
@@ -188,6 +189,27 @@ impl Core {
             modified_ms: self.now_ms(),
             modified_by: a.by.clone(),
         })
+    }
+
+    /// The KMS ciphertext of the value, when the parameter is a `SecureString` (the type it asks for, or the one it had).
+    async fn secure_blob(
+        &self,
+        call: &Call,
+        a: &Asked<'_>,
+        prev: Option<&Version>,
+    ) -> Result<Option<Vec<u8>>, ApiError> {
+        if a.kind.or(prev.map(|p| p.kind)) != Some(Kind::SecureString) {
+            return Ok(None);
+        }
+        let key_id = a
+            .key_id
+            .map(str::to_owned)
+            .or_else(|| prev.and_then(|p| p.key_id.clone()))
+            .unwrap_or_else(|| crate::kms::DEFAULT_KEY.to_owned());
+        let arn = name::arn(&call.caller.region, &call.caller.account_id, a.name);
+        self.kms_seal(call, &key_id, &arn, a.value.as_bytes())
+            .await
+            .map(Some)
     }
 
     fn store(

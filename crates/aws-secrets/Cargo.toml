@@ -17,6 +17,7 @@ aws-schema = { path = "../aws-schema" }
 aws-wire = { path = "../aws-wire" }
 aws-core = { path = "../aws-core" }
 aws-seal = { path = "../aws-seal" }
+aws-peers = { path = "../aws-peers" }
 doze-runtime = { path = "../doze-runtime" }
 doze-store = { path = "../doze-store" }
 serde_json = "1"
@@ -24,4 +25,5 @@ serde = { version = "1", features = ["derive"] }
 
 [dev-dependencies]
 aws-testkit = { path = "../aws-testkit" }
+aws-kms = { path = "../aws-kms" }
 tokio = { version = "1", default-features = false, features = ["rt", "macros", "time", "test-util", "sync"] }

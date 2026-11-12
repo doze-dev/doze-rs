@@ -11,12 +11,10 @@ use doze_store::records::Records;
 use doze_store::{Ack, Db, StoreError};
 
 use crate::model::Parameter;
-use aws_seal::{self as seal, Sealer};
+use aws_peers::Peers;
 
 const FILE: &str = "ssm.redb";
 const PARAMS: &str = "params";
-const META: &str = "meta";
-const SEAL_KEY: &str = "seal";
 /// The version of every record here. A change of a record's shape is a new version with a branch that reads the old one.
 const VERSION: u8 = 1;
 
@@ -24,8 +22,8 @@ const VERSION: u8 = 1;
 #[derive(Debug)]
 pub(crate) struct Core {
     pub(crate) params: Records<Parameter>,
-    meta: Records<Vec<u8>>,
-    pub(crate) sealer: Sealer,
+    /// The other services (KMS seals a `SecureString`; Secrets Manager answers a reference), when there are any.
+    pub(crate) peers: Option<Arc<Peers>>,
     pub(crate) clock: Arc<dyn Clock>,
     pub(crate) db: Option<Db>,
     /// When the first `Expiration` policy runs out, so a call before then need not look.
@@ -65,11 +63,11 @@ impl doze_runtime::Service for Core {
     type Error = StoreError;
 
     async fn open(ctx: &Ctx, _name: &'static str) -> Result<Self, StoreError> {
-        Self::open_in(&ctx.dir, Arc::clone(&ctx.clock))
+        Self::open_in(&ctx.dir, Arc::clone(&ctx.clock), peers_of(ctx))
     }
 
     async fn handle(&mut self, call: Call) -> Answer {
-        let mut reply = self.dispatch(&call);
+        let mut reply = self.dispatch(&call).await;
         let durable = match self.flush() {
             Ok(ack) => ack,
             Err(e) => {
@@ -88,49 +86,39 @@ impl doze_runtime::Service for Core {
 }
 
 impl Core {
-    /// Parameter Store with no disk and a fixed sealing key (the rules alone are under test).
+    /// Parameter Store with no disk (the rules alone are under test).
     #[cfg(test)]
-    pub(crate) fn in_memory(clock: Arc<dyn Clock>) -> Option<Self> {
-        let sealer = Sealer::new(&[7; seal::KEY])?;
-        let params = Records::new(PARAMS, "parameter", VERSION);
-        Some(Self::with(
+    pub(crate) fn in_memory(clock: Arc<dyn Clock>, peers: Option<Arc<Peers>>) -> Self {
+        Self::with(
             clock,
-            params,
-            Records::new(META, "meta", VERSION),
-            sealer,
+            Records::new(PARAMS, "parameter", VERSION),
+            peers,
             None,
-        ))
+        )
     }
 
-    pub(crate) fn open_in(dir: &Path, clock: Arc<dyn Clock>) -> Result<Self, StoreError> {
-        let db = Db::open(dir, FILE, &[PARAMS, META])?;
+    pub(crate) fn open_in(
+        dir: &Path,
+        clock: Arc<dyn Clock>,
+        peers: Option<Arc<Peers>>,
+    ) -> Result<Self, StoreError> {
+        let db = Db::open(dir, FILE, &[PARAMS])?;
         let read = db.read()?;
         let params = Records::load(PARAMS, "parameter", VERSION, &read)?;
-        let mut meta: Records<Vec<u8>> = Records::load(META, "meta", VERSION, &read)?;
         drop(read);
-        if meta.get(SEAL_KEY).is_none() {
-            let key = seal::new_key().ok_or_else(|| StoreError::Corrupt("no randomness".into()))?;
-            meta.insert(SEAL_KEY.to_owned(), key);
-        }
-        let sealer = meta
-            .get(SEAL_KEY)
-            .and_then(|key| Sealer::new(key))
-            .ok_or_else(|| StoreError::Corrupt("the sealing key is unreadable".into()))?;
-        Ok(Self::with(clock, params, meta, sealer, Some(db)))
+        Ok(Self::with(clock, params, peers, Some(db)))
     }
 
     fn with(
         clock: Arc<dyn Clock>,
         params: Records<Parameter>,
-        meta: Records<Vec<u8>>,
-        sealer: Sealer,
+        peers: Option<Arc<Peers>>,
         db: Option<Db>,
     ) -> Self {
         let next_expiry_ms = params.iter().filter_map(|(_, p)| p.expires_ms).min();
         Self {
             params,
-            meta,
-            sealer,
+            peers,
             clock,
             db,
             next_expiry_ms,
@@ -166,12 +154,12 @@ impl Core {
 
     /// Sends what the last call changed to the writer; the [`Ack`] resolves when it is on disk.
     pub(crate) fn flush(&mut self) -> Result<Option<Ack>, StoreError> {
-        let changes = vec![self.params.stage()?, self.meta.stage()?];
+        let changes = vec![self.params.stage()?];
         Ok(self.db.as_ref().and_then(|db| db.submit(changes)))
     }
 
     /// Every operation of the model is either run here or refused by name; the dispatch is exhaustive over those it runs.
-    pub(crate) fn dispatch(&mut self, call: &Call) -> Reply {
+    pub(crate) async fn dispatch(&mut self, call: &Call) -> Reply {
         let Some(op) = Operation::from_index(call.op).filter(|op| built(*op)) else {
             return Err(ApiError::new(
                 501,
@@ -181,11 +169,11 @@ impl Core {
         };
         self.sweep();
         match op {
-            Operation::PutParameter => self.put_parameter(call),
-            Operation::GetParameter => self.get_parameter(call),
-            Operation::GetParameters => self.get_parameters(call),
-            Operation::GetParametersByPath => self.get_parameters_by_path(call),
-            Operation::GetParameterHistory => self.get_parameter_history(call),
+            Operation::PutParameter => self.put_parameter(call).await,
+            Operation::GetParameter => self.get_parameter(call).await,
+            Operation::GetParameters => self.get_parameters(call).await,
+            Operation::GetParametersByPath => self.get_parameters_by_path(call).await,
+            Operation::GetParameterHistory => self.get_parameter_history(call).await,
             Operation::DeleteParameter => self.delete_parameter(call),
             Operation::DeleteParameters => self.delete_parameters(call),
             Operation::DescribeParameters => self.describe_parameters(call),
@@ -206,4 +194,11 @@ impl Core {
 /// A refusal that names the rule.
 pub(crate) fn validation(message: impl Into<String>) -> ApiError {
     ApiError::modeled("ValidationException", message)
+}
+
+/// The bus the host handed this service, if it did.
+fn peers_of(ctx: &Ctx) -> Option<Arc<Peers>> {
+    ctx.ext
+        .as_ref()
+        .and_then(|e| Arc::clone(e).downcast::<Peers>().ok())
 }

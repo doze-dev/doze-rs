@@ -133,6 +133,7 @@ async fn handle(
         account_id: shared.config.account_id.clone(),
         region: claim.region,
         endpoint: endpoint_of(parts),
+        service: None,
     };
     let call = decode_call(entry, op, id, caller, bytes).map_err(|e| fail(&e))?;
     let output = entry.service.call(call).await.map_err(|e| fail(&e))?;

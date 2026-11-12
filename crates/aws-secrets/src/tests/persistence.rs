@@ -14,9 +14,10 @@ struct Run<'a> {
 impl<'a> Run<'a> {
     fn new(dir: &'a std::path::Path) -> Self {
         let clock = std::sync::Arc::new(doze_runtime::ManualClock::at(START));
-        let core = Core::open_in(dir, clock.clone()).unwrap();
+        let bus = super::Bus::new();
+        let core = Core::open_in(dir, clock.clone(), Some(bus.peers.clone())).unwrap();
         Self {
-            w: World::with(core, clock),
+            w: World::with(core, clock, bus),
             dir,
         }
     }
@@ -27,7 +28,12 @@ impl<'a> Run<'a> {
         if let Some(db) = self.w.core.db.take() {
             db.close();
         }
-        self.w.core = Core::open_in(self.dir, self.w.clock.clone()).unwrap();
+        self.w.core = Core::open_in(
+            self.dir,
+            self.w.clock.clone(),
+            Some(self.w.bus.peers.clone()),
+        )
+        .unwrap();
         assert_eq!(
             before,
             format!("{:?}", self.w.core.secrets),

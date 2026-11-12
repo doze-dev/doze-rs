@@ -34,6 +34,7 @@ fn algorithm_of(key: &Key, given: Option<&str>) -> Result<String, ApiError> {
 impl Core {
     /// Makes the material of an RSA key the first time it is wanted. Any other key already has its material.
     pub(crate) fn ensure_material(&mut self, call: &Call, given: &str) -> Result<(), ApiError> {
+        self.ensure_managed(call, given)?;
         let id = self.locate(call, given)?;
         let key = self.keys.get(&id).ok_or_else(|| not_found_key(call, &id))?;
         let Some(bits) = key.spec.rsa_bits() else {

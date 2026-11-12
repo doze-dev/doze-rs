@@ -7,6 +7,7 @@ mod create;
 mod delete;
 mod describe;
 mod find;
+mod kms;
 mod model;
 mod password;
 mod policy;

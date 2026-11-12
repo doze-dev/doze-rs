@@ -19,3 +19,9 @@ name = "fuzz_rfc3339"
 path = "fuzz_targets/fuzz_rfc3339.rs"
 test = false
 doc = false
+
+[[bin]]
+name = "fuzz_base64"
+path = "fuzz_targets/fuzz_base64.rs"
+test = false
+doc = false

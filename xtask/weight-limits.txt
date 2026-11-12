@@ -15,4 +15,5 @@ doze-kafka 9000000 159 8192 --listen 127.0.0.1:{port} --data-dir {data}
 # p521, k256 and the field and group crates under them), ed25519-dalek, hmac and the KMS model's tables). Same rule; five packages of room.
 # 2026-11-12, with KMS RSA keys and key import: 4,378,880 B, 192 packages, 3.3 MB idle (+469 KB and +9 packages over grants: the rsa crate and its bigint
 # stack, sha1, aes-kw). Same rule.
-doze-aws 6000000 197 6144 --listen 127.0.0.1:{port} --data-dir {data}
+# 2026-11-12, with the peer bus (aws-peers, base64): 4,447,840 B, 194 packages, 3.3 MB idle (+69 KB and +2 packages over RSA and import). Same rule.
+doze-aws 6100000 199 6144 --listen 127.0.0.1:{port} --data-dir {data}

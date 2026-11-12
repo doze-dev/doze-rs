@@ -17,6 +17,8 @@ use crate::write::not_found;
 use aws_wire::handler::{reply, request};
 
 /// The most versions one page of history holds.
+/// Names under this are Secrets Manager secrets, read through Parameter Store.
+pub(crate) const REFERENCE: &str = "/aws/reference/secretsmanager/";
 const HISTORY_PAGE: usize = 50;
 
 pub(crate) fn version_not_found(name: &str, which: &str) -> ApiError {
@@ -30,18 +32,22 @@ pub(crate) fn version_not_found(name: &str, which: &str) -> ApiError {
 }
 
 impl Core {
-    /// The value as the API shows it: sealed (as hex) for a `SecureString` unless the caller asked for it open.
-    pub(crate) fn reveal(&self, v: &Version, decrypt: bool) -> Result<String, ApiError> {
+    /// The value as the API shows it: for a `SecureString`, the KMS ciphertext as base64 unless the caller asked for it open.
+    pub(crate) async fn reveal(
+        &self,
+        call: &Call,
+        name: &str,
+        v: &Version,
+        decrypt: bool,
+    ) -> Result<String, ApiError> {
         if v.kind != crate::model::Kind::SecureString {
             return Ok(String::from_utf8_lossy(&v.value).into_owned());
         }
         if !decrypt {
-            return Ok(aws_core::hex::encode(&v.value));
+            return Ok(aws_core::base64::encode(&v.value));
         }
-        let plain = self
-            .sealer
-            .open(&v.value)
-            .ok_or_else(|| ApiError::internal("a stored SecureString could not be opened"))?;
+        let arn = name::arn(&call.caller.region, &call.caller.account_id, name);
+        let plain = self.kms_open(call, &arn, &v.value).await?;
         Ok(String::from_utf8_lossy(&plain).into_owned())
     }
 
@@ -62,12 +68,21 @@ impl Core {
         Ok((p, v))
     }
 
-    pub(crate) fn get_parameter(&mut self, call: &Call) -> Reply {
+    pub(crate) async fn get_parameter(&mut self, call: &Call) -> Reply {
         let v = request::<One>(call)?;
         let text = v.get(One::NAME).unwrap_or_default();
+        let decrypt = v.get(One::WITH_DECRYPTION).unwrap_or(false);
+        if let Some(secret) = text.strip_prefix(REFERENCE) {
+            let (version, value) = self.reference(call, secret, decrypt).await?;
+            return reply::<OneResult>(|o| {
+                o.put_object(OneResult::PARAMETER, |p| {
+                    shown(p, call, text, &version, None, &value)
+                });
+            });
+        }
         let selector = name::selector(text);
         let (_, version) = self.pick(&selector)?;
-        let value = self.reveal(version, v.get(One::WITH_DECRYPTION).unwrap_or(false))?;
+        let value = self.reveal(call, selector.name, version, decrypt).await?;
         reply::<OneResult>(|o| {
             o.put_object(OneResult::PARAMETER, |p| {
                 shown(p, call, selector.name, version, selector.qualifier, &value)
@@ -75,7 +90,7 @@ impl Core {
         })
     }
 
-    pub(crate) fn get_parameters(&mut self, call: &Call) -> Reply {
+    pub(crate) async fn get_parameters(&mut self, call: &Call) -> Reply {
         let v = request::<Many>(call)?;
         let decrypt = v.get(Many::WITH_DECRYPTION).unwrap_or(false);
         let names: Vec<&str> = v
@@ -83,13 +98,26 @@ impl Core {
             .map(Iterator::collect)
             .unwrap_or_default();
         let mut found = Vec::new();
+        let mut referenced = Vec::new();
         let mut missing = Vec::new();
         for text in names {
+            if let Some(secret) = text.strip_prefix(REFERENCE) {
+                match self.reference(call, secret, decrypt).await {
+                    Ok((version, value)) => referenced.push((text, version, value)),
+                    Err(_) => missing.push(text),
+                }
+                continue;
+            }
             let selector = name::selector(text);
-            match self
-                .pick(&selector)
-                .and_then(|(_, version)| Ok((version, self.reveal(version, decrypt)?)))
-            {
+            let picked = self.pick(&selector).map(|(_, version)| version);
+            let value = match picked {
+                Ok(version) => self
+                    .reveal(call, selector.name, version, decrypt)
+                    .await
+                    .map(|value| (version, value)),
+                Err(e) => Err(e),
+            };
+            match value {
                 Ok((version, value)) => found.push((selector, version, value)),
                 Err(_) => missing.push(text),
             }
@@ -98,6 +126,9 @@ impl Core {
             o.put_list(ManyResult::PARAMETERS, |l| {
                 for (selector, version, value) in &found {
                     l.push(|p| shown(p, call, selector.name, version, selector.qualifier, value));
+                }
+                for (name, version, value) in &referenced {
+                    l.push(|p| shown(p, call, name, version, None, value));
                 }
             });
             o.put_list(ManyResult::INVALID_PARAMETERS, |l| {
@@ -108,7 +139,7 @@ impl Core {
         })
     }
 
-    pub(crate) fn get_parameter_history(&mut self, call: &Call) -> Reply {
+    pub(crate) async fn get_parameter_history(&mut self, call: &Call) -> Reply {
         let v = request::<HistoryRequest>(call)?;
         let name = v.get(HistoryRequest::NAME).unwrap_or_default();
         let decrypt = v.get(HistoryRequest::WITH_DECRYPTION).unwrap_or(false);
@@ -124,7 +155,7 @@ impl Core {
         let p = self.params.get(name).ok_or_else(not_found)?;
         let mut rows: Vec<(&Version, String)> = Vec::new();
         for version in p.versions().filter(|x| x.number > after).take(limit + 1) {
-            rows.push((version, self.reveal(version, decrypt)?));
+            rows.push((version, self.reveal(call, name, version, decrypt).await?));
         }
         let more = rows.len() > limit;
         rows.truncate(limit);

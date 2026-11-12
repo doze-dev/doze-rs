@@ -126,7 +126,7 @@ impl Core {
         Ok((out, more))
     }
 
-    pub(crate) fn get_parameters_by_path(&mut self, call: &Call) -> Reply {
+    pub(crate) async fn get_parameters_by_path(&mut self, call: &Call) -> Reply {
         let v = request::<ByPath>(call)?;
         let path = name::check_path(v.get(ByPath::PATH).unwrap_or_default())?;
         let recursive = v.get(ByPath::RECURSIVE).unwrap_or(false);
@@ -162,7 +162,11 @@ impl Core {
         )?;
         let mut shown_rows = Vec::new();
         for (name, p) in &rows {
-            shown_rows.push((*name, &p.latest, self.reveal(&p.latest, decrypt)?));
+            shown_rows.push((
+                *name,
+                &p.latest,
+                self.reveal(call, name, &p.latest, decrypt).await?,
+            ));
         }
         let token = more
             .then(|| rows.last().map(|(n, _)| page::token(n)))

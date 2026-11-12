@@ -211,6 +211,7 @@ dependencies = [
  "p256",
  "p384",
  "p521",
+ "ring",
  "rsa",
  "serde",
  "serde_json",
@@ -374,6 +375,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "aws-peers"
+version = "0.0.0"
+dependencies = [
+ "aws-core",
+ "aws-kms",
+ "aws-schema",
+ "aws-seal",
+ "aws-wire",
+ "doze-runtime",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "aws-schema"
 version = "0.0.0"
 dependencies = [
@@ -393,7 +408,9 @@ name = "aws-secrets"
 version = "0.0.0"
 dependencies = [
  "aws-core",
+ "aws-kms",
  "aws-model-secrets-manager",
+ "aws-peers",
  "aws-schema",
  "aws-seal",
  "aws-testkit",
@@ -529,9 +546,11 @@ name = "aws-ssm"
 version = "0.0.0"
 dependencies = [
  "aws-core",
+ "aws-kms",
  "aws-model-ssm",
+ "aws-peers",
  "aws-schema",
- "aws-seal",
+ "aws-secrets",
  "aws-testkit",
  "aws-wire",
  "doze-runtime",
@@ -1013,9 +1032,11 @@ dependencies = [
  "aws-auth",
  "aws-gateway",
  "aws-kms",
+ "aws-peers",
  "aws-secrets",
  "aws-sqs",
  "aws-ssm",
+ "aws-wire",
  "clap",
  "doze-runtime",
  "tokio",

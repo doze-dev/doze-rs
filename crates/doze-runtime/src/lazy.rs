@@ -36,6 +36,9 @@ pub struct Ctx {
     pub tasks: Tasks,
     /// The time, as a value a test can hold.
     pub clock: Arc<dyn Clock>,
+    /// Whatever else the host hands every service, for it to take out by type: the AWS peer bus, say. `doze-runtime` does not know
+    /// what is in it.
+    pub ext: Option<Arc<dyn std::any::Any + Send + Sync>>,
 }
 
 /// A service is a plain struct that owns its state. `open` loads it, `handle` serves one request.

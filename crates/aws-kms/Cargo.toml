@@ -36,4 +36,6 @@ aes-kw = "0.3"
 
 [dev-dependencies]
 aws-testkit = { path = "../aws-testkit" }
+# A second implementation to check ours against (tests only): ECDSA, Ed25519, RSA signatures, HMAC and AES-GCM.
+ring = "0.17"
 tokio = { version = "1", default-features = false, features = ["rt", "macros", "time", "test-util", "sync"] }

@@ -6,6 +6,8 @@ use std::time::Duration;
 use anyhow::{Context, Result};
 use aws_auth::{Credential, Secret, StaticCredentials};
 use aws_gateway::{Auth, Config, Gateway};
+use aws_peers::Peers;
+use aws_wire::service::Service;
 use doze_runtime::{Ctx, DataDirLock, SystemClock, Tasks};
 
 use crate::cli::{Args, AuthMode};
@@ -13,11 +15,15 @@ use crate::cli::{Args, AuthMode};
 pub(crate) async fn run(args: Args) -> Result<()> {
     let _lock = DataDirLock::take(&args.data_dir, "doze-aws")?;
     let tasks = Tasks::new();
+    // The bus the services call each other over; each is registered on it as well as on the gateway.
+    let peers = Peers::new();
+    let ext: Arc<dyn std::any::Any + Send + Sync> = peers.clone();
     let ctx = |name: &str| Ctx {
         dir: args.data_dir.join(name),
         idle: Duration::from_secs(args.idle_secs),
         tasks: tasks.clone(),
         clock: Arc::new(SystemClock),
+        ext: Some(Arc::clone(&ext)),
     };
     let mut config = Config::new(args.listen);
     config.account_id.clone_from(&args.account);
@@ -36,13 +42,18 @@ pub(crate) async fn run(args: Args) -> Result<()> {
             Auth::Verify(Arc::new(creds))
         }
     };
-    let running = Gateway::new(config)
-        .with(Arc::new(aws_sqs::Sqs::new(Arc::new(ctx("sqs")))))
-        .with(Arc::new(aws_ssm::Ssm::new(Arc::new(ctx("ssm")))))
-        .with(Arc::new(aws_secrets::Secrets::new(Arc::new(ctx(
-            "secretsmanager",
-        )))))
-        .with(Arc::new(aws_kms::Kms::new(Arc::new(ctx("kms")))))
+    let services: Vec<Arc<dyn Service>> = vec![
+        Arc::new(aws_sqs::Sqs::new(Arc::new(ctx("sqs")))),
+        Arc::new(aws_ssm::Ssm::new(Arc::new(ctx("ssm")))),
+        Arc::new(aws_secrets::Secrets::new(Arc::new(ctx("secretsmanager")))),
+        Arc::new(aws_kms::Kms::new(Arc::new(ctx("kms")))),
+    ];
+    let mut gateway = Gateway::new(config);
+    for service in services {
+        peers.register(Arc::clone(&service));
+        gateway = gateway.with(service);
+    }
+    let running = gateway
         .bind()
         .await
         .with_context(|| format!("listening on {}", args.listen))?;

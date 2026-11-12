@@ -4,7 +4,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use aws_model_secrets_manager::Operation;
-use aws_seal::Sealer;
+use aws_peers::Peers;
 use aws_wire::ApiError;
 use aws_wire::service::{Call, Reply};
 use doze_runtime::{Clock, Ctx};
@@ -15,8 +15,6 @@ use crate::model::Secret;
 
 const FILE: &str = "secrets.redb";
 const SECRETS: &str = "secrets";
-const META: &str = "meta";
-const SEAL_KEY: &str = "seal";
 /// The version of every record here. A change of a record's shape is a new version with a branch that reads the old one.
 const VERSION: u8 = 1;
 
@@ -24,8 +22,8 @@ const VERSION: u8 = 1;
 #[derive(Debug)]
 pub(crate) struct Core {
     pub(crate) secrets: Records<Secret>,
-    meta: Records<Vec<u8>>,
-    pub(crate) sealer: Sealer,
+    /// The other services (KMS keeps every secret's value), when there are any.
+    pub(crate) peers: Option<Arc<Peers>>,
     pub(crate) clock: Arc<dyn Clock>,
     pub(crate) db: Option<Db>,
     /// When the first secret marked for deletion is due to go, so a call before then need not look.
@@ -58,11 +56,11 @@ impl doze_runtime::Service for Core {
     type Error = StoreError;
 
     async fn open(ctx: &Ctx, _name: &'static str) -> Result<Self, StoreError> {
-        Self::open_in(&ctx.dir, Arc::clone(&ctx.clock))
+        Self::open_in(&ctx.dir, Arc::clone(&ctx.clock), peers_of(ctx))
     }
 
     async fn handle(&mut self, call: Call) -> Answer {
-        let mut reply = self.dispatch(&call);
+        let mut reply = self.dispatch(&call).await;
         let durable = match self.flush() {
             Ok(ack) => ack,
             Err(e) => {
@@ -81,50 +79,34 @@ impl doze_runtime::Service for Core {
 }
 
 impl Core {
-    /// Secrets Manager with no disk and a fixed sealing key (the rules alone are under test).
+    /// Secrets Manager with no disk (the rules alone are under test).
     #[cfg(test)]
-    pub(crate) fn in_memory(clock: Arc<dyn Clock>) -> Option<Self> {
-        let sealer = Sealer::new(&[7; aws_seal::KEY])?;
-        let secrets = Records::new(SECRETS, "secret", VERSION);
-        Some(Self::with(
-            clock,
-            secrets,
-            Records::new(META, "meta", VERSION),
-            sealer,
-            None,
-        ))
+    pub(crate) fn in_memory(clock: Arc<dyn Clock>, peers: Option<Arc<Peers>>) -> Self {
+        Self::with(clock, Records::new(SECRETS, "secret", VERSION), peers, None)
     }
 
-    pub(crate) fn open_in(dir: &Path, clock: Arc<dyn Clock>) -> Result<Self, StoreError> {
-        let db = Db::open(dir, FILE, &[SECRETS, META])?;
+    pub(crate) fn open_in(
+        dir: &Path,
+        clock: Arc<dyn Clock>,
+        peers: Option<Arc<Peers>>,
+    ) -> Result<Self, StoreError> {
+        let db = Db::open(dir, FILE, &[SECRETS])?;
         let read = db.read()?;
         let secrets = Records::load(SECRETS, "secret", VERSION, &read)?;
-        let mut meta: Records<Vec<u8>> = Records::load(META, "meta", VERSION, &read)?;
         drop(read);
-        if meta.get(SEAL_KEY).is_none() {
-            let key =
-                aws_seal::new_key().ok_or_else(|| StoreError::Corrupt("no randomness".into()))?;
-            meta.insert(SEAL_KEY.to_owned(), key);
-        }
-        let sealer = meta
-            .get(SEAL_KEY)
-            .and_then(|key| Sealer::new(key))
-            .ok_or_else(|| StoreError::Corrupt("the sealing key is unreadable".into()))?;
-        Ok(Self::with(clock, secrets, meta, sealer, Some(db)))
+        Ok(Self::with(clock, secrets, peers, Some(db)))
     }
 
     fn with(
         clock: Arc<dyn Clock>,
         secrets: Records<Secret>,
-        meta: Records<Vec<u8>>,
-        sealer: Sealer,
+        peers: Option<Arc<Peers>>,
         db: Option<Db>,
     ) -> Self {
         let next_purge_ms = secrets.iter().filter_map(|(_, s)| s.purge_ms).min();
         Self {
             secrets,
-            meta,
-            sealer,
+            peers,
             clock,
             db,
             next_purge_ms,
@@ -160,12 +142,12 @@ impl Core {
 
     /// Sends what the last call changed to the writer; the [`Ack`] resolves when it is on disk.
     pub(crate) fn flush(&mut self) -> Result<Option<Ack>, StoreError> {
-        let changes = vec![self.secrets.stage()?, self.meta.stage()?];
+        let changes = vec![self.secrets.stage()?];
         Ok(self.db.as_ref().and_then(|db| db.submit(changes)))
     }
 
     /// Every operation of the model is either run here or refused by name; the dispatch is exhaustive over the model.
-    pub(crate) fn dispatch(&mut self, call: &Call) -> Reply {
+    pub(crate) async fn dispatch(&mut self, call: &Call) -> Reply {
         let Some(op) = Operation::from_index(call.op).filter(|op| built(*op)) else {
             return Err(ApiError::new(
                 501,
@@ -175,11 +157,11 @@ impl Core {
         };
         self.sweep();
         match op {
-            Operation::CreateSecret => self.create_secret(call),
-            Operation::GetSecretValue => self.get_secret_value(call),
-            Operation::BatchGetSecretValue => self.batch_get_secret_value(call),
-            Operation::PutSecretValue => self.put_secret_value(call),
-            Operation::UpdateSecret => self.update_secret(call),
+            Operation::CreateSecret => self.create_secret(call).await,
+            Operation::GetSecretValue => self.get_secret_value(call).await,
+            Operation::BatchGetSecretValue => self.batch_get_secret_value(call).await,
+            Operation::PutSecretValue => self.put_secret_value(call).await,
+            Operation::UpdateSecret => self.update_secret(call).await,
             Operation::DescribeSecret => self.describe_secret(call),
             Operation::ListSecrets => self.list_secrets(call),
             Operation::ListSecretVersionIds => self.list_secret_version_ids(call),
@@ -222,4 +204,11 @@ pub(crate) fn marked_for_deletion() -> ApiError {
     invalid_request(
         "You can't perform this operation on the secret because it was marked for deletion.",
     )
+}
+
+/// The bus the host handed this service, if it did.
+fn peers_of(ctx: &Ctx) -> Option<Arc<Peers>> {
+    ctx.ext
+        .as_ref()
+        .and_then(|e| Arc::clone(e).downcast::<Peers>().ok())
 }

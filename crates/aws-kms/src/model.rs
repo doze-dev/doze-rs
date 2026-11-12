@@ -64,6 +64,8 @@ pub(crate) struct Key {
     pub(crate) grants: Vec<Grant>,
     /// Whether the key's material is imported (`Origin` is `EXTERNAL`) and not made here.
     pub(crate) external: bool,
+    /// Whether AWS made and manages the key for a service (`alias/aws/ssm`) and not the customer.
+    pub(crate) aws_managed: bool,
     /// The wrapping key pair handed out by `GetParametersForImport`, until the material is imported.
     pub(crate) import: Option<Import>,
     pub(crate) expiration_model: Option<String>,

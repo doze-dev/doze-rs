@@ -12,6 +12,7 @@ mod find;
 mod grants;
 mod import;
 mod keys;
+mod managed;
 mod model;
 mod policy;
 mod rotation;

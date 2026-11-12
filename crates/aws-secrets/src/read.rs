@@ -37,8 +37,9 @@ fn seconds(ms: i64) -> f64 {
 
 impl Core {
     /// Reads a version of a secret, and notes the day it was read.
-    fn read(
+    async fn read(
         &mut self,
+        call: &Call,
         id: &str,
         version: Option<&str>,
         stage: Option<&str>,
@@ -50,10 +51,7 @@ impl Core {
             return Err(marked_for_deletion());
         }
         let (vid, v) = pick(secret, version, stage)?;
-        let value = self
-            .sealer
-            .open(&v.sealed)
-            .ok_or_else(|| ApiError::internal("a stored secret could not be opened"))?;
+        let value = self.kms_open(call, secret, vid, &v.sealed).await?;
         let read = Read {
             arn: secret.arn.clone(),
             name: secret.name.clone(),
@@ -72,13 +70,16 @@ impl Core {
         Ok(read)
     }
 
-    pub(crate) fn get_secret_value(&mut self, call: &Call) -> Reply {
+    pub(crate) async fn get_secret_value(&mut self, call: &Call) -> Reply {
         let v = request::<Get>(call)?;
-        let r = self.read(
-            v.get(Get::SECRET_ID).unwrap_or_default(),
-            v.get(Get::VERSION_ID),
-            v.get(Get::VERSION_STAGE),
-        )?;
+        let r = self
+            .read(
+                call,
+                v.get(Get::SECRET_ID).unwrap_or_default(),
+                v.get(Get::VERSION_ID),
+                v.get(Get::VERSION_STAGE),
+            )
+            .await?;
         reply::<Got>(|o| {
             o.put(Got::ARN, &r.arn);
             o.put(Got::NAME, &r.name);
@@ -97,7 +98,7 @@ impl Core {
         })
     }
 
-    pub(crate) fn batch_get_secret_value(&mut self, call: &Call) -> Reply {
+    pub(crate) async fn batch_get_secret_value(&mut self, call: &Call) -> Reply {
         let v = request::<Batch>(call)?;
         let ids: Vec<&str> = v
             .get(Batch::SECRET_ID_LIST)
@@ -111,7 +112,7 @@ impl Core {
         let mut found = Vec::new();
         let mut errors: Vec<(&str, ApiError)> = Vec::new();
         for id in ids {
-            match self.read(id, None, None) {
+            match self.read(call, id, None, None).await {
                 Ok(r) => found.push(r),
                 Err(e) => errors.push((id, e)),
             }

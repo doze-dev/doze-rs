@@ -64,7 +64,10 @@ pub(crate) fn metadata(m: &mut Object<'_, Meta>, key: &Key, account: &str, regio
     if let Some(at) = key.valid_to_ms {
         m.put_time(Meta::VALID_TO, seconds(at));
     }
-    m.put(Meta::KEY_MANAGER, "CUSTOMER");
+    m.put(
+        Meta::KEY_MANAGER,
+        if key.aws_managed { "AWS" } else { "CUSTOMER" },
+    );
     m.put(Meta::CUSTOMER_MASTER_KEY_SPEC, key.spec.name());
     m.put(Meta::KEY_SPEC, key.spec.name());
     for (member, values) in [
@@ -203,6 +206,7 @@ impl Core {
             multi_region,
             grants: Vec::new(),
             external,
+            aws_managed: false,
             import: None,
             expiration_model: None,
             valid_to_ms: None,

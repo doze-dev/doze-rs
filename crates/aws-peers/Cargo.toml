@@ -1,0 +1,24 @@
+[package]
+name = "aws-peers"
+version = "0.0.0"
+description = "A typed in-process bus between AWS services: one service calls another's operation without a socket"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+aws-schema = { path = "../aws-schema" }
+aws-wire = { path = "../aws-wire" }
+serde_json = "1"
+aws-core = { path = "../aws-core" }
+aws-seal = { path = "../aws-seal" }
+
+[dev-dependencies]
+aws-kms = { path = "../aws-kms" }
+doze-runtime = { path = "../doze-runtime" }
+tokio = { version = "1", default-features = false, features = ["rt", "macros", "time", "sync"] }

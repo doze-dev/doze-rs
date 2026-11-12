@@ -3,6 +3,7 @@
 //! associations, inventory, patching, maintenance windows) is refused by name before its request is read.
 
 mod core;
+mod kms;
 mod label;
 mod list;
 mod model;
@@ -10,6 +11,7 @@ mod name;
 mod page;
 mod policy;
 mod read;
+mod reference;
 mod tags;
 mod write;
 

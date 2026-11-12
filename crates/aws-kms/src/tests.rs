@@ -10,6 +10,7 @@ use serde_json::Value;
 use crate::Kms;
 use crate::core::Core;
 
+mod crosscheck;
 mod grants;
 mod import;
 mod keys;
@@ -38,6 +39,7 @@ impl World {
             idle: std::time::Duration::from_secs(300),
             tasks: Tasks::new(),
             clock: Arc::new(SystemClock),
+            ext: None,
         };
         Self {
             core,

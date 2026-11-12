@@ -167,6 +167,10 @@ impl Core {
 
     pub(crate) fn re_encrypt(&mut self, call: &Call) -> Reply {
         let v = request::<ReEncrypt>(call)?;
+        self.ensure_managed(
+            call,
+            v.get(ReEncrypt::DESTINATION_KEY_ID).unwrap_or_default(),
+        )?;
         let from = context(v.get(ReEncrypt::SOURCE_ENCRYPTION_CONTEXT));
         let to = context(v.get(ReEncrypt::DESTINATION_ENCRYPTION_CONTEXT));
         let opened = self.open_blob(
@@ -195,6 +199,7 @@ impl Core {
 
     pub(crate) fn generate_data_key(&mut self, call: &Call) -> Reply {
         let v = request::<DataKey>(call)?;
+        self.ensure_managed(call, v.get(DataKey::KEY_ID).unwrap_or_default())?;
         let len = data_key_len(v.get(DataKey::KEY_SPEC), v.get(DataKey::NUMBER_OF_BYTES))?;
         let plain = random(len)?;
         let ctx = context(v.get(DataKey::ENCRYPTION_CONTEXT));
@@ -215,6 +220,7 @@ impl Core {
 
     pub(crate) fn generate_data_key_without_plaintext(&mut self, call: &Call) -> Reply {
         let v = request::<DataKeySealed>(call)?;
+        self.ensure_managed(call, v.get(DataKeySealed::KEY_ID).unwrap_or_default())?;
         let len = data_key_len(
             v.get(DataKeySealed::KEY_SPEC),
             v.get(DataKeySealed::NUMBER_OF_BYTES),

@@ -22,6 +22,9 @@ pub struct Caller {
     pub region: String,
     /// The scheme and host the caller used (`http://127.0.0.1:4566`): what a URL in an answer must begin with.
     pub endpoint: String,
+    /// The AWS service acting for the caller, when one is (SSM encrypting a `SecureString` through KMS): `None` for a request that
+    /// came in over the wire. It is what `kms:ViaService` would say.
+    pub service: Option<String>,
 }
 
 /// One decoded request, owned, so it can cross to the task that owns the service.

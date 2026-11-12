@@ -66,6 +66,7 @@ impl<S: Service> Harness<S> {
                 account_id: self.account.clone(),
                 region: self.region.clone(),
                 endpoint: "http://localhost:4566".into(),
+                service: None,
             },
             body,
             arena,
