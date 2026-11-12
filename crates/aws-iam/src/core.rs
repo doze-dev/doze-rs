@@ -15,6 +15,7 @@ use doze_store::records::Records;
 use doze_store::{Ack, Db, StoreError};
 use serde_json::Value;
 
+use crate::accesslog::Seen;
 use crate::model::{AccessKey, Account, Entity, Kind, Managed, Profile, Provider};
 use crate::req::Req;
 
@@ -50,13 +51,17 @@ pub(crate) enum Ask {
     },
 }
 
-/// What the actor answers.
+/// What the actor answers. A call and a question both come back with the authorization questions they raised, for the access log.
 #[derive(Debug)]
 pub(crate) enum Answer {
     /// The reply, and the commit it must wait for.
-    Call { reply: Reply, durable: Option<Ack> },
+    Call {
+        reply: Reply,
+        durable: Option<Ack>,
+        seen: Vec<Seen>,
+    },
     /// Yes, or the refusal.
-    Authorize(Result<(), ApiError>),
+    Authorize(Result<(), ApiError>, Vec<Seen>),
     /// The credential, if IAM issued the key.
     Credential(Option<aws_auth::Credential>),
 }
@@ -75,6 +80,8 @@ pub(crate) struct Core {
     pub(crate) mode: Mode,
     iam: Patterns,
     sts: Patterns,
+    /// The authorization questions answered since the last answer went out: handed to the access log with it.
+    pub(crate) seen: Vec<Seen>,
 }
 
 impl doze_runtime::Service for Core {
@@ -97,7 +104,12 @@ impl doze_runtime::Service for Core {
     async fn handle(&mut self, ask: Ask) -> Answer {
         let (which, call) = match ask {
             Ask::Authorize { caller, needs } => {
-                return Answer::Authorize(self.authorize(&caller, &needs));
+                let verdict = self.authorize(&caller, &needs);
+                // A last use noted on the way is written without anyone waiting for it: losing one to a crash costs a timestamp.
+                if let Err(e) = self.flush() {
+                    tracing::warn!("iam: could not save when a credential was last used: {e}");
+                }
+                return Answer::Authorize(verdict, std::mem::take(&mut self.seen));
             }
             Ask::Credential {
                 access_key_id,
@@ -117,7 +129,11 @@ impl doze_runtime::Service for Core {
                 None
             }
         };
-        Answer::Call { reply, durable }
+        Answer::Call {
+            reply,
+            durable,
+            seen: std::mem::take(&mut self.seen),
+        }
     }
 
     async fn close(self) {
@@ -154,6 +170,7 @@ impl Core {
         drop(read);
         let mut core = Self::with(clock, tables, Some(db));
         core.ensure_account();
+        core.fill_aws_managed();
         Ok(core)
     }
 
@@ -170,6 +187,7 @@ impl Core {
             mode: Mode::default(),
             iam: Patterns::new(&aws_model_iam::tables::TABLES),
             sts: Patterns::new(&aws_model_sts::tables::TABLES),
+            seen: Vec::new(),
         }
     }
 
@@ -216,13 +234,13 @@ impl Core {
     pub(crate) fn dispatch(&mut self, which: Which, call: &Call) -> Reply {
         if self.mode != Mode::Off {
             // The Query services refuse as 403 `AccessDenied`.
-            self.authorize(&call.caller, &self.needs_of(which, call))
-                .map_err(|mut denied| {
-                    denied.status = 403;
-                    denied.code = "AccessDenied".into();
-                    denied.shape = None;
-                    denied
-                })?;
+            let needs = self.needs_of(which, call);
+            self.authorize(&call.caller, &needs).map_err(|mut denied| {
+                denied.status = 403;
+                denied.code = "AccessDenied".into();
+                denied.shape = None;
+                denied
+            })?;
         }
         let r = Req::new(call);
         let value: Value = match which {
