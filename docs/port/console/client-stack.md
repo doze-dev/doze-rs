@@ -81,3 +81,7 @@ See `docs/port/console/ux-tests.md` for how to run `tools/ux/drive.ts`, and the 
 - **History.** A form sends itself as it stands (`?partition=1&time=&partition=1`); the handler's `region::canonical` replaces that with the clean address (`HX-Push-Url`, `HX-Replace-Url`, or `HX-Push-Url: false` when nothing changed). A search box sends `X-History: replace`.
 - **Page changes** are latest-wins and wait for a swap that is on its way (`console.js`, "Page changes are latest-wins"); `hx-sync="this:replace"` was tried and dropped, because an aborted request is logged as a console error by htmx 2. A scroll restore is `behavior: "instant"` (the page has `scroll-behavior: smooth`).
 - **Weight.** The pass adds about 5.5 KB of script and 1.5 KB of CSS; no library.
+
+## MultiSelect (multi-select pass, CON-850 to CON-859)
+
+The Zag upgrade path named above was not needed for multi-select: `assets/multiselect.js` (about 200 lines, one Alpine component, loaded after `components.js`) keeps the rule that the options are the server's elements and the state is a real form control (checkboxes in a `<details>`, so it works with no script and a form sends repeated parameters). The vendored list is unchanged; our scripts are now `console.js`, `components.js` and `multiselect.js`.

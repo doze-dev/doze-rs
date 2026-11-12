@@ -69,6 +69,27 @@ pub fn multiselect(m: &MultiSelect<'_>) -> Markup {
     alpine(multiselect_html(m))
 }
 
+/// The control without a script, and the one a form reads with it: a details of checkboxes, with a real submit button.
+fn plain(m: &MultiSelect<'_>, all: &[Choice<'_>], now: &str) -> Markup {
+    let on = |c: &Choice<'_>| m.values.iter().any(|v| v == c.value);
+    html! {
+        details class="dz-native dz-multi-plain" id=(m.id) {
+            summary { (now) }
+            fieldset class="dz-multi-checks" {
+                legend class="sr-only" { (m.label) }
+                @for (i, c) in all.iter().enumerate() {
+                    label class="dz-multi-check" {
+                        input type="checkbox" name=(m.name) value=(c.value) checked[on(c)] id=(format!("{}-c{i}", m.id));
+                        span class="dz-multi-check-l" { (c.label) }
+                        @if let Some(k) = c.count { span class="dz-count" { (k) } }
+                    }
+                }
+                button type="submit" class="btn sm" data-noscript { "Apply" }
+            }
+        }
+    }
+}
+
 fn multiselect_html(m: &MultiSelect<'_>) -> Markup {
     // The options, then the chosen values no option has.
     let mut all: Vec<Choice<'_>> = Vec::with_capacity(m.choices.len());
@@ -93,21 +114,7 @@ fn multiselect_html(m: &MultiSelect<'_>) -> Markup {
     html! {
         div class={"dz dz-multi " (m.class) @if n > 0 { " on" }} x-data="dzMulti" x-on:keydown="key" x-on:click="click" x-on:mousemove="hover" x-on:mousedown="down" x-on:focusout="focusout" xo-click="away" xb-data-open="open"
             id=(format!("{}-ms", m.id)) data-ui="multiselect" data-name=(m.name) data-noun=(m.noun) data-placeholder=(m.placeholder) data-autosubmit[m.auto_submit] {
-            // The control without a script, and the one a form reads with it: checkboxes. A real submit button is its way to apply.
-            details class="dz-native dz-multi-plain" id=(m.id) {
-                summary { (now) }
-                fieldset class="dz-multi-checks" {
-                    legend class="sr-only" { (m.label) }
-                    @for (i, c) in all.iter().enumerate() {
-                        label class="dz-multi-check" {
-                            input type="checkbox" name=(m.name) value=(c.value) checked[on(c)] id=(format!("{}-c{i}", m.id));
-                            span class="dz-multi-check-l" { (c.label) }
-                            @if let Some(k) = c.count { span class="dz-count" { (k) } }
-                        }
-                    }
-                    button type="submit" class="btn sm" data-noscript { "Apply" }
-                }
-            }
+            (plain(m, &all, &now))
             div class="dz-multi-box" {
                 button type="button" class={"dz-trigger dz-multi-trigger" @if n > 0 { " has" }} x-ref="trigger" aria-haspopup="listbox" aria-expanded="false" xb-aria-expanded="open" aria-controls=(pop_id)
                     aria-label=(format!("{}: {}", m.label, now)) title=(chosen.join(", ")) data-ui=[m.ui] hidden {

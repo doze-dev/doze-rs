@@ -3,7 +3,8 @@
 
 use super::{Spec, at, now, steady_rows, window, wr};
 use crate::model::{
-    ClientRow, ClientsView, FirstView, GroupWireView, WireClass, WireQuery, WireRow, WireWindow,
+    ClientRow, ClientsView, Facet, Facets, FirstView, GroupWireView, WireClass, WireQuery, WireRow,
+    WireWindow,
 };
 
 /// The Clients drawer.
@@ -329,5 +330,52 @@ pub fn spoke() -> crate::model::SpokeView {
         last_ms: Some(now() - 1000),
         ago_ms: Some(1000),
         last_client: Some("fulfilment".to_owned()),
+    }
+}
+
+/// The filters' options: the fixture tape's apps, APIs and topics (and the few more the larder's world has), each with its rows.
+pub fn facets(rows: &[WireRow]) -> Facets {
+    let list = |names: &[&str], of: &dyn Fn(&WireRow, &str) -> bool| {
+        names
+            .iter()
+            .map(|n| Facet {
+                value: (*n).to_owned(),
+                count: rows.iter().filter(|r| of(r, n)).count(),
+            })
+            .collect()
+    };
+    Facets {
+        clients: list(
+            &[
+                "admin-cli",
+                "catalog",
+                "fulfilment",
+                "notifications",
+                "orders",
+                "payments",
+                "search-indexer",
+            ],
+            &|r, n| r.client == n,
+        ),
+        apis: list(
+            &[
+                "Fetch",
+                "Metadata",
+                "OffsetCommit",
+                "Produce",
+                "InitProducerId",
+                "ApiVersions",
+            ],
+            &|r, n| r.api == n,
+        ),
+        topics: list(
+            &[
+                "clickstream",
+                "inventory.levels",
+                "orders",
+                "payments.settled",
+            ],
+            &|r, n| r.topics.iter().any(|t| t == n),
+        ),
     }
 }

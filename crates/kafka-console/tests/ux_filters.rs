@@ -98,3 +98,28 @@ async fn groups_states_and_messages_partitions_take_several_values() {
         "the multi-select has both"
     );
 }
+
+/// CON-854: two chosen values are tags that take themselves off, and an empty tape says which filters are on.
+#[tokio::test]
+async fn the_empty_tape_names_the_filters_and_two_values_make_tags() {
+    let (_, doc) = page("/live?topic=orders&topic=clickstream").await;
+    assert!(
+        doc.contains(r#"id="live-picked""#) && doc.matches(r#"class="dz-tag""#).count() == 2,
+        "{doc:.3000}"
+    );
+    assert!(doc.contains("Clear filters"));
+    let (_, one) = page("/live?topic=orders").await;
+    assert!(
+        !one.contains(r#"class="dz-tag""#),
+        "one value is on the button, not in tags"
+    );
+    let (_, none) = page("/live?client=no-such-app&topic=orders&topic=clickstream").await;
+    assert!(
+        none.contains(r#"id="live-no-match""#) && none.contains("No request matches these filters"),
+        "{none:.3000}"
+    );
+    assert!(
+        none.contains("app is no-such-app") && none.contains("topic is orders or clickstream"),
+        "{none:.3000}"
+    );
+}
