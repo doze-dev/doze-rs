@@ -2,6 +2,7 @@
 
 mod acls;
 mod broker_configs;
+mod credentials;
 mod lives;
 mod offsets;
 mod producer_ids;
@@ -37,6 +38,11 @@ pub(super) const BROKER_CONFIGS: TableDefinition<'static, &str, &str> =
 /// The ACLs: the seven fields (the key) to the record. A database made before ACLs existed has no such table, and
 /// the reads below take that as none.
 pub(super) const ACLS: TableDefinition<'static, &[u8], &[u8]> = TableDefinition::new("acls");
+
+/// The SCRAM credentials: mechanism and user (the key) to the record. Absent from a database made before they could be
+/// kept, which the reads take as none and the first write makes.
+pub(super) const CREDENTIALS: TableDefinition<'static, &[u8], &[u8]> =
+    TableDefinition::new("credentials");
 
 pub(super) const COUNTERS: TableDefinition<'static, &str, u64> = TableDefinition::new("counters");
 
@@ -125,6 +131,7 @@ fn make<F: Fs>(fs: &F, dir: &Path, path: &Path) -> Result<(), MetaError> {
     txn.open_table(TXNS)?;
     txn.open_table(BROKER_CONFIGS)?;
     txn.open_table(ACLS)?;
+    txn.open_table(CREDENTIALS)?;
     txn.commit()?;
     // Closed by name, not by dropping: closing flushes once more, and a flush that fails must stop the
     // file being put in place (a dropped database would swallow it, and the file's later flushes may
