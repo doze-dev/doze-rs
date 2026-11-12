@@ -32,6 +32,7 @@ impl World {
             queues: BTreeMap::new(),
             deleted: BTreeMap::new(),
             tasks: Vec::new(),
+            poll: None,
             clock: clock.clone(),
         };
         Self {
@@ -43,35 +44,9 @@ impl World {
 
     /// Runs one operation: the request as JSON in, the answer as JSON (or the error) out.
     fn run(&mut self, op: Operation, request: &Value) -> Result<Value, ApiError> {
-        let body = request.to_string();
-        let shape = TABLES.op(op.index()).unwrap().input.unwrap();
-        let mut arena = Arena::new();
-        let root = decode(&TABLES, &self.patterns, shape, &body, &mut arena)
-            .map_err(|v| crate::Sqs::invalid_for_tests(&v))?;
-        let caller = Caller {
-            access_key_id: "test".into(),
-            account_id: "000000000000".into(),
-            region: "us-east-1".into(),
-            endpoint: "http://localhost:4566".into(),
-        };
-        let call = Call {
-            op: op.index(),
-            id: RequestId::new(),
-            caller,
-            body,
-            arena,
-            root,
-        };
+        let call = call_of(&self.patterns, op, request)?;
         let out = self.core.dispatch(&call)?;
-        let Some(shape) = TABLES.op(op.index()).unwrap().output else {
-            return Ok(json!({}));
-        };
-        if out.root == aws_schema::arena::NIL {
-            return Ok(json!({}));
-        }
-        let mut bytes = Vec::new();
-        encode(&TABLES, shape, &out.arena, "", out.root, &mut bytes).unwrap();
-        Ok(serde_json::from_slice(&bytes).unwrap())
+        Ok(output_json(op, &out))
     }
 
     fn ok(&mut self, op: Operation, request: &Value) -> Value {
@@ -393,3 +368,41 @@ fn queues_list_in_name_order_with_a_prefix_and_pages() {
         (vec!["c".to_owned()], None)
     );
 }
+
+/// A request decoded against the model, as the gateway would hand it to a service.
+fn call_of(patterns: &Patterns, op: Operation, request: &Value) -> Result<Call, ApiError> {
+    let body = request.to_string();
+    let shape = TABLES.op(op.index()).unwrap().input.unwrap();
+    let mut arena = Arena::new();
+    let root = decode(&TABLES, patterns, shape, &body, &mut arena)
+        .map_err(|v| crate::Sqs::invalid_for_tests(&v))?;
+    let caller = Caller {
+        access_key_id: "test".into(),
+        account_id: "000000000000".into(),
+        region: "us-east-1".into(),
+        endpoint: "http://localhost:4566".into(),
+    };
+    Ok(Call {
+        op: op.index(),
+        id: RequestId::new(),
+        caller,
+        body,
+        arena,
+        root,
+    })
+}
+
+/// An answer as JSON.
+fn output_json(op: Operation, out: &aws_wire::service::Output) -> Value {
+    let Some(shape) = TABLES.op(op.index()).unwrap().output else {
+        return json!({});
+    };
+    if out.root == aws_schema::arena::NIL {
+        return json!({});
+    }
+    let mut bytes = Vec::new();
+    encode(&TABLES, shape, &out.arena, "", out.root, &mut bytes).unwrap();
+    serde_json::from_slice(&bytes).unwrap()
+}
+
+mod long_poll;

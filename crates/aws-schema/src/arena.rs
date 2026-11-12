@@ -32,7 +32,7 @@ pub struct Node {
     pub val: Val,
 }
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct Arena {
     pub(crate) nodes: Vec<Node>,
     pub(crate) text: String,

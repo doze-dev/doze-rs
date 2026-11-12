@@ -111,6 +111,11 @@ impl Core {
                 .collect();
             queue.fifo.attempt = Some((id.to_owned(), now, ids));
         }
+        // Nothing to hand over: the caller may wait for something to arrive, for as long as it asked, or the queue's default.
+        let wait = ask.wait.unwrap_or(i64::from(queue.attrs.wait_seconds));
+        if taken.is_empty() && wait > 0 {
+            self.poll = u32::try_from(wait).ok();
+        }
         write_received(&taken)
     }
 
@@ -151,6 +156,8 @@ struct ReceiveAsk<'a> {
     system: Vec<&'a str>,
     user: Vec<&'a str>,
     attempt: Option<&'a str>,
+    /// How long the caller will wait for a message, if it said.
+    wait: Option<i64>,
 }
 
 impl<'a> ReceiveAsk<'a> {
@@ -174,8 +181,9 @@ impl<'a> ReceiveAsk<'a> {
                 "Must be between 0 and 43200, if provided.",
             )?;
         }
+        let wait = v.get(Receive::WAIT_TIME_SECONDS);
         ranged(
-            v.get(Receive::WAIT_TIME_SECONDS),
+            wait,
             0,
             20,
             0,
@@ -197,6 +205,7 @@ impl<'a> ReceiveAsk<'a> {
                 .flatten()
                 .collect(),
             attempt: v.get(Receive::RECEIVE_REQUEST_ATTEMPT_ID),
+            wait,
         })
     }
 }

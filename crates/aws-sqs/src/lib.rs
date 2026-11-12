@@ -34,7 +34,7 @@ use aws_wire::ApiError;
 use aws_wire::service::{BoxFuture, Call, Reply, Service};
 use doze_runtime::{Ctx, Lazy};
 
-use crate::core::Core;
+use crate::core::{Answer, Core};
 
 /// MD5 of some bytes, as lower-case hex.
 pub(crate) fn md5_hex(bytes: &[u8]) -> String {
@@ -46,6 +46,8 @@ pub(crate) fn md5_hex(bytes: &[u8]) -> String {
 #[derive(Debug)]
 pub struct Sqs {
     actor: Lazy<Core>,
+    /// Woken by anything that could give a waiting receive a message.
+    arrived: tokio::sync::Notify,
 }
 
 impl Sqs {
@@ -54,6 +56,40 @@ impl Sqs {
     pub fn new(ctx: Arc<Ctx>) -> Self {
         Self {
             actor: Lazy::new("sqs", ctx),
+            arrived: tokio::sync::Notify::new(),
+        }
+    }
+
+    async fn ask(&self, call: Call) -> Answer {
+        match self.actor.call(call).await {
+            Ok(answer) => answer,
+            Err(e) => Answer {
+                reply: Err(ApiError::internal(e.to_string())),
+                poll: None,
+            },
+        }
+    }
+
+    /// A long poll: asks again when something has arrived, or every quarter second (a message can become visible by the clock
+    /// alone), until one is found or `seconds` have passed. The actor is free the whole time. `empty` is what to answer at
+    /// the end.
+    async fn wait_for_messages(&self, call: Call, seconds: u32, empty: Reply) -> Reply {
+        let deadline =
+            tokio::time::Instant::now() + std::time::Duration::from_secs(u64::from(seconds));
+        loop {
+            let left = deadline.saturating_duration_since(tokio::time::Instant::now());
+            if left.is_zero() {
+                return empty;
+            }
+            let tick = left.min(std::time::Duration::from_millis(250));
+            tokio::select! {
+                () = self.arrived.notified() => {}
+                () = tokio::time::sleep(tick) => {}
+            }
+            let again = self.ask(call.duplicate()).await;
+            if again.poll.is_none() {
+                return again.reply;
+            }
         }
     }
 }
@@ -77,9 +113,17 @@ impl Service for Sqs {
 
     fn call(&self, call: Call) -> BoxFuture<'_, Reply> {
         Box::pin(async move {
-            match self.actor.call(call).await {
-                Ok(reply) => reply,
-                Err(e) => Err(ApiError::internal(e.to_string())),
+            let receive = aws_model_sqs::Operation::from_index(call.op)
+                == Some(aws_model_sqs::Operation::ReceiveMessage);
+            let first = self.ask(call.duplicate()).await;
+            if !receive {
+                // A send, a visibility change, a purge, a redrive: something a waiting receive may now find.
+                self.arrived.notify_waiters();
+                return first.reply;
+            }
+            match first.poll {
+                Some(seconds) => self.wait_for_messages(call, seconds, first.reply).await,
+                None => first.reply,
             }
         })
     }

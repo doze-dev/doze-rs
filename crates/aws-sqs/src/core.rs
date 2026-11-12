@@ -22,12 +22,21 @@ pub(crate) struct Core {
     /// When each deleted queue was deleted: its name cannot be used again for a minute.
     pub(crate) deleted: BTreeMap<String, i64>,
     pub(crate) tasks: Vec<crate::moves::Task>,
+    /// Set by a receive that found nothing and may be waited on: how many seconds the caller is willing to wait.
+    pub(crate) poll: Option<u32>,
     pub(crate) clock: Arc<dyn Clock>,
+}
+
+/// What the actor answers: the reply, and whether the caller may wait for a better one (a receive that found nothing).
+#[derive(Debug)]
+pub(crate) struct Answer {
+    pub(crate) reply: Reply,
+    pub(crate) poll: Option<u32>,
 }
 
 impl doze_runtime::Service for Core {
     type Request = Call;
-    type Response = Reply;
+    type Response = Answer;
     type Error = Infallible;
 
     async fn open(ctx: &Ctx, _name: &'static str) -> Result<Self, Infallible> {
@@ -35,12 +44,18 @@ impl doze_runtime::Service for Core {
             queues: BTreeMap::new(),
             deleted: BTreeMap::new(),
             tasks: Vec::new(),
+            poll: None,
             clock: Arc::clone(&ctx.clock),
         })
     }
 
-    async fn handle(&mut self, call: Call) -> Reply {
-        self.dispatch(&call)
+    async fn handle(&mut self, call: Call) -> Answer {
+        self.poll = None;
+        let reply = self.dispatch(&call);
+        Answer {
+            reply,
+            poll: self.poll.take(),
+        }
     }
 }
 

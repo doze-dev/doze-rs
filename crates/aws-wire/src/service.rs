@@ -41,6 +41,22 @@ pub struct Call {
     pub root: u32,
 }
 
+impl Call {
+    /// A second copy of the call, for a service that must ask again (a long poll re-asks until something arrives). The body
+    /// and the tree are copied; a request is small.
+    #[must_use]
+    pub fn duplicate(&self) -> Self {
+        Self {
+            op: self.op,
+            id: self.id.clone(),
+            caller: self.caller.clone(),
+            body: self.body.clone(),
+            arena: self.arena.clone(),
+            root: self.root,
+        }
+    }
+}
+
 /// An answer: a tree to encode as the operation's output shape.
 #[derive(Debug)]
 pub struct Output {

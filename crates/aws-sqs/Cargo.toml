@@ -22,5 +22,8 @@ sha2 = "0.11"
 serde_json = "1"
 getrandom = "0.4"
 
+# Long polling: a timer and a wake-up (no runtime of its own).
+tokio = { version = "1", default-features = false, features = ["sync", "time", "macros"] }
+
 [dev-dependencies]
-tokio = { version = "1", default-features = false, features = ["rt", "macros", "time"] }
+tokio = { version = "1", default-features = false, features = ["rt", "macros", "time", "test-util", "sync"] }
