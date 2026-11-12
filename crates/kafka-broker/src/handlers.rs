@@ -20,6 +20,7 @@ mod describe_transactions;
 mod end_txn;
 mod fetch;
 mod find_coordinator;
+mod group_guard;
 mod heartbeat;
 mod init_producer_id;
 mod join_group;

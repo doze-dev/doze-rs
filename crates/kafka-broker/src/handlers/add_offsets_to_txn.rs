@@ -1,24 +1,39 @@
 //! AddOffsetsToTxn: the consumer group whose offsets the transaction will commit.
 
+use kafka_auth::authz::operation;
 use kafka_storage::fs::Fs;
 use kafka_wire::ResponseError as E;
 use kafka_wire::api::Response;
 use kafka_wire::messages::{AddOffsetsToTxnRequest, AddOffsetsToTxnResponse};
 
 use crate::txn::rules;
-use crate::{Broker, Outcome};
+use crate::{Broker, Caller, Outcome};
 
 impl<F: Fs> Broker<F> {
+    /// The caller must be allowed to WRITE the transactional id (53), then to READ the group (30): both before the
+    /// transaction is looked at.
     pub(crate) async fn add_offsets_to_txn(
         &self,
         version: i16,
+        caller: &Caller,
         req: &AddOffsetsToTxnRequest,
     ) -> Outcome {
+        let guard = self.guard(caller);
         let mut resp = AddOffsetsToTxnResponse::default();
-        resp.error_code = self
-            .add_offsets(req)
-            .await
-            .map_or(0, |e| rules::fenced_as(e, version, 2).code());
+        let refused = if !guard.txn(operation::WRITE, req.transactional_id.0.as_str()) {
+            Some(E::TransactionalIdAuthorizationFailed)
+        } else if !guard.group(operation::READ, req.group_id.0.as_str()) {
+            Some(E::GroupAuthorizationFailed)
+        } else {
+            None
+        };
+        resp.error_code = match refused {
+            Some(e) => e.code(),
+            None => self
+                .add_offsets(req)
+                .await
+                .map_or(0, |e| rules::fenced_as(e, version, 2).code()),
+        };
         Outcome::Respond(Response::AddOffsetsToTxn(resp))
     }
 

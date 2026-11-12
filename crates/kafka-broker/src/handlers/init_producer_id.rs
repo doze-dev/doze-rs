@@ -74,13 +74,15 @@ impl<F: Fs> Broker<F> {
     /// Why the caller may not be given a producer id, if it may not.
     fn refusal_for(&self, caller: &Caller, req: &InitProducerIdRequest) -> Option<ResponseError> {
         match &req.transactional_id {
-            Some(id) => (!self.authz.allows(
-                caller,
-                resource::TRANSACTIONAL_ID,
-                id.0.as_str(),
-                operation::WRITE,
-            ))
-            .then_some(ResponseError::TransactionalIdAuthorizationFailed),
+            // (KafkaApis.scala:1608-1614: WRITE, and for a two-phase commit TWO_PHASE_COMMIT as well.)
+            Some(id) => {
+                let may = |op| {
+                    self.authz
+                        .allows(caller, resource::TRANSACTIONAL_ID, id.0.as_str(), op)
+                };
+                (!may(operation::WRITE) || (req.enable_2_pc && !may(operation::TWO_PHASE_COMMIT)))
+                    .then_some(ResponseError::TransactionalIdAuthorizationFailed)
+            }
             None => (!self.authz.allows(
                 caller,
                 resource::CLUSTER,

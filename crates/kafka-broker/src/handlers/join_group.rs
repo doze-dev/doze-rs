@@ -1,5 +1,6 @@
 //! JoinGroup.
 
+use kafka_auth::authz::operation;
 use kafka_storage::fs::Fs;
 use kafka_wire::ids::{GroupId, InstanceId, MemberId};
 use kafka_wire::messages::join_group_response::JoinGroupResponseMember;
@@ -8,15 +9,26 @@ use kafka_wire::{ResponseError, StrBytes};
 
 use crate::groups::{Answer, JoinAnswer, JoinRequest, Protocol, Req};
 use crate::handlers::Client;
-use crate::{Broker, Outcome};
+use crate::{Broker, Caller, Outcome};
 
 impl<F: Fs> Broker<F> {
+    /// Joins a member to a group. The caller must be allowed to READ the group, before the group id is judged.
     pub(crate) async fn join_group(
         &self,
         version: i16,
+        caller: &Caller,
         client: &Client<'_>,
         req: &JoinGroupRequest,
     ) -> Outcome {
+        if !self
+            .guard(caller)
+            .group(operation::READ, req.group_id.as_str())
+        {
+            return respond(
+                version,
+                &JoinAnswer::refused(ResponseError::GroupAuthorizationFailed, None),
+            );
+        }
         let Ok(group) = GroupId::parse(req.group_id.as_str()) else {
             return respond(
                 version,

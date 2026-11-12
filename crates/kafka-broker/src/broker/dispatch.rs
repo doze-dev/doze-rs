@@ -40,26 +40,26 @@ impl<F: Fs> Broker<F> {
                 self.list_offsets(head.version, &r).await,
             )),
             Request::FindCoordinator(r) => respond(Response::FindCoordinator(
-                self.find_coordinator(head.version, listener, &r),
+                self.find_coordinator(head.version, listener, caller, &r),
             )),
             Request::JoinGroup(r) => {
-                self.join_group(head.version, &client_of(listener, head), &r)
+                self.join_group(head.version, caller, &client_of(listener, head), &r)
                     .await
             }
-            Request::SyncGroup(r) => self.sync_group(&r).await,
-            Request::Heartbeat(r) => self.heartbeat(&r).await,
-            Request::LeaveGroup(r) => self.leave_group(head.version, &r).await,
-            Request::OffsetCommit(r) => self.offset_commit(head.version, &r).await,
-            Request::OffsetFetch(r) => self.offset_fetch(&r).await,
-            Request::OffsetDelete(r) => self.offset_delete(&r).await,
-            Request::DescribeGroups(r) => self.describe_groups(&r).await,
-            Request::ListGroups(r) => self.list_groups(&r).await,
-            Request::DeleteGroups(r) => self.delete_groups(&r).await,
+            Request::SyncGroup(r) => self.sync_group(head.version, caller, &r).await,
+            Request::Heartbeat(r) => self.heartbeat(caller, &r).await,
+            Request::LeaveGroup(r) => self.leave_group(head.version, caller, &r).await,
+            Request::OffsetCommit(r) => self.offset_commit(head.version, caller, &r).await,
+            Request::OffsetFetch(r) => self.offset_fetch(head.version, caller, &r).await,
+            Request::OffsetDelete(r) => self.offset_delete(caller, &r).await,
+            Request::DescribeGroups(r) => self.describe_groups(head.version, caller, &r).await,
+            Request::ListGroups(r) => self.list_groups(caller, &r).await,
+            Request::DeleteGroups(r) => self.delete_groups(caller, &r).await,
             Request::ConsumerGroupHeartbeat(r) => {
-                self.consumer_group_heartbeat(head.version, &client_of(listener, head), &r)
+                self.consumer_group_heartbeat(head.version, caller, &client_of(listener, head), &r)
                     .await
             }
-            Request::ConsumerGroupDescribe(r) => self.consumer_group_describe(&r).await,
+            Request::ConsumerGroupDescribe(r) => self.consumer_group_describe(caller, &r).await,
             Request::DeleteRecords(r) => self.delete_records(&r).await,
             Request::CreatePartitions(r) => self.create_partitions(&r).await,
             Request::DescribeConfigs(r) => self.describe_configs(&r),
@@ -69,12 +69,14 @@ impl<F: Fs> Broker<F> {
             Request::InitProducerId(r) => respond(Response::InitProducerId(
                 self.init_producer_id(head.version, caller, &r).await,
             )),
-            Request::AddPartitionsToTxn(r) => self.add_partitions_to_txn(head.version, &r).await,
-            Request::AddOffsetsToTxn(r) => self.add_offsets_to_txn(head.version, &r).await,
-            Request::EndTxn(r) => self.end_txn_request(head.version, &r).await,
-            Request::TxnOffsetCommit(r) => self.txn_offset_commit(&r).await,
-            Request::DescribeTransactions(r) => self.describe_transactions(&r).await,
-            Request::ListTransactions(r) => self.list_transactions(&r).await,
+            Request::AddPartitionsToTxn(r) => {
+                self.add_partitions_to_txn(head.version, caller, &r).await
+            }
+            Request::AddOffsetsToTxn(r) => self.add_offsets_to_txn(head.version, caller, &r).await,
+            Request::EndTxn(r) => self.end_txn_request(head.version, caller, &r).await,
+            Request::TxnOffsetCommit(r) => self.txn_offset_commit(caller, &r).await,
+            Request::DescribeTransactions(r) => self.describe_transactions(caller, &r).await,
+            Request::ListTransactions(r) => self.list_transactions(caller, &r).await,
             Request::DescribeAcls(r) => self.describe_acls(caller, &r),
             Request::CreateAcls(r) => self.create_acls(caller, &r).await,
             Request::DeleteAcls(r) => self.delete_acls(caller, &r).await,
