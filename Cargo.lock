@@ -426,6 +426,7 @@ name = "aws-s3"
 version = "0.0.0"
 dependencies = [
  "aws-core",
+ "aws-gateway",
  "aws-model-s3",
  "aws-peers",
  "aws-schema",
