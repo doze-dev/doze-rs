@@ -5,7 +5,7 @@ use maud::{Markup, html};
 use super::{LOG_SENTENCE, fragment_url};
 use crate::base::Base;
 use crate::log_words::{head_sentence, state_word};
-use crate::model::{Cleanup, LogView, TopicHead};
+use crate::model::{Cleanup, LogState, LogView, TopicHead};
 use crate::pages::topics::{TopicTab, topic_frame};
 use crate::ui::button::{pill_mono, state};
 use crate::ui::client;
@@ -27,10 +27,12 @@ fn sentence(v: &LogView) -> Markup {
 
 fn beside(v: &LogView) -> Markup {
     let (tone, word) = state_word(v);
+    // The topic's own head already says Compacted, Delete and an open transaction; what only this page knows is that the log is
+    // empty or that the cleaner will not take it yet.
     html! {
-        (state(tone, word))
-        @if v.cleanup == Cleanup::Both { " " (pill_mono("compact,delete")) }
-        " " (pill_mono(&format!("partition {} of {}", v.partition, v.partitions)))
+        @if matches!(v.state(), LogState::Empty | LogState::NotDue) { (state(tone, word)) " " }
+        @if v.cleanup == Cleanup::Both { (pill_mono("compact,delete")) " " }
+        (pill_mono(&format!("partition {} of {}", v.partition, v.partitions)))
     }
 }
 

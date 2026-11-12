@@ -49,7 +49,8 @@ pub(super) fn txn_head(
     html! {
         (topic_frame(head, base, TopicTab::Producers))
         (lead(
-            html! { @if v.txn.ongoing() { (state(State::Warn, "Transaction open")) } @else { (state(tone(&v.txn.state), &v.txn.state)) } },
+            // The topic's head says "Transaction open"; a transaction that is over says how it ended.
+            html! { @if !v.txn.ongoing() { (state(tone(&v.txn.state), &v.txn.state)) } },
             html! { div class="row sb" { p class="sub" data-extra="live-sentence" { (sentence) } div class="acts" { (acts) } } },
         ))
     }

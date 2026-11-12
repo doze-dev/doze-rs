@@ -21,7 +21,7 @@ use crate::model::{ProducersView, TopicHead};
 use crate::pages::log::lead;
 use crate::pages::topics::{TopicTab, topic_frame};
 use crate::producers_words::producers_sentence;
-use crate::ui::button::{State, pill_mono, state};
+use crate::ui::button::pill_mono;
 use crate::ui::client;
 use crate::ui::write::spans;
 
@@ -105,7 +105,6 @@ pub fn producers_page(v: &ProducersView, head: &TopicHead, base: &Base) -> Marku
     html! {
         (topic_frame(head, base, TopicTab::Producers))
         (lead(html! {
-            @if !v.open.is_empty() { (state(State::Warn, "Transaction open")) " " }
             (pill_mono(&format!("partition {} of {}", v.partition, v.partitions)))
         }, producers_sentence_fragment(v, base)))
         (partition_seg(v))

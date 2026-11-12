@@ -152,7 +152,10 @@ async fn retention_is_named_before_and_after_a_pass() {
         before.contains("What the next pass will do")
             && before.contains("No pass has run since the broker started")
     );
-    assert!(before.contains("<span class=\"st ok\">Delete</span>"));
+    assert!(
+        before.contains("<span class=\"pill mono\">delete</span>"),
+        "the topic head says its policy"
+    );
     assert!(
         before.contains("Size: 2.9 KiB") && before.contains("<span class=\"v\">over</span>"),
         "{:.2500}",

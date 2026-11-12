@@ -3343,14 +3343,6 @@
     "expires": "close"
   },
   {
-    "board": "topic-log",
-    "field": "state",
-    "selector": "st ok",
-    "reason": "improvement: the topic's own head and tabs (its state words, Partitions, Produce and Delete, the link of the Consumers tab) are the same on every tab of a topic, where the board draws a head of its own for this page (the owner's rule: the header does not move between tabs).",
-    "render": "fixture",
-    "expires": "close"
-  },
-  {
     "board": "topic-producers",
     "field": "table.rows",
     "selector": "has rows",
@@ -3417,14 +3409,6 @@
   {
     "board": "topic-producers",
     "field": "state",
-    "selector": "st warn",
-    "reason": "improvement: the topic's own head and tabs (its state words, Partitions, Produce and Delete, the link of the Consumers tab) are the same on every tab of a topic, where the board draws a head of its own for this page (the owner's rule: the header does not move between tabs).",
-    "render": "fixture",
-    "expires": "close"
-  },
-  {
-    "board": "topic-producers",
-    "field": "state",
     "selector": "st refused in rows",
     "reason": "improvement: a producer is a native disclosure that opens in place (an expander is never a link), in a list that has the board's columns, where the board draws a table with a link per row.",
     "render": "live",
@@ -3480,14 +3464,6 @@
     "expires": "close"
   },
   {
-    "board": "txn-open",
-    "field": "state",
-    "selector": "st warn",
-    "reason": "improvement: the topic's own head and tabs (its state words, Partitions, Produce and Delete, the link of the Consumers tab) are the same on every tab of a topic, where the board draws a head of its own for this page (the owner's rule: the header does not move between tabs).",
-    "render": "fixture",
-    "expires": "close"
-  },
-  {
     "board": "txn-holding",
     "field": "button",
     "selector": "Partitions [-] -> to:topic-partitions",
@@ -3534,14 +3510,6 @@
     "field": "link",
     "selector": "topic-produce|topic-produce-keyless|topic-produced",
     "reason": "improvement: the topic's own head and tabs (its state words, Partitions, Produce and Delete, the link of the Consumers tab) are the same on every tab of a topic, where the board draws a head of its own for this page (the owner's rule: the header does not move between tabs).",
-    "expires": "close"
-  },
-  {
-    "board": "txn-holding",
-    "field": "state",
-    "selector": "st warn",
-    "reason": "improvement: the topic's own head and tabs (its state words, Partitions, Produce and Delete, the link of the Consumers tab) are the same on every tab of a topic, where the board draws a head of its own for this page (the owner's rule: the header does not move between tabs).",
-    "render": "fixture",
     "expires": "close"
   }
 ]

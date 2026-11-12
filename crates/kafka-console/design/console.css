@@ -227,6 +227,7 @@ table.consumers td.grp .grp-n{float:right}
 .disc>summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .disc .disc-body{padding-top:12px}
 .disc-row>summary{display:flex;width:100%;color:inherit;font-weight:inherit;font-size:inherit;padding:0}
+.disc-row>summary::before{display:none}
 .disc-row>summary:hover{color:inherit}
 @media (prefers-reduced-motion:no-preference){
   .disc::details-content{block-size:0;overflow:clip;opacity:0;transition:block-size .16s ease,opacity .16s ease,content-visibility .16s allow-discrete}
