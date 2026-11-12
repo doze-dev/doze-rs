@@ -2,6 +2,7 @@
 //! Logs running for real beside it, so a task's effect is read back from the service it reached.
 #![allow(clippy::unwrap_used, clippy::indexing_slicing, clippy::panic)]
 
+mod events;
 mod executions;
 mod integrations;
 mod lifecycle;

@@ -124,7 +124,13 @@ pub(crate) async fn run(
             step.end = step.end.take().or(more.end);
         }
     }
-    Ok(answer(&def, &before, &ex, &name, &seen, r, &env))
+    let ran = Ran {
+        def: &def,
+        before: &before,
+        after: &ex,
+        env: &env,
+    };
+    Ok(answer(&ran, &name, &seen, r))
 }
 
 fn start(def: &Definition, r: &Value, caller: &Caller, input: String, now: i64) -> Exec {
@@ -254,18 +260,17 @@ async fn outcome(shared: &Arc<Shared>, caller: &Caller, r: &Value, d: &Dispatch)
     }
 }
 
-#[allow(clippy::too_many_arguments)]
-fn answer(
-    def: &Definition,
-    before: &Exec,
-    ex: &Exec,
-    name: &str,
-    seen: &Seen,
-    r: &Value,
-    env: &Env,
-) -> Value {
+/// A test run: the definition, the execution as it was before the state ran and as it is after, and the environment.
+struct Ran<'a> {
+    def: &'a Definition,
+    before: &'a Exec,
+    after: &'a Exec,
+    env: &'a Env,
+}
+
+fn answer(run: &Ran<'_>, name: &str, seen: &Seen, r: &Value) -> Value {
     let mut out = Map::new();
-    let root = ex.frame(1).cloned().unwrap_or_default();
+    let root = run.after.frame(1).cloned().unwrap_or_default();
     let (status, next, output) = match root.status {
         Status::Done => ("SUCCEEDED", None, root.output.clone()),
         Status::RetryWait => ("RETRIABLE", None, None),
@@ -297,24 +302,13 @@ fn answer(
         r.get("inspectionLevel").and_then(Value::as_str),
         Some("DEBUG" | "TRACE")
     ) {
-        out.insert(
-            "inspectionData".into(),
-            inspection(def, before, ex, seen, &root, env),
-        );
+        out.insert("inspectionData".into(), inspection(run, seen, &root));
     }
-    out.insert("__retry".into(), Value::Null);
-    out.remove("__retry");
     Value::Object(out)
 }
 
-fn inspection(
-    def: &Definition,
-    before: &Exec,
-    ex: &Exec,
-    seen: &Seen,
-    root: &aws_asl::exec::Frame,
-    env: &Env,
-) -> Value {
+fn inspection(run: &Ran<'_>, seen: &Seen, root: &aws_asl::exec::Frame) -> Value {
+    let (def, before, env) = (run.def, run.before, run.env);
     let mut data = Map::new();
     data.insert("input".into(), json!(before.input));
     for (k, v) in before.inspect_input(def, 1, env) {
@@ -339,6 +333,5 @@ fn inspection(
             json!({"retryIndex": index, "retryBackoffIntervalSeconds": wait}),
         );
     }
-    let _ = ex;
     Value::Object(data)
 }

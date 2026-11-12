@@ -81,7 +81,7 @@ pub(super) async fn call(
         ));
     }
     if matches!(target, "s3" | "lambda") {
-        return rest(peers, caller, resource, target, prefix, &op, input).await;
+        return rest(peers, caller, resource, (target, prefix), &op, input).await;
     }
     let body = if target == "states" {
         recase(input, false)
@@ -99,13 +99,11 @@ pub(super) async fn call(
     })
 }
 
-#[allow(clippy::too_many_arguments)]
 async fn rest(
     peers: &Arc<Peers>,
     caller: &Caller,
     resource: &str,
-    target: &str,
-    prefix: &str,
+    (target, prefix): (&str, &str),
     op: &str,
     input: &Value,
 ) -> Result<Value, Failure> {
