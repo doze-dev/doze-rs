@@ -135,8 +135,10 @@ fn rail(page: &Page<'_>) -> Markup {
             div class="nav" {
                 @for r in Rail::ALL {
                     @let on = r == page.active;
-                    a class={"ni" @if on { " on" }} href=(page.base.url(r.path())) aria-current=[on.then_some("page")] {
+                    @let soon = crate::routes::is_planned(r.path());
+                    a class={"ni" @if on { " on" } @if soon { " is-soon" }} href=(page.base.url(r.path())) aria-current=[on.then_some("page")] {
                         (glyph(r.glyph(), 20, "")) (r.label())
+                        @if soon { span class="soon" { "Soon" } }
                     }
                 }
             }

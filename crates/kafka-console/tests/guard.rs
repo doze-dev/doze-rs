@@ -157,7 +157,7 @@ async fn every_answer_carries_the_security_headers() {
             "{path}: {csp}"
         );
         assert_eq!(h[header::X_CONTENT_TYPE_OPTIONS], "nosniff", "{path}");
-        assert_eq!(h[header::REFERRER_POLICY], "no-referrer", "{path}");
+        assert_eq!(h[header::REFERRER_POLICY], "same-origin", "{path}");
         assert!(h.contains_key(header::CACHE_CONTROL), "{path}");
     }
     let mut refused = get("/");

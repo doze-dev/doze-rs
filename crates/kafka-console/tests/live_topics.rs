@@ -82,7 +82,7 @@ async fn the_reads_the_records_and_the_filters_answer_as_the_console_and_have_th
     )
     .await;
     assert!(
-        rc.contains("held back from read_committed consumers"),
+        rc.contains("a read_committed consumer is held"),
         "{rc:.3000}"
     );
     assert!(rc.contains("orders-eos began at offset 4"), "{rc:.5000}");
@@ -155,7 +155,7 @@ async fn a_compacted_topic_a_gzip_batch_headers_and_a_binary_value_are_shown_as_
     let app = w.router();
     let c = page(&app, "/topics/customer.profiles", None).await;
     assert!(
-        c.contains("keeps the latest record of each key") && c.contains("compact"),
+        c.contains("keeps the latest record of each key") && c.contains("Compacted"),
         "{c:.2500}"
     );
     assert_eq!(row_count(&c), 3);

@@ -351,3 +351,10 @@ Statuses as above. Rules CON-100 and up in `behaviours/console.md`. The writing 
 
 | J214 | The Live rows' time links and the refused links of the Live page open the drawer in place and carry the page's filters (`/live/{id}?client=..`), so Close returns to the same tape; the docks' links (topic and group wire) are plain links to the drawer over the Live page | decided |
 | J215 | The error table had no row for five codes the broker serves since slice 9i (THROTTLING_QUOTA_EXCEEDED, MISMATCHED_ENDPOINT_TYPE, UNSUPPORTED_ENDPOINT_TYPE, UNKNOWN_SUBSCRIPTION_ID, TELEMETRY_TOO_LARGE): main failed `every_error_the_broker_names_has_a_row`; rows added at the p9o merge | closed |
+| J351 | The Consumers tab lists groups with a committed offset on the topic, not groups that read without committing (the protocol has no "reads" without a commit or an assignment); the tab's count is the same number | decided |
+| J352 | The Consumers tab is not live (no fragment id): it is read on a page load; the foundation's in-place refresh can poll `#topic-consumers` | open: foundation |
+| J353 | The Messages toolbar's controls are a GET form of submit buttons whose state the buttons do not carry travels in hidden fields; an in-place swap must replace the toolbar (`#topic-bar`) together with the data (`#topic-messages`), or the hidden fields go stale | open: foundation |
+| J354 | `Handler::Planned` is the one page for every unbuilt screen; the agents that build Log, Producers, Access, Settings and Story replace a row each and the page disappears with the last | decided |
+| J355 | A breadcrumb that named a result (`Record sent`, `Create refused`, `Reset refused`, `Topic created`) is now its entity (`orders`, `New topic`, `Lag`); the result is the page's own words | decided |
+| J356 | The Partitions page has no topic head and tabs (it is a step under the topic, not a tab) | open |
+| J357 | A row's "Where from" and "Kafka's text" panels are in the page for every row (a closed `<details>` holds its body), about 50 KB more HTML on the Config page; lazy loading would need a script | decided |

@@ -26,7 +26,7 @@ pub const CSP: &str = csp!();
 pub const SECURITY_LINES: &str = concat!(
     "Content-Security-Policy: ",
     csp!(),
-    "\r\nX-Content-Type-Options: nosniff\r\nReferrer-Policy: no-referrer\r\nX-Frame-Options: DENY\r\n"
+    "\r\nX-Content-Type-Options: nosniff\r\nReferrer-Policy: same-origin\r\nX-Frame-Options: DENY\r\n"
 );
 
 /// Adds the headers; a handler that set its own cache rule keeps it, any other answer is not stored.
@@ -35,7 +35,7 @@ pub async fn security_headers(req: Request, next: Next) -> Response {
     let h = res.headers_mut();
     h.insert(CONTENT_SECURITY_POLICY, HeaderValue::from_static(CSP));
     h.insert(X_CONTENT_TYPE_OPTIONS, HeaderValue::from_static("nosniff"));
-    h.insert(REFERRER_POLICY, HeaderValue::from_static("no-referrer"));
+    h.insert(REFERRER_POLICY, HeaderValue::from_static("same-origin"));
     h.insert(X_FRAME_OPTIONS, HeaderValue::from_static("DENY"));
     if !h.contains_key(CACHE_CONTROL) {
         h.insert(CACHE_CONTROL, HeaderValue::from_static("no-store"));

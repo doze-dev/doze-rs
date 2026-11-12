@@ -204,8 +204,15 @@ fn the_empty_topic_the_filtered_read_and_the_committed_read_are_their_boards() {
         "topic-readcommitted",
         &committed,
         &[
-            "The console reads read_uncommitted by default",
-            "7 records are held back from read_committed consumers",
+            "Transaction orders-eos is open.",
+            "Reading as",
+            "read_uncommitted",
+            "read_committed",
+            "Reading as read_committed.",
+            "records are held back",
+            "ord-88414",
+            "ord-88406",
+            "How this read works",
             "orders-0",
             "LSO",
             "16,098",
@@ -216,9 +223,6 @@ fn the_empty_topic_the_filtered_read_and_the_committed_read_are_their_boards() {
             "orders-eos began at offset 16,098",
             "orders-eos began at offset 16,050",
             "no open transaction",
-            "What a read_committed reader sees",
-            "ord-88414",
-            "ord-88406",
         ],
     );
 }

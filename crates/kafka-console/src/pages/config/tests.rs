@@ -6,7 +6,7 @@ use crate::model::{ConfigAsk, ConfigResult, ConfigShow};
 
 fn page_of(ask: ConfigAsk) -> String {
     let p = larder::page(larder::TOPIC, ask).unwrap();
-    config_page(&p, &head(), &Base::root()).into_string()
+    config_page(&p, Some(&head()), &Base::root()).into_string()
 }
 
 fn head() -> crate::model::TopicHead {
@@ -69,37 +69,51 @@ fn a_filter_keeps_the_rows_that_match_the_name_or_what_kafka_says_and_a_chip_kee
 fn the_replication_group_is_shut_until_asked_for_and_says_how_many_it_holds() {
     let shut = page_of(ConfigAsk::default());
     assert!(shut.contains("9 configs Kafka lists that this broker has no use for"));
-    assert!(!shut.contains(">min.insync.replicas<"));
-    assert!(shut.contains("href=\"/topics/inventory.levels/config?replication=1\""));
+    assert!(
+        shut.contains("<details class=\"disc disc-sec\" id=\"replication\"><summary>"),
+        "a native disclosure, shut"
+    );
+    assert!(
+        !shut.contains("config?replication=1"),
+        "no link, no navigation"
+    );
     let open = page_of(ConfigAsk {
         replication: true,
         ..ConfigAsk::default()
     });
-    assert!(open.contains(">min.insync.replicas<") && !open.contains(">Hide<"));
-    assert!(open.contains("Hide 9"));
+    assert!(open.contains("<details class=\"disc disc-sec\" id=\"replication\" open>"));
+    assert!(
+        open.contains(">min.insync.replicas<")
+            && open.contains("Hide 9")
+            && open.contains("Show 9")
+    );
 }
 
 #[test]
-fn an_expander_is_a_link_to_the_same_page_with_that_part_opened_and_the_same_link_shuts_it() {
+fn an_expander_is_a_native_disclosure_that_is_open_only_for_a_deep_link_and_never_a_link() {
     let shut = page_of(ConfigAsk::default());
     assert!(
-        shut.contains("config?open=where%3Asegment.bytes#c-segment.bytes"),
+        shut.contains("<details class=\"disc disc-btn\" id=\"where-segment.bytes\"><summary class=\"btn sm ghost\">Where from</summary>"),
         "{shut:.100}"
     );
-    assert!(!shut.contains("Where segment.bytes comes from."));
+    assert!(
+        !shut.contains("open="),
+        "no address opens a part of the page"
+    );
+    assert!(
+        !shut.contains("aria-expanded"),
+        "a disclosure says its own state"
+    );
     let open = page_of(ConfigAsk {
         open: vec![token("where", "segment.bytes")],
         ..ConfigAsk::default()
     });
+    assert!(open.contains("<details class=\"disc disc-btn\" id=\"where-segment.bytes\" open>"));
     assert!(open.contains("Where segment.bytes comes from."));
     assert!(open.contains("Reset the topic value and the flag, 134217728, takes over."));
     assert!(
         open.contains("<span class=\"v\">none</span>"),
         "places with no value say none"
-    );
-    assert!(
-        open.contains("href=\"/topics/inventory.levels/config#c-segment.bytes\""),
-        "the same link shuts it"
     );
 }
 
@@ -109,7 +123,9 @@ fn the_places_a_value_can_come_from_are_marked_by_the_one_that_wins() {
         open: vec![token("where", "retention.ms")],
         ..ConfigAsk::default()
     });
-    let rules = &open[open.find("class=\"rules\"").unwrap()..];
+    let panel = &open[open.find("id=\"where-retention.ms\"").unwrap()..];
+    let panel = &panel[..panel.find("</details>").unwrap()];
+    let rules = &panel[panel.find("class=\"rules\"").unwrap()..];
     let first_ok = rules.find("class=\"r ok\"").unwrap();
     assert_eq!(
         rules[..first_ok].matches("class=\"r no\"").count(),
@@ -230,7 +246,7 @@ fn names_and_values_from_the_broker_are_text_in_every_place_they_are_drawn() {
     p.rows[i].doc = format!("{evil}. Second <b>sentence</b>.");
     p.rows[i].synonyms[0].name = evil.to_owned();
     p.ask.open = vec![token("where", evil), token("text", evil)];
-    let doc = config_page(&p, &head(), &Base::root()).into_string();
+    let doc = config_page(&p, Some(&head()), &Base::root()).into_string();
     assert!(!doc.contains("<img"), "{doc:.600}");
     assert!(doc.contains("&lt;img src=x onerror=alert(1)&gt;"));
     assert!(!doc.contains("<b>sentence</b>"));

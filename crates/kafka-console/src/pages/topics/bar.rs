@@ -40,8 +40,8 @@ fn reading_seg(v: &MessagesView) -> Markup {
         html! { button class={@if on { "on" }} type="submit" name="isolation" value=(r.word()) aria-pressed=(on) data-ui="select" { (r.word()) } }
     };
     html! {
-        span class="dim" id="reading-as" { "Reading as" }
-        div class="seg" role="group" aria-labelledby="reading-as" {
+        span class="dim" { "Reading as" }
+        div class="seg" role="group" aria-label="Reading as" {
             (level(Reading::Uncommitted)) (level(Reading::Committed))
         }
     }

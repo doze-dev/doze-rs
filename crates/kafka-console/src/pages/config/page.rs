@@ -8,7 +8,7 @@
 
 use maud::{Markup, html};
 
-use super::common::config_url;
+use super::common::{config_tabs, config_url, page_head};
 use super::links::url;
 use super::rows::{Ctx, row};
 use crate::base::Base;
@@ -180,7 +180,7 @@ fn sections(p: &ConfigPage, c: &Ctx<'_>, base: &Base) -> Markup {
 
 /// The page.
 #[must_use]
-pub fn config_page(p: &ConfigPage, head: &TopicHead, base: &Base) -> Markup {
+pub fn config_page(p: &ConfigPage, head: Option<&TopicHead>, base: &Base) -> Markup {
     let sentence = page_sentence(&p.rows, &page_moment(p.pace));
     let c = Ctx {
         base,
@@ -189,8 +189,11 @@ pub fn config_page(p: &ConfigPage, head: &TopicHead, base: &Base) -> Markup {
         pace: p.pace,
     };
     html! {
-        (topic_frame(head, base, TopicTab::Config))
-        // What this tab says of the topic, under the tabs: the head above them is the topic's own, the same on every tab.
+        // The topic's own head and tabs, the same on every tab. A caller that may read the configs and not describe the topic
+        // (the ACL test seam) gets the plain head the page had before.
+        @if let Some(head) = head { (topic_frame(head, base, TopicTab::Config)) }
+        @else { (page_head(&p.head, &sentence, html! {})) (config_tabs(&p.head.name, base)) }
+        // What this tab says of the topic, under the tabs.
         p class="sent" data-extra="live-sentence" style="margin:0 0 20px;max-width:900px" { (crate::ui::write::spans(&sentence)) }
         (toolbar(p, base))
         div style="margin-bottom:28px" { (explainer()) }

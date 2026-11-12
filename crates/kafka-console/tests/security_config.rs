@@ -65,7 +65,7 @@ fn hostile_text_in_every_field_of_every_config_page_comes_out_inert() {
         inert(
             &pages::config_page(
                 &page,
-                &kafka_console::fixtures_topics::head("orders").unwrap(),
+                Some(&kafka_console::fixtures_topics::head("orders").unwrap()),
                 &base,
             )
             .into_string(),

@@ -158,6 +158,9 @@ export const unbuilt: Scenario = async (p, base, shots) => {
   const robots = await p.eval<string>("document.querySelector('meta[name=robots]')?.content ?? ''");
   const homeLandmarks = await p.eval<number>("document.querySelectorAll('[data-extra=live-sentence], .hero').length");
   if (at !== "/lab") notes.push("went to " + at);
+  if (back !== "/topics/orders/messages?partition=1") notes.push("the way back is " + back);
+  const rail = await p.eval<string>("[...document.querySelectorAll('.rail .ni .soon')].map((e) => e.parentElement.textContent.trim()).join(',')");
+  if (!rail.includes("Lab")) notes.push("the rail does not mark Lab as Soon: " + rail);
   if (crumbs.join(">") !== "Lab") notes.push("crumbs " + crumbs.join(">"));
   if (h2 !== "Not available in this edition") notes.push("heading " + h2);
   if (robots !== "noindex") notes.push("no noindex");

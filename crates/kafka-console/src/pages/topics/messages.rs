@@ -35,7 +35,7 @@ fn older(v: &MessagesView, base: &Base) -> Markup {
     };
     html! {
         @if v.reach.more && v.query.limit < crate::model::MOST_LIMIT {
-            a class="btn sm" data-ui="page" href=(messages_url(base, &v.head.name, &q)) { "Older" }
+            a class="btn sm" data-ui="page" href=(format!("{}#topic-messages", messages_url(base, &v.head.name, &q))) { "Older" }
         }
     }
 }

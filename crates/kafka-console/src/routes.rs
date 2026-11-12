@@ -365,6 +365,15 @@ pub const ROUTES: &[Route] = &[
     ),
 ];
 
+/// Whether `path` is a screen no slice has built yet (its row is `Handler::Planned`): the rail draws it with a "Soon" tag, and
+/// the page it opens says so. When a slice builds it the row changes and the tag goes with it.
+#[must_use]
+pub fn is_planned(path: &str) -> bool {
+    ROUTES.iter().any(|r| {
+        r.path == path && r.method == Method::Get && matches!(r.handler, Handler::Planned(_))
+    })
+}
+
 /// The paths a row is registered under for a prefix: the root is `/` and, under a prefix, both `/k` and `/k/`.
 #[must_use]
 pub fn paths(base: &crate::base::Base, path: &str) -> Vec<String> {

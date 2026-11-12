@@ -68,7 +68,7 @@ fn row(r: &TopicRow, v: &TopicsView, base: &Base) -> Markup {
                 td class="mono r" { (r.bytes.map_or_else(|| "unknown".to_owned(), bytes)) }
                 td class="mono r" data-vary {
                     @match r.last_write_ms {
-                        Some(ms) if !r.empty => (ago(v.now_ms - ms)),
+                        Some(ms) if !r.empty => (crate::ui::table::when(&ago(v.now_ms - ms), ms)),
                         _ => "never",
                     }
                 }
@@ -216,10 +216,11 @@ fn none(v: &TopicsView, base: &Base, listen: &str) -> Markup {
     }
 }
 
-fn filtered(v: &TopicsView, base: &Base) -> Markup {
+fn filtered(v: &TopicsView, base: &Base, query: &str) -> Markup {
     let clear = base.url("/topics");
     html! {
         (head(v, base, "Where records live. Every topic is a log: open one to read it, produce to it, or see what the broker did to it."))
+        (sentence_fragment(v, base, query))
         div class="toolbar" {
             (filter_box("q", "Filter topics by name", "Filter topics by name", &v.filter))
             span class="fchip on" { "Name contains " (v.filter) }
@@ -240,7 +241,8 @@ fn filtered(v: &TopicsView, base: &Base) -> Markup {
 fn steady(v: &TopicsView, base: &Base, query: &str) -> Markup {
     html! {
         (head(v, base, "Where records live. Every topic is a log: open one to read it, produce to it, or see what the broker did to it."))
-        @if v.filter.is_empty() { (sentence_fragment(v, base, query)) }
+        // About the broker, not the filter: it is there whatever is typed, so typing moves nothing.
+        (sentence_fragment(v, base, query))
         (toolbar(v, base))
         (list_fragment(v, base, query))
         (internal_note(v, base))
@@ -252,7 +254,7 @@ fn steady(v: &TopicsView, base: &Base, query: &str) -> Markup {
 pub fn list_page(v: &TopicsView, base: &Base, listen: &str, query: &str) -> Markup {
     match v.state() {
         TopicsState::None => none(v, base, listen),
-        TopicsState::Filtered => filtered(v, base),
+        TopicsState::Filtered => filtered(v, base, query),
         TopicsState::List => steady(v, base, query),
     }
 }

@@ -364,6 +364,7 @@ pub fn groups(filter: &str, state: GroupFilter, hint: Option<&str>) -> GroupsVie
         .iter()
         .map(|e| phase_of(&e.listed, &e.loaded).0)
         .collect();
+    let noteworthy = named.clone();
     let shown: Vec<Entry> = named
         .into_iter()
         .filter(|e| state.takes(phase_of(&e.listed, &e.loaded).0))
@@ -379,6 +380,7 @@ pub fn groups(filter: &str, state: GroupFilter, hint: Option<&str>) -> GroupsVie
         &ends(),
         now(),
     );
+    v.attention = crate::gather::groups::attention(&noteworthy);
     if hint == Some("none") {
         v.topics = 9;
     }

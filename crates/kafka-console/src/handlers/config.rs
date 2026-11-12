@@ -103,13 +103,13 @@ async fn missing(s: &Shared, topic: &str, key: &str, why: ConfigMissing) -> Resp
 /// The Config page of a topic as the parent of an overlay (the edit and reset dialogs). `None` when there is no such topic.
 async fn config_parent(s: &Shared, topic: &str, ask: ConfigAsk) -> Option<Parent> {
     let page = s.source.config_page(topic, ask).await?;
-    let head = s.source.topic_head(topic).await?;
+    let head = s.source.topic_head(topic).await;
     Some(Parent {
         rail: Rail::Resources,
         title: "Config".to_owned(),
         crumbs: Place::TopicPage(topic, TopicPage::Config).steps(),
         watch: &[],
-        main: pages::config_page(&page, &head, &s.base),
+        main: pages::config_page(&page, head.as_ref(), &s.base),
     })
 }
 

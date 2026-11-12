@@ -106,7 +106,10 @@ fn row(e: &Entry, topics: &[LagTopic]) -> GroupRow {
     }
 }
 
-fn attention(entries: &[Entry]) -> Option<GroupAttention> {
+/// The rebalancing group the page's one callout is about, among `entries`. The callout is about the broker and not about the
+/// state chip, so the caller gives it every group the name filter matched, not only those the chip shows.
+#[must_use]
+pub fn attention(entries: &[Entry]) -> Option<GroupAttention> {
     entries.iter().find_map(|e| {
         let (phase, protocol) = phase_of(&e.listed, &e.loaded);
         if protocol != GroupProtocol::Classic || phase != GroupPhase::Rebalancing {
@@ -160,6 +163,32 @@ pub fn view(
     }
 }
 
+/// The groups the callout may be about: the ones shown, and up to three rebalancing groups that the chip hides (a group that is
+/// rebalancing is news whichever chip is showing).
+async fn noteworthy(
+    b: &Backend,
+    shown: &[Entry],
+    named: &[&read::Listed],
+    phases: &[GroupPhase],
+    described: &HashMap<String, read::Described>,
+) -> Vec<Entry> {
+    let mut out = shown.to_vec();
+    for (g, p) in named.iter().zip(phases) {
+        let seen = out.iter().any(|e| e.listed.id == g.id);
+        if *p == GroupPhase::Rebalancing && !seen && out.len() < shown.len() + 3 {
+            out.push(Entry {
+                listed: (*g).clone(),
+                loaded: Loaded {
+                    described: described.get(&g.id).cloned(),
+                    detail: b.group_detail(&g.id).await,
+                    commits: Default::default(),
+                },
+            });
+        }
+    }
+    out
+}
+
 /// The list, for a name filter and a state chip.
 pub async fn groups(b: &Backend, filter: &str, state: GroupFilter) -> GroupsView {
     let filter: String = filter.chars().take(255).collect();
@@ -211,7 +240,8 @@ pub async fn groups(b: &Backend, filter: &str, state: GroupFilter) -> GroupsView
         }
     }
     let ends = read::log_bounds(b, &asked, -1).await;
-    view(
+    let noteworthy = noteworthy(b, &entries, &named, &phases, &described).await;
+    let mut v = view(
         &filter,
         state,
         all.len(),
@@ -221,5 +251,7 @@ pub async fn groups(b: &Backend, filter: &str, state: GroupFilter) -> GroupsView
         &partitions,
         &ends,
         now_ms(),
-    )
+    );
+    v.attention = attention(&noteworthy);
+    v
 }

@@ -195,7 +195,7 @@ async fn the_connection_over_the_cap_is_told_to_come_back_and_closing_connection
     );
     assert!(lower.contains("x-frame-options: deny"), "{seen}");
     assert!(lower.contains("x-content-type-options: nosniff"), "{seen}");
-    assert!(lower.contains("referrer-policy: no-referrer"), "{seen}");
+    assert!(lower.contains("referrer-policy: same-origin"), "{seen}");
     assert!(closed, "{seen}");
     // Close two: two more are served.
     held.truncate(4);

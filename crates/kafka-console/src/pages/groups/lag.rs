@@ -108,7 +108,7 @@ fn row(r: &LagRow, h: &GroupHead, ahead: bool) -> Markup {
             }
             td { (cell_lag(r)) }
             @match r.last_commit_ms {
-                Some(ms) => td class="mono" data-vary { (when(h, ms)) },
+                Some(ms) => td class="mono" data-vary { (crate::ui::table::when(&when(h, ms), ms)) },
                 None => td class="dim" { "never" },
             }
         }

@@ -60,7 +60,7 @@ pub enum Acts {
 fn words(h: &TopicHead) -> Markup {
     let down: Vec<i32> = h.offline().iter().map(|p| p.partition).collect();
     html! {
-        (pill_mono(policy_word(h.cleanup)))
+        @if h.cleanup == Cleanup::Compact { (state(State::Ok, "Compacted")) } @else { (pill_mono(policy_word(h.cleanup))) }
         @if !down.is_empty() {
             " " (state(State::Bad, &format!("Partition{} {} offline", if down.len() == 1 { "" } else { "s" }, list_and(&down))))
         } @else if !h.txns.is_empty() {
