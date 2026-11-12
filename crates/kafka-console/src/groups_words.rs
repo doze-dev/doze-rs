@@ -99,20 +99,20 @@ fn lag_clause(topics: &[LagTopic]) -> String {
     match (behind.as_slice(), caught.as_slice()) {
         ([], caught) => format!("It is caught up on {}.", list_and(caught)),
         (behind, []) => format!(
-            "It is {} behind.",
+            "It is {}.",
             list_and(
                 &behind
                     .iter()
-                    .map(|t| format!("{} records on {}", number(t.behind), t.name))
+                    .map(|t| format!("{} records behind on {}", number(t.behind), t.name))
                     .collect::<Vec<_>>()
             )
         ),
         (behind, caught) => format!(
-            "It is {} behind; {} {} caught up.",
+            "It is {}; {} {} caught up.",
             list_and(
                 &behind
                     .iter()
-                    .map(|t| format!("{} records on {}", number(t.behind), t.name))
+                    .map(|t| format!("{} records behind on {}", number(t.behind), t.name))
                     .collect::<Vec<_>>()
             ),
             list_and(caught),

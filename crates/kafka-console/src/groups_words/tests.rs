@@ -22,7 +22,7 @@ fn a_stable_classic_group_is_told_by_its_member_its_topics_and_its_lag() {
     let s = flat(&group_sentence(&g.head, &g.topics));
     assert_eq!(
         s,
-        "One member, search-indexer-1, reads clickstream (6 partitions) and inventory.levels (1). It is 18,240 records on clickstream behind; inventory.levels is caught up. Last commit 6 s ago."
+        "One member, search-indexer-1, reads clickstream (6 partitions) and inventory.levels (1). It is 18,240 records behind on clickstream; inventory.levels is caught up. Last commit 6 s ago."
     );
 }
 

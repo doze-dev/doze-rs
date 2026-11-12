@@ -85,7 +85,7 @@ fn the_group_pages_say_what_the_boards_say() {
             "generation 8",
             "One member, <b>search-indexer-1</b>, reads",
             "clickstream</a> (6 partitions) and",
-            "It is 18,240 records on clickstream behind",
+            "It is 18,240 records behind on clickstream",
             "Session timeout",
             "45 s",
             "Rebalance timeout",

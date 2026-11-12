@@ -138,9 +138,9 @@ pub(super) fn group_tabs(h: &GroupHead, base: &Base, on: On) -> Markup {
                 ("Lag", group_url(base, &h.id, "/lag"), on == On::Lag, lag),
             ] {
                 @if here {
-                    a class="tab on" href=(href) aria-current="page" { (label) span class="n" { (count) } }
+                    a class="tab on" href=(href) aria-current="page" { (label) span class="n" { (crate::format::number(i64::try_from(count).unwrap_or(0))) } }
                 } @else {
-                    a class="tab" href=(href) { (label) span class="n" { (count) } }
+                    a class="tab" href=(href) { (label) span class="n" { (crate::format::number(i64::try_from(count).unwrap_or(0))) } }
                 }
             }
             span class="tab" title="The story of a group needs the group event ring (slice 9f)" { "Story" }
