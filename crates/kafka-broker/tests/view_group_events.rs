@@ -114,7 +114,14 @@ async fn a_look_changes_nothing_and_says_the_same_twice() {
         .group_detail(&console(), "story")
         .await
         .unwrap();
-    let again = events(&rig, "story").await;
+    let mut again = events(&rig, "story").await;
+    // An event's time is the wall clock of the look minus how long ago the group's own task noted it, so two looks may
+    // differ by a millisecond of rounding between the two clocks: everything else must be identical.
+    assert_eq!(first.len(), again.len());
+    for (a, b) in first.iter().zip(again.iter_mut()) {
+        assert!((a.at_ms - b.at_ms).abs() <= 5, "{} vs {}", a.at_ms, b.at_ms);
+        b.at_ms = a.at_ms;
+    }
     assert_eq!(first, again);
     let after = rig
         .broker
