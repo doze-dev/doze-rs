@@ -358,6 +358,7 @@ fn client_telemetry_is_on_unless_told_otherwise() {
 }
 
 mod console;
+mod lab;
 mod users;
 
 #[cfg(feature = "tls")]

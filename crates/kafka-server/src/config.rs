@@ -69,6 +69,9 @@ pub struct Config {
     /// Who is told of every connection and request (the console's recorder). Unset, a request costs one `Option` test and
     /// nothing more; see [`crate::Observer`] for what an observer must and must not do.
     pub observer: Option<Arc<dyn crate::Observer>>,
+    /// Who may bend requests on purpose (the console's Lab). Unset (`--lab=false`), a request costs one `Option` test; see
+    /// [`crate::fault`] for what a plan may do.
+    pub fault: Option<Arc<dyn crate::fault::FaultPlan>>,
     /// The certificate to prove itself with. Unset, the listener speaks plaintext; set, every connection starts with a
     /// TLS handshake. Independent of `sasl`. The field exists only in a build with the `tls` feature.
     #[cfg(feature = "tls")]
@@ -86,6 +89,7 @@ impl Default for Config {
             max_connections: 2048,
             sasl: None,
             observer: None,
+            fault: None,
             #[cfg(feature = "tls")]
             tls: None,
         }

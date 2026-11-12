@@ -14,6 +14,7 @@ pub mod group_read;
 mod group_write;
 pub mod groups;
 mod home;
+pub mod lab;
 mod live;
 mod log;
 mod partitions;

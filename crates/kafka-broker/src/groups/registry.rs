@@ -18,7 +18,7 @@ use super::consumer::TopicSource;
 use super::consumer::assign::Assignor;
 use super::events::{Events, Ledger, Recorded};
 use super::group::{Group, Settings, asks_for_an_id};
-use super::machine::{Answer, Description, JoinAnswer, JoinRequest, refusal};
+use super::machine::{Answer, Description, Force, Forced, JoinAnswer, JoinRequest, refusal};
 pub(crate) use issued::member_ids;
 use issued::{Issued, MOST_ISSUED};
 use records::{MetaTopics, StoreRecords};
@@ -168,6 +168,15 @@ impl Groups {
     pub(crate) async fn describe(&self, group: &GroupId) -> Option<Description> {
         match self.ask(group, Req::Describe).await {
             Some(Answer::Describe(d)) => Some(d),
+            _ => None,
+        }
+    }
+
+    /// Forces a step on the group (the console's Lab).
+    #[cfg_attr(not(feature = "inspect"), allow(dead_code))]
+    pub(crate) async fn force(&self, group: &GroupId, f: Force) -> Option<Forced> {
+        match self.ask(group, Req::Force(f)).await {
+            Some(Answer::Forced(done)) => Some(done),
             _ => None,
         }
     }

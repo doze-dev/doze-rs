@@ -52,6 +52,8 @@ pub enum Cause {
     BecameClassic,
     /// A member of the new protocol joined a classic group of consumers: it is a consumer group now.
     BecameConsumer,
+    /// Someone forced the rebalance (the console's Lab): no member or topic caused it.
+    Forced,
 }
 
 /// A client's own words for why it joined or left, clipped.
@@ -277,6 +279,7 @@ impl Cause {
             Self::RightsChanged => "Rights changed",
             Self::BecameClassic => "Became classic",
             Self::BecameConsumer => "Became a consumer group",
+            Self::Forced => "Forced from the Lab",
         }
     }
 }

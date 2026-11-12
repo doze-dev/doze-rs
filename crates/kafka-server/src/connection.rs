@@ -39,6 +39,8 @@ pub(crate) struct Context<F: Fs> {
     pub(crate) auth: Option<Arc<Authenticator>>,
     /// Who is told of connections and requests, if anybody.
     pub(crate) observer: Option<Arc<dyn crate::Observer>>,
+    /// Who may bend requests on purpose, if anybody.
+    pub(crate) fault: Option<Arc<dyn crate::fault::FaultPlan>>,
     /// Where connection numbers come from (taken from only with an observer).
     pub(crate) numbers: crate::connections::Numbers,
 }
@@ -57,6 +59,8 @@ pub(crate) struct Ears<'a, F: Fs> {
 pub(crate) enum End {
     #[error("the client closed the connection")]
     PeerClosed,
+    #[error("closed by a Lab rule")]
+    Faulted,
     #[error("the server is stopping")]
     Stopped,
     #[error("idle for too long")]

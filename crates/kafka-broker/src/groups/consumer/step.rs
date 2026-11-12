@@ -21,6 +21,9 @@ impl ConsumerGroup {
                 self.heartbeat(token, &hb, &source.topics(), now, &mut out);
             }
             Event::Timer(key) => self.timer(&key, now, &mut out),
+            Event::Force(token, force) => {
+                self.force(token, &force, &source.topics(), now, &mut out);
+            }
             Event::TopicsChanged => self.topics_changed(&source.topics(), now, &mut out),
             Event::Describe(token) => out.push(Effect::Reply(
                 token,

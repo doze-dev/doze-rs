@@ -165,6 +165,11 @@ pub(crate) struct Args {
     /// without this that start is refused). Every page then says it is served beyond loopback with no login.
     #[arg(long)]
     console_unprotected: bool,
+    /// The Lab of the console: rules that delay, fail or drop requests on purpose, made from the console only and kept in memory.
+    /// On unless `--lab=false`; off when the console is off, and off by default when the console is served beyond loopback with
+    /// SASL or TLS on (`--lab=true` with `--console-unprotected` switches it on). Anyone who can reach the console can inject faults.
+    #[arg(long, num_args = 0..=1, default_missing_value = "true", value_name = "BOOL")]
+    lab: Option<String>,
 
     /// PEM certificate chain (leaf first) to serve TLS with. Needs --tls-key.
     #[cfg(feature = "tls")]
@@ -287,6 +292,7 @@ impl Args {
             prefix: &self.console_prefix,
             allow_hosts: &self.console_allow_host,
             unprotected: self.console_unprotected,
+            lab: self.lab.as_deref(),
             sasl,
             tls,
             listen: self.listen,
@@ -350,6 +356,7 @@ impl Args {
             (self.console_prefix != "/", "--console-prefix"),
             (!self.console_allow_host.is_empty(), "--console-allow-host"),
             (self.console_unprotected, "--console-unprotected"),
+            (self.lab.is_some(), "--lab"),
         ];
         given
             .into_iter()

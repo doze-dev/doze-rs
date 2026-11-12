@@ -38,6 +38,7 @@ impl Server {
             timeouts: config.timeouts,
             auth: config.sasl,
             observer: config.observer,
+            fault: config.fault,
             numbers: crate::connections::Numbers::default(),
         });
         #[cfg(feature = "tls")]

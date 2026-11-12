@@ -42,7 +42,7 @@ impl ConsumerGroup {
 
     /// Removes a member that went silent or did not give up in time. If it was the last of the consumer protocol the
     /// group may now be classic again.
-    fn drop_silent(
+    pub(super) fn drop_silent(
         &mut self,
         id: &kafka_wire::ids::MemberId,
         cause: Cause,

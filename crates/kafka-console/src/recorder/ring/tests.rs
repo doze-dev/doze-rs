@@ -38,6 +38,7 @@ fn row(at: i64, key: u64) -> Row {
         tooks: vec![1000],
         idle: true,
         fold: key,
+        lab: None,
     }
 }
 

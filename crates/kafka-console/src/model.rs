@@ -9,6 +9,7 @@ mod consumers;
 mod group_states;
 mod groups;
 mod home;
+pub mod lab;
 pub mod live;
 mod live_clients;
 mod log;

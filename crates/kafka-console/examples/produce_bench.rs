@@ -60,11 +60,16 @@ fn produce() -> ProduceRequest {
 }
 
 /// One configuration: the requests per second of each round.
-async fn measure(observer: Option<Arc<dyn Observer>>, listen: bool) -> Vec<f64> {
+async fn measure(
+    observer: Option<Arc<dyn Observer>>,
+    listen: bool,
+    fault: Option<Arc<dyn kafka_server::fault::FaultPlan>>,
+) -> Vec<f64> {
     let broker = Arc::new(Broker::open(SimFs::new(), BrokerConfig::new("/data".into())).unwrap());
     let config = Config {
         listen: "127.0.0.1:0".parse().unwrap(),
         observer,
+        fault,
         ..Config::default()
     };
     let server = Server::bind(config, Arc::clone(&broker)).await.unwrap();
@@ -118,17 +123,48 @@ async fn main() {
     println!(
         "{REQUESTS} produce requests of one 100-byte record per round, {ROUNDS} rounds, one connection, in-memory broker"
     );
-    let none = measure(None, false).await;
+    let none = measure(None, false, None).await;
     let (m0, b0) = summary("no observer (console off)", &none);
     let recorder: Arc<dyn Observer> = Recorder::new();
-    let with = measure(Some(recorder), false).await;
+    let with = measure(Some(recorder), false, None).await;
     let (m1, b1) = summary("recorder installed", &with);
     // A console page is open: it costs the recorder nothing (a page is a snapshot; a tail asks once a second and nothing is woken).
     let rec = Recorder::new();
-    let watched = measure(Some(rec as Arc<dyn Observer>), true).await;
+    let watched = measure(Some(rec as Arc<dyn Observer>), true, None).await;
     let (m2, b2) = summary("recorder installed, a page open", &watched);
-    let none_again = measure(None, false).await;
+    let none_again = measure(None, false, None).await;
     let (m3, b3) = summary("no observer again (the noise)", &none_again);
+    // The Lab (docs/port/behaviours/lab.md): the fault table installed with no rule, and with one rule that fits nothing here.
+    let table = kafka_server::fault::FaultTable::new();
+    let lab_idle = measure(None, false, Some(table)).await;
+    let (m4, b4) = summary("Lab on, no rule", &lab_idle);
+    let table = kafka_server::fault::FaultTable::new();
+    table
+        .add(kafka_server::fault::Spec {
+            name: String::new(),
+            matcher: kafka_server::fault::Matcher {
+                apis: vec![ApiKey::Fetch],
+                topics: vec![kafka_server::fault::Pattern::new("other").unwrap()],
+                ..kafka_server::fault::Matcher::default()
+            },
+            effect: kafka_server::fault::Effect::Slow {
+                delay_ms: 10,
+                jitter_ms: 0,
+            },
+            share: kafka_server::fault::Share::Every,
+            ttl: std::time::Duration::from_secs(3600),
+            max_hits: None,
+        })
+        .unwrap();
+    let lab_rule = measure(None, false, Some(table)).await;
+    let (m5, b5) = summary("Lab on, one rule that fits nothing", &lab_rule);
+    println!(
+        "Lab on, no rule vs none: median {:+.1}%, best {:+.1}%; Lab on, one rule vs none: median {:+.1}%, best {:+.1}%",
+        (m4 / m0 - 1.0) * 100.0,
+        (b4 / b0 - 1.0) * 100.0,
+        (m5 / m0 - 1.0) * 100.0,
+        (b5 / b0 - 1.0) * 100.0
+    );
     println!(
         "recorder vs none: median {:+.1}%, best {:+.1}%; page open vs none: median {:+.1}%, best {:+.1}%; none vs none again: median {:+.1}%, best {:+.1}%",
         (m1 / m0 - 1.0) * 100.0,

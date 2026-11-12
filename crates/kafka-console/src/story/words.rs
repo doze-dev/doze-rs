@@ -17,6 +17,7 @@ pub const fn cause_title(c: StoryCause) -> &'static str {
         StoryCause::RightsChanged => "Rights changed",
         StoryCause::BecameClassic => "Became classic",
         StoryCause::BecameConsumer => "Became a consumer group",
+        StoryCause::Forced => "Forced from the Lab",
     }
 }
 
@@ -35,6 +36,7 @@ pub const fn cause_phrase(c: StoryCause) -> &'static str {
         StoryCause::RightsChanged => "a right to read a topic changed",
         StoryCause::BecameClassic => "the group became a classic group again",
         StoryCause::BecameConsumer => "the group became a consumer group",
+        StoryCause::Forced => "a rebalance was forced from the Lab",
     }
 }
 
@@ -66,6 +68,9 @@ pub const fn cause_help(c: StoryCause) -> &'static str {
         }
         StoryCause::BecameConsumer => {
             "a consumer-protocol member joined a classic group of consumers"
+        }
+        StoryCause::Forced => {
+            "someone forced a rebalance from the Lab: no member or topic caused it"
         }
     }
 }

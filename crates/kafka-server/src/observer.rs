@@ -89,6 +89,9 @@ pub struct Observed<'a> {
     pub took: Duration,
     /// The size of the answer's frame on the wire; zero if none was written.
     pub response_bytes: usize,
+    /// The fault rule that touched the request, if one did (the console's Lab): the answer may be a delay, an error the
+    /// rule made up, or a closed connection.
+    pub fault: Option<&'a crate::fault::Note>,
 }
 
 /// What an observer keeps between [`Observer::begin`] and [`Observer::end`]: whatever it chose to, and when the request
@@ -177,7 +180,13 @@ impl Watch {
         })
     }
 
-    pub(crate) fn end(&self, pending: Pending, answer: Answer<'_>, response_bytes: usize) {
+    pub(crate) fn end(
+        &self,
+        pending: Pending,
+        answer: Answer<'_>,
+        response_bytes: usize,
+        fault: Option<&crate::fault::Note>,
+    ) {
         let took = pending.elapsed();
         self.observer.end(
             pending,
@@ -185,6 +194,7 @@ impl Watch {
                 answer,
                 took,
                 response_bytes,
+                fault,
             },
         );
     }

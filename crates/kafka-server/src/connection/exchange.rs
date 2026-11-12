@@ -1,5 +1,6 @@
 //! One request, from its frame to the end of its answer.
 
+use std::sync::Arc;
 use std::time::Duration;
 
 use bytes::Bytes;
@@ -17,9 +18,12 @@ use tokio_util::sync::CancellationToken;
 
 use super::{Context, Ears, End};
 use crate::config::MOST_FAILED_LOGIN_DELAY;
+use crate::fault::{Applied, Note};
 use crate::observer::{Answer as Seen, Asked, Pending, Watch};
 use crate::session::steps::{self, Fate};
 use crate::session::{Session, Verdict};
+
+mod lab;
 
 /// An answer to write, and what happens to the connection after it.
 struct Answer {
@@ -27,6 +31,8 @@ struct Answer {
     version: i16,
     response: Response,
     fate: Fate,
+    /// The fault rule that made this answer or delayed it, for the observer.
+    fault: Option<Arc<Note>>,
 }
 /// Reads the request in `frame`, answers it on `stream`, and says whether the connection goes on.
 ///
@@ -107,7 +113,7 @@ fn begin<F: Fs>(
 /// Ends an observed request that the connection did not answer, and hands the reason back to be returned.
 fn closed(watch: Option<&Watch>, pending: Option<Pending>, end: End) -> End {
     if let Some((w, p)) = watch.zip(pending) {
-        w.end(p, Seen::Closed(&end.to_string()), 0);
+        w.end(p, Seen::Closed(&end.to_string()), 0, None);
     }
     end
 }
@@ -123,6 +129,7 @@ async fn answer<F: Fs>(
     match incoming {
         Incoming::ApiVersions { head, body } => {
             let pending = begin(ears, &head, Asked::ApiVersions(body.as_ref()), frame_len);
+            let (note, pending) = lab::bend(ears, &head, pending, stop).await?;
             let (version, answer) =
                 api_versions::answer(ctx.profile, ctx.features, head.version, body.as_ref());
             if answer.error_code == 0
@@ -130,7 +137,8 @@ async fn answer<F: Fs>(
             {
                 s.versions_answered();
             }
-            let open = open(head.correlation_id, version, Response::ApiVersions(answer));
+            let mut open = open(head.correlation_id, version, Response::ApiVersions(answer));
+            open.fault = note;
             Ok(Some((open, pending)))
         }
         Incoming::Request { head, request } => {
@@ -157,19 +165,43 @@ async fn handled<F: Fs>(
     pending: Option<Pending>,
     stop: &CancellationToken,
 ) -> Result<Option<(Answer, Option<Pending>)>, End> {
+    let delay = match lab::plan(ears, head, &request) {
+        lab::Plan::Serve(act) => act,
+        lab::Plan::Answer(answer) => return Ok(Some((*answer, pending))),
+        lab::Plan::Silent(note) => {
+            if let Some((w, p)) = ears.watch.zip(pending) {
+                w.end(p, Seen::Nothing, 0, Some(&note));
+            }
+            return Ok(None);
+        }
+        lab::Plan::Close(note) => return Err(lab::dropped(ears.watch, pending, &note)),
+    };
     // A handler may wait a long time (a long-poll Fetch): stopping the server does not wait for it.
     let outcome = tokio::select! {
         o = ears.ctx.broker.handle(ears.listener, ears.caller, head, request) => o,
         () = stop.cancelled() => return Err(closed(ears.watch, pending, End::Stopped)),
     };
+    // A rule that slows the request makes the answer wait, after the broker has made it.
+    let note = match delay {
+        Some(act) => {
+            if let Applied::Delay(d) = act.effect
+                && !lab::wait(d, stop).await
+            {
+                return Err(closed(ears.watch, pending, End::Stopped));
+            }
+            Some(act.note)
+        }
+        None => None,
+    };
     match outcome {
-        Outcome::Respond(response) => Ok(Some((
-            open(head.correlation_id, head.version, response),
-            pending,
-        ))),
+        Outcome::Respond(response) => {
+            let mut answer = open(head.correlation_id, head.version, response);
+            answer.fault = note;
+            Ok(Some((answer, pending)))
+        }
         Outcome::NoResponse => {
             if let Some((w, p)) = ears.watch.zip(pending) {
-                w.end(p, Seen::Nothing, 0);
+                w.end(p, Seen::Nothing, 0, note.as_deref());
             }
             Ok(None)
         }
@@ -205,6 +237,7 @@ fn sasl<F: Fs>(
         version: head.version,
         response,
         fate,
+        fault: None,
     })
 }
 
@@ -237,6 +270,7 @@ fn open(id: i32, version: i16, response: Response) -> Answer {
         version,
         response,
         fate: Fate::Open,
+        fault: None,
     }
 }
 
@@ -288,8 +322,13 @@ fn seal(answer: &Answer, seen: Option<(&Watch, Pending)>) -> Result<Bytes, End> 
     let encoded = response::encode(answer.id, answer.version, &answer.response);
     if let Some((w, p)) = seen {
         match &encoded {
-            Ok(bytes) => w.end(p, Seen::Response(&answer.response), bytes.len()),
-            Err(e) => w.end(p, Seen::Closed(&e.to_string()), 0),
+            Ok(bytes) => w.end(
+                p,
+                Seen::Response(&answer.response),
+                bytes.len(),
+                answer.fault.as_deref(),
+            ),
+            Err(e) => w.end(p, Seen::Closed(&e.to_string()), 0, answer.fault.as_deref()),
         }
     }
     encoded.map_err(End::Wire)
