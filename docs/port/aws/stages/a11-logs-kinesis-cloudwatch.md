@@ -28,6 +28,9 @@ The Go edition on the same recordings: Logs 86% exact, Kinesis 50%, CloudWatch 3
   inputs in 60 s, no finding); the RFC 8949 appendix A examples are in the tests.
 - `aws_schema::enc`: a double is now written with its point (`3.0`, not `3`). AWS does, and botocore keeps what the wire says, so `3` showed
   as an `int` where AWS's was a `float` (found by the first CloudWatch run; it affects every service with a double in an answer).
+- `aws_gateway::pipeline::inflate`: a request body with `Content-Encoding: gzip` is inflated after the signature check, held to the body limit once
+  inflated (the CloudWatch model gives `PutMetricData` the `requestCompression` trait, and botocore compresses past 10 KB). Applies to the JSON and
+  CBOR paths. Found by reading the model, not by a failing scenario; covered by the socket test. This is what added `flate2` to the binary.
 - `conformance/harness/target.py`: `CONFORMANCE_CLOUDWATCH_PROTOCOL=cbor` makes botocore speak CBOR to CloudWatch (see "Protocols").
 
 **Logs (`aws-logs`)**: groups (create, delete, describe, list, class, KMS key, deletion protection, tags by name and by ARN, retention),
@@ -92,7 +95,29 @@ Run exactly as the SQS and SSM entries did (`--account 111122223333`, `UV_BIN` p
 cargo xtask conformance --cmd "$PWD/target/debug/doze-aws --listen {addr} --data-dir {data} --account 111122223333" logs kinesis cloudwatch
 ```
 
-SCOREBOARD_PLACEHOLDER
+Exact output (release binary), JSON encoding for CloudWatch:
+
+```
+module           labels  exact  wording  behaviour  unverified
+logs                 46     28        0          0          18
+kinesis              36     27        0          0           9
+cloudwatch           36     28        0          0           8
+total: 118 labels, 70% exact, 70% ignoring wording
+```
+
+and with `CONFORMANCE_CLOUDWATCH_PROTOCOL=cbor` (botocore forced to RPC v2 CBOR):
+
+```
+module           labels  exact  wording  behaviour  unverified
+cloudwatch           36     28        0          0           8
+total: 36 labels, 77% exact, 77% ignoring wording
+```
+
+Read it as: every label that has a recording matches AWS exactly (Logs 28 of 28, CloudWatch 28 of 28 in both encodings, Kinesis 27 of 27 reached);
+**3 recorded Kinesis labels are not reached** (the split scenario stops at the refused `SplitShard`; the harness counts only labels a scenario
+reaches, so they are in neither column: 27 of 30 recorded). The unverified labels are in scenarios written ahead of a recording: they run and
+pass their own assertions against doze-aws and are compared with nothing. The deviations list is empty. The Go edition on the same
+recordings: Logs 86% of 28, Kinesis 50% of 30, CloudWatch 32% of 28 (`scoreboard.md`).
 
 ## What the recordings taught
 
@@ -165,4 +190,17 @@ Each is marked `(memory)` in a code comment.
 
 ## Weight
 
-WEIGHT_PLACEHOLDER
+Measured with `cargo xtask weight doze-aws` on darwin/arm64, release (2026-11-12, this branch only, without the other A8 to A13 stages):
+**6,300,816 B (6.01 MiB), 210 packages, 3,664 KB idle.** The limit file line is now `doze-aws 8600000 213 6144`; the byte limit is the macOS size
+times 1.3 plus 5% (8,600,617), under the owner's 10 MB ceiling. The previous line was 5,097,200 B, 198 packages, 3.3 MB idle.
+
+Ready to paste into `weight.md`: *A11, CloudWatch Logs, Kinesis and CloudWatch: the whole binary goes from 5,097,200 B to 6,300,816 B (+1,203,616 B, +12
+packages) and idles at 3,664 KB. The cost is the three models' tables (Logs 118 operations, Kinesis 45, CloudWatch 55), the three services, the
+filter-pattern parser, the CBOR codec, and `flate2` with its pure-Rust backend (`flate2`, `miniz_oxide`, `adler2`,
+`crc32fast`, `simd-adler32`) so that a gzip request body, which botocore sends for `PutMetricData` past 10 KB, can be read. Nothing runs until a
+request: no task, no timer. The CloudWatch alarm timer is one task per region that holds an alarm with a pending deadline and ends when none is
+pending; idle with a configured alarm and nothing pending is the same as idle without. Events, records and samples are never held in memory: they
+are read from redb by range. Limit: 8,600,000 B, 213 packages.* Per-piece sizes were not isolated; the +12 packages are the 3 crates, the 5 named above and
+4 that I did not trace. The idle-wake-up gate for "one alarm configured" (A4's weight case) was not run: a configured alarm with nothing pending
+holds no timer by construction and by test (`the_timer_sleeps_to_the_deadline_and_is_gone_when_there_is_none`), and an alarm with a pending deadline
+wakes once at that deadline.
