@@ -20,3 +20,9 @@ name = "fuzz_form"
 path = "fuzz_targets/fuzz_form.rs"
 test = false
 doc = false
+
+[[bin]]
+name = "fuzz_cbor"
+path = "fuzz_targets/fuzz_cbor.rs"
+test = false
+doc = false

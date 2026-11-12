@@ -1,0 +1,30 @@
+[package]
+name = "aws-cloudwatch"
+version = "0.0.0"
+description = "CloudWatch: metrics, single-metric alarms evaluated at their deadlines, history, dashboards and tags, behind a lazy actor"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+aws-model-cloudwatch = { path = "../aws-model-cloudwatch" }
+aws-schema = { path = "../aws-schema" }
+aws-wire = { path = "../aws-wire" }
+aws-core = { path = "../aws-core" }
+aws-peers = { path = "../aws-peers" }
+aws-seal = { path = "../aws-seal" }
+doze-runtime = { path = "../doze-runtime" }
+doze-store = { path = "../doze-store" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# The alarm timer: one sleep to the earliest deadline, and a signal that the deadline moved.
+tokio = { version = "1", default-features = false, features = ["sync", "time", "macros"] }
+
+[dev-dependencies]
+aws-testkit = { path = "../aws-testkit" }
+tokio = { version = "1", default-features = false, features = ["rt", "macros", "time", "test-util", "sync"] }

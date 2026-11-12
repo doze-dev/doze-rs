@@ -7,6 +7,7 @@
 //!
 //! The awsJson and awsQuery protocols are served so far; a service that speaks another is refused by name with a 501.
 
+mod cbor;
 mod config;
 mod pipeline;
 mod query;

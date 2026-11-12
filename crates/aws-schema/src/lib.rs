@@ -7,6 +7,7 @@
 
 pub mod arena;
 pub mod build;
+pub mod cbor;
 pub mod enc;
 pub mod json;
 pub mod meta;

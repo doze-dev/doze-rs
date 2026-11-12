@@ -9,6 +9,7 @@
 //! The Query, REST and CBOR protocols join as the services that speak them are built.
 
 mod auth_error;
+pub mod cbor;
 mod error;
 pub mod handler;
 pub mod json;

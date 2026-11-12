@@ -162,6 +162,7 @@ dependencies = [
  "aws-model-cloudwatch",
  "aws-peers",
  "aws-schema",
+ "aws-seal",
  "aws-testkit",
  "aws-wire",
  "doze-runtime",
@@ -1120,6 +1121,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "aws-auth",
+ "aws-cloudwatch",
  "aws-gateway",
  "aws-iam",
  "aws-kinesis",

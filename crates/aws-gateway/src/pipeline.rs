@@ -102,6 +102,9 @@ async fn handle(
         )
     })?;
     let (meta, tables) = (entry.service.meta(), entry.service.tables());
+    if aws_wire::cbor::is_request(parts) && meta.speaks(Protocol::Rpcv2Cbor) {
+        return crate::cbor::handle(shared, entry, id, parts, body, claim).await;
+    }
     let Some(version) = json::Version::of(meta) else {
         if meta.speaks(Protocol::AwsQuery) {
             return crate::query::handle(shared, entry, id, parts, body, claim).await;
@@ -135,13 +138,8 @@ async fn handle(
         return Err(Box::new(json::query_refusal(meta, id)));
     }
     let op = json::route(meta, tables, parts).map_err(|e| fail(&e))?;
-    if !entry.service.serves(op) {
-        let name = tables.op(op).map_or("", |o| o.name);
-        return Err(fail(&ApiError::new(
-            501,
-            "NotImplemented",
-            format!("{name} is not built in doze-aws."),
-        )));
+    if let Some(refusal) = unbuilt(entry, op) {
+        return Err(fail(&refusal));
     }
     let caller = Caller {
         access_key_id: claim.access_key_id,
@@ -155,6 +153,19 @@ async fn handle(
     let output = entry.service.call(call).await.map_err(|e| fail(&e))?;
     let encoded = encode_output(entry, op, &output.arena, output.root).map_err(|e| fail(&e))?;
     Ok(json::success(version, id, encoded))
+}
+
+/// The refusal for an operation the service does not build (501, by name), before its body is read.
+pub(crate) fn unbuilt(entry: &Entry, op: u32) -> Option<ApiError> {
+    if entry.service.serves(op) {
+        return None;
+    }
+    let name = entry.service.tables().op(op).map_or("", |o| o.name);
+    Some(ApiError::new(
+        501,
+        "NotImplemented",
+        format!("{name} is not built in doze-aws."),
+    ))
 }
 
 /// What a service whose protocol this gateway does not speak yet is told.
@@ -236,7 +247,7 @@ pub(crate) async fn read_body(body: Incoming, limit: usize) -> Result<Bytes, Api
 }
 
 /// Decodes and validates the body against the operation's input shape.
-fn decode_call(
+pub(crate) fn decode_call(
     entry: &Entry,
     op: u32,
     id: &RequestId,

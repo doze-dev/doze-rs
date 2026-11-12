@@ -95,6 +95,13 @@ class Doze(Target):
         raise RuntimeError("doze-aws did not start:\n" + (root / "doze-aws.log").read_text())
 
     def client(self, service, **kw):
+        if service == "cloudwatch" and os.environ.get("CONFORMANCE_CLOUDWATCH_PROTOCOL") == "cbor":
+            # botocore prefers the JSON protocol for CloudWatch; this makes it speak RPC v2 CBOR, the other encoding the service
+            # offers (and the one newer SDKs choose), so that both can be scored against the same recording.
+            import botocore.model
+
+            botocore.model.PRIORITY_ORDERED_SUPPORTED_PROTOCOLS = (
+                "smithy-rpc-v2-cbor", *botocore.model.PRIORITY_ORDERED_SUPPORTED_PROTOCOLS)
         return boto3.client(
             service,
             endpoint_url=self.endpoint,

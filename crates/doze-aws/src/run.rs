@@ -55,6 +55,7 @@ pub(crate) async fn run(args: Args) -> Result<()> {
         Arc::new(aws_kms::Kms::new(Arc::new(ctx("kms")))),
         Arc::new(aws_kinesis::Kinesis::new(Arc::new(ctx("kinesis")))),
         Arc::new(aws_logs::Logs::new(Arc::new(ctx("logs")))),
+        Arc::new(aws_cloudwatch::Cloudwatch::new(Arc::new(ctx("cloudwatch")))),
     ];
     let mut gateway = Gateway::new(config);
     for service in services {

@@ -73,21 +73,7 @@ impl Core {
             warm_mibps: r.int("WarmThroughputMiBps"),
             distribution: r.opt("RecordDistributionStrategy").map(str::to_owned),
         };
-        let first_seq = u128::try_from(now).unwrap_or(0) << crate::model::SEQ_SHIFT;
-        for (start, end) in ranges(u32::try_from(count).unwrap_or(1)) {
-            stream.shards.push(Shard {
-                id: stream.next_shard,
-                start,
-                end,
-                parent: None,
-                adjacent_parent: None,
-                // Recorded: every shard of a stream starts at a sequence number of its own.
-                first_seq: first_seq + u128::from(stream.next_shard),
-                last_seq: 0,
-                ended_seq: None,
-            });
-            stream.next_shard += 1;
-        }
+        open_shards(&mut stream, count, now);
         self.streams.insert(name, stream);
         Ok(json!({}))
     }
@@ -203,6 +189,25 @@ impl Core {
                 == Some("ON_DEMAND");
         self.stream_mut(r)?.on_demand = on_demand;
         Ok(json!({}))
+    }
+}
+
+/// Gives a new stream `count` shards that divide the hash space evenly. Each starts at a sequence number of its own (recorded on
+/// AWS, 2026-11-09).
+fn open_shards(stream: &mut Stream, count: i64, now_ms: i64) {
+    let first_seq = u128::try_from(now_ms).unwrap_or(0) << crate::model::SEQ_SHIFT;
+    for (start, end) in ranges(u32::try_from(count).unwrap_or(1)) {
+        stream.shards.push(Shard {
+            id: stream.next_shard,
+            start,
+            end,
+            parent: None,
+            adjacent_parent: None,
+            first_seq: first_seq + u128::from(stream.next_shard),
+            last_seq: 0,
+            ended_seq: None,
+        });
+        stream.next_shard += 1;
     }
 }
 
