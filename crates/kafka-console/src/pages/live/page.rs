@@ -36,7 +36,7 @@ fn pause(v: &LiveView, base: &Base) -> Markup {
     q.until = Some(v.newest_id);
     q.before = None;
     html! {
-        a class="btn" href={(base.url("/live")) (q.to_query())} data-pause data-seen=(v.seen) { "Pause" }
+        a class="btn" href={(base.url("/live")) (q.to_query())} data-ui=[(v.state != LiveState::Steady).then_some("pause")] data-pause data-seen=(v.seen) { "Pause" }
     }
 }
 
@@ -55,7 +55,7 @@ fn select(name: &str, all: &str, current: &str, options: &[String]) -> Markup {
 
 fn toggle(name: &str, on: bool, label: Markup) -> Markup {
     html! {
-        button class={"fchip" @if on { " on" }} type="submit" name=(name) value=(if on { "0" } else { "1" }) data-ui="toggle" aria-pressed=(on) { (label) }
+        button class={"fchip" @if on { " on" }} type="submit" name=(name) value=(if on { "0" } else { "1" }) data-ui="filter" aria-pressed=(on) { (label) }
     }
 }
 
@@ -111,7 +111,7 @@ fn sentence(v: &LiveView) -> Markup {
 fn held_banner(v: &LiveView) -> Markup {
     let held = v.held.unwrap_or(0);
     html! {
-        div data-paused-banner hidden[v.paused_at_ms.is_none()] style="margin-bottom:24px" { (callout(Tone::Plain, Glyph::Info, html! {
+        div data-paused-banner data-scaffold[v.paused_at_ms.is_none()] hidden[v.paused_at_ms.is_none()] style="margin-bottom:24px" { (callout(Tone::Plain, Glyph::Info, html! {
             div style="flex:1" {
                 b { "Paused. " span data-held { (number(i64::try_from(held).unwrap_or(0))) } " requests are held back." }
                 " The wire stops where it is. Nothing is lost: the recorder carries on, and Resume brings them in."
@@ -148,9 +148,15 @@ fn pager_row(v: &LiveView, base: &Base) -> Markup {
         &pager_line(v),
         html! {
             @if v.query.before.is_some() {
-                a class="btn sm" href={(base.url("/live")) (newer.to_query())} { (live_glyph(LiveGlyph::ChevL, 14)) "Newer" }
+                a class="btn sm" href={(base.url("/live")) (newer.to_query())} data-ui="page" { (live_glyph(LiveGlyph::ChevL, 14)) "Newer" }
+            } @else {
+                button class="btn sm" type="button" data-ui="page" disabled { (live_glyph(LiveGlyph::ChevL, 14)) "Newer" }
             }
-            @if let Some(href) = &older { a class="btn sm" href=(href) { "Older" (live_glyph(LiveGlyph::ChevR, 14)) } }
+            @if let Some(href) = &older {
+                a class="btn sm" href=(href) data-ui="page" { "Older" (live_glyph(LiveGlyph::ChevR, 14)) }
+            } @else {
+                button class="btn sm" type="button" data-ui="page" disabled { "Older" (live_glyph(LiveGlyph::ChevR, 14)) }
+            }
         },
     )
 }
@@ -195,7 +201,7 @@ fn tape(v: &LiveView, base: &Base) -> Markup {
             @if v.state == LiveState::Quiet {
                 div class="empty" style="padding:40px 32px" {
                     div class="ic" { (glyph(Glyph::Live, 22, "")) }
-                    h2 { "No requests yet" }
+                    h3 { "No requests yet" }
                     p style="margin:0" { "The first one is a good one to watch: ApiVersions, then Metadata, then whatever your client does next." }
                 }
             } @else {

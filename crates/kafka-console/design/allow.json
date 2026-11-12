@@ -1164,5 +1164,257 @@
     "field": "link",
     "reason": "improvement: Edit again goes to the edit dialog (see the button entry).",
     "expires": "close"
+  },
+  {
+    "board": "connect-first-request",
+    "field": "link",
+    "selector": "request-detail|request-fenced|request-refused|request-too-large",
+    "reason": "improvement: every row's time is a link to its drawer (the board links only a few), so any request can be opened",
+    "expires": "close"
+  },
+  {
+    "board": "group-wire",
+    "field": "button",
+    "selector": "Back to the group [-] -> to:group-rebalancing",
+    "reason": "9c: the group page, its header (state word and pills) and its route are slice 9c's; this page links to /groups/{group} and carries a plain title row",
+    "expires": "9c"
+  },
+  {
+    "board": "group-wire",
+    "field": "link",
+    "selector": "group-rebalancing",
+    "reason": "9c: the group page, its header (state word and pills) and its route are slice 9c's; this page links to /groups/{group} and carries a plain title row",
+    "expires": "9c"
+  },
+  {
+    "board": "group-wire",
+    "field": "state",
+    "selector": "st warn",
+    "reason": "9c: the group page, its header (state word and pills) and its route are slice 9c's; this page links to /groups/{group} and carries a plain title row",
+    "expires": "9c"
+  },
+  {
+    "board": "group-wire",
+    "field": "button",
+    "selector": "Back to the group [-] -> to:?/groups/fulfilment",
+    "reason": "9c: the group page, its header (state word and pills) and its route are slice 9c's; this page links to /groups/{group} and carries a plain title row",
+    "expires": "9c"
+  },
+  {
+    "board": "group-wire",
+    "field": "link",
+    "selector": "?/groups/fulfilment",
+    "reason": "9c: the group page, its header (state word and pills) and its route are slice 9c's; this page links to /groups/{group} and carries a plain title row",
+    "expires": "9c"
+  },
+  {
+    "board": "group-wire",
+    "field": "link",
+    "selector": "live-load|live-paused|live-quiet|live-wire",
+    "reason": "improvement: client, API and topic cells, Close and Pause link to the Live page filtered or as it was; the filters live in the address so they can be shared and survive a reload",
+    "expires": "close"
+  },
+  {
+    "board": "group-wire",
+    "field": "link",
+    "selector": "request-detail|request-fenced|request-refused|request-too-large",
+    "reason": "improvement: every row's time is a link to its drawer (the board links only a few), so any request can be opened",
+    "expires": "close"
+  },
+  {
+    "board": "live-clients",
+    "field": "link",
+    "selector": "live-load|live-paused|live-quiet|live-wire",
+    "reason": "improvement: client, API and topic cells, Close and Pause link to the Live page filtered or as it was; the filters live in the address so they can be shared and survive a reload",
+    "expires": "close"
+  },
+  {
+    "board": "live-load",
+    "field": "button",
+    "selector": "All apps [-] -> ui:filter",
+    "reason": "improvement: the filter chip is a native select (it works with no script, with the keyboard and with a screen reader, and keeps the choice in the address); the board draws a button",
+    "expires": "close"
+  },
+  {
+    "board": "live-load",
+    "field": "button",
+    "selector": "All topics [-] -> ui:filter",
+    "reason": "improvement: the filter chip is a native select (it works with no script, with the keyboard and with a screen reader, and keeps the choice in the address); the board draws a button",
+    "expires": "close"
+  },
+  {
+    "board": "live-load",
+    "field": "link",
+    "selector": "live-load|live-paused|live-quiet|live-wire",
+    "reason": "improvement: client, API and topic cells, Close and Pause link to the Live page filtered or as it was; the filters live in the address so they can be shared and survive a reload",
+    "expires": "close"
+  },
+  {
+    "board": "live-load",
+    "field": "link",
+    "selector": "request-detail|request-fenced|request-refused|request-too-large",
+    "reason": "improvement: every row's time is a link to its drawer (the board links only a few), so any request can be opened",
+    "expires": "close"
+  },
+  {
+    "board": "live-paused",
+    "field": "button",
+    "selector": "All apps [-] -> ui:filter",
+    "reason": "improvement: the filter chip is a native select (it works with no script, with the keyboard and with a screen reader, and keeps the choice in the address); the board draws a button",
+    "expires": "close"
+  },
+  {
+    "board": "live-paused",
+    "field": "button",
+    "selector": "All topics [-] -> ui:filter",
+    "reason": "improvement: the filter chip is a native select (it works with no script, with the keyboard and with a screen reader, and keeps the choice in the address); the board draws a button",
+    "expires": "close"
+  },
+  {
+    "board": "live-paused",
+    "field": "link",
+    "selector": "request-detail|request-fenced|request-refused|request-too-large",
+    "reason": "improvement: every row's time is a link to its drawer (the board links only a few), so any request can be opened",
+    "expires": "close"
+  },
+  {
+    "board": "live-quiet",
+    "field": "button",
+    "selector": "All apps [-] -> ui:filter",
+    "reason": "improvement: the filter chip is a native select (it works with no script, with the keyboard and with a screen reader, and keeps the choice in the address); the board draws a button",
+    "expires": "close"
+  },
+  {
+    "board": "live-quiet",
+    "field": "button",
+    "selector": "All topics [-] -> ui:filter",
+    "reason": "improvement: the filter chip is a native select (it works with no script, with the keyboard and with a screen reader, and keeps the choice in the address); the board draws a button",
+    "expires": "close"
+  },
+  {
+    "board": "live-quiet",
+    "field": "link",
+    "selector": "live-load|live-paused|live-quiet|live-wire",
+    "reason": "improvement: client, API and topic cells, Close and Pause link to the Live page filtered or as it was; the filters live in the address so they can be shared and survive a reload",
+    "expires": "close"
+  },
+  {
+    "board": "live-wire",
+    "field": "button",
+    "selector": "All apps [-] -> ui:filter",
+    "reason": "improvement: the filter chip is a native select (it works with no script, with the keyboard and with a screen reader, and keeps the choice in the address); the board draws a button",
+    "expires": "close"
+  },
+  {
+    "board": "live-wire",
+    "field": "button",
+    "selector": "All topics [-] -> ui:filter",
+    "reason": "improvement: the filter chip is a native select (it works with no script, with the keyboard and with a screen reader, and keeps the choice in the address); the board draws a button",
+    "expires": "close"
+  },
+  {
+    "board": "live-wire",
+    "field": "link",
+    "selector": "live-lab-rule",
+    "reason": "improvement: Lab is not built, so a callout about its rows would promise a feature that does not exist; it returns with Lab",
+    "expires": "close"
+  },
+  {
+    "board": "live-wire",
+    "field": "link",
+    "selector": "request-fenced",
+    "reason": "one route (/live/{id}) serves the four request drawers and the data chooses which opens; the link tool resolves a shared route to its first screen",
+    "expires": "close"
+  },
+  {
+    "board": "live-wire",
+    "field": "link",
+    "selector": "request-refused",
+    "reason": "one route (/live/{id}) serves the four request drawers and the data chooses which opens; the link tool resolves a shared route to its first screen",
+    "expires": "close"
+  },
+  {
+    "board": "live-wire",
+    "field": "link",
+    "selector": "request-too-large",
+    "reason": "one route (/live/{id}) serves the four request drawers and the data chooses which opens; the link tool resolves a shared route to its first screen",
+    "expires": "close"
+  },
+  {
+    "board": "live-wire",
+    "field": "note",
+    "selector": "callout: A rehearsal leaves a mark.",
+    "reason": "improvement: Lab is not built, so a callout about its rows would promise a feature that does not exist; it returns with Lab",
+    "expires": "close"
+  },
+  {
+    "board": "request-detail",
+    "field": "link",
+    "selector": "live-load|live-paused|live-quiet|live-wire",
+    "reason": "improvement: client, API and topic cells, Close and Pause link to the Live page filtered or as it was; the filters live in the address so they can be shared and survive a reload",
+    "expires": "close"
+  },
+  {
+    "board": "request-detail",
+    "field": "link",
+    "selector": "topic-messages-empty|topic-messages-filtered|topic-readcommitted",
+    "reason": "improvement: 'Fetch it again' is a plain link to the topic's Messages at that offset (a read the person can bookmark), not a button that re-sends",
+    "expires": "close"
+  },
+  {
+    "board": "request-fenced",
+    "field": "link",
+    "selector": "live-load|live-paused|live-quiet|live-wire",
+    "reason": "improvement: client, API and topic cells, Close and Pause link to the Live page filtered or as it was; the filters live in the address so they can be shared and survive a reload",
+    "expires": "close"
+  },
+  {
+    "board": "request-refused",
+    "field": "link",
+    "selector": "live-load|live-paused|live-quiet|live-wire",
+    "reason": "improvement: client, API and topic cells, Close and Pause link to the Live page filtered or as it was; the filters live in the address so they can be shared and survive a reload",
+    "expires": "close"
+  },
+  {
+    "board": "request-too-large",
+    "field": "button",
+    "selector": "Raise max.message.bytes [pri] -> to:config-edit",
+    "reason": "9d: the edit dialog of max.message.bytes is slice 9d's; until then the link goes to the topic's Config page",
+    "expires": "9d"
+  },
+  {
+    "board": "request-too-large",
+    "field": "link",
+    "selector": "config-edit",
+    "reason": "9d: the edit dialog of max.message.bytes is slice 9d's; until then the link goes to the topic's Config page",
+    "expires": "9d"
+  },
+  {
+    "board": "request-too-large",
+    "field": "button",
+    "selector": "Raise max.message.bytes [pri] -> to:topic-config",
+    "reason": "9d: the edit dialog of max.message.bytes is slice 9d's; until then the link goes to the topic's Config page",
+    "expires": "9d"
+  },
+  {
+    "board": "request-too-large",
+    "field": "link",
+    "selector": "live-load|live-paused|live-quiet|live-wire",
+    "reason": "improvement: client, API and topic cells, Close and Pause link to the Live page filtered or as it was; the filters live in the address so they can be shared and survive a reload",
+    "expires": "close"
+  },
+  {
+    "board": "request-too-large",
+    "field": "link",
+    "selector": "topic-config",
+    "reason": "9d: the edit dialog of max.message.bytes is slice 9d's; until then the link goes to the topic's Config page",
+    "expires": "9d"
+  },
+  {
+    "board": "topic-wire",
+    "field": "link",
+    "selector": "live-load|live-paused|live-quiet|live-wire",
+    "reason": "improvement: client, API and topic cells, Close and Pause link to the Live page filtered or as it was; the filters live in the address so they can be shared and survive a reload",
+    "expires": "close"
   }
 ]

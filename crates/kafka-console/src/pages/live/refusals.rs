@@ -15,7 +15,7 @@ use crate::model::{WireClass, WireDetail};
 use crate::ui::button::{Size, Variant, link};
 use crate::ui::client;
 use crate::ui::glyph::{Glyph, glyph};
-use crate::ui::notice::{Tone, callout};
+use crate::ui::notice::Tone;
 
 /// One line of the rules list: passed or not, what was checked, the detail, and the tag at the right.
 struct Rule {
@@ -37,6 +37,17 @@ fn rules(list: &[Rule]) -> Markup {
     }
 }
 
+/// The callout that carries Kafka's words (the boards' `refusal`).
+fn refusal(tone: Tone, body: Markup) -> Markup {
+    let class = match tone {
+        Tone::Plain => "callout",
+        Tone::Warn => "callout warn",
+        Tone::Bad => "callout bad",
+        Tone::Refused => "callout refused",
+    };
+    html! { div class=(class) data-extra="refusal" { (glyph(Glyph::Warn, 18, "")) div { (body) } } }
+}
+
 fn h3(text: &str, extra: Option<&str>) -> Markup {
     html! { h3 style="margin:24px 0 4px;font-size:14px" data-extra=[extra] { (text) } }
 }
@@ -47,10 +58,10 @@ fn words(d: &WireDetail) -> Markup {
     html! { b { "Kafka's words" } br; (own.map_or(d.words.as_str(), String::as_str)) }
 }
 
-fn who_when(d: &WireDetail, written: bool) -> Markup {
+fn who_when(d: &WireDetail, written: bool, with_client: bool) -> Markup {
     html! {
         dl class="kv sm" style="margin-top:8px" {
-            dt { "Client" } dd { span class="mono" { (d.row.client) } @if let Some(s) = &d.software { " " span class="dim" { "(" (s) ")" } } }
+            @if with_client { dt { "Client" } dd { span class="mono" { (d.row.client) } @if let Some(s) = &d.software { " " span class="dim" { "(" (s) ")" } } } }
             dt { "At" } dd class="mono" data-vary { (crate::format::clock_ms(d.row.at_ms)) " · " (d.row.took_us / 1000) " ms" }
             dt { "Written" } dd { @if written { "Part of it" } @else { "Nothing" } }
         }
@@ -148,7 +159,7 @@ pub fn refused_body(
         .is_some_and(|c| c.contains("compact"));
     html! {
         (head(Kind::Refused.heading_id(), if closed { html! { "Connection closed" } } else { title }, !closed, d, close))
-        (callout(if denied { Tone::Warn } else if r.class == WireClass::Failed || closed { Tone::Bad } else { Tone::Refused }, Glyph::Warn, if closed { html! { b { "Why" } br; (r.detail) } } else { words(d) }))
+        (refusal(if denied { Tone::Warn } else if r.class == WireClass::Failed || closed { Tone::Bad } else { Tone::Refused }, if closed { html! { b { "Why" } br; (r.detail) } } else { words(d) }))
         (h3("The rule", Some("teaching")))
         p class="help" style="margin:0 0 6px" { (d.plain) }
         (rules(&list))
@@ -159,11 +170,11 @@ pub fn refused_body(
         @if r.code == 87 && compacted {
             @if let Some(t) = topic_of(d) {
                 div class="row sb" style="margin:12px 0 6px" { span class="dim" { "Give it a key" } (client::copy_from_button("btn sm", "copy-keyed", html! { (glyph(Glyph::Copy, 16, "")) "Copy" })) }
-                (crate::ui::code::pre(&keyed_produce(listen, t, &r.client), Some("copy-keyed"), None))
+                div data-extra="copy-as" { (crate::ui::code::pre(&keyed_produce(listen, t, &r.client), Some("copy-keyed"), None)) }
                 p class="help" { "A key with an empty value is also a valid record: a tombstone, which deletes that key at compaction." }
             }
         }
-        (who_when(d, false))
+        (who_when(d, false, true))
         @if !denied && !closed { (actions(d, base)) }
     }
 }
@@ -181,7 +192,7 @@ pub fn fenced_body(d: &WireDetail, base: &Base, close: &str) -> Markup {
         .map(|s| s.id);
     html! {
         (head(Kind::Fenced.heading_id(), html! { (r.code_name) " (" (r.code) ")" }, true, d, close))
-        (callout(Tone::Refused, Glyph::Warn, words(d)))
+        (refusal(Tone::Refused, words(d)))
         (h3("How it came to this", None))
         @if d.story.is_empty() {
             p class="help" { "No earlier request of this transactional id or producer is on the wire any more (the recorder keeps a bounded tape), so the story is only this request." }
@@ -202,10 +213,10 @@ pub fn fenced_body(d: &WireDetail, base: &Base, close: &str) -> Markup {
         ]))
         (h3("What would pass", None))
         p class="help" style="margin:0" { "The producer asks again with " span class="mono" { "InitProducerId" } " for its transactional id, gets a newer epoch and starts at sequence 0. Clients do this on their own after the error." }
-        (who_when(d, false))
+        (who_when(d, false, false))
         @if let Some(t) = topic_of(d) {
             div class="row wrap" style="margin-top:20px;gap:10px" {
-                (link(&base.url(&format!("/topics/{}/producers", segment(t))), Variant::Primary, Size::Normal, None, "How fencing works: the producers of this topic"))
+                (link(&base.url(&format!("/topics/{}/producers", segment(t))), Variant::Primary, Size::Normal, None, &sent.map_or_else(|| "How fencing works: the producers of this topic".to_owned(), |(p, _)| format!("How fencing works: the epoch of producer {p}"))))
             }
         }
     }
@@ -249,14 +260,14 @@ pub fn too_large_body(d: &WireDetail, limits: &Limits, base: &Base, close: &str)
     };
     html! {
         (head(Kind::TooLarge.heading_id(), html! { (r.code_name) " (" (r.code) ")" }, true, d, close))
-        (callout(Tone::Refused, Glyph::Warn, html! { b { "Kafka's words" } br; (d.words) br;
+        (refusal(Tone::Refused, html! { b { "Kafka's words" } br; (d.words) br;
             span class="mono" style="font-size:12.5px" { (number(i64::try_from(sent).unwrap_or(0))) " B request" @if let Some((l, _)) = limits.max_message_bytes { " against max.message.bytes " (number(i64::try_from(l).unwrap_or(0))) } "." } }))
         (h3("The rule", Some("teaching")))
         p class="help" style="margin:0 0 6px" { "A batch larger than the limit is refused whole. The topic's own " span class="mono" { "max.message.bytes" } " wins; with none set, the broker's " span class="mono" { "message.max.bytes" } " applies." }
         (rules(&list))
         (h3("What would pass", None))
         p class="help" style="margin:0" { (d.pass) }
-        (who_when(d, false))
+        (who_when(d, false, true))
         div class="row wrap" style="margin-top:20px;gap:10px" {
             @if let Some(t) = topic_of(d) {
                 (link(&base.url(&format!("/topics/{}/config", segment(t))), Variant::Primary, Size::Normal, None, "Raise max.message.bytes"))

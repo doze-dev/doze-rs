@@ -71,6 +71,8 @@ pub struct WireQuery {
     pub api: String,
     pub topic: String,
     pub group: String,
+    /// A kind of group request: `join`, `commits`, `heartbeats` (the group wire's chips).
+    pub kind: String,
     pub refused_only: bool,
     /// Hide the polls that found nothing.
     pub hide_idle: bool,
@@ -94,6 +96,7 @@ impl Default for WireQuery {
             api: String::new(),
             topic: String::new(),
             group: String::new(),
+            kind: String::new(),
             refused_only: false,
             hide_idle: true,
             before: None,
@@ -304,6 +307,7 @@ impl WireQuery {
             api: text("api"),
             topic: text("topic"),
             group: text("group"),
+            kind: text("kind"),
             refused_only: crate::form::get(fields, "refused") == Some("1"),
             hide_idle: crate::form::get(fields, "idle") != Some("0"),
             before: number("before"),
@@ -330,6 +334,7 @@ impl WireQuery {
             ("api", &self.api),
             ("topic", &self.topic),
             ("group", &self.group),
+            ("kind", &self.kind),
             ("refused", if self.refused_only { "1" } else { "" }),
             ("idle", if self.hide_idle { "" } else { "0" }),
             ("before", &before),
@@ -350,6 +355,7 @@ impl WireQuery {
             "api" => q.api = value.to_owned(),
             "topic" => q.topic = value.to_owned(),
             "group" => q.group = value.to_owned(),
+            "kind" => q.kind = value.to_owned(),
             _ => {}
         }
         q
@@ -402,4 +408,17 @@ mod tests {
         );
         assert_eq!(w.with("nothing", "x"), w);
     }
+}
+
+/// A group's wire: the rows that pass the filters, and the counts the chips say.
+#[derive(Debug, Clone, PartialEq)]
+pub struct GroupWireView {
+    pub group: String,
+    pub query: WireQuery,
+    pub rows: Vec<WireRow>,
+    pub window: WireWindow,
+    pub now_ms: i64,
+    /// Every request that touched the group among the rows kept, and how many of those were refused.
+    pub all: usize,
+    pub refused: usize,
 }

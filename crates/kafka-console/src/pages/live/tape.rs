@@ -6,7 +6,7 @@ use maud::{Markup, html};
 use super::parts::{filter_link, request_url, result_cell};
 use crate::base::Base;
 use crate::format::{clock, date_time, millis};
-use crate::model::{WireQuery, WireRow};
+use crate::model::{WireClass, WireQuery, WireRow};
 use crate::ui::button::pill_mono;
 
 /// Which board's table.
@@ -64,9 +64,10 @@ impl Layout {
         }
     }
 
-    const fn word_class(self) -> &'static str {
-        match self {
-            Self::Topic => "rw",
+    /// The class of the state word: a topic's dock draws `rw` for the answered and `st` for a refusal, as its board does.
+    fn word_class(self, r: &WireRow) -> &'static str {
+        match (self, r.class) {
+            (Self::Topic, WireClass::Done | WireClass::Told) => "rw",
             _ => "st",
         }
     }
@@ -139,7 +140,7 @@ pub(super) fn row(r: &WireRow, base: &Base, q: &WireQuery, layout: Layout) -> Ma
             @if layout != Layout::First { (client(r, base, q)) }
             (api(r, base, q, filterable))
             (target(r, base, q, filterable))
-            td { (result_cell(r, layout.word_class())) }
+            td { (result_cell(r, layout.word_class(r))) }
             (took(r))
         }
     }

@@ -75,7 +75,7 @@ pub(super) fn head(id: &str, title: Markup, mono: bool, d: &WireDetail, close: &
                     " · " span data-vary { (clock_ms(r.at_ms)) }
                 }
             }
-            a class="btn sm ghost" href=(close) data-dialog-close aria-label="Close" { (glyph(Glyph::X, 16, "")) "Close" }
+            a class="btn sm ghost" href=(close) data-dialog-close data-ui="close" aria-label="Close" { (glyph(Glyph::X, 16, "")) "Close" }
         }
         div class="hr" style="margin:16px 0 20px" {}
     }

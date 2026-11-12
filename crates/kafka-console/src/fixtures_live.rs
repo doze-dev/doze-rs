@@ -4,8 +4,8 @@
 
 use crate::fixtures_topics::now as world_now;
 use crate::model::{
-    ClientRow, ClientsView, FirstView, LiveState, LiveView, WireClass, WireDetail, WirePart,
-    WireQuery, WireRefusal, WireRow, WireWindow,
+    ClientRow, ClientsView, FirstView, GroupWireView, LiveState, LiveView, WireClass, WireDetail,
+    WirePart, WireQuery, WireRefusal, WireRow, WireWindow,
 };
 use crate::pages::live::RequestLimits;
 use crate::recorder::errors;
@@ -532,7 +532,8 @@ pub fn topic_wire(topic: &str) -> (Vec<WireRow>, WireWindow) {
 
 /// The rows of a group's wire (the board's, for `fulfilment`) and its window.
 #[must_use]
-pub fn group_wire(group: &str) -> (Vec<WireRow>, WireWindow) {
+pub fn group_wire(q: &WireQuery) -> GroupWireView {
+    let group = q.group.as_str();
     let g = |id, t, api, v, target: &str, sub: &str, class, code, detail: &str, ms| {
         let mut r = wr(&Spec {
             id,
@@ -644,7 +645,27 @@ pub fn group_wire(group: &str) -> (Vec<WireRow>, WireWindow) {
         h.count = 71;
         h.since_ms = Some(at("22:09:13.600"));
     }
-    (rows, window(7, 2000))
+    let all = rows.len();
+    let refused = rows
+        .iter()
+        .filter(|r| r.class == WireClass::Refused)
+        .count();
+    let kind = |api: &str| match q.kind.as_str() {
+        "join" => matches!(api, "JoinGroup" | "SyncGroup" | "LeaveGroup"),
+        "commits" => api == "OffsetCommit",
+        "heartbeats" => api == "Heartbeat",
+        _ => true,
+    };
+    rows.retain(|r| kind(r.api) && (!q.refused_only || r.class == WireClass::Refused));
+    GroupWireView {
+        group: group.to_owned(),
+        query: q.clone(),
+        rows,
+        window: window(7, 2000),
+        now_ms: now(),
+        all,
+        refused,
+    }
 }
 
 /// Home's strip in the world: nine apps on a wire that reaches back to 19:12, the last request a second ago.

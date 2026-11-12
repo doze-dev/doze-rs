@@ -127,7 +127,7 @@ pub async fn first(State(s): State<Shared>) -> Response {
             &s.document(
                 Rail::Home,
                 "A new client just connected",
-                &[("Home", Some("/")), ("First request", None)],
+                &[("Home", None)],
                 &[],
                 main,
             )
@@ -136,18 +136,8 @@ pub async fn first(State(s): State<Shared>) -> Response {
     };
     let main = first_page(&v, &s.base);
     html(
-        &s.document(
-            Rail::Home,
-            "First request landed",
-            &[
-                ("Home", Some("/")),
-                ("Connect an app", Some("/connect")),
-                ("First request", None),
-            ],
-            &[],
-            main,
-        )
-        .await,
+        &s.document(Rail::Home, "Home", &[("Home", None)], &[], main)
+            .await,
     )
 }
 
@@ -196,13 +186,22 @@ pub async fn topic_wire(State(s): State<Shared>, Path(topic): Path<String>) -> R
 }
 
 /// `/groups/{group}/wire`: every request that touched a group. The group pages are slice 9c's; this is its body, in the shell.
-pub async fn group_wire(State(s): State<Shared>, Path(group): Path<String>) -> Response {
-    let (rows, window, now) = s.source.group_wire(&group).await;
-    let main = group_wire_page(&group, &rows, &window, now, &s.base);
+pub async fn group_wire(
+    State(s): State<Shared>,
+    Path(group): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let q = WireQuery {
+        group: group.clone(),
+        ..WireQuery::parse(&fields(&query))
+    };
+    let main = group_wire_page(&s.source.group_wire(&q).await, &s.base);
+    let g = format!("/groups/{}", crate::base::segment(&group));
     let crumbs = [
         ("Resources", Some("/topics")),
         ("Groups", Some("/groups")),
-        (group.as_str(), None),
+        (group.as_str(), Some(g.as_str())),
+        ("Wire", None),
     ];
     html(
         &s.document(
@@ -233,9 +232,8 @@ pub(crate) async fn fragment(s: &Shared, id: &str, query: &Option<String>) -> Op
             Some(topic_dock(topic, &rows, &window, now, &s.base, false))
         }
         GROUP_WIRE => {
-            let group = crate::form::text(&f, "group");
-            let (rows, window, now) = s.source.group_wire(group).await;
-            Some(group_wire_page(group, &rows, &window, now, &s.base))
+            let q = WireQuery::parse(&f);
+            Some(group_wire_page(&s.source.group_wire(&q).await, &s.base))
         }
         _ => None,
     }

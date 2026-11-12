@@ -71,6 +71,17 @@ pub(super) fn wire(row: &Row) -> WireRow {
     }
 }
 
+/// Whether an API is of the kind a group wire chip names.
+fn of_kind(api: kafka_wire::messages::ApiKey, kind: &str) -> bool {
+    use kafka_wire::messages::ApiKey as K;
+    match kind {
+        "join" => matches!(api, K::JoinGroup | K::SyncGroup | K::LeaveGroup),
+        "commits" => matches!(api, K::OffsetCommit | K::TxnOffsetCommit),
+        "heartbeats" => matches!(api, K::Heartbeat | K::ConsumerGroupHeartbeat),
+        _ => true,
+    }
+}
+
 fn has(hay: &str, needle: &str) -> bool {
     hay.to_ascii_lowercase()
         .contains(&needle.to_ascii_lowercase())
@@ -83,6 +94,7 @@ fn matches(row: &Row, q: &WireQuery) -> bool {
     let in_group = |n: &str| row.facts.group.as_deref().is_some_and(|g| has(g, n));
     (q.client.is_empty() || has(&row.who.client, &q.client))
         && (q.api.is_empty() || api.eq_ignore_ascii_case(&q.api))
+        && (q.kind.is_empty() || of_kind(row.api, &q.kind))
         && (q.topic.is_empty() || in_topics(&q.topic))
         && (q.group.is_empty() || in_group(&q.group))
         && (q.text.is_empty()

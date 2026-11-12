@@ -91,7 +91,7 @@ fn content(id: &str, base: &Base) -> Option<Content> {
             page::first_page(&world::first(), base),
             "Home".to_owned(),
             Rail::Home,
-            vec![("Home", Some("/")), ("First request landed", None)],
+            vec![("Home", None)],
             &[],
         ),
         "topic-wire" => {
@@ -106,21 +106,25 @@ fn content(id: &str, base: &Base) -> Option<Content> {
                     ("Resources", Some("/topics")),
                     ("Topics", Some("/topics")),
                     ("orders", Some("/topics/orders")),
-                    ("On the wire", None),
+                    ("orders on the wire", None),
                 ],
                 TOPIC_WIRE_IDS,
             )
         }
         "group-wire" => {
-            let (rows, w) = world::group_wire("fulfilment");
+            let v = world::group_wire(&WireQuery {
+                group: "fulfilment".to_owned(),
+                ..WireQuery::default()
+            });
             (
-                page::group_wire_page("fulfilment", &rows, &w, world::now(), base),
+                page::group_wire_page(&v, base),
                 "Wire".to_owned(),
                 Rail::Resources,
                 vec![
                     ("Resources", Some("/topics")),
                     ("Groups", Some("/groups")),
-                    ("fulfilment", None),
+                    ("fulfilment", Some("/groups/fulfilment")),
+                    ("Wire", None),
                 ],
                 GROUP_WIRE_IDS,
             )

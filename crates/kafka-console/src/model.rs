@@ -22,8 +22,8 @@ pub use config::{
 pub use connect::{Access, ClientSnippet, ConnectView, ProbeView, Rule, Span, Tok, Verdict};
 pub use home::{Attention, HeldBack, HomeState, HomeView, InstanceView, StopView};
 pub use live::{
-    ClientRow, ClientsView, FirstView, LiveState, LiveView, SpokeView, WIRE_LIMIT, WIRE_MOST,
-    WireClass, WireDetail, WirePart, WireQuery, WireRefusal, WireRow, WireWindow,
+    ClientRow, ClientsView, FirstView, GroupWireView, LiveState, LiveView, SpokeView, WIRE_LIMIT,
+    WIRE_MOST, WireClass, WireDetail, WirePart, WireQuery, WireRefusal, WireRow, WireWindow,
 };
 
 pub(crate) mod write;

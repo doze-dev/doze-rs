@@ -7,8 +7,8 @@ use std::sync::Arc;
 use super::{Live, Source, now_ms};
 use crate::gather;
 use crate::model::{
-    ClientsView, FirstView, LiveState, LiveView, SpokeView, WireDetail, WireQuery, WireRow,
-    WireWindow,
+    ClientsView, FirstView, GroupWireView, LiveState, LiveView, SpokeView, WireDetail, WireQuery,
+    WireRow, WireWindow,
 };
 use crate::pages::live::RequestLimits;
 use crate::recorder::Recorder;
@@ -138,23 +138,33 @@ impl Source {
     }
 
     /// Every client request that touched a group, and what the tape covers.
-    pub async fn group_wire(&self, group: &str) -> (Vec<WireRow>, WireWindow, i64) {
+    pub async fn group_wire(&self, q: &WireQuery) -> GroupWireView {
         match self {
             Self::Live(l) => {
-                let q = WireQuery {
-                    group: group.to_owned(),
+                let ask = WireQuery {
                     hide_idle: false,
                     limit: 50,
-                    ..WireQuery::default()
+                    ..q.clone()
                 };
-                let v = l.tape(&q);
-                (v.rows, v.window, v.now_ms)
+                let all = l.tape(&WireQuery {
+                    kind: String::new(),
+                    refused_only: false,
+                    text: String::new(),
+                    ..ask.clone()
+                });
+                let v = l.tape(&ask);
+                GroupWireView {
+                    group: q.group.clone(),
+                    query: q.clone(),
+                    rows: v.rows,
+                    window: v.window,
+                    now_ms: v.now_ms,
+                    all: all.matched,
+                    refused: all.rows.iter().filter(|r| r.class.is_refusal()).count(),
+                }
             }
             #[cfg(any(test, feature = "examples"))]
-            Self::Fixture => {
-                let (r, w) = crate::fixtures_live::group_wire(group);
-                (r, w, crate::fixtures_live::now())
-            }
+            Self::Fixture => crate::fixtures_live::group_wire(q),
         }
     }
 
