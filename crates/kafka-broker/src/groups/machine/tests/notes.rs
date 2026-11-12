@@ -1,8 +1,6 @@
 //! What the classic machine says of itself: each way a rebalance begins has its cause, and what comes of it is said too.
 //! (That saying it changes nothing is `group::tests::differential`.)
 
-use bytes::Bytes;
-
 use super::*;
 use crate::groups::consumer::protocol::{ByName, encode_assignment};
 use crate::groups::note::{Cause, Note, Reason, What};

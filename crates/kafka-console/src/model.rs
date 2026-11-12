@@ -44,7 +44,7 @@ pub use write::{
 
 pub use story::{
     StoryCalm, StoryCause, StoryDropped, StoryFacts, StoryFlap, StoryGen, StoryHold, StoryJoin,
-    StoryLast, StoryLeft, StoryNow, StoryRule, StoryTone, StoryView, StoryWho,
+    StoryLast, StoryLeft, StoryNow, StoryParts, StoryRule, StoryTone, StoryView, StoryWho,
 };
 
 pub use groups::{

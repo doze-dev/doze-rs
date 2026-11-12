@@ -121,21 +121,17 @@ pub fn parts_phrase(topics: &[(String, Vec<i32>)]) -> String {
         ps.sort_unstable();
         ps.dedup();
         let mut first = true;
-        let mut i = 0;
-        while i < ps.len() {
-            let mut j = i;
-            while j + 1 < ps.len() && ps[j + 1] == ps[j] + 1 {
-                j += 1;
-            }
-            if j - i >= 2 {
+        for (lo, hi) in runs(&ps) {
+            if hi - lo >= 2 {
                 let lead = if first {
                     format!("{topic}-")
                 } else {
                     "-".to_owned()
                 };
-                items.push(format!("{lead}{} to {}", ps[i], ps[j]));
+                items.push(format!("{lead}{lo} to {hi}"));
+                first = false;
             } else {
-                for p in &ps[i..=j] {
+                for p in lo..=hi {
                     items.push(if first {
                         format!("{topic}-{p}")
                     } else {
@@ -144,11 +140,21 @@ pub fn parts_phrase(topics: &[(String, Vec<i32>)]) -> String {
                     first = false;
                 }
             }
-            first = false;
-            i = j + 1;
         }
     }
     crate::words::list_and(&items)
+}
+
+/// Runs of consecutive numbers in a sorted list: `[0, 1, 2, 5]` is `[(0, 2), (5, 5)]`.
+fn runs(sorted: &[i32]) -> Vec<(i32, i32)> {
+    let mut out: Vec<(i32, i32)> = Vec::new();
+    for &p in sorted {
+        match out.last_mut() {
+            Some((_, hi)) if *hi + 1 == p => *hi = p,
+            _ => out.push((p, p)),
+        }
+    }
+    out
 }
 
 /// What a member held: `py-1 holds payments.settled-0, -1 and pick-lists-0`.

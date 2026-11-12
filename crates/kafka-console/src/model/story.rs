@@ -60,11 +60,14 @@ pub struct StoryWho {
     pub session_ms: Option<u64>,
 }
 
+/// Partitions by topic: the topic and the partitions of it.
+pub type StoryParts = Vec<(String, Vec<i32>)>;
+
 /// What one member held in a generation, by topic.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StoryHold {
     pub member: String,
-    pub topics: Vec<(String, Vec<i32>)>,
+    pub topics: StoryParts,
     pub total: u32,
 }
 
@@ -104,7 +107,7 @@ pub struct StoryGen {
     /// How long it ran before the next began; `None` for the newest.
     pub lasted_ms: Option<u64>,
     /// What the generation before held, for the member who left: partitions that have to move.
-    pub moves: Vec<(String, Vec<(String, Vec<i32>)>)>,
+    pub moves: Vec<(String, StoryParts)>,
     pub tone: StoryTone,
 }
 
@@ -125,7 +128,7 @@ pub struct StoryFacts {
 pub struct StoryLeft {
     pub member: String,
     /// What it held, by topic (the generation before noted it).
-    pub held: Vec<(String, Vec<i32>)>,
+    pub held: StoryParts,
     pub ago_ms: u64,
     pub cause: StoryCause,
 }

@@ -62,11 +62,12 @@ fn clock_bar(n: &StoryNow) -> Markup {
     let (Some(left), Some(of)) = (n.remaining_ms, n.timeout_ms) else {
         return html! {};
     };
-    let pct = if of == 0 {
-        0
-    } else {
-        (left.min(of) * 100 / of).min(100)
-    };
+    let pct = left
+        .min(of)
+        .saturating_mul(100)
+        .checked_div(of)
+        .unwrap_or(0)
+        .min(100);
     html! {
         div class="lagbar" data-vary {
             div class="tr" { i class="warn" style={"--p:" (pct) "%"} {} }

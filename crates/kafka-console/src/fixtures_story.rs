@@ -26,6 +26,11 @@ pub(crate) fn at(clock: &str, ms: i64) -> i64 {
     parse_time(&format!("2026-11-09 {clock}")).unwrap_or(0) + ms
 }
 
+/// What a member held: the topics and the partitions of each.
+pub(crate) type Parts<'a> = &'a [(&'a str, &'a [i32])];
+/// What each member held.
+pub(crate) type Held<'a> = &'a [(&'a str, Parts<'a>)];
+
 /// A note with nothing in it but its kind, time and generation.
 pub(crate) fn blank(kind: EventKind, at_ms: i64, generation: i32) -> GroupEvent {
     GroupEvent {
@@ -84,11 +89,7 @@ pub(crate) fn formed(at_ms: i64, generation: i32, members: &[&str]) -> GroupEven
 }
 
 /// The assignment handed out: what each member holds, as (member, topic, partitions).
-pub(crate) fn settled(
-    at_ms: i64,
-    generation: i32,
-    held: &[(&str, &[(&str, &[i32])])],
-) -> GroupEvent {
+pub(crate) fn settled(at_ms: i64, generation: i32, held: Held<'_>) -> GroupEvent {
     let mut e = blank(EventKind::Settled, at_ms, generation);
     e.holds = held
         .iter()

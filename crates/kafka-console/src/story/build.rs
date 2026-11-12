@@ -139,7 +139,8 @@ pub fn generations_of(events: &GroupEvents, protocol: GroupProtocol, now_ms: i64
 /// For a member that left, went silent or was dropped: what it held in the generation before, which has to move.
 fn attach_moves(gens: &mut [StoryGen]) {
     for i in 1..gens.len() {
-        let g = &gens[i];
+        let (older, rest) = gens.split_at_mut(i);
+        let Some(g) = rest.first_mut() else { continue };
         let mut gone: Vec<String> = g.dropped.iter().map(|d| d.who.member.clone()).collect();
         if matches!(
             g.cause,
@@ -147,13 +148,10 @@ fn attach_moves(gens: &mut [StoryGen]) {
         ) {
             gone.extend(g.who.iter().map(|w| w.member.clone()));
         }
-        let earlier = gens[..i]
-            .iter()
-            .rev()
-            .find(|g| !g.holds.is_empty())
-            .cloned();
-        let Some(before) = earlier else { continue };
-        gens[i].moves = before
+        let Some(before) = older.iter().rev().find(|g| !g.holds.is_empty()) else {
+            continue;
+        };
+        g.moves = before
             .holds
             .iter()
             .filter(|h| gone.contains(&h.member) && !h.topics.is_empty())
@@ -221,7 +219,7 @@ pub fn causes_of(gens: &[StoryGen]) -> Vec<(StoryCause, usize)> {
         .map(|c| (*c, gens.iter().filter(|g| g.cause == *c).count()))
         .filter(|(_, n)| *n > 0)
         .collect();
-    out.sort_by(|a, b| b.1.cmp(&a.1));
+    out.sort_by_key(|(_, n)| std::cmp::Reverse(*n));
     out
 }
 

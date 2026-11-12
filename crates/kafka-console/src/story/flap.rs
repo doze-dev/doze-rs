@@ -66,73 +66,72 @@ fn quick_stay(gens: &[StoryGen]) -> Option<(&StoryGen, &StoryGen, u64)> {
                 })
                 .map(|l| (j, l, u64::try_from(l.at_ms - j.at_ms).unwrap_or(0)))
         })
-        .filter(|(_, _, stay)| *stay <= QUICK_MS)
-        .last()
+        .rfind(|(_, _, stay)| *stay <= QUICK_MS)
 }
 
-/// The rule held against a group's generations (oldest first) at `now_ms`.
-#[must_use]
-pub fn flap_of(gens: &[StoryGen], now_ms: i64) -> StoryFlap {
-    let window = i64::try_from(WINDOW_MS).unwrap_or(i64::MAX);
-    let since = now_ms.saturating_sub(window);
-    let found = cycles(gens, since);
-    let in_window: Vec<&StoryGen> = gens.iter().filter(|g| g.at_ms >= since).collect();
-    let count = |c: StoryCause| in_window.iter().filter(|g| g.cause == c).count();
-    let last = |c: StoryCause| {
-        in_window
-            .iter()
-            .rev()
-            .find(|g| g.cause == c)
-            .map(|g| clock(g.at_ms))
-    };
-    let (joins, leaves, expiries) = (
-        count(StoryCause::MemberJoined),
-        count(StoryCause::MemberLeft),
-        count(StoryCause::SessionExpired),
-    );
-    let all_expired: Vec<&StoryGen> = gens
-        .iter()
-        .filter(|g| g.cause == StoryCause::SessionExpired)
-        .collect();
-    let said = |n: usize, one: &str, many: &str, at: Option<String>| match at {
-        Some(t) if n == 1 => format!("{} ({t})", plural(n, one, many)),
-        Some(t) => format!("{} (last {t})", plural(n, one, many)),
-        None => plural(n, one, many),
-    };
-    let mut rows = vec![StoryRule {
+/// What the last ten minutes held, by cause: how many and the time of the newest.
+struct Window<'a> {
+    in_it: Vec<&'a StoryGen>,
+}
+
+impl Window<'_> {
+    fn count(&self, c: StoryCause) -> usize {
+        self.in_it.iter().filter(|g| g.cause == c).count()
+    }
+
+    /// `1 join (22:09:02)`, `3 joins (last 22:09:02)`, `0 expiries`.
+    fn said(&self, c: StoryCause, one: &str, many: &str) -> String {
+        let n = self.count(c);
+        match self.in_it.iter().rev().find(|g| g.cause == c) {
+            Some(g) if n == 1 => format!("{} ({})", plural(n, one, many), clock(g.at_ms)),
+            Some(g) => format!("{} (last {})", plural(n, one, many), clock(g.at_ms)),
+            None => plural(n, one, many),
+        }
+    }
+}
+
+fn cycle_row(found: usize, w: &Window<'_>) -> StoryRule {
+    StoryRule {
         ok: found < NEEDS,
         title: format!("Expired, then joined, {NEEDS} times in 10 minutes"),
         detail: format!(
             "Last 10 minutes: {}, {}, {}.",
-            said(joins, "join", "joins", last(StoryCause::MemberJoined)),
-            said(
-                leaves,
-                "clean leave",
-                "clean leaves",
-                last(StoryCause::MemberLeft)
-            ),
-            said(
-                expiries,
-                "expiry",
-                "expiries",
-                last(StoryCause::SessionExpired)
-            ),
+            w.said(StoryCause::MemberJoined, "join", "joins"),
+            w.said(StoryCause::MemberLeft, "clean leave", "clean leaves"),
+            w.said(StoryCause::SessionExpired, "expiry", "expiries"),
         ),
         value: plural(found, "cycle", "cycles"),
-    }];
-    let leaver = gens
+    }
+}
+
+fn leave_row(gens: &[StoryGen]) -> StoryRule {
+    let detail = match gens
         .iter()
         .rev()
-        .find(|g| g.cause == StoryCause::MemberLeft);
-    rows.push(StoryRule {
+        .find(|g| g.cause == StoryCause::MemberLeft)
+    {
+        Some(g) => format!(
+            "{} sent LeaveGroup. The broker was told; nothing ran out.",
+            who(g)
+        ),
+        None => {
+            "A member that says it is going sends LeaveGroup. The broker is told; nothing runs out."
+                .to_owned()
+        }
+    };
+    StoryRule {
         ok: true,
         title: "A leave is not a timeout".to_owned(),
-        detail: match leaver {
-            Some(g) => format!("{} sent LeaveGroup. The broker was told; nothing ran out.", who(g)),
-            None => "A member that says it is going sends LeaveGroup. The broker is told; nothing runs out.".to_owned(),
-        },
+        detail,
         value: "not counted".to_owned(),
-    });
+    }
+}
+
+fn expiry_row(gens: &[StoryGen], now_ms: i64) -> StoryRule {
+    let expired: Vec<&StoryGen> = gens
+        .iter()
+        .filter(|g| g.cause == StoryCause::SessionExpired)
+        .collect();
     let span = gens.first().map_or_else(
         || "what the ring holds".to_owned(),
         |g| {
@@ -142,28 +141,29 @@ pub fn flap_of(gens: &[StoryGen], now_ms: i64) -> StoryFlap {
             )
         },
     );
-    rows.push(StoryRule {
-        ok: all_expired.len() < NEEDS,
+    let names: Vec<String> = expired
+        .iter()
+        .rev()
+        .take(3)
+        .map(|g| format!("{} at {}", who(g), clock(g.at_ms)))
+        .collect();
+    let detail = match (expired.len(), names.first()) {
+        (0, _) | (_, None) => "None.".to_owned(),
+        (1, Some(only)) => format!("{only} only."),
+        (n, _) if n > 3 => format!("{} and earlier ones.", names.join(", ")),
+        _ => format!("{}.", crate::words::list_and(&names)),
+    };
+    StoryRule {
+        ok: expired.len() < NEEDS,
         title: format!("Session expiries in {span}"),
-        detail: if all_expired.is_empty() {
-            "None.".to_owned()
-        } else {
-            let names: Vec<String> = all_expired
-                .iter()
-                .rev()
-                .take(3)
-                .map(|g| format!("{} at {}", who(g), clock(g.at_ms)))
-                .collect();
-            match all_expired.len() {
-                1 => format!("{} only.", names[0]),
-                n if n > 3 => format!("{} and earlier ones.", names.join(", ")),
-                _ => format!("{}.", crate::words::list_and(&names)),
-            }
-        },
-        value: all_expired.len().to_string(),
-    });
+        detail,
+        value: expired.len().to_string(),
+    }
+}
+
+fn quick_row(gens: &[StoryGen], found: usize) -> StoryRule {
     match quick_stay(gens) {
-        Some((joined, left, stay)) => rows.push(StoryRule {
+        Some((joined, left, stay)) => StoryRule {
             ok: false,
             title: "A member joined and left within 6 minutes".to_owned(),
             detail: format!(
@@ -178,21 +178,40 @@ pub fn flap_of(gens: &[StoryGen], now_ms: i64) -> StoryFlap {
                 }
             ),
             value: lasted(stay),
-        }),
-        None => rows.push(StoryRule {
+        },
+        None => StoryRule {
             ok: true,
             title: "No member joined and left within 6 minutes".to_owned(),
             detail: "A member that comes and goes quickly is worth a look; none has.".to_owned(),
             value: "none".to_owned(),
-        }),
+        },
     }
+}
+
+/// The rule held against a group's generations (oldest first) at `now_ms`.
+#[must_use]
+pub fn flap_of(gens: &[StoryGen], now_ms: i64) -> StoryFlap {
+    let since = now_ms.saturating_sub(i64::try_from(WINDOW_MS).unwrap_or(i64::MAX));
+    let found = cycles(gens, since);
+    let window = Window {
+        in_it: gens.iter().filter(|g| g.at_ms >= since).collect(),
+    };
+    let rows = vec![
+        cycle_row(found, &window),
+        leave_row(gens),
+        expiry_row(gens, now_ms),
+        quick_row(gens, found),
+    ];
     StoryFlap {
         flapping: found >= NEEDS,
         cycles: found,
         needs: NEEDS,
         window_ms: WINDOW_MS,
-        expiries_in_window: expiries,
-        expiries: all_expired.len(),
+        expiries_in_window: window.count(StoryCause::SessionExpired),
+        expiries: gens
+            .iter()
+            .filter(|g| g.cause == StoryCause::SessionExpired)
+            .count(),
         rows,
     }
 }

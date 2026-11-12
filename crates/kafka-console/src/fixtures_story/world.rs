@@ -2,7 +2,7 @@
 
 use kafka_broker::{Cause, EventKind, GroupEvent};
 
-use super::{Began, at, began, formed, look, settled};
+use super::{Began, Held, at, began, formed, look, settled};
 
 const P1: &str = "fulfilment-py-1";
 const P2: &str = "fulfilment-py-2";
@@ -10,15 +10,15 @@ const P3: &str = "fulfilment-py-3";
 
 /// `fulfilment`: generations 28 to 31, the newest forming (py-2 left 2.9 s ago; py-1 has 2.1 s of 5 s to join again).
 pub(super) fn fulfilment() -> Vec<GroupEvent> {
-    let settled_28: &[(&str, &[(&str, &[i32])])] = &[
+    let settled_28: Held = &[
         (P1, &[("payments.settled", &[0, 1]), ("pick-lists", &[0])]),
         (P3, &[("payments.settled", &[2, 3])]),
     ];
-    let settled_29: &[(&str, &[(&str, &[i32])])] = &[(
+    let settled_29: Held = &[(
         P1,
         &[("payments.settled", &[0, 1, 2, 3]), ("pick-lists", &[0])],
     )];
-    let settled_30: &[(&str, &[(&str, &[i32])])] = &[
+    let settled_30: Held = &[
         (P1, &[("payments.settled", &[0, 1]), ("pick-lists", &[0])]),
         (P2, &[("payments.settled", &[2, 3])]),
     ];
@@ -98,7 +98,7 @@ pub(super) fn payments_workers() -> Vec<GroupEvent> {
 /// `search-indexer`: one generation, 3 h 44 m old: its only member joined an empty group and led it.
 pub(super) fn search_indexer() -> Vec<GroupEvent> {
     let t = at("18:30:12", 0);
-    let held: &[(&str, &[(&str, &[i32])])] = &[(
+    let held: Held = &[(
         "search-indexer-1",
         &[
             ("clickstream", &[0, 1, 2, 3, 4, 5]),
