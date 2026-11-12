@@ -229,3 +229,89 @@ async fn with_two_host_headers_the_guard_and_the_origin_proof_read_the_same_firs
     r.headers_mut().append(header::HOST, HOST.parse().unwrap());
     assert_eq!(send(&app, r).await.0.status(), StatusCode::FORBIDDEN);
 }
+
+/// The answer to a GET of a static file with this `Accept-Encoding` (none when `None`): headers and raw body bytes.
+async fn raw_get(app: &axum::Router, path: &str, accept: Option<&str>) -> (HeaderMap, Vec<u8>) {
+    use http_body_util::BodyExt;
+    use tower::ServiceExt;
+    let mut req = get(path);
+    if let Some(a) = accept {
+        req.headers_mut()
+            .insert(header::ACCEPT_ENCODING, a.parse().unwrap());
+    }
+    let res = app.clone().oneshot(req).await.unwrap();
+    let (parts, body) = res.into_parts();
+    (
+        parts.headers,
+        body.collect().await.unwrap().to_bytes().to_vec(),
+    )
+}
+
+/// A `Vary` (the region layer adds its own) names `Accept-Encoding`.
+fn varies_on_encoding(h: &HeaderMap) -> bool {
+    h.get_all(header::VARY)
+        .iter()
+        .any(|v| v.to_str().unwrap().contains("Accept-Encoding"))
+}
+
+fn inflate(gz: &[u8]) -> Vec<u8> {
+    use std::io::Read;
+    let mut out = Vec::new();
+    flate2::read::GzDecoder::new(gz)
+        .read_to_end(&mut out)
+        .unwrap();
+    out
+}
+
+#[tokio::test]
+async fn text_assets_are_sent_as_gzip_to_a_client_that_accepts_it_and_inflated_to_one_that_does_not()
+ {
+    let (app, state) = app("/", &[]);
+    let files = [
+        state.assets.urls.css.clone(),
+        state.assets.urls.scripts[0].clone(),
+    ];
+    for path in &files {
+        // No Accept-Encoding, an unrelated one, and gzip refused with q=0: the file itself, under its own tag.
+        let mut plain_tag = None;
+        for accept in [None, Some("identity"), Some("br, gzip;q=0")] {
+            let (h, body) = raw_get(&app, path, accept).await;
+            assert!(
+                h.get(header::CONTENT_ENCODING).is_none(),
+                "{path} {accept:?}"
+            );
+            assert!(varies_on_encoding(&h), "{path} {accept:?}");
+            assert_ne!(&body[..2], &[0x1f, 0x8b], "{path} {accept:?}: still gzip");
+            assert!(body.len() > 1000);
+            plain_tag = Some(h[header::ETAG].to_str().unwrap().to_owned());
+        }
+        // gzip accepted: the embedded bytes as they are, which inflate to the same file, under another tag.
+        let plain = raw_get(&app, path, None).await.1;
+        for accept in ["gzip", "gzip, deflate", "br;q=1.0, gzip;q=0.5", "*", "GZIP"] {
+            let (h, body) = raw_get(&app, path, Some(accept)).await;
+            assert_eq!(h[header::CONTENT_ENCODING], "gzip", "{path} {accept}");
+            assert!(varies_on_encoding(&h), "{path} {accept:?}");
+            assert!(
+                body.len() < plain.len() / 2,
+                "{path}: {} against {}",
+                body.len(),
+                plain.len()
+            );
+            assert_eq!(inflate(&body), plain, "{path} {accept}");
+            assert_ne!(
+                Some(h[header::ETAG].to_str().unwrap().to_owned()),
+                plain_tag
+            );
+        }
+    }
+    // A font is already compressed: never gzip, never Vary.
+    let font = state
+        .assets
+        .names()
+        .find(|n| n.ends_with(".woff2"))
+        .unwrap()
+        .to_owned();
+    let (h, _) = raw_get(&app, &format!("/static/{font}"), Some("gzip")).await;
+    assert!(h.get(header::CONTENT_ENCODING).is_none());
+    assert!(!varies_on_encoding(&h));
+}
