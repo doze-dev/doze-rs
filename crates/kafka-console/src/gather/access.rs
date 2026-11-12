@@ -63,6 +63,9 @@ pub async fn entries(b: &Backend) -> Result<Vec<AclEntry>, Refusal> {
     Ok(out)
 }
 
+/// A SCRAM credential as listed: the mechanism and its iteration count.
+type Scram = (&'static str, u32);
+
 fn mechanism(n: i8) -> Option<&'static str> {
     match n {
         1 => Some("SCRAM-SHA-256"),
@@ -72,12 +75,12 @@ fn mechanism(n: i8) -> Option<&'static str> {
 }
 
 /// The users that have a SCRAM credential, by name, with the mechanisms. Only the names and the mechanism numbers are read:
-/// the iteration count is in the answer and is not looked at.
-async fn scram_users(b: &Backend) -> Vec<(String, Vec<&'static str>)> {
+/// the iteration count is read too (a public parameter every client is sent), and no other part of a credential is in the answer.
+async fn scram_users(b: &Backend) -> Vec<(String, Vec<Scram>)> {
     let Ok(Response::DescribeUserScramCredentials(r)) = b.call(acls::describe_users()).await else {
         return Vec::new();
     };
-    let mut out: Vec<(String, Vec<&'static str>)> = r
+    let mut out: Vec<(String, Vec<Scram>)> = r
         .results
         .iter()
         .filter(|u| u.error_code == 0)
@@ -86,7 +89,9 @@ async fn scram_users(b: &Backend) -> Vec<(String, Vec<&'static str>)> {
                 u.user.to_string(),
                 u.credential_infos
                     .iter()
-                    .filter_map(|c| mechanism(c.mechanism))
+                    .filter_map(|c| {
+                        Some((mechanism(c.mechanism)?, u32::try_from(c.iterations).ok()?))
+                    })
                     .collect(),
             )
         })
@@ -99,7 +104,7 @@ async fn scram_users(b: &Backend) -> Vec<(String, Vec<&'static str>)> {
 /// The users: the SCRAM ones the protocol lists, and the flag users that only PLAIN knows.
 #[must_use]
 pub fn users_of(
-    scram: Vec<(String, Vec<&'static str>)>,
+    scram: Vec<(String, Vec<Scram>)>,
     flag_users: &[String],
     plain_on: bool,
     super_users: &[String],
@@ -113,7 +118,8 @@ pub fn users_of(
                 AccessFrom::Stored
             },
             super_user: super_users.contains(&format!("User:{name}")),
-            mechanisms: m.into_iter().map(str::to_owned).collect(),
+            mechanisms: m.iter().map(|(n, _)| (*n).to_owned()).collect(),
+            iterations: m.iter().map(|(n, i)| ((*n).to_owned(), *i)).collect(),
             name,
         })
         .collect();
@@ -124,6 +130,7 @@ pub fn users_of(
             None => rows.push(AccessUser {
                 name: name.clone(),
                 from: AccessFrom::Flags,
+                iterations: vec![],
                 mechanisms: if plain_on {
                     vec!["PLAIN".to_owned()]
                 } else {
@@ -145,7 +152,7 @@ pub struct Read {
     pub default_allow: bool,
     pub stored: usize,
     pub acls: Result<Vec<AclEntry>, Refusal>,
-    pub scram: Vec<(String, Vec<&'static str>)>,
+    pub scram: Vec<(String, Vec<Scram>)>,
 }
 
 /// The page.

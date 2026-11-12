@@ -157,3 +157,21 @@ pub fn sub(p: Posture, listen: &str, mechanisms: &[String], tls: bool) -> Vec<Sp
 
 #[cfg(test)]
 mod tests;
+
+/// The iteration counts of a user's SCRAM credentials as one cell: the count itself when every mechanism has the same
+/// (the usual case: `4,096`), else each with its mechanism (`4,096 SHA-256, 8,192 SHA-512`). `None` for a user with no SCRAM
+/// credential (PLAIN has no iteration count). The count is a public parameter of the credential, sent to every client in the
+/// server-first message; nothing else of a credential is read.
+#[must_use]
+pub fn iterations_text(iterations: &[(String, u32)]) -> Option<String> {
+    let first = iterations.first()?.1;
+    let n = |i: u32| crate::format::number(i64::from(i));
+    if iterations.iter().all(|(_, i)| *i == first) {
+        return Some(n(first));
+    }
+    let parts: Vec<String> = iterations
+        .iter()
+        .map(|(m, i)| format!("{} {}", n(*i), m.strip_prefix("SCRAM-").unwrap_or(m)))
+        .collect();
+    Some(parts.join(", "))
+}

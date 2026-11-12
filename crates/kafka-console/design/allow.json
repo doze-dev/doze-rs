@@ -2470,13 +2470,6 @@
   },
   {
     "board": "access-secured",
-    "field": "table.col",
-    "selector": "table#0: Iterations",
-    "reason": "[p9h] The iteration count of a credential is part of one: no code of the console reads it, so no part of a credential can reach a page. The users table lists the name, where it came from and the mechanisms.",
-    "expires": "close"
-  },
-  {
-    "board": "access-secured",
     "field": "button",
     "selector": "Delete [sm] -> to:access-acl-delete",
     "reason": "[p9h] A Delete is a link that opens the dialog (data-dialog) and carries data-op=DeleteAcls on every row; the board draws a link on the first row and a button on the others.",

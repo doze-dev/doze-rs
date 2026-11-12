@@ -111,7 +111,7 @@ fn hostile_text_in_a_value_or_a_name_is_escaped_everywhere_it_is_shown() {
 #[test]
 fn the_edit_dialog_is_one_form_with_a_check_a_save_and_the_call() {
     let v = larder::form("log.retention.ms", "all").unwrap();
-    let d = edit_dialog(&v, &Base::root(), false).into_string();
+    let d = edit_dialog(&v, &Base::root()).into_string();
     assert!(
         d.contains("role=\"dialog\"") && d.contains("aria-labelledby=\"broker-config-edit-title\""),
         "{d}"
@@ -125,8 +125,15 @@ fn the_edit_dialog_is_one_form_with_a_check_a_save_and_the_call() {
     assert!(d.contains("<option value=\"log.retention.ms\" selected>"));
     assert!(d.contains("ms = 3 d"), "{d}");
     assert!(d.contains("BROKER &quot;&quot; (all brokers)"), "{d}");
-    let inline = edit_dialog(&v, &Base::root(), true).into_string();
-    assert!(inline.contains("class=\"modal page\""));
+    // An overlay over the Settings page: the scrim and Cancel lead back to it, and a script takes the Cancel over.
+    assert!(
+        d.contains("class=\"ovl ovl-dialog root\" data-overlay data-close=\"/settings\""),
+        "{d}"
+    );
+    assert!(
+        d.contains("<a class=\"btn\" href=\"/settings\" data-dialog-close>Cancel</a>"),
+        "{d}"
+    );
 }
 
 #[test]

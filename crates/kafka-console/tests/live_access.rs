@@ -44,7 +44,7 @@ async fn the_page_says_what_a_secured_broker_holds_by_name_only() {
     assert!(doc.contains("waits 100 ms"));
     // The users table: admin is from flags and a super user, payments is stored.
     assert!(doc.contains("<td class=\"name mono\">admin</td><td><span class=\"pill\">Flags</span><span class=\"sub\">a super user</span></td>"), "{doc}");
-    assert!(doc.contains("<td class=\"name mono\">payments</td><td><span class=\"pill\">Stored</span></td><td class=\"mono\">SCRAM-SHA-256</td>"), "{doc}");
+    assert!(doc.contains("<td class=\"name mono\">payments</td><td><span class=\"pill\">Stored</span></td><td class=\"mono\">SCRAM-SHA-256</td><td class=\"mono\">4,096</td>"), "{doc}");
     // The super users are the operator's: the console's own is on its own line.
     assert!(doc.contains("<div class=\"mono\">User:admin</div>"));
     assert!(doc.contains("User:__console") && doc.contains("Anyone who can reach it"));

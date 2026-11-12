@@ -1,6 +1,7 @@
 //! The view-models of the Access page (slice 9h) and its two dialogs, Create ACL and Delete ACL. Every name starts with
 //! `Access` or `Acl` so that no other family of pages can meet it. Nothing here can hold a secret: a user is a name and
-//! the mechanisms it may use, never a password, salt, iteration count or key.
+//! the mechanisms it may use and the iteration count of each SCRAM credential (a public parameter: the broker sends it to every
+//! client in the server-first message), never a password, salt, stored key or server key.
 
 use super::{Lines, Refusal, Span};
 
@@ -51,6 +52,9 @@ pub struct AccessUser {
     pub from: AccessFrom,
     /// The mechanisms it has a credential for (SCRAM-SHA-256, ...), PLAIN where a flag user may use it.
     pub mechanisms: Vec<String>,
+    /// The iteration count of each SCRAM credential, by mechanism, as DescribeUserScramCredentials says it. Empty for a user
+    /// that has only PLAIN.
+    pub iterations: Vec<(String, u32)>,
     /// Named in `--acl-super-user` as `User:name`.
     pub super_user: bool,
 }

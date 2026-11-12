@@ -116,6 +116,11 @@ fn user(name: &str, from: AccessFrom, m: &[&str], sup: bool) -> AccessUser {
         name: name.to_owned(),
         from,
         mechanisms: m.iter().map(|s| (*s).to_owned()).collect(),
+        iterations: m
+            .iter()
+            .filter(|s| s.starts_with("SCRAM"))
+            .map(|s| ((*s).to_owned(), 4096))
+            .collect(),
         super_user: sup,
     }
 }

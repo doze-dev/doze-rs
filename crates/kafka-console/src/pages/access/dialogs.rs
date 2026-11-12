@@ -1,6 +1,6 @@
-//! The two ACL dialogs, written from the boards `access-acl-create` and `access-acl-delete`. Each is an overlay over the Access
-//! page: `*_overlay` is the pure overlay body (the shell of `ui/dialog.rs` until the overlay system lands), `with_overlay`
-//! puts it on its parent for a direct visit. Each is one POST form that works with no script.
+//! The two ACL dialogs, written from the boards `access-acl-create` and `access-acl-delete`. Each is an overlay
+//! (`ui::overlay`) over the Access page: these functions return the overlay element, and the handler puts it over the page.
+//! Each is one POST form that works with no script.
 
 use maud::{Markup, html};
 
@@ -99,13 +99,13 @@ pub fn acl_create_title() -> &'static str {
     "Create an ACL"
 }
 
-/// The Create ACL dialog, as an overlay body.
+/// The Create ACL dialog: the overlay element over the Access page.
 #[must_use]
-pub fn acl_create_overlay(v: &AclCreateView, base: &Base, inline: bool) -> Markup {
+pub fn acl_create_dialog(v: &AclCreateView, base: &Base) -> Markup {
     modal(
         "acl-create",
         &base.url("/access/acls/new"),
-        inline,
+        &access_url(base),
         html! { (acl_create_title()) },
         create_body(v),
         html! {
@@ -169,13 +169,13 @@ pub fn acl_delete_title() -> &'static str {
     "Delete this ACL?"
 }
 
-/// The Delete ACL dialog, as an overlay body.
+/// The Delete ACL dialog: the overlay element over the Access page.
 #[must_use]
-pub fn acl_delete_overlay(v: &AclDeleteView, base: &Base, inline: bool) -> Markup {
+pub fn acl_delete_dialog(v: &AclDeleteView, base: &Base) -> Markup {
     modal(
         "acl-delete",
         &base.url("/access/acls/delete"),
-        inline,
+        &access_url(base),
         html! { (acl_delete_title()) },
         delete_body(v),
         html! {
@@ -183,10 +183,4 @@ pub fn acl_delete_overlay(v: &AclDeleteView, base: &Base, inline: bool) -> Marku
             @if !v.gone { button class="btn danger fill" type="submit" data-op="DeleteAcls" { "Delete ACL" } }
         },
     )
-}
-
-/// The Access page with an overlay open on it: the parent's content, then the overlay.
-#[must_use]
-pub fn with_overlay(parent: Markup, overlay: Markup) -> Markup {
-    html! { (parent) (overlay) }
 }

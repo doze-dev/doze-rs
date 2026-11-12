@@ -10,7 +10,8 @@ use crate::fixtures_settings as larder;
 use crate::gather::settings_edit::SettingsFields;
 use crate::model::SettingsResult;
 use crate::pages;
-use crate::ui::shell::{Crumb, Page, Rail, document};
+use crate::ui::overlay::{Over, over};
+use crate::ui::shell::{Crumb, Page, Rail, document_over};
 
 /// The boards this builder renders, by screen id.
 pub const IDS: [&str; 4] = [
@@ -21,7 +22,7 @@ pub const IDS: [&str; 4] = [
 ];
 
 /// A board: the title of its page and what is in `<main>`.
-type Drawn = (String, Markup);
+type Drawn = (String, Over);
 
 fn fields<'a>(key: &'a str, value: &'a str) -> SettingsFields<'a> {
     SettingsFields {
@@ -34,15 +35,13 @@ fn fields<'a>(key: &'a str, value: &'a str) -> SettingsFields<'a> {
 
 fn board(id: &str, base: &Base) -> Option<Drawn> {
     let parent = || pages::settings_page(&larder::page(), base);
+    let plain = |title: &str, main: Markup| Some((title.to_owned(), over(main, maud::html! {})));
     match id {
-        "settings-home" => Some(("Settings".to_owned(), parent())),
+        "settings-home" => plain("Settings", parent()),
         "broker-config-edit" => {
             let v = larder::form("log.retention.ms", "all")?;
-            let overlay = pages::settings_edit_overlay(&v, base, true);
-            Some((
-                "Settings".to_owned(),
-                pages::settings_with_overlay(parent(), overlay),
-            ))
+            let overlay = pages::settings_edit_dialog(&v, base);
+            Some(("Settings".to_owned(), over(parent(), overlay)))
         }
         "broker-config-saved" => {
             let SettingsResult::Saved(s) =
@@ -50,14 +49,14 @@ fn board(id: &str, base: &Base) -> Option<Drawn> {
             else {
                 return None;
             };
-            Some(("Saved".to_owned(), pages::settings_saved(&s, base)))
+            plain("Saved", pages::settings_saved(&s, base))
         }
         "broker-config-refused" => {
             let SettingsResult::Refused(r) = larder::save(fields("num.partitions", "3"), true)
             else {
                 return None;
             };
-            Some(("Refused".to_owned(), pages::settings_refused(&r, base)))
+            plain("Refused", pages::settings_refused(&r, base))
         }
         _ => None,
     }
@@ -94,5 +93,5 @@ pub fn render(id: &str, base: &Base) -> Option<String> {
         title: &title,
         watch: &[],
     };
-    Some(document(&page, main).into_string())
+    Some(document_over(&page, main).into_string())
 }

@@ -154,8 +154,8 @@ fn the_secured_page_has_the_parts_of_its_board_in_order() {
         "a Delete on each of the eight"
     );
     assert!(
-        !doc.contains("Iterations"),
-        "the iteration count is not shown"
+        doc.contains("<th scope=\"col\">Iterations</th>"),
+        "the iteration count is a public parameter, and the board draws it"
     );
 }
 

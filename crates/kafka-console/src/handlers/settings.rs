@@ -1,6 +1,6 @@
-//! The Settings page, the edit dialog of a dynamic broker config and its POST. A dialog is a route that answers its body alone to
-//! a script (`X-Fragment`) and the whole page with the dialog in it to a browser without one. A GET never changes anything;
-//! every change is a POST with the same-origin proof.
+//! The Settings page, the edit dialog of a dynamic broker config and its POST. The dialog is an overlay (`ui::overlay`) over the
+//! Settings page: its route answers the dialog alone to a script (`X-Fragment`) and the Settings page with the dialog open on
+//! it to a browser without one. A GET never changes anything; every change is a POST with the same-origin proof.
 
 use axum::body::Bytes;
 use axum::extract::{RawQuery, State};
@@ -9,12 +9,12 @@ use axum::response::{IntoResponse, Response};
 use maud::Markup;
 
 use super::html;
+use super::overlays::{self, Parent};
 use crate::form::{get, parse, parse_body, text};
 use crate::gather::settings_edit::SettingsFields;
 use crate::model::{SettingsEditView, SettingsResult};
 use crate::pages;
 use crate::state::Shared;
-use crate::ui::client::HEADER_FRAGMENT;
 use crate::ui::shell::Rail;
 
 /// The longest text a field of the form is read to.
@@ -49,30 +49,34 @@ async fn no_config(s: &Shared, key: &str) -> Response {
     shell(s, StatusCode::NOT_FOUND, Some("No such config"), main).await
 }
 
-/// A dialog: its body alone for a script; else the Settings page with the overlay open on it.
-async fn dialog(s: &Shared, status: StatusCode, h: &HeaderMap, v: &SettingsEditView) -> Response {
-    if h.contains_key(HEADER_FRAGMENT) {
-        return (
-            status,
-            html(&pages::settings_edit_overlay(v, &s.base, false)),
-        )
-            .into_response();
+/// The Settings page as the parent of an overlay (the edit dialog); its own handler is `page_of(parent)`.
+async fn settings_parent(s: &Shared) -> Parent {
+    let view = s.source.settings().await;
+    Parent {
+        rail: Rail::Settings,
+        title: "Settings".to_owned(),
+        crumbs: vec![
+            ("Home".to_owned(), Some("/".to_owned())),
+            ("Settings".to_owned(), None),
+        ],
+        watch: &[],
+        main: pages::settings_page(&view, &s.base),
     }
-    let parent = pages::settings_page(&s.source.settings().await, &s.base);
-    let main = pages::settings_with_overlay(parent, pages::settings_edit_overlay(v, &s.base, true));
-    shell(s, status, None, main).await
+}
+
+/// A dialog: alone for a script (which opens it over the page it is on), else the Settings page with the dialog open on it.
+async fn dialog(s: &Shared, status: StatusCode, h: &HeaderMap, v: &SettingsEditView) -> Response {
+    let overlay = pages::settings_edit_dialog(v, &s.base);
+    if overlays::wants_fragment(h) {
+        return overlays::fragment(status, &overlay);
+    }
+    overlays::over_parent(s, status, settings_parent(s).await, overlay).await
 }
 
 /// `GET /settings`
 pub async fn settings(State(s): State<Shared>) -> Response {
-    let view = s.source.settings().await;
-    shell(
-        &s,
-        StatusCode::OK,
-        None,
-        pages::settings_page(&view, &s.base),
-    )
-    .await
+    let parent = settings_parent(&s).await;
+    html(&super::topics::page_of(&s, parent).await)
 }
 
 /// `GET /settings/config/edit?key=`

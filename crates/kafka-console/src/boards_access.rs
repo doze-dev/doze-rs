@@ -9,7 +9,8 @@ use crate::base::Base;
 use crate::fixtures_access as larder;
 use crate::gather::access_dialogs::AclFields;
 use crate::pages;
-use crate::ui::shell::{Chrome, Crumb, Page, Rail, document};
+use crate::ui::overlay::{Over, over};
+use crate::ui::shell::{Chrome, Crumb, Page, Rail, document_over};
 
 /// The boards this builder renders, by screen id.
 pub const IDS: [&str; 4] = [
@@ -33,10 +34,11 @@ fn secured(base: &Base) -> Markup {
     pages::access_page(&larder::page(true), base)
 }
 
-fn board(id: &str, base: &Base) -> Option<Markup> {
+fn board(id: &str, base: &Base) -> Option<Over> {
+    let plain = |main: Markup| Some(over(main, maud::html! {}));
     match id {
-        "access-open" => Some(pages::access_page(&larder::page(false), base)),
-        "access-secured" => Some(secured(base)),
+        "access-open" => plain(pages::access_page(&larder::page(false), base)),
+        "access-secured" => plain(secured(base)),
         "access-acl-create" => {
             let f = AclFields {
                 kind: "topic",
@@ -48,17 +50,11 @@ fn board(id: &str, base: &Base) -> Option<Markup> {
                 perm: "allow",
             };
             let v = larder::create_form(&f);
-            Some(pages::access_with_overlay(
-                secured(base),
-                pages::acl_create_overlay(&v, base, true),
-            ))
+            Some(over(secured(base), pages::acl_create_dialog(&v, base)))
         }
         "access-acl-delete" => {
             let v = larder::delete_form(larder::acls().into_iter().next()?);
-            Some(pages::access_with_overlay(
-                secured(base),
-                pages::acl_delete_overlay(&v, base, true),
-            ))
+            Some(over(secured(base), pages::acl_delete_dialog(&v, base)))
         }
         _ => None,
     }
@@ -89,5 +85,5 @@ pub fn render(id: &str, base: &Base) -> Option<String> {
         title: "Access",
         watch: &[],
     };
-    Some(document(&page, main).into_string())
+    Some(document_over(&page, main).into_string())
 }

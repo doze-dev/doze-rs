@@ -1,6 +1,7 @@
-//! The Access page and its two dialogs, Create ACL and Delete ACL, each with its POST. A dialog is a route that answers its
-//! body alone to a script (`X-Fragment`) and the whole page with the dialog in it to a browser without one. A GET never changes
-//! anything; every change is a POST with the same-origin proof, and a success goes back to the page (303).
+//! The Access page and its two dialogs, Create ACL and Delete ACL, each with its POST. A dialog is an overlay (`ui::overlay`)
+//! over the Access page: its route answers the dialog alone to a script (`X-Fragment`) and the Access page with the dialog open
+//! on it to a browser without one. A GET never changes anything; every change is a POST with the same-origin proof, and a
+//! success goes back to the page (303).
 
 use axum::body::Bytes;
 use axum::extract::{RawQuery, State};
@@ -9,12 +10,12 @@ use axum::response::{IntoResponse, Redirect, Response};
 use maud::Markup;
 
 use super::html;
+use super::overlays::{self, Parent};
 use crate::form::{get, parse, parse_body, text};
 use crate::gather::access_dialogs::{AclFields, entry_of, input_of, missing};
-use crate::model::{AclCreateResult, AclCreateView, AclDeleteResult, AclDeleteView, AclEntry};
+use crate::model::{AclCreateResult, AclDeleteResult, AclEntry};
 use crate::pages;
 use crate::state::Shared;
-use crate::ui::client::HEADER_FRAGMENT;
 use crate::ui::shell::Rail;
 
 async fn shell(s: &Shared, status: StatusCode, main: Markup) -> Response {
@@ -30,18 +31,27 @@ async fn shell(s: &Shared, status: StatusCode, main: Markup) -> Response {
     (status, html(&doc)).into_response()
 }
 
-/// A dialog: its body alone for a script; else the Access page with the overlay open on it.
-async fn dialog(
-    s: &Shared,
-    status: StatusCode,
-    h: &HeaderMap,
-    overlay: impl Fn(bool) -> Markup,
-) -> Response {
-    if h.contains_key(HEADER_FRAGMENT) {
-        return (status, html(&overlay(false))).into_response();
+/// The Access page as the parent of an overlay (the two ACL dialogs); `state` is the fixtures' `?state=` word, none for a live broker.
+async fn access_parent(s: &Shared, state: Option<&str>) -> Parent {
+    let view = s.source.access(state).await;
+    Parent {
+        rail: Rail::Access,
+        title: "Access".to_owned(),
+        crumbs: vec![
+            ("Home".to_owned(), Some("/".to_owned())),
+            ("Access".to_owned(), None),
+        ],
+        watch: &[],
+        main: pages::access_page(&view, &s.base),
     }
-    let parent = pages::access_page(&s.source.access(None).await, &s.base);
-    shell(s, status, pages::access_with_overlay(parent, overlay(true))).await
+}
+
+/// A dialog: alone for a script (which opens it over the page it is on), else the Access page with the dialog open on it.
+async fn dialog(s: &Shared, status: StatusCode, h: &HeaderMap, overlay: Markup) -> Response {
+    if overlays::wants_fragment(h) {
+        return overlays::fragment(status, &overlay);
+    }
+    overlays::over_parent(s, status, access_parent(s, None).await, overlay).await
 }
 
 /// The fields of a form or a query; one that is not there is empty.
@@ -57,20 +67,12 @@ fn fields(f: &[(String, String)]) -> AclFields<'_> {
     }
 }
 
-fn create_overlay<'a>(s: &'a Shared, v: &'a AclCreateView) -> impl Fn(bool) -> Markup + 'a {
-    move |inline| pages::acl_create_overlay(v, &s.base, inline)
-}
-
-fn delete_overlay<'a>(s: &'a Shared, v: &'a AclDeleteView) -> impl Fn(bool) -> Markup + 'a {
-    move |inline| pages::acl_delete_overlay(v, &s.base, inline)
-}
-
 /// `GET /access`
 pub async fn access(State(s): State<Shared>, RawQuery(q): RawQuery) -> Response {
     // `?state=secured` is read by the fixtures only; a live broker decides by its data.
     let f = parse(q.as_deref().unwrap_or(""));
-    let view = s.source.access(get(&f, "state")).await;
-    shell(&s, StatusCode::OK, pages::access_page(&view, &s.base)).await
+    let parent = access_parent(&s, get(&f, "state")).await;
+    html(&super::topics::page_of(&s, parent).await)
 }
 
 /// `GET /access/acls/new`
@@ -81,7 +83,13 @@ pub async fn acl_create_form(
 ) -> Response {
     let f = parse(q.as_deref().unwrap_or(""));
     let v = s.source.acl_create_form(&fields(&f)).await;
-    dialog(&s, StatusCode::OK, &headers, create_overlay(&s, &v)).await
+    dialog(
+        &s,
+        StatusCode::OK,
+        &headers,
+        pages::acl_create_dialog(&v, &s.base),
+    )
+    .await
 }
 
 /// `POST /access/acls/new`
@@ -94,12 +102,18 @@ pub async fn acl_create(State(s): State<Shared>, headers: HeaderMap, body: Bytes
                 &s,
                 StatusCode::UNPROCESSABLE_ENTITY,
                 &headers,
-                create_overlay(&s, &v),
+                pages::acl_create_dialog(&v, &s.base),
             )
             .await
         }
         AclCreateResult::Refused(v) => {
-            dialog(&s, StatusCode::OK, &headers, create_overlay(&s, &v)).await
+            dialog(
+                &s,
+                StatusCode::OK,
+                &headers,
+                pages::acl_create_dialog(&v, &s.base),
+            )
+            .await
         }
     }
 }
@@ -131,7 +145,13 @@ pub async fn acl_delete_form(
         return no_acl(&s).await;
     };
     let v = s.source.acl_delete_form(entry).await;
-    dialog(&s, StatusCode::OK, &headers, delete_overlay(&s, &v)).await
+    dialog(
+        &s,
+        StatusCode::OK,
+        &headers,
+        pages::acl_delete_dialog(&v, &s.base),
+    )
+    .await
 }
 
 /// `POST /access/acls/delete`
@@ -143,7 +163,13 @@ pub async fn acl_delete(State(s): State<Shared>, headers: HeaderMap, body: Bytes
     match s.source.acl_delete(entry).await {
         AclDeleteResult::Deleted => Redirect::to(&pages::access_url(&s.base)).into_response(),
         AclDeleteResult::Gone(v) | AclDeleteResult::Refused(v) => {
-            dialog(&s, StatusCode::OK, &headers, delete_overlay(&s, &v)).await
+            dialog(
+                &s,
+                StatusCode::OK,
+                &headers,
+                pages::acl_delete_dialog(&v, &s.base),
+            )
+            .await
         }
     }
 }

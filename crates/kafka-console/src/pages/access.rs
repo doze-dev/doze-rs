@@ -16,9 +16,7 @@ mod dialogs;
 mod page;
 mod users;
 
-pub use dialogs::{
-    acl_create_overlay, acl_create_title, acl_delete_overlay, acl_delete_title, with_overlay,
-};
+pub use dialogs::{acl_create_dialog, acl_create_title, acl_delete_dialog, acl_delete_title};
 pub use page::access_page;
 
 use crate::base::Base;

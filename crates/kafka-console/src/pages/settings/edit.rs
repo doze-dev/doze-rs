@@ -2,8 +2,8 @@
 //! what Kafka says about it, and the call beside it. One POST form; Save sends IncrementalAlterConfigs on the BROKER
 //! resource, Check sends the same call with `validate_only` and changes nothing.
 //!
-//! The dialog is an overlay over the Settings page: `edit_overlay` is the pure overlay body (the shell of `ui/dialog.rs`
-//! until the overlay system lands), `with_overlay` puts it on its parent for a direct visit.
+//! The dialog is an overlay (`ui::overlay`) over the Settings page: this is the overlay element; the handler puts it over
+//! its parent (`handlers::settings::settings_parent`).
 
 use maud::{Markup, html};
 
@@ -110,13 +110,13 @@ pub fn edit_title(v: &SettingsEditView) -> String {
     format!("Edit {}", v.key)
 }
 
-/// The dialog, as an overlay body.
+/// The dialog: the overlay element over the Settings page (its parent, where Cancel and the scrim lead).
 #[must_use]
-pub fn edit_dialog(v: &SettingsEditView, base: &Base, inline: bool) -> Markup {
+pub fn edit_dialog(v: &SettingsEditView, base: &Base) -> Markup {
     modal(
         "broker-config-edit",
         &base.url("/settings/config/edit"),
-        inline,
+        &settings_url(base),
         html! { (edit_title(v)) },
         body(v),
         html! {
@@ -125,16 +125,4 @@ pub fn edit_dialog(v: &SettingsEditView, base: &Base, inline: bool) -> Markup {
             button class="btn pri" type="submit" data-op="IncrementalAlterConfigs" { "Save" }
         },
     )
-}
-
-/// The overlay the dialog boards are: only the dialog, for the overlay system to draw over the Settings page.
-#[must_use]
-pub fn edit_overlay(v: &SettingsEditView, base: &Base, inline: bool) -> Markup {
-    edit_dialog(v, base, inline)
-}
-
-/// The Settings page with an overlay open on it: the parent's content, then the overlay.
-#[must_use]
-pub fn with_overlay(parent: Markup, overlay: Markup) -> Markup {
-    html! { (parent) (overlay) }
 }

@@ -44,12 +44,10 @@ mod access;
 mod settings;
 
 pub use access::{
-    access_page, access_url, acl_create_overlay, acl_create_title, acl_delete_overlay,
+    access_page, access_url, acl_create_dialog, acl_create_title, acl_delete_dialog,
     acl_delete_title, create_url as acl_create_url, delete_url as acl_delete_url,
-    with_overlay as access_with_overlay,
 };
 pub use settings::{
-    edit_dialog as settings_edit_dialog, edit_overlay as settings_edit_overlay,
-    edit_title as settings_edit_title, edit_url as settings_edit_url, settings_page,
-    settings_refused, settings_saved, settings_url, with_overlay as settings_with_overlay,
+    edit_dialog as settings_edit_dialog, edit_title as settings_edit_title,
+    edit_url as settings_edit_url, settings_page, settings_refused, settings_saved, settings_url,
 };

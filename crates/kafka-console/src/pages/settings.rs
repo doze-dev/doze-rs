@@ -21,7 +21,7 @@ mod profile;
 mod states;
 mod weight;
 
-pub use edit::{edit_dialog, edit_overlay, edit_title, with_overlay};
+pub use edit::{edit_dialog, edit_title};
 pub use page::settings_page;
 pub use states::{settings_refused, settings_saved};
 

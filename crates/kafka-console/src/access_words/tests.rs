@@ -102,3 +102,28 @@ fn the_counts_read_as_the_board_writes_them() {
         "{open}"
     );
 }
+
+#[test]
+fn the_iteration_cell_is_one_count_when_they_agree_each_when_they_differ_and_none_without_scram() {
+    let it = |v: &[(&str, u32)]| -> Vec<(String, u32)> {
+        v.iter().map(|(m, i)| ((*m).to_owned(), *i)).collect()
+    };
+    assert_eq!(iterations_text(&[]), None);
+    assert_eq!(
+        iterations_text(&it(&[("SCRAM-SHA-256", 4096)])).as_deref(),
+        Some("4,096")
+    );
+    assert_eq!(
+        iterations_text(&it(&[("SCRAM-SHA-256", 4096), ("SCRAM-SHA-512", 4096)])).as_deref(),
+        Some("4,096")
+    );
+    assert_eq!(
+        iterations_text(&it(&[("SCRAM-SHA-256", 4096), ("SCRAM-SHA-512", 8192)])).as_deref(),
+        Some("4,096 SHA-256, 8,192 SHA-512")
+    );
+    // Two credentials that differ by one are not folded into one.
+    assert_eq!(
+        iterations_text(&it(&[("SCRAM-SHA-256", 4096), ("SCRAM-SHA-512", 4097)])).as_deref(),
+        Some("4,096 SHA-256, 4,097 SHA-512")
+    );
+}

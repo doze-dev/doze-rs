@@ -91,12 +91,13 @@ fn a_warning_that_holds_is_marked_and_the_rest_are_not_the_case() {
 #[test]
 fn no_secret_field_exists_to_be_shown() {
     let s = secured();
-    // The users table has three columns and none of them is a part of a credential.
+    // The users table has the board's four columns; the iteration count is a public parameter, and no secret part is a field.
     assert!(
-        s.contains("<th scope=\"col\">User</th><th scope=\"col\">From</th><th scope=\"col\">Mechanisms</th>"),
+        s.contains("<th scope=\"col\">User</th><th scope=\"col\">From</th><th scope=\"col\">Mechanisms</th><th scope=\"col\">Iterations</th>"),
         "{s}"
     );
-    for word in ["Iterations", "4,096", "stored_key", "server_key", "Salt"] {
+    assert!(s.contains("<td class=\"mono\">4,096</td>"), "{s}");
+    for word in ["stored_key", "server_key", "Salt", "salted"] {
         assert!(!s.contains(word), "{word} on the page");
     }
 }
@@ -129,7 +130,7 @@ fn the_dialogs_are_forms_that_post_to_their_own_address_and_name_their_call() {
         op: "write",
         perm: "allow",
     };
-    let c = acl_create_overlay(&larder::create_form(&f), &Base::root(), false).into_string();
+    let c = acl_create_dialog(&larder::create_form(&f), &Base::root()).into_string();
     assert!(
         c.contains("action=\"/access/acls/new\"") && c.contains("data-op=\"CreateAcls\""),
         "{c}"
@@ -144,10 +145,9 @@ fn the_dialogs_are_forms_that_post_to_their_own_address_and_name_their_call() {
             && c.contains("<option value=\"write\" selected>")
     );
     assert!(c.contains("name=\"perm\" value=\"allow\" checked"));
-    let d = acl_delete_overlay(
+    let d = acl_delete_dialog(
         &larder::delete_form(larder::acls().remove(0)),
         &Base::root(),
-        false,
     )
     .into_string();
     assert!(
@@ -159,10 +159,9 @@ fn the_dialogs_are_forms_that_post_to_their_own_address_and_name_their_call() {
             && d.contains("TOPIC_AUTHORIZATION_FAILED"),
         "{d}"
     );
-    let gone = acl_delete_overlay(
+    let gone = acl_delete_dialog(
         &larder::delete_form(larder::acls().remove(1).clone_with("nothing")),
         &Base::root(),
-        false,
     )
     .into_string();
     assert!(

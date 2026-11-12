@@ -93,6 +93,17 @@ const OVERLAYS: &[(&str, &str, &str)] = &[
         "/live?client=orders-api",
     ),
     ("/live/clients", "<h1>Live</h1>", "/live"),
+    (
+        "/settings/config/edit?key=log.retention.ms",
+        "<h1>Settings</h1>",
+        "/settings",
+    ),
+    ("/access/acls/new", "<h1>Access</h1>", "/access"),
+    (
+        "/access/acls/delete?type=topic&name=orders&pattern=literal&principal=User%3Aorders&host=%2A&op=write&perm=allow",
+        "<h1>Access</h1>",
+        "/access",
+    ),
 ];
 
 fn between<'a>(text: &'a str, from: &str, to: &str) -> &'a str {

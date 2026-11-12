@@ -1,9 +1,9 @@
 use super::*;
 
-fn scram(names: &[(&str, &[&'static str])]) -> Vec<(String, Vec<&'static str>)> {
+fn scram(names: &[(&str, &[&'static str])]) -> Vec<(String, Vec<(&'static str, u32)>)> {
     names
         .iter()
-        .map(|(n, m)| ((*n).to_owned(), m.to_vec()))
+        .map(|(n, m)| ((*n).to_owned(), m.iter().map(|m| (*m, 4096)).collect()))
         .collect()
 }
 
@@ -56,21 +56,24 @@ fn plain_is_a_mechanism_of_a_flag_user_only_when_it_is_on() {
 }
 
 #[test]
-fn only_two_mechanism_numbers_have_names_and_the_iteration_count_is_not_one_of_the_fields_read() {
+fn only_two_mechanism_numbers_have_names_and_a_user_is_a_name_mechanisms_and_their_iteration_counts()
+ {
     assert_eq!(mechanism(1), Some("SCRAM-SHA-256"));
     assert_eq!(mechanism(2), Some("SCRAM-SHA-512"));
     assert_eq!(mechanism(0), None);
     assert_eq!(mechanism(3), None);
-    // The user model has a name, an origin, mechanisms and a super-user mark: nothing else can be shown.
+    // The user model has a name, an origin, mechanisms with their (public) iteration counts and a super-user mark: no secret
+    // part of a credential is a field.
     let u = AccessUser {
         name: "n".into(),
         from: AccessFrom::Stored,
         mechanisms: vec![],
+        iterations: vec![],
         super_user: false,
     };
     assert_eq!(
         format!("{u:?}"),
-        "AccessUser { name: \"n\", from: Stored, mechanisms: [], super_user: false }"
+        "AccessUser { name: \"n\", from: Stored, mechanisms: [], iterations: [], super_user: false }"
     );
 }
 
