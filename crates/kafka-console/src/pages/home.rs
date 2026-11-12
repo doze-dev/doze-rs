@@ -25,7 +25,7 @@ use crate::ui::client;
 use crate::ui::code::pre;
 use crate::ui::glyph::Glyph;
 use crate::ui::layout::{card_extra, hr, kv, page_header, title_row, value_with_sub};
-use crate::ui::metrics::{Stat, stat_strip};
+use crate::ui::metrics::{Stat, stat_tiles};
 use crate::ui::notice::{Tone, callout};
 use crate::words::{
     self, attention_headline, home_advertised_lede, home_sub, home_title, unchecked_note,
@@ -180,7 +180,6 @@ fn rows(i: &InstanceView, quiet: bool) -> Vec<(&'static str, Markup)> {
 /// is the instant it started (absolute); how long ago is on the hover.
 fn strip(v: &HomeView) -> Markup {
     let i = &v.instance;
-    let quiet = v.state == HomeState::Quiet;
     let n = |x: usize| number(i64::try_from(x).unwrap_or(0));
     let now = crate::source::now_ms();
     let started = i.started.trim_end_matches(" UTC").to_owned();
@@ -189,13 +188,12 @@ fn strip(v: &HomeView) -> Markup {
         StopView::Unclean => "last stop not clean",
         StopView::None => "on a new data directory",
     };
-    let (apps, reach, last) = match &v.spoke {
+    let (apps, last) = match &v.spoke {
         Some(s) => (
             Stat::new("Apps on the wire", n(s.apps)).unit(match s.oldest_ms {
                 Some(ms) => format!("wire back to {} UTC", crate::words::live::hhmm(ms)),
                 None => "no request yet".to_owned(),
             }),
-            (),
             match s.last_ms {
                 Some(ms) => Stat::at("Last request", ms, now),
                 None => Stat::new("Last request", "none yet").mono().ch(11),
@@ -203,19 +201,13 @@ fn strip(v: &HomeView) -> Markup {
         ),
         None => (
             Stat::new("Apps on the wire", "-"),
-            (),
             Stat::new("Last request", "-").mono().ch(11),
         ),
     };
-    let _ = reach;
-    stat_strip(&[
+    stat_tiles(&[
         Stat::new("Started", started).unit(last_stop).mono().ch(12),
         Stat::new("Open partitions", words::open_partitions(i))
-            .unit(if quiet {
-                "opened on first use"
-            } else {
-                "opened on first use"
-            })
+            .unit("opened on first use")
             .mono()
             .ch(8),
         Stat::new("Topics", n(v.topics))
@@ -231,7 +223,6 @@ fn strip(v: &HomeView) -> Markup {
         } else {
             "measured on Linux only"
         })
-        .mono()
         .ch(9),
         apps,
         last,

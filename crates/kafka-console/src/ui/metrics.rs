@@ -121,9 +121,15 @@ pub fn slot(value: &str, ch: u8) -> Markup {
     html! { span class="slot" style={"width:" (ch) "ch"} title=(value) { (value) } }
 }
 
-/// A strip of metrics in one bordered row. It is one line high at any width the page is shown at, and never holds a sentence.
+/// A strip of metrics in one bordered row, compact: the strip of a data page, under its title. Never holds a sentence.
 #[must_use]
 pub fn stat_strip(stats: &[Stat]) -> Markup {
+    html! { div class="stats compact" role="group" { @for s in stats { (s.one("")) } } }
+}
+
+/// Metrics as a grid of tiles, one card each: the glance at the top of Home, where there is room for them.
+#[must_use]
+pub fn stat_tiles(stats: &[Stat]) -> Markup {
     html! { div class="stats" role="group" { @for s in stats { (s.one("")) } } }
 }
 
@@ -142,7 +148,7 @@ mod tests {
         let m = stat_strip(&[Stat::new("Records", "1,644").unit("records").ch(9)]).into_string();
         assert_eq!(
             m,
-            r#"<div class="stats" role="group"><div class="stat"><span class="k">Records</span><span class="v" style="min-width:9ch" title="1,644">1,644</span><span class="s">records</span></div></div>"#
+            r#"<div class="stats compact" role="group"><div class="stat"><span class="k">Records</span><span class="v" style="min-width:9ch" title="1,644">1,644</span><span class="s">records</span></div></div>"#
         );
     }
 

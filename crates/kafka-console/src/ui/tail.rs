@@ -29,7 +29,7 @@ pub fn tail_bar(region: &str, available: bool) -> Markup {
             span class="speed" title="Rows arrive in batches every 3 s" data-tail-speed {
                 (select(&Select { class: "dz-chip", ui: Some("tail-speed"), ..Select::new("tail-speed", "speed", "Speed", &choices, DEFAULT_SPEED) }))
             }
-            span class="conn" data-conn="snapshot" role="status" aria-live="polite" { i class="dot" {} span data-conn-text { "Snapshot" } }
+            span class="tail-conn" data-conn="snapshot" role="status" aria-live="polite" { i class="dot" {} span data-conn-text { "Snapshot" } }
             button class="held-pill" type="button" data-held-pill hidden x-on:click="show" { "↑ " span data-held-n { "0" } " new · Show" }
         }
     }

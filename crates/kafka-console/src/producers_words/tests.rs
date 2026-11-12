@@ -1,5 +1,5 @@
 use super::*;
-use crate::fixtures_log::{producers, txn_view};
+use crate::fixtures_log::txn_view;
 
 fn text(spans: &[Span]) -> String {
     spans
@@ -8,36 +8,6 @@ fn text(spans: &[Span]) -> String {
             Span::Text(t) | Span::Mono(t) | Span::Strong(t) => t.as_str(),
         })
         .collect()
-}
-
-#[test]
-fn the_producers_page_says_what_the_open_transaction_holds_back() {
-    let v = producers("orders", 0, Vec::new()).unwrap();
-    assert_eq!(
-        text(&producers_sentence(&v)),
-        "3 producers are remembered on orders-0. One transaction, orders-eos, is open and holds the last stable offset at 16,098 while the high watermark is 16,104: a read_committed consumer is held 6 records behind."
-    );
-}
-
-#[test]
-fn with_no_transaction_the_stable_offset_is_the_high_watermark_and_with_no_producer_it_says_so() {
-    let mut v = producers("orders", 0, Vec::new()).unwrap();
-    v.open.clear();
-    v.last_stable = v.end;
-    v.producers.truncate(1);
-    assert_eq!(
-        text(&producers_sentence(&v)),
-        "1 producer is remembered on orders-0. No transaction is open: the last stable offset equals the high watermark, 16,104."
-    );
-    v.producers.clear();
-    assert!(text(&producers_sentence(&v)).starts_with("No producer is remembered on orders-0."));
-}
-
-#[test]
-fn a_transaction_open_on_the_topic_that_holds_nothing_back_here_says_so() {
-    let mut v = producers("orders", 0, Vec::new()).unwrap();
-    v.last_stable = v.end;
-    assert!(text(&producers_sentence(&v)).ends_with("holds nothing back on orders-0."));
 }
 
 #[test]

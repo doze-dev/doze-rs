@@ -121,7 +121,7 @@ pub fn stats_fragment(h: &GroupHead, base: &Base) -> Markup {
 #[must_use]
 pub(crate) fn switch(h: &GroupHead, base: &Base, tail: &str) -> Markup {
     html! {
-        div class="toolbar" style="margin:-12px 0 28px" {
+        div class="toolbar" style="margin:4px 0 28px" {
             span class="dim" { (group_glyph(GroupGlyph::Group, 16, "")) " Switch group" }
             @for g in &h.groups {
                 @if *g == h.id {

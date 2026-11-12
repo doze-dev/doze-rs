@@ -5,7 +5,7 @@ use maud::{Markup, html};
 
 use super::common::{TopicTab, topic_frame, topic_url};
 use crate::base::{Base, segment};
-use crate::format::{ago, number};
+use crate::format::number;
 use crate::model::{ConsumersView, GroupProtocol, TopicReader};
 use crate::pages::groups::{cell_lag, tone};
 use crate::ui::button::state;

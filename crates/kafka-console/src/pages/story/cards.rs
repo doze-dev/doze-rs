@@ -6,7 +6,6 @@ use super::generation::{generation, who};
 use super::story_url;
 use crate::base::{Base, segment};
 use crate::format::clock;
-use crate::groups_words::span_precise;
 use crate::model::{GroupPhase, GroupProtocol, StoryCause, StoryNow, StoryView};
 use crate::story::{cause_help, cause_title, lasted};
 use crate::ui::button::{Size, State, Variant, link, state};

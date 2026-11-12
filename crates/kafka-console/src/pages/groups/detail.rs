@@ -5,8 +5,8 @@ use maud::{Markup, html};
 
 use super::common::{On, group_tabs, group_url, head, reset_and_delete, stats_fragment, switch};
 use crate::base::{Base, segment};
-use crate::format::{ago, number};
-use crate::groups_words::{group_sentence, span_precise};
+use crate::format::number;
+use crate::groups_words::span_precise;
 use crate::lag::share_percent;
 use crate::model::{
     GroupHead, GroupLagView, GroupMemberRow, GroupPart, GroupPhase, GroupProtocol, LagTopic,

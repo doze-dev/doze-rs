@@ -195,7 +195,8 @@ pub(super) fn deletions_card(v: &LogView, base: &Base) -> Markup {
                 "Tombstones a round has kept, with the time after which the next round removes them. A deletion stays for "
                 span class="mono" { "delete.retention.ms" } " (" (span_ms(c.rules.delete_retention_ms)) "), so a slow reader still sees that the key was deleted."
             }
-            table class="t" {
+            table class="t dt-t" {
+                colgroup { col style="width:40%"; col style="width:22%"; col; }
                 thead { tr { th scope="col" { "Key" } th scope="col" { "Deleted" } th scope="col" { "Goes after" } } }
                 tbody {
                     @for t in &v.tombstones {

@@ -26,34 +26,34 @@ pub enum Layout {
 }
 
 const LIVE: [Col<'static>; 6] = [
-    Col::new("Time", Width::Px(122)),
-    Col::new("Client", Width::Px(132)),
-    Col::new("API", Width::Px(168)),
+    Col::new("Time", Width::Px(140)),
+    Col::new("Client", Width::Pct(10)),
+    Col::new("API", Width::Pct(14)),
     Col::new("Target", Width::Fill),
-    Col::new("Result", Width::Px(236)),
+    Col::new("Result", Width::Pct(18)),
     Col::new("Took", Width::Px(84)).right(),
 ];
 const TOPIC: [Col<'static>; 6] = [
-    Col::new("Time", Width::Px(122)),
-    Col::new("Client", Width::Px(132)),
-    Col::new("API", Width::Px(168)),
+    Col::new("Time", Width::Px(140)),
+    Col::new("Client", Width::Pct(10)),
+    Col::new("API", Width::Pct(14)),
     Col::new("Topic and partition", Width::Fill),
-    Col::new("Result", Width::Px(236)),
+    Col::new("Result", Width::Pct(18)),
     Col::new("Took", Width::Px(84)).right(),
 ];
 const GROUP: [Col<'static>; 6] = [
-    Col::new("Time", Width::Px(122)),
-    Col::new("Client", Width::Px(132)),
-    Col::new("Request", Width::Px(168)),
+    Col::new("Time", Width::Px(140)),
+    Col::new("Client", Width::Pct(10)),
+    Col::new("Request", Width::Pct(14)),
     Col::new("What it touched", Width::Fill),
-    Col::new("Result", Width::Px(236)),
+    Col::new("Result", Width::Pct(18)),
     Col::new("Took", Width::Px(84)).right(),
 ];
 const FIRST: [Col<'static>; 5] = [
-    Col::new("Time", Width::Px(122)),
-    Col::new("API", Width::Px(168)),
+    Col::new("Time", Width::Px(140)),
+    Col::new("API", Width::Pct(16)),
     Col::new("Target", Width::Fill),
-    Col::new("Result", Width::Px(260)),
+    Col::new("Result", Width::Pct(24)),
     Col::new("Took", Width::Px(84)).right(),
 ];
 
@@ -190,7 +190,7 @@ pub fn table(rows: &[WireRow], base: &Base, q: &WireQuery, layout: Layout) -> Ma
 
 /// [`table`] with its own words for the empty block.
 #[must_use]
-pub fn table_with_empty(
+pub(super) fn table_with_empty(
     rows: &[WireRow],
     base: &Base,
     q: &WireQuery,

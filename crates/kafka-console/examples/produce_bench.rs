@@ -10,7 +10,7 @@
 )]
 
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use bytes::Bytes;
 use kafka_broker::{Broker, Config as BrokerConfig};

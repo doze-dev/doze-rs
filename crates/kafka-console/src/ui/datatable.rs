@@ -202,7 +202,7 @@ pub fn data_table(t: &DataTable<'_>, rows: Vec<Row>) -> Markup {
         div class={"dt " (t.density.name())} data-density=(t.density.name()) {
             table class="t dt-t" id=(t.id) aria-label=(t.label) {
                 colgroup { @for c in t.cols { (col(c)) } }
-                thead data-morph-skip { tr { @for c in t.cols { th scope="col" class=[c.right.then_some("r")] { (c.name) } } } }
+                thead data-morph-skip { tr { @for c in t.cols { th scope="col" class=[c.right.then_some("r")] title=(c.name) { (c.name) } } } }
                 tbody data-tail=[t.tail.then_some("")] { @for r in &rows { (row_markup(t, r)) } }
             }
             div class="dt-empty" data-empty hidden[!empty] { (t.empty) }

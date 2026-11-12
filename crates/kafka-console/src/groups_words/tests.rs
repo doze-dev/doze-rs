@@ -2,7 +2,7 @@
 
 use super::*;
 use crate::fixtures_groups as world;
-use crate::model::{GroupSpan, LagState};
+use crate::model::GroupSpan;
 
 fn flat(spans: &[GroupSpan]) -> String {
     spans
@@ -14,87 +14,6 @@ fn flat(spans: &[GroupSpan]) -> String {
             | GroupSpan::Topic(t) => t.as_str(),
         })
         .collect()
-}
-
-#[test]
-fn a_stable_classic_group_is_told_by_its_member_its_topics_and_its_lag() {
-    let g = world::group("search-indexer", false).unwrap();
-    let s = flat(&group_sentence(&g.head, &g.topics));
-    assert_eq!(
-        s,
-        "One member, search-indexer-1, reads clickstream (6 partitions) and inventory.levels (1). It is 18,240 records behind on clickstream; inventory.levels is caught up. Last commit 6 s ago."
-    );
-}
-
-#[test]
-fn a_consumer_group_in_step_says_nothing_is_moving_and_when_and_why_it_last_rebalanced() {
-    let mut g = world::group("payments-workers", false).unwrap();
-    let s = flat(&group_sentence(&g.head, &g.topics));
-    assert!(
-        s.starts_with("Three members hold orders (3 partitions)."),
-        "{s}"
-    );
-    assert!(s.contains(
-        "Every member holds exactly what the broker targeted for epoch 14, so nothing is moving."
-    ));
-    assert!(
-        s.contains(" The last rebalance was 6 h ago: payments-3c joined."),
-        "the ring of notes says why: {s}"
-    );
-    // A group the broker has no notes of (it was restarted) gives no cause: nothing is made up.
-    g.head.story = crate::model::StoryFacts::default();
-    let s = flat(&group_sentence(&g.head, &g.topics));
-    assert!(
-        !s.contains("joined") && !s.contains("last rebalance"),
-        "{s}"
-    );
-}
-
-#[test]
-fn a_rebalance_names_who_left_how_long_ago_and_who_is_waited_for_with_the_time_left() {
-    let mut g = world::group("fulfilment", false).unwrap();
-    let s = flat(&group_sentence(&g.head, &g.topics));
-    assert!(s.starts_with("fulfilment-py-2 left 3 s ago, so the group is rebalancing. It is waiting for fulfilment-py-1 to rejoin: 2.1 s of the 5 s rebalance timeout are left."), "{s}");
-    // With no notes the sentence says only what the machine says now, as before the ring.
-    g.head.story = crate::model::StoryFacts::default();
-    let s = flat(&group_sentence(&g.head, &g.topics));
-    assert!(s.starts_with("fulfilment-py-1 has not joined again, so the group is rebalancing. It is waiting for it: 2.1 s of the 5 s rebalance timeout are left."), "{s}");
-    assert!(!s.contains("left 3 s ago"));
-}
-
-#[test]
-fn the_lag_sentences_per_state() {
-    let g = world::group("analytics", false).unwrap();
-    assert_eq!(
-        flat(&lag_sentence(
-            &g.head,
-            &g.topics,
-            LagState::Ahead,
-            g.retention_ms
-        )),
-        "analytics committed 16,200 on orders-0, but the log ends at 16,104: the commit is 96 past the end. Lag cannot be a negative number, so the console says where the commit is instead."
-    );
-    let e = world::group("analytics", true).unwrap();
-    assert_eq!(
-        flat(&lag_sentence(
-            &e.head,
-            &e.topics,
-            LagState::Expiring,
-            e.retention_ms
-        )),
-        "The broker forgets analytics' 3 committed offsets on Nov 13 00:14 UTC, in 3 d 2 h. The group has no members, and offsets are kept for 7 d."
-    );
-    let f = world::group("fulfilment", false).unwrap();
-    let s = flat(&lag_sentence(
-        &f.head,
-        &f.topics,
-        LagState::NoCommits,
-        f.retention_ms,
-    ));
-    assert!(
-        s.contains("pick-lists has no committed offset, so its lag is not known"),
-        "{s}"
-    );
 }
 
 #[test]

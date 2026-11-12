@@ -33,7 +33,8 @@ pub(super) fn others(v: &LogView, base: &Base) -> Markup {
         div class="sec" {
             h2 { "Other logs on this broker" }
             p class="lede" { "The Log page of the other topics, with what is worth knowing of each." }
-            table class="t" {
+            table class="t dt-t" {
+                colgroup { col style="width:28%"; col style="width:18%"; col; col style="width:10%"; }
                 thead { tr { th scope="col" { "Topic" } th scope="col" { "Policy" } th scope="col" { "Its log" } th scope="col" {} } }
                 tbody {
                     @for o in &v.others {

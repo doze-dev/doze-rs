@@ -3,11 +3,10 @@
 
 use maud::{Markup, html};
 
-use super::common::{On, group_tabs, group_url, head, spans, switch};
+use super::common::{On, group_tabs, group_url, head, switch};
 use super::detail::lagbar;
 use crate::base::{Base, segment};
-use crate::format::{ago, date_time, number, span_ms};
-use crate::groups_words::lag_sentence;
+use crate::format::{date_time, number, span_ms};
 use crate::lag::Lag;
 use crate::model::{GroupHead, GroupLagView, LagRow, LagState, LagTopic};
 use crate::ui::client;

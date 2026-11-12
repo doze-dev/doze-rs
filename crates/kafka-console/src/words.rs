@@ -163,10 +163,7 @@ mod reach;
 mod topics;
 
 pub use reach::reach_sentence;
-pub use topics::{
-    kafka_error, list_and, list_sentence, partitions_sentence, read_refused, retention, timeout,
-    topic_sentence,
-};
+pub use topics::{kafka_error, list_and, read_refused, retention, timeout};
 
 #[cfg(test)]
 mod tests;

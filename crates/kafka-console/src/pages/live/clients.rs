@@ -3,7 +3,6 @@
 use maud::{Markup, html};
 
 use crate::base::{Base, segment};
-use crate::format::ago;
 use crate::model::ClientsView;
 use crate::ui::button::pill_mono;
 use crate::ui::glyph::{Glyph, glyph};

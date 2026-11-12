@@ -412,6 +412,11 @@ fn since_returns_what_changed_after_a_cursor_including_a_fold() {
     assert!(next > cursor);
     assert_eq!(rows.len(), 1);
     assert_eq!(rows[0].count, 2);
+    assert_eq!(
+        rec.tape(&all, now_ms()).cursor,
+        next,
+        "the page and the tail count from the same version"
+    );
 }
 
 #[test]
@@ -422,31 +427,6 @@ fn the_debug_of_a_recorder_prints_counts_and_nothing_a_client_sent() {
     play(&rec, 1, "PLANTED-CLIENT", &q, Answer::Response(&a), 9);
     let text = format!("{rec:?}");
     assert!(text.contains("rows") && !text.contains("PLANTED"), "{text}");
-}
-
-#[test]
-fn the_recorder_wakes_nobody_a_tail_asks_what_is_new_and_the_cursor_moves_with_the_ring() {
-    let rec = Recorder::new();
-    open(&rec, 1);
-    let q = WireQuery {
-        hide_idle: false,
-        ..WireQuery::default()
-    };
-    let (c0, none) = rec.since(&q, 0);
-    assert!(none.is_empty());
-    let (hb, a) = heartbeat("g", 0);
-    play(&rec, 1, "c", &hb, Answer::Response(&a), 4);
-    let (c1, rows) = rec.since(&q, c0);
-    assert!(c1 > c0 && rows.len() == 1);
-    assert_eq!(
-        rec.tape(&q, now_ms()).cursor,
-        c1,
-        "the page and the tail count from the same version"
-    );
-    assert!(
-        rec.since(&q, c1).1.is_empty(),
-        "nothing new: nothing to send"
-    );
 }
 
 #[test]

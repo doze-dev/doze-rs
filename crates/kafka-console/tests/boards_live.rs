@@ -100,7 +100,9 @@ fn live_wire_has_the_boards_sentence_filters_refusals_and_sixteen_rows() {
     assert!(!d.contains("aria-live=\"polite\"") || d.contains("data-conn"));
     assert!(d.contains("data-tail-url=") && d.contains("data-tail-mode=\"live\""));
     assert!(!d.contains("Repeats fold into one row, a line") && !d.contains("data-stream"));
-    assert!(d.contains("class=\"stats\"") && d.contains("data-frag=\"/fragments/live-stats\""));
+    assert!(
+        d.contains("class=\"stats compact\"") && d.contains("data-frag=\"/fragments/live-stats\"")
+    );
 }
 
 #[test]
@@ -108,7 +110,7 @@ fn the_page_is_the_same_page_in_every_state_and_the_states_are_slots() {
     // CON-807: a state never moves a block. The quiet wire, the busy wire and the steady one have the same parts in the same order.
     let parts = [
         "<h1>Live</h1>",
-        "class=\"stats\"",
+        "class=\"stats compact\"",
         "among the rows kept",
         "class=\"toolbar\"",
         "class=\"tailbar\"",

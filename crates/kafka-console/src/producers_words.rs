@@ -2,64 +2,10 @@
 //! (`topic-producers`, `txn-open`, `txn-holding`); every number is one the broker read.
 
 use crate::format::{clock, number, span_ms};
-use crate::model::{ProducersView, Span, TxnPart, TxnRow, TxnView};
+use crate::model::{Span, TxnPart, TxnRow, TxnView};
 
 fn t(s: impl Into<String>) -> Span {
     Span::text(s)
-}
-
-/// The sentence under the name of the Producers page.
-#[must_use]
-pub fn producers_sentence(v: &ProducersView) -> Vec<Span> {
-    let n = v.producers.len();
-    let here = format!("{}-{}", v.topic, v.partition);
-    let mut out = if n == 0 {
-        vec![t(format!("No producer is remembered on {here}. "))]
-    } else {
-        vec![
-            Span::strong(n.to_string()),
-            t(format!(
-                " {} remembered on {here}. ",
-                if n == 1 {
-                    "producer is"
-                } else {
-                    "producers are"
-                }
-            )),
-        ]
-    };
-    match (v.open.first(), v.held()) {
-        (Some(x), held) if held > 0 => {
-            out.push(t(if v.open.len() == 1 {
-                "One transaction, "
-            } else {
-                "A transaction, "
-            }));
-            out.push(Span::Strong(x.id.clone()));
-            out.push(t(", is open and holds the last stable offset at "));
-            out.push(Span::strong(number(v.last_stable)));
-            out.push(t(" while the high watermark is "));
-            out.push(Span::strong(number(v.end)));
-            out.push(t(": a read_committed consumer is held "));
-            out.push(Span::strong(number(held)));
-            out.push(t(if held == 1 {
-                " record behind."
-            } else {
-                " records behind."
-            }));
-        }
-        (Some(_), _) => out.push(t(format!(
-            "A transaction is open on this topic but holds nothing back on {here}."
-        ))),
-        (None, _) => {
-            out.push(t(
-                "No transaction is open: the last stable offset equals the high watermark, ",
-            ));
-            out.push(Span::strong(number(v.end)));
-            out.push(t("."));
-        }
-    }
-    out
 }
 
 /// A transaction's timeout as the boards write it: whole seconds up to two minutes (`60 s`), else in the two largest units.

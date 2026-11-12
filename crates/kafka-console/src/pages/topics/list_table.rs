@@ -21,7 +21,7 @@ const COLS: [Col<'static>; 5] = [
 ];
 
 /// The table's id.
-pub const TOPICS_TABLE: &str = "topics";
+pub(super) const TOPICS_TABLE: &str = "topics";
 
 fn cleanup_tag(c: Cleanup) -> Markup {
     html! { span class="tag" { (policy_word(c)) } }

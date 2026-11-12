@@ -744,12 +744,12 @@ table.dt-t{table-layout:fixed;width:100%}
 .tailbar{display:flex;align-items:center;gap:14px;margin:0 0 12px;min-height:34px;flex-wrap:nowrap}
 .tailbar .speed{display:inline-flex}
 .tailbar .seg button:disabled{opacity:.5;cursor:not-allowed}
-.conn{display:inline-flex;align-items:center;gap:7px;min-width:210px;font-size:12.5px;color:var(--dim);white-space:nowrap}
-.conn .dot{width:8px;height:8px;border-radius:50%;background:#aaa5bf;flex:none}
-.conn[data-conn=live] .dot{background:var(--good)}
-.conn[data-conn=reconnecting] .dot{background:#d99a1b}
-.conn[data-conn=disconnected] .dot{background:var(--bad)}
-.conn[data-conn=disconnected]{color:var(--bad)}
+.tail-conn{display:inline-flex;align-items:center;gap:7px;min-width:210px;font-size:12.5px;color:var(--dim);white-space:nowrap}
+.tail-conn .dot{width:8px;height:8px;border-radius:50%;background:#aaa5bf;flex:none}
+.tail-conn[data-conn=live] .dot{background:var(--good)}
+.tail-conn[data-conn=reconnecting] .dot{background:#d99a1b}
+.tail-conn[data-conn=disconnected] .dot{background:var(--bad)}
+.tail-conn[data-conn=disconnected]{color:var(--bad)}
 .held-pill{position:fixed;top:66px;left:50%;transform:translateX(-50%);z-index:30;height:32px;padding:0 14px;border-radius:999px;border:1px solid var(--accent);background:var(--accent);color:#fff;font:inherit;font-size:13px;font-weight:500;cursor:pointer;box-shadow:0 4px 14px rgba(58,53,80,.22);white-space:nowrap;font-variant-numeric:tabular-nums}
 .held-pill[hidden]{display:none}
 .tail-root.is-tailing .pager{visibility:hidden}
@@ -846,3 +846,16 @@ p,.sub,.lede,.help{text-wrap:pretty}
 .stats.tile{grid-template-columns:minmax(150px,240px)}
 .slot{display:inline-block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom;font-variant-numeric:tabular-nums}
 .stat .s{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* The compact strip of a data page: label over figure, the unit beside the figure, one row. */
+.stats.compact{display:flex;flex-wrap:wrap;gap:0;background:var(--panel);border:1px solid var(--line);border-radius:12px;margin:0 0 16px}
+.stats.compact .stat{display:grid;grid-template-areas:"k k" "v s";grid-template-columns:auto auto;justify-content:start;align-items:baseline;column-gap:6px;border:0;border-right:1px solid var(--line);border-radius:0;padding:8px 16px;background:transparent;flex:0 1 auto;min-width:0}
+.stats.compact .stat:last-child{border-right:0}
+.stats.compact .k{grid-area:k;margin-bottom:1px}
+.stats.compact .v{grid-area:v;font-size:17px;line-height:24px}
+.stats.compact .s{grid-area:s;font-size:12px}
+.page-h + .stats.compact,.page-h + .frag > .stats.compact{margin-top:-14px}
+details.refusals>summary{gap:6px}
+/* A cell is one line, whatever it holds: the kit's block `sub` lines become inline text after the value (a roomy row keeps two lines). */
+.dt .dt-t td .sub{display:inline;white-space:nowrap;margin:0 0 0 8px}
+.dt.roomy .dt-t td .sub{display:block;margin:1px 0 0;overflow:hidden;text-overflow:ellipsis}
+.dt .dt-t td .st,.dt .dt-t td .rw{white-space:nowrap}
