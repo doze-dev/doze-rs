@@ -217,13 +217,6 @@
     "expires": "close"
   },
   {
-    "board": "topic-detail",
-    "field": "link",
-    "selector": "txn-open",
-    "reason": "p9b-read: the board links to another state of a route this page also serves (the data chooses the state, so one address serves topics-list, topics-none and topics-filtered; routes.json maps an address to several screens and the tool counts one of them); expected until the tool counts all the screens a route serves.",
-    "expires": "close"
-  },
-  {
     "board": "topic-messages-filtered",
     "field": "link",
     "selector": "topic-messages-empty|topic-messages-filtered|topic-readcommitted",
@@ -234,13 +227,6 @@
     "board": "topic-messages-filtered",
     "field": "link",
     "selector": "topic-record|topic-record-binary",
-    "reason": "p9b-read: the board links to another state of a route this page also serves (the data chooses the state, so one address serves topics-list, topics-none and topics-filtered; routes.json maps an address to several screens and the tool counts one of them); expected until the tool counts all the screens a route serves.",
-    "expires": "close"
-  },
-  {
-    "board": "topic-readcommitted",
-    "field": "link",
-    "selector": "txn-holding",
     "reason": "p9b-read: the board links to another state of a route this page also serves (the data chooses the state, so one address serves topics-list, topics-none and topics-filtered; routes.json maps an address to several screens and the tool counts one of them); expected until the tool counts all the screens a route serves.",
     "expires": "close"
   },
@@ -1563,6 +1549,778 @@
     "field": "title",
     "selector": "Nothing yet",
     "reason": "[p9o] The tool gives a state its parent's title (the Live page, or Home); the page's breadcrumb carries the state as the board's own breadcrumb does (Live, then Paused, Nothing yet or A busy minute; Home, then First request landed).",
+    "expires": "close"
+  },
+  {
+    "board": "topic-log",
+    "field": "title",
+    "reason": "[p9g] The breadcrumb ends in the tab (Resources, Topics, the topic, Log or Producers) as the Config page's does, and in the transaction's id on its own page; the board's title is the topic's name, which stays in the breadcrumb and the h1.",
+    "expires": "close"
+  },
+  {
+    "board": "topic-log",
+    "field": "heading",
+    "selector": "h2 On the wire",
+    "reason": "[p9g] The wire dock (the last requests that touched the topic) needs the request recorder: slice 9e (debt J232).",
+    "expires": "9e"
+  },
+  {
+    "board": "topic-log",
+    "field": "table",
+    "reason": "[p9g] The wire dock (the last requests that touched the topic) needs the request recorder: slice 9e (debt J232).",
+    "expires": "9e"
+  },
+  {
+    "board": "topic-log",
+    "field": "table.col",
+    "reason": "[p9g] The wire dock (the last requests that touched the topic) needs the request recorder: slice 9e (debt J232).",
+    "expires": "9e"
+  },
+  {
+    "board": "topic-log",
+    "field": "table.rows",
+    "reason": "[p9g] The wire dock (the last requests that touched the topic) needs the request recorder: slice 9e (debt J232).",
+    "expires": "9e"
+  },
+  {
+    "board": "topic-log",
+    "field": "button",
+    "selector": "Compact now [pri] -> to:log-compact-now",
+    "reason": "[p9g] \"Compact now\" is Lab (a fault rule in the request path): not built, no button stands where it stood (debt J231).",
+    "expires": "close"
+  },
+  {
+    "board": "topic-log",
+    "field": "button",
+    "selector": "Why not yet? [sm] -> to:log-planner",
+    "reason": "[p9g] The four Log boards are four states of one route (/topics/{topic}/log, the data chooses), so a link to one of them cannot be told from a link to another by the gate, which resolves the address to a single screen (debt J245).",
+    "expires": "close"
+  },
+  {
+    "board": "topic-log",
+    "field": "button",
+    "selector": "Retention [sm] -> to:log-retention",
+    "reason": "[p9g] The four Log boards are four states of one route (/topics/{topic}/log, the data chooses), so a link to one of them cannot be told from a link to another by the gate, which resolves the address to a single screen (debt J245).",
+    "expires": "close"
+  },
+  {
+    "board": "topic-log",
+    "field": "link",
+    "selector": "log-compact-now",
+    "reason": "[p9g] \"Compact now\" is Lab (a fault rule in the request path): not built, no button stands where it stood (debt J231).",
+    "expires": "close"
+  },
+  {
+    "board": "topic-log",
+    "field": "link",
+    "selector": "log-planner",
+    "reason": "[p9g] The four Log boards are four states of one route (/topics/{topic}/log, the data chooses), so a link to one of them cannot be told from a link to another by the gate, which resolves the address to a single screen (debt J245).",
+    "expires": "close"
+  },
+  {
+    "board": "topic-log",
+    "field": "link",
+    "selector": "log-retention",
+    "reason": "[p9g] The four Log boards are four states of one route (/topics/{topic}/log, the data chooses), so a link to one of them cannot be told from a link to another by the gate, which resolves the address to a single screen (debt J245).",
+    "expires": "close"
+  },
+  {
+    "board": "topic-log",
+    "field": "link",
+    "selector": "topic-log",
+    "reason": "[p9g] The four Log boards are four states of one route (/topics/{topic}/log, the data chooses), so a link to one of them cannot be told from a link to another by the gate, which resolves the address to a single screen (debt J245).",
+    "expires": "close"
+  },
+  {
+    "board": "topic-log",
+    "field": "link",
+    "selector": "topic-offline",
+    "reason": "[p9g] The Durability card's link to what the offline state looks like goes to the topic's page, which serves both topic-detail and topic-offline by its data.",
+    "expires": "close"
+  },
+  {
+    "board": "topic-log",
+    "field": "dt",
+    "selector": "card:page: First entries",
+    "reason": "[p9g] The first entries of a segment's index are not shown: no accessor reads them (debt J235).",
+    "expires": "close"
+  },
+  {
+    "board": "topic-log",
+    "field": "extra",
+    "selector": "wire-dock",
+    "reason": "[p9g] The wire dock (the last requests that touched the topic) needs the request recorder: slice 9e (debt J232).",
+    "expires": "9e"
+  },
+  {
+    "board": "topic-log",
+    "field": "state",
+    "selector": "rw ok in rows",
+    "reason": "[p9g] The wire dock (the last requests that touched the topic) needs the request recorder: slice 9e (debt J232).",
+    "expires": "9e"
+  },
+  {
+    "board": "topic-log",
+    "field": "state",
+    "selector": "st refused in rows",
+    "reason": "[p9g] The wire dock (the last requests that touched the topic) needs the request recorder: slice 9e (debt J232).",
+    "expires": "9e"
+  },
+  {
+    "board": "topic-log",
+    "field": "button",
+    "selector": "Why not yet? [sm] -> to:log-empty",
+    "reason": "[p9g] The four Log boards are four states of one route (/topics/{topic}/log, the data chooses), so a link to one of them cannot be told from a link to another by the gate, which resolves the address to a single screen (debt J245).",
+    "expires": "close"
+  },
+  {
+    "board": "topic-log",
+    "field": "button",
+    "selector": "Retention [sm] -> to:log-empty",
+    "reason": "[p9g] The four Log boards are four states of one route (/topics/{topic}/log, the data chooses), so a link to one of them cannot be told from a link to another by the gate, which resolves the address to a single screen (debt J245).",
+    "expires": "close"
+  },
+  {
+    "board": "topic-log",
+    "field": "link",
+    "selector": "topic-record|topic-record-binary",
+    "reason": "improvement: [p9g] \"Read the tombstone\" is a link to the record's own page (a Fetch at that offset, as the board says), not a button that needs a script.",
+    "expires": "close"
+  },
+  {
+    "board": "topic-log",
+    "field": "dt",
+    "reason": "[p9g] The number of segments, of tables rows and of partitions is the data's: the larder draws the boards' numbers, a live broker has its own.",
+    "expires": "close",
+    "render": "live"
+  },
+  {
+    "board": "topic-log",
+    "field": "state",
+    "selector": "st idle",
+    "reason": "improvement: [p9g] Every Log page, in any state, carries the ruler with its heading, the Durability card and the Segments table (and a compacted one the Last round and Deletions cards, and a link to the Log of the other topics): what is true of a log is true whichever state it is in. The board draws them only on the due state.",
+    "expires": "close"
+  },
+  {
+    "board": "log-planner",
+    "field": "title",
+    "reason": "[p9g] The breadcrumb ends in the tab (Resources, Topics, the topic, Log or Producers) as the Config page's does, and in the transaction's id on its own page; the board's title is the topic's name, which stays in the breadcrumb and the h1.",
+    "expires": "close"
+  },
+  {
+    "board": "log-planner",
+    "field": "heading",
+    "selector": "h2 Other logs on this broker",
+    "reason": "improvement: [p9g] Every Log page, in any state, carries the ruler with its heading, the Durability card and the Segments table (and a compacted one the Last round and Deletions cards, and a link to the Log of the other topics): what is true of a log is true whichever state it is in. The board draws them only on the due state.",
+    "expires": "close"
+  },
+  {
+    "board": "log-planner",
+    "field": "table",
+    "selector": "t",
+    "reason": "improvement: [p9g] Every Log page, in any state, carries the ruler with its heading, the Durability card and the Segments table (and a compacted one the Last round and Deletions cards, and a link to the Log of the other topics): what is true of a log is true whichever state it is in. The board draws them only on the due state.",
+    "expires": "close"
+  },
+  {
+    "board": "log-planner",
+    "field": "table.col",
+    "selector": "table#0: Key",
+    "reason": "improvement: [p9g] Every Log page, in any state, carries the ruler with its heading, the Durability card and the Segments table (and a compacted one the Last round and Deletions cards, and a link to the Log of the other topics): what is true of a log is true whichever state it is in. The board draws them only on the due state.",
+    "expires": "close"
+  },
+  {
+    "board": "log-planner",
+    "field": "table.col",
+    "selector": "table#0: Deleted",
+    "reason": "improvement: [p9g] Every Log page, in any state, carries the ruler with its heading, the Durability card and the Segments table (and a compacted one the Last round and Deletions cards, and a link to the Log of the other topics): what is true of a log is true whichever state it is in. The board draws them only on the due state.",
+    "expires": "close"
+  },
+  {
+    "board": "log-planner",
+    "field": "table.col",
+    "selector": "table#0: Goes after",
+    "reason": "improvement: [p9g] Every Log page, in any state, carries the ruler with its heading, the Durability card and the Segments table (and a compacted one the Last round and Deletions cards, and a link to the Log of the other topics): what is true of a log is true whichever state it is in. The board draws them only on the due state.",
+    "expires": "close"
+  },
+  {
+    "board": "log-planner",
+    "field": "table.rows",
+    "selector": "no rows",
+    "reason": "improvement: [p9g] Every Log page, in any state, carries the ruler with its heading, the Durability card and the Segments table (and a compacted one the Last round and Deletions cards, and a link to the Log of the other topics): what is true of a log is true whichever state it is in. The board draws them only on the due state.",
+    "expires": "close"
+  },
+  {
+    "board": "log-planner",
+    "field": "table.col",
+    "reason": "[p9g] The wire dock (the last requests that touched the topic) needs the request recorder: slice 9e (debt J232).",
+    "expires": "9e"
+  },
+  {
+    "board": "log-planner",
+    "field": "table.rows",
+    "reason": "[p9g] The wire dock (the last requests that touched the topic) needs the request recorder: slice 9e (debt J232).",
+    "expires": "9e"
+  },
+  {
+    "board": "log-planner",
+    "field": "button",
+    "selector": "Why not yet? [sm] -> to:topic-log",
+    "reason": "[p9g] The four Log boards are four states of one route (/topics/{topic}/log, the data chooses), so a link to one of them cannot be told from a link to another by the gate, which resolves the address to a single screen (debt J245).",
+    "expires": "close"
+  },
+  {
+    "board": "log-planner",
+    "field": "button",
+    "selector": "Retention [sm] -> to:topic-log",
+    "reason": "[p9g] The four Log boards are four states of one route (/topics/{topic}/log, the data chooses), so a link to one of them cannot be told from a link to another by the gate, which resolves the address to a single screen (debt J245).",
+    "expires": "close"
+  },
+  {
+    "board": "log-planner",
+    "field": "button",
+    "selector": "Empty log [sm] -> to:topic-log",
+    "reason": "[p9g] The four Log boards are four states of one route (/topics/{topic}/log, the data chooses), so a link to one of them cannot be told from a link to another by the gate, which resolves the address to a single screen (debt J245).",
+    "expires": "close"
+  },
+  {
+    "board": "log-planner",
+    "field": "link",
+    "selector": "topic-delete-records|topic-delete-records-refused",
+    "reason": "improvement: [p9g] Every Log page, in any state, carries the ruler with its heading, the Durability card and the Segments table (and a compacted one the Last round and Deletions cards, and a link to the Log of the other topics): what is true of a log is true whichever state it is in. The board draws them only on the due state.",
+    "expires": "close"
+  },
+  {
+    "board": "log-planner",
+    "field": "card",
+    "selector": "Deletions",
+    "reason": "improvement: [p9g] Every Log page, in any state, carries the ruler with its heading, the Durability card and the Segments table (and a compacted one the Last round and Deletions cards, and a link to the Log of the other topics): what is true of a log is true whichever state it is in. The board draws them only on the due state.",
+    "expires": "close"
+  },
+  {
+    "board": "log-planner",
+    "field": "card",
+    "selector": "Durability",
+    "reason": "improvement: [p9g] Every Log page, in any state, carries the ruler with its heading, the Durability card and the Segments table (and a compacted one the Last round and Deletions cards, and a link to the Log of the other topics): what is true of a log is true whichever state it is in. The board draws them only on the due state.",
+    "expires": "close"
+  },
+  {
+    "board": "log-planner",
+    "field": "dt",
+    "selector": "card:Durability: Active log",
+    "reason": "improvement: [p9g] Every Log page, in any state, carries the ruler with its heading, the Durability card and the Segments table (and a compacted one the Last round and Deletions cards, and a link to the Log of the other topics): what is true of a log is true whichever state it is in. The board draws them only on the due state.",
+    "expires": "close"
+  },
+  {
+    "board": "log-planner",
+    "field": "dt",
+    "selector": "card:Durability: Its index, the directory",
+    "reason": "improvement: [p9g] Every Log page, in any state, carries the ruler with its heading, the Durability card and the Segments table (and a compacted one the Last round and Deletions cards, and a link to the Log of the other topics): what is true of a log is true whichever state it is in. The board draws them only on the due state.",
+    "expires": "close"
+  },
+  {
+    "board": "log-planner",
+    "field": "dt",
+    "selector": "card:Durability: Sealed segments",
+    "reason": "improvement: [p9g] Every Log page, in any state, carries the ruler with its heading, the Durability card and the Segments table (and a compacted one the Last round and Deletions cards, and a link to the Log of the other topics): what is true of a log is true whichever state it is in. The board draws them only on the due state.",
+    "expires": "close"
+  },
+  {
+    "board": "log-planner",
+    "field": "dt",
+    "selector": "card:Durability: Last stop",
+    "reason": "improvement: [p9g] Every Log page, in any state, carries the ruler with its heading, the Durability card and the Segments table (and a compacted one the Last round and Deletions cards, and a link to the Log of the other topics): what is true of a log is true whichever state it is in. The board draws them only on the due state.",
+    "expires": "close"
+  },
+  {
+    "board": "log-planner",
+    "field": "dt",
+    "selector": "card:Durability: Vouched for",
+    "reason": "improvement: [p9g] Every Log page, in any state, carries the ruler with its heading, the Durability card and the Segments table (and a compacted one the Last round and Deletions cards, and a link to the Log of the other topics): what is true of a log is true whichever state it is in. The board draws them only on the due state.",
+    "expires": "close"
+  },
+  {
+    "board": "log-planner",
+    "field": "dt",
+    "selector": "card:page: Offsets",
+    "reason": "improvement: [p9g] Every Log page, in any state, carries the ruler with its heading, the Durability card and the Segments table (and a compacted one the Last round and Deletions cards, and a link to the Log of the other topics): what is true of a log is true whichever state it is in. The board draws them only on the due state.",
+    "expires": "close"
+  },
+  {
+    "board": "log-planner",
+    "field": "dt",
+    "selector": "card:page: Size",
+    "reason": "improvement: [p9g] Every Log page, in any state, carries the ruler with its heading, the Durability card and the Segments table (and a compacted one the Last round and Deletions cards, and a link to the Log of the other topics): what is true of a log is true whichever state it is in. The board draws them only on the due state.",
+    "expires": "close"
+  },
+  {
+    "board": "log-planner",
+    "field": "dt",
+    "selector": "card:page: Newest record",
+    "reason": "improvement: [p9g] Every Log page, in any state, carries the ruler with its heading, the Durability card and the Segments table (and a compacted one the Last round and Deletions cards, and a link to the Log of the other topics): what is true of a log is true whichever state it is in. The board draws them only on the due state.",
+    "expires": "close"
+  },
+  {
+    "board": "log-planner",
+    "field": "dt",
+    "selector": "card:page: Cleaned",
+    "reason": "improvement: [p9g] Every Log page, in any state, carries the ruler with its heading, the Durability card and the Segments table (and a compacted one the Last round and Deletions cards, and a link to the Log of the other topics): what is true of a log is true whichever state it is in. The board draws them only on the due state.",
+    "expires": "close"
+  },
+  {
+    "board": "log-planner",
+    "field": "dt",
+    "selector": "card:page: Files",
+    "reason": "improvement: [p9g] Every Log page, in any state, carries the ruler with its heading, the Durability card and the Segments table (and a compacted one the Last round and Deletions cards, and a link to the Log of the other topics): what is true of a log is true whichever state it is in. The board draws them only on the due state.",
+    "expires": "close"
+  },
+  {
+    "board": "log-planner",
+    "field": "dt",
+    "selector": "card:page: Index",
+    "reason": "improvement: [p9g] Every Log page, in any state, carries the ruler with its heading, the Durability card and the Segments table (and a compacted one the Last round and Deletions cards, and a link to the Log of the other topics): what is true of a log is true whichever state it is in. The board draws them only on the due state.",
+    "expires": "close"
+  },
+  {
+    "board": "log-planner",
+    "field": "state",
+    "selector": "st info",
+    "reason": "improvement: [p9g] Every Log page, in any state, carries the ruler with its heading, the Durability card and the Segments table (and a compacted one the Last round and Deletions cards, and a link to the Log of the other topics): what is true of a log is true whichever state it is in. The board draws them only on the due state.",
+    "expires": "close"
+  },
+  {
+    "board": "log-planner",
+    "field": "state",
+    "selector": "st ok",
+    "reason": "improvement: [p9g] Every Log page, in any state, carries the ruler with its heading, the Durability card and the Segments table (and a compacted one the Last round and Deletions cards, and a link to the Log of the other topics): what is true of a log is true whichever state it is in. The board draws them only on the due state.",
+    "expires": "close"
+  },
+  {
+    "board": "log-planner",
+    "field": "state",
+    "selector": "st warn",
+    "reason": "improvement: [p9g] Every Log page, in any state, carries the ruler with its heading, the Durability card and the Segments table (and a compacted one the Last round and Deletions cards, and a link to the Log of the other topics): what is true of a log is true whichever state it is in. The board draws them only on the due state.",
+    "expires": "close"
+  },
+  {
+    "board": "log-planner",
+    "field": "heading",
+    "selector": "h2 Last round",
+    "reason": "[p9g] The number of segments, of tables rows and of partitions is the data's: the larder draws the boards' numbers, a live broker has its own.",
+    "expires": "close",
+    "render": "live"
+  },
+  {
+    "board": "log-planner",
+    "field": "card",
+    "selector": "Last round",
+    "reason": "improvement: [p9g] Every Log page, in any state, carries the ruler with its heading, the Durability card and the Segments table (and a compacted one the Last round and Deletions cards, and a link to the Log of the other topics): what is true of a log is true whichever state it is in. The board draws them only on the due state.",
+    "expires": "close"
+  },
+  {
+    "board": "log-planner",
+    "field": "dt",
+    "selector": "card:Last round: Read",
+    "reason": "improvement: [p9g] Every Log page, in any state, carries the ruler with its heading, the Durability card and the Segments table (and a compacted one the Last round and Deletions cards, and a link to the Log of the other topics): what is true of a log is true whichever state it is in. The board draws them only on the due state.",
+    "expires": "close"
+  },
+  {
+    "board": "log-planner",
+    "field": "dt",
+    "selector": "card:Last round: Kept",
+    "reason": "improvement: [p9g] Every Log page, in any state, carries the ruler with its heading, the Durability card and the Segments table (and a compacted one the Last round and Deletions cards, and a link to the Log of the other topics): what is true of a log is true whichever state it is in. The board draws them only on the due state.",
+    "expires": "close"
+  },
+  {
+    "board": "log-planner",
+    "field": "dt",
+    "selector": "card:Last round: Removed",
+    "reason": "improvement: [p9g] Every Log page, in any state, carries the ruler with its heading, the Durability card and the Segments table (and a compacted one the Last round and Deletions cards, and a link to the Log of the other topics): what is true of a log is true whichever state it is in. The board draws them only on the due state.",
+    "expires": "close"
+  },
+  {
+    "board": "log-planner",
+    "field": "dt",
+    "selector": "card:Last round: Replaced",
+    "reason": "improvement: [p9g] Every Log page, in any state, carries the ruler with its heading, the Durability card and the Segments table (and a compacted one the Last round and Deletions cards, and a link to the Log of the other topics): what is true of a log is true whichever state it is in. The board draws them only on the due state.",
+    "expires": "close"
+  },
+  {
+    "board": "log-planner",
+    "field": "dt",
+    "selector": "card:Last round: Took",
+    "reason": "improvement: [p9g] Every Log page, in any state, carries the ruler with its heading, the Durability card and the Segments table (and a compacted one the Last round and Deletions cards, and a link to the Log of the other topics): what is true of a log is true whichever state it is in. The board draws them only on the due state.",
+    "expires": "close"
+  },
+  {
+    "board": "log-planner",
+    "field": "dt",
+    "selector": "card:Last round: Checkpoint",
+    "reason": "improvement: [p9g] Every Log page, in any state, carries the ruler with its heading, the Durability card and the Segments table (and a compacted one the Last round and Deletions cards, and a link to the Log of the other topics): what is true of a log is true whichever state it is in. The board draws them only on the due state.",
+    "expires": "close"
+  },
+  {
+    "board": "log-retention",
+    "field": "title",
+    "reason": "[p9g] The breadcrumb ends in the tab (Resources, Topics, the topic, Log or Producers) as the Config page's does, and in the transaction's id on its own page; the board's title is the topic's name, which stays in the breadcrumb and the h1.",
+    "expires": "close"
+  },
+  {
+    "board": "log-retention",
+    "field": "card",
+    "selector": "Durability",
+    "reason": "improvement: [p9g] Every Log page, in any state, carries the ruler with its heading, the Durability card and the Segments table (and a compacted one the Last round and Deletions cards, and a link to the Log of the other topics): what is true of a log is true whichever state it is in. The board draws them only on the due state.",
+    "expires": "close"
+  },
+  {
+    "board": "log-retention",
+    "field": "dt",
+    "selector": "card:Durability: Active log",
+    "reason": "improvement: [p9g] Every Log page, in any state, carries the ruler with its heading, the Durability card and the Segments table (and a compacted one the Last round and Deletions cards, and a link to the Log of the other topics): what is true of a log is true whichever state it is in. The board draws them only on the due state.",
+    "expires": "close"
+  },
+  {
+    "board": "log-retention",
+    "field": "dt",
+    "selector": "card:Durability: Its index, the directory",
+    "reason": "improvement: [p9g] Every Log page, in any state, carries the ruler with its heading, the Durability card and the Segments table (and a compacted one the Last round and Deletions cards, and a link to the Log of the other topics): what is true of a log is true whichever state it is in. The board draws them only on the due state.",
+    "expires": "close"
+  },
+  {
+    "board": "log-retention",
+    "field": "dt",
+    "selector": "card:Durability: Sealed segments",
+    "reason": "improvement: [p9g] Every Log page, in any state, carries the ruler with its heading, the Durability card and the Segments table (and a compacted one the Last round and Deletions cards, and a link to the Log of the other topics): what is true of a log is true whichever state it is in. The board draws them only on the due state.",
+    "expires": "close"
+  },
+  {
+    "board": "log-retention",
+    "field": "dt",
+    "selector": "card:Durability: Last stop",
+    "reason": "improvement: [p9g] Every Log page, in any state, carries the ruler with its heading, the Durability card and the Segments table (and a compacted one the Last round and Deletions cards, and a link to the Log of the other topics): what is true of a log is true whichever state it is in. The board draws them only on the due state.",
+    "expires": "close"
+  },
+  {
+    "board": "log-retention",
+    "field": "dt",
+    "selector": "card:Durability: Vouched for",
+    "reason": "improvement: [p9g] Every Log page, in any state, carries the ruler with its heading, the Durability card and the Segments table (and a compacted one the Last round and Deletions cards, and a link to the Log of the other topics): what is true of a log is true whichever state it is in. The board draws them only on the due state.",
+    "expires": "close"
+  },
+  {
+    "board": "log-retention",
+    "field": "dt",
+    "selector": "card:page: Offsets",
+    "reason": "improvement: [p9g] Every Log page, in any state, carries the ruler with its heading, the Durability card and the Segments table (and a compacted one the Last round and Deletions cards, and a link to the Log of the other topics): what is true of a log is true whichever state it is in. The board draws them only on the due state.",
+    "expires": "close"
+  },
+  {
+    "board": "log-retention",
+    "field": "dt",
+    "selector": "card:page: Size",
+    "reason": "improvement: [p9g] Every Log page, in any state, carries the ruler with its heading, the Durability card and the Segments table (and a compacted one the Last round and Deletions cards, and a link to the Log of the other topics): what is true of a log is true whichever state it is in. The board draws them only on the due state.",
+    "expires": "close"
+  },
+  {
+    "board": "log-retention",
+    "field": "dt",
+    "selector": "card:page: Newest record",
+    "reason": "improvement: [p9g] Every Log page, in any state, carries the ruler with its heading, the Durability card and the Segments table (and a compacted one the Last round and Deletions cards, and a link to the Log of the other topics): what is true of a log is true whichever state it is in. The board draws them only on the due state.",
+    "expires": "close"
+  },
+  {
+    "board": "log-retention",
+    "field": "dt",
+    "selector": "card:page: Files",
+    "reason": "improvement: [p9g] Every Log page, in any state, carries the ruler with its heading, the Durability card and the Segments table (and a compacted one the Last round and Deletions cards, and a link to the Log of the other topics): what is true of a log is true whichever state it is in. The board draws them only on the due state.",
+    "expires": "close"
+  },
+  {
+    "board": "log-retention",
+    "field": "dt",
+    "selector": "card:page: Index",
+    "reason": "improvement: [p9g] Every Log page, in any state, carries the ruler with its heading, the Durability card and the Segments table (and a compacted one the Last round and Deletions cards, and a link to the Log of the other topics): what is true of a log is true whichever state it is in. The board draws them only on the due state.",
+    "expires": "close"
+  },
+  {
+    "board": "log-retention",
+    "field": "state",
+    "selector": "st idle",
+    "reason": "improvement: [p9g] Every Log page, in any state, carries the ruler with its heading, the Durability card and the Segments table (and a compacted one the Last round and Deletions cards, and a link to the Log of the other topics): what is true of a log is true whichever state it is in. The board draws them only on the due state.",
+    "expires": "close"
+  },
+  {
+    "board": "log-retention",
+    "field": "state",
+    "selector": "st info",
+    "reason": "improvement: [p9g] Every Log page, in any state, carries the ruler with its heading, the Durability card and the Segments table (and a compacted one the Last round and Deletions cards, and a link to the Log of the other topics): what is true of a log is true whichever state it is in. The board draws them only on the due state.",
+    "expires": "close"
+  },
+  {
+    "board": "log-retention",
+    "field": "state",
+    "selector": "st ok",
+    "reason": "improvement: [p9g] Every Log page, in any state, carries the ruler with its heading, the Durability card and the Segments table (and a compacted one the Last round and Deletions cards, and a link to the Log of the other topics): what is true of a log is true whichever state it is in. The board draws them only on the due state.",
+    "expires": "close"
+  },
+  {
+    "board": "log-retention",
+    "field": "heading",
+    "selector": "h2 After segment 1 goes",
+    "reason": "[p9g] The number of segments, of tables rows and of partitions is the data's: the larder draws the boards' numbers, a live broker has its own.",
+    "expires": "close",
+    "render": "live"
+  },
+  {
+    "board": "log-retention",
+    "field": "card",
+    "selector": "After segment 1 goes",
+    "reason": "improvement: [p9g] Every Log page, in any state, carries the ruler with its heading, the Durability card and the Segments table (and a compacted one the Last round and Deletions cards, and a link to the Log of the other topics): what is true of a log is true whichever state it is in. The board draws them only on the due state.",
+    "expires": "close"
+  },
+  {
+    "board": "log-retention",
+    "field": "dt",
+    "selector": "card:After segment 1 goes: Log start",
+    "reason": "improvement: [p9g] Every Log page, in any state, carries the ruler with its heading, the Durability card and the Segments table (and a compacted one the Last round and Deletions cards, and a link to the Log of the other topics): what is true of a log is true whichever state it is in. The board draws them only on the due state.",
+    "expires": "close"
+  },
+  {
+    "board": "log-retention",
+    "field": "dt",
+    "selector": "card:After segment 1 goes: Fetch below 5,980",
+    "reason": "improvement: [p9g] Every Log page, in any state, carries the ruler with its heading, the Durability card and the Segments table (and a compacted one the Last round and Deletions cards, and a link to the Log of the other topics): what is true of a log is true whichever state it is in. The board draws them only on the due state.",
+    "expires": "close"
+  },
+  {
+    "board": "log-retention",
+    "field": "dt",
+    "selector": "card:After segment 1 goes: Kept",
+    "reason": "improvement: [p9g] Every Log page, in any state, carries the ruler with its heading, the Durability card and the Segments table (and a compacted one the Last round and Deletions cards, and a link to the Log of the other topics): what is true of a log is true whichever state it is in. The board draws them only on the due state.",
+    "expires": "close"
+  },
+  {
+    "board": "log-empty",
+    "field": "title",
+    "reason": "[p9g] The breadcrumb ends in the tab (Resources, Topics, the topic, Log or Producers) as the Config page's does, and in the transaction's id on its own page; the board's title is the topic's name, which stays in the breadcrumb and the h1.",
+    "expires": "close"
+  },
+  {
+    "board": "topic-producers",
+    "field": "title",
+    "reason": "[p9g] The breadcrumb ends in the tab (Resources, Topics, the topic, Log or Producers) as the Config page's does, and in the transaction's id on its own page; the board's title is the topic's name, which stays in the breadcrumb and the h1.",
+    "expires": "close"
+  },
+  {
+    "board": "topic-producers",
+    "field": "heading",
+    "selector": "h2 On the wire",
+    "reason": "[p9g] The wire dock (the last requests that touched the topic) needs the request recorder: slice 9e (debt J232).",
+    "expires": "9e"
+  },
+  {
+    "board": "topic-producers",
+    "field": "table",
+    "reason": "[p9g] The wire dock (the last requests that touched the topic) needs the request recorder: slice 9e (debt J232).",
+    "expires": "9e"
+  },
+  {
+    "board": "topic-producers",
+    "field": "table.col",
+    "reason": "[p9g] The wire dock (the last requests that touched the topic) needs the request recorder: slice 9e (debt J232).",
+    "expires": "9e"
+  },
+  {
+    "board": "topic-producers",
+    "field": "table.rows",
+    "reason": "[p9g] The wire dock (the last requests that touched the topic) needs the request recorder: slice 9e (debt J232).",
+    "expires": "9e"
+  },
+  {
+    "board": "topic-producers",
+    "field": "button",
+    "selector": "Hide batches [sm] -> ui:collapse",
+    "reason": "improvement: [p9g] A producer's batches open and close with a link (the page is the same with that row open), so it works with no script; the board draws buttons that need one.",
+    "expires": "close"
+  },
+  {
+    "board": "topic-producers",
+    "field": "button",
+    "selector": "Batches [sm] -> ui:expand",
+    "reason": "improvement: [p9g] A producer's batches open and close with a link (the page is the same with that row open), so it works with no script; the board draws buttons that need one.",
+    "expires": "close"
+  },
+  {
+    "board": "topic-producers",
+    "field": "extra",
+    "selector": "wire-dock",
+    "reason": "[p9g] The wire dock (the last requests that touched the topic) needs the request recorder: slice 9e (debt J232).",
+    "expires": "9e"
+  },
+  {
+    "board": "topic-producers",
+    "field": "state",
+    "selector": "rw ok in rows",
+    "reason": "[p9g] The wire dock (the last requests that touched the topic) needs the request recorder: slice 9e (debt J232).",
+    "expires": "9e"
+  },
+  {
+    "board": "topic-producers",
+    "field": "state",
+    "selector": "st bad in rows",
+    "reason": "[p9g] The wire dock (the last requests that touched the topic) needs the request recorder: slice 9e (debt J232).",
+    "expires": "9e"
+  },
+  {
+    "board": "topic-producers",
+    "field": "button",
+    "selector": "Hide batches [sm] -> to:topic-producers",
+    "reason": "improvement: [p9g] A producer's batches open and close with a link (the page is the same with that row open), so it works with no script; the board draws buttons that need one.",
+    "expires": "close"
+  },
+  {
+    "board": "topic-producers",
+    "field": "button",
+    "selector": "Batches [sm] -> to:topic-producers",
+    "reason": "improvement: [p9g] A producer's batches open and close with a link (the page is the same with that row open), so it works with no script; the board draws buttons that need one.",
+    "expires": "close"
+  },
+  {
+    "board": "topic-producers",
+    "field": "heading",
+    "selector": "h2 Aborted transactions remembered: 2",
+    "reason": "[p9g] The number of segments, of tables rows and of partitions is the data's: the larder draws the boards' numbers, a live broker has its own.",
+    "expires": "close",
+    "render": "live"
+  },
+  {
+    "board": "topic-producers",
+    "field": "state",
+    "selector": "st idle in rows",
+    "reason": "[p9g] The wire dock (the last requests that touched the topic) needs the request recorder: slice 9e (debt J232).",
+    "expires": "9e"
+  },
+  {
+    "board": "topic-producers",
+    "field": "heading",
+    "selector": "h2 Aborted transactions remembered: 0",
+    "reason": "[p9g] The number of segments, of tables rows and of partitions is the data's: the larder draws the boards' numbers, a live broker has its own.",
+    "expires": "close",
+    "render": "live"
+  },
+  {
+    "board": "txn-open",
+    "field": "link",
+    "selector": "txn-open",
+    "reason": "[p9g] The number of segments, of tables rows and of partitions is the data's: the larder draws the boards' numbers, a live broker has its own.",
+    "expires": "close",
+    "render": "live"
+  },
+  {
+    "board": "txn-open",
+    "field": "heading",
+    "selector": "h2 orders-0, the tail",
+    "reason": "[p9g] The number of segments, of tables rows and of partitions is the data's: the larder draws the boards' numbers, a live broker has its own.",
+    "expires": "close",
+    "render": "live"
+  },
+  {
+    "board": "txn-open",
+    "field": "heading",
+    "selector": "h2 orders-1, the tail",
+    "reason": "[p9g] The number of segments, of tables rows and of partitions is the data's: the larder draws the boards' numbers, a live broker has its own.",
+    "expires": "close",
+    "render": "live"
+  },
+  {
+    "board": "txn-holding",
+    "field": "title",
+    "reason": "[p9g] The breadcrumb ends in the tab (Resources, Topics, the topic, Log or Producers) as the Config page's does, and in the transaction's id on its own page; the board's title is the topic's name, which stays in the breadcrumb and the h1.",
+    "expires": "close"
+  },
+  {
+    "board": "txn-holding",
+    "field": "heading",
+    "selector": "h2 What a Fetch answers on orders-0",
+    "reason": "[p9g] The number of segments, of tables rows and of partitions is the data's: the larder draws the boards' numbers, a live broker has its own.",
+    "expires": "close",
+    "render": "live"
+  },
+  {
+    "board": "txn-holding",
+    "field": "heading",
+    "selector": "h2 What a Fetch answers on orders-1",
+    "reason": "[p9g] The number of segments, of tables rows and of partitions is the data's: the larder draws the boards' numbers, a live broker has its own.",
+    "expires": "close",
+    "render": "live"
+  },
+  {
+    "board": "txn-open",
+    "field": "link",
+    "selector": "txn-open",
+    "reason": "improvement: [p9g] A transactional id in the table of transactions links to its own page, where the board draws it as text.",
+    "expires": "close"
+  },
+  {
+    "board": "log-planner",
+    "field": "heading",
+    "selector": "h2 The log, offset by offset",
+    "reason": "improvement: [p9g] Every Log page, in any state, carries the ruler with its heading, the Durability card and the Segments table (and a compacted one the Last round and Deletions cards, and a link to the Log of the other topics): what is true of a log is true whichever state it is in. The board draws them only on the due state.",
+    "expires": "close"
+  },
+  {
+    "board": "log-planner",
+    "field": "heading",
+    "selector": "h2 Deletions",
+    "reason": "improvement: [p9g] Every Log page, in any state, carries the ruler with its heading, the Durability card and the Segments table (and a compacted one the Last round and Deletions cards, and a link to the Log of the other topics): what is true of a log is true whichever state it is in. The board draws them only on the due state.",
+    "expires": "close"
+  },
+  {
+    "board": "log-planner",
+    "field": "heading",
+    "selector": "h2 Durability",
+    "reason": "improvement: [p9g] Every Log page, in any state, carries the ruler with its heading, the Durability card and the Segments table (and a compacted one the Last round and Deletions cards, and a link to the Log of the other topics): what is true of a log is true whichever state it is in. The board draws them only on the due state.",
+    "expires": "close"
+  },
+  {
+    "board": "log-planner",
+    "field": "heading",
+    "selector": "h2 Segments",
+    "reason": "improvement: [p9g] Every Log page, in any state, carries the ruler with its heading, the Durability card and the Segments table (and a compacted one the Last round and Deletions cards, and a link to the Log of the other topics): what is true of a log is true whichever state it is in. The board draws them only on the due state.",
+    "expires": "close"
+  },
+  {
+    "board": "log-retention",
+    "field": "heading",
+    "selector": "h2 The log, offset by offset",
+    "reason": "improvement: [p9g] Every Log page, in any state, carries the ruler with its heading, the Durability card and the Segments table (and a compacted one the Last round and Deletions cards, and a link to the Log of the other topics): what is true of a log is true whichever state it is in. The board draws them only on the due state.",
+    "expires": "close"
+  },
+  {
+    "board": "log-retention",
+    "field": "heading",
+    "selector": "h2 Durability",
+    "reason": "improvement: [p9g] Every Log page, in any state, carries the ruler with its heading, the Durability card and the Segments table (and a compacted one the Last round and Deletions cards, and a link to the Log of the other topics): what is true of a log is true whichever state it is in. The board draws them only on the due state.",
+    "expires": "close"
+  },
+  {
+    "board": "log-retention",
+    "field": "heading",
+    "selector": "h2 Segments",
+    "reason": "improvement: [p9g] Every Log page, in any state, carries the ruler with its heading, the Durability card and the Segments table (and a compacted one the Last round and Deletions cards, and a link to the Log of the other topics): what is true of a log is true whichever state it is in. The board draws them only on the due state.",
+    "expires": "close"
+  },
+  {
+    "board": "log-empty",
+    "field": "heading",
+    "selector": "h3 This log has nothing in it",
+    "reason": "[p9g] The empty state's title is an h2 in the page and an h3 on the canvas (an h3 straight under the h1 skips a level); the CSS styles both alike.",
+    "expires": "close"
+  },
+  {
+    "board": "log-empty",
+    "field": "heading",
+    "selector": "h2 This log has nothing in it",
+    "reason": "[p9g] The empty state's title is an h2 in the page and an h3 on the canvas (an h3 straight under the h1 skips a level); the CSS styles both alike.",
     "expires": "close"
   }
 ]

@@ -8,7 +8,9 @@ mod connect;
 mod groups;
 mod home;
 pub mod live;
+mod log;
 mod messages;
+mod producers;
 mod query;
 mod topic;
 mod topics;
@@ -24,6 +26,15 @@ pub use home::{Attention, HeldBack, HomeState, HomeView, InstanceView, StopView}
 pub use live::{
     ClientRow, ClientsView, FirstView, GroupWireView, LiveState, LiveView, SpokeView, WIRE_LIMIT,
     WIRE_MOST, WireClass, WireDetail, WirePart, WireQuery, WireRefusal, WireRow, WireWindow,
+};
+pub use log::{
+    LogCleaner, LogCompaction, LogDurability, LogLimit, LogMoved, LogOther, LogOtherLink, LogPass,
+    LogPlanner, LogRetentionView, LogRound, LogRules, LogSegment, LogState, LogStop, LogTombstone,
+    LogView,
+};
+pub use producers::{
+    ProdAborted, ProdBatch, ProdCell, ProdRow, ProdTail, ProdTxn, ProducersView, TxnPart, TxnRow,
+    TxnView,
 };
 
 pub(crate) mod write;

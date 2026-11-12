@@ -23,10 +23,14 @@ mod pace;
 
 pub use config_rules::ConfigRule;
 pub use pace::Pace;
+mod log_facts;
 mod partition_files;
+mod producers;
 
+pub use log_facts::{CleanerState, Compaction, Durability, LogFacts, LogPolicy, LogRetention};
 pub use partition_files::PartitionFiles;
 pub use process::Process;
+pub use producers::{AbortedRange, PartitionProducers, ProducerBatch, ProducerWindow};
 
 /// What the last stop left.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

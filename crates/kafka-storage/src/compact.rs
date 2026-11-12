@@ -14,7 +14,14 @@ mod txn;
 mod types;
 
 pub(crate) use checkpoint::{read as read_checkpoint, write as write_checkpoint};
-pub use plan::{Facts, Params, Plan};
+
+/// Where cleaning last got to in the partition whose files are in `dir`: the first offset not yet cleaned (0 if no round
+/// has put its work in place). Read-only; for the console.
+#[must_use]
+pub fn checkpoint_of<F: crate::fs::Fs>(fs: &F, dir: &std::path::Path) -> i64 {
+    read_checkpoint(fs, dir).get()
+}
+pub use plan::{Facts, Limit, Params, Plan, Reading, judge, reading};
 pub use txn::AbortedTxn;
 pub use types::{CleanJob, Cleaned, LastOf, Replacement};
 pub(crate) use types::{Input, temporary};

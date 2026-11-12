@@ -6,6 +6,7 @@ mod fetch;
 pub mod forms;
 mod groups;
 mod groups_read;
+mod log_reads;
 mod metadata;
 mod offsets;
 mod producers;
@@ -18,6 +19,7 @@ pub use groups_read::{
     MOST_DESCRIBED, admin_commit, consumer_group_describe, delete_group, describe_groups,
     offset_delete, offsets_of,
 };
+pub use log_reads::list_all_transactions;
 pub use metadata::metadata_topics;
 pub use offsets::{Ask, EARLIEST, LATEST, list_offsets};
 pub use producers::describe_producers;

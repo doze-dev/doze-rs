@@ -7,6 +7,7 @@ mod groups_dialogs;
 mod groups_fragments;
 mod jump;
 mod live;
+mod log;
 mod overlays;
 mod pages;
 mod plain;
@@ -30,6 +31,10 @@ pub(crate) use live::fragment as live_fragment;
 pub use live::{
     clients as live_clients, first as first_request, group_wire, live, request as live_request,
     topic_wire,
+};
+pub use log::{
+    log as topic_log, log_fragment, producers as topic_producers, txn as topic_txn,
+    txn_held as topic_txn_held,
 };
 pub use pages::{advertised, connect, home, method_not_allowed, not_found, planned};
 pub use plain::{events, health, static_file};

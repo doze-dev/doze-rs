@@ -233,7 +233,7 @@ fn a_topic_name_in_a_link_is_encoded_and_a_prefix_is_always_a_path() {
     a.topic = "a/b?c=d\"e<f>".to_owned();
     let page = pages::home(&home("x", HomeState::Attention(a)), &base).into_string();
     assert!(
-        page.contains("href=\"/topics/a%2Fb%3Fc%3Dd%22e%3Cf%3E/producers\""),
+        page.contains("href=\"/topics/a%2Fb%3Fc%3Dd%22e%3Cf%3E/transactions/x\""),
         "{page}"
     );
     for prefix in [

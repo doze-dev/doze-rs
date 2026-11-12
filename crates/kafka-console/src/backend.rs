@@ -18,6 +18,7 @@ use kafka_wire::profile::Profile;
 
 mod config;
 mod forms;
+mod log_views;
 pub mod requests;
 
 /// The client id the console's requests carry.

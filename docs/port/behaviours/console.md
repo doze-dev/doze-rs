@@ -470,3 +470,96 @@ Tagged in `docs/port/debt.md` J151 to J170: "waited 480 ms" (the recorder knows 
 
 ## CON-415. An open drawer holds the tape, and closing it lets the tape catch up
 While a Live drawer is open (adopted from the server or opened in place) what the stream brings is kept aside with no banner; closing it by Esc, the Close control or Back brings the newest in. Test: `tools/dom/live.test.ts` (a Live drawer opened by the overlay system holds the tape).
+
+## Slice 9g: the Log page and Producers (rules numbered from CON-500)
+
+Boards `topic-log`, `log-planner`, `log-retention`, `log-empty`, `topic-producers`, `txn-open`, `txn-holding`. Routes: `/topics/{topic}/log` (the four Log boards: the data chooses), `/topics/{topic}/producers`, `/topics/{topic}/transactions/{txn}` (`txn-open`, a route of its own because it is a page about one transactional id, not about a partition) and `/topics/{topic}/transactions/{txn}/held` (`txn-holding`, reached by the button "Who is held"). All are read-only pages: a GET changes nothing and no page has a form.
+
+## CON-500. The survey of a log says what each segment holds, and only what it read
+`LogReader::survey` reads batch headers (and, for a batch compaction thinned or one that carries a delete horizon, the batch, within a budget) and says per segment: base, next, bytes, records, newest timestamp, the offsets removed (a batch the cleaner dropped and a record it took out of a batch both leave a gap), and the markers. A log bigger than the budget says it was read in part and counts what it could not place; it never guesses. Test: `log::tests::survey::the_gaps_of_a_compacted_log_are_exactly_the_offsets_a_round_removed`, `a_thinned_batch_places_the_offsets_it_lost_inside_it`, `a_budget_that_is_spent_says_the_walk_is_partial_and_never_guesses`, `an_empty_log_has_one_empty_active_segment_and_no_gaps`, `log::walk::tests::gaps_that_touch_are_one_range_and_gaps_apart_are_two`, `a_gap_past_the_budget_is_counted_and_says_the_walk_is_partial`.
+
+## CON-501. The planner's verdict on the page is what the cleaner then does
+The page calls `compact::judge` itself (re-exported read-only) on the facts the survey gives it, which are the facts `PartitionLog::clean_job` reads; `reading` says the numbers behind the verdict whether or not the log is due. A test runs the verdict and then a real round: due means segments were rewritten and the checkpoint moved, not due means nothing changed (a log never cleaned, one with a small dirty share, one held back by a minimum lag). Test: `the_verdict_is_what_the_cleaner_then_does` (`kafka-broker/tests/view_log_facts.rs`), `log::tests::survey::what_the_survey_gives_the_planner_is_what_the_cleaner_gives_it`, `compact::plan::tests::the_reading_says_what_stops_cleaning_and_agrees_with_the_verdict_whatever_the_log`, `a_transaction_open_exactly_at_the_active_segment_is_the_active_segment_that_stops_cleaning`.
+
+## CON-502. The ruler is drawn from the real compacted partition
+What is in a gap is exactly what a consumer no longer gets from the topic. Test: `the_gaps_are_exactly_the_offsets_the_cleaner_removed` (`kafka-broker/tests/view_log_facts.rs`); `log_ruler::tests::the_gaps_are_where_the_segment_lost_offsets_and_only_in_cleaned_segments`.
+
+## CON-503. A deletion a round kept is listed with the time the next round removes it
+The delete horizon of its batch, the record's own timestamp as when it was written. Test: `a_kept_deletion_is_listed_with_its_horizon`, `log::tests::survey::a_deletion_a_round_kept_is_listed_with_the_time_it_goes`.
+
+## CON-504. Retention says what the next pass would do (by the broker's own rule) and what the last one did
+`kafka_storage::count_to_drop` is the rule, on the sizes and ages the survey read; the last pass, and how many partitions' starts retention has moved since the broker began, are small notes kept in memory by `logs.rs` and `cleaner.rs` (bounded: one per cleaned partition, at most 512; one pass; nothing until a round or a pass has happened; forgotten when the broker stops). Test: `retention_says_what_the_next_pass_does_and_what_the_last_one_did`, `log_notes::tests::a_broker_that_has_done_nothing_keeps_nothing`, `the_partitions_remembered_are_bounded_and_the_oldest_goes_first`.
+
+## CON-505. Looking is lazy and leaves the broker as it was
+A partition never written is not opened and says so; a written one is opened as a Fetch would open it and let go again if nothing else holds it. Test: `an_empty_partition_says_so_and_looking_opens_nothing`, `a_closed_partition_is_looked_at_and_closed_again`.
+
+## CON-506. The view obeys the protocol's rights and does not say which partitions exist
+`log_facts` needs DESCRIBE on the topic, `producers` needs READ (as DescribeProducers does); a partition that is not there and a topic the caller may not see answer alike. Test: `the_view_obeys_describe_and_does_not_say_which_partitions_exist`.
+
+## CON-510. A producer's window is its last five batches, newest first
+With their sequences, where they went and when. Test: `each_producer_has_its_last_five_batches_newest_first` (`kafka-broker/tests/view_producers.rs`).
+
+## CON-511. An open transaction holds the last stable offset where it began; an abort is remembered with its marker
+Test: `an_open_transaction_holds_the_last_stable_offset_and_an_abort_is_remembered`.
+
+## CON-512. Looking at producers writes nothing and keeps nothing
+Test: `looking_writes_nothing_and_keeps_nothing`.
+
+## CON-520. The seven boards render from the larder, whole, and have the parts of their boards in order
+Test: `every_board_of_the_slice_renders_and_is_written_for_the_tool`, `the_due_log_has_the_parts_of_its_board_in_order`, `the_other_three_states_have_the_parts_of_their_boards_in_order`, `the_producers_and_transaction_pages_have_the_parts_of_their_boards_in_order` (`tests/boards_log.rs`).
+
+## CON-521. Every sentence of the Log page is a pure function with this partition's numbers
+Due, not due, empty, cleaner off, running, failed, forced by age, held by a transaction or a minimum lag; the rules, the round that will be run, what would make a log due; retention's sentence, expiry and rules. Test: `log_words::tests::a_log_that_is_due_says_its_share_the_threshold_and_when_the_cleaner_looks`, `a_log_that_is_not_due_says_why_it_waits`, `the_cleaner_being_off_or_running_or_failing_changes_the_sentence_and_the_last_rule`, `each_rule_of_the_planner_carries_this_partitions_numbers`, `an_open_transaction_holds_cleaning_back_and_a_minimum_lag_makes_a_segment_too_new`, `a_maximum_lag_forces_a_round_whatever_the_share`, `the_next_round_names_the_segments_it_rewrites_and_where_the_checkpoint_goes`, `what_would_make_a_log_due_is_the_threshold_in_bytes`, `retention_names_the_segment_that_turns_old_and_the_pass_that_takes_it`, `a_segment_already_past_retention_goes_at_the_next_pass`, `a_log_that_nothing_deletes_says_it_is_kept_for_ever_and_the_rules_say_no_limit`, `a_size_limit_says_what_the_partition_holds`, `the_rules_of_retention_say_when_the_passes_are`, `a_share_exactly_at_the_threshold_is_not_over_it`, `a_log_everything_was_deleted_from_says_where_it_starts_now`.
+
+## CON-522. The ruler's width is offsets and its gaps are where records were removed
+Test: `log_ruler::tests::a_cell_is_as_wide_as_the_offsets_it_spans_and_the_colour_says_what_the_cleaner_did`, `a_log_start_moved_up_hatches_what_is_below_it`, `the_markers_sit_where_the_offsets_are_and_the_end_is_drawn_at_the_right_edge`, `a_marker_allows_for_the_gaps_between_the_cells`, `an_empty_log_is_one_active_cell_with_its_own_words`.
+
+## CON-523. The four boards are the four states of one page, and none has a form
+Test: `pages::log::tests::the_four_boards_are_the_four_states_of_one_page_chosen_by_the_data`, `no_page_of_the_log_has_a_form_a_write_or_a_compact_now_button`, `an_empty_log_has_no_segments_table_no_cards_and_no_other_logs`, `the_live_parts_are_fragments_the_stream_can_name`, `the_segments_table_opens_the_segment_that_holds_the_checkpoint`.
+
+## CON-524. The Producers and transaction sentences are pure functions
+Test: `producers_words::tests::the_producers_page_says_what_the_open_transaction_holds_back`, `with_no_transaction_the_stable_offset_is_the_high_watermark_and_with_no_producer_it_says_so`, `a_transaction_is_described_with_its_clock_its_timeout_and_what_it_holds`, `what_it_holds_back_counts_records_per_partition`, `if_it_is_not_ended_the_sentence_names_the_time_the_markers_and_the_new_epoch`, `the_page_that_says_who_is_held_counts_the_distance_in_words`.
+
+## CON-525. The Producers page has a toggle that works without a script, and never names a client it has not seen
+Test: `pages::producers::tests::the_producer_with_an_open_transaction_shows_its_five_batches_and_the_others_a_link_to_open_theirs`, `the_toggle_links_keep_the_other_open_rows_and_work_without_a_script`, `the_tail_marks_the_stable_offset_and_counts_the_held_records`, `a_producer_is_never_shown_with_a_name_the_broker_does_not_know`, `the_transaction_page_has_the_countdown_and_the_two_ways_on`.
+
+## CON-530. A compacted log is drawn from what the cleaner left
+Test: `a_compacted_log_is_drawn_from_what_the_cleaner_left` (`tests/live_log.rs`).
+
+## CON-531. A log that is not due says why, and the cleaner then leaves it alone
+Test: `a_log_that_is_not_due_says_why_and_the_cleaner_then_leaves_it_alone`.
+
+## CON-532. Retention is named before and after a pass
+Test: `retention_is_named_before_and_after_a_pass`.
+
+## CON-533. An empty log says how the first record gets there
+Test: `an_empty_log_says_how_the_first_record_gets_there`.
+
+## CON-534. The Producers page names the transaction that holds the stable offset
+Test: `the_producers_page_names_the_transaction_that_holds_the_stable_offset`.
+
+## CON-535. A transaction page says what it holds back and what the timeout will do
+Test: `a_transaction_page_says_what_it_holds_back_and_what_the_timeout_will_do`.
+
+## CON-536. An aborted transaction is listed with its marker
+Test: `an_aborted_transaction_is_listed_with_its_marker`.
+
+## CON-537. A caller without rights is told no such topic
+Test: `a_caller_without_rights_is_told_no_such_topic`.
+
+## CON-538. Hostile ids and keys are escaped, and a 249-byte topic name fits
+Test: `hostile_ids_and_keys_are_escaped_and_a_long_topic_name_fits`; `pages::log::tests::a_topic_name_that_is_hostile_is_escaped_everywhere_it_is_shown`, `pages::producers::tests::hostile_ids_are_escaped_in_every_place_they_appear`.
+
+## CON-539. A GET of these pages reads and changes nothing
+Test: `a_get_of_these_pages_reads_and_changes_nothing`.
+
+## CON-540. The fragments are watchable and answer with a tag
+Test: `the_fragments_are_watchable_and_answer_with_a_tag`; `stream_log::tests::every_id_a_page_watches_is_in_the_vocabulary_and_the_pages_use_these_constants`.
+
+### What these boards show that the broker cannot supply yet
+
+Tagged in the code (`pages/log.rs`, `pages/producers.rs`) and in `debt.md` J231 to J248.
+- "Compact now" is Lab: not built, no button stands where it stood.
+- "On the wire" (the last requests that touched the topic) and "Seen as" (the client name of a producer): the request recorder, slice 9e.
+- "Flushed through offset N": the log does not keep how far its flush got; the Durability card says how the log is flushed and what the last stop left.
+- The first entries of a segment's index; the epoch history of a producer ("raised from 1 at 17:14:11"); the offsets a transaction staged; whether the producer or the timeout aborted.

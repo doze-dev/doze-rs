@@ -17,6 +17,7 @@ mod skip;
 mod sync;
 mod times;
 mod trim;
+mod walk;
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -28,6 +29,7 @@ pub use read::LogReader;
 pub use sync::Ticket;
 pub use times::OffsetAt;
 pub use trim::Retention;
+pub use walk::{Budget, MarkerNote, SegmentWalk, Tombstone, Walk};
 
 use crate::fs::Fs;
 use crate::segment::{ActiveSegment, SealedSegment};

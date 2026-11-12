@@ -68,6 +68,11 @@ pub enum Handler {
     ConfigReset,
     /// Jump to a topic: the palette to a script, a page of links to a browser.
     Jump,
+    /// Slice 9g: the Log page, the Producers page, and the page of a transaction with who it holds back.
+    TopicLog,
+    TopicProducers,
+    TopicTxn,
+    TopicTxnHeld,
     /// A screen of the design that a later slice builds: a page that says so (title).
     Planned(&'static str),
 }
@@ -253,10 +258,21 @@ pub const ROUTES: &[Route] = &[
         &["topic-deleted"],
         Handler::Delete,
     ),
+    // Slice 9g, the Log and Producers pages (p9g).
     get(
         "/topics/{topic}/producers",
-        &["txn-open", "topic-producers", "txn-holding"],
-        Handler::Planned("Producers"),
+        &["topic-producers"],
+        Handler::TopicProducers,
+    ),
+    get(
+        "/topics/{topic}/transactions/{txn}",
+        &["txn-open"],
+        Handler::TopicTxn,
+    ),
+    get(
+        "/topics/{topic}/transactions/{txn}/held",
+        &["txn-holding"],
+        Handler::TopicTxnHeld,
     ),
     // Slice 9d, the Config tab (p9d).
     get(
@@ -289,8 +305,8 @@ pub const ROUTES: &[Route] = &[
     // The tabs of a topic and the Groups space, for the links of the pages above (built by later slices).
     get(
         "/topics/{topic}/log",
-        &["topic-log"],
-        Handler::Planned("Log"),
+        &["topic-log", "log-planner", "log-retention", "log-empty"],
+        Handler::TopicLog,
     ),
     // Slice 9c, groups (p9c).
     get("/groups", &["groups-list", "groups-none"], Handler::Groups),

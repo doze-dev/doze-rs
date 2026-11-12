@@ -107,6 +107,8 @@ pub struct Broker<F: Fs = RealFs> {
     /// The clients that have reported on themselves, and the gate that keeps them to their interval. Empty, and
     /// allocating nothing, until a client first asks.
     pub(crate) telemetry: crate::telemetry::Telemetry,
+    /// What the cleaner and the log sweeper last did, for the console to say; empty until one has.
+    pub(crate) log_notes: crate::log_notes::LogNotes,
 }
 
 impl<F: Fs> Broker<F> {
@@ -186,6 +188,7 @@ impl<F: Fs> Broker<F> {
             user_admin: tokio::sync::Mutex::new(()),
             stop_cleaning: Arc::default(),
             telemetry: crate::telemetry::Telemetry::default(),
+            log_notes: crate::log_notes::LogNotes::default(),
         })
     }
 

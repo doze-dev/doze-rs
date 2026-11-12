@@ -195,7 +195,12 @@ pub(super) fn txn_callout(h: &TopicHead, base: &Base) -> Markup {
         .iter()
         .filter(|p| p.held() > 0)
         .max_by_key(|p| p.held());
-    let txn_url = format!("{}/producers", topic_url(base, &h.name));
+    // The transaction's own page (slice 9g).
+    let txn_url = format!(
+        "{}/transactions/{}",
+        topic_url(base, &h.name),
+        crate::base::segment(&t.id)
+    );
     html! {
         div style="margin-bottom:24px" {
             (callout(Tone::Warn, Glyph::Warn, html! {

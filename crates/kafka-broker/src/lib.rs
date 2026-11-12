@@ -14,6 +14,9 @@ mod groups;
 mod guard;
 mod handlers;
 mod listener;
+mod log_notes;
+#[cfg(feature = "inspect")]
+pub use log_notes::{DeletedNote, PassNote, RoundNote};
 mod logs;
 mod outcome;
 mod partitions;
@@ -37,6 +40,8 @@ pub use listener::Listener;
 pub use outcome::Outcome;
 #[cfg(feature = "inspect")]
 pub use view::{
-    ConfigHelp, ConfigRule, ConsoleView, GroupDetail, GroupKind, Instance, LastStop, Limits,
-    MemberDetail, OffsetExpiry, Pace, PartitionFiles, Process, RebalanceDetail,
+    AbortedRange, CleanerState, Compaction, ConfigHelp, ConfigRule, ConsoleView, Durability,
+    GroupDetail, GroupKind, Instance, LastStop, Limits, LogFacts, LogPolicy, LogRetention,
+    MemberDetail, OffsetExpiry, Pace, PartitionFiles, PartitionProducers, Process, ProducerBatch,
+    ProducerWindow, RebalanceDetail,
 };

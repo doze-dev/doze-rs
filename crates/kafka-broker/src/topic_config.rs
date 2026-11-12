@@ -269,6 +269,7 @@ pub(crate) fn kafka_default_of(name: &str) -> Option<String> {
 
 /// What a value of the topic config may be, in words, if it is one.
 #[must_use]
+#[cfg_attr(not(feature = "inspect"), allow(dead_code))]
 pub(crate) fn allowed_of(name: &str) -> Option<String> {
     lookup(name).map(|s| s.kind.allowed())
 }

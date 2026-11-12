@@ -37,6 +37,9 @@
     "live-paused": "/live",
     "live-quiet": "/live",
     "live-wire": "/live",
+    "log-empty": "/topics/{topic}/log",
+    "log-planner": "/topics/{topic}/log",
+    "log-retention": "/topics/{topic}/log",
     "member-detail": "/groups/{group}/members/{member}",
     "request-detail": "/live/{request}",
     "request-fenced": "/live/{request}",
@@ -74,7 +77,7 @@
     "topics-filtered": "/topics",
     "topics-list": "/topics",
     "topics-none": "/topics",
-    "txn-holding": "/topics/{topic}/producers",
-    "txn-open": "/topics/{topic}/producers"
+    "txn-holding": "/topics/{topic}/transactions/{txn}/held",
+    "txn-open": "/topics/{topic}/transactions/{txn}"
   }
 }

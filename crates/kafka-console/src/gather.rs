@@ -14,14 +14,18 @@ mod group_write;
 pub mod groups;
 mod home;
 mod live;
+mod log;
 mod partitions;
 mod produce;
+mod producers;
 pub mod protocol;
 mod records;
 
 pub use attention::{Looked, MAX_DESCRIBED, near_timeout, nearest, nearest_capped};
 pub use home::{choose, counts, instance_view};
 pub use live::request_limits;
+pub use log::{other_of as log_other, view as log_view, view_of as log_view_of};
+pub use producers::{all_txns, producers as producers_view, txn as txn_view};
 
 pub use config::{ConfigMissing, page as config_page};
 pub use config_edit::{
