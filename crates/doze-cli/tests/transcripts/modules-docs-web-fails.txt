@@ -1,0 +1,24 @@
+# When the browser cannot be opened, the URL is the fix.
+@ browser-fails
+
+$ doze modules docs valkey --web
+exit 10
+stderr:
+| error[DZ0402]: the browser could not be opened (no browser here)
+|   fix: open it yourself: https://doze-dev.com/registry/doze/valkey/
+opened:
+| https://doze-dev.com/registry/doze/valkey/
+json exit 10
+json:
+| {
+|   "schema": "doze/v1",
+|   "command": "doze modules docs",
+|   "ok": false,
+|   "error": {
+|     "code": "machine",
+|     "message": "the browser could not be opened (no browser here)",
+|     "exit": 10,
+|     "id": "DZ0402",
+|     "fix": "open it yourself: https://doze-dev.com/registry/doze/valkey/"
+|   }
+| }

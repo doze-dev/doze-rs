@@ -39,7 +39,7 @@ multiple_unsafe_ops_per_block = "deny"
 tokio = { version = "1.54", features = ["net", "process", "io-util", "time", "rt", "signal"] }
 
 [target.'cfg(unix)'.dependencies]
-rustix = { version = "1.1.6", features = ["net", "stdio", "process", "fs"] }
+rustix = { version = "1.1.6", features = ["net", "stdio", "process", "fs", "pty"] }
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61", features = [
