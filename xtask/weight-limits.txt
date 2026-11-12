@@ -31,4 +31,11 @@ doze-kafka 9000000 159 8192 --listen 127.0.0.1:{port} --data-dir {data}
 # apart: SNS +436 KB, DynamoDB +737 KB measured alone). Same rule (macOS size times 1.3 plus 5% is 8,536,000 B): the byte limit is 8,600,000 B and the package limit 209
 # (measured 205 plus 4). The owner's 10 MB ceiling and the 9 MB CI default are 70% and 63% used by the macOS figure on the Linux scale: S3, Lambda and the rest must
 # be measured against it before more room is given.
-doze-aws 8600000 209 6144 --listen 127.0.0.1:{port} --data-dir {data}
+# 2026-11-12, with S3 (A9; branch aws-a9-s3, on top of the same IAM/STS base as above): 5,819,344 B, 202 packages, 3,568 KB idle (+722 KB, +4 packages, +0.25 MB idle over
+# policy enforcement: the S3 model's tables, the restXml codec (router, XML in and out), the S3 service with its checksums and blob store). The limits are not
+# moved by this stage: it fits inside them on its own. The integrator folds the other services of this round in and re-bases them from the combined build.
+# 2026-11-12, SNS, DynamoDB and S3 together (integrator, darwin/arm64 release): 6,974,576 B, 209 packages, 3,632 KB idle (S3 measured alone by its agent: +722 KB and +4
+# packages; the REST-XML codec, the streaming gateway path, the S3 model tables). The Linux build is about 1.2 times the macOS one (doze-kafka), so the byte limit is the
+# macOS size times 1.2 plus 5% = 8,787,000, rounded to 8,800,000 B, and the package limit 213 (measured 209 plus 4). The earlier rule (times 1.3) would give 9.5 MB, too
+# close to the owner's 10 MB ceiling to be a limit. The Logs, Kinesis and CloudWatch stage measured +1.2 MB and +12 packages alone: it does NOT fit under this limit.
+doze-aws 8800000 213 6144 --listen 127.0.0.1:{port} --data-dir {data}

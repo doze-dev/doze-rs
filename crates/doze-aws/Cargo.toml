@@ -19,6 +19,7 @@ aws-ssm = { path = "../aws-ssm" }
 aws-secrets = { path = "../aws-secrets" }
 aws-kms = { path = "../aws-kms" }
 aws-dynamodb = { path = "../aws-dynamodb" }
+aws-s3 = { path = "../aws-s3" }
 aws-iam = { path = "../aws-iam" }
 aws-sns = { path = "../aws-sns" }
 aws-peers = { path = "../aws-peers" }

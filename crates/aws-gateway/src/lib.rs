@@ -7,10 +7,14 @@
 //!
 //! The awsJson and awsQuery protocols are served so far; a service that speaks another is refused by name with a 501.
 
+mod body;
 mod config;
 mod pipeline;
+mod presign;
 mod query;
+mod rest;
 mod server;
+mod upload;
 
 pub use config::{Auth, Config};
 pub use server::{Gateway, Running};

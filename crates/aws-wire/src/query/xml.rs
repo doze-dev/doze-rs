@@ -12,7 +12,7 @@ use serde_json::Value;
 const MAX_DEPTH: usize = 24;
 
 /// The XML text of `s`, escaped.
-pub(super) fn escape(out: &mut String, s: &str) {
+pub(crate) fn escape(out: &mut String, s: &str) {
     for c in s.chars() {
         match c {
             '&' => out.push_str("&amp;"),
@@ -24,7 +24,7 @@ pub(super) fn escape(out: &mut String, s: &str) {
     }
 }
 
-fn element(out: &mut String, name: &str, inner: impl FnOnce(&mut String)) {
+pub(crate) fn element(out: &mut String, name: &str, inner: impl FnOnce(&mut String)) {
     out.push('<');
     out.push_str(name);
     out.push('>');
@@ -35,7 +35,7 @@ fn element(out: &mut String, name: &str, inner: impl FnOnce(&mut String)) {
 }
 
 /// The members of structure `shape`, taken from the JSON object `v`, in the model's order.
-pub(super) fn members(t: &Tables, shape: u32, v: &Value, out: &mut String, depth: usize) {
+pub(crate) fn members(t: &Tables, shape: u32, v: &Value, out: &mut String, depth: usize) {
     let (Some(sh), Some(obj)) = (t.shape(shape), v.as_object()) else {
         return;
     };

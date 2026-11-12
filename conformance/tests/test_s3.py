@@ -101,7 +101,9 @@ def test_versioning_and_delete_markers(client, names, cleanup, snapshot):
 def test_multipart_upload(client, names, cleanup, snapshot):
     s3 = client("s3")
     name = bucket(s3, names, cleanup)
-    u = ("UploadId",)
+    # NextUploadIdMarker is the id of the last upload listed: as opaque as the id (the first recording kept AWS's raw value, which no
+    # other run can equal; rewritten offline to the token on 2026-11-12).
+    u = ("UploadId", "NextUploadIdMarker")
 
     started = snapshot.match("create", s3.create_multipart_upload(Bucket=name, Key="big"), opaque=u)
     uid = started["UploadId"]
@@ -293,3 +295,163 @@ def test_notification_fifo_queue(client, names, cleanup, snapshot):
     snapshot.error("fifo-queue", lambda: put(fifo))
     snapshot.match("configuration-after", s3.get_bucket_notification_configuration(Bucket=name),
                    opaque=("Id", "QueueArn"))
+
+
+# ---------------------------------------------------------------------------------------------------------------------------------
+# Scenarios written ahead of a recording (2026-11-12): every label below is UNVERIFIED until it is recorded against AWS. They pin the
+# behaviour the Rust edition built from the S3 documentation, so a recording can confirm or correct it label by label.
+# ---------------------------------------------------------------------------------------------------------------------------------
+
+
+def test_keys_with_awkward_characters_survive_listing_and_reading(client, names, cleanup, snapshot):
+    s3 = client("s3")
+    name = bucket(s3, names, cleanup)
+    keys = ["with space", "plus+sign", "ünïcode/ключ", "a/b/c", "trailing/", "percent%25", "q?mark", "tilde~"]
+    for k in keys:
+        s3.put_object(Bucket=name, Key=k, Body=k.encode())
+    listed = [o["Key"] for o in s3.list_objects_v2(Bucket=name)["Contents"]]
+    assert listed == sorted(keys, key=lambda k: k.encode("utf-8"))
+    for k in keys:
+        assert s3.get_object(Bucket=name, Key=k)["Body"].read() == k.encode()
+    snapshot.match("delimited", s3.list_objects_v2(Bucket=name, Delimiter="/"), drop=OWNER)
+
+
+def test_listing_pages_across_delimiters(client, names, cleanup, snapshot):
+    s3 = client("s3")
+    name = bucket(s3, names, cleanup)
+    for i in range(30):
+        s3.put_object(Bucket=name, Key=f"d{i % 3}/k{i:02}", Body=b"x")
+    seen, token = [], None
+    while True:
+        kw = {"ContinuationToken": token} if token else {}
+        page = s3.list_objects_v2(Bucket=name, Delimiter="/", MaxKeys=2, **kw)
+        seen += [p["Prefix"] for p in page.get("CommonPrefixes", [])] + [o["Key"] for o in page.get("Contents", [])]
+        token = page.get("NextContinuationToken")
+        if not token:
+            break
+    assert seen == ["d0/", "d1/", "d2/"]
+    under, token = [], None
+    while True:
+        kw = {"ContinuationToken": token} if token else {}
+        page = s3.list_objects_v2(Bucket=name, Prefix="d1/", MaxKeys=4, **kw)
+        under += [o["Key"] for o in page["Contents"]]
+        token = page.get("NextContinuationToken")
+        if not token:
+            break
+    assert under == [f"d1/k{i:02}" for i in range(1, 30, 3)]
+    snapshot.match("empty-prefix", s3.list_objects_v2(Bucket=name, Prefix="nothing/"))
+
+
+def test_versions_delete_markers_and_removing_a_version(client, names, cleanup, snapshot):
+    s3 = client("s3")
+    name = bucket(s3, names, cleanup)
+    s3.put_bucket_versioning(Bucket=name, VersioningConfiguration={"Status": "Enabled"})
+    ids = [s3.put_object(Bucket=name, Key="k", Body=str(i).encode())["VersionId"] for i in range(3)]
+    marker = s3.delete_object(Bucket=name, Key="k")
+    assert marker["DeleteMarker"] is True
+    listed = s3.list_object_versions(Bucket=name)
+    assert [v["VersionId"] for v in listed["Versions"]] == ids[::-1]
+    assert listed["DeleteMarkers"][0]["IsLatest"] is True
+    s3.delete_object(Bucket=name, Key="k", VersionId=marker["VersionId"])
+    assert s3.get_object(Bucket=name, Key="k")["Body"].read() == b"2"
+    removed = snapshot.match("remove-version", s3.delete_object(Bucket=name, Key="k", VersionId=ids[1]), opaque=("VersionId",))
+    assert removed["VersionId"] == ids[1]
+    assert [v["VersionId"] for v in s3.list_object_versions(Bucket=name)["Versions"]] == [ids[2], ids[0]]
+    s3.put_bucket_versioning(Bucket=name, VersioningConfiguration={"Status": "Suspended"})
+    s3.put_object(Bucket=name, Key="k", Body=b"null-version")
+    s3.put_object(Bucket=name, Key="k", Body=b"replaces-null")
+    ver = {v["VersionId"] for v in s3.list_object_versions(Bucket=name)["Versions"]}
+    assert "null" in ver and len(ver) == 3
+    snapshot.match("suspended", s3.get_bucket_versioning(Bucket=name))
+
+
+def test_multipart_parts_are_replaced_listed_and_aborted(client, names, cleanup, snapshot):
+    s3 = client("s3")
+    name = bucket(s3, names, cleanup)
+    uid = s3.create_multipart_upload(Bucket=name, Key="m")["UploadId"]
+    first = s3.upload_part(Bucket=name, Key="m", UploadId=uid, PartNumber=1, Body=b"a" * (5 * MB))
+    again = s3.upload_part(Bucket=name, Key="m", UploadId=uid, PartNumber=1, Body=b"b" * (5 * MB))
+    assert first["ETag"] != again["ETag"]
+    s3.upload_part(Bucket=name, Key="m", UploadId=uid, PartNumber=3, Body=b"tail")
+    paged = s3.list_parts(Bucket=name, Key="m", UploadId=uid, MaxParts=1)
+    assert [p["PartNumber"] for p in paged["Parts"]] == [1] and paged["IsTruncated"] is True
+    snapshot.error("bad-order", lambda: s3.complete_multipart_upload(
+        Bucket=name, Key="m", UploadId=uid, MultipartUpload={"Parts": [
+            {"PartNumber": 3, "ETag": '"x"'}, {"PartNumber": 1, "ETag": '"y"'}]}), drop=("UploadId",))
+    snapshot.error("missing-part", lambda: s3.complete_multipart_upload(
+        Bucket=name, Key="m", UploadId=uid, MultipartUpload={"Parts": [{"PartNumber": 2, "ETag": '"z"'}]}), drop=("UploadId",))
+    s3.abort_multipart_upload(Bucket=name, Key="m", UploadId=uid)
+    snapshot.error("after-abort", lambda: s3.list_parts(Bucket=name, Key="m", UploadId=uid), drop=("UploadId",))
+    snapshot.error("part-number-range", lambda: s3.upload_part(Bucket=name, Key="m", UploadId=uid, PartNumber=10001, Body=b"x"),
+                   drop=("UploadId",))
+
+
+def test_conditional_reads_and_writes(client, names, cleanup, snapshot):
+    s3 = client("s3")
+    name = bucket(s3, names, cleanup)
+    etag = s3.put_object(Bucket=name, Key="k", Body=b"v1")["ETag"]
+    snapshot.error("if-none-match-304", lambda: s3.get_object(Bucket=name, Key="k", IfNoneMatch=etag))
+    snapshot.error("if-match-mismatch", lambda: s3.get_object(Bucket=name, Key="k", IfMatch='"nope"'))
+    assert s3.get_object(Bucket=name, Key="k", IfMatch=etag)["Body"].read() == b"v1"
+    snapshot.error("create-only-if-absent", lambda: s3.put_object(Bucket=name, Key="k", Body=b"v2", IfNoneMatch="*"))
+    s3.put_object(Bucket=name, Key="fresh", Body=b"v", IfNoneMatch="*")
+    snapshot.error("if-match-write", lambda: s3.put_object(Bucket=name, Key="k", Body=b"v3", IfMatch='"nope"'))
+
+
+def test_copy_between_buckets_with_versions_and_tags(client, names, cleanup, snapshot):
+    s3 = client("s3")
+    src, dst = bucket(s3, names, cleanup, "src"), bucket(s3, names, cleanup, "dst")
+    s3.put_bucket_versioning(Bucket=src, VersioningConfiguration={"Status": "Enabled"})
+    old = s3.put_object(Bucket=src, Key="k", Body=b"old", Tagging="a=1")["VersionId"]
+    s3.put_object(Bucket=src, Key="k", Body=b"new")
+    out = s3.copy_object(Bucket=dst, Key="from-old", CopySource={"Bucket": src, "Key": "k", "VersionId": old})
+    assert out["CopySourceVersionId"] == old
+    assert s3.get_object(Bucket=dst, Key="from-old")["Body"].read() == b"old"
+    snapshot.match("tags-copied", s3.get_object_tagging(Bucket=dst, Key="from-old"))
+    s3.copy_object(Bucket=dst, Key="retagged", CopySource={"Bucket": src, "Key": "k", "VersionId": old},
+                   TaggingDirective="REPLACE", Tagging="b=2")
+    snapshot.match("tags-replaced", s3.get_object_tagging(Bucket=dst, Key="retagged"))
+    snapshot.error("copy-from-absent-bucket", lambda: s3.copy_object(
+        Bucket=dst, Key="x", CopySource={"Bucket": names("absent"), "Key": "k"}))
+
+
+def test_checksums_are_held_to_what_was_sent(client, names, cleanup, snapshot):
+    import base64
+    import hashlib
+
+    s3 = client("s3")
+    name = bucket(s3, names, cleanup)
+    body = b"checksummed body"
+    sha = base64.b64encode(hashlib.sha256(body).digest()).decode()
+    snapshot.match("sha256", s3.put_object(Bucket=name, Key="s", Body=body, ChecksumAlgorithm="SHA256", ChecksumSHA256=sha))
+    snapshot.error("wrong-sha256", lambda: s3.put_object(
+        Bucket=name, Key="bad", Body=body, ChecksumAlgorithm="SHA256", ChecksumSHA256=base64.b64encode(b"x" * 32).decode()))
+    snapshot.error("wrong-md5", lambda: s3.put_object(Bucket=name, Key="bad", Body=body, ContentMD5=base64.b64encode(b"y" * 16).decode()))
+    snapshot.error("not-stored", lambda: s3.head_object(Bucket=name, Key="bad"))
+    snapshot.match("attributes", s3.get_object_attributes(
+        Bucket=name, Key="s", ObjectAttributes=["ETag", "Checksum", "ObjectSize", "StorageClass"]))
+
+
+def test_lifecycle_rules_are_checked_when_put(client, names, cleanup, snapshot):
+    s3 = client("s3")
+    name = bucket(s3, names, cleanup)
+
+    def put(rule):
+        return lambda: s3.put_bucket_lifecycle_configuration(Bucket=name, LifecycleConfiguration={"Rules": [rule]})
+
+    snapshot.error("no-action", put({"ID": "a", "Status": "Enabled", "Filter": {"Prefix": ""}}))
+    snapshot.error("bad-status", put({"ID": "a", "Status": "Maybe", "Filter": {}, "Expiration": {"Days": 1}}))
+    snapshot.error("zero-days", put({"ID": "a", "Status": "Enabled", "Filter": {}, "Expiration": {"Days": 0}}))
+    snapshot.match("size-and-tag", s3.put_bucket_lifecycle_configuration(Bucket=name, LifecycleConfiguration={"Rules": [
+        {"ID": "a", "Status": "Enabled", "Expiration": {"Days": 30}, "Filter": {"And": {
+            "Prefix": "logs/", "Tags": [{"Key": "t", "Value": "1"}], "ObjectSizeGreaterThan": 10}}}]}))
+    snapshot.match("kept-as-sent", s3.get_bucket_lifecycle_configuration(Bucket=name))
+
+
+def test_refused_by_name(client, names, cleanup, snapshot):
+    s3 = client("s3")
+    name = bucket(s3, names, cleanup)
+    snapshot.error("bucket-acl", lambda: s3.get_bucket_acl(Bucket=name))
+    s3.put_object(Bucket=name, Key="k", Body=b"x")
+    snapshot.error("object-acl", lambda: s3.get_object_acl(Bucket=name, Key="k"))
+    snapshot.error("restore", lambda: s3.restore_object(Bucket=name, Key="k", RestoreRequest={"Days": 1}))

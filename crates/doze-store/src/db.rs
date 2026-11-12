@@ -44,6 +44,38 @@ impl Db {
         Ok(self.store.begin_read()?)
     }
 
+    /// The row under `key` of `table`, as last committed.
+    ///
+    /// # Errors
+    /// A failed read.
+    pub fn get(&self, table: &'static str, key: &str) -> Result<Option<Vec<u8>>, StoreError> {
+        let read = self.store.begin_read()?;
+        let rows = read.open_table(TableDefinition::<&str, &[u8]>::new(table))?;
+        Ok(rows.get(key)?.map(|v| v.value().to_vec()))
+    }
+
+    /// Calls `each` with the rows of `table` whose key is `from` or after, in key order, until it returns `false` or the table ends.
+    /// A service whose table is too large to hold in memory reads it this way.
+    ///
+    /// # Errors
+    /// A failed read.
+    pub fn scan(
+        &self,
+        table: &'static str,
+        from: &str,
+        mut each: impl FnMut(&str, &[u8]) -> bool,
+    ) -> Result<(), StoreError> {
+        let read = self.store.begin_read()?;
+        let rows = read.open_table(TableDefinition::<&str, &[u8]>::new(table))?;
+        for row in rows.range::<&str>(from..)? {
+            let (key, bytes) = row?;
+            if !each(key.value(), bytes.value()) {
+                break;
+            }
+        }
+        Ok(())
+    }
+
     /// Sends rows to the writer. The [`Ack`] resolves once they are on disk; `None` when `changes` holds nothing.
     pub fn submit(&self, changes: Vec<Changes>) -> Option<Ack> {
         let changes: Vec<Changes> = changes.into_iter().filter(|c| !c.is_empty()).collect();

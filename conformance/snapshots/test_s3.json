@@ -603,7 +603,7 @@
       "KeyMarker": "",
       "MaxUploads": 1000,
       "NextKeyMarker": "big",
-      "NextUploadIdMarker": "X8tw2a2u2Zc6owfli_xgkFJbfx5pU8juUfnEQoEfoUlzsXz_op8YUV08e5Ke_yzu5yLLm6HhIUbNhYz054PuKmPPXGaZ7oKYYXGKWUloO07FEODXbaNIBftiQNXCJdEt8Z0d_VnLbuJJHAYKpKsSPg--",
+      "NextUploadIdMarker": "<NextUploadIdMarker:1>",
       "ResponseMetadata": {
         "HTTPStatusCode": 200
       },

@@ -2,6 +2,7 @@
 
 use std::collections::HashMap;
 
+use crate::body::RespBody;
 use aws_auth::claim::Claim;
 use aws_auth::{AuthError, Endpoint, begin};
 use aws_schema::arena::{Arena, NIL};
@@ -15,7 +16,7 @@ use bytes::Bytes;
 use doze_runtime::{Clock, SystemClock};
 use http::Response;
 use http::request::Parts;
-use http_body_util::{BodyExt, Full, Limited};
+use http_body_util::{BodyExt, Limited};
 use hyper::body::Incoming;
 
 use crate::{Auth, Config};
@@ -24,6 +25,27 @@ use crate::{Auth, Config};
 pub(crate) struct Entry {
     pub(crate) service: std::sync::Arc<dyn Service>,
     pub(crate) patterns: Patterns,
+    /// The routes of a REST service, built when its first request arrives.
+    pub(crate) routes: std::sync::OnceLock<aws_wire::rest::route::Router>,
+}
+
+impl Entry {
+    pub(crate) fn new(service: std::sync::Arc<dyn Service>) -> Self {
+        Self {
+            patterns: Patterns::new(service.tables()),
+            service,
+            routes: std::sync::OnceLock::new(),
+        }
+    }
+
+    /// The routes of the service's model.
+    pub(crate) fn router(
+        &self,
+        tables: &aws_schema::tables::Tables,
+    ) -> &aws_wire::rest::route::Router {
+        self.routes
+            .get_or_init(|| aws_wire::rest::route::Router::new(tables))
+    }
 }
 
 /// What every request handler shares.
@@ -52,6 +74,11 @@ impl Shared {
         self.config.max_body_bytes
     }
 
+    /// Whether signatures are taken on trust.
+    pub(crate) fn trusts(&self) -> bool {
+        matches!(self.config.auth, Auth::Trust)
+    }
+
     /// The account every request is for.
     pub(crate) fn account_id(&self) -> &str {
         &self.config.account_id
@@ -69,17 +96,39 @@ pub(crate) type Out = Response<Vec<u8>>;
 pub(crate) type Fail = Box<Out>;
 
 /// Answers a request. Never fails: a failure is an error answer.
-pub(crate) async fn respond(
-    shared: &Shared,
-    req: http::Request<Incoming>,
-) -> Response<Full<Bytes>> {
+pub(crate) async fn respond(shared: &Shared, req: http::Request<Incoming>) -> Response<RespBody> {
     let id = RequestId::new();
     let (parts, body) = req.into_parts();
+    // A REST service (S3) streams its bodies and words its errors its own way, so it has its own path.
+    let claim = match Claim::parse(&parts) {
+        Ok(found) => found,
+        // boto3 signs an S3 presigned URL with SigV2 unless told otherwise, and S3 accepts it. With no keys to check it against, a
+        // trusting gateway takes the access key as given and holds the URL to its expiry.
+        Err(AuthError::UnsupportedAlgorithm) if shared.trusts() => {
+            crate::presign::sigv2_claim(&parts)
+        }
+        Err(_) => None,
+    };
+    // A request with no signature at all, to a gateway that trusts, is a person with curl or a browser: S3 serves it as the local
+    // account.
+    let claim = claim.or_else(|| {
+        shared
+            .trusts()
+            .then(|| crate::presign::anonymous_claim(&parts))
+            .flatten()
+    });
+    if let Some(claim) = claim
+        && let Some(entry) = shared
+            .entry(&claim.service)
+            .filter(|e| e.service.meta().speaks(Protocol::RestXml))
+    {
+        return crate::rest::respond(shared, entry, &id, &parts, body, claim).await;
+    }
     let out = match handle(shared, &id, &parts, body).await {
         Ok(out) => out,
         Err(out) => *out,
     };
-    out.map(|b| Full::new(Bytes::from(b)))
+    out.map(RespBody::whole)
 }
 
 async fn handle(
@@ -213,7 +262,7 @@ pub(crate) async fn authenticate(
     };
     let endpoint = Endpoint {
         signing_name: entry.service.meta().signing_name,
-        s3: false,
+        s3: signing_name == "s3",
         max_skew_secs: shared.config.max_skew_secs,
     };
     let now = SystemClock.now_ms() / 1000;

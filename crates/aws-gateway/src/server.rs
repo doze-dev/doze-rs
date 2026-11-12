@@ -5,7 +5,6 @@ use std::io;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use aws_schema::patterns::Patterns;
 use aws_wire::service::Service;
 use doze_runtime::Tasks;
 use hyper::server::conn::http1;
@@ -55,14 +54,7 @@ impl Gateway {
     pub async fn bind(self) -> io::Result<Running> {
         let listener = TcpListener::bind(self.config.listen).await?;
         let addr = listener.local_addr()?;
-        let entries = self
-            .services
-            .into_iter()
-            .map(|service| Entry {
-                patterns: Patterns::new(service.tables()),
-                service,
-            })
-            .collect();
+        let entries = self.services.into_iter().map(Entry::new).collect();
         let shared = Arc::new(Shared::new(entries, self.config));
         let tasks = Tasks::new();
         tasks.spawn(accept(listener, shared, tasks.clone()));

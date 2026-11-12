@@ -11,6 +11,8 @@ cargo-fuzz = true
 libfuzzer-sys = "0.4"
 aws-wire = { path = ".." }
 aws-model-iam = { path = "../../aws-model-iam" }
+aws-model-s3 = { path = "../../aws-model-s3" }
+http = "1"
 
 # Not part of the main workspace: fuzzing needs a nightly toolchain.
 [workspace]
@@ -18,5 +20,11 @@ aws-model-iam = { path = "../../aws-model-iam" }
 [[bin]]
 name = "fuzz_form"
 path = "fuzz_targets/fuzz_form.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_xml"
+path = "fuzz_targets/fuzz_xml.rs"
 test = false
 doc = false

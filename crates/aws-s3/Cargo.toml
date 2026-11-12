@@ -1,0 +1,39 @@
+[package]
+name = "aws-s3"
+version = "0.0.0"
+description = "S3: buckets, objects, versions, multipart uploads and their configuration, as a state machine behind a lazy actor"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+aws-model-s3 = { path = "../aws-model-s3" }
+aws-schema = { path = "../aws-schema" }
+aws-wire = { path = "../aws-wire" }
+aws-core = { path = "../aws-core" }
+aws-peers = { path = "../aws-peers" }
+doze-fs = { path = "../doze-fs" }
+doze-runtime = { path = "../doze-runtime" }
+doze-store = { path = "../doze-store" }
+serde_json = "1"
+serde = { version = "1", features = ["derive"] }
+bytes = "1"
+getrandom = "0.4"
+md-5 = "0.11"
+sha1 = "0.11"
+sha2 = "0.11"
+tokio = { version = "1", default-features = false, features = ["rt", "sync", "time"] }
+
+[dev-dependencies]
+aws-testkit = { path = "../aws-testkit" }
+aws-gateway = { path = "../aws-gateway" }
+aws-sqs = { path = "../aws-sqs" }
+aws-auth = { path = "../aws-auth" }
+http = "1"
+doze-fs = { path = "../doze-fs", features = ["sim"] }
+tokio = { version = "1", default-features = false, features = ["rt", "macros", "time", "test-util", "sync", "net", "io-util"] }

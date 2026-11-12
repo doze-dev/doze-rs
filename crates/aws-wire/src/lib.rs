@@ -14,6 +14,7 @@ pub mod handler;
 pub mod json;
 pub mod query;
 mod request_id;
+pub mod rest;
 pub mod service;
 
 pub use auth_error::{Family, from_auth};
