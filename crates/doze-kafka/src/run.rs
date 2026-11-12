@@ -31,6 +31,7 @@ pub(crate) async fn serve(settings: Settings) -> Result<()> {
         broker,
         server,
         allow_empty_users,
+        ..
     } = settings;
     let broker = Arc::new(Broker::open(RealFs, broker).context("opening the broker's data")?);
     // The users stored over the API are loaded now, so only now is it known whether anybody can log in.

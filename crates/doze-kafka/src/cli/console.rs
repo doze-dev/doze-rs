@@ -1,0 +1,116 @@
+//! The console's flags and the start-up rule that needs no console to hold.
+//!
+//! The console arrives with Phase 9, so `--console-allow-host` and `--console-unprotected` are parsed, checked and
+//! kept, and nothing listens for them to act on. What exists already is the rule on their inputs: with SASL or TLS
+//! on, a console address that other machines can reach is refused unless `--console-unprotected` accepts it (the
+//! console has no login, is plain HTTP and would act as a super user), and the choices that leave something open are
+//! reported once at start. The words are the Go edition's.
+
+use std::net::{IpAddr, SocketAddr};
+
+use anyhow::{Result, bail};
+
+/// What the console flags come to.
+#[derive(Debug, Default, PartialEq, Eq)]
+pub(crate) struct Console {
+    /// `--console-addr`, if given.
+    pub(crate) addr: Option<String>,
+    /// `--console-allow-host`: the names, besides loopback ones and addresses, the console answers to (`*` = all).
+    pub(crate) allow_hosts: Vec<String>,
+    /// `--console-unprotected`.
+    pub(crate) unprotected: bool,
+}
+
+/// What the rule looks at.
+pub(super) struct Input<'a> {
+    /// `--console`: `false` turns the console off; absent or anything else leaves it on.
+    pub(super) console: Option<&'a str>,
+    pub(super) addr: Option<&'a str>,
+    pub(super) allow_hosts: &'a [String],
+    pub(super) unprotected: bool,
+    pub(super) sasl: bool,
+    pub(super) tls: bool,
+    pub(super) listen: SocketAddr,
+}
+
+/// Checks the console flags against what protects the broker, and says what is left open.
+///
+/// # Errors
+/// An address that is not `host:port`; or SASL or TLS is on and the console would be served beyond loopback
+/// without `--console-unprotected`.
+pub(super) fn setup(input: &Input<'_>) -> Result<(Console, Vec<String>)> {
+    let on = input.console.is_none_or(|v| v != "false");
+    let protection = match (input.sasl, input.tls) {
+        (true, true) => Some("SASL and TLS"),
+        (true, false) => Some("SASL"),
+        (false, true) => Some("TLS"),
+        (false, false) => None,
+    };
+    let mut notes = Vec::new();
+    if let Some(addr) = input.addr.filter(|_| on) {
+        if !host_port(addr) {
+            bail!("config: console address {addr:?} is not host:port (for example 127.0.0.1:9093)");
+        }
+        if let (Some(what), true) = (protection, beyond_loopback(addr)) {
+            let exposure = if input.sasl {
+                "let anyone who can reach that address act on the broker as a super user, without a password"
+            } else {
+                "send topics and messages unencrypted to anyone who can reach that address"
+            };
+            if !input.unprotected {
+                bail!(
+                    "config: the console has no login and is plain HTTP, and {what} is on: serving it on {addr} would {exposure}. Keep --console-addr on loopback (and put a proxy that authenticates in front of it), turn it off with --console=false, or accept this with --console-unprotected"
+                );
+            }
+            notes.push(format!(
+                "the console is served on {addr} with no login and over plain HTTP although {what} is on (--console-unprotected): that will {exposure}"
+            ));
+        }
+    }
+    if input.sasl && !input.tls && !input.listen.ip().is_loopback() {
+        notes.push(format!(
+            "SASL is on without TLS and --listen {} can be reached from other machines: logins (a PLAIN password is sent as it is) and messages cross the network unencrypted",
+            input.listen
+        ));
+    }
+    let allow_hosts = input
+        .allow_hosts
+        .iter()
+        .map(|h| h.trim().to_owned())
+        .filter(|h| !h.is_empty())
+        .collect();
+    let console = Console {
+        addr: input.addr.map(str::to_owned),
+        allow_hosts,
+        unprotected: input.unprotected,
+    };
+    Ok((console, notes))
+}
+
+/// Whether `addr` is `host:port` with a numeric port, as `--console-addr` is written (the host may be empty: `:9093`).
+fn host_port(addr: &str) -> bool {
+    addr.rsplit_once(':').is_some_and(|(host, port)| {
+        !port.is_empty()
+            && port.len() <= 5
+            && port.bytes().all(|b| b.is_ascii_digit())
+            && port.parse::<u16>().is_ok()
+            && (!host.contains(':') || (host.starts_with('[') && host.ends_with(']')))
+    })
+}
+
+/// Whether a listener on `addr` (`host:port`) can be reached from another machine: an empty or wildcard host, an
+/// address that is not loopback, or a name other than `localhost` (a name is not resolved: one that is not
+/// `localhost` is taken at its word).
+fn beyond_loopback(addr: &str) -> bool {
+    let Some((host, _)) = addr.rsplit_once(':') else {
+        return false;
+    };
+    let host = host
+        .strip_prefix('[')
+        .and_then(|h| h.strip_suffix(']'))
+        .unwrap_or(host);
+    match host.parse::<IpAddr>() {
+        Ok(ip) => !ip.is_loopback(),
+        Err(_) => !host.eq_ignore_ascii_case("localhost"),
+    }
+}
