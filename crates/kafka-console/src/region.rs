@@ -15,10 +15,24 @@ use axum::extract::Request;
 use axum::http::{HeaderName, HeaderValue};
 use axum::middleware::Next;
 use axum::response::Response;
+use std::sync::{Arc, Mutex};
 
 tokio::task_local! {
     /// Whether the request in flight wants the region.
     static REGION: bool;
+    /// The canonical address of the page the request in flight is answering, set by the handler (see [`canonical`]).
+    static CANONICAL: Arc<Mutex<Option<String>>>;
+}
+
+/// Says what address the page being answered has once its state is read (a filter with its defaults dropped, its duplicates
+/// merged). An in-place control sends the form as it stands (`?partition=1&time=&partition=1`); a handler that knows what the
+/// state really is calls this, and the layer puts the clean address into the history instead.
+pub fn canonical(path_and_query: &str) {
+    let _ = CANONICAL.try_with(|c| {
+        if let Ok(mut g) = c.lock() {
+            *g = Some(path_and_query.to_owned());
+        }
+    });
 }
 
 /// The request header htmx sends on every request it makes.
@@ -75,7 +89,19 @@ pub async fn layer(req: Request, next: Next) -> Response {
         .filter(|p| p.starts_with('/') && !p.starts_with("//") && !p.contains(['\r', '\n']))
         .map(ToOwned::to_owned);
     let preloading = is_true(&req, HX_PRELOADED) && req.method() == axum::http::Method::GET;
-    let mut res = REGION.scope(hx && !restore, next.run(req)).await;
+    let asked = InPlace::of(&req, hx && !restore);
+    let canon = Arc::new(Mutex::new(None));
+    let mut res = CANONICAL
+        .scope(
+            Arc::clone(&canon),
+            REGION.scope(hx && !restore, next.run(req)),
+        )
+        .await;
+    if res.status().is_success()
+        && let (Some(asked), Some(at)) = (asked, canon.lock().ok().and_then(|g| g.clone()))
+    {
+        asked.put(res.headers_mut(), &at);
+    }
     let h = res.headers_mut();
     h.append(
         axum::http::header::VARY,
@@ -110,6 +136,58 @@ pub async fn layer(req: Request, next: Next) -> Response {
         }
     }
     res
+}
+
+/// What an in-place control (a request that targets a region of the page, not `main` or the overlay) says about the history.
+struct InPlace {
+    /// The address the page is at now (`HX-Current-URL`, path and query).
+    current: String,
+    /// Typing in a search box: replace the entry instead of adding one.
+    replace: bool,
+}
+
+impl InPlace {
+    fn of(req: &Request, region: bool) -> Option<Self> {
+        let h = req.headers();
+        let target = h.get(HX_TARGET).and_then(|v| v.to_str().ok()).unwrap_or("");
+        if !region
+            || req.method() != axum::http::Method::GET
+            || target.is_empty()
+            || target == MAIN
+            || target == OVERLAY_ROOT
+        {
+            return None;
+        }
+        let current = h
+            .get("hx-current-url")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("");
+        let current = current.split_once("://").map_or(current, |(_, rest)| {
+            rest.find('/').map_or("/", |i| &rest[i..])
+        });
+        let replace = h
+            .get(crate::ui::inplace::HEADER_HISTORY)
+            .and_then(|v| v.to_str().ok())
+            == Some(crate::ui::inplace::HISTORY_REPLACE);
+        Some(Self {
+            current: current.split('#').next().unwrap_or("").to_owned(),
+            replace,
+        })
+    }
+
+    /// The history headers: the clean address replaces the one the form made; a control that changes nothing adds no entry.
+    fn put(&self, h: &mut axum::http::HeaderMap, at: &str) {
+        let (name, value) = if self.replace {
+            ("hx-replace-url", at)
+        } else if at == self.current {
+            ("hx-push-url", "false")
+        } else {
+            ("hx-push-url", at)
+        };
+        if let Ok(v) = HeaderValue::from_str(value) {
+            h.insert(HeaderName::from_static(name), v);
+        }
+    }
 }
 
 fn is_overlay(res: &Response) -> bool {

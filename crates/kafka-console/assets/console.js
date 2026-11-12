@@ -483,6 +483,20 @@
     if (elt && elt.tagName === 'FORM') elt.submit();
     else if (p && e.detail.requestConfig && e.detail.requestConfig.boosted) location.href = p;
   });
+  // A control that changes one region asks for the page and picks the region out of it (hx-select). If the answer has no such region
+  // (the page the state calls for is a different one: an offline topic, an empty list) nothing would be swapped and the target would
+  // be emptied: take the address the way a browser with no script would.
+  hx('beforeSwap', (e) => {
+    const d = e.detail, elt = d.requestConfig && d.requestConfig.elt;
+    const sel = elt && elt.closest && elt.closest('[hx-select]');
+    const want = sel && sel.getAttribute('hx-select');
+    if (!want || want[0] !== '#' || !d.shouldSwap || d.requestConfig.boosted) return;
+    if (typeof d.serverResponse === 'string' && !d.serverResponse.includes('id="' + want.slice(1) + '"')) {
+      d.shouldSwap = false;
+      const p = d.pathInfo && (d.pathInfo.finalRequestPath || d.pathInfo.requestPath);
+      if (p) location.assign(p);
+    }
+  });
   // After any swap: our state follows the DOM (an overlay came or went), new controls are revealed, the stream follows the page.
   hx('afterSettle', () => {
     pageUrl = ovl && ovl.parent ? ovl.parent : here();

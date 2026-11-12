@@ -12,11 +12,12 @@
 use maud::{Markup, html};
 
 use super::common::topic_url;
-use super::messages::messages_url;
+use super::messages::{TOPIC_VIEW, messages_url};
 use crate::base::Base;
 use crate::format::number;
 use crate::model::{MessageQuery, MessagesView, Reading};
 use crate::ui::glyph::{Glyph, glyph};
+use crate::ui::inplace::{self, Opts};
 use crate::ui::kafka::filter_box;
 
 /// The id of the toolbar: the controls a script reads the whole form of. The data it drives is `#topic-messages`.
@@ -67,18 +68,18 @@ fn from_held(v: &MessagesView, base: &Base) -> Markup {
         ..MessageQuery::default()
     };
     html! {
-        a class="btn sm" href=(messages_url(base, &v.head.name, &q)) data-op="Fetch" {
+        (inplace::link_with(TOPIC_VIEW, "btn sm", &messages_url(base, &v.head.name, &q), &Opts { op: Some("Fetch"), ..Opts::default() }, html! {
             (glyph(Glyph::Filter, 14, "")) "Show " (v.head.name) "-" (p.partition) " from " (number(p.last_stable))
-        }
+        }))
     }
 }
 
 /// A filter that is on: its words and the link that takes it off.
 fn chip(v: &MessagesView, base: &Base, label: &str, without: &MessageQuery) -> Markup {
     html! {
-        a class="fchip on rm" href=(messages_url(base, &v.head.name, without)) aria-label=(format!("Remove the filter {label}")) {
+        (inplace::link(TOPIC_VIEW, "fchip on rm", &messages_url(base, &v.head.name, without), Some(&format!("Remove the filter {label}")), html! {
             (label) (glyph(Glyph::X, 12, ""))
-        }
+        }))
     }
 }
 
@@ -99,9 +100,9 @@ fn chips(v: &MessagesView, base: &Base) -> Markup {
                 @if let Some(o) = q.offset { (chip(v, base, &format!("From offset {}", number(o)), &without(|c| c.offset = None))) }
                 @if let Some((_, t)) = &q.time { (chip(v, base, &format!("From {t}"), &without(|c| c.time = None))) }
                 @if let Some(k) = &q.key { (chip(v, base, &format!("Key {k}"), &without(|c| c.key = None))) }
-                a class="btn sm" data-ui="clear" href=(messages_url(base, &v.head.name, &MessageQuery { reading: q.reading, ..MessageQuery::default() })) {
+                (inplace::link_with(TOPIC_VIEW, "btn sm", &messages_url(base, &v.head.name, &MessageQuery { reading: q.reading, ..MessageQuery::default() }), &Opts { ui: Some("clear"), ..Opts::default() }, html! {
                     (glyph(Glyph::X, 14, "")) "Clear filters"
-                }
+                }))
             } @else {
                 span class="dim" { "No filters: the newest records of every partition." }
             }
@@ -114,8 +115,9 @@ fn chips(v: &MessagesView, base: &Base) -> Markup {
 pub(super) fn bar(v: &MessagesView, base: &Base) -> Markup {
     let q = &v.query;
     let (find, shown) = find_value(q);
+    let action = format!("{}/messages", topic_url(base, &v.head.name));
     html! {
-        form class="toolbar bar" id=(BAR_ID) method="get" action=(format!("{}/messages", topic_url(base, &v.head.name))) {
+        (inplace::form(TOPIC_VIEW, Some(BAR_ID), "toolbar bar", None, &action, html! {
             // The button Enter presses in the find box: not a control of the page, so it is out of the board's reckoning.
             input type="submit" value="Show" aria-label="Show records" hidden data-scaffold;
             div class="bar-row" {
@@ -136,7 +138,7 @@ pub(super) fn bar(v: &MessagesView, base: &Base) -> Markup {
             }
             @if q.limit != crate::model::DEFAULT_LIMIT { input type="hidden" name="limit" value=(q.limit); }
             (chips(v, base))
-        }
+        }))
     }
 }
 

@@ -37,6 +37,7 @@ pub async fn topics(State(s): State<Shared>, RawQuery(query): RawQuery) -> Respo
         ("q", &filter),
         ("internal", if internal { "1" } else { "" }),
     ]);
+    crate::region::canonical(&format!("{}{q}", s.base.url("/topics")));
     let main = page::list_page(&view, &s.base, &s.source.listen(), &q);
     html(
         &s.document(
@@ -82,7 +83,7 @@ pub(super) async fn messages_parent(
     let (q, notes) = MessageQuery::parse(&raw);
     let view = s.source.messages(name, q, notes).await?;
     let q = view.query.to_query();
-    let main = page::messages_page(&view, &s.base, &s.source.listen(), &q);
+    crate::region::canonical(&format!("{}/messages{q}", page::topic_url(&s.base, name)));
     // The state of the page (a partition, an isolation level, a record's address) is on the page, never in the breadcrumb.
     // The plain Messages page carries the topic's wire dock (slice 9e): the last requests that touched it. It is part of the
     // parent, so it is there behind a record's drawer and the dialogs, as the boards draw it.
@@ -90,12 +91,13 @@ pub(super) async fn messages_parent(
         && view.head.offline().is_empty()
         && view.query.reading == crate::model::Reading::Uncommitted
         && !view.query.filtered();
-    let main = if docked {
+    let dock = if docked {
         let (rows, window, now) = s.source.topic_wire(name).await;
-        maud::html! { (main) (crate::pages::live::topic_dock(name, &rows, &window, now, &s.base, false)) }
+        crate::pages::live::topic_dock(name, &rows, &window, now, &s.base, false)
     } else {
-        main
+        maud::html! {}
     };
+    let main = page::messages_page_with(&view, &s.base, &s.source.listen(), &q, dock);
     Some(Parent {
         rail: Rail::Resources,
         title: view.head.name.clone(),

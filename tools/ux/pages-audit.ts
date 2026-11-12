@@ -24,7 +24,9 @@ export interface Row {
   scrollAfter: number;
   moved: string[];
   cls: number;
-  verdict: "in place" | "reload" | "JUMP";
+  /** The click replaced `main` (a boosted navigation): a cross-fade and a scroll to the top, not an in-place update. */
+  mainSwapped: boolean;
+  verdict: "in place" | "main swap" | "reload" | "JUMP";
 }
 
 export const PAGES = [
@@ -89,7 +91,7 @@ async function parts(p: Page): Promise<Record<string, Box | null>> {
   return p.eval(PARTS_JS);
 }
 
-export async function auditPage(p: Page, base: string, path: string, limit = 12): Promise<Row[]> {
+export async function auditPage(p: Page, base: string, path: string, limit = 60): Promise<Row[]> {
   await p.goto(base + path);
   const controls = (await p.eval<{ idx: number; kind: string; label: string; target: string }[]>(ENUMERATE)).slice(0, limit);
   const rows: Row[] = [];
@@ -108,7 +110,9 @@ export async function auditPage(p: Page, base: string, path: string, limit = 12)
     const before = await parts(p);
     const sy0 = await p.scrollY;
     const at = await p.eval<{ x: number; y: number }>(`(() => { const r = document.querySelector('[data-audit-idx="${c.idx}"]').getBoundingClientRect(); return { x: r.left + Math.min(r.width / 2, 40), y: r.top + r.height / 2 }; })()`);
+    await p.eval("window.__auditMain = document.querySelector('main')");
     const navigated = await p.clickAt(at.x, at.y);
+    const mainSwapped = !navigated && (await p.eval<boolean>("window.__auditMain !== document.querySelector('main')"));
     const sy1 = await p.scrollY;
     const maxScroll = await p.eval<number>("Math.max(0, Math.round(document.documentElement.scrollHeight - innerHeight))");
     const after = await parts(p);
@@ -117,7 +121,8 @@ export async function auditPage(p: Page, base: string, path: string, limit = 12)
     let verdict: Row["verdict"] = "in place";
     if (navigated) verdict = sy0 > 0 || shifted.length ? "JUMP" : "reload";
     else if ((sy1 !== sy0 && !(sy1 >= maxScroll - 1 && sy1 < sy0)) || shifted.length) verdict = "JUMP";
-    rows.push({ page: path, control: c.label || "(no text)", kind: c.kind, target: c.target, navigated, scrollBefore: sy0, scrollAfter: sy1, moved: shifted, cls, verdict });
+    else if (mainSwapped) verdict = "main swap";
+    rows.push({ page: path, control: c.label || "(no text)", kind: c.kind, target: c.target, navigated, scrollBefore: sy0, scrollAfter: sy1, moved: shifted, cls, mainSwapped, verdict });
   }
   return rows;
 }

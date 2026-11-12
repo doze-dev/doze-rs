@@ -10,7 +10,8 @@ use crate::model::{GroupFilter, GroupPhase, GroupProtocol, GroupRow, GroupsView,
 use crate::ui::button::{Size, Variant, link, state};
 use crate::ui::client;
 use crate::ui::glyph::Glyph;
-use crate::ui::kafka::{empty, filter_box};
+use crate::ui::inplace;
+use crate::ui::kafka::empty;
 use crate::ui::layout::page_header;
 use crate::ui::notice::{Tone, callout};
 
@@ -173,18 +174,24 @@ fn chip(v: &GroupsView, which: GroupFilter, label: &str, n: usize) -> Markup {
     }
 }
 
+/// The id of the region the toolbar and the table share: a chip or the filter changes it and nothing else of the page.
+pub(super) const GROUPS_VIEW: &str = "groups-view";
+
 fn toolbar(v: &GroupsView, base: &Base) -> Markup {
+    let action = base.url("/groups");
     html! {
-        form class="toolbar" method="get" action=(base.url("/groups")) style="margin-top:24px" {
+        (inplace::form(GROUPS_VIEW, None, "toolbar", Some("margin-top:24px"), &action, html! {
             input type="submit" value="Filter" aria-label="Filter groups" hidden data-scaffold;
-            (filter_box("q", "Filter by group id", "Filter by group id", &v.filter))
+            (inplace::search_box(GROUPS_VIEW, &action, "q", "Filter by group id", "Filter by group id", &v.filter))
             (chip(v, GroupFilter::All, "All", v.counts[0]))
             (chip(v, GroupFilter::Stable, "Stable", v.counts[1]))
             (chip(v, GroupFilter::Rebalancing, "Rebalancing", v.counts[2]))
             (chip(v, GroupFilter::Empty, "Empty", v.counts[3]))
             span class="sp" {}
+            // After the buttons: the button that was clicked is the first of its name, and typing keeps the state that is on.
+            @if v.state != GroupFilter::All { input type="hidden" name="state" value=(v.state.value()); }
             span class="dim" { "Listed by id, refreshes every 3 s while open" }
-        }
+        }))
     }
 }
 
@@ -226,8 +233,10 @@ fn steady(v: &GroupsView, base: &Base) -> Markup {
     html! {
         (head(v, base, "Consumer groups on this broker. A group appears when a consumer joins with a group.id or commits an offset; there is nothing to create here."))
         (groups_live_fragment(v, base))
-        (toolbar(v, base))
-        (groups_table_fragment(v, base))
+        (inplace::region(GROUPS_VIEW, html! {
+            (toolbar(v, base))
+            (groups_table_fragment(v, base))
+        }))
         p class="help" style="margin-top:20px" {
             "Lag is the log end minus the committed offset, worked out here from OffsetFetch and ListOffsets. The broker keeps no lag of its own. Open a group's Lag tab for the partitions."
         }
