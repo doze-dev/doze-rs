@@ -236,7 +236,7 @@ pub(super) async fn kinesis(run: Run, kinesis: Arc<aws_kinesis::Kinesis>) {
         arn: run.source_arn().to_owned(),
         role: run.text("FunctionArn").to_owned(),
         batch: run.int("BatchSize", 100).clamp(1, 10_000),
-        iterators: HashMap::new(),
+        iterators: run.seed.clone(),
         peers,
         run,
     };
@@ -441,6 +441,50 @@ pub(super) async fn dynamodb(run: Run, ddb: Arc<aws_dynamodb::Dynamodb>) {
             () = run.stop.cancelled() => return,
         }
     }
+}
+
+/// What a mapping needs settled before the call that made it returns: where a DynamoDB stream starts, and the iterators of a Kinesis
+/// stream's shards that have no saved position. A record put right after the mapping is made must not be missed because the poller
+/// task had not run yet.
+pub(super) async fn prepare(mut run: Run) -> Run {
+    let Some(sources) = run.inner.sources.get().cloned() else {
+        return run;
+    };
+    match crate::mappings::Source::of(run.source_arn()) {
+        Some(crate::mappings::Source::DynamoDb) => {
+            if run.position("stream").await.is_none() {
+                start_of(&run, &sources.dynamodb, run.source_arn()).await;
+            }
+        }
+        Some(crate::mappings::Source::Kinesis) => {
+            if let Some(peers) = run.inner.peers.clone() {
+                let arn = run.source_arn().to_owned();
+                let listed = peers
+                    .call(
+                        "lambda",
+                        &run.caller,
+                        "kinesis",
+                        "ListShards",
+                        &json!({"StreamARN": arn}),
+                    )
+                    .await;
+                let shards: Vec<String> = listed
+                    .ok()
+                    .and_then(|l| l.get("Shards").and_then(Value::as_array).cloned())
+                    .unwrap_or_default()
+                    .iter()
+                    .filter_map(|s| s.get("ShardId").and_then(Value::as_str).map(str::to_owned))
+                    .collect();
+                let mut seed = HashMap::new();
+                for shard in shards {
+                    shard_iterator(&run, &peers, &arn, &shard, &mut seed).await;
+                }
+                run.seed = seed;
+            }
+        }
+        _ => {}
+    }
+    run
 }
 
 /// Where a mapping with no saved position starts: the beginning, or after the newest record there is now. Saved at once, so a restart

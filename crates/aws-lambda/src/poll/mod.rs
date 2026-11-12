@@ -40,6 +40,8 @@ pub(crate) struct Run {
     pub(crate) cfg: Value,
     pub(crate) caller: Caller,
     pub(crate) stop: CancellationToken,
+    /// Iterators made when the mapping was created, so a record put right after is not missed by a poller that has not started.
+    pub(crate) seed: HashMap<String, String>,
 }
 
 /// What invoking the function for a batch came to.
@@ -245,6 +247,16 @@ pub(crate) async fn sync(inner: &Arc<Inner>, region: &str) {
         .into_iter()
         .filter_map(|m| Some((format!("{region}/{}", m.get("UUID")?.as_str()?), m)))
         .collect();
+    let starts = reconcile(inner, region, wanted);
+    for run in starts {
+        let run = streams::prepare(run).await;
+        inner.tasks.spawn(poller(run));
+    }
+}
+
+/// Stops the pollers that are no longer wanted (or are for an older version of their mapping), and returns the ones to start.
+fn reconcile(inner: &Arc<Inner>, region: &str, wanted: HashMap<String, Value>) -> Vec<Run> {
+    let mut starts: Vec<Run> = Vec::new();
     let mut running = inner
         .pollers
         .running
@@ -288,9 +300,11 @@ pub(crate) async fn sync(inner: &Arc<Inner>, region: &str) {
             },
             cfg: mapping,
             stop: token,
+            seed: HashMap::new(),
         };
-        inner.tasks.spawn(poller(run));
+        starts.push(run);
     }
+    starts
 }
 
 fn generation_of(mapping: &Value) -> String {

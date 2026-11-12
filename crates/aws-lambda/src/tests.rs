@@ -23,6 +23,7 @@ use crate::{Config, Lambda};
 
 mod functions;
 mod invoking;
+mod sources;
 
 pub(crate) const ACCOUNT: &str = "111122223333";
 
@@ -31,35 +32,91 @@ pub(crate) struct World {
     pub(crate) lambda: Lambda,
     h: Harness<Lambda>,
     pub(crate) tasks: Tasks,
+    pub(crate) peers: Arc<Peers>,
     _dir: TempDir,
 }
 
 impl World {
     pub(crate) fn new() -> Self {
+        Self::with_mode(aws_peers::Mode::Off)
+    }
+
+    /// Lambda with SQS, Kinesis, DynamoDB, CloudWatch Logs, IAM and STS beside it on the bus, as the binary has them, and the policies
+    /// of `mode` asked.
+    pub(crate) fn with_mode(mode: aws_peers::Mode) -> Self {
         let dir = TempDir::new("lambda");
         let tasks = Tasks::new();
         let peers = Peers::new();
-        peers.set_mode(aws_peers::Mode::Off);
+        peers.set_mode(mode);
         let ext: Arc<dyn std::any::Any + Send + Sync> = peers.clone();
-        let ctx = Arc::new(Ctx {
-            dir: dir.path().to_path_buf(),
-            idle: Duration::from_secs(300),
-            tasks: tasks.clone(),
-            clock: Arc::new(SystemClock),
-            ext: Some(ext),
-        });
+        let ctx_in = |name: &str| {
+            Arc::new(Ctx {
+                dir: dir.path().join(name),
+                idle: Duration::from_secs(300),
+                tasks: tasks.clone(),
+                clock: Arc::new(SystemClock),
+                ext: Some(Arc::clone(&ext)),
+            })
+        };
+        let ctx = ctx_in("lambda");
+        let sqs = Arc::new(aws_sqs::Sqs::new(ctx_in("sqs")));
+        let kinesis = Arc::new(aws_kinesis::Kinesis::new(ctx_in("kinesis")));
+        let dynamodb = Arc::new(aws_dynamodb::Dynamodb::new(ctx_in("dynamodb")));
+        let (iam, sts) = aws_iam::services(ctx_in("iam"));
+        let iam = Arc::new(iam);
+        peers.set_authorizer(iam.clone());
+        peers.register(sqs.clone());
+        peers.register(kinesis.clone());
+        peers.register(dynamodb.clone());
+        peers.register(Arc::new(aws_logs::Logs::new(ctx_in("logs"))));
+        peers.register(iam);
+        peers.register(Arc::new(sts));
         let config = Config {
             quiet: true,
             ..Config::default()
         };
         let lambda = Lambda::with_config(ctx, config);
+        lambda.connect(crate::Sources {
+            sqs,
+            kinesis,
+            dynamodb,
+        });
+        peers.register(Arc::new(lambda.clone()));
         let h = Harness::new(lambda.clone());
         Self {
             lambda,
             h,
             tasks,
+            peers,
             _dir: dir,
         }
+    }
+
+    /// A call to another service on the bus, as the account's root.
+    pub(crate) async fn peer(&self, service: &str, op: &str, body: Value) -> Value {
+        match self
+            .peers
+            .call("test", &Self::caller(), service, op, &body)
+            .await
+        {
+            Ok(v) => v,
+            Err(e) => panic!("{service}.{op} failed: {} {}", e.code, e.message),
+        }
+    }
+
+    /// Waits until `check` holds, up to twenty seconds.
+    pub(crate) async fn eventually<F, Fut>(&self, what: &str, mut check: F)
+    where
+        F: FnMut() -> Fut,
+        Fut: std::future::Future<Output = bool>,
+    {
+        for _ in 0..200 {
+            if check().await {
+                return;
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+        panic!("never happened: {what}");
     }
 
     pub(crate) fn caller() -> Caller {

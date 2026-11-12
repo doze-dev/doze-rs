@@ -246,8 +246,9 @@ impl Run {
             .map(|m| (record(m, &q.arn, &self.region), handle_of(m)))
             .collect();
         // What the filters drop is deleted: it is not for the function.
-        let (keep, filtered): (Vec<_>, Vec<_>) =
-            records.into_iter().partition(|(r, _)| self.passes(r));
+        let (keep, filtered): (Vec<_>, Vec<_>) = records
+            .into_iter()
+            .partition(|(r, _)| self.passes(&filter_doc(r)));
         let dropped: Vec<String> = filtered.into_iter().map(|(_, h)| h).collect();
         self.delete(peers, q, &dropped).await;
         if keep.is_empty() {
@@ -289,6 +290,20 @@ impl Run {
         })
         .await;
     }
+}
+
+/// What filters see of a message: the record, with a body that is a JSON object read as one.
+fn filter_doc(record: &Value) -> Value {
+    let mut doc = record.clone();
+    let parsed = record
+        .get("body")
+        .and_then(Value::as_str)
+        .and_then(|b| serde_json::from_str::<Value>(b).ok())
+        .filter(Value::is_object);
+    if let Some(body) = parsed {
+        crate::set(&mut doc, "body", body);
+    }
+    doc
 }
 
 /// The ids a function reports as failed: `None` when its answer is not a valid report (the whole batch failed).
