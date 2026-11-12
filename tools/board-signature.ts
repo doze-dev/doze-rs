@@ -221,8 +221,12 @@ function linkToken(href: string, isBoard: boolean, opts: Options): string | null
 // ---------------------------------------------------------------------------------------------------------------
 // The one extraction function
 
-const OVERLAY = (e: El): boolean =>
-  e.tag === "dialog" || e.attrs.role === "dialog" || e.attrs.role === "alertdialog" || hasClass(e, "modal") || hasClass(e, "drawer-panel");
+/** A dialog or drawer that is showing: not hidden, and a <dialog> must be `open` (an empty <dialog> waiting for htmx is not an overlay page). */
+const OVERLAY = (e: El): boolean => {
+  if ("hidden" in e.attrs || e.attrs["aria-hidden"] === "true") return false;
+  if (e.tag === "dialog") return "open" in e.attrs;
+  return e.attrs.role === "dialog" || e.attrs.role === "alertdialog" || hasClass(e, "modal") || hasClass(e, "drawer-panel");
+};
 
 export function signature(html: string, opts: Options = {}): Signature {
   const fm = frontMatter(html);

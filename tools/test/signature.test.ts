@@ -65,6 +65,20 @@ describe("extraction rules", () => {
     expect(s.ops).toEqual({});
   });
 
+  test("a rendered page is its <main>; an open dialog makes it an overlay page, an empty closed <dialog> does not", () => {
+    const shell = (inner: string) => `<html lang="en"><body><header class="topbar"><button class="btn">Top</button></header><nav class="rail" aria-label="Spaces"></nav><main class="main"><nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a><span class="cur">Orders</span></nav><h1>Orders</h1><button class="btn">Go</button>${inner}</main></body></html>`;
+    const plain = signature(shell(`<dialog id="d"></dialog>`));
+    expect(plain.kind).toBe("page");
+    expect(plain.title).toBe("Orders");
+    expect(plain.buttons.map((b) => b.label)).toEqual(["Go"]); // the top bar is not part of the page
+    expect(plain.landmarks).toEqual(["banner", "breadcrumb", "main", "rail"]);
+    const open = signature(shell(`<dialog open aria-labelledby="t"><h2 id="t">Delete?</h2><button class="btn danger">Delete</button></dialog>`));
+    expect(open.kind).toBe("overlay");
+    expect(open.title).toBeNull();
+    expect(open.h1).toEqual([]);
+    expect(open.buttons.map((b) => b.label)).toEqual(["Delete"]);
+  });
+
   test("counts in tab labels are dropped", () => {
     const s = signature(page(`<h1>X</h1><div class="tabs"><a class="tab on" href="@x">Messages</a><a class="tab" href="@x">Consumers<span class="n">12</span></a><a class="tab" href="@x">Producers 3</a></div>`));
     expect(s.tabs.map((t) => t.label)).toEqual(["Messages", "Consumers", "Producers"]);

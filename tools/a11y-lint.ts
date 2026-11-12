@@ -35,7 +35,8 @@ export const CHECKS = ["lang", "h1", "heading-order", "name", "th-scope", "tabin
 
 const norm = (s: string): string => s.replace(/\[\[g:[^\]]*\]\]/g, "").replace(/\s+/g, " ").trim();
 const hidden = (e: El): boolean => closest(e, (a) => "hidden" in a.attrs || a.attrs["aria-hidden"] === "true") !== null;
-const isDialog = (e: El): boolean => e.tag === "dialog" || e.attrs.role === "dialog" || e.attrs.role === "alertdialog";
+// A <dialog> with nothing in it is a target waiting for htmx; it is checked when it has content.
+const isDialog = (e: El): boolean => (e.tag === "dialog" && e.children.length > 0) || e.attrs.role === "dialog" || e.attrs.role === "alertdialog";
 
 function textOf(e: El): string {
   // img alt counts as text

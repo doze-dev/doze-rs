@@ -97,8 +97,6 @@ export function closest(el: El, pred: (e: El) => boolean): El | null {
   return null;
 }
 
-export const isInside = (el: El, pred: (e: El) => boolean): boolean => closest(el.parent ?? el, pred) !== null && el.parent !== null;
-
 /**
  * Raw text of a subtree. `sub` is asked about every descendant element: return a string to put in place of the
  * element and its content (an empty string drops it), or undefined to descend into it. Scripts, styles and
