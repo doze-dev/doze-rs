@@ -238,12 +238,14 @@ dependencies = [
  "aws-sns",
  "aws-sqs",
  "aws-testkit",
+ "aws-webhook",
  "aws-wire",
  "doze-runtime",
  "doze-store",
  "serde",
  "serde_json",
  "tokio",
+ "tokio-util",
  "tracing",
 ]
 
@@ -751,6 +753,7 @@ name = "aws-sns"
 version = "0.0.0"
 dependencies = [
  "aws-core",
+ "aws-gateway",
  "aws-iam-policy",
  "aws-model-sns",
  "aws-peers",
@@ -758,13 +761,16 @@ dependencies = [
  "aws-seal",
  "aws-sqs",
  "aws-testkit",
+ "aws-webhook",
  "aws-wire",
+ "bytes",
  "doze-runtime",
  "doze-store",
  "serde",
  "serde_json",
  "sha2",
  "tokio",
+ "tokio-util",
  "tracing",
 ]
 
@@ -816,6 +822,13 @@ dependencies = [
  "aws-schema",
  "aws-wire",
  "serde_json",
+]
+
+[[package]]
+name = "aws-webhook"
+version = "0.0.0"
+dependencies = [
+ "tokio",
 ]
 
 [[package]]

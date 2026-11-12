@@ -1,6 +1,5 @@
-//! Bucket notifications. A configuration names destinations; the ones that exist here (SQS queues) are checked when the
-//! configuration is put, as S3 checks them. Topics and Lambda functions are stored as sent and flagged, not delivered to, until
-//! SNS and Lambda exist.
+//! Bucket notifications: checking a configuration when it is put. Queue destinations are checked to exist (and not to be FIFO), as
+//! S3 checks them; topic and function destinations are taken as named. Delivery to all three (and to EventBridge) is `events.rs`.
 
 use aws_wire::ApiError;
 use serde_json::{Value, json};

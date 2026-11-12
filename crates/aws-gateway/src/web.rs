@@ -21,7 +21,18 @@ pub(crate) async fn serve(
         .get(header::HOST)
         .and_then(|h| h.to_str().ok())
         .unwrap_or_default();
-    let Some(web) = shared.webs().find(|w| w.owns(host, parts.uri.path())) else {
+    let path = parts.uri.path();
+    // A browser's CORS preflight no service owns by address goes to the one that answers preflights (S3).
+    let preflight = || {
+        (parts.method == http::Method::OPTIONS)
+            .then(|| shared.webs().find(|w| w.owns_preflight(host, path)))
+            .flatten()
+    };
+    let Some(web) = shared
+        .webs()
+        .find(|w| w.owns(host, path))
+        .or_else(preflight)
+    else {
         return Err(body);
     };
     let bytes = match read_body(body, shared.max_body_bytes()).await {

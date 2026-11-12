@@ -2,6 +2,7 @@
 //! them warm and limits them ([`Runtime`]), and the invocation in flight ([`Running`]).
 
 pub(crate) mod api;
+pub(crate) mod check;
 pub(crate) mod logs;
 pub(crate) mod shims;
 pub(crate) mod spec;
@@ -141,6 +142,11 @@ impl Runtime {
                 permits: Arc::new(Semaphore::new(MAX_WORKERS)),
             })
         }))
+    }
+
+    /// Where each runtime family's executable is, when it is configured.
+    pub(crate) fn interpreters(&self) -> &Interpreters {
+        &self.config.interpreters
     }
 
     /// Ends every warm process of `function` (`region/name`), so the next invocation starts one with the new code or configuration.
@@ -314,6 +320,11 @@ impl Running {
             Ok(None) => Event::Crashed,
             Err(_) => Event::Timeout,
         }
+    }
+
+    /// The process, for reading what it writes while the invocation runs.
+    pub(crate) fn tap(&self) -> Arc<Worker> {
+        Arc::clone(&self.worker)
     }
 
     /// How the process ended, if it has.

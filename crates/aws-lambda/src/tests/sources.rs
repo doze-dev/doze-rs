@@ -6,7 +6,7 @@ use serde_json::{Value, json};
 
 use super::{ACCOUNT, World, have};
 
-const PRINTER: &[u8] = b"import json\ndef handler(event, context):\n    for r in event['Records']:\n        src = r['eventSource']\n        if src == 'aws:sqs':\n            print('GOT', src, r['body'])\n        elif src == 'aws:kinesis':\n            import base64\n            print('GOT', src, base64.b64decode(r['kinesis']['data']).decode())\n        else:\n            print('GOT', src, r['eventName'], json.dumps(r['dynamodb']['Keys']))\n    return {}\n";
+pub(super) const PRINTER: &[u8] = b"import json\ndef handler(event, context):\n    for r in event['Records']:\n        src = r['eventSource']\n        if src == 'aws:sqs':\n            print('GOT', src, r['body'])\n        elif src == 'aws:kinesis':\n            import base64\n            print('GOT', src, base64.b64decode(r['kinesis']['data']).decode())\n        else:\n            print('GOT', src, r['eventName'], json.dumps(r['dynamodb']['Keys']))\n    return {}\n";
 
 const FAILING: &[u8] = b"def handler(event, context):\n    bad = [{'itemIdentifier': r['messageId']} for r in event['Records'] if r['body'] == 'bad']\n    print('GOT', len(event['Records']))\n    return {'batchItemFailures': bad}\n";
 
@@ -22,7 +22,7 @@ async fn queue(w: &World, name: &str, visibility: &str) -> (String, String) {
     (url, format!("arn:aws:sqs:us-east-1:{ACCOUNT}:{name}"))
 }
 
-async fn logged(w: &World, function: &str, pattern: &str) -> Vec<String> {
+pub(super) async fn logged(w: &World, function: &str, pattern: &str) -> Vec<String> {
     let group = format!("/aws/lambda/{function}");
     match w
         .peers

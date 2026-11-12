@@ -113,7 +113,6 @@ fn policy(core: &Core, req: &Req<'_>, body: &Value) -> Result<(), ApiError> {
         _ => return Err(malformed_policy("Syntax error in policy.")),
     };
     let arn = format!("arn:aws:s3:::{}", req.bucket());
-    let mut public = false;
     for s in &statements {
         if s.get("Principal").is_none() && s.get("NotPrincipal").is_none() {
             return Err(malformed_policy("Missing required field Principal"));
@@ -128,8 +127,8 @@ fn policy(core: &Core, req: &Req<'_>, body: &Value) -> Result<(), ApiError> {
         {
             return Err(malformed_policy("Policy has invalid resource"));
         }
-        public |= statement_is_public(s);
     }
+    let public = crate::public::is_public(&doc);
     let blocked = core
         .require(req.bucket())?
         .configs
@@ -150,23 +149,9 @@ fn policy(core: &Core, req: &Req<'_>, body: &Value) -> Result<(), ApiError> {
     Ok(())
 }
 
-/// Whether a statement grants to everyone: an `Allow` for principal `*` (or `{"AWS": "*"}`) with no `Condition`. AWS also counts a
-/// condition that does not name the caller as leaving it public, and weighs `Deny` statements; this is the narrower rule the Go
-/// edition used and the stage's `BlockPublicPolicy` check already applies. (memory)
-fn statement_is_public(s: &Value) -> bool {
-    s.get("Effect").and_then(Value::as_str) == Some("Allow")
-        && s.get("Condition").is_none()
-        && (strings(s.get("Principal")).contains(&"*".to_owned())
-            || strings(s.pointer("/Principal/AWS")).contains(&"*".to_owned()))
-}
-
-/// Whether a policy document makes its bucket public (`GetBucketPolicyStatus`).
+/// Whether a policy document makes its bucket public (`GetBucketPolicyStatus`): AWS's rule, in [`crate::public`].
 pub(crate) fn grants_public(doc: &Value) -> bool {
-    match doc.get("Statement") {
-        Some(Value::Array(a)) => a.iter().any(statement_is_public),
-        Some(s @ Value::Object(_)) => statement_is_public(s),
-        _ => false,
-    }
+    crate::public::is_public(doc)
 }
 
 /// A string or a list of strings as a list.
