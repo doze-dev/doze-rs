@@ -4,6 +4,7 @@ mod config;
 mod fragments;
 mod groups;
 mod groups_fragments;
+mod live;
 mod pages;
 mod plain;
 mod topics;
@@ -19,6 +20,11 @@ pub use groups::{
     reset as group_reset, reset_form as group_reset_form,
 };
 pub use groups_fragments::groups_fragment;
+pub(crate) use live::fragment as live_fragment;
+pub use live::{
+    clients as live_clients, first as first_request, group_wire, live, request as live_request,
+    topic_wire,
+};
 pub use pages::{advertised, connect, home, method_not_allowed, not_found, planned};
 pub use plain::{events, health, static_file};
 pub use topics::{

@@ -280,3 +280,126 @@ pub struct FirstView {
     pub listen: String,
     pub versions: Vec<(&'static str, i16)>,
 }
+
+/// The longest a filter's text is read.
+const MOST_TEXT: usize = 128;
+
+impl WireQuery {
+    /// The filters of an address (`?q=...&client=...&api=...&topic=...&group=...&refused=1&idle=0&before=12&until=40&limit=50`). A
+    /// value that cannot be used is left out: a hostile address is a page with no filter, never an error.
+    #[must_use]
+    pub fn parse(fields: &[(String, String)]) -> Self {
+        let text = |name: &str| {
+            crate::form::text(fields, name)
+                .trim()
+                .chars()
+                .take(MOST_TEXT)
+                .collect::<String>()
+        };
+        let number =
+            |name: &str| crate::form::get(fields, name).and_then(|v| v.trim().parse::<u64>().ok());
+        Self {
+            text: text("q"),
+            client: text("client"),
+            api: text("api"),
+            topic: text("topic"),
+            group: text("group"),
+            refused_only: crate::form::get(fields, "refused") == Some("1"),
+            hide_idle: crate::form::get(fields, "idle") != Some("0"),
+            before: number("before"),
+            until: number("until"),
+            limit: number("limit")
+                .and_then(|n| usize::try_from(n).ok())
+                .map_or(WIRE_LIMIT, |n| n.clamp(1, WIRE_MOST)),
+        }
+    }
+
+    /// The address's query part for these filters (with its `?`), with `before` and `until` as given and the defaults left out.
+    #[must_use]
+    pub fn to_query(&self) -> String {
+        let before = self.before.map(|n| n.to_string()).unwrap_or_default();
+        let until = self.until.map(|n| n.to_string()).unwrap_or_default();
+        let limit = if self.limit == WIRE_LIMIT {
+            String::new()
+        } else {
+            self.limit.to_string()
+        };
+        crate::form::encode_query(&[
+            ("q", &self.text),
+            ("client", &self.client),
+            ("api", &self.api),
+            ("topic", &self.topic),
+            ("group", &self.group),
+            ("refused", if self.refused_only { "1" } else { "" }),
+            ("idle", if self.hide_idle { "" } else { "0" }),
+            ("before", &before),
+            ("until", &until),
+            ("limit", &limit),
+        ])
+    }
+
+    /// The same filters with one field changed (a click on a client, an API or a topic), and the page back dropped.
+    #[must_use]
+    pub fn with(&self, field: &str, value: &str) -> Self {
+        let mut q = Self {
+            before: None,
+            ..self.clone()
+        };
+        match field {
+            "client" => q.client = value.to_owned(),
+            "api" => q.api = value.to_owned(),
+            "topic" => q.topic = value.to_owned(),
+            "group" => q.group = value.to_owned(),
+            _ => {}
+        }
+        q
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn q(s: &str) -> WireQuery {
+        WireQuery::parse(&crate::form::parse(s))
+    }
+
+    #[test]
+    fn an_address_is_the_filters_and_back_again() {
+        let w = q(
+            "q=ord&client=admin-cli&api=Produce&topic=orders&refused=1&idle=0&before=12&limit=50",
+        );
+        assert_eq!(
+            (
+                w.text.as_str(),
+                w.client.as_str(),
+                w.api.as_str(),
+                w.topic.as_str()
+            ),
+            ("ord", "admin-cli", "Produce", "orders")
+        );
+        assert!(w.refused_only && !w.hide_idle);
+        assert_eq!((w.before, w.limit), (Some(12), 50));
+        assert_eq!(q(&w.to_query()[1..]), w);
+        assert_eq!(WireQuery::default().to_query(), "");
+    }
+
+    #[test]
+    fn nonsense_is_no_filter_and_the_limit_is_held_to_its_range() {
+        assert_eq!(q("before=abc&until=-1&limit=999999").limit, WIRE_MOST);
+        assert_eq!(q("limit=0").limit, 1);
+        assert_eq!(q("before=abc").before, None);
+        assert!(q("idle=yes").hide_idle);
+        assert_eq!(q(&format!("q={}", "x".repeat(1000))).text.len(), 128);
+    }
+
+    #[test]
+    fn a_click_on_a_cell_filters_by_it_and_leaves_the_page_back() {
+        let w = q("q=a&before=9").with("client", "orders");
+        assert_eq!(
+            (w.client.as_str(), w.before, w.text.as_str()),
+            ("orders", None, "a")
+        );
+        assert_eq!(w.with("nothing", "x"), w);
+    }
+}

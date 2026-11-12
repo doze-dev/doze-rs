@@ -13,6 +13,7 @@ pub mod group_read;
 mod group_write;
 pub mod groups;
 mod home;
+mod live;
 mod partitions;
 mod produce;
 pub mod protocol;
@@ -20,6 +21,7 @@ mod records;
 
 pub use attention::{Looked, MAX_DESCRIBED, near_timeout, nearest, nearest_capped};
 pub use home::{choose, counts, instance_view};
+pub use live::request_limits;
 
 pub use config::{ConfigMissing, page as config_page};
 pub use config_edit::{

@@ -51,11 +51,13 @@ impl State {
         stop: CancellationToken,
         limits: &Limits,
     ) -> Shared {
+        let ticker = Ticker::new(FLOOR);
+        source.attach(&ticker);
         Arc::new(Self {
             assets: Assets::build(&base),
             source,
             base,
-            ticker: Ticker::new(FLOOR),
+            ticker,
             stop,
             allow_hosts,
             streams: Arc::new(Semaphore::new(limits.max_streams)),

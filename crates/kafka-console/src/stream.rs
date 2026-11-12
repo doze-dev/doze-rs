@@ -42,7 +42,10 @@ pub const KEEP_ALIVE: Duration = Duration::from_secs(15);
 pub fn parse_watch(value: &str) -> Result<Vec<&str>, &str> {
     let mut out = Vec::new();
     for id in value.split(',').filter(|s| !s.is_empty()) {
-        if !WATCHABLE.contains(&id) && !crate::stream_groups::WATCHABLE.contains(&id) {
+        if !WATCHABLE.contains(&id)
+            && !crate::stream_groups::WATCHABLE.contains(&id)
+            && !crate::live_ids::WATCHABLE.contains(&id)
+        {
             return Err(id);
         }
         if !out.contains(&id) {

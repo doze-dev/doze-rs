@@ -36,10 +36,20 @@ pub(crate) type ConsoleBound = ();
 pub(crate) async fn serve(settings: Settings, console_listener: ConsoleBound) -> Result<()> {
     let Settings {
         broker,
-        server,
+        mut server,
         console,
         ..
     } = settings;
+    // The request recorder is installed only when there is a console to read it: with `--console=false` the server carries no
+    // observer and a request costs one `Option` test.
+    #[cfg(feature = "console")]
+    let recorder = console_listener
+        .as_ref()
+        .map(|_| kafka_console::Recorder::new());
+    #[cfg(feature = "console")]
+    if let Some(r) = &recorder {
+        server.observer = Some(r.clone());
+    }
     #[cfg(not(feature = "console"))]
     let _ = (&console, console_listener);
     let broker = Arc::new(Broker::open(RealFs, broker).context("opening the broker's data")?);
@@ -66,7 +76,7 @@ pub(crate) async fn serve(settings: Settings, console_listener: ConsoleBound) ->
     let _control = crate::control::serve(&broker);
     #[cfg(feature = "console")]
     let web = console_listener
-        .map(|bound| bound.serve(&console, &server, &running, &broker))
+        .map(|bound| bound.serve(&console, &server, &running, &broker, recorder))
         .transpose()
         .context("starting the console")?;
     stopped().await;

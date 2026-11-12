@@ -9,10 +9,12 @@ use crate::pages;
 use crate::stream::HOME_IDS;
 
 mod groups;
+mod live;
 mod topics_read;
 
 use crate::ui::shell::{Crumb, Page, Rail, document};
 pub use groups::{IDS as GROUPS_IDS, render as render_groups};
+pub use live::{IDS as LIVE_IDS_BOARDS, render as render_live};
 pub use topics_read::{IDS as TOPICS_READ_IDS, render as render_topics_read};
 
 /// The breadcrumb of a board: label and path.

@@ -7,6 +7,7 @@ mod config;
 mod connect;
 pub mod groups;
 mod home;
+pub mod live;
 mod notice;
 pub mod topics;
 mod topics_write;
