@@ -57,6 +57,14 @@ impl Peers {
         }
     }
 
+    /// The model tables of service `target`, when it is registered (a caller that builds bodies from loosely typed input, such as
+    /// a CloudFormation template, reads them to coerce its values).
+    #[must_use]
+    pub fn tables(&self, target: &str) -> Option<&'static aws_schema::tables::Tables> {
+        let entries = self.entries.read().ok()?;
+        entries.get(target).map(|e| e.service.tables())
+    }
+
     /// Calls operation `operation` of service `target` with `body`, as service `acting` on behalf of `caller`. The answer is the
     /// operation's output as JSON (`{}` for an operation with none).
     ///

@@ -53,6 +53,10 @@ pub(crate) async fn run(args: Args) -> Result<()> {
         cloudwatch.clone(),
         eventbridge.clone(),
         lambda.clone(),
+        Arc::new(aws_cloudformation::Cloudformation::with_config(
+            Arc::new(ctx("cloudformation")),
+            args.cloudformation(),
+        )),
     ];
     let mut gateway = Gateway::new(config);
     for service in services {

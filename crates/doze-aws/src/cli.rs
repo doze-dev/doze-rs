@@ -71,4 +71,50 @@ pub(crate) struct Args {
     /// Keep what Lambda functions print out of this process's log (it is always in CloudWatch Logs).
     #[arg(long)]
     pub(crate) lambda_quiet: bool,
+    /// What CloudFormation does with resource types doze-aws does not make: each type's own class (opaque infrastructure is skipped
+    /// with a warning on the resource, behaviour-bearing types are refused), or skip all of them, or refuse all of them.
+    #[arg(long, value_enum, default_value_t = CfnUnsupported::Default)]
+    pub(crate) cfn_unsupported: CfnUnsupported,
+    /// A resource type CloudFormation accepts unmade whatever its class (repeatable).
+    #[arg(long = "cfn-skip", value_name = "TYPE")]
+    pub(crate) cfn_skip: Vec<String>,
+    /// A resource type CloudFormation refuses whatever its class (repeatable).
+    #[arg(long = "cfn-fail", value_name = "TYPE")]
+    pub(crate) cfn_fail: Vec<String>,
+    /// Name resources a template leaves unnamed after their logical id, instead of AWS's `<stack>-<logical>-<random>`.
+    #[arg(long)]
+    pub(crate) cfn_logical_names: bool,
+}
+
+/// What CloudFormation does with types it does not make.
+#[derive(Clone, Copy, Debug, ValueEnum)]
+pub(crate) enum CfnUnsupported {
+    /// Each type's own class.
+    Default,
+    /// Skip every unmade type, with a warning on the resource.
+    Skip,
+    /// Refuse every unmade type.
+    Fail,
+}
+
+impl Args {
+    /// CloudFormation's configuration.
+    pub(crate) fn cloudformation(&self) -> aws_cloudformation::Config {
+        use aws_cloudformation::Unsupported;
+        let mut overrides: Vec<(String, Unsupported)> = self
+            .cfn_skip
+            .iter()
+            .map(|t| (t.clone(), Unsupported::Skip))
+            .collect();
+        overrides.extend(self.cfn_fail.iter().map(|t| (t.clone(), Unsupported::Fail)));
+        aws_cloudformation::Config {
+            unsupported: match self.cfn_unsupported {
+                CfnUnsupported::Default => Unsupported::Default,
+                CfnUnsupported::Skip => Unsupported::Skip,
+                CfnUnsupported::Fail => Unsupported::Fail,
+            },
+            overrides,
+            logical_names: self.cfn_logical_names,
+        }
+    }
 }
