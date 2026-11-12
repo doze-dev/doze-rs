@@ -304,21 +304,5 @@
     "reason": "p9b-read: a record's heading is its address (topic, partition, offset); the board is orders-1 offset 16,050 and the live world's record has its own.",
     "render": "live",
     "expires": "close"
-  },
-  {
-    "board": "topics-filtered",
-    "field": "button",
-    "selector": "Create {} [pri] -> to:topic-create",
-    "reason": "p9b-read: the button names the filter the person typed ('Create refunds' on the board, 'Create zzz' live).",
-    "render": "live",
-    "expires": "close"
-  },
-  {
-    "board": "topics-filtered",
-    "field": "button",
-    "selector": "Create zzz [pri] -> to:topic-create",
-    "reason": "p9b-read: the button names the filter the person typed ('Create refunds' on the board, 'Create zzz' live).",
-    "render": "live",
-    "expires": "close"
   }
 ]
