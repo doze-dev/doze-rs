@@ -25,6 +25,7 @@ aws-sns = { path = "../aws-sns" }
 aws-kinesis = { path = "../aws-kinesis" }
 aws-logs = { path = "../aws-logs" }
 aws-cloudwatch = { path = "../aws-cloudwatch" }
+aws-lambda = { path = "../aws-lambda" }
 aws-peers = { path = "../aws-peers" }
 aws-wire = { path = "../aws-wire" }
 doze-runtime = { path = "../doze-runtime" }

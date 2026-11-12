@@ -63,6 +63,13 @@ impl Sqs {
         }
     }
 
+    /// Resolves when anything has happened that could give a waiting receive a message (a send, a visibility change, a purge, a
+    /// redrive) since it was last awaited. A consumer that is not itself a long poll (a Lambda event source mapping) reads, and waits
+    /// here when there is nothing.
+    pub async fn message_arrived(&self) {
+        self.arrived.notified().await;
+    }
+
     /// Sends the call to the actor of the region it was signed for.
     async fn call_actor(&self, call: Call) -> Result<Answer, String> {
         let actor = self

@@ -1,0 +1,45 @@
+[package]
+name = "aws-lambda"
+version = "0.0.0"
+description = "Lambda: functions as supervised host processes behind the Runtime API, versions, aliases, layers, URLs, event source mappings"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+aws-model-lambda = { path = "../aws-model-lambda" }
+aws-schema = { path = "../aws-schema" }
+aws-wire = { path = "../aws-wire" }
+aws-core = { path = "../aws-core" }
+aws-peers = { path = "../aws-peers" }
+aws-seal = { path = "../aws-seal" }
+aws-iam-policy = { path = "../aws-iam-policy" }
+aws-kinesis = { path = "../aws-kinesis" }
+aws-dynamodb = { path = "../aws-dynamodb" }
+aws-sqs = { path = "../aws-sqs" }
+doze-runtime = { path = "../doze-runtime" }
+doze-store = { path = "../doze-store" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.11"
+bytes = "1"
+# The zip reader inflates with flate2 and checks entries with crc32fast; both are already linked (gzip request bodies).
+flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
+crc32fast = "1"
+http = "1"
+http-body-util = "0.1"
+hyper = { version = "1", default-features = false, features = ["http1", "server"] }
+hyper-util = { version = "0.1", default-features = false, features = ["tokio"] }
+tokio = { version = "1", default-features = false, features = ["rt", "sync", "time", "net", "process", "io-util", "macros"] }
+tokio-util = { version = "0.7", default-features = false }
+tracing = "0.1"
+
+[dev-dependencies]
+aws-testkit = { path = "../aws-testkit" }
+aws-logs = { path = "../aws-logs" }
+tokio = { version = "1", default-features = false, features = ["rt", "macros", "time", "test-util", "sync", "net", "io-util", "process"] }

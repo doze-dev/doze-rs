@@ -87,6 +87,26 @@ impl Peers {
             .map_err(|_| ApiError::internal("a peer's answer could not be read"))
     }
 
+    /// Like [`Peers::call`], for a target that speaks a REST protocol (S3): the answer keeps its streamed body, which the caller reads.
+    /// There is no request body stream; an operation that needs one cannot be called this way.
+    ///
+    /// # Errors
+    /// The target's own error; or an internal error if there is no such service or operation, or it has no REST side.
+    pub async fn call_rest(
+        &self,
+        acting: &str,
+        caller: &Caller,
+        target: &str,
+        operation: &str,
+        body: &Value,
+    ) -> Result<aws_wire::rest::RestReply, ApiError> {
+        let (service, call) = self.prepare(acting, caller, target, operation, body)?;
+        let rest = service
+            .rest()
+            .ok_or_else(|| ApiError::internal(format!("{target} has no REST side")))?;
+        rest.call_rest(call, None).await
+    }
+
     /// The target service and the decoded call.
     fn prepare(
         &self,

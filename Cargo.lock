@@ -326,6 +326,39 @@ dependencies = [
 ]
 
 [[package]]
+name = "aws-lambda"
+version = "0.0.0"
+dependencies = [
+ "aws-core",
+ "aws-dynamodb",
+ "aws-iam-policy",
+ "aws-kinesis",
+ "aws-logs",
+ "aws-model-lambda",
+ "aws-peers",
+ "aws-schema",
+ "aws-seal",
+ "aws-sqs",
+ "aws-testkit",
+ "aws-wire",
+ "bytes",
+ "crc32fast",
+ "doze-runtime",
+ "doze-store",
+ "flate2",
+ "http",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tokio",
+ "tokio-util",
+ "tracing",
+]
+
+[[package]]
 name = "aws-logs"
 version = "0.0.0"
 dependencies = [
@@ -1214,6 +1247,7 @@ dependencies = [
  "aws-iam",
  "aws-kinesis",
  "aws-kms",
+ "aws-lambda",
  "aws-logs",
  "aws-peers",
  "aws-s3",
