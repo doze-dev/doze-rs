@@ -1,0 +1,20 @@
+{ ($.code >= 500 && $.level = "err*") || $.tags[*] IS NULL }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+l":"error","tags":[null]}

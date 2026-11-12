@@ -20,7 +20,7 @@ use serde_json::Value;
 use crate::model::{Alarm, Doc, History, Series};
 use crate::req::Req;
 
-const FILE: &str = "cloudwatch.redb";
+pub(crate) const FILE: &str = "cloudwatch.redb";
 const SERIES: &str = "series";
 const ALARMS: &str = "alarms";
 const HISTORY: &str = "history";
@@ -133,6 +133,7 @@ impl doze_runtime::Service for Core {
                         next_due: self.earliest_due(),
                     };
                 }
+                self.remember_account(&call.caller.account_id);
                 let mut reply = self.dispatch(&call);
                 if let Err(e) = self.settle().await {
                     reply = Err(e);
@@ -141,7 +142,7 @@ impl doze_runtime::Service for Core {
             }
             Request::Tick(caller) => {
                 self.tick();
-                (caller, empty())
+                (self.identified(caller), empty())
             }
         };
         self.deliver(&caller).await;
@@ -239,6 +240,33 @@ impl Core {
 
     pub(crate) fn now_ms(&self) -> i64 {
         self.clock.now_ms()
+    }
+
+    /// Keeps the account the service answers for, so that a wake-up with nobody calling (after a restart) can still build the ARN of
+    /// an alarm for its notification.
+    fn remember_account(&mut self, account: &str) {
+        let key = crate::model::doc_key("meta", "account");
+        if self.docs.get(&key).is_none_or(|d| d.json != account) {
+            let updated_ms = self.now_ms();
+            self.docs.insert(
+                key,
+                Doc {
+                    json: account.to_owned(),
+                    updated_ms,
+                    tags: Default::default(),
+                },
+            );
+        }
+    }
+
+    /// A caller with the account filled in from what was remembered, if it has none.
+    fn identified(&self, mut caller: Caller) -> Caller {
+        if caller.account_id.is_empty()
+            && let Some(d) = self.docs.get(&crate::model::doc_key("meta", "account"))
+        {
+            caller.account_id.clone_from(&d.json);
+        }
+        caller
     }
 
     /// When the call wrote data an alarm watches: waits until it is on disk (a read of the samples finds only what is committed), then

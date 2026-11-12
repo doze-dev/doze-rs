@@ -1,0 +1,2 @@
+[ip, user, ..., status = 4* || status = 5* || status = 71]
+.0.0.[10/200034:55:36] "GET /a.gif H0" 404 2326

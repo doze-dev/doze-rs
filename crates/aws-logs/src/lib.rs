@@ -75,6 +75,14 @@ impl Logs {
     }
 }
 
+/// Whether `message` is selected by `pattern`; `false` for a pattern that does not parse. Exists so the pattern parser can be
+/// fuzzed.
+#[doc(hidden)]
+#[must_use]
+pub fn check_filter_pattern(pattern: &str, message: &str) -> bool {
+    pattern::parse(pattern).is_ok_and(|p| p.matches(message))
+}
+
 impl Service for Logs {
     fn meta(&self) -> &'static ServiceMeta {
         &META

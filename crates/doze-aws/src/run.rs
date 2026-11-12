@@ -46,6 +46,7 @@ pub(crate) async fn run(args: Args) -> Result<()> {
     let (iam, sts) = aws_iam::services(Arc::new(ctx("iam")));
     let iam = Arc::new(iam);
     peers.set_authorizer(iam.clone());
+    let cloudwatch = Arc::new(aws_cloudwatch::Cloudwatch::new(Arc::new(ctx("cloudwatch"))));
     let services: Vec<Arc<dyn Service>> = vec![
         iam,
         Arc::new(sts),
@@ -55,7 +56,7 @@ pub(crate) async fn run(args: Args) -> Result<()> {
         Arc::new(aws_kms::Kms::new(Arc::new(ctx("kms")))),
         Arc::new(aws_kinesis::Kinesis::new(Arc::new(ctx("kinesis")))),
         Arc::new(aws_logs::Logs::new(Arc::new(ctx("logs")))),
-        Arc::new(aws_cloudwatch::Cloudwatch::new(Arc::new(ctx("cloudwatch")))),
+        cloudwatch.clone(),
     ];
     let mut gateway = Gateway::new(config);
     for service in services {
@@ -66,6 +67,8 @@ pub(crate) async fn run(args: Args) -> Result<()> {
         .bind()
         .await
         .with_context(|| format!("listening on {}", args.listen))?;
+    // Alarms that were pending when the process last stopped are judged again; nothing else would wake their region.
+    cloudwatch.resume().await;
     // The line a supervisor (and the conformance harness) waits for.
     tracing::info!("doze-aws listening on {}", running.local_addr());
     wait_for_stop().await;

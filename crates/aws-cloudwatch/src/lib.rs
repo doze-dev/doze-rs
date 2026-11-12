@@ -40,7 +40,7 @@ use aws_schema::json::Violation;
 use aws_schema::meta::ServiceMeta;
 use aws_schema::tables::Tables;
 use aws_wire::ApiError;
-use aws_wire::service::{BoxFuture, Call, Reply, Service};
+use aws_wire::service::{BoxFuture, Call, Caller, Reply, Service};
 use doze_runtime::{Ctx, Keyed};
 
 use crate::core::{Core, Request};
@@ -55,6 +55,8 @@ pub struct Cloudwatch {
     /// One actor per region: a metric or alarm belongs to the region that made it.
     actors: Keyed<Core>,
     timers: Arc<Timers>,
+    /// The service's directory, which `resume` looks through.
+    dir: std::path::PathBuf,
 }
 
 impl Cloudwatch {
@@ -62,8 +64,48 @@ impl Cloudwatch {
     #[must_use]
     pub fn new(ctx: Arc<Ctx>) -> Self {
         Self {
+            dir: ctx.dir.clone(),
             timers: Timers::new(Arc::clone(&ctx)),
             actors: Keyed::new("cloudwatch", ctx, HOME_REGION),
+        }
+    }
+
+    /// Starts the alarm timers of the regions that have CloudWatch state on disk. Run once when the process starts: nothing else
+    /// would wake a region that nobody calls after a restart, and an alarm whose data aged out meanwhile would wait for a request.
+    /// A region with no alarm to judge is opened and left to be reaped when it has been quiet.
+    pub async fn resume(&self) {
+        let mut regions = Vec::new();
+        if self.dir.join(core::FILE).exists() {
+            regions.push(HOME_REGION.to_owned());
+        }
+        if let Ok(entries) = std::fs::read_dir(self.dir.join("regions")) {
+            for e in entries.flatten() {
+                if e.path().join(core::FILE).exists()
+                    && let Some(name) = e.file_name().to_str()
+                {
+                    regions.push(name.to_owned());
+                }
+            }
+        }
+        for region in regions {
+            let Ok(actor) = self.actors.actor(&region) else {
+                continue;
+            };
+            let caller = Caller {
+                access_key_id: "doze".to_owned(),
+                account_id: String::new(),
+                region: region.clone(),
+                endpoint: String::new(),
+                service: None,
+                session_token: None,
+            };
+            if let Ok(mut answer) = actor.call(Request::Tick(caller.clone())).await {
+                if let Some(saved) = answer.durable.take() {
+                    // WHY: a failed save is the writer's to report; the next call finds the same state and says so.
+                    drop(saved.await);
+                }
+                self.timers.arm(&region, &caller, &actor, answer.next_due);
+            }
         }
     }
 

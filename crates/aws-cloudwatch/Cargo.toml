@@ -27,4 +27,5 @@ tokio = { version = "1", default-features = false, features = ["sync", "time", "
 
 [dev-dependencies]
 aws-testkit = { path = "../aws-testkit" }
-tokio = { version = "1", default-features = false, features = ["rt", "macros", "time", "test-util", "sync"] }
+aws-gateway = { path = "../aws-gateway" }
+tokio = { version = "1", default-features = false, features = ["rt", "macros", "time", "test-util", "sync", "net", "io-util"] }

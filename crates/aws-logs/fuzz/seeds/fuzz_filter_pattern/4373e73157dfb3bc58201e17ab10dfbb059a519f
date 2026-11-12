@@ -1,0 +1,2 @@
+{ ($.code >= 00 && $.level = "err*") || $.tags[*] IS NULL }
+{"co{}de":0:=null]}

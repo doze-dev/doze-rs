@@ -1,0 +1,2 @@
+{ ($= "err*") || $.tags[*] IS NULL }
+{":[nul l]}

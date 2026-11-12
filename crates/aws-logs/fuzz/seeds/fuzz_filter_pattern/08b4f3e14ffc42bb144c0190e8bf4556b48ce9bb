@@ -1,0 +1,2 @@
+{ ($.e >= 500 && $.level = "err*") || $.tags[*] IS NULL }
+{"cod{ ($codee":}

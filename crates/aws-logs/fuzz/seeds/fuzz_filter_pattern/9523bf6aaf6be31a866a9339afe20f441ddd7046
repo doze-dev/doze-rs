@@ -1,0 +1,2 @@
+{ ($.cel = "err*") || $.tag IS NULL }
+{

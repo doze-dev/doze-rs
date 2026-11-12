@@ -1,0 +1,2 @@
+{ ($.code >= 500 && $.level = "err*") || $.rags[*] IS NULL }
+{"~ode":507,"level":"ezror","tags":[null]f}

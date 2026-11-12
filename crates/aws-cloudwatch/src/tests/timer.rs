@@ -76,6 +76,69 @@ impl Rig {
     }
 }
 
+/// The state of alarm `a` as `svc` reports it.
+async fn described(h: &Harness<Cloudwatch>, svc: &Cloudwatch) -> String {
+    let ix = h.op("DescribeAlarms");
+    let call = h.call(ix, &json!({"AlarmNames": ["a"]})).unwrap();
+    let out = svc.call(call).await.unwrap();
+    h.json(ix, &out)["MetricAlarms"][0]["StateValue"]
+        .as_str()
+        .unwrap()
+        .to_owned()
+}
+
+#[tokio::test]
+async fn a_restart_judges_again_the_alarms_that_were_pending_without_a_request() {
+    let dir = temp();
+    let ctx = |tasks: Tasks| {
+        Arc::new(Ctx {
+            dir: dir.path().to_path_buf(),
+            idle: Duration::from_secs(300),
+            tasks,
+            clock: Arc::new(SystemClock),
+            ext: None,
+        })
+    };
+    let before = Tasks::new();
+    let one = Cloudwatch::new(ctx(before.clone()));
+    let h = Harness::new(Cloudwatch::new(ctx(Tasks::new())));
+    let call = |op: &str, req: Value| {
+        let ix = h.op(op);
+        h.call(ix, &req).unwrap()
+    };
+    one.call(call(
+        "PutMetricAlarm",
+        json!({"AlarmName": "a", "Namespace": "T", "MetricName": "m", "Statistic": "Maximum", "Period": 1,
+            "EvaluationPeriods": 1, "Threshold": 100.0, "ComparisonOperator": "GreaterThanThreshold",
+            "TreatMissingData": "notBreaching"}),
+    ))
+    .await
+    .unwrap();
+    let into = SystemClock.now_ms().rem_euclid(1000);
+    tokio::time::sleep(Duration::from_millis(u64::try_from(1100 - into).unwrap())).await;
+    one.call(call(
+        "PutMetricData",
+        json!({"Namespace": "T", "MetricData": [{"MetricName": "m", "Value": 150.0, "StorageResolution": 1}]}),
+    ))
+    .await
+    .unwrap();
+    assert_eq!(described(&h, &one).await, "ALARM");
+    // The process stops with the alarm in ALARM and a deadline pending.
+    before.shutdown().await;
+    drop(one);
+
+    let two = Cloudwatch::new(ctx(Tasks::new()));
+    two.resume().await;
+    // No request is made for a second and a half. The datapoint was in a one-second window, so the alarm's deadline has come: the
+    // restarted service's own timer judges it, and the first request after only reports what it finds.
+    tokio::time::sleep(Duration::from_millis(1500)).await;
+    assert_eq!(
+        described(&h, &two).await,
+        "OK",
+        "the restarted service judged the alarm at its deadline"
+    );
+}
+
 #[tokio::test]
 async fn the_timer_sleeps_to_the_deadline_and_is_gone_when_there_is_none() {
     let rig = Rig::new();

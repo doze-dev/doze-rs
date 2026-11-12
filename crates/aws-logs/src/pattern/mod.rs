@@ -50,6 +50,7 @@ enum Kind {
 ///
 /// # Errors
 /// [`PatternError::Invalid`] for a pattern that is not one, [`PatternError::Regex`] for a regular expression.
+// fuzz:parser fuzz_filter_pattern
 pub(crate) fn parse(text: &str) -> Result<Pattern, PatternError> {
     let text = text.trim();
     if text.is_empty() {
