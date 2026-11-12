@@ -19,7 +19,10 @@ pub(crate) fn needs(call: &Call) -> Vec<Need> {
     let (region, account) = (&call.caller.region, &call.caller.account_id);
     let action = format!("kinesis:{op:?}");
     let resource = match op {
-        O::ListStreams | O::DescribeLimits => "*".to_owned(),
+        O::ListStreams
+        | O::DescribeLimits
+        | O::DescribeAccountSettings
+        | O::UpdateAccountSettings => "*".to_owned(),
         O::GetRecords => text("ShardIterator")
             .and_then(crate::reading::stream_of_iterator)
             .map_or_else(

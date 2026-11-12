@@ -92,7 +92,8 @@ impl Core {
             .iter_mut()
             .find(|s| s.holds(entry.hash))
             .ok_or_else(|| invalid("No open shard holds that hash key."))?;
-        let seq = (shard.last_seq + 1).max(floor);
+        // Never below the number the shard starts at (a child opened in this very millisecond starts a little above the floor).
+        let seq = (shard.last_seq + 1).max(floor).max(shard.first_seq);
         shard.last_seq = seq;
         let id = shard.id;
         let rec = Record {
@@ -138,6 +139,18 @@ impl Core {
             .collect();
         for (from, to) in ranges {
             self.rows.delete_range(&from, &to);
+        }
+        // A closed shard whose last record is older than the retention holds nothing and is no longer listed.
+        if let Some(stream) = self.streams.get(name)
+            && stream
+                .shards
+                .iter()
+                .any(|s| s.ended_seq.is_some_and(|e| e < cutoff))
+            && let Some(stream) = self.streams.get_mut(name)
+        {
+            stream
+                .shards
+                .retain(|s| s.ended_seq.is_none_or(|e| e >= cutoff));
         }
     }
 }

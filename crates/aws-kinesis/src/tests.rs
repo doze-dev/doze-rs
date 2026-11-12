@@ -12,6 +12,9 @@ use crate::core::Core;
 
 mod persistence;
 mod refusals;
+mod reshard;
+mod scaling;
+mod state;
 mod streams;
 
 pub(crate) struct World {
@@ -93,23 +96,22 @@ impl World {
 }
 
 #[test]
-fn resharding_and_streaming_are_refused_by_name() {
+fn streaming_is_refused_by_name_and_resharding_is_built() {
     let w = World::new();
     for op in [
         "PutRecord",
         "GetRecords",
         "RegisterStreamConsumer",
         "ListShards",
-    ] {
-        assert!(w.h.serves(op), "{op} is built");
-    }
-    for op in [
         "SplitShard",
         "MergeShards",
         "UpdateShardCount",
-        "SubscribeToShard",
-        "CreateChannel",
+        "DescribeAccountSettings",
+        "UpdateAccountSettings",
     ] {
+        assert!(w.h.serves(op), "{op} is built");
+    }
+    for op in ["SubscribeToShard", "CreateChannel"] {
         assert!(!w.h.serves(op), "{op} is refused");
     }
 }

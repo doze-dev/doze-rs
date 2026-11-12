@@ -2,16 +2,20 @@
 //! disk and survives an idle reap and a restart: stream metadata is kept in memory, and the records are only ever read from the
 //! database, so a stream's size is bounded by its retention and not by memory.
 //!
-//! Refused by name: resharding (`SplitShard`, `MergeShards`, `UpdateShardCount`: the shard records keep their lineage so adding
-//! them later changes nothing stored), `SubscribeToShard` (HTTP/2), channels, and the account-settings operations.
+//! Resharding (`SplitShard`, `MergeShards`, `UpdateShardCount`) closes shards and opens children that name them; a closed shard is
+//! read to its end and then answers with no `NextShardIterator` and its `ChildShards`.
+//!
+//! Refused by name: `SubscribeToShard` (HTTP/2), channels, and `UpdateStreamRecordDistributionStrategy`.
 
 mod authz;
+mod billing;
 mod consumers;
 mod core;
 mod model;
 mod reading;
 mod records;
 mod req;
+mod reshard;
 mod settings;
 mod streams;
 mod tags;
