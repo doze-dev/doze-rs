@@ -153,6 +153,12 @@ impl Core {
             State::PendingDeletion => {
                 return Err(invalid_state(format!("{} is pending deletion.", key.arn)));
             }
+            State::PendingImport => {
+                return Err(ApiError::modeled(
+                    "KMSInvalidStateException",
+                    format!("{} is pending import.", key.arn),
+                ));
+            }
             State::Disabled => {
                 return Err(ApiError::modeled(
                     "DisabledException",

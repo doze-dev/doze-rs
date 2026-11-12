@@ -16,6 +16,9 @@ pub(crate) enum Fail {
 
 /// Material for a new key of `spec`: random bytes, drawn again until the curve accepts them as a private key.
 pub(crate) fn generate(spec: Spec) -> Option<Vec<u8>> {
+    if let Some(bits) = spec.rsa_bits() {
+        return crate::rsa_keys::generate(bits);
+    }
     for _ in 0..16 {
         let mut bytes = vec![0_u8; spec.material_len()];
         getrandom_fill(&mut bytes)?;
@@ -108,7 +111,15 @@ ecdsa!(p521, Sha512);
 ecdsa!(k256, Sha256);
 
 /// The digest length each curve's hash makes, for a `DIGEST` message.
-pub(crate) fn digest_len(spec: Spec) -> Option<usize> {
+pub(crate) fn digest_len(spec: Spec, algorithm: &str) -> Option<usize> {
+    if spec.is_rsa() {
+        return match algorithm.rsplit('_').next()? {
+            "256" => Some(32),
+            "384" => Some(48),
+            "512" => Some(64),
+            _ => None,
+        };
+    }
     Some(match spec {
         Spec::EccP256 | Spec::EccK1 => Sha256::output_size(),
         Spec::EccP384 => Sha384::output_size(),
@@ -120,6 +131,7 @@ pub(crate) fn digest_len(spec: Spec) -> Option<usize> {
 /// The public key as a DER `SubjectPublicKeyInfo`.
 pub(crate) fn public_key(spec: Spec, secret: &[u8]) -> Option<Vec<u8>> {
     match spec {
+        s if s.is_rsa() => crate::rsa_keys::public_key(secret),
         Spec::EccP256 => p256::public_key(secret),
         Spec::EccP384 => p384::public_key(secret),
         Spec::EccP521 => p521::public_key(secret),
@@ -141,6 +153,7 @@ pub(crate) fn public_key(spec: Spec, secret: &[u8]) -> Option<Vec<u8>> {
 /// The private key as a DER PKCS #8 `PrivateKeyInfo`, for a data key pair.
 pub(crate) fn private_key(spec: Spec, secret: &[u8]) -> Option<Vec<u8>> {
     match spec {
+        s if s.is_rsa() => crate::rsa_keys::private_key(secret),
         Spec::EccP256 => p256::private_key(secret),
         Spec::EccP384 => p384::private_key(secret),
         Spec::EccP521 => p521::private_key(secret),
@@ -150,8 +163,15 @@ pub(crate) fn private_key(spec: Spec, secret: &[u8]) -> Option<Vec<u8>> {
 }
 
 /// Signs. `digest` says `message` is already the digest.
-pub(crate) fn sign(spec: Spec, secret: &[u8], message: &[u8], digest: bool) -> Option<Vec<u8>> {
+pub(crate) fn sign(
+    spec: Spec,
+    algorithm: &str,
+    secret: &[u8],
+    message: &[u8],
+    digest: bool,
+) -> Option<Vec<u8>> {
     match spec {
+        s if s.is_rsa() => crate::rsa_keys::sign(algorithm, secret, message, digest),
         Spec::EccP256 => p256::sign(secret, message, digest),
         Spec::EccP384 => p384::sign(secret, message, digest),
         Spec::EccP521 => p521::sign(secret, message, digest),
@@ -173,12 +193,14 @@ pub(crate) fn sign(spec: Spec, secret: &[u8], message: &[u8], digest: bool) -> O
 /// Verifies.
 pub(crate) fn verify(
     spec: Spec,
+    algorithm: &str,
     secret: &[u8],
     message: &[u8],
     digest: bool,
     signature: &[u8],
 ) -> Result<(), Fail> {
     match spec {
+        s if s.is_rsa() => crate::rsa_keys::verify(algorithm, secret, message, digest, signature),
         Spec::EccP256 => p256::verify(secret, message, digest, signature),
         Spec::EccP384 => p384::verify(secret, message, digest, signature),
         Spec::EccP521 => p521::verify(secret, message, digest, signature),
@@ -211,14 +233,14 @@ mod tests {
             Spec::Ed25519,
         ] {
             let secret = generate(spec).unwrap();
-            let sig = sign(spec, &secret, b"msg", false).unwrap();
+            let sig = sign(spec, "", &secret, b"msg", false).unwrap();
             assert_eq!(
-                verify(spec, &secret, b"msg", false, &sig),
+                verify(spec, "", &secret, b"msg", false, &sig),
                 Ok(()),
                 "{spec:?}"
             );
             assert_eq!(
-                verify(spec, &secret, b"other", false, &sig),
+                verify(spec, "", &secret, b"other", false, &sig),
                 Err(Fail::Invalid),
                 "{spec:?}"
             );
@@ -230,11 +252,17 @@ mod tests {
     fn a_digest_is_signed_as_a_digest() {
         let secret = generate(Spec::EccP256).unwrap();
         let digest = Sha256::digest(b"msg");
-        let sig = sign(Spec::EccP256, &secret, &digest, true).unwrap();
+        let sig = sign(Spec::EccP256, "", &secret, &digest, true).unwrap();
         // The signature over the digest is a signature over the message: the two ways agree.
-        assert_eq!(verify(Spec::EccP256, &secret, b"msg", false, &sig), Ok(()));
-        assert_eq!(verify(Spec::EccP256, &secret, &digest, true, &sig), Ok(()));
-        assert_eq!(digest_len(Spec::EccP256), Some(32));
+        assert_eq!(
+            verify(Spec::EccP256, "", &secret, b"msg", false, &sig),
+            Ok(())
+        );
+        assert_eq!(
+            verify(Spec::EccP256, "", &secret, &digest, true, &sig),
+            Ok(())
+        );
+        assert_eq!(digest_len(Spec::EccP256, ""), Some(32));
     }
 
     #[test]
@@ -243,7 +271,7 @@ mod tests {
             "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
         )
         .unwrap();
-        let sig = sign(Spec::Ed25519, &seed, b"", false).unwrap();
+        let sig = sign(Spec::Ed25519, "", &seed, b"", false).unwrap();
         assert_eq!(
             aws_core::hex::encode(&sig),
             "e5564300c360ac729086e2cc806e828a84877f1eb8e5d974d873e065224901555fb8821590a33bacc61e39701cf9b46bd25bf5f0595bbe24655141438e7a100b"
@@ -259,7 +287,7 @@ mod tests {
     fn a_garbled_signature_is_invalid_not_malformed() {
         let secret = generate(Spec::EccP384).unwrap();
         assert_eq!(
-            verify(Spec::EccP384, &secret, b"m", false, b"junk"),
+            verify(Spec::EccP384, "", &secret, b"m", false, b"junk"),
             Err(Fail::Invalid)
         );
     }

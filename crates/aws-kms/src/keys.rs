@@ -54,16 +54,28 @@ pub(crate) fn metadata(m: &mut Object<'_, Meta>, key: &Key, account: &str, regio
     if let Some(at) = key.purge_ms {
         m.put_time(Meta::DELETION_DATE, seconds(at));
     }
-    m.put(Meta::ORIGIN, "AWS_KMS");
+    m.put(
+        Meta::ORIGIN,
+        if key.external { "EXTERNAL" } else { "AWS_KMS" },
+    );
+    if let Some(model) = &key.expiration_model {
+        m.put(Meta::EXPIRATION_MODEL, model);
+    }
+    if let Some(at) = key.valid_to_ms {
+        m.put_time(Meta::VALID_TO, seconds(at));
+    }
     m.put(Meta::KEY_MANAGER, "CUSTOMER");
     m.put(Meta::CUSTOMER_MASTER_KEY_SPEC, key.spec.name());
     m.put(Meta::KEY_SPEC, key.spec.name());
     for (member, values) in [
         (
             Meta::ENCRYPTION_ALGORITHMS,
-            key.spec.encryption_algorithms(),
+            key.spec.encryption_algorithms(key.usage),
         ),
-        (Meta::SIGNING_ALGORITHMS, key.spec.signing_algorithms()),
+        (
+            Meta::SIGNING_ALGORITHMS,
+            key.spec.signing_algorithms(key.usage),
+        ),
         (Meta::MAC_ALGORITHMS, key.spec.mac_algorithms()),
     ] {
         if !values.is_empty() {
@@ -123,12 +135,16 @@ fn spec_and_usage(v: &aws_schema::view::View<'_, Create>) -> Result<(Spec, Usage
             spec.name()
         )));
     }
-    if v.get(Create::ORIGIN).is_some_and(|o| o != "AWS_KMS")
-        || v.get(Create::CUSTOM_KEY_STORE_ID).is_some()
-    {
+    let origin = v.get(Create::ORIGIN).unwrap_or("AWS_KMS");
+    if !matches!(origin, "AWS_KMS" | "EXTERNAL") || v.get(Create::CUSTOM_KEY_STORE_ID).is_some() {
         return Err(ApiError::modeled(
             "UnsupportedOperationException",
-            "Only keys made by KMS are built in doze-aws: no imported key material and no custom key stores.",
+            "Only keys made by KMS or with imported material are built in doze-aws: no custom key stores.",
+        ));
+    }
+    if origin == "EXTERNAL" && spec != Spec::Symmetric {
+        return Err(validation(
+            "Only a symmetric encryption key can have imported key material.",
         ));
     }
     Ok((spec, usage))
@@ -138,6 +154,7 @@ impl Core {
     pub(crate) fn create_key(&mut self, call: &Call) -> Reply {
         let v = request::<Create>(call)?;
         let (spec, usage) = spec_and_usage(&v)?;
+        let external = v.get(Create::ORIGIN) == Some("EXTERNAL");
         let multi_region = v.get(Create::MULTI_REGION).unwrap_or(false);
         let id = if multi_region {
             format!("mrk-{}", id_hex()?)
@@ -162,11 +179,19 @@ impl Core {
             spec,
             usage,
             description: v.get(Create::DESCRIPTION).unwrap_or_default().to_owned(),
-            state: State::Enabled,
+            state: if external {
+                State::PendingImport
+            } else {
+                State::Enabled
+            },
             created_ms: now,
             purge_ms: None,
             window_days: None,
-            materials: vec![self.new_material(spec, now)?],
+            materials: if external {
+                Vec::new()
+            } else {
+                vec![self.new_material(spec, now)?]
+            },
             policy: Some(
                 v.get(Create::POLICY)
                     .map_or_else(|| default_policy(&call.caller.account_id), str::to_owned),
@@ -177,6 +202,10 @@ impl Core {
             next_rotation_ms: None,
             multi_region,
             grants: Vec::new(),
+            external,
+            import: None,
+            expiration_model: None,
+            valid_to_ms: None,
         };
         let shown = key.clone();
         self.keys.insert(id, key);
@@ -189,6 +218,18 @@ impl Core {
 
     /// A new generation of material for a key of `spec`, sealed.
     pub(crate) fn new_material(&self, spec: Spec, now: i64) -> Result<Material, ApiError> {
+        // An RSA key's material is made when it is first used; until then it has an id and nothing sealed.
+        if spec.is_rsa() {
+            let id =
+                aws_core::hex::encode(&aws_seal::random_bytes::<32>().ok_or_else(no_randomness)?);
+            return Ok(Material {
+                id,
+                sealed: Vec::new(),
+                created_ms: now,
+                retired_by: None,
+                retired_ms: None,
+            });
+        }
         let raw = crate::asym::generate(spec).ok_or_else(no_randomness)?;
         Ok(Material {
             id: aws_core::hex::encode(&material_id(&raw)),
@@ -249,6 +290,9 @@ impl Core {
             .ok_or_else(|| crate::find::not_found_key(call, &id))?;
         if key.state == State::PendingDeletion {
             return Err(invalid_state(format!("{} is pending deletion.", key.arn)));
+        }
+        if key.state == State::PendingImport {
+            return Err(invalid_state(format!("{} is pending import.", key.arn)));
         }
         key.state = to;
         empty()
@@ -317,7 +361,11 @@ impl Core {
             )));
         }
         // Recorded 2026-11-09: a key whose deletion is cancelled comes back Disabled, not Enabled.
-        key.state = State::Disabled;
+        key.state = if key.materials.is_empty() {
+            State::PendingImport
+        } else {
+            State::Disabled
+        };
         key.purge_ms = None;
         key.window_days = None;
         let arn = key.arn.clone();

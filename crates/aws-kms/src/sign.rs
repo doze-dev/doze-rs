@@ -24,7 +24,7 @@ fn digest_flag(message_type: Option<&str>) -> bool {
 
 impl Core {
     /// The current material of `key`, opened.
-    fn secret_of(&self, key: &Key) -> Result<Vec<u8>, ApiError> {
+    pub(crate) fn secret_of(&self, key: &Key) -> Result<Vec<u8>, ApiError> {
         let m = key
             .current()
             .ok_or_else(|| ApiError::internal("a key has no material"))?;
@@ -43,7 +43,7 @@ impl Core {
     ) -> Result<&'a Key, ApiError> {
         let key = self.key(call, id)?;
         usable(key, Usage::SignVerify, operation)?;
-        if !key.spec.signing_algorithms().contains(&algorithm) {
+        if !key.spec.signing_algorithms(key.usage).contains(&algorithm) {
             return Err(ApiError::modeled(
                 "InvalidKeyUsageException",
                 format!(
@@ -57,6 +57,7 @@ impl Core {
 
     pub(crate) fn sign(&mut self, call: &Call) -> Reply {
         let v = request::<Sign>(call)?;
+        self.ensure_material(call, v.get(Sign::KEY_ID).unwrap_or_default())?;
         let algorithm = v.get(Sign::SIGNING_ALGORITHM).unwrap_or_default();
         let key = self.signer(
             call,
@@ -66,14 +67,15 @@ impl Core {
         )?;
         let digest = digest_flag(v.get(Sign::MESSAGE_TYPE));
         let message = v.get(Sign::MESSAGE).unwrap_or_default();
-        check_digest(key, message, digest)?;
+        check_digest(key, algorithm, message, digest)?;
         let secret = self.secret_of(key)?;
-        let signature = asym::sign(key.spec, &secret, message, digest).ok_or_else(|| {
-            ApiError::modeled(
-                "InvalidKeyUsageException",
-                "That message type is not valid for this algorithm.",
-            )
-        })?;
+        let signature =
+            asym::sign(key.spec, algorithm, &secret, message, digest).ok_or_else(|| {
+                ApiError::modeled(
+                    "InvalidKeyUsageException",
+                    "That message type is not valid for this algorithm.",
+                )
+            })?;
         reply::<Signed>(|o| {
             o.put(Signed::KEY_ID, &key.arn);
             o.put_blob(Signed::SIGNATURE, &signature);
@@ -83,6 +85,7 @@ impl Core {
 
     pub(crate) fn verify(&mut self, call: &Call) -> Reply {
         let v = request::<Verify>(call)?;
+        self.ensure_material(call, v.get(Verify::KEY_ID).unwrap_or_default())?;
         let algorithm = v.get(Verify::SIGNING_ALGORITHM).unwrap_or_default();
         let key = self.signer(
             call,
@@ -92,10 +95,11 @@ impl Core {
         )?;
         let digest = digest_flag(v.get(Verify::MESSAGE_TYPE));
         let message = v.get(Verify::MESSAGE).unwrap_or_default();
-        check_digest(key, message, digest)?;
+        check_digest(key, algorithm, message, digest)?;
         let secret = self.secret_of(key)?;
         match asym::verify(
             key.spec,
+            algorithm,
             &secret,
             message,
             digest,
@@ -121,6 +125,7 @@ impl Core {
 
     pub(crate) fn get_public_key(&mut self, call: &Call) -> Reply {
         let v = request::<Public>(call)?;
+        self.ensure_material(call, v.get(Public::KEY_ID).unwrap_or_default())?;
         let key = self.key(call, v.get(Public::KEY_ID).unwrap_or_default())?;
         if key.state == State::PendingDeletion {
             return Err(crate::keys::invalid_state(format!(
@@ -144,7 +149,7 @@ impl Core {
             o.put(PublicKey::KEY_SPEC, key.spec.name());
             o.put(PublicKey::KEY_USAGE, key.usage.name());
             o.put_list(PublicKey::SIGNING_ALGORITHMS, |l| {
-                for a in key.spec.signing_algorithms() {
+                for a in key.spec.signing_algorithms(key.usage) {
                     l.push(a);
                 }
             });
@@ -222,8 +227,8 @@ impl Core {
 }
 
 /// A digest must be as long as the digest the key's algorithm makes.
-fn check_digest(key: &Key, message: &[u8], digest: bool) -> Result<(), ApiError> {
-    if digest && asym::digest_len(key.spec) != Some(message.len()) {
+fn check_digest(key: &Key, algorithm: &str, message: &[u8], digest: bool) -> Result<(), ApiError> {
+    if digest && asym::digest_len(key.spec, algorithm) != Some(message.len()) {
         return Err(validation(
             "The message is not the length of a digest for this algorithm.",
         ));

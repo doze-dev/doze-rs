@@ -114,6 +114,11 @@ impl Core {
 
     pub(crate) fn encrypt(&mut self, call: &Call) -> Reply {
         let v = request::<Encrypt>(call)?;
+        let given = v.get(Encrypt::KEY_ID).unwrap_or_default();
+        self.ensure_material(call, given)?;
+        if self.is_rsa(call, given)? {
+            return self.rsa_encrypt(call);
+        }
         if v.get(Encrypt::ENCRYPTION_ALGORITHM)
             .is_some_and(|a| a != SYMMETRIC)
         {
@@ -139,6 +144,12 @@ impl Core {
 
     pub(crate) fn decrypt(&mut self, call: &Call) -> Reply {
         let v = request::<Decrypt>(call)?;
+        if let Some(given) = v.get(Decrypt::KEY_ID) {
+            self.ensure_material(call, given)?;
+            if self.is_rsa(call, given)? {
+                return self.rsa_decrypt(call);
+            }
+        }
         let ctx = context(v.get(Decrypt::ENCRYPTION_CONTEXT));
         let opened = self.open_blob(
             call,
@@ -275,8 +286,8 @@ impl Core {
     /// A new key pair for a data key pair call: the private key as PKCS #8 and the public key as SPKI, both DER.
     fn new_pair(spec: &str) -> Result<(Vec<u8>, Vec<u8>), ApiError> {
         let curve = crate::spec::Spec::parse(spec)
-            .filter(|s| matches!(s, crate::spec::Spec::EccP256 | crate::spec::Spec::EccP384 | crate::spec::Spec::EccP521 | crate::spec::Spec::EccK1))
-            .ok_or_else(|| ApiError::modeled("UnsupportedOperationException", format!("The key pair spec {spec} is not built in doze-aws: only the elliptic-curve ones are.")))?;
+            .filter(|s| s.is_rsa() || matches!(s, crate::spec::Spec::EccP256 | crate::spec::Spec::EccP384 | crate::spec::Spec::EccP521 | crate::spec::Spec::EccK1))
+            .ok_or_else(|| ApiError::modeled("UnsupportedOperationException", format!("The key pair spec {spec} is not built in doze-aws: only the RSA and elliptic-curve ones are.")))?;
         let secret = crate::asym::generate(curve).ok_or_else(no_randomness)?;
         let private = crate::asym::private_key(curve, &secret).ok_or_else(no_randomness)?;
         let public = crate::asym::public_key(curve, &secret).ok_or_else(no_randomness)?;

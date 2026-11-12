@@ -1,6 +1,6 @@
 //! Keys at work: encryption with contexts, data keys, re-encryption, signing, MACs, aliases, rotation, states.
 
-use base64_free::b64;
+pub(crate) use base64_free::b64;
 use serde_json::json;
 
 use super::{START, World};
@@ -339,4 +339,22 @@ fn policies_and_tags_round_trip() {
             .len(),
         1
     );
+}
+
+pub(crate) fn unb64(text: &str) -> Vec<u8> {
+    let value = |c: u8| {
+        b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+            .iter()
+            .position(|x| *x == c)
+            .unwrap() as u32
+    };
+    let clean: Vec<u8> = text.bytes().filter(|c| *c != b'=').collect();
+    let mut out = Vec::new();
+    for chunk in clean.chunks(4) {
+        let n = chunk.iter().fold(0_u32, |a, c| a << 6 | value(*c)) << (6 * (4 - chunk.len()));
+        for i in 0..chunk.len() - 1 {
+            out.push((n >> (16 - 8 * i)) as u8);
+        }
+    }
+    out
 }

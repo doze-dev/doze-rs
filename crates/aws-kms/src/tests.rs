@@ -11,9 +11,11 @@ use crate::Kms;
 use crate::core::Core;
 
 mod grants;
+mod import;
 mod keys;
 mod persistence;
 mod refusals;
+mod rsa;
 
 pub(crate) const START: i64 = 1_700_000_000_000;
 
@@ -95,8 +97,8 @@ fn what_is_not_built_is_refused_by_name() {
     for op in [
         "CreateCustomKeyStore",
         "DeriveSharedSecret",
-        "ImportKeyMaterial",
         "ReplicateKey",
+        "UpdatePrimaryRegion",
     ] {
         assert!(!w.h.serves(op), "{op} is refused");
     }

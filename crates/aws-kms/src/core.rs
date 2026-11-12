@@ -87,6 +87,9 @@ pub(crate) fn built(op: Operation) -> bool {
             | O::RetireGrant
             | O::GenerateDataKeyPair
             | O::GenerateDataKeyPairWithoutPlaintext
+            | O::GetParametersForImport
+            | O::ImportKeyMaterial
+            | O::DeleteImportedKeyMaterial
     )
 }
 
@@ -160,7 +163,7 @@ impl Core {
         sealer: Sealer,
         db: Option<Db>,
     ) -> Self {
-        let next_purge_ms = keys.iter().filter_map(|(_, k)| k.purge_ms).min();
+        let next_purge_ms = next_event(&keys);
         Self {
             keys,
             aliases,
@@ -196,6 +199,7 @@ impl Core {
         for id in &gone {
             self.keys.remove(id);
         }
+        self.expire_imports(now);
         let orphans: Vec<String> = self
             .aliases
             .iter()
@@ -205,7 +209,7 @@ impl Core {
         for name in orphans {
             self.aliases.remove(&name);
         }
-        self.next_purge_ms = self.keys.iter().filter_map(|(_, k)| k.purge_ms).min();
+        self.next_purge_ms = next_event(&self.keys);
     }
 
     /// Sends what the last call changed to the writer; the [`Ack`] resolves when it is on disk.
@@ -270,6 +274,9 @@ impl Core {
             O::RevokeGrant => self.revoke_grant(call),
             O::RetireGrant => self.retire_grant(call),
             O::GenerateDataKeyPair => self.generate_data_key_pair(call),
+            O::GetParametersForImport => self.get_parameters_for_import(call),
+            O::ImportKeyMaterial => self.import_key_material(call),
+            O::DeleteImportedKeyMaterial => self.delete_imported_key_material(call),
             O::GenerateDataKeyPairWithoutPlaintext => {
                 self.generate_data_key_pair_without_plaintext(call)
             }
@@ -280,6 +287,14 @@ impl Core {
             )),
         }
     }
+}
+
+/// When the next key is due to be removed or has imported material that expires.
+fn next_event(keys: &Records<Key>) -> Option<i64> {
+    keys.iter()
+        .flat_map(|(_, k)| [k.purge_ms, k.valid_to_ms])
+        .flatten()
+        .min()
 }
 
 pub(crate) fn validation(message: impl Into<String>) -> ApiError {

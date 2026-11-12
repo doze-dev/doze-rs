@@ -13,6 +13,8 @@ pub(crate) enum State {
     Enabled,
     Disabled,
     PendingDeletion,
+    /// An external key (its material is imported) that has no material: new, deleted, or expired.
+    PendingImport,
 }
 
 impl State {
@@ -21,6 +23,7 @@ impl State {
             Self::Enabled => "Enabled",
             Self::Disabled => "Disabled",
             Self::PendingDeletion => "PendingDeletion",
+            Self::PendingImport => "PendingImport",
         }
     }
 }
@@ -59,6 +62,23 @@ pub(crate) struct Key {
     pub(crate) next_rotation_ms: Option<i64>,
     pub(crate) multi_region: bool,
     pub(crate) grants: Vec<Grant>,
+    /// Whether the key's material is imported (`Origin` is `EXTERNAL`) and not made here.
+    pub(crate) external: bool,
+    /// The wrapping key pair handed out by `GetParametersForImport`, until the material is imported.
+    pub(crate) import: Option<Import>,
+    pub(crate) expiration_model: Option<String>,
+    /// When imported material expires, if it does.
+    pub(crate) valid_to_ms: Option<i64>,
+}
+
+/// What `GetParametersForImport` handed out: a token, and the RSA key that wraps the material.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub(crate) struct Import {
+    pub(crate) token: Vec<u8>,
+    /// The wrapping private key (PKCS #8), sealed.
+    pub(crate) wrapping: Vec<u8>,
+    pub(crate) algorithm: String,
+    pub(crate) valid_to_ms: i64,
 }
 
 /// A grant: permission for a principal to use a key for some operations. Kept and listed; it is not evaluated until the IAM stage can.

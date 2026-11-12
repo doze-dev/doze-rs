@@ -73,6 +73,12 @@ pub(crate) fn usable(key: &Key, usage: Usage, operation: &str) -> Result<(), Api
                 format!("{} is pending deletion.", key.arn),
             ));
         }
+        State::PendingImport => {
+            return Err(ApiError::modeled(
+                "KMSInvalidStateException",
+                format!("{} is pending import.", key.arn),
+            ));
+        }
         State::Disabled => {
             return Err(ApiError::modeled(
                 "DisabledException",

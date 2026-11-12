@@ -15,6 +15,9 @@ pub(crate) enum Spec {
     EccP521,
     EccK1,
     Ed25519,
+    Rsa2048,
+    Rsa3072,
+    Rsa4096,
 }
 
 /// What a key is for.
@@ -26,7 +29,7 @@ pub(crate) enum Usage {
 }
 
 impl Spec {
-    pub(crate) const ALL: [Self; 10] = [
+    pub(crate) const ALL: [Self; 13] = [
         Self::Symmetric,
         Self::Hmac224,
         Self::Hmac256,
@@ -37,6 +40,9 @@ impl Spec {
         Self::EccP521,
         Self::EccK1,
         Self::Ed25519,
+        Self::Rsa2048,
+        Self::Rsa3072,
+        Self::Rsa4096,
     ];
 
     pub(crate) const fn name(self) -> &'static str {
@@ -51,6 +57,9 @@ impl Spec {
             Self::EccP521 => "ECC_NIST_P521",
             Self::EccK1 => "ECC_SECG_P256K1",
             Self::Ed25519 => "ECC_NIST_EDWARDS25519",
+            Self::Rsa2048 => "RSA_2048",
+            Self::Rsa3072 => "RSA_3072",
+            Self::Rsa4096 => "RSA_4096",
         }
     }
 
@@ -78,7 +87,25 @@ impl Spec {
                     Self::EccP256 | Self::EccP384 | Self::EccP521 | Self::EccK1 | Self::Ed25519,
                     Usage::SignVerify
                 )
+                | (
+                    Self::Rsa2048 | Self::Rsa3072 | Self::Rsa4096,
+                    Usage::EncryptDecrypt | Usage::SignVerify
+                )
         )
+    }
+
+    pub(crate) const fn is_rsa(self) -> bool {
+        matches!(self, Self::Rsa2048 | Self::Rsa3072 | Self::Rsa4096)
+    }
+
+    /// The modulus size of an RSA spec.
+    pub(crate) const fn rsa_bits(self) -> Option<usize> {
+        match self {
+            Self::Rsa2048 => Some(2048),
+            Self::Rsa3072 => Some(3072),
+            Self::Rsa4096 => Some(4096),
+            _ => None,
+        }
     }
 
     pub(crate) const fn is_hmac(self) -> bool {
@@ -96,17 +123,27 @@ impl Spec {
             Self::Hmac384 | Self::EccP384 => 48,
             Self::Hmac512 => 64,
             Self::EccP521 => 66,
+            // RSA material is a PKCS #8 document of no fixed size.
+            Self::Rsa2048 | Self::Rsa3072 | Self::Rsa4096 => 0,
         }
     }
 
-    pub(crate) fn encryption_algorithms(self) -> &'static [&'static str] {
-        match self {
-            Self::Symmetric => &["SYMMETRIC_DEFAULT"],
+    pub(crate) fn encryption_algorithms(self, usage: Usage) -> &'static [&'static str] {
+        match (self, usage) {
+            (Self::Symmetric, _) => &["SYMMETRIC_DEFAULT"],
+            (s, Usage::EncryptDecrypt) if s.is_rsa() => &["RSAES_OAEP_SHA_1", "RSAES_OAEP_SHA_256"],
             _ => &[],
         }
     }
 
-    pub(crate) fn signing_algorithms(self) -> &'static [&'static str] {
+    pub(crate) fn signing_algorithms(self, usage: Usage) -> &'static [&'static str] {
+        if self.is_rsa() {
+            return if usage == Usage::SignVerify {
+                &RSA_SIGNING
+            } else {
+                &[]
+            };
+        }
         match self {
             Self::EccP256 | Self::EccK1 => &["ECDSA_SHA_256"],
             Self::EccP384 => &["ECDSA_SHA_384"],
@@ -146,3 +183,13 @@ impl Usage {
         .find(|u| u.name() == name)
     }
 }
+
+/// What an RSA signing key can do: PSS and PKCS #1 v1.5, each with SHA-256, SHA-384 and SHA-512.
+const RSA_SIGNING: [&str; 6] = [
+    "RSASSA_PSS_SHA_256",
+    "RSASSA_PSS_SHA_384",
+    "RSASSA_PSS_SHA_512",
+    "RSASSA_PKCS1_V1_5_SHA_256",
+    "RSASSA_PKCS1_V1_5_SHA_384",
+    "RSASSA_PKCS1_V1_5_SHA_512",
+];

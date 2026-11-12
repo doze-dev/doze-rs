@@ -80,6 +80,16 @@ fn a_restart_changes_nothing_whatever_was_done_before_it() {
     );
     r.step("DeleteAlias", &json!({"AliasName": "alias/a"}));
     r.step("EnableKey", &json!({"KeyId": id}));
+    // Keys with imported material, and the wrapping key an import hands out, are kept too.
+    let external = r.step("CreateKey", &json!({"Origin": "EXTERNAL"}))["KeyMetadata"]["KeyId"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    r.step("GetParametersForImport", &json!({"KeyId": external, "WrappingAlgorithm": "RSAES_OAEP_SHA_256", "WrappingKeySpec": "RSA_2048"}));
+    r.step(
+        "CreateKey",
+        &json!({"KeySpec": "RSA_2048", "KeyUsage": "SIGN_VERIFY"}),
+    );
     // Material sealed by the first run, rotated since, still opens.
     assert_eq!(
         r.w.ok(

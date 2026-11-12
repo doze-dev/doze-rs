@@ -29,6 +29,10 @@ p384 = { version = "0.14", default-features = false, features = ["ecdsa", "pkcs8
 p521 = { version = "0.14", default-features = false, features = ["ecdsa", "pkcs8", "std"] }
 k256 = { version = "0.14", default-features = false, features = ["ecdsa", "pkcs8", "std"] }
 ed25519-dalek = { version = "3", default-features = false, features = [] }
+rsa = { version = "=0.10.0-rc.22", default-features = false, features = ["std", "encoding", "getrandom", "pkcs1v15"] }
+getrandom = { version = "0.4", features = ["sys_rng"] }
+sha1 = "0.11"
+aes-kw = "0.3"
 
 [dev-dependencies]
 aws-testkit = { path = "../aws-testkit" }

@@ -77,7 +77,7 @@ fn a_data_key_pair_is_a_pair() {
         "GenerateDataKeyPair",
         &json!({"KeyId": id, "KeyPairSpec": "ECC_NIST_P256"}),
     );
-    let b = |v: &serde_json::Value| unb64(v.as_str().unwrap());
+    let b = |v: &serde_json::Value| super::keys::unb64(v.as_str().unwrap());
     let secret = p256::SecretKey::from_pkcs8_der(&b(&pair["PrivateKeyPlaintext"])).unwrap();
     let public = p256::PublicKey::from_public_key_der(&b(&pair["PublicKey"])).unwrap();
     assert_eq!(
@@ -97,27 +97,9 @@ fn a_data_key_pair_is_a_pair() {
     assert_eq!(
         w.err(
             "GenerateDataKeyPair",
-            &json!({"KeyId": id, "KeyPairSpec": "RSA_2048"})
+            &json!({"KeyId": id, "KeyPairSpec": "SM2"})
         )
         .0,
         "UnsupportedOperationException"
     );
-}
-
-fn unb64(text: &str) -> Vec<u8> {
-    let value = |c: u8| {
-        b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
-            .iter()
-            .position(|x| *x == c)
-            .unwrap() as u32
-    };
-    let clean: Vec<u8> = text.bytes().filter(|c| *c != b'=').collect();
-    let mut out = Vec::new();
-    for chunk in clean.chunks(4) {
-        let n = chunk.iter().fold(0_u32, |a, c| a << 6 | value(*c)) << (6 * (4 - chunk.len()));
-        for i in 0..chunk.len() - 1 {
-            out.push((n >> (16 - 8 * i)) as u8);
-        }
-    }
-    out
 }
