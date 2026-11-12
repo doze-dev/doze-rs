@@ -4,7 +4,7 @@ use aws_wire::ApiError;
 use serde_json::{Value, json};
 
 use crate::core::Core;
-use crate::errors::{invalid_argument, malformed_policy, malformed_xml};
+use crate::errors::{malformed_policy, malformed_xml};
 use crate::req::Req;
 
 /// What a bucket answers for a configuration nobody set, where AWS answers with something and not with an error. Wording and values
@@ -162,9 +162,4 @@ fn strings(v: Option<&Value>) -> Vec<String> {
             .collect(),
         _ => Vec::new(),
     }
-}
-
-/// An `InvalidArgument` for a configuration that names something that cannot be used.
-pub(crate) fn invalid_destination(message: &str) -> ApiError {
-    invalid_argument(message)
 }

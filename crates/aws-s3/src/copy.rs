@@ -12,7 +12,7 @@ use crate::checksum::{Algo, Done, Sums};
 use crate::core::Core;
 use crate::errors::{invalid_argument, invalid_request, no_such_bucket, precondition_failed};
 use crate::events::Kind;
-use crate::get::{check_conditions, slices};
+use crate::get::slices;
 use crate::model::{Seg, Version, Versioning};
 use crate::put::{add_checksum, check_key, meta_of, primary, tags_of};
 use crate::req::{Answer, Out, Req, Slice};
@@ -115,7 +115,6 @@ impl Core {
         {
             return Err(precondition_failed("x-amz-copy-source-If-None-Match"));
         }
-        let _ = check_conditions;
         Ok(v)
     }
 
@@ -125,49 +124,13 @@ impl Core {
         let dest = self.require(&bucket)?.versioning;
         let src = self.copy_source(req)?;
         let replace = req.s("MetadataDirective") == Some("REPLACE");
-        let same = src.key == key
-            && req
-                .s("CopySource")
-                .is_some_and(|c| c.trim_start_matches('/').starts_with(&format!("{bucket}/")));
-        if same
-            && !replace
-            && dest != Versioning::Enabled
-            && req.s("StorageClass").is_none()
-            && req.s("ServerSideEncryption").is_none()
-            && req.s("WebsiteRedirectLocation").is_none()
-        {
-            return Err(invalid_request(
-                "This copy request is illegal because it is trying to copy an object to itself without changing the object's metadata, storage class, website redirect location or encryption attributes.",
-            ));
-        }
-        let algos = [req
+        check_not_onto_itself(req, &src, &bucket, replace, dest)?;
+        let algo = req
             .s("ChecksumAlgorithm")
             .and_then(Algo::parse)
             .or(src.checksum.as_ref().map(|c| c.algo))
-            .unwrap_or(Algo::Crc64Nvme)];
-        let mut staging = self.blobs.begin().map_err(io_failed)?;
-        let sl = slices(self, &src.segs, 0, src.size)?;
-        let done = match copy_into(&mut staging, sl, &algos).await {
-            Ok(d) => d,
-            Err(e) => {
-                self.blobs.discard(&staging);
-                return Err(e);
-            }
-        };
-        let blob = self.blobs.publish(&staging).map_err(io_failed)?;
-        let mut meta = if replace {
-            meta_of(req)
-        } else {
-            src.meta.clone()
-        };
-        let (sse, kms) = self.default_sse(&bucket);
-        if let Some(s) = req.s("ServerSideEncryption") {
-            meta.sse = Some(s.to_owned());
-        }
-        meta.sse.get_or_insert(sse);
-        if meta.sse_kms_key.is_none() {
-            meta.sse_kms_key = kms;
-        }
+            .unwrap_or(Algo::Crc64Nvme);
+        let (blob, len, done) = self.copy_bytes(&src, algo).await?;
         let tags = if req.s("TaggingDirective") == Some("REPLACE") {
             req.s("Tagging").map(tags_of).unwrap_or_default()
         } else {
@@ -179,28 +142,91 @@ impl Core {
             seq: 0,
             delete_marker: false,
             modified_ms: self.now_ms(),
-            size: staging.len,
+            size: len,
             etag: aws_core::hex::encode(&done.md5),
-            meta,
+            meta: self.copied_meta(req, &src, &bucket, replace),
             checksum: primary(&done),
-            segs: vec![Seg {
-                blob,
-                len: staging.len,
-            }],
+            segs: vec![Seg { blob, len }],
             parts: Vec::new(),
             tags,
         };
         let stored = self.install(&bucket, v)?;
-        self.note(
-            req,
-            Kind::Object("ObjectCreated:Copy"),
-            &stored.key,
-            stored.size,
-            &stored.etag,
-            Some(&stored.version_id),
-        );
+        self.note(req, Kind::Object("ObjectCreated:Copy"), &stored);
         Out::json(copy_output(&stored, &src, dest != Versioning::Off))
     }
+
+    /// The source's bytes in a new blob: its id, its length, and its sums.
+    async fn copy_bytes(
+        &mut self,
+        src: &Version,
+        algo: Algo,
+    ) -> Result<(String, u64, crate::checksum::Done), ApiError> {
+        let mut staging = self.blobs.begin().map_err(io_failed)?;
+        let sl = slices(self, &src.segs, 0, src.size)?;
+        let done = match copy_into(&mut staging, sl, &[algo]).await {
+            Ok(d) => d,
+            Err(e) => {
+                self.blobs.discard(&staging);
+                return Err(e);
+            }
+        };
+        let blob = self.blobs.publish(&staging).map_err(io_failed)?;
+        Ok((blob, staging.len, done))
+    }
+
+    /// The headers the copy keeps: the source's, or the request's when it replaces them; the encryption is the request's, else the
+    /// source's, else the bucket's default.
+    fn copied_meta(
+        &self,
+        req: &Req<'_>,
+        src: &Version,
+        bucket: &str,
+        replace: bool,
+    ) -> crate::model::Meta {
+        let mut meta = if replace {
+            meta_of(req)
+        } else {
+            src.meta.clone()
+        };
+        let (sse, kms) = self.default_sse(bucket);
+        if let Some(s) = req.s("ServerSideEncryption") {
+            meta.sse = Some(s.to_owned());
+        }
+        meta.sse.get_or_insert(sse);
+        if meta.sse_kms_key.is_none() {
+            meta.sse_kms_key = kms;
+        }
+        meta
+    }
+}
+
+/// A copy onto the same key that changes nothing is refused (unless versioning is on, where it makes a new version).
+fn check_not_onto_itself(
+    req: &Req<'_>,
+    src: &Version,
+    bucket: &str,
+    replace: bool,
+    dest: Versioning,
+) -> Result<(), ApiError> {
+    let same = src.key == req.key()
+        && req
+            .s("CopySource")
+            .is_some_and(|c| c.trim_start_matches('/').starts_with(&format!("{bucket}/")));
+    let changes = replace
+        || dest == Versioning::Enabled
+        || [
+            "StorageClass",
+            "ServerSideEncryption",
+            "WebsiteRedirectLocation",
+        ]
+        .iter()
+        .any(|m| req.s(m).is_some());
+    if same && !changes {
+        return Err(invalid_request(
+            "This copy request is illegal because it is trying to copy an object to itself without changing the object's metadata, storage class, website redirect location or encryption attributes.",
+        ));
+    }
+    Ok(())
 }
 
 fn copy_output(stored: &Version, src: &Version, versioned: bool) -> Value {

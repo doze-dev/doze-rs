@@ -186,14 +186,7 @@ impl Core {
             tags: req.s("Tagging").map(tags_of).unwrap_or_default(),
         };
         let stored = self.install(&bucket, v)?;
-        self.note(
-            &req,
-            Kind::Object("ObjectCreated:Put"),
-            &stored.key,
-            stored.size,
-            &stored.etag,
-            Some(&stored.version_id),
-        );
+        self.note(&req, Kind::Object("ObjectCreated:Put"), &stored);
         Out::json(self.put_output(&bucket, &stored))
     }
 

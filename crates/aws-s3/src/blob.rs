@@ -103,9 +103,7 @@ impl<F: Fs> Blobs<F> {
     /// Throws a staging file away.
     pub(crate) fn discard(&self, staged: &Staging<F>) {
         // WHY: a file that cannot be removed now is removed by the sweep at the next start.
-        if self.fs.remove_file(&staged.path).is_err() {
-            return;
-        }
+        self.fs.remove_file(&staged.path).ok();
     }
 
     /// Opens blob `id` for reading.
@@ -119,9 +117,7 @@ impl<F: Fs> Blobs<F> {
     /// Removes a blob; one already gone is fine.
     pub(crate) fn remove(&self, id: &str) {
         // WHY: a blob that stays behind is unreferenced and is swept at the next unclean start; nothing reads it.
-        if self.fs.remove_file(&self.dir.join(id)).is_err() {
-            return;
-        }
+        self.fs.remove_file(&self.dir.join(id)).ok();
     }
 
     /// Removes staging files that belong to no running process and, when `live` is given, blobs nothing refers to.

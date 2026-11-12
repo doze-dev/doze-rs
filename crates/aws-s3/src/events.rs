@@ -51,16 +51,18 @@ impl Event {
                 "HostId": aws_wire::rest::response::host_id(&aws_wire::RequestId::new()),
             });
         };
-        let mut object = json!({
-            "key": aws_core::uri::encode(self.key.as_bytes(), true).replace("%20", "+"),
-            "sequencer": format!("{:016X}", self.at_ms),
-        });
+        let mut object = serde_json::Map::new();
+        object.insert(
+            "key".into(),
+            json!(aws_core::uri::encode(self.key.as_bytes(), true).replace("%20", "+")),
+        );
+        object.insert("sequencer".into(), json!(format!("{:016X}", self.at_ms)));
         if !name.starts_with("ObjectRemoved") {
-            object["size"] = json!(self.size);
-            object["eTag"] = json!(self.etag);
+            object.insert("size".into(), json!(self.size));
+            object.insert("eTag".into(), json!(self.etag));
         }
         if let Some(v) = &self.version_id {
-            object["versionId"] = json!(v);
+            object.insert("versionId".into(), json!(v));
         }
         json!({"Records": [{
             "eventVersion": "2.1", "eventSource": "aws:s3", "awsRegion": self.caller.region,
@@ -117,9 +119,28 @@ impl Core {
         &mut self,
         req: &crate::req::Req<'_>,
         kind: Kind,
+        v: &crate::model::Version,
+    ) {
+        self.events.push(Event {
+            kind,
+            bucket: req.bucket().to_owned(),
+            key: v.key.clone(),
+            size: v.size,
+            etag: v.etag.clone(),
+            version_id: Some(v.version_id.clone()).filter(|v| v != "null"),
+            at_ms: self.now_ms(),
+            request_id: req.call.id.as_str().to_owned(),
+            caller: req.call.caller.clone(),
+        });
+    }
+
+    /// Notes an event about something that is not a stored version (a removal, the test event).
+    pub(crate) fn note_raw(
+        &mut self,
+        req: &crate::req::Req<'_>,
+        kind: Kind,
         key: &str,
         size: u64,
-        etag: &str,
         version: Option<&str>,
     ) {
         self.events.push(Event {
@@ -127,7 +148,7 @@ impl Core {
             bucket: req.bucket().to_owned(),
             key: key.to_owned(),
             size,
-            etag: etag.to_owned(),
+            etag: String::new(),
             version_id: version.filter(|v| *v != "null").map(str::to_owned),
             at_ms: self.now_ms(),
             request_id: req.call.id.as_str().to_owned(),
@@ -238,7 +259,7 @@ impl Core {
         };
         let body = event.body(config_id).to_string();
         // WHY: the queue may have been deleted since the configuration was put; S3 does not fail the request that caused the event.
-        if peers
+        peers
             .call(
                 "s3",
                 &event.caller,
@@ -247,10 +268,7 @@ impl Core {
                 &json!({"QueueUrl": url, "MessageBody": body}),
             )
             .await
-            .is_err()
-        {
-            return;
-        }
+            .ok();
     }
 }
 

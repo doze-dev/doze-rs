@@ -3,7 +3,6 @@
 use std::sync::Arc;
 
 use aws_wire::ApiError;
-use aws_wire::rest::Download;
 use aws_wire::service::Call;
 use doze_fs::fs::{Fs, RealFs};
 use serde_json::Value;
@@ -65,9 +64,6 @@ impl Out {
         })
     }
 }
-
-/// The streamed body type, for the signature of the wrapper.
-pub(crate) type Stream = Download;
 
 /// A request being served.
 pub(crate) struct Req<'a> {

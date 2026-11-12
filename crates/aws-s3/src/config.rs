@@ -192,7 +192,7 @@ impl Core {
             b.configs.insert(k.name.to_owned(), text);
         }
         if k.name == "notification" {
-            self.note(req, crate::events::Kind::Test, "", 0, "", None);
+            self.note_raw(req, crate::events::Kind::Test, "", 0, None);
         }
         match k.name {
             "lifecycle" => {

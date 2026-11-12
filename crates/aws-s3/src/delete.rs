@@ -169,12 +169,11 @@ impl Core {
         } else {
             "ObjectRemoved:Delete"
         };
-        self.note(
+        self.note_raw(
             req,
             Kind::Object(name),
             key,
             r.size,
-            "",
             r.version_id.as_deref(),
         );
     }

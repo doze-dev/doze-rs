@@ -166,9 +166,7 @@ impl Core {
             return Err(ApiError::internal("a stored object could not be read"));
         }
         // `next` marks the last row returned; it only matters when the page stopped because it was full.
-        if count < q.max {
-            f.next = None;
-        } else if f.next.is_some() && !self.versions_after(q, &f)? {
+        if count < q.max || (f.next.is_some() && !self.versions_after(q, &f)?) {
             f.next = None;
         }
         Ok(f)

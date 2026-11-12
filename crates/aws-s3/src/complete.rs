@@ -58,7 +58,11 @@ fn listed(req: &Req<'_>) -> Result<Vec<Listed>, ApiError> {
 impl Core {
     /// The stored parts that match the list, in order.
     fn matched_parts(&self, id: &str, list: &[Listed]) -> Result<Vec<(u32, PartRec)>, ApiError> {
-        if list.windows(2).any(|w| w[0].number >= w[1].number) {
+        if list
+            .iter()
+            .zip(list.iter().skip(1))
+            .any(|(a, b)| a.number >= b.number)
+        {
             return Err(ApiError::new(
                 400,
                 "InvalidPartOrder",
@@ -132,10 +136,7 @@ impl Core {
         self.note(
             req,
             Kind::Object("ObjectCreated:CompleteMultipartUpload"),
-            &stored.key,
-            stored.size,
-            &stored.etag,
-            Some(&stored.version_id),
+            &stored,
         );
         Out::json(complete_output(
             &bucket,

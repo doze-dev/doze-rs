@@ -4,7 +4,8 @@
     clippy::unwrap_used,
     clippy::expect_used,
     clippy::indexing_slicing,
-    clippy::panic
+    clippy::panic,
+    clippy::too_many_lines
 )]
 
 use std::net::SocketAddr;

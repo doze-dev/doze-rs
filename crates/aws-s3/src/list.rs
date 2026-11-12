@@ -33,7 +33,7 @@ impl Enc {
 
 /// One entry of a page.
 pub(crate) enum Entry {
-    Object(Version),
+    Object(Box<Version>),
     Prefix(String),
 }
 
@@ -144,7 +144,7 @@ impl Core {
                 truncated = true;
                 return false;
             }
-            entries.push(Entry::Object(v));
+            entries.push(Entry::Object(Box::new(v)));
             true
         })?;
         if bad {

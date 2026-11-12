@@ -93,14 +93,7 @@ impl Core {
         let mut v = self.readable(req.bucket(), req.key(), req.s("VersionId"))?;
         v.tags = tags;
         self.put_row(req.bucket(), &v)?;
-        self.note(
-            req,
-            Kind::Object("ObjectTagging:Put"),
-            &v.key,
-            v.size,
-            &v.etag,
-            Some(&v.version_id),
-        );
+        self.note(req, Kind::Object("ObjectTagging:Put"), &v);
         let mut out = json!({});
         if v.version_id != "null"
             && let Some(o) = out.as_object_mut()
@@ -129,14 +122,7 @@ impl Core {
             })?;
         v.tags.clear();
         self.put_row(req.bucket(), &v)?;
-        self.note(
-            req,
-            Kind::Object("ObjectTagging:Delete"),
-            &v.key,
-            v.size,
-            &v.etag,
-            Some(&v.version_id),
-        );
+        self.note(req, Kind::Object("ObjectTagging:Delete"), &v);
         Out::empty()
     }
 }

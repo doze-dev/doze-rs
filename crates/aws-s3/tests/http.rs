@@ -5,7 +5,8 @@
     clippy::unwrap_used,
     clippy::expect_used,
     clippy::indexing_slicing,
-    clippy::panic
+    clippy::panic,
+    clippy::too_many_lines
 )]
 
 use std::net::SocketAddr;
@@ -461,7 +462,7 @@ async fn versions_multipart_and_a_restart() {
         big.header("ETag")
     );
     let versions = call(&srv, "GET", "/bkt?versions", &[], b"").await.text();
-    assert_eq!(versions.matches("<Version>").count(), 3 + 0, "{versions}");
+    assert_eq!(versions.matches("<Version>").count(), 3, "{versions}");
     assert_eq!(versions.matches("<DeleteMarker>").count(), 1);
     srv.stop().await;
 }

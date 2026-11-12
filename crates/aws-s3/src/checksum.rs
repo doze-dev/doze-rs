@@ -188,6 +188,15 @@ fn crc_update(a: Algo, mut crc: u64, data: &[u8]) -> u64 {
     crc
 }
 
+/// All ones of the CRC's width: the value it starts from and the value it is inverted against.
+const fn mask(a: Algo) -> u64 {
+    if spec(a).1 == 32 {
+        0xFFFF_FFFF
+    } else {
+        u64::MAX
+    }
+}
+
 /// A CRC value as big-endian bytes of its width.
 fn crc_bytes(a: Algo, v: u64) -> Vec<u8> {
     let bytes = v.to_be_bytes();
@@ -353,14 +362,5 @@ mod tests {
         )
         .unwrap();
         assert_eq!(b64(&got), "om/L0dM0gF4=");
-    }
-}
-
-/// All ones of the CRC's width: the value it starts from and the value it is inverted against.
-const fn mask(a: Algo) -> u64 {
-    if spec(a).1 == 32 {
-        0xFFFF_FFFF
-    } else {
-        u64::MAX
     }
 }
