@@ -313,6 +313,22 @@ fn the_refusals_aws_recorded() {
             "Unknown Attribute QueueArn.".into()
         )
     );
+    // An unbuilt operation says so.
+    assert_eq!(
+        w.run(
+            Operation::TagQueue,
+            &json!({"QueueUrl": url, "Tags": {"a": "b"}})
+        )
+        .unwrap_err()
+        .status,
+        501
+    );
+}
+
+#[test]
+fn a_receive_out_of_range_is_refused_with_the_reason() {
+    let mut w = World::new();
+    let url = w.queue("q");
     for (key, value, parameter, reason) in [
         (
             "MaxNumberOfMessages",
@@ -339,10 +355,9 @@ fn the_refusals_aws_recorded() {
             "Must be between 0 and 43200, if provided.",
         ),
     ] {
-        let got = e(
-            &mut w,
+        let got = w.err(
             Operation::ReceiveMessage,
-            json!({"QueueUrl": url, key: value}),
+            &json!({"QueueUrl": url, key: value}),
         );
         assert_eq!(
             got,
@@ -353,16 +368,6 @@ fn the_refusals_aws_recorded() {
             )
         );
     }
-    // An unbuilt operation says so.
-    assert_eq!(
-        w.run(
-            Operation::TagQueue,
-            &json!({"QueueUrl": url, "Tags": {"a": "b"}})
-        )
-        .unwrap_err()
-        .status,
-        501
-    );
 }
 
 #[test]

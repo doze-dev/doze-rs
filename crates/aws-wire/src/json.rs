@@ -253,7 +253,11 @@ mod tests {
         let r = failure(&META, &TABLES, Version::V11, &RequestId::new(), &err);
         assert_eq!(r.status(), 400);
         assert_eq!(r.headers()["content-type"], "application/x-amz-json-1.1");
-        assert!(r.headers().get("x-amzn-query-error").is_none());
+        // A query-compatible service names the code the Query protocol would, modelled or not.
+        assert_eq!(
+            r.headers()["x-amzn-query-error"],
+            "InvalidSignatureException;Sender"
+        );
         assert_eq!(
             String::from_utf8(r.into_body()).unwrap(),
             r#"{"__type":"com.amazon.coral.service#InvalidSignatureException","message":"bad \"sig\""}"#
