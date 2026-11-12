@@ -1314,6 +1314,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "doze-display"
+version = "0.0.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "doze-fs"
 version = "0.0.0"
 dependencies = [
