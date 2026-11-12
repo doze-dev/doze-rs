@@ -89,7 +89,7 @@ async fn the_document_names_the_scripts_in_load_order_and_configures_htmx_withou
     let (app, s) = app("/", &[]);
     let (_, doc) = send(&app, support::get("/")).await;
     let at = |needle: &str| doc.find(needle).unwrap_or_else(|| panic!("{needle} not in the head"));
-    let order = ["htmx-2.0.11", "idiomorph-ext", "htmx-preload", "console.", "components.", "alpine-anchor", "alpine-csp"];
+    let order = ["htmx-2.0.11", "idiomorph-ext", "console.", "components.", "alpine-anchor", "alpine-csp"];
     let positions: Vec<usize> = order.iter().map(|n| at(&format!("/static/{n}"))).collect();
     assert!(positions.windows(2).all(|w| w[0] < w[1]), "{positions:?}");
     assert!(doc.contains(r#"<meta name="htmx-config" content="{&quot;allowEval&quot;:false,&quot;allowScriptTags&quot;:false,&quot;selfRequestsOnly&quot;:true"#), "{doc}");

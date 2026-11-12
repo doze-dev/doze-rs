@@ -43,6 +43,8 @@ fn select_html(s: &Select<'_>) -> Markup {
         div class={"dz dz-select " (s.class)} x-data="dzSelect" x-on:keydown="key" x-on:click="click" x-on:mousemove="hover" x-on:focusout="focusout" xo-click="away" xb-data-open="open" data-ui="select" data-name=(s.name) {
             // The control without a script, and the one a form reads with it.
             select class="dz-native" id=(s.id) name=(s.name) aria-label=(s.label) data-autosubmit[s.auto_submit] disabled[s.disabled] {
+                // With nothing chosen and no "all" choice the browser would pick the first option: say "nothing" instead.
+                @if s.value.is_empty() && !s.choices.iter().any(|c| c.value.is_empty()) { option value="" selected hidden { (s.placeholder) } }
                 @for c in s.choices { option value=(c.value) selected[c.value == s.value] disabled[c.disabled] { (c.label) } }
                 @if !chosen && !s.value.is_empty() { option value=(s.value) selected { (s.value) } }
             }

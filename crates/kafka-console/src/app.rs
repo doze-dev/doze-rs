@@ -79,6 +79,11 @@ pub fn router(state: Shared) -> Router {
             routes = routes.route(&path, method_router(route));
         }
     }
+    // The component gallery exists only where the fixtures do (the examples build): a release build has no such address.
+    #[cfg(feature = "examples")]
+    {
+        routes = routes.route(&state.base.url("/gallery"), get(handlers::gallery));
+    }
     routes
         .fallback(handlers::not_found)
         .method_not_allowed_fallback(handlers::method_not_allowed)

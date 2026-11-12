@@ -74,11 +74,11 @@ pub fn head(script_urls: &[String]) -> Markup {
 
 /// `<body>`: every link and form in it is boosted (a script swaps `main` and keeps the shell), they work as plain ones without
 /// one. A page swap cross-fades (`transition:true`) and starts at the top; a control that changes only the data it owns says
-/// so with [`in_place_link`] or [`in_place_form`], and the preload extension fetches a link's page when the pointer or focus shows intent.
+/// so with [`in_place_link`] or [`in_place_form`]. The script fetches a link's page ahead when the pointer rests on it or it takes focus.
 #[must_use]
 pub fn body(content: Markup) -> Markup {
     html! {
-        body hx-boost="true" hx-target="#main" hx-swap="outerHTML transition:true show:window:top" hx-ext="morph,preload" preload="mouseover" { (content) }
+        body hx-boost="true" hx-target="#main" hx-swap="outerHTML transition:true show:window:top" hx-ext="morph" { (content) }
     }
 }
 
@@ -91,7 +91,7 @@ pub const IN_PLACE_SWAP: &str = "morph:outerHTML show:none";
 #[must_use]
 pub fn in_place_link(target_id: &str, class: &str, href: &str, content: Markup) -> Markup {
     html! {
-        a class=(class) href=(href) hx-get=(href) hx-target={"#" (target_id)} hx-select={"#" (target_id)} hx-swap=(IN_PLACE_SWAP) hx-push-url="true" preload="false" { (content) }
+        a class=(class) href=(href) hx-get=(href) hx-target={"#" (target_id)} hx-select={"#" (target_id)} hx-swap=(IN_PLACE_SWAP) hx-push-url="true" data-nopreload="false" { (content) }
     }
 }
 

@@ -109,7 +109,7 @@ fn every_served_file_is_found_by_its_hashed_name_and_the_stylesheet_names_its_fo
 
 #[test]
 fn the_shipped_files_weigh_what_the_stack_decision_says() {
-    // 337 KB in all, fonts included (docs/port/console/client-stack.md): about 140 KB before the stack, 155 KB of vendored
+    // About 330 KB in all, fonts included (docs/port/console/client-stack.md): about 140 KB before the stack, 155 KB of vendored
     // script with it, and the console's own two scripts.
     let total = Assets::build(&Base::root()).total_bytes();
     assert!((250_000..420_000).contains(&total), "{total}");

@@ -69,6 +69,8 @@ document.addEventListener('alpine:init', () => {
           lab.addEventListener('click', (e) => { e.preventDefault(); trigger.focus(); });
         } else if (native.getAttribute('aria-label')) trigger.setAttribute('aria-label', native.getAttribute('aria-label'));
         if (native.disabled) trigger.disabled = true;
+        native.tabIndex = -1;
+        native.setAttribute('aria-hidden', 'true');
         root.classList.add('is-on');
         trigger.hidden = false;
         this.paint();
@@ -157,6 +159,8 @@ document.addEventListener('alpine:init', () => {
         if (lab) { if (!lab.id) lab.id = id + '-label'; input.setAttribute('aria-labelledby', lab.id); lab.addEventListener('click', (e) => { e.preventDefault(); input.focus(); }); }
         else if (native.getAttribute('aria-label')) input.setAttribute('aria-label', native.getAttribute('aria-label'));
         if (free) { try { native.type = 'hidden'; } catch (e) { /* an old engine keeps it a text field: the value is still right */ } native.removeAttribute('list'); }
+        native.tabIndex = -1;
+        native.setAttribute('aria-hidden', 'true');
         root.classList.add('is-on');
         root.querySelector('.dz-field').hidden = false;
         input.value = selectedLabel();

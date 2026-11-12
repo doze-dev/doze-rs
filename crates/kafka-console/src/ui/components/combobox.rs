@@ -44,6 +44,7 @@ fn combobox_html(c: &Combobox<'_>) -> Markup {
                 datalist id=(datalist_id) { @for ch in c.choices { option value=(ch.value) { (ch.label) } } }
             } @else {
                 select class="dz-native" id=(c.id) name=(c.name) aria-label=(c.label) data-autosubmit[c.auto_submit] {
+                    @if c.value.is_empty() && !c.choices.iter().any(|ch| ch.value.is_empty()) { option value="" selected hidden { (c.placeholder) } }
                     @for ch in c.choices { option value=(ch.value) selected[ch.value == c.value] { (ch.label) } }
                     @if !chosen && !c.value.is_empty() { option value=(c.value) selected { (c.value) } }
                 }

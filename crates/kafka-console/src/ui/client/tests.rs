@@ -55,7 +55,7 @@ fn the_markup_uses_the_attribute_names_the_constants_say() {
     // The body boosts every link and form; the stream's address is on `main` (the shell's tests), where a swap renews it.
     let body = body(html! {}).into_string();
     assert!(
-        body.starts_with(r##"<body hx-boost="true" hx-target="#main""##) && body.contains("preload=\"mouseover\""),
+        body.starts_with(r##"<body hx-boost="true" hx-target="#main""##) && body.contains("hx-ext=\"morph\""),
         "{body}"
     );
     let frag = fragment("home-instance", "/fragments/home-instance", html! { "x" }).into_string();

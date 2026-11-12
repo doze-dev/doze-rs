@@ -11,7 +11,7 @@
 // Sections, each standing on the ones above it:
 //   1. Helpers and the copy buttons      2. Fragments (morph, fade, refresh by ETag)      3. Live (pause, held, new rows)
 //   4. Overlays (htmx.ajax into #ovl, history, focus)      5. The palette      6. j and k      7. The stream
-//   8. Navigation (scroll, progress, focus, preload on focus)
+//   8. Navigation (scroll, progress, focus, preload on intent)
 (() => {
   // ==== 1. Helpers and the copy buttons ====
   const attr = (el, name) => (el ? el.getAttribute(name) : null);
@@ -486,11 +486,25 @@
   hx('pushedIntoHistory', () => { pageUrl = here(); });
   hx('replacedInHistory', () => { pageUrl = here(); });
   addEventListener('pagehide', remember);
-  // Preload on intent: htmx's extension does the pointer (after a short rest); keyboard focus is the same intent.
-  document.addEventListener('focusin', (e) => {
-    const a = e.target.closest && e.target.closest('a[href]');
-    if (a && a.closest('[preload]') && a.getAttribute('preload') !== 'false' && window.Event) a.dispatchEvent(new Event('mouseover'));
-  });
+  // Preload on intent: a boosted link that the pointer rests on for 65 ms, or that takes focus, has its page fetched ahead with the
+  // headers a navigation would send; the server lets the browser keep that answer for five seconds (src/region.rs), so the click
+  // that follows is answered from the cache. Links that change a region in place, open an overlay or leave the console are not
+  // fetched. (htmx's own preload extension was tried and dropped: it throws on a form with a hidden field and has no focus trigger.)
+  const warm = new Map();
+  let rest = 0;
+  const preloadable = (a) => a && a.href && a.origin === location.origin && !a.target && !a.hasAttribute('download') && !a.hasAttribute('data-dialog') &&
+    !a.hasAttribute('data-nopreload') && !a.hasAttribute('hx-get') && !a.hasAttribute('data-pause') && !a.hasAttribute('data-resume') &&
+    !a.hasAttribute('data-overlay-close') && !a.hasAttribute('data-dialog-close') && !!a.closest('[hx-boost=true]') && a.getAttribute('hx-boost') !== 'false' && a.href.split('#')[0] !== location.href.split('#')[0];
+  function preload(a) {
+    if (!preloadable(a)) return;
+    const seen = warm.get(a.href);
+    if (seen && Date.now() - seen < 4000) return;
+    warm.set(a.href, Date.now());
+    fetch(a.href, { credentials: 'same-origin', headers: { 'HX-Request': 'true', 'HX-Boosted': 'true', 'HX-Target': 'main', 'HX-Preloaded': 'true' } }).catch(() => warm.delete(a.href));
+  }
+  document.addEventListener('mouseover', (e) => { const a = e.target.closest && e.target.closest('a[href]'); clearTimeout(rest); if (a) rest = setTimeout(() => preload(a), 65); });
+  document.addEventListener('mouseout', () => clearTimeout(rest));
+  document.addEventListener('focusin', (e) => preload(e.target.closest && e.target.closest('a[href]')));
 
   adopt();
   connect();

@@ -8,6 +8,8 @@
 use maud::{Markup, PreEscaped, html};
 
 mod combobox;
+#[cfg(feature = "examples")]
+pub mod gallery;
 mod menu;
 mod select;
 mod seg;

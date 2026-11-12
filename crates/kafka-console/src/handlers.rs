@@ -2,6 +2,8 @@
 
 mod config;
 mod fragments;
+#[cfg(feature = "examples")]
+mod gallery;
 mod groups;
 mod groups_dialogs;
 mod groups_fragments;
@@ -16,6 +18,8 @@ mod topics_write;
 
 pub use config::{config, config_edit, config_edit_form, config_reset, config_reset_form};
 pub use fragments::{check, fragment};
+#[cfg(feature = "examples")]
+pub use gallery::gallery;
 pub use groups::{
     group as group_page, groups as groups_list, lag as group_lag, members as group_members,
 };

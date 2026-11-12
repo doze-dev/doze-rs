@@ -7,8 +7,6 @@
 //!   `sha256 d6fdc75f204e6bdefa99b69bf1e6d4ac69b8a364f77929f45c13476b4000f717`.
 //! - `idiomorph-ext-0.8.0.min.js`: `idiomorph` 0.8.0 `dist/idiomorph-ext.min.js`, 0BSD (`idiomorph.LICENSE.txt`),
 //!   `sha256 5811b9a7eda14878b7dab4378bf60432e1bb6f11fcfb970cc26540642650181e`.
-//! - `htmx-preload-2.1.2.min.js`: `htmx-ext-preload` 2.1.2 `dist/preload.min.js`, 0BSD (`htmx.LICENSE.txt`),
-//!   `sha256 2ac8ccf77deee4f8e87366d6b606085eed755b02513746ead7573395e717d26e`.
 //! - `alpine-csp-3.17.5.min.js`: `@alpinejs/csp` 3.17.5 `dist/cdn.min.js` (the build that evaluates no string), MIT
 //!   (`alpine.LICENSE.txt`), `sha256 48c170c92032e527cbae71b8ce75cf1f96ca06fa869a6120ef0fe438d8e92c36`.
 //! - `alpine-anchor-3.17.5.min.js`: `@alpinejs/anchor` 3.17.5 `dist/cdn.min.js` (Floating UI inside), MIT,
@@ -66,7 +64,6 @@ pub const MANIFEST: &[File] = &[
     file!("components.js", Js),
     file!("htmx-2.0.11.min.js", Js),
     file!("idiomorph-ext-0.8.0.min.js", Js),
-    file!("htmx-preload-2.1.2.min.js", Js),
     file!("alpine-anchor-3.17.5.min.js", Js),
     file!("alpine-csp-3.17.5.min.js", Js),
     file!("favicon.svg", Svg),
@@ -101,10 +98,9 @@ pub const MANIFEST: &[File] = &[
 ];
 
 /// The scripts of a page, in load order.
-pub const SCRIPT_ORDER: [&str; 7] = [
+pub const SCRIPT_ORDER: [&str; 6] = [
     "htmx-2.0.11.min.js",
     "idiomorph-ext-0.8.0.min.js",
-    "htmx-preload-2.1.2.min.js",
     "console.js",
     "components.js",
     "alpine-anchor-3.17.5.min.js",
@@ -122,7 +118,7 @@ pub struct Served {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AssetUrls {
     pub css: String,
-    /// The scripts, in the order a page loads them (all deferred, so they run in this order): htmx and its extensions, our
+    /// The scripts, in the order a page loads them (all deferred, so they run in this order): htmx and idiomorph, our
     /// two files (which register on `alpine:init`), then Alpine's plugin and Alpine itself, which starts when it runs.
     pub scripts: Vec<String>,
     pub favicon: String,

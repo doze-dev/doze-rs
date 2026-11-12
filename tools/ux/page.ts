@@ -117,6 +117,7 @@ export class Page {
   }
 
   async hover(sel: string): Promise<void> {
+    await this.eval(`document.querySelector(${JSON.stringify(sel)}).scrollIntoView({ block: 'center' })`);
     const r = await this.rect(sel);
     await this.move(r.x + r.width / 2, r.y + r.height / 2);
   }
