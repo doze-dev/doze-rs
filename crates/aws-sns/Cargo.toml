@@ -1,7 +1,7 @@
 [package]
 name = "aws-sns"
 version = "0.0.0"
-description = "SNS: topics, subscriptions, filter policies and fan-out to SQS, as a state machine behind a lazy actor per region"
+description = "SNS: topics, subscriptions, filter policies and fan-out to SQS, Lambda and http endpoints, as a state machine behind a lazy actor per region"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true

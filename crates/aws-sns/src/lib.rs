@@ -1,6 +1,6 @@
 //! SNS: topics (standard and FIFO), subscriptions with their confirmation rules, Publish and PublishBatch, filter policies on message
-//! attributes or the message body, and fan-out to SQS through the peer bus, as a state machine behind a lazy actor per region. State is
-//! on disk, and survives an idle reap and a restart.
+//! attributes or the message body, and fan-out to SQS and Lambda through the peer bus and to `http` endpoints, as a state machine
+//! behind a lazy actor per region. State is on disk, and survives an idle reap and a restart.
 //!
 //! **What is stored and not delivered:** SQS, Lambda and `http` endpoints are delivered to (an `http` endpoint is sent its
 //! `SubscriptionConfirmation` and confirms through the `SubscribeURL`, `webhook.rs`). Subscriptions for `https` (no TLS client),
