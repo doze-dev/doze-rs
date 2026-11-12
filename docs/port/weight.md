@@ -170,3 +170,10 @@ and an `Arc` per connection, and the users are a map built at start.
 crates (`pbkdf2` is a dev-dependency only, for a differential test). The CI limit on packages moves from 115 to **126** (the measured 122 plus 4, so the
 next small dependency needs no second exception); the binary limit (5.15 MB on Linux) and the idle limit (8 MB) stand. The one
 file to change if the backend is ever swapped is `crypto.rs`. SCRAM (slice 8c) adds no package: it uses the same three crates.
+
+**Phase 8, after the audits (2026-11-12, release, darwin/arm64, commit e6d986b):** binary 4,301,200 B (Phase 7 closed at 4,029,504 B: +271,696 B, +6.7%; the 8g
+figure above was 4,267,504 B, so the audit fixes cost +33,696 B: the credential APIs' handling of super users, the rights that members carry in the group
+machines, the failed-login delay, the lingering close, the private file creation), 123 packages by the CI method (unchanged since 8a), idle RSS 4,928 KB with 3
+threads (4,816 KB at the close of Phase 7). On Linux x86_64 the size limit (5.15 MB, measured 4.90 MB at the close of Phase 7) has no real headroom left if the darwin
+steps carry over (about 4.90 + 0.27 = 5.17 MB would be over): the first CI run decides, and the limit is to be set from the CI's own measurement plus 5% with the
+reason written here (debt.md I4). The default build is still pure Rust (no C compiler); TLS stays the off-by-default `tls` feature.
