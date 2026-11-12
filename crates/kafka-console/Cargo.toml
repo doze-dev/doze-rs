@@ -37,8 +37,17 @@ tracing = "0.1"
 # expose). Both are already in the tree through axum; this asks for nothing new from them (the features are axum's).
 hyper = { version = "1", default-features = false, features = ["http1", "server"] }
 hyper-util = { version = "0.1", default-features = false, features = ["tokio", "server", "service"] }
+# The JSON API of the React console (docs/port/console/react-plan.md): both are already in the default build through
+# tracing-subscriber, so they add no package.
+serde = { version = "1", default-features = false, features = ["std", "derive"] }
+serde_json = "1"
+# The embedded bundle is stored gzipped; the rare client that does not accept gzip gets it inflated (flate2 is already in
+# the build through kafka-wire).
+flate2 = "1"
 
 [dev-dependencies]
+# TypeScript types of the JSON API, written by a test into web/src/api/types (a stale file fails the test).
+ts-rs = "12"
 # The request types a raw test client encodes.
 kafka-protocol = { version = "0.18", default-features = false, features = ["client"] }
 # gzip batches for the tests that seed a broker.
