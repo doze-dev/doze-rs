@@ -398,6 +398,160 @@ the close after a refused first message, the stored exchange, the hash of the re
 (the kind filter was redundant with the keyed lookup, a NUL in a name was caught only by the nonce class, a last field that merely looked like base64 was
 accepted); a test was added for each and the three are killed. Final: 23 of 23.
 
+## Slice 8d-2: the group and transaction APIs (SEC-100 to SEC-123)
+
+Every rule here is **(source)**: none of these denials is recorded (the recordings hold only the Metadata and InitProducerId ones, SEC-27, SEC-28),
+so each is written from Kafka 4.3.1's `KafkaApis.scala` (KA) and the request and response classes it uses (`FindCoordinatorRequest`,
+`OffsetFetchResponse.groupError`, `DescribeGroupsResponse.groupError`, `OffsetDeleteResponse.Builder`, `ApiError.fromThrowable`), and the test
+that holds it cites the same lines. A recording of `authz-matrix` against `apache/kafka:4.3.1` (decision D9) would confirm or correct them.
+The checks are in `crates/kafka-broker/src/handlers/*.rs` through `handlers/group_guard.rs` (`Guard`); the tests are
+`kafka-broker tests/authz_{groups_classic,groups_848,offsets,transactions}.rs` with their harness in `tests/support/authz_{groups,calls,txn}.rs`,
+and `kafka-server tests/acl_groups.rs` on a real socket.
+
+## SEC-100. Where the checks are made, and the questions every API is asked
+Each check is made in the request handler, once per request (once per group, topic or id the request names), **outside the group's actor**, before
+the coordinator is asked anything, as `KafkaApis` makes them before `groupCoordinator`/`txnCoordinator`. With the default allowing and no ACL
+stored a check is `Authorizer::allows`' one atomic load and a length test, and nothing is allocated. The shape of a refusal is the API's own code
+(30 group, 29 topic, 53 transactional id) in the response of the version asked. Every API is held to the same five questions by `five_ways!`
+(`tests/support/authz_groups.rs`), run on a closed broker (`--acl-default deny`) unless said: the named right is granted (passes); it is missing
+(refused); a super user with a DENY of ALL on the resource passes (SEC-19); a DENY beats an ALLOW to the same user; each right the API needs is
+left out in turn (refused with that right's own code, which also fixes the order of the checks); only DESCRIBE where more is needed (refused:
+implication runs one way, SEC-20); granted to `User:*`, to a PREFIXED name, to the LITERAL `*` (all pass) and a prefix that is not the name's
+(refused); on a broker whose default allows, a resource nothing covers passes and one covered by an ACL for somebody else is refused (SEC-18).
+Names are authorized as sent: an empty group id or transactional id is authorized like any other (no ACL can name it, since CreateAcls refuses an
+empty name: only a super user or the default passes). Test: `five_ways!` in each test below.
+
+## SEC-101. FindCoordinator (KA:1244-1250)
+Key type 0: DESCRIBE on the group; key type 1: DESCRIBE on the transactional id; any other key type is asked nothing. Before the coordinator is
+looked for. v4 and later: that key's entry has 30 or 53, node -1, port -1, host `""` and the entry's default message `""`, and the other keys are
+served. Before v4 the answer is the top-level `prepareOldResponse`: the code, node -1, port -1, host `""`, and from v1 the error's own words
+(`Group authorization failed.`, `Transactional Id authorization failed.`; v0 has no message). Test: `authz_groups_classic::find_coordinator_*`,
+`describe_is_implied_by_read_and_a_deny_of_read_does_not_take_it_away`.
+
+## SEC-102. JoinGroup (KA:1376-1398)
+READ on the group, before the group id is judged (an empty id is 30, not INVALID_GROUP_ID, to one who may not read it). The refusal is
+`getErrorResponse`: code 30, generation -1, empty member id and leader, no members, and the protocol type and name `""` before v7 and null from v7.
+The caller is made no member. Test: `join_group_needs_read_on_the_group`, `join_group_refusal_has_the_shape_of_each_version`,
+`a_member_with_read_is_taken_in_and_one_without_is_not_made_a_member`, `authorization_comes_before_the_group_id_is_judged`.
+
+## SEC-103. SyncGroup (KA:1400-1426)
+READ on the group, with Kafka's one ordering exception: from v5 a SyncGroup without a protocol type or name is INCONSISTENT_GROUP_PROTOCOL (23)
+**before** the group is authorized, so a caller that is refused and also nameless is told 23; before v5, or with the names, it is told 30 (**deviation
+SEC-D31**). Test: `sync_group_needs_read_on_the_group`, `sync_group_looks_for_the_protocol_before_it_authorizes`.
+
+## SEC-104. Heartbeat (KA:1466-1484) and SEC-105. LeaveGroup (KA:1486-1504)
+READ on the group, first, once per request in the handler (not per member event in the group). Heartbeat answers 30. LeaveGroup answers 30 **at the
+top** in every version (`getErrorResponse`), with no member list. Test: `heartbeat_needs_read_on_the_group`, `leave_group_needs_read_on_the_group`,
+`leave_group_refusal_is_at_the_top_in_every_version`.
+
+## SEC-106. ConsumerGroupHeartbeat (KA:2604-2642)
+READ on the group, then DESCRIBE on every topic in `SubscribedTopicNames` when it is non-empty (a heartbeat that names none checks none). Group
+refused: 30; any one subscribed topic not describable: 29 for the whole request (a subscription is all or nothing). Both are the code alone: no
+message (the default-message exceptions leave it out), no member id, epoch 0, no assignment; and no member is made. Both before the request itself is
+judged (an empty member id is 30, not 42, to a caller that may not use the group). Test: `the_heartbeat_needs_read_on_the_group_and_describe_on_each_subscribed_topic`,
+`a_refused_heartbeat_is_the_code_alone_in_both_versions_and_makes_no_member`, `one_topic_the_caller_may_not_describe_among_several_refuses_the_subscription`,
+`authorization_comes_before_the_request_is_judged`.
+
+## SEC-107. DescribeGroups (KA:1302-1348)
+DESCRIBE on each group. A refused group is an entry of its own: code 30, state `""`, protocol type and protocol `""`, no members, authorized operations
+`Int.MIN_VALUE`; the refused come **first**, in the order asked, then the others in the coordinator's order. Test: `describe_groups_needs_describe_on_each_group`,
+`describe_groups_puts_the_refused_first_and_serves_the_rest`.
+
+## SEC-108. ConsumerGroupDescribe (KA:2644-2728)
+DESCRIBE on each group (a refused group is an entry with 30 and nothing else, ahead of the others). Then, for what is left, every topic named in a
+member's assignment or target assignment must be DESCRIBE-able: a group with one that is not is replaced by an entry with 29, the message `The group
+has described topic(s) that the client is not authorized to describe.`, and no members. Test: `the_describe_needs_describe_on_the_group`,
+`refused_groups_come_first_and_the_rest_follow`, `a_group_holding_a_topic_the_caller_may_not_describe_becomes_a_refusal_with_kafkas_words`.
+
+## SEC-109. ListGroups (KA:1350-1374)
+Never an error. A caller with DESCRIBE on the **cluster** is shown every group, with no per-group check (so a group DENY does not narrow it); any other
+is shown the groups it may DESCRIBE. On a broker whose default allows, the cluster is describable until an ACL covers it. Test: `list_groups_shows_only_the_groups_the_caller_may_describe`,
+`describe_on_the_cluster_lists_every_group_and_a_group_deny_does_not_narrow_it`, `list_groups_by_any_user_prefix_and_the_default`.
+
+## SEC-110. OffsetCommit (KA:273-374)
+READ on the group (30 on **every partition of every topic**, topics as sent), then READ on each topic (29 on that topic's partitions, the others committed),
+the group before the topics, both before the topic is looked for: a topic that is not there is 29 to one who may not read it and UNKNOWN_TOPIC_OR_PARTITION
+to one who may. A refused topic's offsets are not stored. When no topic is left to commit to the group is not asked about the committer. Test:
+`offset_commit_needs_read_on_the_group_and_on_the_topic`, `a_refused_group_fails_every_partition_of_every_topic_in_each_version`,
+`a_refused_topic_fails_its_partitions_and_the_others_are_committed`, `offset_commit_checks_the_group_before_the_topics`,
+`a_topic_that_is_not_there_is_not_revealed_to_one_who_may_not_read_it`.
+
+## SEC-111. OffsetFetch (KA:1018-1185; `OffsetFetchResponse.groupError`)
+DESCRIBE on the group, then DESCRIBE on each topic. Group refused: v8 and later, that group's entry has 30; v2 to v7, 30 at the top; v1 (no code at the
+top), each partition asked about has 30, offset -1, metadata `""`, leader epoch -1. Topics asked for by name that may not be described: their partitions
+29 with offset -1, **after** the topics found. Asked for every offset (topics null): the topics not describable are dropped with no word. A topic that
+is not there is 29 to one who may not describe it and offset -1, no error, to one who may. Test: `offset_fetch_needs_describe_on_the_group_and_the_topic`,
+`a_refused_group_is_answered_in_the_shape_of_the_version`, `a_refused_topic_asked_for_by_name_is_29_with_offset_minus_one_after_the_others`,
+`asked_for_everything_the_topics_not_described_are_dropped_without_a_word`, `a_topic_that_is_not_there_is_not_revealed_to_offset_fetch_either`.
+
+## SEC-112. DeleteGroups (KA:1428-1464)
+DELETE on each group (READ, DESCRIBE or ALL-less rights do not do). The refused are answered 30, **once each**, after the answers for the others
+(Kafka's `authorized results then unauthorized`); a refused group is not deleted and keeps its offsets (**deviation SEC-D30** on repeated names). Test:
+`delete_groups_needs_delete_on_each_group`, `delete_groups_serves_the_allowed_first_then_the_refused_once_each`, `delete_needs_delete_and_describe_or_read_do_not_do`.
+
+## SEC-113. OffsetDelete (KA:2363-2427; `OffsetDeleteResponse.Builder.merge`)
+DELETE on the group (30 at the top), then READ on each topic (29 on its partitions), before the group or topic is looked for; a group that is not there is 30 to
+one who may not delete it and GROUP_ID_NOT_FOUND to one who may; a top-level error of the coordinator discards the topic entries, as Kafka's merge does.
+Nothing of a refused topic is deleted. Test: `offset_delete_needs_delete_on_the_group_and_read_on_the_topic`,
+`offset_delete_refuses_the_group_at_the_top_and_a_topic_on_its_partitions`, `offset_delete_does_not_reveal_a_topic_or_a_group_either`.
+
+## SEC-114. AddPartitionsToTxn (KA:1856-1966; v0 to v3, the client shape)
+WRITE on the transactional id (53 on every partition asked, whether or not the topic is there), then WRITE on each topic, before the topic is looked for:
+a refused topic's partitions are 29, an unknown one 3, and **every other partition OPERATION_NOT_ATTEMPTED (55)**; the transaction is not looked at. Test:
+`add_partitions_needs_write_on_the_id_and_on_the_topic`, `a_refused_id_fails_every_partition_of_every_topic_even_one_that_is_not_there`,
+`one_refused_topic_leaves_the_others_not_attempted`, `a_topic_that_is_not_there_is_not_revealed_to_one_who_may_not_write_it`, `the_id_is_judged_before_the_topics`.
+
+## SEC-115. AddOffsetsToTxn (KA:1968-2016)
+WRITE on the transactional id (53), then READ on the group (30), both before the transaction is looked at. Test: `add_offsets_needs_write_on_the_id_and_read_on_the_group`,
+`add_offsets_judges_the_id_before_the_group`.
+
+## SEC-116. TxnOffsetCommit (KA:2018-2116)
+WRITE on the id (53 on every partition of every topic asked, there or not), else READ on the group (30 on every partition), else READ on each topic (29 on that
+topic's partitions; a topic that is not there is 29 to one who may not read it, 3 to one who may). The offsets of a refused topic are not staged, so they are not
+committed when the transaction commits. Test: `txn_offset_commit_needs_write_on_the_id_read_on_the_group_and_read_on_the_topic`,
+`a_refused_id_or_group_fails_every_partition_asked_whether_or_not_it_is_there`, `a_refused_topic_is_29_on_its_partitions_and_hidden_existence_holds`,
+`offsets_of_a_refused_topic_are_not_staged_with_the_transaction`.
+
+## SEC-117. EndTxn (KA:1668-1709)
+WRITE on the transactional id, 53 at the top in every version, before the id is judged (an empty id is 53 to one who may not write it and INVALID_REQUEST to one who
+may). Test: `end_txn_needs_write_on_the_id`, `end_txn_authorizes_the_id_as_sent_before_it_is_judged`.
+
+## SEC-118. DescribeTransactions (KA:2540-2566)
+DESCRIBE on each transactional id; a refused one is an entry with its id, 53 and the schema defaults for the rest. For one that may be seen, the topics the caller
+may not DESCRIBE are removed from the entry (`__consumer_offsets`, which stands for the groups of the transaction, is such a topic). Test:
+`describe_transactions_needs_describe_on_the_id`, `describe_transactions_shows_a_refused_id_as_an_entry_of_53_and_only_the_topics_described`.
+
+## SEC-119. ListTransactions (KA:2568-2593)
+Never an error: only the ids the caller may DESCRIBE are listed. Test: `list_transactions_shows_only_the_ids_the_caller_may_describe`.
+
+## SEC-120. InitProducerId, the transactional half (KA:1603-1614), checked against the matrix
+WRITE on the transactional id, and TWO_PHASE_COMMIT on it as well when the request has `Enable2Pc` (added in this slice; the field is a v6 one, which is not served, so it
+is reached only by a caller of the handler); either missing is 53, top level, with producer id -1 and epoch -1. The no-id half is SEC-28. Test:
+`init_producer_id_with_a_transactional_id_needs_write_on_it`, `a_two_phase_commit_needs_that_right_on_the_id_as_well`.
+
+## SEC-121. The authorized-operations bits (AH:62-76; KA:1326-1335, 2675-2684)
+For a group: one `authorize` per operation a group supports (READ 3, DELETE 6, DESCRIBE 8, DESCRIBE_CONFIGS 10, ALTER_CONFIGS 11), bit `1 << code` when allowed, ALL never a bit.
+DescribeGroups gives them from v3 and ConsumerGroupDescribe at any version, when the request asks and only for a group that is not an error; otherwise the schema
+default (`Int.MIN_VALUE`). A READ grant is bits 3 and 8; ALL, and a super user, all five (3400); a DENY of DESCRIBE takes the group away. Test:
+`describe_groups_says_which_operations_the_caller_has`, `the_operations_are_given_when_asked_and_only_for_a_group_that_is_not_an_error`.
+
+## SEC-122. On a real socket
+Two users logged in by PLAIN, one allowed to join a group and read a topic and one refused (FindCoordinator, JoinGroup, OffsetCommit, ListGroups), and a transactional
+producer with and without WRITE on its transactional id through InitProducerId, AddPartitionsToTxn and EndTxn. Test: `kafka-server tests/acl_groups.rs`.
+
+## SEC-123. Mutation check, slice 8d-2
+Forty hand-made mutations of the checks in `handlers/*.rs`, `offset_fetch/guard.rs` and `group_guard.rs`, each checked as applied, run in a copy of the tree against the four
+`authz_*` test files: a check removed (FindCoordinator's transactional half, JoinGroup, SyncGroup, Heartbeat, LeaveGroup, AddPartitionsToTxn's id and its topics,
+TxnOffsetCommit's group, OffsetCommit's group and its topics), the wrong operation (READ for DESCRIBE, DESCRIBE for READ, WRITE for READ, DELETE for READ, a cluster
+DESCRIBE read as READ), the authorized-operations bits shifted, a list not filtered (ListGroups, ListTransactions, DescribeTransactions' topics, OffsetFetch for every
+offset), a refused topic's entries not appended, staged offsets of a refused topic kept, "any" turned into "all" (the subscription), a per-item error put on the wrong
+item (DescribeGroups, ConsumerGroupDescribe, AddPartitionsToTxn), the check moved after the state check (EndTxn's id after the empty-id test, JoinGroup's after the
+group-id test), the v1 shape of OffsetFetch, the v1 message of FindCoordinator, the two-phase-commit right ignored. First run of 30: 28 killed, 2 survived (the offsets
+of a refused topic were still staged, which only a committed transaction shows; AddOffsetsToTxn's group right read as DESCRIBE, which a user holding READ cannot show);
+a test was added for each, and `five_ways!` gained the "only DESCRIBE" caller for every API that needs more. Second run of 10 new ones: 9 killed, 1 survived (the wrong
+item was the first partition of a refused topic, which a single-partition test cannot tell from the right one); a test was added. Final: 40 of 40.
+(The mutation copy builds in a target directory of its own: sharing one with the worktree let the last mutant's build be taken for the worktree's.)
+
 ## Deviations
 - **SEC-D1.** A request in the middle of a login other than ApiVersions and SaslHandshake closes unanswered; Kafka answers it in its
   own shape with 34 and then closes. (Recorded `request-before-token-who`; the Go edition has the same difference.)
@@ -430,3 +584,18 @@ accepted); a test was added for each and the three are killed. Final: 23 of 23.
   client-first, cannot occur.
 - **SEC-D15.** The derived keys, the salted password and the proof are `Vec`s that are not zeroed on drop (extends SEC-D5); the verifiers are kept for the life of
   the process, the intermediate values for the length of a call.
+- **SEC-D30.** DeleteGroups with the same allowed name twice answers it twice (the existing behaviour, pinned by `group_admin`: deleted, then not found); Kafka de-duplicates
+  the request first (KA:1431). The refused names are de-duplicated, as Kafka's are.
+- **SEC-D31.** A SyncGroup of v5 or later with no protocol type or name is 23 up front (KA:1406-1411) only for a caller that is also refused; an allowed caller's goes to the group
+  as before, which judges only the names it is given. Kafka answers 23 to everyone.
+- **SEC-D32.** AddPartitionsToTxn: Kafka removes the internal topics (`__consumer_offsets`, `__transaction_state`) from the topics it authorizes, so they are 29 even with no
+  authorizer (KA:1912). Here those topics do not exist as topics: they are 3 (or 29, if the caller may not WRITE them). v4 and later (a broker's, CLUSTER_ACTION) is not served.
+- **SEC-D33.** InitProducerId's `Enable2Pc` and `KeepPreparedTxn` are version 6 fields; version 6 is not served, so the TWO_PHASE_COMMIT check (SEC-120) cannot be reached by a client.
+- **SEC-D34.** Unsure, from the source alone: a DescribeTransactions entry refused with 53 carries the schema defaults for the rest (producer id 0, start time 0), as Kafka's
+  `new TransactionState().setTransactionalId().setErrorCode()` does; the entry for an id that is not found keeps the -1 and -1 this broker already gave it.
+- **SEC-D35.** Unsure: ConsumerGroupDescribe authorizes the topic names it has filled in. A topic deleted since a member held it has the name `""` there, which no ACL
+  can name, so a caller that is not a super user and not covered by the default is told 29 for such a group. Kafka's coordinator names a missing topic from its metadata
+  image; whether it too gives `""` was not confirmed.
+- **SEC-D36.** Unsure: FindCoordinator before v4 puts the error's own message in the answer (`Errors.message()` is the exception's, `Group authorization failed.`; the `NONE` of a success
+  is its `toString`), read from `FindCoordinatorResponse.prepareOldResponse`. Not recorded.
+- **SEC-D37.** Not served, so not checked: share groups (key type 2), the share and streams group APIs, AddPartitionsToTxn v4 and later.

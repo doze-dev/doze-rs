@@ -121,7 +121,7 @@ async fn one_refused_topic_leaves_the_others_not_attempted() {
     // KA:1925-1935: the topic's partitions get 29, an unknown one 3, and every other partition OPERATION_NOT_ATTEMPTED.
     let rig = world();
     make_topic(&rig, "t", 1).await;
-    make_topic(&rig, "u", 1).await;
+    make_topic(&rig, "u", 2).await;
     grant(
         &rig,
         vec![
@@ -136,7 +136,7 @@ async fn one_refused_topic_leaves_the_others_not_attempted() {
         &user("alice"),
         "tid",
         STRANGER,
-        &[("t", &[0]), ("u", &[0]), ("ghost", &[0])],
+        &[("t", &[0]), ("u", &[0, 1]), ("ghost", &[0])],
     )
     .await;
     assert_eq!(
@@ -144,6 +144,7 @@ async fn one_refused_topic_leaves_the_others_not_attempted() {
         [
             ("t".to_owned(), 0, OPERATION_NOT_ATTEMPTED),
             ("u".to_owned(), 0, TOPIC_AUTH),
+            ("u".to_owned(), 1, TOPIC_AUTH),
             ("ghost".to_owned(), 0, UNKNOWN_TOPIC_OR_PARTITION)
         ]
     );
