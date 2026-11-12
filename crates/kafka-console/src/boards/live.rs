@@ -49,6 +49,7 @@ fn drawer(which: &str, base: &Base) -> Option<Markup> {
     Some(page::drawer_page(live_page("steady", base), body, id))
 }
 
+#[allow(clippy::too_many_lines)] // one arm per board
 fn content(id: &str, base: &Base) -> Option<Content> {
     let live = |hint: &str| {
         (

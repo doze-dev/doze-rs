@@ -18,16 +18,18 @@ use std::sync::Arc;
 
 use bytes::Bytes;
 use kafka_auth::{Authenticator, Credentials, Mechanism};
+use kafka_console::Recorder;
 use kafka_console::base::Base;
 use kafka_console::model::WireQuery;
 use kafka_console::source::{Live, Source};
 use kafka_console::state::State;
-use kafka_console::Recorder;
 use kafka_protocol::protocol::Encodable;
 use kafka_wire::StrBytes;
 use kafka_wire::batch::build::{BatchBuilder, Rec};
 use kafka_wire::messages::alter_user_scram_credentials_request::ScramCredentialUpsertion;
-use kafka_wire::messages::incremental_alter_configs_request::{AlterConfigsResource, AlterableConfig};
+use kafka_wire::messages::incremental_alter_configs_request::{
+    AlterConfigsResource, AlterableConfig,
+};
 use kafka_wire::messages::produce_request::{PartitionProduceData, TopicProduceData};
 use kafka_wire::messages::*;
 use kafka_wire::testing::{framed, request_payload};
@@ -48,9 +50,24 @@ const SALTED: &str = "salted-password-planted-1a2b3c";
 struct Wire(TcpStream, i32);
 
 impl Wire {
-    async fn call<R: Encodable>(&mut self, key: ApiKey, version: i16, client: &str, body: &R) -> Bytes {
+    async fn call<R: Encodable>(
+        &mut self,
+        key: ApiKey,
+        version: i16,
+        client: &str,
+        body: &R,
+    ) -> Bytes {
         self.1 += 1;
-        self.0.write_all(&framed(&request_payload(key, version, self.1, Some(client), body))).await.unwrap();
+        self.0
+            .write_all(&framed(&request_payload(
+                key,
+                version,
+                self.1,
+                Some(client),
+                body,
+            )))
+            .await
+            .unwrap();
         let mut len = [0; 4];
         self.0.read_exact(&mut len).await.unwrap();
         let mut payload = vec![0; u32::from_be_bytes(len) as usize];
@@ -78,7 +95,8 @@ async fn no_planted_secret_reaches_the_recorder_the_stream_or_a_page() {
     let r = Arc::clone(&recorder);
     let w = world("redaction", move |_, sc| {
         let users = [("alice".to_owned(), PASSWORD.to_owned())];
-        let auth = Authenticator::new(&[Mechanism::Plain], Credentials::new(users).unwrap()).unwrap();
+        let auth =
+            Authenticator::new(&[Mechanism::Plain], Credentials::new(users).unwrap()).unwrap();
         sc.sasl = Some(Arc::new(auth));
         sc.observer = Some(r);
     })
@@ -98,7 +116,11 @@ async fn no_planted_secret_reaches_the_recorder_the_stream_or_a_page() {
         ..Rec::default()
     };
     let mut p = PartitionProduceData::default();
-    p.records = Some(BatchBuilder::from_records(1_700_000_000_000, &[rec]).last_offset_delta(0).build());
+    p.records = Some(
+        BatchBuilder::from_records(1_700_000_000_000, &[rec])
+            .last_offset_delta(0)
+            .build(),
+    );
     let mut t = TopicProduceData::default();
     t.name = TopicName(s("orders"));
     t.partition_data = vec![p];
@@ -115,30 +137,67 @@ async fn no_planted_secret_reaches_the_recorder_the_stream_or_a_page() {
     res.configs = vec![cfg];
     let mut alter = IncrementalAlterConfigsRequest::default();
     alter.resources = vec![res];
-    c.call(ApiKey::IncrementalAlterConfigs, 1, "alice-app", &alter).await;
+    c.call(ApiKey::IncrementalAlterConfigs, 1, "alice-app", &alter)
+        .await;
     let mut up = ScramCredentialUpsertion::default();
     up.name = s("carol");
     up.salt = Bytes::from(SALTED.to_owned());
     up.salted_password = Bytes::from(SALTED.to_owned());
     let mut scram = AlterUserScramCredentialsRequest::default();
     scram.upsertions = vec![up];
-    c.call(ApiKey::AlterUserScramCredentials, 0, "alice-app", &scram).await;
+    c.call(ApiKey::AlterUserScramCredentials, 0, "alice-app", &scram)
+        .await;
 
     // The corpus: everything the recorder can say.
     let live = Live::new(w.backend.clone(), w.facts.clone()).with_recorder(Arc::clone(&recorder));
-    let state = State::new(Source::Live(Box::new(live)), Base::root(), vec![], CancellationToken::new());
+    let state = State::new(
+        Source::Live(Box::new(live)),
+        Base::root(),
+        vec![],
+        CancellationToken::new(),
+    );
     let app = kafka_console::app::router(state);
     let now = kafka_console::source::now_ms();
-    let tape = recorder.tape(&WireQuery { hide_idle: false, limit: 100, ..WireQuery::default() }, now);
-    assert!(tape.rows.iter().any(|r| r.api == "SaslAuthenticate"), "the login steps are on the tape: {:?}", tape.rows.iter().map(|r| r.api).collect::<Vec<_>>());
-    assert!(tape.rows.iter().any(|r| r.api == "AlterUserScramCredentials") && tape.rows.iter().any(|r| r.api == "IncrementalAlterConfigs"));
-    let mut corpus = vec![format!("{recorder:?}"), format!("{tape:?}"), format!("{:?}", recorder.clients(now)), format!("{:?}", recorder.first()), format!("{:?}", recorder.spoke())];
+    let tape = recorder.tape(
+        &WireQuery {
+            hide_idle: false,
+            limit: 100,
+            ..WireQuery::default()
+        },
+        now,
+    );
+    assert!(
+        tape.rows.iter().any(|r| r.api == "SaslAuthenticate"),
+        "the login steps are on the tape: {:?}",
+        tape.rows.iter().map(|r| r.api).collect::<Vec<_>>()
+    );
+    assert!(
+        tape.rows
+            .iter()
+            .any(|r| r.api == "AlterUserScramCredentials")
+            && tape.rows.iter().any(|r| r.api == "IncrementalAlterConfigs")
+    );
+    let mut corpus = vec![
+        format!("{recorder:?}"),
+        format!("{tape:?}"),
+        format!("{:?}", recorder.clients(now)),
+        format!("{:?}", recorder.first()),
+        format!("{:?}", recorder.spoke()),
+    ];
     for row in &tape.rows {
         corpus.push(format!("{:?}", recorder.get(row.id)));
         let (_, html) = page(&app, get(&format!("/live/{}", row.id))).await;
         corpus.push(html);
     }
-    let mut paths = vec!["/live?idle=0".to_owned(), "/live".to_owned(), "/live/clients".to_owned(), "/connect/first-request".to_owned(), "/topics/orders/wire".to_owned(), "/groups/g/wire".to_owned(), "/".to_owned()];
+    let mut paths = vec![
+        "/live?idle=0".to_owned(),
+        "/live".to_owned(),
+        "/live/clients".to_owned(),
+        "/connect/first-request".to_owned(),
+        "/topics/orders/wire".to_owned(),
+        "/groups/g/wire".to_owned(),
+        "/".to_owned(),
+    ];
     for id in ["live-wire", "topic-wire", "group-wire", "home-live"] {
         paths.push(format!("/fragments/{id}?topic=orders&group=g"));
     }
@@ -149,7 +208,11 @@ async fn no_planted_secret_reaches_the_recorder_the_stream_or_a_page() {
     // The stream carries fragment ids and nothing else (its own test); the pages above are what it makes the browser fetch.
     for plant in [PASSWORD, WRONG, VALUE, KEY, HEADER, CONFIG, SALTED] {
         for (i, text) in corpus.iter().enumerate() {
-            assert!(!text.contains(plant), "the plant {plant:?} reached item {i}: {:.600}", text.replace(plant, "<<PLANT>>"));
+            assert!(
+                !text.contains(plant),
+                "the plant {plant:?} reached item {i}: {:.600}",
+                text.replace(plant, "<<PLANT>>")
+            );
         }
     }
     w.stop().await;

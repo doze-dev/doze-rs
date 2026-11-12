@@ -2,10 +2,12 @@
 //! drawers, the clients, the first request, and the two docks. Used by the tests and the `boards` example; the headline numbers
 //! are checked against the boards' text by `tests/boards_live.rs`.
 
+#![allow(clippy::too_many_lines, clippy::too_many_arguments)] // fixtures are tables of the boards' rows
+
 use crate::fixtures_topics::now as world_now;
 use crate::model::{
     ClientRow, ClientsView, FirstView, GroupWireView, LiveState, LiveView, WireClass, WireDetail,
-    WirePart, WireQuery, WireRefusal, WireRow, WireWindow,
+    WireQuery, WireRefusal, WireRow, WireWindow,
 };
 use crate::pages::live::RequestLimits;
 use crate::recorder::errors;
@@ -241,18 +243,7 @@ fn detail_of(row: WireRow, f: impl FnOnce(&mut WireDetail)) -> WireDetail {
         batches: 0,
         bytes: 0,
         items: 0,
-        parts: vec![
-            WirePart {
-                topic: "x".into(),
-                partition: 0,
-                code: 0,
-                code_name: "NONE".into(),
-                offset: None,
-                records: 0,
-                bytes: 0
-            };
-            0
-        ],
+        parts: vec![],
         parts_more: 0,
         topics: row.topics.iter().map(|t| (t.clone(), vec![])).collect(),
         words,

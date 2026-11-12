@@ -2,7 +2,12 @@
 //! installed (what `--console=false` runs), with the console's recorder installed, and with the recorder and a page open
 //! (a stream viewer, so every request also bumps the tick). Prints requests per second and the cost per request of each, as
 //! the median and the best of several rounds. Run: `cargo run --release -p kafka-console --example produce_bench`.
-#![allow(clippy::unwrap_used, clippy::expect_used, clippy::indexing_slicing, clippy::print_stdout)]
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::indexing_slicing,
+    clippy::print_stdout
+)]
 
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -35,8 +40,14 @@ async fn call<R: Encodable>(s: &mut TcpStream, key: ApiKey, version: i16, id: i3
 }
 
 fn produce() -> ProduceRequest {
-    let rec = Rec { key: Some(b"k".to_vec()), value: Some(vec![b'v'; 100]), ..Rec::default() };
-    let batch: Bytes = BatchBuilder::from_records(1_700_000_000_000, &[rec]).last_offset_delta(0).build();
+    let rec = Rec {
+        key: Some(b"k".to_vec()),
+        value: Some(vec![b'v'; 100]),
+        ..Rec::default()
+    };
+    let batch: Bytes = BatchBuilder::from_records(1_700_000_000_000, &[rec])
+        .last_offset_delta(0)
+        .build();
     let mut p = PartitionProduceData::default();
     p.records = Some(batch);
     let mut t = TopicProduceData::default();
@@ -51,7 +62,11 @@ fn produce() -> ProduceRequest {
 /// One configuration: the requests per second of each round.
 async fn measure(observer: Option<Arc<dyn Observer>>, listen: bool) -> Vec<f64> {
     let broker = Arc::new(Broker::open(SimFs::new(), BrokerConfig::new("/data".into())).unwrap());
-    let config = Config { listen: "127.0.0.1:0".parse().unwrap(), observer, ..Config::default() };
+    let config = Config {
+        listen: "127.0.0.1:0".parse().unwrap(),
+        observer,
+        ..Config::default()
+    };
     let server = Server::bind(config, Arc::clone(&broker)).await.unwrap();
     let _ = listen;
     let mut s = TcpStream::connect(server.local_addr()).await.unwrap();
@@ -68,7 +83,14 @@ async fn measure(observer: Option<Arc<dyn Observer>>, listen: bool) -> Vec<f64> 
     for round in 0..ROUNDS + 1 {
         let began = Instant::now();
         for i in 0..REQUESTS {
-            call(&mut s, ApiKey::Produce, 9, i32::try_from(i).unwrap() + 2, &request).await;
+            call(
+                &mut s,
+                ApiKey::Produce,
+                9,
+                i32::try_from(i).unwrap() + 2,
+                &request,
+            )
+            .await;
         }
         // The first round warms the connection and the allocator.
         if round > 0 {
@@ -83,13 +105,19 @@ fn summary(label: &str, rates: &[f64]) -> (f64, f64) {
     let mut sorted = rates.to_vec();
     sorted.sort_by(f64::total_cmp);
     let (median, best) = (sorted[sorted.len() / 2], sorted[sorted.len() - 1]);
-    println!("{label:<34} median {median:>9.0} req/s ({:>6.1} us each)   best {best:>9.0} req/s ({:>6.1} us each)", 1e6 / median, 1e6 / best);
+    println!(
+        "{label:<34} median {median:>9.0} req/s ({:>6.1} us each)   best {best:>9.0} req/s ({:>6.1} us each)",
+        1e6 / median,
+        1e6 / best
+    );
     (median, best)
 }
 
 #[tokio::main]
 async fn main() {
-    println!("{REQUESTS} produce requests of one 100-byte record per round, {ROUNDS} rounds, one connection, in-memory broker");
+    println!(
+        "{REQUESTS} produce requests of one 100-byte record per round, {ROUNDS} rounds, one connection, in-memory broker"
+    );
     let none = measure(None, false).await;
     let (m0, b0) = summary("no observer (console off)", &none);
     let recorder: Arc<dyn Observer> = Recorder::new();
@@ -104,6 +132,13 @@ async fn main() {
     let (m2, b2) = summary("recorder installed, a page open", &watched);
     let none_again = measure(None, false).await;
     let (m3, b3) = summary("no observer again (the noise)", &none_again);
-    println!("recorder vs none: median {:+.1}%, best {:+.1}%; page open vs none: median {:+.1}%, best {:+.1}%; none vs none again: median {:+.1}%, best {:+.1}%",
-        (m1 / m0 - 1.0) * 100.0, (b1 / b0 - 1.0) * 100.0, (m2 / m0 - 1.0) * 100.0, (b2 / b0 - 1.0) * 100.0, (m3 / m0 - 1.0) * 100.0, (b3 / b0 - 1.0) * 100.0);
+    println!(
+        "recorder vs none: median {:+.1}%, best {:+.1}%; page open vs none: median {:+.1}%, best {:+.1}%; none vs none again: median {:+.1}%, best {:+.1}%",
+        (m1 / m0 - 1.0) * 100.0,
+        (b1 / b0 - 1.0) * 100.0,
+        (m2 / m0 - 1.0) * 100.0,
+        (b2 / b0 - 1.0) * 100.0,
+        (m3 / m0 - 1.0) * 100.0,
+        (b3 / b0 - 1.0) * 100.0
+    );
 }

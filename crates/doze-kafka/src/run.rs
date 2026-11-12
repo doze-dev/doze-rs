@@ -36,7 +36,7 @@ pub(crate) type ConsoleBound = ();
 pub(crate) async fn serve(settings: Settings, console_listener: ConsoleBound) -> Result<()> {
     let Settings {
         broker,
-        mut server,
+        server,
         console,
         ..
     } = settings;
@@ -47,9 +47,13 @@ pub(crate) async fn serve(settings: Settings, console_listener: ConsoleBound) ->
         .as_ref()
         .map(|_| kafka_console::Recorder::new());
     #[cfg(feature = "console")]
-    if let Some(r) = &recorder {
-        server.observer = Some(r.clone());
-    }
+    let server = {
+        let mut server = server;
+        if let Some(r) = &recorder {
+            server.observer = Some(r.clone());
+        }
+        server
+    };
     #[cfg(not(feature = "console"))]
     let _ = (&console, console_listener);
     let broker = Arc::new(Broker::open(RealFs, broker).context("opening the broker's data")?);

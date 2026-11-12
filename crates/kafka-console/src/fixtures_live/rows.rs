@@ -1,4 +1,5 @@
 //! The rows of the Live boards.
+#![allow(clippy::too_many_lines, clippy::too_many_arguments)] // a table of the boards' rows
 
 use super::{Spec, at, wr};
 use crate::model::{WireClass, WireRow};
