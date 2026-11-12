@@ -92,6 +92,36 @@ rule for a marker found at open), 107 packages (none added), idle RSS 4,816 KB w
 (the CI job runs on Linux x86_64: 5.15 MB, which was measured at 4.90 MB there; 115 packages counted with `sort -u`; 8 MB idle). The
 4.2 MB figure that stood here is the darwin/arm64 one and is not what CI gates.
 
+## Phase 8 close (security: SASL, ACLs, TLS, the guard), measured 2026-11-12 on branch p8g, release, darwin/arm64
+
+**The default build** (`cargo build --release -p doze-kafka`, `CARGO_BUILD_JOBS=3`, the slices 8a to 8g in): binary **4,267,504 B** (4,029,504 B at the close of Phase 7: **+238,000 B, +5.9%**),
+**123 packages** (`cargo tree -p doze-kafka --prefix none --edges normal | sort -u | wc -l`; 107 at Phase 7: +16 lines, the 15 of 8a (12 distinct packages: `kafka-auth`, `hmac`, `sha2`, `subtle`, `digest`, `crypto-common`, `block-buffer`,
+`hybrid-array`, `typenum`, `cmov`, `ctutils`, `cpufeatures`) and the one line by which the darwin count stands above 8a's, as the 8e paragraph records; the Linux CI figure is the CI's to measure), idle RSS **4,960 KB** (3 threads, a fresh data
+directory, 3 s after start, `ps -o rss`; 4,816 KB at the close of Phase 7). The `tls` build, not repeated at 8g (the guard and flags are in the default build and the feature adds nothing to them): **5,021,984 B and 134 packages at 8e**, idle 5,456 KB with a certificate
+configured and no connection (all measured in the 8e paragraph below). Nothing in the default tree is a C or assembly build: `rustls`, `ring` and `tokio-rustls` are only behind the feature.
+
+The per-slice deltas of the default build, so that the sum is visible (the figure for 8b alone was not taken: the 8c paragraph measured from the close of 8a, so 8b and 8d are one step):
+
+| Slice | What | Binary | Delta | Packages (by the CI method) | Where measured |
+|---|---|---|---|---|---|
+| (Phase 7 close) | | 4,029,504 B | | 107 | the Phase 7 paragraph |
+| 8a | `kafka-auth`, PLAIN, the login session, the SASL flags, hmac/sha2/subtle | 4,064,208 B | +34,704 B | 122 (+15 lines, 12 distinct packages; the CI gate rose from 115 to 126) | the 8a paragraph |
+| 8c | SCRAM-SHA-256 and -512 (measured from the close of 8a) | 4,098,432 B | +34,224 B | 122 (none) | the 8c paragraph |
+| 8b + 8d | the authorizer and three ACL APIs; the matrix on 45 handlers (one atomic load per check with no ACLs) | 4,166,544 B | +68,112 B | none | the base commit of the 8e paragraph |
+| 8e (default build) | the `tls` parameters, the longer refusal text | 4,183,056 B | +16,512 B | 123 on darwin (122 + 1 in the counting) | the 8e paragraph |
+| 8f | the credential APIs 50 and 51, the credential table, the users sources | 4,250,384 B | +67,328 B | 123 (none) | the 8f paragraph |
+| 8g | the guard (`hostguard.rs`), the console flags, the start-up rule and notes, exit code 2 | 4,267,504 B | +17,120 B | 123 (none) | this paragraph |
+| **Sum** | | **4,267,504 B** | **+238,000 B** | **107 to 123** | |
+| 8e (`tls` build, optional) | rustls 0.23 + tokio-rustls 0.26 on ring | 5,021,984 B | +838,928 B on top of 4,183,056 B | 134 (+11) | the 8e paragraph |
+
+The two largest steps are the matrix (8b + 8d, about 68 KB for the checks and their texts) and the credential APIs (8f, 67 KB); the 12 packages of 8a are the only step in the package count, and the one the owner chose
+(decision D1: RustCrypto, pure Rust, no C compiler). The guard is 100 lines and a few KB; the 8g step is mostly the start-up rule's messages and `clap`'s two flags.
+
+**The CI limits now** (`.github/workflows/ci.yml`; Linux x86_64, the CI measures): the `weight` job, default build: binary **5,150,000 B** (4,899,328 B is the Linux figure measured before Phase 8 started, commit affb6ba, and the limit is that plus 5%; the 8a to 8g steps add 238 KB on darwin, so if they carry over one for one the Linux binary is about
+**5,137,000 B, 0.25% under the limit: the first small addition will need a written rise**. The 8f paragraph's estimate of 4.97 MB added only 8c, 8e and 8f to that base and, by the date of the figure, left out 8a, 8b and 8d (about 137 KB), so it was too low. The darwin-to-Linux ratio of the steps is unmeasured and the CI's first run after this merge settles it), packages **126** (123 measured here, 3 spare), idle RSS **8,192 KB**. The `weight-tls` job, `--features tls` with a
+certificate configured: binary **6,100,000 B**, packages **137**, idle **8,192 KB**. If the `weight` job fails on size after this merge, the figure to move to is the CI's own measurement plus about 5%, with the reason written here.
+Neither job has run on this branch (no CI here); the **Linux weight of the `tls` build has never been measured**, only its limit set from the darwin delta (debt I3).
+
 ## Phase 8, slice 8f (users over the API, the users file), measured 2026-11-12, release, darwin/arm64
 
 Binary 4,250,384 B (4,183,056 B at the close of 8e, built the same way: **+67,328 B, +1.6%**, for the credentials table, the two handlers and their rules, the layered user lookup and the users-file and environment parsers), **123 packages, none added** (the same
