@@ -1,6 +1,7 @@
 //! A function's log: what AWS writes to `/aws/lambda/<name>`, in the shape AWS writes it. Every invocation is `START`, the lines the
 //! function printed, `END` and `REPORT` (or the JSON platform events when the function's log format is JSON), in a stream named for
-//! the day and the process (`2026/11/13/[$LATEST]<32 hex>`). They reach CloudWatch Logs over the peer bus when it is running.
+//! the day and the process (`2026/11/13/[$LATEST]<32 hex>`). They reach CloudWatch Logs over the peer bus when it is running, the
+//! printed lines as they are printed (`livelog.rs`).
 
 use std::collections::HashSet;
 use std::sync::{Mutex, PoisonError};
@@ -35,6 +36,34 @@ pub(crate) struct Report<'a> {
     pub(crate) json: bool,
 }
 
+/// The `START` event of an invocation.
+pub(crate) fn start_event(start_ms: i64, id: &str, version: &str, json: bool) -> (i64, String) {
+    if json {
+        (
+            start_ms,
+            json!({"time": iso(start_ms), "type": "platform.start", "record": {"requestId": id, "version": version}})
+                .to_string(),
+        )
+    } else {
+        (
+            start_ms,
+            format!("START RequestId: {id} Version: {version}\n"),
+        )
+    }
+}
+
+/// The event of one line the function printed.
+pub(crate) fn line_event((at, line): &Line, json: bool) -> (i64, String) {
+    (
+        *at,
+        if json {
+            line.clone()
+        } else {
+            format!("{line}\n")
+        },
+    )
+}
+
 /// The events of one invocation: its start, the lines it printed, its end and its report.
 pub(crate) fn events(
     start_ms: i64,
@@ -43,25 +72,8 @@ pub(crate) fn events(
     r: &Report<'_>,
 ) -> Vec<(i64, String)> {
     let billed = r.duration_ms.ceil();
-    let mut out = Vec::new();
-    if r.json {
-        out.push((start_ms, json!({"time": iso(start_ms), "type": "platform.start", "record": {"requestId": r.id, "version": r.version}}).to_string()));
-    } else {
-        out.push((
-            start_ms,
-            format!("START RequestId: {} Version: {}\n", r.id, r.version),
-        ));
-    }
-    for (at, line) in lines {
-        out.push((
-            *at,
-            if r.json {
-                line.clone()
-            } else {
-                format!("{line}\n")
-            },
-        ));
-    }
+    let mut out = vec![start_event(start_ms, r.id, r.version, r.json)];
+    out.extend(lines.iter().map(|l| line_event(l, r.json)));
     if r.json {
         let mut metrics = json!({"durationMs": r.duration_ms, "billedDurationMs": billed, "memorySizeMB": r.memory});
         if let (Some(init), Some(m)) = (r.init_ms, metrics.as_object_mut()) {

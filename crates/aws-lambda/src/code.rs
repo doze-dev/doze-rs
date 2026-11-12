@@ -261,3 +261,34 @@ fn copy_tree(from: &Path, to: &Path) -> std::io::Result<()> {
     }
     Ok(())
 }
+
+impl crate::Inner {
+    /// What an operation needs read before its state is touched: the code it brings, and the role it names.
+    pub(crate) async fn stage(
+        &self,
+        op: aws_model_lambda::Operation,
+        r: &crate::req::Req,
+    ) -> Result<crate::core::Staged, ApiError> {
+        use aws_model_lambda::Operation;
+        let mut staged = crate::core::Staged::default();
+        let base = self.region_dir(r.region());
+        let spec = match op {
+            Operation::CreateFunction => r.value("Code"),
+            Operation::PublishLayerVersion => r.value("Content"),
+            Operation::UpdateFunctionCode if r.flag("DryRun") != Some(true) => Some(&r.body),
+            _ => None,
+        };
+        if let Some(spec) = spec {
+            let layer = op == Operation::PublishLayerVersion;
+            staged.code = Some(stage(&base, self.peers.as_deref(), &r.caller, spec, layer).await?);
+        }
+        if matches!(
+            op,
+            Operation::CreateFunction | Operation::UpdateFunctionConfiguration
+        ) && let Some(role) = r.opt("Role")
+        {
+            staged.role = crate::role::check(self.peers.as_deref(), &r.caller, role).await;
+        }
+        Ok(staged)
+    }
+}

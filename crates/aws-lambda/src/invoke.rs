@@ -20,6 +20,7 @@ use crate::answer::{
 };
 use crate::core::{Answer, Ask};
 use crate::errors::{not_runnable, throttled};
+use crate::livelog::Live;
 use crate::req::Req;
 use crate::resolve::{Resolved, Resolving};
 use crate::rt::api::Chunk;
@@ -297,7 +298,18 @@ impl Inner {
             content_type: None,
             log: String::new(),
         };
-        let (healthy, status) = self.wait(&mut running, &mut out, stream, timeout).await;
+        let mut live = Live::new(
+            running.tap(),
+            &group,
+            &caller,
+            start_ms,
+            &id,
+            &version,
+            json_logs,
+            &name,
+        );
+        let waited = self.wait(&mut running, &mut out, stream, timeout);
+        let (healthy, status) = self.with_live_log(&mut live, waited).await;
         let end_ms = self.clock.now_ms();
         let fin = running.finish(healthy, &self.rt).await;
         let report = Report {
@@ -309,11 +321,17 @@ impl Inner {
             status,
             json: json_logs,
         };
-        let rows = events(start_ms, end_ms.max(start_ms), &fin.lines, &report);
+        let rows = events(
+            start_ms,
+            end_ms.max(start_ms),
+            &live.all_lines(&fin.lines),
+            &report,
+        );
         out.log = rows.iter().map(|(_, m)| m.as_str()).collect();
         self.echo(&name, &fin.lines);
+        let rest = live.unsent(rows);
         self.logger
-            .write(self.peers.as_deref(), &caller, &group, &fin.stream, rows)
+            .write(self.peers.as_deref(), &caller, &group, &fin.stream, rest)
             .await;
         out
     }
@@ -364,7 +382,7 @@ impl Inner {
     }
 
     /// Prints what the function wrote to our own log, unless it is quiet.
-    fn echo(&self, name: &str, lines: &[(i64, String)]) {
+    pub(crate) fn echo(&self, name: &str, lines: &[(i64, String)]) {
         if self.config.quiet {
             return;
         }

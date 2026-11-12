@@ -306,6 +306,24 @@ async fn what_is_not_built_is_refused_by_name() {
 }
 
 #[tokio::test]
+async fn a_function_this_host_cannot_launch_is_created_and_fails_when_invoked() {
+    let w = World::new();
+    // A Java package without the runtime interface client: kept (AWS would take it), with a warning in the log.
+    let made = w
+        .create(
+            "j",
+            "java21",
+            "example.Handler::handleRequest",
+            &[("example/Handler.class", b"x", 0o644)],
+        )
+        .await;
+    assert_eq!(made["State"], "Active");
+    let out = w.invoke("j", &json!({})).await;
+    assert_eq!(out["FunctionError"], "Unhandled", "{out}");
+    w.stop().await;
+}
+
+#[tokio::test]
 async fn a_layer_named_in_place_by_its_zip_is_unpacked_like_an_upload() {
     use sha2::Digest;
     let w = World::new();
