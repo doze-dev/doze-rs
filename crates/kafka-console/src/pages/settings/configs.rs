@@ -15,7 +15,7 @@ fn row(r: &SettingsConfigRow, base: &Base) -> Markup {
         tr {
             td class="name" { span class="mono" { (r.name) } span class="sub" { (r.what) } }
             td class="mono" {
-                (r.value)
+                (r.value.parse::<i64>().map_or_else(|_| r.value.clone(), crate::format::number))
                 @if let Some(g) = &r.gloss { span class="sub" style="font-family:Inter,sans-serif" { (g) } }
             }
             td { span class="pill" { (source_label(r.source)) } span class="sub" { (r.source_note) } }

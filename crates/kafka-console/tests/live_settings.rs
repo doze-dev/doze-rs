@@ -33,7 +33,10 @@ async fn the_page_lists_the_five_with_their_sources_and_the_intervals_of_this_ru
             "{key}"
         );
         assert!(
-            doc.contains(&format!("{value}<span class=\"sub\"")),
+            doc.contains(&format!(
+                "{}<span class=\"sub\"",
+                kafka_console::format::number(value.parse().unwrap())
+            )),
             "the page does not say {key} is {value}"
         );
     }
