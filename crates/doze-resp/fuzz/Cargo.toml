@@ -1,0 +1,21 @@
+[package]
+name = "doze-resp-fuzz"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+doze-resp = { path = ".." }
+
+# Not part of the main workspace: fuzzing needs a nightly toolchain.
+[workspace]
+
+[[bin]]
+name = "fuzz_reply"
+path = "fuzz_targets/fuzz_reply.rs"
+test = false
+doc = false

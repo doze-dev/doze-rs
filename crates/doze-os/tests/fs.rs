@@ -83,6 +83,35 @@ fn a_private_directory_is_open_to_the_user_only() {
 }
 
 #[test]
+fn a_private_file_is_readable_by_the_user_only_even_when_it_existed_before() {
+    let dir = scratch("private-file");
+    let path = dir.join("auth.conf");
+    std::fs::write(&path, b"old, readable by anyone").unwrap();
+    doze_os::fs::write_private(&path, b"requirepass s3cret\n").unwrap();
+    assert_eq!(std::fs::read(&path).unwrap(), b"requirepass s3cret\n");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        assert_eq!(
+            std::fs::metadata(&path).unwrap().permissions().mode() & 0o777,
+            0o600
+        );
+    }
+    #[cfg(windows)]
+    {
+        let out = std::process::Command::new("icacls")
+            .arg(&path)
+            .output()
+            .unwrap();
+        let acl = String::from_utf8_lossy(&out.stdout).to_string();
+        for broad in ["BUILTIN\\Users", "Authenticated Users", "Everyone"] {
+            assert!(!acl.contains(broad), "{broad} can read it:\n{acl}");
+        }
+    }
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
 fn a_clone_has_the_same_content_and_is_independent() {
     let base = scratch("clone");
     let src = base.join("template");

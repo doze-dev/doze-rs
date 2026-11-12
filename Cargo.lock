@@ -1115,6 +1115,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "doze-module-kvrocks"
+version = "0.0.0"
+dependencies = [
+ "doze-module",
+ "doze-module-proto",
+ "doze-module-test",
+ "doze-os",
+ "doze-resp",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "doze-module-proto"
 version = "0.0.0"
 dependencies = [
@@ -1148,12 +1161,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "doze-module-valkey"
+version = "0.0.0"
+dependencies = [
+ "doze-module",
+ "doze-module-proto",
+ "doze-module-test",
+ "doze-os",
+ "doze-resp",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "doze-os"
 version = "0.0.0"
 dependencies = [
  "rustix",
  "tokio",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "doze-resp"
+version = "0.0.0"
+dependencies = [
+ "tokio",
 ]
 
 [[package]]

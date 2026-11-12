@@ -3,8 +3,8 @@
 
 use crate::module::{Cx, Result};
 use doze_module_proto::msg::error::{Error, ErrorKind};
-use doze_module_proto::msg::instance::Toolchain;
-use doze_module_proto::msg::run::{Pin, Resolved};
+use doze_module_proto::msg::instance::{Address, Instance, Toolchain};
+use doze_module_proto::msg::run::{Pin, Provisioned, Resolved};
 use std::collections::BTreeMap;
 use std::process::Stdio;
 
@@ -105,6 +105,52 @@ pub async fn run_tool(program: &std::path::Path, args: &[&str]) -> Result<String
         ErrorKind::Unavailable,
         format!("{name}: {}", why.trim()),
     ))
+}
+
+/// An I/O failure as a module error: what was being done to which path, and why it failed.
+pub fn io_error(what: &str, path: &std::path::Path) -> impl FnOnce(std::io::Error) -> Error {
+    let what = format!("{what} {}", path.display());
+    move |e| Error::new(ErrorKind::Unavailable, format!("{what}: {e}"))
+}
+
+/// `provision` for an engine that needs only an empty data directory (valkey, kvrocks): made open to this user only,
+/// fresh the first time and existing after.
+pub fn empty_data_dir(data_dir: &str) -> Result<Provisioned> {
+    let dir = std::path::Path::new(data_dir);
+    if dir.is_dir() {
+        return Ok(Provisioned::Existing);
+    }
+    doze_os::fs::private_dir(dir).map_err(io_error("creating", dir))?;
+    Ok(Provisioned::Fresh)
+}
+
+/// Where the engine must listen, made ready to listen on: the main listener's backend as the host granted it (PLAN.md
+/// D13), or `fallback` in the instance's socket directory if none was granted. For a socket, its directory is made
+/// private and a stale socket from a crash is removed.
+pub fn prepare_backend(instance: &Instance, fallback: &str) -> Result<Address> {
+    let granted = instance
+        .listeners
+        .get(doze_module_proto::network::MAIN)
+        .map(|l| l.backend.clone());
+    let addr = granted.unwrap_or_else(|| {
+        let p = std::path::Path::new(&instance.socket_dir).join(fallback);
+        Address::Unix(p.to_string_lossy().into_owned())
+    });
+    if let Address::Unix(p) = &addr {
+        let socket = std::path::Path::new(p);
+        if let Some(dir) = socket.parent() {
+            doze_os::fs::private_dir(dir).map_err(io_error("creating", dir))?;
+        }
+        clear_stale(socket)?;
+    }
+    Ok(addr)
+}
+
+/// A loopback TCP address split into host and port, for engines that take them separately.
+pub fn host_port(addr: &str) -> Result<(&str, &str)> {
+    addr.rsplit_once(':')
+        .filter(|(h, p)| !h.is_empty() && p.parse::<u16>().is_ok())
+        .ok_or_else(|| Error::new(ErrorKind::Invalid, format!("{addr:?} is not host:port")))
 }
 
 /// Removes a stale socket or pid file left by an engine that did not exit cleanly; absent is fine.

@@ -13,6 +13,13 @@ use windows_sys::Win32::Security::{
     DACL_SECURITY_INFORMATION, PROTECTED_DACL_SECURITY_INFORMATION,
 };
 
+pub(super) fn write_private(path: &Path, bytes: &[u8]) -> io::Result<()> {
+    // Empty first, private second, contents last: the bytes never sit in a file others can read.
+    std::fs::write(path, [])?;
+    make_private(path)?;
+    std::fs::write(path, bytes)
+}
+
 pub(super) fn make_private(path: &Path) -> io::Result<()> {
     let user = current_user()?;
     let system = system()?;
