@@ -381,3 +381,16 @@ p,.sub,.lede,.help{text-wrap:pretty}
 @media (forced-colors:active){
 :where(a,button,input,select,textarea,summary,[tabindex]):focus-visible,.search:focus-within,.input:focus-within,.finput:focus-within,.dz-field:focus-within,.fchip:has(input:focus-visible),.dz-trigger:focus-visible,.dz-seg-i:focus-visible{outline:2px solid Highlight;outline-offset:2px}
 }
+
+/* ===== Overlays fit the window and scroll inside themselves =====
+   A dialog is a flex column no taller than the window (less 24 px each side): the title is fixed, the body scrolls, the foot with the
+   buttons stays in view. A drawer is as tall as the window (100dvh) and scrolls inside itself. The page behind never scrolls. */
+.ovl.ovl-dialog{align-items:center;overflow:hidden;padding:24px 16px}
+.ovl-dialog .modal{display:flex;flex-direction:column;padding:0;max-height:calc(100vh - 48px);max-height:calc(100dvh - 48px);overflow:hidden}
+.ovl-dialog .modal>form{display:flex;flex-direction:column;flex:1 1 auto;min-height:0;margin:0}
+.ovl-dialog .modal h2{flex:none;margin:0;padding:28px 32px 12px}
+.ovl-dialog .modal .body{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;margin:0;padding:0 32px 20px}
+.ovl-dialog .modal .foot{flex:none;padding:16px 32px 20px;background:#fff;border-top:1px solid var(--line)}
+.ovl-dialog .modal>:not(form){margin-left:32px;margin-right:32px}
+@media (max-width:640px){.ovl-dialog .modal h2{padding:24px 20px 10px}.ovl-dialog .modal .body{padding:0 20px 16px}.ovl-dialog .modal .foot{padding:14px 20px 16px}}
+.ovl-drawer .drawer-panel{height:100vh;height:100dvh;max-height:100dvh;box-sizing:border-box}

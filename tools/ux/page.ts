@@ -155,6 +155,9 @@ export class Page {
     return path;
   }
 
+  /** The window's size (CSS pixels). */
+  async viewport(width: number, height: number): Promise<void> { await this.cmd("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: false }); }
+
   /** Emulates a media feature (`prefers-reduced-motion`: "reduce" or "no-preference") for the whole tab. */
   async emulateMedia(name: string, value: string): Promise<void> { await this.cmd("Emulation.setEmulatedMedia", { features: [{ name, value }] }); }
 
