@@ -33,3 +33,33 @@ export const scenarios: Record<string, (t: T) => Promise<void>> = {
     await p.key("Escape");
   },
 };
+
+Object.assign(scenarios, {
+  // The list of a Select is as wide as its longest option (up to 420 px), never narrower than the trigger, one line per option with
+  // an ellipsis and the full label in `title`, inside the window.
+  async "select-menu-fits-its-labels"(t: T) {
+    const p = t.page;
+    await p.goto("/live");
+    const long = "fulfilment-payments-settled-consumer-group-eu-west-1-canary-blue";
+    await p.eval(`(() => { const o = document.querySelectorAll('.dz:has(#live-client) [role=option]'); o[1].querySelector('.dz-opt-label').textContent = ${JSON.stringify(long)}; o[1].title = ${JSON.stringify(long)}; })()`);
+    await p.click(".dz:has(#live-client) .dz-trigger");
+    await p.waitFor("document.querySelector('.dz:has(#live-client) .dz-trigger').getAttribute('aria-expanded') === 'true'");
+    await Bun.sleep(250);
+    const m = await p.eval<{ trig: number; pop: number; left: number; right: number; lines: number[]; titles: number; broken: string[] }>(`(() => {
+      const pop = document.querySelector('.dz:has(#live-client) [role=listbox]').getBoundingClientRect();
+      const opts = [...document.querySelectorAll('.dz:has(#live-client) [role=option]')];
+      return { trig: document.querySelector('.dz:has(#live-client) .dz-trigger').getBoundingClientRect().width, pop: pop.width, left: pop.left, right: pop.right,
+        lines: opts.map((o) => Math.round(o.getBoundingClientRect().height)), titles: opts.filter((o) => o.title).length,
+        broken: opts.filter((o) => { const l = o.querySelector('.dz-opt-label'); return l.scrollWidth > l.clientWidth && !(getComputedStyle(l).textOverflow === 'ellipsis'); }).map((o) => o.textContent) };
+    })()`);
+    t.num("trigger.w", m.trig); t.num("list.w", m.pop);
+    t.ok(m.pop >= m.trig - 1, `the list (${m.pop}) is at least as wide as the trigger (${m.trig})`);
+    t.ok(m.pop <= 421, `and at most 420 px (${m.pop})`);
+    t.ok(m.left >= 184 && m.right <= 1280 - 8, `inside the window and clear of the rail (${m.left}..${m.right})`);
+    t.ok(m.lines.every((h) => h <= 40), `every option is one line (heights ${m.lines.join(",")})`);
+    t.ok(m.titles === m.lines.length, "every option carries its label in title");
+    t.ok(m.broken.length === 0, "a label that does not fit ends in an ellipsis");
+    await p.shot(`${t.shots}/select-menu-width.png`);
+    await p.key("Escape");
+  },
+});

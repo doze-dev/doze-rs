@@ -365,6 +365,10 @@ document.addEventListener('alpine:init', () => {
   function fit(pop) {
     if (!pop.isConnected) return;
     if (pop.style.display === 'none') { if (pop.style.marginLeft) pop.style.marginLeft = ''; return; }
+    // A list is at least as wide as what opened it, and as wide as its longest option up to 420 px (the CSS): never a column the width of
+    // a narrow trigger with words broken in the middle.
+    const root = pop.closest('.dz'), ref = root && root.querySelector('.dz-trigger,.dz-field');
+    if (ref && pop.matches('[role=listbox]')) { const w = Math.round(ref.getBoundingClientRect().width) + 'px'; if (pop.style.minWidth !== w) pop.style.minWidth = w; }
     const ml = parseFloat(pop.style.marginLeft) || 0;
     const r = pop.getBoundingClientRect();
     if (!r.width) return;

@@ -270,7 +270,7 @@ html.is-loading::before{content:"";position:fixed;z-index:90;top:0;left:0;right:
 .dz.is-on .dz-native{position:absolute;opacity:0;pointer-events:none;width:1px;height:1px;overflow:hidden}
 @media (scripting:enabled){.dz-select:not(.is-on) .dz-native,.dz-combobox:not(.is-on) .dz-native{visibility:hidden}.dz-menu:not(.is-on) .dz-pop,.dz-pov:not(.is-on) .dz-pop{display:none}}
 /* The popup: 1px border, radius 8, a soft shadow, 4px inside. */
-.dz-pop{z-index:60;box-sizing:border-box;min-width:8rem;max-width:min(420px,92vw);max-height:min(320px,60vh);overflow-y:auto;overscroll-behavior:contain;padding:4px;background:#fff;color:var(--text);border:1px solid var(--line2);border-radius:8px;box-shadow:0 12px 32px -8px rgba(23,20,31,.20),0 2px 6px rgba(23,20,31,.06)}
+.dz-pop{z-index:60;box-sizing:border-box;min-width:8rem;width:max-content;max-width:min(420px,calc(100vw - 32px));max-height:min(320px,60vh);overflow-y:auto;overscroll-behavior:contain;padding:4px;background:#fff;color:var(--text);border:1px solid var(--line2);border-radius:8px;box-shadow:0 12px 32px -8px rgba(23,20,31,.20),0 2px 6px rgba(23,20,31,.06)}
 @media (prefers-reduced-motion:no-preference){.dz-pop{animation:dz-in 120ms cubic-bezier(.22,1,.36,1) both}}
 @keyframes dz-in{from{opacity:0;transform:translateY(-3px) scale(.985)}}
 /* Select */
@@ -286,7 +286,7 @@ html.is-loading::before{content:"";position:fixed;z-index:90;top:0;left:0;right:
 .dz-opt{position:relative;display:flex;align-items:center;gap:8px;min-height:32px;padding:6px 10px 6px 30px;border-radius:6px;color:var(--text);cursor:default;user-select:none}
 .dz-opt[hidden]{display:none}
 .dz-opt-t{display:flex;flex-direction:column;min-width:0}
-.dz-opt-label{overflow-wrap:anywhere}
+.dz-opt-label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dz-desc{font-size:12px;line-height:16px;color:var(--dim)}
 .dz-check{position:absolute;left:9px;top:9px;visibility:hidden;color:var(--accent)}
 .dz-opt[aria-selected=true] .dz-check{visibility:visible}
@@ -361,3 +361,4 @@ p,.sub,.lede,.help{text-wrap:pretty}
 .t td.val{max-width:0;width:34%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* Reduced motion: the page change is a swap with no cross-fade (the browser's own default for a view transition would fade). */
 @media (prefers-reduced-motion:reduce){::view-transition-group(*),::view-transition-old(*),::view-transition-new(*){animation:none!important}}
+.dz-opt-t{flex:1 1 auto}.dz-item{overflow:hidden;text-overflow:ellipsis}
