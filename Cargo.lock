@@ -1388,6 +1388,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "doze-names"
+version = "0.0.0"
+dependencies = [
+ "doze-os",
+ "serde",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "doze-os"
 version = "0.0.0"
 dependencies = [

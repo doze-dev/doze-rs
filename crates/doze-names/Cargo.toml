@@ -1,0 +1,21 @@
+[package]
+name = "doze-names"
+version = "0.0.0"
+description = ".doze, the local naming zone every doze program shares: names, addresses, the registry, the resolver, the front door"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+doze-os = { path = "../doze-os" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1.54", features = ["net", "rt", "time", "sync", "macros"] }
+
+[dev-dependencies]
+tokio = { version = "1.54", features = ["net", "rt", "rt-multi-thread", "time", "sync", "macros"] }

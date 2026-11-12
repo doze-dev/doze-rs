@@ -54,12 +54,61 @@ Rust crate read and write one file in turn.
 
 | Need | Choice | Why |
 |---|---|---|
-| DNS messages | `simple-dns` 0.13 (MIT, no dependencies) | parse and build packets; a resolver for one zone needs nothing more. `hickory-proto` brings rand, url, ipnet, tracing; `domain` is larger too. Fuzzed at our boundary. |
+| DNS messages | hand-written, as Go's (crate `wire.rs`, about 100 lines); `simple-dns` 0.13 (MIT, no dependencies) is the fallback if more record types are ever needed | the zone answers one question with A, empty NOERROR or NXDOMAIN, and caps relayed TTLs: no dependency earns its place for that. `hickory-proto` brings rand, url, ipnet, tracing; `domain` is larger. Fuzzed (`fuzz_wire`). |
 | CA and leaf certificates | `rcgen` 0.14 on `ring` | doze-rs already uses rustls with ring (doze-kafka TLS): no second crypto stack |
 | TLS at the front door | `tokio-rustls` (already in the workspace) | SNI picks the leaf |
 | macOS tunnel | written in `doze-os` (utun: a `PF_SYSTEM` socket, `CTLIOCGINFO`, connect; ~100 lines) | the only `unsafe` stays in doze-os (D11); `tun-rs` would add a dependency for a few calls |
 | Packet translation | hand-written IPv4/TCP rewrite with checksum update | a dozen lines of arithmetic the Go version also writes by hand; fuzzed |
 | HTTP routing at the front door | hyper 1 (already in the workspace: aws-gateway) | Host header, streaming |
+
+## Who uses names, and how modules plug in (owner, 2026-11-13)
+
+"doze-aws plugs into the DNS for all of its services, which means other modules should be able to do it too."
+
+- **Subtree ownership is how.** A registered name owns every name beneath it (most specific wins; the walk stops
+  before `.doze`). doze-aws holds `aws.harbour.doze` and so answers `sqs.ap-south-1.aws.harbour.doze` and API Gateway
+  ids minted at runtime, with no claim per service. The rule is the registry's, not doze-aws's: every name has it
+  (ported and tested in N1, `a_registered_name_owns_its_subtree`).
+- **Modules (protocol 2).** A module declares listeners with routes (`@`, a label, `prefix-@`); the core claims a
+  qualified name per granted host (`Granted.hosts`, already in the protocol), routes it at the listener's backend for
+  the front door, and twins the extra hosts (Go's `Lease.Twin`, e.g. `sync-aws.shop.doze`, and declared domains).
+  So any module gets what doze-aws has: its names, everything under them, and `http://<name>` through the front
+  door. A module never touches the registry itself: the core does, so the zone has one writer per stack.
+- **Standalone engines** (doze-aws, doze-kafka run on their own) claim apex names (`aws.doze`, `kafka.doze`) through
+  this crate directly, as the Go ones do (N6).
+- **The core** (doze CLI and app daemon), as Go doze does today: a lease per instance and its twins, routes, the
+  stack claim (`claim_stack`, refusing a stack name another project holds), its own live resolver consulted before
+  the registry (Go `ServeResolveIn`: a name answers the moment a service is added), the front door, recorded domains
+  for `trust`, the CA, and `pool_usable` to decide addresses or 127.0.0.1.
+
+## Root: what needs it, and when (owner, 2026-11-13)
+
+The networking needs root once per machine, never per run, as in Go:
+
+- **One prompt for setup**: `doze dns-setup` (also `doze doctor --fix`, and the app's Repair) runs one privileged
+  script whose steps are reported one by one (`Check`): on macOS the network daemon (launchd, root only to open the
+  tunnel and add the route, then it drops to the user for good) and `/etc/resolver/doze`; on Linux the `doze0`
+  interface with 192.0.2.53, the resolved or dnsmasq route, the daemon's systemd unit, the marked `/etc/hosts` block;
+  on Windows the NRPT rule. The app shows what the script will do before the password (Go's `RepairPlan`).
+- **One prompt for trust**: `doze trust` routes a project's own domains to the resolver and trusts the doze CA
+  (keychain, ca-certificates, certutil), and removes stale routes in the same prompt.
+- **Nothing else**: the resolver is on a high port, services listen on their own addresses (Linux, Windows) or
+  behind the daemon (macOS), and the front door's :80/:443 needs no root on macOS (the wildcard) and needs the
+  privileged-port sysctl on Linux, which setup sets. Every program runs as the user afterwards.
+- **Tests**: N1 to N3 need none. N4/N5 run with root on the owner's Mac (the netd end-to-end tests, as Go's
+  `e2e_darwin_test.go`), in the Lima VM (Linux setup), and on the elevated Windows runners.
+
+## TLS and proxying (owner, 2026-11-13)
+
+- **Here**: the front door's TLS. One CA per machine under `<home>/ca` (made under a lock, key readable by its owner
+  only, rotation), a short-lived leaf minted per domain on the first handshake that asks and kept beside it, a
+  person's own certificate served instead when they bring one (`Lease::certificate`), plain http to a declared
+  domain redirected to https, and no certificate for a peer that is not this machine. N3, on rustls (already in the
+  workspace) with rcgen.
+- **Not here, recorded so it is not lost**: the core's client-facing proxy (Go `internal/proxy`: one listener per
+  instance, boot on first connection, splice) and its TLS termination for engines that need it (`tls.go`: a cached
+  self-signed certificate, enough for postgres `sslmode=require`). In protocol 2 that is the core's proxy plus the
+  module's wire filter (`Wire` capability; postgres in step 11). See docs/port/modules/PLAN.md.
 
 ## The crate
 
