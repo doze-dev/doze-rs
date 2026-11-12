@@ -57,4 +57,4 @@ pub fn ct_eq(a: &[u8], b: &[u8]) -> bool {
 }
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;

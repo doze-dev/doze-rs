@@ -10,11 +10,11 @@ fn flags_that_cannot_be_honoured_stop_the_start_and_say_why() {
         (
             &[
                 "--sasl-mechanisms",
-                "SCRAM-SHA-512",
+                "SCRAM-SHA-1",
                 "--sasl-user",
                 "u:planted-pw",
             ],
-            "SCRAM arrives with slice 8c",
+            "unknown SASL mechanism",
         ),
         (&["--sasl-user", "u:planted-pw"], "no mechanism is enabled"),
         (
@@ -91,6 +91,66 @@ fn a_broker_started_with_sasl_logs_a_client_in_and_serves_it_and_prints_no_passw
         !log.contains("planted"),
         "the password is in the log:\n{log}"
     );
+    drop(broker);
+    let _ = std::fs::remove_dir_all(&data);
+}
+
+/// A SCRAM login over the wire: the handshake for `kind`, the two tokens; the error code of each.
+fn scram_log_in(s: &mut TcpStream, kind: kafka_auth::scram::Kind, password: &str) -> (i16, i16) {
+    use kafka_auth::scram::client::Client;
+    use kafka_protocol::messages::{
+        SaslAuthenticateRequest, SaslAuthenticateResponse, SaslHandshakeRequest,
+        SaslHandshakeResponse,
+    };
+    let mut hs = SaslHandshakeRequest::default();
+    hs.mechanism = StrBytes::from_string(kind.mechanism().name().to_owned());
+    let said: SaslHandshakeResponse = call(s, ApiKey::SaslHandshake, 1, &hs);
+    assert_eq!(said.error_code, 0);
+    let me = Client::new(kind, "alice", password, "process-nonce-planted.");
+    let mut auth = SaslAuthenticateRequest::default();
+    auth.auth_bytes = Bytes::from(me.first());
+    let first: SaslAuthenticateResponse = call(s, ApiKey::SaslAuthenticate, 2, &auth);
+    if first.error_code != 0 {
+        return (first.error_code, 0);
+    }
+    let last = me.last(&first.auth_bytes, None, "");
+    auth.auth_bytes = Bytes::from(last.message);
+    let done: SaslAuthenticateResponse = call(s, ApiKey::SaslAuthenticate, 2, &auth);
+    if done.error_code == 0 {
+        assert_eq!(done.auth_bytes.as_ref(), last.expected.as_slice());
+    }
+    (first.error_code, done.error_code)
+}
+
+#[test]
+fn a_broker_started_with_scram_logs_a_client_in_with_either_hash_and_prints_no_password() {
+    use kafka_auth::scram::Kind;
+    let data = scratch("scram");
+    let broker = start_with(
+        &data,
+        &[
+            "--sasl-mechanisms",
+            "PLAIN,SCRAM-SHA-512,SCRAM-SHA-256",
+            "--sasl-user",
+            &format!("alice:{PASSWORD}"),
+            "--log-level",
+            "trace",
+        ],
+    );
+    for kind in [Kind::Sha256, Kind::Sha512] {
+        let mut wrong = broker.connect();
+        assert_eq!(scram_log_in(&mut wrong, kind, "wrong-planted-pw"), (0, 58));
+        let mut right = broker.connect();
+        assert_eq!(scram_log_in(&mut right, kind, PASSWORD), (0, 0));
+        create(
+            &mut right,
+            if kind == Kind::Sha256 { "t256" } else { "t512" },
+        );
+    }
+    std::thread::sleep(Duration::from_millis(300));
+    let log = broker.log.lock().unwrap().clone();
+    assert!(log.contains("SCRAM-SHA-512"), "{log}");
+    assert!(!log.contains("planted"), "a secret is in the log:\n{log}");
     drop(broker);
     let _ = std::fs::remove_dir_all(&data);
 }

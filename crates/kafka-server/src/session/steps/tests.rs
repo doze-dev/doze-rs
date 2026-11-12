@@ -84,7 +84,8 @@ fn a_handshake_in_any_other_state_is_34_with_no_mechanisms_and_changes_nothing()
 #[test]
 fn the_right_token_logs_in_with_an_empty_message_not_an_absent_one() {
     let mut s = handshaken();
-    let (r, fate) = authenticate(&mut s, &authenticator(), &token(b"\0alice\0alice-secret"));
+    let (r, fate) =
+        authenticate(&mut s, &authenticator(), &token(b"\0alice\0alice-secret")).unwrap();
     assert_eq!((r.error_code, message(&r), fate), (0, Some(""), Fate::Open));
     assert!(r.auth_bytes.is_empty() && r.session_lifetime_ms == 0);
     assert_eq!(s.principal().map(Principal::as_str), Some("User:alice"));
@@ -116,7 +117,7 @@ fn every_recorded_refusal_is_58_with_kafkas_text_and_closes() {
     ];
     for (bytes, text) in cases {
         let mut s = handshaken();
-        let (r, fate) = authenticate(&mut s, &authenticator(), &token(bytes));
+        let (r, fate) = authenticate(&mut s, &authenticator(), &token(bytes)).unwrap();
         assert_eq!(
             (r.error_code, message(&r), fate),
             (58, Some(text), Fate::Closing)
@@ -137,7 +138,7 @@ fn a_second_token_after_a_login_is_34_whoever_it_names_and_changes_nobody() {
         b"",
     ] {
         let mut s = Session::Authenticated(Principal::user("alice"));
-        let (r, fate) = authenticate(&mut s, &authenticator(), &token(bytes));
+        let (r, fate) = authenticate(&mut s, &authenticator(), &token(bytes)).unwrap();
         assert_eq!(
             (r.error_code, message(&r), fate),
             (34, Some(after), Fate::Open)
@@ -150,7 +151,10 @@ fn a_second_token_after_a_login_is_34_whoever_it_names_and_changes_nobody() {
 #[test]
 fn a_token_before_the_handshake_logs_nobody_in() {
     let mut s = Session::new();
-    let (r, fate) = authenticate(&mut s, &authenticator(), &token(b"\0alice\0alice-secret"));
+    let (r, fate) =
+        authenticate(&mut s, &authenticator(), &token(b"\0alice\0alice-secret")).unwrap();
     assert_eq!((r.error_code, fate), (34, Fate::Closing));
     assert!(!s.is_authenticated());
 }
+
+mod scram;

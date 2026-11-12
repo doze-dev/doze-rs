@@ -13,6 +13,7 @@ pub mod credentials;
 pub mod crypto;
 pub mod plain;
 pub mod principal;
+pub mod scram;
 
 pub use authenticator::{Authenticator, SetupError};
 pub use credentials::{Credentials, CredentialsError, Secret};

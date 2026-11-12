@@ -270,4 +270,5 @@ async fn a_big_frame_that_trickles_in_has_the_frame_budget_too() {
 }
 
 mod login;
+mod scram;
 mod served;

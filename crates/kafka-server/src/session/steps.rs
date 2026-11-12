@@ -1,16 +1,18 @@
 //! The two SASL requests, answered: pure functions from a session and a request to the exact response Kafka
 //! gives, and what happens to the connection after it.
 //!
-//! Nothing the client sent is ever put in an answer or a log: the texts are Kafka's own (the PLAIN ones come
-//! from `kafka-auth`), and the mechanism list is the server's.
+//! Nothing the client sent is ever put in an answer or a log: the texts are Kafka's own (the PLAIN and SCRAM ones
+//! come from `kafka-auth`), and the mechanism list is the server's.
 
 use bytes::Bytes;
-use kafka_auth::{Authenticator, Mechanism};
+use kafka_auth::scram::{self, Awaiting};
+use kafka_auth::{Authenticator, Mechanism, Principal};
 use kafka_wire::ResponseError;
 use kafka_wire::StrBytes;
 use kafka_wire::messages::{
     SaslAuthenticateRequest, SaslAuthenticateResponse, SaslHandshakeRequest, SaslHandshakeResponse,
 };
+use tracing::debug;
 
 use super::Session;
 
@@ -49,32 +51,76 @@ pub(crate) fn handshake(
     }
 }
 
-/// Answers a SaslAuthenticate. A right token logs in; a wrong one is answered SASL_AUTHENTICATION_FAILED with
-/// Kafka's text for it, and the connection closes.
+/// A login that is over without an answer: the connection is closed and nothing is written. Kafka does this for
+/// a SCRAM proof of the wrong length, where its code throws an exception that is not a failed login.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct Hangup;
+
+/// Answers a SaslAuthenticate. A right token logs in (or, for the first message of SCRAM, is answered with the
+/// challenge); a wrong one is answered SASL_AUTHENTICATION_FAILED with Kafka's text for it, and the connection
+/// closes.
+///
+/// # Errors
+/// [`Hangup`]: the connection is to be closed with no answer.
 pub(crate) fn authenticate(
     session: &mut Session,
     auth: &Authenticator,
     request: &SaslAuthenticateRequest,
-) -> (SaslAuthenticateResponse, Fate) {
+) -> Result<(SaslAuthenticateResponse, Fate), Hangup> {
+    let token = &request.auth_bytes;
+    if let Some(awaiting) = take_challenge(session) {
+        return match awaiting.finish(token) {
+            Ok((signature, principal)) => Ok(logged_in(session, principal, signature)),
+            Err(refusal) => refused(&refusal),
+        };
+    }
     match session {
-        Session::Handshaken(Mechanism::Plain) => match auth.plain(&request.auth_bytes) {
-            Ok(principal) => {
-                *session = Session::Authenticated(principal);
-                (login_succeeded(), Fate::Open)
-            }
-            Err(refusal) => (failed(&refusal.to_string()), Fate::Closing),
+        Session::Handshaken(Mechanism::Plain) => match auth.plain(token) {
+            Ok(principal) => Ok(logged_in(session, principal, Vec::new())),
+            Err(refusal) => Ok((failed(&refusal.to_string()), Fate::Closing)),
         },
-        Session::Handshaken(other) => (
-            failed(&format!(
-                "Authentication failed during authentication due to invalid credentials with SASL mechanism {other}"
-            )),
-            Fate::Closing,
-        ),
-        Session::Authenticated(_) => (after_login(), Fate::Open),
-        Session::Unauthenticated { .. } => {
-            (error(ResponseError::IllegalSaslState, None), Fate::Closing)
+        Session::Handshaken(mechanism) => match auth.scram_first(*mechanism, token) {
+            Ok((challenge, awaiting)) => {
+                *session = Session::Challenged(awaiting);
+                Ok((succeeded(challenge), Fate::Open))
+            }
+            Err(refusal) => refused(&refusal),
+        },
+        Session::Authenticated(_) => Ok((after_login(), Fate::Open)),
+        Session::Unauthenticated { .. } | Session::Challenged(_) => {
+            Ok((error(ResponseError::IllegalSaslState, None), Fate::Closing))
         }
     }
+}
+
+/// The SCRAM exchange in flight, taken out of the session (which is left as it was if there is none).
+fn take_challenge(session: &mut Session) -> Option<Awaiting> {
+    match std::mem::replace(session, Session::new()) {
+        Session::Challenged(awaiting) => Some(awaiting),
+        other => {
+            *session = other;
+            None
+        }
+    }
+}
+
+fn logged_in(
+    session: &mut Session,
+    principal: Principal,
+    reply: Vec<u8>,
+) -> (SaslAuthenticateResponse, Fate) {
+    *session = Session::Authenticated(principal);
+    (succeeded(reply), Fate::Open)
+}
+
+/// A SCRAM refusal: the generic answer then a close, or, for a proof the wrong length, a close alone. The reason
+/// goes to the debug log as an enum name; nothing the client sent does.
+fn refused(refusal: &scram::Refusal) -> Result<(SaslAuthenticateResponse, Fate), Hangup> {
+    debug!(reason = ?refusal, "SCRAM login refused");
+    if refusal.is_silent() {
+        return Err(Hangup);
+    }
+    Ok((failed(&refusal.to_string()), Fate::Closing))
 }
 
 /// The answer to a SaslHandshake that comes at the wrong time: ILLEGAL_SASL_STATE and no mechanisms.
@@ -101,11 +147,11 @@ fn listing(code: i16, auth: &Authenticator) -> SaslHandshakeResponse {
     r
 }
 
-/// Success: no error, an empty (not absent) message, no bytes to send back, no session lifetime.
-fn login_succeeded() -> SaslAuthenticateResponse {
+/// Success: no error, an empty (not absent) message, the mechanism's reply (none for PLAIN), no session lifetime.
+fn succeeded(reply: Vec<u8>) -> SaslAuthenticateResponse {
     let mut r = SaslAuthenticateResponse::default();
     r.error_message = Some(StrBytes::from_static_str(""));
-    r.auth_bytes = Bytes::new();
+    r.auth_bytes = Bytes::from(reply);
     r
 }
 

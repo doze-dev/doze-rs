@@ -129,7 +129,8 @@ fn sasl<F: Fs>(
             (Response::SaslHandshake(response), fate)
         }
         Request::SaslAuthenticate(r) => {
-            let (response, fate) = steps::authenticate(session, auth, &r);
+            let (response, fate) = steps::authenticate(session, auth, &r)
+                .map_err(|steps::Hangup| End::LoginAbandoned)?;
             (Response::SaslAuthenticate(response), fate)
         }
         _ => return Err(End::Refused(head.key)),

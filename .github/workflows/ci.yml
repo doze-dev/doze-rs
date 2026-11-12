@@ -107,6 +107,13 @@ jobs:
         run: |
           mkdir -p corpus/acl_filter
           cargo fuzz run acl_filter corpus/acl_filter seeds/acl_filter -- -max_total_time=30 -max_len=4096
+      - name: Fuzz the two SCRAM messages for 30 seconds
+        working-directory: crates/kafka-auth/fuzz
+        run: |
+          for target in scram_first scram_final; do
+            mkdir -p "corpus/$target"
+            cargo fuzz run "$target" "corpus/$target" "seeds/$target" -- -max_total_time=30 -max_len=524288
+          done
       - name: Fuzz recovery for 30 seconds
         working-directory: crates/kafka-storage/fuzz
         run: |

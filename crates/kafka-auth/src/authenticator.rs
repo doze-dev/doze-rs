@@ -1,8 +1,9 @@
 //! What a broker needs to decide a login: the mechanisms it offers and the users it knows.
 
-use crate::credentials::Credentials;
+use crate::credentials::{Credentials, CredentialsError};
 use crate::plain::{self, Refusal};
 use crate::principal::{Mechanism, Principal};
+use crate::scram::{self, Awaiting, Kind, Why};
 
 /// A configuration that cannot work. The text never holds a password.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
@@ -14,11 +15,9 @@ pub enum SetupError {
     /// SASL is on and nobody can log in.
     #[error("SASL is enabled but no credentials are configured")]
     NoUsers,
-    /// A mechanism this build cannot yet perform.
-    #[error(
-        "SASL mechanism {0} is not available yet: SCRAM arrives with slice 8c of Phase 8; use PLAIN until then"
-    )]
-    Unsupported(Mechanism),
+    /// The verifiers for the SCRAM mechanisms could not be made.
+    #[error("{0}")]
+    Scram(#[from] CredentialsError),
 }
 
 /// The mechanisms a listener offers and the users that may log in. Immutable once built, so it is shared by
@@ -33,17 +32,16 @@ impl Authenticator {
     /// An authenticator offering `mechanisms` to the users in `credentials`.
     ///
     /// # Errors
-    /// No mechanism, no user, or a mechanism that is not implemented yet.
+    /// No mechanism, no user, or no random bytes for the salts of the SCRAM verifiers.
     pub fn new(mechanisms: &[Mechanism], credentials: Credentials) -> Result<Self, SetupError> {
         if mechanisms.is_empty() {
             return Err(SetupError::NoMechanism);
         }
-        if let Some(&m) = mechanisms.iter().find(|&&m| m != Mechanism::Plain) {
-            return Err(SetupError::Unsupported(m));
-        }
         if credentials.is_empty() {
             return Err(SetupError::NoUsers);
         }
+        let kinds: Vec<Kind> = mechanisms.iter().filter_map(|&m| Kind::of(m)).collect();
+        let credentials = credentials.with_scram(&kinds)?;
         Ok(Self {
             offered: java_hash_set_order(mechanisms),
             credentials,
@@ -67,6 +65,25 @@ impl Authenticator {
     #[must_use]
     pub fn offers(&self, mechanism: Mechanism) -> bool {
         self.offered.contains(&mechanism)
+    }
+
+    /// Reads the client-first `token` of a SCRAM exchange for `mechanism` and answers with the server-first
+    /// message (the first element) and the exchange to carry on with. The server nonce is fresh.
+    ///
+    /// # Errors
+    /// The first check the token fails; PLAIN and a mechanism that is not offered are refused too.
+    pub fn scram_first(
+        &self,
+        mechanism: Mechanism,
+        token: &[u8],
+    ) -> Result<(Vec<u8>, Awaiting), scram::Refusal> {
+        let rejected = |why| scram::Refusal::Rejected { mechanism, why };
+        let kind = Kind::of(mechanism).filter(|_| self.offers(mechanism));
+        let kind = kind.ok_or(rejected(Why::UnknownUser))?;
+        let nonce = scram::fresh_nonce().ok_or(rejected(Why::NoEntropy))?;
+        scram::first(kind, token, &nonce, |user| {
+            self.credentials.verifier(kind, user)
+        })
     }
 
     /// Judges a PLAIN token.

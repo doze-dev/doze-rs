@@ -42,6 +42,21 @@ fn symbol(six_bits: u32) -> u8 {
 /// # Errors
 /// [`Invalid`] for anything but canonical, padded base64.
 pub fn decode(text: &[u8]) -> Result<Vec<u8>, Invalid> {
+    decode_with(text, true)
+}
+
+/// The bytes `text` stands for, as Java's `Base64.getDecoder()` reads it: the shape is as strict as in
+/// [`decode`], but bits set past the end of the data are ignored, so a second encoding of the same bytes is
+/// accepted. Apache Kafka's SCRAM messages are decoded this way, and a broker that means to answer as Kafka does
+/// must not be stricter.
+///
+/// # Errors
+/// [`Invalid`] for anything but padded base64.
+pub fn decode_lax(text: &[u8]) -> Result<Vec<u8>, Invalid> {
+    decode_with(text, false)
+}
+
+fn decode_with(text: &[u8], canonical: bool) -> Result<Vec<u8>, Invalid> {
     if !text.len().is_multiple_of(4) {
         return Err(Invalid);
     }
@@ -49,13 +64,18 @@ pub fn decode(text: &[u8]) -> Result<Vec<u8>, Invalid> {
     let last_at = text.len().saturating_sub(4);
     let (quads, _) = text.as_chunks::<4>();
     for (i, quad) in quads.iter().enumerate() {
-        quartet(quad, i * 4 == last_at, &mut out)?;
+        quartet(quad, (i * 4 == last_at, canonical), &mut out)?;
     }
     Ok(out)
 }
 
 /// Four characters to up to three bytes, appended to `out`. Only the last four characters may be padded.
-fn quartet(&[a, b, c, d]: &[u8; 4], last: bool, out: &mut Vec<u8>) -> Result<(), Invalid> {
+/// `(last, canonical)`: whether this is the last four characters, and whether spare bits are refused.
+fn quartet(
+    &[a, b, c, d]: &[u8; 4],
+    (last, canonical): (bool, bool),
+    out: &mut Vec<u8>,
+) -> Result<(), Invalid> {
     let pad = match (c == b'=', d == b'=') {
         (false, false) => 0,
         (false, true) => 1,
@@ -76,7 +96,7 @@ fn quartet(&[a, b, c, d]: &[u8; 4], last: bool, out: &mut Vec<u8>) -> Result<(),
         1 => n & 0xFF,
         _ => n & 0xFFFF,
     };
-    if spare != 0 {
+    if canonical && spare != 0 {
         return Err(Invalid);
     }
     out.push(byte(n >> 16));

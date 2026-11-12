@@ -27,15 +27,18 @@ no ACLs refuses nothing; `deny` is Kafka's own default) and `--acl-super-user Ty
 commas are dropped; a value that is not `Type:name` with both parts non-empty stops the start). Any other `--acl-default` stops the
 start with `config: acl-default "x" must be "allow" or "deny"`, a bad super user with `config: acl super user "x" must be written
 Type:name, such as User:admin`, both the Go edition's words. They apply with SASL off too (the principal is `User:ANONYMOUS`, SEC-D7).
-**SASL is real** (Phase 8, slice 8a): `--sasl-mechanisms PLAIN` (comma list, exact upper-case names) and `--sasl-user user:password`
+**SASL is real** (Phase 8, slices 8a and 8c): `--sasl-mechanisms PLAIN,SCRAM-SHA-512,SCRAM-SHA-256` (comma list, exact upper-case names; any of the three) and `--sasl-user user:password`
 (repeatable; split at the first colon, so a password may hold colons; ASCII). They go together: users without mechanisms, mechanisms
 without users, an unknown mechanism, a name without a colon, an empty user or password, and a user given twice each stop the
-start, in the Go edition's words, and none of those messages repeats a password. `SCRAM-SHA-256` and `SCRAM-SHA-512` are known names
-but stop the start with "SCRAM arrives with slice 8c". The passwords are in no `Debug` output of the arguments or the settings and
+start, in the Go edition's words, and none of those messages repeats a password. For a SCRAM mechanism the broker derives, at start,
+a verifier for every user (4096 iterations, a random 16-byte salt per user and mechanism; nothing is stored), so a password is
+the same for PLAIN and for both SCRAM hashes. The flag order is kept for the configuration; a SaslHandshake answer lists the
+mechanisms in Java `HashSet` order whatever the flag says (SEC-7). The passwords are in no `Debug` output of the arguments or the settings and
 in no log line (SEC-13). **Refused** (the channel would otherwise be in the clear): `--tls-cert --tls-key`.
 Test: `cli::tests::*` (`the_acl_flags_set_what_the_broker_enforces_and_nothing_is_ignored`, `a_bad_acl_default_or_super_user_is_refused_in_the_go_editions_words`), `duration::tests::*`, `tests/process` `acl::acl_flags_that_cannot_work_stop_the_start_in_the_go_editions_words`,
 `acl::a_deny_default_with_no_sasl_binds_the_anonymous_user_and_a_restart_keeps_the_acls`, `sasl::flags_that_cannot_be_honoured_stop_the_start_and_say_why`,
-`sasl::a_broker_started_with_sasl_logs_a_client_in_and_serves_it_and_prints_no_password`
+`sasl::a_broker_started_with_sasl_logs_a_client_in_and_serves_it_and_prints_no_password`,
+`sasl::a_broker_started_with_scram_logs_a_client_in_with_either_hash_and_prints_no_password`
 
 ### B5. Descriptors
 At start the soft limit on open files is raised toward the hard one (to 65,536 at most; macOS allows 10,240), and the

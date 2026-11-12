@@ -72,10 +72,34 @@ fn a_setup_that_cannot_work_is_refused() {
         Authenticator::new(&[Plain], Credentials::default()).unwrap_err(),
         SetupError::NoUsers
     );
-    for m in [ScramSha256, ScramSha512] {
-        let e = Authenticator::new(&[Plain, m], users()).unwrap_err();
-        assert_eq!(e, SetupError::Unsupported(m));
-        assert!(e.to_string().contains(m.name()));
+    assert_eq!(
+        Authenticator::new(&[ScramSha256], Credentials::default()).unwrap_err(),
+        SetupError::NoUsers
+    );
+}
+
+#[test]
+fn scram_is_offered_and_logs_in_with_the_mechanism_named() {
+    use crate::scram::client::Client;
+    let a = Authenticator::new(&[Plain, ScramSha256, ScramSha512], users()).unwrap();
+    assert_eq!(a.offered(), [Plain, ScramSha512, ScramSha256]);
+    for (mechanism, kind) in [(ScramSha256, Kind::Sha256), (ScramSha512, Kind::Sha512)] {
+        let c = Client::new(kind, "alice", "alice-secret", "nonce.");
+        let (server_first, awaiting) = a.scram_first(mechanism, &c.first()).unwrap();
+        let fin = c.last(&server_first, None, "");
+        let (reply, who) = awaiting.finish(&fin.message).unwrap();
+        assert_eq!((reply, who.as_str()), (fin.expected, "User:alice"));
+    }
+}
+
+#[test]
+fn scram_is_refused_for_a_mechanism_that_is_not_offered() {
+    use crate::scram::client::Client;
+    let a = Authenticator::new(&[Plain, ScramSha256], users()).unwrap();
+    let c = Client::new(Kind::Sha512, "alice", "alice-secret", "nonce.");
+    for mechanism in [ScramSha512, Plain] {
+        let r = a.scram_first(mechanism, &c.first()).unwrap_err();
+        assert!(matches!(r, scram::Refusal::Rejected { .. }) && !r.is_silent());
     }
 }
 

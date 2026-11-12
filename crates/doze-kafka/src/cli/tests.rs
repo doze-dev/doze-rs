@@ -172,10 +172,52 @@ fn sasl_flags_that_cannot_work_are_refused_with_the_go_editions_words() {
 }
 
 #[test]
-fn scram_is_refused_until_it_exists_and_says_so() {
-    for m in ["SCRAM-SHA-256", "SCRAM-SHA-512", "PLAIN,SCRAM-SHA-512"] {
-        let said = sasl(&["--sasl-mechanisms", m, "--sasl-user", "u:p"]).unwrap_err();
-        assert!(said.contains("SCRAM arrives with slice 8c"), "{m}: {said}");
+fn scram_mechanisms_are_offered_in_javas_order_whatever_order_the_flag_has() {
+    use kafka_auth::Mechanism::{Plain, ScramSha256, ScramSha512};
+    let cases: [(&str, &[kafka_auth::Mechanism]); 4] = [
+        ("SCRAM-SHA-256", &[ScramSha256]),
+        ("SCRAM-SHA-256,SCRAM-SHA-512", &[ScramSha512, ScramSha256]),
+        (
+            "PLAIN,SCRAM-SHA-512,SCRAM-SHA-256",
+            &[Plain, ScramSha512, ScramSha256],
+        ),
+        (
+            "SCRAM-SHA-256,PLAIN,SCRAM-SHA-512",
+            &[Plain, ScramSha512, ScramSha256],
+        ),
+    ];
+    for (flag, offered) in cases {
+        let auth = sasl(&["--sasl-mechanisms", flag, "--sasl-user", "alice:pw"])
+            .unwrap()
+            .unwrap();
+        assert_eq!(auth.offered(), offered, "{flag}");
+    }
+    // The wrong case of a SCRAM name is as unknown as the wrong case of PLAIN.
+    let said = sasl(&["--sasl-mechanisms", "scram-sha-256", "--sasl-user", "u:p"]).unwrap_err();
+    assert!(said.contains("unknown SASL mechanism"), "{said}");
+}
+
+#[test]
+fn a_scram_user_logs_in_with_the_password_of_the_flag_and_with_no_other() {
+    use kafka_auth::scram::Kind;
+    use kafka_auth::scram::client::Client;
+    let flags = [
+        "--sasl-mechanisms",
+        "PLAIN,SCRAM-SHA-512,SCRAM-SHA-256",
+        "--sasl-user",
+        "alice:a:b:c",
+    ];
+    let auth = sasl(&flags).unwrap().unwrap();
+    for (mechanism, kind) in [
+        (kafka_auth::Mechanism::ScramSha256, Kind::Sha256),
+        (kafka_auth::Mechanism::ScramSha512, Kind::Sha512),
+    ] {
+        for (password, right) in [("a:b:c", true), ("b:c", false)] {
+            let me = Client::new(kind, "alice", password, "nonce.");
+            let (challenge, awaiting) = auth.scram_first(mechanism, &me.first()).unwrap();
+            let last = me.last(&challenge, None, "");
+            assert_eq!(awaiting.finish(&last.message).is_ok(), right, "{password}");
+        }
     }
 }
 

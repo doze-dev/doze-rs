@@ -55,3 +55,25 @@ fn text_that_is_not_canonical_padded_base64_is_refused() {
     }
     assert_eq!(decode(&[0xff, 0xfe, 0xfd, 0xfc]), Err(Invalid));
 }
+
+/// Java's decoder, which Kafka's SCRAM messages go through, ignores bits set past the data; the lax decoder
+/// does too, and refuses everything else a strict one refuses.
+#[test]
+fn the_lax_decoder_accepts_spare_bits_and_nothing_else() {
+    assert_eq!(decode_lax(b"Zh=="), Ok(b"f".to_vec()));
+    assert_eq!(decode_lax(b"Zm9="), Ok(b"fo".to_vec()));
+    for (plain, text) in VECTORS {
+        assert_eq!(decode_lax(text.as_bytes()).unwrap(), plain.as_bytes());
+    }
+    for text in [
+        "Zg",
+        "Zg===",
+        "Zm9v\n",
+        "Zg==Zg==",
+        "Zm9-",
+        "====",
+        "AAA\u{e9}",
+    ] {
+        assert_eq!(decode_lax(text.as_bytes()), Err(Invalid), "{text:?}");
+    }
+}
