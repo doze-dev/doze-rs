@@ -34,6 +34,7 @@ SEC-D4, D5, D51, D56, D59) say so where they stand.
 | SEC-180 to SEC-189 | the allowed-hosts guard, `--console-allow-host`, `--console-unprotected`, the start-up rule and notes | 8g | "The allowed-hosts guard" |
 | SEC-190 to SEC-198 | the fixes of the first audit of the authentication half: super-user credentials, the open-ACL note, the failed-login delay, file modes, the stranger cap, the clean close, the crypto vectors | audit fixes | "Audit fixes of the authentication half" |
 | SEC-210 to SEC-222 | fixes after the audit of the authorization half: regex subscriptions, Metadata bits and order, DeleteTopics, by-type, the second model, super-user separators | 8h audit | "Audit fixes, authorization half" |
+| SEC-290 to SEC-293 | the authorization row of DescribeCluster, GetTelemetrySubscriptions and PushTelemetry (none), the cluster operations bits, a telemetry payload never read or logged, the bounded store | 9i | "Protocol leftovers, slice 9i" |
 | SEC-240 to SEC-249 | the console: its reserved principal, the guard and the same-origin proof mounted on it, its default address and its exposure | 9a | "The console, slice 9a" |
 | SEC-230 to SEC-239 | the places a member's topics come from and whose right is applied: static takeover, names revoked, classic members, a group changing kind; the failed-login cap; file modes; the super-user name | re-audit C | "Re-audit of the authorization half" |
 
@@ -105,7 +106,9 @@ Deviations from Apache Kafka (and one from the Go edition) by number. Every one 
 - **SEC-D90** a member's names and everything it inherits (a static member's place, a classic member's subscription) are held to its own principal's DESCRIBE right at every heartbeat (Kafka: names once, at the request; a static member's state copied whole)
 - **SEC-D91** a classic member of a consumer group is given only topics its principal may DESCRIBE (Kafka assigns what the opaque subscription names)
 - **SEC-D92** `--sasl-failed-login-delay` is at most 10 s (Kafka: no limit)
-- **SEC-D93** a classic group adopted by a consumer group drops, with no handover, what its members may not DESCRIBE (Kafka keeps it until they rejoin)
+- **SEC-D93** a classic group adopted by a consumer group drops, with no handover, what its members may not DESCRIBE
+- **SEC-D100** every client is subscribed to the same fixed set every five seconds, cumulative (Kafka: nothing, every five minutes, deltas, until a CLIENT_METRICS resource says otherwise)
+- **SEC-D101** the telemetry store forgets instances by eviction and expiry; an evicted client is adopted again at its next request (Kafka keeps it until they rejoin)
 
 ## SEC-1. SASL is opt-in; without it nothing changes
 No `--sasl-*` flag: no `Session` is made, the decoder trusts every connection, the connection loop has no extra branch, ApiVersions
@@ -350,7 +353,7 @@ differences (SEC-D1 and the API list) and are not reported for a foreign binary.
 `sasl-plain` now passes whole (its fixture's CreateAcls works and the 13 `*-who` probes answer 29, in Kafka's order of authorized topics
 first), as do `acl-unknown-codes` (all 77 steps: the closes, the -1 answers, the 42 texts) and `idempotent-write-from-topic-write`.
 `version-matrix` differs in no ACL row: DescribeAcls v1 to v3 with a 0 in the filter closes, and CreateAcls and DeleteAcls with an empty
-list answer an empty list; it still differs on DescribeCluster v0 to v2, GetTelemetrySubscriptions v0 and PushTelemetry v0 (Phase 9).
+list answer an empty list; it still differed on DescribeCluster v0 to v2, GetTelemetrySubscriptions v0 and PushTelemetry v0 (closed by slice 9i, SEC-290).
 
 ## SEC-16. Who is checked, and when there is no SASL (decision D4; **deviation SEC-D7**)
 Every request is authorized as the connection's principal: `User:<user>` after a login, `User:ANONYMOUS` for a connection that never logged
@@ -1303,6 +1306,32 @@ A console bound to an address that is not loopback shows a banner on every page:
 ## SEC-249. A stopping broker does not wait for an open console stream
 Every stream ends with the console's cancellation token; the console stops before the server and the broker. Test: `kafka-console tests/stream::shutdown_while_ten_streams_are_open_completes_in_under_a_second`, `tests/process console::a_stopping_broker_does_not_wait_for_an_open_console_stream`.
 
+## Protocol leftovers, slice 9i (2026-11-12)
+DescribeCluster (60), GetTelemetrySubscriptions (71) and PushTelemetry (72) were the three APIs outside the matrix (debt I17). Their wire rules are W24 to W35 in `wire.md`; their authorization rows are below.
+
+## SEC-290. DescribeCluster, GetTelemetrySubscriptions and PushTelemetry need no ACL
+Neither telemetry API asks the authorizer anything (`KafkaApis.handleGetTelemetrySubscriptionsRequest` and `handlePushTelemetryRequest`, KA:2969-2987: they call the client metrics manager and answer), and
+the recording agrees: a user with no ACL at all, on a broker whose default refuses everything, is refused Metadata (29) and is answered by both (`telemetry-acl`, `push-without-acls` 0). DescribeCluster asks
+nothing to be answered either (`AuthHelper.computeDescribeClusterResponse`, AH:122-175): the cluster, the controller and the brokers are given to every caller; the one right in play is DESCRIBE on the cluster, and
+only to fill the authorized-operations field (SEC-291). A DENY of ALL on the cluster does not stand in the way of any of the three. They need a login where SASL is on, as every API does (SEC-1).
+Row of the matrix (`phase8/kafka-semantics.md` 2.1): DescribeCluster **none** (operations: `CLUSTER:DESCRIBE`); GetTelemetrySubscriptions / PushTelemetry **none**. Closes debt I17 for these three.
+Test: `kafka-broker tests/telemetry.rs::any_connection_may_speak_for_any_instance_and_no_acl_is_asked`, `tests/describe_cluster.rs::no_acl_is_needed_to_be_answered_and_the_operations_are_what_describe_gates`; replay: `telemetry-acl`, `telemetry-instance-binding`, `version-matrix`
+
+## SEC-291. DescribeCluster's authorized operations: 0 without DESCRIBE, the schema default when not asked
+The flag that asks for the cluster's operations false: `i32::MIN`. True: the bits of the seven cluster operations the caller may do, `0` if it may not DESCRIBE the cluster (even if it may CREATE, or holds ALL and a DENY of DESCRIBE), as Metadata v8 to v10
+does (SEC-214; AH:149-156). Super users and an open broker have every bit. (source)
+Test: `kafka-broker tests/describe_cluster.rs::no_acl_is_needed_to_be_answered_and_the_operations_are_what_describe_gates`, `tests/describe_cluster.rs::an_open_broker_tells_every_operation`
+
+## SEC-292. A telemetry payload is never read, logged or shown
+The payload is a client's own words; the broker keeps the last of each instance as received and parses none of it (not as OpenTelemetry, not as text). No log line carries a byte of one, taken or refused, at any level, and `Debug` of the store and of an
+instance prints counts only. The planted-secret gate covers it (a payload of a planted string: taken, corrupt under a codec, for another subscription, over the limit, and terminating).
+Test: `kafka-server tests/redaction_telemetry.rs::no_payload_is_logged_at_any_level_taken_or_refused`, `kafka-broker telemetry::tests::nothing_prints_a_payload_or_an_instance_id`
+
+## SEC-293. What a stranger can make the broker hold is bounded
+Any connection may name any instance id (W32), so the store takes ids from strangers: at most 128 instances and 4 MiB of payloads (one payload each, copied out of the frame), evicted and expired by the rules of W34, with no timer and nothing
+allocated until the first client asks. A flood of fresh ids evicts the real clients' gate state (their next request is adopted, as after a restart, and costs them one throttle they would have had) but never grows the store or refuses anyone (**deviation SEC-D101**).
+Test: `kafka-broker telemetry::tests::bytes_are_bounded_and_the_payloads_heard_longest_ago_go_first`, `telemetry::tests::entries_are_bounded_and_a_terminating_client_goes_before_the_one_heard_longest_ago`, `telemetry::tests::an_idle_store_holds_nothing`
+
 ## Deviations
 - **SEC-D1.** A request in the middle of a login other than ApiVersions and SaslHandshake closes unanswered; Kafka answers it in its
   own shape with 34 and then closes. (Recorded `request-before-token-who`; the Go edition has the same difference.)
@@ -1441,3 +1470,8 @@ Every stream ends with the console's cancellation token; the console stops befor
 - **SEC-D92.** `--sasl-failed-login-delay` is at most 10 s; a larger value is refused at start (SEC-236). Kafka's `connection.failed.authentication.delay.ms` has no limit (it must be below `connections.max.idle.ms`). A wait of minutes holds a connection and a task per guess.
 - **SEC-D93.** When a classic group becomes a consumer group, the partitions its members held of topics their principals may not DESCRIBE are dropped at once with no handover (SEC-239); Kafka keeps what an adopted member held until it rejoins. Another member may be given them while the old client still consumes them. Stricter on what is recorded, looser on overlap, for that case only.
 - **SEC-D64.** The console has a default address, `127.0.0.1:9093`, and a busy default is not an error (SEC-247). SEC-D63 said there was no default address.
+- **SEC-D100.** Every client is subscribed to the same thing: the standard metric set (`org.apache.kafka.`), every 5000 ms, cumulative. Apache Kafka with no CLIENT_METRICS resource subscribes a client to nothing, every 300,000 ms, with deltas, and an operator changes that with
+  `IncrementalAlterConfigs`; this broker has no such resource (the Go edition's difference, kept, `docs/limitations.md`), and the replay of the five scenarios whose timing matters gives Kafka the same five seconds with a resource and holds every other field to the recording. The reason for five seconds is that the
+  one reader of the metrics is a developer looking at the last minutes; the cost is that every KIP-714 client now sends a report every five seconds (a few KB; the last is kept, bounded, SEC-293). `--client-telemetry=false` stops it (W35).
+- **SEC-D101.** The store forgets by eviction (past 128 instances) and expiry (ten minutes quiet, one if terminating), as the Go edition's does (it also keeps eight per connection; this broker's handlers do not know the connection). Kafka keeps 16,384 instances for an hour. An evicted instance is simply unknown: its next request is adopted, so
+  it loses only a throttle it would have had.

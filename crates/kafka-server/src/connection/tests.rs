@@ -6,7 +6,7 @@ use kafka_protocol::protocol::{Decodable, StrBytes};
 use kafka_storage::sim::SimFs;
 use kafka_wire::WireError;
 use kafka_wire::messages::{
-    ApiKey, ApiVersionsRequest, ApiVersionsResponse, DescribeClusterRequest,
+    ApiKey, ApiVersionsRequest, ApiVersionsResponse, GetTelemetrySubscriptionsRequest,
 };
 use kafka_wire::testing::{framed, request_payload};
 use tokio::io::{AsyncReadExt, AsyncWriteExt, DuplexStream, duplex};
@@ -15,7 +15,11 @@ use tokio::time::sleep;
 use super::*;
 
 fn context(timeouts: Timeouts) -> Context<SimFs> {
-    let broker = Arc::new(Broker::open(SimFs::new(), BrokerConfig::new("/data".into())).unwrap());
+    context_of(timeouts, BrokerConfig::new("/data".into()))
+}
+
+fn context_of(timeouts: Timeouts, config: BrokerConfig) -> Context<SimFs> {
+    let broker = Arc::new(Broker::open(SimFs::new(), config).unwrap());
     Context {
         listener: Listener {
             advertised_host: "localhost".into(),
@@ -24,6 +28,7 @@ fn context(timeouts: Timeouts) -> Context<SimFs> {
         },
         profile: Profile::new(kafka_wire::profile::KafkaMajor::DEFAULT),
         features: Features {
+            telemetry: broker.client_telemetry(),
             served: broker.served(),
             ..Features::default()
         },
@@ -68,9 +73,19 @@ fn start(
     tokio::task::JoinHandle<End>,
     CancellationToken,
 ) {
+    start_on(context(timeouts), pipe)
+}
+
+fn start_on(
+    ctx: Context<SimFs>,
+    pipe: usize,
+) -> (
+    DuplexStream,
+    tokio::task::JoinHandle<End>,
+    CancellationToken,
+) {
     let (client, server) = duplex(pipe);
     let stop = CancellationToken::new();
-    let ctx = context(timeouts);
     let task = tokio::spawn({
         let stop = stop.clone();
         async move { serve(&mut { server }, &ctx, None, Instant::now(), &stop).await }
@@ -94,20 +109,22 @@ async fn requests_are_answered_in_order_whether_they_arrive_together_or_a_byte_a
 
 #[tokio::test]
 async fn an_api_the_broker_does_not_serve_closes_the_connection_without_an_answer() {
-    let (mut client, task, _stop) = start(Timeouts::default(), 4096);
-    // (DescribeCluster is Phase 9's.)
-    let cluster = request_payload(
-        ApiKey::DescribeCluster,
-        1,
+    // Client telemetry is the API a broker may be told not to serve (`--client-telemetry=false`).
+    let mut config = BrokerConfig::new("/data".into());
+    config.client_telemetry = false;
+    let (mut client, task, _stop) = start_on(context_of(Timeouts::default(), config), 4096);
+    let asked = request_payload(
+        ApiKey::GetTelemetrySubscriptions,
+        0,
         1,
         None,
-        &DescribeClusterRequest::default(),
+        &GetTelemetrySubscriptionsRequest::default(),
     );
-    client.write_all(&framed(&cluster)).await.unwrap();
+    client.write_all(&framed(&asked)).await.unwrap();
     assert!(matches!(
         task.await.unwrap(),
         End::Wire(WireError::NotAdvertised {
-            key: ApiKey::DescribeCluster,
+            key: ApiKey::GetTelemetrySubscriptions,
             ..
         })
     ));

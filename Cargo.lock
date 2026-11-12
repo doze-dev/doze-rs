@@ -1509,6 +1509,7 @@ version = "0.0.0"
 dependencies = [
  "arc-swap",
  "bytes",
+ "crc32c",
  "flate2",
  "getrandom 0.4.3",
  "kafka-auth",

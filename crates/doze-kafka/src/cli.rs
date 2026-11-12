@@ -75,6 +75,12 @@ pub(crate) struct Args {
     /// How long a member of a consumer group of the new protocol (KIP-848) may be silent before it is removed.
     #[arg(long, default_value = "45s", value_parser = duration::parse)]
     consumer_session_timeout: Duration,
+    /// Accept the metrics clients push about themselves (KIP-714: GetTelemetrySubscriptions and PushTelemetry) and say so in
+    /// ApiVersions. Clients that support it then report every five seconds; the last report of each is kept in memory,
+    /// bounded (128 clients, 4 MiB), and is never read, shown or logged. `--client-telemetry=false` stops advertising the
+    /// two APIs (Kafka 4 only: older versions have none).
+    #[arg(long, default_value_t = true, action = clap::ArgAction::Set, num_args = 0..=1, default_missing_value = "true")]
+    client_telemetry: bool,
     /// Kafka major version to stand for (1-4).
     #[arg(long, default_value_t = 4)]
     kafka_version: u8,
@@ -228,6 +234,7 @@ impl Args {
         broker.log_retention_check_every = self.log_retention_check_interval;
         broker.log_cleaner_every = self.log_cleaner_interval;
         broker.log_cleaner_enable = self.log_cleaner_enable;
+        broker.client_telemetry = self.client_telemetry;
         broker.max_open_partitions = self.max_open_partitions;
         broker.acl_default_allow = self.acl_default == acl::AclDefault::Allow;
         broker.super_users = acl::super_users(&self.acl_super_user)?;

@@ -47,6 +47,7 @@ const SERVED: &[ApiKey] = &[
     ApiKey::DescribeConfigs,
     ApiKey::AlterConfigs,
     ApiKey::IncrementalAlterConfigs,
+    ApiKey::DescribeCluster,
     ApiKey::DescribeProducers,
     ApiKey::AddPartitionsToTxn,
     ApiKey::AddOffsetsToTxn,
@@ -60,6 +61,9 @@ const SERVED: &[ApiKey] = &[
     ApiKey::DescribeUserScramCredentials,
     ApiKey::AlterUserScramCredentials,
 ];
+
+/// The APIs of client telemetry (KIP-714), served only when `Config::client_telemetry` is on.
+const TELEMETRY: &[ApiKey] = &[ApiKey::GetTelemetrySubscriptions, ApiKey::PushTelemetry];
 
 /// The broker, over a file system (the real one, or a simulated disk in tests).
 #[derive(Debug)]
@@ -100,6 +104,9 @@ pub struct Broker<F: Fs = RealFs> {
     pub(crate) user_admin: tokio::sync::Mutex<()>,
     /// Set when the broker is stopping: a round of cleaning that is running gives up (it is looked at between batches).
     pub(crate) stop_cleaning: Arc<std::sync::atomic::AtomicBool>,
+    /// The clients that have reported on themselves, and the gate that keeps them to their interval. Empty, and
+    /// allocating nothing, until a client first asks.
+    pub(crate) telemetry: crate::telemetry::Telemetry,
 }
 
 impl<F: Fs> Broker<F> {
@@ -178,6 +185,7 @@ impl<F: Fs> Broker<F> {
             users,
             user_admin: tokio::sync::Mutex::new(()),
             stop_cleaning: Arc::default(),
+            telemetry: crate::telemetry::Telemetry::default(),
         })
     }
 
@@ -222,7 +230,18 @@ impl<F: Fs> Broker<F> {
     /// The APIs this broker serves.
     #[must_use]
     pub fn served(&self) -> ApiSet {
-        ApiSet::of(SERVED)
+        let served = ApiSet::of(SERVED);
+        if self.config.client_telemetry {
+            TELEMETRY.iter().fold(served, |set, key| set.with(*key))
+        } else {
+            served
+        }
+    }
+
+    /// Whether client telemetry is on: the two APIs are served and the version profile may list them.
+    #[must_use]
+    pub fn client_telemetry(&self) -> bool {
+        self.config.client_telemetry
     }
 }
 

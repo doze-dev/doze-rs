@@ -19,6 +19,7 @@ mod outcome;
 mod partitions;
 mod producers;
 mod retention;
+mod telemetry;
 mod topic_config;
 mod topics;
 mod txn;
