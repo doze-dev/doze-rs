@@ -198,3 +198,36 @@ Object.assign(scenarios, {
     });
   },
 });
+
+Object.assign(scenarios, {
+  // An in-place control whose answer has no such region (the page the state calls for is another one) is not left to empty its
+  // target: the address is followed the way a browser with no script would.
+  async "region-missing-falls-back-to-navigation"(t: T) {
+    const p = t.page;
+    await p.goto("/topics");
+    await p.eval("window.__doc = 'same'; (() => { const a = document.createElement('a'); a.id = 'probe'; a.href = '/connect'; a.textContent = 'probe'; a.setAttribute('hx-get', '/connect'); a.setAttribute('hx-target', '#topics-view'); a.setAttribute('hx-select', '#no-such-region'); a.setAttribute('hx-swap', 'morph:outerHTML show:none'); document.getElementById('main').prepend(a); htmx.process(a); })()");
+    await p.click("#probe");
+    await p.waitFor("location.pathname === '/connect'", 4000);
+    await p.waitFor("document.readyState === 'complete' && !!window.htmx");
+    t.ok(await p.eval("window.__doc !== 'same'"), "a full navigation happened (the target was not emptied)");
+    t.ok(await p.eval("document.title.startsWith('Connect')"), "and the page is the one asked for");
+  },
+});
+
+Object.assign(scenarios, {
+  // An expander the person opened stays open when a filter morphs its region (and one they did not touch follows the server).
+  async "region-keeps-an-opened-expander"(t: T) {
+    const p = t.page;
+    await p.goto("/topics/orders/messages");
+    await pad(p);
+    await p.scrollTo(300);
+    const sum = "#topic-explained > summary";
+    await p.click(sum, { scroll: false });
+    await p.waitFor("document.querySelector('#topic-explained').open === true");
+    await inPlace(t, p, {
+      name: "messages: a partition with an expander open", above: MSG_ABOVE, url: /partition=2/,
+      act: () => p.click(`${BAR} [aria-label=Partition] a:nth-child(4)`, { scroll: false }), done: "location.search.includes('partition=2')",
+    });
+    t.ok(await p.eval("document.querySelector('#topic-explained').open === true"), "the expander the person opened is still open");
+  },
+});

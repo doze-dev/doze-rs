@@ -28,7 +28,33 @@ Rules for a page scenario (the UX brief): `scrollY` before and after an in-page 
 | `components.ts` | `gallery-screenshots`, `select-*`, `combobox-filters-and-creates`, `menu-keyboard`, `tooltip-delay`, `segmented-roving`, `filter-in-place` | the keyboard contracts of `components.md`, the 400 ms tooltip, the flip near the window's edge, hostile labels as text, and an in-place filter that keeps scroll, toolbar and focus with a layout shift of 0 |
 | `overlays-and-palette.ts` | `dialog-form-result-replaces-the-page`, `palette-opens-filters-navigates`, `live-filter-in-place` | a dialog's POST result replaces `main` and the overlay in the same document; the palette navigates client-side; Live's Select chips change the tape in place |
 
-UX agent 2 adds the page scenarios (breadcrumbs, the Consumers tab, Planned, the Messages toolbar, the expanders) as new files beside these.
+UX agent 2's page scenarios (breadcrumbs, the Consumers tab, Planned, the Messages toolbar, the expanders) are `tools/ux/pages-drive.ts` (its own small harness, `pages-cdp.ts`). The integration pass adds four more files to `drive.ts`:
+
+| File | Scenarios | Asserts |
+|---|---|---|
+| `regions.ts` | `region-topics`, `region-groups`, `region-config`, `region-lag-expiring`, `region-jump`, `region-messages` (partition, level, key, chip X, Clear filters, Back), `region-messages-older`, `region-messages-time`, `region-missing-falls-back-to-navigation` | each control, by `inPlace()` (`tools/ux/inplace.ts`): same document, `main` not swapped, `scrollY` unchanged, every box above the data unchanged (to 0.5 px), layout shift under 0.02 (it is 0 in every one), the address (clean), the history (pushed for a chip, replaced for typing), the focus on the control, no console problem; Back undoes |
+| `popups.ts` | `popups-stay-clear-of-the-rail` | a menu opened at the far left of the content starts right of the rail (it was 114 px over it) and inside the window |
+| `palette.ts` | `palette-sections-and-recents`, `tooltip-shared-for-title-and-icon-buttons`, `row-menu-opens-an-overlay` | Topics, Groups, Pages headings, a section with no match loses its heading, the place just opened is the first recent and only a kind and a name are stored, the empty state; the shared tooltip appears at 400 ms with the exact time and gives the `title` back; the row menu is inside the content and its Edit opens the dialog |
+| `transitions.ts` | `transitions-no-document-flash-across-pages`, `transitions-forms-swap-in-place`, `transitions-reduced-motion-runs-none`, `transitions-fast-clicks-do-not-stack`, `transitions-overtaken-click-never-lands-late`, `transitions-back-forward-restore-scroll` | see "Transitions, measured" below |
+
+## Transitions, measured (CON-757)
+
+Run against the fixtures server, Chrome 152, 1280 by 800:
+
+| What | Number |
+|---|---|
+| a walk of 10 clicks (rail, a table link, the topic's tabs, a crumb, the Groups tab, a group) | the same document the whole way (a marker on `window` survives every step); 10 page changes, 10 view transitions; 0 animations left running at the end |
+| the same walk's `main` | replaced by each page change, the top bar and the rail kept |
+| animations running during one page change with `prefers-reduced-motion: reduce` | **0** (17 with motion allowed: the check is not vacuous); `scroll-behavior` is `auto` |
+| five clicks 40 ms apart (Live, Topics, Settings, Live, Topics) | ends on Topics with one `main`, the rail on Topics, 5 view transitions (a click that comes while a swap is on its way waits for it), 0 animations left |
+| a click that follows another when the earlier answer is the slower (1200 ms against 60 ms) | the page, the address, the rail and the title are the later click's; the late answer does not swap and logs nothing (an abort logs a console error in htmx 2: this is why it is latest-wins and not an abort) |
+| Back, then Forward, with scroll 240 on the Messages page and 120 on Config | each page comes back at the scroll it was left at (±2 px), instantly (the page has `scroll-behavior: smooth`; a restore uses `behavior: "instant"`) |
+
+Traps found while writing these: `html{scroll-behavior:smooth}` makes `scrollTo` glide, so a scenario that scrolls and clicks at once clicks a moving page (three foundation scenarios failed for this: the harness now scrolls with `behavior: "instant"`, and so does the script's own restore of a scroll); the harness takes the shared Chrome lock only through the wrapper you give it (`mkdir <scratchpad>/chrome.lock`), `cdp.ts` ignores a lingering `chrome_crashpad_handler`; a link collected before a swap is a different element after it (the rail is swapped out of band), so a scenario that clicks "later" looks it up when it clicks.
+
+## Screenshots to look at
+
+`bun tools/ux/shots.ts --url <base> --out target/ux/shots/<name> [--sizes 1440x900,1024x768] [--eval "<js>"] /topics /groups ...` takes a page at each size and prints, for the page, horizontal overflow, controls under 24 px and clipped text: the part of a designer's pass a script can do. The pictures are for the Read tool.
 
 ## Traps found while writing it
 

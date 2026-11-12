@@ -117,12 +117,15 @@
       // Alpine owns an `x-show` element's `style`: the server's copy (closed) must not close it.
       beforeAttributeUpdated: (name, node) => {
         if (name === 'style' && node.hasAttribute && node.hasAttribute('x-show')) return false;
+        // A disclosure the person opened or shut stays as they left it: a filter that morphs its region does not undo it.
+        if ((name === 'open' || name === 'data-touched') && node.tagName === 'DETAILS' && node.hasAttribute('data-touched')) return false;
         // htmx's own bookkeeping classes (htmx-added, htmx-settling) coming and going are no change of the page.
         if (!(name === 'class' && /(^| )htmx-/.test(node.className || ''))) mark(node);
         return true;
       },
     });
   }
+  document.addEventListener('click', (e) => { const sm = e.target.closest && e.target.closest('details > summary'); if (sm) sm.parentElement.setAttribute('data-touched', ''); }, true);
   // A very short fade (opacity only, 120 ms) on what changed.
   function fade() {
     for (const n of added.splice(0)) if (n.parentElement) changed.add(n.parentElement);

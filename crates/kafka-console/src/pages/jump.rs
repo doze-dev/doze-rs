@@ -207,3 +207,48 @@ mod tests {
         assert!(!few.contains("Showing the first"));
     }
 }
+
+#[cfg(test)]
+mod sections_tests {
+    use super::*;
+
+    #[test]
+    fn the_palette_lists_topics_groups_and_pages_each_under_a_heading_and_a_section_with_no_name_has_none()
+     {
+        let items = JumpItem::all(&["orders".to_owned()], &["fulfilment".to_owned()]);
+        let m = jump_overlay(&items, 2, &Base::root()).into_string();
+        let at = |s: &str| {
+            m.find(s)
+                .unwrap_or_else(|| panic!("{s} is not on the page: {m}"))
+        };
+        assert!(
+            at(">Topics</li>") < at(">orders<") && at(">orders<") < at(">Groups</li>"),
+            "{m}"
+        );
+        assert!(
+            at(">Groups</li>") < at(">fulfilment<") && at(">fulfilment<") < at(">Pages</li>"),
+            "{m}"
+        );
+        for page in ["Home", "Live", "Connect", "Topics", "Groups"] {
+            assert!(
+                m.contains(&format!(
+                    "<span class=\"mono\">{page}</span><span class=\"jump-kind\">page</span>"
+                )),
+                "{page}: {m}"
+            );
+        }
+        assert!(
+            m.contains("href=\"/live\"") && m.contains("href=\"/connect\""),
+            "{m}"
+        );
+        let none = jump_overlay(&JumpItem::all(&[], &[]), 0, &Base::root()).into_string();
+        assert!(
+            !none.contains(">Topics</li>") && !none.contains(">Groups</li>"),
+            "no topic, no heading: {none}"
+        );
+        assert!(
+            none.contains(">Pages</li>"),
+            "the pages are always there: {none}"
+        );
+    }
+}

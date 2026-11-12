@@ -590,3 +590,37 @@ Enter, Space or the arrows open a Select; arrows, Home, End and type-ahead move;
 
 ## CON-658. A swap of a region that holds a component leaves the component as the script made it
 Idiomorph edits the page into the server's new markup without undoing what a component's script did (the enhanced control shown, the plain one hidden, the accessible names) and leaves an open component alone; an unchanged answer fades nothing. Test: `tools/dom/navigation.test.ts` (what changed fades, and an answer that changes nothing animates nothing); in Chrome `live-filter-in-place` (focus stays on the Select inside the morphed Live toolbar).
+
+# The integration pass (UX agent 3, CON-750 to CON-759)
+
+Branch `ux-integrate`. The foundation (htmx, Idiomorph, Alpine, the components) and the page work were built apart; the audit (`docs/port/console/ux-audit.md`) found every same-page control still a boosted swap of `main`: a cross-fade and a jump to the top where the owner asked for nothing to move. This pass wires them together. Code: `ui/inplace.rs`, `region.rs`, `pages/{topics,groups,config}/`, `assets/{console,components}.js`; the Chrome scenarios are `tools/ux/scenarios/{regions,popups,palette,transitions}.ts`.
+
+## CON-750. Every control that changes only the data it owns updates its region in place
+A chip, a toolbar, a pager, a search box, "Clear filters" and "When do these expire?" ask for the page and morph ONE region of it (`#topics-view`, `#groups-view`, `#topic-view`, `#config-view`, `#group-lag-view`, `#jump-view`, `#live-wire`): `main` is not swapped, so there is no cross-fade, no scroll to the top and nothing above the region moves (layout shift 0, `scrollY` unchanged, the focus stays on the control). Each is also a plain link or GET form. A region holds the toolbar as well as the data it drives, so a chip that changes the toolbar's own state (which chip is on, a count) changes it with the data. Test: `ui::inplace::tests::a_link_is_a_plain_link_that_asks_for_one_region`, `ui::inplace::tests::a_toolbar_form_is_a_plain_get_that_submits_in_place`, `ui::inplace::tests::a_region_is_a_wrapper_with_the_id`; in Chrome `region-topics`, `region-groups`, `region-config`, `region-lag-expiring`, `region-jump`, `region-messages`, `region-messages-older`, `region-messages-time`.
+
+## CON-751. A filter has a clean address, a pushed entry, and typing replaces it
+The handler says what the state is once it has read it (`region::canonical`): the layer puts that address into the history (a form's duplicate and empty fields never reach the bar), pushes it for a chip, replaces the entry for typing in a search box (`X-History: replace`, 250 ms after the last key), and adds no entry when nothing changed. Back restores the earlier state. Test: `region::tests::a_control_that_changes_the_address_pushes_the_clean_one`, `region::tests::a_control_that_changes_nothing_adds_no_history_entry`, `region::tests::typing_replaces_the_entry_with_the_clean_address`, `region::tests::the_handler_names_the_clean_address_and_nothing_outside_a_request_does`; in Chrome the `url` and `history` checks of every `region-*` scenario.
+
+## CON-752. A region the answer does not have is never emptied
+When the page a state calls for is another page (an offline topic, the empty list), the answer has no such region; the script takes the address the way a browser with no script would instead of swapping nothing. The offline and empty states of a topic carry the region as well, so the usual case swaps. Test: in Chrome `region-missing-falls-back-to-navigation`.
+
+## CON-753. The components are used where they belong
+The partitions of a topic are a Segmented control (a Select past eight), "Reading as" and the Groups states (with their counts) are Segmented controls, "From time" is a Popover with a proper field, a Live filter list longer than eight is a Combobox, the two actions of a topic's own config value are a DropdownMenu. Each choice is also a link or a real control with no script. Test: `ui::components::tests::a_segmented_control_is_a_group_of_links_with_one_current_and_may_work_in_place`; in Chrome `region-messages`, `region-groups`, `region-messages-time`, `row-menu-opens-an-overlay`.
+
+## CON-754. No menu, select or popover overlaps the rail or leaves the window
+Floating UI keeps a card in the window but knows nothing of the rail: a card is nudged sideways (a margin the anchor never touches) to sit right of the rail and inside the window. Test: in Chrome `popups-stay-clear-of-the-rail` (the card would have been 114 px over the rail).
+
+## CON-755. The palette has sections, recents and an empty state
+Topics, Groups and Pages, each under its own heading (a section with no name has none; a filter hides the heading of a section with no match); the last five places opened from it are kept in this browser as a kind and a name, shown first under "Recent" as copies of the list's own rows (a stored name is matched, never built into markup) and hidden while something is typed; no match says so. Test: `pages::jump::sections_tests::the_palette_lists_topics_groups_and_pages_each_under_a_heading_and_a_section_with_no_name_has_none`; in Chrome `palette-sections-and-recents`.
+
+## CON-756. A truncated or abbreviated value, and an icon button, has a tooltip
+The `title` of a middle-ellipsis value or of an exact time, and the `aria-label` of a button with no text, are shown by one shared card the way the Tooltip component shows its own (400 ms, at once on focus, Esc, leaving), with the `title` set aside while shown; the rail's names are the same card when the rail is narrow. Without a script the `title` is what it was. Test: in Chrome `tooltip-shared-for-title-and-icon-buttons`.
+
+## CON-757. A page change is a swap of `main` in the same document, latest click wins
+Every link and form of the console, across all the built pages, swaps `main` (the document, the top bar and the rail survive; the title, the rail and the history follow) in a view transition of about 180 ms; with `prefers-reduced-motion: reduce` no animation runs at all (the browser's default fade included); five quick clicks end on the last page with nothing stacked; a slower answer to an earlier click never lands after a later one; a click that comes while the swap is on its way waits for it; Back and Forward put each page's scroll back, instantly. Test: in Chrome `transitions-no-document-flash-across-pages`, `transitions-forms-swap-in-place`, `transitions-reduced-motion-runs-none`, `transitions-fast-clicks-do-not-stack`, `transitions-overtaken-click-never-lands-late`, `transitions-back-forward-restore-scroll`; `tools/dom/navigation.test.ts` (the scroll comes back with `behavior: "instant"`).
+
+## CON-758. No page scrolls sideways at 1024 px
+Below 1180 px the rail keeps its icons (the names are tooltips), the page's padding and a table cell's are tighter, and a key never wraps inside a table. Measured on 35 pages at 1024 by 768: horizontal overflow 0 (it was 122 px on Live, 74 on the Messages page, 42 on a topic's Wire, 29 on Partitions). Test: `bun tools/ux/shots.ts --sizes 1024x768` prints `overflow` for a page that does.
+
+## CON-759. A filter field shows its focus once, on its box; headings balance and paragraphs avoid a widow
+`.finput:focus-within` draws the ring and the input draws none; headings use `text-wrap: balance`, paragraphs `text-wrap: pretty`. Test: in Chrome the screenshots under `target/ux/shots/`; no automated check.
