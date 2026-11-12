@@ -92,9 +92,9 @@ fn multiselect_html(m: &MultiSelect<'_>) -> Markup {
     let lower = m.noun;
     html! {
         div class={"dz dz-multi " (m.class) @if n > 0 { " on" }} x-data="dzMulti" x-on:keydown="key" x-on:click="click" x-on:mousemove="hover" x-on:mousedown="down" x-on:focusout="focusout" xo-click="away" xb-data-open="open"
-            id=(m.id) data-ui="multiselect" data-name=(m.name) data-noun=(m.noun) data-placeholder=(m.placeholder) data-autosubmit[m.auto_submit] {
+            id=(format!("{}-ms", m.id)) data-ui="multiselect" data-name=(m.name) data-noun=(m.noun) data-placeholder=(m.placeholder) data-autosubmit[m.auto_submit] {
             // The control without a script, and the one a form reads with it: checkboxes. A real submit button is its way to apply.
-            details class="dz-native dz-multi-plain" {
+            details class="dz-native dz-multi-plain" id=(m.id) {
                 summary { (now) }
                 fieldset class="dz-multi-checks" {
                     legend class="sr-only" { (m.label) }

@@ -130,6 +130,11 @@ fn colours_and_clients() -> (Vec<Choice<'static>>, Vec<Choice<'static>>) {
 
 fn choice_sections() -> Markup {
     let (colours, cc) = colours_and_clients();
+    let long_names = [
+        "fulfilment-payments-settled-consumer-group-eu-west-1-canary-blue",
+        "search-indexer-clickstream-backfill-worker-us-east-2-green",
+    ];
+    let long: Vec<Choice<'_>> = long_names.iter().map(|n| Choice::new(n, n).count(1234)).chain([Choice::new("short", "short").count(2)]).collect();
     html! {
         (section("Select", "Single choice. Keyboard: Enter, Space or the arrows open; arrows, Home, End and letters move; Enter chooses; Esc closes.", html! {
             (select(&Select::new("s-plain", "colour", "Colour", &colours, "g")))
@@ -141,6 +146,7 @@ fn choice_sections() -> Markup {
             (multiselect(&MultiSelect { placeholder: "All clients", noun: "clients", ..MultiSelect::new("m-none", "mclient", "Clients", &cc, &[]) }))
             (multiselect(&MultiSelect { placeholder: "All clients", noun: "clients", class: "dz-chip", ..MultiSelect::new("m-one", "mclient1", "Clients", &cc, &["admin-cli".to_owned()]) }))
             (multiselect(&MultiSelect { placeholder: "All clients", noun: "clients", class: "dz-chip", ..MultiSelect::new("m-three", "mclient3", "Clients", &cc, &["admin-cli".to_owned(), "checkout-svc".to_owned(), "billing-batch".to_owned()]) }))
+            (multiselect(&MultiSelect { placeholder: "All services", noun: "services", class: "dz-chip", ..MultiSelect::new("m-long", "mlong", "Services", &long, &[long_names[0].to_owned(), long_names[1].to_owned()]) }))
             (multiselect(&MultiSelect { placeholder: "All colours", noun: "colours", ..MultiSelect::new("m-hostile", "mcolour", "Colours", &colours, &[HOSTILE.to_owned()]) }))
         }))
         (section("Combobox", "Searchable. Type to filter; with free text it offers to use what you typed.", html! {

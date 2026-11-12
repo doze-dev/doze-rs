@@ -400,7 +400,7 @@ fn a_multiselect_is_checkboxes_in_a_details_underneath_and_a_multiselectable_lis
     let m = multi(&["g", "b"]);
     // The no-script control: one checkbox per option, the chosen ones checked, all with the one repeated name.
     assert!(
-        m.contains(r#"<details class="dz-native dz-multi-plain">"#),
+        m.contains(r#"<details class="dz-native dz-multi-plain" id="colours">"#),
         "{m}"
     );
     assert!(

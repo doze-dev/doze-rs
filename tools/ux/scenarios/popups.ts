@@ -41,12 +41,12 @@ Object.assign(scenarios, {
     const p = t.page;
     await p.goto("/live");
     const long = "fulfilment-payments-settled-consumer-group-eu-west-1-canary-blue";
-    await p.eval(`(() => { const o = document.querySelectorAll('.dz:has(#live-client) [role=option]'); o[1].querySelector('.dz-opt-label').textContent = ${JSON.stringify(long)}; o[1].title = ${JSON.stringify(long)}; })()`);
+    await p.eval(`(() => { const o = document.querySelectorAll('.dz:has(#live-client) [role=option]'); o[1].setAttribute('data-label', ${JSON.stringify(long)}); o[1].querySelector('.dz-opt-label').textContent = ${JSON.stringify(long)}; o[1].title = ${JSON.stringify(long)}; })()`);
     await p.click(".dz:has(#live-client) .dz-trigger");
     await p.waitFor("document.querySelector('.dz:has(#live-client) .dz-trigger').getAttribute('aria-expanded') === 'true'");
     await Bun.sleep(250);
     const m = await p.eval<{ trig: number; pop: number; left: number; right: number; lines: number[]; titles: number; broken: string[] }>(`(() => {
-      const pop = document.querySelector('.dz:has(#live-client) [role=listbox]').getBoundingClientRect();
+      const pop = document.querySelector('.dz:has(#live-client) .dz-pop').getBoundingClientRect();
       const opts = [...document.querySelectorAll('.dz:has(#live-client) [role=option]')];
       return { trig: document.querySelector('.dz:has(#live-client) .dz-trigger').getBoundingClientRect().width, pop: pop.width, left: pop.left, right: pop.right,
         lines: opts.map((o) => Math.round(o.getBoundingClientRect().height)), titles: opts.filter((o) => o.title).length,

@@ -11,8 +11,8 @@ const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replac
 
 // The markup the maud function writes (src/ui/components/multiselect.rs), with the Alpine attributes spelled as Alpine reads them.
 const multiHtml = (values: string[] = [], options = TOPICS, autosubmit = true) =>
-  `<form id="form"><div class="dz dz-multi dz-chip${values.length ? " on" : ""}" id="topic" x-data="dzMulti" x-on:keydown="key" x-on:click="click" x-on:mousemove="hover" x-on:mousedown="down" x-on:focusout="focusout" x-on:click.outside="away" :data-open="open" data-ui="multiselect" data-name="topic" data-noun="topics" data-placeholder="All topics"${autosubmit ? " data-autosubmit" : ""}>` +
-  `<details class="dz-native dz-multi-plain"><summary>All topics</summary><fieldset class="dz-multi-checks">` +
+  `<form id="form"><div class="dz dz-multi dz-chip${values.length ? " on" : ""}" id="topic-ms" x-data="dzMulti" x-on:keydown="key" x-on:click="click" x-on:mousemove="hover" x-on:mousedown="down" x-on:focusout="focusout" x-on:click.outside="away" :data-open="open" data-ui="multiselect" data-name="topic" data-noun="topics" data-placeholder="All topics"${autosubmit ? " data-autosubmit" : ""}>` +
+  `<details class="dz-native dz-multi-plain" id="topic"><summary>All topics</summary><fieldset class="dz-multi-checks">` +
   options.map(([v, l, n], i) => `<label class="dz-multi-check"><input type="checkbox" name="topic" value="${esc(v)}"${values.includes(v) ? " checked" : ""} id="topic-c${i}"><span>${esc(l)}</span><span class="dz-count">${n}</span></label>`).join("") +
   `<button type="submit" class="btn sm" data-noscript>Apply</button></fieldset></details>` +
   `<div class="dz-multi-box"><button type="button" class="dz-trigger dz-multi-trigger" x-ref="trigger" aria-haspopup="listbox" aria-expanded="false" :aria-expanded="open" aria-controls="topic-pop" aria-label="Topics: All topics" hidden><span class="dz-value muted">All topics</span></button>` +
