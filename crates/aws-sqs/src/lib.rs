@@ -1,6 +1,6 @@
 //! SQS: all 23 operations, as a state machine behind a lazy actor. Standard and FIFO queues, batches, message attributes,
-//! long polling, tags, permissions, dead-letter queues and move tasks. State is on disk ([`persist`]): it survives an idle
-//! reap and a restart. Every operation the model has is named in [`core`]'s dispatch.
+//! long polling, tags, permissions, dead-letter queues and move tasks. State is on disk (`persist`): it survives an idle
+//! reap and a restart. Every operation the model has is named in `core`'s dispatch.
 
 mod attrs;
 mod authz;

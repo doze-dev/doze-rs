@@ -1,7 +1,7 @@
 //! The Topics pages: the list, a topic with its Messages, one record, its partitions, and the offline state.
 //!
 //! What the boards show and the broker cannot say, and what the page does instead (each is a debt row, J21 to J40):
-//! - "written by <client>" on the list and "wire" docks on the topic page: the request recorder (slice 9e). The list says
+//! - `written by <client>` on the list and "wire" docks on the topic page: the request recorder (slice 9e). The list says
 //!   "read by" only; the dock is not drawn.
 //! - The record count on the list rows: ListOffsets would open every partition just to look at a list, so the list shows
 //!   what the files say (empty, size, last write) and the topic page shows the count.
