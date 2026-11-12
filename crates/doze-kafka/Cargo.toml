@@ -14,7 +14,7 @@ workspace = true
 [features]
 # TLS on the Kafka listener: --tls-cert and --tls-key. Off by default (weight is a feature); building it needs a C
 # compiler and assembler because of ring. See docs/port/weight.md.
-tls = ["kafka-server/tls"]
+tls = ["kafka-server/tls", "dep:rustls"]
 
 [dependencies]
 kafka-auth = { path = "../kafka-auth" }
@@ -30,6 +30,8 @@ rlimit = "0.11"
 clap = { version = "4", features = ["derive"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "env-filter", "json", "ansi"] }
+# Only for the tests of a build with `tls` (a client to the TLS port); the binary reaches rustls through kafka-server.
+rustls = { version = "0.23", default-features = false, features = ["std", "tls12", "ring"], optional = true }
 # Two worker threads by default (weight is a feature), and the signals a stop arrives by.
 tokio = { version = "1", default-features = false, features = ["rt", "rt-multi-thread", "signal", "net", "time", "macros"] }
 

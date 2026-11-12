@@ -345,6 +345,7 @@ dependencies = [
  "kafka-storage",
  "kafka-wire",
  "rlimit",
+ "rustls",
  "tokio",
  "tracing",
  "tracing-subscriber",
