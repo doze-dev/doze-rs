@@ -47,7 +47,9 @@ async fn held_data_is_taken_in_before_a_read_and_an_alarm_says_what_it_watches()
     let (h, a) = (Arc::clone(&held), Arc::clone(&asked));
     peers.add_producer(Arc::new(move |region: &str| {
         a.lock().map(|mut v| v.push(region.to_owned())).ok();
-        h.lock().map(|mut v| std::mem::take(&mut *v)).unwrap_or_default()
+        h.lock()
+            .map(|mut v| std::mem::take(&mut *v))
+            .unwrap_or_default()
     }));
     let call = |op: &'static str, body: Value| {
         let peers = Arc::clone(&peers);
@@ -68,7 +70,10 @@ async fn held_data_is_taken_in_before_a_read_and_an_alarm_says_what_it_watches()
     // A read takes in what is held.
     let listed = call("ListMetrics", json!({"Namespace": "AWS/Lambda"})).await;
     assert_eq!(listed["Metrics"][0]["MetricName"], "Invocations");
-    assert_eq!(asked.lock().map(|v| v.clone()).unwrap_or_default(), ["us-east-1"]);
+    assert_eq!(
+        asked.lock().map(|v| v.clone()).unwrap_or_default(),
+        ["us-east-1"]
+    );
     // An alarm on the namespace says it is watched (so the producer sends at once); deleting it says it is not.
     assert!(!peers.watched("us-east-1", "AWS/Lambda"));
     call(

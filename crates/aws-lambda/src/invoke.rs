@@ -47,6 +47,8 @@ pub(crate) struct Started {
     timeout: Duration,
     start_ms: i64,
     caller: Caller,
+    /// What the invocation is counted under in `AWS/Lambda`.
+    metric: crate::metrics::Target,
 }
 
 /// How one invocation ended.
@@ -249,14 +251,19 @@ impl Inner {
             trace_id: input.trace_id,
         };
         let (timeout, start_ms) = (ask.timeout, self.clock.now_ms());
+        let metric = crate::metrics::Target::of(rs, caller);
         let running = match self.rt.begin(ask).await {
             Ok(r) => r,
-            Err(None) => {
-                return Err(throttled(
-                    "ReservedFunctionConcurrentInvocationLimitExceeded",
-                ));
+            Err(why) => {
+                self.count_invocation(&metric, crate::metrics::Outcome::not_started(why.is_none()))
+                    .await;
+                return match why {
+                    None => Err(throttled(
+                        "ReservedFunctionConcurrentInvocationLimitExceeded",
+                    )),
+                    Some(why) => Ok(Err(launch_failure(&why))),
+                };
             }
-            Err(Some(why)) => return Ok(Err(launch_failure(&why))),
         };
         Ok(Ok(Started {
             running,
@@ -268,6 +275,7 @@ impl Inner {
             timeout,
             start_ms,
             caller: caller.clone(),
+            metric,
         }))
     }
 
@@ -288,6 +296,7 @@ impl Inner {
             timeout,
             start_ms,
             caller,
+            metric,
         } = started;
         let id = running.id.clone();
         let mut out = RunOut {
@@ -315,6 +324,11 @@ impl Inner {
         self.logger
             .write(self.peers.as_deref(), &caller, &group, &fin.stream, rows)
             .await;
+        let ran = crate::metrics::Outcome::Ran {
+            duration_ms: fin.duration_ms,
+            error: out.error,
+        };
+        self.count_invocation(&metric, ran).await;
         out
     }
 

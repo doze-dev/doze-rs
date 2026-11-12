@@ -122,7 +122,11 @@ fn an_alarm_follows_its_data_and_does_not_flip_back_for_want_of_a_poll() {
     // the end of each minute, on the minutes that are over): the alarm cannot flip on part of a period.
     w.clock.advance(10_000);
     w.put("m", NOW + 10_000, 150.0);
-    assert_eq!(w.state("a"), "OK", "the minute holding the datapoint is not over");
+    assert_eq!(
+        w.state("a"),
+        "OK",
+        "the minute holding the datapoint is not over"
+    );
     assert_eq!(w.core.earliest_due(), Some(NOW + 60_000));
     w.clock.advance(49_000);
     w.core.tick();
@@ -178,7 +182,11 @@ fn missing_data_is_judged_by_the_setting() {
     w.put("m", NOW - 60_000, 200.0);
     assert_eq!(w.state("a"), "OK");
     w.put("m", NOW, 200.0);
-    assert_eq!(w.state("a"), "OK", "the second is in the minute still filling");
+    assert_eq!(
+        w.state("a"),
+        "OK",
+        "the second is in the minute still filling"
+    );
     w.clock.advance(60_000);
     w.core.tick();
     assert_eq!(w.state("a"), "ALARM");

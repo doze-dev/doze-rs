@@ -55,6 +55,32 @@ pub(crate) fn data_points(message: &str, now_ms: i64) -> Vec<(String, Value)> {
     out
 }
 
+/// The directive's dimension sets, each as `PutMetricData` dimensions. Each set is a list of member names; an empty list (or no
+/// list) is a data point with no dimensions. `None` when a set does not follow the specification.
+fn dimension_sets(root: &Map<String, Value>, d: &Value) -> Option<Vec<Vec<Value>>> {
+    let mut sets: Vec<Vec<Value>> = Vec::new();
+    for set in d
+        .get("Dimensions")
+        .and_then(Value::as_array)
+        .map(Vec::as_slice)
+        .unwrap_or_default()
+    {
+        let names = set.as_array().filter(|s| s.len() <= MAX_DIMENSIONS)?;
+        let mut dims = Vec::new();
+        for n in names {
+            let name = n.as_str()?;
+            // A dimension names a member whose value is a string.
+            let value = root.get(name).and_then(Value::as_str)?;
+            dims.push(json!({"Name": name, "Value": value}));
+        }
+        sets.push(dims);
+    }
+    if sets.is_empty() {
+        sets.push(Vec::new());
+    }
+    Some(sets)
+}
+
 fn directive(root: &Map<String, Value>, d: &Value, ts: i64) -> Vec<(String, Value)> {
     let Some(namespace) = d
         .get("Namespace")
@@ -70,33 +96,9 @@ fn directive(root: &Map<String, Value>, d: &Value, ts: i64) -> Vec<(String, Valu
     else {
         return Vec::new();
     };
-    // Each set is a list of member names; an empty list (or none) is a data point with no dimensions.
-    let mut sets: Vec<Vec<Value>> = Vec::new();
-    for set in d
-        .get("Dimensions")
-        .and_then(Value::as_array)
-        .map(Vec::as_slice)
-        .unwrap_or_default()
-    {
-        let Some(names) = set.as_array().filter(|s| s.len() <= MAX_DIMENSIONS) else {
-            return Vec::new();
-        };
-        let mut dims = Vec::new();
-        for n in names {
-            let Some(name) = n.as_str() else {
-                return Vec::new();
-            };
-            // A dimension names a member whose value is a string.
-            let Some(value) = root.get(name).and_then(Value::as_str) else {
-                return Vec::new();
-            };
-            dims.push(json!({"Name": name, "Value": value}));
-        }
-        sets.push(dims);
-    }
-    if sets.is_empty() {
-        sets.push(Vec::new());
-    }
+    let Some(sets) = dimension_sets(root, d) else {
+        return Vec::new();
+    };
     #[allow(clippy::cast_precision_loss)]
     let at = ts as f64 / 1000.0;
     let mut out = Vec::new();
@@ -120,10 +122,9 @@ fn directive(root: &Map<String, Value>, d: &Value, ts: i64) -> Vec<(String, Valu
             if let (Some(o), false) = (datum.as_object_mut(), dims.is_empty()) {
                 o.insert("Dimensions".into(), Value::Array(dims.clone()));
             }
-            if let (Some(o), Some(unit)) = (
-                datum.as_object_mut(),
-                m.get("Unit").and_then(Value::as_str),
-            ) {
+            if let (Some(o), Some(unit)) =
+                (datum.as_object_mut(), m.get("Unit").and_then(Value::as_str))
+            {
                 o.insert("Unit".into(), json!(unit));
             }
             if let (Some(o), Some(1)) = (

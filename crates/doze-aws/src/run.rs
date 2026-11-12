@@ -35,7 +35,17 @@ pub(crate) async fn run(args: Args) -> Result<()> {
     peers.set_authorizer(iam.clone());
     // Under `--auth verify`, a key the command line does not name may be one IAM issued (an access key or a role session).
     config.credential_source = Some(iam.clone());
-    let cloudwatch = Arc::new(aws_cloudwatch::Cloudwatch::new(Arc::new(ctx("cloudwatch"))));
+    let cloudwatch = Arc::new(aws_cloudwatch::Cloudwatch::with_settings(
+        Arc::new(ctx("cloudwatch")),
+        aws_cloudwatch::Settings {
+            retention: Duration::from_secs(args.cloudwatch_retention_hours * 3600),
+        },
+    ));
+    let logs = aws_logs::Settings {
+        retention: (args.logs_retention_days > 0)
+            .then(|| Duration::from_secs(args.logs_retention_days * 86_400)),
+        max_events: args.logs_max_events,
+    };
     let eventbridge = Arc::new(Eventbridge::new(Arc::new(ctx("eventbridge"))));
     let (sqs, dynamodb, kinesis, lambda) = compute(&ctx, &args);
     let services: Vec<Arc<dyn Service>> = vec![
@@ -49,7 +59,7 @@ pub(crate) async fn run(args: Args) -> Result<()> {
         dynamodb,
         Arc::new(aws_s3::S3::new(Arc::new(ctx("s3")))),
         kinesis,
-        Arc::new(aws_logs::Logs::new(Arc::new(ctx("logs")))),
+        Arc::new(aws_logs::Logs::with_settings(Arc::new(ctx("logs")), logs)),
         cloudwatch.clone(),
         eventbridge.clone(),
         lambda.clone(),

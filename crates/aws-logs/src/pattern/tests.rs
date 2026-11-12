@@ -144,10 +144,7 @@ fn an_unquoted_star_tests_that_a_field_is_there_whatever_its_type() {
     // A line that is not JSON is selected by neither.
     assert!(!m(has, "plain text") && !m(lacks, "plain text"));
     // Nested and combined.
-    assert!(m(
-        "{ $.a.b = * && $.c != * }",
-        r#"{"a": {"b": 7}, "d": 1}"#
-    ));
+    assert!(m("{ $.a.b = * && $.c != * }", r#"{"a": {"b": 7}, "d": 1}"#));
     // A quoted star is a string pattern: it matches any string and nothing else.
     assert!(m(r#"{ $.f = "*" }"#, r#"{"f": "x"}"#));
     assert!(!m(r#"{ $.f = "*" }"#, r#"{"f": 3}"#));

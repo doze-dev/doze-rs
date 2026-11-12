@@ -41,9 +41,9 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use aws_model_cloudwatch::Operation;
-use aws_peers::Peers;
 use aws_model_cloudwatch::meta::META;
 use aws_model_cloudwatch::tables::TABLES;
+use aws_peers::Peers;
 use aws_schema::json::Violation;
 use aws_schema::meta::ServiceMeta;
 use aws_schema::tables::Tables;
@@ -147,7 +147,13 @@ impl Cloudwatch {
             let mut caller = call.caller.clone();
             caller.account_id = made.account;
             if let Err(e) = peers
-                .call(made.service, &caller, "monitoring", "PutMetricData", &made.body)
+                .call(
+                    made.service,
+                    &caller,
+                    "monitoring",
+                    "PutMetricData",
+                    &made.body,
+                )
                 .await
             {
                 tracing::warn!(service = made.service, error = %e.message, "cloudwatch: produced metrics could not be taken in");

@@ -222,9 +222,9 @@ impl Core {
             };
             let end = format!("{:08x}", no + 1);
             let need = usize::try_from(total - target).unwrap_or(usize::MAX);
-            let Ok(rows) = self
-                .events
-                .scan(self.db.as_ref(), &event_key(no, 0, 0), &end, need, false)
+            let Ok(rows) =
+                self.events
+                    .scan(self.db.as_ref(), &event_key(no, 0, 0), &end, need, false)
             else {
                 continue;
             };

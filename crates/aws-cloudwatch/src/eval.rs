@@ -321,11 +321,7 @@ impl Core {
         let step = step_of(period);
         let end = window_end(now, period);
         let n = spec.evaluation_periods;
-        let steps = self.steps(
-            &spec,
-            end - n * period,
-            now + crate::put::FUTURE_MS + step,
-        );
+        let steps = self.steps(&spec, end - n * period, now + crate::put::FUTURE_MS + step);
         let mut at: BTreeSet<i64> = BTreeSet::new();
         if after_now {
             at.insert(end + step);
