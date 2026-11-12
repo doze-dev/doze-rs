@@ -23,5 +23,5 @@ pub use lag::{LAG_SENTENCE, LAG_TABLE, lag_page, lag_sentence_fragment, lag_tabl
 pub use list::{
     GROUPS_LIVE, GROUPS_TABLE, groups_live_fragment, groups_page, groups_table_fragment,
 };
-pub use members::{member_drawer, members_page};
+pub use members::{member_drawer, members_page, members_page_open};
 pub use refused::{delete_refused_page, no_group, reset_refused_page};

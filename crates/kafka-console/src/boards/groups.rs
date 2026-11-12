@@ -153,7 +153,7 @@ fn overlay(id: &str, base: &Base) -> Option<Drawn> {
             let m = v.head.members.first()?.clone();
             (
                 over(
-                    page::members_page(&v, base),
+                    page::members_page_open(&v, base, Some(&m.id)),
                     page::member_drawer(&v.head, &m, base),
                 ),
                 "Members".to_owned(),

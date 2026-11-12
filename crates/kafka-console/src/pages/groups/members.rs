@@ -32,9 +32,9 @@ fn heard(m: &GroupMemberRow) -> String {
     )
 }
 
-fn row(h: &GroupHead, m: &GroupMemberRow, base: &Base) -> Markup {
+fn row(h: &GroupHead, m: &GroupMemberRow, base: &Base, open: Option<&str>) -> Markup {
     html! {
-        tr {
+        tr class=[(open == Some(m.id.as_str())).then_some("sel")] {
             td class="name mid-cell" { a class="mono" href=(group_url(base, &h.id, &format!("/members/{}", segment(&m.id)))) data-dialog { (middle(&m.id)) } }
             td class="mono" { (m.client_id) }
             td class="mono" { (m.host) }
@@ -124,6 +124,12 @@ fn who_holds(v: &GroupLagView, base: &Base) -> Markup {
 /// `group-members`.
 #[must_use]
 pub fn members_page(v: &GroupLagView, base: &Base) -> Markup {
+    members_page_open(v, base, None)
+}
+
+/// The Members page behind a member's drawer: the member the drawer is about is the selected row, as the board draws it.
+#[must_use]
+pub fn members_page_open(v: &GroupLagView, base: &Base, open: Option<&str>) -> Markup {
     let h = &v.head;
     html! {
         (head(h, sentence_fragment(h, base, &group_sentence(h, &v.topics), false), reset_and_delete(h, base)))
@@ -135,7 +141,7 @@ pub fn members_page(v: &GroupLagView, base: &Base) -> Markup {
                 th scope="col" { "Role" } th scope="col" class="r" { "Generation" } th scope="col" { "Session" }
                 th scope="col" { "Last heartbeat" }
             } }
-            tbody { @for m in &h.members { (row(h, m, base)) } }
+            tbody { @for m in &h.members { (row(h, m, base, open)) } }
         }
         (who_holds(v, base))
     }
@@ -181,7 +187,10 @@ pub fn member_drawer(h: &GroupHead, m: &GroupMemberRow, base: &Base) -> Markup {
                 dt { "Static instance id" } dd {
                     @match &m.instance { Some(i) => span class="mono" { (i) }, None => span class="dim" { "none: a restart makes a new member" } }
                 }
-                dt { "Holds" } dd class="mono" { (part_list(&m.holds)) @if m.holds.is_empty() { "nothing" } }
+                dt { "Holds" } dd class="mono" {
+                    @for (i, part) in part_list(&m.holds).split(", ").enumerate() { @if i > 0 { br; } (part) }
+                    @if m.holds.is_empty() { "nothing" }
+                }
             }
             div class="row wrap" style="margin-top:24px" {
                 (link(&base.url("/live"), Variant::Plain, Size::Normal, None, "Open the wire in Live"))

@@ -110,13 +110,13 @@ pub async fn group(State(s): State<Shared>, Path(id): Path<String>) -> Response 
 }
 
 /// The members page as the parent of an overlay (a member's drawer).
-pub(super) fn members_parent(s: &Shared, view: &GroupLagView) -> Parent {
+pub(super) fn members_parent(s: &Shared, view: &GroupLagView, open: Option<&str>) -> Parent {
     Parent {
         rail: Rail::Resources,
         title: "Members".to_owned(),
         crumbs: trail(&view.head.id, Some("Members")),
         watch: s.source.watching(GROUP_IDS),
-        main: page::members_page(view, &s.base),
+        main: page::members_page_open(view, &s.base, open),
     }
 }
 
@@ -125,7 +125,7 @@ pub async fn members(State(s): State<Shared>, Path(id): Path<String>) -> Respons
     let Some(view) = s.source.group(&id, false).await else {
         return gone(&s, &id).await;
     };
-    html(&page_of(&s, members_parent(&s, &view)).await)
+    html(&page_of(&s, members_parent(&s, &view, None)).await)
 }
 
 /// The Lag page as the parent of an overlay (Reset offsets, Delete offsets); `flash` is what a redirect after a write says.

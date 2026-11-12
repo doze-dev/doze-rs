@@ -67,7 +67,13 @@ pub async fn member(
     if overlays::wants_fragment(&headers) {
         return overlays::fragment(StatusCode::OK, &drawer);
     }
-    overlays::over_parent(&s, StatusCode::OK, members_parent(&s, &view), drawer).await
+    overlays::over_parent(
+        &s,
+        StatusCode::OK,
+        members_parent(&s, &view, Some(&member)),
+        drawer,
+    )
+    .await
 }
 
 /// `GET /groups/{group}/reset?topic=&to=&value=`

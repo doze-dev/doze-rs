@@ -78,7 +78,7 @@ pub(super) fn title(h: &GroupHead) -> Markup {
 pub(super) fn head(h: &GroupHead, sentence: Markup, acts: Markup) -> Markup {
     html! {
         div class="page-h" {
-            div { (title(h)) p class="sub" { (sentence) } }
+            div { (title(h)) div class="sub" { (sentence) } }
             div class="acts" { (acts) }
         }
     }
