@@ -3,7 +3,7 @@
 
 use doze_module::caps::Objects;
 use doze_module::proto::msg::error::Diagnostic;
-use doze_module::proto::msg::instance::{Connection, Instance, Object, Toolchain};
+use doze_module::proto::msg::instance::{Address, Connection, Instance, Object, Toolchain};
 use doze_module::proto::msg::run::{Pin, Plan, Process, Provisioned, Ready, Resolved, StopHow};
 use doze_module::proto::msg::value::PathSeg;
 use doze_module::{About, Cx, Module, Result, Spec, help, serve};
@@ -108,8 +108,23 @@ impl Module for Echo {
 
     async fn plan(&self, cx: &Cx<EchoSpec>, tc: &Toolchain) -> Result<Plan> {
         cx.log(2, "planning the echo engine");
-        let socket = std::path::Path::new(&cx.instance.socket_dir).join("echo.sock");
-        let mut args = vec!["--buffer".to_string(), cx.spec.buffer.to_string()];
+        // Listen where the host said (PLAN.md D13): a Unix socket, or loopback TCP where the host gives no sockets.
+        let backend = cx.instance.listeners.get("main").map(|l| l.backend.clone());
+        let socket = std::path::Path::new(&cx.instance.socket_dir)
+            .join("echo.sock")
+            .to_string_lossy()
+            .into_owned();
+        let (listen, ready) = match backend {
+            Some(Address::Tcp(a)) => (format!("tcp:{a}"), Ready::Tcp(a)),
+            Some(Address::Unix(p)) => (format!("unix:{p}"), Ready::Socket(p)),
+            None => (format!("unix:{socket}"), Ready::Socket(socket)),
+        };
+        let mut args = vec![
+            "--listen".to_string(),
+            listen,
+            "--buffer".to_string(),
+            cx.spec.buffer.to_string(),
+        ];
         if let Some(g) = &cx.spec.greeting {
             args.push(format!("--greeting={g}"));
         }
@@ -117,7 +132,10 @@ impl Module for Echo {
             args.push(format!("--{k}={v}"));
         }
         let program = std::path::Path::new(&tc.bin_dir)
-            .join("echo-engine")
+            .join(format!(
+                "doze-module-echo-engine{}",
+                std::env::consts::EXE_SUFFIX
+            ))
             .to_string_lossy()
             .into_owned();
         let process = Process {
@@ -127,7 +145,7 @@ impl Module for Echo {
             env: BTreeMap::new(),
             dir: None,
             after: vec![],
-            ready: Some(Ready::Socket(socket.to_string_lossy().into_owned())),
+            ready: Some(ready),
             hooks: vec![],
             stop: Some(StopHow::Terminate),
         };

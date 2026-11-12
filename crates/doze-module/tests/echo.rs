@@ -268,7 +268,11 @@ async fn provision_plan_and_objects() {
         .call(Method::Plan, &wt, CallOpts::default())
         .await
         .unwrap();
-    assert!(plan.processes[0].program.ends_with("echo-engine"));
+    assert!(
+        plan.processes[0]
+            .program
+            .contains("doze-module-echo-engine")
+    );
     assert!(matches!(&plan.processes[0].ready, Some(Ready::Socket(s)) if s.ends_with("echo.sock")));
     let objs: Vec<Object> = p
         .call(Method::Objects, &inst, CallOpts::default())

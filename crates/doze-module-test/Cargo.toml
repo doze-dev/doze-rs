@@ -1,0 +1,22 @@
+[package]
+name = "doze-module-test"
+version = "0.0.0"
+description = "The harness module tests run on: literal HCL to values, a sandbox, the boot sequence, a plan executor"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+doze-module-proto = { path = "../doze-module-proto" }
+doze-module-host = { path = "../doze-module-host" }
+doze-os = { path = "../doze-os" }
+hcl-edit = "0.10"
+tokio = { version = "1.54", features = ["rt", "time", "process", "net", "io-util", "sync", "fs"] }
+
+[dev-dependencies]
+tokio = { version = "1.54", features = ["rt", "time", "process", "net", "io-util", "sync", "fs", "macros"] }
