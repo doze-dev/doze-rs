@@ -4,7 +4,7 @@
 //! doze-app [FOLDER | doze://…] [--show NAME] [--menu-bar]      the app (a second launch hands these to the first)
 //!          [--fixture NAME | --synth N]                         a fixture stack instead of the doze home (dev builds)
 //! doze-app shot --fixture larder --screen map --theme teal --mode light --size 1280x800 --out x.png
-//!          [--select NAME] [--hover NAME] [--zoom Z] [--at X,Y] [--find TEXT] [--synth N] [--reduce-motion]
+//!          [--select NAME] [--hover NAME] [--zoom Z] [--at X,Y] [--find TEXT] [--synth N] [--reduce-motion] [--wait MS]
 //!          --screen instance --select api [--tab logs|console:ID|last run] [--hold PORT]
 //!          --screen logs [--filter TEXT] [--find-mode] [--level 0-3]
 //!          --act sleep|restart|reset|reset-typed|stop|remove|action|action-typed|copy|toast-fail|recent|preflight|start
@@ -90,6 +90,8 @@ pub(crate) struct Shot {
     pub(crate) over: Option<String>,
     /// Needs you sees this machine not set up (names and a domain), as Go's fixture server did.
     pub(crate) machine_unset: bool,
+    /// How long to wait before the shot, in ms (`--wait`): for what only time shows, a daemon gone quiet.
+    pub(crate) wait: u64,
 }
 
 /// `doze-app bench ...`.
@@ -244,6 +246,7 @@ fn shot(mut args: impl Iterator<Item = String>) -> Result<Shot, String> {
             "--query" => s.query = Some(v),
             "--scope" => s.scope = Some(v),
             "--over" => s.over = Some(v),
+            "--wait" => s.wait = number(&v, "--wait")?,
             "--at" => {
                 let (x, y) = v.split_once(',').ok_or("--at is X,Y")?;
                 s.at = Some((number(x, "--at")?, number(y, "--at")?));

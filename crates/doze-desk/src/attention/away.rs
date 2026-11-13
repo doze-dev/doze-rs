@@ -116,7 +116,7 @@ fn troubles(st: &StackView, name: &str, since: SystemTime, zone: Zone) -> Vec<Aw
                 }
                 match v.filter(|v| !words::awake_now(v)) {
                     Some(v) => (ev.now, ev.tone) = (words::look(v).word().to_owned(), "dim"),
-                    None => (ev.now, ev.tone) = ("running".into(), "good"),
+                    None => (ev.now, ev.tone) = (words::Look::Running.word().into(), "good"),
                 }
             }
             ev
@@ -147,7 +147,7 @@ fn task_runs(st: &StackView, name: &str, since: SystemTime, zone: Zone) -> Vec<A
                 now: if failed {
                     "still failing · in Needs you"
                 } else {
-                    "done"
+                    words::Look::Done.word()
                 }
                 .into(),
                 tone: if failed { "bad" } else { "good" },

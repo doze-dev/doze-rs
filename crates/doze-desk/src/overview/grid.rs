@@ -375,11 +375,11 @@ fn task_cell(f: &Flow<'_>, ts: &[&str]) -> (String, &'static str) {
         };
         if v.state == "booting" {
             if tone != "bad" {
-                (word, tone) = ("running", "cool");
+                (word, tone) = (words::Look::Running.word(), "cool");
             }
         } else if v.task.is_none() {
             if tone == "ok" {
-                (word, tone) = ("not run", "dim");
+                (word, tone) = (words::Look::NotRun.word(), "dim");
             }
         } else if v.task.as_ref().is_some_and(|r| r.result == "failed") {
             (word, tone) = ("✗", "bad");

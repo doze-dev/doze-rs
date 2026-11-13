@@ -5,6 +5,7 @@
 //! told whenever that changes. Rates are worked out by the hub as the tables arrive.
 
 pub(crate) mod blocks;
+mod parts;
 
 use doze_desk::page::console::{self, Action, ConsolePage, Selection};
 use doze_desk::{Batch, Hub, Parts, StackKey};
@@ -31,6 +32,8 @@ pub(crate) struct ConsoleTabView {
     pub(crate) page: ConsolePage,
     followed: (String, String),
     pub(crate) stream: UniformListScrollHandle,
+    /// The scroll handles of the tables too long to lay out whole, by block id.
+    pub(crate) lists: std::collections::HashMap<String, UniformListScrollHandle>,
     pub(crate) focus: FocusHandle,
 }
 
@@ -52,6 +55,7 @@ impl ConsoleTabView {
             page: ConsolePage::default(),
             followed: Default::default(),
             stream: UniformListScrollHandle::new(),
+            lists: std::collections::HashMap::new(),
             focus: cx.focus_handle(),
         };
         v.refresh(cx);
@@ -81,7 +85,13 @@ impl ConsoleTabView {
             self.followed = follow;
         }
         if page != self.page {
+            // A new line, not a longer stream: a full stream (`STREAM_KEPT`) drops its oldest as each comes.
             let grew = streams(&page) != streams(&self.page);
+            for n in page.body.walk() {
+                if n.kind == NodeKind::Table && n.rows.len() > parts::BIG {
+                    self.lists.entry(n.id.clone()).or_default();
+                }
+            }
             self.page = page;
             if grew {
                 self.stream.scroll_to_bottom();
@@ -113,6 +123,9 @@ impl ConsoleTabView {
     pub(crate) fn pick(&mut self, id: &str, i: usize, cx: &mut Context<Self>) {
         self.focused = Some(id.to_owned());
         self.sel.insert(id.to_owned(), i);
+        if let Some(h) = self.lists.get(id) {
+            h.scroll_to_item(i, gpui::ScrollStrategy::Center);
+        }
         self.refresh(cx);
         cx.notify();
     }
@@ -179,14 +192,15 @@ impl ConsoleTabView {
     }
 }
 
-/// How many stream rows the tab has, to keep the newest in view as rows arrive.
-fn streams(p: &ConsolePage) -> usize {
+/// Each stream's length and newest row, to keep the newest in view as rows arrive (the length alone stops moving once
+/// a stream is full, `STREAM_KEPT`).
+fn streams(p: &ConsolePage) -> Vec<(usize, Option<doze_desk::page::console::Row>)> {
     p.body
         .walk()
         .into_iter()
         .filter(|n| n.kind == NodeKind::Stream)
-        .map(|n| n.rows.len())
-        .sum()
+        .map(|n| (n.rows.len(), n.rows.last().cloned()))
+        .collect()
 }
 
 impl Focusable for ConsoleTabView {
@@ -301,6 +315,7 @@ impl Render for ConsoleTabView {
             .flex_col()
             .flex_1()
             .min_h_0()
+            .min_w_0()
             .on_action(cx.listener(|v, _: &RowDown, _, cx| v.step_row(1, cx)))
             .on_action(cx.listener(|v, _: &RowUp, _, cx| v.step_row(-1, cx)))
             .on_action(cx.listener(|v, _: &NextTable, _, cx| v.step_table(1, cx)))
@@ -320,6 +335,7 @@ impl Render for ConsoleTabView {
                     .flex_col()
                     .flex_1()
                     .min_h_0()
+                    .min_w_0()
                     .mx(px(28.))
                     .mt(px(0.))
                     .mb(px(3.))

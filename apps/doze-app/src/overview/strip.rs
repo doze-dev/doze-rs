@@ -137,7 +137,7 @@ fn figures(
     row.child(stat(
         t,
         &v.state.awake.to_string(),
-        "awake",
+        doze_display::Look::Awake.word(),
         states(t, v),
         false,
     ))
@@ -182,14 +182,19 @@ fn memory(t: &Tokens, v: &Vitals4) -> AnyElement {
 fn states(t: &Tokens, v: &Vitals4) -> AnyElement {
     let s8 = &v.state;
     let mut counts: Vec<AnyElement> = Vec::new();
+    use doze_display::Look;
+    // Every state but awake (the figure), in the words' own words: paused and failed are their own, as on the rows.
     let all = [
-        (s8.dozing, "dozing", t.warn),
-        (s8.waking, "waking", t.cool),
-        (s8.asleep, "asleep", t.dim),
-        (s8.off, "off", t.dim),
-        (s8.crashing, "crashing", t.bad),
+        (s8.dozing, Look::Dozing, t.warn),
+        (s8.waking, Look::Waking, t.cool),
+        (s8.asleep, Look::Asleep, t.dim),
+        (s8.off, Look::Off, t.dim),
+        (s8.paused, Look::Paused, t.dim),
+        (s8.crashing, Look::Crashing, t.bad),
+        (s8.failed, Look::Failed, t.bad),
     ];
-    for (n, word, c) in all.into_iter().filter(|(n, _, _)| *n > 0) {
+    for (n, look, c) in all.into_iter().filter(|(n, _, _)| *n > 0) {
+        let word = look.word();
         if !counts.is_empty() {
             counts.push(div().child(" · ").into_any_element());
         }

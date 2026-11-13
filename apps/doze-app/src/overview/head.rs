@@ -20,7 +20,10 @@ pub(super) fn head(
         parts.push(format!("up {}", h.up));
     }
     if let Some(st) = &h.stopped {
-        parts.extend(["stopped".to_owned(), st.when.clone()]);
+        parts.extend([
+            doze_desk::overview::Look::STOPPED.word.to_owned(),
+            st.when.clone(),
+        ]);
     }
     parts.retain(|p| !p.is_empty());
     let path = parts.join(" · ");

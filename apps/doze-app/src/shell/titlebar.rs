@@ -234,10 +234,12 @@ fn pending_tab(t: &Tokens, root: &Root, cx: &mut Context<Root>) -> Option<AnyEle
 
 fn stack_tab(t: &Tokens, root: &Root, i: usize, tb: &Tab, cx: &mut Context<Root>) -> AnyElement {
     let on = root.key() == Some(&tb.key);
-    let tone = if tb.trouble {
+    let tone = if tb.troubled > 0 {
         t.bad
-    } else if tb.running {
+    } else if tb.running && tb.live {
         t.good
+    } else if tb.running {
+        t.warn
     } else {
         t.dim
     };
@@ -249,11 +251,9 @@ fn stack_tab(t: &Tokens, root: &Root, i: usize, tb: &Tab, cx: &mut Context<Root>
             .child(s(&tb.name))
             .into_any_element(),
     ];
-    let red = root.red_of(&tb.key);
-    if red > 0 || tb.trouble {
-        // Go wrote "!" when the stack was troubled before Needs you had counted it.
-        let n = red.max(1);
-        body.push(badge(t, n).into_any_element());
+    // As Go's tab: how many of its instances are in trouble, tasks aside. The bell counts Needs you's items.
+    if tb.troubled > 0 {
+        body.push(badge(t, tb.troubled).into_any_element());
     }
     if on || !tb.running {
         let k = tb.key.clone();

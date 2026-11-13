@@ -256,9 +256,4 @@ impl Root {
             self.rebuild_attention(cx);
         }
     }
-
-    /// The red count of the stack `key`, for its tab's badge.
-    pub(crate) fn red_of(&self, key: &doze_desk::StackKey) -> usize {
-        self.attn.list.red_in(&key.dir().to_string_lossy())
-    }
 }

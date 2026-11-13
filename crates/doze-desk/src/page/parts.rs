@@ -3,12 +3,12 @@
 
 use super::Ink;
 use super::logs::Line;
-use super::time::{self, Zone};
-use crate::convert;
+use super::time;
 use doze_control as wire;
 use doze_display::{self as words, Holder, Kind, Look, State};
 use std::time::{Duration, SystemTime};
 
+pub use super::recent::recent;
 pub use super::runs::{RunRow, match_runs, runs};
 
 /// One row of a card: a key, a value, and what the copy button copies (nothing for no button). The instance page's
@@ -156,7 +156,7 @@ pub fn path_line(
             parts.push(if up.is_empty() {
                 look.word().to_owned()
             } else {
-                format!("awake for {up}")
+                up_phrase(look, up, " for ")
             });
             if wire.pid > 0 && v.state.awake() {
                 parts.push(format!("pid {}", wire.pid));
@@ -170,7 +170,7 @@ pub fn path_line(
             parts.push(if words::troubled(v) || up.is_empty() {
                 look.word().to_owned()
             } else {
-                format!("awake {up}")
+                up_phrase(look, up, " ")
             });
         }
     }
@@ -253,12 +253,24 @@ pub fn with_direct(wire: &wire::InstanceView, rows: Vec<Kv>) -> Vec<Kv> {
 
 /// Why it is awake, as pills with a word on each, and the sentence under them. (Go `holders`.)
 pub fn holders(v: &words::Instance, idle: Duration) -> (Vec<Pill>, String) {
+    let pills = pills(v);
+    if v.always_on {
+        return (
+            pills,
+            "It runs until stopped: it has no port, so nothing can hold it, and it never sleeps on its own."
+                .to_owned(),
+        );
+    }
+    sentence(v, idle, pills)
+}
+
+/// What holds it, a pill each.
+fn pills(v: &words::Instance) -> Vec<Pill> {
     let pill = |text: String, explain: &str| Pill {
         text,
         explain: explain.to_owned(),
     };
-    let pills: Vec<Pill> = v
-        .holders
+    v.holders
         .iter()
         .filter_map(|h| match h {
             Holder::Dependant(n) => Some(pill(
@@ -275,19 +287,35 @@ pub fn holders(v: &words::Instance, idle: Duration) -> (Vec<Pill>, String) {
             )),
             Holder::Other => None,
         })
-        .collect();
-    if v.always_on {
-        return (
-            pills,
-            "It runs until stopped: it has no port, so nothing can hold it, and it never sleeps on its own."
-                .to_owned(),
-        );
-    }
+        .collect()
+}
+
+/// The sentence under the pills: what keeps it up, or why nothing does.
+fn sentence(v: &words::Instance, idle: Duration, pills: Vec<Pill>) -> (Vec<Pill>, String) {
     let after = if idle.is_zero() {
         String::new()
     } else {
         format!(" after {}", words::clock(idle))
     };
+    // Off and paused do not doze, and a start under way is not idle: Go told all three the dozing sentence.
+    if v.paused {
+        return (pills, "enabled = false in doze.hcl: it does not run, and nothing wakes it until the file says so.".to_owned());
+    }
+    if v.disabled {
+        return (
+            pills,
+            "Turned off: nothing wakes it, not even a connection, until you switch it on."
+                .to_owned(),
+        );
+    }
+    if pills.is_empty() && v.state == State::Booting {
+        return (
+            pills,
+            format!(
+                "It is starting. Once it answers, what connects keeps it awake; with nothing, it sleeps{after}."
+            ),
+        );
+    }
     if pills.is_empty() {
         if v.state == State::Idle {
             return (
@@ -342,38 +370,6 @@ pub fn chart(vs: &[f64], label: fn(f64) -> String, sub: &str) -> Chart {
         peak: label(peak),
         mean: label(mean),
         span: words::span_word(vs.len() as u64),
-    }
-}
-
-/// doze's own events for it, at most the last eight.
-pub fn recent(events: &[wire::Event], name: &str, zone: Zone) -> Vec<Recent> {
-    let mut out: Vec<Recent> = events
-        .iter()
-        .filter(|e| e.instance == name)
-        .map(|e| {
-            let e = convert::event(e);
-            let said = words::sentence(&e);
-            let (kind, rest) = said.split_once(' ').unwrap_or((said.as_str(), ""));
-            Recent {
-                at: zone.clock(e.time),
-                kind: kind.to_owned(),
-                text: rest.to_owned(),
-                ink: event_ink(kind),
-            }
-        })
-        .collect();
-    let extra = out.len().saturating_sub(8);
-    out.drain(..extra);
-    out
-}
-
-fn event_ink(kind: &str) -> Ink {
-    match kind {
-        "woke" => Ink::Accent,
-        "ready" => Ink::Good,
-        "idle" | "slept" => Ink::Warn,
-        "crashed" | "failed" => Ink::Bad,
-        _ => Ink::Dim,
     }
 }
 
@@ -436,4 +432,14 @@ pub fn procs(v: &wire::InstanceView) -> Vec<Proc> {
             depth: p.depth,
         })
         .collect()
+}
+
+/// How long it has been up, in its own word: "awake 14m", or "waking for 7m" for one still starting (a wake that has
+/// not finished is not awake, though its process is up).
+fn up_phrase(look: Look, up: &str, sep: &str) -> String {
+    if look == Look::Waking {
+        format!("{} for {up}", look.word())
+    } else {
+        format!("{}{sep}{up}", Look::Awake.word())
+    }
 }

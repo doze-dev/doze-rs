@@ -58,6 +58,10 @@ pub(crate) const LH_44: f32 = 44.;
 pub(crate) const CHIP_LEAD: f32 = 5.;
 /// A one-line label set solid but for this (the minimap's names).
 pub(crate) const TIGHT_LEAD: f32 = 2.;
+/// A state mark's glyph (✗, ⊘, ✓, ▸) is set this much over the mark's size, so it reads as big as the discs beside it.
+pub(crate) const MARK_GLYPH_UP: f32 = 4.;
+/// And on a line this much over the mark's size.
+pub(crate) const MARK_GLYPH_LEAD: f32 = 2.;
 /// A key's ⏎ or ⌫, in the UI face, is set this much over the mono letters beside it.
 pub(crate) const KEY_GLYPH_UP: f32 = 2.;
 

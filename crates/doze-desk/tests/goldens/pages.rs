@@ -298,10 +298,24 @@ fn check_instance(p: &InstancePage, want: &Value) {
         .collect();
     assert_eq!(
         Value::Array(recent),
-        g(want, "/recent")
-            .as_array()
-            .cloned()
-            .map_or(json!([]), Value::Array),
+        // Go left a detail-less event's colon in ("failed" · "in 400ms: "); the app drops it, on purpose.
+        g(want, "/recent").as_array().map_or(json!([]), |rs| {
+            Value::Array(
+                rs.iter()
+                    .map(|r| {
+                        let mut r = r.clone();
+                        for k in ["kind", "text"] {
+                            let v = s(g(&r, &format!("/{k}")))
+                                .trim()
+                                .trim_end_matches(':')
+                                .to_owned();
+                            r[k] = json!(v);
+                        }
+                        r
+                    })
+                    .collect(),
+            )
+        }),
         "{name}"
     );
     match (&p.vitals, g(want, "/vitals")) {

@@ -83,6 +83,43 @@ pub(crate) fn overview(
 }
 
 /// Above the cards: a crashing service's banner, and the port clash.
+/// The crash banner's two lines. Not ready in time is its own failure (Needs you says so: "did not become ready"), and
+/// a page with nothing to show from the last run points at the logs instead; a failed one is not tried again, so there
+/// is nothing to stop.
+fn crash_words(c: &doze_desk::page::parts::Crash) -> (String, &'static str) {
+    let not_ready = c.error.contains("not become ready");
+    let sub = match (c.last_run.is_empty(), c.gave_up || not_ready) {
+        (true, true) => "Its logs usually say why. Fix it and press Restart.",
+        (true, false) => {
+            "Its logs usually say why. Fix it and press Try now, or stop trying while you look."
+        }
+        (false, true) => "What it said is below. Fix it and press Restart.",
+        (false, false) => {
+            "What it said is below. Fix it and press Try now, or stop trying while you look."
+        }
+    };
+    let said = if not_ready {
+        "It started but never answered, so doze stopped it. It waits for you.".to_owned()
+    } else if c.gave_up {
+        "It kept exiting soon after starting, so doze stopped trying. It waits for you.".to_owned()
+    } else {
+        let next = if c.next_in.is_empty() {
+            String::new()
+        } else {
+            format!(" in {}", c.next_in)
+        };
+        let tries = if c.tries.is_empty() {
+            String::new()
+        } else {
+            format!(" ({})", c.tries)
+        };
+        format!(
+            "It exits soon after starting. doze tries again{next}{tries}, and stops trying if it keeps exiting."
+        )
+    };
+    (said, sub)
+}
+
 fn crash_top(
     t: &Tokens,
     v: &mut InstanceView,
@@ -94,33 +131,27 @@ fn crash_top(
         .flex_col()
         .gap(px(14.))
         .px(px(28.))
-        .when(p.crash.is_some(), |d| d.pt(px(14.)))
+        .when(p.crash.is_some() || !p.stuck.is_empty(), |d| d.pt(px(14.)))
         .flex_none();
-    if let Some(c) = &p.crash {
-        let said = if c.gave_up {
-            "It kept exiting soon after starting, so doze stopped trying. It waits for you."
-                .to_owned()
-        } else {
-            let next = if c.next_in.is_empty() {
-                String::new()
-            } else {
-                format!(" in {}", c.next_in)
-            };
-            let tries = if c.tries.is_empty() {
-                String::new()
-            } else {
-                format!(" ({})", c.tries)
-            };
-            format!(
-                "It exits soon after starting. doze tries again{next}{tries}, and stops trying if it keeps exiting."
-            )
-        };
-        let mut b = banner(
+    if p.crash.is_none() && !p.stuck.is_empty() {
+        // Stuck waking: Needs you has it as a red item; the page says the same, with the same verb (Restart).
+        // Needs you's words, once: "for 7m, with no word from it for 7m" says the time twice on one line.
+        let long = p
+            .stuck
+            .split(',')
+            .next()
+            .unwrap_or("")
+            .trim_start_matches("for ");
+        top = top.child(banner(
             t,
-            ui::Tone::Bad,
-            &said,
-            "What it said is below. Fix it and press Try now, or stop trying while you look.",
-        );
+            ui::Tone::Warn,
+            &format!("It has been waking for {long} and has said nothing."),
+            "Its logs usually say why. Restart starts it again.",
+        ));
+    }
+    if let Some(c) = &p.crash {
+        let (said, sub) = crash_words(c);
+        let mut b = banner(t, ui::Tone::Bad, &said, sub);
         if !c.tries.is_empty() {
             b = b.child(
                 div()
@@ -221,16 +252,17 @@ pub(crate) fn connect(
 
 /// The state card: why it is awake (the holders), the dozing countdown, the sentence, what it needs.
 fn state(t: &Tokens, p: &InstancePage, cx: &mut Context<InstanceView>) -> AnyElement {
-    let word = p.look.map_or("", Look::word);
-    let title = match word {
-        "awake" => "Why it's awake",
-        "dozing" => "Dozing",
-        "waking" => "Waking",
-        "asleep" => "Asleep",
-        "off" => "Turned off",
-        "paused" => "Paused in doze.hcl",
-        "failed" => "Failed",
-        w => w,
+    // The card's heading by the look itself, not its word: a word the look renames cannot leave a card unheaded.
+    let title = match p.look {
+        Some(Look::Awake) => "Why it's awake",
+        Some(Look::Dozing) => "Dozing",
+        Some(Look::Waking) => "Waking",
+        Some(Look::Asleep) => "Asleep",
+        Some(Look::Off) => "Turned off",
+        Some(Look::Paused) => "Paused in doze.hcl",
+        Some(Look::Failed) => "Failed",
+        Some(l) => l.word(),
+        None => "",
     };
     let mut c = card(t).child(heading(t, title, None));
     for h in &p.holders {
@@ -347,7 +379,7 @@ fn recent(t: &Tokens, p: &InstancePage) -> gpui::Div {
                 )
                 .child(
                     div()
-                        .w(px(70.))
+                        .w(px(96.))
                         .flex_none()
                         .text_color(ui::ink(t, r.ink))
                         .child(text(&r.kind)),
@@ -376,7 +408,7 @@ fn extends(t: &Tokens, p: &InstancePage, after: &str) -> Vec<AnyElement> {
             let mut n = e.node.clone();
             let title = std::mem::take(&mut n.title);
             n.flexible = false;
-            let mut c = card(t).px(px(0.)).py(px(0.)).overflow_hidden();
+            let mut c = card(t).px(px(0.)).py(px(0.)).min_w_0().overflow_hidden();
             if !title.is_empty() {
                 c = c.child(
                     div()

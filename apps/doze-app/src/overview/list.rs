@@ -59,7 +59,13 @@ fn head(t: &Tokens, title: &str) -> AnyElement {
 
 /// The word in its tone, why, and what it last said while in trouble.
 fn why(t: &Tokens, r: &Row) -> gpui::Div {
-    let line = word_line(r.look.word, word_tone(t, r), &[&r.because, &r.err]);
+    // What it last said, unless that is already why (a failed one's reason is its error: once is enough).
+    let err = if r.err == r.because {
+        ""
+    } else {
+        r.err.as_str()
+    };
+    let line = word_line(r.look.word, word_tone(t, r), &[&r.because, err]);
     div()
         .flex_1()
         .min_w(px(170.))

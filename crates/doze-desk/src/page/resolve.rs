@@ -59,7 +59,7 @@ impl<'a> Resolver<'a> {
             flexible: w.flexible(),
             ..Node::default()
         };
-        match w.kind {
+        match &w.kind {
             NodeKind::Row | NodeKind::Col => {
                 out.children = n.children.iter().map(|c| self.node(c)).collect();
             }
@@ -82,7 +82,15 @@ impl<'a> Resolver<'a> {
                 out.text.clone_from(&n.text);
             }
             NodeKind::Chart => self.chart(&mut out, n),
-            NodeKind::Other(_) => {}
+            // A block this doze cannot draw says so where it would be, rather than leave a hole in the layout.
+            NodeKind::Other(kind) if kind.is_empty() => {
+                out.missing =
+                    "This part of the console has no kind; the module may be newer than this doze."
+                        .to_owned();
+            }
+            NodeKind::Other(kind) => {
+                out.missing = format!("This needs a newer doze: the module draws a “{kind}” here.");
+            }
         }
         out
     }
@@ -234,9 +242,12 @@ impl<'a> Resolver<'a> {
                         res = self.selected_key(&block_id(t), &t.panel);
                     }
                 }
+                // The first table's row, unless the action is on something another panel names (valkey's "Empty the
+                // cache" is on the server its counters show, not on the database row Go's fallback picked).
+                let elsewhere = self.spec.panels.iter().any(|p| p.source == a.kind);
                 if let Some(t) = tables
                     .first()
-                    .filter(|_| res.is_empty() && !a.kind.is_empty())
+                    .filter(|_| res.is_empty() && !a.kind.is_empty() && !elsewhere)
                 {
                     res = self.selected_key(&block_id(t), &t.panel);
                 }
