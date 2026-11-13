@@ -217,7 +217,7 @@ function Generation({ g, head, newest, onOpen, fetchedAt }: { g: StoryGen; head:
           </div>
         )}
         {onOpen && (
-          <button type="button" onClick={(e) => onOpen(g.generation, e.currentTarget)} className="mt-2.5 rounded-sm text-[13px] font-medium text-primary hover:underline focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none" data-testid="open-rebalance">
+          <button type="button" onClick={(e) => onOpen(g.generation, e.currentTarget)} className="mt-2.5 rounded-sm text-[13px] font-medium text-primary hover:underline focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none" data-focus-key={`generation:${g.generation}`} data-testid="open-rebalance">
             Open this rebalance
           </button>
         )}

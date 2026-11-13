@@ -78,7 +78,11 @@ function TopicBlock({ t, v, expiring }: { t: LagTopic; v: GroupLagView; expiring
           </Link>
           <span className="ml-2 text-muted-foreground">{topicBits(t, v)}</span>
         </div>
-        {!expiring && <span className="font-mono text-[13px] text-bright tabular-nums">{behindWord(t)}</span>}
+        {!expiring && (
+          <span className="font-mono text-[13px] text-bright tabular-nums" data-testid="topic-behind">
+            {behindWord(t)}
+          </span>
+        )}
       </div>
       <DataTable data={rows} columns={cols} rowId={(r) => `${r.topic}-${r.partition}`} aria-label={`Lag of ${t.name}`} maxHeight={480} />
     </section>
@@ -193,7 +197,7 @@ export function GroupLagPage() {
           type="single"
           variant="outline"
           value={expiring ? "expiring" : "lag"}
-          onValueChange={(x) => x && void navigate({ search: (s) => ({ ...s, expiring: x === "expiring" ? 1 : undefined }), replace: true, resetScroll: false })}
+          onValueChange={(x) => x && void navigate({ search: (s) => ({ ...s, expiring: x === "expiring" ? 1 : undefined }), resetScroll: false })}
           aria-label="Show"
           data-testid="lag-view"
         >

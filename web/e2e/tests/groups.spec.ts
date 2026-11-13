@@ -151,7 +151,7 @@ test("Lag: one table per topic with the lag as a bar, and when the commits expir
   const block = page.getByTestId("lag-topic").filter({ has: page.getByRole("link", { name: TOPIC }) });
   await expect(block).toBeVisible();
   await expect(block.locator("tbody tr")).toHaveCount(3);
-  await expect(block).toContainText("0 behind");
+  await expect(block.getByTestId("topic-behind")).toHaveText("0 behind");
   await expect(page.getByTestId("lag-explain")).toBeVisible();
   await page.getByTestId("lag-view").getByRole("radio", { name: "When do these expire?" }).click();
   await expect(page).toHaveURL(/expiring=1/);
@@ -243,7 +243,7 @@ test("Reset offsets: a GET preview, then the reset; the Lag tab shows where the 
   await expect(page).not.toHaveURL(/dialog=/);
   const block = page.getByTestId("lag-topic").filter({ has: page.getByRole("link", { name: TOPIC }) });
   await expect(block.locator("tbody tr td:nth-child(3)")).toHaveText(["0", "0", "0"]);
-  await expect(block).not.toContainText("0 behind");
+  await expect(block.getByTestId("topic-behind")).not.toHaveText("0 behind");
   // Back to the end, with the keyboard: Esc cancels, Enter in the dialog previews.
   await page.getByTestId("open-reset").click();
   await expect(dialog).toBeVisible();
@@ -253,7 +253,7 @@ test("Reset offsets: a GET preview, then the reset; the Lag tab shows where the 
   await dialog.getByRole("radio", { name: /Latest/ }).click();
   await dialog.getByTestId("reset-preview-button").click();
   await dialog.getByTestId("reset-submit").click();
-  await expect(block).toContainText("0 behind");
+  await expect(block.getByTestId("topic-behind")).toHaveText("0 behind");
 });
 
 test("Reset offsets of a group with a member is refused, in Kafka's name and words, and nothing changes", async ({ page }) => {
@@ -273,7 +273,7 @@ test("Reset offsets of a group with a member is refused, in Kafka's name and wor
   await dialog.getByTestId("dialog-cancel").click();
   await expect(dialog).toBeHidden();
   await page.getByTestId("group-tabs").getByRole("link", { name: /^Lag/ }).click();
-  await expect(page.getByTestId("lag-topic").first()).toContainText("0 behind");
+  await expect(page.getByTestId("lag-topic").first().getByTestId("topic-behind")).toHaveText("0 behind");
 });
 
 test("Delete group with a member is refused as NON_EMPTY_GROUP in Kafka's words", async ({ page }) => {

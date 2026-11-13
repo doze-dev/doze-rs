@@ -1,7 +1,7 @@
 // The Members tab, the group's own page (boards group-detail, group-members, group-detail-848, group-rebalancing): the state
 // chooses the layout. A member opens as a Sheet over it (board member-detail), routed by `?member=`.
 import { getRouteApi, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useGroup } from "@/api/groups";
 import type { GroupHead } from "@/api/types/GroupHead";
 import type { GroupLagView } from "@/api/types/GroupLagView";
@@ -33,16 +33,18 @@ type Open = (id: string, from: HTMLElement) => void;
 
 function MemberLink({ m, onOpen }: { m: GroupMemberRow; onOpen: Open }) {
   return (
-    <button type="button" onClick={(e) => onOpen(m.id, e.currentTarget)} className="max-w-full truncate rounded-sm text-left font-mono text-primary hover:underline focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none" title={m.id} data-testid="member-link">
+    <button type="button" onClick={(e) => onOpen(m.id, e.currentTarget)} className="max-w-full truncate rounded-sm text-left font-mono text-primary hover:underline focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none" title={m.id} data-focus-key={`member:${m.id}`} data-testid="member-link">
       {memberLabel(m.id)}
     </button>
   );
 }
 
 function MembersTable({ h, onOpen }: { h: GroupHead; onOpen: Open }) {
+  // The member column depends on nothing that a refresh changes, so its cells (and the focus in them) stay.
+  const memberCol = useMemo<DataColumn<GroupMemberRow>>(() => ({ id: "member", header: "Member id", accessorFn: (m) => m.id, cell: ({ row: { original: m } }) => <MemberLink m={m} onOpen={onOpen} /> }), [onOpen]);
   const cols = useMemo<DataColumn<GroupMemberRow>[]>(
     () => [
-      { id: "member", header: "Member id", accessorFn: (m) => m.id, cell: ({ row: { original: m } }) => <MemberLink m={m} onOpen={onOpen} /> },
+      memberCol,
       { id: "client", header: "Client id", size: 160, accessorFn: (m) => m.client_id, meta: { mono: true } },
       { id: "host", header: "Host", size: 110, accessorFn: (m) => m.host, meta: { mono: true } },
       { id: "role", header: "Role", size: 92, accessorFn: (m) => role(h, m) },
@@ -50,7 +52,7 @@ function MembersTable({ h, onOpen }: { h: GroupHead; onOpen: Open }) {
       { id: "session", header: "Session", size: 84, accessorFn: (m) => (m.session_ms > 0 ? seconds(m.session_ms) : "—"), meta: { mono: true } },
       { id: "heard", header: "Last heartbeat", size: 128, accessorFn: (m) => heard(h.now_ms, m), meta: { mono: true } },
     ],
-    [h, onOpen],
+    [h, memberCol],
   );
   return <DataTable data={h.members} columns={cols} rowId={(m) => m.id} aria-label="Members" empty="Nobody is in this group. Its committed offsets stay until the retention date." maxHeight={420} />;
 }
@@ -383,10 +385,10 @@ export function GroupMembersPage() {
   const search = route.useSearch();
   const res = useGroup(id);
   const overlay = useRoutedOverlay("member");
+  const open = useCallback<Open>((m, from) => overlay.open(m, from), [overlay]);
   const v = res.data;
   if (!v) return null;
   const h = v.head;
-  const open: Open = (m, from) => overlay.open(m, from);
   return (
     <>
       {h.protocol === "consumer" ? <Consumer v={v} onOpen={open} /> : h.phase === "rebalancing" ? <Rebalancing v={v} fetchedAt={res.dataUpdatedAt} onOpen={open} /> : <Classic v={v} onOpen={open} />}

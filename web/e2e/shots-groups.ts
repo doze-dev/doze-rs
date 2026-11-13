@@ -37,6 +37,7 @@ for (const [name, type] of browsers) {
     await p.waitForTimeout(400);
     await p.screenshot({ path: `${out}/member-sheet.${name}.${width}.png` });
     await p.goto(`${url}/groups/fulfilment/story`);
+    await p.getByTestId("group-story").waitFor();
     const open = p.getByTestId("open-rebalance").first();
     if (await open.count()) {
       await open.click();

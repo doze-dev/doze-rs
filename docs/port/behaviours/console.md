@@ -1010,3 +1010,37 @@ React escapes text and no HTML is ever injected; the API returns what it was giv
 
 ## CON-1014. Every control works in Firefox, WebKit and Chromium
 The Playwright gate drives the shell (sidebar, collapse, chips, palette, RefreshControl), the gallery (Button, Input, Textarea, Select, Combobox, MultiSelect, RadioGroup, Switch, Checkbox, ToggleGroup, Tabs, Dialog, Sheet, DropdownMenu, Popover, Tooltip, Toast, StatStrip, CodeValue, EmptyState, DataTable), Home and Connect, with the mouse and the keyboard, asserting outcomes; every test fails on a console error; no page scrolls sideways at 1024, 1280, 1440 and 1920; an interval refresh moves nothing. Files: `web/e2e/tests/shell.spec.ts`, `gallery.spec.ts`, `pages.spec.ts`. Results per browser in `docs/port/console/react-plan.md` ("R0 done").
+
+# The React console, slice R2: Groups (rules 1200 to 1249)
+
+Branch `react-r2`. The pages are `web/src/pages/groups/` (the list, a group's layout with its tabs as routes, Members, Lag, Story, Wire, the dialogs), the API is `crates/kafka-console/src/api/groups.rs`, the browser gate is `web/e2e/tests/groups.spec.ts` (Firefox, WebKit, Chromium; seeded world and a broker with traffic). The data and every word of a refusal are the classic console's (`gather::groups`, `gather::group`, `gather::group_write`, `gather::story`, `groups_words`).
+
+## CON-1200. The Groups API is the classic view-models, serialised
+`GET /api/v1/groups?q=&state=` (`GroupsView`, the states on, the rebalancing line as Rust's spans), `/api/v1/groups/{group}?expiring=1` (`GroupLagView`), `/story` (`StoryView`), `/wire?kind=&refused=1&q=` (the recorder's rows that touched the group, each with its word and tone). A group the broker does not know is a JSON 404 `GROUP_NOT_FOUND` naming it. Test: `the_groups_api_says_what_the_list_a_group_its_story_and_its_wire_show`, `every_get_of_one_group_is_json_that_no_cache_keeps_and_carries_no_memory_figure`.
+
+## CON-1201. A reset is previewed with a GET and sends exactly what the preview showed
+`GET /api/v1/groups/{group}/reset?topic=&to=&value=` reads OffsetFetch and ListOffsets and writes nothing; a value that is not a number is said in the preview (`The offset must be a whole number.`). `POST .../reset` takes the same choice as JSON; the dialog's Reset is off until the preview on screen is the choice made. Test: `a_reset_is_previewed_with_a_get_and_refused_in_kafkas_words_while_the_group_has_members`; Playwright "Reset offsets: a GET preview, then the reset; the Lag tab shows where the group now reads".
+
+## CON-1202. A refused group write answers Kafka's name, number and words, and the console's reading
+409 `{code, message, number, refused}`: `code` is Kafka's error name (`NON_EMPTY_GROUP`), `message` Kafka's own sentence (`The group is not empty.`), `refused` the rule, what would pass and the call refused. The dialog stays open and shows them. Test: `deleting_a_group_with_members_is_refused_as_non_empty_group`, `deleting_offsets_needs_a_topic_and_is_refused_while_a_member_reads_it`; Playwright "Delete group with a member is refused as NON_EMPTY_GROUP in Kafka's words", "Reset offsets of a group with a member is refused, in Kafka's name and words, and nothing changes".
+
+## CON-1203. A group write needs the same-origin proof and a JSON body
+A POST from another origin is 403 before anything reaches the broker; a body that is not JSON is 400 `BAD_REQUEST`; Delete offsets with no topic is 422 `INVALID` (the form would otherwise tick every topic). Test: `a_group_write_needs_the_same_origin_proof`, `deleting_offsets_needs_a_topic_and_is_refused_while_a_member_reads_it`.
+
+## CON-1204. Filters and overlays of the Groups pages are in the address
+The list's name filter (`q`) and states (`state`, a MultiSelect with the count of each), the Lag tab's `expiring=1`, the wire's `kind`, `refused` and `q`, a member's Sheet (`member=`), a rebalance's Sheet (`generation=`), the flapping rule's Sheet (`rule=1`) and the write dialogs (`dialog=reset|delete|delete-offsets`). An overlay opened on the page pushes an entry (Back closes it), a deep link opens the page with the overlay on it, Esc closes it and the focus returns to what opened it. Parsers: `web/src/pages/groups/search.ts` (bun tests in `words.test.ts`). Playwright "A member opens as a Sheet with its own address: Esc closes it, the focus returns, Back and a deep link work", "Groups: the counts are tiles, the name filter and the states are in the address, and a row opens its group".
+
+## CON-1205. A group's tabs are routes and the group's figures are tiles
+`/groups/{group}` (Members), `/lag`, `/story`, `/wire`, each with the group's h1, pills, StatStrip (state, members, generation or epoch, lag, committed partitions, last commit) and switch-group chips (a Combobox past eight groups); Refresh fetches every query of the group and moves nothing. Playwright "A group: the state, the figures as tiles, the tabs are routes, and Refresh moves nothing".
+
+## CON-1206. The state of a group chooses its Members layout
+Classic stable or empty: members, reads with lag bars, who holds which partition, the group's facts. KIP-848: the epoch cards, target and assigned per member, where a group can be. Rebalancing: who it waits for with the rejoin deadline counted down in the browser (CON-812), what happens next, who rejoined and who left. Each with the group's last requests ("What just happened"). Playwright "A group: the state, the figures as tiles, the tabs are routes, and Refresh moves nothing".
+
+## CON-1207. The Story counts its deadline down in its own slot
+The Now card's rejoin deadline is the fetch time plus the remaining milliseconds, counted down each tenth of a second in a `<time>` element of reserved width, with no request; the slot is there whatever the group is doing, so the card never changes height. Playwright "Story: the generations newest first; a rebalance opens as a Sheet, the flapping rule as another".
+
+## CON-1208. A time to reset to is chosen with the console's own picker, in UTC
+A month grid and a time field in a Popover (`components/app/utc-datetime-picker.tsx`), never the browser's date widget; the value sent is milliseconds since the epoch. Playwright "Reset offsets: a GET preview, then the reset; the Lag tab shows where the group now reads".
+
+## CON-1209. After a write the group's pages, the list and the sidebar's count are fetched again
+Reset, Delete offsets and Delete group invalidate the group's queries, the list and the shell; a deleted group's page says "No such group". Playwright "Delete offsets forgets the commits of the topics ticked; Delete group then removes the empty group".
