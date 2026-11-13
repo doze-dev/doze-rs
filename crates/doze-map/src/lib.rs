@@ -79,6 +79,7 @@
 mod cards;
 mod classic;
 mod draw;
+mod focus;
 mod geom;
 mod group;
 mod index;
@@ -86,21 +87,25 @@ mod input;
 mod layered;
 mod output;
 mod overview;
+mod region;
 mod search;
 pub mod synth;
 mod text;
+mod trouble;
 
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::sync::Arc;
 
 pub use draw::HEAD_LEN;
+pub use focus::MAX_HOPS;
 pub use geom::{End, Path, Pt, Rect, Seg};
 pub use group::{Collapse, Grouping};
 pub use index::Visible;
 pub use input::{Instance, Kind};
-pub use output::{Caption, CaptionKind, Card, CardId, Edge, Layout, Mode, Role};
+pub use output::{Caption, CaptionKind, Card, CardId, Edge, Layout, Mode, NamedRegion, Role, Tile};
 pub use overview::{Bundle, Overview, Region};
 pub use text::Lang;
+pub use trouble::subset;
 
 /// How to lay a stack out.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -111,6 +116,10 @@ pub struct Options {
     pub grouping: Grouping,
     /// When groups collapse.
     pub collapse: Collapse,
+    /// Past [`Options::classic_max`], a stack that splits into three or more named regions of
+    /// four or more cards is laid out by region, each framed, and the cards with no calls (the
+    /// lane and the band) fold into one tile. Off, the layered map draws its lane and band.
+    pub regions: bool,
 }
 
 impl Default for Options {
@@ -119,6 +128,7 @@ impl Default for Options {
             classic_max: 60,
             grouping: Grouping::default(),
             collapse: Collapse::default(),
+            regions: true,
         }
     }
 }
@@ -180,7 +190,7 @@ impl Mapper {
             self.memory = None;
             classic::layout(flat)
         } else {
-            let (l, m) = layered::layout(flat, self.memory.as_ref());
+            let (l, m) = layered::layout(flat, self.memory.as_ref(), self.opts.regions);
             self.memory = Some(m);
             l
         };

@@ -155,3 +155,28 @@ pub(crate) fn cubic_samples(a: Pt, c1: Pt, c2: Pt, b: Pt) -> Vec<Pt> {
         })
         .collect()
 }
+
+/// A plain curve from card `a` to card `b`, side to side, for lines no router places (calls between
+/// named regions, a focus view's calls): from `a`'s right into `b`'s left when `b` is to the
+/// right, from `a`'s left into `b`'s right when it is to the left, and out of `a`'s right and back
+/// into `b`'s right when the two share a column.
+pub(crate) fn link(a: &Rect, b: &Rect) -> Path {
+    let (ca, cb) = (a.center(), b.center());
+    let (start, end, out, back) = if b.x >= a.right() {
+        (Pt::new(a.right(), ca.y), Pt::new(b.x, cb.y), 1.0, -1.0)
+    } else if b.right() <= a.x {
+        (Pt::new(a.x, ca.y), Pt::new(b.right(), cb.y), -1.0, 1.0)
+    } else {
+        (Pt::new(a.right(), ca.y), Pt::new(b.right(), cb.y), 1.0, 1.0)
+    };
+    let pull = ((end.x - start.x).abs() / 2.0)
+        .max((end.y - start.y).abs() / 4.0)
+        .max(48.0);
+    curve(
+        start,
+        Pt::new(start.x + out * pull, start.y),
+        Pt::new(end.x + back * pull, end.y),
+        end,
+    )
+    .path
+}

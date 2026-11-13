@@ -10,7 +10,8 @@
 //! card's own.
 //!
 //! The lane and the band are not regions: nothing calls lane cards, and use lines are drawn only
-//! for a selection.
+//! for a selection. A map laid out by named region ([`crate::NamedRegion`]) has its frames as its
+//! regions instead of grid cells.
 
 use std::collections::HashMap;
 
@@ -69,7 +70,11 @@ impl Overview {
 }
 
 pub(crate) fn overview(l: &Layout) -> Overview {
-    let (regions, region_of) = regions(l);
+    let (regions, region_of) = if l.regions.is_empty() {
+        regions(l)
+    } else {
+        named(l)
+    };
     let mut weights: HashMap<(usize, usize), u32> = HashMap::new();
     let mut inside = 0u32;
     for e in &l.edges {
@@ -108,6 +113,20 @@ pub(crate) fn overview(l: &Layout) -> Overview {
         bundles,
         inside,
     }
+}
+
+/// A map by named region: its frames are the regions.
+fn named(l: &Layout) -> (Vec<Region>, Vec<Option<usize>>) {
+    let regions = l
+        .regions
+        .iter()
+        .map(|r| Region {
+            rect: r.rect,
+            cards: r.cards.clone(),
+            label: Some(r.name.clone()),
+        })
+        .collect();
+    (regions, l.region_of.clone())
 }
 
 /// The flow cards in grid cells, row by row.
