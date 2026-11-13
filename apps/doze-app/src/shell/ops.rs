@@ -99,6 +99,7 @@ impl Root {
         let f = match &self.screen {
             Screen::Stack(_) if on_map => self.map.read(cx).focus.clone(),
             Screen::Stack(_) => self.overview.read(cx).focus.clone(),
+            Screen::Activity(_) | Screen::Settings => self.pages_focus(cx),
             Screen::Library | Screen::Empty(_) | Screen::Instance(..) | Screen::Logs(_) => {
                 self.library.read(cx).focus.clone()
             }

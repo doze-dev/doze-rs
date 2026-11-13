@@ -4,6 +4,7 @@
 //! `unsafe`: Win32 calls and one async-signal-safe fork hook. Each `unsafe` block does one thing and says why it is
 //! sound, and each is wrapped in a safe function.
 //!
+//! - [`autostart`]: open the desktop app at login (a LaunchAgent, an XDG entry), in a folder the caller names.
 //! - [`channel`]: the control channel to a module process, including handing it a client connection.
 //! - [`tree`]: a process and everything it starts, stopped gently or killed, and gone when doze is gone.
 //! - [`privilege`]: never run engines with administrator rights.
@@ -16,6 +17,7 @@
 //! - [`local`]: the daemon's control socket as blocking I/O, for clients that run no async runtime.
 //! - `ui` (feature `ui`): the desktop app's menu-bar item and Dock badge.
 
+pub mod autostart;
 pub mod channel;
 pub mod detach;
 pub mod fs;

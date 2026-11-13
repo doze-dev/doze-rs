@@ -116,10 +116,18 @@ impl Root {
                 self.say("Copied the command", cx);
             }
             FixKind::Show => self.show_item(it, window, cx),
-            FixKind::Repair | FixKind::Clean => self.say(
-                "Setting up this Mac and cleaning up come with Settings › Machine (M3).",
-                cx,
-            ),
+            // Repair asks for the password at once (the system's own prompt); cleaning up shows what would go first.
+            FixKind::Repair => {
+                self.shut_bell(window, cx);
+                window.dispatch_action(Box::new(crate::actions::RepairMachine), cx);
+            }
+            FixKind::Clean => {
+                self.shut_bell(window, cx);
+                self.open_settings(Some(crate::settings::Section::Machine), false, window, cx);
+                if let Some(s) = self.pages.settings.clone() {
+                    s.update(cx, |s, cx| s.clear("all", cx));
+                }
+            }
         }
     }
 
@@ -138,7 +146,7 @@ impl Root {
         match p.page {
             "instance" => self.go(Screen::Instance(key, p.instance.clone()), window, cx),
             "home" => self.go(Screen::Stack(key), window, cx),
-            _ => self.say("Settings › Machine comes with a later step (M3).", cx),
+            _ => self.open_settings(Some(crate::settings::Section::Machine), false, window, cx),
         }
     }
 

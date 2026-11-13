@@ -21,14 +21,20 @@ pub(crate) enum Screen {
     Logs(StackKey),
     /// A folder with no doze.hcl yet: the three ways to start.
     Empty(std::path::PathBuf),
+    /// What a stack did over an hour, a day, a week.
+    Activity(StackKey),
+    /// Settings: General, Machine, About.
+    Settings,
 }
 
 impl Screen {
     /// The stack the screen is in, if any.
     pub(crate) fn key(&self) -> Option<&StackKey> {
         match self {
-            Screen::Library | Screen::Empty(_) => None,
-            Screen::Stack(k) | Screen::Instance(k, _) | Screen::Logs(k) => Some(k),
+            Screen::Library | Screen::Empty(_) | Screen::Settings => None,
+            Screen::Stack(k) | Screen::Instance(k, _) | Screen::Logs(k) | Screen::Activity(k) => {
+                Some(k)
+            }
         }
     }
 }
@@ -107,8 +113,19 @@ impl Root {
                 let f = self.library.focus_handle(cx);
                 window.focus(&f, cx);
             }
+            Screen::Activity(k) => {
+                self.inside = None;
+                self.overview.update(cx, |o, _| o.hide());
+                self.enter_activity(k, window, cx);
+            }
+            Screen::Settings => {
+                self.inside = None;
+                self.overview.update(cx, |o, _| o.hide());
+                self.enter_settings(window, cx);
+            }
         }
         self.moved(&screen);
+        self.keep_place(&screen);
         self.screen = screen;
         self.refresh_tabs(cx);
         cx.notify();

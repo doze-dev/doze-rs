@@ -31,7 +31,7 @@ impl Zone {
     }
 }
 
-const MONTHS: [&str; 12] = [
+pub(crate) const MONTHS: [&str; 12] = [
     "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 ];
 
@@ -49,7 +49,7 @@ pub(crate) fn utc_day(t: SystemTime) -> i64 {
 }
 
 /// Year, month (1–12) and day (1–31) of a day counted from 1970-01-01 (Howard Hinnant's `civil_from_days`).
-fn civil(z: i64) -> (i64, u32, u32) {
+pub(crate) fn civil(z: i64) -> (i64, u32, u32) {
     let z = z + 719_468;
     let era = z.div_euclid(146_097);
     let doe = z.rem_euclid(146_097);

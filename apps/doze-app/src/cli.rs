@@ -51,6 +51,12 @@ pub(crate) enum Screen {
     Instance,
     /// All logs.
     Logs,
+    /// Activity: `--tab 1h|24h|7d`, `--select NAME` for one service alone, `--filter TEXT` for the find box.
+    Activity,
+    /// Settings, at a part.
+    General,
+    Machine,
+    About,
 }
 
 /// `doze-app shot ...`.
@@ -214,9 +220,13 @@ fn shot(mut args: impl Iterator<Item = String>) -> Result<Shot, String> {
                     "grid" => Screen::Grid,
                     "instance" => Screen::Instance,
                     "logs" => Screen::Logs,
+                    "activity" => Screen::Activity,
+                    "general" | "settings" => Screen::General,
+                    "machine" => Screen::Machine,
+                    "about" => Screen::About,
                     _ => {
                         return Err(format!(
-                            "--screen: no screen {v} (library, tiles, list, map, grid, palette, help, instance, logs)"
+                            "--screen: no screen {v} (library, tiles, list, map, grid, palette, help, instance, logs, activity, general, machine, about)"
                         ));
                     }
                 }

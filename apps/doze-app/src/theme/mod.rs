@@ -248,6 +248,21 @@ pub(crate) fn apply(cx: &mut App, choice: Choice, system: WindowAppearance) -> a
     Ok(())
 }
 
+/// A palette's tokens in a mode, for Settings' swatches; read once from the theme file.
+pub(crate) fn swatch(palette: Palette, dark: bool) -> Option<Tokens> {
+    static ALL: std::sync::OnceLock<Vec<(Palette, bool, Tokens)>> = std::sync::OnceLock::new();
+    let all = ALL.get_or_init(|| {
+        Palette::ALL
+            .into_iter()
+            .flat_map(|p| [true, false].map(move |d| (p, d)))
+            .filter_map(|(p, d)| load(p, d).ok().map(|(_, t)| (p, d, t)))
+            .collect()
+    });
+    all.iter()
+        .find(|(p, d, _)| *p == palette && *d == dark)
+        .map(|(_, _, t)| *t)
+}
+
 /// The tokens in force.
 pub(crate) fn tokens(cx: &App) -> Tokens {
     *cx.global::<Tokens>()

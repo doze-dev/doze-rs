@@ -1,0 +1,72 @@
+{
+  "key": "/k",
+  "stack": "shop",
+  "span": "1h",
+  "ticks": [
+    {
+      "at": 0,
+      "label": "19:00"
+    },
+    {
+      "at": 0.16666666666666666,
+      "label": "19:10"
+    },
+    {
+      "at": 0.3333333333333333,
+      "label": "19:20"
+    },
+    {
+      "at": 0.5,
+      "label": "19:30"
+    },
+    {
+      "at": 0.6666666666666666,
+      "label": "19:40"
+    },
+    {
+      "at": 0.8333333333333334,
+      "label": "19:50"
+    },
+    {
+      "at": 1,
+      "label": "now"
+    }
+  ],
+  "summary": {
+    "up": "0m of 1h",
+    "asleep": "—",
+    "wakes": 0,
+    "crashes": 0
+  },
+  "rows": [
+    {
+      "name": "api",
+      "look": {
+        "word": "awake",
+        "glyph": "●",
+        "tone": "good"
+      },
+      "asleepPart": 0,
+      "asleep": "0m asleep · 0%",
+      "wakes": 0,
+      "spans": [],
+      "marks": []
+    },
+    {
+      "name": "db",
+      "look": {
+        "word": "asleep",
+        "glyph": "·",
+        "tone": "dim"
+      },
+      "asleepPart": 0,
+      "asleep": "0m asleep · 0%",
+      "wakes": 0,
+      "spans": [],
+      "marks": []
+    }
+  ],
+  "trouble": [],
+  "events": [],
+  "empty": true
+}
