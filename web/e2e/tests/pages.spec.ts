@@ -28,7 +28,7 @@ test("Home's links go where they say", async ({ page }) => {
   await page.goBack();
   await page.getByTestId("instance-card").getByRole("link", { name: /Settings/ }).click();
   await expect(page).toHaveURL(/\/settings$/);
-  // Settings is rebuilt (slice R4): the page itself, not the classic one.
+  // Settings is the page itself.
   await expect(page.locator("h1")).toHaveText("Settings");
 });
 

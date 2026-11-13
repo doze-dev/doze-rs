@@ -1,16 +1,22 @@
 // bun run build: the Vite build into crates/kafka-console/web-dist/, then what the Rust side needs from it:
-//   1. a .gz beside every text file, made by the same `pack` as the classic assets (tools/assets-compress.ts); the server
-//      serves both kinds through `handlers::plain::packed` (gzip as it is, inflated for a client that does not accept it),
+//   1. a .gz beside every text file (`pack` below); the server serves both kinds through `files::packed` (gzip as it is,
+//      inflated for a client that does not accept it),
 //   2. web-dist/manifest.rs: one include_bytes! line per file (the .gz where there is one), included by src/web.rs,
 //   3. web-dist/source-hash.txt: the hash of the web/ sources (scripts/source-hash.ts), which a Rust test checks.
 // It fails if index.html carries an inline script or a script file evaluates strings: the CSP forbids both.
 import { readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join, relative, sep } from "node:path";
-import { pack } from "../../tools/assets-compress.ts";
+import { gzipSync } from "node:zlib";
 import { sourceHash } from "./source-hash.ts";
 
 const web = join(import.meta.dir, "..");
 const dist = join(web, "../crates/kafka-console/web-dist");
+
+/** The compression every embedded text file gets: level 9 and the largest memory level, the best zlib offers; the header carries
+ * no time, so the file is reproducible. */
+function pack(bytes: Uint8Array): Uint8Array {
+  return gzipSync(bytes, { level: 9, memLevel: 9 });
+}
 
 const vite = Bun.spawnSync(["bunx", "--bun", "vite", "build", "--logLevel", "warn"], { cwd: web, stdout: "inherit", stderr: "inherit" });
 if (vite.exitCode !== 0) process.exit(vite.exitCode ?? 1);

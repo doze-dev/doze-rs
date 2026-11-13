@@ -17,10 +17,10 @@ Commit `crates/kafka-console/web-dist/` with the sources. `cargo test -p kafka-c
 (`api::types::the_typescript_types_of_the_api_are_current`, which rewrites them: commit, then rebuild). CI rebuilds and
 fails on a difference.
 
-Text files are embedded gzipped by the same `pack` as the classic console's assets (`tools/assets-compress.ts`) and served by
-`handlers::plain::packed` (gzip as it is, inflated for a client without gzip, ETag, 304). Hashed files are cached for a year;
-`index.html` is `no-cache`. Every GET under the root that is not `/api/`, `/assets/`, `/classic/` or a file answers
-`index.html`, so deep links work. Until slice R5 the server-rendered console is at `/classic/`.
+Text files are embedded gzipped (`pack` in `scripts/build.ts`) and served by `files::packed` (gzip as it is, inflated for a
+client without gzip, ETag, 304). Hashed files are cached for a year; `index.html` is `no-cache`. Every GET under the root
+that is not `/api/`, `/assets/` or a file answers `index.html`, so deep links work. There is no other console: the
+server-rendered one that lived under `/classic/` was removed in slice R5.
 
 ## Check
 
@@ -45,9 +45,9 @@ E2E_URL=http://127.0.0.1:29094 bun run test     # or against a console already s
 One browser at a time (`workers: 1`). Every test fails on a console error or an uncaught exception. On a shared machine take
 the lock first (`mkdir .../chrome.lock`, `rmdir` after).
 
-## Conventions (for slices R1 to R4)
+## Conventions
 
-- **A page**: `src/pages/<name>.tsx` exports `XxxPage`; a route in `src/router.tsx` (replace the `planned(...)` line).
+- **A page**: `src/pages/<name>.tsx` exports `XxxPage`; a route in `src/router.tsx`.
   Search params are typed with a parser in `src/lib/search.ts` (no zod in the main bundle). A page is a snapshot: its query
   uses `staleTime: Infinity`, `placeholderData: keepPreviousData` and the shared interval (`useInterval` in
   `src/api/queries.ts`); the header is `PageHeader` with ancestors-only `crumbs`, the h1 once, and `RefreshControl` when the

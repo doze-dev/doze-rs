@@ -10,7 +10,7 @@ import { accessSearch, configSearch, connectSearch, createSearch, gallerySearch,
 import { messagesSearch, partitionSearch, topicSearch, topicsSearch } from "@/lib/topic-search";
 import { HomePage } from "@/pages/home";
 import { liveSearch } from "@/pages/live/search";
-import { NotFoundPage } from "@/pages/planned";
+import { NotFoundPage } from "@/pages/not-found";
 import { groupSearch, groupsSearch, lagSearch, membersSearch, storySearch } from "@/pages/groups/search";
 
 function Shell() {
