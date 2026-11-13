@@ -9,6 +9,7 @@
 mod act;
 mod addr;
 mod banners;
+mod choose;
 mod foot;
 mod grid;
 mod head;
@@ -146,16 +147,8 @@ impl OverviewView {
         cx.subscribe(
             &map,
             |this: &mut OverviewView, _, ev: &crate::map::MapEvent, cx| {
-                // The Map's selection is the page's on the Map (Go: its keys act on `lit`): a card let go lets the row go.
                 if let crate::map::MapEvent::Select(name) = ev {
-                    match name {
-                        Some(n) => this.select(n, cx),
-                        None if this.view == View::Map => {
-                            this.selected = None;
-                            cx.notify();
-                        }
-                        None => {}
-                    }
+                    this.map_selected(name.as_deref(), cx);
                 }
             },
         )
@@ -300,33 +293,6 @@ impl OverviewView {
                     || r.address.to_lowercase().contains(&q)
             })
             .collect()
-    }
-
-    pub(crate) fn select(&mut self, name: &str, cx: &mut Context<Self>) {
-        self.selected = Some(name.to_owned());
-        if let Some(st) = &self.stack
-            && st.running
-        {
-            self.pane = pane(st, name, self.hub.now());
-        }
-        cx.notify();
-    }
-
-    fn step(&mut self, by: isize, cx: &mut Context<Self>) {
-        let names: Vec<String> = self.shown().iter().map(|r| r.name.clone()).collect();
-        let i = self
-            .selected
-            .as_ref()
-            .and_then(|s| names.iter().position(|n| n == s));
-        let j = match i {
-            Some(i) => i
-                .saturating_add_signed(by)
-                .min(names.len().saturating_sub(1)),
-            None => 0,
-        };
-        if let Some(n) = names.get(j) {
-            self.select(&n.clone(), cx);
-        }
     }
 
     pub(super) fn say(&mut self, words: &str, cx: &mut Context<Self>) {
