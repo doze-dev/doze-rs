@@ -25,7 +25,7 @@ fn boot(cx: &mut TestAppContext) {
 }
 
 /// A window on the fixture `name`, once the hub has its stack live and the acme stack beside it.
-fn window<'a>(
+pub(super) fn window<'a>(
     cx: &'a mut TestAppContext,
     name: &str,
 ) -> (Source, Entity<Root>, &'a mut VisualTestContext) {

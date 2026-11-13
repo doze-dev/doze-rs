@@ -101,6 +101,7 @@ pub(crate) fn scene(
     vis: &Visible,
     viewport: Rc<std::cell::Cell<(f32, f32, f32, f32)>>,
 ) -> AnyElement {
+    let me = m.me;
     let s = Scene {
         t: *t,
         l: m.layout.clone(),
@@ -123,7 +124,14 @@ pub(crate) fn scene(
     };
     canvas(
         |_, _, _| (),
-        move |bounds, _, window, _| s.paint(bounds, window, &viewport),
+        move |bounds, _, window, cx| {
+            if s.paint(bounds, window, &viewport) {
+                // The first frame, a resize, or a stale cache: the Map is drawn again with what it learnt. (Asked for
+                // while drawing, a refresh or a notify is dropped, which left the Map blank after a switch to it: so
+                // after this frame.)
+                cx.defer(move |cx| cx.notify(me));
+            }
+        },
     )
     .absolute()
     .top(px(0.))
@@ -138,17 +146,16 @@ impl Scene {
         bounds: Bounds<Pixels>,
         window: &mut Window,
         viewport: &std::cell::Cell<(f32, f32, f32, f32)>,
-    ) {
+    ) -> bool {
         let vp = (
             f32::from(bounds.origin.x),
             f32::from(bounds.origin.y),
             f32::from(bounds.size.width),
             f32::from(bounds.size.height),
         );
-        if viewport.get() != vp {
-            // The first frame, or a resize: the camera learns its size and the next frame fits or keeps up.
+        let resized = viewport.get() != vp;
+        if resized {
             viewport.set(vp);
-            window.refresh();
         }
         self.cache.begin();
         let o = point(
@@ -184,9 +191,8 @@ impl Scene {
         if let Some(c) = self.lit {
             self.uses(c, o, window);
         }
-        if self.cache.stale.get() {
-            window.refresh();
-        }
+        // A cache the frame found stale is drawn again next frame, as a resize is.
+        resized || self.cache.stale.get()
     }
 
     fn at(&self, o: Point<Pixels>, x: f64, y: f64) -> Point<Pixels> {
@@ -422,7 +428,7 @@ impl Scene {
                 window.paint_path(path, self.t.accent);
             }
             if let Some((end, _)) = p.tip() {
-                dot(
+                far::dot(
                     window,
                     self.at(o, end.x, end.y),
                     (3.5 * z).max(2.0),
@@ -430,20 +436,5 @@ impl Scene {
                 );
             }
         }
-    }
-}
-
-/// A filled disc.
-fn dot(window: &mut Window, c: Point<Pixels>, r: f32, color: Hsla) {
-    let pts: Vec<Point<Pixels>> = (0..16)
-        .map(|i| {
-            let a = i as f32 / 16.0 * std::f32::consts::TAU;
-            point(c.x + px(r * a.cos()), c.y + px(r * a.sin()))
-        })
-        .collect();
-    let mut f = PathBuilder::fill();
-    f.add_polygon(&pts, true);
-    if let Ok(path) = f.build() {
-        window.paint_path(path, color);
     }
 }

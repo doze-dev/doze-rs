@@ -193,6 +193,23 @@ impl Fades {
     }
 }
 
+/// The dim and the hover are Go's transitions, which reduced motion keeps (it stops keyframe animations only); the
+/// fade of a new layout is this app's own entrance, and stops.
+pub(crate) fn times(
+    motion: crate::theme::Motion,
+) -> (
+    std::time::Duration,
+    std::time::Duration,
+    std::time::Duration,
+) {
+    let show = if motion.moves() {
+        motion.normal
+    } else {
+        std::time::Duration::ZERO
+    };
+    (DIM, HOVER, show)
+}
+
 #[cfg(test)]
 mod tests {
     use std::rc::Rc;

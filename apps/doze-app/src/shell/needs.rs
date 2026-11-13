@@ -111,16 +111,24 @@ impl Root {
                     cx,
                 );
             }
-            FixKind::Edit => cx.open_with_system(std::path::Path::new(&f.path)),
+            FixKind::Edit => crate::outward::open_path(cx, std::path::Path::new(&f.path)),
             FixKind::Copy => {
-                cx.write_to_clipboard(gpui::ClipboardItem::new_string(f.text.clone()));
-                self.say("Copied the command", cx);
+                crate::outward::copy(cx, &f.text);
+                self.say("copied the command to the clipboard", cx);
             }
             FixKind::Show => self.show_item(it, window, cx),
-            FixKind::Repair | FixKind::Clean => self.say(
-                "Setting up this Mac and cleaning up come with Settings › Machine (M3).",
-                cx,
-            ),
+            // Repair asks for the password at once (the system's own prompt); cleaning up shows what would go first.
+            FixKind::Repair => {
+                self.shut_bell(window, cx);
+                window.dispatch_action(Box::new(crate::actions::RepairMachine), cx);
+            }
+            FixKind::Clean => {
+                self.shut_bell(window, cx);
+                self.open_settings(Some(crate::settings::Section::Machine), false, window, cx);
+                if let Some(s) = self.pages.settings.clone() {
+                    s.update(cx, |s, cx| s.clear("all", cx));
+                }
+            }
         }
     }
 
@@ -139,7 +147,7 @@ impl Root {
         match p.page {
             "instance" => self.go(Screen::Instance(key, p.instance.clone()), window, cx),
             "home" => self.go(Screen::Stack(key), window, cx),
-            _ => self.say("Settings › Machine comes with a later step (M3).", cx),
+            _ => self.open_settings(Some(crate::settings::Section::Machine), false, window, cx),
         }
     }
 
@@ -190,13 +198,11 @@ impl Root {
         let motion = Motion::of(cx);
         let panel = div().absolute().top(px(44.)).right(px(184.)).child(b);
         let panel = if motion.moves() {
-            let travel = motion.travel;
+            // Go `.np`: `settle`, 160 ms from 6 px above.
             panel
-                .with_animation(
-                    "bell-in",
-                    gpui::Animation::new(motion.normal).with_easing(gpui::ease_out_quint()),
-                    move |d, p| d.opacity(p).top(px(44. - travel * (1.0 - p))),
-                )
+                .with_animation("bell-in", crate::motion::go_anim(160), move |d, p| {
+                    d.opacity(p).top(px(44. - 6. * (1.0 - p)))
+                })
                 .into_any_element()
         } else {
             panel.into_any_element()

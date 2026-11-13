@@ -15,12 +15,12 @@ impl Root {
         match d.kind {
             DoKind::Page => self.open_page(d, window, cx),
             DoKind::Copy => {
-                cx.write_to_clipboard(gpui::ClipboardItem::new_string(d.text.clone()));
+                crate::outward::copy(cx, &d.text);
                 self.say(format!("Copied {}", d.text), cx);
             }
             DoKind::Open => match d.text.strip_prefix("file://") {
-                Some(path) => cx.open_with_system(std::path::Path::new(path)),
-                None => cx.open_url(&d.text),
+                Some(path) => crate::outward::open_path(cx, std::path::Path::new(path)),
+                None => crate::outward::open_url(cx, &d.text),
             },
             DoKind::Terminal => self.terminal(&d.text, cx),
             DoKind::Verb => {
@@ -61,8 +61,24 @@ impl Root {
                 self.go(Screen::Instance(key, d.target.clone()), window, cx);
                 self.open_tab(Some("logs"), window, cx);
             }
-            _ => {
-                self.say("Activity comes with a later step (M3).", cx);
+            ("activity", _) => {
+                self.go(Screen::Activity(key), window, cx);
+                if let Some(a) = self.pages.activity.clone() {
+                    let only = d.target.clone();
+                    a.update(cx, |a, cx| {
+                        if a.only != only {
+                            a.set_only(&only, cx);
+                        }
+                    });
+                }
+                return;
+            }
+            ("settings", _) => {
+                let at = crate::settings::Section::parse(&d.target);
+                self.open_settings(at, false, window, cx);
+            }
+            (other, _) => {
+                self.say(format!("doze has no page called “{other}”"), cx);
                 return;
             }
         }
@@ -113,7 +129,7 @@ impl Root {
             "help" => window.dispatch_action(Box::new(ShowHelp), cx),
             "new" => self.pick_folder(true, cx),
             "version" => {
-                cx.write_to_clipboard(gpui::ClipboardItem::new_string(crate::VERSION.into()));
+                crate::outward::copy(cx, crate::VERSION);
                 self.say(format!("Copied doze's version, {}", crate::VERSION), cx);
             }
             "mode" => {
@@ -131,10 +147,28 @@ impl Root {
                     self.set_density(d, cx);
                 }
             }
-            _ => self.say(
-                "Settings, the machine's setup and updates come with a later step (M3).",
-                cx,
-            ),
+            "settings" => {
+                let at = crate::settings::Section::parse(arg);
+                self.open_settings(at, false, window, cx);
+            }
+            // Open at login: on / off, shown where it lives (Settings › General) as it flips.
+            "login" => {
+                self.open_settings(Some(crate::settings::Section::General), false, window, cx);
+                if let Some(s) = self.pages.settings.clone() {
+                    let on = arg == "on";
+                    s.update(cx, |s, cx| {
+                        if s.login != on {
+                            s.set_login(cx);
+                        }
+                    });
+                }
+            }
+            "repair" => window.dispatch_action(Box::new(crate::actions::RepairMachine), cx),
+            "updates" => window.dispatch_action(Box::new(crate::actions::CheckUpdates), cx),
+            "cleanup" => {
+                self.open_settings(Some(crate::settings::Section::Machine), false, window, cx);
+            }
+            other => self.say(format!("doze does not know “{other}”"), cx),
         }
     }
 }

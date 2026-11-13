@@ -1,7 +1,7 @@
 //! What the logs page does when asked: step through the hits, copy the lines, let go on Esc, the keys it answers,
 //! and (for `shot`) a page set up as asked.
 
-use gpui::{ClipboardItem, Context, Focusable as _, Window, prelude::*};
+use gpui::{Context, Focusable as _, Window, prelude::*};
 
 use super::LogsView;
 use crate::actions::{
@@ -47,7 +47,7 @@ impl LogsView {
                     .join("\n")
             })
             .unwrap_or_default();
-        cx.write_to_clipboard(ClipboardItem::new_string(text));
+        crate::outward::copy(cx, &text);
         cx.notify();
     }
 

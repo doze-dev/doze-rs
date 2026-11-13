@@ -16,6 +16,9 @@ use doze_desk::library::{Check, Doctor, parse_doctor};
 use doze_desk::overview::Shape;
 use gpui::{AsyncApp, Context, WeakEntity};
 
+mod left;
+mod names;
+
 /// How old the machine's report may be before it is asked again (Go's `doctorCached`).
 const DOCTOR_AGE: Duration = Duration::from_secs(30);
 
@@ -44,6 +47,17 @@ pub(crate) struct Facts {
     doctor_asked: bool,
     shapes: HashMap<PathBuf, Known>,
     asking: HashSet<PathBuf>,
+    /// Each stack's domain setup, by its key and domains (`names`).
+    trust: HashMap<String, (Instant, Vec<doze_desk::machine_names::Step>)>,
+    trust_asked: HashSet<String>,
+    /// Who holds the front door, and when that was read.
+    front: Option<(Instant, Option<String>)>,
+    /// The registry's URL for each host asked about, and when.
+    urls: HashMap<String, (Instant, Option<String>)>,
+    /// What stacks left behind, as last found (`left`), whether a look is under way, and whether one was asked for.
+    left: Option<(Instant, Vec<doze_desk::settings::Leftover>)>,
+    left_asked: bool,
+    left_wanted: bool,
 }
 
 /// The `doze` a terminal would run. The app started from Finder has launchd's short PATH, so the places a terminal's
@@ -88,6 +102,13 @@ impl Facts {
             doctor_asked: false,
             shapes: HashMap::new(),
             asking: HashSet::new(),
+            trust: HashMap::new(),
+            trust_asked: HashSet::new(),
+            front: None,
+            urls: HashMap::new(),
+            left: None,
+            left_asked: false,
+            left_wanted: false,
         }
     }
 
@@ -157,6 +178,15 @@ impl Facts {
         .detach();
     }
 
+    /// Makes the machine's last answer old, so the next look asks doctor again (after a repair); what it said stays
+    /// on screen until the new answer comes.
+    pub(crate) fn forget_doctor(&mut self, cx: &mut Context<Self>) {
+        if let Some((at, _)) = &mut self.doctor {
+            *at = at.checked_sub(DOCTOR_AGE).unwrap_or(*at);
+        }
+        cx.notify();
+    }
+
     /// The machine's checks; asks again when the last answer is old. `None` while the first answer is coming.
     pub(crate) fn doctor(
         &mut self,
@@ -198,10 +228,11 @@ impl Facts {
                 let json = job.await;
                 let _ = this.update(cx, |f, cx| {
                     f.doctor_asked = false;
-                    f.doctor = Some((
-                        Instant::now(),
-                        json.as_deref().and_then(parse_doctor).unwrap_or_default(),
-                    ));
+                    let mut d = json.as_deref().and_then(parse_doctor).unwrap_or_default();
+                    if doze_desk::library::zone_off() {
+                        doze_desk::library::names_off(&mut d);
+                    }
+                    f.doctor = Some((Instant::now(), d));
                     cx.notify();
                 });
             })

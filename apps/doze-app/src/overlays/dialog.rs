@@ -389,11 +389,11 @@ impl Render for DialogView {
             .gap(px(12.))
             .px(px(22.))
             .py(px(20.))
-            .rounded(px(12.))
-            .border_1()
-            .border_color(if d.danger { t.bad } else { t.line2 })
-            .bg(t.panel)
-            .shadow(super::shadow(&t))
+            .relative()
+            .child(super::scrim::frame(
+                &t,
+                if d.danger { t.bad } else { t.line2 },
+            ))
             .font_family(UI_FAMILY)
             .text_size(px(ty::BASE))
             .line_height(px(ty::LH_19))

@@ -64,21 +64,19 @@ impl Camera {
         )
     }
 
-    /// The whole drawing in view. A small map fits its width as the Go map did (a little wider is drawn a little
-    /// smaller, else 1:1 and it scrolls down); a large one is shown whole, centred.
-    /// As a small map (`small`: its width, 70% at least) or a large one (whole).
+    /// The drawing in view: a small map as the Go map drew it (a map a little wider than the box, down to 84%, is
+    /// drawn that much smaller to fit its width; any other is drawn 1:1 from its top left and scrolls); a large one
+    /// shown whole, centred.
     pub(crate) fn fit_as(&mut self, l: &Layout, small: bool) {
         let (w, h) = self.wh();
         let b = l.bounds;
         self.fitted = true;
         self.flight = None;
         if small {
-            // The Go map fitted its width when a little wider (down to 84%) and scrolled the page otherwise; with a
-            // camera it fits the whole drawing down to 70%, where every word on a card is still readable, then pans.
-            let r = (w / b.w.max(1.0) as f32).min(h / b.h.max(1.0) as f32);
-            self.zoom = r.clamp(0.7, 1.0);
-            self.pan = (0.0, 0.0);
-            self.centre_small(b);
+            // Go: `r = clientWidth / m.w; zoom = r < 1 && r >= 0.84 ? r : 1`, the canvas at the scroller's top left.
+            let r = w / b.w.max(1.0) as f32;
+            self.zoom = if (0.84..1.0).contains(&r) { r } else { 1.0 };
+            self.pan = (b.x as f32, b.y as f32);
             return;
         }
         // The folded tile sits at the bottom left: the drawing fits above it.
@@ -98,15 +96,6 @@ impl Camera {
             ((b.w as f32 - vw) / 2.0).min(0.0),
             ((b.h as f32 - vh) / 2.0).min(0.0),
         );
-    }
-
-    /// A small map narrower than the viewport sits in its middle, not against the left.
-    fn centre_small(&mut self, b: Rect) {
-        let (w, _) = self.wh();
-        let drawn = b.w as f32 * self.zoom;
-        if drawn < w {
-            self.pan.0 = -((w - drawn) / 2.0) / self.zoom;
-        }
     }
 
     /// Zooms by `factor` keeping the map point under (sx, sy) (viewport pixels) where it is.

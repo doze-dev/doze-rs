@@ -140,8 +140,15 @@ impl MapView {
             .as_mut()
             .filter(|_| ev.pressed_button == Some(MouseButton::Left))
         else {
-            // Hovering: redraw only when the card under the pointer changes.
-            let over = self.layout.hit(self.cam.to_map(x, y));
+            // Hovering: redraw only when the card under the pointer changes. On a small map the pointer only frames
+            // a card (Go `.node:hover`); its lines are drawn by a click.
+            let at = self.layout.hit(self.cam.to_map(x, y));
+            let framed = at.filter(|_| self.small());
+            if framed != self.framed {
+                self.framed = framed;
+                cx.notify();
+            }
+            let over = at.filter(|_| !self.small());
             if over != self.hover {
                 self.hover = over;
                 cx.notify();
@@ -187,7 +194,14 @@ impl MapView {
             self.open_region(k, cx);
             return;
         }
-        // A click on the selection again lets it go.
+        // A small map's click selects the card (again, it stays selected; off the cards, nothing changes), as Go's
+        // did; on a large one a click on the selection again lets it go.
+        if self.small() {
+            if hit.is_some() {
+                self.select(hit, cx);
+            }
+            return;
+        }
         let next = if hit == self.lit { None } else { hit };
         self.select(next, cx);
     }
@@ -360,8 +374,10 @@ impl Render for MapView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let t = tokens(cx);
         let (_, _, w, h) = self.viewport.get();
+        // A small map is fitted again when its box changes width, as Go's re-measures (ResizeObserver).
+        let narrower = (self.cam.size.0 - w).abs() > 0.5 && self.small();
         self.cam.size = (w, h);
-        if !self.cam.fitted && w > 1.0 && !self.layout.cards.is_empty() {
+        if (!self.cam.fitted || narrower) && w > 1.0 && !self.layout.cards.is_empty() {
             self.refit();
         }
         let now = std::time::Instant::now();
@@ -369,11 +385,7 @@ impl Render for MapView {
             window.request_animation_frame();
         }
         let motion = crate::theme::Motion::of(cx);
-        let times = if motion.moves() {
-            (super::fade::DIM, super::fade::HOVER, motion.normal)
-        } else {
-            Default::default()
-        };
+        let times = super::fade::times(motion);
         let on = self.lit_on().map(std::rc::Rc::new);
         self.fades.note(self.lit, on, self.hover, times, now);
         if self.fades.running(now) {
@@ -395,7 +407,7 @@ impl Render for MapView {
                 cx.listener(|this, ev, _, cx| this.mouse_up(ev, cx)),
             )
             .on_hover(cx.listener(|this, over: &bool, _, cx| {
-                if !*over && this.hover.take().is_some() {
+                if !*over && (this.hover.take().is_some() | this.framed.take().is_some()) {
                     cx.notify();
                 }
             }))

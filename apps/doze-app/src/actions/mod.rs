@@ -86,6 +86,10 @@ pub(crate) enum Scope {
     Palette,
     /// The Needs you panel.
     Bell,
+    /// Activity: a stack over an hour, a day, a week.
+    Activity,
+    /// Settings: General, Machine, About.
+    Settings,
 }
 
 impl Scope {
@@ -106,6 +110,8 @@ impl Scope {
             Scope::Empty => "In a folder with no doze.hcl",
             Scope::Palette => "In ⌘K",
             Scope::Bell => "In Needs you",
+            Scope::Activity => "In Activity",
+            Scope::Settings => "In Settings",
         }
     }
 
@@ -135,6 +141,8 @@ impl Scope {
             // Over the box's own keys (tab, ⌫), which the handler passes back to the box when they are not its.
             Scope::Palette => Some("Palette > Input"),
             Scope::Bell => Some("Bell"),
+            Scope::Activity => Some("Activity && !Input"),
+            Scope::Settings => Some("Settings && !Input"),
         }
     }
 }
@@ -175,6 +183,7 @@ pub(crate) struct Spec {
 
 mod attn;
 mod inside;
+mod m3;
 mod menus;
 mod pages;
 mod table;
@@ -182,6 +191,7 @@ mod verbs;
 
 pub(crate) use attn::*;
 pub(crate) use inside::*;
+pub(crate) use m3::*;
 pub(crate) use table::TABLE;
 pub(crate) use verbs::*;
 
@@ -194,6 +204,7 @@ pub(crate) fn all() -> impl Iterator<Item = &'static Spec> {
         .chain(INSIDE)
         .chain(VERBS)
         .chain(ATTN)
+        .chain(M3)
 }
 
 /// The keymap the table gives. A keystroke that does not parse is left out (the test below proves none does).
@@ -263,6 +274,8 @@ pub(crate) fn help() -> Vec<(Scope, Vec<&'static Spec>)> {
         Scope::Logs,
         Scope::Map,
         Scope::Console,
+        Scope::Activity,
+        Scope::Settings,
         Scope::Palette,
         Scope::Bell,
     ]
@@ -325,6 +338,30 @@ mod tests {
                 }
             }
         }
+    }
+
+    /// ⌘K lists each command once: a row of the table it offers is not one the model offers in its own words.
+    #[test]
+    fn the_palette_lists_each_command_once() {
+        let norm = |s: &str| s.trim_end_matches('…').to_lowercase();
+        let model: Vec<String> = doze_desk::palette::app_commands()
+            .iter()
+            .map(|r| norm(&r.label))
+            .collect();
+        let twice: Vec<&str> = palette()
+            .filter(|s| model.contains(&norm(s.label)))
+            .map(|s| s.label)
+            .collect();
+        assert!(
+            twice.is_empty(),
+            "in ⌘K twice (the model offers them already): {twice:?}"
+        );
+    }
+
+    #[test]
+    fn every_row_is_built() {
+        let soon: Vec<_> = all().filter(|s| !s.built).map(|s| s.label).collect();
+        assert!(soon.is_empty(), "rows not built yet: {soon:?}");
     }
 
     #[test]

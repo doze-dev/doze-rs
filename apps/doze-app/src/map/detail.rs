@@ -9,6 +9,7 @@ use gpui_component::input::{Input, InputState};
 use super::MapView;
 use super::cards::state_dot;
 use super::chrome::{corner, enter};
+use crate::outward::Probe as _;
 use crate::theme::{Motion, Tokens, alpha, ty};
 use crate::widgets::icon;
 
@@ -136,14 +137,24 @@ fn detail_rows(m: &MapView, c: &Card) -> Vec<(&'static str, String)> {
 }
 
 /// The detail card's first line: the dot, the name, what it is, and the close button.
-fn detail_head(t: &Tokens, m: &MapView, c: &Card, cx: &mut Context<MapView>) -> impl IntoElement {
+fn detail_head(
+    t: &Tokens,
+    m: &MapView,
+    c: &Card,
+    said: Option<&super::said::Said>,
+    cx: &mut Context<MapView>,
+) -> impl IntoElement {
     let r = m.rows.get(&c.name);
     let mut head = Vec::new();
-    head.extend(c.lang.map(|l| l.badge().to_string()));
-    if c.members > 1 {
-        head.push(format!("{} instances, collapsed", c.members));
+    if let Some(s) = said {
+        head.push(s.head.clone());
+    } else {
+        head.extend(c.lang.map(|l| l.badge().to_string()));
+        if c.members > 1 {
+            head.push(format!("{} instances, collapsed", c.members));
+        }
+        head.extend(r.map(|r| r.look.word().to_string()));
     }
-    head.extend(r.map(|r| r.look.word().to_string()));
     div()
         .flex()
         .items_center()
@@ -163,39 +174,85 @@ fn detail_head(t: &Tokens, m: &MapView, c: &Card, cx: &mut Context<MapView>) -> 
                 .child(SharedString::from(head.join(" · "))),
         )
         .child(div().flex_1())
-        .child(
-            div()
-                .id("detail-close")
-                .size(px(22.))
-                .flex()
-                .items_center()
-                .justify_center()
-                .rounded(px(6.))
-                .hover(|s| s.bg(t.sel))
-                .cursor_pointer()
-                .on_click(cx.listener(|this, _, _, cx| this.select(None, cx)))
-                .child(icon("icons/close.svg", 12., t.dim)),
-        )
+        .when(said.is_some() && m.running, |d| {
+            let name = c.name.clone();
+            d.child(
+                crate::kit::btn(
+                    t,
+                    "detail-open",
+                    "Open",
+                    "⏎",
+                    crate::kit::Btn::Quiet,
+                    Some(Box::new(cx.listener(move |_, _, _, cx| {
+                        cx.emit(super::MapEvent::Open(name.clone()));
+                    }))),
+                )
+                .probe("detail-open", format!("Open {}", c.name)),
+            )
+        })
+        .when(said.is_none(), |d| {
+            d.child(
+                div()
+                    .id("detail-close")
+                    .size(px(22.))
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .rounded(px(6.))
+                    .hover(|s| s.bg(t.sel))
+                    .cursor_pointer()
+                    .on_click(cx.listener(|this, _, _, cx| this.select(None, cx)))
+                    .child(icon("icons/close.svg", 12., t.dim)),
+            )
+        })
 }
 
-/// Where the detail card goes: on a small map, the place the layout keeps clear of the cards (Go's flow.go); on a
-/// large one, the corner the card is not in.
+/// Where the detail card goes: on a small map, Go's place, fixed in the box while the drawing scrolls under it (`right:
+/// 12px; top: m.detail.y`, the first height where it clears the cards); on a large one, the corner the card is not in.
 fn detail_at(m: &MapView, width: f32, height: f32) -> (f32, f32) {
-    let (gx, gy) = m.cam.to_screen(m.layout.detail.x, m.layout.detail.y);
-    let fits = m.layout.mode == Mode::Classic
-        && gx >= 0.
-        && gy >= 0.
-        && gx + width <= m.cam.size.0
-        && gy + height <= m.cam.size.1;
-    if fits {
-        (gx, gy)
-    } else {
-        corner(m, (width, height), true, 12.)
+    if m.small() {
+        return (
+            (m.cam.size.0 - width - 12.).max(0.),
+            m.layout.detail.y as f32,
+        );
     }
+    corner(m, (width, height), true, 12.)
+}
+
+/// One row of the detail card: its key, its words in their tone, and a dim tail.
+fn detail_row(t: &Tokens, (k, v, tone, tail): super::said::Line) -> gpui::Div {
+    let ink = match tone {
+        "ok" => t.good,
+        "cool" => t.cool,
+        "dim" => t.dim,
+        "bad" => t.bad,
+        _ => t.text,
+    };
+    div()
+        .flex()
+        .gap(px(8.))
+        .line_height(px(ty::LH_21))
+        .child(div().w(px(76.)).flex_none().text_color(t.dim).child(k))
+        .child(
+            div()
+                .flex()
+                .gap(px(4.))
+                .min_w_0()
+                .overflow_hidden()
+                .whitespace_nowrap()
+                .text_ellipsis()
+                .text_color(ink)
+                .child(SharedString::from(v))
+                .when(!tail.is_empty(), |d| {
+                    d.child(div().text_color(t.dim).child(SharedString::from(tail)))
+                }),
+        )
 }
 
 /// The detail card's width.
 pub(crate) const WIDTH: f32 = 420.;
+/// A small map's detail card, as wide as Go's (`.detail`).
+pub(crate) const GO_WIDTH: f32 = 448.;
 
 /// The selected card's detail.
 pub(crate) fn detail(t: &Tokens, m: &MapView, cx: &mut Context<MapView>) -> Option<AnyElement> {
@@ -205,9 +262,18 @@ pub(crate) fn detail(t: &Tokens, m: &MapView, cx: &mut Context<MapView>) -> Opti
     if matches!(&m.lens, Some(super::Lens::Hood { centre, .. }) if *centre == c.name) {
         return None;
     }
-    let top = detail_head(t, m, c, cx);
-    let width = WIDTH;
-    let rows = detail_rows(m, c);
+    // A small map says what Go's did (needs, needed by, before it) and offers Open; a large one, what the layout knows.
+    let small = m.layout.mode == Mode::Classic && m.lens.is_none();
+    let said = m.said.get(&c.name).filter(|_| small);
+    let top = detail_head(t, m, c, said, cx);
+    let width = if small { GO_WIDTH } else { WIDTH };
+    let rows: Vec<super::said::Line> = match said {
+        Some(s) => super::said::lines(&m.layout, c, s, std::time::SystemTime::now()),
+        None => detail_rows(m, c)
+            .into_iter()
+            .map(|(k, v)| (k, v, "", String::new()))
+            .collect(),
+    };
     let height = 44. + 21. * rows.len() as f32;
     let (x, y) = detail_at(m, width, height);
     let mut card = div()
@@ -230,23 +296,8 @@ pub(crate) fn detail(t: &Tokens, m: &MapView, cx: &mut Context<MapView>) -> Opti
         .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
         .shadow(vec![shadow(t)])
         .child(top);
-    for (k, v) in rows {
-        card = card.child(
-            div()
-                .flex()
-                .gap(px(8.))
-                .line_height(px(ty::LH_21))
-                .child(div().w(px(76.)).flex_none().text_color(t.dim).child(k))
-                .child(
-                    div()
-                        .min_w_0()
-                        .overflow_hidden()
-                        .whitespace_nowrap()
-                        .text_ellipsis()
-                        .text_color(t.text)
-                        .child(SharedString::from(v)),
-                ),
-        );
+    for line in rows {
+        card = card.child(detail_row(t, line));
     }
     Some(enter(
         card,

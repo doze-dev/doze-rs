@@ -18,8 +18,7 @@ mod tests;
 pub(crate) mod toasts;
 
 use gpui::{
-    Animation, AnimationExt as _, AnyElement, BoxShadow, IntoElement, SharedString, div, point,
-    prelude::*, px,
+    AnimationExt as _, AnyElement, BoxShadow, IntoElement, SharedString, div, point, prelude::*, px,
 };
 
 use crate::theme::{Motion, Tokens, alpha};
@@ -80,19 +79,16 @@ pub(crate) fn layer(
             .child(holder)
             .into_any_element();
     }
-    let (travel, ease) = (
-        motion.travel,
-        Animation::new(motion.normal).with_easing(gpui::ease_out_quint()),
-    );
+    // Go: the scrim's `fade` (160 ms ease-out); the panel's `grow` (180 ms, from 4 px above).
     let scrim = scrim.with_animation(
         SharedString::from(format!("{id}-scrim")),
-        ease.clone(),
+        crate::motion::scrim_anim(),
         |d, p| d.opacity(p),
     );
     let holder = holder.with_animation(
         SharedString::from(format!("{id}-panel")),
-        ease,
-        move |d, p| d.opacity(p).top(px(-travel * (1.0 - p))),
+        crate::motion::go_anim(180),
+        move |d, p| d.opacity(p).top(px(-4.0 * (1.0 - p))),
     );
     full()
         .occlude()

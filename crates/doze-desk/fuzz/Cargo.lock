@@ -154,6 +154,7 @@ dependencies = [
  "async-channel",
  "doze-control",
  "doze-display",
+ "doze-journal",
  "doze-map",
  "doze-os",
  "doze-projects",
@@ -174,6 +175,15 @@ dependencies = [
 [[package]]
 name = "doze-display"
 version = "0.0.0"
+
+[[package]]
+name = "doze-journal"
+version = "0.0.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "time",
+]
 
 [[package]]
 name = "doze-map"

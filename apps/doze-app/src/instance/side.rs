@@ -42,8 +42,19 @@ fn frame(t: &Tokens) -> Div {
         .overflow_hidden()
 }
 
-fn item(t: &Tokens, on: bool) -> Div {
-    div()
+/// `.si`: a row of the sidebar; the current one and the one under the pointer take the selection colour, easing over
+/// 120 ms.
+fn item(t: &Tokens, on: bool, id: impl Into<gpui::ElementId>) -> gpui::Stateful<Div> {
+    let id: gpui::ElementId = id.into();
+    let hid = format!("si/{id}");
+    let bg = if on || crate::motion::hovered(&hid) {
+        t.sel
+    } else {
+        gpui::transparent_black()
+    };
+    let (bg, moving) = crate::motion::colour(&hid, bg);
+    let el = div()
+        .id(id)
         .flex()
         .flex_none()
         .items_center()
@@ -53,9 +64,10 @@ fn item(t: &Tokens, on: bool) -> Div {
         .rounded(px(7.))
         .whitespace_nowrap()
         .text_color(if on { t.bright } else { t.text })
-        .when(on, |d| d.bg(t.sel))
-        .hover(|s| s.bg(t.sel))
-        .cursor_pointer()
+        .bg(bg)
+        .child(crate::motion::tick(moving))
+        .cursor_pointer();
+    crate::motion::track(el, &hid)
 }
 
 fn group_head(t: &Tokens, g: Group) -> Div {
@@ -77,8 +89,7 @@ pub(crate) fn sidebar<T: 'static>(
     cx: &mut Context<T>,
     pick: fn(&mut T, Pick, &mut Window, &mut Context<T>),
 ) -> impl IntoElement {
-    let back = item(t, false)
-        .id("side-overview")
+    let back = item(t, false, "side-overview")
         .on_click(cx.listener(move |this, _, w, cx| pick(this, Pick::Overview, w, cx)))
         .child(div().w(px(8.)).text_color(t.dim).child("‹"))
         .child(div().flex_1().child("Overview"));
@@ -132,8 +143,7 @@ fn instances<T: 'static>(
         for (i, x) in rows.into_iter().enumerate() {
             let name = x.name.clone();
             s = s.child(
-                item(t, x.name == current)
-                    .id((g.title(), i))
+                item(t, x.name == current, (g.title(), i))
                     .on_click(cx.listener(move |this, _, w, cx| {
                         pick(this, Pick::Instance(name.clone()), w, cx)
                     }))
@@ -175,7 +185,9 @@ fn show_list<T: 'static>(
     cx: &mut Context<T>,
     pick: fn(&mut T, Pick, &mut Window, &mut Context<T>),
 ) -> Div {
-    s = s.child(item(t, true).child(div().font_weight(ty::SEMIBOLD).child("All logs")));
+    s = s.child(
+        item(t, true, "side-all-logs").child(div().font_weight(ty::SEMIBOLD).child("All logs")),
+    );
     s = s.child(div().mx(px(8.)).mt(px(10.)).mb(px(4.)).child(tracked(
         "Show",
         ty::XS,
@@ -188,8 +200,7 @@ fn show_list<T: 'static>(
         let name = x.name.clone();
         s =
             s.child(
-                item(t, false)
-                    .id(("show", i))
+                item(t, false, ("show", i))
                     .on_click(cx.listener(move |this, _, w, cx| {
                         pick(this, Pick::Toggle(name.clone()), w, cx)
                     }))
@@ -211,8 +222,7 @@ fn show_list<T: 'static>(
             );
     }
     s.child(
-        item(t, false)
-            .id("show-doze")
+        item(t, false, "show-doze")
             .on_click(
                 cx.listener(move |this, _, w, cx| pick(this, Pick::Toggle("doze".into()), w, cx)),
             )

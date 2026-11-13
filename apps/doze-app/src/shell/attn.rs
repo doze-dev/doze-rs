@@ -116,10 +116,25 @@ impl Attn {
 }
 
 /// What is wrong now, stack by stack, then the machine's (off the UI thread: a crash's port is looked up with lsof).
+/// What the machine adds: its parts, the loader's words for each running stack whose doze.hcl does not load (by
+/// folder), and what stacks left behind.
+#[derive(Debug, Clone, Default)]
+pub(crate) struct Machine {
+    pub(crate) parts: Vec<MachinePart>,
+    pub(crate) broken: HashMap<String, String>,
+    /// The folders whose doze.hcl was saved a moment ago and is being read again.
+    pub(crate) checking: HashSet<String>,
+    /// What stacks left behind, counted as Settings › Machine lists them: what Clean up clears, and the data
+    /// folders (deleted one at a time, after asking).
+    pub(crate) left: (usize, usize),
+    /// This app can ask for the administrator's password, so a part not in place offers Set up (Repair).
+    pub(crate) repairable: bool,
+}
+
 pub(crate) fn items_now(
     stacks: &[StackView],
     failed: &HashMap<String, StackFailure>,
-    parts: &[MachinePart],
+    m: &Machine,
     now: SystemTime,
 ) -> Vec<Item> {
     let held = |p: u16| doze_desk::ports::holder(p);
@@ -129,18 +144,34 @@ pub(crate) fn items_now(
         let mtime = std::fs::metadata(std::path::Path::new(&st.dir).join("doze.hcl"))
             .and_then(|m| m.modified())
             .ok();
-        let changed = mtime.and_then(|m| doze_desk::overview::config_changed(m, st.loaded, now));
+        // A running stack's doze.hcl that does not load is the item; "changed" only when it loads (Go).
+        let file = std::path::Path::new(&st.dir).join("doze.hcl");
+        let config = m
+            .broken
+            .get(&st.dir)
+            .filter(|_| st.running)
+            .map(|err| doze_desk::overview::config_error(&file, err, mtime, now));
+        let changed = mtime
+            .and_then(|t| doze_desk::overview::config_changed(t, st.loaded, now))
+            .filter(|_| config.is_none() && !m.checking.contains(&st.dir));
         let f = StackFacts {
             failed: failed.get(&*st.key.dir().to_string_lossy()),
+            config: config.as_ref(),
             missing: &missing,
             changed: changed.as_ref(),
             changed_at: mtime,
             held: Some(&held),
-            ..StackFacts::default()
         };
         out.extend(attention::stack_items(st, &f, now));
     }
-    out.extend(attention::machine_items(parts, false, 0, 0));
+    // Repair asks for the administrator's password through the system's prompt where it can (Settings › Machine's
+    // Repair); elsewhere a part offers its command to copy.
+    out.extend(attention::machine_items(
+        &m.parts,
+        m.repairable,
+        m.left.0,
+        m.left.1,
+    ));
     out
 }
 
@@ -159,7 +190,28 @@ impl Root {
         );
         let stacks = self.hub.stacks();
         let now = self.hub.now();
-        let doctor = self.attn.facts.update(cx, |f, cx| f.doctor(&stacks, cx));
+        let home = self.hub.home().to_path_buf();
+        let (doctor, broken, left) = self.attn.facts.update(cx, |f, cx| {
+            // A running stack's doze.hcl is read again when saved (the CLI's word on it, as the page has it).
+            let broken: HashMap<String, String> = stacks
+                .iter()
+                .filter(|s| s.running)
+                .filter_map(|s| Some((s.dir.clone(), f.shape(&s.dir, cx)?.error?)))
+                .collect();
+            let checking = stacks
+                .iter()
+                .filter(|s| f.checking(&s.dir))
+                .map(|s| s.dir.clone())
+                .collect();
+            (
+                f.doctor(&stacks, cx),
+                (broken, checking),
+                f.leftovers(&home, &stacks, cx)
+                    .map(|l| doze_desk::settings::leftovers::counts(&l))
+                    .unwrap_or_default(),
+            )
+        });
+        let (broken, checking) = broken;
         let parts: Vec<MachinePart> = match self.attn.parts.clone() {
             Some(p) => p,
             None => doctor
@@ -167,18 +219,25 @@ impl Root {
                     d.checks
                         .into_iter()
                         .map(|c| MachinePart {
+                            fix: doze_desk::library::fix_of(&c).to_owned(),
                             section: c.section.into(),
                             name: c.name,
                             ok: c.ok,
                             text: c.text,
-                            fix: String::new(),
                         })
                         .collect()
                 })
                 .unwrap_or_default(),
         };
+        let machine = Machine {
+            parts,
+            broken,
+            checking,
+            left,
+            repairable: doze_os::privilege::admin_supported(),
+        };
         let job = cx.background_executor().spawn(async move {
-            let items = items_now(&stacks, &failed, &parts, now);
+            let items = items_now(&stacks, &failed, &machine, now);
             (items, stacks)
         });
         cx.spawn(async move |this: WeakEntity<Root>, cx: &mut AsyncApp| {

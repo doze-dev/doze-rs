@@ -5,7 +5,7 @@
 mod machine;
 mod others;
 
-pub use machine::{Check, Doctor, machine, parse_doctor};
+pub use machine::{Check, Doctor, fix_of, machine, names_off, parse_doctor, zone_off};
 pub use others::{Names, Other, others};
 
 use std::collections::HashSet;
@@ -92,6 +92,25 @@ pub struct Addr {
     #[serde(skip_serializing_if = "String::is_empty")]
     pub url: String,
     pub up: bool,
+    /// An https domain this machine is not set up for yet: not a link, not up (Go `Unready`).
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub unready: bool,
+}
+
+/// The https pills of the stacks keyed in `unset` (whose domains are not set up here) are not offered as links: the
+/// stack's page says what the setup is. (Go `Library`.)
+pub fn unready(lib: &mut Library, unset: &[String]) {
+    for st in lib.stacks.iter_mut().filter(|s| unset.contains(&s.key)) {
+        for a in st
+            .addresses
+            .iter_mut()
+            .filter(|a| a.text.starts_with("https://"))
+        {
+            a.unready = true;
+            a.url.clear();
+            a.up = false;
+        }
+    }
 }
 
 /// One of the getting-started strip's three.
@@ -377,6 +396,7 @@ fn addresses(st: &StackView) -> (Vec<Addr>, usize) {
                     text: format!("https://{d}"),
                     url: format!("https://{d}"),
                     up: words::awake_now(i),
+                    unready: false,
                 });
             }
         }
@@ -398,11 +418,13 @@ fn addresses(st: &StackView) -> (Vec<Addr>, usize) {
                 text: a.clone(),
                 url: a,
                 up: words::awake_now(i),
+                unready: false,
             },
             _ => Addr {
                 text: v.domain.clone(),
                 url: String::new(),
                 up: words::awake_now(i),
+                unready: false,
             },
         });
     }

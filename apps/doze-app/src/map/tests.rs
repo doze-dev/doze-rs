@@ -224,3 +224,68 @@ fn l_draws_every_line_and_t_shows_only_trouble(cx: &mut TestAppContext) {
     vcx.run_until_parked();
     assert_eq!(vcx.update(|_, cx| m.read(cx).lens.clone()), None);
 }
+
+/// Tiles, then Map, with nothing else happening (no batch from the hub, no pointer): the Map learns its size on the
+/// first frame after the switch and draws its cards on the next, at once. (A window refresh asked for while drawing
+/// is dropped; the scene notifies the Map instead, and before that fix this Map stayed blank.)
+#[gpui::test]
+fn a_switch_to_the_map_draws_its_cards_as_soon_as_its_size_is_known(cx: &mut TestAppContext) {
+    boot(cx);
+    let src = Source::fixture("shop", None).unwrap();
+    src.hub.set_visible(true);
+    let key = src.first.clone().unwrap();
+    let start = Instant::now();
+    while !src.hub.stack(&key).is_some_and(|s| s.link.is_live()) {
+        assert!(start.elapsed() < Duration::from_secs(10), "no stack");
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    let (hub, first, facts) = (src.hub.clone(), src.first.clone(), src.facts.clone());
+    let (root, vcx) = cx.add_window_view(|window, cx| Root::new(hub, first, facts, window, cx));
+    let start = Instant::now();
+    loop {
+        vcx.update(|_, cx| {
+            root.update(cx, |r: &mut Root, cx| {
+                r.refresh(cx);
+                r.overview.update(cx, |o, cx| o.set_view(View::Tiles, cx));
+            })
+        });
+        vcx.run_until_parked();
+        let n = vcx.update(|_, cx| root.read(cx).map.read(cx).layout.cards.len());
+        if n > 0 {
+            break;
+        }
+        assert!(
+            start.elapsed() < Duration::from_secs(10),
+            "no cards laid out"
+        );
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    let m = vcx.update(|_, cx| root.read(cx).map.clone());
+    let unseen = vcx.update(|_, cx| m.read(cx).viewport.get());
+    assert_eq!(
+        unseen.2, 0.0,
+        "the Map has not been drawn while the Tiles show"
+    );
+    vcx.update(|_, cx| {
+        root.update(cx, |r: &mut Root, cx| {
+            r.overview.update(cx, |o, cx| o.set_view(View::Map, cx));
+        })
+    });
+    vcx.run_until_parked();
+    let (size, fitted, shown) = vcx.update(|_, cx| {
+        let m = m.read(cx);
+        let v = m.cam.view();
+        let vis = m.layout.visible(doze_map::Rect::new(v.x, v.y, v.w, v.h));
+        (m.cam.size, m.cam.fitted, vis.cards.len())
+    });
+    let vp = vcx.update(|_, cx| m.read(cx).viewport.get());
+    assert!(
+        size.0 > 1.0 && size.1 > 1.0,
+        "the Map knows its size: {size:?}, viewport {vp:?}"
+    );
+    assert!(
+        fitted,
+        "the Map was fitted on the frame after it learnt its size"
+    );
+    assert!(shown > 0, "cards are in view and drawn");
+}

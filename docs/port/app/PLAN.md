@@ -17,8 +17,8 @@ M2 combined (branch `app-m2`, superseding `app-m2-act` and `app-m2-attention` fo
 `holder:PID` looks again that the pid still holds the port the crash names, then restarts the service); a failed stack
 action is a Needs you item and a stack mid-action carries its items (one `Failure` type for both). One action table
 feeds the help sheet, the chips, the menu bar and ⌘K, each command listed once. Beyond Go: ⌘K's ⌘⏎ on a service in
-trouble restarts it (Needs you's first fix). Still M3: Settings, Activity, Check for Updates, Settings › Machine's
-repair and clean-up (their rows say "soon").
+trouble restarts it (Needs you's first fix). Settings, Activity, Check for Updates and Settings › Machine's repair and
+clean-up came with M3 (below); no row says "soon" now (`actions::tests::every_row_is_built`).
 
 M3 steps 3.1, 3.2 and 3.5 (branch `app-m3-tray`): `doze-desk::tray` (Go's `Build`, `Split`, `NeedsOf` with their
 tests, and the whole menu as data with a signature and a text form) and `doze-desk::notify` (Go's D8 rules with their
@@ -48,6 +48,35 @@ running app or starts one on its own. Differences and beyond Go:
   hand-off; it starts `$DOZE_APP_BUNDLE`, else the Doze.app beside a target-folder build, else itself). Still Go-side
   and open: Go's `doze open` launching the Rust bundle. `doze-app open` does not yet check doze.hcl's shape before
   starting or fall back to the status table with no display (Go did both; both need the Rust CLI's config).
+
+M3 steps 3.3 and 3.4 (branch `app-m3-settings`): Activity and Settings (rows 80, 82–84, 87–88).
+- `doze-desk::activity`: Go's `ActivityOf` ported (its two tests, and JSON Go wrote for ten journals in
+  `testdata/go/activity`, matched field for field); the replay is linear in events plus services (Go's walked every
+  service at every event). The app's page is one virtualised `list` with each strip painted on a canvas; beyond Go: a
+  hover card per stretch (with its wake-to-ready), `j`/`k`/⏎ to pick a service alone, `/` to find one, `[` `]` to step
+  the span, Trouble capped at six lines with "show all", the page kept on screen while a new span is read, then faded
+  over.
+- `doze-desk::settings`: the Machine table with each fix (`doze --json doctor`, plus "doze on PATH"), Repair's steps and
+  their run through `Hands` (the CLI with `DOZE_ADMIN_PROMPT=1`, or `doze_os::privilege::admin` for the PATH link and
+  stale routes), Left behind (`ps`, the home's folders, `routes.json` beside `/etc/resolver`, the keychain's word on the
+  authority: looking only reads; each clear looks again first), the update check. `doze-os` gained `privilege::admin`
+  (osascript / pkexec), `autostart` (a LaunchAgent or XDG entry in a folder the caller names), `process::{kill, uid}`.
+- Prefs: Go's keys, plus `reopen` (Reopen the page I had, on by default) and `last` (the page itself, Go's
+  `doze.last`: home, instance, logs, activity or settings); the Go app kept both in its web storage.
+- Differences: Go's Needs you "Clean up" clears at once; here it opens Machine and clears, so what went shows. The
+  routes and the authority are removed by the app's own script behind the prompt (Go called the names library
+  in-process); the script removes only resolver files of valid domains and the doze roots.
+- Merged into the try build (branch `app-try`, with behaviour parity, typography and Geist): one look for what stacks
+  left behind (`settings::leftovers::{gather, find}`, held by the app's `Facts` and looked at again every 15 s while
+  the window is open): Needs you counts from it ("N things left behind", "N data folders no stack uses") and Settings ›
+  Machine lists it, so the two always agree; parity's own count (`doze-desk::leftovers`) is gone. One doctor read
+  (`Facts::doctor`) feeds Needs you's machine items, the Library's Machine line and Settings › Machine; Needs you's
+  parts offer "Set up (one password)" where the app can ask for the password. ⌘K lists each command once (the model's
+  words for Settings, Machine, Set up this Mac, Check for updates, Home, Open folder and New stack; the table's rows
+  for those stay in the menus and keys), and `Open at login: on/off` flips the switch on Settings › General. The
+  menu bar's Settings… goes to `doze://settings`, its Check for Updates… to `doze://settings/updates` (About, asking
+  GitHub now). Activity's and Settings' text is in `theme::ty` tokens (Activity's summary figure is Go's 26/30 at 650,
+  `ty::SUMMARY`), and their state words come from the words' looks.
 
 Where the M0 build differs from this plan:
 
@@ -375,11 +404,11 @@ The "Needs" column says what the feature depends on:
 
 | # | Go feature | Approach | Component | Needs | Spike |
 |---|---|---|---|---|---|
-| 80 | Activity: last hour / 24 h / 7 d, summary (asleep while up, memory freed, wakes, crashes), per-service timeline with spans, wake-to-ready, crash marks, asleep %, woken by; What happened list; filter by service (`v/activity.go` 426, journal on disk) | read the Go journal files (`internal/journal` format, read-only port) + journal topic; timeline drawn on `canvas` | `plot`, gpui canvas | G+L | — |
+| 80 | Activity: last hour / 24 h / 7 d, summary (asleep while up, memory freed, wakes, crashes), per-service timeline with spans, wake-to-ready, crash marks, asleep %, woken by; What happened list; filter by service (`v/activity.go` 426, journal on disk) | read the Go journal files (`internal/journal` format, read-only port) + journal topic; timeline drawn on `canvas` | `plot`, gpui canvas | G+L | built (M3) |
 | 81 | Empty folder: found table (Found / Where / Becomes), 3 choice tiles (init / add one thing / empty), busy state (`v/empty.go`, `fe/pages/empty.tsx`) | `doze init`/`add` via the CLI subprocess | — | C | built (M2) |
-| 82 | Settings › General: Mode System/Light/Dark, density, 5 colour themes drawn in the mode, Open at login, Reopen the page I had, prefs path | `setting` page | `setting` | L | — |
-| 83 | Settings › Machine: Repair banner, doctor table by names/domains/app with Copy fix; Left behind (daemons, engines, data, routes, CA) with Look again / Clean up N / per-item / danger asks inline / show all; Copy report (`s/leftovers.go` 427, `s/repair.go` 255) | `doze doctor --json` (C); leftovers ported (ps + globs, L); repair through `doze-os` privilege prompt running `doze dns-setup` / `doze trust` | `setting`, `table` | C+L | — |
-| 84 | Settings › About: version, update check (GitHub latest, cached 6 h), What's new, Copy `brew upgrade doze` (`s/update.go`) | the same (`ureq` or std + rustls is extra weight: see Q6) | — | L | — |
+| 82 | Settings › General: Mode System/Light/Dark, density, 5 colour themes drawn in the mode, Open at login, Reopen the page I had, prefs path | `setting` page | `setting` | L | built (M3) |
+| 83 | Settings › Machine: Repair banner, doctor table by names/domains/app with Copy fix; Left behind (daemons, engines, data, routes, CA) with Look again / Clean up N / per-item / danger asks inline / show all; Copy report (`s/leftovers.go` 427, `s/repair.go` 255) | `doze doctor --json` (C); leftovers ported (ps + globs, L); repair through `doze-os` privilege prompt running `doze dns-setup` / `doze trust` | `setting`, `table` | C+L | built (M3) |
+| 84 | Settings › About: version, update check (GitHub latest, cached 6 h), What's new, Copy `brew upgrade doze` (`s/update.go`) | the same (`ureq` or std + rustls is extra weight: see Q6) | — | L | built (M3) |
 
 ### 2.9 Notifications, prefs, links, dev server
 
@@ -387,8 +416,8 @@ The "Needs" column says what the feature depends on:
 |---|---|---|---|---|---|
 | 85 | Notification rules D8: priming, silent while on screen, episodes; crash loop, gave up, not ready, stuck waking (5 min + 2 min quiet), failed task (`notify/rules.go`) | port to `doze-desk::notify` with the same tests | — | G | — |
 | 86 | Native notification with a fix action (holder stop with pid re-check; restart; task), click → instance (`a/notify.go`) | `cx.show_system_notification` with actions; bundle only | gpui | G | — |
-| 87 | Prefs file `$DOZE_HOME/desk/prefs.json`: window, lastDir, hints, theme, mode, views, recent, notNow, commands, windowClosed (`prefs/prefs.go`) | the same file and keys (an app switch keeps settings) + new keys (§3) | serde | L | — |
-| 88 | Theme: violet/teal/burgundy/amber/slate × dark/light, system mode live (`fe/tokens.css`) | 10 gpui-component JSON themes generated from tokens.css; `watch_dir` for user themes | `theme` | L | partial (violet dark) |
+| 87 | Prefs file `$DOZE_HOME/desk/prefs.json`: window, lastDir, hints, theme, mode, views, recent, notNow, commands, windowClosed (`prefs/prefs.go`) | the same file and keys (an app switch keeps settings) + new keys (§3) | serde | L | built (M3) |
+| 88 | Theme: violet/teal/burgundy/amber/slate × dark/light, system mode live (`fe/tokens.css`) | 10 gpui-component JSON themes generated from tokens.css; `watch_dir` for user themes | `theme` | L | built (ten themes, M0; the Settings swatches, M3); user themes (`watch_dir`) not yet |
 | 89 | `doze open [dir|doze://] [--show]`, detach from terminal, "✓ doze is open" (`cmd/doze/open.go`) | the Rust app binary takes the same args; until the Rust CLI exists, Go's `doze open` can launch the Rust bundle (Q2) | — | R for the single binary | — |
 | 90 | `doze open --serve --fixture …` dev server + Playwright | replaced by the Rust **fixture daemon** + offscreen shots (§5.6) | — | — | partial (ref JSON) |
 | 91 | Deskbench budgets in CI (`test/deskbench/budget.json`, `.github/workflows/deskbench.yml`) | `xtask app-bench` (§6) | — | — | partial (measure.ts) |
@@ -864,6 +893,10 @@ M4 items can move earlier when the owner wants a showpiece; the log viewer is th
 4. **Q4: `unsafe` for the tray.** Can the tray, Dock badge, URL events and custom menu views go into `doze-os` behind a `ui` feature? Or does the owner prefer `tray-icon` (no `unsafe` of ours, more weight, less control: no custom NSMenu views)?
 5. **Q5: size.** Is ≤ 16 MB right for the app binary? The 10 MB ceiling was set for doze-kafka.
 6. **Q6: update check.** It needs an HTTPS client (rustls, ~1 MB). Keep it, or shell out to `doze version --check` once the CLI has it?
+   **Decided in M3 (2026-11-13, agent, for the owner to confirm): the system's `curl`.** Measured on a small binary (opt "s", fat LTO,
+   stripped): `ureq` 3 with rustls and the platform verifier +0.93 MB and +32 crates; `minreq` with rustls +0.58 MB and +13 crates;
+   `curl` 0 bytes, 0 crates. curl ships with macOS and Windows 10+ and nearly every Linux desktop; with none, About says it could not
+   reach GitHub. When the Rust CLI has `doze version --check`, the app can ask it instead (docs/port/weight.md).
 7. **Q7: Recent notices as a popover** instead of a page (the overlay rule), and the Grid view: is it still wanted? It is tagged "new" on the boards.
 8. **Q8: boards for the beyond items.** Should the beyond items get boards first (the log viewer's search and selection, the inspector sheet, the Sankey, the doze.hcl viewer and diff, the tray quick look)? The memory rule says boards are grounded first. Recommendation: draw them during M1, and build them in M4.
 9. **Q9: Linux timing.** Does Linux ship with the macOS release, or after it (as the Go app decided)?

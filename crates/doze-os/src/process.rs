@@ -17,6 +17,20 @@ pub fn terminate(pid: u32) -> std::io::Result<()> {
     imp::terminate(pid)
 }
 
+/// Stops a process at once: SIGKILL on Unix, which it cannot catch. Only ever the exact pid asked for; refused on
+/// Windows, as [`terminate`] is.
+pub fn kill(pid: u32) -> std::io::Result<()> {
+    if pid == 0 {
+        return Err(std::io::Error::from(std::io::ErrorKind::InvalidInput));
+    }
+    imp::kill(pid)
+}
+
+/// This process's user id: whose processes `ps -U` lists. 0 on Windows, which has none.
+pub fn uid() -> u32 {
+    imp::uid()
+}
+
 #[cfg(unix)]
 mod imp {
     use rustix::io::Errno;
@@ -38,6 +52,18 @@ mod imp {
             .and_then(Pid::from_raw)
             .ok_or_else(|| std::io::Error::from(std::io::ErrorKind::InvalidInput))?;
         kill_process(pid, Signal::TERM).map_err(std::io::Error::from)
+    }
+
+    pub(super) fn kill(pid: u32) -> std::io::Result<()> {
+        let pid = i32::try_from(pid)
+            .ok()
+            .and_then(Pid::from_raw)
+            .ok_or_else(|| std::io::Error::from(std::io::ErrorKind::InvalidInput))?;
+        kill_process(pid, Signal::KILL).map_err(std::io::Error::from)
+    }
+
+    pub(super) fn uid() -> u32 {
+        rustix::process::getuid().as_raw()
     }
 }
 
@@ -66,6 +92,14 @@ mod imp {
 
     pub(super) fn terminate(_: u32) -> std::io::Result<()> {
         Err(std::io::Error::from(std::io::ErrorKind::Unsupported))
+    }
+
+    pub(super) fn kill(_: u32) -> std::io::Result<()> {
+        Err(std::io::Error::from(std::io::ErrorKind::Unsupported))
+    }
+
+    pub(super) fn uid() -> u32 {
+        0
     }
 }
 

@@ -9,6 +9,7 @@ use gpui::{AnyElement, BoxShadow, IntoElement, SharedString, Styled, div, point,
 use super::MapView;
 use crate::instance::ui::state_mark;
 use crate::model::Row;
+use crate::outward::Probe as _;
 use crate::theme::{Tokens, alpha, mix, ty};
 use crate::widgets::MONO_FAMILY;
 
@@ -206,6 +207,20 @@ fn chips(t: &Tokens, z: Z, m: &MapView, c: &Card, mark: Mark) -> gpui::Div {
     row
 }
 
+/// A small map's card under the pointer: a plain border turns `line2` over 120 ms (Go `.node:hover`); a red or
+/// selected one keeps its own.
+fn framed_border(t: &Tokens, m: &MapView, c: &Card, border: gpui::Hsla) -> (gpui::Hsla, bool) {
+    let over = m
+        .framed
+        .is_some_and(|id| m.layout.card(id).is_some_and(|f| f.name == c.name));
+    let to = if over && border == t.line {
+        t.line2
+    } else {
+        border
+    };
+    crate::motion::colour(&format!("card/{}", c.name), to)
+}
+
 fn node_card(t: &Tokens, z: Z, m: &MapView, c: &Card, at: (f32, f32), mark: Mark) -> AnyElement {
     let r = m.rows.get(&c.name);
     let task = c.kind == Kind::Task;
@@ -214,7 +229,12 @@ fn node_card(t: &Tokens, z: Z, m: &MapView, c: &Card, at: (f32, f32), mark: Mark
         .px(z.p(13.))
         .py(z.p(11.));
     let st = super::state::frame(t, r, task);
-    f = f.border_color(st.border).bg(st.fill);
+    let (border, moving) = framed_border(t, m, c, st.border);
+    f = f
+        .border_color(border)
+        .bg(st.fill)
+        .child(crate::motion::tick(moving))
+        .probe(format!("card-{}", c.name), c.name.clone());
     if st.dashed {
         f = f.border_dashed();
     }
@@ -237,7 +257,12 @@ fn shared_card(t: &Tokens, z: Z, m: &MapView, c: &Card, at: (f32, f32), mark: Ma
         .px(z.p(13.))
         .py(z.p(10.));
     let st = super::state::frame(t, r, false);
-    f = f.border_color(st.border).bg(st.fill);
+    let (border, moving) = framed_border(t, m, c, st.border);
+    f = f
+        .border_color(border)
+        .bg(st.fill)
+        .child(crate::motion::tick(moving))
+        .probe(format!("card-{}", c.name), c.name.clone());
     if st.dashed {
         f = f.border_dashed();
     }

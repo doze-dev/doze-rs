@@ -13,7 +13,7 @@ use doze_desk::act::{
 use doze_desk::overview::Shape;
 use doze_desk::{Hub, StackKey, convert};
 use doze_display as words;
-use gpui::{ClipboardItem, Context};
+use gpui::Context;
 
 use super::{Acts, ActsEvent, Check};
 use crate::facts::Mode;
@@ -248,9 +248,9 @@ impl Acts {
     /// A way out of the sheet.
     pub(crate) fn fix(&mut self, c: &Check, kind: &FixKind, cx: &mut Context<Self>) {
         match kind {
-            FixKind::Edit(path) => cx.open_url(&format!("file://{path}")),
+            FixKind::Edit(path) => crate::outward::open_url(cx, &format!("file://{path}")),
             FixKind::Repair => {
-                cx.write_to_clipboard(ClipboardItem::new_string("doze trust".into()));
+                crate::outward::copy(cx, "doze trust");
                 self.say("copied doze trust: run it in a terminal (one password) to set this Mac's names up", false, cx);
             }
             FixKind::Remove => self.stack(&c.key, StackAction::Remove, cx),

@@ -22,11 +22,12 @@ mod camera;
 mod cards;
 mod chrome;
 mod detail;
-mod fade;
+pub(crate) mod fade;
 mod flight;
 mod lens;
 mod paint;
 mod regions;
+pub(crate) mod said;
 #[cfg(feature = "capture")]
 mod stage;
 mod state;
@@ -60,6 +61,8 @@ pub(crate) const LABEL_ZOOM: f32 = 0.2;
 pub(crate) enum MapEvent {
     /// Open a card's instance: ⏎ on the selected card, or a double click.
     Open(String),
+    /// A card was selected: the page's selection follows.
+    Select(Option<String>),
 }
 
 impl gpui::EventEmitter<MapEvent> for MapView {}
@@ -88,6 +91,14 @@ pub(crate) struct MapView {
     pub(crate) overview: Rc<Overview>,
     pub(crate) rows: HashMap<String, Row>,
     pub(crate) folds: HashMap<String, Fold>,
+    /// What the detail card says of each instance (a small map's, in Go's words).
+    pub(crate) said: HashMap<String, said::Said>,
+    /// The stack is running (a stopped stack's cards have no page to open).
+    pub(crate) running: bool,
+    /// On a small map, the card under the pointer: its border turns `line2` (Go `.node:hover`), nothing else.
+    pub(crate) framed: Option<CardId>,
+    /// This view's entity, which the scene notifies when it learns the viewport's size.
+    pub(crate) me: gpui::EntityId,
     pub(crate) cam: Camera,
     /// The selected card: its lines drawn, the rest faded, its detail shown.
     pub(crate) lit: Option<CardId>,
@@ -126,6 +137,10 @@ impl MapView {
             region_hover: None,
             rows: HashMap::new(),
             folds: HashMap::new(),
+            said: HashMap::new(),
+            running: false,
+            framed: None,
+            me: cx.entity_id(),
             cam: Camera::default(),
             lit: None,
             hover: None,
@@ -185,6 +200,14 @@ impl MapView {
             changed = true;
         } else if moved {
             self.relens();
+        }
+        if page.running != self.running {
+            self.running = page.running;
+            changed = true;
+        }
+        if page.said != self.said {
+            self.said.clone_from(&page.said);
+            changed = true;
         }
         changed |= self.restate();
         if changed {
@@ -258,6 +281,9 @@ impl MapView {
             }
         }
         self.lit = id;
+        // The page's selection follows (Go `pick`): space then wakes or sleeps the card selected.
+        let name = id.and_then(|i| self.layout.card(i)).map(|c| c.name.clone());
+        cx.emit(MapEvent::Select(name));
         cx.notify();
     }
 
@@ -390,6 +416,11 @@ impl MapView {
         if let Some(next) = camera::next_card(&self.layout, &self.cam, self.lit, dx, dy) {
             self.select(Some(next), cx);
         }
+    }
+
+    /// A small map (Go's flow: a click selects, the pointer only frames a card), not the regions of a large one.
+    pub(crate) fn small(&self) -> bool {
+        self.layout.mode == doze_map::Mode::Classic && self.lens.is_none()
     }
 
     /// The card whose lines are drawn: the selection, else the one under the pointer.

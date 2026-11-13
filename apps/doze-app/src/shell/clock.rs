@@ -45,9 +45,9 @@ impl Root {
         let Screen::Stack(k) = &self.screen else {
             return false;
         };
-        self.hub.stack(k).is_some_and(|st| {
-            st.running && (counts(&st, self.hub.now()) || (st.metered && serving(&st)))
-        })
+        self.hub
+            .stack(k)
+            .is_some_and(|st| st.running && (counts(&st, self.hub.now()) || st.metered))
     }
 
     /// Needs you says "next in 4s" of a crashing instance somewhere.
@@ -78,9 +78,4 @@ fn counts(st: &StackView, now: SystemTime) -> bool {
         next_try(v, now).is_some()
             || (v.state == words::State::Idle && v.idle_since.is_some() && !v.always_on)
     })
-}
-
-/// Something on it is up, so its meters are due every second.
-fn serving(st: &StackView) -> bool {
-    st.words().instances.iter().any(words::awake_now)
 }

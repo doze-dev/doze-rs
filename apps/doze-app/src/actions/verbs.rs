@@ -64,7 +64,7 @@ use MenuName::{File, Go};
 /// The rows.
 #[rustfmt::skip]
 pub(crate) const VERBS: &[Spec] = &[
-    row!("New stack…", "pick a folder; doze writes its doze.hcl", NewStack, ["cmd-n"], Global, Some(File), true),
+    row!("New stack…", "pick a folder; doze writes its doze.hcl", NewStack, ["cmd-n"], Global, Some(File), false),
     row!("Recent messages", "the last twenty things said", ShowRecent, ["cmd-shift-m"], Global, Some(Go), true),
     row!("Restart the stack", "down, then up as last time", RestartStack, [], Global, Some(File), false),
     row!("Stop the stack", "every service stops; data stays", StopStack, [], Global, Some(File), false),
