@@ -86,7 +86,11 @@ pub(crate) fn titlebar(t: &Tokens, root: &Root, cx: &mut Context<Root>) -> impl 
     let bell = square(t, "bell")
         .relative()
         .when(root.bell_open(), |d| d.bg(t.sel))
-        .when(red > 0 || root.bell_open(), |d| d.border_color(t.accent))
+        // Something broken: the bell turns red, as Go's "hot" bell; open, it takes the accent.
+        .when(red > 0, |d| {
+            d.border_color(t.bad).bg(crate::theme::alpha(t.bad, 0.14))
+        })
+        .when(red == 0 && root.bell_open(), |d| d.border_color(t.accent))
         .child(icon(
             "icons/bell.svg",
             16.,

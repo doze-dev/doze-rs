@@ -309,18 +309,22 @@ pub(crate) fn sheet(t: &Tokens, version: &str) -> impl IntoElement {
         .child("Every key here is a doze command too:")
         .child(
             div()
-                .font_family(MONO_FAMILY)
-                .text_color(t.text)
-                .child("doze sleep db"),
+                .flex()
+                .child(
+                    div()
+                        .font_family(MONO_FAMILY)
+                        .text_color(t.text)
+                        .child("doze sleep db"),
+                )
+                .child(","),
         )
-        .child(",")
         .child(
             div()
                 .font_family(MONO_FAMILY)
                 .text_color(t.text)
                 .child("doze logs api"),
         )
-        .child("· scripts and CI use those.")
+        .child("· scripts and CI use those. Letters are off while a console has focus.")
         .child(div().flex_1())
         .child(SharedString::from(format!("doze {version}")))
         .child(kbd_chip(t, "esc", 10., 600., 5.))
