@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef, useState } from "react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
@@ -14,11 +15,12 @@ export type Stat = {
 };
 
 /** One figure: a label, a value in a slot of reserved width with tabular figures, an optional unit (CON-805: a live value is
- * never in prose). */
-export function StatTile({ stat, className }: { stat: Stat; className?: string }) {
+ * never in prose). Its three parts are rows of the strip's grid (subgrid), so in a strip every value sits at the same height
+ * even when one label takes two lines. */
+export function StatTile({ stat, className, style, dense = false }: { stat: Stat; className?: string; style?: React.CSSProperties; /** Less height: a page head whose body is the point. */ dense?: boolean }) {
   const value = (
     <dd
-      className={cn("truncate text-[22px] leading-8 font-medium tracking-tight text-bright tabular-nums", stat.mono && "font-mono text-[19px]")}
+      className={cn("truncate text-[22px] leading-8 font-medium tracking-tight text-bright tabular-nums", stat.mono && "font-mono text-[19px]", dense && "text-[20px] leading-7", dense && stat.mono && "text-[17px]")}
       style={{ minWidth: `${stat.ch ?? 8}ch`, maxWidth: "100%" }}
       data-slot="stat-value"
     >
@@ -26,8 +28,8 @@ export function StatTile({ stat, className }: { stat: Stat; className?: string }
     </dd>
   );
   return (
-    <div className={cn("min-w-0 rounded-xl border bg-card px-5 py-4", className)} data-slot="stat">
-      <dt className="text-[12px] font-medium tracking-[0.06em] text-muted-foreground uppercase">{stat.label}</dt>
+    <div className={cn("row-span-3 grid min-w-0 grid-rows-subgrid gap-0 rounded-xl border bg-card px-5 py-4", dense && "px-4 py-3", className)} style={style} data-slot="stat">
+      <dt className="self-end text-[12px] font-medium tracking-[0.06em] text-muted-foreground uppercase">{stat.label}</dt>
       {stat.tip ? (
         <Tooltip>
           <TooltipTrigger asChild>
@@ -45,12 +47,43 @@ export function StatTile({ stat, className }: { stat: Stat; className?: string }
   );
 }
 
-/** A row of figures that wraps into a grid (at least 170 px each): never a sentence. */
-export function StatStrip({ stats, className }: { stats: Stat[]; className?: string }) {
+/** The least a tile is wide (px) before the strip breaks into more rows. */
+const TILE_MIN = 150;
+const GAP = 12;
+/** Columns of the grid a strip lays its rows out on: 60 is divided evenly by 1 to 6 tiles a row. */
+const UNITS = 60;
+
+/** How many tiles each row holds for `n` tiles in `width` px: all in one row when they fit; else as few rows as fit, as even
+ * as they can be (5 in two rows is 3 and 2, never 4 and an orphan). */
+export function rowsOf(n: number, width: number): number[] {
+  const fit = Math.max(1, Math.floor((width + GAP) / (TILE_MIN + GAP)));
+  const rows = Math.ceil(n / fit);
+  const per = Math.ceil(n / rows);
+  const out: number[] = [];
+  for (let left = n; left > 0; left -= per) out.push(Math.min(per, left));
+  return out;
+}
+
+/** A row of figures: never a sentence. Balanced (every row fills the width, no lone tile at the end), and the values of a
+ * row at one height (the tiles are a subgrid: a label on two lines moves no value). Laid out before the first paint. */
+export function StatStrip({ stats, className, dense = false }: { stats: Stat[]; className?: string; dense?: boolean }) {
+  const box = useRef<HTMLDListElement>(null);
+  const [width, setWidth] = useState(1200);
+  useLayoutEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    setWidth(el.clientWidth);
+    const ro = new ResizeObserver(([e]) => setWidth(Math.round(e?.contentRect.width ?? el.clientWidth)));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const rows = rowsOf(stats.length, width);
+  const units = rows.every((r) => UNITS % r === 0) ? UNITS : rows.reduce((a, r) => a * r, 1);
+  const spans: number[] = rows.flatMap((r) => Array.from({ length: r }, () => units / r));
   return (
-    <dl className={cn("flex flex-wrap gap-3", className)} data-slot="stat-strip">
-      {stats.map((s) => (
-        <StatTile key={s.label} stat={s} className="flex-1 basis-[170px]" />
+    <dl ref={box} className={cn("grid gap-x-3 gap-y-3", className)} style={{ gridTemplateColumns: `repeat(${units}, minmax(0, 1fr))` }} data-slot="stat-strip" data-rows={rows.join("+")}>
+      {stats.map((s, i) => (
+        <StatTile key={s.label} stat={s} dense={dense} className="[row-gap:0]" style={{ gridColumn: `span ${spans[i]} / span ${spans[i]}` }} />
       ))}
     </dl>
   );

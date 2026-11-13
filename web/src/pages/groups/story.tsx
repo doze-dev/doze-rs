@@ -144,7 +144,9 @@ function Then({ g, newest }: { g: StoryGen; newest: boolean }) {
         </span>
       ))}
       {held.length > 0 && `${held.join("; ")}. `}
-      {g.lasted_ms !== null && (newest ? `Lasted ${lasted(g.lasted_ms)} so far.` : `Lasted ${lasted(g.lasted_ms)}.`)}
+      {/* The newest generation is still running: how long it has lasted changes, so it is a labelled figure in its sheet, not
+          a clause here. A past one's length is history and stays in its sentence. */}
+      {g.lasted_ms !== null && !newest && `Lasted ${lasted(g.lasted_ms)}.`}
     </>
   );
 }

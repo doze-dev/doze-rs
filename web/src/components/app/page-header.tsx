@@ -43,7 +43,7 @@ export function PageHeader({ title, sub, crumbs = [], actions, refresh, mono = f
       <div className="flex flex-wrap items-start justify-between gap-x-8 gap-y-4">
         <div className="min-w-0 flex-1 basis-[28rem]">
           <h1 className={cn("text-[34px] leading-[42px] font-light tracking-[-0.03em] break-words text-bright", mono && "font-mono text-[27px] leading-[34px] font-medium tracking-[-0.01em]")}>{title}</h1>
-          {sub && <p className="mt-2 max-w-[46rem] text-[14.5px] leading-[22px] text-muted-foreground">{sub}</p>}
+          {sub && <div className="mt-2 max-w-[46rem] text-[14.5px] leading-[22px] text-muted-foreground">{sub}</div>}
         </div>
         {/* Beside the h1 from 1280 px; under it (from the left, in one row) when the window is narrower. */}
         {side && <div className={cn("flex flex-none flex-wrap items-center gap-2.5 pt-1", !top && "xl:flex-col xl:items-end xl:gap-3")}>{side}</div>}

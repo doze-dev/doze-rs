@@ -378,7 +378,7 @@ export function LivePage() {
         </div>
       ) : (
         <div className="flex flex-col gap-4" data-testid="live">
-          <StatStrip stats={stats(r)} className="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))]" />
+          <StatStrip stats={stats(r)} />
           <Refusals r={r} onOpen={(id) => openOverlay({ request: id })} />
           <div className="flex flex-wrap items-center gap-2" data-testid="live-toolbar">
             <SearchBox value={search.q ?? ""} onChange={onSearch} />

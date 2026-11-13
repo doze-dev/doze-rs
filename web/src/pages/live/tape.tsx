@@ -24,7 +24,9 @@ export type Fit = "wide" | "mid" | "narrow";
 const WIDTHS: Record<Fit, { time: number; client: number; api: number; result: number; took: number }> = {
   wide: { time: 128, client: 168, api: 196, result: 292, took: 96 },
   mid: { time: 120, client: 150, api: 184, result: 186, took: 92 },
-  narrow: { time: 118, client: 108, api: 132, result: 118, took: 84 },
+  // The narrowest keeps an API name whole (OffsetCommit, FindCoordinator, with its version) and the result word whole: the
+  // result's detail is in its tooltip there, and the target takes what is left.
+  narrow: { time: 116, client: 112, api: 172, result: 104, took: 76 },
 };
 
 function FilterButton({ onClick, title, className, children }: { onClick?: () => void; title: string; className?: string; children: React.ReactNode }) {
@@ -61,7 +63,7 @@ export function TimeCell({ r }: { r: TapeRow }) {
   );
 }
 
-export function ResultCell({ r }: { r: WireRow }) {
+export function ResultCell({ r, word = false }: { r: WireRow; /** Only the word (a narrow table): the detail is in the tooltip. */ word?: boolean }) {
   const tone = TONE[classTone(r.class)];
   return (
     <span className="flex min-w-0 items-center gap-1.5" title={`${r.code_name} ${r.detail}`.trim()}>
@@ -69,7 +71,7 @@ export function ResultCell({ r }: { r: WireRow }) {
       <b className={cn("shrink-0 font-semibold", tone)} data-testid="row-result">
         {classWord(r.class, r.code)}
       </b>
-      {showsCode(r) ? (
+      {word ? null : showsCode(r) ? (
         <span className="min-w-0 truncate">
           <span className="font-mono text-[12px] text-foreground">
             {r.code_name} ({r.code})
@@ -157,7 +159,7 @@ export function tapeColumns(layout: Layout, fit: Fit, filter?: FilterBy): DataCo
         );
       },
     },
-    { id: "result", header: "Result", size: w.result, enableSorting: false, cell: (c) => <ResultCell r={c.row.original} /> },
+    { id: "result", header: "Result", size: w.result, enableSorting: false, cell: (c) => <ResultCell r={c.row.original} word={narrow} /> },
     {
       id: "took",
       header: "Took",

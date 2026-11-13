@@ -63,13 +63,24 @@ function stats(f: TopicFrame): Stat[] {
   ];
 }
 
-/** The open-transaction region: the callout, or a calm line, in a block of the same height whichever it is (CON-807). */
+/** The open-transaction region: the callout, or a calm line, in a block of one fixed height whichever it is and however wide
+ * the window (CON-807). The callout is one line: its title, labelled figures (no sentence with live numbers in it, CON-805;
+ * the less telling ones only where the region is wide enough, never wrapped), and the way to the transaction. */
+const TXN_BOX = "@container flex h-12 items-center gap-3 overflow-hidden rounded-xl border px-4 text-[13.5px]";
+function TxnFigure({ label, children, className, tip, testId }: { label: string; children: React.ReactNode; className?: string; tip?: string; testId?: string }) {
+  return (
+    <div className={cn("flex shrink-0 items-baseline gap-1.5 whitespace-nowrap", className)} title={tip} data-testid={testId}>
+      <dt className="text-[11.5px] font-medium tracking-[0.06em] text-muted-foreground uppercase">{label}</dt>
+      <dd className="font-medium text-bright tabular-nums">{children}</dd>
+    </div>
+  );
+}
 function TxnRegion({ f }: { f: TopicFrame }) {
   const h = f.head;
   const t = h.txns[0];
   if (!t) {
     return (
-      <div className="flex min-h-[4.75rem] items-center gap-2.5 rounded-xl border border-dashed bg-card/60 px-5 text-[13.5px] text-muted-foreground" data-testid="txn-region" data-state="calm">
+      <div className={cn(TXN_BOX, "border-dashed bg-card/60 text-muted-foreground")} data-testid="txn-region" data-state="calm">
         <CircleCheckIcon className="size-4 text-good" aria-hidden /> No open transactions.
       </div>
     );
@@ -77,19 +88,33 @@ function TxnRegion({ f }: { f: TopicFrame }) {
   const on = t.partitions.map(([p]) => `${h.name}-${p}`);
   const held = [...h.parts].filter((p) => p.end - p.last_stable > 0).sort((a, b) => b.end - b.last_stable - (a.end - a.last_stable))[0];
   return (
-    <div className="flex min-h-[4.75rem] items-start gap-3 rounded-xl border border-warn/30 bg-warn/5 px-5 py-3.5 text-[13.5px] leading-[21px]" role="status" data-testid="txn-region" data-state="open">
-      <TriangleAlertIcon className="mt-0.5 size-4.5 shrink-0 text-warn" aria-hidden />
-      <p className="min-w-0 text-foreground">
-        <b className="font-semibold text-bright">Transaction {t.id} is open.</b> Producer {t.producer_id} (epoch {t.producer_epoch}) began it at {clock(t.since_ms)} UTC on {listAnd(on)}; the timeout is {timeoutText(t.timeout_ms)}.{" "}
+    <div className={cn(TXN_BOX, "border-warn/30 bg-warn/5")} role="status" data-testid="txn-region" data-state="open">
+      <TriangleAlertIcon className="size-4.5 shrink-0 text-warn" aria-hidden />
+      <b className="max-w-[16rem] min-w-0 shrink truncate font-semibold text-bright" title={t.id}>
+        Transaction <span className="font-mono">{t.id}</span> open
+      </b>
+      <dl className="flex min-w-0 flex-1 items-baseline gap-x-5 overflow-hidden" aria-label="The open transaction">
+        <TxnFigure label="Began">
+          {clock(t.since_ms)} <span className="text-muted-foreground">UTC</span>
+        </TxnFigure>
         {held && (
-          <>
-            The last stable offset of {h.name}-{held.partition} is {number(held.last_stable)} while its high watermark is {number(held.end)}, so a read_committed consumer is held {number(held.end - held.last_stable)} records behind.{" "}
-          </>
+          <TxnFigure label="Held back" tip={`For read_committed: ${h.name}-${held.partition}, last stable offset ${number(held.last_stable)}, high watermark ${number(held.end)}`} testId="txn-held">
+            <span className="inline-block min-w-[3ch] text-right">{number(held.end - held.last_stable)}</span>
+          </TxnFigure>
         )}
-        <Link to="/topics/$topic/transactions/$txn" params={{ topic: h.name, txn: t.id }} className="font-medium text-link hover:underline">
-          Open the transaction
-        </Link>
-      </p>
+        <TxnFigure label="Timeout" className="hidden @3xl:flex">
+          {timeoutText(t.timeout_ms)}
+        </TxnFigure>
+        <TxnFigure label="Producer" className="hidden @5xl:flex">
+          {t.producer_id} · epoch {t.producer_epoch}
+        </TxnFigure>
+        <TxnFigure label="On" className="hidden @6xl:flex" tip={listAnd(on)}>
+          <span className="font-mono text-[12.5px]">{listAnd(on)}</span>
+        </TxnFigure>
+      </dl>
+      <Link to="/topics/$topic/transactions/$txn" params={{ topic: h.name, txn: t.id }} className="shrink-0 font-medium whitespace-nowrap text-link hover:underline">
+        Open the transaction
+      </Link>
     </div>
   );
 }
@@ -158,7 +183,7 @@ const TABS: { id: TopicTab; label: string; to: string }[] = [
 function Tabs({ f, on }: { f: TopicFrame; on: TopicTab }) {
   const counts: Partial<Record<TopicTab, number>> = { consumers: f.head.tabs.consumers, producers: f.head.tabs.producers };
   return (
-    <nav aria-label="Topic" className="mt-8 border-b" data-testid="topic-tabs">
+    <nav aria-label="Topic" className="mt-6 border-b" data-testid="topic-tabs">
       <ul className="-mb-px flex gap-1 overflow-x-auto">
         {TABS.map((t) => {
           const active = t.id === on;
@@ -175,7 +200,8 @@ function Tabs({ f, on }: { f: TopicFrame; on: TopicTab }) {
                 )}
               >
                 {t.label}
-                {counts[t.id] !== undefined && <span className="min-w-5 rounded-full bg-muted px-1.5 text-center text-[11.5px] text-muted-foreground tabular-nums">{number(counts[t.id]!)}</span>}
+                {/* A count of reserved width: a count that grows never moves the tabs after it. */}
+                {counts[t.id] !== undefined && <span className="inline-block min-w-[5ch] rounded-full bg-muted px-1.5 text-center text-[11.5px] text-muted-foreground tabular-nums">{number(counts[t.id]!)}</span>}
               </Link>
             </li>
           );
@@ -226,7 +252,7 @@ export function TopicLayout() {
   const f = q.data;
   return (
     <div data-testid="topic-frame" data-topic={topic}>
-      <header className="mb-6" data-slot="page-header">
+      <header className="mb-5" data-slot="page-header">
         <div className="flex min-h-9 flex-wrap items-center justify-between gap-x-6 gap-y-2">
           <nav aria-label="Breadcrumb" className="min-w-0">
             <ol className="flex flex-wrap items-center gap-2 text-[13px] text-muted-foreground">
@@ -252,19 +278,25 @@ export function TopicLayout() {
           {/* On Messages the Snapshot | Live tail switch owns the updates, and its own Refresh sits beside it. */}
           {place !== "messages" && <RefreshControl updatedAt={q.dataUpdatedAt} fetching={q.isFetching} onRefresh={refresh} />}
         </div>
-        <div className="mt-5 flex flex-wrap items-start justify-between gap-x-8 gap-y-4">
+        <div className="mt-3 flex flex-wrap items-start justify-between gap-x-8 gap-y-4">
           <div className="flex min-w-0 flex-1 basis-[28rem] flex-wrap items-center gap-x-4 gap-y-2">
-            <h1 className="min-w-0 font-mono text-[27px] leading-[34px] font-medium tracking-[-0.01em] break-all text-bright">{place === "partitions" ? "Partitions" : topic}</h1>
+            {/* One rule for titles: the name of a thing (a topic) in mono, a page's own title (Partitions) in the page face. */}
+            {place === "partitions" ? (
+              <h1 className="min-w-0 text-[34px] leading-[42px] font-light tracking-[-0.03em] text-bright">Partitions</h1>
+            ) : (
+              <h1 className="min-w-0 font-mono text-[27px] leading-[34px] font-medium tracking-[-0.01em] break-all text-bright">{topic}</h1>
+            )}
             {f && place !== "partitions" && <Words f={f} />}
           </div>
           <div className="flex flex-none flex-wrap items-center gap-2.5 pt-0.5">{f ? <Actions f={f} place={place} /> : <Skeleton className="h-9 w-72" />}</div>
         </div>
       </header>
-      {f ? <StatStrip stats={stats(f)} /> : <Skeleton className="h-[106px] w-full rounded-xl" />}
-      {place !== "partitions" && <div className="mt-4">{f ? <TxnRegion f={f} /> : <Skeleton className="h-[4.75rem] w-full rounded-xl" />}</div>}
+      {/* Dense: the topic's records are the point of its pages, so its head takes as little height as it can. */}
+      {f ? <StatStrip stats={stats(f)} dense /> : <Skeleton className="h-[86px] w-full rounded-xl" />}
+      {place !== "partitions" && <div className="mt-3">{f ? <TxnRegion f={f} /> : <Skeleton className="h-12 w-full rounded-xl" />}</div>}
       {place !== "partitions" && f && <Tabs f={f} on={place} />}
-      {place !== "partitions" && !f && <Skeleton className="mt-8 h-11 w-full" />}
-      <div className="mt-6" data-testid="topic-body">
+      {place !== "partitions" && !f && <Skeleton className="mt-6 h-11 w-full" />}
+      <div className="mt-5" data-testid="topic-body">
         {f ? <Outlet /> : <Skeleton className="h-96 w-full rounded-xl" />}
       </div>
       {f && <TopicOverlays frame={f} />}
