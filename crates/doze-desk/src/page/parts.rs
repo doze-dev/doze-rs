@@ -253,12 +253,24 @@ pub fn with_direct(wire: &wire::InstanceView, rows: Vec<Kv>) -> Vec<Kv> {
 
 /// Why it is awake, as pills with a word on each, and the sentence under them. (Go `holders`.)
 pub fn holders(v: &words::Instance, idle: Duration) -> (Vec<Pill>, String) {
+    let pills = pills(v);
+    if v.always_on {
+        return (
+            pills,
+            "It runs until stopped: it has no port, so nothing can hold it, and it never sleeps on its own."
+                .to_owned(),
+        );
+    }
+    sentence(v, idle, pills)
+}
+
+/// What holds it, a pill each.
+fn pills(v: &words::Instance) -> Vec<Pill> {
     let pill = |text: String, explain: &str| Pill {
         text,
         explain: explain.to_owned(),
     };
-    let pills: Vec<Pill> = v
-        .holders
+    v.holders
         .iter()
         .filter_map(|h| match h {
             Holder::Dependant(n) => Some(pill(
@@ -275,14 +287,11 @@ pub fn holders(v: &words::Instance, idle: Duration) -> (Vec<Pill>, String) {
             )),
             Holder::Other => None,
         })
-        .collect();
-    if v.always_on {
-        return (
-            pills,
-            "It runs until stopped: it has no port, so nothing can hold it, and it never sleeps on its own."
-                .to_owned(),
-        );
-    }
+        .collect()
+}
+
+/// The sentence under the pills: what keeps it up, or why nothing does.
+fn sentence(v: &words::Instance, idle: Duration, pills: Vec<Pill>) -> (Vec<Pill>, String) {
     let after = if idle.is_zero() {
         String::new()
     } else {
