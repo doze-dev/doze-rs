@@ -335,7 +335,7 @@ impl Bell {
         let f = div()
             .flex()
             .items_center()
-            .gap(px(12.))
+            .gap(px(8.))
             .h(px(32.))
             .px(px(16.))
             .border_t_1()

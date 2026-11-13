@@ -204,7 +204,7 @@ impl Palette {
         let mut f = div()
             .flex()
             .items_center()
-            .gap(px(14.))
+            .gap(px(10.))
             .h(px(32.))
             .px(px(16.))
             .border_t_1()
