@@ -4,7 +4,7 @@
 use gpui::{AnyElement, Context, IntoElement, div, prelude::*, px};
 
 use super::{Root, Screen, Tab};
-use crate::actions::{OpenPalette, ShowHelp};
+use crate::actions::{OpenBell, OpenPalette, ShowHelp};
 use crate::kit::{chip_of, s};
 use crate::theme::Tokens;
 use crate::widgets::{dot, icon, kbd_plain, w};
@@ -61,11 +61,51 @@ fn square(t: &Tokens, id: &'static str) -> gpui::Stateful<gpui::Div> {
         .hover(|s| s.bg(t.sel))
 }
 
+/// A red count: the bell's, a tab's.
+fn badge(t: &Tokens, n: usize) -> gpui::Div {
+    div()
+        .flex_none()
+        .min_w(px(16.))
+        .h(px(16.))
+        .px(px(4.))
+        .rounded_full()
+        .bg(t.bad)
+        .flex()
+        .items_center()
+        .justify_center()
+        .text_size(px(10.))
+        .font_weight(w(700.))
+        .text_color(gpui::white())
+        .child(gpui::SharedString::from(n.to_string()))
+}
+
 /// The title bar.
 pub(crate) fn titlebar(t: &Tokens, root: &Root, cx: &mut Context<Root>) -> impl IntoElement {
+    let (red, yellow) = (root.attn.list.red, root.attn.list.yellow);
     let bell = square(t, "bell")
         .relative()
-        .child(icon("icons/bell.svg", 16., t.dim));
+        .when(root.bell_open(), |d| d.bg(t.sel))
+        .when(red > 0, |d| d.border_color(t.accent))
+        .child(icon(
+            "icons/bell.svg",
+            16.,
+            if red > 0 { t.bright } else { t.dim },
+        ))
+        .when(red > 0, |d| {
+            d.child(badge(t, red).absolute().top(px(-3.)).right(px(-8.)))
+        })
+        .when(red == 0 && yellow > 0, |d| {
+            d.child(
+                div()
+                    .absolute()
+                    .top(px(4.))
+                    .right(px(5.))
+                    .size(px(7.))
+                    .rounded_full()
+                    .bg(t.warn),
+            )
+        })
+        .on_click(cx.listener(|this, _, window, cx| this.on_bell(&OpenBell, window, cx)));
     let help = square(t, "help")
         .text_size(px(13.))
         .font_weight(w(600.))
@@ -164,6 +204,12 @@ fn stack_tab(t: &Tokens, root: &Root, i: usize, tb: &Tab, cx: &mut Context<Root>
             .child(s(&tb.name))
             .into_any_element(),
     ];
+    let red = root.red_of(&tb.key);
+    if red > 0 || tb.trouble {
+        // Go wrote "!" when the stack was troubled before Needs you had counted it.
+        let n = red.max(1);
+        body.push(badge(t, n).into_any_element());
+    }
     if on || !tb.running {
         let k = tb.key.clone();
         body.push(

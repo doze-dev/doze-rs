@@ -73,6 +73,7 @@ fn ask<'a>(scope: Option<&'a Scope>, recent: &'a [RecentService], q: &'a str) ->
         cmds: &[],
         query: q,
         now: epoch(),
+        extra: &[],
     }
 }
 

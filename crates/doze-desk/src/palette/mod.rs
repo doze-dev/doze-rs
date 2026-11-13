@@ -203,6 +203,8 @@ pub struct Ask<'a> {
     pub cmds: &'a [RecentCommand],
     pub query: &'a str,
     pub now: SystemTime,
+    /// The app's own commands beyond Go's (the app's action table), offered after them under Commands.
+    pub extra: &'a [Row],
 }
 
 /// A stack's key as the palette writes it.
@@ -318,7 +320,7 @@ pub(crate) fn web_url(v: &doze_display::Instance) -> &str {
 
 /// Whether `verb` on `v` asks first (Go: `DialogOf(…).Needed` for sleep, restart and off): only when something else
 /// is affected.
-pub(crate) fn asks(v: &doze_display::Instance, verb: &str) -> bool {
+pub fn asks(v: &doze_display::Instance, verb: &str) -> bool {
     let used = doze_display::in_use(v).is_some();
     match verb {
         "sleep" | "off" => used,

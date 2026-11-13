@@ -34,6 +34,8 @@ mod prefs;
 mod shell;
 #[cfg(feature = "capture")]
 mod shot;
+#[cfg(feature = "capture")]
+mod shotover;
 mod single;
 mod source;
 mod theme;

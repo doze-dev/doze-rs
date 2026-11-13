@@ -272,6 +272,13 @@ pub(crate) fn here(stacks: &[&StackView], ask: &Ask<'_>) -> Vec<Row> {
         out.extend(stack_commands(st));
     }
     out.extend(app_commands());
+    let known: Vec<String> = out.iter().map(|r| r.label.to_lowercase()).collect();
+    out.extend(
+        ask.extra
+            .iter()
+            .filter(|r| !known.contains(&r.label.to_lowercase()))
+            .cloned(),
+    );
     out
 }
 

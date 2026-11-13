@@ -44,6 +44,7 @@ fn ask<'a>(q: &'a str, scope: Option<&'a Scope>) -> Ask<'a> {
         cmds: &[],
         query: q,
         now: now(),
+        extra: &[],
     }
 }
 

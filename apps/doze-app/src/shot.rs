@@ -111,6 +111,10 @@ async fn take(cx: &mut AsyncApp, h: WindowHandle<Root>, s: &Shot) {
     }
     // Let the entrance motion finish (280 ms at most), the CLI's answers land, and the cache refine.
     pause(cx, 700).await;
+    let _ = h.update(cx, |root, window, cx| {
+        crate::shotover::stage(root, window, cx, s)
+    });
+    pause(cx, 500).await;
     let _ = h.update(cx, |root, _, cx| root.refresh(cx));
     let _ = h.update(cx, |_, w, _| w.refresh());
     pause(cx, 400).await;

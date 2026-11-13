@@ -78,6 +78,14 @@ pub(crate) struct Shot {
     pub(crate) filter: Option<String>,
     pub(crate) level: Option<u8>,
     pub(crate) find_mode: bool,
+    /// ⌘K's box, its scope (`stack` or `stack/service`), and ⏎ on the row highlighted.
+    pub(crate) query: Option<String>,
+    pub(crate) scope: Option<String>,
+    pub(crate) enter: bool,
+    /// Needs you's surface over the page: `bell`, `alerts`, `away`.
+    pub(crate) over: Option<String>,
+    /// Needs you sees this machine not set up (names and a domain), as Go's fixture server did.
+    pub(crate) machine_unset: bool,
 }
 
 /// `doze-app bench ...`.
@@ -182,6 +190,14 @@ fn shot(mut args: impl Iterator<Item = String>) -> Result<Shot, String> {
             s.find_mode = true;
             continue;
         }
+        if a == "--machine-unset" {
+            s.machine_unset = true;
+            continue;
+        }
+        if a == "--enter" {
+            s.enter = true;
+            continue;
+        }
         let v = value(&mut args, &a)?;
         match a.as_str() {
             "--screen" => {
@@ -221,6 +237,9 @@ fn shot(mut args: impl Iterator<Item = String>) -> Result<Shot, String> {
             "--hold" => s.hold = Some(number(&v, "--hold")?),
             "--filter" => s.filter = Some(v),
             "--level" => s.level = Some(number(&v, "--level")?),
+            "--query" => s.query = Some(v),
+            "--scope" => s.scope = Some(v),
+            "--over" => s.over = Some(v),
             "--at" => {
                 let (x, y) = v.split_once(',').ok_or("--at is X,Y")?;
                 s.at = Some((number(x, "--at")?, number(y, "--at")?));
