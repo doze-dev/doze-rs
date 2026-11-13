@@ -5,7 +5,6 @@ import logo from "@/assets/doze-kafka.svg";
 import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarHeader, SidebarMenu, SidebarMenuBadge, SidebarMenuButton, SidebarMenuItem, SidebarRail } from "@/components/ui/sidebar";
 import { number } from "@/lib/format";
 import { isActive, NAV } from "./nav";
-import { ThemeMenu } from "./theme-menu";
 
 export function AppSidebar() {
   const path = useRouterState({ select: (s) => s.location.pathname });
@@ -43,9 +42,6 @@ export function AppSidebar() {
       </SidebarContent>
       <SidebarFooter className="pb-4">
         <SidebarMenu>
-          <SidebarMenuItem>
-            <ThemeMenu />
-          </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton asChild tooltip="Classic console" className="text-[13px] text-muted-foreground">
               <a href={shell.data?.classic ?? "/classic/"} data-testid="classic-link">
