@@ -1,6 +1,8 @@
-//! The one HTTP request an API destination makes: HTTP/1.1 over a plain TCP connection, one request, `Connection: close`, the answer's
-//! status line read and the rest ignored. There is no TLS client in doze-aws (a size decision, as for SNS), so an `https://` endpoint is
-//! not called; the caller says so.
+//! The one HTTP request a service makes to the outside (an EventBridge API destination, an SNS `http` subscription): HTTP/1.1 over a
+//! plain TCP connection, one request, `Connection: close`, the answer's status line read and the rest ignored. There is no TLS client in
+//! doze-aws (a size decision the owner has not made), so an `https://` endpoint is not called; the caller says so.
+//!
+//! The request waits at most five seconds; callers run it off their actor, so nothing waits on it but the delivery itself.
 
 use std::time::Duration;
 
@@ -14,17 +16,17 @@ const READ_LIMIT: usize = 8 * 1024;
 
 /// A request to send.
 #[derive(Debug)]
-pub(crate) struct Request<'a> {
-    pub(crate) method: &'a str,
+pub struct Request<'a> {
+    pub method: &'a str,
     /// `http://host:port/path?query`.
-    pub(crate) url: &'a str,
-    pub(crate) headers: &'a [(String, String)],
-    pub(crate) body: &'a str,
+    pub url: &'a str,
+    pub headers: &'a [(String, String)],
+    pub body: &'a str,
 }
 
 /// Why nothing was sent, or what came back.
 #[derive(Debug, PartialEq, Eq)]
-pub(crate) enum Sent {
+pub enum Sent {
     /// The status the server answered.
     Status(u16),
     /// The request could not be made (connection refused, timeout, an answer that is not HTTP).
@@ -67,7 +69,7 @@ fn head(r: &Request<'_>, host: &str, path: &str) -> String {
 }
 
 /// Makes the request.
-pub(crate) async fn send(r: &Request<'_>) -> Sent {
+pub async fn send(r: &Request<'_>) -> Sent {
     let Some((host, port, path)) = split(r.url) else {
         return Sent::Unsupported(format!(
             "{} is not an http:// URL; this client does not speak TLS",

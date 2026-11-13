@@ -1,5 +1,5 @@
-//! A secret's resource policy: stored and returned as given. It is not evaluated until the IAM stage can; `ValidateResourcePolicy`
-//! checks that the text is a JSON object and nothing more.
+//! A secret's resource policy: stored and returned as given, and evaluated by IAM as the secret's resource policy on every request
+//! that names the secret (`authz.rs`); `ValidateResourcePolicy` checks that the text is a JSON object and nothing more.
 
 use aws_model_secrets_manager::keys::{
     DeleteResourcePolicyRequest as Delete, DeleteResourcePolicyResponse as Deleted,

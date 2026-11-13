@@ -180,6 +180,11 @@ impl Worker {
         std::mem::take(&mut *self.lines.lock().unwrap_or_else(PoisonError::into_inner))
     }
 
+    /// What the process has written since the last call, at once (for the log while the invocation runs).
+    pub(crate) fn drain(&self) -> Vec<Line> {
+        std::mem::take(&mut *self.lines.lock().unwrap_or_else(PoisonError::into_inner))
+    }
+
     fn push(&self, at: i64, line: String) {
         self.lines
             .lock()

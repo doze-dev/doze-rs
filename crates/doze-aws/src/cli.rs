@@ -71,4 +71,14 @@ pub(crate) struct Args {
     /// Keep what Lambda functions print out of this process's log (it is always in CloudWatch Logs).
     #[arg(long)]
     pub(crate) lambda_quiet: bool,
+    /// Days a log event is kept locally, whatever its group's retention (a bound on the local store, not AWS behaviour: AWS keeps
+    /// events forever by default, and groups still report no retention). 0 keeps them.
+    #[arg(long, default_value_t = 7)]
+    pub(crate) logs_retention_days: u64,
+    /// The most log events one group keeps locally; past it the oldest go. 0 is no cap.
+    #[arg(long, default_value_t = 100_000)]
+    pub(crate) logs_max_events: u64,
+    /// Hours CloudWatch metric data is kept (AWS keeps one-minute data for 15 days).
+    #[arg(long, default_value_t = 24, value_parser = clap::value_parser!(u64).range(1..))]
+    pub(crate) cloudwatch_retention_hours: u64,
 }

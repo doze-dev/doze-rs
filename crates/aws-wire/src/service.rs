@@ -112,6 +112,12 @@ pub trait Web: Send + Sync {
     /// Whether a request to this host and path is the service's. Cheap and pure: it runs for every request that is not signed.
     fn owns(&self, host: &str, path: &str) -> bool;
 
+    /// Whether an `OPTIONS` request to this host and path that no service [`owns`](Web::owns) is the service's: a browser's CORS
+    /// preflight, which carries no signature (S3 answers those for its buckets). Asked only after `owns` said no for every service.
+    fn owns_preflight(&self, _host: &str, _path: &str) -> bool {
+        false
+    }
+
     /// Answers the request.
     fn serve(&self, request: WebRequest) -> BoxFuture<'_, WebReply>;
 }

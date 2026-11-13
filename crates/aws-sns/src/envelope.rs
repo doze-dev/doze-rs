@@ -79,6 +79,43 @@ pub(crate) fn notification(ctx: &Context<'_>, m: &Message, text: &str) -> String
     serde_json::to_string(&note).unwrap_or_default()
 }
 
+/// The event a Lambda function receives for one notification: AWS's `Records[].Sns` shape. It differs from the queue envelope in
+/// three ways (AWS documentation, (memory)): the URLs are spelt `SigningCertUrl` and `UnsubscribeUrl`, `Subject` is `null` when
+/// there is none, and `MessageAttributes` is always present.
+pub(crate) fn lambda_event(ctx: &Context<'_>, m: &Message, text: &str) -> String {
+    let note: serde_json::Value =
+        serde_json::from_str(&notification(ctx, m, text)).unwrap_or(serde_json::Value::Null);
+    let mut sns = serde_json::Map::new();
+    let field = |k: &str| note.get(k).cloned().unwrap_or(serde_json::Value::Null);
+    for k in [
+        "Type",
+        "MessageId",
+        "TopicArn",
+        "Subject",
+        "Message",
+        "Timestamp",
+        "SignatureVersion",
+        "Signature",
+    ] {
+        sns.insert(k.to_owned(), field(k));
+    }
+    sns.insert("SigningCertUrl".to_owned(), field("SigningCertURL"));
+    sns.insert("UnsubscribeUrl".to_owned(), field("UnsubscribeURL"));
+    sns.insert(
+        "MessageAttributes".to_owned(),
+        note.get("MessageAttributes")
+            .cloned()
+            .unwrap_or_else(|| serde_json::Value::Object(serde_json::Map::new())),
+    );
+    serde_json::json!({"Records": [{
+        "EventSource": "aws:sns",
+        "EventVersion": "1.0",
+        "EventSubscriptionArn": ctx.subscription_arn,
+        "Sns": sns,
+    }]})
+    .to_string()
+}
+
 fn shown(a: &Attr) -> EnvelopeAttribute<'_> {
     EnvelopeAttribute {
         kind: &a.data_type,

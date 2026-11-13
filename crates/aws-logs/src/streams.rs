@@ -27,6 +27,7 @@ impl Core {
             .max()
             .map_or(1, |n| n + 1);
         let created_ms = self.now_ms();
+        self.held.insert(key.clone(), 0);
         self.streams.insert(
             key,
             Stream {
@@ -48,6 +49,7 @@ impl Core {
         let group = self.group(r)?.name.clone();
         let key = stream_key(&group, r.s("logStreamName"));
         let stream = self.streams.remove(&key).ok_or_else(no_stream)?;
+        self.held.remove(&key);
         self.events.delete_range(
             &format!("{:08x}", stream.no),
             &format!("{:08x}", stream.no + 1),

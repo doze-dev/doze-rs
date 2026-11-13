@@ -568,6 +568,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -627,12 +628,14 @@ dependencies = [
  "aws-sns",
  "aws-sqs",
  "aws-testkit",
+ "aws-webhook",
  "aws-wire",
  "doze-runtime",
  "doze-store",
  "serde",
  "serde_json",
  "tokio",
+ "tokio-util",
  "tracing",
 ]
 
@@ -686,6 +689,7 @@ dependencies = [
  "hmac 0.13.0",
  "serde",
  "serde_json",
+ "sha1",
  "sha2 0.11.1",
  "tokio",
  "tracing",
@@ -753,6 +757,7 @@ dependencies = [
 name = "aws-lambda"
 version = "0.0.0"
 dependencies = [
+ "aws-cloudwatch",
  "aws-core",
  "aws-dynamodb",
  "aws-iam",
@@ -796,9 +801,11 @@ dependencies = [
  "aws-wire",
  "doze-runtime",
  "doze-store",
+ "flate2",
  "serde",
  "serde_json",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -1029,6 +1036,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -1135,6 +1143,7 @@ name = "aws-sns"
 version = "0.0.0"
 dependencies = [
  "aws-core",
+ "aws-gateway",
  "aws-iam-policy",
  "aws-model-sns",
  "aws-peers",
@@ -1142,13 +1151,16 @@ dependencies = [
  "aws-seal",
  "aws-sqs",
  "aws-testkit",
+ "aws-webhook",
  "aws-wire",
+ "bytes",
  "doze-runtime",
  "doze-store",
  "serde",
  "serde_json",
  "sha2 0.11.1",
  "tokio",
+ "tokio-util",
  "tracing",
 ]
 
@@ -1200,6 +1212,13 @@ dependencies = [
  "aws-schema",
  "aws-wire",
  "serde_json",
+]
+
+[[package]]
+name = "aws-webhook"
+version = "0.0.0"
+dependencies = [
+ "tokio",
 ]
 
 [[package]]

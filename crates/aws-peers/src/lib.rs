@@ -8,8 +8,10 @@
 
 mod authz;
 pub mod envelope;
+mod metrics;
 
 pub use authz::{Authorizer, Mode, Need};
+pub use metrics::{Made, Producer};
 
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
@@ -33,6 +35,7 @@ pub struct Peers {
     entries: RwLock<HashMap<&'static str, Entry>>,
     authorizer: RwLock<Option<Arc<dyn Authorizer>>>,
     mode: authz::ModeCell,
+    metrics: RwLock<metrics::Registry>,
 }
 
 impl std::fmt::Debug for Peers {
