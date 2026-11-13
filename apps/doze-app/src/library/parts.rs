@@ -5,8 +5,8 @@ use gpui::{Context, IntoElement, div, img, prelude::*, px};
 
 use super::LibraryView;
 use crate::kit::{Btn, btn, chip_of, density, heading, mono, s};
-use crate::theme::{Tokens, mix};
-use crate::widgets::{MONO_FAMILY, dot, w};
+use crate::theme::{Tokens, mix, ty};
+use crate::widgets::{MONO_FAMILY, dot};
 
 /// `.head.brandhead`: the mark, `doze` large, the tagline and the counts; density, Open folder, Settings.
 pub(super) fn head(t: &Tokens, v: &LibraryView, cx: &mut Context<LibraryView>) -> impl IntoElement {
@@ -29,9 +29,9 @@ pub(super) fn head(t: &Tokens, v: &LibraryView, cx: &mut Context<LibraryView>) -
         .min_w_0()
         .child(
             div()
-                .text_size(px(40.))
-                .line_height(px(44.))
-                .font_weight(w(750.))
+                .text_size(px(ty::BRAND))
+                .line_height(px(ty::LH_44))
+                .font_weight(ty::BRAND_WEIGHT)
                 .text_color(t.bright)
                 .child("doze"),
         )
@@ -107,8 +107,8 @@ fn step(t: &Tokens, i: usize, last: bool, st: &Step) -> impl IntoElement {
         .items_center()
         .justify_center()
         .font_family(MONO_FAMILY)
-        .text_size(px(12.))
-        .font_weight(w(600.))
+        .text_size(px(ty::SM))
+        .font_weight(ty::SEMIBOLD)
         .text_color(fg)
         .child(if st.done {
             s("✓")
@@ -116,13 +116,14 @@ fn step(t: &Tokens, i: usize, last: bool, st: &Step) -> impl IntoElement {
             s(&(i + 1).to_string())
         });
     let line = |d: gpui::Div| d.whitespace_nowrap().overflow_hidden().text_ellipsis();
-    let title = line(
-        div()
-            .font_weight(w(600.))
-            .text_color(if st.done { t.dim } else { t.bright }),
-    )
-    .child(st.title);
-    let detail = line(div().text_size(px(12.)).text_color(t.dim)).child(s(&st.detail));
+    let title =
+        line(
+            div()
+                .font_weight(ty::SEMIBOLD)
+                .text_color(if st.done { t.dim } else { t.bright }),
+        )
+        .child(st.title);
+    let detail = line(div().text_size(px(ty::SM)).text_color(t.dim)).child(s(&st.detail));
     div()
         .flex()
         .flex_1()
@@ -155,7 +156,7 @@ pub(super) fn steps(t: &Tokens, steps: &[Step], cx: &mut Context<LibraryView>) -
         .px(px(14.))
         .border_l_1()
         .border_color(t.line)
-        .text_size(px(12.))
+        .text_size(px(ty::SM))
         .text_color(t.dim)
         .cursor_pointer()
         .hover(|d| d.text_color(t.bright))
@@ -196,15 +197,15 @@ pub(super) fn empty(t: &Tokens, _cx: &mut Context<LibraryView>) -> impl IntoElem
     };
     let h3 = |text: &'static str| {
         div()
-            .text_size(px(15.))
-            .font_weight(w(650.))
+            .text_size(px(ty::MD_UP))
+            .font_weight(ty::HEADING)
             .text_color(t.bright)
             .child(text)
     };
     let p = |text: &'static str| {
         div()
-            .text_size(px(12.))
-            .line_height(px(18.))
+            .text_size(px(ty::SM))
+            .line_height(px(ty::LH_18))
             .text_color(t.dim)
             .child(text)
     };
@@ -226,7 +227,7 @@ pub(super) fn empty(t: &Tokens, _cx: &mut Context<LibraryView>) -> impl IntoElem
         .border_color(t.line)
         .bg(t.well)
         .children(EXAMPLE.lines().map(|l| {
-            mono(s(if l.is_empty() { " " } else { l }), 11.5, t.dim).line_height(px(18.))
+            mono(s(if l.is_empty() { " " } else { l }), ty::XS_UP, t.dim).line_height(px(ty::LH_18))
         }));
     let start = way()
         .border_color(t.line)
@@ -242,8 +243,8 @@ pub(super) fn empty(t: &Tokens, _cx: &mut Context<LibraryView>) -> impl IntoElem
         .child(
             div()
                 .mx(px(28.))
-                .text_size(px(12.5))
-                .line_height(px(18.))
+                .text_size(px(ty::SM_UP))
+                .line_height(px(ty::LH_18))
                 .text_color(t.dim)
                 .child("The one idea behind everything here: doze starts a service when something connects to it, and puts it to sleep when nothing does. A row saying dozing is counting down; asleep wakes on the next connection; pinned never sleeps. Data stays through all of it."),
         )
@@ -254,8 +255,8 @@ pub(super) fn model(t: &Tokens) -> impl IntoElement {
     div()
         .mx(px(28.))
         .mt(px(12.))
-        .text_size(px(12.5))
-        .line_height(px(18.))
+        .text_size(px(ty::SM_UP))
+        .line_height(px(ty::LH_18))
         .text_color(t.dim)
         .child("Drop a project folder anywhere in this window, or press ⌘O, to add it. It appears here, stopped, until you bring it up, and stays until you remove it (⌫), which stops it and leaves its files alone.")
 }
@@ -281,10 +282,10 @@ pub(super) fn others(t: &Tokens, others: &[Other]) -> impl IntoElement {
                 .items_center()
                 .gap(px(6.))
                 .mb(px(4.))
-                .child(heading("Also on this machine", t.dim, 600., 0.66))
+                .child(heading("Also on this machine", t.dim, ty::SEMIBOLD, 0.66))
                 .child(
                     div()
-                        .text_size(px(11.))
+                        .text_size(px(ty::XS))
                         .text_color(t.dim)
                         .child("· run by other doze programs, not by a stack"),
                 ),
@@ -296,10 +297,10 @@ pub(super) fn others(t: &Tokens, others: &[Other]) -> impl IntoElement {
                 .items_center()
                 .gap(px(12.))
                 .min_h(px(30.))
-                .child(mono(s(&o.name), 12., t.bright))
+                .child(mono(s(&o.name), ty::SM, t.bright))
                 .child(
                     div()
-                        .text_size(px(12.))
+                        .text_size(px(ty::SM))
                         .text_color(t.dim)
                         .child(s(&format!("{} · pid {}", o.owner, o.pid))),
                 )
@@ -337,14 +338,14 @@ pub(super) fn machine_line(
         .border_1()
         .border_color(t.line)
         .bg(t.well)
-        .text_size(px(12.))
+        .text_size(px(ty::SM))
         .text_color(t.dim)
         .whitespace_nowrap()
         .overflow_hidden()
         .child(
             div()
                 .flex_none()
-                .font_weight(w(600.))
+                .font_weight(ty::SEMIBOLD)
                 .text_color(t.text)
                 .child("Machine"),
         );

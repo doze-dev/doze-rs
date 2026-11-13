@@ -5,8 +5,7 @@ use gpui::{AnyElement, Context, IntoElement, div, prelude::*, px};
 
 use super::InstanceView;
 use super::ui::{card, code, heading, text};
-use crate::theme::Tokens;
-use crate::widgets::w;
+use crate::theme::{Tokens, ty};
 
 pub(crate) fn snippets(
     t: &Tokens,
@@ -28,7 +27,7 @@ pub(crate) fn snippets(
             .child(heading(t, "From your code", Some("· the same URL, in the language you are in")))
             .child(tabs)
             .child(code(t).child(lines).child(copy_btn))
-            .child(div().text_size(px(12.)).text_color(t.dim).child(
+            .child(div().text_size(px(ty::SM)).text_color(t.dim).child(
                 "Inside the stack there is nothing to configure: the name resolves and the variable is there. The first connection wakes it if it is asleep.",
             ))
             .into_any_element(),
@@ -62,8 +61,8 @@ fn lang_tabs(
                 } else {
                     gpui::transparent_black()
                 })
-                .text_size(px(12.))
-                .font_weight(w(500.))
+                .text_size(px(ty::SM))
+                .font_weight(ty::MEDIUM)
                 .text_color(if on { t.bright } else { t.dim })
                 .cursor_pointer()
                 .hover(|s| s.text_color(t.text))
@@ -95,8 +94,8 @@ fn copy_button(
         .border_1()
         .border_color(t.line2)
         .bg(t.panel)
-        .text_size(px(11.))
-        .font_weight(w(500.))
+        .text_size(px(ty::XS))
+        .font_weight(ty::MEDIUM)
         .text_color(t.accent)
         .cursor_pointer()
         .child(if copied { "Copied" } else { "Copy" })

@@ -9,8 +9,8 @@ use doze_desk::act::StackAction;
 use super::LibraryView;
 use crate::kit::s;
 use crate::overlays::shadow;
-use crate::theme::Tokens;
-use crate::widgets::{MONO_FAMILY, kbd_plain, w};
+use crate::theme::{Tokens, ty};
+use crate::widgets::{MONO_FAMILY, kbd_plain};
 
 /// What an item does.
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -51,7 +51,7 @@ impl Item {
         cx: &mut Context<LibraryView>,
     ) -> AnyElement {
         let sub = div()
-            .text_size(px(11.))
+            .text_size(px(ty::XS))
             .text_color(t.dim)
             .whitespace_nowrap()
             .overflow_hidden()
@@ -59,7 +59,7 @@ impl Item {
             .when(self.what == Do::Reveal, |d| d.font_family(MONO_FAMILY))
             .child(s(&self.sub));
         let title = div()
-            .font_weight(w(600.))
+            .font_weight(ty::SEMIBOLD)
             .text_color(if self.on { t.bright } else { t.dim })
             .child(s(&self.title));
         let el = div()
@@ -71,19 +71,19 @@ impl Item {
             .px(px(10.))
             .py(px(4.))
             .rounded(px(7.))
-            .text_size(px(12.5))
+            .text_size(px(ty::SM_UP))
             .child(
                 div()
                     .flex()
                     .flex_col()
                     .flex_1()
                     .min_w_0()
-                    .line_height(px(15.))
+                    .line_height(px(ty::LH_15))
                     .child(title)
                     .child(sub),
             )
             .when(!self.key.is_empty(), |d| {
-                d.child(kbd_plain(self.key, 11., t.dim, 500.))
+                d.child(kbd_plain(self.key, ty::XS, t.dim, ty::MEDIUM))
             });
         if !self.on {
             return el.opacity(0.55).into_any_element();

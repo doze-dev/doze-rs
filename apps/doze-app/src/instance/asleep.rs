@@ -6,8 +6,8 @@ use gpui::{AnyElement, Context, IntoElement, div, prelude::*, px};
 use super::InstanceView;
 use super::overview::connect;
 use super::ui::{button, text};
-use crate::theme::Tokens;
-use crate::widgets::{MONO_FAMILY, w};
+use crate::theme::{Tokens, ty};
+use crate::widgets::MONO_FAMILY;
 
 /// An asleep module or service: it wakes on the next connection; Wake, or wake and open its console.
 pub(crate) fn asleep(
@@ -59,7 +59,7 @@ pub(crate) fn asleep(
                 .px(px(40.))
                 .pt(px(36.))
                 .pb(px(20.))
-                .child(div().text_size(px(18.)).font_weight(w(650.)).text_color(t.bright).child(text(&format!("{} is asleep.", v.name))))
+                .child(div().text_size(px(ty::LG_UP)).font_weight(ty::HEADING).text_color(t.bright).child(text(&format!("{} is asleep.", v.name))))
                 .child(div().max_w(px(520.)).text_color(t.dim).text_center().child(text(&format!(
                     "It wakes on the next connection{to}, and sleeps again when nothing holds it. Its data stays in between."
                 ))))
@@ -143,13 +143,13 @@ fn web_bar(
         .border_b_1()
         .border_color(t.line)
         .text_color(t.bright)
-        .font_weight(w(600.))
+        .font_weight(ty::SEMIBOLD)
         .child(text(&v.name))
         .child(
             div()
-                .font_weight(w(400.))
+                .font_weight(ty::REGULAR)
                 .font_family(MONO_FAMILY)
-                .text_size(px(12.))
+                .text_size(px(ty::SM))
                 .text_color(t.dim)
                 .child(text(&format!("· {url}"))),
         )

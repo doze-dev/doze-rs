@@ -221,19 +221,28 @@ impl PlatformTextSystem for AppleTextSystem {
         TextRenderingMode::Grayscale
     }
 
+    // PATCH (doze): no font smoothing, as WebKit's `-webkit-font-smoothing: antialiased` draws, which the Go app's
+    // page sets. Core Graphics' smoothing thickens stems, most for light text on dark; see PATCHES.md §2.
     #[cfg(target_os = "macos")]
-    fn glyph_dilation_for_color(&self, color: Hsla) -> u8 {
-        // When font smoothing is enabled, CoreGraphics thickens glyph strokes by an amount that
-        // depends on the foreground color's luminance. We replicate the logic used by CoreGraphics
-        // to select between the different levels of dilation.
-        if !font_smoothing_allowed_by_user() {
-            return 0;
-        }
-        let rgba: Rgba = color.into();
-        let luminance = 0.2126 * rgba.r + 0.7152 * rgba.g + 0.0722 * rgba.b;
-        let level = ((4.0 * luminance) + 0.5).floor() as i32;
-        level.clamp(0, 4) as u8
+    fn glyph_dilation_for_color(&self, _color: Hsla) -> u8 {
+        0
     }
+}
+
+/// Upstream's `glyph_dilation_for_color`, kept beside the patch for an upgrade to compare against.
+#[cfg(target_os = "macos")]
+#[allow(dead_code)]
+fn upstream_glyph_dilation_for_color(color: Hsla) -> u8 {
+    // When font smoothing is enabled, CoreGraphics thickens glyph strokes by an amount that
+    // depends on the foreground color's luminance. We replicate the logic used by CoreGraphics
+    // to select between the different levels of dilation.
+    if !font_smoothing_allowed_by_user() {
+        return 0;
+    }
+    let rgba: Rgba = color.into();
+    let luminance = 0.2126 * rgba.r + 0.7152 * rgba.g + 0.0722 * rgba.b;
+    let level = ((4.0 * luminance) + 0.5).floor() as i32;
+    level.clamp(0, 4) as u8
 }
 
 #[cfg(target_os = "macos")]
@@ -512,6 +521,9 @@ impl AppleTextSystemState {
                 cx.set_should_smooth_fonts(true);
                 cx.set_gray_fill_color(luminance, 1.0);
             } else {
+                // PATCH (doze): smoothing off outright, not left to the context's default.
+                cx.set_allows_font_smoothing(false);
+                cx.set_should_smooth_fonts(false);
                 cx.set_gray_fill_color(0.0, 1.0);
             }
             self.fonts[params.font_id.0]

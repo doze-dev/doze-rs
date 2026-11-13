@@ -10,8 +10,8 @@ use gpui_component::input::Input;
 
 use super::palette::Palette;
 use crate::actions::{BackOut, Confirm, FirstAct, MoveDown, MoveUp, ScopeIn, ScopeOut};
-use crate::theme::{Tokens, tokens};
-use crate::widgets::{MONO_FAMILY, UI_FAMILY, icon, kbd_chip, kbd_plain, tracked, w};
+use crate::theme::{Tokens, tokens, ty};
+use crate::widgets::{MONO_FAMILY, UI_FAMILY, icon, kbd_chip, kbd_plain, tracked};
 
 /// A palette tone's colour (Go's dot classes `g y r b`, and `dim`, `acc`).
 fn ink(t: &Tokens, tone: &str) -> Hsla {
@@ -36,9 +36,9 @@ fn glyph(t: &Tokens, r: &Row) -> AnyElement {
     }
     // A two-character glyph (⌘O, ›_) is set smaller, so it keeps to the column.
     let size = if r.glyph.chars().count() > 1 {
-        10.5
+        ty::XS
     } else {
-        12.5
+        ty::SM_UP
     };
     d.text_color(c)
         .text_size(px(size))
@@ -59,7 +59,7 @@ fn label(t: &Tokens, text: &str, at: &[usize]) -> AnyElement {
     div()
         .flex()
         .flex_none()
-        .font_weight(w(600.))
+        .font_weight(ty::SEMIBOLD)
         .text_color(t.bright)
         .children(runs.into_iter().map(|(s, m)| {
             let d = div().child(SharedString::from(s));
@@ -73,13 +73,13 @@ fn right(t: &Tokens, r: &Row, on: bool, copied: bool) -> AnyElement {
     let small = |text: String, c: Hsla| {
         div()
             .flex_none()
-            .text_size(px(11.5))
+            .text_size(px(ty::XS_UP))
             .text_color(c)
             .child(SharedString::from(text))
     };
     if copied {
         return small("Copied ✓".into(), t.good)
-            .font_weight(w(600.))
+            .font_weight(ty::SEMIBOLD)
             .into_any_element();
     }
     if on && r.enter.is_some() {
@@ -88,9 +88,9 @@ fn right(t: &Tokens, r: &Row, on: bool, copied: bool) -> AnyElement {
             .flex_none()
             .items_center()
             .gap(px(5.))
-            .text_size(px(11.5))
+            .text_size(px(ty::XS_UP))
             .text_color(t.dim)
-            .child(kbd_chip(t, "tab", 10., 600., 5.))
+            .child(kbd_chip(t, "tab", ty::MICRO, ty::SEMIBOLD, 5.))
             .child("its commands")
             .into_any_element();
     }
@@ -101,7 +101,7 @@ fn right(t: &Tokens, r: &Row, on: bool, copied: bool) -> AnyElement {
     }
     small(r.key.clone(), if on { t.text } else { t.dim })
         .font_family(MONO_FAMILY)
-        .text_size(px(11.))
+        .text_size(px(ty::XS))
         .into_any_element()
 }
 
@@ -122,7 +122,7 @@ fn item(t: &Tokens, p: &Palette, r: &Row, i: usize, cx: &mut Context<Palette>) -
         .gap(px(10.))
         .h(px(36.))
         .px(px(16.))
-        .text_size(px(13.))
+        .text_size(px(ty::BASE))
         .when(on, |d| d.bg(t.pick))
         .hover(|d| d.bg(t.sel))
         .cursor_pointer()
@@ -136,7 +136,7 @@ fn item(t: &Tokens, p: &Palette, r: &Row, i: usize, cx: &mut Context<Palette>) -
                 .overflow_hidden()
                 .text_ellipsis()
                 .whitespace_nowrap()
-                .text_size(px(12.))
+                .text_size(px(ty::SM))
                 .text_color(note)
                 .child(SharedString::from(r.note.clone())),
         )
@@ -148,7 +148,7 @@ fn item(t: &Tokens, p: &Palette, r: &Row, i: usize, cx: &mut Context<Palette>) -
 fn nothing(t: &Tokens, n: &Nothing, cx: &mut Context<Palette>) -> AnyElement {
     let b = |s: &str| {
         div()
-            .font_weight(w(600.))
+            .font_weight(ty::SEMIBOLD)
             .text_color(t.bright)
             .child(SharedString::from(s.to_owned()))
     };
@@ -176,13 +176,13 @@ fn nothing(t: &Tokens, n: &Nothing, cx: &mut Context<Palette>) -> AnyElement {
         .min_h(px(40.))
         .px(px(16.))
         // A hint, not a row (Go's `.nothing`): no highlight, ⏎ still takes the closest.
-        .text_size(px(12.5))
+        .text_size(px(ty::SM_UP))
         .hover(|d| d.bg(t.sel))
         .cursor_pointer()
         .on_click(cx.listener(|this, _, window, cx| this.choose(window, cx)))
         .child(div().w(px(16.)).text_color(t.dim).child("?"))
         .child(words)
-        .child(kbd_plain(&n.key, 11., t.dim, 500.))
+        .child(kbd_plain(&n.key, ty::XS, t.dim, ty::MEDIUM))
         .into_any_element()
 }
 
@@ -191,7 +191,11 @@ fn foot_key(t: &Tokens, k: &str, what: &str) -> AnyElement {
         .flex()
         .flex_none()
         .items_center()
-        .child(div().mr(px(4.)).child(kbd_chip(t, k, 10., 600., 5.)))
+        .child(
+            div()
+                .mr(px(4.))
+                .child(kbd_chip(t, k, ty::MICRO, ty::SEMIBOLD, 5.)),
+        )
         .child(SharedString::from(what.to_owned()))
         .into_any_element()
 }
@@ -209,7 +213,7 @@ impl Palette {
             .px(px(16.))
             .border_t_1()
             .border_color(t.line)
-            .text_size(px(11.5))
+            .text_size(px(ty::XS_UP))
             .text_color(t.dim)
             .whitespace_nowrap()
             .child(foot_key(t, "↑↓", "move"))
@@ -251,13 +255,13 @@ impl Palette {
             .track_scroll(&self.scroll);
         let mut i = 0;
         for s in &self.model.sections {
-            body = body.child(
-                div()
-                    .px(px(16.))
-                    .pt(px(8.))
-                    .pb(px(2.))
-                    .child(tracked(&s.title, 11., 600., t.dim, 0.66)),
-            );
+            body = body.child(div().px(px(16.)).pt(px(8.)).pb(px(2.)).child(tracked(
+                &s.title,
+                ty::XS,
+                ty::SEMIBOLD,
+                t.dim,
+                0.66,
+            )));
             for r in &s.rows {
                 body = body.child(item(t, self, r, i, cx));
                 i += 1;
@@ -305,8 +309,8 @@ impl Palette {
                     .items_center()
                     .rounded(px(6.))
                     .bg(t.sel)
-                    .text_size(px(12.5))
-                    .font_weight(w(600.))
+                    .text_size(px(ty::SM_UP))
+                    .font_weight(ty::SEMIBOLD)
                     .text_color(t.bright)
                     .cursor_pointer()
                     .on_click(cx.listener(|this, _, _, cx| {
@@ -321,7 +325,7 @@ impl Palette {
                         .bordered(false)
                         .focus_bordered(false)
                         .px_0()
-                        .text_size(px(15.))
+                        .text_size(px(ty::MD_UP))
                         .text_color(t.bright),
                 ),
             )
@@ -346,8 +350,8 @@ impl Render for Palette {
             .key_context("Palette")
             .w(px(600.))
             .font_family(UI_FAMILY)
-            .text_size(px(13.))
-            .line_height(px(20.))
+            .text_size(px(ty::BASE))
+            .line_height(px(ty::LH))
             .flex()
             .flex_col()
             .overflow_hidden()

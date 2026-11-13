@@ -7,8 +7,8 @@ use gpui::{AnyElement, IntoElement, div, prelude::*, px, relative};
 
 use super::{OverviewView, View};
 use crate::kit::{Btn, btn, mono, s};
-use crate::theme::{Tokens, mix};
-use crate::widgets::{kbd_plain, w};
+use crate::theme::{Tokens, mix, ty};
+use crate::widgets::kbd_plain;
 
 /// The strip: the four figures for a running stack, the down strip for a stopped one.
 pub(super) fn strip(t: &Tokens, v: &OverviewView, width: f32) -> AnyElement {
@@ -64,16 +64,16 @@ fn stat(t: &Tokens, value: &str, unit: &str, under: AnyElement, wide: bool) -> g
         .whitespace_nowrap()
         .child(
             div()
-                .text_size(px(22.))
-                .line_height(px(26.))
-                .font_weight(w(600.))
+                .text_size(px(ty::FIGURE))
+                .line_height(px(ty::LH_26))
+                .font_weight(ty::SEMIBOLD)
                 .text_color(t.bright)
                 .child(s(value)),
         )
         .child(
             div()
                 .ml(px(6.))
-                .text_size(px(12.))
+                .text_size(px(ty::SM))
                 .text_color(t.dim)
                 .child(s(unit)),
         );
@@ -92,7 +92,7 @@ fn under(t: &Tokens, text: &str) -> AnyElement {
     // A line high even when empty, so every figure's value sits on the same line.
     div()
         .min_h(px(18.))
-        .text_size(px(12.))
+        .text_size(px(ty::SM))
         .text_color(t.dim)
         .whitespace_nowrap()
         .overflow_hidden()
@@ -210,7 +210,7 @@ fn states(t: &Tokens, v: &Vitals4) -> AnyElement {
     }
     div()
         .flex()
-        .text_size(px(12.))
+        .text_size(px(ty::SM))
         .text_color(t.dim)
         .whitespace_nowrap()
         .children(counts)
@@ -228,16 +228,16 @@ fn down_strip(t: &Tokens, st: &Stopped, tight: bool) -> impl IntoElement {
         .items_baseline()
         .child(
             div()
-                .text_size(px(22.))
-                .line_height(px(26.))
-                .font_weight(w(600.))
+                .text_size(px(ty::FIGURE))
+                .line_height(px(ty::LH_26))
+                .font_weight(ty::SEMIBOLD)
                 .text_color(t.bright)
                 .child("Stopped"),
         )
         .child(
             div()
                 .ml(px(6.))
-                .text_size(px(12.))
+                .text_size(px(ty::SM))
                 .text_color(t.dim)
                 .child(s(&st.when)),
         );
@@ -264,18 +264,18 @@ fn source_card(t: &Tokens, c: &ConfigError) -> impl IntoElement {
         .map(|n| n.to_string_lossy().into_owned())
         .unwrap_or_else(|| "doze.hcl".into());
     let line = div()
-        .font_weight(w(400.))
+        .font_weight(ty::REGULAR)
         .child(s(&format!("· line {}", c.line)));
     let title = div()
         .flex()
         .gap(px(6.))
-        .text_size(px(12.))
-        .font_weight(w(600.))
+        .text_size(px(ty::SM))
+        .font_weight(ty::SEMIBOLD)
         .text_color(t.dim)
         .child(s(&name.to_uppercase()))
         .when(c.line > 0, |d| d.child(line));
     let summary = div()
-        .font_weight(w(600.))
+        .font_weight(ty::SEMIBOLD)
         .text_color(t.bright)
         .child(s(&c.summary));
     let detail = div().text_color(t.dim).child(s(&format!("· {}", c.detail)));
@@ -287,10 +287,10 @@ fn source_card(t: &Tokens, c: &ConfigError) -> impl IntoElement {
     let lint = div()
         .flex()
         .gap(px(4.))
-        .text_size(px(12.))
+        .text_size(px(ty::SM))
         .text_color(t.dim)
         .child("The same message as")
-        .child(kbd_plain("doze lint", 12., t.dim, 400.))
+        .child(kbd_plain("doze lint", ty::SM, t.dim, ty::REGULAR))
         .child(".");
     div()
         .flex()
@@ -325,8 +325,12 @@ fn excerpt(t: &Tokens, c: &ConfigError) -> impl IntoElement {
             .flex()
             .gap(px(12.))
             .when(l.bad, |d| d.bg(mix(t.bad, t.well, 18.)))
-            .child(mono(s(&l.n.to_string()), 12., t.dim).w(px(24.)).flex_none())
-            .child(mono(text, 12., if l.bad { t.bright } else { t.text }))
+            .child(
+                mono(s(&l.n.to_string()), ty::SM, t.dim)
+                    .w(px(24.))
+                    .flex_none(),
+            )
+            .child(mono(text, ty::SM, if l.bad { t.bright } else { t.text }))
     });
     div()
         .flex()
@@ -345,16 +349,16 @@ fn problem_strip(t: &Tokens, row: gpui::Div, problem: &str) -> gpui::Div {
         .items_baseline()
         .child(
             div()
-                .text_size(px(22.))
-                .line_height(px(26.))
-                .font_weight(w(600.))
+                .text_size(px(ty::FIGURE))
+                .line_height(px(ty::LH_26))
+                .font_weight(ty::SEMIBOLD)
                 .text_color(t.bad)
                 .child("doze.hcl has a mistake"),
         )
         .child(
             div()
                 .ml(px(6.))
-                .text_size(px(12.))
+                .text_size(px(ty::SM))
                 .text_color(t.dim)
                 .child("nothing can start until it is fixed"),
         );

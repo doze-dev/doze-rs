@@ -7,8 +7,8 @@ use gpui::{AnyElement, Context, IntoElement, div, prelude::*, px, relative};
 
 use super::InstanceView;
 use super::ui::{self, card, heading, step_num, text};
-use crate::theme::Tokens;
-use crate::widgets::{MONO_FAMILY, w};
+use crate::theme::{Tokens, ty};
+use crate::widgets::MONO_FAMILY;
 
 pub(crate) fn task(t: &Tokens, v: &mut InstanceView, cx: &mut Context<InstanceView>) -> AnyElement {
     if v.page.runs.is_empty() {
@@ -26,14 +26,14 @@ fn not_run(t: &Tokens, v: &InstanceView) -> AnyElement {
         .gap(px(14.))
         .flex_1()
         .min_w_0()
-        .child(div().pt(px(14.)).text_size(px(18.)).font_weight(w(650.)).text_color(t.bright).child(text(&format!("{} has not run yet.", v.name))))
+        .child(div().pt(px(14.)).text_size(px(ty::LG_UP)).font_weight(ty::HEADING).text_color(t.bright).child(text(&format!("{} has not run yet.", v.name))))
         .child(div().text_color(t.dim).child("A task runs once when you say so, and then gets out of the way: it keeps nothing awake and nothing waits on it. Run does the steps below, and the output lands on this page as it comes."))
         .child(list)
         .child(
             div()
                 .flex()
                 .flex_wrap()
-                .text_size(px(12.5))
+                .text_size(px(ty::SM_UP))
                 .text_color(t.dim)
                 .items_baseline()
                 .child("From a terminal: ")
@@ -119,7 +119,7 @@ fn step_list(t: &Tokens, steps: Vec<(String, String)>) -> impl IntoElement {
                         .w(px(180.))
                         .flex_none()
                         .text_color(t.bright)
-                        .font_weight(w(600.))
+                        .font_weight(ty::SEMIBOLD)
                         .overflow_hidden()
                         .text_ellipsis()
                         .whitespace_nowrap()
@@ -166,7 +166,7 @@ fn command(t: &Tokens, v: &InstanceView) -> Option<AnyElement> {
             "run",
             div()
                 .font_family(MONO_FAMILY)
-                .text_size(px(12.))
+                .text_size(px(ty::SM))
                 .text_color(t.bright)
                 .child(text(&p.run)),
         ));
@@ -176,7 +176,7 @@ fn command(t: &Tokens, v: &InstanceView) -> Option<AnyElement> {
         c = c.child(
             row(t, "needs", div().child(text(&names.join(", ")))).child(
                 div()
-                    .text_size(px(12.))
+                    .text_size(px(ty::SM))
                     .text_color(t.dim)
                     .child("woken first if asleep"),
             ),
@@ -275,7 +275,7 @@ fn last_run(t: &Tokens, v: &mut InstanceView, cx: &mut Context<InstanceView>) ->
         .min_w_0()
         .child(card(t).child(heading(t, "Runs", Some("· kept for this stack, newest first"))).child(table))
         .children(command(t, v))
-        .child(div().text_size(px(12.5)).text_color(t.dim).child("A task keeps nothing awake once it ends. A failed run shows a notification and the row goes red until the next run."));
+        .child(div().text_size(px(ty::SM_UP)).text_color(t.dim).child("A task keeps nothing awake once it ends. A failed run shows a notification and the row goes red until the next run."));
     let left = div().flex().flex_col().flex_1().min_w_0().child(output);
     two(left, right, 1.3)
 }
@@ -304,8 +304,8 @@ fn runs_head(t: &Tokens) -> AnyElement {
         .min_h(px(28.))
         .px(px(12.))
         .bg(t.well)
-        .text_size(px(11.))
-        .font_weight(w(600.))
+        .text_size(px(ty::XS))
+        .font_weight(ty::SEMIBOLD)
         .text_color(t.dim)
         .child(a.child("WHEN"))
         .child(b.child("TOOK"))
@@ -337,14 +337,14 @@ fn run_row(
         .when(on, |d| d.bg(t.pick))
         .child(
             a.font_family(MONO_FAMILY)
-                .text_size(px(12.))
+                .text_size(px(ty::SM))
                 .child(text(&r.when)),
         )
         .child(
             b.flex()
                 .items_center()
                 .gap(px(6.))
-                .text_size(px(12.))
+                .text_size(px(ty::SM))
                 .child(div().w(px(bar)).h(px(6.)).rounded(px(3.)).bg(if failed {
                     t.bad
                 } else {
@@ -366,7 +366,11 @@ fn run_row(
                 "…".to_owned()
             })),
         )
-        .child(d.text_size(px(12.)).text_color(t.dim).child(text(&r.why)))
+        .child(
+            d.text_size(px(ty::SM))
+                .text_color(t.dim)
+                .child(text(&r.why)),
+        )
         .child(
             ui::copy_link(t, ("run-out", seq), if on { "Shown" } else { "Output" })
                 .w(px(48.))

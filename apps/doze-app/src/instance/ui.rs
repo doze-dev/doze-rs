@@ -7,8 +7,8 @@ use doze_desk::page::parts::Kv;
 use doze_display::Look;
 use gpui::{AnyElement, Div, Hsla, IntoElement, SharedString, Stateful, div, prelude::*, px};
 
-use crate::theme::{Tokens, mix};
-use crate::widgets::{MONO_FAMILY, dot, tracked, w};
+use crate::theme::{Tokens, mix, ty};
+use crate::widgets::{MONO_FAMILY, dot, tracked};
 
 /// A colour class as a colour.
 pub(crate) fn ink(t: &Tokens, i: Ink) -> Hsla {
@@ -50,9 +50,9 @@ pub(crate) fn heading(t: &Tokens, title: &str, sub: Option<&str>) -> Div {
         .items_center()
         .gap(px(8.))
         .whitespace_nowrap()
-        .child(tracked(title, 12., 600., t.dim, 0.72));
+        .child(tracked(title, ty::SM, ty::SEMIBOLD, t.dim, 0.72));
     if let Some(s) = sub.filter(|s| !s.is_empty()) {
-        h = h.child(div().text_size(px(12.)).text_color(t.dim).child(text(s)));
+        h = h.child(div().text_size(px(ty::SM)).text_color(t.dim).child(text(s)));
     }
     h
 }
@@ -62,8 +62,8 @@ pub(crate) fn copy_link(t: &Tokens, id: impl Into<gpui::ElementId>, label: &str)
     div()
         .id(id)
         .flex_none()
-        .text_size(px(11.))
-        .font_weight(w(500.))
+        .text_size(px(ty::XS))
+        .font_weight(ty::MEDIUM)
         .text_color(t.accent)
         .cursor_pointer()
         .hover(|s| s.underline())
@@ -84,7 +84,7 @@ pub(crate) fn kv_row(
         .text_ellipsis()
         .whitespace_nowrap()
         .text_color(if r.dim { t.dim } else { t.bright })
-        .when(r.mono, |d| d.font_family(MONO_FAMILY).text_size(px(12.)))
+        .when(r.mono, |d| d.font_family(MONO_FAMILY).text_size(px(ty::SM)))
         .child(text(&r.v));
     let mut row = div()
         .flex()
@@ -117,8 +117,8 @@ pub(crate) fn kv_row(
             .pl(px(108.))
             .mt(px(-4.))
             .mb(px(4.))
-            .text_size(px(11.))
-            .line_height(px(15.))
+            .text_size(px(ty::XS))
+            .line_height(px(ty::LH_15))
             .text_color(t.dim)
             .child(text(&r.note)),
     )
@@ -150,8 +150,8 @@ pub(crate) fn button(
         .border_color(border)
         .bg(bg)
         .text_color(fg)
-        .text_size(px(12.))
-        .font_weight(w(if primary { 600. } else { 500. }))
+        .text_size(px(ty::SM))
+        .font_weight(if primary { ty::SEMIBOLD } else { ty::MEDIUM })
         .whitespace_nowrap()
         .cursor_pointer()
         .child(text(label));
@@ -166,7 +166,7 @@ pub(crate) fn button(
     b.child(
         div()
             .font_family(MONO_FAMILY)
-            .text_size(px(11.))
+            .text_size(px(ty::XS))
             .text_color(kfg)
             .child(text(key)),
     )
@@ -185,7 +185,7 @@ pub(crate) fn pill(t: &Tokens, color: Hsla, body: impl IntoElement) -> Div {
         .border_1()
         .border_color(t.line)
         .bg(t.panel)
-        .text_size(px(12.))
+        .text_size(px(ty::SM))
         .whitespace_nowrap()
         .child(dot(color))
         .child(body)
@@ -224,11 +224,16 @@ pub(crate) fn banner(t: &Tokens, tone: Tone, title: &str, sub: &str) -> Div {
                 .child(
                     div()
                         .text_color(t.bright)
-                        .font_weight(w(600.))
+                        .font_weight(ty::SEMIBOLD)
                         .child(text(title)),
                 )
                 .when(!sub.is_empty(), |d| {
-                    d.child(div().text_size(px(12.)).text_color(t.dim).child(text(sub)))
+                    d.child(
+                        div()
+                            .text_size(px(ty::SM))
+                            .text_color(t.dim)
+                            .child(text(sub)),
+                    )
                 }),
         )
 }
@@ -260,7 +265,7 @@ pub(crate) fn state_mark(t: &Tokens, look: Option<Look>, trouble: bool, size: f3
         Some(l) => div()
             .w(px(size + 2.))
             .flex_none()
-            .text_size(px(12.))
+            .text_size(px(ty::SM))
             .text_color(t.tone(l.tone()))
             .child(l.glyph())
             .into_any_element(),
@@ -279,8 +284,8 @@ pub(crate) fn step_num(t: &Tokens, n: usize) -> Div {
         .items_center()
         .justify_center()
         .font_family(MONO_FAMILY)
-        .text_size(px(11.))
-        .font_weight(w(600.))
+        .text_size(px(ty::XS))
+        .font_weight(ty::SEMIBOLD)
         .text_color(t.dim)
         .child(text(&n.to_string()))
 }
@@ -298,7 +303,7 @@ pub(crate) fn code(t: &Tokens) -> Div {
         .border_color(t.line)
         .bg(t.well)
         .font_family(MONO_FAMILY)
-        .text_size(px(12.))
-        .line_height(px(19.))
+        .text_size(px(ty::SM))
+        .line_height(px(ty::LH_19))
         .text_color(t.text)
 }

@@ -5,8 +5,8 @@ use gpui::{AnyElement, ClipboardItem, Context, IntoElement, div, prelude::*, px}
 
 use super::OverviewView;
 use crate::kit::s;
-use crate::theme::Tokens;
-use crate::widgets::{MONO_FAMILY, w};
+use crate::theme::{Tokens, ty};
+use crate::widgets::MONO_FAMILY;
 
 /// `.kv`: the key, the value, and Copy when there is something to copy.
 pub(super) struct Kv<'a> {
@@ -56,8 +56,8 @@ impl<'a> Kv<'a> {
                     .pl(px(96.))
                     .mt(px(-2.))
                     .mb(px(4.))
-                    .text_size(px(11.))
-                    .line_height(px(15.))
+                    .text_size(px(ty::XS))
+                    .line_height(px(ty::LH_15))
                     .text_color(t.dim)
                     .child(s(note)),
             )
@@ -68,7 +68,7 @@ impl<'a> Kv<'a> {
         let value = div()
             .flex_1()
             .min_w_0()
-            .text_size(px(12.))
+            .text_size(px(ty::SM))
             .text_color(if self.bright { t.bright } else { t.text })
             .child(s(self.v));
         let value = if self.wrap {
@@ -85,7 +85,7 @@ impl<'a> Kv<'a> {
             .items_center()
             .gap(px(12.))
             .min_h(px(22.))
-            .text_size(px(12.))
+            .text_size(px(ty::SM))
             .child(
                 div()
                     .w(px(84.))
@@ -110,8 +110,8 @@ impl<'a> Kv<'a> {
             div()
                 .id(gpui::SharedString::from(format!("copy-{}", self.k)))
                 .flex_none()
-                .text_size(px(11.))
-                .font_weight(w(500.))
+                .text_size(px(ty::XS))
+                .font_weight(ty::MEDIUM)
                 .text_color(t.accent)
                 .cursor_pointer()
                 .hover(|d| d.underline())
@@ -130,8 +130,8 @@ fn link(t: &Tokens, id: gpui::SharedString, word: &'static str) -> gpui::Statefu
     div()
         .id(id)
         .flex_none()
-        .text_size(px(11.))
-        .font_weight(w(500.))
+        .text_size(px(ty::XS))
+        .font_weight(ty::MEDIUM)
         .text_color(t.accent)
         .cursor_pointer()
         .hover(|d| d.underline())

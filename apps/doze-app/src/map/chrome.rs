@@ -11,8 +11,8 @@ use gpui::{
 
 use super::MapView;
 use crate::actions::{self, FindCard, FitMap, ToggleMinimap};
-use crate::theme::{Motion, Tokens};
-use crate::widgets::{icon, kbd_plain, w};
+use crate::theme::{Motion, Tokens, ty};
+use crate::widgets::{icon, kbd_plain};
 
 /// The toolbar strip's height.
 pub(crate) const STRIP: f32 = 40.;
@@ -29,7 +29,7 @@ fn tool(t: &Tokens, id: &'static str, label: &str, on: bool) -> gpui::Stateful<g
         .min_w(px(28.))
         .px(px(8.))
         .rounded(px(7.))
-        .text_size(px(12.))
+        .text_size(px(ty::SM))
         .text_color(if on { t.bright } else { t.text })
         .bg(if on { t.sel } else { t.panel })
         .border_1()
@@ -92,7 +92,7 @@ pub(crate) fn strip(t: &Tokens, m: &MapView, cx: &mut Context<MapView>) -> AnyEl
         )
         .child(
             tool(t, "z-find", "Find", m.search.is_some())
-                .child(kbd_plain(&find_key, 11., t.dim, 500.))
+                .child(kbd_plain(&find_key, ty::XS, t.dim, ty::MEDIUM))
                 .on_click(cx.listener(|this, _, window, cx| this.on_find(&FindCard, window, cx))),
         );
     if m.big() {
@@ -102,7 +102,7 @@ pub(crate) fn strip(t: &Tokens, m: &MapView, cx: &mut Context<MapView>) -> AnyEl
         div()
             .flex_none()
             .ml(px(6.))
-            .text_size(px(11.5))
+            .text_size(px(ty::XS_UP))
             .text_color(t.dim)
             .whitespace_nowrap()
             .child(SharedString::from(stats)),
@@ -135,7 +135,7 @@ fn legend(t: &Tokens, m: &MapView) -> AnyElement {
         .flex()
         .items_center()
         .gap(px(16.))
-        .text_size(px(12.))
+        .text_size(px(ty::SM))
         .text_color(t.dim)
         .whitespace_nowrap();
     if m.layout.mode != Mode::Classic {
@@ -167,7 +167,7 @@ fn legend(t: &Tokens, m: &MapView) -> AnyElement {
             .child(
                 div()
                     .mr(px(4.))
-                    .font_weight(w(700.))
+                    .font_weight(ty::BOLD)
                     .text_color(t.good)
                     .child("✓"),
             )

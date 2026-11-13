@@ -4,8 +4,8 @@
 use gpui::{AnyElement, ClickEvent, Hsla, IntoElement, SharedString, Window, div, prelude::*, px};
 
 use crate::actions;
-use crate::theme::{Density, Tokens, mix};
-use crate::widgets::{MONO_FAMILY, icon, kbd_chip, kbd_plain, tracked, w};
+use crate::theme::{Density, Tokens, mix, ty};
+use crate::widgets::{MONO_FAMILY, icon, kbd_chip, kbd_plain, tracked};
 
 /// A click handler.
 pub(crate) type Click = Box<dyn Fn(&ClickEvent, &mut Window, &mut gpui::App) + 'static>;
@@ -65,15 +65,19 @@ pub(crate) fn btn(
         .border_1()
         .border_color(border)
         .bg(bg)
-        .text_size(px(12.))
-        .font_weight(w(if kind == Btn::Primary { 600. } else { 500. }))
+        .text_size(px(ty::SM))
+        .font_weight(if kind == Btn::Primary {
+            ty::SEMIBOLD
+        } else {
+            ty::MEDIUM
+        })
         .text_color(fg)
         .whitespace_nowrap()
         .cursor_pointer()
         .hover(move |s| s.text_color(hover_fg))
         .child(SharedString::from(label.to_owned()));
     if !key.is_empty() {
-        b = b.child(kbd_plain(key, 11., key_c, 500.));
+        b = b.child(kbd_plain(key, ty::XS, key_c, ty::MEDIUM));
     }
     if let Some(f) = click {
         b = b.on_click(f);
@@ -94,7 +98,7 @@ pub(crate) fn pill(t: &Tokens, text: &str, up: bool, link: bool) -> gpui::Div {
         .bg(t.panel)
         .border_1()
         .border_color(t.line)
-        .text_size(px(12.))
+        .text_size(px(ty::SM))
         .whitespace_nowrap()
         .overflow_hidden()
         .text_color(if up { t.text } else { t.dim });
@@ -126,8 +130,8 @@ pub(crate) fn need(t: &Tokens, text: &str) -> gpui::Div {
         .border_1()
         .border_color(mix(t.bad, t.panel, 40.))
         .text_color(t.bad)
-        .text_size(px(12.))
-        .font_weight(w(600.))
+        .text_size(px(ty::SM))
+        .font_weight(ty::SEMIBOLD)
         .whitespace_nowrap()
         .overflow_hidden()
         .child("●")
@@ -186,7 +190,7 @@ pub(crate) fn keys_bar(t: &Tokens, keys: &[(String, &str)], note: &str) -> gpui:
         .px(px(28.))
         .border_t_1()
         .border_color(t.line)
-        .text_size(px(12.))
+        .text_size(px(ty::SM))
         .text_color(t.dim)
         .whitespace_nowrap()
         .overflow_hidden()
@@ -196,7 +200,7 @@ pub(crate) fn keys_bar(t: &Tokens, keys: &[(String, &str)], note: &str) -> gpui:
                 .flex_none()
                 .items_center()
                 .gap(px(5.))
-                .child(kbd_chip(t, k, 11., 600., 6.))
+                .child(kbd_chip(t, k, ty::XS, ty::SEMIBOLD, 6.))
                 .child(SharedString::from((*what).to_owned()))
         }))
         .child(div().flex_1())
@@ -210,8 +214,13 @@ pub(crate) fn keys_bar(t: &Tokens, keys: &[(String, &str)], note: &str) -> gpui:
 }
 
 /// An uppercase heading with tracking (`.gl`, `.qh`, `.insp .sec h3`).
-pub(crate) fn heading(text: &str, color: Hsla, weight: f32, tracking: f32) -> impl IntoElement {
-    tracked(text, 11., weight, color, tracking)
+pub(crate) fn heading(
+    text: &str,
+    color: Hsla,
+    weight: gpui::FontWeight,
+    tracking: f32,
+) -> impl IntoElement {
+    tracked(text, ty::XS, weight, color, tracking)
 }
 
 /// Text in the mono face.
@@ -257,7 +266,7 @@ pub(crate) fn word_line(word: &str, tone: Hsla, rest: &[&str]) -> gpui::StyledTe
     }
     let style = gpui::HighlightStyle {
         color: Some(tone),
-        font_weight: Some(w(600.)),
+        font_weight: Some(ty::SEMIBOLD),
         ..Default::default()
     };
     gpui::StyledText::new(text).with_highlights([(0..word.len(), style)])

@@ -6,8 +6,8 @@ use gpui::{AnyElement, Context, IntoElement, div, prelude::*, px};
 
 use super::LibraryView;
 use crate::kit::{heading, need, pill, s, tone};
-use crate::theme::Tokens;
-use crate::widgets::{MONO_FAMILY, dot, icon, switch, w};
+use crate::theme::{Tokens, ty};
+use crate::widgets::{MONO_FAMILY, dot, icon, switch};
 
 /// The columns' widths: the dot, then name / running / addresses share the rest, then last and the controls.
 const DOT_W: f32 = 10.;
@@ -30,7 +30,7 @@ pub(super) fn table(
     v: &LibraryView,
     cx: &mut Context<LibraryView>,
 ) -> impl IntoElement {
-    let head = |text: &str| heading(text, t.dim, 600., 0.55).into_any_element();
+    let head = |text: &str| heading(text, t.dim, ty::SEMIBOLD, 0.55).into_any_element();
     let header = cols(
         div()
             .flex()
@@ -119,7 +119,7 @@ fn row(
         div()
             .flex()
             .justify_end()
-            .text_size(px(12.))
+            .text_size(px(ty::SM))
             .text_color(if busy.is_some() { t.cool } else { t.dim })
             .whitespace_nowrap()
             .child(busy.map_or_else(|| st.when.clone(), |b| format!("{}…", b.word())))
@@ -163,8 +163,8 @@ fn name(t: &Tokens, st: &LibStack, tight: bool) -> impl IntoElement {
         .min_w_0()
         .child(
             div()
-                .text_size(px(14.))
-                .font_weight(w(650.))
+                .text_size(px(ty::MD))
+                .font_weight(ty::HEADING)
                 .text_color(if st.running { t.bright } else { t.text })
                 .whitespace_nowrap()
                 .overflow_hidden()
@@ -173,7 +173,7 @@ fn name(t: &Tokens, st: &LibStack, tight: bool) -> impl IntoElement {
         )
         .child(
             dir.font_family(MONO_FAMILY)
-                .text_size(px(12.))
+                .text_size(px(ty::SM))
                 .text_color(t.dim)
                 .whitespace_nowrap()
                 .overflow_hidden(),
@@ -186,7 +186,7 @@ fn fig(t: &Tokens, st: &LibStack) -> impl IntoElement {
         .flex_col()
         .gap(px(3.))
         .min_w_0()
-        .text_size(px(12.))
+        .text_size(px(ty::SM))
         .whitespace_nowrap()
         .child(
             div()
@@ -196,7 +196,7 @@ fn fig(t: &Tokens, st: &LibStack) -> impl IntoElement {
         )
         .child(
             div()
-                .text_size(px(11.))
+                .text_size(px(ty::XS))
                 .text_color(t.dim)
                 .overflow_hidden()
                 .text_ellipsis()

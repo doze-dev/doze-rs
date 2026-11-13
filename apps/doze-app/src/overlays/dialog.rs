@@ -14,8 +14,8 @@ use gpui_component::input::{Input, InputEvent, InputState};
 use crate::act::Ask;
 use crate::actions::{Confirm, DialogNo, DialogYes, MoveLeft, MoveRight};
 use crate::kit::{mono, s, tone};
-use crate::theme::{Tokens, alpha, mix, tokens};
-use crate::widgets::{MONO_FAMILY, UI_FAMILY, dot, kbd_plain, w};
+use crate::theme::{Tokens, alpha, mix, tokens, ty};
+use crate::widgets::{MONO_FAMILY, UI_FAMILY, dot, kbd_plain};
 
 /// What the dialog ends with.
 #[derive(Debug, Clone)]
@@ -116,7 +116,7 @@ fn rows(t: &Tokens, v: &DialogView) -> Option<AnyElement> {
                 div()
                     .w(px(120.))
                     .flex_none()
-                    .font_weight(w(600.))
+                    .font_weight(ty::SEMIBOLD)
                     .text_color(t.bright)
                     .child(s(&r.k)),
             )
@@ -147,9 +147,9 @@ fn facts(t: &Tokens, v: &DialogView) -> Option<AnyElement> {
             match (sp.strong, sp.mono) {
                 (_, true) => d
                     .font_family(MONO_FAMILY)
-                    .font_weight(w(600.))
+                    .font_weight(ty::SEMIBOLD)
                     .text_color(t.bright),
-                (true, _) => d.font_weight(w(600.)).text_color(t.bright),
+                (true, _) => d.font_weight(ty::SEMIBOLD).text_color(t.bright),
                 _ => d.text_color(tone(t, &f.tone)),
             }
         });
@@ -190,7 +190,7 @@ fn sentence(t: &Tokens, v: &DialogView) -> Option<AnyElement> {
         if sp.strong || sp.mono {
             let style = gpui::HighlightStyle {
                 color: Some(t.bright),
-                font_weight: Some(w(600.)),
+                font_weight: Some(ty::SEMIBOLD),
                 ..Default::default()
             };
             runs.push((start..text.len(), style));
@@ -223,7 +223,7 @@ fn input(t: &Tokens, v: &DialogView) -> Option<AnyElement> {
                     .bordered(false)
                     .focus_bordered(false)
                     .px_0()
-                    .text_size(px(13.))
+                    .text_size(px(ty::BASE))
                     .text_color(t.bright)
                     .when(!v.c.dialog.type_name.is_empty(), |x| {
                         x.font_family(MONO_FAMILY)
@@ -238,10 +238,12 @@ fn input(t: &Tokens, v: &DialogView) -> Option<AnyElement> {
         .flex()
         .items_center()
         .gap(px(4.))
-        .text_size(px(12.5))
+        .text_size(px(ty::SM_UP))
         .text_color(t.dim)
         .child("Type")
-        .child(mono(SharedString::from(name.clone()), 12.5, t.bright).font_weight(w(600.)))
+        .child(
+            mono(SharedString::from(name.clone()), ty::SM_UP, t.bright).font_weight(ty::SEMIBOLD),
+        )
         .child("to confirm");
     Some(
         div()
@@ -265,7 +267,7 @@ fn foot(t: &Tokens, v: &DialogView) -> Option<AnyElement> {
         .map(|f| match f.strip_prefix("From a script: ") {
             Some(cmd) => div().flex().gap(px(4.)).child("From a script:").child(mono(
                 SharedString::from(cmd.to_owned()),
-                12.,
+                ty::SM,
                 t.bright,
             )),
             None => div().child(s(f)),
@@ -274,7 +276,7 @@ fn foot(t: &Tokens, v: &DialogView) -> Option<AnyElement> {
         div()
             .flex()
             .flex_col()
-            .text_size(px(12.))
+            .text_size(px(ty::SM))
             .text_color(t.dim)
             .children(lines)
             .into_any_element(),
@@ -316,8 +318,12 @@ impl DialogView {
             .border_1()
             .border_color(border)
             .bg(bg)
-            .text_size(px(12.))
-            .font_weight(w(if b.primary || b.danger { 600. } else { 500. }))
+            .text_size(px(ty::SM))
+            .font_weight(if b.primary || b.danger {
+                ty::SEMIBOLD
+            } else {
+                ty::MEDIUM
+            })
             .text_color(fg)
             // The highlighted button rings, Cancel too (Go's focus ring); not while the name is being typed.
             .when(at && on && !self.c.has_box(), |d| {
@@ -331,7 +337,7 @@ impl DialogView {
             .when(on, |d| d.cursor_pointer())
             .child(s(&b.label))
             .when(!key.is_empty(), |d| {
-                d.child(kbd_plain(key, 11., key_c, 500.))
+                d.child(kbd_plain(key, ty::XS, key_c, ty::MEDIUM))
             })
             .on_mouse_move(cx.listener(move |this, _, _, cx| {
                 if this.c.at != i {
@@ -389,12 +395,12 @@ impl Render for DialogView {
             .bg(t.panel)
             .shadow(super::shadow(&t))
             .font_family(UI_FAMILY)
-            .text_size(px(13.))
-            .line_height(px(19.))
+            .text_size(px(ty::BASE))
+            .line_height(px(ty::LH_19))
             .child(
                 div()
-                    .text_size(px(16.))
-                    .font_weight(w(650.))
+                    .text_size(px(ty::LG))
+                    .font_weight(ty::HEADING)
                     .text_color(t.bright)
                     .child(s(&d.title)),
             )

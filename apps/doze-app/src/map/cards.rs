@@ -10,8 +10,8 @@ use gpui::{
 
 use super::MapView;
 use crate::model::Row;
-use crate::theme::{Tokens, alpha, mix};
-use crate::widgets::{MONO_FAMILY, tracked, w};
+use crate::theme::{Tokens, alpha, mix, ty};
+use crate::widgets::{MONO_FAMILY, tracked};
 
 /// Lengths scaled by the zoom.
 #[derive(Clone, Copy)]
@@ -44,7 +44,7 @@ pub(crate) fn state_dot(t: &Tokens, size: gpui::Pixels, r: Option<&Row>) -> AnyE
 fn task_glyph(t: &Tokens, z: Z, r: &Row) -> AnyElement {
     div()
         .w(z.p(8.))
-        .text_size(z.p(12.))
+        .text_size(z.p(ty::SM))
         .text_color(t.tone(r.look.tone()))
         .child(r.look.glyph())
         .into_any_element()
@@ -61,8 +61,8 @@ fn badge(t: &Tokens, z: Z, text: String) -> gpui::Div {
         .border_1()
         .border_color(t.line)
         .font_family(MONO_FAMILY)
-        .text_size(z.p(10.))
-        .font_weight(w(600.))
+        .text_size(z.p(ty::MICRO))
+        .font_weight(ty::SEMIBOLD)
         .text_color(t.dim)
         .child(SharedString::from(text))
 }
@@ -70,9 +70,9 @@ fn badge(t: &Tokens, z: Z, text: String) -> gpui::Div {
 fn top_row(t: &Tokens, z: Z, c: &Card, r: Option<&Row>) -> impl IntoElement {
     let name = div()
         .flex_none()
-        .text_size(z.p(14.))
-        .line_height(z.p(20.))
-        .font_weight(w(650.))
+        .text_size(z.p(ty::MD))
+        .line_height(z.p(ty::LH))
+        .font_weight(ty::HEADING)
         .text_color(t.bright)
         .whitespace_nowrap()
         .child(SharedString::from(c.name.clone()));
@@ -101,7 +101,7 @@ fn top_row(t: &Tokens, z: Z, c: &Card, r: Option<&Row>) -> impl IntoElement {
             div()
                 .ml_auto()
                 .flex_none()
-                .text_size(z.p(12.))
+                .text_size(z.p(ty::SM))
                 .text_color(t.dim)
                 .child(SharedString::from(mem)),
         );
@@ -124,7 +124,7 @@ fn frame(t: &Tokens, z: Z, c: &Card, at: (f32, f32), radius: f32) -> gpui::Div {
         .border_color(t.line)
         .bg(t.panel)
         .text_color(t.text)
-        .line_height(z.p(20.))
+        .line_height(z.p(ty::LH))
 }
 
 fn ring(t: &Tokens, z: Z, strong: bool) -> Vec<BoxShadow> {
@@ -165,7 +165,7 @@ fn chips(t: &Tokens, z: Z, m: &MapView, c: &Card, mark: Mark) -> gpui::Div {
             .h(z.p(20.))
             .px(z.p(7.))
             .rounded(z.p(10.))
-            .text_size(z.p(11.5));
+            .text_size(z.p(ty::XS_UP));
         let d = if mark.sel {
             d.bg(t.accent).text_color(t.on_accent)
         } else {
@@ -188,7 +188,7 @@ fn chips(t: &Tokens, z: Z, m: &MapView, c: &Card, mark: Mark) -> gpui::Div {
         row = row.child(
             div()
                 .flex_none()
-                .text_size(z.p(11.5))
+                .text_size(z.p(ty::XS_UP))
                 .text_color(color)
                 .child(SharedString::from(word)),
         );
@@ -200,7 +200,7 @@ fn chips(t: &Tokens, z: Z, m: &MapView, c: &Card, mark: Mark) -> gpui::Div {
         row = row.child(
             div()
                 .flex_none()
-                .text_size(z.p(11.5))
+                .text_size(z.p(ty::XS_UP))
                 .text_color(t.dim)
                 .child(SharedString::from(format!("+{}", c.more))),
         );
@@ -212,8 +212,8 @@ fn chips(t: &Tokens, z: Z, m: &MapView, c: &Card, mark: Mark) -> gpui::Div {
             div()
                 .ml_auto()
                 .flex_none()
-                .text_size(z.p(11.5))
-                .font_weight(w(700.))
+                .text_size(z.p(ty::XS_UP))
+                .font_weight(ty::BOLD)
                 .text_color(color)
                 .child(glyph),
         );
@@ -258,8 +258,8 @@ fn shared_card(t: &Tokens, z: Z, m: &MapView, c: &Card, at: (f32, f32), mark: Ma
     let line = || {
         div()
             .w_full()
-            .text_size(z.p(12.))
-            .line_height(z.p(20.))
+            .text_size(z.p(ty::SM))
+            .line_height(z.p(ty::LH))
             .text_color(t.dim)
             .whitespace_nowrap()
             .overflow_hidden()
@@ -274,7 +274,7 @@ fn shared_card(t: &Tokens, z: Z, m: &MapView, c: &Card, at: (f32, f32), mark: Ma
         .flex()
         .child(
             div()
-                .font_weight(w(600.))
+                .font_weight(ty::SEMIBOLD)
                 .text_color(t.text)
                 .child(SharedString::from(match users {
                     0 => "nothing uses it".to_string(),
@@ -353,7 +353,7 @@ pub(crate) fn captions(t: &Tokens, m: &MapView) -> Vec<AnyElement> {
                 .flex()
                 .items_center()
                 .h(z.p(16.))
-                .line_height(z.p(16.))
+                .line_height(z.p(ty::LH_16))
                 .px(z.p(4.))
                 .rounded(z.p(4.))
                 .bg(if in_band {
@@ -362,11 +362,11 @@ pub(crate) fn captions(t: &Tokens, m: &MapView) -> Vec<AnyElement> {
                     t.well
                 })
                 .whitespace_nowrap()
-                .child(tracked(&c.text, 11. * z.0, 700., t.dim, 1.1 * z.0))
+                .child(tracked(&c.text, ty::XS * z.0, ty::BOLD, t.dim, 1.1 * z.0))
                 .child(
                     div()
                         .ml(z.p(6.))
-                        .text_size(z.p(11.))
+                        .text_size(z.p(ty::XS))
                         .text_color(alpha(t.dim, 0.85))
                         .child(SharedString::from(c.sub.clone())),
                 )
@@ -383,7 +383,7 @@ pub(crate) fn labels(
     on: Option<&[bool]>,
 ) -> Vec<AnyElement> {
     let z = m.cam.zoom;
-    let size = (14.0 * z).max(9.0);
+    let size = (ty::MD * z).max(ty::TAG);
     vis.iter()
         .filter_map(|&id| {
             let c = m.layout.card(id)?;
@@ -407,8 +407,8 @@ pub(crate) fn labels(
                     .overflow_hidden()
                     .whitespace_nowrap()
                     .text_size(px(size))
-                    .line_height(px(size + 2.0))
-                    .font_weight(w(600.))
+                    .line_height(px(size + ty::TIGHT_LEAD))
+                    .font_weight(ty::SEMIBOLD)
                     .text_color(color)
                     .child(SharedString::from(name))
                     .into_any_element(),
