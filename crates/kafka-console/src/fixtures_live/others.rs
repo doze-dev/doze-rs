@@ -169,6 +169,7 @@ pub fn first() -> FirstView {
         profile: "Kafka 4 profile".into(),
         listen: "127.0.0.1:9092".into(),
         versions: vec![("ApiVersions", 3), ("Metadata", 12)],
+        produce: crate::live_words::first_produce("127.0.0.1:9092", "admin-cli"),
     }
 }
 

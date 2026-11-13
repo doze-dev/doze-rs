@@ -12,4 +12,9 @@ rows: Array<WireRow>,
 /**
  * Whether every request of it was answered without an error.
  */
-all_answered: boolean, refused: number, topics_listed: number | null, profile: string, listen: string, versions: Array<[string, number]>, };
+all_answered: boolean, refused: number, topics_listed: number | null, profile: string, listen: string, versions: Array<[string, number]>, 
+/**
+ * The command the page offers next: `kcat` sending one record as this client, every word from data quoted for a shell
+ * (`live_words::first_produce`). Made here, never on the page, so a hostile client id cannot land in a terminal.
+ */
+produce: string, };

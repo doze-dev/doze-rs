@@ -225,6 +225,16 @@ pub fn keyed_produce(addr: &str, topic: &str, client: &str) -> String {
     )
 }
 
+/// `kcat` sending one record to `orders` as `client`: the first-request page's next step.
+#[must_use]
+pub fn first_produce(addr: &str, client: &str) -> String {
+    format!(
+        "echo hi | kcat -P -b {} -t orders -X client.id={}",
+        shell_word(addr),
+        shell_word(client)
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -236,6 +246,72 @@ mod tests {
         assert_eq!(shell_word("x'; rm -rf /; '"), "'x'\\''; rm -rf /; '\\'''");
         assert_eq!(shell_word(""), "''");
         assert_eq!(shell_word("$(id)"), "'$(id)'");
+    }
+
+    /// Ids a client may send that a shell would act on if they were pasted bare.
+    const HOSTILE: [&str; 9] = [
+        "x; open -a Calculator #",
+        "$(touch /tmp/doze-pwned)",
+        "`touch /tmp/doze-pwned`",
+        "a'b",
+        "a\"b",
+        "line\nnext",
+        "two words",
+        "x | sh",
+        "''",
+    ];
+
+    #[test]
+    fn the_first_request_command_quotes_the_client_id() {
+        assert_eq!(
+            first_produce("127.0.0.1:9092", "admin-cli"),
+            "echo hi | kcat -P -b 127.0.0.1:9092 -t orders -X client.id=admin-cli"
+        );
+        assert_eq!(
+            first_produce("127.0.0.1:9092", "x; open -a Calculator #"),
+            "echo hi | kcat -P -b 127.0.0.1:9092 -t orders -X client.id='x; open -a Calculator #'"
+        );
+        for id in HOSTILE {
+            let c = first_produce("127.0.0.1:9092", id);
+            assert!(c.ends_with(&format!("client.id={}", shell_word(id))), "{c}");
+        }
+    }
+
+    /// A real shell reads the words of the command after `kcat` back to exactly what they were: the id is one word, and
+    /// nothing in it runs.
+    #[cfg(unix)]
+    #[test]
+    fn a_shell_reads_every_hostile_id_back_as_one_word_and_runs_none_of_it() {
+        for id in HOSTILE {
+            let c = first_produce("127.0.0.1:9092", id);
+            let (_, args) = c.split_once("kcat ").unwrap();
+            let out = std::process::Command::new("/bin/sh")
+                .arg("-c")
+                .arg(format!("set -- {args}; printf '%s\\0' \"$@\""))
+                .output()
+                .unwrap();
+            assert!(out.status.success(), "{id:?}: {c}");
+            let words: Vec<&[u8]> = out
+                .stdout
+                .split(|b| *b == 0)
+                .filter(|w| !w.is_empty())
+                .collect();
+            let want = format!("client.id={id}");
+            assert_eq!(
+                words,
+                [
+                    &b"-P"[..],
+                    b"-b",
+                    b"127.0.0.1:9092",
+                    b"-t",
+                    b"orders",
+                    b"-X",
+                    want.as_bytes()
+                ],
+                "{id:?}: {c}"
+            );
+        }
+        assert!(!std::path::Path::new("/tmp/doze-pwned").exists());
     }
 
     #[test]

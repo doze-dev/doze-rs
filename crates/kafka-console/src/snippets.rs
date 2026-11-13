@@ -53,7 +53,10 @@ pub fn for_address(addr: &str) -> Vec<ClientSnippet> {
             tag: "c · py",
             code: vec![
                 mixed(&[(Comment, "# kcat")]),
-                plain(&format!("kcat -b {addr} -X client.id=admin-cli -L")),
+                plain(&format!(
+                    "kcat -b {} -X client.id=admin-cli -L",
+                    crate::live_words::shell_word(addr)
+                )),
                 Vec::new(),
                 mixed(&[(Comment, "# librdkafka properties")]),
                 plain(&format!("bootstrap.servers={addr}")),
@@ -90,7 +93,10 @@ pub fn for_address(addr: &str) -> Vec<ClientSnippet> {
 /// The command the Home card suggests: ask the broker what it has, naming the client.
 #[must_use]
 pub fn first_command(addr: &str) -> String {
-    format!("kcat -b {addr} -X client.id=admin-cli -L")
+    format!(
+        "kcat -b {} -X client.id=admin-cli -L",
+        crate::live_words::shell_word(addr)
+    )
 }
 
 #[cfg(test)]
