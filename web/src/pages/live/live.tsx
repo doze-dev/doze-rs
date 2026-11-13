@@ -429,7 +429,7 @@ export function LivePage() {
                 <ArrowUpIcon /> <span className="tabular-nums">{number(tail.heldCount)}</span> new · Show
               </Button>
             )}
-            <Tape rows={rows} layout="live" filter={filterBy} empty={empty} maxHeight={TAPE_HEIGHT} label="The wire" onOpen={(row) => openOverlay({ request: row.id })} testId="tape" />
+            <Tape rows={rows} layout="live" filter={filterBy} empty={empty} maxHeight={TAPE_HEIGHT} label="The wire" onOpen={(row) => openOverlay({ request: row.id })} testId="tape" tail={on} />
           </div>
           <div className="flex flex-wrap items-center justify-end gap-3 text-[13px] text-muted-foreground" data-testid="pager">
             <span className="whitespace-nowrap tabular-nums">

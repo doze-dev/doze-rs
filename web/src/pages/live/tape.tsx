@@ -193,7 +193,7 @@ export function useFit(el: HTMLElement | null): Fit {
 }
 
 /** A table of requests: a DataTable in one of the layouts. */
-export function Tape({ rows, layout, filter, empty, maxHeight, label, onOpen, testId }: { rows: TapeRow[]; layout: Layout; filter?: FilterBy; empty?: React.ReactNode; maxHeight?: number; label: string; onOpen?: (r: TapeRow) => void; testId?: string }) {
+export function Tape({ rows, layout, filter, empty, maxHeight, label, onOpen, testId, tail = false }: { rows: TapeRow[]; layout: Layout; filter?: FilterBy; empty?: React.ReactNode; maxHeight?: number; label: string; onOpen?: (r: TapeRow) => void; testId?: string; /** Rows arrive at the top. */ tail?: boolean }) {
   const [el, setEl] = useState<HTMLDivElement | null>(null);
   const fit = useFit(el);
   // The columns are made once per layout, width and filter: a cell renderer of a new identity would remount every cell
@@ -201,7 +201,7 @@ export function Tape({ rows, layout, filter, empty, maxHeight, label, onOpen, te
   const columns = useMemo(() => tapeColumns(layout, fit, filter), [layout, fit, filter]);
   return (
     <div ref={setEl} className="min-w-0" data-testid={testId}>
-      <DataTable data={rows} columns={columns} rowId={(r) => String(r.id)} empty={empty} maxHeight={maxHeight} aria-label={label} onRowClick={onOpen} className="tape" />
+      <DataTable data={rows} columns={columns} rowId={(r) => String(r.id)} empty={empty} maxHeight={maxHeight} aria-label={label} onRowClick={onOpen} className="tape" anchorTop={tail} />
     </div>
   );
 }

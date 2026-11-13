@@ -129,14 +129,23 @@ test("Live is a snapshot by default: one h1, the figures in tiles, Snapshot chos
   expect(await rowsOf(page).evaluateAll((rs) => rs.map((r) => r.getAttribute("data-row")))).toEqual(before);
 });
 
-test("the tail: batches never faster than the pace, existing rows never rewritten, new rows highlighted, the page around it still", async ({ page }) => {
+test("the tail: batches never faster than the pace, existing rows never rewritten, new rows highlighted, the page around it still", async ({ page, browserName }) => {
   await openLive(page);
   await tailOn(page);
   const selectors = ["h1", "[data-slot=stat-strip]", "[data-testid=refusals]", "[data-testid=live-toolbar]", "[data-testid=tail-bar]", "thead"];
   const before = await boxes(page, selectors);
   await page.evaluate(() => {
-    const w = window as unknown as { __batches: number[]; __old: Map<string, [Element, string]>; __fresh: number };
+    const w = window as unknown as { __batches: number[]; __old: Map<string, [Element, string]>; __fresh: number; __ls: number };
     w.__batches = [];
+    // Layout shift (Chromium has the API): rows prepended at the top must not shift the rows on screen (CON-1350).
+    w.__ls = 0;
+    try {
+      new PerformanceObserver((l) => {
+        for (const e of l.getEntries() as unknown as { value: number; hadRecentInput: boolean }[]) if (!e.hadRecentInput) w.__ls += e.value;
+      }).observe({ type: "layout-shift", buffered: false });
+    } catch {
+      w.__ls = -1;
+    }
     w.__fresh = 0;
     w.__old = new Map();
     for (const tr of document.querySelectorAll("[data-testid=tape] tbody tr[data-row]")) w.__old.set(tr.getAttribute("data-row")!, [tr, tr.outerHTML]);
@@ -147,7 +156,7 @@ test("the tail: batches never faster than the pace, existing rows never rewritte
   });
   await sleep(20_000);
   const r = await page.evaluate(() => {
-    const w = window as unknown as { __batches: number[]; __old: Map<string, [Element, string]> };
+    const w = window as unknown as { __batches: number[]; __old: Map<string, [Element, string]>; __ls: number };
     let replaced = 0;
     let rewritten = 0;
     for (const [id, [node, html]] of w.__old) {
@@ -159,8 +168,9 @@ test("the tail: batches never faster than the pace, existing rows never rewritte
     }
     const fresh = document.querySelectorAll("[data-testid=tape] tbody tr:has([data-fresh])").length;
     const freshOld = [...w.__old.values()].filter(([n]) => n.querySelector("[data-fresh]")).length;
-    return { batches: w.__batches, replaced, rewritten, fresh, freshOld };
+    return { batches: w.__batches, replaced, rewritten, fresh, freshOld, ls: w.__ls };
   });
+  if (browserName === "chromium") expect(r.ls, "layout shift while tailing at the top").toBeLessThan(0.01);
   expect(r.batches.length, "the traffic made batches").toBeGreaterThanOrEqual(2);
   const gaps = r.batches.slice(1).map((t, i) => t - r.batches[i]!);
   for (const g of gaps) expect(g, `gaps ${gaps.map(Math.round).join(", ")} ms`).toBeGreaterThanOrEqual(2900);

@@ -161,7 +161,7 @@ test("Older asks for more records, in the address", async ({ page }) => {
   await expect(rows(page)).toHaveCount(10);
 });
 
-test("the Live tail: new rows at the top, no row rewritten, the header stable, held behind a pill while hovered", async ({ page }) => {
+test("the Live tail: new rows at the top, no row rewritten, the header stable, held behind a pill while hovered", async ({ page, browserName }) => {
   test.setTimeout(120_000);
   await page.goto("/topics/orders/messages");
   await expect(rows(page).first()).toBeVisible();
@@ -176,6 +176,18 @@ test("the Live tail: new rows at the top, no row rewritten, the header stable, h
   const topEl = await top.elementHandle();
   const topText = await top.innerText();
   const box = await pageBoxes(page, ["[data-testid=toolbar]", "[data-testid=filter-line]", "thead"]);
+  // Layout shift (Chromium): the prepended rows shift nothing on screen (CON-1350).
+  await page.evaluate(() => {
+    const w = window as unknown as { __ls: number };
+    w.__ls = 0;
+    try {
+      new PerformanceObserver((l) => {
+        for (const e of l.getEntries() as unknown as { value: number; hadRecentInput: boolean }[]) if (!e.hadRecentInput) w.__ls += e.value;
+      }).observe({ type: "layout-shift", buffered: false });
+    } catch {
+      w.__ls = -1;
+    }
+  });
   const recordsTile = page.locator("[data-slot=stat]", { hasText: "Records" }).locator("[data-slot=stat-value]");
   const recordsBefore = Number((await recordsTile.innerText()).replace(/\D/g, ""));
   await produce("orders", 3, "tail-a");
@@ -187,6 +199,7 @@ test("the Live tail: new rows at the top, no row rewritten, the header stable, h
   expect(await topEl!.evaluate((el) => (el as HTMLElement).innerText)).toBe(topText);
   expect(await page.locator(`tr[data-row="${topId}"]`).elementHandle().then((h) => h!.evaluate((el, old) => el === old, topEl))).toBe(true);
   expect(await pageBoxes(page, ["[data-testid=toolbar]", "[data-testid=filter-line]", "thead"])).toEqual(box);
+  if (browserName === "chromium") expect(await page.evaluate(() => (window as unknown as { __ls: number }).__ls), "layout shift while tailing at the top").toBeLessThan(0.01);
   // Hovering the table holds what comes next behind the pill; the rows on screen stay where they are.
   await page.getByTestId("records").locator("tbody tr").nth(2).hover();
   const heldTop = await rows(page).first().getAttribute("data-row");

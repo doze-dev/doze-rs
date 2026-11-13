@@ -14,8 +14,9 @@ type Case = {
   keys?: (p: Page) => Promise<void>;
   /** Opens by the mouse (default: a click on the opener). */
   click?: (p: Page) => Promise<void>;
-  /** Makes what the overlay needs (a rule, an ACL). */
+  /** Makes what the overlay needs (a rule, an ACL), and takes it away after. */
   before?: (p: Page, baseURL: string) => Promise<void>;
+  after?: (p: Page, baseURL: string) => Promise<void>;
 };
 
 async function labRule(p: Page, baseURL: string) {
@@ -26,11 +27,20 @@ async function labRule(p: Page, baseURL: string) {
   expect(made.status).toBe(200);
 }
 
+// An ACL on a topic no other test uses (an ACL on a topic denies everyone else it does not name), deleted after the test.
+const ACL = { principal: "User:focus-return", host: "*", type: "topic", pattern: "literal", name: "focus-return-nobody", op: "read", perm: "allow" };
 async function acl(p: Page, baseURL: string) {
   const a = await apiGet(p.request, "/api/v1/access");
-  if (a.access.acls.rows.some((r: { principal: string }) => r.principal === "User:focus-return")) return;
-  const made = await apiPost(p.request, baseURL, "/api/v1/access/acls/new", { principal: "User:focus-return", host: "*", type: "topic", pattern: "literal", name: "orders", op: "read", perm: "allow" });
+  if (a.access.acls.rows.some((r: { principal: string }) => r.principal === ACL.principal)) return;
+  const made = await apiPost(p.request, baseURL, "/api/v1/access/acls/new", ACL);
   expect(made.status).toBe(200);
+}
+async function noAcl(p: Page, baseURL: string) {
+  await apiPost(p.request, baseURL, "/api/v1/access/acls/delete", ACL);
+}
+async function noLabRule(p: Page, baseURL: string) {
+  const home = await apiGet(p.request, "/api/v1/lab");
+  for (const r of home.home.active) if (r.sentence?.includes("focus-return-nobody") || r.client === "focus-return-nobody") await apiPost(p.request, baseURL, `/api/v1/lab/rules/${r.id}/remove`, {});
 }
 
 const menu = (name: string) => ({
@@ -61,9 +71,9 @@ const CASES: Case[] = [
   { name: "Group: Delete offsets", url: "/groups/fulfilment", opener: (p) => p.getByTestId("open-delete-offsets"), overlay: "dialog-delete-offsets" },
   { name: "Lab: New rehearsal", url: "/lab", opener: (p) => p.getByTestId("lab-new").first(), overlay: "lab-dialog" },
   { name: "Lab: rule sheet", url: "/lab", opener: (p) => p.getByTestId("rule-open").first(), overlay: "lab-rule-sheet", before: labRule },
-  { name: "Lab: Remove rule", url: "/lab", opener: (p) => p.getByTestId("rule-remove").first(), overlay: "lab-remove-dialog", before: labRule },
+  { name: "Lab: Remove rule", url: "/lab", opener: (p) => p.getByTestId("rule-remove").first(), overlay: "lab-remove-dialog", before: labRule, after: noLabRule },
   { name: "Access: Create ACL", url: "/access", opener: (p) => p.getByTestId("acl-create"), overlay: "acl-create-dialog" },
-  { name: "Access: Delete ACL", url: "/access", opener: (p) => p.getByTestId("acl-delete").first(), overlay: "acl-delete-dialog", before: acl },
+  { name: "Access: Delete ACL", url: "/access", opener: (p) => p.getByTestId("acl-delete").first(), overlay: "acl-delete-dialog", before: acl, after: noAcl },
   { name: "Settings: Edit", url: "/settings", opener: (p) => p.getByTestId("edit-log.segment.bytes"), overlay: "settings-edit" },
 ];
 
@@ -97,6 +107,7 @@ for (const c of CASES) {
     await page.getByTestId(c.overlay).getByRole("button", { name: "Close", exact: true }).last().click();
     await expect(page.getByTestId(c.overlay)).toHaveCount(0);
     await expect(opener).toBeFocused();
+    await c.after?.(page, baseURL!);
   });
 }
 

@@ -1,7 +1,7 @@
 import { type ColumnDef, flexRender, getCoreRowModel, getSortedRowModel, type SortingState, useReactTable } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { ArrowDownIcon, ArrowUpIcon } from "lucide-react";
-import { useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
 /** Past this many rows the body is virtual: only the rows in view are in the DOM. */
@@ -28,7 +28,7 @@ export type DataColumn<T> = ColumnDef<T> & {
 /** A table whose layout never depends on its rows (CON-808): fixed column widths, one line per cell with an ellipsis and the
  * whole value on hover (`title`), a sticky header, stable row ids (React keys), numbers right-aligned in tabular figures,
  * a fixed row height, and a virtual body past {@link VIRTUAL_FROM} rows. */
-export function DataTable<T>({ data, columns, rowId, empty, maxHeight = 560, className, "aria-label": ariaLabel, onRowClick, rowHeight = ROW, rowClassName }: { data: T[]; columns: DataColumn<T>[]; rowId: (row: T) => string; empty?: React.ReactNode; maxHeight?: number; className?: string; "aria-label"?: string; onRowClick?: (row: T) => void; /** px; 40 unless a row holds two lines. */ rowHeight?: number; /** A class per row (a new row of a tail is highlighted). */ rowClassName?: (row: T) => string | undefined }) {
+export function DataTable<T>({ data, columns, rowId, empty, maxHeight = 560, className, "aria-label": ariaLabel, onRowClick, rowHeight = ROW, rowClassName, anchorTop = false }: { data: T[]; columns: DataColumn<T>[]; rowId: (row: T) => string; empty?: React.ReactNode; maxHeight?: number; className?: string; "aria-label"?: string; onRowClick?: (row: T) => void; /** px; 40 unless a row holds two lines. */ rowHeight?: number; /** A class per row (a new row of a tail is highlighted). */ rowClassName?: (row: T) => string | undefined; /** A tail: rows prepended at the top do not push the rows on screen (see below). */ anchorTop?: boolean }) {
   const [sorting, setSorting] = useState<SortingState>([]);
   // TanStack Table returns functions that change identity on purpose; the React compiler lint knows and says so.
   // `defaultColumn`: TanStack gives a column with no size 150 px; here no size means the column that takes the rest.
@@ -42,6 +42,29 @@ export function DataTable<T>({ data, columns, rowId, empty, maxHeight = 560, cla
   const shown = virtual ? items.map((i) => ({ row: rows[i.index]!, at: i.index })) : rows.map((row, at) => ({ row, at }));
   const padTop = virtual && items.length ? items[0]!.start : 0;
   const padBottom = virtual && items.length ? v.getTotalSize() - items[items.length - 1]!.end : 0;
+  // A tail prepends rows while the reader is at the top. Pushed down by the new rows, every row on screen would shift (the
+  // audit measured a layout shift of 0.37 to 0.56 in Chromium). Instead the box is scrolled by the height added, in the same
+  // frame (so nothing on screen moves), then glides back to the top: a scroll, not a shift, and the new rows slide in from
+  // above. With reduced motion it returns at once.
+  const firstId = rows[0]?.id;
+  const anchor = useRef<{ id: string; top: number } | null>(null);
+  useLayoutEffect(() => {
+    if (!anchorTop) return;
+    const sc = scroller.current;
+    if (!sc) return;
+    const was = anchor.current;
+    if (was && firstId !== was.id && sc.scrollTop <= 2) {
+      const el = sc.querySelector<HTMLElement>(`tr[data-row="${CSS.escape(was.id)}"]`);
+      const delta = el ? el.offsetTop - was.top : 0;
+      if (delta > 0) {
+        sc.scrollTop = delta;
+        const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        requestAnimationFrame(() => sc.scrollTo({ top: 0, behavior: calm ? "auto" : "smooth" }));
+      }
+    }
+    const top = firstId ? sc.querySelector<HTMLElement>(`tr[data-row="${CSS.escape(firstId)}"]`) : null;
+    anchor.current = firstId && top ? { id: firstId, top: top.offsetTop } : null;
+  }, [anchorTop, firstId]);
   const cols = table.getVisibleLeafColumns();
   const widths = cols.map((c) => {
     const size = (c.columnDef as DataColumn<T>).size;

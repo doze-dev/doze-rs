@@ -446,6 +446,7 @@ function Records({ topic, r, frame, tail, tailable, search, set, open, children 
         maxHeight={680}
         onRowClick={open}
         rowClassName={(x) => (t.fresh.has(rowId(x)) ? "row-new" : undefined)}
+        anchorTop={tail}
         empty={filtered ? "No record matches these filters." : "No records to list."}
       />
       <div className="mt-3 flex min-h-9 items-center justify-end gap-3 text-[13px] text-muted-foreground tabular-nums" data-testid="pager">
