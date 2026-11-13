@@ -306,7 +306,7 @@ export function TopicConfigTab({ topic }: { topic: string }) {
             </button>
           )}
         </div>
-        <ToggleGroup type="single" variant="outline" value={search.show ?? "all"} onValueChange={(v) => v && set({ show: v === "all" ? undefined : (v as Show) })} aria-label="Show" data-testid="config-chips">
+        <ToggleGroup type="single" variant="outline" value={search.show ?? "all"} onValueChange={(v) => v && set({ show: v === "all" ? undefined : (v as Show) }, false)} aria-label="Show" data-testid="config-chips">
           <ToggleGroupItem value="all" className="gap-1.5 px-3">
             All <span className="text-muted-foreground tabular-nums">{counts ? number(counts.all) : ""}</span>
           </ToggleGroupItem>
