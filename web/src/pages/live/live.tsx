@@ -41,7 +41,8 @@ function stats(r: LiveResponse): Stat[] {
     { label: "Requests, last minute", value: number(v.last_minute), ch: 7 },
     { label: "Rows kept", value: number(v.window.rows), unit: `of ${number(v.window.capacity)}`, ch: 6 },
     { label: "Reaches back to", value: v.window.oldest_ms ? hhmmUtc(v.window.oldest_ms) : "none", unit: "UTC", mono: true, ch: 5, tip: "The oldest row kept; the wire starts empty at every start" },
-    { label: "Clients", value: number(v.clients), unit: "connected now", ch: 5 },
+    // One definition with the Clients sheet: a client is a client.id with a connection open; its connections are the unit.
+    { label: "Clients", value: number(v.clients), unit: v.connections === 1 ? "1 connection" : `${number(v.connections)} connections`, ch: 5 },
   ];
 }
 

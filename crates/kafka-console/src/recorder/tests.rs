@@ -322,6 +322,9 @@ fn clients_are_the_connections_that_are_open_grouped_by_client_id() {
     assert_eq!((c.connections, c.rows.len()), (2, 1));
     assert_eq!((c.rows[0].more, c.rows[0].requests), (1, 2));
     assert_eq!(c.rows[0].apis, vec![("Produce", 9)]);
+    // Live's Clients figure is the sheet's: one client (a client.id), two connections (CON-1344).
+    let t = rec.tape(&WireQuery::default(), now_ms());
+    assert_eq!((t.clients, t.connections), (c.rows.len(), c.connections));
     rec.closed(ConnId(1), "the client closed the connection");
     rec.closed(ConnId(2), "the client closed the connection");
     assert_eq!(rec.clients(now_ms()).connections, 0);

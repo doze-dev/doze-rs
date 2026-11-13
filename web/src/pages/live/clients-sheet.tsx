@@ -29,7 +29,7 @@ export function ClientsSheet({ open, onClose }: { open: boolean; onClose: () => 
           ) : (
             <>
               <p className="mb-2 text-[12.5px] text-muted-foreground" data-testid="clients-count">
-                {plural(v.rows.length, "client")} · {plural(v.connections, "connection")} · as of {clockUtc(v.now_ms)} UTC
+                {plural(v.rows.length, "client")} · {plural(v.connections, "connection")} · <span className="whitespace-nowrap">as of {clockUtc(v.now_ms)} UTC</span>
               </p>
               <ul className="flex flex-col" data-testid="clients">
                 {v.rows.map((c) => (
@@ -54,7 +54,7 @@ export function ClientsSheet({ open, onClose }: { open: boolean; onClose: () => 
                           .map(([a, n]) => `${a} v${n}`)
                           .join(" · ")}
                       </span>{" "}
-                      · last request at <span className="font-mono">{clockUtc(c.last_ms)}</span> UTC
+                      · <span className="whitespace-nowrap">last request at <span className="font-mono">{clockUtc(c.last_ms)}</span> UTC</span>
                       {c.errors > 0 && ` · ${number(c.errors)} of ${number(c.requests)} not answered cleanly`}
                     </p>
                   </li>

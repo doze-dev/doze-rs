@@ -23,9 +23,13 @@ refused: Array<WireRefusal>,
  */
 refused_more: number, refused_total: number, denied_total: number, 
 /**
- * Clients connected now.
+ * Clients connected now: the distinct `client.id`s with a connection open (the Clients sheet's rows).
  */
 clients: number, 
+/**
+ * The connections open now (a client may hold several).
+ */
+connections: number, 
 /**
  * Requests in the last minute.
  */

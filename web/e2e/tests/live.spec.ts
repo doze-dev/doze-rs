@@ -312,6 +312,13 @@ test("the clients Sheet: who is connected, and a name filters the tape", async (
   await expect(page).toHaveURL(/clients=/);
   const sheet = page.getByTestId("clients-sheet");
   await expect(sheet.getByTestId("clients")).toContainText("e2e-orders");
+  // One definition (CON-1344): the tile, the button and the sheet count the same clients (client.ids) and connections.
+  const tile = page.locator("[data-slot=stat]", { hasText: "Clients" });
+  const [tileClients, tileConns] = [Number(await tile.locator("[data-slot=stat-value]").innerText()), Number((await tile.locator("div").last().innerText()).replace(/\D/g, ""))];
+  const sheetLine = await sheet.getByTestId("clients-count").innerText();
+  expect(Number(sheetLine.match(/(\d+) clients?/)![1])).toBe(tileClients);
+  expect(Number(sheetLine.match(/(\d+) connections?/)![1])).toBe(tileConns);
+  expect(Number((await page.getByTestId("open-clients").innerText()).replace(/\D/g, ""))).toBe(tileClients);
   await page.keyboard.press("Escape");
   await expect(page).not.toHaveURL(/clients=/);
   await page.getByTestId("open-clients").click();

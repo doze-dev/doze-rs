@@ -199,6 +199,7 @@ pub fn live(q: &WireQuery, hint: Option<&str>) -> LiveView {
         refused_total: 3,
         denied_total: 0,
         clients: 9,
+        connections: 11,
         last_minute: 14,
         busiest: Some(("clickstream".to_owned(), 412)),
         seen: 2000,
@@ -216,6 +217,7 @@ pub fn live(q: &WireQuery, hint: Option<&str>) -> LiveView {
             v.rows = vec![];
             v.matched = 0;
             v.clients = 0;
+            v.connections = 0;
             v.refused = vec![];
             v.refused_total = 0;
             v.window = WireWindow {
