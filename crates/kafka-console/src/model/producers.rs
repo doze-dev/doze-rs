@@ -3,7 +3,8 @@
 //! no other family of pages can meet them.
 
 /// A batch a producer wrote that the partition still remembers.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct ProdBatch {
     pub first_sequence: i32,
     pub last_sequence: i32,
@@ -23,7 +24,8 @@ impl ProdBatch {
 }
 
 /// The transaction a producer has open, as the producers table names it.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct ProdTxn {
     pub id: String,
     pub state: String,
@@ -32,7 +34,8 @@ pub struct ProdTxn {
 }
 
 /// One producer on the partition.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct ProdRow {
     pub id: i64,
     pub epoch: i16,
@@ -47,7 +50,8 @@ pub struct ProdRow {
 }
 
 /// A transaction that was aborted and that the partition still remembers.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct ProdAborted {
     pub producer: i64,
     pub partition: i32,
@@ -58,7 +62,9 @@ pub struct ProdAborted {
 }
 
 /// What an offset in the tail of the partition is.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "snake_case")]
 pub enum ProdCell {
     /// A record a `read_committed` consumer may read.
     Committed,
@@ -69,14 +75,16 @@ pub enum ProdCell {
 }
 
 /// The last offsets of the partition, one cell each.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct ProdTail {
     pub from: i64,
     pub cells: Vec<ProdCell>,
 }
 
 /// A transaction as ListTransactions and DescribeTransactions say it.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct TxnRow {
     pub id: String,
     pub state: String,
@@ -98,7 +106,8 @@ impl TxnRow {
 }
 
 /// The Producers page of one partition.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct ProducersView {
     pub topic: String,
     pub partitions: i32,
@@ -125,7 +134,8 @@ impl ProducersView {
 }
 
 /// How much of the topic a transaction holds back on one partition.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct TxnPart {
     pub partition: i32,
     /// The offset it began at on this partition, where the partition says.
@@ -145,7 +155,8 @@ impl TxnPart {
 }
 
 /// The page of one transaction (`txn-open`), and what it holds back (`txn-holding`).
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct TxnView {
     pub topic: String,
     pub partitions: i32,

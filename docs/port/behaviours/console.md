@@ -1087,3 +1087,65 @@ Search text (debounced), Apps, Topics and APIs as MultiSelects with the count of
 
 ## CON-1262. Every Live control works in Firefox, WebKit and Chromium, at every width
 The scenarios above run in the three engines with the mouse and the keyboard, fail on a console error, and no page scrolls sideways at 1024, 1280, 1440 and 1920 (snapshot, tail, under a Sheet); the tape's columns are chosen by the width of the table, never by its rows. Playwright "no page scrolls sideways at 1024 to 1920".
+# The React console, slice R1a: Topics, the read side (rules 1100 to 1149)
+
+Branch `react-r1a`. The API is `crates/kafka-console/src/api/topics.rs`; the pages are `web/src/pages/topics/` (one lazily loaded chunk);
+the browser specs are `web/e2e/tests/topics-list.spec.ts`, `messages.spec.ts` and `topic-tabs.spec.ts`. Slice R1b builds the writes and
+the Config tab on the frame this slice built (`pages/topics/frame.tsx`, the `TopicOverlays` and `TopicsOverlays` mounting points).
+
+## CON-1100. The Topics pages are the classic view-models, serialised
+`GET /api/v1/topics?q=&internal=1` (`TopicsView` and its state), `/api/v1/topics/{topic}` (`TopicFrame`: the `TopicHead` with its
+records, size, last write, held-back count, offline partitions and which actions the head carries), `/messages` (the `MessagesView` for
+the filters the classic page reads, with the reach sentence, whether a tail applies, the tail's cursor and the limit "Older" asks for),
+`/records/{p}/{o}`, `/consumers`, `/log?partition=`, `/producers?partition=`, `/transactions/{id}`, with the words Rust decides
+(the planner's and retention's rules, the transaction's sentences). Test: `the_topics_list_and_a_topics_frame_are_the_view_models_serialised`,
+`consumers_log_producers_and_a_transaction_answer_with_their_words`.
+
+## CON-1101. A name that is no topic, a record or a transaction that is not there, in the classic page's words
+A page's lookup (a topic's frame, a record, a transaction) that finds nothing answers 200 `{"missing": {code, message}}` with
+`UNKNOWN_TOPIC_OR_PARTITION`, `NO_SUCH_RECORD` or `TRANSACTIONAL_ID_NOT_FOUND` and the sentence the classic page says: "it is not there"
+is an answer, and a 404 would put an error in Chromium's and Safari's console on a page that works. The tabs of a topic wait for its
+frame, so a name that is no topic fetches nothing else; a tab's own address for no topic is still a 404 refusal. The pages
+show it (No such topic; the record Sheet says why; No transaction called ...). Test: `the_topics_list_and_a_topics_frame_are_the_view_models_serialised`;
+Playwright "the record Sheet ...", "Producers ...".
+
+## CON-1102. Every filter of Messages is in the address and reaches the broker only through MessageQuery
+Partitions (`?partition=0,2`), the one box (digits an offset, else a key), the time (a Popover with a field and quick choices), the
+isolation level and the limit are typed search params; the API reads them with the classic `MessageQuery::parse`, so a value it
+cannot use is a sentence on the page. Test: `messages_take_their_filters_from_the_query_and_a_record_is_whole`; Playwright
+"partitions, key and time ...", "isolation ...", "Older ...".
+
+## CON-1103. The record is a routed Sheet
+`?record=partition:offset` opens the Sheet over the Messages page (a deep link opens both); Esc, Close and Back close it and the focus
+goes back to the record's own button. JSON is laid out (Pretty) or as sent; binary is hex; headers and the producer, transaction and
+position facts are the classic drawer's. Playwright "the record Sheet: a row opens it with its own address, Esc and Back close it, a deep
+link opens it".
+
+## CON-1104. The Messages tail is opt-in, server-paced and resumable
+`GET /api/v1/tail/messages?topic=&pace=&since=` is server-sent events read over fetch (the API's `X-Console` proof): `ready` at once,
+then a `rows` event (JSON) only when a look found new rows, at most one per `pace` seconds (1 to 30; Realtime 1, Relaxed 3, Slow 10),
+its id the cursor; a reconnect sends `Last-Event-ID`. A key, an offset or a time is refused (a fixed read). One permit per stream.
+Test: `the_messages_tail_is_an_event_stream_that_starts_with_ready_and_refuses_a_fixed_read`.
+
+## CON-1105. A tail never rewrites a row, never moves the header, and holds while you read
+New rows are prepended by stable id with a 1.5 s highlight; rows on screen keep their DOM nodes; the header and the toolbar never move;
+while the table is scrolled, hovered, focused or has a selection, new rows wait behind an `N new · Show` pill; the indicator says
+Live, Connecting, Reconnecting or Disconnected with a countdown (backoff 1, 2, 4, 8, 15 s). Playwright "the Live tail: new rows at the
+top, no row rewritten, the header stable, held behind a pill while hovered".
+
+## CON-1106. Compact now is the Lab's real round, behind a confirm
+`POST /api/v1/topics/{topic}/log/compact?partition=` (same-origin proof) runs `gather::lab::compact`; the Log page's Dialog shows the
+planner's verdict first, or the sentence for why nothing can run; the outcome is a toast of what the round did or the refusal in the
+dialog. Without a live Lab it is `LAB_OFF`, 409. Test: `compact_now_is_a_post_with_the_proof_and_is_refused_without_a_live_lab`;
+Playwright "Compact now on a compacted topic ...".
+
+## CON-1107. The topic's frame is the same on every tab, and the tabs are routes
+Name, state words, actions (Partitions, Produce, Delete topic: the dialogs are `?dialog=` for R1b), the stat strip, a transaction region
+of the same height whether a transaction is open or not, and Messages, Log, Config, Consumers, Producers as `/topics/$topic/...` with
+their counts; switching tabs moves nothing above the tab body. Playwright "the frame: one h1, the stats, the transaction region, five
+tabs as routes, and a tab switch moves nothing above it".
+
+## CON-1108. The Topics list's filter and Show internal work, in the address
+The filter follows typing (replacing the history entry), Esc clears it, and nothing matching is its own state with Clear filter; Show
+internal is a shadcn Switch (mouse, label, keyboard) that adds `__consumer_offsets`; a reload keeps both. Playwright "Show internal: the
+switch works with the mouse and the keyboard ...", "the filter narrows the list as you type ...".

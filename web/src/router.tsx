@@ -7,6 +7,7 @@ import { TopBar } from "@/components/app/top-bar";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { ConnectPage } from "@/pages/connect";
 import { connectSearch, gallerySearch } from "@/lib/search";
+import { messagesSearch, partitionSearch, topicSearch, topicsSearch } from "@/lib/topic-search";
 import { HomePage } from "@/pages/home";
 import { liveSearch } from "@/pages/live/search";
 import { NotFoundPage, PlannedPage } from "@/pages/planned";
@@ -56,15 +57,20 @@ const firstRequest = createRoute({ getParentRoute: () => root, path: "/connect/f
 const planned = <const P extends string>(path: P, title: string, slice: string) =>
   createRoute({ getParentRoute: () => root, path, component: () => <PlannedPage title={title} slice={slice} classicPath={path} /> });
 
-const topic = createRoute({
-  getParentRoute: () => root,
-  path: "/topics/$topic",
-  component: function Topic() {
-    const { topic } = topic_.useParams();
-    return <PlannedPage title={topic} slice="R1" classicPath={`/topics/${encodeURIComponent(topic)}`} crumbs={[{ label: "Topics", to: "/topics" }]} />;
-  },
-});
-const topic_ = topic;
+// R1a: the Topics pages, one lazily loaded chunk (pages/topics/pages.ts). The frame is a layout route; each tab is a child.
+const topicsPage = (name: keyof typeof import("@/pages/topics/pages")) => lazyRouteComponent(() => import("@/pages/topics/pages"), name);
+const topics = createRoute({ getParentRoute: () => root, path: "/topics", validateSearch: topicsSearch, component: topicsPage("TopicsPage") });
+const topic = createRoute({ getParentRoute: () => root, path: "/topics/$topic", validateSearch: topicSearch, component: topicsPage("TopicLayout") });
+const topicIndex = createRoute({ getParentRoute: () => topic, path: "/", validateSearch: messagesSearch, component: topicsPage("MessagesPage") });
+const topicMessages = createRoute({ getParentRoute: () => topic, path: "/messages", validateSearch: messagesSearch, component: topicsPage("MessagesPage") });
+const topicPartitions = createRoute({ getParentRoute: () => topic, path: "/partitions", validateSearch: partitionSearch, component: topicsPage("PartitionsPage") });
+const topicLog = createRoute({ getParentRoute: () => topic, path: "/log", validateSearch: partitionSearch, component: topicsPage("LogPage") });
+const topicConfig = createRoute({ getParentRoute: () => topic, path: "/config", component: topicsPage("TopicConfigPage") });
+const topicConsumers = createRoute({ getParentRoute: () => topic, path: "/consumers", component: topicsPage("ConsumersPage") });
+const topicProducers = createRoute({ getParentRoute: () => topic, path: "/producers", validateSearch: partitionSearch, component: topicsPage("ProducersPage") });
+const topicTxn = createRoute({ getParentRoute: () => topic, path: "/transactions/$txn", component: topicsPage("TxnPage") });
+const topicTxnHeld = createRoute({ getParentRoute: () => topic, path: "/transactions/$txn/held", component: topicsPage("TxnHeldPage") });
+const topicTree = topic.addChildren([topicIndex, topicMessages, topicPartitions, topicLog, topicConfig, topicConsumers, topicProducers, topicTxn, topicTxnHeld]);
 // Groups (R2): the list, and a group whose tabs are routes under it. Each page is its own chunk.
 const groups = createRoute({ getParentRoute: () => root, path: "/groups", validateSearch: groupsSearch, component: lazyRouteComponent(() => import("@/pages/groups/list"), "GroupsPage") });
 const group = createRoute({ getParentRoute: () => root, path: "/groups/$group", validateSearch: groupSearch, component: lazyRouteComponent(() => import("@/pages/groups/layout"), "GroupLayout") });
@@ -81,8 +87,8 @@ const tree = root.addChildren([
   gallery,
   live,
   firstRequest,
-  planned("/topics", "Topics", "R1"),
-  topic,
+  topics,
+  topicTree,
   groups,
   group.addChildren(groupTabs),
   planned("/access", "Access", "R4"),

@@ -25,7 +25,7 @@ fn config() -> Config {
     Config::new().with_large_int("number").with_out_dir(dir())
 }
 
-fn one<T: TS + 'static + ?Sized>(cfg: &Config, out: &mut BTreeMap<String, String>) {
+pub(super) fn one<T: TS + 'static + ?Sized>(cfg: &Config, out: &mut BTreeMap<String, String>) {
     let name = T::name(cfg);
     let text = T::export_to_string(cfg).unwrap_or_else(|e| panic!("{name}: {e}"));
     out.insert(format!("{name}.ts"), text);
@@ -59,6 +59,7 @@ fn all() -> BTreeMap<String, String> {
     one::<JumpView>(&cfg, &mut out);
     groups(&cfg, &mut out);
     live_types(&cfg, &mut out);
+    super::topics::types::all(&cfg, &mut out);
     out
 }
 

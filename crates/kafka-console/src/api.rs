@@ -26,6 +26,7 @@ use crate::{origin, snippets, words};
 
 pub mod groups;
 pub mod live;
+pub mod topics;
 #[cfg(test)]
 mod types;
 
@@ -336,6 +337,7 @@ pub fn routes(web: &crate::base::Base) -> Router<Shared> {
         .route(&web.url("/api/v1/live/topic-wire"), get(live::topic_wire))
         .route(&web.url("/api/v1/live/group-wire"), get(live::group_wire))
         .route(&web.url("/api/v1/tail/live"), get(live::tail))
+        .merge(topics::routes(web))
         .route_layer(from_fn(guard))
 }
 
@@ -357,4 +359,11 @@ pub const GET_PATHS: &[&str] = &[
     "/api/v1/live/first",
     "/api/v1/live/topic-wire?topic=orders",
     "/api/v1/live/group-wire?group=fulfilment",
+    // R1a: the Topics pages. Messages and a record are not here: showing a record's key, value and headers is their job.
+    "/api/v1/topics",
+    "/api/v1/topics?q=or&internal=1",
+    "/api/v1/topics/orders",
+    "/api/v1/topics/orders/consumers",
+    "/api/v1/topics/orders/log",
+    "/api/v1/topics/orders/producers",
 ];
