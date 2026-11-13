@@ -145,6 +145,41 @@ fn tabs(t: &Tokens, root: &Root, cx: &mut Context<Root>) -> impl IntoElement {
                 .enumerate()
                 .map(|(i, tb)| stack_tab(t, root, i, tb, cx)),
         )
+        .children(pending_tab(t, root, cx))
+}
+
+/// A folder with no doze.hcl yet, while its page shows: its own tab, as Go's pending tab; × leaves it for Home.
+fn pending_tab(t: &Tokens, root: &Root, cx: &mut Context<Root>) -> Option<AnyElement> {
+    let Screen::Empty(dir) = &root.screen else {
+        return None;
+    };
+    let name = dir.file_name().map_or_else(
+        || dir.display().to_string(),
+        |n| n.to_string_lossy().into_owned(),
+    );
+    let close = div()
+        .id("tab-pending-close")
+        .size(px(16.))
+        .rounded(px(4.))
+        .flex()
+        .items_center()
+        .justify_center()
+        .hover(|d| d.bg(t.line))
+        .child(icon("icons/close.svg", 10., t.dim))
+        .on_click(cx.listener(|this, _, window, cx| {
+            cx.stop_propagation();
+            this.go(Screen::Library, window, cx);
+        }));
+    let body = vec![
+        dot(t.dim).into_any_element(),
+        div()
+            .overflow_hidden()
+            .text_ellipsis()
+            .child(name)
+            .into_any_element(),
+        close.into_any_element(),
+    ];
+    Some(tab(t, true, "tab-pending", body).into_any_element())
 }
 
 fn stack_tab(t: &Tokens, root: &Root, i: usize, tb: &Tab, cx: &mut Context<Root>) -> AnyElement {
