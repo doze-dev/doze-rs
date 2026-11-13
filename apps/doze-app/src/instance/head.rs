@@ -8,8 +8,8 @@ use gpui::{AnyElement, Context, IntoElement, SharedString, div, prelude::*, px};
 use super::InstanceView;
 use super::ui::{self, button, state_mark, text};
 use crate::actions;
-use crate::theme::Tokens;
-use crate::widgets::{kbd_chip, switch, w};
+use crate::theme::{Tokens, ty};
+use crate::widgets::{kbd_chip, switch};
 
 /// The first key of the table's row `label`, as a chip writes it.
 pub(crate) fn chip(label: &str) -> String {
@@ -26,13 +26,9 @@ pub(crate) fn head(
 ) -> impl IntoElement {
     let p = &v.page;
     let trouble = p.crash.is_some();
+    // The sidebar's mark, larger: a running task's ring is the same blue ring there and here.
     let mark = if p.is_task() {
-        let l = p.look.unwrap_or(Look::NotRun);
-        div()
-            .text_size(px(14.))
-            .text_color(t.tone(l.tone()))
-            .child(l.glyph())
-            .into_any_element()
+        state_mark(t, Some(p.look.unwrap_or(Look::NotRun)), false, 10.)
     } else {
         state_mark(t, p.look, trouble, 10.)
     };
@@ -54,8 +50,8 @@ pub(crate) fn head(
                 .overflow_hidden()
                 .text_ellipsis()
                 .whitespace_nowrap()
-                .text_size(px(20.))
-                .font_weight(w(650.))
+                .text_size(px(ty::XL))
+                .font_weight(ty::HEADING)
                 .text_color(t.bright)
                 .child(text(&v.name)),
         )
@@ -113,7 +109,7 @@ fn verbs(t: &Tokens, v: &InstanceView, cx: &mut Context<InstanceView>) -> Vec<An
                 cx,
             )
         };
-        let run = if ran { "Run again" } else { "Run" };
+        let run = run_label(p.look, ran);
         return vec![
             first,
             act(
@@ -136,7 +132,19 @@ fn verbs(t: &Tokens, v: &InstanceView, cx: &mut Context<InstanceView>) -> Vec<An
             |v, _, cx| v.edit_config(cx),
             cx,
         ));
-    } else if p.crash.is_some() {
+    } else if let Some(c) = &p.crash {
+        out.extend(crash_verbs(t, c.gave_up, cx));
+    } else {
+        out.extend(service_verbs(t, v, cx));
+    }
+    out
+}
+
+/// A crashing one: stop trying, or try now. A failed one is not being tried again: nothing to stop, and Restart, as
+/// Needs you says it.
+fn crash_verbs(t: &Tokens, gave_up: bool, cx: &mut Context<InstanceView>) -> Vec<AnyElement> {
+    let mut out = Vec::new();
+    if !gave_up {
         out.push(act(
             t,
             "stop",
@@ -145,17 +153,16 @@ fn verbs(t: &Tokens, v: &InstanceView, cx: &mut Context<InstanceView>) -> Vec<An
             InstanceView::sleep,
             cx,
         ));
-        out.push(act(
-            t,
-            "try",
-            ("Try now", &chip("Restart / try now")),
-            true,
-            InstanceView::restart,
-            cx,
-        ));
-    } else {
-        out.extend(service_verbs(t, v, cx));
     }
+    let label = if gave_up { "Restart" } else { "Try now" };
+    out.push(act(
+        t,
+        "try",
+        (label, &chip("Restart / try now")),
+        true,
+        InstanceView::restart,
+        cx,
+    ));
     out
 }
 
@@ -167,7 +174,7 @@ fn switch_el(t: &Tokens, v: &InstanceView, cx: &mut Context<InstanceView>) -> An
         .flex_none()
         .items_center()
         .gap(px(8.))
-        .text_size(px(12.))
+        .text_size(px(ty::SM))
         .child(
             div()
                 .text_color(v.word_color(cx))
@@ -204,7 +211,7 @@ fn service_verbs(t: &Tokens, v: &InstanceView, cx: &mut Context<InstanceView>) -
             cx,
         ));
     }
-    if serving {
+    if serving || !p.stuck.is_empty() {
         out.push(act(
             t,
             "restart",
@@ -246,12 +253,12 @@ fn service_verbs(t: &Tokens, v: &InstanceView, cx: &mut Context<InstanceView>) -
                         .max_w(px(220.))
                         .overflow_hidden()
                         .text_ellipsis()
-                        .text_size(px(12.))
+                        .text_size(px(ty::SM))
                         .child(text(&shown)),
                 )
                 .child(
                     div()
-                        .text_size(px(11.))
+                        .text_size(px(ty::XS))
                         .opacity(0.7)
                         .child(text(&chip("Open in browser"))),
                 )
@@ -314,9 +321,14 @@ pub(crate) fn keys(t: &Tokens, v: &InstanceView) -> impl IntoElement {
         if p.url().is_some() && p.serving() {
             keys.push((chip("Open in browser"), "open in browser"));
         }
-        if p.crash.is_some() {
-            keys.push((chip("Restart / try now"), "try now"));
-            keys.push((chip("Sleep / stop trying"), "stop trying"));
+        if let Some(c) = &p.crash {
+            keys.push((
+                chip("Restart / try now"),
+                if c.gave_up { "restart" } else { "try now" },
+            ));
+            if !c.gave_up {
+                keys.push((chip("Sleep / stop trying"), "stop trying"));
+            }
         } else if p.serving() {
             keys.push((chip("Sleep / stop trying"), "sleep"));
             keys.push((chip("Restart / try now"), "restart"));
@@ -342,13 +354,14 @@ pub(crate) fn keys_bar(t: &Tokens, keys: Vec<(String, &str)>, note: &str) -> gpu
     div()
         .flex()
         .flex_none()
+        .min_w_0()
         .items_center()
         .gap(px(16.))
         .h(px(34.))
         .px(px(28.))
         .border_t_1()
         .border_color(t.line)
-        .text_size(px(12.))
+        .text_size(px(ty::SM))
         .text_color(t.dim)
         .whitespace_nowrap()
         .overflow_hidden()
@@ -361,7 +374,7 @@ pub(crate) fn keys_bar(t: &Tokens, keys: Vec<(String, &str)>, note: &str) -> gpu
                         .flex_none()
                         .items_center()
                         .gap(px(5.))
-                        .child(kbd_chip(t, &k, 11., 600., 6.))
+                        .child(kbd_chip(t, &k, ty::XS, ty::SEMIBOLD, 6.))
                         .child(SharedString::from(what.to_owned()))
                 }),
         )
@@ -373,4 +386,15 @@ pub(crate) fn keys_bar(t: &Tokens, keys: Vec<(String, &str)>, note: &str) -> gpu
                 .text_ellipsis()
                 .child(ui::text(note)),
         )
+}
+
+/// A task's verb: what pressing it does now.
+fn run_label(look: Option<Look>, ran: bool) -> &'static str {
+    if look == Some(Look::Running) {
+        "Running…"
+    } else if ran {
+        "Run again"
+    } else {
+        "Run"
+    }
 }

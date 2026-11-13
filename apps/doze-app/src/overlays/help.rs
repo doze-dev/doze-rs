@@ -6,52 +6,8 @@
 use gpui::{AnyElement, IntoElement, SharedString, div, prelude::*, px};
 
 use crate::actions::{self, Scope, Spec};
-use crate::theme::Tokens;
-use crate::widgets::{MONO_FAMILY, UI_FAMILY, kbd_chip, tracked, w};
-
-/// The words a person meets, what each means, and its tone (Go's help.tsx glossary).
-const WORDS: [(&str, &str, &str); 12] = [
-    ("awake", "ok", "running, and something used it lately"),
-    (
-        "dozing",
-        "warn",
-        "running, quiet for a while; sleeps when its timer runs out",
-    ),
-    ("waking", "cool", "starting, because something asked for it"),
-    (
-        "asleep",
-        "dim",
-        "not running, data kept; the next connection wakes it",
-    ),
-    (
-        "crashing",
-        "bad",
-        "exits soon after starting; doze tries again, a few times",
-    ),
-    ("failed", "bad", "doze stopped trying; it waits for you"),
-    (
-        "off",
-        "dim",
-        "turned off: nothing wakes it until you switch it on",
-    ),
-    (
-        "paused",
-        "dim",
-        "enabled = false in doze.hcl; only the file brings it back",
-    ),
-    ("pinned", "bright", "never sleeps, whatever holds it"),
-    ("stopped", "dim", "the whole stack is down; nothing runs"),
-    (
-        "the switch",
-        "bright",
-        "on while it is up or on its way; flip it to wake or sleep",
-    ),
-    (
-        "calls",
-        "bright",
-        "a reference in doze.hcl from one app to another",
-    ),
-];
+use crate::theme::{Tokens, ty};
+use crate::widgets::{MONO_FAMILY, UI_FAMILY, kbd_chip, tracked};
 
 /// Runs of rows that fold into one line: the run's first label, how many rows, the line's label.
 const FOLDED: [(&str, usize, &str); 9] = [
@@ -155,13 +111,13 @@ fn line(t: &Tokens, l: &Line) -> AnyElement {
         .items_center()
         .gap(px(8.))
         .h(px(18.))
-        .text_size(px(12.))
+        .text_size(px(ty::SM))
         .child(
             div().flex().gap(px(3.)).w(px(78.)).flex_none().children(
                 l.keys
                     .iter()
                     .take(2)
-                    .map(|k| kbd_chip(t, k, 10., 600., 4.).into_any_element()),
+                    .map(|k| kbd_chip(t, k, ty::MICRO, ty::SEMIBOLD, 4.).into_any_element()),
             ),
         )
         .child(
@@ -170,7 +126,6 @@ fn line(t: &Tokens, l: &Line) -> AnyElement {
                 .overflow_hidden()
                 .text_ellipsis()
                 .text_color(if l.built { t.bright } else { t.dim })
-                .font_weight(w(500.))
                 .child(SharedString::from(l.label.clone())),
         )
         // A label says what the key does (as Go's sheet had one phrase a key); what comes later says so.
@@ -178,7 +133,7 @@ fn line(t: &Tokens, l: &Line) -> AnyElement {
             d.child(
                 div()
                     .flex_none()
-                    .text_size(px(10.5))
+                    .text_size(px(ty::XS))
                     .text_color(t.dim)
                     .child("soon"),
             )
@@ -195,7 +150,7 @@ fn group(t: &Tokens, title: &str, ls: &[Line]) -> (f32, AnyElement) {
         .child(
             div()
                 .pb(px(3.))
-                .child(tracked(title, 10.5, 650., t.dim, 0.66)),
+                .child(tracked(title, ty::XS, ty::HEADING, t.dim, 0.66)),
         )
         .children(ls.iter().map(|l| line(t, l)))
         .into_any_element();
@@ -209,13 +164,13 @@ fn words(t: &Tokens) -> impl IntoElement {
             .flex()
             .gap(px(8.))
             .py(px(2.))
-            .line_height(px(16.))
-            .text_size(px(12.))
+            .line_height(px(ty::LH_16))
+            .text_size(px(ty::SM))
             .child(
                 div()
                     .w(px(70.))
                     .flex_none()
-                    .font_weight(w(600.))
+                    .font_weight(ty::SEMIBOLD)
                     .text_color(crate::kit::tone(t, tone))
                     .child(*word),
             )
@@ -237,9 +192,9 @@ fn words(t: &Tokens) -> impl IntoElement {
         .child(
             div()
                 .pb(px(4.))
-                .child(tracked("The words", 10.5, 650., t.dim, 0.66)),
+                .child(tracked("The words", ty::XS, ty::HEADING, t.dim, 0.66)),
         )
-        .children(WORDS.iter().map(word))
+        .children(super::glossary::WORDS.iter().map(word))
 }
 
 /// Where to start each new column so that the tallest of `n` columns, the groups kept in order, is as short as it can
@@ -303,7 +258,7 @@ fn foot(t: &Tokens, version: &str) -> gpui::Div {
         .pt(px(10.))
         .border_t_1()
         .border_color(t.line)
-        .text_size(px(12.))
+        .text_size(px(ty::SM))
         .text_color(t.dim)
         .child("Every key here is a doze command too:")
         .child(
@@ -326,7 +281,7 @@ fn foot(t: &Tokens, version: &str) -> gpui::Div {
         .child("· scripts and CI use those. Letters are off while a console has focus.")
         .child(div().flex_1())
         .child(SharedString::from(format!("doze {version}")))
-        .child(kbd_chip(t, "esc", 10., 600., 5.))
+        .child(kbd_chip(t, "esc", ty::MICRO, ty::SEMIBOLD, 5.))
         .child("close")
 }
 
@@ -344,7 +299,7 @@ pub(crate) fn sheet(t: &Tokens, version: &str) -> impl IntoElement {
         .px(px(22.))
         .py(px(14.))
         .font_family(UI_FAMILY)
-        .line_height(px(18.))
+        .line_height(px(ty::LH_18))
         .overflow_hidden()
         .rounded(px(14.))
         .border_1()
@@ -353,8 +308,8 @@ pub(crate) fn sheet(t: &Tokens, version: &str) -> impl IntoElement {
         .shadow(super::shadow(t))
         .child(
             div()
-                .text_size(px(16.))
-                .font_weight(w(650.))
+                .text_size(px(ty::LG))
+                .font_weight(ty::HEADING)
                 .text_color(t.bright)
                 .child("Keys and words"),
         )

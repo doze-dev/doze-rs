@@ -407,6 +407,7 @@ impl Render for OverviewView {
             View::Grid => grid::view(&t, self, window, cx).into_any_element(),
         };
         let lit = self.map.read(cx).lit.is_some();
+        let lens = self.map.read(cx).lens.is_some();
         div()
             .key_context("Overview")
             .track_focus(&self.focus)
@@ -444,6 +445,6 @@ impl Render for OverviewView {
             .children(head::banners(&t, self))
             .child(strip::strip(&t, self, width))
             .child(body)
-            .child(keys::keys(&t, self, lit))
+            .child(keys::keys(&t, self, (lit, lens)))
     }
 }

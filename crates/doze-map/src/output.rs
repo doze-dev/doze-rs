@@ -79,6 +79,9 @@ pub struct Edge {
     pub count: u32,
     /// It closes a cycle: drawn back, right to left.
     pub back: bool,
+    /// It joins two named regions: a plain curve from frame to frame, drawn on demand, not kept
+    /// clear of the cards between (see [`Layout::regions`]).
+    pub across: bool,
 }
 
 /// Which caption.
@@ -91,6 +94,8 @@ pub enum CaptionKind {
     Lane,
     /// Over the shared band.
     Band,
+    /// Over a column of a focus view (a neighbourhood's hops).
+    Column,
 }
 
 /// A caption over a part of the map: its name and a quieter line after it.
@@ -114,6 +119,33 @@ pub enum Mode {
     Classic,
     /// Layered, by connected part, packed: large stacks.
     Layered,
+    /// A focus view made from another layout (a card's neighbourhood): columns by path.
+    Focus,
+}
+
+/// A named region of a layered map: the cards whose names start the same (`checkout-api`,
+/// `checkout-worker`), or that doze.hcl puts in one `group`, framed together.
+#[derive(Debug, Clone, PartialEq)]
+pub struct NamedRegion {
+    /// The name: the shared stem or the group, or `other` for the cards of no region of four.
+    pub name: String,
+    /// The frame: the region's cards with room around them and a head above.
+    pub rect: Rect,
+    /// Its cards, in the layout's order.
+    pub cards: Vec<CardId>,
+}
+
+/// The cards with no calls, folded into one tile in a layered map: the apps nothing calls and
+/// that call nothing, and what the stack shares (used, not called: the chips say who uses what).
+/// They stay in [`Layout::cards`] (found, selected, lit) with an empty box, in no index.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Tile {
+    /// The folded cards, in the layout's order.
+    pub cards: Vec<CardId>,
+    /// How many are apps (the rest are shared).
+    pub lane: u32,
+    /// How many are shared modules and services.
+    pub shared: u32,
 }
 
 /// A laid-out map.
@@ -136,6 +168,13 @@ pub struct Layout {
     pub detail: Pt,
     /// Collapsed groups: the card's name, then its members' names.
     pub groups: HashMap<String, Vec<String>>,
+    /// Named regions, when the map has them (a layered map of three or more regions of four).
+    pub regions: Vec<NamedRegion>,
+    /// Each card's named region (by [`CardId`]), `None` outside any.
+    pub region_of: Vec<Option<usize>>,
+    /// The folded cards, when a layered map folds them.
+    pub tile: Option<Tile>,
+    pub(crate) folded: Vec<bool>,
     pub(crate) lines: Vec<(CardId, CardId, Path)>,
     pub(crate) gutters: Option<crate::layered::Gutters>,
     pub(crate) index: Index,
@@ -159,6 +198,28 @@ impl Layout {
     #[must_use]
     pub fn card(&self, id: CardId) -> Option<&Card> {
         self.cards.get(id.ix())
+    }
+
+    /// The card is folded into the tile: it has no place on the drawing.
+    #[must_use]
+    pub fn folded(&self, id: CardId) -> bool {
+        self.folded.get(id.ix()).copied().unwrap_or(false)
+    }
+
+    /// The card's named region.
+    #[must_use]
+    pub fn region(&self, id: CardId) -> Option<&NamedRegion> {
+        self.region_of
+            .get(id.ix())
+            .copied()
+            .flatten()
+            .and_then(|r| self.regions.get(r))
+    }
+
+    /// The named region whose frame holds `p`, if any.
+    #[must_use]
+    pub fn region_at(&self, p: Pt) -> Option<usize> {
+        self.regions.iter().position(|r| r.rect.inside(p))
     }
 
     /// What is in `view`: the cards and calls a renderer must paint, in no particular order.

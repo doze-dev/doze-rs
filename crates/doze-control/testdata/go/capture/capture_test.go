@@ -4,6 +4,8 @@ package fixture_test
 // and encoded by Go's own json.Encoder, and each fixture hub as a script file.
 //
 // To regenerate crates/doze-control/testdata/go/{types,scripts}: copy this file
+// and states.go (the states hub: one instance in every state, which doze-rs
+// added; register it in devserve's Fixtures as "states" to see it in Go's app)
 // into the Go doze repo at internal/control/fixture/, then run
 //
 //	DOZE_CAPTURE=<doze-rs>/crates/doze-control/testdata/go go test ./internal/control/fixture/ -run TestCapture
@@ -186,7 +188,7 @@ func TestCaptureScripts(t *testing.T) {
 		"shop": fixture.Shop(epoch), "crash": fixture.Crash(epoch), "modules": fixture.Modules(epoch),
 		"larder": fixture.Larder(epoch), "larder-crash": fixture.LarderCrash(epoch),
 		"larder-portclash": fixture.LarderPortClash(epoch), "larder-domains": fixture.LarderDomains(epoch),
-		"mess": fixture.Mess(epoch), "long": fixture.Long(epoch), "empty": {},
+		"mess": fixture.Mess(epoch), "states": fixture.States(epoch), "long": fixture.Long(epoch), "empty": {},
 	}
 	out := filepath.Join(dir, "scripts")
 	_ = os.MkdirAll(out, 0o755)

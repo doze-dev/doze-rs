@@ -10,6 +10,10 @@
 //! | above | every call at full strength (Go's look) | every call, half strength |
 //!
 //! At every level the focus card (selected, else hovered) has its own calls drawn on top in the accent.
+//!
+//! A map by named region (past sixty cards) draws its frames under everything; at rest its calls are on demand: those
+//! inside a region faint, those between regions as the regions' bundles below [`DETAIL_ZOOM`] (none up close), and
+//! every line at its old strength when `L` asks.
 
 use std::rc::Rc;
 use std::sync::Arc;
@@ -21,8 +25,11 @@ use gpui::{
 };
 
 use super::cache::{Cache, build, level, place};
+use super::fade::blend;
 use super::{DETAIL_ZOOM, LABEL_ZOOM, MapView};
 use crate::theme::{Tokens, alpha, mix};
+
+mod far;
 
 /// What one frame of the scene paints with.
 #[derive(Clone)]
@@ -39,6 +46,15 @@ struct Scene {
     lit: Option<CardId>,
     focus: Option<CardId>,
     on: Option<Rc<Vec<bool>>>,
+    /// Lines on demand: calls faint at rest, the regions' bundles instead of the calls between them.
+    quiet: bool,
+    /// The focus card's named region.
+    home: Option<usize>,
+    /// The pointer's card, the fades in flight and how far each is (`super::fade`).
+    hover: Option<CardId>,
+    fades: super::fade::Fades,
+    pl: f32,
+    ph: f32,
 }
 
 /// Which cards a selection keeps lit: the card, its calls, callers and uses.
@@ -56,6 +72,21 @@ pub(crate) fn lit_set(l: &Layout, lit: Option<CardId>) -> Option<Vec<bool>> {
         }
     }
     Some(on)
+}
+
+impl MapView {
+    /// What the selection keeps lit, the rest faded; in a neighbourhood, nothing fades while its centre is selected
+    /// (every card there is the centre's).
+    pub(crate) fn lit_on(&self) -> Option<Vec<bool>> {
+        let centre = match &self.lens {
+            Some(super::Lens::Hood { centre, .. }) => self.layout.card_named(centre),
+            _ => None,
+        };
+        if centre.is_some() && centre == self.lit {
+            return None;
+        }
+        lit_set(&self.layout, self.lit)
+    }
 }
 
 /// Whether the map is big enough that far out it is drawn as regions and bundles.
@@ -82,7 +113,13 @@ pub(crate) fn scene(
         pan: m.cam.pan,
         lit: m.lit,
         focus: m.focus_card(),
-        on: lit_set(&m.layout, m.lit).map(Rc::new),
+        on: m.lit_on().map(Rc::new),
+        quiet: m.quiet(),
+        home: m.home_region(),
+        hover: m.hover,
+        fades: m.fades.clone(),
+        pl: m.fades.lit(std::time::Instant::now()),
+        ph: m.fades.hover(std::time::Instant::now()),
     };
     canvas(
         |_, _, _| (),
@@ -120,10 +157,22 @@ impl Scene {
         );
         self.band(bounds, o, window);
         let far = self.l.mode == Mode::Layered && self.z < LABEL_ZOOM;
-        if far {
+        let named = !self.l.regions.is_empty();
+        // A map by region at a glance: one link per pair of regions, under the frames (opaque), so the cards stay
+        // clean; up close, where cards read, a card's own calls show on hover instead.
+        if named && self.quiet && self.z < DETAIL_ZOOM {
+            self.links(o, window);
+        }
+        self.frames(o, window);
+        // The region in hand: its links again, over the frames, so each can be followed end to end (transient).
+        if named && self.quiet && self.z < DETAIL_ZOOM && self.home.is_some() {
+            self.links_of_home(o, window);
+        }
+        if far && !named {
             self.regions(o, window);
             self.bundles(o, window);
-        } else {
+        }
+        if !far {
             self.lines(o, window);
         }
         if self.z < LABEL_ZOOM {
@@ -170,100 +219,107 @@ impl Scene {
         ));
     }
 
-    /// Far out in a large map: each region a soft tint, so the bundles have somewhere to land (no outline: regions
-    /// may touch, and outlines there read as clutter).
-    fn regions(&self, o: Point<Pixels>, window: &mut Window) {
-        let fill = alpha(self.t.accent, if self.t.dark { 0.045 } else { 0.06 });
-        for r in &self.o.regions {
-            let pad = 8.0 / f64::from(self.z);
-            let b = self.rect(
-                o,
-                Rect::new(
-                    r.rect.x - pad,
-                    r.rect.y - pad,
-                    r.rect.w + 2.0 * pad,
-                    r.rect.h + 2.0 * pad,
-                ),
-            );
-            window.paint_quad(gpui::fill(b, fill).corner_radii(px(6.)));
-        }
-    }
-
-    /// Far out in a large map: the bundles, as wide as their weight; faded under a selection, except its region's.
-    fn bundles(&self, o: Point<Pixels>, window: &mut Window) {
-        let lv = level(self.z);
-        let home = self
-            .focus
-            .and_then(|c| self.o.region_of.get(c.ix()).copied().flatten());
-        let heaviest = self.o.heaviest() as f32;
-        let quiet = alpha(self.t.dim, 0.14);
-        self.cache.bundles(&self.o, lv, &mut |p, i, at| {
-            let Some(b) = self.o.bundles.get(i) else {
-                return;
-            };
-            // Heavier bundles stronger: a single call between regions is a whisper, the main flows carry the picture.
-            let weight = (b.count as f32 / heaviest).sqrt();
-            let strength = if b.count <= 1 {
-                0.12
-            } else {
-                0.22 + 0.58 * weight
-            };
-            let mine = home.is_some_and(|h| b.from == h || b.to == h);
-            let color = match home {
-                Some(_) if !mine => quiet,
-                _ => alpha(self.t.accent, strength),
-            };
-            window.paint_path(place(p, self.z / at, o), color);
-        });
-    }
-
-    /// Single calls: batched polylines up to [`DETAIL_ZOOM`], curves with heads above it.
+    /// Single calls: batched polylines up to [`DETAIL_ZOOM`], curves with heads above it. Past
+    /// sixty cards they are faint at rest (lines on demand) and the calls between regions are left
+    /// to the bundles, unless every line is asked for.
     fn lines(&self, o: Point<Pixels>, window: &mut Window) {
         let lv = level(self.z);
         let large = self.l.mode == Mode::Layered;
-        let strength = if large {
-            if self.z < DETAIL_ZOOM { 0.2 } else { 0.55 }
-        } else {
-            1.0
+        let strength = match (large, self.quiet) {
+            // A neighbourhood: the centre's own calls are drawn strong on top; the rest between shown cards faint.
+            (false, _) if self.l.mode == Mode::Focus => 0.5,
+            (false, _) => 1.0,
+            // Inside a region, quieter than the links between regions.
+            (true, true) => 0.22,
+            (true, false) if self.z < DETAIL_ZOOM => 0.3,
+            (true, false) => 0.55,
         };
+        if !self.quiet {
+            self.across(o, window, lv, strength);
+        }
         let faded = alpha(self.t.line2, 0.6);
+        let from = self.fades.lit_from;
         if lv < DETAIL_ZOOM {
-            let c = if self.lit.is_some() {
-                faded
-            } else {
-                alpha(self.t.accent, strength * 0.8)
+            let of = |lit: Option<CardId>| {
+                if lit.is_some() {
+                    faded
+                } else {
+                    alpha(self.t.accent, strength * 0.8)
+                }
             };
+            let c = blend(of(from), of(self.lit), self.pl);
             self.cache.chunks(&self.l, self.view, lv, &mut |p, at| {
                 window.paint_path(place(p, self.z / at, o), c)
             });
             return;
         }
         for &e in &self.vis.edges {
-            let Some(edge) = self.l.edges.get(e) else {
+            let Some(edge) = self.l.edges.get(e).filter(|e| !e.across) else {
                 continue;
             };
-            let theirs = self.lit.is_some_and(|c| edge.from == c || edge.to == c);
-            let color = match self.lit {
+            let of = |lit: Option<CardId>| match lit {
                 None => alpha(self.t.accent, strength),
-                Some(_) if theirs => self.t.accent,
+                Some(c) if edge.from == c || edge.to == c => self.t.accent,
                 Some(_) => faded,
             };
+            // The Go map's `.edge { transition: stroke .2s }`: a line changes colour, it does not pop.
+            let color = blend(of(from), of(self.lit), self.pl);
             self.cache.line(&self.l, e, lv, &mut |p, at| {
                 window.paint_path(place(p, self.z / at, o), color)
             });
         }
     }
 
+    /// Every line asked for: the calls between regions too, one by one.
+    fn across(&self, o: Point<Pixels>, window: &mut Window, lv: f32, strength: f32) {
+        let of = |lit: Option<CardId>| {
+            if lit.is_some() {
+                alpha(self.t.line2, 0.6)
+            } else {
+                alpha(self.t.accent, strength)
+            }
+        };
+        let color = blend(of(self.fades.lit_from), of(self.lit), self.pl);
+        for &e in &self.vis.edges {
+            if self.l.edges.get(e).is_some_and(|x| x.across) {
+                self.cache.line(&self.l, e, lv, &mut |p, at| {
+                    window.paint_path(place(p, self.z / at, o), color)
+                });
+            }
+        }
+    }
+
     /// The focus card's own calls, on top of everything, at full strength: curves with heads at any zoom, built
     /// fresh at the exact zoom (a card has a handful), at least 2 px wide and with a head that still shows far out.
+    ///
+    /// They fade: a selection's in over the dim's 200 ms (and the last selection's out), the pointer's card's in over
+    /// the hover's 120 ms as the last card's fade out.
     fn focus_lines(&self, o: Point<Pixels>, window: &mut Window) {
-        let Some(c) = self.focus else { return };
-        let z = self.z;
-        let width = 1.5_f32.max(2.0 / z);
-        let head = 1.0_f64.max(0.7 / f64::from(z));
-        for edge in self.l.edges.iter().filter(|e| e.from == c || e.to == c) {
-            for p in build(&edge.path, z, width, head) {
-                window.paint_path(place(&p, 1.0, o), self.t.accent);
+        let mut draw = |c: CardId, a: f32| {
+            if a < 0.01 {
+                return;
+            }
+            let z = self.z;
+            let width = 1.5_f32.max(2.0 / z);
+            let head = 1.0_f64.max(0.7 / f64::from(z));
+            for edge in self.l.edges.iter().filter(|e| e.from == c || e.to == c) {
+                for p in build(&edge.path, z, width, head) {
+                    window.paint_path(place(&p, 1.0, o), alpha(self.t.accent, a));
+                }
+            }
+        };
+        if let Some(c) = self.lit {
+            draw(c, self.pl);
+        }
+        if let Some(c) = self.fades.lit_from.filter(|f| Some(*f) != self.lit) {
+            draw(c, 1.0 - self.pl);
+        }
+        if self.lit.is_none() {
+            if let Some(h) = self.hover {
+                draw(h, self.ph);
+            }
+            if let Some(h) = self.fades.hover_from.filter(|f| Some(*f) != self.hover) {
+                draw(h, 1.0 - self.ph);
             }
         }
     }
@@ -285,21 +341,26 @@ impl Scene {
         for &c in &self.vis.cards {
             let Some(card) = self.l.card(c) else { continue };
             let b = self.rect(o, card.rect);
-            let faded = self
-                .on
-                .as_ref()
-                .is_some_and(|on| !on.get(c.ix()).copied().unwrap_or(false));
+            let a = self
+                .fades
+                .opacity(self.on.as_deref().map(Vec::as_slice), c.ix(), self.pl);
             let bg = if card.role == Role::Shared {
                 mix(self.t.accent, self.t.panel, 8.)
             } else {
                 self.t.panel
             };
-            let border = if self.focus == Some(c) {
-                self.t.accent
+            let hot = if self.lit == Some(c) {
+                1.0
+            } else {
+                self.fades.heat(c, self.hover, self.ph)
+            };
+            // In trouble, a red frame, as every screen draws it (the strip says which state).
+            let rest = if self.states.get(c.ix()) == Some(&4) {
+                self.t.bad
             } else {
                 self.t.line2
             };
-            let a = if faded { 0.3 } else { 1.0 };
+            let border = mix(self.t.accent, rest, hot * 100.0);
             let radius = px((11.0 * self.z).max(1.0));
             let bw = if b.size.height > px(6.) {
                 px(1.)
@@ -335,58 +396,6 @@ impl Scene {
                 window.paint_quad(gpui::fill(back, alpha(self.t.line2, a)));
             }
         }
-    }
-
-    /// Far out: every block from cached batches (a few dozen paths for thousands of cards); the focus card and a
-    /// selection's cards again on top.
-    fn far_blocks(&self, o: Point<Pixels>, window: &mut Window) {
-        let lv = level(self.z);
-        let a = if self.on.is_some() { 0.35 } else { 1.0 };
-        let colors = [
-            mix(self.t.dim, self.t.panel, 35.),
-            mix(self.t.accent, self.t.panel, 30.),
-        ];
-        self.cache
-            .blocks(&self.l, &self.states, self.view, lv, &mut |p, color, at| {
-                let c = if color < 2 {
-                    colors.get(color).copied().unwrap_or(self.t.dim)
-                } else {
-                    self.state_color_of(color - 2)
-                };
-                window.paint_path(place(p, self.z / at, o), alpha(c, a));
-            });
-        let mut mark = |i: usize, color: Hsla| {
-            if let Some(c) = self.l.cards.get(i) {
-                let b = self.rect(o, c.rect);
-                let b = Bounds {
-                    origin: b.origin,
-                    size: size(b.size.width.max(px(3.)), b.size.height.max(px(3.))),
-                };
-                window.paint_quad(gpui::fill(b, color));
-            }
-        };
-        if let Some(on) = &self.on {
-            on.iter()
-                .enumerate()
-                .filter(|(_, b)| **b)
-                .for_each(|(i, _)| mark(i, self.t.accent));
-        }
-        if let Some(f) = self.focus {
-            mark(f.ix(), self.t.bright);
-        }
-    }
-
-    fn state_color_of(&self, state: usize) -> Hsla {
-        [
-            self.t.good,
-            self.t.warn,
-            self.t.dim,
-            self.t.cool,
-            self.t.bad,
-        ]
-        .get(state)
-        .copied()
-        .unwrap_or(self.t.dim)
     }
 
     /// The selection's dashed lines to what it uses, each ending in a dot.

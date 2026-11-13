@@ -52,6 +52,17 @@ impl Fixture {
             "doze-app-fixture-{}-{run}-{name}",
             std::process::id()
         ));
+        Fixture::start_in(name, synth, root, false)
+    }
+
+    /// [`Fixture::start`] under `root`; with `real`, the daemon listens on the stack's own control socket, so an app
+    /// in another process reading `root/home` as its doze home finds it as it finds a real daemon.
+    pub(crate) fn start_in(
+        name: &str,
+        synth: Option<usize>,
+        root: PathBuf,
+        real: bool,
+    ) -> anyhow::Result<Fixture> {
         let (home, work) = (root.join("home"), root.join("work"));
         std::fs::create_dir_all(&home).context("fixture home")?;
         if name == "none" && synth.is_none() {
@@ -62,10 +73,24 @@ impl Fixture {
                 daemon: None,
             });
         }
-        let script = match synth {
-            Some(n) => synthetic(n),
-            None => {
-                let path = scripts().join(format!("{name}.ndjson"));
+        // `medium-150`, or `medium-150x500` for 500 calls rather than two an app.
+        let medium = name.strip_prefix("medium-").and_then(|n| {
+            let (n, calls) = n.split_once('x').unwrap_or((n, ""));
+            let n = n.parse::<usize>().ok()?;
+            Some((n, calls.parse::<usize>().unwrap_or(n * 2)))
+        });
+        let script = match (synth, medium) {
+            (Some(n), _) => synthetic(n),
+            (None, Some((n, calls))) => medium_stack(n, calls),
+            (None, None) => {
+                // `NAME-stale`: NAME's script, from a daemon that goes quiet once it has played (Go's `stale`).
+                let file = name.strip_suffix("-stale").unwrap_or(name);
+                // The Go hubs' captures, then the app's own (`fixtures/scripts`: `consoles`, built by consoles.ts).
+                let path = [scripts(), own().join("scripts")]
+                    .into_iter()
+                    .map(|d| d.join(format!("{file}.ndjson")))
+                    .find(|p| p.exists())
+                    .unwrap_or_else(|| scripts().join(format!("{file}.ndjson")));
                 let mut s = Script::load(&path).with_context(|| format!("fixture {name}"))?;
                 // A verb takes a moment, as a real one does, so a page shows it in flight.
                 s.verb_delay = std::time::Duration::from_millis(700);
@@ -82,8 +107,18 @@ impl Fixture {
         seed_doze(&home)?;
         let key = StackKey::new(home.join("projects").join(format!("{name}-fixture")));
         std::fs::create_dir_all(key.run_dir()).context("fixture home")?;
-        std::fs::write(key.socket(), "").context("fixture socket marker")?;
-        let daemon = FixtureDaemon::start(&temp_socket("app"), script).context("fixture daemon")?;
+        let sock = if real {
+            let _ = std::fs::remove_file(key.socket());
+            key.socket()
+        } else {
+            std::fs::write(key.socket(), "").context("fixture socket marker")?;
+            temp_socket("app")
+        };
+        let meters = last_meters(&script);
+        let daemon = FixtureDaemon::start(&sock, script).context("fixture daemon")?;
+        if !name.ends_with("-stale") {
+            tick(daemon.pusher(), meters);
+        }
         Ok(Fixture {
             key: Some(key),
             root,
@@ -206,10 +241,30 @@ fn seed_larder(work: &Path, loaded: Option<std::time::SystemTime>) -> anyhow::Re
     Ok(dir.display().to_string())
 }
 
+/// `medium-N` (or `medium-NxCALLS`): a medium stack of about `n` instances shaped like a real one (doze-map's `synth::medium`: a few teams'
+/// services named for the team, a gateway, postgres, redis and kafka, apps nothing calls, a failed migration), with
+/// a few in trouble.
+fn medium_stack(n: usize, calls: usize) -> Script {
+    let ins = doze_map::synth::medium(n, calls, 1);
+    let bad = doze_map::synth::medium_trouble(&ins);
+    script(&ins, &format!("medium-{n}"), &|i, v| {
+        bad.contains(&v.name) || (i % 41 == 40 && v.kind == doze_map::Kind::App)
+    })
+}
+
 /// A synthetic stack of about `n` instances (doze-map's generator: teams calling down tiers, shared services, tasks),
 /// in a spread of states.
 fn synthetic(n: usize) -> Script {
     let ins = doze_map::synth::stack(n, n * 5 / 2, 7);
+    script(&ins, &format!("synthetic-{n}"), &|i, _| i % 97 == 0)
+}
+
+/// A stack's script from instances, in a spread of states; `crashing` says which crash.
+fn script(
+    ins: &[doze_map::Instance],
+    name: &str,
+    crashing: &dyn Fn(usize, &doze_map::Instance) -> bool,
+) -> Script {
     let states = ["active", "active", "idle", "reaped", "booting"];
     let instances = ins
         .iter()
@@ -221,8 +276,11 @@ fn synthetic(n: usize) -> Script {
                 doze_map::Kind::Service => "service",
                 _ => "module",
             };
-            let state = if i % 97 == 0 {
+            let state = if crashing(i, v) {
                 "crashing"
+            } else if v.busy {
+                // A setup task drawn as a card: running.
+                "booting"
             } else {
                 states.get(i % states.len()).copied().unwrap_or("reaped")
             };
@@ -247,12 +305,102 @@ fn synthetic(n: usize) -> Script {
     Script {
         status: Response {
             ok: true,
-            stack: format!("synthetic-{n}"),
+            stack: name.to_string(),
             dir: "~/code/synthetic".into(),
             instances,
             ..Response::default()
         },
         hold: true,
         ..Script::default()
+    }
+}
+
+/// The script's last meters frame: what a daemon goes on sending.
+fn last_meters(s: &Script) -> Option<doze_control::Frame> {
+    s.steps.iter().rev().find_map(|st| match st {
+        doze_control::fixture::Step::Frame(f) if f.topic == doze_control::Topic::Stats.as_str() => {
+            Some((**f).clone())
+        }
+        _ => None,
+    })
+}
+
+/// As Go's fixture server does: the meters every second after the script, as a daemon sends them, so a metered page is
+/// never told its picture is old; until the daemon stops.
+fn tick(p: doze_control::fixture::Pusher, meters: Option<doze_control::Frame>) {
+    let Some(f) = meters else {
+        return;
+    };
+    let _ = std::thread::Builder::new()
+        .name("fixture-meters".into())
+        .spawn(move || {
+            while p.push(&f) {
+                std::thread::sleep(std::time::Duration::from_secs(1));
+            }
+        });
+}
+
+/// `$DOZE_APP_FIXTURE_CRASH=NAME@SECONDS[+SECONDS]`: the fixture's NAME crashes that long after launch, as a daemon
+/// would say it, and is up again the second time after launch when one is given; so a run shows what the app does
+/// about a crash it did not start with (the menu bar's alert, a notification, its withdrawal).
+pub(crate) fn crash_later(source: std::rc::Rc<crate::source::Source>, cx: &mut gpui::App) {
+    let Some((name, crash, up)) = std::env::var("DOZE_APP_FIXTURE_CRASH").ok().and_then(|v| {
+        let (n, s) = v.split_once('@')?;
+        let (c, u) = s.split_once('+').map_or((s, None), |(c, u)| (c, Some(u)));
+        Some((
+            n.to_owned(),
+            c.parse::<u64>().ok()?,
+            u.and_then(|u| u.parse::<u64>().ok()),
+        ))
+    }) else {
+        return;
+    };
+    let push = |source: &crate::source::Source, v: doze_control::InstanceView| {
+        source.push(&doze_control::Frame {
+            topic: "instances".into(),
+            instances: vec![v],
+            ..doze_control::Frame::default()
+        });
+    };
+    cx.spawn(async move |cx: &mut gpui::AsyncApp| {
+        let wait = |s: u64| {
+            cx.background_executor()
+                .timer(std::time::Duration::from_secs(s))
+        };
+        wait(crash).await;
+        let well = source
+            .first
+            .as_ref()
+            .and_then(|k| source.hub.stack(k))
+            .and_then(|st| st.instance(&name).cloned());
+        let Some(well) = well else { return };
+        let mut crashed = well.clone();
+        crashed.state = "crashing".into();
+        crashed.last_error = "panic: STRIPE_KEY is required".into();
+        (crashed.restart_count, crashed.restart_max) = (1, 5);
+        push(&source, crashed);
+        if let Some(up) = up {
+            wait(up.saturating_sub(crash)).await;
+            push(&source, well);
+        }
+    })
+    .detach();
+}
+
+/// `doze-app fixture-serve NAME ROOT`: the fixture's daemon on its stack's own socket under `ROOT/home`, until killed;
+/// an app run with `DOZE_HOME=ROOT/home` finds it as it finds a real daemon, so the app can be weighed without the
+/// fixture in its own process.
+pub(crate) fn serve(name: &str, root: PathBuf) -> std::process::ExitCode {
+    match Fixture::start_in(name, None, root, true) {
+        Ok(f) => {
+            println!("fixture {name} serving under {}", f.home.display());
+            loop {
+                std::thread::sleep(std::time::Duration::from_secs(3600));
+            }
+        }
+        Err(e) => {
+            eprintln!("doze-app fixture-serve: {e:#}");
+            std::process::ExitCode::FAILURE
+        }
     }
 }

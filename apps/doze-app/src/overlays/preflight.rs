@@ -11,8 +11,8 @@ use gpui::{
 use crate::act::{Check, Then};
 use crate::actions::{Confirm, GoAnyway};
 use crate::kit::{Btn, btn, s};
-use crate::theme::{Tokens, tokens};
-use crate::widgets::{MONO_FAMILY, w};
+use crate::theme::{Tokens, tokens, ty};
+use crate::widgets::MONO_FAMILY;
 
 /// What the sheet ends with.
 #[derive(Debug, Clone)]
@@ -95,6 +95,7 @@ impl PreflightView {
             .enumerate()
             .map(|(j, f)| Self::fix_button(t, (i, j), f, cx))
             .collect();
+        let ok = c.tone == Tone::Ok;
         let mut body = div()
             .flex()
             .flex_col()
@@ -103,23 +104,21 @@ impl PreflightView {
             .min_w_0()
             .child(
                 div()
-                    .font_weight(w(if c.tone == Tone::Ok { 500. } else { 600. }))
-                    .text_color(if c.tone == Tone::Ok { t.text } else { t.bright })
+                    .font_weight(if ok { ty::MEDIUM } else { ty::SEMIBOLD })
+                    .text_color(if ok { t.text } else { t.bright })
                     .child(s(&c.title)),
             );
+        let dim = |text: &str| div().text_size(px(ty::SM)).text_color(t.dim).child(s(text));
         if !c.detail.is_empty() {
-            let d = div()
-                .text_size(px(12.))
-                .text_color(t.dim)
-                .child(s(&c.detail));
+            let d = dim(&c.detail);
             body = body.child(if c.mono {
-                d.font_family(MONO_FAMILY).text_size(px(11.5))
+                d.font_family(MONO_FAMILY).text_size(px(ty::XS_UP))
             } else {
                 d
             });
         }
         if !c.note.is_empty() {
-            body = body.child(div().text_size(px(12.)).text_color(t.dim).child(s(&c.note)));
+            body = body.child(dim(&c.note));
         }
         if !fixes.is_empty() {
             body = body.child(
@@ -145,7 +144,7 @@ impl PreflightView {
                     .flex_none()
                     .flex()
                     .justify_center()
-                    .font_weight(w(700.))
+                    .font_weight(ty::BOLD)
                     .text_color(color)
                     .child(glyph),
             )
@@ -188,7 +187,7 @@ impl Render for PreflightView {
             .on_action(cx.listener(|_, _: &GoAnyway, _, cx| cx.emit(PreflightEvent::Anyway)))
             .child(
                 div()
-                    .text_size(px(12.5))
+                    .text_size(px(ty::SM_UP))
                     .text_color(t.dim)
                     .mt(px(-4.))
                     .child(lead),
@@ -216,7 +215,7 @@ impl PreflightView {
             .child(
                 div()
                     .flex_1()
-                    .text_size(px(12.))
+                    .text_size(px(ty::SM))
                     .text_color(t.dim)
                     .child("nothing has started yet"),
             )

@@ -2,15 +2,20 @@
 //!
 //! ```text
 //! doze-app [FOLDER | doze://…] [--show NAME] [--menu-bar]      the app (a second launch hands these to the first)
+//! doze-app open [FOLDER | doze://…] [--show NAME]               hand over to the running app, or start it on its own
 //!          [--fixture NAME | --synth N]                         a fixture stack instead of the doze home (dev builds)
 //! doze-app shot --fixture larder --screen map --theme teal --mode light --size 1280x800 --out x.png
-//!          [--select NAME] [--hover NAME] [--zoom Z] [--at X,Y] [--find TEXT] [--synth N] [--reduce-motion]
+//!          [--select NAME] [--hover NAME] [--zoom Z] [--at X,Y] [--find TEXT] [--synth N] [--reduce-motion] [--wait MS]
 //!          --screen instance --select api [--tab logs|console:ID|last run] [--hold PORT]
 //!          --screen logs [--filter TEXT] [--find-mode] [--level 0-3]
+//!          --screen map [--map lines,tile,trouble,hood:N,fly:P,region:NAME]
 //!          --act sleep|restart|reset|reset-typed|stop|remove|action|action-typed|copy|toast-fail|recent|preflight|start
 //!                |busy|failed|library-busy|verb-busy|empty|empty-found|add     (M2: done before the shot)
 //! doze-app bench [--fixture NAME | --synth N] [--idle SECONDS]  first-frame time, then idle for a memory reading
 //! doze-app bench --fixture shop --logs [--follow SECONDS]          the logs viewer: 100k lines scrolled, then followed
+//! doze-app bench --fixture medium-150 --map                         the Map: frames while it pans, zooms and hovers
+//! doze-app bench [--idle S] [--closed S]                         with no fixture: $DOZE_HOME (a fixture served apart)
+//! doze-app fixture-serve NAME ROOT                               a fixture daemon alone, on its own socket under ROOT/home
 //! ```
 
 use std::path::PathBuf;
@@ -86,10 +91,15 @@ pub(crate) struct Shot {
     pub(crate) query: Option<String>,
     pub(crate) scope: Option<String>,
     pub(crate) enter: bool,
-    /// Needs you's surface over the page: `bell`, `alerts`, `away`.
+    /// Needs you's surface over the page: `bell`, `alerts`, `away`; or `note`, a notification said in the app (M3).
     pub(crate) over: Option<String>,
     /// Needs you sees this machine not set up (names and a domain), as Go's fixture server did.
     pub(crate) machine_unset: bool,
+    /// How long to wait before the shot, in ms (`--wait`): for what only time shows, a daemon gone quiet.
+    pub(crate) wait: u64,
+    /// The Map's state for the shot, comma-separated: `lines`, `tile`, `trouble`, `hood:N` (on the selection),
+    /// `fly:P` (find's flight to the selection, held at share P of the way), `region:NAME` (opened).
+    pub(crate) map: Option<String>,
 }
 
 /// `doze-app bench ...`.
@@ -97,17 +107,26 @@ pub(crate) struct Shot {
 pub(crate) struct Bench {
     pub(crate) from: From,
     pub(crate) idle: u64,
+    /// How long it stays up after the window closes (`--closed`, default 10 s), for a reading of the closed app.
+    pub(crate) closed: Option<u64>,
     /// The logs viewer under load instead (`--logs`), following for `follow` seconds.
     pub(crate) logs: bool,
     pub(crate) follow: u64,
+    /// The Map under load instead (`--map`): frames drawn offscreen while it pans, zooms and hovers.
+    pub(crate) map: bool,
 }
 
 /// What to do.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum Cmd {
     App(App),
+    /// `doze-app open ...`: hand over to a running app, or start one on its own (`crate::open`).
+    Open(App),
     Shot(Box<Shot>),
     Bench(Bench),
+    /// `doze-app fixture-serve NAME ROOT`: a fixture daemon alone, on its stack's own socket under `ROOT/home`, so an app
+    /// in another process can be measured without the fixture in it (feature `fixtures`).
+    FixtureServe(String, std::path::PathBuf),
 }
 
 fn value(args: &mut impl Iterator<Item = String>, flag: &str) -> Result<String, String> {
@@ -130,6 +149,16 @@ pub(crate) fn parse(args: impl IntoIterator<Item = String>) -> Result<Cmd, Strin
         Some("bench") => {
             args.next();
             bench(args).map(Cmd::Bench)
+        }
+        Some("open") => {
+            args.next();
+            app(args).map(Cmd::Open)
+        }
+        Some("fixture-serve") => {
+            args.next();
+            let name = value(&mut args, "fixture-serve")?;
+            let root = value(&mut args, "fixture-serve")?;
+            Ok(Cmd::FixtureServe(name, root.into()))
         }
         _ => app(args).map(Cmd::App),
     }
@@ -244,6 +273,8 @@ fn shot(mut args: impl Iterator<Item = String>) -> Result<Shot, String> {
             "--query" => s.query = Some(v),
             "--scope" => s.scope = Some(v),
             "--over" => s.over = Some(v),
+            "--wait" => s.wait = number(&v, "--wait")?,
+            "--map" => s.map = Some(v),
             "--at" => {
                 let (x, y) = v.split_once(',').ok_or("--at is X,Y")?;
                 s.at = Some((number(x, "--at")?, number(y, "--at")?));
@@ -266,7 +297,9 @@ fn bench(mut args: impl Iterator<Item = String>) -> Result<Bench, String> {
         }
         match a.as_str() {
             "--idle" => b.idle = number(&value(&mut args, &a)?, "--idle")?,
+            "--closed" => b.closed = Some(number(&value(&mut args, &a)?, "--closed")?),
             "--logs" => b.logs = true,
+            "--map" => b.map = true,
             "--follow" => b.follow = number(&value(&mut args, &a)?, "--follow")?,
             _ => return Err(format!("bench: unknown flag {a}")),
         }

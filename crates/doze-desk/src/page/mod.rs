@@ -10,6 +10,7 @@ pub mod logindex;
 mod logread;
 pub mod logs;
 pub mod parts;
+mod recent;
 mod resolve;
 pub mod runs;
 pub mod side;

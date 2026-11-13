@@ -69,9 +69,30 @@ pub enum Look {
 }
 
 impl Look {
+    /// Every look, in the order the help sheet explains them.
+    pub const ALL: [Look; 11] = [
+        Self::Awake,
+        Self::Dozing,
+        Self::Waking,
+        Self::Asleep,
+        Self::Crashing,
+        Self::Failed,
+        Self::Off,
+        Self::Paused,
+        Self::Running,
+        Self::Done,
+        Self::NotRun,
+    ];
+
+    /// The look whose word this is; `None` for any other word (a verb in flight, "stopped").
+    #[must_use]
+    pub fn of_word(word: &str) -> Option<Look> {
+        Self::ALL.into_iter().find(|l| l.word() == word)
+    }
+
     /// The word.
     #[must_use]
-    pub fn word(self) -> &'static str {
+    pub const fn word(self) -> &'static str {
         match self {
             Self::Paused => "paused",
             Self::Off => "off",
@@ -89,7 +110,7 @@ impl Look {
 
     /// The glyph drawn before the word.
     #[must_use]
-    pub fn glyph(self) -> &'static str {
+    pub const fn glyph(self) -> &'static str {
         match self {
             Self::Paused => "⊘",
             Self::Off => "○",

@@ -129,6 +129,10 @@ async fn take(cx: &mut AsyncApp, h: WindowHandle<Root>, s: &Shot) {
     paint(cx, h);
     pause(cx, 400).await;
     crate::shot_act::run(cx, h, s.act.as_deref()).await;
+    if s.wait > 0 {
+        pause(cx, s.wait).await;
+        let _ = h.update(cx, |root, _, cx| root.refresh(cx));
+    }
     paint(cx, h);
     pause(cx, 60).await;
     // Once more: the entrance motion began at the paint before, and is over now.
@@ -270,6 +274,9 @@ fn map_stage(root: &mut Root, window: &mut gpui::Window, cx: &mut gpui::Context<
             }
         }
         m.hover = s.hover.as_deref().and_then(|n| m.card_named(n));
+        if let Some(spec) = &s.map {
+            m.stage(spec, window, cx);
+        }
         cx.notify();
     });
     if let Some(q) = &s.find {

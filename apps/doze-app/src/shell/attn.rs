@@ -69,7 +69,7 @@ impl Attn {
     }
 
     /// Items of the stack `key` leave without "fixed": the person dismissed or removed them.
-    pub(super) fn quiet(&mut self, key: &str) {
+    pub(crate) fn quiet(&mut self, key: &str) {
         self.steady.quiet(|i| i.key == key);
     }
 
@@ -116,7 +116,7 @@ impl Attn {
 }
 
 /// What is wrong now, stack by stack, then the machine's (off the UI thread: a crash's port is looked up with lsof).
-fn items_now(
+pub(crate) fn items_now(
     stacks: &[StackView],
     failed: &HashMap<String, StackFailure>,
     parts: &[MachinePart],
@@ -196,6 +196,8 @@ impl Root {
         cx: &mut Context<Self>,
     ) {
         self.attn.building = false;
+        // The menu bar's own list steps with the same items, so it is steady when the window closes (M3).
+        let raw = items.clone();
         let a = self.attn.steady.step(
             items,
             stacks,
@@ -211,6 +213,9 @@ impl Root {
         self.attn
             .alerts
             .retain(|it| !(it.kind == "failed" && shown.as_deref() == Some(it.key.as_str())));
+        // The menu bar and the notifications read the window's list while it is open (M3).
+        let busy = self.attn.acting.0.clone();
+        crate::around::window_list(&self.attn.list, raw, stacks, &busy, now, cx);
         if changed || self.attn.alerts.len() != before {
             self.bell_follow(cx);
             cx.notify();
@@ -255,10 +260,5 @@ impl Root {
         if (busy, said) != self.attn.acting {
             self.rebuild_attention(cx);
         }
-    }
-
-    /// The red count of the stack `key`, for its tab's badge.
-    pub(crate) fn red_of(&self, key: &doze_desk::StackKey) -> usize {
-        self.attn.list.red_in(&key.dir().to_string_lossy())
     }
 }

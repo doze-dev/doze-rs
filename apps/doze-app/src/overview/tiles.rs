@@ -7,9 +7,12 @@ use gpui::{AnyElement, Context, IntoElement, div, prelude::*, px};
 use gpui_component::input::Input;
 
 use super::OverviewView;
-use crate::kit::{chip_of, s, tone, word_line};
-use crate::theme::{Tokens, mix};
-use crate::widgets::{MONO_FAMILY, dot, icon, switch, tracked, w};
+use doze_display::Look;
+
+use crate::instance::ui::state_mark;
+use crate::kit::{chip_of, s, word_line};
+use crate::theme::{Tokens, mix, ty};
+use crate::widgets::{MONO_FAMILY, dot, icon, switch, tracked};
 
 /// Tiles to a row at the window's width.
 pub(super) fn per_row(v: &OverviewView) -> usize {
@@ -20,48 +23,29 @@ pub(super) fn per_row(v: &OverviewView) -> usize {
     }
 }
 
-/// The row's dot (`Dot`): a task's glyph, red in trouble, green awake, yellow dozing, a ring while waking.
+/// The row's mark: the same as the sidebar's and the instance head's (`ui::state_mark`), from the words' look. Go's rows
+/// drew one dot for off, paused, failed and crashing alike where its sidebar drew ○, ⊘ and ✗; here every surface draws
+/// the one vocabulary.
 pub(super) fn row_dot(t: &Tokens, r: &Row) -> AnyElement {
-    if r.kind == "task" {
-        return div()
-            .w(px(8.))
-            .text_size(px(12.))
-            .text_color(tone(t, r.look.tone))
-            .child(r.look.glyph)
-            .into_any_element();
-    }
-    if r.trouble {
-        return dot(t.bad).into_any_element();
-    }
-    match r.look.word {
-        "awake" => dot(t.good).into_any_element(),
-        "dozing" => dot(t.warn).into_any_element(),
-        "waking" => div()
-            .size(px(8.))
-            .flex_none()
-            .rounded_full()
-            .border_2()
-            .border_color(t.cool)
-            .into_any_element(),
-        _ => dot(t.dim).into_any_element(),
+    let trouble = r.trouble && r.kind != "task";
+    match Look::of_word(r.look.word) {
+        Some(l) => state_mark(t, Some(l), trouble, 8.),
+        None => dot(if trouble { t.bad } else { t.dim }).into_any_element(),
     }
 }
 
-/// The word's tone (`wordTone`).
+/// The word's tone (`wordTone`): the look's own, as every surface draws it; red in trouble; a verb in flight cool.
 pub(super) fn word_tone(t: &Tokens, r: &Row) -> gpui::Hsla {
     if r.trouble {
         return t.bad;
     }
-    match r.look.word {
-        "awake" | "done" => t.good,
-        "dozing" => t.warn,
-        "waking" => t.cool,
+    match Look::of_word(r.look.word) {
+        Some(l) => t.tone(l.tone()),
         // A verb in flight (`act::mark_doing`).
-        w if w.ends_with('…') => t.cool,
-        "ready" => t.accent,
-        "failed" => t.bad,
+        None if r.look.word.ends_with('…') => t.cool,
+        None if r.look.word == "ready" => t.accent,
         // Any other word takes the line's own colour, as `wordTone` gave it no class.
-        _ => t.dim,
+        None => t.dim,
     }
 }
 
@@ -80,7 +64,7 @@ pub(super) fn row_switch(
         if r.down {
             return div().into_any_element();
         }
-        let label = if matches!(r.look.word, "done" | "failed") {
+        let label = if matches!(Look::of_word(r.look.word), Some(Look::Done | Look::Failed)) {
             "Run again"
         } else {
             "Run"
@@ -95,8 +79,8 @@ pub(super) fn row_switch(
             .border_color(t.accent)
             .flex()
             .items_center()
-            .text_size(px(11.))
-            .font_weight(w(600.))
+            .text_size(px(ty::XS))
+            .font_weight(ty::SEMIBOLD)
             .text_color(t.accent)
             .hover(|d| d.bg(t.sel))
             .child(label)
@@ -104,10 +88,21 @@ pub(super) fn row_switch(
             .into_any_element();
     }
     if r.paused {
+        // `.lock`: the glyph in a dashed pill the size of a switch; only the file brings it back.
         return div()
             .flex_none()
+            .w(px(34.))
+            .h(px(18.))
+            .flex()
+            .items_center()
+            .justify_center()
+            .rounded(px(9.))
+            .border_1()
+            .border_dashed()
+            .border_color(t.line2)
+            .text_size(px(ty::BASE))
             .text_color(t.dim)
-            .child("⊘")
+            .child(r.look.glyph)
             .into_any_element();
     }
     div()
@@ -134,9 +129,11 @@ pub(super) fn filter(t: &Tokens, v: &OverviewView) -> impl IntoElement {
             .border_color(t.line2)
             .bg(t.well)
             .child(
-                div()
-                    .flex_1()
-                    .child(Input::new(&v.filter).appearance(false).text_size(px(12.))),
+                div().flex_1().child(
+                    Input::new(&v.filter)
+                        .appearance(false)
+                        .text_size(px(ty::SM)),
+                ),
             )
             // `.filter kbd`: a quiet chip, dim on the selection colour.
             .child(
@@ -145,9 +142,9 @@ pub(super) fn filter(t: &Tokens, v: &OverviewView) -> impl IntoElement {
                     .rounded(px(4.))
                     .bg(t.sel)
                     .font_family(MONO_FAMILY)
-                    .text_size(px(11.))
-                    .line_height(px(15.))
-                    .font_weight(w(600.))
+                    .text_size(px(ty::XS))
+                    .line_height(px(ty::LH_15))
+                    .font_weight(ty::SEMIBOLD)
                     .text_color(t.dim)
                     .child(s(&chip_of("Filter"))),
             ),
@@ -167,10 +164,10 @@ fn group_head(t: &Tokens, title: &str, what: &str) -> impl IntoElement {
         .gap(px(10.))
         .mx(px(28.))
         .mb(px(12.))
-        .child(tracked(&title, 11., 700., t.dim, 1.1))
+        .child(tracked(&title, ty::XS, ty::BOLD, t.dim, 1.1))
         .child(
             div()
-                .text_size(px(11.))
+                .text_size(px(ty::XS))
                 .text_color(t.dim)
                 .opacity(0.8)
                 .child(s(what)),
@@ -185,8 +182,8 @@ fn tile_top(
     cx: &mut Context<OverviewView>,
 ) -> impl IntoElement {
     let name = div()
-        .text_size(px(15.))
-        .font_weight(w(650.))
+        .text_size(px(ty::MD_UP))
+        .font_weight(ty::HEADING)
         .text_color(if dim { t.dim } else { t.bright })
         .whitespace_nowrap()
         .overflow_hidden()
@@ -200,6 +197,7 @@ fn tile_top(
         .child(row_dot(t, r))
         .child(name)
         .when(r.pinned, |d| d.child(icon("icons/pin.svg", 13., t.accent)))
+        // The lock stands where the switch would (the mark by the name already says ⊘).
         .child(div().flex_1())
         .child(row_switch(t, r, doing, cx))
 }
@@ -220,7 +218,7 @@ fn tile_foot(t: &Tokens, r: &Row) -> gpui::Div {
         return div()
             .mt_auto()
             .font_family(MONO_FAMILY)
-            .text_size(px(11.5))
+            .text_size(px(ty::XS_UP))
             .text_color(t.bad)
             .whitespace_nowrap()
             .overflow_hidden()
@@ -232,7 +230,7 @@ fn tile_foot(t: &Tokens, r: &Row) -> gpui::Div {
         .items_center()
         .gap(px(10.))
         .mt_auto()
-        .text_size(px(12.5))
+        .text_size(px(ty::SM_UP))
         .text_color(t.dim)
         .whitespace_nowrap()
         .min_w_0()
@@ -266,9 +264,15 @@ fn tile(
     cx: &mut Context<OverviewView>,
 ) -> impl IntoElement {
     let off = !r.on && r.kind != "task";
-    // As shell.css orders them: in trouble, then off (no fill, a dashed frame, even when selected), then selected.
+    // As shell.css orders them: in trouble, then off (no fill, a dashed frame, even when selected), then selected. A
+    // failed one is both: its red frame, dashed, and no fill (doze stopped trying; it waits for you).
     let (border, bg) = if r.trouble {
-        (mix(t.bad, t.line, 55.), mix(t.bad, t.panel, 7.))
+        let fill = if off {
+            gpui::transparent_black()
+        } else {
+            mix(t.bad, t.panel, 7.)
+        };
+        (mix(t.bad, t.line, 55.), fill)
     } else if off {
         (
             if selected { t.line2 } else { t.line },
@@ -295,7 +299,7 @@ fn tile(
         .border_1()
         .border_color(border)
         .bg(bg)
-        .when(off && !r.trouble, |d| d.border_dashed())
+        .when(off, |d| d.border_dashed())
         .hover(|d| d.border_color(t.line2))
         .child(tile_top(t, r, (off && !selected, doing), cx))
         .child(tile_state(t, r))

@@ -9,8 +9,8 @@ use super::kv::Kv;
 use super::tiles::{row_dot, word_tone};
 use super::{OverviewView, all_rows};
 use crate::kit::{Btn, Click, btn, chip_of, s, tone, word_line};
-use crate::theme::Tokens;
-use crate::widgets::{MONO_FAMILY, dot, tracked, w};
+use crate::theme::{Tokens, ty};
+use crate::widgets::{MONO_FAMILY, dot, tracked};
 
 const PANE_W: f32 = 372.;
 
@@ -27,7 +27,7 @@ fn sec(t: &Tokens, title: &str) -> gpui::Div {
         .child(
             div()
                 .mb(px(3.))
-                .child(tracked(title, 11., 600., t.dim, 0.66)),
+                .child(tracked(title, ty::XS, ty::SEMIBOLD, t.dim, 0.66)),
         )
 }
 
@@ -77,8 +77,8 @@ fn head(t: &Tokens, r: &Row, p: &Pane) -> impl IntoElement {
         r.engine.clone()
     };
     let name = div()
-        .text_size(px(15.))
-        .font_weight(w(650.))
+        .text_size(px(ty::MD_UP))
+        .font_weight(ty::HEADING)
         .text_color(t.bright)
         .child(s(&p.name));
     div()
@@ -101,7 +101,7 @@ fn head(t: &Tokens, r: &Row, p: &Pane) -> impl IntoElement {
         )
         .child(
             div()
-                .text_size(px(12.))
+                .text_size(px(ty::SM))
                 .text_color(t.dim)
                 .whitespace_nowrap()
                 .overflow_hidden()
@@ -110,7 +110,7 @@ fn head(t: &Tokens, r: &Row, p: &Pane) -> impl IntoElement {
         )
         .child(
             div()
-                .text_size(px(12.))
+                .text_size(px(ty::SM))
                 .text_color(t.dim)
                 .whitespace_nowrap()
                 .overflow_hidden()
@@ -162,7 +162,7 @@ fn needs(t: &Tokens, p: &Pane) -> impl IntoElement {
             .bg(t.panel)
             .border_1()
             .border_color(t.line)
-            .text_size(px(12.))
+            .text_size(px(ty::SM))
             .child(glyph)
             .child(s(text))
     };
@@ -236,17 +236,16 @@ fn live(t: &Tokens, r: &Row, p: &Pane, cx: &mut Context<OverviewView>) -> AnyEle
     if !p.connect.is_empty() {
         let mut a = sec(t, "Addresses");
         for c in &p.connect {
+            // `.kv .v.b` only on words: a mono value (an address) is the text's colour (overview.tsx).
+            let bright = !c.dim && !c.mono;
             let kv = if c.copy.is_empty() {
                 Kv {
-                    bright: !c.dim,
+                    bright,
                     ..Kv::new(&c.k, &c.v)
                 }
             } else {
                 let kv = Kv::new(&c.k, &c.v).copy(&c.copy);
-                Kv {
-                    bright: !c.dim,
-                    ..kv
-                }
+                Kv { bright, ..kv }
             };
             let kv = Kv {
                 note: &c.note,
@@ -273,7 +272,7 @@ fn live(t: &Tokens, r: &Row, p: &Pane, cx: &mut Context<OverviewView>) -> AnyEle
             .border_1()
             .border_color(t.line)
             .font_family(MONO_FAMILY)
-            .text_size(px(12.))
+            .text_size(px(ty::SM))
             .text_color(t.bad)
             .child(s(&c.error));
         let next = if c.next_in.is_empty() {
@@ -287,7 +286,7 @@ fn live(t: &Tokens, r: &Row, p: &Pane, cx: &mut Context<OverviewView>) -> AnyEle
                 .when(!c.tries.is_empty(), |d| {
                     d.child(
                         div()
-                            .text_size(px(12.))
+                            .text_size(px(ty::SM))
                             .text_color(t.dim)
                             .child(s(&format!("{}{next}", c.tries))),
                     )
@@ -326,14 +325,14 @@ fn down(t: &Tokens, r: &Row, cx: &mut Context<OverviewView>) -> AnyElement {
         .child(row_dot(t, r))
         .child(
             div()
-                .text_size(px(15.))
-                .font_weight(w(650.))
+                .text_size(px(ty::MD_UP))
+                .font_weight(ty::HEADING)
                 .text_color(t.bright)
                 .child(s(&r.name)),
         )
         .child(
             div()
-                .text_size(px(12.))
+                .text_size(px(ty::SM))
                 .text_color(t.dim)
                 .child(s(&format!("{} · down", r.engine))),
         );

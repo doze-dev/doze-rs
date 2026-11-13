@@ -5,14 +5,10 @@ use gpui::{
     AnyElement, FontWeight, Hsla, IntoElement, SharedString, Styled, div, prelude::*, px, svg,
 };
 
-use crate::theme::Tokens;
+use crate::theme::{Tokens, ty};
 
 pub(crate) const MONO_FAMILY: &str = "JetBrains Mono";
 pub(crate) const UI_FAMILY: &str = "Inter";
-
-pub(crate) fn w(n: f32) -> FontWeight {
-    FontWeight(n)
-}
 
 /// An SVG icon (assets.rs) in a colour, `size` square.
 pub(crate) fn icon(path: &'static str, size: f32, color: Hsla) -> impl IntoElement {
@@ -28,7 +24,7 @@ pub(crate) fn icon(path: &'static str, size: f32, color: Hsla) -> impl IntoEleme
 pub(crate) fn tracked(
     text: &str,
     size: f32,
-    weight: f32,
+    weight: FontWeight,
     color: Hsla,
     tracking: f32,
 ) -> impl IntoElement {
@@ -37,7 +33,7 @@ pub(crate) fn tracked(
         .flex_none()
         .items_center()
         .text_size(px(size))
-        .font_weight(w(weight))
+        .font_weight(weight)
         .text_color(color)
         .children(
             text.to_uppercase()
@@ -95,19 +91,24 @@ pub(crate) fn switch(t: &Tokens, on: bool, big: bool, disabled: bool) -> impl In
 /// face lacks (the fallback draws them a third smaller than a letter): those take the UI face, a size up.
 fn key_face(text: &str, size: f32) -> (&'static str, f32) {
     if text.contains(['⏎', '⌫']) {
-        (UI_FAMILY, size + 2.)
+        (UI_FAMILY, size + ty::KEY_GLYPH_UP)
     } else {
         (MONO_FAMILY, size)
     }
 }
 
 /// `kbd` in a button or the keys bar: JetBrains Mono, `color`, no chrome.
-pub(crate) fn kbd_plain(text: &str, size: f32, color: Hsla, weight: f32) -> impl IntoElement {
+pub(crate) fn kbd_plain(
+    text: &str,
+    size: f32,
+    color: Hsla,
+    weight: FontWeight,
+) -> impl IntoElement {
     let (face, size) = key_face(text, size);
     div()
         .font_family(face)
         .text_size(px(size))
-        .font_weight(w(weight))
+        .font_weight(weight)
         .text_color(color)
         .child(SharedString::from(text.to_string()))
 }
@@ -117,7 +118,7 @@ pub(crate) fn kbd_chip(
     t: &Tokens,
     text: &str,
     size: f32,
-    weight: f32,
+    weight: FontWeight,
     pad_x: f32,
 ) -> impl IntoElement {
     let (face, glyph) = key_face(text, size);
@@ -129,9 +130,9 @@ pub(crate) fn kbd_chip(
         .bg(t.sel)
         .font_family(face)
         // The chip keeps its height: the larger glyph sits in the same line.
-        .line_height(px(size + 5.))
+        .line_height(px(size + ty::CHIP_LEAD))
         .text_size(px(glyph))
-        .font_weight(w(weight))
+        .font_weight(weight)
         .text_color(t.bright)
         .child(SharedString::from(text.to_string()))
 }
@@ -146,7 +147,7 @@ pub(crate) fn tag(t: &Tokens, text: &str) -> impl IntoElement {
         .items_center()
         .rounded(px(3.))
         .bg(t.accent)
-        .child(tracked(text, 9., 700., t.ink, 0.72))
+        .child(tracked(text, ty::TAG, ty::BOLD, t.ink, 0.72))
 }
 
 /// What a segmented-control cell does when clicked.
@@ -180,8 +181,8 @@ pub(crate) fn seg(
                         .flex()
                         .items_center()
                         .gap(px(6.))
-                        .text_size(px(12.))
-                        .font_weight(w(500.))
+                        .text_size(px(ty::SM))
+                        .font_weight(ty::MEDIUM)
                         .child(child);
                     let cell = if on {
                         cell.bg(t.sel).text_color(t.bright)

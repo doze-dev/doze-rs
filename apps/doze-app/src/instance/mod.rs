@@ -31,7 +31,7 @@ use crate::actions::{
 };
 use crate::console::ConsoleTabView;
 use crate::logs::{LogsMode, LogsView};
-use crate::theme::tokens;
+use crate::theme::{tokens, ty};
 
 /// What the page asks the window to do.
 #[derive(Debug, Clone)]
@@ -339,7 +339,7 @@ impl Render for InstanceView {
                 .gap(px(10.))
                 .child(
                     div()
-                        .text_size(px(18.))
+                        .text_size(px(ty::LG_UP))
                         .text_color(t.bright)
                         .child(ui::text(&format!("Nothing called {}.", self.name))),
                 )

@@ -6,6 +6,7 @@ pub(crate) mod alerts;
 pub(crate) mod bell;
 mod bell_calm;
 pub(crate) mod dialog;
+mod glossary;
 pub(crate) mod help;
 pub(crate) mod palette;
 mod palette_view;

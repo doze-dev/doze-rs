@@ -19,7 +19,7 @@ pub struct Other {
     pub url: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 struct Entry {
     #[serde(default)]
     pid: i64,
@@ -63,6 +63,51 @@ pub fn others(home: &Path) -> Vec<Other> {
         .collect()
 }
 
+/// The names file as read once: what the registry says a name's URL is (Go `names.URLFor`, read only).
+#[derive(Debug, Default)]
+pub struct Names {
+    entries: BTreeMap<String, Entry>,
+    /// The front door's holder (its listen address and pid); whether it is alive is asked at each lookup, so a front door
+    /// that died without rewriting the file stops making URLs port-less.
+    front: Option<(String, i64)>,
+}
+
+impl Names {
+    /// The names file under `home`; empty when there is none.
+    #[must_use]
+    pub fn read(home: &Path) -> Names {
+        let Ok(raw) = std::fs::read(home.join("names.json")) else {
+            return Names::default();
+        };
+        let Ok(entries) = serde_json::from_slice::<BTreeMap<String, Entry>>(&raw) else {
+            return Names::default();
+        };
+        let front = entries.get(INGRESS).map(|e| (e.target.clone(), e.pid));
+        Names { entries, front }
+    }
+
+    /// The URL the registry gives `host`: the most specific name that routes it, port-less while a doze program holds
+    /// the front door on 80; `None` when no live name routes it.
+    #[must_use]
+    pub fn url_for(&self, host: &str) -> Option<String> {
+        let mut name = host;
+        loop {
+            if let Some(e) = self.entries.get(name).filter(|e| {
+                !e.target.is_empty() && u32::try_from(e.pid).is_ok_and(doze_os::process::alive)
+            }) {
+                let front = self
+                    .front
+                    .as_ref()
+                    .filter(|(_, pid)| u32::try_from(*pid).is_ok_and(doze_os::process::alive))
+                    .map(|(t, _)| t.as_str());
+                let url = url_for(host, &e.target, front);
+                return (!url.is_empty()).then_some(url);
+            }
+            name = name.split_once('.')?.1;
+        }
+    }
+}
+
 /// Port-less while a doze program holds the front door on 80, else with the backend's port.
 fn url_for(host: &str, target: &str, front: Option<&str>) -> String {
     let port = |t: &str| t.rsplit_once(':').map(|(_, p)| p.to_owned());
@@ -77,7 +122,7 @@ fn url_for(host: &str, target: &str, front: Option<&str>) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{others, url_for};
+    use super::{Names, others, url_for};
 
     #[test]
     fn reads_the_names_of_other_programs() {
@@ -95,6 +140,26 @@ mod tests {
         assert_eq!(o[0].owner, "doze-aws");
         assert_eq!(o[0].url, "http://aws.harbour.doze:4566");
         assert!(others(&dir.path().join("none")).is_empty());
+        // The registry's URL for a name: the most specific live name that routes it.
+        let names = Names::read(dir.path());
+        assert_eq!(
+            names.url_for("sqs.aws.harbour.doze").as_deref(),
+            Some("http://sqs.aws.harbour.doze:4566"),
+            "a subdomain is routed by its parent's name"
+        );
+        assert_eq!(
+            names.url_for("aws.harbour.doze").as_deref(),
+            Some("http://aws.harbour.doze:4566")
+        );
+        assert_eq!(
+            names.url_for("dead.doze"),
+            None,
+            "a dead holder routes nothing"
+        );
+        assert_eq!(
+            Names::read(&dir.path().join("none")).url_for("a.doze"),
+            None
+        );
         assert_eq!(
             url_for("a.doze", "x:1", Some("127.0.0.1:80")),
             "http://a.doze"

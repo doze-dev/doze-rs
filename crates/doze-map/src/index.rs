@@ -50,9 +50,13 @@ fn env(r: &Rect) -> AABB<[f64; 2]> {
 }
 
 impl Index {
-    pub(crate) fn build(cards: &[Card], edges: &[Edge]) -> Self {
+    /// The index of `cards` (but those `skip` marks: folded, they have no place) and `edges`.
+    pub(crate) fn build(cards: &[Card], skip: &[bool], edges: &[Edge]) -> Self {
         let mut items: Vec<Item> = Vec::with_capacity(cards.len() + edges.len() * 2);
         for (i, c) in cards.iter().enumerate() {
+            if skip.get(i).copied().unwrap_or(false) {
+                continue;
+            }
             let what = What::Card(u32::try_from(i).unwrap_or(u32::MAX));
             items.push(Item {
                 env: env(&c.rect),

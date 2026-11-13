@@ -243,6 +243,36 @@ pub(crate) const TABLE: &[Spec] = &[
         true
     ),
     spec!(
+        "Every line or on demand",
+        "a large map's calls (a small map: all logs)",
+        ToggleLines,
+        ["shift-l"],
+        Map,
+        Some(View),
+        true,
+        true
+    ),
+    spec!(
+        "Neighbourhood",
+        "the selected card and 1–3 calls either way (again: more hops)",
+        Neighbourhood,
+        ["shift-h"],
+        Map,
+        Some(View),
+        true,
+        true
+    ),
+    spec!(
+        "Only trouble",
+        "what is in trouble and the paths between",
+        OnlyTrouble,
+        ["shift-t"],
+        Map,
+        Some(View),
+        true,
+        true
+    ),
+    spec!(
         "Card above",
         "the nearest",
         MoveUp,

@@ -9,8 +9,8 @@ use doze_display::Group;
 use gpui::{Context, Div, IntoElement, Window, div, prelude::*, px};
 
 use super::ui::{state_mark, text};
-use crate::theme::Tokens;
-use crate::widgets::{tracked, w};
+use crate::theme::{Tokens, ty};
+use crate::widgets::tracked;
 
 /// What the sidebar shows besides the instances.
 pub(crate) enum Mode<'a> {
@@ -59,11 +59,13 @@ fn item(t: &Tokens, on: bool) -> Div {
 }
 
 fn group_head(t: &Tokens, g: Group) -> Div {
-    div()
-        .mx(px(8.))
-        .mt(px(10.))
-        .mb(px(4.))
-        .child(tracked(g.title(), 11., 600., t.dim, 0.88))
+    div().mx(px(8.)).mt(px(10.)).mb(px(4.)).child(tracked(
+        g.title(),
+        ty::XS,
+        ty::SEMIBOLD,
+        t.dim,
+        0.88,
+    ))
 }
 
 /// The sidebar; `pick` hears its clicks.
@@ -104,7 +106,7 @@ pub(crate) fn sidebar<T: 'static>(
                 .items_center()
                 .gap(px(8.))
                 .p(px(8.))
-                .text_size(px(12.))
+                .text_size(px(ty::SM))
                 .text_color(t.dim)
                 .whitespace_nowrap()
                 .child(gpui::img("brand/doze.svg").size(px(18.)).flex_none())
@@ -135,21 +137,26 @@ fn instances<T: 'static>(
                     .on_click(cx.listener(move |this, _, w, cx| {
                         pick(this, Pick::Instance(name.clone()), w, cx)
                     }))
-                    .child(state_mark(t, Some(x.look), x.trouble, 8.))
+                    .child(state_mark(
+                        t,
+                        Some(x.look),
+                        x.trouble && x.kind != doze_display::Kind::Task,
+                        8.,
+                    ))
                     .child(
                         div()
                             .flex_1()
                             .min_w_0()
                             .overflow_hidden()
                             .text_ellipsis()
-                            .when(x.name == current, |d| d.font_weight(w(600.)))
+                            .when(x.name == current, |d| d.font_weight(ty::SEMIBOLD))
                             .when(x.look == doze_display::Look::Off, |d| d.text_color(t.dim))
                             .child(text(&x.name)),
                     )
                     .child(
                         div()
                             .flex_none()
-                            .text_size(px(11.5))
+                            .text_size(px(ty::XS_UP))
                             .text_color(if x.trouble { t.bad } else { t.dim })
                             .child(text(if x.trouble { x.look.word() } else { &x.note })),
                     ),
@@ -168,14 +175,14 @@ fn show_list<T: 'static>(
     cx: &mut Context<T>,
     pick: fn(&mut T, Pick, &mut Window, &mut Context<T>),
 ) -> Div {
-    s = s.child(item(t, true).child(div().font_weight(w(600.)).child("All logs")));
-    s = s.child(
-        div()
-            .mx(px(8.))
-            .mt(px(10.))
-            .mb(px(4.))
-            .child(tracked("Show", 11., 600., t.dim, 0.88)),
-    );
+    s = s.child(item(t, true).child(div().font_weight(ty::SEMIBOLD).child("All logs")));
+    s = s.child(div().mx(px(8.)).mt(px(10.)).mb(px(4.)).child(tracked(
+        "Show",
+        ty::XS,
+        ty::SEMIBOLD,
+        t.dim,
+        0.88,
+    )));
     let on = |n: &str| show.as_ref().is_none_or(|s| s.contains(n));
     for (i, x) in sides.iter().enumerate() {
         let name = x.name.clone();
@@ -187,7 +194,12 @@ fn show_list<T: 'static>(
                         pick(this, Pick::Toggle(name.clone()), w, cx)
                     }))
                     .child(tick(t, on(&x.name)))
-                    .child(state_mark(t, Some(x.look), x.trouble, 8.))
+                    .child(state_mark(
+                        t,
+                        Some(x.look),
+                        x.trouble && x.kind != doze_display::Kind::Task,
+                        8.,
+                    ))
                     .child(
                         div()
                             .flex_1()
@@ -209,7 +221,7 @@ fn show_list<T: 'static>(
                 div()
                     .w(px(8.))
                     .text_color(t.accent)
-                    .font_weight(w(700.))
+                    .font_weight(ty::BOLD)
                     .child("z"),
             )
             .child(div().flex_1().child("doze itself")),
@@ -228,8 +240,8 @@ fn tick(t: &Tokens, on: bool) -> impl IntoElement {
         .flex()
         .items_center()
         .justify_center()
-        .text_size(px(10.))
-        .font_weight(w(700.))
+        .text_size(px(ty::MICRO))
+        .font_weight(ty::BOLD)
         .text_color(t.ink)
         .when(on, |d| d.child("✓"))
 }

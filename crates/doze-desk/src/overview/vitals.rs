@@ -42,7 +42,11 @@ pub struct States {
     pub asleep: usize,
     pub off: usize,
     pub paused: usize,
+    /// Crashing: exited by itself, doze still trying.
     pub crashing: usize,
+    /// Failed: doze stopped trying (gave up, or never became ready). Go counted these as crashing; a failed one is
+    /// not, and every other surface calls it failed.
+    pub failed: usize,
     /// `sleeps after 5:00 with nothing holding it`.
     pub sleeps: String,
 }
@@ -66,7 +70,8 @@ pub(crate) fn vitals(st: &StackView, snap: &words::Snapshot) -> Vitals4 {
             asleep: t.asleep,
             off: t.off,
             paused: t.paused,
-            crashing: t.trouble,
+            crashing: count(&snap.instances, words::Look::Crashing),
+            failed: count(&snap.instances, words::Look::Failed),
             sleeps: String::new(),
         },
         conns: Conns {
@@ -164,6 +169,13 @@ fn cpu_meter(all: Vec<words::Share<'_>>) -> Meter {
 }
 
 /// How the setup tasks stand: `tasks ✓ 1 done · ▸ 1 not run`.
+/// How many of the instances, tasks aside, read as `look`.
+pub(crate) fn count(ins: &[words::Instance], look: words::Look) -> usize {
+    ins.iter()
+        .filter(|v| v.kind != words::Kind::Task && words::look(v) == look)
+        .count()
+}
+
 fn tasks(ins: &[words::Instance]) -> String {
     let (mut done, mut ready, mut failed) = (0, 0, 0);
     for i in ins.iter().filter(|i| i.kind == words::Kind::Task) {

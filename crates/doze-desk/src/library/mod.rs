@@ -6,7 +6,7 @@ mod machine;
 mod others;
 
 pub use machine::{Check, Doctor, machine, parse_doctor};
-pub use others::{Other, others};
+pub use others::{Names, Other, others};
 
 use std::collections::HashSet;
 use std::path::Path;
@@ -234,7 +234,7 @@ fn row(st: &StackView, shape: Option<&Shape>, now: SystemTime) -> LibStack {
     };
     row.need = need(st, &snap, now);
     if st.running {
-        row.fig = fig(&t);
+        row.fig = fig(&t, &snap.instances);
         row.sub = conn_word(t.conns);
         if t.ram > 0 {
             row.sub = format!(
@@ -264,7 +264,7 @@ fn row(st: &StackView, shape: Option<&Shape>, now: SystemTime) -> LibStack {
 
 fn stopped_row(row: &mut LibStack, st: &StackView, shape: Option<&Shape>, now: SystemTime) {
     row.fig = vec![Bit {
-        text: "stopped".into(),
+        text: crate::overview::Look::STOPPED.word.into(),
         tone: "dim",
     }];
     if let Some(s) = shape {
@@ -298,7 +298,11 @@ fn stopped_row(row: &mut LibStack, st: &StackView, shape: Option<&Shape>, now: S
 /// The red pill: the first instance in trouble, or a daemon that stopped answering.
 fn need(st: &StackView, snap: &words::Snapshot, now: SystemTime) -> String {
     if let Some(i) = snap.instances.iter().find(|i| words::troubled(i)) {
-        let mut s = format!("{} is {}", i.name, words::look(i).word());
+        // "backfill failed", as Needs you says it, not "backfill is failed"; "gateway is crashing".
+        let mut s = match words::look(i) {
+            words::Look::Failed => format!("{} {}", i.name, words::Look::Failed.word()),
+            l => format!("{} is {}", i.name, l.word()),
+        };
         let b = words::because(i, snap, now);
         if !b.is_empty() {
             s = format!("{s} · {b}");
@@ -311,16 +315,24 @@ fn need(st: &StackView, snap: &words::Snapshot, now: SystemTime) -> String {
     String::new()
 }
 
-fn fig(t: &words::Tally) -> Vec<Bit> {
+/// The running figure: how many read as each state, tasks aside, in the words every other surface uses. Go folded
+/// paused into off and failed (a task's too) into crashing, so the Library disagreed with the stack's own strip. Trouble
+/// leads, so a narrow column cuts the quiet words and not it.
+fn fig(t: &words::Tally, ins: &[words::Instance]) -> Vec<Bit> {
+    use crate::overview::count;
+    use words::Look;
     let mut out: Vec<Bit> = Vec::new();
-    for (n, word, tone) in [
-        (t.awake, "awake", "ok"),
-        (t.waking, "waking", "cool"),
-        (t.dozing, "dozing", "warn"),
-        (t.asleep, "asleep", ""),
-        (t.off + t.paused, "off", "dim"),
-        (t.trouble + t.failed, "crashing", "bad"),
+    for (n, look, tone) in [
+        (count(ins, Look::Crashing), Look::Crashing, "bad"),
+        (count(ins, Look::Failed), Look::Failed, "bad"),
+        (t.awake, Look::Awake, "ok"),
+        (t.waking, Look::Waking, "cool"),
+        (t.dozing, Look::Dozing, "warn"),
+        (t.asleep, Look::Asleep, ""),
+        (t.off, Look::Off, "dim"),
+        (t.paused, Look::Paused, "dim"),
     ] {
+        let word = look.word();
         if n == 0 {
             continue;
         }

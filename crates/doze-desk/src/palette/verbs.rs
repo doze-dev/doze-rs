@@ -178,9 +178,9 @@ fn did_you_mean(stacks: &[&StackView], verb: &str) -> Vec<Row> {
     for st in stacks.iter().filter(|s| s.running) {
         match verb {
             "sleep" => {
-                let n = awake_count(st);
-                if n > 0 {
-                    out.push(sleep_all_row(st, &format!("{n} awake")));
+                // What it puts to sleep, in the strip's words: the awake and the dozing apart.
+                if awake_count(st) > 0 {
+                    out.push(sleep_all_row(st, &up_figure(st)));
                 }
             }
             "wake" => out.push(Row {
@@ -318,4 +318,24 @@ pub fn edit_distance(a: &str, b: &str) -> usize {
         prev = cur;
     }
     prev.last().copied().unwrap_or(0)
+}
+
+/// "4 awake · 1 dozing": what is up, in the strip's words; the dozing part only when there is one.
+fn up_figure(st: &StackView) -> String {
+    let t = words::tally(&st.words().instances);
+    let mut out = format!("{} {}", t.awake, words::Look::Awake.word());
+    if t.dozing > 0 {
+        out.push_str(&format!(" · {} {}", t.dozing, words::Look::Dozing.word()));
+    }
+    out
+}
+
+/// A running stack's dot: red when a service in it is in trouble, as its tab, the Library and the bell have it.
+pub(super) fn stack_tone(st: &StackView) -> &'static str {
+    let troubled = st
+        .words()
+        .instances
+        .iter()
+        .any(|v| v.kind != Kind::Task && words::troubled(v));
+    if troubled { "r" } else { "g" }
 }

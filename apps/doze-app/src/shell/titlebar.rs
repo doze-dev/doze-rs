@@ -6,8 +6,8 @@ use gpui::{AnyElement, Context, IntoElement, div, prelude::*, px};
 use super::{Root, Screen, Tab};
 use crate::actions::{OpenBell, OpenPalette, ShowHelp};
 use crate::kit::{chip_of, s};
-use crate::theme::Tokens;
-use crate::widgets::{dot, icon, kbd_plain, w};
+use crate::theme::{Tokens, ty};
+use crate::widgets::{dot, icon, kbd_plain};
 
 fn tab(
     t: &Tokens,
@@ -27,7 +27,7 @@ fn tab(
         .rounded_t(px(8.))
         .border_1()
         .border_b_0()
-        .text_size(px(12.5))
+        .text_size(px(ty::SM_UP))
         .whitespace_nowrap()
         .cursor_pointer()
         .children(body);
@@ -35,7 +35,7 @@ fn tab(
         base.bg(t.bg)
             .border_color(t.line)
             .text_color(t.bright)
-            .font_weight(w(600.))
+            .font_weight(ty::SEMIBOLD)
     } else {
         base.border_color(gpui::transparent_black())
             .text_color(t.dim)
@@ -73,9 +73,9 @@ fn badge(t: &Tokens, n: usize) -> gpui::Div {
         .flex()
         .items_center()
         .justify_center()
-        .text_size(px(10.))
-        .line_height(px(16.))
-        .font_weight(w(700.))
+        .text_size(px(ty::MICRO))
+        .line_height(px(ty::LH_16))
+        .font_weight(ty::BOLD)
         .text_color(gpui::white())
         .child(gpui::SharedString::from(n.to_string()))
 }
@@ -109,8 +109,8 @@ pub(crate) fn titlebar(t: &Tokens, root: &Root, cx: &mut Context<Root>) -> impl 
         })
         .on_click(cx.listener(|this, _, window, cx| this.on_bell(&OpenBell, window, cx)));
     let help = square(t, "help")
-        .text_size(px(13.))
-        .font_weight(w(600.))
+        .text_size(px(ty::BASE))
+        .font_weight(ty::SEMIBOLD)
         .text_color(t.dim)
         .child("?")
         .on_click(cx.listener(|this, _, window, cx| this.on_help(&ShowHelp, window, cx)));
@@ -149,13 +149,18 @@ fn search(t: &Tokens, cx: &mut Context<Root>) -> impl IntoElement {
         .border_1()
         .border_color(t.line2)
         .bg(t.panel)
-        .text_size(px(12.))
-        .font_weight(w(500.))
+        .text_size(px(ty::SM))
+        .font_weight(ty::MEDIUM)
         .text_color(t.text)
         .cursor_pointer()
         .hover(|s| s.bg(t.sel))
         .on_click(cx.listener(|this, _, window, cx| this.on_palette(&OpenPalette, window, cx)))
-        .child(kbd_plain(&chip_of("Search or do…"), 11., t.dim, 500.))
+        .child(kbd_plain(
+            &chip_of("Search or do…"),
+            ty::XS,
+            t.dim,
+            ty::MEDIUM,
+        ))
         .child("Search or do")
 }
 
@@ -229,10 +234,12 @@ fn pending_tab(t: &Tokens, root: &Root, cx: &mut Context<Root>) -> Option<AnyEle
 
 fn stack_tab(t: &Tokens, root: &Root, i: usize, tb: &Tab, cx: &mut Context<Root>) -> AnyElement {
     let on = root.key() == Some(&tb.key);
-    let tone = if tb.trouble {
+    let tone = if tb.troubled > 0 {
         t.bad
-    } else if tb.running {
+    } else if tb.running && tb.live {
         t.good
+    } else if tb.running {
+        t.warn
     } else {
         t.dim
     };
@@ -244,11 +251,9 @@ fn stack_tab(t: &Tokens, root: &Root, i: usize, tb: &Tab, cx: &mut Context<Root>
             .child(s(&tb.name))
             .into_any_element(),
     ];
-    let red = root.red_of(&tb.key);
-    if red > 0 || tb.trouble {
-        // Go wrote "!" when the stack was troubled before Needs you had counted it.
-        let n = red.max(1);
-        body.push(badge(t, n).into_any_element());
+    // As Go's tab: how many of its instances are in trouble, tasks aside. The bell counts Needs you's items.
+    if tb.troubled > 0 {
+        body.push(badge(t, tb.troubled).into_any_element());
     }
     if on || !tb.running {
         let k = tb.key.clone();

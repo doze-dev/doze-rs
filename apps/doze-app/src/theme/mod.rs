@@ -5,6 +5,7 @@
 //! The mode follows the system unless the user picked one; [`Choice`] is what the user picked.
 
 mod motion;
+pub(crate) mod ty;
 
 pub(crate) use motion::{Density, Motion};
 

@@ -45,12 +45,18 @@ pub(crate) fn claim(home: &Path, args: &[String]) -> std::io::Result<Launch> {
     if let Some(dir) = lock.parent() {
         std::fs::create_dir_all(dir)?;
     }
-    let Some(held) = doze_os::fs::try_lock(&lock)? else {
-        let mut s = LocalStream::connect(&sock)?;
-        let line = serde_json::to_string(args).map_err(std::io::Error::other)?;
-        s.write_all(line.as_bytes())?;
-        s.write_all(b"\n")?;
-        return Ok(Launch::Forwarded);
+    // Held by another: hand over. An app starting (or a probe of the lock by `open`) may hold it a moment before its
+    // socket listens, so the two are tried again for up to a second before giving up.
+    let start = std::time::Instant::now();
+    let held = loop {
+        if let Some(held) = doze_os::fs::try_lock(&lock)? {
+            break held;
+        }
+        match send(&sock, args) {
+            Ok(()) => return Ok(Launch::Forwarded),
+            Err(e) if start.elapsed() > std::time::Duration::from_secs(1) => return Err(e),
+            Err(_) => std::thread::sleep(std::time::Duration::from_millis(50)),
+        }
     };
     // A socket left by an app that died goes: the lock says nobody listens on it.
     let _ = std::fs::remove_file(&sock);
@@ -63,6 +69,41 @@ pub(crate) fn claim(home: &Path, args: &[String]) -> std::io::Result<Launch> {
         _lock: held,
         args: rx,
     }))
+}
+
+/// Sends `args` to the app listening on `sock`.
+fn send(sock: &Path, args: &[String]) -> std::io::Result<()> {
+    let mut s = LocalStream::connect(sock)?;
+    let line = serde_json::to_string(args).map_err(std::io::Error::other)?;
+    s.write_all(line.as_bytes())?;
+    s.write_all(b"\n")
+}
+
+/// Hands `args` to the app that holds the home, when one does (`doze-app open`); `false` when none does, and then
+/// nothing is held: the launch that follows takes the home itself.
+///
+/// # Errors
+///
+/// When the lock cannot be read, or the app that holds it cannot be reached.
+pub(crate) fn hand_over(home: &Path, args: &[String]) -> std::io::Result<bool> {
+    let (lock, sock) = paths(home);
+    // The socket first: a listening app is asked without touching its lock (a probe of the lock would hold it for a
+    // moment, and an app starting then would lose it).
+    if send(&sock, args).is_ok() {
+        return Ok(true);
+    }
+    if !lock.exists() || doze_os::fs::try_lock(&lock)?.is_some() {
+        return Ok(false);
+    }
+    // Held, not listening yet: an app that is starting. It binds the socket just after it takes the lock.
+    let start = std::time::Instant::now();
+    loop {
+        match send(&sock, args) {
+            Ok(()) => return Ok(true),
+            Err(e) if start.elapsed() > std::time::Duration::from_secs(1) => return Err(e),
+            Err(_) => std::thread::sleep(std::time::Duration::from_millis(50)),
+        }
+    }
 }
 
 /// Reads one line of arguments from each launch that connects.
@@ -93,6 +134,33 @@ mod tests {
         assert!(matches!(claim(&home, &args).unwrap(), Launch::Forwarded));
         assert_eq!(f.args.recv_blocking().unwrap(), args);
         drop(f);
+        let _ = std::fs::remove_dir_all(&home);
+    }
+}
+
+#[cfg(test)]
+mod hand_over_tests {
+    #![allow(clippy::unwrap_used)]
+    use super::{Launch, claim, hand_over};
+
+    #[test]
+    fn open_hands_over_to_a_running_app_and_says_when_there_is_none() {
+        let home = std::env::temp_dir().join(format!("doze-app-handover-{}", std::process::id()));
+        let none = vec!["/code/shop".to_string()];
+        assert!(!hand_over(&home, &none).unwrap(), "no app: nothing held");
+        let Ok(Launch::First(f)) = claim(&home, &[]) else {
+            unreachable!("the first launch is first")
+        };
+        assert!(hand_over(&home, &none).unwrap());
+        assert_eq!(f.args.recv_blocking().unwrap(), none);
+        // The app quits: its lock goes with it, and its socket (here the listening thread outlives the drop, so the
+        // socket is taken away as the process's exit would).
+        drop(f);
+        let _ = std::fs::remove_file(home.join("desk/app.sock"));
+        assert!(
+            !hand_over(&home, &none).unwrap(),
+            "the app quit: its lock is free"
+        );
         let _ = std::fs::remove_dir_all(&home);
     }
 }

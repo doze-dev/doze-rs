@@ -20,6 +20,35 @@ feeds the help sheet, the chips, the menu bar and ⌘K, each command listed once
 trouble restarts it (Needs you's first fix). Still M3: Settings, Activity, Check for Updates, Settings › Machine's
 repair and clean-up (their rows say "soon").
 
+M3 steps 3.1, 3.2 and 3.5 (branch `app-m3-tray`): `doze-desk::tray` (Go's `Build`, `Split`, `NeedsOf` with their
+tests, and the whole menu as data with a signature and a text form) and `doze-desk::notify` (Go's D8 rules with their
+tests, the fix pressed outside the window, the notification's words); the app's `around` keeps one Needs you list for
+the menu bar and notifications (the window's while it is open, its own while it is closed) and opens the window when
+something pressed from the menu bar asks; `cargo xtask app-bundle` makes Doze.app; `doze-app open` hands over to a
+running app or starts one on its own. Differences and beyond Go:
+- each running stack's submenu also lists its services (wake, sleep, turn on, restart or run, as fits; their page and
+  logs) and All logs; the stack line leaves the restart countdown out, so a crash loop does not rebuild the menu every
+  second; menu lines carry the menu's generation, and a pick from the menu just replaced (one open while it was
+  rebuilt) still does what its line said; Search or do… ⌘K and Quit's ⌘Q are lines Go's menu did not have;
+- a note waits up to 2 s for Needs you to list its item, so the notification carries the fix button (Go posted at
+  once and often had none); its button presses the fix only while the item still offers that very fix (same kind,
+  verb, label, and for a port's holder the same pid); a click on one posted before a relaunch still finds its
+  instance (the tag names it); "on screen" means the window is the active one; a fix pressed outside the window that
+  then fails is itself a notification while no window is open; without a bundle a note is a toast and a Recent
+  line, and stderr; the menu bar's own Needs you steps with the window's items while the window is open, so it goes
+  on steadily when the window closes; a notification is withdrawn when its episode ends (Go left it up); "Open
+  <url>" takes the names registry's URL (port-less while the front door is up) as Go's WebURL did; Dismiss and Remove
+  quiet both lists from either place;
+- the Dock badge is Needs you's red count; Settings… and Check for Updates… go to `doze://settings` (step 3.4 builds
+  that page); the machine's items in the menu while the window is closed are the window's last (doctor runs only
+  with a window);
+- Q4 as built: the status item, its submenus and the Dock badge are objc2 in `doze-os::ui`; notifications need no
+  `unsafe` of ours (gpui's own `UNUserNotificationCenter` path). Q2 as built: the app is its own binary in the bundle;
+  Go's `doze open` handing off to the Rust bundle is a Go-side change not made here (`doze-app open` does the same
+  hand-off; it starts `$DOZE_APP_BUNDLE`, else the Doze.app beside a target-folder build, else itself). Still Go-side
+  and open: Go's `doze open` launching the Rust bundle. `doze-app open` does not yet check doze.hcl's shape before
+  starting or fall back to the status table with no display (Go did both; both need the Rust CLI's config).
+
 Where the M0 build differs from this plan:
 
 - The app lives at `apps/doze-app`, not `crates/doze-app`, so `default-members = ["crates/*", …]` leaves it out by
@@ -630,6 +659,45 @@ The ★ items are 1, 4, 5, 9, 13, 14, 16, 18, 20 and 23. In order of importance:
   - fit-zoom.
 - The spike's `nav` check (96 moves against flow.tsx) becomes a `doze-map` unit test with the Go fixture as the oracle.
 - If the map agent's crate shape differs, `doze-desk` adapts in one place (`desk::map_facts`). The app never reaches into map internals.
+
+### 4.5.1 The Map for 20–150 services (built 2026-11-13, branch `app-map-150`)
+
+The owner's brief: work well to 100–150 services (20–40 is common), degrade past that, 2,000 a stretch. From the design
+boards (11 of them, on real doze-map output), the call made and built:
+
+- **At 60 cards or fewer, nothing changes**: the Go map, card for card (doze-map's oracle), and the larder and shop shots
+  are pixel-identical to before on the map (the header's clock is the only difference, run to run).
+- **Named regions** (board 2, idea A) past 60 cards, when the stack splits into at least three regions of four or more:
+  a card's region is its `group`, else its name's stem (`checkout-api` → `checkout`); a task card joins its caller's;
+  stems under four cards share `other`. Each region is laid out on its own (doze-map's layered layout on its calls)
+  and framed; frames are packed callers' regions first, about as wide as a window. The frame's pill says its services,
+  what is crashing and its memory. Calls inside a region are routed clear of every card; a call between regions is a
+  plain curve, drawn on demand.
+- **At rest: regions and their health; who talks to whom on hover** (the coordinator's decision, 2026-11-13, after
+  three audits of at-fit reading): one faint link per pair of regions, a gentle curve under the opaque frames; hovering a
+  region's name or any card (or selecting one) lights that region's links over the frames, puts its counts on them
+  (`→ 2` it calls, `← 1` it is called) and says the whole list in a box at the bottom right. Routing the links through
+  the gaps between frames was tried and dropped (a maze of pipes).
+- **Lines on demand** (idea D): at rest, calls inside regions faint and the calls between regions as one weighted bundle
+  per region pair; hover lights a card's calls, a selection keeps them; `L` (or the toolbar's Lines) draws every line.
+- **The call-less folded** (idea G): the lane and the shared band become one tile, "N with no calls", that opens a list
+  (search, filters, trouble first). A folded card is still found, selected and lit (a shared one lights its users).
+- **Find flies** (idea H): a 280 ms eased camera move (the `slow` token; none with reduced motion) and a breadcrumb,
+  Map › region › card, each step a way back out.
+- **Focus views**: neighbourhood (`H`, board 6: the card and 1–3 calls either way, in columns by path that keep their
+  meaning as hops grow) and only trouble (`T`, board 5: what is in trouble and the shortest paths of up to three calls
+  between, laid out on their own). `esc` returns where the camera was.
+- **Motion, as the Go map's** (the owner: "the UI and groups are a lot smoother in the golang app"): a selection dims
+  the rest over 200 ms on CSS `ease` and the lines change colour with it (`.node { transition: opacity .2s }`, `.edge
+  { transition: stroke .2s }`); the pointer's card lights over 120 ms easing out, its calls fading in as the last
+  card's fade out; a region's frame and pill light with its card; a focus view fades in; zoom (buttons, keys), the arrow
+  keys walking off the edge, Fit, find and regions all ease the camera (180 / 280 ms). Reduced motion: none of it, and
+  no frame is asked for. Go frames vs ours: `scratchpad/goframes/` in the PR description; frame times in weight.md.
+- **Region zoom-in, lite** (idea C without its cost): double-click a frame (or click its pill, or its breadcrumb) and
+  the camera flies to fit it. **Not built, by decision**: a separate per-region layout (level 2) and the collapsed
+  region boxes (level 1) of boards 2–3 and 9. At 150 services the whole map at fit already reads by region, so they add
+  a second layout of every card and a level switch for little; past 150 the owner accepts degradation (2,000 lays out,
+  fits at about 5% as plain blocks and bundles, and find still flies to any card).
 
 ### 4.6 Theme
 

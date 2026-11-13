@@ -9,8 +9,8 @@ use gpui_component::input::{Input, InputState};
 use super::MapView;
 use super::cards::state_dot;
 use super::chrome::{corner, enter};
-use crate::theme::{Motion, Tokens, alpha};
-use crate::widgets::{icon, w};
+use crate::theme::{Motion, Tokens, alpha, ty};
+use crate::widgets::icon;
 
 /// The find box and its hits, at the drawing's top left.
 pub(crate) fn search_box(
@@ -79,7 +79,7 @@ pub(crate) fn search_box(
         .border_1()
         .border_color(t.line2)
         .bg(t.panel)
-        .text_size(px(12.5))
+        .text_size(px(ty::SM_UP))
         .shadow(vec![shadow(t)])
         .child(Input::new(input))
         .child(list);
@@ -116,11 +116,19 @@ fn detail_rows(m: &MapView, c: &Card) -> Vec<(&'static str, String)> {
     if c.role == Role::Shared {
         return vec![("used by", names(&c.uses))];
     }
-    let mut rows = vec![
+    let mut rows = Vec::new();
+    if let Some(r) = m
+        .layout
+        .card_named(&c.name)
+        .and_then(|id| m.layout.region(id))
+    {
+        rows.push(("region", r.name.clone()));
+    }
+    rows.extend([
         ("calls", names(&c.calls)),
         ("needed by", names(&c.callers)),
         ("uses", names(&c.uses)),
-    ];
+    ]);
     if let Some(r) = m.rows.get(&c.name).filter(|r| !r.because.is_empty()) {
         rows.push(("now", r.because.clone()));
     }
@@ -144,8 +152,8 @@ fn detail_head(t: &Tokens, m: &MapView, c: &Card, cx: &mut Context<MapView>) -> 
         .child(state_dot(t, px(8.), r))
         .child(
             div()
-                .text_size(px(14.))
-                .font_weight(w(600.))
+                .text_size(px(ty::MD))
+                .font_weight(ty::SEMIBOLD)
                 .text_color(t.bright)
                 .child(SharedString::from(c.name.clone())),
         )
@@ -186,11 +194,19 @@ fn detail_at(m: &MapView, width: f32, height: f32) -> (f32, f32) {
     }
 }
 
+/// The detail card's width.
+pub(crate) const WIDTH: f32 = 420.;
+
 /// The selected card's detail.
 pub(crate) fn detail(t: &Tokens, m: &MapView, cx: &mut Context<MapView>) -> Option<AnyElement> {
-    let c = m.layout.card(m.lit?)?;
+    let id = m.lit?;
+    let c = m.layout.card(id)?;
+    // A neighbourhood's centre is named on the toolbar; its detail would cover the columns.
+    if matches!(&m.lens, Some(super::Lens::Hood { centre, .. }) if *centre == c.name) {
+        return None;
+    }
     let top = detail_head(t, m, c, cx);
-    let width = 420.;
+    let width = WIDTH;
     let rows = detail_rows(m, c);
     let height = 44. + 21. * rows.len() as f32;
     let (x, y) = detail_at(m, width, height);
@@ -210,7 +226,7 @@ pub(crate) fn detail(t: &Tokens, m: &MapView, cx: &mut Context<MapView>) -> Opti
         .border_1()
         .border_color(t.line2)
         .bg(t.panel)
-        .text_size(px(12.5))
+        .text_size(px(ty::SM_UP))
         .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
         .shadow(vec![shadow(t)])
         .child(top);
@@ -219,7 +235,7 @@ pub(crate) fn detail(t: &Tokens, m: &MapView, cx: &mut Context<MapView>) -> Opti
             div()
                 .flex()
                 .gap(px(8.))
-                .line_height(px(21.))
+                .line_height(px(ty::LH_21))
                 .child(div().w(px(76.)).flex_none().text_color(t.dim).child(k))
                 .child(
                     div()

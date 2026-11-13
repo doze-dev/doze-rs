@@ -114,6 +114,12 @@ impl FixtureDaemon {
         self.state.push(frame);
     }
 
+    /// A handle that pushes as [`FixtureDaemon::push`] does, from another thread; it stops reaching anything once the
+    /// daemon has stopped.
+    pub fn pusher(&self) -> Pusher {
+        Pusher(Arc::downgrade(&self.state))
+    }
+
     /// Every request received so far, hellos included, in order.
     pub fn requests(&self) -> Vec<Request> {
         lock(&self.state.requests).clone()
@@ -198,4 +204,22 @@ pub fn temp_socket(tag: &str) -> PathBuf {
     static NEXT: AtomicUsize = AtomicUsize::new(0);
     let n = NEXT.fetch_add(1, Ordering::SeqCst);
     std::env::temp_dir().join(format!("dzc-{tag}-{}-{n}.sock", std::process::id()))
+}
+
+/// Pushes frames to a fixture daemon's held streams from anywhere (a ticker thread, as a daemon sends the meters every
+/// second), for as long as the daemon runs.
+#[derive(Debug, Clone)]
+pub struct Pusher(std::sync::Weak<State>);
+
+impl Pusher {
+    /// Sends `frame` as [`FixtureDaemon::push`] does; false once the daemon has stopped.
+    pub fn push(&self, frame: &Frame) -> bool {
+        match self.0.upgrade() {
+            Some(s) if !s.stopping.load(Ordering::SeqCst) => {
+                s.push(frame);
+                true
+            }
+            _ => false,
+        }
+    }
 }

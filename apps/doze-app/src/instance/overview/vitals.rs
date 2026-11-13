@@ -8,13 +8,14 @@ use gpui_component::chart::AreaChart;
 
 use super::extends;
 use crate::instance::ui::{card, heading, text};
-use crate::theme::{Tokens, alpha};
-use crate::widgets::w;
+use crate::theme::{Tokens, alpha, ty};
 
 /// The charts on the right, or why there are none.
 pub(super) fn charts(t: &Tokens, p: &InstancePage) -> Vec<AnyElement> {
     let Some(v) = &p.vitals else {
-        let why = if p.look == Some(Look::Off) || p.paused {
+        let why = if p.paused {
+            "Paused in doze.hcl: nothing runs, nothing is measured."
+        } else if p.look == Some(Look::Off) {
             "Off: nothing runs, nothing is measured."
         } else {
             "no readings yet"
@@ -68,7 +69,7 @@ fn chart_card(
             .into_any_element()
     } else {
         div()
-            .text_size(px(11.))
+            .text_size(px(ty::XS))
             .text_color(t.dim)
             .child("no readings yet")
             .into_any_element()
@@ -82,8 +83,8 @@ fn chart_card(
                 .gap(px(8.))
                 .child(
                     div()
-                        .text_size(px(22.))
-                        .font_weight(w(600.))
+                        .text_size(px(ty::FIGURE))
+                        .font_weight(ty::SEMIBOLD)
                         .text_color(t.bright)
                         .child(text(&c.now)),
                 )

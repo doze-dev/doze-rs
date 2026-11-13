@@ -4,11 +4,13 @@
 //! the band as grids below. Every call's line is clear of every card by construction, and a
 //! relayout reuses every part that did not change.
 
+mod assemble;
 mod coord;
 mod order;
 mod pack;
 mod part;
 pub(crate) mod rank;
+mod regioned;
 mod route;
 mod sides;
 mod uses;
@@ -16,12 +18,11 @@ mod uses;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use crate::cards::card;
 use crate::classic::{back_edges, depths, split};
 use crate::geom::{Pt, Rect};
-use crate::index::Index;
 use crate::input::{Flow, Instance};
-use crate::output::{Caption, CaptionKind, CardId, Edge, Layout, Mode, Role};
+use crate::output::{Caption, CaptionKind, Layout, Role};
+use assemble::assemble;
 use pack::{Packing, pack};
 use part::{COL_GAP, Local, local, signature};
 
@@ -39,6 +40,8 @@ pub(crate) struct Memory {
     parts: HashMap<u64, Arc<Local>>,
     packing: Option<(Packing, HashMap<String, usize>)>,
     band: Vec<String>,
+    /// A map by region: each region's packing, and the frames'.
+    regions: regioned::Kept,
 }
 
 /// How a card's use lines leave it: down the column gap beside it to its shelf's gutter, or down
@@ -60,16 +63,39 @@ pub(crate) struct Gutters {
 }
 
 /// The parts placed in the drawing.
-struct Placed {
-    cards: Vec<(usize, Rect, Role, Exit)>,
-    edges: Vec<(usize, usize, crate::geom::Path, bool)>,
-    bottom: f64,
-    right: f64,
+pub(crate) struct Placed {
+    pub(crate) cards: Vec<(usize, Rect, Role, Exit)>,
+    /// Caller, called, line, drawn back, between two regions.
+    pub(crate) edges: Vec<(usize, usize, crate::geom::Path, bool, bool)>,
+    /// Named regions: name, frame, cards.
+    pub(crate) frames: Vec<(String, Rect, Vec<usize>)>,
+    /// The cards folded into the tile: the lane's, then the band's.
+    pub(crate) folded: Vec<(usize, Role)>,
+    pub(crate) bottom: f64,
+    pub(crate) right: f64,
 }
 
-pub(crate) fn layout(ins: &[Instance], mem: Option<&Memory>) -> (Layout, Memory) {
+impl Placed {
+    pub(crate) fn new(bottom: f64) -> Self {
+        Placed {
+            cards: Vec::new(),
+            edges: Vec::new(),
+            frames: Vec::new(),
+            folded: Vec::new(),
+            bottom,
+            right: 0.0,
+        }
+    }
+}
+
+/// Lays a large stack out. With `medium` (the default, [`crate::Options::regions`]), a stack that
+/// splits into named regions is laid out by region, and the cards with no calls fold into a tile.
+pub(crate) fn layout(ins: &[Instance], mem: Option<&Memory>, medium: bool) -> (Layout, Memory) {
     let f = Flow::read(ins);
     let (nodes, lane) = split(&f);
+    if medium && let Some(rs) = crate::region::regions(&f, &nodes) {
+        return by_region(&f, &rs, &lane, mem);
+    }
     let back = back_edges(&f, &nodes);
     let mut depth = depths(&f, &nodes, &back);
     rank::promote(&f, &nodes, &back, &mut depth);
@@ -102,13 +128,18 @@ pub(crate) fn layout(ins: &[Instance], mem: Option<&Memory>) -> (Layout, Memory)
         };
         caps.push(caption(CaptionKind::Calls, "Who calls whom", &sub, TOP));
     }
-    let (band, band_names) = place_sides(
-        &f,
-        &lane,
-        &mut placed,
-        &mut caps,
-        mem.map(|m| m.band.as_slice()),
-    );
+    let (band, band_names) = if medium {
+        fold(&f, &lane, &mut placed);
+        (None, Vec::new())
+    } else {
+        place_sides(
+            &f,
+            &lane,
+            &mut placed,
+            &mut caps,
+            mem.map(|m| m.band.as_slice()),
+        )
+    };
     let memory = Memory {
         parts: locals.into_iter().collect(),
         packing: Some((
@@ -120,12 +151,49 @@ pub(crate) fn layout(ins: &[Instance], mem: Option<&Memory>) -> (Layout, Memory)
                 .collect(),
         )),
         band: band_names,
+        regions: regioned::Kept::default(),
     };
     (assemble(&f, placed, caps, band), memory)
 }
 
+/// A stack laid out by named region, its call-less folded.
+fn by_region(
+    f: &Flow<'_>,
+    rs: &[(String, Vec<usize>)],
+    lane: &[usize],
+    mem: Option<&Memory>,
+) -> (Layout, Memory) {
+    let (mut placed, kept) = regioned::place(f, rs, mem, TOP + CAP_GAP);
+    let sub = format!(
+        "left to right, the way a request travels · {} regions, by name",
+        rs.len()
+    );
+    let caps = vec![caption(CaptionKind::Calls, "Who calls whom", &sub, TOP)];
+    fold(f, lane, &mut placed);
+    let memory = Memory {
+        parts: kept.parts.clone(),
+        regions: kept,
+        ..Memory::default()
+    };
+    (assemble(f, placed, caps, None), memory)
+}
+
+/// The lane's apps and the band's shared, folded into the tile rather than drawn.
+fn fold(f: &Flow<'_>, lane: &[usize], p: &mut Placed) {
+    p.folded.extend(lane.iter().map(|&v| (v, Role::Lane)));
+    let mut shared = f.shared.clone();
+    shared.sort_by(|&a, &b| {
+        f.users(b)
+            .len()
+            .cmp(&f.users(a).len())
+            .then_with(|| f.name(a).cmp(f.name(b)))
+    });
+    p.folded
+        .extend(shared.into_iter().map(|v| (v, Role::Shared)));
+}
+
 /// Every vertex's place in the earlier layout, by key.
-fn marks(mem: Option<&Memory>) -> HashMap<String, f64> {
+pub(crate) fn marks(mem: Option<&Memory>) -> HashMap<String, f64> {
     mem.map(|m| {
         m.parts
             .values()
@@ -152,12 +220,7 @@ fn place_flow(f: &Flow<'_>, locals: &[(u64, Arc<Local>)], packing: &Packing) -> 
         .map(|(i, v)| (v.name.as_str(), i))
         .collect();
     let top = TOP + CAP_GAP;
-    let mut p = Placed {
-        cards: Vec::new(),
-        edges: Vec::new(),
-        bottom: TOP,
-        right: 0.0,
-    };
+    let mut p = Placed::new(TOP);
     for (k, (_, l)) in locals.iter().enumerate() {
         let (x, y, shelf) = packing.origin(k);
         let (ox, oy) = (x + LEFT, y + top);
@@ -175,7 +238,7 @@ fn place_flow(f: &Flow<'_>, locals: &[(u64, Arc<Local>)], packing: &Packing) -> 
         }
         for (a, b, path, back) in &l.edges {
             if let (Some(&a), Some(&b)) = (by_name.get(a.as_str()), by_name.get(b.as_str())) {
-                p.edges.push((a, b, path.translate(ox, oy), *back));
+                p.edges.push((a, b, path.translate(ox, oy), *back, false));
             }
         }
         p.right = p.right.max(ox + l.size.0);
@@ -241,60 +304,4 @@ fn place_sides(
         Some(band),
         order.iter().map(|&s| f.name(s).to_string()).collect(),
     )
-}
-
-fn assemble(f: &Flow<'_>, p: Placed, captions: Vec<Caption>, band: Option<f64>) -> Layout {
-    let mut ids = vec![None; f.ins.len()];
-    for (i, (v, ..)) in p.cards.iter().enumerate() {
-        if let Some(s) = ids.get_mut(*v) {
-            *s = Some(CardId::of(i));
-        }
-    }
-    let id = |v: usize| ids.get(v).copied().flatten();
-    let cards: Vec<_> = p
-        .cards
-        .iter()
-        .map(|&(v, r, role, _)| card(f, v, r, role, &id))
-        .collect();
-    let edges: Vec<Edge> = p
-        .edges
-        .into_iter()
-        .filter_map(|(a, b, path, back)| {
-            Some(Edge {
-                from: id(a)?,
-                to: id(b)?,
-                path,
-                count: 1,
-                back,
-            })
-        })
-        .collect();
-    let w = (p.right + LEFT).max(1222.0);
-    let h = p.bottom + 16.0;
-    let gutters = Gutters {
-        left: LEFT / 2.0,
-        right: w - LEFT / 2.0,
-        band: band.map_or(0.0, |b| b + sides::BAND_GUTTER),
-        exits: p.cards.iter().map(|c| c.3).collect(),
-    };
-    let by_name = cards
-        .iter()
-        .enumerate()
-        .map(|(i, c)| (c.name.clone(), CardId::of(i)))
-        .collect();
-    let index = Index::build(&cards, &edges);
-    Layout {
-        mode: Mode::Layered,
-        bounds: Rect::new(0.0, 0.0, w, h),
-        band,
-        captions,
-        cards,
-        edges,
-        detail: Pt::new(w - 12.0 - 448.0, 14.0),
-        groups: HashMap::new(),
-        lines: Vec::new(),
-        gutters: Some(gutters),
-        index,
-        by_name,
-    }
 }

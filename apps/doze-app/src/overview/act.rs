@@ -9,8 +9,8 @@ use gpui::{AnyElement, Context, IntoElement, div, prelude::*, px};
 
 use super::{OverviewView, all_rows};
 use crate::kit::{Btn, btn, s};
-use crate::theme::{Tokens, mix};
-use crate::widgets::{MONO_FAMILY, w};
+use crate::theme::{Tokens, mix, ty};
+use crate::widgets::MONO_FAMILY;
 
 impl OverviewView {
     fn acts(
@@ -198,11 +198,16 @@ pub(super) fn banners(
             .gap(px(1.))
             .child(
                 div()
-                    .font_weight(w(600.))
+                    .font_weight(ty::SEMIBOLD)
                     .text_color(t.bright)
                     .child(format!("{word} {}…", v.home.stack)),
             )
-            .child(div().text_size(px(12.)).text_color(t.dim).child(b.detail()));
+            .child(
+                div()
+                    .text_size(px(ty::SM))
+                    .text_color(t.dim)
+                    .child(b.detail()),
+            );
         return vec![
             banner(t, t.cool)
                 .child(ring)
@@ -242,8 +247,8 @@ fn printed(t: &Tokens, f: &Failure) -> gpui::Div {
         .border_1()
         .border_color(t.line)
         .font_family(MONO_FAMILY)
-        .text_size(px(11.5))
-        .line_height(px(17.))
+        .text_size(px(ty::XS_UP))
+        .line_height(px(ty::LH_17))
         .text_color(t.dim)
         .children(f.lines.iter().rev().take(8).rev().map(|l| {
             div().child(if l.is_empty() {
@@ -280,16 +285,16 @@ fn failure_words(
         .min_w_0()
         .child(
             div()
-                .font_weight(w(600.))
+                .font_weight(ty::SEMIBOLD)
                 .text_color(t.bright)
                 .child(s(&f.what)),
         )
-        .child(div().text_size(px(12.)).text_color(tone).child(line))
+        .child(div().text_size(px(ty::SM)).text_color(tone).child(line))
         .child(
             div()
                 .id("fail-printed")
                 .mt(px(4.))
-                .text_size(px(11.5))
+                .text_size(px(ty::XS_UP))
                 .text_color(t.dim)
                 .cursor_pointer()
                 .hover(|d| d.text_color(t.text))

@@ -5,8 +5,8 @@ use gpui::{AnyElement, Context, IntoElement, div, prelude::*, px, relative};
 
 use super::{OverviewView, View};
 use crate::kit::{Btn, btn, chip_of, density, s};
-use crate::theme::{Tokens, mix};
-use crate::widgets::{dot, icon, switch, tag, w};
+use crate::theme::{Tokens, mix, ty};
+use crate::widgets::{dot, icon, switch, tag};
 
 /// `.head`: the name, the folder and how long up (or stopped and when); the views; Activity, All logs; Up.
 pub(super) fn head(
@@ -20,7 +20,10 @@ pub(super) fn head(
         parts.push(format!("up {}", h.up));
     }
     if let Some(st) = &h.stopped {
-        parts.extend(["stopped".to_owned(), st.when.clone()]);
+        parts.extend([
+            doze_desk::overview::Look::STOPPED.word.to_owned(),
+            st.when.clone(),
+        ]);
     }
     parts.retain(|p| !p.is_empty());
     let path = parts.join(" · ");
@@ -76,8 +79,8 @@ fn views(t: &Tokens, v: &OverviewView, cx: &mut Context<OverviewView>) -> impl I
                 .flex()
                 .items_center()
                 .gap(px(6.))
-                .text_size(px(12.))
-                .font_weight(w(500.))
+                .text_size(px(ty::SM))
+                .font_weight(ty::MEDIUM)
                 .cursor_pointer()
                 .when(on, |d| d.bg(t.sel).text_color(t.bright))
                 .when(!on, |d| d.text_color(t.dim).hover(|d| d.text_color(t.text)))
@@ -104,8 +107,8 @@ fn up(
         .gap(px(8.))
         .child(
             div()
-                .text_size(px(12.))
-                .font_weight(w(600.))
+                .text_size(px(ty::SM))
+                .font_weight(ty::SEMIBOLD)
                 .text_color(if busy.is_some() { t.cool } else { t.bright })
                 .child(label),
         )
@@ -181,11 +184,11 @@ fn banner(t: &Tokens, tone: gpui::Hsla, line: &str, sub: &str) -> AnyElement {
                 .min_w_0()
                 .child(
                     div()
-                        .font_weight(w(600.))
+                        .font_weight(ty::SEMIBOLD)
                         .text_color(t.bright)
                         .child(s(line)),
                 )
-                .child(div().text_size(px(12.)).text_color(t.dim).child(s(sub))),
+                .child(div().text_size(px(ty::SM)).text_color(t.dim).child(s(sub))),
         )
         .into_any_element()
 }
@@ -196,8 +199,8 @@ fn title_row(t: &Tokens, stack: &str, path: &str) -> gpui::Div {
         .min_w(px(72.))
         .max_w(relative(0.4))
         .flex_none()
-        .text_size(px(20.))
-        .font_weight(w(650.))
+        .text_size(px(ty::XL))
+        .font_weight(ty::HEADING)
         .text_color(t.bright)
         .whitespace_nowrap()
         .overflow_hidden()
