@@ -7,6 +7,8 @@
 //!          [--select NAME] [--hover NAME] [--zoom Z] [--at X,Y] [--find TEXT] [--synth N] [--reduce-motion]
 //!          --screen instance --select api [--tab logs|console:ID|last run] [--hold PORT]
 //!          --screen logs [--filter TEXT] [--find-mode] [--level 0-3]
+//!          --act sleep|restart|reset|reset-typed|stop|remove|action|action-typed|copy|toast-fail|recent|preflight|start
+//!                |busy|failed|library-busy|verb-busy|empty|empty-found|add     (M2: done before the shot)
 //! doze-app bench [--fixture NAME | --synth N] [--idle SECONDS]  first-frame time, then idle for a memory reading
 //! doze-app bench --fixture shop --logs [--follow SECONDS]          the logs viewer: 100k lines scrolled, then followed
 //! ```
@@ -78,6 +80,16 @@ pub(crate) struct Shot {
     pub(crate) filter: Option<String>,
     pub(crate) level: Option<u8>,
     pub(crate) find_mode: bool,
+    /// Something done before the shot (M2): a dialog asked for, a stack action started, a folder opened.
+    pub(crate) act: Option<String>,
+    /// ⌘K's box, its scope (`stack` or `stack/service`), and ⏎ on the row highlighted.
+    pub(crate) query: Option<String>,
+    pub(crate) scope: Option<String>,
+    pub(crate) enter: bool,
+    /// Needs you's surface over the page: `bell`, `alerts`, `away`.
+    pub(crate) over: Option<String>,
+    /// Needs you sees this machine not set up (names and a domain), as Go's fixture server did.
+    pub(crate) machine_unset: bool,
 }
 
 /// `doze-app bench ...`.
@@ -163,6 +175,18 @@ fn size(s: &str) -> Result<(f32, f32), String> {
     Ok((number(w, "--size")?, number(h, "--size")?))
 }
 
+/// A shot's flag that takes no value, if `a` is one.
+fn switch(a: &str, s: &mut Shot) -> bool {
+    match a {
+        "--reduce-motion" => s.reduce = true,
+        "--find-mode" => s.find_mode = true,
+        "--machine-unset" => s.machine_unset = true,
+        "--enter" => s.enter = true,
+        _ => return false,
+    }
+    true
+}
+
 fn shot(mut args: impl Iterator<Item = String>) -> Result<Shot, String> {
     let mut s = Shot {
         size: (1280., 800.),
@@ -174,12 +198,7 @@ fn shot(mut args: impl Iterator<Item = String>) -> Result<Shot, String> {
         if source(&a, &mut args, &mut s.from)? {
             continue;
         }
-        if a == "--reduce-motion" {
-            s.reduce = true;
-            continue;
-        }
-        if a == "--find-mode" {
-            s.find_mode = true;
+        if switch(&a, &mut s) {
             continue;
         }
         let v = value(&mut args, &a)?;
@@ -221,6 +240,10 @@ fn shot(mut args: impl Iterator<Item = String>) -> Result<Shot, String> {
             "--hold" => s.hold = Some(number(&v, "--hold")?),
             "--filter" => s.filter = Some(v),
             "--level" => s.level = Some(number(&v, "--level")?),
+            "--act" => s.act = Some(v),
+            "--query" => s.query = Some(v),
+            "--scope" => s.scope = Some(v),
+            "--over" => s.over = Some(v),
             "--at" => {
                 let (x, y) = v.split_once(',').ok_or("--at is X,Y")?;
                 s.at = Some((number(x, "--at")?, number(y, "--at")?));

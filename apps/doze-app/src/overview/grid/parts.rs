@@ -227,7 +227,7 @@ fn tooltip(t: &Tokens, tip: &GridTip) -> impl IntoElement {
         .text_color(t.bg)
         .text_size(px(12.))
         .line_height(px(18.))
-        .shadow(vec![shadow(t)])
+        .shadow(shadow(t))
         .whitespace_nowrap()
         .child(arrow)
         .child(

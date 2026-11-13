@@ -69,7 +69,7 @@ fn stamp(dir: &Path) -> Option<SystemTime> {
 }
 
 /// Runs `doze --json <args>` in `dir`, for its envelope. The app's own marker is not passed on.
-fn run(doze: &Path, dir: &Path, args: &[&str]) -> Option<String> {
+pub(crate) fn run(doze: &Path, dir: &Path, args: &[&str]) -> Option<String> {
     let out = Command::new(doze)
         .arg("--json")
         .args(args)

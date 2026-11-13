@@ -31,3 +31,21 @@ name = "fuzz_port"
 path = "fuzz_targets/fuzz_port.rs"
 test = false
 doc = false
+
+[[bin]]
+name = "fuzz_envelope"
+path = "fuzz_targets/fuzz_envelope.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_listening"
+path = "fuzz_targets/fuzz_listening.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_detect"
+path = "fuzz_targets/fuzz_detect.rs"
+test = false
+doc = false

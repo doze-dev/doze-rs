@@ -91,10 +91,21 @@ pub(crate) fn switch(t: &Tokens, on: bool, big: bool, disabled: bool) -> impl In
     if disabled { sw.opacity(0.4) } else { sw }
 }
 
+/// The face and size a key's words are drawn in: JetBrains Mono, except a key with ⏎ or ⌫, whose glyphs the mono
+/// face lacks (the fallback draws them a third smaller than a letter): those take the UI face, a size up.
+fn key_face(text: &str, size: f32) -> (&'static str, f32) {
+    if text.contains(['⏎', '⌫']) {
+        (UI_FAMILY, size + 2.)
+    } else {
+        (MONO_FAMILY, size)
+    }
+}
+
 /// `kbd` in a button or the keys bar: JetBrains Mono, `color`, no chrome.
 pub(crate) fn kbd_plain(text: &str, size: f32, color: Hsla, weight: f32) -> impl IntoElement {
+    let (face, size) = key_face(text, size);
     div()
-        .font_family(MONO_FAMILY)
+        .font_family(face)
         .text_size(px(size))
         .font_weight(w(weight))
         .text_color(color)
@@ -109,14 +120,17 @@ pub(crate) fn kbd_chip(
     weight: f32,
     pad_x: f32,
 ) -> impl IntoElement {
+    let (face, glyph) = key_face(text, size);
     div()
         .flex_none()
         .px(px(pad_x))
         .py(px(1.))
         .rounded(px(4.))
         .bg(t.sel)
-        .font_family(MONO_FAMILY)
-        .text_size(px(size))
+        .font_family(face)
+        // The chip keeps its height: the larger glyph sits in the same line.
+        .line_height(px(size + 5.))
+        .text_size(px(glyph))
         .font_weight(w(weight))
         .text_color(t.bright)
         .child(SharedString::from(text.to_string()))

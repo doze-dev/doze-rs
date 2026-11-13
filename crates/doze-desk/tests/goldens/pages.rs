@@ -203,9 +203,7 @@ fn shop() -> Option<(
     let (home, d, hub, key) = following("shop")?;
     let w = (hub.watch(&key, Topic::Stats), hub.watch(&key, Topic::Logs));
     let st = until(&hub, &key, "the meters, logs and journal", |s| {
-        s.series.get("api").is_some_and(|x| x.len() == 240)
-            && s.logs_added >= 23
-            && s.events.len() == 11
+        super::common::played(s, "shop") && s.logs_added >= 23 && s.events.len() == 11
     });
     drop(w);
     Some((home, d, hub, key, st))
@@ -358,8 +356,8 @@ fn a_crash() {
         return;
     };
     let _w = (hub.watch(&key, Topic::Stats), hub.watch(&key, Topic::Logs));
-    let st = until(&hub, &key, "the meters", |s| {
-        s.series.get("db").is_some_and(|x| x.len() == 240)
+    let st = until(&hub, &key, "the script played to its end", |s| {
+        super::common::played(s, "crash")
     });
     let want = golden("crash-api");
     let p = page_of(&hub, &key, &st, "api");

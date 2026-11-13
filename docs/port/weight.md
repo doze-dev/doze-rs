@@ -270,12 +270,12 @@ and a 15 MB binary, and none of it reaches doze-kafka or doze-aws (the app is no
 
 | | Budget (PLAN.md §6) | Measured |
 |---|---|---|
-| Binary, release, stripped, fonts included, no capture | ≤ 16 MB | 15,575,872 B with the instance, logs and console pages (M1 steps 1.5–1.7; 14,871,584 B before them) |
-| Packages (`cargo tree -p doze-app --edges normal`, unique lines) | limit 560 | 534 |
+| Binary, release, stripped, fonts included, no capture | ≤ 16 MB | **12,484,800 B with M2 (verbs, dialogs, toasts, preflight, empty folder), `release-app` profile**; 15,575,872 B with the instance, logs and console pages (M1 steps 1.5–1.7; 14,871,584 B before them) |
+| Packages (`cargo tree -p doze-app --edges normal`, unique lines) | limit 560 | 535 with M2 (534 before) |
 | Menu bar ready after launch | ≤ 100 ms | 71–84 ms |
 | Menu bar only, footprint | ≤ 18 MB | 18 MB on an empty doze home; 22 MB with the fixture daemon running in the process |
-| First frame of the stack page after a tray click | ≤ 100 ms | 35–66 ms |
-| Window open and idle, footprint | ≤ 85 MB | 82 MB at 10 s, 74 MB at 25 s (larder) |
+| First frame of the stack page after a tray click | ≤ 100 ms | 38–47 ms with M2 (`release-app`, shop and larder); 35–66 ms |
+| Window open and idle, footprint | ≤ 85 MB | 55 MB at 14 s and 26 s with M2 (larder, `release-app`); 82 MB at 10 s, 74 MB at 25 s (larder) |
 | After the window closes, footprint | ≤ 35 MB | 35 MB at 8 s (larder), 28 MB on an empty home |
 | CPU, window open and static; menu bar only | ≤ 0.3 %; ≤ 0.05 % | 0.0 % (ps, sampled) |
 | Frames over 16 ms while scrolling 100k log lines | 0 | 0 of 300: a full offscreen draw per worst-case scroll step (about a thousand rows a jump, the whole list) is median 4.4 ms, p99 8.8 ms, max 13.7 ms, including the GPU readback a screen frame does not do |
@@ -349,3 +349,61 @@ view; that is open.
 
 On this machine the window's frames were paced at 33 ms even with nothing to draw, so frame intervals cannot show a
 16 ms overrun; the draw timing above measures a frame's work directly instead.
+
+### After M2 steps 2.3, 2.4, 2.7 (⌘K, Needs you, keys and menus), measured 2026-11-13
+
+Same machine and method (`release-app`; `doze-app bench --fixture larder --idle 30`, footprint at 12 s and 27 s, two
+runs).
+
+| | Budget | Measured |
+|---|---|---|
+| Binary, `release-app`, no capture | ≤ 16 MB | 12,451,376 B (+315 KB for the palette and attention models, the bell, the alerts, the help sheet and the menus) |
+| Binary with `fixtures` | | 12,700,304 B |
+| Menu bar ready | ≤ 100 ms | 60–65 ms |
+| First frame after the tray click | ≤ 100 ms | 47–48 ms |
+| Window open and idle (larder's page) | ≤ 85 MB | 61 / 57 MB and 67 / 63 MB |
+
+Needs you is built off the UI thread on each hub batch (a crash's port is looked up with `lsof`, cached three seconds)
+and draws nothing while nothing changes; an item waiting out its grace or its "fixed" asks for one more build three
+seconds on, then stops.
+
+**Why a redrawing window sits at 220–260 MB (the follow budget).** Investigated with `footprint -v` while `doze-app bench
+--fixture shop --logs --follow` ran, and with the vendored renderer temporarily instrumented (every Metal texture and
+buffer gpui allocates logged; knobs for the drawable count, the frame source and the command queue). Findings:
+
+- **What gpui allocates is small.** For the whole run: one path intermediate texture (2560 × 1602, 16 MB, private), two
+  1024² atlas textures (shared), one 2 MB instance buffer. The instance buffer never grew; the atlas never passed two
+  textures. The drawables are three IOSurfaces of 16 MB (48 MB, mapped).
+- **The jump is the GPU driver's.** While frames are being drawn, `footprint` shows about 147 MB of *Owned physical
+  footprint (unmapped) (graphics)*: eighteen regions of exactly 8 MB plus a few small ones. None of them is a texture or
+  buffer gpui made. They appear within a frame or two of drawing (the window's first frames show 220 MB, then 74 MB once
+  idle) and go about ten seconds after the last frame (88–113 MB), which is the "back under 100 MB" figure.
+- **Nothing in the app moves it.** Measured follow peaks (MB): window 800 × 500 / 1280 × 800 / 1600 × 1000 → 258 / 259 /
+  258 (it does not scale with pixels, so it is not render targets); 3 vs 2 drawables → 259 / 260; command queue capped at
+  2 or 4 command buffers → 260 / 258; `CAMetalDisplayLink` vs the CVDisplayLink fallback → 259 / 241 (one run each; the
+  fallback's 18 MB is within run-to-run spread and not adopted). The Map redrawing with no logs reaches the same 220 MB, and
+  one redraw a second still holds it, because the driver keeps its working set while frames keep coming at all.
+- **So it is a fixed per-process cost of an active Metal context on this Mac** (the plan's spike: 168 MB for a bare Metal
+  view), not text layout, the atlas or the logs view. Getting under 160 MB while following would need not drawing with
+  the GPU at all for a while: frames spaced further apart than the driver's ~10 s idle window, which is not "following".
+
+Recommendation for the owner (§6 budget row): measure the follow line as *growth over the redraw floor* (the logs view
+adds 20–40 MB over a window that redraws anything: 221 MB with All logs open, 241–260 MB following 200 lines a second)
+and keep "back under 100–115 MB within 10 s of stopping", or accept ~260 MB while a window streams. The knobs used for
+the measurements were not kept.
+
+### M2 combined (act + ⌘K + Needs you, wired), measured 2026-11-13
+
+Same machine and method (`release-app`; `doze-app bench --fixture larder --idle 30`, footprint at 12 s and 27 s, two
+runs).
+
+| | Budget | Measured |
+|---|---|---|
+| Binary, `release-app`, no capture | ≤ 16 MB | 12,833,104 B (+382 KB over the ⌘K/Needs you build: the verbs, dialogs, toasts, the checks before Up, the empty folder) |
+| Binary with `fixtures` | | 13,065,600 B |
+| Menu bar ready | ≤ 100 ms | 71 / 82 ms |
+| First frame after the tray click | ≤ 100 ms | 72 / 42 ms (the first run cold) |
+| Window open and idle (larder's page) | ≤ 85 MB | 59 / 55 MB and 59 / 55 MB |
+
+Acting adds nothing at rest: Needs you is built again from acting only when a stack begins or ends an action or a
+failure comes or goes (a toast alone does not), and the toasts' expiry timer runs only while a toast shows.

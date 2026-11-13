@@ -1,0 +1,178 @@
+{
+  "query": "",
+  "sections": [
+    {
+      "title": "Suggested",
+      "rows": [
+        {
+          "glyph": "↓",
+          "tone": "dim",
+          "label": "Sleep everything in shop",
+          "note": "frees memory; the next connection wakes each",
+          "cli": "doze sleep",
+          "do": {
+            "kind": "verb",
+            "stackKey": "shop-1",
+            "verb": "sleep"
+          }
+        },
+        {
+          "glyph": "≡",
+          "tone": "dim",
+          "label": "All logs of shop",
+          "cli": "doze logs",
+          "do": {
+            "kind": "page",
+            "stackKey": "shop-1",
+            "page": "logs"
+          }
+        },
+        {
+          "glyph": "↻",
+          "tone": "dim",
+          "label": "Restart shop",
+          "cli": "doze down \u0026\u0026 doze up --last",
+          "do": {
+            "kind": "stack",
+            "stackKey": "shop-1",
+            "verb": "restart"
+          }
+        }
+      ]
+    },
+    {
+      "title": "Recent",
+      "rows": [
+        {
+          "glyph": "dot",
+          "tone": "g",
+          "label": "db",
+          "note": "in shop · copy URL, sleep, restart",
+          "key": "⏎",
+          "do": {
+            "kind": "page",
+            "stackKey": "shop-1",
+            "target": "db",
+            "page": "instance"
+          },
+          "acts": [
+            {
+              "label": "copy URL",
+              "do": {
+                "kind": "copy",
+                "stackKey": "shop-1",
+                "target": "db",
+                "text": "postgres://shop@db.shop.doze:5432/shop"
+              }
+            },
+            {
+              "label": "sleep",
+              "do": {
+                "kind": "verb",
+                "stackKey": "shop-1",
+                "verb": "sleep",
+                "target": "db",
+                "ask": true
+              }
+            },
+            {
+              "label": "restart",
+              "do": {
+                "kind": "verb",
+                "stackKey": "shop-1",
+                "verb": "restart",
+                "target": "db",
+                "ask": true
+              }
+            },
+            {
+              "label": "logs",
+              "do": {
+                "kind": "page",
+                "stackKey": "shop-1",
+                "target": "db",
+                "page": "logs"
+              }
+            }
+          ],
+          "enter": "shop-1#db"
+        },
+        {
+          "glyph": "▸",
+          "tone": "acc",
+          "label": "Run migrate",
+          "note": "in shop · last run 2m ago",
+          "key": "⏎",
+          "do": {
+            "kind": "verb",
+            "stackKey": "shop-1",
+            "verb": "task",
+            "target": "migrate"
+          },
+          "acts": [
+            {
+              "label": "run",
+              "do": {
+                "kind": "verb",
+                "stackKey": "shop-1",
+                "verb": "task",
+                "target": "migrate"
+              }
+            },
+            {
+              "label": "logs",
+              "do": {
+                "kind": "page",
+                "stackKey": "shop-1",
+                "target": "migrate",
+                "page": "logs"
+              }
+            }
+          ],
+          "enter": "shop-1#migrate"
+        }
+      ]
+    },
+    {
+      "title": "Stacks",
+      "rows": [
+        {
+          "glyph": "dot",
+          "tone": "g",
+          "label": "shop",
+          "note": "5 awake",
+          "key": "tab ›",
+          "do": {
+            "kind": "page",
+            "stackKey": "shop-1",
+            "page": "home"
+          },
+          "enter": "shop-1"
+        },
+        {
+          "glyph": "dot",
+          "tone": "dim",
+          "label": "acme",
+          "note": "stopped",
+          "key": "tab ›",
+          "do": {
+            "kind": "page",
+            "stackKey": "acme",
+            "page": "home"
+          },
+          "enter": "acme"
+        },
+        {
+          "glyph": "⌘O",
+          "tone": "dim",
+          "label": "Open folder…",
+          "note": "add a project to Home",
+          "key": "open",
+          "do": {
+            "kind": "folder"
+          }
+        }
+      ]
+    }
+  ]
+}

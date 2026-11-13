@@ -2437,6 +2437,7 @@ dependencies = [
  "lyon",
  "serde",
  "serde_json",
+ "tempfile",
 ]
 
 [[package]]

@@ -80,4 +80,17 @@ impl Source {
             fx.push(f);
         }
     }
+
+    /// The verbs the fixture daemon was asked, as `op target` (`sleep db`).
+    #[cfg(all(test, feature = "capture"))]
+    pub(crate) fn verbs(&self) -> Vec<String> {
+        self._fixture
+            .as_ref()
+            .map(crate::fixture::Fixture::requests)
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|r| doze_control::Verb::parse(&r.op).is_some())
+            .map(|r| format!("{} {}", r.op, r.db))
+            .collect()
+    }
 }

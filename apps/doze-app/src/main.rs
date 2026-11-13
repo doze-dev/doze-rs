@@ -10,12 +10,14 @@
 //! under 70 lines and files under 450. Two workspace-level differences: it is not a default member (GPUI is a few
 //! hundred crates and needs Metal), and the vendored gpui-pre-apple patch is the root manifest's `[patch]`.
 
+mod act;
 mod actions;
 mod app;
 mod assets;
 mod bench;
 mod cli;
 mod console;
+mod empty;
 mod facts;
 #[cfg(feature = "fixtures")]
 mod fixture;
@@ -34,6 +36,10 @@ mod prefs;
 mod shell;
 #[cfg(feature = "capture")]
 mod shot;
+#[cfg(feature = "capture")]
+mod shot_act;
+#[cfg(feature = "capture")]
+mod shotover;
 mod single;
 mod source;
 mod theme;

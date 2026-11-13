@@ -10,8 +10,8 @@ use doze_desk::page::console::{self, Action, ConsolePage, Selection};
 use doze_desk::{Batch, Hub, Parts, StackKey};
 use doze_display::NodeKind;
 use gpui::{
-    Context, EventEmitter, FocusHandle, Focusable, IntoElement, KeyDownEvent, Render, SharedString,
-    UniformListScrollHandle, Window, div, prelude::*, px,
+    Context, FocusHandle, Focusable, IntoElement, KeyDownEvent, Render, UniformListScrollHandle,
+    Window, div, prelude::*, px,
 };
 
 use crate::actions::{NextTable, PrevTable, RowDown, RowUp};
@@ -19,12 +19,6 @@ use crate::instance::head::{chip, keys_bar};
 use crate::instance::ui::{self, text};
 use crate::theme::tokens;
 use crate::widgets::w;
-
-/// What the tab asks of the page around it.
-#[derive(Debug, Clone)]
-pub(crate) enum ConsoleEvent {
-    Say(SharedString),
-}
 
 /// One console tab.
 pub(crate) struct ConsoleTabView {
@@ -40,8 +34,6 @@ pub(crate) struct ConsoleTabView {
     pub(crate) stream: UniformListScrollHandle,
     pub(crate) focus: FocusHandle,
 }
-
-impl EventEmitter<ConsoleEvent> for ConsoleTabView {}
 
 impl ConsoleTabView {
     pub(crate) fn new(
@@ -179,37 +171,12 @@ impl ConsoleTabView {
             .collect()
     }
 
-    /// Runs a module's action; one that asks (input, or deletes something) waits for M2's dialog.
+    /// Runs a module's action; one that takes input or deletes something asks first (`crate::act`).
     pub(crate) fn act(&mut self, a: Action, cx: &mut Context<Self>) {
-        if a.asks() {
-            let why = if a.destructive {
-                "deletes data"
-            } else {
-                "takes input"
-            };
-            cx.emit(ConsoleEvent::Say(SharedString::from(format!(
-                "{} {why}, so it asks first; the dialog comes with M2.",
-                a.label
-            ))));
-            return;
+        let (key, name) = (self.key.clone(), self.name.clone());
+        if let Some(acts) = crate::act::acts(cx) {
+            acts.update(cx, |acts, cx| acts.action(&key, &name, &a, cx));
         }
-        let (hub, key, name) = (self.hub.clone(), self.key.clone(), self.name.clone());
-        cx.spawn(async move |this, cx| {
-            let said = cx
-                .background_executor()
-                .spawn(async move {
-                    match hub.admin(&key, &name, &a.id, &a.resource, "") {
-                        Ok(out) if out.is_empty() => format!("{} done", a.label),
-                        Ok(out) => out,
-                        Err(e) => format!("{}: {e}", a.label),
-                    }
-                })
-                .await;
-            let _ = this.update(cx, |_, cx| {
-                cx.emit(ConsoleEvent::Say(SharedString::from(said)))
-            });
-        })
-        .detach();
     }
 }
 

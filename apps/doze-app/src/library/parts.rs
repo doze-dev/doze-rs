@@ -60,7 +60,7 @@ pub(super) fn head(t: &Tokens, v: &LibraryView, cx: &mut Context<LibraryView>) -
         "Open folder…",
         &chip_of("Open folder…"),
         Btn::Plain,
-        Some(say(cx, M2_FOLDER)),
+        Some(dispatch(&crate::actions::OpenFolder)),
     ))
     .child(btn(
         t,
@@ -79,7 +79,11 @@ fn say(cx: &mut Context<LibraryView>, words: &'static str) -> crate::kit::Click 
     Box::new(cx.listener(move |this, _, _, cx| this.say(words, cx)))
 }
 
-const M2_FOLDER: &str = "Opening a folder comes with the next step (M2): for now, a folder doze already runs opens from its row.";
+/// A click that does what the action table's row does (Open folder ⌘O, New stack ⌘N).
+fn dispatch(a: &dyn gpui::Action) -> crate::kit::Click {
+    let a = a.boxed_clone();
+    Box::new(move |_, window, cx| window.dispatch_action(a.boxed_clone(), cx))
+}
 const SOON_SETTINGS: &str =
     "Settings come with M3; the theme cycles with ⌘⇧T and the mode with ⌘⇧L.";
 
@@ -177,7 +181,7 @@ pub(super) fn steps(t: &Tokens, steps: &[Step], cx: &mut Context<LibraryView>) -
 }
 
 /// The LibraryEmpty board: two ways in, and the one idea.
-pub(super) fn empty(t: &Tokens, cx: &mut Context<LibraryView>) -> impl IntoElement {
+pub(super) fn empty(t: &Tokens, _cx: &mut Context<LibraryView>) -> impl IntoElement {
     let way = || {
         div()
             .flex()
@@ -212,7 +216,7 @@ pub(super) fn empty(t: &Tokens, cx: &mut Context<LibraryView>) -> impl IntoEleme
         .child(h3("Drop a project folder here"))
         .child(p("doze reads what is in it: go.mod, package.json, a compose file, a Makefile. It says what it found before anything starts."))
         .child(div().flex_1().min_h(px(150.)))
-        .child(btn(t, "drop-open", "Open folder…", &chip_of("Open folder…"), Btn::Primary, Some(Box::new(cx.listener(|this, _, _, cx| this.say(M2_FOLDER, cx))))));
+        .child(btn(t, "drop-open", "Open folder…", &chip_of("Open folder…"), Btn::Primary, Some(dispatch(&crate::actions::OpenFolder))));
     let example = div()
         .my(px(4.))
         .px(px(10.))
@@ -229,7 +233,7 @@ pub(super) fn empty(t: &Tokens, cx: &mut Context<LibraryView>) -> impl IntoEleme
         .child(h3("Or start empty"))
         .child(p("A new folder with a doze.hcl of a few lines. Add one thing at a time: postgres, valkey, kafka, an app of your own."))
         .child(example)
-        .child(div().flex().child(btn(t, "new-stack", "New stack…", "⌘N", Btn::Plain, Some(Box::new(cx.listener(|this, _, _, cx| this.say(M2_FOLDER, cx)))))));
+        .child(div().flex().child(btn(t, "new-stack", "New stack…", &chip_of("New stack…"), Btn::Plain, Some(dispatch(&crate::actions::NewStack)))));
     div()
         .flex()
         .flex_col()

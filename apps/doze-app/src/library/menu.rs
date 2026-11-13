@@ -1,11 +1,12 @@
 //! A stack's ⋯ menu (`StackMenu`, `.pop`): the switch beside it is Up as last time and Down; this holds the rest. It
-//! opens over the page, never as a page. Editing doze.hcl and showing the folder work now; the verbs that start, stop
-//! or forget a stack come with M2 and are shown, quiet, so the menu has its shape.
+//! opens over the page, never as a page. Each item acts at once (through `crate::act`), or asks first where Go asked.
 
 use doze_desk::library::LibStack;
 use gpui::{AnyElement, Context, IntoElement, div, prelude::*, px};
 
-use super::{LibraryView, M2};
+use doze_desk::act::StackAction;
+
+use super::LibraryView;
 use crate::kit::s;
 use crate::overlays::shadow;
 use crate::theme::Tokens;
@@ -14,8 +15,10 @@ use crate::widgets::{MONO_FAMILY, kbd_plain, w};
 /// What an item does.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Do {
-    /// A verb of M2.
-    Later,
+    Restart,
+    Everything,
+    Choose,
+    Remove,
     Edit,
     Reveal,
 }
@@ -40,7 +43,13 @@ impl Item {
         }
     }
 
-    fn el(self, t: &Tokens, i: usize, dir: &str, cx: &mut Context<LibraryView>) -> AnyElement {
+    fn el(
+        self,
+        t: &Tokens,
+        i: usize,
+        (dir, key): (&str, &str),
+        cx: &mut Context<LibraryView>,
+    ) -> AnyElement {
         let sub = div()
             .text_size(px(11.))
             .text_color(t.dim)
@@ -79,14 +88,14 @@ impl Item {
         if !self.on {
             return el.opacity(0.55).into_any_element();
         }
-        let (what, dir) = (self.what, dir.to_owned());
+        let (what, dir, key) = (self.what, dir.to_owned(), key.to_owned());
         el.cursor_pointer()
             .hover(|d| d.bg(t.pick))
             .on_click(cx.listener(move |this, _, _, cx| match what {
-                Do::Later => {
-                    this.menu = None;
-                    this.say(M2, cx);
-                }
+                Do::Restart => this.act(&key, StackAction::Restart, cx),
+                Do::Everything => this.act(&key, StackAction::UpAll, cx),
+                Do::Choose => this.choose_start(&key, cx),
+                Do::Remove => this.act(&key, StackAction::Remove, cx),
                 Do::Edit => this.reveal(&dir, true, cx),
                 Do::Reveal => this.reveal(&dir, false, cx),
             }))
@@ -102,7 +111,7 @@ fn items(st: &LibStack, dir: &str) -> Vec<Option<Item>> {
         let it = Item::new(
             format!("Restart {}", st.name),
             "stops everything and starts what was running",
-            Do::Later,
+            Do::Restart,
         );
         out.push(Some(it));
     }
@@ -114,13 +123,13 @@ fn items(st: &LibStack, dir: &str) -> Vec<Option<Item>> {
     let sub = format!("all {} declared, not only last time's", st.declared);
     out.push(Some(Item {
         on: !gone,
-        ..Item::new(every, sub, Do::Later)
+        ..Item::new(every, sub, Do::Everything)
     }));
     if !st.running {
         let it = Item::new(
             "Choose what starts…",
             "tick the apps; what they need comes too",
-            Do::Later,
+            Do::Choose,
         );
         out.push(Some(Item {
             key: "c",
@@ -146,7 +155,7 @@ fn items(st: &LibStack, dir: &str) -> Vec<Option<Item>> {
     };
     out.push(Some(Item {
         key: "⌫",
-        ..Item::new("Remove from doze…", what, Do::Later)
+        ..Item::new("Remove from doze…", what, Do::Remove)
     }));
     out
 }
@@ -158,7 +167,7 @@ pub(super) fn menu(t: &Tokens, st: &LibStack, cx: &mut Context<LibraryView>) -> 
         .into_iter()
         .enumerate()
         .map(|(i, it)| match it {
-            Some(it) => it.el(t, i, &dir, cx),
+            Some(it) => it.el(t, i, (&dir, &st.key), cx),
             None => div()
                 .h(px(1.))
                 .mx(px(6.))
@@ -180,7 +189,7 @@ pub(super) fn menu(t: &Tokens, st: &LibStack, cx: &mut Context<LibraryView>) -> 
         .border_1()
         .border_color(t.line2)
         .bg(t.panel)
-        .shadow(vec![shadow(t)])
+        .shadow(shadow(t))
         .occlude()
         .children(els)
 }

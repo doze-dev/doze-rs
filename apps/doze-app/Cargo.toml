@@ -43,3 +43,6 @@ doze-display = { path = "../../crates/doze-display" }
 doze-map = { path = "../../crates/doze-map" }
 doze-projects = { path = "../../crates/doze-projects" }
 doze-os = { path = "../../crates/doze-os", features = ["ui"] }
+
+[dev-dependencies]
+tempfile = "3"

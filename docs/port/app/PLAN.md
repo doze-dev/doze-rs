@@ -1,7 +1,26 @@
 # The doze desktop app in Rust (GPUI): build plan
 
 Status: proposed 2026-11-13, not approved. Built so far (branch `app-shell`): M0 steps 0.1 to 0.7 (0.2–0.5 on their
-own branches, 0.1, 0.6 and 0.7 here) and the Map (step 1.3). Where the build differs from this plan:
+own branches, 0.1, 0.6 and 0.7 here) and the Map (step 1.3).
+
+M2 steps 2.1, 2.2, 2.5 and 2.6 (branch `app-m2-act`): `doze-desk::act` (dialogs held to Go's goldens, notices, stack
+actions through `doze --json`, the checks before Up and before a wake, the start sheet, the empty folder with a reduced
+detector) and `apps/doze-app/src/act` with its overlays. Differences: the overview's ⋯ opens ⌘K (its stack commands are
+palette rows) rather than a menu of its own; Remove does not forget the stack's domain routes (that is the names daemon's,
+waiting for its Rust port); the domain check reads `doze --json doctor` and its fix copies `doze trust` (the password
+prompt is M3's). In the combined branch a failed start is the page's banner and Needs you's alert, as Go's (its line is
+kept for Recent, with no toast of its own).
+
+M2 combined (branch `app-m2`, superseding `app-m2-act` and `app-m2-attention` for review): steps 2.3, 2.4 and 2.7
+(⌘K, Needs you, alerts, the away strip, the keys and the menu bar) wired to the verbs. ⌘K's and Needs you's `Verb` and
+`StackVerb` go to acting the way the pages' buttons do (dialogs where Go asks, the checks before Up, down and remove ask,
+`holder:PID` looks again that the pid still holds the port the crash names, then restarts the service); a failed stack
+action is a Needs you item and a stack mid-action carries its items (one `Failure` type for both). One action table
+feeds the help sheet, the chips, the menu bar and ⌘K, each command listed once. Beyond Go: ⌘K's ⌘⏎ on a service in
+trouble restarts it (Needs you's first fix). Still M3: Settings, Activity, Check for Updates, Settings › Machine's
+repair and clean-up (their rows say "soon").
+
+Where the M0 build differs from this plan:
 
 - The app lives at `apps/doze-app`, not `crates/doze-app`, so `default-members = ["crates/*", …]` leaves it out by
   glob. `--workspace` ignores default members, so the check, doc and Windows jobs and `xtask gates` pass
@@ -225,7 +244,7 @@ The "Needs" column says what the feature depends on:
 | 10 | First open at the screen's work area; frame remembered (`a/window.go`, `prefs`) | `WindowBounds` from the display's visible bounds; frame saved on close | gpui | L | — |
 | 11 | Single instance; second launch forwards folder, `--show` and `doze://` (`a/app.go`) | lock + `~/.doze/desk/app.sock`; the second launch sends its args and exits | std | L | — |
 | 12 | `doze://` links: stack, stack/service, open?dir&show, library, settings (`link/link.go`) | `doze-desk::link` parser; macOS URL events via an `application:openURLs:` handler in `doze-os::ui` | objc2 | L | — |
-| 13 | File drop on the window opens that folder (`a/window.go`) | `on_drop::<ExternalPaths>` on the root; also on the Dock icon and the status item (beyond) | gpui | L | — |
+| 13 | File drop on the window opens that folder (`a/window.go`) | `on_drop::<ExternalPaths>` on the root; also on the Dock icon and the status item (beyond) | gpui | L | built (M2) |
 | 14 | Open at login: LaunchAgent plist / XDG autostart (`autostart/`) | port as `doze-desk::autostart` (file writes only) | — | L | — |
 | 15 | Title bar: Home tab ⌘0, stack tabs with dot, badge and close ×, pending tab, bell, `?`, ⌘K button, double-click to zoom (`fe/components/titlebar.tsx`) | client-drawn title bar with traffic lights inset; tabs from a tab model | `title_bar`, `tab` | G | built (visual) |
 | 16 | Sidebar on instance/logs pages: ‹ Overview, grouped instances, Show checkboxes on All logs (`fe/components/sidebar.tsx`) | `sidebar` with groups; checkboxes | `sidebar`, `checkbox` | G | — |
@@ -240,11 +259,11 @@ The "Needs" column says what the feature depends on:
 |---|---|---|---|---|---|
 | 21 | Brand head, tagline, counts; Open folder ⌘O, Settings ⌘, (`fe/pages/library.tsx`) | page | — | L | — |
 | 22 | Getting-started steps strip, "Got it ×" (`v/library.go` steps, prefs `hints`) | the same | — | L | — |
-| 23 | Empty library: drop card, start-empty card with an example doze.hcl, "New stack… ⌘N" (Go has no handler for ⌘N) | the same, with ⌘N **actually bound** (folder picker, then the empty-folder flow) | `empty` | C | — |
+| 23 | Empty library: drop card, start-empty card with an example doze.hcl, "New stack… ⌘N" (Go has no handler for ⌘N) | the same, with ⌘N **actually bound** (folder picker, then the empty-folder flow) | `empty` | C | built (M2) |
 | 24 | Stack table: dot, name/dir/declared, Running figures, address pills (+N), Last, switch, ⋯ (`v/library.go`) | `DataTable` with a custom row; switch per row | `table`, `switch` | G+L | — |
 | 25 | Row states: busy, missing (Remove…), broken, need, "run by an older doze" | the same | `badge` | G+L | — |
-| 26 | Switch: up as last time / down (asks) | preflight, then the `doze -y up --last` subprocess | — | C | — |
-| 27 | StackMenu: Restart / Start everything / Choose what starts… / Edit doze.hcl / Show in Finder / Remove from doze… (`library.tsx:285`) | `PopupMenu` (the ⋯ button) + the same items on right-click | `menu` | C+L | — |
+| 26 | Switch: up as last time / down (asks) | preflight, then the `doze -y up --last` subprocess | — | C | built (M2) |
+| 27 | StackMenu: Restart / Start everything / Choose what starts… / Edit doze.hcl / Show in Finder / Remove from doze… (`library.tsx:285`) | `PopupMenu` (the ⋯ button) + the same items on right-click | `menu` | C+L | built (M2) |
 | 28 | "Also on this machine": other doze programs (owner, pid, Open) | port `others` (ps scan) | — | L | — |
 | 29 | Machine line: doctor dots, "N left behind · Clean up…", "Set up (one password)", Machine… | from `doze doctor --json` (C) until names N5 is in Rust | — | C | — |
 
@@ -254,8 +273,8 @@ The "Needs" column says what the feature depends on:
 |---|---|---|---|---|---|
 | 30 | Head: name, dir, up X / stopped · when; view switch Tiles·List·Map·Grid (remembered per stack); Activity A; All logs L; stack switch; ⋯ (`fe/pages/overview.tsx`) | the same | `ButtonGroup`, `switch` | G | built (List/Map) |
 | 31 | Vitals strip: memory with a share bar per service; cores; state counts; connections; faded when stale | `stat` cards; share bar as `plot` Stack | `plot` | G | built |
-| 32 | Busy banner (Starting/Stopping…) | `alert` + `spinner` | `alert` | C | — |
-| 33 | FailedBanner: Edit file / Try again / Copy / Dismiss, "What doze printed", SourceCard (`v/home.go` FailureOf) | the same; SourceCard via a read-only `Editor` with the line marked | `alert`, `input::Editor` | C | — |
+| 32 | Busy banner (Starting/Stopping…) | `alert` + `spinner` | `alert` | C | built (M2) |
+| 33 | FailedBanner: Edit file / Try again / Copy / Dismiss, "What doze printed", SourceCard (`v/home.go` FailureOf) | the same; SourceCard via a read-only `Editor` with the line marked | `alert`, `input::Editor` | C | built (M2) |
 | 34 | ConfigBanner: stack keeps running, Edit doze.hcl ⌘E, excerpt + hint (`v/configerror.go`) | the same; excerpt from `doze lint --json` | `Editor` | C | — |
 | 35 | doze.hcl changed → Restart the stack (`v/configerror.go` ConfigChanged) | the same, **plus a diff** (§3) | `diff` | C+L | — |
 | 36 | Domain not set up → Set up the machine / Copy command | the same | — | C | — |
@@ -264,7 +283,7 @@ The "Needs" column says what the feature depends on:
 | 39 | **Map** view: Go-placed cards, shared band, bezier edges, fit zoom, lit card fades unrelated cards, detail card, legend, arrow nav (`v/flow.go` 1,022 lines + `geometry.go` 234) | layout from the **`doze-map` crate** (§5.4); painted with PathBuilder (spike code) | gpui canvas | G+L | built (painting, fixture layout) |
 | 40 | **Grid** view: services × apps/shared/tasks, crosshair, positioned tooltip with ref "in doze.hcl" (`v/grid.go`, `refs.go`) | `DataTable` with frozen column + hover; refs from `doze status --json` blocks | `table`, `tooltip` | C | — |
 | 41 | Stopped stack: DownStrip, rows drawn `down`, a row's switch starts the stack with that row (`v/stopped.go`) | the same; shape from `doze status --json` (works with a broken file) | — | C | — |
-| 42 | StartSheet: tick apps, "needs …", "last time", "also starts" (transitive), Cancel / Everything / Start these | `sheet` from the bottom or a centred dialog (board decides) | `dialog`, `checkbox` | C | — |
+| 42 | StartSheet: tick apps, "needs …", "last time", "also starts" (transitive), Cancel / Everything / Start these | `sheet` from the bottom or a centred dialog (board decides) | `dialog`, `checkbox` | C | built (M2) |
 | 43 | Density Compact/Cosy/Roomy (List) | theme row height token | `radio` | L | — |
 | 44 | sr-only live region announcing crashing/failed | AccessKit live region | gpui a11y | G | — |
 
@@ -312,23 +331,23 @@ The "Needs" column says what the feature depends on:
 
 | # | Go feature | Approach | Component | Needs | Spike |
 |---|---|---|---|---|---|
-| 70 | Dialog: sleep (dependants / only), restart, reset (type the name, default moves when it matches, "From a script:" foot), ask, action-with-input (`v/dialog.go`, `fe/components/dialog.tsx`) | `dialog` over a dimmed scrim, `DialogEntrance` 180 ms; ←→ between buttons, y/n on restart | `dialog`, `input` | G | — |
-| 71 | ⌘K palette: nothing typed = broken / page / recent / stacks; verb+name with CLI form; scopes (Tab in, ⌫/⇧Tab/Esc out), crumbs; did-you-mean; copy rows "Copied ✓"; recent commands (`v/palette.go` 744 + `commands.go` 347) | port of the palette model to `doze-desk::palette`; spike's overlay (matched to the board) | spike palette, `kbd` | G | built (UI, fixture data) |
-| 72 | Help sheet `?`: keys by scope + "The words" glossary + version (`fe/components/help.tsx`) | generated from the keymap + glossary text | `dialog`, `kbd` | — | — |
-| 73 | Toasts from `notice`: up to 5, success 4 s, failure 12 s with "All" → Recent | `notification` (in-app) | `notification` | G | — |
-| 74 | Recent page: last 20 notices (`fe/pages/recent.tsx`) | becomes a **popover from the toast stack** rather than a page (overlay rule) | `popover` | — | — |
-| 75 | Bell + Needs-you panel: Broken now / Worth doing, fixes, Show, Not now, age, "fixed ✓", N put aside, calm state (`fe/components/bell.tsx`, `v/attention.go`, `s/attention.go`) | `popover` anchored to the bell; list with keys ↑↓ ⏎ ⌘⏎ n | `popover`, `list` | G+C+L | — |
-| 76 | Alerts: toasts for new red items (≤ 3) with first fix + Show | `notification` with actions | `notification` | G | — |
-| 77 | Away strip: "While the window was closed · for", events, Open Needs you, Got it (`v/away.go`) | banner with `Presence` enter | — | G+L | — |
-| 78 | PreflightSheet: checks before Up (folder, doze.hcl loads, ports free via lsof + bind probe, holders own/other user/other stack, domains trusted); fixes stop pid / up without X / anyway / edit / repair (`s/preflight.go` 453) | port to `doze-desk::preflight`; `sheet` | `sheet` | C+L | — |
-| 79 | Instance preflight before wake (`PreflightInstance*`) | same module | — | G+L | — |
+| 70 | Dialog: sleep (dependants / only), restart, reset (type the name, default moves when it matches, "From a script:" foot), ask, action-with-input (`v/dialog.go`, `fe/components/dialog.tsx`) | `dialog` over a dimmed scrim, `DialogEntrance` 180 ms; ←→ between buttons, y/n on restart | `dialog`, `input` | G | built (M2) |
+| 71 | ⌘K palette: nothing typed = broken / page / recent / stacks; verb+name with CLI form; scopes (Tab in, ⌫/⇧Tab/Esc out), crumbs; did-you-mean; copy rows "Copied ✓"; recent commands (`v/palette.go` 744 + `commands.go` 347) | port of the palette model to `doze-desk::palette`; spike's overlay (matched to the board) | spike palette, `kbd` | G | built (M2) |
+| 72 | Help sheet `?`: keys by scope + "The words" glossary + version (`fe/components/help.tsx`) | generated from the keymap + glossary text | `dialog`, `kbd` | — | built (M2) |
+| 73 | Toasts from `notice`: up to 5, success 4 s, failure 12 s with "All" → Recent | `notification` (in-app) | `notification` | G | built (M2) |
+| 74 | Recent page: last 20 notices (`fe/pages/recent.tsx`) | becomes a **popover from the toast stack** rather than a page (overlay rule) | `popover` | — | built (M2) |
+| 75 | Bell + Needs-you panel: Broken now / Worth doing, fixes, Show, Not now, age, "fixed ✓", N put aside, calm state (`fe/components/bell.tsx`, `v/attention.go`, `s/attention.go`) | `popover` anchored to the bell; list with keys ↑↓ ⏎ ⌘⏎ n | `popover`, `list` | G+C+L | built (M2) |
+| 76 | Alerts: toasts for new red items (≤ 3) with first fix + Show | `notification` with actions | `notification` | G | built (M2) |
+| 77 | Away strip: "While the window was closed · for", events, Open Needs you, Got it (`v/away.go`) | banner with `Presence` enter | — | G+L | built (M2) |
+| 78 | PreflightSheet: checks before Up (folder, doze.hcl loads, ports free via lsof + bind probe, holders own/other user/other stack, domains trusted); fixes stop pid / up without X / anyway / edit / repair (`s/preflight.go` 453) | port to `doze-desk::preflight`; `sheet` | `sheet` | C+L | built (M2) |
+| 79 | Instance preflight before wake (`PreflightInstance*`) | same module | — | G+L | built (M2) |
 
 ### 2.8 Activity, empty folder, settings
 
 | # | Go feature | Approach | Component | Needs | Spike |
 |---|---|---|---|---|---|
 | 80 | Activity: last hour / 24 h / 7 d, summary (asleep while up, memory freed, wakes, crashes), per-service timeline with spans, wake-to-ready, crash marks, asleep %, woken by; What happened list; filter by service (`v/activity.go` 426, journal on disk) | read the Go journal files (`internal/journal` format, read-only port) + journal topic; timeline drawn on `canvas` | `plot`, gpui canvas | G+L | — |
-| 81 | Empty folder: found table (Found / Where / Becomes), 3 choice tiles (init / add one thing / empty), busy state (`v/empty.go`, `fe/pages/empty.tsx`) | `doze init`/`add` via the CLI subprocess | — | C | — |
+| 81 | Empty folder: found table (Found / Where / Becomes), 3 choice tiles (init / add one thing / empty), busy state (`v/empty.go`, `fe/pages/empty.tsx`) | `doze init`/`add` via the CLI subprocess | — | C | built (M2) |
 | 82 | Settings › General: Mode System/Light/Dark, density, 5 colour themes drawn in the mode, Open at login, Reopen the page I had, prefs path | `setting` page | `setting` | L | — |
 | 83 | Settings › Machine: Repair banner, doctor table by names/domains/app with Copy fix; Left behind (daemons, engines, data, routes, CA) with Look again / Clean up N / per-item / danger asks inline / show all; Copy report (`s/leftovers.go` 427, `s/repair.go` 255) | `doze doctor --json` (C); leftovers ported (ps + globs, L); repair through `doze-os` privilege prompt running `doze dns-setup` / `doze trust` | `setting`, `table` | C+L | — |
 | 84 | Settings › About: version, update check (GitHub latest, cached 6 h), What's new, Copy `brew upgrade doze` (`s/update.go`) | the same (`ureq` or std + rustls is extra weight: see Q6) | — | L | — |

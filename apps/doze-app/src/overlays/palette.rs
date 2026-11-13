@@ -1,360 +1,262 @@
-//! ⌘K: the command palette, drawn as the board drew it (the spike matched it to the React page at 2.2/255). Its "Do"
-//! rows are the action table's palette rows, so ⌘K offers exactly what the menus and keys do; its "Cards" rows jump to
-//! a card on the Map. The full palette model (scopes, did-you-mean, the CLI form) is M2's.
+//! ⌘K, over the page (M2 step 2.3): `doze_desk::palette`'s model, held to Go's goldens, drawn as the Palette boards
+//! draw it. Nothing typed: what needs you, commands for where you are, what you did lately, every stack. A name, a
+//! name then words, a verb then a name; "Did you mean"; the closest name when nothing matched. Tab narrows to a stack
+//! or a service (its crumbs in the box), ⌫ on an empty box or ⇧Tab steps out, esc clears, then steps out, then closes.
+//! A copy says "Copied ✓" in place and stays open. ⌘⏎ does the highlighted row's first action.
 
-use doze_display::{fuzzy_match, fuzzy_score};
-use gpui::{
-    AnyElement, Context, Entity, EventEmitter, IntoElement, Render, SharedString, Window, div,
-    prelude::*, px,
+use doze_desk::Hub;
+use doze_desk::palette::{
+    self as model, Ask, DoKind, Doing, RecentCommand, RecentService, Row, Scope,
 };
-use gpui_component::input::{Input, InputEvent, InputState};
+use gpui::{ClipboardItem, Context, Entity, EventEmitter, ScrollHandle, Window, prelude::*};
+use gpui_component::input::{InputEvent, InputState};
 
-use crate::actions::{self, Spec};
-use crate::theme::{Tokens, tokens};
-use crate::widgets::{MONO_FAMILY, UI_FAMILY, icon, kbd_chip, tracked, w};
-
-/// What a row does.
-#[derive(Clone, Copy)]
-pub(crate) enum Pick {
-    Act(&'static Spec),
-    Card(usize),
+/// The action table's rows offered in ⌘K, as palette rows: the label, what it does, its key; ⏎ runs the action
+/// (`do:<label>`). One table drives the keys, the menus, the help sheet and these. A row the model already offers in
+/// its own words ("Restart shop", "Edit shop's doze.hcl", "Keyboard shortcuts") has `palette: false`, so ⌘K lists
+/// each command once.
+fn table_rows() -> Vec<Row> {
+    crate::actions::palette()
+        .filter(|s| s.built)
+        .map(|s| Row {
+            glyph: "›",
+            tone: "dim",
+            label: s.label.to_owned(),
+            note: s.what.to_owned(),
+            key: crate::actions::chip(s).unwrap_or_default(),
+            doing: Doing {
+                kind: DoKind::App,
+                text: format!("do:{}", s.label),
+                ..Doing::default()
+            },
+            ..Row::default()
+        })
+        .collect()
 }
 
-/// One row.
-#[derive(Clone)]
-struct Row {
-    label: SharedString,
-    note: SharedString,
-    key: Option<String>,
-    pick: Pick,
-    soon: bool,
-}
-
-/// What the palette tells its owner.
+/// What the palette asks its owner to do: the row's doing, after it closes.
 pub(crate) enum PaletteEvent {
-    Chose(Pick),
+    Do(Doing),
 }
 
 /// The palette.
 pub(crate) struct Palette {
     pub(crate) input: Entity<InputState>,
-    rows: Vec<Row>,
-    cards: Vec<String>,
-    /// The rows shown: (row, matched positions).
-    shown: Vec<(usize, Vec<usize>)>,
-    on: usize,
+    hub: Hub,
+    /// The stack on screen (its key) and the service on screen, whose commands come first.
+    current: String,
+    inst: String,
+    pub(super) scope: Option<Scope>,
+    recent: Vec<RecentService>,
+    cmds: Vec<RecentCommand>,
+    pub(super) model: model::Palette,
+    /// The highlighted row, counting every section's rows.
+    pub(super) on: usize,
+    /// The row just copied, by label: it says "Copied ✓" in place.
+    pub(super) copied: Option<String>,
+    pub(super) scroll: ScrollHandle,
+    /// The action table's ⌘K rows (what Go's list does not have), each doing its action.
+    extra: Vec<Row>,
+    /// The box's placeholder as last set.
+    pub(super) hint: String,
 }
 
 impl EventEmitter<PaletteEvent> for Palette {}
 
 impl Palette {
-    /// A palette over the action table and the stack's cards (by name, with their words).
+    /// A palette over every stack, `current` and `inst` naming where the person is.
     pub(crate) fn new(
-        cards: Vec<(String, String)>,
+        hub: Hub,
+        current: String,
+        inst: String,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
         let input = cx.new(|cx| {
-            InputState::new(window, cx).placeholder("Search or do: a card, a view, a theme…")
+            InputState::new(window, cx).placeholder("A service, a stack, or what to do…")
         });
-        cx.subscribe(&input, |this: &mut Palette, input, ev: &InputEvent, cx| {
+        cx.subscribe(&input, |this: &mut Palette, _, ev: &InputEvent, cx| {
             if matches!(ev, InputEvent::Change) {
-                let q = input.read(cx).value().to_string();
-                this.filter(&q);
-                cx.notify();
+                this.copied = None;
+                this.refresh(cx);
             }
         })
         .detach();
         input.update(cx, |i, cx| i.focus(window, cx));
-        let mut rows: Vec<Row> = actions::palette()
-            .map(|s| Row {
-                label: s.label.into(),
-                note: s.what.into(),
-                key: actions::chip(s),
-                pick: Pick::Act(s),
-                soon: !s.built,
-            })
-            .collect();
-        let names: Vec<String> = cards.iter().map(|c| c.0.clone()).collect();
-        rows.extend(cards.into_iter().enumerate().map(|(i, (name, note))| Row {
-            label: name.into(),
-            note: note.into(),
-            key: None,
-            pick: Pick::Card(i),
-            soon: false,
-        }));
         let mut p = Palette {
             input,
-            rows,
-            cards: names,
-            shown: Vec::new(),
+            hub,
+            current,
+            inst,
+            scope: None,
+            recent: crate::prefs::recall::recent(),
+            cmds: crate::prefs::recall::commands(),
+            model: model::Palette::default(),
             on: 0,
+            copied: None,
+            scroll: ScrollHandle::new(),
+            hint: String::new(),
+            extra: table_rows(),
         };
-        p.filter("");
+        p.compute(cx);
         p
     }
 
-    /// The card name of a [`Pick::Card`].
-    pub(crate) fn card(&self, i: usize) -> Option<&str> {
-        self.cards.get(i).map(String::as_str)
+    fn query(&self, cx: &gpui::App) -> String {
+        self.input.read(cx).value().to_string()
     }
 
-    fn filter(&mut self, q: &str) {
-        let q = q.trim();
-        if q.is_empty() {
-            // Nothing typed: a few things it does now, then the stack's cards. What comes later waits for a query.
-            let acts = self
-                .rows
-                .iter()
-                .enumerate()
-                .filter(|(_, r)| matches!(r.pick, Pick::Act(_)) && !r.soon)
-                .take(4);
-            let cards = self
-                .rows
-                .iter()
-                .enumerate()
-                .filter(|(_, r)| matches!(r.pick, Pick::Card(_)))
-                .take(5);
-            self.shown = acts.chain(cards).map(|(i, _)| (i, Vec::new())).collect();
-            self.on = 0;
-            return;
-        }
-        // Typed: best match first, what the app does now before what comes later.
-        let mut hits: Vec<(bool, usize, usize, Vec<usize>)> = self
-            .rows
-            .iter()
-            .enumerate()
-            .filter_map(|(i, r)| {
-                let at = fuzzy_match(q, &r.label)?;
-                Some((r.soon, fuzzy_score(&at), i, at))
-            })
-            .collect();
-        hits.sort_by_key(|h| (h.0, h.1, h.2));
-        self.shown = hits
-            .into_iter()
-            .take(9)
-            .map(|(_, _, i, at)| (i, at))
-            .collect();
+    fn compute(&mut self, cx: &gpui::App) {
+        let stacks = self.hub.stacks();
+        let q = self.query(cx);
+        let ask = Ask {
+            current: &self.current,
+            inst: &self.inst,
+            scope: self.scope.as_ref(),
+            recent: &self.recent,
+            cmds: &self.cmds,
+            query: &q,
+            now: self.hub.now(),
+            extra: &self.extra,
+        };
+        self.model = model::palette(&stacks, &ask);
         self.on = 0;
+        self.scroll.scroll_to_item(0);
     }
 
-    /// Moves the highlight.
+    /// Reads the stacks and the box again.
+    pub(crate) fn refresh(&mut self, cx: &mut Context<Self>) {
+        self.compute(cx);
+        cx.notify();
+    }
+
+    /// The highlighted row.
+    pub(super) fn row(&self) -> Option<&Row> {
+        self.model.rows().nth(self.on)
+    }
+
+    /// Moves the highlight, keeping it in view.
     pub(crate) fn step(&mut self, by: isize, cx: &mut Context<Self>) {
-        let n = self.shown.len();
+        let n = self.model.rows().count();
         if n > 0 {
             self.on = self.on.saturating_add_signed(by).min(n - 1);
+            self.scroll.scroll_to_item(self.child_of(self.on));
             cx.notify();
         }
     }
 
-    /// Chooses the highlighted row.
-    pub(crate) fn choose(&mut self, cx: &mut Context<Self>) {
-        if let Some(r) = self
-            .shown
-            .get(self.on)
-            .and_then(|(i, _)| self.rows.get(*i))
-            .filter(|r| !r.soon)
+    /// The body's child index of row `i`: each section's heading is a child before its rows.
+    fn child_of(&self, i: usize) -> usize {
+        let mut seen = 0;
+        for (s, sec) in self.model.sections.iter().enumerate() {
+            if i < seen + sec.rows.len() {
+                return i + s + 1;
+            }
+            seen += sec.rows.len();
+        }
+        i
+    }
+
+    /// ⏎: the highlighted row; with nothing found, the closest name (into the box, or its page).
+    pub(crate) fn choose(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(r) = self.row().cloned() {
+            self.run(&r, r.doing.clone(), cx);
+            return;
+        }
+        let Some(n) = self.model.nothing.clone() else {
+            return;
+        };
+        if !n.fill.is_empty() {
+            self.input
+                .update(cx, |i, cx| i.set_value(n.fill.clone(), window, cx));
+            self.refresh(cx);
+        } else if let Some(d) = n.doing {
+            cx.emit(PaletteEvent::Do(d));
+        }
+    }
+
+    /// Does `doing` for row `r`: a copy in place, anything else by the owner. A command is remembered for Recent.
+    fn run(&mut self, r: &Row, doing: Doing, cx: &mut Context<Self>) {
+        if r.enter.is_none() {
+            let mut kept = RecentCommand::of(r);
+            kept.doing = doing.clone();
+            crate::prefs::recall::remember(kept.clone());
+            self.cmds = doze_desk::palette::remember(&self.cmds, kept);
+        }
+        if doing.kind == DoKind::Copy {
+            cx.write_to_clipboard(ClipboardItem::new_string(doing.text.clone()));
+            self.copied = Some(r.label.clone());
+            cx.notify();
+            return;
+        }
+        cx.emit(PaletteEvent::Do(doing));
+    }
+
+    /// ⌘⏎: the highlighted row's first action.
+    pub(crate) fn first_act(&mut self, cx: &mut Context<Self>) {
+        if let Some(r) = self.row().cloned()
+            && let Some(a) = r.first_act()
         {
-            cx.emit(PaletteEvent::Chose(r.pick));
+            self.run(&r, a.doing.clone(), cx);
         }
     }
-}
 
-fn label(t: &Tokens, text: &str, at: &[usize], soon: bool) -> AnyElement {
-    div()
-        .flex()
-        .flex_none()
-        .text_color(if soon { t.dim } else { t.bright })
-        .font_weight(w(600.))
-        .children(text.chars().enumerate().map(|(i, ch)| {
-            let d = div().child(SharedString::from(ch.to_string()));
-            if at.contains(&i) {
-                d.text_color(t.accent)
-            } else {
-                d
-            }
-        }))
-        .into_any_element()
-}
-
-fn item(
-    t: &Tokens,
-    r: &Row,
-    at: &[usize],
-    on: bool,
-    ix: usize,
-    cx: &mut Context<Palette>,
-) -> AnyElement {
-    let note_color = if on { t.text } else { t.dim };
-    let right: AnyElement = match (&r.key, r.soon) {
-        (_, true) => div()
-            .flex_none()
-            .text_size(px(11.))
-            .text_color(t.dim)
-            .child("soon")
-            .into_any_element(),
-        (Some(k), false) => kbd_chip(t, k, 10., 600., 5.).into_any_element(),
-        (None, false) => div()
-            .flex_none()
-            .font_family(MONO_FAMILY)
-            .text_size(px(11.))
-            .text_color(note_color)
-            .child("⏎ show")
-            .into_any_element(),
-    };
-    let glyph = match r.pick {
-        Pick::Act(_) => div()
-            .w(px(13.))
-            .text_color(t.dim)
-            .child("›")
-            .into_any_element(),
-        Pick::Card(_) => div()
-            .size(px(8.))
-            .mx(px(2.5))
-            .rounded_full()
-            .bg(t.accent)
-            .into_any_element(),
-    };
-    div()
-        .id(("pal", ix))
-        .flex()
-        .items_center()
-        .gap(px(10.))
-        .h(px(36.))
-        .px(px(16.))
-        .text_size(px(13.))
-        .text_color(if on { t.bright } else { t.text })
-        .when(on, |d| d.bg(t.pick))
-        .hover(|d| d.bg(t.sel))
-        .cursor_pointer()
-        .on_click(cx.listener(move |this, _, _, cx| {
-            this.on = ix;
-            this.choose(cx);
-        }))
-        .child(glyph)
-        .child(label(t, &r.label, at, r.soon))
-        .child(
-            div()
-                .flex_1()
-                .overflow_hidden()
-                .text_ellipsis()
-                .whitespace_nowrap()
-                .text_size(px(12.))
-                .text_color(note_color)
-                .child(r.note.clone()),
-        )
-        .child(right)
-        .into_any_element()
-}
-
-fn foot_key(t: &Tokens, k: &str, what: &str) -> impl IntoElement {
-    div()
-        .flex()
-        .flex_none()
-        .items_center()
-        .child(div().mr(px(4.)).child(kbd_chip(t, k, 10., 600., 5.)))
-        .child(SharedString::from(what.to_string()))
-}
-
-/// The foot: the keys, and what to try.
-fn foot(t: &Tokens) -> impl IntoElement {
-    div()
-        .flex()
-        .items_center()
-        .gap(px(14.))
-        .h(px(32.))
-        .px(px(16.))
-        .border_t_1()
-        .border_color(t.line)
-        .text_size(px(11.5))
-        .text_color(t.dim)
-        .whitespace_nowrap()
-        .child(foot_key(t, "↑↓", "move"))
-        .child(foot_key(t, "⏎", "do it"))
-        .child(foot_key(t, "esc", "close"))
-        .child(div().flex_1())
-        .child(div().flex_none().child("try: teal · fit · find · dark"))
-}
-
-impl Palette {
-    /// The rows shown, under their headings.
-    fn body(&self, t: &Tokens, cx: &mut Context<Self>) -> gpui::Div {
-        let mut body = div().flex().flex_col();
-        let mut last: Option<bool> = None;
-        let shown = self.shown.clone();
-        for (k, (i, at)) in shown.iter().enumerate() {
-            let Some(r) = self.rows.get(*i).cloned() else {
-                continue;
-            };
-            let is_act = matches!(r.pick, Pick::Act(_));
-            if last != Some(is_act) {
-                let title = if is_act { "Do" } else { "Cards on the map" };
-                body = body.child(
-                    div()
-                        .px(px(16.))
-                        .pt(px(8.))
-                        .pb(px(2.))
-                        .child(tracked(title, 11., 600., t.dim, 0.66)),
-                );
-                last = Some(is_act);
-            }
-            body = body.child(item(t, &r, at, k == self.on, k, cx));
-        }
-        if self.shown.is_empty() {
-            body = body.child(
-                div()
-                    .px(px(16.))
-                    .h(px(44.))
-                    .flex()
-                    .items_center()
-                    .text_color(t.dim)
-                    .child("Nothing by that name"),
-            );
-        }
-        body
+    /// Tab: into the highlighted stack or service. False when the row is a command.
+    pub(crate) fn scope_in(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        let Some(enter) = self.row().and_then(|r| r.enter.clone()) else {
+            return false;
+        };
+        self.scope = Some(enter);
+        self.copied = None;
+        self.input.update(cx, |i, cx| i.set_value("", window, cx));
+        self.refresh(cx);
+        true
     }
-}
 
-impl Render for Palette {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let t = tokens(cx);
-        let body = self.body(&t, cx);
-        div()
-            .w(px(600.))
-            .font_family(UI_FAMILY)
-            .text_size(px(13.))
-            .line_height(px(20.))
-            .flex()
-            .flex_col()
-            .overflow_hidden()
-            .rounded(px(12.))
-            .border_1()
-            .border_color(t.line2)
-            .bg(t.panel)
-            .shadow(vec![super::shadow(&t)])
-            .child(
-                div()
-                    .flex()
-                    .items_center()
-                    .gap(px(10.))
-                    .h(px(46.))
-                    .px(px(16.))
-                    .border_b_1()
-                    .border_color(t.line)
-                    .child(icon("icons/search.svg", 18., t.dim))
-                    .child(
-                        div().flex_1().child(
-                            Input::new(&self.input)
-                                .appearance(false)
-                                .bordered(false)
-                                .focus_bordered(false)
-                                .px_0()
-                                .text_size(px(15.))
-                                .text_color(t.bright),
-                        ),
-                    ),
-            )
-            .child(body)
-            .child(foot(&t))
+    /// One step out of the scope. False at the top.
+    pub(crate) fn scope_out(&mut self, cx: &mut Context<Self>) -> bool {
+        let Some(sc) = self.scope.take() else {
+            return false;
+        };
+        self.scope = sc.out();
+        self.copied = None;
+        self.refresh(cx);
+        true
+    }
+
+    /// ⌫: steps out when the box is empty; otherwise the box's own.
+    pub(crate) fn backspace(&mut self, cx: &mut Context<Self>) -> bool {
+        self.query(cx).is_empty() && self.scope_out(cx)
+    }
+
+    /// Esc: clears the box, else steps out, else (false) the palette closes.
+    pub(crate) fn escape(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        if !self.query(cx).is_empty() {
+            self.input.update(cx, |i, cx| i.set_value("", window, cx));
+            self.refresh(cx);
+            return true;
+        }
+        self.scope_out(cx)
+    }
+
+    /// The row's place in the list was clicked.
+    pub(super) fn click(&mut self, i: usize, window: &mut Window, cx: &mut Context<Self>) {
+        self.on = i;
+        self.choose(window, cx);
+    }
+
+    /// Puts `q` in the box (a shot's query).
+    #[cfg(feature = "capture")]
+    pub(crate) fn type_in(&mut self, q: &str, window: &mut Window, cx: &mut Context<Self>) {
+        self.input
+            .update(cx, |i, cx| i.set_value(q.to_owned(), window, cx));
+        self.refresh(cx);
+    }
+
+    /// Narrows to `scope` (a shot's).
+    #[cfg(feature = "capture")]
+    pub(crate) fn set_scope(&mut self, scope: Scope, cx: &mut Context<Self>) {
+        self.scope = Some(scope);
+        self.refresh(cx);
     }
 }
