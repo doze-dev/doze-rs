@@ -97,18 +97,22 @@ pub(crate) fn labels(t: &Tokens, m: &MapView, cx: &mut Context<MapView>) -> Vec<
 
 /// Each link's count at its middle (`3`, or `2 · 1` both ways), while the links show (zoomed out, lines on demand).
 fn counts(t: &Tokens, m: &MapView, home: Option<usize>) -> Vec<AnyElement> {
-    if !m.quiet() || m.cam.zoom >= super::DETAIL_ZOOM {
+    // At rest the map shows regions and their health; who talks to whom is read on hover: the counts show only on
+    // the links of the region in hand, each from its side (`→ 2` it calls, `← 1` it is called).
+    let Some(h) = home.filter(|_| m.quiet() && m.cam.zoom < super::DETAIL_ZOOM) else {
         return Vec::new();
-    }
+    };
     m.overview
         .links
         .iter()
+        .filter(|k| k.a == h || k.b == h)
         .map(|k| {
-            let mine = home.is_some_and(|h| k.a == h || k.b == h);
-            let quiet = home.is_some() && !mine;
-            let text = match (k.ab, k.ba) {
-                (n, 0) | (0, n) => n.to_string(),
-                (a, b) => format!("{a} · {b}"),
+            let (mine, quiet) = (true, false);
+            let (out, inn) = if k.a == h { (k.ab, k.ba) } else { (k.ba, k.ab) };
+            let text = match (out, inn) {
+                (o, 0) => format!("→ {o}"),
+                (0, i) => format!("← {i}"),
+                (o, i) => format!("→ {o} · ← {i}"),
             };
             let (x, y) = m.cam.to_screen(k.mid.x, k.mid.y);
             div()

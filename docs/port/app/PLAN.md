@@ -644,6 +644,11 @@ boards (11 of them, on real doze-map output), the call made and built:
   and framed; frames are packed callers' regions first, about as wide as a window. The frame's pill says its services,
   what is crashing and its memory. Calls inside a region are routed clear of every card; a call between regions is a
   plain curve, drawn on demand.
+- **At rest: regions and their health; who talks to whom on hover** (the coordinator's decision, 2026-11-13, after
+  three audits of at-fit reading): one faint link per pair of regions, a gentle curve under the opaque frames; hovering a
+  region's name or any card (or selecting one) lights that region's links over the frames, puts its counts on them
+  (`→ 2` it calls, `← 1` it is called) and says the whole list in a box at the bottom right. Routing the links through
+  the gaps between frames was tried and dropped (a maze of pipes).
 - **Lines on demand** (idea D): at rest, calls inside regions faint and the calls between regions as one weighted bundle
   per region pair; hover lights a card's calls, a selection keeps them; `L` (or the toolbar's Lines) draws every line.
 - **The call-less folded** (idea G): the lane and the shared band become one tile, "N with no calls", that opens a list

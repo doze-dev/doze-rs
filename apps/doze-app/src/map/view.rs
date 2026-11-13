@@ -260,6 +260,7 @@ impl MapView {
     /// The overlays on the drawing that belong to a large map: the regions' labels, the tile or its list.
     fn large(&self, t: &Tokens, cx: &mut Context<Self>) -> Vec<AnyElement> {
         let mut v = super::regions::labels(t, self, cx);
+        v.extend(super::tools::talks(t, self));
         v.extend(super::tile::tile(t, self, cx));
         v.extend(super::tile::list(t, self, cx));
         v

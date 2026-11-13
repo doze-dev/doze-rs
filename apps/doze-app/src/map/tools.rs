@@ -122,7 +122,7 @@ pub(crate) fn stats(m: &MapView) -> String {
 /// Under the pointer in a map by region: what the card's region talks to, from its bundles — `checkout calls payments 3 ·
 /// catalog 2 · called by gateway 4` — so the regions' links read at fit without following lines.
 pub(crate) fn talks(t: &Tokens, m: &MapView) -> Option<AnyElement> {
-    if m.lit.is_some() || m.lens.is_some() {
+    if m.lens.is_some() {
         return None;
     }
     let k = m.home_region()?;
@@ -141,11 +141,12 @@ pub(crate) fn talks(t: &Tokens, m: &MapView) -> Option<AnyElement> {
             .filter_map(|b| pick(b).map(|r| (b.count, name(r))))
             .collect();
         v.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| a.1.cmp(&b.1)));
-        v.iter()
-            .take(5)
-            .map(|(n, r)| format!("{r} {n}"))
-            .collect::<Vec<_>>()
-            .join(" · ")
+        // Every one, up to eight; past that, how many more (the sentence wraps rather than clips).
+        let mut s: Vec<String> = v.iter().take(8).map(|(n, r)| format!("{r} {n}")).collect();
+        if v.len() > 8 {
+            s.push(format!("+{} more", v.len() - 8));
+        }
+        s.join(" · ")
     };
     let out = list(&|b| (b.from == k).then_some(b.to));
     let inn = list(&|b| (b.to == k).then_some(b.from));
@@ -159,23 +160,34 @@ pub(crate) fn talks(t: &Tokens, m: &MapView) -> Option<AnyElement> {
     if parts.is_empty() {
         parts.push("talks to no other region".into());
     }
+    // Its own line at the drawing's bottom right, clear of the regions' names and of the tile at the bottom left, so the
+    // region's name always shows and a long list wraps.
     Some(
         div()
+            .absolute()
+            .right(px(12.))
+            .bottom(px(12.))
+            .max_w(px((m.cam.size.0 - 24.0 - 640.0).max(320.)))
             .flex()
-            .items_center()
-            .gap(px(6.))
+            .flex_col()
+            .gap(px(2.))
+            .px(px(10.))
+            .py(px(5.))
+            .rounded(px(8.))
+            .border_1()
+            .border_color(t.line2)
+            .bg(t.panel)
             .text_size(px(12.))
-            .whitespace_nowrap()
             .child(
                 div()
                     .font_weight(w(650.))
                     .text_color(t.bright)
                     .child(SharedString::from(name(k))),
             )
-            .child(
-                div()
-                    .text_color(t.text)
-                    .child(SharedString::from(parts.join(" · "))),
+            .children(
+                parts
+                    .into_iter()
+                    .map(|line| div().text_color(t.text).child(SharedString::from(line))),
             )
             .into_any_element(),
     )
