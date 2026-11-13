@@ -131,3 +131,38 @@ font download Firefox reports as aborted because the test navigated away first, 
 its own chunk the same way. The main chunk (184 KB gzipped) has room to shrink (lucide icons by path, Router's devtools-free build
 is already used). Screenshots for the review: scratchpad `r0/shots/` (Home, Connect, gallery in Firefox, WebKit, Chromium at 1440
 and 1024). The fonts are embedded twice until R5 removes the classic console.
+
+## R3 done (2026-11-14, branch `react-r3`): Live
+
+**Pages.** `/live` (`web/src/pages/live/live.tsx`): a snapshot by default with the RefreshControl, a `Snapshot | Live tail` ToggleGroup
+(`tail=1` in the address), the speed (Realtime 1 s, Relaxed 3 s the default, Slow 10 s; `doze:tail-speed`), the connection
+indicator (grey Snapshot, green Live, amber Connecting/Reconnecting, red Disconnected with a countdown and Retry now), a StatStrip
+(requests in the last minute, rows kept of 2,000, reaches back to HH:MM UTC, clients), the refusals folded to one line per (code,
+client) in a one-line strip that opens in place, the filters in the address (search, Apps/Topics/APIs MultiSelects with counts,
+Refused only, Idle polls hidden), the tape as a DataTable in a box of fixed height (600 px) with columns chosen by the table's width,
+the request Sheet (`?request=`: detail, refused, fenced, too large, the Lab tag) and the clients Sheet (`?clients=1`). The tail
+(`pages/live/tail.ts`): fetch-read SSE (the proof header), batches applied at most once a pace, merged by request id (a folded repeat
+changes in place), 200 rows kept, 500 held, held while scrolled, hovered, selected, focused or under an overlay behind a floating
+`↑ N new · Show` pill, a 1.5 s paint-only highlight on new rows, reconnect from `Last-Event-ID`, and a new tape when the broker
+restarted (the cursor carries the process's epoch). `/connect/first-request` and `WireDock` (`pages/live/wire-dock.tsx`, `topic` or
+`group`, shown on `/gallery`) for R1a/R2 to mount. Both Live routes are their own chunk.
+
+**Endpoints** (`crates/kafka-console/src/api/live.rs`): `GET /api/v1/live`, `/api/v1/live/request/{id}` (`found: null` when gone, a
+200: a 404 is a console error), `/api/v1/live/clients`, `/api/v1/live/first`, `/api/v1/live/topic-wire?topic=`,
+`/api/v1/live/group-wire?group=`, `GET /api/v1/tail/live` (JSON SSE, pace clamped 1 to 30 s by the server). The refusal rules are the
+classic drawers' own functions (`refused_rules`, `fenced_rules`, `too_large_rules`). Catalogue CON-1250 to CON-1262.
+
+**Shared files touched** (small): `router.tsx` (two lazy routes), `api.rs` (routes, `GET_PATHS`), `api/types.rs`, `index.css` (the
+highlight keyframes), `gallery.tsx` (the WireDock section), `components/app/data-table.tsx` (two fixes every slice gets: a column
+without a size now takes the rest, where TanStack had given it 150 px; `aria-rowindex` only on a virtual body, so a prepended row does
+not rewrite every row's index).
+
+**Gate.** Playwright `web/e2e/tests/live.spec.ts` (10 scenarios) with R0's: 117 passed in Firefox, WebKit and Chromium on the seeded
+world with the spec's own traffic; the Live spec also green in Firefox against a broker running the demo workload. Measured: no request
+after load in a snapshot; batch gaps at least the pace; no existing row replaced or rewritten over 20 s; header, strip, toolbar, tail
+bar and table head boxes identical; scroll unchanged while held; no sideways scroll at 1024 to 1920. Weight: 6,177,952 B, 160
+packages, 7,008 KB idle (limit 7.8 MB).
+
+**Not supplied.** The `live-lab-rule` board's "A rehearsal is active" card (the Live view-model does not carry the active rule; the
+rows carry the `lab` tag and the Sheet names the rule); the boards' two-line rows (one line a row, the second line in the tooltip);
+"Pause" (pausing is Snapshot).

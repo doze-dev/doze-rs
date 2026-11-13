@@ -24,6 +24,7 @@ use crate::model::{ConnectView, HomeState, HomeView, ProbeView, Span};
 use crate::state::Shared;
 use crate::{origin, snippets, words};
 
+pub mod live;
 #[cfg(test)]
 mod types;
 
@@ -326,6 +327,13 @@ pub fn routes(web: &crate::base::Base) -> Router<Shared> {
         .route(&web.url("/api/v1/probe"), post(probe))
         .route(&web.url("/api/v1/shell"), get(shell))
         .route(&web.url("/api/v1/jump"), get(jump))
+        .route(&web.url("/api/v1/live"), get(live::live))
+        .route(&web.url("/api/v1/live/request/{id}"), get(live::request))
+        .route(&web.url("/api/v1/live/clients"), get(live::clients))
+        .route(&web.url("/api/v1/live/first"), get(live::first))
+        .route(&web.url("/api/v1/live/topic-wire"), get(live::topic_wire))
+        .route(&web.url("/api/v1/live/group-wire"), get(live::group_wire))
+        .route(&web.url("/api/v1/tail/live"), get(live::tail))
         .route_layer(from_fn(guard))
 }
 
@@ -336,4 +344,11 @@ pub const GET_PATHS: &[&str] = &[
     "/api/v1/shell",
     "/api/v1/jump",
     "/api/v1/jump?q=or",
+    // Live (R3). The tail (`/api/v1/tail/live`) is a stream that never ends: its own tests read it.
+    "/api/v1/live",
+    "/api/v1/live?refused=1&idle=0&client=orders&api=Produce&topic=orders",
+    "/api/v1/live/clients",
+    "/api/v1/live/first",
+    "/api/v1/live/topic-wire?topic=orders",
+    "/api/v1/live/group-wire?group=fulfilment",
 ];

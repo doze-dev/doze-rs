@@ -1010,3 +1010,46 @@ React escapes text and no HTML is ever injected; the API returns what it was giv
 
 ## CON-1014. Every control works in Firefox, WebKit and Chromium
 The Playwright gate drives the shell (sidebar, collapse, chips, palette, RefreshControl), the gallery (Button, Input, Textarea, Select, Combobox, MultiSelect, RadioGroup, Switch, Checkbox, ToggleGroup, Tabs, Dialog, Sheet, DropdownMenu, Popover, Tooltip, Toast, StatStrip, CodeValue, EmptyState, DataTable), Home and Connect, with the mouse and the keyboard, asserting outcomes; every test fails on a console error; no page scrolls sideways at 1024, 1280, 1440 and 1920; an interval refresh moves nothing. Files: `web/e2e/tests/shell.spec.ts`, `gallery.spec.ts`, `pages.spec.ts`. Results per browser in `docs/port/console/react-plan.md` ("R0 done").
+
+# The React console, slice R3: Live (rules 1250 to 1262; 1263 to 1299 kept)
+
+Branch `react-r3`. The Live page, its tail, its Sheets, the first-request page and the wire docks in React (`web/src/pages/live/`), over the JSON API of `crates/kafka-console/src/api/live.rs`. The owner's complaint this slice answers: the classic Live page "flickering like crazy", "it should not be moving this fast". The rules of `docs/port/console/live-design.md` (CON-800 to CON-812) carry over; these are the React page's own. The browser scenarios are in `web/e2e/tests/live.spec.ts`, named below in words.
+
+## CON-1250. The Live API is the classic tape's view-models, serialised
+`GET /api/v1/live` (the LiveView of the filters, the words Rust decides: the empty tape's command, the phrases of the filters that are on, the state's name, and `tail_from`, the cursor a tail starts at), `/api/v1/live/request/{id}` (`found: null` and the words once the row fell off the tape: a 200, because a 404 is an error line in every browser's console), `/api/v1/live/clients`, `/api/v1/live/first` (`first: null` while no client spoke), `/api/v1/live/topic-wire?topic=`, `/api/v1/live/group-wire?group=&kind=&refused=1&q=`. The filters are the classic ones (`q`, repeated `client`, `api`, `topic`, `refused=1`, `idle=0`, `before`); a snapshot is at most 100 rows. Test: `the_live_api_says_the_tape_the_requests_the_clients_and_the_docks`, `the_snapshot_asks_for_at_most_a_hundred_rows`.
+
+## CON-1251. A request's Sheet and the rules behind a refusal are decided in Rust
+`RequestResponse` carries the kind (`detail`, `refused`, `fenced`, `too_large`, by `RequestKind::of`), the rules list made by the same functions the classic drawers use (`refused_rules`, `fenced_rules`, `too_large_rules` in `refusals.rs`), the topic's limits as the broker says them now, the commands that read a fetched record again and the keyed produce for an INVALID_RECORD on a compacted topic. Kafka's own words come from the broker's message or the error table, never from the page. Test: `the_live_api_says_the_tape_the_requests_the_clients_and_the_docks`.
+
+## CON-1252. The tail is a JSON stream behind the API's proof, at the pace asked, never faster than once a second
+`GET /api/v1/tail/live?<filters>&pace=<s>` answers `text/event-stream`: `ready` at once (`{cursor, reset, pace}`), then `rows` (`{cursor, rows}`, newest first, `id` the cursor) only when a look found rows added or a folded row grown. The pace is clamped to 1 to 30 s by the server whatever is asked. It needs `X-Console: 1` like every API request, so the page reads it over fetch (`web/src/lib/sse.ts`), not EventSource. A permit of `max_streams` is held while it is open. Test: `the_json_tail_sends_rows_after_the_cursor_once_and_a_reconnect_brings_only_the_newer`.
+
+## CON-1253. A cursor names its process; a reconnect brings only the newer, a restart starts a new tape
+A cursor is `<epoch>.<version>`. A reconnect sends the last one as `Last-Event-ID` and gets only what changed after it. A cursor of another epoch (the broker restarted: the recorder is empty and its ids start again) is answered `reset: true` and the rows of the new life; the page drops its tape first, so no row is shown twice and no id of the old life stands for a new request. Test: `a_cursor_of_another_life_names_no_version`, `the_json_tail_sends_rows_after_the_cursor_once_and_a_reconnect_brings_only_the_newer`; Playwright "the tail says Reconnecting, then Live, with no row twice and none of the old life" (kills and restarts its own broker).
+
+## CON-1254. The tape merges by request id, bounded
+A batch's new rows are prepended; a row already on the tape (a folded repeat that grew) is replaced where it is, under the same React key, so only its own cells change; the tape keeps 200 rows, the rows held aside 500 (one entry per id). Test: bun "the tape (CON-1254)" in `web/src/pages/live/live.test.ts`.
+
+## CON-1255. Live opens as a snapshot and asks nothing more until a person does
+Snapshot is the default mode (the `Snapshot | Live tail` ToggleGroup, the mode in the address as `tail=1`), the RefreshControl Off, the speed Relaxed (3 s; Realtime 1 s, Slow 10 s; remembered as `doze:tail-speed`). After load the page makes no request at all. Playwright "Live is a snapshot by default".
+
+## CON-1256. A tail moves only the tape, no faster than the pace, and never rewrites a row that was there
+Batches are applied at most once a pace (measured: every gap at least the pace); the header, the stat strip, the refusals strip, the toolbar, the tail bar and the table head keep their boxes over 20 s; no row that was on the tape is replaced or rewritten (a MutationObserver and node identity), apart from a folded repeat's count and time; new rows only get a 1.5 s background highlight (paint only, `.tape tr:has([data-fresh])`). The tape is a box of fixed height, so a batch never moves the page. Playwright "the tail: batches never faster than the pace, existing rows never rewritten, new rows highlighted, the page around it still".
+
+## CON-1257. A tail holds what a person is reading
+While the tape is scrolled, the page is scrolled past its top, the pointer is on it, text in it is selected, the focus is in it, or an overlay or a popup is open, a batch is held, not inserted: a `↑ N new · Show` pill counts the held rows, the scroll positions do not change, and Show applies them and returns to the top. Playwright "the tail holds while the tape is scrolled: the pill counts, the scroll stays, Show applies".
+
+## CON-1258. The connection says what it is
+Grey `Snapshot`, green `Live`, amber `Connecting…` and `Reconnecting…` (the first retry, after 1 s), red `Disconnected · Retry in N s` with a local countdown and `Retry now` (backoff 2, 4, 8, 15 s); a stream silent for 40 s (its keep-alive is 15 s) is taken as dead and opened again. Playwright "the tail says Reconnecting, then Live, with no row twice and none of the old life".
+
+## CON-1259. The filters are in the address
+Search text (debounced), Apps, Topics and APIs as MultiSelects with the count of each value on the tape, Refused only (a Toggle), Idle polls hidden (a Switch, on by default), the page back (`before`): all in the address, kept on reload, Back undoes them; a click on a client, an API or a topic in a row filters by it; an empty tape under filters names them and offers Clear filters. Playwright "filters change the rows, live in the address, and survive a reload".
+
+## CON-1260. A request and the clients are Sheets with their own address
+`?request=<id>` opens the request (detail, refused, fenced, too large; the Lab tag when a Lab rule touched it), `?clients=1` the clients; Esc, Close and Back close them, a deep link opens them, closing a deep-linked one replaces the address. Playwright "a request opens in a Sheet with its own address", "a refused request: Kafka's words, the rule behind them, what would pass", "the clients Sheet".
+
+## CON-1261. The first-request page and the wire docks
+`/connect/first-request` (who the newest client is, what it asked in order, the wire for it); `WireDock` (`web/src/pages/live/wire-dock.tsx`) with `topic` or `group` for the topic and group pages to mount, shown on `/gallery`. Both are snapshots that follow the RefreshControl. Playwright "the first-request page and the docks".
+
+## CON-1262. Every Live control works in Firefox, WebKit and Chromium, at every width
+The scenarios above run in the three engines with the mouse and the keyboard, fail on a console error, and no page scrolls sideways at 1024, 1280, 1440 and 1920 (snapshot, tail, under a Sheet); the tape's columns are chosen by the width of the table, never by its rows. Playwright "no page scrolls sideways at 1024 to 1920".

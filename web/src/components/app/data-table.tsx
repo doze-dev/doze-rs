@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 /** Past this many rows the body is virtual: only the rows in view are in the DOM. */
 export const VIRTUAL_FROM = 500;
 const ROW = 40;
+const NO_SIZE = { size: undefined };
 
 export type DataColumn<T> = ColumnDef<T> & {
   /** Fixed width in px; one column may leave it out and take the rest. */
@@ -20,8 +21,9 @@ export type DataColumn<T> = ColumnDef<T> & {
 export function DataTable<T>({ data, columns, rowId, empty, maxHeight = 560, className, "aria-label": ariaLabel, onRowClick }: { data: T[]; columns: DataColumn<T>[]; rowId: (row: T) => string; empty?: React.ReactNode; maxHeight?: number; className?: string; "aria-label"?: string; onRowClick?: (row: T) => void }) {
   const [sorting, setSorting] = useState<SortingState>([]);
   // TanStack Table returns functions that change identity on purpose; the React compiler lint knows and says so.
+  // `defaultColumn`: TanStack gives a column with no size 150 px; here no size means the column that takes the rest.
   // eslint-disable-next-line react-hooks/incompatible-library
-  const table = useReactTable({ data, columns, state: { sorting }, onSortingChange: setSorting, getCoreRowModel: getCoreRowModel(), getSortedRowModel: getSortedRowModel(), getRowId: (r) => rowId(r) });
+  const table = useReactTable({ data, columns, defaultColumn: NO_SIZE as Partial<ColumnDef<T>>, state: { sorting }, onSortingChange: setSorting, getCoreRowModel: getCoreRowModel(), getSortedRowModel: getSortedRowModel(), getRowId: (r) => rowId(r) });
   const rows = table.getRowModel().rows;
   const virtual = rows.length > VIRTUAL_FROM;
   const scroller = useRef<HTMLDivElement>(null);
@@ -33,7 +35,7 @@ export function DataTable<T>({ data, columns, rowId, empty, maxHeight = 560, cla
   const cols = table.getVisibleLeafColumns();
   return (
     <div ref={scroller} className={cn("relative overflow-auto rounded-xl border bg-card", className)} style={{ maxHeight }} data-slot="data-table" data-virtual={virtual || undefined}>
-      <table className="w-full table-fixed border-separate border-spacing-0 text-[13.5px]" aria-label={ariaLabel} aria-rowcount={rows.length + 1}>
+      <table className="w-full table-fixed border-separate border-spacing-0 text-[13.5px]" aria-label={ariaLabel} aria-rowcount={virtual ? rows.length + 1 : undefined}>
         <colgroup>
           {cols.map((c) => (
             <col key={c.id} style={{ width: (c.columnDef as DataColumn<T>).size ? `${(c.columnDef as DataColumn<T>).size}px` : undefined }} />
@@ -63,8 +65,10 @@ export function DataTable<T>({ data, columns, rowId, empty, maxHeight = 560, cla
         </thead>
         <tbody>
           {padTop > 0 && <tr aria-hidden style={{ height: padTop }} />}
+          {/* aria-rowindex only when the body is virtual (rows missing from the DOM): otherwise a row prepended by a tail would
+              rewrite the index of every row below it (R3, CON-1256). */}
           {shown.map(({ row: r, at }) => (
-            <tr key={r.id} id={`r-${r.id}`} data-row={r.id} aria-rowindex={at + 2} className={cn("group h-10", onRowClick && "cursor-pointer")} onClick={onRowClick ? () => onRowClick(r.original) : undefined}>
+            <tr key={r.id} id={`r-${r.id}`} data-row={r.id} aria-rowindex={virtual ? at + 2 : undefined} className={cn("group h-10", onRowClick && "cursor-pointer")} onClick={onRowClick ? () => onRowClick(r.original) : undefined}>
               {r.getVisibleCells().map((c) => {
                 const meta = (c.column.columnDef as DataColumn<T>).meta;
                 const raw = c.getValue();
