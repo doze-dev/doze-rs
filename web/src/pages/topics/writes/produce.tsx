@@ -135,7 +135,7 @@ export function ProduceBody({ topic, open }: { topic: string; open: boolean }) {
             render={({ field }) => (
               <Select value={field.value} onValueChange={field.onChange}>
                 <SelectTrigger id="pp" className="w-full font-mono" data-testid="partition" aria-invalid={!!errors?.partition}>
-                  <SelectValue />
+                  <SelectValue>{field.value === AUTO ? "auto (the partitioner picks)" : field.value}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={AUTO}>auto (the partitioner picks)</SelectItem>

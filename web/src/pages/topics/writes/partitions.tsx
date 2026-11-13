@@ -156,7 +156,7 @@ export function DeleteRecordsBody({ topic, partition, open }: { topic: string; p
                 }}
               >
                 <SelectTrigger id="rp" className="w-full font-mono" data-testid="records-partition">
-                  <SelectValue />
+                  <SelectValue>{field.value}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {(shown?.partitions ?? [Number(field.value)]).map((p) => (

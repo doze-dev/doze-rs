@@ -207,7 +207,10 @@ test.describe("Delete records", () => {
     for (let i = 0; i < 5; i++) await produce(request, baseURL!, name, `k${i}`, `v${i}`, "1");
     await page.goto(dialogUrl(name, "delete-records", "&partition=0"));
     const d = page.getByTestId("dialog-delete-records");
+    // A deep link's partition is shown in the trigger before anything is chosen.
+    await expect(d.getByTestId("records-partition")).toHaveText("0");
     await choose(page, d.getByTestId("records-partition"), "1");
+    await expect(d.getByTestId("records-partition")).toHaveText("1");
     await expect(d.getByTestId("records-preview")).toContainText("This removes 0 records");
     await d.getByTestId("offset").fill("3");
     await expect(d.getByTestId("records-preview")).toContainText("This removes 3 records");
