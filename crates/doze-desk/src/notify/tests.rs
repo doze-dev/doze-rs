@@ -322,3 +322,18 @@ fn outside_presses_only_what_asks_nothing() {
     );
     assert_eq!(press(Fix::new("Set up", FixKind::Repair)), Outside::Page);
 }
+
+#[test]
+fn a_notes_id_names_its_stack_and_instance() {
+    let place = |id: &str| place_of(id);
+    let want = Some(("/h/projects/shop-1".to_owned(), "api".to_owned()));
+    assert_eq!(place("/h/projects/shop-1/api/crash"), want);
+    assert_eq!(place("/h/projects/shop-1/api/stuck"), want);
+    let task = Some(("/h/projects/shop-1".to_owned(), "migrate".to_owned()));
+    assert_eq!(
+        place("/h/projects/shop-1/migrate/1791727480000000000/Failed"),
+        task
+    );
+    assert_eq!(place("said/3"), None);
+    assert_eq!(place("api/crash"), None);
+}

@@ -196,3 +196,23 @@ fn crash(st: &StackView, key: &str, v: &words::Instance, id: &str, now: SystemTi
     }
     n
 }
+
+/// The stack's key and the instance a note's id names (`<key>/<instance>/crash`, `…/stuck`, or a task's
+/// `<key>/<instance>/<ran>/<outcome>`): where a click on a notification posted before this launch goes. `None` for an
+/// id that names no instance.
+#[must_use]
+pub fn place_of(id: &str) -> Option<(String, String)> {
+    let rest = id
+        .strip_suffix("/crash")
+        .or_else(|| id.strip_suffix("/stuck"))
+        .or_else(|| {
+            // A task's run: the time in nanoseconds, then the outcome.
+            let (head, outcome) = id.rsplit_once('/')?;
+            let (head, ran) = head.rsplit_once('/')?;
+            (matches!(outcome, "Done" | "Failed" | "Other")
+                && ran.bytes().all(|b| b.is_ascii_digit()))
+            .then_some(head)
+        })?;
+    let (key, instance) = rest.rsplit_once('/')?;
+    (!key.is_empty() && !instance.is_empty()).then(|| (key.to_owned(), instance.to_owned()))
+}

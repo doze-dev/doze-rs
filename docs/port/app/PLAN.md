@@ -28,10 +28,15 @@ something pressed from the menu bar asks; `cargo xtask app-bundle` makes Doze.ap
 running app or starts one on its own. Differences and beyond Go:
 - each running stack's submenu also lists its services (wake, sleep, turn on, restart or run, as fits; their page and
   logs) and All logs; the stack line leaves the restart countdown out, so a crash loop does not rebuild the menu every
-  second; menu lines carry the menu's generation, so a pick that arrives after a rebuild is dropped;
+  second; menu lines carry the menu's generation, and a pick from the menu just replaced (one open while it was
+  rebuilt) still does what its line said; Search or do… ⌘K and Quit's ⌘Q are lines Go's menu did not have;
 - a note waits up to 2 s for Needs you to list its item, so the notification carries the fix button (Go posted at
-  once and often had none); its button presses the fix only while the item still offers it, and for a port's holder
-  only while the same pid holds the port (as Go); without a bundle a note is a toast and a Recent line, and stderr;
+  once and often had none); its button presses the fix only while the item still offers that very fix (same kind,
+  verb, label, and for a port's holder the same pid); a click on one posted before a relaunch still finds its
+  instance (the tag names it); "on screen" means the window is the active one; a fix pressed outside the window that
+  then fails is itself a notification while no window is open; without a bundle a note is a toast and a Recent
+  line, and stderr; the menu bar's own Needs you steps with the window's items while the window is open, so it goes
+  on steadily when the window closes;
 - the Dock badge is Needs you's red count; Settings… and Check for Updates… go to `doze://settings` (step 3.4 builds
   that page); the machine's items in the menu while the window is closed are the window's last (doctor runs only
   with a window);

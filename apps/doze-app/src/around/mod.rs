@@ -49,6 +49,15 @@ pub(crate) struct Around {
     posted: Vec<(String, (Note, Native))>,
     /// Running from Doze.app: the system's notifications can be used.
     bundled: bool,
+    /// What was put aside with Not now (read again each time the window builds its list, where it is changed).
+    not_now: std::collections::BTreeMap<String, String>,
+    /// The Dock badge as last set.
+    badge: Option<usize>,
+    /// Until when acting's questions came from outside the window (the menu bar, a notification), so they bring the
+    /// window forward; one the window raised itself does not take the focus.
+    pub(crate) outside_until: Option<std::time::Instant>,
+    /// The newest of acting's toasts already looked at (`notes::failures`).
+    said_up_to: u64,
 }
 
 impl Global for Around {}
@@ -62,6 +71,8 @@ pub(crate) fn bundled() -> bool {
 pub(crate) fn start(cx: &mut App, hub: &Hub, mode: &crate::facts::Mode) {
     let acts = crate::act::ensure(hub, mode, cx);
     cx.subscribe(&acts, |acts, ev: &ActsEvent, cx| asked(acts, ev, cx))
+        .detach();
+    cx.observe(&acts, |acts, cx| notes::failures(&acts, cx))
         .detach();
     let menu = Menu::install(&hub.stacks(), hub.now()).map(|(m, picks)| {
         cx.spawn(async move |cx: &mut AsyncApp| {
@@ -93,6 +104,10 @@ pub(crate) fn start(cx: &mut App, hub: &Hub, mode: &crate::facts::Mode) {
         flushing: false,
         posted: Vec::new(),
         bundled,
+        not_now: crate::prefs::recall::not_now(),
+        badge: None,
+        outside_until: None,
+        said_up_to: 0,
     });
     on_batch(cx);
     open_later(cx);
@@ -134,6 +149,13 @@ fn asked(acts: gpui::Entity<Acts>, ev: &ActsEvent, cx: &mut App) {
         ActsEvent::Start(k, _) => Some(k.clone()),
         ActsEvent::Open(_) => None,
     };
+    let outside = around(cx)
+        .and_then(|a| a.outside_until.take())
+        .is_some_and(|t| std::time::Instant::now() < t);
+    if had && !outside {
+        // The window raised it and hears it itself; the focus stays where the person left it.
+        return;
+    }
     let Some(h) = crate::app::open(cx) else {
         return;
     };
@@ -161,11 +183,25 @@ pub(crate) fn on_batch(cx: &mut App) {
     }
 }
 
-/// The window built its list: the menu and the notifications read it.
-pub(crate) fn window_list(list: &Attention, cx: &mut App) {
+/// The window built its list: the menu and the notifications read it. The window's raw items step this list's own
+/// steadiness too, so when the window closes the menu bar goes on from where the bell was (not from before the window
+/// opened: an item fixed meanwhile would come back red for its grace, and a fixed task of a stopped stack for good).
+pub(crate) fn window_list(
+    list: &Attention,
+    items: Vec<Item>,
+    stacks: &[doze_desk::StackView],
+    busy: &BTreeSet<String>,
+    now: SystemTime,
+    cx: &mut App,
+) {
     let Some(a) = around(cx) else {
         return;
     };
+    // What the window put aside was saved before this list was built.
+    a.not_now = crate::prefs::recall::not_now();
+    let _ = a
+        .steady
+        .step(items, stacks, &|k| busy.contains(k), &a.not_now, now);
     if a.list == *list {
         return;
     }
@@ -173,7 +209,7 @@ pub(crate) fn window_list(list: &Attention, cx: &mut App) {
     a.machine = list
         .items
         .iter()
-        .filter(|i| i.key.is_empty())
+        .filter(|i| i.key.is_empty() && !i.fixed)
         .cloned()
         .collect();
     follow(cx);
@@ -195,7 +231,10 @@ fn follow(cx: &mut App) {
     if let Some(m) = a.menu.as_mut() {
         m.follow(&stacks, &a.list, now);
     }
-    doze_os::ui::dock_badge((red > 0).then(|| red.to_string()).as_deref());
+    if a.badge != Some(red) {
+        a.badge = Some(red);
+        doze_os::ui::dock_badge((red > 0).then(|| red.to_string()).as_deref());
+    }
     notes::flush(cx);
 }
 
@@ -231,7 +270,6 @@ fn took(
     busy: &BTreeSet<String>,
     now: SystemTime,
 ) {
-    let not_now = crate::prefs::recall::not_now();
     let open = window_open(cx);
     let Some(a) = around(cx) else {
         return;
@@ -239,7 +277,7 @@ fn took(
     a.building = false;
     let list = a
         .steady
-        .step(items, stacks, &|k| busy.contains(k), &not_now, now);
+        .step(items, stacks, &|k| busy.contains(k), &a.not_now, now);
     if !open {
         a.list = list;
     }

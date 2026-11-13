@@ -1,6 +1,6 @@
 //! `doze-app open [FOLDER | doze://…] [--show NAME]` (Go `cmd/doze/open.go`, PLAN.md row 89 and step 3.5): the app, at
 //! this project. An app already running (the bundle, or any launch holding the doze home) is handed the arguments and
-//! goes there; otherwise, from a terminal, the app is started on its own (its own session, its output in
+//! goes there; otherwise, from a terminal, the app is started on its own (its own process group, its output in
 //! `$DOZE_HOME/desk/app.log`) so the prompt comes back; elsewhere (Finder, launchd, a script with no terminal) it runs
 //! in place. Either way a terminal is told "✓ doze is open".
 //!
@@ -42,6 +42,14 @@ pub(crate) fn absolute(args: &[String]) -> Vec<String> {
 
 pub(crate) fn run(mut a: cli::App) -> ExitCode {
     a.forward = absolute(&a.forward);
+    // No folder and no link: the folder this is run in, when it has a doze.hcl (Go: the doze.hcl here).
+    let named = a.forward.iter().any(|x| !x.starts_with('-'));
+    if !named
+        && std::path::Path::new("doze.hcl").is_file()
+        && let Ok(here) = std::env::current_dir()
+    {
+        a.forward.insert(0, here.to_string_lossy().into_owned());
+    }
     let home = match doze_os::home::doze_home() {
         Ok(h) => h,
         Err(e) => {
@@ -61,7 +69,11 @@ pub(crate) fn run(mut a: cli::App) -> ExitCode {
             }
         }
         if std::io::stdin().is_terminal() {
-            return match detach(&home, &a.forward) {
+            let mut args = a.forward.clone();
+            if a.menu_bar {
+                args.push("--menu-bar".into());
+            }
+            return match detach(&home, &args) {
                 Ok(()) => said_open(),
                 Err(e) => {
                     eprintln!("doze-app open: {e}");

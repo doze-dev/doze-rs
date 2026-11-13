@@ -80,7 +80,13 @@ fn stack(cx: &mut App, k: &StackKey, c: StackCmd) {
     }
 }
 
+/// Acting, asked from outside the window: a question it raises in the next minute (the checks before Up run doctor
+/// and read the stack's shape first) brings the window forward; a failure it says is a notification while no window
+/// is open (`notes::failures`).
 fn acts(cx: &mut App, f: impl FnOnce(&mut crate::act::Acts, &mut gpui::Context<crate::act::Acts>)) {
+    if let Some(a) = around(cx) {
+        a.outside_until = Some(std::time::Instant::now() + std::time::Duration::from_secs(60));
+    }
     if let Some(a) = crate::act::acts(cx) {
         a.update(cx, f);
     }

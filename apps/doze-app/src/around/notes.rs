@@ -22,9 +22,16 @@ const FIX: &str = "fix";
 
 /// What is on screen now, as the rules ask: a stack's page shows all of it, an instance's page shows that one (Go
 /// `reportOutside`); nothing while no window is open.
-fn on_screen(cx: &App) -> Option<Screen> {
+fn on_screen(cx: &mut App) -> Option<Screen> {
     let h = cx.try_global::<crate::app::State>()?.window?;
-    h.read(cx).ok().map(|r| r.screen.clone())
+    // Looked at: the window is the active one (not minimized, not behind another app). Go's page let go of its focus
+    // when it was hidden, so a crash on the stack it showed was still said.
+    let active = h
+        .update(cx, |_, window, _| window.is_window_active())
+        .unwrap_or(false);
+    active
+        .then(|| h.read(cx).ok().map(|r| r.screen.clone()))
+        .flatten()
 }
 
 /// The rules look at the stacks; what they say waits for its item, then goes.
@@ -149,13 +156,20 @@ pub(super) fn respond(r: gpui::SystemNotificationResponse, cx: &mut App) {
         .find(|(t, _)| r.tag.as_ref() == t.as_str())
         .map(|(_, p)| p.clone())
     else {
-        crate::app::open(cx);
+        // One posted before this launch (or long ago): its tag still names its stack and instance.
+        match doze_desk::notify::place_of(&r.tag) {
+            Some((key, instance)) => show_instance(cx, &key, &instance),
+            None => {
+                crate::app::open(cx);
+            }
+        }
         return;
     };
     if r.action_id.as_ref().is_some_and(|id| id == FIX)
         && let Some((it, offered)) = &n.fix
         && let Some((it, f)) = first_fix(&a.list, &it.id)
-        && (f.kind != doze_desk::attention::FixKind::Holder || f.pid == offered.pid)
+        // The very fix the button named: the same kind, verb and label, and for a port's holder the same pid.
+        && f == *offered
         && picks::press(cx, &it, &f)
     {
         return;
@@ -179,10 +193,46 @@ pub(super) fn show_instance(cx: &mut App, key: &str, instance: &str) {
     let Some(h) = crate::app::open(cx) else {
         return;
     };
+    if key.is_empty() {
+        return;
+    }
     let screen = if instance.is_empty() {
         Screen::Stack(StackKey::new(key))
     } else {
         Screen::Instance(StackKey::new(key), instance.to_owned())
     };
     let _ = h.update(cx, |root, window, cx| root.go(screen, window, cx));
+}
+
+/// Acting said something went wrong while no window is open (a fix pressed from the menu bar or a notification that
+/// then failed: the pid no longer holds the port, the restart did not take): from the bundle that is a notification
+/// too, whose click opens the window, where Recent keeps the line (Go's `FixItem` opened the page on an error it
+/// could see at once; these come later). Without a bundle the line is already a toast and stays among Recent.
+pub(super) fn failures(acts: &gpui::Entity<crate::act::Acts>, cx: &mut App) {
+    let open = super::window_open(cx);
+    let fresh: Vec<(u64, String)> = {
+        let seen = around(cx).map_or(u64::MAX, |a| a.said_up_to);
+        acts.read(cx)
+            .notices
+            .toasts()
+            .iter()
+            .filter(|t| t.id > seen && t.notice.bad)
+            .map(|t| (t.id, t.notice.text.clone()))
+            .collect()
+    };
+    let newest = acts.read(cx).notices.toasts().iter().map(|t| t.id).max();
+    let Some(a) = around(cx) else { return };
+    a.said_up_to = a.said_up_to.max(newest.unwrap_or(0));
+    if open || !a.bundled {
+        return;
+    }
+    for (id, text) in fresh {
+        let note = Note {
+            id: format!("said/{id}"),
+            title: "doze could not do that".into(),
+            body: text,
+            ..Note::default()
+        };
+        post(cx, note);
+    }
 }

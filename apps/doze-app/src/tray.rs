@@ -3,8 +3,8 @@
 //! rebuilt only when its signature changes (a countdown in a detail does not count); the item follows the hub while
 //! the window is closed too (once a second, `source::HIDDEN`).
 //!
-//! A line's id is the menu's generation and the line's place, so a pick that arrives after a rebuild is dropped
-//! rather than taken for the line now in its place.
+//! A line's id is the menu's generation and the line's place, so a pick from a menu that was replaced while it was
+//! open still does what its line said, never what the line now in its place says.
 
 use std::time::SystemTime;
 
@@ -19,6 +19,8 @@ pub(crate) struct Menu {
     tray: Tray,
     signature: Vec<Entry>,
     cmds: Vec<Cmd>,
+    /// The menu before the last rebuild: one may still be open on screen when it is replaced, and its picks count.
+    before: Vec<Cmd>,
     generation: u16,
     icon: TrayIcon,
     tooltip: String,
@@ -88,6 +90,7 @@ impl Menu {
             tray,
             signature: tray::signature(&entries),
             cmds,
+            before: Vec::new(),
             generation: 0,
             icon,
             tooltip,
@@ -105,7 +108,7 @@ impl Menu {
             let shown = native(&entries, self.generation, &mut cmds);
             self.tray.set_menu(&shown);
             self.signature = sig;
-            self.cmds = cmds;
+            self.before = std::mem::replace(&mut self.cmds, cmds);
             write_text(&entries);
         }
         if icon != self.icon {
@@ -118,12 +121,18 @@ impl Menu {
         }
     }
 
-    /// What a picked line asks for; `None` for a line of a menu since replaced.
+    /// What a picked line asks for: of the menu shown, or of the one it replaced (a menu open on screen while it is
+    /// rebuilt is still the one clicked); `None` for an older one.
     pub(crate) fn cmd(&self, id: u32) -> Option<Cmd> {
-        if id >> 16 != u32::from(self.generation) {
-            return None;
+        let place = usize::try_from(id & 0xffff).ok()?;
+        let generation = id >> 16;
+        if generation == u32::from(self.generation) {
+            self.cmds.get(place).cloned()
+        } else if generation == u32::from(self.generation.wrapping_sub(1)) {
+            self.before.get(place).cloned()
+        } else {
+            None
         }
-        self.cmds.get(usize::try_from(id & 0xffff).ok()?).cloned()
     }
 
     /// Opens the menu (for a picture of it).

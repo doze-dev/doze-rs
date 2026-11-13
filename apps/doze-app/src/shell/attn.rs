@@ -196,6 +196,8 @@ impl Root {
         cx: &mut Context<Self>,
     ) {
         self.attn.building = false;
+        // The menu bar's own list steps with the same items, so it is steady when the window closes (M3).
+        let raw = items.clone();
         let a = self.attn.steady.step(
             items,
             stacks,
@@ -212,7 +214,8 @@ impl Root {
             .alerts
             .retain(|it| !(it.kind == "failed" && shown.as_deref() == Some(it.key.as_str())));
         // The menu bar and the notifications read the window's list while it is open (M3).
-        crate::around::window_list(&self.attn.list, cx);
+        let busy = self.attn.acting.0.clone();
+        crate::around::window_list(&self.attn.list, raw, stacks, &busy, now, cx);
         if changed || self.attn.alerts.len() != before {
             self.bell_follow(cx);
             cx.notify();

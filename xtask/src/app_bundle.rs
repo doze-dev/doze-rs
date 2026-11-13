@@ -103,12 +103,19 @@ fn make(o: &Opts) -> Result<PathBuf, String> {
                 .args(o.features.iter().flat_map(|f| ["--features", f.as_str()])),
         )?;
     }
-    let bin = target_dir().join(&o.profile).join("doze-app");
+    // Cargo's `dev` profile builds into `debug`.
+    let dir = if o.profile == "dev" {
+        "debug"
+    } else {
+        o.profile.as_str()
+    };
+    let bin = target_dir().join(dir).join("doze-app");
     let app = o
         .out
         .clone()
         .unwrap_or_else(|| target_dir().join("bundle"))
         .join(format!("{}.app", o.name));
+    replaceable(&app)?;
     let _ = std::fs::remove_dir_all(&app);
     let (macos, res) = (app.join("Contents/MacOS"), app.join("Contents/Resources"));
     for d in [&macos, &res] {
@@ -124,6 +131,18 @@ fn make(o: &Opts) -> Result<PathBuf, String> {
         .arg(app.join("Contents/Info.plist")))?;
     sign(&app)?;
     Ok(app)
+}
+
+/// Only a bundle this task made is replaced: one with `doze-app` inside. Any other (the Go app's Doze.app runs `doze`;
+/// an app in /Applications) is refused, so `--out` can never delete the owner's installed app.
+fn replaceable(app: &Path) -> Result<(), String> {
+    if !app.exists() || app.join("Contents/MacOS/doze-app").is_file() {
+        return Ok(());
+    }
+    Err(format!(
+        "{} exists and is not a bundle this task made; not replacing it",
+        app.display()
+    ))
 }
 
 fn write(path: &Path, text: &str) -> Result<(), String> {
@@ -234,7 +253,23 @@ fn notarise(app: &Path) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{info_plist, parse};
+    use super::{info_plist, parse, replaceable};
+
+    #[test]
+    fn an_app_this_task_did_not_make_is_never_replaced() {
+        let root = std::env::temp_dir().join(format!("xtask-bundle-{}", std::process::id()));
+        let go = root.join("Doze.app/Contents/MacOS");
+        std::fs::create_dir_all(&go).ok();
+        std::fs::write(go.join("doze"), "").ok();
+        assert!(
+            replaceable(&root.join("Doze.app")).is_err(),
+            "the Go app's bundle"
+        );
+        std::fs::write(go.join("doze-app"), "").ok();
+        assert!(replaceable(&root.join("Doze.app")).is_ok(), "one of ours");
+        assert!(replaceable(&root.join("None.app")).is_ok(), "nothing there");
+        let _ = std::fs::remove_dir_all(&root);
+    }
 
     #[test]
     fn a_test_bundle_takes_its_own_name_and_no_scheme() {
