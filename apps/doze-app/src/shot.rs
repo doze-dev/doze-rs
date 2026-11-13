@@ -129,6 +129,10 @@ async fn take(cx: &mut AsyncApp, h: WindowHandle<Root>, s: &Shot) {
     paint(cx, h);
     pause(cx, 400).await;
     crate::shot_act::run(cx, h, s.act.as_deref()).await;
+    if s.wait > 0 {
+        pause(cx, s.wait).await;
+        let _ = h.update(cx, |root, _, cx| root.refresh(cx));
+    }
     paint(cx, h);
     pause(cx, 60).await;
     // Once more: the entrance motion began at the paint before, and is over now.

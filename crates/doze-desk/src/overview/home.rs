@@ -143,6 +143,10 @@ pub fn home(st: &StackView, now: SystemTime) -> Home {
             let mut row = row(v, r.v, &snap, now);
             row.depth = depth.get(r.v.name.as_str()).copied().unwrap_or(0);
             row.frozen = frozen;
+            // Waking for minutes with no word from it: Needs you says so; the row says the same, not "starting".
+            if let Some(it) = crate::attention::stuck_waking(st, r.v, now) {
+                row.because = it.detail;
+            }
             if r.v.kind != words::Kind::Task {
                 h.total += 1;
                 h.awake += usize::from(row.awake);

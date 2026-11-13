@@ -31,7 +31,7 @@ impl InstanceView {
         let p = &self.page;
         if p.is_task() {
             self.run_verbs(vec![Verb::Task], cx);
-        } else if p.crash.is_some() {
+        } else if p.crash.is_some() || !p.stuck.is_empty() {
             self.run_verbs(vec![Verb::Restart], cx);
         } else if p.serving() {
             self.ask(Verb::Restart, cx);

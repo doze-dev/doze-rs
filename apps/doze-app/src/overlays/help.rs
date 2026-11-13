@@ -9,50 +9,6 @@ use crate::actions::{self, Scope, Spec};
 use crate::theme::Tokens;
 use crate::widgets::{MONO_FAMILY, UI_FAMILY, kbd_chip, tracked, w};
 
-/// The words a person meets, what each means, and its tone (Go's help.tsx glossary).
-const WORDS: [(&str, &str, &str); 12] = [
-    ("awake", "ok", "running, and something used it lately"),
-    (
-        "dozing",
-        "warn",
-        "running, quiet for a while; sleeps when its timer runs out",
-    ),
-    ("waking", "cool", "starting, because something asked for it"),
-    (
-        "asleep",
-        "dim",
-        "not running, data kept; the next connection wakes it",
-    ),
-    (
-        "crashing",
-        "bad",
-        "exits soon after starting; doze tries again, a few times",
-    ),
-    ("failed", "bad", "doze stopped trying; it waits for you"),
-    (
-        "off",
-        "dim",
-        "turned off: nothing wakes it until you switch it on",
-    ),
-    (
-        "paused",
-        "dim",
-        "enabled = false in doze.hcl; only the file brings it back",
-    ),
-    ("pinned", "bright", "never sleeps, whatever holds it"),
-    ("stopped", "dim", "the whole stack is down; nothing runs"),
-    (
-        "the switch",
-        "bright",
-        "on while it is up or on its way; flip it to wake or sleep",
-    ),
-    (
-        "calls",
-        "bright",
-        "a reference in doze.hcl from one app to another",
-    ),
-];
-
 /// Runs of rows that fold into one line: the run's first label, how many rows, the line's label.
 const FOLDED: [(&str, usize, &str); 9] = [
     ("Tab 1", 9, "A stack's tab"),
@@ -239,7 +195,7 @@ fn words(t: &Tokens) -> impl IntoElement {
                 .pb(px(4.))
                 .child(tracked("The words", 10.5, 650., t.dim, 0.66)),
         )
-        .children(WORDS.iter().map(word))
+        .children(super::glossary::WORDS.iter().map(word))
 }
 
 /// Where to start each new column so that the tallest of `n` columns, the groups kept in order, is as short as it can

@@ -26,13 +26,9 @@ pub(crate) fn head(
 ) -> impl IntoElement {
     let p = &v.page;
     let trouble = p.crash.is_some();
+    // The sidebar's mark, larger: a running task's ring is the same blue ring there and here.
     let mark = if p.is_task() {
-        let l = p.look.unwrap_or(Look::NotRun);
-        div()
-            .text_size(px(14.))
-            .text_color(t.tone(l.tone()))
-            .child(l.glyph())
-            .into_any_element()
+        state_mark(t, Some(p.look.unwrap_or(Look::NotRun)), false, 10.)
     } else {
         state_mark(t, p.look, trouble, 10.)
     };
@@ -113,7 +109,7 @@ fn verbs(t: &Tokens, v: &InstanceView, cx: &mut Context<InstanceView>) -> Vec<An
                 cx,
             )
         };
-        let run = if ran { "Run again" } else { "Run" };
+        let run = run_label(p.look, ran);
         return vec![
             first,
             act(
@@ -136,7 +132,19 @@ fn verbs(t: &Tokens, v: &InstanceView, cx: &mut Context<InstanceView>) -> Vec<An
             |v, _, cx| v.edit_config(cx),
             cx,
         ));
-    } else if p.crash.is_some() {
+    } else if let Some(c) = &p.crash {
+        out.extend(crash_verbs(t, c.gave_up, cx));
+    } else {
+        out.extend(service_verbs(t, v, cx));
+    }
+    out
+}
+
+/// A crashing one: stop trying, or try now. A failed one is not being tried again: nothing to stop, and Restart, as
+/// Needs you says it.
+fn crash_verbs(t: &Tokens, gave_up: bool, cx: &mut Context<InstanceView>) -> Vec<AnyElement> {
+    let mut out = Vec::new();
+    if !gave_up {
         out.push(act(
             t,
             "stop",
@@ -145,17 +153,16 @@ fn verbs(t: &Tokens, v: &InstanceView, cx: &mut Context<InstanceView>) -> Vec<An
             InstanceView::sleep,
             cx,
         ));
-        out.push(act(
-            t,
-            "try",
-            ("Try now", &chip("Restart / try now")),
-            true,
-            InstanceView::restart,
-            cx,
-        ));
-    } else {
-        out.extend(service_verbs(t, v, cx));
     }
+    let label = if gave_up { "Restart" } else { "Try now" };
+    out.push(act(
+        t,
+        "try",
+        (label, &chip("Restart / try now")),
+        true,
+        InstanceView::restart,
+        cx,
+    ));
     out
 }
 
@@ -204,7 +211,7 @@ fn service_verbs(t: &Tokens, v: &InstanceView, cx: &mut Context<InstanceView>) -
             cx,
         ));
     }
-    if serving {
+    if serving || !p.stuck.is_empty() {
         out.push(act(
             t,
             "restart",
@@ -314,9 +321,14 @@ pub(crate) fn keys(t: &Tokens, v: &InstanceView) -> impl IntoElement {
         if p.url().is_some() && p.serving() {
             keys.push((chip("Open in browser"), "open in browser"));
         }
-        if p.crash.is_some() {
-            keys.push((chip("Restart / try now"), "try now"));
-            keys.push((chip("Sleep / stop trying"), "stop trying"));
+        if let Some(c) = &p.crash {
+            keys.push((
+                chip("Restart / try now"),
+                if c.gave_up { "restart" } else { "try now" },
+            ));
+            if !c.gave_up {
+                keys.push((chip("Sleep / stop trying"), "stop trying"));
+            }
         } else if p.serving() {
             keys.push((chip("Sleep / stop trying"), "sleep"));
             keys.push((chip("Restart / try now"), "restart"));
@@ -342,6 +354,7 @@ pub(crate) fn keys_bar(t: &Tokens, keys: Vec<(String, &str)>, note: &str) -> gpu
     div()
         .flex()
         .flex_none()
+        .min_w_0()
         .items_center()
         .gap(px(16.))
         .h(px(34.))
@@ -373,4 +386,15 @@ pub(crate) fn keys_bar(t: &Tokens, keys: Vec<(String, &str)>, note: &str) -> gpu
                 .text_ellipsis()
                 .child(ui::text(note)),
         )
+}
+
+/// A task's verb: what pressing it does now.
+fn run_label(look: Option<Look>, ran: bool) -> &'static str {
+    if look == Some(Look::Running) {
+        "Running…"
+    } else if ran {
+        "Run again"
+    } else {
+        "Run"
+    }
 }

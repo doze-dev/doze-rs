@@ -209,13 +209,21 @@ fn tasks(ins: &[words::Instance]) -> String {
     let [done, not_run, failed] = n;
     let mut parts = Vec::new();
     if done > 0 {
-        parts.push(format!("✓ {done} done"));
+        parts.push(format!(
+            "{} {done} {}",
+            Look::Done.glyph(),
+            Look::Done.word()
+        ));
     }
     if failed > 0 {
-        parts.push(format!("✗ {failed} failed"));
+        parts.push(format!(
+            "{} {failed} {}",
+            Look::Failed.glyph(),
+            Look::Failed.word()
+        ));
     }
     if not_run > 0 {
-        parts.push(format!("{not_run} not run"));
+        parts.push(format!("{not_run} {}", Look::NotRun.word()));
     }
     if parts.is_empty() {
         String::new()

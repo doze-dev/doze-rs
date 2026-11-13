@@ -8,7 +8,7 @@ use doze_display::{self as words, Instance, Kind, Snapshot};
 use super::commands::{filter_rows, page, verb_on, with_text};
 use super::instance::instance_commands;
 use super::stack::{app_commands, stack_commands};
-use super::verbs::alias;
+use super::verbs::{alias, stack_tone};
 use super::{
     Act, Ask, DoKind, Doing, Row, Scope, Section, Svc, asks, dot_of, first_of, key_of, web_url,
 };
@@ -163,9 +163,9 @@ pub(crate) fn at_hand(stacks: &[&StackView], ask: &Ask<'_>) -> Vec<Section> {
         .iter()
         .map(|st| {
             let (tone, note) = if st.running {
-                ("g", stack_figure(st))
+                (stack_tone(st), stack_figure(st))
             } else {
-                ("dim", "stopped".into())
+                ("dim", crate::overview::Look::STOPPED.word.into())
             };
             Row {
                 glyph: "dot",
@@ -218,7 +218,7 @@ pub(crate) fn by_name(stacks: &[&StackView], query: &str, now: SystemTime) -> Ve
         };
         if !st.running {
             // A name under Open opens a stopped stack's page, where Up is; starting it is "up acme", said as a verb.
-            rows.push(stack_row("dim", "stopped".into()));
+            rows.push(stack_row("dim", crate::overview::Look::STOPPED.word.into()));
             continue;
         }
         let snap = st.words();
@@ -227,7 +227,7 @@ pub(crate) fn by_name(stacks: &[&StackView], query: &str, now: SystemTime) -> Ve
             row.enter = enter(st, &r.v.name);
             rows.push(row);
         }
-        rows.push(stack_row("g", stack_figure(st)));
+        rows.push(stack_row(stack_tone(st), stack_figure(st)));
         if awake_count(st) > 0 {
             rows.push(sleep_all_row(st, "wakes on connect; nothing is lost"));
         }
@@ -427,11 +427,16 @@ pub(crate) fn awake_count(st: &StackView) -> usize {
         .count()
 }
 
-/// "5 awake", or "stopped".
+/// "5 awake", or "stopped". Awake as the strip, the Library and the menu bar count it: up and held, dozing apart (Go
+/// counted the dozing too, so ⌘K said 6 where the stack's page said 5).
 pub(crate) fn stack_figure(st: &StackView) -> String {
     if st.running {
-        format!("{} awake", awake_count(st))
+        format!(
+            "{} {}",
+            words::tally(&st.words().instances).awake,
+            words::Look::Awake.word()
+        )
     } else {
-        "stopped".into()
+        crate::overview::Look::STOPPED.word.into()
     }
 }
