@@ -115,7 +115,7 @@ impl Machine {
 /// What the machine holds that no stack does (Go `Service.Leftovers`).
 pub fn find(m: &Machine) -> Vec<Leftover> {
     let mut out = Vec::new();
-    let modules = format!("{}/", m.home.join("modules").to_string_lossy());
+    let modules = m.home.join("modules");
     for p in &m.procs {
         if !p.daemon.is_empty() && !m.known.contains(&p.daemon) {
             let why = if p.config_there {
@@ -136,8 +136,8 @@ pub fn find(m: &Machine) -> Vec<Leftover> {
                 action: "Stop".into(),
                 ..Leftover::default()
             });
-        } else if p.ppid == 1 && (p.exe.starts_with(&modules) || is_plugin(&p.exe)) {
-            let base = p.exe.rsplit('/').next().unwrap_or_default();
+        } else if p.ppid == 1 && (Path::new(&p.exe).starts_with(&modules) || is_plugin(&p.exe)) {
+            let base = p.exe.rsplit(['/', '\\']).next().unwrap_or_default();
             out.push(Leftover {
                 kind: "engine",
                 id: format!("pid:{}", p.pid),
@@ -204,7 +204,7 @@ fn machine_parts(m: &Machine, out: &mut Vec<Leftover>) {
 /// A path is an engine plugin in some doze home's module cache (`<home>/modules/<ns>/<name>/<version>/bin/<name>-plugin`),
 /// so an orphan from a test's or another home's daemon is found too (Go `isPlugin`).
 pub fn is_plugin(exe: &str) -> bool {
-    let parts: Vec<&str> = exe.split('/').collect();
+    let parts: Vec<&str> = exe.split(['/', '\\']).collect();
     let n = parts.len();
     n >= 6
         && parts.get(n - 2) == Some(&"bin")

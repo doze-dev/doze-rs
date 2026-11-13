@@ -113,9 +113,12 @@ fn stop(arg: &str, hands: &mut dyn Hands) -> Result<String, Fail> {
 
 /// Deletes a state folder: only under `<home>/projects`, only without a project record.
 fn delete(dir: &Path, m: &Machine, hands: &mut dyn Hands) -> Result<String, Fail> {
-    let projects = format!("{}/", m.home.join("projects").to_string_lossy());
-    let canon = super::gather::canon(dir);
-    if !canon.starts_with(&projects) || dir.components().any(|c| c.as_os_str() == "..") {
+    let projects = std::path::PathBuf::from(super::gather::canon(&m.home.join("projects")));
+    let canon = std::path::PathBuf::from(super::gather::canon(dir));
+    if canon == projects
+        || !canon.starts_with(&projects)
+        || dir.components().any(|c| c.as_os_str() == "..")
+    {
         return Err(Fail::Failed(format!(
             "{} is not a doze state folder",
             dir.display()

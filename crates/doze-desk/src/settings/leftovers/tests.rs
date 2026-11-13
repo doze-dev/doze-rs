@@ -86,7 +86,10 @@ fn finds_what_no_stack_holds() {
     );
     assert_eq!(ids[1], "pid:102");
     assert_eq!(items[1].what, "valkey-plugin, whose daemon is gone");
-    assert!(ids[2].starts_with("dir:") && ids[2].ends_with("projects/old"));
+    assert!(
+        ids[2].starts_with("dir:")
+            && std::path::Path::new(ids[2].trim_start_matches("dir:")).ends_with("projects/old")
+    );
     assert!(items[2].danger && items[2].detail.ends_with("· 2 KB"));
     assert_eq!(ids[3], "route:stale.test");
     assert_eq!(items[3].action, "Remove (one password)");
