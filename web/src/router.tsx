@@ -8,6 +8,7 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { ConnectPage } from "@/pages/connect";
 import { accessSearch, configSearch, connectSearch, createSearch, gallerySearch, labSearch, settingsSearch } from "@/lib/search";
 import { useSidebarOpen } from "@/lib/sidebar-state";
+import { parseSearch, stringifySearch } from "@/lib/search-params";
 import { messagesSearch, partitionSearch, topicSearch, topicsSearch } from "@/lib/topic-search";
 import { HomePage } from "@/pages/home";
 import { liveSearch } from "@/pages/live/search";
@@ -109,6 +110,9 @@ export const router = createRouter({
   defaultPreload: false,
   scrollRestoration: true,
   defaultStructuralSharing: true,
+  // Lists as repeated names (`?topic=orders&topic=x`), not JSON; old JSON links still read (lib/search-params.ts).
+  parseSearch,
+  stringifySearch,
 });
 
 declare module "@tanstack/react-router" {

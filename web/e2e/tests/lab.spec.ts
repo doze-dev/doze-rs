@@ -126,7 +126,9 @@ test("Lab: a Fail rule on Produce answers the producer with the code it names", 
     await page.getByRole("option", { name: "Fetch", exact: true }).click();
     await page.getByRole("option", { name: "Produce", exact: true }).click();
     await page.keyboard.press("Escape");
-    await expect(form.getByRole("combobox", { name: "APIs" })).toHaveText("Produce");
+    // The name is said once, as a chip; the field says how many (CON-1352).
+    await expect(form.getByRole("combobox", { name: "APIs" })).toHaveText(/^1 of \d+ APIs$/);
+    await expect(form.getByTestId("multi-chips").first()).toHaveText("Produce");
     await form.getByRole("combobox", { name: "Client" }).click();
     await page.getByRole("option", { name: client, exact: true }).click();
     await choose(page, form.getByTestId("lab-code"), "NOT_LEADER_OR_FOLLOWER (6)");

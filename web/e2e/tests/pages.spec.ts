@@ -3,6 +3,8 @@ import { expect, test } from "./fixtures";
 test("Home: one h1, the figures as stat tiles, no memory figure anywhere, the address of the broker", async ({ page }) => {
   await page.goto("/");
   await expect(page.locator("h1")).toHaveCount(1);
+  // The name once: the visible text is the name, with no hidden copy beside it (CON-1351).
+  expect(await page.locator("h1").evaluate((h) => h.textContent)).toBe("doze Kafka");
   const strip = page.locator("[data-slot=stat-strip]");
   for (const label of ["Started", "Topics", "Open partitions", "Apps on the wire", "Last request"]) await expect(strip).toContainText(label);
   const text = (await page.locator("body").innerText()).toLowerCase();

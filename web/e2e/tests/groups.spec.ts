@@ -71,13 +71,15 @@ test("Groups: the counts are tiles, the name filter and the states are in the ad
   await empty.click();
   await page.keyboard.press("Escape");
   await expect(page).toHaveURL(/state=/);
-  await expect(page.getByTestId("multi-summary")).toHaveText("Empty");
+  await expect(page.getByTestId("multi-summary")).toHaveText(/^1 of \d+ states$/);
+  await expect(page.getByTestId("multi-chips")).toHaveText("Empty");
   await expect(links.filter({ hasText: idle })).toBeVisible();
   await expect(links.filter({ hasText: member })).toHaveCount(0);
   for (const row of await page.locator("tbody tr").all()) await expect(row.getByTestId("group-phase")).toHaveText("Empty");
   // Back undoes the filter (replace keeps history short: Back leaves the page's first state).
   await page.reload();
-  await expect(page.getByTestId("multi-summary")).toHaveText("Empty");
+  await expect(page.getByTestId("multi-summary")).toHaveText(/^1 of \d+ states$/);
+  await expect(page.getByTestId("multi-chips")).toHaveText("Empty");
   await expect(page.getByTestId("groups-filter")).toHaveValue("r2-");
   await page.getByRole("button", { name: "Clear states" }).click();
   await expect(page).not.toHaveURL(/state=/);

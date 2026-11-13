@@ -18,18 +18,11 @@ export function Logo({ size, swing = false, className }: { size: number; swing?:
 }
 
 /** The name as the brand writes it: "doze" in ink, "Kafka" in the accent, in the family's display face (Bricolage Grotesque,
- * as on doze-dev.com). Read as one word by assistive tech. */
+ * as on doze-dev.com). The visible text is the name itself ("doze Kafka", once), so a heading made of it reads right. */
 export function Wordmark({ className }: { className?: string }) {
   return (
     <span className={cn("font-display font-extrabold tracking-[-0.025em] whitespace-nowrap", className)}>
-      <span className="sr-only">doze Kafka</span>
-      <span aria-hidden className="text-bright">
-        doze
-      </span>
-      <span aria-hidden className="text-link">
-        {" "}
-        Kafka
-      </span>
+      <span className="text-bright">doze</span> <span className="text-link">Kafka</span>
     </span>
   );
 }

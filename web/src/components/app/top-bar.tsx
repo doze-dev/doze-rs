@@ -14,7 +14,7 @@ export function TopBar({ onPalette }: { onPalette: () => void }) {
   const s = shell.data;
   const mac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
   return (
-    <header className="sticky top-0 z-20 flex h-[52px] shrink-0 items-center gap-3 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/80 md:px-6" data-testid="topbar">
+    <header className="sticky top-0 z-20 flex h-[52px] shrink-0 items-center gap-3 border-b bg-background px-4 md:px-6" data-testid="topbar">
       <SidebarTrigger className="-ml-1 text-muted-foreground" />
       <button type="button" onClick={onPalette} className="flex h-[34px] w-full max-w-[22.5rem] min-w-0 items-center gap-2 rounded-[10px] border bg-card pr-2 pl-3 text-[13px] text-muted-foreground transition-colors hover:border-input focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none" data-testid="palette-trigger" aria-keyshortcuts={mac ? "Meta+K" : "Control+K"}>
         <SearchIcon className="size-4 shrink-0" aria-hidden />

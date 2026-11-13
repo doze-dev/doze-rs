@@ -233,13 +233,21 @@ test("the tail holds while the tape is scrolled: the pill counts, the scroll sta
   expect(after.y).toBe(held.y);
 });
 
+test("an old link with a JSON list still opens its filter", async ({ page }) => {
+  await page.goto("/live?topic=%5B%22orders%22%5D");
+  await expect(page.locator("h1")).toHaveText("Live");
+  await expect(page.getByRole("combobox", { name: "Topics" })).toHaveText("orders");
+});
+
 test("filters change the rows, live in the address, and survive a reload", async ({ page }) => {
   await openLive(page);
   // Topics: a MultiSelect with counts.
   await page.getByRole("combobox", { name: "Topics" }).click();
   await page.getByRole("option", { name: /^orders \d/ }).click();
   await page.keyboard.press("Escape");
-  await expect(page).toHaveURL(/topic=/);
+  // The address reads as words: a list is the name repeated, never JSON (CON-1353).
+  await expect(page).toHaveURL(/[?&]topic=orders(&|$)/);
+  await expect(page).not.toHaveURL(/%5B|%22/);
   await expect(page.getByRole("combobox", { name: "Topics" })).toHaveText("orders");
   await expect.poll(async () => (await tape(page).locator("tbody tr[data-row] td:nth-child(4)").allInnerTexts()).every((t) => t.includes("orders"))).toBe(true);
   // Refused only.
