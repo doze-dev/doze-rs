@@ -165,6 +165,9 @@ impl Cache {
             let mut rs = Vec::with_capacity(range.len() * 2);
             for i in range {
                 let Some(c) = l.cards.get(i) else { continue };
+                if l.folded(doze_map::CardId(u32::try_from(i).unwrap_or(u32::MAX))) {
+                    continue;
+                }
                 let r = c.rect;
                 rs.push((r, usize::from(c.role == Role::Shared)));
                 let strip = Rect::new(r.x, r.y, (r.w * 0.05).max(2.0 / f64::from(lv)), r.h);
@@ -189,7 +192,8 @@ impl Cache {
         let build = |range: Range<usize>| {
             let pt = |p: doze_map::Pt| point(px(p.x as f32 * lv), px(p.y as f32 * lv));
             let mut b = PathBuilder::stroke(px(1.0));
-            for e in range.filter_map(|i| l.edges.get(i)) {
+            // Calls between regions are drawn on their own ([`Cache::line`]), and only when asked.
+            for e in range.filter_map(|i| l.edges.get(i)).filter(|e| !e.across) {
                 for (i, q) in e.path.waypoints().into_iter().enumerate() {
                     if i == 0 {
                         b.move_to(pt(q))
@@ -231,8 +235,15 @@ impl Cache {
         }
     }
 
-    /// Far out: the overview's bundles, each as wide as its weight (index into `o.bundles`), built once per level.
-    pub(crate) fn bundles(&self, o: &Overview, lv: f32, f: &mut dyn FnMut(&GPath, usize, f32)) {
+    /// Far out: the overview's bundles, each as wide as its weight up to `widest` screen pixels more than a single
+    /// call's (index into `o.bundles`), built once per level.
+    pub(crate) fn bundles(
+        &self,
+        o: &Overview,
+        lv: f32,
+        widest: f32,
+        f: &mut dyn FnMut(&GPath, usize, f32),
+    ) {
         let mut inner = self.inner.borrow_mut();
         if inner.bundles.as_ref().is_none_or(|b| !near(b.0, lv)) {
             let heaviest = o.heaviest() as f32;
@@ -242,7 +253,7 @@ impl Cache {
                 .enumerate()
                 .flat_map(|(i, b)| {
                     // Screen pixels: 1.25 for one call up to 9.25 for the heaviest; the head grows with the line.
-                    let w = 1.25 + 8.0 * (b.count as f32 / heaviest).sqrt();
+                    let w = 1.25 + widest * (b.count as f32 / heaviest).sqrt();
                     build(&b.path, lv, w / lv, f64::from((0.45 + w / 10.0) / lv))
                         .into_iter()
                         .map(move |p| (i, p))
@@ -264,7 +275,9 @@ impl Cache {
             let rs: Vec<(Rect, usize)> = l
                 .cards
                 .iter()
-                .map(|c| {
+                .enumerate()
+                .filter(|(i, _)| !l.folded(doze_map::CardId(u32::try_from(*i).unwrap_or(u32::MAX))))
+                .map(|(_, c)| {
                     let r = c.rect;
                     // At least a pixel each way, so a card never vanishes from the overview.
                     let (w, h) = (

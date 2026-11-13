@@ -39,6 +39,10 @@ struct Scene {
     lit: Option<CardId>,
     focus: Option<CardId>,
     on: Option<Rc<Vec<bool>>>,
+    /// Lines on demand: calls faint at rest, the regions' bundles instead of the calls between them.
+    quiet: bool,
+    /// The focus card's named region.
+    home: Option<usize>,
 }
 
 /// Which cards a selection keeps lit: the card, its calls, callers and uses.
@@ -83,6 +87,10 @@ pub(crate) fn scene(
         lit: m.lit,
         focus: m.focus_card(),
         on: lit_set(&m.layout, m.lit).map(Rc::new),
+        quiet: m.quiet(),
+        home: m
+            .focus_card()
+            .and_then(|c| m.layout.region_of.get(c.ix()).copied().flatten()),
     };
     canvas(
         |_, _, _| (),
@@ -119,11 +127,16 @@ impl Scene {
             bounds.origin.y - px(self.pan.1 * self.z),
         );
         self.band(bounds, o, window);
+        self.frames(o, window);
         let far = self.l.mode == Mode::Layered && self.z < LABEL_ZOOM;
-        if far {
+        let named = !self.l.regions.is_empty();
+        if far && !named {
             self.regions(o, window);
+        }
+        if far || (named && self.quiet) {
             self.bundles(o, window);
-        } else {
+        }
+        if !far {
             self.lines(o, window);
         }
         if self.z < LABEL_ZOOM {
@@ -197,16 +210,21 @@ impl Scene {
             .and_then(|c| self.o.region_of.get(c.ix()).copied().flatten());
         let heaviest = self.o.heaviest() as f32;
         let quiet = alpha(self.t.dim, 0.14);
-        self.cache.bundles(&self.o, lv, &mut |p, i, at| {
+        // Between named regions the bundles stand in for the calls at every zoom: quieter and thinner than the
+        // far-out overview's, so the frames and cards stay what the eye reads first.
+        let named = !self.l.regions.is_empty();
+        let widest = if named { 3.5 } else { 8.0 };
+        self.cache.bundles(&self.o, lv, widest, &mut |p, i, at| {
             let Some(b) = self.o.bundles.get(i) else {
                 return;
             };
             // Heavier bundles stronger: a single call between regions is a whisper, the main flows carry the picture.
             let weight = (b.count as f32 / heaviest).sqrt();
-            let strength = if b.count <= 1 {
-                0.12
-            } else {
-                0.22 + 0.58 * weight
+            let strength = match (named, b.count) {
+                (true, 0..=1) => 0.2,
+                (true, _) => 0.24 + 0.36 * weight,
+                (false, 0..=1) => 0.12,
+                (false, _) => 0.22 + 0.58 * weight,
             };
             let mine = home.is_some_and(|h| b.from == h || b.to == h);
             let color = match home {
@@ -217,15 +235,39 @@ impl Scene {
         });
     }
 
-    /// Single calls: batched polylines up to [`DETAIL_ZOOM`], curves with heads above it.
+    /// A layered map's named regions: each a quiet frame, the focus card's outlined in the accent.
+    fn frames(&self, o: Point<Pixels>, window: &mut Window) {
+        let fill = alpha(self.t.accent, if self.t.dark { 0.035 } else { 0.045 });
+        let radius = px((14.0 * self.z).max(3.0));
+        for (k, r) in self.l.regions.iter().enumerate() {
+            if !r.rect.intersects(&self.view) {
+                continue;
+            }
+            let border = if self.home == Some(k) {
+                alpha(self.t.accent, 0.6)
+            } else {
+                self.t.line2
+            };
+            let b = self.rect(o, r.rect);
+            window.paint_quad(quad(b, radius, fill, px(1.), border, BorderStyle::Solid));
+        }
+    }
+
+    /// Single calls: batched polylines up to [`DETAIL_ZOOM`], curves with heads above it. Past
+    /// sixty cards they are faint at rest (lines on demand) and the calls between regions are left
+    /// to the bundles, unless every line is asked for.
     fn lines(&self, o: Point<Pixels>, window: &mut Window) {
         let lv = level(self.z);
         let large = self.l.mode == Mode::Layered;
-        let strength = if large {
-            if self.z < DETAIL_ZOOM { 0.2 } else { 0.55 }
-        } else {
-            1.0
+        let strength = match (large, self.quiet) {
+            (false, _) => 1.0,
+            (true, true) => 0.34,
+            (true, false) if self.z < DETAIL_ZOOM => 0.3,
+            (true, false) => 0.55,
         };
+        if !self.quiet {
+            self.across(o, window, lv, strength);
+        }
         let faded = alpha(self.t.line2, 0.6);
         if lv < DETAIL_ZOOM {
             let c = if self.lit.is_some() {
@@ -239,7 +281,7 @@ impl Scene {
             return;
         }
         for &e in &self.vis.edges {
-            let Some(edge) = self.l.edges.get(e) else {
+            let Some(edge) = self.l.edges.get(e).filter(|e| !e.across) else {
                 continue;
             };
             let theirs = self.lit.is_some_and(|c| edge.from == c || edge.to == c);
@@ -251,6 +293,22 @@ impl Scene {
             self.cache.line(&self.l, e, lv, &mut |p, at| {
                 window.paint_path(place(p, self.z / at, o), color)
             });
+        }
+    }
+
+    /// Every line asked for: the calls between regions too, one by one.
+    fn across(&self, o: Point<Pixels>, window: &mut Window, lv: f32, strength: f32) {
+        let color = if self.lit.is_some() {
+            alpha(self.t.line2, 0.6)
+        } else {
+            alpha(self.t.accent, strength)
+        };
+        for &e in &self.vis.edges {
+            if self.l.edges.get(e).is_some_and(|x| x.across) {
+                self.cache.line(&self.l, e, lv, &mut |p, at| {
+                    window.paint_path(place(p, self.z / at, o), color)
+                });
+            }
         }
     }
 
@@ -356,7 +414,7 @@ impl Scene {
                 window.paint_path(place(p, self.z / at, o), alpha(c, a));
             });
         let mut mark = |i: usize, color: Hsla| {
-            if let Some(c) = self.l.cards.get(i) {
+            if let Some(c) = self.l.cards.get(i).filter(|_| !self.l.folded(CardId(i as u32))) {
                 let b = self.rect(o, c.rect);
                 let b = Bounds {
                     origin: b.origin,

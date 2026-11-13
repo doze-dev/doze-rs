@@ -74,8 +74,7 @@ impl Root {
             return;
         }
         let map_held = on_map && {
-            let m = self.map.read(cx);
-            m.lit.is_some() || m.search.is_some()
+            self.map.read(cx).holds()
         };
         if map_held {
             self.map.update(cx, |m, cx| m.escape(window, cx));

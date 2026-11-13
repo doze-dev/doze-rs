@@ -11,7 +11,7 @@ use crate::classic::{back_edges, depths};
 use crate::draw::link;
 use crate::geom::Rect;
 use crate::input::{Flow, Instance, list};
-use crate::layered::pack::{Packing, pack};
+use crate::layered::pack::{Packing, pack, pack_to};
 use crate::layered::part::{Local, local, signature};
 use crate::layered::{Exit, LEFT, Memory, Placed, marks, rank};
 use crate::output::Role;
@@ -139,10 +139,12 @@ pub(crate) fn place(
         .map(|b| (b.size.0 + 2.0 * PAD, b.size.1 + HEAD + PAD))
         .collect();
     let anchors: Vec<&str> = rs.iter().map(|(n, _)| n.as_str()).collect();
-    let frames = pack(
+    // About as wide as a window's map is: the whole map fits at a zoom where names still read.
+    let frames = pack_to(
         &sizes,
         &anchors,
         mem.and_then(|m| m.regions.frames.as_ref()),
+        2.8,
     );
     let by_name: HashMap<&str, usize> = f
         .ins

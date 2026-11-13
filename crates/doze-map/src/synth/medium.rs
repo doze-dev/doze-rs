@@ -234,19 +234,37 @@ fn tiers(
         let Some((&api, rest)) = t.split_first() else {
             continue;
         };
-        let first = rest.len().div_ceil(3).max(1);
         for (i, &b) in rest.iter().enumerate() {
-            let a = if i < first {
-                api
-            } else {
-                rest.get(r.below(i.min(first + i / 2)))
-                    .copied()
-                    .unwrap_or(api)
-            };
+            let tier = tier_of(i + 1, t.len());
+            // A caller one tier up.
+            let above: Vec<usize> = (0..=i)
+                .filter(|&j| tier_of(j, t.len()) + 1 == tier)
+                .collect();
+            let a = above
+                .get(r.below(above.len()))
+                .and_then(|&j| t.get(j))
+                .copied()
+                .unwrap_or(api);
             made += usize::from(call(apps, have, a, b));
         }
     }
     made
+}
+
+/// A team member's tier by its place in the team (the front door first): the front door, then about a third,
+/// then most of the rest, then the last few.
+fn tier_of(pos: usize, len: usize) -> usize {
+    if pos == 0 {
+        return 0;
+    }
+    let n = len.saturating_sub(1).max(1);
+    let first = n.div_ceil(3);
+    let second = first + (n - first.min(n)) * 3 / 5;
+    match pos - 1 {
+        p if p < first => 1,
+        p if p < second.max(first + 1) => 2,
+        _ => 3,
+    }
 }
 
 /// More calls, mostly down inside a team, some across to another team's front door or worker.
@@ -271,10 +289,12 @@ fn more_calls(
             other
                 .and_then(|o| if r.chance(70) { o.first() } else { o.last() })
                 .copied()
-        } else if i + 1 < t.len() {
-            t.get(i + 1 + r.below(t.len() - i - 1)).copied()
         } else {
-            None
+            // Down: to a later app of a deeper tier, so a team stays three or four tiers deep.
+            let deeper: Vec<usize> = (i + 1..t.len())
+                .filter(|&j| tier_of(j, t.len()) > tier_of(i, t.len()))
+                .collect();
+            deeper.get(r.below(deeper.len())).and_then(|&j| t.get(j)).copied()
         };
         if let Some(b) = b
             && call(apps, have, a, b)

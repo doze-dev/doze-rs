@@ -17,7 +17,12 @@ use crate::widgets::{icon, kbd_plain, w};
 /// The toolbar strip's height.
 pub(crate) const STRIP: f32 = 40.;
 
-fn tool(t: &Tokens, id: &'static str, label: &str, on: bool) -> gpui::Stateful<gpui::Div> {
+pub(crate) fn tool(
+    t: &Tokens,
+    id: impl Into<gpui::ElementId>,
+    label: &str,
+    on: bool,
+) -> gpui::Stateful<gpui::Div> {
     div()
         .id(id)
         .flex()
@@ -39,25 +44,9 @@ fn tool(t: &Tokens, id: &'static str, label: &str, on: bool) -> gpui::Stateful<g
         .child(SharedString::from(label.to_string()))
 }
 
-/// What the map holds, and the zoom: `1476 cards · 5013 calls · 5% · 258 bundles`.
-fn stats(m: &MapView) -> String {
-    let l = &m.layout;
-    let calls: u32 = l.edges.iter().map(|e| e.count.max(1)).sum();
-    let mut stats = format!(
-        "{} cards · {} calls · {:.0}%",
-        l.cards.len(),
-        calls,
-        m.cam.zoom * 100.0
-    );
-    if super::paint::bundled(m) {
-        stats.push_str(&format!(" · {} bundles", m.overview.bundles.len()));
-    }
-    stats
-}
-
 /// The strip: zoom out, in, fit, 1:1, find, overview; what the map holds; the legend or the hint.
 pub(crate) fn strip(t: &Tokens, m: &MapView, cx: &mut Context<MapView>) -> AnyElement {
-    let stats = stats(m);
+    let stats = super::tools::stats(m);
     let find_key = actions::TABLE
         .iter()
         .find(|s| s.label == "Find a card")
@@ -98,6 +87,7 @@ pub(crate) fn strip(t: &Tokens, m: &MapView, cx: &mut Context<MapView>) -> AnyEl
     if m.big() {
         bar = bar.child(minimap_tool(t, m, cx));
     }
+    bar = bar.children(super::tools::tools(t, m, cx));
     bar = bar.child(
         div()
             .flex_none()
@@ -107,7 +97,8 @@ pub(crate) fn strip(t: &Tokens, m: &MapView, cx: &mut Context<MapView>) -> AnyEl
             .whitespace_nowrap()
             .child(SharedString::from(stats)),
     );
-    // The legend gives way first when the window is narrow.
+    // The legend gives way first when the window is narrow; the card in hand's breadcrumb takes its place.
+    let right = super::tools::crumbs(t, m, cx).unwrap_or_else(|| legend(t, m));
     bar.child(
         div()
             .flex_1()
@@ -116,7 +107,7 @@ pub(crate) fn strip(t: &Tokens, m: &MapView, cx: &mut Context<MapView>) -> AnyEl
             .flex()
             .justify_end()
             .overflow_hidden()
-            .child(legend(t, m)),
+            .child(right),
     )
     .into_any_element()
 }
@@ -138,11 +129,17 @@ fn legend(t: &Tokens, m: &MapView) -> AnyElement {
         .text_size(px(12.))
         .text_color(t.dim)
         .whitespace_nowrap();
-    if m.layout.mode != Mode::Classic {
-        let hint = if super::paint::bundled(m) {
-            "lines are bundled calls between regions · hover a card for its own"
-        } else {
-            "hover a card to see its calls · click to keep them"
+    if m.layout.mode != Mode::Classic || m.lens.is_some() {
+        let hint = match &m.lens {
+            Some(super::Lens::Hood { .. }) => "columns are steps of calls from the card · H on a card centres there · esc back",
+            Some(super::Lens::Trouble { .. }) => "laid out on their own · T or esc shows everything",
+            None if !m.layout.regions.is_empty() && !m.all_lines => {
+                "hover a card for its calls · lines between regions are bundled · L every line"
+            }
+            None if super::paint::bundled(m) => {
+                "lines are bundled calls between regions · hover a card for its own"
+            }
+            None => "hover a card to see its calls · click to keep them",
         };
         return base.child(hint).into_any_element();
     }

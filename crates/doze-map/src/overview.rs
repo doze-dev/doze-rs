@@ -210,24 +210,30 @@ fn label<'a>(names: impl Iterator<Item = &'a str>) -> Option<String> {
     (n >= 2 && n * 5 >= total * 3).then(|| best.to_owned())
 }
 
-/// One cubic from `a` to `b`, leaving and landing level: from `a`'s right to `b`'s left when `b`
-/// is to the right, else from `a`'s left to `b`'s right.
+/// One cubic from `a` to `b` between their nearest sides: right into left when `b` is to the right (left into
+/// right when to the left); when the two overlap across, bottom into top (or top into bottom), leaving and landing
+/// square.
 fn bundle_path(a: &Rect, b: &Rect) -> Path {
     let (ca, cb) = (a.center(), b.center());
-    let forward = cb.x >= ca.x;
-    let (start, end) = if forward {
-        (Pt::new(a.right(), ca.y), Pt::new(b.x, cb.y))
+    let (start, end, d1, d2) = if b.x >= a.right() {
+        (Pt::new(a.right(), ca.y), Pt::new(b.x, cb.y), (1.0, 0.0), (-1.0, 0.0))
+    } else if b.right() <= a.x {
+        (Pt::new(a.x, ca.y), Pt::new(b.right(), cb.y), (-1.0, 0.0), (1.0, 0.0))
+    } else if cb.y >= ca.y {
+        let x = f64::midpoint(a.x.max(b.x), a.right().min(b.right()));
+        (Pt::new(x, a.bottom()), Pt::new(x, b.y), (0.0, 1.0), (0.0, -1.0))
     } else {
-        (Pt::new(a.x, ca.y), Pt::new(b.right(), cb.y))
+        let x = f64::midpoint(a.x.max(b.x), a.right().min(b.right()));
+        (Pt::new(x, a.y), Pt::new(x, b.bottom()), (0.0, -1.0), (0.0, 1.0))
     };
-    let pull = ((end.x - start.x).abs() / 2.0).max(60.0);
-    let dir = if forward { 1.0 } else { -1.0 };
+    let pull = (start.x - end.x).abs().max((start.y - end.y).abs()) / 2.0;
+    let pull = pull.max(40.0);
     Path {
         segs: vec![
             Seg::Move(start),
             Seg::Cubic(
-                Pt::new(start.x + dir * pull, start.y),
-                Pt::new(end.x - dir * pull, end.y),
+                Pt::new(start.x + d1.0 * pull, start.y + d1.1 * pull),
+                Pt::new(end.x + d2.0 * pull, end.y + d2.1 * pull),
                 end,
             ),
         ],

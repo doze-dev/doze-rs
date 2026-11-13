@@ -7,10 +7,12 @@
 //!          [--select NAME] [--hover NAME] [--zoom Z] [--at X,Y] [--find TEXT] [--synth N] [--reduce-motion]
 //!          --screen instance --select api [--tab logs|console:ID|last run] [--hold PORT]
 //!          --screen logs [--filter TEXT] [--find-mode] [--level 0-3]
+//!          --screen map [--map lines,tile,trouble,hood:N,fly:P,region:NAME]
 //!          --act sleep|restart|reset|reset-typed|stop|remove|action|action-typed|copy|toast-fail|recent|preflight|start
 //!                |busy|failed|library-busy|verb-busy|empty|empty-found|add     (M2: done before the shot)
 //! doze-app bench [--fixture NAME | --synth N] [--idle SECONDS]  first-frame time, then idle for a memory reading
 //! doze-app bench --fixture shop --logs [--follow SECONDS]          the logs viewer: 100k lines scrolled, then followed
+//! doze-app bench --fixture medium-150 --map                         the Map: frames while it pans, zooms and hovers
 //! ```
 
 use std::path::PathBuf;
@@ -90,6 +92,9 @@ pub(crate) struct Shot {
     pub(crate) over: Option<String>,
     /// Needs you sees this machine not set up (names and a domain), as Go's fixture server did.
     pub(crate) machine_unset: bool,
+    /// The Map's state for the shot, comma-separated: `lines`, `tile`, `trouble`, `hood:N` (on the selection),
+    /// `fly:P` (find's flight to the selection, held at share P of the way), `region:NAME` (opened).
+    pub(crate) map: Option<String>,
 }
 
 /// `doze-app bench ...`.
@@ -100,6 +105,8 @@ pub(crate) struct Bench {
     /// The logs viewer under load instead (`--logs`), following for `follow` seconds.
     pub(crate) logs: bool,
     pub(crate) follow: u64,
+    /// The Map under load instead (`--map`): frames drawn offscreen while it pans, zooms and hovers.
+    pub(crate) map: bool,
 }
 
 /// What to do.
@@ -244,6 +251,7 @@ fn shot(mut args: impl Iterator<Item = String>) -> Result<Shot, String> {
             "--query" => s.query = Some(v),
             "--scope" => s.scope = Some(v),
             "--over" => s.over = Some(v),
+            "--map" => s.map = Some(v),
             "--at" => {
                 let (x, y) = v.split_once(',').ok_or("--at is X,Y")?;
                 s.at = Some((number(x, "--at")?, number(y, "--at")?));
@@ -267,6 +275,7 @@ fn bench(mut args: impl Iterator<Item = String>) -> Result<Bench, String> {
         match a.as_str() {
             "--idle" => b.idle = number(&value(&mut args, &a)?, "--idle")?,
             "--logs" => b.logs = true,
+            "--map" => b.map = true,
             "--follow" => b.follow = number(&value(&mut args, &a)?, "--follow")?,
             _ => return Err(format!("bench: unknown flag {a}")),
         }

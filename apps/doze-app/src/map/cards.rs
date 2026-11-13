@@ -391,10 +391,18 @@ pub(crate) fn labels(
                 return None;
             }
             let faded = on.is_some_and(|on| !on.get(id.ix()).copied().unwrap_or(false));
+            // In a region's frame its name is said once, on the frame: `checkout-cart` reads `cart`.
+            let short = m
+                .layout
+                .region(id)
+                .and_then(|r| c.name.strip_prefix(r.name.as_str()))
+                .and_then(|s| s.strip_prefix(['-', '_', '.']))
+                .filter(|s| !s.is_empty())
+                .unwrap_or(&c.name);
             let name = if c.members > 1 {
-                format!("{} ×{}", c.name, c.members)
+                format!("{short} ×{}", c.members)
             } else {
-                c.name.clone()
+                short.to_string()
             };
             let (x, y) = m.cam.to_screen(c.rect.x, c.rect.y);
             let color: Hsla = if faded { alpha(t.dim, 0.5) } else { t.bright };

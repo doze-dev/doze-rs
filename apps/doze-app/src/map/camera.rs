@@ -16,6 +16,8 @@ pub(crate) struct Camera {
     pub(crate) size: (f32, f32),
     /// The first fit has happened.
     pub(crate) fitted: bool,
+    /// A move in progress ([`super::flight`]).
+    pub(crate) flight: Option<super::flight::Flight>,
 }
 
 impl Default for Camera {
@@ -25,6 +27,7 @@ impl Default for Camera {
             pan: (0.0, 0.0),
             size: (0.0, 0.0),
             fitted: false,
+            flight: None,
         }
     }
 }
@@ -67,6 +70,7 @@ impl Camera {
         let (w, h) = self.wh();
         let b = l.bounds;
         self.fitted = true;
+        self.flight = None;
         if l.mode == Mode::Classic {
             // The Go map fitted its width when a little wider (down to 84%) and scrolled the page otherwise; with a
             // camera it fits the whole drawing down to 70%, where every word on a card is still readable, then pans.
@@ -76,6 +80,12 @@ impl Camera {
             self.centre_small(b);
             return;
         }
+        // The folded tile sits at the bottom left: the drawing fits above it.
+        let h = if l.tile.is_some() {
+            (h - super::tile::TILE_H - 16.0).max(h * 0.5)
+        } else {
+            h
+        };
         let z = (w / b.w as f32).min(h / b.h as f32).min(1.0);
         self.zoom = if z >= 0.84 {
             z
@@ -142,17 +152,11 @@ impl Camera {
             .clamp(-vh * 0.6, (b.h as f32 - vh * 0.4).max(-vh * 0.6));
     }
 
-    /// Centres the card, zoomed in enough to read it.
-    pub(crate) fn jump(&mut self, l: &Layout, id: CardId) {
-        let Some(c) = l.card(id) else { return };
-        self.zoom = self.zoom.max(0.9);
-        let ctr = c.rect.center();
-        self.centre_on(ctr.x, ctr.y, l.bounds);
-    }
-
     /// Brings the card into view if it is not, moving as little as a centring does.
     pub(crate) fn reveal(&mut self, l: &Layout, id: CardId) {
-        let Some(c) = l.card(id) else { return };
+        let Some(c) = l.card(id).filter(|_| !l.folded(id)) else {
+            return;
+        };
         let (v, r) = (self.view(), c.rect);
         if r.x < v.x || r.y < v.y || r.right() > v.right() || r.bottom() > v.bottom() {
             let ctr = r.center();
@@ -175,7 +179,7 @@ pub(crate) fn next_card(
     let mut best: Option<(f64, CardId)> = None;
     for (i, c) in l.cards.iter().enumerate() {
         let id = CardId(u32::try_from(i).unwrap_or(u32::MAX));
-        if id == from {
+        if id == from || l.folded(id) {
             continue;
         }
         let (ddx, ddy) = (c.rect.center().x - at.x, c.rect.center().y - at.y);
