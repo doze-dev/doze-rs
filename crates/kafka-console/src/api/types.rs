@@ -64,8 +64,6 @@ fn all() -> BTreeMap<String, String> {
 
 /// Slice R1b: the topic writes and the Config tab.
 fn r1b(cfg: &Config, out: &mut BTreeMap<String, String>) {
-    use super::config::*;
-    use super::config_edit::*;
     use super::topic_admin::*;
     use super::topic_writes::*;
     use crate::model::write::{RecordRow, TopicHead, Visibility};
@@ -83,16 +81,6 @@ fn r1b(cfg: &Config, out: &mut BTreeMap<String, String>) {
     one::<RecordsDeletedAnswer>(cfg, out);
     one::<DeleteForm>(cfg, out);
     one::<DeletedAnswer>(cfg, out);
-    one::<ConfigPlace>(cfg, out);
-    one::<ConfigRowView>(cfg, out);
-    one::<ConfigGroup>(cfg, out);
-    one::<ConfigTab>(cfg, out);
-    one::<ConfigEditForm>(cfg, out);
-    one::<ConfigSavedAnswer>(cfg, out);
-    one::<ConfigEditAnswer>(cfg, out);
-    one::<ConfigRefusedAnswer>(cfg, out);
-    one::<ConfigResetForm>(cfg, out);
-    one::<ConfigResetDone>(cfg, out);
     one::<CreateView>(cfg, out);
     one::<Draft>(cfg, out);
     one::<Step>(cfg, out);
@@ -117,6 +105,24 @@ fn r1b(cfg: &Config, out: &mut BTreeMap<String, String>) {
     one::<DeleteView>(cfg, out);
     one::<Deleted>(cfg, out);
     one::<Remaining>(cfg, out);
+    r1b_config(cfg, out);
+}
+
+/// Slice R1b: the Config tab.
+fn r1b_config(cfg: &Config, out: &mut BTreeMap<String, String>) {
+    use super::config::*;
+    use super::config_edit::*;
+    use crate::model::*;
+    one::<ConfigPlace>(cfg, out);
+    one::<ConfigRowView>(cfg, out);
+    one::<ConfigGroup>(cfg, out);
+    one::<ConfigTab>(cfg, out);
+    one::<ConfigEditForm>(cfg, out);
+    one::<ConfigSavedAnswer>(cfg, out);
+    one::<ConfigEditAnswer>(cfg, out);
+    one::<ConfigRefusedAnswer>(cfg, out);
+    one::<ConfigResetForm>(cfg, out);
+    one::<ConfigResetDone>(cfg, out);
     one::<Cleanup>(cfg, out);
     one::<ConfigSource>(cfg, out);
     one::<ConfigOp>(cfg, out);

@@ -336,7 +336,6 @@ pub fn routes(web: &crate::base::Base) -> Router<Shared> {
         .merge(topic_admin::routes(web))
         .merge(config::routes(web))
         .merge(config_edit::routes(web))
-
         .route(&web.url("/api/v1/live"), get(live::live))
         .route(&web.url("/api/v1/live/request/{id}"), get(live::request))
         .route(&web.url("/api/v1/live/clients"), get(live::clients))
@@ -367,7 +366,6 @@ pub const GET_PATHS: &[&str] = &[
     "/api/v1/topics/orders/config/edit?key=cleanup.policy",
     "/api/v1/topics/orders/config/edit?key=min.compaction.lag.ms",
     "/api/v1/topics/orders/config/reset?key=retention.ms",
-
     // Live (R3). The tail (`/api/v1/tail/live`) is a stream that never ends: its own tests read it.
     "/api/v1/live",
     "/api/v1/live?refused=1&idle=0&client=orders&api=Produce&topic=orders",
