@@ -217,7 +217,7 @@ export function CreateTopicPage() {
   const form = useForm<Values>({
     resolver: zodResolver(schema),
     mode: "onChange",
-    defaultValues: { name: "", partitions: "", template: "event", cleanup: "delete", retention: "604800000" },
+    defaultValues: { name: search.name ?? "", partitions: "", template: "event", cleanup: "delete", retention: "604800000" },
   });
   const v = useWatch({ control: form.control }) as Values;
   const q = useDebounced(queryOf(fieldsOf({ ...form.getValues(), ...v }, "review")), 250);

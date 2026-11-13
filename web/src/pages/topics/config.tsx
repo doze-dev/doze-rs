@@ -2,7 +2,7 @@
 // from, Kafka's first sentence and when a change counts. The filter and the chips are in the address; "Where from" and
 // "Kafka's text" open in place (Collapsibles: no navigation, the scroll stays). Edit and Reset are Dialogs routed by
 // `?edit=` and `?reset=`. A snapshot with no refresh control (live-design.md: Config is "Snapshot, no control").
-import { useNavigate, useSearch } from "@tanstack/react-router";
+import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import { CheckIcon, ChevronDownIcon, InfoIcon, MinusIcon, MoreHorizontalIcon, SearchIcon, SlidersHorizontalIcon, XIcon } from "lucide-react";
 import { lazy, Suspense, useMemo, useRef, useState } from "react";
 import type { ConfigRowView } from "@/api/types/ConfigRowView";
@@ -238,6 +238,12 @@ function Sections({ tab, q, show, onEdit, onReset }: { tab: Tab; q: string; show
       )}
     </>
   );
+}
+
+/** The route component of `/topics/$topic/config` (R1a's frame around it). */
+export function TopicConfigPage() {
+  const { topic } = useParams({ from: "/topics/$topic/config" });
+  return <TopicConfigTab topic={topic} />;
 }
 
 /** The tab's body, under the topic's frame. */

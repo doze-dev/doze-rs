@@ -24,7 +24,9 @@ use crate::model::{ConnectView, HomeState, HomeView, ProbeView, Span};
 use crate::state::Shared;
 use crate::{origin, snippets, words};
 
+pub mod groups;
 pub mod live;
+pub mod topics;
 #[cfg(test)]
 mod types;
 
@@ -336,6 +338,7 @@ pub fn routes(web: &crate::base::Base) -> Router<Shared> {
         .merge(topic_admin::routes(web))
         .merge(config::routes(web))
         .merge(config_edit::routes(web))
+        .merge(groups::routes(web))
         .route(&web.url("/api/v1/live"), get(live::live))
         .route(&web.url("/api/v1/live/request/{id}"), get(live::request))
         .route(&web.url("/api/v1/live/clients"), get(live::clients))
@@ -343,6 +346,7 @@ pub fn routes(web: &crate::base::Base) -> Router<Shared> {
         .route(&web.url("/api/v1/live/topic-wire"), get(live::topic_wire))
         .route(&web.url("/api/v1/live/group-wire"), get(live::group_wire))
         .route(&web.url("/api/v1/tail/live"), get(live::tail))
+        .merge(topics::routes(web))
         .route_layer(from_fn(guard))
 }
 
@@ -366,6 +370,10 @@ pub const GET_PATHS: &[&str] = &[
     "/api/v1/topics/orders/config/edit?key=cleanup.policy",
     "/api/v1/topics/orders/config/edit?key=min.compaction.lag.ms",
     "/api/v1/topics/orders/config/reset?key=retention.ms",
+    // Groups (R2): the addresses that answer whatever groups the broker has (those of one group are
+    // `groups::GROUP_GET_PATHS`, over the fixtures' groups).
+    "/api/v1/groups",
+    "/api/v1/groups?q=pay&state=stable&state=empty",
     // Live (R3). The tail (`/api/v1/tail/live`) is a stream that never ends: its own tests read it.
     "/api/v1/live",
     "/api/v1/live?refused=1&idle=0&client=orders&api=Produce&topic=orders",
@@ -373,4 +381,11 @@ pub const GET_PATHS: &[&str] = &[
     "/api/v1/live/first",
     "/api/v1/live/topic-wire?topic=orders",
     "/api/v1/live/group-wire?group=fulfilment",
+    // R1a: the Topics pages. Messages and a record are not here: showing a record's key, value and headers is their job.
+    "/api/v1/topics",
+    "/api/v1/topics?q=or&internal=1",
+    "/api/v1/topics/orders",
+    "/api/v1/topics/orders/consumers",
+    "/api/v1/topics/orders/log",
+    "/api/v1/topics/orders/producers",
 ];

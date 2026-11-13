@@ -1048,6 +1048,40 @@ Every query but the form previews is marked stale after a write, so the page und
 ## CON-1160. A write through the API without the same-origin proof changes nothing
 Every R1b POST is behind the API guard: an Origin of another site is 403 `FORBIDDEN` and nothing is sent to the broker. Test: `a_write_without_the_same_origin_proof_is_refused`.
 
+# The React console, slice R2: Groups (rules 1200 to 1249)
+
+Branch `react-r2`. The pages are `web/src/pages/groups/` (the list, a group's layout with its tabs as routes, Members, Lag, Story, Wire, the dialogs), the API is `crates/kafka-console/src/api/groups.rs`, the browser gate is `web/e2e/tests/groups.spec.ts` (Firefox, WebKit, Chromium; seeded world and a broker with traffic). The data and every word of a refusal are the classic console's (`gather::groups`, `gather::group`, `gather::group_write`, `gather::story`, `groups_words`).
+
+## CON-1200. The Groups API is the classic view-models, serialised
+`GET /api/v1/groups?q=&state=` (`GroupsView`, the states on, the rebalancing line as Rust's spans), `/api/v1/groups/{group}?expiring=1` (`GroupLagView`), `/story` (`StoryView`); the requests that touched the group are the Live slice's `/api/v1/live/group-wire` and its `WireDock`, mounted on the Members and Wire tabs. A group the broker does not know is a JSON 404 `GROUP_NOT_FOUND` naming it. Test: `the_groups_api_says_what_the_list_a_group_and_its_story_show`, `every_get_of_one_group_is_json_that_no_cache_keeps_and_carries_no_memory_figure`.
+
+## CON-1201. A reset is previewed with a GET and sends exactly what the preview showed
+`GET /api/v1/groups/{group}/reset?topic=&to=&value=` reads OffsetFetch and ListOffsets and writes nothing; a value that is not a number is said in the preview (`The offset must be a whole number.`). `POST .../reset` takes the same choice as JSON; the dialog's Reset is off until the preview on screen is the choice made. Test: `a_reset_is_previewed_with_a_get_and_refused_in_kafkas_words_while_the_group_has_members`; Playwright "Reset offsets: a GET preview, then the reset; the Lag tab shows where the group now reads".
+
+## CON-1202. A refused group write answers Kafka's name, number and words, and the console's reading
+A 200 whose `outcome` is `refused` (a refusal is an answer, so no page logs a failed request; `done` and `invalid` are the other outcomes), with `code`, `message`, `number` and `refused`: `code` is Kafka's error name (`NON_EMPTY_GROUP`), `message` Kafka's own sentence (`The group is not empty.`), `refused` the rule, what would pass and the call refused. The dialog stays open and shows them. Test: `deleting_a_group_with_members_is_refused_as_non_empty_group`, `deleting_offsets_needs_a_topic_and_is_refused_while_a_member_reads_it`; Playwright "Delete group with a member is refused as NON_EMPTY_GROUP in Kafka's words", "Reset offsets of a group with a member is refused, in Kafka's name and words, and nothing changes".
+
+## CON-1203. A group write needs the same-origin proof and a JSON body
+A POST from another origin is 403 before anything reaches the broker; a body that is not JSON is 400 `BAD_REQUEST`; Delete offsets with no topic is the outcome `invalid` (the form would otherwise tick every topic). Test: `a_group_write_needs_the_same_origin_proof`, `deleting_offsets_needs_a_topic_and_is_refused_while_a_member_reads_it`.
+
+## CON-1204. Filters and overlays of the Groups pages are in the address
+The list's name filter (`q`) and states (`state`, a MultiSelect with the count of each), the Lag tab's `expiring=1`; a member's Sheet (`member=`), a rebalance's Sheet (`generation=`), the flapping rule's Sheet (`rule=1`) and the write dialogs (`dialog=reset|delete|delete-offsets`). An overlay opened on the page pushes an entry (Back closes it), a deep link opens the page with the overlay on it, Esc closes it and the focus returns to what opened it. Parsers: `web/src/pages/groups/search.ts` (bun tests in `words.test.ts`). Playwright "A member opens as a Sheet with its own address: Esc closes it, the focus returns, Back and a deep link work", "Groups: the counts are tiles, the name filter and the states are in the address, and a row opens its group".
+
+## CON-1205. A group's tabs are routes and the group's figures are tiles
+`/groups/{group}` (Members), `/lag`, `/story`, `/wire`, each with the group's h1, pills, StatStrip (state, members, generation or epoch, lag, committed partitions, last commit) and switch-group chips (a Combobox past eight groups); Refresh fetches every query of the group and moves nothing. Playwright "A group: the state, the figures as tiles, the tabs are routes, and Refresh moves nothing".
+
+## CON-1206. The state of a group chooses its Members layout
+Classic stable or empty: members, reads with lag bars, who holds which partition, the group's facts. KIP-848: the epoch cards, target and assigned per member, where a group can be. Rebalancing: who it waits for with the rejoin deadline counted down in the browser (CON-812), what happens next, who rejoined and who left. Each with the group's last requests ("What just happened"). Playwright "A group: the state, the figures as tiles, the tabs are routes, and Refresh moves nothing".
+
+## CON-1207. The Story counts its deadline down in its own slot
+The Now card's rejoin deadline is the fetch time plus the remaining milliseconds, counted down each tenth of a second in a `<time>` element of reserved width, with no request; the slot is there whatever the group is doing, so the card never changes height. Playwright "Story: the generations newest first; a rebalance opens as a Sheet, the flapping rule as another".
+
+## CON-1208. A time to reset to is chosen with the console's own picker, in UTC
+A month grid and a time field in a Popover (`components/app/utc-datetime-picker.tsx`), never the browser's date widget; the value sent is milliseconds since the epoch. Playwright "Reset offsets: a GET preview, then the reset; the Lag tab shows where the group now reads".
+
+## CON-1209. After a write the group's pages, the list and the sidebar's count are fetched again
+Reset, Delete offsets and Delete group invalidate the group's queries, the list and the shell; a deleted group's page says "No such group". Playwright "Delete offsets forgets the commits of the topics ticked; Delete group then removes the empty group".
+
 # The React console, slice R3: Live (rules 1250 to 1262; 1263 to 1299 kept)
 
 Branch `react-r3`. The Live page, its tail, its Sheets, the first-request page and the wire docks in React (`web/src/pages/live/`), over the JSON API of `crates/kafka-console/src/api/live.rs`. The owner's complaint this slice answers: the classic Live page "flickering like crazy", "it should not be moving this fast". The rules of `docs/port/console/live-design.md` (CON-800 to CON-812) carry over; these are the React page's own. The browser scenarios are in `web/e2e/tests/live.spec.ts`, named below in words.
@@ -1090,3 +1124,65 @@ Search text (debounced), Apps, Topics and APIs as MultiSelects with the count of
 
 ## CON-1262. Every Live control works in Firefox, WebKit and Chromium, at every width
 The scenarios above run in the three engines with the mouse and the keyboard, fail on a console error, and no page scrolls sideways at 1024, 1280, 1440 and 1920 (snapshot, tail, under a Sheet); the tape's columns are chosen by the width of the table, never by its rows. Playwright "no page scrolls sideways at 1024 to 1920".
+# The React console, slice R1a: Topics, the read side (rules 1100 to 1149)
+
+Branch `react-r1a`. The API is `crates/kafka-console/src/api/topics.rs`; the pages are `web/src/pages/topics/` (one lazily loaded chunk);
+the browser specs are `web/e2e/tests/topics-list.spec.ts`, `messages.spec.ts` and `topic-tabs.spec.ts`. Slice R1b builds the writes and
+the Config tab on the frame this slice built (`pages/topics/frame.tsx`, the `TopicOverlays` and `TopicsOverlays` mounting points).
+
+## CON-1100. The Topics pages are the classic view-models, serialised
+`GET /api/v1/topics?q=&internal=1` (`TopicsView` and its state), `/api/v1/topics/{topic}` (`TopicFrame`: the `TopicHead` with its
+records, size, last write, held-back count, offline partitions and which actions the head carries), `/messages` (the `MessagesView` for
+the filters the classic page reads, with the reach sentence, whether a tail applies, the tail's cursor and the limit "Older" asks for),
+`/records/{p}/{o}`, `/consumers`, `/log?partition=`, `/producers?partition=`, `/transactions/{id}`, with the words Rust decides
+(the planner's and retention's rules, the transaction's sentences). Test: `the_topics_list_and_a_topics_frame_are_the_view_models_serialised`,
+`consumers_log_producers_and_a_transaction_answer_with_their_words`.
+
+## CON-1101. A name that is no topic, a record or a transaction that is not there, in the classic page's words
+A page's lookup (a topic's frame, a record, a transaction) that finds nothing answers 200 `{"missing": {code, message}}` with
+`UNKNOWN_TOPIC_OR_PARTITION`, `NO_SUCH_RECORD` or `TRANSACTIONAL_ID_NOT_FOUND` and the sentence the classic page says: "it is not there"
+is an answer, and a 404 would put an error in Chromium's and Safari's console on a page that works. The tabs of a topic wait for its
+frame, so a name that is no topic fetches nothing else; a tab's own address for no topic is still a 404 refusal. The pages
+show it (No such topic; the record Sheet says why; No transaction called ...). Test: `the_topics_list_and_a_topics_frame_are_the_view_models_serialised`;
+Playwright "the record Sheet ...", "Producers ...".
+
+## CON-1102. Every filter of Messages is in the address and reaches the broker only through MessageQuery
+Partitions (`?partition=0,2`), the one box (digits an offset, else a key), the time (a Popover with a field and quick choices), the
+isolation level and the limit are typed search params; the API reads them with the classic `MessageQuery::parse`, so a value it
+cannot use is a sentence on the page. Test: `messages_take_their_filters_from_the_query_and_a_record_is_whole`; Playwright
+"partitions, key and time ...", "isolation ...", "Older ...".
+
+## CON-1103. The record is a routed Sheet
+`?record=partition:offset` opens the Sheet over the Messages page (a deep link opens both); Esc, Close and Back close it and the focus
+goes back to the record's own button. JSON is laid out (Pretty) or as sent; binary is hex; headers and the producer, transaction and
+position facts are the classic drawer's. Playwright "the record Sheet: a row opens it with its own address, Esc and Back close it, a deep
+link opens it".
+
+## CON-1104. The Messages tail is opt-in, server-paced and resumable
+`GET /api/v1/tail/messages?topic=&pace=&since=` is server-sent events read over fetch (the API's `X-Console` proof): `ready` at once,
+then a `rows` event (JSON) only when a look found new rows, at most one per `pace` seconds (1 to 30; Realtime 1, Relaxed 3, Slow 10),
+its id the cursor; a reconnect sends `Last-Event-ID`. A key, an offset or a time is refused (a fixed read). One permit per stream.
+Test: `the_messages_tail_is_an_event_stream_that_starts_with_ready_and_refuses_a_fixed_read`.
+
+## CON-1105. A tail never rewrites a row, never moves the header, and holds while you read
+New rows are prepended by stable id with a 1.5 s highlight; rows on screen keep their DOM nodes; the header and the toolbar never move;
+while the table is scrolled, hovered, focused or has a selection, new rows wait behind an `N new · Show` pill; the indicator says
+Live, Connecting, Reconnecting or Disconnected with a countdown (backoff 1, 2, 4, 8, 15 s). Playwright "the Live tail: new rows at the
+top, no row rewritten, the header stable, held behind a pill while hovered".
+
+## CON-1106. Compact now is the Lab's real round, behind a confirm
+`POST /api/v1/topics/{topic}/log/compact?partition=` (same-origin proof) runs `gather::lab::compact`; the Log page's Dialog shows the
+planner's verdict first, or the sentence for why nothing can run; the outcome is a toast of what the round did or the refusal in the
+dialog. Without a live Lab it is `LAB_OFF`, 409. Test: `compact_now_is_a_post_with_the_proof_and_is_refused_without_a_live_lab`;
+Playwright "Compact now on a compacted topic ...".
+
+## CON-1107. The topic's frame is the same on every tab, and the tabs are routes
+Name, state words, actions (Partitions, Produce, Delete topic: the dialogs are `?dialog=` for R1b), the stat strip, a transaction region
+of the same height whether a transaction is open or not, and Messages, Log, Config, Consumers, Producers as `/topics/$topic/...` with
+their counts; switching tabs moves nothing above the tab body. Playwright "the frame: one h1, the stats, the transaction region, five
+tabs as routes, and a tab switch moves nothing above it".
+
+## CON-1108. The Topics list's filter and Show internal work, in the address
+The filter follows typing (replacing the history entry), Esc clears it, and nothing matching is its own state with Clear filter; Show
+internal is a shadcn Switch (mouse, label, keyboard) that adds `__consumer_offsets`; a reload keeps both. Playwright "Show internal: the
+switch works with the mouse and the keyboard ...", "the filter narrows the list as you type ...".

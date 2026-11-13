@@ -8,7 +8,7 @@
 //!   broker's own sentence, `detail` the refused state the page draws;
 //! - `{ outcome: "invalid", code: "INVALID", message, detail }` when the form could not be sent (a number that is not
 //!   one), `detail` the dialog again with its field errors;
-//! - 404 when there is no such topic.
+//! - `{missing: {code, message}}` when there is no such topic (as R1a's lookups).
 //!
 //! Every answer to a write is a 200, as the group writes of R2 (`outcome`): a refusal is an answer, not a failure of the
 //! request, and Chromium and WebKit log every non-2xx fetch as a console error, which the browser gate rightly forbids.
@@ -22,7 +22,7 @@ use axum::response::Response;
 use axum::routing::get;
 use serde::Serialize;
 
-use super::{error, json};
+use super::json;
 use crate::calls::{kcat_consume, kcat_produce};
 use crate::form::{get as field, parse, parse_body, text};
 use crate::model::{
@@ -89,11 +89,11 @@ pub(super) fn invalid<T: Serialize>(message: &str, detail: &T) -> Response {
     refused_with("invalid", "INVALID", message, detail)
 }
 
+/// No such topic: a 200 `{missing}`, as R1a's lookups (a 404 would be a console error in Chromium and Safari).
 pub(super) fn no_topic(topic: &str) -> Response {
     let shown: String = topic.chars().take(80).collect();
-    error(
-        StatusCode::NOT_FOUND,
-        "NOT_FOUND",
+    super::topics::missing(
+        "UNKNOWN_TOPIC_OR_PARTITION",
         &format!("There is no topic called {shown}."),
     )
 }

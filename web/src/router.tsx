@@ -6,11 +6,12 @@ import { CommandPalette } from "@/components/app/command-palette";
 import { TopBar } from "@/components/app/top-bar";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { ConnectPage } from "@/pages/connect";
-import { configSearch, connectSearch, createSearch, gallerySearch, topicWriteSearch } from "@/lib/search";
+import { configSearch, connectSearch, createSearch, gallerySearch } from "@/lib/search";
+import { messagesSearch, partitionSearch, topicSearch, topicsSearch } from "@/lib/topic-search";
 import { HomePage } from "@/pages/home";
 import { liveSearch } from "@/pages/live/search";
 import { NotFoundPage, PlannedPage } from "@/pages/planned";
-import { TopicFrameStub } from "@/pages/topics/frame-stub";
+import { groupSearch, groupsSearch, lagSearch, membersSearch, storySearch } from "@/pages/groups/search";
 
 function Shell() {
   const [palette, setPalette] = useState(false);
@@ -56,33 +57,31 @@ const firstRequest = createRoute({ getParentRoute: () => root, path: "/connect/f
 const planned = <const P extends string>(path: P, title: string, slice: string) =>
   createRoute({ getParentRoute: () => root, path, component: () => <PlannedPage title={title} slice={slice} classicPath={path} /> });
 
-// Slice R1b: Create topic, and a topic's frame (a stand-in for R1a's) with the write overlays and the Config tab.
+// R1a: the Topics pages, one lazily loaded chunk (pages/topics/pages.ts). The frame is a layout route; each tab is a child.
+const topicsPage = (name: keyof typeof import("@/pages/topics/pages")) => lazyRouteComponent(() => import("@/pages/topics/pages"), name);
+const topics = createRoute({ getParentRoute: () => root, path: "/topics", validateSearch: topicsSearch, component: topicsPage("TopicsPage") });
+const topic = createRoute({ getParentRoute: () => root, path: "/topics/$topic", validateSearch: topicSearch, component: topicsPage("TopicLayout") });
+const topicIndex = createRoute({ getParentRoute: () => topic, path: "/", validateSearch: messagesSearch, component: topicsPage("MessagesPage") });
+const topicMessages = createRoute({ getParentRoute: () => topic, path: "/messages", validateSearch: messagesSearch, component: topicsPage("MessagesPage") });
+const topicPartitions = createRoute({ getParentRoute: () => topic, path: "/partitions", validateSearch: partitionSearch, component: topicsPage("PartitionsPage") });
+const topicLog = createRoute({ getParentRoute: () => topic, path: "/log", validateSearch: partitionSearch, component: topicsPage("LogPage") });
+const topicConfig = createRoute({ getParentRoute: () => topic, path: "/config", validateSearch: configSearch, component: topicsPage("TopicConfigPage") });
+// R1b: Create topic is a page of three steps (its own chunk, with zod).
 const topicsNew = createRoute({ getParentRoute: () => root, path: "/topics/new", validateSearch: createSearch, component: lazyRouteComponent(() => import("@/pages/topics/create"), "CreateTopicPage") });
-const topic = createRoute({ getParentRoute: () => root, path: "/topics/$topic", validateSearch: topicWriteSearch, component: TopicFrameStub });
-const topicTab = <const P extends string>(path: P, title: string) =>
-  createRoute({
-    getParentRoute: () => topic,
-    path,
-    component: function TopicTab() {
-      const { topic: t } = topic.useParams();
-      return <p className="text-[14px] text-muted-foreground">{title} is being rebuilt (slice R1a). <a className="text-primary hover:underline" href={`${basePath}/classic/topics/${encodeURIComponent(t)}${path === "/" ? "" : `/${path}`}`}>Open it in the classic console</a>.</p>;
-    },
-  });
-const topicConfig = createRoute({
-  getParentRoute: () => topic,
-  path: "config",
-  validateSearch: configSearch,
-  component: lazyRouteComponent(() => import("@/pages/topics/config-route"), "ConfigRoute"),
-});
-const group = createRoute({
-  getParentRoute: () => root,
-  path: "/groups/$group",
-  component: function Group() {
-    const { group } = group_.useParams();
-    return <PlannedPage title={group} slice="R2" classicPath={`/groups/${encodeURIComponent(group)}`} crumbs={[{ label: "Groups", to: "/groups" }]} />;
-  },
-});
-const group_ = group;
+const topicConsumers = createRoute({ getParentRoute: () => topic, path: "/consumers", component: topicsPage("ConsumersPage") });
+const topicProducers = createRoute({ getParentRoute: () => topic, path: "/producers", validateSearch: partitionSearch, component: topicsPage("ProducersPage") });
+const topicTxn = createRoute({ getParentRoute: () => topic, path: "/transactions/$txn", component: topicsPage("TxnPage") });
+const topicTxnHeld = createRoute({ getParentRoute: () => topic, path: "/transactions/$txn/held", component: topicsPage("TxnHeldPage") });
+const topicTree = topic.addChildren([topicIndex, topicMessages, topicPartitions, topicLog, topicConfig, topicConsumers, topicProducers, topicTxn, topicTxnHeld]);
+// Groups (R2): the list, and a group whose tabs are routes under it. Each page is its own chunk.
+const groups = createRoute({ getParentRoute: () => root, path: "/groups", validateSearch: groupsSearch, component: lazyRouteComponent(() => import("@/pages/groups/list"), "GroupsPage") });
+const group = createRoute({ getParentRoute: () => root, path: "/groups/$group", validateSearch: groupSearch, component: lazyRouteComponent(() => import("@/pages/groups/layout"), "GroupLayout") });
+const groupTabs = [
+  createRoute({ getParentRoute: () => group, path: "/", validateSearch: membersSearch, component: lazyRouteComponent(() => import("@/pages/groups/members"), "GroupMembersPage") }),
+  createRoute({ getParentRoute: () => group, path: "lag", validateSearch: lagSearch, component: lazyRouteComponent(() => import("@/pages/groups/lag"), "GroupLagPage") }),
+  createRoute({ getParentRoute: () => group, path: "story", validateSearch: storySearch, component: lazyRouteComponent(() => import("@/pages/groups/story"), "GroupStoryPage") }),
+  createRoute({ getParentRoute: () => group, path: "wire", component: lazyRouteComponent(() => import("@/pages/groups/wire"), "GroupWirePage") }),
+] as const;
 
 const tree = root.addChildren([
   home,
@@ -90,11 +89,11 @@ const tree = root.addChildren([
   gallery,
   live,
   firstRequest,
-  planned("/topics", "Topics", "R1"),
+  topics,
   topicsNew,
-  topic.addChildren([topicTab("/", "Messages"), topicTab("log", "Log"), topicConfig, topicTab("consumers", "Consumers"), topicTab("producers", "Producers")]),
-  planned("/groups", "Groups", "R2"),
-  group,
+  topicTree,
+  groups,
+  group.addChildren(groupTabs),
   planned("/access", "Access", "R4"),
   planned("/lab", "Lab", "R4"),
   planned("/settings", "Settings", "R4"),

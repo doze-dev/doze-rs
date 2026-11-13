@@ -14,7 +14,9 @@ pub const GAP_PX: i64 = 3;
 const LABEL_SHARE: f64 = 0.06;
 
 /// The colour of a cell.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "RulerCellKind"))]
+#[serde(rename_all = "snake_case")]
 pub enum Cell {
     /// Cleaned: the latest record of each key.
     Clean,
@@ -40,7 +42,8 @@ impl Cell {
 }
 
 /// A marker above the ruler.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "RulerMark"))]
 pub struct Mark {
     pub label: String,
     pub offset: i64,
@@ -51,7 +54,8 @@ pub struct Mark {
 }
 
 /// One segment's cell.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "RulerCell"))]
 pub struct RulerCell {
     pub cell: Cell,
     /// Its width in offsets.
@@ -65,7 +69,9 @@ pub struct RulerCell {
 }
 
 /// One entry of the key under the ruler.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "RulerKey"))]
+#[serde(rename_all = "snake_case")]
 pub enum Key {
     Cleaned,
     Dirty,
@@ -76,7 +82,8 @@ pub enum Key {
 }
 
 /// The whole ruler.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "Ruler"))]
 pub struct Ruler {
     pub marks: Vec<Mark>,
     pub cells: Vec<RulerCell>,

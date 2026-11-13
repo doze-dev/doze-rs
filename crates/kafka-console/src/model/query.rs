@@ -11,7 +11,9 @@ pub const MOST_LIMIT: usize = 200;
 pub const MOST_KEY: usize = 512;
 
 /// Which isolation level the table reads as.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "snake_case")]
 pub enum Reading {
     Uncommitted,
     Committed,
@@ -32,7 +34,8 @@ impl Reading {
 const MOST_PARTITIONS: usize = 256;
 
 /// The filters of the Messages page.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct MessageQuery {
     /// The partitions to read, ascending; none is all of them.
     pub partitions: Vec<i32>,

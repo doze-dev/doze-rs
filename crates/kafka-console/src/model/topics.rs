@@ -12,7 +12,8 @@ pub enum Cleanup {
 }
 
 /// One row of the list.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct TopicRow {
     pub name: String,
     /// Kafka's own topic (shown only when asked for).
@@ -58,7 +59,9 @@ impl TopicRow {
 }
 
 /// Which page of the list the data calls for.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "snake_case")]
 pub enum TopicsState {
     /// The broker holds no topic (`topics-none`).
     None,
@@ -69,7 +72,8 @@ pub enum TopicsState {
 }
 
 /// The topics list.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct TopicsView {
     /// The rows after the filter, by name.
     pub rows: Vec<TopicRow>,

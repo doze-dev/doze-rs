@@ -6,14 +6,17 @@ use crate::format::{bytes, number, span_ms};
 use crate::model::{LogCleaner, LogCompaction, LogLimit, LogView, Span};
 
 /// Whether a rule lets the cleaner go on (`ok`, a check) or stops it (`no`, a warning).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "LogRuleTone"))]
+#[serde(rename_all = "snake_case")]
 pub enum RuleTone {
     Ok,
     No,
 }
 
 /// One rule: what it says, the numbers behind it, and its value at the right.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "LogRule"))]
 pub struct Rule {
     pub tone: RuleTone,
     pub title: String,

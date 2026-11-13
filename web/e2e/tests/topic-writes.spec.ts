@@ -131,7 +131,7 @@ test.describe("Produce", () => {
     const name = fresh(info, "keyless");
     await topic(request, baseURL!, name, 1);
     await page.goto(`/topics/${name}`);
-    await page.getByTestId("open-produce").click();
+    await page.getByTestId("act-produce").click();
     await expect(page).toHaveURL(/dialog=produce/);
     const d = page.getByTestId("dialog-produce");
     await d.getByTestId("value").fill("no key here");
@@ -241,7 +241,7 @@ test.describe("Delete topic", () => {
     await topic(request, baseURL!, name, 2);
     await produce(request, baseURL!, name, "k", "v");
     await page.goto(`/topics/${name}`);
-    await page.getByTestId("open-delete").click();
+    await page.getByTestId("act-delete").click();
     const d = page.getByTestId("dialog-delete");
     await expect(d.getByTestId("delete-what")).toContainText("1 record");
     await expect(d.getByTestId("delete-submit")).toBeDisabled();

@@ -116,7 +116,8 @@ async fn the_config_tab_edits_checks_saves_appends_and_resets() {
         .clone();
     assert_ne!(ret["source"], "dynamic_topic");
     assert_eq!(ret["value"], after.as_str());
-    let (s, _) = get(&app, "/api/v1/topics/t/config/edit?key=no.such.key").await;
-    assert_eq!(s, StatusCode::NOT_FOUND);
+    let (s, v) = get(&app, "/api/v1/topics/t/config/edit?key=no.such.key").await;
+    assert_eq!(s, StatusCode::OK);
+    assert_eq!(v["missing"]["code"], "NOT_FOUND");
     w.stop().await;
 }

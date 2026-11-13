@@ -30,9 +30,10 @@ export function gallerySearch(s: Record<string, unknown>): GallerySearch {
 }
 
 // Slice R1b: Create topic, a topic's write overlays, the Config tab.
-export type CreateSearch = { step?: "config" | "review" };
+/** `name`: a name to start from (the Topics list's "Create <filter>"). */
+export type CreateSearch = { step?: "config" | "review"; name?: string };
 export function createSearch(s: Record<string, unknown>): CreateSearch {
-  return { step: oneOf(["config", "review"] as const, s.step) };
+  return { step: oneOf(["config", "review"] as const, s.step), name: shortText(s.name, 249) };
 }
 
 export type TopicWriteSearch = { dialog?: "produce" | "delete" | "add-partitions" | "delete-records"; partition?: number };

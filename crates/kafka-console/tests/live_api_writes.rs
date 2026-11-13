@@ -157,8 +157,9 @@ async fn produce_writes_one_record_and_a_keyless_one_to_a_compacted_topic_is_ref
         (StatusCode::OK, Some("invalid")),
         "{v}"
     );
-    let (s, _) = get(&app, "/api/v1/topics/nothing.here/produce").await;
-    assert_eq!(s, StatusCode::NOT_FOUND);
+    let (s, v) = get(&app, "/api/v1/topics/nothing.here/produce").await;
+    assert_eq!(s, StatusCode::OK);
+    assert_eq!(v["missing"]["code"], "UNKNOWN_TOPIC_OR_PARTITION");
     w.stop().await;
 }
 

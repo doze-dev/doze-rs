@@ -3,9 +3,9 @@ import { configSearch, createSearch, topicWriteSearch } from "./search";
 
 describe("R1b search params keep only what is allowed", () => {
   test("Create topic's step", () => {
-    expect(createSearch({ step: "review" })).toEqual({ step: "review" });
-    expect(createSearch({ step: "name" })).toEqual({ step: undefined });
-    expect(createSearch({ step: "<x>" })).toEqual({ step: undefined });
+    expect(createSearch({ step: "review", name: "orders.retry" })).toEqual({ step: "review", name: "orders.retry" });
+    expect(createSearch({ step: "name" })).toEqual({ step: undefined, name: undefined });
+    expect(createSearch({ step: "<x>" })).toEqual({ step: undefined, name: undefined });
   });
   test("a topic's overlay and its partition", () => {
     expect(topicWriteSearch({ dialog: "produce" })).toEqual({ dialog: "produce", partition: undefined });

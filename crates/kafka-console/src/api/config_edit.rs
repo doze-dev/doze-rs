@@ -10,7 +10,7 @@ use serde::Serialize;
 
 use super::config::valid;
 use super::topic_writes::{done, invalid, kafka_refused, no_topic};
-use super::{error, json};
+use super::json;
 use crate::config_effects::{moment, reader, sees, sentence, takes_effect, when_label};
 use crate::config_teach::MAX_LAG;
 use crate::config_words::gloss;
@@ -124,8 +124,7 @@ fn edit_form_of(v: ConfigEditView) -> ConfigEditForm {
 fn missing(topic: &str, key: &str, why: ConfigMissing) -> Response {
     match why {
         ConfigMissing::Topic => no_topic(topic),
-        ConfigMissing::Key => error(
-            StatusCode::NOT_FOUND,
+        ConfigMissing::Key => super::topics::missing(
             "NOT_FOUND",
             &format!(
                 "The topic {topic} has no config called {}.",

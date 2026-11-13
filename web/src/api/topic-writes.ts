@@ -61,6 +61,13 @@ export function afterWrite(qc: QueryClient) {
   return qc.invalidateQueries({ predicate: (q) => q.queryKey[0] !== FORM });
 }
 
+/** A form GET: `{missing}` (no such topic or config, a 200 as R1a's lookups) is thrown as an ApiFailure with its words. */
+async function lookup<T>(path: string, signal: AbortSignal): Promise<T> {
+  const body = await api<T | { missing: { code: string; message: string } }>(path, {}, signal);
+  if (body && typeof body === "object" && "missing" in body) throw new ApiFailure(404, body.missing);
+  return body as T;
+}
+
 /** A value that follows `v` once it has been still for `ms`. */
 export function useDebounced<T>(v: T, ms = 250): T {
   const [d, setD] = useState(v);
@@ -74,7 +81,7 @@ export function useDebounced<T>(v: T, ms = 250): T {
 function useForm<T>(what: string, topic: string, path: string, q: string, enabled = true) {
   return useQuery({
     queryKey: writeKeys.form(what, topic, q),
-    queryFn: ({ signal }) => api<T>(`${path}${q}`, {}, signal),
+    queryFn: ({ signal }) => lookup<T>(`${path}${q}`, signal),
     staleTime: Infinity,
     gcTime: 30_000,
     placeholderData: keepPreviousData,
@@ -111,7 +118,7 @@ export function useConfigResetForm(topic: string, q: string, enabled: boolean) {
 export function useConfigTab(topic: string) {
   return useQuery({
     queryKey: writeKeys.config(topic),
-    queryFn: ({ signal }) => api<ConfigTab>(topicPath(topic, "/config"), {}, signal),
+    queryFn: ({ signal }) => lookup<ConfigTab>(topicPath(topic, "/config"), signal),
     staleTime: Infinity,
   });
 }

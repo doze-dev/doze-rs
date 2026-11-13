@@ -5,7 +5,8 @@
 use super::Cleanup;
 
 /// One segment of the log.
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct LogSegment {
     /// Its first offset, and the offset after its last (where the next segment begins, or the log ends).
     pub base: i64,
@@ -39,7 +40,8 @@ impl LogSegment {
 }
 
 /// A deletion a round kept.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct LogTombstone {
     /// The key as text (lossy), and whether it was not valid text.
     pub key: String,
@@ -50,7 +52,9 @@ pub struct LogTombstone {
 }
 
 /// What stops cleaning short of the log's end.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "snake_case")]
 pub enum LogLimit {
     Active,
     Transaction,
@@ -58,7 +62,9 @@ pub enum LogLimit {
 }
 
 /// What the cleaner is doing about the partition.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(tag = "kind", rename_all = "snake_case")]
 pub enum LogCleaner {
     Disabled,
     Running { since_ms: i64 },
@@ -67,7 +73,8 @@ pub enum LogCleaner {
 }
 
 /// A round that was put in place.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct LogRound {
     pub at_ms: i64,
     pub took_ms: u64,
@@ -78,7 +85,8 @@ pub struct LogRound {
 }
 
 /// What the topic asks of the cleaner.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct LogRules {
     pub min_dirty_ratio: f64,
     pub min_lag_ms: i64,
@@ -87,7 +95,8 @@ pub struct LogRules {
 }
 
 /// What the planner read of the log and what it said.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct LogPlanner {
     pub upto: i64,
     pub limit: LogLimit,
@@ -110,7 +119,8 @@ impl LogPlanner {
 }
 
 /// The compaction side of a log.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct LogCompaction {
     pub rules: LogRules,
     /// `--log-cleaner-interval`, and when the cleaner last looked.
@@ -122,7 +132,8 @@ pub struct LogCompaction {
 }
 
 /// A partition whose start retention moved.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct LogMoved {
     pub topic: String,
     pub partition: i32,
@@ -131,7 +142,8 @@ pub struct LogMoved {
 }
 
 /// The last retention pass.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct LogPass {
     pub at_ms: i64,
     pub looked: u32,
@@ -140,7 +152,8 @@ pub struct LogPass {
 }
 
 /// The retention side of a log.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct LogRetentionView {
     pub max_age_ms: Option<i64>,
     pub max_bytes: Option<u64>,
@@ -153,7 +166,9 @@ pub struct LogRetentionView {
 }
 
 /// What the last stop left.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "snake_case")]
 pub enum LogStop {
     None,
     Clean,
@@ -161,7 +176,8 @@ pub enum LogStop {
 }
 
 /// How the log is kept on disk.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct LogDurability {
     pub offline: Option<String>,
     pub stop: LogStop,
@@ -169,7 +185,9 @@ pub struct LogDurability {
 }
 
 /// Where the Log page of another topic is, and what is worth saying of it.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "snake_case")]
 pub enum LogOtherLink {
     /// A compacted log that is not due: "Why not yet?".
     NotDue,
@@ -182,7 +200,8 @@ pub enum LogOtherLink {
 }
 
 /// A line of "Other logs on this broker".
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct LogOther {
     pub topic: String,
     pub cleanup: Cleanup,
@@ -192,7 +211,9 @@ pub struct LogOther {
 }
 
 /// Which of the four boards a log is in.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "snake_case")]
 pub enum LogState {
     /// Nothing was ever written.
     Empty,
@@ -205,7 +226,8 @@ pub enum LogState {
 }
 
 /// One partition's log, as the page reads it.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct LogView {
     pub topic: String,
     pub partition: i32,
