@@ -152,13 +152,13 @@ fn the_console_serves_its_pages_beside_the_broker_and_refuses_what_it_should() {
     assert!(cross.starts_with("HTTP/1.1 403"), "{cross}");
     let own = http(&addr, &format!("{post}\r\nOrigin: http://{addr}"), "");
     assert!(own.starts_with("HTTP/1.1 200"), "{own}");
-    // The server-rendered console is gone: its old address is the app's, which has no page there.
-    let classic = http(
+    // An address with no page of its own is the app's, which says Not here.
+    let unknown = http(
         &addr,
-        &format!("GET /classic/ HTTP/1.1\r\nHost: {addr}"),
+        &format!("GET /no-such-page HTTP/1.1\r\nHost: {addr}"),
         "",
     );
-    assert!(classic.contains("<meta name=\"doze-base\""), "{classic}");
+    assert!(unknown.contains("<meta name=\"doze-base\""), "{unknown}");
     assert!(broker.terminate().success());
     let _ = std::fs::remove_dir_all(&data);
 }

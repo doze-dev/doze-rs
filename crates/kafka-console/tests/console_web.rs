@@ -156,10 +156,6 @@ async fn the_api_says_what_home_connect_the_shell_and_the_palette_need() {
     assert!(home["home"]["probe"]["rules"].as_array().is_some());
     let (_, shell) = send(&app, api_get("/api/v1/shell")).await;
     let shell: serde_json::Value = serde_json::from_str(&shell).unwrap();
-    assert!(
-        shell.get("classic").is_none(),
-        "the classic console is gone: {shell}"
-    );
     assert!(shell["address"].as_str().unwrap().contains(':'));
     assert!(shell["topics"].as_u64().unwrap() > 0);
     let (_, connect) = send(&app, api_get("/api/v1/connect")).await;
@@ -230,28 +226,27 @@ async fn a_change_through_the_api_needs_the_same_origin_proof_too() {
 }
 
 #[tokio::test]
-async fn the_classic_console_is_gone_and_its_addresses_are_the_react_apps_not_found() {
+async fn an_address_the_app_has_no_page_for_is_its_not_found_and_no_old_file_is_served() {
     let app = app("/");
     let (_, index) = send(&app, plain_get("/")).await;
     for path in [
-        "/classic/",
-        "/classic/connect",
-        "/classic/topics/orders",
-        "/classic/events?tail=live",
+        "/no-such-page",
+        "/topics/orders/no-such-tab/deeper",
+        "/events?tail=live",
     ] {
-        // No page of its own: the React app's index.html, whose router has no such page and shows Not here.
+        // The React app's index.html, whose router has no such page and shows Not here.
         let (res, body) = send(&app, plain_get(path)).await;
         assert_eq!(res.status(), StatusCode::OK, "{path}");
         assert_eq!(body, index, "{path}");
     }
     for path in [
-        "/classic/static/console.0123456789ab.css",
+        "/static/console.0123456789ab.css",
         "/static/htmx-2.0.11.min.js",
     ] {
         let (_, body) = send(&app, plain_get(path)).await;
-        assert_eq!(body, index, "no classic file is served: {path}");
+        assert_eq!(body, index, "no file outside the bundle is served: {path}");
     }
-    let post = req("POST", "/classic/connect/advertised/check")
+    let post = req("POST", "/connect/advertised/check")
         .header("sec-fetch-site", "same-origin")
         .body(Body::empty())
         .unwrap();

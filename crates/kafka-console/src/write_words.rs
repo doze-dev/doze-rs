@@ -1,6 +1,6 @@
 //! The words of the topic-write dialogs that are made from what the broker said and what was typed: the teaching under a
 //! field, a button's label, the warning of Delete records, the "in use" sentence of Delete topic. Pure functions, outside
-//! the page layer, so the classic pages and the JSON API (`api/topic_writes.rs`) say the same thing one way.
+//! the page layer, so the JSON API (`api/topic_writes.rs`) say the same thing one way.
 
 use crate::format::number;
 use crate::model::{AddView, DeleteRecordsView, InUse, ProduceView, Span, Teach};

@@ -1074,8 +1074,8 @@ A POST passes `origin::check` (Origin equal to Host, or `Sec-Fetch-Site: same-or
 ## CON-1009. No memory figure anywhere
 The owner (2026-11-13): "don't show memory". `InstanceView::resident_bytes` is never serialised and Home shows no memory tile. Test: `a_home_answer_carries_no_memory_figure`; Playwright "Home: one h1, the figures as stat tiles, no memory figure anywhere".
 
-## CON-1010. The classic console is gone (slice R5)
-Until R5 the maud console was served under `{prefix}/classic`. It is removed: no link to it in the app (the sidebar's Classic console item and the "Being rebuilt" pages are gone), the shell answer has no `classic` field, and its old addresses (`/classic/`, `/classic/connect`, `/classic/static/...`, `/classic/events`) are page addresses of the React app, which answers `index.html` and shows Not here; a POST there is 405. `/healthz` answers at the root. Test: `the_classic_console_is_gone_and_its_addresses_are_the_react_apps_not_found`, `the_api_says_what_home_connect_the_shell_and_the_palette_need`; Playwright "a deep link opens the page as it was, and the classic console is gone".
+## CON-1010. An address the app has no page for is its Not here
+There is one page layer, the React app, and no other route (the server-rendered console and its `/classic/` mount were removed in slice R5). Any GET under the console root that is not `/api/`, `/assets/`, `/healthz` or a file of the bundle answers `index.html`, whose router shows Not here for an address it has no page for; no file outside the bundle is served, and a POST to a page address is 405. Test: `an_address_the_app_has_no_page_for_is_its_not_found_and_no_old_file_is_served`; Playwright "a deep link opens the page as it was, and an address with no page is Not here".
 
 ## CON-1011. The host guard, the headers and the limits stand in front of all of it
 The CSP is `default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'`. Test: `the_host_guard_and_the_security_headers_stand_in_front_of_all_of_it`.
