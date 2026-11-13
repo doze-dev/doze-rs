@@ -38,7 +38,7 @@ impl Grid {
     pub(crate) fn new(frames: &[Rect]) -> Option<Grid> {
         let first = frames.first()?;
         let all = frames.iter().skip(1).fold(*first, |a, r| a.union(r));
-        let cell = (all.w.max(all.h) / 300.0).clamp(12.0, 64.0);
+        let cell = (all.w.max(all.h) / 220.0).clamp(16.0, 64.0);
         let pad = cell * 3.0;
         let (x0, y0) = (all.x - pad, all.y - pad);
         #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
@@ -111,7 +111,8 @@ impl Grid {
         const DIRS: [(i64, i64); 4] = [(1, 0), (-1, 0), (0, 1), (0, -1)];
         let n = self.cols * self.rows;
         let idx = |c: usize, r: usize, d: usize| (r * self.cols + c) * 4 + d;
-        let h = |c: usize, r: usize| (c.abs_diff(to.0) + r.abs_diff(to.1)) as u32;
+        // Weighted (twice the distance): a near-shortest way, found in a fraction of the search.
+        let h = |c: usize, r: usize| 2 * (c.abs_diff(to.0) + r.abs_diff(to.1)) as u32;
         let mut best = vec![u32::MAX; n * 4];
         let mut prev = vec![usize::MAX; n * 4];
         let mut heap = BinaryHeap::new();
