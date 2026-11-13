@@ -139,7 +139,14 @@ pub(super) async fn create(rc: &Rc, p: &Value) -> Done {
         }
     }
     retag(rc, &name, &[], &tag_list(rc, p)).await?;
-    Ok(described(rc, &name))
+    let mut made = described(rc, &name);
+    if let Some(acl) = text(p, "AccessControl").filter(|a| a != "Private") {
+        // ACLs are refused by doze-aws (AWS turned them off for new buckets in 2023); the canned ACL is not applied.
+        made.note = Some(format!(
+            "AccessControl {acl} is stored and not applied locally: doze-aws does not serve ACLs"
+        ));
+    }
+    Ok(made)
 }
 
 fn described(rc: &Rc, name: &str) -> Made {

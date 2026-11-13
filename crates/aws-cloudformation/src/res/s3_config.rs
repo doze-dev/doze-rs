@@ -25,8 +25,25 @@ pub(super) fn accelerate(p: &Value) -> Option<Value> {
     get(p, "AccelerateConfiguration").map(|a| json!({"Status": a.get("AccelerationStatus")}))
 }
 
+/// CloudFormation's `ServerSideEncryptionByDefault` is S3's `ApplyServerSideEncryptionByDefault`.
 pub(super) fn encryption(p: &Value) -> Option<Value> {
-    get(p, "BucketEncryption").map(|e| json!({"Rules": e.get("ServerSideEncryptionConfiguration").cloned().unwrap_or(json!([]))}))
+    let rules = get(p, "BucketEncryption")?
+        .get("ServerSideEncryptionConfiguration")?
+        .as_array()?;
+    let rules: Vec<Value> = rules
+        .iter()
+        .map(|r| {
+            let mut o = Map::new();
+            if let Some(d) = r.get("ServerSideEncryptionByDefault") {
+                o.insert("ApplyServerSideEncryptionByDefault".into(), d.clone());
+            }
+            if let Some(k) = r.get("BucketKeyEnabled") {
+                o.insert("BucketKeyEnabled".into(), k.clone());
+            }
+            Value::Object(o)
+        })
+        .collect();
+    Some(json!({"Rules": rules}))
 }
 
 pub(super) fn cors(p: &Value) -> Option<Value> {

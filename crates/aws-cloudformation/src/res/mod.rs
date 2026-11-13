@@ -63,6 +63,8 @@ pub(crate) struct Rc {
 pub(crate) struct Made {
     pub(crate) physical: String,
     pub(crate) attrs: Map<String, Value>,
+    /// What the resource's status reason says although it was made (a setting stored and not applied locally).
+    pub(crate) note: Option<String>,
 }
 
 impl Made {
@@ -70,6 +72,7 @@ impl Made {
         Self {
             physical: physical.into(),
             attrs: Map::new(),
+            note: None,
         }
     }
 

@@ -6,6 +6,7 @@
     clippy::too_many_lines
 )]
 
+mod cdk;
 mod changes;
 mod stacks;
 mod templates;

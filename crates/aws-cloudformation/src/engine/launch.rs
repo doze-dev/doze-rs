@@ -52,7 +52,8 @@ pub(super) async fn perform(rc: Rc, l: Launch) -> Result<(Made, Option<String>),
         (Step::Update, Some(old)) => res::update(&rc, old, &props).await?,
         _ => res::create(&rc, &props).await?,
     };
-    Ok((made, None))
+    let note = made.note.clone();
+    Ok((made, note))
 }
 
 /// The context a resource of `ty` is made in.
