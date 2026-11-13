@@ -133,31 +133,36 @@ fn verbs(t: &Tokens, v: &InstanceView, cx: &mut Context<InstanceView>) -> Vec<An
             cx,
         ));
     } else if let Some(c) = &p.crash {
-        // A failed one is not being tried again: there is nothing to stop, only Try now.
-        if !c.gave_up {
-            out.push(act(
-                t,
-                "stop",
-                ("Stop trying", &chip("Sleep / stop trying")),
-                false,
-                InstanceView::sleep,
-                cx,
-            ));
-        }
-        out.push(act(
-            t,
-            "try",
-            (
-                if c.gave_up { "Restart" } else { "Try now" },
-                &chip("Restart / try now"),
-            ),
-            true,
-            InstanceView::restart,
-            cx,
-        ));
+        out.extend(crash_verbs(t, c.gave_up, cx));
     } else {
         out.extend(service_verbs(t, v, cx));
     }
+    out
+}
+
+/// A crashing one: stop trying, or try now. A failed one is not being tried again: nothing to stop, and Restart, as
+/// Needs you says it.
+fn crash_verbs(t: &Tokens, gave_up: bool, cx: &mut Context<InstanceView>) -> Vec<AnyElement> {
+    let mut out = Vec::new();
+    if !gave_up {
+        out.push(act(
+            t,
+            "stop",
+            ("Stop trying", &chip("Sleep / stop trying")),
+            false,
+            InstanceView::sleep,
+            cx,
+        ));
+    }
+    let label = if gave_up { "Restart" } else { "Try now" };
+    out.push(act(
+        t,
+        "try",
+        (label, &chip("Restart / try now")),
+        true,
+        InstanceView::restart,
+        cx,
+    ));
     out
 }
 
