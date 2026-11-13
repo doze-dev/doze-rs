@@ -3,41 +3,6 @@
 
 use crate::model::{AccessWarning, Span};
 
-/// What is on, as far as the title word goes.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Posture {
-    /// No sign-in, the default allows, no ACL.
-    Open,
-    /// Nobody signs in but ACLs (or a default that denies) decide for `User:ANONYMOUS`.
-    AclsOnly,
-    /// Clients sign in.
-    SignIn,
-}
-
-/// The posture of a broker from its three switches.
-#[must_use]
-pub const fn posture(sasl: bool, acls: usize, default_allow: bool) -> Posture {
-    if sasl {
-        Posture::SignIn
-    } else if acls > 0 || !default_allow {
-        Posture::AclsOnly
-    } else {
-        Posture::Open
-    }
-}
-
-impl Posture {
-    /// The word beside the title.
-    #[must_use]
-    pub const fn word(self) -> &'static str {
-        match self {
-            Self::Open => "Open",
-            Self::AclsOnly => "ACLs only",
-            Self::SignIn => "Sign-in required",
-        }
-    }
-}
-
 /// What the warnings are decided from.
 #[derive(Debug, Clone, Copy)]
 pub struct Switches<'a> {
@@ -49,7 +14,6 @@ pub struct Switches<'a> {
     /// The console can be reached from other machines.
     pub console_beyond_loopback: bool,
     pub console_addr: &'a str,
-    pub listener: &'a str,
 }
 
 fn plain(text: &str) -> Vec<Span> {
@@ -115,63 +79,5 @@ pub fn warnings(s: &Switches<'_>) -> Vec<AccessWarning> {
     vec![one, two, three]
 }
 
-/// `1 from flags, 3 stored`.
-#[must_use]
-pub fn users_line(flags: usize, stored: usize) -> String {
-    format!("{flags} from flags, {stored} stored")
-}
-
-/// `7 allow, 1 deny`.
-#[must_use]
-pub fn acl_split(allow: usize, deny: usize) -> String {
-    format!("{allow} allow, {deny} deny")
-}
-
-/// The sentence under the title.
-#[must_use]
-pub fn sub(p: Posture, listen: &str, mechanisms: &[String], tls: bool) -> Vec<Span> {
-    match p {
-        Posture::Open => vec![
-            Span::text("Anyone who can reach "),
-            Span::strong(listen),
-            Span::text(
-                " may read, write and change anything: nobody signs in, no ACL exists and the default allows. This page shows each of those three switches and what it holds.",
-            ),
-        ],
-        Posture::AclsOnly => vec![
-            Span::text("Nobody signs in to "),
-            Span::strong(listen),
-            Span::text(", so every client is "),
-            Span::mono("User:ANONYMOUS"),
-            Span::text(
-                " and the ACLs decide what it may do. Everything below is read from the broker.",
-            ),
-        ],
-        Posture::SignIn => vec![Span::text(format!(
-            "Clients sign in with {}{}, and ACLs decide what each one may do. Everything below is read from the broker; no password, key or salt is ever shown.",
-            mechanisms.join(" or "),
-            if tls { " over TLS" } else { "" }
-        ))],
-    }
-}
-
 #[cfg(test)]
 mod tests;
-
-/// The iteration counts of a user's SCRAM credentials as one cell: the count itself when every mechanism has the same
-/// (the usual case: `4,096`), else each with its mechanism (`4,096 SHA-256, 8,192 SHA-512`). `None` for a user with no SCRAM
-/// credential (PLAIN has no iteration count). The count is a public parameter of the credential, sent to every client in the
-/// server-first message; nothing else of a credential is read.
-#[must_use]
-pub fn iterations_text(iterations: &[(String, u32)]) -> Option<String> {
-    let first = iterations.first()?.1;
-    let n = |i: u32| crate::format::number(i64::from(i));
-    if iterations.iter().all(|(_, i)| *i == first) {
-        return Some(n(first));
-    }
-    let parts: Vec<String> = iterations
-        .iter()
-        .map(|(m, i)| format!("{} {}", n(*i), m.strip_prefix("SCRAM-").unwrap_or(m)))
-        .collect();
-    Some(parts.join(", "))
-}

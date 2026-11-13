@@ -21,16 +21,6 @@ fn a_list_is_said_with_and() {
 }
 
 #[test]
-fn a_timeout_is_in_seconds_up_to_two_minutes_as_the_board_writes_it() {
-    assert_eq!(timeout(60_000), "60 s");
-    assert_eq!(timeout(120_000), "120 s");
-    assert_eq!(timeout(120_001), "2 min");
-    assert_eq!(timeout(900_000), "15 min");
-    assert_eq!(timeout(1_500), "1 s");
-    assert_eq!(timeout(0), "0 s");
-}
-
-#[test]
 fn retention_is_a_span_or_for_ever() {
     assert_eq!(retention(604_800_000), "7 d");
     assert_eq!(retention(3_600_000), "1 h");

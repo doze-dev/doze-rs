@@ -47,14 +47,3 @@ fn the_reading_of_a_refused_reset_counts_the_members_and_a_delete_names_the_rule
     assert!(flat(&rule).contains("GROUP_ID_NOT_FOUND, 69"));
     assert_eq!(steps.len(), 1);
 }
-
-#[test]
-fn times_and_numbers_read_as_a_person_says_them() {
-    assert_eq!(span_precise(2_100), "2.1 s");
-    assert_eq!(span_precise(5_000), "5 s");
-    assert_eq!(seconds(60_000), "60 s");
-    assert_eq!(seconds(180_000), "3 min");
-    assert_eq!(number_word(3), "three");
-    assert_eq!(number_word(11), "11");
-    assert_eq!(members_word(1), "1 member");
-}

@@ -6,11 +6,11 @@ use std::sync::Arc;
 
 use super::{Live, Source, now_ms};
 use crate::gather;
+use crate::live_words::Limits as RequestLimits;
 use crate::model::{
-    ClientsView, FirstView, GroupWireView, LiveState, LiveView, SpokeView, WireDetail, WireQuery,
-    WireRow, WireWindow,
+    ClientsView, FirstView, GroupWireView, LiveView, SpokeView, WireDetail, WireQuery, WireRow,
+    WireWindow,
 };
-use crate::pages::live::RequestLimits;
 use crate::recorder::Recorder;
 
 impl Live {
@@ -158,12 +158,6 @@ impl Source {
             Self::Fixture => Some(crate::fixtures_live::spoke()),
         }
     }
-}
-
-/// Whether a tape holds anything yet (the state words of Home).
-#[must_use]
-pub fn is_quiet(v: &LiveView) -> bool {
-    v.state == LiveState::Quiet
 }
 
 impl Source {

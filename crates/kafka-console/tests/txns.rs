@@ -13,11 +13,11 @@ mod world;
 
 use std::time::Duration;
 
-use kafka_console::base::Base;
+use kafka_console::api::HomeResponse;
 use kafka_console::gather;
 use kafka_console::model::HomeState;
 use kafka_console::source::now_ms;
-use support::{get, send};
+use support::{api_get, send};
 use world::{World, world};
 
 /// `count` transactions that will not time out for ten minutes, with ids that sort first.
@@ -41,17 +41,17 @@ async fn forty_four_open_transactions_do_not_hide_three_that_are_near_their_time
     w.create_topic("orders").await;
     long_ones(&w, 44).await;
     short_ones(&w).await;
-    let (_, body) = send(&w.router(), get("/")).await;
-    assert!(
-        !body.contains("Nothing needs you"),
-        "three transactions need someone and the page says nothing does: {body:.600}"
+    let (_, body) = send(&w.router(), api_get("/api/v1/home")).await;
+    let home: serde_json::Value = serde_json::from_str(&body).unwrap();
+    assert_eq!(
+        home["home"]["state"]["kind"], "attention",
+        "three transactions need someone and Home says nothing does: {body:.600}"
     );
-    assert!(
-        body.contains("3 things need you: 3 transactions are close to their timeout."),
+    assert_eq!(
+        home["words"]["attention_headline"],
+        "3 things need you: 3 transactions are close to their timeout.",
         "{body:.600}"
     );
-    let (_, frag) = send(&w.router(), get("/fragments/home-live")).await;
-    assert!(frag.contains("3 things need you"), "{frag:.600}");
     w.stop().await;
 }
 
@@ -82,27 +82,30 @@ async fn where_it_has_to_stop_looking_it_says_so_and_never_claims_the_all_clear(
         seen.attention.is_none(),
         "the near ones sort last and were not looked at"
     );
-    // The page built from that says what it did not look at.
+    // What Home says, built from that, says what it did not look at.
     let mut v = kafka_console::fixtures::home(HomeState::Steady);
     v.unchecked = seen.unchecked;
-    let body = kafka_console::pages::callout_body(&v, &Base::root()).into_string();
-    assert!(!body.contains("Nothing needs you"), "{body}");
-    assert!(
-        body.contains("5 open transactions were not checked"),
-        "{body}"
+    let words = HomeResponse::new(v.clone()).words;
+    assert_eq!(
+        words.attention_headline, None,
+        "no all-clear is claimed either"
+    );
+    assert_eq!(
+        words.unchecked_note.as_deref(),
+        Some("5 open transactions were not checked.")
     );
     // And a cap that is met by what it found: "or more".
     let mut a = kafka_console::fixtures::attention();
     a.count = 2;
     v.state = HomeState::Attention(a);
-    let body = kafka_console::pages::callout_body(&v, &Base::root()).into_string();
-    assert!(
-        body.contains("At least 2 transactions are close to their timeout"),
-        "{body}"
+    let words = HomeResponse::new(v).words;
+    assert_eq!(
+        words.attention_headline.as_deref(),
+        Some("At least 2 transactions are close to their timeout.")
     );
-    assert!(
-        body.contains("5 open transactions were not checked"),
-        "{body}"
+    assert_eq!(
+        words.unchecked_note.as_deref(),
+        Some("5 open transactions were not checked.")
     );
     w.stop().await;
 }

@@ -9,10 +9,9 @@ use kafka_wire::messages::offset_commit_request::{
 use kafka_wire::messages::offset_delete_request::{
     OffsetDeleteRequestPartition, OffsetDeleteRequestTopic,
 };
-use kafka_wire::messages::offset_fetch_request::OffsetFetchRequestGroup;
 use kafka_wire::messages::{
     ConsumerGroupDescribeRequest, DeleteGroupsRequest, DescribeGroupsRequest, GroupId,
-    OffsetCommitRequest, OffsetDeleteRequest, OffsetFetchRequest, TopicName,
+    OffsetCommitRequest, OffsetDeleteRequest, TopicName,
 };
 
 /// The most groups one describe names.
@@ -42,19 +41,6 @@ pub fn consumer_group_describe(names: &[String]) -> Request {
     r.group_ids = ids(names);
     r.include_authorized_operations = false;
     Request::ConsumerGroupDescribe(r)
-}
-
-/// Everything one group committed, on every topic and partition, waiting for a pending transaction's offsets to settle
-/// (`require_stable`), as a consumer that must not read a half-committed state does.
-#[must_use]
-pub fn offsets_of(group: &str) -> Request {
-    let mut r = OffsetFetchRequest::default();
-    r.require_stable = true;
-    let mut g = OffsetFetchRequestGroup::default();
-    g.group_id = GroupId(StrBytes::from_string(group.to_owned()));
-    g.topics = None;
-    r.groups = vec![g];
-    Request::OffsetFetch(r)
 }
 
 /// A commit by an administrator: no generation, no member (`kafka-consumer-groups --reset-offsets` does the same). The broker
@@ -128,16 +114,6 @@ mod tests {
             panic!("not ConsumerGroupDescribe");
         };
         assert_eq!(r.group_ids.len(), MOST_DESCRIBED);
-    }
-
-    #[test]
-    fn an_offset_fetch_asks_for_every_partition_of_one_group_and_waits_for_a_stable_answer() {
-        let Request::OffsetFetch(r) = offsets_of("g") else {
-            panic!("not OffsetFetch");
-        };
-        assert!(r.require_stable);
-        assert_eq!(r.groups.len(), 1);
-        assert!(r.groups[0].topics.is_none());
     }
 
     #[test]

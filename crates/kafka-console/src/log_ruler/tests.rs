@@ -10,11 +10,18 @@ fn a_cell_is_as_wide_as_the_offsets_it_spans_and_the_colour_says_what_the_cleane
     let r = ruler(&inventory());
     let flex: Vec<i64> = r.cells.iter().map(|c| c.flex).collect();
     assert_eq!(flex, [9812, 9791, 9817, 9775, 9682, 6333, 6090, 604]);
-    let classes: Vec<&str> = r.cells.iter().map(|c| c.cell.class()).collect();
+    let cells: Vec<Cell> = r.cells.iter().map(|c| c.cell).collect();
     assert_eq!(
-        classes,
+        cells,
         [
-            "clean", "clean", "clean", "clean", "dirty", "dirty", "dirty", "active"
+            Cell::Clean,
+            Cell::Clean,
+            Cell::Clean,
+            Cell::Clean,
+            Cell::Dirty,
+            Cell::Dirty,
+            Cell::Dirty,
+            Cell::Active
         ]
     );
     // The last segment is too narrow for a label (as the board draws it) and the first has its two lines.
@@ -79,23 +86,6 @@ fn the_markers_sit_where_the_offsets_are_and_the_end_is_drawn_at_the_right_edge(
         held.marks.last().unwrap().label,
         "high watermark 16,104 \u{b7} last stable offset 16,098"
     );
-}
-
-#[test]
-fn a_marker_allows_for_the_gaps_between_the_cells() {
-    assert_eq!(
-        mark_style(0.0, 21),
-        "--at:calc((100% - 21px) * 0.00000 + 0px);transform:none;align-items:flex-start"
-    );
-    assert_eq!(
-        mark_style(1.0, 21),
-        "--at:calc((100% - 21px) * 1.00000 + 21px);transform:translateX(-100%);align-items:flex-end"
-    );
-    assert_eq!(
-        mark_style(0.63316, 21),
-        "--at:calc((100% - 21px) * 0.63316 + 10.5px);"
-    );
-    assert_eq!(ruler(&inventory()).gap_px(), 21);
 }
 
 #[test]

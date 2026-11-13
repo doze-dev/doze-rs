@@ -96,9 +96,6 @@ pub fn text<'a>(fields: &'a [(String, String)], name: &str) -> &'a str {
     get(fields, name).unwrap_or("")
 }
 
-/// The most fields a form is read for (see [`parse`]).
-pub const FIELD_LIMIT: usize = MOST_FIELDS;
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -221,12 +218,12 @@ mod body_tests {
 
     #[test]
     fn fields_past_the_limit_are_dropped_not_errors() {
-        let body: String = (0..FIELD_LIMIT + 50).map(|i| format!("f{i}=v&")).collect();
+        let body: String = (0..MOST_FIELDS + 50).map(|i| format!("f{i}=v&")).collect();
         let f = parse_body(body.as_bytes());
-        assert_eq!(f.len(), FIELD_LIMIT);
+        assert_eq!(f.len(), MOST_FIELDS);
         assert_eq!(text(&f, "f0"), "v");
         assert_eq!(
-            text(&f, &format!("f{}", FIELD_LIMIT)),
+            text(&f, &format!("f{}", MOST_FIELDS)),
             "",
             "the first field past the limit is gone"
         );

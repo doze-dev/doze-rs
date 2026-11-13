@@ -1,5 +1,5 @@
 //! The Live endpoints of the React console (slice R3): the tape as a snapshot, one request in full (with the rules behind a
-//! refusal, decided here as the classic drawers decide them), the clients, the first request of the newest client, the docks
+//! refusal, decided by `live_words`), the clients, the first request of the newest client, the docks
 //! of a topic and of a group, and the one stream: `GET /api/v1/tail/live`, the tape's tail as JSON (CON-1250 to CON-1262).
 //!
 //! The tail is the classic stream's rules (`stream.rs`) with JSON rows: the server looks once per `pace` (1 to 30 s, clamped
@@ -19,14 +19,14 @@ use axum::response::{IntoResponse, Response};
 use futures_util::stream::{self, Stream, StreamExt};
 use serde::Serialize;
 
-use super::{error, json};
+use super::json;
+use crate::live_words::{
+    Kind as RequestKind, Limits as RequestLimits, Rule as RequestRule, fenced_rules,
+    fetch_commands, keyed_produce, refused_rules, too_large_rules,
+};
 use crate::model::{
     ClientsView, FirstView, GroupWireView, LiveState, LiveView, WireClass, WireDetail, WireQuery,
     WireRow, WireWindow,
-};
-use crate::pages::live::{
-    RequestKind, RequestLimits, RequestRule, fenced_rules, fetch_commands, keyed_produce,
-    refused_rules, too_large_rules,
 };
 use crate::state::Shared;
 
@@ -404,9 +404,7 @@ pub async fn tail(
         _ => (0, true),
     };
     let Ok(permit) = Arc::clone(&s.streams).try_acquire_owned() else {
-        return error(
-            StatusCode::SERVICE_UNAVAILABLE,
-            "BUSY",
+        return super::busy(
             "The console has as many event streams open as it allows. Close a tail in another tab and switch this one on again.",
         );
     };

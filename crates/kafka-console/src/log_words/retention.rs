@@ -74,88 +74,8 @@ pub fn expiry(v: &LogView) -> Option<Expiry> {
     })
 }
 
-fn bounds(r: &LogRetentionView) -> Vec<Span> {
-    match (r.max_age_ms, r.max_bytes) {
-        (Some(age), Some(size)) => vec![
-            t("Segments older than "),
-            Span::strong(span_ms(age)),
-            t(
-                " are deleted whole, oldest first, and so are segments that take the partition over ",
-            ),
-            Span::strong(bytes(size)),
-            t(format!(", every {}.", every(r.every_ms))),
-        ],
-        (Some(age), None) => vec![
-            t("Segments older than "),
-            Span::strong(span_ms(age)),
-            t(format!(
-                " are deleted whole, oldest first, every {}.",
-                every(r.every_ms)
-            )),
-        ],
-        (None, Some(size)) => vec![
-            t("Segments are deleted whole, oldest first, once the partition holds more than "),
-            Span::strong(bytes(size)),
-            t(format!(", every {}.", every(r.every_ms))),
-        ],
-        (None, None) => vec![t(
-            "Nothing deletes records here: retention.ms and retention.bytes are not set, so the log is kept for ever.",
-        )],
-    }
-}
-
-/// The sentence under the name of a log that deletes.
-#[must_use]
-pub fn retention_sentence(v: &LogView) -> Vec<Span> {
-    let Some(r) = &v.retention else {
-        return Vec::new();
-    };
-    let mut out = bounds(r);
-    let Some(e) = expiry(v) else {
-        return out;
-    };
-    let at = |ms: Option<i64>| ms.map_or_else(|| "the first pass after that".to_owned(), clock_hm);
-    if e.going_now > 0 {
-        out.push(t(format!(
-            " {} past it already and {} at the next pass",
-            segments_word(e.going_now, false),
-            if e.going_now == 1 { "goes" } else { "go" }
-        )));
-        out.push(t(format!(
-            " ({}), which moves the log start from {} to {}.",
-            at(e.pass_at_ms),
-            number(v.start),
-            number(e.new_start)
-        )));
-    } else if let (Some((i, turns)), Some(age)) = (e.next, r.max_age_ms) {
-        out.push(t(format!(
-            " Segment {} turns {} old at ",
-            number_of(i),
-            span_ms(age)
-        )));
-        out.push(Span::strong(clock_hm(turns)));
-        out.push(t(" and goes at the pass at "));
-        out.push(Span::strong(at(e.pass_at_ms)));
-        let to = v.segments.get(i + 1).map_or(v.end, |s| s.base);
-        out.push(t(format!(
-            ", which moves the log start from {} to {}.",
-            number(v.start),
-            number(to)
-        )));
-    }
-    out
-}
-
 fn clock_hm(ms: i64) -> String {
     clock(ms).chars().take(5).collect()
-}
-
-fn segments_word(n: usize, _cap: bool) -> String {
-    if n == 1 {
-        "Segment 1 is".to_owned()
-    } else {
-        format!("Segments 1 to {n} are")
-    }
 }
 
 /// The rules of the next pass, with this partition's numbers.

@@ -5,10 +5,10 @@
 #![allow(clippy::too_many_lines, clippy::too_many_arguments)] // fixtures are tables of the boards' rows
 
 use crate::fixtures_topics::now as world_now;
+use crate::live_words::Limits as RequestLimits;
 use crate::model::{
     LiveState, LiveView, WireClass, WireDetail, WireQuery, WireRefusal, WireRow, WireWindow,
 };
-use crate::pages::live::RequestLimits;
 use crate::recorder::errors;
 
 mod others;

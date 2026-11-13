@@ -285,11 +285,3 @@ pub fn view_of(
         head,
     }
 }
-
-/// A story with one rebalance in it, settled, in a group that is Stable: nothing to read but that one line.
-#[must_use]
-pub fn is_quiet(v: &StoryView) -> bool {
-    v.in_memory
-        && v.head.phase == GroupPhase::Stable
-        && matches!(v.generations.as_slice(), [g] if !g.forming)
-}

@@ -91,11 +91,7 @@ pub(super) async fn tail_messages(
         .and_then(|v| v.trim().parse::<i64>().ok())
         .unwrap_or(0);
     let Ok(permit) = Arc::clone(&s.streams).try_acquire_owned() else {
-        return error(
-            StatusCode::SERVICE_UNAVAILABLE,
-            "BUSY",
-            "The console has as many event streams open as it allows.",
-        );
+        return crate::api::busy("The console has as many event streams open as it allows.");
     };
     let pace = crate::stream::pace_of(field(&f, "pace"));
     let follow = Follow {

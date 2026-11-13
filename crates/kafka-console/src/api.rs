@@ -1,4 +1,4 @@
-//! The JSON API of the React console (`docs/port/console/react-plan.md`): the same view-models the maud pages render,
+//! The JSON API of the React console (`docs/port/console/react-plan.md`): the view-models of [`crate::model`],
 //! serialised, under `/api/v1/`.
 //!
 //! Every answer is JSON. A refusal is `{ "code": "...", "message": "..." }` with Kafka's own words where a Kafka error is the
@@ -82,6 +82,17 @@ pub fn error(status: StatusCode, code: &str, message: &str) -> Response {
             message: message.to_owned(),
         },
     )
+}
+
+/// 503 `BUSY` with `Retry-After`: a stream over the cap (`Limits::max_streams`).
+#[must_use]
+pub fn busy(message: &str) -> Response {
+    let mut res = error(StatusCode::SERVICE_UNAVAILABLE, "BUSY", message);
+    res.headers_mut().insert(
+        axum::http::header::RETRY_AFTER,
+        HeaderValue::from_static(crate::limits::RETRY_AFTER_SECS),
+    );
+    res
 }
 
 /// The answer to an `/api/` address no route has.
@@ -236,8 +247,6 @@ pub struct ShellView {
     /// The sidebar's counts.
     pub topics: usize,
     pub groups: usize,
-    /// Where the server-rendered console still lives until slice R5 (`/classic/`).
-    pub classic: String,
 }
 
 /// `GET /api/v1/jump?q=`: the palette's data. Pages are the client's own list.
@@ -287,7 +296,6 @@ async fn shell(State(s): State<Shared>) -> Response {
             unprotected: chrome.unprotected,
             topics,
             groups,
-            classic: s.base.url("/"),
         },
     )
 }

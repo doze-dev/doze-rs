@@ -106,3 +106,18 @@ pub struct ConnectView {
     pub access: Access,
     pub snippets: Vec<ClientSnippet>,
 }
+
+/// What the top bar says: data from the broker, not decoration (`GET /api/v1/shell`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Chrome {
+    /// The address a client is pointed at, `127.0.0.1:9092`.
+    pub address: String,
+    /// `Kafka 4 profile`.
+    pub profile: String,
+    /// `Open`, `Open · ACLs`, `SASL SCRAM + TLS`.
+    pub security: String,
+    /// Whether the security chip carries a lock (something is on) and not the open dot.
+    pub locked: bool,
+    /// The console is served beyond loopback with no login (`--console-unprotected`).
+    pub unprotected: bool,
+}

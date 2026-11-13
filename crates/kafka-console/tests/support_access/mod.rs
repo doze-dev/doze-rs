@@ -146,7 +146,7 @@ pub fn router_with(facts: Facts, start: StartFacts, backend: Backend) -> Router 
         vec![],
         CancellationToken::new(),
     );
-    kafka_console::app::router(state)
+    kafka_console::app::console(state)
 }
 
 impl Secured {
@@ -199,7 +199,9 @@ pub fn new_acl(name: &str, principal: &str) -> Vec<(&'static str, String)> {
 
 pub fn form(fields: &[(&'static str, String)]) -> axum::http::Request<axum::body::Body> {
     let f: Vec<(&str, &str)> = fields.iter().map(|(k, v)| (*k, v.as_str())).collect();
-    post_form("/access/acls/new", &f)
+    let mut req = post_form("/api/v1/access/acls/new", &f);
+    req.headers_mut().insert("x-console", "1".parse().unwrap());
+    req
 }
 
 /// A broker config as DescribeConfigs says it for this broker: value and source number.

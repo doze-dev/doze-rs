@@ -220,7 +220,6 @@ pub fn assemble(read: Read, facts: &Facts, start: &StartFacts) -> AccessView {
         listener_beyond_loopback: !facts.loopback(),
         console_beyond_loopback: facts.unprotected,
         console_addr: &console_addr,
-        listener: &listen,
     };
     let users = users_of(scram, &flag_users, plain_on, &supers);
     AccessView {

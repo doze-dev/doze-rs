@@ -14,7 +14,6 @@ fn s(
         listener_beyond_loopback: listener_beyond,
         console_beyond_loopback: console_beyond,
         console_addr: "127.0.0.1:9093",
-        listener: "127.0.0.1:9092",
     }
 }
 
@@ -66,64 +65,4 @@ fn the_three_warnings_say_what_the_board_says_in_both_states() {
     assert!(format!("{:?}", loud[0].because).contains("--console-unprotected"));
     assert!(format!("{:?}", loud[1].because).contains("PLAIN password"));
     assert!(format!("{:?}", loud[2].because).contains("manage users and ACLs"));
-}
-
-#[test]
-fn the_posture_is_the_three_switches() {
-    assert_eq!(posture(false, 0, true), Posture::Open);
-    assert_eq!(posture(false, 1, true), Posture::AclsOnly);
-    assert_eq!(posture(false, 0, false), Posture::AclsOnly);
-    assert_eq!(posture(true, 0, true), Posture::SignIn);
-    assert_eq!(posture(true, 8, false), Posture::SignIn);
-    assert_eq!(Posture::SignIn.word(), "Sign-in required");
-    assert_eq!(Posture::Open.word(), "Open");
-}
-
-#[test]
-fn the_counts_read_as_the_board_writes_them() {
-    assert_eq!(users_line(1, 3), "1 from flags, 3 stored");
-    assert_eq!(acl_split(7, 1), "7 allow, 1 deny");
-    let sub_text = format!(
-        "{:?}",
-        sub(
-            Posture::SignIn,
-            "x",
-            &["SCRAM-SHA-256".into(), "SCRAM-SHA-512".into()],
-            true
-        )
-    );
-    assert!(
-        sub_text.contains("SCRAM-SHA-256 or SCRAM-SHA-512 over TLS"),
-        "{sub_text}"
-    );
-    let open = format!("{:?}", sub(Posture::Open, "127.0.0.1:9092", &[], false));
-    assert!(
-        open.contains("127.0.0.1:9092") && open.contains("nobody signs in"),
-        "{open}"
-    );
-}
-
-#[test]
-fn the_iteration_cell_is_one_count_when_they_agree_each_when_they_differ_and_none_without_scram() {
-    let it = |v: &[(&str, u32)]| -> Vec<(String, u32)> {
-        v.iter().map(|(m, i)| ((*m).to_owned(), *i)).collect()
-    };
-    assert_eq!(iterations_text(&[]), None);
-    assert_eq!(
-        iterations_text(&it(&[("SCRAM-SHA-256", 4096)])).as_deref(),
-        Some("4,096")
-    );
-    assert_eq!(
-        iterations_text(&it(&[("SCRAM-SHA-256", 4096), ("SCRAM-SHA-512", 4096)])).as_deref(),
-        Some("4,096")
-    );
-    assert_eq!(
-        iterations_text(&it(&[("SCRAM-SHA-256", 4096), ("SCRAM-SHA-512", 8192)])).as_deref(),
-        Some("4,096 SHA-256, 8,192 SHA-512")
-    );
-    // Two credentials that differ by one are not folded into one.
-    assert_eq!(
-        iterations_text(&it(&[("SCRAM-SHA-256", 4096), ("SCRAM-SHA-512", 4097)])).as_deref(),
-        Some("4,096 SHA-256, 4,097 SHA-512")
-    );
 }
