@@ -140,7 +140,7 @@ fn legend(t: &Tokens, m: &MapView) -> AnyElement {
                 "laid out on their own · T or esc shows everything"
             }
             None if !m.layout.regions.is_empty() && !m.all_lines => {
-                "hover a card for its calls · lines between regions are bundled · L every line"
+                "one link per pair of regions, its calls counted · hover a region or a card to light its own · L every line"
             }
             None if super::paint::bundled(m) => {
                 "lines are bundled calls between regions · hover a card for its own"

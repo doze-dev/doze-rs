@@ -115,9 +115,7 @@ pub(crate) fn scene(
         focus: m.focus_card(),
         on: m.lit_on().map(Rc::new),
         quiet: m.quiet(),
-        home: m
-            .focus_card()
-            .and_then(|c| m.layout.region_of.get(c.ix()).copied().flatten()),
+        home: m.home_region(),
         hover: m.hover,
         fades: m.fades.clone(),
         pl: m.fades.lit(std::time::Instant::now()),
@@ -158,14 +156,16 @@ impl Scene {
             bounds.origin.y - px(self.pan.1 * self.z),
         );
         self.band(bounds, o, window);
-        self.frames(o, window);
         let far = self.l.mode == Mode::Layered && self.z < LABEL_ZOOM;
         let named = !self.l.regions.is_empty();
+        // A map by region at a glance: one link per pair of regions, under the frames (opaque), so the cards stay
+        // clean; up close, where cards read, a card's own calls show on hover instead.
+        if named && self.quiet && self.z < DETAIL_ZOOM {
+            self.links(o, window);
+        }
+        self.frames(o, window);
         if far && !named {
             self.regions(o, window);
-        }
-        // Bundles are the at-a-glance picture: up close, where cards read, a card's own calls show on hover instead.
-        if far || (named && self.quiet && self.z < DETAIL_ZOOM) {
             self.bundles(o, window);
         }
         if !far {

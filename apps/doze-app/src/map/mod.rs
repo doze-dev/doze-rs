@@ -80,6 +80,8 @@ pub(crate) struct MapView {
     pub(crate) all_lines: bool,
     /// The folded tile's list, open.
     pub(crate) list: Option<tile::List>,
+    /// The region whose name pill is under the pointer.
+    pub(crate) region_hover: Option<usize>,
     /// The selection's and the pointer's fades in flight.
     pub(crate) fades: fade::Fades,
     /// The layout's overview, made once per layout.
@@ -121,6 +123,7 @@ impl MapView {
             all_lines: false,
             list: None,
             fades: fade::Fades::default(),
+            region_hover: None,
             rows: HashMap::new(),
             folds: HashMap::new(),
             cam: Camera::default(),
@@ -217,6 +220,13 @@ impl MapView {
         self.states = Rc::new(states);
         self.cache.clear();
         true
+    }
+
+    /// The region in hand: the focus card's, else the one whose name is under the pointer. Its links light.
+    pub(crate) fn home_region(&self) -> Option<usize> {
+        self.focus_card()
+            .and_then(|c| self.layout.region_of.get(c.ix()).copied().flatten())
+            .or(self.region_hover.filter(|k| *k < self.layout.regions.len()))
     }
 
     /// Lines on demand: past sixty cards, unless every line is asked for.

@@ -13,6 +13,10 @@ impl MapView {
             let (what, arg) = part.split_once(':').unwrap_or((part, ""));
             match what {
                 "lines" => self.all_lines = true,
+                // The pointer on a region's name pill.
+                "pill" => {
+                    self.region_hover = self.layout.regions.iter().position(|r| r.name == arg)
+                }
                 // The camera centred on a card, at the zoom it has (a hover shot with the card in view).
                 "centre" => {
                     if let Some(c) = self

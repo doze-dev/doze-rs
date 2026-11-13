@@ -157,34 +157,41 @@ fn a_medium_stack_lays_out_fast() {
     println!("medium 150/500 layout {best:.2} ms");
 }
 
-/// Between named regions the bundles run through the gaps: none passes over a third region's frame.
+/// Between named regions, one link per pair: both directions counted on it, every call between
+/// regions on some link, leaving the first frame from its edge, and quick to make.
 #[test]
-fn bundles_keep_to_the_gaps_between_frames() {
+fn one_link_per_pair_of_regions() {
     for (n, calls) in [(100, 190), (150, 300), (150, 500)] {
         let l = layout(&synth::medium(n, calls, 1), &Options::default());
         let t = Instant::now();
         let o = l.overview();
         let took = t.elapsed().as_secs_f64() * 1e3;
-        // Timed in a release build only: a debug build on a CI runner is ten times slower and noisy.
         if !cfg!(debug_assertions) {
-            assert!(took < 40.0, "{n}: {took:.1} ms");
-            println!("overview {n}/{calls}: {took:.2} ms");
+            assert!(took < 5.0, "{n}: {took:.1} ms");
         }
-        for b in &o.bundles {
-            for s in &b.path.segs {
-                let q = s.end();
-                for (k, r) in l.regions.iter().enumerate() {
-                    if k != b.from && k != b.to {
-                        assert!(
-                            !r.rect.inside(q),
-                            "{n}: {} > {} over {}",
-                            b.from,
-                            b.to,
-                            r.name
-                        );
-                    }
-                }
-            }
+        let across = l.edges.iter().filter(|e| e.across).count() as u32;
+        assert_eq!(
+            o.links.iter().map(|k| k.calls()).sum::<u32>(),
+            across,
+            "{n}"
+        );
+        let mut seen = std::collections::HashSet::new();
+        for k in &o.links {
+            assert!(k.a < k.b && seen.insert((k.a, k.b)), "{n}: one link a pair");
+            assert!(k.calls() > 0);
+            let start = k.path.segs.first().map(|s| s.end()).unwrap();
+            let r = &l.regions[k.a].rect;
+            let on_edge = (start.x - r.x).abs() < 1.0
+                || (start.x - r.right()).abs() < 1.0
+                || (start.y - r.y).abs() < 1.0
+                || (start.y - r.bottom()).abs() < 1.0;
+            assert!(on_edge, "{n}: a link leaves its first frame from an edge");
+        }
+        if n == 150 {
+            assert!(
+                o.links.iter().any(|k| k.ab > 0 && k.ba > 0),
+                "some both ways"
+            );
         }
     }
 }

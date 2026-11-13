@@ -1,10 +1,29 @@
 //! The scene's far and framed parts: the regions' tints and frames, the bundles between them, and every card as a
 //! block from cached batches when zoomed far out.
 
-use doze_map::{CardId, Rect};
-use gpui::{BorderStyle, Bounds, Hsla, Pixels, Point, Window, px, quad, size};
+use doze_map::{CardId, Rect, Seg};
+use gpui::{BorderStyle, Bounds, Hsla, PathBuilder, Pixels, Point, Window, point, px, quad, size};
 
 use super::Scene;
+
+/// An arrowhead with its tip at `tip`, pointing away from `from`, `size` pixels long.
+fn head(window: &mut Window, tip: Point<Pixels>, from: Point<Pixels>, size: f32, color: Hsla) {
+    let (dx, dy) = (f32::from(tip.x - from.x), f32::from(tip.y - from.y));
+    let len = dx.hypot(dy).max(1e-3);
+    let (ux, uy) = (dx / len, dy / len);
+    let base = point(tip.x - px(ux * size), tip.y - px(uy * size));
+    let half = size * 0.55;
+    let pts = [
+        tip,
+        point(base.x - px(uy * half), base.y + px(ux * half)),
+        point(base.x + px(uy * half), base.y - px(ux * half)),
+    ];
+    let mut f = PathBuilder::fill();
+    f.add_polygon(&pts, true);
+    if let Ok(p) = f.build() {
+        window.paint_path(p, color);
+    }
+}
 use crate::map::cache::{level, place};
 use crate::theme::{alpha, mix};
 
@@ -61,9 +80,52 @@ impl Scene {
         });
     }
 
+    /// One link per pair of regions: a gentle curve between their nearer edges, as thick as its calls (one, two or
+    /// three, four and more), a head at each end that is called. The focus region's links light, the rest step back.
+    pub(super) fn links(&self, o: Point<Pixels>, window: &mut Window) {
+        for k in &self.o.links {
+            let mine = self.home.is_some_and(|h| k.a == h || k.b == h);
+            let a = match self.home {
+                Some(_) if mine => 0.9,
+                Some(_) => 0.1,
+                None => 0.4,
+            };
+            let w = match k.calls() {
+                0..=1 => 1.5,
+                2..=3 => 3.0,
+                _ => 4.5,
+            };
+            let color = alpha(self.t.accent, a);
+            let (Some(Seg::Move(s)), Some(Seg::Cubic(c1, c2, e))) =
+                (k.path.segs.first(), k.path.segs.get(1))
+            else {
+                continue;
+            };
+            let at = |p: doze_map::Pt| self.at(o, p.x, p.y);
+            let mut b = PathBuilder::stroke(px(w));
+            b.move_to(at(*s));
+            b.cubic_bezier_to(at(*e), at(*c1), at(*c2));
+            if let Ok(path) = b.build() {
+                window.paint_path(path, color);
+            }
+            let size = 5.0 + w;
+            if k.ab > 0 {
+                head(window, at(*e), at(*c2), size, color);
+            }
+            if k.ba > 0 {
+                head(window, at(*s), at(*c1), size, color);
+            }
+        }
+    }
+
     /// A layered map's named regions: each a quiet frame, the focus card's outlined in the accent.
     pub(super) fn frames(&self, o: Point<Pixels>, window: &mut Window) {
-        let fill = alpha(self.t.accent, if self.t.dark { 0.035 } else { 0.045 });
+        // Opaque: the links between regions pass under a frame, not over its cards.
+        let fill = mix(
+            self.t.accent,
+            self.t.well,
+            if self.t.dark { 3.5 } else { 4.5 },
+        );
         let radius = px((14.0 * self.z).max(3.0));
         for (k, r) in self.l.regions.iter().enumerate() {
             if !r.rect.intersects(&self.view) {

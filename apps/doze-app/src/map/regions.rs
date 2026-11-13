@@ -79,18 +79,59 @@ impl MapView {
     }
 }
 
-/// The labels of the regions in view.
+/// The labels of the regions in view, and the counts on the links between them.
 pub(crate) fn labels(t: &Tokens, m: &MapView, cx: &mut Context<MapView>) -> Vec<AnyElement> {
     let view = m.cam.view();
-    let home = m
-        .focus_card()
-        .and_then(|c| m.layout.region_of.get(c.ix()).copied().flatten());
-    m.layout
-        .regions
+    let home = m.home_region();
+    let mut v = counts(t, m, home);
+    v.extend(
+        m.layout
+            .regions
+            .iter()
+            .enumerate()
+            .filter(|(_, r)| r.rect.intersects(&view))
+            .map(|(k, r)| label(t, m, k, r, home == Some(k), cx)),
+    );
+    v
+}
+
+/// Each link's count at its middle (`3`, or `2 · 1` both ways), while the links show (zoomed out, lines on demand).
+fn counts(t: &Tokens, m: &MapView, home: Option<usize>) -> Vec<AnyElement> {
+    if !m.quiet() || m.cam.zoom >= super::DETAIL_ZOOM {
+        return Vec::new();
+    }
+    m.overview
+        .links
         .iter()
-        .enumerate()
-        .filter(|(_, r)| r.rect.intersects(&view))
-        .map(|(k, r)| label(t, m, k, r, home == Some(k), cx))
+        .map(|k| {
+            let mine = home.is_some_and(|h| k.a == h || k.b == h);
+            let quiet = home.is_some() && !mine;
+            let text = match (k.ab, k.ba) {
+                (n, 0) | (0, n) => n.to_string(),
+                (a, b) => format!("{a} · {b}"),
+            };
+            let (x, y) = m.cam.to_screen(k.mid.x, k.mid.y);
+            div()
+                .absolute()
+                .left(px(x - 14.0))
+                .top(px(y - 9.0))
+                .min_w(px(18.))
+                .h(px(18.))
+                .px(px(5.))
+                .flex()
+                .items_center()
+                .justify_center()
+                .rounded(px(9.))
+                .border_1()
+                .border_color(if mine { t.accent } else { t.line2 })
+                .bg(t.panel)
+                .text_size(px(10.5))
+                .font_weight(w(600.))
+                .text_color(if mine { t.bright } else { t.dim })
+                .when(quiet, |d| d.opacity(0.35))
+                .child(SharedString::from(text))
+                .into_any_element()
+        })
         .collect()
 }
 
@@ -124,6 +165,13 @@ fn label(
         .whitespace_nowrap()
         .cursor_pointer()
         .hover(|s| s.border_color(t.accent))
+        .on_hover(cx.listener(move |this, over: &bool, _, cx| {
+            let next = if *over { Some(k) } else { None };
+            if this.region_hover != next && (*over || this.region_hover == Some(k)) {
+                this.region_hover = next;
+                cx.notify();
+            }
+        }))
         .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
         .on_click(cx.listener(move |this, _, _, cx| this.open_region(k, cx)))
         .child(

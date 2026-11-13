@@ -122,8 +122,10 @@ pub(crate) fn stats(m: &MapView) -> String {
 /// Under the pointer in a map by region: what the card's region talks to, from its bundles — `checkout calls payments 3 ·
 /// catalog 2 · called by gateway 4` — so the regions' links read at fit without following lines.
 pub(crate) fn talks(t: &Tokens, m: &MapView) -> Option<AnyElement> {
-    let id = m.hover.filter(|_| m.lit.is_none() && m.lens.is_none())?;
-    let k = m.overview.region_of.get(id.ix()).copied().flatten()?;
+    if m.lit.is_some() || m.lens.is_some() {
+        return None;
+    }
+    let k = m.home_region()?;
     let name = |r: usize| {
         m.overview
             .regions

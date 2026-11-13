@@ -95,7 +95,6 @@ mod cards;
 mod classic;
 mod draw;
 mod focus;
-mod gaps;
 mod geom;
 mod group;
 mod index;
@@ -119,7 +118,7 @@ pub use group::{Collapse, Grouping};
 pub use index::Visible;
 pub use input::{Instance, Kind};
 pub use output::{Caption, CaptionKind, Card, CardId, Edge, Layout, Mode, NamedRegion, Role, Tile};
-pub use overview::{Bundle, Overview, Region};
+pub use overview::{Bundle, Link, Overview, Region};
 pub use text::Lang;
 pub use trouble::subset;
 
