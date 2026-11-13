@@ -14,9 +14,11 @@ test("Home: one h1, the figures as stat tiles, no memory figure anywhere, the ad
 });
 
 test("Home: Check again runs the advertised-listener check and says what it found", async ({ page }) => {
+  // A read of Home never dials: before any check it says so; Check again dials and shows the three rules.
   await page.goto("/");
-  await expect(page.getByTestId("probe-rules").locator("li")).toHaveCount(3);
+  await expect(page.getByTestId("probe-rules").or(page.getByTestId("probe-unchecked"))).toBeVisible();
   await page.getByTestId("check-again").click();
+  await expect(page.getByTestId("probe-rules").locator("li")).toHaveCount(3);
   await expect(page.locator("[data-sonner-toast]").filter({ hasText: "Checked the advertised listener" })).toBeVisible();
   await expect(page.getByTestId("address-card").getByTestId("verdict")).toHaveText(/Reachable|Not reachable|Not checked/);
 });

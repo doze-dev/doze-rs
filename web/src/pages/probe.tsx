@@ -25,7 +25,9 @@ export function VerdictDot({ verdict }: { verdict: Verdict }) {
 
 /** The three rules of the advertised-listener check, or the sentence when it did not finish. */
 export function ProbeRules({ probe }: { probe: ProbeView }) {
-  if (probe.rules.length === 0) return <p className="text-[13px] text-muted-foreground">The check did not finish in time, so nothing is claimed. Use Check again.</p>;
+  // Home never dials on its own (it can refresh on an interval), so before the first check, or after one that did not finish
+  // in time, there is nothing to claim.
+  if (probe.rules.length === 0) return <p className="text-[13px] text-muted-foreground" data-testid="probe-unchecked">Not checked: nothing is claimed until a check finishes. Check again dials the listener and the address clients are told to use.</p>;
   return (
     <ul className="flex flex-col divide-y rounded-xl border" data-testid="probe-rules">
       {probe.rules.map((r) => (

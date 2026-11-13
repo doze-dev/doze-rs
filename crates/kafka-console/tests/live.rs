@@ -337,3 +337,44 @@ async fn the_consoles_own_requests_name_it_and_are_answered_at_the_highest_versi
     assert!(m.topics.is_empty());
     w.stop().await;
 }
+
+#[tokio::test]
+async fn a_read_of_home_never_dials_only_check_again_does() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    // The advertised address is a listener of the test's own that counts every connection made to it.
+    let counter = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let port = counter.local_addr().unwrap().port();
+    let dials = Arc::new(AtomicUsize::new(0));
+    let seen = Arc::clone(&dials);
+    let accept = tokio::spawn(async move {
+        let mut held = Vec::new();
+        while let Ok((socket, _)) = counter.accept().await {
+            seen.fetch_add(1, Ordering::SeqCst);
+            held.push(socket);
+        }
+    });
+    let w = world("home-dial", |_, s| s.advertised_port = Some(port)).await;
+    let app = w.router();
+    for _ in 0..3 {
+        let v = json(&app, "/api/v1/home").await;
+        assert_eq!(v["home"]["probe"]["verdict"], "not_checked", "{v}");
+    }
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    assert_eq!(
+        dials.load(Ordering::SeqCst),
+        0,
+        "a GET of /api/v1/home opened a connection"
+    );
+    // Check again dials (the advertised address accepts and says nothing: not reachable).
+    let v = probe_now(&app).await;
+    assert_ne!(v["verdict"], "not_checked", "{v}");
+    let after = dials.load(Ordering::SeqCst);
+    assert!(after >= 1, "Check again dialled the advertised address");
+    // Home now shows that result, and still dials nothing.
+    let v = json(&app, "/api/v1/home").await;
+    assert_eq!(v["home"]["probe"]["verdict"], "not_reachable", "{v}");
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    assert_eq!(dials.load(Ordering::SeqCst), after);
+    accept.abort();
+    w.stop().await;
+}

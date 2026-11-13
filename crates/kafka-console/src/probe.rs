@@ -5,8 +5,8 @@
 //! 3. Dial that address back and ask ApiVersions: can a client that was told it get there?
 //!
 //! Every dial has its own short deadline, and the whole check one of 1.5 s, so a page that shows it is never held longer.
-//! It runs when asked ("Check again") and at a page load (a result under 30 s old is reused), never on a timer and never
-//! for a fragment the stream refetches (those use [`Prober::peek`], which dials nothing). Callers that arrive while a
+//! It runs when asked ("Check again") and at a load of Connect (a result under 30 s old is reused), never on a timer and
+//! never for a read of Home, which can be refreshed on an interval (it uses [`Prober::peek`], which dials nothing). Callers that arrive while a
 //! check is running share its result, so many at once are one set of dials. A check that did not finish claims nothing and
 //! is not reused: the next page load tries again.
 
