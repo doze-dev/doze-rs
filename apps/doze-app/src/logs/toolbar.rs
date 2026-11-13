@@ -10,8 +10,8 @@ use gpui_component::input::{Input, InputState};
 use super::{LogsMode, LogsView, list};
 use crate::instance::head::{chip, keys_bar};
 use crate::instance::ui::{button, text};
-use crate::theme::Tokens;
-use crate::widgets::{OnClick, kbd_chip, seg, w};
+use crate::theme::{Tokens, ty};
+use crate::widgets::{OnClick, kbd_chip, seg};
 
 /// All logs' head: the title, following or paused, and Pause / Follow.
 pub(crate) fn head(t: &Tokens, v: &LogsView, cx: &mut Context<LogsView>) -> impl IntoElement {
@@ -26,8 +26,8 @@ pub(crate) fn head(t: &Tokens, v: &LogsView, cx: &mut Context<LogsView>) -> impl
         .min_h(px(58.))
         .child(
             div()
-                .text_size(px(20.))
-                .font_weight(w(650.))
+                .text_size(px(ty::XL))
+                .font_weight(ty::HEADING)
                 .text_color(t.bright)
                 .child("All logs"),
         )
@@ -131,7 +131,7 @@ fn filter_box(
         .border_1()
         .border_color(t.line2)
         .bg(t.well)
-        .text_size(px(12.))
+        .text_size(px(ty::SM))
         .child(
             div().flex_1().min_w_0().child(
                 Input::new(&input)
@@ -148,7 +148,13 @@ fn filter_box(
                 .child(text(&s))
         }))
         .child(find_toggle(t, v, cx))
-        .child(kbd_chip(t, &chip("Filter the lines"), 11., 600., 5.))
+        .child(kbd_chip(
+            t,
+            &chip("Filter the lines"),
+            ty::XS,
+            ty::SEMIBOLD,
+            5.,
+        ))
 }
 
 /// The level: one segment per level tab.
@@ -240,7 +246,7 @@ fn counts(t: &Tokens, v: &LogsView) -> impl IntoElement {
         .flex()
         .flex_none()
         .whitespace_nowrap()
-        .text_size(px(12.))
+        .text_size(px(ty::SM))
         .text_color(t.dim);
     if errors > 0 {
         d = d.child(div().text_color(t.bad).child(text(&format!(
@@ -272,7 +278,7 @@ pub(crate) fn dock(t: &Tokens, v: &mut LogsView, cx: &mut Context<LogsView>) -> 
         .px(px(12.))
         .border_t_1()
         .border_color(t.line)
-        .text_size(px(12.))
+        .text_size(px(ty::SM))
         .text_color(t.dim)
         .child(text(if v.follow {
             "▼ following · new lines appear at the end"
@@ -354,8 +360,8 @@ fn find_toggle(t: &Tokens, v: &LogsView, cx: &mut Context<LogsView>) -> impl Int
         .flex()
         .items_center()
         .rounded(px(4.))
-        .text_size(px(11.))
-        .font_weight(w(600.))
+        .text_size(px(ty::XS))
+        .font_weight(ty::SEMIBOLD)
         .cursor_pointer()
         .when(v.find, |d| d.bg(t.accent).text_color(t.ink))
         .when(!v.find, |d| {

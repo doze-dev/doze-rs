@@ -12,8 +12,8 @@ use gpui::{
 
 use crate::actions::{Confirm, MoveDown, MoveUp, StartEverything, ToggleTick};
 use crate::kit::{Btn, btn, s};
-use crate::theme::{Tokens, tokens};
-use crate::widgets::{icon, kbd_plain, tracked, w};
+use crate::theme::{Tokens, tokens, ty};
+use crate::widgets::{icon, kbd_plain, tracked};
 
 /// What the sheet ends with.
 #[derive(Debug, Clone)]
@@ -90,7 +90,7 @@ impl StartView {
                 div()
                     .w(px(120.))
                     .flex_none()
-                    .font_weight(w(600.))
+                    .font_weight(ty::SEMIBOLD)
                     .text_color(t.bright)
                     .child(s(&p.name)),
             )
@@ -110,7 +110,7 @@ impl StartView {
                         .px(px(5.))
                         .rounded(px(3.))
                         .bg(crate::theme::mix(t.accent, t.panel, 30.))
-                        .child(tracked("last time", 9.5, 700., t.accent, 0.5)),
+                        .child(tracked("last time", ty::TAG, ty::BOLD, t.accent, 0.5)),
                 )
             })
             .on_mouse_move(cx.listener(move |this, _, _, cx| {
@@ -136,12 +136,17 @@ impl StartView {
                 .gap(px(4.))
                 .text_color(t.text)
                 .child("Also starts, because they are needed:")
-                .child(div().font_weight(w(600.)).text_color(t.bright).child(s(&b))),
+                .child(
+                    div()
+                        .font_weight(ty::SEMIBOLD)
+                        .text_color(t.bright)
+                        .child(s(&b)),
+                ),
             (None, _) => div()
                 .text_color(t.dim)
                 .child("Nothing else starts with them."),
         }
-        .text_size(px(12.))
+        .text_size(px(ty::SM))
         .into_any_element()
     }
 }
@@ -181,7 +186,7 @@ impl Render for StartView {
                     .items_center()
                     .justify_end()
                     .gap(px(8.))
-                    .child(div().flex_1().flex().gap(px(4.)).text_size(px(11.)).text_color(t.dim).child(kbd_plain("space", 11., t.dim, 500.)).child("ticks"))
+                    .child(div().flex_1().flex().gap(px(4.)).text_size(px(ty::XS)).text_color(t.dim).child(kbd_plain("space", ty::XS, t.dim, ty::MEDIUM)).child("ticks"))
                     .children(buttons),
             )
     }

@@ -14,7 +14,7 @@ use super::clash;
 use super::snippets;
 use super::ui::{self, banner, card, heading, kv_row, pill, text};
 use crate::console::blocks;
-use crate::theme::Tokens;
+use crate::theme::{Tokens, ty};
 use crate::widgets::MONO_FAMILY;
 
 mod vitals;
@@ -133,7 +133,7 @@ fn crash_top(
                     .bg(t.panel)
                     .border_1()
                     .border_color(crate::theme::mix(t.bad, t.panel, 55.))
-                    .text_size(px(12.))
+                    .text_size(px(ty::SM))
                     .text_color(t.bad)
                     .child(text(&c.tries)),
             );
@@ -292,7 +292,7 @@ fn needs(t: &Tokens, p: &InstancePage, cx: &mut Context<InstanceView>) -> gpui::
         .items_center()
         .gap(px(6.))
         .mt(px(4.))
-        .child(div().text_size(px(12.)).text_color(t.dim).child("needs"));
+        .child(div().text_size(px(ty::SM)).text_color(t.dim).child("needs"));
     for (i, n) in p.needs.iter().enumerate() {
         let name = n.name.clone();
         let known = n.known;
@@ -308,7 +308,7 @@ fn needs(t: &Tokens, p: &InstancePage, cx: &mut Context<InstanceView>) -> gpui::
                 .border_1()
                 .border_color(t.line)
                 .bg(t.panel)
-                .text_size(px(12.))
+                .text_size(px(ty::SM))
                 .when(known, |d| d.cursor_pointer().hover(|s| s.bg(t.sel)))
                 .on_click(cx.listener(move |_, _, _, cx| {
                     if known {
@@ -328,8 +328,8 @@ fn recent(t: &Tokens, p: &InstancePage) -> gpui::Div {
         .flex()
         .flex_col()
         .font_family(MONO_FAMILY)
-        .text_size(px(12.))
-        .line_height(px(21.));
+        .text_size(px(ty::SM))
+        .line_height(px(ty::LH_21));
     if p.recent.is_empty() {
         rows = rows.child(div().text_color(t.dim).child("nothing yet"));
     }

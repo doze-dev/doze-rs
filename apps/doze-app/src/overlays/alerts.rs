@@ -11,8 +11,8 @@ use gpui::{
 
 use crate::kit::{Btn, btn};
 use crate::shell::Root;
-use crate::theme::{Motion, Tokens, alpha};
-use crate::widgets::{MONO_FAMILY, w};
+use crate::theme::{Motion, Tokens, alpha, ty};
+use crate::widgets::MONO_FAMILY;
 
 /// Fades and lifts `el` in, unless motion is reduced.
 fn enter(el: gpui::Div, id: SharedString, motion: Motion) -> AnyElement {
@@ -94,26 +94,23 @@ fn alert(t: &Tokens, it: &Item, here: bool, cx: &mut Context<Root>) -> gpui::Div
                 .flex_col()
                 .flex_1()
                 .min_w_0()
-                .child(
-                    div()
-                        .font_weight(w(600.))
-                        .text_color(t.bright)
-                        .child(SharedString::from(if it.stack.is_empty() {
-                            it.title.clone()
-                        } else {
-                            format!("{} · {}", it.title, it.stack)
-                        })),
-                )
+                .child(div().font_weight(ty::SEMIBOLD).text_color(t.bright).child(
+                    SharedString::from(if it.stack.is_empty() {
+                        it.title.clone()
+                    } else {
+                        format!("{} · {}", it.title, it.stack)
+                    }),
+                ))
                 .when(!it.detail.is_empty(), |d| {
                     let line = div()
-                        .text_size(px(12.))
+                        .text_size(px(ty::SM))
                         .text_color(t.dim)
                         .overflow_hidden()
                         .text_ellipsis()
                         .whitespace_nowrap()
                         .child(SharedString::from(it.detail.clone()));
                     d.child(if it.mono {
-                        line.font_family(MONO_FAMILY).text_size(px(11.5))
+                        line.font_family(MONO_FAMILY).text_size(px(ty::XS_UP))
                     } else {
                         line
                     })
@@ -168,7 +165,7 @@ fn away_head(t: &Tokens, a: &Away, cx: &mut Context<Root>) -> gpui::Div {
         .child(div().size(px(8.)).rounded_full().bg(t.cool))
         .child(
             div()
-                .font_weight(w(650.))
+                .font_weight(ty::HEADING)
                 .text_color(t.bright)
                 .child("While the window was closed"),
         )
@@ -220,7 +217,7 @@ fn away_row(
                 .w(px(84.))
                 .flex_none()
                 .font_family(MONO_FAMILY)
-                .text_size(px(11.5))
+                .text_size(px(ty::XS_UP))
                 .text_color(t.dim)
                 .child(SharedString::from(e.at.clone())),
         )
@@ -232,7 +229,7 @@ fn away_row(
                 .gap(px(5.))
                 .child(
                     div()
-                        .font_weight(w(600.))
+                        .font_weight(ty::SEMIBOLD)
                         .text_color(t.bright)
                         .child(SharedString::from(e.instance.clone())),
                 )
@@ -245,7 +242,7 @@ fn away_row(
         .child(
             div()
                 .flex_none()
-                .text_size(px(12.))
+                .text_size(px(ty::SM))
                 .text_color(tone)
                 .child(SharedString::from(e.now.clone())),
         )
@@ -266,7 +263,7 @@ pub(crate) fn away(t: &Tokens, a: &Away, cx: &mut Context<Root>) -> AnyElement {
         .border_1()
         .border_color(alpha(t.cool, 0.45))
         .bg(alpha(t.cool, 0.08))
-        .text_size(px(13.))
+        .text_size(px(ty::BASE))
         .child(head.px(px(14.)).py(px(10.)))
         .child(div().flex().flex_col().children(rows));
     // In the page, above it: what it covers would be the stack's own head, so it takes its place for the moment it is

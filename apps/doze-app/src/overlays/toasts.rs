@@ -13,8 +13,8 @@ use gpui::{
 
 use crate::act::Acts;
 use crate::kit::s;
-use crate::theme::{Motion, Tokens, tokens};
-use crate::widgets::{MONO_FAMILY, UI_FAMILY, icon, kbd_plain, w};
+use crate::theme::{Motion, Tokens, tokens, ty};
+use crate::widgets::{MONO_FAMILY, UI_FAMILY, icon, kbd_plain};
 
 /// The toast stack and the Recent popover.
 pub(crate) struct ToastsView {
@@ -59,7 +59,7 @@ fn toast(t: &Tokens, x: &Toast, motion: Motion, cx: &mut Context<ToastsView>) ->
                 div()
                     .flex_1()
                     .min_w_0()
-                    .font_weight(w(600.))
+                    .font_weight(ty::SEMIBOLD)
                     .text_color(t.bright)
                     .line_clamp(3)
                     .child(s(&x.notice.text)),
@@ -73,7 +73,7 @@ fn toast(t: &Tokens, x: &Toast, motion: Motion, cx: &mut Context<ToastsView>) ->
             .flex()
             .items_center()
             .rounded(px(6.))
-            .text_size(px(12.))
+            .text_size(px(ty::SM))
             .text_color(t.dim)
             .cursor_pointer()
             .hover(|d| d.text_color(t.bright).bg(t.sel))
@@ -107,13 +107,13 @@ fn line(t: &Tokens, n: &Notice) -> AnyElement {
         .py(px(6.))
         .border_t_1()
         .border_color(t.line)
-        .text_size(px(12.))
+        .text_size(px(ty::SM))
         .child(
             div()
                 .w(px(58.))
                 .flex_none()
                 .font_family(MONO_FAMILY)
-                .text_size(px(11.5))
+                .text_size(px(ty::XS_UP))
                 .text_color(t.dim)
                 .child(clock(n.at)),
         )
@@ -141,18 +141,18 @@ fn recent(t: &Tokens, lines: &[Notice], cx: &mut Context<ToastsView>) -> AnyElem
         .py(px(10.))
         .child(
             div()
-                .font_weight(w(600.))
+                .font_weight(ty::SEMIBOLD)
                 .text_color(t.bright)
                 .child("Recent messages"),
         )
         .child(
             div()
                 .flex_1()
-                .text_size(px(12.))
+                .text_size(px(ty::SM))
                 .text_color(t.dim)
                 .child("the last 20 · from ⌘K › recent messages"),
         )
-        .child(kbd_plain("esc", 11., t.dim, 500.))
+        .child(kbd_plain("esc", ty::XS, t.dim, ty::MEDIUM))
         .child(close_x(t, "recent-x".into(), cx, |this, cx| {
             this.acts.update(cx, |a, cx| a.toggle_recent(cx));
         }));
@@ -163,7 +163,7 @@ fn recent(t: &Tokens, lines: &[Notice], cx: &mut Context<ToastsView>) -> AnyElem
                 .py(px(8.))
                 .border_t_1()
                 .border_color(t.line)
-                .text_size(px(12.))
+                .text_size(px(ty::SM))
                 .text_color(t.dim)
                 .italic()
                 .child("nothing has been said yet")
@@ -218,8 +218,8 @@ impl Render for ToastsView {
             .items_end()
             .gap(px(8.))
             .font_family(UI_FAMILY)
-            .text_size(px(13.))
-            .line_height(px(19.));
+            .text_size(px(ty::BASE))
+            .line_height(px(ty::LH_19));
         if open {
             stack = stack.child(recent(&t, &lines, cx));
         }

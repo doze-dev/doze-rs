@@ -18,7 +18,7 @@ use gpui::{AnyElement, Context, IntoElement, ScrollEvent, Window, canvas, div, p
 use super::OverviewView;
 use super::tiles::filter;
 use crate::kit::s;
-use crate::theme::Tokens;
+use crate::theme::{Tokens, ty};
 use crate::widgets::tracked;
 
 const HEAD_W: f32 = 300.;
@@ -253,7 +253,7 @@ fn head(t: &Tokens, v: &OverviewView, e: &[f32], cols: Range<usize>) -> impl Int
                 .overflow_hidden()
                 .pl(px(if sep { 10. } else { 4. }))
                 .when(sep, |d| d.border_l_1().border_color(t.line2))
-                .child(tracked(h.text, 11., 700., t.dim, 1.1)),
+                .child(tracked(h.text, ty::XS, ty::BOLD, t.dim, 1.1)),
         );
     }
     let mut col_heads = div().flex().ml(px(left));
@@ -326,7 +326,7 @@ fn notes(t: &Tokens, g: &GridView) -> Vec<AnyElement> {
             .pb(px(10.))
             .border_t_1()
             .border_color(t.line)
-            .text_size(px(12.))
+            .text_size(px(ty::SM))
             .text_color(t.dim)
             .child(s(text))
             .into_any_element()

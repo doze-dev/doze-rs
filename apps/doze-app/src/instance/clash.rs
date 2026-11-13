@@ -8,8 +8,7 @@ use gpui::{AnyElement, Context, IntoElement, div, prelude::*, px};
 
 use super::ui::{button, card, heading, step_num, text};
 use super::{InstanceEvent, InstanceView};
-use crate::theme::Tokens;
-use crate::widgets::w;
+use crate::theme::{Tokens, ty};
 
 /// The card, once the holder is known.
 pub(crate) fn clash(
@@ -76,7 +75,7 @@ pub(crate) fn clash(
         card(t)
             .child(heading(t, &format!("Port {} is taken", h.port), Some(&format!("· {name} cannot listen while {who} has it"))))
             .child(div().flex().flex_col().gap(px(8.)).child(first).child(second))
-            .child(div().text_size(px(12.)).text_color(t.dim).child(
+            .child(div().text_size(px(ty::SM)).text_color(t.dim).child(
                 "doze never stops a process it did not start without asking, which is why this is a question and not a thing that happened.",
             ))
             .into_any_element(),
@@ -106,13 +105,13 @@ fn option(t: &Tokens, n: usize, title: &str, sub: &str, act: AnyElement) -> AnyE
                 .child(
                     div()
                         .text_color(t.bright)
-                        .font_weight(w(600.))
+                        .font_weight(ty::SEMIBOLD)
                         .child(text(title)),
                 )
                 .child(
                     div()
-                        .text_size(px(12.))
-                        .line_height(px(17.))
+                        .text_size(px(ty::SM))
+                        .line_height(px(ty::LH_17))
                         .text_color(t.dim)
                         .child(text(sub)),
                 ),

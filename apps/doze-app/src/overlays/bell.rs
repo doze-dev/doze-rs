@@ -13,8 +13,8 @@ use gpui::{
 
 use crate::actions::{BellFix, BellNotNow, BellShow, MoveDown, MoveUp};
 use crate::kit::{Btn, btn};
-use crate::theme::{Tokens, tokens};
-use crate::widgets::{MONO_FAMILY, UI_FAMILY, kbd_chip, tracked, w};
+use crate::theme::{Tokens, tokens, ty};
+use crate::widgets::{MONO_FAMILY, UI_FAMILY, kbd_chip, tracked};
 
 /// What the panel asks its owner to do.
 pub(crate) enum BellEvent {
@@ -139,7 +139,7 @@ impl Bell {
                     .bg(tone),
             )
             .child(text)
-            .child(right.flex_none().text_size(px(11.5)).mt(px(1.)))
+            .child(right.flex_none().text_size(px(ty::XS_UP)).mt(px(1.)))
             .into_any_element()
     }
 
@@ -155,13 +155,13 @@ impl Bell {
                 div()
                     .flex()
                     .gap(px(4.))
-                    .font_weight(w(600.))
+                    .font_weight(ty::SEMIBOLD)
                     .text_color(if it.fixed { t.dim } else { t.bright })
                     .child(SharedString::from(it.title.clone()))
                     .when(!it.stack.is_empty(), |d| {
                         d.child(
                             div()
-                                .font_weight(w(400.))
+                                .font_weight(ty::REGULAR)
                                 .text_color(t.dim)
                                 .child(SharedString::from(format!("· {}", it.stack))),
                         )
@@ -169,14 +169,14 @@ impl Bell {
             );
         if !it.detail.is_empty() {
             let d = div()
-                .text_size(px(12.))
+                .text_size(px(ty::SM))
                 .text_color(t.dim)
                 .overflow_hidden()
                 .text_ellipsis()
                 .whitespace_nowrap()
                 .child(SharedString::from(it.detail.clone()));
             text = text.child(if it.mono {
-                d.font_family(MONO_FAMILY).text_size(px(11.5))
+                d.font_family(MONO_FAMILY).text_size(px(ty::XS_UP))
             } else {
                 d
             });
@@ -215,7 +215,7 @@ impl Bell {
                 div()
                     .id(("nn", i))
                     .ml(px(4.))
-                    .text_size(px(11.5))
+                    .text_size(px(ty::XS_UP))
                     .text_color(t.dim)
                     .cursor_pointer()
                     .hover(|d| d.text_color(t.text))
@@ -246,8 +246,8 @@ impl Bell {
             .pb(px(6.))
             .border_b_1()
             .border_color(t.line)
-            .child(tracked(title, 11., 650., c, 0.66))
-            .child(div().text_size(px(11.5)).text_color(t.dim).child(why))
+            .child(tracked(title, ty::XS, ty::HEADING, c, 0.66))
+            .child(div().text_size(px(ty::XS_UP)).text_color(t.dim).child(why))
             .into_any_element()
     }
 
@@ -302,14 +302,14 @@ impl Bell {
             .border_color(t.line)
             .child(
                 div()
-                    .text_size(px(15.))
-                    .font_weight(w(650.))
+                    .text_size(px(ty::MD_UP))
+                    .font_weight(ty::HEADING)
                     .text_color(t.bright)
                     .child("Needs you"),
             )
             .child(
                 div()
-                    .text_size(px(12.))
+                    .text_size(px(ty::SM))
                     .text_color(t.dim)
                     .child(SharedString::from(said.join(" · "))),
             )
@@ -317,7 +317,7 @@ impl Bell {
             .when(a.hidden > 0, |d| {
                 d.child(
                     div()
-                        .text_size(px(12.))
+                        .text_size(px(ty::SM))
                         .text_color(t.dim)
                         .child(SharedString::from(format!("{} put aside", a.hidden))),
                 )
@@ -329,7 +329,11 @@ impl Bell {
             div()
                 .flex()
                 .items_center()
-                .child(div().mr(px(4.)).child(kbd_chip(t, key, 10., 600., 5.)))
+                .child(
+                    div()
+                        .mr(px(4.))
+                        .child(kbd_chip(t, key, ty::MICRO, ty::SEMIBOLD, 5.)),
+                )
                 .child(SharedString::from(what.to_owned()))
         };
         let f = div()
@@ -340,14 +344,14 @@ impl Bell {
             .px(px(16.))
             .border_t_1()
             .border_color(t.line)
-            .text_size(px(11.5))
+            .text_size(px(ty::XS_UP))
             .text_color(t.dim)
             .whitespace_nowrap();
         if self.list.items.is_empty() {
             return f
                 .child("Items leave by themselves once fixed")
                 .child(div().flex_1())
-                .child(kbd_chip(t, "⌘⇧N", 10., 600., 5.));
+                .child(kbd_chip(t, "⌘⇧N", ty::MICRO, ty::SEMIBOLD, 5.));
         }
         f.child(k("↑↓", "move"))
             .child(k("⏎", "first fix"))
@@ -374,8 +378,8 @@ impl Render for Bell {
             .track_focus(&self.focus)
             .w(px(480.))
             .font_family(UI_FAMILY)
-            .text_size(px(13.))
-            .line_height(px(19.))
+            .text_size(px(ty::BASE))
+            .line_height(px(ty::LH_19))
             .flex()
             .flex_col()
             .overflow_hidden()

@@ -7,7 +7,7 @@ use gpui::{
     SharedString, Window, div, point, prelude::*, px,
 };
 
-use crate::theme::{Motion, Tokens, alpha};
+use crate::theme::{Motion, Tokens, alpha, ty};
 
 /// What a press on the scrim does.
 pub(crate) type OnScrim = Box<dyn Fn(&mut Window, &mut App) + 'static>;
@@ -90,12 +90,12 @@ pub(crate) fn panel(t: &Tokens, width: f32, gap: f32, title: String) -> gpui::Di
         .bg(t.panel)
         .shadow(super::shadow(t))
         .font_family(crate::widgets::UI_FAMILY)
-        .text_size(px(13.))
-        .line_height(px(19.))
+        .text_size(px(ty::BASE))
+        .line_height(px(ty::LH_19))
         .child(
             div()
-                .text_size(px(16.))
-                .font_weight(crate::widgets::w(650.))
+                .text_size(px(ty::LG))
+                .font_weight(ty::HEADING)
                 .text_color(t.bright)
                 .child(title),
         )

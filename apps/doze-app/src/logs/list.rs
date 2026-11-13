@@ -12,8 +12,8 @@ use gpui::{
 
 use super::LogsView;
 use crate::instance::ui::{self, text};
-use crate::theme::Tokens;
-use crate::widgets::{MONO_FAMILY, w};
+use crate::theme::{Tokens, ty};
+use crate::widgets::MONO_FAMILY;
 
 /// A row's height.
 pub(crate) const ROW: f32 = 24.;
@@ -31,7 +31,7 @@ pub(crate) fn list(t: &Tokens, v: &mut LogsView, cx: &mut Context<LogsView>) -> 
             .flex_1()
             .items_center()
             .justify_center()
-            .text_size(px(12.))
+            .text_size(px(ty::SM))
             .text_color(t.dim)
             .child(said)
             .into_any_element();
@@ -53,7 +53,7 @@ pub(crate) fn list(t: &Tokens, v: &mut LogsView, cx: &mut Context<LogsView>) -> 
         .flex_1()
         .min_h_0()
         .font_family(MONO_FAMILY)
-        .text_size(px(12.))
+        .text_size(px(ty::SM))
         .on_scroll(cx.listener(|v, e: &ScrollEvent, window, cx| v.wheel(e, window, cx)))
         .child(rows)
         .into_any_element()
@@ -124,7 +124,7 @@ impl LogsView {
                         .flex_none()
                         .overflow_hidden()
                         .text_ellipsis()
-                        .font_weight(w(500.))
+                        .font_weight(ty::MEDIUM)
                         .text_color(who)
                         .child(text(&l.instance)),
                 )
@@ -133,8 +133,8 @@ impl LogsView {
                 div()
                     .w(px(34.))
                     .flex_none()
-                    .text_size(px(11.))
-                    .font_weight(w(600.))
+                    .text_size(px(ty::XS))
+                    .font_weight(ty::SEMIBOLD)
                     .text_color(ui::ink(t, l.level_ink()))
                     .child(text(l.level)),
             )

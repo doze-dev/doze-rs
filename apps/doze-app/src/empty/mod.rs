@@ -14,8 +14,8 @@ use gpui::{
 use crate::act::{Acts, Ask};
 use crate::actions::{Confirm, MoveLeft, MoveRight, Way1, Way2, Way3};
 use crate::kit::{keys_bar, mono, s};
-use crate::theme::{Tokens, mix, tokens};
-use crate::widgets::{MONO_FAMILY, tracked, w};
+use crate::theme::{Tokens, mix, tokens, ty};
+use crate::widgets::{MONO_FAMILY, tracked};
 
 /// The page.
 pub(crate) struct EmptyView {
@@ -114,16 +114,16 @@ fn found(t: &Tokens, e: &Empty) -> Option<AnyElement> {
             .child(div().w(px(180.)).flex_none().overflow_hidden().child(c))
     };
     let head = cols(
-        tracked("Found", 11., 600., t.dim, 0.66).into_any_element(),
-        tracked("Where", 11., 600., t.dim, 0.66).into_any_element(),
-        tracked("Becomes", 11., 600., t.dim, 0.66).into_any_element(),
+        tracked("Found", ty::XS, ty::SEMIBOLD, t.dim, 0.66).into_any_element(),
+        tracked("Where", ty::XS, ty::SEMIBOLD, t.dim, 0.66).into_any_element(),
+        tracked("Becomes", ty::XS, ty::SEMIBOLD, t.dim, 0.66).into_any_element(),
     )
     .h(px(34.))
     .bg(t.well);
     let rows = e.items.iter().map(|it| {
         cols(
-            mono(s(&it.name), 12., t.bright)
-                .font_weight(w(600.))
+            mono(s(&it.name), ty::SM, t.bright)
+                .font_weight(ty::SEMIBOLD)
                 .into_any_element(),
             div()
                 .text_color(t.dim)
@@ -133,7 +133,7 @@ fn found(t: &Tokens, e: &Empty) -> Option<AnyElement> {
                 .into_any_element(),
             div()
                 .font_family(MONO_FAMILY)
-                .text_size(px(12.))
+                .text_size(px(ty::SM))
                 .text_color(t.dim)
                 .whitespace_nowrap()
                 .text_ellipsis()
@@ -181,7 +181,7 @@ impl EmptyView {
             .flex()
             .items_center()
             .justify_center()
-            .child(mono(way.n.to_string(), 11., t.dim).font_weight(w(600.)));
+            .child(mono(way.n.to_string(), ty::XS, t.dim).font_weight(ty::SEMIBOLD));
         div()
             .id(("way", i))
             .flex_1()
@@ -209,16 +209,16 @@ impl EmptyView {
             .child(
                 div().flex().items_center().gap(px(8.)).child(num).child(
                     div()
-                        .text_size(px(15.))
-                        .font_weight(w(650.))
+                        .text_size(px(ty::MD_UP))
+                        .font_weight(ty::HEADING)
                         .text_color(if way.off { t.dim } else { t.bright })
                         .child(way.title),
                 ),
             )
             .child(
                 div()
-                    .text_size(px(12.))
-                    .line_height(px(17.))
+                    .text_size(px(ty::SM))
+                    .line_height(px(ty::LH_17))
                     .text_color(if busy { t.cool } else { t.dim })
                     .child(if busy {
                         "writing doze.hcl…"
@@ -305,8 +305,8 @@ fn head(t: &Tokens, e: &Empty) -> impl IntoElement {
         .pb(px(18.))
         .child(
             div()
-                .text_size(px(20.))
-                .font_weight(w(650.))
+                .text_size(px(ty::XL))
+                .font_weight(ty::HEADING)
                 .text_color(t.bright)
                 .child(s(&e.name)),
         )
@@ -324,8 +324,8 @@ fn banner(t: &Tokens, e: &Empty) -> impl IntoElement {
         .flex()
         .flex_col()
         .gap(px(1.))
-        .child(div().font_weight(w(600.)).text_color(t.bright).child(lead))
-        .child(div().text_size(px(12.)).text_color(t.dim).child("Pick one of the three ways below; each writes a doze.hcl you can open in your editor. Nothing runs until you bring the stack up."));
+        .child(div().font_weight(ty::SEMIBOLD).text_color(t.bright).child(lead))
+        .child(div().text_size(px(ty::SM)).text_color(t.dim).child("Pick one of the three ways below; each writes a doze.hcl you can open in your editor. Nothing runs until you bring the stack up."));
     div()
         .mx(px(28.))
         .flex()
@@ -348,11 +348,11 @@ fn model(t: &Tokens) -> impl IntoElement {
         .flex()
         .flex_wrap()
         .gap(px(4.))
-        .text_size(px(12.5))
+        .text_size(px(ty::SM_UP))
         .text_color(t.dim)
         .child("The same three choices as")
-        .child(mono("doze", 12., t.dim))
+        .child(mono("doze", ty::SM, t.dim))
         .child("run in a terminal in this folder. doze never edits")
-        .child(mono("doze.hcl", 12., t.dim))
+        .child(mono("doze.hcl", ty::SM, t.dim))
         .child("behind your back: after this, the file is yours.")
 }

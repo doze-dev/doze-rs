@@ -13,8 +13,8 @@ use gpui::{
 use super::OverviewView;
 use super::tiles::{filter, row_dot, row_switch, word_tone};
 use crate::kit::{s, word_line};
-use crate::theme::{Density, Tokens};
-use crate::widgets::{tracked, w};
+use crate::theme::{Density, Tokens, ty};
+use crate::widgets::tracked;
 
 /// One line of the list.
 #[derive(Debug, Clone, PartialEq)]
@@ -53,7 +53,7 @@ fn head(t: &Tokens, title: &str) -> AnyElement {
         .pt(px(18.))
         .px(px(14.))
         .pb(px(8.))
-        .child(tracked(&title, 11., 700., t.dim, 1.1))
+        .child(tracked(&title, ty::XS, ty::BOLD, t.dim, 1.1))
         .into_any_element()
 }
 
@@ -89,8 +89,8 @@ fn row(
     let title = div()
         .flex_1()
         .min_w(px(110.))
-        .text_size(px(14.))
-        .font_weight(w(600.))
+        .text_size(px(ty::MD))
+        .font_weight(ty::SEMIBOLD)
         .text_color(if off { t.dim } else { t.bright })
         .whitespace_nowrap()
         .overflow_hidden()
@@ -101,7 +101,7 @@ fn row(
         .flex_none()
         .flex()
         .justify_end()
-        .text_size(px(12.5))
+        .text_size(px(ty::SM_UP))
         .text_color(t.text)
         .child(s(&r.mem));
     div()
