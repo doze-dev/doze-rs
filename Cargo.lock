@@ -211,6 +211,38 @@ dependencies = [
 ]
 
 [[package]]
+name = "aws-cloudformation"
+version = "0.0.0"
+dependencies = [
+ "aws-core",
+ "aws-dynamodb",
+ "aws-iam",
+ "aws-kms",
+ "aws-model-cloudformation",
+ "aws-peers",
+ "aws-s3",
+ "aws-schema",
+ "aws-seal",
+ "aws-secrets",
+ "aws-sns",
+ "aws-sqs",
+ "aws-ssm",
+ "aws-testkit",
+ "aws-wire",
+ "bytes",
+ "doze-runtime",
+ "doze-store",
+ "flate2",
+ "hmac",
+ "regex-lite",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "aws-cloudwatch"
 version = "0.0.0"
 dependencies = [
@@ -654,6 +686,7 @@ dependencies = [
  "aws-schema",
  "aws-seal",
  "aws-wire",
+ "bytes",
  "doze-runtime",
  "serde_json",
  "tokio",
@@ -1410,6 +1443,7 @@ dependencies = [
  "anyhow",
  "aws-apigateway",
  "aws-auth",
+ "aws-cloudformation",
  "aws-cloudwatch",
  "aws-dynamodb",
  "aws-dynamodb-streams",

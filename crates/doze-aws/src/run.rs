@@ -58,14 +58,12 @@ pub(crate) async fn run(args: Args) -> Result<()> {
         eventbridge.clone(),
         lambda.clone(),
         states.clone(),
+        Arc::new(aws_cloudformation::Cloudformation::with_config(
+            Arc::new(ctx("cloudformation")),
+            args.cloudformation(),
+        )),
     ];
-    let mut gateway = Gateway::new(config);
-    for service in services {
-        peers.register(Arc::clone(&service));
-        gateway = gateway.with(service);
-    }
-    gateway = shared_names(gateway, &ctx, &peers, &dynamodb);
-    let running = gateway
+    let running = gateway_of(config, services, &ctx, &peers, &dynamodb)
         .bind()
         .await
         .with_context(|| format!("listening on {}", args.listen))?;
@@ -110,13 +108,20 @@ fn observability(
     (cloudwatch, logs)
 }
 
-/// The services that share a signing name with another, so the bus cannot key them by it.
-fn shared_names(
-    mut gateway: Gateway,
+/// The gateway with every service, each also on the bus; then the services that share a signing name with another, which the bus
+/// cannot key by it.
+fn gateway_of(
+    config: Config,
+    services: Vec<Arc<dyn Service>>,
     ctx: &impl Fn(&str) -> Ctx,
     peers: &Arc<Peers>,
     dynamodb: &Arc<aws_dynamodb::Dynamodb>,
 ) -> Gateway {
+    let mut gateway = Gateway::new(config);
+    for service in services {
+        peers.register(Arc::clone(&service));
+        gateway = gateway.with(service);
+    }
     // DynamoDB Streams signs as `dynamodb` too: the gateway routes it by its target prefix, and it is not on the peer bus.
     let streams = aws_dynamodb_streams::Streams::new(dynamodb.clone(), Some(peers.clone()));
     gateway = gateway.with(Arc::new(streams));

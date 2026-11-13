@@ -30,6 +30,7 @@ aws-eventbridge = { path = "../aws-eventbridge" }
 aws-lambda = { path = "../aws-lambda" }
 aws-apigateway = { path = "../aws-apigateway" }
 aws-sfn = { path = "../aws-sfn" }
+aws-cloudformation = { path = "../aws-cloudformation" }
 aws-peers = { path = "../aws-peers" }
 aws-wire = { path = "../aws-wire" }
 doze-runtime = { path = "../doze-runtime" }

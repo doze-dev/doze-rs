@@ -66,6 +66,14 @@ impl Peers {
         }
     }
 
+    /// The model tables of service `target`, when it is registered (a caller that builds bodies from loosely typed input, such as
+    /// a CloudFormation template, reads them to coerce its values).
+    #[must_use]
+    pub fn tables(&self, target: &str) -> Option<&'static aws_schema::tables::Tables> {
+        let entries = self.entries.read().ok()?;
+        entries.get(target).map(|e| e.service.tables())
+    }
+
     /// Calls operation `operation` of service `target` with `body`, as service `acting` on behalf of `caller`. The answer is the
     /// operation's output as JSON (`{}` for an operation with none).
     ///
@@ -170,6 +178,26 @@ impl Peers {
         entries.get(target).map(|e| e.service.tables())
     }
 
+    /// Like [`Peers::call_rest`], with a request body held in memory (an object CloudFormation puts in S3 for a bucket deployment).
+    ///
+    /// # Errors
+    /// As [`Peers::call_rest`].
+    pub async fn call_rest_with_body(
+        &self,
+        acting: &str,
+        caller: &Caller,
+        (target, operation): (&str, &str),
+        body: &Value,
+        payload: bytes::Bytes,
+    ) -> Result<aws_wire::rest::RestReply, ApiError> {
+        let (service, call) = self.prepare(Some(acting), caller, target, operation, body)?;
+        let rest = service
+            .rest()
+            .ok_or_else(|| ApiError::internal(format!("{target} has no REST side")))?;
+        rest.call_rest(call, Some(Box::new(Whole(Some(payload)))))
+            .await
+    }
+
     /// The target service and the decoded call.
     fn prepare(
         &self,
@@ -220,6 +248,24 @@ impl Peers {
                 root,
             },
         ))
+    }
+}
+
+/// A request body held whole, handed to a REST service as one piece.
+struct Whole(Option<bytes::Bytes>);
+
+impl aws_wire::rest::Upload for Whole {
+    fn next(&mut self) -> aws_wire::service::BoxFuture<'_, Result<Option<bytes::Bytes>, ApiError>> {
+        let piece = self.0.take();
+        Box::pin(async move { Ok(piece) })
+    }
+
+    fn trailers(&self) -> Vec<(String, String)> {
+        Vec::new()
+    }
+
+    fn length(&self) -> Option<u64> {
+        self.0.as_ref().map(|b| b.len() as u64)
     }
 }
 

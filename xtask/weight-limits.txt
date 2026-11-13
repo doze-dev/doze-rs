@@ -80,4 +80,11 @@ doze-kafka 9000000 159 8192 --listen 127.0.0.1:{port} --data-dir {data}
 # compiler for the target is needed to build), ryu-js, web-time; and, new to doze-aws though already in the lock, indexmap, equivalent, hashbrown, foldhash. JSONata is the default
 # "jsonata" feature of aws-asl and aws-sfn, so it can be left out of a build. Byte limit = the musl size plus 5% = 9,858,000, rounded to 9,900,000 B; packages 252
 # (248 plus 4). THIS IS OVER the owner's 9 MB CI default and leaves 0.1 MB of the 10 MB ceiling for API Gateway and CloudFormation: a decision for the owner (stage note).
+# 2026-11-13, A16 CloudFormation (branch aws-a16-cloudformation, alone on the 4,867,344 B / 233 package base): 5,549,504 B on darwin/arm64, 235 packages,
+# 4,688 KB idle (+682 KB, +2 packages: aws-cloudformation and the CloudFormation model tables; no new third-party package: regex-lite, flate2, sha2,
+# hmac and bytes were already linked). The same code cross-built for x86_64-unknown-linux-musl is 8,665,744 B (+1,184,192 B over 7,481,552 B; 1.56 times
+# the macOS size). What the bytes are: the template engine (the YAML reader, intrinsics, the SAM, include and language-extensions transforms), the
+# provisioning engine and rollback, about 130 resource types written against the other services' operations, and the CloudFormation model (90
+# operations). The limit had to move or CI fails: the musl size plus 5% = 9,098,031, rounded to 9,100,000 B; packages unchanged at 240. This is past the
+# owner's 9 MB CI default and leaves 0.9 MB of the 10 MB ceiling for Step Functions and API Gateway: the size decision PLAN records as pending is now due.
 doze-aws 9900000 252 6144 --listen 127.0.0.1:{port} --data-dir {data}
