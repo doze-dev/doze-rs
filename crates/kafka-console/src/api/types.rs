@@ -72,8 +72,8 @@ fn groups(cfg: &Config, out: &mut BTreeMap<String, String>) {
         GroupAttention, GroupDeleteView, GroupHead, GroupLagView, GroupMemberRow, GroupPart,
         GroupPhase, GroupProtocol, GroupRebalance, GroupRefused, GroupRow, GroupSpan, GroupsView,
         LagRow, LagState, LagTopic, OffsetDeleteView, RefusalStep, ResetRow, ResetView, RowLag,
-        StoryCalm, StoryCause, StoryDropped, StoryFacts, StoryFlap, StoryGen, StoryHold,
-        StoryJoin, StoryLast, StoryLeft, StoryNow, StoryRule, StoryTone, StoryView, StoryWho,
+        StoryCalm, StoryCause, StoryDropped, StoryFacts, StoryFlap, StoryGen, StoryHold, StoryJoin,
+        StoryLast, StoryLeft, StoryNow, StoryRule, StoryTone, StoryView, StoryWho,
     };
     one::<GroupsResponse>(cfg, out);
     one::<GroupWireResponse>(cfg, out);

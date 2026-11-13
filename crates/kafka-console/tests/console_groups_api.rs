@@ -67,7 +67,11 @@ async fn the_groups_api_says_what_the_list_a_group_its_story_and_its_wire_show()
     assert_eq!(list["view"]["counts"].as_array().unwrap().len(), 4);
     assert_eq!(list["states"], serde_json::json!([]));
     // The states are a repeated field, kept in the list's order; the rows are those in ANY of them.
-    let (_, some) = get(&app, "/api/v1/groups?state=empty&state=stable&state=nonsense").await;
+    let (_, some) = get(
+        &app,
+        "/api/v1/groups?state=empty&state=stable&state=nonsense",
+    )
+    .await;
     assert_eq!(some["states"], serde_json::json!(["stable", "empty"]));
     assert!(
         some["view"]["rows"]
@@ -103,7 +107,11 @@ async fn the_groups_api_says_what_the_list_a_group_its_story_and_its_wire_show()
     // The story: generations newest first, the flapping rule worked out, causes as words.
     let (s, story) = get(&app, "/api/v1/groups/fulfilment/story").await;
     assert_eq!(s, StatusCode::OK);
-    assert!(story["generations"].as_array().is_some_and(|g| !g.is_empty()));
+    assert!(
+        story["generations"]
+            .as_array()
+            .is_some_and(|g| !g.is_empty())
+    );
     assert!(story["flap"]["rows"].as_array().is_some());
     assert!(story["generations"][0]["cause"].is_string());
     // The wire: the rows of the recorder that touched the group, each with its word and tone.
@@ -155,7 +163,13 @@ async fn a_reset_is_previewed_with_a_get_and_refused_in_kafkas_words_while_the_g
     )
     .await;
     assert_eq!(s, StatusCode::CONFLICT, "{r}");
-    assert!(r["code"].as_str().unwrap().chars().all(|c| c.is_ascii_uppercase() || c == '_'));
+    assert!(
+        r["code"]
+            .as_str()
+            .unwrap()
+            .chars()
+            .all(|c| c.is_ascii_uppercase() || c == '_')
+    );
     assert!(!r["message"].as_str().unwrap().is_empty());
     assert!(r["number"].as_i64().unwrap() > 0);
     assert_eq!(r["refused"]["what"], "Reset offsets");
@@ -241,7 +255,10 @@ async fn every_get_of_one_group_is_json_that_no_cache_keeps_and_carries_no_memor
         let (res, body) = send(&app, req).await;
         assert_eq!(res.status(), StatusCode::OK, "{path}: {body}");
         assert_eq!(res.headers()[header::CACHE_CONTROL], "no-store", "{path}");
-        assert!(body.starts_with('{') && !body.contains("resident"), "{path}");
+        assert!(
+            body.starts_with('{') && !body.contains("resident"),
+            "{path}"
+        );
         // Without the console's header: refused.
         let bare = Request::builder()
             .uri(*path)

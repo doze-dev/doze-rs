@@ -45,12 +45,12 @@ function MembersTable({ h, onOpen }: { h: GroupHead; onOpen: Open }) {
   const cols = useMemo<DataColumn<GroupMemberRow>[]>(
     () => [
       memberCol,
-      { id: "client", header: "Client id", size: 160, accessorFn: (m) => m.client_id, meta: { mono: true } },
-      { id: "host", header: "Host", size: 110, accessorFn: (m) => m.host, meta: { mono: true } },
+      { id: "client", header: "Client id", size: 140, accessorFn: (m) => m.client_id, meta: { mono: true } },
+      { id: "host", header: "Host", accessorFn: (m) => m.host, meta: { mono: true } },
       { id: "role", header: "Role", size: 92, accessorFn: (m) => role(h, m) },
-      { id: "generation", header: h.protocol === "consumer" ? "Epoch" : "Generation", size: 108, accessorFn: (m) => m.epoch, meta: { numeric: true, mono: true } },
-      { id: "session", header: "Session", size: 84, accessorFn: (m) => (m.session_ms > 0 ? seconds(m.session_ms) : "—"), meta: { mono: true } },
-      { id: "heard", header: "Last heartbeat", size: 128, accessorFn: (m) => heard(h.now_ms, m), meta: { mono: true } },
+      { id: "generation", header: h.protocol === "consumer" ? "Epoch" : "Generation", size: 100, accessorFn: (m) => m.epoch, meta: { numeric: true, mono: true } },
+      { id: "session", header: "Session", size: 80, accessorFn: (m) => (m.session_ms > 0 ? seconds(m.session_ms) : "—"), meta: { mono: true } },
+      { id: "heard", header: "Last heartbeat", size: 120, accessorFn: (m) => heard(h.now_ms, m), meta: { mono: true } },
     ],
     [h, memberCol],
   );
@@ -187,14 +187,14 @@ function Consumer({ v, onOpen }: { v: GroupLagView; onOpen: Open }) {
   );
   const cols: DataColumn<GroupMemberRow>[] = [
     { id: "member", header: "Member", accessorFn: (m) => m.id, cell: ({ row: { original: m } }) => <MemberLink m={m} onOpen={onOpen} /> },
-    { id: "client", header: "Client id", size: 160, accessorFn: (m) => m.client_id, meta: { mono: true } },
-    { id: "epoch", header: "Member epoch", size: 128, accessorFn: (m) => m.epoch, meta: { numeric: true, mono: true } },
-    { id: "target", header: "Target", size: 200, accessorFn: (m) => partList(m.target), meta: { mono: true } },
-    { id: "assigned", header: "Assigned", size: 200, accessorFn: (m) => partList(m.holds), meta: { mono: true } },
+    { id: "client", header: "Client id", size: 130, accessorFn: (m) => m.client_id, meta: { mono: true } },
+    { id: "epoch", header: "Member epoch", size: 120, accessorFn: (m) => m.epoch, meta: { numeric: true, mono: true } },
+    { id: "target", header: "Target", accessorFn: (m) => partList(m.target), meta: { mono: true } },
+    { id: "assigned", header: "Assigned", accessorFn: (m) => partList(m.holds), meta: { mono: true } },
     {
       id: "status",
       header: "Status",
-      size: 130,
+      size: 120,
       accessorFn: (m) => (inStep(m, target) ? "In step" : "Reconciling"),
       cell: ({ row: { original: m } }) => (inStep(m, target) ? <StatusDot tone="ok">In step</StatusDot> : <StatusDot tone="warn">Reconciling</StatusDot>),
     },
@@ -218,7 +218,7 @@ function Consumer({ v, onOpen }: { v: GroupLagView; onOpen: Open }) {
         <p className="mt-1 mb-3 max-w-[52rem] text-[13.5px] text-muted-foreground">Target is what the broker wants this member to hold at the group epoch. Assigned is what it holds now. When they differ the group is Reconciling.</p>
         <DataTable data={h.members} columns={cols} rowId={(m) => m.id} aria-label="Members" empty="Nobody is in this group." maxHeight={420} />
       </section>
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-6 xl:grid-cols-2">
         <Panel title="Where a group can be">
           <Rules rows={where.map(([p, w, sub]) => ({ ok: h.phase === p, here: h.phase === p, title: w, sub: h.phase === p ? `${sub} This group, now.` : sub, value: h.phase === p ? "now" : "" }))} />
         </Panel>
@@ -261,7 +261,7 @@ function Rebalancing({ v, fetchedAt, onOpen }: { v: GroupLagView; fetchedAt: num
   const left = h.story.left;
   return (
     <div className="flex flex-col gap-8" data-testid="rebalancing-group">
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-6 xl:grid-cols-2">
         <Panel>
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="min-w-0">
@@ -271,7 +271,7 @@ function Rebalancing({ v, fetchedAt, onOpen }: { v: GroupLagView; fetchedAt: num
               </div>
             </div>
             <div className="text-right text-[13px] text-muted-foreground">
-              <Countdown deadline={deadline} className="text-[28px] leading-9 text-bright" /> <span>of {r ? spanPrecise(r.timeout_ms) : "–"} left</span>
+              <Countdown deadline={deadline} className="text-[24px] leading-9 text-bright" /> <span>of {r ? spanPrecise(r.timeout_ms) : "–"} left</span>
             </div>
           </div>
           <div className="mt-5 h-1.5 overflow-hidden rounded-full bg-track" aria-hidden>

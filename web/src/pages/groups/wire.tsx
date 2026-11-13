@@ -27,11 +27,10 @@ function took(us: number): string {
 }
 
 const COLUMNS: DataColumn<GroupWireRow>[] = [
-  { id: "time", header: "Time", size: 120, accessorFn: (r) => clockMs(r.at_ms), meta: { mono: true } },
+  { id: "time", header: "Time", size: 108, accessorFn: (r) => clockMs(r.at_ms), meta: { mono: true } },
   {
     id: "client",
     header: "Client",
-    size: 160,
     accessorFn: (r) => r.client,
     cell: ({ row: { original: r } }) => (
       <span className="flex min-w-0 items-center gap-1.5">
@@ -47,7 +46,7 @@ const COLUMNS: DataColumn<GroupWireRow>[] = [
   {
     id: "request",
     header: "Request",
-    size: 176,
+    size: 164,
     accessorFn: (r) => `${r.api} v${r.version}`,
     cell: ({ row: { original: r } }) => (
       <span className="flex min-w-0 items-center gap-1.5">
@@ -71,7 +70,7 @@ const COLUMNS: DataColumn<GroupWireRow>[] = [
   {
     id: "result",
     header: "Result",
-    size: 200,
+    size: 176,
     accessorFn: (r) => `${r.word} ${r.code ? `${r.code_name} (${r.code})` : r.detail}`,
     cell: ({ row: { original: r } }) => (
       <span className="flex min-w-0 items-center gap-1.5" data-testid="wire-result">
@@ -83,7 +82,7 @@ const COLUMNS: DataColumn<GroupWireRow>[] = [
       </span>
     ),
   },
-  { id: "took", header: "Took", size: 76, accessorFn: (r) => took(r.took_us), meta: { numeric: true, mono: true } },
+  { id: "took", header: "Took", size: 68, accessorFn: (r) => took(r.took_us), meta: { numeric: true, mono: true } },
 ];
 
 export function WireTable({ rows, empty, maxHeight }: { rows: GroupWireRow[]; empty: string; maxHeight?: number }) {

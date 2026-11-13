@@ -146,7 +146,12 @@ fn fields(q: Option<&str>) -> Vec<(String, String)> {
 
 async fn groups(State(s): State<Shared>, RawQuery(q): RawQuery) -> Response {
     let f = fields(q.as_deref());
-    let filter: String = field(&f, "q").unwrap_or("").trim().chars().take(249).collect();
+    let filter: String = field(&f, "q")
+        .unwrap_or("")
+        .trim()
+        .chars()
+        .take(249)
+        .collect();
     let state = GroupStates::parse(&f);
     let view = s.source.groups(&filter, &state, None).await;
     let attention = view
@@ -164,11 +169,7 @@ async fn groups(State(s): State<Shared>, RawQuery(q): RawQuery) -> Response {
     )
 }
 
-async fn group(
-    State(s): State<Shared>,
-    Path(id): Path<String>,
-    RawQuery(q): RawQuery,
-) -> Response {
+async fn group(State(s): State<Shared>, Path(id): Path<String>, RawQuery(q): RawQuery) -> Response {
     let f = fields(q.as_deref());
     let expiring = field(&f, "expiring") == Some("1");
     match s.source.group(&id, expiring).await {
@@ -279,7 +280,11 @@ async fn reset_preview(
     }
 }
 
-fn refused(r: &Refusal, refused: Option<GroupRefused>, offsets: Option<OffsetDeleteView>) -> Response {
+fn refused(
+    r: &Refusal,
+    refused: Option<GroupRefused>,
+    offsets: Option<OffsetDeleteView>,
+) -> Response {
     json(
         StatusCode::CONFLICT,
         &GroupWriteRefusal {
@@ -427,7 +432,6 @@ pub fn routes(web: &crate::base::Base) -> axum::Router<Shared> {
             get(offsets_preview).post(offsets_delete),
         )
 }
-
 
 /// The GET addresses of one group, over the fixtures' world (`analytics`, `fulfilment`, `search-indexer`); the tests read
 /// them all.
