@@ -9,7 +9,7 @@ import type { ConfigRowView } from "@/api/types/ConfigRowView";
 import type { ConfigTab as Tab } from "@/api/types/ConfigTab";
 import { useConfigTab } from "@/api/topic-writes";
 import { EmptyState } from "@/components/app/empty-state";
-import { Spans } from "@/components/app/spans";
+import { type Figure, Figures } from "@/components/app/stat";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -240,6 +240,25 @@ function Sections({ tab, q, show, onEdit, onReset }: { tab: Tab; q: string; show
   );
 }
 
+/** The configs by where their value comes from: every source, so the parts add up to the whole. */
+export function sourceFigures(rows: ConfigRowView[]): Figure[] {
+  const n = (want: (s: ConfigRowView["source"]) => boolean) => rows.filter((r) => want(r.source)).length;
+  const topic = n((s) => s === "dynamic_topic");
+  const broker = n((s) => s === "dynamic_broker" || s === "dynamic_default");
+  const flag = n((s) => s === "static_flag");
+  const dflt = n((s) => s === "default");
+  const other = rows.length - topic - broker - flag - dflt;
+  const out: Figure[] = [
+    { label: "Configs", value: number(rows.length), testId: "src-all" },
+    { label: "Set on this topic", value: number(topic), testId: "src-topic", tip: "Dynamic topic: set with AlterConfigs on this topic" },
+    { label: "Set for the broker", value: number(broker), testId: "src-broker", tip: "Dynamic broker: set for this broker or for all brokers" },
+    { label: "Start flag", value: number(flag), testId: "src-flag", tip: "Static: a start flag that differs from Kafka's default" },
+    { label: "Kafka's default", value: number(dflt), testId: "src-default" },
+  ];
+  if (other > 0) out.push({ label: "Elsewhere", value: number(other), testId: "src-other" });
+  return out;
+}
+
 /** The route component of `/topics/$topic/config` (R1a's frame around it). */
 export function TopicConfigPage() {
   const { topic } = useParams({ from: "/topics/$topic/config" });
@@ -279,9 +298,11 @@ export function TopicConfigTab({ topic }: { topic: string }) {
   const tab = data.data;
   return (
     <div data-testid="config-tab">
-      <p className="mb-5 max-w-[56rem] text-[14px] leading-[22px] text-muted-foreground" data-testid="config-sentence">
-        {tab ? <Spans spans={tab.sentence} /> : <Skeleton className="h-5 w-2/3" />}
-      </p>
+      {/* Where the values come from, as labelled figures that add up to the whole (every source counted; no sentence with
+          numbers in it, CON-805). */}
+      <div className="mb-5 min-h-[46px]" data-testid="config-sources">
+        {tab ? <Figures figures={sourceFigures(tab.rows)} aria-label="Where the values come from" /> : <Skeleton className="h-[46px] w-2/3" />}
+      </div>
       <div className="mb-5 flex flex-wrap items-center gap-3" role="search">
         <div className="relative w-full max-w-sm">
           <SearchIcon aria-hidden className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />

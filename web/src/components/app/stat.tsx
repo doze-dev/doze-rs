@@ -55,3 +55,22 @@ export function StatStrip({ stats, className }: { stats: Stat[]; className?: str
     </dl>
   );
 }
+
+export type Figure = { label: string; value: string; /** Reserved width of the value in characters (default 4). */ ch?: number; tip?: string; testId?: string };
+
+/** A compact row of labelled figures (a label over its value, the value in a slot of reserved width with tabular figures): for
+ * counts that would otherwise be a sentence with numbers in it (CON-805). One line where it fits; wraps whole figures. */
+export function Figures({ figures, className, "aria-label": label }: { figures: Figure[]; className?: string; "aria-label"?: string }) {
+  return (
+    <dl className={cn("flex flex-wrap gap-x-7 gap-y-3", className)} aria-label={label} data-slot="figures">
+      {figures.map((f) => (
+        <div key={f.label} className="min-w-0" data-testid={f.testId} title={f.tip}>
+          <dt className="text-[11.5px] font-medium tracking-[0.06em] whitespace-nowrap text-muted-foreground uppercase">{f.label}</dt>
+          <dd className="mt-0.5 text-[17px] leading-6 font-medium text-bright tabular-nums" style={{ minWidth: `${f.ch ?? 4}ch` }} data-slot="figure-value">
+            {f.value}
+          </dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
