@@ -39,17 +39,28 @@ pub(crate) struct Core {
     pub(crate) peers: Option<Arc<Peers>>,
 }
 
-/// What the actor answers: the reply, whether the caller may wait for a better one (a receive that found nothing), and the
-/// commit the reply must wait for.
+/// What the actor answers: the reply, whether the caller may wait for a better one (a receive that found nothing), the commit the
+/// reply must wait for, and when the oldest message of any queue passes its retention (the deadline the service's timer sleeps to).
 #[derive(Debug)]
 pub(crate) struct Answer {
     pub(crate) reply: Reply,
     pub(crate) poll: Option<u32>,
     pub(crate) durable: Option<Ack>,
+    pub(crate) next_due: Option<i64>,
 }
 
+/// What the actor is asked: a call, or (from the timer) to remove the messages whose retention has passed.
+#[derive(Debug)]
+pub(crate) enum Ask {
+    Call(Box<Call>),
+    Tick,
+}
+
+/// The index a `DozePeek` call carries: past the model's operations.
+pub(crate) const PEEK_OP: u32 = 1 << 16;
+
 impl doze_runtime::Service for Core {
-    type Request = Call;
+    type Request = Ask;
     type Response = Answer;
     type Error = StoreError;
 
@@ -63,8 +74,16 @@ impl doze_runtime::Service for Core {
         Ok(core)
     }
 
-    async fn handle(&mut self, call: Call) -> Answer {
+    async fn handle(&mut self, ask: Ask) -> Answer {
         self.poll = None;
+        let call = match ask {
+            Ask::Call(call) => *call,
+            Ask::Tick => {
+                let now = self.now_ms();
+                self.expire(now, true);
+                return self.answer(empty());
+            }
+        };
         if let Some(peers) = self.peers.clone()
             && peers.mode() != Mode::Off
             && let Err(refusal) = peers.authorize(&call.caller, self.needs(&call)).await
@@ -73,21 +92,11 @@ impl doze_runtime::Service for Core {
                 reply: Err(refusal),
                 poll: None,
                 durable: None,
+                next_due: self.next_due(),
             };
         }
-        let mut reply = self.dispatch(&call);
-        let durable = match self.flush() {
-            Ok(ack) => ack,
-            Err(e) => {
-                reply = Err(ApiError::internal(format!("could not save: {e}")));
-                None
-            }
-        };
-        Answer {
-            reply,
-            poll: self.poll.take(),
-            durable,
-        }
+        let reply = self.dispatch(&call);
+        self.answer(reply)
     }
 
     async fn close(self) {
@@ -126,12 +135,48 @@ impl Core {
         self.clock.now_ms()
     }
 
+    /// Writes what the call changed and makes the answer.
+    fn answer(&mut self, mut reply: Reply) -> Answer {
+        let durable = match self.flush() {
+            Ok(ack) => ack,
+            Err(e) => {
+                reply = Err(ApiError::internal(format!("could not save: {e}")));
+                None
+            }
+        };
+        Answer {
+            reply,
+            poll: self.poll.take(),
+            durable,
+            next_due: self.next_due(),
+        }
+    }
+
+    /// Removes the messages whose retention has passed. AWS deletes them in its own time; what a caller sees is computed against
+    /// the clock in any case (a count leaves them out at once), so this is about the space they take. A call checks each queue's
+    /// oldest message only (`thorough` false); the timer, when that message's time comes, goes through every message.
+    pub(crate) fn expire(&mut self, now_ms: i64, thorough: bool) {
+        for queue in self.queues.values_mut() {
+            queue.expire(now_ms, thorough);
+        }
+    }
+
+    /// When the timer should next run: when the first message of some queue passes its retention. `None` while every queue is empty,
+    /// so an idle SQS holds no timer.
+    pub(crate) fn next_due(&self) -> Option<i64> {
+        self.queues.values().filter_map(Queue::expires_at).min()
+    }
+
     /// Every operation of the model has an arm, and the match is exhaustive: a model that gains an operation stops the build here.
     pub(crate) fn dispatch(&mut self, call: &Call) -> Reply {
+        let now = self.now_ms();
+        self.expire(now, false);
+        if call.op == PEEK_OP {
+            return self.peek(call);
+        }
         let Some(op) = Operation::from_index(call.op) else {
             return Err(ApiError::internal("unknown operation index"));
         };
-        let now = self.now_ms();
         self.advance_tasks(now);
         match op {
             Operation::CreateQueue => self.create_queue(call),
