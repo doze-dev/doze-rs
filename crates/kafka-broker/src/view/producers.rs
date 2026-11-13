@@ -64,6 +64,22 @@ pub struct PartitionProducers {
     pub aborted: Vec<AbortedRange>,
 }
 
+impl PartitionProducers {
+    /// A partition never written: no producer, an empty log.
+    fn never_written(topic: &str, partition: i32) -> Self {
+        Self {
+            topic: topic.to_owned(),
+            partition,
+            now_ms: clock::now().get(),
+            start: 0,
+            end: 0,
+            last_stable: 0,
+            producers: Vec::new(),
+            aborted: Vec::new(),
+        }
+    }
+}
+
 impl<F: Fs> ConsoleView<'_, F> {
     /// The producers of `partition` of `topic`, if `caller` may READ the topic (as DescribeProducers asks) and the partition
     /// exists; `None` otherwise (the two are not told apart, as Kafka does not).
@@ -82,16 +98,7 @@ impl<F: Fs> ConsoleView<'_, F> {
         let was_open = b.partitions.is_open(found.id, id);
         // A partition never written is not opened: opening makes its first segment, and a read must write nothing.
         let Some(open) = b.partitions.get_unless_empty(&found, id).await.ok()? else {
-            return Some(PartitionProducers {
-                topic: topic.to_owned(),
-                partition,
-                now_ms: clock::now().get(),
-                start: 0,
-                end: 0,
-                last_stable: 0,
-                producers: Vec::new(),
-                aborted: Vec::new(),
-            });
+            return Some(PartitionProducers::never_written(topic, partition));
         };
         let seen = open.txns().await.ok();
         let windows = open.windows().await.ok();

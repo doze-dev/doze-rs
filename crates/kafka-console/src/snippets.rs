@@ -53,10 +53,7 @@ pub fn for_address(addr: &str) -> Vec<ClientSnippet> {
             tag: "c · py",
             code: vec![
                 mixed(&[(Comment, "# kcat")]),
-                plain(&format!(
-                    "kcat -b {} -X client.id=admin-cli -L",
-                    crate::live_words::shell_word(addr)
-                )),
+                plain(&first_command(addr)),
                 Vec::new(),
                 mixed(&[(Comment, "# librdkafka properties")]),
                 plain(&format!("bootstrap.servers={addr}")),
