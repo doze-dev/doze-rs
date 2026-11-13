@@ -1036,9 +1036,9 @@ ACLs stored in the data directory are known only once the broker's data is open,
 ACLs made over the Kafka API after such a start do not bind the console (the note says so). An address that is not `host:port` is refused with `config: console address "x" is not host:port (for example
 127.0.0.1:9093)`. Every start refusal exits **2** (**deviation SEC-D62**). Until the 2026-11-13 console security audit the rule was the Go edition's (SASL or TLS only), and `--listen 127.0.0.1:P
 --console-addr 0.0.0.0:Q --acl-default deny` let a machine on the LAN create topics past the ACLs. Test:
-`cli::tests::console::each_guard_of_the_broker_alone_refuses_a_console_beyond_loopback_and_says_what_it_would_expose`, `..::every_guard_at_once_is_named_in_one_refusal`,
+`cli::tests::console_door::each_guard_of_the_broker_alone_refuses_a_console_beyond_loopback_and_says_what_it_would_expose`, `..::every_guard_at_once_is_named_in_one_refusal`,
 `..::loopback_a_turned_off_console_and_an_open_broker_on_the_network_all_start`, `..::acls_stored_in_the_data_directory_refuse_a_console_beyond_loopback_once_the_broker_is_open`,
-`..::a_console_address_that_is_not_host_and_port_is_refused`, `cli::tests::tls::tls_alone_refuses_a_console_on_the_network_unless_unprotected` (feature `tls`),
+`cli::tests::console::a_console_address_that_is_not_host_and_port_is_refused`, `cli::tests::tls::tls_alone_refuses_a_console_on_the_network_unless_unprotected` (feature `tls`),
 `tests/process console::sasl_and_a_console_beyond_loopback_stop_the_start_with_exit_2_unless_unprotected`,
 `console::acls_in_force_or_kafka_on_loopback_and_a_console_on_the_network_stop_the_start_with_exit_2`,
 `console::acls_stored_in_the_data_directory_stop_a_console_on_the_network_unless_unprotected`, `console::a_console_address_that_is_no_host_and_port_exits_2_too`,
@@ -1050,8 +1050,8 @@ Said once at warn before the broker listens: **a console accepted beyond loopbac
 on ADDR with no login and over plain HTTP: anyone who can reach that address can do what any Kafka client of this broker can (it has no login, no ACL and no TLS), and ACLs made later will not bind the console,
 which acts as a super user`); **the Lab beyond loopback** (LAB-21); and **SASL without TLS on a listen address other machines can reach** (`SASL is on without TLS and --listen ADDR can be reached from other
 machines: logins (a PLAIN password is sent as it is) and messages cross the network unencrypted`). Another, **SASL with `--acl-default allow`**, is SEC-191. No console note for a loopback console. Test:
-`cli::tests::console::unprotected_accepts_each_guard_and_the_start_says_what_it_left_open`, `..::loopback_a_turned_off_console_and_an_open_broker_on_the_network_all_start`,
-`..::sasl_without_tls_on_an_address_other_machines_reach_is_noted`, `tests/process console::unprotected_starts_the_broker_and_the_log_says_what_is_open`,
+`cli::tests::console_door::unprotected_accepts_each_guard_and_the_start_says_what_it_left_open`, `..::loopback_a_turned_off_console_and_an_open_broker_on_the_network_all_start`,
+`cli::tests::console::sasl_without_tls_on_an_address_other_machines_reach_is_noted`, `tests/process console::unprotected_starts_the_broker_and_the_log_says_what_is_open`,
 `console::an_open_broker_on_the_network_serves_its_console_there_with_the_lab_off_unless_asked`.
 
 ## Audit fixes of the authentication half, branch p8h (SEC-190 to SEC-198)

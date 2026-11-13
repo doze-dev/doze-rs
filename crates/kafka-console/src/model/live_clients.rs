@@ -78,3 +78,20 @@ pub struct GroupWireView {
     pub all: usize,
     pub refused: usize,
 }
+
+/// One option of a filter: a value and how many rows of the tape carry it (among the rows that pass the other filters).
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+pub struct Facet {
+    pub value: String,
+    pub count: usize,
+}
+
+/// The options of the Live filters.
+#[derive(Debug, Clone, PartialEq, Eq, Default, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+pub struct Facets {
+    pub clients: Vec<Facet>,
+    pub apis: Vec<Facet>,
+    pub topics: Vec<Facet>,
+}

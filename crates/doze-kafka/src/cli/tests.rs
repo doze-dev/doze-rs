@@ -358,6 +358,7 @@ fn client_telemetry_is_on_unless_told_otherwise() {
 }
 
 mod console;
+mod console_door;
 mod lab;
 mod users;
 

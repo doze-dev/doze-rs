@@ -32,10 +32,12 @@ pub use connect::{
 pub use consumers::{ConsumersView, TopicReader};
 pub use home::{Attention, HeldBack, HomeState, HomeView, InstanceView, StopView};
 pub use live::{
-    Facet, Facets, LiveState, LiveView, WIRE_LIMIT, WIRE_MOST, WireClass, WireDetail, WirePart,
-    WireQuery, WireRefusal, WireRow, WireWindow,
+    LiveState, LiveView, WIRE_LIMIT, WIRE_MOST, WireClass, WireDetail, WirePart, WireQuery,
+    WireRefusal, WireRow, WireWindow,
 };
-pub use live_clients::{ClientRow, ClientsView, FirstView, GroupWireView, SpokeView};
+pub use live_clients::{
+    ClientRow, ClientsView, Facet, Facets, FirstView, GroupWireView, SpokeView,
+};
 pub use log::{
     LogCleaner, LogCompaction, LogDurability, LogLimit, LogMoved, LogOther, LogOtherLink, LogPass,
     LogPlanner, LogRetentionView, LogRound, LogRules, LogSegment, LogState, LogStop, LogTombstone,
