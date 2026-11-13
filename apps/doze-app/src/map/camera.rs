@@ -1,7 +1,7 @@
 //! The Map's camera: screen pixels per map pixel and the map point at the viewport's top left, fitted, zoomed about a
 //! point, panned, kept over the drawing. Plain arithmetic, tested without a window.
 
-use doze_map::{CardId, Layout, Mode, Rect};
+use doze_map::{CardId, Layout, Rect};
 
 /// The furthest out and closest in.
 pub(crate) const MIN_ZOOM: f32 = 0.02;
@@ -66,12 +66,13 @@ impl Camera {
 
     /// The whole drawing in view. A small map fits its width as the Go map did (a little wider is drawn a little
     /// smaller, else 1:1 and it scrolls down); a large one is shown whole, centred.
-    pub(crate) fn fit(&mut self, l: &Layout) {
+    /// As a small map (`small`: its width, 70% at least) or a large one (whole).
+    pub(crate) fn fit_as(&mut self, l: &Layout, small: bool) {
         let (w, h) = self.wh();
         let b = l.bounds;
         self.fitted = true;
         self.flight = None;
-        if l.mode == Mode::Classic {
+        if small {
             // The Go map fitted its width when a little wider (down to 84%) and scrolled the page otherwise; with a
             // camera it fits the whole drawing down to 70%, where every word on a card is still readable, then pans.
             let r = (w / b.w.max(1.0) as f32).min(h / b.h.max(1.0) as f32);
@@ -212,7 +213,7 @@ mod tests {
     fn zooming_keeps_the_point_under_the_pointer() {
         let l = layout(&synth::stack(400, 1000, 3), &Options::default());
         let mut c = cam(1200.0, 800.0);
-        c.fit(&l);
+        c.fit_as(&l, l.mode == doze_map::Mode::Classic);
         let before = c.to_map(300.0, 200.0);
         c.zoom_at(1.5, 300.0, 200.0, l.bounds);
         let after = c.to_map(300.0, 200.0);
@@ -225,7 +226,7 @@ mod tests {
     fn a_large_map_fits_whole_and_arrows_reach_a_card() {
         let l = layout(&synth::stack(2000, 5000, 7), &Options::default());
         let mut c = cam(1800.0, 800.0);
-        c.fit(&l);
+        c.fit_as(&l, l.mode == doze_map::Mode::Classic);
         assert!(c.zoom < 0.2, "{}", c.zoom);
         let v = c.view();
         assert!(v.w >= l.bounds.w - 1.0 || v.h >= l.bounds.h - 1.0);
@@ -238,7 +239,7 @@ mod tests {
     fn a_small_map_fits_its_width() {
         let l = layout(&synth::stack(10, 25, 7), &Options::default());
         let mut c = cam(l.bounds.w as f32 * 0.9, 2000.0);
-        c.fit(&l);
+        c.fit_as(&l, l.mode == doze_map::Mode::Classic);
         assert!((c.zoom - 0.9).abs() < 0.01, "{}", c.zoom);
     }
 }

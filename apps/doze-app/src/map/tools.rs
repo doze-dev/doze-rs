@@ -146,7 +146,10 @@ pub(crate) fn crumbs(t: &Tokens, m: &MapView, cx: &mut Context<MapView>) -> Opti
         .gap(px(7.))
         .text_size(px(12.))
         .whitespace_nowrap()
-        .child(link("Map".into(), "crumb-map").on_click(cx.listener(|this, _, _, cx| this.fly_fit(cx))))
+        .child(
+            link("Map".into(), "crumb-map")
+                .on_click(cx.listener(|this, _, _, cx| this.fly_fit(cx))),
+        )
         .child(sep());
     match (region, k) {
         (Some(r), Some(k)) => {
@@ -158,7 +161,9 @@ pub(crate) fn crumbs(t: &Tokens, m: &MapView, cx: &mut Context<MapView>) -> Opti
                 .child(sep());
         }
         _ => {
-            row = row.child(div().text_color(t.text).child("with no calls")).child(sep());
+            row = row
+                .child(div().text_color(t.text).child("with no calls"))
+                .child(sep());
         }
     }
     Some(

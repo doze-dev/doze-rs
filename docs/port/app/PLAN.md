@@ -631,6 +631,34 @@ The ★ items are 1, 4, 5, 9, 13, 14, 16, 18, 20 and 23. In order of importance:
 - The spike's `nav` check (96 moves against flow.tsx) becomes a `doze-map` unit test with the Go fixture as the oracle.
 - If the map agent's crate shape differs, `doze-desk` adapts in one place (`desk::map_facts`). The app never reaches into map internals.
 
+### 4.5.1 The Map for 20–150 services (built 2026-11-13, branch `app-map-150`)
+
+The owner's brief: work well to 100–150 services (20–40 is common), degrade past that, 2,000 a stretch. From the design
+boards (11 of them, on real doze-map output), the call made and built:
+
+- **At 60 cards or fewer, nothing changes**: the Go map, card for card (doze-map's oracle), and the larder and shop shots
+  are pixel-identical to before on the map (the header's clock is the only difference, run to run).
+- **Named regions** (board 2, idea A) past 60 cards, when the stack splits into at least three regions of four or more:
+  a card's region is its `group`, else its name's stem (`checkout-api` → `checkout`); a task card joins its caller's;
+  stems under four cards share `other`. Each region is laid out on its own (doze-map's layered layout on its calls)
+  and framed; frames are packed callers' regions first, about as wide as a window. The frame's pill says its services,
+  what is crashing and its memory. Calls inside a region are routed clear of every card; a call between regions is a
+  plain curve, drawn on demand.
+- **Lines on demand** (idea D): at rest, calls inside regions faint and the calls between regions as one weighted bundle
+  per region pair; hover lights a card's calls, a selection keeps them; `L` (or the toolbar's Lines) draws every line.
+- **The call-less folded** (idea G): the lane and the shared band become one tile, "N with no calls", that opens a list
+  (search, filters, trouble first). A folded card is still found, selected and lit (a shared one lights its users).
+- **Find flies** (idea H): a 280 ms eased camera move (the `slow` token; none with reduced motion) and a breadcrumb,
+  Map › region › card, each step a way back out.
+- **Focus views**: neighbourhood (`H`, board 6: the card and 1–3 calls either way, in columns by path that keep their
+  meaning as hops grow) and only trouble (`T`, board 5: what is in trouble and the shortest paths of up to three calls
+  between, laid out on their own). `esc` returns where the camera was.
+- **Region zoom-in, lite** (idea C without its cost): double-click a frame (or click its pill, or its breadcrumb) and
+  the camera flies to fit it. **Not built, by decision**: a separate per-region layout (level 2) and the collapsed
+  region boxes (level 1) of boards 2–3 and 9. At 150 services the whole map at fit already reads by region, so they add
+  a second layout of every card and a level switch for little; past 150 the owner accepts degradation (2,000 lays out,
+  fits at about 5% as plain blocks and bundles, and find still flies to any card).
+
 ### 4.6 Theme
 
 - `tokens.css` (5 palettes × dark/light) is converted once by an xtask into 10 gpui-component theme JSON files, plus doze's own extra tokens (tones, the scrim, chart series).

@@ -10,6 +10,10 @@
 //! | above | every call at full strength (Go's look) | every call, half strength |
 //!
 //! At every level the focus card (selected, else hovered) has its own calls drawn on top in the accent.
+//!
+//! A map by named region (past sixty cards) draws its frames under everything; at rest its calls are on demand: those
+//! inside a region faint, those between regions as the regions' bundles below [`DETAIL_ZOOM`] (none up close), and
+//! every line at its old strength when `L` asks.
 
 use std::rc::Rc;
 use std::sync::Arc;
@@ -23,6 +27,8 @@ use gpui::{
 use super::cache::{Cache, build, level, place};
 use super::{DETAIL_ZOOM, LABEL_ZOOM, MapView};
 use crate::theme::{Tokens, alpha, mix};
+
+mod far;
 
 /// What one frame of the scene paints with.
 #[derive(Clone)]
@@ -62,6 +68,21 @@ pub(crate) fn lit_set(l: &Layout, lit: Option<CardId>) -> Option<Vec<bool>> {
     Some(on)
 }
 
+impl MapView {
+    /// What the selection keeps lit, the rest faded; in a neighbourhood, nothing fades while its centre is selected
+    /// (every card there is the centre's).
+    pub(crate) fn lit_on(&self) -> Option<Vec<bool>> {
+        let centre = match &self.lens {
+            Some(super::Lens::Hood { centre, .. }) => self.layout.card_named(centre),
+            _ => None,
+        };
+        if centre.is_some() && centre == self.lit {
+            return None;
+        }
+        lit_set(&self.layout, self.lit)
+    }
+}
+
 /// Whether the map is big enough that far out it is drawn as regions and bundles.
 pub(crate) fn bundled(m: &MapView) -> bool {
     m.layout.mode == Mode::Layered && m.cam.zoom < LABEL_ZOOM
@@ -86,7 +107,7 @@ pub(crate) fn scene(
         pan: m.cam.pan,
         lit: m.lit,
         focus: m.focus_card(),
-        on: lit_set(&m.layout, m.lit).map(Rc::new),
+        on: m.lit_on().map(Rc::new),
         quiet: m.quiet(),
         home: m
             .focus_card()
@@ -133,7 +154,8 @@ impl Scene {
         if far && !named {
             self.regions(o, window);
         }
-        if far || (named && self.quiet) {
+        // Bundles are the at-a-glance picture: up close, where cards read, a card's own calls show on hover instead.
+        if far || (named && self.quiet && self.z < DETAIL_ZOOM) {
             self.bundles(o, window);
         }
         if !far {
@@ -183,76 +205,6 @@ impl Scene {
         ));
     }
 
-    /// Far out in a large map: each region a soft tint, so the bundles have somewhere to land (no outline: regions
-    /// may touch, and outlines there read as clutter).
-    fn regions(&self, o: Point<Pixels>, window: &mut Window) {
-        let fill = alpha(self.t.accent, if self.t.dark { 0.045 } else { 0.06 });
-        for r in &self.o.regions {
-            let pad = 8.0 / f64::from(self.z);
-            let b = self.rect(
-                o,
-                Rect::new(
-                    r.rect.x - pad,
-                    r.rect.y - pad,
-                    r.rect.w + 2.0 * pad,
-                    r.rect.h + 2.0 * pad,
-                ),
-            );
-            window.paint_quad(gpui::fill(b, fill).corner_radii(px(6.)));
-        }
-    }
-
-    /// Far out in a large map: the bundles, as wide as their weight; faded under a selection, except its region's.
-    fn bundles(&self, o: Point<Pixels>, window: &mut Window) {
-        let lv = level(self.z);
-        let home = self
-            .focus
-            .and_then(|c| self.o.region_of.get(c.ix()).copied().flatten());
-        let heaviest = self.o.heaviest() as f32;
-        let quiet = alpha(self.t.dim, 0.14);
-        // Between named regions the bundles stand in for the calls at every zoom: quieter and thinner than the
-        // far-out overview's, so the frames and cards stay what the eye reads first.
-        let named = !self.l.regions.is_empty();
-        let widest = if named { 3.5 } else { 8.0 };
-        self.cache.bundles(&self.o, lv, widest, &mut |p, i, at| {
-            let Some(b) = self.o.bundles.get(i) else {
-                return;
-            };
-            // Heavier bundles stronger: a single call between regions is a whisper, the main flows carry the picture.
-            let weight = (b.count as f32 / heaviest).sqrt();
-            let strength = match (named, b.count) {
-                (true, 0..=1) => 0.2,
-                (true, _) => 0.24 + 0.36 * weight,
-                (false, 0..=1) => 0.12,
-                (false, _) => 0.22 + 0.58 * weight,
-            };
-            let mine = home.is_some_and(|h| b.from == h || b.to == h);
-            let color = match home {
-                Some(_) if !mine => quiet,
-                _ => alpha(self.t.accent, strength),
-            };
-            window.paint_path(place(p, self.z / at, o), color);
-        });
-    }
-
-    /// A layered map's named regions: each a quiet frame, the focus card's outlined in the accent.
-    fn frames(&self, o: Point<Pixels>, window: &mut Window) {
-        let fill = alpha(self.t.accent, if self.t.dark { 0.035 } else { 0.045 });
-        let radius = px((14.0 * self.z).max(3.0));
-        for (k, r) in self.l.regions.iter().enumerate() {
-            if !r.rect.intersects(&self.view) {
-                continue;
-            }
-            let border = if self.home == Some(k) {
-                alpha(self.t.accent, 0.6)
-            } else {
-                self.t.line2
-            };
-            let b = self.rect(o, r.rect);
-            window.paint_quad(quad(b, radius, fill, px(1.), border, BorderStyle::Solid));
-        }
-    }
-
     /// Single calls: batched polylines up to [`DETAIL_ZOOM`], curves with heads above it. Past
     /// sixty cards they are faint at rest (lines on demand) and the calls between regions are left
     /// to the bundles, unless every line is asked for.
@@ -260,6 +212,8 @@ impl Scene {
         let lv = level(self.z);
         let large = self.l.mode == Mode::Layered;
         let strength = match (large, self.quiet) {
+            // A neighbourhood: the centre's own calls are drawn strong on top; the rest between shown cards faint.
+            (false, _) if self.l.mode == Mode::Focus => 0.4,
             (false, _) => 1.0,
             (true, true) => 0.34,
             (true, false) if self.z < DETAIL_ZOOM => 0.3,
@@ -393,58 +347,6 @@ impl Scene {
                 window.paint_quad(gpui::fill(back, alpha(self.t.line2, a)));
             }
         }
-    }
-
-    /// Far out: every block from cached batches (a few dozen paths for thousands of cards); the focus card and a
-    /// selection's cards again on top.
-    fn far_blocks(&self, o: Point<Pixels>, window: &mut Window) {
-        let lv = level(self.z);
-        let a = if self.on.is_some() { 0.35 } else { 1.0 };
-        let colors = [
-            mix(self.t.dim, self.t.panel, 35.),
-            mix(self.t.accent, self.t.panel, 30.),
-        ];
-        self.cache
-            .blocks(&self.l, &self.states, self.view, lv, &mut |p, color, at| {
-                let c = if color < 2 {
-                    colors.get(color).copied().unwrap_or(self.t.dim)
-                } else {
-                    self.state_color_of(color - 2)
-                };
-                window.paint_path(place(p, self.z / at, o), alpha(c, a));
-            });
-        let mut mark = |i: usize, color: Hsla| {
-            if let Some(c) = self.l.cards.get(i).filter(|_| !self.l.folded(CardId(i as u32))) {
-                let b = self.rect(o, c.rect);
-                let b = Bounds {
-                    origin: b.origin,
-                    size: size(b.size.width.max(px(3.)), b.size.height.max(px(3.))),
-                };
-                window.paint_quad(gpui::fill(b, color));
-            }
-        };
-        if let Some(on) = &self.on {
-            on.iter()
-                .enumerate()
-                .filter(|(_, b)| **b)
-                .for_each(|(i, _)| mark(i, self.t.accent));
-        }
-        if let Some(f) = self.focus {
-            mark(f.ix(), self.t.bright);
-        }
-    }
-
-    fn state_color_of(&self, state: usize) -> Hsla {
-        [
-            self.t.good,
-            self.t.warn,
-            self.t.dim,
-            self.t.cool,
-            self.t.bad,
-        ]
-        .get(state)
-        .copied()
-        .unwrap_or(self.t.dim)
     }
 
     /// The selection's dashed lines to what it uses, each ending in a dot.

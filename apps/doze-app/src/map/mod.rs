@@ -15,6 +15,8 @@
 //! into one tile that opens a searchable list ([`tile`]); find flies to the card ([`flight`]); and two focus views
 //! ([`lens`]) show a card's neighbourhood (`H`) or only what is in trouble (`T`).
 
+#[cfg(feature = "capture")]
+pub(crate) mod bench;
 mod cache;
 mod camera;
 mod cards;
@@ -26,6 +28,8 @@ mod paint;
 mod regions;
 #[cfg(feature = "capture")]
 mod stage;
+#[cfg(all(test, feature = "capture"))]
+mod tests;
 mod tile;
 mod tools;
 mod view;
@@ -152,12 +156,18 @@ impl MapView {
             .collect();
         if rows != self.rows || page.folds != self.folds {
             let trouble = |r: &HashMap<String, Row>| {
-                let mut v: Vec<&str> = r.values().filter(|r| r.trouble).map(|r| r.name.as_str()).collect();
+                let mut v: Vec<&str> = r
+                    .values()
+                    .filter(|r| r.trouble)
+                    .map(|r| r.name.as_str())
+                    .collect();
                 v.sort_unstable();
                 v.join(",")
             };
             // Only trouble is made again when what is in trouble changes.
-            let again = moved || matches!(self.lens, Some(Lens::Trouble { .. })) && trouble(&rows) != trouble(&self.rows);
+            let again = moved
+                || matches!(self.lens, Some(Lens::Trouble { .. }))
+                    && trouble(&rows) != trouble(&self.rows);
             self.rows = rows;
             self.folds = page.folds.clone();
             if again {
@@ -175,7 +185,8 @@ impl MapView {
 
     /// Draws `l`: the selection and the pointer's card kept by name, the cache and the states made again.
     pub(crate) fn show(&mut self, l: Arc<Layout>) {
-        let name = |id: Option<CardId>| id.and_then(|c| self.layout.card(c)).map(|c| c.name.clone());
+        let name =
+            |id: Option<CardId>| id.and_then(|c| self.layout.card(c)).map(|c| c.name.clone());
         let (lit, hover) = (name(self.lit), name(self.hover));
         self.overview = Rc::new(l.overview());
         self.layout = l;
@@ -290,7 +301,11 @@ impl MapView {
         }
         if let Some(c) = self.layout.card(id) {
             let ctr = c.rect.center();
-            let zoom = if self.cam.zoom < 0.9 { 1.0 } else { self.cam.zoom };
+            let zoom = if self.cam.zoom < 0.9 {
+                1.0
+            } else {
+                self.cam.zoom
+            };
             let dur = crate::theme::Motion::of(cx).slow;
             self.cam.fly((zoom, ctr.x, ctr.y), self.layout.bounds, dur);
         }
@@ -307,10 +322,23 @@ impl MapView {
         }
     }
 
+    /// Fits `cam` to the drawing: a focus view is shown whole, whatever its layout.
+    pub(crate) fn fit_into(&self, cam: &mut Camera) {
+        let small = self.layout.mode == doze_map::Mode::Classic && self.lens.is_none();
+        cam.fit_as(&self.layout, small);
+    }
+
+    /// Fits the camera to the drawing, at once.
+    pub(crate) fn refit(&mut self) {
+        let mut c = self.cam;
+        self.fit_into(&mut c);
+        self.cam = c;
+    }
+
     /// Flies back to the whole map.
     pub(crate) fn fly_fit(&mut self, cx: &mut Context<Self>) {
         let mut end = self.cam;
-        end.fit(&self.layout);
+        self.fit_into(&mut end);
         let (x, y) = end.centre();
         let dur = crate::theme::Motion::of(cx).slow;
         self.cam.fly((end.zoom, x, y), self.layout.bounds, dur);

@@ -62,12 +62,15 @@ impl Fixture {
                 daemon: None,
             });
         }
-        let medium = name
-            .strip_prefix("medium-")
-            .and_then(|n| n.parse::<usize>().ok());
+        // `medium-150`, or `medium-150x500` for 500 calls rather than two an app.
+        let medium = name.strip_prefix("medium-").and_then(|n| {
+            let (n, calls) = n.split_once('x').unwrap_or((n, ""));
+            let n = n.parse::<usize>().ok()?;
+            Some((n, calls.parse::<usize>().unwrap_or(n * 2)))
+        });
         let script = match (synth, medium) {
             (Some(n), _) => synthetic(n),
-            (None, Some(n)) => medium_stack(n),
+            (None, Some((n, calls))) => medium_stack(n, calls),
             (None, None) => {
                 let path = scripts().join(format!("{name}.ndjson"));
                 let mut s = Script::load(&path).with_context(|| format!("fixture {name}"))?;
@@ -210,11 +213,10 @@ fn seed_larder(work: &Path, loaded: Option<std::time::SystemTime>) -> anyhow::Re
     Ok(dir.display().to_string())
 }
 
-/// `medium-N`: a medium stack of about `n` instances shaped like a real one (doze-map's `synth::medium`: a few teams'
+/// `medium-N` (or `medium-NxCALLS`): a medium stack of about `n` instances shaped like a real one (doze-map's `synth::medium`: a few teams'
 /// services named for the team, a gateway, postgres, redis and kafka, apps nothing calls, a failed migration), with
 /// a few in trouble.
-fn medium_stack(n: usize) -> Script {
-    let calls = n * 2;
+fn medium_stack(n: usize, calls: usize) -> Script {
     let ins = doze_map::synth::medium(n, calls, 1);
     let bad = doze_map::synth::medium_trouble(&ins);
     script(&ins, &format!("medium-{n}"), &|i, v| {

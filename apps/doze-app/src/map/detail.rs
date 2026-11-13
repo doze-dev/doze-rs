@@ -116,11 +116,19 @@ fn detail_rows(m: &MapView, c: &Card) -> Vec<(&'static str, String)> {
     if c.role == Role::Shared {
         return vec![("used by", names(&c.uses))];
     }
-    let mut rows = vec![
+    let mut rows = Vec::new();
+    if let Some(r) = m
+        .layout
+        .card_named(&c.name)
+        .and_then(|id| m.layout.region(id))
+    {
+        rows.push(("region", r.name.clone()));
+    }
+    rows.extend([
         ("calls", names(&c.calls)),
         ("needed by", names(&c.callers)),
         ("uses", names(&c.uses)),
-    ];
+    ]);
     if let Some(r) = m.rows.get(&c.name).filter(|r| !r.because.is_empty()) {
         rows.push(("now", r.because.clone()));
     }
@@ -188,7 +196,12 @@ fn detail_at(m: &MapView, width: f32, height: f32) -> (f32, f32) {
 
 /// The selected card's detail.
 pub(crate) fn detail(t: &Tokens, m: &MapView, cx: &mut Context<MapView>) -> Option<AnyElement> {
-    let c = m.layout.card(m.lit?)?;
+    let id = m.lit?;
+    let c = m.layout.card(id)?;
+    // A neighbourhood's centre is named on the toolbar; its detail would cover the columns.
+    if matches!(&m.lens, Some(super::Lens::Hood { centre, .. }) if *centre == c.name) {
+        return None;
+    }
     let top = detail_head(t, m, c, cx);
     let width = 420.;
     let rows = detail_rows(m, c);

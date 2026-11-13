@@ -294,7 +294,10 @@ fn more_calls(
             let deeper: Vec<usize> = (i + 1..t.len())
                 .filter(|&j| tier_of(j, t.len()) > tier_of(i, t.len()))
                 .collect();
-            deeper.get(r.below(deeper.len())).and_then(|&j| t.get(j)).copied()
+            deeper
+                .get(r.below(deeper.len()))
+                .and_then(|&j| t.get(j))
+                .copied()
         };
         if let Some(b) = b
             && call(apps, have, a, b)

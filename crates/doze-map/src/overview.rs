@@ -216,15 +216,35 @@ fn label<'a>(names: impl Iterator<Item = &'a str>) -> Option<String> {
 fn bundle_path(a: &Rect, b: &Rect) -> Path {
     let (ca, cb) = (a.center(), b.center());
     let (start, end, d1, d2) = if b.x >= a.right() {
-        (Pt::new(a.right(), ca.y), Pt::new(b.x, cb.y), (1.0, 0.0), (-1.0, 0.0))
+        (
+            Pt::new(a.right(), ca.y),
+            Pt::new(b.x, cb.y),
+            (1.0, 0.0),
+            (-1.0, 0.0),
+        )
     } else if b.right() <= a.x {
-        (Pt::new(a.x, ca.y), Pt::new(b.right(), cb.y), (-1.0, 0.0), (1.0, 0.0))
+        (
+            Pt::new(a.x, ca.y),
+            Pt::new(b.right(), cb.y),
+            (-1.0, 0.0),
+            (1.0, 0.0),
+        )
     } else if cb.y >= ca.y {
         let x = f64::midpoint(a.x.max(b.x), a.right().min(b.right()));
-        (Pt::new(x, a.bottom()), Pt::new(x, b.y), (0.0, 1.0), (0.0, -1.0))
+        (
+            Pt::new(x, a.bottom()),
+            Pt::new(x, b.y),
+            (0.0, 1.0),
+            (0.0, -1.0),
+        )
     } else {
         let x = f64::midpoint(a.x.max(b.x), a.right().min(b.right()));
-        (Pt::new(x, a.y), Pt::new(x, b.bottom()), (0.0, -1.0), (0.0, 1.0))
+        (
+            Pt::new(x, a.y),
+            Pt::new(x, b.bottom()),
+            (0.0, -1.0),
+            (0.0, 1.0),
+        )
     };
     let pull = (start.x - end.x).abs().max((start.y - end.y).abs()) / 2.0;
     let pull = pull.max(40.0);

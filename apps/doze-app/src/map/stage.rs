@@ -16,7 +16,10 @@ impl MapView {
                 "tile" => self.open_list(window, cx),
                 "trouble" => self.on_trouble(cx),
                 "hood" => {
-                    let centre = self.lit.and_then(|c| self.layout.card(c)).map(|c| c.name.clone());
+                    let centre = self
+                        .lit
+                        .and_then(|c| self.layout.card(c))
+                        .map(|c| c.name.clone());
                     if let Some(centre) = centre {
                         let hops = arg.parse().unwrap_or(2);
                         self.enter(Lens::Hood { centre, hops }, cx);
@@ -41,7 +44,7 @@ impl MapView {
             return;
         };
         let ctr = c.rect.center();
-        self.cam.fit(&self.layout);
+        self.refit();
         self.cam.fly(
             (1.0, ctr.x, ctr.y),
             self.layout.bounds,

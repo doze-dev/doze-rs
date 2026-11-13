@@ -20,10 +20,13 @@ use crate::output::{Caption, CaptionKind, Card, CardId, Edge, Layout, Mode};
 /// The furthest a neighbourhood or a trouble path reaches.
 pub const MAX_HOPS: u8 = 3;
 /// Cards down a column before it wraps into another beside it.
-const PER: usize = 8;
+const PER: usize = 14;
 const TOP: f64 = 16.0;
 const CAP: f64 = 40.0;
 const ROW: f64 = 16.0;
+/// A card two steps away or more: its name row.
+const COMPACT: f64 = 42.0;
+const COMPACT_GAP: f64 = 8.0;
 const SUB_GAP: f64 = 28.0;
 const COL_GAP: f64 = 120.0;
 
@@ -118,9 +121,24 @@ pub(crate) fn hood(l: &Layout, centre: CardId, hops: u8) -> Option<Layout> {
 
 /// Each shown card's box, the columns' captions, and the drawing's size.
 fn place(l: &Layout, cols: &[Vec<CardId>]) -> (HashMap<CardId, Rect>, Vec<Caption>, f64, f64) {
-    let size = |c: &CardId| l.card(*c).map_or((214.0, 74.0), |c| (c.rect.w, c.rect.h));
-    let height = |v: &[CardId]| v.iter().take(PER).map(|c| size(c).1 + ROW).sum::<f64>() - ROW;
-    let tallest = cols.iter().map(|v| height(v)).fold(0.0, f64::max);
+    // Two steps away and more, a card is its name row alone (the board's compact rows): the near ones read in full.
+    let size = |k: usize, c: &CardId| {
+        let (w, h) = l.card(*c).map_or((214.0, 74.0), |c| (c.rect.w, c.rect.h));
+        if (CENTRE - 1..=CENTRE + 1).contains(&k) {
+            (w, h, ROW)
+        } else {
+            (w, COMPACT, COMPACT_GAP)
+        }
+    };
+    let height = |k: usize, v: &[CardId]| {
+        let rows = v.iter().take(PER).map(|c| size(k, c));
+        rows.map(|(_, h, gap)| h + gap).sum::<f64>() - size(k, &CardId(0)).2
+    };
+    let tallest = cols
+        .iter()
+        .enumerate()
+        .map(|(k, v)| height(k, v))
+        .fold(0.0, f64::max);
     let top = TOP + CAP;
     let mut rects = HashMap::new();
     let mut caps = Vec::new();
@@ -137,12 +155,12 @@ fn place(l: &Layout, cols: &[Vec<CardId>]) -> (HashMap<CardId, Rect>, Vec<Captio
             at: Pt::new(x, TOP),
         });
         for chunk in v.chunks(PER) {
-            let w = chunk.iter().map(|c| size(c).0).fold(0.0, f64::max);
-            let mut y = top + (tallest - height(chunk)) / 2.0;
+            let w = chunk.iter().map(|c| size(k, c).0).fold(0.0, f64::max);
+            let mut y = top + (tallest - height(k, chunk)) / 2.0;
             for c in chunk {
-                let (cw, ch) = size(c);
+                let (cw, ch, gap) = size(k, c);
                 rects.insert(*c, Rect::new(x, y, cw, ch));
-                y += ch + ROW;
+                y += ch + gap;
             }
             x += w + SUB_GAP;
         }

@@ -139,7 +139,10 @@ pub(crate) fn tile(t: &Tokens, m: &MapView, cx: &mut Context<MapView>) -> Option
             div()
                 .font_weight(w(650.))
                 .text_color(t.bright)
-                .child(SharedString::from(format!("{} with no calls", tile.cards.len()))),
+                .child(SharedString::from(format!(
+                    "{} with no calls",
+                    tile.cards.len()
+                ))),
         )
         .child(div().text_color(t.dim).child(SharedString::from(format!(
             "{} apps nothing calls · {} shared",
@@ -198,7 +201,13 @@ pub(crate) fn list(t: &Tokens, m: &MapView, cx: &mut Context<MapView>) -> Option
         (Filter::Services, "Services"),
         (Filter::Trouble, "In trouble"),
     ] {
-        chips = chips.child(chip(t, format!("{word} {}", count(f)), l.filter == f, f, cx));
+        chips = chips.child(chip(
+            t,
+            format!("{word} {}", count(f)),
+            l.filter == f,
+            f,
+            cx,
+        ));
     }
     let shown = m.listed(cx);
     let mut grid = div().flex().flex_wrap().gap(px(6.)).pt(px(10.));
@@ -208,15 +217,17 @@ pub(crate) fn list(t: &Tokens, m: &MapView, cx: &mut Context<MapView>) -> Option
     if shown.is_empty() {
         grid = grid.child(div().text_color(t.dim).child("nothing matches"));
     }
-    let (_, vh) = m.cam.size;
+    // Placed from the top left: the entrance wraps the panel, so it cannot hang from the bottom.
+    let (vw, vh) = m.cam.size;
+    let h = (vh * 0.62).max(220.).min(vh - 24.);
     let panel = div()
         .id("map-tile-list")
         .occlude()
         .absolute()
         .left(px(12.))
-        .right(px(12.))
-        .bottom(px(12.))
-        .h(px((vh * 0.62).max(220.)))
+        .top(px(vh - 12. - h))
+        .w(px(vw - 24.))
+        .h(px(h))
         .flex()
         .flex_col()
         .p(px(14.))
@@ -298,11 +309,7 @@ fn row(t: &Tokens, m: &MapView, id: CardId, cx: &mut Context<MapView>) -> AnyEle
         .px(px(10.))
         .rounded(px(7.))
         .border_1()
-        .border_color(if trouble {
-            alpha(t.bad, 0.5)
-        } else {
-            t.line
-        })
+        .border_color(if trouble { alpha(t.bad, 0.5) } else { t.line })
         .bg(t.well)
         .cursor_pointer()
         .hover(|s| s.border_color(t.accent))

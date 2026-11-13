@@ -73,9 +73,7 @@ impl Root {
         if self.escape_inside(window, cx) {
             return;
         }
-        let map_held = on_map && {
-            self.map.read(cx).holds()
-        };
+        let map_held = on_map && { self.map.read(cx).holds() };
         if map_held {
             self.map.update(cx, |m, cx| m.escape(window, cx));
         } else if matches!(self.screen, Screen::Stack(_) | Screen::Empty(_)) {

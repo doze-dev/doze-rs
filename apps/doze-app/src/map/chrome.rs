@@ -131,8 +131,12 @@ fn legend(t: &Tokens, m: &MapView) -> AnyElement {
         .whitespace_nowrap();
     if m.layout.mode != Mode::Classic || m.lens.is_some() {
         let hint = match &m.lens {
-            Some(super::Lens::Hood { .. }) => "columns are steps of calls from the card · H on a card centres there · esc back",
-            Some(super::Lens::Trouble { .. }) => "laid out on their own · T or esc shows everything",
+            Some(super::Lens::Hood { .. }) => {
+                "columns are steps of calls from the card · H on a card centres there · esc back"
+            }
+            Some(super::Lens::Trouble { .. }) => {
+                "laid out on their own · T or esc shows everything"
+            }
             None if !m.layout.regions.is_empty() && !m.all_lines => {
                 "hover a card for its calls · lines between regions are bundled · L every line"
             }

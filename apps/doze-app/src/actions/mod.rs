@@ -120,6 +120,9 @@ impl Scope {
             Scope::Map => Some("Map"),
             Scope::Overlay => Some("Input"),
             Scope::Library => Some("Library"),
+            // The Map and its find box (and the List's filter) are inside a stack's page: a letter or space typed
+            // into a box there is text, not a verb (`s` would sleep the selected service).
+            Scope::Overview if typed(key) => Some("Overview && !Input"),
             Scope::Overview => Some("Overview"),
             Scope::Grid => Some("Grid"),
             Scope::Instance => Some("Instance && !Input"),
@@ -134,6 +137,12 @@ impl Scope {
             Scope::Bell => Some("Bell"),
         }
     }
+}
+
+/// A key a search box takes as text: a letter, shifted or not, a digit, or space.
+fn typed(key: &str) -> bool {
+    let k = key.strip_prefix("shift-").unwrap_or(key);
+    k == "space" || (k.len() == 1 && k.bytes().all(|b| b.is_ascii_alphanumeric()))
 }
 
 /// Which app menu a row is in.
