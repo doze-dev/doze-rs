@@ -14,6 +14,7 @@ mod shape;
 mod stopped;
 mod vitals;
 
+pub(crate) use config::on_file;
 pub use config::{ConfigChanged, ConfigError, SrcLine, config_changed, config_error};
 pub use grid::{GridCell, GridCol, GridHead, GridRow, GridTip, GridView, grid};
 pub use home::{Group, Home, Row, home};

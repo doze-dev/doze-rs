@@ -15,6 +15,7 @@
 //! What a page reads ([`StackView`], [`ConsoleView`], [`Series`]) is `PartialEq`, and its heavy parts are shared
 //! (`Arc`), so a view is cheap to take and a page re-renders only when it changed.
 
+pub mod act;
 mod changed;
 mod clock;
 mod coalesce;
