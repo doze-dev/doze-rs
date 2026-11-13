@@ -587,7 +587,13 @@ function RecipeBand({ recipe }: { recipe: LabRecipe }) {
 /** The dialog; `tab` is the `new` search param, `recipe` the recipe it was filled from (only on that recipe's tab). */
 export function NewRehearsalDialog({ tab, recipe: recipeId, guide, compactTopics, onTab, onClose, onMade }: { tab: LabTab | undefined; recipe?: string; guide: LabGuide | undefined; compactTopics: string[]; onTab: (t: LabTab) => void; onClose: () => void; onMade: (id: number) => void }) {
   const teach = tab ? teachOf(guide, tab) : undefined;
-  const recipe = guide?.recipes.find((r) => r.id === recipeId && r.tab === tab && !r.needs);
+  // The recipe as it was when the dialog opened: the guide may be fetched again (the broker's groups move), and the form
+  // the person is reviewing must not be swapped under them.
+  const found = guide?.recipes.find((r) => r.id === recipeId && r.tab === tab && !r.needs);
+  const [kept, setKept] = useState<LabRecipe | undefined>(undefined);
+  if (found && kept?.id !== found.id) setKept(found);
+  if (!recipeId && kept) setKept(undefined);
+  const recipe = recipeId && kept?.id === recipeId && kept.tab === tab ? kept : found;
   // A recipe named in the address waits for the guide, so the form opens filled, never with the defaults first.
   const waiting = !!recipeId && !guide;
   const look = (t: LabTab) => ({ recipe: recipe?.tab === t ? recipe : undefined, teach: teachOf(guide, t) });
