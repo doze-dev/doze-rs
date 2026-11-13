@@ -34,7 +34,7 @@ test("Consumers: the groups that committed on the topic, with their lag, and a g
   const reader = page.getByTestId("reader").first();
   await expect(reader).toBeVisible();
   const group = (await reader.getAttribute("data-group"))!;
-  await expect(reader.getByTestId("behind")).toHaveText(/^[\d,]+ behind$/);
+  await expect(reader.getByTestId("behind")).toHaveText(/^[\d,]+$/);
   await expect(reader.getByRole("table")).toContainText("orders-0");
   const count = await page.getByTestId("reader").count();
   await expect(page.getByTestId("topic-tabs").getByRole("link", { name: /^Consumers/ })).toContainText(String(count));

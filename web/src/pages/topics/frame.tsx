@@ -201,7 +201,7 @@ function Tabs({ f, on }: { f: TopicFrame; on: TopicTab }) {
               >
                 {t.label}
                 {/* A count of reserved width: a count that grows never moves the tabs after it. */}
-                {counts[t.id] !== undefined && <span className="inline-block min-w-[5ch] rounded-full bg-muted px-1.5 text-center text-[11.5px] text-muted-foreground tabular-nums">{number(counts[t.id]!)}</span>}
+                {counts[t.id] !== undefined && <span className="inline-block min-w-[6ch] rounded-full bg-muted px-1.5 text-center text-[11.5px] text-muted-foreground tabular-nums">{number(counts[t.id]!)}</span>}
               </Link>
             </li>
           );
