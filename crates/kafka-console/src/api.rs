@@ -28,6 +28,8 @@ use crate::{origin, snippets, words};
 mod types;
 
 pub mod config;
+pub mod config_edit;
+pub mod topic_admin;
 pub mod topic_writes;
 
 /// The header the console's fetch client sends on every API request.
@@ -330,7 +332,9 @@ pub fn routes(web: &crate::base::Base) -> Router<Shared> {
         .route(&web.url("/api/v1/shell"), get(shell))
         .route(&web.url("/api/v1/jump"), get(jump))
         .merge(topic_writes::routes(web))
+        .merge(topic_admin::routes(web))
         .merge(config::routes(web))
+        .merge(config_edit::routes(web))
         .route_layer(from_fn(guard))
 }
 

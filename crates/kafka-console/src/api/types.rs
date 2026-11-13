@@ -64,6 +64,8 @@ fn all() -> BTreeMap<String, String> {
 /// Slice R1b: the topic writes and the Config tab.
 fn r1b(cfg: &Config, out: &mut BTreeMap<String, String>) {
     use super::config::*;
+    use super::config_edit::*;
+    use super::topic_admin::*;
     use super::topic_writes::*;
     use crate::model::write::{RecordRow, TopicHead, Visibility};
     use crate::model::*;
