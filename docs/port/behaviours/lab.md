@@ -111,3 +111,10 @@ On unless `--lab=false`; off with the console; off by default whenever the conso
 who can reach the console can inject faults; left off, the start says `the Lab is off because the console is served beyond loopback (--lab=true switches
 it on)`. The Access page says it too.
 Test: `the_lab_is_on_by_default_and_off_with_its_flag_or_with_the_console`, `a_console_open_to_other_machines_has_the_lab_off_unless_asked_and_then_says_it_can_inject_faults`, `a_protected_broker_with_an_open_console_has_the_lab_off_unless_asked_and_never_without_unprotected`, `tests/process console::an_open_broker_on_the_network_serves_its_console_there_with_the_lab_off_unless_asked`
+
+### LAB-22. The Lab teaches what it rehearses
+Every rehearsal has its lesson (what it stands for in production, what to expect, what a well-behaved client does, the settings
+with Kafka's defaults, where to see it) and the page has recipes that name the broker's own topics, apps and groups; Stop all
+ends every rule in force at once. The words are one module (`crate::lab::teach`), the recipes another (`crate::lab::recipes`),
+served by `GET /api/v1/lab/guide`; the console's rules are CON-1370 to CON-1375.
+Test: `every_rehearsal_is_taught_once_in_the_order_of_the_tabs`, `recipes_name_the_brokers_own_topics_apps_and_groups`, `stop_all_ends_every_rule_and_live_filters_by_the_lab_tag`

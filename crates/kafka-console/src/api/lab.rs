@@ -22,13 +22,13 @@ use crate::source::Source;
 use crate::state::Shared;
 
 /// What the Lab needs of a live broker.
-struct Parts<'a> {
-    lab: &'a Lab,
-    backend: &'a Backend,
-    recorder: Option<&'a Recorder>,
+pub(super) struct Parts<'a> {
+    pub lab: &'a Lab,
+    pub backend: &'a Backend,
+    pub recorder: Option<&'a Recorder>,
 }
 
-fn parts(s: &Shared) -> Option<Parts<'_>> {
+pub(super) fn parts(s: &Shared) -> Option<Parts<'_>> {
     match &s.source {
         Source::Live(l) => l.lab.as_deref().map(|lab| Parts {
             lab,
@@ -40,7 +40,7 @@ fn parts(s: &Shared) -> Option<Parts<'_>> {
     }
 }
 
-fn off() -> Response {
+pub(super) fn off() -> Response {
     error(
         StatusCode::CONFLICT,
         "LAB_OFF",

@@ -71,7 +71,7 @@ fn drop_once_needs_an_open_connection_and_a_plain_name() {
 fn a_history_of_rehearsals_is_bounded() {
     let lab = lab();
     for n in 0..(crate::lab::MOST_ONCE + 30) {
-        lab.note(LabOnceKind::Clean, format!("{n}"), true);
+        lab.note(LabOnceKind::Clean, format!("{n}"), true, None);
     }
     assert_eq!(lab.once().len(), crate::lab::MOST_ONCE);
     assert_eq!(

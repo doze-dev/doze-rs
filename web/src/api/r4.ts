@@ -8,6 +8,7 @@ import type { AccessResponse } from "./types/AccessResponse";
 import type { AclCreateView } from "./types/AclCreateView";
 import type { AclDeleteView } from "./types/AclDeleteView";
 import type { LabCompact } from "./types/LabCompact";
+import type { LabGuide } from "./types/LabGuide";
 import type { LabForm } from "./types/LabForm";
 import type { LabOnceForm } from "./types/LabOnceForm";
 import type { LabResponse } from "./types/LabResponse";
@@ -22,6 +23,7 @@ export const r4keys = {
   aclNew: (q: string) => ["access", "new", q] as const,
   aclDelete: (q: string) => ["access", "delete", q] as const,
   lab: ["lab"] as const,
+  labGuide: ["lab", "guide"] as const,
   labRule: (id: string) => ["lab", "rule", id] as const,
   labForm: (kind: string) => ["lab", "form", kind] as const,
   labOnce: (kind: string, q: string) => ["lab", "once", kind, q] as const,
@@ -71,6 +73,11 @@ export function useAclDelete(q: string | undefined) {
 export function useLab() {
   const refetchInterval = useInterval();
   return useQuery({ queryKey: r4keys.lab, queryFn: ({ signal }) => api<LabResponse>("/api/v1/lab", {}, signal), staleTime: Infinity, refetchInterval, placeholderData: keepPreviousData });
+}
+
+/** What the Lab teaches and its recipes: fetched with the page, and again when the page is refreshed (the recipes name what the broker has). */
+export function useLabGuide() {
+  return useQuery({ queryKey: r4keys.labGuide, queryFn: ({ signal }) => api<LabGuide>("/api/v1/lab/guide", {}, signal), staleTime: Infinity, placeholderData: keepPreviousData });
 }
 
 export function useLabRule(id: string | undefined) {

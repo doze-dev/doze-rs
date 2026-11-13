@@ -94,6 +94,7 @@ pub async fn run(lab: &Lab, backend: &Backend, mut v: LabCompact) -> Result<(), 
             format!("Could not clean {name}: {text}")
         },
         ok,
+        Some(v.topic.clone()),
     );
     if ok {
         Ok(())

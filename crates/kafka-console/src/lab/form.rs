@@ -377,6 +377,7 @@ pub fn preview(spec: &Spec) -> LabPreview {
     LabPreview {
         rule,
         sentence: words::sentence(spec),
+        plain: words::plain(spec),
         wire: words::wire_words(spec),
     }
 }

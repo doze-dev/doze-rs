@@ -12,4 +12,8 @@ sentence: string,
 /**
  * Whether it did what it was asked.
  */
-ok: boolean, };
+ok: boolean, 
+/**
+ * The group (expire, rebalance) or topic (clean) it was about, for the way to see it.
+ */
+subject: string | null, };

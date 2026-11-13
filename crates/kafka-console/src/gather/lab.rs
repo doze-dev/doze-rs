@@ -11,6 +11,7 @@ use crate::model::lab::{
     LabChoice, LabCompact, LabFields, LabForm, LabHome, LabKind, LabMade, LabOnceDone, LabOnceForm,
     LabOnceKind, LabRuleView,
 };
+use crate::model::lab_guide::LabGuide;
 use crate::model::{Cleanup, LogView};
 use crate::recorder::Recorder;
 
@@ -274,4 +275,63 @@ pub async fn compact(
         return Err(Box::new(v));
     }
     compact::run(lab, backend, v).await
+}
+
+/// What the Lab teaches, with recipes naming what the broker has now (`recorder` and `backend`); `None` for a broker without
+/// the Lab: the words, and no recipe.
+pub async fn guide(live: Option<(&Backend, Option<&Recorder>)>) -> LabGuide {
+    use crate::lab::{recipes, teach};
+    let Some((backend, recorder)) = live else {
+        return LabGuide {
+            intro: teach::intro(),
+            rehearsals: teach::rehearsals(),
+            recipes: Vec::new(),
+        };
+    };
+    let all = super::topics(backend, "", false).await.rows;
+    let (producing, fetching) = recorder.map(Recorder::busiest).unwrap_or_default();
+    let groups = rebalance_form(backend, "").await;
+    let group = groups.choices.first().map(|c| c.value.clone());
+    let member = match &group {
+        Some(g) => expire_form(backend, "")
+            .await
+            .choices
+            .into_iter()
+            .map(|c| c.value)
+            .find(|v| act::split_member(v).is_some_and(|(of, _)| &of == g)),
+        None => None,
+    };
+    let seen = recipes::Seen {
+        topics: all
+            .iter()
+            .filter(|t| !t.name.starts_with("__"))
+            .map(|t| t.name.clone())
+            .collect(),
+        producing,
+        fetching,
+        clients: recorder
+            .map(|r| r.open_clients().into_iter().map(|(c, _)| c).collect())
+            .unwrap_or_default(),
+        group,
+        member,
+        compacted: all
+            .into_iter()
+            .filter(|t| t.cleanup != Cleanup::Delete)
+            .map(|t| t.name)
+            .collect(),
+    };
+    LabGuide {
+        intro: teach::intro(),
+        rehearsals: teach::rehearsals(),
+        recipes: recipes::recipes(&seen),
+    }
+}
+
+/// Ends every rule in force now; how many there were.
+pub fn stop_all(lab: &Lab) -> usize {
+    lab.table()
+        .rules()
+        .into_iter()
+        .filter(|r| lab.table().remove(r.id))
+        .count()
 }

@@ -18,6 +18,10 @@ client: Array<string>, api: Array<string>, topic: Array<string>, group: string,
  */
 kind: string, refused_only: boolean, 
 /**
+ * Only the requests a Lab rule touched: that rule, or any (`0`, written `lab=all`).
+ */
+lab: number | null, 
+/**
  * Hide the polls that found nothing.
  */
 hide_idle: boolean, 

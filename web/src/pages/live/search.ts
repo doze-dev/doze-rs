@@ -9,6 +9,8 @@ export type LiveSearch = {
   topic?: string[];
   /** Refused only. */
   refused?: true;
+  /** Only the requests a Lab rule touched: its number, or `all`. */
+  lab?: number | "all";
   /** Show the polls that found nothing (hidden by default). */
   idle?: true;
   /** The page back: rows older than this id (snapshot only). */
@@ -42,6 +44,12 @@ function id(raw: unknown): number | undefined {
   return Number.isSafeInteger(n) && n >= 0 ? n : undefined;
 }
 
+function labOf(raw: unknown): number | "all" | undefined {
+  if (raw === "all") return "all";
+  const t = typeof raw === "number" ? String(raw) : raw;
+  return typeof t === "string" && /^[1-9]\d{0,8}$/.test(t) ? Number(t) : undefined;
+}
+
 export function liveSearch(s: Record<string, unknown>): LiveSearch {
   return {
     q: shortText(typeof s.q === "string" ? s.q.trim() : s.q, 128),
@@ -49,6 +57,7 @@ export function liveSearch(s: Record<string, unknown>): LiveSearch {
     api: list(s.api),
     topic: list(s.topic),
     refused: flag(s.refused),
+    lab: labOf(s.lab),
     idle: flag(s.idle),
     before: id(s.before),
     tail: flag(s.tail),
@@ -65,6 +74,7 @@ export function apiQuery(s: LiveSearch, withBefore = true): string {
   for (const v of s.api ?? []) p.append("api", v);
   for (const v of s.topic ?? []) p.append("topic", v);
   if (s.refused) p.append("refused", "1");
+  if (s.lab) p.append("lab", String(s.lab));
   if (s.idle) p.append("idle", "0");
   if (withBefore && s.before !== undefined) p.append("before", String(s.before));
   return p.toString();
@@ -72,5 +82,5 @@ export function apiQuery(s: LiveSearch, withBefore = true): string {
 
 /** Whether any filter is on (what an empty tape is empty because of). */
 export function filtered(s: LiveSearch): boolean {
-  return !!(s.q || s.client?.length || s.api?.length || s.topic?.length || s.refused);
+  return !!(s.q || s.client?.length || s.api?.length || s.topic?.length || s.refused || s.lab);
 }

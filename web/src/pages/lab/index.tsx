@@ -1,14 +1,16 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
-import { FlaskConicalIcon, PlusIcon, Trash2Icon } from "lucide-react";
+import { ActivityIcon, FlaskConicalIcon, OctagonXIcon, PlusIcon, ScrollTextIcon, Trash2Icon } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ApiFailure } from "@/api/client";
 import { segment } from "@/api/path";
-import { post, r4keys, useLab } from "@/api/r4";
+import { post, r4keys, useLab, useLabGuide } from "@/api/r4";
+import type { LabGuide } from "@/api/types/LabGuide";
 import type { LabOnce } from "@/api/types/LabOnce";
 import type { LabResponse } from "@/api/types/LabResponse";
 import type { LabRule } from "@/api/types/LabRule";
+import type { LabStopped } from "@/api/types/LabStopped";
 import { DataTable, type DataColumn } from "@/components/app/data-table";
 import { Done, DoneFooter } from "@/components/app/write-done";
 import { EmptyState } from "@/components/app/empty-state";
@@ -26,7 +28,8 @@ import { clockUtc, hhmmUtc, number } from "@/lib/format";
 import { LAB_TABS, type LabSearch, type LabTab } from "@/lib/search";
 import { PageError } from "../page-error";
 import { narrowed, SectionHead, useMinWidth, useRoutedOverlay, useStable } from "../r4/bits";
-import { NewRehearsalDialog, TAB_WORDS } from "./rule-dialog";
+import { HowItWorks, Recipes, TAB_LOOK, teachOf } from "./guide";
+import { NewRehearsalDialog } from "./rule-dialog";
 import { END_WORDS, RuleSheet } from "./rule-sheet";
 
 function KindBadge({ kind }: { kind: LabRule["kind"] }) {
@@ -37,24 +40,36 @@ function KindBadge({ kind }: { kind: LabRule["kind"] }) {
   );
 }
 
-function Rehearsals({ onStart }: { onStart: (t: LabTab, from: HTMLElement) => void }) {
+/** The six rehearsals, to build one from scratch: what each does and what it stands for in production. */
+function Rehearsals({ guide, onStart }: { guide: LabGuide | undefined; onStart: (t: LabTab, from: HTMLElement) => void }) {
   return (
     <section aria-labelledby="start" className="mb-12">
-      <SectionHead id="start" title="Start a rehearsal" sub="Only what production code can honestly cause. Slow and Fail are rules that end on their own; the others happen once and leave a line of what they did." />
+      <SectionHead id="start" title="Build your own" sub="Only what production can honestly cause. Slow and Fail are rules that end on their own; the others happen once and leave a line of what they did." />
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3" data-testid="rehearsal-cards">
         {LAB_TABS.map((t) => {
-          const w = TAB_WORDS[t];
-          const Icon = w.icon;
+          const look = TAB_LOOK[t];
+          const teach = teachOf(guide, t);
+          const Icon = look.icon;
           return (
-            <button key={t} type="button" onClick={(ev) => onStart(t, ev.currentTarget)} className="group min-w-0 rounded-xl border bg-card p-5 text-left transition-colors hover:border-primary/40 hover:bg-accent/30 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none" data-testid={`start-${t}`}>
-              <div className="flex items-center gap-2">
+            <button key={t} type="button" onClick={(ev) => onStart(t, ev.currentTarget)} className="group flex min-w-0 flex-col rounded-xl border bg-card p-5 text-left transition-colors hover:border-primary/40 hover:bg-accent/30 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none" data-testid={`start-${t}`}>
+              <span className="flex w-full items-center gap-2">
                 <Icon className="size-4 text-warn" aria-hidden />
-                <span className="text-[15px] font-semibold text-bright">{w.title}</span>
+                <span className="text-[15px] font-semibold text-bright">{teach?.title ?? look.label}</span>
                 <Badge variant="outline" className="ml-auto text-[11px]">
-                  {w.once ? "once" : "rule"}
+                  {look.once ? "once" : "rule"}
                 </Badge>
-              </div>
-              <p className="mt-2 text-[13px] leading-5 text-muted-foreground">{w.lede}</p>
+              </span>
+              {teach ? (
+                <>
+                  <span className="mt-2 text-[13px] leading-5 text-muted-foreground">{teach.lede}</span>
+                  <span className="mt-3 border-t pt-3 text-[12.5px] leading-[19px] text-muted-foreground">
+                    <b className="font-semibold text-foreground">In production: </b>
+                    {teach.simulates}
+                  </span>
+                </>
+              ) : (
+                <Skeleton className="mt-2 h-20 w-full" />
+              )}
             </button>
           );
         })}
@@ -94,12 +109,25 @@ function ActiveTable({ rules, onOpen, onSwitch, onRemove }: { rules: LabRule[]; 
       { accessorKey: "last_hit_ms", header: "Last hit", size: 88, cell: (c) => <span className="font-mono text-[12.5px]">{c.row.original.last_hit_ms ? clockUtc(c.row.original.last_hit_ms) : "–"}</span> },
       { accessorKey: "ends_ms", header: "Ends", size: 60, cell: (c) => <span className="font-mono text-[12.5px]" title="UTC">{hhmmUtc(c.row.original.ends_ms)}</span> },
       {
+        id: "watch",
+        header: () => <span className="sr-only">Watch</span>,
+        size: 44,
+        enableSorting: false,
+        cell: (c) => (
+          <Button variant="ghost" size="icon-sm" asChild>
+            <Link to="/live" search={{ lab: c.row.original.id }} onClick={(e) => e.stopPropagation()} aria-label={`See ${c.row.original.name} on Live`} title="See its requests on Live" data-testid="rule-watch">
+              <ActivityIcon />
+            </Link>
+          </Button>
+        ),
+      },
+      {
         id: "remove",
         header: () => <span className="sr-only">Remove</span>,
         size: 44,
         enableSorting: false,
         cell: (c) => (
-          <Button variant="ghost" size="icon-sm" onClick={(e) => (e.stopPropagation(), drop(c.row.original.id, e.currentTarget))} aria-label={`Remove ${c.row.original.name}`} data-testid="rule-remove">
+          <Button variant="ghost" size="icon-sm" onClick={(e) => (e.stopPropagation(), drop(c.row.original.id, e.currentTarget))} aria-label={`Remove ${c.row.original.name}`} title="Remove it now" data-testid="rule-remove">
             <Trash2Icon />
           </Button>
         ),
@@ -127,6 +155,26 @@ const endedColumns = (onOpen: (id: number) => void): DataColumn<LabRule>[] => [
   { id: "when", header: "From – to", size: 130, accessorFn: (r) => `${hhmmUtc(r.started_ms)} – ${hhmmUtc(r.ends_ms)}`, meta: { mono: true } },
 ];
 
+/** Where a line of the history leads: a group's Story, a topic's Log. */
+function OnceLink({ o }: { o: LabOnce }) {
+  if (!o.subject || !o.ok) return null;
+  if (o.kind === "expire" || o.kind === "rebalance") {
+    return (
+      <Link to="/groups/$group/story" params={{ group: o.subject }} className="inline-flex items-center gap-1 text-[13px] font-medium whitespace-nowrap text-link hover:underline" data-testid="once-story">
+        <ScrollTextIcon className="size-3.5" aria-hidden /> Story
+      </Link>
+    );
+  }
+  if (o.kind === "clean") {
+    return (
+      <Link to="/topics/$topic/log" params={{ topic: o.subject }} className="inline-flex items-center gap-1 text-[13px] font-medium whitespace-nowrap text-link hover:underline">
+        <ScrollTextIcon className="size-3.5" aria-hidden /> Log
+      </Link>
+    );
+  }
+  return null;
+}
+
 function OnceList({ once }: { once: LabOnce[] }) {
   if (once.length === 0) return null;
   return (
@@ -140,6 +188,7 @@ function OnceList({ once }: { once: LabOnce[] }) {
                 {o.kind}
               </Badge>
               <span className="min-w-0 flex-1 break-words">{o.sentence}</span>
+              <OnceLink o={o} />
               <StatusDot tone={o.ok ? "ok" : "bad"} className="font-medium">
                 {o.ok ? "done" : "refused"}
               </StatusDot>
@@ -161,8 +210,68 @@ function stats(r: LabResponse) {
   ];
 }
 
+/** Stop all (`/lab?stop=all`): every rule in force ends now; the result in place, then Done. */
+function StopAllDialog({ open, onClose, onStopped }: { open: boolean; onClose: () => void; onStopped: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [stopped, setStopped] = useState<number | null>(null);
+  const stop = async () => {
+    setBusy(true);
+    try {
+      const out = await post<LabStopped>("/api/v1/lab/stop-all", {});
+      setStopped(out.stopped);
+    } catch (e) {
+      toast.error(e instanceof ApiFailure ? e.message : String(e));
+    } finally {
+      setBusy(false);
+      onStopped();
+    }
+  };
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        if (!o) {
+          setStopped(null);
+          onClose();
+        }
+      }}
+    >
+      <DialogContent data-testid="lab-stop-dialog">
+        <DialogHeader>
+          <DialogTitle>Stop every rehearsal?</DialogTitle>
+          <DialogDescription>Every rule in force ends now: from the next request, the broker answers as usual. They stay in Ended for an hour with what they did.</DialogDescription>
+        </DialogHeader>
+        {stopped !== null ? (
+          <>
+            <Done testId="lab-stopped">
+              <b className="font-semibold text-bright">Stopped.</b> {stopped === 1 ? "1 rule ended." : `${number(stopped)} rules ended.`} Nothing in the Lab bends the broker now.
+            </Done>
+            <DoneFooter
+              onDone={() => {
+                setStopped(null);
+                onClose();
+              }}
+            />
+          </>
+        ) : (
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline">Keep them</Button>
+            </DialogClose>
+            <Button variant="destructive" disabled={busy} onClick={() => void stop()} data-testid="lab-stop-confirm">
+              <OctagonXIcon /> Stop all
+            </Button>
+          </DialogFooter>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function LabPage() {
   const q = useLab();
+  const g = useLabGuide();
+  const guide = g.data;
   const qc = useQueryClient();
   const search = useSearch({ from: "/lab" });
   const navigate = useNavigate({ from: "/lab" });
@@ -177,6 +286,7 @@ export function LabPage() {
   const r = q.data;
   const h = r?.home;
   const refresh = () => {
+    // The page and the guide (its recipes name what the broker has now).
     void qc.invalidateQueries({ queryKey: ["lab"] });
   };
   const fail = (e: unknown) => toast.error(e instanceof ApiFailure ? e.message : String(e));
@@ -212,13 +322,18 @@ export function LabPage() {
     <>
       <PageHeader
         title="Lab"
-        sub="Rehearse a failure on purpose and watch what your app does. Each rehearsal is a visible rule with an end time, applied where connections are served, and every request it touches shows on the wire with a lab tag."
+        sub="Rehearse the failures production will bring, on your laptop, and watch what your app does. Every request a rehearsal touches shows on Live with a lab tag."
         refresh={h && !h.off ? <RefreshControl updatedAt={q.dataUpdatedAt} fetching={q.isFetching} onRefresh={refresh} /> : undefined}
         actions={
           h && !h.off ? (
-            <Button onClick={(ev) => overlay.open({ new: "slow" }, ev.currentTarget)} data-testid="lab-new">
-              <PlusIcon /> New rehearsal
-            </Button>
+            <>
+              <Button variant="outline" className="bg-card" disabled={h.active.length === 0} onClick={(ev) => overlay.open({ stop: "all" }, ev.currentTarget)} title={h.active.length === 0 ? "No rule is in force" : "End every rule in force now"} data-testid="lab-stop-all">
+                <OctagonXIcon /> Stop all
+              </Button>
+              <Button onClick={(ev) => overlay.open({ new: "slow" }, ev.currentTarget)} data-testid="lab-new">
+                <PlusIcon /> New rehearsal
+              </Button>
+            </>
           ) : undefined
         }
       />
@@ -232,10 +347,11 @@ export function LabPage() {
         </EmptyState>
       ) : (
         <div data-state={empty ? "empty" : h.active.length ? "active" : "expired"} data-testid="lab-home">
+          <HowItWorks intro={guide?.intro} />
           <StatStrip className="mb-10" stats={stats(r!)} />
           {empty ? (
-            <EmptyState icon={FlaskConicalIcon} title="Nothing is bent" className="mb-12">
-              No rule is in force and nothing ended in the last hour. Start a rehearsal below; every rule ends by itself.
+            <EmptyState icon={FlaskConicalIcon} title="Nothing is bent" className="mb-12 min-h-0 py-8">
+              No rule is in force and nothing ended in the last hour. Start from a recipe below, or build your own; every rule ends by itself.
             </EmptyState>
           ) : (
             <section aria-labelledby="active" className="mb-12">
@@ -243,7 +359,8 @@ export function LabPage() {
               <ActiveTable rules={h.active} onOpen={(id, from) => overlay.open({ rule: id }, from)} onSwitch={onSwitch} onRemove={(id, from) => overlay.open({ remove: id }, from)} />
             </section>
           )}
-          <Rehearsals onStart={(t, from) => overlay.open({ new: t }, from)} />
+          <Recipes recipes={guide?.recipes} onUse={(rc, from) => overlay.open({ new: rc.tab as LabTab, recipe: rc.id }, from)} />
+          <Rehearsals guide={guide} onStart={(t, from) => overlay.open({ new: t }, from)} />
           {(h.ended.length > 0 || h.once.length > 0) && (
             <section aria-labelledby="ended" className="mb-12">
               <SectionHead
@@ -253,7 +370,9 @@ export function LabPage() {
                 actions={
                   <>
                     <Button variant="outline" size="sm" className="bg-card" asChild>
-                      <Link to="/live">See the wire on Live</Link>
+                      <Link to="/live" search={{ lab: "all" }}>
+                        <ActivityIcon /> Every lab request on Live
+                      </Link>
                     </Button>
                     <Button variant="outline" size="sm" className="bg-card" onClick={clearHistory} data-testid="lab-clear">
                       <Trash2Icon /> Clear history
@@ -269,19 +388,22 @@ export function LabPage() {
       )}
       <NewRehearsalDialog
         tab={h && !h.off ? search.new : undefined}
+        recipe={search.recipe}
+        guide={guide}
         compactTopics={h?.compacted ?? []}
-        onTab={(t) => overlay.move({ new: t })}
+        onTab={(t) => overlay.move({ new: t, recipe: undefined })}
         onClose={() => {
-          overlay.close({ new: undefined });
+          overlay.close({ new: undefined, recipe: undefined });
           refresh();
         }}
         onMade={(id) => {
           // The result is the rule's own sheet, opened in place of the dialog.
           refresh();
-          overlay.move({ new: undefined, rule: id });
+          overlay.move({ new: undefined, recipe: undefined, rule: id });
         }}
       />
       <RuleSheet id={search.rule === undefined ? undefined : String(search.rule)} onClose={() => overlay.close({ rule: undefined })} onSwitch={onSwitch} onRemove={(id) => overlay.move({ rule: undefined, remove: id })} />
+      <StopAllDialog open={search.stop === "all" && !!h && !h.off} onClose={() => overlay.close({ stop: undefined })} onStopped={refresh} />
       <Dialog open={!!search.remove} onOpenChange={(o) => !o && overlay.close({ remove: undefined })}>
         <DialogContent data-testid="lab-remove-dialog">
           <DialogHeader>

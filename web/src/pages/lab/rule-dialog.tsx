@@ -2,13 +2,17 @@
 // partitions, client, group, share, lifetime; the server checks the fields and says what the rule will do before it is made);
 // Drop, Expire and Rebalance happen once; Compact runs the cleaner now.
 import { useQueryClient } from "@tanstack/react-query";
-import { ClockIcon, FlaskConicalIcon, PlayIcon, RefreshCcwIcon, TriangleAlertIcon, UnplugIcon, UserXIcon, BrushCleaningIcon } from "lucide-react";
+import { ActivityIcon, BookMarkedIcon, FlaskConicalIcon, PlayIcon, ScrollTextIcon } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { Done, DoneFooter } from "@/components/app/write-done";
 import { ApiFailure } from "@/api/client";
 import { post, qs, useLabForm, useLabOnce } from "@/api/r4";
 import type { LabFields } from "@/api/types/LabFields";
+import type { LabGuide } from "@/api/types/LabGuide";
+import type { LabRecipe } from "@/api/types/LabRecipe";
+import type { LabTeach } from "@/api/types/LabTeach";
 import type { LabForm } from "@/api/types/LabForm";
 import type { LabMadeOutcome } from "@/api/types/LabMadeOutcome";
 import type { LabOnceOutcome } from "@/api/types/LabOnceOutcome";
@@ -25,15 +29,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import type { LabTab } from "@/lib/search";
 import { CompactNowBody } from "./compact-now";
+import { Lesson, TAB_LOOK, teachOf } from "./guide";
 
-export const TAB_WORDS: Record<LabTab, { label: string; title: string; lede: string; icon: typeof ClockIcon; once: boolean }> = {
-  slow: { label: "Slow", title: "Slow requests", lede: "Delay the answer to the requests you choose, for a while. Your producers and consumers see slow, not broken.", icon: ClockIcon, once: false },
-  fail: { label: "Fail", title: "Fail some requests", lede: "Answer 1 in N of the requests you choose with an error Kafka has, such as REQUEST_TIMED_OUT, without asking the broker.", icon: TriangleAlertIcon, once: false },
-  drop: { label: "Drop", title: "Drop a connection", lede: "Close one app's connections and see whether it reconnects on its own; or keep closing them for a few minutes.", icon: UnplugIcon, once: true },
-  expire: { label: "Expire", title: "Expire a member's session", lede: "Remove a group member as a missed heartbeat would, and read the story it leaves.", icon: UserXIcon, once: true },
-  rebalance: { label: "Rebalance", title: "Force a rebalance", lede: "Start a rebalance of one group without waiting for a reason.", icon: RefreshCcwIcon, once: true },
-  compact: { label: "Compact", title: "Run the cleaner now", lede: "Clean one compacted partition this minute instead of at the cleaner's next look.", icon: BrushCleaningIcon, once: true },
-};
+/** The fields of a recipe as the form holds them. */
+function recipeFields(r: LabRecipe | undefined): LabFields | undefined {
+  return r?.fields ?? undefined;
+}
 
 const list = (s: string) =>
   s
@@ -66,13 +67,16 @@ function useSettled<T>(value: T, ms = 300): T {
   return v;
 }
 
-function RuleForm({ kind, start, onMade }: { kind: "slow" | "fail"; start: LabForm; onMade: (id: number) => void }) {
-  // The form's API words (`produce`) are the options' values (`Produce`), so the MultiSelect shows them chosen.
+function RuleForm({ kind, start, recipe, teach, onMade }: { kind: "slow" | "fail"; start: LabForm; recipe?: LabRecipe; teach?: LabTeach; onMade: (id: number) => void }) {
+  // The form's API words (`produce`) are the options' values (`Produce`), so the MultiSelect shows them chosen. A recipe's
+  // fields replace the defaults whole.
   const apiValue = (w: string) => start.apis.find((a) => a.value.toLowerCase() === w.toLowerCase())?.value ?? w;
-  const form = useForm<LabFields>({ defaultValues: { ...start.fields, api: list(start.fields.api).map(apiValue).join(",") } });
+  const from = recipeFields(recipe) ?? start.fields;
+  const form = useForm<LabFields>({ defaultValues: { ...from, api: list(from.api).map(apiValue).join(",") } });
   const values = useWatch({ control: form.control }) as LabFields;
   const settled = useSettled(values);
-  const [answer, setAnswer] = useState<LabForm>(start);
+  // With a recipe the defaults' preview would say another rule: none until the server has read the recipe's fields.
+  const [answer, setAnswer] = useState<LabForm>(() => (recipe ? { ...start, preview: null } : start));
   const [checked, setChecked] = useState(false);
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
@@ -147,9 +151,9 @@ function RuleForm({ kind, start, onMade }: { kind: "slow" | "fail"; start: LabFo
                 <FormItem className="min-w-0">
                   <FormLabel>Topics</FormLabel>
                   <FormControl>
-                    <MultiSelect options={topics} value={list(field.value)} onChange={(v) => field.onChange(v.join(","))} noun="topics" aria-label="Topics" triggerClassName="w-full" className="min-w-0" chips={false} />
+                    <MultiSelect options={topics} value={list(field.value)} onChange={(v) => field.onChange(v.join(","))} noun="topics" aria-label="Topics" triggerClassName="w-full" className="min-w-0" chips={false} pattern />
                   </FormControl>
-                  <FormDescription>{answer.topic_note ?? "None chosen: every topic."}</FormDescription>
+                  <FormDescription>{answer.topic_note ?? "None chosen: every topic. Type a pattern to match several: * is any run of characters, ? one (orders.*)."}</FormDescription>
                   <FieldError id="topic" text={errorOf(shown, "topic")} />
                 </FormItem>
               )}
@@ -175,9 +179,9 @@ function RuleForm({ kind, start, onMade }: { kind: "slow" | "fail"; start: LabFo
                 <FormItem className="min-w-0">
                   <FormLabel>Client</FormLabel>
                   <FormControl>
-                    <Combobox options={clients} value={field.value || null} onChange={(v) => field.onChange(v ?? "")} placeholder="Every client" search="Search apps…" empty="No app has a connection open." aria-label="Client" className="w-full" />
+                    <Combobox options={clients} value={field.value || null} onChange={(v) => field.onChange(v ?? "")} placeholder="Every client" search="Search apps…" empty="No app has a connection open." aria-label="Client" className="w-full" pattern />
                   </FormControl>
-                  <FormDescription>The apps with a connection open now, by client.id.</FormDescription>
+                  <FormDescription>An app connected now, by client.id, or a pattern such as payments-* for every instance. None: every app.</FormDescription>
                   <FieldError id="client" text={errorOf(shown, "client")} />
                 </FormItem>
               )}
@@ -189,9 +193,9 @@ function RuleForm({ kind, start, onMade }: { kind: "slow" | "fail"; start: LabFo
                 <FormItem className="min-w-0">
                   <FormLabel>Group</FormLabel>
                   <FormControl>
-                    <Combobox options={groups} value={field.value || null} onChange={(v) => field.onChange(v ?? "")} placeholder="Any group" search="Search groups…" empty="No group yet." aria-label="Group" className="w-full" />
+                    <Combobox options={groups} value={field.value || null} onChange={(v) => field.onChange(v ?? "")} placeholder="Any group" search="Search groups…" empty="No group yet." aria-label="Group" className="w-full" pattern />
                   </FormControl>
-                  <FormDescription>Only the requests of a group API that name it.</FormDescription>
+                  <FormDescription>Only group requests (JoinGroup, Heartbeat, OffsetCommit…) that name it; a pattern works too.</FormDescription>
                   <FieldError id="group" text={errorOf(shown, "group")} />
                 </FormItem>
               )}
@@ -287,6 +291,7 @@ function RuleForm({ kind, start, onMade }: { kind: "slow" | "fail"; start: LabFo
                       ))}
                     </SelectContent>
                   </Select>
+                  <FormDescription>1 in N: every Nth request the rule matches. A random share: each request by chance.</FormDescription>
                   <FieldError id="share" text={errorOf(shown, "share")} />
                 </FormItem>
               )}
@@ -303,6 +308,7 @@ function RuleForm({ kind, start, onMade }: { kind: "slow" | "fail"; start: LabFo
                     </FormControl>
                     <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-[12.5px] text-muted-foreground">hits</span>
                   </div>
+                  <FormDescription>It ends after this many hits, even with time left. Empty: no limit.</FormDescription>
                   <FieldError id="hits" text={errorOf(shown, "hits")} />
                 </FormItem>
               )}
@@ -334,8 +340,8 @@ function RuleForm({ kind, start, onMade }: { kind: "slow" | "fail"; start: LabFo
             <h3 className="mb-2 text-[12px] font-medium tracking-[0.06em] text-muted-foreground uppercase">What this will do</h3>
             {preview ? (
               <>
-                <p className="text-[13.5px] text-foreground" data-testid="lab-preview-sentence">
-                  {preview.sentence}
+                <p className="text-[13.5px] leading-5 text-foreground" data-testid="lab-preview-sentence">
+                  {preview.plain}
                 </p>
                 <pre className="mt-3 overflow-x-auto rounded-lg bg-well p-3 font-mono text-[12px] leading-5">
                   {preview.rule.map(([k, v], i) => (
@@ -349,7 +355,7 @@ function RuleForm({ kind, start, onMade }: { kind: "slow" | "fail"; start: LabFo
               </>
             ) : (
               <p className="text-[13px] text-muted-foreground" data-testid="lab-preview-none">
-                {answer.errors.length ? answer.errors.map(([, w]) => w).join(" ") : "Fill in the rule to see what it does."}
+                {answer.errors.length ? answer.errors.map(([, w]) => w).join(" ") : recipe ? "Reading the recipe…" : "Fill in the rule to see what it does."}
               </p>
             )}
           </div>
@@ -358,6 +364,7 @@ function RuleForm({ kind, start, onMade }: { kind: "slow" | "fail"; start: LabFo
               {answer.refused ?? failure}
             </p>
           )}
+          <Expect teach={teach} />
         </aside>
         <DialogFooter className="lg:col-span-2">
           <DialogClose asChild>
@@ -374,11 +381,21 @@ function RuleForm({ kind, start, onMade }: { kind: "slow" | "fail"; start: LabFo
   );
 }
 
-function RuleTab({ kind, onMade }: { kind: "slow" | "fail"; onMade: (id: number) => void }) {
+/** What follows once it starts, from the lesson. */
+function Expect({ teach }: { teach?: LabTeach }) {
+  return (
+    <div className="rounded-xl border bg-card p-4" data-testid="lab-expect">
+      <h3 className="mb-2 text-[12px] font-medium tracking-[0.06em] text-muted-foreground uppercase">What to expect</h3>
+      {teach ? <p className="text-[13px] leading-5 text-muted-foreground">{teach.expect}</p> : <Skeleton className="h-12 w-full" />}
+    </div>
+  );
+}
+
+function RuleTab({ kind, recipe, teach, onMade }: { kind: "slow" | "fail"; recipe?: LabRecipe; teach?: LabTeach; onMade: (id: number) => void }) {
   const q = useLabForm(kind, true);
   if (q.error) return <p role="alert" className="text-[13.5px] text-bad">{q.error.message}</p>;
   if (!q.data) return <Skeleton className="h-96 w-full" />;
-  return <RuleForm key={kind} kind={kind} start={q.data} onMade={onMade} />;
+  return <RuleForm key={`${kind}-${recipe?.id ?? ""}`} kind={kind} start={q.data} recipe={recipe} teach={teach} onMade={onMade} />;
 }
 
 const HOW: [string, string][] = [
@@ -387,10 +404,41 @@ const HOW: [string, string][] = [
   ["5", "For 5 min"],
 ];
 
-function OnceTab({ kind, onDone }: { kind: "drop" | "expire" | "rebalance"; onDone: () => void }) {
+/** The group of an Expire choice (`group/member`, each part encoded). */
+function groupOfMember(value: string): string {
+  const g = value.split("/")[0] ?? "";
+  try {
+    return decodeURIComponent(g);
+  } catch {
+    return g;
+  }
+}
+
+/** Where to see what a rehearsal that happens once did. */
+function SeeIt({ kind, target }: { kind: "drop" | "expire" | "rebalance"; target: string }) {
+  if (kind === "drop") {
+    return (
+      <Button variant="outline" size="sm" className="bg-card" asChild>
+        <Link to="/live" search={{ lab: "all", client: [target] }} data-testid="once-see">
+          <ActivityIcon /> See it on Live
+        </Link>
+      </Button>
+    );
+  }
+  const group = kind === "expire" ? groupOfMember(target) : target;
+  return (
+    <Button variant="outline" size="sm" className="bg-card" asChild>
+      <Link to="/groups/$group/story" params={{ group }} data-testid="once-see">
+        <ScrollTextIcon /> Read it in {group}'s Story
+      </Link>
+    </Button>
+  );
+}
+
+function OnceTab({ kind, recipe, teach, onDone }: { kind: "drop" | "expire" | "rebalance"; recipe?: LabRecipe; teach?: LabTeach; onDone: () => void }) {
   const qc = useQueryClient();
-  const [target, setTarget] = useState("");
-  const [how, setHow] = useState("once");
+  const [target, setTarget] = useState(recipe?.target ?? "");
+  const [how, setHow] = useState(recipe?.how ?? "once");
   const q = useLabOnce(kind, qs({ target, how: kind === "drop" ? how : undefined }), true);
   const v = q.data;
   const [refused, setRefused] = useState<string | null>(null);
@@ -399,6 +447,7 @@ function OnceTab({ kind, onDone }: { kind: "drop" | "expire" | "rebalance"; onDo
   const [did, setDid] = useState<string | null>(null);
   const options = useMemo<Option[]>(() => (v?.choices ?? []).map((c) => ({ value: c.value, label: c.label, hint: undefined })), [v?.choices]);
   const desc = v?.choices.find((c) => c.value === target)?.desc;
+  const title = teach?.title ?? TAB_LOOK[kind].label;
   const go = async () => {
     setBusy(true);
     setRefused(null);
@@ -423,8 +472,12 @@ function OnceTab({ kind, onDone }: { kind: "drop" | "expire" | "rebalance"; onDo
     return (
       <div className="flex min-w-0 flex-col gap-5" data-testid={`lab-once-${kind}`}>
         <Done testId="once-done">
-          <b className="font-semibold text-bright">{TAB_WORDS[kind].title}.</b> {did} It leaves a line in the Lab's history.
+          <b className="font-semibold text-bright">{title}.</b> {did} It leaves a line in the Lab's history.
         </Done>
+        <div className="flex flex-wrap items-center gap-3">
+          <SeeIt kind={kind} target={target} />
+          {teach && <p className="min-w-0 flex-1 basis-[20rem] text-[13px] text-muted-foreground">{teach.watch}</p>}
+        </div>
         <DoneFooter onDone={onDone} />
       </div>
     );
@@ -469,6 +522,7 @@ function OnceTab({ kind, onDone }: { kind: "drop" | "expire" | "rebalance"; onDo
             </pre>
           )}
           {v.follows && <p className="text-[13px] text-muted-foreground">{v.follows}</p>}
+          <Expect teach={teach} />
         </>
       )}
       {refused && (
@@ -483,15 +537,15 @@ function OnceTab({ kind, onDone }: { kind: "drop" | "expire" | "rebalance"; onDo
           </Button>
         </DialogClose>
         <Button disabled={busy || !target || !!v?.nothing} onClick={() => void go()} data-testid="lab-once-go">
-          <PlayIcon /> {busy ? "Working…" : TAB_WORDS[kind].title}
+          <PlayIcon /> {busy ? "Working…" : title}
         </Button>
       </DialogFooter>
     </div>
   );
 }
 
-function CompactTab({ topics, onDone }: { topics: string[]; onDone: () => void }) {
-  const [topic, setTopic] = useState(topics[0] ?? "");
+function CompactTab({ topics, recipe, teach, onDone }: { topics: string[]; recipe?: LabRecipe; teach?: LabTeach; onDone: () => void }) {
+  const [topic, setTopic] = useState(recipe?.target ?? topics[0] ?? "");
   const [partition, setPartition] = useState("0");
   if (topics.length === 0) {
     return (
@@ -512,14 +566,37 @@ function CompactTab({ topics, onDone }: { topics: string[]; onDone: () => void }
           <Input id="compact-partition" value={partition} onChange={(e) => setPartition(e.target.value.replace(/\D/g, "").slice(0, 4))} inputMode="numeric" className="bg-card font-mono" />
         </div>
       </div>
+      <Expect teach={teach} />
       {topic && partition !== "" && <CompactNowBody key={`${topic}-${partition}`} topic={topic} partition={Number(partition)} onDone={onDone} footer={false} />}
     </div>
   );
 }
 
-/** The dialog; `tab` is the `new` search param. */
-export function NewRehearsalDialog({ tab, compactTopics, onTab, onClose, onMade }: { tab: LabTab | undefined; compactTopics: string[]; onTab: (t: LabTab) => void; onClose: () => void; onMade: (id: number) => void }) {
-  const w = tab ? TAB_WORDS[tab] : undefined;
+/** The recipe the dialog was opened from, as a band over the form: the question it answers. */
+function RecipeBand({ recipe }: { recipe: LabRecipe }) {
+  return (
+    <div className="flex items-start gap-3 rounded-lg border border-primary/40 bg-primary/10 p-3 text-[13px] leading-5" data-testid="lab-recipe-band">
+      <BookMarkedIcon className="mt-0.5 size-4 flex-none text-link" aria-hidden />
+      <p className="min-w-0">
+        <b className="font-semibold text-bright">Recipe: {recipe.title}.</b> {recipe.question} Review the rehearsal, then start it.
+      </p>
+    </div>
+  );
+}
+
+/** The dialog; `tab` is the `new` search param, `recipe` the recipe it was filled from (only on that recipe's tab). */
+export function NewRehearsalDialog({ tab, recipe: recipeId, guide, compactTopics, onTab, onClose, onMade }: { tab: LabTab | undefined; recipe?: string; guide: LabGuide | undefined; compactTopics: string[]; onTab: (t: LabTab) => void; onClose: () => void; onMade: (id: number) => void }) {
+  const teach = tab ? teachOf(guide, tab) : undefined;
+  // The recipe as it was when the dialog opened: the guide may be fetched again (the broker's groups move), and the form
+  // the person is reviewing must not be swapped under them.
+  const found = guide?.recipes.find((r) => r.id === recipeId && r.tab === tab && !r.needs);
+  const [kept, setKept] = useState<LabRecipe | undefined>(undefined);
+  if (found && kept?.id !== found.id) setKept(found);
+  if (!recipeId && kept) setKept(undefined);
+  const recipe = recipeId && kept?.id === recipeId && kept.tab === tab ? kept : found;
+  // A recipe named in the address waits for the guide, so the form opens filled, never with the defaults first.
+  const waiting = !!recipeId && !guide;
+  const look = (t: LabTab) => ({ recipe: recipe?.tab === t ? recipe : undefined, teach: teachOf(guide, t) });
   return (
     <Dialog open={!!tab} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="top-6 max-h-[calc(100vh-3rem)] translate-y-0 overflow-y-auto [scrollbar-gutter:stable] sm:max-w-[56rem]" data-testid="lab-dialog">
@@ -527,39 +604,49 @@ export function NewRehearsalDialog({ tab, compactTopics, onTab, onClose, onMade 
           <DialogTitle className="flex items-center gap-2 text-[20px] font-medium">
             <FlaskConicalIcon className="size-5 text-warn" aria-hidden /> New rehearsal
           </DialogTitle>
-          <DialogDescription>{w?.lede ?? "Rehearse a failure on purpose and watch what your app does."}</DialogDescription>
+          <DialogDescription>{teach ? `${teach.title}. ${teach.lede}` : "Rehearse a failure on purpose and watch what your app does."}</DialogDescription>
         </DialogHeader>
         {tab && (
           <Tabs value={tab} onValueChange={(t) => onTab(t as LabTab)} className="min-w-0">
             <TabsList className="flex h-auto w-full flex-wrap justify-start" data-testid="lab-tabs">
-              {(Object.keys(TAB_WORDS) as LabTab[]).map((t) => {
-                const Icon = TAB_WORDS[t].icon;
+              {(Object.keys(TAB_LOOK) as LabTab[]).map((t) => {
+                const Icon = TAB_LOOK[t].icon;
                 return (
                   <TabsTrigger key={t} value={t} className="flex-none px-3">
-                    <Icon aria-hidden /> {TAB_WORDS[t].label}
-                    {TAB_WORDS[t].once && <span className="ml-1 text-[11px] text-muted-foreground">once</span>}
+                    <Icon aria-hidden /> {TAB_LOOK[t].label}
+                    {TAB_LOOK[t].once && <span className="ml-1 text-[11px] text-muted-foreground">once</span>}
                   </TabsTrigger>
                 );
               })}
             </TabsList>
-            <TabsContent value="slow" className="pt-4">
-              <RuleTab kind="slow" onMade={onMade} />
-            </TabsContent>
-            <TabsContent value="fail" className="pt-4">
-              <RuleTab kind="fail" onMade={onMade} />
-            </TabsContent>
-            <TabsContent value="drop" className="pt-4">
-              <OnceTab kind="drop" onDone={onClose} />
-            </TabsContent>
-            <TabsContent value="expire" className="pt-4">
-              <OnceTab kind="expire" onDone={onClose} />
-            </TabsContent>
-            <TabsContent value="rebalance" className="pt-4">
-              <OnceTab kind="rebalance" onDone={onClose} />
-            </TabsContent>
-            <TabsContent value="compact" className="pt-4">
-              <CompactTab topics={compactTopics} onDone={onClose} />
-            </TabsContent>
+            <div className="flex flex-col gap-3 pt-4">
+              {recipe && <RecipeBand recipe={recipe} />}
+              <Lesson key={tab} teach={teach} />
+            </div>
+            {waiting ? (
+              <Skeleton className="mt-4 h-96 w-full" />
+            ) : (
+              <>
+                <TabsContent value="slow" className="pt-4">
+                  <RuleTab kind="slow" {...look("slow")} onMade={onMade} />
+                </TabsContent>
+                <TabsContent value="fail" className="pt-4">
+                  <RuleTab kind="fail" {...look("fail")} onMade={onMade} />
+                </TabsContent>
+                <TabsContent value="drop" className="pt-4">
+                  <OnceTab key={recipe?.id} kind="drop" {...look("drop")} onDone={onClose} />
+                </TabsContent>
+                <TabsContent value="expire" className="pt-4">
+                  <OnceTab key={recipe?.id} kind="expire" {...look("expire")} onDone={onClose} />
+                </TabsContent>
+                <TabsContent value="rebalance" className="pt-4">
+                  <OnceTab key={recipe?.id} kind="rebalance" {...look("rebalance")} onDone={onClose} />
+                </TabsContent>
+                <TabsContent value="compact" className="pt-4">
+                  <CompactTab key={recipe?.id} topics={compactTopics} {...look("compact")} onDone={onClose} />
+                </TabsContent>
+              </>
+            )}
           </Tabs>
         )}
       </DialogContent>

@@ -10,6 +10,7 @@ mod group_states;
 mod groups;
 mod home;
 pub mod lab;
+pub mod lab_guide;
 pub mod live;
 mod live_clients;
 mod log;

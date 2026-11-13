@@ -9,6 +9,8 @@ pub mod act;
 pub mod compact;
 pub mod form;
 mod handle;
+pub mod recipes;
+pub mod teach;
 pub mod views;
 pub mod words;
 
