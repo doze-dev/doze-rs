@@ -83,12 +83,25 @@ impl Scene {
     /// One link per pair of regions: a gentle curve between their nearer edges, as thick as its calls (one, two or
     /// three, four and more), a head at each end that is called. The focus region's links light, the rest step back.
     pub(super) fn links(&self, o: Point<Pixels>, window: &mut Window) {
+        self.paint_links(o, window, false);
+    }
+
+    /// The links of the region in hand alone, drawn again over the frames.
+    pub(super) fn links_of_home(&self, o: Point<Pixels>, window: &mut Window) {
+        self.paint_links(o, window, true);
+    }
+
+    fn paint_links(&self, o: Point<Pixels>, window: &mut Window, only_home: bool) {
         for k in &self.o.links {
+            if only_home && !self.home.is_some_and(|h| k.a == h || k.b == h) {
+                continue;
+            }
             let mine = self.home.is_some_and(|h| k.a == h || k.b == h);
             let a = match self.home {
                 Some(_) if mine => 0.9,
                 Some(_) => 0.1,
-                None => 0.4,
+                None if self.t.dark => 0.4,
+                None => 0.55,
             };
             let w = match k.calls() {
                 0..=1 => 1.5,

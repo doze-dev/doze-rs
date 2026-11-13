@@ -164,6 +164,10 @@ impl Scene {
             self.links(o, window);
         }
         self.frames(o, window);
+        // The region in hand: its links again, over the frames, so each can be followed end to end (transient).
+        if named && self.quiet && self.z < DETAIL_ZOOM && self.home.is_some() {
+            self.links_of_home(o, window);
+        }
         if far && !named {
             self.regions(o, window);
             self.bundles(o, window);
@@ -225,7 +229,8 @@ impl Scene {
             // A neighbourhood: the centre's own calls are drawn strong on top; the rest between shown cards faint.
             (false, _) if self.l.mode == Mode::Focus => 0.5,
             (false, _) => 1.0,
-            (true, true) => 0.34,
+            // Inside a region, quieter than the links between regions.
+            (true, true) => 0.22,
             (true, false) if self.z < DETAIL_ZOOM => 0.3,
             (true, false) => 0.55,
         };

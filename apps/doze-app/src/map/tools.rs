@@ -142,7 +142,7 @@ pub(crate) fn talks(t: &Tokens, m: &MapView) -> Option<AnyElement> {
             .collect();
         v.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| a.1.cmp(&b.1)));
         v.iter()
-            .take(4)
+            .take(5)
             .map(|(n, r)| format!("{r} {n}"))
             .collect::<Vec<_>>()
             .join(" · ")
