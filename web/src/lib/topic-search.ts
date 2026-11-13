@@ -24,8 +24,9 @@ export function topicSearch(s: Record<string, unknown>): TopicSearch {
 export type Isolation = "read_uncommitted" | "read_committed";
 
 export type MessagesSearch = TopicSearch & {
-  /** `0` or `0,2`: the partitions read; none is all. */
-  partition?: string;
+  /** `0` or `0,2`: the partitions read; none is all. One is a number, so the address says `partition=1` (a text that reads
+   * as a number would be written quoted). */
+  partition?: number | string;
   offset?: number;
   /** As typed: `2026-11-13 14:30` (UTC) or milliseconds. */
   time?: string;
@@ -38,10 +39,10 @@ export type MessagesSearch = TopicSearch & {
   mode?: "tail";
 };
 
-export function partitionsOf(raw: string | undefined): number[] {
-  if (!raw) return [];
+export function partitionsOf(raw: string | number | undefined): number[] {
+  if (raw === undefined || raw === "") return [];
   const out = new Set<number>();
-  for (const p of raw.split(",")) {
+  for (const p of String(raw).split(",")) {
     const n = whole(p);
     if (n !== undefined && n <= 1_000_000) out.add(n);
   }
@@ -49,12 +50,12 @@ export function partitionsOf(raw: string | undefined): number[] {
 }
 
 export function messagesSearch(s: Record<string, unknown>): MessagesSearch {
-  const parts = partitionsOf(typeof s.partition === "number" ? String(s.partition) : typeof s.partition === "string" ? s.partition : undefined);
+  const parts = partitionsOf(typeof s.partition === "number" || typeof s.partition === "string" ? s.partition : undefined);
   const record = typeof s.record === "string" && /^\d{1,9}:\d{1,18}$/.test(s.record) ? s.record : undefined;
   const limit = whole(s.limit);
   return {
     ...topicSearch(s),
-    partition: parts.length ? parts.join(",") : undefined,
+    partition: partitionParam(parts),
     offset: whole(s.offset),
     time: shortText(typeof s.time === "number" ? String(s.time) : s.time, 40),
     key: shortText(typeof s.key === "number" ? String(s.key) : s.key, 512),
@@ -63,6 +64,12 @@ export function messagesSearch(s: Record<string, unknown>): MessagesSearch {
     record,
     mode: s.mode === "tail" ? "tail" : undefined,
   };
+}
+
+/** The address's form of a set of partitions: none, one (a number) or several (`0,2`). */
+export function partitionParam(parts: (number | string)[]): number | string | undefined {
+  if (parts.length === 0) return undefined;
+  return parts.length === 1 ? Number(parts[0]) : parts.join(",");
 }
 
 /** The API's query for a Messages search (`partition=0&partition=2&isolation=read_committed`). */

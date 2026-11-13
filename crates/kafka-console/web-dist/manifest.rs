@@ -3,18 +3,18 @@
 /// Every file of the bundle.
 pub const FILES: &[(&str, Served)] = &[
     (
-        "assets/gallery-CbKLGtPz.js",
+        "assets/gallery-BcdrNafF.js",
         Served {
             content_type: "text/javascript; charset=utf-8",
-            bytes: include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/web-dist/assets/gallery-CbKLGtPz.js.gz")),
+            bytes: include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/web-dist/assets/gallery-BcdrNafF.js.gz")),
             gzip: true,
         },
     ),
     (
-        "assets/index-9lQ_vYFS.js",
+        "assets/index-DyqAje0B.js",
         Served {
             content_type: "text/javascript; charset=utf-8",
-            bytes: include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/web-dist/assets/index-9lQ_vYFS.js.gz")),
+            bytes: include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/web-dist/assets/index-DyqAje0B.js.gz")),
             gzip: true,
         },
     ),
@@ -51,10 +51,10 @@ pub const FILES: &[(&str, Served)] = &[
         },
     ),
     (
-        "assets/pages-CVe1V_gW.js",
+        "assets/pages-laPDwWOK.js",
         Served {
             content_type: "text/javascript; charset=utf-8",
-            bytes: include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/web-dist/assets/pages-CVe1V_gW.js.gz")),
+            bytes: include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/web-dist/assets/pages-laPDwWOK.js.gz")),
             gzip: true,
         },
     ),

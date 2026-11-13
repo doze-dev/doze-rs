@@ -101,9 +101,10 @@ test("the record Sheet: a row opens it with its own address, Esc and Back close 
   await expect(sheet.getByTestId("record-value")).toBeVisible();
   // JSON is laid out, and As sent shows it as it came.
   if (await sheet.getByTestId("json-view").count()) {
-    await expect(sheet.getByTestId("record-value")).toContainText("\n");
+    expect(await sheet.getByTestId("record-value").textContent()).toContain("\n  ");
     await sheet.getByTestId("json-view").getByRole("radio", { name: "As sent" }).click();
-    await expect(sheet.getByTestId("record-value")).not.toContainText("\n  ");
+    await expect(sheet.getByTestId("json-view").getByRole("radio", { name: "As sent" })).toHaveAttribute("aria-checked", "true");
+    expect(await sheet.getByTestId("record-value").textContent()).not.toContain("\n  ");
   }
   await page.keyboard.press("Escape");
   await expect(sheet).toBeHidden();

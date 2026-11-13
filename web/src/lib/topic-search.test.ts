@@ -15,7 +15,8 @@ describe("the Topics search params", () => {
       record: "1:16050",
       mode: "tail",
     });
-    expect(messagesSearch({ partition: 1, offset: 12 }).partition).toBe("1");
+    expect(messagesSearch({ partition: 1, offset: 12 }).partition).toBe(1);
+    expect(messagesSearch({ partition: "1" }).partition).toBe(1);
     expect(messagesSearch({ record: "1:x" }).record).toBeUndefined();
     expect(topicsSearch({ internal: true, q: "ord" })).toMatchObject({ internal: true, q: "ord" });
     expect(topicsSearch({ internal: "no" }).internal).toBeUndefined();

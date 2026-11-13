@@ -41,7 +41,8 @@ test("Log: the ruler, the cards and the segments; a segment opens in place; the 
   await page.goto("/topics/orders/log");
   await expect(page.getByTestId("log")).toBeVisible();
   const strip = page.getByTestId("log").locator("[data-slot=stat-strip]");
-  for (const label of ["Log", "Start offset", "End offset", "Last stable", "Records", "Segments", "Size"]) await expect(strip).toContainText(label);
+  await expect(page.getByTestId("log-state")).toHaveText(/^(Empty|Due|Not due|Retention)$/);
+  for (const label of ["Start offset", "End offset", "Last stable", "Records", "Segments", "Size"]) await expect(strip).toContainText(label);
   await expect(page.getByTestId("ruler")).toBeVisible();
   await expect(page.getByTestId("durability")).toContainText("Durability");
   await expect(page.getByTestId("planner")).toBeVisible();
@@ -99,7 +100,7 @@ test("Producers: the stats, the partition in the address, a producer's batches o
   await expect(page).toHaveURL(/partition=2/);
   await expect(page.getByTestId("producers")).toContainText("Producers on orders-2");
   await page.goto("/topics/orders/transactions/no-such-transaction");
-  await expect(page.getByText("No transaction called no-such-transaction")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "No transaction called no-such-transaction" })).toBeVisible();
   await page.getByRole("link", { name: "Back to the producers" }).click();
   await expect(page).toHaveURL(/\/topics\/orders\/producers$/);
 });

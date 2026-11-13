@@ -27,7 +27,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { number } from "@/lib/format";
 import { bytes, clockMs } from "@/lib/kafka";
-import { type MessagesSearch, messagesQuery, partitionsOf, recordAt } from "@/lib/topic-search";
+import { type MessagesSearch, messagesQuery, partitionParam, partitionsOf, recordAt } from "@/lib/topic-search";
 import { cn } from "@/lib/utils";
 import { PageError } from "../page-error";
 import { Explainers } from "./explain";
@@ -246,7 +246,7 @@ function FilterLine({ search, set, tailable, conn }: { search: MessagesSearch; s
   const [speed, setSpeed] = useTailSpeed();
   const chips: { label: string; off: Patch; id: string }[] = [];
   const parts = partitionsOf(search.partition);
-  for (const p of parts) chips.push({ id: `p${p}`, label: `partition ${p}`, off: { partition: parts.filter((x) => x !== p).join(",") || undefined } });
+  for (const p of parts) chips.push({ id: `p${p}`, label: `partition ${p}`, off: { partition: partitionParam(parts.filter((x) => x !== p)) } });
   if (search.offset !== undefined) chips.push({ id: "offset", label: `from offset ${number(search.offset)}`, off: { offset: undefined } });
   if (search.time) chips.push({ id: "time", label: `from ${search.time}`, off: { time: undefined } });
   if (search.key) chips.push({ id: "key", label: `key ${search.key}`, off: { key: undefined } });
@@ -312,7 +312,7 @@ function Toolbar({ frame, search, set }: { frame: TopicFrame; search: MessagesSe
   const chosen = partitionsOf(search.partition).map(String);
   return (
     <div className="flex flex-wrap items-center gap-3" data-testid="toolbar">
-      <MultiSelect options={options} value={chosen} onChange={(v) => set({ partition: v.length ? v.join(",") : undefined })} noun="partitions" aria-label="Partitions" chips={false} triggerClassName="w-48" />
+      <MultiSelect options={options} value={chosen} onChange={(v) => set({ partition: partitionParam(v) })} noun="partitions" aria-label="Partitions" chips={false} triggerClassName="w-48" />
       <FindBox search={search} set={set} />
       <TimePick search={search} set={set} />
       <div className="ml-auto flex items-center gap-2.5">
@@ -492,7 +492,7 @@ function Offline({ frame }: { frame: TopicFrame }) {
       </div>
       <p className="text-[13px] text-muted-foreground">
         Its records can still be read:{" "}
-        <button type="button" className="font-medium text-primary hover:underline" onClick={() => set({ partition: String(down[0]?.partition ?? 0) }, true)}>
+        <button type="button" className="font-medium text-primary hover:underline" onClick={() => set({ partition: down[0]?.partition ?? 0 }, true)}>
           open partition {down[0]?.partition ?? 0}
         </button>
         .
@@ -523,7 +523,7 @@ export function MessagesPage() {
     } else set({ record: undefined });
   };
   const f = frame.data;
-  const filtered = !!(search.partition || search.offset !== undefined || search.time || search.key);
+  const filtered = !!(search.partition !== undefined || search.offset !== undefined || search.time || search.key);
   const committed = search.isolation === "read_committed";
   const at = recordAt(search.record);
   const listen = useShell().data?.address ?? "";

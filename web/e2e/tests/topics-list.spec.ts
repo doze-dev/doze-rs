@@ -29,7 +29,7 @@ test("Show internal: the switch works with the mouse and the keyboard, is in the
   await expect(table.locator("#r-__consumer_offsets")).toContainText("internal");
   await expect(page.getByTestId("internal-note")).toContainText("The internal topic is shown.");
   // The label toggles it too.
-  await page.getByText("Show internal", { exact: true }).click();
+  await page.locator("label[for=show-internal]").click();
   await expect(sw).toHaveAttribute("aria-checked", "false");
   await expect(table.locator("#r-__consumer_offsets")).toHaveCount(0);
   // The keyboard.

@@ -274,7 +274,7 @@ export function TxnHeldPage() {
         sentence={<Spans spans={r.holding} />}
         actions={
           <Button variant="outline" asChild>
-            <Link to="/topics/$topic/messages" params={{ topic }} search={{ isolation: "read_committed", partition: String(v.tail_partition) }}>
+            <Link to="/topics/$topic/messages" params={{ topic }} search={{ isolation: "read_committed", partition: v.tail_partition }}>
               The same, as a consumer sees it
             </Link>
           </Button>
