@@ -250,9 +250,9 @@ function ProfileSection({ r }: { r: SettingsResponse }) {
 const intervalColumns: DataColumn<SettingsInterval>[] = [
   { accessorKey: "name", header: "Interval", size: 170, cell: (c) => <span title={`${c.row.original.name}: ${c.row.original.what}`} className="font-medium text-foreground">{c.row.original.name}</span> },
   { accessorKey: "value", header: "Value", size: 96, meta: { mono: true } },
-  { accessorKey: "flag", header: "Flag", size: 270, meta: { mono: true } },
+  { accessorKey: "flag", header: "Flag", size: 260, meta: { mono: true } },
   { accessorKey: "default", header: "Default", size: 104, meta: { mono: true } },
-  { accessorKey: "note", header: "What it comes to" },
+  { accessorKey: "note", header: "Effect" },
 ];
 
 function IntervalsSection({ r }: { r: SettingsResponse }) {
@@ -364,6 +364,7 @@ function FlagsSection({ r }: { r: SettingsResponse }) {
   const flags = r.settings.flags;
   const differ = flags.filter((f) => f.set && f.value !== f.default);
   const [which, setWhich] = useState<"set" | "all">(differ.length > 0 ? "set" : "all");
+  const wide = useMinWidth(1280);
   const rows = which === "set" ? differ : flags;
   return (
     <section aria-labelledby="flags" className="mb-12">
@@ -382,7 +383,7 @@ function FlagsSection({ r }: { r: SettingsResponse }) {
           </ToggleGroup>
         }
       />
-      <DataTable data={rows} columns={flagColumns} rowId={(f) => f.name} aria-label="Flags" maxHeight={520} empty={which === "set" ? "Every flag is at its default." : "The flags are not known to this console."} />
+      <DataTable data={rows} columns={narrowed(flagColumns, wide, ["default"])} rowId={(f) => f.name} aria-label="Flags" maxHeight={520} empty={which === "set" ? "Every flag is at its default." : "The flags are not known to this console."} />
       <p className="mt-3 flex max-w-[52rem] items-start gap-2 text-[12.5px] text-muted-foreground">
         <InfoIcon className="mt-0.5 size-3.5 shrink-0" aria-hidden />
         <span>
