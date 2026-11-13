@@ -38,6 +38,19 @@ multiple_unsafe_ops_per_block = "deny"
 [dependencies]
 tokio = { version = "1.54", features = ["net", "process", "io-util", "time", "rt", "signal"] }
 
+# The desktop app's native surface (module `ui`): the menu-bar item and the Dock badge, through objc2 on macOS. Off unless
+# the app asks for it, so nothing else links AppKit. docs/port/app/PLAN.md §4.2.
+[features]
+ui = ["dep:objc2", "dep:objc2-foundation", "dep:objc2-app-kit"]
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = { version = "0.6", optional = true }
+objc2-foundation = { version = "0.3", optional = true, default-features = false, features = ["std", "NSString", "NSObject", "NSThread", "NSData", "NSGeometry"] }
+objc2-app-kit = { version = "0.3", optional = true, default-features = false, features = [
+    "std", "objc2-core-foundation", "NSApplication", "NSDockTile", "NSStatusBar", "NSStatusItem", "NSMenu", "NSMenuItem", "NSButton", "NSControl",
+    "NSStatusBarButton", "NSResponder", "NSView", "NSImage", "NSCell", "NSButtonCell", "NSActionCell", "NSRunningApplication",
+] }
+
 [target.'cfg(unix)'.dependencies]
 rustix = { version = "1.1.6", features = ["net", "stdio", "process", "fs"] }
 
