@@ -1,6 +1,6 @@
 // The Live page (boards live-wire, live-quiet, live-load, live-lab-rule; classic pages/live/page.rs). A snapshot of the newest
 // requests by default, with the RefreshControl; a Live tail when the person switches it on, at the speed they chose. Calm by
-// rule (live-design.md, CON-1250 to CON-1299): the header, the strip and the toolbar are never part of an update; the tape's
+// rule (live-design.md, CON-1250 to CON-1262): the header, the strip and the toolbar are never part of an update; the tape's
 // columns are fixed; a batch of new rows comes no faster than the pace, is prepended with a brief highlight on the new rows
 // only, and is held (a pill counts it) while the person scrolls, hovers, selects, types in the table or has an overlay open.
 import { useNavigate, useSearch } from "@tanstack/react-router";
@@ -107,7 +107,7 @@ function SearchBox({ value, onChange }: { value: string; onChange: (v: string) =
     return () => clearTimeout(t);
   }, [text, value, onChange]);
   return (
-    <div className="relative w-full max-w-[18rem] min-w-[12rem] flex-1">
+    <div className="relative w-full max-w-[16rem] min-w-[12rem] flex-1">
       <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
       <Input value={text} onChange={(e) => setText(e.target.value)} placeholder="Filter by client, API or topic" aria-label="Filter the wire" className="bg-card pl-9" maxLength={128} data-testid="live-search" />
     </div>
@@ -133,7 +133,7 @@ function Indicator({ on, conn, onRetry }: { on: boolean; conn: Conn; onRetry: ()
           ? ["bg-warn", "Reconnecting…"]
           : ["bg-bad", conn.retryAt ? `Disconnected · Retry in ${Math.max(1, Math.ceil((conn.retryAt - now) / 1000))} s` : "Disconnected · Retrying…"];
   return (
-    <span className="inline-flex min-w-[17rem] items-center gap-2 text-[13px]" data-testid="tail-state" data-state={on ? conn.state : "snapshot"} role="status">
+    <span className="inline-flex min-w-[14rem] items-center gap-2 text-[13px]" data-testid="tail-state" data-state={on ? conn.state : "snapshot"} role="status">
       <span aria-hidden className={cn("size-2 shrink-0 rounded-full", tone, on && conn.state === "live" && "shadow-[0_0_0_3px] shadow-good/20")} />
       <span className={cn("font-medium whitespace-nowrap tabular-nums", !on ? "text-muted-foreground" : "text-bright")}>{word}</span>
       {on && conn.state === "disconnected" && (
@@ -350,6 +350,11 @@ export function LivePage() {
         title="Live"
         sub="Everything your apps send, newest first. Repeats fold into one row with a count; the oldest rows fall off."
         refresh={<RefreshControl updatedAt={q.dataUpdatedAt} fetching={q.isFetching} onRefresh={() => void q.refetch()} />}
+        actions={
+          <Button variant="outline" className="bg-card" disabled={!r} onClick={() => openOverlay({ clients: true })} data-testid="open-clients">
+            <NetworkIcon /> Clients <span className="inline-block min-w-[3ch] text-left font-mono text-muted-foreground tabular-nums">{r ? number(r.live.clients) : ""}</span>
+          </Button>
+        }
       />
       {q.isError && !r ? (
         <PageError error={q.error} onRetry={() => void q.refetch()} />
@@ -365,13 +370,13 @@ export function LivePage() {
         </div>
       ) : (
         <div className="flex flex-col gap-4" data-testid="live">
-          <StatStrip stats={stats(r)} />
+          <StatStrip stats={stats(r)} className="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))]" />
           <Refusals r={r} onOpen={(id) => openOverlay({ request: id })} />
           <div className="flex flex-wrap items-center gap-2" data-testid="live-toolbar">
             <SearchBox value={search.q ?? ""} onChange={onSearch} />
-            <MultiSelect options={opts(facets?.clients, search.client)} value={search.client ?? []} onChange={(v) => set({ client: v.length ? v : undefined, before: undefined }, false)} noun="apps" aria-label="Apps" triggerClassName="w-40" chips={false} />
-            <MultiSelect options={opts(facets?.topics, search.topic)} value={search.topic ?? []} onChange={(v) => set({ topic: v.length ? v : undefined, before: undefined }, false)} noun="topics" aria-label="Topics" triggerClassName="w-40" chips={false} />
-            <MultiSelect options={opts(facets?.apis, search.api)} value={search.api ?? []} onChange={(v) => set({ api: v.length ? v : undefined, before: undefined }, false)} noun="APIs" aria-label="APIs" triggerClassName="w-40" chips={false} />
+            <MultiSelect options={opts(facets?.clients, search.client)} value={search.client ?? []} onChange={(v) => set({ client: v.length ? v : undefined, before: undefined }, false)} noun="apps" aria-label="Apps" triggerClassName="w-36" chips={false} />
+            <MultiSelect options={opts(facets?.topics, search.topic)} value={search.topic ?? []} onChange={(v) => set({ topic: v.length ? v : undefined, before: undefined }, false)} noun="topics" aria-label="Topics" triggerClassName="w-36" chips={false} />
+            <MultiSelect options={opts(facets?.apis, search.api)} value={search.api ?? []} onChange={(v) => set({ api: v.length ? v : undefined, before: undefined }, false)} noun="APIs" aria-label="APIs" triggerClassName="w-36" chips={false} />
             <Toggle variant="outline" pressed={!!search.refused} onPressedChange={(p) => set({ refused: p ? true : undefined, before: undefined }, false)} className="bg-card px-3 data-[state=on]:border-primary/40 data-[state=on]:bg-primary/10 data-[state=on]:text-primary" data-testid="refused-only">
               <FilterIcon /> Refused only
             </Toggle>
@@ -381,10 +386,6 @@ export function LivePage() {
                 Idle polls hidden
               </Label>
             </div>
-            <span className="flex-1" />
-            <Button variant="outline" className="bg-card" onClick={() => openOverlay({ clients: true })} data-testid="open-clients">
-              <NetworkIcon /> Clients <span className="font-mono text-muted-foreground tabular-nums">{number(r.live.clients)}</span>
-            </Button>
           </div>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2" data-testid="tail-bar">
             <ToggleGroup type="single" variant="outline" value={on ? "tail" : "snapshot"} onValueChange={(v) => v && switchMode(v)} aria-label="Mode" className="bg-card" data-testid="tail-mode">
@@ -416,13 +417,14 @@ export function LivePage() {
             </Tooltip>
             <Indicator on={on} conn={tail.conn} onRetry={tail.retry} />
             <span className="flex-1" />
-            <span className="inline-flex min-w-[10rem] justify-end">
-              <Button size="sm" variant="secondary" onClick={showHeld} className={cn("rounded-full", !(on && tail.heldCount > 0) && "invisible")} aria-hidden={!(on && tail.heldCount > 0)} tabIndex={on && tail.heldCount > 0 ? 0 : -1} data-testid="held-pill">
+          </div>
+          <div className="relative" ref={wrap} onPointerEnter={() => (hovering.current = true)} onPointerLeave={() => (hovering.current = false)} data-testid="tape-wrap" data-tail={on || undefined}>
+            {/* The pill floats over the top of the tape: it takes no room, so it moves nothing when it comes and goes. */}
+            {on && tail.heldCount > 0 && (
+              <Button size="sm" onClick={showHeld} className="absolute top-12 left-1/2 z-20 -translate-x-1/2 rounded-full shadow-md" data-testid="held-pill">
                 <ArrowUpIcon /> <span className="tabular-nums">{number(tail.heldCount)}</span> new · Show
               </Button>
-            </span>
-          </div>
-          <div ref={wrap} onPointerEnter={() => (hovering.current = true)} onPointerLeave={() => (hovering.current = false)} data-testid="tape-wrap" data-tail={on || undefined}>
+            )}
             <Tape rows={rows} layout="live" filter={filterBy} empty={empty} maxHeight={TAPE_HEIGHT} label="The wire" onOpen={(row) => openOverlay({ request: row.id })} testId="tape" />
           </div>
           <div className="flex flex-wrap items-center justify-end gap-3 text-[13px] text-muted-foreground" data-testid="pager">

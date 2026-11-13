@@ -18,9 +18,9 @@ export type FilterBy = (field: "client" | "api" | "topic", value: string) => voi
 
 const TONE: Record<string, string> = { ok: "text-good", warn: "text-warn", bad: "text-bad", refused: "text-refused", idle: "text-muted-foreground", info: "text-cool" };
 
-/** Widths in px for a table at least 1100 px wide, and for a narrower one (1024 px windows). The target takes the rest. */
+/** Widths in px for a table at least 1000 px wide, and for a narrower one (1024 px windows). The target takes the rest. */
 const WIDE = { time: 128, client: 168, api: 196, result: 300, took: 84 };
-const NARROW = { time: 116, client: 128, api: 150, result: 206, took: 70 };
+const NARROW = { time: 122, client: 104, api: 128, result: 134, took: 84 };
 
 function FilterButton({ onClick, title, className, children }: { onClick?: () => void; title: string; className?: string; children: React.ReactNode }) {
   if (!onClick) return <span className={className}>{children}</span>;
@@ -142,7 +142,7 @@ export function tapeColumns(layout: Layout, wide: boolean, filter?: FilterBy): D
         const sub = [r.target_sub, r.since_ms ? `since ${clockMs(r.since_ms).slice(0, 8)}` : null].filter(Boolean).join(" · ");
         return (
           <span className="flex min-w-0 items-baseline gap-2" title={sub ? `${r.target} · ${sub}` : r.target}>
-            <FilterButton onClick={f && topic ? () => f("topic", topic) : undefined} title={`Show only ${topic ?? r.target}`} className="min-w-0 truncate font-mono text-[12.5px] text-foreground">
+            <FilterButton onClick={f && topic ? () => f("topic", topic) : undefined} title={`Show only ${topic ?? r.target}`} className="max-w-full min-w-0 shrink-0 truncate font-mono text-[12.5px] text-foreground">
               {r.target || "-"}
             </FilterButton>
             {sub && <span className="min-w-0 truncate font-mono text-[11.5px] text-muted-foreground">{sub}</span>}
@@ -166,12 +166,13 @@ export function tapeColumns(layout: Layout, wide: boolean, filter?: FilterBy): D
   return layout === "first" ? cols.filter((c) => c.id !== "client") : cols;
 }
 
-/** Whether an element is at least 1100 px wide, followed as it resizes (the columns change with the width, never the rows). */
+/** Whether an element is at least 1000 px wide, followed as it resizes (the columns change with the width, never the rows). */
 export function useWide(el: HTMLElement | null): boolean {
-  const [wide, setWide] = useState(true);
+  // A first guess from the window (the sidebar and the margins take about 290 px), so the first paint is already right.
+  const [wide, setWide] = useState(() => (globalThis.innerWidth ?? 1440) - 290 >= 1000);
   useEffect(() => {
     if (!el) return;
-    const ro = new ResizeObserver(([e]) => setWide((e?.contentRect.width ?? 1200) >= 1100));
+    const ro = new ResizeObserver(([e]) => setWide((e?.contentRect.width ?? 1200) >= 1000));
     ro.observe(el);
     return () => ro.disconnect();
   }, [el]);

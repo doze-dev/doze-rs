@@ -152,7 +152,7 @@
 }
 
 /* The Live tail (R3): a row that arrived in a batch gets a brief background highlight, once, on its own cells. Paint only:
-   nothing changes size, and no row that was already there is touched (live-design.md, CON-1255). */
+   nothing changes size, and no row that was already there is touched (live-design.md, CON-1256). */
 @keyframes tail-fresh {
   from {
     background-color: color-mix(in oklab, var(--primary) 14%, transparent);

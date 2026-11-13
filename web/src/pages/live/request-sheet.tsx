@@ -67,7 +67,7 @@ function Facts({ d }: { d: WireDetail }) {
       <>
         <Mono>{r.client || "(no client.id)"}</Mono>
         <Sub>
-          {d.software ?? "software not announced"}
+          {d.software?.trim() || "software not announced"}
           {d.peer && ` · ${d.peer}`} · {d.principal}
         </Sub>
       </>,
@@ -175,7 +175,7 @@ function WhoWhen({ d, client }: { d: WireDetail; client: boolean }) {
       "Client",
       <>
         <Mono>{d.row.client}</Mono>
-        {d.software && <span className="text-muted-foreground"> ({d.software})</span>}
+        {d.software?.trim() && <span className="text-muted-foreground"> ({d.software.trim()})</span>}
       </>,
     ]);
   rows.push([
