@@ -391,3 +391,19 @@ Recommendation for the owner (§6 budget row): measure the follow line as *growt
 adds 20–40 MB over a window that redraws anything: 221 MB with All logs open, 241–260 MB following 200 lines a second)
 and keep "back under 100–115 MB within 10 s of stopping", or accept ~260 MB while a window streams. The knobs used for
 the measurements were not kept.
+
+### M2 combined (act + ⌘K + Needs you, wired), measured 2026-11-13
+
+Same machine and method (`release-app`; `doze-app bench --fixture larder --idle 30`, footprint at 12 s and 27 s, two
+runs).
+
+| | Budget | Measured |
+|---|---|---|
+| Binary, `release-app`, no capture | ≤ 16 MB | 12,833,104 B (+382 KB over the ⌘K/Needs you build: the verbs, dialogs, toasts, the checks before Up, the empty folder) |
+| Binary with `fixtures` | | 13,065,600 B |
+| Menu bar ready | ≤ 100 ms | 71 / 82 ms |
+| First frame after the tray click | ≤ 100 ms | 72 / 42 ms (the first run cold) |
+| Window open and idle (larder's page) | ≤ 85 MB | 59 / 55 MB and 59 / 55 MB |
+
+Acting adds nothing at rest: Needs you is built again from acting only when a stack begins or ends an action or a
+failure comes or goes (a toast alone does not), and the toasts' expiry timer runs only while a toast shows.
