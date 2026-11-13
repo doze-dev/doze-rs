@@ -124,6 +124,27 @@ fn start_facts(
     }
 }
 
+/// The door a console served beyond loopback has without `--console-unprotected`: the start let it be only because nothing
+/// guarded the broker, and only the ACLs can change that later, so it closes to other machines while there are any (SEC-250).
+/// `None` for a loopback console and for one the person accepted with `--console-unprotected`.
+fn door(console: &Console, addr: &SocketAddr) -> Option<kafka_console::door::Door> {
+    if addr.ip().is_loopback() || console.unprotected {
+        return None;
+    }
+    let path = kafka_console::base::Base::new(&console.prefix).url("/");
+    // A console on every interface is on loopback too; one on a single address is not.
+    let local = match addr.ip() {
+        std::net::IpAddr::V4(ip) if ip.is_unspecified() => {
+            Some(format!("http://127.0.0.1:{}{path}", addr.port()))
+        }
+        std::net::IpAddr::V6(ip) if ip.is_unspecified() => {
+            Some(format!("http://localhost:{}{path}", addr.port()))
+        }
+        _ => None,
+    };
+    Some(kafka_console::door::Door { local })
+}
+
 impl Bound {
     /// Starts serving: from here the console reads and acts on `broker` as `User:__console`.
     pub(crate) fn serve(
@@ -149,6 +170,9 @@ impl Bound {
         }
         if let Some(table) = lab {
             live = live.with_lab(table);
+        }
+        if let Some(door) = door(console, &addr) {
+            live = live.with_door(door);
         }
         let source = kafka_console::Source::Live(Box::new(live));
         let settings = kafka_console::Settings {
@@ -220,6 +244,36 @@ mod tests {
             .unwrap()
             .unwrap();
         assert!(bound.listener.local_addr().unwrap().ip().is_loopback());
+    }
+
+    #[test]
+    fn a_console_beyond_loopback_has_a_door_unless_unprotected_and_says_where_this_machine_finds_it()
+     {
+        let at = |addr: &str, unprotected: bool, prefix: &str| {
+            let c = Console {
+                unprotected,
+                prefix: prefix.to_owned(),
+                ..Console::default()
+            };
+            door(&c, &addr.parse().unwrap()).map(|d| d.local)
+        };
+        assert_eq!(at("127.0.0.1:9093", false, "/"), None);
+        assert_eq!(at("[::1]:9093", false, "/"), None);
+        assert_eq!(at("0.0.0.0:9093", true, "/"), None);
+        assert_eq!(
+            at("0.0.0.0:9093", false, "/"),
+            Some(Some("http://127.0.0.1:9093/".to_owned()))
+        );
+        assert_eq!(
+            at("0.0.0.0:9093", false, "/kafka"),
+            Some(Some("http://127.0.0.1:9093/kafka/".to_owned()))
+        );
+        assert_eq!(
+            at("[::]:9093", false, "/"),
+            Some(Some("http://localhost:9093/".to_owned()))
+        );
+        // On one network address only: there is no loopback console to point to.
+        assert_eq!(at("192.168.1.5:9093", false, "/"), Some(None));
     }
 
     #[tokio::test]

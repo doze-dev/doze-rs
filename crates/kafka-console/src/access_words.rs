@@ -15,6 +15,9 @@ pub struct Switches<'a> {
     pub listener_beyond_loopback: bool,
     /// The console can be reached from other machines.
     pub console_beyond_loopback: bool,
+    /// `--console-unprotected`: without it, a console beyond loopback answers other machines only while nothing guards the broker
+    /// (SEC-250).
+    pub console_unprotected: bool,
     pub console_addr: &'a str,
 }
 
@@ -28,9 +31,22 @@ pub fn warnings(s: &Switches<'_>) -> Vec<AccessWarning> {
     // What keeps a Kafka client out that the console (no login, plain HTTP, a super user) would get round (SEC-188).
     let protected =
         s.sasl || s.tls || !s.default_allow || s.acls_stored || !s.listener_beyond_loopback;
+    // Without --console-unprotected, only ACLs made after the start can guard the broker of a console beyond loopback, and the
+    // console then answers this machine alone (SEC-250): the door is shut, not wider.
+    let shut = s.console_beyond_loopback && protected && !s.console_unprotected;
     let one = AccessWarning {
         title: plain("Console served beyond loopback, a wider door than the broker"),
-        because: if s.console_beyond_loopback && protected {
+        because: if shut {
+            vec![
+                Span::text("The console is on "),
+                Span::mono(s.console_addr),
+                Span::text(
+                    ", and this broker now has ACLs, so it answers this machine only; restart with ",
+                ),
+                Span::mono("--console-unprotected"),
+                Span::text(" to let other machines in"),
+            ]
+        } else if s.console_beyond_loopback && protected {
             vec![
                 Span::text("The console is on "),
                 Span::mono(s.console_addr),
@@ -50,7 +66,7 @@ pub fn warnings(s: &Switches<'_>) -> Vec<AccessWarning> {
         } else {
             vec![Span::text("The console is on "), Span::mono(s.console_addr)]
         },
-        holds: s.console_beyond_loopback && protected,
+        holds: s.console_beyond_loopback && protected && !shut,
     };
     let two = AccessWarning {
         title: plain("SASL without TLS beyond loopback"),

@@ -166,6 +166,8 @@ pub(crate) struct Args {
     /// Accept serving the console beyond loopback although that makes it a wider door than the broker: SASL or TLS is on, ACLs
     /// are in force (--acl-default deny, or ACLs stored), or --listen keeps Kafka on loopback. The console has no login, is plain
     /// HTTP and acts as a super user, so without this that start is refused. Every page then says it is served beyond loopback.
+    /// Without it, a console beyond loopback in front of an open broker stops answering other machines while the broker has
+    /// any ACL (made after the start, over Kafka or from the console), and answers them again once none is left.
     #[arg(long)]
     console_unprotected: bool,
     /// The Lab of the console: rules that delay, fail or drop requests on purpose, made from the console only and kept in memory.

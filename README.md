@@ -40,6 +40,11 @@ The console is never allowed to be a wider door than the broker itself: serving 
 The refusal says what would be exposed. Keep the console on loopback, turn it off, or accept the exposure with
 `--console-unprotected`. Served beyond loopback, the Lab starts off unless `--lab` asks for it.
 
+The rule holds while the broker runs, not only at start. A broker with nothing guarding it may serve the console
+beyond loopback without the flag; if ACLs are made later (over Kafka or from the console), the console stops
+answering other machines while there are any, says why on the page, and answers them again once every ACL is
+deleted. It still answers this machine at a loopback address. With `--console-unprotected` it never closes.
+
 ## License
 
 Apache License 2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE). Vendored third-party code under

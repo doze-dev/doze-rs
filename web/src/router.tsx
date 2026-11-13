@@ -1,6 +1,8 @@
 import { createRootRoute, createRoute, createRouter, lazyRouteComponent, Outlet } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 import { basePath } from "@/api/client";
+import { useClosedToNetwork } from "@/api/closed";
+import { ClosedToNetworkPage } from "@/pages/closed-to-network";
 import { AppSidebar } from "@/components/app/app-sidebar";
 import { CommandPalette } from "@/components/app/command-palette";
 import { TopBar } from "@/components/app/top-bar";
@@ -16,6 +18,11 @@ import { NotFoundPage } from "@/pages/not-found";
 import { groupSearch, groupsSearch, lagSearch, membersSearch, storySearch } from "@/pages/groups/search";
 
 function Shell() {
+  const closed = useClosedToNetwork();
+  return closed === null ? <Console /> : <ClosedToNetworkPage said={closed} />;
+}
+
+function Console() {
   const [palette, setPalette] = useState(false);
   const [sidebar, setSidebar] = useSidebarOpen();
   // Where the focus goes back when the palette closes: what had it when the palette opened, else the top bar's trigger.

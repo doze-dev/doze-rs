@@ -693,7 +693,7 @@ Test: `settings_words::tests::every_api_a_kafka_profile_offers_has_a_family_and_
 Test: settings_words::tests::the_limits_are_the_ones_weight_md_writes (removed in R5).
 
 ## CON-579. A start-up warning holds exactly when the broker would say it
-SEC-188 (console beyond loopback in front of SASL, TLS, ACLs or a loopback listener: a wider door than the broker), SEC-189 (SASL without TLS beyond loopback), SEC-191 (SASL with `--acl-default allow`). Test: `access_words::tests::each_warning_holds_exactly_when_the_broker_would_say_it_at_start`.
+SEC-188 (console beyond loopback in front of SASL, TLS, ACLs or a loopback listener: a wider door than the broker; with ACLs made after an open start and no `--console-unprotected` the console answers this machine only, SEC-250, and the warning says so without holding), SEC-189 (SASL without TLS beyond loopback), SEC-191 (SASL with `--acl-default allow`). Test: `access_words::tests::each_warning_holds_exactly_when_the_broker_would_say_it_at_start`, `access_words::tests::acls_made_after_an_open_start_shut_the_console_to_other_machines_and_the_warning_says_so`.
 
 ## CON-580. The broker's view names users and super users and holds no secret
 `ConsoleView::access` (DESCRIBE on the cluster), `intervals` (DESCRIBE_CONFIGS) and `data_size`. Test: `view::tests::access_names_the_flag_users_and_the_super_users_and_never_what_they_log_in_with`.
@@ -1453,3 +1453,11 @@ request; a once rehearsal's Done and its line lead to Live or the group's Story.
 `POST /api/v1/lab/stop-all` ends every rule in force (they go to Ended); the page's Stop all (`/lab?stop=all`) asks, shows what
 it did, then Done; it is off while no rule is in force. Test: `stop_all_ends_every_rule_and_live_filters_by_the_lab_tag`; file:
 `web/e2e/tests/lab-teach.spec.ts`.
+## CON-1360. A console closed to this machine is one calm page
+When the API answers 403 `CONSOLE_CLOSED_TO_NETWORK` (SEC-250: the broker now has ACLs, and this browser is on another machine),
+the fetch client and the stream reader mark the console closed (`web/src/api/closed.ts`) and the whole app gives way to
+`web/src/pages/closed-to-network.tsx`: the wordmark, one card in the EmptyState's language with the title `This console no longer
+answers other machines`, what happened, why it stopped, the two ways forward (use it from the machine doze-kafka runs on, at a
+loopback address; restart with `--console-unprotected`), the server's own words, and Try again (a reload: the console answers
+again once every ACL is deleted). No sidebar, top bar or toast behind it. Files: `web/e2e/tests/closed-to-network.spec.ts`, the
+bun test `web/src/api/closed.test.ts`.

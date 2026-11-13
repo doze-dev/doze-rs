@@ -181,13 +181,29 @@ fn loopback_a_turned_off_console_and_an_open_broker_on_the_network_all_start() {
         assert_eq!(
             set.warnings,
             [
-                "the console is served on 0.0.0.0:9093 with no login and over plain HTTP: anyone who can reach that address can do what any Kafka client of this broker can (it has no login, no ACL and no TLS), and ACLs made later will not bind the console, which acts as a super user",
+                "the console is served on 0.0.0.0:9093 with no login and over plain HTTP: anyone who can reach that address can do what any Kafka client of this broker can (it has no login, no ACL and no TLS); if ACLs are made later, the console stops answering other machines while there are any (it acts as a super user and would get round them; --console-unprotected keeps it open)",
                 "the Lab is off because the console is served beyond loopback (--lab=true switches it on)"
             ],
             "{listen}"
         );
         assert!(!set.console.lab);
     }
+    // Accepted with --console-unprotected, ACLs made later do not close it, and the note says so.
+    let set = settings(&[
+        "--listen",
+        "0.0.0.0:9092",
+        "--console-addr",
+        "0.0.0.0:9093",
+        "--console-unprotected",
+    ])
+    .unwrap();
+    assert!(
+        set.warnings[0].ends_with(
+            "(it has no login, no ACL and no TLS); ACLs made later will not bind the console, which acts as a super user (--console-unprotected)"
+        ),
+        "{:?}",
+        set.warnings
+    );
 }
 
 #[test]

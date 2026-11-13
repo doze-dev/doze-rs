@@ -9,6 +9,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
+use axum::extract::ConnectInfo;
 use axum::middleware::{from_fn, from_fn_with_state};
 use hyper::server::conn::http1;
 use hyper_util::rt::{TokioIo, TokioTimer};
@@ -82,6 +83,11 @@ pub fn start_with(
 ) -> io::Result<Running> {
     let addr = listener.local_addr()?;
     let stop = CancellationToken::new();
+    if let Source::Live(live) = &source
+        && live.door.is_some()
+    {
+        crate::door::watch(&live.backend, stop.clone());
+    }
     let state = State::console(
         source,
         &Base::new(&settings.prefix),
@@ -119,8 +125,8 @@ async fn accept_loop(
             // Reap finished connections as we go, so the set does not grow with every connection ever made.
             Some(_) = connections.join_next(), if !connections.is_empty() => continue,
         };
-        let stream = match accepted {
-            Ok((stream, _)) => stream,
+        let (stream, peer) = match accepted {
+            Ok(pair) => pair,
             Err(e) => {
                 // Out of descriptors, or a connection that was reset before it was accepted: neither ends the console.
                 tracing::warn!(error = %e, "the console could not accept a connection");
@@ -130,7 +136,10 @@ async fn accept_loop(
         };
         match Arc::clone(&slots).try_acquire_owned() {
             Ok(slot) => {
-                let service = TowerToHyperService::new(app.clone());
+                let service = WithPeer {
+                    inner: TowerToHyperService::new(app.clone()),
+                    peer,
+                };
                 let stop = stop.clone();
                 connections.spawn(async move {
                     serve_connection(stream, service, stop, limits).await;
@@ -156,7 +165,7 @@ async fn accept_loop(
 
 async fn serve_connection(
     stream: TcpStream,
-    service: TowerToHyperService<axum::Router>,
+    service: WithPeer,
     stop: CancellationToken,
     limits: Limits,
 ) {
@@ -177,6 +186,28 @@ async fn serve_connection(
     };
     if let Err(e) = result {
         tracing::debug!(error = %e, "a console connection ended with an error");
+    }
+}
+
+/// The router, with the address of the connection's peer put on each request as [`ConnectInfo`] (the door to other machines
+/// reads it, SEC-250).
+#[derive(Clone)]
+struct WithPeer {
+    inner: TowerToHyperService<axum::Router>,
+    peer: SocketAddr,
+}
+
+type Inner = TowerToHyperService<axum::Router>;
+type HyperRequest = hyper::Request<hyper::body::Incoming>;
+
+impl hyper::service::Service<HyperRequest> for WithPeer {
+    type Response = <Inner as hyper::service::Service<HyperRequest>>::Response;
+    type Error = <Inner as hyper::service::Service<HyperRequest>>::Error;
+    type Future = <Inner as hyper::service::Service<HyperRequest>>::Future;
+
+    fn call(&self, mut req: HyperRequest) -> Self::Future {
+        req.extensions_mut().insert(ConnectInfo(self.peer));
+        self.inner.call(req)
     }
 }
 

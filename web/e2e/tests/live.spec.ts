@@ -456,6 +456,9 @@ test.describe("a broker that goes away and comes back", () => {
       expect(old.length).toBeGreaterThan(0);
     } finally {
       await stop();
+      // Close the page before the hook kills this broker: an open tail cut then (or its reconnects) is logged after the filter
+      // below has run (WebKit: "The network connection was lost").
+      await page.close();
       // The browser's own report of the requests the test made fail (the broker was killed), not a fault of the page.
       for (let i = errors.length - 1; i >= 0; i--) if (/ERR_CONNECTION_REFUSED|ERR_EMPTY_RESPONSE|ERR_INCOMPLETE_CHUNKED|Failed to load resource|NetworkError|network connection was lost|Could not connect/i.test(errors[i]!)) errors.splice(i, 1);
     }

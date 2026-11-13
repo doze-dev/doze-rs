@@ -1,6 +1,7 @@
 // Server-sent events over fetch: EventSource cannot send the `X-Console: 1` proof the API asks for, so the stream is read
 // from a fetch body. One connection; the caller reconnects (with `Last-Event-ID`) on its own schedule.
 import { basePath } from "./client";
+import { isClosed, markClosed } from "./closed";
 
 export type SseEvent = { event: string; id?: string; data: string };
 
@@ -39,6 +40,7 @@ export async function streamEvents(path: string, on: (e: SseEvent) => void, sign
     try {
       const body = (await res.json()) as { message?: string };
       if (body.message) message = body.message;
+      if (isClosed(body)) markClosed(body.message);
     } catch {
       // not JSON
     }

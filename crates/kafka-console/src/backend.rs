@@ -92,6 +92,18 @@ impl Backend {
         &self.caller
     }
 
+    /// How many ACLs the broker has in force now (one atomic load): the console's door asks on every request (SEC-250).
+    #[must_use]
+    pub fn acl_count(&self) -> usize {
+        self.broker.acl_count()
+    }
+
+    /// The broker's count of ACLs, told after each change.
+    #[must_use]
+    pub fn acl_changes(&self) -> tokio::sync::watch::Receiver<usize> {
+        self.broker.acl_changes()
+    }
+
     /// The highest version of an API the profile offers.
     #[must_use]
     pub fn version(&self, key: kafka_wire::messages::ApiKey) -> i16 {
