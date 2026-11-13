@@ -512,7 +512,7 @@ export function NewRehearsalDialog({ tab, compactTopics, onTab, onClose, onMade,
   const w = tab ? TAB_WORDS[tab] : undefined;
   return (
     <Dialog open={!!tab} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[calc(100vh-3rem)] overflow-y-auto sm:max-w-[56rem]" data-testid="lab-dialog" onCloseAutoFocus={restoreFocus}>
+      <DialogContent className="top-6 max-h-[calc(100vh-3rem)] translate-y-0 overflow-y-auto sm:max-w-[56rem]" data-testid="lab-dialog" onCloseAutoFocus={restoreFocus}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-[20px] font-medium">
             <FlaskConicalIcon className="size-5 text-warn" aria-hidden /> New rehearsal

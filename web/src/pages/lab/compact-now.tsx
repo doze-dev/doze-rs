@@ -101,7 +101,7 @@ export function CompactNowBody({ topic, partition, onDone, footer = true }: { to
 export function CompactNowDialog({ topic, partition, open, onOpenChange }: { topic: string; partition: number; open: boolean; onOpenChange: (open: boolean) => void }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[calc(100vh-3rem)] overflow-y-auto sm:max-w-[36rem]" data-testid="compact-dialog">
+      <DialogContent className="top-6 max-h-[calc(100vh-3rem)] translate-y-0 overflow-y-auto sm:max-w-[36rem]" data-testid="compact-dialog">
         <DialogHeader>
           <DialogTitle className="text-[20px] font-medium">
             Compact <span className="font-mono">{topic}-{partition}</span> now

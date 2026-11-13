@@ -210,7 +210,7 @@ export function EditConfigDialog({ configKey, scope, onMove, onClose, onSaved, r
   const view = q.data;
   return (
     <Dialog open={!!configKey} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[calc(100vh-3rem)] overflow-y-auto sm:max-w-[40rem]" data-testid="settings-edit" onCloseAutoFocus={restoreFocus}>
+      <DialogContent className="top-6 max-h-[calc(100vh-3rem)] translate-y-0 overflow-y-auto sm:max-w-[40rem]" data-testid="settings-edit" onCloseAutoFocus={restoreFocus}>
         <DialogHeader>
           <DialogTitle className="text-[20px] font-medium">
             Edit <span className="font-mono">{configKey}</span>

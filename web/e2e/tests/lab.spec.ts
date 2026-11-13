@@ -42,7 +42,7 @@ test("Lab: a Slow rule for one client slows its requests; the rule counts them; 
     await expect(form.getByRole("combobox", { name: "Client" })).toHaveText(client);
     // Topics (MultiSelect).
     await form.getByRole("combobox", { name: "Topics" }).click();
-    await page.getByRole("option", { name: /^orders/ }).click();
+    await page.getByRole("option", { name: /^orders\s*\d+ partitions?$/ }).click();
     await page.keyboard.press("Escape");
     await expect(form.getByTestId("multi-chips").filter({ hasText: "orders" })).toBeVisible();
     await expect(form.getByTestId("multi-chips").filter({ hasText: "Produce" })).toBeVisible();
@@ -69,8 +69,17 @@ test("Lab: a Slow rule for one client slows its requests; the rule counts them; 
         { timeout: 20_000 },
       )
       .toBeGreaterThan(1);
-    await page.reload();
-    await expect(sheet.getByRole("table", { name: "Requests the rule touched" }).locator("tbody tr").first()).toBeVisible();
+    // The rows reach the wire when the slowed answers go out: look again until they are there.
+    await expect
+      .poll(
+        async () => {
+          await page.reload();
+          await sheet.getByRole("table", { name: "Requests the rule touched" }).waitFor();
+          return sheet.getByRole("table", { name: "Requests the rule touched" }).locator("tbody tr").count();
+        },
+        { timeout: 20_000 },
+      )
+      .toBeGreaterThan(0);
     await expect(sheet.getByTestId("lab-badge").first()).toBeVisible();
     const took = await sheet.getByRole("table", { name: "Requests the rule touched" }).locator("tbody tr").first().locator("td").nth(5).innerText();
     expect(Number(took.replace(/[^\d]/g, ""))).toBeGreaterThanOrEqual(300);
@@ -114,8 +123,8 @@ test("Lab: a Fail rule on Produce answers the producer with the code it names", 
     await expect(form).toBeVisible();
     // APIs: Fetch out, Produce in (MultiSelect by mouse).
     await form.getByRole("combobox", { name: "APIs" }).click();
-    await page.getByRole("option", { name: "Fetch" }).click();
-    await page.getByRole("option", { name: "Produce" }).click();
+    await page.getByRole("option", { name: "Fetch", exact: true }).click();
+    await page.getByRole("option", { name: "Produce", exact: true }).click();
     await page.keyboard.press("Escape");
     await expect(form.getByRole("combobox", { name: "APIs" })).toHaveText("Produce");
     await form.getByRole("combobox", { name: "Client" }).click();
