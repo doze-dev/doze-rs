@@ -1,6 +1,7 @@
 // The console's fetch client. Every request carries `X-Console: 1`, the proof the server's API guard asks for (a page on
 // another site cannot send a custom header without a CORS preflight, which the console never grants). A refusal comes back
 // as `{ code, message }` and is thrown as an ApiFailure with those words.
+import { isClosed, markClosed } from "./closed";
 import type { ApiError } from "./types/ApiError";
 
 /** The console's root (`--console-prefix`), named by the server in index.html; empty at `/`. */
@@ -47,6 +48,7 @@ export async function api<T>(path: string, init: RequestInit = {}, signal?: Abor
     body = null;
   }
   if (!res.ok) {
+    if (isClosed(body)) markClosed(body.message);
     throw new ApiFailure(res.status, isApiError(body) ? body : { code: `HTTP_${res.status}`, message: `The console answered ${res.status}.` });
   }
   return body as T;
