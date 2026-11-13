@@ -127,12 +127,13 @@ export function tapeColumns(layout: Layout, fit: Fit, filter?: FilterBy): DataCo
         const r = c.row.original;
         return (
           <span className="flex min-w-0 items-center">
-            <FilterButton onClick={f && (() => f("api", r.api))} title={`Show only ${r.api}`} className="font-mono text-[12.5px] font-semibold text-bright">
+            <FilterButton onClick={f && (() => f("api", r.api))} title={narrow ? `${r.api} v${r.version}${r.transactional ? ", transactional" : ""}${r.count > 1 ? `, ${number(r.count)} folded` : ""}: show only ${r.api}` : `Show only ${r.api}`} className="font-mono text-[12.5px] font-semibold text-bright">
               {r.api}
             </FilterButton>
-            <span className="ml-1 shrink-0 font-mono text-[12px] text-muted-foreground">v{r.version}</span>
-            {r.transactional && <Tag>txn</Tag>}
-            {r.count > 1 && (
+            {/* The narrowest keeps the name whole: its version and tags are in the cell's tooltip there. */}
+            {!narrow && <span className="ml-1 shrink-0 font-mono text-[12px] text-muted-foreground">v{r.version}</span>}
+            {!narrow && r.transactional && <Tag>txn</Tag>}
+            {!narrow && r.count > 1 && (
               <Tag title={`${number(r.count)} requests folded into this row`} className="text-foreground">
                 × {number(r.count)}
               </Tag>

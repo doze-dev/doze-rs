@@ -74,7 +74,8 @@ test("the Topics list does not scroll sideways at 1024, 1280, 1440 and 1920, and
   await expect(page.getByRole("table", { name: "Topics" })).toBeVisible();
   for (const width of [1024, 1280, 1440, 1920]) {
     await page.setViewportSize({ width, height: 900 });
-    expect(await overflowX(page), `${width}`).toBeLessThanOrEqual(0);
+    // Polled: crossing 1280 px the sidebar folds to icons with its own short transition, and the page settles after it.
+    await expect.poll(() => overflowX(page), { message: `${width}` }).toBeLessThanOrEqual(0);
     if (width >= 1280) expect(await cutHeaders(page), `headers cut at ${width}`).toEqual([]);
   }
   await page.setViewportSize({ width: 1440, height: 900 });

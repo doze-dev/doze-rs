@@ -11,7 +11,9 @@ import { DataTable, type DataColumn } from "@/components/app/data-table";
 import { EmptyState } from "@/components/app/empty-state";
 import { MultiSelect } from "@/components/app/multi-select";
 import { PageHeader } from "@/components/app/page-header";
-import { StatStrip } from "@/components/app/stat";
+import { Figures, StatStrip } from "@/components/app/stat";
+import { HeldPill, TailSpeed } from "@/components/app/tail-controls";
+import { Done } from "@/components/app/write-done";
 import { StatusDot } from "@/components/app/status-dot";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -493,6 +495,24 @@ export function GalleryPage() {
               { label: "Last request", value: "14:32:07", unit: "UTC", mono: true, ch: 9, tip: "Exact: 14:32:07.412" },
             ]}
           />
+          {/* Counts that would otherwise be a sentence: labelled figures (CON-805, CON-1345). */}
+          <Figures
+            aria-label="Where the values come from"
+            figures={[
+              { label: "Configs", value: "33" },
+              { label: "Set on this topic", value: "1" },
+              { label: "Set for the broker", value: "1" },
+              { label: "Kafka's default", value: "31" },
+            ]}
+          />
+          {/* A write's result, in place (CON-1354). */}
+          <Done testId="gallery-done">
+            <b className="font-semibold text-bright">orders has 6 partitions now.</b> It had 3.
+          </Done>
+          <div className="flex items-center gap-3">
+            <TailSpeed testId="gallery-speed" />
+            <HeldPill count={37} onShow={() => toast("Shown")} />
+          </div>
           <CodeValue value="/Users/srini/Library/Application Support/doze/kafka/data/orders-0/00000000000000000000.log" label="Path" />
           <EmptyState
             icon={InboxIcon}

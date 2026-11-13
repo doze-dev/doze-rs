@@ -257,6 +257,9 @@ test("Reset offsets: a GET preview, then the reset; the Lag tab shows where the 
   await dialog.getByRole("radio", { name: /Latest/ }).click();
   await dialog.getByTestId("reset-preview-button").click();
   await dialog.getByTestId("reset-submit").click();
+  await expect(dialog.getByTestId("reset-done")).toBeVisible();
+  await page.keyboard.press("Enter");
+  await expect(dialog).toBeHidden();
   await expect(block.getByTestId("topic-behind")).toHaveText("0 behind");
 });
 
