@@ -60,7 +60,7 @@ function ConfigsSection({ r, onEdit, saved, onDismiss }: { r: SettingsResponse; 
       {
         accessorKey: "name",
         header: "Config",
-        size: 220,
+        size: 200,
         cell: (c) => (
           <span className="font-mono text-[13px] text-bright" title={`${c.row.original.name}: ${c.row.original.what}`}>
             {c.row.original.name}
@@ -70,7 +70,7 @@ function ConfigsSection({ r, onEdit, saved, onDismiss }: { r: SettingsResponse; 
       {
         accessorKey: "value",
         header: "Value",
-        size: 190,
+        size: 150,
         cell: (c) => (
           <span title={c.row.original.gloss ? `${c.row.original.value} (${c.row.original.gloss})` : c.row.original.value}>
             <span className="font-mono tabular-nums">{c.row.original.value}</span>
@@ -81,7 +81,7 @@ function ConfigsSection({ r, onEdit, saved, onDismiss }: { r: SettingsResponse; 
       {
         accessorKey: "source",
         header: "Source",
-        size: 190,
+        size: 170,
         cell: (c) => (
           <span title={`${c.row.original.source}: ${c.row.original.source_note}`}>
             <StatusDot tone={sourceTone(c.row.original.source)} className="font-medium">
@@ -94,7 +94,7 @@ function ConfigsSection({ r, onEdit, saved, onDismiss }: { r: SettingsResponse; 
       {
         id: "edit",
         header: () => <span className="sr-only">Edit</span>,
-        size: 92,
+        size: 84,
         enableSorting: false,
         cell: (c) => (
           <Button variant="outline" size="sm" className="h-7 bg-card" onClick={(e) => edit(c.row.original.name, e.currentTarget)} aria-label={`Edit ${c.row.original.name}`} data-testid={`edit-${c.row.original.name}`}>
@@ -204,10 +204,10 @@ function ProfileSection({ r }: { r: SettingsResponse }) {
 }
 
 const intervalColumns: DataColumn<SettingsInterval>[] = [
-  { accessorKey: "name", header: "Interval", size: 190, cell: (c) => <span title={`${c.row.original.name}: ${c.row.original.what}`} className="font-medium text-foreground">{c.row.original.name}</span> },
-  { accessorKey: "value", header: "Value", size: 100, meta: { mono: true } },
-  { accessorKey: "flag", header: "Flag", size: 270, meta: { mono: true } },
-  { accessorKey: "default", header: "Default", size: 100, meta: { mono: true } },
+  { accessorKey: "name", header: "Interval", size: 170, cell: (c) => <span title={`${c.row.original.name}: ${c.row.original.what}`} className="font-medium text-foreground">{c.row.original.name}</span> },
+  { accessorKey: "value", header: "Value", size: 80, meta: { mono: true } },
+  { accessorKey: "flag", header: "Flag", size: 250, meta: { mono: true } },
+  { accessorKey: "default", header: "Default", size: 80, meta: { mono: true } },
   { accessorKey: "note", header: "What it comes to" },
 ];
 
@@ -296,9 +296,9 @@ function DataSection({ r }: { r: SettingsResponse }) {
 }
 
 const flagColumns: DataColumn<SettingsFlag>[] = [
-  { accessorKey: "name", header: "Flag", size: 260, meta: { mono: true } },
-  { accessorKey: "value", header: "Value", size: 200, meta: { mono: true } },
-  { accessorKey: "default", header: "Default", size: 150, meta: { mono: true } },
+  { accessorKey: "name", header: "Flag", size: 230, meta: { mono: true } },
+  { accessorKey: "value", header: "Value", size: 170, meta: { mono: true } },
+  { accessorKey: "default", header: "Default", size: 120, meta: { mono: true } },
   {
     accessorKey: "what",
     header: "What it does",
