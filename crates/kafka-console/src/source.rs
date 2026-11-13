@@ -6,10 +6,10 @@ use crate::backend::Backend;
 use crate::facts::{self, Facts};
 use crate::format::date_time;
 use crate::gather;
+use crate::model::Chrome;
 use crate::model::{Access, ConnectView, HomeView, ProbeView};
 use crate::probe::Prober;
 use crate::snippets;
-use crate::ui::shell::Chrome;
 
 mod consumers;
 mod groups;
@@ -17,8 +17,6 @@ mod live;
 mod settings;
 mod story;
 mod topics;
-
-pub use live::is_quiet;
 
 /// A live broker: the in-process handle, how it was started, and the advertised-listener check.
 #[derive(Debug)]
@@ -141,15 +139,6 @@ impl Source {
             Self::Live(l) => facts::chrome(&l.facts, &l.access().await),
             #[cfg(any(test, feature = "examples"))]
             Self::Fixture => crate::fixtures::chrome(),
-        }
-    }
-
-    /// Home's live fragment: the same view, with the advertised-listener part as the last check left it (no dial).
-    pub async fn home_live(&self) -> HomeView {
-        match self {
-            Self::Live(l) => l.home(false).await,
-            #[cfg(any(test, feature = "examples"))]
-            Self::Fixture => self.home(None).await,
         }
     }
 

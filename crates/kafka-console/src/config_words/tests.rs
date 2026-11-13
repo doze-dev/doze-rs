@@ -97,12 +97,6 @@ fn the_thirty_three_keys_fall_in_the_groups_the_board_counts() {
 }
 
 #[test]
-fn the_chips_name_their_groups() {
-    assert!(is_compaction("min.cleanable.dirty.ratio") && !is_compaction("segment.bytes"));
-    assert!(is_segments("segment.bytes") && !is_segments("retention.ms"));
-}
-
-#[test]
 fn kafkas_text_is_plain_text_and_its_first_sentence_is_the_row() {
     let doc = "Determines whether <code>x</code> is on.  This is <b>more</b>.\n Even more.";
     assert_eq!(

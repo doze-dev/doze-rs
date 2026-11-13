@@ -52,19 +52,6 @@ jobs:
       # definition, every test name it quotes a real `fn`; the lean tree has no HTTP and the default tree has the console
       # (decision D1: `default = []` would take the console out and the size limits, being upper bounds, would not notice).
       - run: bun tools/check-console-catalogue.ts --lean-tree --default-tree
-      # The board tooling (docs/port/console/gate.md): the committed signatures are what the boards give, the tools' own tests,
-      # the five built boards against their boards (the renders were written to target/board-diff by `cargo test --workspace`
-      # above), and the accessibility lint over the same renders.
-      - run: bun tools/boards-snapshot.ts --check
-      - run: bun test tools/test
-      - run: bun tools/board-diff.ts --require home,home-quiet,home-attention,connect,connect-advertised
-      - run: bun tools/a11y-lint.ts
-      # The client script's behaviour (assets/console.js) in a DOM: tools/dom has its own package.json and lock (happy-dom).
-      - name: The console script in a DOM
-        working-directory: tools/dom
-        run: |
-          bun install --frozen-lockfile
-          bun test
       # Public docs build without broken links.
       - run: cargo doc --workspace --no-deps
         env:
@@ -100,7 +87,7 @@ jobs:
       - name: The default build contains the console
         run: |
           tree=$(cargo tree -p doze-kafka --prefix none --edges normal)
-          for name in axum maud hyper kafka-console; do
+          for name in axum hyper kafka-console; do
             echo "$tree" | grep -q "^$name " || { echo "the default build lacks $name: the console is not in it"; exit 1; }
           done
 
@@ -128,7 +115,7 @@ jobs:
           [ "$size" -le 5200000 ] || { echo "lean binary over 5.2 MB"; exit 1; }
           [ "$crates" -le 130 ] || { echo "more than 130 packages in the lean build"; exit 1; }
           [ "$rss" -le 8192 ] || { echo "idle resident memory over 8 MB in the lean build"; exit 1; }
-          ! cargo tree -p doze-kafka --no-default-features --prefix none --edges normal | grep -E "^(axum|maud|hyper|tower|kafka-console) " || { echo "the lean build contains the console"; exit 1; }
+          ! cargo tree -p doze-kafka --no-default-features --prefix none --edges normal | grep -E "^(axum|hyper|tower|kafka-console) " || { echo "the lean build contains the console"; exit 1; }
 
   # The same measurements for the optional TLS build (docs/port/weight.md, Phase 8 slice 8e). Building it needs a C compiler
   # and an assembler (ring); ubuntu has gcc. The default build above is not affected by the feature and keeps its gates.

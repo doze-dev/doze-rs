@@ -72,18 +72,6 @@ pub fn group_of(key: &str) -> Group {
     }
 }
 
-/// Whether a key belongs to the "Compaction" or "Segments" chips.
-#[must_use]
-pub fn is_compaction(key: &str) -> bool {
-    group_of(key) == Group::Cleanup
-}
-
-/// Whether a key belongs to the "Segments" chip.
-#[must_use]
-pub fn is_segments(key: &str) -> bool {
-    group_of(key) == Group::Segments
-}
-
 fn is_ms(key: &str) -> bool {
     key.ends_with(".ms")
 }

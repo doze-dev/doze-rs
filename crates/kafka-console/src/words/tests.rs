@@ -68,62 +68,6 @@ fn open_partitions_are_of_the_bound_when_there_is_one() {
 }
 
 #[test]
-fn the_advertised_ledes_say_whether_the_two_addresses_are_one() {
-    let mut p = fixtures::probe_ok();
-    assert_eq!(
-        home_advertised_lede(&p),
-        "A client asks for Metadata and then reconnects to the address in the answer, not to the one you gave it. Here that is 127.0.0.1:9092, the address the listener binds."
-    );
-    assert_eq!(
-        plain(&connect_advertised_lede(&p)),
-        "After Metadata a client reconnects to the advertised address. This broker advertises 127.0.0.1:9092, which is the address it listens on, and answers there."
-    );
-    assert_eq!(
-        advertised_instance_lede(&p),
-        "Advertised host and port equal the listener, and the check reached that address."
-    );
-    p.same = false;
-    p.advertised = "kafka.test:19092".into();
-    p.verdict = Verdict::NotReachable;
-    assert!(home_advertised_lede(&p).ends_with(
-        "Here that is kafka.test:19092, not the address the listener binds (127.0.0.1:9092)."
-    ));
-    assert!(plain(&connect_advertised_lede(&p)).ends_with("kafka.test:19092, not the address it listens on (127.0.0.1:9092), and does not answer there."));
-    assert!(advertised_instance_lede(&p).contains("differ from the listener"));
-}
-
-#[test]
-fn the_instance_lede_claims_only_what_the_check_found() {
-    let mut p = fixtures::probe_ok();
-    // Nothing a check made once can promise "always": the words say what was done.
-    assert!(!advertised_instance_lede(&p).contains("always"));
-    // A listener that did not answer is never described as one a client reached.
-    p.same = false;
-    p.advertised = "kafka.test:19092".into();
-    p.verdict = Verdict::NotReachable;
-    p.rules[0].ok = false;
-    let said = advertised_instance_lede(&p);
-    assert!(!said.contains("reached"), "{said}");
-    assert!(
-        said.contains("kafka.test:19092") && said.contains(&p.listen),
-        "{said}"
-    );
-    // Not finished: nothing is claimed.
-    p.verdict = Verdict::NotChecked;
-    assert_eq!(
-        advertised_instance_lede(&p),
-        "The check did not finish in time: nothing is claimed. Check again."
-    );
-}
-
-#[test]
-fn a_verdict_has_one_word() {
-    assert_eq!(verdict_word(Verdict::Reachable), "Reachable");
-    assert_eq!(verdict_word(Verdict::NotReachable), "Not reachable");
-    assert_eq!(verdict_word(Verdict::NotChecked), "Not checked");
-}
-
-#[test]
 fn the_attention_headline_counts() {
     assert_eq!(
         attention_headline(1, 0),

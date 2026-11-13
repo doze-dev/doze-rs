@@ -1,13 +1,12 @@
 //! The React console's built files (`crates/kafka-console/web-dist/`, written by `bun run build` in `web/` and committed, so
 //! `cargo build` needs no bun), embedded with `include_bytes!` and served from memory.
 //!
-//! - The same mechanism as the classic console's files (`assets.rs`): a text file (HTML, JS, CSS, SVG) is embedded as its `.gz`
-//!   (`pack` of `tools/assets-compress.ts`, called by `web/scripts/build.ts`), held as an [`assets::Served`] and answered by
-//!   `handlers::plain::packed` (as it is to a client that accepts gzip, inflated for another; ETag and 304). A font is embedded
-//!   as it is (woff2 is already compressed).
+//! - A text file (HTML, JS, CSS, SVG) is embedded as its `.gz` (`pack` in `web/scripts/build.ts`), held as a
+//!   [`files::Served`](crate::files::Served) and answered by [`crate::files::packed`] (as it is to a client that accepts gzip,
+//!   inflated for another; ETag and 304). A font is embedded as it is (woff2 is already compressed).
 //! - A hashed file (`assets/*`) is cached for a year (`immutable`): its name changes when its content does. `index.html` and
 //!   the files at the top are `no-cache`.
-//! - Every GET under the console's root that is not `/api/`, `/assets/`, `/classic/` or a file of the bundle answers
+//! - Every GET under the console's root that is not `/api/`, `/assets/` or a file of the bundle answers
 //!   `index.html` (client routing: a deep link works). `index.html` is rewritten once at start: its two relative references
 //!   (`./assets/`, `./favicon.svg`) become absolute under the prefix, and a `<meta name="doze-base">` tells the client its root.
 //! - `web-dist/source-hash.txt` is the hash of the `web/` sources the bundle was built from; a test recomputes it and fails
@@ -19,8 +18,8 @@ use axum::http::header::{CACHE_CONTROL, CONTENT_TYPE, HeaderValue};
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 
-use crate::assets::Served;
 use crate::base::Base;
+use crate::files::Served;
 
 include!("../web-dist/manifest.rs");
 
@@ -70,8 +69,8 @@ impl Bundle {
         res
     }
 
-    /// The file at `path` (under the root, no leading slash), if the bundle has it, served as the classic console's files
-    /// are (`handlers::plain::packed`: gzip negotiation, ETag, 304). `index.html` is always [`Bundle::index`] (rewritten).
+    /// The file at `path` (under the root, no leading slash), if the bundle has it, served by [`crate::files::packed`]
+    /// (gzip negotiation, ETag, 304). `index.html` is always [`Bundle::index`] (rewritten).
     #[must_use]
     pub fn file(&self, path: &str, headers: &HeaderMap) -> Option<Response> {
         if path == "index.html" {
@@ -83,7 +82,7 @@ impl Bundle {
         } else {
             NO_CACHE
         };
-        Some(crate::handlers::plain::packed(f, path, cache, headers))
+        Some(crate::files::packed(f, path, cache, headers))
     }
 
     /// The paths of every file, for the tests.

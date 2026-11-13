@@ -1,7 +1,7 @@
 [package]
 name = "kafka-console"
 version = "0.0.0"
-description = "The web console: axum, maud components, view-models, traffic recorder"
+description = "The web console: axum, the JSON API over view-models, the embedded React app, traffic recorder"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
@@ -12,8 +12,8 @@ publish.workspace = true
 workspace = true
 
 [features]
-# The "larder" world of the design boards as view-models, and the example that serves it with no broker. The tests
-# have it always; a release build does not.
+# The "larder" world as view-models (the fixtures the API tests answer from). The tests have it always; a release build
+# does not.
 examples = []
 
 [dependencies]
@@ -24,12 +24,10 @@ kafka-auth = { path = "../kafka-auth" }
 # The Observer trait the recorder implements: the dependency points from the console to the server, never back.
 kafka-server = { path = "../kafka-server" }
 # The HTTP server and router: no default features (no macros, no json, no tracing, no HTTP/2, no websockets), only
-# what the pages need.
+# what the console needs.
 axum = { version = "0.8", default-features = false, features = ["tokio", "http1"] }
-# Compile-time HTML: it expands to string pushes, so it costs no runtime and no dependency of its own at run time.
-maud = "0.27"
 bytes = "1"
-# The embedded text assets are gzip (assets.rs); a client that does not accept gzip is sent them inflated. Already in the tree
+# The embedded text assets are gzip (files.rs, web.rs); a client that does not accept gzip is sent them inflated. Already in the tree
 # through the broker's gzip record batches: no new package.
 flate2 = "1"
 tokio = { version = "1", default-features = false, features = ["rt", "net", "time", "sync", "macros", "io-util"] }
@@ -44,8 +42,6 @@ hyper-util = { version = "0.1", default-features = false, features = ["tokio", "
 # tracing-subscriber, so they add no package.
 serde = { version = "1", default-features = false, features = ["std", "derive"] }
 serde_json = "1"
-# `oneshot` to hand a request to the classic router from the console's fallback; already in the tree through axum.
-tower = { version = "0.5", default-features = false, features = ["util"] }
 
 [dev-dependencies]
 # TypeScript types of the JSON API, written by a test into web/src/api/types (a stale file fails the test).
@@ -61,10 +57,6 @@ kafka-storage = { path = "../kafka-storage", features = ["sim"] }
 tower = { version = "0.5", default-features = false, features = ["util"] }
 http-body-util = "0.1"
 tokio = { version = "1", default-features = false, features = ["rt", "rt-multi-thread", "net", "time", "sync", "macros", "io-util", "signal", "test-util"] }
-
-[[example]]
-name = "boards"
-required-features = ["examples"]
 
 [[example]]
 name = "produce_bench"

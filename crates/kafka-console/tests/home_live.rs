@@ -1,4 +1,4 @@
-//! Home's live fragment (audit A13) and what it may and may not dial (audit A2), on a real broker.
+//! Home as the API answers it (audit A13) and what it may and may not dial (audit A2), on a real broker.
 #![allow(
     clippy::unwrap_used,
     clippy::expect_used,
@@ -16,7 +16,7 @@ use std::time::{Duration, Instant};
 use axum::http::{StatusCode, header};
 use kafka_console::model::Verdict;
 use kafka_console::probe::Prober;
-use support::{get, send};
+use support::{api_get, send};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
 use world::world;
@@ -63,44 +63,39 @@ async fn black_hole() -> (u16, tokio::task::JoinHandle<()>) {
     (port, task)
 }
 
+/// `GET /api/v1/home` as JSON.
+async fn home(app: &axum::Router) -> serde_json::Value {
+    let (res, body) = send(app, api_get("/api/v1/home")).await;
+    assert_eq!(res.status(), StatusCode::OK, "{body}");
+    serde_json::from_str(&body).unwrap()
+}
+
+/// `POST /api/v1/probe`, as the Check now button sends it.
+fn probe_now() -> axum::http::Request<axum::body::Body> {
+    axum::http::Request::builder()
+        .method("POST")
+        .uri("/api/v1/probe")
+        .header(header::HOST, support::HOST)
+        .header("x-console", "1")
+        .header("sec-fetch-site", "same-origin")
+        .body(axum::body::Body::empty())
+        .unwrap()
+}
+
 #[tokio::test]
 async fn creating_a_topic_flips_title_sentence_and_cards_in_the_one_fragment_without_a_reload() {
     let w = world("flip", |_, _| {}).await;
     let app = w.router();
-    let (res, quiet) = send(&app, get("/fragments/home-live")).await;
-    assert_eq!(res.status(), StatusCode::OK);
-    // The title is the page's, not the region's (CON-803: a region holds data); the page says it.
-    assert!(!quiet.contains("<h1>"), "{quiet:.400}");
-    let (_, quiet_page) = send(&app, get("/")).await;
-    assert!(
-        quiet_page.contains("<h1>Your broker is up</h1>"),
-        "{quiet_page:.400}"
-    );
-    assert!(quiet.contains("Waiting for your first request"), "{quiet}");
-    assert!(quiet.contains("Nothing to look after yet."), "{quiet}");
-    let quiet_tag = res.headers()[header::ETAG].clone();
+    let quiet = home(&app).await;
+    assert_eq!(quiet["home"]["state"]["kind"], "quiet", "{quiet}");
+    assert_eq!(quiet["words"]["title"], "Your broker is up");
     w.create_topic("orders").await;
-    let (res, steady) = send(&app, get("/fragments/home-live")).await;
-    let (_, steady_page) = send(&app, get("/")).await;
-    assert!(steady_page.contains("<h1>Home</h1>"), "{steady_page:.400}");
-    assert!(
-        !steady.contains("Waiting for your first request"),
-        "the first-request card stayed: {steady}"
-    );
-    assert!(steady.contains("Next: connect something new"), "{steady}");
-    assert!(steady.contains("Nothing needs you."), "{steady}");
-    assert!(
-        steady.contains(r#"<span class="k">Topics</span><span class="v" title="1">1</span><span class="s">1 partitions</span>"#),
-        "{steady}"
-    );
-    assert_ne!(res.headers()[header::ETAG], quiet_tag);
-    // The page and its fragment are the same markup: what a reload shows is what the swap shows.
-    let (_, page) = send(&app, get("/")).await;
-    let inner = steady
-        .trim_start_matches(|c| c != '>')
-        .trim_start_matches('>');
-    assert!(page.contains(&inner[..inner.len().min(300)]), "{page:.300}");
-    assert!(page.contains(r#"<div class="frag" id="home-live""#) && !page.contains("data-stream"));
+    // The next read (a refresh of the page) is the steady Home: no reload of anything but the data.
+    let steady = home(&app).await;
+    assert_eq!(steady["home"]["state"]["kind"], "steady", "{steady}");
+    assert_eq!(steady["words"]["title"], "Home");
+    assert_ne!(quiet["words"]["sub"], steady["words"]["sub"]);
+    assert!(steady["words"]["attention_headline"].is_null());
     w.stop().await;
 }
 
@@ -109,29 +104,24 @@ async fn the_live_fragments_never_dial_and_a_page_load_dials_once_in_thirty_seco
     let (port, dials) = counting_kafka().await;
     let w = world("dials", |_, s| s.advertised_port = Some(port)).await;
     let app = w.router();
-    // A page load makes the check: one dial of the advertised address.
-    let (res, _) = send(&app, get("/")).await;
-    assert_eq!(res.status(), StatusCode::OK);
+    // Loading Home makes the check: one dial of the advertised address.
+    home(&app).await;
     assert_eq!(dials.load(Ordering::SeqCst), 1);
-    // Sixty-six seconds of a page open is thirty-three ticks of two seconds; each is a fetch of the live fragment.
+    // Sixty-six seconds of Home open with a 2 s refresh is thirty-three reads: the result is reused, nothing dials again.
     for _ in 0..33 {
-        let (res, body) = send(&app, get("/fragments/home-live")).await;
-        assert_eq!(res.status(), StatusCode::OK);
-        assert!(body.contains("Advertised listener"), "{body:.200}");
+        let v = home(&app).await;
+        assert!(v["home"]["probe"]["rules"].is_array(), "{v}");
     }
     assert_eq!(
         dials.load(Ordering::SeqCst),
         1,
-        "the live fragment dialled the advertised address"
+        "a refresh of Home dialled the advertised address again"
     );
-    // A page that was never loaded has no result to show, and the fragment still does not make one.
-    let (port2, dials2) = counting_kafka().await;
-    let w2 = world("dials2", |_, s| s.advertised_port = Some(port2)).await;
-    let (_, body) = send(&w2.router(), get("/fragments/home-live")).await;
-    assert_eq!(dials2.load(Ordering::SeqCst), 0);
-    assert!(body.contains("Not checked"), "{body}");
+    // Check now is a person's: it dials again, whatever the age of the result.
+    let (res, _) = send(&app, probe_now()).await;
+    assert_eq!(res.status(), StatusCode::OK);
+    assert_eq!(dials.load(Ordering::SeqCst), 2);
     w.stop().await;
-    w2.stop().await;
 }
 
 #[tokio::test]
@@ -140,10 +130,10 @@ async fn a_dead_advertised_address_does_not_slow_a_fragment() {
     let w = world("dead", |_, s| s.advertised_port = Some(port)).await;
     let app = w.router();
     let started = Instant::now();
-    let (res, _) = send(&app, get("/fragments/home-live")).await;
-    assert_eq!(res.status(), StatusCode::OK);
+    // The check against it gives up at its deadline: Home is never held longer.
+    home(&app).await;
     assert!(
-        started.elapsed() < Duration::from_millis(400),
+        started.elapsed() < kafka_console::probe::DEADLINE + Duration::from_millis(400),
         "{:?}",
         started.elapsed()
     );
@@ -233,23 +223,4 @@ async fn a_probe_against_a_black_hole_finishes_in_its_deadline_and_a_result_that
     assert!(!v.rules[0].ok, "{v:?}");
     hole.abort();
     w.stop().await;
-}
-
-#[test]
-fn the_memory_figure_says_it_is_what_is_resident_now_under_the_boards_label() {
-    use kafka_console::base::Base;
-    use kafka_console::model::HomeState;
-    let page = kafka_console::pages::home(
-        &kafka_console::fixtures::home(HomeState::Steady),
-        &Base::root(),
-    )
-    .into_string();
-    assert!(
-        page.contains("<dt>Idle memory</dt>"),
-        "the board's label stays"
-    );
-    assert!(
-        page.contains("Resident now. Measured on Linux only"),
-        "the figure is the current resident memory, and says so"
-    );
 }

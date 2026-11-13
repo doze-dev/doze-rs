@@ -8,8 +8,6 @@ use crate::format::{bytes, number};
 use crate::log_words::{expiry, pct};
 use crate::model::{LogSegment, LogState, LogView};
 
-/// The gap, in pixels, between two cells (the kit's `.segs{gap:3px}`).
-pub const GAP_PX: i64 = 3;
 /// A cell narrower than this share of the ruler carries no label and no axis number: there is no room.
 const LABEL_SHARE: f64 = 0.06;
 
@@ -26,19 +24,6 @@ pub enum Cell {
     Active,
     /// Sealed, in a log that deletes.
     Sealed,
-}
-
-impl Cell {
-    /// The class of the kit.
-    #[must_use]
-    pub const fn class(self) -> &'static str {
-        match self {
-            Self::Clean => "clean",
-            Self::Dirty => "dirty",
-            Self::Active => "active",
-            Self::Sealed => "sealed",
-        }
-    }
 }
 
 /// A marker above the ruler.
@@ -90,31 +75,6 @@ pub struct Ruler {
     pub key: Vec<Key>,
     /// The first offset the ruler draws.
     pub from: i64,
-}
-
-impl Ruler {
-    /// The pixels the gaps between cells take, so that a marker's place can allow for them.
-    #[must_use]
-    pub fn gap_px(&self) -> i64 {
-        GAP_PX * i64::try_from(self.cells.len().saturating_sub(1)).unwrap_or(0)
-    }
-}
-
-/// The CSS custom property and the rest of a marker's style: the place along the cells, allowing for the gaps between them.
-#[must_use]
-pub fn mark_style(at: f64, gap_px: i64) -> String {
-    if at <= 0.0 {
-        format!(
-            "--at:calc((100% - {gap_px}px) * 0.00000 + 0px);transform:none;align-items:flex-start"
-        )
-    } else if at >= 1.0 {
-        format!(
-            "--at:calc((100% - {gap_px}px) * 1.00000 + {gap_px}px);transform:translateX(-100%);align-items:flex-end"
-        )
-    } else {
-        let half = gap_px as f64 / 2.0;
-        format!("--at:calc((100% - {gap_px}px) * {at:.5} + {half}px);")
-    }
 }
 
 fn share(flex: i64, total: i64) -> f64 {

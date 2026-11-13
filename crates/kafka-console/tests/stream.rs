@@ -1,5 +1,5 @@
-//! The event stream of the two tails (CON-809, CON-810), on a real listener: it opens at once with `ready`, refuses anything that
-//! is not a tail, ends at once when the console stops, and has a cap. No page opens it by itself (the page tests say so).
+//! The event streams of the two tails (`/api/v1/tail/live` and `/messages`, CON-809, CON-810), on a real listener: a tail
+//! opens at once with `ready`, nothing else is a tail, ends at once when the console stops, and has a cap.
 #![allow(
     clippy::unwrap_used,
     clippy::expect_used,
@@ -24,11 +24,11 @@ async fn console() -> Running {
     start(Source::Fixture, settings).await.unwrap()
 }
 
-/// Opens a stream with `query` (the part after `/events?`).
-async fn open(addr: SocketAddr, query: &str) -> TcpStream {
+/// Opens a stream at `path` (with its query), as the React app's reader does.
+async fn open(addr: SocketAddr, path: &str) -> TcpStream {
     let mut s = TcpStream::connect(addr).await.unwrap();
     let req = format!(
-        "GET /classic/events?{query} HTTP/1.1\r\nHost: {addr}\r\nAccept: text/event-stream\r\n\r\n"
+        "GET {path} HTTP/1.1\r\nHost: {addr}\r\nX-Console: 1\r\nAccept: text/event-stream\r\n\r\n"
     );
     s.write_all(req.as_bytes()).await.unwrap();
     s
@@ -54,7 +54,7 @@ async fn read_until(s: &mut TcpStream, needle: &str, within: Duration) -> String
 #[tokio::test]
 async fn a_tail_opens_at_once_with_ready_and_sends_nothing_while_nothing_is_added() {
     let c = console().await;
-    let mut s = open(c.local_addr(), "tail=live&since=0").await;
+    let mut s = open(c.local_addr(), "/api/v1/tail/live?pace=1").await;
     let seen = read_until(&mut s, "event: ready", Duration::from_secs(2)).await;
     assert!(seen.starts_with("HTTP/1.1 200"), "{seen}");
     let lower = seen.to_ascii_lowercase();
@@ -70,16 +70,19 @@ async fn a_tail_opens_at_once_with_ready_and_sends_nothing_while_nothing_is_adde
 #[tokio::test]
 async fn only_the_two_tails_can_be_followed() {
     let c = console().await;
-    for q in ["watch=home-live", "tail=nonsense", "tail=", ""] {
-        let mut s = open(c.local_addr(), q).await;
-        let rest = read_until(
-            &mut s,
-            "tail must be live or messages",
-            Duration::from_secs(2),
-        )
-        .await;
-        assert!(rest.starts_with("HTTP/1.1 400"), "{q}: {rest}");
+    for path in [
+        "/api/v1/tail/home",
+        "/api/v1/tail/nonsense",
+        "/api/v1/tail/",
+        "/api/v1/tail",
+    ] {
+        let mut s = open(c.local_addr(), path).await;
+        let rest = read_until(&mut s, "NOT_FOUND", Duration::from_secs(2)).await;
+        assert!(rest.starts_with("HTTP/1.1 404"), "{path}: {rest}");
     }
+    // The messages tail follows one topic: the fixtures' `orders` opens.
+    let mut s = open(c.local_addr(), "/api/v1/tail/messages?topic=orders").await;
+    read_until(&mut s, "event: ready", Duration::from_secs(2)).await;
     c.shutdown().await;
 }
 
@@ -89,7 +92,7 @@ async fn shutdown_while_ten_tails_are_open_completes_in_under_a_second() {
     let addr = c.local_addr();
     let mut streams = Vec::new();
     for _ in 0..10 {
-        let mut s = open(addr, "tail=live").await;
+        let mut s = open(addr, "/api/v1/tail/live").await;
         read_until(&mut s, "event: ready", Duration::from_secs(2)).await;
         streams.push(s);
     }
@@ -111,7 +114,7 @@ async fn shutdown_while_ten_tails_are_open_completes_in_under_a_second() {
 async fn a_tail_that_goes_away_gives_its_place_back() {
     let c = console().await;
     let free = c.state().streams.available_permits();
-    let mut a = open(c.local_addr(), "tail=live").await;
+    let mut a = open(c.local_addr(), "/api/v1/tail/live").await;
     read_until(&mut a, "event: ready", Duration::from_secs(2)).await;
     assert_eq!(c.state().streams.available_permits(), free - 1);
     drop(a);

@@ -1,4 +1,4 @@
-//! The console over a real broker in the same process: its pages are made from the broker's own answers, through
+//! The console over a real broker in the same process: its API answers are made from the broker's own answers, through
 //! `Broker::handle`, as the principal `User:__console`; and the advertised-listener check dials a real listener.
 #![allow(
     clippy::unwrap_used,
@@ -34,7 +34,7 @@ use kafka_wire::messages::{
     AddPartitionsToTxnRequest, ApiKey, CreateTopicsRequest, InitProducerIdRequest, ProducerId,
     TopicName, TransactionalId,
 };
-use support::{get, send};
+use support::{api_get, send};
 use tokio_util::sync::CancellationToken;
 
 /// A broker and its Kafka listener on a fresh data directory, and the console's handle on them.
@@ -87,7 +87,7 @@ impl World {
             vec![],
             CancellationToken::new(),
         );
-        kafka_console::app::router(state)
+        kafka_console::app::console(state)
     }
 
     /// A request as a client would put it, at an explicit version.
@@ -131,23 +131,43 @@ impl World {
     }
 }
 
+/// An API read as JSON.
+async fn json(app: &Router, path: &str) -> serde_json::Value {
+    let (res, body) = send(app, api_get(path)).await;
+    assert_eq!(res.status(), StatusCode::OK, "{path}: {body}");
+    serde_json::from_str(&body).unwrap()
+}
+
+/// `POST /api/v1/probe` (Check now) as JSON.
+async fn probe_now(app: &Router) -> serde_json::Value {
+    let req = axum::http::Request::builder()
+        .method("POST")
+        .uri("/api/v1/probe")
+        .header(axum::http::header::HOST, support::HOST)
+        .header("x-console", "1")
+        .header("sec-fetch-site", "same-origin")
+        .body(axum::body::Body::empty())
+        .unwrap();
+    let (res, body) = send(app, req).await;
+    assert_eq!(res.status(), StatusCode::OK, "{body}");
+    serde_json::from_str(&body).unwrap()
+}
+
 #[tokio::test]
 async fn a_broker_with_no_topics_is_the_quiet_home_and_with_one_it_is_the_steady_one() {
     let w = world("home", |_, _| {}).await;
     let app = w.router();
-    let (res, body) = send(&app, get("/")).await;
-    assert_eq!(res.status(), StatusCode::OK);
-    assert!(body.contains("<h1>Your broker is up</h1>"), "{body:.300}");
-    assert!(body.contains("Started on a new data directory."), "{body}");
-    assert!(body.contains(&w.facts.listen.to_string()));
+    let v = json(&app, "/api/v1/home").await;
+    assert_eq!(v["home"]["state"]["kind"], "quiet", "{v}");
+    assert_eq!(v["words"]["title"], "Your broker is up");
+    assert_eq!(v["home"]["listen"], w.facts.listen.to_string());
+    assert!(v.to_string().contains("new data directory"), "{v}");
     w.create_topic("orders").await;
-    let (_, body) = send(&app, get("/")).await;
-    assert!(body.contains("<h1>Home</h1>"), "{body:.300}");
-    assert!(
-        body.contains(r#"<span class="k">Topics</span><span class="v" title="1">1</span>"#),
-        "{body}"
-    );
-    assert!(body.contains("Nothing needs you."));
+    let v = json(&app, "/api/v1/home").await;
+    assert_eq!(v["home"]["state"]["kind"], "steady", "{v}");
+    assert_eq!(v["words"]["title"], "Home");
+    assert_eq!(v["home"]["topics"], 1);
+    assert!(v["words"]["attention_headline"].is_null());
     w.stop().await;
 }
 
@@ -156,16 +176,14 @@ async fn the_console_reads_a_broker_that_refuses_everyone_else_because_it_is_a_s
     let w = world("deny", |b, _| b.acl_default_allow = false).await;
     w.create_topic("orders").await;
     let app = w.router();
-    let (_, body) = send(&app, get("/")).await;
-    assert!(
-        body.contains(r#"<span class="k">Topics</span><span class="v" title="1">1</span>"#),
-        "{body}"
-    );
-    assert!(
-        body.contains("Open · ACLs"),
+    let v = json(&app, "/api/v1/home").await;
+    assert_eq!(v["home"]["topics"], 1, "{v}");
+    let shell = json(&app, "/api/v1/shell").await;
+    assert_eq!(
+        shell["security"], "Open · ACLs",
         "the chip says ACLs deny by default"
     );
-    assert!(body.contains("ACLs deny by default"), "{body}");
+    assert_eq!(shell["topics"], 1);
     w.stop().await;
 }
 
@@ -197,32 +215,23 @@ async fn an_open_transaction_close_to_its_timeout_is_what_needs_someone() {
     );
     let app = w.router();
     // Just opened: not close.
-    let (_, body) = send(&app, get("/")).await;
-    assert!(!body.contains("1 thing needs you"), "{body}");
+    let v = json(&app, "/api/v1/home").await;
+    assert_ne!(v["home"]["state"]["kind"], "attention", "{v}");
     // Two thirds of 900 ms is 600 ms.
     tokio::time::sleep(Duration::from_millis(700)).await;
-    let (_, body) = send(&app, get("/")).await;
-    assert!(
-        body.contains("1 thing needs you: a transaction is close to its timeout."),
-        "{body}"
+    let v = json(&app, "/api/v1/home").await;
+    assert_eq!(v["home"]["state"]["kind"], "attention", "{v}");
+    assert_eq!(
+        v["words"]["attention_headline"],
+        "1 thing needs you: a transaction is close to its timeout."
     );
+    let a = &v["home"]["state"];
+    assert_eq!(a["transactional_id"], "orders-eos", "{a}");
+    let text = a.to_string();
+    assert!(text.contains(&p.producer_id.0.to_string()), "{text}");
     assert!(
-        body.contains("<span class=\"mono\">orders-eos</span>"),
-        "{body}"
-    );
-    assert!(
-        body.contains(&format!(
-            "producer {}, epoch {}",
-            p.producer_id.0, p.producer_epoch
-        )),
-        "{body}"
-    );
-    assert!(body.contains("<span class=\"mono\">orders-0</span>"));
-    assert!(body.contains("/topics/orders/transactions/"));
-    let (_, frag) = send(&app, get("/fragments/home-live")).await;
-    assert!(
-        frag.contains("1 thing needs you"),
-        "the fragment says what the page says"
+        text.contains("orders-0") || text.contains("\"orders\""),
+        "{text}"
     );
     w.stop().await;
 }
@@ -238,12 +247,13 @@ async fn the_check_passes_against_a_real_listener_and_the_page_says_so() {
     assert!(v.rules.iter().all(|r| r.ok), "{v:?}");
     assert_eq!(v.metadata_version, 12);
     let app = w.router();
-    let (_, body) = send(&app, get("/connect/advertised")).await;
+    let v = probe_now(&app).await;
+    assert_eq!(v["verdict"], "reachable", "{v}");
     assert!(
-        body.contains("Advertised host and port equal the listener"),
-        "{body}"
+        v.to_string()
+            .contains("the advertised host and port equal the listener"),
+        "{v}"
     );
-    assert!(body.contains("<span class=\"st ok\">Reachable</span>"));
     w.stop().await;
 }
 
@@ -262,14 +272,12 @@ async fn a_deliberately_wrong_advertised_address_fails_the_third_rule_in_words()
     assert_eq!(v.rules[2].title, "That address is not reachable");
     assert_eq!(v.rules[2].value, "failed");
     let app = w.router();
-    let (_, body) = send(&app, get("/connect/advertised")).await;
-    assert!(
-        body.contains("<span class=\"st bad\">Not reachable</span>"),
-        "{body:.200}"
-    );
-    assert!(body.contains(&format!("127.0.0.1:{closed}")));
-    assert!(body.contains("connection refused"), "{body}");
-    assert!(body.contains("differ from the listener"), "{body}");
+    let v = probe_now(&app).await;
+    assert_eq!(v["verdict"], "not_reachable", "{v}");
+    let text = v.to_string();
+    assert!(text.contains(&format!("127.0.0.1:{closed}")), "{text}");
+    assert!(text.contains("connection refused"), "{text}");
+    assert!(text.contains("not at the address it listens on"), "{text}");
     w.stop().await;
 }
 

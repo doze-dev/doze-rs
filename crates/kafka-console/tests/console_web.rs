@@ -1,5 +1,5 @@
 //! The React console as the binary serves it (slice R0): the bundle, the client routing fallback, the JSON API and its
-//! proof, the classic console under `/classic/`, and the layers in front of all of it.
+//! proof, and the layers in front of all of it. (The server-rendered console that lived under `/classic/` is gone, slice R5.)
 #![allow(
     clippy::unwrap_used,
     clippy::expect_used,
@@ -156,7 +156,10 @@ async fn the_api_says_what_home_connect_the_shell_and_the_palette_need() {
     assert!(home["home"]["probe"]["rules"].as_array().is_some());
     let (_, shell) = send(&app, api_get("/api/v1/shell")).await;
     let shell: serde_json::Value = serde_json::from_str(&shell).unwrap();
-    assert_eq!(shell["classic"], "/classic/");
+    assert!(
+        shell.get("classic").is_none(),
+        "the classic console is gone: {shell}"
+    );
     assert!(shell["address"].as_str().unwrap().contains(':'));
     assert!(shell["topics"].as_u64().unwrap() > 0);
     let (_, connect) = send(&app, api_get("/api/v1/connect")).await;
@@ -227,17 +230,33 @@ async fn a_change_through_the_api_needs_the_same_origin_proof_too() {
 }
 
 #[tokio::test]
-async fn the_classic_console_lives_under_classic_with_its_links_there() {
+async fn the_classic_console_is_gone_and_its_addresses_are_the_react_apps_not_found() {
     let app = app("/");
-    let (res, body) = send(&app, plain_get("/classic/")).await;
-    assert_eq!(res.status(), StatusCode::OK);
-    assert!(body.contains("href=\"/classic/connect\""), "classic links");
-    assert!(body.contains("/classic/static/"), "classic assets");
-    let (res, body) = send(&app, plain_get("/classic/connect")).await;
-    assert_eq!(res.status(), StatusCode::OK);
-    assert!(body.contains("Connect an app"));
-    let (res, _) = send(&app, plain_get("/classic/healthz")).await;
-    assert_eq!(res.status(), StatusCode::OK);
+    let (_, index) = send(&app, plain_get("/")).await;
+    for path in [
+        "/classic/",
+        "/classic/connect",
+        "/classic/topics/orders",
+        "/classic/events?tail=live",
+    ] {
+        // No page of its own: the React app's index.html, whose router has no such page and shows Not here.
+        let (res, body) = send(&app, plain_get(path)).await;
+        assert_eq!(res.status(), StatusCode::OK, "{path}");
+        assert_eq!(body, index, "{path}");
+    }
+    for path in [
+        "/classic/static/console.0123456789ab.css",
+        "/static/htmx-2.0.11.min.js",
+    ] {
+        let (_, body) = send(&app, plain_get(path)).await;
+        assert_eq!(body, index, "no classic file is served: {path}");
+    }
+    let post = req("POST", "/classic/connect/advertised/check")
+        .header("sec-fetch-site", "same-origin")
+        .body(Body::empty())
+        .unwrap();
+    let (res, _) = send(&app, post).await;
+    assert_eq!(res.status(), StatusCode::METHOD_NOT_ALLOWED);
     let (res, body) = send(&app, plain_get("/healthz")).await;
     assert_eq!(res.status(), StatusCode::OK);
     assert_eq!(body, "ok\n");
@@ -252,10 +271,15 @@ async fn under_a_prefix_everything_moves_with_it() {
     assert!(body.contains("src=\"/kafka/assets/"), "{body}");
     let (res, body) = send(&app, api_get("/kafka/api/v1/shell")).await;
     assert_eq!(res.status(), StatusCode::OK);
-    assert!(body.contains("\"classic\":\"/kafka/classic/\""), "{body}");
-    let (res, body) = send(&app, plain_get("/kafka/classic/connect")).await;
+    assert!(body.contains("\"address\""), "{body}");
+    let (res, _) = send(&app, plain_get("/kafka/healthz")).await;
     assert_eq!(res.status(), StatusCode::OK);
-    assert!(body.contains("href=\"/kafka/classic/"), "{body:.300}");
+    let (res, _) = send(&app, plain_get("/connect")).await;
+    assert_eq!(
+        res.status(),
+        StatusCode::NOT_FOUND,
+        "outside the prefix there is nothing"
+    );
     let (res, _) = send(&app, plain_get("/elsewhere")).await;
     assert_eq!(res.status(), StatusCode::NOT_FOUND);
 }
@@ -263,7 +287,7 @@ async fn under_a_prefix_everything_moves_with_it() {
 #[tokio::test]
 async fn the_host_guard_and_the_security_headers_stand_in_front_of_all_of_it() {
     let app = app("/");
-    for path in ["/", "/topics", "/api/v1/home", "/classic/", "/favicon.svg"] {
+    for path in ["/", "/topics", "/api/v1/home", "/healthz", "/favicon.svg"] {
         let evil = Request::builder()
             .uri(path)
             .header(header::HOST, "evil.example")

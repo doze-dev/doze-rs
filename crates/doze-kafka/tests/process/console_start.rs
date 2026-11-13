@@ -8,15 +8,15 @@ use super::console::SASL;
 use super::console::{console_addr, http};
 use super::*;
 
-/// The page at `/` of a console that listens on `addr`, asked for by the loopback address (a console bound to every
-/// interface answers there too).
+/// What the shell of a console that listens on `addr` is told (`/api/v1/shell`: the top bar and the banner), asked for by
+/// the loopback address (a console bound to every interface answers there too).
 #[cfg(feature = "console")]
 fn home_of(addr: &str) -> String {
     let port = addr.rsplit(':').next().unwrap();
     let host = format!("127.0.0.1:{port}");
     http(
         &host,
-        &format!("GET /classic/ HTTP/1.1\r\nHost: {host}"),
+        &format!("GET /api/v1/shell HTTP/1.1\r\nHost: {host}\r\nX-Console: 1"),
         "",
     )
 }
@@ -31,11 +31,8 @@ fn a_console_served_beyond_loopback_says_so_on_every_page_it_serves() {
     assert!(addr.starts_with("0.0.0.0:"), "{addr}");
     let home = home_of(&addr);
     assert!(home.starts_with("HTTP/1.1 200"), "{home}");
-    assert!(home.contains("Served beyond loopback, no login."), "{home}");
-    assert!(
-        home.contains("Anyone who can reach this address can use the console"),
-        "{home}"
-    );
+    // The top bar draws its warning (served beyond this machine with no login) from this.
+    assert!(home.contains("\"unprotected\":true"), "{home}");
     assert!(broker.terminate().success());
     let _ = std::fs::remove_dir_all(&data);
 }
@@ -52,7 +49,7 @@ fn the_banner_shows_with_sasl_and_unprotected_and_is_absent_on_loopback() {
     let mut broker = start_with(&data, &flags);
     let addr = console_addr(&broker);
     let home = home_of(&addr);
-    assert!(home.contains("Served beyond loopback, no login."), "{home}");
+    assert!(home.contains("\"unprotected\":true"), "{home}");
     assert!(!home.contains("planted"), "{home}");
     assert!(broker.terminate().success());
     let _ = std::fs::remove_dir_all(&data);
@@ -60,13 +57,9 @@ fn the_banner_shows_with_sasl_and_unprotected_and_is_absent_on_loopback() {
     let data = scratch("console-no-banner");
     let mut broker = start(&data);
     let addr = console_addr(&broker);
-    let home = http(
-        &addr,
-        &format!("GET /classic/ HTTP/1.1\r\nHost: {addr}"),
-        "",
-    );
+    let home = home_of(&addr);
     assert!(home.starts_with("HTTP/1.1 200"), "{home}");
-    assert!(!home.contains("Served beyond loopback"), "{home}");
+    assert!(home.contains("\"unprotected\":false"), "{home}");
     assert!(broker.terminate().success());
     let _ = std::fs::remove_dir_all(&data);
 }

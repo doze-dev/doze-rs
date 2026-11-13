@@ -149,7 +149,6 @@ pub fn page(secured: bool) -> AccessView {
         listener_beyond_loopback: false,
         console_beyond_loopback: false,
         console_addr: "127.0.0.1:9093",
-        listener: LISTEN,
     };
     let scram = ["SCRAM-SHA-256", "SCRAM-SHA-512"];
     AccessView {

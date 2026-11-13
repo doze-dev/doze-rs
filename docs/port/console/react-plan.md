@@ -299,3 +299,48 @@ Access, Create ACL, the Lab, a rule's sheet, New rehearsal on Slow and Expire; F
 **Left for later.** The weight's package count is a build-time figure the binary cannot read, so Settings shows the binary's size and
 the open partitions but not the packages. The client and group fields of a rule choose from the apps and groups there are; a glob
 (`orders-*`) is taken by the engine but the form has no free-text entry for it yet.
+
+## R5 done (2026-11-13, branch `react-r5`): the classic console removed
+
+Owner: "We can get rid of the classic mode." The server-rendered console is gone from the crate and the app.
+
+**Removed.** The maud page layer (`pages/`, `ui/`, `handlers/`, `routes`, `region`/`regions`, `trail`, `actions`, the `boards*` renders,
+`examples/boards.rs`), the classic files (`assets/`: htmx, idiomorph, Alpine, `console.js`, `components.js`, `multiselect.js`, `live.js`, the
+kit CSS, a second copy of the fonts), `design/` (the board sources and signatures), the `/classic/` mount and the router's fallback into it,
+the classic HTML tail (`stream.rs` keeps only the pace rules the API's two tails use), and every word function only a page called (found by
+compiling the crate with private modules; their unit tests went with them). Dependencies: `maud` (and `maud_macros`,
+`proc-macro2-diagnostics`); `tower` is no longer a direct dependency. Tools: `board-signature`, `board-diff`, `boards-refresh`,
+`boards-snapshot`, `a11y-lint`, `tools/{lib,test,dom,ux,pixels}`, `assets-compress.ts` (its `pack` moved into `web/scripts/build.ts`), and
+their CI steps. In the app: the sidebar's Classic console item, the `classic` field of `/api/v1/shell`, `PlannedPage` (`pages/planned.tsx`
+is `pages/not-found.tsx`). `git diff --stat main`: 626 files, +1,563, -69,231.
+
+**Kept and moved.** The view-models, `gather/`, `backend/`, the recorder, the words the API uses, the fixtures. From the page layer: the
+request rules and copy commands of Live (`live_words.rs`, the API's `RequestKind`, `RequestLimits`, `RequestRule` unchanged), `Chrome`
+(into `model`), the file answer (`files.rs`: gzip negotiation, ETag, 304), the guard's refusal page (now a `format!` with an `escape`).
+
+**Tests.** The classic page tests are gone (boards, components, regions, routes, overlays, ux, and the live_* tests that read HTML pages:
+112 tests). Ported to the API, not dropped: the guard and same-origin proof over every API write (`tests/guard.rs`), the headers, 304 and
+gzip over the bundle's files (`tests/headers.rs`), the limits and the stream cap and shutdown over `/api/v1/tail/*` (`limits.rs`,
+`stream.rs`; the API's 503 now carries `Retry-After`), Home and its dials (`home_live.rs`, `live.rs`, `txns.rs`), a GET never writes over
+every API read (`live_write_acl.rs`), the planted-secret gates (`redaction.rs`, `live_access_secrets.rs`), the process tests of
+`doze-kafka` (Home, the proof, the tail, the prefix, the unprotected flag through `/api/v1/shell`). `/classic/...` is now asserted to be the
+app's Not here (Rust and Playwright). New: `web::tests::no_source_of_the_page_layer_injects_html`.
+
+**CSP tightened**: `img-src 'self'` (no `data:`) and `form-action 'none'` (was `'self'`): both were for the maud pages only.
+
+**Catalogues.** `security.md`: SEC-243 to SEC-249 rewritten for the React console. `console.md`: 51 classic-only rules marked "retired in
+R5" with the reason, 25 data rules whose only test was a page test marked "Untested since R5" (the behaviour holds in the API, no API test
+names it yet: CON-113, 114, 201, 202, 204, 205, 208 to 211, 530 to 537, 539, 583, 606, 612, 615 to 617), CON-1010 rewritten; both checkers
+green.
+
+**Found.** The React Home reads `/api/v1/home`, which runs the advertised-listener check when the cached result is older than 30 s: a Home
+left open with a refresh interval dials at most once in 30 s, and against an address that does not answer such a read waits up to the
+check's deadline (1.5 s). The classic page's fragment never dialled. Not changed here (it needs a Home page change; the polish pass owns
+`web/src/pages`). The classic test `crates/kafka-console/tests/live_tail.rs` flaked once under load (a timeout); it went with the classic
+tail.
+
+**Gate.** fmt; clippy `-D warnings` default, lean (`-p doze-kafka -p kafka-console --no-default-features`) and `--features tls`;
+`cargo test -p kafka-console -p doze-kafka` 521 passed; lint-size 0 over hard (the generated `web-dist/manifest.rs` now says
+`@generated`, as the codegen tables, and is skipped); both catalogue checkers green; `bun run typecheck`, `lint`, `bun test` (31), `build`;
+Playwright with main's theme spec merged: **Firefox 104/104, WebKit 104/104, Chromium 104/104** on the seeded world. Weight (darwin):
+**5,945,008 B** (main 6,593,728 B), **155 packages** (limit 161, not moved), 6,800 KB idle.

@@ -3,10 +3,10 @@
 
 use std::time::Duration;
 
-use kafka_server::fault::{AddError, Applied, Effect, Matcher, Share, Spec};
+use kafka_server::fault::{AddError, Effect, Matcher, Share, Spec};
 use kafka_wire::messages::ApiKey;
 
-use crate::model::lab::{LabEnd, LabKind};
+use crate::model::lab::LabKind;
 use crate::recorder::{errors, names};
 
 /// The error codes the Fail form offers, with the words under each (the board's three).
@@ -66,16 +66,6 @@ pub fn share_of(value: &str) -> Option<Share> {
                 .filter(|n| (2..=1000).contains(n))
                 .map(Share::EveryNth)
         }
-    }
-}
-
-/// The value a share has in the form.
-#[must_use]
-pub fn share_value(s: Share) -> String {
-    match s {
-        Share::Every => "every".to_owned(),
-        Share::EveryNth(n) => n.to_string(),
-        Share::Percent(p) => format!("p{p}"),
     }
 }
 
@@ -233,17 +223,6 @@ pub fn ttl_words(ttl: Duration) -> String {
     }
 }
 
-/// How a rule ended, in words.
-#[must_use]
-pub fn end_words(e: LabEnd) -> &'static str {
-    match e {
-        LabEnd::Expired => "Ended on its own",
-        LabEnd::Spent => "Ended after its last hit",
-        LabEnd::Cleared => "Cleared",
-        LabEnd::Replaced => "Replaced by a newer rule",
-    }
-}
-
 /// The kind of a rule.
 #[must_use]
 pub fn kind_of(e: Effect) -> LabKind {
@@ -297,16 +276,6 @@ pub fn wire_words(spec: &Spec) -> String {
             format!("{api}, tagged lab, Failed {} ({code})", errors::name(code))
         }
         Effect::Drop => "The connection is closed with no answer, tagged lab".to_owned(),
-    }
-}
-
-/// What a rule did to a request, for the tag's tooltip.
-#[must_use]
-pub fn did_words(a: Applied) -> String {
-    match a {
-        Applied::Delay(d) => format!("made the answer wait {} ms", d.as_millis()),
-        Applied::Fail(code) => format!("answered {}", errors::name(code)),
-        Applied::Drop => "closed the connection".to_owned(),
     }
 }
 

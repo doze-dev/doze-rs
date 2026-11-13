@@ -73,7 +73,8 @@ async fn dial(addr: SocketAddr) -> TcpStream {
 async fn open_stream(addr: SocketAddr) -> TcpStream {
     let mut s = dial(addr).await;
     s.write_all(
-        format!("GET /classic/events?tail=live HTTP/1.1\r\nHost: {addr}\r\n\r\n").as_bytes(),
+        format!("GET /api/v1/tail/live HTTP/1.1\r\nHost: {addr}\r\nX-Console: 1\r\n\r\n")
+            .as_bytes(),
     )
     .await
     .unwrap();
@@ -142,7 +143,7 @@ async fn a_body_that_stops_arriving_is_answered_408_and_the_connection_closed() 
     let mut s = dial(addr).await;
     s.write_all(
         format!(
-            "POST /classic/connect/advertised/check HTTP/1.1\r\nHost: {addr}\r\nOrigin: http://{addr}\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: 100\r\n\r\nback="
+            "POST /api/v1/create-topic HTTP/1.1\r\nHost: {addr}\r\nX-Console: 1\r\nOrigin: http://{addr}\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: 100\r\n\r\nname="
         )
         .as_bytes(),
     )

@@ -150,40 +150,9 @@ pub fn clock(ms: i64) -> String {
     format!("{:02}:{:02}:{:02}", c.hour, c.minute, c.second)
 }
 
-/// `2026-11-13T22:13:33Z`: the instant for a `datetime` attribute.
-#[must_use]
-pub fn iso(ms: i64) -> String {
-    let c = civil(ms);
-    format!(
-        "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z",
-        c.year, c.month, c.day, c.hour, c.minute, c.second
-    )
-}
-
-/// `2026-11-13 22:13:33 UTC`: the exact instant, for a hover.
-#[must_use]
-pub fn exact(ms: i64) -> String {
-    let c = civil(ms);
-    format!(
-        "{:04}-{:02}-{:02} {:02}:{:02}:{:02} UTC",
-        c.year, c.month, c.day, c.hour, c.minute, c.second
-    )
-}
-
-/// An instant as a page writes it (CON-806): `22:13:33` when it is on the same UTC day as `now_ms`, `Nov 6 18:02` otherwise.
-/// Absolute, so the text of a region does not change while the data does not.
-#[must_use]
-pub fn stamp(ms: i64, now_ms: i64) -> String {
-    if ms.div_euclid(DAY * 1000) == now_ms.div_euclid(DAY * 1000) {
-        clock(ms)
-    } else {
-        date_time(ms).trim_end_matches(" UTC").to_owned()
-    }
-}
-
 mod read;
 
-pub use read::{ago, clock_ms, hex_dump, hex_prefix, parse_time};
+pub use read::{ago, hex_dump, hex_prefix, parse_time};
 
 #[cfg(test)]
 mod tests;
