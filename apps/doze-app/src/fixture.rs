@@ -45,8 +45,13 @@ impl Fixture {
     /// Starts `name`'s script, or a synthetic stack of `synth` instances. Beside it, as the Go fixture homes do, a
     /// stopped stack (`acme`, up three days ago with api, web and db). `none` is a machine with no stacks at all.
     pub(crate) fn start(name: &str, synth: Option<usize>) -> anyhow::Result<Fixture> {
-        let root =
-            std::env::temp_dir().join(format!("doze-app-fixture-{}-{name}", std::process::id()));
+        // One process may run several (the tests do): each its own folder.
+        static RUNS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+        let run = RUNS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let root = std::env::temp_dir().join(format!(
+            "doze-app-fixture-{}-{run}-{name}",
+            std::process::id()
+        ));
         let (home, work) = (root.join("home"), root.join("work"));
         std::fs::create_dir_all(&home).context("fixture home")?;
         if name == "none" && synth.is_none() {
@@ -108,6 +113,15 @@ impl Fixture {
         if let Some(d) = &self.daemon {
             d.push(f);
         }
+    }
+
+    /// What the daemon was asked, in order.
+    #[cfg(test)]
+    pub(crate) fn requests(&self) -> Vec<doze_control::Request> {
+        self.daemon
+            .as_ref()
+            .map(FixtureDaemon::requests)
+            .unwrap_or_default()
     }
 }
 

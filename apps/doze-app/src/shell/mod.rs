@@ -11,6 +11,8 @@ mod nav;
 mod needs;
 mod ops;
 mod pick;
+#[cfg(all(test, feature = "capture"))]
+mod tests;
 mod titlebar;
 mod wire;
 
