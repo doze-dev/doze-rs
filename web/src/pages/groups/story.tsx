@@ -470,7 +470,7 @@ function RebalanceSheet({ v, generation, onClose, fetchedAt, returnFocus }: { v:
             <Facts rows={rows} />
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" asChild>
-                <Link to="/groups/$group/wire" params={{ group: v.head.id }} search={{ kind: g.cause === "member_left" || g.cause === "member_joined" ? "join" : undefined }}>
+                <Link to="/groups/$group/wire" params={{ group: v.head.id }}>
                   See the {api(g)} on the wire
                 </Link>
               </Button>

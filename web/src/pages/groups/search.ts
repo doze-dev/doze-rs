@@ -36,9 +36,3 @@ export function storySearch(s: Record<string, unknown>): StorySearch {
   const g = typeof s.generation === "number" ? s.generation : typeof s.generation === "string" && /^-?\d{1,10}$/.test(s.generation) ? Number(s.generation) : undefined;
   return { generation: g !== undefined && Number.isSafeInteger(g) ? g : undefined, rule: flag(s.rule) };
 }
-
-export const KINDS = ["join", "commits", "heartbeats"] as const;
-export type GroupWireSearch = { kind?: (typeof KINDS)[number]; refused?: 1; q?: string };
-export function groupWireSearch(s: Record<string, unknown>): GroupWireSearch {
-  return { kind: oneOf(KINDS, s.kind), refused: flag(s.refused), q: shortText(s.q, 249) };
-}

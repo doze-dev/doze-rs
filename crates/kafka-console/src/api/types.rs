@@ -58,14 +58,15 @@ fn all() -> BTreeMap<String, String> {
     one::<ShellView>(&cfg, &mut out);
     one::<JumpView>(&cfg, &mut out);
     groups(&cfg, &mut out);
+    live_types(&cfg, &mut out);
     out
 }
 
 /// The Groups pages (R2).
 fn groups(cfg: &Config, out: &mut BTreeMap<String, String>) {
     use super::groups::{
-        GroupWireResponse, GroupWireRow, GroupWriteDone, GroupWriteInvalid, GroupWriteRefusal,
-        GroupsResponse, OffsetDeleteRequest, ResetRequest,
+        GroupWriteDone, GroupWriteInvalid, GroupWriteRefusal, GroupsResponse, OffsetDeleteRequest,
+        ResetRequest,
     };
     use crate::lag::Lag;
     use crate::model::{
@@ -76,8 +77,6 @@ fn groups(cfg: &Config, out: &mut BTreeMap<String, String>) {
         StoryLast, StoryLeft, StoryNow, StoryRule, StoryTone, StoryView, StoryWho,
     };
     one::<GroupsResponse>(cfg, out);
-    one::<GroupWireResponse>(cfg, out);
-    one::<GroupWireRow>(cfg, out);
     one::<GroupWriteDone>(cfg, out);
     one::<GroupWriteInvalid>(cfg, out);
     one::<GroupWriteRefusal>(cfg, out);
@@ -120,6 +119,49 @@ fn groups(cfg: &Config, out: &mut BTreeMap<String, String>) {
     one::<StoryTone>(cfg, out);
     one::<StoryView>(cfg, out);
     one::<StoryWho>(cfg, out);
+}
+
+/// The Live types (slice R3).
+fn live_types(cfg: &Config, out: &mut BTreeMap<String, String>) {
+    use super::live::{
+        FetchCopy, FirstResponse, LiveResponse, LiveWords, RequestAnswer, RequestResponse,
+        TailBatch, TailReady, TopicWireView,
+    };
+    use crate::model::live::{LabDid, LabTag};
+    use crate::model::{
+        ClientRow, ClientsView, Facet, Facets, FirstView, GroupWireView, LiveState, LiveView,
+        WireClass, WireDetail, WirePart, WireQuery, WireRefusal, WireRow, WireWindow,
+    };
+    use crate::pages::live::{RequestKind, RequestLimits, RequestRule};
+    one::<LiveResponse>(cfg, out);
+    one::<LiveWords>(cfg, out);
+    one::<LiveView>(cfg, out);
+    one::<LiveState>(cfg, out);
+    one::<WireRow>(cfg, out);
+    one::<WireClass>(cfg, out);
+    one::<LabTag>(cfg, out);
+    one::<LabDid>(cfg, out);
+    one::<WireQuery>(cfg, out);
+    one::<WireWindow>(cfg, out);
+    one::<WireRefusal>(cfg, out);
+    one::<Facet>(cfg, out);
+    one::<Facets>(cfg, out);
+    one::<WirePart>(cfg, out);
+    one::<WireDetail>(cfg, out);
+    one::<RequestResponse>(cfg, out);
+    one::<RequestAnswer>(cfg, out);
+    one::<RequestKind>(cfg, out);
+    one::<RequestLimits>(cfg, out);
+    one::<RequestRule>(cfg, out);
+    one::<FetchCopy>(cfg, out);
+    one::<ClientsView>(cfg, out);
+    one::<ClientRow>(cfg, out);
+    one::<FirstResponse>(cfg, out);
+    one::<FirstView>(cfg, out);
+    one::<TopicWireView>(cfg, out);
+    one::<GroupWireView>(cfg, out);
+    one::<TailBatch>(cfg, out);
+    one::<TailReady>(cfg, out);
 }
 
 #[test]

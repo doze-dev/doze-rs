@@ -8,8 +8,9 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { ConnectPage } from "@/pages/connect";
 import { connectSearch, gallerySearch } from "@/lib/search";
 import { HomePage } from "@/pages/home";
+import { liveSearch } from "@/pages/live/search";
 import { NotFoundPage, PlannedPage } from "@/pages/planned";
-import { groupSearch, groupsSearch, groupWireSearch, lagSearch, membersSearch, storySearch } from "@/pages/groups/search";
+import { groupSearch, groupsSearch, lagSearch, membersSearch, storySearch } from "@/pages/groups/search";
 
 function Shell() {
   const [palette, setPalette] = useState(false);
@@ -48,6 +49,10 @@ const connect = createRoute({
 // The gallery (and react-hook-form and zod with it) is its own chunk: fetched only when someone opens it.
 const gallery = createRoute({ getParentRoute: () => root, path: "/gallery", validateSearch: gallerySearch, component: lazyRouteComponent(() => import("@/pages/gallery"), "GalleryPage") });
 
+// Live (R3): the tape, its tail and its Sheets; the page a new client lands on. Their own chunk, fetched when opened.
+const live = createRoute({ getParentRoute: () => root, path: "/live", validateSearch: liveSearch, component: lazyRouteComponent(() => import("@/pages/live/live"), "LivePage") });
+const firstRequest = createRoute({ getParentRoute: () => root, path: "/connect/first-request", component: lazyRouteComponent(() => import("@/pages/live/first-request"), "FirstRequestPage") });
+
 const planned = <const P extends string>(path: P, title: string, slice: string) =>
   createRoute({ getParentRoute: () => root, path, component: () => <PlannedPage title={title} slice={slice} classicPath={path} /> });
 
@@ -67,14 +72,15 @@ const groupTabs = [
   createRoute({ getParentRoute: () => group, path: "/", validateSearch: membersSearch, component: lazyRouteComponent(() => import("@/pages/groups/members"), "GroupMembersPage") }),
   createRoute({ getParentRoute: () => group, path: "lag", validateSearch: lagSearch, component: lazyRouteComponent(() => import("@/pages/groups/lag"), "GroupLagPage") }),
   createRoute({ getParentRoute: () => group, path: "story", validateSearch: storySearch, component: lazyRouteComponent(() => import("@/pages/groups/story"), "GroupStoryPage") }),
-  createRoute({ getParentRoute: () => group, path: "wire", validateSearch: groupWireSearch, component: lazyRouteComponent(() => import("@/pages/groups/wire"), "GroupWirePage") }),
+  createRoute({ getParentRoute: () => group, path: "wire", component: lazyRouteComponent(() => import("@/pages/groups/wire"), "GroupWirePage") }),
 ] as const;
 
 const tree = root.addChildren([
   home,
   connect,
   gallery,
-  planned("/live", "Live", "R3"),
+  live,
+  firstRequest,
   planned("/topics", "Topics", "R1"),
   topic,
   groups,

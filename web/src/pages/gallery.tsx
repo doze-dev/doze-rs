@@ -33,6 +33,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { number } from "@/lib/format";
 import type { GallerySearch } from "@/lib/search";
+import { WireDock } from "@/pages/live/wire-dock";
 
 // zod compiles object parsers with `new Function` unless told not to; the CSP (no eval) would refuse it and Firefox logs that
 // refusal as an error. Jitless parsing is plenty fast for a form.
@@ -521,6 +522,11 @@ export function GalleryPage() {
             </ToggleGroup>
           </div>
           <DataTable data={rows} columns={COLUMNS} rowId={(r) => r.id} aria-label="Records" maxHeight={420} onRowClick={(r) => openRecord(r.id)} />
+        </Section>
+
+        <Section id="wire-dock" className="xl:col-span-2" title="WireDock (Live, R3)" description="The tape filtered to one topic or one group, for the topic and group pages to mount: <WireDock topic> and <WireDock group>.">
+          <WireDock topic="orders" />
+          <WireDock group="fulfilment" />
         </Section>
       </div>
     </>

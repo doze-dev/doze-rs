@@ -58,7 +58,7 @@ async fn post(app: &Router, path: &str, body: &str) -> (StatusCode, Value) {
 }
 
 #[tokio::test]
-async fn the_groups_api_says_what_the_list_a_group_its_story_and_its_wire_show() {
+async fn the_groups_api_says_what_the_list_a_group_and_its_story_show() {
     let app = app();
     let (s, list) = get(&app, "/api/v1/groups").await;
     assert_eq!(s, StatusCode::OK);
@@ -114,22 +114,6 @@ async fn the_groups_api_says_what_the_list_a_group_its_story_and_its_wire_show()
     );
     assert!(story["flap"]["rows"].as_array().is_some());
     assert!(story["generations"][0]["cause"].is_string());
-    // The wire: the rows of the recorder that touched the group, each with its word and tone.
-    let (s, wire) = get(&app, "/api/v1/groups/fulfilment/wire").await;
-    assert_eq!(s, StatusCode::OK);
-    assert_eq!(wire["group"], "fulfilment");
-    for r in wire["rows"].as_array().unwrap() {
-        assert!(["ok", "warn", "bad", "refused"].contains(&r["tone"].as_str().unwrap()));
-    }
-    let (_, refused) = get(&app, "/api/v1/groups/fulfilment/wire?refused=1").await;
-    assert_eq!(refused["refused_only"], true);
-    assert!(
-        refused["rows"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .all(|r| r["refused"] == true)
-    );
     // A group the broker does not know: a JSON 404 that names it.
     let (s, none) = get(&app, "/api/v1/groups/no-such-group").await;
     assert_eq!(s, StatusCode::NOT_FOUND);

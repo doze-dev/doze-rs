@@ -6,7 +6,6 @@ import { keys, useInterval } from "./queries";
 import type { GroupDeleteView } from "./types/GroupDeleteView";
 import type { GroupLagView } from "./types/GroupLagView";
 import type { GroupsResponse } from "./types/GroupsResponse";
-import type { GroupWireResponse } from "./types/GroupWireResponse";
 import type { GroupWriteDone } from "./types/GroupWriteDone";
 import type { OffsetDeleteRequest } from "./types/OffsetDeleteRequest";
 import type { OffsetDeleteView } from "./types/OffsetDeleteView";
@@ -22,7 +21,6 @@ export const groupKeys = {
   group: (id: string) => ["group", id] as const,
   lag: (id: string, expiring: boolean) => ["group", id, "lag", expiring] as const,
   story: (id: string) => ["group", id, "story"] as const,
-  wire: (id: string, kind: string, refused: boolean, q: string) => ["group", id, "wire", kind, refused, q] as const,
   reset: (id: string, r: ResetRequest) => ["group", id, "reset", r.topic, r.to, r.value] as const,
   delete: (id: string) => ["group", id, "delete"] as const,
   offsets: (id: string) => ["group", id, "offsets"] as const,
@@ -68,17 +66,6 @@ export function useStory(id: string) {
     refetchInterval,
     placeholderData: keepPreviousData,
     retry: false,
-  });
-}
-
-export function useGroupWire(id: string, kind: string, refused: boolean, q: string) {
-  const refetchInterval = useInterval();
-  return useQuery({
-    queryKey: groupKeys.wire(id, kind, refused, q),
-    queryFn: ({ signal }) => api<GroupWireResponse>(`/api/v1/groups/${seg(id)}/wire${query([["kind", kind], ["refused", refused ? "1" : undefined], ["q", q]])}`, {}, signal),
-    staleTime: Infinity,
-    refetchInterval,
-    placeholderData: keepPreviousData,
   });
 }
 

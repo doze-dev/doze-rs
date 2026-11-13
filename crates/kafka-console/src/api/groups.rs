@@ -1,6 +1,6 @@
 //! The JSON API of the Groups pages (slice R2): the list, one group with its lag, its story, the requests that touched it,
 //! and the three writes (reset offsets, delete the group, delete offsets) with what their dialogs show before anything is
-//! sent. The data is the classic console's own (`gather::groups`, `gather::group`, `gather::story`, `Source::group_wire`);
+//! sent. The data is the classic console's own (`gather::groups`, `gather::group`, `gather::story`; the requests that touched a group are the Live slice's `/api/v1/live/group-wire`);
 //! a write goes through the same `Source` call as the classic form and answers Kafka's refusal in Kafka's words.
 //!
 //! A group's id is hostile input: it reaches the broker as a protocol string and comes back as JSON text, never as markup.
@@ -15,8 +15,8 @@ use super::{error, json};
 use crate::form::{get as field, parse, text};
 use crate::gather::{DeleteGroupResult, OffsetDeleteResult, ResetResult};
 use crate::model::{
-    GroupDeleteView, GroupLagView, GroupRefused, GroupSpan, GroupStates, GroupWireView, GroupsView,
-    OffsetDeleteView, Refusal, ResetView, StoryView, WireClass, WireQuery, WireRow,
+    GroupDeleteView, GroupLagView, GroupRefused, GroupSpan, GroupStates, GroupsView,
+    OffsetDeleteView, Refusal, ResetView, StoryView,
 };
 use crate::state::Shared;
 
@@ -31,51 +31,6 @@ pub struct GroupsResponse {
     pub attention: Option<Vec<GroupSpan>>,
     /// The address the empty state's command points at.
     pub listen: String,
-}
-
-/// One request that touched the group, as the group's wire shows it (the Live page's row, reduced to what this page draws).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[cfg_attr(test, derive(ts_rs::TS))]
-pub struct GroupWireRow {
-    pub id: u64,
-    pub at_ms: i64,
-    pub since_ms: Option<i64>,
-    /// How many requests it stands for (repeats fold).
-    pub count: u32,
-    pub client: String,
-    pub tag: Option<String>,
-    pub api: String,
-    pub version: i16,
-    pub target: String,
-    pub target_sub: Option<String>,
-    /// `Done`, `Told to rejoin`, `Refused`...
-    pub word: String,
-    /// `ok`, `warn`, `bad`, `refused`.
-    pub tone: String,
-    /// A refusal of either kind (what the Refused chip keeps).
-    pub refused: bool,
-    pub code: i16,
-    pub code_name: String,
-    pub detail: String,
-    pub took_us: u32,
-}
-
-/// `GET /api/v1/groups/{group}/wire?kind=&refused=1&q=`: every request among the rows kept that touched the group.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[cfg_attr(test, derive(ts_rs::TS))]
-pub struct GroupWireResponse {
-    pub group: String,
-    pub kind: String,
-    pub refused_only: bool,
-    pub text: String,
-    pub rows: Vec<GroupWireRow>,
-    /// Every request that touched the group among the rows kept, and how many of those were refused.
-    pub all: usize,
-    pub refused: usize,
-    /// The rows the recorder keeps now, the most it keeps, and the oldest one's time.
-    pub kept: usize,
-    pub capacity: usize,
-    pub oldest_ms: Option<i64>,
 }
 
 /// Kafka's refusal of a group write: its error name as the code and its own sentence, then the console's reading.
@@ -183,82 +138,6 @@ async fn story(State(s): State<Shared>, Path(id): Path<String>) -> Response {
         Some(v) => json::<StoryView>(StatusCode::OK, &v),
         None => no_group(&id),
     }
-}
-
-/// The word of a result, as the boards say it (the Live page's `class_word`).
-fn word(class: WireClass, code: i16) -> &'static str {
-    match class {
-        WireClass::Done => "Done",
-        WireClass::Told if matches!(code, 27 | 79 | 110 | 113) => "Told to rejoin",
-        WireClass::Told => "Told to retry",
-        WireClass::Failed => "Failed",
-        WireClass::Refused => "Refused",
-        WireClass::Denied => "Denied",
-        WireClass::Closed => "Closed",
-    }
-}
-
-fn tone(class: WireClass) -> &'static str {
-    match class {
-        WireClass::Done => "ok",
-        WireClass::Told | WireClass::Denied => "warn",
-        WireClass::Failed | WireClass::Closed => "bad",
-        WireClass::Refused => "refused",
-    }
-}
-
-fn wire_row(r: WireRow) -> GroupWireRow {
-    GroupWireRow {
-        id: r.id,
-        at_ms: r.at_ms,
-        since_ms: r.since_ms,
-        count: r.count,
-        word: word(r.class, r.code).to_owned(),
-        tone: tone(r.class).to_owned(),
-        refused: r.class.is_refusal(),
-        client: r.client,
-        tag: r.tag,
-        api: r.api.to_owned(),
-        version: r.version,
-        target: r.target,
-        target_sub: r.target_sub,
-        code: r.code,
-        code_name: r.code_name,
-        detail: r.detail,
-        took_us: r.took_us,
-    }
-}
-
-async fn wire(State(s): State<Shared>, Path(id): Path<String>, RawQuery(q): RawQuery) -> Response {
-    let f = fields(q.as_deref());
-    let kind = match field(&f, "kind") {
-        Some(k @ ("join" | "commits" | "heartbeats")) => k.to_owned(),
-        _ => String::new(),
-    };
-    let query = WireQuery {
-        group: id.clone(),
-        kind,
-        refused_only: field(&f, "refused") == Some("1"),
-        text: text(&f, "q").trim().chars().take(249).collect(),
-        hide_idle: false,
-        ..WireQuery::default()
-    };
-    let v: GroupWireView = s.source.group_wire(&query).await;
-    json(
-        StatusCode::OK,
-        &GroupWireResponse {
-            group: v.group,
-            kind: v.query.kind,
-            refused_only: v.query.refused_only,
-            text: v.query.text,
-            rows: v.rows.into_iter().map(wire_row).collect(),
-            all: v.all,
-            refused: v.refused,
-            kept: v.window.rows,
-            capacity: v.window.capacity,
-            oldest_ms: v.window.oldest_ms,
-        },
-    )
 }
 
 /// `GET /api/v1/groups/{group}/reset?topic=&to=&value=`: the preview. A GET: it reads OffsetFetch and ListOffsets and never
@@ -414,7 +293,6 @@ pub fn routes(web: &crate::base::Base) -> axum::Router<Shared> {
         .route(&web.url("/api/v1/groups"), get(groups))
         .route(&web.url("/api/v1/groups/{group}"), get(group))
         .route(&web.url("/api/v1/groups/{group}/story"), get(story))
-        .route(&web.url("/api/v1/groups/{group}/wire"), get(wire))
         .route(
             &web.url("/api/v1/groups/{group}/reset"),
             get(reset_preview).post(reset),

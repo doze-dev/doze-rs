@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { agoNear, holdsPhrase, lasted, memberLabel, partList, partsPhrase, seconds, span, spanPrecise, stamp } from "./words";
-import { groupsSearch, groupWireSearch, lagSearch, storySearch } from "./search";
+import { groupsSearch, lagSearch, storySearch } from "./search";
 
 describe("the Groups words say what the classic console says", () => {
   test("spans and timeouts", () => {
@@ -47,7 +47,5 @@ describe("the Groups addresses keep only what they know", () => {
     expect(lagSearch({ expiring: "yes" })).toEqual({ expiring: undefined });
     expect(storySearch({ generation: "31", rule: 1 })).toEqual({ generation: 31, rule: 1 });
     expect(storySearch({ generation: "x" })).toEqual({ generation: undefined, rule: undefined });
-    expect(groupWireSearch({ kind: "join", refused: "1", q: "py" })).toEqual({ kind: "join", refused: 1, q: "py" });
-    expect(groupWireSearch({ kind: "everything" })).toEqual({ kind: undefined, refused: undefined, q: undefined });
   });
 });

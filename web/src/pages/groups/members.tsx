@@ -15,7 +15,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { cn } from "@/lib/utils";
 import { useRoutedOverlay } from "./overlay";
 import { Facts, LagBar, Panel, Rules } from "./parts";
-import { WireDock } from "./wire";
+import { WireDock } from "@/pages/live/wire-dock";
 import { agoNear, heard, memberLabel, numberWord, partList, PHASE_WORD, seconds, spanPrecise, stamp } from "./words";
 
 const route = getRouteApi("/groups/$group/");
@@ -358,8 +358,8 @@ function MemberSheet({ h, member, onClose, returnFocus }: { h: GroupHead; member
             />
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" asChild>
-                <Link to="/groups/$group/wire" params={{ group: h.id }} search={{ q: m.client_id }}>
-                  Its requests on the wire
+                <Link to="/live" search={{ client: [m.client_id] }}>
+                  Its requests in Live
                 </Link>
               </Button>
               {firstTopic && (
@@ -392,7 +392,10 @@ export function GroupMembersPage() {
   return (
     <>
       {h.protocol === "consumer" ? <Consumer v={v} onOpen={open} /> : h.phase === "rebalancing" ? <Rebalancing v={v} fetchedAt={res.dataUpdatedAt} onOpen={open} /> : <Classic v={v} onOpen={open} />}
-      <WireDock id={id} />
+      <section className="mt-12">
+        <h2 className="mb-3 text-[17px] font-semibold text-bright">What just happened</h2>
+        <WireDock group={id} />
+      </section>
       <MemberSheet h={h} member={search.member} onClose={overlay.close} returnFocus={overlay.returnFocus} />
     </>
   );

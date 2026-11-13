@@ -149,7 +149,10 @@ export function GroupLayout() {
     return <PageError error={res.error} onRetry={() => void res.refetch()} />;
   }
   const h = res.data?.head;
-  const refresh = <RefreshControl updatedAt={res.dataUpdatedAt} fetching={fetching} onRefresh={() => void qc.invalidateQueries({ queryKey: groupKeys.group(id) })} />;
+  const refresh = <RefreshControl updatedAt={res.dataUpdatedAt} fetching={fetching} onRefresh={() => {
+        void qc.invalidateQueries({ queryKey: groupKeys.group(id) });
+        void qc.invalidateQueries({ queryKey: ["live-group-wire", id] });
+      }} />;
   return (
     <>
       <PageHeader
