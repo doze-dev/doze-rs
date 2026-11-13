@@ -128,6 +128,13 @@ impl Tray {
         self.inner.set_tooltip(tooltip);
     }
 
+    /// Where the item sits on screen, in points from the primary screen's top left: `[x, y, width, height]` (for a
+    /// picture of it). `None` where there is no item.
+    #[must_use]
+    pub fn icon_frame(&self) -> Option<[f64; 4]> {
+        self.inner.icon_frame()
+    }
+
     /// Opens the menu as a click on the item would (for a picture of it; the menu tracks until it is closed).
     pub fn open_menu(&self) {
         self.inner.open_menu();
@@ -138,4 +145,10 @@ impl Tray {
 /// app has no Dock icon (menu bar only), the badge waits for the icon.
 pub fn dock_badge(label: Option<&str>) {
     imp::dock_badge(label);
+}
+
+/// The Dock badge as the Dock tile holds it now (read back, for evidence that it was taken); `None` when there is none.
+#[must_use]
+pub fn dock_badge_now() -> Option<String> {
+    imp::dock_badge_now()
 }

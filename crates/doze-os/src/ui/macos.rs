@@ -6,7 +6,9 @@ use super::{Icons, MenuEntry, OnPick, TrayIcon};
 use objc2::rc::Retained;
 use objc2::runtime::{NSObject, NSObjectProtocol, Sel};
 use objc2::{DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_send, sel};
-use objc2_app_kit::{NSApplication, NSImage, NSMenu, NSMenuItem, NSStatusBar, NSStatusItem};
+use objc2_app_kit::{
+    NSApplication, NSImage, NSMenu, NSMenuItem, NSScreen, NSStatusBar, NSStatusItem,
+};
 use objc2_foundation::{NSData, NSSize, NSString};
 use std::io;
 
@@ -145,6 +147,15 @@ impl Tray {
         }
     }
 
+    pub(super) fn icon_frame(&self) -> Option<[f64; 4]> {
+        let window = self.item.button(self.mtm)?.window()?;
+        let f = window.frame();
+        // Cocoa counts up from the primary screen's bottom; a screen picture counts down from its top.
+        let primary = NSScreen::screens(self.mtm).firstObject()?.frame();
+        let top = primary.size.height - f.origin.y - f.size.height;
+        Some([f.origin.x, top, f.size.width, f.size.height])
+    }
+
     pub(super) fn open_menu(&self) {
         if let Some(button) = self.item.button(self.mtm) {
             // SAFETY: a live status bar button on the main thread; a click with no sender opens its menu.
@@ -186,4 +197,10 @@ pub(super) fn dock_badge(label: Option<&str>) {
     };
     let tile = NSApplication::sharedApplication(mtm).dockTile();
     tile.setBadgeLabel(label.map(NSString::from_str).as_deref());
+}
+
+pub(super) fn dock_badge_now() -> Option<String> {
+    let mtm = MainThreadMarker::new()?;
+    let tile = NSApplication::sharedApplication(mtm).dockTile();
+    tile.badgeLabel().map(|s| s.to_string())
 }

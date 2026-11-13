@@ -47,6 +47,7 @@ pub(super) fn look(cx: &mut App) {
     let fresh = a.rules.next(&stacks, &visible, now);
     let start = Instant::now();
     a.waiting.extend(fresh.into_iter().map(|n| (n, start)));
+    withdraw(cx);
     flush(cx);
 }
 
@@ -234,5 +235,38 @@ pub(super) fn failures(acts: &gpui::Entity<crate::act::Acts>, cx: &mut App) {
             ..Note::default()
         };
         post(cx, note);
+    }
+}
+
+/// Notes whose episode ended (the crash is over, a good run followed the failed one): one still waiting is dropped,
+/// one posted is taken out of the notification centre (Go left it there, saying a crash that was over).
+fn withdraw(cx: &mut App) {
+    let Some(a) = around(cx) else { return };
+    let ended = a.rules.ended();
+    if ended.is_empty() {
+        return;
+    }
+    a.waiting.retain(|(n, _)| !ended.contains(&n.id));
+    let gone: Vec<String> = a
+        .posted
+        .iter()
+        .filter(|(t, _)| ended.contains(t))
+        .map(|(t, _)| t.clone())
+        .collect();
+    a.posted.retain(|(t, _)| !ended.contains(t));
+    for tag in gone {
+        log_line(&format!("withdrawn | tag={tag}\n"));
+        cx.dismiss_system_notification(&tag);
+    }
+}
+
+/// A line to `$DOZE_APP_NOTIFY_LOG`, when it is set.
+fn log_line(line: &str) {
+    if let Some(path) = std::env::var_os("DOZE_APP_NOTIFY_LOG") {
+        let _ = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(path)
+            .and_then(|mut f| std::io::Write::write_all(&mut f, line.as_bytes()));
     }
 }

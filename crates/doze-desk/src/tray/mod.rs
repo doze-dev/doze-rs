@@ -21,7 +21,7 @@ use doze_display as words;
 use crate::conn::Conn;
 use crate::view::StackView;
 
-pub use menu::{Cmd, Entry, SERVICES_SHOWN, StackCmd, menu, signature, text};
+pub use menu::{Cmd, Entry, SERVICES_SHOWN, StackCmd, Urls, menu, signature, text};
 pub use needs::{NeedLine, Needs, needs_of};
 
 /// The menu bar, as data (Go `tray.Model`).

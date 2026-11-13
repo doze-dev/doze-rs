@@ -77,6 +77,13 @@ fn main() -> ExitCode {
         Ok(cli::Cmd::App(a)) => app::run(a),
         Ok(cli::Cmd::Open(a)) => open::run(a),
         Ok(cli::Cmd::Bench(b)) => bench::run(b, launched),
+        #[cfg(feature = "fixtures")]
+        Ok(cli::Cmd::FixtureServe(name, root)) => fixture::serve(&name, root),
+        #[cfg(not(feature = "fixtures"))]
+        Ok(cli::Cmd::FixtureServe(..)) => {
+            eprintln!("doze-app fixture-serve: build with --features fixtures");
+            ExitCode::from(2)
+        }
         #[cfg(feature = "capture")]
         Ok(cli::Cmd::Shot(s)) => shot::run(*s),
         #[cfg(not(feature = "capture"))]

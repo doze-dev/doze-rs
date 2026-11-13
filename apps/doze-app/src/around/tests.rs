@@ -106,7 +106,7 @@ fn the_menus_fix_restarts_the_crashing_service(cx: &mut TestAppContext) {
     let fix = cx.update(|cx| {
         let a = super::around(cx).unwrap();
         let (stacks, now) = (a.hub.stacks(), a.hub.now());
-        let (entries, _, _) = crate::tray::model(&stacks, &a.list, now);
+        let (entries, _, _) = crate::tray::model(&stacks, &a.list, now, &|_| None);
         fn find(e: &[doze_desk::tray::Entry]) -> Option<Cmd> {
             e.iter().find_map(|e| match e {
                 doze_desk::tray::Entry::Item {

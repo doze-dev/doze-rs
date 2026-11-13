@@ -45,10 +45,11 @@ ui = ["dep:objc2", "dep:objc2-foundation", "dep:objc2-app-kit"]
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = { version = "0.6", optional = true }
-objc2-foundation = { version = "0.3", optional = true, default-features = false, features = ["std", "NSString", "NSObject", "NSThread", "NSData", "NSGeometry"] }
+objc2-foundation = { version = "0.3", optional = true, default-features = false, features = ["std", "NSString", "NSObject", "NSThread", "NSData", "NSGeometry", "NSArray"] }
 objc2-app-kit = { version = "0.3", optional = true, default-features = false, features = [
     "std", "objc2-core-foundation", "NSApplication", "NSDockTile", "NSStatusBar", "NSStatusItem", "NSMenu", "NSMenuItem", "NSButton", "NSControl",
     "NSStatusBarButton", "NSResponder", "NSView", "NSImage", "NSCell", "NSButtonCell", "NSActionCell", "NSRunningApplication",
+    "NSWindow", "NSScreen",
 ] }
 
 [target.'cfg(unix)'.dependencies]

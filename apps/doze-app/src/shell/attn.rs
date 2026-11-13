@@ -69,7 +69,7 @@ impl Attn {
     }
 
     /// Items of the stack `key` leave without "fixed": the person dismissed or removed them.
-    pub(super) fn quiet(&mut self, key: &str) {
+    pub(crate) fn quiet(&mut self, key: &str) {
         self.steady.quiet(|i| i.key == key);
     }
 

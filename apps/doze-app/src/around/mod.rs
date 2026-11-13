@@ -229,11 +229,16 @@ fn follow(cx: &mut App) {
     let (stacks, now) = (a.hub.stacks(), a.hub.now());
     let red = a.list.red;
     if let Some(m) = a.menu.as_mut() {
-        m.follow(&stacks, &a.list, now);
+        // The names registry's URLs for "Open <url>" (port-less while the front door is up): one small file read.
+        let names = doze_desk::library::Names::read(a.hub.home());
+        m.follow(&stacks, &a.list, now, &|h| names.url_for(h));
     }
     if a.badge != Some(red) {
         a.badge = Some(red);
         doze_os::ui::dock_badge((red > 0).then(|| red.to_string()).as_deref());
+    }
+    if let Some(m) = a.menu.as_mut() {
+        m.evidence(red);
     }
     notes::flush(cx);
 }
@@ -327,5 +332,13 @@ pub(crate) fn around(cx: &mut App) -> Option<&mut Around> {
         Some(cx.global_mut::<Around>())
     } else {
         None
+    }
+}
+
+/// Items of the stack `key` leave the menu bar's list without "fixed": the person dismissed or removed them (the
+/// window's list is quieted beside it, so the two agree).
+pub(crate) fn quiet_menu(key: &str, cx: &mut App) {
+    if let Some(a) = around(cx) {
+        a.steady.quiet(|i| i.key == key);
     }
 }

@@ -45,6 +45,9 @@ pub struct Rules {
     /// The stacks looked at once: what a stack already shows when it is first seen is not news, whenever it
     /// appears.
     primed: HashSet<String>,
+    /// The ids of notes whose episode ended since [`Rules::ended`] was last asked: a crash that is over, a failed run
+    /// that a good one followed. A notification still showing for one is withdrawn.
+    over: Vec<String>,
 }
 
 /// A crash episode has ended: the instance is up, dozing, asleep, off or paused. Between the tries of a crash loop
@@ -62,6 +65,12 @@ impl Rules {
     #[must_use]
     pub fn new() -> Rules {
         Rules::default()
+    }
+
+    /// The ids of the notes whose episode ended since this was last asked (Go left a notification up after its
+    /// crash was over; the app withdraws it).
+    pub fn ended(&mut self) -> Vec<String> {
+        std::mem::take(&mut self.over)
     }
 
     /// Looks at the stacks and returns what to say now (Go `Next`). `visible(key, instance)` says an instance is on
@@ -99,7 +108,10 @@ impl Rules {
                     continue;
                 }
                 if episode_over(v) {
-                    self.crashed.remove(&id);
+                    if self.crashed.remove(&id) {
+                        self.over.push(format!("{id}/crash"));
+                        self.over.push(format!("{id}/stuck"));
+                    }
                     continue;
                 }
                 if !words::troubled(v) || !self.crashed.insert(id.clone()) {
@@ -112,7 +124,17 @@ impl Rules {
             self.primed.insert(key);
         }
         // Instances that are gone end their episodes.
-        self.crashed.retain(|id| seen.contains(id));
+        let gone: Vec<String> = self
+            .crashed
+            .iter()
+            .filter(|id| !seen.contains(*id))
+            .cloned()
+            .collect();
+        for id in gone {
+            self.crashed.remove(&id);
+            self.over.push(format!("{id}/crash"));
+            self.over.push(format!("{id}/stuck"));
+        }
         out
     }
 
@@ -134,6 +156,14 @@ impl Rules {
             t.outcome
         );
         let prev = self.ran.insert(id.to_owned(), run.clone());
+        // A run that went well ends the failed one before it.
+        if let Some(p) = prev
+            .as_ref()
+            .filter(|p| **p != run && p.ends_with("/Failed"))
+            && t.outcome == doze_display::Outcome::Done
+        {
+            self.over.push(format!("{id}/{p}"));
+        }
         if !say
             || prev.as_ref().is_none_or(|p| *p == run)
             || t.outcome != doze_display::Outcome::Failed

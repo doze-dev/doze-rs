@@ -264,7 +264,7 @@ fn the_menu_has_needs_you_on_top_then_the_stacks_then_the_fixed_lines() {
         ..Attention::default()
     };
     m.needs_you = a.red > 0;
-    let e = menu(&m, &a, &stacks);
+    let e = menu(&m, &a, &stacks, &|_| None);
     let t = titles(&e);
     assert_eq!(t[0], "Needs you · 1");
     assert_eq!(t[1], "api keeps crashing   ·   shop");
@@ -287,7 +287,7 @@ fn the_menu_has_needs_you_on_top_then_the_stacks_then_the_fixed_lines() {
 fn a_running_stack_offers_its_address_its_services_and_its_actions() {
     let stacks = four();
     let m = super::build(&stacks, now());
-    let e = menu(&m, &Attention::default(), &stacks);
+    let e = menu(&m, &Attention::default(), &stacks, &|_| None);
     let shop = sub(&e, "●  shop");
     assert_eq!(
         titles(shop),
@@ -338,12 +338,22 @@ fn a_running_stack_offers_its_address_its_services_and_its_actions() {
 
 #[test]
 fn no_stacks_says_so_and_more_stacks_holds_the_rest() {
-    let e = menu(&super::build(&[], now()), &Attention::default(), &[]);
+    let e = menu(
+        &super::build(&[], now()),
+        &Attention::default(),
+        &[],
+        &|_| None,
+    );
     assert_eq!(titles(&e)[0], "No stacks yet · open a folder in doze");
     let many: Vec<StackView> = (0..9)
         .map(|i| stopped(&format!("k{i}"), &format!("s{i}"), i + 1))
         .collect();
-    let e = menu(&super::build(&many, now()), &Attention::default(), &many);
+    let e = menu(
+        &super::build(&many, now()),
+        &Attention::default(),
+        &many,
+        &|_| None,
+    );
     assert_eq!(titles(sub(&e, "More stacks · 4")).len(), 4);
 }
 
@@ -357,13 +367,16 @@ fn a_countdown_in_a_detail_does_not_change_the_signature() {
         ..Attention::default()
     };
     a.items[0].detail = "boom · try 3 of 5, next in 4s".into();
-    let first = menu(&m, &a, &stacks);
+    let first = menu(&m, &a, &stacks, &|_| None);
     a.items[0].detail = "boom · try 3 of 5, next in 3s".into();
-    let second = menu(&m, &a, &stacks);
+    let second = menu(&m, &a, &stacks, &|_| None);
     assert_ne!(first, second);
     assert_eq!(signature(&first), signature(&second));
     a.items[0].title = "api did not become ready".into();
-    assert_ne!(signature(&first), signature(&menu(&m, &a, &stacks)));
+    assert_ne!(
+        signature(&first),
+        signature(&menu(&m, &a, &stacks, &|_| None))
+    );
 }
 
 #[test]
@@ -373,9 +386,30 @@ fn the_text_indents_submenus_and_spells_the_keys() {
         &super::build(&stacks, now()),
         &Attention::default(),
         &stacks,
+        &|_| None,
     ));
     assert!(t.contains("[Stacks]\n"));
     assert!(t.contains("\n    Open in doze\n"));
     assert!(t.contains("Open doze    ⌘⇧D\n"));
     assert!(t.contains("Settings…    ⌘,\n"));
+}
+
+#[test]
+fn open_url_takes_the_registrys_address_when_there_is_one() {
+    let st = stack(
+        "k-web",
+        "web",
+        true,
+        json!([{"name": "front", "kind": "app", "state": "active", "domain": "front.web.doze", "bind": "127.0.0.9:3000"}]),
+    );
+    let stacks = vec![st];
+    let m = super::build(&stacks, now());
+    let plain = menu(&m, &Attention::default(), &stacks, &|_| None);
+    assert_eq!(
+        titles(sub(&plain, "●  web"))[1],
+        "Open http://front.web.doze:3000"
+    );
+    let fronted = |h: &str| (h == "front.web.doze").then(|| "http://front.web.doze".to_owned());
+    let e = menu(&m, &Attention::default(), &stacks, &fronted);
+    assert_eq!(titles(sub(&e, "●  web"))[1], "Open http://front.web.doze");
 }

@@ -19,7 +19,15 @@ impl Tray {
 
     pub(super) fn set_tooltip(&self, _: &str) {}
 
+    pub(super) fn icon_frame(&self) -> Option<[f64; 4]> {
+        None
+    }
+
     pub(super) fn open_menu(&self) {}
 }
 
 pub(super) fn dock_badge(_: Option<&str>) {}
+
+pub(super) fn dock_badge_now() -> Option<String> {
+    None
+}

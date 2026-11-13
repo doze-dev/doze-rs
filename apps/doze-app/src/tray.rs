@@ -24,6 +24,8 @@ pub(crate) struct Menu {
     generation: u16,
     icon: TrayIcon,
     tooltip: String,
+    /// The last evidence line written (`$DOZE_APP_TRAY_FRAME`).
+    evidence: String,
 }
 
 /// A line's id: the generation in the high half, its place in the low.
@@ -56,6 +58,7 @@ pub(crate) fn model(
     stacks: &[StackView],
     list: &Attention,
     now: SystemTime,
+    names: &tray::Urls<'_>,
 ) -> (Vec<Entry>, TrayIcon, String) {
     let mut m = tray::build(stacks, now);
     // The mark is what is red and not put aside, as the bell counts it.
@@ -65,14 +68,14 @@ pub(crate) fn model(
     } else {
         TrayIcon::Calm
     };
-    (tray::menu(&m, list, stacks), icon, m.tooltip)
+    (tray::menu(&m, list, stacks, names), icon, m.tooltip)
 }
 
 impl Menu {
     /// Puts the item in the menu bar. `None` where there is no menu-bar item (Linux, until its milestone).
     pub(crate) fn install(stacks: &[StackView], now: SystemTime) -> Option<(Menu, Receiver<u32>)> {
         let (tx, rx) = async_channel::unbounded();
-        let (entries, icon, tooltip) = model(stacks, &Attention::default(), now);
+        let (entries, icon, tooltip) = model(stacks, &Attention::default(), now, &|_| None);
         let mut cmds = Vec::new();
         let shown = native(&entries, 0, &mut cmds);
         let tray = Tray::install(
@@ -94,13 +97,20 @@ impl Menu {
             generation: 0,
             icon,
             tooltip,
+            evidence: String::new(),
         };
         Some((m, rx))
     }
 
     /// Follows the hub and Needs you: rebuilds the menu only if it would say something else.
-    pub(crate) fn follow(&mut self, stacks: &[StackView], list: &Attention, now: SystemTime) {
-        let (entries, icon, tooltip) = model(stacks, list, now);
+    pub(crate) fn follow(
+        &mut self,
+        stacks: &[StackView],
+        list: &Attention,
+        now: SystemTime,
+        names: &tray::Urls<'_>,
+    ) {
+        let (entries, icon, tooltip) = model(stacks, list, now, names);
         let sig = tray::signature(&entries);
         if sig != self.signature {
             self.generation = self.generation.wrapping_add(1);
@@ -133,6 +143,33 @@ impl Menu {
         } else {
             None
         }
+    }
+
+    /// The item's picture and place, and the Dock badge, to `$DOZE_APP_TRAY_FRAME` when it is set: a line each time
+    /// either changes, so a picture of exactly that region can be taken from outside.
+    pub(crate) fn evidence(&mut self, badge: usize) {
+        let Some(path) = std::env::var_os("DOZE_APP_TRAY_FRAME") else {
+            return;
+        };
+        let frame = self
+            .tray
+            .icon_frame()
+            .map(|[x, y, w, h]| format!("{x},{y},{w},{h}"))
+            .unwrap_or_default();
+        let tile = doze_os::ui::dock_badge_now().unwrap_or_default();
+        let line = format!(
+            "icon={:?} badge={badge} dock_tile_badge={tile:?} frame={frame}\n",
+            self.icon
+        );
+        if line == self.evidence {
+            return;
+        }
+        self.evidence.clone_from(&line);
+        let _ = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(path)
+            .and_then(|mut f| std::io::Write::write_all(&mut f, line.as_bytes()));
     }
 
     /// Opens the menu (for a picture of it).

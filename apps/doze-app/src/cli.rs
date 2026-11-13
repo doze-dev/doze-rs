@@ -98,6 +98,8 @@ pub(crate) struct Shot {
 pub(crate) struct Bench {
     pub(crate) from: From,
     pub(crate) idle: u64,
+    /// How long it stays up after the window closes (`--closed`, default 10 s), for a reading of the closed app.
+    pub(crate) closed: Option<u64>,
     /// The logs viewer under load instead (`--logs`), following for `follow` seconds.
     pub(crate) logs: bool,
     pub(crate) follow: u64,
@@ -111,6 +113,9 @@ pub(crate) enum Cmd {
     Open(App),
     Shot(Box<Shot>),
     Bench(Bench),
+    /// `doze-app fixture-serve NAME ROOT`: a fixture daemon alone, on its stack's own socket under `ROOT/home`, so an app
+    /// in another process can be measured without the fixture in it (feature `fixtures`).
+    FixtureServe(String, std::path::PathBuf),
 }
 
 fn value(args: &mut impl Iterator<Item = String>, flag: &str) -> Result<String, String> {
@@ -137,6 +142,12 @@ pub(crate) fn parse(args: impl IntoIterator<Item = String>) -> Result<Cmd, Strin
         Some("open") => {
             args.next();
             app(args).map(Cmd::Open)
+        }
+        Some("fixture-serve") => {
+            args.next();
+            let name = value(&mut args, "fixture-serve")?;
+            let root = value(&mut args, "fixture-serve")?;
+            Ok(Cmd::FixtureServe(name, root.into()))
         }
         _ => app(args).map(Cmd::App),
     }
@@ -273,6 +284,7 @@ fn bench(mut args: impl Iterator<Item = String>) -> Result<Bench, String> {
         }
         match a.as_str() {
             "--idle" => b.idle = number(&value(&mut args, &a)?, "--idle")?,
+            "--closed" => b.closed = Some(number(&value(&mut args, &a)?, "--closed")?),
             "--logs" => b.logs = true,
             "--follow" => b.follow = number(&value(&mut args, &a)?, "--follow")?,
             _ => return Err(format!("bench: unknown flag {a}")),

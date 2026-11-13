@@ -116,9 +116,11 @@ pub(super) fn press(cx: &mut App, it: &Item, f: &Fix) -> bool {
         Outside::Holder(k, name, pid) => acts(cx, |a, cx| a.stop_holder_for(&k, &name, pid, cx)),
         Outside::Stack(k, action) => acts(cx, |a, cx| a.stack(&k, action, cx)),
         Outside::Dismiss(k) => {
+            // One list in two places: the menu bar's and the window's both let its items go without "fixed".
             let dir = key_str(&k);
-            if let Some(a) = around(cx) {
-                a.steady.quiet(|i| i.key == dir);
+            super::quiet_menu(&dir, cx);
+            if let Some(h) = cx.try_global::<crate::app::State>().and_then(|s| s.window) {
+                let _ = h.update(cx, |root, _, _| root.attn.quiet(&dir));
             }
             acts(cx, |a, cx| a.dismiss_failure(&k, cx));
         }

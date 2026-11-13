@@ -422,9 +422,25 @@ as a launch does (`crate::around`: the menu, Needs you while no window is open, 
 | First frame after the tray click | ≤ 100 ms | 47 / 54 ms |
 | Window open and idle (larder's page) | ≤ 85 MB | 60 MB at 12 s, 56 MB at 27 s; 57 MB |
 | Menu bar only, footprint | ≤ 18 MB (PLAN §6); ≤ 35 MB (M3 brief) | 18 MB on an empty home; 22 MB with the fixture daemon (larder or crash) in the process |
-| After the window closes, footprint | ≤ 35 MB | **37 MB** 3 s and 8 s after the close (larder, fixture daemon in the process; M2 read 35 MB at 8 s): 2 MB over, not yet explained |
+| After the window closes, footprint | ≤ 35 MB | 37 MB with the fixture daemon in the process; **35–36 MB with it in its own process** (below) |
 | CPU, menu bar only | ≤ 0.05 % | 0.0 % (ps, sampled at 25 s) |
 
 The menu is rebuilt only when its signature changes: Needs you's detail (its "next in 4s") is left out of the
 signature, and the stack line no longer carries the countdown (Go's line did, so Go rebuilt its menu every second
 through a crash loop).
+
+**After the window closes, the fixture out of the process.** `doze-app fixture-serve larder ROOT` (feature `fixtures`)
+runs the fixture daemon alone, on its stack's own socket; the app (`release-app`, no fixtures) is benched against
+`DOZE_HOME=ROOT/home` like a real home, so the reading is the app alone. Three runs each, interleaved, M2's binary
+(`origin/app-m2`) against M3's, `--idle 15`, footprint 3 s and 8 s after the close:
+
+| | Window open | 3 s after close | 8 s after close |
+|---|---|---|---|
+| M2 | 59 / 63 / 59 MB | 36 / 36 / 35 MB | 35 / 35 / 35 MB |
+| M3 | 60 / 59 / 60 MB | 36 / 36 / 36 MB | 36 / 35 / 36 MB |
+
+M3 costs at most 1 MB over M2 after the close (the menu bar's own Needs you list and notification rules). The 37 MB
+was the in-process fixture plus noise. A 60 s reading after the close stays at 36 MB; `footprint -v` puts 20 MB of
+it in Malloc Small: what the window's libraries (gpui-component, the fonts and their caches) leave in the heap after
+the window is dropped. That is M2's floor too, sitting on the 35 MB line; bringing it under is a 3.6 (`app-bench`)
+item, not this step's.

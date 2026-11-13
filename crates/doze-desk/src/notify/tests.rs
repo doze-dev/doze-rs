@@ -337,3 +337,35 @@ fn a_notes_id_names_its_stack_and_instance() {
     assert_eq!(place("said/3"), None);
     assert_eq!(place("api/crash"), None);
 }
+
+#[test]
+fn an_episode_that_ends_names_its_note_for_withdrawal() {
+    let mut r = Rules::new();
+    let at = epoch();
+    r.next(&stack(&[fine()]), &hidden, at);
+    assert_eq!(r.next(&stack(&[crash()]), &hidden, at).len(), 1);
+    assert!(r.ended().is_empty(), "still crashing");
+    r.next(&stack(&[fine()]), &hidden, at);
+    assert_eq!(r.ended(), ["shop-1/api/crash", "shop-1/api/stuck"]);
+    assert!(r.ended().is_empty(), "asked once");
+    // Gone ends it too.
+    r.next(&stack(&[crash()]), &hidden, at);
+    r.next(&stack(&[]), &hidden, at);
+    assert_eq!(r.ended(), ["shop-1/api/crash", "shop-1/api/stuck"]);
+    // A failed run, then a good one: the failed run's note goes.
+    r.next(
+        &stack(&[task("done", 0, at - Duration::from_secs(60), 100)]),
+        &hidden,
+        at,
+    );
+    let n = r.next(&stack(&[task("failed", 1, at, 400)]), &hidden, at);
+    assert_eq!(n.len(), 1);
+    let id = n[0].id.clone();
+    r.ended();
+    r.next(
+        &stack(&[task("done", 0, at + Duration::from_secs(60), 100)]),
+        &hidden,
+        at,
+    );
+    assert_eq!(r.ended(), [id]);
+}

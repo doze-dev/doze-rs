@@ -98,7 +98,7 @@ fn keyed(cmd: Cmd, title: &str, key: &str) -> Entry {
 
 /// The menu for the model, the bell's list and the stacks it was built from.
 #[must_use]
-pub fn menu(m: &Model, a: &Attention, stacks: &[StackView]) -> Vec<Entry> {
+pub fn menu(m: &Model, a: &Attention, stacks: &[StackView], names: &Urls<'_>) -> Vec<Entry> {
     let mut out = needs_entries(&needs_of(a));
     if m.lines.is_empty() {
         out.push(Entry::Note("No stacks yet · open a folder in doze".into()));
@@ -107,12 +107,15 @@ pub fn menu(m: &Model, a: &Attention, stacks: &[StackView]) -> Vec<Entry> {
     }
     let find = |k: &StackKey| stacks.iter().find(|s| &s.key == k);
     let (shown, more) = split(&m.lines);
-    out.extend(shown.iter().map(|l| stack_entry(l, find(&l.key))));
+    out.extend(shown.iter().map(|l| stack_entry(l, find(&l.key), names)));
     if !more.is_empty() {
         // The rest, a submenu away: it scrolls on its own if it must.
         out.push(Entry::Submenu {
             title: format!("More stacks · {}", more.len()),
-            entries: more.iter().map(|l| stack_entry(l, find(&l.key))).collect(),
+            entries: more
+                .iter()
+                .map(|l| stack_entry(l, find(&l.key), names))
+                .collect(),
         });
     }
     out.push(Entry::Separator);
@@ -160,7 +163,7 @@ fn needs_entries(n: &Needs) -> Vec<Entry> {
 }
 
 /// One stack's line and its submenu of what fits its state.
-fn stack_entry(l: &Line, st: Option<&StackView>) -> Entry {
+fn stack_entry(l: &Line, st: Option<&StackView>, names: &Urls<'_>) -> Entry {
     let mark = if l.trouble {
         "⚠︎  "
     } else if l.running {
@@ -189,7 +192,7 @@ fn stack_entry(l: &Line, st: Option<&StackView>) -> Entry {
             entries: sub,
         };
     }
-    if let Some(url) = st.and_then(web_url) {
+    if let Some(url) = st.and_then(|s| web_url(s, names)) {
         sub.push(item(Cmd::OpenUrl(url.clone()), format!("Open {url}")));
     }
     if let Some(st) = st.filter(|s| !s.instances.is_empty()) {
@@ -281,8 +284,12 @@ fn verb_for(v: &words::Instance, look: Look) -> Option<(Verb, &'static str)> {
     }
 }
 
-/// The address to open a running stack at (Go `WebURL`): the first https address, else an app's name and port.
-fn web_url(st: &StackView) -> Option<String> {
+/// What the names registry says a host's URL is (`library::Names::url_for`): port-less while the front door is up.
+pub type Urls<'a> = dyn Fn(&str) -> Option<String> + 'a;
+
+/// The address to open a running stack at (Go `WebURL`): the first https address, else an app's URL from the names
+/// registry, else its name and port.
+fn web_url(st: &StackView, names: &Urls<'_>) -> Option<String> {
     if let Some(v) = st.instances.iter().find(|v| !v.https.is_empty()) {
         return Some(v.https.clone());
     }
@@ -290,6 +297,9 @@ fn web_url(st: &StackView) -> Option<String> {
         .iter()
         .filter(|v| v.kind == "app" && !v.domain.is_empty())
         .find_map(|v| {
+            if let Some(url) = names(&v.domain) {
+                return Some(url);
+            }
             let w = crate::convert::instance(v);
             let r = words::reach(&w)?;
             r.addr
