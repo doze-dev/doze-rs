@@ -152,9 +152,10 @@ fn facts(t: &Tokens, v: &DialogView) -> Option<AnyElement> {
                 _ => d.text_color(tone(t, &f.tone)),
             }
         });
+        // Go's `.facts`: the word centred against what may wrap to two lines.
         div()
             .flex()
-            .items_start()
+            .items_center()
             .child(
                 div()
                     .w(px(110.))
@@ -168,7 +169,7 @@ fn facts(t: &Tokens, v: &DialogView) -> Option<AnyElement> {
         div()
             .flex()
             .flex_col()
-            .gap(px(4.))
+            .gap(px(10.))
             .children(lines)
             .into_any_element(),
     )
@@ -387,7 +388,7 @@ impl Render for DialogView {
             .border_1()
             .border_color(if d.danger { t.bad } else { t.line2 })
             .bg(t.panel)
-            .shadow(vec![super::shadow(&t)])
+            .shadow(super::shadow(&t))
             .font_family(UI_FAMILY)
             .text_size(px(13.))
             .line_height(px(19.))

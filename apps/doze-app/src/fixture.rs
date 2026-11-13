@@ -116,7 +116,7 @@ impl Fixture {
     }
 
     /// What the daemon was asked, in order.
-    #[cfg(test)]
+    #[cfg(all(test, feature = "capture"))]
     pub(crate) fn requests(&self) -> Vec<doze_control::Request> {
         self.daemon
             .as_ref()

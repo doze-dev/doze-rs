@@ -79,7 +79,7 @@ fn alert(t: &Tokens, it: &Item, here: bool, cx: &mut Context<Root>) -> gpui::Div
         .border_1()
         .border_color(alpha(t.bad, 0.6))
         .bg(t.panel)
-        .shadow(vec![super::shadow(t)])
+        .shadow(super::shadow(t))
         .child(
             div()
                 .mt(px(5.))
@@ -133,7 +133,7 @@ fn alert(t: &Tokens, it: &Item, here: bool, cx: &mut Context<Root>) -> gpui::Div
         )
 }
 
-/// The alerts, bottom right, newest last.
+/// The alerts, newest last: the top of the column at the foot, the toasts under them (Go's `.toasts`).
 pub(crate) fn alerts(
     t: &Tokens,
     items: &[Item],
@@ -156,14 +156,7 @@ pub(crate) fn alerts(
                 motion,
             )
         }));
-    Some(
-        div()
-            .absolute()
-            .right(px(18.))
-            .bottom(px(54.))
-            .child(stack)
-            .into_any_element(),
-    )
+    Some(stack.into_any_element())
 }
 
 /// The strip's first line: what it is, for how long, and its two buttons.

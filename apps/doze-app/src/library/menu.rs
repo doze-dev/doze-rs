@@ -189,7 +189,7 @@ pub(super) fn menu(t: &Tokens, st: &LibStack, cx: &mut Context<LibraryView>) -> 
         .border_1()
         .border_color(t.line2)
         .bg(t.panel)
-        .shadow(vec![shadow(t)])
+        .shadow(shadow(t))
         .occlude()
         .children(els)
 }

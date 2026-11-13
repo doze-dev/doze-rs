@@ -88,7 +88,7 @@ pub(crate) fn panel(t: &Tokens, width: f32, gap: f32, title: String) -> gpui::Di
         .border_1()
         .border_color(t.line2)
         .bg(t.panel)
-        .shadow(vec![super::shadow(t)])
+        .shadow(super::shadow(t))
         .font_family(crate::widgets::UI_FAMILY)
         .text_size(px(13.))
         .line_height(px(19.))

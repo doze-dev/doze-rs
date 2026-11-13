@@ -251,7 +251,8 @@ impl Render for EmptyView {
         let keys = [
             ("1-3".to_owned(), "pick"),
             ("⏎".to_owned(), "choose"),
-            ("esc".to_owned(), "close without writing anything"),
+            // Go's chip: esc leaves the page, ⌘W the window; neither writes anything.
+            ("esc ⌘W".to_owned(), "close without writing anything"),
         ];
         div()
             .key_context("Empty")

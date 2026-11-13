@@ -294,10 +294,9 @@ fn columns(t: &Tokens) -> impl IntoElement {
     div().flex().gap(px(24.)).children(cols)
 }
 
-/// The sheet.
-pub(crate) fn sheet(t: &Tokens, version: &str) -> impl IntoElement {
-    let _ = Scope::Global;
-    let foot = div()
+/// The sheet's foot: the keys are commands too, the version, esc.
+fn foot(t: &Tokens, version: &str) -> gpui::Div {
+    div()
         .flex()
         .items_center()
         .gap(px(6.))
@@ -328,11 +327,17 @@ pub(crate) fn sheet(t: &Tokens, version: &str) -> impl IntoElement {
         .child(div().flex_1())
         .child(SharedString::from(format!("doze {version}")))
         .child(kbd_chip(t, "esc", 10., 600., 5.))
-        .child("close");
-    div()
-        .w(px(1220.))
-        .max_w(gpui::relative(0.96))
-        .max_h(gpui::relative(0.95))
+        .child("close")
+}
+
+/// The sheet.
+pub(crate) fn sheet(t: &Tokens, version: &str) -> impl IntoElement {
+    let _ = Scope::Global;
+    let foot = foot(t, version);
+    let panel = div()
+        .w(px(1160.))
+        .max_w_full()
+        .max_h_full()
         .flex()
         .flex_col()
         .gap(px(12.))
@@ -345,7 +350,7 @@ pub(crate) fn sheet(t: &Tokens, version: &str) -> impl IntoElement {
         .border_1()
         .border_color(t.line2)
         .bg(t.panel)
-        .shadow(vec![super::shadow(t)])
+        .shadow(super::shadow(t))
         .child(
             div()
                 .text_size(px(16.))
@@ -359,11 +364,32 @@ pub(crate) fn sheet(t: &Tokens, version: &str) -> impl IntoElement {
                 .flex_1()
                 .min_h_0()
                 .overflow_y_scroll()
-                .child(columns(t)),
+                .flex()
+                .flex_col()
+                .gap(px(6.))
+                .child(columns(t))
+                // The words follow the keys, in the same scroll: the keys get the room.
+                .child(words(t)),
         )
-        .child(words(t))
-        .child(foot)
+        .child(foot);
+    // Inset below the title bar (its tabs stay in sight) and off the window's edges; the keys scroll when the window
+    // is short.
+    div()
+        .absolute()
+        .top(px(INSET_TOP))
+        .bottom(px(INSET))
+        .left(px(INSET))
+        .right(px(INSET))
+        .flex()
+        .justify_center()
+        .items_start()
+        .child(panel)
 }
+
+/// The title bar's height and a margin under it.
+const INSET_TOP: f32 = 42. + 22.;
+/// The margin at the window's sides and foot.
+const INSET: f32 = 28.;
 
 #[cfg(test)]
 mod tests {

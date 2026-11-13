@@ -49,7 +49,7 @@ fn toast(t: &Tokens, x: &Toast, motion: Motion, cx: &mut Context<ToastsView>) ->
             .border_1()
             .border_color(if bad { t.bad } else { t.line2 })
             .bg(t.panel)
-            .shadow(vec![super::shadow(t)])
+            .shadow(super::shadow(t))
             .child(div().size(px(10.)).flex_none().rounded_full().bg(if bad {
                 t.bad
             } else {
@@ -182,7 +182,7 @@ fn recent(t: &Tokens, lines: &[Notice], cx: &mut Context<ToastsView>) -> AnyElem
         .border_1()
         .border_color(t.line2)
         .bg(t.panel)
-        .shadow(vec![super::shadow(t)])
+        .shadow(super::shadow(t))
         .occlude()
         .child(head)
         .child(
@@ -213,9 +213,6 @@ impl Render for ToastsView {
             return div().into_any_element();
         }
         let mut stack = div()
-            .absolute()
-            .right(px(20.))
-            .bottom(px(46.))
             .flex()
             .flex_col()
             .items_end()

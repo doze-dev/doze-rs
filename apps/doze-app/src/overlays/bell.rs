@@ -377,7 +377,7 @@ impl Render for Bell {
             .border_1()
             .border_color(t.line2)
             .bg(t.panel)
-            .shadow(vec![super::shadow(&t)])
+            .shadow(super::shadow(&t))
             .occlude()
             .on_action(cx.listener(|this, _: &MoveDown, _, cx| this.step(1, cx)))
             .on_action(cx.listener(|this, _: &MoveUp, _, cx| this.step(-1, cx)))

@@ -322,8 +322,7 @@ impl Render for Root {
                 this.dropped(paths, window, cx)
             }))
             .child(page)
-            .children(self.attn_els(cx))
-            .child(self.toasts.clone())
+            .child(self.foot_column(cx))
             .children(self.overlay_el(cx))
     }
 }

@@ -34,6 +34,26 @@ impl Root {
             }))
     }
 
+    /// One column at the foot, as Go's `.toasts`: Needs you's alerts, then the toasts; on Home, above the Machine strip.
+    pub(super) fn foot_column(&self, cx: &mut Context<Self>) -> gpui::Div {
+        use gpui::{ParentElement as _, Styled as _, div, px};
+        let bottom = if matches!(self.screen, super::Screen::Library) {
+            96.
+        } else {
+            46.
+        };
+        div()
+            .absolute()
+            .right(px(20.))
+            .bottom(px(bottom))
+            .flex()
+            .flex_col()
+            .items_end()
+            .gap(px(8.))
+            .children(self.attn_els(cx))
+            .child(self.toasts.clone())
+    }
+
     /// A verb on a service, or on the whole stack when `target` is empty (Go store's `ask`, then `run`).
     pub(crate) fn do_verb(&mut self, v: &Verb, cx: &mut Context<Self>) {
         let key = StackKey::new(&v.stack);

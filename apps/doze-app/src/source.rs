@@ -82,7 +82,7 @@ impl Source {
     }
 
     /// The verbs the fixture daemon was asked, as `op target` (`sleep db`).
-    #[cfg(test)]
+    #[cfg(all(test, feature = "capture"))]
     pub(crate) fn verbs(&self) -> Vec<String> {
         self._fixture
             .as_ref()

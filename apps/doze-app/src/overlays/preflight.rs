@@ -135,7 +135,8 @@ impl PreflightView {
             .flex()
             .items_start()
             .gap(px(10.))
-            .py(px(9.))
+            // Go's `.pf .row`: 12 px above and below, so each check reads as its own.
+            .py(px(12.))
             .border_t_1()
             .border_color(t.line)
             .child(

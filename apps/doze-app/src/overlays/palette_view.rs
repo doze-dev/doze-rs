@@ -353,7 +353,7 @@ impl Render for Palette {
             .border_1()
             .border_color(t.line2)
             .bg(t.panel)
-            .shadow(vec![super::shadow(&t)])
+            .shadow(super::shadow(&t))
             .on_action(cx.listener(|this, _: &ScopeIn, window, cx| {
                 if !this.scope_in(window, cx) {
                     cx.propagate();
