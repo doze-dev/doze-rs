@@ -149,9 +149,11 @@ impl Acts {
                     Ok(said) if !said.is_empty() => a.say(said, false, cx),
                     Ok(_) => cx.notify(),
                     Err(f) => {
-                        // The page keeps it; the toast says the same in a line, from anywhere.
-                        a.say(f.said(), true, cx);
+                        // The page's banner keeps it and Needs you alerts it, from anywhere (as Go); the line is kept
+                        // for Recent, with no third toast.
+                        a.notices.remember(f.said(), std::time::SystemTime::now());
                         a.failed.insert(k, f);
+                        cx.notify();
                     }
                 }
             });

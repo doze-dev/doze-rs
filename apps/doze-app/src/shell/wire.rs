@@ -42,6 +42,12 @@ impl Root {
         } else {
             46.
         };
+        // Recent opens at the top of the column: the alerts step aside while it is open.
+        let alerts = if self.acts.read(cx).recent {
+            Vec::new()
+        } else {
+            self.attn_els(cx)
+        };
         div()
             .absolute()
             .right(px(20.))
@@ -50,7 +56,7 @@ impl Root {
             .flex_col()
             .items_end()
             .gap(px(8.))
-            .children(self.attn_els(cx))
+            .children(alerts)
             .child(self.toasts.clone())
     }
 

@@ -354,7 +354,13 @@ impl Bell {
             .child(k("⌘⏎", "show"))
             .child(k("n", "not now"))
             .child(div().flex_1())
-            .child("leaves by itself once fixed")
+            .child(
+                div()
+                    .min_w_0()
+                    .overflow_hidden()
+                    .text_ellipsis()
+                    .child("leaves by itself once fixed"),
+            )
     }
 }
 

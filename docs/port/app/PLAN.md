@@ -8,7 +8,8 @@ actions through `doze --json`, the checks before Up and before a wake, the start
 detector) and `apps/doze-app/src/act` with its overlays. Differences: the overview's ⋯ opens ⌘K (its stack commands are
 palette rows) rather than a menu of its own; Remove does not forget the stack's domain routes (that is the names daemon's,
 waiting for its Rust port); the domain check reads `doze --json doctor` and its fix copies `doze trust` (the password
-prompt is M3's); a failed start is a toast as well as the page's banner.
+prompt is M3's). In the combined branch a failed start is the page's banner and Needs you's alert, as Go's (its line is
+kept for Recent, with no toast of its own).
 
 M2 combined (branch `app-m2`, superseding `app-m2-act` and `app-m2-attention` for review): steps 2.3, 2.4 and 2.7
 (⌘K, Needs you, alerts, the away strip, the keys and the menu bar) wired to the verbs. ⌘K's and Needs you's `Verb` and

@@ -150,7 +150,7 @@ fn recent(t: &Tokens, lines: &[Notice], cx: &mut Context<ToastsView>) -> AnyElem
                 .flex_1()
                 .text_size(px(12.))
                 .text_color(t.dim)
-                .child("the last 20"),
+                .child("the last 20 · from ⌘K › recent messages"),
         )
         .child(kbd_plain("esc", 11., t.dim, 500.))
         .child(close_x(t, "recent-x".into(), cx, |this, cx| {

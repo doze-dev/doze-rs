@@ -234,8 +234,14 @@ impl Palette {
         } else {
             "try: api restart · db psql · api timeout · theme teal".into()
         };
-        f.child(div().flex_1())
-            .child(div().flex_none().child(SharedString::from(note)))
+        // The words at the end give way to the keys (an ellipsis), keeping the foot's padding.
+        f.child(div().flex_1()).child(
+            div()
+                .min_w_0()
+                .overflow_hidden()
+                .text_ellipsis()
+                .child(SharedString::from(note)),
+        )
     }
 
     /// The sections and their rows, then the no-match line.

@@ -195,7 +195,7 @@ impl Tokens {
         if self.dark {
             alpha(mix(self.well, gpui::black(), 50.), 0.42)
         } else {
-            alpha(self.bright, 0.16)
+            alpha(self.bright, 0.28)
         }
     }
 

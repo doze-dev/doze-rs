@@ -166,7 +166,9 @@ fn line(t: &Tokens, l: &Line) -> AnyElement {
         )
         .child(
             div()
-                .flex_none()
+                .min_w_0()
+                .overflow_hidden()
+                .text_ellipsis()
                 .text_color(if l.built { t.bright } else { t.dim })
                 .font_weight(w(500.))
                 .child(SharedString::from(l.label.clone())),
@@ -219,27 +221,25 @@ fn words(t: &Tokens) -> impl IntoElement {
             )
             .child(div().flex_1().min_w_0().text_color(t.text).child(*means))
     };
-    // Three columns of four, under the keys: each meaning reads whole on one line.
-    let cols = WORDS.chunks(4).map(|c| {
-        div()
-            .flex()
-            .flex_col()
-            .flex_1()
-            .min_w_0()
-            .children(c.iter().map(word))
-    });
+    // Go's third column: beside the keys, always in view, its own scroll when the window is short.
     div()
+        .id("help-words")
+        .w(px(270.))
+        .flex_none()
+        .min_h_0()
+        .overflow_y_scroll()
         .flex()
         .flex_col()
-        .pt(px(10.))
-        .border_t_1()
+        .gap(px(2.))
+        .pl(px(20.))
+        .border_l_1()
         .border_color(t.line)
         .child(
             div()
                 .pb(px(4.))
                 .child(tracked("The words", 10.5, 650., t.dim, 0.66)),
         )
-        .child(div().flex().gap(px(24.)).children(cols))
+        .children(WORDS.iter().map(word))
 }
 
 /// Where to start each new column so that the tallest of `n` columns, the groups kept in order, is as short as it can
@@ -278,7 +278,7 @@ fn columns(t: &Tokens) -> impl IntoElement {
         .map(|(sc, rows)| group(t, sc.title(), &lines(&rows)))
         .collect();
     let heights: Vec<f32> = groups.iter().map(|g| g.0).collect();
-    let cuts = split(&heights, 4);
+    let cuts = split(&heights, 3);
     let mut cols: Vec<gpui::Div> = Vec::new();
     let mut col = div().flex().flex_col().flex_1().min_w_0();
     for (i, (_, el)) in groups.into_iter().enumerate() {
@@ -335,7 +335,7 @@ pub(crate) fn sheet(t: &Tokens, version: &str) -> impl IntoElement {
     let _ = Scope::Global;
     let foot = foot(t, version);
     let panel = div()
-        .w(px(1160.))
+        .w(px(1220.))
         .max_w_full()
         .max_h_full()
         .flex()
@@ -360,15 +360,19 @@ pub(crate) fn sheet(t: &Tokens, version: &str) -> impl IntoElement {
         )
         .child(
             div()
-                .id("help-keys")
+                .flex()
                 .flex_1()
                 .min_h_0()
-                .overflow_y_scroll()
-                .flex()
-                .flex_col()
-                .gap(px(6.))
-                .child(columns(t))
-                // The words follow the keys, in the same scroll: the keys get the room.
+                .gap(px(20.))
+                .child(
+                    div()
+                        .id("help-keys")
+                        .flex_1()
+                        .min_w_0()
+                        .min_h_0()
+                        .overflow_y_scroll()
+                        .child(columns(t)),
+                )
                 .child(words(t)),
         )
         .child(foot);
