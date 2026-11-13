@@ -340,16 +340,17 @@ function OffsetsDialog({ id, head, onDone }: { id: string; head: GroupHead; onDo
           <fieldset className="flex flex-col gap-1">
             <legend className="mb-2 text-sm font-medium">Topic</legend>
             {v.topics.map(([t, ps]) => (
-              <label key={t} htmlFor={`od-${t}`} className="flex cursor-pointer items-start gap-3 rounded-lg p-2.5 hover:bg-accent/50">
+              // The checkbox and its label are siblings (shadcn's pattern): a label wrapping the control toggled it twice.
+              <div key={t} className="flex items-start gap-3 rounded-lg p-2.5 hover:bg-accent/50">
                 <Checkbox id={`od-${t}`} checked={chosen.includes(t)} onCheckedChange={() => toggle(t)} className="mt-0.5" data-testid="offsets-topic" />
-                <span className="min-w-0">
+                <label htmlFor={`od-${t}`} className="min-w-0 flex-1 cursor-pointer" data-testid="offsets-topic-label">
                   <span className="block font-mono text-[13.5px] text-bright">{t}</span>
                   <span className="block truncate text-[12px] text-muted-foreground">
                     {plural(ps.length, "offset")}: {ps.slice(0, 4).map((p) => `${t}-${p}`).join(", ")}
                     {ps.length > 4 ? ", ..." : ""}
                   </span>
-                </span>
-              </label>
+                </label>
+              </div>
             ))}
           </fieldset>
         )}

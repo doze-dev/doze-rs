@@ -7,6 +7,7 @@ import { TopBar } from "@/components/app/top-bar";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { ConnectPage } from "@/pages/connect";
 import { accessSearch, configSearch, connectSearch, createSearch, gallerySearch, labSearch, settingsSearch } from "@/lib/search";
+import { useSidebarOpen } from "@/lib/sidebar-state";
 import { messagesSearch, partitionSearch, topicSearch, topicsSearch } from "@/lib/topic-search";
 import { HomePage } from "@/pages/home";
 import { liveSearch } from "@/pages/live/search";
@@ -15,6 +16,7 @@ import { groupSearch, groupsSearch, lagSearch, membersSearch, storySearch } from
 
 function Shell() {
   const [palette, setPalette] = useState(false);
+  const [sidebar, setSidebar] = useSidebarOpen();
   // Where the focus goes back when the palette closes: what had it when the palette opened, else the top bar's trigger.
   const opener = useRef<HTMLElement | null>(null);
   const openPalette = (o: boolean) => {
@@ -25,7 +27,7 @@ function Shell() {
     setPalette(o);
   };
   return (
-    <SidebarProvider className="[--sidebar-width:13rem]">
+    <SidebarProvider className="[--sidebar-width:13rem]" open={sidebar} onOpenChange={setSidebar}>
       <AppSidebar />
       <SidebarInset className="min-w-0 bg-background">
         <TopBar onPalette={() => openPalette(true)} />

@@ -4,7 +4,7 @@
 // command), then the same CreateTopics with `validate_only` once nothing is wrong, whose answer is Kafka's.
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate, useSearch } from "@tanstack/react-router";
+import { Link, Navigate, useNavigate, useSearch } from "@tanstack/react-router";
 import { CheckIcon, CircleCheckIcon, LoaderCircleIcon, SendIcon } from "lucide-react";
 import { useEffect, useMemo } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
@@ -107,6 +107,23 @@ function Stepper({ step, reached }: { step: CreateStep; reached: number }) {
       })}
     </TabsList>
   );
+}
+
+const CREATED = "doze:created:";
+function keepCreated(a: CreatedAnswer) {
+  try {
+    sessionStorage.setItem(CREATED + a.created.name, JSON.stringify(a));
+  } catch {
+    // private mode: a reload shows the topic instead
+  }
+}
+function keptCreated(name: string): CreatedAnswer | null {
+  try {
+    const raw = sessionStorage.getItem(CREATED + name);
+    return raw ? (JSON.parse(raw) as CreatedAnswer) : null;
+  } catch {
+    return null;
+  }
 }
 
 function Created({ a }: { a: CreatedAnswer }) {
@@ -250,7 +267,10 @@ export function CreateTopicPage() {
     onSuccess: (a) => {
       if ("created" in a) {
         void afterWrite(qc);
-        window.scrollTo({ top: 0 });
+        // The done state has its own address (`?created=<name>`), so a reload shows it and never the form again; what the
+        // server answered is kept for the session to draw it.
+        keepCreated(a);
+        void navigate({ search: { created: a.created.name }, replace: true, resetScroll: true });
       }
     },
   });
@@ -259,7 +279,11 @@ export function CreateTopicPage() {
   const liveRefusal = check.error instanceof ApiFailure && check.error.status === 422 ? detailOf<CreateRefused>(check.error) : undefined;
   const templateOf = useMemo(() => Object.fromEntries(TEMPLATES.map((t) => [t.id, t])), []);
 
-  if (answered && "created" in answered) return <Created a={answered} />;
+  if (search.created) {
+    const done = answered && "created" in answered && answered.created.name === search.created ? answered : keptCreated(search.created);
+    // Kept no more (another browser session): the topic itself is the done state.
+    return done ? <Created a={done} /> : <Navigate to="/topics/$topic" params={{ topic: search.created }} replace />;
+  }
 
   const live = (
     <p className="min-h-5 text-[12.5px]" data-testid="live-check" aria-live="polite">

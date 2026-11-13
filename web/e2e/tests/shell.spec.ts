@@ -39,6 +39,28 @@ test("the sidebar collapses to icons and back, and a collapsed item still naviga
   await expect(sidebar).toHaveAttribute("data-state", "expanded");
 });
 
+test("the sidebar remembers the person's choice across a reload, and starts as icons below 1280 px (CON-1349)", async ({ page }) => {
+  const sidebar = page.locator("[data-slot=sidebar][data-state]");
+  await page.goto("/");
+  await expect(sidebar).toHaveAttribute("data-state", "expanded");
+  await page.keyboard.press("ControlOrMeta+b");
+  await expect(sidebar).toHaveAttribute("data-state", "collapsed");
+  await page.reload();
+  await expect(sidebar).toHaveAttribute("data-state", "collapsed");
+  // A narrow window with no choice made: icons; a choice made there is kept too.
+  await page.evaluate(() => localStorage.removeItem("doze:sidebar"));
+  await page.setViewportSize({ width: 1024, height: 900 });
+  await page.reload();
+  await expect(sidebar).toHaveAttribute("data-state", "collapsed");
+  await page.getByTestId("topbar").getByRole("button", { name: "Toggle Sidebar" }).click();
+  await expect(sidebar).toHaveAttribute("data-state", "expanded");
+  await page.reload();
+  await expect(sidebar).toHaveAttribute("data-state", "expanded");
+  // One main landmark, around the page.
+  await expect(page.getByRole("main")).toHaveCount(1);
+  await page.evaluate(() => localStorage.removeItem("doze:sidebar"));
+});
+
 test("the top bar: the address chip copies, the security chip opens Access", async ({ page }) => {
   const chip = page.getByTestId("address-chip");
   await expect(chip).toHaveText(/\d+\.\d+\.\d+\.\d+:\d+/);

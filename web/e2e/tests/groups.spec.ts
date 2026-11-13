@@ -305,6 +305,11 @@ test("Delete offsets forgets the commits of the topics ticked; Delete group then
   await expect(dialog.getByTestId("offsets-submit")).toBeDisabled();
   await dialog.getByText(TOPIC, { exact: true }).click();
   await expect(box).toBeChecked();
+  // The name is the checkbox's label both ways (CON-1347): a click on it unticks and ticks again.
+  await dialog.getByTestId("offsets-topic-label").click();
+  await expect(box).not.toBeChecked();
+  await dialog.getByTestId("offsets-topic-label").click();
+  await expect(box).toBeChecked();
   await expect(dialog.getByTestId("offsets-submit")).toHaveText(/Delete 3 offsets/);
   await dialog.getByTestId("offsets-submit").click();
   await expect(page.locator("[data-sonner-toast]").filter({ hasText: "Deleted 3 committed offsets" })).toBeVisible();
