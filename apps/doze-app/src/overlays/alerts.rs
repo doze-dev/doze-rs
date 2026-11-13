@@ -28,7 +28,8 @@ fn enter(el: gpui::Div, id: SharedString, motion: Motion) -> AnyElement {
     .into_any_element()
 }
 
-fn alert(t: &Tokens, it: &Item, here: bool, cx: &mut Context<Root>) -> gpui::Div {
+/// An alert's buttons: its first fix that is not Show, and Show unless its page is the one on screen.
+fn alert_fixes(t: &Tokens, it: &Item, here: bool, cx: &mut Context<Root>) -> gpui::Div {
     let mut fx = div().flex().gap(px(6.)).mt(px(6.));
     if let Some(f) = it.fixes.iter().find(|f| f.kind != FixKind::Show).cloned() {
         let item = it.clone();
@@ -62,6 +63,11 @@ fn alert(t: &Tokens, it: &Item, here: bool, cx: &mut Context<Root>) -> gpui::Div
             .on_click(cx.listener(move |r, _, window, cx| r.show_item(&item, window, cx))),
         );
     }
+    fx
+}
+
+fn alert(t: &Tokens, it: &Item, here: bool, cx: &mut Context<Root>) -> gpui::Div {
+    let fx = alert_fixes(t, it, here, cx);
     let id = it.id.clone();
     div()
         .w(px(380.))
@@ -160,9 +166,9 @@ pub(crate) fn alerts(
     )
 }
 
-/// The away strip, under the title bar.
-pub(crate) fn away(t: &Tokens, a: &Away, cx: &mut Context<Root>) -> AnyElement {
-    let head = div()
+/// The strip's first line: what it is, for how long, and its two buttons.
+fn away_head(t: &Tokens, a: &Away, cx: &mut Context<Root>) -> gpui::Div {
+    div()
         .flex()
         .items_center()
         .gap(px(10.))
@@ -187,61 +193,78 @@ pub(crate) fn away(t: &Tokens, a: &Away, cx: &mut Context<Root>) -> AnyElement {
             btn(t, "away-ok", "Got it", "", Btn::Quiet, None)
                 .h(px(26.))
                 .on_click(cx.listener(|r, _, _, cx| r.away_done(cx))),
-        );
-    let rows = a.events.iter().enumerate().map(|(i, e)| {
-        let tone = match e.tone {
-            "bad" => t.bad,
-            "good" => t.good,
-            _ => t.dim,
-        };
-        let (key, inst) = (e.key.clone(), e.instance.clone());
-        div()
-            .id(("away", i))
-            .flex()
-            .items_center()
-            .gap(px(10.))
-            .h(px(28.))
-            .px(px(8.))
-            .rounded(px(6.))
-            .cursor_pointer()
-            .hover(|d| d.bg(t.sel))
-            .on_click(cx.listener(move |r, _, window, cx| r.away_open(&key, &inst, window, cx)))
-            .child(div().size(px(7.)).rounded_full().bg(tone))
-            .child(
-                div()
-                    .w(px(84.))
-                    .flex_none()
-                    .font_family(MONO_FAMILY)
-                    .text_size(px(11.5))
-                    .text_color(t.dim)
-                    .child(SharedString::from(e.at.clone())),
-            )
-            .child(
-                div()
-                    .flex()
-                    .flex_1()
-                    .min_w_0()
-                    .gap(px(5.))
-                    .child(
-                        div()
-                            .font_weight(w(600.))
-                            .text_color(t.bright)
-                            .child(SharedString::from(e.instance.clone())),
-                    )
-                    .child(
-                        div()
-                            .text_color(t.text)
-                            .child(SharedString::from(e.what.clone())),
-                    ),
-            )
-            .child(
-                div()
-                    .flex_none()
-                    .text_size(px(12.))
-                    .text_color(tone)
-                    .child(SharedString::from(e.now.clone())),
-            )
-    });
+        )
+}
+
+/// One line of the strip: when, who, what, how it stands now; a click opens the service.
+fn away_row(
+    t: &Tokens,
+    i: usize,
+    e: &doze_desk::attention::away::AwayEvent,
+    cx: &mut Context<Root>,
+) -> gpui::Stateful<gpui::Div> {
+    let tone = match e.tone {
+        "bad" => t.bad,
+        "good" => t.good,
+        _ => t.dim,
+    };
+    let (key, inst) = (e.key.clone(), e.instance.clone());
+    div()
+        .id(("away", i))
+        .flex()
+        .items_center()
+        .gap(px(10.))
+        .h(px(28.))
+        .px(px(8.))
+        .rounded(px(6.))
+        .cursor_pointer()
+        .hover(|d| d.bg(t.sel))
+        .on_click(cx.listener(move |r, _, window, cx| r.away_open(&key, &inst, window, cx)))
+        .child(div().size(px(7.)).rounded_full().bg(tone))
+        .child(
+            div()
+                .w(px(84.))
+                .flex_none()
+                .font_family(MONO_FAMILY)
+                .text_size(px(11.5))
+                .text_color(t.dim)
+                .child(SharedString::from(e.at.clone())),
+        )
+        .child(
+            div()
+                .flex()
+                .flex_1()
+                .min_w_0()
+                .gap(px(5.))
+                .child(
+                    div()
+                        .font_weight(w(600.))
+                        .text_color(t.bright)
+                        .child(SharedString::from(e.instance.clone())),
+                )
+                .child(
+                    div()
+                        .text_color(t.text)
+                        .child(SharedString::from(e.what.clone())),
+                ),
+        )
+        .child(
+            div()
+                .flex_none()
+                .text_size(px(12.))
+                .text_color(tone)
+                .child(SharedString::from(e.now.clone())),
+        )
+}
+
+/// The away strip, under the title bar.
+pub(crate) fn away(t: &Tokens, a: &Away, cx: &mut Context<Root>) -> AnyElement {
+    let head = away_head(t, a, cx);
+    let rows = a
+        .events
+        .iter()
+        .enumerate()
+        .map(|(i, e)| away_row(t, i, e, cx));
     let strip = div()
         .flex()
         .flex_col()

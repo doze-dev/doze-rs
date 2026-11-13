@@ -201,5 +201,32 @@ mod tests {
         for l in &placed {
             assert!(all().any(|s| s.label == *l), "{l} names no row");
         }
+        // The bar as it reads, with each item's keys (`cargo test … menus -- --nocapture`).
+        for m in menus() {
+            println!("{}", m.name);
+            for it in &m.items {
+                match it {
+                    gpui::MenuItem::Action {
+                        name,
+                        action,
+                        disabled,
+                        ..
+                    } => {
+                        let keys = all()
+                            .find(|s| {
+                                s.label == name.as_ref() && (s.make)().partial_eq(action.as_ref())
+                            })
+                            .and_then(crate::actions::chip)
+                            .unwrap_or_default();
+                        println!(
+                            "  {name:<28} {keys}{}",
+                            if *disabled { "  (soon)" } else { "" }
+                        );
+                    }
+                    gpui::MenuItem::Separator => println!("  ────"),
+                    _ => println!("  (system menu)"),
+                }
+            }
+        }
     }
 }

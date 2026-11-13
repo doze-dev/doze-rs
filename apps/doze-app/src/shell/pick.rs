@@ -14,7 +14,7 @@ impl Root {
     /// Does what a row of ⌘K (or a fix of Needs you) says.
     pub(crate) fn run_doing(&mut self, d: &Doing, window: &mut Window, cx: &mut Context<Self>) {
         match d.kind {
-            DoKind::Page => self.to_page(d, window, cx),
+            DoKind::Page => self.open_page(d, window, cx),
             DoKind::Copy => {
                 cx.write_to_clipboard(gpui::ClipboardItem::new_string(d.text.clone()));
                 self.say(format!("Copied {}", d.text), cx);
@@ -73,7 +73,7 @@ impl Root {
     }
 
     /// A page: a stack's overview, a service's page, logs (filtered), activity.
-    fn to_page(&mut self, d: &Doing, window: &mut Window, cx: &mut Context<Self>) {
+    fn open_page(&mut self, d: &Doing, window: &mut Window, cx: &mut Context<Self>) {
         let key = StackKey::new(&d.stack_key);
         match (d.page.as_str(), d.target.is_empty()) {
             ("home", _) => self.go(Screen::Stack(key), window, cx),

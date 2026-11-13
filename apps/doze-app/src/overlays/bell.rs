@@ -109,6 +109,42 @@ impl Bell {
         } else {
             t.warn
         };
+        let mut text = Self::words(t, it);
+        if !it.fixed {
+            text = text.child(self.fixes(t, it, i, cx));
+        }
+        let right = if it.fixed {
+            div().text_color(t.good).child("fixed ✓")
+        } else {
+            div()
+                .text_color(t.dim)
+                .child(SharedString::from(age(it.since, self.now)))
+        };
+        div()
+            .id(("ni", i))
+            .flex()
+            .items_start()
+            .gap(px(10.))
+            .px(px(16.))
+            .py(px(10.))
+            .border_b_1()
+            .border_color(t.line)
+            .when(on, |d| d.bg(t.sel))
+            .child(
+                div()
+                    .mt(px(6.))
+                    .size(px(8.))
+                    .flex_none()
+                    .rounded_full()
+                    .bg(tone),
+            )
+            .child(text)
+            .child(right.flex_none().text_size(px(11.5)).mt(px(1.)))
+            .into_any_element()
+    }
+
+    /// An item's title, its stack and its detail.
+    fn words(t: &Tokens, it: &Item) -> gpui::Div {
         let mut text = div()
             .flex()
             .flex_col()
@@ -145,37 +181,7 @@ impl Bell {
                 d
             });
         }
-        if !it.fixed {
-            text = text.child(self.fixes(t, it, i, cx));
-        }
-        let right = if it.fixed {
-            div().text_color(t.good).child("fixed ✓")
-        } else {
-            div()
-                .text_color(t.dim)
-                .child(SharedString::from(age(it.since, self.now)))
-        };
-        div()
-            .id(("ni", i))
-            .flex()
-            .items_start()
-            .gap(px(10.))
-            .px(px(16.))
-            .py(px(10.))
-            .border_b_1()
-            .border_color(t.line)
-            .when(on, |d| d.bg(t.sel))
-            .child(
-                div()
-                    .mt(px(6.))
-                    .size(px(8.))
-                    .flex_none()
-                    .rounded_full()
-                    .bg(tone),
-            )
-            .child(text)
-            .child(right.flex_none().text_size(px(11.5)).mt(px(1.)))
-            .into_any_element()
+        text
     }
 
     /// An item's buttons: its fixes, Show when no fix shows it, Not now.

@@ -171,6 +171,18 @@ fn size(s: &str) -> Result<(f32, f32), String> {
     Ok((number(w, "--size")?, number(h, "--size")?))
 }
 
+/// A shot's flag that takes no value, if `a` is one.
+fn switch(a: &str, s: &mut Shot) -> bool {
+    match a {
+        "--reduce-motion" => s.reduce = true,
+        "--find-mode" => s.find_mode = true,
+        "--machine-unset" => s.machine_unset = true,
+        "--enter" => s.enter = true,
+        _ => return false,
+    }
+    true
+}
+
 fn shot(mut args: impl Iterator<Item = String>) -> Result<Shot, String> {
     let mut s = Shot {
         size: (1280., 800.),
@@ -182,20 +194,7 @@ fn shot(mut args: impl Iterator<Item = String>) -> Result<Shot, String> {
         if source(&a, &mut args, &mut s.from)? {
             continue;
         }
-        if a == "--reduce-motion" {
-            s.reduce = true;
-            continue;
-        }
-        if a == "--find-mode" {
-            s.find_mode = true;
-            continue;
-        }
-        if a == "--machine-unset" {
-            s.machine_unset = true;
-            continue;
-        }
-        if a == "--enter" {
-            s.enter = true;
+        if switch(&a, &mut s) {
             continue;
         }
         let v = value(&mut args, &a)?;

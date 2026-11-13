@@ -80,6 +80,16 @@ pub(crate) fn run(s: Shot) -> ExitCode {
     ExitCode::SUCCESS
 }
 
+/// Lays the window out and paints it now. A frame normally waits for the display; with the display asleep (an idle
+/// Mac, a CI runner) none comes, and the shot would read a stale frame, so the shot draws for itself.
+fn paint(cx: &mut AsyncApp, h: WindowHandle<Root>) {
+    let any: gpui::AnyWindowHandle = h.into();
+    let _ = cx.update_window(any, |_, w, cx| {
+        w.refresh();
+        w.draw(cx).clear(cx);
+    });
+}
+
 async fn pause(cx: &mut AsyncApp, ms: u64) {
     cx.background_executor()
         .timer(Duration::from_millis(ms))
@@ -97,7 +107,7 @@ async fn take(cx: &mut AsyncApp, h: WindowHandle<Root>, s: &Shot) {
         if ready.unwrap_or(false) || start.elapsed() > Duration::from_secs(10) {
             break;
         }
-        let _ = h.update(cx, |_, w, _| w.refresh());
+        paint(cx, h);
         pause(cx, 50).await;
     }
     let _ = h.update(cx, |root, window, cx| stage(root, window, cx, s));
@@ -116,8 +126,10 @@ async fn take(cx: &mut AsyncApp, h: WindowHandle<Root>, s: &Shot) {
     });
     pause(cx, 500).await;
     let _ = h.update(cx, |root, _, cx| root.refresh(cx));
-    let _ = h.update(cx, |_, w, _| w.refresh());
+    paint(cx, h);
     pause(cx, 400).await;
+    // Once more: the entrance motion began at the paint before, and is over now.
+    paint(cx, h);
     match h.update(cx, |_, window, _| window.render_to_image()) {
         Ok(Ok(img)) => match img.save(&s.out) {
             Ok(()) => println!("{} {}x{}", s.out.display(), img.width(), img.height()),
