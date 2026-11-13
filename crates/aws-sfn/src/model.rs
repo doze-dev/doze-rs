@@ -115,7 +115,7 @@ pub(crate) struct Execution {
     pub(crate) redrive_ms: Option<i64>,
     pub(crate) events: u64,
     /// `.sync` parents waiting for this one: `(parent ARN, frame, call)`.
-    pub(crate) parents: Vec<(String, u32, u32, bool)>,
+    pub(crate) parents: Vec<(String, u32, u32, u8)>,
     /// The logging configuration it started with.
     pub(crate) logging: Option<String>,
     /// Activity tasks waiting for a worker, or taken by one.

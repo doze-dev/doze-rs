@@ -306,6 +306,7 @@ fn map(obj: &Obj<'_>, lang: Lang, depth: usize, out: &mut Vec<Diagnostic>) -> Ki
         tolerated_count: obj.num("ToleratedFailureCount", out),
         tolerated_percentage: obj.num("ToleratedFailurePercentage", out),
         label: obj.text("Label", out),
+        processor_json: proc.map(|m| Value::Object(m.clone())),
     }))
 }
 

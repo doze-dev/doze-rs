@@ -163,6 +163,10 @@ async fn a_distributed_map_has_a_map_run() {
     assert_eq!(described["status"], "SUCCEEDED");
     assert_eq!(described["maxConcurrency"], 2);
     assert_eq!(described["itemCounts"]["succeeded"], 2);
+    let items = w.ok("ListExecutions", json!({"mapRunArn": run})).await;
+    assert_eq!(items["executions"].as_array().unwrap().len(), 3, "{items}");
+    let own = w.ok("ListExecutions", json!({"stateMachineArn": m})).await;
+    assert_eq!(own["executions"].as_array().unwrap().len(), 1);
     assert_eq!(described["itemCounts"]["failed"], 1);
     w.stop().await;
 }

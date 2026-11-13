@@ -43,7 +43,7 @@ waiting execution survives a restart.
   `ValidateStateMachineDefinition` returns the same list as diagnostics.
 - **State types:** Task, Pass, Choice (every operator and its `...Path` twin, `And`/`Or`/`Not`, `StringMatches` wildcards, `Is...` tests;
   a `Variable` that selects nothing is `States.Runtime`, a wrong type does not match), Wait (seconds, timestamp, both as paths or JSONata),
-  Succeed, Fail (`Error`/`Cause` fixed, by path or JSONata), Parallel, Map (inline and distributed: `ItemsPath`/`Items`, `ItemSelector`,
+  Succeed, Fail (`Error`/`Cause` fixed, by path or JSONata), Parallel, Map (inline, and distributed with each item an execution of its own: `ItemsPath`/`Items`, `ItemSelector`,
   `MaxConcurrency`, `ItemReader` from S3 as JSON, JSON Lines or CSV or `listObjectsV2`, `ItemBatcher`, `ResultWriter` to S3,
   `ToleratedFailureCount`/`Percentage`, `Label`).
 - **JSONPath** is Jayway's language, fuller than Go's: wildcards, slices, unions, recursive descent, filters with `&&`, `||`, `!`, comparisons,
@@ -137,10 +137,10 @@ the rest. Both are environment variables, not flags, so `cli.rs` is untouched.
 
 Go's support table marks all 37 operations F; all 37 are built. Behaviours Go had that are not carried, with the reason:
 
-1. **A distributed Map's items as child executions.** Go ran each item as an execution listable with `mapRunArn`; here items are branches of
-   the parent execution (the Map Run record, its counts, `UpdateMapRun`, tolerance, the reader and writer are all there). `ListExecutions` with a
-   `mapRunArn` answers an empty list. Reason: time; it is the one place the Go edition is ahead, and the fix is to start each item with
-   `begin()` as `children.rs` already does for `.sync`.
+1. (Built after all.) A distributed Map's items run as executions of their own, as in Go and on AWS: each item frame only stands for its
+   execution (`exec/items.rs`), the service starts the item processor as an execution named `<machine>/<label>:<run>-<index>-<call>`
+   (memory: AWS's form), listed by `ListExecutions` with the Map Run's ARN and not with the machine's, stopped when its parent ends, started
+   again (and not twice) after a restart, and run again by a redrive when it failed.
 2. **`TaskTimedOut` for a day for a token whose task timed out.** Here it is `TaskDoesNotExist` at once (memory for both wordings).
 3. **An Express machine with logging OFF still writing to `/aws/vendedlogs/states/<machine>`.** Dropped: AWS does not, and the deviations list
    stays empty.
@@ -184,7 +184,6 @@ numbers, `StringSplit` dropping empty pieces, TestState's answers for token task
    ubuntu has one; the macOS cross-build to musl needed `CC_x86_64_unknown_linux_musl=clang` with `--target`. Goes away with decision 1's second
    option.
 3. **A role IAM cannot assume** is accepted at create unless IAM enforces, and tasks then run as the starter (the same open decision as Lambda).
-4. **Distributed Map items as child executions** (parity item 1).
 
 ## Shared code touched
 

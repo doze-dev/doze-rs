@@ -10,6 +10,7 @@ mod events;
 mod fan;
 mod inspect;
 mod io;
+mod items;
 mod redrive;
 mod run;
 mod task;
@@ -27,6 +28,7 @@ use crate::errors::Failure;
 pub use events::Event;
 pub use fan::ITEM_READER;
 pub use io::context_time;
+pub use items::MAP_ITEM;
 pub use task::parks;
 pub use writer::RESULT_WRITER;
 
@@ -116,6 +118,8 @@ pub struct Frame {
     pub map_run: Option<String>,
     /// A distributed Map whose results are being written (its call is the `ResultWriter`'s).
     pub writing: bool,
+    /// A distributed Map's item, run as an execution of its own: this frame only stands for it, and its call is that execution.
+    pub proxy: bool,
 }
 
 /// One execution.

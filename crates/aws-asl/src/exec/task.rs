@@ -138,12 +138,10 @@ impl Exec {
             .iter()
             .filter(|f| f.status == Status::Calling)
             .filter_map(|f| {
-                let state = sub(def, &f.def)?.state(&f.state)?;
-                let resource = match &state.kind {
-                    Kind::Task(t) => t.resource.clone(),
-                    Kind::Map(_) if f.writing => super::writer::RESULT_WRITER.to_owned(),
-                    Kind::Map(_) => super::fan::ITEM_READER.to_owned(),
-                    _ => return None,
+                let resource = if f.proxy {
+                    super::items::MAP_ITEM.to_owned()
+                } else {
+                    resource_of(def, f)?
                 };
                 Some(Dispatch {
                     frame: f.id,
@@ -159,7 +157,20 @@ impl Exec {
             })
             .collect()
     }
+}
 
+/// The resource a calling frame called.
+fn resource_of(def: &Definition, f: &super::Frame) -> Option<String> {
+    let state = sub(def, &f.def)?.state(&f.state)?;
+    Some(match &state.kind {
+        Kind::Task(t) => t.resource.clone(),
+        Kind::Map(_) if f.writing => super::writer::RESULT_WRITER.to_owned(),
+        Kind::Map(_) => super::fan::ITEM_READER.to_owned(),
+        _ => return None,
+    })
+}
+
+impl Exec {
     /// The answer to a task call (or a token's): `seq` must be the frame's current call, or it is an old one and is ignored.
     pub fn deliver(
         &mut self,
@@ -175,6 +186,11 @@ impl Exec {
             return step;
         };
         if f.seq != seq || !matches!(f.status, Status::Calling | Status::Parked) {
+            return step;
+        }
+        if f.proxy {
+            self.item_ended(cx, &f, outcome, &mut step);
+            self.pump(cx, &mut step);
             return step;
         }
         let Some(state) = sub(def, &f.def).and_then(|d| d.state(&f.state)) else {

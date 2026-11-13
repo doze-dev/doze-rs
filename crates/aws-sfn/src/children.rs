@@ -76,7 +76,10 @@ impl Core {
             ));
         }
         let sync = mode.starts_with(".sync");
-        let link = sync.then(|| (parent.arn.clone(), d.frame, d.seq, mode == ".sync:2"));
+        let link = sync.then(|| {
+            let kind = if mode == ".sync:2" { SYNC2 } else { SYNC };
+            (parent.arn.clone(), d.frame, d.seq, kind)
+        });
         let begin = crate::executions::Begin {
             arn: arn.clone(),
             name,
@@ -95,13 +98,155 @@ impl Core {
             Outcome::Done(started)
         }
     }
+
+    /// A distributed Map's item, started as an execution of the item processor, listed with the Map Run's ARN. Its name is fixed by the
+    /// run, the item and the call, so a call made again after a restart finds the execution it already started.
+    pub(crate) fn start_item(&mut self, parent: &Execution, d: &Dispatch) {
+        let text = |k: &str| {
+            d.input
+                .get(k)
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_owned()
+        };
+        let run = text("MapRunArn");
+        let index = d.input.get("Index").and_then(Value::as_u64).unwrap_or(0);
+        let Some(p) = crate::arn::parts(&parent.arn) else {
+            return;
+        };
+        // (memory) AWS names a Map Run's executions `<machine>/<label>:<id>`.
+        let label = run
+            .rsplit_once(':')
+            .map_or("", |(head, _)| head)
+            .rsplit('/')
+            .next()
+            .unwrap_or_default();
+        let machine = parent.machine_arn.rsplit(':').next().unwrap_or_default();
+        let id = run.rsplit(':').next().unwrap_or_default();
+        let name = format!(
+            "{}-{index}-{}",
+            id.chars().take(36).collect::<String>(),
+            d.seq
+        );
+        let arn = crate::arn::execution(p.region, p.account, &format!("{machine}/{label}"), &name);
+        if let Some(done) = self
+            .executions
+            .get(&arn)
+            .filter(|c| c.status != Run::Running)
+        {
+            let outcome = outcome_for_parent(done, ITEM, self.now_ms());
+            self.queue.push_back(Work::Deliver {
+                execution: parent.arn.clone(),
+                frame: d.frame,
+                seq: d.seq,
+                outcome,
+            });
+            return;
+        }
+        if self.executions.get(&arn).is_some() {
+            return;
+        }
+        let launch = item_launch(parent, machine, &d.input);
+        let input = d
+            .input
+            .get("Input")
+            .and_then(Value::as_str)
+            .unwrap_or("{}")
+            .to_owned();
+        let begin = crate::executions::Begin {
+            arn: arn.clone(),
+            name,
+            input,
+            trace: None,
+            parent: Some((parent.arn.clone(), d.frame, d.seq, ITEM)),
+            test_case: parent.test_case.clone(),
+        };
+        let mut child = self.begin(launch, begin);
+        child.map_run = Some(run);
+        self.store(child);
+        self.queue.push_back(Work::Run(arn));
+    }
+
+    /// Stops the running executions of the Map Runs `parent` owns.
+    pub(crate) fn stop_items(&mut self, parent: &str) {
+        let runs: Vec<String> = self
+            .map_runs
+            .iter()
+            .filter(|(_, m)| m.execution == parent)
+            .map(|(k, _)| k.to_owned())
+            .collect();
+        let items: Vec<String> = self
+            .executions
+            .iter()
+            .filter(|(_, e)| {
+                e.status == Run::Running && e.map_run.as_ref().is_some_and(|r| runs.contains(r))
+            })
+            .map(|(k, _)| k.to_owned())
+            .collect();
+        for k in items {
+            let Some(mut e) = self.executions.get(&k).cloned() else {
+                continue;
+            };
+            let env = self.env_of(&e);
+            let (step, _) = e.exec.abort(None, None, &env);
+            if let Some(def) = self.definition(&e.definition) {
+                self.absorb(&mut e, &def, step);
+            }
+            e.status = Run::Aborted;
+            e.stop_ms = Some(self.now_ms());
+            e.parents.clear();
+            self.ended(&mut e);
+            self.store(e);
+        }
+    }
 }
 
-/// What a `.sync` parent is told when its child ends: the child's description (input and output as text for `.sync`, as JSON for
-/// `.sync:2`), or `States.TaskFailed` with that description as the cause (memory).
-pub(crate) fn outcome_for_parent(child: &Execution, sync2: bool, now: i64) -> Outcome {
+/// What a distributed Map's item runs: the item processor, as the parent's role, Standard or Express as the Map says.
+fn item_launch(parent: &Execution, machine: &str, input: &Value) -> crate::executions::Launch {
+    let text = |k: &str| {
+        input
+            .get(k)
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_owned()
+    };
+    crate::executions::Launch {
+        machine_arn: parent.machine_arn.clone(),
+        machine_name: machine.to_owned(),
+        version_arn: None,
+        alias_arn: None,
+        definition: text("Definition"),
+        role_arn: parent.role_arn.clone(),
+        express: text("ExecutionType") == "EXPRESS",
+        logging: None,
+        endpoint: parent.endpoint.clone(),
+    }
+}
+
+/// How a parent waits for a child: `.sync`, `.sync:2`, or as a distributed Map's item.
+pub(crate) const SYNC: u8 = 0;
+pub(crate) const SYNC2: u8 = 1;
+pub(crate) const ITEM: u8 = 2;
+
+/// What a parent is told when its child ends. A Map item: its output, or its error and cause. A `.sync` task: the child's description
+/// (input and output as text for `.sync`, as JSON for `.sync:2`), or `States.TaskFailed` with that description as the cause (memory).
+pub(crate) fn outcome_for_parent(child: &Execution, mode: u8, now: i64) -> Outcome {
+    if mode == ITEM {
+        return match (&child.status, &child.output) {
+            (Run::Succeeded, Some(o)) => {
+                Outcome::Done(serde_json::from_str(o).unwrap_or(Value::Null))
+            }
+            _ => Outcome::Failed(Failure::new(
+                child
+                    .error
+                    .clone()
+                    .unwrap_or_else(|| child.status.name().to_owned()),
+                child.cause.clone().unwrap_or_default(),
+            )),
+        };
+    }
     let doc = |text: &str| -> Value {
-        if sync2 {
+        if mode == SYNC2 {
             serde_json::from_str(text).unwrap_or_else(|_| Value::String(text.to_owned()))
         } else {
             Value::String(text.to_owned())

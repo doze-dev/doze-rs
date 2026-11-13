@@ -167,14 +167,12 @@ impl Exec {
                 item: item.map(|v| text(&v)),
                 prev_event: started,
                 vars: parent.vars.clone(),
+                proxy: distributed,
                 ..Frame::default()
             };
             self.next_frame += 1;
             self.frames.push(child);
         }
-        // A distributed Map's items run as executions of their own on AWS; here they are branches of this one (`distributed` only
-        // changes the events and the tolerance).
-        let _ = distributed;
         self.promote(id, state, env, step);
         self.joined(cx, id, 0, step);
     }
@@ -210,6 +208,10 @@ impl Exec {
             .map(|f| f.id)
             .collect();
         for child in pending {
+            if self.frame(child).is_some_and(|c| c.proxy) {
+                self.start_item(child, state, step);
+                continue;
+            }
             if let Some(c) = self.frame_mut(child) {
                 c.status = Status::Runnable;
                 let index = c.index;

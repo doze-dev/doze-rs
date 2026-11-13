@@ -49,6 +49,14 @@ impl Exec {
         if !matches!(f.status, Status::Failed | Status::Aborted) {
             return;
         }
+        if f.proxy {
+            // A distributed Map's item is started again as a new execution.
+            if let Some(fm) = self.frame_mut(id) {
+                fm.failure = None;
+                fm.status = Status::Pending;
+            }
+            return;
+        }
         let fan = sub(cx.def, &f.def)
             .and_then(|d| d.state(&f.state))
             .is_some_and(|s| matches!(s.kind, Kind::Parallel { .. } | Kind::Map(_)));

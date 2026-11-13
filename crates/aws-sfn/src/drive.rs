@@ -208,6 +208,10 @@ impl Core {
             self.start_child(e, &d);
             return;
         }
+        if d.resource == aws_asl::exec::MAP_ITEM {
+            self.start_item(e, &d);
+            return;
+        }
         let (region, account) = crate::arn::parts(&e.arn)
             .map(|p| (p.region.to_owned(), p.account.to_owned()))
             .unwrap_or_default();
@@ -253,6 +257,7 @@ impl Core {
     /// What every end shares (a stop included).
     pub(crate) fn ended(&mut self, e: &mut Execution) {
         self.close_runs(e, "ABORTED", true);
+        self.stop_items(&e.arn);
         if e.status == Run::Succeeded {
             e.exec.frames.clear();
         }
@@ -261,8 +266,8 @@ impl Core {
             answer: self.sync_answer(e),
         });
         self.notice(e);
-        for (parent, frame, seq, sync2) in std::mem::take(&mut e.parents) {
-            let outcome = crate::children::outcome_for_parent(e, sync2, self.now_ms());
+        for (parent, frame, seq, mode) in std::mem::take(&mut e.parents) {
+            let outcome = crate::children::outcome_for_parent(e, mode, self.now_ms());
             self.queue.push_back(Work::Deliver {
                 execution: parent,
                 frame,

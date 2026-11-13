@@ -173,6 +173,8 @@ pub struct MapSpec {
     pub tolerated_count: Num,
     pub tolerated_percentage: Num,
     pub label: Option<String>,
+    /// The item processor as written (`ItemProcessor` or `Iterator`), which a distributed Map runs as executions of their own.
+    pub processor_json: Option<Value>,
 }
 
 /// One entry of `Retry`.

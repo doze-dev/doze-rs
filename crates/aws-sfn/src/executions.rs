@@ -36,7 +36,7 @@ pub(crate) struct Begin {
     pub(crate) input: String,
     pub(crate) trace: Option<String>,
     /// A `.sync` parent: `(ARN, frame, call, .sync:2)`.
-    pub(crate) parent: Option<(String, u32, u32, bool)>,
+    pub(crate) parent: Option<(String, u32, u32, u8)>,
     pub(crate) test_case: Option<String>,
 }
 
@@ -284,7 +284,7 @@ impl Core {
             .executions
             .iter()
             .map(|(_, e)| e)
-            .filter(|e| !e.express)
+            .filter(|e| !e.express && (by_run.is_some() || e.map_run.is_none()))
             .filter(|e| match &filter_machine {
                 Some((m, Some(Target::Version(..)))) => {
                     e.machine_arn == *m && e.version_arn.as_deref() == Some(given)
