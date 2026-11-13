@@ -3,16 +3,16 @@
 //! Each dialog has a GET that answers its view-model for what was typed so far (the call beside the form, the teaching, a
 //! button's label: the words are Rust's), and a POST (form-encoded, as the classic forms post, behind the same-origin
 //! proof of [`super::guard`]) that does the write through the same `Source` the classic console uses. A POST answers:
-//! - what was made (the topic, the record, the new count);
-//! - when Kafka refused: `{ refused: true, status: 422, code, message, detail }`, the code Kafka's error name, the message
-//!   the broker's own sentence, `detail` the refused state the page draws;
-//! - when the form could not be sent (a number that is not one): `{ refused: true, status: 400, code: "INVALID", message,
-//!   detail }`, `detail` the dialog again with its field errors;
+//! - `{ outcome: "done", ... }` and what was made (the topic, the record, the new count);
+//! - `{ outcome: "refused", code, message, detail }` when Kafka refused: the code Kafka's error name, the message the
+//!   broker's own sentence, `detail` the refused state the page draws;
+//! - `{ outcome: "invalid", code: "INVALID", message, detail }` when the form could not be sent (a number that is not
+//!   one), `detail` the dialog again with its field errors;
 //! - 404 when there is no such topic.
 //!
-//! A refusal is an answer, not a failure of the request, so it comes with HTTP 200 and `refused: true` (the client's
-//! `post` throws it as an `ApiFailure` with the status in the body): Chromium and WebKit log every non-2xx fetch as a
-//! console error, which the browser gate rightly forbids, and a refused write is the console doing its job.
+//! Every answer to a write is a 200, as the group writes of R2 (`outcome`): a refusal is an answer, not a failure of the
+//! request, and Chromium and WebKit log every non-2xx fetch as a console error, which the browser gate rightly forbids.
+//! The client's `post` throws a refused or invalid outcome as an `ApiFailure` carrying `detail`.
 
 use axum::Router;
 use axum::body::Bytes;
@@ -37,17 +37,33 @@ use crate::write_words;
 /// The most header rows a produce carries (as the classic dialog).
 const MOST_HEADERS: usize = 8;
 
-/// A refusal with the state the page draws: `{ code, message, detail }`.
-pub(super) fn refused_with<T: Serialize>(
-    status: StatusCode,
+/// What a write made: the value with `outcome: "done"` beside its fields.
+pub(super) fn done<T: Serialize>(value: &T) -> Response {
+    #[derive(Serialize)]
+    struct Body<'a, T: Serialize> {
+        outcome: &'static str,
+        #[serde(flatten)]
+        value: &'a T,
+    }
+    json(
+        StatusCode::OK,
+        &Body {
+            outcome: "done",
+            value,
+        },
+    )
+}
+
+/// A refusal with the state the page draws: `{ outcome, code, message, detail }`.
+fn refused_with<T: Serialize>(
+    outcome: &'static str,
     code: &str,
     message: &str,
     detail: &T,
 ) -> Response {
     #[derive(Serialize)]
     struct Body<'a, T: Serialize> {
-        refused: bool,
-        status: u16,
+        outcome: &'static str,
         code: &'a str,
         message: &'a str,
         detail: &'a T,
@@ -55,8 +71,7 @@ pub(super) fn refused_with<T: Serialize>(
     json(
         StatusCode::OK,
         &Body {
-            refused: true,
-            status: status.as_u16(),
+            outcome,
             code,
             message,
             detail,
@@ -66,17 +81,12 @@ pub(super) fn refused_with<T: Serialize>(
 
 /// Kafka refused: its error name and the broker's sentence, and the state to draw.
 pub(super) fn kafka_refused<T: Serialize>(r: &Refusal, detail: &T) -> Response {
-    refused_with(
-        StatusCode::UNPROCESSABLE_ENTITY,
-        &r.name,
-        &r.message,
-        detail,
-    )
+    refused_with("refused", &r.name, &r.message, detail)
 }
 
 /// The form could not be sent: its first error, and the dialog again.
 pub(super) fn invalid<T: Serialize>(message: &str, detail: &T) -> Response {
-    refused_with(StatusCode::BAD_REQUEST, "INVALID", message, detail)
+    refused_with("invalid", "INVALID", message, detail)
 }
 
 pub(super) fn no_topic(topic: &str) -> Response {
@@ -105,7 +115,7 @@ pub struct CreateForm {
     pub sub: String,
 }
 
-/// What a create made (200).
+/// What a create made.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[cfg_attr(test, derive(ts_rs::TS))]
 pub struct CreatedAnswer {
@@ -189,27 +199,21 @@ async fn create(State(s): State<Shared>, body: Bytes) -> Response {
     match s.source.create_topic(draft, check).await {
         CreateResult::Created(c) => {
             let words = retention_words(&c.retention);
-            json(
-                StatusCode::OK,
-                &CreatedAnswer {
-                    retention: if words.is_empty() {
-                        c.retention.clone()
-                    } else {
-                        format!("retention {}", words.trim_start_matches("= "))
-                    },
-                    produce: kcat_produce(&c.address, &c.name),
-                    consume: kcat_consume(&c.address, &c.name),
-                    created: c,
+            done(&CreatedAnswer {
+                retention: if words.is_empty() {
+                    c.retention.clone()
+                } else {
+                    format!("retention {}", words.trim_start_matches("= "))
                 },
-            )
+                produce: kcat_produce(&c.address, &c.name),
+                consume: kcat_consume(&c.address, &c.name),
+                created: c,
+            })
         }
-        CreateResult::Checked(c) => json(
-            StatusCode::OK,
-            &CheckedAnswer {
-                checked: true,
-                partitions: c.partitions,
-            },
-        ),
+        CreateResult::Checked(c) => done(&CheckedAnswer {
+            checked: true,
+            partitions: c.partitions,
+        }),
         CreateResult::Refused(r) => kafka_refused::<CreateRefused>(&r.refusal.clone(), &r),
         CreateResult::Invalid(v) => invalid(&first_error(&v), &v),
     }
@@ -240,7 +244,7 @@ pub struct ProducedAnswer {
     pub visible: String,
 }
 
-/// A refused produce (the `detail` of a 422).
+/// A refused produce (the `detail` of a refused outcome).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[cfg_attr(test, derive(ts_rs::TS))]
 pub struct ProduceRefusedAnswer {
@@ -322,16 +326,13 @@ async fn produce(State(s): State<Shared>, Path(topic): Path<String>, body: Bytes
     match s.source.produce(&topic, &input).await {
         ProduceResult::Sent(p) => {
             let (visible_lead, visible) = visibility(&p);
-            json(
-                StatusCode::OK,
-                &ProducedAnswer {
-                    clock: clock_ms(p.timestamp_ms),
-                    acked: acked(p.acks).to_owned(),
-                    visible_lead,
-                    visible,
-                    produced: *p,
-                },
-            )
+            done(&ProducedAnswer {
+                clock: clock_ms(p.timestamp_ms),
+                acked: acked(p.acks).to_owned(),
+                visible_lead,
+                visible,
+                produced: *p,
+            })
         }
         ProduceResult::Refused(r) => {
             let sentence = if r.view.compacts {

@@ -26,16 +26,16 @@ export async function get(request: APIRequestContext, path: string) {
 /** Makes a topic; `template` compact makes it compacted. */
 export async function topic(request: APIRequestContext, baseURL: string, name: string, partitions = 1, template: "event" | "compact" | "short" = "event", retention?: string) {
   const r = await call(request, baseURL, "/api/v1/create-topic", { name, partitions: String(partitions), template, ...(retention ? { "retention.ms": retention } : {}), mode: "create" });
-  if (r.status !== 200 || r.body.refused) throw new Error(`create ${name}: ${r.status} ${JSON.stringify(r.body)}`);
+  if (r.status !== 200 || r.body.outcome !== "done") throw new Error(`create ${name}: ${r.status} ${JSON.stringify(r.body)}`);
 }
 
 export async function produce(request: APIRequestContext, baseURL: string, name: string, key: string, value: string, partition = "") {
   const r = await call(request, baseURL, `/api/v1/topics/${encodeURIComponent(name)}/produce`, { key, value, partition, acks: "-1" });
-  if (r.status !== 200 || r.body.refused) throw new Error(`produce ${name}: ${r.status} ${JSON.stringify(r.body)}`);
+  if (r.status !== 200 || r.body.outcome !== "done") throw new Error(`produce ${name}: ${r.status} ${JSON.stringify(r.body)}`);
   return r.body.produced.offset as number;
 }
 
 export async function setConfig(request: APIRequestContext, baseURL: string, name: string, key: string, value: string) {
   const r = await call(request, baseURL, `/api/v1/topics/${encodeURIComponent(name)}/config/edit`, { key, op: "set", value, other: "" });
-  if (r.status !== 200 || r.body.refused) throw new Error(`config ${name} ${key}: ${r.status} ${JSON.stringify(r.body)}`);
+  if (r.status !== 200 || r.body.outcome !== "done") throw new Error(`config ${name} ${key}: ${r.status} ${JSON.stringify(r.body)}`);
 }

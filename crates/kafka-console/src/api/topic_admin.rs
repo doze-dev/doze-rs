@@ -9,7 +9,7 @@ use axum::routing::get;
 use serde::Serialize;
 
 use super::json;
-use super::topic_writes::{invalid, kafka_refused, no_topic, query};
+use super::topic_writes::{done, invalid, kafka_refused, no_topic, query};
 use crate::form::{get as field, parse_body, text};
 use crate::gather::{AddResult, DeleteResult, RecordsResult};
 use crate::model::{
@@ -64,9 +64,7 @@ async fn add_form(
 async fn add(State(s): State<Shared>, Path(topic): Path<String>, body: Bytes) -> Response {
     let f = parse_body(&body);
     match s.source.add_partitions(&topic, text(&f, "count")).await {
-        AddResult::Done { topic, from, to } => {
-            json(StatusCode::OK, &AddedAnswer { topic, from, to })
-        }
+        AddResult::Done { topic, from, to } => done(&AddedAnswer { topic, from, to }),
         AddResult::Refused(v) => match v.refusal.clone() {
             Some(r) => kafka_refused(&r, &add_form_of(*v)),
             None => invalid("Refused.", &add_form_of(*v)),
@@ -94,7 +92,7 @@ pub struct RecordsForm {
     pub partitions: Vec<i32>,
 }
 
-/// A refused delete-records (the `detail` of a 422).
+/// A refused delete-records (the `detail` of a refused outcome).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[cfg_attr(test, derive(ts_rs::TS))]
 pub struct RecordsRefusedAnswer {
@@ -153,14 +151,11 @@ async fn records(State(s): State<Shared>, Path(topic): Path<String>, body: Bytes
         .delete_records(&topic, partition_of(&f), text(&f, "offset"))
         .await
     {
-        RecordsResult::Done(d) => json(
-            StatusCode::OK,
-            &RecordsDeletedAnswer {
-                topic: d.topic,
-                partition: d.partition,
-                low_watermark: d.low_watermark,
-            },
-        ),
+        RecordsResult::Done(d) => done(&RecordsDeletedAnswer {
+            topic: d.topic,
+            partition: d.partition,
+            low_watermark: d.low_watermark,
+        }),
         RecordsResult::Refused(r) => {
             let n = crate::format::number(r.log_start);
             let sentence = if r.refusal.code == 44 {
@@ -226,7 +221,7 @@ async fn delete_form(State(s): State<Shared>, Path(topic): Path<String>) -> Resp
 async fn delete(State(s): State<Shared>, Path(topic): Path<String>, body: Bytes) -> Response {
     let f = parse_body(&body);
     match s.source.delete_topic(&topic, text(&f, "confirm")).await {
-        DeleteResult::Done(d) => json(StatusCode::OK, &DeletedAnswer { deleted: *d }),
+        DeleteResult::Done(d) => done(&DeletedAnswer { deleted: *d }),
         DeleteResult::Refused(v, r) => kafka_refused(&r, &delete_form_of(*v, Some(r.clone()))),
         DeleteResult::Invalid(v) => {
             let first = v.error.clone().unwrap_or_default();

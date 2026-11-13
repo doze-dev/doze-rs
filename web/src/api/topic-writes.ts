@@ -39,14 +39,16 @@ export async function post<T>(path: string, fields: Record<string, string>): Pro
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams(fields).toString(),
   });
-  // A refusal is an answer (HTTP 200, `refused: true`), thrown here so a mutation's error is Kafka's words.
-  if (isRefused(body)) throw new ApiFailure(body.status, body);
+  // Every answer to a write is a 200 with an `outcome` (as R2's group writes): a refused or invalid one is thrown here, so
+  // a mutation's error is Kafka's words and its state (`detail`). Its status says which: 422 refused, 400 invalid.
+  if (isRefused(body)) throw new ApiFailure(body.outcome === "refused" ? 422 : 400, body);
   return body as T;
 }
 
-type Refused = { refused: true; status: number; code: string; message: string; detail?: unknown };
+type Refused = { outcome: "refused" | "invalid"; code: string; message: string; detail?: unknown };
 function isRefused(v: unknown): v is Refused {
-  return typeof v === "object" && v !== null && (v as Refused).refused === true && typeof (v as Refused).code === "string";
+  const o = (v as Refused | null)?.outcome;
+  return (o === "refused" || o === "invalid") && typeof (v as Refused).code === "string";
 }
 
 /** The refusal's state when the server sent one (`detail`), typed by the caller. */

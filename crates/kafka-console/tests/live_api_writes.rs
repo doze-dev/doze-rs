@@ -1,5 +1,5 @@
 //! Slice R1b: the JSON API of the topic writes over a real broker in this process. Every write is the
-//! protocol request the classic forms send; a refusal is `{refused, status, code, message, detail}` with Kafka's error name and the broker's
+//! protocol request the classic forms send; a refusal is `{outcome: "refused", code, message, detail}` with Kafka's error name and the broker's
 //! sentence; the form GETs change nothing; a POST without the same-origin proof is refused.
 #![allow(
     clippy::too_many_lines,
@@ -63,8 +63,8 @@ async fn create_topic_checks_makes_and_is_refused_in_kafkas_words() {
     );
     let (s, v) = post(&app, "/api/v1/create-topic", &make).await;
     assert_eq!(
-        (s, v["refused"].as_bool(), v["status"].as_u64()),
-        (StatusCode::OK, Some(true), Some(422)),
+        (s, v["outcome"].as_str()),
+        (StatusCode::OK, Some("refused")),
         "{v}"
     );
     assert_eq!(v["code"], "TOPIC_ALREADY_EXISTS");
@@ -79,8 +79,8 @@ async fn create_topic_checks_makes_and_is_refused_in_kafkas_words() {
     )
     .await;
     assert_eq!(
-        (s, v["refused"].as_bool(), v["status"].as_u64()),
-        (StatusCode::OK, Some(true), Some(400)),
+        (s, v["outcome"].as_str()),
+        (StatusCode::OK, Some("invalid")),
         "{v}"
     );
     assert_eq!(v["code"], "INVALID");
@@ -135,8 +135,8 @@ async fn produce_writes_one_record_and_a_keyless_one_to_a_compacted_topic_is_ref
     )
     .await;
     assert_eq!(
-        (s, v["refused"].as_bool(), v["status"].as_u64()),
-        (StatusCode::OK, Some(true), Some(422)),
+        (s, v["outcome"].as_str()),
+        (StatusCode::OK, Some("refused")),
         "{v}"
     );
     assert_eq!(v["code"], "INVALID_RECORD");
@@ -153,8 +153,8 @@ async fn produce_writes_one_record_and_a_keyless_one_to_a_compacted_topic_is_ref
     )
     .await;
     assert_eq!(
-        (s, v["refused"].as_bool(), v["status"].as_u64()),
-        (StatusCode::OK, Some(true), Some(400)),
+        (s, v["outcome"].as_str()),
+        (StatusCode::OK, Some("invalid")),
         "{v}"
     );
     let (s, _) = get(&app, "/api/v1/topics/nothing.here/produce").await;
@@ -189,8 +189,8 @@ async fn add_partitions_delete_records_and_delete_topic() {
     )
     .await;
     assert_eq!(
-        (s, v["refused"].as_bool(), v["status"].as_u64()),
-        (StatusCode::OK, Some(true), Some(422)),
+        (s, v["outcome"].as_str()),
+        (StatusCode::OK, Some("refused")),
         "{v}"
     );
     assert_eq!(v["code"], "INVALID_PARTITIONS");
@@ -239,15 +239,15 @@ async fn add_partitions_delete_records_and_delete_topic() {
     )
     .await;
     assert_eq!(
-        (s, v["refused"].as_bool(), v["status"].as_u64()),
-        (StatusCode::OK, Some(true), Some(422)),
+        (s, v["outcome"].as_str()),
+        (StatusCode::OK, Some("refused")),
         "{v}"
     );
     assert_eq!(v["code"], "POLICY_VIOLATION");
     let (s, v) = post(&app, "/api/v1/topics/grow/delete", &[("confirm", "gro")]).await;
     assert_eq!(
-        (s, v["refused"].as_bool(), v["status"].as_u64()),
-        (StatusCode::OK, Some(true), Some(400)),
+        (s, v["outcome"].as_str()),
+        (StatusCode::OK, Some("invalid")),
         "{v}"
     );
     assert_eq!(

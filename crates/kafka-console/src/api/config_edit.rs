@@ -9,7 +9,7 @@ use axum::routing::get;
 use serde::Serialize;
 
 use super::config::valid;
-use super::topic_writes::{invalid, kafka_refused, no_topic};
+use super::topic_writes::{done, invalid, kafka_refused, no_topic};
 use super::{error, json};
 use crate::config_effects::{moment, reader, sees, sentence, takes_effect, when_label};
 use crate::config_teach::MAX_LAG;
@@ -65,7 +65,7 @@ pub enum ConfigEditAnswer {
     },
 }
 
-/// A refused save (the `detail` of a 422).
+/// A refused save (the `detail` of a refused outcome).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[cfg_attr(test, derive(ts_rs::TS))]
 pub struct ConfigRefusedAnswer {
@@ -246,18 +246,12 @@ async fn edit(State(s): State<Shared>, Path(topic): Path<String>, body: Bytes) -
     };
     let check = field(&f, "check") == Some("1");
     match s.source.config_save(&topic, fields, check).await {
-        ConfigResult::Saved(v) => json(
-            StatusCode::OK,
-            &ConfigEditAnswer::Saved {
-                answer: Box::new(saved_answer(*v)),
-            },
-        ),
-        ConfigResult::Checked(v) => json(
-            StatusCode::OK,
-            &ConfigEditAnswer::Checked {
-                form: Box::new(edit_form_of(*v)),
-            },
-        ),
+        ConfigResult::Saved(v) => done(&ConfigEditAnswer::Saved {
+            answer: Box::new(saved_answer(*v)),
+        }),
+        ConfigResult::Checked(v) => done(&ConfigEditAnswer::Checked {
+            form: Box::new(edit_form_of(*v)),
+        }),
         ConfigResult::Refused(r) => {
             let refusal = r.refusal.clone();
             kafka_refused(&refusal, &refused_answer(*r))
@@ -322,12 +316,9 @@ async fn reset(State(s): State<Shared>, Path(topic): Path<String>, body: Bytes) 
         return no_topic(&topic);
     }
     match s.source.config_reset(&topic, key).await {
-        ConfigResetResult::Done => json(
-            StatusCode::OK,
-            &ConfigResetDone {
-                key: key.to_owned(),
-            },
-        ),
+        ConfigResetResult::Done => done(&ConfigResetDone {
+            key: key.to_owned(),
+        }),
         ConfigResetResult::Refused(v) => match v.refusal.clone() {
             Some(r) => kafka_refused(&r, &reset_form_of(*v)),
             None => invalid("Refused.", &reset_form_of(*v)),

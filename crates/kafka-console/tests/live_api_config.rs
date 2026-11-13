@@ -76,8 +76,8 @@ async fn the_config_tab_edits_checks_saves_appends_and_resets() {
     ];
     let (s, v) = post(&app, "/api/v1/topics/t/config/edit", &lags).await;
     assert_eq!(
-        (s, v["refused"].as_bool(), v["status"].as_u64()),
-        (StatusCode::OK, Some(true), Some(422)),
+        (s, v["outcome"].as_str()),
+        (StatusCode::OK, Some("refused")),
         "{v}"
     );
     assert_eq!(v["code"], "INVALID_CONFIG");
@@ -90,8 +90,8 @@ async fn the_config_tab_edits_checks_saves_appends_and_resets() {
     )
     .await;
     assert_eq!(
-        (s, v["refused"].as_bool(), v["status"].as_u64()),
-        (StatusCode::OK, Some(true), Some(422)),
+        (s, v["outcome"].as_str()),
+        (StatusCode::OK, Some("refused")),
         "{v}"
     );
     assert_eq!(v["detail"]["refused"]["refusal"]["code"], 40);
