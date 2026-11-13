@@ -428,7 +428,7 @@ impl Scene {
                 window.paint_path(path, self.t.accent);
             }
             if let Some((end, _)) = p.tip() {
-                dot(
+                far::dot(
                     window,
                     self.at(o, end.x, end.y),
                     (3.5 * z).max(2.0),
@@ -436,20 +436,5 @@ impl Scene {
                 );
             }
         }
-    }
-}
-
-/// A filled disc.
-fn dot(window: &mut Window, c: Point<Pixels>, r: f32, color: Hsla) {
-    let pts: Vec<Point<Pixels>> = (0..16)
-        .map(|i| {
-            let a = i as f32 / 16.0 * std::f32::consts::TAU;
-            point(c.x + px(r * a.cos()), c.y + px(r * a.sin()))
-        })
-        .collect();
-    let mut f = PathBuilder::fill();
-    f.add_polygon(&pts, true);
-    if let Ok(path) = f.build() {
-        window.paint_path(path, color);
     }
 }

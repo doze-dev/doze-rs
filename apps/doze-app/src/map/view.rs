@@ -383,17 +383,7 @@ impl Render for MapView {
             window.request_animation_frame();
         }
         let motion = crate::theme::Motion::of(cx);
-        // The dim and the hover are Go's transitions, which reduced motion keeps (it stops keyframe animations only);
-        // the fade of a new layout is this app's own entrance, and stops.
-        let times = (
-            super::fade::DIM,
-            super::fade::HOVER,
-            if motion.moves() {
-                motion.normal
-            } else {
-                std::time::Duration::ZERO
-            },
-        );
+        let times = super::fade::times(motion);
         let on = self.lit_on().map(std::rc::Rc::new);
         self.fades.note(self.lit, on, self.hover, times, now);
         if self.fades.running(now) {

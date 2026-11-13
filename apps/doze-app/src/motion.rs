@@ -62,6 +62,14 @@ pub(crate) fn go_anim(ms: u64) -> Animation {
     Animation::new(Duration::from_millis(ms)).with_easing(curve)
 }
 
+/// Writes an entrance's progress to a scripted run's log (`anim NAME p=…`): the evidence that it moves as timed.
+#[cfg_attr(not(feature = "fixtures"), allow(unused_variables))]
+pub(crate) fn traced(name: &str, p: f32) -> f32 {
+    #[cfg(feature = "fixtures")]
+    crate::driver::note("anim", &format!("{name} p={p:.3}"));
+    p
+}
+
 /// Go's `fade` on a scrim: 160 ms, `ease-out`.
 pub(crate) fn scrim_anim() -> Animation {
     Animation::new(Duration::from_millis(160)).with_easing(ease_out)
@@ -98,7 +106,22 @@ pub(crate) fn colour(id: &str, to: Hsla) -> (Hsla, bool) {
                 at: now,
             };
         }
-        at(e, now)
+        let (c, moving) = at(e, now);
+        #[cfg(feature = "fixtures")]
+        if moving {
+            let r = c.to_rgb();
+            crate::driver::note(
+                "blend",
+                &format!(
+                    "{id} rgba({:.0},{:.0},{:.0},{:.2})",
+                    r.r * 255.,
+                    r.g * 255.,
+                    r.b * 255.,
+                    r.a
+                ),
+            );
+        }
+        (c, moving)
     })
 }
 

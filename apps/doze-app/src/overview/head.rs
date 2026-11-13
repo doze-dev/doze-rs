@@ -5,6 +5,7 @@ use gpui::{Context, IntoElement, div, prelude::*, px, relative};
 
 use super::{OverviewView, View};
 use crate::kit::{Btn, btn, chip_of, density, s};
+use crate::outward::Probe as _;
 use crate::theme::{Tokens, ty};
 use crate::widgets::{icon, switch, tag};
 
@@ -88,6 +89,7 @@ fn views(t: &Tokens, v: &OverviewView, cx: &mut Context<OverviewView>) -> impl I
                 .when(i < 3, |d| d.border_r_1().border_color(t.line))
                 .child(label)
                 .when(view == View::Grid, |d| d.child(tag(t, "new")))
+                .probe(format!("view-{}", view.word()), label)
                 .on_click(cx.listener(move |this, _, _, cx| this.set_view(view, cx)))
         }))
 }

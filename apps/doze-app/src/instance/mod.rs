@@ -71,6 +71,10 @@ pub(crate) struct InstanceView {
     /// Which copy link says "Copied", and since when.
     pub(crate) copied: Option<(String, Instant)>,
     ticking: bool,
+    /// The stack's daemon is not answering, or has gone quiet: the banner's words.
+    stale: Option<String>,
+    /// Its meters are watched, so a frame is due every second: the page reads the hub again each second.
+    metered: bool,
     _watches: (Watch, Watch, Option<ConsoleWatch>),
     pub(crate) focus: FocusHandle,
 }
@@ -99,6 +103,8 @@ impl InstanceView {
             run_shown: None,
             copied: None,
             ticking: false,
+            stale: None,
+            metered: false,
             _watches: watches,
             focus: cx.focus_handle(),
         };
@@ -143,6 +149,15 @@ impl InstanceView {
             return;
         };
         let now = self.hub.now();
+        // The daemon not answering, or gone quiet: said over the page, the head faded (Go `app.tsx`, `.head.faded`).
+        let b = doze_desk::overview::banner(&st, now);
+        let stale = (!b.ok && !b.text.is_empty()).then_some(b.text);
+        if stale != self.stale {
+            self.stale = stale;
+            cx.notify();
+        }
+        self.metered = st.running && st.metered;
+        self.tick(cx);
         let page = self
             .hub
             .with_logs(&self.key, |r| {
@@ -176,6 +191,7 @@ impl InstanceView {
     /// Repaints once a second while a countdown shows (dozing, the next try), and only then.
     fn tick(&mut self, cx: &mut Context<Self>) {
         let counting = self.page.dozing.is_some()
+            || self.metered
             || self
                 .page
                 .crash
@@ -192,6 +208,7 @@ impl InstanceView {
                     v.ticking = false;
                     v.refresh(cx);
                     let more = v.page.dozing.is_some()
+                        || v.metered
                         || v.page.crash.as_ref().is_some_and(|c| !c.next_in.is_empty());
                     v.ticking = more;
                     more
@@ -372,7 +389,16 @@ impl Render for InstanceView {
             .on_action(cx.listener(|v, _: &ShowLogs, w, cx| v.set_tab(words::TAB_LOGS, w, cx)))
             .on_action(cx.listener(|v, _: &NextTab, w, cx| v.step_tab(1, w, cx)))
             .on_action(cx.listener(|v, _: &PrevTab, w, cx| v.step_tab(-1, w, cx)))
-            .child(head::head(&t, self, cx))
+            .children(
+                self.stale
+                    .as_deref()
+                    .map(|s| crate::overview::stale_banner(&t, s)),
+            )
+            .child(
+                div()
+                    .when(self.stale.is_some(), |d| d.opacity(0.55))
+                    .child(head::head(&t, self, cx)),
+            )
             .child(head::tabs(&t, self, cx))
             .child(body)
             .when(!console && self.tab != words::TAB_LOGS, |d| {

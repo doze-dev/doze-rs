@@ -86,6 +86,7 @@ pub(crate) fn btn(
         .child(crate::motion::tick(b_moving || f_moving))
         .child(SharedString::from(label.to_owned()));
     b = crate::motion::track(b, &hid);
+    b = crate::outward::Probe::probe(b, hid.clone(), label.to_owned());
     if !key.is_empty() {
         b = b.child(kbd_plain(key, ty::XS, key_c, ty::MEDIUM));
     }

@@ -19,7 +19,7 @@ pub(crate) use config::on_file;
 pub use config::{ConfigChanged, ConfigError, SrcLine, config_changed, config_error};
 pub use fronted::{fronted, fronted_down};
 pub use grid::{GridCell, GridCol, GridHead, GridRow, GridTip, GridView, grid};
-pub use home::{Group, Home, Row, home};
+pub use home::{Group, Home, Row, banner, home};
 pub use pane::{Crash, Kv, NeedChip, Pane, Pill, pane};
 pub use refs::{Block, HclFile, Refs, refs_in, scan};
 pub use shape::{Decl, Shape, ShapeError, parse_status};

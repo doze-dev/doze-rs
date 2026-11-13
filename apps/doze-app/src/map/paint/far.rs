@@ -213,3 +213,18 @@ impl Scene {
         .unwrap_or(self.t.dim)
     }
 }
+
+/// A filled disc.
+pub(super) fn dot(window: &mut Window, c: Point<Pixels>, r: f32, color: Hsla) {
+    let pts: Vec<Point<Pixels>> = (0..16)
+        .map(|i| {
+            let a = i as f32 / 16.0 * std::f32::consts::TAU;
+            point(c.x + px(r * a.cos()), c.y + px(r * a.sin()))
+        })
+        .collect();
+    let mut f = PathBuilder::fill();
+    f.add_polygon(&pts, true);
+    if let Ok(path) = f.build() {
+        window.paint_path(path, color);
+    }
+}

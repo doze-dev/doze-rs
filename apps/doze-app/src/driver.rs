@@ -15,6 +15,7 @@
 //! | `wait-for WORDS [MS]` | waits (10 s unless MS) until a probe's id or words contain WORDS |
 //! | `click WORDS` / `dclick WORDS` / `hover WORDS` | presses (twice) or points at the first probe that names WORDS |
 //! | `click-at X Y` / `move X Y` | presses or points at a place in the window |
+//! | `scroll DY [X Y]` | turns the wheel DY pixels down at a place |
 //! | `key KEYS` | types a keystroke as the keymap writes it (`space`, `cmd-k`, `2`) |
 //! | `assert WORDS` / `refute WORDS` | a probe or a toast says WORDS (or none does); a miss is logged as `FAIL` |
 //! | `watch IDS MS` | for MS, writes each change in what the probes whose id starts with one of IDS (comma separated) say, or where they are |
@@ -42,9 +43,12 @@ struct Log {
 
 static LOG: OnceLock<Mutex<Log>> = OnceLock::new();
 
+/// Each probe: the frame it was last drawn in, its place, its words.
+type Probes = HashMap<String, (u64, Bounds<Pixels>, String)>;
+
 thread_local! {
     /// The probes of the frame drawn last, and the number of that frame.
-    static PROBES: RefCell<(u64, HashMap<String, (u64, Bounds<Pixels>, String)>)> = RefCell::new((0, HashMap::new()));
+    static PROBES: RefCell<(u64, Probes)> = RefCell::new((0, HashMap::new()));
 }
 
 /// Whether a script is playing: then nothing leaves the app.
@@ -190,31 +194,10 @@ async fn play(line: &str, cx: &mut AsyncApp) -> bool {
             pointer(cx, at, if verb == "move" { "hover" } else { "click" }).await;
         }
         "key" => key(cx, rest),
+        "scroll" => scroll(cx, rest),
         "assert" | "refute" => check(rest, verb == "assert"),
-        "mark" => note(
-            "mark",
-            &format!(
-                "{rest} @{}",
-                std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .map_or(0, |d| d.as_millis())
-            ),
-        ),
-        "probes" => {
-            for (id, b, t) in shown() {
-                let (o, s) = (b.origin, b.size);
-                note(
-                    "probe",
-                    &format!(
-                        "{id} @{:.0},{:.0} {:.0}x{:.0} {t:?}",
-                        f32::from(o.x),
-                        f32::from(o.y),
-                        f32::from(s.width),
-                        f32::from(s.height)
-                    ),
-                );
-            }
-        }
+        "mark" => mark(rest),
+        "probes" => probes(),
         "quit" => {
             note("end", "quit");
             cx.update(|cx| cx.quit());
@@ -223,6 +206,54 @@ async fn play(line: &str, cx: &mut AsyncApp) -> bool {
         _ => note("FAIL", &format!("no step called {verb:?}")),
     }
     true
+}
+
+/// `scroll DY [X Y]`: the wheel, DY pixels down, at a place (the window's middle when none is given).
+fn scroll(cx: &mut AsyncApp, rest: &str) {
+    let n: Vec<f32> = rest
+        .split_whitespace()
+        .filter_map(|x| x.parse().ok())
+        .collect();
+    let dy = n.first().copied().unwrap_or(0.);
+    let at = point(
+        px(n.get(1).copied().unwrap_or(380.)),
+        px(n.get(2).copied().unwrap_or(600.)),
+    );
+    send(
+        cx,
+        PlatformInput::Scroll(gpui::ScrollEvent {
+            position: at,
+            delta: gpui::ScrollDelta::Pixels(point(px(0.), px(-dy))),
+            modifiers: Modifiers::default(),
+            touch_phase: gpui::TouchPhase::Moved,
+            source: gpui::ScrollSource::default(),
+        }),
+    );
+}
+
+/// `mark LABEL`: the label with the time since the epoch, to line window frames up with.
+fn mark(rest: &str) {
+    let ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_millis());
+    note("mark", &format!("{rest} @{ms}"));
+}
+
+/// `probes`: every probe drawn last frame, its place and its words.
+fn probes() {
+    for (id, b, t) in shown() {
+        let (o, s) = (b.origin, b.size);
+        note(
+            "probe",
+            &format!(
+                "{id} @{:.0},{:.0} {:.0}x{:.0} {t:?}",
+                f32::from(o.x),
+                f32::from(o.y),
+                f32::from(s.width),
+                f32::from(s.height)
+            ),
+        );
+    }
 }
 
 async fn sleep(cx: &mut AsyncApp, ms: u64) {
@@ -344,7 +375,15 @@ fn key(cx: &mut AsyncApp, keys: &str) {
     cx.update(|cx| {
         if let Some(h) = cx.try_global::<crate::app::State>().and_then(|s| s.window) {
             let _ = cx.update_window(h.into(), |_, window, cx| {
-                window.dispatch_keystroke(k, cx);
+                let focused = window.focused(cx).is_some();
+                let handled = window.dispatch_keystroke(k, cx);
+                note(
+                    "keyed",
+                    &format!(
+                        "handled={handled} focused={focused} active={}",
+                        window.is_window_active()
+                    ),
+                );
             });
         }
     });

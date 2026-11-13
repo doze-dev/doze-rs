@@ -78,15 +78,18 @@ fn banner(
 /// the words alone).
 pub(super) fn stale(t: &Tokens, v: &OverviewView) -> Option<AnyElement> {
     let b = &v.home.banner;
-    (!b.ok && !b.text.is_empty()).then(|| {
-        banner(
-            t,
-            "banner-stale",
-            (t.warn, Mark::Ring),
-            (&b.text, ""),
-            Vec::new(),
-        )
-    })
+    (!b.ok && !b.text.is_empty()).then(|| stale_banner(t, &b.text))
+}
+
+/// The warn banner of a daemon not answering, with its words (the stack page's and an instance page's).
+pub(crate) fn stale_banner(t: &Tokens, text: &str) -> AnyElement {
+    banner(
+        t,
+        "banner-stale",
+        (t.warn, Mark::Ring),
+        (text, ""),
+        Vec::new(),
+    )
 }
 
 /// The banners of a stack's doze.hcl and domains, in Go's order.

@@ -157,7 +157,6 @@ pub(crate) fn items_now(
             changed: changed.as_ref(),
             changed_at: mtime,
             held: Some(&held),
-            ..StackFacts::default()
         };
         out.extend(attention::stack_items(st, &f, now));
     }

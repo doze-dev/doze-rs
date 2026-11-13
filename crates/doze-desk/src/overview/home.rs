@@ -185,7 +185,8 @@ pub(crate) fn head(st: &StackView, now: SystemTime) -> Home {
 }
 
 /// Whether what the page shows can be believed (Go `BannerOf`).
-pub(crate) fn banner(st: &StackView, now: SystemTime) -> Banner {
+#[must_use]
+pub fn banner(st: &StackView, now: SystemTime) -> Banner {
     if !st.running {
         return Banner {
             ok: true,

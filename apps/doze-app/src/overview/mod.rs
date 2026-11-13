@@ -9,6 +9,7 @@
 mod act;
 mod addr;
 mod banners;
+mod foot;
 mod grid;
 mod head;
 mod keys;
@@ -31,6 +32,8 @@ use gpui::{
     Render, Window, div, prelude::*, px,
 };
 use gpui_component::input::{InputEvent, InputState};
+
+pub(crate) use banners::stale_banner;
 
 use crate::actions::{
     ChooseStart, CopyAddress, DismissFailure, FilterRows, MoveDown, MoveLeft, MoveRight, MoveUp,

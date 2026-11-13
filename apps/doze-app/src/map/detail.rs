@@ -223,6 +223,36 @@ fn detail_at(m: &MapView, width: f32, height: f32) -> (f32, f32) {
     }
 }
 
+/// One row of the detail card: its key, its words in their tone, and a dim tail.
+fn detail_row(t: &Tokens, (k, v, tone, tail): super::said::Line) -> gpui::Div {
+    let ink = match tone {
+        "ok" => t.good,
+        "cool" => t.cool,
+        "dim" => t.dim,
+        "bad" => t.bad,
+        _ => t.text,
+    };
+    div()
+        .flex()
+        .gap(px(8.))
+        .line_height(px(ty::LH_21))
+        .child(div().w(px(76.)).flex_none().text_color(t.dim).child(k))
+        .child(
+            div()
+                .flex()
+                .gap(px(4.))
+                .min_w_0()
+                .overflow_hidden()
+                .whitespace_nowrap()
+                .text_ellipsis()
+                .text_color(ink)
+                .child(SharedString::from(v))
+                .when(!tail.is_empty(), |d| {
+                    d.child(div().text_color(t.dim).child(SharedString::from(tail)))
+                }),
+        )
+}
+
 /// The detail card's width.
 pub(crate) const WIDTH: f32 = 420.;
 /// A small map's detail card, as wide as Go's (`.detail`).
@@ -270,35 +300,8 @@ pub(crate) fn detail(t: &Tokens, m: &MapView, cx: &mut Context<MapView>) -> Opti
         .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
         .shadow(vec![shadow(t)])
         .child(top);
-    for (k, v, tone, tail) in rows {
-        let ink = match tone {
-            "ok" => t.good,
-            "cool" => t.cool,
-            "dim" => t.dim,
-            "bad" => t.bad,
-            _ => t.text,
-        };
-        card = card.child(
-            div()
-                .flex()
-                .gap(px(8.))
-                .line_height(px(ty::LH_21))
-                .child(div().w(px(76.)).flex_none().text_color(t.dim).child(k))
-                .child(
-                    div()
-                        .flex()
-                        .gap(px(4.))
-                        .min_w_0()
-                        .overflow_hidden()
-                        .whitespace_nowrap()
-                        .text_ellipsis()
-                        .text_color(ink)
-                        .child(SharedString::from(v))
-                        .when(!tail.is_empty(), |d| {
-                            d.child(div().text_color(t.dim).child(SharedString::from(tail)))
-                        }),
-                ),
-        );
+    for line in rows {
+        card = card.child(detail_row(t, line));
     }
     Some(enter(
         card,
