@@ -75,28 +75,32 @@ pub fn recipes(seen: &Seen) -> Vec<LabRecipe> {
         .map(|(_, c)| c.clone())
         .filter(|c| seen.clients.contains(c))
         .or_else(|| seen.clients.first().cloned());
+    let mut all = rule_recipes(topic.as_deref(), read.as_deref(), app.as_deref());
+    all.extend(once_recipes(seen, app));
+    all
+}
+
+/// Slow and Fail: a topic, and an app for the timeout.
+fn rule_recipes(topic: Option<&str>, read: Option<&str>, app: Option<&str>) -> Vec<LabRecipe> {
     let need_topic = topic.is_none().then_some("Needs a topic.");
     let need_app = app
         .is_none()
         .then_some("Needs an app with a connection open.");
-    let need_group = seen
-        .group
-        .is_none()
-        .then_some("Needs a group with members.");
-    let t = topic.clone().unwrap_or_default();
-    let tn = topic.as_deref().unwrap_or(NO_TOPIC);
-    let r = read.clone().unwrap_or_default();
-    let a = app.clone().unwrap_or_default();
-    let an = app.as_deref().unwrap_or(NO_APP);
-    let gn = seen.group.as_deref().unwrap_or(NO_GROUP);
-    let mut slow_fetch = rule("Fetch", &r, "", "every", "5");
+    let (t, r, a) = (
+        topic.unwrap_or_default(),
+        read.unwrap_or_default(),
+        app.unwrap_or_default(),
+    );
+    let tn = topic.unwrap_or(NO_TOPIC);
+    let an = app.unwrap_or(NO_APP);
+    let mut slow_fetch = rule("Fetch", r, "", "every", "5");
     slow_fetch.delay = "2000".to_owned();
     slow_fetch.jitter = "1000".to_owned();
-    let mut slow_produce = rule("Produce", &t, "", "every", "10");
+    let mut slow_produce = rule("Produce", t, "", "every", "10");
     slow_produce.delay = "800".to_owned();
-    let mut leader = rule("Produce", &t, "", "5", "5");
+    let mut leader = rule("Produce", t, "", "5", "5");
     leader.code = "6".to_owned();
-    let mut timeout = rule("Produce", &t, &a, "10", "5");
+    let mut timeout = rule("Produce", t, a, "10", "5");
     timeout.code = "7".to_owned();
     vec![
         recipe(
@@ -112,10 +116,7 @@ pub fn recipes(seen: &Seen) -> Vec<LabRecipe> {
         recipe(
             "slow-fetch",
             "slow",
-            format!(
-                "Slow Fetch from {} by 2 to 3 s",
-                read.as_deref().unwrap_or(NO_TOPIC)
-            ),
+            format!("Slow Fetch from {} by 2 to 3 s", read.unwrap_or(NO_TOPIC)),
             "Does your consumer's lag grow and then drain, without the group rebalancing?",
             Some(slow_fetch),
             None,
@@ -142,6 +143,21 @@ pub fn recipes(seen: &Seen) -> Vec<LabRecipe> {
             None,
             need_topic.or(need_app),
         ),
+    ]
+}
+
+/// Drop, Expire, Rebalance and Compact: an app, a group with a member, a compacted topic.
+fn once_recipes(seen: &Seen, app: Option<String>) -> Vec<LabRecipe> {
+    let need_app = app
+        .is_none()
+        .then_some("Needs an app with a connection open.");
+    let need_group = seen
+        .group
+        .is_none()
+        .then_some("Needs a group with members.");
+    let an = app.clone().unwrap_or_else(|| NO_APP.to_owned());
+    let gn = seen.group.as_deref().unwrap_or(NO_GROUP);
+    vec![
         recipe(
             "drop-once",
             "drop",
@@ -170,10 +186,9 @@ pub fn recipes(seen: &Seen) -> Vec<LabRecipe> {
             None,
             seen.member.clone(),
             None,
-            need_group.or(seen
-                .member
+            seen.member
                 .is_none()
-                .then_some("Needs a group with members.")),
+                .then_some("Needs a group with members."),
         ),
         recipe(
             "rebalance-group",
