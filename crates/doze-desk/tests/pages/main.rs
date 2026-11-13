@@ -33,7 +33,20 @@ fn testdata(rel: &str) -> String {
 }
 
 fn json(rel: &str, work: &str) -> Value {
+    // The folder goes in as a JSON string would hold it (a Windows path's backslashes escaped).
+    let work = serde_json::to_string(work).unwrap();
+    let work = work.trim_matches('"');
     serde_json::from_str(&testdata(rel).replace("$WORK", work)).unwrap()
+}
+
+/// Every string with its path separators written as `/`, so a folder compares the same on Windows.
+fn slashes(v: Value) -> Value {
+    match v {
+        Value::String(s) => Value::String(s.replace('\\', "/")),
+        Value::Array(a) => Value::Array(a.into_iter().map(slashes).collect()),
+        Value::Object(m) => Value::Object(m.into_iter().map(|(k, v)| (k, slashes(v))).collect()),
+        other => other,
+    }
 }
 
 /// `v` with the empty left out, as Go's `omitempty` and `null` lists leave them, and `drop`'s keys gone.
@@ -103,8 +116,8 @@ fn same(got: &Value, want: &Value, at: &str) {
 
 /// Compares a page with Go's JSON, without the parts named in `drop`.
 fn check<T: serde::Serialize>(page: &T, go: &Value, drop: &[&str]) {
-    let got = norm(&serde_json::to_value(page).unwrap(), drop);
-    same(&got, &norm(go, drop), "");
+    let got = slashes(norm(&serde_json::to_value(page).unwrap(), drop));
+    same(&got, &slashes(norm(go, drop)), "");
 }
 
 /// A fixture hub through the hub, its meters and logs watched, as Go's view tests run it.
@@ -223,12 +236,15 @@ fn acme(home: &Home) -> (tempfile::TempDir, String) {
     };
     home.record(
         "acme",
-        &format!(
-            r#"{{"schema":1,"config":"{}","name":"acme","last_up":"{}","last_down":"{}","last_set":["api","web","db"]}}"#,
-            dir.join("doze.hcl").display(),
-            at(then),
-            at(then + Duration::from_secs(6 * 3600)),
-        ),
+        &serde_json::json!({
+            "schema": 1,
+            "config": dir.join("doze.hcl").display().to_string(),
+            "name": "acme",
+            "last_up": at(then),
+            "last_down": at(then + Duration::from_secs(6 * 3600)),
+            "last_set": ["api", "web", "db"],
+        })
+        .to_string(),
     );
     let w = work.path().display().to_string();
     (work, w)

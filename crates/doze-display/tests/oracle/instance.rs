@@ -108,11 +108,27 @@ pub(crate) fn journal(case: &str, input: &Value) -> Value {
     let h = HistoryIn::deserialize(input).expect("a history");
     let events: Vec<_> = h.events.iter().map(EventIn::event).collect();
     let last = h.last.as_ref().map(TaskIn::record);
+    // A run's time is one of the input's, written back as the oracle wrote it: a system clock coarser than a
+    // nanosecond (Windows counts 100 ns) cannot hold Go's `...999` and would round it.
+    let written: Vec<i64> = input["events"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|e| e["time"].as_i64())
+        .chain(input["last"]["ran_at"].as_i64())
+        .collect();
+    let as_written = |t| {
+        written
+            .iter()
+            .copied()
+            .find(|ns| crate::time(*ns) == t)
+            .unwrap_or_else(|| nanos(t))
+    };
     let runs: Vec<Value> = d::run_history(&events, "migrate", last.as_ref())
         .iter()
         .map(|r| {
             json!([
-                nanos(r.at),
+                as_written(r.at),
                 r.why,
                 i64::try_from(r.took.as_nanos()).expect("fits"),
                 r.ok,

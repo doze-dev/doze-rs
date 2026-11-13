@@ -57,6 +57,14 @@ panic = "abort"
 # code (6.97 MB to 4.66 MB, 2026-11-13) and "z" a further 25% (6.50 MB to 4.87 MB at the Lambda stage), for 30 to 60% more server CPU per
 # request (0.2 to 0.7 ms) and about 0.4 MB more idle memory; wall time is unchanged. The owner chose "z" on 2026-11-13.
 # `cargo xtask weight` builds it with this profile.
+# The desktop app (apps/doze-app) is held to 16 MB (docs/port/weight.md). M1 took the release build to 16.38 MB; optimised
+# for size with fat LTO it is back under the line (see weight.md, "After M1 combined", for the binary, first frame and
+# idle memory each way). CI's weight line builds it with this profile.
+[profile.release-app]
+inherits = "release"
+opt-level = "s"
+lto = "fat"
+
 [profile.release-aws]
 inherits = "release"
 opt-level = "z"

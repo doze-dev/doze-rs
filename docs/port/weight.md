@@ -314,6 +314,25 @@ Library when no stack is named.
 The page watches its stack's meters while it shows (one frame a second from a real daemon) and redraws only when what
 it shows changed; the fixture daemon sends no meters after its script, so the static readings above are the floor.
 The binary is close to its line: the size-optimised profile above is the next step if M1's remaining pages need room.
+### After M1 combined (the Library, a stack's page, the Grid, the instance page, logs and consoles), measured 2026-11-13
+
+Same machine and method (`doze-app bench --fixture larder --idle 30`, footprint sampled at 10 s and 25 s after the
+first frame, two runs each). With the instance page, the logs and the consoles in, the release build passed the line,
+so the app now has its own profile, `release-app` (`opt-level = "s"`, fat LTO, on top of the release profile's
+codegen-units 1, strip and panic = abort), and CI's weight line builds that.
+
+| | Budget | release (opt-level 3, thin LTO) | release-app ("s", fat LTO) |
+|---|---|---|---|
+| Binary, no capture | ≤ 16 MB | 16,378,592 B: **379 KB over** | 12,136,112 B: 3.9 MB under |
+| Binary with `fixtures` (what bench runs) | | 16,728,992 B | 12,385,072 B |
+| Packages | limit 560 | 535 | 535 |
+| Menu bar ready | ≤ 100 ms | 62–80 ms | 58–75 ms |
+| First frame after the tray click | ≤ 100 ms | 66–70 ms | 67–73 ms |
+| Window open and idle (larder's page) | ≤ 85 MB | 59 MB at 10 s, 55 MB at 25 s | 59 MB, 55 MB |
+
+The size-optimised build costs nothing measurable in the first frame or in idle memory here; what it costs while
+drawing hard (the Map at 2,000 cards, the logs following) is not measured yet.
+
 **The logs viewer** (`doze-app bench --fixture shop --logs`, release, `capture` for the draw timing): All logs on a fixture
 stack, 100,000 lines printed through the fixture daemon (the same socket, hub and fold a daemon's lines take; filled in
 0.4 s), then five seconds of scrolling and thirty of following at 200 lines a second. The page draws only the rows in

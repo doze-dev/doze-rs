@@ -112,7 +112,9 @@ fn it_comes_back_after_the_daemon_restarts_and_resumes_the_journal() {
     let d = FixtureDaemon::start(&path, script("shop")).unwrap();
     let (at, again) = w.stamped();
     assert_eq!(again, FollowEvent::Connecting { attempt: 1 });
-    assert!(at - down_at >= Duration::from_millis(500));
+    // Both stamps are taken as a watching thread receives the events, so a slow runner can read the Down late; the
+    // wait itself is 500 ms (retry_in above), and the gap measured here allows 50 ms of that lateness.
+    assert!(at - down_at >= Duration::from_millis(450));
     assert_eq!(w.next_state(), FollowEvent::Live);
     let FollowEvent::Frame(snap) = w.next() else {
         panic!("no snapshot")
@@ -166,7 +168,8 @@ fn it_backs_off_between_attempts() {
     assert_eq!(waits, [40, 80, 160, 200, 200]);
     for (wait, gap) in got {
         assert!(
-            gap + JITTER >= wait && gap < wait + Duration::from_millis(100),
+            // Never early; late by at most what a busy shared CI runner adds (a macOS runner was 118 ms late once).
+            gap + JITTER >= wait && gap < wait + Duration::from_millis(400),
             "gap {gap:?} for a wait of {wait:?}"
         );
     }
