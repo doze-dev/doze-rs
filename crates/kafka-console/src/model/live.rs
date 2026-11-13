@@ -58,9 +58,12 @@ pub enum LabDid {
 #[cfg_attr(test, derive(ts_rs::TS))]
 pub struct WireRow {
     pub id: u64,
-    /// When the last of its requests began (milliseconds since the epoch), and the first if it stands for several.
+    /// When the row joined the tape: the time its first request was answered (milliseconds since the epoch). The tape is in
+    /// this order, newest first, so the order always matches the time shown.
     pub at_ms: i64,
-    pub since_ms: Option<i64>,
+    /// When it stands for several (folded repeats): the time the newest of them was answered. It changes in place; the row
+    /// keeps its place.
+    pub last_ms: Option<i64>,
     /// How many requests it stands for: 1, or more when repeats were folded.
     pub count: u32,
     pub client: String,

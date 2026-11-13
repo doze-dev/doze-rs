@@ -16,13 +16,18 @@ import { hhmmUtc, number } from "@/lib/format";
 import { Tape } from "./tape";
 import { clockMs } from "./words";
 
-/** How far back a dock reaches: figures in slots, so the line never changes length. */
+/** How far back a dock reaches: two labelled figures, never a sentence with a number in it (CON-805). Each value has a slot
+ * of reserved width, so a refresh never moves the other. */
 function Reach({ w }: { w: WireWindow }) {
   return (
-    <>
-      Among the last <span className="inline-block min-w-[5ch] text-right font-mono tabular-nums">{number(w.rows)}</span> rows the broker kept, back to{" "}
-      <span className="inline-block min-w-[5ch] font-mono tabular-nums">{w.oldest_ms ? hhmmUtc(w.oldest_ms) : "none"}</span> UTC.
-    </>
+    <span className="inline-flex flex-wrap items-baseline gap-x-5 gap-y-1" data-testid="wire-reach">
+      <span>
+        Rows the broker kept <span className="ml-1 inline-block min-w-[5ch] font-mono text-foreground tabular-nums">{number(w.rows)}</span>
+      </span>
+      <span>
+        Reaching back to <span className="ml-1 inline-block min-w-[5ch] font-mono text-foreground tabular-nums">{w.oldest_ms ? hhmmUtc(w.oldest_ms) : "none"}</span> UTC
+      </span>
+    </span>
   );
 }
 
@@ -35,7 +40,7 @@ function TopicDock({ topic }: { topic: string }) {
         <h2 className="flex items-center gap-2 text-[19px] font-medium text-bright">
           <RadioIcon className="size-4 text-link" aria-hidden /> On the wire
         </h2>
-        <p className="mt-1 text-[13.5px] text-muted-foreground">Client requests that touched this topic. {v ? <Reach w={v.window} /> : null} A Fetch that returns nothing is folded.</p>
+        <p className="mt-1 text-[13.5px] text-muted-foreground">Client requests that touched this topic, newest first. A Fetch that returns nothing is folded.</p>
       </div>
       {!v ? (
         <Skeleton className="h-48 rounded-xl" />
@@ -52,6 +57,7 @@ function TopicDock({ topic }: { topic: string }) {
           }
         />
       )}
+      <p className="min-h-5 text-[12.5px] text-muted-foreground">{v && <Reach w={v.window} />}</p>
       <p className="text-[12.5px] text-muted-foreground">
         Kept in memory and emptied at every restart. The console's own requests are not listed, so this can be quieter than the topic's real traffic. A row opens to its detail in{" "}
         <Link to="/live" search={{ topic: [topic] }} className="font-medium text-link hover:underline">

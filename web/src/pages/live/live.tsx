@@ -22,6 +22,7 @@ import { Switch } from "@/components/ui/switch";
 import { Toggle } from "@/components/ui/toggle";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { hhmmUtc, number } from "@/lib/format";
+import { useTailOwnsRefresh } from "@/lib/refresh";
 import { cn } from "@/lib/utils";
 import { PageError } from "../page-error";
 import { ClientsSheet } from "./clients-sheet";
@@ -62,8 +63,15 @@ function Refusals({ r, onOpen }: { r: LiveResponse; onOpen: (id: number) => void
             <span className="inline-block min-w-[4ch] font-mono tabular-nums" data-testid="refusals-total">
               {number(total)}
             </span>
-            <span className="min-w-0 truncate text-muted-foreground">
-              {v.refused.map((x) => `${x.code_name} · ${x.client}`).join("   ")}
+            {/* One chip per (code, client): entries never run together. The strip is one line; what does not fit is cut at
+                a chip's edge and is in the list that opens. */}
+            <span className="ml-1 flex h-6 min-w-0 flex-1 flex-wrap items-center gap-1.5 overflow-hidden" data-testid="refusal-chips">
+              {v.refused.map((x) => (
+                <span key={`${x.code}-${x.client}`} className="inline-flex h-6 max-w-[18rem] shrink-0 items-center gap-1.5 rounded-full border border-refused/25 bg-card px-2.5 text-[12px] whitespace-nowrap" data-testid="refusal-chip">
+                  <span className="font-mono text-refused">{x.code_name}</span>
+                  <span className="truncate text-muted-foreground">{x.client || "(no client.id)"}</span>
+                </span>
+              ))}
             </span>
           </>
         )}
@@ -257,6 +265,7 @@ export function LivePage() {
   const r = q.data;
   const ready = !!r && !q.isPlaceholderData;
   const [speed, setSpeed] = useSpeed();
+  useTailOwnsRefresh();
   const pace = speedSecs(speed);
 
   const navRef = useRef(navigate);
@@ -348,7 +357,6 @@ export function LivePage() {
       <PageHeader
         title="Live"
         sub="Everything your apps send, newest first. Repeats fold into one row with a count; the oldest rows fall off."
-        refresh={<RefreshControl updatedAt={q.dataUpdatedAt} fetching={q.isFetching} onRefresh={() => void q.refetch()} />}
         actions={
           <Button variant="outline" className="bg-card" disabled={!r} onClick={() => openOverlay({ clients: true })} data-testid="open-clients">
             <NetworkIcon /> Clients <span className="inline-block min-w-[3ch] text-left font-mono text-muted-foreground tabular-nums">{r ? number(r.live.clients) : ""}</span>
@@ -396,19 +404,22 @@ export function LivePage() {
               </ToggleGroupItem>
             </ToggleGroup>
             <Select value={speed} onValueChange={(v) => setSpeed(parseSpeed(v) as Speed)}>
-                    <SelectTrigger size="sm" className="w-[9.5rem] bg-card" aria-label="Tail speed" data-testid="tail-speed">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {SPEEDS.map((s) => (
-                        <SelectItem key={s.value} value={s.value}>
-                          {s.label} · {s.secs} s
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
+              <SelectTrigger size="sm" className="w-[9.5rem] bg-card" aria-label="Tail speed" data-testid="tail-speed">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {SPEEDS.map((s) => (
+                  <SelectItem key={s.value} value={s.value}>
+                    {s.label} · {s.secs} s
+                  </SelectItem>
+                ))}
+              </SelectContent>
             </Select>
             <Indicator on={on} conn={tail.conn} onRetry={tail.retry} />
             <span className="flex-1" />
+            {/* The switch owns how the tape keeps up (no page-wide interval here): a snapshot is refreshed by hand, a tail by
+                itself. */}
+            {!on && <RefreshControl interval={false} updatedAt={q.dataUpdatedAt} fetching={q.isFetching} onRefresh={() => void q.refetch()} />}
           </div>
           <div className="relative" ref={wrap} onPointerEnter={() => (hovering.current = true)} onPointerLeave={() => (hovering.current = false)} data-testid="tape-wrap" data-tail={on || undefined}>
             {/* The pill floats over the top of the tape: it takes no room, so it moves nothing when it comes and goes. */}

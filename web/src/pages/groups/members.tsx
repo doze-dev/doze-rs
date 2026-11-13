@@ -9,6 +9,7 @@ import type { GroupMemberRow } from "@/api/types/GroupMemberRow";
 import type { GroupPart } from "@/api/types/GroupPart";
 import type { LagTopic } from "@/api/types/LagTopic";
 import { DataTable, type DataColumn } from "@/components/app/data-table";
+import { IdValue } from "@/components/app/id-value";
 import { StatusDot } from "@/components/app/status-dot";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -99,9 +100,9 @@ function TheGroup({ h }: { h: GroupHead }) {
   const rebalance = Math.max(0, ...h.members.map((m) => m.rebalance_ms ?? 0));
   const rows: [string, React.ReactNode][] = [
     ["Protocol type", <span className="font-mono">{h.protocol_type ?? "consumer"}</span>],
-    ["Assignor", <span className="font-mono">{h.assignor ?? "none yet"}</span>],
+    ["Assignor", <span className="font-mono whitespace-nowrap">{h.assignor ?? "none yet"}</span>],
     ["Generation", <span className="font-mono">{h.generation}</span>],
-    ["Leader", <span className="font-mono">{h.leader ? memberLabel(h.leader) : "none yet"}</span>],
+    ["Leader", h.leader ? <IdValue value={h.leader} shown={memberLabel(h.leader)} what="Leader id copied" /> : <span className="font-mono">none yet</span>],
   ];
   if (session > 0) rows.push(["Session timeout", <span className="font-mono">{seconds(session)}</span>]);
   if (rebalance > 0) rows.push(["Rebalance timeout", <span className="font-mono">{seconds(rebalance)}</span>]);
@@ -140,7 +141,7 @@ function WhoHolds({ v }: { v: GroupLagView }) {
                   {p}
                 </span>
               ))}
-              <span className="min-w-0 basis-full text-[12.5px] break-all text-muted-foreground">{allOne ? `all ${numberWord(parts.length)}: ${memberLabel(owners[0]!)}` : parts.map((p) => `${p}: ${holderOf(t.name, p) ? memberLabel(holderOf(t.name, p)!.id) : "nobody"}`).join(", ")}</span>
+              <span className="min-w-0 basis-full text-[12.5px] break-words text-muted-foreground">{allOne ? `all ${numberWord(parts.length)}: ${memberLabel(owners[0]!)}` : parts.map((p) => `${p}: ${holderOf(t.name, p) ? memberLabel(holderOf(t.name, p)!.id) : "nobody"}`).join(", ")}</span>
             </div>
           );
         })}
@@ -338,7 +339,7 @@ function MemberSheet({ h, member, onClose, returnFocus }: { h: GroupHead; member
           <div className="flex flex-col gap-6 px-4 pb-6">
             <Facts
               rows={[
-                ["Member id", <span className="font-mono text-[12.5px] break-all">{m.id}</span>],
+                ["Member id", <IdValue value={m.id} what="Member id copied" className="text-[12.5px]" />],
                 ["Client id", <span className="font-mono">{m.client_id}</span>],
                 ["Host", <span className="font-mono">{m.host}</span>],
                 ["Role", h.protocol === "consumer" ? "The broker assigns; a member does not lead" : m.leader ? `Leader: computed the ${h.assignor ?? ""} assignment` : "Follower: takes the assignment the leader computed"],

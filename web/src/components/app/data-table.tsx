@@ -9,6 +9,14 @@ export const VIRTUAL_FROM = 500;
 const ROW = 40;
 const NO_SIZE = { size: undefined };
 
+/** The width a header needs on one line (CON-808: a header never truncates): its uppercase words at about 9 px a letter (12 px,
+ * medium, tracked), the cell padding, and the sort arrow's slot. A column the page sized narrower is widened to it, so a page
+ * can never cut its own header; a header that is not text (an sr-only label) needs nothing. */
+export function headerWidth(header: unknown, sortable: boolean): number {
+  if (typeof header !== "string" || header.length === 0) return 0;
+  return Math.ceil(header.length * 9 + 24 + (sortable ? 16 : 0));
+}
+
 export type DataColumn<T> = ColumnDef<T> & {
   /** Fixed width in px; one column may leave it out and take the rest. */
   size?: number;
@@ -38,7 +46,7 @@ export function DataTable<T>({ data, columns, rowId, empty, maxHeight = 560, cla
       <table className="w-full table-fixed border-separate border-spacing-0 text-[13.5px]" aria-label={ariaLabel} aria-rowcount={virtual ? rows.length + 1 : undefined}>
         <colgroup>
           {cols.map((c) => (
-            <col key={c.id} style={{ width: (c.columnDef as DataColumn<T>).size ? `${(c.columnDef as DataColumn<T>).size}px` : undefined }} />
+            <col key={c.id} style={{ width: (c.columnDef as DataColumn<T>).size ? `${Math.max((c.columnDef as DataColumn<T>).size!, headerWidth(c.columnDef.header, c.getCanSort()))}px` : undefined }} />
           ))}
         </colgroup>
         <thead className="sticky top-0 z-10 bg-well">
@@ -51,7 +59,7 @@ export function DataTable<T>({ data, columns, rowId, empty, maxHeight = 560, cla
                   <th key={h.id} scope="col" aria-sort={dir === "asc" ? "ascending" : dir === "desc" ? "descending" : undefined} className={cn("h-10 border-b px-3 text-left text-[12px] font-medium tracking-[0.04em] whitespace-nowrap text-muted-foreground uppercase", meta?.numeric && "text-right")}>
                     {h.column.getCanSort() ? (
                       <button type="button" onClick={h.column.getToggleSortingHandler()} className={cn("inline-flex max-w-full items-center gap-1 rounded-sm uppercase hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none", meta?.numeric && "flex-row-reverse")}>
-                        <span className="truncate">{flexRender(h.column.columnDef.header, h.getContext())}</span>
+                        <span className="whitespace-nowrap">{flexRender(h.column.columnDef.header, h.getContext())}</span>
                         {dir === "asc" ? <ArrowUpIcon className="size-3" /> : dir === "desc" ? <ArrowDownIcon className="size-3" /> : <span className="size-3" />}
                       </button>
                     ) : (

@@ -85,7 +85,7 @@ function columns(now: number): DataColumn<GroupRow>[] {
         );
       },
     },
-    { id: "protocol", header: "Protocol", size: 176, accessorFn: protocolWord },
+    { id: "protocol", header: "Protocol", size: 228, accessorFn: protocolWord },
     {
       id: "state",
       header: "State",
@@ -98,9 +98,9 @@ function columns(now: number): DataColumn<GroupRow>[] {
         </div>
       ),
     },
-    { id: "members", header: "Members", size: 104, accessorFn: (r) => r.members, meta: { numeric: true, mono: true } },
+    { id: "members", header: "Members", size: 112, accessorFn: (r) => r.members, meta: { numeric: true, mono: true } },
     { id: "reads", header: "Reads", size: 200, accessorFn: (r) => r.reads.join(", "), meta: { mono: true } },
-    { id: "lag", header: "Lag", size: 200, accessorFn: (r) => r.lag.total, cell: ({ row: { original: r } }) => <LagCell l={r.lag} /> },
+    { id: "lag", header: "Lag", size: 168, accessorFn: (r) => r.lag.total, cell: ({ row: { original: r } }) => <LagCell l={r.lag} /> },
   ];
 }
 

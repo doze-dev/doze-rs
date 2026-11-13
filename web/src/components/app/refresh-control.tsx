@@ -14,8 +14,11 @@ export function typing(e: KeyboardEvent): boolean {
 }
 
 /** The Refresh control of a data page (live-design.md): the time of the data on screen, the interval (Off by default, one
- * preference for every page, remembered), and a Refresh button (key `r`). The stamp changes only when new data arrived. */
-export function RefreshControl({ updatedAt, fetching, onRefresh, className }: { updatedAt: number; fetching: boolean; onRefresh: () => void; className?: string }) {
+ * preference for every page, remembered), and a Refresh button (key `r`). The stamp changes only when new data arrived.
+ *
+ * `interval={false}`: the stamp and the button only, for a page whose Snapshot | Live tail switch owns its updates (Live, a
+ * topic's Messages): there the switch is the way to keep a page current, so there is no interval to pick. */
+export function RefreshControl({ updatedAt, fetching, onRefresh, className, interval: withInterval = true }: { updatedAt: number; fetching: boolean; onRefresh: () => void; className?: string; interval?: boolean }) {
   const [interval, setInterval] = useRefreshInterval();
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -31,12 +34,13 @@ export function RefreshControl({ updatedAt, fetching, onRefresh, className }: { 
     <div className={cn("flex items-center gap-2", className)} data-slot="refresh-control">
       <Tooltip>
         <TooltipTrigger asChild>
-          <span tabIndex={0} className="inline-block min-w-[9.5rem] text-right text-[12.5px] whitespace-nowrap text-muted-foreground tabular-nums outline-none" data-testid="refresh-stamp">
+          <span tabIndex={0} className={cn("inline-block text-right text-[12.5px] whitespace-nowrap text-muted-foreground tabular-nums outline-none", withInterval && "min-w-[9.5rem]")} data-testid="refresh-stamp">
             {updatedAt > 0 ? `Updated ${clockUtc(updatedAt)} UTC` : "Not loaded yet"}
           </span>
         </TooltipTrigger>
         <TooltipContent>The time of the data on this page. It changes only when new data arrives.</TooltipContent>
       </Tooltip>
+      {withInterval && (
       <Select value={interval} onValueChange={(v) => setInterval(parseInterval(v) as IntervalValue)}>
         <SelectTrigger size="sm" className="w-[9.25rem] bg-card" aria-label="Refresh every" data-testid="refresh-interval">
           <SelectValue />
@@ -49,6 +53,7 @@ export function RefreshControl({ updatedAt, fetching, onRefresh, className }: { 
           ))}
         </SelectContent>
       </Select>
+      )}
       <Tooltip>
         <TooltipTrigger asChild>
           <Button variant="outline" size="sm" className="bg-card" onClick={onRefresh} data-testid="refresh-now">

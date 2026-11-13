@@ -94,7 +94,10 @@ test("A group: the state, the figures as tiles, the tabs are routes, and Refresh
   await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toHaveText("Groups");
   await expect(page.getByTestId("group-pills")).toContainText("Stable");
   const strip = page.locator("[data-slot=stat-strip]").first();
-  for (const label of ["State", "Members", "Generation", "Lag", "Committed", "Last commit"]) await expect(strip).toContainText(label);
+  for (const label of ["Members", "Lag", "Committed", "Last commit"]) await expect(strip).toContainText(label);
+  // State and generation are said once, as the pills under the h1, not again in the strip.
+  await expect(page.getByTestId("group-pills")).toContainText("generation");
+  for (const label of ["State", "Generation"]) await expect(strip.locator("dt", { hasText: new RegExp(`^${label}$`, "i") })).toHaveCount(0);
   await expect(page.getByTestId("member-link")).toHaveCount(1);
   await expect(page.getByTestId("wire-dock")).toBeVisible();
   const tabs = page.getByTestId("group-tabs");

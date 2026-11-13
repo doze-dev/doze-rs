@@ -160,7 +160,7 @@ fn target(r: &WireRow, base: &Base, q: &WireQuery, filterable: bool) -> Markup {
             _ => (name),
         }
         @if let Some(s) = &r.target_sub { " " span class="sub" { (s) } }
-        @if let Some(since) = r.since_ms { " " span class="sub" { "since " (clock(since)) } }
+        @if let Some(last) = r.last_ms { " " span class="sub" { "last " (clock(last)) } }
     }
 }
 

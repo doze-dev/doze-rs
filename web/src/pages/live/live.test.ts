@@ -9,7 +9,7 @@ function row(id: number, count = 1): WireRow {
   return {
     id,
     at_ms: 1_700_000_000_000 + id,
-    since_ms: null,
+    last_ms: null,
     count,
     client: "orders",
     tag: null,

@@ -179,7 +179,7 @@ function WhoWhen({ d, client }: { d: WireDetail; client: boolean }) {
       </>,
     ]);
   rows.push([
-    "At",
+    "Answered",
     <Mono>
       {clockMs(d.row.at_ms)} · {Math.floor(d.row.took_us / 1000)} ms
     </Mono>,

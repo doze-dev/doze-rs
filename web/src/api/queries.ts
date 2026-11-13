@@ -3,7 +3,7 @@
 // while a refresh is in flight, so nothing blanks or flickers. Structural sharing keeps unchanged objects identical, so
 // unchanged rows do not re-render.
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { intervalMs, useRefreshInterval } from "@/lib/refresh";
+import { usePollInterval } from "@/lib/refresh";
 import { api } from "./client";
 import type { ConnectResponse } from "./types/ConnectResponse";
 import type { HomeResponse } from "./types/HomeResponse";
@@ -20,9 +20,7 @@ export const keys = {
 
 /** The interval of a page that follows the RefreshControl. */
 export function useInterval(): number | false {
-  const [v] = useRefreshInterval();
-  const ms = intervalMs(v);
-  return ms > 0 ? ms : false;
+  return usePollInterval();
 }
 
 export function useShell() {

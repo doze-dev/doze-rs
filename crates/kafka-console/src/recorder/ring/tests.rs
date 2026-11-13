@@ -168,3 +168,28 @@ fn the_took_samples_are_the_last_sixty_four() {
     assert_eq!(r.tooks.last(), Some(&99));
     assert_eq!(r.median(), 68);
 }
+
+#[test]
+fn the_tape_is_in_the_order_of_its_times_even_when_the_clock_steps_back() {
+    let mut ring = Ring::default();
+    ring.record(row(10_000, 0), Fold::Never);
+    // A clock that stepped back (or two threads that read it a hair apart): the row still sits above the older one.
+    ring.record(row(9_000, 0), Fold::Never);
+    ring.record(row(12_000, 0), Fold::Never);
+    let times: Vec<i64> = ring.iter().map(|r| r.first_ms).collect();
+    assert_eq!(times, vec![10_000, 10_000, 12_000]);
+    assert!(ring.iter().all(|r| r.last_ms >= r.first_ms));
+}
+
+#[test]
+fn a_folded_row_keeps_its_place_and_its_first_time_while_its_last_time_grows() {
+    let mut ring = Ring::default();
+    let a = ring.record(row(1_000, 7), Fold::Poll);
+    let b = ring.record(row(2_000, 0), Fold::Never);
+    let again = ring.record(row(3_000, 7), Fold::Poll);
+    assert_eq!(again, a, "the repeat folds into the first row");
+    let order: Vec<u64> = ring.iter().map(|r| r.id).collect();
+    assert_eq!(order, vec![a, b], "the folded row did not move");
+    let r = ring.get(a).unwrap();
+    assert_eq!((r.first_ms, r.last_ms, r.count), (1_000, 3_000, 2));
+}

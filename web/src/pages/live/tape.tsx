@@ -18,9 +18,14 @@ export type FilterBy = (field: "client" | "api" | "topic", value: string) => voi
 
 const TONE: Record<string, string> = { ok: "text-good", warn: "text-warn", bad: "text-bad", refused: "text-refused", idle: "text-muted-foreground", info: "text-cool" };
 
-/** Widths in px for a table at least 1000 px wide, and for a narrower one (1024 px windows). The target takes the rest. */
-const WIDE = { time: 128, client: 168, api: 196, result: 300, took: 84 };
-const NARROW = { time: 122, client: 104, api: 128, result: 134, took: 84 };
+/** Widths in px by the width the table has (never by its rows): at least 1000 px, at least 860 px (a 1280 px window), and
+ * narrower (1024 px). The target takes the rest; a client, an API or a result is cut only in the narrowest. */
+export type Fit = "wide" | "mid" | "narrow";
+const WIDTHS: Record<Fit, { time: number; client: number; api: number; result: number; took: number }> = {
+  wide: { time: 128, client: 168, api: 196, result: 300, took: 84 },
+  mid: { time: 120, client: 150, api: 184, result: 196, took: 80 },
+  narrow: { time: 118, client: 112, api: 140, result: 124, took: 72 },
+};
 
 function FilterButton({ onClick, title, className, children }: { onClick?: () => void; title: string; className?: string; children: React.ReactNode }) {
   if (!onClick) return <span className={className}>{children}</span>;
@@ -49,7 +54,7 @@ function Tag({ children, title, className }: { children: React.ReactNode; title?
 
 export function TimeCell({ r }: { r: TapeRow }) {
   return (
-    <Link to="/live" search={{ request: r.id }} onClick={(e) => e.stopPropagation()} className="rounded-sm font-mono text-[12.5px] text-link hover:underline focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none" title={dateTime(r.at_ms)} data-testid="row-time">
+    <Link to="/live" search={{ request: r.id }} onClick={(e) => e.stopPropagation()} className="rounded-sm font-mono text-[12.5px] text-link hover:underline focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none" title={r.last_ms ? `${dateTime(r.at_ms)}, the first of ${number(r.count)} (the last ${dateTime(r.last_ms)})` : `Answered ${dateTime(r.at_ms)}`} data-testid="row-time">
       {r.fresh && <span data-fresh hidden />}
       {clockMs(r.at_ms)}
     </Link>
@@ -85,8 +90,8 @@ export function ResultCell({ r }: { r: WireRow }) {
 }
 
 /** The columns of a layout at a width. */
-export function tapeColumns(layout: Layout, wide: boolean, filter?: FilterBy): DataColumn<TapeRow>[] {
-  const w = wide ? WIDE : NARROW;
+export function tapeColumns(layout: Layout, fit: Fit, filter?: FilterBy): DataColumn<TapeRow>[] {
+  const w = WIDTHS[fit];
   const target = layout === "topic" ? "Topic and partition" : layout === "group" ? "What it touched" : "Target";
   const api = layout === "group" ? "Request" : "API";
   const f = layout === "live" ? filter : undefined;
@@ -139,7 +144,7 @@ export function tapeColumns(layout: Layout, wide: boolean, filter?: FilterBy): D
       cell: (c) => {
         const r = c.row.original;
         const topic = r.topics[0];
-        const sub = [r.target_sub, r.since_ms ? `since ${clockMs(r.since_ms).slice(0, 8)}` : null].filter(Boolean).join(" · ");
+        const sub = [r.target_sub, r.last_ms ? `last ${clockMs(r.last_ms).slice(0, 8)}` : null].filter(Boolean).join(" · ");
         return (
           <span className="flex min-w-0 items-baseline gap-2" title={sub ? `${r.target} · ${sub}` : r.target}>
             <FilterButton onClick={f && topic ? () => f("topic", topic) : undefined} title={`Show only ${topic ?? r.target}`} className="max-w-full min-w-0 shrink-0 truncate font-mono text-[12.5px] text-foreground">
@@ -166,26 +171,30 @@ export function tapeColumns(layout: Layout, wide: boolean, filter?: FilterBy): D
   return layout === "first" ? cols.filter((c) => c.id !== "client") : cols;
 }
 
-/** Whether an element is at least 1000 px wide, followed as it resizes (the columns change with the width, never the rows). */
-export function useWide(el: HTMLElement | null): boolean {
-  // A first guess from the window (the sidebar and the margins take about 290 px), so the first paint is already right.
-  const [wide, setWide] = useState(() => (globalThis.innerWidth ?? 1440) - 290 >= 1000);
+function fitOf(width: number): Fit {
+  return width >= 1000 ? "wide" : width >= 860 ? "mid" : "narrow";
+}
+
+/** How wide an element is, as a {@link Fit}, followed as it resizes (the columns change with the width, never the rows). */
+export function useFit(el: HTMLElement | null): Fit {
+  // A first guess from the window (the sidebar and the margins take about 340 px), so the first paint is already right.
+  const [fit, setFit] = useState<Fit>(() => fitOf((globalThis.innerWidth ?? 1440) - 340));
   useEffect(() => {
     if (!el) return;
-    const ro = new ResizeObserver(([e]) => setWide((e?.contentRect.width ?? 1200) >= 1000));
+    const ro = new ResizeObserver(([e]) => setFit(fitOf(e?.contentRect.width ?? 1200)));
     ro.observe(el);
     return () => ro.disconnect();
   }, [el]);
-  return wide;
+  return fit;
 }
 
 /** A table of requests: a DataTable in one of the layouts. */
 export function Tape({ rows, layout, filter, empty, maxHeight, label, onOpen, testId }: { rows: TapeRow[]; layout: Layout; filter?: FilterBy; empty?: React.ReactNode; maxHeight?: number; label: string; onOpen?: (r: TapeRow) => void; testId?: string }) {
   const [el, setEl] = useState<HTMLDivElement | null>(null);
-  const wide = useWide(el);
+  const fit = useFit(el);
   // The columns are made once per layout, width and filter: a cell renderer of a new identity would remount every cell
   // (TanStack renders a function as a component), and the tail's rule is that an existing row is never rewritten.
-  const columns = useMemo(() => tapeColumns(layout, wide, filter), [layout, wide, filter]);
+  const columns = useMemo(() => tapeColumns(layout, fit, filter), [layout, fit, filter]);
   return (
     <div ref={setEl} className="min-w-0" data-testid={testId}>
       <DataTable data={rows} columns={columns} rowId={(r) => String(r.id)} empty={empty} maxHeight={maxHeight} aria-label={label} onRowClick={onOpen} className="tape" />

@@ -1,7 +1,7 @@
 // The Live endpoints (slice R3). Snapshots, like every page (live-design.md): `staleTime: Infinity`, the previous data kept
 // while a refresh is in flight, the RefreshControl's interval the only timer. The tail is not a query: `pages/live/tail.ts`.
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { intervalMs, useRefreshInterval } from "@/lib/refresh";
+import { usePollInterval } from "@/lib/refresh";
 import { api } from "./client";
 import type { ClientsView } from "./types/ClientsView";
 import type { FirstResponse } from "./types/FirstResponse";
@@ -19,11 +19,7 @@ export const liveKeys = {
   groupWire: (g: string, q: string) => ["live-group-wire", g, q] as const,
 };
 
-function useInterval(): number | false {
-  const [v] = useRefreshInterval();
-  const ms = intervalMs(v);
-  return ms > 0 ? ms : false;
-}
+const useInterval = usePollInterval;
 
 /** The tape as a snapshot, for the filters in `query` (the server's own names). `poll`: false while the tail runs. */
 export function useLive(query: string, poll = true) {

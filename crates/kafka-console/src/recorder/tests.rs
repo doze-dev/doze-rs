@@ -139,7 +139,7 @@ fn heartbeats_fold_into_one_row_that_idle_hiding_hides_and_refusals_stand_alone(
     assert_eq!(all.rows.len(), 3);
     assert_eq!(all.rows.iter().map(|r| r.count).sum::<u32>(), 202);
     assert!(all.rows.iter().any(|r| r.count == 200
-        && r.since_ms.is_some()
+        && r.last_ms.is_some()
         && r.took_sub.as_deref() == Some("median of the last 64")));
     assert!(
         all.rows

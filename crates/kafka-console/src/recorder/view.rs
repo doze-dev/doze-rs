@@ -63,8 +63,8 @@ fn plain(row: &Row) -> WireRow {
     };
     WireRow {
         id: row.id,
-        at_ms: row.last_ms,
-        since_ms: (row.count > 1).then_some(row.first_ms),
+        at_ms: row.first_ms,
+        last_ms: (row.count > 1).then_some(row.last_ms),
         count: row.count,
         client: row.who.client.to_string(),
         tag: row.who.software.as_deref().and_then(names::tag),

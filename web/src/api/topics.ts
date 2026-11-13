@@ -1,7 +1,7 @@
 // The Query hooks of the Topics pages (slice R1a). Every page is a snapshot (live-design.md): staleTime Infinity, the
 // RefreshControl's interval the only timer, keepPreviousData so nothing blanks while a refresh or a filter is in flight.
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { intervalMs, useRefreshInterval } from "@/lib/refresh";
+import { usePollInterval } from "@/lib/refresh";
 import { ApiFailure, api } from "./client";
 import type { Missing } from "./types/Missing";
 import type { CompactDone } from "./types/CompactDone";
@@ -37,11 +37,7 @@ export const topicKeys = {
   txn: (t: string, id: string) => ["topics", "one", t, "txn", id] as const,
 };
 
-function useInterval(): number | false {
-  const [v] = useRefreshInterval();
-  const ms = intervalMs(v);
-  return ms > 0 ? ms : false;
-}
+const useInterval = usePollInterval;
 
 /** A snapshot query that follows the RefreshControl. */
 function snapshot<T>(key: readonly unknown[], path: string, refetchInterval: number | false, enabled = true) {

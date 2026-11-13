@@ -1,11 +1,13 @@
 // A topic's Messages (boards topic-detail, topic-messages-filtered, topic-messages-empty, topic-readcommitted, topic-offline;
 // classic pages/topics/messages.rs, bar.rs, table.rs, offline.rs). Every filter is in the address; the toolbar is ONE layout
 // that never moves; the table is a DataTable with stable ids; a record opens in a routed Sheet; the Live tail is opt-in.
+import { useIsFetching, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import { ArrowUpIcon, CalendarClockIcon, CircleAlertIcon, InboxIcon, SearchIcon, SendIcon, XIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useShell } from "@/api/queries";
-import { useTopicFrame, useMessages } from "@/api/topics";
+import { liveKeys } from "@/api/live";
+import { topicKeys, useTopicFrame, useMessages } from "@/api/topics";
 import type { MessagesResponse } from "@/api/types/MessagesResponse";
 import type { RecordRow } from "@/api/types/RecordRow";
 import type { Shown } from "@/api/types/Shown";
@@ -14,6 +16,7 @@ import { CopyButton } from "@/components/app/copy-button";
 import { DataTable, type DataColumn } from "@/components/app/data-table";
 import { EmptyState } from "@/components/app/empty-state";
 import { MultiSelect } from "@/components/app/multi-select";
+import { RefreshControl } from "@/components/app/refresh-control";
 import { Spans } from "@/components/app/spans";
 import { StatusDot } from "@/components/app/status-dot";
 import { Badge } from "@/components/ui/badge";
@@ -28,8 +31,10 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { number } from "@/lib/format";
 import { bytes, clockMs } from "@/lib/kafka";
 import { type MessagesSearch, messagesQuery, partitionParam, partitionsOf, recordAt } from "@/lib/topic-search";
+import { useTailOwnsRefresh } from "@/lib/refresh";
 import { cn } from "@/lib/utils";
 import { PageError } from "../page-error";
+import { WireDock } from "../live/wire-dock";
 import { Explainers } from "./explain";
 import { useTopicDialog } from "./frame";
 import { RecordSheet } from "./record";
@@ -257,7 +262,7 @@ function ConnDot({ conn }: { conn: Conn | null }) {
 
 /** Row two of the toolbar: always there, always one line: the filters that are on (each with a way off) or a quiet line;
  * at the right the Snapshot | Live tail switch, its speed and the connection. */
-function FilterLine({ search, set, tailable, conn }: { search: MessagesSearch; set: (p: Patch) => void; tailable: boolean; conn: Conn | null }) {
+function FilterLine({ search, set, tailable, conn, refresh }: { search: MessagesSearch; set: (p: Patch) => void; tailable: boolean; conn: Conn | null; refresh?: React.ReactNode }) {
   const [speed, setSpeed] = useTailSpeed();
   const chips: { label: string; off: Patch; id: string }[] = [];
   const parts = partitionsOf(search.partition);
@@ -319,6 +324,7 @@ function FilterLine({ search, set, tailable, conn }: { search: MessagesSearch; s
           </SelectContent>
         </Select>
         <ConnDot conn={tail ? conn : null} />
+        {!tail && refresh}
       </div>
     </div>
   );
@@ -363,6 +369,19 @@ function IsolationNote({ r, frame }: { r: MessagesResponse; frame: TopicFrame })
   );
 }
 
+/** The Refresh of a Messages snapshot, beside its Snapshot | Live tail switch (the switch owns how the page keeps up, so the
+ * frame shows no page-wide RefreshControl here): the stamp and the button, which fetch the whole topic page again. */
+function SnapshotRefresh({ topic }: { topic: string }) {
+  const qc = useQueryClient();
+  const frame = useTopicFrame(topic);
+  const fetching = useIsFetching({ queryKey: topicKeys.topic(topic) }) > 0;
+  const onRefresh = useCallback(() => {
+    void qc.invalidateQueries({ queryKey: topicKeys.topic(topic) });
+    void qc.invalidateQueries({ queryKey: liveKeys.topicWire(topic) });
+  }, [qc, topic]);
+  return <RefreshControl interval={false} updatedAt={frame.dataUpdatedAt} fetching={fetching} onRefresh={onRefresh} />;
+}
+
 /** The table, its pager and (in Live tail) the tail with its held pill. Keyed by the query and the mode, so a change of
  * either starts clean. */
 function Records({ topic, r, frame, tail, tailable, search, set, open, children }: { topic: string; r: MessagesResponse; frame: TopicFrame; tail: boolean; tailable: boolean; search: MessagesSearch; set: (p: Patch) => void; open: (row: RecordRow) => void; children?: React.ReactNode }) {
@@ -397,7 +416,7 @@ function Records({ topic, r, frame, tail, tailable, search, set, open, children 
   };
   return (
     <>
-    <FilterLine search={search} set={set} tailable={tailable} conn={tail ? t.conn : null} />
+    <FilterLine search={search} set={set} tailable={tailable} conn={tail ? t.conn : null} refresh={<SnapshotRefresh topic={topic} />} />
     {/* What is said about the read sits under the controls, so a sentence that comes or goes never moves them. */}
     {children && <div className="mt-3">{children}</div>}
     <div ref={box} className="relative mt-3" onPointerEnter={() => (hover.current = true)} onPointerLeave={() => (hover.current = false)} data-testid="records" data-tail={tail || undefined}>
@@ -526,6 +545,7 @@ export function MessagesPage() {
   const search = useSearch({ strict: false }) as MessagesSearch;
   const set = useSetSearch();
   const frame = useTopicFrame(topic);
+  useTailOwnsRefresh();
   const qs = messagesQuery(search);
   const m = useMessages(topic, qs);
   const pushed = useRef(false);
@@ -585,6 +605,10 @@ export function MessagesPage() {
                 {f.head.parts.length - f.offline.length} of {f.head.parts.length} partitions online
               </StatusDot>
             </p>
+            {/* Board topic-detail: the dock of the tape, filtered to this topic, under the records. */}
+            <div className="mt-10">
+              <WireDock topic={topic} />
+            </div>
             <Explainers v={r.view} />
           </div>
         )}
