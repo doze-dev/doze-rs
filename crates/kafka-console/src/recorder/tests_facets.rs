@@ -56,3 +56,22 @@ fn each_option_counts_the_rows_it_would_leave_among_the_other_filters() {
         [("catalog".into(), 1), ("orders".into(), 1)]
     );
 }
+
+/// Live's Clients figure is the Clients sheet's (CON-1344): a client is a `client.id` with a connection open; its
+/// connections are counted apart.
+#[test]
+fn live_counts_clients_as_the_clients_sheet_does() {
+    let rec = Recorder::new();
+    open(&rec, 1);
+    open(&rec, 2);
+    let (q, a) = produce("orders", 1, 0);
+    play(&rec, 1, "orders", &q, Answer::Response(&a), 9);
+    play(&rec, 2, "orders", &q, Answer::Response(&a), 9);
+    let sheet = rec.clients(now_ms());
+    let tape = rec.tape(&WireQuery::default(), now_ms());
+    assert_eq!(
+        (tape.clients, tape.connections),
+        (sheet.rows.len(), sheet.connections)
+    );
+    assert_eq!((tape.clients, tape.connections), (1, 2));
+}

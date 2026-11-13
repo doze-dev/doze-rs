@@ -1351,7 +1351,7 @@ without closing it. File: `web/e2e/tests/lab.spec.ts`.
 
 ## CON-1344. Clients is one definition on Live and in its sheet
 A client is a `client.id` with a connection open; its connections are the unit (`9 clients`, `11 connections`), the same on the
-tile, the button and the sheet. Test: `clients_are_the_connections_that_are_open_grouped_by_client_id`; file:
+tile, the button and the sheet. Test: `live_counts_clients_as_the_clients_sheet_does`; file:
 `web/e2e/tests/live.spec.ts`.
 
 ## CON-1345. A topic's Config says where its values come from as figures that add up
