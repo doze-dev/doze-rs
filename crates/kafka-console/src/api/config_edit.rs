@@ -9,8 +9,8 @@ use axum::routing::get;
 use serde::Serialize;
 
 use super::config::valid;
-use super::topic_writes::{done, invalid, kafka_refused, no_topic};
 use super::json;
+use super::topic_writes::{done, invalid, kafka_refused, no_topic};
 use crate::config_effects::{moment, reader, sees, sentence, takes_effect, when_label};
 use crate::config_teach::MAX_LAG;
 use crate::config_words::gloss;
