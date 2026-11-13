@@ -6,9 +6,10 @@ import { CommandPalette } from "@/components/app/command-palette";
 import { TopBar } from "@/components/app/top-bar";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { ConnectPage } from "@/pages/connect";
-import { connectSearch, gallerySearch } from "@/lib/search";
+import { configSearch, connectSearch, createSearch, gallerySearch, topicWriteSearch } from "@/lib/search";
 import { HomePage } from "@/pages/home";
 import { NotFoundPage, PlannedPage } from "@/pages/planned";
+import { TopicFrameStub } from "@/pages/topics/frame-stub";
 
 function Shell() {
   const [palette, setPalette] = useState(false);
@@ -50,15 +51,24 @@ const gallery = createRoute({ getParentRoute: () => root, path: "/gallery", vali
 const planned = <const P extends string>(path: P, title: string, slice: string) =>
   createRoute({ getParentRoute: () => root, path, component: () => <PlannedPage title={title} slice={slice} classicPath={path} /> });
 
-const topic = createRoute({
-  getParentRoute: () => root,
-  path: "/topics/$topic",
-  component: function Topic() {
-    const { topic } = topic_.useParams();
-    return <PlannedPage title={topic} slice="R1" classicPath={`/topics/${encodeURIComponent(topic)}`} crumbs={[{ label: "Topics", to: "/topics" }]} />;
-  },
+// Slice R1b: Create topic, and a topic's frame (a stand-in for R1a's) with the write overlays and the Config tab.
+const topicsNew = createRoute({ getParentRoute: () => root, path: "/topics/new", validateSearch: createSearch, component: lazyRouteComponent(() => import("@/pages/topics/create"), "CreateTopicPage") });
+const topic = createRoute({ getParentRoute: () => root, path: "/topics/$topic", validateSearch: topicWriteSearch, component: TopicFrameStub });
+const topicTab = <const P extends string>(path: P, title: string) =>
+  createRoute({
+    getParentRoute: () => topic,
+    path,
+    component: function TopicTab() {
+      const { topic: t } = topic.useParams();
+      return <p className="text-[14px] text-muted-foreground">{title} is being rebuilt (slice R1a). <a className="text-primary hover:underline" href={`${basePath}/classic/topics/${encodeURIComponent(t)}${path === "/" ? "" : `/${path}`}`}>Open it in the classic console</a>.</p>;
+    },
+  });
+const topicConfig = createRoute({
+  getParentRoute: () => topic,
+  path: "config",
+  validateSearch: configSearch,
+  component: lazyRouteComponent(() => import("@/pages/topics/config-route"), "ConfigRoute"),
 });
-const topic_ = topic;
 const group = createRoute({
   getParentRoute: () => root,
   path: "/groups/$group",
@@ -75,7 +85,8 @@ const tree = root.addChildren([
   gallery,
   planned("/live", "Live", "R3"),
   planned("/topics", "Topics", "R1"),
-  topic,
+  topicsNew,
+  topic.addChildren([topicTab("/", "Messages"), topicTab("log", "Log"), topicConfig, topicTab("consumers", "Consumers"), topicTab("producers", "Producers")]),
   planned("/groups", "Groups", "R2"),
   group,
   planned("/access", "Access", "R4"),

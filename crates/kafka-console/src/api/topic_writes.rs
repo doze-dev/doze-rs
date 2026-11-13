@@ -527,6 +527,8 @@ pub struct DeleteForm {
     pub view: DeleteView,
     /// Who uses the topic; empty when nothing does.
     pub in_use: Vec<Span>,
+    /// The broker's refusal, when it said no.
+    pub refusal: Option<Refusal>,
 }
 
 /// A topic that is gone (200).
@@ -536,16 +538,17 @@ pub struct DeletedAnswer {
     pub deleted: Deleted,
 }
 
-fn delete_form_of(view: DeleteView) -> DeleteForm {
+fn delete_form_of(view: DeleteView, refusal: Option<Refusal>) -> DeleteForm {
     DeleteForm {
         in_use: write_words::in_use(&view.in_use),
+        refusal,
         view,
     }
 }
 
 async fn delete_form(State(s): State<Shared>, Path(topic): Path<String>) -> Response {
     match s.source.delete_form(&topic, "").await {
-        Some(view) => json(StatusCode::OK, &delete_form_of(view)),
+        Some(view) => json(StatusCode::OK, &delete_form_of(view, None)),
         None => no_topic(&topic),
     }
 }
@@ -554,10 +557,10 @@ async fn delete(State(s): State<Shared>, Path(topic): Path<String>, body: Bytes)
     let f = parse_body(&body);
     match s.source.delete_topic(&topic, text(&f, "confirm")).await {
         DeleteResult::Done(d) => json(StatusCode::OK, &DeletedAnswer { deleted: *d }),
-        DeleteResult::Refused(v, r) => kafka_refused(&r, &delete_form_of(*v)),
+        DeleteResult::Refused(v, r) => kafka_refused(&r, &delete_form_of(*v, Some(r.clone()))),
         DeleteResult::Invalid(v) => {
             let first = v.error.clone().unwrap_or_default();
-            invalid(&first, &delete_form_of(*v))
+            invalid(&first, &delete_form_of(*v, None))
         }
         DeleteResult::NoTopic => no_topic(&topic),
     }

@@ -28,3 +28,20 @@ export function gallerySearch(s: Record<string, unknown>): GallerySearch {
     record: shortText(s.record),
   };
 }
+
+// Slice R1b: Create topic, a topic's write overlays, the Config tab.
+export type CreateSearch = { step?: "config" | "review" };
+export function createSearch(s: Record<string, unknown>): CreateSearch {
+  return { step: oneOf(["config", "review"] as const, s.step) };
+}
+
+export type TopicWriteSearch = { dialog?: "produce" | "delete" | "add-partitions" | "delete-records"; partition?: number };
+export function topicWriteSearch(s: Record<string, unknown>): TopicWriteSearch {
+  const p = typeof s.partition === "number" ? s.partition : typeof s.partition === "string" && /^\d{1,6}$/.test(s.partition) ? Number(s.partition) : undefined;
+  return { dialog: oneOf(["produce", "delete", "add-partitions", "delete-records"] as const, s.dialog), partition: p !== undefined && Number.isInteger(p) && p >= 0 && p < 1_000_000 ? p : undefined };
+}
+
+export type ConfigSearch = { q?: string; show?: "changed" | "compaction" | "segments"; edit?: string; reset?: string };
+export function configSearch(s: Record<string, unknown>): ConfigSearch {
+  return { q: shortText(s.q, 120), show: oneOf(["changed", "compaction", "segments"] as const, s.show), edit: shortText(s.edit, 120), reset: shortText(s.reset, 120) };
+}
