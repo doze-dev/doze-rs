@@ -160,7 +160,13 @@ impl Observer for Recorder {
 }
 
 /// Builds the row of a request that was answered at `answered_ms`, and learns what the answer teaches.
-fn finish(inner: &mut Inner, begun: Begun, seen: &Observed<'_>, took: u32, answered_ms: i64) -> Row {
+fn finish(
+    inner: &mut Inner,
+    begun: Begun,
+    seen: &Observed<'_>,
+    took: u32,
+    answered_ms: i64,
+) -> Row {
     let mut facts = begun.facts;
     let mut closed = None;
     match &seen.answer {
