@@ -154,10 +154,8 @@ fn theme(out: &mut String, b: &Block) -> Result<(), String> {
     let _ = writeln!(out, "    {{");
     let _ = writeln!(out, "      \"name\": \"doze {} {}\",", b.palette, b.mode);
     let _ = writeln!(out, "      \"mode\": \"{}\",", b.mode);
-    out.push_str("      \"font.family\": \"Inter\",\n      \"font.size\": 13,\n");
-    out.push_str(
-        "      \"mono_font.family\": \"JetBrains Mono\",\n      \"mono_font.size\": 12,\n",
-    );
+    out.push_str("      \"font.family\": \"Geist\",\n      \"font.size\": 13,\n");
+    out.push_str("      \"mono_font.family\": \"Geist Mono\",\n      \"mono_font.size\": 12,\n");
     out.push_str("      \"radius\": 7,\n      \"radius.lg\": 10,\n      \"shadow\": false,\n");
     out.push_str("      \"colors\": {\n");
     for (i, (key, from)) in COMPONENT.iter().enumerate() {
