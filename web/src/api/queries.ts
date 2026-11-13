@@ -19,7 +19,7 @@ export const keys = {
 };
 
 /** The interval of a page that follows the RefreshControl. */
-function useInterval(): number | false {
+export function useInterval(): number | false {
   const [v] = useRefreshInterval();
   const ms = intervalMs(v);
   return ms > 0 ? ms : false;

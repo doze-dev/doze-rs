@@ -166,3 +166,40 @@ packages, 7,008 KB idle (limit 7.8 MB).
 **Not supplied.** The `live-lab-rule` board's "A rehearsal is active" card (the Live view-model does not carry the active rule; the
 rows carry the `lab` tag and the Sheet names the rule); the boards' two-line rows (one line a row, the second line in the tooltip);
 "Pause" (pausing is Snapshot).
+
+## R2 done (2026-11-13, branch `react-r2`): Groups
+
+**Pages** (`web/src/pages/groups/`, each its own chunk): `/groups` (StatStrip of the counts, the rebalancing line in a region of
+reserved height, the name filter `q` and the states `state` as a MultiSelect with the count of each, both in the address; a DataTable;
+the empty state with its command); `/groups/$group` as a layout (h1, state and pills, Reset offsets / Delete offsets / Delete group,
+the group's StatStrip, switch-group chips or a Combobox past eight, tabs as routes) with **Members** (the data chooses: classic
+stable or empty, KIP-848 with target and assigned, rebalancing with the rejoin deadline counted down in the browser; who holds which
+partition; the group's facts; R3's `WireDock group` as "What just happened"; a member as a Sheet, `?member=`), **Lag** (one
+DataTable per topic with lag bars, the states no-commits, past-the-end and expiring, `?expiring=1` a segmented control), **Story**
+(the generations timeline, the Now card with its countdown in its own slot, the causes, the flapping verdict, the calm contrast or a
+quiet story; a rebalance as a Sheet `?generation=`, the flapping rule as a Sheet `?rule=1`), **Wire** (R3's `WireDock group`). The
+dialogs, routed by `?dialog=`: Reset offsets (topic Select, mode RadioGroup of six, an offset or shift field, a UTC date-time picker
+of our own, a GET Preview, then Reset of exactly what was previewed), Delete group, Delete offsets (a Checkbox per topic). A refusal
+stays in the dialog in Kafka's name, number and words with the rule, what would pass and the call refused. Overlays return the
+focus to their opener (Firefox and Safari do not focus a clicked button), even when a refresh drew the row again.
+
+**Endpoints** (`crates/kafka-console/src/api/groups.rs`): `GET /api/v1/groups`, `/api/v1/groups/{group}?expiring=1`, `/story`,
+`GET`+`POST /reset`, `GET`+`POST /delete`, `GET`+`POST /offsets/delete`. A write answers 200 with an `outcome` (`done`, `refused`,
+`invalid`): a refusal is an answer, so no browser logs a failed request. The view-models are the classic ones (`model/groups.rs`,
+`model/story.rs`, `lag.rs` gained `Serialize` + ts-rs). Catalogue CON-1200 to CON-1209.
+
+**Shared files touched**: `router.tsx` (the routes), `api.rs` (`pub mod groups`, the merge of its routes, two `GET_PATHS`),
+`api/types.rs` (one function), `api/queries.ts` (`useInterval` exported). React-r3 is merged into this branch (for `WireDock`).
+
+**Gate.** `web/e2e/tests/groups.spec.ts` (14 scenarios, each browser making its own groups through Kafka: one empty with commits,
+one with a member that stays) with R0's and R3's specs: **53/53 in Firefox, WebKit and Chromium** on the seeded world, and the
+groups spec **14/14 in all three** against a broker running the demo workload. WebKit and Chromium log any non-2xx fetch as a console
+error; that is why a write's refusal is a 200 outcome and a deleted group's queries are dropped only after its page is gone. Rust:
+`cargo test -p kafka-console -p doze-kafka` 898 passed (`tests/console_groups_api.rs` 6), fmt, clippy `-D warnings` default and
+lean, lint-size 0 over hard, the catalogue checker green. Weight: 6,261,104 B, 160 packages, 7,200 KB idle (limit 7.8 MB).
+Screenshots: scratchpad `r2/shots/` (demo broker) and `r2/fx/` (the fixtures' states: rebalancing, KIP-848, past the end, the
+refusals, the rebalance Sheet), Firefox and WebKit at 1440 and 1024.
+
+**Not supplied.** The boards' "Reached from" lines; the group wire's filters are R3's dock state, not the address; below 1280 the
+members table leaves Host and Session to the member's Sheet; the planted-secret test reads the list and not one group's endpoints (its
+live world has no group: `GROUP_GET_PATHS` are read over the fixtures instead).

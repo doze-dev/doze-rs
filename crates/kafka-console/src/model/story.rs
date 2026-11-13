@@ -5,7 +5,9 @@
 use super::{GroupHead, GroupPhase, GroupProtocol};
 
 /// Why a generation began, in the console's own type (the broker's `Cause` is mapped to it in `gather::story`).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "snake_case")]
 pub enum StoryCause {
     MemberJoined,
     MemberLeft,
@@ -41,7 +43,9 @@ impl StoryCause {
 }
 
 /// How a generation is drawn: the colour of its dot.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "snake_case")]
 pub enum StoryTone {
     /// Still going.
     Warn,
@@ -53,7 +57,8 @@ pub enum StoryTone {
 }
 
 /// The member a generation is about.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct StoryWho {
     pub member: String,
     pub client: Option<String>,
@@ -67,7 +72,8 @@ pub struct StoryWho {
 pub type StoryParts = Vec<(String, Vec<i32>)>;
 
 /// What one member held in a generation, by topic.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct StoryHold {
     pub member: String,
     pub topics: StoryParts,
@@ -75,14 +81,16 @@ pub struct StoryHold {
 }
 
 /// A member that did not join again in time.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct StoryDropped {
     pub who: StoryWho,
     pub waited_ms: u64,
 }
 
 /// One generation (a classic group) or epoch (a consumer group): why it began and what came of it.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct StoryGen {
     pub generation: i32,
     pub protocol: GroupProtocol,
@@ -115,7 +123,8 @@ pub struct StoryGen {
 }
 
 /// The rebalance as the group's tabs and sentences know it: how many the ring holds and the newest.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct StoryFacts {
     /// Generations begun, or epochs moved, that the ring still holds.
     pub count: usize,
@@ -127,7 +136,8 @@ pub struct StoryFacts {
 }
 
 /// A member that left or timed out and began the rebalance now forming.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct StoryLeft {
     pub member: String,
     /// What it held, by topic (the generation before noted it).
@@ -137,7 +147,8 @@ pub struct StoryLeft {
 }
 
 /// A member that joined: how long ago, and the generation or epoch that began.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct StoryJoin {
     pub member: String,
     pub ago_ms: u64,
@@ -145,7 +156,8 @@ pub struct StoryJoin {
 }
 
 /// The newest rebalance, for a sentence.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct StoryLast {
     pub cause: StoryCause,
     pub generation: i32,
@@ -155,7 +167,8 @@ pub struct StoryLast {
 }
 
 /// What the group is doing now.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct StoryNow {
     pub phase: GroupPhase,
     pub protocol: GroupProtocol,
@@ -172,7 +185,8 @@ pub struct StoryNow {
 }
 
 /// One line of the flapping rule held against the group.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct StoryRule {
     pub ok: bool,
     pub title: String,
@@ -181,7 +195,8 @@ pub struct StoryRule {
 }
 
 /// The flapping rule, worked out: three or more expired-then-joined cycles in ten minutes.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct StoryFlap {
     pub flapping: bool,
     /// Expired-then-joined cycles in the window.
@@ -196,7 +211,8 @@ pub struct StoryFlap {
 }
 
 /// A group that rebalances rarely, for contrast.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct StoryCalm {
     pub group: String,
     pub generation: StoryGen,
@@ -204,7 +220,8 @@ pub struct StoryCalm {
 }
 
 /// A page of a group's story.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct StoryView {
     pub head: GroupHead,
     pub now: StoryNow,

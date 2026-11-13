@@ -24,6 +24,7 @@ use crate::model::{ConnectView, HomeState, HomeView, ProbeView, Span};
 use crate::state::Shared;
 use crate::{origin, snippets, words};
 
+pub mod groups;
 pub mod live;
 #[cfg(test)]
 mod types;
@@ -327,6 +328,7 @@ pub fn routes(web: &crate::base::Base) -> Router<Shared> {
         .route(&web.url("/api/v1/probe"), post(probe))
         .route(&web.url("/api/v1/shell"), get(shell))
         .route(&web.url("/api/v1/jump"), get(jump))
+        .merge(groups::routes(web))
         .route(&web.url("/api/v1/live"), get(live::live))
         .route(&web.url("/api/v1/live/request/{id}"), get(live::request))
         .route(&web.url("/api/v1/live/clients"), get(live::clients))
@@ -344,6 +346,10 @@ pub const GET_PATHS: &[&str] = &[
     "/api/v1/shell",
     "/api/v1/jump",
     "/api/v1/jump?q=or",
+    // Groups (R2): the addresses that answer whatever groups the broker has (those of one group are
+    // `groups::GROUP_GET_PATHS`, over the fixtures' groups).
+    "/api/v1/groups",
+    "/api/v1/groups?q=pay&state=stable&state=empty",
     // Live (R3). The tail (`/api/v1/tail/live`) is a stream that never ends: its own tests read it.
     "/api/v1/live",
     "/api/v1/live?refused=1&idle=0&client=orders&api=Produce&topic=orders",
