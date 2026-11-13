@@ -295,7 +295,8 @@ pub fn group_wire(q: &WireQuery) -> GroupWireView {
     let mut rows = rows;
     if let Some(h) = rows.get_mut(3) {
         h.count = 71;
-        h.since_ms = Some(at("22:09:13.600"));
+        h.last_ms = Some(h.at_ms);
+        h.at_ms = at("22:09:13.600");
     }
     let all = rows.len();
     let refused = rows

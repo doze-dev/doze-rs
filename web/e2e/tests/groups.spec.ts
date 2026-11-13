@@ -3,7 +3,7 @@
 // Kafka protocol so the writes it tries never meet another browser's: one that is empty with commits (reset, delete offsets,
 // delete) and one with a member that stays (Kafka's refusals).
 import { Kafka, logLevel, type Consumer } from "kafkajs";
-import { boxes, expect, overflowX, test } from "./fixtures";
+import { boxes, cutHeaders, expect, overflowX, test } from "./fixtures";
 import { SEEDED } from "../playwright.config";
 
 const KAFKA = process.env.E2E_KAFKA ?? SEEDED.kafka;
@@ -94,7 +94,10 @@ test("A group: the state, the figures as tiles, the tabs are routes, and Refresh
   await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toHaveText("Groups");
   await expect(page.getByTestId("group-pills")).toContainText("Stable");
   const strip = page.locator("[data-slot=stat-strip]").first();
-  for (const label of ["State", "Members", "Generation", "Lag", "Committed", "Last commit"]) await expect(strip).toContainText(label);
+  for (const label of ["Members", "Lag", "Committed", "Last commit"]) await expect(strip).toContainText(label);
+  // State and generation are said once, as the pills under the h1, not again in the strip.
+  await expect(page.getByTestId("group-pills")).toContainText("generation");
+  for (const label of ["State", "Generation"]) await expect(strip.locator("dt", { hasText: new RegExp(`^${label}$`, "i") })).toHaveCount(0);
   await expect(page.getByTestId("member-link")).toHaveCount(1);
   await expect(page.getByTestId("wire-dock")).toBeVisible();
   const tabs = page.getByTestId("group-tabs");
@@ -327,6 +330,20 @@ for (const width of [1024, 1280, 1440, 1920]) {
       await expect(page.locator("h1")).toBeVisible();
       await page.waitForLoadState("networkidle");
       expect(await overflowX(page), `${path} at ${width}`).toBeLessThanOrEqual(0);
+      if (width >= 1280) expect(await cutHeaders(page), `headers cut on ${path} at ${width}`).toEqual([]);
     }
   });
 }
+
+test("A group's details never break a word: the assignor is one line, a long leader id is cut with the whole id on hover and a Copy", async ({ page }) => {
+  for (const width of [1280, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto(`/groups/${member}`);
+    const card = page.getByTestId("the-group");
+    await expect(card).toBeVisible();
+    const lines = await card.locator("dd").evaluateAll((dds) => dds.map((d) => ({ text: d.textContent ?? "", lines: Math.round(d.getBoundingClientRect().height / (parseFloat(getComputedStyle(d).lineHeight) || 20)) })));
+    for (const l of lines) expect(l.lines, `"${l.text}" at ${width}`).toBeLessThanOrEqual(1);
+    const leader = card.locator("[data-slot=id-value]");
+    if ((await leader.count()) > 0) await expect(leader.getByRole("button")).toBeVisible();
+  }
+});

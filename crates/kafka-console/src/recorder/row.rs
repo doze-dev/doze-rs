@@ -47,7 +47,10 @@ pub struct Row {
     pub id: u64,
     /// The version of the ring when the row last changed (a fold bumps it).
     pub touched: u64,
+    /// When its first request was answered: the row's place on the tape. Rows are added in this order (the ring keeps it
+    /// non-decreasing), so the tape's order is always the order of the times it shows.
     pub first_ms: i64,
+    /// When its newest request was answered (the same as `first_ms` until a repeat folds in).
     pub last_ms: i64,
     pub count: u32,
     pub conn: u64,
@@ -128,5 +131,4 @@ pub struct Begun {
     pub correlation: i32,
     pub facts: Facts,
     pub request_bytes: usize,
-    pub at_ms: i64,
 }

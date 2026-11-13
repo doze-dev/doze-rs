@@ -110,6 +110,11 @@ impl Ring {
                 return id;
             }
         }
+        // The tape's order is the order of its times: a clock that stepped back never puts a row below an older one.
+        if let Some(newest) = self.rows.back() {
+            row.first_ms = row.first_ms.max(newest.first_ms);
+            row.last_ms = row.last_ms.max(row.first_ms);
+        }
         row.id = self.next_id;
         row.touched = version;
         self.next_id += 1;

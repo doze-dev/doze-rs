@@ -68,9 +68,10 @@ impl Live {
         facts::access(&self.facts, acls, allow)
     }
 
-    /// Home. `dial`: whether the advertised-listener result may be made now (a page load: a result under 30 s old is
-    /// reused) or is only what the last check said (the live fragment, which never dials).
-    async fn home(&self, dial: bool) -> HomeView {
+    /// Home. A read of Home never dials: it shows what the last advertised-listener check said, however old, or "Not
+    /// checked" before the first. Home can be refreshed on an interval, and a dial of an unreachable address can hold a read
+    /// for up to 1.5 s; only "Check again" (`POST /api/v1/probe`) dials.
+    async fn home(&self) -> HomeView {
         let now = now_ms();
         let (topics, partitions) = gather::counts(&self.backend).await;
         let looked = gather::nearest(&self.backend, now).await;
@@ -79,11 +80,7 @@ impl Live {
             .backend
             .instance()
             .map(|i| gather::instance_view(&i, &self.facts, access, now));
-        let probe = if dial {
-            self.prober.cached().await
-        } else {
-            self.prober.peek()
-        };
+        let probe = self.prober.peek();
         let instance = instance.unwrap_or_else(|| unknown_instance(&self.facts, &probe));
         HomeView {
             state: gather::choose(topics, looked.attention),
@@ -147,7 +144,7 @@ impl Source {
         match self {
             Self::Live(l) => {
                 let _ = hint;
-                l.home(true).await
+                l.home().await
             }
             #[cfg(any(test, feature = "examples"))]
             Self::Fixture => crate::fixtures::home(match hint {

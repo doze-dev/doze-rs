@@ -22,6 +22,7 @@ import { Switch } from "@/components/ui/switch";
 import { Toggle } from "@/components/ui/toggle";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { hhmmUtc, number } from "@/lib/format";
+import { useTailOwnsRefresh } from "@/lib/refresh";
 import { cn } from "@/lib/utils";
 import { PageError } from "../page-error";
 import { ClientsSheet } from "./clients-sheet";
@@ -50,7 +51,7 @@ function Refusals({ r, onOpen }: { r: LiveResponse; onOpen: (id: number) => void
   const v = r.live;
   const total = v.refused_total + v.denied_total;
   return (
-    <div className={cn("rounded-xl border bg-card text-[13.5px]", total > 0 && "border-refused/30 bg-refused/[0.04]")} data-testid="refusals">
+    <div className="rounded-xl border bg-card text-[13.5px]" data-testid="refusals">
       <button type="button" disabled={total === 0} aria-expanded={total > 0 ? open : undefined} onClick={() => setOpen((o) => !o)} className="flex h-11 w-full items-center gap-2 rounded-xl px-4 text-left focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none enabled:hover:bg-accent/40">
         {total === 0 ? (
           <span className="text-muted-foreground">No refusals among the rows kept.</span>
@@ -62,8 +63,15 @@ function Refusals({ r, onOpen }: { r: LiveResponse; onOpen: (id: number) => void
             <span className="inline-block min-w-[4ch] font-mono tabular-nums" data-testid="refusals-total">
               {number(total)}
             </span>
-            <span className="min-w-0 truncate text-muted-foreground">
-              {v.refused.map((x) => `${x.code_name} · ${x.client}`).join("   ")}
+            {/* One chip per (code, client): entries never run together. The strip is one line; what does not fit is cut at
+                a chip's edge and is in the list that opens. */}
+            <span className="ml-1 flex h-6 min-w-0 flex-1 flex-wrap items-center gap-1.5 overflow-hidden" data-testid="refusal-chips">
+              {v.refused.map((x) => (
+                <span key={`${x.code}-${x.client}`} className="inline-flex h-6 max-w-[18rem] shrink-0 items-center gap-1.5 rounded-full border border-refused/25 bg-card px-2.5 text-[12px] whitespace-nowrap" data-testid="refusal-chip">
+                  <span className="font-mono text-refused">{x.code_name}</span>
+                  <span className="truncate text-muted-foreground">{x.client || "(no client.id)"}</span>
+                </span>
+              ))}
             </span>
           </>
         )}
@@ -106,7 +114,7 @@ function SearchBox({ value, onChange }: { value: string; onChange: (v: string) =
     return () => clearTimeout(t);
   }, [text, value, onChange]);
   return (
-    <div className="relative w-full max-w-[16rem] min-w-[12rem] flex-1">
+    <div className="relative w-full max-w-[18rem] min-w-[14rem] flex-1">
       <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
       <Input value={text} onChange={(e) => setText(e.target.value)} placeholder="Filter by client, API or topic" aria-label="Filter the wire" className="bg-card pl-9" maxLength={128} data-testid="live-search" />
     </div>
@@ -257,6 +265,7 @@ export function LivePage() {
   const r = q.data;
   const ready = !!r && !q.isPlaceholderData;
   const [speed, setSpeed] = useSpeed();
+  useTailOwnsRefresh();
   const pace = speedSecs(speed);
 
   const navRef = useRef(navigate);
@@ -348,7 +357,6 @@ export function LivePage() {
       <PageHeader
         title="Live"
         sub="Everything your apps send, newest first. Repeats fold into one row with a count; the oldest rows fall off."
-        refresh={<RefreshControl updatedAt={q.dataUpdatedAt} fetching={q.isFetching} onRefresh={() => void q.refetch()} />}
         actions={
           <Button variant="outline" className="bg-card" disabled={!r} onClick={() => openOverlay({ clients: true })} data-testid="open-clients">
             <NetworkIcon /> Clients <span className="inline-block min-w-[3ch] text-left font-mono text-muted-foreground tabular-nums">{r ? number(r.live.clients) : ""}</span>
@@ -396,19 +404,22 @@ export function LivePage() {
               </ToggleGroupItem>
             </ToggleGroup>
             <Select value={speed} onValueChange={(v) => setSpeed(parseSpeed(v) as Speed)}>
-                    <SelectTrigger size="sm" className="w-[9.5rem] bg-card" aria-label="Tail speed" data-testid="tail-speed">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {SPEEDS.map((s) => (
-                        <SelectItem key={s.value} value={s.value}>
-                          {s.label} · {s.secs} s
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
+              <SelectTrigger size="sm" className="w-[9.5rem] bg-card" aria-label="Tail speed" data-testid="tail-speed">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {SPEEDS.map((s) => (
+                  <SelectItem key={s.value} value={s.value}>
+                    {s.label} · {s.secs} s
+                  </SelectItem>
+                ))}
+              </SelectContent>
             </Select>
             <Indicator on={on} conn={tail.conn} onRetry={tail.retry} />
             <span className="flex-1" />
+            {/* The switch owns how the tape keeps up (no page-wide interval here): a snapshot is refreshed by hand, a tail by
+                itself. */}
+            {!on && <RefreshControl interval={false} updatedAt={q.dataUpdatedAt} fetching={q.isFetching} onRefresh={() => void q.refetch()} />}
           </div>
           <div className="relative" ref={wrap} onPointerEnter={() => (hovering.current = true)} onPointerLeave={() => (hovering.current = false)} data-testid="tape-wrap" data-tail={on || undefined}>
             {/* The pill floats over the top of the tape: it takes no room, so it moves nothing when it comes and goes. */}

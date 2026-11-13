@@ -259,7 +259,11 @@ pub fn busy_rows() -> Vec<WireRow> {
                count: u32| {
         let mut r = done(id, time, client, tag, api, v, target, sub, detail, ms);
         r.count = count;
-        r.since_ms = (count > 1).then(|| at(since));
+        // The row's time is its first request's; the newest is `last_ms`.
+        if count > 1 {
+            r.last_ms = Some(r.at_ms);
+            r.at_ms = at(since);
+        }
         r.took_sub = (count > 1).then(|| "median".to_owned());
         r
     };

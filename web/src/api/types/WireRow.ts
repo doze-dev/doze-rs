@@ -7,9 +7,15 @@ import type { WireClass } from "./WireClass";
  */
 export type WireRow = { id: number, 
 /**
- * When the last of its requests began (milliseconds since the epoch), and the first if it stands for several.
+ * When the row joined the tape: the time its first request was answered (milliseconds since the epoch). The tape is in
+ * this order, newest first, so the order always matches the time shown.
  */
-at_ms: number, since_ms: number | null, 
+at_ms: number, 
+/**
+ * When it stands for several (folded repeats): the time the newest of them was answered. It changes in place; the row
+ * keeps its place.
+ */
+last_ms: number | null, 
 /**
  * How many requests it stands for: 1, or more when repeats were folded.
  */

@@ -70,7 +70,7 @@ pub(crate) fn wr(s: &Spec<'_>) -> WireRow {
         lab: None,
         id: s.id,
         at_ms: at(s.time),
-        since_ms: None,
+        last_ms: None,
         count: 1,
         client: s.client.to_owned(),
         tag: (!s.tag.is_empty()).then(|| s.tag.to_owned()),

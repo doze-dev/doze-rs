@@ -158,11 +158,12 @@ export function Panel({ title, aside, children, className, ...rest }: { title?: 
 /** A key and value list. */
 export function Facts({ rows, className }: { rows: [string, React.ReactNode][]; className?: string }) {
   return (
-    <dl className={cn("grid grid-cols-[minmax(7.5rem,11rem)_minmax(0,1fr)] gap-x-4 gap-y-2.5 text-[13.5px]", className)}>
+    <dl className={cn("grid grid-cols-[max-content_minmax(0,1fr)] gap-x-6 gap-y-2.5 text-[13.5px]", className)}>
       {rows.map(([k, v]) => (
         <div key={k} className="contents">
-          <dt className="text-muted-foreground">{k}</dt>
-          <dd className="min-w-0 break-words text-bright">{v}</dd>
+          <dt className="whitespace-nowrap text-muted-foreground">{k}</dt>
+          {/* Words wrap at spaces only; a long id is an IdValue (one line, the whole value on hover, Copy). */}
+          <dd className="min-w-0 text-bright">{v}</dd>
         </div>
       ))}
     </dl>

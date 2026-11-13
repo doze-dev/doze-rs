@@ -1,7 +1,7 @@
 // The refresh interval of every data page (live-design.md): Off by default, 5 s at least, one preference for all pages,
 // remembered per browser in localStorage under `doze:refresh`. A tiny external store so every RefreshControl and every query
 // reads the same value and changes together.
-import { useSyncExternalStore } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 
 export const INTERVALS = [
   { value: "off", label: "Off", ms: 0 },
@@ -64,4 +64,45 @@ function subscribe(l: () => void) {
 export function useRefreshInterval(): [IntervalValue, (v: IntervalValue) => void] {
   const v = useSyncExternalStore(subscribe, () => current, () => "off" as IntervalValue);
   return [v, setInterval_];
+}
+
+// ---- a page whose Snapshot | Live tail switch owns its updates ----
+// Live and a topic's Messages have their own switch: the page-wide RefreshControl is not shown there (two ways of updating
+// one page would be two concepts), so the interval chosen on other pages must not poll there either. While such a page is
+// mounted it holds this claim; every snapshot query reads the interval through `usePollInterval`.
+
+let owners = 0;
+const ownerListeners = new Set<() => void>();
+
+function claim(): () => void {
+  owners += 1;
+  for (const l of ownerListeners) l();
+  return () => {
+    owners -= 1;
+    for (const l of ownerListeners) l();
+  };
+}
+
+/** Called by a page whose tail switch owns its updates: while it is mounted no snapshot query polls on the interval. */
+export function useTailOwnsRefresh() {
+  useEffect(() => claim(), []);
+}
+
+function useOwned(): boolean {
+  return useSyncExternalStore(
+    (l) => {
+      ownerListeners.add(l);
+      return () => ownerListeners.delete(l);
+    },
+    () => owners > 0,
+    () => false,
+  );
+}
+
+/** The refetch interval of a snapshot query: the person's choice in ms, or false when Off or when a tail owns the page. */
+export function usePollInterval(): number | false {
+  const [v] = useRefreshInterval();
+  const owned = useOwned();
+  const ms = intervalMs(v);
+  return ms > 0 && !owned ? ms : false;
 }

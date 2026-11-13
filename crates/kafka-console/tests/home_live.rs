@@ -100,24 +100,29 @@ async fn creating_a_topic_flips_title_sentence_and_cards_in_the_one_fragment_wit
 }
 
 #[tokio::test]
-async fn the_live_fragments_never_dial_and_a_page_load_dials_once_in_thirty_seconds() {
+async fn a_read_of_home_never_dials_and_check_now_dials_every_time() {
     let (port, dials) = counting_kafka().await;
     let w = world("dials", |_, s| s.advertised_port = Some(port)).await;
     let app = w.router();
-    // Loading Home makes the check: one dial of the advertised address.
-    home(&app).await;
+    // Loading Home dials nothing: before any check it says "Not checked".
+    let v = home(&app).await;
+    assert_eq!(v["home"]["probe"]["verdict"], "not_checked", "{v}");
+    assert_eq!(dials.load(Ordering::SeqCst), 0);
+    // Check now is a person's: it dials.
+    let (res, _) = send(&app, probe_now()).await;
+    assert_eq!(res.status(), StatusCode::OK);
     assert_eq!(dials.load(Ordering::SeqCst), 1);
-    // Sixty-six seconds of Home open with a 2 s refresh is thirty-three reads: the result is reused, nothing dials again.
+    // Sixty-six seconds of Home open with a 2 s refresh is thirty-three reads: each shows the last result, none dials.
     for _ in 0..33 {
         let v = home(&app).await;
-        assert!(v["home"]["probe"]["rules"].is_array(), "{v}");
+        assert_eq!(v["home"]["probe"]["verdict"], "reachable", "{v}");
     }
     assert_eq!(
         dials.load(Ordering::SeqCst),
         1,
-        "a refresh of Home dialled the advertised address again"
+        "a refresh of Home dialled the advertised address"
     );
-    // Check now is a person's: it dials again, whatever the age of the result.
+    // Check now again dials again, whatever the age of the result.
     let (res, _) = send(&app, probe_now()).await;
     assert_eq!(res.status(), StatusCode::OK);
     assert_eq!(dials.load(Ordering::SeqCst), 2);
@@ -130,10 +135,10 @@ async fn a_dead_advertised_address_does_not_slow_a_fragment() {
     let w = world("dead", |_, s| s.advertised_port = Some(port)).await;
     let app = w.router();
     let started = Instant::now();
-    // The check against it gives up at its deadline: Home is never held longer.
+    // A read of Home dials nothing, so a dead advertised address cannot hold it.
     home(&app).await;
     assert!(
-        started.elapsed() < kafka_console::probe::DEADLINE + Duration::from_millis(400),
+        started.elapsed() < Duration::from_millis(400),
         "{:?}",
         started.elapsed()
     );

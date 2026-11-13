@@ -104,3 +104,27 @@ test("Settings: a value Kafka refuses is refused in Kafka's words; Check asks th
   await page.reload();
   await expect(page.getByRole("table", { name: "Dynamic broker configs" }).locator("tr", { hasText: "log.retention.ms" })).toContainText("259200000");
 });
+
+test("Settings: the section tabs show where you are from the first paint, a name and value are never cut, UTC is said once", async ({ page }) => {
+  await page.goto("/settings");
+  const nav = page.getByTestId("settings-sections");
+  await expect(nav.getByRole("link", { name: "Broker configs" })).toHaveAttribute("aria-current", "location");
+  await expect(nav.locator("[aria-current]")).toHaveCount(1);
+  await nav.getByRole("link", { name: "Flags" }).click();
+  await expect(nav.getByRole("link", { name: "Flags" })).toHaveAttribute("aria-current", "location");
+  await expect(nav.locator("[aria-current]")).toHaveCount(1);
+  // The page header has no empty band: no breadcrumb row on a top-level page, the h1 first.
+  await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toHaveCount(0);
+  // "Running since": the value has no UTC of its own; the unit says it.
+  const running = page.locator("[data-slot=stat]", { hasText: "Running since" });
+  await expect(running.locator("[data-slot=stat-value]")).not.toContainText("UTC");
+  for (const width of [1280, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.waitForTimeout(100);
+    const cut = await page
+      .getByRole("table", { name: "Dynamic broker configs" })
+      .locator("tbody td span.font-mono")
+      .evaluateAll((els) => els.filter((e) => (e.closest("td") as HTMLElement).scrollWidth > (e.closest("td") as HTMLElement).clientWidth + 1).map((e) => e.textContent));
+    expect(cut, `names and values cut at ${width}`).toEqual([]);
+  }
+});

@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { ChevronDownIcon, ChevronUpIcon, CircleCheckIcon, InfoIcon, PencilIcon, XIcon } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { r4keys, useSettings } from "@/api/r4";
 import type { SettingsApi } from "@/api/types/SettingsApi";
 import type { SettingsConfigRow } from "@/api/types/SettingsConfigRow";
@@ -20,6 +20,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { number } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import type { SettingsSearch } from "@/lib/search";
 import { PageError } from "../page-error";
 import { bytes, CallBox, Fact, PathValue, narrowed, SectionHead, useMinWidth, useRoutedOverlay, useStable } from "../r4/bits";
@@ -34,14 +35,56 @@ const SECTIONS = [
   ["flags", "Flags"],
 ] as const;
 
+type SectionId = (typeof SECTIONS)[number][0];
+
+/** The section the reader is in: the last whose heading has passed the top bar (the first on load). */
+function useSectionInView(): [SectionId, (id: SectionId) => void] {
+  const [on, setOn] = useState<SectionId>(SECTIONS[0][0]);
+  useEffect(() => {
+    let frame = 0;
+    const look = () => {
+      frame = 0;
+      let here: SectionId = SECTIONS[0][0];
+      for (const [id] of SECTIONS) {
+        const el = document.getElementById(id);
+        if (el && el.getBoundingClientRect().top <= 140) here = id;
+      }
+      // At the very bottom the last sections cannot reach the top: the one in view is the last.
+      if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2) here = SECTIONS[SECTIONS.length - 1]![0];
+      setOn(here);
+    };
+    const onScroll = () => {
+      if (!frame) frame = requestAnimationFrame(look);
+    };
+    look();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      cancelAnimationFrame(frame);
+    };
+  }, []);
+  return [on, setOn];
+}
+
 function SectionNav() {
+  const [on, setOn] = useSectionInView();
   return (
-    <nav aria-label="Sections" className="mb-8 flex flex-wrap gap-1 border-b pb-px" data-testid="settings-sections">
+    <nav aria-label="Sections" className="mb-8 flex flex-wrap gap-1 border-b" data-testid="settings-sections">
       {SECTIONS.map(([id, label]) => (
-        <a key={id} href={`#${id}`} className="rounded-t-md px-3 py-2 text-[13.5px] font-medium text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none" onClick={(e) => {
-          e.preventDefault();
-          document.getElementById(id)?.scrollIntoView({ block: "start" });
-        }}>
+        <a
+          key={id}
+          href={`#${id}`}
+          aria-current={on === id ? "location" : undefined}
+          className={cn(
+            "-mb-px rounded-t-md border-b-2 px-3 pt-2 pb-2.5 text-[14px] focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none",
+            on === id ? "border-primary font-medium text-bright" : "border-transparent text-muted-foreground hover:text-foreground",
+          )}
+          onClick={(e) => {
+            e.preventDefault();
+            setOn(id);
+            document.getElementById(id)?.scrollIntoView({ block: "start" });
+          }}
+        >
           {label}
         </a>
       ))}
@@ -60,7 +103,7 @@ function ConfigsSection({ r, onEdit, saved, onDismiss }: { r: SettingsResponse; 
       {
         accessorKey: "name",
         header: "Config",
-        size: 200,
+        size: 240,
         cell: (c) => (
           <span className="font-mono text-[13px] text-bright" title={`${c.row.original.name}: ${c.row.original.what}`}>
             {c.row.original.name}
@@ -70,7 +113,7 @@ function ConfigsSection({ r, onEdit, saved, onDismiss }: { r: SettingsResponse; 
       {
         accessorKey: "value",
         header: "Value",
-        size: 150,
+        size: 230,
         cell: (c) => (
           <span title={c.row.original.gloss ? `${c.row.original.value} (${c.row.original.gloss})` : c.row.original.value}>
             <span className="font-mono tabular-nums">{c.row.original.value}</span>
@@ -206,10 +249,10 @@ function ProfileSection({ r }: { r: SettingsResponse }) {
 
 const intervalColumns: DataColumn<SettingsInterval>[] = [
   { accessorKey: "name", header: "Interval", size: 170, cell: (c) => <span title={`${c.row.original.name}: ${c.row.original.what}`} className="font-medium text-foreground">{c.row.original.name}</span> },
-  { accessorKey: "value", header: "Value", size: 80, meta: { mono: true } },
-  { accessorKey: "flag", header: "Flag", size: 210, meta: { mono: true } },
-  { accessorKey: "default", header: "Default", size: 80, meta: { mono: true } },
-  { accessorKey: "note", header: "What it comes to" },
+  { accessorKey: "value", header: "Value", size: 96, meta: { mono: true } },
+  { accessorKey: "flag", header: "Flag", size: 260, meta: { mono: true } },
+  { accessorKey: "default", header: "Default", size: 104, meta: { mono: true } },
+  { accessorKey: "note", header: "Effect" },
 ];
 
 function IntervalsSection({ r }: { r: SettingsResponse }) {
@@ -298,9 +341,9 @@ function DataSection({ r }: { r: SettingsResponse }) {
 }
 
 const flagColumns: DataColumn<SettingsFlag>[] = [
-  { accessorKey: "name", header: "Flag", size: 230, meta: { mono: true } },
-  { accessorKey: "value", header: "Value", size: 170, meta: { mono: true } },
-  { accessorKey: "default", header: "Default", size: 120, meta: { mono: true } },
+  { accessorKey: "name", header: "Flag", size: 210, meta: { mono: true } },
+  { accessorKey: "value", header: "Value", size: 190, meta: { mono: true } },
+  { accessorKey: "default", header: "Default", size: 160, meta: { mono: true } },
   {
     accessorKey: "what",
     header: "What it does",
@@ -321,6 +364,7 @@ function FlagsSection({ r }: { r: SettingsResponse }) {
   const flags = r.settings.flags;
   const differ = flags.filter((f) => f.set && f.value !== f.default);
   const [which, setWhich] = useState<"set" | "all">(differ.length > 0 ? "set" : "all");
+  const wide = useMinWidth(1280);
   const rows = which === "set" ? differ : flags;
   return (
     <section aria-labelledby="flags" className="mb-12">
@@ -339,7 +383,7 @@ function FlagsSection({ r }: { r: SettingsResponse }) {
           </ToggleGroup>
         }
       />
-      <DataTable data={rows} columns={flagColumns} rowId={(f) => f.name} aria-label="Flags" maxHeight={520} empty={which === "set" ? "Every flag is at its default." : "The flags are not known to this console."} />
+      <DataTable data={rows} columns={narrowed(flagColumns, wide, ["default"])} rowId={(f) => f.name} aria-label="Flags" maxHeight={520} empty={which === "set" ? "Every flag is at its default." : "The flags are not known to this console."} />
       <p className="mt-3 flex max-w-[52rem] items-start gap-2 text-[12.5px] text-muted-foreground">
         <InfoIcon className="mt-0.5 size-3.5 shrink-0" aria-hidden />
         <span>
@@ -372,7 +416,7 @@ export function SettingsPage() {
             className="mb-8"
             stats={[
               { label: "Set at run time", value: `${head.set} of 5`, unit: head.set === 0 ? "all at their start values" : "dynamic broker configs", ch: 6 },
-              { label: "Running since", value: head.since ?? "–", unit: "UTC", mono: true, ch: 12, tip: head.up ? `Up ${head.up} when this page was fetched` : undefined },
+              { label: "Running since", value: head.since?.replace(/ UTC$/, "") ?? "–", unit: "UTC", mono: true, ch: 12, tip: head.up ? `Up ${head.up} when this page was fetched` : undefined },
               { label: "Version profile", value: head.profile, unit: "--kafka-version", ch: 8 },
             ]}
           />

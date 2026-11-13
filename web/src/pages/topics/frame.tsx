@@ -249,7 +249,8 @@ export function TopicLayout() {
               )}
             </ol>
           </nav>
-          <RefreshControl updatedAt={q.dataUpdatedAt} fetching={q.isFetching} onRefresh={refresh} />
+          {/* On Messages the Snapshot | Live tail switch owns the updates, and its own Refresh sits beside it. */}
+          {place !== "messages" && <RefreshControl updatedAt={q.dataUpdatedAt} fetching={q.isFetching} onRefresh={refresh} />}
         </div>
         <div className="mt-5 flex flex-wrap items-start justify-between gap-x-8 gap-y-4">
           <div className="flex min-w-0 flex-1 basis-[28rem] flex-wrap items-center gap-x-4 gap-y-2">

@@ -9,6 +9,7 @@ import type { GroupMemberRow } from "@/api/types/GroupMemberRow";
 import type { GroupPart } from "@/api/types/GroupPart";
 import type { LagTopic } from "@/api/types/LagTopic";
 import { DataTable, type DataColumn } from "@/components/app/data-table";
+import { IdValue } from "@/components/app/id-value";
 import { StatusDot } from "@/components/app/status-dot";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -88,8 +89,8 @@ function ReadsTable({ topics }: { topics: LagTopic[] }) {
       ),
     },
     { id: "partitions", header: "Partitions", size: 116, accessorFn: (t) => t.partitions, meta: { numeric: true, mono: true } },
-    { id: "committed", header: "Committed to", size: 156, accessorFn: committedTo },
-    { id: "lag", header: "Lag", size: 220, accessorFn: (t) => t.behind, cell: ({ row: { original: t } }) => <LagBar pct={share(t.behind, most)} n={t.behind} /> },
+    { id: "committed", header: "Committed to", size: 144, accessorFn: committedTo },
+    { id: "lag", header: "Lag", size: 180, accessorFn: (t) => t.behind, cell: ({ row: { original: t } }) => <LagBar pct={share(t.behind, most)} n={t.behind} /> },
   ];
   return <DataTable data={topics} columns={cols} rowId={(t) => t.name} aria-label="Reads" empty="The group has committed on no topic yet." maxHeight={360} />;
 }
@@ -99,9 +100,9 @@ function TheGroup({ h }: { h: GroupHead }) {
   const rebalance = Math.max(0, ...h.members.map((m) => m.rebalance_ms ?? 0));
   const rows: [string, React.ReactNode][] = [
     ["Protocol type", <span className="font-mono">{h.protocol_type ?? "consumer"}</span>],
-    ["Assignor", <span className="font-mono">{h.assignor ?? "none yet"}</span>],
+    ["Assignor", <span className="font-mono whitespace-nowrap">{h.assignor ?? "none yet"}</span>],
     ["Generation", <span className="font-mono">{h.generation}</span>],
-    ["Leader", <span className="font-mono">{h.leader ? memberLabel(h.leader) : "none yet"}</span>],
+    ["Leader", h.leader ? <IdValue value={h.leader} shown={memberLabel(h.leader)} what="Leader id copied" /> : <span className="font-mono">none yet</span>],
   ];
   if (session > 0) rows.push(["Session timeout", <span className="font-mono">{seconds(session)}</span>]);
   if (rebalance > 0) rows.push(["Rebalance timeout", <span className="font-mono">{seconds(rebalance)}</span>]);
@@ -140,7 +141,7 @@ function WhoHolds({ v }: { v: GroupLagView }) {
                   {p}
                 </span>
               ))}
-              <span className="min-w-0 basis-full text-[12.5px] break-all text-muted-foreground">{allOne ? `all ${numberWord(parts.length)}: ${memberLabel(owners[0]!)}` : parts.map((p) => `${p}: ${holderOf(t.name, p) ? memberLabel(holderOf(t.name, p)!.id) : "nobody"}`).join(", ")}</span>
+              <span className="min-w-0 basis-full text-[12.5px] break-words text-muted-foreground">{allOne ? `all ${numberWord(parts.length)}: ${memberLabel(owners[0]!)}` : parts.map((p) => `${p}: ${holderOf(t.name, p) ? memberLabel(holderOf(t.name, p)!.id) : "nobody"}`).join(", ")}</span>
             </div>
           );
         })}
@@ -166,7 +167,7 @@ function Classic({ v, onOpen }: { v: GroupLagView; onOpen: Open }) {
         <h2 className="mb-3 text-[17px] font-semibold text-bright">Members</h2>
         <MembersTable h={h} onOpen={onOpen} />
       </section>
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_24rem]">
+      <div className="grid gap-6 min-[1400px]:grid-cols-[minmax(0,1fr)_24rem]">
         <div className="flex min-w-0 flex-col gap-8">
           <section>
             <h2 className="mb-3 text-[17px] font-semibold text-bright">Reads</h2>
@@ -230,7 +231,7 @@ function Consumer({ v, onOpen }: { v: GroupLagView; onOpen: Open }) {
         <p className="mt-1 mb-3 max-w-[52rem] text-[13.5px] text-muted-foreground">Target is what the broker wants this member to hold at the group epoch. Assigned is what it holds now. When they differ the group is Reconciling.</p>
         <DataTable data={h.members} columns={cols} rowId={(m) => m.id} aria-label="Members" empty="Nobody is in this group." maxHeight={420} />
       </section>
-      <div className="grid gap-6 xl:grid-cols-2">
+      <div className="grid gap-6 min-[1400px]:grid-cols-2">
         <Panel title="Where a group can be">
           <Rules rows={where.map(([p, w, sub]) => ({ ok: h.phase === p, here: h.phase === p, title: w, sub: h.phase === p ? `${sub} This group, now.` : sub, value: h.phase === p ? "now" : "" }))} />
         </Panel>
@@ -338,7 +339,7 @@ function MemberSheet({ h, member, onClose, returnFocus }: { h: GroupHead; member
           <div className="flex flex-col gap-6 px-4 pb-6">
             <Facts
               rows={[
-                ["Member id", <span className="font-mono text-[12.5px] break-all">{m.id}</span>],
+                ["Member id", <IdValue value={m.id} what="Member id copied" className="text-[12.5px]" />],
                 ["Client id", <span className="font-mono">{m.client_id}</span>],
                 ["Host", <span className="font-mono">{m.host}</span>],
                 ["Role", h.protocol === "consumer" ? "The broker assigns; a member does not lead" : m.leader ? `Leader: computed the ${h.assignor ?? ""} assignment` : "Follower: takes the assignment the leader computed"],

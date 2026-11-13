@@ -1,7 +1,7 @@
 // The Query hooks of Settings, Access and the Lab (slice R4). Pages are snapshots (live-design.md): Settings and Access have
 // no refresh control (the table in live-design.md); the Lab follows the RefreshControl because its rules count hits.
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { intervalMs, useRefreshInterval } from "@/lib/refresh";
+import { usePollInterval } from "@/lib/refresh";
 import { api } from "./client";
 import type { AccessResponse } from "./types/AccessResponse";
 import type { AclCreateView } from "./types/AclCreateView";
@@ -39,11 +39,7 @@ export function qs(o: Record<string, string | number | undefined>): string {
   return p.toString();
 }
 
-function useInterval(): number | false {
-  const [v] = useRefreshInterval();
-  const ms = intervalMs(v);
-  return ms > 0 ? ms : false;
-}
+const useInterval = usePollInterval;
 
 export function useSettings() {
   return useQuery({ queryKey: r4keys.settings, queryFn: ({ signal }) => api<SettingsResponse>("/api/v1/settings", {}, signal), staleTime: Infinity, placeholderData: keepPreviousData });

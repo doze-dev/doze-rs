@@ -8,7 +8,7 @@ import { join, resolve } from "node:path";
 import { Kafka, logLevel, type Producer } from "kafkajs";
 import type { Page } from "@playwright/test";
 import { SEEDED } from "../playwright.config";
-import { boxes, choose, expect, overflowX, test } from "./fixtures";
+import { boxes, choose, cutHeaders, expect, overflowX, test } from "./fixtures";
 
 const KAFKA = process.env.E2E_KAFKA ?? SEEDED.kafka;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -83,6 +83,15 @@ const tape = (page: Page) => page.getByTestId("tape");
 const rowsOf = (page: Page) => tape(page).locator("tbody tr[data-row]");
 const scroller = (page: Page) => tape(page).locator("[data-slot=data-table]");
 
+/** The times the tape shows, top to bottom. */
+const timesOf = (page: Page) => rowsOf(page).locator("[data-testid=row-time]").allInnerTexts();
+
+/** The tape's order is the order of the times it shows (newest first): a row's time is when it joined the tape (its first
+ * request answered), so a slow Fetch is never below rows that came after it, and a folded repeat keeps its place and time. */
+function expectNewestFirst(times: string[]) {
+  for (let i = 1; i < times.length; i++) expect(times[i]! <= times[i - 1]!, `row ${i}: ${times[i]} after ${times[i - 1]}`).toBe(true);
+}
+
 async function openLive(page: Page, search = "") {
   await page.goto(`/live${search}`);
   await expect(page.locator("h1")).toHaveText("Live");
@@ -100,7 +109,12 @@ async function tailOn(page: Page) {
 test("Live is a snapshot by default: one h1, the figures in tiles, Snapshot chosen, and no request after it loaded", async ({ page }) => {
   await openLive(page);
   await expect(page.locator("h1")).toHaveCount(1);
-  await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toHaveText("");
+  // A top-level page: no breadcrumb row at all, and no page-wide interval: the Snapshot | Live tail switch owns the updates,
+  // with its own stamp and Refresh beside it.
+  await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toHaveCount(0);
+  await expect(page.getByTestId("refresh-interval")).toHaveCount(0);
+  await expect(page.getByTestId("tail-bar").getByTestId("refresh-now")).toBeVisible();
+  expectNewestFirst(await timesOf(page));
   const strip = page.locator("[data-slot=stat-strip]");
   for (const label of ["Requests, last minute", "Rows kept", "Reaches back to", "Clients"]) await expect(strip).toContainText(label);
   await expect(strip).toContainText("of 2,000");
@@ -158,6 +172,27 @@ test("the tail: batches never faster than the pace, existing rows never rewritte
   // No row twice.
   const ids = await rowsOf(page).evaluateAll((rs) => rs.map((x) => x.getAttribute("data-row")));
   expect(new Set(ids).size).toBe(ids.length);
+  // The order is the order of the times shown, after batches were prepended too; the tail owns updates, so no Refresh.
+  expectNewestFirst(await timesOf(page));
+  await expect(page.getByTestId("refresh-now")).toHaveCount(0);
+});
+
+test("an interval chosen on another page does not poll Live: the switch owns its updates, Refresh fetches by hand", async ({ page }) => {
+  await page.goto("/topics");
+  await choose(page, page.getByTestId("refresh-interval"), "Every 5 s");
+  expect(await page.evaluate(() => localStorage.getItem("doze:refresh"))).toBe("5s");
+  await openLive(page);
+  await expect(page.getByTestId("refresh-interval")).toHaveCount(0);
+  const asked: string[] = [];
+  page.on("request", (r) => asked.push(r.url()));
+  await sleep(6500);
+  expect(asked, "no poll on Live").toEqual([]);
+  const stamp = page.getByTestId("tail-bar").getByTestId("refresh-stamp");
+  const first = await stamp.textContent();
+  await sleep(1100);
+  await page.getByTestId("tail-bar").getByTestId("refresh-now").click();
+  await expect(stamp).not.toHaveText(first ?? "");
+  expectNewestFirst(await timesOf(page));
 });
 
 test("the tail holds while the tape is scrolled: the pill counts, the scroll stays, Show applies", async ({ page }) => {
@@ -310,6 +345,7 @@ test("no page scrolls sideways at 1024 to 1920, in a snapshot, in the tail and u
     await openLive(page);
     expect(await overflowX(page), `${w} snapshot`).toBe(0);
     await expect.poll(() => scroller(page).evaluate((e) => e.scrollWidth - e.clientWidth), { message: `${w} table` }).toBe(0);
+    if (w >= 1280) expect(await cutHeaders(page), `headers cut at ${w}`).toEqual([]);
     await page.goto(`/live?tail=1`);
     await expect(page.getByTestId("tail-state")).toHaveAttribute("data-state", "live", { timeout: 10_000 });
     expect(await overflowX(page), `${w} tail`).toBe(0);

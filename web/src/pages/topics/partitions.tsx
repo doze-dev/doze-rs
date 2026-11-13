@@ -11,13 +11,19 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { number } from "@/lib/format";
 import { bytes } from "@/lib/kafka";
+import { useMinWidth } from "../r4/bits";
 
 export function PartitionsPage() {
   const { topic } = useParams({ from: "/topics/$topic/partitions" });
   const navigate = useNavigate({ from: "/topics/$topic/partitions" });
+  // Narrower windows leave out what the line under the table says (the log end is the high watermark here) and what the
+  // Log tab shows (log start, size): the partition keeps its room and no header is cut.
+  const wide = useMinWidth(1440);
+  const mid = useMinWidth(1280);
   const f = useTopicFrame(topic).data;
   const cols = useMemo<DataColumn<PartitionRow>[]>(
-    () => [
+    () =>
+      ([
       {
         id: "partition",
         accessorKey: "partition",
@@ -30,13 +36,13 @@ export function PartitionsPage() {
           </span>
         ),
       },
-      { accessorKey: "start", header: "Log start", size: 130, meta: { numeric: true, mono: true }, cell: (c) => number(c.getValue<number>()) },
-      { accessorKey: "end", header: "Log end", size: 130, meta: { numeric: true, mono: true }, cell: (c) => number(c.getValue<number>()) },
+      { id: "start", accessorKey: "start", header: "Log start", size: 112, meta: { numeric: true, mono: true }, cell: (c) => number(c.getValue<number>()) },
+      { id: "end", accessorKey: "end", header: "Log end", size: 108, meta: { numeric: true, mono: true }, cell: (c) => number(c.getValue<number>()) },
       { id: "hw", accessorKey: "end", header: "High watermark", size: 150, meta: { numeric: true, mono: true }, cell: (c) => number(c.getValue<number>()) },
       {
         accessorKey: "last_stable",
         header: "Last stable offset",
-        size: 230,
+        size: 204,
         meta: { numeric: true, mono: true },
         cell: ({ row: { original: p } }) => {
           const held = Math.max(0, p.end - p.last_stable);
@@ -48,11 +54,11 @@ export function PartitionsPage() {
           );
         },
       },
-      { id: "size", accessorFn: (p) => p.bytes ?? -1, header: "Size", size: 110, meta: { numeric: true, mono: true }, cell: ({ row: { original: p } }) => (p.bytes === null ? "unknown" : bytes(p.bytes)) },
+      { id: "size", accessorFn: (p) => p.bytes ?? -1, header: "Size", size: 96, meta: { numeric: true, mono: true }, cell: ({ row: { original: p } }) => (p.bytes === null ? "unknown" : bytes(p.bytes)) },
       {
         id: "act",
         header: "",
-        size: 150,
+        size: 144,
         enableSorting: false,
         meta: { numeric: true },
         cell: ({ row: { original: p } }) => (
@@ -61,8 +67,8 @@ export function PartitionsPage() {
           </Button>
         ),
       },
-    ],
-    [topic, navigate],
+    ] satisfies DataColumn<PartitionRow>[]).filter((c) => (wide ? true : mid ? c.id !== "start" && c.id !== "size" : c.id !== "start" && c.id !== "size" && c.id !== "end")),
+    [topic, navigate, wide, mid],
   );
   if (!f) return <Skeleton className="h-72 w-full rounded-xl" />;
   const h = f.head;

@@ -102,7 +102,6 @@ impl Observer for Recorder {
     }
 
     fn begin(&self, call: &Call<'_>) -> Pending {
-        let at_ms = now_ms();
         let mut facts = Facts::default();
         let mut software = None;
         match &call.asked {
@@ -131,7 +130,6 @@ impl Observer for Recorder {
             correlation: call.head.correlation_id,
             facts,
             request_bytes: call.request_bytes,
-            at_ms,
         })
     }
 
@@ -140,9 +138,11 @@ impl Observer for Recorder {
             return;
         };
         let took = u32::try_from(seen.took.as_micros()).unwrap_or(u32::MAX);
-        let now = now_ms();
         let mut inner = self.lock();
-        let row = finish(&mut inner, begun, seen, took);
+        // Stamped when it is answered, under the lock that adds it: a row's time is the time it joins the tape, so a slow
+        // Fetch that began earlier is never shown below rows it was added above.
+        let now = now_ms();
+        let row = finish(&mut inner, begun, seen, took, now);
         let (errored, who_conn) = (
             row.class != errors::Class::Ok || row.closed.is_some(),
             row.conn,
@@ -159,8 +159,14 @@ impl Observer for Recorder {
     }
 }
 
-/// Builds the row of a request that has ended, and learns what the answer teaches.
-fn finish(inner: &mut Inner, begun: Begun, seen: &Observed<'_>, took: u32) -> Row {
+/// Builds the row of a request that was answered at `answered_ms`, and learns what the answer teaches.
+fn finish(
+    inner: &mut Inner,
+    begun: Begun,
+    seen: &Observed<'_>,
+    took: u32,
+    answered_ms: i64,
+) -> Row {
     let mut facts = begun.facts;
     let mut closed = None;
     match &seen.answer {
@@ -188,8 +194,8 @@ fn finish(inner: &mut Inner, begun: Begun, seen: &Observed<'_>, took: u32) -> Ro
     let mut row = Row {
         id: 0,
         touched: 0,
-        first_ms: begun.at_ms,
-        last_ms: begun.at_ms,
+        first_ms: answered_ms,
+        last_ms: answered_ms,
         count: 1,
         conn: begun.conn,
         who: begun.who,

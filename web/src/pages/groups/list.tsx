@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { number } from "@/lib/format";
 import { PageError } from "../page-error";
+import { useMinWidth } from "../r4/bits";
 import { Callout, GroupSpans, PhaseWord } from "./parts";
 import { type GroupState, STATES } from "./search";
 import { stamp } from "./words";
@@ -65,8 +66,8 @@ function LagCell({ l }: { l: RowLag }) {
   );
 }
 
-function columns(now: number): DataColumn<GroupRow>[] {
-  return [
+function columns(now: number, wide: boolean): DataColumn<GroupRow>[] {
+  const all: DataColumn<GroupRow>[] = [
     {
       id: "group",
       header: "Group",
@@ -85,11 +86,11 @@ function columns(now: number): DataColumn<GroupRow>[] {
         );
       },
     },
-    { id: "protocol", header: "Protocol", size: 176, accessorFn: protocolWord },
+    { id: "protocol", header: "Protocol", size: wide ? 212 : 160, accessorFn: protocolWord },
     {
       id: "state",
       header: "State",
-      size: 150,
+      size: 132,
       accessorFn: (r) => r.phase,
       cell: ({ row: { original: r } }) => (
         <div className="flex min-w-0 flex-col">
@@ -98,10 +99,12 @@ function columns(now: number): DataColumn<GroupRow>[] {
         </div>
       ),
     },
-    { id: "members", header: "Members", size: 104, accessorFn: (r) => r.members, meta: { numeric: true, mono: true } },
-    { id: "reads", header: "Reads", size: 200, accessorFn: (r) => r.reads.join(", "), meta: { mono: true } },
-    { id: "lag", header: "Lag", size: 200, accessorFn: (r) => r.lag.total, cell: ({ row: { original: r } }) => <LagCell l={r.lag} /> },
+    { id: "members", header: "Members", size: 112, accessorFn: (r) => r.members, meta: { numeric: true, mono: true } },
+    { id: "reads", header: "Reads", size: 176, accessorFn: (r) => r.reads.join(", "), meta: { mono: true } },
+    { id: "lag", header: "Lag", size: 144, accessorFn: (r) => r.lag.total, cell: ({ row: { original: r } }) => <LagCell l={r.lag} /> },
   ];
+  // Below 1280 px the topics a group reads are left to its page: the name keeps its room.
+  return wide ? all : all.filter((c) => c.id !== "reads");
 }
 
 function NoGroups({ r }: { r: GroupsResponse }) {
@@ -170,7 +173,8 @@ export function GroupsPage() {
     void navigate({ search: (s) => ({ ...s, state: next.length ? next : undefined }), replace: true, resetScroll: false });
   };
   const data = res.data;
-  const cols = useMemo(() => columns(data?.view.now_ms ?? 0), [data?.view.now_ms]);
+  const wide = useMinWidth(1280);
+  const cols = useMemo(() => columns(data?.view.now_ms ?? 0, wide), [data?.view.now_ms, wide]);
   const refresh = <RefreshControl updatedAt={res.dataUpdatedAt} fetching={res.isFetching} onRefresh={() => void res.refetch()} />;
   const header = (sub: string) => <PageHeader title={data && data.view.total === 0 ? "No groups yet" : "Groups"} crumbs={[{ label: "Home", to: "/" }]} sub={sub} refresh={refresh} />;
   if (res.isError && !data) return <PageError error={res.error} onRetry={() => void res.refetch()} />;
@@ -226,7 +230,7 @@ export function GroupsPage() {
         rowId={(r) => r.id}
         aria-label="Groups"
         maxHeight={720}
-        className="[&_tbody_tr]:h-[60px] [&_tbody_td]:h-[60px]"
+        rowHeight={60}
         empty={v.filter ? `No group id contains ${v.filter}.` : "No group is in this state."}
       />
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[13px] text-muted-foreground">
