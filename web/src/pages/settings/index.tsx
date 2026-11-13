@@ -53,7 +53,7 @@ function sourceTone(source: string): "ok" | "info" | "idle" {
   return source.startsWith("Dynamic") ? "ok" : source === "Static broker" ? "info" : "idle";
 }
 
-function ConfigsSection({ r, onEdit, saved, onDismiss }: { r: SettingsResponse; onEdit: (key: string) => void; saved: SettingsSaved | null; onDismiss: () => void }) {
+function ConfigsSection({ r, onEdit, saved, onDismiss }: { r: SettingsResponse; onEdit: (key: string, from: HTMLElement) => void; saved: SettingsSaved | null; onDismiss: () => void }) {
   const columns = useMemo<DataColumn<SettingsConfigRow>[]>(
     () => [
       {
@@ -96,7 +96,7 @@ function ConfigsSection({ r, onEdit, saved, onDismiss }: { r: SettingsResponse; 
         size: 92,
         enableSorting: false,
         cell: (c) => (
-          <Button variant="outline" size="sm" className="h-7 bg-card" onClick={() => onEdit(c.row.original.name)} aria-label={`Edit ${c.row.original.name}`} data-testid={`edit-${c.row.original.name}`}>
+          <Button variant="outline" size="sm" className="h-7 bg-card" onClick={(e) => onEdit(c.row.original.name, e.currentTarget)} aria-label={`Edit ${c.row.original.name}`} data-testid={`edit-${c.row.original.name}`}>
             <PencilIcon /> Edit
           </Button>
         ),
@@ -374,7 +374,7 @@ export function SettingsPage() {
             ]}
           />
           <SectionNav />
-          <ConfigsSection r={r} saved={saved} onDismiss={() => setSaved(null)} onEdit={(key) => overlay.open({ edit: key, scope: undefined })} />
+          <ConfigsSection r={r} saved={saved} onDismiss={() => setSaved(null)} onEdit={(key, from) => overlay.open({ edit: key, scope: undefined }, from)} />
           <ProfileSection r={r} />
           <IntervalsSection r={r} />
           <WeightSection r={r} />
@@ -387,6 +387,7 @@ export function SettingsPage() {
         scope={search.scope === "this" ? "this" : "all"}
         onMove={(key, scope) => overlay.move({ edit: key, scope: scope === "this" ? "this" : undefined })}
         onClose={() => overlay.close({ edit: undefined, scope: undefined })}
+        restoreFocus={overlay.restore}
         onSaved={(sv) => {
           setSaved(sv);
           qc.setQueryData<SettingsResponse>(r4keys.settings, (old) => (old ? { ...old, settings: { ...old.settings, head: { ...old.settings.head, set: sv.set }, configs: { ...old.settings.configs, rows: sv.rows } } } : old));

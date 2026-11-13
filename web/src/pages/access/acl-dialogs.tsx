@@ -225,10 +225,10 @@ function CreateBody({ kinds, operations, onDone }: { kinds: AclChoice[]; operati
 }
 
 /** Create ACL, over the Access page (`?acl=new`). */
-export function CreateAclDialog({ open, kinds, operations, onClose }: { open: boolean; kinds: AclChoice[]; operations: AclChoice[]; onClose: () => void }) {
+export function CreateAclDialog({ open, kinds, operations, onClose, restoreFocus }: { open: boolean; kinds: AclChoice[]; operations: AclChoice[]; onClose: () => void; restoreFocus?: (e: Event) => void }) {
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[calc(100vh-3rem)] overflow-y-auto sm:max-w-[42rem]" data-testid="acl-create-dialog">
+      <DialogContent className="max-h-[calc(100vh-3rem)] overflow-y-auto sm:max-w-[42rem]" data-testid="acl-create-dialog" onCloseAutoFocus={restoreFocus}>
         <DialogHeader>
           <DialogTitle className="text-[20px] font-medium">Create ACL</DialogTitle>
           <DialogDescription>One rule of the authorizer: a principal may (or may not) do an operation on a resource. Sent as CreateAcls, as the console.</DialogDescription>
@@ -240,11 +240,11 @@ export function CreateAclDialog({ open, kinds, operations, onClose }: { open: bo
 }
 
 /** Delete ACL, over the Access page (`?delete=<the ACL's form words>`): the ACL, what the broker decides afterwards, the call. */
-export function DeleteAclDialog(props: { query: string | undefined; kinds: AclChoice[]; operations: AclChoice[]; onClose: () => void }) {
+export function DeleteAclDialog(props: { query: string | undefined; kinds: AclChoice[]; operations: AclChoice[]; onClose: () => void; restoreFocus?: (e: Event) => void }) {
   return <DeleteAcl key={props.query ?? ""} {...props} />;
 }
 
-function DeleteAcl({ query, kinds, operations, onClose }: { query: string | undefined; kinds: AclChoice[]; operations: AclChoice[]; onClose: () => void }) {
+function DeleteAcl({ query, kinds, operations, onClose, restoreFocus }: { query: string | undefined; kinds: AclChoice[]; operations: AclChoice[]; onClose: () => void; restoreFocus?: (e: Event) => void }) {
   const qc = useQueryClient();
   const q = useAclDelete(query);
   const v = q.data;
@@ -277,7 +277,7 @@ function DeleteAcl({ query, kinds, operations, onClose }: { query: string | unde
   const label = (list: AclChoice[], n: number) => list.find((k) => k.number === n)?.label ?? String(n);
   return (
     <Dialog open={!!query} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[calc(100vh-3rem)] overflow-y-auto sm:max-w-[40rem]" data-testid="acl-delete-dialog">
+      <DialogContent className="max-h-[calc(100vh-3rem)] overflow-y-auto sm:max-w-[40rem]" data-testid="acl-delete-dialog" onCloseAutoFocus={restoreFocus}>
         <DialogHeader>
           <DialogTitle className="text-[20px] font-medium">Delete this ACL?</DialogTitle>
           <DialogDescription>DeleteAcls with a filter that matches this one ACL exactly, as the console.</DialogDescription>

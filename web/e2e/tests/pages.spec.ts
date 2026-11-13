@@ -28,8 +28,8 @@ test("Home's links go where they say", async ({ page }) => {
   await page.goBack();
   await page.getByTestId("instance-card").getByRole("link", { name: /Settings/ }).click();
   await expect(page).toHaveURL(/\/settings$/);
-  await page.getByTestId("open-classic").click();
-  await expect(page).toHaveURL(/\/classic\/settings$/);
+  // Settings is rebuilt (slice R4): the page itself, not the classic one.
+  await expect(page.locator("h1")).toHaveText("Settings");
 });
 
 test("Connect: Copy as changes what Copy copies, is in the address, and Back restores it", async ({ page }) => {

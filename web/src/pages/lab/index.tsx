@@ -35,7 +35,7 @@ function KindBadge({ kind }: { kind: LabRule["kind"] }) {
   );
 }
 
-function Rehearsals({ onStart }: { onStart: (t: LabTab) => void }) {
+function Rehearsals({ onStart }: { onStart: (t: LabTab, from: HTMLElement) => void }) {
   return (
     <section aria-labelledby="start" className="mb-12">
       <SectionHead id="start" title="Start a rehearsal" sub="Only what production code can honestly cause. Slow and Fail are rules that end on their own; the others happen once and leave a line of what they did." />
@@ -44,7 +44,7 @@ function Rehearsals({ onStart }: { onStart: (t: LabTab) => void }) {
           const w = TAB_WORDS[t];
           const Icon = w.icon;
           return (
-            <button key={t} type="button" onClick={() => onStart(t)} className="group min-w-0 rounded-xl border bg-card p-5 text-left transition-colors hover:border-primary/40 hover:bg-accent/30 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none" data-testid={`start-${t}`}>
+            <button key={t} type="button" onClick={(ev) => onStart(t, ev.currentTarget)} className="group min-w-0 rounded-xl border bg-card p-5 text-left transition-colors hover:border-primary/40 hover:bg-accent/30 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none" data-testid={`start-${t}`}>
               <div className="flex items-center gap-2">
                 <Icon className="size-4 text-warn" aria-hidden />
                 <span className="text-[15px] font-semibold text-bright">{w.title}</span>
@@ -61,7 +61,7 @@ function Rehearsals({ onStart }: { onStart: (t: LabTab) => void }) {
   );
 }
 
-function ActiveTable({ rules, onOpen, onSwitch, onRemove }: { rules: LabRule[]; onOpen: (id: number) => void; onSwitch: (id: number, on: boolean) => void; onRemove: (id: number) => void }) {
+function ActiveTable({ rules, onOpen, onSwitch, onRemove }: { rules: LabRule[]; onOpen: (id: number, from: HTMLElement) => void; onSwitch: (id: number, on: boolean) => void; onRemove: (id: number, from: HTMLElement) => void }) {
   const columns = useMemo<DataColumn<LabRule>[]>(
     () => [
       {
@@ -79,7 +79,7 @@ function ActiveTable({ rules, onOpen, onSwitch, onRemove }: { rules: LabRule[]; 
         accessorKey: "name",
         header: "Rule",
         cell: (c) => (
-          <button type="button" className="max-w-full truncate rounded-sm text-left font-medium text-bright hover:text-primary focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none" title={c.row.original.sentence} onClick={() => onOpen(c.row.original.id)} data-testid="rule-open">
+          <button type="button" className="max-w-full truncate rounded-sm text-left font-medium text-bright hover:text-primary focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none" title={c.row.original.sentence} onClick={(ev) => onOpen(c.row.original.id, ev.currentTarget)} data-testid="rule-open">
             {c.row.original.name}
           </button>
         ),
@@ -96,7 +96,7 @@ function ActiveTable({ rules, onOpen, onSwitch, onRemove }: { rules: LabRule[]; 
         size: 56,
         enableSorting: false,
         cell: (c) => (
-          <Button variant="ghost" size="icon-sm" onClick={(e) => (e.stopPropagation(), onRemove(c.row.original.id))} aria-label={`Remove ${c.row.original.name}`} data-testid="rule-remove">
+          <Button variant="ghost" size="icon-sm" onClick={(e) => (e.stopPropagation(), onRemove(c.row.original.id, e.currentTarget))} aria-label={`Remove ${c.row.original.name}`} data-testid="rule-remove">
             <Trash2Icon />
           </Button>
         ),
@@ -207,7 +207,7 @@ export function LabPage() {
         refresh={h && !h.off ? <RefreshControl updatedAt={q.dataUpdatedAt} fetching={q.isFetching} onRefresh={refresh} /> : undefined}
         actions={
           h && !h.off ? (
-            <Button onClick={() => overlay.open({ new: "slow" })} data-testid="lab-new">
+            <Button onClick={(ev) => overlay.open({ new: "slow" }, ev.currentTarget)} data-testid="lab-new">
               <PlusIcon /> New rehearsal
             </Button>
           ) : undefined
@@ -231,10 +231,10 @@ export function LabPage() {
           ) : (
             <section aria-labelledby="active" className="mb-12">
               <SectionHead id="active" title="Active" sub="What is bending your broker right now. Every rule ends by itself; removing it ends it sooner. A rule switched off matches nothing until switched on." />
-              <ActiveTable rules={h.active} onOpen={(id) => overlay.open({ rule: String(id) })} onSwitch={onSwitch} onRemove={(id) => overlay.open({ remove: String(id) })} />
+              <ActiveTable rules={h.active} onOpen={(id, from) => overlay.open({ rule: String(id) }, from)} onSwitch={onSwitch} onRemove={(id, from) => overlay.open({ remove: String(id) }, from)} />
             </section>
           )}
-          <Rehearsals onStart={(t) => overlay.open({ new: t })} />
+          <Rehearsals onStart={(t, from) => overlay.open({ new: t }, from)} />
           {(h.ended.length > 0 || h.once.length > 0) && (
             <section aria-labelledby="ended" className="mb-12">
               <SectionHead
@@ -261,6 +261,7 @@ export function LabPage() {
       <NewRehearsalDialog
         tab={h && !h.off ? search.new : undefined}
         compactTopics={h?.compacted ?? []}
+        restoreFocus={overlay.restore}
         onTab={(t) => overlay.move({ new: t })}
         onClose={() => {
           overlay.close({ new: undefined });
@@ -272,9 +273,9 @@ export function LabPage() {
           overlay.move({ new: undefined, rule: String(id) });
         }}
       />
-      <RuleSheet id={search.rule} onClose={() => overlay.close({ rule: undefined })} onSwitch={onSwitch} onRemove={(id) => overlay.move({ rule: undefined, remove: String(id) })} />
+      <RuleSheet restoreFocus={overlay.restore} id={search.rule} onClose={() => overlay.close({ rule: undefined })} onSwitch={onSwitch} onRemove={(id) => overlay.move({ rule: undefined, remove: String(id) })} />
       <Dialog open={!!search.remove} onOpenChange={(o) => !o && overlay.close({ remove: undefined })}>
-        <DialogContent data-testid="lab-remove-dialog">
+        <DialogContent data-testid="lab-remove-dialog" onCloseAutoFocus={overlay.restore}>
           <DialogHeader>
             <DialogTitle>Remove {removing ? removing.name : `rule ${search.remove}`}?</DialogTitle>
             <DialogDescription>It stops at once: the requests it matched are answered as usual from the next one. It stays in Ended for an hour with what it did.</DialogDescription>

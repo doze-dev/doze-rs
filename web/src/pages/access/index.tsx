@@ -130,7 +130,7 @@ function Users({ r }: { r: AccessResponse }) {
   );
 }
 
-function Acls({ r, search, set, onDelete, onCreate }: { r: AccessResponse; search: AccessSearch; set: (p: Partial<AccessSearch>) => void; onDelete: (q: string) => void; onCreate: () => void }) {
+function Acls({ r, search, set, onDelete, onCreate }: { r: AccessResponse; search: AccessSearch; set: (p: Partial<AccessSearch>) => void; onDelete: (q: string, from: HTMLElement) => void; onCreate: (from: HTMLElement) => void }) {
   const kinds = r.kinds;
   const ops = r.operations;
   const label = (list: AclChoice[], n: number) => list.find((k) => k.number === n)?.label ?? String(n);
@@ -163,7 +163,7 @@ function Acls({ r, search, set, onDelete, onCreate }: { r: AccessResponse; searc
         size: 104,
         enableSorting: false,
         cell: (c) => (
-          <Button variant="outline" size="sm" className="h-7 bg-card" onClick={() => onDelete(aclQuery(c.row.original, kinds, ops))} aria-label={`Delete the ACL on ${c.row.original.name} for ${c.row.original.principal}`} data-testid="acl-delete">
+          <Button variant="outline" size="sm" className="h-7 bg-card" onClick={(ev) => onDelete(aclQuery(c.row.original, kinds, ops), ev.currentTarget)} aria-label={`Delete the ACL on ${c.row.original.name} for ${c.row.original.principal}`} data-testid="acl-delete">
             <Trash2Icon /> Delete
           </Button>
         ),
@@ -181,7 +181,7 @@ function Acls({ r, search, set, onDelete, onCreate }: { r: AccessResponse; searc
         title="ACLs"
         sub="What DescribeAcls returns. A DENY wins over any ALLOW; an ALLOW of Read, Write, Delete or Alter also allows Describe."
         actions={
-          <Button onClick={onCreate} data-testid="acl-create">
+          <Button onClick={(ev) => onCreate(ev.currentTarget)} data-testid="acl-create">
             <PlusIcon /> Create ACL
           </Button>
         }
@@ -325,12 +325,12 @@ export function AccessPage() {
         <>
           <Switches r={r} />
           <Users r={r} />
-          <Acls r={r} search={search} set={setFilter} onCreate={() => overlay.open({ acl: "new" })} onDelete={(dq) => overlay.open({ delete: dq })} />
+          <Acls r={r} search={search} set={setFilter} onCreate={(from) => overlay.open({ acl: "new" }, from)} onDelete={(dq, from) => overlay.open({ delete: dq }, from)} />
           <ConsoleCards r={r} />
         </>
       )}
-      {r && <CreateAclDialog open={search.acl === "new"} kinds={r.kinds} operations={r.operations} onClose={() => overlay.close({ acl: undefined })} />}
-      {r && <DeleteAclDialog query={search.delete} kinds={r.kinds} operations={r.operations} onClose={() => overlay.close({ delete: undefined })} />}
+      {r && <CreateAclDialog open={search.acl === "new"} kinds={r.kinds} operations={r.operations} onClose={() => overlay.close({ acl: undefined })} restoreFocus={overlay.restore} />}
+      {r && <DeleteAclDialog query={search.delete} kinds={r.kinds} operations={r.operations} onClose={() => overlay.close({ delete: undefined })} restoreFocus={overlay.restore} />}
     </>
   );
 }

@@ -107,10 +107,21 @@ export function Fact({ label, children, sub }: { label: string; children: React.
  * link there is nothing of ours to go back to, so closing replaces the address. */
 export function useRoutedOverlay(set: (patch: Record<string, string | undefined>, replace: boolean) => void) {
   const pushed = useRef(false);
+  const from = useRef<HTMLElement | null>(null);
   return {
-    open(patch: Record<string, string | undefined>) {
+    /** Opens the overlay; `opener` gets the focus back when it closes (Firefox and Safari do not focus a clicked button). */
+    open(patch: Record<string, string | undefined>, opener?: HTMLElement | null) {
       pushed.current = true;
+      from.current = opener ?? (document.activeElement as HTMLElement | null);
       set(patch, false);
+    },
+    /** For an overlay's `onCloseAutoFocus`: the focus goes back to what opened it. */
+    restore(e: Event) {
+      const el = from.current;
+      if (el && el.isConnected) {
+        e.preventDefault();
+        el.focus();
+      }
     },
     close(patch: Record<string, string | undefined>) {
       if (pushed.current) {
