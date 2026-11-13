@@ -3,7 +3,7 @@
 // that never moves; the table is a DataTable with stable ids; a record opens in a routed Sheet; the Live tail is opt-in.
 import { useIsFetching, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
-import { ArrowUpIcon, CalendarClockIcon, CircleAlertIcon, InboxIcon, SearchIcon, SendIcon, XIcon } from "lucide-react";
+import { CalendarClockIcon, CircleAlertIcon, InboxIcon, SearchIcon, SendIcon, XIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useShell } from "@/api/queries";
 import { liveKeys } from "@/api/live";
@@ -24,7 +24,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -39,7 +38,9 @@ import { WireDock } from "../live/wire-dock";
 import { Explainers } from "./explain";
 import { useTopicDialog } from "./frame";
 import { RecordSheet } from "./record";
-import { type Conn, SPEEDS, type Speed, WINDOW, prepend, rowId, useMessagesTail, useTailSpeed } from "./tail";
+import { type Conn, WINDOW, prepend, rowId, useMessagesTail } from "./tail";
+import { speedSecs, useSpeed } from "../live/tail";
+import { HeldPill, TailSpeed } from "@/components/app/tail-controls";
 import { STANDING } from "./words";
 
 type Patch = Partial<MessagesSearch>;
@@ -265,8 +266,7 @@ function ConnDot({ conn }: { conn: Conn | null }) {
 
 /** Row two of the toolbar: always there, always one line: the filters that are on (each with a way off) or a quiet line;
  * at the right the Snapshot | Live tail switch, its speed and the connection. */
-function FilterLine({ search, set, tailable, conn, refresh }: { search: MessagesSearch; set: (p: Patch) => void; tailable: boolean; conn: Conn | null; refresh?: React.ReactNode }) {
-  const [speed, setSpeed] = useTailSpeed();
+function FilterLine({ search, set, tailable, conn, refresh, held }: { search: MessagesSearch; set: (p: Patch) => void; tailable: boolean; conn: Conn | null; refresh?: React.ReactNode; held?: React.ReactNode }) {
   const chips: { label: string; off: Patch; id: string }[] = [];
   const parts = partitionsOf(search.partition);
   for (const p of parts) chips.push({ id: `p${p}`, label: `partition ${p}`, off: { partition: partitionParam(parts.filter((x) => x !== p)) } });
@@ -315,19 +315,9 @@ function FilterLine({ search, set, tailable, conn, refresh }: { search: Messages
           </TooltipTrigger>
           <TooltipContent>{tailable ? "Snapshot: the records as they were when the page loaded. Live tail: new records arrive at the top." : "A key, an offset or a time asks for a fixed read: only the newest records can be tailed."}</TooltipContent>
         </Tooltip>
-        <Select value={speed} onValueChange={(v) => setSpeed(v as Speed)} disabled={!tail}>
-          <SelectTrigger size="sm" className="w-[8.5rem] bg-card" aria-label="Tail speed" data-testid="speed">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent align="end">
-            {SPEEDS.map((s) => (
-              <SelectItem key={s.value} value={s.value} title={s.tip}>
-                {s.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <TailSpeed testId="speed" />
         <ConnDot conn={tail ? conn : null} />
+        {tail && held}
         {!tail && refresh}
       </div>
     </div>
@@ -391,8 +381,8 @@ function SnapshotRefresh({ topic }: { topic: string }) {
 function Records({ topic, r, frame, tail, tailable, search, set, open, children }: { topic: string; r: MessagesResponse; frame: TopicFrame; tail: boolean; tailable: boolean; search: MessagesSearch; set: (p: Patch) => void; open: (row: RecordRow) => void; children?: React.ReactNode }) {
   const box = useRef<HTMLDivElement>(null);
   const hover = useRef(false);
-  const [speed] = useTailSpeed();
-  const pace = SPEEDS.find((s) => s.value === speed)?.pace ?? 3;
+  const [speed] = useSpeed();
+  const pace = speedSecs(speed);
   const base = r.view.rows;
   const known = useMemo(() => new Set(base.map(rowId)), [base]);
   const isHeld = useCallback(() => {
@@ -427,17 +417,10 @@ function Records({ topic, r, frame, tail, tailable, search, set, open, children 
   };
   return (
     <>
-    <FilterLine search={search} set={set} tailable={tailable} conn={tail ? t.conn : null} refresh={<SnapshotRefresh topic={topic} />} />
+    <FilterLine search={search} set={set} tailable={tailable} conn={tail ? t.conn : null} refresh={<SnapshotRefresh topic={topic} />} held={<HeldPill count={t.held.length} onShow={show} />} />
     {/* What is said about the read sits under the controls, so a sentence that comes or goes never moves them. */}
     {children && <div className="mt-3">{children}</div>}
     <div ref={box} className="relative mt-3" onPointerEnter={() => (hover.current = true)} onPointerLeave={() => (hover.current = false)} data-testid="records" data-tail={tail || undefined}>
-      {tail && t.held.length > 0 && (
-        <div className="pointer-events-none absolute inset-x-0 top-12 z-20 flex justify-center">
-          <Button size="sm" className="pointer-events-auto rounded-full shadow-md" onClick={show} data-testid="held-pill">
-            <ArrowUpIcon /> {number(t.held.length)} new · Show
-          </Button>
-        </div>
-      )}
       <DataTable
         data={rows}
         columns={cols}

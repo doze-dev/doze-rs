@@ -167,7 +167,7 @@ test("the Live tail: new rows at the top, no row rewritten, the header stable, h
   await expect(rows(page).first()).toBeVisible();
   await page.getByTestId("mode").getByRole("radio", { name: "Live tail" }).click();
   await expect(page).toHaveURL(/mode=tail/);
-  await choose(page, page.getByTestId("speed"), "Realtime");
+  await choose(page, page.getByTestId("speed"), "Realtime · 1 s");
   await expect(page.getByTestId("conn")).toHaveAttribute("data-state", "live", { timeout: 15_000 });
   await page.mouse.move(5, 5);
   const head = await page.getByRole("table", { name: "Records, newest first" }).locator("thead").elementHandle();
