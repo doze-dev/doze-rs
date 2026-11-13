@@ -6,7 +6,7 @@ import { keys, useInterval } from "./queries";
 import type { GroupDeleteView } from "./types/GroupDeleteView";
 import type { GroupLagView } from "./types/GroupLagView";
 import type { GroupsResponse } from "./types/GroupsResponse";
-import type { GroupWriteDone } from "./types/GroupWriteDone";
+import type { GroupWriteOutcome } from "./types/GroupWriteOutcome";
 import type { OffsetDeleteRequest } from "./types/OffsetDeleteRequest";
 import type { OffsetDeleteView } from "./types/OffsetDeleteView";
 import type { ResetRequest } from "./types/ResetRequest";
@@ -93,10 +93,11 @@ function post<T>(path: string, body: unknown) {
   return api<T>(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 }
 
-/** After a write: the group's pages, the list and the sidebar's count are fetched again. */
+/** After a write: the group's pages, the list and the sidebar's count are fetched again (a refusal changed nothing). */
 function useAfterWrite(id: string) {
   const qc = useQueryClient();
-  return () => {
+  return (o: GroupWriteOutcome) => {
+    if (o.outcome !== "done") return;
     void qc.invalidateQueries({ queryKey: groupKeys.group(id) });
     void qc.invalidateQueries({ queryKey: groupKeys.all });
     void qc.invalidateQueries({ queryKey: keys.shell });
@@ -105,15 +106,24 @@ function useAfterWrite(id: string) {
 
 export function useResetOffsets(id: string) {
   const after = useAfterWrite(id);
-  return useMutation({ mutationFn: (r: ResetRequest) => post<GroupWriteDone>(`/api/v1/groups/${seg(id)}/reset`, r), onSuccess: after });
+  return useMutation({ mutationFn: (r: ResetRequest) => post<GroupWriteOutcome>(`/api/v1/groups/${seg(id)}/reset`, r), onSuccess: after });
 }
 
+/** A deleted group's own queries are dropped, not fetched again: there is nothing left to ask for. */
 export function useDeleteGroup(id: string) {
-  const after = useAfterWrite(id);
-  return useMutation({ mutationFn: () => post<GroupWriteDone>(`/api/v1/groups/${seg(id)}/delete`, {}), onSuccess: after });
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => post<GroupWriteOutcome>(`/api/v1/groups/${seg(id)}/delete`, {}),
+    onSuccess: (o) => {
+      if (o.outcome !== "done") return;
+      qc.removeQueries({ queryKey: groupKeys.group(id) });
+      void qc.invalidateQueries({ queryKey: groupKeys.all });
+      void qc.invalidateQueries({ queryKey: keys.shell });
+    },
+  });
 }
 
 export function useDeleteOffsets(id: string) {
   const after = useAfterWrite(id);
-  return useMutation({ mutationFn: (r: OffsetDeleteRequest) => post<GroupWriteDone>(`/api/v1/groups/${seg(id)}/offsets/delete`, r), onSuccess: after });
+  return useMutation({ mutationFn: (r: OffsetDeleteRequest) => post<GroupWriteOutcome>(`/api/v1/groups/${seg(id)}/offsets/delete`, r), onSuccess: after });
 }

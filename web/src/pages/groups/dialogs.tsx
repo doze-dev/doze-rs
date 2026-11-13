@@ -7,11 +7,12 @@ import { EyeIcon, RotateCcwIcon, Trash2Icon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
-import { ApiFailure } from "@/api/client";
 import { useDeleteGroup, useDeleteOffsets, useDeletePreview, useOffsetsPreview, useResetOffsets, useResetPreview } from "@/api/groups";
 import type { GroupHead } from "@/api/types/GroupHead";
-import type { GroupWriteInvalid } from "@/api/types/GroupWriteInvalid";
-import type { GroupWriteRefusal } from "@/api/types/GroupWriteRefusal";
+import type { GroupWriteOutcome } from "@/api/types/GroupWriteOutcome";
+
+type Refusal = Extract<GroupWriteOutcome, { outcome: "refused" }>;
+type Invalid = Extract<GroupWriteOutcome, { outcome: "invalid" }>;
 import type { Lag } from "@/api/types/Lag";
 import type { ResetRequest } from "@/api/types/ResetRequest";
 import { UtcDateTimePicker } from "@/components/app/utc-datetime-picker";
@@ -33,16 +34,16 @@ function membersNames(h: GroupHead): string {
   return h.members.length === 1 ? `${h.members[0]!.id} is a member.` : `${h.members.length} members are in it.`;
 }
 
-function refusalOf(e: unknown): GroupWriteRefusal | null {
-  return e instanceof ApiFailure && e.status === 409 ? (e.body as GroupWriteRefusal) : null;
+function refusalOf(o: GroupWriteOutcome | undefined): Refusal | null {
+  return o?.outcome === "refused" ? o : null;
 }
 
-function invalidOf(e: unknown): GroupWriteInvalid | null {
-  return e instanceof ApiFailure && e.status === 422 ? (e.body as GroupWriteInvalid) : null;
+function invalidOf(o: GroupWriteOutcome | undefined): Invalid | null {
+  return o?.outcome === "invalid" ? o : null;
 }
 
 /** What Kafka refused, as the classic refused page has it: the refusal, what would pass, the call. */
-function Refused({ r, tail }: { r: GroupWriteRefusal; tail?: string }) {
+function Refused({ r, tail }: { r: Refusal; tail?: string }) {
   const g = r.refused;
   return (
     <div className="flex flex-col gap-4" data-testid="refused">
@@ -101,8 +102,8 @@ function ResetDialog({ id, head, onDone }: { id: string; head: GroupHead; onDone
   const chosen = asRequest({ topic: watched.topic ?? "", to: watched.to ?? "latest", value: watched.value ?? "", time: watched.time ?? null });
   const same = v !== undefined && chosen.topic === (asked.topic || v.topic) && chosen.to === asked.to && chosen.value === asked.value && !preview.isFetching;
   const moves = v && same && !v.error ? v.rows.filter((r) => r.after !== null).length : 0;
-  const refusal = refusalOf(reset.error);
-  const invalid = invalidOf(reset.error);
+  const refusal = refusalOf(reset.data);
+  const invalid = invalidOf(reset.data);
   const to = watched.to ?? "latest";
   const doPreview = form.handleSubmit((f) => {
     reset.reset();
@@ -111,6 +112,7 @@ function ResetDialog({ id, head, onDone }: { id: string; head: GroupHead; onDone
   const send = () =>
     reset.mutate(asked.topic ? asked : { ...asked, topic: v?.topic ?? "" }, {
       onSuccess: (d) => {
+        if (d.outcome !== "done") return;
         toast.success(`Reset ${plural(d.done, "offset")}. The group reads from them the next time a member starts.`);
         onDone();
       },
@@ -263,7 +265,7 @@ function DeleteDialog({ id, head, onDone, onDeleted }: { id: string; head: Group
   const v = preview.data;
   const n = v ? v.offsets.reduce((a, [, ps]) => a + ps.length, 0) : 0;
   const named = v ? v.offsets.map(([t, ps]) => partList(ps.map((p) => ({ topic: t, partition: p })))) : [];
-  const refusal = refusalOf(del.error);
+  const refusal = refusalOf(del.data);
   return (
     <>
       <DialogHeader>
@@ -293,7 +295,8 @@ function DeleteDialog({ id, head, onDone, onDeleted }: { id: string; head: Group
             data-testid="delete-submit"
             onClick={() =>
               del.mutate(undefined, {
-                onSuccess: () => {
+                onSuccess: (d) => {
+                  if (d.outcome !== "done") return;
                   toast.success(`Deleted ${id}.`);
                   onDeleted();
                 },
@@ -315,7 +318,7 @@ function OffsetsDialog({ id, head, onDone }: { id: string; head: GroupHead; onDo
   const [picked, setPicked] = useState<string[] | null>(null);
   const chosen = picked ?? v?.chosen ?? [];
   const n = v ? v.topics.filter(([t]) => chosen.includes(t)).reduce((a, [, ps]) => a + ps.length, 0) : 0;
-  const refusal = refusalOf(del.error);
+  const refusal = refusalOf(del.data);
   const toggle = (t: string) => {
     del.reset();
     setPicked(chosen.includes(t) ? chosen.filter((x) => x !== t) : [...chosen, t]);
@@ -369,6 +372,7 @@ function OffsetsDialog({ id, head, onDone }: { id: string; head: GroupHead; onDo
               { topics: chosen },
               {
                 onSuccess: (d) => {
+                  if (d.outcome !== "done") return;
                   toast.success(`Deleted ${plural(d.done, "committed offset")}.`);
                   onDone();
                 },

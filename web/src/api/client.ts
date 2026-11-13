@@ -13,14 +13,11 @@ export const basePath: string = (() => {
 export class ApiFailure extends Error {
   readonly code: string;
   readonly status: number;
-  /** The whole answer: a refusal may carry more than its code and words (a write's refusal carries the dialog's data). */
-  readonly body: unknown;
   constructor(status: number, body: ApiError) {
     super(body.message);
     this.name = "ApiFailure";
     this.code = body.code;
     this.status = status;
-    this.body = body;
   }
 }
 

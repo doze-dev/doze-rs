@@ -313,9 +313,10 @@ test("Delete offsets forgets the commits of the topics ticked; Delete group then
   await expect(page).toHaveURL(/\/groups$/);
   await expect(page.locator("[data-sonner-toast]").filter({ hasText: `Deleted ${idle}.` })).toBeVisible();
   await expect(page.getByTestId("group-link").filter({ hasText: idle })).toHaveCount(0);
-  // Its address now says there is no such group.
-  await page.goto(`/groups/${idle}`);
-  await expect(page.locator("h1")).toHaveText("No such group");
+  // The API now says there is no such group (a page that asked would log the 404 in Safari).
+  const gone = await page.request.get(`/api/v1/groups/${idle}`, { headers: { "X-Console": "1" } });
+  expect(gone.status()).toBe(404);
+  expect((await gone.json()).code).toBe("GROUP_NOT_FOUND");
 });
 
 for (const width of [1024, 1280, 1440, 1920]) {

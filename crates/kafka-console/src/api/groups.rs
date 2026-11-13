@@ -33,38 +33,33 @@ pub struct GroupsResponse {
     pub listen: String,
 }
 
-/// Kafka's refusal of a group write: its error name as the code and its own sentence, then the console's reading.
+/// What a group write came to. Always a 200: a refusal is an answer, in Kafka's name, number and words (a page that
+/// fetched it never logs a failed request).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[cfg_attr(test, derive(ts_rs::TS))]
-pub struct GroupWriteRefusal {
-    /// Kafka's error name: `NON_EMPTY_GROUP`.
-    pub code: String,
-    /// Kafka's words for it.
-    pub message: String,
-    /// Kafka's error number: `68`.
-    pub number: i16,
-    /// The rule, what would pass and the call that was refused (Reset offsets, Delete group).
-    pub refused: Option<GroupRefused>,
-    /// The dialog's data again (Delete offsets).
-    pub offsets: Option<OffsetDeleteView>,
-}
-
-/// A choice the dialog cannot send: a field to fix, in the console's words, and the dialog's data again.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[cfg_attr(test, derive(ts_rs::TS))]
-pub struct GroupWriteInvalid {
-    /// `INVALID`.
-    pub code: String,
-    pub message: String,
-    pub reset: Option<ResetView>,
-    pub offsets: Option<OffsetDeleteView>,
-}
-
-/// A write Kafka accepted: how many offsets moved or were forgotten (0 for a deleted group).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[cfg_attr(test, derive(ts_rs::TS))]
-pub struct GroupWriteDone {
-    pub done: usize,
+#[serde(tag = "outcome", rename_all = "snake_case")]
+pub enum GroupWriteOutcome {
+    /// Kafka accepted it: how many offsets moved or were forgotten (0 for a deleted group).
+    Done { done: usize },
+    /// Kafka refused it.
+    Refused {
+        /// Kafka's error name: `NON_EMPTY_GROUP`.
+        code: String,
+        /// Kafka's words for it.
+        message: String,
+        /// Kafka's error number: `68`.
+        number: i16,
+        /// The rule, what would pass and the call that was refused (Reset offsets, Delete group).
+        refused: Option<Box<GroupRefused>>,
+        /// The dialog's data again (Delete offsets).
+        offsets: Option<Box<OffsetDeleteView>>,
+    },
+    /// The choice cannot be sent: a field to fix, in the console's words, and the dialog's data again.
+    Invalid {
+        message: String,
+        reset: Option<Box<ResetView>>,
+        offsets: Option<Box<OffsetDeleteView>>,
+    },
 }
 
 /// `POST /api/v1/groups/{group}/reset`: what the Reset dialog sends (the preview's own choice).
@@ -161,12 +156,12 @@ async fn reset_preview(
 
 fn refused(
     r: &Refusal,
-    refused: Option<GroupRefused>,
-    offsets: Option<OffsetDeleteView>,
+    refused: Option<Box<GroupRefused>>,
+    offsets: Option<Box<OffsetDeleteView>>,
 ) -> Response {
     json(
-        StatusCode::CONFLICT,
-        &GroupWriteRefusal {
+        StatusCode::OK,
+        &GroupWriteOutcome::Refused {
             code: r.name.clone(),
             message: r.message.clone(),
             number: r.code,
@@ -176,16 +171,23 @@ fn refused(
     )
 }
 
-fn invalid(message: &str, reset: Option<ResetView>, offsets: Option<OffsetDeleteView>) -> Response {
+fn invalid(
+    message: &str,
+    reset: Option<Box<ResetView>>,
+    offsets: Option<Box<OffsetDeleteView>>,
+) -> Response {
     json(
-        StatusCode::UNPROCESSABLE_ENTITY,
-        &GroupWriteInvalid {
-            code: "INVALID".to_owned(),
+        StatusCode::OK,
+        &GroupWriteOutcome::Invalid {
             message: message.to_owned(),
             reset,
             offsets,
         },
     )
+}
+
+fn done(n: usize) -> Response {
+    json(StatusCode::OK, &GroupWriteOutcome::Done { done: n })
 }
 
 /// The refusal of a body that is not what a write takes.
@@ -210,14 +212,14 @@ async fn reset(
         .reset_offsets(&id, &req.topic, &req.to, &req.value)
         .await
     {
-        ResetResult::Done(n) => json(StatusCode::OK, &GroupWriteDone { done: n }),
+        ResetResult::Done(n) => done(n),
         ResetResult::Refused(r) => {
             let words = r.refusal.clone();
-            refused(&words, Some(*r), None)
+            refused(&words, Some(r), None)
         }
         ResetResult::Invalid(v) => {
             let message = v.error.clone().unwrap_or_default();
-            invalid(&message, Some(*v), None)
+            invalid(&message, Some(v), None)
         }
         ResetResult::NoGroup => no_group(&id),
     }
@@ -233,10 +235,10 @@ async fn delete_preview(State(s): State<Shared>, Path(id): Path<String>) -> Resp
 
 async fn delete(State(s): State<Shared>, Path(id): Path<String>) -> Response {
     match s.source.delete_group(&id).await {
-        DeleteGroupResult::Done => json(StatusCode::OK, &GroupWriteDone { done: 0 }),
+        DeleteGroupResult::Done => done(0),
         DeleteGroupResult::Refused(r) => {
             let words = r.refusal.clone();
-            refused(&words, Some(*r), None)
+            refused(&words, Some(r), None)
         }
         DeleteGroupResult::NoGroup => no_group(&id),
     }
@@ -273,15 +275,15 @@ async fn offsets_delete(
     // No topic named is nothing to send (the form would tick every topic, which is not what was asked).
     if req.topics.is_empty() {
         return match s.source.offset_delete_form(&id, &[]).await {
-            Some(v) => invalid("Choose a topic whose offsets go.", None, Some(v)),
+            Some(v) => invalid("Choose a topic whose offsets go.", None, Some(Box::new(v))),
             None => no_group(&id),
         };
     }
     match s.source.offset_delete(&id, &req.topics).await {
-        OffsetDeleteResult::Done(n) => json(StatusCode::OK, &GroupWriteDone { done: n }),
-        OffsetDeleteResult::Refused(v, r) => refused(&r, None, Some(*v)),
+        OffsetDeleteResult::Done(n) => done(n),
+        OffsetDeleteResult::Refused(v, r) => refused(&r, None, Some(v)),
         OffsetDeleteResult::Nothing(v) => {
-            invalid("Choose a topic whose offsets go.", None, Some(*v))
+            invalid("Choose a topic whose offsets go.", None, Some(v))
         }
         OffsetDeleteResult::NoGroup => no_group(&id),
     }

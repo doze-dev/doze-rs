@@ -64,10 +64,7 @@ fn all() -> BTreeMap<String, String> {
 
 /// The Groups pages (R2).
 fn groups(cfg: &Config, out: &mut BTreeMap<String, String>) {
-    use super::groups::{
-        GroupWriteDone, GroupWriteInvalid, GroupWriteRefusal, GroupsResponse, OffsetDeleteRequest,
-        ResetRequest,
-    };
+    use super::groups::{GroupWriteOutcome, GroupsResponse, OffsetDeleteRequest, ResetRequest};
     use crate::lag::Lag;
     use crate::model::{
         GroupAttention, GroupDeleteView, GroupHead, GroupLagView, GroupMemberRow, GroupPart,
@@ -77,9 +74,7 @@ fn groups(cfg: &Config, out: &mut BTreeMap<String, String>) {
         StoryLast, StoryLeft, StoryNow, StoryRule, StoryTone, StoryView, StoryWho,
     };
     one::<GroupsResponse>(cfg, out);
-    one::<GroupWriteDone>(cfg, out);
-    one::<GroupWriteInvalid>(cfg, out);
-    one::<GroupWriteRefusal>(cfg, out);
+    one::<GroupWriteOutcome>(cfg, out);
     one::<OffsetDeleteRequest>(cfg, out);
     one::<ResetRequest>(cfg, out);
     one::<Lag>(cfg, out);

@@ -146,7 +146,8 @@ async fn a_reset_is_previewed_with_a_get_and_refused_in_kafkas_words_while_the_g
         r#"{"topic":"clickstream","to":"earliest","value":""}"#,
     )
     .await;
-    assert_eq!(s, StatusCode::CONFLICT, "{r}");
+    assert_eq!(s, StatusCode::OK, "{r}");
+    assert_eq!(r["outcome"], "refused", "a refusal is an answer: {r}");
     assert!(
         r["code"]
             .as_str()
@@ -166,6 +167,7 @@ async fn a_reset_is_previewed_with_a_get_and_refused_in_kafkas_words_while_the_g
     )
     .await;
     assert_eq!(s, StatusCode::OK, "{done}");
+    assert_eq!(done["outcome"], "done");
     assert!(done["done"].as_u64().unwrap() > 0);
     // Not JSON: refused before anything is asked of the broker.
     let (s, e) = post(&app, "/api/v1/groups/analytics/reset", "to=latest").await;
@@ -180,13 +182,15 @@ async fn deleting_a_group_with_members_is_refused_as_non_empty_group() {
     assert_eq!(s, StatusCode::OK);
     assert!(form["offsets"].as_array().is_some());
     let (s, r) = post(&app, "/api/v1/groups/search-indexer/delete", "{}").await;
-    assert_eq!(s, StatusCode::CONFLICT, "{r}");
+    assert_eq!(s, StatusCode::OK, "{r}");
+    assert_eq!(r["outcome"], "refused", "a refusal is an answer: {r}");
     assert_eq!(r["code"], "NON_EMPTY_GROUP");
     assert_eq!(r["number"], 68);
     assert_eq!(r["message"], "The group is not empty.");
     assert_eq!(r["refused"]["what"], "Delete group");
     let (s, done) = post(&app, "/api/v1/groups/analytics/delete", "{}").await;
     assert_eq!(s, StatusCode::OK, "{done}");
+    assert_eq!(done["outcome"], "done");
 }
 
 #[tokio::test]
@@ -202,8 +206,9 @@ async fn deleting_offsets_needs_a_topic_and_is_refused_while_a_member_reads_it()
         r#"{"topics":[]}"#,
     )
     .await;
-    assert_eq!(s, StatusCode::UNPROCESSABLE_ENTITY, "{none}");
-    assert_eq!(none["code"], "INVALID");
+    assert_eq!(s, StatusCode::OK, "{none}");
+    assert_eq!(none["outcome"], "invalid");
+    assert!(none["offsets"].is_object());
     let first = topics[0][0].as_str().unwrap();
     let (s, done) = post(
         &app,
@@ -212,6 +217,7 @@ async fn deleting_offsets_needs_a_topic_and_is_refused_while_a_member_reads_it()
     )
     .await;
     assert_eq!(s, StatusCode::OK, "{done}");
+    assert_eq!(done["outcome"], "done");
     let (_, busy) = get(&app, "/api/v1/groups/search-indexer/offsets/delete").await;
     let topic = busy["topics"][0][0].as_str().unwrap();
     let (s, r) = post(
@@ -220,7 +226,8 @@ async fn deleting_offsets_needs_a_topic_and_is_refused_while_a_member_reads_it()
         &format!(r#"{{"topics":["{topic}"]}}"#),
     )
     .await;
-    assert_eq!(s, StatusCode::CONFLICT, "{r}");
+    assert_eq!(s, StatusCode::OK, "{r}");
+    assert_eq!(r["outcome"], "refused", "a refusal is an answer: {r}");
     assert_eq!(r["code"], "GROUP_SUBSCRIBED_TO_TOPIC");
     assert_eq!(r["number"], 86);
 }
