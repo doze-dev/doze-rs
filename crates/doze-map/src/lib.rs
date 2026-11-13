@@ -95,6 +95,7 @@ mod cards;
 mod classic;
 mod draw;
 mod focus;
+mod gaps;
 mod geom;
 mod group;
 mod index;

@@ -127,7 +127,7 @@ fn frame(t: &Tokens, z: Z, c: &Card, at: (f32, f32), radius: f32) -> gpui::Div {
 
 /// The accent ring, at `a` of its strength (it fades in and out with the hover and the selection).
 fn ring(t: &Tokens, z: Z, strong: bool, a: f32) -> Vec<BoxShadow> {
-    // Opaque, blended toward the well: a translucent spread shadow tints the card it rings.
+    // Opaque, blended from the well: it fades in without tinting the card it rings.
     let mut v = vec![BoxShadow {
         color: if a >= 1.0 {
             t.accent
@@ -246,11 +246,8 @@ fn node_card(t: &Tokens, z: Z, m: &MapView, c: &Card, at: (f32, f32), mark: Mark
             t.line
         };
         f = f.border_color(mix(t.accent, was, mark.hot * 100.0));
-        // The ring as Go draws a selection (`box-shadow`, not transitioned): there once the blend is, so a
-        // translucent shadow never tints the card through.
-        if mark.hot >= 1.0 || mark.sel {
-            f = f.shadow(ring(t, z, mark.sel, 1.0));
-        }
+        // The ring fades with the border: an opaque outline blended from the well to the accent.
+        f = f.shadow(ring(t, z, mark.sel, mark.hot));
     }
     f.when(mark.opacity < 1.0, |d| d.opacity(mark.opacity))
         .child(top_row(t, z, c, r))
@@ -274,11 +271,7 @@ fn shared_card(t: &Tokens, z: Z, m: &MapView, c: &Card, at: (f32, f32), mark: Ma
             t.line
         };
         f = f.border_color(mix(t.accent, was, mark.hot * 100.0));
-        // The ring as Go draws a selection (`box-shadow`, not transitioned): there once the blend is, so a
-        // translucent shadow never tints the card through.
-        if mark.hot >= 1.0 || mark.sel {
-            f = f.shadow(ring(t, z, false, 1.0));
-        }
+        f = f.shadow(ring(t, z, false, mark.hot));
     }
     let line = || {
         div()

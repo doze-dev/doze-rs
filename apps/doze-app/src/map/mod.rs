@@ -319,8 +319,11 @@ impl MapView {
             } else {
                 self.cam.zoom
             };
+            // The detail card takes the top right: the card lands in the middle of what is left of the viewport.
+            let shift = f64::from((detail::WIDTH + 24.0) / 2.0 / zoom);
             let dur = crate::theme::Motion::of(cx).slow;
-            self.cam.fly((zoom, ctr.x, ctr.y), self.layout.bounds, dur);
+            self.cam
+                .fly((zoom, ctr.x + shift, ctr.y), self.layout.bounds, dur);
         }
         cx.notify();
     }

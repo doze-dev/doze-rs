@@ -90,10 +90,21 @@ pub(crate) fn overview(l: &Layout) -> Overview {
             *w = w.saturating_add(n);
         }
     }
+    let frames: Vec<Rect> = l.regions.iter().map(|r| r.rect).collect();
+    let grid = if frames.is_empty() {
+        None
+    } else {
+        crate::gaps::Grid::new(&frames)
+    };
     let mut bundles: Vec<Bundle> = weights
         .into_iter()
         .filter_map(|((from, to), count)| {
-            let path = bundle_path(&regions.get(from)?.rect, &regions.get(to)?.rect);
+            let (ra, rb) = (&regions.get(from)?.rect, &regions.get(to)?.rect);
+            // Between named frames, through the gaps (over no other region's cards); grid cells, a plain curve.
+            let path = grid
+                .as_ref()
+                .and_then(|g| crate::gaps::route(g, &frames, from, to))
+                .unwrap_or_else(|| bundle_path(ra, rb));
             Some(Bundle {
                 from,
                 to,

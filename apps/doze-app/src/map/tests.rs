@@ -106,8 +106,12 @@ fn find_flies_to_the_card(cx: &mut TestAppContext) {
     });
     assert!(cam.flight.is_none(), "landed");
     assert!((cam.zoom - 1.0).abs() < 1e-3, "{}", cam.zoom);
-    let (x, y) = cam.centre();
-    assert!((x - target.x).abs() < 2.0 && (y - target.y).abs() < 2.0);
+    // Centred in what the detail card (top right) leaves of the viewport.
+    let (sx, sy) = cam.to_screen(target.x, target.y);
+    let (vw, vh) = cam.size;
+    let free = vw - super::detail::WIDTH - 24.0;
+    assert!((sx - free / 2.0).abs() < 2.0, "{sx} of {vw}");
+    assert!((sy - vh / 2.0).abs() < 2.0, "{sy} of {vh}");
     // The breadcrumb's region: search.
     let region = vcx.update(|_, cx| {
         let m = m.read(cx);

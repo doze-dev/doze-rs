@@ -156,3 +156,34 @@ fn a_medium_stack_lays_out_fast() {
     assert!(best <= budget, "{best:.2} ms");
     println!("medium 150/500 layout {best:.2} ms");
 }
+
+/// Between named regions the bundles run through the gaps: none passes over a third region's frame.
+#[test]
+fn bundles_keep_to_the_gaps_between_frames() {
+    for (n, calls) in [(100, 190), (150, 300), (150, 500)] {
+        let l = layout(&synth::medium(n, calls, 1), &Options::default());
+        let t = Instant::now();
+        let o = l.overview();
+        let took = t.elapsed().as_secs_f64() * 1e3;
+        assert!(
+            took < if cfg!(debug_assertions) { 400.0 } else { 40.0 },
+            "{n}: {took:.1} ms"
+        );
+        for b in &o.bundles {
+            for s in &b.path.segs {
+                let q = s.end();
+                for (k, r) in l.regions.iter().enumerate() {
+                    if k != b.from && k != b.to {
+                        assert!(
+                            !r.rect.inside(q),
+                            "{n}: {} > {} over {}",
+                            b.from,
+                            b.to,
+                            r.name
+                        );
+                    }
+                }
+            }
+        }
+    }
+}
