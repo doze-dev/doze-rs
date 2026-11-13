@@ -57,7 +57,7 @@ const topics = createRoute({ getParentRoute: () => root, path: "/topics", valida
 const topic = createRoute({ getParentRoute: () => root, path: "/topics/$topic", validateSearch: topicSearch, component: topicsPage("TopicLayout") });
 const topicIndex = createRoute({ getParentRoute: () => topic, path: "/", validateSearch: messagesSearch, component: topicsPage("MessagesPage") });
 const topicMessages = createRoute({ getParentRoute: () => topic, path: "/messages", validateSearch: messagesSearch, component: topicsPage("MessagesPage") });
-const topicPartitions = createRoute({ getParentRoute: () => topic, path: "/partitions", component: topicsPage("PartitionsPage") });
+const topicPartitions = createRoute({ getParentRoute: () => topic, path: "/partitions", validateSearch: partitionSearch, component: topicsPage("PartitionsPage") });
 const topicLog = createRoute({ getParentRoute: () => topic, path: "/log", validateSearch: partitionSearch, component: topicsPage("LogPage") });
 const topicConfig = createRoute({ getParentRoute: () => topic, path: "/config", component: topicsPage("TopicConfigPage") });
 const topicConsumers = createRoute({ getParentRoute: () => topic, path: "/consumers", component: topicsPage("ConsumersPage") });

@@ -89,5 +89,5 @@ export function recordAt(raw: string | undefined): { partition: number; offset: 
 export type PartitionSearch = TopicSearch & { partition?: number };
 export function partitionSearch(s: Record<string, unknown>): PartitionSearch {
   const p = whole(s.partition);
-  return { ...topicSearch(s), partition: p && p > 0 ? p : undefined };
+  return { ...topicSearch(s), partition: p };
 }

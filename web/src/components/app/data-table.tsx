@@ -21,7 +21,7 @@ export function DataTable<T>({ data, columns, rowId, empty, maxHeight = 560, cla
   const [sorting, setSorting] = useState<SortingState>([]);
   // TanStack Table returns functions that change identity on purpose; the React compiler lint knows and says so.
   // eslint-disable-next-line react-hooks/incompatible-library
-  const table = useReactTable({ data, columns, state: { sorting }, onSortingChange: setSorting, getCoreRowModel: getCoreRowModel(), getSortedRowModel: getSortedRowModel(), getRowId: (r) => rowId(r) });
+  const table = useReactTable({ data, columns, defaultColumn: { size: 0 } /* no default width: a column without one takes the rest */, state: { sorting }, onSortingChange: setSorting, getCoreRowModel: getCoreRowModel(), getSortedRowModel: getSortedRowModel(), getRowId: (r) => rowId(r) });
   const rows = table.getRowModel().rows;
   const virtual = rows.length > VIRTUAL_FROM;
   const scroller = useRef<HTMLDivElement>(null);

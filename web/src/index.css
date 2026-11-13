@@ -150,3 +150,12 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* R1a: a row a tail just added has a 1.5 s background highlight (live-design.md rule 6: the only motion of an update). */
+@keyframes doze-row-new {
+  from { background-color: var(--pick); }
+  to { background-color: transparent; }
+}
+.row-new > td {
+  animation: doze-row-new 1.5s ease-out;
+}

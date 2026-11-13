@@ -16,7 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { number } from "@/lib/format";
-import { bytes, clock, dateTime, listAnd, stamp, timeoutText } from "@/lib/kafka";
+import { bytes, clock, dateTime, listAnd, retention, stamp, timeoutText } from "@/lib/kafka";
 import { cn } from "@/lib/utils";
 import { PageError } from "../page-error";
 import { TopicOverlays } from "./overlays";
@@ -56,7 +56,7 @@ function stats(f: TopicFrame): Stat[] {
       : { label: "Last write", value: "never", mono: true, ch: 11 };
   return [
     { label: "Partitions", value: number(h.parts.length), ch: 4, unit: f.offline.length ? `${f.offline.length} offline` : "all online" },
-    { label: "Retention", value: f.retention, mono: true, ch: 14 },
+    h.retention_ms !== null ? { label: "Retention", value: retention(h.retention_ms), unit: f.policy, mono: true, ch: 9 } : { label: "Retention", value: f.policy, mono: true, ch: 9 },
     { label: "Records", value: number(f.records), ch: 9 },
     { label: "Size on disk", value: bytes(f.bytes), ch: 9 },
     last,
