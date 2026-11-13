@@ -90,7 +90,7 @@ test("partitions, key and time: each is in the address, shown as a chip with a w
   await expect(page).not.toHaveURL(/key=/);
   await expect(page.getByTestId("chip-offset")).toBeVisible();
   // With no partition chosen, an offset is read from on every partition (kcat -o N without -p): the chip says so and the
-  // table holds only what it says (CON-1291).
+  // table holds only what it says (CON-1341).
   await page.getByTestId("find").fill("2");
   await page.getByTestId("find").press("Enter");
   await expect(page.getByTestId("chip-offset")).toHaveText(/from offset 2 in each partition/);

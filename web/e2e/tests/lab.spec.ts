@@ -68,17 +68,18 @@ test("Lab: a Slow rule for one client slows its requests; the rule counts them; 
         { timeout: 20_000 },
       )
       .toBeGreaterThan(1);
-    // The rows reach the wire when the slowed answers go out: look again until they are there.
+    // The open sheet keeps up by its own Refresh (CON-1343): the hits and the rows arrive without closing it or reloading.
     await expect
       .poll(
         async () => {
-          await page.reload();
-          await sheet.getByRole("table", { name: "Requests the rule touched" }).waitFor();
+          await sheet.getByTestId("refresh-now").click();
+          await page.waitForTimeout(400);
           return sheet.getByRole("table", { name: "Requests the rule touched" }).locator("tbody tr").count();
         },
         { timeout: 20_000 },
       )
       .toBeGreaterThan(0);
+    expect(Number((await sheet.locator("[data-slot=stat-value]").first().innerText()).replace(/\D/g, ""))).toBeGreaterThan(0);
     await expect(sheet.getByTestId("lab-badge").first()).toBeVisible();
     const took = await sheet.getByRole("table", { name: "Requests the rule touched" }).locator("tbody tr").first().locator("td").nth(4).innerText();
     expect(Number(took.replace(/[^\d]/g, ""))).toBeGreaterThanOrEqual(300);

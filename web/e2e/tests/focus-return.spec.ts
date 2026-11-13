@@ -1,4 +1,4 @@
-// Every overlay gives the focus back to what opened it (CON-1290): opened by the keyboard and closed with Esc, and opened by
+// Every overlay gives the focus back to what opened it (CON-1340): opened by the keyboard and closed with Esc, and opened by
 // the mouse and closed with its close button, in Firefox, WebKit and Chromium. One shared mechanism (web/src/lib/opener.ts)
 // does it for every Dialog and Sheet; this test walks all of them, so an overlay added without it fails here.
 import type { Locator, Page } from "@playwright/test";
