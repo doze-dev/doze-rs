@@ -17,11 +17,10 @@ Error: no console errors
 expect(received).toEqual(expected) // deep equality
 
 - Expected  - 1
-+ Received  + 5
++ Received  + 4
 
 - Array []
 + Array [
-+   "console: Failed to load resource: the server responded with a status of 404 (Not Found)",
 +   "console: Failed to load resource: the server responded with a status of 404 (Not Found)",
 +   "console: Failed to load resource: the server responded with a status of 404 (Not Found)",
 + ]

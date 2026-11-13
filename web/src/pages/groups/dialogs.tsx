@@ -7,7 +7,7 @@ import { EyeIcon, RotateCcwIcon, Trash2Icon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
-import { useDeleteGroup, useDeleteOffsets, useDeletePreview, useOffsetsPreview, useResetOffsets, useResetPreview } from "@/api/groups";
+import { useDeleteGroup, useDeleteOffsets, useForgetGroup, useDeletePreview, useOffsetsPreview, useResetOffsets, useResetPreview } from "@/api/groups";
 import type { GroupHead } from "@/api/types/GroupHead";
 import type { GroupWriteOutcome } from "@/api/types/GroupWriteOutcome";
 
@@ -390,6 +390,7 @@ function OffsetsDialog({ id, head, onDone }: { id: string; head: GroupHead; onDo
 /** The dialog the address names, over whichever tab of the group is showing. */
 export function GroupDialogs({ id, head, dialog, onClose, returnFocus }: { id: string; head: GroupHead; dialog?: Dialog; onClose: () => void; returnFocus: (e: Event) => void }) {
   const navigate = useNavigate();
+  const forget = useForgetGroup();
   return (
     <Dialog open={!!dialog} onOpenChange={(o) => !o && onClose()}>
       <DialogContent onCloseAutoFocus={returnFocus} className="sm:max-w-[640px]" data-testid={dialog ? `dialog-${dialog}` : undefined} aria-describedby={undefined}>
@@ -402,7 +403,7 @@ export function GroupDialogs({ id, head, dialog, onClose, returnFocus }: { id: s
             }}
           />
         )}
-        {dialog === "delete" && <DeleteDialog id={id} head={head} onDone={onClose} onDeleted={() => void navigate({ to: "/groups", replace: true })} />}
+        {dialog === "delete" && <DeleteDialog id={id} head={head} onDone={onClose} onDeleted={() => void navigate({ to: "/groups", replace: true }).then(() => forget(id))} />}
         {dialog === "delete-offsets" && <OffsetsDialog id={id} head={head} onDone={onClose} />}
       </DialogContent>
     </Dialog>

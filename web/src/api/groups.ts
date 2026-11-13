@@ -109,18 +109,24 @@ export function useResetOffsets(id: string) {
   return useMutation({ mutationFn: (r: ResetRequest) => post<GroupWriteOutcome>(`/api/v1/groups/${seg(id)}/reset`, r), onSuccess: after });
 }
 
-/** A deleted group's own queries are dropped, not fetched again: there is nothing left to ask for. */
+/** Deletes a group. The list and the shell are fetched again; the group's own queries are for `forgetGroup`, once its
+ * page is gone (dropped while the page still shows, they would be asked again, and answer 404). */
 export function useDeleteGroup(id: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: () => post<GroupWriteOutcome>(`/api/v1/groups/${seg(id)}/delete`, {}),
     onSuccess: (o) => {
       if (o.outcome !== "done") return;
-      qc.removeQueries({ queryKey: groupKeys.group(id) });
       void qc.invalidateQueries({ queryKey: groupKeys.all });
       void qc.invalidateQueries({ queryKey: keys.shell });
     },
   });
+}
+
+/** Drops a deleted group's queries without asking for them again. */
+export function useForgetGroup() {
+  const qc = useQueryClient();
+  return (id: string) => qc.removeQueries({ queryKey: groupKeys.group(id) });
 }
 
 export function useDeleteOffsets(id: string) {
