@@ -21,7 +21,8 @@ export function StatTile({ stat, className, style, dense = false }: { stat: Stat
   const value = (
     <dd
       className={cn("truncate text-[22px] leading-8 font-medium tracking-tight text-bright tabular-nums", stat.mono && "font-mono text-[19px]", dense && "text-[20px] leading-7", dense && stat.mono && "text-[17px]")}
-      style={{ minWidth: `${stat.ch ?? 8}ch`, maxWidth: "100%" }}
+      // Reserved width, but never wider than its tile: a strip being laid out again (a window resized) never overflows.
+      style={{ minWidth: `min(${stat.ch ?? 8}ch, 100%)`, maxWidth: "100%" }}
       data-slot="stat-value"
     >
       {stat.value}

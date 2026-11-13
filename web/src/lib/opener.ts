@@ -81,7 +81,10 @@ function finder(el: HTMLElement): string | null {
 export function captureOpener(): Opener | null {
   const active = document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null;
   // The newer of the last press and the last focus; the focus as it is now when neither was seen (a key opened it).
-  const seen = pressed && (!focused || pressed.at >= focused.at) && pressed.el.isConnected ? pressed.el : (active ?? (focused?.el.isConnected ? focused.el : null));
+  // Safari gives a clicked button's focus to its nearest focusable ancestor (here `main`, tabindex -1): a focus that lands
+  // on an ancestor of what was just pressed is that press, not a newer choice.
+  const pressWins = !!pressed && pressed.el.isConnected && (!focused || pressed.at >= focused.at || (focused.el !== pressed.el && focused.el.contains(pressed.el) && focused.at - pressed.at < 1000));
+  const seen = pressWins ? pressed!.el : (active ?? (focused?.el.isConnected ? focused.el : null));
   if (!seen) return null;
   const el = settle(seen);
   const host = el.closest(OVERLAY);

@@ -62,7 +62,8 @@ test("Log: the ruler, the cards and the segments; a segment opens in place; the 
   await expect(page.getByTestId("compact-now")).toHaveCount(0);
   for (const width of [1024, 1440]) {
     await page.setViewportSize({ width, height: 900 });
-    expect(await overflowX(page), `${width}`).toBeLessThanOrEqual(0);
+    // Polled: crossing 1280 px the sidebar folds to icons with its own short transition.
+    await expect.poll(() => overflowX(page), { message: `${width}` }).toBeLessThanOrEqual(0);
   }
 });
 
