@@ -14,7 +14,7 @@ not edited here.
 | Labels in scenarios written ahead of a recording | 41, UNVERIFIED (seven new scenarios: versions and aliases, an activity worker, a task token and a caught failure, Express sync and `TestState`, validation diagnostics, JSONata and variables, stop/tags/a Map Run) |
 | Operations | 37 in the model: **37 built, 0 refused** |
 | Tests | 26 in `aws-asl` (24 without the `jsonata` feature), 21 in `aws-sfn` (real SQS, SNS, DynamoDB, EventBridge, CloudWatch Logs and S3 on the bus), 2 new fuzz-free unit tests elsewhere; three fuzz targets, each run 40 s on nightly with no finding (538k, 661k and 425k runs) |
-| Weight (`cargo xtask weight doze-aws`) | 6,046,384 B, 248 packages, 4,784 KB idle on darwin/arm64 (base 4,867,344 B, 233); **x86_64 Linux (musl): 9,361,616 B** (base 7,481,552 B). JSONata alone is 1.26 MB of that on Linux. The limit is raised to 9,900,000 B and 252 packages, over the 9 MB CI default: **decision 1 below** |
+| Weight (`cargo xtask weight doze-aws`) | 6,046,432 B, 248 packages, 4,832 KB idle on darwin/arm64 (base 4,867,344 B, 233); **x86_64 Linux (musl): 9,388,976 B** (base 7,481,552 B). JSONata alone is 1.26 MB of that on Linux. The limit is raised to 9,900,000 B and 252 packages, over the 9 MB CI default: **decision 1 below** |
 
 ## The scoreboard
 
@@ -175,13 +175,13 @@ numbers, `StringSplit` dropping empty pieces, TestState's answers for token task
 
 ## Open decisions for the owner
 
-1. **Weight (the big one).** JSONata costs 1.26 MB on x86_64 Linux (measured: 9,361,616 B with it, 8,100,144 B with it stubbed out, same tree);
+1. **Weight (the big one).** JSONata costs 1.26 MB on x86_64 Linux (measured on an earlier commit of this branch: 9,361,616 B with it, 8,100,144 B with it stubbed out, same tree);
    the rest of Step Functions costs 0.62 MB. With it the binary is over the 9 MB CI default and leaves about 0.1 MB of the 10 MB ceiling for API
    Gateway and CloudFormation. Choices: keep it on (Go parity, PLAN's pick) and move the ceiling; build doze-aws without the `jsonata` feature
    (JSONata machines refused clearly; 8.1 MB); or replace `jlens-core` with a smaller engine. The weight line is raised to 9,900,000 B / 252 so
    the gate passes with it on; it should be lowered again if the feature is turned off.
 2. **A C compiler at build time.** `jlens-core` depends on `stacker`, whose `psm` assembles a file: the first build-time C step in doze-aws. CI on
-   ubuntu has one; the macOS cross-build to musl needed `CC_x86_64_unknown_linux_musl=clang` with `--target`. Goes away with decision 1's second
+   ubuntu has one; the macOS cross-build to musl needs clang, `--target` and `llvm-ar` (without `llvm-ar` the link fails on `rust_psm_stack_pointer`). Goes away with decision 1's second
    option.
 3. **A role IAM cannot assume** is accepted at create unless IAM enforces, and tasks then run as the starter (the same open decision as Lambda).
 
@@ -207,9 +207,9 @@ tasks, a distributed Map reading from and writing to S3, an EventBridge rule. Fu
 
 ## Weight
 
-`cargo xtask weight doze-aws`: **6,046,384 B, 248 packages, 4,784 KB idle** on darwin/arm64 (+1,179 KB, +15 packages, +0.38 MB idle over
-4,867,344 B / 233 / 4,400 KB). x86_64 Linux musl, `RUSTFLAGS=-Clinker=rust-lld` (and clang for psm): **9,361,616 B** (+1.88 MB over 7,481,552 B;
-1.59 times the macOS increase). By crate on macOS (`cargo bloat`, text only): jlens-core 205 KB, aws-sfn 135 KB, aws-asl 85 KB, jlens-regress
+`cargo xtask weight doze-aws`: **6,046,432 B, 248 packages, 4,832 KB idle** on darwin/arm64 (+1,179 KB, +15 packages, +0.43 MB idle over
+4,867,344 B / 233 / 4,400 KB). x86_64 Linux musl, `RUSTFLAGS=-Clinker=rust-lld` plus, for psm, `CC_x86_64_unknown_linux_musl=clang`, `CFLAGS_x86_64_unknown_linux_musl=--target=x86_64-unknown-linux-musl` and `AR_x86_64_unknown_linux_musl=llvm-ar`: **9,388,976 B** (+1.91 MB over 7,481,552 B;
+1.62 times the macOS increase). By crate on macOS (`cargo bloat`, text only): jlens-core 205 KB, aws-sfn 135 KB, aws-asl 85 KB, jlens-regress
 84 KB, plus the Step Functions model's tables and the regex engine's Unicode tables in data. New third-party packages, all through
 `jlens-core`: `jlens-core`, `jlens-regress`, `stacker`, `psm` (with `ar_archive_writer` and `object` at build time), `ryu-js`, `web-time`; new to
 doze-aws though already in the lock: `indexmap`, `equivalent`, `hashbrown`, `foldhash`. Limit set to 9,900,000 B and 252 packages with the
