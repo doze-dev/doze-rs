@@ -1,6 +1,6 @@
-import { CheckIcon, MonitorIcon, MoonIcon, SunIcon } from "lucide-react";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { SidebarMenuButton } from "@/components/ui/sidebar";
+import { MonitorIcon, MoonIcon, SunIcon } from "lucide-react";
+import { ToggleGroup as ToggleGroupPrimitive } from "radix-ui";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { setTheme, type ThemeChoice, useTheme } from "@/lib/theme";
 
 const CHOICES: { value: ThemeChoice; label: string; icon: typeof SunIcon }[] = [
@@ -9,29 +9,34 @@ const CHOICES: { value: ThemeChoice; label: string; icon: typeof SunIcon }[] = [
   { value: "dark", label: "Dark", icon: MoonIcon },
 ];
 
-/** The theme: System (follows the OS), Light or Dark; kept in this browser. In the sidebar's footer. */
-export function ThemeMenu() {
-  const { choice, theme } = useTheme();
-  const Icon = theme === "dark" ? MoonIcon : SunIcon;
-  const label = CHOICES.find((c) => c.value === choice)!.label;
+/** The theme as three icons, System, Light and Dark, the chosen one filled in yellow; kept in this browser. In the top bar.
+ * A radio group: one is always chosen, arrow keys move between them. */
+export function ThemeSwitch() {
+  const { choice } = useTheme();
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <SidebarMenuButton tooltip={`Theme: ${label}`} className="text-[13px] text-muted-foreground" data-testid="theme-menu">
-          <Icon />
-          <span>Theme: {label}</span>
-        </SidebarMenuButton>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent side="top" align="start" className="w-44">
-        <DropdownMenuLabel className="text-[12px] text-muted-foreground">Theme</DropdownMenuLabel>
-        {CHOICES.map((c) => (
-          <DropdownMenuItem key={c.value} onSelect={() => setTheme(c.value)} data-testid={`theme-${c.value}`}>
-            <c.icon />
-            <span className="flex-1">{c.label}</span>
-            {choice === c.value && <CheckIcon className="text-link" />}
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <ToggleGroupPrimitive.Root
+      type="single"
+      value={choice}
+      onValueChange={(v) => v && setTheme(v as ThemeChoice)}
+      aria-label="Theme"
+      className="inline-flex h-[30px] shrink-0 items-center gap-0.5 rounded-[9px] border bg-card p-0.5"
+      data-testid="theme-switch"
+    >
+      {CHOICES.map((c) => (
+        <Tooltip key={c.value}>
+          <TooltipTrigger asChild>
+            <ToggleGroupPrimitive.Item
+              value={c.value}
+              aria-label={c.label}
+              data-testid={`theme-${c.value}`}
+              className="inline-flex size-6 items-center justify-center rounded-[7px] text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none data-[state=on]:bg-primary data-[state=on]:text-primary-foreground [&_svg]:size-3.5"
+            >
+              <c.icon aria-hidden />
+            </ToggleGroupPrimitive.Item>
+          </TooltipTrigger>
+          <TooltipContent>{c.label}</TooltipContent>
+        </Tooltip>
+      ))}
+    </ToggleGroupPrimitive.Root>
   );
 }
