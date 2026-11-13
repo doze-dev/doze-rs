@@ -26,6 +26,8 @@ impl MapView {
                     }
                 }
                 "fly" => self.held_flight(arg.parse().unwrap_or(0.5)),
+                // Every fade held at this share of the way: a frame of a hover or a selection mid-blend.
+                "fade" => self.fades.held = Some(arg.parse().unwrap_or(0.5)),
                 "region" => {
                     if let Some(k) = self.layout.regions.iter().position(|r| r.name == arg) {
                         self.open_region(k, cx);

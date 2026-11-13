@@ -41,10 +41,27 @@ pub(crate) fn size(mb: f64) -> String {
 }
 
 impl MapView {
-    /// A region's services (a collapsed card counts its members), those in trouble, and their memory.
+    /// A region's services (a collapsed card counts its members), those in trouble, and their memory; its apps that
+    /// fold into the tile (`payments-cron`, nothing calls it) count too, so the frames add up to the header.
     pub(crate) fn totals(&self, r: &NamedRegion) -> Totals {
         let mut t = Totals::default();
-        for c in r.cards.iter().filter_map(|c| self.layout.card(*c)) {
+        let prefix = format!("{}-", r.name);
+        let folded = self
+            .layout
+            .tile
+            .iter()
+            .flat_map(|tile| &tile.cards)
+            .filter(|&&c| {
+                self.layout
+                    .card(c)
+                    .is_some_and(|c| c.role == doze_map::Role::Lane && c.name.starts_with(&prefix))
+            });
+        for c in r
+            .cards
+            .iter()
+            .chain(folded)
+            .filter_map(|c| self.layout.card(*c))
+        {
             let members = self.layout.groups.get(&c.name);
             let names: Vec<&String> = match members {
                 Some(m) => m.iter().collect(),

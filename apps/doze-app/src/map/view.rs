@@ -42,8 +42,12 @@ impl MapView {
     }
 
     /// Zooms about the viewport's middle.
+    /// The toolbar's and the keys' zoom eases over the `normal` token; a press during a move adds to where it is going.
     pub(crate) fn zoom_by(&mut self, factor: f32, cx: &mut Context<Self>) {
-        self.cam.zoom_centre(factor, self.layout.bounds);
+        let (z, x, y) = self.cam.target();
+        let to = (z * factor).clamp(super::camera::MIN_ZOOM, super::camera::MAX_ZOOM);
+        let dur = crate::theme::Motion::of(cx).normal;
+        self.cam.fly((to, x, y), self.layout.bounds, dur);
         cx.notify();
     }
 
@@ -229,11 +233,14 @@ impl MapView {
             v.h + 2.0 * pad,
         ));
         let on = self.lit_on();
+        // A new layout (a focus view opening or closing) fades in.
+        let shown = self.fades.shown_in(std::time::Instant::now());
         let mut d = div()
             .absolute()
             .top(px(0.))
             .left(px(0.))
             .size_full()
+            .when(shown < 1.0, |d| d.opacity(shown))
             .child(scene(t, self, &vis, self.viewport.clone()));
         if self.cam.zoom >= DETAIL_ZOOM {
             d = d
@@ -351,7 +358,19 @@ impl Render for MapView {
         if !self.cam.fitted && w > 1.0 && !self.layout.cards.is_empty() {
             self.refit();
         }
-        if self.cam.tick(std::time::Instant::now()) {
+        let now = std::time::Instant::now();
+        if self.cam.tick(now) {
+            window.request_animation_frame();
+        }
+        let motion = crate::theme::Motion::of(cx);
+        let times = if motion.moves() {
+            (super::fade::DIM, super::fade::HOVER, motion.normal)
+        } else {
+            Default::default()
+        };
+        let on = self.lit_on().map(std::rc::Rc::new);
+        self.fades.note(self.lit, on, self.hover, times, now);
+        if self.fades.running(now) {
             window.request_animation_frame();
         }
         let mut body = div()

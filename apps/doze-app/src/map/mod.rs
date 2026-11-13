@@ -22,6 +22,7 @@ mod camera;
 mod cards;
 mod chrome;
 mod detail;
+mod fade;
 mod flight;
 mod lens;
 mod paint;
@@ -77,6 +78,8 @@ pub(crate) struct MapView {
     pub(crate) all_lines: bool,
     /// The folded tile's list, open.
     pub(crate) list: Option<tile::List>,
+    /// The selection's and the pointer's fades in flight.
+    pub(crate) fades: fade::Fades,
     /// The layout's overview, made once per layout.
     pub(crate) overview: Rc<Overview>,
     pub(crate) rows: HashMap<String, Row>,
@@ -115,6 +118,7 @@ impl MapView {
             ins: Vec::new(),
             all_lines: false,
             list: None,
+            fades: fade::Fades::default(),
             rows: HashMap::new(),
             folds: HashMap::new(),
             cam: Camera::default(),
@@ -193,6 +197,7 @@ impl MapView {
         self.cache.clear();
         self.lit = lit.and_then(|n| self.layout.card_named(&n));
         self.hover = hover.and_then(|n| self.layout.card_named(&n));
+        self.fades.shown(self.lit, self.hover);
         self.restate();
     }
 
@@ -230,8 +235,15 @@ impl MapView {
     /// Selects a card (or nothing), bringing it into view.
     pub(crate) fn select(&mut self, id: Option<CardId>, cx: &mut Context<Self>) {
         if let Some(id) = id {
-            self.cam.flight = None;
-            self.cam.reveal(&self.layout, id);
+            // Out of view, the camera eases to it (the arrow keys walk off the edge).
+            let mut to = self.cam;
+            to.flight = None;
+            to.reveal(&self.layout, id);
+            if to.pan != self.cam.pan {
+                let (x, y) = to.centre();
+                let dur = crate::theme::Motion::of(cx).normal;
+                self.cam.fly((to.zoom, x, y), self.layout.bounds, dur);
+            }
         }
         self.lit = id;
         cx.notify();

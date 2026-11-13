@@ -127,9 +127,15 @@ fn frame(t: &Tokens, z: Z, c: &Card, at: (f32, f32), radius: f32) -> gpui::Div {
         .line_height(z.p(20.))
 }
 
-fn ring(t: &Tokens, z: Z, strong: bool) -> Vec<BoxShadow> {
+/// The accent ring, at `a` of its strength (it fades in and out with the hover and the selection).
+fn ring(t: &Tokens, z: Z, strong: bool, a: f32) -> Vec<BoxShadow> {
+    // Opaque, blended toward the well: a translucent spread shadow tints the card it rings.
     let mut v = vec![BoxShadow {
-        color: t.accent,
+        color: if a >= 1.0 {
+            t.accent
+        } else {
+            mix(t.accent, t.well, a * 100.0)
+        },
         offset: point(px(0.), px(0.)),
         blur_radius: px(0.),
         spread_radius: px(1.),
@@ -137,7 +143,7 @@ fn ring(t: &Tokens, z: Z, strong: bool) -> Vec<BoxShadow> {
     }];
     if strong {
         v.push(BoxShadow {
-            color: alpha(t.accent, 0.16),
+            color: alpha(t.accent, 0.16 * a),
             offset: point(px(0.), z.p(8.)),
             blur_radius: z.p(24.),
             spread_radius: px(0.),
@@ -147,12 +153,13 @@ fn ring(t: &Tokens, z: Z, strong: bool) -> Vec<BoxShadow> {
     v
 }
 
-/// What a card's state says: the `hot` ring (selected or hovered) and whether it is faded under a selection.
+/// What a card's state says: how hot its ring is (selected or hovered, 0 to 1 as it fades), whether it is the selection,
+/// and its opacity under a selection (1, or faded to .32, blending; `super::fade`).
 #[derive(Clone, Copy)]
 struct Mark {
-    hot: bool,
+    hot: f32,
     sel: bool,
-    faded: bool,
+    opacity: f32,
 }
 
 fn chips(t: &Tokens, z: Z, m: &MapView, c: &Card, mark: Mark) -> gpui::Div {
@@ -234,10 +241,20 @@ fn node_card(t: &Tokens, z: Z, m: &MapView, c: &Card, at: (f32, f32), mark: Mark
     if r.is_some_and(|r| r.trouble) {
         f = f.border_color(mix(t.bad, t.line, 55.));
     }
-    if mark.hot {
-        f = f.border_color(t.accent).shadow(ring(t, z, mark.sel));
+    if mark.hot > 0.0 {
+        let was = if r.is_some_and(|r| r.trouble) {
+            mix(t.bad, t.line, 55.)
+        } else {
+            t.line
+        };
+        f = f.border_color(mix(t.accent, was, mark.hot * 100.0));
+        // The ring as Go draws a selection (`box-shadow`, not transitioned): there once the blend is, so a
+        // translucent shadow never tints the card through.
+        if mark.hot >= 1.0 || mark.sel {
+            f = f.shadow(ring(t, z, mark.sel, 1.0));
+        }
     }
-    f.when(mark.faded, |d| d.opacity(0.32))
+    f.when(mark.opacity < 1.0, |d| d.opacity(mark.opacity))
         .child(top_row(t, z, c, r))
         .child(chips(t, z, m, c, mark))
         .into_any_element()
@@ -252,8 +269,18 @@ fn shared_card(t: &Tokens, z: Z, m: &MapView, c: &Card, at: (f32, f32), mark: Ma
     if r.is_some_and(|r| r.trouble) {
         f = f.border_color(mix(t.bad, t.line, 55.));
     }
-    if mark.hot {
-        f = f.border_color(t.accent).shadow(ring(t, z, false));
+    if mark.hot > 0.0 {
+        let was = if r.is_some_and(|r| r.trouble) {
+            mix(t.bad, t.line, 55.)
+        } else {
+            t.line
+        };
+        f = f.border_color(mix(t.accent, was, mark.hot * 100.0));
+        // The ring as Go draws a selection (`box-shadow`, not transitioned): there once the blend is, so a
+        // translucent shadow never tints the card through.
+        if mark.hot >= 1.0 || mark.sel {
+            f = f.shadow(ring(t, z, false, 1.0));
+        }
     }
     let line = || {
         div()
@@ -286,7 +313,7 @@ fn shared_card(t: &Tokens, z: Z, m: &MapView, c: &Card, at: (f32, f32), mark: Ma
     {
         used = used.child(SharedString::from(format!(" · {}", u.name)));
     }
-    f.when(mark.faded, |d| d.opacity(0.32))
+    f.when(mark.opacity < 1.0, |d| d.opacity(mark.opacity))
         .child(top_row(t, z, c, r))
         .child(line().child(SharedString::from(what)))
         .child(line().child(used))
@@ -301,6 +328,8 @@ pub(crate) fn cards(
     on: Option<&[bool]>,
 ) -> Vec<AnyElement> {
     let z = Z(m.cam.zoom);
+    let now = std::time::Instant::now();
+    let (pl, ph) = (m.fades.lit(now), m.fades.hover(now));
     vis.iter()
         .filter_map(|&id| {
             let c = m.layout.card(id)?;
@@ -308,9 +337,13 @@ pub(crate) fn cards(
             let lit_here = on.map(|on| on.get(id.ix()).copied().unwrap_or(false));
             let sel = m.lit == Some(id);
             let mark = Mark {
-                hot: sel || m.hover == Some(id),
+                hot: if sel {
+                    pl
+                } else {
+                    m.fades.heat(id, m.hover, ph)
+                },
                 sel,
-                faded: lit_here == Some(false),
+                opacity: m.fades.opacity(on, id.ix(), pl),
             };
             Some(if c.role == Role::Shared {
                 // A shared card lights when the selection uses it.
@@ -325,7 +358,7 @@ pub(crate) fn cards(
                     c,
                     at,
                     Mark {
-                        hot: mark.hot || used,
+                        hot: if used { mark.hot.max(pl) } else { mark.hot },
                         ..mark
                     },
                 )
@@ -338,7 +371,12 @@ pub(crate) fn cards(
 
 /// The captions.
 pub(crate) fn captions(t: &Tokens, m: &MapView) -> Vec<AnyElement> {
-    let z = Z(m.cam.zoom);
+    // A focus view's column heads read at any zoom; a small map's scale with it, as Go's did.
+    let z = if m.layout.mode == doze_map::Mode::Focus {
+        Z(m.cam.zoom.max(0.9))
+    } else {
+        Z(m.cam.zoom)
+    };
     let band = m.layout.band;
     m.layout
         .captions
@@ -390,7 +428,10 @@ pub(crate) fn labels(
             if (c.rect.h as f32 * z) < size + 4.0 {
                 return None;
             }
-            let faded = on.is_some_and(|on| !on.get(id.ix()).copied().unwrap_or(false));
+            let faded = m
+                .fades
+                .opacity(on, id.ix(), m.fades.lit(std::time::Instant::now()))
+                < 1.0;
             // In a region's frame its name is said once, on the frame: `checkout-cart` reads `cart`.
             let short = m
                 .layout

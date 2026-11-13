@@ -25,6 +25,7 @@ use gpui::{
 };
 
 use super::cache::{Cache, build, level, place};
+use super::fade::blend;
 use super::{DETAIL_ZOOM, LABEL_ZOOM, MapView};
 use crate::theme::{Tokens, alpha, mix};
 
@@ -49,6 +50,11 @@ struct Scene {
     quiet: bool,
     /// The focus card's named region.
     home: Option<usize>,
+    /// The pointer's card, the fades in flight and how far each is (`super::fade`).
+    hover: Option<CardId>,
+    fades: super::fade::Fades,
+    pl: f32,
+    ph: f32,
 }
 
 /// Which cards a selection keeps lit: the card, its calls, callers and uses.
@@ -112,6 +118,10 @@ pub(crate) fn scene(
         home: m
             .focus_card()
             .and_then(|c| m.layout.region_of.get(c.ix()).copied().flatten()),
+        hover: m.hover,
+        fades: m.fades.clone(),
+        pl: m.fades.lit(std::time::Instant::now()),
+        ph: m.fades.hover(std::time::Instant::now()),
     };
     canvas(
         |_, _, _| (),
@@ -213,7 +223,7 @@ impl Scene {
         let large = self.l.mode == Mode::Layered;
         let strength = match (large, self.quiet) {
             // A neighbourhood: the centre's own calls are drawn strong on top; the rest between shown cards faint.
-            (false, _) if self.l.mode == Mode::Focus => 0.4,
+            (false, _) if self.l.mode == Mode::Focus => 0.5,
             (false, _) => 1.0,
             (true, true) => 0.34,
             (true, false) if self.z < DETAIL_ZOOM => 0.3,
@@ -223,12 +233,16 @@ impl Scene {
             self.across(o, window, lv, strength);
         }
         let faded = alpha(self.t.line2, 0.6);
+        let from = self.fades.lit_from;
         if lv < DETAIL_ZOOM {
-            let c = if self.lit.is_some() {
-                faded
-            } else {
-                alpha(self.t.accent, strength * 0.8)
+            let of = |lit: Option<CardId>| {
+                if lit.is_some() {
+                    faded
+                } else {
+                    alpha(self.t.accent, strength * 0.8)
+                }
             };
+            let c = blend(of(from), of(self.lit), self.pl);
             self.cache.chunks(&self.l, self.view, lv, &mut |p, at| {
                 window.paint_path(place(p, self.z / at, o), c)
             });
@@ -238,12 +252,13 @@ impl Scene {
             let Some(edge) = self.l.edges.get(e).filter(|e| !e.across) else {
                 continue;
             };
-            let theirs = self.lit.is_some_and(|c| edge.from == c || edge.to == c);
-            let color = match self.lit {
+            let of = |lit: Option<CardId>| match lit {
                 None => alpha(self.t.accent, strength),
-                Some(_) if theirs => self.t.accent,
+                Some(c) if edge.from == c || edge.to == c => self.t.accent,
                 Some(_) => faded,
             };
+            // The Go map's `.edge { transition: stroke .2s }`: a line changes colour, it does not pop.
+            let color = blend(of(from), of(self.lit), self.pl);
             self.cache.line(&self.l, e, lv, &mut |p, at| {
                 window.paint_path(place(p, self.z / at, o), color)
             });
@@ -252,11 +267,14 @@ impl Scene {
 
     /// Every line asked for: the calls between regions too, one by one.
     fn across(&self, o: Point<Pixels>, window: &mut Window, lv: f32, strength: f32) {
-        let color = if self.lit.is_some() {
-            alpha(self.t.line2, 0.6)
-        } else {
-            alpha(self.t.accent, strength)
+        let of = |lit: Option<CardId>| {
+            if lit.is_some() {
+                alpha(self.t.line2, 0.6)
+            } else {
+                alpha(self.t.accent, strength)
+            }
         };
+        let color = blend(of(self.fades.lit_from), of(self.lit), self.pl);
         for &e in &self.vis.edges {
             if self.l.edges.get(e).is_some_and(|x| x.across) {
                 self.cache.line(&self.l, e, lv, &mut |p, at| {
@@ -268,14 +286,35 @@ impl Scene {
 
     /// The focus card's own calls, on top of everything, at full strength: curves with heads at any zoom, built
     /// fresh at the exact zoom (a card has a handful), at least 2 px wide and with a head that still shows far out.
+    ///
+    /// They fade: a selection's in over the dim's 200 ms (and the last selection's out), the pointer's card's in over
+    /// the hover's 120 ms as the last card's fade out.
     fn focus_lines(&self, o: Point<Pixels>, window: &mut Window) {
-        let Some(c) = self.focus else { return };
-        let z = self.z;
-        let width = 1.5_f32.max(2.0 / z);
-        let head = 1.0_f64.max(0.7 / f64::from(z));
-        for edge in self.l.edges.iter().filter(|e| e.from == c || e.to == c) {
-            for p in build(&edge.path, z, width, head) {
-                window.paint_path(place(&p, 1.0, o), self.t.accent);
+        let mut draw = |c: CardId, a: f32| {
+            if a < 0.01 {
+                return;
+            }
+            let z = self.z;
+            let width = 1.5_f32.max(2.0 / z);
+            let head = 1.0_f64.max(0.7 / f64::from(z));
+            for edge in self.l.edges.iter().filter(|e| e.from == c || e.to == c) {
+                for p in build(&edge.path, z, width, head) {
+                    window.paint_path(place(&p, 1.0, o), alpha(self.t.accent, a));
+                }
+            }
+        };
+        if let Some(c) = self.lit {
+            draw(c, self.pl);
+        }
+        if let Some(c) = self.fades.lit_from.filter(|f| Some(*f) != self.lit) {
+            draw(c, 1.0 - self.pl);
+        }
+        if self.lit.is_none() {
+            if let Some(h) = self.hover {
+                draw(h, self.ph);
+            }
+            if let Some(h) = self.fades.hover_from.filter(|f| Some(*f) != self.hover) {
+                draw(h, 1.0 - self.ph);
             }
         }
     }
@@ -297,21 +336,20 @@ impl Scene {
         for &c in &self.vis.cards {
             let Some(card) = self.l.card(c) else { continue };
             let b = self.rect(o, card.rect);
-            let faded = self
-                .on
-                .as_ref()
-                .is_some_and(|on| !on.get(c.ix()).copied().unwrap_or(false));
+            let a = self
+                .fades
+                .opacity(self.on.as_deref().map(Vec::as_slice), c.ix(), self.pl);
             let bg = if card.role == Role::Shared {
                 mix(self.t.accent, self.t.panel, 8.)
             } else {
                 self.t.panel
             };
-            let border = if self.focus == Some(c) {
-                self.t.accent
+            let hot = if self.lit == Some(c) {
+                1.0
             } else {
-                self.t.line2
+                self.fades.heat(c, self.hover, self.ph)
             };
-            let a = if faded { 0.3 } else { 1.0 };
+            let border = mix(self.t.accent, self.t.line2, hot * 100.0);
             let radius = px((11.0 * self.z).max(1.0));
             let bw = if b.size.height > px(6.) {
                 px(1.)

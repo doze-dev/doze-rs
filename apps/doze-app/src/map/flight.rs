@@ -70,6 +70,17 @@ impl Camera {
         });
     }
 
+    /// Where the camera is going: the flight's end, or where it is.
+    pub(crate) fn target(&self) -> (f32, f64, f64) {
+        match self.flight {
+            Some(f) => f.to,
+            None => {
+                let (x, y) = self.centre();
+                (self.zoom, x, y)
+            }
+        }
+    }
+
     /// Moves the camera along its flight to `now`; says whether it is still flying.
     pub(crate) fn tick(&mut self, now: Instant) -> bool {
         let Some(f) = self.flight else { return false };

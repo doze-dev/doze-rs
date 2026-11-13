@@ -39,7 +39,7 @@ impl Scene {
         // Between named regions the bundles stand in for the calls at every zoom: quieter and thinner than the
         // far-out overview's, so the frames and cards stay what the eye reads first.
         let named = !self.l.regions.is_empty();
-        let widest = if named { 3.5 } else { 8.0 };
+        let widest = if named { 2.5 } else { 8.0 };
         self.cache.bundles(&self.o, lv, widest, &mut |p, i, at| {
             let Some(b) = self.o.bundles.get(i) else {
                 return;
@@ -47,8 +47,8 @@ impl Scene {
             // Heavier bundles stronger: a single call between regions is a whisper, the main flows carry the picture.
             let weight = (b.count as f32 / heaviest).sqrt();
             let strength = match (named, b.count) {
-                (true, 0..=1) => 0.2,
-                (true, _) => 0.24 + 0.36 * weight,
+                (true, 0..=1) => 0.16,
+                (true, _) => 0.18 + 0.24 * weight,
                 (false, 0..=1) => 0.12,
                 (false, _) => 0.22 + 0.58 * weight,
             };
@@ -83,7 +83,9 @@ impl Scene {
     /// selection's cards again on top.
     pub(super) fn far_blocks(&self, o: Point<Pixels>, window: &mut Window) {
         let lv = level(self.z);
-        let a = if self.on.is_some() { 0.35 } else { 1.0 };
+        let dim = |on: bool| if on { 0.35 } else { 1.0 };
+        let from = dim(self.fades.on_from.is_some());
+        let a = from + (dim(self.on.is_some()) - from) * self.pl;
         let colors = [
             mix(self.t.dim, self.t.panel, 35.),
             mix(self.t.accent, self.t.panel, 30.),

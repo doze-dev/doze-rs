@@ -39,8 +39,8 @@ const COLUMNS: [&str; 9] = [
     "it calls",
     "2 steps down",
     "3 steps down",
-    "through its callers",
-    "through what it calls",
+    "its callers also call",
+    "also call what it calls",
 ];
 const CENTRE: usize = 3;
 const VIA_CALLERS: usize = 7;
@@ -155,11 +155,12 @@ fn place(l: &Layout, cols: &[Vec<CardId>]) -> (HashMap<CardId, Rect>, Vec<Captio
             at: Pt::new(x, TOP),
         });
         for chunk in v.chunks(PER) {
+            // One width down a column: the column reads as one.
             let w = chunk.iter().map(|c| size(k, c).0).fold(0.0, f64::max);
             let mut y = top + (tallest - height(k, chunk)) / 2.0;
             for c in chunk {
-                let (cw, ch, gap) = size(k, c);
-                rects.insert(*c, Rect::new(x, y, cw, ch));
+                let (_, ch, gap) = size(k, c);
+                rects.insert(*c, Rect::new(x, y, w, ch));
                 y += ch + gap;
             }
             x += w + SUB_GAP;
@@ -322,8 +323,8 @@ mod tests {
         for want in [
             ("up2", "2 steps up"),
             ("d2", "2 steps down"),
-            ("sib", "through its callers"),
-            ("co", "through what it calls"),
+            ("sib", "its callers also call"),
+            ("co", "also call what it calls"),
         ] {
             assert!(
                 two.contains(&(want.0.into(), want.1)),

@@ -15,7 +15,7 @@ use super::cards::state_dot;
 use super::chrome::enter;
 use crate::model::state_index;
 use crate::theme::{Motion, Tokens, alpha};
-use crate::widgets::{MONO_FAMILY, w};
+use crate::widgets::w;
 
 /// The tile's height; the camera keeps this much clear at the bottom when it fits.
 pub(crate) const TILE_H: f32 = 34.;
@@ -113,6 +113,8 @@ pub(crate) fn tile(t: &Tokens, m: &MapView, cx: &mut Context<MapView>) -> Option
         .iter()
         .filter(|id| m.passes(**id, Filter::Trouble))
         .count();
+    // Up close the tile is its count alone, so it covers as little of the cards as it can.
+    let close = m.cam.zoom >= super::DETAIL_ZOOM;
     let mut row = div()
         .id("map-tile")
         .occlude()
@@ -144,11 +146,13 @@ pub(crate) fn tile(t: &Tokens, m: &MapView, cx: &mut Context<MapView>) -> Option
                     tile.cards.len()
                 ))),
         )
-        .child(div().text_color(t.dim).child(SharedString::from(format!(
-            "{} apps nothing calls · {} shared",
-            tile.lane, tile.shared
-        ))));
-    if trouble > 0 {
+        .when(!close, |d| {
+            d.child(div().text_color(t.dim).child(SharedString::from(format!(
+                "{} apps nothing calls · {} shared",
+                tile.lane, tile.shared
+            ))))
+        });
+    if trouble > 0 && !close {
         row = row.child(
             div()
                 .text_color(t.bad)
@@ -196,7 +200,7 @@ pub(crate) fn list(t: &Tokens, m: &MapView, cx: &mut Context<MapView>) -> Option
     let mut chips = div().flex().items_center().gap(px(6.));
     for (f, word) in [
         (Filter::All, "All"),
-        (Filter::Lane, "No callers"),
+        (Filter::Lane, "Nothing calls"),
         (Filter::Modules, "Modules"),
         (Filter::Services, "Services"),
         (Filter::Trouble, "In trouble"),
@@ -278,7 +282,7 @@ fn head(t: &Tokens, n: usize, lane: u32, shared: u32) -> impl IntoElement {
                 .child(SharedString::from(format!("{n} with no calls"))),
         )
         .child(div().text_color(t.dim).child(SharedString::from(format!(
-            "{lane} apps nothing in doze.hcl refers to · {shared} shared modules and services (used, not called: the chips on each card say who uses what)"
+            "{lane} apps nothing calls · {shared} shared modules and services (used, not called: the chips on each card say who uses what)"
         ))))
         .child(div().ml_auto().text_color(t.dim).child("esc"))
 }
@@ -322,7 +326,6 @@ fn row(t: &Tokens, m: &MapView, id: CardId, cx: &mut Context<MapView>) -> AnyEle
                 .overflow_hidden()
                 .whitespace_nowrap()
                 .text_ellipsis()
-                .font_family(MONO_FAMILY)
                 .text_color(t.bright)
                 .child(SharedString::from(c.name.clone())),
         )

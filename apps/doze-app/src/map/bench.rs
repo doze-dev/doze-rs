@@ -134,4 +134,40 @@ pub(crate) async fn run(cx: &mut AsyncApp, h: WindowHandle<Root>) {
         pan(m, k);
     };
     report("lines", frames(cx, h, 120, &lines));
+    // A selection moving card to card, each frame half way through its dim (every card's opacity and every line's
+    // colour blended), at the fit and at 1:1.
+    let select = move |m: &mut MapView, k: usize| {
+        if k == 0 {
+            m.all_lines = false;
+            m.refit();
+            m.fades.held = Some(0.5);
+        }
+        if k == 60 {
+            m.cam.zoom_centre(1.0 / m.cam.zoom, m.layout.bounds);
+        }
+        let n = m.layout.cards.len().max(1);
+        m.lit = Some(doze_map::CardId(u32::try_from(k * 11 % n).unwrap_or(0)));
+    };
+    report("select", frames(cx, h, 120, &select));
+    // The camera's flight to a card, frame by frame (find, a region, fit).
+    let fly = move |m: &mut MapView, k: usize| {
+        if k % 20 == 0 {
+            m.lit = None;
+            m.fades.held = None;
+            m.refit();
+            let n = m.layout.cards.len().max(1);
+            let c = m.layout.cards.get(k * 13 % n).map(|c| c.rect.center());
+            if let Some(c) = c {
+                m.cam
+                    .fly((1.0, c.x, c.y), m.layout.bounds, Duration::from_millis(280));
+            }
+        }
+        if let Some(f) = m.cam.flight.as_mut() {
+            #[allow(clippy::cast_precision_loss)]
+            let p = (k % 20) as f32 / 19.0;
+            f.held = Some(p);
+        }
+        m.cam.tick(Instant::now());
+    };
+    report("fly", frames(cx, h, 120, &fly));
 }
