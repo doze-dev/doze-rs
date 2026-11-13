@@ -211,6 +211,11 @@ caught condition and an `aws-sdk` get, a `.sync:2` child whose task is an activi
 tasks, a distributed Map reading from and writing to S3, an EventBridge rule. Fuzz targets `fuzz_definition`, `fuzz_intrinsic`,
 `fuzz_jsonpath` (`crates/aws-asl/fuzz`), each run for 40 seconds on nightly without a finding.
 
+**Gates:** `cargo xtask gates` exit 0 on `5186ee6e`. Earlier runs found, in order: `exec/fan.rs` over the 450-line limit (split into
+`exec/plan.rs` and `exec/items.rs`); the `aws-iam-policy` key-order test (above); and once `doze-os`'s
+`a_detached_daemon_outlives_its_launcher_and_stops_an_engine_gracefully`, which passed alone and on the next full run (load; not code
+this stage touches).
+
 ## Weight
 
 `cargo xtask weight doze-aws`: **6,046,432 B, 248 packages, 4,832 KB idle** on darwin/arm64 (+1,179 KB, +15 packages, +0.43 MB idle over
