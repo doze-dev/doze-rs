@@ -244,7 +244,15 @@ fn live(t: &Tokens, r: &Row, p: &Pane, cx: &mut Context<OverviewView>) -> AnyEle
                     ..Kv::new(&c.k, &c.v)
                 }
             } else {
-                Kv::new(&c.k, &c.v).copy(&c.copy)
+                let kv = Kv::new(&c.k, &c.v).copy(&c.copy);
+                Kv {
+                    bright: !c.dim,
+                    ..kv
+                }
+            };
+            let kv = Kv {
+                note: &c.note,
+                ..kv
             };
             a = a.child(kv.el(t, cx));
         }

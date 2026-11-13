@@ -11,15 +11,19 @@ use std::time::{Duration, SystemTime};
 
 pub use super::runs::{RunRow, match_runs, runs};
 
-/// One row of a card: a key, a value, and what the copy button copies (nothing for no button).
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+/// One row of a card: a key, a value, and what the copy button copies (nothing for no button). The instance page's
+/// and the List pane's; it serializes as Go's `view.KV`.
+#[derive(Debug, Clone, PartialEq, Eq, Default, serde::Serialize)]
 pub struct Kv {
     pub k: String,
     pub v: String,
+    #[serde(skip_serializing_if = "String::is_empty")]
     pub copy: String,
     pub mono: bool,
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub dim: bool,
     /// A line under the value: why it reads as it does.
+    #[serde(skip_serializing_if = "String::is_empty")]
     pub note: String,
 }
 
@@ -36,7 +40,7 @@ impl Kv {
 }
 
 /// One reason it is awake, and a word on it.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, serde::Serialize)]
 pub struct Pill {
     pub text: String,
     pub explain: String,

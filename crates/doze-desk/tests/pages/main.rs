@@ -299,7 +299,25 @@ fn the_list_pane_says_what_the_instance_page_said() {
         ("api", "go/view/shop-api.json"),
         ("db", "go/view/shop-db.json"),
     ] {
-        let p = doze_desk::overview::pane(&st, name, epoch()).unwrap();
+        let mut p = doze_desk::overview::pane(&st, name, epoch()).unwrap();
+        // The Go view's rows; the pane, as the instance page, adds the process's IP and port as Go's service did on
+        // top of them.
+        let page = doze_desk::page::instance::instance_page(
+            &st,
+            name,
+            None,
+            epoch(),
+            doze_desk::page::time::Zone::UTC,
+        );
+        assert_eq!(
+            p.connect, page.connect,
+            "{name}: the pane's rows are the page's"
+        );
+        assert!(
+            p.connect.iter().any(|r| r.k == "IP and port"),
+            "{name}: the pane has Go's IP and port row"
+        );
+        p.connect.retain(|r| r.k != "IP and port");
         let go = json(golden, "");
         for part in [
             "connect", "holders", "sleeps", "needs", "because", "up", "pid", "run", "look",

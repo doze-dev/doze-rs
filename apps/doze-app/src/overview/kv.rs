@@ -19,6 +19,8 @@ pub(super) struct Kv<'a> {
     pub(super) wrap: bool,
     /// A verb beside the value in place of Copy (`Pin`), which comes with M2.
     pub(super) verb: Option<&'static str>,
+    /// A line under the value: why it reads as it does (`.kv .note`).
+    pub(super) note: &'a str,
 }
 
 impl<'a> Kv<'a> {
@@ -30,6 +32,7 @@ impl<'a> Kv<'a> {
             bright: false,
             wrap: false,
             verb: None,
+            note: "",
         }
     }
 
@@ -40,6 +43,28 @@ impl<'a> Kv<'a> {
     }
 
     pub(super) fn el(self, t: &Tokens, cx: &mut Context<OverviewView>) -> AnyElement {
+        if self.note.is_empty() {
+            return self.line(t, cx);
+        }
+        let note = self.note;
+        div()
+            .flex()
+            .flex_col()
+            .child(self.line(t, cx))
+            .child(
+                div()
+                    .pl(px(96.))
+                    .mt(px(-2.))
+                    .mb(px(4.))
+                    .text_size(px(11.))
+                    .line_height(px(15.))
+                    .text_color(t.dim)
+                    .child(s(note)),
+            )
+            .into_any_element()
+    }
+
+    fn line(self, t: &Tokens, cx: &mut Context<OverviewView>) -> AnyElement {
         let value = div()
             .flex_1()
             .min_w_0()
