@@ -61,8 +61,24 @@ impl Root {
                 self.go(Screen::Instance(key, d.target.clone()), window, cx);
                 self.open_tab(Some("logs"), window, cx);
             }
-            _ => {
-                self.say("Activity comes with a later step (M3).", cx);
+            ("activity", _) => {
+                self.go(Screen::Activity(key), window, cx);
+                if let Some(a) = self.pages.activity.clone() {
+                    let only = d.target.clone();
+                    a.update(cx, |a, cx| {
+                        if a.only != only {
+                            a.set_only(&only, cx);
+                        }
+                    });
+                }
+                return;
+            }
+            ("settings", _) => {
+                let at = crate::settings::Section::parse(&d.target);
+                self.open_settings(at, false, window, cx);
+            }
+            (other, _) => {
+                self.say(format!("doze has no page called “{other}”"), cx);
                 return;
             }
         }
@@ -131,10 +147,16 @@ impl Root {
                     self.set_density(d, cx);
                 }
             }
-            _ => self.say(
-                "Settings, the machine's setup and updates come with a later step (M3).",
-                cx,
-            ),
+            "settings" => {
+                let at = crate::settings::Section::parse(arg);
+                self.open_settings(at, false, window, cx);
+            }
+            "repair" => window.dispatch_action(Box::new(crate::actions::RepairMachine), cx),
+            "updates" => window.dispatch_action(Box::new(crate::actions::CheckUpdates), cx),
+            "cleanup" => {
+                self.open_settings(Some(crate::settings::Section::Machine), false, window, cx);
+            }
+            other => self.say(format!("doze does not know “{other}”"), cx),
         }
     }
 }

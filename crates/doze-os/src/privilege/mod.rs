@@ -9,6 +9,10 @@
 
 use std::io;
 
+mod admin;
+
+pub use admin::{AdminError, admin, admin_supported, prompt};
+
 #[cfg(windows)]
 mod dacl;
 #[cfg(windows)]

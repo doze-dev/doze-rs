@@ -1,0 +1,533 @@
+{
+  "key": "/k",
+  "stack": "shop",
+  "span": "24h",
+  "ticks": [
+    {
+      "at": 0,
+      "label": "20:00"
+    },
+    {
+      "at": 0.16666666666666666,
+      "label": "00:00"
+    },
+    {
+      "at": 0.3333333333333333,
+      "label": "04:00"
+    },
+    {
+      "at": 0.5,
+      "label": "08:00"
+    },
+    {
+      "at": 0.6666666666666666,
+      "label": "12:00"
+    },
+    {
+      "at": 0.8333333333333334,
+      "label": "16:00"
+    },
+    {
+      "at": 1,
+      "label": "now"
+    }
+  ],
+  "summary": {
+    "up": "21h of 24h",
+    "asleep": "98%",
+    "wakes": 9,
+    "crashes": 2
+  },
+  "rows": [
+    {
+      "name": "svc-1",
+      "look": {
+        "word": "asleep",
+        "glyph": "·",
+        "tone": "dim"
+      },
+      "asleepPart": 0.9281142796997822,
+      "asleep": "20h asleep · 93%",
+      "wakes": 3,
+      "wokenBy": "1 for svc-1 · 1 for svc-7 · 1 when asked",
+      "spans": [
+        {
+          "from": 0.1408921875,
+          "to": 0.18627155092592593,
+          "ready": 0.14093385416666668,
+          "title": "awake 1h · woke for svc-7 · slept (idle)"
+        },
+        {
+          "from": 0.21659822916666666,
+          "to": 0.2297547800925926,
+          "ready": 0.21663989583333335,
+          "title": "awake 18m · woke when asked · slept (idle)"
+        },
+        {
+          "from": 0.9829211111111111,
+          "to": 0.9878923842592593,
+          "ready": 0.9829627777777777,
+          "title": "awake 7m · woke for svc-1 · slept (idle)"
+        }
+      ],
+      "marks": []
+    },
+    {
+      "name": "svc-10",
+      "look": {
+        "word": "asleep",
+        "glyph": "·",
+        "tone": "dim"
+      },
+      "asleepPart": 0.9739412837535213,
+      "asleep": "21h asleep · 97%",
+      "wakes": 1,
+      "wokenBy": "1 when asked",
+      "spans": [
+        {
+          "from": 0.681835625,
+          "to": 0.7048571064814815,
+          "ready": 0.6818772916666667,
+          "title": "awake 33m · woke when asked · slept (idle)"
+        }
+      ],
+      "marks": []
+    },
+    {
+      "name": "svc-11",
+      "look": {
+        "word": "asleep",
+        "glyph": "·",
+        "tone": "dim"
+      },
+      "asleepPart": 0.9924029517340264,
+      "asleep": "21h asleep · 99%",
+      "wakes": 0,
+      "spans": [
+        {
+          "from": 0,
+          "to": 0.006711585648148148,
+          "title": "awake 1h · woke when asked · slept (idle)"
+        }
+      ],
+      "marks": []
+    },
+    {
+      "name": "svc-2",
+      "look": {
+        "word": "asleep",
+        "glyph": "·",
+        "tone": "dim"
+      },
+      "asleepPart": 0.9905672461220475,
+      "asleep": "21h asleep · 99%",
+      "wakes": 1,
+      "wokenBy": "1 for svc-3",
+      "crashes": 1,
+      "spans": [
+        {
+          "from": 0.5002847222222222,
+          "to": 0.5086180555555555,
+          "ready": 0.5003263888888889,
+          "title": "awake 12m · woke for svc-3 · crash"
+        }
+      ],
+      "marks": [
+        {
+          "at": 0.5086180555555555,
+          "kind": "crash",
+          "title": "Fri 08:12 crash · exit status 1"
+        }
+      ]
+    },
+    {
+      "name": "svc-5",
+      "look": {
+        "word": "asleep",
+        "glyph": "·",
+        "tone": "dim"
+      },
+      "asleepPart": 0.9309109995172657,
+      "asleep": "20h asleep · 93%",
+      "wakes": 1,
+      "wokenBy": "1 by a connection",
+      "spans": [
+        {
+          "from": 0.5402976851851852,
+          "to": 0.6013341203703704,
+          "ready": 0.5403393518518519,
+          "title": "awake 1h · woke by a connection · slept (idle)"
+        }
+      ],
+      "marks": []
+    },
+    {
+      "name": "svc-7",
+      "look": {
+        "word": "asleep",
+        "glyph": "·",
+        "tone": "dim"
+      },
+      "asleepPart": 0.9891359960346798,
+      "asleep": "21h asleep · 99%",
+      "wakes": 1,
+      "wokenBy": "1 for svc-2",
+      "spans": [
+        {
+          "from": 0.576878912037037,
+          "to": 0.5864766782407408,
+          "ready": 0.5769205787037037,
+          "title": "awake 13m · woke for svc-2 · slept (idle)"
+        }
+      ],
+      "marks": []
+    },
+    {
+      "name": "svc-8",
+      "look": {
+        "word": "awake",
+        "glyph": "●",
+        "tone": "good"
+      },
+      "asleepPart": 1,
+      "asleep": "21h asleep · 100%",
+      "wakes": 0,
+      "spans": [],
+      "marks": []
+    },
+    {
+      "name": "svc-0",
+      "look": {
+        "word": "awake",
+        "glyph": "●",
+        "tone": "good"
+      },
+      "asleepPart": 1,
+      "asleep": "21h asleep · 100%",
+      "wakes": 0,
+      "spans": [],
+      "marks": []
+    },
+    {
+      "name": "svc-3",
+      "look": {
+        "word": "asleep",
+        "glyph": "·",
+        "tone": "dim"
+      },
+      "asleepPart": 1,
+      "asleep": "21h asleep · 100%",
+      "wakes": 0,
+      "spans": [],
+      "marks": []
+    },
+    {
+      "name": "svc-6",
+      "look": {
+        "word": "asleep",
+        "glyph": "·",
+        "tone": "dim"
+      },
+      "asleepPart": 0.9675638512608258,
+      "asleep": "21h asleep · 97%",
+      "wakes": 2,
+      "wokenBy": "1 by a connection · 1 when asked",
+      "crashes": 1,
+      "spans": [
+        {
+          "from": 0.3511915393518519,
+          "to": 0.37151380787037036,
+          "ready": 0.35123320601851854,
+          "title": "awake 29m · woke when asked · slept (idle)"
+        },
+        {
+          "from": 0.8404840856481481,
+          "to": 0.8488174189814814,
+          "ready": 0.8405257523148149,
+          "title": "awake 12m · woke by a connection · crash"
+        }
+      ],
+      "marks": [
+        {
+          "at": 0.8488174189814814,
+          "kind": "crash",
+          "title": "Fri 16:22 crash · exit status 1"
+        }
+      ]
+    }
+  ],
+  "trouble": [
+    {
+      "at": "16:22:17",
+      "kind": "crashed:",
+      "text": "svc-6 exit status 1",
+      "tone": "bad"
+    },
+    {
+      "at": "08:12:24",
+      "kind": "crashed:",
+      "text": "svc-2 exit status 1",
+      "tone": "bad"
+    }
+  ],
+  "events": [
+    {
+      "at": "19:42:33",
+      "kind": "went",
+      "text": "svc-1 to sleep (idle)",
+      "tone": "dim"
+    },
+    {
+      "at": "19:35:27",
+      "kind": "ready",
+      "text": "svc-1 in 2.988s",
+      "tone": "good"
+    },
+    {
+      "at": "19:35:24",
+      "kind": "woke",
+      "text": "svc-1 (svc-1 needed it)",
+      "tone": "accent"
+    },
+    {
+      "at": "16:22:17",
+      "kind": "crashed:",
+      "text": "svc-6 exit status 1",
+      "tone": "dim"
+    },
+    {
+      "at": "16:10:21",
+      "kind": "ready",
+      "text": "svc-6 in 1.368s",
+      "tone": "good"
+    },
+    {
+      "at": "16:10:17",
+      "kind": "woke",
+      "text": "svc-6 (a connection)",
+      "tone": "accent"
+    },
+    {
+      "at": "13:22:27",
+      "kind": "went",
+      "text": "svc-11 to sleep (shutting down)",
+      "tone": "dim"
+    },
+    {
+      "at": "13:22:27",
+      "kind": "went",
+      "text": "svc-10 to sleep (shutting down)",
+      "tone": "dim"
+    },
+    {
+      "at": "13:22:27",
+      "kind": "went",
+      "text": "svc-9 to sleep (shutting down)",
+      "tone": "dim"
+    },
+    {
+      "at": "13:22:27",
+      "kind": "went",
+      "text": "svc-8 to sleep (shutting down)",
+      "tone": "dim"
+    },
+    {
+      "at": "13:22:27",
+      "kind": "went",
+      "text": "svc-7 to sleep (shutting down)",
+      "tone": "dim"
+    },
+    {
+      "at": "13:22:27",
+      "kind": "went",
+      "text": "svc-6 to sleep (shutting down)",
+      "tone": "dim"
+    },
+    {
+      "at": "13:22:27",
+      "kind": "went",
+      "text": "svc-5 to sleep (shutting down)",
+      "tone": "dim"
+    },
+    {
+      "at": "13:22:27",
+      "kind": "went",
+      "text": "svc-4 to sleep (shutting down)",
+      "tone": "dim"
+    },
+    {
+      "at": "13:22:27",
+      "kind": "went",
+      "text": "svc-3 to sleep (shutting down)",
+      "tone": "dim"
+    },
+    {
+      "at": "13:22:27",
+      "kind": "went",
+      "text": "svc-2 to sleep (shutting down)",
+      "tone": "dim"
+    },
+    {
+      "at": "13:22:27",
+      "kind": "went",
+      "text": "svc-1 to sleep (shutting down)",
+      "tone": "dim"
+    },
+    {
+      "at": "13:22:27",
+      "kind": "went",
+      "text": "svc-0 to sleep (shutting down)",
+      "tone": "dim"
+    },
+    {
+      "at": "12:54:59",
+      "kind": "went",
+      "text": "svc-10 to sleep (idle)",
+      "tone": "dim"
+    },
+    {
+      "at": "12:21:54",
+      "kind": "ready",
+      "text": "svc-10 in 1.689s",
+      "tone": "good"
+    },
+    {
+      "at": "12:21:50",
+      "kind": "woke",
+      "text": "svc-10 (asked for)",
+      "tone": "accent"
+    },
+    {
+      "at": "10:25:55",
+      "kind": "went",
+      "text": "svc-5 to sleep (idle)",
+      "tone": "dim"
+    },
+    {
+      "at": "10:04:31",
+      "kind": "went",
+      "text": "svc-7 to sleep (idle)",
+      "tone": "dim"
+    },
+    {
+      "at": "09:50:45",
+      "kind": "ready",
+      "text": "svc-7 in 392ms",
+      "tone": "good"
+    },
+    {
+      "at": "09:50:42",
+      "kind": "woke",
+      "text": "svc-7 (svc-2 needed it)",
+      "tone": "accent"
+    },
+    {
+      "at": "08:58:05",
+      "kind": "ready",
+      "text": "svc-5 in 2.868s",
+      "tone": "good"
+    },
+    {
+      "at": "08:58:01",
+      "kind": "woke",
+      "text": "svc-5 (a connection)",
+      "tone": "accent"
+    },
+    {
+      "at": "08:12:24",
+      "kind": "crashed:",
+      "text": "svc-2 exit status 1",
+      "tone": "dim"
+    },
+    {
+      "at": "08:00:28",
+      "kind": "ready",
+      "text": "svc-2 in 1.781s",
+      "tone": "good"
+    },
+    {
+      "at": "08:00:24",
+      "kind": "woke",
+      "text": "svc-2 (svc-3 needed it)",
+      "tone": "accent"
+    },
+    {
+      "at": "04:54:58",
+      "kind": "went",
+      "text": "svc-6 to sleep (idle)",
+      "tone": "dim"
+    },
+    {
+      "at": "04:25:46",
+      "kind": "ready",
+      "text": "svc-6 in 2.627s",
+      "tone": "good"
+    },
+    {
+      "at": "04:25:42",
+      "kind": "woke",
+      "text": "svc-6 (asked for)",
+      "tone": "accent"
+    },
+    {
+      "at": "01:30:50",
+      "kind": "went",
+      "text": "svc-1 to sleep (idle)",
+      "tone": "dim"
+    },
+    {
+      "at": "01:11:57",
+      "kind": "ready",
+      "text": "svc-1 in 890ms",
+      "tone": "good"
+    },
+    {
+      "at": "01:11:54",
+      "kind": "woke",
+      "text": "svc-1 (asked for)",
+      "tone": "accent"
+    },
+    {
+      "at": "00:28:13",
+      "kind": "went",
+      "text": "svc-1 to sleep (idle)",
+      "tone": "dim"
+    },
+    {
+      "at": "23:22:56",
+      "kind": "ready",
+      "text": "svc-1 in 1.645s",
+      "tone": "good"
+    },
+    {
+      "at": "23:22:53",
+      "kind": "woke",
+      "text": "svc-1 (svc-7 needed it)",
+      "tone": "accent"
+    },
+    {
+      "at": "21:43:38",
+      "kind": "went",
+      "text": "svc-9 to sleep (idle)",
+      "tone": "dim"
+    },
+    {
+      "at": "20:15:07",
+      "kind": "ready",
+      "text": "svc-9 in 127ms",
+      "tone": "good"
+    },
+    {
+      "at": "20:15:03",
+      "kind": "woke",
+      "text": "svc-9 (a connection)",
+      "tone": "accent"
+    },
+    {
+      "at": "20:09:39",
+      "kind": "went",
+      "text": "svc-11 to sleep (idle)",
+      "tone": "dim"
+    }
+  ]
+}

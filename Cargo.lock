@@ -2488,6 +2488,7 @@ dependencies = [
  "async-channel",
  "doze-control",
  "doze-display",
+ "doze-journal",
  "doze-map",
  "doze-os",
  "doze-projects",
@@ -2692,6 +2693,7 @@ dependencies = [
  "objc2-app-kit 0.3.2",
  "objc2-foundation 0.3.2",
  "rustix",
+ "tempfile",
  "tokio",
  "windows-sys 0.61.2",
 ]

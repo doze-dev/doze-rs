@@ -1,0 +1,175 @@
+{
+  "key": "/k",
+  "stack": "shop",
+  "span": "1h",
+  "ticks": [
+    {
+      "at": 0,
+      "label": "19:00"
+    },
+    {
+      "at": 0.16666666666666666,
+      "label": "19:10"
+    },
+    {
+      "at": 0.3333333333333333,
+      "label": "19:20"
+    },
+    {
+      "at": 0.5,
+      "label": "19:30"
+    },
+    {
+      "at": 0.6666666666666666,
+      "label": "19:40"
+    },
+    {
+      "at": 0.8333333333333334,
+      "label": "19:50"
+    },
+    {
+      "at": 1,
+      "label": "now"
+    }
+  ],
+  "summary": {
+    "up": "1h of 1h",
+    "asleep": "70%",
+    "wakes": 2,
+    "crashes": 2
+  },
+  "rows": [
+    {
+      "name": "api",
+      "look": {
+        "word": "awake",
+        "glyph": "●",
+        "tone": "good"
+      },
+      "asleepPart": 0,
+      "asleep": "never slept",
+      "wakes": 0,
+      "spans": [
+        {
+          "from": 0,
+          "to": 1,
+          "title": "awake 1h · woke to restart · still awake",
+          "open": true
+        }
+      ],
+      "marks": [],
+      "never": true
+    },
+    {
+      "name": "db",
+      "look": {
+        "word": "asleep",
+        "glyph": "·",
+        "tone": "dim"
+      },
+      "asleepPart": 1,
+      "asleep": "1h asleep · 100%",
+      "wakes": 0,
+      "spans": [],
+      "marks": []
+    },
+    {
+      "name": "cache",
+      "look": {
+        "word": "gone",
+        "glyph": "·",
+        "tone": "dim"
+      },
+      "asleepPart": 0.9,
+      "asleep": "54m asleep · 90%",
+      "wakes": 1,
+      "wokenBy": "1 for a change to src/app.ts",
+      "crashes": 2,
+      "spans": [
+        {
+          "from": 0.5,
+          "to": 0.6,
+          "title": "awake 6m · woke for a change to src/app.ts · failed"
+        }
+      ],
+      "marks": [
+        {
+          "at": 0.6,
+          "kind": "failed",
+          "title": "Fri 19:36 failed · xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…"
+        },
+        {
+          "at": 0.7,
+          "kind": "give_up",
+          "title": "Fri 19:42 give up · crashed 5 times in a minute"
+        }
+      ]
+    },
+    {
+      "name": "old",
+      "look": {
+        "word": "gone",
+        "glyph": "·",
+        "tone": "dim"
+      },
+      "asleepPart": 0.9,
+      "asleep": "54m asleep · 90%",
+      "wakes": 1,
+      "wokenBy": "1 by timer",
+      "spans": [
+        {
+          "from": 0.8,
+          "to": 0.9,
+          "title": "awake 6m · woke by timer · slept (asked)"
+        }
+      ],
+      "marks": []
+    }
+  ],
+  "trouble": [
+    {
+      "at": "19:42:00",
+      "kind": "gave",
+      "text": "cache up restarting: crashed 5 times in a minute",
+      "tone": "bad"
+    },
+    {
+      "at": "19:36:00",
+      "kind": "failed:",
+      "text": "cache xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "tone": "bad"
+    }
+  ],
+  "events": [
+    {
+      "at": "19:54:00",
+      "kind": "went",
+      "text": "old to sleep",
+      "tone": "dim"
+    },
+    {
+      "at": "19:48:00",
+      "kind": "woke",
+      "text": "old ",
+      "tone": "accent"
+    },
+    {
+      "at": "19:42:00",
+      "kind": "gave",
+      "text": "cache up restarting: crashed 5 times in a minute",
+      "tone": "dim"
+    },
+    {
+      "at": "19:36:00",
+      "kind": "failed:",
+      "text": "cache xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "tone": "dim"
+    },
+    {
+      "at": "19:30:00",
+      "kind": "woke",
+      "text": "cache (src/app.ts changed)",
+      "tone": "accent"
+    }
+  ]
+}

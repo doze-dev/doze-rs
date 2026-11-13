@@ -90,7 +90,7 @@ pub(crate) const TABLE: &[Spec] = &[
         Global,
         Some(Go),
         true,
-        false
+        true
     ),
     spec!(
         "Settings…",
@@ -100,7 +100,7 @@ pub(crate) const TABLE: &[Spec] = &[
         Global,
         Some(Doze),
         true,
-        false
+        true
     ),
     spec!(
         "Back",

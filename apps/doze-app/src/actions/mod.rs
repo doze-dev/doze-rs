@@ -83,6 +83,10 @@ pub(crate) enum Scope {
     Palette,
     /// The Needs you panel.
     Bell,
+    /// Activity: a stack over an hour, a day, a week.
+    Activity,
+    /// Settings: General, Machine, About.
+    Settings,
 }
 
 impl Scope {
@@ -103,6 +107,8 @@ impl Scope {
             Scope::Empty => "In a folder with no doze.hcl",
             Scope::Palette => "In ⌘K",
             Scope::Bell => "In Needs you",
+            Scope::Activity => "In Activity",
+            Scope::Settings => "In Settings",
         }
     }
 
@@ -129,6 +135,8 @@ impl Scope {
             // Over the box's own keys (tab, ⌫), which the handler passes back to the box when they are not its.
             Scope::Palette => Some("Palette > Input"),
             Scope::Bell => Some("Bell"),
+            Scope::Activity => Some("Activity && !Input"),
+            Scope::Settings => Some("Settings && !Input"),
         }
     }
 }
@@ -163,6 +171,7 @@ pub(crate) struct Spec {
 
 mod attn;
 mod inside;
+mod m3;
 mod menus;
 mod pages;
 mod table;
@@ -170,6 +179,7 @@ mod verbs;
 
 pub(crate) use attn::*;
 pub(crate) use inside::*;
+pub(crate) use m3::*;
 pub(crate) use table::TABLE;
 pub(crate) use verbs::*;
 
@@ -182,6 +192,7 @@ pub(crate) fn all() -> impl Iterator<Item = &'static Spec> {
         .chain(INSIDE)
         .chain(VERBS)
         .chain(ATTN)
+        .chain(M3)
 }
 
 /// The keymap the table gives. A keystroke that does not parse is left out (the test below proves none does).
@@ -251,6 +262,8 @@ pub(crate) fn help() -> Vec<(Scope, Vec<&'static Spec>)> {
         Scope::Logs,
         Scope::Map,
         Scope::Console,
+        Scope::Activity,
+        Scope::Settings,
         Scope::Palette,
         Scope::Bell,
     ]

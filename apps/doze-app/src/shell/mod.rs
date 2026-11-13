@@ -10,6 +10,9 @@ mod inside;
 mod nav;
 mod needs;
 mod ops;
+mod pages;
+#[cfg(all(test, feature = "capture"))]
+mod pages_tests;
 mod pick;
 #[cfg(all(test, feature = "capture"))]
 mod tests;
@@ -64,6 +67,8 @@ pub(crate) struct Root {
     pub(crate) attn: attn::Attn,
     /// The way back and forward.
     hist: history::History,
+    /// Activity and Settings (M3).
+    pub(crate) pages: pages::Pages,
 }
 
 impl Root {
@@ -76,6 +81,7 @@ impl Root {
         cx: &mut Context<Self>,
     ) -> Self {
         let acts = crate::act::ensure(&hub, &mode, cx);
+        let fixture = matches!(mode, facts::Mode::Fixture);
         let toasts = cx.new(|cx| crate::overlays::toasts::ToastsView::new(acts.clone(), cx));
         let facts = cx.new(|_| Facts::new(mode));
         let library = cx.new(|cx| LibraryView::new(hub.clone(), facts.clone(), cx));
@@ -129,11 +135,16 @@ impl Root {
             focus: cx.focus_handle(),
             attn,
             hist: history::History::default(),
+            pages: pages::Pages::new(facts.clone(), fixture),
         };
         root.rebuild_attention(cx);
         root.hear(&acts, window, cx);
+        let asked = first.is_some();
         let screen = first.map_or(Screen::Library, Screen::Stack);
         root.go(screen, window, cx);
+        if !asked {
+            root.reopen(window, cx);
+        }
         root
     }
 
@@ -148,6 +159,7 @@ impl Root {
                 }
             }
             Screen::Empty(_) => {}
+            Screen::Activity(_) | Screen::Settings => self.apply_pages(batch, cx),
             Screen::Stack(k) => {
                 if !batch.parts(k).is_empty() || !batch.hub.is_empty() {
                     self.overview.update(cx, |o, cx| o.refresh(cx));
@@ -168,6 +180,7 @@ impl Root {
         match &self.screen {
             Screen::Library => self.library.update(cx, |l, cx| l.refresh(cx)),
             Screen::Empty(_) => cx.notify(),
+            Screen::Activity(_) | Screen::Settings => cx.notify(),
             Screen::Stack(_) => self.overview.update(cx, |o, cx| o.refresh(cx)),
             Screen::Instance(..) | Screen::Logs(_) => cx.notify(),
         }
@@ -279,6 +292,9 @@ impl Render for Root {
             Screen::Instance(..) | Screen::Logs(_) => self
                 .inside_el(&t, cx)
                 .unwrap_or_else(|| div().into_any_element()),
+            Screen::Activity(_) | Screen::Settings => {
+                self.pages_el().unwrap_or_else(|| div().into_any_element())
+            }
         };
         let page = div()
             .key_context("Page")
@@ -315,6 +331,7 @@ impl Render for Root {
             .on_action(cx.listener(|_, _: &CloseWindow, window, _| window.remove_window()))
             .on_action(cx.listener(|_, _: &Quit, _, cx| cx.quit()))
             .map(|d| self.on_acting(d, cx))
+            .map(|d| self.on_pages(d, cx))
             .on_action(cx.listener(|this, _: &MoveDown, _, cx| this.palette_step(1, cx)))
             .on_action(cx.listener(|this, _: &MoveUp, _, cx| this.palette_step(-1, cx)))
             .on_action(cx.listener(|this, _: &Confirm, window, cx| this.palette_choose(window, cx)))

@@ -12,6 +12,7 @@ use serde_json::{Map, Value, json};
 
 use crate::theme::{Choice, Mode, Palette};
 
+pub(crate) mod page;
 pub(crate) mod recall;
 
 static HOME: OnceLock<PathBuf> = OnceLock::new();

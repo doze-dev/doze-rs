@@ -68,25 +68,17 @@ pub(super) fn head(t: &Tokens, v: &LibraryView, cx: &mut Context<LibraryView>) -
         "Settings",
         &chip_of("Settings…"),
         Btn::Quiet,
-        Some(say(cx, SOON_SETTINGS)),
+        Some(dispatch(&crate::actions::Settings)),
     ))
 }
 
 /// The few lines the empty library shows (library.tsx).
 const EXAMPLE: &str = "stack = \"shop\"\n\napp \"web\" {\n  run  = \"pnpm dev\"\n  port = 3000\n}\n\nmodule postgres \"db\" { version = 17 }";
-/// A click that says `words` at the foot.
-fn say(cx: &mut Context<LibraryView>, words: &'static str) -> crate::kit::Click {
-    Box::new(cx.listener(move |this, _, _, cx| this.say(words, cx)))
-}
-
 /// A click that does what the action table's row does (Open folder ⌘O, New stack ⌘N).
 fn dispatch(a: &dyn gpui::Action) -> crate::kit::Click {
     let a = a.boxed_clone();
     Box::new(move |_, window, cx| window.dispatch_action(a.boxed_clone(), cx))
 }
-const SOON_SETTINGS: &str =
-    "Settings come with M3; the theme cycles with ⌘⇧T and the mode with ⌘⇧L.";
-
 /// One step: its number (ticked when done, ringed when it is the one to do now), its title and detail.
 fn step(t: &Tokens, i: usize, last: bool, st: &Step) -> impl IntoElement {
     let (bg, border, fg) = if st.done {
@@ -317,11 +309,11 @@ pub(super) fn others(t: &Tokens, others: &[Other]) -> impl IntoElement {
         }))
 }
 
-/// `.machine`: each part of the setup and whether it is in place; Machine… opens Settings (M3).
+/// `.machine`: each part of the setup and whether it is in place; Machine… opens Settings › Machine.
 pub(super) fn machine_line(
     t: &Tokens,
     checks: &[Check],
-    cx: &mut Context<LibraryView>,
+    _cx: &mut Context<LibraryView>,
 ) -> impl IntoElement {
     let mut line = div()
         .flex()
@@ -384,9 +376,7 @@ pub(super) fn machine_line(
             "Machine…",
             "",
             Btn::Plain,
-            Some(Box::new(
-                cx.listener(|this, _, _, cx| this.say(SOON_SETTINGS, cx)),
-            )),
+            Some(dispatch(&crate::actions::MachineSettings)),
         )
         .h(px(26.)),
     )

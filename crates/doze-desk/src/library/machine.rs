@@ -45,6 +45,7 @@ struct Line {
     ok: bool,
 }
 
+// fuzz:parser fuzz_doctor
 /// What `doze --json doctor` printed, read for the machine: its `names: …` checks, and its domain checks. The
 /// stack's own checks (its config, its modules, its ports) are the stack page's, not the machine's.
 pub fn parse_doctor(json: &str) -> Option<Doctor> {

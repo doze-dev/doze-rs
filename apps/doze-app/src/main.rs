@@ -12,6 +12,7 @@
 
 mod act;
 mod actions;
+mod activity;
 mod app;
 mod assets;
 mod bench;
@@ -33,11 +34,14 @@ mod model;
 mod overlays;
 mod overview;
 mod prefs;
+mod settings;
 mod shell;
 #[cfg(feature = "capture")]
 mod shot;
 #[cfg(feature = "capture")]
 mod shot_act;
+#[cfg(feature = "capture")]
+mod shot_m3;
 #[cfg(feature = "capture")]
 mod shotover;
 mod single;

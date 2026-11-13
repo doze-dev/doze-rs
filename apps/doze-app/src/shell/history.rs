@@ -36,6 +36,11 @@ impl History {
         }
         self.ahead.clear();
     }
+
+    /// The place before this one, if any.
+    pub(super) fn before(&self) -> Option<Screen> {
+        self.back.last().cloned()
+    }
 }
 
 impl Root {
