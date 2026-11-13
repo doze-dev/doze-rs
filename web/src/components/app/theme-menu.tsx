@@ -29,7 +29,7 @@ export function ThemeSwitch() {
               value={c.value}
               aria-label={c.label}
               data-testid={`theme-${c.value}`}
-              className="inline-flex size-6 items-center justify-center rounded-[7px] text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none data-[state=on]:bg-primary data-[state=on]:text-primary-foreground [&_svg]:size-3.5"
+              className="inline-flex h-6 w-7 items-center justify-center rounded-[7px] text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none aria-checked:bg-primary aria-checked:text-primary-foreground aria-checked:hover:text-primary-foreground [&_svg]:size-3.5"
             >
               <c.icon aria-hidden />
             </ToggleGroupPrimitive.Item>

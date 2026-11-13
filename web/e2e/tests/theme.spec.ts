@@ -11,6 +11,9 @@ test("the theme switch: System by default, a click picks Light or Dark, the choi
   const html = page.locator("html");
   const sw = page.getByTestId("theme-switch");
   await expect(sw.getByRole("radio", { name: "System" })).toHaveAttribute("aria-checked", "true");
+  // The chosen one is filled in the logo's yellow; the others are not.
+  await expect(page.getByTestId("theme-system")).toHaveCSS("background-color", "rgb(255, 214, 10)");
+  await expect(page.getByTestId("theme-dark")).not.toHaveCSS("background-color", "rgb(255, 214, 10)");
 
   await sw.getByRole("radio", { name: "Dark" }).click();
   await expect(html).toHaveClass(/\bdark\b/);
