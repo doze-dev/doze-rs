@@ -1,6 +1,20 @@
 # The doze desktop app in Rust (GPUI): build plan
 
-Status: proposed 2026-11-13, not approved. Nothing here is built in doze-rs yet.
+Status: proposed 2026-11-13, not approved. Built so far (branch `app-shell`): M0 steps 0.1 to 0.7 (0.2–0.5 on their
+own branches, 0.1, 0.6 and 0.7 here) and the Map (step 1.3). Where the build differs from this plan:
+
+- The app lives at `apps/doze-app`, not `crates/doze-app`, so `default-members = ["crates/*", …]` leaves it out by
+  glob. `--workspace` ignores default members, so the check, doc and Windows jobs and `xtask gates` pass
+  `--exclude doze-app`; the app has its own macOS CI job (`app`). `lint-size` scans `apps/` too.
+- `doze://` URL events come from GPUI (`Application::on_open_urls`), so `doze-os::ui` holds only the status item and
+  the Dock badge. The link parser is in the app (`src/link.rs`) until `doze-desk` grows `link`; it moves there with a
+  fuzz target.
+- The tray follows the hub while the window is hidden through doze-desk's `Policy::hidden` (one batch a second); the
+  window is dropped on close, so it hears nothing then.
+- The theme's xtask reads a copy of the Go app's `tokens.css` kept in `apps/doze-app/themes/` (CI has no Go checkout);
+  `cargo xtask themes --check` holds the JSON to it.
+- doze-map gained `Layout::overview` (regions and weighted bundles) for the whole-map view.
+- Measurements against §6 are in `docs/port/weight.md`, "The desktop app".
 
 The owner's brief: "make the GUI as best as you can make it! Leave no stone
 unturned! It's got to squeeze the best out of GPUI and its components. Check

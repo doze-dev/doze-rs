@@ -2,12 +2,18 @@
 # first; the plan is docs/port/PLAN.md.
 [workspace]
 resolver = "3"
-members = ["crates/*", "xtask", "codegen"]
+members = ["crates/*", "apps/*", "xtask", "codegen"]
+# The desktop app (apps/doze-app) is a member but not a default one: GPUI pulls in a few hundred crates and needs
+# macOS's Metal toolchain, so a bare `cargo build` / `cargo test` leaves it out, and the `--workspace` jobs exclude it.
+# Its own CI job (`app` in ci.yml) builds, lints and tests it on macOS. docs/port/app/PLAN.md §4.2, step 0.1.
+default-members = ["crates/*", "xtask", "codegen"]
 # Vendored third-party code (see vendor/*/PATCHES.md) is not ours to lint or size-check.
 exclude = ["vendor"]
 
 [patch.crates-io]
 kafka-protocol = { path = "vendor/kafka-protocol" }
+# GPUI's macOS renderer without MSAA for paths (vendor/gpui-pre-apple/PATCHES.md). Only the app links it.
+gpui-pre-apple = { path = "vendor/gpui-pre-apple" }
 
 [workspace.package]
 edition = "2024"

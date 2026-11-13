@@ -85,6 +85,9 @@ fn steps(jobs: u32) -> Vec<Step> {
                 "-j",
                 &j,
                 "--workspace",
+                // The desktop app has its own job (GPUI, Metal): cargo clippy/test -p doze-app --features capture.
+                "--exclude",
+                "doze-app",
                 "--all-targets",
                 "--",
                 "-D",
@@ -103,6 +106,9 @@ fn steps(jobs: u32) -> Vec<Step> {
                 "-j",
                 &j,
                 "--workspace",
+                // The desktop app has its own job (GPUI, Metal): cargo clippy/test -p doze-app --features capture.
+                "--exclude",
+                "doze-app",
                 "--",
                 &format!("--test-threads={jobs}"),
             ],

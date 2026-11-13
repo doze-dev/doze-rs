@@ -24,8 +24,9 @@ jobs:
       # rust-toolchain.toml pins the version and components.
       - uses: actions-rust-lang/setup-rust-toolchain@v1
       - run: cargo fmt --check
-      - run: cargo clippy --workspace --all-targets -- -D warnings
-      - run: cargo test --workspace
+      # The desktop app is left out here: it has its own macOS job (`app`, below).
+      - run: cargo clippy --workspace --exclude doze-app --all-targets -- -D warnings
+      - run: cargo test --workspace --exclude doze-app
       # The TLS feature: its unit tests, the loopback tests and the process test (a C compiler is on both runners).
       - run: cargo test -p kafka-server -p doze-kafka --features tls
       - run: cargo clippy -p kafka-server -p doze-kafka --all-targets --features tls -- -D warnings
@@ -35,6 +36,8 @@ jobs:
           SIM_SEEDS: "200"
       # The generated aws-model crates are what the models and overlays produce (docs/port/aws/PLAN.md, rule 11).
       - run: cargo xtask codegen --check
+      # The desktop app's themes are what the Go app's tokens.css gives (apps/doze-app/themes).
+      - run: cargo xtask themes --check
       # No file grows past the hard size limit (docs/port/PLAN.md, quality rule 1).
       - run: cargo xtask lint-size
       # Every parser has a fuzz target (a `// fuzz:parser` marker with no target fails).
@@ -44,7 +47,7 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - run: bun tools/check-security-catalogue.ts
       # Public docs build without broken links.
-      - run: cargo doc --workspace --no-deps
+      - run: cargo doc --workspace --exclude doze-app --no-deps
         env:
           RUSTDOCFLAGS: -D warnings
 
@@ -118,7 +121,52 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions-rust-lang/setup-rust-toolchain@v1
-      - run: cargo check --workspace --all-targets
+      - run: cargo check --workspace --exclude doze-app --all-targets
+
+  # The desktop app (apps/doze-app, docs/port/app/PLAN.md step 0.1): GPUI pulls in a few hundred crates and its macOS renderer
+  # compiles Metal shaders, so the app is not a default member and has this job of its own. It lints and tests the app (with and
+  # without offscreen capture) and doze-os's `ui` feature, holds the app to its own weight line (docs/port/weight.md, "The desktop
+  # app"), and renders the screens offscreen through a fixture daemon: the PNGs are this run's artifacts, to look at.
+  app:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - name: Metal toolchain (Xcode ships it as a separate component)
+        run: xcodebuild -downloadComponent MetalToolchain || true
+      - run: cargo clippy -p doze-app --all-targets --features capture -- -D warnings
+      - run: cargo clippy -p doze-app --all-targets -- -D warnings
+      - run: cargo clippy -p doze-os --features ui --all-targets -- -D warnings
+      - run: cargo test -p doze-app --features capture
+      - name: The app's weight line (binary at most 16 MB, packages at most 560; the release build has no capture)
+        run: |
+          cargo build --release -p doze-app
+          size=$(stat -f %z target/release/doze-app)
+          crates=$(cargo tree -p doze-app --prefix none --edges normal --target aarch64-apple-darwin | sort -u | wc -l | tr -d ' ')
+          echo "doze-app: $size bytes, $crates packages"
+          [ "$size" -le 16000000 ] || { echo "doze-app over 16 MB (PLAN.md §6)"; exit 1; }
+          [ "$crates" -le 560 ] || { echo "doze-app over 560 packages (docs/port/weight.md)"; exit 1; }
+      - name: Screens, offscreen (fixture daemon → hub → page)
+        run: |
+          cargo build -p doze-app --features capture
+          mkdir -p shots
+          app=target/debug/doze-app
+          for theme in violet teal; do for mode in dark light; do
+            $app shot --fixture larder --screen map --theme $theme --mode $mode --size 1280x800 --out shots/map-larder-$theme-$mode.png
+            $app shot --fixture larder --screen palette --theme $theme --mode $mode --size 1280x800 --out shots/palette-$theme-$mode.png
+            $app shot --fixture larder --screen help --theme $theme --mode $mode --size 1280x800 --out shots/help-$theme-$mode.png
+          done; done
+          $app shot --fixture larder --screen map --select gateway --size 1280x800 --out shots/map-larder-selected.png
+          $app shot --fixture larder --screen map --size 900x620 --out shots/map-larder-small.png
+          $app shot --synth 2000 --screen map --size 2560x1440 --out shots/map-2k-fit.png
+          $app shot --synth 2000 --screen map --size 2560x1440 --zoom 1 --at 3000,3000 --out shots/map-2k-100.png
+          $app shot --synth 2000 --screen map --size 2560x1440 --zoom 1 --select data0-session-48 --out shots/map-2k-selected.png
+          ls -la shots
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: doze-app-shots
+          path: shots/
 
   # Weight is a feature (docs/port/weight.md): numbers may only rise with a written reason, so the limits (xtask/weight-limits.txt) sit a
   # little above the measured values and a change that crosses one has to move the limit and say why.

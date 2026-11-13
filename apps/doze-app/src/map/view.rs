@@ -1,0 +1,348 @@
+//! The Map's element and its input: the toolbar strip over the body; in the body, the drawing (scene and cards) with
+//! the detail card, the minimap and the find box over it. Scroll pans, ⌘/ctrl-scroll and pinch zoom about the
+//! pointer, drag pans, a click selects, hovering a card draws its calls. The keys come from the action table.
+
+use doze_map::Rect;
+use gpui::{
+    AnyElement, BorderStyle, Bounds, Context, FocusHandle, Focusable, IntoElement, MouseButton,
+    MouseDownEvent, MouseMoveEvent, MouseUpEvent, PinchEvent, Render, ScrollEvent, Window, canvas,
+    div, point, prelude::*, px, quad, size,
+};
+
+use super::cache::place;
+use super::chrome::{minimap_rect, strip};
+use super::detail::{detail, search_box};
+use super::paint::{lit_set, scene};
+use super::{DETAIL_ZOOM, LABEL_ZOOM, MapView};
+use crate::actions::{
+    ActualSize, Confirm, FindCard, FitMap, MoveDown, MoveLeft, MoveRight, MoveUp, ToggleMinimap,
+    ZoomIn, ZoomOut,
+};
+use crate::theme::{Tokens, alpha, tokens};
+
+/// A press on the body, until it is let go.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct Drag {
+    start: (f32, f32),
+    pan: (f32, f32),
+    moved: bool,
+    minimap: bool,
+}
+
+impl MapView {
+    /// A large map well past the viewport, so an overview helps (a small map pans a little; a minimap there only
+    /// covers cards).
+    pub(crate) fn big(&self) -> bool {
+        if self.layout.mode != doze_map::Mode::Layered {
+            return false;
+        }
+        let b = self.layout.bounds;
+        let (vw, vh) = self.cam.size;
+        b.w as f32 * self.cam.zoom > vw * 1.5 || b.h as f32 * self.cam.zoom > vh * 1.5
+    }
+
+    /// Zooms about the viewport's middle.
+    pub(crate) fn zoom_by(&mut self, factor: f32, cx: &mut Context<Self>) {
+        self.cam.zoom_centre(factor, self.layout.bounds);
+        cx.notify();
+    }
+
+    pub(crate) fn on_fit(&mut self, _: &FitMap, _: &mut Window, cx: &mut Context<Self>) {
+        self.cam.fit(&self.layout);
+        cx.notify();
+    }
+
+    pub(crate) fn on_find(&mut self, _: &FindCard, window: &mut Window, cx: &mut Context<Self>) {
+        self.hit = 0;
+        self.open_search(window, cx);
+    }
+
+    pub(crate) fn on_minimap(&mut self, _: &ToggleMinimap, _: &mut Window, cx: &mut Context<Self>) {
+        self.minimap = !self.minimap;
+        cx.notify();
+    }
+
+    /// Up and down move through the find box's hits while it is open, else to the nearest card.
+    fn arrow(&mut self, dx: f64, dy: f64, cx: &mut Context<Self>) {
+        if self.search.is_some() && dx == 0.0 {
+            let n = self.hits.len().max(1);
+            self.hit = if dy > 0.0 {
+                (self.hit + 1) % n
+            } else {
+                (self.hit + n - 1) % n
+            };
+            cx.notify();
+        } else {
+            self.step(dx, dy, cx);
+        }
+    }
+
+    fn confirm(&mut self, cx: &mut Context<Self>) {
+        if let Some(&id) = self.hits.get(self.hit) {
+            self.jump_to(id, cx);
+        }
+    }
+
+    /// Viewport pixels for a window position.
+    fn local(&self, p: gpui::Point<gpui::Pixels>) -> (f32, f32) {
+        let (x, y, _, _) = self.viewport.get();
+        (f32::from(p.x) - x, f32::from(p.y) - y)
+    }
+
+    fn mouse_down(&mut self, ev: &MouseDownEvent, window: &mut Window, cx: &mut Context<Self>) {
+        window.focus(&self.focus, cx);
+        let (x, y) = self.local(ev.position);
+        let mini = minimap_rect(self)
+            .is_some_and(|(mx, my, mw, mh)| x >= mx && x <= mx + mw && y >= my && y <= my + mh);
+        self.drag = Some(Drag {
+            start: (x, y),
+            pan: self.cam.pan,
+            moved: false,
+            minimap: mini,
+        });
+        if mini {
+            self.mini_to(x, y);
+            cx.notify();
+        }
+    }
+
+    fn mouse_move(&mut self, ev: &MouseMoveEvent, cx: &mut Context<Self>) {
+        let (x, y) = self.local(ev.position);
+        let Some(d) = self
+            .drag
+            .as_mut()
+            .filter(|_| ev.pressed_button == Some(MouseButton::Left))
+        else {
+            // Hovering: redraw only when the card under the pointer changes.
+            let over = self.layout.hit(self.cam.to_map(x, y));
+            if over != self.hover {
+                self.hover = over;
+                cx.notify();
+            }
+            return;
+        };
+        if (x - d.start.0).abs() + (y - d.start.1).abs() > 3.0 {
+            d.moved = true;
+        }
+        let d = *d;
+        if d.minimap {
+            self.mini_to(x, y);
+        } else if d.moved {
+            self.cam.pan = (
+                d.pan.0 - (x - d.start.0) / self.cam.zoom,
+                d.pan.1 - (y - d.start.1) / self.cam.zoom,
+            );
+            self.cam.clamp(self.layout.bounds);
+        }
+        cx.notify();
+    }
+
+    fn mouse_up(&mut self, ev: &MouseUpEvent, cx: &mut Context<Self>) {
+        let Some(d) = self.drag.take() else { return };
+        if d.moved || d.minimap {
+            return;
+        }
+        let (x, y) = self.local(ev.position);
+        let hit = self.layout.hit(self.cam.to_map(x, y));
+        // A click on the selection again lets it go.
+        let next = if hit == self.lit { None } else { hit };
+        self.select(next, cx);
+    }
+
+    fn scroll(&mut self, ev: &ScrollEvent, cx: &mut Context<Self>) {
+        let d = ev.delta.pixel_delta(px(20.));
+        let (dx, dy) = (f32::from(d.x), f32::from(d.y));
+        if ev.modifiers.platform || ev.modifiers.control {
+            let (x, y) = self.local(ev.position);
+            self.cam
+                .zoom_at((dy * 0.01).exp(), x, y, self.layout.bounds);
+        } else {
+            self.cam.pan_by(-dx, -dy, self.layout.bounds);
+        }
+        cx.notify();
+    }
+
+    fn pinch(&mut self, ev: &PinchEvent, cx: &mut Context<Self>) {
+        let (x, y) = self.local(ev.position);
+        self.cam.zoom_at(1.0 + ev.delta, x, y, self.layout.bounds);
+        cx.notify();
+    }
+
+    /// Centres the view on the minimap point under (x, y).
+    fn mini_to(&mut self, x: f32, y: f32) {
+        let Some((mx, my, mw, mh)) = minimap_rect(self) else {
+            return;
+        };
+        let b = self.layout.bounds;
+        let (fx, fy) = (
+            ((x - mx) / mw).clamp(0.0, 1.0),
+            ((y - my) / mh).clamp(0.0, 1.0),
+        );
+        self.cam
+            .centre_on(f64::from(fx) * b.w, f64::from(fy) * b.h, b);
+    }
+
+    /// The drawing: the scene, and the cards or their names by level.
+    fn drawing(&self, t: &Tokens) -> AnyElement {
+        let pad = 40.0 / f64::from(self.cam.zoom);
+        let v = self.cam.view();
+        let vis = self.layout.visible(Rect::new(
+            v.x - pad,
+            v.y - pad,
+            v.w + 2.0 * pad,
+            v.h + 2.0 * pad,
+        ));
+        let on = lit_set(&self.layout, self.lit);
+        let mut d = div()
+            .absolute()
+            .top(px(0.))
+            .left(px(0.))
+            .size_full()
+            .child(scene(t, self, &vis, self.viewport.clone()));
+        if self.cam.zoom >= DETAIL_ZOOM {
+            d = d
+                .children(super::cards::captions(t, self))
+                .children(super::cards::cards(t, self, &vis.cards, on.as_deref()));
+        } else if self.cam.zoom >= LABEL_ZOOM {
+            d = d.children(super::cards::labels(t, self, &vis.cards, on.as_deref()));
+        }
+        d.into_any_element()
+    }
+}
+
+/// The whole drawing small, every card a speck, the viewport outlined; press or drag on it to move there.
+fn minimap(t: &Tokens, m: &MapView) -> Option<AnyElement> {
+    let (x, y, w, h) = minimap_rect(m)?;
+    let (t, l, cache, view, focus) = (
+        *t,
+        m.layout.clone(),
+        m.cache.clone(),
+        m.cam.view(),
+        m.focus_card(),
+    );
+    let drawn = canvas(
+        |_, _, _| (),
+        move |bounds, _, window, _| {
+            let s = w / l.bounds.w as f32;
+            let o = bounds.origin;
+            let colors = [alpha(t.text, 0.4), alpha(t.accent, 0.5)];
+            cache.mini(&l, s, &mut |p, c| {
+                window.paint_path(place(p, 1.0, o), colors.get(c).copied().unwrap_or(t.dim))
+            });
+            if let Some(c) = focus.and_then(|id| l.card(id)) {
+                let r = c.rect;
+                let b = Bounds {
+                    origin: point(o.x + px(r.x as f32 * s), o.y + px(r.y as f32 * s)),
+                    size: size(px((r.w as f32 * s).max(3.)), px((r.h as f32 * s).max(3.))),
+                };
+                window.paint_quad(gpui::fill(b, t.accent));
+            }
+            let vb = Bounds {
+                origin: point(o.x + px(view.x as f32 * s), o.y + px(view.y as f32 * s)),
+                size: size(px(view.w as f32 * s), px(view.h as f32 * s)),
+            };
+            window.paint_quad(quad(
+                vb,
+                px(2.),
+                alpha(t.accent, 0.08),
+                px(1.),
+                t.accent,
+                BorderStyle::Solid,
+            ));
+        },
+    )
+    .size_full();
+    Some(
+        div()
+            .absolute()
+            .left(px(x - 4.))
+            .top(px(y - 4.))
+            .w(px(w + 8.))
+            .h(px(h + 8.))
+            .p(px(4.))
+            .rounded(px(8.))
+            .border_1()
+            .border_color(t.line2)
+            .bg(alpha(t.panel, 0.82))
+            .child(drawn)
+            .into_any_element(),
+    )
+}
+
+impl Focusable for MapView {
+    fn focus_handle(&self, _: &gpui::App) -> FocusHandle {
+        self.focus.clone()
+    }
+}
+
+impl Render for MapView {
+    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let t = tokens(cx);
+        let (_, _, w, h) = self.viewport.get();
+        self.cam.size = (w, h);
+        if !self.cam.fitted && w > 1.0 && !self.layout.cards.is_empty() {
+            self.cam.fit(&self.layout);
+        }
+        let mut body = div()
+            .id("map-body")
+            .relative()
+            .flex_1()
+            .min_h_0()
+            .overflow_hidden()
+            .on_mouse_down(
+                MouseButton::Left,
+                cx.listener(|this, ev, window, cx| this.mouse_down(ev, window, cx)),
+            )
+            .on_mouse_move(cx.listener(|this, ev, _, cx| this.mouse_move(ev, cx)))
+            .on_mouse_up(
+                MouseButton::Left,
+                cx.listener(|this, ev, _, cx| this.mouse_up(ev, cx)),
+            )
+            .on_hover(cx.listener(|this, over: &bool, _, cx| {
+                if !*over && this.hover.take().is_some() {
+                    cx.notify();
+                }
+            }))
+            .on_scroll(cx.listener(|this, ev, _, cx| this.scroll(ev, cx)))
+            .on_pinch(cx.listener(|this, ev, _, cx| this.pinch(ev, cx)))
+            .child(
+                div()
+                    .key_context("Map")
+                    .track_focus(&self.focus)
+                    .absolute()
+                    .size_full()
+                    .on_action(cx.listener(Self::on_fit))
+                    .on_action(cx.listener(Self::on_find))
+                    .on_action(cx.listener(Self::on_minimap))
+                    .on_action(cx.listener(|this, _: &ZoomIn, _, cx| this.zoom_by(1.25, cx)))
+                    .on_action(cx.listener(|this, _: &ZoomOut, _, cx| this.zoom_by(0.8, cx)))
+                    .on_action(cx.listener(|this, _: &ActualSize, _, cx| {
+                        let z = this.cam.zoom;
+                        this.zoom_by(1.0 / z, cx);
+                    }))
+                    .child(self.drawing(&t)),
+            )
+            .on_action(cx.listener(|this, _: &MoveUp, _, cx| this.arrow(0.0, -1.0, cx)))
+            .on_action(cx.listener(|this, _: &MoveDown, _, cx| this.arrow(0.0, 1.0, cx)))
+            .on_action(cx.listener(|this, _: &MoveLeft, _, cx| this.arrow(-1.0, 0.0, cx)))
+            .on_action(cx.listener(|this, _: &MoveRight, _, cx| this.arrow(1.0, 0.0, cx)))
+            .on_action(cx.listener(|this, _: &Confirm, _, cx| this.confirm(cx)));
+        body = body
+            .children(minimap(&t, self))
+            .children(detail(&t, self, cx));
+        if let Some(s) = self.search.clone() {
+            body = body.child(search_box(&t, self, &s, cx));
+        }
+        div()
+            .flex()
+            .flex_col()
+            .size_full()
+            .rounded(px(12.))
+            .border_1()
+            .border_color(t.line)
+            .bg(t.well)
+            .overflow_hidden()
+            .child(strip(&t, self, cx))
+            .child(body)
+    }
+}

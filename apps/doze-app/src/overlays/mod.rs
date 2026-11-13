@@ -1,0 +1,74 @@
+//! Overlays, never pages: ⌘K and the help sheet open over the page, which stays rendered under a scrim. Each enters
+//! with a short fade and a few pixels of travel (the owner's bar: gentle, 120–280 ms), and simply appears when the
+//! system reduces motion.
+
+pub(crate) mod help;
+pub(crate) mod palette;
+
+use gpui::{
+    Animation, AnimationExt as _, AnyElement, BoxShadow, IntoElement, SharedString, div, point,
+    prelude::*, px,
+};
+
+use crate::theme::{Motion, Tokens, alpha};
+
+/// What is open over the page.
+pub(crate) enum Overlay {
+    Palette(gpui::Entity<palette::Palette>),
+    Help,
+}
+
+/// The shadow an overlay casts.
+pub(crate) fn shadow(t: &Tokens) -> BoxShadow {
+    BoxShadow {
+        color: alpha(gpui::black(), if t.dark { 0.5 } else { 0.18 }),
+        offset: point(px(0.), px(24.)),
+        blur_radius: px(60.),
+        spread_radius: px(0.),
+        inset: false,
+    }
+}
+
+/// The scrim and the overlay over it, entering together: the scrim fades in, the panel fades and drops into place.
+pub(crate) fn layer(
+    t: &Tokens,
+    panel: AnyElement,
+    top: f32,
+    motion: Motion,
+    id: &'static str,
+) -> AnyElement {
+    let full = || div().absolute().top(px(0.)).left(px(0.)).size_full();
+    let scrim = full().bg(t.scrim());
+    let holder = full()
+        .flex()
+        .justify_center()
+        .items_start()
+        .pt(px(top))
+        .child(panel);
+    if !motion.moves() {
+        return full()
+            .occlude()
+            .child(scrim)
+            .child(holder)
+            .into_any_element();
+    }
+    let (travel, ease) = (
+        motion.travel,
+        Animation::new(motion.normal).with_easing(gpui::ease_out_quint()),
+    );
+    let scrim = scrim.with_animation(
+        SharedString::from(format!("{id}-scrim")),
+        ease.clone(),
+        |d, p| d.opacity(p),
+    );
+    let holder = holder.with_animation(
+        SharedString::from(format!("{id}-panel")),
+        ease,
+        move |d, p| d.opacity(p).top(px(-travel * (1.0 - p))),
+    );
+    full()
+        .occlude()
+        .child(scrim)
+        .child(holder)
+        .into_any_element()
+}

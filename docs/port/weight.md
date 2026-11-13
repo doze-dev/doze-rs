@@ -261,3 +261,34 @@ Phase 7). Under the CI limits (115, 5.15 MB, 8 MB). Kafka now links `doze-store`
 
 **doze-aws at `opt-level = "z"` (2026-11-13, release-aws): 4,867,344 B (4.64 MiB) on darwin/arm64, 233 packages, idle 4,400 KB; 7,481,552 B on x86_64 Linux (musl).** The same code at `"s"` was 6,500,256 B, 233 packages and 3,920 KB idle on macOS and 8,206,736 B on Linux. `"z"` took 25% off macOS and only 9% off Linux: of the Linux binary, `.text` is 5.1 MB, `.rodata` 1.0 MB, `.eh_frame` 0.8 MB (plus 0.1 MB of index), `.rela.dyn` 0.17 MB. The Linux limits are 7,900,000 B (the musl size plus 5%) and 240 packages. Cost of `"z"`: server CPU 30 to 60% higher per request (0.2 to 0.7 ms), idle memory +0.4 MB, wall time unchanged; see the PLAN entry for the benchmark. Linux is now 1.54 times the macOS size, which is the ratio to plan with.
 
+
+## The desktop app (`apps/doze-app`), measured 2026-11-13, darwin/arm64
+
+The app has a weight line of its own, apart from the engines' (docs/port/app/PLAN.md §6): GPUI is a few hundred crates
+and a 15 MB binary, and none of it reaches doze-kafka or doze-aws (the app is not a default workspace member, and the
+`weight` jobs build only the engines). CI's `app` job (macOS) enforces the line.
+
+| | Budget (PLAN.md §6) | Measured |
+|---|---|---|
+| Binary, release, stripped, fonts included, no capture | ≤ 16 MB | 14,871,584 B (15,138,512 B with the `fixtures` feature) |
+| Packages (`cargo tree -p doze-app --edges normal`, unique lines) | limit 560 | 534 |
+| Menu bar ready after launch | ≤ 100 ms | 71–84 ms |
+| Menu bar only, footprint | ≤ 18 MB | 18 MB on an empty doze home; 22 MB with the fixture daemon running in the process |
+| First frame of the stack page after a tray click | ≤ 100 ms | 35–66 ms |
+| Window open and idle, footprint | ≤ 85 MB | 82 MB at 10 s, 74 MB at 25 s (larder) |
+| After the window closes, footprint | ≤ 35 MB | 35 MB at 8 s (larder), 28 MB on an empty home |
+| CPU, window open and static; menu bar only | ≤ 0.3 %; ≤ 0.05 % | 0.0 % (ps, sampled) |
+
+Measured with `doze-app bench` (it opens the window two seconds after launch as a tray click would, prints its
+timings, idles 30 s, closes the window) and macOS `footprint` (Activity Monitor's Memory figure), on a quiet machine
+(HID idle time over an hour). The memory budgets hold only with two choices made here:
+
+- **The component library loads after the menu-bar item is up.** `gpui_component::init` takes about 140 ms (most of
+  it resolving the system's fonts); done first, menu-bar ready was 233–263 ms. It now runs on the next turn of the
+  loop, before any click can open the window.
+- **No MSAA for paths** (vendor/gpui-pre-apple/PATCHES.md): upstream's 4 samples measured 87 MB / 79 MB at 10 s / 25 s,
+  over the 85 MB budget.
+
+The binary is 3 MB over the spike's 12 MB: doze-desk's hub and the control client, doze-display's words, doze-map's
+layout, the ten themes, the tray icons, and the release profile's `opt-level = 3` (the spike used `"s"`). A
+size-optimised profile for the app is the first lever if the line is approached.
