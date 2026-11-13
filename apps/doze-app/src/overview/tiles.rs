@@ -9,7 +9,7 @@ use gpui_component::input::Input;
 use super::{M2, OverviewView};
 use crate::kit::{chip_of, s, tone, word_line};
 use crate::theme::{Tokens, mix};
-use crate::widgets::{MONO_FAMILY, dot, icon, kbd_chip, switch, tracked, w};
+use crate::widgets::{MONO_FAMILY, dot, icon, switch, tracked, w};
 
 /// Tiles to a row at the window's width.
 pub(super) fn per_row(v: &OverviewView) -> usize {
@@ -58,7 +58,8 @@ pub(super) fn word_tone(t: &Tokens, r: &Row) -> gpui::Hsla {
         "waking" => t.cool,
         "ready" => t.accent,
         "failed" => t.bad,
-        _ => t.text,
+        // Any other word takes the line's own colour, as `wordTone` gave it no class.
+        _ => t.dim,
     }
 }
 
@@ -128,7 +129,19 @@ pub(super) fn filter(t: &Tokens, v: &OverviewView) -> impl IntoElement {
                     .flex_1()
                     .child(Input::new(&v.filter).appearance(false).text_size(px(12.))),
             )
-            .child(kbd_chip(t, &chip_of("Filter"), 11., 600., 5.)),
+            // `.filter kbd`: a quiet chip, dim on the selection colour.
+            .child(
+                div()
+                    .px(px(5.))
+                    .rounded(px(4.))
+                    .bg(t.sel)
+                    .font_family(MONO_FAMILY)
+                    .text_size(px(11.))
+                    .line_height(px(15.))
+                    .font_weight(w(600.))
+                    .text_color(t.dim)
+                    .child(s(&chip_of("Filter"))),
+            ),
     )
 }
 
@@ -156,11 +169,11 @@ fn group_head(t: &Tokens, title: &str, what: &str) -> impl IntoElement {
 }
 
 /// The tile's top line: dot, name, pin, switch.
-fn tile_top(t: &Tokens, r: &Row, off: bool, cx: &mut Context<OverviewView>) -> impl IntoElement {
+fn tile_top(t: &Tokens, r: &Row, dim: bool, cx: &mut Context<OverviewView>) -> impl IntoElement {
     let name = div()
         .text_size(px(15.))
         .font_weight(w(650.))
-        .text_color(if off { t.dim } else { t.bright })
+        .text_color(if dim { t.dim } else { t.bright })
         .whitespace_nowrap()
         .overflow_hidden()
         .text_ellipsis()
@@ -234,12 +247,16 @@ fn tile_foot(t: &Tokens, r: &Row) -> gpui::Div {
 /// One tile.
 fn tile(t: &Tokens, r: &Row, selected: bool, cx: &mut Context<OverviewView>) -> impl IntoElement {
     let off = !r.on && r.kind != "task";
+    // As shell.css orders them: in trouble, then off (no fill, a dashed frame, even when selected), then selected.
     let (border, bg) = if r.trouble {
         (mix(t.bad, t.line, 55.), mix(t.bad, t.panel, 7.))
+    } else if off {
+        (
+            if selected { t.line2 } else { t.line },
+            gpui::transparent_black(),
+        )
     } else if selected {
         (t.line2, mix(t.accent, t.panel, 7.))
-    } else if off {
-        (t.line, gpui::transparent_black())
     } else {
         (t.line, t.panel)
     };
@@ -259,9 +276,9 @@ fn tile(t: &Tokens, r: &Row, selected: bool, cx: &mut Context<OverviewView>) -> 
         .border_1()
         .border_color(border)
         .bg(bg)
-        .when(off && !r.trouble && !selected, |d| d.border_dashed())
+        .when(off && !r.trouble, |d| d.border_dashed())
         .hover(|d| d.border_color(t.line2))
-        .child(tile_top(t, r, off, cx))
+        .child(tile_top(t, r, off && !selected, cx))
         .child(tile_state(t, r))
         .child(tile_foot(t, r))
         .on_click(cx.listener(move |this, _, _, cx| this.select(&name, cx)))

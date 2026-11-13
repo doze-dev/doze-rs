@@ -70,8 +70,15 @@ impl Root {
             cx.notify();
             return;
         }
-        if on_map {
+        let map_held = on_map && {
+            let m = self.map.read(cx);
+            m.lit.is_some() || m.search.is_some()
+        };
+        if map_held {
             self.map.update(cx, |m, cx| m.escape(window, cx));
+        } else if matches!(self.screen, Screen::Stack(_)) {
+            // Nothing open, nothing held: esc goes home, as the Go page's did.
+            self.go(Screen::Library, window, cx);
         }
     }
 

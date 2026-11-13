@@ -5,7 +5,7 @@
 //! The tooltip is drawn deferred and anchored to its cell, so it is never clipped by the table's box and stays inside
 //! the window.
 
-use doze_desk::overview::{GridCell, GridCol, GridRow, GridTip};
+use doze_desk::overview::{GridCell, GridCol, GridRow, GridTip, GridView};
 use gpui::{AnyElement, Context, IntoElement, anchored, deferred, div, point, prelude::*, px};
 
 use super::OverviewView;
@@ -71,6 +71,7 @@ pub(super) fn view(
         table = table.child(body_row(t, v, ri, row, cx));
     }
     table = table.child(foot(t, v));
+    table = table.children(notes(t, g));
     let scroll = div()
         .id("grid-scroll")
         .flex()
@@ -99,22 +100,7 @@ pub(super) fn view(
                 cx.notify();
             }
         }))
-        .child(scroll)
-        // What the Grid cannot show yet stays in view under the table, however long the table is.
-        .when(!g.later.is_empty(), |d| {
-            d.child(
-                div()
-                    .flex_none()
-                    .px(px(16.))
-                    .pt(px(10.))
-                    .pb(px(8.))
-                    .border_t_1()
-                    .border_color(t.line)
-                    .text_size(px(12.))
-                    .text_color(t.dim)
-                    .child(s(&g.later)),
-            )
-        });
+        .child(scroll);
     let mut out = div()
         .key_context("Grid")
         .flex()
@@ -144,9 +130,11 @@ fn cell_box(t: &Tokens, v: &OverviewView, ci: usize, c: &GridCol) -> gpui::Div {
 /// The groups' captions over the columns.
 fn heads(t: &Tokens, v: &OverviewView) -> impl IntoElement {
     let g = &v.home.grid;
-    let mut row = div().flex().pt(px(12.)).child(
+    // The padding is the cells', so a group's line on the left runs from the box's top.
+    let mut row = div().flex().child(
         div()
             .w(px(HEAD_W))
+            .pt(px(12.))
             .flex_none()
             .pl(px(16.))
             .flex()
@@ -164,6 +152,7 @@ fn heads(t: &Tokens, v: &OverviewView) -> impl IntoElement {
             div()
                 .w(px(span))
                 .flex_none()
+                .pt(px(12.))
                 // A caption wider than its columns is cut there (Go: `text-overflow: ellipsis`), not over the next.
                 .overflow_hidden()
                 .pl(px(if sep { 10. } else { 4. }))
@@ -189,6 +178,8 @@ fn col_heads(t: &Tokens, v: &OverviewView) -> impl IntoElement {
                 .flex_col()
                 .items_center()
                 .gap(px(3.))
+                // Where the other columns have their dot, so the names line up.
+                .child(div().size(px(8.)))
                 .child(div().font_weight(w(500.)).text_color(t.dim).child("tasks"))
                 .child(div().text_size(px(11.)).text_color(t.dim).child(s(&c.sub)))
         } else {
@@ -266,20 +257,25 @@ fn body_row(
     if !row.lang.is_empty() {
         head = head.child(
             div()
-                .px(px(5.))
-                .rounded(px(4.))
+                .px(px(4.))
+                .rounded(px(3.))
                 .border_1()
                 .border_color(t.line2)
                 .font_family(MONO_FAMILY)
-                .text_size(px(10.5))
+                .text_size(px(10.))
+                .line_height(px(13.))
                 .text_color(t.dim)
                 .child(row.lang),
         );
     }
     if let Some(m) = r.map(|r| r.mem.as_str()).filter(|m| !m.is_empty()) {
-        head = head
-            .child(div().flex_1())
-            .child(div().text_size(px(12.5)).text_color(t.dim).child(s(m)));
+        head = head.child(div().flex_1()).child(
+            div()
+                .text_size(px(12.5))
+                .font_weight(w(600.))
+                .text_color(t.dim)
+                .child(s(m)),
+        );
     }
     let mut line = div()
         .flex()
@@ -315,14 +311,17 @@ fn cell_el(
             }
         }));
     if cell.dot {
-        let mut d = div().size(px(12.)).rounded_full().bg(t.accent);
-        if cross {
-            d = d
-                .border_4()
-                .border_color(crate::theme::alpha(t.accent, 0.3))
-                .size(px(20.));
-        }
-        el = el.child(d);
+        let dot = div().size(px(12.)).rounded_full().bg(t.accent);
+        // Under the crosshair, a halo round the dot (`box-shadow: 0 0 0 4px`), the dot itself unchanged.
+        let halo = div()
+            .size(px(20.))
+            .flex()
+            .items_center()
+            .justify_center()
+            .rounded_full()
+            .when(cross, |d| d.bg(crate::theme::alpha(t.accent, 0.3)))
+            .child(dot);
+        el = el.child(halo);
     } else if cell.own {
         el = el.child(div().text_color(t.line2).child("—"));
     } else if !cell.text.is_empty() {
@@ -401,6 +400,8 @@ fn foot(t: &Tokens, v: &OverviewView) -> impl IntoElement {
     let mut row = div()
         .flex()
         .h(px(38.))
+        .border_b_1()
+        .border_color(t.line)
         .items_center()
         .text_size(px(12.))
         .text_color(t.dim)
@@ -419,4 +420,27 @@ fn foot(t: &Tokens, v: &OverviewView) -> impl IntoElement {
         );
     }
     row.child(div().flex_1())
+}
+
+/// The notes under the table: that there is nothing to cross yet, and what the Grid cannot show yet. They follow the
+/// table, as Go's did, so the table is never cut by them.
+fn notes(t: &Tokens, g: &GridView) -> Vec<gpui::AnyElement> {
+    let note = |text: &str| {
+        div()
+            .px(px(16.))
+            .pt(px(10.))
+            .pb(px(8.))
+            .text_size(px(12.))
+            .text_color(t.dim)
+            .child(s(text))
+            .into_any_element()
+    };
+    let mut out = Vec::new();
+    if g.rows.is_empty() {
+        out.push(note("No app here refers to another app or to a shared service yet, so there is nothing to cross. The Grid fills in as doze.hcl's apps refer to what they use."));
+    }
+    if !g.later.is_empty() {
+        out.push(note(&g.later));
+    }
+    out
 }

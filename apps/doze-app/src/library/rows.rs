@@ -146,7 +146,7 @@ fn name(t: &Tokens, st: &LibStack, tight: bool) -> impl IntoElement {
                     .justify_end()
                     .min_w_0()
                     .overflow_hidden()
-                    .child(div().flex_none().child(s(&tail(&st.dir, 60)))),
+                    .child(div().flex_none().child(s(&tail(&st.dir, 36)))),
             )
             .child(
                 div()
@@ -187,11 +187,10 @@ fn fig(t: &Tokens, st: &LibStack) -> impl IntoElement {
         .text_size(px(12.))
         .whitespace_nowrap()
         .child(
-            div().flex().overflow_hidden().children(
-                st.fig
-                    .iter()
-                    .map(|b| div().text_color(tone(t, b.tone)).child(s(&b.text))),
-            ),
+            div()
+                .overflow_hidden()
+                .text_ellipsis()
+                .child(bits(t, &st.fig)),
         )
         .child(
             div()
@@ -286,4 +285,20 @@ fn tail(dir: &str, most: usize) -> String {
     }
     let kept: String = dir.chars().skip(n - (most - 1)).collect();
     format!("…{kept}")
+}
+
+/// Toned runs as one text, so the line is cut with an ellipsis where the column ends.
+fn bits(t: &Tokens, fig: &[doze_desk::library::Bit]) -> gpui::StyledText {
+    let mut text = String::new();
+    let mut runs = Vec::new();
+    for b in fig {
+        let start = text.len();
+        text.push_str(&b.text);
+        let style = gpui::HighlightStyle {
+            color: Some(tone(t, b.tone)),
+            ..Default::default()
+        };
+        runs.push((start..text.len(), style));
+    }
+    gpui::StyledText::new(text).with_highlights(runs)
 }

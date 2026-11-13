@@ -41,6 +41,8 @@ pub(crate) struct Root {
     /// The title bar's stack tabs: every running stack, and the stopped ones opened this session.
     pub(crate) tabs: Vec<Tab>,
     opened: Vec<StackKey>,
+    /// Running stacks whose tab was closed; a tab comes back when its stack is opened again.
+    hidden: Vec<StackKey>,
     overlay: Option<Overlay>,
     /// A line at the foot, for a moment (a verb that comes later, a link doze cannot follow yet).
     notice: Option<SharedString>,
@@ -81,6 +83,7 @@ impl Root {
             map,
             tabs: Vec::new(),
             opened: Vec::new(),
+            hidden: Vec::new(),
             overlay: None,
             notice: None,
             focus: cx.focus_handle(),

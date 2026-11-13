@@ -164,7 +164,7 @@ fn stack_tab(t: &Tokens, root: &Root, i: usize, tb: &Tab, cx: &mut Context<Root>
             .child(s(&tb.name))
             .into_any_element(),
     ];
-    if !tb.running {
+    if on || !tb.running {
         let k = tb.key.clone();
         body.push(
             div()

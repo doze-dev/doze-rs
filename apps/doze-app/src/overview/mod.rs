@@ -9,6 +9,7 @@
 mod grid;
 mod head;
 mod keys;
+mod kv;
 mod list;
 mod pane;
 mod strip;

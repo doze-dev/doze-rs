@@ -35,6 +35,7 @@ impl Root {
                 if !self.opened.contains(k) {
                     self.opened.push(k.clone());
                 }
+                self.hidden.retain(|h| h != k);
                 let key = k.clone();
                 self.overview.update(cx, |o, cx| o.show(Some(key), cx));
                 let o = self.overview.read(cx);
@@ -65,6 +66,10 @@ impl Root {
         cx: &mut Context<Self>,
     ) {
         self.opened.retain(|k| k != key);
+        // A running stack's tab stays put away until the stack is opened again (it keeps running).
+        if !self.hidden.contains(key) {
+            self.hidden.push(key.clone());
+        }
         if self.key() == Some(key) {
             self.go(Screen::Library, window, cx);
         } else {
@@ -78,7 +83,9 @@ impl Root {
             .hub
             .stacks()
             .into_iter()
-            .filter(|s| s.running || self.opened.contains(&s.key))
+            .filter(|s| {
+                (s.running && !self.hidden.contains(&s.key)) || self.opened.contains(&s.key)
+            })
             .map(|s| {
                 let snap = s.words();
                 Tab {

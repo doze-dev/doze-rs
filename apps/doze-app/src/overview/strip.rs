@@ -89,7 +89,9 @@ fn stat(t: &Tokens, value: &str, unit: &str, under: AnyElement, wide: bool) -> g
 }
 
 fn under(t: &Tokens, text: &str) -> AnyElement {
+    // A line high even when empty, so every figure's value sits on the same line.
     div()
+        .min_h(px(18.))
         .text_size(px(12.))
         .text_color(t.dim)
         .whitespace_nowrap()
@@ -219,42 +221,7 @@ fn states(t: &Tokens, v: &Vitals4) -> AnyElement {
 fn down_strip(t: &Tokens, st: &Stopped, tight: bool) -> impl IntoElement {
     let row = strip_box(t, tight, false);
     if !st.problem.is_empty() {
-        let v = div()
-            .flex()
-            .items_baseline()
-            .child(
-                div()
-                    .text_size(px(22.))
-                    .font_weight(w(600.))
-                    .text_color(t.bad)
-                    .child("doze.hcl has a mistake"),
-            )
-            .child(
-                div()
-                    .ml(px(6.))
-                    .text_size(px(12.))
-                    .text_color(t.dim)
-                    .child("nothing can start until it is fixed"),
-            );
-        return row
-            .child(
-                div()
-                    .flex()
-                    .flex_col()
-                    .gap(px(6.))
-                    .flex_1()
-                    .min_w_0()
-                    .child(v)
-                    .child(under(t, &st.problem)),
-            )
-            .child(btn(
-                t,
-                "edit-hcl",
-                "Edit doze.hcl",
-                "⌘E",
-                Btn::Primary,
-                None,
-            ));
+        return problem_strip(t, row, &st.problem);
     }
     let v = div()
         .flex()
@@ -262,6 +229,7 @@ fn down_strip(t: &Tokens, st: &Stopped, tight: bool) -> impl IntoElement {
         .child(
             div()
                 .text_size(px(22.))
+                .line_height(px(26.))
                 .font_weight(w(600.))
                 .text_color(t.bright)
                 .child("Stopped"),
@@ -368,4 +336,44 @@ fn excerpt(t: &Tokens, c: &ConfigError) -> impl IntoElement {
         .rounded(px(7.))
         .bg(t.well)
         .children(lines)
+}
+
+/// The strip of a stopped stack whose doze.hcl does not load: what is wrong, and Edit doze.hcl.
+fn problem_strip(t: &Tokens, row: gpui::Div, problem: &str) -> gpui::Div {
+    let v = div()
+        .flex()
+        .items_baseline()
+        .child(
+            div()
+                .text_size(px(22.))
+                .line_height(px(26.))
+                .font_weight(w(600.))
+                .text_color(t.bad)
+                .child("doze.hcl has a mistake"),
+        )
+        .child(
+            div()
+                .ml(px(6.))
+                .text_size(px(12.))
+                .text_color(t.dim)
+                .child("nothing can start until it is fixed"),
+        );
+    row.child(
+        div()
+            .flex()
+            .flex_col()
+            .gap(px(6.))
+            .flex_1()
+            .min_w_0()
+            .child(v)
+            .child(under(t, problem)),
+    )
+    .child(btn(
+        t,
+        "edit-hcl",
+        "Edit doze.hcl",
+        "⌘E",
+        Btn::Primary,
+        None,
+    ))
 }
