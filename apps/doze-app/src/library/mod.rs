@@ -87,12 +87,19 @@ impl LibraryView {
     /// Reads every stack again; redraws only if the page changed.
     pub(crate) fn refresh(&mut self, cx: &mut Context<Self>) {
         let stacks = self.hub.stacks();
-        let (shapes, doctor) = self.facts.update(cx, |f, cx| {
+        let home = self.hub.home().to_path_buf();
+        let (shapes, doctor, unset) = self.facts.update(cx, |f, cx| {
             let shapes: Vec<_> = stacks
                 .iter()
                 .map(|s| if s.running { None } else { f.shape(&s.dir, cx) })
                 .collect();
-            (shapes, f.doctor(&stacks, cx))
+            // The stacks whose own domains are not set up here (Go: their https pills are not offered as links).
+            let unset: Vec<String> = stacks
+                .iter()
+                .filter(|s| f.setup(s, &home, cx).is_some())
+                .map(|s| s.key.dir().display().to_string())
+                .collect();
+            (shapes, f.doctor(&stacks, cx), unset)
         });
         let shape_of = |st: &StackView| {
             stacks
@@ -101,6 +108,7 @@ impl LibraryView {
                 .and_then(|i| shapes.get(i).cloned().flatten())
         };
         let mut lib = library(&stacks, &shape_of, self.hints, self.hub.now());
+        doze_desk::library::unready(&mut lib, &unset);
         lib.machine = doctor.map(|d| machine(&d, &stacks)).unwrap_or_default();
         if self.others.0.is_none_or(|at| at.elapsed() > OTHERS_EVERY) {
             self.others = (Some(Instant::now()), others(self.hub.home()));
@@ -179,9 +187,9 @@ impl LibraryView {
         self.menu = None;
         let dir = Path::new(dir);
         if file {
-            cx.open_with_system(&dir.join("doze.hcl"));
+            crate::outward::open_path(cx, &dir.join("doze.hcl"));
         } else {
-            cx.reveal_path(dir);
+            crate::outward::reveal(cx, dir);
         }
         cx.notify();
     }

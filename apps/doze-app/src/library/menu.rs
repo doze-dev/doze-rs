@@ -2,6 +2,7 @@
 //! opens over the page, never as a page. Each item acts at once (through `crate::act`), or asks first where Go asked.
 
 use doze_desk::library::LibStack;
+use gpui::AnimationExt as _;
 use gpui::{AnyElement, Context, IntoElement, div, prelude::*, px};
 
 use doze_desk::act::StackAction;
@@ -176,7 +177,7 @@ pub(super) fn menu(t: &Tokens, st: &LibStack, cx: &mut Context<LibraryView>) -> 
                 .into_any_element(),
         })
         .collect();
-    div()
+    let el = div()
         .absolute()
         .top(px(52.))
         .right(px(16.))
@@ -191,7 +192,15 @@ pub(super) fn menu(t: &Tokens, st: &LibStack, cx: &mut Context<LibraryView>) -> 
         .bg(t.panel)
         .shadow(shadow(t))
         .occlude()
-        .children(els)
+        .children(els);
+    if crate::motion::reduced() {
+        return el.into_any_element();
+    }
+    // Go `.pop`: `settle`, 160 ms from 6 px above.
+    el.with_animation("menu-in", crate::motion::go_anim(160), |d, p| {
+        d.opacity(p).top(px(52. - 6. * (1.0 - p)))
+    })
+    .into_any_element()
 }
 
 /// A folder written with `~` again in full.

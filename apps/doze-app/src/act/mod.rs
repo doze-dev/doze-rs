@@ -125,6 +125,9 @@ impl Acts {
         bad: bool,
         cx: &mut Context<Self>,
     ) -> u64 {
+        let text = text.into();
+        #[cfg(feature = "fixtures")]
+        crate::driver::toast(&text);
         let id = self
             .notices
             .say(text, bad, SystemTime::now(), Instant::now());

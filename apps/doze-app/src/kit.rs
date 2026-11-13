@@ -48,11 +48,20 @@ pub(crate) fn btn(
             t.dim,
         ),
     };
-    let hover_fg = if kind == Btn::Primary {
-        t.ink
-    } else {
-        t.bright
-    };
+    // `.btn:hover`: the border dim and the words bright, easing over 120 ms; the primary keeps its own.
+    let id: gpui::ElementId = id.into();
+    let hid = id.to_string();
+    let over = crate::motion::hovered(&hid) && kind != Btn::Primary;
+    let (border, b_moving) = crate::motion::colour(
+        &format!("{hid}/border"),
+        if over && kind == Btn::Plain {
+            t.dim
+        } else {
+            border
+        },
+    );
+    let (fg, f_moving) =
+        crate::motion::colour(&format!("{hid}/fg"), if over { t.bright } else { fg });
     let mut b = div()
         .id(id)
         .flex()
@@ -74,8 +83,9 @@ pub(crate) fn btn(
         .text_color(fg)
         .whitespace_nowrap()
         .cursor_pointer()
-        .hover(move |s| s.text_color(hover_fg))
+        .child(crate::motion::tick(b_moving || f_moving))
         .child(SharedString::from(label.to_owned()));
+    b = crate::motion::track(b, &hid);
     if !key.is_empty() {
         b = b.child(kbd_plain(key, ty::XS, key_c, ty::MEDIUM));
     }

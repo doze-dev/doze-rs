@@ -5,7 +5,7 @@
 
 use doze_control::Verb;
 use doze_desk::act::{Busy, Failure, StackAction};
-use gpui::{AnyElement, Context, IntoElement, div, prelude::*, px};
+use gpui::{AnyElement, Context, div, prelude::*, px};
 
 use super::{OverviewView, all_rows};
 use crate::kit::{Btn, btn, s};
@@ -208,12 +208,11 @@ pub(super) fn banners(
                     .text_color(t.dim)
                     .child(b.detail()),
             );
-        return vec![
-            banner(t, t.cool)
-                .child(ring)
-                .child(words)
-                .into_any_element(),
-        ];
+        return vec![crate::motion::settle(
+            "banner-busy",
+            banner(t, t.cool).child(ring).child(words),
+            240,
+        )];
     }
     let Some(f) = failed else { return Vec::new() };
     vec![failed_banner(t, v, &f, cx)]
@@ -322,7 +321,7 @@ fn failure_acts(
     let mut acts = div().flex().items_center().gap(px(6.)).flex_none();
     if f.config.is_some() {
         let open: crate::kit::Click =
-            Box::new(move |_, _, cx| cx.open_url(&format!("file://{file}")));
+            Box::new(move |_, _, cx| crate::outward::open_url(cx, &format!("file://{file}")));
         acts = acts.child(btn(
             t,
             "fail-edit",
@@ -343,7 +342,7 @@ fn failure_acts(
     }
     let lines = f.lines.join("\n");
     let copy = Box::new(cx.listener(move |this, _, _, cx| {
-        cx.write_to_clipboard(gpui::ClipboardItem::new_string(lines.clone()));
+        crate::outward::copy(cx, &lines);
         this.say("copied what doze printed", cx);
     }));
     let dismiss = Box::new(cx.listener(|this, _, _, cx| this.dismiss_failure(cx)));
@@ -374,72 +373,22 @@ fn failed_banner(
         .flex_none()
         .rounded_full()
         .bg(t.bad);
-    banner(t, t.bad)
-        .child(dot)
-        .child(words)
-        .child(acts)
-        .into_any_element()
+    crate::motion::settle(
+        "banner-failed",
+        banner(t, t.bad).child(dot).child(words).child(acts),
+        240,
+    )
 }
 
-/// Busy, failed and the verbs in flight are drawn from acts: the page redraws when they change.
+/// Busy and failed are drawn from acts: the page redraws when they change. A verb in flight changes nothing on the
+/// row: its switch and its word move when the daemon says so (Go: the page waits for the next push).
 pub(super) fn observe_acts(cx: &mut Context<OverviewView>) {
     let Some(a) = crate::act::acts(cx) else {
         return;
     };
-    cx.observe(&a, |this, a, cx| {
-        this.doing = a
-            .read(cx)
-            .doing
-            .iter()
-            .filter(|((k, _), _)| this.key.as_ref() == Some(k))
-            .map(|((_, n), v)| (n.clone(), *v))
-            .collect();
+    cx.observe(&a, |this, _, cx| {
         this.refresh(cx);
         cx.notify();
     })
     .detach();
-}
-
-/// What a row says while a verb on it is in flight: "sleeping…", in the waking blue, the reason cleared; so the words
-/// never contradict the switch, which already shows where it is going.
-fn busy_word(v: Verb) -> &'static str {
-    match v {
-        Verb::Sleep => "sleeping…",
-        Verb::Wake | Verb::On | Verb::Up => "waking…",
-        Verb::Restart => "restarting…",
-        Verb::Off => "turning off…",
-        Verb::Pin => "pinning…",
-        Verb::Task => "running…",
-        Verb::Reset => "resetting…",
-        Verb::Sync => "applying…",
-    }
-}
-
-/// The rows and the pane with the verbs in flight marked.
-pub(super) fn mark_doing(
-    mut h: doze_desk::overview::Home,
-    mut p: Option<doze_desk::overview::Pane>,
-    doing: &std::collections::HashMap<String, Verb>,
-) -> (doze_desk::overview::Home, Option<doze_desk::overview::Pane>) {
-    if doing.is_empty() {
-        return (h, p);
-    }
-    let look = |v: Verb| doze_desk::overview::Look {
-        word: busy_word(v),
-        glyph: "◌",
-        tone: "cool",
-    };
-    for r in h.groups.iter_mut().flat_map(|g| g.rows.iter_mut()) {
-        if let Some(v) = doing.get(&r.name) {
-            r.look = look(*v);
-            r.because.clear();
-        }
-    }
-    if let Some(p) = p.as_mut()
-        && let Some(v) = doing.get(&p.name)
-    {
-        p.look = look(*v);
-        p.because.clear();
-    }
-    (h, p)
 }

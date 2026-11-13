@@ -84,3 +84,29 @@ pub(crate) fn take_window_closed() -> Option<SystemTime> {
     });
     Some(at)
 }
+
+/// The page the window last showed (Go: the page's `doze.last`), kept as `last`: `{"key": <stack folder>, "page":
+/// "home" | "instance" | "logs", "instance": <name>}`, or none for the Library. The window opens on it again while
+/// its stack is still known (Go: "reopen where I was", on by default).
+pub(crate) fn last() -> Option<(String, String, String)> {
+    let m = load();
+    let l = m.get("last")?;
+    let s = |k: &str| l.get(k).and_then(Value::as_str).unwrap_or("").to_owned();
+    let key = s("key");
+    (!key.is_empty()).then(|| (key, s("page"), s("instance")))
+}
+
+/// Keeps the page shown (`None`: the Library, or a folder's page, which is not reopened).
+pub(crate) fn save_last(at: Option<(&str, &str, &str)>) {
+    save(|m| match at {
+        Some((key, page, instance)) => {
+            m.insert(
+                "last".into(),
+                serde_json::json!({"key": key, "page": page, "instance": instance}),
+            );
+        }
+        None => {
+            m.remove("last");
+        }
+    });
+}

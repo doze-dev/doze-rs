@@ -312,7 +312,7 @@ pub(super) fn others(t: &Tokens, others: &[Other]) -> impl IntoElement {
                         "Open",
                         "",
                         Btn::Quiet,
-                        Some(Box::new(move |_, _, cx| cx.open_url(&url))),
+                        Some(Box::new(move |_, _, cx| crate::outward::open_url(cx, &url))),
                     ))
                 })
         }))

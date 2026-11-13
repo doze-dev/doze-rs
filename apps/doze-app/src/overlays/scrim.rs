@@ -3,8 +3,8 @@
 //! press on the scrim, outside the panel, cancels. The page stays drawn underneath.
 
 use gpui::{
-    Animation, AnimationExt as _, AnyElement, App, BoxShadow, Hsla, IntoElement, MouseButton,
-    SharedString, Window, div, point, prelude::*, px,
+    AnimationExt as _, AnyElement, App, BoxShadow, Hsla, IntoElement, MouseButton, SharedString,
+    Window, div, point, prelude::*, px,
 };
 
 use crate::theme::{Motion, Tokens, alpha, ty};
@@ -53,18 +53,17 @@ pub(crate) fn center(
             .child(holder)
             .into_any_element();
     }
-    let ease = Animation::new(motion.normal).with_easing(gpui::ease_out_quint());
-    let travel = motion.travel;
+    // Go: the scrim's `fade` (160 ms ease-out); the dialog's `grow` (180 ms, from 4 px above, its frame from .985 of
+    // its size: [`panel`]). The holder is the full window, so it moves by its top edge; the panel inside stays centred.
     let scrim = scrim.with_animation(
         SharedString::from(format!("{id}-scrim")),
-        ease.clone(),
+        crate::motion::scrim_anim(),
         |d, p| d.opacity(p),
     );
-    // The holder is the full window, so it rises by its top edge; the panel inside stays centred.
     let holder = holder.with_animation(
         SharedString::from(format!("{id}-panel")),
-        ease,
-        move |d, p| d.opacity(p).top(px(travel * (1.0 - p))),
+        crate::motion::go_anim(180),
+        move |d, p| d.opacity(p).top(px(-4.0 * (1.0 - p))),
     );
     full()
         .occlude()
@@ -75,20 +74,39 @@ pub(crate) fn center(
 
 /// `.dialog`: the panel a dialog or a sheet is drawn in, `width` across, its title at the top. It keeps a press inside
 /// it from reaching the scrim.
+///
+/// Its frame (the fill, the border and the shadow) is drawn behind the words and grows from .985 of its size as it
+/// enters, as Go's `grow` scales the dialog; GPUI scales no element, so the words stay as they are while the frame
+/// grows around them.
 pub(crate) fn panel(t: &Tokens, width: f32, gap: f32, title: String) -> gpui::Div {
+    let frame = div()
+        .absolute()
+        .inset_0()
+        .rounded(px(12.))
+        .border_1()
+        .border_color(t.line2)
+        .bg(t.panel)
+        .shadow(super::shadow(t));
+    let frame = if crate::motion::reduced() {
+        frame.into_any_element()
+    } else {
+        frame
+            .with_animation("dialog-frame", crate::motion::go_anim(180), |d, p| {
+                let k = gpui::relative(0.0075 * (1.0 - p));
+                d.top(k).bottom(k).left(k).right(k)
+            })
+            .into_any_element()
+    };
     div()
         .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+        .relative()
         .w(px(width))
         .flex()
         .flex_col()
         .gap(px(gap))
         .px(px(22.))
         .py(px(20.))
-        .rounded(px(12.))
-        .border_1()
-        .border_color(t.line2)
-        .bg(t.panel)
-        .shadow(super::shadow(t))
+        .child(frame)
         .font_family(crate::widgets::UI_FAMILY)
         .text_size(px(ty::BASE))
         .line_height(px(ty::LH_19))

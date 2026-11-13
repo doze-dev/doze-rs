@@ -45,6 +45,9 @@ pub struct Home {
     /// Set for a stack that is not running: its rows are down.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stopped: Option<Stopped>,
+    /// The stack's own domains are not all set up on this machine.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub setup: Option<crate::machine_names::Setup>,
 }
 
 /// A heading over part of the stack.
@@ -190,13 +193,9 @@ pub(crate) fn banner(st: &StackView, now: SystemTime) -> Banner {
         };
     }
     let l = &st.link;
-    // Only a metered stack with something running is expected to speak every second (the meters are of running
-    // instances); a quiet one, or one with nothing up, is not stale: its socket is open.
-    let serving = st
-        .instances
-        .iter()
-        .any(|v| matches!(v.state.as_str(), "active" | "idle"));
-    let since = match (st.metered && serving, l.last_frame) {
+    // Only a metered stack is expected to speak every second; a quiet one with nothing changing is not stale, its
+    // socket is open. (Go: the meters frame comes every second whether or not anything runs.)
+    let since = match (st.metered, l.last_frame) {
         (true, Some(t)) => now.duration_since(t).unwrap_or_default(),
         _ => std::time::Duration::ZERO,
     };

@@ -1,12 +1,12 @@
 //! The page's head (name, folder, the view switch, the stack's switch), its banners, the strip of figures (or, for a
 //! stopped stack, the strip that says what Up starts) and the keys bar.
 
-use gpui::{AnyElement, Context, IntoElement, div, prelude::*, px, relative};
+use gpui::{Context, IntoElement, div, prelude::*, px, relative};
 
 use super::{OverviewView, View};
 use crate::kit::{Btn, btn, chip_of, density, s};
-use crate::theme::{Tokens, mix, ty};
-use crate::widgets::{dot, icon, switch, tag};
+use crate::theme::{Tokens, ty};
+use crate::widgets::{icon, switch, tag};
 
 /// `.head`: the name, the folder and how long up (or stopped and when); the views; Activity, All logs; Up.
 pub(super) fn head(
@@ -41,6 +41,7 @@ pub(super) fn head(
         .child(up(
             t,
             (h.running, v.busy(cx).0),
+            &h.key,
             h.stopped.as_ref().is_some_and(|s| !s.problem.is_empty()),
             cx,
         ))
@@ -96,6 +97,7 @@ fn views(t: &Tokens, v: &OverviewView, cx: &mut Context<OverviewView>) -> impl I
 fn up(
     t: &Tokens,
     (running, busy): (bool, Option<doze_desk::act::Busy>),
+    key: &str,
     broken: bool,
     cx: &mut Context<OverviewView>,
 ) -> impl IntoElement {
@@ -118,6 +120,7 @@ fn up(
                 .cursor_pointer()
                 .child(switch(
                     t,
+                    &format!("stack/{key}"),
                     busy.map_or(running, doze_desk::act::Busy::heading_up),
                     true,
                     broken || busy.is_some(),
@@ -141,56 +144,6 @@ fn up(
                     window.dispatch_action(Box::new(crate::actions::OpenPalette), cx)
                 }),
         )
-}
-
-/// The banners over the strip: doze.hcl changed under a running stack.
-pub(super) fn banners(t: &Tokens, v: &OverviewView) -> Vec<AnyElement> {
-    let mut out = Vec::new();
-    if let Some(c) = &v.home.changed {
-        out.push(banner(t, t.cool, &format!("{}.", c.text), "The stack runs the file as it was when it came up. Restarting it brings it down and up as last time, on the new file; data stays."));
-    }
-    if !v.home.banner.ok && !v.home.banner.text.is_empty() {
-        out.push(banner(
-            t,
-            t.warn,
-            &v.home.banner.text,
-            "The figures are the last ones heard; nothing can change until the daemon answers.",
-        ));
-    }
-    out
-}
-
-/// `.banner`: a dot, a bold line and a dim one, tinted by its tone.
-fn banner(t: &Tokens, tone: gpui::Hsla, line: &str, sub: &str) -> AnyElement {
-    div()
-        .flex()
-        .flex_none()
-        .items_center()
-        .gap(px(12.))
-        .mx(px(28.))
-        .mb(px(12.))
-        .px(px(14.))
-        .py(px(10.))
-        .rounded(px(10.))
-        .border_1()
-        .border_color(mix(tone, t.panel, 50.))
-        .bg(mix(tone, t.panel, 10.))
-        .child(dot(tone))
-        .child(
-            div()
-                .flex()
-                .flex_col()
-                .gap(px(1.))
-                .min_w_0()
-                .child(
-                    div()
-                        .font_weight(ty::SEMIBOLD)
-                        .text_color(t.bright)
-                        .child(s(line)),
-                )
-                .child(div().text_size(px(ty::SM)).text_color(t.dim).child(s(sub))),
-        )
-        .into_any_element()
 }
 
 /// The head's left: the stack's name, and its folder and how long it is up.

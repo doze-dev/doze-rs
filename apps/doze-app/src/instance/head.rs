@@ -190,7 +190,7 @@ fn switch_el(t: &Tokens, v: &InstanceView, cx: &mut Context<InstanceView>) -> An
             .id("switch")
             .cursor_pointer()
             .on_click(cx.listener(|v, _, w, cx| v.flip(w, cx)))
-            .child(switch(t, p.on, false, p.off)),
+            .child(switch(t, &format!("inst/{}", p.name), p.on, false, p.off)),
     )
     .into_any_element()
 }

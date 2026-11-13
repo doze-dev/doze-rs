@@ -7,8 +7,8 @@ use std::time::SystemTime;
 
 use doze_desk::act::{Notice, Toast};
 use gpui::{
-    Animation, AnimationExt as _, AnyElement, Context, Entity, IntoElement, Render, SharedString,
-    Window, div, prelude::*, px,
+    AnimationExt as _, AnyElement, Context, Entity, IntoElement, Render, SharedString, Window, div,
+    prelude::*, px,
 };
 
 use crate::act::Acts;
@@ -89,11 +89,11 @@ fn toast(t: &Tokens, x: &Toast, motion: Motion, cx: &mut Context<ToastsView>) ->
     if !motion.moves() {
         return el.into_any_element();
     }
-    let travel = motion.travel * 1.5;
+    // Go `.toast`: `rise`, 220 ms from 8 px below.
     el.with_animation(
         SharedString::from(format!("toast-in-{id}")),
-        Animation::new(motion.normal + motion.normal / 4).with_easing(gpui::ease_out_quint()),
-        move |d, p| d.opacity(p).mt(px(travel * (1.0 - p))),
+        crate::motion::go_anim(220),
+        move |d, p| d.opacity(p).mt(px(8.0 * (1.0 - p))),
     )
     .into_any_element()
 }
@@ -193,7 +193,8 @@ fn recent(t: &Tokens, lines: &[Notice], cx: &mut Context<ToastsView>) -> AnyElem
                 .overflow_y_scroll()
                 .children(body),
         )
-        .into_any_element()
+        // Go `.pop`: `settle`, 160 ms.
+        .map(|d| crate::motion::settle("recent-in", d, 160))
 }
 
 impl Render for ToastsView {

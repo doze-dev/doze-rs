@@ -15,12 +15,12 @@ impl Root {
         match d.kind {
             DoKind::Page => self.open_page(d, window, cx),
             DoKind::Copy => {
-                cx.write_to_clipboard(gpui::ClipboardItem::new_string(d.text.clone()));
+                crate::outward::copy(cx, &d.text);
                 self.say(format!("Copied {}", d.text), cx);
             }
             DoKind::Open => match d.text.strip_prefix("file://") {
-                Some(path) => cx.open_with_system(std::path::Path::new(path)),
-                None => cx.open_url(&d.text),
+                Some(path) => crate::outward::open_path(cx, std::path::Path::new(path)),
+                None => crate::outward::open_url(cx, &d.text),
             },
             DoKind::Terminal => self.terminal(&d.text, cx),
             DoKind::Verb => {
@@ -113,7 +113,7 @@ impl Root {
             "help" => window.dispatch_action(Box::new(ShowHelp), cx),
             "new" => self.pick_folder(true, cx),
             "version" => {
-                cx.write_to_clipboard(gpui::ClipboardItem::new_string(crate::VERSION.into()));
+                crate::outward::copy(cx, crate::VERSION);
                 self.say(format!("Copied doze's version, {}", crate::VERSION), cx);
             }
             "mode" => {

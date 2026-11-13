@@ -1,7 +1,7 @@
 //! `.kv`: a row of a card in the List's pane (a key, a value, and Copy or a verb), and `.copy`, the small accent word
 //! that acts.
 
-use gpui::{AnyElement, ClipboardItem, Context, IntoElement, div, prelude::*, px};
+use gpui::{AnyElement, Context, IntoElement, div, prelude::*, px};
 
 use super::OverviewView;
 use crate::kit::s;
@@ -117,7 +117,7 @@ impl<'a> Kv<'a> {
                 .hover(|d| d.underline())
                 .child("Copy")
                 .on_click(cx.listener(move |this, _, _, cx| {
-                    cx.write_to_clipboard(ClipboardItem::new_string(c.clone()));
+                    crate::outward::copy(cx, &c);
                     this.say(&format!("Copied the {what}"), cx);
                 })),
         )

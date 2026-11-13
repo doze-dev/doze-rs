@@ -5,8 +5,7 @@
 
 use doze_desk::attention::{FixKind, Item, away::Away};
 use gpui::{
-    Animation, AnimationExt as _, AnyElement, Context, IntoElement, SharedString, div, prelude::*,
-    px,
+    AnimationExt as _, AnyElement, Context, IntoElement, SharedString, div, prelude::*, px,
 };
 
 use crate::kit::{Btn, btn};
@@ -14,17 +13,20 @@ use crate::shell::Root;
 use crate::theme::{Motion, Tokens, alpha, ty};
 use crate::widgets::MONO_FAMILY;
 
-/// Fades and lifts `el` in, unless motion is reduced.
+/// Fades `el` in, unless motion is reduced: an alert as Go's toasts `rise` (220 ms from 8 px below), the away strip
+/// as Go's `.away` settles (240 ms from 6 px above).
 fn enter(el: gpui::Div, id: SharedString, motion: Motion) -> AnyElement {
     if !motion.moves() {
         return el.into_any_element();
     }
-    let travel = motion.travel;
-    el.with_animation(
-        id,
-        Animation::new(motion.normal).with_easing(gpui::ease_out_quint()),
-        move |d, p| d.opacity(p).mt(px(travel * (1.0 - p))),
-    )
+    let (ms, from) = if id.as_ref() == "away-in" {
+        (240, -6.0)
+    } else {
+        (220, 8.0)
+    };
+    el.with_animation(id, crate::motion::go_anim(ms), move |d, p| {
+        d.opacity(p).mt(px(from * (1.0 - p)))
+    })
     .into_any_element()
 }
 

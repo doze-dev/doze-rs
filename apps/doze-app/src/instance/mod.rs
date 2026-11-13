@@ -21,8 +21,8 @@ use doze_desk::page::time::Zone;
 use doze_desk::{Batch, ConsoleWatch, Hub, Parts, StackKey, Watch, ports};
 use doze_display as words;
 use gpui::{
-    AppContext as _, ClipboardItem, Context, Entity, EventEmitter, FocusHandle, Focusable,
-    IntoElement, Render, SharedString, Window, div, prelude::*, px,
+    AppContext as _, Context, Entity, EventEmitter, FocusHandle, Focusable, IntoElement, Render,
+    SharedString, Window, div, prelude::*, px,
 };
 
 use crate::actions::{
@@ -283,7 +283,7 @@ impl InstanceView {
 
     /// Copies `what`, and has the link named `id` say so for a moment.
     pub(crate) fn copy(&mut self, id: &str, what: &str, cx: &mut Context<Self>) {
-        cx.write_to_clipboard(ClipboardItem::new_string(what.to_owned()));
+        crate::outward::copy(cx, what);
         self.copied = Some((id.to_owned(), Instant::now()));
         cx.notify();
         cx.spawn(async move |this, cx| {

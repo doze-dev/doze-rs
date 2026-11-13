@@ -11,6 +11,7 @@ use doze_display::Look;
 
 use crate::instance::ui::state_mark;
 use crate::kit::{chip_of, s, word_line};
+use crate::outward::Probe as _;
 use crate::theme::{Tokens, mix, ty};
 use crate::widgets::{MONO_FAMILY, dot, icon, switch, tracked};
 
@@ -41,8 +42,6 @@ pub(super) fn word_tone(t: &Tokens, r: &Row) -> gpui::Hsla {
     }
     match Look::of_word(r.look.word) {
         Some(l) => t.tone(l.tone()),
-        // A verb in flight (`act::mark_doing`).
-        None if r.look.word.ends_with('…') => t.cool,
         None if r.look.word == "ready" => t.accent,
         // Any other word takes the line's own colour, as `wordTone` gave it no class.
         None => t.dim,
@@ -50,11 +49,13 @@ pub(super) fn word_tone(t: &Tokens, r: &Row) -> gpui::Hsla {
 }
 
 /// The row's switch (`Switch`): Run for a task, ⊘ when paused in doze.hcl, else the switch; off for a down row.
-/// While a verb on it is in flight (`doing`), the switch shows where it is going, faded, and takes no clicks.
+/// It shows the state the daemon last said, never where a click is taking it (Go: no optimistic flip): a click sends
+/// the verb, and the switch moves when the daemon's update arrives. `stack` keeps one stack's knobs apart from
+/// another's.
 pub(super) fn row_switch(
     t: &Tokens,
     r: &Row,
-    doing: bool,
+    stack: &str,
     cx: &mut Context<OverviewView>,
 ) -> AnyElement {
     let n = r.name.clone();
@@ -108,8 +109,18 @@ pub(super) fn row_switch(
     div()
         .id(id)
         .flex_none()
-        .child(switch(t, r.on != doing, false, r.off || r.frozen || doing))
-        .when(!doing && !r.frozen, |d| d.cursor_pointer().on_click(say))
+        .child(switch(
+            t,
+            &format!("{stack}/{}", r.name),
+            r.on,
+            false,
+            r.off || r.frozen,
+        ))
+        .when(!r.frozen, |d| d.cursor_pointer().on_click(say))
+        .probe(
+            format!("sw-{}", r.name),
+            format!("{} is {}", r.name, r.look.word),
+        )
         .into_any_element()
 }
 
@@ -178,7 +189,7 @@ fn group_head(t: &Tokens, title: &str, what: &str) -> impl IntoElement {
 fn tile_top(
     t: &Tokens,
     r: &Row,
-    (dim, doing): (bool, bool),
+    (dim, stack): (bool, &str),
     cx: &mut Context<OverviewView>,
 ) -> impl IntoElement {
     let name = div()
@@ -199,7 +210,7 @@ fn tile_top(
         .when(r.pinned, |d| d.child(icon("icons/pin.svg", 13., t.accent)))
         // The lock stands where the switch would (the mark by the name already says ⊘).
         .child(div().flex_1())
-        .child(row_switch(t, r, doing, cx))
+        .child(row_switch(t, r, stack, cx))
 }
 
 /// The word, in its tone, and why.
@@ -213,7 +224,7 @@ fn tile_state(t: &Tokens, r: &Row) -> impl IntoElement {
 }
 
 /// The foot: memory and the address with its copy mark; or, in trouble, what it last said.
-fn tile_foot(t: &Tokens, r: &Row) -> gpui::Div {
+fn tile_foot(t: &Tokens, r: &Row, cx: &mut Context<OverviewView>) -> gpui::Div {
     if !r.err.is_empty() {
         return div()
             .mt_auto()
@@ -235,32 +246,88 @@ fn tile_foot(t: &Tokens, r: &Row) -> gpui::Div {
         .whitespace_nowrap()
         .min_w_0()
         .when(!r.mem.is_empty(), |d| {
-            d.child(div().flex_none().text_color(t.text).child(s(&r.mem)))
+            d.child(
+                div()
+                    .flex_none()
+                    .text_color(t.text)
+                    .font_features(ty::tabular())
+                    .child(s(&r.mem)),
+            )
         });
     if r.kind == "task" {
         return f.when(r.engine != "task", |d| {
             d.child(div().font_family(MONO_FAMILY).child(s(&r.engine)))
         });
     }
-    let link = r.awake && !r.url.is_empty();
     f.when(!r.address.is_empty(), |d| {
-        d.child(
-            div()
-                .min_w_0()
-                .overflow_hidden()
-                .text_ellipsis()
-                .when(link, |d| d.underline())
-                .child(s(&r.address)),
-        )
-        .child(icon("icons/copy.svg", 12., t.dim))
+        d.child(address(t, r, cx)).child(copy_mark(t, r, cx))
     })
+}
+
+/// The address (Go `Address`): a button that opens the row's URL whenever it has one, awake or not (a browser's
+/// connection through doze is what wakes it); drawn as a link only while it is awake.
+pub(super) fn address(t: &Tokens, r: &Row, cx: &mut Context<OverviewView>) -> impl IntoElement {
+    let link = r.awake && !r.url.is_empty();
+    let url = r.url.clone();
+    div()
+        .id(gpui::SharedString::from(format!("addr-{}", r.name)))
+        .flex_initial()
+        .min_w_0()
+        .overflow_hidden()
+        .text_ellipsis()
+        .font_family(MONO_FAMILY)
+        .text_size(px(ty::SM))
+        .font_features(gpui::FontFeatures::disable_ligatures())
+        .when(link, |d| {
+            d.text_color(t.cool)
+                .underline()
+                .text_decoration_color(crate::theme::alpha(t.cool, 0.4))
+        })
+        .when(!url.is_empty(), |d| d.cursor_pointer())
+        .child(s(&r.address))
+        .probe(format!("addr-{}", r.name), r.address.clone())
+        .on_click(cx.listener(move |_, _, _, cx| {
+            cx.stop_propagation();
+            if !url.is_empty() {
+                crate::outward::open_url(cx, &url);
+            }
+        }))
+}
+
+/// The copy mark beside an address: the URL (or the address), and the toast that says so (Go `copy`).
+pub(super) fn copy_mark(t: &Tokens, r: &Row, cx: &mut Context<OverviewView>) -> impl IntoElement {
+    let (name, what) = (
+        r.name.clone(),
+        if r.url.is_empty() {
+            r.address.clone()
+        } else {
+            r.url.clone()
+        },
+    );
+    div()
+        .id(gpui::SharedString::from(format!("copy-{}", r.name)))
+        .flex_none()
+        .p(px(4.))
+        .m(px(-4.))
+        .rounded(px(4.))
+        .cursor_pointer()
+        .hover(|d| d.bg(t.sel))
+        .child(icon("icons/copy.svg", 12., t.accent))
+        .probe(
+            format!("copy-{}", r.name),
+            format!("Copy the address of {}", r.name),
+        )
+        .on_click(cx.listener(move |this, _, _, cx| {
+            cx.stop_propagation();
+            this.copy_text(&what, &format!("the address of {name}"), cx);
+        }))
 }
 
 /// One tile.
 fn tile(
     t: &Tokens,
     r: &Row,
-    (selected, doing): (bool, bool),
+    (selected, stack): (bool, &str),
     cx: &mut Context<OverviewView>,
 ) -> impl IntoElement {
     let off = !r.on && r.kind != "task";
@@ -283,8 +350,17 @@ fn tile(
     } else {
         (t.line, t.panel)
     };
+    // Hover and selection ease over 120 ms (Go `.tile`'s transition); a red tile keeps its frame under the pointer.
+    let hid = format!("tile/{stack}/{}", r.name);
+    let border = if crate::motion::hovered(&hid) && !r.trouble {
+        t.line2
+    } else {
+        border
+    };
+    let (border, b_moving) = crate::motion::colour(&format!("{hid}/border"), border);
+    let (bg, g_moving) = crate::motion::colour(&format!("{hid}/bg"), bg);
     let name = r.name.clone();
-    div()
+    let el = div()
         .id(gpui::SharedString::from(format!("tile-{}", r.name)))
         .flex()
         .flex_col()
@@ -300,16 +376,18 @@ fn tile(
         .border_color(border)
         .bg(bg)
         .when(off, |d| d.border_dashed())
-        .hover(|d| d.border_color(t.line2))
-        .child(tile_top(t, r, (off && !selected, doing), cx))
+        .child(crate::motion::tick(b_moving || g_moving))
+        .child(tile_top(t, r, (off && !selected, stack), cx))
         .child(tile_state(t, r))
-        .child(tile_foot(t, r))
+        .child(tile_foot(t, r, cx))
+        .probe(format!("tile-{}", r.name), r.name.clone())
         .on_click(cx.listener(move |this, ev: &gpui::ClickEvent, _, cx| {
             this.select(&name, cx);
             if ev.click_count() > 1 {
                 this.open(&name, None, cx);
             }
-        }))
+        }));
+    crate::motion::track(el, &hid)
 }
 
 /// The view: the filter, then each group's tiles.
@@ -326,7 +404,8 @@ pub(super) fn view(
         .flex_col()
         .flex_1()
         .min_h_0()
-        .overflow_y_scroll();
+        .overflow_y_scroll()
+        .track_scroll(&v.tiles_scroll);
     if v.home.groups.is_empty() && v.home.stopped.is_none() {
         body = body.child(div().mx(px(28.)).text_color(t.dim).child(
             "doze.hcl declares nothing yet: add an app or a module to it, and it shows here.",
@@ -351,7 +430,7 @@ pub(super) fn view(
                     r,
                     (
                         v.selected.as_deref() == Some(r.name.as_str()),
-                        v.doing.contains_key(&r.name),
+                        v.home.key.as_str(),
                     ),
                     cx,
                 ));

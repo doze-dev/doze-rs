@@ -52,8 +52,15 @@ pub(crate) fn dot(color: Hsla) -> impl IntoElement {
     div().size(px(8.)).flex_none().rounded_full().bg(color)
 }
 
-/// `.sw`: 34x18, or `.sw.big` 44x24. The knob sits 2px in from the padding box.
-pub(crate) fn switch(t: &Tokens, on: bool, big: bool, disabled: bool) -> impl IntoElement {
+/// `.sw`: 34x18, or `.sw.big` 44x24. The knob sits 2px in from the padding box. Only the knob moves when it flips
+/// (`left .12s ease-out`, remembered by `id`); the fill and the border change at once, as Go's do.
+pub(crate) fn switch(
+    t: &Tokens,
+    id: &str,
+    on: bool,
+    big: bool,
+    disabled: bool,
+) -> impl IntoElement {
     let (width, height, knob, travel) = if big {
         (44., 24., 18., 23.)
     } else {
@@ -64,7 +71,7 @@ pub(crate) fn switch(t: &Tokens, on: bool, big: bool, disabled: bool) -> impl In
     } else {
         (t.track, t.dim, t.dim)
     };
-    let left = if on { travel } else { 2. };
+    let (left, moving) = crate::motion::slide(id, if on { travel } else { 2. });
     let top = if big { 2.5 } else { 2. };
     let sw = div()
         .relative()
@@ -83,7 +90,8 @@ pub(crate) fn switch(t: &Tokens, on: bool, big: bool, disabled: bool) -> impl In
                 .size(px(knob))
                 .rounded_full()
                 .bg(knob_bg),
-        );
+        )
+        .child(crate::motion::tick(moving));
     if disabled { sw.opacity(0.4) } else { sw }
 }
 

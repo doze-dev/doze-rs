@@ -6,6 +6,7 @@ use gpui::{AnyElement, Context, IntoElement, div, prelude::*, px};
 
 use super::LibraryView;
 use crate::kit::{heading, need, pill, s, tone};
+use crate::outward::Probe as _;
 use crate::theme::{Tokens, ty};
 use crate::widgets::{MONO_FAMILY, dot, icon, switch};
 
@@ -90,6 +91,16 @@ fn row(
         "y" => t.warn,
         _ => t.dim,
     };
+    // `.lrow`: the pick when selected, the hover colour under the pointer, easing over 120 ms.
+    let hid = format!("lrow/{key}");
+    let row_bg = if selected {
+        t.pick
+    } else if crate::motion::hovered(&hid) {
+        t.sel
+    } else {
+        gpui::transparent_black()
+    };
+    let (row_bg, bg_moving) = crate::motion::colour(&hid, row_bg);
     let base = div()
         .id(gpui::SharedString::from(format!("lrow-{key}")))
         .relative()
@@ -102,8 +113,8 @@ fn row(
         .border_t_1()
         .border_color(t.line)
         .when(last, |d| d.rounded_b(px(10.)))
-        .when(selected, |d| d.bg(t.pick))
-        .when(!selected, |d| d.hover(|d| d.bg(t.sel)))
+        .bg(row_bg)
+        .child(crate::motion::tick(bg_moving))
         .on_click(cx.listener(move |this, e: &gpui::ClickEvent, _, cx| {
             if e.click_count() >= 2 {
                 this.open(&k1, cx);
@@ -111,11 +122,12 @@ fn row(
                 this.select(&k1, cx);
             }
         }));
+    let base = crate::motion::track(base, &hid);
     let cells = [
         dot(dot_c).into_any_element(),
         name(t, st, v.density.pad() < 8.).into_any_element(),
         fig(t, st).into_any_element(),
-        pills(t, st).into_any_element(),
+        pills(t, st, cx).into_any_element(),
         div()
             .flex()
             .justify_end()
@@ -186,6 +198,7 @@ fn fig(t: &Tokens, st: &LibStack) -> impl IntoElement {
         .flex_col()
         .gap(px(3.))
         .min_w_0()
+        .font_features(ty::tabular())
         .text_size(px(ty::SM))
         .whitespace_nowrap()
         .child(
@@ -204,7 +217,7 @@ fn fig(t: &Tokens, st: &LibStack) -> impl IntoElement {
         )
 }
 
-fn pills(t: &Tokens, st: &LibStack) -> impl IntoElement {
+fn pills(t: &Tokens, st: &LibStack, cx: &mut Context<LibraryView>) -> impl IntoElement {
     let mut p = div()
         .flex()
         .flex_wrap()
@@ -218,8 +231,23 @@ fn pills(t: &Tokens, st: &LibStack) -> impl IntoElement {
     if let Some(r) = red {
         p = p.child(need(t, r));
     }
-    for a in &st.addresses {
-        p = p.child(pill(t, &a.text, a.up, a.up && !a.url.is_empty()));
+    // Each address opens in the browser and says so (Go `AddrPill`); one whose domain is not set up here is no link.
+    for (i, a) in st.addresses.iter().enumerate() {
+        let url = a.url.clone();
+        let id = format!("pill-{}-{i}", st.name);
+        p = p.child(
+            pill(t, &a.text, a.up, a.up && !a.url.is_empty())
+                .id(gpui::SharedString::from(id.clone()))
+                .when(!url.is_empty(), |d| d.cursor_pointer())
+                .probe(id, a.text.clone())
+                .on_click(cx.listener(move |this, _, _, cx| {
+                    cx.stop_propagation();
+                    if !url.is_empty() {
+                        crate::outward::open_url(cx, &url);
+                        this.say(&format!("opened {url}"), cx);
+                    }
+                })),
+        );
     }
     if st.more > 0 {
         p = p.child(pill(t, &format!("+{}", st.more), false, false));
@@ -247,6 +275,7 @@ fn act(
                 .cursor_pointer()
                 .child(switch(
                     t,
+                    &format!("lib/{key}"),
                     busy.map_or(st.running, doze_desk::act::Busy::heading_up),
                     true,
                     busy.is_some()

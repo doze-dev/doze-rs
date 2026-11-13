@@ -6,6 +6,7 @@ use gpui::{AnyElement, Context, IntoElement, div, prelude::*, px};
 use super::{Root, Screen, Tab};
 use crate::actions::{OpenBell, OpenPalette, ShowHelp};
 use crate::kit::{chip_of, s};
+use crate::outward::Probe as _;
 use crate::theme::{Tokens, ty};
 use crate::widgets::{dot, icon, kbd_plain};
 
@@ -15,6 +16,32 @@ fn tab(
     id: impl Into<gpui::ElementId>,
     body: Vec<AnyElement>,
 ) -> gpui::Stateful<gpui::Div> {
+    // `.stab`: the words (and the open tab's frame) ease over 120 ms as the pointer comes and goes.
+    let id: gpui::ElementId = id.into();
+    let hid = format!("stab/{id}");
+    let over = crate::motion::hovered(&hid);
+    let (fg, f_moving) = crate::motion::colour(
+        &format!("{hid}/fg"),
+        if on {
+            t.bright
+        } else if over {
+            t.text
+        } else {
+            t.dim
+        },
+    );
+    let (bg, g_moving) = crate::motion::colour(
+        &format!("{hid}/bg"),
+        if on { t.bg } else { gpui::transparent_black() },
+    );
+    let (frame, r_moving) = crate::motion::colour(
+        &format!("{hid}/border"),
+        if on {
+            t.line
+        } else {
+            gpui::transparent_black()
+        },
+    );
     let base = div()
         .id(id)
         .flex()
@@ -30,21 +57,18 @@ fn tab(
         .text_size(px(ty::SM_UP))
         .whitespace_nowrap()
         .cursor_pointer()
+        .bg(bg)
+        .border_color(frame)
+        .text_color(fg)
+        .when(on, |d| d.font_weight(ty::SEMIBOLD))
+        .child(crate::motion::tick(f_moving || g_moving || r_moving))
         .children(body);
-    if on {
-        base.bg(t.bg)
-            .border_color(t.line)
-            .text_color(t.bright)
-            .font_weight(ty::SEMIBOLD)
-    } else {
-        base.border_color(gpui::transparent_black())
-            .text_color(t.dim)
-            .hover(|d| d.text_color(t.text))
-    }
+    crate::motion::track(base, &hid)
 }
 
+/// `.bell` (the bell, and ? beside it): its mark turns bright under the pointer, easing over 120 ms ([`ink`]).
 fn square(t: &Tokens, id: &'static str) -> gpui::Stateful<gpui::Div> {
-    div()
+    let el = div()
         .id(id)
         .mb(px(6.))
         .flex_none()
@@ -57,8 +81,19 @@ fn square(t: &Tokens, id: &'static str) -> gpui::Stateful<gpui::Div> {
         .flex()
         .items_center()
         .justify_center()
-        .cursor_pointer()
-        .hover(|s| s.bg(t.sel))
+        .cursor_pointer();
+    crate::motion::track(el, &format!("bell/{id}"))
+}
+
+/// The mark of the square `id`: `rest`, or bright under the pointer, easing; and whether it is still moving.
+fn ink(t: &Tokens, id: &str, rest: gpui::Hsla) -> (gpui::Hsla, bool) {
+    let hid = format!("bell/{id}");
+    let to = if crate::motion::hovered(&hid) {
+        t.bright
+    } else {
+        rest
+    };
+    crate::motion::colour(&format!("{hid}/fg"), to)
 }
 
 /// A red count: the bell's, a tab's.
@@ -83,26 +118,26 @@ fn badge(t: &Tokens, n: usize) -> gpui::Div {
 /// The title bar.
 pub(crate) fn titlebar(t: &Tokens, root: &Root, cx: &mut Context<Root>) -> impl IntoElement {
     let (red, yellow) = (root.attn.list.red, root.attn.list.yellow);
+    let (bell_ink, bell_moving) = ink(t, "bell", if red > 0 { t.bright } else { t.dim });
+    let (help_ink, help_moving) = ink(t, "help", t.dim);
     let bell = square(t, "bell")
         .relative()
+        .child(crate::motion::tick(bell_moving || help_moving))
+        .probe("bell", format!("bell red={red} yellow={yellow}"))
         .when(root.bell_open(), |d| d.bg(t.sel))
         // Something broken: the bell turns red, as Go's "hot" bell; open, it takes the accent (the count still says).
         .when(red > 0 && !root.bell_open(), |d| {
             d.border_color(t.bad).bg(crate::theme::alpha(t.bad, 0.14))
         })
         .when(root.bell_open(), |d| d.border_color(t.accent))
-        .child(icon(
-            "icons/bell.svg",
-            16.,
-            if red > 0 { t.bright } else { t.dim },
-        ))
+        .child(icon("icons/bell.svg", 16., bell_ink))
         .when(red == 0 && yellow > 0, |d| {
             d.child(
                 div()
                     .absolute()
                     .top(px(4.))
-                    .right(px(5.))
-                    .size(px(7.))
+                    .right(px(4.))
+                    .size(px(8.))
                     .rounded_full()
                     .bg(t.warn),
             )
@@ -111,7 +146,7 @@ pub(crate) fn titlebar(t: &Tokens, root: &Root, cx: &mut Context<Root>) -> impl 
     let help = square(t, "help")
         .text_size(px(ty::BASE))
         .font_weight(ty::SEMIBOLD)
-        .text_color(t.dim)
+        .text_color(help_ink)
         .child("?")
         .on_click(cx.listener(|this, _, window, cx| this.on_help(&ShowHelp, window, cx)));
     div()

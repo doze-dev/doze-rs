@@ -13,6 +13,7 @@ use gpui::{
 
 use crate::actions::{BellFix, BellNotNow, BellShow, MoveDown, MoveUp};
 use crate::kit::{Btn, btn};
+use crate::outward::Probe as _;
 use crate::theme::{Tokens, tokens, ty};
 use crate::widgets::{MONO_FAMILY, UI_FAMILY, kbd_chip, tracked};
 
@@ -122,6 +123,10 @@ impl Bell {
         };
         div()
             .id(("ni", i))
+            .probe(
+                format!("need-{}", it.id),
+                format!("{} · {}", it.title, it.detail),
+            )
             .flex()
             .items_start()
             .gap(px(10.))

@@ -12,6 +12,7 @@ mod nav;
 mod needs;
 mod ops;
 mod pick;
+mod tasks;
 #[cfg(all(test, feature = "capture"))]
 mod tests;
 mod titlebar;
@@ -67,6 +68,8 @@ pub(crate) struct Root {
     hist: history::History,
     /// Reads what is shown again while it counts down (see `clock`).
     clock: clock::Clock,
+    /// Each task's last record, to say how a run went (see `tasks`).
+    tasks: tasks::Tasks,
 }
 
 impl Root {
@@ -111,8 +114,9 @@ impl Root {
         .detach();
         let map = overview.read(cx).map.clone();
         cx.subscribe_in(&map, window, |this, _, ev: &MapEvent, window, cx| {
-            let MapEvent::Open(name) = ev;
-            this.open_instance(name, window, cx);
+            if let MapEvent::Open(name) = ev {
+                this.open_instance(name, window, cx);
+            }
         })
         .detach();
         let mut root = Root {
@@ -133,10 +137,15 @@ impl Root {
             attn,
             hist: history::History::default(),
             clock: clock::Clock::default(),
+            tasks: tasks::Tasks::default(),
         };
         root.rebuild_attention(cx);
         root.hear(&acts, window, cx);
-        let screen = first.map_or(Screen::Library, Screen::Stack);
+        // A fixture or a link names the stack; else the page the window last showed (Go: reopen where I was).
+        let screen = match first {
+            Some(k) => Screen::Stack(k),
+            None => root.reopened(),
+        };
         root.go(screen, window, cx);
         root
     }
@@ -144,6 +153,7 @@ impl Root {
     /// A batch from the hub: re-read what is shown if the batch touches it; the tabs when the list or a stack moved.
     pub(crate) fn apply(&mut self, batch: &Batch, cx: &mut Context<Self>) {
         self.refresh_tabs(cx);
+        self.report_tasks(cx);
         self.rebuild_attention(cx);
         match &self.screen {
             Screen::Library => {
@@ -272,6 +282,9 @@ impl Focusable for Root {
 
 impl Render for Root {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        #[cfg(feature = "fixtures")]
+        crate::driver::frame();
+        crate::motion::set_reduced(cx.reduce_motion());
         self.follow_system(window, cx);
         let t = tokens(cx);
         let page = match &self.screen {

@@ -84,7 +84,7 @@ impl InstanceView {
 
     pub(crate) fn open_address(&mut self, cx: &mut Context<Self>) {
         if let (Some(url), true) = (self.page.url(), self.page.serving()) {
-            cx.open_url(url);
+            crate::outward::open_url(cx, url);
         }
     }
 
@@ -98,7 +98,7 @@ impl InstanceView {
     /// Opens doze.hcl in the person's editor.
     pub(crate) fn edit_config(&mut self, cx: &mut Context<Self>) {
         let path = format!("file://{}/doze.hcl", self.dir);
-        cx.open_url(&path);
+        crate::outward::open_url(cx, &path);
     }
 
     /// The word beside the switch is drawn in its tone; asleep is plain.

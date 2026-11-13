@@ -62,6 +62,8 @@ pub(crate) struct Page {
     /// Setup-task marks, by the card that needs the tasks.
     pub(crate) folds: HashMap<String, Fold>,
     pub(crate) vitals: Vitals,
+    /// What a small map's detail card says of each instance, beyond the layout.
+    pub(crate) said: HashMap<String, crate::map::said::Said>,
 }
 
 /// A module's engine and its version (`postgres 17.2`), without a `builtin` prefix, as the words write it.
@@ -104,6 +106,7 @@ pub(crate) fn page(v: &StackView, now: SystemTime) -> Page {
         map: v.instances.iter().map(map_instance).collect(),
         folds: folds(&snap),
         vitals: vitals(v, &snap),
+        said: crate::map::said::said_of(&snap, now),
         rows,
     }
 }

@@ -88,9 +88,7 @@ fn row(
     let off = !r.on && r.kind != "task";
     let (name, weak) = (r.name.clone(), this.clone());
     let switch = this
-        .update(cx, |this, cx| {
-            row_switch(t, r, this.doing.contains_key(&r.name), cx)
-        })
+        .update(cx, |this, cx| row_switch(t, r, &this.home.key, cx))
         .unwrap_or_else(|_| div().into_any_element());
     let title = div()
         .flex_1()
@@ -109,6 +107,7 @@ fn row(
         .justify_end()
         .text_size(px(ty::SM_UP))
         .text_color(t.text)
+        .font_features(ty::tabular())
         .child(s(&r.mem));
     div()
         .id(gpui::SharedString::from(format!("qr-{}", r.name)))
