@@ -119,16 +119,16 @@ fn the_console_serves_its_pages_beside_the_broker_and_refuses_what_it_should() {
         spa.contains("<meta name=\"doze-base\""),
         "the React console answers every page address: {spa}"
     );
-    // The classic console, until slice R5.
+    // The API the pages read: Home names the Kafka address.
     let home = http(
         &addr,
-        &format!("GET /classic/ HTTP/1.1\r\nHost: {addr}"),
+        &format!("GET /api/v1/home HTTP/1.1\r\nHost: {addr}\r\nX-Console: 1"),
         "",
     );
     assert!(home.starts_with("HTTP/1.1 200"), "{home}");
     assert!(
         home.contains(&format!("127.0.0.1:{}", broker.port)),
-        "the page names the Kafka address"
+        "Home names the Kafka address"
     );
     assert!(
         home.to_ascii_lowercase()
@@ -138,7 +138,7 @@ fn the_console_serves_its_pages_beside_the_broker_and_refuses_what_it_should() {
     assert!(
         http(
             &addr,
-            &format!("GET /classic/connect HTTP/1.1\r\nHost: {addr}"),
+            &format!("GET /connect HTTP/1.1\r\nHost: {addr}"),
             ""
         )
         .starts_with("HTTP/1.1 200")
@@ -146,8 +146,8 @@ fn the_console_serves_its_pages_beside_the_broker_and_refuses_what_it_should() {
     let foreign = http(&addr, "GET / HTTP/1.1\r\nHost: evil.example", "");
     assert!(foreign.starts_with("HTTP/1.1 403"), "{foreign}");
     assert!(foreign.contains("--console-allow-host"), "{foreign}");
-    let post = format!("POST /classic/connect/advertised/check HTTP/1.1\r\nHost: {addr}");
-    let bare = http(&addr, &post, "back=home");
+    let post = format!("POST /api/v1/probe HTTP/1.1\r\nHost: {addr}\r\nX-Console: 1");
+    let bare = http(&addr, &post, "");
     assert!(
         bare.starts_with("HTTP/1.1 403"),
         "a post with no proof of origin: {bare}"
@@ -155,15 +155,22 @@ fn the_console_serves_its_pages_beside_the_broker_and_refuses_what_it_should() {
     let cross = http(
         &addr,
         &format!("{post}\r\nOrigin: http://evil.example"),
-        "back=home",
+        "",
     );
     assert!(cross.starts_with("HTTP/1.1 403"), "{cross}");
     let own = http(
         &addr,
         &format!("{post}\r\nOrigin: http://{addr}"),
-        "back=home",
+        "",
     );
-    assert!(own.starts_with("HTTP/1.1 303"), "{own}");
+    assert!(own.starts_with("HTTP/1.1 200"), "{own}");
+    // The server-rendered console is gone: its old address is the app's, which has no page there.
+    let classic = http(
+        &addr,
+        &format!("GET /classic/ HTTP/1.1\r\nHost: {addr}"),
+        "",
+    );
+    assert!(classic.contains("<meta name=\"doze-base\""), "{classic}");
     assert!(broker.terminate().success());
     let _ = std::fs::remove_dir_all(&data);
 }
@@ -180,7 +187,7 @@ fn a_stopping_broker_does_not_wait_for_an_open_console_stream() {
         .unwrap();
     write!(
         stream,
-        "GET /classic/events?tail=live HTTP/1.1\r\nHost: {addr}\r\n\r\n"
+        "GET /api/v1/tail/live HTTP/1.1\r\nHost: {addr}\r\nX-Console: 1\r\n\r\n"
     )
     .unwrap();
     let mut seen = Vec::new();
@@ -250,14 +257,18 @@ fn a_prefix_moves_every_page_under_it() {
     let addr = console_addr(&broker);
     let under = http(
         &addr,
-        &format!("GET /kafka/classic/connect HTTP/1.1\r\nHost: {addr}"),
+        &format!("GET /kafka/connect HTTP/1.1\r\nHost: {addr}"),
         "",
     );
     assert!(under.starts_with("HTTP/1.1 200"), "{under}");
-    assert!(
-        under.contains("href=\"/kafka/classic/connect/advertised\""),
-        "{under}"
+    assert!(under.contains("content=\"/kafka\""), "{under}");
+    assert!(under.contains("src=\"/kafka/assets/"), "{under}");
+    let api = http(
+        &addr,
+        &format!("GET /kafka/api/v1/shell HTTP/1.1\r\nHost: {addr}\r\nX-Console: 1"),
+        "",
     );
+    assert!(api.starts_with("HTTP/1.1 200"), "{api}");
     let bare = http(&addr, &format!("GET /connect HTTP/1.1\r\nHost: {addr}"), "");
     assert!(bare.starts_with("HTTP/1.1 404"), "{bare}");
     assert!(broker.terminate().success());

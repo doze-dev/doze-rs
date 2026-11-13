@@ -7,9 +7,9 @@
 //   2. a reference to CON-n, anywhere in the docs or the sources, that the catalogue never defines;
 //   3. a test name quoted in the catalogue (`path::to::a_snake_case_test_name`) with no `fn` of that name in any Rust source, and a
 //      `file.rs` quoted that exists nowhere;
-//   4. with --lean-tree: `cargo tree -p doze-kafka --no-default-features -e normal` names axum, maud, hyper or tower (the lean build
+//   4. with --lean-tree: `cargo tree -p doze-kafka --no-default-features -e normal` names axum, hyper or tower (the lean build
 //      must carry no HTTP);
-//   5. with --default-tree: `cargo tree -p doze-kafka -e normal` (the default build) does not name axum, maud, hyper and kafka-console
+//   5. with --default-tree: `cargo tree -p doze-kafka -e normal` (the default build) does not name axum, hyper and kafka-console
 //      (decision D1 of docs/port/phase9.md: the console is in the default build; `default = []` would silently take it out and
 //      the size limits, being upper bounds, would not notice).
 // Only the standard library is used.
@@ -88,7 +88,7 @@ if (process.argv.includes("--lean-tree")) {
   const tree = r.stdout.toString();
   if (r.exitCode !== 0) fail(`cargo tree failed: ${r.stderr.toString().slice(0, 200)}`);
   const names = new Set(tree.split("\n").map((l) => l.split(" ")[0]));
-  const bad = ["axum", "maud", "hyper", "tower", "http", "kafka-console"].filter((n) => names.has(n));
+  const bad = ["axum", "hyper", "tower", "http", "kafka-console"].filter((n) => names.has(n));
   if (bad.length) fail(`the lean build's tree has ${bad.join(", ")}`);
   lean = `, lean tree ${names.size - 1} packages with no HTTP`;
 }
@@ -98,7 +98,7 @@ if (process.argv.includes("--default-tree")) {
   const r = Bun.spawnSync(["cargo", "tree", "-p", "doze-kafka", "-e", "normal", "--prefix", "none"], { cwd: root });
   if (r.exitCode !== 0) fail(`cargo tree failed: ${r.stderr.toString().slice(0, 200)}`);
   const names = new Set(r.stdout.toString().split("\n").map((l) => l.split(" ")[0]));
-  const missing = ["axum", "maud", "hyper", "kafka-console"].filter((n) => !names.has(n));
+  const missing = ["axum", "hyper", "kafka-console"].filter((n) => !names.has(n));
   if (missing.length) fail(`the default build's tree lacks ${missing.join(", ")}: the console is not in the default build (decision D1)`);
   full = `, default tree ${names.size - 1} packages with the console`;
 }

@@ -8,7 +8,6 @@
     clippy::panic
 )]
 
-use std::path::PathBuf;
 
 use kafka_console::backend::requests::forms::topic_configs;
 use kafka_wire::api::Response;
@@ -16,14 +15,6 @@ use kafka_wire::api::Response;
 use crate::support_write::{World, world};
 
 pub const TOPIC: &str = "inventory.levels";
-
-pub fn out_dir() -> PathBuf {
-    let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let root = manifest.parent().unwrap().parent().unwrap();
-    let target =
-        std::env::var_os("CARGO_TARGET_DIR").map_or_else(|| root.join("target"), PathBuf::from);
-    target.join("board-diff-live")
-}
 
 pub async fn seeded(name: &str) -> World {
     let w = world(name, |_, _| {}).await;
