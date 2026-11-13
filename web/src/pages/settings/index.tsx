@@ -22,7 +22,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { number } from "@/lib/format";
 import type { SettingsSearch } from "@/lib/search";
 import { PageError } from "../page-error";
-import { bytes, CallBox, Fact, PathValue, SectionHead, useRoutedOverlay } from "../r4/bits";
+import { bytes, CallBox, Fact, PathValue, SectionHead, useRoutedOverlay, useStable } from "../r4/bits";
 import { EditConfigDialog } from "./edit-dialog";
 
 const SECTIONS = [
@@ -54,6 +54,7 @@ function sourceTone(source: string): "ok" | "info" | "idle" {
 }
 
 function ConfigsSection({ r, onEdit, saved, onDismiss }: { r: SettingsResponse; onEdit: (key: string, from: HTMLElement) => void; saved: SettingsSaved | null; onDismiss: () => void }) {
+  const edit = useStable(onEdit);
   const columns = useMemo<DataColumn<SettingsConfigRow>[]>(
     () => [
       {
@@ -96,13 +97,13 @@ function ConfigsSection({ r, onEdit, saved, onDismiss }: { r: SettingsResponse; 
         size: 92,
         enableSorting: false,
         cell: (c) => (
-          <Button variant="outline" size="sm" className="h-7 bg-card" onClick={(e) => onEdit(c.row.original.name, e.currentTarget)} aria-label={`Edit ${c.row.original.name}`} data-testid={`edit-${c.row.original.name}`}>
+          <Button variant="outline" size="sm" className="h-7 bg-card" onClick={(e) => edit(c.row.original.name, e.currentTarget)} aria-label={`Edit ${c.row.original.name}`} data-testid={`edit-${c.row.original.name}`}>
             <PencilIcon /> Edit
           </Button>
         ),
       },
     ],
-    [onEdit],
+    [edit],
   );
   const s = r.settings;
   return (

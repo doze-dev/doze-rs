@@ -72,7 +72,7 @@ test("Lab: a Slow rule for one client slows its requests; the rule counts them; 
     await page.reload();
     await expect(sheet.getByRole("table", { name: "Requests the rule touched" }).locator("tbody tr").first()).toBeVisible();
     await expect(sheet.getByTestId("lab-badge").first()).toBeVisible();
-    const took = await sheet.getByRole("table", { name: "Requests the rule touched" }).locator("tbody tr").first().locator("td").last().innerText();
+    const took = await sheet.getByRole("table", { name: "Requests the rule touched" }).locator("tbody tr").first().locator("td").nth(5).innerText();
     expect(Number(took.replace(/[^\d]/g, ""))).toBeGreaterThanOrEqual(300);
     await expect(sheet.getByTestId("tile-remaining")).toContainText(/\d:\d\d/);
     // The page's table says the same rule, its hits and its last hit as an absolute time.

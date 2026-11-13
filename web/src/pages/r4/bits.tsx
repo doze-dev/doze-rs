@@ -1,7 +1,7 @@
 // Small pieces the Settings, Access and Lab pages share: the call box, Kafka's refusal, a section head, a wrapping path, a
 // routed-overlay helper.
 import { CodeIcon, OctagonXIcon } from "lucide-react";
-import { useRef } from "react";
+import { useCallback, useLayoutEffect, useRef } from "react";
 import type { KafkaRefusal } from "@/api/types/KafkaRefusal";
 import type { Tok } from "@/api/types/Tok";
 import { CopyButton } from "@/components/app/copy-button";
@@ -119,12 +119,19 @@ export function useRoutedOverlay(set: (patch: Patch, replace: boolean) => void) 
     },
     /** For an overlay's `onCloseAutoFocus`: the focus goes back to what opened it. */
     restore(e: Event) {
-      const el = from.current;
-      if (el && el.isConnected) {
-        e.preventDefault();
-        // After the overlay's own clean-up: until then the page behind it is `inert` and cannot take the focus.
-        setTimeout(() => el.focus(), 0);
-      }
+      const was = from.current;
+      if (!was) return;
+      e.preventDefault();
+      // After the overlay's own clean-up: until then the page behind it is `inert` and cannot take the focus. A table may have
+      // drawn its row again meanwhile, so the opener is found again by its test id or its label when it is not the same node.
+      setTimeout(() => {
+        const testid = was.dataset.testid;
+        const label = was.getAttribute("aria-label");
+        const again = was.isConnected
+          ? was
+          : (document.querySelector<HTMLElement>(label ? `[aria-label="${CSS.escape(label)}"]` : `[data-testid="${CSS.escape(testid ?? "")}"]`) ?? null);
+        again?.focus();
+      }, 0);
     },
     close(patch: Patch) {
       if (pushed.current) {
@@ -137,6 +144,17 @@ export function useRoutedOverlay(set: (patch: Patch, replace: boolean) => void) 
       set(patch, true);
     },
   };
+}
+
+/** A callback whose identity never changes but which always calls the latest `fn`: a table's columns that hold it are made
+ * once, so a refresh does not draw the rows' buttons again (which would lose the focus). */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function useStable<A extends any[], R>(fn: (...a: A) => R): (...a: A) => R {
+  const ref = useRef(fn);
+  useLayoutEffect(() => {
+    ref.current = fn;
+  });
+  return useCallback((...a: A) => ref.current(...a), []);
 }
 
 /** `128 MiB`, `4.0 MB`: bytes as a person reads them. */

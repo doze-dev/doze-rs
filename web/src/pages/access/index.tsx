@@ -20,7 +20,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { number } from "@/lib/format";
 import type { AccessSearch } from "@/lib/search";
 import { PageError } from "../page-error";
-import { Fact, SectionHead, useRoutedOverlay } from "../r4/bits";
+import { Fact, SectionHead, useRoutedOverlay, useStable } from "../r4/bits";
 import { CreateAclDialog, DeleteAclDialog } from "./acl-dialogs";
 
 /** The form words of an ACL, as a query string: its stable id, and the address of its Delete dialog. */
@@ -134,6 +134,7 @@ function Acls({ r, search, set, onDelete, onCreate }: { r: AccessResponse; searc
   const kinds = r.kinds;
   const ops = r.operations;
   const label = (list: AclChoice[], n: number) => list.find((k) => k.number === n)?.label ?? String(n);
+  const del = useStable(onDelete);
   const columns = useMemo<DataColumn<AclEntry>[]>(
     () => [
       {
@@ -163,13 +164,13 @@ function Acls({ r, search, set, onDelete, onCreate }: { r: AccessResponse; searc
         size: 104,
         enableSorting: false,
         cell: (c) => (
-          <Button variant="outline" size="sm" className="h-7 bg-card" onClick={(ev) => onDelete(aclQuery(c.row.original, kinds, ops), ev.currentTarget)} aria-label={`Delete the ACL on ${c.row.original.name} for ${c.row.original.principal}`} data-testid="acl-delete">
+          <Button variant="outline" size="sm" className="h-7 bg-card" onClick={(ev) => del(aclQuery(c.row.original, kinds, ops), ev.currentTarget)} aria-label={`Delete the ACL on ${c.row.original.name} for ${c.row.original.principal}`} data-testid="acl-delete">
             <Trash2Icon /> Delete
           </Button>
         ),
       },
     ],
-    [kinds, ops, onDelete],
+    [kinds, ops, del],
   );
   const q = (search.q ?? "").toLowerCase();
   const kindN = search.kind ? kinds.find((k) => k.value === search.kind)?.number : undefined;

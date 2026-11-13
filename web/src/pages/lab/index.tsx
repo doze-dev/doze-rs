@@ -23,7 +23,7 @@ import { Switch } from "@/components/ui/switch";
 import { clockUtc, hhmmUtc, number } from "@/lib/format";
 import { LAB_TABS, type LabSearch, type LabTab } from "@/lib/search";
 import { PageError } from "../page-error";
-import { SectionHead, useRoutedOverlay } from "../r4/bits";
+import { SectionHead, useRoutedOverlay, useStable } from "../r4/bits";
 import { NewRehearsalDialog, TAB_WORDS } from "./rule-dialog";
 import { END_WORDS, RuleSheet } from "./rule-sheet";
 
@@ -62,6 +62,7 @@ function Rehearsals({ onStart }: { onStart: (t: LabTab, from: HTMLElement) => vo
 }
 
 function ActiveTable({ rules, onOpen, onSwitch, onRemove }: { rules: LabRule[]; onOpen: (id: number, from: HTMLElement) => void; onSwitch: (id: number, on: boolean) => void; onRemove: (id: number, from: HTMLElement) => void }) {
+  const [open, flip, drop] = [useStable(onOpen), useStable(onSwitch), useStable(onRemove)];
   const columns = useMemo<DataColumn<LabRule>[]>(
     () => [
       {
@@ -71,7 +72,7 @@ function ActiveTable({ rules, onOpen, onSwitch, onRemove }: { rules: LabRule[]; 
         enableSorting: false,
         cell: (c) => (
           <span onClick={(e) => e.stopPropagation()} className="inline-flex">
-            <Switch checked={c.row.original.enabled} onCheckedChange={(on) => onSwitch(c.row.original.id, on)} aria-label={`${c.row.original.name}: on`} data-testid="rule-switch" />
+            <Switch checked={c.row.original.enabled} onCheckedChange={(on) => flip(c.row.original.id, on)} aria-label={`${c.row.original.name}: on`} data-testid="rule-switch" />
           </span>
         ),
       },
@@ -79,7 +80,7 @@ function ActiveTable({ rules, onOpen, onSwitch, onRemove }: { rules: LabRule[]; 
         accessorKey: "name",
         header: "Rule",
         cell: (c) => (
-          <button type="button" className="max-w-full truncate rounded-sm text-left font-medium text-bright hover:text-primary focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none" title={c.row.original.sentence} onClick={(ev) => onOpen(c.row.original.id, ev.currentTarget)} data-testid="rule-open">
+          <button type="button" className="max-w-full truncate rounded-sm text-left font-medium text-bright hover:text-primary focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none" title={c.row.original.sentence} onClick={(ev) => open(c.row.original.id, ev.currentTarget)} data-testid="rule-open">
             {c.row.original.name}
           </button>
         ),
@@ -96,13 +97,13 @@ function ActiveTable({ rules, onOpen, onSwitch, onRemove }: { rules: LabRule[]; 
         size: 56,
         enableSorting: false,
         cell: (c) => (
-          <Button variant="ghost" size="icon-sm" onClick={(e) => (e.stopPropagation(), onRemove(c.row.original.id, e.currentTarget))} aria-label={`Remove ${c.row.original.name}`} data-testid="rule-remove">
+          <Button variant="ghost" size="icon-sm" onClick={(e) => (e.stopPropagation(), drop(c.row.original.id, e.currentTarget))} aria-label={`Remove ${c.row.original.name}`} data-testid="rule-remove">
             <Trash2Icon />
           </Button>
         ),
       },
     ],
-    [onOpen, onSwitch, onRemove],
+    [open, flip, drop],
   );
   return <DataTable data={rules} columns={columns} rowId={(r) => String(r.id)} aria-label="Rules in force" maxHeight={480} empty="No rule is in force. Start a rehearsal below." />;
 }
@@ -164,6 +165,8 @@ export function LabPage() {
   const navigate = useNavigate({ from: "/lab" });
   const overlay = useRoutedOverlay((patch, replace) => void navigate({ search: (s: LabSearch) => ({ ...s, ...patch }), replace, resetScroll: false }));
   const [busy, setBusy] = useState(false);
+  const openEnded = useStable((id: number) => overlay.open({ rule: id }));
+  const endedCols = useMemo(() => endedColumns(openEnded), [openEnded]);
   const r = q.data;
   const h = r?.home;
   const refresh = () => {
@@ -252,7 +255,7 @@ export function LabPage() {
                   </>
                 }
               />
-              {h.ended.length > 0 && <DataTable data={h.ended} columns={endedColumns((id) => overlay.open({ rule: id }))} rowId={(x) => `e${x.id}`} aria-label="Rules that ended" maxHeight={360} />}
+              {h.ended.length > 0 && <DataTable data={h.ended} columns={endedCols} rowId={(x) => `e${x.id}`} aria-label="Rules that ended" maxHeight={360} />}
               <OnceList once={h.once} />
             </section>
           )}
