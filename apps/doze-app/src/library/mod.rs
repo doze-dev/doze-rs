@@ -2,9 +2,9 @@
 //! while it is useful, every stack with its figures and its switch, what other doze programs run here, the machine
 //! line. Every word is doze-desk's ([`doze_desk::library`]); this keeps only what is selected and which menu is open.
 //!
-//! M1 is read-only: the switch shows whether a stack is up, and turning it says that starting and stopping come with
-//! the next step (M2). Opening a stack, its doze.hcl and its folder work now.
+//! The switch, the menu and the keys act through `crate::act` (M2): a busy row says what it is doing.
 
+mod act;
 mod menu;
 mod parts;
 mod rows;
@@ -234,8 +234,8 @@ impl Render for LibraryView {
                     this.open(&k, cx);
                 }
             }))
-            .on_action(cx.listener(|this, _: &ToggleStack, _, cx| this.say(M2, cx)))
-            .on_action(cx.listener(|this, _: &RemoveStack, _, cx| this.say(M2, cx)))
+            .on_action(cx.listener(|this, _: &ToggleStack, _, cx| this.toggle_selected(cx)))
+            .on_action(cx.listener(|this, _: &RemoveStack, _, cx| this.remove_selected(cx)))
             .child(parts::head(&t, self, cx))
             .child(body)
             .child(parts::machine_line(&t, &self.lib.machine, cx))
@@ -246,6 +246,3 @@ impl Render for LibraryView {
             ))
     }
 }
-
-/// What a verb that changes a stack says in M1.
-pub(crate) const M2: &str = "Starting, stopping and removing stacks come with the next step; this build looks, it does not touch.";

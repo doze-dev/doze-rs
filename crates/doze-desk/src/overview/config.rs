@@ -168,7 +168,7 @@ fn numbered(l: &str) -> bool {
 }
 
 /// `on FILE line N`: the file and the line.
-fn on_file(msg: &str) -> Option<(&str, usize)> {
+pub(crate) fn on_file(msg: &str) -> Option<(&str, usize)> {
     let mut rest = msg;
     while let Some(at) = rest.find("on ") {
         let after = rest.get(at + 3..)?;

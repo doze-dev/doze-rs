@@ -8,6 +8,7 @@
 //! {"log":{"instance":"api","line":"listening",…}}            a line an instance printed, for the `logs` op
 //! {"admin_result":"purged 3 messages"}                       what `admin` answers
 //! {"fail":{"key":"wake api","error":"boom","code":"timeout"}} an op ("op" or "op target") that fails
+//! {"verb_delay_ms":800}                                     how long each verb and data action takes to answer
 //! ```
 //!
 //! The scripts of the Go fixture hubs (shop, crash, modules, larder, …) were captured from Go's own
@@ -29,6 +30,7 @@ pub enum Entry {
     Log(LogFrame),
     AdminResult(String),
     Fail(Fail),
+    VerbDelayMs(u64),
 }
 
 /// An op that fails: `key` is `"op target"` or `"op"` (`"admin <action>"` for a data action).
@@ -61,6 +63,9 @@ pub struct Script {
     pub logs: Vec<LogFrame>,
     pub admin_result: String,
     pub fail: Vec<Fail>,
+    /// How long each verb (and data action) takes before it answers, as a real one takes a moment: so a page shows it
+    /// busy.
+    pub verb_delay: Duration,
 }
 
 /// A script line that could not be read.
@@ -111,6 +116,7 @@ impl Script {
             Entry::Log(l) => self.logs.push(l),
             Entry::AdminResult(r) => self.admin_result = r,
             Entry::Fail(f) => self.fail.push(f),
+            Entry::VerbDelayMs(ms) => self.verb_delay = Duration::from_millis(ms),
         }
     }
 
@@ -122,6 +128,9 @@ impl Script {
             (!self.admin_result.is_empty()).then(|| Entry::AdminResult(self.admin_result.clone())),
         );
         entries.extend(self.fail.iter().cloned().map(Entry::Fail));
+        entries.extend((!self.verb_delay.is_zero()).then(|| {
+            Entry::VerbDelayMs(u64::try_from(self.verb_delay.as_millis()).unwrap_or(u64::MAX))
+        }));
         entries.extend(self.steps.iter().map(|s| match s {
             Step::Frame(f) => Entry::Frame(f.clone()),
             Step::Wait(d) => Entry::WaitMs(u64::try_from(d.as_millis()).unwrap_or(u64::MAX)),

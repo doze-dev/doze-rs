@@ -3,7 +3,7 @@
 
 use gpui::{AnyElement, Context, IntoElement, div, prelude::*, px, relative};
 
-use super::{M2, OverviewView, View};
+use super::{OverviewView, View};
 use crate::kit::{Btn, btn, chip_of, density, s};
 use crate::theme::{Tokens, mix};
 use crate::widgets::{dot, icon, switch, tag, w};
@@ -37,7 +37,7 @@ pub(super) fn head(
         .child(soon(t, "All logs", SOON_LOGS, cx))
         .child(up(
             t,
-            h.running,
+            (h.running, v.busy(cx).0),
             h.stopped.as_ref().is_some_and(|s| !s.problem.is_empty()),
             cx,
         ))
@@ -89,7 +89,14 @@ fn views(t: &Tokens, v: &OverviewView, cx: &mut Context<OverviewView>) -> impl I
 }
 
 /// `.swl`: Up and the stack's switch; ⋯.
-fn up(t: &Tokens, running: bool, broken: bool, cx: &mut Context<OverviewView>) -> impl IntoElement {
+/// While the stack is busy the label says what it is doing ("starting…") and the switch, faded, where it is going.
+fn up(
+    t: &Tokens,
+    (running, busy): (bool, Option<doze_desk::act::Busy>),
+    broken: bool,
+    cx: &mut Context<OverviewView>,
+) -> impl IntoElement {
+    let label = busy.map_or_else(|| "Up".to_owned(), |b| format!("{}…", b.word()));
     div()
         .flex()
         .flex_none()
@@ -99,15 +106,22 @@ fn up(t: &Tokens, running: bool, broken: bool, cx: &mut Context<OverviewView>) -
             div()
                 .text_size(px(12.))
                 .font_weight(w(600.))
-                .text_color(t.bright)
-                .child("Up"),
+                .text_color(if busy.is_some() { t.cool } else { t.bright })
+                .child(label),
         )
         .child(
             div()
                 .id("stack-switch")
                 .cursor_pointer()
-                .child(switch(t, running, true, broken))
-                .on_click(cx.listener(|this, _, _, cx| this.say(M2, cx))),
+                .child(switch(
+                    t,
+                    busy.map_or(running, doze_desk::act::Busy::heading_up),
+                    true,
+                    broken || busy.is_some(),
+                ))
+                .when(busy.is_none(), |d| {
+                    d.on_click(cx.listener(|this, _, _, cx| this.flip_stack(cx)))
+                }),
         )
         .child(
             div()
@@ -119,7 +133,10 @@ fn up(t: &Tokens, running: bool, broken: bool, cx: &mut Context<OverviewView>) -
                 .justify_center()
                 .hover(|d| d.bg(t.sel))
                 .child(icon("icons/dots.svg", 16., t.dim))
-                .on_click(cx.listener(|this, _, _, cx| this.say(M2, cx))),
+                // The stack's commands (restart, stop, choose what starts, edit, remove) are all in ⌘K.
+                .on_click(|_, window, cx| {
+                    window.dispatch_action(Box::new(crate::actions::OpenPalette), cx)
+                }),
         )
 }
 

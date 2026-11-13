@@ -1,7 +1,7 @@
 //! The page's verbs, as the Go page chose them by state: `r` tries a crashing service again, runs a task, restarts an
 //! awake one; `s` stops trying, or sleeps; `w` wakes (turning an off service back on first); `p` pins. Restart and
-//! sleep of a service that is serving ask first, and the confirmation dialog is M2's (step 2.2), so until then they
-//! say so rather than act unasked. Each verb runs on the hub's short-lived connection, off the UI thread.
+//! sleep of a service in use ask first, and waking looks at its port first: both through `crate::act`, which runs each
+//! verb on the hub's short-lived connection, off the UI thread.
 
 use doze_control::Verb;
 use doze_display::Look;
@@ -11,35 +11,20 @@ use super::InstanceView;
 use crate::theme::tokens;
 
 impl InstanceView {
+    /// Runs `verb` at once: what needs no asking (try now, stop trying, pin, run).
     fn run_verbs(&mut self, verbs: Vec<Verb>, cx: &mut Context<Self>) {
-        let (hub, key, name) = (self.hub.clone(), self.key.clone(), self.name.clone());
-        cx.spawn(async move |this, cx| {
-            let res = cx
-                .background_executor()
-                .spawn(async move {
-                    for v in verbs {
-                        hub.verb(&key, v, &name)?;
-                    }
-                    Ok::<(), doze_desk::Error>(())
-                })
-                .await;
-            if let Err(e) = res {
-                let _ = this.update(cx, |v, cx| v.say(e.to_string(), cx));
-            }
-        })
-        .detach();
+        let (key, name) = (self.key.clone(), self.name.clone());
+        if let (Some(a), Some(v)) = (crate::act::acts(cx), verbs.first().copied()) {
+            a.update(cx, |a, cx| a.run_verbs(&key, v, vec![name], cx));
+        }
     }
 
-    fn asks(&self, what: &str, cx: &mut Context<Self>) {
-        self.say(
-            format!(
-                "{what} {} asks first; the confirmation comes with M2. From a terminal: doze {} {}",
-                self.name,
-                what.to_lowercase(),
-                self.name
-            ),
-            cx,
-        );
+    /// Asks for `verb` the way the page asks: a question first when one is due, a look before it wakes.
+    fn ask(&mut self, verb: Verb, cx: &mut Context<Self>) {
+        let (key, name) = (self.key.clone(), self.name.clone());
+        if let Some(a) = crate::act::acts(cx) {
+            a.update(cx, |a, cx| a.verb(&key, &name, verb, cx));
+        }
     }
 
     pub(crate) fn restart(&mut self, _: &mut Window, cx: &mut Context<Self>) {
@@ -49,7 +34,7 @@ impl InstanceView {
         } else if p.crash.is_some() {
             self.run_verbs(vec![Verb::Restart], cx);
         } else if p.serving() {
-            self.asks("Restart", cx);
+            self.ask(Verb::Restart, cx);
         }
     }
 
@@ -61,7 +46,7 @@ impl InstanceView {
         if p.crash.is_some() {
             self.run_verbs(vec![Verb::Off], cx);
         } else if p.serving() {
-            self.asks("Sleep", cx);
+            self.ask(Verb::Sleep, cx);
         }
     }
 
@@ -69,11 +54,11 @@ impl InstanceView {
     pub(crate) fn flip(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let p = &self.page;
         if p.off {
-            self.run_verbs(vec![Verb::On, Verb::Wake], cx);
+            self.ask(Verb::On, cx);
         } else if p.on {
             self.sleep(window, cx);
         } else {
-            self.run_verbs(vec![Verb::Wake], cx);
+            self.ask(Verb::Wake, cx);
         }
     }
 

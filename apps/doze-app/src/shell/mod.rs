@@ -3,13 +3,13 @@
 //! the overlays over it all. It reads the hub: a batch that touches what is shown re-reads it, and a page re-renders
 //! only when what it shows changed (the views are `PartialEq`), which is what keeps an idle window at zero redraws.
 
+mod acting;
 mod inside;
 mod nav;
 mod ops;
 mod titlebar;
 
 use std::path::PathBuf;
-use std::time::Duration;
 
 use doze_desk::{Batch, Hub, StackKey};
 use gpui::{
@@ -18,8 +18,9 @@ use gpui::{
 };
 
 use crate::actions::{
-    AllLogs, CloseOverlay, CloseWindow, Confirm, CycleDensity, CycleMode, GoHome, MoveDown, MoveUp,
-    NextPalette, Quit,
+    AllLogs, CloseOverlay, CloseWindow, Confirm, CycleDensity, CycleMode, EditConfig, GoHome,
+    MoveDown, MoveUp, NewStack, NextPalette, OpenFolder, Quit, RemoveShown, RestartStack,
+    ShowRecent, StopStack,
 };
 use crate::facts::{self, Facts};
 use crate::library::{LibraryEvent, LibraryView};
@@ -28,6 +29,7 @@ use crate::overlays::Overlay;
 use crate::overview::{OverviewEvent, OverviewView};
 use crate::theme::tokens;
 use crate::widgets::UI_FAMILY;
+use doze_desk::act::StackAction;
 
 pub(crate) use nav::{Screen, Tab};
 
@@ -47,8 +49,11 @@ pub(crate) struct Root {
     overlay: Option<Overlay>,
     /// The page inside a stack while [`Screen::Instance`] or [`Screen::Logs`] shows: the view the screen names.
     inside: Option<inside::Inside>,
-    /// A line at the foot, for a moment (a verb that comes later, a link doze cannot follow yet).
-    notice: Option<SharedString>,
+    /// Acting: dialogs, sheets, toasts, stack actions (M2).
+    pub(crate) acts: Entity<crate::act::Acts>,
+    toasts: Entity<crate::overlays::toasts::ToastsView>,
+    /// The page of a folder with no doze.hcl, while [`Screen::Empty`] shows.
+    pub(crate) empty: Option<Entity<crate::empty::EmptyView>>,
     focus: FocusHandle,
 }
 
@@ -61,6 +66,8 @@ impl Root {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
+        let acts = crate::act::ensure(&hub, &mode, cx);
+        let toasts = cx.new(|cx| crate::overlays::toasts::ToastsView::new(acts.clone(), cx));
         let facts = cx.new(|_| Facts::new(mode));
         let library = cx.new(|cx| LibraryView::new(hub.clone(), facts.clone(), cx));
         let overview = cx.new(|cx| OverviewView::new(hub.clone(), facts.clone(), window, cx));
@@ -102,9 +109,12 @@ impl Root {
             hidden: Vec::new(),
             overlay: None,
             inside: None,
-            notice: None,
+            acts: acts.clone(),
+            toasts,
+            empty: None,
             focus: cx.focus_handle(),
         };
+        root.hear(&acts, window, cx);
         let screen = first.map_or(Screen::Library, Screen::Stack);
         root.go(screen, window, cx);
         root
@@ -119,6 +129,7 @@ impl Root {
                     self.library.update(cx, |l, cx| l.refresh(cx));
                 }
             }
+            Screen::Empty(_) => {}
             Screen::Stack(k) => {
                 if !batch.parts(k).is_empty() || !batch.hub.is_empty() {
                     self.overview.update(cx, |o, cx| o.refresh(cx));
@@ -138,6 +149,7 @@ impl Root {
         self.refresh_tabs(cx);
         match &self.screen {
             Screen::Library => self.library.update(cx, |l, cx| l.refresh(cx)),
+            Screen::Empty(_) => cx.notify(),
             Screen::Stack(_) => self.overview.update(cx, |o, cx| o.refresh(cx)),
             Screen::Instance(..) | Screen::Logs(_) => cx.notify(),
         }
@@ -211,28 +223,14 @@ impl Root {
                     self.select(name, cx);
                 }
             }
-            None => self.say(
-                format!(
-                    "doze has no stack in {} yet. Adding a folder comes with the next step (M2).",
-                    dir.display()
-                ),
-                cx,
-            ),
+            None => self.open_new(&dir, window, cx),
         }
     }
 
-    /// Says something at the foot for a few seconds.
+    /// Says something: a toast, kept among the recent lines.
     pub(crate) fn say(&mut self, words: impl Into<SharedString>, cx: &mut Context<Self>) {
-        self.notice = Some(words.into());
-        cx.notify();
-        cx.spawn(async move |this, cx| {
-            cx.background_executor().timer(Duration::from_secs(5)).await;
-            let _ = this.update(cx, |r, cx| {
-                r.notice = None;
-                cx.notify();
-            });
-        })
-        .detach();
+        let text = words.into().to_string();
+        self.acts.update(cx, |a, cx| a.say(text, false, cx));
     }
 
     /// A folder (or a file in it, a doze.hcl) dropped on the window: its stack, if doze runs one there.
@@ -240,34 +238,6 @@ impl Root {
         if let Some(p) = paths.paths().first() {
             self.open_dir(&p.clone(), None, window, cx);
         }
-    }
-
-    /// What the window says at the foot; it floats over the page, so nothing moves.
-    fn notice_el(&self, t: &crate::theme::Tokens) -> Option<gpui::AnyElement> {
-        let n = self.notice.clone()?;
-        Some(
-            div()
-                .absolute()
-                .bottom(px(46.))
-                .left(px(0.))
-                .right(px(0.))
-                .flex()
-                .justify_center()
-                .child(
-                    div()
-                        .max_w(px(720.))
-                        .px(px(14.))
-                        .py(px(8.))
-                        .rounded(px(10.))
-                        .border_1()
-                        .border_color(t.line2)
-                        .bg(t.panel)
-                        .shadow(vec![crate::overlays::shadow(t)])
-                        .text_color(t.text)
-                        .child(n),
-                )
-                .into_any_element(),
-        )
     }
 }
 
@@ -283,6 +253,10 @@ impl Render for Root {
         let t = tokens(cx);
         let page = match &self.screen {
             Screen::Library => self.library.clone().into_any_element(),
+            Screen::Empty(_) => self
+                .empty
+                .clone()
+                .map_or_else(|| div().into_any_element(), IntoElement::into_any_element),
             Screen::Stack(_) => self.overview.clone().into_any_element(),
             Screen::Instance(..) | Screen::Logs(_) => self
                 .inside_el(&t, cx)
@@ -319,6 +293,21 @@ impl Render for Root {
             .on_action(cx.listener(|this, _: &AllLogs, window, cx| this.open_logs(window, cx)))
             .on_action(cx.listener(|_, _: &CloseWindow, window, _| window.remove_window()))
             .on_action(cx.listener(|_, _: &Quit, _, cx| cx.quit()))
+            .on_action(cx.listener(|this, _: &OpenFolder, _, cx| this.pick_folder(false, cx)))
+            .on_action(cx.listener(|this, _: &NewStack, _, cx| this.pick_folder(true, cx)))
+            .on_action(cx.listener(|this, _: &ShowRecent, _, cx| {
+                this.acts.update(cx, |a, cx| a.toggle_recent(cx))
+            }))
+            .on_action(cx.listener(|this, _: &RestartStack, _, cx| {
+                this.stack_action(StackAction::Restart, cx)
+            }))
+            .on_action(
+                cx.listener(|this, _: &StopStack, _, cx| this.stack_action(StackAction::Down, cx)),
+            )
+            .on_action(cx.listener(|this, _: &RemoveShown, _, cx| {
+                this.stack_action(StackAction::Remove, cx)
+            }))
+            .on_action(cx.listener(|this, _: &EditConfig, _, cx| this.edit_config(cx)))
             .on_action(cx.listener(|this, _: &MoveDown, _, cx| this.palette_step(1, cx)))
             .on_action(cx.listener(|this, _: &MoveUp, _, cx| this.palette_step(-1, cx)))
             .on_action(cx.listener(|this, _: &Confirm, _, cx| this.palette_choose(cx)))
@@ -326,7 +315,7 @@ impl Render for Root {
                 this.dropped(paths, window, cx)
             }))
             .child(page)
-            .children(self.notice_el(&t))
+            .child(self.toasts.clone())
             .children(self.overlay_el(cx))
     }
 }

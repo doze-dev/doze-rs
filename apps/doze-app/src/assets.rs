@@ -18,6 +18,8 @@ const CARET: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 6
 const COPY: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none" stroke="white" stroke-width="1.4"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"/><path d="M10.5 3.5v-.5a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h.5"/></svg>"#;
 /// The pin (overview.tsx `PinGlyph`).
 const PIN: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M6 1.5h4l-.8 4.2L12 8.5V10H8.6V15H7.4V10H4V8.5l2.8-2.8z" fill="white"/></svg>"#;
+/// A tick (the start sheet's boxes).
+const CHECK: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg>"#;
 /// The doze mark, whole (website/brand/doze.svg): the Library's head draws it in its own colours.
 const BRAND: &str = include_str!("../assets/brand/doze.svg");
 
@@ -52,6 +54,7 @@ impl AssetSource for Assets {
             "icons/copy.svg" => COPY.into(),
             "icons/caret.svg" => CARET.into(),
             "icons/pin.svg" => PIN.into(),
+            "icons/check.svg" => CHECK.into(),
             "brand/doze.svg" => BRAND.into(),
             _ => return Ok(None),
         };

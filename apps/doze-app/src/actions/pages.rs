@@ -1,6 +1,5 @@
 //! The rows of the Library, a stack's page and its Grid (M1 steps 1.1, 1.2, 1.4), beside the shell's. The keys are
-//! Go's (docs/port/app/PLAN.md §2.10); a verb that acts on a stack or a service comes with M2 and is listed now, as
-//! `built: false`, so the help sheet and the menus show the whole page and say "soon".
+//! Go's (docs/port/app/PLAN.md §2.10). The verbs act through `crate::act` (M2).
 
 use super::*;
 
@@ -27,8 +26,8 @@ pub(crate) const PAGES: &[Spec] = &[
     row!("Open the stack", "its page", OpenStack, ["enter"], Library, None, false, true),
     row!("Stack above", "move", MoveUp, ["up", "k"], Library, None, false, true),
     row!("Stack below", "move", MoveDown, ["down", "j"], Library, None, false, true),
-    row!("Up or down", "the stack's switch", ToggleStack, ["space"], Library, None, false, false),
-    row!("Remove from doze…", "stops it; every file stays", RemoveStack, ["backspace"], Library, None, false, false),
+    row!("Up or down", "the stack's switch", ToggleStack, ["space"], Library, None, false, true),
+    row!("Remove from doze…", "stops it; every file stays", RemoveStack, ["backspace"], Library, None, false, true),
     row!("Service above", "move", MoveUp, ["up", "k"], Overview, None, false, true),
     row!("Service below", "move", MoveDown, ["down", "j"], Overview, None, false, true),
     row!("Tile left", "move", MoveLeft, ["left"], Overview, None, false, true),
@@ -36,9 +35,9 @@ pub(crate) const PAGES: &[Spec] = &[
     row!("Filter", "the services", FilterRows, ["/"], Overview, None, true, true),
     row!("Copy the address", "of the one selected", CopyAddress, ["y"], Overview, None, true, true),
     row!("Open the service", "its page", OpenService, ["enter"], Overview, None, false, true),
-    row!("Wake or sleep", "its switch", ToggleService, ["space"], Overview, None, false, false),
-    row!("Up as last time", "a stopped stack", UpAsLastTime, ["u"], Overview, None, true, false),
-    row!("Choose what starts…", "a stopped stack", ChooseStart, ["c"], Overview, None, true, false),
+    row!("Wake or sleep", "its switch", ToggleService, ["space"], Overview, None, false, true),
+    row!("Up as last time", "a stopped stack", UpAsLastTime, ["u"], Overview, None, true, true),
+    row!("Choose what starts…", "a stopped stack", ChooseStart, ["c"], Overview, None, true, true),
     row!("Row density", "compact, cosy, roomy", CycleDensity, [], Global, Some(View), true, true),
     row!("Cell above", "move", MoveUp, ["up", "k"], Grid, None, false, true),
     row!("Cell below", "move", MoveDown, ["down", "j"], Grid, None, false, true),

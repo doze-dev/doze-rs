@@ -7,7 +7,7 @@ use gpui::{AnyElement, Context, IntoElement, div, prelude::*, px};
 use super::kv::Kv;
 
 use super::tiles::{row_dot, word_tone};
-use super::{M2, OverviewView, all_rows};
+use super::{OverviewView, all_rows};
 use crate::kit::{Btn, Click, btn, chip_of, s, tone, word_line};
 use crate::theme::Tokens;
 use crate::widgets::{MONO_FAMILY, dot, tracked, w};
@@ -184,10 +184,6 @@ fn needs(t: &Tokens, p: &Pane) -> impl IntoElement {
         .child(div().flex().flex_wrap().gap(px(6.)).children(holders))
 }
 
-fn say(cx: &mut Context<OverviewView>, words: &'static str) -> Click {
-    Box::new(cx.listener(move |this, _, _, cx| this.say(words, cx)))
-}
-
 fn open(cx: &mut Context<OverviewView>, name: &str, tab: Option<&'static str>) -> Click {
     let name = name.to_owned();
     Box::new(cx.listener(move |this, _, _, cx| this.open(&name, tab, cx)))
@@ -219,7 +215,9 @@ fn acts(t: &Tokens, r: &Row, cx: &mut Context<OverviewView>) -> impl IntoElement
                 "Restart",
                 "r",
                 Btn::Plain,
-                Some(say(cx, M2)),
+                Some(Box::new(cx.listener(|this, _, _, cx| {
+                    this.selected_verb(doze_control::Verb::Restart, cx)
+                }))),
             ))
         })
         .child(div().flex_1())

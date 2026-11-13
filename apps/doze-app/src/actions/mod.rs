@@ -75,6 +75,12 @@ pub(crate) enum Scope {
     Logs,
     /// A module's console tab.
     Console,
+    /// A dialog: sleep, restart, reset, an action's input.
+    Dialog,
+    /// The start sheet and the checks before Up.
+    Sheet,
+    /// A folder with no doze.hcl yet.
+    Empty,
 }
 
 impl Scope {
@@ -90,6 +96,9 @@ impl Scope {
             Scope::Instance => "On a service's page",
             Scope::Logs => "In the logs",
             Scope::Console => "In a module's console",
+            Scope::Dialog => "In a dialog",
+            Scope::Sheet => "In the start sheet and the checks",
+            Scope::Empty => "In a folder with no doze.hcl",
         }
     }
 
@@ -109,6 +118,10 @@ impl Scope {
             Scope::Instance => Some("Instance && !Input"),
             Scope::Logs => Some("Logs && !Input"),
             Scope::Console => Some("ConsoleTab && !Input"),
+            Scope::Dialog if key == "enter" => Some("Dialog"),
+            Scope::Dialog => Some("Dialog && !Input"),
+            Scope::Sheet => Some("Sheet"),
+            Scope::Empty => Some("Empty && !Input"),
         }
     }
 }
@@ -153,14 +166,16 @@ pub(crate) struct Spec {
 mod inside;
 mod pages;
 mod table;
+mod verbs;
 
 pub(crate) use inside::*;
 pub(crate) use table::TABLE;
+pub(crate) use verbs::*;
 
 /// Every row: the shell's and the Map's ([`TABLE`]), the stack pages' ([`pages::PAGES`]), then the pages' inside a
 /// stack ([`INSIDE`]).
 pub(crate) fn all() -> impl Iterator<Item = &'static Spec> {
-    TABLE.iter().chain(pages::PAGES).chain(INSIDE)
+    TABLE.iter().chain(pages::PAGES).chain(INSIDE).chain(VERBS)
 }
 
 /// The keymap the table gives. A keystroke that does not parse is left out (the test below proves none does).
@@ -243,6 +258,9 @@ pub(crate) fn help() -> Vec<(Scope, Vec<&'static Spec>)> {
         Scope::Instance,
         Scope::Logs,
         Scope::Console,
+        Scope::Dialog,
+        Scope::Sheet,
+        Scope::Empty,
         Scope::Overlay,
     ]
     .into_iter()

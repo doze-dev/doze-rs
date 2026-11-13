@@ -6,6 +6,7 @@
 //! The page watches the stack's meters while it shows, so its figures are the last second's; it redraws only when what
 //! it shows changed.
 
+mod act;
 mod grid;
 mod head;
 mod keys;
@@ -30,13 +31,15 @@ use gpui::{
 use gpui_component::input::{InputEvent, InputState};
 
 use crate::actions::{
-    CopyAddress, FilterRows, MoveDown, MoveLeft, MoveRight, MoveUp, OpenRowService, OpenService,
-    ToggleService, ViewGrid, ViewList, ViewMap, ViewTiles,
+    ChooseStart, CopyAddress, DismissFailure, FilterRows, MoveDown, MoveLeft, MoveRight, MoveUp,
+    OpenRowService, OpenService, PinIt, RestartIt, SleepIt, ToggleService, TryAgain, UpAsLastTime,
+    ViewGrid, ViewList, ViewMap, ViewTiles, WakeIt,
 };
 use crate::facts::Facts;
 use crate::map::MapView;
 use crate::model::{self, Page};
 use crate::theme::{Density, tokens};
+use doze_control::Verb;
 
 /// The overview's views, in the switch's order.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -96,6 +99,10 @@ pub(crate) struct OverviewView {
     watch: Option<Watch>,
     /// The window's width at the last render (the Tiles go four, three or two across).
     pub(crate) width: f32,
+    /// The services with a verb in flight.
+    pub(crate) doing: std::collections::HashMap<String, doze_control::Verb>,
+    /// The failure banner's "What doze printed" is open.
+    pub(crate) printed: bool,
     /// The List's lines, and its virtual list.
     items: std::rc::Rc<Vec<list::Item>>,
     list: gpui::ListState,
@@ -118,6 +125,7 @@ impl OverviewView {
         cx: &mut Context<Self>,
     ) -> OverviewView {
         cx.observe(&facts, |this, _, cx| this.refresh(cx)).detach();
+        act::observe_acts(cx);
         let filter = cx.new(|cx| InputState::new(window, cx).placeholder("Filter"));
         cx.subscribe(
             &filter,
@@ -148,6 +156,8 @@ impl OverviewView {
             refs: HashMap::new(),
             watch: None,
             width: 1280.,
+            doing: std::collections::HashMap::new(),
+            printed: false,
             items: std::rc::Rc::default(),
             list: gpui::ListState::new(0, gpui::ListAlignment::Top, px(200.)),
             focus: cx.focus_handle(),
@@ -225,6 +235,7 @@ impl OverviewView {
             _ => None,
         };
         self.stack = Some(st);
+        let (h, p) = act::mark_doing(h, p, &self.doing);
         if h != self.home || p != self.pane {
             self.home = h;
             self.pane = p;
@@ -344,7 +355,10 @@ impl OverviewView {
                     r.url.clone()
                 };
                 cx.write_to_clipboard(gpui::ClipboardItem::new_string(a.clone()));
-                self.say(&format!("Copied {a}"), cx);
+                self.say(
+                    &format!("copied the address of {} to the clipboard", r.name),
+                    cx,
+                );
             }
             Some(r) => self.say(&format!("{} has no address to copy.", r.name), cx),
             None => {}
@@ -374,10 +388,6 @@ fn changed(st: &StackView, now: SystemTime) -> Option<doze_desk::overview::Confi
         .ok()?;
     doze_desk::overview::config_changed(mtime, st.loaded, now)
 }
-
-/// What the stack's verbs say in M1.
-pub(crate) const M2: &str =
-    "Waking, sleeping and starting come with the next step; this build looks, it does not touch.";
 
 impl Render for OverviewView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
@@ -412,7 +422,17 @@ impl Render for OverviewView {
             .on_action(cx.listener(|this, _: &MoveLeft, _, cx| this.arrow(-1, 0, cx)))
             .on_action(cx.listener(|this, _: &MoveRight, _, cx| this.arrow(1, 0, cx)))
             .on_action(cx.listener(|this, _: &CopyAddress, _, cx| this.copy_address(cx)))
-            .on_action(cx.listener(|this, _: &ToggleService, _, cx| this.say(M2, cx)))
+            .on_action(cx.listener(|this, _: &ToggleService, _, cx| this.toggle_selected(cx)))
+            .on_action(cx.listener(|this, _: &UpAsLastTime, _, cx| this.up_last(cx)))
+            .on_action(cx.listener(|this, _: &ChooseStart, _, cx| this.choose_start(cx)))
+            .on_action(cx.listener(|this, _: &WakeIt, _, cx| this.selected_verb(Verb::Wake, cx)))
+            .on_action(cx.listener(|this, _: &SleepIt, _, cx| this.selected_verb(Verb::Sleep, cx)))
+            .on_action(
+                cx.listener(|this, _: &RestartIt, _, cx| this.selected_verb(Verb::Restart, cx)),
+            )
+            .on_action(cx.listener(|this, _: &PinIt, _, cx| this.selected_verb(Verb::Pin, cx)))
+            .on_action(cx.listener(|this, _: &TryAgain, _, cx| this.try_again(cx)))
+            .on_action(cx.listener(|this, _: &DismissFailure, _, cx| this.dismiss_failure(cx)))
             .on_action(cx.listener(|this, _: &OpenService, _, cx| this.open_selected(cx)))
             .on_action(cx.listener(|this, _: &OpenRowService, _, cx| this.open_row(cx)))
             .on_action(cx.listener(|this, _: &FilterRows, window, cx| {
@@ -420,6 +440,7 @@ impl Render for OverviewView {
                 f.update(cx, |i, cx| i.focus(window, cx));
             }))
             .child(head::head(&t, self, cx))
+            .children(act::banners(&t, self, cx))
             .children(head::banners(&t, self))
             .child(strip::strip(&t, self, width))
             .child(body)

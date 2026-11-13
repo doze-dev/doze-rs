@@ -3,7 +3,7 @@
 
 use gpui::{AnyElement, ClipboardItem, Context, IntoElement, div, prelude::*, px};
 
-use super::{M2, OverviewView};
+use super::OverviewView;
 use crate::kit::s;
 use crate::theme::Tokens;
 use crate::widgets::{MONO_FAMILY, w};
@@ -17,7 +17,7 @@ pub(super) struct Kv<'a> {
     pub(super) bright: bool,
     /// A sentence, wrapped, in the page's face; else one mono line.
     pub(super) wrap: bool,
-    /// A verb beside the value in place of Copy (`Pin`), which comes with M2.
+    /// A verb beside the value in place of Copy (`Pin`): it pins the service selected.
     pub(super) verb: Option<&'static str>,
     /// A line under the value: why it reads as it does (`.kv .note`).
     pub(super) note: &'a str,
@@ -97,7 +97,9 @@ impl<'a> Kv<'a> {
         if let Some(verb) = self.verb {
             let id = gpui::SharedString::from(format!("verb-{}", self.k));
             return row
-                .child(link(t, id, verb).on_click(cx.listener(|this, _, _, cx| this.say(M2, cx))))
+                .child(link(t, id, verb).on_click(
+                    cx.listener(|this, _, _, cx| this.selected_verb(doze_control::Verb::Pin, cx)),
+                ))
                 .into_any_element();
         }
         let Some(c) = self.copy else {

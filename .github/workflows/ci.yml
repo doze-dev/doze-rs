@@ -173,6 +173,11 @@ jobs:
           $app shot --fixture shop --screen list --density compact --out shots/list-shop-compact.png
           $app shot --synth 2000 --screen list --out shots/list-2k.png
           $app shot --synth 2000 --screen grid --out shots/grid-2k.png
+          # M2: the dialogs, the sheets, a failed start, the empty folder (each done through the same calls a key makes)
+          for act in sleep restart reset-typed; do $app shot --fixture shop --screen list --select db --act $act --out shots/act-$act.png; done
+          for act in start preflight failed recent; do $app shot --fixture shop --stack acme --screen tiles --act $act --out shots/act-$act.png; done
+          for act in remove empty-found add; do $app shot --fixture shop --screen library --act $act --out shots/act-$act.png; done
+          $app shot --fixture modules --screen instance --select events --tab console:_ --act action-typed --out shots/act-action.png
           $app shot --synth 2000 --screen grid --at 3000,20000 --out shots/grid-2k-scrolled.png
           ls -la shots
       - name: Screens inside a stack (instance, logs, consoles)
