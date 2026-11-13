@@ -167,7 +167,7 @@ function Generation({ g, head, newest, onOpen, fetchedAt }: { g: StoryGen; head:
       </span>
       <div className="min-w-0 text-[13.5px]">
         <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="secondary" className="rounded-md bg-accent font-normal text-primary">
+          <Badge variant="secondary" className="rounded-md bg-accent font-normal text-link">
             {CAUSE_TITLE[g.cause]}
           </Badge>
           <b className="font-semibold text-bright">{genTitle(g)}</b>
@@ -217,7 +217,7 @@ function Generation({ g, head, newest, onOpen, fetchedAt }: { g: StoryGen; head:
           </div>
         )}
         {onOpen && (
-          <button type="button" onClick={(e) => onOpen(g.generation, e.currentTarget)} className="mt-2.5 rounded-sm text-[13px] font-medium text-primary hover:underline focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none" data-focus-key={`generation:${g.generation}`} data-testid="open-rebalance">
+          <button type="button" onClick={(e) => onOpen(g.generation, e.currentTarget)} className="mt-2.5 rounded-sm text-[13px] font-medium text-link hover:underline focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none" data-focus-key={`generation:${g.generation}`} data-testid="open-rebalance">
             Open this rebalance
           </button>
         )}
@@ -323,7 +323,7 @@ function Causes({ v }: { v: StoryView }) {
       <ul className="mt-3 flex flex-col gap-2.5">
         {CAUSES.filter((c) => causeListed(classic, c) || seen(c) > 0).map((c) => (
           <li key={c} className="text-[13px] text-muted-foreground">
-            <Badge variant="secondary" className="mr-2 rounded-md bg-accent font-normal text-primary">
+            <Badge variant="secondary" className="mr-2 rounded-md bg-accent font-normal text-link">
               {CAUSE_TITLE[c]}
             </Badge>
             {CAUSE_HELP[c]}
@@ -347,7 +347,7 @@ function Calm({ v, fetchedAt }: { v: StoryView; fetchedAt: number }) {
   return (
     <Panel title="What a calm group looks like" aside={<PhaseWord phase="stable" />} data-testid="story-calm">
       <p className="text-[13px] text-muted-foreground">
-        <Link to="/groups/$group/story" params={{ group: c.group }} className="font-mono font-semibold text-primary hover:underline">
+        <Link to="/groups/$group/story" params={{ group: c.group }} className="font-mono font-semibold text-link hover:underline">
           {c.group}
         </Link>
         , for contrast: {c.count} {c.count === 1 ? "rebalance" : "rebalances"} since the broker started, and nothing has moved since {clockUtc(c.generation.at_ms)}. Its Story tab holds {c.count === 1 ? "only this event." : "these events."}
@@ -357,7 +357,7 @@ function Calm({ v, fetchedAt }: { v: StoryView; fetchedAt: number }) {
       </ol>
       <p className="mt-4 border-t pt-3 text-[13px] text-muted-foreground">
         A quiet story is a good one. No member has come, gone or timed out since {clockUtc(c.generation.at_ms)}, so the lag on that group is not caused by rebalancing. Look at{" "}
-        <Link to="/groups/$group/lag" params={{ group: c.group }} className="text-primary hover:underline">
+        <Link to="/groups/$group/lag" params={{ group: c.group }} className="text-link hover:underline">
           its Lag
         </Link>{" "}
         and at how many partitions one process holds.
@@ -454,7 +454,7 @@ function RebalanceSheet({ v, generation, onClose, fetchedAt, returnFocus }: { v:
             <div className="flex flex-wrap items-center gap-2">
               {g ? (
                 <>
-                  <Badge variant="secondary" className="rounded-md bg-accent font-normal text-primary">
+                  <Badge variant="secondary" className="rounded-md bg-accent font-normal text-link">
                     {CAUSE_TITLE[g.cause]}
                   </Badge>
                   {status}
@@ -494,7 +494,7 @@ function RuleSheet({ v, open, onClose, returnFocus }: { v: StoryView; open: bool
         <span className={cn("mt-1 size-3 rounded-full border-2", DOT[tone])} aria-hidden />
       </span>
       <div className="text-[13px]">
-        <Badge variant="secondary" className="mr-2 rounded-md bg-accent font-normal text-primary">
+        <Badge variant="secondary" className="mr-2 rounded-md bg-accent font-normal text-link">
           {cause}
         </Badge>
         <b className="text-bright">{head}</b>
@@ -588,7 +588,7 @@ export function GroupStoryPage() {
                 {v.head.lag_total > 0 ? (
                   <>
                     So the lag on this group is not caused by rebalancing: look at{" "}
-                    <Link to="/groups/$group/lag" params={{ group: id }} className="text-primary hover:underline">
+                    <Link to="/groups/$group/lag" params={{ group: id }} className="text-link hover:underline">
                       its Lag
                     </Link>{" "}
                     and at how many partitions one process holds.

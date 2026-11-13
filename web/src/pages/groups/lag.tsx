@@ -73,7 +73,7 @@ function TopicBlock({ t, v, expiring }: { t: LagTopic; v: GroupLagView; expiring
     <section className="flex flex-col gap-2" data-testid="lag-topic" data-topic={t.name}>
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <div className="min-w-0 text-[13.5px]">
-          <Link to="/topics/$topic" params={{ topic: t.name }} className="font-mono font-medium text-primary hover:underline">
+          <Link to="/topics/$topic" params={{ topic: t.name }} className="font-mono font-medium text-link hover:underline">
             {t.name}
           </Link>
           <span className="ml-2 text-muted-foreground">{topicBits(t, v)}</span>

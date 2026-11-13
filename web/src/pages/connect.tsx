@@ -18,7 +18,7 @@ import { CheckAgain, ProbeRules, VerdictDot } from "./probe";
 
 export type CopyAs = "code" | "properties" | "environment";
 
-const TOK: Record<Tok, string> = { plain: "text-foreground", keyword: "text-primary", str: "text-good", comment: "text-muted-foreground italic" };
+const TOK: Record<Tok, string> = { plain: "text-foreground", keyword: "text-link", str: "text-good", comment: "text-muted-foreground italic" };
 
 const SASL = 'security.protocol=SASL_PLAINTEXT\nsasl.mechanism=SCRAM-SHA-256\nsasl.jaas.config=org.apache.kafka.common.security.scram.ScramLoginModule required \\\n  username="<user>" password="<password>";';
 
@@ -138,7 +138,7 @@ function Loaded({ r, as, setAs }: { r: ConnectResponse; as: CopyAs; setAs: (a: C
                 Set <code className="font-mono text-foreground">client.id</code> to the app's own name. The wire shows every request under that name, so <code className="font-mono text-foreground">payments</code> and <code className="font-mono text-foreground">fulfilment</code> appear as themselves, not as a default like <code className="font-mono text-foreground">rdkafka</code>.
               </p>
               <div className="flex gap-3 rounded-lg bg-accent/60 p-4">
-                <InfoIcon className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
+                <InfoIcon className="mt-0.5 size-4 shrink-0 text-link" aria-hidden />
                 <p>
                   {c.access.sasl ? (
                     <>
@@ -149,7 +149,7 @@ function Loaded({ r, as, setAs }: { r: ConnectResponse; as: CopyAs; setAs: (a: C
                       <b className="font-semibold text-bright">No credentials needed.</b> The top bar says Open: any client that can reach the address may connect. If SASL is on, add the lines below.{" "}
                     </>
                   )}
-                  <Link to="/access" className="font-medium text-primary hover:underline">
+                  <Link to="/access" className="font-medium text-link hover:underline">
                     Access
                   </Link>{" "}
                   lists the mechanisms the broker offers.

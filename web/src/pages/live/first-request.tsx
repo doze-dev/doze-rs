@@ -168,7 +168,7 @@ export function FirstRequestPage() {
               <div className="flex min-w-0 flex-1 flex-col gap-2">
                 <p className="text-muted-foreground">
                   <b className="font-semibold text-bright">Next:</b> send a record and watch it land, then open{" "}
-                  <Link to="/topics" className="font-medium text-primary hover:underline">
+                  <Link to="/topics" className="font-medium text-link hover:underline">
                     Topics
                   </Link>
                   .

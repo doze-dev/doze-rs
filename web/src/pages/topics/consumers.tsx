@@ -45,7 +45,7 @@ function Group({ g, topic, now }: { g: Reader; topic: string; now: number }) {
     <section className="rounded-xl border bg-card" data-testid="reader" data-group={g.id}>
       <header className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
         <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
-          <Link to="/groups/$group" params={{ group: g.id }} className="truncate font-mono text-[14px] font-medium text-primary hover:underline">
+          <Link to="/groups/$group" params={{ group: g.id }} className="truncate font-mono text-[14px] font-medium text-link hover:underline">
             {g.id}
           </Link>
           <StatusDot tone={phaseTone(g.phase)}>{g.phase}</StatusDot>

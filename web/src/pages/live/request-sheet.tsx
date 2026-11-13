@@ -487,10 +487,10 @@ export function RequestSheet({ id, onClose }: { id: number | undefined; onClose:
             <>
               {row?.lab && (
                 <div className="mb-4 flex items-start gap-3 rounded-xl border border-primary/30 bg-primary/5 p-4 text-[13.5px]" data-testid="lab-tag">
-                  <FlaskConicalIcon className="mt-0.5 size-[18px] shrink-0 text-primary" aria-hidden />
+                  <FlaskConicalIcon className="mt-0.5 size-[18px] shrink-0 text-link" aria-hidden />
                   <p>
                     <b className="font-semibold text-bright">A Lab rule touched this request.</b> Rule {row.lab.rule}, <span className="font-mono">{row.lab.name}</span>, {labDid(row.lab.what)}.{" "}
-                    <Link to="/lab" className="font-medium text-primary hover:underline">
+                    <Link to="/lab" className="font-medium text-link hover:underline">
                       Open the Lab
                     </Link>
                   </p>

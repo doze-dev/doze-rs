@@ -58,7 +58,7 @@ function columns(now: number): DataColumn<TopicRow>[] {
                   </Badge>
                 </>
               ) : (
-                <Link to="/topics/$topic/messages" params={{ topic: r.name }} className="truncate font-mono text-[13.5px] text-primary hover:underline focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none" data-testid="topic-link">
+                <Link to="/topics/$topic/messages" params={{ topic: r.name }} className="truncate font-mono text-[13.5px] text-link hover:underline focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none" data-testid="topic-link">
                   {r.name}
                 </Link>
               )}
@@ -134,7 +134,7 @@ function InternalNote({ shown }: { shown: boolean }) {
           <b className="font-semibold text-foreground">Why it is read only.</b> <code className="font-mono text-foreground">__consumer_offsets</code> is Kafka's own name for the place the group coordinator keeps each group's committed
           offsets, spread over 50 partitions. This broker keeps commits in its own store and answers Kafka's offset calls from it, so there is no log here to read, produce to, delete from, or change. The name is shown because Kafka
           clients and tools know it; the 50 partitions decide which coordinator slot a group lands in. Look at a group's commits on its Lag tab instead:{" "}
-          <Link to="/groups" className="font-medium text-primary hover:underline">
+          <Link to="/groups" className="font-medium text-link hover:underline">
             open Groups
           </Link>
           .

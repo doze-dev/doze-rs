@@ -33,7 +33,7 @@ type Open = (id: string, from: HTMLElement) => void;
 
 function MemberLink({ m, onOpen }: { m: GroupMemberRow; onOpen: Open }) {
   return (
-    <button type="button" onClick={(e) => onOpen(m.id, e.currentTarget)} className="max-w-full truncate rounded-sm text-left font-mono text-primary hover:underline focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none" title={m.id} data-focus-key={`member:${m.id}`} data-testid="member-link">
+    <button type="button" onClick={(e) => onOpen(m.id, e.currentTarget)} className="max-w-full truncate rounded-sm text-left font-mono text-link hover:underline focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none" title={m.id} data-focus-key={`member:${m.id}`} data-testid="member-link">
       {memberLabel(m.id)}
     </button>
   );
@@ -82,7 +82,7 @@ function ReadsTable({ topics }: { topics: LagTopic[] }) {
       header: "Topic",
       accessorFn: (t) => t.name,
       cell: ({ row: { original: t } }) => (
-        <Link to="/topics/$topic" params={{ topic: t.name }} className="truncate font-mono text-primary hover:underline">
+        <Link to="/topics/$topic" params={{ topic: t.name }} className="truncate font-mono text-link hover:underline">
           {t.name}
         </Link>
       ),
@@ -132,7 +132,7 @@ function WhoHolds({ v }: { v: GroupLagView }) {
           const allOne = owners.length === 1 && parts.every((p) => holderOf(t.name, p));
           return (
             <div key={t.name} className="flex flex-wrap items-center gap-2">
-              <Link to="/topics/$topic" params={{ topic: t.name }} className="w-40 truncate font-mono text-[13px] text-primary hover:underline">
+              <Link to="/topics/$topic" params={{ topic: t.name }} className="w-40 truncate font-mono text-[13px] text-link hover:underline">
                 {t.name}
               </Link>
               {parts.map((p) => (

@@ -102,7 +102,7 @@ function AllTxns({ r }: { r: TxnResponse }) {
             {rows.map((t) => (
               <tr key={t.id} className="h-11 border-t">
                 <td className="truncate px-4 font-mono">
-                  <Link to="/topics/$topic/transactions/$txn" params={{ topic: v.topic, txn: t.id }} className="text-primary hover:underline">
+                  <Link to="/topics/$topic/transactions/$txn" params={{ topic: v.topic, txn: t.id }} className="text-link hover:underline">
                     {t.id}
                   </Link>
                 </td>
@@ -330,7 +330,7 @@ export function TxnHeldPage() {
         <InfoIcon className="mt-0.5 size-4.5 shrink-0 text-cool" aria-hidden />
         <p>
           Which group's fetches are read_committed is a property of each Fetch, not of the group. The wire shows it per request;{" "}
-          <Link to="/live" className="font-medium text-primary hover:underline">
+          <Link to="/live" className="font-medium text-link hover:underline">
             see the wire
           </Link>
           .

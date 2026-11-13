@@ -23,7 +23,7 @@ export function GroupSpans({ spans }: { spans: GroupSpan[] }) {
             {s.text}
           </b>
         ) : s.kind === "topic" ? (
-          <Link key={i} to="/topics/$topic" params={{ topic: s.text }} className="font-mono text-primary hover:underline">
+          <Link key={i} to="/topics/$topic" params={{ topic: s.text }} className="font-mono text-link hover:underline">
             {s.text}
           </Link>
         ) : (
@@ -54,7 +54,7 @@ export function LagBar({ pct, n, className }: { pct: number; n?: number; classNa
   );
 }
 
-const TOK: Record<Tok, string> = { plain: "text-foreground", keyword: "text-primary", str: "text-good", comment: "text-muted-foreground" };
+const TOK: Record<Tok, string> = { plain: "text-foreground", keyword: "text-link", str: "text-good", comment: "text-muted-foreground" };
 
 /** The call a write sends (or sent), one line per entry, as the classic console draws it. */
 export function CallBlock({ lines, title, className }: { lines: [Tok, string][][]; title?: string; className?: string }) {

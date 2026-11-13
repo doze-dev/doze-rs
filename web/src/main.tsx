@@ -4,8 +4,11 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { startTheme } from "@/lib/theme";
 import { router } from "./router";
 import "./index.css";
+
+startTheme();
 
 const queries = new QueryClient({
   defaultOptions: {

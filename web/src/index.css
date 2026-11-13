@@ -1,8 +1,13 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-/* The doze kit's tokens (crates/kafka-console/design/kit/paper.css: the light violet "Paper" theme) mapped onto shadcn's
-   variables. One theme: the console has no dark mode (canvas corrections, 2026-11-12). */
+/* The doze-kafka theme: built on the logo's two colours, Bat yellow #FFD60A and Ink #16150F, over warm neutrals.
+   Light and dark, and "System" follows the OS. Yellow is a FILL (buttons, the active item, selection, a new row, the focus
+   ring) and never text on a light ground (it fails contrast there): text that must stand out is --link, a deep amber in light
+   and the yellow itself in dark. The theme is a class on <html> (lib/theme.ts); without one, the media query decides, so
+   the first paint is already in the right theme. */
+
+@custom-variant dark (&:where(.dark, .dark *));
 
 @font-face {
   font-family: "Inter";
@@ -29,44 +34,159 @@
 :root {
   --radius: 0.625rem; /* 10 px: the kit's buttons and fields */
 
-  /* the kit: --bg, --panel, --text, --bright, --dim, --line, --line2, --well, --accent, --sel, --pick, --track */
-  --background: #fbfaff;
-  --foreground: #3a3550;
+  --background: #faf9f5;
+  --foreground: #38352b;
   --card: #ffffff;
-  --card-foreground: #3a3550;
+  --card-foreground: #38352b;
   --popover: #ffffff;
-  --popover-foreground: #3a3550;
-  --primary: #7a4fe0;
-  --primary-foreground: #ffffff;
-  --secondary: #f6f4fb;
-  --secondary-foreground: #17141f;
-  --muted: #f6f4fb;
-  --muted-foreground: #6f6888;
-  --accent: #ece6fb;
-  --accent-foreground: #17141f;
-  --destructive: #cc3550;
-  --border: #e4e0f0;
-  --input: #d4cde6;
-  --ring: #7a4fe0;
+  --popover-foreground: #38352b;
+  --primary: #ffd60a;
+  --primary-foreground: #16150f;
+  --secondary: #f3f1e9;
+  --secondary-foreground: #16150f;
+  --muted: #f3f1e9;
+  --muted-foreground: #6b6759;
+  --accent: #fff5c7;
+  --accent-foreground: #16150f;
+  --destructive: #c42e48;
+  --border: #e6e2d4;
+  --input: #d6d1bf;
+  --ring: #e0ad00;
 
-  --bright: #17141f;
+  --bright: #16150f;
+  --link: #8a6300;
   --good: #17773f;
-  --warn: #9a6400;
+  --warn: #b5530b;
   --cool: #2f62d9;
-  --bad: #cc3550;
+  --bad: #c42e48;
   --refused: #a3279a;
-  --pick: #e3d9ff;
-  --track: #ece8f5;
-  --well: #f6f4fb;
+  --pick: #fff0a6;
+  --track: #ece9de;
+  --well: #f5f3ec;
+  --hatch: rgba(22, 21, 15, 0.28);
 
-  --sidebar: #f3f1fa;
-  --sidebar-foreground: #3a3550;
-  --sidebar-primary: #7a4fe0;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #ece6fb;
-  --sidebar-accent-foreground: #17141f;
-  --sidebar-border: #e4e0f0;
-  --sidebar-ring: #7a4fe0;
+  --tint-good: #e8f4ec;
+  --tint-good-line: #b7dbc4;
+  --tint-warn: #fdeee2;
+  --tint-warn-line: #efc9a6;
+  --tint-brand: #fff6cc;
+  --tint-brand-line: #f2d971;
+  --tint-cool: #edf2fd;
+  --tint-cool-line: #c6d6f5;
+
+  --sidebar: #f4f2ea;
+  --sidebar-foreground: #38352b;
+  --sidebar-primary: #16150f;
+  --sidebar-primary-foreground: #ffd60a;
+  --sidebar-accent: #fff1b0;
+  --sidebar-accent-foreground: #16150f;
+  --sidebar-border: #e6e2d4;
+  --sidebar-ring: #e0ad00;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    --background: #121110;
+    --foreground: #d8d4c6;
+    --card: #1a1916;
+    --card-foreground: #d8d4c6;
+    --popover: #1f1e1a;
+    --popover-foreground: #e6e2d4;
+    --primary: #ffd60a;
+    --primary-foreground: #16150f;
+    --secondary: #24221d;
+    --secondary-foreground: #f4f1e6;
+    --muted: #24221d;
+    --muted-foreground: #9d988a;
+    --accent: #2c2a22;
+    --accent-foreground: #f4f1e6;
+    --destructive: #ff6b7f;
+    --border: #2f2d26;
+    --input: #3d3a31;
+    --ring: #ffd60a;
+  
+    --bright: #f7f5ee;
+    --link: #ffd60a;
+    --good: #52c98d;
+    --warn: #f29b4f;
+    --cool: #7aa5ff;
+    --bad: #ff6b7f;
+    --refused: #e386dc;
+    --pick: #3d3514;
+    --track: #2a2823;
+    --well: #1d1c18;
+    --hatch: rgba(247, 245, 238, 0.3);
+  
+    --tint-good: #16291e;
+    --tint-good-line: #2c5a3f;
+    --tint-warn: #2f2014;
+    --tint-warn-line: #6a4422;
+    --tint-brand: #2e2810;
+    --tint-brand-line: #6b5a14;
+    --tint-cool: #172036;
+    --tint-cool-line: #2f4677;
+  
+    --sidebar: #161512;
+    --sidebar-foreground: #d8d4c6;
+    --sidebar-primary: #ffd60a;
+    --sidebar-primary-foreground: #16150f;
+    --sidebar-accent: #2a2716;
+    --sidebar-accent-foreground: #fff3b8;
+    --sidebar-border: #2a2823;
+    --sidebar-ring: #ffd60a;
+    color-scheme: dark;
+  }
+}
+:root.dark {
+  --background: #121110;
+  --foreground: #d8d4c6;
+  --card: #1a1916;
+  --card-foreground: #d8d4c6;
+  --popover: #1f1e1a;
+  --popover-foreground: #e6e2d4;
+  --primary: #ffd60a;
+  --primary-foreground: #16150f;
+  --secondary: #24221d;
+  --secondary-foreground: #f4f1e6;
+  --muted: #24221d;
+  --muted-foreground: #9d988a;
+  --accent: #2c2a22;
+  --accent-foreground: #f4f1e6;
+  --destructive: #ff6b7f;
+  --border: #2f2d26;
+  --input: #3d3a31;
+  --ring: #ffd60a;
+
+  --bright: #f7f5ee;
+  --link: #ffd60a;
+  --good: #52c98d;
+  --warn: #f29b4f;
+  --cool: #7aa5ff;
+  --bad: #ff6b7f;
+  --refused: #e386dc;
+  --pick: #3d3514;
+  --track: #2a2823;
+  --well: #1d1c18;
+  --hatch: rgba(247, 245, 238, 0.3);
+
+  --tint-good: #16291e;
+  --tint-good-line: #2c5a3f;
+  --tint-warn: #2f2014;
+  --tint-warn-line: #6a4422;
+  --tint-brand: #2e2810;
+  --tint-brand-line: #6b5a14;
+  --tint-cool: #172036;
+  --tint-cool-line: #2f4677;
+
+  --sidebar: #161512;
+  --sidebar-foreground: #d8d4c6;
+  --sidebar-primary: #ffd60a;
+  --sidebar-primary-foreground: #16150f;
+  --sidebar-accent: #2a2716;
+  --sidebar-accent-foreground: #fff3b8;
+  --sidebar-border: #2a2823;
+  --sidebar-ring: #ffd60a;
+  color-scheme: dark;
 }
 
 @theme inline {
@@ -98,6 +218,11 @@
   --color-ring: var(--ring);
 
   --color-bright: var(--bright);
+  --color-link: var(--link);
+  --color-tint-good: var(--tint-good);
+  --color-tint-warn: var(--tint-warn);
+  --color-tint-brand: var(--tint-brand);
+  --color-tint-cool: var(--tint-cool);
   --color-good: var(--good);
   --color-warn: var(--warn);
   --color-cool: var(--cool);

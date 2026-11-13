@@ -33,7 +33,7 @@ function TopicDock({ topic }: { topic: string }) {
     <section className="flex flex-col gap-3" data-testid="wire-dock" data-topic={topic}>
       <div>
         <h2 className="flex items-center gap-2 text-[19px] font-medium text-bright">
-          <RadioIcon className="size-4 text-primary" aria-hidden /> On the wire
+          <RadioIcon className="size-4 text-link" aria-hidden /> On the wire
         </h2>
         <p className="mt-1 text-[13.5px] text-muted-foreground">Client requests that touched this topic. {v ? <Reach w={v.window} /> : null} A Fetch that returns nothing is folded.</p>
       </div>
@@ -54,7 +54,7 @@ function TopicDock({ topic }: { topic: string }) {
       )}
       <p className="text-[12.5px] text-muted-foreground">
         Kept in memory and emptied at every restart. The console's own requests are not listed, so this can be quieter than the topic's real traffic. A row opens to its detail in{" "}
-        <Link to="/live" search={{ topic: [topic] }} className="font-medium text-primary hover:underline">
+        <Link to="/live" search={{ topic: [topic] }} className="font-medium text-link hover:underline">
           Live
         </Link>
         .
@@ -128,7 +128,7 @@ function GroupDock({ group }: { group: string }) {
                     {note.code_name} ({note.code})
                   </b>{" "}
                   at <span className="font-mono">{clockMs(note.at_ms).slice(0, 8)}</span>: {note.detail || "refused."}{" "}
-                  <Link to="/live" search={{ request: note.id }} className="font-medium text-primary hover:underline">
+                  <Link to="/live" search={{ request: note.id }} className="font-medium text-link hover:underline">
                     Open the request
                   </Link>
                 </p>

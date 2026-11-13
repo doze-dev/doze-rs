@@ -75,7 +75,7 @@ function columns(now: number): DataColumn<GroupRow>[] {
         const sub = nameSub(r, now);
         return (
           <div className="flex min-w-0 flex-col">
-            <Link to="/groups/$group" params={{ group: r.id }} className="truncate font-mono text-primary hover:underline" title={r.id} data-testid="group-link">
+            <Link to="/groups/$group" params={{ group: r.id }} className="truncate font-mono text-link hover:underline" title={r.id} data-testid="group-link">
               {r.id}
             </Link>
             <span className="truncate text-[12px] text-muted-foreground" title={sub}>
@@ -132,13 +132,13 @@ function Attention({ r }: { r: GroupsResponse }) {
       {a && r.attention ? (
         <Callout tone="warn">
           <GroupSpans spans={r.attention} />{" "}
-          <Link to="/groups/$group" params={{ group: a.id }} className="font-medium text-primary hover:underline">
+          <Link to="/groups/$group" params={{ group: a.id }} className="font-medium text-link hover:underline">
             Open the group
           </Link>
           {a.last && (
             <>
               {" or "}
-              <Link to="/groups/$group/story" params={{ group: a.id }} className="font-medium text-primary hover:underline">
+              <Link to="/groups/$group/story" params={{ group: a.id }} className="font-medium text-link hover:underline">
                 read its story
               </Link>
             </>

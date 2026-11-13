@@ -98,7 +98,7 @@ function AddressCard({ r }: { r: HomeResponse }) {
     <Card className="min-w-0" data-testid="address-card">
       <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
         <CardTitle className="text-[17px]">Address</CardTitle>
-        <Link to="/connect" className="text-[13px] font-medium text-primary hover:underline">
+        <Link to="/connect" className="text-[13px] font-medium text-link hover:underline">
           Snippets for every client
         </Link>
       </CardHeader>
@@ -135,7 +135,7 @@ function InstanceCard({ r }: { r: HomeResponse }) {
   rows.push([
     "Access",
     <span className="flex flex-col">
-      <Link to="/access" className="font-medium text-primary hover:underline">
+      <Link to="/access" className="font-medium text-link hover:underline">
         {i.access.label}
       </Link>
       <span className="text-[12.5px] text-muted-foreground">{i.access.detail}</span>

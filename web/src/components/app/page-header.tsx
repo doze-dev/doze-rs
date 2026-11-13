@@ -18,7 +18,7 @@ export function PageHeader({ title, sub, crumbs = [], actions, refresh, mono = f
                 <Fragment key={c.to}>
                   {i > 0 && <ChevronRightIcon aria-hidden className="size-3.5 text-input" />}
                   <li>
-                    <Link to={c.to} className="rounded-sm hover:text-primary focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none">
+                    <Link to={c.to} className="rounded-sm hover:text-link focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none">
                       {c.label}
                     </Link>
                   </li>

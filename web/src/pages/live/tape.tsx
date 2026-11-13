@@ -32,7 +32,7 @@ function FilterButton({ onClick, title, className, children }: { onClick?: () =>
         e.stopPropagation();
         onClick();
       }}
-      className={cn("max-w-full truncate rounded-sm text-left hover:text-primary hover:underline focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none", className)}
+      className={cn("max-w-full truncate rounded-sm text-left hover:text-link hover:underline focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none", className)}
     >
       {children}
     </button>
@@ -49,7 +49,7 @@ function Tag({ children, title, className }: { children: React.ReactNode; title?
 
 export function TimeCell({ r }: { r: TapeRow }) {
   return (
-    <Link to="/live" search={{ request: r.id }} onClick={(e) => e.stopPropagation()} className="rounded-sm font-mono text-[12.5px] text-primary hover:underline focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none" title={dateTime(r.at_ms)} data-testid="row-time">
+    <Link to="/live" search={{ request: r.id }} onClick={(e) => e.stopPropagation()} className="rounded-sm font-mono text-[12.5px] text-link hover:underline focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none" title={dateTime(r.at_ms)} data-testid="row-time">
       {r.fresh && <span data-fresh hidden />}
       {clockMs(r.at_ms)}
     </Link>
@@ -75,7 +75,7 @@ export function ResultCell({ r }: { r: WireRow }) {
         r.detail && <span className="min-w-0 truncate text-muted-foreground">{r.detail}</span>
       )}
       {r.lab && (
-        <Tag title={`Lab rule ${r.lab.rule}, ${r.lab.name}: ${labDid(r.lab.what)}`} className="border-primary/30 text-primary">
+        <Tag title={`Lab rule ${r.lab.rule}, ${r.lab.name}: ${labDid(r.lab.what)}`} className="border-primary/30 text-link">
           <FlaskConicalIcon className="mr-0.5 size-3" aria-hidden />
           lab
         </Tag>

@@ -21,9 +21,9 @@ import { cn } from "@/lib/utils";
 import { PageError } from "../page-error";
 
 const TAIL_CELL: Record<ProdCell, { bg: string; border: string }> = {
-  committed: { bg: "#e8f4ef", border: "#b9dccb" },
-  marker: { bg: "#eef3fd", border: "#c9d8f6" },
-  held: { bg: "#ece6fb", border: "#cdbff4" },
+  committed: { bg: "var(--tint-good)", border: "var(--tint-good-line)" },
+  marker: { bg: "var(--tint-cool)", border: "var(--tint-cool-line)" },
+  held: { bg: "var(--tint-brand)", border: "var(--tint-brand-line)" },
 };
 
 /** The tail of a partition offset by offset, the last stable offset and the high watermark marked. */
@@ -43,7 +43,7 @@ export function TailRuler({ t, lastStable, end }: { t: ProdTail; lastStable: num
         )}
         <div className="absolute top-0 right-0 flex flex-col items-end text-[12px] whitespace-nowrap">
           <span className="text-muted-foreground">high watermark</span>
-          <b className="font-mono font-medium text-primary">{number(end)}</b>
+          <b className="font-mono font-medium text-link">{number(end)}</b>
         </div>
       </div>
       <div className="flex h-14 gap-[3px]">
@@ -86,7 +86,7 @@ function Producer({ v, p, open, toggle }: { v: ProducersView; p: ProdRow; open: 
         <span className="min-w-0">
           {p.txn ? (
             <>
-              <Link to="/topics/$topic/transactions/$txn" params={{ topic: v.topic, txn: p.txn.id }} className="truncate font-medium text-primary hover:underline">
+              <Link to="/topics/$topic/transactions/$txn" params={{ topic: v.topic, txn: p.txn.id }} className="truncate font-medium text-link hover:underline">
                 {p.txn.id}
               </Link>
               <span className="block text-[12.5px] text-muted-foreground">

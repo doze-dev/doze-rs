@@ -108,11 +108,11 @@ function Holds({ v }: { v: MessagesView }) {
       <p className="mt-3 text-[13px] text-muted-foreground">
         {t ? `The transaction times out at ${timeoutText(t.timeout_ms)}: the coordinator then aborts it and fences producer ${t.producer_id}. ` : "A transaction that times out is aborted by the coordinator and its producer is fenced. "}
         {t ? (
-          <Link to="/topics/$topic/transactions/$txn/held" params={{ topic: v.head.name, txn: t.id }} className="font-medium text-primary hover:underline">
+          <Link to="/topics/$topic/transactions/$txn/held" params={{ topic: v.head.name, txn: t.id }} className="font-medium text-link hover:underline">
             What it holds back
           </Link>
         ) : (
-          <Link to="/topics/$topic/producers" params={{ topic: v.head.name }} className="font-medium text-primary hover:underline">
+          <Link to="/topics/$topic/producers" params={{ topic: v.head.name }} className="font-medium text-link hover:underline">
             What it holds back
           </Link>
         )}

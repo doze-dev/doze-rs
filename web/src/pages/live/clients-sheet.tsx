@@ -36,7 +36,7 @@ export function ClientsSheet({ open, onClose }: { open: boolean; onClose: () => 
                   <li key={c.client} className="border-b py-3.5 last:border-b-0">
                     <div className="flex min-w-0 items-center justify-between gap-3">
                       <div className="flex min-w-0 items-center gap-2">
-                        <Link to="/live" search={{ client: [c.client] }} className="truncate font-mono text-[13.5px] font-medium text-bright hover:text-primary hover:underline" title="Show only this client on the wire">
+                        <Link to="/live" search={{ client: [c.client] }} className="truncate font-mono text-[13.5px] font-medium text-bright hover:text-link hover:underline" title="Show only this client on the wire">
                           {c.client || "(no client.id)"}
                         </Link>
                         {c.tag && <span className="inline-flex h-5 items-center rounded-full border bg-well px-1.5 font-mono text-[11px] text-muted-foreground">{c.tag}</span>}

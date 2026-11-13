@@ -327,7 +327,7 @@ export function LivePage() {
   const empty = r ? (
     filtered(search) ? (
       <div className="flex flex-col items-center gap-3 text-center" data-testid="live-no-match">
-        <FilterIcon className="size-5 text-primary" aria-hidden />
+        <FilterIcon className="size-5 text-link" aria-hidden />
         <b className="text-[15px] font-semibold text-bright">No request matches these filters</b>
         <p className="max-w-lg">
           Among the {number(r.live.window.rows)} rows kept, none has all of: {r.words.phrases.join("; ")}.
@@ -376,7 +376,7 @@ export function LivePage() {
             <MultiSelect options={opts(facets?.clients, search.client)} value={search.client ?? []} onChange={(v) => set({ client: v.length ? v : undefined, before: undefined }, false)} noun="apps" aria-label="Apps" triggerClassName="w-36" chips={false} />
             <MultiSelect options={opts(facets?.topics, search.topic)} value={search.topic ?? []} onChange={(v) => set({ topic: v.length ? v : undefined, before: undefined }, false)} noun="topics" aria-label="Topics" triggerClassName="w-36" chips={false} />
             <MultiSelect options={opts(facets?.apis, search.api)} value={search.api ?? []} onChange={(v) => set({ api: v.length ? v : undefined, before: undefined }, false)} noun="APIs" aria-label="APIs" triggerClassName="w-36" chips={false} />
-            <Toggle variant="outline" pressed={!!search.refused} onPressedChange={(p) => set({ refused: p ? true : undefined, before: undefined }, false)} className="bg-card px-3 data-[state=on]:border-primary/40 data-[state=on]:bg-primary/10 data-[state=on]:text-primary" data-testid="refused-only">
+            <Toggle variant="outline" pressed={!!search.refused} onPressedChange={(p) => set({ refused: p ? true : undefined, before: undefined }, false)} className="bg-card px-3 data-[state=on]:border-primary/40 data-[state=on]:bg-primary/10 data-[state=on]:text-link" data-testid="refused-only">
               <FilterIcon /> Refused only
             </Toggle>
             <div className="flex h-9 items-center gap-2 px-1">

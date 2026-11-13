@@ -36,12 +36,12 @@ import { policyWord } from "./words";
 const STATE_WORD: Record<LogResponse["state"], string> = { empty: "Empty", due: "Due", not_due: "Not due", retention: "Retention" };
 
 const CELL: Record<RulerCellKind, { bg: string; border: string }> = {
-  clean: { bg: "#e8f4ef", border: "#b9dccb" },
-  dirty: { bg: "#fdf3e1", border: "#ecd9a8" },
-  active: { bg: "#ece6fb", border: "#cdbff4" },
-  sealed: { bg: "#eef3fd", border: "#c9d8f6" },
+  clean: { bg: "var(--tint-good)", border: "var(--tint-good-line)" },
+  dirty: { bg: "var(--tint-warn)", border: "var(--tint-warn-line)" },
+  active: { bg: "var(--tint-brand)", border: "var(--tint-brand-line)" },
+  sealed: { bg: "var(--tint-cool)", border: "var(--tint-cool-line)" },
 };
-const HATCH = "repeating-linear-gradient(135deg,rgba(23,20,31,0) 0 3px,rgba(23,20,31,.28) 3px 4px)";
+const HATCH = "repeating-linear-gradient(135deg,transparent 0 3px,var(--hatch) 3px 4px)";
 const KEY: Record<RulerKey, { swatch: React.CSSProperties; text: string }> = {
   cleaned: { swatch: { background: CELL.clean.bg, borderColor: CELL.clean.border }, text: "cleaned: the latest record of each key" },
   dirty: { swatch: { background: CELL.dirty.bg, borderColor: CELL.dirty.border }, text: "dirty: not cleaned yet" },
@@ -138,7 +138,7 @@ function RulerView({ r }: { r: LogResponse }) {
             return (
               <div key={`${m.label}-${m.offset}`} className="absolute top-0 flex flex-col text-[12px] whitespace-nowrap" style={style}>
                 <span className="text-muted-foreground">{m.label}</span>
-                <b className={cn("font-mono font-medium text-bright", m.end && "text-primary")}>{number(m.offset)}</b>
+                <b className={cn("font-mono font-medium text-bright", m.end && "text-link")}>{number(m.offset)}</b>
               </div>
             );
           })}
@@ -295,7 +295,7 @@ function PlannerCards({ r, c }: { r: LogResponse; c: LogCompaction }) {
             />
             <p className="mt-3 border-t pt-3 text-[12.5px] text-muted-foreground">
               Lowering <code className="font-mono">min.cleanable.dirty.ratio</code> on this topic makes it due sooner.{" "}
-              <Link to="/topics/$topic/config" params={{ topic: v.topic }} className="font-medium text-primary hover:underline">
+              <Link to="/topics/$topic/config" params={{ topic: v.topic }} className="font-medium text-link hover:underline">
                 See the topic's config
               </Link>
               .

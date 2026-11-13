@@ -97,7 +97,7 @@ export function UtcDateTimePicker({ value, onChange, className, "aria-label": ar
                 className={cn(
                   "h-8 rounded-md text-[13px] tabular-nums hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none",
                   on && "bg-primary text-primary-foreground hover:bg-primary",
-                  !on && isToday && "font-semibold text-primary",
+                  !on && isToday && "font-semibold text-link",
                 )}
               >
                 {day}

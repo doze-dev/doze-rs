@@ -78,7 +78,7 @@ function columns(open: (r: RecordRow) => void, wide: boolean): DataColumn<Record
       cell: ({ row: { original: r } }) => (
         <button
           type="button"
-          className="rounded-sm text-primary tabular-nums hover:underline focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
+          className="rounded-sm text-link tabular-nums hover:underline focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
           onClick={(e) => {
             e.stopPropagation();
             open(r);
@@ -512,7 +512,7 @@ function Offline({ frame }: { frame: TopicFrame }) {
       </div>
       <p className="text-[13px] text-muted-foreground">
         Its records can still be read:{" "}
-        <button type="button" className="font-medium text-primary hover:underline" onClick={() => set({ partition: down[0]?.partition ?? 0 }, true)}>
+        <button type="button" className="font-medium text-link hover:underline" onClick={() => set({ partition: down[0]?.partition ?? 0 }, true)}>
           open partition {down[0]?.partition ?? 0}
         </button>
         .

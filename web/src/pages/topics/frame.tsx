@@ -86,7 +86,7 @@ function TxnRegion({ f }: { f: TopicFrame }) {
             The last stable offset of {h.name}-{held.partition} is {number(held.last_stable)} while its high watermark is {number(held.end)}, so a read_committed consumer is held {number(held.end - held.last_stable)} records behind.{" "}
           </>
         )}
-        <Link to="/topics/$topic/transactions/$txn" params={{ topic: h.name, txn: t.id }} className="font-medium text-primary hover:underline">
+        <Link to="/topics/$topic/transactions/$txn" params={{ topic: h.name, txn: t.id }} className="font-medium text-link hover:underline">
           Open the transaction
         </Link>
       </p>
@@ -191,7 +191,7 @@ export function NoTopic({ name }: { name: string }) {
     <>
       <header className="mb-8">
         <nav aria-label="Breadcrumb" className="flex min-h-9 items-center text-[13px] text-muted-foreground">
-          <Link to="/topics" className="hover:text-primary">
+          <Link to="/topics" className="hover:text-link">
             Topics
           </Link>
         </nav>
@@ -231,7 +231,7 @@ export function TopicLayout() {
           <nav aria-label="Breadcrumb" className="min-w-0">
             <ol className="flex flex-wrap items-center gap-2 text-[13px] text-muted-foreground">
               <li>
-                <Link to="/topics" className="rounded-sm hover:text-primary focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none">
+                <Link to="/topics" className="rounded-sm hover:text-link focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none">
                   Topics
                 </Link>
               </li>
@@ -241,7 +241,7 @@ export function TopicLayout() {
                     ›
                   </li>
                   <li>
-                    <Link to="/topics/$topic/messages" params={{ topic }} className="font-mono hover:text-primary">
+                    <Link to="/topics/$topic/messages" params={{ topic }} className="font-mono hover:text-link">
                       {topic}
                     </Link>
                   </li>

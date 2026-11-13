@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 export function EmptyState({ icon: Icon, title, children, action, className }: { icon: LucideIcon; title: string; children?: React.ReactNode; action?: React.ReactNode; className?: string }) {
   return (
     <div className={cn("flex min-h-56 flex-col items-center justify-center gap-3 rounded-xl border border-dashed bg-card/60 px-6 py-10 text-center", className)} data-slot="empty-state">
-      <div className="flex size-11 items-center justify-center rounded-full bg-accent text-primary">
+      <div className="flex size-11 items-center justify-center rounded-full bg-accent text-link">
         <Icon className="size-5" aria-hidden />
       </div>
       <h3 className="text-[15px] font-semibold text-bright">{title}</h3>

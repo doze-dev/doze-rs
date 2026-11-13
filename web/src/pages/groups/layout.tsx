@@ -72,7 +72,7 @@ function Switch({ h, tail }: { h: GroupHead; tail: string }) {
               {g}
             </span>
           ) : (
-            <Link key={g} to={to} params={{ group: g }} className="rounded-full border bg-card px-3.5 py-1 font-mono text-[12.5px] text-foreground hover:border-primary/40 hover:text-primary focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none">
+            <Link key={g} to={to} params={{ group: g }} className="rounded-full border bg-card px-3.5 py-1 font-mono text-[12.5px] text-foreground hover:border-primary/40 hover:text-link focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none">
               {g}
             </Link>
           ),
