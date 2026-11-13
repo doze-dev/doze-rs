@@ -2,7 +2,9 @@
 //! Plain data; the recorder makes it, the pages write it. Nothing here is a ring type.
 
 /// How a request ended, as a word and a colour.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "snake_case")]
 pub enum WireClass {
     /// Answered, no error.
     Done,
@@ -30,7 +32,8 @@ impl WireClass {
 }
 
 /// Which Lab rule touched a request: its number (the link back to it), its name and what it did.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct LabTag {
     pub rule: u32,
     pub name: String,
@@ -38,7 +41,9 @@ pub struct LabTag {
 }
 
 /// What a Lab rule did to a request.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(tag = "kind", content = "ms", rename_all = "snake_case")]
 pub enum LabDid {
     /// Made the answer wait this many milliseconds.
     Delayed(u32),
@@ -49,7 +54,8 @@ pub enum LabDid {
 }
 
 /// One row of the tape, for display.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct WireRow {
     pub id: u64,
     /// When the last of its requests began (milliseconds since the epoch), and the first if it stands for several.
@@ -84,7 +90,8 @@ pub struct WireRow {
 }
 
 /// What the person asked the tape to show.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct WireQuery {
     /// Free text: matches a client, an API, a topic or a group.
     pub text: String,
@@ -127,7 +134,8 @@ impl Default for WireQuery {
 }
 
 /// What the ring covers, computed from what it holds.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct WireWindow {
     /// The rows kept now and the most it keeps.
     pub rows: usize,
@@ -139,7 +147,8 @@ pub struct WireWindow {
 }
 
 /// A refusal to link to from the top of the tape.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct WireRefusal {
     /// The newest request refused in this way (the "View" opens it).
     pub id: u64,
@@ -153,7 +162,9 @@ pub struct WireRefusal {
 }
 
 /// The state of the Live page.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "snake_case")]
 pub enum LiveState {
     /// Nothing has reached the broker since it started.
     Quiet,
@@ -164,7 +175,8 @@ pub enum LiveState {
 }
 
 /// The Live page.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct LiveView {
     pub state: LiveState,
     pub rows: Vec<WireRow>,
@@ -202,14 +214,16 @@ pub struct LiveView {
 }
 
 /// One option of a filter: a value and how many rows of the tape carry it (among the rows that pass the other filters).
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct Facet {
     pub value: String,
     pub count: usize,
 }
 
 /// The options of the Live filters.
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct Facets {
     pub clients: Vec<Facet>,
     pub apis: Vec<Facet>,
@@ -217,7 +231,8 @@ pub struct Facets {
 }
 
 /// One per-partition result of a request.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct WirePart {
     pub topic: String,
     pub partition: i32,
@@ -229,7 +244,8 @@ pub struct WirePart {
 }
 
 /// A request in full, as far as the broker kept it (never a request body).
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct WireDetail {
     pub row: WireRow,
     pub principal: String,
@@ -433,7 +449,8 @@ impl WireQuery {
 mod tests;
 
 /// A group's wire: the rows that pass the filters, and the counts the chips say.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct GroupWireView {
     pub group: String,
     pub query: WireQuery,

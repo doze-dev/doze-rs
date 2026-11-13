@@ -18,11 +18,13 @@ use crate::ui::glyph::{Glyph, glyph};
 use crate::ui::notice::Tone;
 
 /// One line of the rules list: passed or not, what was checked, the detail, and the tag at the right.
-struct Rule {
-    ok: bool,
-    title: String,
-    sub: String,
-    tag: String,
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "RequestRule"))]
+pub struct Rule {
+    pub ok: bool,
+    pub title: String,
+    pub sub: String,
+    pub tag: String,
 }
 
 fn rules(list: &[Rule]) -> Markup {
@@ -128,6 +130,23 @@ fn invalid_record_rules(d: &WireDetail, limits: &Limits) -> Vec<Rule> {
     out
 }
 
+/// The rules of a refusal: the ACL's two lines, a record's, or the plain rule and Kafka's words.
+#[must_use]
+pub fn refused_rules(d: &WireDetail, limits: &Limits) -> Vec<Rule> {
+    if d.row.class == WireClass::Denied {
+        denied_rules(d)
+    } else if d.row.code == 87 {
+        invalid_record_rules(d, limits)
+    } else {
+        vec![Rule {
+            ok: false,
+            title: d.plain.clone(),
+            sub: d.words.clone(),
+            tag: "refused".into(),
+        }]
+    }
+}
+
 /// The generic refusal: Kafka's own, the amber Denied of an ACL or a login, a failure, or a closed connection.
 #[must_use]
 pub fn refused_body(
@@ -141,18 +160,7 @@ pub fn refused_body(
     let denied = r.class == WireClass::Denied;
     let closed = r.class == WireClass::Closed;
     let title = html! { (r.code_name) " (" (r.code) ")" };
-    let list = if denied {
-        denied_rules(d)
-    } else if r.code == 87 {
-        invalid_record_rules(d, limits)
-    } else {
-        vec![Rule {
-            ok: false,
-            title: d.plain.clone(),
-            sub: d.words.clone(),
-            tag: if denied { "denied" } else { "refused" }.into(),
-        }]
-    };
+    let list = refused_rules(d, limits);
     let compacted = limits
         .cleanup
         .as_deref()
@@ -179,10 +187,9 @@ pub fn refused_body(
     }
 }
 
-/// The producer behind its epoch: the requests that led to it, and the two epochs side by side.
+/// The two rules of a fenced producer: the broker knows it, and the epoch it sent is not current.
 #[must_use]
-pub fn fenced_body(d: &WireDetail, base: &Base, close: &str) -> Markup {
-    let r = &d.row;
+pub fn fenced_rules(d: &WireDetail) -> Vec<Rule> {
     let sent = d.producer;
     let current = d
         .story
@@ -190,6 +197,17 @@ pub fn fenced_body(d: &WireDetail, base: &Base, close: &str) -> Markup {
         .rev()
         .find(|s| s.api == "InitProducerId" && s.class == WireClass::Done)
         .map(|s| s.id);
+    vec![
+        Rule { ok: true, title: "The broker knows this producer".into(), sub: current.map_or_else(|| "from the transactional id's last InitProducerId".to_owned(), |_| "its newest InitProducerId is above".to_owned()), tag: sent.map_or_else(String::new, |(p, _)| format!("producer {p}")) },
+        Rule { ok: false, title: "The request's epoch is current".into(), sub: sent.map_or_else(String::new, |(_, e)| format!("it sent {e}, an epoch the broker has since replaced")), tag: sent.map_or_else(String::new, |(_, e)| format!("epoch {e}")) },
+    ]
+}
+
+/// The producer behind its epoch: the requests that led to it, and the two epochs side by side.
+#[must_use]
+pub fn fenced_body(d: &WireDetail, base: &Base, close: &str) -> Markup {
+    let r = &d.row;
+    let sent = d.producer;
     html! {
         (head(Kind::Fenced.heading_id(), html! { (r.code_name) " (" (r.code) ")" }, true, d, close))
         (refusal(Tone::Refused, words(d)))
@@ -207,10 +225,7 @@ pub fn fenced_body(d: &WireDetail, base: &Base, close: &str) -> Markup {
                         @if let Some((_, e)) = sent { " carrying " b { "epoch " (e) } } ": refused, and nothing written." } }
             }
         }
-        (rules(&[
-            Rule { ok: true, title: "The broker knows this producer".into(), sub: current.map_or_else(|| "from the transactional id's last InitProducerId".to_owned(), |_| "its newest InitProducerId is above".to_owned()), tag: sent.map_or_else(String::new, |(p, _)| format!("producer {p}")) },
-            Rule { ok: false, title: "The request's epoch is current".into(), sub: sent.map_or_else(String::new, |(_, e)| format!("it sent {e}, an epoch the broker has since replaced")), tag: sent.map_or_else(String::new, |(_, e)| format!("epoch {e}")) },
-        ]))
+        (rules(&fenced_rules(d)))
         (h3("What would pass", None))
         p class="help" style="margin:0" { "The producer asks again with " span class="mono" { "InitProducerId" } " for its transactional id, gets a newer epoch and starts at sequence 0. Clients do this on their own after the error." }
         (who_when(d, false, false))
@@ -227,8 +242,32 @@ pub fn fenced_body(d: &WireDetail, base: &Base, close: &str) -> Markup {
 pub fn too_large_body(d: &WireDetail, limits: &Limits, base: &Base, close: &str) -> Markup {
     let r = &d.row;
     let sent = u64::from(d.request_bytes);
+    let list = too_large_rules(d, limits);
+    html! {
+        (head(Kind::TooLarge.heading_id(), html! { (r.code_name) " (" (r.code) ")" }, true, d, close))
+        (refusal(Tone::Refused, html! { b { "Kafka's words" } br; (d.words) br;
+            span class="mono" style="font-size:12.5px" { (number(i64::try_from(sent).unwrap_or(0))) " B request" @if let Some((l, _)) = limits.max_message_bytes { " against max.message.bytes " (number(i64::try_from(l).unwrap_or(0))) } "." } }))
+        (h3("The rule", Some("teaching")))
+        p class="help" style="margin:0 0 6px" { "A batch larger than the limit is refused whole. The topic's own " span class="mono" { "max.message.bytes" } " wins; with none set, the broker's " span class="mono" { "message.max.bytes" } " applies." }
+        (rules(&list))
+        (h3("What would pass", None))
+        p class="help" style="margin:0" { (d.pass) }
+        (who_when(d, false, true))
+        div class="row wrap" style="margin-top:20px;gap:10px" {
+            @if let Some(t) = topic_of(d) {
+                (link(&base.url(&format!("/topics/{}/config", segment(t))), Variant::Primary, Size::Normal, None, "Raise max.message.bytes"))
+                (link(&base.url(&format!("/topics/{}", segment(t))), Variant::Plain, Size::Normal, None, &format!("Open {t}")))
+            }
+        }
+    }
+}
+
+/// The rules of a batch over the size limit, against the limit as the broker says it now.
+#[must_use]
+pub fn too_large_rules(d: &WireDetail, limits: &Limits) -> Vec<Rule> {
+    let sent = u64::from(d.request_bytes);
     let topic = topic_of(d).unwrap_or("the topic");
-    let list = match limits.max_message_bytes {
+    match limits.max_message_bytes {
         Some((limit, topic_sets)) => vec![
             Rule {
                 ok: false,
@@ -257,22 +296,5 @@ pub fn too_large_body(d: &WireDetail, limits: &Limits, base: &Base, close: &str)
             sub: format!("{} sent; the limit could not be read now", bytes(sent)),
             tag: "limit".into(),
         }],
-    };
-    html! {
-        (head(Kind::TooLarge.heading_id(), html! { (r.code_name) " (" (r.code) ")" }, true, d, close))
-        (refusal(Tone::Refused, html! { b { "Kafka's words" } br; (d.words) br;
-            span class="mono" style="font-size:12.5px" { (number(i64::try_from(sent).unwrap_or(0))) " B request" @if let Some((l, _)) = limits.max_message_bytes { " against max.message.bytes " (number(i64::try_from(l).unwrap_or(0))) } "." } }))
-        (h3("The rule", Some("teaching")))
-        p class="help" style="margin:0 0 6px" { "A batch larger than the limit is refused whole. The topic's own " span class="mono" { "max.message.bytes" } " wins; with none set, the broker's " span class="mono" { "message.max.bytes" } " applies." }
-        (rules(&list))
-        (h3("What would pass", None))
-        p class="help" style="margin:0" { (d.pass) }
-        (who_when(d, false, true))
-        div class="row wrap" style="margin-top:20px;gap:10px" {
-            @if let Some(t) = topic_of(d) {
-                (link(&base.url(&format!("/topics/{}/config", segment(t))), Variant::Primary, Size::Normal, None, "Raise max.message.bytes"))
-                (link(&base.url(&format!("/topics/{}", segment(t))), Variant::Plain, Size::Normal, None, &format!("Open {t}")))
-            }
-        }
     }
 }

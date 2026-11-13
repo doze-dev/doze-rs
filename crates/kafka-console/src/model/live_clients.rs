@@ -3,7 +3,8 @@
 use super::live::WireRow;
 
 /// One connected client.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct ClientRow {
     pub client: String,
     pub tag: Option<String>,
@@ -20,7 +21,8 @@ pub struct ClientRow {
 }
 
 /// The clients drawer.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct ClientsView {
     pub rows: Vec<ClientRow>,
     pub connections: usize,
@@ -42,7 +44,8 @@ pub struct SpokeView {
 }
 
 /// The first-request page: the newest client the broker had not heard from before.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct FirstView {
     pub client: String,
     pub software: Option<String>,

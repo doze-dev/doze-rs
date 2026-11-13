@@ -34,7 +34,7 @@ pub fn fetch_commands(addr: &str, topic: &str, partition: i32, offset: i64) -> F
 
 /// `kcat` producing one keyed record to a topic as the client that was refused.
 #[must_use]
-pub(super) fn keyed_produce(addr: &str, topic: &str, client: &str) -> String {
+pub fn keyed_produce(addr: &str, topic: &str, client: &str) -> String {
     format!(
         "echo \"key:value\" | kcat -P -K: \\\n  -b {} -t {} \\\n  -X client.id={}",
         shell_word(addr),
