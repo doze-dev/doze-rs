@@ -40,7 +40,9 @@ pub fn intro() -> LabIntro {
             },
         ],
         limits: vec![
-            s("Nothing is saved: rules last only while this broker runs, and a restart clears them."),
+            s(
+                "Nothing is saved: rules last only while this broker runs, and a restart clears them.",
+            ),
             s(
                 "Only this broker, and only the requests a rule matches. Slow, Fail and Drop change answers, never your records.",
             ),
