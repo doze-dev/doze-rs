@@ -15,6 +15,12 @@ aws-cloudformation = { path = ".." }
 [workspace]
 
 [[bin]]
+name = "fuzz_unzip"
+path = "fuzz_targets/fuzz_unzip.rs"
+test = false
+doc = false
+
+[[bin]]
 name = "fuzz_yaml"
 path = "fuzz_targets/fuzz_yaml.rs"
 test = false

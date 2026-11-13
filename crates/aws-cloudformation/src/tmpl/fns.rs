@@ -3,7 +3,7 @@
 
 use serde_json::Value;
 
-use super::eval::{Out, Scope, err, intrinsic};
+use super::eval::{Out, Scope, err};
 
 impl Scope<'_> {
     pub(super) fn function(&self, name: &str, arg: &Value) -> Out {
@@ -220,16 +220,4 @@ pub(crate) fn cidrs(block: &str, count: u32, bits: u32) -> Option<Vec<String>> {
         out.push(format!("{text}/{new_prefix}"));
     }
     Some(out)
-}
-
-/// Whether `v` holds any intrinsic call (so is not a plain literal).
-pub(crate) fn has_intrinsic(v: &Value) -> bool {
-    if intrinsic(v).is_some() {
-        return true;
-    }
-    match v {
-        Value::Object(o) => o.values().any(has_intrinsic),
-        Value::Array(a) => a.iter().any(has_intrinsic),
-        _ => false,
-    }
 }

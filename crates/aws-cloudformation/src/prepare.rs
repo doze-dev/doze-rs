@@ -23,7 +23,6 @@ pub(crate) struct Prepared {
     pub(crate) processed: Value,
     pub(crate) params: Vec<Bound>,
     pub(crate) description: Option<String>,
-    pub(crate) transforms: Vec<String>,
 }
 
 /// How strict the capability check is.
@@ -142,7 +141,6 @@ impl Core {
                 .map(str::to_owned),
             processed,
             params: bound,
-            transforms,
         })
     }
 

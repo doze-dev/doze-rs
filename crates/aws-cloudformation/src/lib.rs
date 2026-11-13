@@ -197,6 +197,13 @@ impl Service for Cloudformation {
     }
 }
 
+/// Whether `bytes` is a zip archive the bucket-deployment reader accepts. Exists so the reader can be fuzzed.
+#[doc(hidden)]
+#[must_use]
+pub fn check_zip(bytes: &[u8]) -> bool {
+    custom::check_zip(bytes)
+}
+
 /// Whether `text` is YAML the template reader accepts. Exists so the reader can be fuzzed.
 #[doc(hidden)]
 #[must_use]

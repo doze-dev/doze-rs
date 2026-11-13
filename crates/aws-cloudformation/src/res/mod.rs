@@ -1,6 +1,9 @@
 //! Resource types: how each mapped type is made, updated and deleted through its service's own operations, which properties force
 //! a replacement, and the class of every other type (decision D5).
 
+mod apigw;
+mod apigw_more;
+mod apigwv2;
 mod cloudwatch;
 mod coerce;
 mod ddb;
@@ -18,6 +21,7 @@ pub(crate) mod policy;
 mod s3;
 mod s3_config;
 mod secrets;
+mod sfn;
 pub(crate) mod skip;
 mod sns;
 mod sqs;
@@ -225,6 +229,9 @@ pub(crate) async fn create(rc: &Rc, props: &Value) -> Done {
         "SecretsManager" => Box::pin(secrets::create(rc, props)).await,
         "Events" => Box::pin(events::create(rc, props)).await,
         "CloudWatch" => Box::pin(cloudwatch::create(rc, props)).await,
+        "StepFunctions" => Box::pin(sfn::create(rc, props)).await,
+        "ApiGateway" => Box::pin(apigw::create(rc, props)).await,
+        "ApiGatewayV2" => Box::pin(apigwv2::create(rc, props)).await,
         _ => Box::pin(more::create(rc, props)).await,
     }
 }
@@ -245,6 +252,9 @@ pub(crate) async fn update(rc: &Rc, old: &Res, props: &Value) -> Done {
         "SecretsManager" => Box::pin(secrets::update(rc, old, props)).await,
         "Events" => Box::pin(events::update(rc, old, props)).await,
         "CloudWatch" => Box::pin(cloudwatch::update(rc, old, props)).await,
+        "StepFunctions" => Box::pin(sfn::update(rc, old, props)).await,
+        "ApiGateway" => Box::pin(apigw_more::update(rc, old, props)).await,
+        "ApiGatewayV2" => Box::pin(apigwv2::update(rc, old, props)).await,
         _ => Box::pin(more::update(rc, old, props)).await,
     }
 }
@@ -265,6 +275,9 @@ pub(crate) async fn delete(rc: &Rc, res: &Res) -> Result<(), String> {
         "SecretsManager" => Box::pin(secrets::delete(rc, res)).await,
         "Events" => Box::pin(events::delete(rc, res)).await,
         "CloudWatch" => Box::pin(cloudwatch::delete(rc, res)).await,
+        "StepFunctions" => Box::pin(sfn::delete(rc, res)).await,
+        "ApiGateway" => Box::pin(apigw_more::delete(rc, res)).await,
+        "ApiGatewayV2" => Box::pin(apigwv2::delete(rc, res)).await,
         _ => Box::pin(more::delete(rc, res)).await,
     }
 }

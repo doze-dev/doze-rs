@@ -5,6 +5,11 @@
 pub(crate) mod include;
 pub(crate) mod langext;
 pub(crate) mod sam;
+pub(crate) mod sam_api;
+pub(crate) mod sam_events;
+pub(crate) mod sam_policies;
+pub(crate) mod sam_role;
+pub(crate) mod sam_sfn;
 
 use std::collections::BTreeMap;
 

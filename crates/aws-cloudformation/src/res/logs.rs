@@ -10,7 +10,7 @@ use crate::model::Res;
 const SVC: &str = "logs";
 
 /// `MetricName` to `metricName`, all the way down.
-fn camel(v: &Value) -> Value {
+pub(super) fn camel(v: &Value) -> Value {
     match v {
         Value::Object(o) => Value::Object(
             o.iter()

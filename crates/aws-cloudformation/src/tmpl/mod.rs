@@ -13,7 +13,7 @@ use serde_json::{Map, Value, json};
 
 use aws_wire::ApiError;
 
-use crate::errors::{format, template};
+use crate::errors::format;
 use crate::j::J;
 
 /// The sections a template may have.
@@ -319,9 +319,4 @@ pub(crate) fn summary_answer(original: &Value, t: &Value) -> Value {
         out.insert("ResourceIdentifierSummaries".into(), Value::Array(ids));
     }
     Value::Object(out)
-}
-
-/// `Template error: <what>` for a function used with the wrong arguments.
-pub(crate) fn bad_fn(name: &str) -> ApiError {
-    template(format!("Fn::{name} is used incorrectly")) // (memory)
 }

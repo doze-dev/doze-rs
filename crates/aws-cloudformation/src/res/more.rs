@@ -64,6 +64,32 @@ const MAPPED: &[&str] = &[
     "AWS::CloudWatch::Alarm",
     "AWS::CloudWatch::CompositeAlarm",
     "AWS::CloudWatch::Dashboard",
+    "AWS::CloudFormation::Stack",
+    "AWS::CloudFormation::CustomResource",
+    "AWS::StepFunctions::StateMachine",
+    "AWS::StepFunctions::Activity",
+    "AWS::StepFunctions::StateMachineVersion",
+    "AWS::StepFunctions::StateMachineAlias",
+    "AWS::ApiGateway::RestApi",
+    "AWS::ApiGateway::Resource",
+    "AWS::ApiGateway::Method",
+    "AWS::ApiGateway::Deployment",
+    "AWS::ApiGateway::Stage",
+    "AWS::ApiGateway::Authorizer",
+    "AWS::ApiGateway::ApiKey",
+    "AWS::ApiGateway::UsagePlan",
+    "AWS::ApiGateway::UsagePlanKey",
+    "AWS::ApiGateway::Model",
+    "AWS::ApiGateway::RequestValidator",
+    "AWS::ApiGateway::GatewayResponse",
+    "AWS::ApiGatewayV2::Api",
+    "AWS::ApiGatewayV2::Route",
+    "AWS::ApiGatewayV2::Integration",
+    "AWS::ApiGatewayV2::Stage",
+    "AWS::ApiGatewayV2::Deployment",
+    "AWS::ApiGatewayV2::Authorizer",
+    "AWS::ApiGatewayV2::RouteResponse",
+    "AWS::ApiGatewayV2::IntegrationResponse",
 ];
 
 /// Types CloudFormation itself makes: nothing to call.
@@ -81,8 +107,10 @@ pub(crate) fn mapped(ty: &str) -> bool {
     MAPPED.contains(&ty) || natively_made(ty)
 }
 
-pub(super) async fn create(rc: &Rc, _p: &Value) -> Done {
+pub(super) async fn create(rc: &Rc, p: &Value) -> Done {
     match rc.ty.as_str() {
+        "AWS::CloudFormation::Stack" => crate::nested::create(rc, p).await,
+        t if crate::custom::is_custom(t) => crate::custom::create(rc, p).await,
         "AWS::CDK::Metadata" => Ok(Made::new(aws_seal::uuid_v4().unwrap_or_default())),
         "AWS::CloudFormation::WaitConditionHandle" => {
             let (url, _rx) = rc.runner.responses.expect(
@@ -102,6 +130,12 @@ pub(super) async fn create(rc: &Rc, _p: &Value) -> Done {
 }
 
 pub(super) async fn update(rc: &Rc, old: &Res, p: &Value) -> Done {
+    if rc.ty == "AWS::CloudFormation::Stack" {
+        return crate::nested::update(rc, old, p).await;
+    }
+    if crate::custom::is_custom(&rc.ty) {
+        return crate::custom::update(rc, old, p).await;
+    }
     if natively_made(&rc.ty) {
         let mut m = Made::new(old.physical.clone().unwrap_or_default());
         m.attrs = old.attrs_map();
@@ -110,6 +144,12 @@ pub(super) async fn update(rc: &Rc, old: &Res, p: &Value) -> Done {
     create(rc, p).await
 }
 
-pub(super) async fn delete(_rc: &Rc, _res: &Res) -> Result<(), String> {
+pub(super) async fn delete(rc: &Rc, res: &Res) -> Result<(), String> {
+    if rc.ty == "AWS::CloudFormation::Stack" {
+        return crate::nested::delete(rc, res).await;
+    }
+    if crate::custom::is_custom(&rc.ty) {
+        return crate::custom::delete(rc, res).await;
+    }
     Ok(())
 }

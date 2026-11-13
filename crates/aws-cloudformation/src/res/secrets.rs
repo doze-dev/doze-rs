@@ -114,13 +114,12 @@ pub(super) async fn update(rc: &Rc, old: &Res, p: &Value) -> Done {
         }
     }
     // A generated value is generated again only when its recipe changes (as on AWS).
-    if before.get("SecretString") != p.get("SecretString")
-        || before.get("GenerateSecretString") != p.get("GenerateSecretString")
+    if (before.get("SecretString") != p.get("SecretString")
+        || before.get("GenerateSecretString") != p.get("GenerateSecretString"))
+        && let Some(v) = value(rc, p).await?
     {
-        if let Some(v) = value(rc, p).await? {
-            body.put("SecretString", v.into());
-            changed = true;
-        }
+        body.put("SecretString", v.into());
+        changed = true;
     }
     if changed {
         call(rc, "UpdateSecret", body).await?;

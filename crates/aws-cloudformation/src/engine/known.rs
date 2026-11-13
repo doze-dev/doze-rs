@@ -99,14 +99,6 @@ impl Working {
         }
     }
 
-    /// A resource attribute of the template, as text (`DeletionPolicy`, `UpdateReplacePolicy`).
-    pub(crate) fn attribute_text(&self, logical: &str, key: &str) -> Option<String> {
-        self.declared(logical)?
-            .get(key)?
-            .as_str()
-            .map(str::to_owned)
-    }
-
     /// What each live resource waits for.
     pub(crate) fn graph(&self) -> BTreeMap<String, BTreeSet<String>> {
         deps::graph(&self.template, &self.live, &self.conditions)

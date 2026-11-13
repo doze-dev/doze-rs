@@ -186,24 +186,6 @@ impl Core {
         })
     }
 
-    /// CloudFormation with no disk (the rules alone are under test).
-    #[cfg(test)]
-    pub(crate) fn in_memory(clock: Arc<dyn Clock>, peers: Option<Arc<Peers>>) -> Self {
-        Self {
-            stacks: Records::new(STACKS, "stack", VERSION),
-            events: Records::new(EVENTS, "stack event", VERSION),
-            change_sets: Records::new(CHANGE_SETS, "change set", VERSION),
-            peers,
-            clock,
-            config: Arc::new(Config::default()),
-            db: None,
-            patterns: Patterns::new(&TABLES),
-            started: Vec::new(),
-            last_ms: 0,
-            outbox: Vec::new(),
-        }
-    }
-
     pub(crate) fn now_ms(&self) -> i64 {
         self.clock.now_ms()
     }
