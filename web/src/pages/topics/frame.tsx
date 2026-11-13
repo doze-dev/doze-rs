@@ -264,7 +264,7 @@ export function TopicLayout() {
       {place !== "partitions" && f && <Tabs f={f} on={place} />}
       {place !== "partitions" && !f && <Skeleton className="mt-8 h-11 w-full" />}
       <div className="mt-6" data-testid="topic-body">
-        <Outlet />
+        {f ? <Outlet /> : <Skeleton className="h-96 w-full rounded-xl" />}
       </div>
       {f && <TopicOverlays frame={f} />}
     </div>

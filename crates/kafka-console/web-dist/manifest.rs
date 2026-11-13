@@ -3,18 +3,18 @@
 /// Every file of the bundle.
 pub const FILES: &[(&str, Served)] = &[
     (
-        "assets/gallery-Ccj7gOus.js",
+        "assets/gallery-DGtdV85J.js",
         Served {
             content_type: "text/javascript; charset=utf-8",
-            bytes: include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/web-dist/assets/gallery-Ccj7gOus.js.gz")),
+            bytes: include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/web-dist/assets/gallery-DGtdV85J.js.gz")),
             gzip: true,
         },
     ),
     (
-        "assets/index-CUxrpI5x.js",
+        "assets/index-BtOq7NsB.js",
         Served {
             content_type: "text/javascript; charset=utf-8",
-            bytes: include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/web-dist/assets/index-CUxrpI5x.js.gz")),
+            bytes: include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/web-dist/assets/index-BtOq7NsB.js.gz")),
             gzip: true,
         },
     ),
@@ -51,10 +51,10 @@ pub const FILES: &[(&str, Served)] = &[
         },
     ),
     (
-        "assets/pages-eJook-pC.js",
+        "assets/pages-CTVFOu6F.js",
         Served {
             content_type: "text/javascript; charset=utf-8",
-            bytes: include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/web-dist/assets/pages-eJook-pC.js.gz")),
+            bytes: include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/web-dist/assets/pages-CTVFOu6F.js.gz")),
             gzip: true,
         },
     ),

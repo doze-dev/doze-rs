@@ -2,7 +2,8 @@
 // RefreshControl's interval the only timer, keepPreviousData so nothing blanks while a refresh or a filter is in flight.
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { intervalMs, useRefreshInterval } from "@/lib/refresh";
-import { api } from "./client";
+import { ApiFailure, api } from "./client";
+import type { Missing } from "./types/Missing";
 import type { CompactDone } from "./types/CompactDone";
 import type { ConsumersResponse } from "./types/ConsumersResponse";
 import type { LogResponse } from "./types/LogResponse";
@@ -14,6 +15,14 @@ import type { TopicsResponse } from "./types/TopicsResponse";
 import type { TxnResponse } from "./types/TxnResponse";
 
 const seg = encodeURIComponent;
+
+/** A lookup (a topic's frame, a record, a transaction): the server answers `{missing}` when the thing is not there, which the
+ * page gets as an ApiFailure with the server's words, as for any refusal. */
+async function lookup<T>(path: string, signal: AbortSignal): Promise<T> {
+  const body = await api<T | Missing>(path, {}, signal);
+  if (body && typeof body === "object" && "missing" in body) throw new ApiFailure(404, (body as Missing).missing);
+  return body as T;
+}
 
 export const topicKeys = {
   all: ["topics"] as const,
@@ -58,7 +67,7 @@ export function useTopics(q: string, internal: boolean) {
 
 export function useTopicFrame(topic: string) {
   const i = useInterval();
-  return useQuery({ ...snapshot<TopicFrame>(topicKeys.frame(topic), `/api/v1/topics/${seg(topic)}`, i), placeholderData: undefined });
+  return useQuery({ ...snapshot<TopicFrame>(topicKeys.frame(topic), `/api/v1/topics/${seg(topic)}`, i), queryFn: ({ signal }) => lookup<TopicFrame>(`/api/v1/topics/${seg(topic)}`, signal), placeholderData: undefined });
 }
 
 /** `qs` is the API's query (`partition=0&isolation=read_committed`), built by `messagesQuery`. */
@@ -74,7 +83,7 @@ export function useMessages(topic: string, qs: string) {
 export function useRecord(topic: string, at: { partition: number; offset: number } | null) {
   return useQuery({
     queryKey: topicKeys.record(topic, at?.partition ?? -1, at?.offset ?? -1),
-    queryFn: ({ signal }) => api<RecordView>(`/api/v1/topics/${seg(topic)}/records/${at!.partition}/${at!.offset}`, {}, signal),
+    queryFn: ({ signal }) => lookup<RecordView>(`/api/v1/topics/${seg(topic)}/records/${at!.partition}/${at!.offset}`, signal),
     staleTime: Infinity,
     enabled: !!at,
     retry: false,
@@ -104,7 +113,7 @@ export function useProducers(topic: string, partition: number) {
 
 export function useTxn(topic: string, id: string) {
   const i = useInterval();
-  return useQuery({ ...snapshot<TxnResponse>(topicKeys.txn(topic, id), `/api/v1/topics/${seg(topic)}/transactions/${seg(id)}`, i), placeholderData: undefined });
+  return useQuery({ ...snapshot<TxnResponse>(topicKeys.txn(topic, id), `/api/v1/topics/${seg(topic)}/transactions/${seg(id)}`, i), queryFn: ({ signal }) => lookup<TxnResponse>(`/api/v1/topics/${seg(topic)}/transactions/${seg(id)}`, signal), placeholderData: undefined });
 }
 
 /** The Lab's Compact now: the cleaner's real round on one partition. Refreshes the topic's pages after. */

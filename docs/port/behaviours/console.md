@@ -1026,7 +1026,10 @@ the filters the classic page reads, with the reach sentence, whether a tail appl
 `consumers_log_producers_and_a_transaction_answer_with_their_words`.
 
 ## CON-1101. A name that is no topic, a record or a transaction that is not there, in the classic page's words
-`UNKNOWN_TOPIC_OR_PARTITION`, `NO_SUCH_RECORD` and `TRANSACTIONAL_ID_NOT_FOUND`, 404, with the sentence the classic page says. The pages
+A page's lookup (a topic's frame, a record, a transaction) that finds nothing answers 200 `{"missing": {code, message}}` with
+`UNKNOWN_TOPIC_OR_PARTITION`, `NO_SUCH_RECORD` or `TRANSACTIONAL_ID_NOT_FOUND` and the sentence the classic page says: "it is not there"
+is an answer, and a 404 would put an error in Chromium's and Safari's console on a page that works. The tabs of a topic wait for its
+frame, so a name that is no topic fetches nothing else; a tab's own address for no topic is still a 404 refusal. The pages
 show it (No such topic; the record Sheet says why; No transaction called ...). Test: `the_topics_list_and_a_topics_frame_are_the_view_models_serialised`;
 Playwright "the record Sheet ...", "Producers ...".
 

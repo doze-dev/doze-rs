@@ -14,17 +14,21 @@
 ```
 Error: expect(received).toEqual(expected) // deep equality
 
-- Expected  - 1
-+ Received  + 1
+- Expected  - 2
++ Received  + 2
 
-@@ -5,10 +5,10 @@
+  Array [
+    Array [
+      304,
+-     493,
++     454,
       1088,
       36,
     ],
     Array [
       304,
--     549,
-+     585,
+-     541,
++     502,
       1088,
       36,
     ],
@@ -34,7 +38,7 @@ Error: expect(received).toEqual(expected) // deep equality
 # Page snapshot
 
 ```yaml
-- generic [ref=e1]:
+- generic [active] [ref=e1]:
   - generic [ref=e2]:
     - generic [ref=e3]:
       - generic [ref=e6]:
@@ -91,7 +95,7 @@ Error: expect(received).toEqual(expected) // deep equality
                       - link "Topics" [ref=e97] [cursor=pointer]:
                         - /url: /topics
                 - generic [ref=e98]:
-                  - generic [ref=e99]: Updated 05:39:50 UTC
+                  - generic [ref=e99]: Updated 05:44:30 UTC
                   - combobox "Refresh every" [ref=e100]:
                     - generic: "Refresh: Off"
                   - button "Refresh" [ref=e101]
@@ -121,7 +125,7 @@ Error: expect(received).toEqual(expected) // deep equality
                 - definition [ref=e129]: 655 B
               - generic [ref=e130]:
                 - term [ref=e131]: Last write
-                - definition [ref=e133]: 05:39:31
+                - definition [ref=e133]: 05:44:11
                 - generic "UTC" [ref=e134]
             - generic [ref=e135]: No open transactions.
             - navigation "Topic" [ref=e140]:
@@ -147,112 +151,174 @@ Error: expect(received).toEqual(expected) // deep equality
                     - generic [ref=e153]: "0"
             - generic [ref=e155]:
               - generic [ref=e156]:
-                - generic [ref=e158]:
-                  - combobox "Partitions" [ref=e159]:
-                    - generic [ref=e160]: orders-1
-                  - button "Clear partitions" [ref=e161]
-                - search [ref=e162]:
-                  - textbox "Find a key, or go to an offset" [ref=e163]:
+                - combobox "Partitions" [ref=e159]:
+                  - generic [ref=e160]: All partitions
+                - search [ref=e161]:
+                  - textbox "Find a key, or go to an offset" [ref=e162]:
                     - /placeholder: Key, or offset
-                - button "From time" [ref=e164]
-                - generic [ref=e166]:
-                  - generic [ref=e167]: Reading as
-                  - radiogroup "Reading as" [ref=e168]:
-                    - radio "read_uncommitted" [checked] [ref=e169]
-                    - radio "read_committed" [ref=e170]
-              - generic [ref=e171]:
-                - paragraph [ref=e172]: The fetch returned 3 records, offsets 0 to 2, the end of the partition.
-                - generic [ref=e173]:
+                - button "From time" [ref=e163]
+                - generic [ref=e165]:
+                  - generic [ref=e166]: Reading as
+                  - radiogroup "Reading as" [ref=e167]:
+                    - radio "read_uncommitted" [checked] [ref=e168]
+                    - radio "read_committed" [ref=e169]
+              - generic [ref=e170]:
+                - generic [ref=e171]:
+                  - generic [ref=e172]: "No filter: the newest records of every partition."
                   - generic [ref=e174]:
-                    - generic [ref=e175]:
-                      - generic [ref=e176]: partition 1
-                      - button "Remove partition 1" [ref=e177]
-                    - button "Clear all" [ref=e181]
-                  - generic [ref=e182]:
-                    - radiogroup "Snapshot or Live tail" [ref=e184]:
-                      - radio "Snapshot" [checked] [ref=e185]
-                      - radio "Live tail" [ref=e186]
-                    - combobox "Tail speed" [disabled] [ref=e187]:
+                    - radiogroup "Snapshot or Live tail" [ref=e176]:
+                      - radio "Snapshot" [checked] [ref=e177]
+                      - radio "Live tail" [ref=e178]
+                    - combobox "Tail speed" [disabled] [ref=e179]:
                       - generic: Relaxed
-                    - generic [ref=e188]: Snapshot
-                - generic [ref=e191]:
-                  - table "Records, newest first" [ref=e193]:
-                    - rowgroup [ref=e202]:
-                      - row [ref=e203]:
-                        - columnheader "Partition" [ref=e204]:
-                          - button "Partition" [ref=e205]
-                        - columnheader "Offset" [ref=e208]:
-                          - button "Offset" [ref=e209]
-                        - columnheader "Timestamp" [ref=e212]:
-                          - button "Timestamp" [ref=e213]
-                        - columnheader "Key" [ref=e216]:
-                          - button "Key" [ref=e217]
-                        - columnheader "Value" [ref=e220]:
-                          - button "Value" [ref=e221]
-                        - columnheader "Value size" [ref=e224]:
-                          - button "Value size" [ref=e225]
-                        - columnheader "For read_committed" [ref=e228]:
-                          - button "For read_committed" [ref=e229]
-                    - rowgroup [ref=e232]:
-                      - row [ref=e233] [cursor=pointer]:
-                        - cell "1" [ref=e234]
-                        - cell [ref=e235]:
-                          - button "2" [ref=e236]
-                        - cell "05:39:31.295" [ref=e237]
-                        - cell "orders-7" [ref=e238]
-                        - 'cell "{\"i\":7,\"topic\":\"orders\"}" [ref=e239]'
-                        - cell "24 B" [ref=e240]
-                        - cell "Committed" [ref=e241]
-                      - row [ref=e244] [cursor=pointer]:
-                        - cell "1" [ref=e245]
-                        - cell [ref=e246]:
-                          - button "1" [ref=e247]
-                        - cell "05:39:31.295" [ref=e248]
-                        - cell "orders-6" [ref=e249]
-                        - 'cell "{\"i\":6,\"topic\":\"orders\"}" [ref=e250]'
-                        - cell "24 B" [ref=e251]
-                        - cell "Committed" [ref=e252]
-                      - row [ref=e255] [cursor=pointer]:
-                        - cell "1" [ref=e256]
-                        - cell [ref=e257]:
-                          - button "0" [ref=e258]
-                        - cell "05:39:31.295" [ref=e259]
-                        - cell "orders-4" [ref=e260]
-                        - 'cell "{\"i\":4,\"topic\":\"orders\"}" [ref=e261]'
-                        - cell "24 B" [ref=e262]
-                        - cell "Committed" [ref=e263]
-                  - generic [ref=e266]: Newest first · 3 records
-                - paragraph [ref=e268]:
-                  - generic [ref=e269]: 3 of 3 partitions online
-                - button "How this read works" [ref=e272]
-        - generic [ref=e273]:
-          - heading "Jump to a topic or group" [level=2] [ref=e274]
-          - paragraph [ref=e275]: Type a name, then Enter
+                    - generic [ref=e180]: Snapshot
+                - generic [ref=e183]:
+                  - table "Records, newest first" [ref=e185]:
+                    - rowgroup [ref=e194]:
+                      - row [ref=e195]:
+                        - columnheader "Partition" [ref=e196]:
+                          - button "Partition" [ref=e197]
+                        - columnheader "Offset" [ref=e200]:
+                          - button "Offset" [ref=e201]
+                        - columnheader "Timestamp" [ref=e204]:
+                          - button "Timestamp" [ref=e205]
+                        - columnheader "Key" [ref=e208]:
+                          - button "Key" [ref=e209]
+                        - columnheader "Value" [ref=e212]:
+                          - button "Value" [ref=e213]
+                        - columnheader "Value size" [ref=e216]:
+                          - button "Value size" [ref=e217]
+                        - columnheader "For read_committed" [ref=e220]:
+                          - button "For read_committed" [ref=e221]
+                    - rowgroup [ref=e224]:
+                      - row [ref=e225] [cursor=pointer]:
+                        - cell "0" [ref=e226]
+                        - cell [ref=e227]:
+                          - button "4" [ref=e228]
+                        - cell "05:44:11.106" [ref=e229]
+                        - cell "orders-9" [ref=e230]
+                        - 'cell "{\"i\":9,\"topic\":\"orders\"}" [ref=e231]'
+                        - cell "24 B" [ref=e232]
+                        - cell "Committed" [ref=e233]
+                      - row [ref=e236] [cursor=pointer]:
+                        - cell "0" [ref=e237]
+                        - cell [ref=e238]:
+                          - button "3" [ref=e239]
+                        - cell "05:44:11.106" [ref=e240]
+                        - cell "orders-5" [ref=e241]
+                        - 'cell "{\"i\":5,\"topic\":\"orders\"}" [ref=e242]'
+                        - cell "24 B" [ref=e243]
+                        - cell "Committed" [ref=e244]
+                      - row [ref=e247] [cursor=pointer]:
+                        - cell "0" [ref=e248]
+                        - cell [ref=e249]:
+                          - button "2" [ref=e250]
+                        - cell "05:44:11.106" [ref=e251]
+                        - cell "orders-2" [ref=e252]
+                        - 'cell "{\"i\":2,\"topic\":\"orders\"}" [ref=e253]'
+                        - cell "24 B" [ref=e254]
+                        - cell "Committed" [ref=e255]
+                      - row [ref=e258] [cursor=pointer]:
+                        - cell "0" [ref=e259]
+                        - cell [ref=e260]:
+                          - button "1" [ref=e261]
+                        - cell "05:44:11.106" [ref=e262]
+                        - cell "orders-1" [ref=e263]
+                        - 'cell "{\"i\":1,\"topic\":\"orders\"}" [ref=e264]'
+                        - cell "24 B" [ref=e265]
+                        - cell "Committed" [ref=e266]
+                      - row [ref=e269] [cursor=pointer]:
+                        - cell "0" [ref=e270]
+                        - cell [ref=e271]:
+                          - button "0" [ref=e272]
+                        - cell "05:44:11.106" [ref=e273]
+                        - cell "orders-0" [ref=e274]
+                        - 'cell "{\"i\":0,\"topic\":\"orders\"}" [ref=e275]'
+                        - cell "24 B" [ref=e276]
+                        - cell "Committed" [ref=e277]
+                      - row [ref=e280] [cursor=pointer]:
+                        - cell "1" [ref=e281]
+                        - cell [ref=e282]:
+                          - button "2" [ref=e283]
+                        - cell "05:44:11.106" [ref=e284]
+                        - cell "orders-7" [ref=e285]
+                        - 'cell "{\"i\":7,\"topic\":\"orders\"}" [ref=e286]'
+                        - cell "24 B" [ref=e287]
+                        - cell "Committed" [ref=e288]
+                      - row [ref=e291] [cursor=pointer]:
+                        - cell "1" [ref=e292]
+                        - cell [ref=e293]:
+                          - button "1" [ref=e294]
+                        - cell "05:44:11.106" [ref=e295]
+                        - cell "orders-6" [ref=e296]
+                        - 'cell "{\"i\":6,\"topic\":\"orders\"}" [ref=e297]'
+                        - cell "24 B" [ref=e298]
+                        - cell "Committed" [ref=e299]
+                      - row [ref=e302] [cursor=pointer]:
+                        - cell "1" [ref=e303]
+                        - cell [ref=e304]:
+                          - button "0" [ref=e305]
+                        - cell "05:44:11.106" [ref=e306]
+                        - cell "orders-4" [ref=e307]
+                        - 'cell "{\"i\":4,\"topic\":\"orders\"}" [ref=e308]'
+                        - cell "24 B" [ref=e309]
+                        - cell "Committed" [ref=e310]
+                      - row [ref=e313] [cursor=pointer]:
+                        - cell "2" [ref=e314]
+                        - cell [ref=e315]:
+                          - button "3" [ref=e316]
+                        - cell "05:44:11.106" [ref=e317]
+                        - cell "orders-11" [ref=e318]
+                        - 'cell "{\"i\":11,\"topic\":\"orders\"}" [ref=e319]'
+                        - cell "25 B" [ref=e320]
+                        - cell "Committed" [ref=e321]
+                      - row [ref=e324] [cursor=pointer]:
+                        - cell "2" [ref=e325]
+                        - cell [ref=e326]:
+                          - button "2" [ref=e327]
+                        - cell "05:44:11.106" [ref=e328]
+                        - cell "orders-10" [ref=e329]
+                        - 'cell "{\"i\":10,\"topic\":\"orders\"}" [ref=e330]'
+                        - cell "25 B" [ref=e331]
+                        - cell "Committed" [ref=e332]
+                      - row [ref=e335] [cursor=pointer]:
+                        - cell "2" [ref=e336]
+                        - cell [ref=e337]:
+                          - button "1" [ref=e338]
+                        - cell "05:44:11.106" [ref=e339]
+                        - cell "orders-8" [ref=e340]
+                        - 'cell "{\"i\":8,\"topic\":\"orders\"}" [ref=e341]'
+                        - cell "24 B" [ref=e342]
+                        - cell "Committed" [ref=e343]
+                      - row [ref=e346] [cursor=pointer]:
+                        - cell "2" [ref=e347]
+                        - cell [ref=e348]:
+                          - button "0" [ref=e349]
+                        - cell "05:44:11.106" [ref=e350]
+                        - cell "orders-3" [ref=e351]
+                        - 'cell "{\"i\":3,\"topic\":\"orders\"}" [ref=e352]'
+                        - cell "24 B" [ref=e353]
+                        - cell "Committed" [ref=e354]
+                  - generic [ref=e357]: Newest first · 12 of 12
+                - paragraph [ref=e359]:
+                  - generic [ref=e360]: 3 of 3 partitions online
+                - button "How this read works" [ref=e363]
+        - generic [ref=e364]:
+          - heading "Jump to a topic or group" [level=2] [ref=e365]
+          - paragraph [ref=e366]: Type a name, then Enter
     - region "Notifications alt+T"
-  - dialog [ref=e277]:
-    - generic [ref=e278]:
-      - combobox [expanded] [ref=e284]
-      - listbox "Suggestions" [active] [ref=e285]:
-        - generic [ref=e286]:
-          - group [ref=e287]:
-            - option "orders-1 3" [selected] [ref=e288]:
-              - checkbox [checked] [aria-hidden]
-              - generic "orders-1" [ref=e289]
-              - generic [ref=e290]: "3"
-            - option "orders-0 5" [ref=e291]:
-              - checkbox [aria-hidden]
-              - generic "orders-0" [ref=e292]
-              - generic [ref=e293]: "5"
-            - option "orders-2 4" [ref=e294]:
-              - checkbox [aria-hidden]
-              - generic "orders-2" [ref=e295]
-              - generic [ref=e296]: "4"
-          - separator [ref=e297]
-          - group [ref=e298]:
-            - option "Select all" [ref=e299]
-            - option "Clear 1 chosen" [ref=e300]:
-              - text: Clear
-              - generic [ref=e301]: 1 chosen
+  - dialog [ref=e368]:
+    - generic [ref=e369]:
+      - generic [ref=e370]: From time, UTC
+      - textbox "From time, UTC" [ref=e371]:
+        - /placeholder: 2026-11-13 14:30
+        - text: 2026-11-12 05:44
+      - generic [ref=e372]:
+        - button "5 min ago" [ref=e373]
+        - button "1 hour ago" [ref=e374]
+        - button "24 hours ago" [ref=e375]
+      - paragraph [ref=e376]: The first record at or after this time, in every partition read. A UTC time like 2026-11-09 22:13, or milliseconds since the epoch.
+      - button "Apply" [ref=e378]
 ```
 
 # Test source
@@ -318,8 +384,7 @@ Error: expect(received).toEqual(expected) // deep equality
   58  |   await expect(page.getByTestId("chip-p1")).toBeVisible();
   59  |   await expect(rows(page).first()).toBeVisible();
   60  |   for (const r of await rows(page).all()) expect(await r.locator("td").first().innerText()).toBe("1");
-> 61  |   expect(await boxes(page, ["[data-testid=toolbar]", "[data-testid=filter-line]"])).toEqual(toolbar);
-      |                                                                                     ^ Error: expect(received).toEqual(expected) // deep equality
+  61  |   expect(await boxes(page, ["[data-testid=toolbar]", "[data-testid=filter-line]"])).toEqual(toolbar);
   62  |   await page.getByRole("button", { name: "Remove partition 1" }).click();
   63  |   await expect(page).not.toHaveURL(/partition=/);
   64  |   // A key: the first row's, typed into the one box.
@@ -346,7 +411,8 @@ Error: expect(received).toEqual(expected) // deep equality
   85  |   await expect(page.getByTestId("chip-time")).toBeVisible();
   86  |   await page.getByRole("button", { name: "Clear all" }).click();
   87  |   await expect(page).not.toHaveURL(/offset=|time=|key=/);
-  88  |   expect(await boxes(page, ["[data-testid=toolbar]", "[data-testid=filter-line]"])).toEqual(toolbar);
+> 88  |   expect(await boxes(page, ["[data-testid=toolbar]", "[data-testid=filter-line]"])).toEqual(toolbar);
+      |                                                                                     ^ Error: expect(received).toEqual(expected) // deep equality
   89  | });
   90  | 
   91  | test("the record Sheet: a row opens it with its own address, Esc and Back close it, a deep link opens it", async ({ page }) => {
@@ -420,4 +486,29 @@ Error: expect(received).toEqual(expected) // deep equality
   159 |   expect(await topEl!.evaluate((el) => (el as HTMLElement).innerText)).toBe(topText);
   160 |   expect(await page.locator(`tr[data-row="${topId}"]`).elementHandle().then((h) => h!.evaluate((el, old) => el === old, topEl))).toBe(true);
   161 |   expect(await boxes(page, ["[data-testid=toolbar]", "[data-testid=filter-line]", "thead"])).toEqual(box);
+  162 |   // Hovering the table holds what comes next behind the pill; the rows on screen stay where they are.
+  163 |   await page.getByTestId("records").locator("tbody tr").nth(2).hover();
+  164 |   const heldTop = await rows(page).first().getAttribute("data-row");
+  165 |   await produce("orders", 2, "tail-b");
+  166 |   await expect(page.getByTestId("held-pill")).toBeVisible({ timeout: 45_000 });
+  167 |   await expect(page.getByTestId("held-pill")).toContainText(/\d+ new · Show/);
+  168 |   expect(await rows(page).first().getAttribute("data-row")).toBe(heldTop);
+  169 |   await page.getByTestId("held-pill").click();
+  170 |   await expect(page.getByTestId("held-pill")).toHaveCount(0);
+  171 |   await expect(rows(page).first()).not.toHaveAttribute("data-row", heldTop!);
+  172 |   // Back to Snapshot: the stream closes.
+  173 |   await page.getByTestId("mode").getByRole("radio", { name: "Snapshot" }).click();
+  174 |   await expect(page).not.toHaveURL(/mode=tail/);
+  175 |   await expect(page.getByTestId("conn")).toHaveAttribute("data-state", "snapshot");
+  176 | });
+  177 | 
+  178 | test("the Messages page does not scroll sideways at 1024, 1280, 1440 and 1920", async ({ page }) => {
+  179 |   await page.goto("/topics/orders/messages");
+  180 |   await expect(rows(page).first()).toBeVisible();
+  181 |   for (const width of [1024, 1280, 1440, 1920]) {
+  182 |     await page.setViewportSize({ width, height: 900 });
+  183 |     expect(await overflowX(page), `${width}`).toBeLessThanOrEqual(0);
+  184 |   }
+  185 | });
+  186 | 
 ```

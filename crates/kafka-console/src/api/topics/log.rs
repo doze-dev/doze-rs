@@ -252,8 +252,7 @@ pub(super) async fn txn(
     }
     let Some(view) = s.source.txn(&name, &id).await else {
         let shown: String = id.chars().take(80).collect();
-        return error(
-            StatusCode::NOT_FOUND,
+        return super::missing(
             "TRANSACTIONAL_ID_NOT_FOUND",
             &format!(
                 "The broker knows no transaction called {shown}, or the console may not describe it. A transactional id is forgotten after 7 days idle."

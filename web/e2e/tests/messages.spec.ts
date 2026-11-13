@@ -1,7 +1,19 @@
 // A topic's frame and its Messages (slice R1a): tabs as routes; every filter in the address (partitions, offset or key,
 // time, isolation, Older); the record Sheet open, close, Esc, Back and a deep link; the Live tail on a broker with traffic.
-import { boxes, choose, expect, overflowX, test } from "./fixtures";
+import { choose, expect, overflowX, test } from "./fixtures";
 import { produce } from "./kafka";
+
+/** Boxes in page coordinates (the viewport's plus the scroll), so a scroll is not a shift. */
+async function pageBoxes(page: import("@playwright/test").Page, selectors: string[]) {
+  return page.evaluate(
+    (sels) =>
+      sels.map((s) => {
+        const r = document.querySelector(s)?.getBoundingClientRect();
+        return r ? [Math.round(r.x + window.scrollX), Math.round(r.y + window.scrollY), Math.round(r.width), Math.round(r.height)] : null;
+      }),
+    selectors,
+  );
+}
 
 const rows = (page: import("@playwright/test").Page) => page.getByRole("table", { name: "Records, newest first" }).locator("tbody tr[data-row]");
 
@@ -15,7 +27,7 @@ test("the frame: one h1, the stats, the transaction region, five tabs as routes,
   await expect(page.getByTestId("txn-region")).toBeVisible();
   const tabs = page.getByTestId("topic-tabs");
   await expect(tabs.getByRole("link")).toHaveText([/^Messages$/, /^Log$/, /^Config$/, /^Consumers\s*\d+$/, /^Producers\s*\d+$/]);
-  const before = await boxes(page, ["h1", "[data-testid=topic-tabs]", "[data-testid=txn-region]"]);
+  const before = await pageBoxes(page, ["h1", "[data-testid=topic-tabs]", "[data-testid=txn-region]"]);
   for (const [tab, url] of [
     ["Log", /\/topics\/orders\/log$/],
     ["Consumers", /\/topics\/orders\/consumers$/],
@@ -25,7 +37,7 @@ test("the frame: one h1, the stats, the transaction region, five tabs as routes,
     await tabs.getByRole("link", { name: new RegExp(`^${tab}`) }).click();
     await expect(page).toHaveURL(url);
     await expect(tabs.getByRole("link", { name: new RegExp(`^${tab}`) })).toHaveAttribute("aria-current", "page");
-    expect(await boxes(page, ["h1", "[data-testid=topic-tabs]", "[data-testid=txn-region]"]), tab).toEqual(before);
+    expect(await pageBoxes(page, ["h1", "[data-testid=topic-tabs]", "[data-testid=txn-region]"]), tab).toEqual(before);
   }
   // A name that is no topic says so.
   await page.goto("/topics/no-such-topic-here");
@@ -49,7 +61,7 @@ test("isolation: the ToggleGroup is in the address, says what read_committed hol
 test("partitions, key and time: each is in the address, shown as a chip with a way off, and the rows follow", async ({ page }) => {
   await page.goto("/topics/orders/messages");
   await expect(rows(page).first()).toBeVisible();
-  const toolbar = await boxes(page, ["[data-testid=toolbar]", "[data-testid=filter-line]"]);
+  const toolbar = await pageBoxes(page, ["[data-testid=toolbar]", "[data-testid=filter-line]"]);
   // Partitions: the MultiSelect.
   await page.getByRole("combobox", { name: "Partitions" }).click();
   await page.getByRole("option", { name: /^orders-1\s/ }).click();
@@ -58,7 +70,7 @@ test("partitions, key and time: each is in the address, shown as a chip with a w
   await expect(page.getByTestId("chip-p1")).toBeVisible();
   await expect(rows(page).first()).toBeVisible();
   for (const r of await rows(page).all()) expect(await r.locator("td").first().innerText()).toBe("1");
-  expect(await boxes(page, ["[data-testid=toolbar]", "[data-testid=filter-line]"])).toEqual(toolbar);
+  expect(await pageBoxes(page, ["[data-testid=toolbar]", "[data-testid=filter-line]"])).toEqual(toolbar);
   await page.getByRole("button", { name: "Remove partition 1" }).click();
   await expect(page).not.toHaveURL(/partition=/);
   // A key: the first row's, typed into the one box.
@@ -85,7 +97,7 @@ test("partitions, key and time: each is in the address, shown as a chip with a w
   await expect(page.getByTestId("chip-time")).toBeVisible();
   await page.getByRole("button", { name: "Clear all" }).click();
   await expect(page).not.toHaveURL(/offset=|time=|key=/);
-  expect(await boxes(page, ["[data-testid=toolbar]", "[data-testid=filter-line]"])).toEqual(toolbar);
+  expect(await pageBoxes(page, ["[data-testid=toolbar]", "[data-testid=filter-line]"])).toEqual(toolbar);
 });
 
 test("the record Sheet: a row opens it with its own address, Esc and Back close it, a deep link opens it", async ({ page }) => {
@@ -151,14 +163,14 @@ test("the Live tail: new rows at the top, no row rewritten, the header stable, h
   const topId = await top.getAttribute("data-row");
   const topEl = await top.elementHandle();
   const topText = await top.innerText();
-  const box = await boxes(page, ["[data-testid=toolbar]", "[data-testid=filter-line]", "thead"]);
+  const box = await pageBoxes(page, ["[data-testid=toolbar]", "[data-testid=filter-line]", "thead"]);
   await produce("orders", 3, "tail-a");
   await expect(rows(page).first()).not.toHaveAttribute("data-row", topId!, { timeout: 45_000 });
   expect(await head!.evaluate((el) => el.isConnected)).toBe(true);
   expect(await topEl!.evaluate((el) => el.isConnected)).toBe(true);
   expect(await topEl!.evaluate((el) => (el as HTMLElement).innerText)).toBe(topText);
   expect(await page.locator(`tr[data-row="${topId}"]`).elementHandle().then((h) => h!.evaluate((el, old) => el === old, topEl))).toBe(true);
-  expect(await boxes(page, ["[data-testid=toolbar]", "[data-testid=filter-line]", "thead"])).toEqual(box);
+  expect(await pageBoxes(page, ["[data-testid=toolbar]", "[data-testid=filter-line]", "thead"])).toEqual(box);
   // Hovering the table holds what comes next behind the pill; the rows on screen stay where they are.
   await page.getByTestId("records").locator("tbody tr").nth(2).hover();
   const heldTop = await rows(page).first().getAttribute("data-row");

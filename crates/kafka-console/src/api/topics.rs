@@ -214,6 +214,37 @@ pub(super) fn valid(name: &str) -> bool {
     TopicName::parse(name).is_ok()
 }
 
+/// The answer of a page's lookup that found nothing (a topic, a record, a transaction): `{"missing": {code, message}}`, 200.
+/// A page asks for the thing to know whether it is there; "it is not" is an answer, not a failure, and a 404 would put an
+/// error in the browser's console (Chromium and Safari log every failed fetch) on a page that is working as it should.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+pub struct Missing {
+    pub missing: super::ApiError,
+}
+
+/// [`Missing`] as a response.
+pub(super) fn missing(code: &str, message: &str) -> Response {
+    json(
+        StatusCode::OK,
+        &Missing {
+            missing: super::ApiError {
+                code: code.to_owned(),
+                message: message.to_owned(),
+            },
+        },
+    )
+}
+
+/// No such topic, as a lookup's answer (the frame).
+fn no_such_topic(name: &str) -> Response {
+    let shown: String = name.chars().take(80).collect();
+    missing(
+        "UNKNOWN_TOPIC_OR_PARTITION",
+        &format!("There is no topic called {shown}, or the console may not describe it."),
+    )
+}
+
 pub(super) fn no_topic(name: &str) -> Response {
     let shown: String = name.chars().take(80).collect();
     error(
@@ -251,11 +282,11 @@ async fn topics(State(s): State<Shared>, RawQuery(q): RawQuery) -> Response {
 
 async fn frame(State(s): State<Shared>, Path(name): Path<String>) -> Response {
     if !valid(&name) {
-        return no_topic(&name);
+        return no_such_topic(&name);
     }
     match s.source.topic_head(&name).await {
         Some(h) => json(StatusCode::OK, &TopicFrame::new(h)),
-        None => no_topic(&name),
+        None => no_such_topic(&name),
     }
 }
 
@@ -304,16 +335,14 @@ async fn record(
         partition.parse::<i32>().ok().filter(|p| *p >= 0),
         offset.parse::<i64>().ok().filter(|o| *o >= 0),
     ) else {
-        return error(
-            StatusCode::NOT_FOUND,
+        return missing(
             "NO_SUCH_RECORD",
             "A record's address is a partition and an offset, both whole numbers from 0.",
         );
     };
     match s.source.record(&name, p, o).await {
         Some(r) => json::<RecordView>(StatusCode::OK, &r),
-        None => error(
-            StatusCode::NOT_FOUND,
+        None => missing(
             "NO_SUCH_RECORD",
             &format!(
                 "There is no record at offset {} of {name}-{p}. The offset may be past the end of the log or before its start, or the record may have been removed by compaction, by a deletion, or be a transaction marker.",

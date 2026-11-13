@@ -17,6 +17,7 @@ use ts_rs::Config;
 
 pub(crate) fn all(cfg: &Config, out: &mut BTreeMap<String, String>) {
     one::<TopicsResponse>(cfg, out);
+    one::<Missing>(cfg, out);
     one::<TopicActs>(cfg, out);
     one::<TopicFrame>(cfg, out);
     one::<MessagesResponse>(cfg, out);

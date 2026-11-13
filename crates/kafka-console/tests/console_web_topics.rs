@@ -78,8 +78,10 @@ async fn the_topics_list_and_a_topics_frame_are_the_view_models_serialised() {
     assert!(f["retention"].as_str().unwrap().starts_with("delete"));
     assert!(f["records"].as_i64().unwrap() > 0);
     assert!(!f["head"]["parts"].as_array().unwrap().is_empty());
+    // A lookup that finds nothing is an answer (200, `missing`), so the browser logs no failed fetch.
     let (s, missing) = get(&app, "/api/v1/topics/no-such-topic").await;
-    assert_eq!(s, StatusCode::NOT_FOUND);
+    assert_eq!(s, StatusCode::OK);
+    let missing = &missing["missing"];
     assert_eq!(missing["code"], "UNKNOWN_TOPIC_OR_PARTITION");
     assert!(
         missing["message"]
@@ -87,8 +89,10 @@ async fn the_topics_list_and_a_topics_frame_are_the_view_models_serialised() {
             .unwrap()
             .contains("no topic called no-such-topic")
     );
-    let (s, _) = get(&app, "/api/v1/topics/bad%2Fname").await;
-    assert_eq!(s, StatusCode::NOT_FOUND);
+    let (_, bad) = get(&app, "/api/v1/topics/bad%2Fname").await;
+    assert_eq!(bad["missing"]["code"], "UNKNOWN_TOPIC_OR_PARTITION");
+    let (s, _) = get(&app, "/api/v1/topics/no-such-topic/log").await;
+    assert_eq!(s, StatusCode::NOT_FOUND, "a tab of no topic is a refusal");
 }
 
 #[tokio::test]
@@ -129,8 +133,8 @@ async fn messages_take_their_filters_from_the_query_and_a_record_is_whole() {
     assert_eq!(rec["topic"], "orders");
     assert!(rec["value"]["kind"].is_string());
     let (s, gone) = get(&app, "/api/v1/topics/orders/records/0/999999999").await;
-    assert_eq!(s, StatusCode::NOT_FOUND);
-    assert_eq!(gone["code"], "NO_SUCH_RECORD");
+    assert_eq!(s, StatusCode::OK);
+    assert_eq!(gone["missing"]["code"], "NO_SUCH_RECORD");
 }
 
 #[tokio::test]
@@ -156,8 +160,8 @@ async fn consumers_log_producers_and_a_transaction_answer_with_their_words() {
     assert_eq!(t["view"]["txn"]["id"], "orders-eos");
     assert!(!t["sentence"].as_array().unwrap().is_empty());
     let (s, none) = get(&app, "/api/v1/topics/orders/transactions/nobody").await;
-    assert_eq!(s, StatusCode::NOT_FOUND);
-    assert_eq!(none["code"], "TRANSACTIONAL_ID_NOT_FOUND");
+    assert_eq!(s, StatusCode::OK);
+    assert_eq!(none["missing"]["code"], "TRANSACTIONAL_ID_NOT_FOUND");
 }
 
 #[tokio::test]
