@@ -242,7 +242,13 @@ impl Recorder {
             refused_more: refusals(ring).1,
             refused_total: count(Class::Refused),
             denied_total: count(Class::Denied),
-            clients: inner.conns.len(),
+            clients: inner
+                .conns
+                .iter()
+                .map(|(_, c)| c.who.client.as_ref())
+                .collect::<std::collections::BTreeSet<&str>>()
+                .len(),
+            connections: inner.conns.len(),
             last_minute,
             busiest,
             seen: ring.requests(),

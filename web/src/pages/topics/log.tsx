@@ -3,8 +3,7 @@
 // round or pass, the deletions kept, durability, the segments, the other logs; and the Lab's Compact now in a Dialog.
 import { Link, useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import { CheckIcon, ChevronDownIcon, EyeIcon, FlaskConicalIcon, InfoIcon, ScrollTextIcon, SendIcon, TriangleAlertIcon } from "lucide-react";
-import { useRef, useState } from "react";
-import { toast } from "sonner";
+import { useState } from "react";
 import { ApiFailure } from "@/api/client";
 import { useCompactNow, useLog } from "@/api/topics";
 import type { LogCompaction } from "@/api/types/LogCompaction";
@@ -30,6 +29,7 @@ import { bytes, clock, dateTime, millis, pct, spanMs } from "@/lib/kafka";
 import { shellWord } from "@/lib/shell";
 import { useShell } from "@/api/queries";
 import { cn } from "@/lib/utils";
+import { Done, DoneFooter } from "@/components/app/write-done";
 import { PageError } from "../page-error";
 import { useTopicDialog } from "./frame";
 import { policyWord } from "./words";
@@ -395,7 +395,7 @@ function Deletions({ v }: { v: LogView }) {
         </table>
       )}
       <p className="mt-3 text-[12.5px] text-muted-foreground">
-        {n === 0 ? "No deletion is waiting to go." : `${n === 1 ? "1 tombstone is" : `${number(n)} tombstones are`} waiting to go.`} Tombstones still in the dirty part have no horizon yet, so they are not listed.
+        {n === 0 ? "No deletion is waiting to go." : "The tombstones above are waiting to go."} Tombstones still in the dirty part have no horizon yet, so they are not listed.
       </p>
       {n > 0 && (
         <div className="mt-3 flex flex-wrap items-center gap-3">
@@ -466,7 +466,7 @@ function Segments({ v }: { v: LogView }) {
     <section className="mt-10" data-testid="segments">
       <h2 className="text-[17px] font-semibold text-bright">Segments</h2>
       <p className="mt-1 text-[13.5px] text-muted-foreground">
-        {v.segments.length} {v.segments.length === 1 ? "segment" : "segments"} of <code className="font-mono">segment.bytes</code> {number(v.segment_bytes)} ({bytes(v.segment_bytes)}).{" "}
+        Each segment rolls at <code className="font-mono">segment.bytes</code> {number(v.segment_bytes)} ({bytes(v.segment_bytes)}).{" "}
         {v.compaction && "Sealed segments are cleaned at most once per round; the active one never. "}Open a row for its files and index.
         {v.partial && " The log is large: some segments were read in part, and what is missing is not guessed."}
         {skip > 0 && ` The newest ${MOST_ROWS} are listed.`}
@@ -608,14 +608,14 @@ function CompactNow({ r }: { r: LogResponse }) {
   const d = r.compact;
   const [open, setOpen] = useState(false);
   const [refused, setRefused] = useState<string | null>(null);
-  const opener = useRef<HTMLButtonElement>(null);
+  const [ran, setRan] = useState<string | null>(null);
   const run = useCompactNow(v.topic, v.partition);
   return (
     <>
       <Button
-        ref={opener}
         onClick={() => {
           setRefused(null);
+          setRan(null);
           setOpen(true);
         }}
         data-testid="compact-now"
@@ -623,20 +623,22 @@ function CompactNow({ r }: { r: LogResponse }) {
         <FlaskConicalIcon /> Compact now
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent
-          data-testid="compact-dialog"
-          onCloseAutoFocus={(e) => {
-            // A clicked button is not focused in Firefox and Safari: give the focus back to the opener by hand.
-            e.preventDefault();
-            opener.current?.focus();
-          }}
-        >
+        <DialogContent data-testid="compact-dialog">
           <DialogHeader>
             <DialogTitle>
               Compact <span className="font-mono">{v.topic}-{v.partition}</span> now?
             </DialogTitle>
             <DialogDescription>The cleaner's real round, run at once by the Lab, with the planner's verdict first. The same round the cleaner runs at its next look.</DialogDescription>
           </DialogHeader>
+          {ran !== null ? (
+            <>
+              <Done testId="compact-done">
+                <b className="font-semibold text-bright">Compacted.</b> {ran}
+              </Done>
+              <DoneFooter />
+            </>
+          ) : (
+          <>
           <div className="flex flex-col gap-3 text-[13.5px]">
             {d.off ? (
               <p data-testid="compact-blocked">The Lab is switched off (--lab false), so the console does not run the cleaner.</p>
@@ -676,10 +678,7 @@ function CompactNow({ r }: { r: LogResponse }) {
                 data-testid="compact-run"
                 onClick={() =>
                   run.mutate(undefined, {
-                    onSuccess: (done) => {
-                      setOpen(false);
-                      toast.success("Compacted", { description: done.message });
-                    },
+                    onSuccess: (done) => setRan(done.message),
                     onError: (e) => setRefused(e instanceof ApiFailure ? e.message : "The console did not answer."),
                   })
                 }
@@ -688,6 +687,8 @@ function CompactNow({ r }: { r: LogResponse }) {
               </Button>
             )}
           </DialogFooter>
+          </>
+          )}
         </DialogContent>
       </Dialog>
     </>

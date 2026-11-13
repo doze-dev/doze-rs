@@ -3,6 +3,8 @@ import { expect, test } from "./fixtures";
 test("Home: one h1, the figures as stat tiles, no memory figure anywhere, the address of the broker", async ({ page }) => {
   await page.goto("/");
   await expect(page.locator("h1")).toHaveCount(1);
+  // The name once: the visible text is the name, with no hidden copy beside it (CON-1351).
+  expect(await page.locator("h1").evaluate((h) => h.textContent)).toBe("doze Kafka");
   const strip = page.locator("[data-slot=stat-strip]");
   for (const label of ["Started", "Topics", "Open partitions", "Apps on the wire", "Last request"]) await expect(strip).toContainText(label);
   const text = (await page.locator("body").innerText()).toLowerCase();
@@ -68,8 +70,13 @@ test("Connect: the address card and the advertised listener card stand side by s
   const [a, b] = [await cards.nth(0).boundingBox(), await cards.nth(1).boundingBox()];
   expect(Math.round(a!.y)).toBe(Math.round(b!.y));
   await page.setViewportSize({ width: 1024, height: 800 });
-  const [c, d] = [await cards.nth(0).boundingBox(), await cards.nth(1).boundingBox()];
-  expect(d!.y).toBeGreaterThan(c!.y + c!.height - 1);
+  // Polled: crossing 1280 px the sidebar folds to icons with its own short transition, and the cards settle after it.
+  await expect
+    .poll(async () => {
+      const [c, d] = [await cards.nth(0).boundingBox(), await cards.nth(1).boundingBox()];
+      return d!.y > c!.y + c!.height - 1;
+    })
+    .toBe(true);
 });
 
 test("an API request without the console's header is refused in JSON", async ({ request }) => {

@@ -123,6 +123,23 @@ async fn messages_take_their_filters_from_the_query_and_a_record_is_whole() {
             .unwrap()
             .contains("is not an offset")
     );
+    // An offset with no partition chosen is read from on every partition (as `kcat -o N` without `-p`): applied, no note.
+    // (That every partition shows is proven against the real broker: e2e messages.spec.ts; the fixture reads one.)
+    let low = rows
+        .iter()
+        .map(|r| r["offset"].as_i64().unwrap())
+        .min()
+        .unwrap();
+    let (_, from) = get(
+        &app,
+        &format!("/api/v1/topics/orders/messages?offset={low}"),
+    )
+    .await;
+    assert_eq!(from["view"]["query"]["offset"], low);
+    assert!(from["view"]["notes"].as_array().unwrap().is_empty());
+    let got = from["view"]["rows"].as_array().unwrap();
+    assert!(!got.is_empty());
+    assert!(got.iter().all(|r| r["offset"].as_i64().unwrap() >= low));
     let r0 = &rows[0];
     let path = format!(
         "/api/v1/topics/orders/records/{}/{}",

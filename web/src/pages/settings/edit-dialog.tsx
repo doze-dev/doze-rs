@@ -9,6 +9,7 @@ import type { SettingsOutcome } from "@/api/types/SettingsOutcome";
 import type { SettingsRefused } from "@/api/types/SettingsRefused";
 import type { SettingsSaved } from "@/api/types/SettingsSaved";
 import { Spans } from "@/components/app/spans";
+import { Done, DoneFooter } from "@/components/app/write-done";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -189,7 +190,7 @@ function Body({ view, scope, onMove, onSaved }: { view: SettingsEditView; scope:
           )}
         </div>
         {!refused && <CallBox lines={shown.call} />}
-        <DialogFooter className="border-t pt-4">
+        <DialogFooter>
           <DialogClose asChild>
             <Button type="button" variant="outline">
               Cancel
@@ -208,24 +209,60 @@ function Body({ view, scope, onMove, onSaved }: { view: SettingsEditView; scope:
 }
 
 /** The Edit dialog of one of the five dynamic broker configs; its address is `?edit=<key>&scope=this`. */
-export function EditConfigDialog({ configKey, scope, onMove, onClose, onSaved, restoreFocus }: { configKey: string | undefined; scope: "all" | "this"; onMove: (key: string, scope: "all" | "this") => void; onClose: () => void; onSaved: (s: SettingsSaved) => void; restoreFocus?: (e: Event) => void }) {
+/** What was saved: the value, for whom, what it does, who sees it, the call. */
+function SavedResult({ saved }: { saved: SettingsSaved }) {
+  return (
+    <Done testId="saved-card">
+      <p>
+        <b className="font-semibold text-bright">
+          Saved <code className="font-mono">{saved.key}</code> = <code className="font-mono">{saved.value}</code>
+        </b>
+        {saved.gloss && <span className="text-muted-foreground"> ({saved.gloss})</span>}
+        <span className="text-muted-foreground"> for {saved.scope === "this" ? "this broker" : "all brokers"}. {saved.effect}.</span>
+      </p>
+      <p className="mt-1 text-muted-foreground">
+        <Spans spans={saved.who_sees} />
+      </p>
+      <CallBox lines={saved.call} className="mt-3" />
+    </Done>
+  );
+}
+
+export function EditConfigDialog({ configKey, scope, onMove, onClose, onSaved }: { configKey: string | undefined; scope: "all" | "this"; onMove: (key: string, scope: "all" | "this") => void; onClose: () => void; onSaved: (s: SettingsSaved) => void }) {
   const q = useSettingsEdit(configKey, scope);
   const view = q.data;
+  // The write's result, in place (one pattern for every write), for the config it was saved for.
+  const [saved, setSaved] = useState<SettingsSaved | null>(null);
+  const shownSaved = saved && saved.key === configKey ? saved : null;
   return (
     <Dialog open={!!configKey} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="top-6 max-h-[calc(100vh-3rem)] translate-y-0 overflow-y-auto sm:max-w-[40rem]" data-testid="settings-edit" onCloseAutoFocus={restoreFocus}>
+      <DialogContent className="top-6 max-h-[calc(100vh-3rem)] translate-y-0 overflow-y-auto sm:max-w-[40rem]" data-testid="settings-edit">
         <DialogHeader>
           <DialogTitle className="text-[20px] font-medium">
             Edit <span className="font-mono">{configKey}</span>
           </DialogTitle>
           <DialogDescription>{view?.what ?? "One of the five broker configs that can change while the broker runs."}</DialogDescription>
         </DialogHeader>
-        {q.error ? (
+        {shownSaved ? (
+          <>
+            <SavedResult saved={shownSaved} />
+            <DoneFooter onDone={onClose} />
+          </>
+        ) : q.error ? (
           <p role="alert" className="text-[13.5px] text-bad">
             {q.error.message}
           </p>
         ) : view && view.key === configKey ? (
-          <Body key={view.key} view={view} scope={scope} onMove={onMove} onSaved={onSaved} />
+          <Body
+            key={view.key}
+            view={view}
+            scope={scope}
+            onMove={onMove}
+            onSaved={(sv) => {
+              setSaved(sv);
+              onSaved(sv);
+            }}
+          />
         ) : (
           <Skeleton className="h-96 w-full" />
         )}

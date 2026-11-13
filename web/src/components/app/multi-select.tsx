@@ -8,9 +8,11 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils";
 import type { Option } from "./combobox";
 
-/** What the button says of a selection: `All topics`, `orders`, `orders, payments`, `3 topics`. */
-export function summary(chosen: string[], options: Option[], noun: string): string {
+/** What the button says of a selection: `All topics`, `orders`, `orders, payments`, `3 topics`; with the chosen shown as chips
+ * under it, only how many (`1 of 30 APIs`): a name is never said twice. */
+export function summary(chosen: string[], options: Option[], noun: string, chips = false): string {
   if (chosen.length === 0) return `All ${noun}`;
+  if (chips) return `${chosen.length} of ${options.length} ${noun}`;
   const label = (v: string) => options.find((o) => o.value === v)?.label ?? v;
   if (chosen.length <= 2) return chosen.map(label).join(", ");
   return `${chosen.length} ${noun}`;
@@ -29,7 +31,7 @@ export function MultiSelect({ options, value, onChange, noun = "items", classNam
           <PopoverTrigger asChild>
             <Button variant="outline" role="combobox" aria-expanded={open} aria-label={ariaLabel} className={cn("min-w-0 shrink justify-between bg-card font-normal", triggerClassName)}>
               <span className="truncate" data-testid="multi-summary">
-                {summary(value, options, noun)}
+                {summary(value, options, noun, chips)}
               </span>
               <ChevronsUpDownIcon className={cn("opacity-50", value.length > 0 && "invisible")} />
             </Button>

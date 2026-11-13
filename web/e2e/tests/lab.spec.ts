@@ -68,17 +68,18 @@ test("Lab: a Slow rule for one client slows its requests; the rule counts them; 
         { timeout: 20_000 },
       )
       .toBeGreaterThan(1);
-    // The rows reach the wire when the slowed answers go out: look again until they are there.
+    // The open sheet keeps up by its own Refresh (CON-1343): the hits and the rows arrive without closing it or reloading.
     await expect
       .poll(
         async () => {
-          await page.reload();
-          await sheet.getByRole("table", { name: "Requests the rule touched" }).waitFor();
+          await sheet.getByTestId("refresh-now").click();
+          await page.waitForTimeout(400);
           return sheet.getByRole("table", { name: "Requests the rule touched" }).locator("tbody tr").count();
         },
         { timeout: 20_000 },
       )
       .toBeGreaterThan(0);
+    expect(Number((await sheet.locator("[data-slot=stat-value]").first().innerText()).replace(/\D/g, ""))).toBeGreaterThan(0);
     await expect(sheet.getByTestId("lab-badge").first()).toBeVisible();
     const took = await sheet.getByRole("table", { name: "Requests the rule touched" }).locator("tbody tr").first().locator("td").nth(4).innerText();
     expect(Number(took.replace(/[^\d]/g, ""))).toBeGreaterThanOrEqual(300);
@@ -102,6 +103,8 @@ test("Lab: a Slow rule for one client slows its requests; the rule counts them; 
     await row.getByTestId("rule-remove").click();
     await expect(page).toHaveURL(/remove=\d+/);
     await page.getByTestId("lab-remove-confirm").click();
+    await expect(page.getByTestId("lab-removed")).toContainText("Removed");
+    await page.getByTestId("write-done").click();
     await expect(page.getByTestId("lab-remove-dialog")).toBeHidden();
     await expect(page.getByRole("table", { name: "Rules in force" }).locator("tbody tr", { hasText: "Slow produce to orders" })).toHaveCount(0);
     await expect(page.getByRole("table", { name: "Rules that ended" })).toContainText("Slow produce to orders");
@@ -125,7 +128,9 @@ test("Lab: a Fail rule on Produce answers the producer with the code it names", 
     await page.getByRole("option", { name: "Fetch", exact: true }).click();
     await page.getByRole("option", { name: "Produce", exact: true }).click();
     await page.keyboard.press("Escape");
-    await expect(form.getByRole("combobox", { name: "APIs" })).toHaveText("Produce");
+    // The name is said once, as a chip; the field says how many (CON-1352).
+    await expect(form.getByRole("combobox", { name: "APIs" })).toHaveText(/^1 of \d+ APIs$/);
+    await expect(form.getByTestId("multi-chips").first()).toHaveText("Produce");
     await form.getByRole("combobox", { name: "Client" }).click();
     await page.getByRole("option", { name: client, exact: true }).click();
     await choose(page, form.getByTestId("lab-code"), "NOT_LEADER_OR_FOLLOWER (6)");
@@ -185,6 +190,8 @@ test("Lab: drop a connection, force a rebalance and expire a member, once each; 
     await page.getByRole("option", { name: client, exact: true }).click();
     await expect(drop.getByTestId("once-call")).toContainText(`client=${client} once`);
     await page.getByTestId("lab-once-go").click();
+    await expect(page.getByTestId("once-done")).toBeVisible();
+    await page.getByTestId("write-done").click();
     await expect(page.getByTestId("lab-dialog")).toBeHidden();
     // Rebalance.
     await page.getByTestId("start-rebalance").click();
@@ -193,6 +200,8 @@ test("Lab: drop a connection, force a rebalance and expire a member, once each; 
     await page.getByRole("option", { name: group, exact: true }).click();
     await expect(reb.getByTestId("once-call")).toContainText(`group=${group}`);
     await page.getByTestId("lab-once-go").click();
+    await expect(page.getByTestId("once-done")).toBeVisible();
+    await page.getByTestId("write-done").click();
     await expect(page.getByTestId("lab-dialog")).toBeHidden();
     await expect(page.getByTestId("once-list")).toContainText(`Forced a rebalance of ${group}`);
     // Expire a member (after the group settles again).
@@ -202,6 +211,8 @@ test("Lab: drop a connection, force a rebalance and expire a member, once each; 
     await exp.getByRole("combobox", { name: "The member" }).click();
     await page.getByRole("option", { name: new RegExp(`^${group} ·`) }).first().click();
     await page.getByTestId("lab-once-go").click();
+    await expect(page.getByTestId("once-done")).toBeVisible();
+    await page.getByTestId("write-done").click();
     await expect(page.getByTestId("lab-dialog")).toBeHidden();
     await expect(page.getByTestId("once-list")).toContainText(`Ran out the session of`);
   } finally {

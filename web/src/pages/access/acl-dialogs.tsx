@@ -2,7 +2,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { PlusIcon, Trash2Icon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
-import { toast } from "sonner";
 import { ApiFailure } from "@/api/client";
 import { post, qs, useAclDelete, useAclNew } from "@/api/r4";
 import type { AclChoice } from "@/api/types/AclChoice";
@@ -11,6 +10,7 @@ import type { AclDeleteOutcome } from "@/api/types/AclDeleteOutcome";
 import type { KafkaRefusal } from "@/api/types/KafkaRefusal";
 import { Spans } from "@/components/app/spans";
 import { StatusDot } from "@/components/app/status-dot";
+import { Done, DoneFooter } from "@/components/app/write-done";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -42,6 +42,7 @@ function CreateBody({ kinds, operations, onDone }: { kinds: AclChoice[]; operati
   const [refused, setRefused] = useState<KafkaRefusal | null>(null);
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
+  const [made, setMade] = useState<string | null>(null);
 
   const submit = async (v: AclValues) => {
     setBusy(true);
@@ -50,9 +51,8 @@ function CreateBody({ kinds, operations, onDone }: { kinds: AclChoice[]; operati
     try {
       const out = await post<AclCreateOutcome>("/api/v1/access/acls/new", v);
       if (out.outcome === "created") {
-        toast.success("ACL created", { description: `${v.perm === "allow" ? "Allow" : "Deny"} ${v.principal} ${v.op} on ${v.type} ${v.name || "kafka-cluster"}` });
+        setMade(`${v.perm === "allow" ? "Allow" : "Deny"} ${v.principal} ${v.op} on ${v.type} ${v.name || "kafka-cluster"}`);
         await qc.invalidateQueries({ queryKey: ["access"] });
-        onDone();
         return;
       }
       if (out.outcome === "invalid" && out.form.error) {
@@ -67,6 +67,16 @@ function CreateBody({ kinds, operations, onDone }: { kinds: AclChoice[]; operati
     }
   };
   const kindWord = preview.data?.kind_word ?? values.type;
+  if (made) {
+    return (
+      <div className="flex flex-col gap-4">
+        <Done testId="acl-created">
+          <b className="font-semibold text-bright">Created.</b> <span className="font-mono">{made}</span>. The authorizer applies it from the next request.
+        </Done>
+        <DoneFooter onDone={onDone} />
+      </div>
+    );
+  }
   return (
     <Form {...form}>
       <form noValidate onSubmit={form.handleSubmit((v) => void submit(v))} className="grid min-w-0 items-start gap-4 sm:grid-cols-2" data-testid="acl-create-form">
@@ -209,7 +219,7 @@ function CreateBody({ kinds, operations, onDone }: { kinds: AclChoice[]; operati
           )}
           {preview.data ? <CallBox lines={preview.data.call} /> : <Skeleton className="h-40 w-full" />}
         </div>
-        <DialogFooter className="border-t pt-4 sm:col-span-2">
+        <DialogFooter className="sm:col-span-2">
           <DialogClose asChild>
             <Button type="button" variant="outline">
               Cancel
@@ -225,10 +235,10 @@ function CreateBody({ kinds, operations, onDone }: { kinds: AclChoice[]; operati
 }
 
 /** Create ACL, over the Access page (`?acl=new`). */
-export function CreateAclDialog({ open, kinds, operations, onClose, restoreFocus }: { open: boolean; kinds: AclChoice[]; operations: AclChoice[]; onClose: () => void; restoreFocus?: (e: Event) => void }) {
+export function CreateAclDialog({ open, kinds, operations, onClose }: { open: boolean; kinds: AclChoice[]; operations: AclChoice[]; onClose: () => void }) {
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="top-6 max-h-[calc(100vh-3rem)] translate-y-0 overflow-y-auto sm:max-w-[42rem]" data-testid="acl-create-dialog" onCloseAutoFocus={restoreFocus}>
+      <DialogContent className="top-6 max-h-[calc(100vh-3rem)] translate-y-0 overflow-y-auto sm:max-w-[42rem]" data-testid="acl-create-dialog">
         <DialogHeader>
           <DialogTitle className="text-[20px] font-medium">Create ACL</DialogTitle>
           <DialogDescription>One rule of the authorizer: a principal may (or may not) do an operation on a resource. Sent as CreateAcls, as the console.</DialogDescription>
@@ -240,16 +250,17 @@ export function CreateAclDialog({ open, kinds, operations, onClose, restoreFocus
 }
 
 /** Delete ACL, over the Access page (`?delete=<the ACL's form words>`): the ACL, what the broker decides afterwards, the call. */
-export function DeleteAclDialog(props: { query: string | undefined; kinds: AclChoice[]; operations: AclChoice[]; onClose: () => void; restoreFocus?: (e: Event) => void }) {
+export function DeleteAclDialog(props: { query: string | undefined; kinds: AclChoice[]; operations: AclChoice[]; onClose: () => void }) {
   return <DeleteAcl key={props.query ?? ""} {...props} />;
 }
 
-function DeleteAcl({ query, kinds, operations, onClose, restoreFocus }: { query: string | undefined; kinds: AclChoice[]; operations: AclChoice[]; onClose: () => void; restoreFocus?: (e: Event) => void }) {
+function DeleteAcl({ query, kinds, operations, onClose }: { query: string | undefined; kinds: AclChoice[]; operations: AclChoice[]; onClose: () => void }) {
   const qc = useQueryClient();
   const q = useAclDelete(query);
   const v = q.data;
   const [refused, setRefused] = useState<KafkaRefusal | null>(null);
   const [gone, setGone] = useState(false);
+  const [deleted, setDeleted] = useState(false);
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
   const remove = async () => {
@@ -260,9 +271,8 @@ function DeleteAcl({ query, kinds, operations, onClose, restoreFocus }: { query:
       const body = Object.fromEntries(new URLSearchParams(query));
       const out = await post<AclDeleteOutcome>("/api/v1/access/acls/delete", body);
       if (out.outcome === "deleted") {
-        toast.success("ACL deleted");
+        setDeleted(true);
         await qc.invalidateQueries({ queryKey: ["access"] });
-        onClose();
         return;
       }
       if (out.outcome === "gone") setGone(true);
@@ -277,12 +287,16 @@ function DeleteAcl({ query, kinds, operations, onClose, restoreFocus }: { query:
   const label = (list: AclChoice[], n: number) => list.find((k) => k.number === n)?.label ?? String(n);
   return (
     <Dialog open={!!query} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="top-6 max-h-[calc(100vh-3rem)] translate-y-0 overflow-y-auto sm:max-w-[40rem]" data-testid="acl-delete-dialog" onCloseAutoFocus={restoreFocus}>
+      <DialogContent className="top-6 max-h-[calc(100vh-3rem)] translate-y-0 overflow-y-auto sm:max-w-[40rem]" data-testid="acl-delete-dialog">
         <DialogHeader>
           <DialogTitle className="text-[20px] font-medium">Delete this ACL?</DialogTitle>
           <DialogDescription>DeleteAcls with a filter that matches this one ACL exactly, as the console.</DialogDescription>
         </DialogHeader>
-        {q.error ? (
+        {deleted ? (
+          <Done testId="acl-deleted">
+            <b className="font-semibold text-bright">Deleted.</b> The authorizer no longer has this ACL; it decides from the next request without it.
+          </Done>
+        ) : q.error ? (
           <p role="alert" className="text-[13.5px] text-bad">
             {q.error.message}
           </p>
@@ -320,7 +334,10 @@ function DeleteAcl({ query, kinds, operations, onClose, restoreFocus }: { query:
             <CallBox lines={v.call} />
           </div>
         )}
-        <DialogFooter className="border-t pt-4">
+        {deleted ? (
+          <DoneFooter onDone={onClose} />
+        ) : (
+        <DialogFooter>
           <DialogClose asChild>
             <Button type="button" variant="outline">
               {v?.gone || gone ? "Close" : "Cancel"}
@@ -332,6 +349,7 @@ function DeleteAcl({ query, kinds, operations, onClose, restoreFocus }: { query:
             </Button>
           )}
         </DialogFooter>
+        )}
       </DialogContent>
     </Dialog>
   );

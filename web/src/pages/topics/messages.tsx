@@ -3,7 +3,7 @@
 // that never moves; the table is a DataTable with stable ids; a record opens in a routed Sheet; the Live tail is opt-in.
 import { useIsFetching, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
-import { ArrowUpIcon, CalendarClockIcon, CircleAlertIcon, InboxIcon, SearchIcon, SendIcon, XIcon } from "lucide-react";
+import { CalendarClockIcon, CircleAlertIcon, InboxIcon, SearchIcon, SendIcon, XIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useShell } from "@/api/queries";
 import { liveKeys } from "@/api/live";
@@ -24,7 +24,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -39,7 +38,9 @@ import { WireDock } from "../live/wire-dock";
 import { Explainers } from "./explain";
 import { useTopicDialog } from "./frame";
 import { RecordSheet } from "./record";
-import { type Conn, SPEEDS, type Speed, WINDOW, prepend, rowId, useMessagesTail, useTailSpeed } from "./tail";
+import { type Conn, WINDOW, prepend, rowId, useMessagesTail } from "./tail";
+import { speedSecs, useSpeed } from "../live/tail";
+import { HeldPill, TailSpeed } from "@/components/app/tail-controls";
 import { STANDING } from "./words";
 
 type Patch = Partial<MessagesSearch>;
@@ -265,12 +266,12 @@ function ConnDot({ conn }: { conn: Conn | null }) {
 
 /** Row two of the toolbar: always there, always one line: the filters that are on (each with a way off) or a quiet line;
  * at the right the Snapshot | Live tail switch, its speed and the connection. */
-function FilterLine({ search, set, tailable, conn, refresh }: { search: MessagesSearch; set: (p: Patch) => void; tailable: boolean; conn: Conn | null; refresh?: React.ReactNode }) {
-  const [speed, setSpeed] = useTailSpeed();
+function FilterLine({ search, set, tailable, conn, refresh, held }: { search: MessagesSearch; set: (p: Patch) => void; tailable: boolean; conn: Conn | null; refresh?: React.ReactNode; held?: React.ReactNode }) {
   const chips: { label: string; off: Patch; id: string }[] = [];
   const parts = partitionsOf(search.partition);
   for (const p of parts) chips.push({ id: `p${p}`, label: `partition ${p}`, off: { partition: partitionParam(parts.filter((x) => x !== p)) } });
-  if (search.offset !== undefined) chips.push({ id: "offset", label: `from offset ${number(search.offset)}`, off: { offset: undefined } });
+  // An offset is read from on each partition read: the chosen ones, or every one (as kcat -o N without -p).
+  if (search.offset !== undefined) chips.push({ id: "offset", label: parts.length === 0 ? `from offset ${number(search.offset)} in each partition` : `from offset ${number(search.offset)}`, off: { offset: undefined } });
   if (search.time) chips.push({ id: "time", label: `from ${search.time}`, off: { time: undefined } });
   if (search.key) chips.push({ id: "key", label: `key ${search.key}`, off: { key: undefined } });
   if (search.limit) chips.push({ id: "limit", label: `${search.limit} records`, off: { limit: undefined } });
@@ -314,19 +315,9 @@ function FilterLine({ search, set, tailable, conn, refresh }: { search: Messages
           </TooltipTrigger>
           <TooltipContent>{tailable ? "Snapshot: the records as they were when the page loaded. Live tail: new records arrive at the top." : "A key, an offset or a time asks for a fixed read: only the newest records can be tailed."}</TooltipContent>
         </Tooltip>
-        <Select value={speed} onValueChange={(v) => setSpeed(v as Speed)} disabled={!tail}>
-          <SelectTrigger size="sm" className="w-[8.5rem] bg-card" aria-label="Tail speed" data-testid="speed">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent align="end">
-            {SPEEDS.map((s) => (
-              <SelectItem key={s.value} value={s.value} title={s.tip}>
-                {s.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <TailSpeed testId="speed" />
         <ConnDot conn={tail ? conn : null} />
+        {tail && held}
         {!tail && refresh}
       </div>
     </div>
@@ -360,14 +351,16 @@ function Toolbar({ frame, search, set }: { frame: TopicFrame; search: MessagesSe
 
 function IsolationNote({ r, frame }: { r: MessagesResponse; frame: TopicFrame }) {
   if (r.view.query.reading !== "committed") return null;
-  const n = frame.held;
+  // A static sentence, and the count as a labelled figure beside it (it changes on refresh; CON-805).
   return (
-    <p className="mb-3 text-[13px] text-muted-foreground" role="status" data-testid="isolation-note">
-      {n === 0
-        ? "Reading as read_committed. Nothing is held back, so this is every record the table shows."
-        : n === 1
-          ? "Reading as read_committed. One record is held back (it is above the last stable offset) and is not listed; read_uncommitted shows it, marked Above LSO."
-          : `Reading as read_committed. ${number(n)} records are held back (they are above the last stable offset) and are not listed; read_uncommitted shows them, each marked Above LSO.`}
+    <p className="mb-3 flex flex-wrap items-baseline gap-x-4 gap-y-1 text-[13px] text-muted-foreground" role="status" data-testid="isolation-note">
+      <span>Reading as read_committed: records above the last stable offset are held back and not listed; read_uncommitted shows them, marked Above LSO.</span>
+      <span className="inline-flex items-baseline gap-1.5 whitespace-nowrap">
+        <span className="text-[11.5px] font-medium tracking-[0.06em] uppercase">Held back</span>
+        <span className="inline-block min-w-[5ch] font-mono font-medium text-bright tabular-nums" data-testid="isolation-held">
+          {number(frame.held)}
+        </span>
+      </span>
     </p>
   );
 }
@@ -390,8 +383,8 @@ function SnapshotRefresh({ topic }: { topic: string }) {
 function Records({ topic, r, frame, tail, tailable, search, set, open, children }: { topic: string; r: MessagesResponse; frame: TopicFrame; tail: boolean; tailable: boolean; search: MessagesSearch; set: (p: Patch) => void; open: (row: RecordRow) => void; children?: React.ReactNode }) {
   const box = useRef<HTMLDivElement>(null);
   const hover = useRef(false);
-  const [speed] = useTailSpeed();
-  const pace = SPEEDS.find((s) => s.value === speed)?.pace ?? 3;
+  const [speed] = useSpeed();
+  const pace = speedSecs(speed);
   const base = r.view.rows;
   const known = useMemo(() => new Set(base.map(rowId)), [base]);
   const isHeld = useCallback(() => {
@@ -410,26 +403,32 @@ function Records({ topic, r, frame, tail, tailable, search, set, open, children 
   if (r.view.query.reading === "committed") q.set("isolation", "read_committed");
   const t = useMessagesTail({ path: tail ? `/api/v1/tail/messages?${q}` : null, cursor: r.cursor, isHeld, known });
   const rows = useMemo(() => (tail ? prepend(t.live, base, WINDOW + base.length) : base), [tail, t.live, base]);
+  // The topic's figures above (Records, Last write) follow the tail: each batch the table takes fetches the frame again, so the
+  // same boxes show the new values (no figure older than the rows under it).
+  const qc = useQueryClient();
+  const newest = tail && t.live[0] ? rowId(t.live[0]) : null;
+  useEffect(() => {
+    if (newest) void qc.invalidateQueries({ queryKey: topicKeys.frame(topic), exact: true });
+  }, [newest, qc, topic]);
   const wide = useWide();
   const cols = useMemo(() => columns(open, wide), [open, wide]);
   const filtered = r.view.query.partitions.length > 0 || r.view.query.offset !== null || r.view.query.time !== null || r.view.query.key !== null;
   const show = () => {
-    box.current?.querySelector("[data-slot=data-table]")?.scrollTo({ top: 0 });
+    const sc = box.current?.querySelector<HTMLElement>("[data-slot=data-table]");
+    if (sc) {
+      sc.dataset.jump = "1";
+      sc.scrollTo({ top: 0 });
+      // Only for this Show: a batch that comes later glides in as usual.
+      requestAnimationFrame(() => requestAnimationFrame(() => delete sc.dataset.jump));
+    }
     t.show();
   };
   return (
     <>
-    <FilterLine search={search} set={set} tailable={tailable} conn={tail ? t.conn : null} refresh={<SnapshotRefresh topic={topic} />} />
+    <FilterLine search={search} set={set} tailable={tailable} conn={tail ? t.conn : null} refresh={<SnapshotRefresh topic={topic} />} held={<HeldPill count={t.held.length} onShow={show} />} />
     {/* What is said about the read sits under the controls, so a sentence that comes or goes never moves them. */}
     {children && <div className="mt-3">{children}</div>}
     <div ref={box} className="relative mt-3" onPointerEnter={() => (hover.current = true)} onPointerLeave={() => (hover.current = false)} data-testid="records" data-tail={tail || undefined}>
-      {tail && t.held.length > 0 && (
-        <div className="pointer-events-none absolute inset-x-0 top-12 z-20 flex justify-center">
-          <Button size="sm" className="pointer-events-auto rounded-full shadow-md" onClick={show} data-testid="held-pill">
-            <ArrowUpIcon /> {number(t.held.length)} new · Show
-          </Button>
-        </div>
-      )}
       <DataTable
         data={rows}
         columns={cols}
@@ -438,6 +437,7 @@ function Records({ topic, r, frame, tail, tailable, search, set, open, children 
         maxHeight={680}
         onRowClick={open}
         rowClassName={(x) => (t.fresh.has(rowId(x)) ? "row-new" : undefined)}
+        anchorTop={tail}
         empty={filtered ? "No record matches these filters." : "No records to list."}
       />
       <div className="mt-3 flex min-h-9 items-center justify-end gap-3 text-[13px] text-muted-foreground tabular-nums" data-testid="pager">

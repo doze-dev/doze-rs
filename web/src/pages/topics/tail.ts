@@ -1,51 +1,12 @@
 // The Messages tail (live-design.md rule 6, CON-809): opt-in, server-paced, coalesced; rows are prepended by stable id, so
 // nothing on screen is rewritten; held (behind a "N new" pill) while the person is not at the top of the table, or is
 // hovering, selecting or focused in it; on a dropped connection it reconnects with the newest id it has (no duplicates).
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { streamEvents } from "@/api/sse";
 import type { RecordRow } from "@/api/types/RecordRow";
 import type { TailRows } from "@/api/types/TailRows";
 
-export const SPEEDS = [
-  { value: "realtime", label: "Realtime", pace: 1, tip: "A batch each second at most: the fastest there is." },
-  { value: "relaxed", label: "Relaxed", pace: 3, tip: "A batch every 3 seconds at most." },
-  { value: "slow", label: "Slow", pace: 10, tip: "A batch every 10 seconds at most." },
-] as const;
-export type Speed = (typeof SPEEDS)[number]["value"];
-
-const SPEED_KEY = "doze:tail-speed";
-const speedListeners = new Set<() => void>();
-function readSpeed(): Speed {
-  try {
-    const v = globalThis.localStorage?.getItem(SPEED_KEY);
-    return SPEEDS.find((s) => s.value === v)?.value ?? "relaxed";
-  } catch {
-    return "relaxed";
-  }
-}
-let speedNow: Speed = readSpeed();
-
-/** The tail's speed: Relaxed by default, one preference for every tail, remembered per browser. */
-export function useTailSpeed(): [Speed, (s: Speed) => void] {
-  const v = useSyncExternalStore(
-    (l) => {
-      speedListeners.add(l);
-      return () => speedListeners.delete(l);
-    },
-    () => speedNow,
-    () => "relaxed" as Speed,
-  );
-  const set = useCallback((s: Speed) => {
-    speedNow = s;
-    try {
-      globalThis.localStorage?.setItem(SPEED_KEY, s);
-    } catch {
-      // private mode
-    }
-    for (const l of speedListeners) l();
-  }, []);
-  return [v, set];
-}
+// The speed is the one preference of every tail: `useSpeed` in pages/live/tail.ts, shown by components/app/tail-controls.
 
 export const rowId = (r: { partition: number; offset: number }) => `${r.partition}-${r.offset}`;
 

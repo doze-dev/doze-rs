@@ -10,6 +10,7 @@ import type { LabOnce } from "@/api/types/LabOnce";
 import type { LabResponse } from "@/api/types/LabResponse";
 import type { LabRule } from "@/api/types/LabRule";
 import { DataTable, type DataColumn } from "@/components/app/data-table";
+import { Done, DoneFooter } from "@/components/app/write-done";
 import { EmptyState } from "@/components/app/empty-state";
 import { PageHeader } from "@/components/app/page-header";
 import { RefreshControl } from "@/components/app/refresh-control";
@@ -167,6 +168,10 @@ export function LabPage() {
   const navigate = useNavigate({ from: "/lab" });
   const overlay = useRoutedOverlay((patch, replace) => void navigate({ search: (s: LabSearch) => ({ ...s, ...patch }), replace, resetScroll: false }));
   const [busy, setBusy] = useState(false);
+  // A rule removed from the Remove dialog: the result in place, then Done (one pattern for every write).
+  const [removedRule, setRemovedRule] = useState<{ id: number; name: string } | null>(null);
+  const setRemoved = (name: string) => search.remove !== undefined && setRemovedRule({ id: search.remove, name });
+  const removed = removedRule && removedRule.id === search.remove ? removedRule.name : null;
   const openEnded = useStable((id: number) => overlay.open({ rule: id }));
   const endedCols = useMemo(() => endedColumns(openEnded), [openEnded]);
   const r = q.data;
@@ -188,8 +193,7 @@ export function LabPage() {
     setBusy(true);
     try {
       await post(`/api/v1/lab/rules/${segment(search.remove)}/remove`, {});
-      toast.success("Rule removed", { description: removing?.name });
-      overlay.close({ remove: undefined });
+      setRemoved(removing?.name ?? `Rule ${search.remove}`);
     } catch (e) {
       fail(e);
     } finally {
@@ -266,25 +270,32 @@ export function LabPage() {
       <NewRehearsalDialog
         tab={h && !h.off ? search.new : undefined}
         compactTopics={h?.compacted ?? []}
-        restoreFocus={overlay.restore}
         onTab={(t) => overlay.move({ new: t })}
         onClose={() => {
           overlay.close({ new: undefined });
           refresh();
         }}
         onMade={(id) => {
-          toast.success("Rehearsal started", { description: `Rule ${id} is in force.` });
+          // The result is the rule's own sheet, opened in place of the dialog.
           refresh();
           overlay.move({ new: undefined, rule: id });
         }}
       />
-      <RuleSheet restoreFocus={overlay.restore} id={search.rule === undefined ? undefined : String(search.rule)} onClose={() => overlay.close({ rule: undefined })} onSwitch={onSwitch} onRemove={(id) => overlay.move({ rule: undefined, remove: id })} />
+      <RuleSheet id={search.rule === undefined ? undefined : String(search.rule)} onClose={() => overlay.close({ rule: undefined })} onSwitch={onSwitch} onRemove={(id) => overlay.move({ rule: undefined, remove: id })} />
       <Dialog open={!!search.remove} onOpenChange={(o) => !o && overlay.close({ remove: undefined })}>
-        <DialogContent data-testid="lab-remove-dialog" onCloseAutoFocus={overlay.restore}>
+        <DialogContent data-testid="lab-remove-dialog">
           <DialogHeader>
-            <DialogTitle>Remove {removing ? removing.name : `rule ${search.remove}`}?</DialogTitle>
+            <DialogTitle>Remove {removed ?? (removing ? removing.name : `rule ${search.remove}`)}?</DialogTitle>
             <DialogDescription>It stops at once: the requests it matched are answered as usual from the next one. It stays in Ended for an hour with what it did.</DialogDescription>
           </DialogHeader>
+          {removed ? (
+            <>
+              <Done testId="lab-removed">
+                <b className="font-semibold text-bright">Removed {removed}.</b> It is in Ended now, with what it did.
+              </Done>
+              <DoneFooter onDone={() => overlay.close({ remove: undefined })} />
+            </>
+          ) : (
           <DialogFooter>
             <DialogClose asChild>
               <Button variant="outline">Keep it</Button>
@@ -293,6 +304,7 @@ export function LabPage() {
               <Trash2Icon /> Remove rule
             </Button>
           </DialogFooter>
+          )}
         </DialogContent>
       </Dialog>
     </>

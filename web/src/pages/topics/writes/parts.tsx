@@ -1,6 +1,6 @@
 // The parts the topic writes share: the call beside a form (`The call`, `The answer`), the teaching under a field, Kafka's
 // refusal, a success banner. Text only: every word is the server's, React escapes it.
-import { CircleCheckIcon, ChevronDownIcon, NetworkIcon, OctagonXIcon } from "lucide-react";
+import { ChevronDownIcon, NetworkIcon, OctagonXIcon } from "lucide-react";
 import { useState } from "react";
 import type { Refusal } from "@/api/types/Refusal";
 import type { Span } from "@/api/types/Span";
@@ -146,15 +146,8 @@ export function RefusalCallout({ r, testId = "refusal" }: { r: Refusal; testId?:
   );
 }
 
-/** A write the broker took. */
-export function Done({ children, testId = "done" }: { children: React.ReactNode; testId?: string }) {
-  return (
-    <div role="status" className="flex gap-3 rounded-xl border border-good/30 bg-good/5 p-4 text-[13.5px] leading-[21px]" data-testid={testId}>
-      <CircleCheckIcon aria-hidden className="mt-0.5 size-5 shrink-0 text-good" />
-      <div className="min-w-0 break-words">{children}</div>
-    </div>
-  );
-}
+/** A write the broker took: the shared result box (components/app/write-done.tsx). */
+export { Done } from "@/components/app/write-done";
 
 /** A field's error, under it. */
 export function FieldError({ children, id }: { children?: React.ReactNode; id?: string }) {
@@ -168,5 +161,5 @@ export function FieldError({ children, id }: { children?: React.ReactNode; id?: 
 
 /** A dialog's buttons, held at the bottom of its scrolling body so Send is always in reach. */
 export function StickyFooter({ children }: { children: React.ReactNode }) {
-  return <DialogFooter className="sticky -bottom-5 z-10 -mx-6 -mb-5 mt-1 border-t bg-background px-6 py-4">{children}</DialogFooter>;
+  return <DialogFooter className="mt-1">{children}</DialogFooter>;
 }

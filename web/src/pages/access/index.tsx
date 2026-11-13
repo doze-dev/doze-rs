@@ -350,8 +350,8 @@ export function AccessPage() {
           <ConsoleCards r={r} />
         </>
       )}
-      {r && <CreateAclDialog open={search.acl === "new"} kinds={r.kinds} operations={r.operations} onClose={() => overlay.close({ acl: undefined })} restoreFocus={overlay.restore} />}
-      {r && <DeleteAclDialog query={search.delete} kinds={r.kinds} operations={r.operations} onClose={() => overlay.close({ delete: undefined })} restoreFocus={overlay.restore} />}
+      {r && <CreateAclDialog open={search.acl === "new"} kinds={r.kinds} operations={r.operations} onClose={() => overlay.close({ acl: undefined })} />}
+      {r && <DeleteAclDialog query={search.delete} kinds={r.kinds} operations={r.operations} onClose={() => overlay.close({ delete: undefined })} />}
     </>
   );
 }

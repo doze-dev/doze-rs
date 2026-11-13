@@ -34,7 +34,7 @@ test("Consumers: the groups that committed on the topic, with their lag, and a g
   const reader = page.getByTestId("reader").first();
   await expect(reader).toBeVisible();
   const group = (await reader.getAttribute("data-group"))!;
-  await expect(reader.getByTestId("behind")).toHaveText(/^[\d,]+ behind$/);
+  await expect(reader.getByTestId("behind")).toHaveText(/^[\d,]+$/);
   await expect(reader.getByRole("table")).toContainText("orders-0");
   const count = await page.getByTestId("reader").count();
   await expect(page.getByTestId("topic-tabs").getByRole("link", { name: /^Consumers/ })).toContainText(String(count));
@@ -62,7 +62,8 @@ test("Log: the ruler, the cards and the segments; a segment opens in place; the 
   await expect(page.getByTestId("compact-now")).toHaveCount(0);
   for (const width of [1024, 1440]) {
     await page.setViewportSize({ width, height: 900 });
-    expect(await overflowX(page), `${width}`).toBeLessThanOrEqual(0);
+    // Polled: crossing 1280 px the sidebar folds to icons with its own short transition.
+    await expect.poll(() => overflowX(page), { message: `${width}` }).toBeLessThanOrEqual(0);
   }
 });
 
@@ -77,7 +78,7 @@ test("Compact now on a compacted topic: a Dialog with the planner's verdict, and
   if (await dialog.getByTestId("compact-run").count()) {
     // Due: run the round; the answer is a toast of what it did, or the refusal in the dialog.
     await dialog.getByTestId("compact-run").click();
-    await expect(page.locator("[data-sonner-toast]").filter({ hasText: "Ran the cleaner on inventory.levels-0" }).or(dialog.getByTestId("compact-refused"))).toBeVisible();
+    await expect(dialog.getByTestId("compact-done").or(dialog.getByTestId("compact-refused"))).toBeVisible();
   } else {
     // Not due: the planner's sentence says why, and nothing runs.
     await expect(dialog.getByTestId("compact-blocked")).toContainText(/planner finds nothing due|cleaner is off|nothing to clean|Lab is switched off/);

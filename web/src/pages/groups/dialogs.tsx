@@ -25,6 +25,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { number } from "@/lib/format";
+import { Done, DoneFooter } from "@/components/app/write-done";
 import { CallBlock, Callout, GroupSpans, RefusalCallout, Rules } from "./parts";
 import { partList, plural } from "./words";
 
@@ -109,15 +110,29 @@ function ResetDialog({ id, head, onDone }: { id: string; head: GroupHead; onDone
     reset.reset();
     setAsked(asRequest(f));
   });
+  const [done, setDone] = useState<{ n: number; topic: string } | null>(null);
   const send = () =>
     reset.mutate(asked.topic ? asked : { ...asked, topic: v?.topic ?? "" }, {
       onSuccess: (d) => {
         if (d.outcome !== "done") return;
-        toast.success(`Reset ${plural(d.done, "offset")}. The group reads from them the next time a member starts.`);
-        onDone();
+        setDone({ n: d.done, topic: asked.topic || (v?.topic ?? "") });
       },
     });
   const shownTopic = v?.topic ?? "";
+  if (done) {
+    return (
+      <>
+        <DialogHeader>
+          <DialogTitle>Reset offsets of {id}</DialogTitle>
+          <DialogDescription>The broker took the commit.</DialogDescription>
+        </DialogHeader>
+        <Done testId="reset-done">
+          <b className="font-semibold text-bright">Reset {plural(done.n, "offset")} on {done.topic}.</b> The group reads from them the next time a member starts.
+        </Done>
+        <DoneFooter onDone={onDone} />
+      </>
+    );
+  }
   return (
     <>
       <DialogHeader>
@@ -323,6 +338,21 @@ function OffsetsDialog({ id, head, onDone }: { id: string; head: GroupHead; onDo
     del.reset();
     setPicked(chosen.includes(t) ? chosen.filter((x) => x !== t) : [...chosen, t]);
   };
+  const [done, setDone] = useState<number | null>(null);
+  if (done !== null) {
+    return (
+      <>
+        <DialogHeader>
+          <DialogTitle>Delete committed offsets of {id}?</DialogTitle>
+          <DialogDescription>The broker took the delete.</DialogDescription>
+        </DialogHeader>
+        <Done testId="offsets-done">
+          <b className="font-semibold text-bright">Deleted {plural(done, "committed offset")}.</b> A consumer that joins {id} starts at its <code className="font-mono">auto.offset.reset</code> on them.
+        </Done>
+        <DoneFooter onDone={onDone} />
+      </>
+    );
+  }
   return (
     <>
       <DialogHeader>
@@ -340,16 +370,17 @@ function OffsetsDialog({ id, head, onDone }: { id: string; head: GroupHead; onDo
           <fieldset className="flex flex-col gap-1">
             <legend className="mb-2 text-sm font-medium">Topic</legend>
             {v.topics.map(([t, ps]) => (
-              <label key={t} htmlFor={`od-${t}`} className="flex cursor-pointer items-start gap-3 rounded-lg p-2.5 hover:bg-accent/50">
+              // The checkbox and its label are siblings (shadcn's pattern): a label wrapping the control toggled it twice.
+              <div key={t} className="flex items-start gap-3 rounded-lg p-2.5 hover:bg-accent/50">
                 <Checkbox id={`od-${t}`} checked={chosen.includes(t)} onCheckedChange={() => toggle(t)} className="mt-0.5" data-testid="offsets-topic" />
-                <span className="min-w-0">
+                <label htmlFor={`od-${t}`} className="min-w-0 flex-1 cursor-pointer" data-testid="offsets-topic-label">
                   <span className="block font-mono text-[13.5px] text-bright">{t}</span>
                   <span className="block truncate text-[12px] text-muted-foreground">
                     {plural(ps.length, "offset")}: {ps.slice(0, 4).map((p) => `${t}-${p}`).join(", ")}
                     {ps.length > 4 ? ", ..." : ""}
                   </span>
-                </span>
-              </label>
+                </label>
+              </div>
             ))}
           </fieldset>
         )}
@@ -373,8 +404,7 @@ function OffsetsDialog({ id, head, onDone }: { id: string; head: GroupHead; onDo
               {
                 onSuccess: (d) => {
                   if (d.outcome !== "done") return;
-                  toast.success(`Deleted ${plural(d.done, "committed offset")}.`);
-                  onDone();
+                  setDone(d.done);
                 },
               },
             )
@@ -388,12 +418,12 @@ function OffsetsDialog({ id, head, onDone }: { id: string; head: GroupHead; onDo
 }
 
 /** The dialog the address names, over whichever tab of the group is showing. */
-export function GroupDialogs({ id, head, dialog, onClose, returnFocus }: { id: string; head: GroupHead; dialog?: Dialog; onClose: () => void; returnFocus: (e: Event) => void }) {
+export function GroupDialogs({ id, head, dialog, onClose }: { id: string; head: GroupHead; dialog?: Dialog; onClose: () => void }) {
   const navigate = useNavigate();
   const forget = useForgetGroup();
   return (
     <Dialog open={!!dialog} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent onCloseAutoFocus={returnFocus} className="sm:max-w-[640px]" data-testid={dialog ? `dialog-${dialog}` : undefined} aria-describedby={undefined}>
+      <DialogContent className="sm:max-w-[640px]" data-testid={dialog ? `dialog-${dialog}` : undefined} aria-describedby={undefined}>
         {dialog === "reset" && (
           <ResetDialog
             id={id}

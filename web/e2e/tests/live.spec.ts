@@ -129,14 +129,23 @@ test("Live is a snapshot by default: one h1, the figures in tiles, Snapshot chos
   expect(await rowsOf(page).evaluateAll((rs) => rs.map((r) => r.getAttribute("data-row")))).toEqual(before);
 });
 
-test("the tail: batches never faster than the pace, existing rows never rewritten, new rows highlighted, the page around it still", async ({ page }) => {
+test("the tail: batches never faster than the pace, existing rows never rewritten, new rows highlighted, the page around it still", async ({ page, browserName }) => {
   await openLive(page);
   await tailOn(page);
   const selectors = ["h1", "[data-slot=stat-strip]", "[data-testid=refusals]", "[data-testid=live-toolbar]", "[data-testid=tail-bar]", "thead"];
   const before = await boxes(page, selectors);
   await page.evaluate(() => {
-    const w = window as unknown as { __batches: number[]; __old: Map<string, [Element, string]>; __fresh: number };
+    const w = window as unknown as { __batches: number[]; __old: Map<string, [Element, string]>; __fresh: number; __ls: number };
     w.__batches = [];
+    // Layout shift (Chromium has the API): rows prepended at the top must not shift the rows on screen (CON-1350).
+    w.__ls = 0;
+    try {
+      new PerformanceObserver((l) => {
+        for (const e of l.getEntries() as unknown as { value: number; hadRecentInput: boolean }[]) if (!e.hadRecentInput) w.__ls += e.value;
+      }).observe({ type: "layout-shift", buffered: false });
+    } catch {
+      w.__ls = -1;
+    }
     w.__fresh = 0;
     w.__old = new Map();
     for (const tr of document.querySelectorAll("[data-testid=tape] tbody tr[data-row]")) w.__old.set(tr.getAttribute("data-row")!, [tr, tr.outerHTML]);
@@ -147,7 +156,7 @@ test("the tail: batches never faster than the pace, existing rows never rewritte
   });
   await sleep(20_000);
   const r = await page.evaluate(() => {
-    const w = window as unknown as { __batches: number[]; __old: Map<string, [Element, string]> };
+    const w = window as unknown as { __batches: number[]; __old: Map<string, [Element, string]>; __ls: number };
     let replaced = 0;
     let rewritten = 0;
     for (const [id, [node, html]] of w.__old) {
@@ -158,9 +167,11 @@ test("the tail: batches never faster than the pace, existing rows never rewritte
       else if (now.outerHTML !== html && !now.textContent!.includes("×")) rewritten++;
     }
     const fresh = document.querySelectorAll("[data-testid=tape] tbody tr:has([data-fresh])").length;
-    const freshOld = [...w.__old.values()].filter(([n]) => n.querySelector("[data-fresh]")).length;
-    return { batches: w.__batches, replaced, rewritten, fresh, freshOld };
+    // Rows that came in a batch before this capture (the tail was on already) are new, not the snapshot's: they may carry it.
+    const freshOld = [...w.__old.values()].filter(([n, html]) => !html.includes("data-fresh") && n.querySelector("[data-fresh]")).length;
+    return { batches: w.__batches, replaced, rewritten, fresh, freshOld, ls: w.__ls };
   });
+  if (browserName === "chromium") expect(r.ls, "layout shift while tailing at the top").toBeLessThan(0.01);
   expect(r.batches.length, "the traffic made batches").toBeGreaterThanOrEqual(2);
   const gaps = r.batches.slice(1).map((t, i) => t - r.batches[i]!);
   for (const g of gaps) expect(g, `gaps ${gaps.map(Math.round).join(", ")} ms`).toBeGreaterThanOrEqual(2900);
@@ -223,13 +234,21 @@ test("the tail holds while the tape is scrolled: the pill counts, the scroll sta
   expect(after.y).toBe(held.y);
 });
 
+test("an old link with a JSON list still opens its filter", async ({ page }) => {
+  await page.goto("/live?topic=%5B%22orders%22%5D");
+  await expect(page.locator("h1")).toHaveText("Live");
+  await expect(page.getByRole("combobox", { name: "Topics" })).toHaveText("orders");
+});
+
 test("filters change the rows, live in the address, and survive a reload", async ({ page }) => {
   await openLive(page);
   // Topics: a MultiSelect with counts.
   await page.getByRole("combobox", { name: "Topics" }).click();
   await page.getByRole("option", { name: /^orders \d/ }).click();
   await page.keyboard.press("Escape");
-  await expect(page).toHaveURL(/topic=/);
+  // The address reads as words: a list is the name repeated, never JSON (CON-1353).
+  await expect(page).toHaveURL(/[?&]topic=orders(&|$)/);
+  await expect(page).not.toHaveURL(/%5B|%22/);
   await expect(page.getByRole("combobox", { name: "Topics" })).toHaveText("orders");
   await expect.poll(async () => (await tape(page).locator("tbody tr[data-row] td:nth-child(4)").allInnerTexts()).every((t) => t.includes("orders"))).toBe(true);
   // Refused only.
@@ -312,6 +331,13 @@ test("the clients Sheet: who is connected, and a name filters the tape", async (
   await expect(page).toHaveURL(/clients=/);
   const sheet = page.getByTestId("clients-sheet");
   await expect(sheet.getByTestId("clients")).toContainText("e2e-orders");
+  // One definition (CON-1344): the tile, the button and the sheet count the same clients (client.ids) and connections.
+  const tile = page.locator("[data-slot=stat]", { hasText: "Clients" });
+  const [tileClients, tileConns] = [Number(await tile.locator("[data-slot=stat-value]").innerText()), Number((await tile.locator("div").last().innerText()).replace(/\D/g, ""))];
+  const sheetLine = await sheet.getByTestId("clients-count").innerText();
+  expect(Number(sheetLine.match(/(\d+) clients?/)![1])).toBe(tileClients);
+  expect(Number(sheetLine.match(/(\d+) connections?/)![1])).toBe(tileConns);
+  expect(Number((await page.getByTestId("open-clients").innerText()).replace(/\D/g, ""))).toBe(tileClients);
   await page.keyboard.press("Escape");
   await expect(page).not.toHaveURL(/clients=/);
   await page.getByTestId("open-clients").click();

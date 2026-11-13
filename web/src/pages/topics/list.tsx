@@ -271,7 +271,7 @@ export function TopicsPage() {
                 </>
               }
             >
-              The filter looks at the {number(d.view.total)} topic names; internal topics are hidden. Names are matched as typed, so <code className="font-mono">pick-lists</code> will not match <code className="font-mono">pick_lists</code>.
+              The filter looks at the topic names; internal topics are hidden. Names are matched as typed, so <code className="font-mono">pick-lists</code> will not match <code className="font-mono">pick_lists</code>.
             </EmptyState>
           ) : (
             <>

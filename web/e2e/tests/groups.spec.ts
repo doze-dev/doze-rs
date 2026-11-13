@@ -71,13 +71,15 @@ test("Groups: the counts are tiles, the name filter and the states are in the ad
   await empty.click();
   await page.keyboard.press("Escape");
   await expect(page).toHaveURL(/state=/);
-  await expect(page.getByTestId("multi-summary")).toHaveText("Empty");
+  await expect(page.getByTestId("multi-summary")).toHaveText(/^1 of \d+ states$/);
+  await expect(page.getByTestId("multi-chips")).toHaveText("Empty");
   await expect(links.filter({ hasText: idle })).toBeVisible();
   await expect(links.filter({ hasText: member })).toHaveCount(0);
   for (const row of await page.locator("tbody tr").all()) await expect(row.getByTestId("group-phase")).toHaveText("Empty");
   // Back undoes the filter (replace keeps history short: Back leaves the page's first state).
   await page.reload();
-  await expect(page.getByTestId("multi-summary")).toHaveText("Empty");
+  await expect(page.getByTestId("multi-summary")).toHaveText(/^1 of \d+ states$/);
+  await expect(page.getByTestId("multi-chips")).toHaveText("Empty");
   await expect(page.getByTestId("groups-filter")).toHaveValue("r2-");
   await page.getByRole("button", { name: "Clear states" }).click();
   await expect(page).not.toHaveURL(/state=/);
@@ -239,7 +241,8 @@ test("Reset offsets: a GET preview, then the reset; the Lag tab shows where the 
   await expect(dialog.getByTestId("reset-after")).toHaveText(["0", "0", "0"]);
   await expect(dialog.getByTestId("reset-submit")).toHaveText(/Reset 3 offsets/);
   await dialog.getByTestId("reset-submit").click();
-  await expect(page.locator("[data-sonner-toast]").filter({ hasText: "Reset 3 offsets" })).toBeVisible();
+  await expect(dialog.getByTestId("reset-done")).toContainText("Reset 3 offsets");
+  await dialog.getByTestId("write-done").click();
   await expect(dialog).toBeHidden();
   await expect(page).not.toHaveURL(/dialog=/);
   const block = page.getByTestId("lag-topic").filter({ has: page.getByRole("link", { name: TOPIC }) });
@@ -254,6 +257,9 @@ test("Reset offsets: a GET preview, then the reset; the Lag tab shows where the 
   await dialog.getByRole("radio", { name: /Latest/ }).click();
   await dialog.getByTestId("reset-preview-button").click();
   await dialog.getByTestId("reset-submit").click();
+  await expect(dialog.getByTestId("reset-done")).toBeVisible();
+  await page.keyboard.press("Enter");
+  await expect(dialog).toBeHidden();
   await expect(block.getByTestId("topic-behind")).toHaveText("0 behind");
 });
 
@@ -305,9 +311,15 @@ test("Delete offsets forgets the commits of the topics ticked; Delete group then
   await expect(dialog.getByTestId("offsets-submit")).toBeDisabled();
   await dialog.getByText(TOPIC, { exact: true }).click();
   await expect(box).toBeChecked();
+  // The name is the checkbox's label both ways (CON-1347): a click on it unticks and ticks again.
+  await dialog.getByTestId("offsets-topic-label").click();
+  await expect(box).not.toBeChecked();
+  await dialog.getByTestId("offsets-topic-label").click();
+  await expect(box).toBeChecked();
   await expect(dialog.getByTestId("offsets-submit")).toHaveText(/Delete 3 offsets/);
   await dialog.getByTestId("offsets-submit").click();
-  await expect(page.locator("[data-sonner-toast]").filter({ hasText: "Deleted 3 committed offsets" })).toBeVisible();
+  await expect(dialog.getByTestId("offsets-done")).toContainText("Deleted 3 committed offsets");
+  await dialog.getByTestId("write-done").click();
   await expect(dialog).toBeHidden();
   await page.getByTestId("open-delete").click();
   const del = page.getByTestId("dialog-delete");

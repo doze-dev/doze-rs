@@ -1321,3 +1321,93 @@ Every list is a shadcn Select, Combobox or MultiSelect; no native select, date o
 
 ## CON-1331. Every overlay of R4 has its own address and gives the focus back
 The Edit dialog, Create ACL, Delete ACL, New rehearsal, the rule's sheet and Remove are search params: Back closes one opened from the page, a deep link opens it, Esc closes it and the focus returns to what opened it (also in Firefox and Safari, where a clicked button is not focused). Files: `web/e2e/tests/settings.spec.ts`, `access.spec.ts`, `lab.spec.ts`.
+
+# The UX audit fixes of 2026-11-13 (rules 1340 to 1359)
+
+An independent three-browser audit of the React console found overlays that lost the focus, a filter chip that was not
+applied, frozen figures, numbers in sentences, layout shift while tailing and a crowded 1024 layout. Each fix is at its root
+(a shared component where the cause was shared) and is held by a test.
+
+## CON-1340. Every Dialog and Sheet gives the focus back to what opened it
+One mechanism, `web/src/lib/opener.ts` through `web/src/hooks/use-overlay-opener.tsx`, mounted by the shared `DialogContent` and
+`SheetContent`: it follows the last pointer press and the last focus for the whole document (Firefox and Safari do not focus
+a clicked button), learns the opener while the overlay first renders (before the page behind goes `inert` and blurs it), keeps
+a way to find the same control again (focus key, test id or label, inside its row), maps a menu item to its menu's trigger, and
+falls back to the opener of the overlay it was opened from, then to `main`. No page carries its own focus code. File:
+`web/e2e/tests/focus-return.spec.ts` (every overlay: keyboard + Esc, mouse + close button; and after a redraw of the opener).
+
+## CON-1341. An offset with no partition chosen is read from on every partition
+As `kcat -o N` without `-p` and Kafka UI's offset seek: the chip says `from offset N in each partition`, and each partition read
+gets its share of the page, so every partition shows. A chip is never shown for a filter that is not applied. Test:
+`messages_take_their_filters_from_the_query_and_a_record_is_whole`; file: `web/e2e/tests/messages.spec.ts`.
+
+## CON-1342. A dialog's actions are always in view
+`DialogFooter` sticks to the bottom of the box that scrolls, edge to edge over its padding (`--dp-x`, `--dp-y`), in every dialog;
+`DialogContent` never grows past the window. File: `web/e2e/tests/calm-layout.spec.ts`.
+
+## CON-1343. The Lab rule's sheet keeps up while it is open
+It follows the interval chosen for every page and has its own Refresh (the stamp and the button), so its hits and rows arrive
+without closing it. File: `web/e2e/tests/lab.spec.ts`.
+
+## CON-1344. Clients is one definition on Live and in its sheet
+A client is a `client.id` with a connection open; its connections are the unit (`9 clients`, `11 connections`), the same on the
+tile, the button and the sheet. Test: `live_counts_clients_as_the_clients_sheet_does`; file:
+`web/e2e/tests/live.spec.ts`.
+
+## CON-1345. A topic's Config says where its values come from as figures that add up
+Configs, Set on this topic, Set for the broker (dynamic broker and dynamic default), Start flag, Kafka's default (and Elsewhere
+when Kafka names another source): labelled figures, never a sentence, and the parts sum to the whole. File:
+`web/e2e/tests/topic-config.spec.ts`.
+
+## CON-1346. A topic's figures follow its Messages tail
+Each batch the table takes fetches the topic's frame again: Records and Last write change in the same boxes, never older than
+the rows under them. File: `web/e2e/tests/messages.spec.ts`.
+
+## CON-1347. A checkbox's words are its label
+In Delete offsets the topic's name and its offsets are a `label` beside the checkbox (never wrapping it): a click on them ticks
+and unticks. File: `web/e2e/tests/groups.spec.ts`.
+
+## CON-1348. Create topic's done state has its own address
+`/topics/new?created=<name>`: a reload shows the topic made, never the form again; without the session's answer it goes to the
+topic. File: `web/e2e/tests/topic-writes.spec.ts`.
+
+## CON-1349. The sidebar remembers the person's choice, and starts as icons below 1280 px
+`doze:sidebar` in localStorage; with no choice made, icons only below 1280 px and full from it. There is one `main` landmark.
+File: `web/e2e/tests/shell.spec.ts`.
+
+## CON-1350. A tail's new rows shift nothing on screen
+`DataTable`'s `anchorTop`: rows prepended while the reader is at the top are put in with the box scrolled by their height in
+the same frame, then the box glides back to the top (a scroll, not a layout shift; at once with reduced motion; at once when
+the person asked with Show). Measured in Chromium while tailing: Live 0.517 to 0, Messages 0.05 to 0. The held pill sits in
+the tail's bar, in a slot it always has, covering no row; the speed control is one component with one set of words. Files:
+`web/e2e/tests/live.spec.ts`, `web/e2e/tests/messages.spec.ts`.
+
+## CON-1351. The wordmark's text is the name, once
+Home's h1 reads `doze Kafka`: the visible text is the name, with no hidden copy beside it. File: `web/e2e/tests/pages.spec.ts`.
+
+## CON-1352. A MultiSelect that shows chips says each name once
+The field says how many (`1 of 30 APIs`), the chips say which. Files: `web/e2e/tests/lab.spec.ts`, `gallery.spec.ts`.
+
+## CON-1353. A list in the address is the name repeated
+`?topic=orders&topic=clickstream` (`web/src/lib/search-params.ts`, the router's `parseSearch` and `stringifySearch`), never JSON;
+an old link written as JSON still opens its filter. Files: `web/src/lib/search-params.test.ts`, `web/e2e/tests/live.spec.ts`.
+
+## CON-1354. One pattern for every write in a dialog
+The dialog stays open and shows what the broker did, in place, then Done (`web/src/components/app/write-done.tsx`): Produce,
+Add partitions, Delete records, Config edit and reset, Reset and Delete offsets, Create and Delete ACL, Settings edit, Compact
+now, the Lab's once rehearsals and Remove. Only a write that removes the page's own subject (Delete topic, Delete group) leaves
+for the list, with a toast. Files: `web/e2e/tests/access.spec.ts`, `groups.spec.ts`, `topic-config.spec.ts`, `settings.spec.ts`,
+`lab.spec.ts`.
+
+## CON-1355. The transaction region is one line of one height, open or calm
+The callout is its title, labelled figures (Began, Held back; Timeout, Producer and partitions where the region is wide
+enough, never wrapped) and the way to the transaction. File: `web/e2e/tests/calm-layout.spec.ts`.
+
+## CON-1356. Strips of figures are balanced, their values at one height
+`StatStrip` lays its tiles on a grid: all in one row when they fit, else as even as they can be (never a lone tile), and the
+tiles are a subgrid, so a label on two lines moves no value. A tab's count has a reserved width. File:
+`web/e2e/tests/calm-layout.spec.ts`.
+
+## CON-1357. The topic's records are in view at 1024 x 900
+A dense head (the strip, the one-line transaction region, tighter spacing), and the Live tape's narrowest columns keep an API
+name and a result word whole. File: `web/e2e/tests/calm-layout.spec.ts`.

@@ -40,6 +40,9 @@ test("Access: Create ACL by mouse and keyboard, it shows in the table, the filte
   await expect(dialog.getByTestId("call-box")).toContainText(who);
   await noNativeSelect(page);
   await dialog.getByTestId("acl-create-submit").click();
+  // One pattern for every write (CON-1354): the result in place, then Done.
+  await expect(dialog.getByTestId("acl-created")).toContainText(who);
+  await dialog.getByTestId("write-done").click();
   await expect(dialog).toBeHidden();
   await expect(page).not.toHaveURL(/acl=new/);
   const row = page.getByRole("table", { name: "ACLs" }).locator("tbody tr", { hasText: who });
@@ -70,6 +73,8 @@ test("Access: Create ACL by mouse and keyboard, it shows in the table, the filte
   await expect(del.getByTestId("acl-after")).toContainText(/./);
   await expect(del.getByTestId("call-box")).toContainText("DeleteAcls");
   await del.getByTestId("acl-delete-confirm").click();
+  await expect(del.getByTestId("acl-deleted")).toBeVisible();
+  await del.getByTestId("write-done").click();
   await expect(del).toBeHidden();
   await expect(row).toHaveCount(0);
   const after = await apiGet(page.request, "/api/v1/access");

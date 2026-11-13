@@ -107,7 +107,8 @@ function Tabs({ h }: { h: GroupHead }) {
             )}
           >
             {t.label}
-            {t.count && <span className="min-w-[2ch] rounded-md bg-well px-1.5 text-center font-mono text-[11.5px] text-muted-foreground tabular-nums">{number(t.count(h))}</span>}
+            {/* A count of reserved width: a count that grows (Lag 14, 292, 477) never moves the tabs after it. */}
+            {t.count && <span className="inline-block min-w-[6ch] rounded-md bg-well px-1.5 text-center font-mono text-[11.5px] text-muted-foreground tabular-nums">{number(t.count(h))}</span>}
           </Link>
         );
       })}
@@ -193,7 +194,7 @@ export function GroupLayout() {
           <Switch h={h} tail={tab.tail} />
           <Tabs h={h} />
           <Outlet />
-          <GroupDialogs id={id} head={h} dialog={search.dialog} onClose={overlay.close} returnFocus={overlay.returnFocus} />
+          <GroupDialogs id={id} head={h} dialog={search.dialog} onClose={overlay.close} />
         </>
       ) : (
         <div className="flex flex-col gap-4" aria-busy>

@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { number } from "@/lib/format";
 import { CallBlock, Done, FieldError, RefusalCallout, TeachLines, Teaching, StickyFooter } from "./parts";
+import { DoneFooter } from "@/components/app/write-done";
 
 function Footer({ children }: { children: React.ReactNode }) {
   return (
@@ -33,15 +34,6 @@ function Footer({ children }: { children: React.ReactNode }) {
   );
 }
 
-function DoneFooter() {
-  return (
-    <StickyFooter>
-      <DialogClose asChild>
-        <Button>Done</Button>
-      </DialogClose>
-    </StickyFooter>
-  );
-}
 
 export function AddPartitionsBody({ topic, open }: { topic: string; open: boolean }) {
   const qc = useQueryClient();

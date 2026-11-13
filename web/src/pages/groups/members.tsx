@@ -317,12 +317,12 @@ function Rebalancing({ v, fetchedAt, onOpen }: { v: GroupLagView; fetchedAt: num
   );
 }
 
-function MemberSheet({ h, member, onClose, returnFocus }: { h: GroupHead; member?: string; onClose: () => void; returnFocus: (e: Event) => void }) {
+function MemberSheet({ h, member, onClose }: { h: GroupHead; member?: string; onClose: () => void }) {
   const m = member ? h.members.find((x) => x.id === member) : undefined;
   const firstTopic = m?.holds[0]?.topic;
   return (
     <Sheet open={!!member} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent onCloseAutoFocus={returnFocus} className="w-full sm:max-w-xl" data-testid="member-sheet">
+      <SheetContent className="w-full sm:max-w-xl" data-testid="member-sheet">
         <SheetHeader>
           <SheetTitle className="font-mono break-all">{m ? memberLabel(m.id) : member}</SheetTitle>
           <SheetDescription>
@@ -409,7 +409,7 @@ export function GroupMembersPage() {
         <h2 className="mb-3 text-[17px] font-semibold text-bright">What just happened</h2>
         <WireDock group={id} />
       </section>
-      <MemberSheet h={h} member={search.member} onClose={overlay.close} returnFocus={overlay.returnFocus} />
+      <MemberSheet h={h} member={search.member} onClose={overlay.close} />
     </>
   );
 }

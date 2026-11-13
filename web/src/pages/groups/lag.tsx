@@ -175,10 +175,9 @@ function Explain({ v }: { v: GroupLagView }) {
       </div>
     );
   }
-  const behind = all.find((r) => r.lag.kind === "behind");
   return (
     <p className="mt-4 text-[13px] text-muted-foreground" data-testid="lag-explain" data-state="normal">
-      A full bar would be a consumer that has read none of the partition. {behind && `${behind.topic}-${behind.partition} is ${behind.bar} % of its log behind. `}The broker keeps no lag history: this is the lag now.
+      A full bar would be a consumer that has read none of the partition; each bar's figure is in its row. The broker keeps no lag history: this is the lag now.
     </p>
   );
 }

@@ -95,8 +95,10 @@ test("Settings: a value Kafka refuses is refused in Kafka's words; Check asks th
   await dialog.getByTestId("cfg-check").click();
   await expect(dialog.getByTestId("cfg-checked")).toContainText("259200000");
   await dialog.getByTestId("cfg-save").click();
+  // The result in place, then Done (CON-1354).
+  await expect(dialog.getByTestId("saved-card")).toContainText("log.retention.ms");
+  await dialog.getByTestId("write-done").click();
   await expect(dialog).toBeHidden();
-  await expect(page.getByTestId("saved-card")).toContainText("log.retention.ms");
   const row = page.getByRole("table", { name: "Dynamic broker configs" }).locator("tr", { hasText: "log.retention.ms" });
   await expect(row).toContainText("259200000");
   await expect(row).toContainText("Dynamic default broker");

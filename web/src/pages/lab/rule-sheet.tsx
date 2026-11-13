@@ -2,10 +2,12 @@
 // locally, the delay or the error) and the requests it touched, each with the Lab tag.
 import { Trash2Icon } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useLabRule } from "@/api/r4";
+import { useQueryClient } from "@tanstack/react-query";
+import { r4keys, useLabRule } from "@/api/r4";
 import type { LabHit } from "@/api/types/LabHit";
 import type { LabRule } from "@/api/types/LabRule";
 import { DataTable, type DataColumn } from "@/components/app/data-table";
+import { RefreshControl } from "@/components/app/refresh-control";
 import { StatTile } from "@/components/app/stat";
 import { StatusDot } from "@/components/app/status-dot";
 import { Button } from "@/components/ui/button";
@@ -61,19 +63,26 @@ const hitColumns: DataColumn<LabHit>[] = [
   { id: "took", header: "Took", size: 80, accessorFn: (h) => `${number(Math.round(h.took_us / 1000))} ms`, meta: { numeric: true } },
 ];
 
-export function RuleSheet({ id, onClose, onSwitch, onRemove, restoreFocus }: { id: string | undefined; onClose: () => void; onSwitch: (id: number, on: boolean) => void; onRemove: (id: number) => void; restoreFocus?: (e: Event) => void }) {
+export function RuleSheet({ id, onClose, onSwitch, onRemove }: { id: string | undefined; onClose: () => void; onSwitch: (id: number, on: boolean) => void; onRemove: (id: number) => void }) {
   const q = useLabRule(id);
+  const qc = useQueryClient();
   const v = q.data && String(q.data.rule.id) === id ? q.data : undefined;
   const r = v?.rule;
   return (
     <Sheet open={!!id} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-4xl" data-testid="lab-rule-sheet" onCloseAutoFocus={restoreFocus}>
+      <SheetContent className="w-full overflow-y-auto sm:max-w-4xl" data-testid="lab-rule-sheet">
         <SheetHeader>
           <SheetTitle className="flex flex-wrap items-center gap-3 pr-8 text-[20px] font-medium">
             {r?.name ?? `Rule ${id}`}
             {r && (r.ended ? <StatusDot tone="idle">{END_WORDS[r.ended]}</StatusDot> : r.enabled ? <StatusDot tone="ok">Active</StatusDot> : <StatusDot tone="idle">Switched off</StatusDot>)}
           </SheetTitle>
           <SheetDescription>{r ? r.sentence : "One Lab rule and the requests it touched."}</SheetDescription>
+          {/* The sheet keeps up as the page does: the interval chosen for every page while it is open, and its own Refresh. */}
+          <RefreshControl className="mt-2" updatedAt={q.dataUpdatedAt} fetching={q.isFetching} onRefresh={() => {
+              void q.refetch();
+              // The page behind says the same rule (its hits, its last hit): it is fetched again with it.
+              void qc.invalidateQueries({ queryKey: r4keys.lab, exact: true });
+            }} />
         </SheetHeader>
         <div className="flex min-w-0 flex-col gap-6 px-4 pb-8">
           {q.error && !v ? (

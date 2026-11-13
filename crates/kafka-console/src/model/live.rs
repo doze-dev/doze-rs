@@ -195,8 +195,10 @@ pub struct LiveView {
     pub refused_more: usize,
     pub refused_total: usize,
     pub denied_total: usize,
-    /// Clients connected now.
+    /// Clients connected now: the distinct `client.id`s with a connection open (the Clients sheet's rows).
     pub clients: usize,
+    /// The connections open now (a client may hold several).
+    pub connections: usize,
     /// Requests in the last minute.
     pub last_minute: u32,
     /// The most requests one folded row stands for in the last minute (for the busy state's sentence), and the topic.

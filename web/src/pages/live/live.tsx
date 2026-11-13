@@ -4,7 +4,7 @@
 // columns are fixed; a batch of new rows comes no faster than the pace, is prepended with a brief highlight on the new rows
 // only, and is held (a pill counts it) while the person scrolls, hovers, selects, types in the table or has an overlay open.
 import { useNavigate, useSearch } from "@tanstack/react-router";
-import { ArrowUpIcon, ChevronLeftIcon, ChevronRightIcon, ChevronDownIcon, FilterIcon, NetworkIcon, RadioIcon, SearchIcon, XIcon } from "lucide-react";
+import { ChevronLeftIcon, ChevronRightIcon, ChevronDownIcon, FilterIcon, NetworkIcon, RadioIcon, SearchIcon, XIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useLive } from "@/api/live";
 import type { LiveResponse } from "@/api/types/LiveResponse";
@@ -12,11 +12,11 @@ import type { WireRow } from "@/api/types/WireRow";
 import { MultiSelect } from "@/components/app/multi-select";
 import { PageHeader } from "@/components/app/page-header";
 import { RefreshControl } from "@/components/app/refresh-control";
+import { HeldPill, TailSpeed } from "@/components/app/tail-controls";
 import { type Stat, StatStrip } from "@/components/app/stat";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Toggle } from "@/components/ui/toggle";
@@ -28,7 +28,7 @@ import { PageError } from "../page-error";
 import { ClientsSheet } from "./clients-sheet";
 import { RequestSheet } from "./request-sheet";
 import { type LiveSearch, apiQuery, filtered } from "./search";
-import { type Conn, SPEEDS, type Speed, TAPE_MOST, type TapeRow, TailStream, hold, merge, newCount, parseSpeed, speedSecs, useSpeed } from "./tail";
+import { type Conn, TAPE_MOST, type TapeRow, TailStream, hold, merge, newCount, speedSecs, useSpeed } from "./tail";
 import { type FilterBy, Tape } from "./tape";
 import { clockMs } from "./words";
 
@@ -41,7 +41,8 @@ function stats(r: LiveResponse): Stat[] {
     { label: "Requests, last minute", value: number(v.last_minute), ch: 7 },
     { label: "Rows kept", value: number(v.window.rows), unit: `of ${number(v.window.capacity)}`, ch: 6 },
     { label: "Reaches back to", value: v.window.oldest_ms ? hhmmUtc(v.window.oldest_ms) : "none", unit: "UTC", mono: true, ch: 5, tip: "The oldest row kept; the wire starts empty at every start" },
-    { label: "Clients", value: number(v.clients), unit: "connected now", ch: 5 },
+    // One definition with the Clients sheet: a client is a client.id with a connection open; its connections are the unit.
+    { label: "Clients", value: number(v.clients), unit: v.connections === 1 ? "1 connection" : `${number(v.connections)} connections`, ch: 5 },
   ];
 }
 
@@ -264,7 +265,7 @@ export function LivePage() {
   const q = useLive(query, !on);
   const r = q.data;
   const ready = !!r && !q.isPlaceholderData;
-  const [speed, setSpeed] = useSpeed();
+  const [speed] = useSpeed();
   useTailOwnsRefresh();
   const pace = speedSecs(speed);
 
@@ -322,7 +323,13 @@ export function LivePage() {
     }
   };
   const showHeld = () => {
-    wrap.current?.querySelector<HTMLElement>("[data-slot=data-table]")?.scrollTo({ top: 0 });
+    const sc = wrap.current?.querySelector<HTMLElement>("[data-slot=data-table]");
+    if (sc) {
+      sc.dataset.jump = "1";
+      sc.scrollTo({ top: 0 });
+      // Only for this Show: a batch that comes later glides in as usual.
+      requestAnimationFrame(() => requestAnimationFrame(() => delete sc.dataset.jump));
+    }
     tail.show();
   };
 
@@ -339,7 +346,7 @@ export function LivePage() {
         <FilterIcon className="size-5 text-link" aria-hidden />
         <b className="text-[15px] font-semibold text-bright">No request matches these filters</b>
         <p className="max-w-lg">
-          Among the {number(r.live.window.rows)} rows kept, none has all of: {r.words.phrases.join("; ")}.
+          None of the rows kept has all of: {r.words.phrases.join("; ")}.
         </p>
         <Button variant="outline" size="sm" className="bg-card" onClick={() => set({ q: undefined, client: undefined, api: undefined, topic: undefined, refused: undefined, before: undefined }, false)}>
           <XIcon /> Clear filters
@@ -377,7 +384,7 @@ export function LivePage() {
         </div>
       ) : (
         <div className="flex flex-col gap-4" data-testid="live">
-          <StatStrip stats={stats(r)} className="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))]" />
+          <StatStrip stats={stats(r)} />
           <Refusals r={r} onOpen={(id) => openOverlay({ request: id })} />
           <div className="flex flex-wrap items-center gap-2" data-testid="live-toolbar">
             <SearchBox value={search.q ?? ""} onChange={onSearch} />
@@ -403,32 +410,16 @@ export function LivePage() {
                 <RadioIcon /> Live tail
               </ToggleGroupItem>
             </ToggleGroup>
-            <Select value={speed} onValueChange={(v) => setSpeed(parseSpeed(v) as Speed)}>
-              <SelectTrigger size="sm" className="w-[9.5rem] bg-card" aria-label="Tail speed" data-testid="tail-speed">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {SPEEDS.map((s) => (
-                  <SelectItem key={s.value} value={s.value}>
-                    {s.label} · {s.secs} s
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <TailSpeed />
             <Indicator on={on} conn={tail.conn} onRetry={tail.retry} />
+            {on && <HeldPill count={tail.heldCount} onShow={showHeld} />}
             <span className="flex-1" />
             {/* The switch owns how the tape keeps up (no page-wide interval here): a snapshot is refreshed by hand, a tail by
                 itself. */}
             {!on && <RefreshControl interval={false} updatedAt={q.dataUpdatedAt} fetching={q.isFetching} onRefresh={() => void q.refetch()} />}
           </div>
           <div className="relative" ref={wrap} onPointerEnter={() => (hovering.current = true)} onPointerLeave={() => (hovering.current = false)} data-testid="tape-wrap" data-tail={on || undefined}>
-            {/* The pill floats over the top of the tape: it takes no room, so it moves nothing when it comes and goes. */}
-            {on && tail.heldCount > 0 && (
-              <Button size="sm" onClick={showHeld} className="absolute top-12 left-1/2 z-20 -translate-x-1/2 rounded-full shadow-md" data-testid="held-pill">
-                <ArrowUpIcon /> <span className="tabular-nums">{number(tail.heldCount)}</span> new · Show
-              </Button>
-            )}
-            <Tape rows={rows} layout="live" filter={filterBy} empty={empty} maxHeight={TAPE_HEIGHT} label="The wire" onOpen={(row) => openOverlay({ request: row.id })} testId="tape" />
+            <Tape rows={rows} layout="live" filter={filterBy} empty={empty} maxHeight={TAPE_HEIGHT} label="The wire" onOpen={(row) => openOverlay({ request: row.id })} testId="tape" tail={on} />
           </div>
           <div className="flex flex-wrap items-center justify-end gap-3 text-[13px] text-muted-foreground" data-testid="pager">
             <span className="whitespace-nowrap tabular-nums">

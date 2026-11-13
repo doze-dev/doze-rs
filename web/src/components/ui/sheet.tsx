@@ -1,6 +1,6 @@
 import * as React from "react"
 import { cn } from "@/lib/utils"
-import { InertPage } from "@/hooks/use-inert-page"
+import { useOverlayOpener } from "@/hooks/use-overlay-opener"
 import { XIcon } from "lucide-react"
 import { Dialog as SheetPrimitive } from "radix-ui"
 
@@ -48,15 +48,19 @@ function SheetContent({
   side = "right",
   showCloseButton = true,
   onOpenAutoFocus,
+  onCloseAutoFocus,
   ...props
 }: React.ComponentProps<typeof SheetPrimitive.Content> & {
   side?: "top" | "right" | "bottom" | "left"
   showCloseButton?: boolean
 }) {
+  // The focus goes back to the opener when it closes, for every sheet (lib/opener.ts).
+  const focus = useOverlayOpener(onCloseAutoFocus)
   return (
     <SheetPortal>
       <SheetOverlay />
       <SheetPrimitive.Content
+        onCloseAutoFocus={focus.onCloseAutoFocus}
         // A drawer reads first: the focus goes to the panel (named by its title), not to the first control in it, which may be a
         // tooltip trigger that would open its tooltip and take the first Esc. A caller can still choose a field.
         onOpenAutoFocus={
@@ -81,7 +85,7 @@ function SheetContent({
         )}
         {...props}
       >
-        <InertPage />
+        {focus.mount}
         {children}
         {showCloseButton && (
           <SheetPrimitive.Close className="absolute top-4 right-4 rounded-xs opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none data-[state=open]:bg-secondary">

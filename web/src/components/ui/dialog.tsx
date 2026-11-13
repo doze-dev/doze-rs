@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { cn } from "@/lib/utils"
-import { InertPage } from "@/hooks/use-inert-page"
+import { useOverlayOpener } from "@/hooks/use-overlay-opener"
 import { XIcon } from "lucide-react"
 import { Dialog as DialogPrimitive } from "radix-ui"
 
@@ -52,22 +52,26 @@ function DialogContent({
   className,
   children,
   showCloseButton = true,
+  onCloseAutoFocus,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean
 }) {
+  // The focus goes back to the opener when it closes, for every dialog (lib/opener.ts).
+  const focus = useOverlayOpener(onCloseAutoFocus)
   return (
     <DialogPortal data-slot="dialog-portal">
       <DialogOverlay />
       <DialogPrimitive.Content
         data-slot="dialog-content"
+        onCloseAutoFocus={focus.onCloseAutoFocus}
         className={cn(
-          "fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border bg-background p-6 shadow-lg duration-200 outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 sm:max-w-lg",
+          "fixed top-[50%] left-[50%] z-50 grid max-h-[calc(100dvh-2rem)] w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 overflow-y-auto overscroll-contain rounded-lg border bg-background p-6 shadow-lg [--dp-x:1.5rem] [--dp-y:1.5rem] duration-200 outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 sm:max-w-lg",
           className
         )}
         {...props}
       >
-        <InertPage />
+        {focus.mount}
         {children}
         {showCloseButton && (
           <DialogPrimitive.Close
@@ -104,8 +108,10 @@ function DialogFooter({
   return (
     <div
       data-slot="dialog-footer"
+      // Every dialog's actions stay in view (the audit found Start below the fold at 1024x900): the footer sticks to the
+      // bottom of the box that scrolls, edge to edge over its padding (--dp-x, --dp-y: the padding of that box).
       className={cn(
-        "flex flex-col-reverse gap-2 sm:flex-row sm:justify-end",
+        "sticky bottom-[calc(-1*var(--dp-y,1.5rem))] z-10 mx-[calc(-1*var(--dp-x,1.5rem))] mb-[calc(-1*var(--dp-y,1.5rem))] flex flex-col-reverse gap-2 border-t bg-background px-[var(--dp-x,1.5rem)] py-4 sm:flex-row sm:justify-end",
         className
       )}
       {...props}

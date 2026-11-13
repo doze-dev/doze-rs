@@ -60,7 +60,7 @@ export default function Dialogs({ topic, dialog, partition, onClose }: { topic: 
           <DialogTitle className="text-[19px] font-semibold text-bright">{t.title(topic, partition)}</DialogTitle>
           <DialogDescription id="topic-dialog-d">{t.description}</DialogDescription>
         </DialogHeader>
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-5" data-testid="dialog-body">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-5 [--dp-y:1.25rem]" data-testid="dialog-body">
           {shown.d === "produce" && <ProduceBody key={shown.at} topic={topic} open={open} />}
           {shown.d === "add-partitions" && <AddPartitionsBody key={shown.at} topic={topic} open={open} />}
           {shown.d === "delete-records" && <DeleteRecordsBody key={shown.at} topic={topic} partition={partition} open={open} />}

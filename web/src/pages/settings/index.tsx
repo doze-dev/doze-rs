@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
-import { ChevronDownIcon, ChevronUpIcon, CircleCheckIcon, InfoIcon, PencilIcon, XIcon } from "lucide-react";
+import { ChevronDownIcon, ChevronUpIcon, InfoIcon, PencilIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { r4keys, useSettings } from "@/api/r4";
 import type { SettingsApi } from "@/api/types/SettingsApi";
@@ -8,10 +8,8 @@ import type { SettingsConfigRow } from "@/api/types/SettingsConfigRow";
 import type { SettingsFlag } from "@/api/types/SettingsFlag";
 import type { SettingsInterval } from "@/api/types/SettingsInterval";
 import type { SettingsResponse } from "@/api/types/SettingsResponse";
-import type { SettingsSaved } from "@/api/types/SettingsSaved";
 import { DataTable, type DataColumn } from "@/components/app/data-table";
 import { PageHeader } from "@/components/app/page-header";
-import { Spans } from "@/components/app/spans";
 import { StatStrip } from "@/components/app/stat";
 import { StatusDot } from "@/components/app/status-dot";
 import { Badge } from "@/components/ui/badge";
@@ -23,7 +21,7 @@ import { number } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { SettingsSearch } from "@/lib/search";
 import { PageError } from "../page-error";
-import { bytes, CallBox, Fact, PathValue, narrowed, SectionHead, useMinWidth, useRoutedOverlay, useStable } from "../r4/bits";
+import { bytes, Fact, PathValue, narrowed, SectionHead, useMinWidth, useRoutedOverlay, useStable } from "../r4/bits";
 import { EditConfigDialog } from "./edit-dialog";
 
 const SECTIONS = [
@@ -96,7 +94,7 @@ function sourceTone(source: string): "ok" | "info" | "idle" {
   return source.startsWith("Dynamic") ? "ok" : source === "Static broker" ? "info" : "idle";
 }
 
-function ConfigsSection({ r, onEdit, saved, onDismiss }: { r: SettingsResponse; onEdit: (key: string, from: HTMLElement) => void; saved: SettingsSaved | null; onDismiss: () => void }) {
+function ConfigsSection({ r, onEdit }: { r: SettingsResponse; onEdit: (key: string, from: HTMLElement) => void }) {
   const edit = useStable(onEdit);
   const columns = useMemo<DataColumn<SettingsConfigRow>[]>(
     () => [
@@ -113,7 +111,7 @@ function ConfigsSection({ r, onEdit, saved, onDismiss }: { r: SettingsResponse; 
       {
         accessorKey: "value",
         header: "Value",
-        size: 230,
+        size: 196,
         cell: (c) => (
           <span title={c.row.original.gloss ? `${c.row.original.value} (${c.row.original.gloss})` : c.row.original.value}>
             <span className="font-mono tabular-nums">{c.row.original.value}</span>
@@ -124,7 +122,7 @@ function ConfigsSection({ r, onEdit, saved, onDismiss }: { r: SettingsResponse; 
       {
         accessorKey: "source",
         header: "Source",
-        size: 170,
+        size: 156,
         cell: (c) => (
           <span title={`${c.row.original.source}: ${c.row.original.source_note}`}>
             <StatusDot tone={sourceTone(c.row.original.source)} className="font-medium">
@@ -153,36 +151,11 @@ function ConfigsSection({ r, onEdit, saved, onDismiss }: { r: SettingsResponse; 
   return (
     <section aria-labelledby="configs" className="mb-12">
       <SectionHead id="configs" title="Broker configs" sub="Source says where the value in force comes from: a dynamic setting first, then the flag it started with, then Kafka's own default. A topic that sets its own value keeps it." />
-      {saved && <SavedCard saved={saved} onDismiss={onDismiss} />}
       <DataTable data={s.configs.rows} columns={narrowed(columns, wide, ["takes_effect"], "name")} rowId={(row) => row.name} aria-label="Dynamic broker configs" maxHeight={420} empty="The broker did not describe its configs." />
       <p className="mt-3 max-w-[52rem] text-[12.5px] text-muted-foreground">
         A change is kept on disk and is still there after a restart. It applies to all brokers or to this one (node {s.configs.node_id}). These are the only five: any other config is refused, in Kafka's words.
       </p>
     </section>
-  );
-}
-
-function SavedCard({ saved, onDismiss }: { saved: SettingsSaved; onDismiss: () => void }) {
-  return (
-    <div className="mb-4 flex gap-3 rounded-xl border border-good/30 bg-good/5 p-4" role="status" data-testid="saved-card">
-      <CircleCheckIcon className="mt-0.5 size-5 shrink-0 text-good" aria-hidden />
-      <div className="min-w-0 flex-1 text-[13.5px]">
-        <p>
-          <b className="font-semibold text-bright">
-            Saved <code className="font-mono">{saved.key}</code> = <code className="font-mono">{saved.value}</code>
-          </b>
-          {saved.gloss && <span className="text-muted-foreground"> ({saved.gloss})</span>}
-          <span className="text-muted-foreground"> for {saved.scope === "this" ? "this broker" : "all brokers"}. {saved.effect}.</span>
-        </p>
-        <p className="mt-1 text-muted-foreground">
-          <Spans spans={saved.who_sees} />
-        </p>
-        <CallBox lines={saved.call} className="mt-3 max-w-xl" />
-      </div>
-      <Button variant="ghost" size="icon-sm" aria-label="Dismiss" onClick={onDismiss}>
-        <XIcon />
-      </Button>
-    </div>
   );
 }
 
@@ -400,7 +373,6 @@ export function SettingsPage() {
   const search = useSearch({ from: "/settings" });
   const navigate = useNavigate({ from: "/settings" });
   const overlay = useRoutedOverlay((patch, replace) => void navigate({ search: (s: SettingsSearch) => ({ ...s, ...patch }), replace, resetScroll: false }));
-  const [saved, setSaved] = useState<SettingsSaved | null>(null);
   const r = q.data;
   const head = r?.settings.head;
   return (
@@ -421,7 +393,7 @@ export function SettingsPage() {
             ]}
           />
           <SectionNav />
-          <ConfigsSection r={r} saved={saved} onDismiss={() => setSaved(null)} onEdit={(key, from) => overlay.open({ edit: key, scope: undefined }, from)} />
+          <ConfigsSection r={r} onEdit={(key, from) => overlay.open({ edit: key, scope: undefined }, from)} />
           <ProfileSection r={r} />
           <IntervalsSection r={r} />
           <WeightSection r={r} />
@@ -434,12 +406,10 @@ export function SettingsPage() {
         scope={search.scope === "this" ? "this" : "all"}
         onMove={(key, scope) => overlay.move({ edit: key, scope: scope === "this" ? "this" : undefined })}
         onClose={() => overlay.close({ edit: undefined, scope: undefined })}
-        restoreFocus={overlay.restore}
         onSaved={(sv) => {
-          setSaved(sv);
+          // The dialog shows what was saved, in place, then Done (one pattern for every write); the table behind already has it.
           qc.setQueryData<SettingsResponse>(r4keys.settings, (old) => (old ? { ...old, settings: { ...old.settings, head: { ...old.settings.head, set: sv.set }, configs: { ...old.settings.configs, rows: sv.rows } } } : old));
           void qc.invalidateQueries({ queryKey: r4keys.settings });
-          overlay.close({ edit: undefined, scope: undefined });
         }}
       />
     </>

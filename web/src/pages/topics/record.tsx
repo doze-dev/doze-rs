@@ -219,24 +219,12 @@ function Body({ v }: { v: RecordView }) {
 /** The Sheet. `at` is the record's place, or null when none is asked for. */
 export function RecordSheet({ topic, at, onClose }: { topic: string; at: { partition: number; offset: number } | null; onClose: () => void }) {
   const r = useRecord(topic, at);
-  // The focus goes back to the record's own button in the table when the Sheet closes (a clicked button is not focused in
-  // Firefox and Safari, so Radix's own return would find nothing).
-  const key = at ? `${at.partition}-${at.offset}` : null;
-  const [lastKey, setLastKey] = useState(key);
-  if (key && key !== lastKey) setLastKey(key);
   const missing = r.error instanceof ApiFailure ? r.error.message : r.error ? "The record could not be loaded." : null;
   return (
     <Sheet open={!!at} onOpenChange={(o) => !o && onClose()}>
       <SheetContent
         className="w-full gap-0 overflow-y-auto sm:max-w-2xl"
         data-testid="record-sheet"
-        onCloseAutoFocus={(e) => {
-          const el = lastKey ? document.querySelector<HTMLElement>(`tr[data-row="${lastKey}"] [data-testid=open-record]`) : null;
-          if (el) {
-            e.preventDefault();
-            el.focus();
-          }
-        }}
       >
         <SheetHeader className="px-6 pt-6 pb-4">
           <SheetTitle className="font-mono text-[17px] break-all">{at ? `${topic}-${at.partition} · ${number(at.offset)}` : topic}</SheetTitle>

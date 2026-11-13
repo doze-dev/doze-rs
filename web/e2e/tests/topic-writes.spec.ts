@@ -43,6 +43,11 @@ test.describe("Create topic", () => {
     await page.getByTestId("create-submit").click();
     await expect(page.getByTestId("created")).toContainText(`Created ${name}.`);
     await expect(page.locator("h1")).toHaveText(name);
+    // The done state has its own address (CON-1348): no step left in it, and a reload shows it again, never the form.
+    await expect(page).toHaveURL(new RegExp(`created=${name}`));
+    await expect(page).not.toHaveURL(/step=/);
+    await page.reload();
+    await expect(page.getByTestId("created")).toContainText(`Created ${name}.`);
     const made = await get(request, `/api/v1/topics/${name}/config`);
     expect(made.status).toBe(200);
     expect(made.body.cleanup).toBe("compact");

@@ -50,7 +50,8 @@ test("isolation: the ToggleGroup is in the address, says what read_committed hol
   const iso = page.getByTestId("isolation");
   await iso.getByRole("radio", { name: "read_committed" }).click();
   await expect(page).toHaveURL(/isolation=read_committed/);
-  await expect(page.getByTestId("isolation-note")).toContainText("Reading as read_committed.");
+  await expect(page.getByTestId("isolation-note")).toContainText("Reading as read_committed:");
+  await expect(page.getByTestId("isolation-held")).toHaveText(/^\d[\d,]*$/);
   await expect(page.getByTestId("explainers").getByRole("button", { name: "How this read works" })).toHaveAttribute("aria-expanded", "true");
   await iso.getByRole("radio", { name: "read_uncommitted" }).click();
   await expect(page).not.toHaveURL(/isolation=/);
@@ -89,6 +90,17 @@ test("partitions, key and time: each is in the address, shown as a chip with a w
   await expect(page).toHaveURL(/offset=0/);
   await expect(page).not.toHaveURL(/key=/);
   await expect(page.getByTestId("chip-offset")).toBeVisible();
+  // With no partition chosen, an offset is read from on every partition (kcat -o N without -p): the chip says so and the
+  // table holds only what it says (CON-1341).
+  await page.getByTestId("find").fill("2");
+  await page.getByTestId("find").press("Enter");
+  await expect(page.getByTestId("chip-offset")).toHaveText(/from offset 2 in each partition/);
+  await expect
+    .poll(async () => {
+      const cells = await rows(page).evaluateAll((trs) => trs.map((tr) => [tr.querySelector("td:nth-child(1)")?.textContent?.trim(), tr.querySelector("td:nth-child(2)")?.textContent?.trim()]));
+      return cells.length > 0 && cells.every(([, o]) => Number(o?.replace(/\D/g, "")) >= 2) && new Set(cells.map(([p]) => p)).size > 1;
+    })
+    .toBe(true);
   // A time, from the Popover's field.
   await page.getByTestId("time-trigger").click();
   await page.getByRole("button", { name: "24 hours ago" }).click();
@@ -150,13 +162,13 @@ test("Older asks for more records, in the address", async ({ page }) => {
   await expect(rows(page)).toHaveCount(10);
 });
 
-test("the Live tail: new rows at the top, no row rewritten, the header stable, held behind a pill while hovered", async ({ page }) => {
+test("the Live tail: new rows at the top, no row rewritten, the header stable, held behind a pill while hovered", async ({ page, browserName }) => {
   test.setTimeout(120_000);
   await page.goto("/topics/orders/messages");
   await expect(rows(page).first()).toBeVisible();
   await page.getByTestId("mode").getByRole("radio", { name: "Live tail" }).click();
   await expect(page).toHaveURL(/mode=tail/);
-  await choose(page, page.getByTestId("speed"), "Realtime");
+  await choose(page, page.getByTestId("speed"), "Realtime · 1 s");
   await expect(page.getByTestId("conn")).toHaveAttribute("data-state", "live", { timeout: 15_000 });
   await page.mouse.move(5, 5);
   const head = await page.getByRole("table", { name: "Records, newest first" }).locator("thead").elementHandle();
@@ -165,13 +177,30 @@ test("the Live tail: new rows at the top, no row rewritten, the header stable, h
   const topEl = await top.elementHandle();
   const topText = await top.innerText();
   const box = await pageBoxes(page, ["[data-testid=toolbar]", "[data-testid=filter-line]", "thead"]);
+  // Layout shift (Chromium): the prepended rows shift nothing on screen (CON-1350).
+  await page.evaluate(() => {
+    const w = window as unknown as { __ls: number };
+    w.__ls = 0;
+    try {
+      new PerformanceObserver((l) => {
+        for (const e of l.getEntries() as unknown as { value: number; hadRecentInput: boolean }[]) if (!e.hadRecentInput) w.__ls += e.value;
+      }).observe({ type: "layout-shift", buffered: false });
+    } catch {
+      w.__ls = -1;
+    }
+  });
+  const recordsTile = page.locator("[data-slot=stat]", { hasText: "Records" }).locator("[data-slot=stat-value]");
+  const recordsBefore = Number((await recordsTile.innerText()).replace(/\D/g, ""));
   await produce("orders", 3, "tail-a");
   await expect(rows(page).first()).not.toHaveAttribute("data-row", topId!, { timeout: 45_000 });
+  // The figures above follow the tail's batches (CON-1346): Records counts the new rows, in the same box.
+  await expect.poll(async () => Number((await recordsTile.innerText()).replace(/\D/g, "")), { timeout: 15_000 }).toBeGreaterThanOrEqual(recordsBefore + 3);
   expect(await head!.evaluate((el) => el.isConnected)).toBe(true);
   expect(await topEl!.evaluate((el) => el.isConnected)).toBe(true);
   expect(await topEl!.evaluate((el) => (el as HTMLElement).innerText)).toBe(topText);
   expect(await page.locator(`tr[data-row="${topId}"]`).elementHandle().then((h) => h!.evaluate((el, old) => el === old, topEl))).toBe(true);
   expect(await pageBoxes(page, ["[data-testid=toolbar]", "[data-testid=filter-line]", "thead"])).toEqual(box);
+  if (browserName === "chromium") expect(await page.evaluate(() => (window as unknown as { __ls: number }).__ls), "layout shift while tailing at the top").toBeLessThan(0.01);
   // Hovering the table holds what comes next behind the pill; the rows on screen stay where they are.
   await page.getByTestId("records").locator("tbody tr").nth(2).hover();
   const heldTop = await rows(page).first().getAttribute("data-row");

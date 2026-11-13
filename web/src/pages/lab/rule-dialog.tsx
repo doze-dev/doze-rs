@@ -5,7 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { ClockIcon, FlaskConicalIcon, PlayIcon, RefreshCcwIcon, TriangleAlertIcon, UnplugIcon, UserXIcon, BrushCleaningIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
-import { toast } from "sonner";
+import { Done, DoneFooter } from "@/components/app/write-done";
 import { ApiFailure } from "@/api/client";
 import { post, qs, useLabForm, useLabOnce } from "@/api/r4";
 import type { LabFields } from "@/api/types/LabFields";
@@ -359,7 +359,7 @@ function RuleForm({ kind, start, onMade }: { kind: "slow" | "fail"; start: LabFo
             </p>
           )}
         </aside>
-        <DialogFooter className="border-t pt-4 lg:col-span-2">
+        <DialogFooter className="lg:col-span-2">
           <DialogClose asChild>
             <Button type="button" variant="outline">
               Cancel
@@ -396,6 +396,7 @@ function OnceTab({ kind, onDone }: { kind: "drop" | "expire" | "rebalance"; onDo
   const [refused, setRefused] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [did, setDid] = useState<string | null>(null);
   const options = useMemo<Option[]>(() => (v?.choices ?? []).map((c) => ({ value: c.value, label: c.label, hint: undefined })), [v?.choices]);
   const desc = v?.choices.find((c) => c.value === target)?.desc;
   const go = async () => {
@@ -405,9 +406,8 @@ function OnceTab({ kind, onDone }: { kind: "drop" | "expire" | "rebalance"; onDo
     try {
       const out = await post<LabOnceOutcome>(`/api/v1/lab/once/${kind}`, { target, how });
       if (out.outcome === "done") {
-        toast.success(TAB_WORDS[kind].title, { description: kind === "drop" && how !== "once" ? `${target}: its connections close for ${how} min.` : `Done: ${target}.` });
+        setDid(kind === "drop" && how !== "once" ? `${target}: its connections close for ${how} min.` : `Done: ${target}.`);
         void qc.invalidateQueries({ queryKey: ["lab"] });
-        onDone();
       } else {
         setRefused(out.form.refused);
         setError(out.form.error);
@@ -419,6 +419,16 @@ function OnceTab({ kind, onDone }: { kind: "drop" | "expire" | "rebalance"; onDo
     }
   };
   const noun = kind === "drop" ? "app" : kind === "expire" ? "member" : "group";
+  if (did) {
+    return (
+      <div className="flex min-w-0 flex-col gap-5" data-testid={`lab-once-${kind}`}>
+        <Done testId="once-done">
+          <b className="font-semibold text-bright">{TAB_WORDS[kind].title}.</b> {did} It leaves a line in the Lab's history.
+        </Done>
+        <DoneFooter onDone={onDone} />
+      </div>
+    );
+  }
   return (
     <div className="flex min-w-0 flex-col gap-5" data-testid={`lab-once-${kind}`}>
       {!v ? (
@@ -466,7 +476,7 @@ function OnceTab({ kind, onDone }: { kind: "drop" | "expire" | "rebalance"; onDo
           {refused}
         </p>
       )}
-      <DialogFooter className="border-t pt-4">
+      <DialogFooter>
         <DialogClose asChild>
           <Button type="button" variant="outline">
             Cancel
@@ -508,11 +518,11 @@ function CompactTab({ topics, onDone }: { topics: string[]; onDone: () => void }
 }
 
 /** The dialog; `tab` is the `new` search param. */
-export function NewRehearsalDialog({ tab, compactTopics, onTab, onClose, onMade, restoreFocus }: { tab: LabTab | undefined; compactTopics: string[]; onTab: (t: LabTab) => void; onClose: () => void; onMade: (id: number) => void; restoreFocus?: (e: Event) => void }) {
+export function NewRehearsalDialog({ tab, compactTopics, onTab, onClose, onMade }: { tab: LabTab | undefined; compactTopics: string[]; onTab: (t: LabTab) => void; onClose: () => void; onMade: (id: number) => void }) {
   const w = tab ? TAB_WORDS[tab] : undefined;
   return (
     <Dialog open={!!tab} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="top-6 max-h-[calc(100vh-3rem)] translate-y-0 overflow-y-auto [scrollbar-gutter:stable] sm:max-w-[56rem]" data-testid="lab-dialog" onCloseAutoFocus={restoreFocus}>
+      <DialogContent className="top-6 max-h-[calc(100vh-3rem)] translate-y-0 overflow-y-auto [scrollbar-gutter:stable] sm:max-w-[56rem]" data-testid="lab-dialog">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-[20px] font-medium">
             <FlaskConicalIcon className="size-5 text-warn" aria-hidden /> New rehearsal

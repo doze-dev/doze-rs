@@ -10,7 +10,13 @@ test("the chips and the filter are in the address, Back restores them, and nothi
   const name = fresh(info, "cfg");
   await topic(request, baseURL!, name, 1, "short");
   await page.goto(configUrl(name));
-  await expect(page.getByTestId("config-sentence")).toContainText("configs.");
+  // Where the values come from: labelled figures whose parts add up to the whole (CON-1345).
+  const sources = page.getByTestId("config-sources");
+  await expect(sources.getByTestId("src-all")).toBeVisible();
+  const fig = async (id: string) => Number((await sources.getByTestId(id).locator("dd").innerText().catch(() => "0")).replace(/\D/g, "") || 0);
+  const parts = (await Promise.all(["src-topic", "src-broker", "src-flag", "src-default"].map(fig))).reduce((a, b) => a + b, 0) + ((await sources.getByTestId("src-other").count()) ? await fig("src-other") : 0);
+  expect(parts).toBe(await fig("src-all"));
+  expect(await fig("src-topic")).toBeGreaterThan(0);
   await expect(page.getByTestId("section-changed")).toContainText("retention.ms");
   const chips = page.getByTestId("config-chips");
   await chips.getByRole("radio", { name: /Changed/ }).click();
@@ -148,8 +154,9 @@ test("reset: the topic follows the broker again", async ({ page, request, baseUR
   await expect(d.getByTestId("reset-after")).not.toContainText("3600000");
   const after = (await d.getByTestId("reset-after").locator("code").innerText()).trim();
   await d.getByTestId("reset-submit").click();
+  await expect(d.getByTestId("config-reset-done")).toContainText("Reset retention.ms.");
+  await d.getByTestId("write-done").click();
   await expect(d).toBeHidden();
-  await expect(page.locator("[data-sonner-toast]").filter({ hasText: "Reset retention.ms." })).toBeVisible();
   await expect(row(page, "retention.ms").getByTestId("source")).not.toHaveText("Dynamic topic");
   await expect(row(page, "retention.ms").getByTestId("config-value")).toHaveText(after);
 });
