@@ -298,7 +298,11 @@ fn stopped_row(row: &mut LibStack, st: &StackView, shape: Option<&Shape>, now: S
 /// The red pill: the first instance in trouble, or a daemon that stopped answering.
 fn need(st: &StackView, snap: &words::Snapshot, now: SystemTime) -> String {
     if let Some(i) = snap.instances.iter().find(|i| words::troubled(i)) {
-        let mut s = format!("{} is {}", i.name, words::look(i).word());
+        // "backfill failed", as Needs you says it, not "backfill is failed"; "gateway is crashing".
+        let mut s = match words::look(i) {
+            words::Look::Failed => format!("{} {}", i.name, words::Look::Failed.word()),
+            l => format!("{} is {}", i.name, l.word()),
+        };
         let b = words::because(i, snap, now);
         if !b.is_empty() {
             s = format!("{s} · {b}");

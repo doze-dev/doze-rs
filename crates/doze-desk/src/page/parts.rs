@@ -156,7 +156,7 @@ pub fn path_line(
             parts.push(if up.is_empty() {
                 look.word().to_owned()
             } else {
-                format!("awake for {up}")
+                up_phrase(look, up, " for ")
             });
             if wire.pid > 0 && v.state.awake() {
                 parts.push(format!("pid {}", wire.pid));
@@ -170,7 +170,7 @@ pub fn path_line(
             parts.push(if words::troubled(v) || up.is_empty() {
                 look.word().to_owned()
             } else {
-                format!("awake {up}")
+                up_phrase(look, up, " ")
             });
         }
     }
@@ -288,6 +288,25 @@ pub fn holders(v: &words::Instance, idle: Duration) -> (Vec<Pill>, String) {
     } else {
         format!(" after {}", words::clock(idle))
     };
+    // Off and paused do not doze, and a start under way is not idle: Go told all three the dozing sentence.
+    if v.paused {
+        return (pills, "enabled = false in doze.hcl: it does not run, and nothing wakes it until the file says so.".to_owned());
+    }
+    if v.disabled {
+        return (
+            pills,
+            "Turned off: nothing wakes it, not even a connection, until you switch it on."
+                .to_owned(),
+        );
+    }
+    if pills.is_empty() && v.state == State::Booting {
+        return (
+            pills,
+            format!(
+                "It is starting. Once it answers, what connects keeps it awake; with nothing, it sleeps{after}."
+            ),
+        );
+    }
     if pills.is_empty() {
         if v.state == State::Idle {
             return (
@@ -404,4 +423,14 @@ pub fn procs(v: &wire::InstanceView) -> Vec<Proc> {
             depth: p.depth,
         })
         .collect()
+}
+
+/// How long it has been up, in its own word: "awake 14m", or "waking for 7m" for one still starting (a wake that has
+/// not finished is not awake, though its process is up).
+fn up_phrase(look: Look, up: &str, sep: &str) -> String {
+    if look == Look::Waking {
+        format!("{} for {up}", look.word())
+    } else {
+        format!("{}{sep}{up}", Look::Awake.word())
+    }
 }

@@ -23,16 +23,12 @@ pub(super) fn per_row(v: &OverviewView) -> usize {
     }
 }
 
-/// The row's dot: the same mark as the sidebar's and the instance head's (`ui::state_mark`), from the words' look: red in
-/// trouble, green awake, yellow dozing, a ring while waking or running, ⊘ paused, ○ off, a task's glyph. Go's rows drew a
-/// plain dot for off where its sidebar drew ○; here every surface draws the one mark (paused keeps its dot: its ⊘ is in the
-/// switch's place). A task is its
-/// glyph even when its last run failed (✗), never the trouble dot.
+/// The row's mark: the same as the sidebar's and the instance head's (`ui::state_mark`), from the words' look. Go's rows
+/// drew one dot for off, paused, failed and crashing alike where its sidebar drew ○, ⊘ and ✗; here every surface draws
+/// the one vocabulary.
 pub(super) fn row_dot(t: &Tokens, r: &Row) -> AnyElement {
     let trouble = r.trouble && r.kind != "task";
     match Look::of_word(r.look.word) {
-        // Its ⊘ is in the switch's place already (`.lock`): once is enough.
-        Some(Look::Paused) => dot(t.dim).into_any_element(),
         Some(l) => state_mark(t, Some(l), trouble, 8.),
         None => dot(if trouble { t.bad } else { t.dim }).into_any_element(),
     }
@@ -199,8 +195,8 @@ fn tile_top(
         .child(row_dot(t, r))
         .child(name)
         .when(r.pinned, |d| d.child(icon("icons/pin.svg", 13., t.accent)))
-        // Go's `.lock` takes no `margin-left: auto`: a paused tile's ⊘ sits by its name.
-        .when(!r.paused, |d| d.child(div().flex_1()))
+        // The lock stands where the switch would (the mark by the name already says ⊘).
+        .child(div().flex_1())
         .child(row_switch(t, r, doing, cx))
 }
 

@@ -26,7 +26,7 @@ fn not_run(t: &Tokens, v: &InstanceView) -> AnyElement {
         .gap(px(14.))
         .flex_1()
         .min_w_0()
-        .child(div().pt(px(14.)).text_size(px(18.)).font_weight(w(650.)).text_color(t.bright).child(text(&format!("{} has not run yet.", v.name))))
+        .child(div().pt(px(14.)).text_size(px(18.)).font_weight(w(650.)).text_color(t.bright).child(text(&if v.page.look == Some(doze_display::Look::Running) { format!("{} is running now.", v.name) } else { format!("{} has not run yet.", v.name) })))
         .child(div().text_color(t.dim).child("A task runs once when you say so, and then gets out of the way: it keeps nothing awake and nothing waits on it. Run does the steps below, and the output lands on this page as it comes."))
         .child(list)
         .child(

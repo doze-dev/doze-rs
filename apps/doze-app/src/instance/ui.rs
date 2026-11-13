@@ -5,7 +5,9 @@
 use doze_desk::page::Ink;
 use doze_desk::page::parts::Kv;
 use doze_display::Look;
-use gpui::{AnyElement, Div, Hsla, IntoElement, SharedString, Stateful, div, prelude::*, px};
+use gpui::{
+    AnyElement, Div, Hsla, IntoElement, SharedString, Stateful, div, prelude::*, px, relative,
+};
 
 use crate::theme::{Tokens, mix};
 use crate::widgets::{MONO_FAMILY, dot, tracked, w};
@@ -195,12 +197,14 @@ pub(crate) fn pill(t: &Tokens, color: Hsla, body: impl IntoElement) -> Div {
 #[derive(Clone, Copy)]
 pub(crate) enum Tone {
     Bad,
+    Warn,
 }
 
 /// `.banner.bad`, `.banner.warn`: a tinted panel with a dot, a line in bold and a line under it.
 pub(crate) fn banner(t: &Tokens, tone: Tone, title: &str, sub: &str) -> Div {
     let c = match tone {
         Tone::Bad => t.bad,
+        Tone::Warn => t.warn,
     };
     div()
         .flex()
@@ -233,38 +237,52 @@ pub(crate) fn banner(t: &Tokens, tone: Tone, title: &str, sub: &str) -> Div {
         )
 }
 
-/// An instance's state as the boards draw it: a filled dot, a ring while waking, a glyph for a task.
+/// An instance's state mark, the same on every surface (rows, tiles, the Grid, the sidebar, the head): the words' glyph
+/// for its look, drawn. ● awake (green), ◐ dozing (half filled, yellow), a ring waking or running (blue), a dim dot
+/// asleep, a dim ring off, ⊘ paused, ✗ crashing or failed (red), ✓ done, ▸ not run. Go drew dozing as a full dot and
+/// failed as the trouble dot on some surfaces and the glyph on others; here every surface draws the one vocabulary.
+/// `trouble` (a service needing you that the look does not say, such as a stuck wake) is a red dot.
 pub(crate) fn state_mark(t: &Tokens, look: Option<Look>, trouble: bool, size: f32) -> AnyElement {
-    let disc = |c: Hsla| {
+    let disc = |c: Hsla| div().size(px(size)).flex_none().rounded_full().bg(c);
+    let ring = |c: Hsla| {
         div()
             .size(px(size))
             .flex_none()
             .rounded_full()
-            .bg(c)
+            .border_2()
+            .border_color(c)
+    };
+    let glyph = |l: Look| {
+        div()
+            .w(px(size + 2.))
+            .flex_none()
+            .flex()
+            .justify_center()
+            .text_size(px(size + 4.))
+            .line_height(px(size + 2.))
+            .text_color(t.tone(l.tone()))
+            .child(l.glyph())
             .into_any_element()
     };
-    if trouble {
-        return disc(t.bad);
-    }
     match look {
-        Some(Look::Awake) => disc(t.good),
-        Some(Look::Dozing) => disc(t.warn),
-        Some(Look::Waking | Look::Running) => div()
+        Some(l @ (Look::Crashing | Look::Failed)) => glyph(l),
+        _ if trouble => disc(t.bad).into_any_element(),
+        Some(Look::Awake) => disc(t.good).into_any_element(),
+        // Half filled: the left half of a ring, as the ◐ the words use.
+        Some(Look::Dozing) => ring(t.warn)
+            .overflow_hidden()
+            .child(div().h_full().w(relative(0.5)).bg(t.warn))
+            .into_any_element(),
+        Some(Look::Waking | Look::Running) => ring(t.cool).into_any_element(),
+        Some(Look::Off) => div()
             .size(px(size))
             .flex_none()
             .rounded_full()
-            .border_2()
-            .border_color(t.cool)
+            .border_1()
+            .border_color(t.dim)
             .into_any_element(),
-        // Off is its glyph, a hollow ring, as Go's `Dot` draws it ("disabled" there matched no word): not asleep's disc.
-        Some(Look::Asleep) | None => disc(t.dim),
-        Some(l) => div()
-            .w(px(size + 2.))
-            .flex_none()
-            .text_size(px(12.))
-            .text_color(t.tone(l.tone()))
-            .child(l.glyph())
-            .into_any_element(),
+        Some(Look::Asleep) | None => disc(t.dim).into_any_element(),
+        Some(l) => glyph(l),
     }
 }
 

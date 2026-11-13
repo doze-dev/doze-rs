@@ -8,7 +8,7 @@ use doze_display::{self as words, Instance, Kind, Snapshot};
 use super::commands::{filter_rows, page, verb_on, with_text};
 use super::instance::instance_commands;
 use super::stack::{app_commands, stack_commands};
-use super::verbs::alias;
+use super::verbs::{alias, stack_tone};
 use super::{
     Act, Ask, DoKind, Doing, Row, Scope, Section, Svc, asks, dot_of, first_of, key_of, web_url,
 };
@@ -163,7 +163,7 @@ pub(crate) fn at_hand(stacks: &[&StackView], ask: &Ask<'_>) -> Vec<Section> {
         .iter()
         .map(|st| {
             let (tone, note) = if st.running {
-                ("g", stack_figure(st))
+                (stack_tone(st), stack_figure(st))
             } else {
                 ("dim", crate::overview::Look::STOPPED.word.into())
             };
@@ -227,7 +227,7 @@ pub(crate) fn by_name(stacks: &[&StackView], query: &str, now: SystemTime) -> Ve
             row.enter = enter(st, &r.v.name);
             rows.push(row);
         }
-        rows.push(stack_row("g", stack_figure(st)));
+        rows.push(stack_row(stack_tone(st), stack_figure(st)));
         if awake_count(st) > 0 {
             rows.push(sleep_all_row(st, "wakes on connect; nothing is lost"));
         }

@@ -94,8 +94,22 @@ fn crash_top(
         .flex_col()
         .gap(px(14.))
         .px(px(28.))
-        .when(p.crash.is_some(), |d| d.pt(px(14.)))
+        .when(p.crash.is_some() || !p.stuck.is_empty(), |d| d.pt(px(14.)))
         .flex_none();
+    if p.crash.is_none() && !p.stuck.is_empty() {
+        // Stuck waking: Needs you has it as a red item; the page says the same, with the same verb (Restart).
+        let sub = format!(
+            "{}{}.",
+            p.stuck.get(..1).unwrap_or("").to_uppercase(),
+            p.stuck.get(1..).unwrap_or("")
+        );
+        top = top.child(banner(
+            t,
+            ui::Tone::Warn,
+            "It is still waking, and has said nothing.",
+            &sub,
+        ));
+    }
     if let Some(c) = &p.crash {
         // Not ready in time is its own failure (Needs you says so: "did not become ready"), and a page with nothing to
         // show from the last run points at the logs instead; a failed one is not tried again, so nothing to stop.

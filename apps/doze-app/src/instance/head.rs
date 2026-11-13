@@ -26,13 +26,9 @@ pub(crate) fn head(
 ) -> impl IntoElement {
     let p = &v.page;
     let trouble = p.crash.is_some();
+    // The sidebar's mark, larger: a running task's ring is the same blue ring there and here.
     let mark = if p.is_task() {
-        let l = p.look.unwrap_or(Look::NotRun);
-        div()
-            .text_size(px(14.))
-            .text_color(t.tone(l.tone()))
-            .child(l.glyph())
-            .into_any_element()
+        state_mark(t, Some(p.look.unwrap_or(Look::NotRun)), false, 10.)
     } else {
         state_mark(t, p.look, trouble, 10.)
     };
@@ -113,7 +109,13 @@ fn verbs(t: &Tokens, v: &InstanceView, cx: &mut Context<InstanceView>) -> Vec<An
                 cx,
             )
         };
-        let run = if ran { "Run again" } else { "Run" };
+        let run = if p.look == Some(Look::Running) {
+            "Running…"
+        } else if ran {
+            "Run again"
+        } else {
+            "Run"
+        };
         return vec![
             first,
             act(
@@ -207,7 +209,7 @@ fn service_verbs(t: &Tokens, v: &InstanceView, cx: &mut Context<InstanceView>) -
             cx,
         ));
     }
-    if serving {
+    if serving || !p.stuck.is_empty() {
         out.push(act(
             t,
             "restart",

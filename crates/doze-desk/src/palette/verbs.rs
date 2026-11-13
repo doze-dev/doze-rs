@@ -329,3 +329,13 @@ fn up_figure(st: &StackView) -> String {
     }
     out
 }
+
+/// A running stack's dot: red when a service in it is in trouble, as its tab, the Library and the bell have it.
+pub(super) fn stack_tone(st: &StackView) -> &'static str {
+    let troubled = st
+        .words()
+        .instances
+        .iter()
+        .any(|v| v.kind != Kind::Task && words::troubled(v));
+    if troubled { "r" } else { "g" }
+}

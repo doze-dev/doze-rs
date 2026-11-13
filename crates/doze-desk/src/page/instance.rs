@@ -55,6 +55,8 @@ pub struct InstancePage {
     pub engine: String,
     pub version: String,
     pub look: Option<Look>,
+    /// Waking for minutes with no word from it, as Needs you says it; empty otherwise.
+    pub stuck: String,
     /// The switch: on, turned off, paused in doze.hcl, pinned awake.
     pub on: bool,
     pub off: bool,
@@ -172,6 +174,9 @@ pub fn instance_page(
     out.needs = needs(v, &snap);
     out.vitals = vitals(st, name, v);
     out.recent = parts::recent(&st.events, name, zone);
+    out.stuck = crate::attention::stuck_waking(st, v, now)
+        .map(|it| it.detail)
+        .unwrap_or_default();
     if v.kind == Kind::Task {
         out.runs = parts::runs(&st.events, v, now, zone);
         if let Some(ring) = ring {
@@ -235,6 +240,9 @@ pub fn tab_title(t: &PageTab, page: &InstancePage) -> String {
         words::TAB_LAST_RUN if runs > 0 => "Last run".to_owned(),
         words::TAB_LAST_RUN => "Overview".to_owned(),
         words::TAB_LOGS if page.is_task() && runs > 0 => format!("Runs · {runs}"),
+        words::TAB_LOGS if page.is_task() && page.look == Some(Look::Running) => {
+            "Runs · running now".to_owned()
+        }
         words::TAB_LOGS if page.is_task() => "Runs · none yet".to_owned(),
         words::TAB_LOGS => "Logs".to_owned(),
         // Beside a module's own console tabs, its web console is its Web UI: two tabs called console say nothing.
