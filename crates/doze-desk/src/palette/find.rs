@@ -328,6 +328,13 @@ pub(crate) fn instance_row(
     }
     row.note = parts.join(" · ");
     row.acts = acts_of(st, Svc::of(st, v), &k);
+    if v.kind != Kind::Task && words::troubled(v) {
+        // Needs you's first fix for a service in trouble (`attention::trouble`): restart it.
+        row.first = Some(Act {
+            label: "restart",
+            doing: verb_on(&k, "restart", &v.name, asks(v, "restart")),
+        });
+    }
     row
 }
 

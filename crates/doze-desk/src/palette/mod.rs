@@ -79,12 +79,24 @@ pub struct Row {
     /// The row's own actions, the most likely first.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub acts: Vec<Act>,
+    /// What ⌘⏎ does when it is not the first of [`Row::acts`]: a service in trouble does Needs you's first fix
+    /// (restart it), not "copy URL". The app's own key; Go's palette had no ⌘⏎, so it is not on the wire.
+    #[serde(skip)]
+    pub first: Option<Act>,
     /// What tab narrows the palette to; `None` for a command.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub enter: Option<Scope>,
     /// The words a row is found by besides its label.
     #[serde(skip)]
     pub also: &'static str,
+}
+
+impl Row {
+    /// What ⌘⏎ does: [`Row::first`], else the first of [`Row::acts`].
+    #[must_use]
+    pub fn first_act(&self) -> Option<&Act> {
+        self.first.as_ref().or_else(|| self.acts.first())
+    }
 }
 
 /// One of a row's actions: the word on the chip and what it does.

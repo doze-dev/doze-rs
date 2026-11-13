@@ -204,7 +204,7 @@ impl Palette {
     /// The keys, and what to try (or where tab narrowed to).
     fn foot(&self, t: &Tokens) -> impl IntoElement {
         let last = self.model.crumbs.last().cloned().unwrap_or_default();
-        let acts = self.row().and_then(|r| r.acts.first()).map(|a| a.label);
+        let acts = self.row().and_then(|r| r.first_act()).map(|a| a.label);
         let mut f = div()
             .flex()
             .items_center()

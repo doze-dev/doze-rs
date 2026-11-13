@@ -39,7 +39,7 @@ pub(crate) const TABLE: &[Spec] = &[
         ["?", "cmd-/"],
         Global,
         Some(Help),
-        true,
+        false,
         true
     ),
     spec!(
@@ -79,7 +79,7 @@ pub(crate) const TABLE: &[Spec] = &[
         ["cmd-l", "shift-l"],
         Global,
         Some(Go),
-        true,
+        false,
         true
     ),
     spec!(

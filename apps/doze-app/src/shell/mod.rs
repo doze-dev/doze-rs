@@ -12,6 +12,7 @@ mod needs;
 mod ops;
 mod pick;
 mod titlebar;
+mod wire;
 
 use std::path::PathBuf;
 
@@ -23,7 +24,7 @@ use gpui::{
 
 use crate::actions::{
     AllLogs, CloseOverlay, CloseWindow, Confirm, CycleDensity, CycleMode, GoHome, MoveDown, MoveUp,
-    NewStack, NextPalette, OpenFolder, Quit, RemoveShown, RestartStack, ShowRecent, StopStack,
+    NextPalette, Quit,
 };
 use crate::facts::{self, Facts};
 use crate::library::{LibraryEvent, LibraryView};
@@ -32,7 +33,6 @@ use crate::overlays::Overlay;
 use crate::overview::{OverviewEvent, OverviewView};
 use crate::theme::tokens;
 use crate::widgets::UI_FAMILY;
-use doze_desk::act::StackAction;
 
 pub(crate) use nav::{Screen, Tab};
 
@@ -78,6 +78,8 @@ impl Root {
         let facts = cx.new(|_| Facts::new(mode));
         let library = cx.new(|cx| LibraryView::new(hub.clone(), facts.clone(), cx));
         cx.observe(&facts, |this: &mut Root, _, cx| this.rebuild_attention(cx))
+            .detach();
+        cx.observe(&acts, |this: &mut Root, _, cx| this.acting_moved(cx))
             .detach();
         let attn = attn::Attn::new(facts.clone());
         let overview = cx.new(|cx| OverviewView::new(hub.clone(), facts.clone(), window, cx));
@@ -310,20 +312,7 @@ impl Render for Root {
             .on_action(cx.listener(|this, _: &AllLogs, window, cx| this.open_logs(window, cx)))
             .on_action(cx.listener(|_, _: &CloseWindow, window, _| window.remove_window()))
             .on_action(cx.listener(|_, _: &Quit, _, cx| cx.quit()))
-            .on_action(cx.listener(|this, _: &OpenFolder, _, cx| this.pick_folder(false, cx)))
-            .on_action(cx.listener(|this, _: &NewStack, _, cx| this.pick_folder(true, cx)))
-            .on_action(cx.listener(|this, _: &ShowRecent, _, cx| {
-                this.acts.update(cx, |a, cx| a.toggle_recent(cx))
-            }))
-            .on_action(cx.listener(|this, _: &RestartStack, _, cx| {
-                this.stack_action(StackAction::Restart, cx)
-            }))
-            .on_action(
-                cx.listener(|this, _: &StopStack, _, cx| this.stack_action(StackAction::Down, cx)),
-            )
-            .on_action(cx.listener(|this, _: &RemoveShown, _, cx| {
-                this.stack_action(StackAction::Remove, cx)
-            }))
+            .map(|d| self.on_acting(d, cx))
             .on_action(cx.listener(|this, _: &MoveDown, _, cx| this.palette_step(1, cx)))
             .on_action(cx.listener(|this, _: &MoveUp, _, cx| this.palette_step(-1, cx)))
             .on_action(cx.listener(|this, _: &Confirm, window, cx| this.palette_choose(window, cx)))

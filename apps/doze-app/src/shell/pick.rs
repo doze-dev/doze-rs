@@ -1,13 +1,12 @@
 //! Doing what ⌘K's row says (Go store's `pick` and `appCommand`): go to a page, open a URL or a folder, a terminal, an
-//! app command; a verb or a stack action goes to the verbs (the `Verb` and `StackVerb` intents, whose handlers are the
-//! verbs' step), and until they are there the page says so rather than pretending.
+//! app command; a verb or a stack action goes to acting ([`super::wire`]), as the pages' own buttons do.
 
 use doze_desk::StackKey;
 use doze_desk::palette::{DoKind, Doing};
-use gpui::{Action, Context, Window};
+use gpui::{Context, Window};
 
 use super::{Root, Screen};
-use crate::actions::{OpenBell, OpenFolder, ShowHelp, StackVerb, Verb};
+use crate::actions::{OpenBell, ShowHelp, StackVerb, Verb};
 use crate::theme::{Choice, Density, Mode, Palette as Colors};
 
 impl Root {
@@ -31,7 +30,7 @@ impl Root {
                     target: d.target.clone(),
                     ask: d.ask,
                 };
-                self.intent(Box::new(v), &format!("{} {}", d.verb, d.target), window, cx);
+                self.do_verb(&v, cx);
             }
             DoKind::Stack | DoKind::Choose => {
                 let verb = if d.kind == DoKind::Choose {
@@ -44,31 +43,10 @@ impl Root {
                     verb,
                     target: d.target.clone(),
                 };
-                self.intent(Box::new(v), &d.verb, window, cx);
+                self.do_stack_verb(&v, cx);
             }
-            DoKind::Folder => self.intent(Box::new(OpenFolder), "Open folder", window, cx),
+            DoKind::Folder => self.pick_folder(false, cx),
             DoKind::App => self.app_command(&d.text, window, cx),
-        }
-    }
-
-    /// Hands an intent to its handler, or says it is not here yet.
-    pub(crate) fn intent(
-        &mut self,
-        a: Box<dyn Action>,
-        what: &str,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        if window.is_action_available(a.as_ref(), cx) {
-            window.dispatch_action(a, cx);
-        } else {
-            self.say(
-                format!(
-                    "“{}” comes with the verbs step; this build looks, it does not touch.",
-                    what.trim()
-                ),
-                cx,
-            );
         }
     }
 
@@ -133,7 +111,7 @@ impl Root {
             }
             "bell" => window.dispatch_action(Box::new(OpenBell), cx),
             "help" => window.dispatch_action(Box::new(ShowHelp), cx),
-            "new" => self.intent(Box::new(OpenFolder), "New stack", window, cx),
+            "new" => self.pick_folder(true, cx),
             "version" => {
                 cx.write_to_clipboard(gpui::ClipboardItem::new_string(crate::VERSION.into()));
                 self.say(format!("Copied doze's version, {}", crate::VERSION), cx);

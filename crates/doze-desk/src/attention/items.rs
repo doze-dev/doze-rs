@@ -12,17 +12,8 @@ use crate::overview::{ConfigChanged, ConfigError};
 use crate::ports::Holder;
 use crate::view::StackView;
 
-/// A stack action that failed (Go `view.StackFailure`): what was asked, the CLI's words, and the config error when
-/// the file was the reason.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct StackFailure {
-    /// "Restarting shop failed".
-    pub what: String,
-    pub problem: String,
-    pub config: Option<ConfigError>,
-    /// The CLI's last lines.
-    pub lines: Vec<String>,
-}
+/// A stack action that failed (Go `view.StackFailure`): the one the stack's page keeps ([`crate::act::Failure`]).
+pub use crate::act::Failure as StackFailure;
 
 /// What the app knows about a stack beyond the hub (Go `view.StackFacts`).
 #[derive(Default)]

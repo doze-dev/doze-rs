@@ -12,7 +12,9 @@ use gpui::{ClipboardItem, Context, Entity, EventEmitter, ScrollHandle, Window, p
 use gpui_component::input::{InputEvent, InputState};
 
 /// The action table's rows offered in ⌘K, as palette rows: the label, what it does, its key; ⏎ runs the action
-/// (`do:<label>`). One table drives the keys, the menus, the help sheet and these.
+/// (`do:<label>`). One table drives the keys, the menus, the help sheet and these. A row the model already offers in
+/// its own words ("Restart shop", "Edit shop's doze.hcl", "Keyboard shortcuts") has `palette: false`, so ⌘K lists
+/// each command once.
 fn table_rows() -> Vec<Row> {
     crate::actions::palette()
         .filter(|s| s.built)
@@ -193,7 +195,7 @@ impl Palette {
     /// ⌘⏎: the highlighted row's first action.
     pub(crate) fn first_act(&mut self, cx: &mut Context<Self>) {
         if let Some(r) = self.row().cloned()
-            && let Some(a) = r.acts.first()
+            && let Some(a) = r.first_act()
         {
             self.run(&r, a.doing.clone(), cx);
         }

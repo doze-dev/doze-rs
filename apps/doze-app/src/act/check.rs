@@ -262,6 +262,49 @@ impl Acts {
         }
     }
 
+    /// Needs you's "Stop pid N and start X" (Go `StopHolder`): looks again (not at what was remembered) that `pid`
+    /// still holds the port X's crash names and is not doze's, stops it, then restarts X.
+    pub(crate) fn stop_holder_for(
+        &mut self,
+        key: &StackKey,
+        name: &str,
+        pid: i64,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(st) = self.hub.stack(key) else {
+            return;
+        };
+        let snap = st.words();
+        let port = snap
+            .find(name)
+            .and_then(|v| doze_desk::ports::port_in_use([v.last_error.as_str()]));
+        let Some(port) = port else {
+            self.say(
+                format!("{name} no longer names a port in use; nothing was stopped"),
+                true,
+                cx,
+            );
+            return;
+        };
+        doze_desk::ports::forget(port);
+        let (hub, k, n) = (self.hub.clone(), key.clone(), name.to_owned());
+        cx.spawn(async move |this, cx| {
+            let what = n.clone();
+            let done = cx
+                .background_executor()
+                .spawn(async move { stop_holder(&hub, pid, &[port], &what) })
+                .await;
+            let _ = this.update(cx, |a, cx| match done {
+                Ok(()) => {
+                    a.say(format!("stopped pid {pid}; starting {n}"), false, cx);
+                    a.run_verbs(&k, Verb::Restart, vec![n], cx);
+                }
+                Err(e) => a.say(e, true, cx),
+            });
+        })
+        .detach();
+    }
+
     fn stop_then(&mut self, c: Check, pid: i64, cx: &mut Context<Self>) {
         let hub = self.hub.clone();
         let what = match &c.then {

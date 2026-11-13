@@ -87,7 +87,7 @@ impl Root {
                     ask,
                 };
                 self.shut_bell(window, cx);
-                self.intent(Box::new(v), &f.label, window, cx);
+                self.do_verb(&v, cx);
             }
             FixKind::Stack | FixKind::Holder | FixKind::Dismiss => {
                 let verb = match f.kind {
@@ -101,14 +101,12 @@ impl Root {
                 if f.kind == FixKind::Stack {
                     self.shut_bell(window, cx);
                 }
-                self.intent(
-                    Box::new(StackVerb {
+                self.do_stack_verb(
+                    &StackVerb {
                         stack,
                         verb,
                         target,
-                    }),
-                    &f.label,
-                    window,
+                    },
                     cx,
                 );
             }

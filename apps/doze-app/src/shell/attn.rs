@@ -1,14 +1,15 @@
 //! Needs you on the window (M2 step 2.4): the list (`doze_desk::attention`), built off the UI thread from the hub and
 //! the facts each time the hub moves, kept steady by Go's rules; alerts for red items that appear while the window is
 //! open (Go's `gotAttention`: the first build only primes, at most three, none while the bell is open); and what
-//! happened while the window was closed, said once.
+//! happened while the window was closed, said once. What acting knows goes in too: a stack action that failed is an
+//! item until dismissed or tried again, and a stack mid-action carries its items as they were (Go's steadiness).
 
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::time::{Duration, SystemTime};
 
 use doze_desk::StackView;
 use doze_desk::attention::{
-    self as attention, Attention, Item, MachinePart, StackFacts, Steady, away::Away,
+    self as attention, Attention, Item, MachinePart, StackFacts, StackFailure, Steady, away::Away,
 };
 use gpui::{AsyncApp, Context, Entity, WeakEntity};
 
@@ -37,6 +38,8 @@ pub(crate) struct Attn {
     timer: bool,
     /// The machine's parts as a shot stages them, in place of doctor's.
     pub(crate) parts: Option<Vec<MachinePart>>,
+    /// Acting's facts as last built from: the stacks mid-action, and each failed action's words, by stack.
+    acting: (BTreeSet<String>, BTreeMap<String, String>),
 }
 
 impl Attn {
@@ -54,6 +57,7 @@ impl Attn {
             dirty: false,
             timer: false,
             parts: None,
+            acting: (BTreeSet::new(), BTreeMap::new()),
         }
     }
 
@@ -112,7 +116,12 @@ impl Attn {
 }
 
 /// What is wrong now, stack by stack, then the machine's (off the UI thread: a crash's port is looked up with lsof).
-fn items_now(stacks: &[StackView], parts: &[MachinePart], now: SystemTime) -> Vec<Item> {
+fn items_now(
+    stacks: &[StackView],
+    failed: &HashMap<String, StackFailure>,
+    parts: &[MachinePart],
+    now: SystemTime,
+) -> Vec<Item> {
     let held = |p: u16| doze_desk::ports::holder(p);
     let mut out = Vec::new();
     for st in stacks {
@@ -122,6 +131,7 @@ fn items_now(stacks: &[StackView], parts: &[MachinePart], now: SystemTime) -> Ve
             .ok();
         let changed = mtime.and_then(|m| doze_desk::overview::config_changed(m, st.loaded, now));
         let f = StackFacts {
+            failed: failed.get(&*st.key.dir().to_string_lossy()),
             missing: &missing,
             changed: changed.as_ref(),
             changed_at: mtime,
@@ -142,6 +152,11 @@ impl Root {
             return;
         }
         self.attn.building = true;
+        let (busy, failed) = self.acting_now(cx);
+        self.attn.acting = (
+            busy.clone(),
+            failed.iter().map(|(k, f)| (k.clone(), f.said())).collect(),
+        );
         let stacks = self.hub.stacks();
         let now = self.hub.now();
         let doctor = self.attn.facts.update(cx, |f, cx| f.doctor(&stacks, cx));
@@ -163,7 +178,7 @@ impl Root {
                 .unwrap_or_default(),
         };
         let job = cx.background_executor().spawn(async move {
-            let items = items_now(&stacks, &parts, now);
+            let items = items_now(&stacks, &failed, &parts, now);
             (items, stacks)
         });
         cx.spawn(async move |this: WeakEntity<Root>, cx: &mut AsyncApp| {
@@ -181,10 +196,13 @@ impl Root {
         cx: &mut Context<Self>,
     ) {
         self.attn.building = false;
-        let a = self
-            .attn
-            .steady
-            .step(items, stacks, &|_| false, &self.attn.not_now, now);
+        let a = self.attn.steady.step(
+            items,
+            stacks,
+            &|k| self.attn.acting.0.contains(k),
+            &self.attn.not_now,
+            now,
+        );
         let bell_open = self.bell_open();
         if self.attn.take(a, bell_open) {
             self.bell_follow(cx);
@@ -208,6 +226,27 @@ impl Root {
                 });
             })
             .detach();
+        }
+    }
+
+    /// What acting knows now: the stacks mid-action, and the failed actions, by stack folder (Needs you's keys).
+    fn acting_now(&self, cx: &Context<Self>) -> (BTreeSet<String>, HashMap<String, StackFailure>) {
+        let a = self.acts.read(cx);
+        let dir = |k: &doze_desk::StackKey| k.dir().to_string_lossy().into_owned();
+        (
+            a.busy.keys().map(dir).collect(),
+            a.failed.iter().map(|(k, f)| (dir(k), f.clone())).collect(),
+        )
+    }
+
+    /// Acting moved: Needs you is built again only when a stack began or ended an action, or a failure came or went
+    /// (a toast alone changes nothing here).
+    pub(crate) fn acting_moved(&mut self, cx: &mut Context<Self>) {
+        let (busy, failed) = self.acting_now(cx);
+        let said: BTreeMap<String, String> =
+            failed.iter().map(|(k, f)| (k.clone(), f.said())).collect();
+        if (busy, said) != self.attn.acting {
+            self.rebuild_attention(cx);
         }
     }
 

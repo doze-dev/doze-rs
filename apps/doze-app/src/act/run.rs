@@ -33,6 +33,11 @@ impl Acts {
             );
             return;
         }
+        if name.is_empty() {
+            // The whole stack ("Sleep everything in shop"): the daemon takes no target as every one, as Go's `Do`.
+            self.run_verbs(key, verb, vec![String::new()], cx);
+            return;
+        }
         match verb {
             Verb::Sleep | Verb::Restart | Verb::Reset | Verb::Off => {
                 let d = dialog_of(&st, name, verb.as_str(), words::home().as_deref());
@@ -77,7 +82,12 @@ impl Acts {
                         }
                         for v in verbs {
                             if let Err(e) = hub.verb(&k, v, t) {
-                                return Some(format!("{} {t} failed: {}", v.as_str(), said(&e, v)));
+                                let what = format!("{} {t}", v.as_str());
+                                return Some(format!(
+                                    "{} failed: {}",
+                                    what.trim_end(),
+                                    said(&e, v)
+                                ));
                             }
                         }
                     }
