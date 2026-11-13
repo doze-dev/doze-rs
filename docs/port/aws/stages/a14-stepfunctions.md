@@ -191,6 +191,12 @@ numbers, `StringSplit` dropping empty pieces, TestState's answers for token task
   optional request body stream) and `Peers::tables_of` (a running service's model). `prepare` takes the acting service as an `Option`.
 - `doze-aws/src/run.rs` and `Cargo.toml`: Step Functions registered on the gateway and the bus, `resume()` after the gateway is bound,
   `states_config()` reading `DOZE_SFN_WAIT_SCALE` and `SFN_MOCK_CONFIG`.
+- `aws-iam-policy/src/keys.rs` (a test only): `keys_come_from_conditions_and_variables_once_each` compared the keys in serde_json's
+  sorted map order. `jlens-core` turns on serde_json's `preserve_order` for the whole build, so a document's condition operators now come
+  in the order they were written, and `GetContextKeysForCustomPolicy` answers its keys in that order (AWS's order is not recorded; the IAM
+  scoreboard is unchanged). The test now compares them as a set, since the order depends on which crates a build links. **This is the
+  one behaviour change outside Step Functions; any other order-sensitive JSON output of the other services changes the same way** (none
+  of the fourteen recorded modules did).
 - `xtask/weight-limits.txt`: the doze-aws line, with the reason.
 - `conformance/tests/test_stepfunctions.py`: seven scenarios appended (the recorded three untouched).
 - `Cargo.lock`.
