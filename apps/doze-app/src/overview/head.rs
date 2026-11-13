@@ -15,13 +15,15 @@ pub(super) fn head(
     cx: &mut Context<OverviewView>,
 ) -> impl IntoElement {
     let h = &v.home;
-    let mut path = h.dir.clone();
+    let mut parts: Vec<String> = vec![h.dir.clone()];
     if !h.up.is_empty() {
-        path.push_str(&format!(" · up {}", h.up));
+        parts.push(format!("up {}", h.up));
     }
     if let Some(st) = &h.stopped {
-        path.push_str(&format!(" · stopped · {}", st.when));
+        parts.extend(["stopped".to_owned(), st.when.clone()]);
     }
+    parts.retain(|p| !p.is_empty());
+    let path = parts.join(" · ");
     let mut row = title_row(t, &h.stack, &path);
     if v.view == View::List {
         let e = cx.entity();

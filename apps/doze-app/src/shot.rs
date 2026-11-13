@@ -109,9 +109,14 @@ fn ready(
     s: &Shot,
 ) -> bool {
     let stacks = root.library.read(cx).lib.stacks.len();
+    // The Map, the palette and the help sheet are shot over the Map view, which must be shown to fit.
+    let over_map = matches!(s.screen, Screen::Map | Screen::Palette | Screen::Help);
+    if over_map && root.key().is_some() && root.overview.read(cx).view != View::Map {
+        root.overview.update(cx, |o, cx| o.set_view(View::Map, cx));
+    }
     match s.screen {
         Screen::Library => s.from.fixture.as_deref() == Some("none") || stacks > 1,
-        Screen::Map if s.stack.is_none() => {
+        Screen::Map | Screen::Palette | Screen::Help if s.stack.is_none() => {
             let m = root.map.read(cx);
             root.key().is_some() && m.cam.fitted && !m.layout.cards.is_empty()
         }

@@ -12,7 +12,7 @@ use gpui::{
 
 use super::OverviewView;
 use super::tiles::{filter, row_dot, row_switch, word_tone};
-use crate::kit::s;
+use crate::kit::{s, word_line};
 use crate::theme::{Density, Tokens};
 use crate::widgets::{tracked, w};
 
@@ -59,27 +59,15 @@ fn head(t: &Tokens, title: &str) -> AnyElement {
 
 /// The word in its tone, why, and what it last said while in trouble.
 fn why(t: &Tokens, r: &Row) -> gpui::Div {
-    let word = div()
-        .flex_none()
-        .font_weight(w(600.))
-        .text_color(word_tone(t, r))
-        .child(r.look.word);
-    let because = div().flex_none().child(s(&format!(" · {}", r.because)));
-    let err = div()
-        .min_w_0()
-        .overflow_hidden()
-        .text_ellipsis()
-        .child(s(&format!(" · {}", r.err)));
+    let line = word_line(r.look.word, word_tone(t, r), &[&r.because, &r.err]);
     div()
-        .flex()
         .flex_1()
         .min_w(px(170.))
         .overflow_hidden()
         .whitespace_nowrap()
+        .text_ellipsis()
         .text_color(if r.trouble { t.bad } else { t.dim })
-        .child(word)
-        .when(!r.because.is_empty(), |d| d.child(because))
-        .when(!r.err.is_empty(), |d| d.child(err))
+        .child(line)
 }
 
 /// `.qr.narrow`: dot, name, the word and why, memory, the switch.

@@ -199,7 +199,12 @@ fn states(t: &Tokens, v: &Vitals4) -> AnyElement {
         );
     }
     if counts.is_empty() {
-        counts.push(div().child("everything awake").into_any_element());
+        let all = if s8.awake > 0 {
+            "everything awake"
+        } else {
+            "nothing running"
+        };
+        counts.push(div().child(all).into_any_element());
     }
     div()
         .flex()

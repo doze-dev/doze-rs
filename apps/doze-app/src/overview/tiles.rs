@@ -7,7 +7,7 @@ use gpui::{AnyElement, Context, IntoElement, div, prelude::*, px};
 use gpui_component::input::Input;
 
 use super::{M2, OverviewView};
-use crate::kit::{chip_of, s, tone};
+use crate::kit::{chip_of, s, tone, word_line};
 use crate::theme::{Tokens, mix};
 use crate::widgets::{MONO_FAMILY, dot, icon, kbd_chip, switch, tracked, w};
 
@@ -179,24 +179,12 @@ fn tile_top(t: &Tokens, r: &Row, off: bool, cx: &mut Context<OverviewView>) -> i
 
 /// The word, in its tone, and why.
 fn tile_state(t: &Tokens, r: &Row) -> impl IntoElement {
-    let word = div()
-        .font_weight(w(600.))
-        .text_color(word_tone(t, r))
-        .child(r.look.word);
     div()
-        .flex()
         .whitespace_nowrap()
         .overflow_hidden()
+        .text_ellipsis()
         .text_color(t.dim)
-        .child(word)
-        .when(!r.because.is_empty(), |d| {
-            d.child(
-                div()
-                    .overflow_hidden()
-                    .text_ellipsis()
-                    .child(s(&format!(" · {}", r.because))),
-            )
-        })
+        .child(word_line(r.look.word, word_tone(t, r), &[&r.because]))
 }
 
 /// The foot: memory and the address with its copy mark; or, in trouble, what it last said.
@@ -294,6 +282,11 @@ pub(super) fn view(
         .flex_1()
         .min_h_0()
         .overflow_y_scroll();
+    if v.home.groups.is_empty() && v.home.stopped.is_none() {
+        body = body.child(div().mx(px(28.)).text_color(t.dim).child(
+            "doze.hcl declares nothing yet: add an app or a module to it, and it shows here.",
+        ));
+    }
     for g in &v.home.groups {
         let rows: Vec<&Row> = g
             .rows

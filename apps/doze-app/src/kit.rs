@@ -246,3 +246,19 @@ pub(crate) fn s(text: &str) -> SharedString {
 pub(crate) fn any(e: impl IntoElement) -> AnyElement {
     e.into_any_element()
 }
+
+/// A state word in its tone and weight, then the rest (` · why · what it said`), as one run of text, so it is cut with
+/// an ellipsis where the room ends, as `text-overflow` cut the Go page's line.
+pub(crate) fn word_line(word: &str, tone: Hsla, rest: &[&str]) -> gpui::StyledText {
+    let mut text = word.to_owned();
+    for r in rest.iter().filter(|r| !r.is_empty()) {
+        text.push_str(" · ");
+        text.push_str(r);
+    }
+    let style = gpui::HighlightStyle {
+        color: Some(tone),
+        font_weight: Some(w(600.)),
+        ..Default::default()
+    };
+    gpui::StyledText::new(text).with_highlights([(0..word.len(), style)])
+}

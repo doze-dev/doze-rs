@@ -15,6 +15,20 @@ own branches, 0.1, 0.6 and 0.7 here) and the Map (step 1.3). Where the build dif
   `cargo xtask themes --check` holds the JSON to it.
 - doze-map gained `Layout::overview` (regions and weighted bundles) for the whole-map view.
 - Measurements against §6 are in `docs/port/weight.md`, "The desktop app".
+- M1 steps 1.1 (Library), 1.2 (overview: head, strip, Tiles, List and pane, density, the stopped page) and 1.4 (Grid)
+  are built on branch `app-m1-overview`, read-only (a switch or a verb says it comes with M2). Their view models are
+  in `doze-desk` (`library`, `overview`), held field for field to Go's view JSON (`crates/doze-desk/tests/pages`):
+  Go's own goldens, and what Go's app served for the shop and larder fixtures on a stopped clock.
+  - A stopped stack's shape is `doze --json status` filled in from the file itself (`overview::refs`, a reader of
+    doze.hcl's blocks and references, fuzzed), so the rows, the Map and the Grid of a stopped or offline stack show
+    even when the CLI cannot load the file. The Grid's quotes come from the same reader (Go: `RefsIn`).
+  - The machine line is `doze --json doctor` run in a stack's folder (doctor reads the names setting from a config);
+    other programs' names are read from `names.json`, never written.
+  - A dozing row counts down ("sleeps in 3:12") where Go said "quiet; sleeps soon": Go's view snapshot dropped the
+    idle time.
+  - Not yet: the running stack's ConfigBanner (needs `doze lint --json`), the domain set-up banner and the Library's
+    "unready" https pill (need the trust check), the busy and failed banners (M2's actions), the Grid's sticky first
+    column.
 
 The owner's brief: "make the GUI as best as you can make it! Leave no stone
 unturned! It's got to squeeze the best out of GPUI and its components. Check

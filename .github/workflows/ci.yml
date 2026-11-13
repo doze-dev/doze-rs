@@ -155,12 +155,23 @@ jobs:
             $app shot --fixture larder --screen map --theme $theme --mode $mode --size 1280x800 --out shots/map-larder-$theme-$mode.png
             $app shot --fixture larder --screen palette --theme $theme --mode $mode --size 1280x800 --out shots/palette-$theme-$mode.png
             $app shot --fixture larder --screen help --theme $theme --mode $mode --size 1280x800 --out shots/help-$theme-$mode.png
+            for fx in shop crash larder none; do
+              $app shot --fixture $fx --screen library --theme $theme --mode $mode --out shots/library-$fx-$theme-$mode.png
+            done
+            for sc in tiles list grid; do
+              $app shot --fixture shop --screen $sc --theme $theme --mode $mode --out shots/$sc-shop-$theme-$mode.png
+              $app shot --fixture shop --stack acme --screen $sc --theme $theme --mode $mode --out shots/$sc-stopped-$theme-$mode.png
+            done
+            $app shot --fixture larder --screen grid --hover orders/catalog --theme $theme --mode $mode --out shots/grid-larder-tip-$theme-$mode.png
           done; done
           $app shot --fixture larder --screen map --select gateway --size 1280x800 --out shots/map-larder-selected.png
           $app shot --fixture larder --screen map --size 900x620 --out shots/map-larder-small.png
           $app shot --synth 2000 --screen map --size 2560x1440 --out shots/map-2k-fit.png
           $app shot --synth 2000 --screen map --size 2560x1440 --zoom 1 --at 3000,3000 --out shots/map-2k-100.png
           $app shot --synth 2000 --screen map --size 2560x1440 --zoom 1 --select data0-session-48 --out shots/map-2k-selected.png
+          $app shot --fixture crash --screen list --select api --out shots/list-crash-api.png
+          $app shot --fixture shop --screen list --density compact --out shots/list-shop-compact.png
+          $app shot --synth 2000 --screen list --out shots/list-2k.png
           ls -la shots
       - uses: actions/upload-artifact@v4
         if: always()

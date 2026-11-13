@@ -140,10 +140,13 @@ fn name(t: &Tokens, st: &LibStack, tight: bool) -> impl IntoElement {
             .flex()
             .min_w_0()
             .child(
+                // The folder's end shows, where the stack's own name is: the box is right-aligned and clips on the left.
                 div()
+                    .flex()
+                    .justify_end()
                     .min_w_0()
                     .overflow_hidden()
-                    .child(s(&tail(&st.dir, 34))),
+                    .child(div().flex_none().child(s(&tail(&st.dir, 60)))),
             )
             .child(
                 div()

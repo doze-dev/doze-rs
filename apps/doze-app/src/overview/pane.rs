@@ -6,7 +6,7 @@ use gpui::{AnyElement, ClipboardItem, Context, IntoElement, div, prelude::*, px}
 
 use super::tiles::{row_dot, word_tone};
 use super::{M2, OverviewView, all_rows};
-use crate::kit::{Btn, Click, btn, chip_of, s, tone};
+use crate::kit::{Btn, Click, btn, chip_of, s, tone, word_line};
 use crate::theme::Tokens;
 use crate::widgets::{MONO_FAMILY, dot, tracked, w};
 
@@ -150,10 +150,6 @@ fn head(t: &Tokens, r: &Row, p: &Pane) -> impl IntoElement {
         .font_weight(w(650.))
         .text_color(t.bright)
         .child(s(&p.name));
-    let word = div()
-        .font_weight(w(600.))
-        .text_color(word_tone(t, r))
-        .child(p.look.word);
     div()
         .flex()
         .flex_col()
@@ -183,13 +179,12 @@ fn head(t: &Tokens, r: &Row, p: &Pane) -> impl IntoElement {
         )
         .child(
             div()
-                .flex()
                 .text_size(px(12.))
                 .text_color(t.dim)
-                .child(word)
-                .when(!p.because.is_empty(), |d| {
-                    d.child(s(&format!(" · {}", p.because)))
-                }),
+                .whitespace_nowrap()
+                .overflow_hidden()
+                .text_ellipsis()
+                .child(word_line(p.look.word, word_tone(t, r), &[&p.because])),
         )
 }
 
@@ -325,7 +320,11 @@ fn live(t: &Tokens, r: &Row, p: &Pane, cx: &mut Context<OverviewView>) -> AnyEle
     if !p.needs.is_empty() || !p.holders.is_empty() {
         f = f.child(needs(t, p));
     }
-    if let Some(c) = &p.crash {
+    if let Some(c) = p
+        .crash
+        .as_ref()
+        .filter(|c| !c.error.is_empty() || !c.tries.is_empty())
+    {
         let error = div()
             .px(px(10.))
             .py(px(8.))

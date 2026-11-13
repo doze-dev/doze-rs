@@ -186,7 +186,13 @@ pub(crate) fn banner(st: &StackView, now: SystemTime) -> Banner {
         };
     }
     let l = &st.link;
-    let since = match (st.metered, l.last_frame) {
+    // Only a metered stack with something running is expected to speak every second (the meters are of running
+    // instances); a quiet one, or one with nothing up, is not stale: its socket is open.
+    let serving = st
+        .instances
+        .iter()
+        .any(|v| matches!(v.state.as_str(), "active" | "idle"));
+    let since = match (st.metered && serving, l.last_frame) {
         (true, Some(t)) => now.duration_since(t).unwrap_or_default(),
         _ => std::time::Duration::ZERO,
     };

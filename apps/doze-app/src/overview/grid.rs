@@ -164,6 +164,8 @@ fn heads(t: &Tokens, v: &OverviewView) -> impl IntoElement {
             div()
                 .w(px(span))
                 .flex_none()
+                // A caption wider than its columns is cut there (Go: `text-overflow: ellipsis`), not over the next.
+                .overflow_hidden()
                 .pl(px(if sep { 10. } else { 4. }))
                 .when(sep, |d| d.border_l_1().border_color(t.line2))
                 .child(tracked(h.text, 11., 700., t.dim, 1.1)),
