@@ -47,7 +47,7 @@ export function ClientsSheet({ open, onClose }: { open: boolean; onClose: () => 
                       </span>
                     </div>
                     <p className="mt-1 text-[12.5px] text-muted-foreground">
-                      {c.software && `${c.software} · `}
+                      {c.software?.trim() && `${c.software.trim()} · `}
                       <span className="font-mono">
                         {c.apis
                           .slice(0, 6)

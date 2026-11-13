@@ -64,8 +64,8 @@ fn all() -> BTreeMap<String, String> {
 /// The Live types (slice R3).
 fn live_types(cfg: &Config, out: &mut BTreeMap<String, String>) {
     use super::live::{
-        FetchCopy, FirstResponse, LiveResponse, LiveWords, RequestAnswer, RequestResponse, TailBatch, TailReady,
-        TopicWireView,
+        FetchCopy, FirstResponse, LiveResponse, LiveWords, RequestAnswer, RequestResponse,
+        TailBatch, TailReady, TopicWireView,
     };
     use crate::model::live::{LabDid, LabTag};
     use crate::model::{

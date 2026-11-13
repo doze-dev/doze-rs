@@ -447,17 +447,3 @@ impl WireQuery {
 
 #[cfg(test)]
 mod tests;
-
-/// A group's wire: the rows that pass the filters, and the counts the chips say.
-#[derive(Debug, Clone, PartialEq, serde::Serialize)]
-#[cfg_attr(test, derive(ts_rs::TS))]
-pub struct GroupWireView {
-    pub group: String,
-    pub query: WireQuery,
-    pub rows: Vec<WireRow>,
-    pub window: WireWindow,
-    pub now_ms: i64,
-    /// Every request that touched the group among the rows kept, and how many of those were refused.
-    pub all: usize,
-    pub refused: usize,
-}

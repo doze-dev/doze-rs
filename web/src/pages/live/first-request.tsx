@@ -44,7 +44,7 @@ function Who({ v }: { v: FirstView }) {
     [
       "Software",
       <>
-        {v.software ?? "not announced"} <span className="text-muted-foreground">(from ApiVersions)</span>
+        {v.software?.trim() || "not announced"} <span className="text-muted-foreground">(from ApiVersions)</span>
       </>,
     ],
     ["From", <span className="font-mono">{v.peer ?? "-"}</span>],
@@ -119,7 +119,7 @@ export function FirstRequestPage() {
         sub={
           v ? (
             <>
-              <b className="font-mono font-medium text-bright">{v.client}</b> sent its first request{v.peer ? `, from ${v.peer}` : ""}.{v.software && <> It speaks Kafka as <span className="font-mono">{v.software}</span>.</>}
+              <b className="font-mono font-medium text-bright">{v.client}</b> sent its first request{v.peer ? `, from ${v.peer}` : ""}.{v.software?.trim() && <> It speaks Kafka as <span className="font-mono">{v.software.trim()}</span>.</>}
             </>
           ) : (
             " "

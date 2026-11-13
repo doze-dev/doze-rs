@@ -96,7 +96,12 @@ async fn the_live_api_says_the_tape_the_requests_the_clients_and_the_docks() {
     let (s, gone) = get(&app, "/api/v1/live/request/987654321").await;
     assert_eq!(s, StatusCode::OK);
     assert!(gone["found"].is_null());
-    assert!(gone["gone"].as_str().unwrap().contains("no longer on the wire"));
+    assert!(
+        gone["gone"]
+            .as_str()
+            .unwrap()
+            .contains("no longer on the wire")
+    );
     let (s, junk) = get(&app, "/api/v1/live/request/not-a-number").await;
     assert_eq!(s, StatusCode::OK);
     assert!(junk["found"].is_null());
@@ -181,9 +186,9 @@ async fn the_json_tail_sends_rows_after_the_cursor_once_and_a_reconnect_brings_o
     read_until(&mut bare, "403", Duration::from_secs(2)).await;
     let mut wire = Wire::connect(&w).await;
     let mut s = open(addr, "idle=0&pace=0", None, true).await;
-    let ready = read_until(&mut s, "event: ready", Duration::from_secs(2)).await;
-    assert!(ready.contains("text/event-stream"), "{ready}");
     let ready = read_until(&mut s, "\"pace\":1", Duration::from_secs(2)).await;
+    assert!(ready.contains("text/event-stream"), "{ready}");
+    assert!(ready.contains("event: ready"), "{ready}");
     assert!(ready.contains("\"reset\":false"), "{ready}");
     wire.call(ApiKey::ApiVersions, 3, "first-app", &versions("kcat"))
         .await;
@@ -193,7 +198,7 @@ async fn the_json_tail_sends_rows_after_the_cursor_once_and_a_reconnect_brings_o
     let id = text
         .lines()
         .filter_map(|l| l.strip_prefix("id: "))
-        .last()
+        .next_back()
         .expect("an event id")
         .to_owned();
     drop(s);

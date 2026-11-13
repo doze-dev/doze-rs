@@ -1,6 +1,6 @@
 //! The clients drawer, Home's strip of who has spoken, and the first-request page.
 
-use super::live::WireRow;
+use super::live::{WireQuery, WireRow, WireWindow};
 
 /// One connected client.
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
@@ -60,4 +60,18 @@ pub struct FirstView {
     pub profile: String,
     pub listen: String,
     pub versions: Vec<(&'static str, i16)>,
+}
+
+/// A group's wire: the rows that pass the filters, and the counts the chips say.
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+pub struct GroupWireView {
+    pub group: String,
+    pub query: WireQuery,
+    pub rows: Vec<WireRow>,
+    pub window: WireWindow,
+    pub now_ms: i64,
+    /// Every request that touched the group among the rows kept, and how many of those were refused.
+    pub all: usize,
+    pub refused: usize,
 }

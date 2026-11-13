@@ -112,8 +112,7 @@ pub struct RequestAnswer {
 }
 
 /// What a request that is not on the tape says.
-pub const GONE: &str =
-    "That request is no longer on the wire. The recorder keeps a bounded tape, and this row has fallen off it.";
+pub const GONE: &str = "That request is no longer on the wire. The recorder keeps a bounded tape, and this row has fallen off it.";
 
 /// `GET /api/v1/live/first`.
 #[derive(Debug, Clone, PartialEq, Serialize)]
