@@ -65,6 +65,11 @@ fn the_console_flags_are_parsed_and_kept_and_their_help_says_what_they_do() {
         help.contains("on a shared machine any local process can use it without the broker's password or past its ACLs (it is a tool for one developer), so turn it off there with `--console=false`"),
         "{help}"
     );
+    // SEC-250: ACLs made after the start close a console beyond loopback to other machines, unless --console-unprotected.
+    assert!(
+        help.contains("stops answering other machines while the broker has any ACL (made after the start, over Kafka or from the console), and answers them again once none is left"),
+        "{help}"
+    );
     assert!(settings(&[]).unwrap().console == Console::default());
 }
 

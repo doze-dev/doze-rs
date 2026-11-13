@@ -247,10 +247,17 @@ impl<F: Fs> Broker<F> {
         self.config.client_telemetry
     }
 
-    /// How many ACLs are stored now: the start looks, because a console served beyond loopback would get round them.
+    /// How many ACLs are in force now: one atomic load, cheap enough for every console request (SEC-188, SEC-250). A change is
+    /// counted before its CreateAcls or DeleteAcls is answered.
     #[must_use]
     pub fn acl_count(&self) -> usize {
-        self.authz.snapshot().len()
+        self.authz.len()
+    }
+
+    /// The count of ACLs in force, told after each change (the console logs when its door closes or opens, SEC-250).
+    #[must_use]
+    pub fn acl_changes(&self) -> tokio::sync::watch::Receiver<usize> {
+        self.authz.watch()
     }
 }
 

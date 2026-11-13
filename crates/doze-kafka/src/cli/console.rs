@@ -5,7 +5,8 @@
 //! flags are ignored). The rule on their inputs: the console is never a wider door than the broker itself. With SASL or
 //! TLS on, ACLs in force, or Kafka listening on loopback only, a console address that other machines can reach is refused
 //! unless `--console-unprotected` accepts it (the console has no login, is plain HTTP and acts as a super user), and the
-//! choices that leave something open are reported once at start.
+//! choices that leave something open are reported once at start. ACLs made after the start are a guard too: the console holds
+//! the same rule for them while it runs (`kafka_console::door`, SEC-250).
 
 use std::net::{IpAddr, SocketAddr};
 
@@ -100,9 +101,7 @@ pub(super) fn setup(input: &Input<'_>) -> Result<(Console, Vec<String>)> {
             if let Some(note) = wider_door(addr, &guards, input.unprotected)? {
                 notes.push(note);
             } else {
-                notes.push(format!(
-                    "the console is served on {addr} with no login and over plain HTTP: anyone who can reach that address can do what any Kafka client of this broker can (it has no login, no ACL and no TLS), and ACLs made later will not bind the console, which acts as a super user"
-                ));
+                notes.push(open_broker_note(addr, input.unprotected));
             }
         }
     }
@@ -134,6 +133,20 @@ pub(super) fn setup(input: &Input<'_>) -> Result<(Console, Vec<String>)> {
         lab,
     };
     Ok((console, notes))
+}
+
+/// The note for a console beyond loopback in front of a broker nothing guards (SEC-189). ACLs made later are a guard the start
+/// cannot see: without `--console-unprotected` the console stops answering other machines while there are any (SEC-250); with it,
+/// they do not bind the console.
+fn open_broker_note(addr: &str, unprotected: bool) -> String {
+    let later = if unprotected {
+        "ACLs made later will not bind the console, which acts as a super user (--console-unprotected)"
+    } else {
+        "if ACLs are made later, the console stops answering other machines while there are any (it acts as a super user and would get round them; --console-unprotected keeps it open)"
+    };
+    format!(
+        "the console is served on {addr} with no login and over plain HTTP: anyone who can reach that address can do what any Kafka client of this broker can (it has no login, no ACL and no TLS); {later}"
+    )
 }
 
 /// What keeps a Kafka client of this broker out that a console served beyond loopback would get round: the console has no login,

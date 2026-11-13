@@ -1,5 +1,5 @@
 //! The router: the JSON API, the health check, the bundle's files and `index.html` for every other GET, with the layers in front
-//! of all of it: security headers, then the host guard, then the body limit. The API has its own proof (`api::guard`: the
+//! of all of it: security headers, then the host guard, then the door to other machines (`door`, SEC-250), then the body limit. The API has its own proof (`api::guard`: the
 //! `X-Console` header, and the same-origin proof on a write).
 
 use axum::Router;
@@ -25,6 +25,7 @@ pub fn console(state: Shared) -> Router {
         .fallback(dispatch)
         .layer(DefaultBodyLimit::max(MAX_BODY))
         .layer(from_fn(body_limit))
+        .layer(from_fn_with_state(state.clone(), crate::door::door_guard))
         .layer(from_fn_with_state(state.clone(), host_guard))
         .layer(from_fn(security_headers))
         .with_state(state);

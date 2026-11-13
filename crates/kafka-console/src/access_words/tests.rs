@@ -14,6 +14,8 @@ fn s(
         acls_stored: false,
         listener_beyond_loopback: listener_beyond,
         console_beyond_loopback: console_beyond,
+        // A guarded broker starts a console beyond loopback only with --console-unprotected.
+        console_unprotected: console_beyond,
         console_addr: "127.0.0.1:9093",
     }
 }
@@ -79,4 +81,21 @@ fn stored_acls_alone_make_a_console_beyond_loopback_the_wider_door() {
     assert!(!warnings(&sw)[0].holds);
     sw.acls_stored = true;
     assert!(warnings(&sw)[0].holds);
+}
+
+#[test]
+fn acls_made_after_an_open_start_shut_the_console_to_other_machines_and_the_warning_says_so() {
+    // An open broker let the console start beyond loopback without --console-unprotected; then an ACL was made.
+    let mut sw = s(false, false, true, true, true);
+    sw.console_unprotected = false;
+    assert!(!warnings(&sw)[0].holds);
+    sw.acls_stored = true;
+    let one = &warnings(&sw)[0];
+    assert!(!one.holds, "the door is shut, not wider");
+    let said = format!("{:?}", one.because);
+    assert!(
+        said.contains("now has ACLs, so it answers this machine only"),
+        "{said}"
+    );
+    assert!(said.contains("--console-unprotected"), "{said}");
 }

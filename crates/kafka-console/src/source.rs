@@ -30,6 +30,9 @@ pub struct Live {
     pub start: crate::facts_start::StartFacts,
     /// The Lab, when it is on (`--lab`, the default): the broker's fault table and the rehearsals kept. None: switched off.
     pub lab: Option<std::sync::Arc<crate::lab::Lab>>,
+    /// The door that closes to other machines while the broker has ACLs (SEC-250); None: nothing to close (a loopback console,
+    /// or `--console-unprotected`).
+    pub door: Option<crate::door::Door>,
 }
 
 impl Live {
@@ -43,7 +46,16 @@ impl Live {
             recorder: None,
             start: crate::facts_start::StartFacts::default(),
             lab: None,
+            door: None,
         }
+    }
+
+    /// The same, closing to other machines while the broker has ACLs (a console beyond loopback that only an open broker let
+    /// start without `--console-unprotected`).
+    #[must_use]
+    pub fn with_door(mut self, door: crate::door::Door) -> Self {
+        self.door = Some(door);
+        self
     }
 
     /// The same, with the Lab on over the fault table the server was given.

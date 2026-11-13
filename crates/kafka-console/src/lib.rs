@@ -20,6 +20,7 @@ pub mod config_pass;
 pub mod config_source;
 pub mod config_teach;
 pub mod config_words;
+pub mod door;
 pub mod facts;
 pub mod facts_start;
 pub mod files;
