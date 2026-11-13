@@ -67,4 +67,11 @@ doze-kafka 9000000 159 8192 --listen 127.0.0.1:{port} --data-dir {data}
 # commit cross-built for x86_64-unknown-linux-musl is 7,481,552 B (was 8,206,736 B): only 9% smaller, because 1.0 MB of an x86_64 Linux binary is unwind tables and relocations that
 # "z" does not touch (-Cforce-unwind-tables=no changes nothing on this target, which requires them). Byte limit = the musl size plus 5% = 7,855,000, rounded to 7,900,000 B.
 # Linux is 1.54 times the macOS size at "z"; Step Functions, API Gateway and CloudFormation will cost about 1.5 times what they cost on macOS. Packages unchanged at 240.
-doze-aws 7900000 240 6144 --listen 127.0.0.1:{port} --data-dir {data}
+# 2026-11-13, A16 CloudFormation (branch aws-a16-cloudformation, alone on the 4,867,344 B / 233 package base): 5,549,504 B on darwin/arm64, 235 packages,
+# 4,688 KB idle (+682 KB, +2 packages: aws-cloudformation and the CloudFormation model tables; no new third-party package: regex-lite, flate2, sha2,
+# hmac and bytes were already linked). The same code cross-built for x86_64-unknown-linux-musl is 8,665,744 B (+1,184,192 B over 7,481,552 B; 1.56 times
+# the macOS size). What the bytes are: the template engine (the YAML reader, intrinsics, the SAM, include and language-extensions transforms), the
+# provisioning engine and rollback, about 130 resource types written against the other services' operations, and the CloudFormation model (90
+# operations). The limit had to move or CI fails: the musl size plus 5% = 9,098,031, rounded to 9,100,000 B; packages unchanged at 240. This is past the
+# owner's 9 MB CI default and leaves 0.9 MB of the 10 MB ceiling for Step Functions and API Gateway: the size decision PLAN records as pending is now due.
+doze-aws 9100000 240 6144 --listen 127.0.0.1:{port} --data-dir {data}

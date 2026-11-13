@@ -34,6 +34,32 @@ pub(crate) enum Caps {
     ChangeSet,
 }
 
+/// The call's `ResourceTypes` (`AWS::SQS::Queue`, `AWS::SQS::*`, `Custom::*`, `AWS::*`) allow every type of the template.
+fn allowed_types(t: &Value, allowed: &[String]) -> Result<(), ApiError> {
+    if allowed.is_empty() {
+        return Ok(());
+    }
+    let ok = |ty: &str| {
+        allowed.iter().any(|a| match a.strip_suffix('*') {
+            Some(prefix) => ty.starts_with(prefix),
+            None => a == ty,
+        })
+    };
+    let mut refused: Vec<&str> = tmpl::resources(t)
+        .map(|r| r.values().map(tmpl::type_of).filter(|ty| !ok(ty)).collect())
+        .unwrap_or_default();
+    refused.sort_unstable();
+    refused.dedup();
+    if refused.is_empty() {
+        return Ok(());
+    }
+    // (memory)
+    Err(validation(format!(
+        "Template resource types [{}] are not allowed in ResourceTypes",
+        refused.join(", ")
+    )))
+}
+
 /// The values `Ref` gives for each parameter.
 pub(crate) fn ref_values(t: &Value, bound: &[Bound]) -> BTreeMap<String, Value> {
     let decls = params::declarations(t).unwrap_or_default();
@@ -133,6 +159,7 @@ impl Core {
             return Err(capabilities(&needed));
         }
         crate::res::policy::check(&processed, &self.config)?;
+        allowed_types(&processed, &r.strings("ResourceTypes"))?;
         Ok(Prepared {
             body,
             description: processed
