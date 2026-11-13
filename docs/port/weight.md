@@ -349,7 +349,7 @@ and `tower` is no longer a direct dependency of the console (it stays in the tre
 | darwin arm64, fat LTO | main before R5 | R5 |
 |---|---|---|
 | doze-kafka binary | 6,593,728 B | **5,945,008 B** (-648,720 B) |
-| packages (`cargo xtask weight`) | 160 | **155** |
+| packages (`cargo xtask weight`) | 160 (R4's measurement) | **155** |
 | idle | | 6,800 KB |
 
 No limit moved (7,800,000 B, 161 packages): a person lowers them, with the first CI measurement.
