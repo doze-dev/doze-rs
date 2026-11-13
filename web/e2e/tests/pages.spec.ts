@@ -70,8 +70,13 @@ test("Connect: the address card and the advertised listener card stand side by s
   const [a, b] = [await cards.nth(0).boundingBox(), await cards.nth(1).boundingBox()];
   expect(Math.round(a!.y)).toBe(Math.round(b!.y));
   await page.setViewportSize({ width: 1024, height: 800 });
-  const [c, d] = [await cards.nth(0).boundingBox(), await cards.nth(1).boundingBox()];
-  expect(d!.y).toBeGreaterThan(c!.y + c!.height - 1);
+  // Polled: crossing 1280 px the sidebar folds to icons with its own short transition, and the cards settle after it.
+  await expect
+    .poll(async () => {
+      const [c, d] = [await cards.nth(0).boundingBox(), await cards.nth(1).boundingBox()];
+      return d!.y > c!.y + c!.height - 1;
+    })
+    .toBe(true);
 });
 
 test("an API request without the console's header is refused in JSON", async ({ request }) => {
