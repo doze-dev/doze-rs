@@ -1,0 +1,24 @@
+[package]
+name = "doze-desk"
+version = "0.0.0"
+description = "The desktop app's brain, GPUI-free: the hub that follows every stack's daemon and folds what it says"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+async-channel = "2"
+doze-control = { path = "../doze-control" }
+doze-display = { path = "../doze-display" }
+doze-projects = { path = "../doze-projects" }
+thiserror = "2"
+
+[dev-dependencies]
+doze-control = { path = "../doze-control", features = ["test-support"] }
+serde_json = "1"
+tempfile = "3"

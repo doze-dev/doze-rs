@@ -1,0 +1,66 @@
+{
+  "instance": "api",
+  "total": 10,
+  "from": 0,
+  "lines": [
+    {
+      "time": "19:20:40",
+      "rel": "-14m 00s",
+      "line": "listening addr=:8080",
+      "level": "INF",
+      "rank": 1,
+      "run": 1
+    },
+    {
+      "time": "19:20:40",
+      "rel": "-14m 00s",
+      "line": "postgres connected host=db.shop.doze pool=4",
+      "level": "INF",
+      "rank": 1,
+      "run": 1
+    },
+    {
+      "time": "19:20:40",
+      "rel": "-14m 00s",
+      "line": "mongo connected host=mongo.shop.doze",
+      "level": "INF",
+      "rank": 1,
+      "run": 1
+    },
+    {
+      "time": "19:30:40",
+      "rel": "-4m 00s",
+      "line": "GET /products 200 12ms",
+      "level": "INF",
+      "rank": 1,
+      "run": 1
+    },
+    {
+      "time": "19:31:00",
+      "rel": "-3m 40s",
+      "line": "GET /cart 200 44ms",
+      "level": "INF",
+      "rank": 1,
+      "run": 1
+    }
+  ],
+  "runs": [
+    1
+  ],
+  "levels": [
+    "debug and up",
+    "info and up",
+    "warnings and up",
+    "errors only"
+  ],
+  "counts": [
+    0,
+    9,
+    1,
+    0
+  ],
+  "matches": 0,
+  "instances": [
+    "api"
+  ]
+}
