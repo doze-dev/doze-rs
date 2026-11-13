@@ -178,6 +178,12 @@ jobs:
           for act in start preflight failed recent; do $app shot --fixture shop --stack acme --screen tiles --act $act --out shots/act-$act.png; done
           for act in remove empty-found add; do $app shot --fixture shop --screen library --act $act --out shots/act-$act.png; done
           $app shot --fixture modules --screen instance --select events --tab console:_ --act action-typed --out shots/act-action.png
+          # M2: ⌘K and Needs you (the bell, the alerts, the away strip), and a failed start in Needs you
+          $app shot --fixture shop --screen palette --query "sleep ca" --out shots/palette-sleep-ca.png
+          $app shot --fixture shop --screen palette --scope shop/db --out shots/palette-scope.png
+          $app shot --fixture crash --screen palette --query api --out shots/palette-crash-api.png
+          for over in bell alerts away; do $app shot --fixture crash --screen tiles --over $over --out shots/attn-$over.png; done
+          $app shot --fixture shop --stack acme --screen tiles --act failed --over bell --out shots/attn-failed.png
           $app shot --synth 2000 --screen grid --at 3000,20000 --out shots/grid-2k-scrolled.png
           ls -la shots
       - name: Screens inside a stack (instance, logs, consoles)
