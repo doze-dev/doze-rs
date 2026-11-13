@@ -97,6 +97,7 @@ impl Root {
                 };
                 if matches!(f.verb, "remove") || f.kind == FixKind::Dismiss {
                     self.attn.quiet(&stack);
+                    crate::around::quiet_menu(&stack, cx);
                 }
                 if f.kind == FixKind::Stack {
                     self.shut_bell(window, cx);

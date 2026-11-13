@@ -129,6 +129,9 @@ jobs:
   # app"), and renders the screens offscreen through a fixture daemon: the PNGs are this run's artifacts, to look at.
   app:
     runs-on: macos-latest
+    env:
+      # Whether the signing secrets exist (a step cannot test a secret directly).
+      HAS_CERT: ${{ secrets.MACOS_CERT_P12 != '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -146,6 +149,44 @@ jobs:
           echo "doze-app: $size bytes, $crates packages"
           [ "$size" -le 16000000 ] || { echo "doze-app over 16 MB (PLAN.md §6)"; exit 1; }
           [ "$crates" -le 560 ] || { echo "doze-app over 560 packages (docs/port/weight.md)"; exit 1; }
+      # Doze.app (PLAN.md step 3.5): signed ad hoc, or with a Developer ID and notarised when the secrets exist. With no
+      # secrets (forks, and until the owner adds them) the import is skipped and the bundle is signed ad hoc.
+      - name: Signing identity (only when the secrets exist)
+        if: env.HAS_CERT == 'true'
+        env:
+          MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
+          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+          NOTARY_KEY_P8: ${{ secrets.NOTARY_KEY_P8 }}
+        run: |
+          kc="$RUNNER_TEMP/doze.keychain-db"; pw=$(uuidgen)
+          echo "$MACOS_CERT_P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security create-keychain -p "$pw" "$kc"
+          security set-keychain-settings -lut 3600 "$kc"
+          security unlock-keychain -p "$pw" "$kc"
+          security import "$RUNNER_TEMP/cert.p12" -P "$MACOS_CERT_PASSWORD" -A -t cert -f pkcs12 -k "$kc"
+          # codesign runs without a prompt only once the key's partition list allows it.
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$pw" "$kc" > /dev/null
+          security list-keychains -d user -s "$kc"
+          if [ -n "$NOTARY_KEY_P8" ]; then echo "$NOTARY_KEY_P8" > "$RUNNER_TEMP/notary.p8"; fi
+      - name: Doze.app
+        env:
+          DOZE_SIGN_ID: ${{ secrets.DOZE_SIGN_ID }}
+          NOTARY_KEY_ID: ${{ secrets.NOTARY_KEY_ID }}
+          NOTARY_ISSUER_ID: ${{ secrets.NOTARY_ISSUER_ID }}
+          HAS_NOTARY: ${{ secrets.NOTARY_KEY_P8 != '' }}
+        run: |
+          # One condition for both steps: a Developer ID only with the identity imported above, else ad hoc.
+          if [ "$HAS_CERT" != "true" ]; then unset DOZE_SIGN_ID NOTARY_KEY_ID NOTARY_ISSUER_ID; HAS_NOTARY=false; fi
+          if [ "$HAS_CERT" = "true" ] && [ -z "$DOZE_SIGN_ID" ]; then echo "::warning::MACOS_CERT_P12 is set but DOZE_SIGN_ID is not: signing ad hoc"; fi
+          if [ "$HAS_NOTARY" = "true" ]; then export NOTARY_KEY_PATH="$RUNNER_TEMP/notary.p8"; fi
+          cargo xtask app-bundle --no-build --id dev.doze.app --version "0.0.${GITHUB_RUN_NUMBER}" --out bundle
+          plutil -p bundle/Doze.app/Contents/Info.plist
+          codesign -dv bundle/Doze.app
+          ditto -c -k --keepParent bundle/Doze.app bundle/Doze.app.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Doze.app
+          path: bundle/Doze.app.zip
       - name: Screens, offscreen (fixture daemon → hub → page)
         run: |
           cargo build -p doze-app --features capture
@@ -184,6 +225,8 @@ jobs:
           $app shot --fixture crash --screen palette --query api --out shots/palette-crash-api.png
           for over in bell alerts away; do $app shot --fixture crash --screen tiles --over $over --out shots/attn-$over.png; done
           $app shot --fixture shop --stack acme --screen tiles --act failed --over bell --out shots/attn-failed.png
+          # M3: a notification said in the app (no bundle)
+          $app shot --fixture crash --screen library --over note --out shots/notify-in-app.png
           $app shot --synth 2000 --screen grid --at 3000,20000 --out shots/grid-2k-scrolled.png
           ls -la shots
       - name: Screens inside a stack (instance, logs, consoles)

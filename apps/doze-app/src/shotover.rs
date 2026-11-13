@@ -70,7 +70,37 @@ pub(crate) fn stage(root: &mut Root, window: &mut Window, cx: &mut Context<Root>
             );
             cx.notify();
         }
+        Some("note") => note(root, &stacks, cx),
         _ => {}
+    }
+}
+
+/// A notification said in the app (no bundle, M3): the rules see the stack well, then as the fixture has it, and
+/// what they say goes out the way an unbundled app says it.
+fn note(root: &Root, stacks: &[doze_desk::StackView], cx: &mut Context<Root>) {
+    let mut rules = doze_desk::notify::Rules::new();
+    let well: Vec<doze_desk::StackView> = stacks
+        .iter()
+        .map(|st| {
+            let mut st = st.clone();
+            let fine = st
+                .instances
+                .iter()
+                .cloned()
+                .map(|mut v| {
+                    v.state = "active".into();
+                    v
+                })
+                .collect();
+            st.instances = std::sync::Arc::new(fine);
+            st
+        })
+        .collect();
+    let now = root.hub_now();
+    rules.next(&well, &|_, _| false, now);
+    for n in rules.next(stacks, &|_, _| false, now) {
+        let native = doze_desk::notify::native(&n, &root.attn.list);
+        crate::around::notes::in_app(cx, &native);
     }
 }
 

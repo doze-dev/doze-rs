@@ -4,6 +4,7 @@
 //! reading from outside: `footprint`, Activity Monitor's figure), closes the window, waits ten seconds and quits.
 //! It never touches the doze home: its stack is a fixture.
 
+use std::path::PathBuf;
 use std::process::ExitCode;
 use std::rc::Rc;
 use std::time::{Duration, Instant};
@@ -15,7 +16,10 @@ use crate::shell::Root;
 use crate::theme::Choice;
 
 pub(crate) fn run(b: Bench, launched: Instant) -> ExitCode {
-    let source = match crate::source_for(&b.from, std::env::temp_dir()) {
+    // No fixture: `$DOZE_HOME` when it is set (a fixture served from another process), else an empty folder; never the
+    // real home by default.
+    let home = std::env::var_os("DOZE_HOME").map_or_else(std::env::temp_dir, PathBuf::from);
+    let source = match crate::source_for(&b.from, home) {
         Ok(s) => Rc::new(s),
         Err(e) => {
             eprintln!("doze-app bench: {e:#}");
@@ -33,7 +37,15 @@ pub(crate) fn run(b: Bench, launched: Instant) -> ExitCode {
             println!("platform_ready_ms {}", launched.elapsed().as_millis());
             crate::app::boot_core(cx);
             cx.set_activation_policy(ActivationPolicy::Accessory);
-            let tray = crate::tray::Menu::install(&source.hub);
+            // The menu-bar item, Needs you and the notifications, as a launch has them, following the hub.
+            crate::around::start(cx, &source.hub, &source.facts);
+            let updates = source.hub.clone();
+            cx.spawn(async move |cx: &mut AsyncApp| {
+                while updates.updates().recv().await.is_ok() {
+                    cx.update(crate::around::on_batch);
+                }
+            })
+            .detach();
             println!("menu_bar_ready_ms {}", launched.elapsed().as_millis());
             // As a launch does: the window's libraries after the item is up.
             crate::app::boot_ui(cx, Choice::default());
@@ -42,16 +54,16 @@ pub(crate) fn run(b: Bench, launched: Instant) -> ExitCode {
                 source.clone(),
                 source.hub.clone(),
                 (source.first.clone(), source.facts.clone()),
-                b.idle,
+                (b.idle, b.closed.unwrap_or(10)),
             );
             let (logs, follow, map) = (b.logs, b.follow, b.map);
             cx.spawn(async move |cx: &mut AsyncApp| {
-                let _keep = (src.clone(), tray);
+                let _keep = src.clone();
                 cx.background_executor().timer(Duration::from_secs(2)).await;
                 if logs {
                     logs_bench(cx, src, follow).await;
                 } else {
-                    time_open(cx, hub, first, if map { 0 } else { idle }, map).await;
+                    time_open(cx, hub, first, if map { (0, 0) } else { idle }, map).await;
                 }
                 cx.update(|cx| cx.quit());
             })
@@ -65,7 +77,7 @@ async fn time_open(
     cx: &mut AsyncApp,
     hub: doze_desk::Hub,
     (first, facts): (Option<doze_desk::StackKey>, crate::facts::Mode),
-    idle: u64,
+    (idle, closed): (u64, u64),
     map: bool,
 ) {
     let t = Instant::now();
@@ -110,7 +122,7 @@ async fn time_open(
     let _ = h.update(cx, |_, w, _| w.remove_window());
     hub.set_visible(false);
     cx.background_executor()
-        .timer(Duration::from_secs(10))
+        .timer(Duration::from_secs(closed))
         .await;
     println!("closed_done");
 }
