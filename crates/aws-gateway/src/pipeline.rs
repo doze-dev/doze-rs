@@ -57,10 +57,12 @@ pub(crate) struct Shared {
     /// signing name (DynamoDB and DynamoDB Streams both sign as `dynamodb`) are told apart by it.
     by_target: HashMap<&'static str, usize>,
     config: Config,
+    /// Where sessions on upgraded connections run, so a shutdown ends them too.
+    tasks: doze_runtime::Tasks,
 }
 
 impl Shared {
-    pub(crate) fn new(entries: Vec<Entry>, config: Config) -> Self {
+    pub(crate) fn new(entries: Vec<Entry>, config: Config, tasks: doze_runtime::Tasks) -> Self {
         let by_signing_name = entries
             .iter()
             .enumerate()
@@ -76,7 +78,13 @@ impl Shared {
             by_signing_name,
             by_target,
             config,
+            tasks,
         }
+    }
+
+    /// The gateway's task set.
+    pub(crate) fn tasks(&self) -> &doze_runtime::Tasks {
+        &self.tasks
     }
 
     /// The largest request body read.
@@ -114,6 +122,31 @@ impl Shared {
             .filter(|e| e.service.meta().signing_name == signing_name);
         by_target.or_else(|| self.entry(signing_name))
     }
+
+    /// The REST service a request signed as `signing_name` is for. Two models can share a signing name (API Gateway's REST and
+    /// HTTP APIs both sign as `apigateway`): the one whose routes take the method and path is the one; otherwise the last registered.
+    pub(crate) fn rest_entry(&self, signing_name: &str, parts: &Parts) -> Option<&Entry> {
+        let mut same = self
+            .entries
+            .iter()
+            .filter(|e| e.service.meta().signing_name == signing_name);
+        let first = same.next()?;
+        let Some(second) = same.next() else {
+            return Some(first);
+        };
+        let query = crate::presign::pairs(parts.uri.query().unwrap_or_default());
+        [first, second]
+            .into_iter()
+            .chain(same)
+            .find(|e| {
+                e.router(e.service.tables())
+                    .find(parts.method.as_str(), parts.uri.path(), &query, |h| {
+                        parts.headers.contains_key(h)
+                    })
+                    .is_some()
+            })
+            .or_else(|| self.entry(signing_name))
+    }
 }
 
 pub(crate) type Out = Response<Vec<u8>>;
@@ -123,8 +156,8 @@ pub(crate) type Fail = Box<Out>;
 /// Answers a request. Never fails: a failure is an error answer.
 pub(crate) async fn respond(shared: &Shared, req: http::Request<Incoming>) -> Response<RespBody> {
     let id = RequestId::new();
-    let (parts, body) = req.into_parts();
-    let body = match crate::web::serve(shared, &id, &parts, body).await {
+    let (mut parts, body) = req.into_parts();
+    let body = match crate::web::serve(shared, &id, &mut parts, body).await {
         Ok(response) => return response,
         Err(body) => body,
     };
@@ -147,7 +180,7 @@ pub(crate) async fn respond(shared: &Shared, req: http::Request<Incoming>) -> Re
             .flatten()
     });
     if let Some(claim) = claim
-        && let Some(entry) = shared.entry(&claim.service).filter(|e| {
+        && let Some(entry) = shared.rest_entry(&claim.service, &parts).filter(|e| {
             let meta = e.service.meta();
             meta.speaks(Protocol::RestXml) || meta.speaks(Protocol::RestJson1)
         })

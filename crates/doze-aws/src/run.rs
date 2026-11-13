@@ -35,17 +35,7 @@ pub(crate) async fn run(args: Args) -> Result<()> {
     peers.set_authorizer(iam.clone());
     // Under `--auth verify`, a key the command line does not name may be one IAM issued (an access key or a role session).
     config.credential_source = Some(iam.clone());
-    let cloudwatch = Arc::new(aws_cloudwatch::Cloudwatch::with_settings(
-        Arc::new(ctx("cloudwatch")),
-        aws_cloudwatch::Settings {
-            retention: Duration::from_secs(args.cloudwatch_retention_hours * 3600),
-        },
-    ));
-    let logs = aws_logs::Settings {
-        retention: (args.logs_retention_days > 0)
-            .then(|| Duration::from_secs(args.logs_retention_days * 86_400)),
-        max_events: args.logs_max_events,
-    };
+    let (cloudwatch, logs) = observability(&ctx, &args);
     let eventbridge = Arc::new(Eventbridge::new(Arc::new(ctx("eventbridge"))));
     let (sqs, dynamodb, kinesis, lambda) = compute(&ctx, &args);
     let services: Vec<Arc<dyn Service>> = vec![
@@ -59,7 +49,7 @@ pub(crate) async fn run(args: Args) -> Result<()> {
         dynamodb.clone(),
         Arc::new(aws_s3::S3::new(Arc::new(ctx("s3")))),
         kinesis,
-        Arc::new(aws_logs::Logs::with_settings(Arc::new(ctx("logs")), logs)),
+        logs,
         cloudwatch.clone(),
         eventbridge.clone(),
         lambda.clone(),
@@ -69,10 +59,7 @@ pub(crate) async fn run(args: Args) -> Result<()> {
         peers.register(Arc::clone(&service));
         gateway = gateway.with(service);
     }
-    // DynamoDB Streams signs as `dynamodb` too: the gateway routes it by its target prefix, and it is not on the peer bus (which
-    // keys services by signing name).
-    let streams = aws_dynamodb_streams::Streams::new(dynamodb.clone(), Some(peers.clone()));
-    gateway = gateway.with(Arc::new(streams));
+    gateway = shared_names(gateway, &ctx, &peers, &dynamodb);
     let running = gateway
         .bind()
         .await
@@ -91,6 +78,48 @@ pub(crate) async fn run(args: Args) -> Result<()> {
     running.shutdown().await;
     tasks.shutdown().await;
     Ok(())
+}
+
+/// CloudWatch and Logs with their local storage bounds from the command line.
+fn observability(
+    ctx: &impl Fn(&str) -> Ctx,
+    args: &Args,
+) -> (Arc<aws_cloudwatch::Cloudwatch>, Arc<dyn Service>) {
+    let cloudwatch = Arc::new(aws_cloudwatch::Cloudwatch::with_settings(
+        Arc::new(ctx("cloudwatch")),
+        aws_cloudwatch::Settings {
+            retention: Duration::from_secs(args.cloudwatch_retention_hours * 3600),
+        },
+    ));
+    let settings = aws_logs::Settings {
+        retention: (args.logs_retention_days > 0)
+            .then(|| Duration::from_secs(args.logs_retention_days * 86_400)),
+        max_events: args.logs_max_events,
+    };
+    let logs = Arc::new(aws_logs::Logs::with_settings(
+        Arc::new(ctx("logs")),
+        settings,
+    ));
+    (cloudwatch, logs)
+}
+
+/// The services that share a signing name with another, so the bus cannot key them by it.
+fn shared_names(
+    mut gateway: Gateway,
+    ctx: &impl Fn(&str) -> Ctx,
+    peers: &Arc<Peers>,
+    dynamodb: &Arc<aws_dynamodb::Dynamodb>,
+) -> Gateway {
+    // DynamoDB Streams signs as `dynamodb` too: the gateway routes it by its target prefix, and it is not on the peer bus.
+    let streams = aws_dynamodb_streams::Streams::new(dynamodb.clone(), Some(peers.clone()));
+    gateway = gateway.with(Arc::new(streams));
+    // API Gateway's two APIs sign alike (`apigateway`); the gateway tells them apart by path, the bus by name.
+    let (rest_apis, http_apis) = aws_apigateway::services(Arc::new(ctx("apigateway")));
+    let (rest_apis, http_apis): (Arc<dyn Service>, Arc<dyn Service>) =
+        (Arc::new(rest_apis), Arc::new(http_apis));
+    peers.register_as("apigateway", Arc::clone(&rest_apis));
+    peers.register_as("apigatewayv2", Arc::clone(&http_apis));
+    gateway.with(rest_apis).with(http_apis)
 }
 
 /// Who may call: anyone (trust), or the one key from the command line (verify; IAM's own keys are added by the credential source).
