@@ -3,7 +3,7 @@
 // that never moves; the table is a DataTable with stable ids; a record opens in a routed Sheet; the Live tail is opt-in.
 import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import { ArrowUpIcon, CalendarClockIcon, CircleAlertIcon, InboxIcon, SearchIcon, SendIcon, XIcon } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useShell } from "@/api/queries";
 import { useTopicFrame, useMessages } from "@/api/topics";
 import type { MessagesResponse } from "@/api/types/MessagesResponse";
@@ -53,13 +53,27 @@ function cellOf(s: Shown, what: "key" | "value") {
   return s.preview;
 }
 
-function columns(open: (r: RecordRow) => void): DataColumn<RecordRow>[] {
-  return [
-    { accessorKey: "partition", header: "Partition", size: 96, meta: { mono: true } },
+/** Whether the window is wide (1280 px and more): under it the table drops Value size and narrows, so Value keeps room. */
+const WIDE = "(min-width: 1280px)";
+function useWide(): boolean {
+  return useSyncExternalStore(
+    (l) => {
+      const m = window.matchMedia(WIDE);
+      m.addEventListener("change", l);
+      return () => m.removeEventListener("change", l);
+    },
+    () => window.matchMedia(WIDE).matches,
+    () => true,
+  );
+}
+
+function columns(open: (r: RecordRow) => void, wide: boolean): DataColumn<RecordRow>[] {
+  const all: DataColumn<RecordRow>[] = [
+    { accessorKey: "partition", header: "Partition", size: wide ? 96 : 86, meta: { mono: true } },
     {
       accessorKey: "offset",
       header: "Offset",
-      size: 112,
+      size: wide ? 112 : 92,
       meta: { mono: true },
       cell: ({ row: { original: r } }) => (
         <button
@@ -75,8 +89,8 @@ function columns(open: (r: RecordRow) => void): DataColumn<RecordRow>[] {
         </button>
       ),
     },
-    { id: "ts", accessorKey: "timestamp_ms", header: "Timestamp", size: 132, meta: { mono: true }, cell: (c) => <span className="text-muted-foreground">{clockMs(c.getValue<number>())}</span> },
-    { id: "key", accessorFn: (r) => r.key.preview, header: "Key", size: 170, meta: { mono: true }, cell: ({ row: { original: r } }) => cellOf(r.key, "key") },
+    { id: "ts", accessorKey: "timestamp_ms", header: "Timestamp", size: wide ? 132 : 118, meta: { mono: true }, cell: (c) => <span className="text-muted-foreground">{clockMs(c.getValue<number>())}</span> },
+    { id: "key", accessorFn: (r) => r.key.preview, header: "Key", size: wide ? 170 : 124, meta: { mono: true }, cell: ({ row: { original: r } }) => cellOf(r.key, "key") },
     {
       id: "value",
       accessorFn: (r) => r.value.preview,
@@ -88,11 +102,12 @@ function columns(open: (r: RecordRow) => void): DataColumn<RecordRow>[] {
     {
       id: "standing",
       accessorFn: (r) => r.standing,
-      header: "For read_committed",
-      size: 168,
+      header: wide ? "For read_committed" : "read_committed",
+      size: wide ? 168 : 132,
       cell: ({ row: { original: r } }) => <StatusDot tone={STANDING[r.standing].tone}>{STANDING[r.standing].word}</StatusDot>,
     },
   ];
+  return wide ? all : all.filter((c) => c.id !== "size");
 }
 
 /** The one box: digits are an offset, anything else a key (as the classic page reads it). */
@@ -256,7 +271,9 @@ function FilterLine({ search, set, tailable, conn }: { search: MessagesSearch; s
     <div className="flex min-h-9 flex-wrap items-center justify-between gap-x-4 gap-y-2" data-testid="filter-line">
       <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
         {chips.length === 0 ? (
-          <span className="text-[13px] text-muted-foreground">No filter: the newest records of every partition.</span>
+          <span className="truncate text-[13px] text-muted-foreground" title="No filter: the newest records of every partition.">
+            No filter: the newest records of every partition.
+          </span>
         ) : (
           <>
             {chips.map((c) => (
@@ -371,7 +388,8 @@ function Records({ topic, r, frame, tail, tailable, search, set, open, children 
   if (r.view.query.reading === "committed") q.set("isolation", "read_committed");
   const t = useMessagesTail({ path: tail ? `/api/v1/tail/messages?${q}` : null, cursor: r.cursor, isHeld, known });
   const rows = useMemo(() => (tail ? prepend(t.live, base, WINDOW + base.length) : base), [tail, t.live, base]);
-  const cols = useMemo(() => columns(open), [open]);
+  const wide = useWide();
+  const cols = useMemo(() => columns(open, wide), [open, wide]);
   const filtered = r.view.query.partitions.length > 0 || r.view.query.offset !== null || r.view.query.time !== null || r.view.query.key !== null;
   const show = () => {
     box.current?.querySelector("[data-slot=data-table]")?.scrollTo({ top: 0 });

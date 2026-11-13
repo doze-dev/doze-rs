@@ -164,7 +164,7 @@ export function TxnPage() {
   return (
     <div data-testid="txn">
       <Lead r={r} sentence={<Spans spans={r.sentence} />} />
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
         <section className="rounded-xl border bg-card p-5">
           <h3 className="text-[16px] font-semibold text-bright">The transaction</h3>
           <div className="mt-3">

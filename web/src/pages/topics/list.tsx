@@ -74,12 +74,12 @@ function columns(now: number): DataColumn<TopicRow>[] {
         );
       },
     },
-    { accessorKey: "partitions", header: "Partitions", size: 110, meta: { numeric: true, mono: true } },
+    { accessorKey: "partitions", header: "Partitions", size: 122, meta: { numeric: true, mono: true } },
     {
       id: "cleanup",
       accessorFn: (r) => policyWord(r.cleanup),
       header: "Cleanup policy",
-      size: 150,
+      size: 164,
       cell: (c) => (
         <Badge variant="outline" className="font-mono text-[11.5px]">
           {c.getValue<string>()}
@@ -90,7 +90,7 @@ function columns(now: number): DataColumn<TopicRow>[] {
       id: "bytes",
       accessorFn: (r) => r.bytes ?? -1,
       header: "Size on disk",
-      size: 124,
+      size: 136,
       meta: { numeric: true, mono: true },
       cell: ({ row: { original: r } }) => (r.internal ? <span className="text-muted-foreground">not a log</span> : r.bytes === null ? "unknown" : bytes(r.bytes)),
     },

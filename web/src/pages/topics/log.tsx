@@ -274,7 +274,7 @@ function PlannerCards({ r, c }: { r: LogResponse; c: LogCompaction }) {
   const v = r.view;
   const due = c.planner.due;
   return (
-    <div className="mt-8 grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+    <div className="mt-8 grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
       <Card title={due ? "Will the cleaner take it?" : "Why it waits"} word={cleanerWord(c)} lede={due ? "The planner's rules, as Kafka's cleaner reads them (CMP-1), with this partition's numbers." : "The same rules as for a log that is due, one of them failing."} data-testid="planner">
         <Rules rules={r.rules} />
         {due && r.would_rewrite.length > 0 && (
@@ -334,7 +334,7 @@ function RetentionCards({ r }: { r: LogResponse }) {
   }
   const passWord = !ret.last_pass ? <StatusDot tone="idle">No pass yet</StatusDot> : ret.last_pass.moved.length === 0 && ret.last_pass.more === 0 ? <StatusDot tone="idle">Deleted nothing</StatusDot> : <StatusDot tone="ok">Deleted</StatusDot>;
   return (
-    <div className="mt-8 grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+    <div className="mt-8 grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
       <Card title="What the next pass will do" lede={<>Retention reads <code className="font-mono">retention.ms</code> and <code className="font-mono">retention.bytes</code> of the topic, else the broker's.</>} data-testid="planner">
         <Rules rules={r.retention_rules} />
       </Card>
