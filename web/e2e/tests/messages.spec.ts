@@ -69,7 +69,8 @@ test("partitions, key and time: each is in the address, shown as a chip with a w
   await expect(page).toHaveURL(/partition=1/);
   await expect(page.getByTestId("chip-p1")).toBeVisible();
   await expect(rows(page).first()).toBeVisible();
-  for (const r of await rows(page).all()) expect(await r.locator("td").first().innerText()).toBe("1");
+  // The rows follow (polled: the rows of the read before stay on screen until the new answer replaces them).
+  await expect.poll(async () => (await rows(page).locator("td:first-child").allInnerTexts()).every((t) => t.trim() === "1")).toBe(true);
   expect(await pageBoxes(page, ["[data-testid=toolbar]", "[data-testid=filter-line]"])).toEqual(toolbar);
   await page.getByRole("button", { name: "Remove partition 1" }).click();
   await expect(page).not.toHaveURL(/partition=/);
@@ -81,7 +82,7 @@ test("partitions, key and time: each is in the address, shown as a chip with a w
   await expect(page.getByTestId("chip-key")).toContainText(key);
   await expect(page.getByTestId("reach")).toBeVisible();
   await expect(rows(page).first()).toBeVisible();
-  for (const r of await rows(page).all()) expect((await r.locator("td").nth(3).innerText()).trim()).toBe(key);
+  await expect.poll(async () => (await rows(page).locator("td:nth-child(4)").allInnerTexts()).every((t) => t.trim() === key)).toBe(true);
   // Digits are an offset.
   await page.getByTestId("find").fill("0");
   await page.getByTestId("find").press("Enter");
