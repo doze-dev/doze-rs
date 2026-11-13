@@ -44,6 +44,8 @@ impl EmptyView {
                 .await;
             let _ = this.update(cx, |v, cx| {
                 v.page = empty_of(&v.dir, &found);
+                // The first way that can work here is the one ⏎ takes.
+                v.at = v.page.ways.iter().position(|w| !w.off).unwrap_or(0);
                 cx.notify();
             });
         })

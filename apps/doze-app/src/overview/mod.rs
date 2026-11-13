@@ -355,7 +355,10 @@ impl OverviewView {
                     r.url.clone()
                 };
                 cx.write_to_clipboard(gpui::ClipboardItem::new_string(a.clone()));
-                self.say(&format!("Copied {a}"), cx);
+                self.say(
+                    &format!("copied the address of {} to the clipboard", r.name),
+                    cx,
+                );
             }
             Some(r) => self.say(&format!("{} has no address to copy.", r.name), cx),
             None => {}

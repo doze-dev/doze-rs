@@ -317,13 +317,16 @@ impl DialogView {
             .text_size(px(12.))
             .font_weight(w(if b.primary || b.danger { 600. } else { 500. }))
             .text_color(fg)
-            .when(at && on && (b.primary || b.danger), |d| {
-                d.shadow(vec![super::scrim::ring(if b.danger {
-                    t.bad
-                } else {
-                    t.accent
-                })])
-            })
+            .when(
+                at && on && (b.primary || b.danger) && !self.c.has_box(),
+                |d| {
+                    d.shadow(vec![super::scrim::ring(if b.danger {
+                        t.bad
+                    } else {
+                        t.accent
+                    })])
+                },
+            )
             .when(!on, |d| d.opacity(0.6))
             .when(on, |d| d.cursor_pointer())
             .child(s(&b.label))
