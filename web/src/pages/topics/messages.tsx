@@ -240,7 +240,8 @@ function ConnDot({ conn }: { conn: Conn | null }) {
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
   }, [down]);
-  const box = "inline-flex min-w-[13rem] items-center";
+  // The slot is reserved in Live tail (its words change length there); a snapshot says one word, beside its Refresh.
+  const box = cn("inline-flex items-center", conn && "min-w-[13rem]");
   if (!conn) return <span className={box}><StatusDot tone="idle" data-testid="conn" data-state="snapshot">Snapshot</StatusDot></span>;
   if (conn.state === "live") return <span className={box}><StatusDot tone="ok" data-testid="conn" data-state="live">Live</StatusDot></span>;
   if (conn.state === "down") {

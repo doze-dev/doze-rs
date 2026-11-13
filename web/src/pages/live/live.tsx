@@ -51,7 +51,7 @@ function Refusals({ r, onOpen }: { r: LiveResponse; onOpen: (id: number) => void
   const v = r.live;
   const total = v.refused_total + v.denied_total;
   return (
-    <div className={cn("rounded-xl border bg-card text-[13.5px]", total > 0 && "border-refused/30 bg-refused/[0.04]")} data-testid="refusals">
+    <div className="rounded-xl border bg-card text-[13.5px]" data-testid="refusals">
       <button type="button" disabled={total === 0} aria-expanded={total > 0 ? open : undefined} onClick={() => setOpen((o) => !o)} className="flex h-11 w-full items-center gap-2 rounded-xl px-4 text-left focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none enabled:hover:bg-accent/40">
         {total === 0 ? (
           <span className="text-muted-foreground">No refusals among the rows kept.</span>

@@ -341,9 +341,9 @@ function DataSection({ r }: { r: SettingsResponse }) {
 }
 
 const flagColumns: DataColumn<SettingsFlag>[] = [
-  { accessorKey: "name", header: "Flag", size: 230, meta: { mono: true } },
-  { accessorKey: "value", header: "Value", size: 170, meta: { mono: true } },
-  { accessorKey: "default", header: "Default", size: 120, meta: { mono: true } },
+  { accessorKey: "name", header: "Flag", size: 210, meta: { mono: true } },
+  { accessorKey: "value", header: "Value", size: 190, meta: { mono: true } },
+  { accessorKey: "default", header: "Default", size: 160, meta: { mono: true } },
   {
     accessorKey: "what",
     header: "What it does",
