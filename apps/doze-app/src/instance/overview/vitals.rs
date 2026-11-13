@@ -14,7 +14,9 @@ use crate::widgets::w;
 /// The charts on the right, or why there are none.
 pub(super) fn charts(t: &Tokens, p: &InstancePage) -> Vec<AnyElement> {
     let Some(v) = &p.vitals else {
-        let why = if p.look == Some(Look::Off) || p.paused {
+        let why = if p.paused {
+            "Paused in doze.hcl: nothing runs, nothing is measured."
+        } else if p.look == Some(Look::Off) {
             "Off: nothing runs, nothing is measured."
         } else {
             "no readings yet"

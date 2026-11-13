@@ -83,6 +83,43 @@ pub(crate) fn overview(
 }
 
 /// Above the cards: a crashing service's banner, and the port clash.
+/// The crash banner's two lines. Not ready in time is its own failure (Needs you says so: "did not become ready"), and
+/// a page with nothing to show from the last run points at the logs instead; a failed one is not tried again, so there
+/// is nothing to stop.
+fn crash_words(c: &doze_desk::page::parts::Crash) -> (String, &'static str) {
+    let not_ready = c.error.contains("not become ready");
+    let sub = match (c.last_run.is_empty(), c.gave_up || not_ready) {
+        (true, true) => "Its logs usually say why. Fix it and press Restart.",
+        (true, false) => {
+            "Its logs usually say why. Fix it and press Try now, or stop trying while you look."
+        }
+        (false, true) => "What it said is below. Fix it and press Restart.",
+        (false, false) => {
+            "What it said is below. Fix it and press Try now, or stop trying while you look."
+        }
+    };
+    let said = if not_ready {
+        "It started but never answered, so doze stopped it. It waits for you.".to_owned()
+    } else if c.gave_up {
+        "It kept exiting soon after starting, so doze stopped trying. It waits for you.".to_owned()
+    } else {
+        let next = if c.next_in.is_empty() {
+            String::new()
+        } else {
+            format!(" in {}", c.next_in)
+        };
+        let tries = if c.tries.is_empty() {
+            String::new()
+        } else {
+            format!(" ({})", c.tries)
+        };
+        format!(
+            "It exits soon after starting. doze tries again{next}{tries}, and stops trying if it keeps exiting."
+        )
+    };
+    (said, sub)
+}
+
 fn crash_top(
     t: &Tokens,
     v: &mut InstanceView,
@@ -98,52 +135,22 @@ fn crash_top(
         .flex_none();
     if p.crash.is_none() && !p.stuck.is_empty() {
         // Stuck waking: Needs you has it as a red item; the page says the same, with the same verb (Restart).
-        let sub = format!(
-            "{}{}.",
-            p.stuck.get(..1).unwrap_or("").to_uppercase(),
-            p.stuck.get(1..).unwrap_or("")
-        );
+        // Needs you's words, once: "for 7m, with no word from it for 7m" says the time twice on one line.
+        let long = p
+            .stuck
+            .split(',')
+            .next()
+            .unwrap_or("")
+            .trim_start_matches("for ");
         top = top.child(banner(
             t,
             ui::Tone::Warn,
-            "It is still waking, and has said nothing.",
-            &sub,
+            &format!("It has been waking for {long} and has said nothing."),
+            "Its logs usually say why. Restart starts it again.",
         ));
     }
     if let Some(c) = &p.crash {
-        // Not ready in time is its own failure (Needs you says so: "did not become ready"), and a page with nothing to
-        // show from the last run points at the logs instead; a failed one is not tried again, so nothing to stop.
-        let not_ready = c.error.contains("not become ready");
-        let sub = match (c.last_run.is_empty(), c.gave_up || not_ready) {
-            (true, true) => "Its logs usually say why. Fix it and press Try now.",
-            (true, false) => {
-                "Its logs usually say why. Fix it and press Try now, or stop trying while you look."
-            }
-            (false, true) => "What it said is below. Fix it and press Try now.",
-            (false, false) => {
-                "What it said is below. Fix it and press Try now, or stop trying while you look."
-            }
-        };
-        let said = if not_ready {
-            "It started but never answered, so doze stopped it. It waits for you.".to_owned()
-        } else if c.gave_up {
-            "It kept exiting soon after starting, so doze stopped trying. It waits for you."
-                .to_owned()
-        } else {
-            let next = if c.next_in.is_empty() {
-                String::new()
-            } else {
-                format!(" in {}", c.next_in)
-            };
-            let tries = if c.tries.is_empty() {
-                String::new()
-            } else {
-                format!(" ({})", c.tries)
-            };
-            format!(
-                "It exits soon after starting. doze tries again{next}{tries}, and stops trying if it keeps exiting."
-            )
-        };
+        let (said, sub) = crash_words(c);
         let mut b = banner(t, ui::Tone::Bad, &said, sub);
         if !c.tries.is_empty() {
             b = b.child(

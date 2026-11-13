@@ -109,13 +109,7 @@ fn verbs(t: &Tokens, v: &InstanceView, cx: &mut Context<InstanceView>) -> Vec<An
                 cx,
             )
         };
-        let run = if p.look == Some(Look::Running) {
-            "Running…"
-        } else if ran {
-            "Run again"
-        } else {
-            "Run"
-        };
+        let run = run_label(p.look, ran);
         return vec![
             first,
             act(
@@ -153,7 +147,10 @@ fn verbs(t: &Tokens, v: &InstanceView, cx: &mut Context<InstanceView>) -> Vec<An
         out.push(act(
             t,
             "try",
-            ("Try now", &chip("Restart / try now")),
+            (
+                if c.gave_up { "Restart" } else { "Try now" },
+                &chip("Restart / try now"),
+            ),
             true,
             InstanceView::restart,
             cx,
@@ -320,7 +317,10 @@ pub(crate) fn keys(t: &Tokens, v: &InstanceView) -> impl IntoElement {
             keys.push((chip("Open in browser"), "open in browser"));
         }
         if let Some(c) = &p.crash {
-            keys.push((chip("Restart / try now"), "try now"));
+            keys.push((
+                chip("Restart / try now"),
+                if c.gave_up { "restart" } else { "try now" },
+            ));
             if !c.gave_up {
                 keys.push((chip("Sleep / stop trying"), "stop trying"));
             }
@@ -381,4 +381,15 @@ pub(crate) fn keys_bar(t: &Tokens, keys: Vec<(String, &str)>, note: &str) -> gpu
                 .text_ellipsis()
                 .child(ui::text(note)),
         )
+}
+
+/// A task's verb: what pressing it does now.
+fn run_label(look: Option<Look>, ran: bool) -> &'static str {
+    if look == Some(Look::Running) {
+        "Running…"
+    } else if ran {
+        "Run again"
+    } else {
+        "Run"
+    }
 }
