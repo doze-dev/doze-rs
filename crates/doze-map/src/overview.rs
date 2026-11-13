@@ -10,7 +10,8 @@
 //! card's own.
 //!
 //! The lane and the band are not regions: nothing calls lane cards, and use lines are drawn only
-//! for a selection.
+//! for a selection. A map laid out by named region ([`crate::NamedRegion`]) has its frames as its
+//! regions instead of grid cells.
 
 use std::collections::HashMap;
 
@@ -58,6 +59,34 @@ pub struct Overview {
     pub bundles: Vec<Bundle>,
     /// Calls inside one region (not bundled; a renderer may leave them out far out).
     pub inside: u32,
+    /// One link per pair of regions that call each other, either way or both.
+    pub links: Vec<Link>,
+}
+
+/// Two regions' calls, both ways, as one line: a gentle curve between their nearer edges, with a head at
+/// each end that is called.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Link {
+    /// One region (an index into [`Overview::regions`]), the lower.
+    pub a: usize,
+    /// The other.
+    pub b: usize,
+    /// Calls from `a` into `b`.
+    pub ab: u32,
+    /// Calls from `b` into `a`.
+    pub ba: u32,
+    /// The line, from `a` to `b`.
+    pub path: Path,
+    /// The curve's middle, where a count goes.
+    pub mid: Pt,
+}
+
+impl Link {
+    /// Every call it stands for.
+    #[must_use]
+    pub fn calls(&self) -> u32 {
+        self.ab.saturating_add(self.ba)
+    }
 }
 
 impl Overview {
@@ -69,7 +98,11 @@ impl Overview {
 }
 
 pub(crate) fn overview(l: &Layout) -> Overview {
-    let (regions, region_of) = regions(l);
+    let (regions, region_of) = if l.regions.is_empty() {
+        regions(l)
+    } else {
+        named(l)
+    };
     let mut weights: HashMap<(usize, usize), u32> = HashMap::new();
     let mut inside = 0u32;
     for e in &l.edges {
@@ -85,6 +118,7 @@ pub(crate) fn overview(l: &Layout) -> Overview {
             *w = w.saturating_add(n);
         }
     }
+    let links = links(&regions, &weights);
     let mut bundles: Vec<Bundle> = weights
         .into_iter()
         .filter_map(|((from, to), count)| {
@@ -107,7 +141,22 @@ pub(crate) fn overview(l: &Layout) -> Overview {
         region_of,
         bundles,
         inside,
+        links,
     }
+}
+
+/// A map by named region: its frames are the regions.
+fn named(l: &Layout) -> (Vec<Region>, Vec<Option<usize>>) {
+    let regions = l
+        .regions
+        .iter()
+        .map(|r| Region {
+            rect: r.rect,
+            cards: r.cards.clone(),
+            label: Some(r.name.clone()),
+        })
+        .collect();
+    (regions, l.region_of.clone())
 }
 
 /// The flow cards in grid cells, row by row.
@@ -191,24 +240,135 @@ fn label<'a>(names: impl Iterator<Item = &'a str>) -> Option<String> {
     (n >= 2 && n * 5 >= total * 3).then(|| best.to_owned())
 }
 
-/// One cubic from `a` to `b`, leaving and landing level: from `a`'s right to `b`'s left when `b`
-/// is to the right, else from `a`'s left to `b`'s right.
+/// The links between regions: each pair once, both directions counted, heaviest first.
+fn links(regions: &[Region], weights: &HashMap<(usize, usize), u32>) -> Vec<Link> {
+    let mut pairs: Vec<(usize, usize)> =
+        weights.keys().map(|&(a, b)| (a.min(b), a.max(b))).collect();
+    pairs.sort_unstable();
+    pairs.dedup();
+    let mut out: Vec<Link> = pairs
+        .into_iter()
+        .filter_map(|(a, b)| {
+            let (ra, rb) = (&regions.get(a)?.rect, &regions.get(b)?.rect);
+            let path = gentle(ra, rb);
+            let mid = clear_point(&path, regions)?;
+            Some(Link {
+                a,
+                b,
+                ab: weights.get(&(a, b)).copied().unwrap_or(0),
+                ba: weights.get(&(b, a)).copied().unwrap_or(0),
+                path,
+                mid,
+            })
+        })
+        .collect();
+    out.sort_by(|x, y| y.calls().cmp(&x.calls()).then((x.a, x.b).cmp(&(y.a, y.b))));
+    out
+}
+
+/// [`bundle_path`] bowed a little to one side, so links that run the same way do not lie on each other.
+fn gentle(a: &Rect, b: &Rect) -> Path {
+    let mut p = bundle_path(a, b);
+    if let (Some(Seg::Move(s)), Some(Seg::Cubic(c1, c2, e))) =
+        (p.segs.first().copied(), p.segs.get(1).copied())
+    {
+        let (dx, dy) = (e.x - s.x, e.y - s.y);
+        let len = dx.hypot(dy).max(1.0);
+        let bow = (len * 0.12).min(60.0);
+        let (nx, ny) = (-dy / len * bow, dx / len * bow);
+        p.segs = vec![
+            Seg::Move(s),
+            Seg::Cubic(
+                Pt::new(c1.x + nx, c1.y + ny),
+                Pt::new(c2.x + nx, c2.y + ny),
+                e,
+            ),
+        ];
+    }
+    p
+}
+
+/// Where a link's count goes: the point nearest the middle of its curve that lies in no frame (the link runs under
+/// the frames, so a count inside one would sit on its cards); just outside the first frame when it never leaves one.
+fn clear_point(p: &Path, regions: &[Region]) -> Option<Pt> {
+    let (Some(Seg::Move(s)), Some(Seg::Cubic(c1, c2, e))) = (p.segs.first(), p.segs.get(1)) else {
+        return p.segs.last().map(Seg::end);
+    };
+    let at = |t: f64| {
+        let u = 1.0 - t;
+        let w = [u * u * u, 3.0 * u * u * t, 3.0 * u * t * t, t * t * t];
+        Pt::new(
+            w[0] * s.x + w[1] * c1.x + w[2] * c2.x + w[3] * e.x,
+            w[0] * s.y + w[1] * c1.y + w[2] * c2.y + w[3] * e.y,
+        )
+    };
+    let clear = |q: Pt| {
+        !regions.iter().any(|r| {
+            Rect::new(
+                r.rect.x - 14.0,
+                r.rect.y - 14.0,
+                r.rect.w + 28.0,
+                r.rect.h + 28.0,
+            )
+            .inside(q)
+        })
+    };
+    (0u32..=20)
+        .map(|k| 0.5 + if k % 2 == 0 { 1.0 } else { -1.0 } * f64::from(k.div_ceil(2)) * 0.022)
+        .map(at)
+        .find(|q| clear(*q))
+        .or_else(|| {
+            // The curve never leaves a frame: just outside where it leaves the first.
+            let (dx, dy) = (c1.x - s.x, c1.y - s.y);
+            let len = dx.hypot(dy).max(1e-6);
+            Some(Pt::new(s.x + dx / len * 22.0, s.y + dy / len * 22.0))
+        })
+}
+
+/// One cubic from `a` to `b` between their nearest sides: right into left when `b` is to the right (left into
+/// right when to the left); when the two overlap across, bottom into top (or top into bottom), leaving and landing
+/// square.
 fn bundle_path(a: &Rect, b: &Rect) -> Path {
     let (ca, cb) = (a.center(), b.center());
-    let forward = cb.x >= ca.x;
-    let (start, end) = if forward {
-        (Pt::new(a.right(), ca.y), Pt::new(b.x, cb.y))
+    let (start, end, d1, d2) = if b.x >= a.right() {
+        (
+            Pt::new(a.right(), ca.y),
+            Pt::new(b.x, cb.y),
+            (1.0, 0.0),
+            (-1.0, 0.0),
+        )
+    } else if b.right() <= a.x {
+        (
+            Pt::new(a.x, ca.y),
+            Pt::new(b.right(), cb.y),
+            (-1.0, 0.0),
+            (1.0, 0.0),
+        )
+    } else if cb.y >= ca.y {
+        let x = f64::midpoint(a.x.max(b.x), a.right().min(b.right()));
+        (
+            Pt::new(x, a.bottom()),
+            Pt::new(x, b.y),
+            (0.0, 1.0),
+            (0.0, -1.0),
+        )
     } else {
-        (Pt::new(a.x, ca.y), Pt::new(b.right(), cb.y))
+        let x = f64::midpoint(a.x.max(b.x), a.right().min(b.right()));
+        (
+            Pt::new(x, a.y),
+            Pt::new(x, b.bottom()),
+            (0.0, -1.0),
+            (0.0, 1.0),
+        )
     };
-    let pull = ((end.x - start.x).abs() / 2.0).max(60.0);
-    let dir = if forward { 1.0 } else { -1.0 };
+    let pull = (start.x - end.x).abs().max((start.y - end.y).abs()) / 2.0;
+    let pull = pull.max(40.0);
     Path {
         segs: vec![
             Seg::Move(start),
             Seg::Cubic(
-                Pt::new(start.x + dir * pull, start.y),
-                Pt::new(end.x - dir * pull, end.y),
+                Pt::new(start.x + d1.0 * pull, start.y + d1.1 * pull),
+                Pt::new(end.x + d2.0 * pull, end.y + d2.1 * pull),
                 end,
             ),
         ],

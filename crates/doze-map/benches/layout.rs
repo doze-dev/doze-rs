@@ -122,9 +122,14 @@ fn one_part(ins: &[Instance], opts: &Options, runs: usize) -> (Duration, String)
     (d, format!("{moved} of {}", before.len()))
 }
 
-fn row(n: usize, opts: &Options) -> Row {
-    let e = n * 5 / 2;
-    let ins = synth::stack(n, e, 7);
+/// A row: `synth::stack`, or with `medium` a medium stack shaped like a real one (`synth::medium`, named
+/// regions) with about 500 calls at 150.
+fn row(n: usize, opts: &Options, medium: bool) -> Row {
+    let (e, ins) = if medium {
+        (n * 10 / 3, synth::medium(n, n * 10 / 3, 1))
+    } else {
+        (n * 5 / 2, synth::stack(n, n * 5 / 2, 7))
+    };
     let runs = if n >= 2000 { 7 } else { 21 };
     let full = time(runs, || layout(&ins, opts));
     let l = layout(&ins, opts);
@@ -169,23 +174,29 @@ fn main() -> ExitCode {
         "| nodes / edges | cards | mode | full layout | viewport query (1280×800) | whole-map query |  state change | one task card appears | cards moved |"
     );
     println!("|---|---|---|---|---|---|---|---|---|");
-    let sizes: &[(usize, bool)] = &[
-        (10, false),
-        (100, false),
-        (1000, false),
-        (2000, false),
-        (5000, false),
-        (2000, true),
-        (5000, true),
+    let sizes: &[(usize, bool, bool)] = &[
+        (10, false, false),
+        (100, false, false),
+        (100, false, true),
+        (150, false, true),
+        (1000, false, false),
+        (2000, false, false),
+        (5000, false, false),
+        (2000, true, false),
+        (5000, true, false),
     ];
-    for &(n, collapse) in sizes {
+    for &(n, collapse, medium) in sizes {
         let opts = if collapse {
             Options::default()
         } else {
             expanded()
         };
-        let r = row(n, &opts);
-        let tag = if collapse { " (groups collapsed)" } else { "" };
+        let r = row(n, &opts, medium);
+        let tag = match (collapse, medium) {
+            (true, _) => " (groups collapsed)",
+            (_, true) => " (medium, by region)",
+            _ => "",
+        };
         println!(
             "| {} / {}{tag} | {} | {} | {} | {} | {} | {} | {} | {} |",
             r.nodes,
@@ -199,6 +210,9 @@ fn main() -> ExitCode {
             ms(r.part.max(Duration::ZERO)),
             r.moved
         );
+        if r.nodes == 150 && medium {
+            ok &= check("full layout, 150 services", r.full, 20.0);
+        }
         if r.nodes == 2000 && !collapse {
             ok &= check("full layout, 2,000 nodes", r.full, 50.0);
             ok &= check("viewport query", r.query, 1.0);

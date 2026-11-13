@@ -42,7 +42,8 @@ impl Parts<'_, '_> {
             .enumerate()
             .map(|(i, c)| (c.name.clone(), CardId::of(i)))
             .collect();
-        let index = Index::build(&cards, &edges);
+        let index = Index::build(&cards, &[], &edges);
+        let region_of = vec![None; cards.len()];
         Layout {
             mode: Mode::Classic,
             bounds: Rect::new(0.0, 0.0, self.size.0 as f64, self.size.1 as f64),
@@ -52,6 +53,10 @@ impl Parts<'_, '_> {
             edges,
             detail: self.detail,
             groups: HashMap::new(),
+            region_of,
+            regions: Vec::new(),
+            tile: None,
+            folded: Vec::new(),
             lines,
             gutters: None,
             index,
@@ -92,6 +97,7 @@ impl Parts<'_, '_> {
                     path,
                     count: 1,
                     back: tb.x <= s.x,
+                    across: false,
                 });
             }
         }

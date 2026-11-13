@@ -7,7 +7,8 @@ use crate::kit::{chip_of, keys_bar};
 use crate::theme::Tokens;
 
 /// The keys bar for the view in force.
-pub(super) fn keys(t: &Tokens, v: &OverviewView, lit: bool) -> impl IntoElement {
+/// `held` is the Map's selection and whether a focus view (a neighbourhood, only trouble) is open.
+pub(super) fn keys(t: &Tokens, v: &OverviewView, (lit, lens): (bool, bool)) -> impl IntoElement {
     let arrows = |up: &str, down: &str| format!("{}{}", chip_of(up), chip_of(down));
     let (keys, note): (Vec<(String, &str)>, &str) = if v.home.stopped.is_some() {
         (
@@ -23,26 +24,7 @@ pub(super) fn keys(t: &Tokens, v: &OverviewView, lit: bool) -> impl IntoElement 
         )
     } else {
         match v.view {
-            View::Map => {
-                let arrows = ["Card above", "Card below", "Card left", "Card right"]
-                    .iter()
-                    .map(|l| chip_of(l))
-                    .collect::<String>();
-                (
-                    vec![
-                        (arrows, "move"),
-                        (chip_of("Find a card"), "find"),
-                        (chip_of("Fit the map"), "fit"),
-                        (chip_of("Overview on or off"), "overview"),
-                        (chip_of("Close"), if lit { "let go" } else { "close" }),
-                    ],
-                    if lit {
-                        "selected: its calls stay lit, the rest steps back"
-                    } else {
-                        "hover a card to see its calls · click to keep them"
-                    },
-                )
-            }
+            View::Map => map_keys(lit, lens),
             View::Grid => (
                 vec![
                     (
@@ -73,4 +55,34 @@ pub(super) fn keys(t: &Tokens, v: &OverviewView, lit: bool) -> impl IntoElement 
         }
     };
     keys_bar(t, &keys, note)
+}
+
+/// The Map's keys and note: what esc does depends on what it holds (a focus view, a selection).
+fn map_keys(lit: bool, lens: bool) -> (Vec<(String, &'static str)>, &'static str) {
+    let arrows = ["Card above", "Card below", "Card left", "Card right"]
+        .iter()
+        .map(|l| chip_of(l))
+        .collect::<String>();
+    let esc = match (lens, lit) {
+        (true, _) => "back to the whole map",
+        (_, true) => "let go",
+        _ => "close",
+    };
+    let note = if lens {
+        "a focus view: the rest of the map is hidden until esc"
+    } else if lit {
+        "selected: its calls stay lit, the rest steps back"
+    } else {
+        "hover a card to see its calls · click to keep them"
+    };
+    (
+        vec![
+            (arrows, "move"),
+            (chip_of("Find a card"), "find"),
+            (chip_of("Fit the map"), "fit"),
+            (chip_of("Overview on or off"), "overview"),
+            (chip_of("Close"), esc),
+        ],
+        note,
+    )
 }

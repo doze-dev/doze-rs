@@ -8,14 +8,34 @@
 //!
 //! A card's own calls light up on hover and stay lit on selection, at every level. The zoom toolbar sits above the
 //! drawing, never over it; the minimap moves out of the way of the card in hand and can be put away.
+//!
+//! Past sixty cards (doze-map's `classic_max`; a smaller map is the Go map exactly), a map that splits into named
+//! regions is drawn by region, each a labelled frame (its services, what is crashing, its memory); its calls are on
+//! demand (faint at rest, the regions' bundles between frames, `L` for every line); the cards with no calls fold
+//! into one tile that opens a searchable list ([`tile`]); find flies to the card ([`flight`]); and two focus views
+//! ([`lens`]) show a card's neighbourhood (`H`) or only what is in trouble (`T`).
 
+#[cfg(feature = "capture")]
+pub(crate) mod bench;
 mod cache;
 mod camera;
 mod cards;
 mod chrome;
 mod detail;
+mod fade;
+mod flight;
+mod lens;
 mod paint;
+mod regions;
+#[cfg(feature = "capture")]
+mod stage;
+mod state;
+#[cfg(all(test, feature = "capture"))]
+mod tests;
+mod tile;
+mod tools;
 mod view;
+mod words;
 
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -28,6 +48,7 @@ use gpui_component::input::{InputEvent, InputState};
 use crate::model::{Fold, Page, Row, state_index};
 use cache::Cache;
 pub(crate) use camera::Camera;
+pub(crate) use lens::Lens;
 
 /// Below this zoom cards are blocks without text and calls are polylines.
 pub(crate) const DETAIL_ZOOM: f32 = 0.42;
@@ -46,7 +67,23 @@ impl gpui::EventEmitter<MapEvent> for MapView {}
 /// The Map of one stack.
 pub(crate) struct MapView {
     mapper: Mapper,
+    /// The stack's layout; [`MapView::layout`] is it, or a focus view made from it.
+    pub(crate) base: Arc<Layout>,
+    /// The layout drawn.
     pub(crate) layout: Arc<Layout>,
+    /// The focus view in force, and the camera from before it.
+    pub(crate) lens: Option<Lens>,
+    saved: Option<Camera>,
+    /// The page's instances, for a focus view laid out on its own.
+    ins: Vec<doze_map::Instance>,
+    /// Every line drawn (`L`), rather than lines on demand.
+    pub(crate) all_lines: bool,
+    /// The folded tile's list, open.
+    pub(crate) list: Option<tile::List>,
+    /// The region whose name pill is under the pointer.
+    pub(crate) region_hover: Option<usize>,
+    /// The selection's and the pointer's fades in flight.
+    pub(crate) fades: fade::Fades,
     /// The layout's overview, made once per layout.
     pub(crate) overview: Rc<Overview>,
     pub(crate) rows: HashMap<String, Row>,
@@ -78,7 +115,15 @@ impl MapView {
         MapView {
             mapper,
             overview: Rc::new(layout.overview()),
+            base: layout.clone(),
             layout,
+            lens: None,
+            saved: None,
+            ins: Vec::new(),
+            all_lines: false,
+            list: None,
+            fades: fade::Fades::default(),
+            region_hover: None,
             rows: HashMap::new(),
             folds: HashMap::new(),
             cam: Camera::default(),
@@ -101,16 +146,13 @@ impl MapView {
     pub(crate) fn set_page(&mut self, page: &Page, cx: &mut Context<Self>) {
         let l = self.mapper.layout(&page.map);
         let mut changed = false;
-        if !Arc::ptr_eq(&l, &self.layout) {
-            let lit = self
-                .lit
-                .and_then(|c| self.layout.card(c))
-                .map(|c| c.name.clone());
-            self.overview = Rc::new(l.overview());
-            self.layout = l;
-            self.cache.clear();
-            self.lit = lit.and_then(|n| self.layout.card_named(&n));
-            self.hover = None;
+        let moved = !Arc::ptr_eq(&l, &self.base);
+        if moved {
+            self.base = l;
+            self.ins.clone_from(&page.map);
+            if self.lens.is_none() {
+                self.show(self.base.clone());
+            }
             if self.layout.cards.is_empty() {
                 self.cam.fitted = false;
             }
@@ -122,24 +164,79 @@ impl MapView {
             .map(|r| (r.name.clone(), r.clone()))
             .collect();
         if rows != self.rows || page.folds != self.folds {
+            let trouble = |r: &HashMap<String, Row>| {
+                let mut v: Vec<&str> = r
+                    .values()
+                    .filter(|r| r.trouble)
+                    .map(|r| r.name.as_str())
+                    .collect();
+                v.sort_unstable();
+                v.join(",")
+            };
+            // Only trouble is made again when what is in trouble changes.
+            let again = moved
+                || matches!(self.lens, Some(Lens::Trouble { .. }))
+                    && trouble(&rows) != trouble(&self.rows);
             self.rows = rows;
             self.folds = page.folds.clone();
+            if again {
+                self.relens();
+            }
             changed = true;
+        } else if moved {
+            self.relens();
         }
+        changed |= self.restate();
+        if changed {
+            cx.notify();
+        }
+    }
+
+    /// Draws `l`: the selection and the pointer's card kept by name, the cache and the states made again.
+    pub(crate) fn show(&mut self, l: Arc<Layout>) {
+        let name =
+            |id: Option<CardId>| id.and_then(|c| self.layout.card(c)).map(|c| c.name.clone());
+        let (lit, hover) = (name(self.lit), name(self.hover));
+        self.overview = Rc::new(l.overview());
+        self.layout = l;
+        self.cache.clear();
+        self.lit = lit.and_then(|n| self.layout.card_named(&n));
+        self.hover = hover.and_then(|n| self.layout.card_named(&n));
+        self.fades.shown(self.lit, self.hover);
+        self.restate();
+    }
+
+    /// Each drawn card's state, made again; says whether it changed.
+    fn restate(&mut self) -> bool {
         let states: Vec<u8> = self
             .layout
             .cards
             .iter()
             .map(|c| state_index(self.rows.get(&c.name)))
             .collect();
-        if *self.states != states {
-            self.states = Rc::new(states);
-            self.cache.clear();
-            changed = true;
+        if *self.states == states {
+            return false;
         }
-        if changed {
-            cx.notify();
-        }
+        self.states = Rc::new(states);
+        self.cache.clear();
+        true
+    }
+
+    /// The region in hand: the focus card's, else the one whose name is under the pointer. Its links light.
+    pub(crate) fn home_region(&self) -> Option<usize> {
+        self.focus_card()
+            .and_then(|c| self.layout.region_of.get(c.ix()).copied().flatten())
+            .or(self.region_hover.filter(|k| *k < self.layout.regions.len()))
+    }
+
+    /// Lines on demand: past sixty cards, unless every line is asked for.
+    pub(crate) fn quiet(&self) -> bool {
+        self.layout.mode == doze_map::Mode::Layered && !self.all_lines
+    }
+
+    /// Something on the Map that esc closes: the find box, the list, a focus view, a selection.
+    pub(crate) fn holds(&self) -> bool {
+        self.lit.is_some() || self.search.is_some() || self.list.is_some() || self.lens.is_some()
     }
 
     /// The card called `name`, if the map has it.
@@ -150,7 +247,15 @@ impl MapView {
     /// Selects a card (or nothing), bringing it into view.
     pub(crate) fn select(&mut self, id: Option<CardId>, cx: &mut Context<Self>) {
         if let Some(id) = id {
-            self.cam.reveal(&self.layout, id);
+            // Out of view, the camera eases to it (the arrow keys walk off the edge).
+            let mut to = self.cam;
+            to.flight = None;
+            to.reveal(&self.layout, id);
+            if to.pan != self.cam.pan {
+                let (x, y) = to.centre();
+                let dur = crate::theme::Motion::of(cx).normal;
+                self.cam.fly((to.zoom, x, y), self.layout.bounds, dur);
+            }
         }
         self.lit = id;
         cx.notify();
@@ -193,6 +298,14 @@ impl MapView {
             cx.notify();
             return true;
         }
+        if self.list.take().is_some() {
+            window.focus(&self.focus, cx);
+            cx.notify();
+            return true;
+        }
+        if self.leave(cx) {
+            return true;
+        }
         if self.lit.take().is_some() {
             cx.notify();
             return true;
@@ -200,12 +313,75 @@ impl MapView {
         false
     }
 
-    /// Centres a card, close enough to read, and selects it.
+    /// Flies to a card, close enough to read, and selects it; a folded card opens the tile's list on it.
     pub(crate) fn jump_to(&mut self, id: CardId, cx: &mut Context<Self>) {
-        self.cam.jump(&self.layout, id);
         self.search = None;
         self.hits.clear();
         self.lit = Some(id);
+        if self.layout.folded(id) {
+            self.list = None;
+            cx.notify();
+            return;
+        }
+        if let Some(to) = self.landing(id) {
+            let dur = crate::theme::Motion::of(cx).slow;
+            self.cam.fly(to, self.layout.bounds, dur);
+        }
+        cx.notify();
+    }
+
+    /// Where find flies for a card: close enough to read, and in the middle of what the detail card (top right) leaves
+    /// of the viewport.
+    pub(crate) fn landing(&self, id: CardId) -> Option<(f32, f64, f64)> {
+        let ctr = self.layout.card(id)?.rect.center();
+        let zoom = if self.cam.zoom < 0.9 {
+            1.0
+        } else {
+            self.cam.zoom
+        };
+        let shift = f64::from((detail::WIDTH + 24.0) / 2.0 / zoom);
+        Some((zoom, ctr.x + shift, ctr.y))
+    }
+
+    /// Flies to show a region's frame whole.
+    pub(crate) fn open_region(&mut self, k: usize, cx: &mut Context<Self>) {
+        if let Some(r) = self.layout.regions.get(k) {
+            // With a card selected its detail card takes the top right: the region fits in what is left.
+            let aside = if self.lit.is_some() {
+                detail::WIDTH + 24.0
+            } else {
+                0.0
+            };
+            let mut room = self.cam;
+            room.size.0 = (room.size.0 - aside).max(200.0);
+            let (z, x, y) = room.framing(r.rect);
+            let to = (z, x + f64::from(aside / 2.0 / z), y);
+            let dur = crate::theme::Motion::of(cx).slow;
+            self.cam.fly(to, self.layout.bounds, dur);
+            cx.notify();
+        }
+    }
+
+    /// Fits `cam` to the drawing: a focus view is shown whole, whatever its layout.
+    pub(crate) fn fit_into(&self, cam: &mut Camera) {
+        let small = self.layout.mode == doze_map::Mode::Classic && self.lens.is_none();
+        cam.fit_as(&self.layout, small);
+    }
+
+    /// Fits the camera to the drawing, at once.
+    pub(crate) fn refit(&mut self) {
+        let mut c = self.cam;
+        self.fit_into(&mut c);
+        self.cam = c;
+    }
+
+    /// Flies back to the whole map.
+    pub(crate) fn fly_fit(&mut self, cx: &mut Context<Self>) {
+        let mut end = self.cam;
+        self.fit_into(&mut end);
+        let (x, y) = end.centre();
+        let dur = crate::theme::Motion::of(cx).slow;
+        self.cam.fly((end.zoom, x, y), self.layout.bounds, dur);
         cx.notify();
     }
 

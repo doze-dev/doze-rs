@@ -62,9 +62,16 @@ impl Fixture {
                 daemon: None,
             });
         }
-        let script = match synth {
-            Some(n) => synthetic(n),
-            None => {
+        // `medium-150`, or `medium-150x500` for 500 calls rather than two an app.
+        let medium = name.strip_prefix("medium-").and_then(|n| {
+            let (n, calls) = n.split_once('x').unwrap_or((n, ""));
+            let n = n.parse::<usize>().ok()?;
+            Some((n, calls.parse::<usize>().unwrap_or(n * 2)))
+        });
+        let script = match (synth, medium) {
+            (Some(n), _) => synthetic(n),
+            (None, Some((n, calls))) => medium_stack(n, calls),
+            (None, None) => {
                 let path = scripts().join(format!("{name}.ndjson"));
                 let mut s = Script::load(&path).with_context(|| format!("fixture {name}"))?;
                 // A verb takes a moment, as a real one does, so a page shows it in flight.
@@ -206,10 +213,30 @@ fn seed_larder(work: &Path, loaded: Option<std::time::SystemTime>) -> anyhow::Re
     Ok(dir.display().to_string())
 }
 
+/// `medium-N` (or `medium-NxCALLS`): a medium stack of about `n` instances shaped like a real one (doze-map's `synth::medium`: a few teams'
+/// services named for the team, a gateway, postgres, redis and kafka, apps nothing calls, a failed migration), with
+/// a few in trouble.
+fn medium_stack(n: usize, calls: usize) -> Script {
+    let ins = doze_map::synth::medium(n, calls, 1);
+    let bad = doze_map::synth::medium_trouble(&ins);
+    script(&ins, &format!("medium-{n}"), &|i, v| {
+        bad.contains(&v.name) || (i % 41 == 40 && v.kind == doze_map::Kind::App)
+    })
+}
+
 /// A synthetic stack of about `n` instances (doze-map's generator: teams calling down tiers, shared services, tasks),
 /// in a spread of states.
 fn synthetic(n: usize) -> Script {
     let ins = doze_map::synth::stack(n, n * 5 / 2, 7);
+    script(&ins, &format!("synthetic-{n}"), &|i, _| i % 97 == 0)
+}
+
+/// A stack's script from instances, in a spread of states; `crashing` says which crash.
+fn script(
+    ins: &[doze_map::Instance],
+    name: &str,
+    crashing: &dyn Fn(usize, &doze_map::Instance) -> bool,
+) -> Script {
     let states = ["active", "active", "idle", "reaped", "booting"];
     let instances = ins
         .iter()
@@ -221,8 +248,11 @@ fn synthetic(n: usize) -> Script {
                 doze_map::Kind::Service => "service",
                 _ => "module",
             };
-            let state = if i % 97 == 0 {
+            let state = if crashing(i, v) {
                 "crashing"
+            } else if v.busy {
+                // A setup task drawn as a card: running.
+                "booting"
             } else {
                 states.get(i % states.len()).copied().unwrap_or("reaped")
             };
@@ -247,7 +277,7 @@ fn synthetic(n: usize) -> Script {
     Script {
         status: Response {
             ok: true,
-            stack: format!("synthetic-{n}"),
+            stack: name.to_string(),
             dir: "~/code/synthetic".into(),
             instances,
             ..Response::default()

@@ -12,11 +12,11 @@ use gpui::{
 use super::cache::place;
 use super::chrome::{minimap_rect, strip};
 use super::detail::{detail, search_box};
-use super::paint::{lit_set, scene};
+use super::paint::scene;
 use super::{DETAIL_ZOOM, LABEL_ZOOM, MapView};
 use crate::actions::{
-    ActualSize, Confirm, FindCard, FitMap, MoveDown, MoveLeft, MoveRight, MoveUp, ToggleMinimap,
-    ZoomIn, ZoomOut,
+    ActualSize, AllLogs, Confirm, FindCard, FitMap, MoveDown, MoveLeft, MoveRight, MoveUp,
+    Neighbourhood, OnlyTrouble, ToggleLines, ToggleMinimap, ZoomIn, ZoomOut,
 };
 use crate::theme::{Tokens, alpha, tokens};
 
@@ -42,14 +42,39 @@ impl MapView {
     }
 
     /// Zooms about the viewport's middle.
+    /// The toolbar's and the keys' zoom eases over the `normal` token; a press during a move adds to where it is going.
     pub(crate) fn zoom_by(&mut self, factor: f32, cx: &mut Context<Self>) {
-        self.cam.zoom_centre(factor, self.layout.bounds);
+        let (z, x, y) = self.cam.target();
+        let to = (z * factor).clamp(super::camera::MIN_ZOOM, super::camera::MAX_ZOOM);
+        let dur = crate::theme::Motion::of(cx).normal;
+        if dur.is_zero() {
+            // Motion reduced: there at once, about the middle.
+            self.cam.zoom_centre(to / self.cam.zoom, self.layout.bounds);
+        } else {
+            self.cam.fly((to, x, y), self.layout.bounds, dur);
+        }
         cx.notify();
     }
 
     pub(crate) fn on_fit(&mut self, _: &FitMap, _: &mut Window, cx: &mut Context<Self>) {
-        self.cam.fit(&self.layout);
-        cx.notify();
+        self.fly_fit(cx);
+    }
+
+    /// `L`: every line, or lines on demand. A small map draws every line already: there `L` is All logs, as
+    /// everywhere else.
+    pub(crate) fn on_lines(
+        &mut self,
+        _: &ToggleLines,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if self.layout.mode == doze_map::Mode::Layered {
+            self.all_lines = !self.all_lines;
+            self.cache.clear();
+            cx.notify();
+        } else {
+            window.dispatch_action(Box::new(AllLogs), cx);
+        }
     }
 
     pub(crate) fn on_find(&mut self, _: &FindCard, window: &mut Window, cx: &mut Context<Self>) {
@@ -125,6 +150,7 @@ impl MapView {
         };
         if (x - d.start.0).abs() + (y - d.start.1).abs() > 3.0 {
             d.moved = true;
+            self.cam.flight = None;
         }
         let d = *d;
         if d.minimap {
@@ -145,11 +171,20 @@ impl MapView {
             return;
         }
         let (x, y) = self.local(ev.position);
-        let hit = self.layout.hit(self.cam.to_map(x, y));
+        let at = self.cam.to_map(x, y);
+        let hit = self.layout.hit(at);
         if ev.click_count >= 2
             && let Some(c) = hit.and_then(|id| self.layout.card(id))
         {
             cx.emit(super::MapEvent::Open(c.name.clone()));
+            return;
+        }
+        // A double click in a region's frame, off its cards, opens the region.
+        if ev.click_count >= 2
+            && hit.is_none()
+            && let Some(k) = self.layout.region_at(at)
+        {
+            self.open_region(k, cx);
             return;
         }
         // A click on the selection again lets it go.
@@ -158,6 +193,7 @@ impl MapView {
     }
 
     fn scroll(&mut self, ev: &ScrollEvent, cx: &mut Context<Self>) {
+        self.cam.flight = None;
         let d = ev.delta.pixel_delta(px(20.));
         let (dx, dy) = (f32::from(d.x), f32::from(d.y));
         if ev.modifiers.platform || ev.modifiers.control {
@@ -171,6 +207,7 @@ impl MapView {
     }
 
     fn pinch(&mut self, ev: &PinchEvent, cx: &mut Context<Self>) {
+        self.cam.flight = None;
         let (x, y) = self.local(ev.position);
         self.cam.zoom_at(1.0 + ev.delta, x, y, self.layout.bounds);
         cx.notify();
@@ -200,21 +237,33 @@ impl MapView {
             v.w + 2.0 * pad,
             v.h + 2.0 * pad,
         ));
-        let on = lit_set(&self.layout, self.lit);
+        let on = self.lit_on();
+        // A new layout (a focus view opening or closing) fades in.
+        let shown = self.fades.shown_in(std::time::Instant::now());
         let mut d = div()
             .absolute()
             .top(px(0.))
             .left(px(0.))
             .size_full()
+            .when(shown < 1.0, |d| d.opacity(shown))
             .child(scene(t, self, &vis, self.viewport.clone()));
         if self.cam.zoom >= DETAIL_ZOOM {
             d = d
-                .children(super::cards::captions(t, self))
+                .children(super::words::captions(t, self))
                 .children(super::cards::cards(t, self, &vis.cards, on.as_deref()));
         } else if self.cam.zoom >= LABEL_ZOOM {
-            d = d.children(super::cards::labels(t, self, &vis.cards, on.as_deref()));
+            d = d.children(super::words::labels(t, self, &vis.cards, on.as_deref()));
         }
         d.into_any_element()
+    }
+
+    /// The overlays on the drawing that belong to a large map: the regions' labels, the tile or its list.
+    fn large(&self, t: &Tokens, cx: &mut Context<Self>) -> Vec<AnyElement> {
+        let mut v = super::regions::labels(t, self, cx);
+        v.extend(super::tools::talks(t, self));
+        v.extend(super::tile::tile(t, self, cx));
+        v.extend(super::tile::list(t, self, cx));
+        v
     }
 }
 
@@ -283,13 +332,52 @@ impl Focusable for MapView {
     }
 }
 
+impl MapView {
+    /// The drawing in the Map's key context: its keys bind while it has focus.
+    fn keyed(&self, t: &Tokens, cx: &mut Context<Self>) -> gpui::Div {
+        div()
+            .key_context("Map")
+            .track_focus(&self.focus)
+            .absolute()
+            .size_full()
+            .on_action(cx.listener(Self::on_fit))
+            .on_action(cx.listener(Self::on_find))
+            .on_action(cx.listener(Self::on_minimap))
+            .on_action(cx.listener(Self::on_lines))
+            .on_action(cx.listener(|this, _: &Neighbourhood, _, cx| this.on_hood(cx)))
+            .on_action(cx.listener(|this, _: &OnlyTrouble, _, cx| this.on_trouble(cx)))
+            .on_action(cx.listener(|this, _: &ZoomIn, _, cx| this.zoom_by(1.25, cx)))
+            .on_action(cx.listener(|this, _: &ZoomOut, _, cx| this.zoom_by(0.8, cx)))
+            .on_action(cx.listener(|this, _: &ActualSize, _, cx| {
+                let z = this.cam.zoom;
+                this.zoom_by(1.0 / z, cx);
+            }))
+            .child(self.drawing(t))
+    }
+}
+
 impl Render for MapView {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let t = tokens(cx);
         let (_, _, w, h) = self.viewport.get();
         self.cam.size = (w, h);
         if !self.cam.fitted && w > 1.0 && !self.layout.cards.is_empty() {
-            self.cam.fit(&self.layout);
+            self.refit();
+        }
+        let now = std::time::Instant::now();
+        if self.cam.tick(now) {
+            window.request_animation_frame();
+        }
+        let motion = crate::theme::Motion::of(cx);
+        let times = if motion.moves() {
+            (super::fade::DIM, super::fade::HOVER, motion.normal)
+        } else {
+            Default::default()
+        };
+        let on = self.lit_on().map(std::rc::Rc::new);
+        self.fades.note(self.lit, on, self.hover, times, now);
+        if self.fades.running(now) {
+            window.request_animation_frame();
         }
         let mut body = div()
             .id("map-body")
@@ -313,29 +401,15 @@ impl Render for MapView {
             }))
             .on_scroll(cx.listener(|this, ev, _, cx| this.scroll(ev, cx)))
             .on_pinch(cx.listener(|this, ev, _, cx| this.pinch(ev, cx)))
-            .child(
-                div()
-                    .key_context("Map")
-                    .track_focus(&self.focus)
-                    .absolute()
-                    .size_full()
-                    .on_action(cx.listener(Self::on_fit))
-                    .on_action(cx.listener(Self::on_find))
-                    .on_action(cx.listener(Self::on_minimap))
-                    .on_action(cx.listener(|this, _: &ZoomIn, _, cx| this.zoom_by(1.25, cx)))
-                    .on_action(cx.listener(|this, _: &ZoomOut, _, cx| this.zoom_by(0.8, cx)))
-                    .on_action(cx.listener(|this, _: &ActualSize, _, cx| {
-                        let z = this.cam.zoom;
-                        this.zoom_by(1.0 / z, cx);
-                    }))
-                    .child(self.drawing(&t)),
-            )
+            .child(self.keyed(&t, cx))
             .on_action(cx.listener(|this, _: &MoveUp, _, cx| this.arrow(0.0, -1.0, cx)))
             .on_action(cx.listener(|this, _: &MoveDown, _, cx| this.arrow(0.0, 1.0, cx)))
             .on_action(cx.listener(|this, _: &MoveLeft, _, cx| this.arrow(-1.0, 0.0, cx)))
             .on_action(cx.listener(|this, _: &MoveRight, _, cx| this.arrow(1.0, 0.0, cx)))
             .on_action(cx.listener(|this, _: &Confirm, _, cx| this.confirm(cx)));
+        let large = self.large(&t, cx);
         body = body
+            .children(large)
             .children(minimap(&t, self))
             .children(detail(&t, self, cx));
         if let Some(s) = self.search.clone() {

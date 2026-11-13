@@ -270,6 +270,9 @@ fn map_stage(root: &mut Root, window: &mut gpui::Window, cx: &mut gpui::Context<
             }
         }
         m.hover = s.hover.as_deref().and_then(|n| m.card_named(n));
+        if let Some(spec) = &s.map {
+            m.stage(spec, window, cx);
+        }
         cx.notify();
     });
     if let Some(q) = &s.find {
