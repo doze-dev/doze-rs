@@ -43,6 +43,17 @@ actions!(
         CycleMode,
         CloseWindow,
         Quit,
+        OpenStack,
+        ToggleStack,
+        RemoveStack,
+        OpenService,
+        ToggleService,
+        FilterRows,
+        CopyAddress,
+        CycleDensity,
+        UpAsLastTime,
+        ChooseStart,
+        OpenRowService,
     ]
 );
 
@@ -52,6 +63,12 @@ pub(crate) enum Scope {
     Global,
     Map,
     Overlay,
+    /// The Library's table.
+    Library,
+    /// A stack's page: its tiles and its list.
+    Overview,
+    /// The Grid view.
+    Grid,
 }
 
 impl Scope {
@@ -61,6 +78,9 @@ impl Scope {
             Scope::Global => "Everywhere",
             Scope::Map => "On the Map",
             Scope::Overlay => "In a search box",
+            Scope::Library => "In the Library",
+            Scope::Overview => "On a stack's page",
+            Scope::Grid => "In the Grid",
         }
     }
 
@@ -74,6 +94,9 @@ impl Scope {
             Scope::Global => None,
             Scope::Map => Some("Map"),
             Scope::Overlay => Some("Input"),
+            Scope::Library => Some("Library"),
+            Scope::Overview => Some("Overview"),
+            Scope::Grid => Some("Grid"),
         }
     }
 }
@@ -115,14 +138,20 @@ pub(crate) struct Spec {
     pub(crate) built: bool,
 }
 
+mod pages;
 mod table;
 
 pub(crate) use table::TABLE;
 
+/// Every row: the shell's and the Map's ([`TABLE`]), then the pages' ([`pages::PAGES`]).
+pub(crate) fn all() -> impl Iterator<Item = &'static Spec> {
+    TABLE.iter().chain(pages::PAGES)
+}
+
 /// The keymap the table gives. A keystroke that does not parse is left out (the test below proves none does).
 pub(crate) fn keymap(cx: &App) -> Vec<KeyBinding> {
     let mut out = Vec::new();
-    for s in TABLE {
+    for s in all() {
         for k in s.keys {
             let ctx = s
                 .scope
@@ -142,8 +171,7 @@ pub(crate) fn menus() -> Vec<Menu> {
     MENUS
         .iter()
         .map(|&(m, name)| {
-            let items = TABLE
-                .iter()
+            let items = all()
                 .filter(|s| s.menu == Some(m))
                 .map(|s| MenuItem::Action {
                     name: s.label.into(),
@@ -168,6 +196,14 @@ pub(crate) fn key_words(k: &'static str) -> String {
     match k {
         "escape" => "esc".into(),
         "space" => "space".into(),
+        // A letter is the letter, as Go's chips wrote it (`y`, `o`); shifted, its capital (`A`).
+        k if k.len() == 1 && k.bytes().all(|b| b.is_ascii_lowercase()) => k.into(),
+        k if k
+            .strip_prefix("shift-")
+            .is_some_and(|l| l.len() == 1 && l.bytes().all(|b| b.is_ascii_lowercase())) =>
+        {
+            k.trim_start_matches("shift-").to_uppercase()
+        }
         _ => match Keystroke::parse(k) {
             Ok(stroke) => Kbd::format(&stroke),
             Err(_) => k.to_owned(),
@@ -177,33 +213,39 @@ pub(crate) fn key_words(k: &'static str) -> String {
 
 /// The rows ⌘K offers.
 pub(crate) fn palette() -> impl Iterator<Item = &'static Spec> {
-    TABLE.iter().filter(|s| s.palette)
+    all().filter(|s| s.palette)
 }
 
 /// The help sheet: each scope's rows with keys, in table order.
 pub(crate) fn help() -> Vec<(Scope, Vec<&'static Spec>)> {
-    [Scope::Global, Scope::Map, Scope::Overlay]
-        .into_iter()
-        .map(|sc| {
-            (
-                sc,
-                TABLE
-                    .iter()
-                    .filter(|s| s.scope == sc && !s.keys.is_empty() && !s.what.is_empty())
-                    .collect(),
-            )
-        })
-        .collect()
+    [
+        Scope::Global,
+        Scope::Library,
+        Scope::Overview,
+        Scope::Grid,
+        Scope::Map,
+        Scope::Overlay,
+    ]
+    .into_iter()
+    .map(|sc| {
+        (
+            sc,
+            all()
+                .filter(|s| s.scope == sc && !s.keys.is_empty() && !s.what.is_empty())
+                .collect(),
+        )
+    })
+    .collect()
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{MENUS, TABLE, chip, help, palette};
+    use super::{MENUS, TABLE, all, chip, help, palette};
     use gpui::Keystroke;
 
     #[test]
     fn every_key_parses_and_every_row_has_a_way_in() {
-        for s in TABLE {
+        for s in all() {
             for k in s.keys {
                 assert!(Keystroke::parse(k).is_ok(), "{}: {k}", s.label);
             }

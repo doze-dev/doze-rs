@@ -12,6 +12,14 @@ const SEARCH: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 
 const CLOSE: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none" stroke="white" stroke-width="1.6" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>"#;
 const MINIMAP: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none" stroke="white" stroke-width="1.4" stroke-linejoin="round"><rect x="1.5" y="2.5" width="13" height="11" rx="2"/><rect x="8" y="8" width="5" height="4" rx="1" fill="white"/></svg>"#;
 const DOTS: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><circle cx="3.5" cy="8" r="1.4" fill="white"/><circle cx="8" cy="8" r="1.4" fill="white"/><circle cx="12.5" cy="8" r="1.4" fill="white"/></svg>"#;
+/// The Grid tooltip's arrow.
+const CARET: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 6"><path d="M0 6 6 0 12 6z" fill="white"/></svg>"#;
+/// The copy glyph (`⧉` in the React page, drawn so it sits on the text's middle).
+const COPY: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none" stroke="white" stroke-width="1.4"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"/><path d="M10.5 3.5v-.5a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h.5"/></svg>"#;
+/// The pin (overview.tsx `PinGlyph`).
+const PIN: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M6 1.5h4l-.8 4.2L12 8.5V10H8.6V15H7.4V10H4V8.5l2.8-2.8z" fill="white"/></svg>"#;
+/// The doze mark, whole (website/brand/doze.svg): the Library's head draws it in its own colours.
+const BRAND: &str = include_str!("../assets/brand/doze.svg");
 
 /// Three bars `gap` apart, as density.tsx draws them.
 fn lines(gap: f32) -> String {
@@ -41,6 +49,10 @@ impl AssetSource for Assets {
             "icons/lines-3.svg" => lines(3.0).into(),
             "icons/lines-4.5.svg" => lines(4.5).into(),
             "icons/lines-6.svg" => lines(6.0).into(),
+            "icons/copy.svg" => COPY.into(),
+            "icons/caret.svg" => CARET.into(),
+            "icons/pin.svg" => PIN.into(),
+            "brand/doze.svg" => BRAND.into(),
             _ => return Ok(None),
         };
         Ok(Some(Cow::Owned(svg.into_owned().into_bytes())))

@@ -9,8 +9,9 @@ use std::time::{Duration, Instant};
 use gpui::{App, AppContext as _, AsyncApp, Bounds, QuitMode, WindowHandle, px, size};
 
 use crate::cli::{Screen, Shot};
-use crate::shell::Root;
-use crate::theme::Choice;
+use crate::overview::View;
+use crate::shell::{Root, Screen as Page};
+use crate::theme::{Choice, Density};
 
 pub(crate) fn run(s: Shot) -> ExitCode {
     if s.from.fixture.is_none() && s.from.synth.is_none() {
@@ -43,8 +44,9 @@ pub(crate) fn run(s: Shot) -> ExitCode {
             hub.set_visible(true);
             let bounds = Bounds::centered(None, size(px(s.size.0), px(s.size.1)), cx);
             let first = source.first.clone();
+            let facts = source.facts.clone();
             let Ok(h) = cx.open_window(crate::app::options(bounds, true), |window, cx| {
-                cx.new(|cx| Root::new(hub.clone(), first, window, cx))
+                cx.new(|cx| Root::new(hub.clone(), first, facts.clone(), window, cx))
             }) else {
                 eprintln!("doze-app shot: no window");
                 cx.quit();
@@ -71,10 +73,9 @@ async fn pause(cx: &mut AsyncApp, ms: u64) {
 async fn take(cx: &mut AsyncApp, h: WindowHandle<Root>, s: &Shot) {
     let start = Instant::now();
     loop {
-        let ready = h.update(cx, |root, _, cx| {
+        let ready = h.update(cx, |root, window, cx| {
             root.refresh(cx);
-            let m = root.map.read(cx);
-            root.key().is_some() && m.cam.fitted && !m.layout.cards.is_empty()
+            ready(root, window, cx, s)
         });
         if ready.unwrap_or(false) || start.elapsed() > Duration::from_secs(10) {
             break;
@@ -84,19 +85,10 @@ async fn take(cx: &mut AsyncApp, h: WindowHandle<Root>, s: &Shot) {
     }
     let _ = h.update(cx, |root, window, cx| stage(root, window, cx, s));
     pause(cx, 300).await;
-    if let Some(q) = &s.find {
-        let _ = h.update(cx, |root, window, cx| {
-            root.map.update(cx, |m, cx| {
-                m.open_search(window, cx);
-                if let Some(input) = m.search.clone() {
-                    input.update(cx, |i, cx| i.set_value(q.clone(), window, cx));
-                }
-                m.hits = m.layout.search(q).into_iter().take(8).collect();
-            });
-        });
-    }
-    // Let the entrance motion finish (280 ms at most) and the cache refine.
+    let _ = h.update(cx, |root, window, cx| map_stage(root, window, cx, s));
+    // Let the entrance motion finish (280 ms at most), the CLI's answers land, and the cache refine.
     pause(cx, 700).await;
+    let _ = h.update(cx, |root, _, cx| root.refresh(cx));
     let _ = h.update(cx, |_, w, _| w.refresh());
     pause(cx, 400).await;
     match h.update(cx, |_, window, _| window.render_to_image()) {
@@ -109,8 +101,100 @@ async fn take(cx: &mut AsyncApp, h: WindowHandle<Root>, s: &Shot) {
     }
 }
 
-/// The camera, the selection, the hover and the overlay the shot asks for.
+/// The page the shot wants has what it shows.
+fn ready(
+    root: &mut Root,
+    window: &mut gpui::Window,
+    cx: &mut gpui::Context<Root>,
+    s: &Shot,
+) -> bool {
+    let stacks = root.library.read(cx).lib.stacks.len();
+    match s.screen {
+        Screen::Library => s.from.fixture.as_deref() == Some("none") || stacks > 1,
+        Screen::Map if s.stack.is_none() => {
+            let m = root.map.read(cx);
+            root.key().is_some() && m.cam.fitted && !m.layout.cards.is_empty()
+        }
+        _ => {
+            if let Some(key) = target(root, cx, s) {
+                if root.key() != Some(&key) {
+                    root.go(Page::Stack(key), window, cx);
+                }
+                !root.overview.read(cx).home.groups.is_empty()
+                    || !root
+                        .overview
+                        .read(cx)
+                        .home
+                        .stopped
+                        .as_ref()
+                        .is_none_or(|st| st.problem.is_empty())
+            } else {
+                false
+            }
+        }
+    }
+}
+
+/// The stack the shot names, or the fixture's running one.
+fn target(root: &Root, cx: &gpui::App, s: &Shot) -> Option<doze_desk::StackKey> {
+    let lib = &root.library.read(cx).lib;
+    let row = match &s.stack {
+        Some(name) => lib.stacks.iter().find(|r| &r.name == name),
+        None => lib.stacks.iter().find(|r| r.running),
+    }?;
+    Some(doze_desk::StackKey::new(row.key.clone()))
+}
+
+/// The page, its view, the selection, the density, the Grid's cell, the overlay the shot asks for.
 fn stage(root: &mut Root, window: &mut gpui::Window, cx: &mut gpui::Context<Root>, s: &Shot) {
+    if let Some(d) = s.density.as_deref().and_then(Density::parse) {
+        root.library.update(cx, |l, cx| l.set_density(d, cx));
+        root.overview.update(cx, |o, cx| o.set_density(d, cx));
+    }
+    let view = match s.screen {
+        Screen::Tiles => Some(View::Tiles),
+        Screen::List => Some(View::List),
+        Screen::Grid => Some(View::Grid),
+        Screen::Map => Some(View::Map),
+        _ => None,
+    };
+    match (s.screen, view) {
+        (Screen::Library, _) => root.go(Page::Library, window, cx),
+        (_, Some(v)) => {
+            root.overview.update(cx, |o, cx| {
+                o.set_view(v, cx);
+                if let Some(sel) = &s.select {
+                    o.select(sel, cx);
+                }
+                if let (View::Grid, Some(cell)) = (v, &s.hover) {
+                    o.cur = grid_cell(o, cell);
+                }
+            });
+        }
+        _ => {}
+    }
+    match s.screen {
+        Screen::Palette => root.on_palette(&crate::actions::OpenPalette, window, cx),
+        Screen::Help => root.on_help(&crate::actions::ShowHelp, window, cx),
+        _ => {}
+    }
+}
+
+/// `row/column` in the Grid, as indices.
+fn grid_cell(o: &crate::overview::OverviewView, cell: &str) -> Option<(usize, usize)> {
+    let (r, c) = cell.split_once('/')?;
+    let g = &o.home.grid;
+    Some((
+        g.rows.iter().position(|x| x.name == r)?,
+        g.cols.iter().position(|x| x.name == c)?,
+    ))
+}
+
+/// The Map's camera, selection and hover, and its find box.
+fn map_stage(root: &mut Root, window: &mut gpui::Window, cx: &mut gpui::Context<Root>, s: &Shot) {
+    if s.screen != Screen::Map && s.screen != Screen::Palette && s.screen != Screen::Help {
+        return;
+    }
     root.map.update(cx, |m, cx| {
         if let Some(z) = s.zoom {
             let f = z / m.cam.zoom;
@@ -131,9 +215,13 @@ fn stage(root: &mut Root, window: &mut gpui::Window, cx: &mut gpui::Context<Root
         m.hover = s.hover.as_deref().and_then(|n| m.card_named(n));
         cx.notify();
     });
-    match s.screen {
-        Screen::Map => {}
-        Screen::Palette => root.on_palette(&crate::actions::OpenPalette, window, cx),
-        Screen::Help => root.on_help(&crate::actions::ShowHelp, window, cx),
+    if let Some(q) = &s.find {
+        root.map.update(cx, |m, cx| {
+            m.open_search(window, cx);
+            if let Some(input) = m.search.clone() {
+                input.update(cx, |i, cx| i.set_value(q.clone(), window, cx));
+            }
+            m.hits = m.layout.search(q).into_iter().take(8).collect();
+        });
     }
 }

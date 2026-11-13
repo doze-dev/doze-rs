@@ -112,6 +112,63 @@ pub(crate) fn save_theme(c: Choice) {
     });
 }
 
+/// The overview's view remembered for a stack (`views`, by the stack's key): `tiles`, `list`, `map`, `grid`.
+pub(crate) fn view(key: &str) -> Option<String> {
+    load()
+        .get("views")
+        .and_then(|v| v.get(key))
+        .and_then(Value::as_str)
+        .map(str::to_owned)
+}
+
+/// Keeps a stack's view.
+pub(crate) fn save_view(key: &str, view: &str) {
+    save(|m| {
+        let views = m.entry("views").or_insert_with(|| json!({}));
+        if let Some(o) = views.as_object_mut() {
+            o.insert(key.into(), Value::String(view.into()));
+        }
+    });
+}
+
+/// The lists' row height (`density`; the Go app kept it in the page's local storage): `compact`, `cosy`, `roomy`.
+pub(crate) fn density() -> String {
+    load()
+        .get("density")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_owned()
+}
+
+/// Keeps the density.
+pub(crate) fn save_density(word: &str) {
+    save(|m| {
+        m.insert("density".into(), Value::String(word.into()));
+    });
+}
+
+/// The getting-started strip was put away, and whether a connection was ever seen (`hints`).
+pub(crate) fn hints() -> (bool, bool) {
+    let m = load();
+    let h = m.get("hints");
+    let b = |k: &str| {
+        h.and_then(|h| h.get(k))
+            .and_then(Value::as_bool)
+            .unwrap_or(false)
+    };
+    (b("dismissed"), b("connected"))
+}
+
+/// Puts the strip away for good (`hints.dismissed`), or notes the first connection seen (`hints.connected`).
+pub(crate) fn save_hint(key: &str) {
+    save(|m| {
+        let hints = m.entry("hints").or_insert_with(|| json!({}));
+        if let Some(o) = hints.as_object_mut() {
+            o.insert(key.into(), Value::Bool(true));
+        }
+    });
+}
+
 /// RFC 3339 in UTC from a `SystemTime`, without a date crate (the civil-from-days algorithm).
 mod chrono_free {
     use std::time::{SystemTime, UNIX_EPOCH};

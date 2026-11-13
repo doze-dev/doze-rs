@@ -36,6 +36,12 @@ pub(crate) enum Screen {
     Map,
     Palette,
     Help,
+    /// The Library, the first tab.
+    Library,
+    /// A stack's page in its Tiles, List or Grid view.
+    Tiles,
+    List,
+    Grid,
 }
 
 /// `doze-app shot ...`.
@@ -53,6 +59,10 @@ pub(crate) struct Shot {
     pub(crate) at: Option<(f64, f64)>,
     pub(crate) find: Option<String>,
     pub(crate) reduce: bool,
+    /// The stack shown, by name (else the fixture's running one).
+    pub(crate) stack: Option<String>,
+    /// The rows' density: compact, cosy, roomy.
+    pub(crate) density: Option<String>,
 }
 
 /// `doze-app bench ...`.
@@ -157,7 +167,15 @@ fn shot(mut args: impl Iterator<Item = String>) -> Result<Shot, String> {
                     "map" => Screen::Map,
                     "palette" => Screen::Palette,
                     "help" => Screen::Help,
-                    _ => return Err(format!("--screen: no screen {v} (map, palette, help)")),
+                    "library" => Screen::Library,
+                    "tiles" => Screen::Tiles,
+                    "list" => Screen::List,
+                    "grid" => Screen::Grid,
+                    _ => {
+                        return Err(format!(
+                            "--screen: no screen {v} (library, tiles, list, map, grid, palette, help)"
+                        ));
+                    }
                 }
             }
             "--theme" => {
@@ -173,6 +191,8 @@ fn shot(mut args: impl Iterator<Item = String>) -> Result<Shot, String> {
             "--hover" => s.hover = Some(v),
             "--zoom" => s.zoom = Some(number(&v, "--zoom")?),
             "--find" => s.find = Some(v),
+            "--stack" => s.stack = Some(v),
+            "--density" => s.density = Some(v),
             "--at" => {
                 let (x, y) = v.split_once(',').ok_or("--at is X,Y")?;
                 s.at = Some((number(x, "--at")?, number(y, "--at")?));

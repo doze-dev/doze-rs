@@ -186,6 +186,14 @@ impl Shape {
     }
 }
 
+impl Shape {
+    /// The declared instances as a daemon would list them (asleep, nothing running), so a page can draw a stopped
+    /// stack the way it will once up: the Map, the rows.
+    pub fn instances(&self) -> Vec<doze_control::InstanceView> {
+        self.decls.iter().map(super::stopped::view_of).collect()
+    }
+}
+
 impl Decl {
     /// Where it answers once the stack is up, written as a running stack writes it (Go `addressWhenUp`): its own
     /// domain over https; an app's or a service's `.doze` name as a web address; a module's name and port.

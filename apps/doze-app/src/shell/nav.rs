@@ -1,0 +1,97 @@
+//! Where the window is: the Library, or a stack's page; and the title bar's tabs (every running stack, and the
+//! stopped ones opened this session, as the Go app kept them).
+
+use doze_desk::StackKey;
+use doze_display as words;
+use gpui::{Context, Focusable, Window};
+
+use super::Root;
+use crate::overview::View;
+
+/// The page shown.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum Screen {
+    /// The first tab: every stack.
+    Library,
+    /// A stack's page.
+    Stack(StackKey),
+}
+
+/// A stack's tab.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct Tab {
+    pub(crate) key: StackKey,
+    pub(crate) name: String,
+    pub(crate) running: bool,
+    /// Something in it needs you.
+    pub(crate) trouble: bool,
+}
+
+impl Root {
+    /// Shows `screen`: its page reads the hub, the other stops watching, the keys go to it.
+    pub(crate) fn go(&mut self, screen: Screen, window: &mut Window, cx: &mut Context<Self>) {
+        match &screen {
+            Screen::Stack(k) => {
+                if !self.opened.contains(k) {
+                    self.opened.push(k.clone());
+                }
+                let key = k.clone();
+                self.overview.update(cx, |o, cx| o.show(Some(key), cx));
+                let o = self.overview.read(cx);
+                let f = if o.view == View::Map {
+                    o.map.read(cx).focus.clone()
+                } else {
+                    o.focus.clone()
+                };
+                window.focus(&f, cx);
+            }
+            Screen::Library => {
+                self.overview.update(cx, |o, _| o.hide());
+                self.library.update(cx, |l, cx| l.refresh(cx));
+                let f = self.library.focus_handle(cx);
+                window.focus(&f, cx);
+            }
+        }
+        self.screen = screen;
+        self.refresh_tabs(cx);
+        cx.notify();
+    }
+
+    /// Closes a stopped stack's tab (a running stack's tab stays while it runs).
+    pub(crate) fn close_tab(
+        &mut self,
+        key: &StackKey,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.opened.retain(|k| k != key);
+        if self.key() == Some(key) {
+            self.go(Screen::Library, window, cx);
+        } else {
+            self.refresh_tabs(cx);
+        }
+    }
+
+    /// The tabs, from the hub; redraws only when they changed.
+    pub(crate) fn refresh_tabs(&mut self, cx: &mut Context<Self>) {
+        let tabs: Vec<Tab> = self
+            .hub
+            .stacks()
+            .into_iter()
+            .filter(|s| s.running || self.opened.contains(&s.key))
+            .map(|s| {
+                let snap = s.words();
+                Tab {
+                    trouble: snap.instances.iter().any(words::troubled),
+                    key: s.key,
+                    name: s.name,
+                    running: s.running,
+                }
+            })
+            .collect();
+        if tabs != self.tabs {
+            self.tabs = tabs;
+            cx.notify();
+        }
+    }
+}

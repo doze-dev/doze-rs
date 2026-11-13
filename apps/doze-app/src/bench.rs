@@ -41,7 +41,7 @@ pub(crate) fn run(b: Bench, launched: Instant) -> ExitCode {
             let (src, hub, first, idle) = (
                 source.clone(),
                 source.hub.clone(),
-                source.first.clone(),
+                (source.first.clone(), source.facts.clone()),
                 b.idle,
             );
             cx.spawn(async move |cx: &mut AsyncApp| {
@@ -59,7 +59,7 @@ pub(crate) fn run(b: Bench, launched: Instant) -> ExitCode {
 async fn time_open(
     cx: &mut AsyncApp,
     hub: doze_desk::Hub,
-    first: Option<doze_desk::StackKey>,
+    (first, facts): (Option<doze_desk::StackKey>, crate::facts::Mode),
     idle: u64,
 ) {
     let t = Instant::now();
@@ -69,7 +69,7 @@ async fn time_open(
         cx.open_window(crate::app::options(bounds, true), |window, cx| {
             window
                 .on_next_frame(move |_, _| println!("first_frame_ms {}", t.elapsed().as_millis()));
-            cx.new(|cx| Root::new(hub.clone(), first.clone(), window, cx))
+            cx.new(|cx| Root::new(hub.clone(), first.clone(), facts.clone(), window, cx))
         })
     });
     let Ok(h) = opened else { return };

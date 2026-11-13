@@ -1,9 +1,7 @@
 //! The small parts every page draws, each from a rule in shell.css (named in
 //! its doc line). Plain functions returning elements: no state, no hidden magic.
 
-use gpui::{
-    AnyElement, FontWeight, Hsla, IntoElement, SharedString, Styled, div, prelude::*, px, svg,
-};
+use gpui::{FontWeight, Hsla, IntoElement, SharedString, Styled, div, prelude::*, px, svg};
 
 use crate::theme::Tokens;
 
@@ -133,57 +131,4 @@ pub(crate) fn tag(t: &Tokens, text: &str) -> impl IntoElement {
         .rounded(px(3.))
         .bg(t.accent)
         .child(tracked(text, 9., 700., t.ink, 0.72))
-}
-
-/// What a segmented-control cell does when clicked.
-pub(crate) type OnClick =
-    Box<dyn Fn(&gpui::ClickEvent, &mut gpui::Window, &mut gpui::App) + 'static>;
-
-/// A bordered, rounded segmented control; `items` are (child, is_on, click).
-pub(crate) fn seg(
-    t: &Tokens,
-    id: &'static str,
-    pad: f32,
-    items: Vec<(AnyElement, bool, Option<OnClick>)>,
-) -> impl IntoElement {
-    let n = items.len();
-    div()
-        .flex()
-        .flex_none()
-        .rounded(px(7.))
-        .border_1()
-        .border_color(t.line2)
-        .bg(t.panel)
-        .overflow_hidden()
-        .children(
-            items
-                .into_iter()
-                .enumerate()
-                .map(|(i, (child, on, click))| {
-                    let cell = div()
-                        .id((id, i))
-                        .h(px(28.))
-                        .px(px(pad))
-                        .flex()
-                        .items_center()
-                        .gap(px(6.))
-                        .text_size(px(12.))
-                        .font_weight(w(500.))
-                        .child(child);
-                    let cell = if on {
-                        cell.bg(t.sel).text_color(t.bright)
-                    } else {
-                        cell.text_color(t.dim)
-                    };
-                    let cell = if i + 1 < n {
-                        cell.border_r_1().border_color(t.line)
-                    } else {
-                        cell
-                    };
-                    match click {
-                        Some(f) => cell.on_click(f),
-                        None => cell,
-                    }
-                }),
-        )
 }

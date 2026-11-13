@@ -153,6 +153,11 @@ impl Hub {
         let _ = self.shared.input.try_send(Input::Visible(visible));
     }
 
+    /// What time the hub says it is: the wall clock, or a test's or a fixture's, so a page's "up 14m" agrees with the hub.
+    pub fn now(&self) -> std::time::SystemTime {
+        self.shared.o.clock.now()
+    }
+
     /// doze's folder: where projects, and the app's own prefs, live.
     pub fn home(&self) -> &Path {
         &self.shared.o.home

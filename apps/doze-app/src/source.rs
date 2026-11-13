@@ -19,6 +19,8 @@ pub(crate) struct Source {
     pub(crate) hub: Hub,
     /// The stack to show first, when the source knows (a fixture's).
     pub(crate) first: Option<StackKey>,
+    /// Where the stopped stacks' shapes and the machine's report come from.
+    pub(crate) facts: crate::facts::Mode,
     /// A fixture's daemon and home, kept for as long as the source lives.
     #[cfg(feature = "fixtures")]
     _fixture: Option<crate::fixture::Fixture>,
@@ -48,6 +50,7 @@ impl Source {
         Source {
             hub: Hub::start(o),
             first: None,
+            facts: crate::facts::Mode::Live(crate::facts::find_doze()),
             #[cfg(feature = "fixtures")]
             _fixture: None,
         }
@@ -59,10 +62,11 @@ impl Source {
         let f = crate::fixture::Fixture::start(name, synth)?;
         let mut o = f.options();
         o.policy = policy();
-        let first = Some(f.key.clone());
+        let first = f.key.clone();
         Ok(Source {
             hub: Hub::start(o),
             first,
+            facts: crate::facts::Mode::Fixture,
             _fixture: Some(f),
         })
     }

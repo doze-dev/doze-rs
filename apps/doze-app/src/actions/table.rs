@@ -60,7 +60,7 @@ pub(crate) const TABLE: &[Spec] = &[
         Global,
         Some(Go),
         true,
-        false
+        true
     ),
     spec!(
         "Open folder…",
@@ -130,7 +130,7 @@ pub(crate) const TABLE: &[Spec] = &[
         Global,
         Some(View),
         true,
-        false
+        true
     ),
     spec!(
         "List",
@@ -140,7 +140,7 @@ pub(crate) const TABLE: &[Spec] = &[
         Global,
         Some(View),
         true,
-        false
+        true
     ),
     spec!(
         "Map",
@@ -160,7 +160,7 @@ pub(crate) const TABLE: &[Spec] = &[
         Global,
         Some(View),
         true,
-        false
+        true
     ),
     spec!(
         "Next colour theme",

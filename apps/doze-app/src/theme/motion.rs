@@ -51,24 +51,44 @@ impl Motion {
     }
 }
 
-/// How much room rows get (the List view's Compact / Cosy / Roomy).
-#[allow(dead_code)] // WHY: the token is the theme's (step 0.7); the List view (M1 step 1.2) is its first reader
+/// How much room rows get (the List view's and the Library's Compact / Cosy / Roomy, as Gmail offers it). Roomy is
+/// the default; the heights are shell.css's `--row` under each.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub(crate) enum Density {
     Compact,
-    #[default]
     Cosy,
+    #[default]
     Roomy,
 }
 
-#[allow(dead_code)] // WHY: as above
 impl Density {
-    /// A row's height in pixels.
+    /// Every density, in the picker's order.
+    pub(crate) const ALL: [Density; 3] = [Density::Compact, Density::Cosy, Density::Roomy];
+
+    /// A List row's height in pixels.
     pub(crate) fn row(self) -> f32 {
         match self {
-            Density::Compact => 36.0,
-            Density::Cosy => 48.0,
-            Density::Roomy => 60.0,
+            Density::Compact => 32.0,
+            Density::Cosy => 40.0,
+            Density::Roomy => 48.0,
+        }
+    }
+
+    /// A Library row's padding above and below.
+    pub(crate) fn pad(self) -> f32 {
+        match self {
+            Density::Compact => 4.0,
+            Density::Cosy => 8.0,
+            Density::Roomy => 12.0,
+        }
+    }
+
+    /// Its word, for prefs and the picker's label.
+    pub(crate) fn word(self) -> &'static str {
+        match self {
+            Density::Compact => "compact",
+            Density::Cosy => "cosy",
+            Density::Roomy => "roomy",
         }
     }
 
@@ -91,6 +111,7 @@ mod tests {
     fn reduced_motion_moves_nothing() {
         assert!(!Motion::none().moves());
         assert!(Density::Compact.row() < Density::Cosy.row());
+        assert_eq!(Density::default(), Density::Roomy);
         assert_eq!(Density::parse("roomy"), Some(Density::Roomy));
     }
 }

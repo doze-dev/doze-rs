@@ -124,7 +124,7 @@ fn down_groups(h: &mut Home, st: &StackView, shape: &Shape, now: SystemTime) {
 }
 
 /// The instance as a daemon would list it, so the rows sort and the Map places exactly as they will once up.
-fn view_of(d: &Decl) -> InstanceView {
+pub(crate) fn view_of(d: &Decl) -> InstanceView {
     InstanceView {
         name: d.name.clone(),
         kind: d.kind.clone(),

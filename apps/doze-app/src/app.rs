@@ -28,6 +28,8 @@ use crate::tray::{self, Cmd};
 pub(crate) struct State {
     pub(crate) hub: Hub,
     pub(crate) first: Option<StackKey>,
+    /// Where stopped stacks' shapes and the machine's report come from.
+    pub(crate) facts: crate::facts::Mode,
     pub(crate) window: Option<WindowHandle<Root>>,
     _source: Rc<Source>,
 }
@@ -105,9 +107,9 @@ pub(crate) fn options(bounds: Bounds<gpui::Pixels>, show: bool) -> WindowOptions
 
 /// Opens the window, or brings it forward.
 pub(crate) fn open(cx: &mut App) -> Option<WindowHandle<Root>> {
-    let (hub, first, existing) = {
+    let (hub, first, existing, facts) = {
         let s = cx.try_global::<State>()?;
-        (s.hub.clone(), s.first.clone(), s.window)
+        (s.hub.clone(), s.first.clone(), s.window, s.facts.clone())
     };
     if let Some(h) = existing {
         let _ = h.update(cx, |_, w, _| w.activate_window());
@@ -130,7 +132,7 @@ pub(crate) fn open(cx: &mut App) -> Option<WindowHandle<Root>> {
                 });
                 true
             });
-            cx.new(|cx| Root::new(hub.clone(), first, window, cx))
+            cx.new(|cx| Root::new(hub.clone(), first, facts, window, cx))
         })
         .ok()?;
     hub.set_visible(true);
@@ -159,16 +161,17 @@ pub(crate) fn follow_args(cx: &mut App, args: &[String]) {
             }));
         }
     }
-    let _ = h.update(cx, |root, _, cx| match target {
+    let _ = h.update(cx, |root, window, cx| match target {
         Some(Ok(Link::Stack { stack, show: s })) => {
-            if !root.show(&stack, s.or(show).as_deref(), cx) {
+            if !root.show(&stack, s.or(show).as_deref(), window, cx) {
                 root.say(format!("No stack called {stack} is known here."), cx);
             }
         }
-        Some(Ok(Link::Open { dir, show: s })) => root.open_dir(&dir, s.or(show).as_deref(), cx),
-        Some(Ok(Link::Library | Link::Settings)) => {
-            root.say("The Library and Settings come with the next milestone.", cx)
+        Some(Ok(Link::Open { dir, show: s })) => {
+            root.open_dir(&dir, s.or(show).as_deref(), window, cx)
         }
+        Some(Ok(Link::Library)) => root.go(crate::shell::Screen::Library, window, cx),
+        Some(Ok(Link::Settings)) => root.say("Settings come with M3.", cx),
         Some(Err(e)) => root.say(e, cx),
         None => {
             if let Some(s) = show {
@@ -205,7 +208,7 @@ fn picked(cx: &mut App, cmd: Cmd) {
         Cmd::Quit => cx.quit(),
         Cmd::Stack(key) => {
             if let Some(h) = open(cx) {
-                let _ = h.update(cx, |root, _, cx| root.show_key(key, cx));
+                let _ = h.update(cx, |root, window, cx| root.show_key(key, window, cx));
             }
         }
     }
@@ -264,6 +267,7 @@ fn started(
     cx.set_global(State {
         hub: hub.clone(),
         first: source.first.clone(),
+        facts: source.facts.clone(),
         window: None,
         _source: source,
     });

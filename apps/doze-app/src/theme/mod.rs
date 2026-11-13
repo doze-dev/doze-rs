@@ -6,7 +6,6 @@
 
 mod motion;
 
-#[allow(unused_imports)] // WHY: Density is read by the List view (M1)
 pub(crate) use motion::{Density, Motion};
 
 use std::rc::Rc;
