@@ -27,6 +27,19 @@ cargo build
 cargo run -p doze-kafka
 ```
 
+### The doze-kafka web console
+
+`doze-kafka` serves a web console beside the broker, on `127.0.0.1:9093` by default. It has no login and
+acts on the broker as a super user, because it is a tool for one developer on their own machine. On a
+shared machine that means any local process or user can use the loopback console without the broker's
+password or ACLs. Turn it off with `--console=false` (and the Lab, its fault injection, with `--lab=false`).
+
+The console is never allowed to be a wider door than the broker itself: serving it beyond loopback
+(`--console-addr 0.0.0.0:9093`) is refused at start when SASL or TLS is on, when ACLs are in force
+(`--acl-default deny`, or ACLs stored in the data directory), or when `--listen` keeps Kafka on loopback.
+The refusal says what would be exposed. Keep the console on loopback, turn it off, or accept the exposure with
+`--console-unprotected`. Served beyond loopback, the Lab starts off unless `--lab` asks for it.
+
 ## License
 
 Apache License 2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE). Vendored third-party code under

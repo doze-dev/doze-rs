@@ -194,6 +194,7 @@ impl Recorder {
             profile: String::new(),
             listen: String::new(),
             versions: versions.into_values().collect(),
+            produce: String::new(),
         })
     }
 }

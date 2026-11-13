@@ -11,6 +11,7 @@ fn s(
         sasl,
         tls,
         default_allow: allow,
+        acls_stored: false,
         listener_beyond_loopback: listener_beyond,
         console_beyond_loopback: console_beyond,
         console_addr: "127.0.0.1:9093",
@@ -32,7 +33,12 @@ fn each_warning_holds_exactly_when_the_broker_would_say_it_at_start() {
         (s(true, true, true, true, false), [false, false, true]),
         (s(false, true, true, false, true), [true, false, false]),
         (s(true, false, false, false, true), [true, false, false]),
-        (s(false, false, true, false, true), [false, false, false]),
+        // Kafka on loopback and the console beyond it: the console is the wider door.
+        (s(false, false, true, false, true), [true, false, false]),
+        // Nothing guards the broker and it listens beyond loopback too: the console is no wider.
+        (s(false, false, true, true, true), [false, false, false]),
+        // ACLs in force (deny) are a guard on their own.
+        (s(false, false, false, true, true), [true, false, false]),
     ];
     for (switches, want) in table {
         assert_eq!(holds(&warnings(&switches)), want, "{switches:?}");
@@ -56,7 +62,7 @@ fn the_three_warnings_say_what_the_board_says_in_both_states() {
     assert_eq!(
         titles,
         [
-            "Console served beyond loopback with SASL or TLS on",
+            "Console served beyond loopback, a wider door than the broker",
             "SASL without TLS beyond loopback",
             "SASL on with --acl-default allow",
         ]
@@ -65,4 +71,12 @@ fn the_three_warnings_say_what_the_board_says_in_both_states() {
     assert!(format!("{:?}", loud[0].because).contains("--console-unprotected"));
     assert!(format!("{:?}", loud[1].because).contains("PLAIN password"));
     assert!(format!("{:?}", loud[2].because).contains("manage users and ACLs"));
+}
+
+#[test]
+fn stored_acls_alone_make_a_console_beyond_loopback_the_wider_door() {
+    let mut sw = s(false, false, true, true, true);
+    assert!(!warnings(&sw)[0].holds);
+    sw.acls_stored = true;
+    assert!(warnings(&sw)[0].holds);
 }

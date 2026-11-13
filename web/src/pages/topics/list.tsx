@@ -23,6 +23,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { number } from "@/lib/format";
 import { bytes, dateTime, retention, stamp } from "@/lib/kafka";
+import { shellWord } from "@/lib/shell";
 import type { TopicsSearch } from "@/lib/topic-search";
 import { PageError } from "../page-error";
 import { useMinWidth } from "../r4/bits";
@@ -147,7 +148,7 @@ function InternalNote({ shown }: { shown: boolean }) {
 }
 
 function NoTopics({ listen }: { listen: string }) {
-  const cmd = `echo '{"order_id":"ord-88412"}' | kcat -P -b ${listen} -t orders -k ord-88412`;
+  const cmd = `echo '{"order_id":"ord-88412"}' | kcat -P -b ${shellWord(listen)} -t orders -k ord-88412`;
   const navigate = useNavigate({ from: "/topics" });
   return (
     <div data-testid="topics-none">

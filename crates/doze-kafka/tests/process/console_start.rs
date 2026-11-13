@@ -25,8 +25,12 @@ fn home_of(addr: &str) -> String {
 #[cfg(feature = "console")]
 fn a_console_served_beyond_loopback_says_so_on_every_page_it_serves() {
     let data = scratch("console-banner");
-    // Nothing protects the broker, so the console may listen on every interface; the page still says who can reach it.
-    let mut broker = start_with(&data, &["--console-addr", "0.0.0.0:0"]);
+    // Nothing protects the broker and Kafka is on the network too, so the console may listen on every interface; the page still
+    // says who can reach it.
+    let mut broker = start_with(
+        &data,
+        &["--listen", "0.0.0.0:0", "--console-addr", "0.0.0.0:0"],
+    );
     let addr = console_addr(&broker);
     assert!(addr.starts_with("0.0.0.0:"), "{addr}");
     let home = home_of(&addr);

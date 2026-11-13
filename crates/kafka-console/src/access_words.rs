@@ -9,6 +9,8 @@ pub struct Switches<'a> {
     pub sasl: bool,
     pub tls: bool,
     pub default_allow: bool,
+    /// ACLs are stored.
+    pub acls_stored: bool,
     /// The Kafka listener can be reached from other machines.
     pub listener_beyond_loopback: bool,
     /// The console can be reached from other machines.
@@ -23,21 +25,27 @@ fn plain(text: &str) -> Vec<Span> {
 /// The three warnings the broker says at start (SEC-188, SEC-189, SEC-191), each with whether its condition holds.
 #[must_use]
 pub fn warnings(s: &Switches<'_>) -> Vec<AccessWarning> {
-    let protected = s.sasl || s.tls;
+    // What keeps a Kafka client out that the console (no login, plain HTTP, a super user) would get round (SEC-188).
+    let protected =
+        s.sasl || s.tls || !s.default_allow || s.acls_stored || !s.listener_beyond_loopback;
     let one = AccessWarning {
-        title: plain("Console served beyond loopback with SASL or TLS on"),
+        title: plain("Console served beyond loopback, a wider door than the broker"),
         because: if s.console_beyond_loopback && protected {
             vec![
                 Span::text("The console is on "),
                 Span::mono(s.console_addr),
-                Span::text(": it has no login and is plain HTTP, and this was accepted with "),
+                Span::text(
+                    ": it has no login and is plain HTTP, and gets round the broker's SASL, TLS, ACLs or loopback listener; this was accepted with ",
+                ),
                 Span::mono("--console-unprotected"),
             ]
         } else if s.console_beyond_loopback {
             vec![
                 Span::text("The console is on "),
                 Span::mono(s.console_addr),
-                Span::text(", and neither SASL nor TLS is on"),
+                Span::text(
+                    ", and the broker has no SASL, TLS or ACL and listens beyond loopback too",
+                ),
             ]
         } else {
             vec![Span::text("The console is on "), Span::mono(s.console_addr)]

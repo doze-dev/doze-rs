@@ -12,6 +12,7 @@
 )]
 
 mod support;
+mod support_redact;
 mod support_write;
 
 use std::sync::Arc;
@@ -33,6 +34,7 @@ use kafka_wire::messages::incremental_alter_configs_request::{
 use kafka_wire::messages::produce_request::{PartitionProduceData, TopicProduceData};
 use kafka_wire::messages::*;
 use kafka_wire::testing::{framed, request_payload};
+use support_redact::{commit, first_frames, json_post};
 use support_write::{page, world};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
@@ -204,6 +206,180 @@ async fn no_planted_secret_reaches_the_recorder_the_stream_or_a_page() {
         assert_eq!(status, axum::http::StatusCode::OK, "{path}: {json}");
         corpus.push(json);
     }
+    // The GETs of one group (over groups this broker has: commits make them), the Lab's GETs with a rule in force, a
+    // representative POST of every write (made, checked and refused), and the first frames of the live tail (audit finding 4).
+    for group in ["search-indexer", "analytics", "fulfilment"] {
+        c.call(
+            ApiKey::OffsetCommit,
+            8,
+            "alice-app",
+            &commit(group, "orders"),
+        )
+        .await;
+    }
+    let lab_app = {
+        let live = Live::new(w.backend.clone(), w.facts.clone())
+            .with_recorder(Arc::clone(&recorder))
+            .with_lab(kafka_server::fault::FaultTable::new());
+        kafka_console::app::console(State::new(
+            Source::Live(Box::new(live)),
+            Base::root(),
+            vec![],
+            CancellationToken::new(),
+        ))
+    };
+    let (status, made) = page(
+        &lab_app,
+        json_post(
+            "/api/v1/lab/rules",
+            &serde_json::json!({"kind": "slow", "fields": {"api": "Produce", "topic": "orders", "client": "alice-app", "delay": "5", "ends": "5"}}),
+        ),
+    )
+    .await;
+    assert_eq!(status, axum::http::StatusCode::OK, "{made}");
+    let rule = serde_json::from_str::<serde_json::Value>(&made).unwrap()["id"]
+        .as_u64()
+        .unwrap_or(1);
+    corpus.push(made);
+    let lab_gets = [
+        "/api/v1/lab".to_owned(),
+        "/api/v1/lab/form?kind=slow".to_owned(),
+        "/api/v1/lab/form?kind=fail".to_owned(),
+        format!("/api/v1/lab/rules/{rule}"),
+        "/api/v1/lab/once/drop".to_owned(),
+        "/api/v1/lab/once/rebalance".to_owned(),
+        "/api/v1/lab/compact?topic=orders&partition=0".to_owned(),
+    ];
+    let group_gets = kafka_console::api::groups::GROUP_GET_PATHS
+        .iter()
+        .map(|p| (*p).to_owned());
+    for path in group_gets.chain(lab_gets) {
+        let (status, json) = page(&lab_app, support::api_get(&path)).await;
+        assert_eq!(status, axum::http::StatusCode::OK, "{path}: {json}");
+        corpus.push(json);
+    }
+    let form = |path: &str, fields: &[(&str, &str)]| {
+        let mut req = support::post(path, &support_write::body(fields));
+        req.headers_mut()
+            .insert("x-console", axum::http::HeaderValue::from_static("1"));
+        req
+    };
+    let writes = [
+        json_post("/api/v1/probe", &serde_json::json!({})),
+        form(
+            "/api/v1/create-topic",
+            &[("name", "fresh"), ("partitions", "1"), ("mode", "create")],
+        ),
+        // Refused: the name is taken.
+        form(
+            "/api/v1/create-topic",
+            &[("name", "orders"), ("partitions", "1"), ("mode", "create")],
+        ),
+        form(
+            "/api/v1/topics/fresh/produce",
+            &[
+                ("partition", "0"),
+                ("key", "k"),
+                ("value", "v"),
+                ("acks", "-1"),
+            ],
+        ),
+        // Refused: no such topic.
+        form("/api/v1/topics/nowhere/produce", &[("value", "v")]),
+        form("/api/v1/topics/fresh/add-partitions", &[("count", "2")]),
+        form("/api/v1/topics/fresh/add-partitions", &[("count", "1")]),
+        form(
+            "/api/v1/topics/fresh/delete-records",
+            &[("partition", "0"), ("offset", "1")],
+        ),
+        form(
+            "/api/v1/topics/fresh/config/edit",
+            &[("key", "retention.ms"), ("op", "set"), ("value", "7200000")],
+        ),
+        form(
+            "/api/v1/topics/fresh/config/reset",
+            &[("key", "retention.ms")],
+        ),
+        json_post(
+            "/api/v1/topics/orders/log/compact?partition=0",
+            &serde_json::json!({}),
+        ),
+        json_post(
+            "/api/v1/groups/analytics/reset",
+            &serde_json::json!({"topic": "orders", "to": "earliest", "value": ""}),
+        ),
+        json_post(
+            "/api/v1/groups/analytics/offsets/delete",
+            &serde_json::json!({"topics": ["orders"]}),
+        ),
+        json_post("/api/v1/groups/fulfilment/delete", &serde_json::json!({})),
+        json_post("/api/v1/groups/nobody/delete", &serde_json::json!({})),
+        json_post(
+            "/api/v1/settings/edit",
+            &serde_json::json!({"key": "log.retention.ms", "scope": "all", "value": "86400000", "check": true}),
+        ),
+        // A sensitive broker config typed in is never said back (a value typed for an ordinary key, refused, is quoted
+        // in Kafka's sentence as Kafka does: not a secret).
+        json_post(
+            "/api/v1/settings/edit",
+            &serde_json::json!({"key": "ssl.key.password", "scope": "all", "value": CONFIG}),
+        ),
+        json_post(
+            "/api/v1/access/acls/new",
+            &serde_json::json!({"type": "topic", "name": "orders", "pattern": "literal", "principal": "User:alice", "host": "*", "op": "read", "perm": "allow"}),
+        ),
+        json_post(
+            "/api/v1/access/acls/new",
+            &serde_json::json!({"type": "topic", "principal": "User:x"}),
+        ),
+        json_post(
+            "/api/v1/access/acls/delete",
+            &serde_json::json!({"type": "topic", "name": "orders", "pattern": "literal", "principal": "User:alice", "host": "*", "op": "read", "perm": "allow"}),
+        ),
+        json_post(
+            &format!("/api/v1/lab/rules/{rule}/enabled"),
+            &serde_json::json!({"on": false}),
+        ),
+        json_post(
+            "/api/v1/lab/rules",
+            &serde_json::json!({"kind": "slow", "fields": {"delay": "0"}}),
+        ),
+        json_post(
+            "/api/v1/lab/once/drop",
+            &serde_json::json!({"target": "nobody", "how": "close"}),
+        ),
+        json_post(
+            "/api/v1/lab/compact",
+            &serde_json::json!({"topic": "orders", "partition": 0}),
+        ),
+        json_post(
+            &format!("/api/v1/lab/rules/{rule}/remove"),
+            &serde_json::json!({}),
+        ),
+        json_post("/api/v1/lab/history/clear", &serde_json::json!({})),
+        // Last: the topic goes.
+        form("/api/v1/topics/fresh/delete", &[("confirm", "fresh")]),
+    ];
+    for req in writes {
+        let path = req.uri().to_string();
+        let (status, json) = page(&lab_app, req).await;
+        assert!(
+            status.as_u16() < 500,
+            "{path} answered {status}: {json:.300}"
+        );
+        assert!(
+            json.starts_with('{'),
+            "{path} answered {status}: {json:.300}"
+        );
+        corpus.push(json);
+    }
+    // The live tail from the start of this process's tape: its first frames carry every row the recorder has.
+    corpus.push(first_frames(&lab_app, "/api/v1/tail/live?idle=0&pace=1").await);
+    let tail = corpus.last().unwrap();
+    assert!(
+        tail.contains("SaslAuthenticate"),
+        "the tail sent the rows: {tail:.600}"
+    );
     for plant in [PASSWORD, WRONG, VALUE, KEY, HEADER, CONFIG, SALTED] {
         for (i, text) in corpus.iter().enumerate() {
             assert!(
@@ -212,6 +388,14 @@ async fn no_planted_secret_reaches_the_recorder_the_stream_or_a_page() {
                 text.replace(plant, "<<PLANT>>")
             );
         }
+    }
+    // The messages tail shows records (that is its job), so only the secrets that are not a record's are looked for.
+    let messages = first_frames(&lab_app, "/api/v1/tail/messages?topic=orders&pace=1").await;
+    for plant in [PASSWORD, WRONG, CONFIG, SALTED] {
+        assert!(
+            !messages.contains(plant),
+            "{plant:?} reached the messages tail"
+        );
     }
     w.stop().await;
 }

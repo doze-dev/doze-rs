@@ -32,6 +32,7 @@ import { number } from "@/lib/format";
 import { bytes, clockMs } from "@/lib/kafka";
 import { type MessagesSearch, messagesQuery, partitionParam, partitionsOf, recordAt } from "@/lib/topic-search";
 import { useTailOwnsRefresh } from "@/lib/refresh";
+import { shellWord } from "@/lib/shell";
 import { cn } from "@/lib/utils";
 import { PageError } from "../page-error";
 import { WireDock } from "../live/wire-dock";
@@ -457,7 +458,7 @@ function Records({ topic, r, frame, tail, tailable, search, set, open, children 
 
 function EmptyTopic({ frame, listen }: { frame: TopicFrame; listen: string }) {
   const { open } = useTopicDialog();
-  const cmd = `echo '{"order_id":"ord-88412","error":"payment declined"}' \\\n  | kcat -P -b ${listen} -t ${frame.head.name} -k ord-88412`;
+  const cmd = `echo '{"order_id":"ord-88412","error":"payment declined"}' \\\n  | kcat -P -b ${shellWord(listen)} -t ${shellWord(frame.head.name)} -k ord-88412`;
   return (
     <div data-testid="messages-empty">
       <EmptyState

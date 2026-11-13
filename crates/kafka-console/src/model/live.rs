@@ -1,6 +1,8 @@
 //! What the Live pages say: the tape of requests, one request in full, the clients, and the docks that filter the same tape.
 //! Plain data; the recorder makes it, the pages write it. Nothing here is a ring type.
 
+pub use super::live_clients::{Facet, Facets};
+
 /// How a request ended, as a word and a colour.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize)]
 #[cfg_attr(test, derive(ts_rs::TS))]
@@ -214,23 +216,6 @@ pub struct LiveView {
     pub older: Option<u64>,
     /// What the tape holds, for the filters' options: each app, API and topic with the rows that would remain if it were chosen.
     pub facets: Facets,
-}
-
-/// One option of a filter: a value and how many rows of the tape carry it (among the rows that pass the other filters).
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
-#[cfg_attr(test, derive(ts_rs::TS))]
-pub struct Facet {
-    pub value: String,
-    pub count: usize,
-}
-
-/// The options of the Live filters.
-#[derive(Debug, Clone, PartialEq, Eq, Default, serde::Serialize)]
-#[cfg_attr(test, derive(ts_rs::TS))]
-pub struct Facets {
-    pub clients: Vec<Facet>,
-    pub apis: Vec<Facet>,
-    pub topics: Vec<Facet>,
 }
 
 /// One per-partition result of a request.

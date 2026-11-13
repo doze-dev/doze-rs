@@ -2,9 +2,10 @@
 //!
 //! `--console`, `--console-addr`, `--console-prefix`, `--console-allow-host` and `--console-unprotected` are parsed and
 //! checked here and acted on by `web.rs` (a build with the `console` feature serves a console; one without says the
-//! flags are ignored). The rule on their inputs: with SASL or TLS on, a console address that other machines can reach
-//! is refused unless `--console-unprotected` accepts it (the console has no login, is plain HTTP and would act as a
-//! super user), and the choices that leave something open are reported once at start. The words are the Go edition's.
+//! flags are ignored). The rule on their inputs: the console is never a wider door than the broker itself. With SASL or
+//! TLS on, ACLs in force, or Kafka listening on loopback only, a console address that other machines can reach is refused
+//! unless `--console-unprotected` accepts it (the console has no login, is plain HTTP and acts as a super user), and the
+//! choices that leave something open are reported once at start.
 
 use std::net::{IpAddr, SocketAddr};
 
@@ -23,8 +24,8 @@ pub(crate) struct Console {
     pub(crate) allow_hosts: Vec<String>,
     /// `--console-unprotected`.
     pub(crate) unprotected: bool,
-    /// The Lab is on: `--lab` (the default) with a console to make rules from, and not the default-off of a protected broker
-    /// whose console is served beyond loopback.
+    /// The Lab is on: `--lab` (the default) with a console to make rules from, and not the default-off of a console served
+    /// beyond loopback.
     pub(crate) lab: bool,
 }
 
@@ -53,7 +54,7 @@ pub(super) struct Input<'a> {
     pub(super) prefix: &'a str,
     pub(super) allow_hosts: &'a [String],
     pub(super) unprotected: bool,
-    /// `--lab`: a boolean; absent is on, unless the console is beyond loopback with SASL or TLS on.
+    /// `--lab`: a boolean; absent is on, unless the console is served beyond loopback.
     pub(super) lab: Option<&'a str>,
     pub(super) sasl: bool,
     pub(super) tls: bool,
@@ -78,8 +79,8 @@ pub(super) fn switch(text: &str) -> Option<bool> {
 /// Checks the console flags against what protects the broker, and says what is left open.
 ///
 /// # Errors
-/// `--console` that is not a boolean; an address that is not `host:port`; or SASL or TLS is on and the console would be served beyond loopback
-/// without `--console-unprotected`.
+/// `--console` that is not a boolean; an address that is not `host:port`; or the console would be served beyond loopback without
+/// `--console-unprotected` while SASL, TLS or ACLs guard the broker or Kafka listens on loopback only.
 pub(super) fn setup(input: &Input<'_>) -> Result<(Console, Vec<String>)> {
     let on = match input.console {
         None => true,
@@ -89,31 +90,20 @@ pub(super) fn setup(input: &Input<'_>) -> Result<(Console, Vec<String>)> {
             )
         })?,
     };
-    let protection = match (input.sasl, input.tls) {
-        (true, true) => Some("SASL and TLS"),
-        (true, false) => Some("SASL"),
-        (false, true) => Some("TLS"),
-        (false, false) => None,
-    };
     let mut notes = Vec::new();
     if let Some(addr) = input.addr.filter(|_| on) {
         if !host_port(addr) {
             bail!("config: console address {addr:?} is not host:port (for example 127.0.0.1:9093)");
         }
-        if let (Some(what), true) = (protection, beyond_loopback(addr)) {
-            let exposure = if input.sasl {
-                "let anyone who can reach that address act on the broker as a super user, without a password"
+        if beyond_loopback(addr) {
+            let guards = Guards::of(input);
+            if let Some(note) = wider_door(addr, &guards, input.unprotected)? {
+                notes.push(note);
             } else {
-                "send topics and messages unencrypted to anyone who can reach that address"
-            };
-            if !input.unprotected {
-                bail!(
-                    "config: the console has no login and is plain HTTP, and {what} is on: serving it on {addr} would {exposure}. Keep --console-addr on loopback (and put a proxy that authenticates in front of it), turn it off with --console=false, or accept this with --console-unprotected"
-                );
+                notes.push(format!(
+                    "the console is served on {addr} with no login and over plain HTTP: anyone who can reach that address can do what any Kafka client of this broker can (it has no login, no ACL and no TLS), and ACLs made later will not bind the console, which acts as a super user"
+                ));
             }
-            notes.push(format!(
-                "the console is served on {addr} with no login and over plain HTTP although {what} is on (--console-unprotected): that will {exposure}"
-            ));
         }
     }
     if input.sasl && !input.tls && !input.listen.ip().is_loopback() {
@@ -134,7 +124,7 @@ pub(super) fn setup(input: &Input<'_>) -> Result<(Console, Vec<String>)> {
     if on {
         check_prefix(input.prefix)?;
     }
-    let lab = lab_rule(input, on, protection, &mut notes)?;
+    let lab = lab_rule(input, on, &mut notes)?;
     let console = Console {
         enabled: on,
         addr: input.addr.map(str::to_owned),
@@ -146,14 +136,128 @@ pub(super) fn setup(input: &Input<'_>) -> Result<(Console, Vec<String>)> {
     Ok((console, notes))
 }
 
-/// Whether the Lab is on, and what it is said to leave open. The Lab needs the console to make rules from; a broker with SASL or TLS
-/// whose console is served beyond loopback (accepted with `--console-unprotected`) starts with it off unless `--lab=true` asks.
-fn lab_rule(
-    input: &Input<'_>,
-    console_on: bool,
-    protection: Option<&str>,
-    notes: &mut Vec<String>,
-) -> Result<bool> {
+/// What keeps a Kafka client of this broker out that a console served beyond loopback would get round: the console has no login,
+/// is plain HTTP and acts as a super user (SEC-241), and it must never be a wider door than the broker itself (SEC-243).
+#[derive(Debug, Default)]
+struct Guards {
+    sasl: bool,
+    tls: bool,
+    /// Why ACLs are in force, if they are: `--acl-default deny`, or ACLs stored in the data directory.
+    acls: Option<String>,
+    /// The Kafka address, if only this machine can reach it.
+    local_listen: Option<SocketAddr>,
+}
+
+impl Guards {
+    fn of(input: &Input<'_>) -> Self {
+        Self {
+            sasl: input.sasl,
+            tls: input.tls,
+            acls: (!input.acl_allow).then(|| "ACLs are in force (--acl-default deny)".to_owned()),
+            local_listen: input.listen.ip().is_loopback().then_some(input.listen),
+        }
+    }
+
+    /// What is on, in words: `SASL is on, TLS is on and ...`; `None` when nothing guards the broker.
+    fn what(&self) -> Option<String> {
+        let mut said = Vec::new();
+        if self.sasl {
+            said.push("SASL is on".to_owned());
+        }
+        if self.tls {
+            said.push("TLS is on".to_owned());
+        }
+        if let Some(acls) = &self.acls {
+            said.push(acls.clone());
+        }
+        if let Some(listen) = self.local_listen {
+            said.push(format!("--listen {listen} keeps Kafka on this machine"));
+        }
+        (!said.is_empty()).then(|| listed(&said))
+    }
+
+    /// What anyone who can reach the console could then do that a Kafka client could not.
+    fn exposure(&self) -> String {
+        let mut said = Vec::new();
+        if self.sasl {
+            said.push("act on the broker as a super user without a password");
+        }
+        if self.acls.is_some() {
+            said.push("do what the ACLs refuse (the console acts as a super user)");
+        }
+        if self.tls {
+            said.push("read topics and messages sent unencrypted");
+        }
+        if self.local_listen.is_some() {
+            said.push("reach from the network a broker that Kafka clients can reach only from this machine");
+        }
+        listed(&said)
+    }
+}
+
+/// `a`, `a and b`, `a, b and c`.
+fn listed<S: AsRef<str>>(items: &[S]) -> String {
+    match items {
+        [] => String::new(),
+        [one] => one.as_ref().to_owned(),
+        [rest @ .., last] => format!(
+            "{} and {}",
+            rest.iter()
+                .map(AsRef::as_ref)
+                .collect::<Vec<_>>()
+                .join(", "),
+            last.as_ref()
+        ),
+    }
+}
+
+/// The rule for a console served on `addr`, beyond loopback: refused when something guards the broker unless `--console-unprotected`
+/// accepts it, and then the note that says what is open. `None` when nothing guards the broker.
+fn wider_door(addr: &str, guards: &Guards, unprotected: bool) -> Result<Option<String>> {
+    let Some(what) = guards.what() else {
+        return Ok(None);
+    };
+    let exposure = guards.exposure();
+    if !unprotected {
+        bail!(
+            "config: the console has no login and is plain HTTP, and {what}: serving it on {addr} would let anyone who can reach that address {exposure}. Keep --console-addr on loopback (and put a proxy that authenticates in front of it), turn it off with --console=false, or accept this with --console-unprotected"
+        );
+    }
+    Ok(Some(format!(
+        "the console is served on {addr} with no login and over plain HTTP although {what} (--console-unprotected): anyone who can reach that address can {exposure}"
+    )))
+}
+
+/// The rule once the broker's data is open, for what only the data directory knows: ACLs stored there, with `--acl-default allow`
+/// (with deny the start-up rule has already looked). A console served beyond loopback in front of them is refused unless
+/// `--console-unprotected` accepts it, and then this is the note.
+///
+/// # Errors
+/// ACLs are stored and the console would be served beyond loopback without `--console-unprotected`.
+#[cfg_attr(not(feature = "console"), allow(dead_code))]
+pub(crate) fn stored_acls(
+    console: &Console,
+    acl_default_allow: bool,
+    acls: usize,
+) -> Result<Option<String>> {
+    let Some(addr) = console.addr.as_deref().filter(|_| console.enabled) else {
+        return Ok(None);
+    };
+    if !acl_default_allow || acls == 0 || !beyond_loopback(addr) {
+        return Ok(None);
+    }
+    let guards = Guards {
+        acls: Some(format!(
+            "ACLs are in force ({acls} stored in the data directory)"
+        )),
+        ..Guards::default()
+    };
+    wider_door(addr, &guards, console.unprotected)
+}
+
+/// Whether the Lab is on, and what it is said to leave open. The Lab needs the console to make rules from; a console served beyond
+/// loopback starts with it off unless `--lab` asks for it plainly (anyone who reaches such a console could inject faults).
+fn lab_rule(input: &Input<'_>, console_on: bool, notes: &mut Vec<String>) -> Result<bool> {
     let asked = match input.lab {
         None => None,
         Some(text) => Some(switch(text).ok_or_else(|| {
@@ -163,12 +267,12 @@ fn lab_rule(
         })?),
     };
     let beyond = console_on && input.addr.is_some_and(beyond_loopback);
-    let lab = console_on && asked.unwrap_or(!(beyond && protection.is_some()));
+    let lab = console_on && asked.unwrap_or(!beyond);
     if console_on && beyond && lab {
-        notes.push("the Lab is on and the console is served beyond loopback: anyone who can reach the console can inject faults into the broker's connections (--lab=false turns it off)".to_owned());
+        notes.push("the Lab is on (--lab) and the console is served beyond loopback: anyone who can reach the console can inject faults into the broker's connections (--lab=false turns it off)".to_owned());
     }
     if console_on && beyond && !lab && asked.is_none() {
-        notes.push("the Lab is off because the console is served beyond loopback with SASL or TLS on (--lab=true switches it on)".to_owned());
+        notes.push("the Lab is off because the console is served beyond loopback (--lab=true switches it on)".to_owned());
     }
     Ok(lab)
 }

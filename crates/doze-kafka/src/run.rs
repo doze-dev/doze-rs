@@ -80,17 +80,15 @@ pub(crate) async fn serve(
     };
     #[cfg(not(feature = "console"))]
     let _ = (&console, console_listener);
+    let acl_default_allow = broker.acl_default_allow;
     let broker = Arc::new(Broker::open(RealFs, broker).context("opening the broker's data")?);
-    // The users stored over the API are loaded now, so only now is it known whether anybody can log in.
-    if let Some(sasl) = &server.sasl {
-        sasl.ensure_users()
-            .map_err(|_| anyhow::anyhow!(crate::cli::NO_USERS))?;
-        tracing::info!(
-            configured = sasl.user_count(),
-            stored = sasl.users().stored().user_count(),
-            "SASL users"
-        );
-    }
+    stored_acls(
+        &console,
+        &console_listener,
+        acl_default_allow,
+        broker.acl_count(),
+    )?;
+    users_ready(&server)?;
     // Asked to stop from now on means a clean stop: the handlers are registered before the broker says it is listening,
     // because a signal that arrives between that line and a late registration would end the process by the default action.
     let stop = stop_signal();
@@ -148,4 +146,42 @@ fn stop_signal() -> impl std::future::Future<Output = ()> {
             let _ = tokio::signal::ctrl_c().await;
         }
     }
+}
+
+/// The users stored over the API are loaded once the broker's data is open, so only then is it known whether anybody can log in.
+fn users_ready(server: &kafka_server::Config) -> Result<()> {
+    if let Some(sasl) = &server.sasl {
+        sasl.ensure_users()
+            .map_err(|_| anyhow::anyhow!(crate::cli::NO_USERS))?;
+        tracing::info!(
+            configured = sasl.user_count(),
+            stored = sasl.users().stored().user_count(),
+            "SASL users"
+        );
+    }
+    Ok(())
+}
+
+/// ACLs stored in the data directory are known only once it is open: a console served beyond loopback would get round them,
+/// so that start is refused without `--console-unprotected`, and said with it (SEC-188).
+#[cfg(feature = "console")]
+fn stored_acls(
+    console: &crate::cli::Console,
+    bound: &ConsoleBound,
+    acl_default_allow: bool,
+    acls: usize,
+) -> Result<()> {
+    if bound.is_some()
+        && let Some(note) = crate::cli::stored_acls(console, acl_default_allow, acls)?
+    {
+        tracing::warn!("{note}");
+    }
+    Ok(())
+}
+
+/// A build without the console has none to get round the ACLs.
+#[cfg(not(feature = "console"))]
+#[allow(clippy::unnecessary_wraps)]
+fn stored_acls(_: &crate::cli::Console, (): &ConsoleBound, _: bool, _: usize) -> Result<()> {
+    Ok(())
 }

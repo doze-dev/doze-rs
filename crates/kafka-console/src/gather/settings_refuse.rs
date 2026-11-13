@@ -10,6 +10,9 @@ use crate::model::{Refusal, SettingsRefused, SettingsResult, SettingsScope, Span
 use crate::refusal::refusal;
 use crate::settings_words::{DYNAMIC, allowed, flag_of, is_dynamic};
 
+/// What the call shows for the value of a config the console does not edit.
+const NOT_SHOWN: &str = "(the value, not shown)";
+
 /// The words of a refused answer.
 #[must_use]
 pub fn said(code: i16, message: Option<String>) -> Refusal {
@@ -139,11 +142,21 @@ pub async fn refused(
         .await
         .map(|c| c.fixed)
         .unwrap_or_default();
-    let refusal =
+    let mut refusal =
         refusal.unwrap_or_else(|| said(-1, Some("The broker did not answer.".to_owned())));
+    // A config that is not one of the five may be a secret (`ssl.key.password`): what was typed for it is never said back, in
+    // the call or in the broker's sentence (SEC-189's planted-secret gate, `tests/redaction`).
+    let value = if is_dynamic(f.key) {
+        f.value
+    } else {
+        if !f.value.trim().is_empty() {
+            refusal.message = refusal.message.replace(f.value, NOT_SHOWN);
+        }
+        NOT_SHOWN
+    };
     let read = reading(f.key, &fixed);
     let version = b.version(ApiKey::IncrementalAlterConfigs);
-    let mut call = call_lines(version, scope, node, f.key, f.value);
+    let mut call = call_lines(version, scope, node, f.key, value);
     call.push(vec![]);
     call.push(vec![(
         Tok::Plain,

@@ -246,6 +246,12 @@ impl<F: Fs> Broker<F> {
     pub fn client_telemetry(&self) -> bool {
         self.config.client_telemetry
     }
+
+    /// How many ACLs are stored now: the start looks, because a console served beyond loopback would get round them.
+    #[must_use]
+    pub fn acl_count(&self) -> usize {
+        self.authz.snapshot().len()
+    }
 }
 
 /// The broker configs set before the last stop: for all brokers, and for this one.

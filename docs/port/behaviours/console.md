@@ -693,7 +693,7 @@ Test: `settings_words::tests::every_api_a_kafka_profile_offers_has_a_family_and_
 Test: settings_words::tests::the_limits_are_the_ones_weight_md_writes (removed in R5).
 
 ## CON-579. A start-up warning holds exactly when the broker would say it
-SEC-188 (console beyond loopback with SASL or TLS on), SEC-189 (SASL without TLS beyond loopback), SEC-191 (SASL with `--acl-default allow`). Test: `access_words::tests::each_warning_holds_exactly_when_the_broker_would_say_it_at_start`.
+SEC-188 (console beyond loopback in front of SASL, TLS, ACLs or a loopback listener: a wider door than the broker), SEC-189 (SASL without TLS beyond loopback), SEC-191 (SASL with `--acl-default allow`). Test: `access_words::tests::each_warning_holds_exactly_when_the_broker_would_say_it_at_start`.
 
 ## CON-580. The broker's view names users and super users and holds no secret
 `ConsoleView::access` (DESCRIBE on the cluster), `intervals` (DESCRIBE_CONFIGS) and `data_size`. Test: `view::tests::access_names_the_flag_users_and_the_super_users_and_never_what_they_log_in_with`.
@@ -1081,7 +1081,15 @@ There is one page layer, the React app, and no other route (the server-rendered 
 The CSP is `default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'`. Test: `the_host_guard_and_the_security_headers_stand_in_front_of_all_of_it`.
 
 ## CON-1012. No planted secret reaches a JSON answer
-The planted-secret gate reads every GET endpoint of the API over a real broker with SASL. Test: `no_planted_secret_reaches_the_recorder_the_stream_or_a_page`.
+The planted-secret gate reads, over a real broker with SASL and a Lab rule in force: every GET endpoint of the API (`GET_PATHS`),
+the GETs of one group (`GROUP_GET_PATHS`, over groups the test commits), the Lab's GETs (the home, both forms, a rule, the
+rehearsals, Compact), the answer of a representative POST of every write (made, checked and refused: probe, create topic, produce,
+add partitions, delete records, topic config edit and reset, compact, the three group writes, settings edit, ACL create and
+delete, the Lab's rule writes, rehearsal, compact and clear, delete topic), and the first frames of the live tail from the first
+cursor; the messages tail, which shows records by design, is searched for the credentials and the secret config. Added by the
+2026-11-13 console security audit (finding 4); it found the Settings dialog saying back the value typed for a config that is not
+one of the five (`ssl.key.password`) in the call it shows: such a value is now `(the value, not shown)`, in the call and in the
+broker's sentence. Test: `no_planted_secret_reaches_the_recorder_the_stream_or_a_page`.
 
 ## CON-1013. A hostile name is JSON text
 React escapes text and no HTML is ever injected; the API returns what it was given as a string. Test: `a_hostile_name_in_the_palette_comes_back_as_json_text`.

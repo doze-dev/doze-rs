@@ -132,3 +132,64 @@ async fn a_get_never_asks_the_broker_to_change_anything() {
     assert!(log.lock().unwrap().contains(&ApiKey::Produce));
     w.stop().await;
 }
+
+/// Every `last_write_ms` in an answer, in order.
+fn last_writes(json: &str) -> Vec<String> {
+    json.split("\"last_write_ms\":")
+        .skip(1)
+        .map(|rest| rest.split([',', '}']).next().unwrap().to_owned())
+        .collect()
+}
+
+/// The files of a partition's directory, with their sizes and times.
+fn files_of(dir: &std::path::Path) -> Vec<(String, u64, std::time::SystemTime)> {
+    let mut out: Vec<_> = std::fs::read_dir(dir)
+        .map(|d| {
+            d.flatten()
+                .map(|e| {
+                    let m = e.metadata().unwrap();
+                    (
+                        e.file_name().to_string_lossy().into_owned(),
+                        m.len(),
+                        m.modified().unwrap(),
+                    )
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    out.sort();
+    out
+}
+
+/// The audit's suspicion (finding 5): the first GET of an empty topic's frame made its last write the time of the read. Reading a
+/// fresh topic, twice, leaves its directory as it was and says it was never written.
+#[tokio::test]
+async fn reading_an_empty_topic_twice_writes_nothing_and_it_was_never_written() {
+    let w = world("empty-read", |_, _| {}).await;
+    w.create_topic("empty", 2, &[]).await;
+    let app = w.router();
+    let dirs: Vec<_> = (0..2).map(|p| w.dir.join(format!("empty-{p}"))).collect();
+    let before: Vec<_> = dirs.iter().map(|d| files_of(d)).collect();
+    std::thread::sleep(std::time::Duration::from_millis(20));
+    let mut seen = Vec::new();
+    for path in [
+        "/api/v1/topics/empty",
+        "/api/v1/topics/empty",
+        "/api/v1/topics",
+        "/api/v1/topics/empty/log?partition=0",
+        "/api/v1/topics/empty/messages?partition=0",
+        "/api/v1/topics/empty",
+    ] {
+        let (status, body) = page(&app, api_get(path)).await;
+        assert_eq!(status, StatusCode::OK, "{path}: {body:.300}");
+        if path == "/api/v1/topics/empty" {
+            seen.push(last_writes(&body));
+        }
+    }
+    let after: Vec<_> = dirs.iter().map(|d| files_of(d)).collect();
+    assert_eq!(after, before, "a GET created or touched files");
+    for s in &seen {
+        assert!(!s.is_empty() && s.iter().all(|v| v == "null"), "{seen:?}");
+    }
+    w.stop().await;
+}

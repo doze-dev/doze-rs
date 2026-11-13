@@ -3,6 +3,7 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { usePollInterval } from "@/lib/refresh";
 import { api } from "./client";
+import { segment } from "./path";
 import type { ClientsView } from "./types/ClientsView";
 import type { FirstResponse } from "./types/FirstResponse";
 import type { GroupWireView } from "./types/GroupWireView";
@@ -37,7 +38,7 @@ export function useLive(query: string, poll = true) {
 export function useRequest(id: number | undefined) {
   return useQuery({
     queryKey: liveKeys.request(id ?? -1),
-    queryFn: ({ signal }) => api<RequestAnswer>(`/api/v1/live/request/${id}`, {}, signal),
+    queryFn: ({ signal }) => api<RequestAnswer>(`/api/v1/live/request/${segment(id ?? -1)}`, {}, signal),
     staleTime: Infinity,
     enabled: id !== undefined,
     retry: false,

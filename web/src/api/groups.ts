@@ -3,6 +3,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./client";
 import { keys, useInterval } from "./queries";
+import { segment } from "./path";
 import type { GroupDeleteView } from "./types/GroupDeleteView";
 import type { GroupLagView } from "./types/GroupLagView";
 import type { GroupsResponse } from "./types/GroupsResponse";
@@ -13,7 +14,7 @@ import type { ResetRequest } from "./types/ResetRequest";
 import type { ResetView } from "./types/ResetView";
 import type { StoryView } from "./types/StoryView";
 
-const seg = encodeURIComponent;
+const seg = segment;
 
 export const groupKeys = {
   list: (q: string, states: string[]) => ["groups", q, ...states] as const,

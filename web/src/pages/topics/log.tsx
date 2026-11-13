@@ -27,6 +27,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { number } from "@/lib/format";
 import { bytes, clock, dateTime, millis, pct, spanMs } from "@/lib/kafka";
+import { shellWord } from "@/lib/shell";
 import { useShell } from "@/api/queries";
 import { cn } from "@/lib/utils";
 import { PageError } from "../page-error";
@@ -580,7 +581,7 @@ function Others({ v }: { v: LogView }) {
 function EmptyLog({ v }: { v: LogView }) {
   const { open } = useTopicDialog();
   const listen = useShell().data?.address ?? "";
-  const cmd = `echo '{"order_id":"ord-88412"}' | kcat -P -b ${listen} -t ${v.topic}`;
+  const cmd = `echo '{"order_id":"ord-88412"}' | kcat -P -b ${shellWord(listen)} -t ${shellWord(v.topic)}`;
   return (
     <EmptyState
       icon={ScrollTextIcon}

@@ -13,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { clockUtc, duration, hhmmUtc, number } from "@/lib/format";
+import { shellWord } from "@/lib/shell";
 import { cn } from "@/lib/utils";
 import { CheckAgain, ProbeRules, VerdictDot } from "./probe";
 import { PageError } from "./page-error";
@@ -179,8 +180,8 @@ function NextCard({ r }: { r: HomeResponse }) {
   const h = r.home;
   if (h.state.kind === "quiet") {
     const steps: [string, string, React.ReactNode][] = [
-      ["1", "Ask the broker what it has", <CodeValue value={`kcat -b ${h.listen} -L`} label="Command" />],
-      ["2", "Send a message (auto-create makes the topic, 1 partition)", <CodeValue value={`echo "hello" | kcat -P -b ${h.listen} -t orders -X client.id=admin-cli`} label="Command" />],
+      ["1", "Ask the broker what it has", <CodeValue value={`kcat -b ${shellWord(h.listen)} -L`} label="Command" />],
+      ["2", "Send a message (auto-create makes the topic, 1 partition)", <CodeValue value={`echo "hello" | kcat -P -b ${shellWord(h.listen)} -t orders -X client.id=admin-cli`} label="Command" />],
       ["3", "Watch it arrive", <p className="text-[13px] text-muted-foreground">Open Live: the request is the first row on the wire, with its caller, topic and result.</p>],
     ];
     return (

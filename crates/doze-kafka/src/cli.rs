@@ -147,7 +147,9 @@ pub(crate) struct Args {
     #[arg(long, hide = true)]
     meta_db: Option<String>,
     /// The web console: on unless `--console=false`. It listens beside the broker, in the same process, and shows what the
-    /// broker holds. A build without the `console` feature accepts the flag and serves none.
+    /// broker holds. It has no login and acts as a super user: on a shared machine any local process can use it without the
+    /// broker's password or past its ACLs (it is a tool for one developer), so turn it off there with `--console=false`. A
+    /// build without the `console` feature accepts the flag and serves none.
     #[arg(long, num_args = 0..=1, default_missing_value = "true", value_name = "BOOL")]
     console: Option<String>,
     /// Where the console listens (default 127.0.0.1:9093: the Kafka port plus one, on this machine only). If the default
@@ -161,13 +163,14 @@ pub(crate) struct Args {
     /// turns the check off). It guards against DNS rebinding: a request for any other `Host` is refused with 403.
     #[arg(long, value_name = "HOST", value_delimiter = ',')]
     console_allow_host: Vec<String>,
-    /// Accept serving the console beyond loopback although SASL or TLS is on (it has no login and is plain HTTP, so
-    /// without this that start is refused). Every page then says it is served beyond loopback with no login.
+    /// Accept serving the console beyond loopback although that makes it a wider door than the broker: SASL or TLS is on, ACLs
+    /// are in force (--acl-default deny, or ACLs stored), or --listen keeps Kafka on loopback. The console has no login, is plain
+    /// HTTP and acts as a super user, so without this that start is refused. Every page then says it is served beyond loopback.
     #[arg(long)]
     console_unprotected: bool,
     /// The Lab of the console: rules that delay, fail or drop requests on purpose, made from the console only and kept in memory.
-    /// On unless `--lab=false`; off when the console is off, and off by default when the console is served beyond loopback with
-    /// SASL or TLS on (`--lab=true` with `--console-unprotected` switches it on). Anyone who can reach the console can inject faults.
+    /// On unless `--lab=false`; off when the console is off, and off by default when the console is served beyond loopback
+    /// (`--lab=true` switches it on there). Anyone who can reach the console can inject faults.
     #[arg(long, num_args = 0..=1, default_missing_value = "true", value_name = "BOOL")]
     lab: Option<String>,
 
@@ -371,6 +374,8 @@ mod console;
 pub(crate) use console::Console;
 #[cfg(feature = "console")]
 pub(crate) use console::DEFAULT_ADDR as DEFAULT_CONSOLE_ADDR;
+#[cfg(feature = "console")]
+pub(crate) use console::stored_acls;
 mod sasl;
 pub(crate) use sasl::NO_USERS;
 mod tls;

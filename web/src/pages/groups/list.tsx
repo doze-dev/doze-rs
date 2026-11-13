@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { number } from "@/lib/format";
+import { shellWord } from "@/lib/shell";
 import { PageError } from "../page-error";
 import { useMinWidth } from "../r4/bits";
 import { Callout, GroupSpans, PhaseWord } from "./parts";
@@ -120,7 +121,7 @@ function NoGroups({ r }: { r: GroupsResponse }) {
         }
       >
         A group exists once a consumer joins with a <code className="font-mono">group.id</code>, or an app commits an offset for one. Start a consumer and it shows up here with its members and lag in a few seconds.
-        <CodeValue className="mt-4 text-left" value={`kcat -C -b ${r.listen} -G payments-workers orders`} label="Command" />
+        <CodeValue className="mt-4 text-left" value={`kcat -C -b ${shellWord(r.listen)} -G payments-workers orders`} label="Command" />
       </EmptyState>
       <p className="mt-5 text-[13px] text-muted-foreground">Nothing to refresh by hand. An empty group with no committed offsets is forgotten by the broker at its next sweep and leaves this list.</p>
     </>

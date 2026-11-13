@@ -189,7 +189,7 @@ impl LiveResponse {
         let words = LiveWords {
             empty: format!(
                 "No requests yet. Send one with any Kafka client, for example: echo hi | kcat -P -b {} -t orders -X client.id=admin-cli",
-                live.listen
+                crate::live_words::shell_word(&live.listen)
             ),
             phrases: phrases(&live.query),
             state: match live.state {

@@ -321,12 +321,27 @@ test("the clients Sheet: who is connected, and a name filters the tape", async (
   await expect.poll(async () => (await tape(page).locator("tbody tr[data-row] td:nth-child(2)").allInnerTexts()).every((t) => t.includes("e2e-orders"))).toBe(true);
 });
 
-test("the first-request page and the docks", async ({ page }) => {
+test("the first-request page and the docks", async ({ page }, testInfo) => {
   await page.goto("/connect/first-request");
   await expect(page.locator("h1")).toHaveText("A new client just connected");
   await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toHaveText(/Home.*Connect/);
   await expect(page.getByTestId("first-banner")).toBeVisible();
   await expect(page.getByTestId("first-story").locator("li").first()).toContainText(/ApiVersions|Metadata/);
+  // A client whose id a shell would act on: the command the page offers quotes it (the server makes it with shell_word). One
+  // id per browser: the broker is shared, and only a client it has not heard from before is the first-request page's.
+  const hostile = `x; open -a Calculator #${testInfo.project.name}`;
+  const admin = new Kafka({ clientId: hostile, brokers: [KAFKA], logLevel: logLevel.NOTHING, retry: { retries: 0 } }).admin();
+  await admin.connect();
+  await admin.listTopics();
+  await admin.disconnect();
+  await expect
+    .poll(async () => {
+      await page.reload();
+      return page.getByTestId("first-request").locator("[data-slot=code-value] code").last().textContent();
+    })
+    .toContain(`client.id='${hostile}'`);
+  const command = await page.getByTestId("first-request").locator("[data-slot=code-value] code").last().textContent();
+  expect(command).not.toContain(`client.id=${hostile}`);
   await page.goto("/gallery");
   const dock = page.locator("[data-testid=wire-dock][data-topic=orders]");
   await expect(dock.locator("tbody tr[data-row]").first()).toBeVisible();

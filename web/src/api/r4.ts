@@ -3,6 +3,7 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { usePollInterval } from "@/lib/refresh";
 import { api } from "./client";
+import { segment } from "./path";
 import type { AccessResponse } from "./types/AccessResponse";
 import type { AclCreateView } from "./types/AclCreateView";
 import type { AclDeleteView } from "./types/AclDeleteView";
@@ -74,7 +75,7 @@ export function useLab() {
 
 export function useLabRule(id: string | undefined) {
   const refetchInterval = useInterval();
-  return useQuery({ queryKey: r4keys.labRule(id ?? ""), queryFn: ({ signal }) => api<LabRuleResponse>(`/api/v1/lab/rules/${encodeURIComponent(id ?? "")}`, {}, signal), enabled: !!id, staleTime: Infinity, refetchInterval, placeholderData: keepPreviousData, retry: false });
+  return useQuery({ queryKey: r4keys.labRule(id ?? ""), queryFn: ({ signal }) => api<LabRuleResponse>(`/api/v1/lab/rules/${segment(id ?? "")}`, {}, signal), enabled: !!id, staleTime: Infinity, refetchInterval, placeholderData: keepPreviousData, retry: false });
 }
 
 export function useLabForm(kind: "slow" | "fail", enabled: boolean) {

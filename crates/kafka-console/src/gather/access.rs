@@ -217,6 +217,7 @@ pub fn assemble(read: Read, facts: &Facts, start: &StartFacts) -> AccessView {
         sasl,
         tls: facts.tls,
         default_allow,
+        acls_stored: !rows.is_empty(),
         listener_beyond_loopback: !facts.loopback(),
         console_beyond_loopback: facts.unprotected,
         console_addr: &console_addr,

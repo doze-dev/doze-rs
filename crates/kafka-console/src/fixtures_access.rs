@@ -146,6 +146,7 @@ pub fn page(secured: bool) -> AccessView {
         sasl: secured,
         tls: secured,
         default_allow: !secured,
+        acls_stored: secured,
         listener_beyond_loopback: false,
         console_beyond_loopback: false,
         console_addr: "127.0.0.1:9093",

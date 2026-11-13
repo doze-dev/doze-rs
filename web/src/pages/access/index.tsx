@@ -269,7 +269,7 @@ function ConsoleCards({ r }: { r: AccessResponse }) {
             <Fact label="Rights" sub="so the ACLs above never stop the console">
               Super user
             </Fact>
-            <Fact label="Listens on" sub={c.beyond_loopback ? "beyond loopback: anyone who can reach it can read, write and inject Lab faults" : "loopback; with SASL or TLS on, anywhere else is refused at start unless --console-unprotected"}>
+            <Fact label="Listens on" sub={c.beyond_loopback ? "beyond loopback: anyone who can reach it can read and write (and inject faults with --lab)" : "loopback; anywhere else is refused at start unless --console-unprotected when SASL, TLS, ACLs or a loopback Kafka listener guard the broker"}>
               <Mono>{c.listens}</Mono>
             </Fact>
             <Fact label="Allowed hosts" sub={c.allow_hosts.length ? "added with --console-allow-host" : "none added with --console-allow-host"}>
@@ -281,7 +281,7 @@ function ConsoleCards({ r }: { r: AccessResponse }) {
             <div role="alert" className="mt-4 flex gap-2 rounded-lg border border-warn/30 bg-warn/5 p-3 text-[13px]" data-testid="exposure-warning">
               <TriangleAlertIcon className="mt-0.5 size-4 shrink-0 text-warn" aria-hidden />
               <span>
-                <b className="font-semibold text-foreground">The console is exposed.</b> It is served beyond loopback with no login (--console-unprotected): anyone who can reach {c.listens} acts as {c.principal}, a super user, and can inject faults with the Lab.
+                <b className="font-semibold text-foreground">The console is exposed.</b> It is served beyond loopback with no login: anyone who can reach {c.listens} acts as {c.principal}, a super user, and with --lab can inject faults.
               </span>
             </div>
           )}

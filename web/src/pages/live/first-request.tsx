@@ -173,7 +173,7 @@ export function FirstRequestPage() {
                   </Link>
                   .
                 </p>
-                <CodeValue value={`echo hi | kcat -P -b ${v.listen} -t orders -X client.id=${v.client}`} label="Command" />
+                <CodeValue value={v.produce} label="Command" />
               </div>
             </div>
           </section>

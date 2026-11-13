@@ -91,6 +91,7 @@ impl Source {
                 let mut v = l.recorder.as_ref()?.first()?;
                 v.listen = l.facts.bootstrap();
                 v.profile = format!("Kafka {}", l.facts.kafka_major);
+                v.produce = crate::live_words::first_produce(&v.listen, &v.client);
                 Some(v)
             }
             #[cfg(any(test, feature = "examples"))]

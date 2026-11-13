@@ -60,6 +60,9 @@ pub struct FirstView {
     pub profile: String,
     pub listen: String,
     pub versions: Vec<(&'static str, i16)>,
+    /// The command the page offers next: `kcat` sending one record as this client, every word from data quoted for a shell
+    /// (`live_words::first_produce`). Made here, never on the page, so a hostile client id cannot land in a terminal.
+    pub produce: String,
 }
 
 /// A group's wire: the rows that pass the filters, and the counts the chips say.
@@ -74,4 +77,21 @@ pub struct GroupWireView {
     /// Every request that touched the group among the rows kept, and how many of those were refused.
     pub all: usize,
     pub refused: usize,
+}
+
+/// One option of a filter: a value and how many rows of the tape carry it (among the rows that pass the other filters).
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+pub struct Facet {
+    pub value: String,
+    pub count: usize,
+}
+
+/// The options of the Live filters.
+#[derive(Debug, Clone, PartialEq, Eq, Default, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+pub struct Facets {
+    pub clients: Vec<Facet>,
+    pub apis: Vec<Facet>,
+    pub topics: Vec<Facet>,
 }
