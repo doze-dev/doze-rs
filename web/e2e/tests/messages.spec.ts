@@ -176,8 +176,12 @@ test("the Live tail: new rows at the top, no row rewritten, the header stable, h
   const topEl = await top.elementHandle();
   const topText = await top.innerText();
   const box = await pageBoxes(page, ["[data-testid=toolbar]", "[data-testid=filter-line]", "thead"]);
+  const recordsTile = page.locator("[data-slot=stat]", { hasText: "Records" }).locator("[data-slot=stat-value]");
+  const recordsBefore = Number((await recordsTile.innerText()).replace(/\D/g, ""));
   await produce("orders", 3, "tail-a");
   await expect(rows(page).first()).not.toHaveAttribute("data-row", topId!, { timeout: 45_000 });
+  // The figures above follow the tail's batches (CON-1346): Records counts the new rows, in the same box.
+  await expect.poll(async () => Number((await recordsTile.innerText()).replace(/\D/g, "")), { timeout: 15_000 }).toBeGreaterThanOrEqual(recordsBefore + 3);
   expect(await head!.evaluate((el) => el.isConnected)).toBe(true);
   expect(await topEl!.evaluate((el) => el.isConnected)).toBe(true);
   expect(await topEl!.evaluate((el) => (el as HTMLElement).innerText)).toBe(topText);

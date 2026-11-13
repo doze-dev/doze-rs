@@ -411,6 +411,13 @@ function Records({ topic, r, frame, tail, tailable, search, set, open, children 
   if (r.view.query.reading === "committed") q.set("isolation", "read_committed");
   const t = useMessagesTail({ path: tail ? `/api/v1/tail/messages?${q}` : null, cursor: r.cursor, isHeld, known });
   const rows = useMemo(() => (tail ? prepend(t.live, base, WINDOW + base.length) : base), [tail, t.live, base]);
+  // The topic's figures above (Records, Last write) follow the tail: each batch the table takes fetches the frame again, so the
+  // same boxes show the new values (no figure older than the rows under it).
+  const qc = useQueryClient();
+  const newest = tail && t.live[0] ? rowId(t.live[0]) : null;
+  useEffect(() => {
+    if (newest) void qc.invalidateQueries({ queryKey: topicKeys.frame(topic), exact: true });
+  }, [newest, qc, topic]);
   const wide = useWide();
   const cols = useMemo(() => columns(open, wide), [open, wide]);
   const filtered = r.view.query.partitions.length > 0 || r.view.query.offset !== null || r.view.query.time !== null || r.view.query.key !== null;
