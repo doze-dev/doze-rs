@@ -5,6 +5,9 @@
 
 use std::collections::HashSet;
 
+mod medium;
+pub use medium::{medium, medium_trouble};
+
 use crate::input::{Instance, Kind};
 
 const WORDS: [&str; 16] = [

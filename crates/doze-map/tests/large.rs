@@ -81,8 +81,11 @@ fn behind(l: &Layout, p: &Path, ends: [usize; 2]) -> Option<(String, Pt)> {
 }
 
 fn check(l: &Layout) {
-    // No card on another.
+    // No card on another (a card folded into the tile has no place).
     for (i, c) in l.cards.iter().enumerate() {
+        if l.folded(CardId(i as u32)) {
+            continue;
+        }
         for o in l.visible(c.rect).cards {
             assert!(
                 o.ix() == i || !c.rect.intersects(&l.card(o).unwrap().rect),
@@ -100,8 +103,8 @@ fn check(l: &Layout) {
             c.name
         );
     }
-    // No call behind a card.
-    for e in &l.edges {
+    // No call behind a card: a call between two named regions is a plain curve, drawn on demand.
+    for e in l.edges.iter().filter(|e| !e.across) {
         if let Some((n, q)) = behind(l, &e.path, [e.from.ix(), e.to.ix()]) {
             panic!(
                 "{} > {} passes behind {n} at {q:?}",
@@ -182,7 +185,7 @@ fn the_index_agrees_with_a_scan() {
         let mut got: Vec<usize> = l.visible(view).cards.iter().map(|c| c.ix()).collect();
         got.sort_unstable();
         let want: Vec<usize> = (0..l.cards.len())
-            .filter(|&i| touches(&l.cards[i].rect, &view))
+            .filter(|&i| !l.folded(CardId(i as u32)) && touches(&l.cards[i].rect, &view))
             .collect();
         assert_eq!(got, want, "view {k}");
         let edges = l.visible(view).edges;
@@ -303,11 +306,16 @@ fn far_out_the_calls_bundle_between_regions() {
         o.bundles.len(),
         l.edges.len()
     );
-    assert!(
-        o.regions.len() >= 20 && o.regions.len() <= 200,
-        "{} regions",
-        o.regions.len()
-    );
+    // By name when the stack splits that way (the synthetic teams do), else grid cells.
+    if l.regions.is_empty() {
+        assert!(
+            o.regions.len() >= 20 && o.regions.len() <= 200,
+            "{} regions",
+            o.regions.len()
+        );
+    } else {
+        assert_eq!(o.regions.len(), l.regions.len());
+    }
     assert!(
         o.bundles.windows(2).all(|w| w[0].count >= w[1].count),
         "heaviest first"

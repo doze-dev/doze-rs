@@ -64,6 +64,16 @@ pub(crate) struct Page {
     pub(crate) vitals: Vitals,
 }
 
+/// A module's engine and its version (`postgres 17.2`), without a `builtin` prefix, as the words write it.
+fn engine_version(i: &words::Instance) -> String {
+    let version = i
+        .version
+        .strip_prefix("builtin")
+        .unwrap_or(&i.version)
+        .trim();
+    format!("{} {version}", i.engine).trim().to_owned()
+}
+
 /// The page for a stack, as of `now`.
 pub(crate) fn page(v: &StackView, now: SystemTime) -> Page {
     let snap = v.words();
@@ -76,7 +86,8 @@ pub(crate) fn page(v: &StackView, now: SystemTime) -> Page {
             look: words::look(i),
             because: words::because(i, &snap, now),
             mem: words::mem(i).into_owned(),
-            engine: i.engine.split_whitespace().next().unwrap_or("").to_owned(),
+            // With its version (`postgres 18`), as the Map's module card says it.
+            engine: engine_version(i),
             trouble: words::troubled(i),
         })
         .collect();

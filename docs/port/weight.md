@@ -407,3 +407,31 @@ runs).
 
 Acting adds nothing at rest: Needs you is built again from acting only when a stack begins or ends an action or a
 failure comes or goes (a toast alone does not), and the toasts' expiry timer runs only while a toast shows.
+
+### The Map for 20–150 services (branch `app-map-150`), measured 2026-11-13
+
+Same machine and method (`release-app`; `doze-app bench --fixture larder --idle 30`, footprint at 12 s and 27 s, two
+runs; and the same on `medium-150`, a 142-card stack drawn by region). Frame times: `doze-app bench --fixture
+medium-150x500 --map` (a `release` build with `capture`): each frame drawn in full offscreen (layout, paint, the GPU's
+render and the readback a screen frame does not do), 120 frames a phase.
+
+| | Budget | Measured |
+|---|---|---|
+| Binary, `release-app`, no capture | ≤ 16 MB | 12,949,072 B (+116 KB over M2: regions, the tile and its list, the focus views, the fades, the camera's flights) |
+| Binary with `fixtures` | | 13,214,624 B |
+| Menu bar ready | ≤ 100 ms | 90 / 76 ms (larder), 90 / 83 ms (medium-150) |
+| First frame after the tray click | ≤ 100 ms | 64 / 41 ms (larder), 56 / 58 ms (medium-150) |
+| Window open and idle | ≤ 85 MB | larder 65 / 61 and 77 / 72 MB; medium-150 74 / 70 and 74 / 70 MB |
+| Layout, 150 services and 500 calls | ≤ 20 ms | 0.63 ms (best of five in the app; `cargo bench -p doze-map`: 0.57 ms median) |
+| Frames over 16 ms at 150 / 500 | 0 | 0 of 720: pan max 5.4 ms, zoom 5.7, hover 6.0, every line 6.4, a selection mid-fade 6.2, a camera flight 6.8 (medians 4.8–5.3 ms) |
+| Frames over 16 ms at 2,000 (synthetic, by region) | — | 0 of 480 before the fades (max 5.9 ms) |
+
+Before the fades and eased zoom (the same bench, same build otherwise): pan max 5.7 ms, zoom 6.3, hover 5.2, every line
+5.3. The fades cost about half a millisecond a frame while they run and nothing at rest.
+
+**After the region links and the states (same branch, 2026-11-13).** One link per pair of regions under opaque frames
+(the grid routing removed), and the state marks, words and module versions every screen draws. `release-app`:
+12,965,680 B (13,231,248 B with `fixtures`); menu bar ready 71–90 ms; first frame 47 / 55 ms (larder), 73 / 74 ms
+(medium-150); idle 59 / 55 MB (larder), 73 / 69 MB (medium-150). Frames at 150 / 500 (same bench): 0 of 720 over 16 ms;
+max pan 9.0 ms, zoom 4.8, hover 5.3, every line 5.3, a selection mid-fade 5.2, a flight 4.5 (medians 3.8–4.0 ms).
+Layout 1.4 ms; the overview with its links under a millisecond.

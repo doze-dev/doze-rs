@@ -49,9 +49,19 @@ pub(crate) fn pack(
     anchors: &[&str],
     prev: Option<&(Packing, HashMap<String, usize>)>,
 ) -> Packing {
+    pack_to(sizes, anchors, prev, 1.5)
+}
+
+/// [`pack`], aiming at a drawing `aspect` times as wide as it is tall.
+pub(crate) fn pack_to(
+    sizes: &[(f64, f64)],
+    anchors: &[&str],
+    prev: Option<&(Packing, HashMap<String, usize>)>,
+    aspect: f64,
+) -> Packing {
     if let Some((p, by_anchor)) = prev {
         let area: f64 = sizes.iter().map(|(w, h)| w * h).sum();
-        let kept = keep(sizes, anchors, p, by_anchor);
+        let kept = keep(sizes, anchors, p, by_anchor, aspect);
         let width = sizes
             .iter()
             .zip(&kept.at)
@@ -61,23 +71,23 @@ pub(crate) fn pack(
             return kept;
         }
     }
-    fresh(sizes)
+    fresh(sizes, aspect)
 }
 
-fn target_width(sizes: &[(f64, f64)]) -> f64 {
+fn target_width(sizes: &[(f64, f64)], aspect: f64) -> f64 {
     let area: f64 = sizes
         .iter()
         .map(|(w, h)| (w + PART_GAP) * (h + SHELF_GAP))
         .sum();
     let widest = sizes.iter().map(|s| s.0).fold(0.0, f64::max);
-    widest.max(area.sqrt() * 1.5)
+    widest.max((area * aspect).sqrt())
 }
 
-fn fresh(sizes: &[(f64, f64)]) -> Packing {
+fn fresh(sizes: &[(f64, f64)], aspect: f64) -> Packing {
     let mut p = Packing::default();
     let all: Vec<usize> = (0..sizes.len()).collect();
     p.at = vec![(0.0, 0); sizes.len()];
-    shelve(&mut p, sizes, &all, target_width(sizes), 0.0);
+    shelve(&mut p, sizes, &all, target_width(sizes, aspect), 0.0);
     p
 }
 
@@ -116,6 +126,7 @@ fn keep(
     anchors: &[&str],
     prev: &Packing,
     by_anchor: &HashMap<String, usize>,
+    aspect: f64,
 ) -> Packing {
     let mut p = Packing {
         shelves: prev.shelves.clone(),
@@ -147,7 +158,7 @@ fn keep(
     }
     if !moved.is_empty() {
         let top = p.height() + SHELF_GAP;
-        let width = target_width(sizes);
+        let width = target_width(sizes, aspect);
         shelve(&mut p, sizes, &moved, width, top);
     }
     p

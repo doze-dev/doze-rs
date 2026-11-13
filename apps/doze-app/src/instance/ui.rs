@@ -246,15 +246,21 @@ pub(crate) fn banner(t: &Tokens, tone: Tone, title: &str, sub: &str) -> Div {
 /// for its look, drawn. ● awake (green), ◐ dozing (half filled, yellow), a ring waking or running (blue), a dim dot
 /// asleep, a dim ring off, ⊘ paused, ✗ crashing or failed (red), ✓ done, ▸ not run. Go drew dozing as a full dot and
 /// failed as the trouble dot on some surfaces and the glyph on others; here every surface draws the one vocabulary.
-/// `trouble` (a service needing you that the look does not say, such as a stuck wake) is a red dot.
+/// `trouble` (a service needing you that the look does not say, such as a stuck wake) is a red dot. The Map draws it too,
+/// at its zoom: a ring's edge is 2 px at the lists' sizes and a quarter of the mark as the Map scales it up or down.
 pub(crate) fn state_mark(t: &Tokens, look: Option<Look>, trouble: bool, size: f32) -> AnyElement {
+    let edge = if size > 10. {
+        size / 4.
+    } else {
+        (size / 4.).min(2.)
+    };
     let disc = |c: Hsla| div().size(px(size)).flex_none().rounded_full().bg(c);
     let ring = |c: Hsla| {
         div()
             .size(px(size))
             .flex_none()
             .rounded_full()
-            .border_2()
+            .border(px(edge))
             .border_color(c)
     };
     let glyph = |l: Look| {

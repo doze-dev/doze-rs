@@ -13,6 +13,8 @@ use gpui::FontWeight;
 pub(crate) const TAG: f32 = 9.;
 /// Small mono keys in ⌘K's and Needs you's chips, `.lang`, `.box`.
 pub(crate) const MICRO: f32 = 10.;
+/// The Map's region counts (the board draws them at 10.5).
+pub(crate) const COUNT: f32 = 10.5;
 /// `--text-xs`: uppercase headings, small keys, ages.
 pub(crate) const XS: f32 = 11.;
 /// Notes, mono errors, Needs you's lines.

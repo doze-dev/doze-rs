@@ -44,14 +44,14 @@ pub(crate) fn run(b: Bench, launched: Instant) -> ExitCode {
                 (source.first.clone(), source.facts.clone()),
                 b.idle,
             );
-            let (logs, follow) = (b.logs, b.follow);
+            let (logs, follow, map) = (b.logs, b.follow, b.map);
             cx.spawn(async move |cx: &mut AsyncApp| {
                 let _keep = (src.clone(), tray);
                 cx.background_executor().timer(Duration::from_secs(2)).await;
                 if logs {
                     logs_bench(cx, src, follow).await;
                 } else {
-                    time_open(cx, hub, first, idle).await;
+                    time_open(cx, hub, first, if map { 0 } else { idle }, map).await;
                 }
                 cx.update(|cx| cx.quit());
             })
@@ -66,6 +66,7 @@ async fn time_open(
     hub: doze_desk::Hub,
     (first, facts): (Option<doze_desk::StackKey>, crate::facts::Mode),
     idle: u64,
+    map: bool,
 ) {
     let t = Instant::now();
     let opened = cx.update(|cx| {
@@ -99,6 +100,9 @@ async fn time_open(
         });
         w.refresh();
     });
+    if map {
+        map_bench(cx, h).await;
+    }
     cx.background_executor()
         .timer(Duration::from_secs(idle))
         .await;
@@ -109,6 +113,17 @@ async fn time_open(
         .timer(Duration::from_secs(10))
         .await;
     println!("closed_done");
+}
+
+/// The Map under load (`--map`; a build with `capture`, for drawing offscreen).
+async fn map_bench(cx: &mut AsyncApp, h: gpui::WindowHandle<Root>) {
+    #[cfg(feature = "capture")]
+    crate::map::bench::run(cx, h).await;
+    #[cfg(not(feature = "capture"))]
+    {
+        let _ = (cx, h);
+        eprintln!("doze-app bench --map needs a build with the `capture` feature");
+    }
 }
 
 /// The logs viewer under load (`--logs`; a build with fixtures).

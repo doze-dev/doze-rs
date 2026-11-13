@@ -32,6 +32,21 @@
 //!   a change inside one part relays only that part, and it keeps its place on its shelf when it
 //!   still fits there (a part keeps room for a task card after its last column).
 //!
+//! # Medium stacks: named regions, the tile, focus views
+//!
+//! Past [`Options::classic_max`], a stack that splits into three or more named regions of four
+//! cards or more ([`Options::regions`]; a region is an instance's `group`, else its name's stem,
+//! and a task card joins its caller's) is laid out by region: each region on its own calls, framed
+//! ([`Layout::regions`]), the frames packed callers first and about a window wide. A call between
+//! two regions is a plain curve ([`Edge::across`]), not kept clear of cards: a renderer draws the
+//! regions' bundles ([`Layout::overview`]) at rest and those calls on demand. The lane and the band
+//! fold into one tile ([`Layout::tile`]): still cards (found, selected), with no place on the drawing.
+//! Two focus views are made from a layout: [`Layout::neighbourhood`] (columns by path) and
+//! [`Layout::trouble`] with [`subset`] (laid out on their own). [`synth::medium`] makes stacks of
+//! 20 to 150 shaped like real ones. Medians on the same machine, 2026-11-13 (`cargo bench`):
+//! 100 services and 333 calls by region, 0.46 ms; 150 and 500, 0.57 ms (the budget is 20 ms);
+//! 2,000 synthetic, now by region too, 12.3 ms.
+//!
 //! # Prior art, and what was taken from it
 //!
 //! Measured on this machine, 2,000 nodes and 5,000 edges (release build; `rust-sugiyama` 0.4.0
@@ -79,6 +94,7 @@
 mod cards;
 mod classic;
 mod draw;
+mod focus;
 mod geom;
 mod group;
 mod index;
@@ -86,21 +102,25 @@ mod input;
 mod layered;
 mod output;
 mod overview;
+mod region;
 mod search;
 pub mod synth;
 mod text;
+mod trouble;
 
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::sync::Arc;
 
 pub use draw::HEAD_LEN;
+pub use focus::MAX_HOPS;
 pub use geom::{End, Path, Pt, Rect, Seg};
 pub use group::{Collapse, Grouping};
 pub use index::Visible;
 pub use input::{Instance, Kind};
-pub use output::{Caption, CaptionKind, Card, CardId, Edge, Layout, Mode, Role};
-pub use overview::{Bundle, Overview, Region};
+pub use output::{Caption, CaptionKind, Card, CardId, Edge, Layout, Mode, NamedRegion, Role, Tile};
+pub use overview::{Bundle, Link, Overview, Region};
 pub use text::Lang;
+pub use trouble::subset;
 
 /// How to lay a stack out.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -111,6 +131,10 @@ pub struct Options {
     pub grouping: Grouping,
     /// When groups collapse.
     pub collapse: Collapse,
+    /// Past [`Options::classic_max`], a stack that splits into three or more named regions of
+    /// four or more cards is laid out by region, each framed, and the cards with no calls (the
+    /// lane and the band) fold into one tile. Off, the layered map draws its lane and band.
+    pub regions: bool,
 }
 
 impl Default for Options {
@@ -119,6 +143,7 @@ impl Default for Options {
             classic_max: 60,
             grouping: Grouping::default(),
             collapse: Collapse::default(),
+            regions: true,
         }
     }
 }
@@ -180,7 +205,7 @@ impl Mapper {
             self.memory = None;
             classic::layout(flat)
         } else {
-            let (l, m) = layered::layout(flat, self.memory.as_ref());
+            let (l, m) = layered::layout(flat, self.memory.as_ref(), self.opts.regions);
             self.memory = Some(m);
             l
         };
