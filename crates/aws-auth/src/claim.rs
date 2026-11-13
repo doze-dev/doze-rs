@@ -172,6 +172,17 @@ impl Claim {
                 "Credential must be AKID/date/region/service/aws4_request",
             ));
         };
+        // A region names a directory in the services behind the gateway: lower-case letters, digits and dashes only.
+        if region.is_empty()
+            || region.len() > 32
+            || !region
+                .bytes()
+                .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
+        {
+            return Err(AuthError::Malformed(
+                "Credential should be scoped to a valid region.",
+            ));
+        }
         let request_time = parse_amz_date(amz_date)
             .ok_or(AuthError::Malformed("x-amz-date is not YYYYMMDDTHHMMSSZ"))?;
         let signature = hex::decode(sig).ok_or(AuthError::Malformed("Signature is not hex"))?;

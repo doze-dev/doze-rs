@@ -379,6 +379,7 @@ fn call_of(patterns: &Patterns, op: Operation, request: &Value) -> Result<Call, 
         region: "us-east-1".into(),
         endpoint: "http://localhost:4566".into(),
         service: None,
+        session_token: None,
     };
     Ok(Call {
         op: op.index(),
@@ -405,6 +406,7 @@ fn output_json(op: Operation, out: &aws_wire::service::Output) -> Value {
 
 mod long_poll;
 mod persistence;
+mod retention;
 
 /// A directory of its own that goes away with it.
 struct TempDir(std::path::PathBuf);

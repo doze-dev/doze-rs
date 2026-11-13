@@ -15,6 +15,7 @@ mod error;
 mod group;
 pub mod record;
 pub mod records;
+pub mod rows;
 mod store;
 
 pub use backend::FileBackend;

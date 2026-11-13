@@ -2,6 +2,7 @@
 //! on disk, and survives an idle reap and a restart. The other half of SSM (Run Command, Automation, Session Manager,
 //! associations, inventory, patching, maintenance windows) is refused by name before its request is read.
 
+mod authz;
 mod core;
 mod kms;
 mod label;
@@ -22,14 +23,18 @@ use aws_model_ssm::meta::META;
 use aws_model_ssm::tables::TABLES;
 use aws_wire::ApiError;
 use aws_wire::service::{BoxFuture, Call, Reply, Service};
-use doze_runtime::{Ctx, Lazy};
+use doze_runtime::{Ctx, Keyed};
 
 use crate::core::{Answer, Core};
+
+/// The region whose files are kept in the service's directory itself (state written before regions were kept apart is its).
+const HOME_REGION: &str = "us-east-1";
 
 /// The Parameter Store service. Nothing runs until the first request.
 #[derive(Debug)]
 pub struct Ssm {
-    actor: Lazy<Core>,
+    /// One actor per region: a queue, parameter, secret or key belongs to the region that made it.
+    actors: Keyed<Core>,
 }
 
 impl Ssm {
@@ -37,13 +42,22 @@ impl Ssm {
     #[must_use]
     pub fn new(ctx: Arc<Ctx>) -> Self {
         Self {
-            actor: Lazy::new("ssm", ctx),
+            actors: Keyed::new("ssm", ctx, HOME_REGION),
         }
+    }
+
+    /// Sends the call to the actor of the region it was signed for.
+    async fn call_actor(&self, call: Call) -> Result<Answer, String> {
+        let actor = self
+            .actors
+            .actor(&call.caller.region)
+            .map_err(|e| e.to_string())?;
+        actor.call(call).await.map_err(|e| e.to_string())
     }
 
     /// Asks the actor, and holds the answer until what it changed is on disk.
     async fn ask(&self, call: Call) -> Reply {
-        let mut answer = match self.actor.call(call).await {
+        let mut answer = match self.call_actor(call).await {
             Ok(answer) => answer,
             Err(e) => Answer {
                 reply: Err(ApiError::internal(e.to_string())),

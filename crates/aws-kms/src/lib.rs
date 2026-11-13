@@ -1,10 +1,12 @@
-//! KMS: keys of the symmetric, HMAC, elliptic-curve and Ed25519 kinds, aliases, tags, key policies, rotation, encryption with
-//! encryption contexts and data keys, signing and MACs, as a state machine behind a lazy actor. State is on disk and the key
-//! material is sealed under the service's own key. Grants are kept and listed (not yet evaluated). Imported key material,
-//! multi-region replicas, RSA keys and custom key stores are refused by name until they are built.
+//! KMS: keys of the symmetric, HMAC, elliptic-curve, Ed25519 and RSA kinds, aliases, tags, key policies (evaluated by IAM as the key's
+//! resource policy, which must name the caller or the account before an identity policy counts), rotation, imported key material,
+//! encryption with encryption contexts and data keys and key pairs, signing and MACs, as a state machine behind a lazy actor. State is
+//! on disk and the key material is sealed under the service's own key. Grants are kept and listed (not evaluated). Multi-region
+//! replicas and custom key stores are refused by name.
 
 mod alias;
 mod asym;
+mod authz;
 mod cipher;
 mod core;
 mod crypto;
@@ -29,14 +31,18 @@ use aws_model_kms::meta::META;
 use aws_model_kms::tables::TABLES;
 use aws_wire::ApiError;
 use aws_wire::service::{BoxFuture, Call, Reply, Service};
-use doze_runtime::{Ctx, Lazy};
+use doze_runtime::{Ctx, Keyed};
 
 use crate::core::{Answer, Core};
+
+/// The region whose files are kept in the service's directory itself (state written before regions were kept apart is its).
+const HOME_REGION: &str = "us-east-1";
 
 /// The KMS service. Nothing runs until the first request.
 #[derive(Debug)]
 pub struct Kms {
-    actor: Lazy<Core>,
+    /// One actor per region: a queue, parameter, secret or key belongs to the region that made it.
+    actors: Keyed<Core>,
 }
 
 impl Kms {
@@ -44,13 +50,22 @@ impl Kms {
     #[must_use]
     pub fn new(ctx: Arc<Ctx>) -> Self {
         Self {
-            actor: Lazy::new("kms", ctx),
+            actors: Keyed::new("kms", ctx, HOME_REGION),
         }
+    }
+
+    /// Sends the call to the actor of the region it was signed for.
+    async fn call_actor(&self, call: Call) -> Result<Answer, String> {
+        let actor = self
+            .actors
+            .actor(&call.caller.region)
+            .map_err(|e| e.to_string())?;
+        actor.call(call).await.map_err(|e| e.to_string())
     }
 
     /// Asks the actor, and holds the answer until what it changed is on disk.
     async fn ask(&self, call: Call) -> Reply {
-        let mut answer = match self.actor.call(call).await {
+        let mut answer = match self.call_actor(call).await {
             Ok(answer) => answer,
             Err(e) => Answer {
                 reply: Err(ApiError::internal(e.to_string())),

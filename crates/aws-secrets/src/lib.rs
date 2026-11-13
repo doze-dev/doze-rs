@@ -1,7 +1,9 @@
 //! Secrets Manager: secrets with versions and staging labels, tags, deletion with a recovery window, resource policies and random
 //! passwords, as a state machine behind a lazy actor. State is on disk, values are sealed, and it survives an idle reap and a
-//! restart. Rotation (which drives a Lambda function) and replication to other regions are refused by name.
+//! restart. Rotation drives the secret's Lambda function through its four steps after `RotateSecret` answers (`rotate.rs`);
+//! replication to other regions is refused by name.
 
+mod authz;
 mod core;
 mod create;
 mod delete;
@@ -12,6 +14,7 @@ mod model;
 mod password;
 mod policy;
 mod read;
+mod rotate;
 mod stage;
 mod tags;
 mod token;
@@ -24,14 +27,20 @@ use aws_model_secrets_manager::tables::TABLES;
 use aws_schema::json::Violation;
 use aws_wire::ApiError;
 use aws_wire::service::{BoxFuture, Call, Reply, Service};
-use doze_runtime::{Ctx, Lazy};
+use doze_runtime::{Ctx, Keyed};
 
 use crate::core::{Answer, Core};
+
+/// The region whose files are kept in the service's directory itself (state written before regions were kept apart is its).
+const HOME_REGION: &str = "us-east-1";
 
 /// The Secrets Manager service. Nothing runs until the first request.
 #[derive(Debug)]
 pub struct Secrets {
-    actor: Lazy<Core>,
+    /// One actor per region: a queue, parameter, secret or key belongs to the region that made it.
+    actors: Keyed<Core>,
+    /// Where rotations are run (the task set) and what they call (the peer bus).
+    ctx: Arc<Ctx>,
 }
 
 impl Secrets {
@@ -39,23 +48,45 @@ impl Secrets {
     #[must_use]
     pub fn new(ctx: Arc<Ctx>) -> Self {
         Self {
-            actor: Lazy::new("secretsmanager", ctx),
+            actors: Keyed::new("secretsmanager", Arc::clone(&ctx), HOME_REGION),
+            ctx,
         }
+    }
+
+    /// Sends the call to the actor of the region it was signed for.
+    async fn call_actor(&self, call: Call) -> Result<Answer, String> {
+        let actor = self
+            .actors
+            .actor(&call.caller.region)
+            .map_err(|e| e.to_string())?;
+        actor.call(call).await.map_err(|e| e.to_string())
     }
 
     /// Asks the actor, and holds the answer until what it changed is on disk.
     async fn ask(&self, call: Call) -> Reply {
-        let mut answer = match self.actor.call(call).await {
+        let mut answer = match self.call_actor(call).await {
             Ok(answer) => answer,
             Err(e) => Answer {
                 reply: Err(ApiError::internal(e.to_string())),
                 durable: None,
+                run: None,
             },
         };
         if let Some(saved) = answer.durable.take()
             && let Err(e) = saved.await
         {
             answer.reply = Err(ApiError::internal(format!("could not save: {e}")));
+            answer.run = None;
+        }
+        // A rotation runs after its answer is saved, outside the actor: the function calls this service back.
+        if let Some(run) = answer.run.take()
+            && let Some(peers) = self
+                .ctx
+                .ext
+                .as_ref()
+                .and_then(|e| Arc::clone(e).downcast::<aws_peers::Peers>().ok())
+        {
+            self.ctx.tasks.spawn(rotate::run(peers, run));
         }
         answer.reply
     }

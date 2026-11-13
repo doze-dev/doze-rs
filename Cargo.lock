@@ -119,6 +119,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "330a5ed07fa54e4702c9d6c4174f74427fc0ef6e214bbd677ae50a5099946470"
 
 [[package]]
+name = "ar_archive_writer"
+version = "0.5.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "523e5e187fff36fcb8d1d19ccf0ca4ca43ec3d158316057f66dc6f72716bc5ec"
+dependencies = [
+ "object",
+]
+
+[[package]]
 name = "arc-swap"
 version = "1.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -126,6 +135,12 @@ checksum = "db4c94f57a570fce5d381be3289b3f79aef6332d72948fe82ab5772e423ccf92"
 dependencies = [
  "rustversion",
 ]
+
+[[package]]
+name = "arraydeque"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7d902e3d592a523def97af8f317b08ce16b7ab854c1985a0c671e6f15cebc236"
 
 [[package]]
 name = "atomic-waker"
@@ -140,6 +155,47 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f2032f911046de80f0a198e0901378627c33f59ea0ac00e363d481118bd70a53"
 
 [[package]]
+name = "aws-apigateway"
+version = "0.0.0"
+dependencies = [
+ "aws-auth",
+ "aws-core",
+ "aws-gateway",
+ "aws-iam-policy",
+ "aws-model-api-gateway",
+ "aws-model-apigatewayv2",
+ "aws-peers",
+ "aws-schema",
+ "aws-testkit",
+ "aws-wire",
+ "bytes",
+ "doze-runtime",
+ "doze-store",
+ "getrandom 0.4.3",
+ "regex-lite",
+ "rsa",
+ "serde",
+ "serde_json",
+ "sha1",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "aws-asl"
+version = "0.0.0"
+dependencies = [
+ "aws-core",
+ "jlens-core",
+ "jlens-regress",
+ "md-5",
+ "serde",
+ "serde_json",
+ "sha1",
+ "sha2",
+]
+
+[[package]]
 name = "aws-auth"
 version = "0.0.0"
 dependencies = [
@@ -152,6 +208,59 @@ dependencies = [
  "http",
  "sha2",
  "thiserror",
+]
+
+[[package]]
+name = "aws-cloudformation"
+version = "0.0.0"
+dependencies = [
+ "aws-core",
+ "aws-dynamodb",
+ "aws-iam",
+ "aws-kms",
+ "aws-model-cloudformation",
+ "aws-peers",
+ "aws-s3",
+ "aws-schema",
+ "aws-seal",
+ "aws-secrets",
+ "aws-sns",
+ "aws-sqs",
+ "aws-ssm",
+ "aws-testkit",
+ "aws-wire",
+ "bytes",
+ "doze-runtime",
+ "doze-store",
+ "flate2",
+ "hmac",
+ "regex-lite",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "aws-cloudwatch"
+version = "0.0.0"
+dependencies = [
+ "aws-core",
+ "aws-gateway",
+ "aws-model-cloudwatch",
+ "aws-peers",
+ "aws-schema",
+ "aws-seal",
+ "aws-testkit",
+ "aws-wire",
+ "doze-runtime",
+ "doze-store",
+ "flate2",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -171,6 +280,83 @@ dependencies = [
 ]
 
 [[package]]
+name = "aws-cron"
+version = "0.0.0"
+
+[[package]]
+name = "aws-dynamodb"
+version = "0.0.0"
+dependencies = [
+ "aws-core",
+ "aws-expr",
+ "aws-model-dynamodb",
+ "aws-peers",
+ "aws-schema",
+ "aws-seal",
+ "aws-testkit",
+ "aws-wire",
+ "doze-fs",
+ "doze-runtime",
+ "doze-store",
+ "postcard",
+ "redb",
+ "serde",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
+name = "aws-dynamodb-streams"
+version = "0.0.0"
+dependencies = [
+ "aws-core",
+ "aws-dynamodb",
+ "aws-model-dynamodb-streams",
+ "aws-peers",
+ "aws-schema",
+ "aws-testkit",
+ "aws-wire",
+ "doze-runtime",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
+name = "aws-eventbridge"
+version = "0.0.0"
+dependencies = [
+ "aws-core",
+ "aws-cron",
+ "aws-iam-policy",
+ "aws-kinesis",
+ "aws-logs",
+ "aws-model-eventbridge",
+ "aws-peers",
+ "aws-schema",
+ "aws-sns",
+ "aws-sqs",
+ "aws-testkit",
+ "aws-webhook",
+ "aws-wire",
+ "doze-runtime",
+ "doze-store",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tokio-util",
+ "tracing",
+]
+
+[[package]]
+name = "aws-expr"
+version = "0.0.0"
+dependencies = [
+ "aws-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "aws-gateway"
 version = "0.0.0"
 dependencies = [
@@ -181,13 +367,67 @@ dependencies = [
  "aws-wire",
  "bytes",
  "doze-runtime",
+ "flate2",
  "http",
  "http-body-util",
  "hyper",
  "hyper-util",
+ "serde_json",
  "tokio",
  "tokio-util",
  "tracing",
+]
+
+[[package]]
+name = "aws-iam"
+version = "0.0.0"
+dependencies = [
+ "aws-auth",
+ "aws-core",
+ "aws-iam-policy",
+ "aws-model-iam",
+ "aws-model-sts",
+ "aws-peers",
+ "aws-schema",
+ "aws-seal",
+ "aws-testkit",
+ "aws-wire",
+ "doze-runtime",
+ "doze-store",
+ "hmac",
+ "serde",
+ "serde_json",
+ "sha1",
+ "sha2",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "aws-iam-policy"
+version = "0.0.0"
+dependencies = [
+ "aws-core",
+ "serde_json",
+]
+
+[[package]]
+name = "aws-kinesis"
+version = "0.0.0"
+dependencies = [
+ "aws-core",
+ "aws-model-kinesis",
+ "aws-peers",
+ "aws-schema",
+ "aws-seal",
+ "aws-testkit",
+ "aws-wire",
+ "doze-runtime",
+ "doze-store",
+ "md-5",
+ "serde",
+ "serde_json",
+ "tokio",
 ]
 
 [[package]]
@@ -198,6 +438,7 @@ dependencies = [
  "aes-kw",
  "aws-core",
  "aws-model-kms",
+ "aws-peers",
  "aws-schema",
  "aws-seal",
  "aws-testkit",
@@ -218,6 +459,61 @@ dependencies = [
  "sha1",
  "sha2",
  "tokio",
+]
+
+[[package]]
+name = "aws-lambda"
+version = "0.0.0"
+dependencies = [
+ "aws-cloudwatch",
+ "aws-core",
+ "aws-dynamodb",
+ "aws-iam",
+ "aws-iam-policy",
+ "aws-kinesis",
+ "aws-logs",
+ "aws-model-lambda",
+ "aws-peers",
+ "aws-schema",
+ "aws-seal",
+ "aws-sqs",
+ "aws-testkit",
+ "aws-wire",
+ "bytes",
+ "crc32fast",
+ "doze-runtime",
+ "doze-store",
+ "flate2",
+ "http",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tokio",
+ "tokio-util",
+ "tracing",
+]
+
+[[package]]
+name = "aws-logs"
+version = "0.0.0"
+dependencies = [
+ "aws-core",
+ "aws-model-cloudwatch-logs",
+ "aws-peers",
+ "aws-schema",
+ "aws-seal",
+ "aws-testkit",
+ "aws-wire",
+ "doze-runtime",
+ "doze-store",
+ "flate2",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -257,6 +553,13 @@ dependencies = [
 
 [[package]]
 name = "aws-model-dynamodb"
+version = "0.0.0"
+dependencies = [
+ "aws-schema",
+]
+
+[[package]]
+name = "aws-model-dynamodb-streams"
 version = "0.0.0"
 dependencies = [
  "aws-schema",
@@ -383,8 +686,37 @@ dependencies = [
  "aws-schema",
  "aws-seal",
  "aws-wire",
+ "bytes",
  "doze-runtime",
  "serde_json",
+ "tokio",
+]
+
+[[package]]
+name = "aws-s3"
+version = "0.0.0"
+dependencies = [
+ "aws-auth",
+ "aws-core",
+ "aws-eventbridge",
+ "aws-gateway",
+ "aws-model-s3",
+ "aws-peers",
+ "aws-schema",
+ "aws-sqs",
+ "aws-testkit",
+ "aws-wire",
+ "bytes",
+ "doze-fs",
+ "doze-runtime",
+ "doze-store",
+ "getrandom 0.4.3",
+ "http",
+ "md-5",
+ "serde",
+ "serde_json",
+ "sha1",
+ "sha2",
  "tokio",
 ]
 
@@ -420,6 +752,34 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "aws-sfn"
+version = "0.0.0"
+dependencies = [
+ "aws-asl",
+ "aws-core",
+ "aws-dynamodb",
+ "aws-eventbridge",
+ "aws-logs",
+ "aws-model-sfn",
+ "aws-peers",
+ "aws-s3",
+ "aws-schema",
+ "aws-sns",
+ "aws-sqs",
+ "aws-testkit",
+ "aws-wire",
+ "bytes",
+ "doze-runtime",
+ "doze-store",
+ "getrandom 0.4.3",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -522,11 +882,38 @@ dependencies = [
 ]
 
 [[package]]
+name = "aws-sns"
+version = "0.0.0"
+dependencies = [
+ "aws-core",
+ "aws-gateway",
+ "aws-iam-policy",
+ "aws-model-sns",
+ "aws-peers",
+ "aws-schema",
+ "aws-seal",
+ "aws-sqs",
+ "aws-testkit",
+ "aws-webhook",
+ "aws-wire",
+ "bytes",
+ "doze-runtime",
+ "doze-store",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tokio",
+ "tokio-util",
+ "tracing",
+]
+
+[[package]]
 name = "aws-sqs"
 version = "0.0.0"
 dependencies = [
  "aws-core",
  "aws-model-sqs",
+ "aws-peers",
  "aws-schema",
  "aws-wire",
  "doze-fs",
@@ -571,15 +958,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "aws-webhook"
+version = "0.0.0"
+dependencies = [
+ "tokio",
+]
+
+[[package]]
 name = "aws-wire"
 version = "0.0.0"
 dependencies = [
  "aws-auth",
  "aws-core",
+ "aws-model-iam",
+ "aws-model-lambda",
+ "aws-model-s3",
  "aws-model-sqs",
  "aws-schema",
+ "bytes",
  "getrandom 0.4.3",
  "http",
+ "serde_json",
  "thiserror",
 ]
 
@@ -1001,8 +1400,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6a996a108feb8b427a6e12fcf6af4aa83409b79d72c15337d7741368131ee004"
 dependencies = [
  "const-oid",
+ "der_derive",
+ "flagset",
  "pem-rfc7468",
  "zeroize",
+]
+
+[[package]]
+name = "der_derive"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "59600e2c2d636fde9b65e99cc6445ac770c63d3628195ff39932b8d6d7409903"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
 ]
 
 [[package]]
@@ -1029,11 +1441,24 @@ name = "doze-aws"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "aws-apigateway",
  "aws-auth",
+ "aws-cloudformation",
+ "aws-cloudwatch",
+ "aws-dynamodb",
+ "aws-dynamodb-streams",
+ "aws-eventbridge",
  "aws-gateway",
+ "aws-iam",
+ "aws-kinesis",
  "aws-kms",
+ "aws-lambda",
+ "aws-logs",
  "aws-peers",
+ "aws-s3",
  "aws-secrets",
+ "aws-sfn",
+ "aws-sns",
  "aws-sqs",
  "aws-ssm",
  "aws-wire",
@@ -1072,6 +1497,151 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "doze-module"
+version = "0.0.0"
+dependencies = [
+ "doze-module-derive",
+ "doze-module-host",
+ "doze-module-proto",
+ "doze-module-release",
+ "doze-module-test",
+ "doze-os",
+ "hex",
+ "minicbor",
+ "serde_json",
+ "sha2",
+ "tokio",
+]
+
+[[package]]
+name = "doze-module-derive"
+version = "0.0.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
+]
+
+[[package]]
+name = "doze-module-host"
+version = "0.0.0"
+dependencies = [
+ "doze-module-proto",
+ "doze-os",
+ "minicbor",
+ "tokio",
+]
+
+[[package]]
+name = "doze-module-kvrocks"
+version = "0.0.0"
+dependencies = [
+ "doze-module",
+ "doze-module-proto",
+ "doze-module-test",
+ "doze-os",
+ "doze-resp",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
+name = "doze-module-proto"
+version = "0.0.0"
+dependencies = [
+ "doze-os",
+ "minicbor",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
+name = "doze-module-release"
+version = "0.0.0"
+dependencies = [
+ "doze-module-proto",
+ "flate2",
+ "hex",
+ "sha2",
+ "yaml-rust2",
+]
+
+[[package]]
+name = "doze-module-temporal"
+version = "0.0.0"
+dependencies = [
+ "doze-module",
+ "doze-module-proto",
+ "doze-module-test",
+ "doze-os",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
+name = "doze-module-test"
+version = "0.0.0"
+dependencies = [
+ "doze-module-host",
+ "doze-module-proto",
+ "doze-os",
+ "hcl-edit",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
+name = "doze-module-valkey"
+version = "0.0.0"
+dependencies = [
+ "doze-module",
+ "doze-module-proto",
+ "doze-module-test",
+ "doze-os",
+ "doze-resp",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
+name = "doze-names"
+version = "0.0.0"
+dependencies = [
+ "bytes",
+ "doze-os",
+ "getrandom 0.3.4",
+ "hex",
+ "http",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
+ "p256",
+ "rustls",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tokio",
+ "tokio-rustls",
+ "x509-cert",
+]
+
+[[package]]
+name = "doze-os"
+version = "0.0.0"
+dependencies = [
+ "rustix",
+ "tokio",
+ "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "doze-resp"
+version = "0.0.0"
+dependencies = [
+ "tokio",
 ]
 
 [[package]]
@@ -1150,6 +1720,7 @@ dependencies = [
  "ff",
  "group",
  "hybrid-array",
+ "pem-rfc7468",
  "pkcs8",
  "rand_core 0.10.1",
  "sec1",
@@ -1168,6 +1739,15 @@ name = "embedded-io"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "edd0f118536f44f5ccd48bcb8b111bdc3de888b58c74639dfb034a357d0f206d"
+
+[[package]]
+name = "encoding_rs"
+version = "0.8.35"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "75030f3c4f45dafd7586dd6780965a8c7e8e285a5ecb86713e63a79c5b2766f3"
+dependencies = [
+ "cfg-if",
+]
 
 [[package]]
 name = "equivalent"
@@ -1214,6 +1794,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1c66915cc5391097de7a2b0b972e8505aa33c0df401fd3a6811dbdb32881ba48"
 
 [[package]]
+name = "flagset"
+version = "0.4.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b7ac824320a75a52197e8f2d787f6a38b6718bb6897a35142d749af3c0e8f4fe"
+
+[[package]]
 name = "flate2"
 version = "1.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1229,6 +1815,12 @@ name = "fnv"
 version = "1.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
+
+[[package]]
+name = "foldhash"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "77ce24cb58228fbb8aa041425bb1050850ac19177686ea6e0f41a70416f56fdb"
 
 [[package]]
 name = "form_urlencoded"
@@ -1341,6 +1933,43 @@ name = "hashbrown"
 version = "0.17.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ed5909b6e89a2db4456e54cd5f673791d7eca6732202bbf2a9cc504fe2f9b84a"
+dependencies = [
+ "foldhash",
+]
+
+[[package]]
+name = "hashlink"
+version = "0.12.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a596f1b20ed2cc5ecac41a164aaebc7258057060f06c0cf7a2ba3991ee7990fb"
+dependencies = [
+ "hashbrown",
+]
+
+[[package]]
+name = "hcl-edit"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3b1b3e90b173143b26dbb7495ac79e25c0206389d012881cea7cda9f0f1fce8a"
+dependencies = [
+ "fnv",
+ "hcl-primitives",
+ "pratt",
+ "vecmap-rs",
+ "winnow",
+]
+
+[[package]]
+name = "hcl-primitives"
+version = "0.1.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c35ea757c1bdfa0bdfe8f65771be944d199a7f379b739c8f6fe2ad2f92d18ecb"
+dependencies = [
+ "itoa",
+ "ryu",
+ "serde",
+ "unicode-ident",
+]
 
 [[package]]
 name = "heck"
@@ -1436,6 +2065,7 @@ dependencies = [
  "pin-project-lite",
  "smallvec",
  "tokio",
+ "want",
 ]
 
 [[package]]
@@ -1485,6 +2115,34 @@ name = "itoa"
 version = "1.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8f42a60cbdf9a97f5d2305f08a87dc4e09308d1276d28c869c684d7777685682"
+
+[[package]]
+name = "jlens-core"
+version = "0.31.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ae4bf7da171aaaa25b888994fc49aebb775749f79accc174fe83f485841d1179"
+dependencies = [
+ "foldhash",
+ "hashbrown",
+ "indexmap",
+ "jlens-regress",
+ "rustix",
+ "ryu-js",
+ "serde",
+ "serde_json",
+ "stacker",
+ "thiserror",
+ "web-time",
+]
+
+[[package]]
+name = "jlens-regress"
+version = "0.31.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "af5a178d3a816cdb3f7f813b4d0eed6e260e082de4a1ad9964d0295fafdbdb1c"
+dependencies = [
+ "memchr",
+]
 
 [[package]]
 name = "js-sys"
@@ -1731,6 +2389,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d5848f5a9e8117cf94f2f90faac24a87ff81600ff8628c1e3deaab572e76bfa1"
 
 [[package]]
+name = "minicbor"
+version = "2.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e7244eafd1e09e7c4e33043881997aa6ab6dffff3ed2cee3395a278980481d6e"
+dependencies = [
+ "minicbor-derive",
+]
+
+[[package]]
+name = "minicbor-derive"
+version = "0.19.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "84f5ad8dfe10176465fe33f19ecfcf08783ba66630fdb40b2e4542547c1046f0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
+]
+
+[[package]]
 name = "miniz_oxide"
 version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1773,6 +2451,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "071dfc062690e90b734c0b2273ce72ad0ffa95f0c74596bc250dcfd960262841"
 dependencies = [
  "autocfg",
+]
+
+[[package]]
+name = "object"
+version = "0.39.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2e5a6c098c7a3b6547378093f5cc30bc54fd361ce711e05293a5cc589562739b"
+dependencies = [
+ "memchr",
 ]
 
 [[package]]
@@ -1924,6 +2611,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "pratt"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "17e0a4425d076f0718b820673a38fbf3747080c61017eeb0dd79bc7e472b8bb8"
+
+[[package]]
 name = "primefield"
 version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1986,6 +2679,16 @@ dependencies = [
  "rusty-fork",
  "tempfile",
  "unarray",
+]
+
+[[package]]
+name = "psm"
+version = "0.1.32"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4dcd034599e63b970727f70d79e02d62390a4a84f7c6b827c27c46d5ac3fa622"
+dependencies = [
+ "ar_archive_writer",
+ "cc",
 ]
 
 [[package]]
@@ -2255,6 +2958,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9774ba4a74de5f7b1c1451ed6cd5285a32eddb5cccb8cc655a4e50009e06477f"
 
 [[package]]
+name = "ryu-js"
+version = "1.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "04d056b875a9d2e6cb9a61d127afee9ac5999b9f87bcb32079d1318e505be714"
+
+[[package]]
 name = "sec1"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2310,6 +3019,8 @@ version = "1.0.154"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e7e9cc8b1b85264074fbcc02a88680c4096b1e47df8f739dceb03bf482f04bd6"
 dependencies = [
+ "foldhash",
+ "indexmap",
  "itoa",
  "memchr",
  "serde",
@@ -2426,6 +3137,19 @@ checksum = "7ef958a98b9d5da290cfc78946e9f3e61e1e62a18db0d92cac0b83cc161491a9"
 dependencies = [
  "base64ct",
  "der",
+]
+
+[[package]]
+name = "stacker"
+version = "0.1.25"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "707f49d46706bacf8a2b00d51dace3f9de527c13eec3778f570c411f89e69967"
+dependencies = [
+ "cc",
+ "cfg-if",
+ "libc",
+ "psm",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -2553,6 +3277,27 @@ checksum = "7e689342a48d2ea927c87ea50cabf8594854bf940e9310208848d680d668ed85"
 dependencies = [
  "num-conv",
  "time-core",
+]
+
+[[package]]
+name = "tls_codec"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0de2e01245e2bb89d6f05801c564fa27624dbd7b1846859876c7dad82e90bf6b"
+dependencies = [
+ "tls_codec_derive",
+ "zeroize",
+]
+
+[[package]]
+name = "tls_codec_derive"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2d2e76690929402faae40aebdda620a2c0e25dd6d3b9afe48867dfd95991f4bd"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
 ]
 
 [[package]]
@@ -2738,6 +3483,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "try-lock"
+version = "0.2.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
+
+[[package]]
 name = "ts-rs"
 version = "12.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2822,6 +3573,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ba73ea9cf16a25df0c8caa16c51acb937d5712a8429db78a3ee29d5dcacd3a65"
 
 [[package]]
+name = "vecmap-rs"
+version = "0.2.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "58c1dc449b873236909c7f325adf395071c209047737d831183e95c692413adf"
+
+[[package]]
 name = "vsimd"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2834,6 +3591,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "09ac3b126d3914f9849036f826e054cbabdc8519970b8998ddaf3b5bd3c65f11"
 dependencies = [
  "libc",
+]
+
+[[package]]
+name = "want"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ec4cdd0dd910afe868b7ef477227d8d538b46b3075031afee8a9f2acb0a2ed0b"
+dependencies = [
+ "try-lock",
 ]
 
 [[package]]
@@ -2893,6 +3659,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3b1f9c3798725016c6ee5f2f57869ec0831e8bbc0ab0310a86e787e97f41389e"
 dependencies = [
  "unicode-ident",
+]
+
+[[package]]
+name = "web-time"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5a6580f308b1fad9207618087a65c04e7a10bc77e02c8e84e9b00dd4b12fa0bb"
+dependencies = [
+ "js-sys",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -3020,8 +3796,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "x509-cert"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "105ef4642d9cb137ef83d623d0e4bf08b8adf69e9918ca904a174adb6d3d038b"
+dependencies = [
+ "const-oid",
+ "der",
+ "sha1",
+ "signature",
+ "spki",
+ "tls_codec",
+]
+
+[[package]]
 name = "xtask"
 version = "0.0.0"
+
+[[package]]
+name = "yaml-rust2"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "57e5b818a27a4cd30884ea380857a5e56f7ec3ba24a3990a3cc0b95af3238e18"
+dependencies = [
+ "arraydeque",
+ "encoding_rs",
+ "hashlink",
+]
 
 [[package]]
 name = "zerocopy"
@@ -3048,6 +3849,20 @@ name = "zeroize"
 version = "1.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e13084392c5e4bc371903e2935a5eaeed24905a7511356b883835e18a78f6879"
+dependencies = [
+ "zeroize_derive",
+]
+
+[[package]]
+name = "zeroize_derive"
+version = "1.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3c50655cbb0fe3fc43170059e702f1ce5e19b84cec58dc87b037a09935c2f328"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
+]
 
 [[package]]
 name = "zlib-rs"

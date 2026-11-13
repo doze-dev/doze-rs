@@ -47,8 +47,13 @@ fn value(t: &Tables, m: &MemberRef<'_>, ar: &Arena, body: &str, v: Val, out: &mu
     match (m.kind, v) {
         (K_BOOL, Val::Bool(b)) => out.extend_from_slice(if b { b"true" } else { b"false" }),
         (K_INT, Val::Int(n)) => write!(out, "{n}").map_err(|_| Violation::Table)?,
-        (K_FLOAT | K_TS, Val::Float(f)) => write!(out, "{f}").map_err(|_| Violation::Table)?,
-        (K_FLOAT | K_TS, Val::Int(n)) => write!(out, "{n}").map_err(|_| Violation::Table)?,
+        // A float is written with its point (`3.0`, as AWS writes it): a client that keeps what the wire says (botocore does, for a
+        // double) shows `3.0` and not `3`. Recorded on AWS (CloudWatch, 2026-11-09).
+        (K_FLOAT, Val::Float(f)) => write!(out, "{f:?}").map_err(|_| Violation::Table)?,
+        #[allow(clippy::cast_precision_loss)]
+        (K_FLOAT, Val::Int(n)) => write!(out, "{:?}", n as f64).map_err(|_| Violation::Table)?,
+        (K_TS, Val::Float(f)) => write!(out, "{f}").map_err(|_| Violation::Table)?,
+        (K_TS, Val::Int(n)) => write!(out, "{n}").map_err(|_| Violation::Table)?,
         (K_STR | K_TS, Val::Str(..) | Val::Esc(..)) => {
             string(out, ar.str_of(body, v).ok_or(Violation::Table)?)
         }

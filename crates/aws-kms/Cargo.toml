@@ -16,6 +16,7 @@ aws-model-kms = { path = "../aws-model-kms" }
 aws-schema = { path = "../aws-schema" }
 aws-wire = { path = "../aws-wire" }
 aws-core = { path = "../aws-core" }
+aws-peers = { path = "../aws-peers" }
 aws-seal = { path = "../aws-seal" }
 doze-runtime = { path = "../doze-runtime" }
 doze-store = { path = "../doze-store" }

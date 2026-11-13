@@ -214,3 +214,26 @@ fn the_secret_is_never_printed() {
     let key = SigningKey::derive(SECRET, "20130524", "us-east-1", "sqs").unwrap();
     assert!(format!("{key:?}").contains("redacted"));
 }
+
+#[test]
+fn a_region_that_could_name_a_directory_is_not_a_scope() {
+    for region in ["..", "US-EAST-1", "a%2Fb", ""] {
+        let (mut parts, ()) = http::Request::builder()
+            .method("POST")
+            .uri("/")
+            .body(())
+            .unwrap()
+            .into_parts();
+        let auth = format!(
+            "AWS4-HMAC-SHA256 Credential={AKID}/20130524/{region}/sqs/aws4_request,SignedHeaders=host,Signature=00"
+        );
+        parts.headers.insert("authorization", auth.parse().unwrap());
+        parts
+            .headers
+            .insert("x-amz-date", "20130524T000000Z".parse().unwrap());
+        assert!(
+            matches!(crate::claim::Claim::parse(&parts), Err(AuthError::Malformed(m)) if m.contains("valid region")),
+            "{region:?}"
+        );
+    }
+}

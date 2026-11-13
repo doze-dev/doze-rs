@@ -11,7 +11,7 @@ use doze_store::records::Records;
 use doze_store::{Ack, Db, StoreError};
 
 use crate::model::Parameter;
-use aws_peers::Peers;
+use aws_peers::{Mode, Peers};
 
 const FILE: &str = "ssm.redb";
 const PARAMS: &str = "params";
@@ -67,6 +67,17 @@ impl doze_runtime::Service for Core {
     }
 
     async fn handle(&mut self, call: Call) -> Answer {
+        if let Some(peers) = self.peers.clone()
+            && peers.mode() != Mode::Off
+            && let Err(refusal) = peers
+                .authorize(&call.caller, crate::authz::needs(&call))
+                .await
+        {
+            return Answer {
+                reply: Err(refusal),
+                durable: None,
+            };
+        }
         let mut reply = self.dispatch(&call).await;
         let durable = match self.flush() {
             Ok(ack) => ack,

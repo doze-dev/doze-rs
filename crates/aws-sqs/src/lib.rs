@@ -3,6 +3,7 @@
 //! reap and a restart. Every operation the model has is named in [`core`]'s dispatch.
 
 mod attrs;
+mod authz;
 mod batch;
 mod core;
 mod fifo;
@@ -10,6 +11,7 @@ mod messages;
 mod model;
 mod moves;
 mod msgattr;
+mod peek;
 mod persist;
 mod policy;
 mod queues;
@@ -29,10 +31,10 @@ use aws_schema::json::Violation;
 use aws_schema::meta::ServiceMeta;
 use aws_schema::tables::Tables;
 use aws_wire::ApiError;
-use aws_wire::service::{BoxFuture, Call, Reply, Service};
-use doze_runtime::{Ctx, Lazy};
+use aws_wire::service::{BoxFuture, Call, Extension, Reply, Service};
+use doze_runtime::{Ctx, Deadlines, Keyed};
 
-use crate::core::{Answer, Core};
+use crate::core::{Answer, Ask, Core};
 
 /// MD5 of some bytes, as lower-case hex.
 pub(crate) fn md5_hex(bytes: &[u8]) -> String {
@@ -40,22 +42,67 @@ pub(crate) fn md5_hex(bytes: &[u8]) -> String {
     aws_core::hex::encode(&Md5::digest(bytes))
 }
 
+/// The region whose files are kept in the service's directory itself (state written before regions were kept apart is its).
+const HOME_REGION: &str = "us-east-1";
+
 /// The SQS service. Nothing runs until the first request.
 #[derive(Debug)]
 pub struct Sqs {
-    actor: Lazy<Core>,
+    /// One actor per region: a queue, parameter, secret or key belongs to the region that made it.
+    actors: Keyed<Core>,
     /// Woken by anything that could give a waiting receive a message.
     arrived: tokio::sync::Notify,
+    /// One timer per region, asleep until the oldest message there passes its retention, and none while every queue is empty.
+    expiry: Arc<Deadlines<Core>>,
 }
 
 impl Sqs {
     /// Registers SQS. `ctx` says where its files would live, when it has any, and how it reads the time.
     #[must_use]
     pub fn new(ctx: Arc<Ctx>) -> Self {
+        let expiry = Deadlines::new(
+            Arc::clone(&ctx),
+            || Ask::Tick,
+            Box::new(|mut answer: Answer| {
+                Box::pin(async move {
+                    if let Some(saved) = answer.durable.take() {
+                        // WHY: a failed save is the writer's to report; the next call finds the same state and says so.
+                        drop(saved.await);
+                    }
+                    answer.next_due
+                })
+            }),
+        );
         Self {
-            actor: Lazy::new("sqs", ctx),
+            actors: Keyed::new("sqs", ctx, HOME_REGION),
             arrived: tokio::sync::Notify::new(),
+            expiry,
         }
+    }
+
+    /// Whether the region's retention timer is running (for tests).
+    #[cfg(test)]
+    pub(crate) fn expiry_armed(&self, region: &str) -> bool {
+        self.expiry.armed(region)
+    }
+
+    /// Resolves when anything has happened that could give a waiting receive a message (a send, a visibility change, a purge, a
+    /// redrive) since it was last awaited. A consumer that is not itself a long poll (a Lambda event source mapping) reads, and waits
+    /// here when there is nothing.
+    pub async fn message_arrived(&self) {
+        self.arrived.notified().await;
+    }
+
+    /// Sends the call to the actor of the region it was signed for, and tells the region's timer when a message next expires.
+    async fn call_actor(&self, call: Call) -> Result<Answer, String> {
+        let region = call.caller.region.clone();
+        let actor = self.actors.actor(&region).map_err(|e| e.to_string())?;
+        let answer = actor
+            .call(Ask::Call(Box::new(call)))
+            .await
+            .map_err(|e| e.to_string())?;
+        self.expiry.arm(&region, &actor, answer.next_due);
+        Ok(answer)
     }
 
     /// Asks the actor, and holds the answer until what it changed is on disk.
@@ -70,12 +117,13 @@ impl Sqs {
     }
 
     async fn ask_actor(&self, call: Call) -> Answer {
-        match self.actor.call(call).await {
+        match self.call_actor(call).await {
             Ok(answer) => answer,
             Err(e) => Answer {
                 reply: Err(ApiError::internal(e.to_string())),
                 poll: None,
                 durable: None,
+                next_due: None,
             },
         }
     }
@@ -119,6 +167,14 @@ impl Service for Sqs {
 
     fn tables(&self) -> &'static Tables {
         &TABLES
+    }
+
+    /// `DozePeek`: doze's read-only look at a queue (see `Core::peek`), shaped as `ReceiveMessage`.
+    fn extension(&self, name: &str) -> Option<Extension> {
+        (name == "DozePeek").then_some(Extension {
+            op: core::PEEK_OP,
+            shapes: aws_model_sqs::Operation::ReceiveMessage.index(),
+        })
     }
 
     fn call(&self, call: Call) -> BoxFuture<'_, Reply> {

@@ -18,4 +18,80 @@ doze-kafka 7800000 161 8192 --listen 127.0.0.1:{port} --data-dir {data}
 # 2026-11-12, with KMS RSA keys and key import: 4,378,880 B, 192 packages, 3.3 MB idle (+469 KB and +9 packages over grants: the rsa crate and its bigint
 # stack, sha1, aes-kw). Same rule.
 # 2026-11-12, with the peer bus (aws-peers, base64): 4,447,840 B, 194 packages, 3.3 MB idle (+69 KB and +2 packages over RSA and import). Same rule.
-doze-aws 6100000 199 6144 --listen 127.0.0.1:{port} --data-dir {data}
+# 2026-11-12, with IAM and STS and the Query protocol: 4,963,664 B, 198 packages, 3.4 MB idle (+516 KB and +4 packages over the peer bus: the IAM model (180
+# operations), the Query codec, session signing). Same rule.
+# 2026-11-12, with policy enforcement (evaluator, simulator, authorizer): 5,097,200 B, 198 packages, 3.3 MB idle (+133 KB, no package). Same rule; the limit
+# is 7,000,000 B (macOS size times 1.3 plus 5% is 6,957,678).
+# 2026-11-12, with SNS (A8): 5,550,528 B, 201 packages, 3,440 KB idle (+436 KB over the 5,114,720 B of regions kept apart: the SNS model's tables (43 operations),
+# the filter-policy engine, the service). New packages: aws-sns and aws-model-sns (no new dependency; sha2, tracing and aws-iam-policy were already linked). The tree
+# without them counts 199, one more than the 198 the PLAN log gave for the base. Limits unchanged; two packages of room.
+# 2026-11-12, with DynamoDB (A10; aws-dynamodb, aws-expr and the DynamoDB model tables, nothing else new at run time): 5,834,528 B, 202 packages, 3,504 KB idle
+# (+737,328 B and +4 packages over policy enforcement: three are ours (aws-dynamodb, aws-expr, aws-model-dynamodb); the tool counted one more that was not
+# traced). No new third-party crate: redb, postcard, serde_json and tokio::sync are already linked. Limits unchanged: the macOS size is 84% of the byte
+# limit and one package is left.
+# 2026-11-12, SNS and DynamoDB together (integrator, darwin/arm64 release): 6,253,904 B, 205 packages, 3,488 KB idle (+1,139 KB and +7 packages over regions kept
+# apart: SNS +436 KB, DynamoDB +737 KB measured alone). Same rule (macOS size times 1.3 plus 5% is 8,536,000 B): the byte limit is 8,600,000 B and the package limit 209
+# (measured 205 plus 4). The owner's 10 MB ceiling and the 9 MB CI default are 70% and 63% used by the macOS figure on the Linux scale: S3, Lambda and the rest must
+# be measured against it before more room is given.
+# 2026-11-12, with S3 (A9; branch aws-a9-s3, on top of the same IAM/STS base as above): 5,819,344 B, 202 packages, 3,568 KB idle (+722 KB, +4 packages, +0.25 MB idle over
+# policy enforcement: the S3 model's tables, the restXml codec (router, XML in and out), the S3 service with its checksums and blob store). The limits are not
+# moved by this stage: it fits inside them on its own. The integrator folds the other services of this round in and re-bases them from the combined build.
+# 2026-11-12, SNS, DynamoDB and S3 together (integrator, darwin/arm64 release): 6,974,576 B, 209 packages, 3,632 KB idle (S3 measured alone by its agent: +722 KB and +4
+# packages; the REST-XML codec, the streaming gateway path, the S3 model tables). The Linux build is about 1.2 times the macOS one (doze-kafka), so the byte limit is the
+# macOS size times 1.2 plus 5% = 8,787,000, rounded to 8,800,000 B, and the package limit 213 (measured 209 plus 4). The earlier rule (times 1.3) would give 9.5 MB, too
+# close to the owner's 10 MB ceiling to be a limit. The Logs, Kinesis and CloudWatch stage measured +1.2 MB and +12 packages alone: it does NOT fit under this limit.
+# 2026-11-13, doze-aws moved to its own size-optimised profile (release-aws: opt-level "s", fat LTO; owner's choice, 2026-11-13): 4,660,320 B, 209 packages, 3,520 KB idle,
+# against 6,974,576 B at the same code under the release profile (-33%). A 1 GiB S3 upload and download took the same time. The byte limit is still the macOS size times
+# 1.2 plus 5% = 5,872,000, rounded to 5,900,000 B; packages and idle unchanged. Weighed with "cargo xtask weight doze-aws", which now builds that profile.
+# 2026-11-12, A11, with CloudWatch Logs, Kinesis and CloudWatch (and the CBOR codec, gzip request bodies): 6,300,816 B, 210 packages, 3,664 KB idle on
+# darwin/arm64 (+1.2 MB and +12 packages over policy enforcement: the three models' tables and services, the CBOR codec, and flate2 with its pure-Rust
+# backend for gzip, which botocore uses on PutMetricData past 10 KB). Same rule (macOS size times 1.3 plus 5% is 8,600,617); three packages of room.
+# The limit sits under the owner's 10 MB ceiling; the integrator re-bases it when the other A8 to A13 stages are merged.
+# 2026-11-13, all eleven services so far (SNS, DynamoDB, S3, Logs, Kinesis, CloudWatch merged; integrator): 5,371,872 B, 220 packages, 3,600 KB idle under release-aws
+# (+711 KB and +11 packages over the 4,660,320 B / 209 of SNS, DynamoDB and S3: Logs, Kinesis, CloudWatch, the CBOR codec and flate2). Byte limit = macOS size times 1.2
+# plus 5% = 6,768,000, rounded to 6,800,000 B; packages 224 (measured 220 plus 4). Idle unchanged at 6,144 KB. Package count is now the faster-growing number
+# (198 to 220 in one round): every new third-party package must be named in the stage note.
+# 2026-11-13, with EventBridge (A12; integrator, darwin/arm64 release-aws): 5,785,936 B, 224 packages, 3,728 KB idle (+347 KB and +4 packages over Logs/Kinesis/CloudWatch
+# plus the parity round: aws-eventbridge, aws-cron and the EventBridge model, all first party). Byte limit = macOS size times 1.2 plus 5% = 7,291,000, rounded to 7,300,000 B;
+# packages 232 (measured 224 plus 8: Lambda and the REST-JSON codec are next and a named third-party package may be needed). Idle unchanged at 6,144 KB.
+# 2026-11-13, A13 Lambda (branch aws-a13-lambda, alone on the 5,371,872 B / 220 package base): 6,102,912 B, 229 packages, 3,872 KB idle (+731 KB, +9 packages, +0.27 MB idle). NO new
+# third-party package: Cargo.lock gains only aws-lambda and (linked for the first time) aws-model-lambda. The tool counts distinct lines of `cargo tree`, so a crate reached by a
+# new edge is counted again as a "(*)" line; the other 7 are such repeat lines (hyper, http-body-util, tokio-util, flate2, crc32fast, sha2, tokio) from aws-lambda's own edges.
+# What the bytes are: the Lambda model's tables (87 operations, 840 constraints), the REST-JSON codec, the Runtime API server, the zip reader, the three embedded runtime clients
+# (about 19 KB of text), the pollers and the service. Byte limit: macOS size times 1.2 plus 5% = 7,690,000, rounded to 7,700,000 B (the owner's ceiling on Linux is 10 MB; the
+# Linux build is about 1.45 times the macOS one, so 6.1 MB is about 8.9 MB there); packages 233 (measured 229 plus 4). Idle limit unchanged.
+# 2026-11-13, with Lambda and the REST-JSON codec (A13; integrator, release-aws): 6,500,256 B on darwin/arm64, 233 packages, 3,920 KB idle. FIRST REAL LINUX MEASUREMENT: the
+# same code cross-built for x86_64-unknown-linux-musl is 8,206,736 B, 1.26 times the macOS size (the earlier 1.2 was doze-kafka's ratio; a stage agent's 1.45 was an estimate).
+# The CI job runs on ubuntu x86_64 with glibc (dynamic, so a little smaller than musl), so the byte limit is the measured musl size plus 5% = 8,617,000, rounded to
+# 8,600,000 B; packages 240 (233 plus 7). That is 86% of the owner's 10 MB ceiling and 96% of the 9 MB CI default is NOT acceptable as a plan: Step Functions, API Gateway and
+# CloudFormation are still to come, so the next lever (opt-level "z", measured at 77% of the opt-level "s" size on 2026-11-13) is to be taken before the limit moves again.
+# 2026-11-13, release-aws moved from opt-level "s" to "z" (owner's choice): 4,867,344 B on darwin/arm64 (was 6,500,256 B), 233 packages, 4,400 KB idle (was 3,920 KB). The same
+# commit cross-built for x86_64-unknown-linux-musl is 7,481,552 B (was 8,206,736 B): only 9% smaller, because 1.0 MB of an x86_64 Linux binary is unwind tables and relocations that
+# "z" does not touch (-Cforce-unwind-tables=no changes nothing on this target, which requires them). Byte limit = the musl size plus 5% = 7,855,000, rounded to 7,900,000 B.
+# Linux is 1.54 times the macOS size at "z"; Step Functions, API Gateway and CloudFormation will cost about 1.5 times what they cost on macOS. Packages unchanged at 240.
+# 2026-11-13, A15 API Gateway (branch aws-a15-apigateway, alone on the 4,867,344 B / 233 base): 5,349,616 B on darwin/arm64 (+482 KB), 237 packages (+4), 4,576 KB idle (+176 KB).
+# Cross-built for x86_64-unknown-linux-musl: 8,261,008 B (+779 KB over 7,481,552 B; 1.62 times the macOS delta), which breaks the 7,900,000 B line, so the line moves (the owner
+# allows it now that every service is to be finished). NO new third-party package: Cargo.lock gains aws-apigateway, aws-model-api-gateway and aws-model-apigatewayv2 (linked for the
+# first time); the fourth counted line is a repeat line from a new edge. The bytes: both models' tables (124 + 103 operations), both control planes, the execute-api plane (VTL subset,
+# OpenAPI/YAML reader, JWT, WebSocket framing, HTTP client). Byte limit = the musl size plus 5% = 8,674,000, rounded to 8,700,000 B (87% of the 10 MB ceiling; Step Functions and
+# CloudFormation are still to come, about 1.7 MB of room); packages 240 unchanged (237 measured).
+# 2026-11-13, A14 Step Functions (branch aws-a14-stepfunctions, alone on the 4,867,344 B / 233 package base): 6,046,432 B on darwin/arm64, 248 packages, 4,832 KB idle
+# (+1,179 KB, +15 packages). Cross-built for x86_64-unknown-linux-musl: 9,388,976 B (+1.91 MB over 7,481,552). Of that, JSONata (jlens-core, its regex engine jlens-regress,
+# stacker and psm, and serde_json's preserve_order which jlens-core turns on for every crate) is 1.26 MB: the same tree with JSONata stubbed out is 8,100,144 B on Linux.
+# New third-party packages, all from jlens-core: jlens-core, jlens-regress, stacker, psm (with ar_archive_writer and object at build time: psm assembles a file, so a C
+# compiler for the target is needed to build), ryu-js, web-time; and, new to doze-aws though already in the lock, indexmap, equivalent, hashbrown, foldhash. JSONata is the default
+# "jsonata" feature of aws-asl and aws-sfn, so it can be left out of a build. Byte limit = the musl size plus 5% = 9,858,000, rounded to 9,900,000 B; packages 252
+# (248 plus 4). THIS IS OVER the owner's 9 MB CI default and leaves 0.1 MB of the 10 MB ceiling for API Gateway and CloudFormation: a decision for the owner (stage note).
+# 2026-11-13, A16 CloudFormation (branch aws-a16-cloudformation, alone on the 4,867,344 B / 233 package base): 5,549,504 B on darwin/arm64, 235 packages,
+# 4,688 KB idle (+682 KB, +2 packages: aws-cloudformation and the CloudFormation model tables; no new third-party package: regex-lite, flate2, sha2,
+# hmac and bytes were already linked). The same code cross-built for x86_64-unknown-linux-musl is 8,665,744 B (+1,184,192 B over 7,481,552 B; 1.56 times
+# the macOS size). What the bytes are: the template engine (the YAML reader, intrinsics, the SAM, include and language-extensions transforms), the
+# provisioning engine and rollback, about 130 resource types written against the other services' operations, and the CloudFormation model (90
+# operations). The limit had to move or CI fails: the musl size plus 5% = 9,098,031, rounded to 9,100,000 B; packages unchanged at 240. This is past the
+# owner's 9 MB CI default and leaves 0.9 MB of the 10 MB ceiling for Step Functions and API Gateway: the size decision PLAN records as pending is now due.
+# 2026-11-13, every service the Go edition served, merged (A14 + A15 + A16 together on the main line): 7,444,224 B on darwin/arm64, 258 packages, 5,344 KB idle.
+# Cross-built for x86_64-unknown-linux-musl: 11,764,560 B (10,561,264 B with aws-sfn's "jsonata" feature off, so JSONata is 1.20 MB of it). JSONata's psm needs a C compiler
+# and an ELF archiver for the target: CC_x86_64_unknown_linux_musl = a clang --target=x86_64-unknown-linux-musl wrapper, AR_x86_64_unknown_linux_musl = llvm-ar.
+# The owner raised doze-aws's ceiling from 10 MB to 20 MB ("Bump to 20 MB. Just use the freedom wisely", 2026-11-13); JSONata stays in. This line stays tight so that
+# every increase is still argued here: byte limit = the musl size plus 5% = 12,352,788, rounded to 12,400,000 B; packages 264 (258 plus 6).
+doze-aws 12400000 264 6144 --listen 127.0.0.1:{port} --data-dir {data}

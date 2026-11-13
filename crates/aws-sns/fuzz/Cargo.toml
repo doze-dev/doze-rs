@@ -1,0 +1,21 @@
+[package]
+name = "aws-sns-fuzz"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+aws-sns = { path = ".." }
+
+# Not part of the main workspace: fuzzing needs a nightly toolchain.
+[workspace]
+
+[[bin]]
+name = "fuzz_filter_policy"
+path = "fuzz_targets/fuzz_filter_policy.rs"
+test = false
+doc = false

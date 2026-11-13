@@ -1,0 +1,16 @@
+[package]
+name = "aws-iam-policy"
+version = "0.0.0"
+description = "IAM policy documents: parsing and checking, and (in time) evaluating them"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+serde_json = "1"
+aws-core = { path = "../aws-core" }

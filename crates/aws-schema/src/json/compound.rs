@@ -76,7 +76,9 @@ impl D<'_> {
                 let k = self.str_value(
                     &key_m,
                     m.target,
-                    t.cons(key_m.cons).as_ref().filter(|_| key_m.cons != 0),
+                    t.cons(key_m.cons)
+                        .as_ref()
+                        .filter(|_| key_m.cons != 0 && !self.lenient),
                 )?;
                 self.expect(b':')?;
                 let v = self.value(&val_m, m.target + 1, depth + 1)?;
@@ -188,7 +190,8 @@ impl D<'_> {
             };
             // A streaming member (a payload blob, an event stream) is not carried in the JSON body, so it cannot be missing from it.
             let streamed = matches!(m.kind, K_STREAM | K_EVENT);
-            if m.flags & F_REQUIRED != 0 && !streamed && !self.has_child(first, i) {
+            if !self.lenient && m.flags & F_REQUIRED != 0 && !streamed && !self.has_child(first, i)
+            {
                 return Err(Violation::Missing { shape, member: i });
             }
         }

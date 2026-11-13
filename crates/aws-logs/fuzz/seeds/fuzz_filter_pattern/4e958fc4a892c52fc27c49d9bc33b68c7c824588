@@ -1,0 +1,2 @@
+{ ($.cod = "err*") || $.tag IS NULL }
+{  "code"ull]}

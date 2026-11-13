@@ -1,0 +1,12 @@
+[package]
+name = "aws-cron"
+version = "0.0.0"
+description = "EventBridge schedule expressions: rate() and the six-field cron(), with the next time each fires"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true

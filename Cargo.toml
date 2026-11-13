@@ -79,3 +79,11 @@ opt-level = "z"
 opt-level = "z"
 [profile.release.package.regex-syntax]
 opt-level = "z"
+# doze-aws is built smaller than the broker: optimised for size ("z") with fat LTO. "s" was 33% smaller than the release profile on the same
+# code (6.97 MB to 4.66 MB, 2026-11-13) and "z" a further 25% (6.50 MB to 4.87 MB at the Lambda stage), for 30 to 60% more server CPU per
+# request (0.2 to 0.7 ms) and about 0.4 MB more idle memory; wall time is unchanged. The owner chose "z" on 2026-11-13.
+# `cargo xtask weight` builds it with this profile.
+[profile.release-aws]
+inherits = "release"
+opt-level = "z"
+lto = "fat"

@@ -122,7 +122,7 @@ pub fn failure(
     err: &ApiError,
     flat_client_errors: bool,
 ) -> Response<Vec<u8>> {
-    let modeled = err.shape.as_deref().and_then(|name| lookup(tables, name));
+    let modeled = err.shape.as_deref().and_then(|name| modeled(tables, name));
     let (status, fault, wire_code, query_code) = match &modeled {
         Some(m) => (
             // Most services answer with the status the model gives the error. A few do not: KMS models 404 for NotFoundException and
@@ -163,6 +163,12 @@ pub fn failure(
     quote(&mut body, &format!("{namespace}#{wire_code}"));
     body.extend_from_slice(br#","message":"#);
     quote(&mut body, &err.message);
+    for (name, raw) in err.body.iter().flat_map(|b| &b.0) {
+        body.push(b',');
+        quote(&mut body, name);
+        body.push(b':');
+        body.extend_from_slice(raw.as_bytes());
+    }
     body.push(b'}');
     builder.body(body).unwrap_or_default()
 }
@@ -189,14 +195,14 @@ fn base(status: StatusCode, version: Version, id: &RequestId) -> http::response:
 }
 
 /// What the model says about one error shape.
-struct Modeled {
-    name: String,
-    query_code: String,
-    status: u16,
-    fault: Fault,
+pub(crate) struct Modeled {
+    pub(crate) name: String,
+    pub(crate) query_code: String,
+    pub(crate) status: u16,
+    pub(crate) fault: Fault,
 }
 
-fn lookup(tables: &Tables, shape_name: &str) -> Option<Modeled> {
+pub(crate) fn modeled(tables: &Tables, shape_name: &str) -> Option<Modeled> {
     (0..tables.n_errs())
         .filter_map(|i| tables.err(i))
         .find_map(|e| {

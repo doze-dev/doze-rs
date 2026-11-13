@@ -1,0 +1,3 @@
+&& $|| $.tags[*] IS NULL }
+{"c0 && $|| $.tags[] IS NULL }
+{"kdeerror","tanull]}

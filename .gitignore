@@ -2,3 +2,6 @@
 .DS_Store
 /interop/go/interop
 node_modules/
+
+# Spikes build on their own (each has its own [workspace]).
+/spikes/*/target

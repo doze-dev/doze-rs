@@ -1,0 +1,33 @@
+[package]
+name = "aws-dynamodb"
+version = "0.0.0"
+description = "DynamoDB: tables, items, indexes, queries, transactions, TTL, streams and point-in-time recovery settings, as a state machine behind a lazy actor"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+aws-model-dynamodb = { path = "../aws-model-dynamodb" }
+aws-schema = { path = "../aws-schema" }
+aws-wire = { path = "../aws-wire" }
+aws-core = { path = "../aws-core" }
+aws-expr = { path = "../aws-expr" }
+aws-peers = { path = "../aws-peers" }
+aws-seal = { path = "../aws-seal" }
+doze-runtime = { path = "../doze-runtime" }
+doze-store = { path = "../doze-store" }
+doze-fs = { path = "../doze-fs" }
+redb = "=4.5.0"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+postcard = { version = "1", default-features = false, features = ["alloc"] }
+tokio = { version = "1", default-features = false, features = ["sync"] }
+
+[dev-dependencies]
+tokio = { version = "1", default-features = false, features = ["rt", "macros", "time", "test-util", "sync"] }
+aws-testkit = { path = "../aws-testkit" }

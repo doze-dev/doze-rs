@@ -280,3 +280,87 @@ def test_a_deleted_functions_mapping(client, names, cleanup, snapshot, service_r
         "ApproximateNumberOfMessages", "ApproximateNumberOfMessagesNotVisible"])["Attributes"]
     snapshot.match("the-queue", counters)
     snapshot.outcome("the-mapping", lambda: lam.get_event_source_mapping(UUID=made["UUID"]), opaque=MINTED)
+
+
+# ---- scenarios written for doze-aws's Lambda (A13): they pass their own assertions and are UNVERIFIED until recorded ----
+
+
+def test_layers_tags_and_settings(client, names, cleanup, snapshot, service_role):
+    """A layer is published and read back three ways; tags, reserved concurrency and the async settings round-trip."""
+    lam = client("lambda")
+    layer_name = names("layer")
+    layer = lam.publish_layer_version(
+        LayerName=layer_name, Content={"ZipFile": zip_bytes({"python/helper.py": "VALUE = 1\n"})},
+        CompatibleRuntimes=["python3.12"], Description="helper")
+    cleanup(lam.delete_layer_version, LayerName=layer_name, VersionNumber=layer["Version"])
+    assert layer["Version"] == 1
+    assert lam.get_layer_version_by_arn(Arn=layer["LayerVersionArn"])["Version"] == 1
+    assert [v["Version"] for v in lam.list_layer_versions(LayerName=layer_name)["LayerVersions"]] == [1]
+
+    name, made = function(lam, names, cleanup, service_role("lambda", BASIC), Layers=[layer["LayerVersionArn"]])
+    assert [l["Arn"] for l in made["Layers"]] == [layer["LayerVersionArn"]]
+
+    lam.tag_resource(Resource=made["FunctionArn"], Tags={"team": "a"})
+    assert lam.list_tags(Resource=made["FunctionArn"])["Tags"] == {"team": "a"}
+    lam.put_function_concurrency(FunctionName=name, ReservedConcurrentExecutions=1)
+    assert lam.get_function_concurrency(FunctionName=name)["ReservedConcurrentExecutions"] == 1
+    lam.delete_function_concurrency(FunctionName=name)
+    lam.put_function_event_invoke_config(FunctionName=name, MaximumRetryAttempts=0)
+    assert lam.get_function_event_invoke_config(FunctionName=name)["MaximumRetryAttempts"] == 0
+    snapshot.match("account", {"count": lam.get_account_settings()["AccountUsage"]["FunctionCount"] >= 1})
+
+
+def test_response_streaming(client, names, cleanup, snapshot, service_role):
+    """InvokeWithResponseStream on a function that does not stream: one chunk, then the end of the stream."""
+    lam = client("lambda")
+    name, _ = function(lam, names, cleanup, service_role("lambda", BASIC))
+    r = lam.invoke_with_response_stream(FunctionName=name, Payload=json.dumps({"n": 1}).encode())
+    chunks, complete = [], None
+    for event in r["EventStream"]:
+        if "PayloadChunk" in event:
+            chunks.append(event["PayloadChunk"]["Payload"])
+        elif "InvokeComplete" in event:
+            complete = event["InvokeComplete"]
+    assert complete is not None and not complete.get("ErrorCode")
+    assert json.loads(b"".join(chunks))["echo"] == {"n": 1}
+    snapshot.match("status", {"StatusCode": r["StatusCode"], "ExecutedVersion": r["ExecutedVersion"]})
+
+
+def test_function_url(client, names, cleanup, snapshot, service_role, target, eventually):
+    """A function URL answers an HTTP request with what the function returned."""
+    import http.client
+    import urllib.parse
+    import urllib.request
+
+    lam = client("lambda")
+    source = ('import json\n'
+              'def handler(event, context):\n'
+              '    return {"statusCode": 201, "headers": {"x-seen": event["rawPath"]},\n'
+              '            "body": json.dumps({"method": event["requestContext"]["http"]["method"], "body": event.get("body")})}\n')
+    name, _ = function(lam, names, cleanup, service_role("lambda", BASIC), source)
+    made = lam.create_function_url_config(FunctionName=name, AuthType="NONE")
+    cleanup(lam.delete_function_url_config, FunctionName=name)
+    lam.add_permission(FunctionName=name, StatementId="url", Action="lambda:InvokeFunctionUrl",
+                       Principal="*", FunctionUrlAuthType="NONE")
+    url = made["FunctionUrl"]
+    parts = urllib.parse.urlsplit(url)
+
+    def call():
+        if target.name == "aws":
+            req = urllib.request.Request(url.rstrip("/") + "/orders/7", data=b"hello", method="POST")
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                return resp.status, resp.headers.get("x-seen"), resp.read()
+        # doze serves the URL on its own address; the name only has to reach it.
+        conn = http.client.HTTPConnection(urllib.parse.urlsplit(target.endpoint).netloc, timeout=30)
+        conn.request("POST", "/orders/7", body=b"hello", headers={"Host": parts.netloc})
+        resp = conn.getresponse()
+        return resp.status, resp.getheader("x-seen"), resp.read()
+
+    def answered():
+        status, seen, body = call()
+        assert status == 201, status
+        return status, seen, json.loads(body)
+
+    status, seen, body = eventually(answered, timeout=60)
+    assert (seen, body) == ("/orders/7", {"method": "POST", "body": "hello"})
+    snapshot.match("url-config", {"AuthType": made["AuthType"], "InvokeMode": made["InvokeMode"]})

@@ -1,0 +1,2 @@
+[ip, user, ..., status = 4* || status = 5*, size > 100]
+127.0.0.1 - frank [10/Oct/2000:13:55:36] "GET /a.gif HTTP/1.0" 404 2326

@@ -6,6 +6,7 @@ use doze_fs::fs::{Fs, RealFs};
 use redb::{ReadTransaction, ReadableDatabase, TableDefinition};
 
 use crate::records::Changes;
+use crate::rows::Rows;
 use crate::{Ack, GroupCommit, Op, Store, StoreError};
 
 /// redb's page cache: a dev tool's records are few, and the idle heap is measured.
@@ -44,6 +45,38 @@ impl Db {
         Ok(self.store.begin_read()?)
     }
 
+    /// The row under `key` of `table`, as last committed.
+    ///
+    /// # Errors
+    /// A failed read.
+    pub fn get(&self, table: &'static str, key: &str) -> Result<Option<Vec<u8>>, StoreError> {
+        let read = self.store.begin_read()?;
+        let rows = read.open_table(TableDefinition::<&str, &[u8]>::new(table))?;
+        Ok(rows.get(key)?.map(|v| v.value().to_vec()))
+    }
+
+    /// Calls `each` with the rows of `table` whose key is `from` or after, in key order, until it returns `false` or the table ends.
+    /// A service whose table is too large to hold in memory reads it this way.
+    ///
+    /// # Errors
+    /// A failed read.
+    pub fn scan(
+        &self,
+        table: &'static str,
+        from: &str,
+        mut each: impl FnMut(&str, &[u8]) -> bool,
+    ) -> Result<(), StoreError> {
+        let read = self.store.begin_read()?;
+        let rows = read.open_table(TableDefinition::<&str, &[u8]>::new(table))?;
+        for row in rows.range::<&str>(from..)? {
+            let (key, bytes) = row?;
+            if !each(key.value(), bytes.value()) {
+                break;
+            }
+        }
+        Ok(())
+    }
+
     /// Sends rows to the writer. The [`Ack`] resolves once they are on disk; `None` when `changes` holds nothing.
     pub fn submit(&self, changes: Vec<Changes>) -> Option<Ack> {
         let changes: Vec<Changes> = changes.into_iter().filter(|c| !c.is_empty()).collect();
@@ -53,6 +86,25 @@ impl Db {
         let op: Op = Box::new(move |txn| {
             for c in &changes {
                 c.apply(txn)?;
+            }
+            Ok(())
+        });
+        Some(self.writer.submit(op))
+    }
+
+    /// Like [`Db::submit`], with the changes to row tables ([`crate::rows::RowTable`]) of the same call in the same transaction.
+    pub fn submit_with_rows(&self, changes: Vec<Changes>, rows: Vec<Rows>) -> Option<Ack> {
+        let changes: Vec<Changes> = changes.into_iter().filter(|c| !c.is_empty()).collect();
+        let rows: Vec<Rows> = rows.into_iter().filter(|r| !r.is_empty()).collect();
+        if changes.is_empty() && rows.is_empty() {
+            return None;
+        }
+        let op: Op = Box::new(move |txn| {
+            for c in &changes {
+                c.apply(txn)?;
+            }
+            for r in &rows {
+                r.apply(txn)?;
             }
             Ok(())
         });

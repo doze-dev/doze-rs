@@ -136,3 +136,146 @@ def test_refusals(client, names, cleanup, snapshot):
     # "Increase" to what it already is: refused or a no-op is AWS's to say.
     snapshot.outcome("retention-not-an-increase", lambda: kinesis.increase_stream_retention_period(
         StreamName=name, RetentionPeriodHours=24))
+
+
+# Written ahead of a recording (2026-11-12): UNVERIFIED until recorded against AWS.
+
+def test_every_iterator_type(client, names, cleanup, snapshot, eventually):
+    import datetime
+    kinesis = client("kinesis")
+    name = stream(kinesis, names, cleanup)
+    first = kinesis.put_record(StreamName=name, Data=b"a", PartitionKey="k")["SequenceNumber"]
+    before = time.time()
+    time.sleep(2)
+    kinesis.put_record(StreamName=name, Data=b"b", PartitionKey="k")
+    kinesis.put_record(StreamName=name, Data=b"c", PartitionKey="k")
+    shard = kinesis.list_shards(StreamName=name)["Shards"][0]["ShardId"]
+
+    def read(**kw):
+        it = kinesis.get_shard_iterator(StreamName=name, ShardId=shard, **kw)["ShardIterator"]
+
+        def poll():
+            r = kinesis.get_records(ShardIterator=it)
+            assert r["Records"], "nothing yet"
+            return [x["Data"] for x in r["Records"]]
+        return eventually(poll, timeout=60)
+
+    snapshot.match("at-sequence", read(ShardIteratorType="AT_SEQUENCE_NUMBER", StartingSequenceNumber=first))
+    snapshot.match("after-sequence", read(ShardIteratorType="AFTER_SEQUENCE_NUMBER", StartingSequenceNumber=first))
+    snapshot.match("at-timestamp", read(ShardIteratorType="AT_TIMESTAMP",
+                                        Timestamp=datetime.datetime.fromtimestamp(before + 1, datetime.timezone.utc)))
+
+
+def test_consumers_policy_and_tags_by_arn(client, names, cleanup, snapshot):
+    kinesis = client("kinesis")
+    name = stream(kinesis, names, cleanup)
+    arn = kinesis.describe_stream_summary(StreamName=name)["StreamDescriptionSummary"]["StreamARN"]
+    made = kinesis.register_stream_consumer(StreamARN=arn, ConsumerName="c1")
+    snapshot.match("register", made, opaque=("ConsumerARN", "ConsumerCreationTimestamp"), drop=("ConsumerStatus",))
+    snapshot.match("list-consumers", kinesis.list_stream_consumers(StreamARN=arn),
+                   opaque=("ConsumerARN", "ConsumerCreationTimestamp"), drop=("ConsumerStatus",))
+    snapshot.error("delete-with-consumers", lambda: kinesis.delete_stream(StreamName=name))
+    kinesis.deregister_stream_consumer(StreamARN=arn, ConsumerName="c1")
+    snapshot.match("tag-by-arn", kinesis.tag_resource(ResourceARN=arn, Tags={"env": "dev"}))
+    snapshot.match("tags-by-arn", kinesis.list_tags_for_resource(ResourceARN=arn))
+    snapshot.error("no-policy", lambda: kinesis.get_resource_policy(ResourceARN=arn))
+
+
+# Written ahead of a recording (2026-11-13): UNVERIFIED until recorded against AWS.
+
+def first_shards(kinesis, name, count, eventually):
+    # ListShards can answer "not found" for a moment after the stream is ACTIVE on real AWS (recorded 2026-11-09).
+    def listed():
+        try:
+            shards = kinesis.list_shards(StreamName=name)["Shards"]
+        except kinesis.exceptions.ResourceNotFoundException as e:
+            raise AssertionError(str(e))
+        assert len(shards) == count, f"{len(shards)} of {count} shards so far"
+        return shards
+    return eventually(listed)
+
+
+def drain(kinesis, name, shard, eventually):
+    """Reads a closed shard to its end: the data it held, and the children it hands over to."""
+    it = [kinesis.get_shard_iterator(StreamName=name, ShardId=shard,
+                                     ShardIteratorType="TRIM_HORIZON")["ShardIterator"]]
+    got = []
+    children = []
+
+    def read():
+        for _ in range(20):
+            r = kinesis.get_records(ShardIterator=it[0])
+            got.extend(x["Data"] for x in r["Records"])
+            if "NextShardIterator" not in r:
+                children[:] = r["ChildShards"]
+                return {"Data": got, "ChildShards": children}
+            it[0] = r["NextShardIterator"]
+        raise AssertionError("the shard has not ended yet")
+
+    return eventually(read, timeout=120)
+
+
+def test_a_merge_names_both_parents_and_a_closed_shard_reads_to_its_end(client, names, cleanup, snapshot, eventually):
+    kinesis = client("kinesis")
+    name = stream(kinesis, names, cleanup, shards=3)
+    s0, s1, s2 = first_shards(kinesis, name, 3, eventually)
+    for shard, data in ((s0, b"zero"), (s1, b"one")):
+        kinesis.put_record(StreamName=name, Data=data, PartitionKey="k",
+                           ExplicitHashKey=shard["HashKeyRange"]["StartingHashKey"])
+    snapshot.error("merge-a-gap", lambda: kinesis.merge_shards(
+        StreamName=name, ShardToMerge=s0["ShardId"], AdjacentShardToMerge=s2["ShardId"]))
+    snapshot.error("merge-with-itself", lambda: kinesis.merge_shards(
+        StreamName=name, ShardToMerge=s0["ShardId"], AdjacentShardToMerge=s0["ShardId"]))
+    snapshot.error("merge-an-absent-shard", lambda: kinesis.merge_shards(
+        StreamName=name, ShardToMerge=s0["ShardId"], AdjacentShardToMerge="shardId-000000000099"))
+    snapshot.match("merge", kinesis.merge_shards(
+        StreamName=name, ShardToMerge=s0["ShardId"], AdjacentShardToMerge=s1["ShardId"]))
+    kinesis.get_waiter("stream_exists").wait(StreamName=name, WaiterConfig=FAST)
+    shards = first_shards(kinesis, name, 4, eventually)
+    snapshot.match("shards", shards, opaque=MINTED)
+    assert shards[3]["ParentShardId"] == s0["ShardId"]
+    assert shards[3]["AdjacentParentShardId"] == s1["ShardId"]
+    snapshot.match("first-parent-drained", drain(kinesis, name, s0["ShardId"], eventually), opaque=MINTED)
+    snapshot.match("second-parent-drained", drain(kinesis, name, s1["ShardId"], eventually), opaque=MINTED)
+    snapshot.error("merge-a-closed-shard", lambda: kinesis.merge_shards(
+        StreamName=name, ShardToMerge=s0["ShardId"], AdjacentShardToMerge=s1["ShardId"]))
+
+
+def test_a_split_hands_a_records_shard_over_to_its_children(client, names, cleanup, snapshot, eventually):
+    kinesis = client("kinesis")
+    name = stream(kinesis, names, cleanup)
+    (parent,) = first_shards(kinesis, name, 1, eventually)
+    kinesis.put_record(StreamName=name, Data=b"before", PartitionKey="k", ExplicitHashKey="0")
+    mid = (int(parent["HashKeyRange"]["EndingHashKey"]) + 1) // 2
+    snapshot.error("split-outside-the-shard", lambda: kinesis.split_shard(
+        StreamName=name, ShardToSplit=parent["ShardId"], NewStartingHashKey="0"))
+    snapshot.match("split", kinesis.split_shard(
+        StreamName=name, ShardToSplit=parent["ShardId"], NewStartingHashKey=str(mid)))
+    kinesis.get_waiter("stream_exists").wait(StreamName=name, WaiterConfig=FAST)
+    snapshot.error("split-a-closed-shard", lambda: kinesis.split_shard(
+        StreamName=name, ShardToSplit=parent["ShardId"], NewStartingHashKey=str(mid)))
+    snapshot.match("parent-drained", drain(kinesis, name, parent["ShardId"], eventually), opaque=MINTED)
+    # Only the open shards, and the filtered listing the KCL uses.
+    snapshot.match("open-shards", kinesis.list_shards(
+        StreamName=name, ShardFilter={"Type": "AT_LATEST"}), opaque=MINTED)
+    placed = kinesis.put_record(StreamName=name, Data=b"after", PartitionKey="k", ExplicitHashKey=str(mid))
+    snapshot.match("routing-after", {"ShardId": placed["ShardId"]})
+
+
+def test_a_new_shard_count_re_tiles_the_stream(client, names, cleanup, snapshot, eventually):
+    kinesis = client("kinesis")
+    name = stream(kinesis, names, cleanup)
+    first_shards(kinesis, name, 1, eventually)
+    snapshot.match("scale-up", kinesis.update_shard_count(
+        StreamName=name, TargetShardCount=2, ScalingType="UNIFORM_SCALING"))
+    kinesis.get_waiter("stream_exists").wait(StreamName=name, WaiterConfig=FAST)
+    snapshot.match("shards", first_shards(kinesis, name, 3, eventually), opaque=MINTED)
+    snapshot.error("scale-up-past-double", lambda: kinesis.update_shard_count(
+        StreamName=name, TargetShardCount=5, ScalingType="UNIFORM_SCALING"))
+    snapshot.match("summary", kinesis.describe_stream_summary(StreamName=name), drop=WEATHER)
+
+
+def test_account_settings(client, snapshot):
+    # Only read: enabling a commitment on a real account would bill it for a day.
+    kinesis = client("kinesis")
+    snapshot.match("describe", kinesis.describe_account_settings())

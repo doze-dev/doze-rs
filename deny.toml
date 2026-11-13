@@ -6,7 +6,14 @@ all-features = true
 [advisories]
 # Known vulnerabilities and unmaintained crates fail the build. An accepted advisory goes in
 # `ignore` with the reason and the date to revisit it.
-ignore = []
+ignore = [
+    # RUSTSEC-2023-0071 (the Marvin attack: key recovery through timing side channels in RSA decryption). It comes from the `rsa` crate
+    # in aws-kms, which makes the RSA key specs of KMS (RSA_2048 to RSA_4096: sign, verify, OAEP). The attack needs an attacker who can
+    # time many private-key operations; here the only caller of those operations is the developer's own process against an emulator on
+    # their own machine, with keys that protect nothing (docs/port/aws/PLAN.md, A6). No fixed release exists. Revisit 2027-02-13, or
+    # when a fixed `rsa` is released, whichever is first.
+    "RUSTSEC-2023-0071",
+]
 
 [licenses]
 # Permissive licences only; the repo is Apache-2.0.
@@ -19,6 +26,9 @@ allow = [
     "ISC",
     "Unicode-3.0",
     "Zlib",
+    # minicbor (the module protocol's encoding, chosen in spike S0): the Blue Oak Model License is permissive and
+    # OSI-approved. Owner decision 2026-11-12.
+    "BlueOak-1.0.0",
 ]
 confidence-threshold = 0.9
 

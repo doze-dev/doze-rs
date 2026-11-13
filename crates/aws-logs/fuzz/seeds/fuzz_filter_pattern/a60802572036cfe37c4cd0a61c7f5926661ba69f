@@ -1,0 +1,1 @@
+{ ($.cod>=  5e00 && $[*].lev= "err*")|| $.tags[*] IS NULL f}

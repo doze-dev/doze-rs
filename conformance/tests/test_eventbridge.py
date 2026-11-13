@@ -177,6 +177,100 @@ def test_pattern_matching(client, snapshot):
             Event=json.dumps(event), EventPattern=json.dumps(pattern)))
 
 
+# The scenarios from here on were written after the recording of 2026-11-09 and have none: they run against doze-aws as UNVERIFIED
+# until they are recorded (CONFORMANCE_TARGET=aws CONFORMANCE_RECORD=1; read each diff, where AWS contradicts the build, AWS wins).
+
+
+def test_schedule_expressions(client, names, cleanup, snapshot):
+    events = client("events")
+    rule = names("rule")
+    for label, expression in [
+        ("rate-minutes", "rate(5 minutes)"), ("rate-minute", "rate(1 minute)"), ("rate-hours", "rate(2 hours)"),
+        ("rate-day", "rate(1 day)"), ("cron", "cron(0 12 * * ? *)"), ("cron-steps", "cron(0/15 8-17 ? * MON-FRI *)"),
+        ("cron-last", "cron(0 0 L * ? *)"), ("cron-nth", "cron(0 18 ? * 6#3 *)"),
+    ]:
+        snapshot.match(label, events.put_rule(Name=rule, ScheduleExpression=expression, State="DISABLED"))
+        cleanup(events.delete_rule, Name=rule)
+    snapshot.match("described", events.describe_rule(Name=rule))
+    for label, expression in [
+        ("no-unit", "rate(5)"), ("zero", "rate(0 minutes)"), ("weeks", "rate(1 week)"), ("both-days", "cron(0 12 * * * *)"),
+        ("neither-day", "cron(0 12 ? * ? *)"), ("five-fields", "cron(0 12 * * ?)"), ("minute-out-of-range", "cron(60 12 * * ? *)"),
+        ("not-an-expression", "every day"),
+    ]:
+        snapshot.error(label, lambda e=expression: events.put_rule(Name=rule, ScheduleExpression=e))
+
+
+def test_target_parameters_come_back_as_sent(client, names, cleanup, snapshot):
+    events = client("events")
+    rule = names("rule")
+    events.put_rule(Name=rule, EventPattern=json.dumps({"source": ["x"]}), State="DISABLED")
+    cleanup(events.delete_rule, Name=rule)
+    account = client("sts").get_caller_identity()["Account"]
+    queue = f"arn:aws:sqs:us-east-1:{account}:{names('q')}"
+    targets = [
+        {"Id": "constant", "Arn": queue, "Input": '{"fixed": true}'},
+        {"Id": "path", "Arn": queue, "InputPath": "$.detail"},
+        {"Id": "fifo", "Arn": queue + ".fifo", "SqsParameters": {"MessageGroupId": "group"}},
+        {"Id": "retry", "Arn": queue, "RetryPolicy": {"MaximumRetryAttempts": 3, "MaximumEventAgeInSeconds": 120},
+         "DeadLetterConfig": {"Arn": queue + "-dlq"}},
+    ]
+    snapshot.match("put", events.put_targets(Rule=rule, Targets=targets))
+    cleanup(events.remove_targets, Rule=rule, Ids=[t["Id"] for t in targets])
+    listed = events.list_targets_by_rule(Rule=rule)["Targets"]
+    snapshot.match("listed", {"Targets": sorted(listed, key=lambda t: t["Id"])})
+    snapshot.match("by-target", events.list_rule_names_by_target(TargetArn=queue))
+    snapshot.outcome("input-and-path", lambda: events.put_targets(Rule=rule, Targets=[
+        {"Id": "both", "Arn": queue, "Input": "{}", "InputPath": "$.detail"}]))
+
+
+def test_a_bus_policy(client, names, cleanup, snapshot):
+    events = client("events")
+    name, made = bus(events, names, cleanup)
+    account = client("sts").get_caller_identity()["Account"]
+    snapshot.match("put-permission", events.put_permission(
+        EventBusName=name, StatementId="peer", Action="events:PutEvents", Principal="444455556666"))
+    policy = json.loads(events.describe_event_bus(Name=name)["Policy"])
+    snapshot.match("policy", {"Statement": policy["Statement"], "Version": policy["Version"]})
+    snapshot.error("statement-again", lambda: events.put_permission(
+        EventBusName=name, StatementId="peer", Action="events:PutEvents", Principal="444455556666"))
+    snapshot.match("remove-permission", events.remove_permission(EventBusName=name, StatementId="peer"))
+    snapshot.error("remove-again", lambda: events.remove_permission(EventBusName=name, StatementId="peer"))
+    assert account
+
+
+def test_input_settings_reach_the_queue(client, names, cleanup, snapshot, eventually):
+    events, sqs = client("events"), client("sqs")
+    name, _ = bus(events, names, cleanup)
+    rule = names("rule")
+    rule_arn = events.put_rule(Name=rule, EventBusName=name, EventPattern=json.dumps({"source": ["shop.orders"]}))["RuleArn"]
+    cleanup(events.delete_rule, Name=rule, EventBusName=name)
+    url, arn = target_queue(client, names, cleanup, rule_arn)
+    cleanup(events.remove_targets, Rule=rule, EventBusName=name, Ids=["queue"])
+    entry = {"EventBusName": name, "Source": "shop.orders", "DetailType": "placed",
+             "Detail": json.dumps({"customer": "ada", "total": 250, "items": ["book", "pen"]})}
+
+    def delivered():
+        r = sqs.receive_message(QueueUrl=url, WaitTimeSeconds=1)
+        assert r.get("Messages"), "nothing delivered yet"
+        sqs.delete_message(QueueUrl=url, ReceiptHandle=r["Messages"][0]["ReceiptHandle"])
+        return r["Messages"][0]["Body"]
+
+    for label, settings in [
+        ("constant", {"Input": '{"fixed":  true}'}),
+        ("path", {"InputPath": "$.detail.items"}),
+        ("path-scalar", {"InputPath": "$.detail.customer"}),
+        ("transformer-json", {"InputTransformer": {
+            "InputPathsMap": {"who": "$.detail.customer", "n": "$.detail.total", "all": "$.detail.items"},
+            "InputTemplate": '{"who": "<who>", "n": <n>, "items": <all>, "rule": "<aws.events.rule-name>"}'}}),
+        ("transformer-text", {"InputTransformer": {
+            "InputPathsMap": {"who": "$.detail.customer"}, "InputTemplate": "hello <who>"}}),
+    ]:
+        events.put_targets(Rule=rule, EventBusName=name, Targets=[{"Id": "queue", "Arn": arn, **settings}])
+        events.put_events(Entries=[entry])
+        body = eventually(delivered, timeout=60)
+        snapshot.match(label, {"Body": body.replace(rule, "<rule>")})
+
+
 def test_refusals(client, names, cleanup, snapshot):
     events = client("events")
     name, _ = bus(events, names, cleanup)

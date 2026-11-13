@@ -1,0 +1,3 @@
+{ ($.code >= 500 && $.level = "err*") || $.gs[*] IS NULL }
+{"code":507,"leve12tanull]}
+}

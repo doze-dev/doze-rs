@@ -61,11 +61,36 @@ struct D<'t> {
     src: &'t str,
     pos: usize,
     ar: &'t mut Arena,
+    /// Skip every check of a value's size and shape and every required member: for reading a service's own answer.
+    lenient: bool,
 }
 
 // fuzz:parser fuzz_json
 /// Decodes `body` as the structure `shape`; returns the root node.
 pub fn decode(t: &Tables, pats: &Patterns, shape: u32, body: &str, ar: &mut Arena) -> R<u32> {
+    run(t, pats, shape, body, ar, false)
+}
+
+/// Reads `body` as the structure `shape` without holding it to the model's constraints (lengths, ranges, patterns, enums, required
+/// members): the shape of the JSON must still fit. For an answer a service built itself, which only AWS's own limits could refuse.
+pub fn decode_lenient(
+    t: &Tables,
+    pats: &Patterns,
+    shape: u32,
+    body: &str,
+    ar: &mut Arena,
+) -> R<u32> {
+    run(t, pats, shape, body, ar, true)
+}
+
+fn run(
+    t: &Tables,
+    pats: &Patterns,
+    shape: u32,
+    body: &str,
+    ar: &mut Arena,
+    lenient: bool,
+) -> R<u32> {
     ar.reserve_for(body.len());
     let mut d = D {
         t,
@@ -73,6 +98,7 @@ pub fn decode(t: &Tables, pats: &Patterns, shape: u32, body: &str, ar: &mut Aren
         src: body,
         pos: 0,
         ar,
+        lenient,
     };
     d.ws();
     let v = d.object(shape, 0)?;
@@ -198,7 +224,11 @@ impl D<'_> {
             return Ok(Val::Null);
         }
         let t = self.t;
-        let cons = if m.cons == 0 { None } else { t.cons(m.cons) };
+        let cons = if m.cons == 0 || self.lenient {
+            None
+        } else {
+            t.cons(m.cons)
+        };
         match m.kind {
             K_BOOL => match self.peek() {
                 Some(b't') => self.lit("true").map(|()| Val::Bool(true)),

@@ -1,0 +1,2 @@
+{ ($= 500 && $.plevel' = "err*") || $.tags[*] IS NULL }
+f}

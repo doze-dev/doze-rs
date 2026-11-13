@@ -27,8 +27,9 @@ INLINE_BYTES = 1024
 
 
 # Ids a service makes up for itself and never repeats: present, and the same one each time, is all there is to compare. KMS's key
-# material ids are a hash of random material, so no two keys (and no two runs) share one.
-ALWAYS_OPAQUE = frozenset(("CurrentKeyMaterialId", "KeyMaterialId"))
+# material ids are a hash of random material, so no two keys (and no two runs) share one. SNS's SubscriptionPrincipal is the ARN of whoever
+# called Subscribe: the recording's is the recorder's own SSO session, which no other caller can reproduce.
+ALWAYS_OPAQUE = frozenset(("CurrentKeyMaterialId", "KeyMaterialId", "SubscriptionPrincipal"))
 
 
 class Normalizer:

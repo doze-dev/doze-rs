@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 // Measures a doze-aws server against the AWS recordings in conformance/snapshots/, one module at a time, on a fresh server each.
 //   GO_BIN=/path/to/doze-aws bun tools/aws-rec/baseline.ts [module ...]     (default: every module that has a recording)
-//   or point at the Rust edition later:  SERVER_CMD='target/release/doze-aws --listen {addr} --data-dir {data}'
+//   or point at the Rust edition later:  SERVER_CMD='target/release-aws/doze-aws --listen {addr} --data-dir {data}'
 // Prints one line per module and writes docs/port/aws/baseline.md.
 import { existsSync, mkdtempSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";

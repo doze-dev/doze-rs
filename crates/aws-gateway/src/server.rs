@@ -5,7 +5,6 @@ use std::io;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use aws_schema::patterns::Patterns;
 use aws_wire::service::Service;
 use doze_runtime::Tasks;
 use hyper::server::conn::http1;
@@ -55,16 +54,9 @@ impl Gateway {
     pub async fn bind(self) -> io::Result<Running> {
         let listener = TcpListener::bind(self.config.listen).await?;
         let addr = listener.local_addr()?;
-        let entries = self
-            .services
-            .into_iter()
-            .map(|service| Entry {
-                patterns: Patterns::new(service.tables()),
-                service,
-            })
-            .collect();
-        let shared = Arc::new(Shared::new(entries, self.config));
+        let entries = self.services.into_iter().map(Entry::new).collect();
         let tasks = Tasks::new();
+        let shared = Arc::new(Shared::new(entries, self.config, tasks.clone()));
         tasks.spawn(accept(listener, shared, tasks.clone()));
         Ok(Running { addr, tasks })
     }
@@ -116,7 +108,10 @@ async fn connection(
         let shared = Arc::clone(&shared);
         async move { Ok::<_, Infallible>(respond(&shared, req).await) }
     });
-    let conn = http1::Builder::new().serve_connection(TokioIo::new(stream), service);
+    // Upgrades are allowed so a service can take a connection over (a WebSocket API).
+    let conn = http1::Builder::new()
+        .serve_connection(TokioIo::new(stream), service)
+        .with_upgrades();
     // A stop ends the connection even if a request is in flight (as the Kafka server does).
     if let Some(Err(e)) = stopping.run_until_cancelled(conn).await {
         tracing::debug!("connection ended: {e}");

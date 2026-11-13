@@ -1,0 +1,4 @@
+ERROR -debmeout ?"di -debsk full" EVR*
+ERROR disk fullug ?timeout ?"di -debsk full" EVR*
+ERROR disk full
+

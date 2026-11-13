@@ -1,0 +1,323 @@
+//! Writing events: `PutLogEvents`, and the data points metric filters and the Embedded Metric Format make (what is kept: `bounds`).
+
+use aws_wire::ApiError;
+use doze_store::record;
+use serde_json::{Value, json};
+
+use crate::core::{Core, VERSION};
+use crate::model::{Event, Stream, event_key, stream_key};
+use crate::pattern::{self, Pattern};
+use crate::req::{Put, Req, invalid, no_stream};
+
+/// The most bytes a batch may hold: the messages in UTF-8 plus 26 for each event.
+const MAX_BATCH_BYTES: usize = 1_048_576;
+/// What each event counts as beyond its message.
+pub(crate) const EVENT_OVERHEAD: usize = 26;
+/// Events more than this far ahead of now are rejected.
+const TOO_NEW_MS: i64 = 2 * 3_600_000;
+/// Events older than this are rejected.
+const TOO_OLD_MS: i64 = 14 * 86_400_000;
+/// The longest span of time one batch may cover.
+const MAX_SPAN_MS: i64 = 24 * 3_600_000;
+
+/// The sequence token of a stream. PutLogEvents ignores the token it is given, so this only has to be there and move.
+pub(crate) fn token_of(s: &Stream) -> String {
+    format!(
+        "{:056}",
+        u128::from(s.no) * 1_000_000_000_000 + u128::from(s.written)
+    )
+}
+
+/// One event of a request.
+struct Incoming {
+    ts: i64,
+    message: String,
+}
+
+impl Core {
+    pub(crate) fn put_events(&mut self, r: &Req<'_>) -> Result<Value, ApiError> {
+        let group = self.group(r)?.name.clone();
+        let key = stream_key(&group, r.s("logStreamName"));
+        if self.streams.get(&key).is_none() {
+            return Err(no_stream());
+        }
+        let events = incoming(&r.v)?;
+        self.sweep(&group);
+        let now = self.now_ms();
+        let retention = self.groups.get(&group).and_then(|g| g.retention_days);
+        let verdict = Verdict::of(&events, now, retention);
+        let accepted = events
+            .get(verdict.first_ok..verdict.end_ok)
+            .unwrap_or_default();
+        check_span(accepted)?;
+        self.metric_points(&group, accepted, now);
+        if r.call.caller.service.as_deref() == Some("lambda") {
+            self.emf_points(accepted, now);
+        }
+        if let Some(g) = self.groups.get(&group) {
+            let group_arn = g.arn(r.region(), r.account());
+            let lines: Vec<crate::forward::Line<'_>> = accepted
+                .iter()
+                .map(|e| crate::forward::Line {
+                    ts: e.ts,
+                    message: &e.message,
+                })
+                .collect();
+            let origin = crate::forward::Origin {
+                owner: r.account(),
+                group: &group,
+                stream: r.s("logStreamName"),
+                group_arn: &group_arn,
+            };
+            self.queue_forwards(&origin, &lines);
+        }
+        let stream = self.streams.get_mut(&key).ok_or_else(no_stream)?;
+        for e in accepted {
+            let bytes = record::encode(
+                "event",
+                VERSION,
+                &Event {
+                    ingested_ms: now,
+                    message: e.message.clone(),
+                },
+            )
+            .map_err(|x| ApiError::internal(x.to_string()))?;
+            self.events
+                .put(event_key(stream.no, e.ts, stream.written), bytes);
+            stream.written += 1;
+            stream.bytes += i64::try_from(e.message.len() + EVENT_OVERHEAD).unwrap_or(0);
+            stream.first_ms = Some(stream.first_ms.map_or(e.ts, |f| f.min(e.ts)));
+            stream.last_ms = Some(stream.last_ms.map_or(e.ts, |l| l.max(e.ts)));
+        }
+        if !accepted.is_empty() {
+            stream.last_ingested_ms = Some(now);
+        }
+        let mut out = json!({"nextSequenceToken": token_of(stream)});
+        if let Some(rejected) = verdict.rejected() {
+            out.put("rejectedLogEventsInfo", rejected);
+        }
+        if !accepted.is_empty() {
+            let count = self.held_of(&key) + accepted.len() as u64;
+            self.held.insert(key, count);
+            self.cap(&group);
+        }
+        Ok(out)
+    }
+
+    /// The data points the group's metric filters make of `events`, held until the call is answered. A filter none of whose events
+    /// match reports its `defaultValue`, if it has one, once in the minute: AWS's documentation says the default is "the value
+    /// reported to the metric filter during a period when logs are ingested but no matching logs are found", and that nothing is
+    /// reported for a period with no logs. Reported at the time of ingestion, and only by a filter without dimensions (AWS does not
+    /// take a default beside dimensions) (memory).
+    fn metric_points(&mut self, group: &str, events: &[Incoming], now: i64) {
+        let Some(g) = self.groups.get(group) else {
+            return;
+        };
+        let minute = now.div_euclid(60_000);
+        let mut matched = Vec::new();
+        let mut defaults = Vec::new();
+        for f in &g.metric_filters {
+            let Ok(pattern) = pattern::parse(&f.pattern) else {
+                continue;
+            };
+            let t = &f.transformation;
+            let hits: Vec<&Incoming> = events
+                .iter()
+                .filter(|e| pattern.matches(&e.message))
+                .collect();
+            if hits.is_empty() {
+                if let (Some(d), true, false) =
+                    (t.default, t.dimensions.is_empty(), events.is_empty())
+                {
+                    #[allow(clippy::cast_precision_loss)]
+                    let mut datum =
+                        json!({"MetricName": t.name, "Value": d, "Timestamp": now as f64 / 1000.0});
+                    if let Some(u) = &t.unit {
+                        datum.put("Unit", json!(u));
+                    }
+                    defaults.push((f.name.clone(), t.namespace.clone(), datum));
+                }
+                continue;
+            }
+            matched.push(f.name.clone());
+            let data: Vec<Value> = hits
+                .into_iter()
+                .filter_map(|e| datum(&pattern, t, e))
+                .collect();
+            if !data.is_empty() {
+                self.emit
+                    .push(json!({"Namespace": t.namespace, "MetricData": data}));
+            }
+        }
+        for name in matched {
+            self.defaulted.insert((group.to_owned(), name), minute);
+        }
+        for (name, namespace, datum) in defaults {
+            let key = (group.to_owned(), name);
+            if self.defaulted.get(&key) == Some(&minute) {
+                continue;
+            }
+            self.defaulted.insert(key, minute);
+            self.emit
+                .push(json!({"Namespace": namespace, "MetricData": [datum]}));
+        }
+    }
+
+    /// The data points the Embedded Metric Format lines among `events` make, held until the call is answered (see `emf`).
+    fn emf_points(&mut self, events: &[Incoming], now: i64) {
+        let mut by_namespace: std::collections::BTreeMap<String, Vec<Value>> =
+            std::collections::BTreeMap::new();
+        for e in events {
+            for (namespace, datum) in crate::emf::data_points(&e.message, now) {
+                by_namespace.entry(namespace).or_default().push(datum);
+            }
+        }
+        for (namespace, data) in by_namespace {
+            // PutMetricData takes at most 1,000 data points.
+            for chunk in data.chunks(1000) {
+                self.emit
+                    .push(json!({"Namespace": namespace, "MetricData": chunk}));
+            }
+        }
+    }
+
+    /// Hands the data points the last call made to CloudWatch, when it is there to take them.
+    pub(crate) async fn send_metrics(&mut self, call: &aws_wire::service::Call) {
+        let points = std::mem::take(&mut self.emit);
+        let Some(peers) = self.peers.clone() else {
+            return;
+        };
+        for body in points {
+            if peers
+                .call("logs", &call.caller, "monitoring", "PutMetricData", &body)
+                .await
+                .is_err()
+            {
+                // WHY: a metric filter's output is a side effect; the log events were accepted whether or not CloudWatch is there.
+            }
+        }
+    }
+}
+/// A data point: the filter's value read from the event, at the event's time.
+fn datum(pattern: &Pattern, t: &crate::model::Transformation, e: &Incoming) -> Option<Value> {
+    let value: f64 = match t.value.parse() {
+        Ok(v) => v,
+        Err(_) => pattern.pick(&e.message, &t.value)?.parse().ok()?,
+    };
+    #[allow(clippy::cast_precision_loss)]
+    let mut d = json!({
+        "MetricName": t.name,
+        "Value": value,
+        "Timestamp": e.ts as f64 / 1000.0,
+    });
+    if let Some(u) = &t.unit {
+        d.put("Unit", json!(u));
+    }
+    let dims: Vec<Value> = t
+        .dimensions
+        .iter()
+        .filter_map(|(name, selector)| {
+            let v = pattern.pick(&e.message, selector)?;
+            Some(json!({"Name": name, "Value": v}))
+        })
+        .collect();
+    if !dims.is_empty() {
+        d.put("Dimensions", Value::Array(dims));
+    }
+    Some(d)
+}
+
+/// The events of a request, in the order sent, held to the size and order rules.
+fn incoming(v: &Value) -> Result<Vec<Incoming>, ApiError> {
+    let list = v
+        .get("logEvents")
+        .and_then(Value::as_array)
+        .map(Vec::as_slice)
+        .unwrap_or_default();
+    let events: Vec<Incoming> = list
+        .iter()
+        .map(|e| Incoming {
+            ts: e.get("timestamp").and_then(Value::as_i64).unwrap_or(0),
+            message: e
+                .get("message")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_owned(),
+        })
+        .collect();
+    let total: usize = events
+        .iter()
+        .map(|e| e.message.len() + EVENT_OVERHEAD)
+        .sum();
+    if total > MAX_BATCH_BYTES {
+        // (memory)
+        return Err(invalid(format!(
+            "Upload too large: {total} bytes exceeds limit of {MAX_BATCH_BYTES}"
+        )));
+    }
+    // Recorded on AWS (2026-11-09).
+    if events
+        .windows(2)
+        .any(|w| matches!(w, [a, b] if b.ts < a.ts))
+    {
+        return Err(invalid(
+            "Log events in a single PutLogEvents request must be in chronological order.",
+        ));
+    }
+    Ok(events)
+}
+
+/// A batch of valid events covers at most a day.
+fn check_span(events: &[Incoming]) -> Result<(), ApiError> {
+    match (events.first(), events.last()) {
+        (Some(a), Some(b)) if b.ts - a.ts > MAX_SPAN_MS => {
+            // (memory)
+            Err(invalid(
+                "The batch of log events in a single PutLogEvents request cannot span more than 24 hours.",
+            ))
+        }
+        _ => Ok(()),
+    }
+}
+
+/// Which events of a batch are taken: those from `first_ok` up to `end_ok`. The events are in time order, so the ones
+/// refused are a run at each end.
+struct Verdict {
+    first_ok: usize,
+    end_ok: usize,
+    too_old_end: usize,
+    expired_end: usize,
+    too_new_start: Option<usize>,
+}
+
+impl Verdict {
+    fn of(events: &[Incoming], now: i64, retention_days: Option<i64>) -> Self {
+        let count = |keep: &dyn Fn(i64) -> bool| events.iter().take_while(|e| keep(e.ts)).count();
+        let too_old_end = count(&|ts| ts < now - TOO_OLD_MS);
+        let expired_end = retention_days.map_or(0, |d| count(&|ts| ts < now - d * 86_400_000));
+        let too_new = events.iter().position(|e| e.ts > now + TOO_NEW_MS);
+        Self {
+            first_ok: too_old_end.max(expired_end),
+            end_ok: too_new.unwrap_or(events.len()),
+            too_old_end,
+            expired_end,
+            too_new_start: too_new,
+        }
+    }
+
+    /// `rejectedLogEventsInfo`, when something was rejected. (The words of the three members are from the API's documentation.)
+    fn rejected(&self) -> Option<Value> {
+        let mut v = json!({});
+        if self.too_old_end > 0 && self.too_old_end >= self.expired_end {
+            v.put("tooOldLogEventEndIndex", json!(self.too_old_end));
+        }
+        if self.expired_end > 0 && self.expired_end > self.too_old_end {
+            v.put("expiredLogEventEndIndex", json!(self.expired_end));
+        }
+        if let Some(at) = self.too_new_start {
+            v.put("tooNewLogEventStartIndex", json!(at));
+        }
+        let empty = v.as_object().is_none_or(serde_json::Map::is_empty);
+        (!empty).then_some(v)
+    }
+}
