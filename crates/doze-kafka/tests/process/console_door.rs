@@ -43,6 +43,38 @@ fn logged(broker: &Broker, needle: &str) -> String {
     }
 }
 
+/// One ACL over Kafka, on a topic nothing here uses (anybody may make it on an open broker).
+fn create_acl(c: &mut TcpStream) {
+    let mut acl = AclCreation::default();
+    acl.resource_type = 2;
+    acl.resource_name = StrBytes::from_static_str("elsewhere");
+    acl.resource_pattern_type = 3;
+    acl.principal = StrBytes::from_static_str("User:someone");
+    acl.host = StrBytes::from_static_str("*");
+    acl.operation = 8;
+    acl.permission_type = 2;
+    let mut create = CreateAclsRequest::default();
+    create.creations.push(acl);
+    let made: CreateAclsResponse = call(c, ApiKey::CreateAcls, 3, &create);
+    assert_eq!(made.results[0].error_code, 0);
+}
+
+/// Deletes every ACL over Kafka; there was one.
+fn delete_every_acl(c: &mut TcpStream) {
+    let mut every = DeleteAclsFilter::default();
+    every.resource_type_filter = 1;
+    every.pattern_type_filter = 1;
+    every.operation = 1;
+    every.permission_type = 1;
+    every.resource_name_filter = None;
+    every.principal_filter = None;
+    every.host_filter = None;
+    let mut delete = DeleteAclsRequest::default();
+    delete.filters.push(every);
+    let gone: DeleteAclsResponse = call(c, ApiKey::DeleteAcls, 3, &delete);
+    assert_eq!(gone.filter_results[0].matching_acls.len(), 1);
+}
+
 #[test]
 fn an_acl_made_over_kafka_closes_a_console_on_the_network_to_other_machines_until_none_is_left() {
     let Some(ip) = network_address() else {
@@ -72,18 +104,7 @@ fn an_acl_made_over_kafka_closes_a_console_on_the_network_to_other_machines_unti
     assert!(open.starts_with("HTTP/1.1 200"), "{open}");
     // An ACL over Kafka; once it is answered, the network address is refused and loopback is not.
     let mut c = broker.connect();
-    let mut acl = AclCreation::default();
-    acl.resource_type = 2;
-    acl.resource_name = StrBytes::from_static_str("elsewhere");
-    acl.resource_pattern_type = 3;
-    acl.principal = StrBytes::from_static_str("User:someone");
-    acl.host = StrBytes::from_static_str("*");
-    acl.operation = 8;
-    acl.permission_type = 2;
-    let mut create = CreateAclsRequest::default();
-    create.creations.push(acl);
-    let made: CreateAclsResponse = call(&mut c, ApiKey::CreateAcls, 3, &create);
-    assert_eq!(made.results[0].error_code, 0);
+    create_acl(&mut c);
     let closed = home(&other);
     assert!(closed.starts_with("HTTP/1.1 403"), "{closed}");
     assert!(
@@ -103,18 +124,7 @@ fn an_acl_made_over_kafka_closes_a_console_on_the_network_to_other_machines_unti
         "the broker now has ACLs, so the console no longer answers other machines",
     );
     // Every ACL deleted: open again, and said once.
-    let mut every = DeleteAclsFilter::default();
-    every.resource_type_filter = 1;
-    every.pattern_type_filter = 1;
-    every.operation = 1;
-    every.permission_type = 1;
-    every.resource_name_filter = None;
-    every.principal_filter = None;
-    every.host_filter = None;
-    let mut delete = DeleteAclsRequest::default();
-    delete.filters.push(every);
-    let gone: DeleteAclsResponse = call(&mut c, ApiKey::DeleteAcls, 3, &delete);
-    assert_eq!(gone.filter_results[0].matching_acls.len(), 1);
+    delete_every_acl(&mut c);
     let again = home(&other);
     assert!(again.starts_with("HTTP/1.1 200"), "{again}");
     let log = logged(&broker, "the console answers other machines again");
