@@ -9,7 +9,6 @@
     clippy::panic
 )]
 
-
 use bytes::Bytes;
 use kafka_wire::StrBytes;
 use kafka_wire::api::{Request, Response};

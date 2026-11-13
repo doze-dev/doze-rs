@@ -136,12 +136,8 @@ fn the_console_serves_its_pages_beside_the_broker_and_refuses_what_it_should() {
         "{home}"
     );
     assert!(
-        http(
-            &addr,
-            &format!("GET /connect HTTP/1.1\r\nHost: {addr}"),
-            ""
-        )
-        .starts_with("HTTP/1.1 200")
+        http(&addr, &format!("GET /connect HTTP/1.1\r\nHost: {addr}"), "")
+            .starts_with("HTTP/1.1 200")
     );
     let foreign = http(&addr, "GET / HTTP/1.1\r\nHost: evil.example", "");
     assert!(foreign.starts_with("HTTP/1.1 403"), "{foreign}");
@@ -152,17 +148,9 @@ fn the_console_serves_its_pages_beside_the_broker_and_refuses_what_it_should() {
         bare.starts_with("HTTP/1.1 403"),
         "a post with no proof of origin: {bare}"
     );
-    let cross = http(
-        &addr,
-        &format!("{post}\r\nOrigin: http://evil.example"),
-        "",
-    );
+    let cross = http(&addr, &format!("{post}\r\nOrigin: http://evil.example"), "");
     assert!(cross.starts_with("HTTP/1.1 403"), "{cross}");
-    let own = http(
-        &addr,
-        &format!("{post}\r\nOrigin: http://{addr}"),
-        "",
-    );
+    let own = http(&addr, &format!("{post}\r\nOrigin: http://{addr}"), "");
     assert!(own.starts_with("HTTP/1.1 200"), "{own}");
     // The server-rendered console is gone: its old address is the app's, which has no page there.
     let classic = http(

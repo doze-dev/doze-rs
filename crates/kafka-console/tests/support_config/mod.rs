@@ -8,7 +8,6 @@
     clippy::panic
 )]
 
-
 use kafka_console::backend::requests::forms::topic_configs;
 use kafka_wire::api::Response;
 

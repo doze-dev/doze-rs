@@ -146,10 +146,7 @@ fn no_source_of_the_page_layer_injects_html() {
             let path = entry.path();
             if path.is_dir() {
                 walk(&path, out);
-            } else if path
-                .extension()
-                .is_some_and(|e| e == "ts" || e == "tsx")
-            {
+            } else if path.extension().is_some_and(|e| e == "ts" || e == "tsx") {
                 out.push(path);
             }
         }
