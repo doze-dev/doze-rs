@@ -9,6 +9,7 @@ import type { Tok } from "@/api/types/Tok";
 import { CopyButton } from "@/components/app/copy-button";
 import { Spans } from "@/components/app/spans";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { DialogFooter } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
 const TOK: Record<Tok, string> = { plain: "text-foreground", keyword: "text-primary", str: "text-good", comment: "text-muted-foreground italic" };
@@ -163,4 +164,9 @@ export function FieldError({ children, id }: { children?: React.ReactNode; id?: 
       {children}
     </p>
   );
+}
+
+/** A dialog's buttons, held at the bottom of its scrolling body so Send is always in reach. */
+export function StickyFooter({ children }: { children: React.ReactNode }) {
+  return <DialogFooter className="sticky -bottom-5 z-10 -mx-6 -mb-5 mt-1 border-t bg-background px-6 py-4">{children}</DialogFooter>;
 }

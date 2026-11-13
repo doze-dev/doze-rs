@@ -13,33 +13,33 @@ import type { RecordsRefusedAnswer } from "@/api/types/RecordsRefusedAnswer";
 import { afterWrite, detailOf, post, queryOf, topicPath, useAddForm, useDebounced, useRecordsForm } from "@/api/topic-writes";
 import { Spans } from "@/components/app/spans";
 import { Button } from "@/components/ui/button";
-import { DialogClose, DialogFooter } from "@/components/ui/dialog";
+import { DialogClose } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { number } from "@/lib/format";
-import { CallBlock, Done, FieldError, RefusalCallout, TeachLines, Teaching } from "./parts";
+import { CallBlock, Done, FieldError, RefusalCallout, TeachLines, Teaching, StickyFooter } from "./parts";
 
 function Footer({ children }: { children: React.ReactNode }) {
   return (
-    <DialogFooter>
+    <StickyFooter>
       <DialogClose asChild>
         <Button type="button" variant="outline">
           Cancel
         </Button>
       </DialogClose>
       {children}
-    </DialogFooter>
+    </StickyFooter>
   );
 }
 
 function DoneFooter() {
   return (
-    <DialogFooter>
+    <StickyFooter>
       <DialogClose asChild>
         <Button>Done</Button>
       </DialogClose>
-    </DialogFooter>
+    </StickyFooter>
   );
 }
 

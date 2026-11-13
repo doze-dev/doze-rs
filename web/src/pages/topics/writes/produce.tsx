@@ -10,14 +10,14 @@ import type { ProduceView } from "@/api/types/ProduceView";
 import { afterWrite, detailOf, post, queryOf, topicPath, useDebounced, useProduceForm } from "@/api/topic-writes";
 import { Spans } from "@/components/app/spans";
 import { Button } from "@/components/ui/button";
-import { DialogClose, DialogFooter } from "@/components/ui/dialog";
+import { DialogClose } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { number } from "@/lib/format";
-import { CallBlock, Done, FieldError, RefusalCallout, TeachLines, Teaching } from "./parts";
+import { CallBlock, Done, FieldError, RefusalCallout, TeachLines, Teaching, StickyFooter } from "./parts";
 
 const MOST_HEADERS = 8;
 const AUTO = "auto";
@@ -78,14 +78,14 @@ function Result({ a, onAnother }: { a: ProducedAnswer; onAnother: () => void }) 
         <p className="mt-1 text-muted-foreground">{a.visible}</p>
       </div>
       <CallBlock title="The answer" lines={p.answer} testId="the-answer" note="The log chose the offset; the producer only supplies the record. -1 means the topic keeps the producer's time (CreateTime)." />
-      <DialogFooter>
+      <StickyFooter>
         <Button variant="outline" onClick={onAnother} data-testid="produce-another">
           Produce another
         </Button>
         <DialogClose asChild>
           <Button>Done</Button>
         </DialogClose>
-      </DialogFooter>
+      </StickyFooter>
     </div>
   );
 }
@@ -229,7 +229,7 @@ export function ProduceBody({ topic, open }: { topic: string; open: boolean }) {
       )}
       {send.error && !refused && !invalid && <FieldError>{send.error.message}</FieldError>}
       {!refused && view && <CallBlock lines={view.call} />}
-      <DialogFooter>
+      <StickyFooter>
         <DialogClose asChild>
           <Button type="button" variant="outline">
             Cancel
@@ -238,7 +238,7 @@ export function ProduceBody({ topic, open }: { topic: string; open: boolean }) {
         <Button type="submit" disabled={send.isPending} data-testid="send">
           <SendIcon /> {refused ? "Send again" : "Send"}
         </Button>
-      </DialogFooter>
+      </StickyFooter>
     </form>
   );
 }

@@ -17,13 +17,13 @@ import type { ConfigValue } from "@/api/types/ConfigValue";
 import { afterWrite, detailOf, post, queryOf, topicPath, useConfigEditForm, useConfigResetForm, useDebounced } from "@/api/topic-writes";
 import { Spans } from "@/components/app/spans";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { CallBlock, Done, FieldError, RefusalCallout, SpanLines, Teaching } from "./writes/parts";
+import { CallBlock, Done, FieldError, RefusalCallout, SpanLines, Teaching, StickyFooter } from "./writes/parts";
 
 const MIN_LAG = "min.compaction.lag.ms";
 const MAX_LAG = "max.compaction.lag.ms";
@@ -73,11 +73,11 @@ function Saved({ a }: { a: ConfigSavedAnswer }) {
           </p>
         </div>
       )}
-      <DialogFooter>
+      <StickyFooter>
         <DialogClose asChild>
           <Button data-testid="saved-done">Done</Button>
         </DialogClose>
-      </DialogFooter>
+      </StickyFooter>
     </div>
   );
 }
@@ -115,14 +115,14 @@ function RefusedState({ r, onAgain }: { r: ConfigRefusedAnswer; onAgain: (pairs:
           </dl>
         </section>
       )}
-      <DialogFooter>
+      <StickyFooter>
         <DialogClose asChild>
           <Button variant="outline">Close</Button>
         </DialogClose>
         <Button onClick={() => onAgain(r.again)} data-testid="edit-again">
           Edit again
         </Button>
-      </DialogFooter>
+      </StickyFooter>
     </div>
   );
 }
@@ -268,7 +268,7 @@ function EditForm({ topic, k, open, initial }: { topic: string; k: string; open:
         </div>
       )}
       <CallBlock lines={v.call} />
-      <DialogFooter>
+      <StickyFooter>
         <DialogClose asChild>
           <Button type="button" variant="outline">
             Cancel
@@ -280,7 +280,7 @@ function EditForm({ topic, k, open, initial }: { topic: string; k: string; open:
         <Button type="submit" disabled={send.isPending} data-testid="config-save">
           Save
         </Button>
-      </DialogFooter>
+      </StickyFooter>
     </form>
   );
 }
@@ -329,14 +329,14 @@ function ResetBody({ topic, k, open, onDone }: { topic: string; k: string; open:
       {v.refusal && <RefusalCallout r={v.refusal} />}
       {send.error && !failed && <FieldError>{send.error.message}</FieldError>}
       <CallBlock lines={v.call} />
-      <DialogFooter>
+      <StickyFooter>
         <DialogClose asChild>
           <Button variant="outline">Cancel</Button>
         </DialogClose>
         <Button variant="destructive" disabled={send.isPending || !v.row.source || v.row.source !== "dynamic_topic"} onClick={() => send.mutate()} data-testid="reset-submit">
           Reset to default
         </Button>
-      </DialogFooter>
+      </StickyFooter>
     </div>
   );
 }

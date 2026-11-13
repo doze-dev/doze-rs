@@ -51,6 +51,12 @@ const STEPS: { id: CreateStep; label: string }[] = [
   { id: "config", label: "Configuration" },
   { id: "review", label: "Review and create" },
 ];
+// The sentence under the title for each step (the classic page's words).
+const SUBS: Record<CreateStep, string> = {
+  name: "Three steps. The call on the right is the one that will be sent; it changes as you type.",
+  config: "What the topic does with old records. Kafka's own sentence, the default and when it takes effect sit under each field.",
+  review: "Check what will be sent, then create. Nothing exists until you do.",
+};
 const order = (s: CreateStep) => STEPS.findIndex((x) => x.id === s);
 
 const TEMPLATES: { id: CreateTemplate; name: string; sub: string; cleanup: Values["cleanup"]; retention: string }[] = [
@@ -275,7 +281,7 @@ export function CreateTopicPage() {
 
   return (
     <div data-testid="create-page">
-      <PageHeader crumbs={[{ label: "Topics", to: "/topics" }]} title="Create topic" sub={preview.data?.sub ?? "Three steps. The call on the right is the one that will be sent; it changes as you type."} />
+      <PageHeader crumbs={[{ label: "Topics", to: "/topics" }]} title="Create topic" sub={SUBS[step]} />
       <Tabs value={step} onValueChange={(s) => go(s as CreateStep)} className="gap-0">
         <Stepper step={step} reached={reached} />
         <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(22rem,30rem)]">

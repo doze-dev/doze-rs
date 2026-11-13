@@ -10,11 +10,11 @@ import type { DeletedAnswer } from "@/api/types/DeletedAnswer";
 import { afterWrite, detailOf, post, topicPath, useDeleteForm } from "@/api/topic-writes";
 import { Spans } from "@/components/app/spans";
 import { Button } from "@/components/ui/button";
-import { DialogClose, DialogFooter } from "@/components/ui/dialog";
+import { DialogClose } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { plural } from "@/lib/format";
-import { CallBlock, FieldError, RefusalCallout } from "./parts";
+import { CallBlock, FieldError, RefusalCallout, StickyFooter } from "./parts";
 
 export function DeleteTopicBody({ topic, open }: { topic: string; open: boolean }) {
   const qc = useQueryClient();
@@ -66,7 +66,7 @@ export function DeleteTopicBody({ topic, open }: { topic: string; open: boolean 
       {failed?.refusal && <RefusalCallout r={failed.refusal} />}
       {v && <CallBlock lines={v.call} />}
       {send.error && !failed && <FieldError>{send.error.message}</FieldError>}
-      <DialogFooter>
+      <StickyFooter>
         <DialogClose asChild>
           <Button type="button" variant="outline">
             Cancel
@@ -75,7 +75,7 @@ export function DeleteTopicBody({ topic, open }: { topic: string; open: boolean 
         <Button type="submit" variant="destructive" disabled={typed !== topic || send.isPending} data-testid="delete-submit">
           <Trash2Icon /> Delete topic
         </Button>
-      </DialogFooter>
+      </StickyFooter>
     </form>
   );
 }

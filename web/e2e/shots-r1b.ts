@@ -29,7 +29,7 @@ const shots: [string, string, ((p: import("@playwright/test").Page) => Promise<v
     await p.locator("[data-testid=config-row]").first().getByRole("button", { name: "Where from" }).click();
   }],
   [`/topics/${compacted}/config?edit=min.cleanable.dirty.ratio`, "config-edit", async (p) => {
-    await p.getByTestId("config-value").fill("0.7");
+    await p.getByRole("dialog").getByTestId("config-value").fill("0.7");
     await p.waitForTimeout(600);
   }],
   [`/topics/${compacted}/config?edit=cleanup.policy`, "config-edit-list"],
