@@ -26,6 +26,8 @@
 //!   collapse into one card each past [`Collapse::over`] instances, or when asked;
 //! - an R*-tree over cards and line pieces answers what is in a viewport ([`Layout::visible`]) and
 //!   what is under the pointer ([`Layout::hit`]);
+//! - far out, [`Layout::overview`] bundles the calls between runs of cards down each column, so a
+//!   renderer draws a few weighted lines instead of thousands of single ones;
 //! - a [`Mapper`] keeps the last layout: a change of state alone moves nothing and costs a hash;
 //!   a change inside one part relays only that part, and it keeps its place on its shelf when it
 //!   still fits there (a part keeps room for a task card after its last column).
@@ -83,6 +85,7 @@ mod index;
 mod input;
 mod layered;
 mod output;
+mod overview;
 mod search;
 pub mod synth;
 mod text;
@@ -96,6 +99,7 @@ pub use group::{Collapse, Grouping};
 pub use index::Visible;
 pub use input::{Instance, Kind};
 pub use output::{Caption, CaptionKind, Card, CardId, Edge, Layout, Mode, Role};
+pub use overview::{Bundle, Overview, Region};
 pub use text::Lang;
 
 /// How to lay a stack out.

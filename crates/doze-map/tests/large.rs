@@ -13,7 +13,8 @@
 use std::collections::{HashMap, HashSet};
 
 use doze_map::{
-    Collapse, Instance, Kind, Layout, Mapper, Mode, Options, Path, Pt, Rect, Seg, layout, synth,
+    CardId, Collapse, Instance, Kind, Layout, Mapper, Mode, Options, Path, Pt, Rect, Role, Seg,
+    layout, synth,
 };
 
 /// The size the slow checks run at: 2,000 in a release build, less in a debug one (CI runs debug).
@@ -263,5 +264,60 @@ fn groups_collapse_and_are_found_by_their_members() {
     assert!(
         open.card_named(&members[0])
             .is_some_and(|c| open.card(c).unwrap().name == members[0])
+    );
+}
+
+#[test]
+fn far_out_the_calls_bundle_between_regions() {
+    let ins = synth::stack(big(), big() * 5 / 2, 7);
+    let l = layout(&ins, &Options::default());
+    let o = l.overview();
+    // Every flow card is in exactly one region, inside its box; the lane and the band are in none.
+    for (i, c) in l.cards.iter().enumerate() {
+        match (c.role, o.region_of[i]) {
+            (Role::Flow, Some(r)) => {
+                let reg = &o.regions[r];
+                assert!(reg.cards.contains(&CardId(i as u32)));
+                assert!(
+                    touches(&reg.rect, &c.rect)
+                        && reg.rect.x <= c.rect.x
+                        && reg.rect.right() >= c.rect.right()
+                );
+            }
+            (Role::Flow, None) => panic!("{} is in no region", c.name),
+            (_, r) => assert_eq!(r, None, "{} is not a flow card", c.name),
+        }
+    }
+    let members: usize = o.regions.iter().map(|r| r.cards.len()).sum();
+    assert_eq!(
+        members,
+        l.cards.iter().filter(|c| c.role == Role::Flow).count()
+    );
+    // The bundles and the calls inside regions account for every call, and there are far fewer bundles.
+    let calls: u32 = l.edges.iter().map(|e| e.count.max(1)).sum();
+    let bundled: u32 = o.bundles.iter().map(|b| b.count).sum();
+    assert_eq!(bundled + o.inside, calls);
+    assert!(
+        o.bundles.len() * 3 < l.edges.len(),
+        "{} bundles for {} calls",
+        o.bundles.len(),
+        l.edges.len()
+    );
+    assert!(
+        o.regions.len() >= 20 && o.regions.len() <= 200,
+        "{} regions",
+        o.regions.len()
+    );
+    assert!(
+        o.bundles.windows(2).all(|w| w[0].count >= w[1].count),
+        "heaviest first"
+    );
+    assert_eq!(o.heaviest(), o.bundles[0].count);
+    // A small stack's overview is small too, and consistent.
+    let small = layout(&synth::stack(10, 25, 7), &Options::default());
+    let so = small.overview();
+    assert_eq!(
+        so.bundles.iter().map(|b| b.count).sum::<u32>() + so.inside,
+        small.edges.iter().map(|e| e.count.max(1)).sum::<u32>()
     );
 }

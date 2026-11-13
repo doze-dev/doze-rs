@@ -190,6 +190,14 @@ impl Layout {
         crate::layered::use_lines(self, card)
     }
 
+    /// The map at a glance: the calls between runs of cards down each column, bundled and weighted
+    /// ([`crate::Overview`]), for drawing far out. Linear in cards and calls; a renderer keeps it
+    /// with the layout.
+    #[must_use]
+    pub fn overview(&self) -> crate::Overview {
+        crate::overview::overview(self)
+    }
+
     /// The cards whose name (or a collapsed member's name) contains `q`, ignoring case: names
     /// that start with it first, then shorter names.
     #[must_use]
