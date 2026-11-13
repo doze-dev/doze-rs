@@ -666,5 +666,9 @@ ApiVersions and need nothing. The program asks the broker for ApiVersions at the
 needs one not advertised: no table in the suite. Result: plain 18 passed and 5 skipped at Kafka 1, 2 and 3 (the KIP-848 scenarios:
 no ConsumerGroupHeartbeat; 3.9 lists it but its coordinator is classic-only by default, early access), 23 of 23 at Kafka 4; SASL 12
 passed and 1 skipped at Kafka 1 (the users step: no SCRAM credential APIs before 2.7), 26 of 26 at 2, 3 and 4. Transactions (all three
-producers, the zombie, EOS) and compaction pass at every major, at Kafka 1 over v0 of the transaction APIs. No failure, so no broker
-defect was found; the matrix is in `interop/README.md`. CI runs no interop (local by the owner's choice, 2026-11-09), so CI is unchanged.
+producers, the zombie, EOS) and compaction pass at every major, at Kafka 1 over v0 of the transaction APIs. No broker defect was found. One harness defect
+was: `mixed` failed about one run in five at Kafka 1 and 2 ("kafka-go read nothing"). The group was Stable with four
+members, and kafka-go had an empty assignment. Whenever kcat joined first it led, and librdkafka cannot read kafka-go's
+subscription, which is version 1 without its owned partitions. The broker passes those bytes through untouched, as Kafka
+does, and `-members librdkafka,kafka-go` fails at every major. The suite now seats the first member before the others
+join. The matrix is in `interop/README.md`. CI runs no interop (local by the owner's choice, 2026-11-09), so CI is unchanged.

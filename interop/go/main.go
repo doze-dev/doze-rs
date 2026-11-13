@@ -254,13 +254,21 @@ type scenario struct {
 
 func (s scenario) title() string { return s.name }
 
-// start joins each of the members to the group; it returns once they have all been started, not settled.
-func (s scenario) start(ctx context.Context, topic, group string, members []client, t *tally) (*running, error) {
+// start joins each of the members to the group; it returns once they have all been started, not settled. The first
+// is seated before the others start, so that it leads the group (the first to join leads, as in Kafka). Which library
+// leads matters: librdkafka gives nothing to a member whose subscription it cannot read, and kafka-go's is one.
+func (s scenario) start(ctx context.Context, adm admin, topic, group string, members []client, t *tally) (*running, error) {
 	r := &running{failed: make(chan error, 16)}
-	for _, m := range members {
+	for i, m := range members {
 		if _, err := r.add(ctx, m, topic, group, s.assignor, t); err != nil {
 			r.stop()
 			return nil, err
+		}
+		if i == 0 && len(members) > 1 {
+			if _, err := adm.waitMembers(group, 1); err != nil {
+				r.stop()
+				return nil, fmt.Errorf("the first member, %s: %w", m.name(), err)
+			}
 		}
 	}
 	return r, nil
@@ -284,7 +292,7 @@ func (s scenario) run(addr string) (string, error) {
 	// Every member joins and settles first, so that the records are read under the final split.
 	const first, second = 300, 50
 	one := newTally()
-	group1, err := s.start(ctx, topic, group, s.members, one)
+	group1, err := s.start(ctx, adm, topic, group, s.members, one)
 	if err != nil {
 		return "", err
 	}
@@ -320,7 +328,7 @@ func (s scenario) run(addr string) (string, error) {
 		return "", fmt.Errorf("produce again: %w", err)
 	}
 	two := newTally()
-	group2, err := s.start(ctx, topic, group, []client{s.members[len(s.members)-1]}, two)
+	group2, err := s.start(ctx, adm, topic, group, []client{s.members[len(s.members)-1]}, two)
 	if err != nil {
 		return "", err
 	}

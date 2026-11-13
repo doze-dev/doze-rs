@@ -37,8 +37,8 @@ What each library needs for an old broker:
 - **librdkafka** (kcat and `txnprod`) negotiates too: `api.version.request` is on by default, and every broker from 0.10 on answers
   ApiVersions, so `broker.version.fallback` (which applies only when ApiVersions is off or fails) never matters here. Nothing to set.
 
-Each major as run on 2026-11-14 (`interop/run.sh -versions` and `interop/run.sh -sasl -versions`). Nothing failed, and so no broker
-defect was found. A skip names the API the broker did not advertise:
+Each major as run on 2026-11-14 (`interop/run.sh -versions` and `interop/run.sh -sasl -versions`). No broker defect was found. The one
+failure was the harness's: the leader of `mixed` (see "What the clients taught"). A skip names the API the broker did not advertise:
 
 | | Kafka 1 | Kafka 2 | Kafka 3 | Kafka 4 |
 |---|---|---|---|---|
@@ -110,6 +110,12 @@ certificate failure. Eight cells. `interop/go/tls.go` (the cells are the ones of
 
 - Records are keyed, because franz-go's producer puts a whole unkeyed batch in one partition, which leaves the other
   members nothing to read.
+- The first member of a group is seated before the others start, so the first in the list leads (the first to join
+  leads, as in Kafka). Which library leads matters: kafka-go writes its subscription as version 1 without the owned
+  partitions that version 1 carries (`0001`, the topics, null user data, and nothing more), and librdkafka as leader
+  cannot read it and assigns kafka-go nothing. `-members librdkafka,kafka-go` shows it at every major; the broker passes
+  the bytes through as Kafka does. Before the wait, `mixed` failed with "kafka-go read nothing" in about one run in five
+  at Kafka 1 and 2, whenever kcat happened to join first (found by `-versions`).
 - `kcat -o beginning` starts at offset 0 on every run whatever is committed; the resume needs
   `-X auto.offset.reset=earliest`. kcat reads no option after the first topic.
 - kafka-go does not retry a first Metadata answer for a topic that does not exist yet (a recorded Kafka answers it
