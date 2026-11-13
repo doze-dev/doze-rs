@@ -3,12 +3,16 @@
 //! Each dialog has a GET that answers its view-model for what was typed so far (the call beside the form, the teaching, a
 //! button's label: the words are Rust's), and a POST (form-encoded, as the classic forms post, behind the same-origin
 //! proof of [`super::guard`]) that does the write through the same `Source` the classic console uses. A POST answers:
-//! - 200 and what was made (the topic, the record, the new count);
-//! - 422 when Kafka refused: `{ code, message, detail }`, the code Kafka's error name, the message the broker's own
-//!   sentence, `detail` the refused state the page draws;
-//! - 400 when the form could not be sent (a number that is not one): `{ code: "INVALID", message, detail }`, `detail`
-//!   the dialog again with its field errors;
+//! - what was made (the topic, the record, the new count);
+//! - when Kafka refused: `{ refused: true, status: 422, code, message, detail }`, the code Kafka's error name, the message
+//!   the broker's own sentence, `detail` the refused state the page draws;
+//! - when the form could not be sent (a number that is not one): `{ refused: true, status: 400, code: "INVALID", message,
+//!   detail }`, `detail` the dialog again with its field errors;
 //! - 404 when there is no such topic.
+//!
+//! A refusal is an answer, not a failure of the request, so it comes with HTTP 200 and `refused: true` (the client's
+//! `post` throws it as an `ApiFailure` with the status in the body): Chromium and WebKit log every non-2xx fetch as a
+//! console error, which the browser gate rightly forbids, and a refused write is the console doing its job.
 
 use axum::Router;
 use axum::body::Bytes;
@@ -44,13 +48,17 @@ pub(super) fn refused_with<T: Serialize>(
 ) -> Response {
     #[derive(Serialize)]
     struct Body<'a, T: Serialize> {
+        refused: bool,
+        status: u16,
         code: &'a str,
         message: &'a str,
         detail: &'a T,
     }
     json(
-        status,
+        StatusCode::OK,
         &Body {
+            refused: true,
+            status: status.as_u16(),
             code,
             message,
             detail,
@@ -60,7 +68,12 @@ pub(super) fn refused_with<T: Serialize>(
 
 /// Kafka refused: its error name and the broker's sentence, and the state to draw.
 pub(super) fn kafka_refused<T: Serialize>(r: &Refusal, detail: &T) -> Response {
-    refused_with(StatusCode::UNPROCESSABLE_ENTITY, &r.name, &r.message, detail)
+    refused_with(
+        StatusCode::UNPROCESSABLE_ENTITY,
+        &r.name,
+        &r.message,
+        detail,
+    )
 }
 
 /// The form could not be sent: its first error, and the dialog again.
@@ -134,7 +147,9 @@ fn draft_of(fresh: Draft, f: &[(String, String)]) -> Draft {
 
 fn step_sub(step: Step) -> &'static str {
     match step {
-        Step::Name => "Three steps. The call on the right is the one that will be sent; it changes as you type.",
+        Step::Name => {
+            "Three steps. The call on the right is the one that will be sent; it changes as you type."
+        }
         Step::Config => {
             "What the topic does with old records. Kafka's own sentence, the default and when it takes effect sit under each field."
         }
@@ -590,4 +605,3 @@ pub(super) fn routes(web: &crate::base::Base) -> Router<Shared> {
             get(delete_form).post(delete),
         )
 }
-

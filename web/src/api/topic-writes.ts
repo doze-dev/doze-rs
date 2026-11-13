@@ -33,12 +33,20 @@ export function queryOf(fields: Record<string, string | undefined>): string {
 }
 
 /** A form-encoded POST: what the classic forms send, behind the same-origin proof the client adds. */
-export function post<T>(path: string, fields: Record<string, string>): Promise<T> {
-  return api<T>(path, {
+export async function post<T>(path: string, fields: Record<string, string>): Promise<T> {
+  const body = await api<T | Refused>(path, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams(fields).toString(),
   });
+  // A refusal is an answer (HTTP 200, `refused: true`), thrown here so a mutation's error is Kafka's words.
+  if (isRefused(body)) throw new ApiFailure(body.status, body);
+  return body as T;
+}
+
+type Refused = { refused: true; status: number; code: string; message: string; detail?: unknown };
+function isRefused(v: unknown): v is Refused {
+  return typeof v === "object" && v !== null && (v as Refused).refused === true && typeof (v as Refused).code === "string";
 }
 
 /** The refusal's state when the server sent one (`detail`), typed by the caller. */

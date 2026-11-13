@@ -16,7 +16,9 @@ use serde::Serialize;
 
 use super::topic_writes::{invalid, kafka_refused, no_topic};
 use super::{error, json};
-use crate::config_effects::{moment, page_moment, reader, sees, sentence, sentence_of, takes_effect, when_label};
+use crate::config_effects::{
+    moment, page_moment, reader, sees, sentence, sentence_of, takes_effect, when_label,
+};
 use crate::config_teach::MAX_LAG;
 use crate::config_words::{
     Group, first_sentence, gloss, group_of, has_more, page_sentence, plain_text, row_gloss,
@@ -275,8 +277,12 @@ pub struct ConfigSavedAnswer {
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum ConfigEditAnswer {
     /// Kafka would take it (`validate_only`); nothing was changed.
-    Checked { form: Box<ConfigEditForm> },
-    Saved { answer: Box<ConfigSavedAnswer> },
+    Checked {
+        form: Box<ConfigEditForm>,
+    },
+    Saved {
+        answer: Box<ConfigSavedAnswer>,
+    },
 }
 
 /// A refused save (the `detail` of a 422).
@@ -424,7 +430,10 @@ fn refused_answer(r: ConfigRefused) -> ConfigRefusedAnswer {
     let pairs: Vec<(String, String)> = match (r.kind, r.pass.first()) {
         (_, Some(p)) => p.pairs.clone(),
         (ConfigRefusal::Lags, None) => vec![
-            (crate::config_teach::MIN_LAG.to_owned(), r.input.value.clone()),
+            (
+                crate::config_teach::MIN_LAG.to_owned(),
+                r.input.value.clone(),
+            ),
             (MAX_LAG.to_owned(), r.input.other.clone()),
         ],
         (ConfigRefusal::Value, None) => Vec::new(),

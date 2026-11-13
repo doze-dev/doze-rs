@@ -24,14 +24,15 @@ export function DeleteTopicBody({ topic, open }: { topic: string; open: boolean 
   const preview = useDeleteForm(topic, open);
   const send = useMutation({
     mutationFn: (v: { confirm: string }) => post<DeletedAnswer>(topicPath(topic, "/delete"), v),
-    onSuccess: (a) => {
+    onSuccess: async (a) => {
       const d = a.deleted;
+      // Leave the topic's page first, so nothing on screen asks for the topic that is gone (a 404 the browser would log).
+      await navigate({ to: "/topics", replace: true });
       qc.removeQueries({ predicate: (q) => q.queryKey.includes(topic) });
       void afterWrite(qc);
       toast.success(`Deleted ${d.name}.`, {
         description: `${plural(d.records, "record")} and ${plural(d.partitions, "partition")} are gone from disk. A topic named ${d.name} made later is a new topic: it starts at offset 0.`,
       });
-      void navigate({ to: "/topics", replace: true });
     },
   });
   const failed = detailOf<DeleteForm>(send.error);

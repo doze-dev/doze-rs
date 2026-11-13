@@ -190,13 +190,20 @@ pub fn in_use(u: &InUse) -> Vec<Span> {
         )));
     }
     if u.groups.len() > 3 {
-        out.push(Span::text(format!(", and {} more groups", u.groups.len() - 3)));
+        out.push(Span::text(format!(
+            ", and {} more groups",
+            u.groups.len() - 3
+        )));
     }
     if !u.groups.is_empty() && !u.transactions.is_empty() {
         out.push(Span::text(", and"));
     }
     for (i, t) in u.transactions.iter().take(3).enumerate() {
-        out.push(Span::text(if i == 0 { " transaction " } else { ", transaction " }));
+        out.push(Span::text(if i == 0 {
+            " transaction "
+        } else {
+            ", transaction "
+        }));
         out.push(Span::mono(t.clone()));
         out.push(Span::text(" is open on it"));
     }
