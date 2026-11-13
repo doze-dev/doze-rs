@@ -131,8 +131,8 @@ fn watched(
 )> {
     let (home, d, hub, key) = following(name)?;
     let _w = (hub.watch(&key, Topic::Stats), hub.watch(&key, Topic::Logs));
-    let st = until(&hub, &key, "the meters", |s| {
-        s.series.values().any(|x| x.len() == 240)
+    let st = until(&hub, &key, "the script played to its end", |s| {
+        common::played(s, name)
     });
     Some((home, d, hub, st))
 }

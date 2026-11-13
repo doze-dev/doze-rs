@@ -168,3 +168,34 @@ pub(crate) fn following(name: &str) -> Option<(Home, FixtureDaemon, Hub, StackKe
     });
     Some((home, d, hub, key))
 }
+
+/// Whether `s` shows the fixture `hub`'s script fully played: every instance's series is exactly the script's stats,
+/// in order, and every row's meters are the last frame's.
+///
+/// A count is not enough. Each watch remakes the subscription and the fixture plays its stats from the start again,
+/// and the Go captures stamp no time, so the series cannot tell a replayed reading from a new one: it is full (240)
+/// after the first play while a second is still going, its tail mixing the two, and a row's meters are whichever frame
+/// the replay has reached. What Go rendered is the state after the last frame of one whole play.
+pub(crate) fn played(s: &StackView, hub: &str) -> bool {
+    let mut series: HashMap<String, Vec<f64>> = HashMap::new();
+    let mut last: HashMap<String, (i64, f64, i64)> = HashMap::new();
+    for step in script(hub).steps {
+        if let doze_control::fixture::Step::Frame(f) = step {
+            for st in &f.stats {
+                series.entry(st.name.clone()).or_default().push(st.cpu);
+                last.insert(st.name.clone(), (st.ram, st.cpu, st.conns));
+            }
+        }
+    }
+    let rows = last.iter().all(|(n, (ram, cpu, conns))| {
+        s.instance(n)
+            .is_some_and(|v| v.ram == *ram && v.cpu == *cpu && v.conns == *conns)
+    });
+    let kept = series.iter().all(|(n, cpus)| {
+        let want = cpus
+            .get(cpus.len().saturating_sub(doze_desk::SAMPLES_KEPT)..)
+            .unwrap_or_default();
+        s.series.get(n).is_some_and(|x| x.cpu == want)
+    });
+    rows && kept
+}
