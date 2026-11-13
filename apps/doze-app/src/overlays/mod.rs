@@ -2,8 +2,13 @@
 //! with a short fade and a few pixels of travel (the owner's bar: gentle, 120–280 ms), and simply appears when the
 //! system reduces motion.
 
+pub(crate) mod dialog;
 pub(crate) mod help;
 pub(crate) mod palette;
+pub(crate) mod preflight;
+pub(crate) mod scrim;
+pub(crate) mod start;
+pub(crate) mod toasts;
 
 use gpui::{
     Animation, AnimationExt as _, AnyElement, BoxShadow, IntoElement, SharedString, div, point,
@@ -16,6 +21,9 @@ use crate::theme::{Motion, Tokens, alpha};
 pub(crate) enum Overlay {
     Palette(gpui::Entity<palette::Palette>),
     Help,
+    Dialog(gpui::Entity<dialog::DialogView>),
+    Preflight(gpui::Entity<preflight::PreflightView>),
+    Start(gpui::Entity<start::StartView>),
 }
 
 /// The shadow an overlay casts.

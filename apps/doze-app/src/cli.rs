@@ -7,6 +7,8 @@
 //!          [--select NAME] [--hover NAME] [--zoom Z] [--at X,Y] [--find TEXT] [--synth N] [--reduce-motion]
 //!          --screen instance --select api [--tab logs|console:ID|last run] [--hold PORT]
 //!          --screen logs [--filter TEXT] [--find-mode] [--level 0-3]
+//!          --act sleep|restart|reset|reset-typed|stop|remove|action|action-typed|copy|toast-fail|recent|preflight|start
+//!                |busy|failed|library-busy|verb-busy|empty|empty-found|add     (M2: done before the shot)
 //! doze-app bench [--fixture NAME | --synth N] [--idle SECONDS]  first-frame time, then idle for a memory reading
 //! doze-app bench --fixture shop --logs [--follow SECONDS]          the logs viewer: 100k lines scrolled, then followed
 //! ```
@@ -78,6 +80,8 @@ pub(crate) struct Shot {
     pub(crate) filter: Option<String>,
     pub(crate) level: Option<u8>,
     pub(crate) find_mode: bool,
+    /// Something done before the shot (M2): a dialog asked for, a stack action started, a folder opened.
+    pub(crate) act: Option<String>,
 }
 
 /// `doze-app bench ...`.
@@ -221,6 +225,7 @@ fn shot(mut args: impl Iterator<Item = String>) -> Result<Shot, String> {
             "--hold" => s.hold = Some(number(&v, "--hold")?),
             "--filter" => s.filter = Some(v),
             "--level" => s.level = Some(number(&v, "--level")?),
+            "--act" => s.act = Some(v),
             "--at" => {
                 let (x, y) = v.split_once(',').ok_or("--at is X,Y")?;
                 s.at = Some((number(x, "--at")?, number(y, "--at")?));

@@ -29,7 +29,7 @@ use crate::actions::{
     CopyAddress, NextTab, OpenAddress, PinIt, PrevTab, RestartIt, RunTask, ShowLogs, SleepIt,
     WakeIt,
 };
-use crate::console::{ConsoleEvent, ConsoleTabView};
+use crate::console::ConsoleTabView;
 use crate::logs::{LogsMode, LogsView};
 use crate::theme::tokens;
 
@@ -222,11 +222,6 @@ impl InstanceView {
             let tab = self.tab.clone();
             let c = cx
                 .new(|cx| ConsoleTabView::new(self.hub.clone(), self.key.clone(), &name, &tab, cx));
-            cx.subscribe(&c, |_, _, ev: &ConsoleEvent, cx| {
-                let ConsoleEvent::Say(s) = ev;
-                cx.emit(InstanceEvent::Say(s.clone()));
-            })
-            .detach();
             self.console = Some(c);
         } else {
             self.console = None;

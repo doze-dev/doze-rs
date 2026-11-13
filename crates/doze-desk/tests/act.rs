@@ -61,33 +61,36 @@ fn a_module_action_asks_for_its_input_as_go_does() {
         resource: "orders".into(),
     };
     let d = act::action_dialog("events", &produce);
-    assert_eq!(serde_json::to_value(&d).unwrap(), golden("modules-events-produce"));
+    assert_eq!(
+        serde_json::to_value(&d).unwrap(),
+        golden("modules-events-produce")
+    );
     let keep = Action {
         hint: String::new(),
         ..produce
     };
-    assert!(!act::action_dialog("events", &keep).needed, "it takes no input and deletes nothing: it just runs");
+    assert!(
+        !act::action_dialog("events", &keep).needed,
+        "it takes no input and deletes nothing: it just runs"
+    );
 }
 
 /// A stand-in `doze` that fails `up` as the CLI does (its progress on stderr, one envelope on stdout) and does `down`.
 fn fake_doze(dir: &Path) -> std::path::PathBuf {
     let p = dir.join("doze");
-    std::fs::write(
+    doze_os::fs::write_executable(
         &p,
-        "#!/bin/sh\necho \"$*\" >> \"$DOZE_HOME/calls\"\ncase \"$*\" in\n  *down*) echo '{\"ok\":true}'; exit 0;;\nesac\necho 'starting db…' >&2\necho '{\"schema\":\"doze/v1\",\"ok\":false,\"error\":{\"code\":\"failed\",\"message\":\"port 5432 is taken\",\"exit\":1}}'\nexit 1\n",
+        "#!/bin/sh\necho \"$*\" >> \"$DOZE_HOME/calls\"\ncase \"$*\" in\n  *down*) echo '{\"ok\":true}'; exit 0;;\nesac\necho 'starting db…' >&2\necho '{\"schema\":\"doze/v1\",\"ok\":false,\"error\":{\"code\":\"failed\",\"message\":\"port 5432 is taken\",\"exit\":1}}'\nexit 1\n".as_bytes(),
     )
     .unwrap();
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt as _;
-        std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o755)).unwrap();
-    }
     p
 }
 
-#[cfg(unix)]
 #[test]
 fn a_stack_action_runs_the_cli_in_the_folder_and_reads_its_failure() {
+    if !Path::new("/bin/sh").exists() {
+        return; // the stand-in is a shell script
+    }
     let (bin, home, work) = (
         tempfile::tempdir().unwrap(),
         tempfile::tempdir().unwrap(),
@@ -106,8 +109,7 @@ fn a_stack_action_runs_the_cli_in_the_folder_and_reads_its_failure() {
     assert_eq!(f.lines, ["starting db…", "Error: port 5432 is taken"]);
     let calls = std::fs::read_to_string(home.path().join("calls")).unwrap();
     assert_eq!(
-        calls,
-        "--json -y down\n--json -y down\n--json -y up --last\n",
+        calls, "--json -y down\n--json -y down\n--json -y up --last\n",
         "restart is down, then up as last time, in the doze home the app shows"
     );
 }

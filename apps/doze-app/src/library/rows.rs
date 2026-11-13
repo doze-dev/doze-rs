@@ -4,7 +4,7 @@
 use doze_desk::library::LibStack;
 use gpui::{AnyElement, Context, IntoElement, div, prelude::*, px};
 
-use super::{LibraryView, M2};
+use super::LibraryView;
 use crate::kit::{heading, need, pill, s, tone};
 use crate::theme::Tokens;
 use crate::widgets::{MONO_FAMILY, dot, icon, switch, w};
@@ -79,6 +79,7 @@ fn row(
     cx: &mut Context<LibraryView>,
 ) -> impl IntoElement {
     let selected = v.selected.as_deref() == Some(st.key.as_str());
+    let busy = super::act::busy(&st.key, cx);
     let menu = v.menu.as_deref() == Some(st.key.as_str());
     let pad = v.density.pad();
     let key = st.key.clone();
@@ -119,11 +120,11 @@ fn row(
             .flex()
             .justify_end()
             .text_size(px(12.))
-            .text_color(t.dim)
+            .text_color(if busy.is_some() { t.cool } else { t.dim })
             .whitespace_nowrap()
-            .child(s(&st.when))
+            .child(busy.map_or_else(|| st.when.clone(), |b| format!("{}…", b.word())))
             .into_any_element(),
-        act(t, st, menu, &k2, cx).into_any_element(),
+        act(t, st, (menu, busy), &k2, cx).into_any_element(),
     ];
     let mut r = cols(base, cells);
     if menu {
@@ -229,11 +230,12 @@ fn pills(t: &Tokens, st: &LibStack) -> impl IntoElement {
 fn act(
     t: &Tokens,
     st: &LibStack,
-    menu: bool,
+    (menu, busy): (bool, Option<doze_desk::act::Busy>),
     key: &str,
     cx: &mut Context<LibraryView>,
 ) -> impl IntoElement {
     let k = key.to_owned();
+    let k_sw = key.to_owned();
     div()
         .flex()
         .items_center()
@@ -245,11 +247,13 @@ fn act(
                 .cursor_pointer()
                 .child(switch(
                     t,
-                    st.running,
+                    busy.map_or(st.running, doze_desk::act::Busy::heading_up),
                     true,
-                    !st.missing.is_empty() || (!st.running && !st.broken.is_empty()),
+                    busy.is_some()
+                        || !st.missing.is_empty()
+                        || (!st.running && !st.broken.is_empty()),
                 ))
-                .on_click(cx.listener(|this, _, _, cx| this.say(M2, cx))),
+                .on_click(cx.listener(move |this, _, _, cx| this.toggle(&k_sw, cx))),
         )
         .child(
             div()

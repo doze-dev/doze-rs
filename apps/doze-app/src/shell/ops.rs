@@ -27,7 +27,7 @@ impl Root {
                     .map(|r| (r.name.clone(), format!("{} · {}", r.look.word, r.because)))
                     .collect()
             }
-            Screen::Library => Vec::new(),
+            Screen::Library | Screen::Empty(_) => Vec::new(),
         };
         let p = cx.new(|cx| Palette::new(cards, window, cx));
         cx.subscribe_in(&p, window, |this, p, ev: &PaletteEvent, window, cx| {
@@ -71,12 +71,16 @@ impl Root {
             let f = match &self.screen {
                 Screen::Stack(_) if on_map => self.map.read(cx).focus.clone(),
                 Screen::Stack(_) => self.overview.read(cx).focus.clone(),
-                Screen::Library | Screen::Instance(..) | Screen::Logs(_) => {
+                Screen::Library | Screen::Empty(_) | Screen::Instance(..) | Screen::Logs(_) => {
                     self.library.read(cx).focus.clone()
                 }
             };
             window.focus(&f, cx);
             cx.notify();
+            return;
+        }
+        if self.acts.read(cx).recent {
+            self.acts.update(cx, |a, cx| a.toggle_recent(cx));
             return;
         }
         if self.escape_inside(window, cx) {
@@ -88,7 +92,7 @@ impl Root {
         };
         if map_held {
             self.map.update(cx, |m, cx| m.escape(window, cx));
-        } else if matches!(self.screen, Screen::Stack(_)) {
+        } else if matches!(self.screen, Screen::Stack(_) | Screen::Empty(_)) {
             // Nothing open, nothing held: esc goes home, as the Go page's did.
             self.go(Screen::Library, window, cx);
         }
@@ -169,6 +173,7 @@ impl Root {
                 motion,
                 "help",
             )),
+            Some(o) => self.acting_overlay(o, cx),
             None => None,
         }
     }

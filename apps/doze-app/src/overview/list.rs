@@ -82,7 +82,9 @@ fn row(
     let off = !r.on && r.kind != "task";
     let (name, weak) = (r.name.clone(), this.clone());
     let switch = this
-        .update(cx, |_, cx| row_switch(t, r, cx))
+        .update(cx, |this, cx| {
+            row_switch(t, r, this.doing.contains(&r.name), cx)
+        })
         .unwrap_or_else(|_| div().into_any_element());
     let title = div()
         .flex_1()

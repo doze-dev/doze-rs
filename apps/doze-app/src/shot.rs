@@ -114,6 +114,9 @@ async fn take(cx: &mut AsyncApp, h: WindowHandle<Root>, s: &Shot) {
     let _ = h.update(cx, |root, _, cx| root.refresh(cx));
     let _ = h.update(cx, |_, w, _| w.refresh());
     pause(cx, 400).await;
+    crate::shot_act::run(cx, h, s.act.as_deref()).await;
+    let _ = h.update(cx, |_, w, _| w.refresh());
+    pause(cx, 60).await;
     match h.update(cx, |_, window, _| window.render_to_image()) {
         Ok(Ok(img)) => match img.save(&s.out) {
             Ok(()) => println!("{} {}x{}", s.out.display(), img.width(), img.height()),

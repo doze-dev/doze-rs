@@ -9,6 +9,10 @@ pub(super) fn make_private(path: &Path) -> io::Result<()> {
     std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o700))
 }
 
+pub(super) fn make_executable(path: &Path) -> io::Result<()> {
+    std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o755))
+}
+
 pub(super) fn write_private(path: &Path, bytes: &[u8]) -> io::Result<()> {
     // A new file is created 0600; an existing one keeps its mode on open, so narrow it before writing.
     let mut f = std::fs::OpenOptions::new()

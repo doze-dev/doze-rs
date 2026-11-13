@@ -25,7 +25,8 @@ fn acme() -> (tempfile::TempDir, Shape) {
             d("worker", None, &[]),
             Decl {
                 kind: "module".into(),
-                ..d("db", Some(5432), &[])
+                endpoint: "127.0.0.1:5432".into(),
+                ..d("db", None, &[])
             },
         ],
         ..Shape::default()

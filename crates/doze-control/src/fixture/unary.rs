@@ -21,6 +21,7 @@ pub(crate) fn answer(state: &State, req: &Request) -> Response {
         },
         Op::Logs => logs(state, req),
         Op::Admin => {
+            pause(state);
             let s = lock(&state.script);
             outcome(
                 s.failure("admin", &req.action),
@@ -31,12 +32,21 @@ pub(crate) fn answer(state: &State, req: &Request) -> Response {
             )
         }
         _ => {
+            pause(state);
             let fail = lock(&state.script).failure(&req.op, &req.db).cloned();
             if fail.is_none() {
                 change(state, op, &req.db);
             }
             outcome(fail.as_ref(), Response::default())
         }
+    }
+}
+
+/// Waits as long as the script says a verb takes.
+fn pause(state: &State) {
+    let d = lock(&state.script).verb_delay;
+    if !d.is_zero() {
+        std::thread::sleep(d);
     }
 }
 

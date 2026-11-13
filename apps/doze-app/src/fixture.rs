@@ -62,6 +62,8 @@ impl Fixture {
             None => {
                 let path = scripts().join(format!("{name}.ndjson"));
                 let mut s = Script::load(&path).with_context(|| format!("fixture {name}"))?;
+                // A verb takes a moment, as a real one does, so a page shows it in flight.
+                s.verb_delay = std::time::Duration::from_millis(700);
                 // Keep streams open, as a daemon does: the page stays live.
                 s.hold = true;
                 if name.starts_with("larder") {
@@ -72,6 +74,7 @@ impl Fixture {
             }
         };
         seed_stopped(&home, &work)?;
+        seed_doze(&home)?;
         let key = StackKey::new(home.join("projects").join(format!("{name}-fixture")));
         std::fs::create_dir_all(key.run_dir()).context("fixture home")?;
         std::fs::write(key.socket(), "").context("fixture socket marker")?;
@@ -144,6 +147,33 @@ fn seed_stopped(home: &Path, work: &Path) -> anyhow::Result<()> {
     std::fs::write(projects.join("project.json"), record.to_string()).context("acme record")?;
     Ok(())
 }
+
+/// A stand-in `doze` in the fixture home (`<home>/bin/doze`), which the app's stack actions run as the real CLI: a
+/// subprocess, its envelope on stdout, its progress on stderr. As Go's fixture server does, a stack action takes a
+/// moment and then fails to start ("this is a fixture"), unless `DOZE_FIXTURE_UP=ok`; down works; `init` and `add`
+/// write a small doze.hcl.
+fn seed_doze(home: &Path) -> anyhow::Result<()> {
+    let bin = home.join("bin");
+    std::fs::create_dir_all(&bin).context("fixture bin")?;
+    doze_os::fs::write_executable(&bin.join("doze"), FAKE_DOZE.as_bytes()).context("fixture doze")
+}
+
+const FAKE_DOZE: &str = r#"#!/bin/sh
+name=$(basename "$PWD")
+case "$1" in
+  init) printf 'stack = "%s"\n\napp "web" {\n  run = "npm run dev"\n}\n' "$name" > doze.hcl; echo "wrote doze.hcl"; exit 0;;
+  add) printf 'stack = "%s"\n\nmodule %s "%s" { }\n' "$name" "$2" "$2" > doze.hcl; echo "added $2"; exit 0;;
+esac
+sleep 2
+case "$*" in
+  *down*) echo '{"schema":"doze/v1","command":"doze down","ok":true}'; exit 0;;
+esac
+if [ "$DOZE_FIXTURE_UP" = ok ]; then echo '{"schema":"doze/v1","command":"doze up","ok":true}'; exit 0; fi
+echo "loading doze.hcl" >&2
+echo "starting ${name}…" >&2
+echo "{\"schema\":\"doze/v1\",\"command\":\"doze up\",\"ok\":false,\"error\":{\"code\":\"failed\",\"message\":\"this is a fixture; $name cannot really start here\",\"exit\":1}}"
+exit 1
+"#;
 
 /// larder's doze.hcl in `work`; its folder.
 fn seed_larder(work: &Path, loaded: Option<std::time::SystemTime>) -> anyhow::Result<String> {

@@ -117,11 +117,17 @@ impl Looked {
     }
 }
 
-/// The port a declared instance asks for, if it names one.
+/// The port a declared instance asks for: its own `port`, or for a module the one its module gives it (the address the
+/// CLI says it listens at), as Go's loader fills it in.
 pub fn decl_port(d: &Decl) -> Option<u16> {
-    d.port
-        .and_then(|p| u16::try_from(p).ok())
-        .filter(|p| *p > 0)
+    let own = d.port.and_then(|p| u16::try_from(p).ok());
+    let module = || {
+        (d.kind == "module")
+            .then(|| d.endpoint.rsplit_once(':'))
+            .flatten()
+            .and_then(|(_, p)| p.parse().ok())
+    };
+    own.or_else(module).filter(|p| *p > 0)
 }
 
 /// What a stopped stack's folder is missing: `the folder is gone`, `doze.hcl is gone`.

@@ -6,7 +6,7 @@ use doze_desk::overview::Row;
 use gpui::{AnyElement, Context, IntoElement, div, prelude::*, px};
 use gpui_component::input::Input;
 
-use super::{M2, OverviewView};
+use super::OverviewView;
 use crate::kit::{chip_of, s, tone, word_line};
 use crate::theme::{Tokens, mix};
 use crate::widgets::{MONO_FAMILY, dot, icon, switch, tracked, w};
@@ -64,8 +64,15 @@ pub(super) fn word_tone(t: &Tokens, r: &Row) -> gpui::Hsla {
 }
 
 /// The row's switch (`Switch`): Run for a task, ⊘ when paused in doze.hcl, else the switch; off for a down row.
-pub(super) fn row_switch(t: &Tokens, r: &Row, cx: &mut Context<OverviewView>) -> AnyElement {
-    let say = cx.listener(|this, _, _, cx| this.say(M2, cx));
+/// While a verb on it is in flight (`doing`), the switch shows where it is going, faded, and takes no clicks.
+pub(super) fn row_switch(
+    t: &Tokens,
+    r: &Row,
+    doing: bool,
+    cx: &mut Context<OverviewView>,
+) -> AnyElement {
+    let n = r.name.clone();
+    let say = cx.listener(move |this, _, _, cx| this.toggle_row(&n, cx));
     let id = gpui::SharedString::from(format!("sw-{}", r.name));
     if r.kind == "task" {
         if r.down {
@@ -104,8 +111,8 @@ pub(super) fn row_switch(t: &Tokens, r: &Row, cx: &mut Context<OverviewView>) ->
     div()
         .id(id)
         .flex_none()
-        .child(switch(t, r.on, false, r.off || r.frozen))
-        .on_click(say)
+        .child(switch(t, r.on != doing, false, r.off || r.frozen || doing))
+        .when(!doing && !r.frozen, |d| d.cursor_pointer().on_click(say))
         .into_any_element()
 }
 
@@ -169,7 +176,12 @@ fn group_head(t: &Tokens, title: &str, what: &str) -> impl IntoElement {
 }
 
 /// The tile's top line: dot, name, pin, switch.
-fn tile_top(t: &Tokens, r: &Row, dim: bool, cx: &mut Context<OverviewView>) -> impl IntoElement {
+fn tile_top(
+    t: &Tokens,
+    r: &Row,
+    (dim, doing): (bool, bool),
+    cx: &mut Context<OverviewView>,
+) -> impl IntoElement {
     let name = div()
         .text_size(px(15.))
         .font_weight(w(650.))
@@ -187,7 +199,7 @@ fn tile_top(t: &Tokens, r: &Row, dim: bool, cx: &mut Context<OverviewView>) -> i
         .child(name)
         .when(r.pinned, |d| d.child(icon("icons/pin.svg", 13., t.accent)))
         .child(div().flex_1())
-        .child(row_switch(t, r, cx))
+        .child(row_switch(t, r, doing, cx))
 }
 
 /// The word, in its tone, and why.
@@ -245,7 +257,12 @@ fn tile_foot(t: &Tokens, r: &Row) -> gpui::Div {
 }
 
 /// One tile.
-fn tile(t: &Tokens, r: &Row, selected: bool, cx: &mut Context<OverviewView>) -> impl IntoElement {
+fn tile(
+    t: &Tokens,
+    r: &Row,
+    (selected, doing): (bool, bool),
+    cx: &mut Context<OverviewView>,
+) -> impl IntoElement {
     let off = !r.on && r.kind != "task";
     // As shell.css orders them: in trouble, then off (no fill, a dashed frame, even when selected), then selected.
     let (border, bg) = if r.trouble {
@@ -278,7 +295,7 @@ fn tile(t: &Tokens, r: &Row, selected: bool, cx: &mut Context<OverviewView>) -> 
         .bg(bg)
         .when(off && !r.trouble, |d| d.border_dashed())
         .hover(|d| d.border_color(t.line2))
-        .child(tile_top(t, r, off && !selected, cx))
+        .child(tile_top(t, r, (off && !selected, doing), cx))
         .child(tile_state(t, r))
         .child(tile_foot(t, r))
         .on_click(cx.listener(move |this, ev: &gpui::ClickEvent, _, cx| {
@@ -326,7 +343,10 @@ pub(super) fn view(
                 line = line.child(tile(
                     t,
                     r,
-                    v.selected.as_deref() == Some(r.name.as_str()),
+                    (
+                        v.selected.as_deref() == Some(r.name.as_str()),
+                        v.doing.contains(&r.name),
+                    ),
                     cx,
                 ));
             }

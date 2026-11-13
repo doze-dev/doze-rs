@@ -123,7 +123,7 @@ pub struct Button {
 }
 
 impl Button {
-    pub(crate) fn run(label: impl Into<String>, verb: &str, targets: &[&str]) -> Button {
+    pub fn run(label: impl Into<String>, verb: &str, targets: &[&str]) -> Button {
         Button {
             label: label.into(),
             verb: verb.to_owned(),
@@ -132,12 +132,12 @@ impl Button {
         }
     }
 
-    pub(crate) fn primary(mut self, on: bool) -> Button {
+    pub fn primary(mut self, on: bool) -> Button {
         self.primary = on;
         self
     }
 
-    pub(crate) fn cancel() -> Button {
+    pub fn cancel() -> Button {
         Button {
             label: "Cancel".into(),
             cancel: true,

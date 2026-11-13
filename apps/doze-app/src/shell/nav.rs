@@ -19,13 +19,15 @@ pub(crate) enum Screen {
     Instance(StackKey, String),
     /// All logs of a stack, merged, beside its sidebar.
     Logs(StackKey),
+    /// A folder with no doze.hcl yet: the three ways to start.
+    Empty(std::path::PathBuf),
 }
 
 impl Screen {
     /// The stack the screen is in, if any.
     pub(crate) fn key(&self) -> Option<&StackKey> {
         match self {
-            Screen::Library => None,
+            Screen::Library | Screen::Empty(_) => None,
             Screen::Stack(k) | Screen::Instance(k, _) | Screen::Logs(k) => Some(k),
         }
     }
@@ -89,6 +91,14 @@ impl Root {
                     o.focus.clone()
                 };
                 window.focus(&f, cx);
+            }
+            Screen::Empty(_) => {
+                self.inside = None;
+                self.overview.update(cx, |o, _| o.hide());
+                if let Some(e) = &self.empty {
+                    let f = e.read(cx).focus.clone();
+                    window.focus(&f, cx);
+                }
             }
             Screen::Library => {
                 self.inside = None;

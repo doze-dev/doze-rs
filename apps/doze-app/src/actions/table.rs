@@ -70,7 +70,7 @@ pub(crate) const TABLE: &[Spec] = &[
         Global,
         Some(File),
         true,
-        false
+        true
     ),
     spec!(
         "All logs",
