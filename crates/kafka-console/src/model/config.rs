@@ -4,7 +4,9 @@
 use super::{Cleanup, Lines, Refusal, Span};
 
 /// What a change does to a config: IncrementalAlterConfigs numbers them 0 to 3.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "snake_case")]
 pub enum ConfigOp {
     Set,
     Delete,
@@ -59,7 +61,9 @@ impl ConfigOp {
 }
 
 /// Where a config's value comes from, as DescribeConfigs numbers it.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "snake_case")]
 pub enum ConfigSource {
     /// 1: set on the topic.
     DynamicTopic,
@@ -104,7 +108,8 @@ impl ConfigSource {
 }
 
 /// A place a config's value could come from: the broker config behind it, its value and what kind of place it is.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct ConfigSynonym {
     pub name: String,
     pub value: String,
@@ -112,7 +117,8 @@ pub struct ConfigSynonym {
 }
 
 /// One config of a topic as DescribeConfigs lists it, with Kafka's text and the rule for its value.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct ConfigRow {
     pub name: String,
     pub value: String,
@@ -164,14 +170,16 @@ impl ConfigRow {
 }
 
 /// The title row of the Config pages.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct ConfigHead {
     pub name: String,
     pub cleanup: Cleanup,
 }
 
 /// How often the broker looks at logs: what "the next look" is in seconds.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct ConfigPace {
     pub cleaner_secs: u64,
     pub cleaner_on: bool,
@@ -179,7 +187,9 @@ pub struct ConfigPace {
 }
 
 /// Which configs the page lists.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "snake_case")]
 pub enum ConfigShow {
     #[default]
     All,
@@ -189,7 +199,8 @@ pub enum ConfigShow {
 }
 
 /// What the page was asked to show: a filter, the chip, the rows opened, and the replication group.
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct ConfigAsk {
     pub q: String,
     pub show: ConfigShow,
@@ -199,7 +210,8 @@ pub struct ConfigAsk {
 }
 
 /// The Config page of a topic.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct ConfigPage {
     pub head: ConfigHead,
     pub rows: Vec<ConfigRow>,
@@ -208,7 +220,8 @@ pub struct ConfigPage {
 }
 
 /// What a person typed in an edit dialog.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct ConfigInput {
     pub key: String,
     pub op: ConfigOp,
@@ -218,7 +231,9 @@ pub struct ConfigInput {
 }
 
 /// The shapes of edit dialog.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "snake_case")]
 pub enum ConfigForm {
     Single,
     List,
@@ -226,7 +241,8 @@ pub enum ConfigForm {
 }
 
 /// The five lines under a field, as the config boards word them.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct ConfigTeach {
     pub what: Vec<Span>,
     pub now: Vec<Span>,
@@ -236,14 +252,16 @@ pub struct ConfigTeach {
 }
 
 /// What a dry run (`validate_only`) said: Kafka accepted it, and what the config would be.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct ConfigChecked {
     /// `(key, value now, value after)`.
     pub after: Vec<(String, String, String)>,
 }
 
 /// An edit dialog.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct ConfigEditView {
     pub topic: String,
     pub form: ConfigForm,
@@ -259,14 +277,16 @@ pub struct ConfigEditView {
 }
 
 /// A value and where it came from.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct ConfigValue {
     pub value: String,
     pub source: ConfigSource,
 }
 
 /// One config a save changed: what it was and what it is now, read from the broker on each side.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct ConfigChange {
     pub name: String,
     pub op: ConfigOp,
@@ -275,7 +295,8 @@ pub struct ConfigChange {
 }
 
 /// A save the broker took.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct ConfigSaved {
     pub head: ConfigHead,
     pub changes: Vec<ConfigChange>,
@@ -285,7 +306,9 @@ pub struct ConfigSaved {
 }
 
 /// What kind of refusal it was, for the layout that explains it.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "snake_case")]
 pub enum ConfigRefusal {
     /// The two lags together.
     Lags,
@@ -294,7 +317,8 @@ pub enum ConfigRefusal {
 }
 
 /// A request that would pass, found by asking the broker (`validate_only`), with the words that show it.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct ConfigPass {
     /// The call's lines, as the page draws them (`key  OP  value`).
     pub lines: Vec<String>,
@@ -305,7 +329,8 @@ pub struct ConfigPass {
 }
 
 /// A refused save.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct ConfigRefused {
     pub head: ConfigHead,
     pub kind: ConfigRefusal,
@@ -319,7 +344,8 @@ pub struct ConfigRefused {
 }
 
 /// The reset dialog.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct ConfigResetView {
     pub topic: String,
     pub row: ConfigRow,
@@ -331,7 +357,9 @@ pub struct ConfigResetView {
 }
 
 /// What a save came to.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(tag = "kind", content = "value", rename_all = "snake_case")]
 pub enum ConfigResult {
     Saved(Box<ConfigSaved>),
     /// Kafka would accept it (`validate_only`); nothing was changed.
@@ -344,7 +372,9 @@ pub enum ConfigResult {
 }
 
 /// What a reset came to.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(tag = "kind", content = "value", rename_all = "snake_case")]
 pub enum ConfigResetResult {
     Done,
     Refused(Box<ConfigResetView>),

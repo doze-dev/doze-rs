@@ -1,7 +1,9 @@
 //! The view-model of the topics list, and the facts about one topic that its pages share.
 
 /// What a topic does with old records (`cleanup.policy`).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "snake_case")]
 pub enum Cleanup {
     Delete,
     Compact,

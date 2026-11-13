@@ -95,6 +95,7 @@ pub mod validate;
 pub mod web;
 pub mod words;
 pub mod write_source;
+pub mod write_words;
 
 pub use backend::Backend;
 pub use facts::Facts;

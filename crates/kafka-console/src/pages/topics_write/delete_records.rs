@@ -5,31 +5,14 @@ use maud::{Markup, html};
 use super::{field, hidden, submit, topic_url};
 use crate::base::Base;
 use crate::format::number;
-use crate::model::{DeleteRecordsRefused, DeleteRecordsView, Span, Teach};
+use crate::model::{DeleteRecordsRefused, DeleteRecordsView};
 use crate::phrases::{positions, removed};
 use crate::ui::dialog::{cancel, modal};
 use crate::ui::glyph::{Glyph, glyph};
 use crate::ui::layout::card;
 use crate::ui::notice::{Tone, callout};
 use crate::ui::write::{apicall, field_error, refused, spans, teach, text_input};
-
-fn teaching(v: &DeleteRecordsView) -> Teach {
-    let hw = number(v.high_watermark);
-    Teach {
-        says: "the log start moves to this offset; earlier records are no longer served."
-            .to_owned(),
-        default: Vec::new(),
-        range: vec![Span::text(format!(
-            "0 up to the high watermark ({hw}). -1 means the high watermark: delete everything."
-        ))],
-        takes_effect: vec![Span::text(
-            "at once, kept through a restart. Below or at the start changes nothing; past the high watermark is OFFSET_OUT_OF_RANGE.",
-        )],
-        here: vec![Span::text(
-            "it cannot be undone, and the last stable offset never falls below the new start.",
-        )],
-    }
-}
+use crate::write_words::{records_button as button_label, records_teaching as teaching};
 
 fn warning(v: &DeleteRecordsView) -> Markup {
     let to: i64 = v.offset.trim().parse().unwrap_or(v.log_start);
@@ -72,15 +55,6 @@ fn body(v: &DeleteRecordsView) -> Markup {
             div class="help" { "On a topic that only compacts this is refused (POLICY_VIOLATION)." }
             (apicall("The call", &v.call, None))
         }
-    }
-}
-
-fn button_label(v: &DeleteRecordsView) -> String {
-    let to: i64 = v.offset.trim().parse().unwrap_or(v.log_start);
-    match removed(v.log_start, v.high_watermark, to) {
-        0 => "Delete records".to_owned(),
-        1 => "Delete 1 record".to_owned(),
-        n => format!("Delete {} records", number(n)),
     }
 }
 

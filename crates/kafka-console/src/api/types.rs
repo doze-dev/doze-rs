@@ -57,7 +57,82 @@ fn all() -> BTreeMap<String, String> {
     one::<Tok>(&cfg, &mut out);
     one::<ShellView>(&cfg, &mut out);
     one::<JumpView>(&cfg, &mut out);
+    r1b(&cfg, &mut out);
     out
+}
+
+/// Slice R1b: the topic writes and the Config tab.
+fn r1b(cfg: &Config, out: &mut BTreeMap<String, String>) {
+    use super::config::*;
+    use super::topic_writes::*;
+    use crate::model::write::{RecordRow, TopicHead, Visibility};
+    use crate::model::*;
+    one::<CreateForm>(cfg, out);
+    one::<CreatedAnswer>(cfg, out);
+    one::<CheckedAnswer>(cfg, out);
+    one::<ProduceForm>(cfg, out);
+    one::<ProducedAnswer>(cfg, out);
+    one::<ProduceRefusedAnswer>(cfg, out);
+    one::<AddForm>(cfg, out);
+    one::<AddedAnswer>(cfg, out);
+    one::<RecordsForm>(cfg, out);
+    one::<RecordsRefusedAnswer>(cfg, out);
+    one::<RecordsDeletedAnswer>(cfg, out);
+    one::<DeleteForm>(cfg, out);
+    one::<DeletedAnswer>(cfg, out);
+    one::<ConfigPlace>(cfg, out);
+    one::<ConfigRowView>(cfg, out);
+    one::<ConfigGroup>(cfg, out);
+    one::<ConfigTab>(cfg, out);
+    one::<ConfigEditForm>(cfg, out);
+    one::<ConfigSavedAnswer>(cfg, out);
+    one::<ConfigEditAnswer>(cfg, out);
+    one::<ConfigRefusedAnswer>(cfg, out);
+    one::<ConfigResetForm>(cfg, out);
+    one::<ConfigResetDone>(cfg, out);
+    one::<CreateView>(cfg, out);
+    one::<Draft>(cfg, out);
+    one::<Step>(cfg, out);
+    one::<Template>(cfg, out);
+    one::<Errors>(cfg, out);
+    one::<Teach>(cfg, out);
+    one::<Checked>(cfg, out);
+    one::<Created>(cfg, out);
+    one::<CreateRefused>(cfg, out);
+    one::<Refusal>(cfg, out);
+    one::<ProduceView>(cfg, out);
+    one::<ProduceErrors>(cfg, out);
+    one::<Produced>(cfg, out);
+    one::<TopicHead>(cfg, out);
+    one::<RecordRow>(cfg, out);
+    one::<Visibility>(cfg, out);
+    one::<ProduceRefused>(cfg, out);
+    one::<AddView>(cfg, out);
+    one::<DeleteRecordsView>(cfg, out);
+    one::<DeleteRecordsRefused>(cfg, out);
+    one::<InUse>(cfg, out);
+    one::<DeleteView>(cfg, out);
+    one::<Deleted>(cfg, out);
+    one::<Remaining>(cfg, out);
+    one::<Cleanup>(cfg, out);
+    one::<ConfigSource>(cfg, out);
+    one::<ConfigOp>(cfg, out);
+    one::<ConfigForm>(cfg, out);
+    one::<ConfigEditView>(cfg, out);
+    one::<ConfigRow>(cfg, out);
+    one::<ConfigSynonym>(cfg, out);
+    one::<ConfigInput>(cfg, out);
+    one::<ConfigPace>(cfg, out);
+    one::<ConfigTeach>(cfg, out);
+    one::<ConfigChecked>(cfg, out);
+    one::<ConfigSaved>(cfg, out);
+    one::<ConfigHead>(cfg, out);
+    one::<ConfigChange>(cfg, out);
+    one::<ConfigValue>(cfg, out);
+    one::<ConfigRefused>(cfg, out);
+    one::<ConfigRefusal>(cfg, out);
+    one::<ConfigPass>(cfg, out);
+    one::<ConfigResetView>(cfg, out);
 }
 
 #[test]
