@@ -10,6 +10,15 @@ palette rows) rather than a menu of its own; Remove does not forget the stack's 
 waiting for its Rust port); the domain check reads `doze --json doctor` and its fix copies `doze trust` (the password
 prompt is M3's); a failed start is a toast as well as the page's banner.
 
+M2 combined (branch `app-m2`, superseding `app-m2-act` and `app-m2-attention` for review): steps 2.3, 2.4 and 2.7
+(⌘K, Needs you, alerts, the away strip, the keys and the menu bar) wired to the verbs. ⌘K's and Needs you's `Verb` and
+`StackVerb` go to acting the way the pages' buttons do (dialogs where Go asks, the checks before Up, down and remove ask,
+`holder:PID` looks again that the pid still holds the port the crash names, then restarts the service); a failed stack
+action is a Needs you item and a stack mid-action carries its items (one `Failure` type for both). One action table
+feeds the help sheet, the chips, the menu bar and ⌘K, each command listed once. Beyond Go: ⌘K's ⌘⏎ on a service in
+trouble restarts it (Needs you's first fix). Still M3: Settings, Activity, Check for Updates, Settings › Machine's
+repair and clean-up (their rows say "soon").
+
 Where the M0 build differs from this plan:
 
 - The app lives at `apps/doze-app`, not `crates/doze-app`, so `default-members = ["crates/*", …]` leaves it out by
@@ -322,13 +331,13 @@ The "Needs" column says what the feature depends on:
 | # | Go feature | Approach | Component | Needs | Spike |
 |---|---|---|---|---|---|
 | 70 | Dialog: sleep (dependants / only), restart, reset (type the name, default moves when it matches, "From a script:" foot), ask, action-with-input (`v/dialog.go`, `fe/components/dialog.tsx`) | `dialog` over a dimmed scrim, `DialogEntrance` 180 ms; ←→ between buttons, y/n on restart | `dialog`, `input` | G | built (M2) |
-| 71 | ⌘K palette: nothing typed = broken / page / recent / stacks; verb+name with CLI form; scopes (Tab in, ⌫/⇧Tab/Esc out), crumbs; did-you-mean; copy rows "Copied ✓"; recent commands (`v/palette.go` 744 + `commands.go` 347) | port of the palette model to `doze-desk::palette`; spike's overlay (matched to the board) | spike palette, `kbd` | G | built (UI, fixture data) |
-| 72 | Help sheet `?`: keys by scope + "The words" glossary + version (`fe/components/help.tsx`) | generated from the keymap + glossary text | `dialog`, `kbd` | — | — |
+| 71 | ⌘K palette: nothing typed = broken / page / recent / stacks; verb+name with CLI form; scopes (Tab in, ⌫/⇧Tab/Esc out), crumbs; did-you-mean; copy rows "Copied ✓"; recent commands (`v/palette.go` 744 + `commands.go` 347) | port of the palette model to `doze-desk::palette`; spike's overlay (matched to the board) | spike palette, `kbd` | G | built (M2) |
+| 72 | Help sheet `?`: keys by scope + "The words" glossary + version (`fe/components/help.tsx`) | generated from the keymap + glossary text | `dialog`, `kbd` | — | built (M2) |
 | 73 | Toasts from `notice`: up to 5, success 4 s, failure 12 s with "All" → Recent | `notification` (in-app) | `notification` | G | built (M2) |
 | 74 | Recent page: last 20 notices (`fe/pages/recent.tsx`) | becomes a **popover from the toast stack** rather than a page (overlay rule) | `popover` | — | built (M2) |
-| 75 | Bell + Needs-you panel: Broken now / Worth doing, fixes, Show, Not now, age, "fixed ✓", N put aside, calm state (`fe/components/bell.tsx`, `v/attention.go`, `s/attention.go`) | `popover` anchored to the bell; list with keys ↑↓ ⏎ ⌘⏎ n | `popover`, `list` | G+C+L | — |
-| 76 | Alerts: toasts for new red items (≤ 3) with first fix + Show | `notification` with actions | `notification` | G | — |
-| 77 | Away strip: "While the window was closed · for", events, Open Needs you, Got it (`v/away.go`) | banner with `Presence` enter | — | G+L | — |
+| 75 | Bell + Needs-you panel: Broken now / Worth doing, fixes, Show, Not now, age, "fixed ✓", N put aside, calm state (`fe/components/bell.tsx`, `v/attention.go`, `s/attention.go`) | `popover` anchored to the bell; list with keys ↑↓ ⏎ ⌘⏎ n | `popover`, `list` | G+C+L | built (M2) |
+| 76 | Alerts: toasts for new red items (≤ 3) with first fix + Show | `notification` with actions | `notification` | G | built (M2) |
+| 77 | Away strip: "While the window was closed · for", events, Open Needs you, Got it (`v/away.go`) | banner with `Presence` enter | — | G+L | built (M2) |
 | 78 | PreflightSheet: checks before Up (folder, doze.hcl loads, ports free via lsof + bind probe, holders own/other user/other stack, domains trusted); fixes stop pid / up without X / anyway / edit / repair (`s/preflight.go` 453) | port to `doze-desk::preflight`; `sheet` | `sheet` | C+L | built (M2) |
 | 79 | Instance preflight before wake (`PreflightInstance*`) | same module | — | G+L | built (M2) |
 

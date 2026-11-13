@@ -100,9 +100,10 @@ fn rows(t: &Tokens, v: &DialogView) -> Option<AnyElement> {
         return None;
     }
     let lines = rows.iter().enumerate().map(|(i, r)| {
+        // Go's `.kv`: the dot and the word centred against a value that wraps.
         let line = div()
             .flex()
-            .items_start()
+            .items_center()
             .gap(px(12.))
             .px(px(12.))
             .py(px(8.))
@@ -110,7 +111,7 @@ fn rows(t: &Tokens, v: &DialogView) -> Option<AnyElement> {
         if r.k.is_empty() {
             return line.child(div().text_color(t.dim).child(s(&r.v)));
         }
-        line.child(div().pt(px(6.)).child(dot(t.good)))
+        line.child(dot(t.good))
             .child(
                 div()
                     .w(px(120.))
