@@ -289,6 +289,7 @@ pub(crate) enum Event {
 /// What the Lab forces on a group. Each is the step the group takes for the same cause by itself, taken now: a member's session
 /// timer running out, or a change the members cause (a new epoch, a new generation). Nothing is a transition of its own.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(not(feature = "inspect"), allow(dead_code))]
 pub(crate) enum Force {
     /// A member's session runs out.
     Expire(MemberId),

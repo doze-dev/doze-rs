@@ -25,7 +25,9 @@ pub(crate) use expiry::first_expiry;
 pub(crate) use group::Settings;
 #[cfg(feature = "inspect")]
 pub(crate) use inspect::{Inspect, MemberInspect};
+#[cfg(feature = "inspect")]
 pub(crate) use machine::Force;
+#[cfg(feature = "inspect")]
 pub(crate) use machine::Forced;
 pub(crate) use machine::State;
 pub(crate) use machine::{

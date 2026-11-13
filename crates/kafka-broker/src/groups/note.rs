@@ -68,6 +68,7 @@ impl Reason {
         (!kept.is_empty()).then(|| Self(kept.into()))
     }
 
+    #[cfg_attr(not(feature = "inspect"), allow(dead_code))]
     pub(crate) fn as_str(&self) -> &str {
         &self.0
     }

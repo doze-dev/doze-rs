@@ -20,7 +20,7 @@ mod refusals;
 mod tape;
 
 pub use clients::{clients_body, clients_drawer};
-pub use commands::{FetchCommands, fetch_commands, shell_word};
+pub use commands::{FetchCommands, fetch_commands, keyed_produce, shell_word};
 pub use docks::{GROUP_WIRE, TOPIC_WIRE, group_wire_fragment, group_wire_page, topic_dock};
 pub use drawers::{
     Kind as RequestKind, Limits as RequestLimits, detail_body, detail_heading_id, request_body,
@@ -29,5 +29,8 @@ pub use drawers::{
 pub use first::first_page;
 pub use page::{LIVE_STATS, live_fragment, live_page, state_crumb, stats_fragment};
 pub use parts::{LIVE_FRAGMENT, LIVE_VIEW, wire_url};
-pub use refusals::{fenced_body, refused_body, too_large_body};
+pub use refusals::{
+    Rule as RequestRule, fenced_body, fenced_rules, refused_body, refused_rules, too_large_body,
+    too_large_rules,
+};
 pub use tape::{Layout, table, tail_rows};

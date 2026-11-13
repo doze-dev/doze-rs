@@ -1,6 +1,7 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { ExternalLinkIcon } from "lucide-react";
 import { useShell } from "@/api/queries";
+import logo from "@/assets/doze-kafka.svg";
 import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarHeader, SidebarMenu, SidebarMenuBadge, SidebarMenuButton, SidebarMenuItem, SidebarRail } from "@/components/ui/sidebar";
 import { number } from "@/lib/format";
 import { isActive, NAV } from "./nav";
@@ -12,10 +13,7 @@ export function AppSidebar() {
     <Sidebar collapsible="icon" data-testid="sidebar">
       <SidebarHeader className="h-[52px] justify-center border-b border-sidebar-border px-4 group-data-[collapsible=icon]:px-2">
         <Link to="/" className="flex items-center gap-2.5 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring/50" aria-label="doze-kafka, Home">
-          <svg viewBox="0 0 32 32" className="size-6 shrink-0" aria-hidden>
-            <rect width="32" height="32" rx="8" fill="#7a4fe0" />
-            <path d="M9 10h14L9 22h14" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
+          <img src={logo} alt="" width={28} height={28} className="size-7 shrink-0" draggable={false} />
           <span className="text-[16px] font-semibold tracking-[-0.01em] text-bright group-data-[collapsible=icon]:hidden">doze-kafka</span>
         </Link>
       </SidebarHeader>

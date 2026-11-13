@@ -2,6 +2,6 @@
 import type { DeleteRecordsRefused } from "./DeleteRecordsRefused";
 
 /**
- * A refused delete-records (the `detail` of a 422).
+ * A refused delete-records (the `detail` of a refused outcome).
  */
 export type RecordsRefusedAnswer = { refused: DeleteRecordsRefused, sentence: string, };

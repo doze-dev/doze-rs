@@ -2,7 +2,7 @@
 import type { ProduceRefused } from "./ProduceRefused";
 
 /**
- * A refused produce (the `detail` of a 422).
+ * A refused produce (the `detail` of a refused outcome).
  */
 export type ProduceRefusedAnswer = { refused: ProduceRefused, 
 /**

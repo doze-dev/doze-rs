@@ -17,7 +17,8 @@ use crate::ui::overlay::{Kind as OverlayKind, frame};
 
 /// What the broker says about the topic now, read when the drawer opens: the rules of a refusal are shown against it, and
 /// the page says "now" because the topic may have changed since the request.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "RequestLimits"))]
 pub struct Limits {
     pub cleanup: Option<String>,
     /// `max.message.bytes` in force, and whether the topic sets it (else the broker's value applies).
@@ -25,7 +26,9 @@ pub struct Limits {
 }
 
 /// Which drawer a request opens.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "RequestKind"))]
+#[serde(rename_all = "snake_case")]
 pub enum Kind {
     Detail,
     Refused,

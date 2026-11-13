@@ -2,7 +2,7 @@
 import type { ConfigRefused } from "./ConfigRefused";
 
 /**
- * A refused save (the `detail` of a 422).
+ * A refused save (the `detail` of a refused outcome).
  */
 export type ConfigRefusedAnswer = { refused: ConfigRefused, sentence: string, 
 /**

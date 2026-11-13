@@ -2,7 +2,7 @@
 import type { Created } from "./Created";
 
 /**
- * What a create made (200).
+ * What a create made.
  */
 export type CreatedAnswer = { created: Created, 
 /**
