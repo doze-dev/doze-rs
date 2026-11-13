@@ -60,6 +60,15 @@ pub(crate) fn said_of(snap: &words::Snapshot, now: SystemTime) -> HashMap<String
     let mut out = HashMap::new();
     for v in &snap.instances {
         let mut head: Vec<String> = Vec::new();
+        // A band card says what it is first (Go `share`): "brought in by you", else its engine ("postgres 16").
+        match v.kind {
+            Kind::Service => head.push("brought in by you".to_owned()),
+            Kind::App | Kind::Task => {}
+            _ => {
+                let e = crate::model::engine_version(v);
+                head.push(if e.is_empty() { "module".to_owned() } else { e });
+            }
+        }
         let lang = lang_name(&v.run);
         if !lang.is_empty() {
             head.push(lang.to_owned());
@@ -140,7 +149,7 @@ pub(crate) fn lines(l: &Layout, c: &Card, s: &Said, now: SystemTime) -> Vec<Line
     if c.role == Role::Shared {
         let users = names(&c.uses, false);
         let v = if users.is_empty() {
-            "nothing uses it".to_owned()
+            "no app".to_owned()
         } else {
             users.join(", ")
         };

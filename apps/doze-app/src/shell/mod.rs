@@ -285,6 +285,7 @@ impl Render for Root {
         #[cfg(feature = "fixtures")]
         crate::driver::frame();
         crate::motion::set_reduced(cx.reduce_motion());
+        crate::motion::frame();
         self.follow_system(window, cx);
         let t = tokens(cx);
         let page = match &self.screen {

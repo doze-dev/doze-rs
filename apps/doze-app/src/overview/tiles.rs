@@ -59,7 +59,11 @@ pub(super) fn row_switch(
     cx: &mut Context<OverviewView>,
 ) -> AnyElement {
     let n = r.name.clone();
-    let say = cx.listener(move |this, _, _, cx| this.toggle_row(&n, cx));
+    // The switch is not a press on the tile: it neither selects it nor counts towards a double click (Go stops it).
+    let say = cx.listener(move |this, _, _, cx| {
+        cx.stop_propagation();
+        this.toggle_row(&n, cx);
+    });
     let id = gpui::SharedString::from(format!("sw-{}", r.name));
     if r.kind == "task" {
         if r.down {

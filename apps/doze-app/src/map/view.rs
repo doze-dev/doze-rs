@@ -374,8 +374,10 @@ impl Render for MapView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let t = tokens(cx);
         let (_, _, w, h) = self.viewport.get();
+        // A small map is fitted again when its box changes width, as Go's re-measures (ResizeObserver).
+        let narrower = (self.cam.size.0 - w).abs() > 0.5 && self.small();
         self.cam.size = (w, h);
-        if !self.cam.fitted && w > 1.0 && !self.layout.cards.is_empty() {
+        if (!self.cam.fitted || narrower) && w > 1.0 && !self.layout.cards.is_empty() {
             self.refit();
         }
         let now = std::time::Instant::now();
@@ -405,7 +407,7 @@ impl Render for MapView {
                 cx.listener(|this, ev, _, cx| this.mouse_up(ev, cx)),
             )
             .on_hover(cx.listener(|this, over: &bool, _, cx| {
-                if !*over && this.hover.take().is_some() {
+                if !*over && (this.hover.take().is_some() | this.framed.take().is_some()) {
                     cx.notify();
                 }
             }))

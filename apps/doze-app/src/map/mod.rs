@@ -62,7 +62,7 @@ pub(crate) enum MapEvent {
     /// Open a card's instance: ⏎ on the selected card, or a double click.
     Open(String),
     /// A card was selected: the page's selection follows.
-    Select(String),
+    Select(Option<String>),
 }
 
 impl gpui::EventEmitter<MapEvent> for MapView {}
@@ -282,9 +282,8 @@ impl MapView {
         }
         self.lit = id;
         // The page's selection follows (Go `pick`): space then wakes or sleeps the card selected.
-        if let Some(c) = id.and_then(|i| self.layout.card(i)) {
-            cx.emit(MapEvent::Select(c.name.clone()));
-        }
+        let name = id.and_then(|i| self.layout.card(i)).map(|c| c.name.clone());
+        cx.emit(MapEvent::Select(name));
         cx.notify();
     }
 

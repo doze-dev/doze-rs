@@ -67,7 +67,7 @@ pub(crate) struct Page {
 }
 
 /// A module's engine and its version (`postgres 17.2`), without a `builtin` prefix, as the words write it.
-fn engine_version(i: &words::Instance) -> String {
+pub(crate) fn engine_version(i: &words::Instance) -> String {
     let version = i
         .version
         .strip_prefix("builtin")

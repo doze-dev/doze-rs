@@ -25,7 +25,7 @@ fn enter(el: gpui::Div, id: SharedString, motion: Motion) -> AnyElement {
         (220, 8.0)
     };
     el.with_animation(id, crate::motion::go_anim(ms), move |d, p| {
-        d.opacity(p).mt(px(from * (1.0 - p)))
+        d.relative().opacity(p).top(px(from * (1.0 - p)))
     })
     .into_any_element()
 }

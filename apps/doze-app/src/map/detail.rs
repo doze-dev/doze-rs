@@ -207,20 +207,16 @@ fn detail_head(
         })
 }
 
-/// Where the detail card goes: on a small map, the place the layout keeps clear of the cards (Go's flow.go); on a
-/// large one, the corner the card is not in.
+/// Where the detail card goes: on a small map, Go's place, fixed in the box while the drawing scrolls under it (`right:
+/// 12px; top: m.detail.y`, the first height where it clears the cards); on a large one, the corner the card is not in.
 fn detail_at(m: &MapView, width: f32, height: f32) -> (f32, f32) {
-    let (gx, gy) = m.cam.to_screen(m.layout.detail.x, m.layout.detail.y);
-    let fits = m.layout.mode == Mode::Classic
-        && gx >= 0.
-        && gy >= 0.
-        && gx + width <= m.cam.size.0
-        && gy + height <= m.cam.size.1;
-    if fits {
-        (gx, gy)
-    } else {
-        corner(m, (width, height), true, 12.)
+    if m.small() {
+        return (
+            (m.cam.size.0 - width - 12.).max(0.),
+            m.layout.detail.y as f32,
+        );
     }
+    corner(m, (width, height), true, 12.)
 }
 
 /// One row of the detail card: its key, its words in their tone, and a dim tail.

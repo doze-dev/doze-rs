@@ -146,8 +146,16 @@ impl OverviewView {
         cx.subscribe(
             &map,
             |this: &mut OverviewView, _, ev: &crate::map::MapEvent, cx| {
+                // The Map's selection is the page's on the Map (Go: its keys act on `lit`): a card let go lets the row go.
                 if let crate::map::MapEvent::Select(name) = ev {
-                    this.select(name, cx);
+                    match name {
+                        Some(n) => this.select(n, cx),
+                        None if this.view == View::Map => {
+                            this.selected = None;
+                            cx.notify();
+                        }
+                        None => {}
+                    }
                 }
             },
         )

@@ -93,7 +93,7 @@ fn toast(t: &Tokens, x: &Toast, motion: Motion, cx: &mut Context<ToastsView>) ->
     el.with_animation(
         SharedString::from(format!("toast-in-{id}")),
         crate::motion::go_anim(220),
-        move |d, p| d.opacity(p).mt(px(8.0 * (1.0 - p))),
+        move |d, p| d.relative().opacity(p).top(px(8.0 * (1.0 - p))),
     )
     .into_any_element()
 }

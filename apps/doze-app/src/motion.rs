@@ -85,11 +85,46 @@ struct Blend {
 
 thread_local! {
     static BLENDS: RefCell<HashMap<String, Blend>> = RefCell::new(HashMap::new());
+    /// The frame being drawn, and the frame each id was last drawn in.
+    static SEEN: RefCell<(u64, HashMap<String, u64>)> = RefCell::new((0, HashMap::new()));
+}
+
+fn seen(id: &str) {
+    SEEN.with(|s| {
+        let mut s = s.borrow_mut();
+        let f = s.0;
+        s.1.insert(id.to_owned(), f);
+    });
+}
+
+/// A new frame: what was not drawn in the last one is forgotten, so an element that went away while under the pointer
+/// comes back unhovered, and one that changed while its page was hidden comes back where it is rather than easing
+/// from where it was.
+pub(crate) fn frame() {
+    let gone: Vec<String> = SEEN.with(|s| {
+        let mut s = s.borrow_mut();
+        let last = s.0;
+        s.0 += 1;
+        let gone =
+            s.1.iter()
+                .filter(|(_, f)| **f < last)
+                .map(|(k, _)| k.clone())
+                .collect();
+        s.1.retain(|_, f| *f >= last);
+        gone
+    });
+    if gone.is_empty() {
+        return;
+    }
+    BLENDS.with(|b| b.borrow_mut().retain(|k, _| !gone.contains(k)));
+    SLIDES.with(|b| b.borrow_mut().retain(|k, _| !gone.contains(k)));
+    HOVERED.with(|b| b.borrow_mut().retain(|k| !gone.contains(k)));
 }
 
 /// The colour the element `id` shows now on its way to `to` (a 120 ms ease-out from where it was when `to` last
 /// changed), and whether it is still moving (the caller asks for another frame while it is).
 pub(crate) fn colour(id: &str, to: Hsla) -> (Hsla, bool) {
+    seen(id);
     BLENDS.with(|b| {
         let mut b = b.borrow_mut();
         let now = Instant::now();
@@ -161,6 +196,7 @@ thread_local! {
 /// Where the knob `id` is now on its way to `to` (120 ms ease-out from where it was when `to` changed; the first
 /// time an id is seen it is already there), and whether it is still moving.
 pub(crate) fn slide(id: &str, to: f32) -> (f32, bool) {
+    seen(id);
     SLIDES.with(|s| {
         let mut s = s.borrow_mut();
         let now = Instant::now();
@@ -200,6 +236,7 @@ pub(crate) fn hovered(id: &str) -> bool {
 
 /// Keeps track of whether the element `id` is under the pointer, for [`colour`] to ease towards its hover colours.
 pub(crate) fn track<E: gpui::StatefulInteractiveElement>(el: E, id: &str) -> E {
+    seen(id);
     let id = id.to_owned();
     el.on_hover(move |over, window, _| {
         let changed = HOVERED.with(|h| {
