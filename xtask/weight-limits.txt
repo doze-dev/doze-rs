@@ -73,4 +73,11 @@ doze-kafka 9000000 159 8192 --listen 127.0.0.1:{port} --data-dir {data}
 # first time); the fourth counted line is a repeat line from a new edge. The bytes: both models' tables (124 + 103 operations), both control planes, the execute-api plane (VTL subset,
 # OpenAPI/YAML reader, JWT, WebSocket framing, HTTP client). Byte limit = the musl size plus 5% = 8,674,000, rounded to 8,700,000 B (87% of the 10 MB ceiling; Step Functions and
 # CloudFormation are still to come, about 1.7 MB of room); packages 240 unchanged (237 measured).
-doze-aws 8700000 240 6144 --listen 127.0.0.1:{port} --data-dir {data}
+# 2026-11-13, A14 Step Functions (branch aws-a14-stepfunctions, alone on the 4,867,344 B / 233 package base): 6,046,432 B on darwin/arm64, 248 packages, 4,832 KB idle
+# (+1,179 KB, +15 packages). Cross-built for x86_64-unknown-linux-musl: 9,388,976 B (+1.91 MB over 7,481,552). Of that, JSONata (jlens-core, its regex engine jlens-regress,
+# stacker and psm, and serde_json's preserve_order which jlens-core turns on for every crate) is 1.26 MB: the same tree with JSONata stubbed out is 8,100,144 B on Linux.
+# New third-party packages, all from jlens-core: jlens-core, jlens-regress, stacker, psm (with ar_archive_writer and object at build time: psm assembles a file, so a C
+# compiler for the target is needed to build), ryu-js, web-time; and, new to doze-aws though already in the lock, indexmap, equivalent, hashbrown, foldhash. JSONata is the default
+# "jsonata" feature of aws-asl and aws-sfn, so it can be left out of a build. Byte limit = the musl size plus 5% = 9,858,000, rounded to 9,900,000 B; packages 252
+# (248 plus 4). THIS IS OVER the owner's 9 MB CI default and leaves 0.1 MB of the 10 MB ceiling for API Gateway and CloudFormation: a decision for the owner (stage note).
+doze-aws 9900000 252 6144 --listen 127.0.0.1:{port} --data-dir {data}

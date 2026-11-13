@@ -37,6 +37,10 @@ pub(crate) async fn run(args: Args) -> Result<()> {
     config.credential_source = Some(iam.clone());
     let (cloudwatch, logs) = observability(&ctx, &args);
     let eventbridge = Arc::new(Eventbridge::new(Arc::new(ctx("eventbridge"))));
+    let states = Arc::new(aws_sfn::Sfn::with_config(
+        Arc::new(ctx("states")),
+        states_config(),
+    ));
     let (sqs, dynamodb, kinesis, lambda) = compute(&ctx, &args);
     let services: Vec<Arc<dyn Service>> = vec![
         iam,
@@ -53,6 +57,7 @@ pub(crate) async fn run(args: Args) -> Result<()> {
         cloudwatch.clone(),
         eventbridge.clone(),
         lambda.clone(),
+        states.clone(),
     ];
     let mut gateway = Gateway::new(config);
     for service in services {
@@ -71,6 +76,8 @@ pub(crate) async fn run(args: Args) -> Result<()> {
     // Event source mappings that were enabled when the process last stopped poll again; functions find the other services here.
     lambda.set_endpoint(&format!("http://{}", running.local_addr()));
     lambda.resume().await;
+    // Executions that were running when the process last stopped carry on: calls that were out are made again, waits re-armed.
+    states.resume().await;
     // The line a supervisor (and the conformance harness) waits for.
     tracing::info!("doze-aws listening on {}", running.local_addr());
     wait_for_stop().await;
@@ -184,6 +191,23 @@ fn lambda_config(args: &Args) -> aws_lambda::Config {
         },
         quiet: args.lambda_quiet,
     }
+}
+
+/// Step Functions' local-testing settings, from the environment: `DOZE_SFN_WAIT_SCALE` (every Wait and retry interval multiplied by
+/// it) and `SFN_MOCK_CONFIG` (Step Functions Local's mock configuration file; `DOZE_SFN_MOCK_CONFIG` also works).
+fn states_config() -> aws_sfn::Config {
+    let env = |name: &str| std::env::var(name).ok().filter(|v| !v.is_empty());
+    let mut config = aws_sfn::Config::default();
+    if let Some(scale) = env("DOZE_SFN_WAIT_SCALE").and_then(|s| s.parse::<f64>().ok()) {
+        config.wait_scale = scale.max(0.0);
+    }
+    if let Some(path) = env("DOZE_SFN_MOCK_CONFIG").or_else(|| env("SFN_MOCK_CONFIG")) {
+        match aws_sfn::Config::read_mocks(std::path::Path::new(&path)) {
+            Ok(mocks) => config.mocks = Some(mocks),
+            Err(e) => tracing::warn!("step functions: the mock configuration is not used: {e}"),
+        }
+    }
+    config
 }
 
 /// Resolves on Ctrl-C or, on Unix, SIGTERM.
