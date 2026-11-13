@@ -87,4 +87,9 @@ doze-kafka 9000000 159 8192 --listen 127.0.0.1:{port} --data-dir {data}
 # provisioning engine and rollback, about 130 resource types written against the other services' operations, and the CloudFormation model (90
 # operations). The limit had to move or CI fails: the musl size plus 5% = 9,098,031, rounded to 9,100,000 B; packages unchanged at 240. This is past the
 # owner's 9 MB CI default and leaves 0.9 MB of the 10 MB ceiling for Step Functions and API Gateway: the size decision PLAN records as pending is now due.
-doze-aws 9900000 252 6144 --listen 127.0.0.1:{port} --data-dir {data}
+# 2026-11-13, every service the Go edition served, merged (A14 + A15 + A16 together on the main line): 7,444,224 B on darwin/arm64, 258 packages, 5,344 KB idle.
+# Cross-built for x86_64-unknown-linux-musl: 11,764,560 B (10,561,264 B with aws-sfn's "jsonata" feature off, so JSONata is 1.20 MB of it). JSONata's psm needs a C compiler
+# and an ELF archiver for the target: CC_x86_64_unknown_linux_musl = a clang --target=x86_64-unknown-linux-musl wrapper, AR_x86_64_unknown_linux_musl = llvm-ar.
+# The owner raised doze-aws's ceiling from 10 MB to 20 MB ("Bump to 20 MB. Just use the freedom wisely", 2026-11-13); JSONata stays in. This line stays tight so that
+# every increase is still argued here: byte limit = the musl size plus 5% = 12,352,788, rounded to 12,400,000 B; packages 264 (258 plus 6).
+doze-aws 12400000 264 6144 --listen 127.0.0.1:{port} --data-dir {data}
