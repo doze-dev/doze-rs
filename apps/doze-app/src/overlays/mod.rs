@@ -2,8 +2,14 @@
 //! with a short fade and a few pixels of travel (the owner's bar: gentle, 120–280 ms), and simply appears when the
 //! system reduces motion.
 
+pub(crate) mod alerts;
+pub(crate) mod bell;
+mod bell_calm;
 pub(crate) mod help;
 pub(crate) mod palette;
+mod palette_view;
+#[cfg(all(test, feature = "capture"))]
+mod tests;
 
 use gpui::{
     Animation, AnimationExt as _, AnyElement, BoxShadow, IntoElement, SharedString, div, point,
@@ -16,6 +22,8 @@ use crate::theme::{Motion, Tokens, alpha};
 pub(crate) enum Overlay {
     Palette(gpui::Entity<palette::Palette>),
     Help,
+    /// Needs you, under the bell.
+    Bell(gpui::Entity<bell::Bell>),
 }
 
 /// The shadow an overlay casts.
