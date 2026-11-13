@@ -80,7 +80,19 @@ impl<F: Fs> ConsoleView<'_, F> {
         let found = b.meta.topic(&TopicName::parse(topic).ok()?)?;
         let id = PartitionId::new(partition).filter(|p| p.get() < found.partitions.get())?;
         let was_open = b.partitions.is_open(found.id, id);
-        let open = b.partitions.get(&found, id).await.ok()?;
+        // A partition never written is not opened: opening makes its first segment, and a read must write nothing.
+        let Some(open) = b.partitions.get_unless_empty(&found, id).await.ok()? else {
+            return Some(PartitionProducers {
+                topic: topic.to_owned(),
+                partition,
+                now_ms: clock::now().get(),
+                start: 0,
+                end: 0,
+                last_stable: 0,
+                producers: Vec::new(),
+                aborted: Vec::new(),
+            });
+        };
         let seen = open.txns().await.ok();
         let windows = open.windows().await.ok();
         let stable = open.stability();
