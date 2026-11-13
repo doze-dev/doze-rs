@@ -14,7 +14,8 @@ fn m(s: impl Into<String>) -> Span {
 }
 
 /// The oldest segment that is past retention now or will be, and when its turn comes.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "LogExpiry"))]
 pub struct Expiry {
     /// The segments (counting from the oldest, as the page numbers them) a pass run now would delete.
     pub going_now: usize,

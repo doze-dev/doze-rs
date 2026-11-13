@@ -17,7 +17,7 @@ export type DataColumn<T> = ColumnDef<T> & {
 /** A table whose layout never depends on its rows (CON-808): fixed column widths, one line per cell with an ellipsis and the
  * whole value on hover (`title`), a sticky header, stable row ids (React keys), numbers right-aligned in tabular figures,
  * a fixed row height, and a virtual body past {@link VIRTUAL_FROM} rows. */
-export function DataTable<T>({ data, columns, rowId, empty, maxHeight = 560, className, "aria-label": ariaLabel, onRowClick }: { data: T[]; columns: DataColumn<T>[]; rowId: (row: T) => string; empty?: React.ReactNode; maxHeight?: number; className?: string; "aria-label"?: string; onRowClick?: (row: T) => void }) {
+export function DataTable<T>({ data, columns, rowId, empty, maxHeight = 560, className, "aria-label": ariaLabel, onRowClick, rowHeight = ROW, rowClassName }: { data: T[]; columns: DataColumn<T>[]; rowId: (row: T) => string; empty?: React.ReactNode; maxHeight?: number; className?: string; "aria-label"?: string; onRowClick?: (row: T) => void; /** px; 40 unless a row holds two lines. */ rowHeight?: number; /** A class per row (a new row of a tail is highlighted). */ rowClassName?: (row: T) => string | undefined }) {
   const [sorting, setSorting] = useState<SortingState>([]);
   // TanStack Table returns functions that change identity on purpose; the React compiler lint knows and says so.
   // eslint-disable-next-line react-hooks/incompatible-library
@@ -25,7 +25,7 @@ export function DataTable<T>({ data, columns, rowId, empty, maxHeight = 560, cla
   const rows = table.getRowModel().rows;
   const virtual = rows.length > VIRTUAL_FROM;
   const scroller = useRef<HTMLDivElement>(null);
-  const v = useVirtualizer({ count: virtual ? rows.length : 0, getScrollElement: () => scroller.current, estimateSize: () => ROW, overscan: 12 });
+  const v = useVirtualizer({ count: virtual ? rows.length : 0, getScrollElement: () => scroller.current, estimateSize: () => rowHeight, overscan: 12 });
   const items = virtual ? v.getVirtualItems() : [];
   const shown = virtual ? items.map((i) => ({ row: rows[i.index]!, at: i.index })) : rows.map((row, at) => ({ row, at }));
   const padTop = virtual && items.length ? items[0]!.start : 0;
@@ -64,13 +64,13 @@ export function DataTable<T>({ data, columns, rowId, empty, maxHeight = 560, cla
         <tbody>
           {padTop > 0 && <tr aria-hidden style={{ height: padTop }} />}
           {shown.map(({ row: r, at }) => (
-            <tr key={r.id} id={`r-${r.id}`} data-row={r.id} aria-rowindex={at + 2} className={cn("group h-10", onRowClick && "cursor-pointer")} onClick={onRowClick ? () => onRowClick(r.original) : undefined}>
+            <tr key={r.id} id={`r-${r.id}`} data-row={r.id} aria-rowindex={at + 2} className={cn("group", onRowClick && "cursor-pointer", rowClassName?.(r.original))} style={{ height: rowHeight }} onClick={onRowClick ? () => onRowClick(r.original) : undefined}>
               {r.getVisibleCells().map((c) => {
                 const meta = (c.column.columnDef as DataColumn<T>).meta;
                 const raw = c.getValue();
                 const title = typeof raw === "string" || typeof raw === "number" ? String(raw) : undefined;
                 return (
-                  <td key={c.id} title={title} className={cn("h-10 overflow-hidden border-b px-3 text-ellipsis whitespace-nowrap group-last:border-b-0 group-hover:bg-accent/40", meta?.numeric && "text-right tabular-nums", meta?.mono && "font-mono text-[12.5px]")}>
+                  <td key={c.id} title={title} style={{ height: rowHeight }} className={cn("overflow-hidden border-b px-3 text-ellipsis whitespace-nowrap group-last:border-b-0 group-hover:bg-accent/40", meta?.numeric && "text-right tabular-nums", meta?.mono && "font-mono text-[12.5px]")}>
                     {flexRender(c.column.columnDef.cell, c.getContext())}
                   </td>
                 );

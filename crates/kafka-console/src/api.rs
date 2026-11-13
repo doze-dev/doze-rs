@@ -24,6 +24,7 @@ use crate::model::{ConnectView, HomeState, HomeView, ProbeView, Span};
 use crate::state::Shared;
 use crate::{origin, snippets, words};
 
+pub mod topics;
 #[cfg(test)]
 mod types;
 
@@ -326,6 +327,7 @@ pub fn routes(web: &crate::base::Base) -> Router<Shared> {
         .route(&web.url("/api/v1/probe"), post(probe))
         .route(&web.url("/api/v1/shell"), get(shell))
         .route(&web.url("/api/v1/jump"), get(jump))
+        .merge(topics::routes(web))
         .route_layer(from_fn(guard))
 }
 
@@ -336,4 +338,11 @@ pub const GET_PATHS: &[&str] = &[
     "/api/v1/shell",
     "/api/v1/jump",
     "/api/v1/jump?q=or",
+    // R1a: the Topics pages. Messages and a record are not here: showing a record's key, value and headers is their job.
+    "/api/v1/topics",
+    "/api/v1/topics?q=or&internal=1",
+    "/api/v1/topics/orders",
+    "/api/v1/topics/orders/consumers",
+    "/api/v1/topics/orders/log",
+    "/api/v1/topics/orders/producers",
 ];
