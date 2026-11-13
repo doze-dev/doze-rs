@@ -223,3 +223,47 @@ a row class for the tail's highlight), `index.css` (the new-row keyframes).
 
 **Gate**: Firefox, WebKit, Chromium 45/45 each on the seeded world (R0's and R1a's specs), and R1a's specs against a broker with
 traffic. Weight: doze-kafka 6,244,400 B darwin (R0 6,161,072), 160 packages.
+
+## R1b done (2026-11-14, branch `react-r1b`): Topics, the write side and Config
+
+**Pages and overlays.** `/topics/new` (`web/src/pages/topics/create.tsx`, its own chunk with zod): Create topic as a page of three
+steps (shadcn Tabs as a stepper, `?step=` in the address, Back returns to the step with what was typed, `?name=` to start from; the
+list's `?dialog=create&name=` lands here), react-hook-form + a zod schema for what can be said at once, then the server's checks as
+you type: the form view (taken, colliding, the limits, the call, the terminal command) and, once nothing is wrong, the same
+CreateTopics with `validate_only`, its answer under the name ("Kafka would take this" or Kafka's code and sentence). Check only,
+Create, the created state (banner, next steps with the kcat commands, Produce a record), the refused state (Kafka's words, Open the
+existing topic, Choose another name, the other refusals, the answer). The write overlays (`pages/topics/writes/`) fill R1a's
+`TopicOverlays` (`?dialog=produce|add-partitions|delete-records|delete`, `&partition=` for Delete records): Produce (partition
+Select with auto, key, value with a JSON hint, header rows added and removed, acks ToggleGroup, the teaching folded, the call the
+server draws for what is typed; in place: the partition and offset the log chose, whether read_committed sees it, the answer; or
+the refusal), Add partitions (the field starts at one more, the unit says what it adds, the button counts it), Delete records
+(partition Select, the offset, the server's preview of what goes and which groups are below it), Delete topic (type the name, who
+uses it; after, the list and a toast). Buttons stay in reach (a sticky footer). The Config tab (`pages/topics/config.tsx`, R1a's
+route, `?q=` and `?show=changed|compaction|segments` in the address, Back restores them): changed configs first, then the groups
+(replication folded), each row with value and gloss, source badge, Kafka's first sentence, when a change counts, "Where from" and
+"Kafka's text" as Collapsibles (the scroll and the address stay), Edit/Reset in a DropdownMenu on a value the topic sets; the edit
+Dialog (`?edit=`: one value, a list with append/subtract/set, the two lags together; Check and Save; checked, saved with before and
+after and when the broker reads it, or refused with what would pass and Edit again) and Reset (`?reset=`). After any write every
+page query is marked stale (the form previews excepted), so the page under the overlay shows the new state without a reload.
+
+**Endpoints** (`crates/kafka-console/src/api/topic_writes.rs`, `topic_admin.rs`, `config.rs`, `config_edit.rs`): `GET`/`POST
+/api/v1/create-topic`, `/api/v1/topics/{topic}/produce`, `/add-partitions`, `/delete-records`, `/delete`, `GET
+/api/v1/topics/{topic}/config`, `GET`/`POST .../config/edit`, `.../config/reset`. POSTs are form-encoded, as the classic forms, through
+the same `Source` calls; every answer to a write is a 200 with `outcome` (`done`, `refused` with Kafka's name and the broker's
+sentence and `detail`, `invalid`), as R2; a missing topic or config is `{missing}`, as R1a. The dialogs' words that are made from
+data (teaching, button labels, the Delete records preview, who uses a topic) moved from the page layer to `write_words.rs`, so R5 can
+remove the maud pages. Catalogue CON-1150 to CON-1160.
+
+**Shared files touched** (small): `router.tsx` (`/topics/new`, `configSearch` on R1a's Config route), `api.rs` (four merges,
+`GET_PATHS`), `api/types.rs` (two functions), `lib/search.ts` (three parsers), `api/client.ts` (`ApiFailure.detail`), R1a's
+`pages/topics/overlays.tsx` (filled) and `config.tsx` (replaced), `e2e/tests/topic-tabs.spec.ts` (the Delete records dialog now
+opens, so the test closes it), `components/ui/collapsible.tsx` (shadcn CLI), model derives (`model/write.rs`, `model/config.rs`,
+`Cleanup`).
+
+**Gate.** Playwright `topic-writes.spec.ts` (12 scenarios) and `topic-config.spec.ts` (7) with everything on main; numbers in the
+report of the slice. Rust: `tests/live_api_writes.rs`, `live_api_config.rs` over a real broker.
+
+**Not supplied / differences.** The Config rows are a fixed-column list, not the DataTable (rows wrap and open panels under them);
+the Produced state is in the dialog, not the board's page with the topic's table (the Messages page under the dialog refetches);
+the created state replaces the form on `/topics/new` rather than a page of its own address; the board's cleaner verdict ("61 % of
+the log is dirty") the broker cannot supply (debt J121, as the classic page).
