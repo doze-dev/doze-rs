@@ -47,7 +47,7 @@ export function MultiSelect({ options, value, onChange, noun = "items", classNam
               <CommandList>
                 {!offer && <CommandEmpty>No {noun} match.</CommandEmpty>}
                 {offer && (
-                  <CommandGroup>
+                  <CommandGroup forceMount>
                     <CommandItem
                       forceMount
                       value={`use: ${own}`}

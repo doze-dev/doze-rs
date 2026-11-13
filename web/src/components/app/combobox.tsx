@@ -29,7 +29,7 @@ export function Combobox({ options, value, onChange, placeholder = "Choose…", 
           <CommandList>
             {!offer && <CommandEmpty>{empty}</CommandEmpty>}
             {offer && (
-              <CommandGroup>
+              <CommandGroup forceMount>
                 <CommandItem
                   forceMount
                   value={`use: ${own}`}
