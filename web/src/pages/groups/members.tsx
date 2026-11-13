@@ -1,7 +1,7 @@
 // The Members tab, the group's own page (boards group-detail, group-members, group-detail-848, group-rebalancing): the state
 // chooses the layout. A member opens as a Sheet over it (board member-detail), routed by `?member=`.
 import { getRouteApi, Link } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useGroup } from "@/api/groups";
 import type { GroupHead } from "@/api/types/GroupHead";
 import type { GroupLagView } from "@/api/types/GroupLagView";
@@ -39,20 +39,32 @@ function MemberLink({ m, onOpen }: { m: GroupMemberRow; onOpen: Open }) {
   );
 }
 
+const WIDE = "(min-width: 1280px)";
+function subscribeWide(on: () => void) {
+  const m = window.matchMedia(WIDE);
+  m.addEventListener("change", on);
+  return () => m.removeEventListener("change", on);
+}
+/** Whether the window is 1280 px or wider: below it the members table leaves Host and Session to the member's Sheet. */
+function useWide(): boolean {
+  return useSyncExternalStore(subscribeWide, () => window.matchMedia(WIDE).matches, () => true);
+}
+
 function MembersTable({ h, onOpen }: { h: GroupHead; onOpen: Open }) {
+  const wide = useWide();
   // The member column depends on nothing that a refresh changes, so its cells (and the focus in them) stay.
   const memberCol = useMemo<DataColumn<GroupMemberRow>>(() => ({ id: "member", header: "Member id", accessorFn: (m) => m.id, cell: ({ row: { original: m } }) => <MemberLink m={m} onOpen={onOpen} /> }), [onOpen]);
   const cols = useMemo<DataColumn<GroupMemberRow>[]>(
     () => [
       memberCol,
       { id: "client", header: "Client id", size: 140, accessorFn: (m) => m.client_id, meta: { mono: true } },
-      { id: "host", header: "Host", accessorFn: (m) => m.host, meta: { mono: true } },
+      ...(wide ? [{ id: "host", header: "Host", size: 110, accessorFn: (m: GroupMemberRow) => m.host, meta: { mono: true } }] : []),
       { id: "role", header: "Role", size: 92, accessorFn: (m) => role(h, m) },
-      { id: "generation", header: h.protocol === "consumer" ? "Epoch" : "Generation", size: 100, accessorFn: (m) => m.epoch, meta: { numeric: true, mono: true } },
-      { id: "session", header: "Session", size: 80, accessorFn: (m) => (m.session_ms > 0 ? seconds(m.session_ms) : "—"), meta: { mono: true } },
-      { id: "heard", header: "Last heartbeat", size: 120, accessorFn: (m) => heard(h.now_ms, m), meta: { mono: true } },
+      { id: "generation", header: h.protocol === "consumer" ? "Epoch" : "Generation", size: 116, accessorFn: (m) => m.epoch, meta: { numeric: true, mono: true } },
+      ...(wide ? [{ id: "session", header: "Session", size: 96, accessorFn: (m: GroupMemberRow) => (m.session_ms > 0 ? seconds(m.session_ms) : "—"), meta: { mono: true } }] : []),
+      { id: "heard", header: "Last heartbeat", size: 144, accessorFn: (m) => heard(h.now_ms, m), meta: { mono: true } },
     ],
-    [h, memberCol],
+    [h, memberCol, wide],
   );
   return <DataTable data={h.members} columns={cols} rowId={(m) => m.id} aria-label="Members" empty="Nobody is in this group. Its committed offsets stay until the retention date." maxHeight={420} />;
 }
@@ -75,8 +87,8 @@ function ReadsTable({ topics }: { topics: LagTopic[] }) {
         </Link>
       ),
     },
-    { id: "partitions", header: "Partitions", size: 104, accessorFn: (t) => t.partitions, meta: { numeric: true, mono: true } },
-    { id: "committed", header: "Committed to", size: 140, accessorFn: committedTo },
+    { id: "partitions", header: "Partitions", size: 116, accessorFn: (t) => t.partitions, meta: { numeric: true, mono: true } },
+    { id: "committed", header: "Committed to", size: 156, accessorFn: committedTo },
     { id: "lag", header: "Lag", size: 220, accessorFn: (t) => t.behind, cell: ({ row: { original: t } }) => <LagBar pct={share(t.behind, most)} n={t.behind} /> },
   ];
   return <DataTable data={topics} columns={cols} rowId={(t) => t.name} aria-label="Reads" empty="The group has committed on no topic yet." maxHeight={360} />;
