@@ -33,7 +33,15 @@ pub(crate) fn run(b: Bench, launched: Instant) -> ExitCode {
             println!("platform_ready_ms {}", launched.elapsed().as_millis());
             crate::app::boot_core(cx);
             cx.set_activation_policy(ActivationPolicy::Accessory);
-            let tray = crate::tray::Menu::install(&source.hub);
+            // The menu-bar item, Needs you and the notifications, as a launch has them, following the hub.
+            crate::around::start(cx, &source.hub, &source.facts);
+            let updates = source.hub.clone();
+            cx.spawn(async move |cx: &mut AsyncApp| {
+                while updates.updates().recv().await.is_ok() {
+                    cx.update(crate::around::on_batch);
+                }
+            })
+            .detach();
             println!("menu_bar_ready_ms {}", launched.elapsed().as_millis());
             // As a launch does: the window's libraries after the item is up.
             crate::app::boot_ui(cx, Choice::default());
@@ -46,7 +54,7 @@ pub(crate) fn run(b: Bench, launched: Instant) -> ExitCode {
             );
             let (logs, follow) = (b.logs, b.follow);
             cx.spawn(async move |cx: &mut AsyncApp| {
-                let _keep = (src.clone(), tray);
+                let _keep = src.clone();
                 cx.background_executor().timer(Duration::from_secs(2)).await;
                 if logs {
                     logs_bench(cx, src, follow).await;

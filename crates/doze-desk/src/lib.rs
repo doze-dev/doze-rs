@@ -28,6 +28,7 @@ mod events;
 mod hub;
 pub mod library;
 mod name;
+pub mod notify;
 pub mod overview;
 pub mod page;
 pub mod palette;
@@ -36,6 +37,7 @@ mod ring;
 mod select;
 mod series;
 mod stack;
+pub mod tray;
 mod view;
 
 pub use changed::{Batch, Changed, Parts};

@@ -100,6 +100,11 @@ impl Tray {
     }
 
     pub(super) fn set_menu(&self, entries: &[MenuEntry]) {
+        self.item.setMenu(Some(&self.menu(entries)));
+    }
+
+    /// A menu of `entries`, its submenus made the same way.
+    fn menu(&self, entries: &[MenuEntry]) -> Retained<NSMenu> {
         let menu = NSMenu::new(self.mtm);
         menu.setAutoenablesItems(false);
         for e in entries {
@@ -108,6 +113,16 @@ impl Tray {
                 MenuEntry::Note(title) => {
                     let it = self.line(title, None, "");
                     it.setEnabled(false);
+                    it
+                }
+                MenuEntry::Header(title) => {
+                    NSMenuItem::sectionHeaderWithTitle(&NSString::from_str(title), self.mtm)
+                }
+                MenuEntry::Submenu { title, entries } => {
+                    let it = self.line(title, None, "");
+                    let sub = self.menu(entries);
+                    sub.setTitle(&NSString::from_str(title));
+                    it.setSubmenu(Some(&sub));
                     it
                 }
                 MenuEntry::Item { id, title, key } => {
@@ -121,7 +136,20 @@ impl Tray {
             };
             menu.addItem(&item);
         }
-        self.item.setMenu(Some(&menu));
+        menu
+    }
+
+    pub(super) fn set_tooltip(&self, tooltip: &str) {
+        if let Some(button) = self.item.button(self.mtm) {
+            button.setToolTip(Some(&NSString::from_str(tooltip)));
+        }
+    }
+
+    pub(super) fn open_menu(&self) {
+        if let Some(button) = self.item.button(self.mtm) {
+            // SAFETY: a live status bar button on the main thread; a click with no sender opens its menu.
+            unsafe { button.performClick(None) };
+        }
     }
 
     fn line(&self, title: &str, action: Option<Sel>, key: &str) -> Retained<NSMenuItem> {

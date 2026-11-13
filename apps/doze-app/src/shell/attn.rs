@@ -116,7 +116,7 @@ impl Attn {
 }
 
 /// What is wrong now, stack by stack, then the machine's (off the UI thread: a crash's port is looked up with lsof).
-fn items_now(
+pub(crate) fn items_now(
     stacks: &[StackView],
     failed: &HashMap<String, StackFailure>,
     parts: &[MachinePart],
@@ -211,6 +211,8 @@ impl Root {
         self.attn
             .alerts
             .retain(|it| !(it.kind == "failed" && shown.as_deref() == Some(it.key.as_str())));
+        // The menu bar and the notifications read the window's list while it is open (M3).
+        crate::around::window_list(&self.attn.list, cx);
         if changed || self.attn.alerts.len() != before {
             self.bell_follow(cx);
             cx.notify();

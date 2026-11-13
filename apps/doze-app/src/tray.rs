@@ -1,185 +1,179 @@
-//! The menu-bar item, through `doze_os::ui`: a line per stack (● running, ○ stopped, ⚠︎ trouble), Open doze, Search or
-//! do…, and Quit, which leaves the stacks running. It follows the hub while the window is hidden (once a second, see
-//! `source::HIDDEN`); the menu is rebuilt only when what it says changed, and the bat shows its alert mark while
-//! anything is in trouble.
+//! The menu-bar item, through `doze_os::ui`: the menu `doze_desk::tray` describes (Needs you, a line per stack with its
+//! submenu, the app's own lines), the bat with its alert mark while anything is red, the hover line. The menu is
+//! rebuilt only when its signature changes (a countdown in a detail does not count); the item follows the hub while
+//! the window is closed too (once a second, `source::HIDDEN`).
+//!
+//! A line's id is the menu's generation and the line's place, so a pick that arrives after a rebuild is dropped
+//! rather than taken for the line now in its place.
+
+use std::time::SystemTime;
 
 use async_channel::Receiver;
-use doze_desk::{Hub, StackKey, StackView};
-use doze_display as words;
+use doze_desk::StackView;
+use doze_desk::attention::Attention;
+use doze_desk::tray::{self, Cmd, Entry};
 use doze_os::ui::{MenuEntry, Tray, TrayIcon};
 
-/// What a menu line asks for.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) enum Cmd {
-    Open,
-    Palette,
-    Quit,
-    Stack(StackKey),
-}
-
-const OPEN: u32 = 1;
-const PALETTE: u32 = 2;
-const QUIT: u32 = 3;
-/// Stack lines are this plus their place in the list.
-const STACKS: u32 = 100;
-/// Running stacks listed, then stopped ones (Go's 8 and 5).
-const RUNNING_SHOWN: usize = 8;
-const STOPPED_SHOWN: usize = 5;
-
-/// The item and what it last showed.
+/// The item, what it shows, and what its lines ask for.
 pub(crate) struct Menu {
     tray: Tray,
-    shown: Vec<MenuEntry>,
-    keys: Vec<StackKey>,
+    signature: Vec<Entry>,
+    cmds: Vec<Cmd>,
+    generation: u16,
     icon: TrayIcon,
+    tooltip: String,
 }
 
-/// One stack's line and whether it is in trouble.
-fn line(v: &StackView) -> (String, bool) {
-    if !v.running {
-        return (format!("○  {}  ·  stopped", v.name), false);
-    }
-    let t = words::tally(&v.words().instances);
-    if t.trouble > 0 {
-        return (format!("⚠︎  {}  ·  {} in trouble", v.name, t.trouble), true);
-    }
-    (format!("●  {}  ·  {} awake", v.name, t.awake), false)
+/// A line's id: the generation in the high half, its place in the low.
+fn id_of(generation: u16, place: usize) -> u32 {
+    (u32::from(generation) << 16) | u32::try_from(place & 0xffff).unwrap_or(0)
 }
 
-/// The menu for the stacks the hub knows, the stacks its lines open, and whether anything is in trouble.
-pub(crate) fn entries(stacks: &[StackView]) -> (Vec<MenuEntry>, Vec<StackKey>, bool) {
-    let mut out = Vec::new();
-    let mut keys = Vec::new();
-    let mut trouble = false;
-    let (running, stopped): (Vec<&StackView>, Vec<&StackView>) =
-        stacks.iter().partition(|s| s.running);
-    for v in running
+/// The native entries for `entries`, each command's line numbered by its place in `cmds`.
+fn native(entries: &[Entry], generation: u16, cmds: &mut Vec<Cmd>) -> Vec<MenuEntry> {
+    entries
         .iter()
-        .take(RUNNING_SHOWN)
-        .chain(stopped.iter().take(STOPPED_SHOWN))
-    {
-        let (text, bad) = line(v);
-        trouble |= bad;
-        out.push(MenuEntry::item(
-            STACKS + u32::try_from(keys.len()).unwrap_or(0),
-            &text,
-            "",
-        ));
-        keys.push(v.key.clone());
-    }
-    let more =
-        running.len().saturating_sub(RUNNING_SHOWN) + stopped.len().saturating_sub(STOPPED_SHOWN);
-    if more > 0 {
-        out.push(MenuEntry::Note(format!("More stacks · {more}")));
-    }
-    if stacks.is_empty() {
-        out.push(MenuEntry::Note("No stacks yet".into()));
-    }
-    out.push(MenuEntry::Separator);
-    out.push(MenuEntry::item(OPEN, "Open doze", "D"));
-    out.push(MenuEntry::item(PALETTE, "Search or do…", "k"));
-    out.push(MenuEntry::Separator);
-    out.push(MenuEntry::item(
-        QUIT,
-        "Quit doze (stacks keep running)",
-        "q",
-    ));
-    (out, keys, trouble)
+        .map(|e| match e {
+            Entry::Item { cmd, title, key } => {
+                cmds.push(cmd.clone());
+                MenuEntry::item(id_of(generation, cmds.len() - 1), title, key)
+            }
+            Entry::Note(t) | Entry::Detail(t) => MenuEntry::Note(t.clone()),
+            Entry::Header(t) => MenuEntry::Header(t.clone()),
+            Entry::Separator => MenuEntry::Separator,
+            Entry::Submenu { title, entries } => MenuEntry::Submenu {
+                title: title.clone(),
+                entries: native(entries, generation, cmds),
+            },
+        })
+        .collect()
+}
+
+/// The menu as data, for the stacks and the list at `now`; with the alert mark and the hover line.
+pub(crate) fn model(
+    stacks: &[StackView],
+    list: &Attention,
+    now: SystemTime,
+) -> (Vec<Entry>, TrayIcon, String) {
+    let mut m = tray::build(stacks, now);
+    // The mark is what is red and not put aside, as the bell counts it.
+    m.needs_you = list.red > 0;
+    let icon = if m.needs_you {
+        TrayIcon::Alert
+    } else {
+        TrayIcon::Calm
+    };
+    (tray::menu(&m, list, stacks), icon, m.tooltip)
 }
 
 impl Menu {
-    /// Puts the item in the menu bar. `None` where there is no menu bar item (Linux, until its milestone).
-    pub(crate) fn install(hub: &Hub) -> Option<(Menu, Receiver<u32>)> {
+    /// Puts the item in the menu bar. `None` where there is no menu-bar item (Linux, until its milestone).
+    pub(crate) fn install(stacks: &[StackView], now: SystemTime) -> Option<(Menu, Receiver<u32>)> {
         let (tx, rx) = async_channel::unbounded();
-        let (shown, keys, trouble) = entries(&hub.stacks());
+        let (entries, icon, tooltip) = model(stacks, &Attention::default(), now);
+        let mut cmds = Vec::new();
+        let shown = native(&entries, 0, &mut cmds);
         let tray = Tray::install(
             crate::assets::TRAY,
-            "doze",
+            &tooltip,
             &shown,
             Box::new(move |id| {
                 let _ = tx.try_send(id);
             }),
         )
         .ok()?;
-        let icon = if trouble {
-            TrayIcon::Alert
-        } else {
-            TrayIcon::Calm
-        };
         tray.set_icon(icon);
-        Some((
-            Menu {
-                tray,
-                shown,
-                keys,
-                icon,
-            },
-            rx,
-        ))
+        write_text(&entries);
+        let m = Menu {
+            tray,
+            signature: tray::signature(&entries),
+            cmds,
+            generation: 0,
+            icon,
+            tooltip,
+        };
+        Some((m, rx))
     }
 
-    /// Follows the hub: rebuilds the menu only if it would say something else.
-    pub(crate) fn follow(&mut self, hub: &Hub) {
-        let (shown, keys, trouble) = entries(&hub.stacks());
-        if shown != self.shown {
+    /// Follows the hub and Needs you: rebuilds the menu only if it would say something else.
+    pub(crate) fn follow(&mut self, stacks: &[StackView], list: &Attention, now: SystemTime) {
+        let (entries, icon, tooltip) = model(stacks, list, now);
+        let sig = tray::signature(&entries);
+        if sig != self.signature {
+            self.generation = self.generation.wrapping_add(1);
+            let mut cmds = Vec::new();
+            let shown = native(&entries, self.generation, &mut cmds);
             self.tray.set_menu(&shown);
-            self.shown = shown;
-            self.keys = keys;
+            self.signature = sig;
+            self.cmds = cmds;
+            write_text(&entries);
         }
-        let icon = if trouble {
-            TrayIcon::Alert
-        } else {
-            TrayIcon::Calm
-        };
         if icon != self.icon {
             self.tray.set_icon(icon);
             self.icon = icon;
         }
-        doze_os::ui::dock_badge(trouble.then_some("!"));
+        if tooltip != self.tooltip {
+            self.tray.set_tooltip(&tooltip);
+            self.tooltip = tooltip;
+        }
     }
 
-    /// What a picked line asks for.
+    /// What a picked line asks for; `None` for a line of a menu since replaced.
     pub(crate) fn cmd(&self, id: u32) -> Option<Cmd> {
-        match id {
-            OPEN => Some(Cmd::Open),
-            PALETTE => Some(Cmd::Palette),
-            QUIT => Some(Cmd::Quit),
-            n => self
-                .keys
-                .get(usize::try_from(n.checked_sub(STACKS)?).ok()?)
-                .cloned()
-                .map(Cmd::Stack),
+        if id >> 16 != u32::from(self.generation) {
+            return None;
         }
+        self.cmds.get(usize::try_from(id & 0xffff).ok()?).cloned()
+    }
+
+    /// Opens the menu (for a picture of it).
+    pub(crate) fn open(&self) {
+        self.tray.open_menu();
+    }
+}
+
+/// The menu as text, to `$DOZE_APP_TRAY_TEXT` when it is set: what the native menu shows, as evidence a status
+/// item's menu cannot be shot offscreen.
+fn write_text(entries: &[Entry]) {
+    if let Some(path) = std::env::var_os("DOZE_APP_TRAY_TEXT") {
+        let _ = std::fs::write(path, tray::text(entries));
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::entries;
-    use doze_desk::{StackKey, StackView};
+    use super::{id_of, native};
+    use doze_desk::tray::{Cmd, Entry};
     use doze_os::ui::MenuEntry;
 
     #[test]
-    fn stacks_list_running_first_and_the_fixed_lines_follow() {
-        let mut a = StackView::new(StackKey::new("/h/projects/a"));
-        a.name = "shop".into();
-        a.running = true;
-        let mut b = StackView::new(StackKey::new("/h/projects/b"));
-        b.name = "larder".into();
-        let (menu, keys, trouble) = entries(&[a, b]);
-        assert!(!trouble);
-        assert_eq!(keys.len(), 2);
-        let titles: Vec<String> = menu
-            .iter()
-            .filter_map(|e| match e {
-                MenuEntry::Item { title, .. } => Some(title.clone()),
-                _ => None,
-            })
-            .collect();
+    fn ids_carry_the_generation_and_submenus_number_on() {
+        let entries = vec![
+            Entry::Item {
+                cmd: Cmd::OpenDoze,
+                title: "Open doze".into(),
+                key: "D".into(),
+            },
+            Entry::Submenu {
+                title: "shop".into(),
+                entries: vec![Entry::Item {
+                    cmd: Cmd::Quit,
+                    title: "Quit".into(),
+                    key: String::new(),
+                }],
+            },
+        ];
+        let mut cmds = Vec::new();
+        let out = native(&entries, 3, &mut cmds);
+        assert_eq!(cmds, vec![Cmd::OpenDoze, Cmd::Quit]);
         assert_eq!(
-            titles.first().map(String::as_str),
-            Some("●  shop  ·  0 awake")
+            out.first(),
+            Some(&MenuEntry::item(id_of(3, 0), "Open doze", "D"))
         );
-        assert!(titles.iter().any(|t| t.starts_with("Quit doze")));
+        let inner = match out.get(1) {
+            Some(MenuEntry::Submenu { entries, .. }) => entries.first().cloned(),
+            _ => None,
+        };
+        assert_eq!(inner, Some(MenuEntry::item(id_of(3, 1), "Quit", "")));
     }
 }

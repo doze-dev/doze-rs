@@ -38,10 +38,19 @@ pub enum MenuEntry {
         /// The key equivalent.
         key: String,
     },
-    /// A line with no command: a heading or a fact, drawn dimmed.
+    /// A line with no command: a fact, drawn dimmed.
     Note(String),
+    /// A section header (macOS 14 draws it small and grey above its group).
+    Header(String),
     /// A separator.
     Separator,
+    /// A line that opens a menu of its own.
+    Submenu {
+        /// The words on the line.
+        title: String,
+        /// Its menu.
+        entries: Vec<MenuEntry>,
+    },
 }
 
 impl MenuEntry {
@@ -112,6 +121,16 @@ impl Tray {
     /// Switches the picture.
     pub fn set_icon(&self, icon: TrayIcon) {
         self.inner.set_icon(icon);
+    }
+
+    /// The words shown on a hover ("doze · 4 awake").
+    pub fn set_tooltip(&self, tooltip: &str) {
+        self.inner.set_tooltip(tooltip);
+    }
+
+    /// Opens the menu as a click on the item would (for a picture of it; the menu tracks until it is closed).
+    pub fn open_menu(&self) {
+        self.inner.open_menu();
     }
 }
 
