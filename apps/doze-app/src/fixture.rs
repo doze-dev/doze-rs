@@ -52,6 +52,17 @@ impl Fixture {
             "doze-app-fixture-{}-{run}-{name}",
             std::process::id()
         ));
+        Fixture::start_in(name, synth, root, false)
+    }
+
+    /// [`Fixture::start`] under `root`; with `real`, the daemon listens on the stack's own control socket, so an app
+    /// in another process reading `root/home` as its doze home finds it as it finds a real daemon.
+    pub(crate) fn start_in(
+        name: &str,
+        synth: Option<usize>,
+        root: PathBuf,
+        real: bool,
+    ) -> anyhow::Result<Fixture> {
         let (home, work) = (root.join("home"), root.join("work"));
         std::fs::create_dir_all(&home).context("fixture home")?;
         if name == "none" && synth.is_none() {
@@ -82,8 +93,14 @@ impl Fixture {
         seed_doze(&home)?;
         let key = StackKey::new(home.join("projects").join(format!("{name}-fixture")));
         std::fs::create_dir_all(key.run_dir()).context("fixture home")?;
-        std::fs::write(key.socket(), "").context("fixture socket marker")?;
-        let daemon = FixtureDaemon::start(&temp_socket("app"), script).context("fixture daemon")?;
+        let sock = if real {
+            let _ = std::fs::remove_file(key.socket());
+            key.socket()
+        } else {
+            std::fs::write(key.socket(), "").context("fixture socket marker")?;
+            temp_socket("app")
+        };
+        let daemon = FixtureDaemon::start(&sock, script).context("fixture daemon")?;
         Ok(Fixture {
             key: Some(key),
             root,
@@ -254,5 +271,70 @@ fn synthetic(n: usize) -> Script {
         },
         hold: true,
         ..Script::default()
+    }
+}
+
+/// `$DOZE_APP_FIXTURE_CRASH=NAME@SECONDS[+SECONDS]`: the fixture's NAME crashes that long after launch, as a daemon
+/// would say it, and is up again the second time after launch when one is given; so a run shows what the app does
+/// about a crash it did not start with (the menu bar's alert, a notification, its withdrawal).
+pub(crate) fn crash_later(source: std::rc::Rc<crate::source::Source>, cx: &mut gpui::App) {
+    let Some((name, crash, up)) = std::env::var("DOZE_APP_FIXTURE_CRASH").ok().and_then(|v| {
+        let (n, s) = v.split_once('@')?;
+        let (c, u) = s.split_once('+').map_or((s, None), |(c, u)| (c, Some(u)));
+        Some((
+            n.to_owned(),
+            c.parse::<u64>().ok()?,
+            u.and_then(|u| u.parse::<u64>().ok()),
+        ))
+    }) else {
+        return;
+    };
+    let push = |source: &crate::source::Source, v: doze_control::InstanceView| {
+        source.push(&doze_control::Frame {
+            topic: "instances".into(),
+            instances: vec![v],
+            ..doze_control::Frame::default()
+        });
+    };
+    cx.spawn(async move |cx: &mut gpui::AsyncApp| {
+        let wait = |s: u64| {
+            cx.background_executor()
+                .timer(std::time::Duration::from_secs(s))
+        };
+        wait(crash).await;
+        let well = source
+            .first
+            .as_ref()
+            .and_then(|k| source.hub.stack(k))
+            .and_then(|st| st.instance(&name).cloned());
+        let Some(well) = well else { return };
+        let mut crashed = well.clone();
+        crashed.state = "crashing".into();
+        crashed.last_error = "panic: STRIPE_KEY is required".into();
+        (crashed.restart_count, crashed.restart_max) = (1, 5);
+        push(&source, crashed);
+        if let Some(up) = up {
+            wait(up.saturating_sub(crash)).await;
+            push(&source, well);
+        }
+    })
+    .detach();
+}
+
+/// `doze-app fixture-serve NAME ROOT`: the fixture's daemon on its stack's own socket under `ROOT/home`, until killed;
+/// an app run with `DOZE_HOME=ROOT/home` finds it as it finds a real daemon, so the app can be weighed without the
+/// fixture in its own process.
+pub(crate) fn serve(name: &str, root: PathBuf) -> std::process::ExitCode {
+    match Fixture::start_in(name, None, root, true) {
+        Ok(f) => {
+            println!("fixture {name} serving under {}", f.home.display());
+            loop {
+                std::thread::sleep(std::time::Duration::from_secs(3600));
+            }
+        }
+        Err(e) => {
+            eprintln!("doze-app fixture-serve: {e:#}");
+            std::process::ExitCode::FAILURE
+        }
     }
 }

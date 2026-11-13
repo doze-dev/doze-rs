@@ -4,7 +4,6 @@
 //! the screen's work area; later opens restore the frame the window closed with (prefs, shared with the Go app).
 
 use std::borrow::Cow;
-use std::cell::RefCell;
 use std::process::ExitCode;
 use std::rc::Rc;
 
@@ -22,7 +21,6 @@ use crate::shell::Root;
 use crate::single::{self, Launch};
 use crate::source::Source;
 use crate::theme::{self, Choice};
-use crate::tray::{self, Cmd};
 
 /// What the running app holds.
 pub(crate) struct State {
@@ -181,14 +179,13 @@ pub(crate) fn follow_args(cx: &mut App, args: &[String]) {
     });
 }
 
-/// A batch from the hub: the menu-bar item always; the window only while it is open.
-fn pump(cx: &mut App, hub: Hub, menu: Option<Rc<RefCell<tray::Menu>>>) {
+/// A batch from the hub: the menu-bar item and the notifications always (`crate::around`); the window only while it
+/// is open.
+fn pump(cx: &mut App, hub: Hub) {
     cx.spawn(async move |cx: &mut AsyncApp| {
         while let Ok(batch) = hub.updates().recv().await {
             cx.update(|cx| {
-                if let Some(m) = &menu {
-                    m.borrow_mut().follow(&hub);
-                }
+                crate::around::on_batch(cx);
                 if let Some(h) = cx.try_global::<State>().and_then(|s| s.window) {
                     let _ = h.update(cx, |root, _, cx| root.apply(&batch, cx));
                 }
@@ -196,22 +193,6 @@ fn pump(cx: &mut App, hub: Hub, menu: Option<Rc<RefCell<tray::Menu>>>) {
         }
     })
     .detach();
-}
-
-/// A line picked in the menu-bar item's menu.
-fn picked(cx: &mut App, cmd: Cmd) {
-    match cmd {
-        Cmd::Open => {
-            open(cx);
-        }
-        Cmd::Palette => cx.dispatch_action(&OpenPalette),
-        Cmd::Quit => cx.quit(),
-        Cmd::Stack(key) => {
-            if let Some(h) = open(cx) {
-                let _ = h.update(cx, |root, window, cx| root.show_key(key, window, cx));
-            }
-        }
-    }
 }
 
 /// Runs the app until it quits.
@@ -264,6 +245,8 @@ fn started(
     boot_core(cx);
     cx.set_activation_policy(ActivationPolicy::Accessory);
     let hub = source.hub.clone();
+    #[cfg(feature = "fixtures")]
+    crate::fixture::crash_later(source.clone(), cx);
     cx.set_global(State {
         hub: hub.clone(),
         first: source.first.clone(),
@@ -281,25 +264,10 @@ fn started(
         }
     })
     .detach();
-    let menu = tray::Menu::install(&hub).map(|(m, picks)| {
-        let m = Rc::new(RefCell::new(m));
-        let mm = m.clone();
-        cx.spawn(async move |cx: &mut AsyncApp| {
-            while let Ok(id) = picks.recv().await {
-                let cmd = mm.borrow().cmd(id);
-                if let Some(cmd) = cmd {
-                    cx.update(|cx| picked(cx, cmd));
-                }
-            }
-        })
-        .detach();
-        m
-    });
-    if menu.is_none() {
-        eprintln!("doze-app: no menu-bar item on this system; the window stays the way in");
-    }
+    let facts = cx.global::<State>().facts.clone();
+    crate::around::start(cx, &hub, &facts);
     hub.set_visible(false);
-    pump(cx, hub, menu);
+    pump(cx, hub);
     // The menu bar item is up; the window's libraries load on the next turn of the loop, so the item shows first and
     // a click on it finds them ready.
     cx.spawn(async move |cx: &mut AsyncApp| cx.update(|cx| boot_ui(cx, prefs::theme())))

@@ -38,10 +38,19 @@ pub enum MenuEntry {
         /// The key equivalent.
         key: String,
     },
-    /// A line with no command: a heading or a fact, drawn dimmed.
+    /// A line with no command: a fact, drawn dimmed.
     Note(String),
+    /// A section header (macOS 14 draws it small and grey above its group).
+    Header(String),
     /// A separator.
     Separator,
+    /// A line that opens a menu of its own.
+    Submenu {
+        /// The words on the line.
+        title: String,
+        /// Its menu.
+        entries: Vec<MenuEntry>,
+    },
 }
 
 impl MenuEntry {
@@ -113,10 +122,33 @@ impl Tray {
     pub fn set_icon(&self, icon: TrayIcon) {
         self.inner.set_icon(icon);
     }
+
+    /// The words shown on a hover ("doze · 4 awake").
+    pub fn set_tooltip(&self, tooltip: &str) {
+        self.inner.set_tooltip(tooltip);
+    }
+
+    /// Where the item sits on screen, in points from the primary screen's top left: `[x, y, width, height]` (for a
+    /// picture of it). `None` where there is no item.
+    #[must_use]
+    pub fn icon_frame(&self) -> Option<[f64; 4]> {
+        self.inner.icon_frame()
+    }
+
+    /// Opens the menu as a click on the item would (for a picture of it; the menu tracks until it is closed).
+    pub fn open_menu(&self) {
+        self.inner.open_menu();
+    }
 }
 
 /// Sets the Dock icon's badge (`Some("3")`), or clears it (`None`). Does nothing where there is no Dock, and while the
 /// app has no Dock icon (menu bar only), the badge waits for the icon.
 pub fn dock_badge(label: Option<&str>) {
     imp::dock_badge(label);
+}
+
+/// The Dock badge as the Dock tile holds it now (read back, for evidence that it was taken); `None` when there is none.
+#[must_use]
+pub fn dock_badge_now() -> Option<String> {
+    imp::dock_badge_now()
 }

@@ -6,7 +6,7 @@ mod machine;
 mod others;
 
 pub use machine::{Check, Doctor, machine, parse_doctor};
-pub use others::{Other, others};
+pub use others::{Names, Other, others};
 
 use std::collections::HashSet;
 use std::path::Path;
