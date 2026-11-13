@@ -353,7 +353,7 @@ impl Render for InstanceView {
         let console = self.tab.starts_with("console:");
         div()
             .id("instance")
-            // No ligatures, as Go's `font-variant-ligatures: none`: JetBrains Mono would join the `//` of a URL.
+            // No ligatures, as Go's `font-variant-ligatures: none`: a mono face with ligatures would join the `//` of a URL.
             .font_features(gpui::FontFeatures::disable_ligatures())
             .key_context("Instance")
             .track_focus(&self.focus)

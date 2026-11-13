@@ -344,7 +344,7 @@ pub(crate) fn keys(t: &Tokens, v: &InstanceView) -> impl IntoElement {
         if v.tab == TAB_LOGS {
             ""
         } else {
-            "from Overview: a card's name, or ⏎"
+            "from Overview: a card's name, or ↵"
         },
     )
 }
