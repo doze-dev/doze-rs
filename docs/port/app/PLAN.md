@@ -36,14 +36,18 @@ running app or starts one on its own. Differences and beyond Go:
   instance (the tag names it); "on screen" means the window is the active one; a fix pressed outside the window that
   then fails is itself a notification while no window is open; without a bundle a note is a toast and a Recent
   line, and stderr; the menu bar's own Needs you steps with the window's items while the window is open, so it goes
-  on steadily when the window closes;
+  on steadily when the window closes; a notification is withdrawn when its episode ends (Go left it up); "Open
+  <url>" takes the names registry's URL (port-less while the front door is up) as Go's WebURL did; Dismiss and Remove
+  quiet both lists from either place;
 - the Dock badge is Needs you's red count; Settings… and Check for Updates… go to `doze://settings` (step 3.4 builds
   that page); the machine's items in the menu while the window is closed are the window's last (doctor runs only
   with a window);
 - Q4 as built: the status item, its submenus and the Dock badge are objc2 in `doze-os::ui`; notifications need no
   `unsafe` of ours (gpui's own `UNUserNotificationCenter` path). Q2 as built: the app is its own binary in the bundle;
   Go's `doze open` handing off to the Rust bundle is a Go-side change not made here (`doze-app open` does the same
-  hand-off, and `$DOZE_APP_BUNDLE` names the bundle it starts).
+  hand-off; it starts `$DOZE_APP_BUNDLE`, else the Doze.app beside a target-folder build, else itself). Still Go-side
+  and open: Go's `doze open` launching the Rust bundle. `doze-app open` does not yet check doze.hcl's shape before
+  starting or fall back to the status table with no display (Go did both; both need the Rust CLI's config).
 
 Where the M0 build differs from this plan:
 

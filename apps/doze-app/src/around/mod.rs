@@ -53,6 +53,12 @@ pub(crate) struct Around {
     not_now: std::collections::BTreeMap<String, String>,
     /// The Dock badge as last set.
     badge: Option<usize>,
+    /// When the menu bar and the rules last looked while the window was open, and whether a look is due at the end of
+    /// the second.
+    looked: Option<std::time::Instant>,
+    later: bool,
+    /// The names registry as last read, and the file's time then.
+    names: (Option<SystemTime>, doze_desk::library::Names),
     /// Until when acting's questions came from outside the window (the menu bar, a notification), so they bring the
     /// window forward; one the window raised itself does not take the focus.
     pub(crate) outside_until: Option<std::time::Instant>,
@@ -106,6 +112,9 @@ pub(crate) fn start(cx: &mut App, hub: &Hub, mode: &crate::facts::Mode) {
         bundled,
         not_now: crate::prefs::recall::not_now(),
         badge: None,
+        looked: None,
+        later: false,
+        names: (None, doze_desk::library::Names::default()),
         outside_until: None,
         said_up_to: 0,
     });
@@ -175,13 +184,38 @@ pub(crate) fn on_batch(cx: &mut App) {
     if !cx.has_global::<Around>() {
         return;
     }
-    notes::look(cx);
+    // While the window is open the hub sends a batch a frame; the menu bar and the notification rules want a look a
+    // second (as while it is closed), so a batch inside the second is folded into one look at its end.
     if window_open(cx) {
+        let Some(a) = around(cx) else { return };
+        let due = a.looked.is_none_or(|t| t.elapsed() >= EVERY);
+        if !due {
+            if !a.later {
+                a.later = true;
+                cx.spawn(async move |cx: &mut AsyncApp| {
+                    cx.background_executor().timer(EVERY).await;
+                    cx.update(|cx| {
+                        if let Some(a) = around(cx) {
+                            a.later = false;
+                        }
+                        on_batch(cx);
+                    });
+                })
+                .detach();
+            }
+            return;
+        }
+        a.looked = Some(std::time::Instant::now());
+        notes::look(cx);
         follow(cx);
     } else {
+        notes::look(cx);
         rebuild(cx);
     }
 }
+
+/// How often the menu bar and the rules look while the window is open (the hub's pace while it is closed).
+const EVERY: Duration = Duration::from_secs(1);
 
 /// The window built its list: the menu and the notifications read it. The window's raw items step this list's own
 /// steadiness too, so when the window closes the menu bar goes on from where the bell was (not from before the window
@@ -229,8 +263,14 @@ fn follow(cx: &mut App) {
     let (stacks, now) = (a.hub.stacks(), a.hub.now());
     let red = a.list.red;
     if let Some(m) = a.menu.as_mut() {
-        // The names registry's URLs for "Open <url>" (port-less while the front door is up): one small file read.
-        let names = doze_desk::library::Names::read(a.hub.home());
+        // The names registry's URLs for "Open <url>" (port-less while the front door is up), read again only when the
+        // file changed.
+        let file = a.hub.home().join("names.json");
+        let changed = std::fs::metadata(&file).and_then(|m| m.modified()).ok();
+        if a.names.0 != changed || a.names.0.is_none() {
+            a.names = (changed, doze_desk::library::Names::read(a.hub.home()));
+        }
+        let names = &a.names.1;
         m.follow(&stacks, &a.list, now, &|h| names.url_for(h));
     }
     if a.badge != Some(red) {

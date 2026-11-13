@@ -1,11 +1,12 @@
 //! `doze-app open [FOLDER | doze://…] [--show NAME]` (Go `cmd/doze/open.go`, PLAN.md row 89 and step 3.5): the app, at
 //! this project. An app already running (the bundle, or any launch holding the doze home) is handed the arguments and
-//! goes there; otherwise, from a terminal, the app is started on its own (its own process group, its output in
+//! goes there; otherwise, from a terminal, the app is started on its own (its own session, its output in
 //! `$DOZE_HOME/desk/app.log`) so the prompt comes back; elsewhere (Finder, launchd, a script with no terminal) it runs
 //! in place. Either way a terminal is told "✓ doze is open".
 //!
 //! Which binary is started: the one in `$DOZE_APP_BUNDLE/Contents/MacOS/` when that names a Doze.app (so the app runs
-//! from its bundle and the system's notifications work), else this one. Nothing looks in /Applications: until the
+//! from its bundle and the system's notifications work); else, for a build in a target folder, the Doze.app
+//! `cargo xtask app-bundle` made beside it (`target/bundle`); else this one. Nothing looks in /Applications: until the
 //! Rust app ships there, the Doze.app in /Applications is the Go app.
 
 use std::io::IsTerminal as _;
@@ -43,7 +44,7 @@ pub(crate) fn absolute(args: &[String]) -> Vec<String> {
 pub(crate) fn run(mut a: cli::App) -> ExitCode {
     a.forward = absolute(&a.forward);
     // No folder and no link: the folder this is run in, when it has a doze.hcl (Go: the doze.hcl here).
-    let named = a.forward.iter().any(|x| !x.starts_with('-'));
+    let named = names_a_place(&a.forward);
     if !named
         && std::path::Path::new("doze.hcl").is_file()
         && let Ok(here) = std::env::current_dir()
@@ -85,6 +86,19 @@ pub(crate) fn run(mut a: cli::App) -> ExitCode {
     crate::app::run(a)
 }
 
+/// Whether the arguments name a folder or a link (the value after `--show` is a service, not a place).
+fn names_a_place(args: &[String]) -> bool {
+    let mut it = args.iter();
+    while let Some(a) = it.next() {
+        if a == "--show" {
+            it.next();
+        } else if !a.starts_with('-') {
+            return true;
+        }
+    }
+    false
+}
+
 fn said_open() -> ExitCode {
     if std::io::stdout().is_terminal() {
         println!("{OPEN}");
@@ -104,7 +118,15 @@ fn program() -> std::io::Result<PathBuf> {
             exe.display()
         )));
     }
-    std::env::current_exe()
+    let me = std::env::current_exe()?;
+    // A build run from the target folder: the Doze.app `cargo xtask app-bundle` made beside it (`target/bundle`), so
+    // the app it starts has a bundle and the system's notifications.
+    let beside = me
+        .parent()
+        .and_then(Path::parent)
+        .map(|t| t.join("bundle/Doze.app/Contents/MacOS/doze-app"))
+        .filter(|p| !crate::around::bundled() && p.is_file());
+    Ok(beside.unwrap_or(me))
 }
 
 /// Starts the app on its own and returns without waiting, unless it fails at once.
@@ -126,9 +148,9 @@ fn detach(home: &Path, args: &[String]) -> Result<(), String> {
         .stdin(Stdio::null())
         .stdout(log)
         .stderr(err);
-    #[cfg(unix)]
-    std::os::unix::process::CommandExt::process_group(&mut c, 0);
-    let mut child = c.spawn().map_err(|e| format!("{}: {e}", exe.display()))?;
+    // Its own session, as Go's detachAttr: the terminal's hang-up does not reach it.
+    let mut child =
+        doze_os::detach::spawn_detached_child(c).map_err(|e| format!("{}: {e}", exe.display()))?;
     let start = Instant::now();
     while start.elapsed() < SETTLE {
         match child.try_wait() {
@@ -167,6 +189,15 @@ fn tail(path: &Path, from: u64) -> String {
 #[cfg(test)]
 mod tests {
     use super::absolute;
+
+    #[test]
+    fn the_value_of_show_is_not_a_place() {
+        let v = |s: &[&str]| s.iter().map(|x| (*x).to_owned()).collect::<Vec<String>>();
+        assert!(!super::names_a_place(&v(&["--show", "api"])));
+        assert!(super::names_a_place(&v(&["--show", "api", "/code/shop"])));
+        assert!(super::names_a_place(&v(&["doze://shop"])));
+        assert!(!super::names_a_place(&[]));
+    }
 
     #[test]
     fn folders_become_absolute_and_links_and_show_stay() {

@@ -50,7 +50,17 @@ fn parse(args: &[String]) -> Result<Opts, String> {
         match a.as_str() {
             "--profile" => o.profile = value()?,
             "--out" => o.out = Some(PathBuf::from(value()?)),
-            "--version" => o.version = value()?,
+            "--version" => {
+                o.version = value()?;
+                // CFBundleVersion is numbers and dots (Apple); a tag or a sha goes elsewhere.
+                if !o
+                    .version
+                    .split('.')
+                    .all(|p| !p.is_empty() && p.bytes().all(|b| b.is_ascii_digit()))
+                {
+                    return Err(format!("--version {} is not numbers and dots", o.version));
+                }
+            }
             "--id" => o.id = value()?,
             "--name" => o.name = value()?,
             "--no-scheme" => o.scheme = false,
@@ -88,8 +98,13 @@ fn sh(cmd: &mut Command) -> Result<(), String> {
     ))
 }
 
+/// The workspace root, wherever the task is run from.
+fn root() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("..")
+}
+
 fn target_dir() -> PathBuf {
-    std::env::var_os("CARGO_TARGET_DIR").map_or_else(|| PathBuf::from("target"), PathBuf::from)
+    std::env::var_os("CARGO_TARGET_DIR").map_or_else(|| root().join("target"), PathBuf::from)
 }
 
 fn make(o: &Opts) -> Result<PathBuf, String> {
@@ -122,7 +137,7 @@ fn make(o: &Opts) -> Result<PathBuf, String> {
         std::fs::create_dir_all(d).map_err(|e| format!("{}: {e}", d.display()))?;
     }
     std::fs::copy(&bin, macos.join("doze-app")).map_err(|e| format!("{}: {e}", bin.display()))?;
-    let plist = info_plist(o, Path::new("."))?;
+    let plist = info_plist(o, &root())?;
     write(&app.join("Contents/Info.plist"), &plist)?;
     write(&app.join("Contents/PkgInfo"), "APPL????")?;
     icon(&res.join("doze.icns"))?;
@@ -178,7 +193,7 @@ fn icon(out: &Path) -> Result<(), String> {
             let file = set.join(format!("icon_{size}x{size}{scale}.png"));
             sh(Command::new("sips")
                 .args(["-s", "format", "png", "-Z", &px.to_string()])
-                .arg("apps/doze-app/assets/brand/doze.svg")
+                .arg(root().join("apps/doze-app/assets/brand/doze.svg"))
                 .arg("--out")
                 .arg(&file))?;
         }
@@ -207,7 +222,7 @@ fn sign(app: &Path) -> Result<(), String> {
                 "runtime",
                 "--entitlements",
             ])
-            .arg("apps/doze-app/bundle/entitlements.plist")
+            .arg(root().join("apps/doze-app/bundle/entitlements.plist"))
             .args(["--sign", &id])
             .arg(app))?;
         println!("app-bundle: signed with {id}");

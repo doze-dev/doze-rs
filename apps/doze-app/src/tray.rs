@@ -18,14 +18,47 @@ use doze_os::ui::{MenuEntry, Tray, TrayIcon};
 pub(crate) struct Menu {
     tray: Tray,
     signature: Vec<Entry>,
-    cmds: Vec<Cmd>,
-    /// The menu before the last rebuild: one may still be open on screen when it is replaced, and its picks count.
-    before: Vec<Cmd>,
-    generation: u16,
+    picks: Picks,
     icon: TrayIcon,
     tooltip: String,
     /// The last evidence line written (`$DOZE_APP_TRAY_FRAME`).
     evidence: String,
+}
+
+/// How many menus' commands are kept: a menu open on screen is not replaced under the person's pointer by AppKit, so a
+/// pick may come from a menu several rebuilds old (a running stack's memory moves its line about once a second).
+const KEPT: usize = 120;
+
+/// What each recent menu's lines ask for, by generation: a pick from any of them does what its own line said.
+#[derive(Debug, Default)]
+pub(crate) struct Picks {
+    generation: u16,
+    kept: std::collections::VecDeque<(u16, Vec<Cmd>)>,
+}
+
+impl Picks {
+    /// A new menu's commands; returns its generation.
+    pub(crate) fn push(&mut self, cmds: Vec<Cmd>) -> u16 {
+        self.generation = self.generation.wrapping_add(1);
+        self.kept.push_back((self.generation, cmds));
+        while self.kept.len() > KEPT {
+            self.kept.pop_front();
+        }
+        self.generation
+    }
+
+    /// The next menu's generation, for numbering its lines before they are pushed.
+    pub(crate) fn next(&self) -> u16 {
+        self.generation.wrapping_add(1)
+    }
+
+    /// What the line `id` asked for; `None` for a menu older than the ones kept.
+    pub(crate) fn cmd(&self, id: u32) -> Option<Cmd> {
+        let place = usize::try_from(id & 0xffff).ok()?;
+        let generation = u16::try_from(id >> 16).ok()?;
+        let (_, cmds) = self.kept.iter().rev().find(|(g, _)| *g == generation)?;
+        cmds.get(place).cloned()
+    }
 }
 
 /// A line's id: the generation in the high half, its place in the low.
@@ -76,8 +109,10 @@ impl Menu {
     pub(crate) fn install(stacks: &[StackView], now: SystemTime) -> Option<(Menu, Receiver<u32>)> {
         let (tx, rx) = async_channel::unbounded();
         let (entries, icon, tooltip) = model(stacks, &Attention::default(), now, &|_| None);
+        let mut picks = Picks::default();
         let mut cmds = Vec::new();
-        let shown = native(&entries, 0, &mut cmds);
+        let shown = native(&entries, picks.next(), &mut cmds);
+        picks.push(cmds);
         let tray = Tray::install(
             crate::assets::TRAY,
             &tooltip,
@@ -92,9 +127,7 @@ impl Menu {
         let m = Menu {
             tray,
             signature: tray::signature(&entries),
-            cmds,
-            before: Vec::new(),
-            generation: 0,
+            picks,
             icon,
             tooltip,
             evidence: String::new(),
@@ -113,12 +146,11 @@ impl Menu {
         let (entries, icon, tooltip) = model(stacks, list, now, names);
         let sig = tray::signature(&entries);
         if sig != self.signature {
-            self.generation = self.generation.wrapping_add(1);
             let mut cmds = Vec::new();
-            let shown = native(&entries, self.generation, &mut cmds);
+            let shown = native(&entries, self.picks.next(), &mut cmds);
+            self.picks.push(cmds);
             self.tray.set_menu(&shown);
             self.signature = sig;
-            self.before = std::mem::replace(&mut self.cmds, cmds);
             write_text(&entries);
         }
         if icon != self.icon {
@@ -131,18 +163,9 @@ impl Menu {
         }
     }
 
-    /// What a picked line asks for: of the menu shown, or of the one it replaced (a menu open on screen while it is
-    /// rebuilt is still the one clicked); `None` for an older one.
+    /// What a picked line asks for, from whichever recent menu it was picked in.
     pub(crate) fn cmd(&self, id: u32) -> Option<Cmd> {
-        let place = usize::try_from(id & 0xffff).ok()?;
-        let generation = id >> 16;
-        if generation == u32::from(self.generation) {
-            self.cmds.get(place).cloned()
-        } else if generation == u32::from(self.generation.wrapping_sub(1)) {
-            self.before.get(place).cloned()
-        } else {
-            None
-        }
+        self.picks.cmd(id)
     }
 
     /// The item's picture and place, and the Dock badge, to `$DOZE_APP_TRAY_FRAME` when it is set: a line each time
@@ -191,6 +214,24 @@ mod tests {
     use super::{id_of, native};
     use doze_desk::tray::{Cmd, Entry};
     use doze_os::ui::MenuEntry;
+
+    #[test]
+    fn a_pick_from_a_menu_several_rebuilds_old_does_what_its_line_said() {
+        let mut p = super::Picks::default();
+        let first = p.push(vec![Cmd::OpenDoze, Cmd::Quit]);
+        for _ in 0..5 {
+            p.push(vec![Cmd::Palette]);
+        }
+        assert_eq!(p.cmd(id_of(first, 1)), Some(Cmd::Quit));
+        assert_eq!(
+            p.cmd(id_of(p.next().wrapping_sub(1), 0)),
+            Some(Cmd::Palette)
+        );
+        for _ in 0..super::KEPT {
+            p.push(Vec::new());
+        }
+        assert_eq!(p.cmd(id_of(first, 1)), None, "older than the menus kept");
+    }
 
     #[test]
     fn ids_carry_the_generation_and_submenus_number_on() {

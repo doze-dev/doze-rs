@@ -254,8 +254,15 @@ fn withdraw(cx: &mut App) {
         .map(|(t, _)| t.clone())
         .collect();
     a.posted.retain(|(t, _)| !ended.contains(t));
+    if !a.bundled {
+        return;
+    }
     for tag in gone {
         log_line(&format!("withdrawn | tag={tag}\n"));
+    }
+    // Every ended note, not only the ones this launch posted: one shown before a relaunch, or past the ones kept, goes
+    // too (taking away one that is not there does nothing).
+    for tag in ended {
         cx.dismiss_system_notification(&tag);
     }
 }

@@ -421,7 +421,7 @@ as a launch does (`crate::around`: the menu, Needs you while no window is open, 
 | Menu bar ready | ≤ 100 ms | 75 ms; 135 ms in a second run while another worktree was building (machine busy) |
 | First frame after the tray click | ≤ 100 ms | 47 / 54 ms |
 | Window open and idle (larder's page) | ≤ 85 MB | 60 MB at 12 s, 56 MB at 27 s; 57 MB |
-| Menu bar only, footprint | ≤ 18 MB (PLAN §6); ≤ 35 MB (M3 brief) | 18 MB on an empty home; 22 MB with the fixture daemon (larder or crash) in the process |
+| Menu bar only, footprint | ≤ 18 MB (PLAN §6); ≤ 35 MB (M3 brief) | 18 MB on an empty home; 20 MB with one live stack (fixture in its own process; M2: 21 MB); 22 MB with the fixture in the process |
 | After the window closes, footprint | ≤ 35 MB | 37 MB with the fixture daemon in the process; **35–36 MB with it in its own process** (below) |
 | CPU, menu bar only | ≤ 0.05 % | 0.0 % (ps, sampled at 25 s) |
 
@@ -444,3 +444,8 @@ was the in-process fixture plus noise. A 60 s reading after the close stays at 3
 it in Malloc Small: what the window's libraries (gpui-component, the fonts and their caches) leave in the heap after
 the window is dropped. That is M2's floor too, sitting on the 35 MB line; bringing it under is a 3.6 (`app-bench`)
 item, not this step's.
+
+**Menu bar only, the fixture out of the process** (larder served by `doze-app fixture-serve`, the app `--menu-bar` on
+that home, `release-app`): M3 20 MB at 10 s and 25 s (two runs); M2's binary 21 MB the same way. So with one live stack
+the menu-bar-only app sits 2 MB over PLAN §6's 18 MB (18 MB on an empty home), as M2 did; under the M3 brief's 35 MB.
+The menu bar's own Needs you list, notification rules and service submenus cost nothing measurable here.
