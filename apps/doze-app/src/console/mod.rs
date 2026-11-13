@@ -350,7 +350,7 @@ impl Render for ConsoleTabView {
             .child(keys_bar(
                 &t,
                 keys,
-                "from the Overview tab: Console, or ⏎ on an asleep module",
+                "from the Overview tab: Console, or ↵ on an asleep module",
             ))
     }
 }

@@ -7,8 +7,8 @@ use gpui::{
 
 use crate::theme::{Tokens, ty};
 
-pub(crate) const MONO_FAMILY: &str = "JetBrains Mono";
-pub(crate) const UI_FAMILY: &str = "Inter";
+pub(crate) const MONO_FAMILY: &str = "Geist Mono";
+pub(crate) const UI_FAMILY: &str = "Geist";
 
 /// An SVG icon (assets.rs) in a colour, `size` square.
 pub(crate) fn icon(path: &'static str, size: f32, color: Hsla) -> impl IntoElement {
@@ -95,30 +95,50 @@ pub(crate) fn switch(
     if disabled { sw.opacity(0.4) } else { sw }
 }
 
-/// The face and size a key's words are drawn in: JetBrains Mono, except a key with ⏎ or ⌫, whose glyphs the mono
-/// face lacks (the fallback draws them a third smaller than a letter): those take the UI face, a size up.
-fn key_face(text: &str, size: f32) -> (&'static str, f32) {
-    if text.contains(['⏎', '⌫']) {
-        (UI_FAMILY, size + ty::KEY_GLYPH_UP)
-    } else {
-        (MONO_FAMILY, size)
+/// The key symbols drawn a size up: at a chip's 10 to 12 px they are a letter's height and read as specks beside it.
+const KEY_SYMBOLS: [char; 4] = ['↵', '⌫', '⇧', '⌘'];
+
+/// A key's words as drawn, in runs: letters at `size`, the symbols at `size + KEY_GLYPH_UP`, centred on one line.
+/// Return is Geist Mono's `↵`, a plain arrow at the letters' weight; its `⏎` is a hollow keycap arrow that blurs at
+/// this size.
+fn key_runs(text: &str, size: f32) -> Vec<AnyElement> {
+    let text = text.replace('⏎', "↵");
+    let mut runs: Vec<(bool, String)> = Vec::new();
+    for ch in text.chars() {
+        let sym = KEY_SYMBOLS.contains(&ch);
+        match runs.last_mut() {
+            Some((s, run)) if *s == sym => run.push(ch),
+            _ => runs.push((sym, ch.to_string())),
+        }
     }
+    runs.into_iter()
+        .map(|(sym, run)| {
+            let glyph = if sym { size + ty::KEY_GLYPH_UP } else { size };
+            div()
+                .flex_none()
+                .text_size(px(glyph))
+                .child(SharedString::from(run))
+                .into_any_element()
+        })
+        .collect()
 }
 
-/// `kbd` in a button or the keys bar: JetBrains Mono, `color`, no chrome.
+/// `kbd` in a button or the keys bar: Geist Mono (it draws ↵ ⌫ ⇧ and the arrows itself), `color`, no chrome.
 pub(crate) fn kbd_plain(
     text: &str,
     size: f32,
     color: Hsla,
     weight: FontWeight,
 ) -> impl IntoElement {
-    let (face, size) = key_face(text, size);
     div()
-        .font_family(face)
+        .flex()
+        .flex_none()
+        .items_center()
+        .font_family(MONO_FAMILY)
         .text_size(px(size))
         .font_weight(weight)
         .text_color(color)
-        .child(SharedString::from(text.to_string()))
+        .children(key_runs(text, size))
 }
 
 /// `.keys kbd` / `.pal .foot kbd`: a chip on the selection colour.
@@ -129,20 +149,21 @@ pub(crate) fn kbd_chip(
     weight: FontWeight,
     pad_x: f32,
 ) -> impl IntoElement {
-    let (face, glyph) = key_face(text, size);
     div()
+        .flex()
         .flex_none()
+        .items_center()
         .px(px(pad_x))
         .py(px(1.))
         .rounded(px(4.))
         .bg(t.sel)
-        .font_family(face)
-        // The chip keeps its height: the larger glyph sits in the same line.
+        .font_family(MONO_FAMILY)
+        // The chip keeps its height: a larger symbol sits in the same line.
         .line_height(px(size + ty::CHIP_LEAD))
-        .text_size(px(glyph))
+        .text_size(px(size))
         .font_weight(weight)
         .text_color(t.bright)
-        .child(SharedString::from(text.to_string()))
+        .children(key_runs(text, size))
 }
 
 /// `.tag`: the NEW pill, 9px/700, .08em tracking.

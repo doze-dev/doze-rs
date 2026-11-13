@@ -1,6 +1,7 @@
 //! Embedded icons, fonts and the menu-bar pictures. The icons are the paths the React app draws inline (titlebar.tsx,
-//! bell.tsx); GPUI paints an SVG as a mask in the text colour. The fonts are static weights (a variable font loaded from
-//! memory is stuck at one weight): Inter and JetBrains Mono, Latin, from Fontsource 5.3.0, OFL-1.1 (assets/fonts/*-OFL.txt).
+//! bell.tsx); GPUI paints an SVG as a mask in the text colour. The fonts are Geist and Geist Mono 1.9.2
+//! (OFL-1.1), cut from the variable fonts into static weights and subset (assets/fonts/README.md): GPUI loads a
+//! variable font from memory at its default instance only, so each weight the type table names is its own face.
 
 use std::borrow::Cow;
 
@@ -66,16 +67,18 @@ impl AssetSource for Assets {
     }
 }
 
-/// The faces: family "Inter" and "JetBrains Mono", weights 400 to 700.
-pub(crate) const FONTS: [&[u8]; 8] = [
-    include_bytes!("../assets/fonts/Inter-400.ttf"),
-    include_bytes!("../assets/fonts/Inter-500.ttf"),
-    include_bytes!("../assets/fonts/Inter-600.ttf"),
-    include_bytes!("../assets/fonts/Inter-700.ttf"),
-    include_bytes!("../assets/fonts/JetBrainsMono-400.ttf"),
-    include_bytes!("../assets/fonts/JetBrainsMono-500.ttf"),
-    include_bytes!("../assets/fonts/JetBrainsMono-600.ttf"),
-    include_bytes!("../assets/fonts/JetBrainsMono-700.ttf"),
+/// The faces: family "Geist" at 400, 500, 600, 650, 700 and 750, and "Geist Mono" at 400 to 700 (ty.rs names them).
+pub(crate) const FONTS: [&[u8]; 10] = [
+    include_bytes!("../assets/fonts/Geist-400.ttf"),
+    include_bytes!("../assets/fonts/Geist-500.ttf"),
+    include_bytes!("../assets/fonts/Geist-600.ttf"),
+    include_bytes!("../assets/fonts/Geist-650.ttf"),
+    include_bytes!("../assets/fonts/Geist-700.ttf"),
+    include_bytes!("../assets/fonts/Geist-750.ttf"),
+    include_bytes!("../assets/fonts/GeistMono-400.ttf"),
+    include_bytes!("../assets/fonts/GeistMono-500.ttf"),
+    include_bytes!("../assets/fonts/GeistMono-600.ttf"),
+    include_bytes!("../assets/fonts/GeistMono-700.ttf"),
 ];
 
 /// The menu-bar item's template images (the Go app's bat), 44 × 44 for a 22 pt bar.

@@ -1,7 +1,7 @@
 //! The type: every size, line height and weight the app draws text in, from the Go app's page (`tokens.css` and
 //! `shell.css`). Nothing else in the app names a raw size or weight; `tests::no_raw_type` holds it to that.
 //!
-//! The faces are Inter and JetBrains Mono (assets.rs), drawn as WebKit draws them under `-webkit-font-smoothing:
+//! The faces are Geist and Geist Mono (assets.rs), drawn as WebKit draws them under `-webkit-font-smoothing:
 //! antialiased`, which the Go page sets: grayscale coverage, no Core Graphics smoothing (vendor/gpui-pre-apple
 //! PATCHES.md §2).
 
@@ -64,11 +64,11 @@ pub(crate) const TIGHT_LEAD: f32 = 2.;
 pub(crate) const MARK_GLYPH_UP: f32 = 4.;
 /// And on a line this much over the mark's size.
 pub(crate) const MARK_GLYPH_LEAD: f32 = 2.;
-/// A key's ⏎ or ⌫, in the UI face, is set this much over the mono letters beside it.
-pub(crate) const KEY_GLYPH_UP: f32 = 2.;
+/// A key's ↵ ⌫ ⇧ ⌘ are set this much over the mono letters beside them (widgets.rs `key_runs`).
+pub(crate) const KEY_GLYPH_UP: f32 = 3.;
 
-// ── weights ── the faces are static (400, 500, 600, 700). Go's variable Inter takes 650 and 750; a static face
-// cannot, and asked for 650 GPUI picks 700 (CSS matching rounds up past 500), so those two take the lighter neighbour.
+// ── weights ── each one is a face of its own: assets/fonts cuts Geist at 400, 500, 600, 650, 700 and 750 and Geist
+// Mono at 400 to 700 from the variable fonts, so Go's 650 and 750 draw exactly.
 
 /// Body, values, captions: Go's 400.
 pub(crate) const REGULAR: FontWeight = FontWeight(400.);
@@ -76,12 +76,12 @@ pub(crate) const REGULAR: FontWeight = FontWeight(400.);
 pub(crate) const MEDIUM: FontWeight = FontWeight(500.);
 /// Names in rows, state words, `b`, key chips, small uppercase headings: Go's 600.
 pub(crate) const SEMIBOLD: FontWeight = FontWeight(600.);
-/// Page, card, dialog and tile headings: Go's 650, drawn at 600.
-pub(crate) const HEADING: FontWeight = FontWeight(600.);
+/// Page, card, dialog and tile headings: Go's 650.
+pub(crate) const HEADING: FontWeight = FontWeight(650.);
 /// Group captions (`.gl`, `.qh`), tags, badges: Go's 700.
 pub(crate) const BOLD: FontWeight = FontWeight(700.);
-/// The wordmark: Go's 750, drawn at 700.
-pub(crate) const BRAND_WEIGHT: FontWeight = FontWeight(700.);
+/// The wordmark: Go's 750.
+pub(crate) const BRAND_WEIGHT: FontWeight = FontWeight(750.);
 
 /// `font-variant-numeric: tabular-nums` (the strip, memory, tables): figures one width, so a number that changes
 /// does not shift what follows it.
