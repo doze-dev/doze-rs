@@ -4,6 +4,7 @@ import { FlaskConicalIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ApiFailure } from "@/api/client";
+import { segment } from "@/api/path";
 import { post, r4keys, useLab } from "@/api/r4";
 import type { LabOnce } from "@/api/types/LabOnce";
 import type { LabResponse } from "@/api/types/LabResponse";
@@ -176,7 +177,7 @@ export function LabPage() {
   const fail = (e: unknown) => toast.error(e instanceof ApiFailure ? e.message : String(e));
   const onSwitch = (id: number, on: boolean) => {
     qc.setQueryData<LabResponse>(r4keys.lab, (old) => (old ? { ...old, home: { ...old.home, active: old.home.active.map((a) => (a.id === id ? { ...a, enabled: on } : a)) } } : old));
-    post(`/api/v1/lab/rules/${id}/enabled`, { on })
+    post(`/api/v1/lab/rules/${segment(id)}/enabled`, { on })
       .then(() => toast.success(on ? "Rule switched on" : "Rule switched off"))
       .catch(fail)
       .finally(refresh);
@@ -186,7 +187,7 @@ export function LabPage() {
     if (!search.remove) return;
     setBusy(true);
     try {
-      await post(`/api/v1/lab/rules/${search.remove}/remove`, {});
+      await post(`/api/v1/lab/rules/${segment(search.remove)}/remove`, {});
       toast.success("Rule removed", { description: removing?.name });
       overlay.close({ remove: undefined });
     } catch (e) {

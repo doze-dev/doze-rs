@@ -5,6 +5,7 @@
 import { keepPreviousData, type QueryClient, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { api, ApiFailure } from "./client";
+import { segment } from "./path";
 import type { AddForm } from "./types/AddForm";
 import type { ConfigEditForm } from "./types/ConfigEditForm";
 import type { ConfigResetForm } from "./types/ConfigResetForm";
@@ -22,7 +23,7 @@ export const writeKeys = {
   form: (what: string, topic: string, q: string) => [FORM, what, topic, q] as const,
 };
 
-const enc = encodeURIComponent;
+const enc = segment;
 
 /** `?a=1&b=2` from the fields that have a value (`""` for none). */
 export function queryOf(fields: Record<string, string | undefined>): string {

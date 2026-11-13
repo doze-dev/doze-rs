@@ -3,6 +3,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { usePollInterval } from "@/lib/refresh";
 import { ApiFailure, api } from "./client";
+import { segment } from "./path";
 import type { Missing } from "./types/Missing";
 import type { CompactDone } from "./types/CompactDone";
 import type { ConsumersResponse } from "./types/ConsumersResponse";
@@ -14,7 +15,7 @@ import type { TopicFrame } from "./types/TopicFrame";
 import type { TopicsResponse } from "./types/TopicsResponse";
 import type { TxnResponse } from "./types/TxnResponse";
 
-const seg = encodeURIComponent;
+const seg = segment;
 
 /** A lookup (a topic's frame, a record, a transaction): the server answers `{missing}` when the thing is not there, which the
  * page gets as an ApiFailure with the server's words, as for any refusal. */
