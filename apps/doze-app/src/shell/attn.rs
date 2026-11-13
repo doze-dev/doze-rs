@@ -204,7 +204,14 @@ impl Root {
             now,
         );
         let bell_open = self.bell_open();
-        if self.attn.take(a, bell_open) {
+        let changed = self.attn.take(a, bell_open);
+        // A failed stack action whose page is on screen: its banner says it, so no alert (the bell keeps the item).
+        let shown = self.key().map(|k| k.dir().to_string_lossy().into_owned());
+        let before = self.attn.alerts.len();
+        self.attn
+            .alerts
+            .retain(|it| !(it.kind == "failed" && shown.as_deref() == Some(it.key.as_str())));
+        if changed || self.attn.alerts.len() != before {
             self.bell_follow(cx);
             cx.notify();
         }

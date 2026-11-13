@@ -198,3 +198,96 @@ fn library_space_on_a_stopped_stack_looks_before_up(cx: &mut TestAppContext) {
     });
     assert!(blocked);
 }
+
+/// acme's key, and Up on it run straight (the checks aside), until the fixture's stand-in doze has failed it.
+fn failed_up(
+    src: &Source,
+    root: &Entity<Root>,
+    vcx: &mut VisualTestContext,
+) -> doze_desk::StackKey {
+    let acme = src
+        .hub
+        .stacks()
+        .into_iter()
+        .find(|s| s.name == "acme")
+        .unwrap()
+        .key;
+    let acts = vcx.update(|_, cx| root.read(cx).acts.clone());
+    let k = acme.clone();
+    vcx.update(|_, cx| {
+        acts.update(cx, |a, cx| {
+            a.run_stack(&k, doze_desk::act::StackAction::UpLast, cx);
+        });
+    });
+    let toasts = |vcx: &mut VisualTestContext| {
+        vcx.update(|_, cx| {
+            acts.read(cx)
+                .notices
+                .toasts()
+                .iter()
+                .map(|t| t.notice.text.clone())
+                .collect::<Vec<_>>()
+        })
+    };
+    assert!(toasts(vcx).iter().any(|t| t.contains("bringing acme up")));
+    let start = Instant::now();
+    while vcx.update(|_, cx| !acts.read(cx).failed.contains_key(&acme)) {
+        assert!(start.elapsed() < Duration::from_secs(15), "Up never failed");
+        vcx.run_until_parked();
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    // The toast that said it was under way went when it ended; the failure is the banner's and Needs you's.
+    assert!(toasts(vcx).is_empty(), "{:?}", toasts(vcx));
+    acme
+}
+
+/// Waits until Needs you holds acme's failure.
+fn failure_listed(root: &Entity<Root>, vcx: &mut VisualTestContext) {
+    let start = Instant::now();
+    while !vcx.update(|_, cx| {
+        root.read(cx)
+            .attn
+            .list
+            .items
+            .iter()
+            .any(|i| i.kind == "failed")
+    }) {
+        assert!(
+            start.elapsed() < Duration::from_secs(10),
+            "no failure in Needs you"
+        );
+        vcx.run_until_parked();
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    vcx.run_until_parked();
+}
+
+#[gpui::test]
+fn a_failed_up_on_its_page_is_the_banner_alone(cx: &mut TestAppContext) {
+    let (src, root, vcx) = window(cx, "shop");
+    let acme = src
+        .hub
+        .stacks()
+        .into_iter()
+        .find(|s| s.name == "acme")
+        .unwrap()
+        .key;
+    vcx.update(|window, cx| root.update(cx, |r, cx| r.go(Screen::Stack(acme), window, cx)));
+    vcx.run_until_parked();
+    failed_up(&src, &root, vcx);
+    failure_listed(&root, vcx);
+    let alerts = vcx.update(|_, cx| root.read(cx).attn.alerts.len());
+    assert_eq!(alerts, 0, "the page's banner says it; no alert over it");
+}
+
+#[gpui::test]
+fn a_failed_up_elsewhere_alerts(cx: &mut TestAppContext) {
+    let (src, root, vcx) = window(cx, "shop");
+    vcx.update(|window, cx| root.update(cx, |r, cx| r.go(Screen::Library, window, cx)));
+    vcx.run_until_parked();
+    failed_up(&src, &root, vcx);
+    failure_listed(&root, vcx);
+    let kinds: Vec<&str> =
+        vcx.update(|_, cx| root.read(cx).attn.alerts.iter().map(|a| a.kind).collect());
+    assert_eq!(kinds, ["failed"]);
+}

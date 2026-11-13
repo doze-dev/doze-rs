@@ -47,8 +47,9 @@ pub struct Notices {
 }
 
 impl Notices {
-    /// Says `text`: a toast now, and a line kept.
-    pub fn say(&mut self, text: impl Into<String>, bad: bool, at: SystemTime, now: Instant) {
+    /// Says `text`: a toast now, and a line kept. Returns the toast's id, so a toast that says something is under way
+    /// can be taken away when it is over.
+    pub fn say(&mut self, text: impl Into<String>, bad: bool, at: SystemTime, now: Instant) -> u64 {
         let notice = self.keep(text.into(), bad, at);
         self.next += 1;
         self.toasts.push(Toast {
@@ -60,6 +61,7 @@ impl Notices {
             let over = self.toasts.len() - TOASTS_SHOWN;
             self.toasts.drain(..over);
         }
+        self.next
     }
 
     /// Keeps a failure among the recent lines with no toast: for what a page already shows.

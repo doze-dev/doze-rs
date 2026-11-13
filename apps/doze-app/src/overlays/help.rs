@@ -154,7 +154,7 @@ fn line(t: &Tokens, l: &Line) -> AnyElement {
         .flex()
         .items_center()
         .gap(px(8.))
-        .h(px(19.))
+        .h(px(18.))
         .text_size(px(12.))
         .child(
             div().flex().gap(px(3.)).w(px(78.)).flex_none().children(
@@ -191,7 +191,7 @@ fn group(t: &Tokens, title: &str, ls: &[Line]) -> (f32, AnyElement) {
     let el = div()
         .flex()
         .flex_col()
-        .pb(px(10.))
+        .pb(px(8.))
         .child(
             div()
                 .pb(px(3.))
@@ -199,7 +199,7 @@ fn group(t: &Tokens, title: &str, ls: &[Line]) -> (f32, AnyElement) {
         )
         .children(ls.iter().map(|l| line(t, l)))
         .into_any_element();
-    (30. + 19. * ls.len() as f32, el)
+    (28. + 18. * ls.len() as f32, el)
 }
 
 /// The words a person meets, and what each means.
@@ -340,9 +340,9 @@ pub(crate) fn sheet(t: &Tokens, version: &str) -> impl IntoElement {
         .max_h_full()
         .flex()
         .flex_col()
-        .gap(px(12.))
+        .gap(px(8.))
         .px(px(22.))
-        .py(px(18.))
+        .py(px(14.))
         .font_family(UI_FAMILY)
         .line_height(px(18.))
         .overflow_hidden()
@@ -393,7 +393,7 @@ pub(crate) fn sheet(t: &Tokens, version: &str) -> impl IntoElement {
 /// The title bar's height and a margin under it.
 const INSET_TOP: f32 = 42. + 22.;
 /// The margin at the window's sides and foot.
-const INSET: f32 = 28.;
+const INSET: f32 = 20.;
 
 #[cfg(test)]
 mod tests {

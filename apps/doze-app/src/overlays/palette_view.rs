@@ -11,7 +11,7 @@ use gpui_component::input::Input;
 use super::palette::Palette;
 use crate::actions::{BackOut, Confirm, FirstAct, MoveDown, MoveUp, ScopeIn, ScopeOut};
 use crate::theme::{Tokens, tokens};
-use crate::widgets::{MONO_FAMILY, UI_FAMILY, icon, kbd_chip, tracked, w};
+use crate::widgets::{MONO_FAMILY, UI_FAMILY, icon, kbd_chip, kbd_plain, tracked, w};
 
 /// A palette tone's colour (Go's dot classes `g y r b`, and `dim`, `acc`).
 fn ink(t: &Tokens, tone: &str) -> Hsla {
@@ -158,7 +158,7 @@ fn nothing(t: &Tokens, n: &Nothing, cx: &mut Context<Palette>) -> AnyElement {
         .min_w_0()
         .flex_wrap()
         .gap_x(px(4.))
-        .text_color(t.text)
+        .text_color(t.dim)
         .child("Nothing called")
         .child(b(&n.name))
         .child(SharedString::from(format!("in {}.", n.r#where)));
@@ -175,18 +175,14 @@ fn nothing(t: &Tokens, n: &Nothing, cx: &mut Context<Palette>) -> AnyElement {
         .gap(px(10.))
         .min_h(px(40.))
         .px(px(16.))
-        .bg(t.pick)
+        // A hint, not a row (Go's `.nothing`): no highlight, ⏎ still takes the closest.
+        .text_size(px(12.5))
+        .hover(|d| d.bg(t.sel))
         .cursor_pointer()
         .on_click(cx.listener(|this, _, window, cx| this.choose(window, cx)))
         .child(div().w(px(16.)).text_color(t.dim).child("?"))
         .child(words)
-        .child(
-            div()
-                .flex_none()
-                .text_size(px(11.5))
-                .text_color(t.text)
-                .child(SharedString::from(n.key.clone())),
-        )
+        .child(kbd_plain(&n.key, 11., t.dim, 500.))
         .into_any_element()
 }
 

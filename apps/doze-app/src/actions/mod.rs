@@ -239,7 +239,8 @@ pub(crate) fn palette() -> impl Iterator<Item = &'static Spec> {
     all().filter(|s| s.palette)
 }
 
-/// The help sheet: each scope's rows with keys, in table order.
+/// The help sheet: each scope's rows with keys, in table order. The dialogs, the start sheet, the checks, the empty
+/// folder and a search box are left out, as Go's sheet leaves them: each shows its own keys at its foot.
 pub(crate) fn help() -> Vec<(Scope, Vec<&'static Spec>)> {
     [
         Scope::Global,
@@ -250,10 +251,6 @@ pub(crate) fn help() -> Vec<(Scope, Vec<&'static Spec>)> {
         Scope::Logs,
         Scope::Map,
         Scope::Console,
-        Scope::Dialog,
-        Scope::Sheet,
-        Scope::Empty,
-        Scope::Overlay,
         Scope::Palette,
         Scope::Bell,
     ]

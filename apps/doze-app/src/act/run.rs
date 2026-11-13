@@ -128,7 +128,8 @@ impl Acts {
         }
         self.busy.insert(key.clone(), action.busy());
         self.failed.remove(key);
-        self.say(action.said(&st.name), false, cx);
+        // "bringing acme up…" says it is under way: it goes when the action ends, whatever the end.
+        let under_way = self.say_id(action.said(&st.name), false, cx);
         let (k, name, dir) = (key.clone(), st.name.clone(), PathBuf::from(&st.dir));
         cx.spawn(async move |this, cx| {
             let job = cx.background_executor().spawn({
@@ -144,6 +145,7 @@ impl Acts {
             let done = job.await;
             let _ = this.update(cx, |a, cx| {
                 a.busy.remove(&k);
+                a.dismiss(under_way, cx);
                 a.hub.refresh();
                 match done {
                     Ok(said) if !said.is_empty() => a.say(said, false, cx),

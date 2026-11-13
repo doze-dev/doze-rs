@@ -34,13 +34,16 @@ impl Root {
             }))
     }
 
-    /// One column at the foot, as Go's `.toasts`: Needs you's alerts, then the toasts; on Home, above the Machine strip.
+    /// One column at the foot, as Go's `.toasts`: Needs you's alerts, then the toasts; on Home above the Machine strip,
+    /// and in the List above the pane's buttons (Logs, Restart, Open), so a toast never covers what to press next.
     pub(super) fn foot_column(&self, cx: &mut Context<Self>) -> gpui::Div {
         use gpui::{ParentElement as _, Styled as _, div, px};
-        let bottom = if matches!(self.screen, super::Screen::Library) {
-            96.
-        } else {
-            46.
+        let list = matches!(self.screen, super::Screen::Stack(_))
+            && self.overview.read(cx).view == crate::overview::View::List;
+        let bottom = match self.screen {
+            super::Screen::Library => 96.,
+            _ if list => 104.,
+            _ => 46.,
         };
         // Recent opens at the top of the column: the alerts step aside while it is open.
         let alerts = if self.acts.read(cx).recent {

@@ -115,10 +115,22 @@ pub(crate) fn ensure(hub: &Hub, mode: &crate::facts::Mode, cx: &mut App) -> Enti
 impl Acts {
     /// Says `text`: a toast now, and a line kept.
     pub(crate) fn say(&mut self, text: impl Into<String>, bad: bool, cx: &mut Context<Self>) {
-        self.notices
+        self.say_id(text, bad, cx);
+    }
+
+    /// [`Acts::say`], returning the toast's id (to take it away when what it says is over).
+    pub(crate) fn say_id(
+        &mut self,
+        text: impl Into<String>,
+        bad: bool,
+        cx: &mut Context<Self>,
+    ) -> u64 {
+        let id = self
+            .notices
             .say(text, bad, SystemTime::now(), Instant::now());
         self.schedule(cx);
         cx.notify();
+        id
     }
 
     /// Takes a toast away.

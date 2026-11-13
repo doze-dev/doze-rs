@@ -313,7 +313,8 @@ fn failure_acts(
     (file, name): (String, String),
     cx: &mut Context<OverviewView>,
 ) -> gpui::Div {
-    let mut acts = div().flex().flex_col().gap(px(6.)).flex_none();
+    // One row, as Go's banner: the buttons beside the words, not stacked down the edge.
+    let mut acts = div().flex().items_center().gap(px(6.)).flex_none();
     if f.config.is_some() {
         let open: crate::kit::Click =
             Box::new(move |_, _, cx| cx.open_url(&format!("file://{file}")));
