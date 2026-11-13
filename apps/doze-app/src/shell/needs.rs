@@ -223,13 +223,16 @@ impl Root {
             .into_any_element()
     }
 
-    /// The alerts and the away strip, over the page.
+    /// The away strip, at the top of the page.
+    pub(super) fn away_el(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
+        let a = self.attn.away.clone()?;
+        Some(crate::overlays::alerts::away(&tokens(cx), &a, cx))
+    }
+
+    /// The alerts, over the page.
     pub(super) fn attn_els(&self, cx: &mut Context<Self>) -> Vec<AnyElement> {
         let t = tokens(cx);
         let mut out = Vec::new();
-        if let Some(a) = self.attn.away.clone() {
-            out.push(crate::overlays::alerts::away(&t, &a, cx));
-        }
         let screen = self.screen.clone();
         let here = move |it: &Item| match (&it.show, &screen) {
             (Some(p), Screen::Instance(k, n)) => {

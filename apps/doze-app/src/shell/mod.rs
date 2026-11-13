@@ -309,6 +309,7 @@ impl Render for Root {
             .flex_col()
             .size_full()
             .child(titlebar::titlebar(&t, self, cx))
+            .children(self.away_el(cx))
             .child(div().flex().flex_1().min_h_0().child(page));
         div()
             .relative()

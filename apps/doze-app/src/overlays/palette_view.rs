@@ -28,14 +28,20 @@ fn ink(t: &Tokens, tone: &str) -> Hsla {
 
 fn glyph(t: &Tokens, r: &Row) -> AnyElement {
     let c = ink(t, r.tone);
-    let d = div().w(px(16.)).flex_none().flex().justify_center();
+    let d = div().w(px(20.)).flex_none().flex().justify_center();
     if r.glyph == "dot" {
         return d
             .child(div().size(px(8.)).rounded_full().bg(c))
             .into_any_element();
     }
+    // A two-character glyph (⌘O, ›_) is set smaller, so it keeps to the column.
+    let size = if r.glyph.chars().count() > 1 {
+        10.5
+    } else {
+        12.5
+    };
     d.text_color(c)
-        .text_size(px(12.5))
+        .text_size(px(size))
         .child(SharedString::from(r.glyph))
         .into_any_element()
 }
@@ -72,7 +78,9 @@ fn right(t: &Tokens, r: &Row, on: bool, copied: bool) -> AnyElement {
             .child(SharedString::from(text))
     };
     if copied {
-        return small("Copied ✓".into(), t.good).into_any_element();
+        return small("Copied ✓".into(), t.good)
+            .font_weight(w(600.))
+            .into_any_element();
     }
     if on && r.enter.is_some() {
         return div()
@@ -91,7 +99,10 @@ fn right(t: &Tokens, r: &Row, on: bool, copied: bool) -> AnyElement {
             .font_family(MONO_FAMILY)
             .into_any_element();
     }
-    small(r.key.clone(), if on { t.text } else { t.dim }).into_any_element()
+    small(r.key.clone(), if on { t.text } else { t.dim })
+        .font_family(MONO_FAMILY)
+        .text_size(px(11.))
+        .into_any_element()
 }
 
 fn item(t: &Tokens, p: &Palette, r: &Row, i: usize, cx: &mut Context<Palette>) -> AnyElement {
@@ -217,6 +228,9 @@ impl Palette {
         }
         let note = if self.scope.is_some() {
             format!("the commands for {last}")
+        } else if acts.is_some() {
+            // The ⌘⏎ hint takes the room the examples had.
+            String::new()
         } else {
             "try: api restart · db psql · api timeout · theme teal".into()
         };

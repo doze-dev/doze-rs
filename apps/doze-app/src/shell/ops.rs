@@ -185,7 +185,7 @@ impl Root {
             Some(Overlay::Help) => Some(overlays::layer(
                 &t,
                 overlays::help::sheet(&t, crate::VERSION).into_any_element(),
-                90.,
+                28.,
                 motion,
                 "help",
             )),

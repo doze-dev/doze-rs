@@ -10,7 +10,7 @@ use crate::theme::Tokens;
 use crate::widgets::{MONO_FAMILY, UI_FAMILY, kbd_chip, tracked, w};
 
 /// The words a person meets, what each means, and its tone (Go's help.tsx glossary).
-const WORDS: [(&str, &str, &str); 11] = [
+const WORDS: [(&str, &str, &str); 12] = [
     ("awake", "ok", "running, and something used it lately"),
     (
         "dozing",
@@ -41,6 +41,11 @@ const WORDS: [(&str, &str, &str); 11] = [
     ),
     ("pinned", "bright", "never sleeps, whatever holds it"),
     ("stopped", "dim", "the whole stack is down; nothing runs"),
+    (
+        "the switch",
+        "bright",
+        "on while it is up or on its way; flip it to wake or sleep",
+    ),
     (
         "calls",
         "bright",
@@ -82,15 +87,17 @@ fn span_keys(keys: Vec<String>) -> Vec<String> {
     }
     // Pairs that move one way and back read as one chip: ↑↓, ←→, j k, h l.
     let mut out: Vec<String> = Vec::new();
-    for (a, b, chip) in [
-        ("↑", "↓", "↑↓"),
-        ("←", "→", "←→"),
-        ("k", "j", "j k"),
-        ("h", "l", "h l"),
-    ] {
-        if keys.iter().any(|k| k == a) && keys.iter().any(|k| k == b) {
-            out.push(chip.to_owned());
-        }
+    let has = |k: &str| keys.iter().any(|x| x == k);
+    match (has("↑") && has("↓"), has("←") && has("→")) {
+        (true, true) => out.push("↑↓←→".to_owned()),
+        (true, false) => out.push("↑↓".to_owned()),
+        (false, true) => out.push("←→".to_owned()),
+        _ => {}
+    }
+    match (has("k") && has("j"), has("h") && has("l")) {
+        (true, true) => out.push("hjkl".to_owned()),
+        (true, false) => out.push("j k".to_owned()),
+        _ => {}
     }
     let any = !out.is_empty();
     let paired = |k: &String| any && ["↑", "↓", "←", "→", "k", "j", "h", "l"].contains(&k.as_str());
@@ -147,13 +154,13 @@ fn line(t: &Tokens, l: &Line) -> AnyElement {
         .flex()
         .items_center()
         .gap(px(8.))
-        .h(px(22.))
+        .h(px(19.))
         .text_size(px(12.))
         .child(
             div().flex().gap(px(3.)).w(px(78.)).flex_none().children(
                 l.keys
                     .iter()
-                    .take(3)
+                    .take(2)
                     .map(|k| kbd_chip(t, k, 10., 600., 4.).into_any_element()),
             ),
         )
@@ -164,15 +171,16 @@ fn line(t: &Tokens, l: &Line) -> AnyElement {
                 .font_weight(w(500.))
                 .child(SharedString::from(l.label.clone())),
         )
-        .child(
-            div()
-                .min_w_0()
-                .overflow_hidden()
-                .whitespace_nowrap()
-                .text_ellipsis()
-                .text_color(t.dim)
-                .child(if l.built { l.what } else { "soon" }),
-        )
+        // A label says what the key does (as Go's sheet had one phrase a key); what comes later says so.
+        .when(!l.built, |d| {
+            d.child(
+                div()
+                    .flex_none()
+                    .text_size(px(10.5))
+                    .text_color(t.dim)
+                    .child("soon"),
+            )
+        })
         .into_any_element()
 }
 
@@ -189,72 +197,98 @@ fn group(t: &Tokens, title: &str, ls: &[Line]) -> (f32, AnyElement) {
         )
         .children(ls.iter().map(|l| line(t, l)))
         .into_any_element();
-    (26. + 22. * ls.len() as f32, el)
+    (30. + 19. * ls.len() as f32, el)
 }
 
 /// The words a person meets, and what each means.
-fn words(t: &Tokens) -> (f32, AnyElement) {
-    let el = div()
+fn words(t: &Tokens) -> impl IntoElement {
+    let word = |(word, tone, means): &(&'static str, &'static str, &'static str)| {
+        div()
+            .flex()
+            .gap(px(8.))
+            .py(px(2.))
+            .line_height(px(16.))
+            .text_size(px(12.))
+            .child(
+                div()
+                    .w(px(70.))
+                    .flex_none()
+                    .font_weight(w(600.))
+                    .text_color(crate::kit::tone(t, tone))
+                    .child(*word),
+            )
+            .child(div().flex_1().min_w_0().text_color(t.text).child(*means))
+    };
+    // Three columns of four, under the keys: each meaning reads whole on one line.
+    let cols = WORDS.chunks(4).map(|c| {
+        div()
+            .flex()
+            .flex_col()
+            .flex_1()
+            .min_w_0()
+            .children(c.iter().map(word))
+    });
+    div()
         .flex()
         .flex_col()
+        .pt(px(10.))
+        .border_t_1()
+        .border_color(t.line)
         .child(
             div()
-                .pb(px(3.))
+                .pb(px(4.))
                 .child(tracked("The words", 10.5, 650., t.dim, 0.66)),
         )
-        .children(WORDS.iter().map(|(word, tone, means)| {
-            div()
-                .flex()
-                .gap(px(8.))
-                .h(px(22.))
-                .items_center()
-                .text_size(px(12.))
-                .child(
-                    div()
-                        .w(px(78.))
-                        .flex_none()
-                        .font_weight(w(600.))
-                        .text_color(crate::kit::tone(t, tone))
-                        .child(*word),
-                )
-                .child(
-                    div()
-                        .flex_1()
-                        .min_w_0()
-                        .overflow_hidden()
-                        .whitespace_nowrap()
-                        .text_ellipsis()
-                        .text_color(t.text)
-                        .child(*means),
-                )
-        }))
-        .into_any_element();
-    (26. + 22. * WORDS.len() as f32, el)
+        .child(div().flex().gap(px(24.)).children(cols))
+}
+
+/// Where to start each new column so that the tallest of `n` columns, the groups kept in order, is as short as it can
+/// be (a small search: there are a dozen groups).
+fn split(h: &[f32], n: usize) -> Vec<usize> {
+    fn best(h: &[f32], from: usize, n: usize) -> (f32, Vec<usize>) {
+        let rest: f32 = h.iter().skip(from).sum();
+        if n == 1 || from >= h.len() {
+            return (rest, Vec::new());
+        }
+        let mut out = (f32::MAX, Vec::new());
+        let mut run = 0.;
+        for end in from + 1..h.len() {
+            run += h.get(end - 1).copied().unwrap_or(0.);
+            let (tail, mut cuts) = best(h, end, n - 1);
+            let worst = run.max(tail);
+            if worst < out.0 {
+                cuts.insert(0, end);
+                out = (worst, cuts);
+            }
+        }
+        if out.1.is_empty() {
+            (rest, Vec::new())
+        } else {
+            out
+        }
+    }
+    best(h, 0, n).1
 }
 
 /// The groups, in reading order, packed into four columns of about the same height.
 fn columns(t: &Tokens) -> impl IntoElement {
-    let mut groups: Vec<(f32, AnyElement)> = actions::help()
+    let groups: Vec<(f32, AnyElement)> = actions::help()
         .into_iter()
         .filter(|(_, rows)| !rows.is_empty())
         .map(|(sc, rows)| group(t, sc.title(), &lines(&rows)))
         .collect();
-    groups.push(words(t));
-    let total: f32 = groups.iter().map(|g| g.0).sum();
-    let per = total / 4.;
+    let heights: Vec<f32> = groups.iter().map(|g| g.0).collect();
+    let cuts = split(&heights, 4);
     let mut cols: Vec<gpui::Div> = Vec::new();
     let mut col = div().flex().flex_col().flex_1().min_w_0();
-    let mut h = 0.;
-    for (gh, el) in groups {
-        if h > 0. && h + gh / 2. > per && cols.len() < 3 {
+    for (i, (_, el)) in groups.into_iter().enumerate() {
+        if cuts.contains(&i) {
             cols.push(std::mem::replace(
                 &mut col,
                 div().flex().flex_col().flex_1().min_w_0(),
             ));
-            h = 0.;
         }
         col = col.child(el);
-        h += gh;
     }
     cols.push(col);
     div().flex().gap(px(24.)).children(cols)
@@ -277,7 +311,14 @@ pub(crate) fn sheet(t: &Tokens, version: &str) -> impl IntoElement {
             div()
                 .font_family(MONO_FAMILY)
                 .text_color(t.text)
-                .child("doze sleep db, doze logs api"),
+                .child("doze sleep db"),
+        )
+        .child(",")
+        .child(
+            div()
+                .font_family(MONO_FAMILY)
+                .text_color(t.text)
+                .child("doze logs api"),
         )
         .child("· scripts and CI use those.")
         .child(div().flex_1())
@@ -287,7 +328,7 @@ pub(crate) fn sheet(t: &Tokens, version: &str) -> impl IntoElement {
     div()
         .w(px(1220.))
         .max_w(gpui::relative(0.96))
-        .max_h(gpui::relative(0.92))
+        .max_h(gpui::relative(0.95))
         .flex()
         .flex_col()
         .gap(px(12.))
@@ -316,6 +357,7 @@ pub(crate) fn sheet(t: &Tokens, version: &str) -> impl IntoElement {
                 .overflow_y_scroll()
                 .child(columns(t)),
         )
+        .child(words(t))
         .child(foot)
 }
 

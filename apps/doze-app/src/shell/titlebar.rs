@@ -74,6 +74,7 @@ fn badge(t: &Tokens, n: usize) -> gpui::Div {
         .items_center()
         .justify_center()
         .text_size(px(10.))
+        .line_height(px(16.))
         .font_weight(w(700.))
         .text_color(gpui::white())
         .child(gpui::SharedString::from(n.to_string()))
@@ -85,15 +86,12 @@ pub(crate) fn titlebar(t: &Tokens, root: &Root, cx: &mut Context<Root>) -> impl 
     let bell = square(t, "bell")
         .relative()
         .when(root.bell_open(), |d| d.bg(t.sel))
-        .when(red > 0, |d| d.border_color(t.accent))
+        .when(red > 0 || root.bell_open(), |d| d.border_color(t.accent))
         .child(icon(
             "icons/bell.svg",
             16.,
             if red > 0 { t.bright } else { t.dim },
         ))
-        .when(red > 0, |d| {
-            d.child(badge(t, red).absolute().top(px(-3.)).right(px(-8.)))
-        })
         .when(red == 0 && yellow > 0, |d| {
             d.child(
                 div()
@@ -124,7 +122,10 @@ pub(crate) fn titlebar(t: &Tokens, root: &Root, cx: &mut Context<Root>) -> impl 
         .border_b_1()
         .border_color(t.line)
         .child(tabs(t, root, cx))
-        .child(bell)
+        // The count sits over the bell's corner, outside its square (a child would be clipped to it).
+        .child(div().relative().flex_none().child(bell).when(red > 0, |d| {
+            d.child(badge(t, red).absolute().top(px(-4.)).right(px(-7.)))
+        }))
         .child(help)
         .child(search(t, cx))
 }
