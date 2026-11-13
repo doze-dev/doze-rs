@@ -693,7 +693,7 @@ Test: `settings_words::tests::every_api_a_kafka_profile_offers_has_a_family_and_
 Test: settings_words::tests::the_limits_are_the_ones_weight_md_writes (removed in R5).
 
 ## CON-579. A start-up warning holds exactly when the broker would say it
-SEC-188 (console beyond loopback with SASL or TLS on), SEC-189 (SASL without TLS beyond loopback), SEC-191 (SASL with `--acl-default allow`). Test: `access_words::tests::each_warning_holds_exactly_when_the_broker_would_say_it_at_start`.
+SEC-188 (console beyond loopback in front of SASL, TLS, ACLs or a loopback listener: a wider door than the broker), SEC-189 (SASL without TLS beyond loopback), SEC-191 (SASL with `--acl-default allow`). Test: `access_words::tests::each_warning_holds_exactly_when_the_broker_would_say_it_at_start`.
 
 ## CON-580. The broker's view names users and super users and holds no secret
 `ConsoleView::access` (DESCRIBE on the cluster), `intervals` (DESCRIBE_CONFIGS) and `data_size`. Test: `view::tests::access_names_the_flag_users_and_the_super_users_and_never_what_they_log_in_with`.

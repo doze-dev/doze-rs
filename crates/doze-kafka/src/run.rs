@@ -80,7 +80,18 @@ pub(crate) async fn serve(
     };
     #[cfg(not(feature = "console"))]
     let _ = (&console, console_listener);
+    let acl_default_allow = broker.acl_default_allow;
     let broker = Arc::new(Broker::open(RealFs, broker).context("opening the broker's data")?);
+    // ACLs stored in the data directory are known only now: a console served beyond loopback would get round them (SEC-243).
+    #[cfg(feature = "console")]
+    if console_listener.is_some()
+        && let Some(note) =
+            crate::cli::stored_acls(&console, acl_default_allow, broker.acl_count())?
+    {
+        tracing::warn!("{note}");
+    }
+    #[cfg(not(feature = "console"))]
+    let _ = acl_default_allow;
     // The users stored over the API are loaded now, so only now is it known whether anybody can log in.
     if let Some(sasl) = &server.sasl {
         sasl.ensure_users()

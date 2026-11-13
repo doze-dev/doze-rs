@@ -105,8 +105,9 @@ Test: `a_fail_rule_answers_with_its_code_and_the_broker_never_sees_the_request`,
 rule that fits nothing, are within the noise of no observer (see `docs/port/phase9/lab.md`).
 Test: `a_table_with_no_rule_lets_everything_through_and_takes_no_lock`
 
-### LAB-21. `--lab` is on by default and refused where it would be open
-On unless `--lab=false`; off with the console; off by default when the console is served beyond loopback with SASL or TLS on (and that start is
-refused without `--console-unprotected`, as before); `--lab=true` switches it on there. Start-up says when the Lab is on beyond loopback: anyone
-who can reach the console can inject faults. The Access page says it too.
-Test: `the_lab_is_on_by_default_and_off_with_its_flag_or_with_the_console`, `a_console_open_to_other_machines_says_the_lab_can_inject_faults`, `a_protected_broker_with_an_open_console_has_the_lab_off_unless_asked_and_never_without_unprotected`
+### LAB-21. `--lab` is on by default and off by default wherever the console is open
+On unless `--lab=false`; off with the console; off by default whenever the console is served beyond loopback, whatever guards the broker (since the
+2026-11-13 console security audit; before, only with SASL or TLS on). `--lab` (or `--lab=true`) switches it on there, and the start then says anyone
+who can reach the console can inject faults; left off, the start says `the Lab is off because the console is served beyond loopback (--lab=true switches
+it on)`. The Access page says it too.
+Test: `the_lab_is_on_by_default_and_off_with_its_flag_or_with_the_console`, `a_console_open_to_other_machines_has_the_lab_off_unless_asked_and_then_says_it_can_inject_faults`, `a_protected_broker_with_an_open_console_has_the_lab_off_unless_asked_and_never_without_unprotected`, `tests/process console::an_open_broker_on_the_network_serves_its_console_there_with_the_lab_off_unless_asked`

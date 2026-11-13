@@ -16,7 +16,7 @@ fn sasl_and_a_console_beyond_loopback_stop_the_start_with_exit_2_unless_unprotec
     let said = String::from_utf8_lossy(&output.stderr);
     assert_eq!(output.status.code(), Some(2), "{said}");
     assert!(
-        said.contains("the console has no login and is plain HTTP, and SASL is on: serving it on 0.0.0.0:9093 would"),
+        said.contains("the console has no login and is plain HTTP, and SASL is on and --listen 127.0.0.1:0 keeps Kafka on this machine: serving it on 0.0.0.0:9093 would"),
         "{said}"
     );
     assert!(said.contains("--console-unprotected"), "{said}");
@@ -56,7 +56,7 @@ fn unprotected_starts_the_broker_and_the_log_says_what_is_open() {
     let mut broker = start_with(&data, &flags);
     let log = broker.log.lock().unwrap().clone();
     assert!(
-        log.contains("the console is served on 0.0.0.0:0 with no login and over plain HTTP although SASL is on (--console-unprotected)"),
+        log.contains("the console is served on 0.0.0.0:0 with no login and over plain HTTP although SASL is on and --listen 127.0.0.1:0 keeps Kafka on this machine (--console-unprotected)"),
         "{log}"
     );
     // A build with a console acts on the flags; one without says it ignores them.
@@ -66,6 +66,128 @@ fn unprotected_starts_the_broker_and_the_log_says_what_is_open() {
         "{log}"
     );
     assert!(!log.contains("planted"), "{log}");
+    assert!(broker.terminate().success());
+    let _ = std::fs::remove_dir_all(&data);
+}
+
+#[test]
+fn acls_in_force_or_kafka_on_loopback_and_a_console_on_the_network_stop_the_start_with_exit_2() {
+    // The audit's case: Kafka on loopback with ACLs denying, the console on every interface. No SASL, no TLS.
+    for (flags, what) in [
+        (
+            &["--acl-default", "deny"][..],
+            "and ACLs are in force (--acl-default deny) and --listen 127.0.0.1:0 keeps Kafka on this machine: serving it on 0.0.0.0:0 would let anyone who can reach that address do what the ACLs refuse (the console acts as a super user) and reach from the network a broker that Kafka clients can reach only from this machine.",
+        ),
+        (
+            &[],
+            "and --listen 127.0.0.1:0 keeps Kafka on this machine: serving it on 0.0.0.0:0 would",
+        ),
+    ] {
+        let data = scratch("console-wider-door");
+        let output = Command::new(env!("CARGO_BIN_EXE_doze-kafka"))
+            .args(["--listen", "127.0.0.1:0", "--data-dir"])
+            .arg(&data)
+            .args(["--console-addr", "0.0.0.0:0"])
+            .args(flags)
+            .output_within(PROCESS_WAIT);
+        let said = String::from_utf8_lossy(&output.stderr);
+        assert_eq!(output.status.code(), Some(2), "{flags:?}: {said}");
+        assert!(said.contains(what), "{flags:?}: {said}");
+        for way_out in [
+            "Keep --console-addr on loopback",
+            "--console=false",
+            "--console-unprotected",
+        ] {
+            assert!(said.contains(way_out), "{flags:?}: {said}");
+        }
+        assert!(!data.exists());
+    }
+}
+
+#[test]
+#[cfg(feature = "console")]
+fn an_open_broker_on_the_network_serves_its_console_there_with_the_lab_off_unless_asked() {
+    let data = scratch("console-open-network");
+    let mut broker = start_with(
+        &data,
+        &["--listen", "0.0.0.0:0", "--console-addr", "0.0.0.0:0"],
+    );
+    let addr = console_addr(&broker);
+    let port = addr.rsplit(':').next().unwrap();
+    let host = format!("127.0.0.1:{port}");
+    let lab = http(
+        &host,
+        &format!("GET /api/v1/lab HTTP/1.1\r\nHost: {host}\r\nX-Console: 1"),
+        "",
+    );
+    let log = broker.log.lock().unwrap().clone();
+    assert!(
+        log.contains("the console is served on 0.0.0.0:0 with no login and over plain HTTP: anyone who can reach that address can do what any Kafka client of this broker can"),
+        "{log}"
+    );
+    assert!(
+        log.contains("the Lab is off because the console is served beyond loopback (--lab=true switches it on)"),
+        "{log}"
+    );
+    assert!(!log.contains("the Lab is on"), "{log}");
+    assert!(lab.contains("\"off\":true"), "{lab}");
+    assert!(broker.terminate().success());
+    let _ = std::fs::remove_dir_all(&data);
+}
+
+#[test]
+#[cfg(feature = "console")]
+fn acls_stored_in_the_data_directory_stop_a_console_on_the_network_unless_unprotected() {
+    use kafka_protocol::messages::CreateAclsRequest;
+    use kafka_protocol::messages::CreateAclsResponse;
+    use kafka_protocol::messages::create_acls_request::AclCreation;
+    let data = scratch("console-stored-acls");
+    // An open broker stores an ACL (anybody may, with the allow default and no login).
+    let broker = start(&data);
+    let mut c = broker.connect();
+    let mut acl = AclCreation::default();
+    acl.resource_type = 2;
+    acl.resource_name = StrBytes::from_static_str("t");
+    acl.resource_pattern_type = 3;
+    acl.principal = StrBytes::from_static_str("User:someone");
+    acl.host = StrBytes::from_static_str("*");
+    acl.operation = 8;
+    acl.permission_type = 2;
+    let mut create = CreateAclsRequest::default();
+    create.creations.push(acl);
+    let made: CreateAclsResponse = call(&mut c, ApiKey::CreateAcls, 3, &create);
+    assert_eq!(made.results[0].error_code, 0);
+    drop((c, broker));
+    // Kafka on the network and nothing in the flags guards it, but the stored ACL does: the console may not get round it.
+    let output = Command::new(env!("CARGO_BIN_EXE_doze-kafka"))
+        .args(["--listen", "0.0.0.0:0", "--data-dir"])
+        .arg(&data)
+        .args(["--console-addr", "0.0.0.0:0"])
+        .output_within(PROCESS_WAIT);
+    let said = String::from_utf8_lossy(&output.stderr);
+    assert!(!output.status.success(), "{said}");
+    assert!(
+        said.contains("and ACLs are in force (1 stored in the data directory): serving it on 0.0.0.0:0 would let anyone who can reach that address do what the ACLs refuse"),
+        "{said}"
+    );
+    // Accepted, the start says what is open.
+    let mut broker = start_with(
+        &data,
+        &[
+            "--listen",
+            "0.0.0.0:0",
+            "--console-addr",
+            "0.0.0.0:0",
+            "--console-unprotected",
+        ],
+    );
+    let log = broker.log.lock().unwrap().clone();
+    assert!(
+        log.contains(
+            "although ACLs are in force (1 stored in the data directory) (--console-unprotected)"
+        ),
+        "{log}"
+    );
     assert!(broker.terminate().success());
     let _ = std::fs::remove_dir_all(&data);
 }
