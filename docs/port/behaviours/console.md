@@ -1011,6 +1011,43 @@ React escapes text and no HTML is ever injected; the API returns what it was giv
 ## CON-1014. Every control works in Firefox, WebKit and Chromium
 The Playwright gate drives the shell (sidebar, collapse, chips, palette, RefreshControl), the gallery (Button, Input, Textarea, Select, Combobox, MultiSelect, RadioGroup, Switch, Checkbox, ToggleGroup, Tabs, Dialog, Sheet, DropdownMenu, Popover, Tooltip, Toast, StatStrip, CodeValue, EmptyState, DataTable), Home and Connect, with the mouse and the keyboard, asserting outcomes; every test fails on a console error; no page scrolls sideways at 1024, 1280, 1440 and 1920; an interval refresh moves nothing. Files: `web/e2e/tests/shell.spec.ts`, `gallery.spec.ts`, `pages.spec.ts`. Results per browser in `docs/port/console/react-plan.md` ("R0 done").
 
+# The React console, slice R1b: topic writes and the Config tab (rules 1150 to 1199)
+
+Branch `react-r1b`. The endpoints are `crates/kafka-console/src/api/topic_writes.rs` and `api/config.rs`; the pages are `web/src/pages/topics/create.tsx`, `writes/` (the overlays) and `config.tsx` (+ `config-dialogs.tsx`). Every write goes through the same `Source` call as the classic form; the words the dialogs say (teaching, button labels, the preview of Delete records, who uses a topic) are Rust's (`write_words.rs`, moved out of the page layer so that R5 can remove it). A write always answers 200 with an `outcome` (as R2's group writes, so no browser logs a failed request): `done` and what was made, `refused` with `{code, message, detail}` when Kafka refused (its error name and the broker's sentence, `detail` the state the page draws), `invalid` with `{code: "INVALID", message, detail}` when the form could not be sent; 404 when there is no such topic. The browser specs are `web/e2e/tests/topic-writes.spec.ts` and `topic-config.spec.ts`.
+
+## CON-1150. Create topic is a page of three steps with the server's checks as you type
+`/topics/new`: Name and partitions, Configuration, Review (shadcn Tabs as a stepper, the step in the address, Back returns to the step before with what was typed). zod says at once what it can; the form view (`GET /api/v1/create-topic`) says a name that is taken or collides with the broker's own sentence; once nothing is wrong the same CreateTopics with `validate_only` is asked and its answer shown. Check only makes nothing; Create makes the topic and the page says what was made. Test: `create_topic_checks_makes_and_is_refused_in_kafkas_words`; Playwright "three steps, the server's live check, Check only, then Create", "a name Kafka forbids, a name that is taken or collides".
+
+## CON-1151. A refused create is Kafka's code and sentence, and the way on
+A name taken between the form and the call is TOPIC_ALREADY_EXISTS (36) with the broker's message, "Open the existing topic", "Choose another name", the other refusals of the call and the answer. Test: `create_topic_checks_makes_and_is_refused_in_kafkas_words`; Playwright "a topic made while the form is open".
+
+## CON-1152. Produce is a dialog over the topic that answers in place
+`?dialog=produce` on a topic opens it (Esc and Back close it, a deep link opens it): partition (auto or one), key, value with a JSON hint, header rows added and removed (at most 8), acks as a segmented control, the teaching folded so the form fits, the call as it will be sent (the server's, for what is typed). Sent, the dialog says the partition and the offset the log chose, whether read_committed sees it, and the answer. Test: `produce_writes_one_record_and_a_keyless_one_to_a_compacted_topic_is_refused`; Playwright "a keyed record with a header to a chosen partition", "a keyless record is accepted on a delete topic".
+
+## CON-1153. A refused produce is Kafka's words in the dialog
+A keyless record to a compacted topic is INVALID_RECORD (87) and the key field says "A compacted topic needs a key on every record."; a record over `max.message.bytes` is MESSAGE_TOO_LARGE (10); the answer is drawn. Test: `produce_writes_one_record_and_a_keyless_one_to_a_compacted_topic_is_refused`; Playwright "a keyless record to a compacted topic", "a record over max.message.bytes".
+
+## CON-1154. Add partitions previews what it adds and is refused in Kafka's words
+The field starts at one more than now; the unit says what the count adds (`adds 2: t-1 and t-2`) and the button counts it; fewer than now is INVALID_PARTITIONS (37) in the dialog. Test: `add_partitions_delete_records_and_delete_topic`; Playwright "the new total, what it adds, then the broker's count".
+
+## CON-1155. Delete records previews what goes and who is below it
+A partition Select and the offset; the preview (Rust's words) says how many records go, which offsets, and each group with a commit on the partition; the button counts it; after, the log start is where it was asked. A topic that only compacts is POLICY_VIOLATION (44). Test: `add_partitions_delete_records_and_delete_topic`; Playwright "the preview says what goes", "on a topic that only compacts".
+
+## CON-1156. Delete topic needs the name typed, says who uses it, and leaves for the list
+The button stays shut until the name is typed; groups with commits and open transactions are named; after, the console goes to Topics and says what was deleted. Test: `add_partitions_delete_records_and_delete_topic`; Playwright "type the name to confirm", "a topic a group reads says it is in use".
+
+## CON-1157. After a write the pages show the new state without a reload
+Every query but the form previews is marked stale after a write, so the page under the overlay refetches at once (the Config tab shows a saved value under the closing dialog). Playwright "edit a value: Check asks Kafka and changes nothing, Save changes it".
+
+## CON-1158. The Config tab: groups, the filter and the chips in the address, panels that open in place
+`/topics/$topic/config`: the changed configs first, then the groups (replication folded); `?q=` and `?show=changed|compaction|segments` (Back restores them); each row has its value and gloss, a source badge, Kafka's first sentence and when a change counts; "Where from" and "Kafka's text" are Collapsibles (no navigation, the scroll stays); Edit and Reset from a DropdownMenu on a value the topic sets. Test: `the_config_tab_edits_checks_saves_appends_and_resets`; Playwright "the chips and the filter are in the address", "Where from and Kafka's text open in place".
+
+## CON-1159. The edit dialog checks and saves, in its three shapes, and answers in place
+`?edit=<key>`: one value, a list (append, subtract, set), the two compaction lags together; Check sends `validate_only` and says what the config would be; Save says before and after and when the broker reads it; a refusal is Kafka's code and sentence with what would pass and "Edit again"; `?reset=<key>` deletes the topic's value. Test: `the_config_tab_edits_checks_saves_appends_and_resets`; Playwright "a list: append a policy", "the two lags together", "a value Kafka will not take", "reset: the topic follows the broker again".
+
+## CON-1160. A write through the API without the same-origin proof changes nothing
+Every R1b POST is behind the API guard: an Origin of another site is 403 `FORBIDDEN` and nothing is sent to the broker. Test: `a_write_without_the_same_origin_proof_is_refused`.
+
 # The React console, slice R2: Groups (rules 1200 to 1249)
 
 Branch `react-r2`. The pages are `web/src/pages/groups/` (the list, a group's layout with its tabs as routes, Members, Lag, Story, Wire, the dialogs), the API is `crates/kafka-console/src/api/groups.rs`, the browser gate is `web/e2e/tests/groups.spec.ts` (Firefox, WebKit, Chromium; seeded world and a broker with traffic). The data and every word of a refusal are the classic console's (`gather::groups`, `gather::group`, `gather::group_write`, `gather::story`, `groups_words`).

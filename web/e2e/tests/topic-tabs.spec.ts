@@ -19,6 +19,11 @@ test("Partitions: its own head, a row per partition, and Delete records asks for
   await page.getByTestId("delete-records-1").click();
   await expect(page).toHaveURL(/dialog=delete-records/);
   await expect(page).toHaveURL(/partition=1/);
+  // R1b fills the overlay: the dialog opens on that partition, and Esc closes it.
+  await expect(page.getByTestId("dialog-delete-records").getByTestId("records-partition")).toHaveText("1");
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("dialog-delete-records")).toBeHidden();
+  await expect(page).not.toHaveURL(/dialog=/);
   await page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: "orders" }).click();
   await expect(page).toHaveURL(/\/topics\/orders\/messages/);
   await expect(page.locator("h1")).toHaveText("orders");

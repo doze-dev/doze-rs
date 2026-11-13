@@ -6,7 +6,7 @@ import { CommandPalette } from "@/components/app/command-palette";
 import { TopBar } from "@/components/app/top-bar";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { ConnectPage } from "@/pages/connect";
-import { connectSearch, gallerySearch } from "@/lib/search";
+import { configSearch, connectSearch, createSearch, gallerySearch } from "@/lib/search";
 import { messagesSearch, partitionSearch, topicSearch, topicsSearch } from "@/lib/topic-search";
 import { HomePage } from "@/pages/home";
 import { liveSearch } from "@/pages/live/search";
@@ -65,7 +65,9 @@ const topicIndex = createRoute({ getParentRoute: () => topic, path: "/", validat
 const topicMessages = createRoute({ getParentRoute: () => topic, path: "/messages", validateSearch: messagesSearch, component: topicsPage("MessagesPage") });
 const topicPartitions = createRoute({ getParentRoute: () => topic, path: "/partitions", validateSearch: partitionSearch, component: topicsPage("PartitionsPage") });
 const topicLog = createRoute({ getParentRoute: () => topic, path: "/log", validateSearch: partitionSearch, component: topicsPage("LogPage") });
-const topicConfig = createRoute({ getParentRoute: () => topic, path: "/config", component: topicsPage("TopicConfigPage") });
+const topicConfig = createRoute({ getParentRoute: () => topic, path: "/config", validateSearch: configSearch, component: topicsPage("TopicConfigPage") });
+// R1b: Create topic is a page of three steps (its own chunk, with zod).
+const topicsNew = createRoute({ getParentRoute: () => root, path: "/topics/new", validateSearch: createSearch, component: lazyRouteComponent(() => import("@/pages/topics/create"), "CreateTopicPage") });
 const topicConsumers = createRoute({ getParentRoute: () => topic, path: "/consumers", component: topicsPage("ConsumersPage") });
 const topicProducers = createRoute({ getParentRoute: () => topic, path: "/producers", validateSearch: partitionSearch, component: topicsPage("ProducersPage") });
 const topicTxn = createRoute({ getParentRoute: () => topic, path: "/transactions/$txn", component: topicsPage("TxnPage") });
@@ -88,6 +90,7 @@ const tree = root.addChildren([
   live,
   firstRequest,
   topics,
+  topicsNew,
   topicTree,
   groups,
   group.addChildren(groupTabs),

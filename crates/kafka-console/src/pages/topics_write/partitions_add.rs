@@ -5,70 +5,10 @@ use maud::{Markup, html};
 
 use super::{field, opt, submit, topic_url};
 use crate::base::Base;
-use crate::format::number;
-use crate::model::{AddView, Span, Teach};
+use crate::model::AddView;
 use crate::ui::dialog::{cancel, modal};
 use crate::ui::write::{apicall, field_error, refused, teach, text_input};
-
-/// What the field's unit says: how many partitions the count adds, and their names.
-fn adds(v: &AddView) -> Option<String> {
-    let want: i32 = v.count.trim().parse().ok()?;
-    let more = want.checked_sub(v.have).filter(|n| *n > 0)?;
-    let names: Vec<String> = (v.have..want)
-        .take(3)
-        .map(|p| format!("{}-{p}", v.topic))
-        .collect();
-    let tail = if more > 3 { ", ..." } else { "" };
-    let joined = match names.as_slice() {
-        [a, b] => format!("{a} and {b}"),
-        _ => names.join(", "),
-    };
-    Some(format!("adds {more}: {joined}{tail}"))
-}
-
-fn teaching(v: &AddView) -> Teach {
-    let range = match v.most {
-        Some(m) => vec![
-            Span::text(format!(
-                "{} to {} (",
-                number(i64::from(v.have) + 1),
-                number(i64::from(m))
-            )),
-            Span::mono("--max-partitions"),
-            Span::text(")."),
-        ],
-        None => vec![Span::text(format!(
-            "{} or more.",
-            number(i64::from(v.have) + 1)
-        ))],
-    };
-    Teach {
-        says: "the new total, not the number to add.".to_owned(),
-        default: vec![Span::text(format!("none; it must be above {}.", v.have))],
-        range,
-        takes_effect: vec![Span::text(
-            "at once: producers and consumers see the new partitions in their next Metadata. They start empty.",
-        )],
-        here: vec![Span::text(
-            "records with the same key may now hash to a different partition, so order for a key is not kept across the change.",
-        )],
-    }
-}
-
-fn button_label(v: &AddView) -> String {
-    match v
-        .count
-        .trim()
-        .parse::<i32>()
-        .ok()
-        .and_then(|w| w.checked_sub(v.have))
-        .filter(|n| *n > 0)
-    {
-        Some(1) => "Add 1 partition".to_owned(),
-        Some(n) => format!("Add {n} partitions"),
-        None => "Add partitions".to_owned(),
-    }
-}
+use crate::write_words::{add_adds as adds, add_button as button_label, add_teaching as teaching};
 
 fn body(v: &AddView) -> Markup {
     let bad = v.error.is_some();

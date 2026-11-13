@@ -13,11 +13,14 @@ export const basePath: string = (() => {
 export class ApiFailure extends Error {
   readonly code: string;
   readonly status: number;
-  constructor(status: number, body: ApiError) {
+  /** The state a write's refusal carries beside its words (`{ code, message, detail }`), if any. */
+  readonly detail: unknown;
+  constructor(status: number, body: ApiError & { detail?: unknown }) {
     super(body.message);
     this.name = "ApiFailure";
     this.code = body.code;
     this.status = status;
+    this.detail = body.detail;
   }
 }
 

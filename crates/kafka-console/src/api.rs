@@ -30,6 +30,11 @@ pub mod topics;
 #[cfg(test)]
 mod types;
 
+pub mod config;
+pub mod config_edit;
+pub mod topic_admin;
+pub mod topic_writes;
+
 /// The header the console's fetch client sends on every API request.
 pub const PROOF_HEADER: &str = "x-console";
 
@@ -329,6 +334,10 @@ pub fn routes(web: &crate::base::Base) -> Router<Shared> {
         .route(&web.url("/api/v1/probe"), post(probe))
         .route(&web.url("/api/v1/shell"), get(shell))
         .route(&web.url("/api/v1/jump"), get(jump))
+        .merge(topic_writes::routes(web))
+        .merge(topic_admin::routes(web))
+        .merge(config::routes(web))
+        .merge(config_edit::routes(web))
         .merge(groups::routes(web))
         .route(&web.url("/api/v1/live"), get(live::live))
         .route(&web.url("/api/v1/live/request/{id}"), get(live::request))
@@ -348,6 +357,19 @@ pub const GET_PATHS: &[&str] = &[
     "/api/v1/shell",
     "/api/v1/jump",
     "/api/v1/jump?q=or",
+    // Slice R1b: the topic writes and the Config tab (the worlds of the tests have `orders`).
+    "/api/v1/create-topic",
+    "/api/v1/create-topic?step=review&name=fresh&partitions=2",
+    "/api/v1/topics/orders/produce",
+    "/api/v1/topics/orders/produce?key=k&value=v&hn0=a&hv0=b",
+    "/api/v1/topics/orders/add-partitions",
+    "/api/v1/topics/orders/delete-records?partition=0",
+    "/api/v1/topics/orders/delete",
+    "/api/v1/topics/orders/config",
+    "/api/v1/topics/orders/config/edit?key=retention.ms",
+    "/api/v1/topics/orders/config/edit?key=cleanup.policy",
+    "/api/v1/topics/orders/config/edit?key=min.compaction.lag.ms",
+    "/api/v1/topics/orders/config/reset?key=retention.ms",
     // Groups (R2): the addresses that answer whatever groups the broker has (those of one group are
     // `groups::GROUP_GET_PATHS`, over the fixtures' groups).
     "/api/v1/groups",

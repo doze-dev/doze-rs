@@ -4,11 +4,12 @@ use maud::{Markup, html};
 
 use super::{field, opt, submit, topic_url};
 use crate::base::Base;
-use crate::model::{ProduceRefused, ProduceView, Span, Teach};
+use crate::model::{ProduceRefused, ProduceView};
 use crate::ui::components::{Choice, Select, select};
 use crate::ui::dialog::{cancel, modal};
 use crate::ui::layout::card;
 use crate::ui::write::{apicall, field_error, refused, teach, text_input};
+use crate::write_words::acks_teach;
 
 /// The most header rows the dialog offers, filled ones and a blank one.
 const MOST_HEADERS: usize = 8;
@@ -57,28 +58,6 @@ fn acks_choice(v: &ProduceView) -> Markup {
             @if let Some(e) = &v.errors.acks { (field_error(e)) }
             (teach(&acks_teach(v.transaction.as_deref())))
         }
-    }
-}
-
-fn acks_teach(transaction: Option<&str>) -> Teach {
-    let here = match transaction {
-        Some(id) => vec![
-            Span::text("this is a plain write, not part of transaction "),
-            Span::mono(id),
-            Span::text(", so it is not held back by it."),
-        ],
-        None => vec![Span::text(
-            "this is a plain write, not part of a transaction.",
-        )],
-    };
-    Teach {
-        says:
-            "-1 answers when the batch is flushed to disk; 1 when it is written; 0 is not answered."
-                .to_owned(),
-        default: vec![Span::mono("-1"), Span::text(" (all).")],
-        range: Vec::new(),
-        takes_effect: vec![Span::text("per request.")],
-        here,
     }
 }
 
