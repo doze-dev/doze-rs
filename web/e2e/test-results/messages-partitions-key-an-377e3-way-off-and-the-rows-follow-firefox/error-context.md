@@ -12,174 +12,247 @@
 # Error details
 
 ```
-Error: expect(page).toHaveURL(expected) failed
+Error: expect(received).toEqual(expected) // deep equality
 
-Expected pattern: /partition=1/
-Received string:  "http://127.0.0.1:39094/topics/orders/messages?partition=%221%22"
-Timeout: 8000ms
+- Expected  - 1
++ Received  + 1
 
-Call log:
-  - Expect "toHaveURL" with timeout 8000ms
-    19 × locator resolved to <html lang="en">…</html>
-       - unexpected value "http://127.0.0.1:39094/topics/orders/messages?partition=%221%22"
-
+@@ -5,10 +5,10 @@
+      1088,
+      36,
+    ],
+    Array [
+      304,
+-     549,
++     585,
+      1088,
+      36,
+    ],
+  ]
 ```
 
+# Page snapshot
+
 ```yaml
-- link "doze-kafka, Home":
-  - /url: /
-  - text: doze-kafka
-- list:
-  - listitem:
-    - link "Home":
-      - /url: /
-  - listitem:
-    - link "Live":
-      - /url: /live
-  - listitem:
-    - link "Topics":
-      - /url: /topics
-    - text: "3"
-  - listitem:
-    - link "Groups":
-      - /url: /groups
-    - text: "1"
-  - listitem:
-    - link "Access":
-      - /url: /access
-  - listitem:
-    - link "Lab":
-      - /url: /lab
-  - listitem:
-    - link "Settings":
-      - /url: /settings
-- list:
-  - listitem:
-    - link "Classic console":
-      - /url: /classic/
-- button "Toggle Sidebar"
-- main:
-  - button "Toggle Sidebar"
-  - button "Jump to a topic or group ⌘K"
-  - button "127.0.0.1:39092"
-  - text: Kafka 4 profile
-  - link "Open":
-    - /url: /access
-  - main:
-    - navigation "Breadcrumb":
-      - list:
-        - listitem:
-          - link "Topics":
-            - /url: /topics
-    - text: Updated 05:25:12 UTC
-    - combobox "Refresh every": "Refresh: Off"
-    - button "Refresh"
-    - heading "orders" [level=1]
-    - text: delete
-    - link "Partitions":
-      - /url: /topics/orders/partitions
-    - button "Produce"
-    - button "Delete topic"
-    - term: Partitions
-    - definition: "3"
-    - text: all online
-    - term: Retention
-    - definition: for ever
-    - text: delete
-    - term: Records
-    - definition: "12"
-    - term: Size on disk
-    - definition: 655 B
-    - term: Last write
-    - definition: 05:25:05
-    - text: UTC No open transactions.
-    - navigation "Topic":
-      - list:
-        - listitem:
-          - link "Messages":
-            - /url: /topics/orders/messages
-        - listitem:
-          - link "Log":
-            - /url: /topics/orders/log
-        - listitem:
-          - link "Config":
-            - /url: /topics/orders/config
-        - listitem:
-          - link "Consumers 1":
-            - /url: /topics/orders/consumers
-        - listitem:
-          - link "Producers 0":
-            - /url: /topics/orders/producers
-    - combobox "Partitions": orders-1
-    - button "Clear partitions"
-    - search:
-      - textbox "Find a key, or go to an offset":
-        - /placeholder: Key, or offset
-    - button "From time"
-    - text: Reading as
-    - radiogroup "Reading as":
-      - radio "read_uncommitted" [checked]
-      - radio "read_committed"
-    - paragraph: The fetch returned 3 records, offsets 0 to 2, the end of the partition.
-    - text: partition 1
-    - button "Remove partition 1"
-    - button "Clear all"
-    - radiogroup "Snapshot or Live tail":
-      - radio "Snapshot" [checked]
-      - radio "Live tail"
-    - combobox "Tail speed" [disabled]: Relaxed
-    - text: Snapshot
-    - table "Records, newest first":
-      - rowgroup:
-        - row "Partition Offset Timestamp Key Value Value size For read_committed":
-          - columnheader "Partition":
-            - button "Partition"
-          - columnheader "Offset":
-            - button "Offset"
-          - columnheader "Timestamp":
-            - button "Timestamp"
-          - columnheader "Key":
-            - button "Key"
-          - columnheader "Value":
-            - button "Value"
-          - columnheader "Value size":
-            - button "Value size"
-          - columnheader "For read_committed":
-            - button "For read_committed"
-      - rowgroup:
-        - 'row "1 2 05:25:05.199 orders-7 {\"i\":7,\"topic\":\"orders\"} 24 B Committed"':
-          - cell "1"
-          - cell "2":
-            - button "2"
-          - cell "05:25:05.199"
-          - cell "orders-7"
-          - 'cell "{\"i\":7,\"topic\":\"orders\"}"'
-          - cell "24 B"
-          - cell "Committed"
-        - 'row "1 1 05:25:05.199 orders-6 {\"i\":6,\"topic\":\"orders\"} 24 B Committed"':
-          - cell "1"
-          - cell "1":
-            - button "1"
-          - cell "05:25:05.199"
-          - cell "orders-6"
-          - 'cell "{\"i\":6,\"topic\":\"orders\"}"'
-          - cell "24 B"
-          - cell "Committed"
-        - 'row "1 0 05:25:05.199 orders-4 {\"i\":4,\"topic\":\"orders\"} 24 B Committed"':
-          - cell "1"
-          - cell "0":
-            - button "0"
-          - cell "05:25:05.199"
-          - cell "orders-4"
-          - 'cell "{\"i\":4,\"topic\":\"orders\"}"'
-          - cell "24 B"
-          - cell "Committed"
-    - text: Newest first · 3 records
-    - paragraph: 3 of 3 partitions online
-    - button "How this read works"
-  - heading "Jump to a topic or group" [level=2]
-  - paragraph: Type a name, then Enter
-- region "Notifications alt+T"
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e6]:
+        - link "doze-kafka, Home" [ref=e8] [cursor=pointer]:
+          - /url: /
+          - generic [ref=e12]: doze-kafka
+        - list [ref=e16]:
+          - listitem [ref=e17]:
+            - link "Home" [ref=e18] [cursor=pointer]:
+              - /url: /
+          - listitem [ref=e23]:
+            - link "Live" [ref=e24] [cursor=pointer]:
+              - /url: /live
+          - listitem [ref=e28]:
+            - link "Topics" [ref=e29] [cursor=pointer]:
+              - /url: /topics
+            - generic: "3"
+          - listitem [ref=e35]:
+            - link "Groups" [ref=e36] [cursor=pointer]:
+              - /url: /groups
+            - generic: "1"
+          - listitem [ref=e43]:
+            - link "Access" [ref=e44] [cursor=pointer]:
+              - /url: /access
+          - listitem [ref=e48]:
+            - link "Lab" [ref=e49] [cursor=pointer]:
+              - /url: /lab
+          - listitem [ref=e55]:
+            - link "Settings" [ref=e56] [cursor=pointer]:
+              - /url: /settings
+        - list [ref=e62]:
+          - listitem [ref=e63]:
+            - link "Classic console" [ref=e64] [cursor=pointer]:
+              - /url: /classic/
+        - button "Toggle Sidebar" [ref=e70]
+      - main [ref=e71]:
+        - generic [ref=e72]:
+          - button "Toggle Sidebar" [ref=e73]
+          - button "Jump to a topic or group ⌘K" [ref=e75]:
+            - generic [ref=e79]: Jump to a topic or group
+            - generic [ref=e80]: ⌘K
+          - generic [ref=e81]:
+            - button "127.0.0.1:39092" [ref=e82]
+            - generic [ref=e87]: Kafka 4 profile
+            - link "Open" [ref=e88] [cursor=pointer]:
+              - /url: /access
+        - main [ref=e90]:
+          - generic [ref=e91]:
+            - generic [ref=e92]:
+              - generic [ref=e93]:
+                - navigation "Breadcrumb" [ref=e94]:
+                  - list [ref=e95]:
+                    - listitem [ref=e96]:
+                      - link "Topics" [ref=e97] [cursor=pointer]:
+                        - /url: /topics
+                - generic [ref=e98]:
+                  - generic [ref=e99]: Updated 05:39:50 UTC
+                  - combobox "Refresh every" [ref=e100]:
+                    - generic: "Refresh: Off"
+                  - button "Refresh" [ref=e101]
+              - generic [ref=e102]:
+                - generic [ref=e103]:
+                  - heading "orders" [level=1] [ref=e104]
+                  - generic [ref=e105]: delete
+                - generic [ref=e107]:
+                  - link "Partitions" [ref=e108] [cursor=pointer]:
+                    - /url: /topics/orders/partitions
+                  - button "Produce" [ref=e109]
+                  - button "Delete topic" [ref=e110]
+            - generic [ref=e111]:
+              - generic [ref=e112]:
+                - term [ref=e113]: Partitions
+                - definition [ref=e115]: "3"
+                - generic "all online" [ref=e116]
+              - generic [ref=e117]:
+                - term [ref=e118]: Retention
+                - definition [ref=e120]: for ever
+                - generic "delete" [ref=e121]
+              - generic [ref=e122]:
+                - term [ref=e123]: Records
+                - definition [ref=e125]: "12"
+              - generic [ref=e126]:
+                - term [ref=e127]: Size on disk
+                - definition [ref=e129]: 655 B
+              - generic [ref=e130]:
+                - term [ref=e131]: Last write
+                - definition [ref=e133]: 05:39:31
+                - generic "UTC" [ref=e134]
+            - generic [ref=e135]: No open transactions.
+            - navigation "Topic" [ref=e140]:
+              - list [ref=e141]:
+                - listitem [ref=e142]:
+                  - link "Messages" [ref=e143] [cursor=pointer]:
+                    - /url: /topics/orders/messages
+                - listitem [ref=e144]:
+                  - link "Log" [ref=e145] [cursor=pointer]:
+                    - /url: /topics/orders/log
+                - listitem [ref=e146]:
+                  - link "Config" [ref=e147] [cursor=pointer]:
+                    - /url: /topics/orders/config
+                - listitem [ref=e148]:
+                  - link "Consumers 1" [ref=e149] [cursor=pointer]:
+                    - /url: /topics/orders/consumers
+                    - text: Consumers
+                    - generic [ref=e150]: "1"
+                - listitem [ref=e151]:
+                  - link "Producers 0" [ref=e152] [cursor=pointer]:
+                    - /url: /topics/orders/producers
+                    - text: Producers
+                    - generic [ref=e153]: "0"
+            - generic [ref=e155]:
+              - generic [ref=e156]:
+                - generic [ref=e158]:
+                  - combobox "Partitions" [ref=e159]:
+                    - generic [ref=e160]: orders-1
+                  - button "Clear partitions" [ref=e161]
+                - search [ref=e162]:
+                  - textbox "Find a key, or go to an offset" [ref=e163]:
+                    - /placeholder: Key, or offset
+                - button "From time" [ref=e164]
+                - generic [ref=e166]:
+                  - generic [ref=e167]: Reading as
+                  - radiogroup "Reading as" [ref=e168]:
+                    - radio "read_uncommitted" [checked] [ref=e169]
+                    - radio "read_committed" [ref=e170]
+              - generic [ref=e171]:
+                - paragraph [ref=e172]: The fetch returned 3 records, offsets 0 to 2, the end of the partition.
+                - generic [ref=e173]:
+                  - generic [ref=e174]:
+                    - generic [ref=e175]:
+                      - generic [ref=e176]: partition 1
+                      - button "Remove partition 1" [ref=e177]
+                    - button "Clear all" [ref=e181]
+                  - generic [ref=e182]:
+                    - radiogroup "Snapshot or Live tail" [ref=e184]:
+                      - radio "Snapshot" [checked] [ref=e185]
+                      - radio "Live tail" [ref=e186]
+                    - combobox "Tail speed" [disabled] [ref=e187]:
+                      - generic: Relaxed
+                    - generic [ref=e188]: Snapshot
+                - generic [ref=e191]:
+                  - table "Records, newest first" [ref=e193]:
+                    - rowgroup [ref=e202]:
+                      - row [ref=e203]:
+                        - columnheader "Partition" [ref=e204]:
+                          - button "Partition" [ref=e205]
+                        - columnheader "Offset" [ref=e208]:
+                          - button "Offset" [ref=e209]
+                        - columnheader "Timestamp" [ref=e212]:
+                          - button "Timestamp" [ref=e213]
+                        - columnheader "Key" [ref=e216]:
+                          - button "Key" [ref=e217]
+                        - columnheader "Value" [ref=e220]:
+                          - button "Value" [ref=e221]
+                        - columnheader "Value size" [ref=e224]:
+                          - button "Value size" [ref=e225]
+                        - columnheader "For read_committed" [ref=e228]:
+                          - button "For read_committed" [ref=e229]
+                    - rowgroup [ref=e232]:
+                      - row [ref=e233] [cursor=pointer]:
+                        - cell "1" [ref=e234]
+                        - cell [ref=e235]:
+                          - button "2" [ref=e236]
+                        - cell "05:39:31.295" [ref=e237]
+                        - cell "orders-7" [ref=e238]
+                        - 'cell "{\"i\":7,\"topic\":\"orders\"}" [ref=e239]'
+                        - cell "24 B" [ref=e240]
+                        - cell "Committed" [ref=e241]
+                      - row [ref=e244] [cursor=pointer]:
+                        - cell "1" [ref=e245]
+                        - cell [ref=e246]:
+                          - button "1" [ref=e247]
+                        - cell "05:39:31.295" [ref=e248]
+                        - cell "orders-6" [ref=e249]
+                        - 'cell "{\"i\":6,\"topic\":\"orders\"}" [ref=e250]'
+                        - cell "24 B" [ref=e251]
+                        - cell "Committed" [ref=e252]
+                      - row [ref=e255] [cursor=pointer]:
+                        - cell "1" [ref=e256]
+                        - cell [ref=e257]:
+                          - button "0" [ref=e258]
+                        - cell "05:39:31.295" [ref=e259]
+                        - cell "orders-4" [ref=e260]
+                        - 'cell "{\"i\":4,\"topic\":\"orders\"}" [ref=e261]'
+                        - cell "24 B" [ref=e262]
+                        - cell "Committed" [ref=e263]
+                  - generic [ref=e266]: Newest first · 3 records
+                - paragraph [ref=e268]:
+                  - generic [ref=e269]: 3 of 3 partitions online
+                - button "How this read works" [ref=e272]
+        - generic [ref=e273]:
+          - heading "Jump to a topic or group" [level=2] [ref=e274]
+          - paragraph [ref=e275]: Type a name, then Enter
+    - region "Notifications alt+T"
+  - dialog [ref=e277]:
+    - generic [ref=e278]:
+      - combobox [expanded] [ref=e284]
+      - listbox "Suggestions" [active] [ref=e285]:
+        - generic [ref=e286]:
+          - group [ref=e287]:
+            - option "orders-1 3" [selected] [ref=e288]:
+              - checkbox [checked] [aria-hidden]
+              - generic "orders-1" [ref=e289]
+              - generic [ref=e290]: "3"
+            - option "orders-0 5" [ref=e291]:
+              - checkbox [aria-hidden]
+              - generic "orders-0" [ref=e292]
+              - generic [ref=e293]: "5"
+            - option "orders-2 4" [ref=e294]:
+              - checkbox [aria-hidden]
+              - generic "orders-2" [ref=e295]
+              - generic [ref=e296]: "4"
+          - separator [ref=e297]
+          - group [ref=e298]:
+            - option "Select all" [ref=e299]
+            - option "Clear 1 chosen" [ref=e300]:
+              - text: Clear
+              - generic [ref=e301]: 1 chosen
 ```
 
 # Test source
@@ -241,12 +314,12 @@ Call log:
   54  |   await page.getByRole("combobox", { name: "Partitions" }).click();
   55  |   await page.getByRole("option", { name: /^orders-1\s/ }).click();
   56  |   await page.keyboard.press("Escape");
-> 57  |   await expect(page).toHaveURL(/partition=1/);
-      |                      ^ Error: expect(page).toHaveURL(expected) failed
+  57  |   await expect(page).toHaveURL(/partition=1/);
   58  |   await expect(page.getByTestId("chip-p1")).toBeVisible();
   59  |   await expect(rows(page).first()).toBeVisible();
   60  |   for (const r of await rows(page).all()) expect(await r.locator("td").first().innerText()).toBe("1");
-  61  |   expect(await boxes(page, ["[data-testid=toolbar]", "[data-testid=filter-line]"])).toEqual(toolbar);
+> 61  |   expect(await boxes(page, ["[data-testid=toolbar]", "[data-testid=filter-line]"])).toEqual(toolbar);
+      |                                                                                     ^ Error: expect(received).toEqual(expected) // deep equality
   62  |   await page.getByRole("button", { name: "Remove partition 1" }).click();
   63  |   await expect(page).not.toHaveURL(/partition=/);
   64  |   // A key: the first row's, typed into the one box.
@@ -289,58 +362,62 @@ Call log:
   101 |   await expect(sheet.getByTestId("record-value")).toBeVisible();
   102 |   // JSON is laid out, and As sent shows it as it came.
   103 |   if (await sheet.getByTestId("json-view").count()) {
-  104 |     await expect(sheet.getByTestId("record-value")).toContainText("\n");
+  104 |     expect(await sheet.getByTestId("record-value").textContent()).toContain("\n  ");
   105 |     await sheet.getByTestId("json-view").getByRole("radio", { name: "As sent" }).click();
-  106 |     await expect(sheet.getByTestId("record-value")).not.toContainText("\n  ");
-  107 |   }
-  108 |   await page.keyboard.press("Escape");
-  109 |   await expect(sheet).toBeHidden();
-  110 |   await expect(page).not.toHaveURL(/record=/);
-  111 |   await expect(opener).toBeFocused();
-  112 |   // Back closes it too.
-  113 |   await opener.click();
-  114 |   await expect(sheet).toBeVisible();
-  115 |   const url = page.url();
-  116 |   await page.goBack();
-  117 |   await expect(sheet).toBeHidden();
-  118 |   await expect(page).not.toHaveURL(/record=/);
-  119 |   // A deep link opens the page with the record over it; closing stays on the page.
-  120 |   await page.goto(url);
-  121 |   await expect(page.getByTestId("record-sheet")).toBeVisible();
-  122 |   await expect(page.locator("h1")).toHaveText("orders");
-  123 |   await page.getByTestId("record-sheet").getByRole("button", { name: "Close" }).click();
-  124 |   await expect(page.getByTestId("record-sheet")).toBeHidden();
-  125 |   await expect(page).toHaveURL(/\/topics\/orders\/messages$/);
-  126 |   // A record that is not there says so in the Sheet.
-  127 |   await page.goto("/topics/orders/messages?record=0:999999999");
-  128 |   await expect(page.getByTestId("record-missing")).toContainText("There is no record at offset 999,999,999");
-  129 | });
-  130 | 
-  131 | test("Older asks for more records, in the address", async ({ page }) => {
-  132 |   await page.goto("/topics/orders/messages?limit=5");
-  133 |   await expect(rows(page)).toHaveCount(5);
-  134 |   await page.getByTestId("older").click();
-  135 |   await expect(page).toHaveURL(/limit=10/);
-  136 |   await expect(rows(page)).toHaveCount(10);
-  137 | });
-  138 | 
-  139 | test("the Live tail: new rows at the top, no row rewritten, the header stable, held behind a pill while hovered", async ({ page }) => {
-  140 |   test.setTimeout(120_000);
-  141 |   await page.goto("/topics/orders/messages");
-  142 |   await expect(rows(page).first()).toBeVisible();
-  143 |   await page.getByTestId("mode").getByRole("radio", { name: "Live tail" }).click();
-  144 |   await expect(page).toHaveURL(/mode=tail/);
-  145 |   await choose(page, page.getByTestId("speed"), "Realtime");
-  146 |   await expect(page.getByTestId("conn")).toHaveAttribute("data-state", "live", { timeout: 15_000 });
-  147 |   await page.mouse.move(5, 5);
-  148 |   const head = await page.getByRole("table", { name: "Records, newest first" }).locator("thead").elementHandle();
-  149 |   const top = rows(page).first();
-  150 |   const topId = await top.getAttribute("data-row");
-  151 |   const topEl = await top.elementHandle();
-  152 |   const topText = await top.innerText();
-  153 |   const box = await boxes(page, ["[data-testid=toolbar]", "[data-testid=filter-line]", "thead"]);
-  154 |   await produce("orders", 3, "tail-a");
-  155 |   await expect(rows(page).first()).not.toHaveAttribute("data-row", topId!, { timeout: 45_000 });
-  156 |   expect(await head!.evaluate((el) => el.isConnected)).toBe(true);
-  157 |   expect(await topEl!.evaluate((el) => el.isConnected)).toBe(true);
+  106 |     await expect(sheet.getByTestId("json-view").getByRole("radio", { name: "As sent" })).toHaveAttribute("aria-checked", "true");
+  107 |     expect(await sheet.getByTestId("record-value").textContent()).not.toContain("\n  ");
+  108 |   }
+  109 |   await page.keyboard.press("Escape");
+  110 |   await expect(sheet).toBeHidden();
+  111 |   await expect(page).not.toHaveURL(/record=/);
+  112 |   await expect(opener).toBeFocused();
+  113 |   // Back closes it too.
+  114 |   await opener.click();
+  115 |   await expect(sheet).toBeVisible();
+  116 |   const url = page.url();
+  117 |   await page.goBack();
+  118 |   await expect(sheet).toBeHidden();
+  119 |   await expect(page).not.toHaveURL(/record=/);
+  120 |   // A deep link opens the page with the record over it; closing stays on the page.
+  121 |   await page.goto(url);
+  122 |   await expect(page.getByTestId("record-sheet")).toBeVisible();
+  123 |   await expect(page.locator("h1")).toHaveText("orders");
+  124 |   await page.getByTestId("record-sheet").getByRole("button", { name: "Close" }).click();
+  125 |   await expect(page.getByTestId("record-sheet")).toBeHidden();
+  126 |   await expect(page).toHaveURL(/\/topics\/orders\/messages$/);
+  127 |   // A record that is not there says so in the Sheet.
+  128 |   await page.goto("/topics/orders/messages?record=0:999999999");
+  129 |   await expect(page.getByTestId("record-missing")).toContainText("There is no record at offset 999,999,999");
+  130 | });
+  131 | 
+  132 | test("Older asks for more records, in the address", async ({ page }) => {
+  133 |   await page.goto("/topics/orders/messages?limit=5");
+  134 |   await expect(rows(page)).toHaveCount(5);
+  135 |   await page.getByTestId("older").click();
+  136 |   await expect(page).toHaveURL(/limit=10/);
+  137 |   await expect(rows(page)).toHaveCount(10);
+  138 | });
+  139 | 
+  140 | test("the Live tail: new rows at the top, no row rewritten, the header stable, held behind a pill while hovered", async ({ page }) => {
+  141 |   test.setTimeout(120_000);
+  142 |   await page.goto("/topics/orders/messages");
+  143 |   await expect(rows(page).first()).toBeVisible();
+  144 |   await page.getByTestId("mode").getByRole("radio", { name: "Live tail" }).click();
+  145 |   await expect(page).toHaveURL(/mode=tail/);
+  146 |   await choose(page, page.getByTestId("speed"), "Realtime");
+  147 |   await expect(page.getByTestId("conn")).toHaveAttribute("data-state", "live", { timeout: 15_000 });
+  148 |   await page.mouse.move(5, 5);
+  149 |   const head = await page.getByRole("table", { name: "Records, newest first" }).locator("thead").elementHandle();
+  150 |   const top = rows(page).first();
+  151 |   const topId = await top.getAttribute("data-row");
+  152 |   const topEl = await top.elementHandle();
+  153 |   const topText = await top.innerText();
+  154 |   const box = await boxes(page, ["[data-testid=toolbar]", "[data-testid=filter-line]", "thead"]);
+  155 |   await produce("orders", 3, "tail-a");
+  156 |   await expect(rows(page).first()).not.toHaveAttribute("data-row", topId!, { timeout: 45_000 });
+  157 |   expect(await head!.evaluate((el) => el.isConnected)).toBe(true);
+  158 |   expect(await topEl!.evaluate((el) => el.isConnected)).toBe(true);
+  159 |   expect(await topEl!.evaluate((el) => (el as HTMLElement).innerText)).toBe(topText);
+  160 |   expect(await page.locator(`tr[data-row="${topId}"]`).elementHandle().then((h) => h!.evaluate((el, old) => el === old, topEl))).toBe(true);
+  161 |   expect(await boxes(page, ["[data-testid=toolbar]", "[data-testid=filter-line]", "thead"])).toEqual(box);
 ```

@@ -348,7 +348,7 @@ function IsolationNote({ r, frame }: { r: MessagesResponse; frame: TopicFrame })
 
 /** The table, its pager and (in Live tail) the tail with its held pill. Keyed by the query and the mode, so a change of
  * either starts clean. */
-function Records({ topic, r, frame, tail, tailable, search, set, open }: { topic: string; r: MessagesResponse; frame: TopicFrame; tail: boolean; tailable: boolean; search: MessagesSearch; set: (p: Patch) => void; open: (row: RecordRow) => void }) {
+function Records({ topic, r, frame, tail, tailable, search, set, open, children }: { topic: string; r: MessagesResponse; frame: TopicFrame; tail: boolean; tailable: boolean; search: MessagesSearch; set: (p: Patch) => void; open: (row: RecordRow) => void; children?: React.ReactNode }) {
   const box = useRef<HTMLDivElement>(null);
   const hover = useRef(false);
   const [speed] = useTailSpeed();
@@ -380,6 +380,8 @@ function Records({ topic, r, frame, tail, tailable, search, set, open }: { topic
   return (
     <>
     <FilterLine search={search} set={set} tailable={tailable} conn={tail ? t.conn : null} />
+    {/* What is said about the read sits under the controls, so a sentence that comes or goes never moves them. */}
+    {children && <div className="mt-3">{children}</div>}
     <div ref={box} className="relative mt-3" onPointerEnter={() => (hover.current = true)} onPointerLeave={() => (hover.current = false)} data-testid="records" data-tail={tail || undefined}>
       {tail && t.held.length > 0 && (
         <div className="pointer-events-none absolute inset-x-0 top-12 z-20 flex justify-center">
@@ -542,19 +544,24 @@ export function MessagesPage() {
         ) : !r ? (
           <Skeleton className="h-96 w-full rounded-xl" />
         ) : (
-          <div className={cn("mt-2 transition-opacity", m.isPlaceholderData && "opacity-70")}>
-            {r.view.notes.map((n) => (
-              <p key={n} className="mb-3 text-[13px] text-warn" role="status">
-                {n}
-              </p>
-            ))}
-            <IsolationNote r={r} frame={f} />
-            {r.reach.length > 0 && (
-              <p className="mb-4 max-w-[60rem] text-[13.5px] text-muted-foreground" data-testid="reach">
-                <Spans spans={r.reach} />
-              </p>
-            )}
-            <Records key={`${qs}|${search.mode ?? ""}`} topic={topic} r={r} frame={f} tail={search.mode === "tail" && tailable} tailable={tailable} search={search} set={set} open={open} />
+          <div aria-busy={m.isFetching || undefined}>
+            <Records key={`${qs}|${search.mode ?? ""}`} topic={topic} r={r} frame={f} tail={search.mode === "tail" && tailable} tailable={tailable} search={search} set={set} open={open}>
+              {(r.view.notes.length > 0 || r.view.query.reading === "committed" || r.reach.length > 0) && (
+                <>
+                  {r.view.notes.map((n) => (
+                    <p key={n} className="mb-2 text-[13px] text-warn" role="status">
+                      {n}
+                    </p>
+                  ))}
+                  <IsolationNote r={r} frame={f} />
+                  {r.reach.length > 0 && (
+                    <p className="max-w-[60rem] text-[13.5px] text-muted-foreground" data-testid="reach">
+                      <Spans spans={r.reach} />
+                    </p>
+                  )}
+                </>
+              )}
+            </Records>
             <p className="mt-5 text-[13px]">
               <StatusDot tone={f.offline.length ? "bad" : "ok"}>
                 {f.head.parts.length - f.offline.length} of {f.head.parts.length} partitions online
