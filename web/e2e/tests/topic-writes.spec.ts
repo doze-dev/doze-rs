@@ -39,7 +39,7 @@ test.describe("Create topic", () => {
     await page.goForward();
     await page.getByTestId("check-only").click();
     await expect(page.getByTestId("checked")).toContainText("Every check passed for 3 partitions");
-    expect((await get(request, `/api/v1/topics/${name}/delete`)).status, "Check only makes nothing").toBe(404);
+    expect((await get(request, `/api/v1/topics/${name}/delete`)).body.missing, "Check only makes nothing").toBeTruthy();
     await page.getByTestId("create-submit").click();
     await expect(page.getByTestId("created")).toContainText(`Created ${name}.`);
     await expect(page.locator("h1")).toHaveText(name);
@@ -89,7 +89,6 @@ test.describe("Produce", () => {
   test("a keyed record with a header to a chosen partition: the offset the log chose, then another", async ({ page, request, baseURL }, info) => {
     const name = fresh(info, "keyed");
     await topic(request, baseURL!, name, 3);
-    await page.goto(`/topics/${name}`);
     await page.goto(dialogUrl(name, "produce"));
     const d = page.getByTestId("dialog-produce");
     await expect(d).toBeVisible();
@@ -251,7 +250,7 @@ test.describe("Delete topic", () => {
     await d.getByTestId("delete-submit").click();
     await expect(page).toHaveURL(/\/topics$/);
     await expect(page.locator("[data-sonner-toast]").filter({ hasText: `Deleted ${name}.` })).toBeVisible();
-    expect((await get(request, `/api/v1/topics/${name}/delete`)).status).toBe(404);
+    expect((await get(request, `/api/v1/topics/${name}/delete`)).body.missing.code).toBe("UNKNOWN_TOPIC_OR_PARTITION");
   });
 
   test("a topic a group reads says it is in use", async ({ page }) => {
