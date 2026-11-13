@@ -113,7 +113,7 @@ pub fn recipes(seen: &Seen) -> Vec<LabRecipe> {
             "slow-fetch",
             "slow",
             format!(
-                "Slow Fetch from {} by 2 s, give or take 1 s",
+                "Slow Fetch from {} by 2 to 3 s",
                 read.as_deref().unwrap_or(NO_TOPIC)
             ),
             "Does your consumer's lag grow and then drain, without the group rebalancing?",
@@ -145,7 +145,7 @@ pub fn recipes(seen: &Seen) -> Vec<LabRecipe> {
         recipe(
             "drop-once",
             "drop",
-            format!("Drop {an}'s connections once"),
+            format!("Drop the connections of {an}, once"),
             "Does it reconnect on its own and carry on where it was?",
             None,
             app.clone(),

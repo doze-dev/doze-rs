@@ -1,4 +1,4 @@
-import { ChevronsUpDownIcon, XIcon } from "lucide-react";
+import { AsteriskIcon, ChevronsUpDownIcon, XIcon } from "lucide-react";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,10 +20,15 @@ export function summary(chosen: string[], options: Option[], noun: string, chips
 
 /** Several values from a list (CON-851): a button that says the selection, a popup with a search field, a checkbox per
  * option with its count, Select all and Clear; the chosen show as chips under it, each removable. */
-export function MultiSelect({ options, value, onChange, noun = "items", className, triggerClassName = "w-64", "aria-label": ariaLabel, chips = true }: { options: Option[]; value: string[]; onChange: (v: string[]) => void; noun?: string; className?: string; triggerClassName?: string; "aria-label"?: string; chips?: boolean }) {
+export function MultiSelect({ options, value, onChange, noun = "items", className, triggerClassName = "w-64", "aria-label": ariaLabel, chips = true, pattern = false }: { options: Option[]; value: string[]; onChange: (v: string[]) => void; noun?: string; className?: string; triggerClassName?: string; "aria-label"?: string; chips?: boolean; /** What is typed can be added as it is (a name or a glob). */ pattern?: boolean }) {
   const [open, setOpen] = useState(false);
+  const [typed, setTyped] = useState("");
   const toggle = (v: string) => onChange(value.includes(v) ? value.filter((x) => x !== v) : [...value, v]);
-  const ordered = [...options.filter((o) => value.includes(o.value)), ...options.filter((o) => !value.includes(o.value))];
+  // A chosen value that is no option (a pattern typed in) is listed too, so it can be unticked.
+  const all: Option[] = pattern ? [...options, ...value.filter((v) => !options.some((o) => o.value === v)).map((v) => ({ value: v, label: v }))] : options;
+  const ordered = [...all.filter((o) => value.includes(o.value)), ...all.filter((o) => !value.includes(o.value))];
+  const own = typed.trim();
+  const offer = pattern && own !== "" && !all.some((o) => o.value === own);
   return (
     <div className={cn("flex flex-col gap-2", className)} data-slot="multi-select">
       <div className="relative flex min-w-0 items-center">
@@ -38,9 +43,28 @@ export function MultiSelect({ options, value, onChange, noun = "items", classNam
           </PopoverTrigger>
           <PopoverContent className="w-[max(var(--radix-popover-trigger-width),16rem)] max-w-[26rem] p-0" align="start">
             <Command>
-              <CommandInput placeholder={`Search ${noun}…`} />
+              <CommandInput placeholder={`Search ${noun}…`} value={typed} onValueChange={setTyped} />
               <CommandList>
-                <CommandEmpty>No {noun} match.</CommandEmpty>
+                {!offer && <CommandEmpty>No {noun} match.</CommandEmpty>}
+                {offer && (
+                  <CommandGroup>
+                    <CommandItem
+                      forceMount
+                      value={`use: ${own}`}
+                      onSelect={() => {
+                        onChange([...value, own]);
+                        setTyped("");
+                      }}
+                      data-testid="multi-pattern"
+                    >
+                      <AsteriskIcon />
+                      <span className="truncate">
+                        Add <span className="font-mono text-bright">{own}</span>
+                      </span>
+                      <span className="ml-auto text-xs text-muted-foreground">{/[*?]/.test(own) ? "pattern" : "name"}</span>
+                    </CommandItem>
+                  </CommandGroup>
+                )}
                 <CommandGroup>
                   {ordered.map((o) => {
                     const on = value.includes(o.value);

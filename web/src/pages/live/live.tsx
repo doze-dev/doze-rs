@@ -4,7 +4,7 @@
 // columns are fixed; a batch of new rows comes no faster than the pace, is prepended with a brief highlight on the new rows
 // only, and is held (a pill counts it) while the person scrolls, hovers, selects, types in the table or has an overlay open.
 import { useNavigate, useSearch } from "@tanstack/react-router";
-import { ChevronLeftIcon, ChevronRightIcon, ChevronDownIcon, FilterIcon, NetworkIcon, RadioIcon, SearchIcon, XIcon } from "lucide-react";
+import { ChevronLeftIcon, ChevronRightIcon, ChevronDownIcon, FilterIcon, FlaskConicalIcon, NetworkIcon, RadioIcon, SearchIcon, XIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useLive } from "@/api/live";
 import type { LiveResponse } from "@/api/types/LiveResponse";
@@ -348,7 +348,7 @@ export function LivePage() {
         <p className="max-w-lg">
           None of the rows kept has all of: {r.words.phrases.join("; ")}.
         </p>
-        <Button variant="outline" size="sm" className="bg-card" onClick={() => set({ q: undefined, client: undefined, api: undefined, topic: undefined, refused: undefined, before: undefined }, false)}>
+        <Button variant="outline" size="sm" className="bg-card" onClick={() => set({ q: undefined, client: undefined, api: undefined, topic: undefined, refused: undefined, lab: undefined, before: undefined }, false)}>
           <XIcon /> Clear filters
         </Button>
       </div>
@@ -394,6 +394,11 @@ export function LivePage() {
             <Toggle variant="outline" pressed={!!search.refused} onPressedChange={(p) => set({ refused: p ? true : undefined, before: undefined }, false)} className="bg-card px-3 data-[state=on]:border-primary/40 data-[state=on]:bg-primary/10 data-[state=on]:text-link" data-testid="refused-only">
               <FilterIcon /> Refused only
             </Toggle>
+            {search.lab !== undefined && (
+              <Button variant="outline" className="border-primary/40 bg-primary/10 px-3 text-link hover:bg-primary/15" onClick={() => set({ lab: undefined, before: undefined }, false)} aria-label={`${search.lab === "all" ? "Lab rules" : `Lab rule ${search.lab}`}: remove this filter`} data-testid="lab-filter">
+                <FlaskConicalIcon /> {search.lab === "all" ? "Lab rules" : `Lab rule ${search.lab}`} <XIcon />
+              </Button>
+            )}
             <div className="flex h-9 items-center gap-2 px-1">
               <Switch id="live-idle" checked={!search.idle} onCheckedChange={(c) => set({ idle: c ? undefined : true, before: undefined }, false)} data-testid="idle-hidden" />
               <Label htmlFor="live-idle" className="text-[13.5px] font-normal whitespace-nowrap">

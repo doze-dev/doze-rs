@@ -51,7 +51,7 @@ test("Lab: a Slow rule for one client slows its requests; the rule counts them; 
     await form.getByTestId("lab-ends").getByRole("radio", { name: "5 min" }).click();
     await noNativeSelect(page);
     // The server's preview says what it will do.
-    await expect(dialog.getByTestId("lab-preview-sentence")).toContainText(`+300 ms on every Produce request to orders from ${client}`);
+    await expect(dialog.getByTestId("lab-preview-sentence")).toContainText(`Every Produce request to orders from ${client} will wait 300 ms longer before the broker answers.`);
     await dialog.getByTestId("lab-start").click();
     // Made: the dialog gives way to the rule's own sheet.
     const sheet = page.getByTestId("lab-rule-sheet");

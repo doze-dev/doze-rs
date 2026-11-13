@@ -70,8 +70,10 @@ export function accessSearch(s: Record<string, unknown>): AccessSearch {
 export const LAB_TABS = ["slow", "fail", "drop", "expire", "rebalance", "compact"] as const;
 export type LabTab = (typeof LAB_TABS)[number];
 // Rule numbers are numbers in the address (`?rule=12`): a string that looks like a number would be written as JSON (`"12"`).
-export type LabSearch = { new?: LabTab; rule?: number; remove?: number };
+// `recipe`: the recipe the New rehearsal dialog was filled from; `stop`: the Stop all dialog.
+export type LabSearch = { new?: LabTab; rule?: number; remove?: number; recipe?: string; stop?: "all" };
 export function labSearch(s: Record<string, unknown>): LabSearch {
   const id = (raw: unknown) => ((typeof raw === "string" || typeof raw === "number") && /^\d{1,9}$/.test(String(raw)) ? Number(raw) : undefined);
-  return { new: oneOf(LAB_TABS, s.new), rule: id(s.rule), remove: id(s.remove) };
+  const recipe = typeof s.recipe === "string" && /^[a-z][a-z-]{0,39}$/.test(s.recipe) ? s.recipe : undefined;
+  return { new: oneOf(LAB_TABS, s.new), rule: id(s.rule), remove: id(s.remove), recipe, stop: oneOf(["all"] as const, s.stop) };
 }

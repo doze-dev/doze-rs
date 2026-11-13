@@ -1411,3 +1411,45 @@ tiles are a subgrid, so a label on two lines moves no value. A tab's count has a
 ## CON-1357. The topic's records are in view at 1024 x 900
 A dense head (the strip, the one-line transaction region, tighter spacing), and the Live tape's narrowest columns keep an API
 name and a result word whole. File: `web/e2e/tests/calm-layout.spec.ts`.
+
+## CON-1370. The Lab says how it works on a first visit, and folds once read
+How the Lab works (`web/src/pages/lab/guide.tsx`): what the Lab is for, a 1-2-3 of using it, and what it does not do (nothing is
+saved, only this broker and the requests a rule matches, every rule ends by itself, Stop all ends them at once). Open on a first
+visit; Got it folds it to one line that opens it again; the choice is `doze:lab-guide` in localStorage, read before the first
+paint, so nothing jumps. The words are the server's (`crate::lab::teach`, `GET /api/v1/lab/guide`). Tests:
+`the_teaching_is_short_plain_sentences`, `the_guide_teaches_and_its_recipes_name_the_brokers_own_topic_and_app`; file:
+`web/e2e/tests/lab-teach.spec.ts`.
+
+## CON-1371. Each rehearsal is taught where it is chosen
+For each of the six: what it stands for in production, what happens once it starts, what a well-behaved app does, the client
+or topic settings that decide it with Kafka's defaults (Java client and broker, Kafka 4), and where to see it in the console. The
+cards say the first; the New rehearsal dialog says it above the form with the rest on demand, and What to expect beside the
+preview. Tests: `every_rehearsal_is_taught_once_in_the_order_of_the_tabs`, `the_defaults_are_kafkas`; file:
+`web/e2e/tests/lab-teach.spec.ts`.
+
+## CON-1372. Recipes fill the dialog with the broker's own names
+Nine recipes (`crate::lab::recipes`), each a question about the app: Slow Produce, Slow Fetch, Fail with NOT_LEADER_OR_FOLLOWER,
+Time out from one app, Drop once, Keep dropping, Expire a member, Rebalance a group, Compact now. They name the topic most
+written to and the app writing it, the topic most read, a group with members and one of its members, a compacted topic; one the
+broker cannot serve says what it needs and cannot be used. A recipe opens `/lab?new=<tab>&recipe=<id>` filled in; the person
+reviews it and starts it. Tests: `recipes_name_the_brokers_own_topics_apps_and_groups`,
+`every_rule_recipe_makes_a_rule_the_form_accepts`, `an_empty_broker_says_what_each_recipe_needs`; file:
+`web/e2e/tests/lab-teach.spec.ts`.
+
+## CON-1373. The rule's preview is a plain sentence made from the form
+`LabPreview.plain` (`crate::lab::words::plain`): who, which requests, what happens to them and when it ends (`Every Produce
+request to orders from payments will wait 800 ms longer before the broker answers. It ends after 10 min, or when you remove
+it.`). Values from the form only, never a live figure. Topics, Client and Group take a typed name or pattern (`*`, `?`). Test:
+`the_plain_sentence_says_what_the_form_asks_for`; file: `web/e2e/tests/lab-teach.spec.ts`.
+
+## CON-1374. Live filters to the requests a Lab rule touched
+`/live?lab=<rule>` (or `lab=all`): the server's `WireQuery.lab`, in the snapshot, the tail and the phrases; a chip on the toolbar
+says it and removes it. A rule's sheet (What to watch) and its row in the table lead there; the Ended section leads to every lab
+request; a once rehearsal's Done and its line lead to Live or the group's Story. Tests:
+`stop_all_ends_every_rule_and_live_filters_by_the_lab_tag`, `the_lab_filter_is_a_rule_or_all`; files:
+`web/src/pages/live/live.test.ts`, `web/e2e/tests/lab-teach.spec.ts`.
+
+## CON-1375. Stop all ends every rehearsal at once
+`POST /api/v1/lab/stop-all` ends every rule in force (they go to Ended); the page's Stop all (`/lab?stop=all`) asks, shows what
+it did, then Done; it is off while no rule is in force. Test: `stop_all_ends_every_rule_and_live_filters_by_the_lab_tag`; file:
+`web/e2e/tests/lab-teach.spec.ts`.

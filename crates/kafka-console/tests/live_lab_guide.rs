@@ -1,5 +1,5 @@
 //! The Lab's teaching over a real broker: the guide's recipes name the broker's own topic and app, Stop all ends every rule in
-//! force, and Live's `lab` filter keeps only the requests a rule touched (CON-1370 to CON-1374).
+//! force, and Live's `lab` filter keeps only the requests a rule touched (CON-1370 to CON-1375).
 #![allow(
     clippy::too_many_lines,
     clippy::unwrap_used,
@@ -80,7 +80,7 @@ fn recipe<'a>(guide: &'a Value, id: &str) -> &'a Value {
         .unwrap_or_else(|| panic!("{id}: {guide}"))
 }
 
-/// CON-1370, CON-1371: the guide teaches every rehearsal, and its recipes name what the broker has: the topic written to and
+/// CON-1370 to CON-1373: the guide teaches every rehearsal, and its recipes name what the broker has: the topic written to and
 /// the app writing it; a recipe the broker cannot serve says what it needs. Without the Lab: the words, and no recipe.
 #[tokio::test]
 async fn the_guide_teaches_and_its_recipes_name_the_brokers_own_topic_and_app() {
@@ -140,7 +140,7 @@ async fn the_guide_teaches_and_its_recipes_name_the_brokers_own_topic_and_app() 
     l.w.stop().await;
 }
 
-/// CON-1372, CON-1373: Stop all ends every rule in force (they go to Ended); Live's `lab` filter keeps only the requests a rule
+/// CON-1374, CON-1375: Stop all ends every rule in force (they go to Ended); Live's `lab` filter keeps only the requests a rule
 /// touched, that rule's (`lab=<id>`) or any rule's (`lab=all`), and says so in its phrases.
 #[tokio::test]
 async fn stop_all_ends_every_rule_and_live_filters_by_the_lab_tag() {

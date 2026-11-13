@@ -3,7 +3,7 @@
 import { Trash2Icon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { r4keys, useLabRule } from "@/api/r4";
+import { r4keys, useLabGuide, useLabRule } from "@/api/r4";
 import type { LabHit } from "@/api/types/LabHit";
 import type { LabRule } from "@/api/types/LabRule";
 import { DataTable, type DataColumn } from "@/components/app/data-table";
@@ -16,6 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { clockUtc, hhmmUtc, number } from "@/lib/format";
 import { LabRuleBadge } from "./badge";
+import { WatchBox, teachOf } from "./guide";
 
 export const END_WORDS: Record<NonNullable<LabRule["ended"]>, string> = {
   expired: "Ended on its own",
@@ -65,6 +66,7 @@ const hitColumns: DataColumn<LabHit>[] = [
 
 export function RuleSheet({ id, onClose, onSwitch, onRemove }: { id: string | undefined; onClose: () => void; onSwitch: (id: number, on: boolean) => void; onRemove: (id: number) => void }) {
   const q = useLabRule(id);
+  const guide = useLabGuide().data;
   const qc = useQueryClient();
   const v = q.data && String(q.data.rule.id) === id ? q.data : undefined;
   const r = v?.rule;
@@ -104,6 +106,7 @@ export function RuleSheet({ id, onClose, onSwitch, onRemove }: { id: string | un
                   </Button>
                 </div>
               )}
+              <WatchBox teach={teachOf(guide, r.kind)} rule={r.id} live={!r.ended} />
               <dl className="flex flex-wrap gap-3" data-slot="stat-strip">
                 {[
                   { label: "Hits", value: number(r.hits), unit: `of ${number(r.matched)} matched · ${r.share}`, ch: 6 },

@@ -105,6 +105,15 @@ describe("the address", () => {
     expect(filtered(s)).toBe(true);
     expect(filtered(liveSearch({ idle: true, tail: true }))).toBe(false);
   });
+
+  test("the Lab filter is a rule's number or all, and nothing else", () => {
+    expect(liveSearch({ lab: 4 }).lab).toBe(4);
+    expect(liveSearch({ lab: "12" }).lab).toBe(12);
+    expect(liveSearch({ lab: "all" }).lab).toBe("all");
+    for (const bad of ["0", "x", "-1", "1e3", "1234567890", true]) expect(liveSearch({ lab: bad }).lab).toBeUndefined();
+    expect(apiQuery(liveSearch({ lab: "all", refused: "1" }))).toBe("refused=1&lab=all");
+    expect(filtered(liveSearch({ lab: 3 }))).toBe(true);
+  });
 });
 
 describe("the words of a row", () => {
