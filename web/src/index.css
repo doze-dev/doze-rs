@@ -17,6 +17,14 @@
   src: url("./fonts/inter-latin-wght-normal.woff2") format("woff2");
 }
 @font-face {
+  /* The doze family's display face (doze-dev.com), for the wordmark and the Home hero only. OFL-1.1. */
+  font-family: "Bricolage Grotesque";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 200 800;
+  src: url("./fonts/bricolage-grotesque-latin-wght-normal.woff2") format("woff2");
+}
+@font-face {
   font-family: "JetBrains Mono";
   font-style: normal;
   font-display: swap;
@@ -191,6 +199,7 @@
 
 @theme inline {
   --font-sans: "Inter", -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --font-display: "Bricolage Grotesque", "Inter", -apple-system, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
   --radius-sm: calc(var(--radius) - 4px);
