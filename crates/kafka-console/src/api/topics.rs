@@ -358,7 +358,8 @@ async fn messages(
     let Some(view) = s.source.messages(&name, query, notes).await else {
         return no_topic(&name);
     };
-    let tailable = view.query.key.is_none() && view.query.offset.is_none() && view.query.time.is_none();
+    let tailable =
+        view.query.key.is_none() && view.query.offset.is_none() && view.query.time.is_none();
     let reach = if view.query.filtered() {
         crate::words::reach_sentence(&view)
     } else {
@@ -525,7 +526,12 @@ async fn compact(
     };
     match crate::gather::lab::compact(lab, &live.backend, &name, partition).await {
         Ok(()) => {
-            let message = match s.source.log(&name, partition).await.and_then(|v| v.compaction.and_then(|c| c.last)) {
+            let message = match s
+                .source
+                .log(&name, partition)
+                .await
+                .and_then(|v| v.compaction.and_then(|c| c.last))
+            {
                 Some(r) => format!(
                     "Ran the cleaner on {name}-{partition}: {} segment{} replaced, checkpoint at {}.",
                     r.replaced,
@@ -562,10 +568,7 @@ async fn producers(
     }
 }
 
-async fn txn(
-    State(s): State<Shared>,
-    Path((name, id)): Path<(String, String)>,
-) -> Response {
+async fn txn(State(s): State<Shared>, Path((name, id)): Path<(String, String)>) -> Response {
     use crate::producers_words as w;
     if !valid(&name) {
         return no_topic(&name);
@@ -575,7 +578,9 @@ async fn txn(
         return error(
             StatusCode::NOT_FOUND,
             "TRANSACTIONAL_ID_NOT_FOUND",
-            &format!("The broker knows no transaction called {shown}, or the console may not describe it. A transactional id is forgotten after 7 days idle."),
+            &format!(
+                "The broker knows no transaction called {shown}, or the console may not describe it. A transactional id is forgotten after 7 days idle."
+            ),
         );
     };
     let (unended_before, unended_after) = w::unended_parts(&view);
@@ -619,7 +624,10 @@ struct Follow {
 impl Follow {
     /// One look: the rows that are new since the last one (`None`: nothing new, nothing is sent).
     async fn look(&mut self, s: &Shared) -> Option<(i64, Vec<RecordRow>)> {
-        let view = s.source.messages(&self.topic, self.q.clone(), vec![]).await?;
+        let view = s
+            .source
+            .messages(&self.topic, self.q.clone(), vec![])
+            .await?;
         let keys: HashSet<(i32, i64)> = view.rows.iter().map(|r| (r.partition, r.offset)).collect();
         let since = self.since_ms;
         let fresh: Vec<RecordRow> = view
@@ -704,7 +712,11 @@ async fn tail_messages(
         },
     );
     Sse::new(ready.chain(rest))
-        .keep_alive(KeepAlive::new().interval(crate::stream::KEEP_ALIVE).text("keep-alive"))
+        .keep_alive(
+            KeepAlive::new()
+                .interval(crate::stream::KEEP_ALIVE)
+                .text("keep-alive"),
+        )
         .into_response()
 }
 
@@ -744,9 +756,9 @@ pub(super) mod types {
     use crate::model::{
         CallVersions, HeaderRow, Hold, Kind, LogCleaner, LogCompaction, LogDurability, LogLimit,
         LogMoved, LogOther, LogOtherLink, LogPass, LogPlanner, LogRetentionView, LogRound,
-        LogRules, LogSegment, LogStop, LogTombstone, OpenTxn, PartitionRow, ProdAborted,
-        ProdBatch, ProdCell, ProdRow, ProdTail, ProdTxn, Reach, Reading, RecordTxn, Shown,
-        Standing, TabCounts, TopicRow, TxnPart, TxnRow,
+        LogRules, LogSegment, LogStop, LogTombstone, OpenTxn, PartitionRow, ProdAborted, ProdBatch,
+        ProdCell, ProdRow, ProdTail, ProdTxn, Reach, Reading, RecordTxn, Shown, Standing,
+        TabCounts, TopicRow, TxnPart, TxnRow,
     };
     use ts_rs::Config;
 

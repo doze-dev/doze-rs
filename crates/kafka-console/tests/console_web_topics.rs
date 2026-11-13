@@ -57,7 +57,10 @@ async fn the_topics_list_and_a_topics_frame_are_the_view_models_serialised() {
     assert_eq!(list["state"], "list");
     let rows = list["view"]["rows"].as_array().unwrap();
     assert!(rows.iter().any(|r| r["name"] == "orders"));
-    assert!(rows.iter().all(|r| r["internal"] == false), "internal hidden");
+    assert!(
+        rows.iter().all(|r| r["internal"] == false),
+        "internal hidden"
+    );
     let (_, with) = get(&app, "/api/v1/topics?internal=1").await;
     assert!(
         with["view"]["rows"]
@@ -96,7 +99,10 @@ async fn messages_take_their_filters_from_the_query_and_a_record_is_whole() {
     assert_eq!(m["tailable"], true);
     let rows = m["view"]["rows"].as_array().unwrap();
     assert!(!rows.is_empty());
-    assert!(m["reach"].as_array().unwrap().is_empty(), "no filter, no sentence");
+    assert!(
+        m["reach"].as_array().unwrap().is_empty(),
+        "no filter, no sentence"
+    );
     let (_, f) = get(
         &app,
         "/api/v1/topics/orders/messages?partition=1&isolation=read_committed&key=ord-1",
@@ -138,7 +144,10 @@ async fn consumers_log_producers_and_a_transaction_answer_with_their_words() {
     assert_eq!(s, StatusCode::OK);
     assert!(l["state"].is_string());
     assert!(l["ruler"]["cells"].is_array());
-    assert!(l["compact"]["off"].as_bool().unwrap(), "no Lab over the fixtures");
+    assert!(
+        l["compact"]["off"].as_bool().unwrap(),
+        "no Lab over the fixtures"
+    );
     let (s, p) = get(&app, "/api/v1/topics/orders/producers").await;
     assert_eq!(s, StatusCode::OK);
     assert!(p["view"]["producers"].is_array());
@@ -167,7 +176,11 @@ async fn compact_now_is_a_post_with_the_proof_and_is_refused_without_a_live_lab(
         .unwrap();
     let (res, _) = send(&app, bare).await;
     assert_eq!(res.status(), StatusCode::FORBIDDEN);
-    let (res, body) = send(&app, req("POST", "/api/v1/topics/orders/log/compact?partition=0")).await;
+    let (res, body) = send(
+        &app,
+        req("POST", "/api/v1/topics/orders/log/compact?partition=0"),
+    )
+    .await;
     assert_eq!(res.status(), StatusCode::CONFLICT, "{body}");
     assert!(body.contains("\"code\":\"LAB_OFF\""), "{body}");
 }
