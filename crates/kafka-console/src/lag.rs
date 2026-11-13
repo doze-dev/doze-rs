@@ -10,7 +10,9 @@
 //! - a partition (or its topic) that is not there any more: nothing to subtract from.
 
 /// What a partition's lag is.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(tag = "kind", content = "n", rename_all = "snake_case")]
 pub enum Lag {
     /// The group is behind by this many records (at least 1).
     Behind(i64),

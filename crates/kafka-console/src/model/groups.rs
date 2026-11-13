@@ -7,7 +7,9 @@ use super::write::{Lines, Refusal};
 use crate::lag::Lag;
 
 /// Which protocol the group speaks.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "snake_case")]
 pub enum GroupProtocol {
     Classic,
     /// KIP-848: the broker assigns.
@@ -15,7 +17,9 @@ pub enum GroupProtocol {
 }
 
 /// Where a group is in its life, in the console's one word for it.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "snake_case")]
 pub enum GroupPhase {
     Empty,
     Stable,
@@ -54,14 +58,16 @@ impl GroupPhase {
 }
 
 /// A partition of a topic.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct GroupPart {
     pub topic: String,
     pub partition: i32,
 }
 
 /// One member of a group.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct GroupMemberRow {
     pub id: String,
     pub instance: Option<String>,
@@ -84,7 +90,8 @@ pub struct GroupMemberRow {
 }
 
 /// A rebalance running now.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct GroupRebalance {
     pub began_ago_ms: u64,
     pub remaining_ms: u64,
@@ -94,7 +101,8 @@ pub struct GroupRebalance {
 }
 
 /// What every page of one group says about it: the title row, the tabs and the switch-group chips.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct GroupHead {
     pub id: String,
     pub protocol: GroupProtocol,
@@ -133,7 +141,8 @@ impl GroupHead {
 }
 
 /// How a row of the list reads its lag.
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct RowLag {
     /// The sum of what the group is behind by.
     pub total: i64,
@@ -148,7 +157,8 @@ pub struct RowLag {
 }
 
 /// One row of the list.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct GroupRow {
     pub id: String,
     pub protocol: GroupProtocol,
@@ -211,7 +221,8 @@ impl GroupFilter {
 }
 
 /// A group that is rebalancing, for the sentence at the top of the list.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct GroupAttention {
     pub id: String,
     pub waiting_for: Vec<String>,
@@ -222,7 +233,8 @@ pub struct GroupAttention {
 }
 
 /// The Groups list.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct GroupsView {
     /// After the filters, by id.
     pub rows: Vec<GroupRow>,
@@ -231,6 +243,8 @@ pub struct GroupsView {
     /// How many are in each state: all, stable, rebalancing, empty.
     pub counts: [usize; 4],
     pub filter: String,
+    /// Sent as the list of values (`states` of the API's answer).
+    #[serde(skip)]
     pub state: GroupStates,
     /// How many topics the broker has (the other tab).
     pub topics: usize,
@@ -241,7 +255,9 @@ pub struct GroupsView {
 }
 
 /// The states of the Lag page.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "snake_case")]
 pub enum LagState {
     /// `group-lag`.
     Normal,
@@ -254,7 +270,8 @@ pub enum LagState {
 }
 
 /// One partition of the Lag table.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct LagRow {
     pub topic: String,
     pub partition: i32,
@@ -269,7 +286,8 @@ pub struct LagRow {
 }
 
 /// A topic's block of the Lag table.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct LagTopic {
     pub name: String,
     pub partitions: usize,
@@ -283,7 +301,8 @@ pub struct LagTopic {
 }
 
 /// The Lag tab.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct GroupLagView {
     pub head: GroupHead,
     pub state: LagState,
@@ -310,7 +329,8 @@ pub enum ResetMode {
 }
 
 /// One partition of the preview.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct ResetRow {
     pub partition: i32,
     pub committed: Option<i64>,
@@ -320,7 +340,8 @@ pub struct ResetRow {
 }
 
 /// The reset dialog.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct ResetView {
     pub head: GroupHead,
     /// The topics the group has committed on.
@@ -337,7 +358,8 @@ pub struct ResetView {
 }
 
 /// The delete-group dialog.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct GroupDeleteView {
     pub head: GroupHead,
     /// The topics it has committed on, and the partitions of each: what goes with the group.
@@ -346,7 +368,8 @@ pub struct GroupDeleteView {
 }
 
 /// The delete-offsets dialog.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct OffsetDeleteView {
     pub head: GroupHead,
     /// Each topic with the partitions committed on it.
@@ -356,7 +379,9 @@ pub struct OffsetDeleteView {
 }
 
 /// A word of a sentence of the Groups pages: plain, monospace, bold, or a link to a topic.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(tag = "kind", content = "text", rename_all = "snake_case")]
 pub enum GroupSpan {
     Text(String),
     Mono(String),
@@ -384,7 +409,8 @@ impl GroupSpan {
 }
 
 /// One line of "What would pass".
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct RefusalStep {
     /// This is what is in the way now.
     pub blocking: bool,
@@ -395,11 +421,14 @@ pub struct RefusalStep {
 }
 
 /// A refused write of the Groups pages: Kafka's words and the console's reading.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct GroupRefused {
     pub head: GroupHead,
     /// Which write: `Reset offsets` or `Delete group`.
     pub what: String,
+    /// Sent apart, as the API's own refusal (model::Refusal is the topic pages' type).
+    #[serde(skip)]
     pub refusal: Refusal,
     /// "The rule", in the console's words.
     pub rule: Vec<GroupSpan>,

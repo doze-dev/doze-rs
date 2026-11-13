@@ -57,7 +57,69 @@ fn all() -> BTreeMap<String, String> {
     one::<Tok>(&cfg, &mut out);
     one::<ShellView>(&cfg, &mut out);
     one::<JumpView>(&cfg, &mut out);
+    groups(&cfg, &mut out);
     out
+}
+
+/// The Groups pages (R2).
+fn groups(cfg: &Config, out: &mut BTreeMap<String, String>) {
+    use super::groups::{
+        GroupWireResponse, GroupWireRow, GroupWriteDone, GroupWriteInvalid, GroupWriteRefusal,
+        GroupsResponse, OffsetDeleteRequest, ResetRequest,
+    };
+    use crate::lag::Lag;
+    use crate::model::{
+        GroupAttention, GroupDeleteView, GroupHead, GroupLagView, GroupMemberRow, GroupPart,
+        GroupPhase, GroupProtocol, GroupRebalance, GroupRefused, GroupRow, GroupSpan, GroupsView,
+        LagRow, LagState, LagTopic, OffsetDeleteView, RefusalStep, ResetRow, ResetView, RowLag,
+        StoryCalm, StoryCause, StoryDropped, StoryFacts, StoryFlap, StoryGen, StoryHold,
+        StoryJoin, StoryLast, StoryLeft, StoryNow, StoryRule, StoryTone, StoryView, StoryWho,
+    };
+    one::<GroupsResponse>(cfg, out);
+    one::<GroupWireResponse>(cfg, out);
+    one::<GroupWireRow>(cfg, out);
+    one::<GroupWriteDone>(cfg, out);
+    one::<GroupWriteInvalid>(cfg, out);
+    one::<GroupWriteRefusal>(cfg, out);
+    one::<OffsetDeleteRequest>(cfg, out);
+    one::<ResetRequest>(cfg, out);
+    one::<Lag>(cfg, out);
+    one::<GroupAttention>(cfg, out);
+    one::<GroupDeleteView>(cfg, out);
+    one::<GroupHead>(cfg, out);
+    one::<GroupLagView>(cfg, out);
+    one::<GroupMemberRow>(cfg, out);
+    one::<GroupPart>(cfg, out);
+    one::<GroupPhase>(cfg, out);
+    one::<GroupProtocol>(cfg, out);
+    one::<GroupRebalance>(cfg, out);
+    one::<GroupRefused>(cfg, out);
+    one::<GroupRow>(cfg, out);
+    one::<GroupSpan>(cfg, out);
+    one::<GroupsView>(cfg, out);
+    one::<LagRow>(cfg, out);
+    one::<LagState>(cfg, out);
+    one::<LagTopic>(cfg, out);
+    one::<OffsetDeleteView>(cfg, out);
+    one::<RefusalStep>(cfg, out);
+    one::<ResetRow>(cfg, out);
+    one::<ResetView>(cfg, out);
+    one::<RowLag>(cfg, out);
+    one::<StoryCalm>(cfg, out);
+    one::<StoryCause>(cfg, out);
+    one::<StoryDropped>(cfg, out);
+    one::<StoryFacts>(cfg, out);
+    one::<StoryFlap>(cfg, out);
+    one::<StoryGen>(cfg, out);
+    one::<StoryHold>(cfg, out);
+    one::<StoryJoin>(cfg, out);
+    one::<StoryLast>(cfg, out);
+    one::<StoryLeft>(cfg, out);
+    one::<StoryNow>(cfg, out);
+    one::<StoryRule>(cfg, out);
+    one::<StoryTone>(cfg, out);
+    one::<StoryView>(cfg, out);
+    one::<StoryWho>(cfg, out);
 }
 
 #[test]

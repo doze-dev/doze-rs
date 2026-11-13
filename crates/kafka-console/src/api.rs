@@ -24,6 +24,7 @@ use crate::model::{ConnectView, HomeState, HomeView, ProbeView, Span};
 use crate::state::Shared;
 use crate::{origin, snippets, words};
 
+pub mod groups;
 #[cfg(test)]
 mod types;
 
@@ -326,6 +327,7 @@ pub fn routes(web: &crate::base::Base) -> Router<Shared> {
         .route(&web.url("/api/v1/probe"), post(probe))
         .route(&web.url("/api/v1/shell"), get(shell))
         .route(&web.url("/api/v1/jump"), get(jump))
+        .merge(groups::routes(web))
         .route_layer(from_fn(guard))
 }
 
@@ -336,4 +338,15 @@ pub const GET_PATHS: &[&str] = &[
     "/api/v1/shell",
     "/api/v1/jump",
     "/api/v1/jump?q=or",
+    // Groups (R2).
+    "/api/v1/groups",
+    "/api/v1/groups?q=pay&state=stable&state=empty",
+    "/api/v1/groups/search-indexer",
+    "/api/v1/groups/analytics?expiring=1",
+    "/api/v1/groups/fulfilment/story",
+    "/api/v1/groups/fulfilment/wire",
+    "/api/v1/groups/fulfilment/wire?kind=join&refused=1&q=py",
+    "/api/v1/groups/analytics/reset?topic=orders&to=earliest",
+    "/api/v1/groups/search-indexer/delete",
+    "/api/v1/groups/analytics/offsets/delete",
 ];

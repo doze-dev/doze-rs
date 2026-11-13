@@ -9,6 +9,7 @@ import { ConnectPage } from "@/pages/connect";
 import { connectSearch, gallerySearch } from "@/lib/search";
 import { HomePage } from "@/pages/home";
 import { NotFoundPage, PlannedPage } from "@/pages/planned";
+import { groupSearch, groupsSearch, groupWireSearch, lagSearch, membersSearch, storySearch } from "@/pages/groups/search";
 
 function Shell() {
   const [palette, setPalette] = useState(false);
@@ -59,15 +60,15 @@ const topic = createRoute({
   },
 });
 const topic_ = topic;
-const group = createRoute({
-  getParentRoute: () => root,
-  path: "/groups/$group",
-  component: function Group() {
-    const { group } = group_.useParams();
-    return <PlannedPage title={group} slice="R2" classicPath={`/groups/${encodeURIComponent(group)}`} crumbs={[{ label: "Groups", to: "/groups" }]} />;
-  },
-});
-const group_ = group;
+// Groups (R2): the list, and a group whose tabs are routes under it. Each page is its own chunk.
+const groups = createRoute({ getParentRoute: () => root, path: "/groups", validateSearch: groupsSearch, component: lazyRouteComponent(() => import("@/pages/groups/list"), "GroupsPage") });
+const group = createRoute({ getParentRoute: () => root, path: "/groups/$group", validateSearch: groupSearch, component: lazyRouteComponent(() => import("@/pages/groups/layout"), "GroupLayout") });
+const groupTabs = [
+  createRoute({ getParentRoute: () => group, path: "/", validateSearch: membersSearch, component: lazyRouteComponent(() => import("@/pages/groups/members"), "GroupMembersPage") }),
+  createRoute({ getParentRoute: () => group, path: "lag", validateSearch: lagSearch, component: lazyRouteComponent(() => import("@/pages/groups/lag"), "GroupLagPage") }),
+  createRoute({ getParentRoute: () => group, path: "story", validateSearch: storySearch, component: lazyRouteComponent(() => import("@/pages/groups/story"), "GroupStoryPage") }),
+  createRoute({ getParentRoute: () => group, path: "wire", validateSearch: groupWireSearch, component: lazyRouteComponent(() => import("@/pages/groups/wire"), "GroupWirePage") }),
+] as const;
 
 const tree = root.addChildren([
   home,
@@ -76,8 +77,8 @@ const tree = root.addChildren([
   planned("/live", "Live", "R3"),
   planned("/topics", "Topics", "R1"),
   topic,
-  planned("/groups", "Groups", "R2"),
-  group,
+  groups,
+  group.addChildren(groupTabs),
   planned("/access", "Access", "R4"),
   planned("/lab", "Lab", "R4"),
   planned("/settings", "Settings", "R4"),
