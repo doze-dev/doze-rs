@@ -1,7 +1,8 @@
 // Small pieces the Settings, Access and Lab pages share: the call box, Kafka's refusal, a section head, a wrapping path, a
 // routed-overlay helper.
 import { CodeIcon, OctagonXIcon } from "lucide-react";
-import { useCallback, useLayoutEffect, useRef } from "react";
+import { useCallback, useLayoutEffect, useRef, useSyncExternalStore } from "react";
+import type { DataColumn } from "@/components/app/data-table";
 import type { KafkaRefusal } from "@/api/types/KafkaRefusal";
 import type { Tok } from "@/api/types/Tok";
 import { CopyButton } from "@/components/app/copy-button";
@@ -155,6 +156,28 @@ export function useStable<A extends any[], R>(fn: (...a: A) => R): (...a: A) => 
     ref.current = fn;
   });
   return useCallback((...a: A) => ref.current(...a), []);
+}
+
+/** Whether the window is at least `px` wide (a media query, followed as it changes). */
+export function useMinWidth(px: number): boolean {
+  const q = `(min-width: ${px}px)`;
+  return useSyncExternalStore(
+    (on) => {
+      const m = window.matchMedia(q);
+      m.addEventListener("change", on);
+      return () => m.removeEventListener("change", on);
+    },
+    () => window.matchMedia(q).matches,
+    () => true,
+  );
+}
+
+/** A table's columns for a narrow window (below 1280 px): without the ones named in `drop`, and with `fill` taking the room left
+ * (a cell's padding comes on top of its column's width, so five fixed columns already fill 1024). */
+export function narrowed<T>(cols: DataColumn<T>[], wide: boolean, drop: string[], fill?: string): DataColumn<T>[] {
+  if (wide) return cols;
+  const key = (c: DataColumn<T>) => c.id ?? (c as { accessorKey?: string }).accessorKey ?? "";
+  return cols.filter((c) => !drop.includes(key(c))).map((c) => (key(c) === fill ? { ...c, size: undefined } : c));
 }
 
 /** `128 MiB`, `4.0 MB`: bytes as a person reads them. */

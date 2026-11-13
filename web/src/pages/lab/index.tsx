@@ -23,7 +23,7 @@ import { Switch } from "@/components/ui/switch";
 import { clockUtc, hhmmUtc, number } from "@/lib/format";
 import { LAB_TABS, type LabSearch, type LabTab } from "@/lib/search";
 import { PageError } from "../page-error";
-import { SectionHead, useRoutedOverlay, useStable } from "../r4/bits";
+import { narrowed, SectionHead, useMinWidth, useRoutedOverlay, useStable } from "../r4/bits";
 import { NewRehearsalDialog, TAB_WORDS } from "./rule-dialog";
 import { END_WORDS, RuleSheet } from "./rule-sheet";
 
@@ -105,7 +105,8 @@ function ActiveTable({ rules, onOpen, onSwitch, onRemove }: { rules: LabRule[]; 
     ],
     [open, flip, drop],
   );
-  return <DataTable data={rules} columns={columns} rowId={(r) => String(r.id)} aria-label="Rules in force" maxHeight={480} empty="No rule is in force. Start a rehearsal below." />;
+  const wide = useMinWidth(1280);
+  return <DataTable data={rules} columns={narrowed(columns, wide, ["kind", "applies"], "name")} rowId={(r) => String(r.id)} aria-label="Rules in force" maxHeight={480} empty="No rule is in force. Start a rehearsal below." />;
 }
 
 const endedColumns = (onOpen: (id: number) => void): DataColumn<LabRule>[] => [

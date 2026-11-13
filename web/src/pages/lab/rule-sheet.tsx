@@ -42,14 +42,13 @@ export function Remaining({ endsMs, nowMs }: { endsMs: number; nowMs: number }) 
 }
 
 const hitColumns: DataColumn<LabHit>[] = [
-  { accessorKey: "at_ms", header: "Time", size: 110, cell: (c) => <span className="font-mono text-[12.5px]">{clockUtc(c.row.original.at_ms)}</span> },
-  { accessorKey: "client", header: "Client", size: 140, cell: (c) => <span title={c.row.original.client}>{c.row.original.client}{c.row.original.tag ? ` (${c.row.original.tag})` : ""}</span> },
-  { id: "request", header: "Request", size: 140, accessorFn: (h) => `${h.api} v${h.version}${h.transactional ? " (txn)" : ""}`, meta: { mono: true } },
-  { accessorKey: "target", header: "Target", meta: { mono: true } },
+  { accessorKey: "at_ms", header: "Time", size: 100, cell: (c) => <span className="font-mono text-[12.5px]">{clockUtc(c.row.original.at_ms)}</span> },
+  { accessorKey: "client", header: "Client", size: 130, cell: (c) => <span title={c.row.original.client}>{c.row.original.client}{c.row.original.tag ? ` (${c.row.original.tag})` : ""}</span> },
+  { id: "request", header: "Request", accessorFn: (h) => `${h.api} v${h.version}${h.transactional ? " (txn)" : ""} · ${h.target}`, meta: { mono: true } },
   {
     id: "result",
     header: "Result",
-    size: 170,
+    size: 150,
     accessorFn: (h) => (h.code === 0 ? "Done" : h.code_name),
     cell: (c) => (
       <span title={c.row.original.detail}>
@@ -59,7 +58,7 @@ const hitColumns: DataColumn<LabHit>[] = [
       </span>
     ),
   },
-  { id: "took", header: "Took", size: 90, accessorFn: (h) => `${number(Math.round(h.took_us / 1000))} ms`, meta: { numeric: true } },
+  { id: "took", header: "Took", size: 80, accessorFn: (h) => `${number(Math.round(h.took_us / 1000))} ms`, meta: { numeric: true } },
 ];
 
 export function RuleSheet({ id, onClose, onSwitch, onRemove, restoreFocus }: { id: string | undefined; onClose: () => void; onSwitch: (id: number, on: boolean) => void; onRemove: (id: number) => void; restoreFocus?: (e: Event) => void }) {
@@ -123,7 +122,7 @@ export function RuleSheet({ id, onClose, onSwitch, onRemove, restoreFocus }: { i
                 <p className="mb-3 text-[13px] text-muted-foreground">The same rows as on Live, only the ones this rule touched{v.more_hits ? "; the newest eight" : ""}.</p>
                 <DataTable
                   data={v.hits}
-                  columns={[...hitColumns, { id: "tag", header: () => <span className="sr-only">Lab</span>, size: 70, enableSorting: false, cell: (c) => <LabRuleBadge rule={r.id} name={r.name} did={c.row.original.did} /> }]}
+                  columns={[...hitColumns, { id: "tag", header: () => <span className="sr-only">Lab</span>, size: 64, enableSorting: false, cell: (c) => <LabRuleBadge rule={r.id} name={r.name} did={c.row.original.did} /> }]}
                   rowId={(h) => String(h.id)}
                   aria-label="Requests the rule touched"
                   maxHeight={420}

@@ -22,7 +22,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { number } from "@/lib/format";
 import type { SettingsSearch } from "@/lib/search";
 import { PageError } from "../page-error";
-import { bytes, CallBox, Fact, PathValue, SectionHead, useRoutedOverlay, useStable } from "../r4/bits";
+import { bytes, CallBox, Fact, PathValue, narrowed, SectionHead, useMinWidth, useRoutedOverlay, useStable } from "../r4/bits";
 import { EditConfigDialog } from "./edit-dialog";
 
 const SECTIONS = [
@@ -106,11 +106,12 @@ function ConfigsSection({ r, onEdit, saved, onDismiss }: { r: SettingsResponse; 
     [edit],
   );
   const s = r.settings;
+  const wide = useMinWidth(1280);
   return (
     <section aria-labelledby="configs" className="mb-12">
       <SectionHead id="configs" title="Broker configs" sub="Source says where the value in force comes from: a dynamic setting first, then the flag it started with, then Kafka's own default. A topic that sets its own value keeps it." />
       {saved && <SavedCard saved={saved} onDismiss={onDismiss} />}
-      <DataTable data={s.configs.rows} columns={columns} rowId={(row) => row.name} aria-label="Dynamic broker configs" maxHeight={420} empty="The broker did not describe its configs." />
+      <DataTable data={s.configs.rows} columns={narrowed(columns, wide, ["takes_effect"], "name")} rowId={(row) => row.name} aria-label="Dynamic broker configs" maxHeight={420} empty="The broker did not describe its configs." />
       <p className="mt-3 max-w-[52rem] text-[12.5px] text-muted-foreground">
         A change is kept on disk and is still there after a restart. It applies to all brokers or to this one (node {s.configs.node_id}). These are the only five: any other config is refused, in Kafka's words.
       </p>
@@ -206,13 +207,14 @@ function ProfileSection({ r }: { r: SettingsResponse }) {
 const intervalColumns: DataColumn<SettingsInterval>[] = [
   { accessorKey: "name", header: "Interval", size: 170, cell: (c) => <span title={`${c.row.original.name}: ${c.row.original.what}`} className="font-medium text-foreground">{c.row.original.name}</span> },
   { accessorKey: "value", header: "Value", size: 80, meta: { mono: true } },
-  { accessorKey: "flag", header: "Flag", size: 250, meta: { mono: true } },
+  { accessorKey: "flag", header: "Flag", size: 210, meta: { mono: true } },
   { accessorKey: "default", header: "Default", size: 80, meta: { mono: true } },
   { accessorKey: "note", header: "What it comes to" },
 ];
 
 function IntervalsSection({ r }: { r: SettingsResponse }) {
   const i = r.settings.intervals;
+  const wide = useMinWidth(1280);
   return (
     <section aria-labelledby="intervals" className="mb-12">
       <SectionHead id="intervals" title="Intervals" sub="How often the broker looks at things on its own. Read only: set when the broker starts. To change an interval, stop the broker and start it with the flag." />
@@ -227,7 +229,7 @@ function IntervalsSection({ r }: { r: SettingsResponse }) {
             : { label: "Last cleaner round", value: "none yet", unit: "since the broker began", ch: 6 },
         ]}
       />
-      <DataTable data={i.rows} columns={intervalColumns} rowId={(row) => row.flag} aria-label="Intervals" empty="The broker did not say its intervals." />
+      <DataTable data={i.rows} columns={narrowed(intervalColumns, wide, ["default"])} rowId={(row) => row.flag} aria-label="Intervals" empty="The broker did not say its intervals." />
     </section>
   );
 }

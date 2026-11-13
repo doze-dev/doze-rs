@@ -20,7 +20,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { number } from "@/lib/format";
 import type { AccessSearch } from "@/lib/search";
 import { PageError } from "../page-error";
-import { Fact, SectionHead, useRoutedOverlay, useStable } from "../r4/bits";
+import { Fact, narrowed, SectionHead, useMinWidth, useRoutedOverlay, useStable } from "../r4/bits";
 import { CreateAclDialog, DeleteAclDialog } from "./acl-dialogs";
 
 /** The form words of an ACL, as a query string: its stable id, and the address of its Delete dialog. */
@@ -135,6 +135,7 @@ function Acls({ r, search, set, onDelete, onCreate }: { r: AccessResponse; searc
   const ops = r.operations;
   const label = (list: AclChoice[], n: number) => list.find((k) => k.number === n)?.label ?? String(n);
   const del = useStable(onDelete);
+  const wide = useMinWidth(1280);
   const columns = useMemo<DataColumn<AclEntry>[]>(
     () => [
       {
@@ -156,7 +157,21 @@ function Acls({ r, search, set, onDelete, onCreate }: { r: AccessResponse; searc
         accessorFn: (e) => `${e.principal} @ ${e.host}`,
         meta: { mono: true },
       },
-      { id: "operation", header: "Operation", size: 120, accessorFn: (e) => label(ops, e.operation), meta: { mono: true } },
+      {
+        id: "operation",
+        header: wide ? "Operation" : "Operation (permission)",
+        size: wide ? 120 : 150,
+        accessorFn: (e) => label(ops, e.operation),
+        // Below 1280 the permission has no column of its own: it is the colour and the first word of the operation.
+        cell: (c) =>
+          wide ? (
+            <span className="font-mono text-[12.5px]">{label(ops, c.row.original.operation)}</span>
+          ) : (
+            <StatusDot tone={c.row.original.permission === "allow" ? "ok" : "warn"} className="font-medium">
+              {c.row.original.permission === "allow" ? "Allow" : "Deny"} {label(ops, c.row.original.operation)}
+            </StatusDot>
+          ),
+      },
       {
         accessorKey: "permission",
         header: "Permission",
@@ -175,7 +190,7 @@ function Acls({ r, search, set, onDelete, onCreate }: { r: AccessResponse; searc
         ),
       },
     ],
-    [kinds, ops, del],
+    [kinds, ops, del, wide],
   );
   const q = (search.q ?? "").toLowerCase();
   const kindN = search.kind ? kinds.find((k) => k.value === search.kind)?.number : undefined;
@@ -230,7 +245,7 @@ function Acls({ r, search, set, onDelete, onCreate }: { r: AccessResponse; searc
           <b className="font-mono text-bad">{r.access.acls.refused.name}</b> {r.access.acls.refused.message}
         </div>
       ) : (
-        <DataTable data={rows} columns={columns} rowId={(e) => aclQuery(e, kinds, ops)} aria-label="ACLs" maxHeight={520} empty={r.access.acls.rows.length ? "No ACL matches these filters." : r.access.authz.default_allow ? "No ACL yet. With --acl-default allow, every resource is open until an ACL says otherwise." : "No ACL yet: every resource is refused to everyone but the super users."} />
+        <DataTable data={rows} columns={narrowed(columns, wide, ["pattern", "permission"])} rowId={(e) => aclQuery(e, kinds, ops)} aria-label="ACLs" maxHeight={520} empty={r.access.acls.rows.length ? "No ACL matches these filters." : r.access.authz.default_allow ? "No ACL yet. With --acl-default allow, every resource is open until an ACL says otherwise." : "No ACL yet: every resource is refused to everyone but the super users."} />
       )}
       {r.access.acls.more > 0 && <p className="mt-2 text-[12.5px] text-muted-foreground">The broker has {number(r.access.acls.more)} more ACLs than the table lists.</p>}
     </section>
