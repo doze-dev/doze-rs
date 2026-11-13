@@ -1,7 +1,7 @@
 //! The Messages page: which records to read for the filters asked, newest first.
 //!
 //! - Nothing asked: the last records of every partition (or the chosen one).
-//! - From an offset: forward from it, on the chosen partition.
+//! - From an offset: forward from it, on each partition read (the chosen ones, or every one: as `kcat -o N` without `-p`).
 //! - From a time: ListOffsets finds the first record at or after it on each partition, then forward from there.
 //! - A key: the partition is searched backwards from its end, a thousand offsets at a time, until enough matched or 8 MiB
 //!   of records have been looked at.
@@ -104,6 +104,9 @@ async fn from_offsets(
         reached_end: true,
         ..Found::default()
     };
+    // Each partition read gets its share of the page, so a read from an offset or a time on every partition shows every
+    // partition (a cut by time across them would keep only the busiest one).
+    let share = q.limit.div_ceil(starts.len().max(1)).max(1);
     for &(p, from) in starts {
         let (start, end) = stop(head, q.reading, p);
         let w = read::forward(
@@ -115,11 +118,11 @@ async fn from_offsets(
         )
         .await;
         out.error = out.error.or(w.error);
-        out.reached_end &= w.reached && w.rows.len() <= q.limit;
+        out.reached_end &= w.reached && w.rows.len() <= share;
         // The oldest first: what was asked for is the start, so the cut is at the newest end.
         let mut rows = w.rows;
         rows.sort_by_key(|r| r.offset);
-        rows.truncate(q.limit);
+        rows.truncate(share);
         out.rows.extend(rows);
     }
     out
@@ -282,13 +285,6 @@ pub async fn page(
     } else {
         q.partitions.clone()
     };
-    if q.offset.is_some() && parts.len() != 1 {
-        notes.push(
-            "An offset belongs to one partition: choose a partition and the offset is used."
-                .to_owned(),
-        );
-        q.offset = None;
-    }
     let mut found = search(b, &meta, &head, &parts, &q).await;
     if let Some(code) = found.error.filter(|c| *c != 0) {
         notes.push(crate::words::read_refused(code));

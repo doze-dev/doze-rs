@@ -270,7 +270,8 @@ function FilterLine({ search, set, tailable, conn, refresh }: { search: Messages
   const chips: { label: string; off: Patch; id: string }[] = [];
   const parts = partitionsOf(search.partition);
   for (const p of parts) chips.push({ id: `p${p}`, label: `partition ${p}`, off: { partition: partitionParam(parts.filter((x) => x !== p)) } });
-  if (search.offset !== undefined) chips.push({ id: "offset", label: `from offset ${number(search.offset)}`, off: { offset: undefined } });
+  // An offset is read from on each partition read: the chosen ones, or every one (as kcat -o N without -p).
+  if (search.offset !== undefined) chips.push({ id: "offset", label: parts.length === 0 ? `from offset ${number(search.offset)} in each partition` : `from offset ${number(search.offset)}`, off: { offset: undefined } });
   if (search.time) chips.push({ id: "time", label: `from ${search.time}`, off: { time: undefined } });
   if (search.key) chips.push({ id: "key", label: `key ${search.key}`, off: { key: undefined } });
   if (search.limit) chips.push({ id: "limit", label: `${search.limit} records`, off: { limit: undefined } });

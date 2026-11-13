@@ -89,6 +89,17 @@ test("partitions, key and time: each is in the address, shown as a chip with a w
   await expect(page).toHaveURL(/offset=0/);
   await expect(page).not.toHaveURL(/key=/);
   await expect(page.getByTestId("chip-offset")).toBeVisible();
+  // With no partition chosen, an offset is read from on every partition (kcat -o N without -p): the chip says so and the
+  // table holds only what it says (CON-1291).
+  await page.getByTestId("find").fill("2");
+  await page.getByTestId("find").press("Enter");
+  await expect(page.getByTestId("chip-offset")).toHaveText(/from offset 2 in each partition/);
+  await expect
+    .poll(async () => {
+      const cells = await rows(page).evaluateAll((trs) => trs.map((tr) => [tr.querySelector("td:nth-child(1)")?.textContent?.trim(), tr.querySelector("td:nth-child(2)")?.textContent?.trim()]));
+      return cells.length > 0 && cells.every(([, o]) => Number(o?.replace(/\D/g, "")) >= 2) && new Set(cells.map(([p]) => p)).size > 1;
+    })
+    .toBe(true);
   // A time, from the Popover's field.
   await page.getByTestId("time-trigger").click();
   await page.getByRole("button", { name: "24 hours ago" }).click();
