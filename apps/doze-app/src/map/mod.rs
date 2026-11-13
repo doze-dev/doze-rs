@@ -312,20 +312,24 @@ impl MapView {
             cx.notify();
             return;
         }
-        if let Some(c) = self.layout.card(id) {
-            let ctr = c.rect.center();
-            let zoom = if self.cam.zoom < 0.9 {
-                1.0
-            } else {
-                self.cam.zoom
-            };
-            // The detail card takes the top right: the card lands in the middle of what is left of the viewport.
-            let shift = f64::from((detail::WIDTH + 24.0) / 2.0 / zoom);
+        if let Some(to) = self.landing(id) {
             let dur = crate::theme::Motion::of(cx).slow;
-            self.cam
-                .fly((zoom, ctr.x + shift, ctr.y), self.layout.bounds, dur);
+            self.cam.fly(to, self.layout.bounds, dur);
         }
         cx.notify();
+    }
+
+    /// Where find flies for a card: close enough to read, and in the middle of what the detail card (top right) leaves
+    /// of the viewport.
+    pub(crate) fn landing(&self, id: CardId) -> Option<(f32, f64, f64)> {
+        let ctr = self.layout.card(id)?.rect.center();
+        let zoom = if self.cam.zoom < 0.9 {
+            1.0
+        } else {
+            self.cam.zoom
+        };
+        let shift = f64::from((detail::WIDTH + 24.0) / 2.0 / zoom);
+        Some((zoom, ctr.x + shift, ctr.y))
     }
 
     /// Flies to show a region's frame whole.

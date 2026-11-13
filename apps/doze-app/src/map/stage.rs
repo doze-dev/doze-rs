@@ -42,16 +42,11 @@ impl MapView {
 
     /// Find's flight to the selection from the whole map, held at `p` of the way.
     fn held_flight(&mut self, p: f32) {
-        let Some(c) = self.lit.and_then(|c| self.layout.card(c)) else {
-            return;
-        };
-        let ctr = c.rect.center();
+        let Some(id) = self.lit else { return };
         self.refit();
-        self.cam.fly(
-            (1.0, ctr.x, ctr.y),
-            self.layout.bounds,
-            Duration::from_millis(280),
-        );
+        let Some(to) = self.landing(id) else { return };
+        self.cam
+            .fly(to, self.layout.bounds, Duration::from_millis(280));
         self.hold(p);
     }
 
