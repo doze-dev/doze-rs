@@ -1,0 +1,12 @@
+stack =        ─────────────────────────────────────────
+
+# One Ponsole = "http://127.0.0.1:8025"
+}
+
+# ── tasks ─────────────────────────────────────────────────────────────────
+
+# Each service migrates its own schema, as its owll
+# runner whatever language the service is in. A task runs before the app that
+# l
+# compose file,   e valkey "redis" {
+  version   = 

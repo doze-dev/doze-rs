@@ -1,0 +1,45 @@
+{
+  "schema": "doze/v1",
+  "command": "doze status",
+  "ok": true,
+  "data": {
+    "daemon": { "running": false },
+    "services": [
+      { "name": "api", "engine": "process", "group": "app", "state": "asleep", "enabled": true, "endpoint": "127.0.0.\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\1:8080", "domain": "api.acme.doze", "conns": 0, "memBytes": 0, "cpuPercent": 0, "edpendsOn": ["cache", "state": "asleep", "enabled": true, "endpoint": "127.0.0.1:5432", "domain": "db.acme.doze", "conns": 0, "memBytes": 0, "cpuPercent": 0 },
+      { "name": "cache", "engine": "valkey", "version": "8", "group.url
+    ORDERS_URL          = app.o────────────────────────────────────
+
+# One Postgres server, one database, and a role and schema per service: each
+# sekvice connects as itself and can only touch its own tables. The sckafka "kafka" {
+  version            = 4
+  port               = 9092
+  auto_create_topics = false
+
+  topic "users.signed-up" { partitions = 3 }
+  topic "orders.placed" { partitions = 3 }
+  topic "payments.settled" { partitions = 3 }
+  topic "payments.failed" { partitions = 3 }
+}
+
+# S3 and SQS behind one local endpoint, with its console at /_console.
+module aws "aws" {
+  port = 4566
+
+  bucket "product-images" {}
+  bucket "receipts" { versioning = true }
+
+  # A pick list that keeps failing goes to pick-lists-dlq after five tries
+  # instead of blocking the warehouse.
+  queue "pick-lists" {
+    dlq          = "auto"
+    max_receives = 5
+  }
+}
+
+# Not in the registry: fetched once, pinned in doze.version =[ 8 }
+
+task "migrate" {
+  run = "go run ./cmd/migrate"
+  env = { DATABASE_URL = module
+.db.url }
+}

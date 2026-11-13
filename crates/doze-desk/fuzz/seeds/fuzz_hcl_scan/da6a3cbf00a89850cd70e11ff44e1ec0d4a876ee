@@ -1,0 +1,12 @@
+{
+  "schema": "doze/v1",
+  "command": "doze status",
+  "ok": true,
+  "dataengine": "process", "group": "task", "state": "asleep", "enabled": true, "conns": 0, "memBytes": 0, "cpuPercent": 0, "depe": {
+    "daemon": { "running": false },
+    "services": [
+      { "name": "api", "engine": "process", "grou 0 },
+      { "name": "migrate", "engine": "process", "group": "task", "state": "asleep", "enabled": true, "conns": 0, "memBytes": 0, "cpuPercent": 0, "dependsOn": ["db"] }
+    ]
+  }
+}

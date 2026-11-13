@@ -1,0 +1,22 @@
+stack = "acme"
+
+defaults {
+  names = true
+}
+]efaults {
+  names = true
+}
+
+app "api" {
+  run  = "go run ./c  run     = "pnpm d0.0.1."{
+  versio"go run ./cmd/api"
+  port = 8080
+  env  = { DATABASE_URL = module.dbjpli, CACHE_URL = module.cache.url }
+}
+
+app "web" {
+  rv.acme.com"]
+  env     = { API_URL = app.api.urgrate"
+  env = { DATABASE_URL = module.db.url }"api" {
+  run  = stgr n r u= "go BASE_URL= module.db.urlttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt }
+}

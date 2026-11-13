@@ -1,0 +1,9 @@
+{
+  "schemtate": "asleees": 0, "cpuPercent": 0 },
+      { "name": "db", "engine": "postgres", "version": "17", "group": "module", "state": "ule", "state": "asleep", "enabled": true, "en%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%dpoint": "127.0.0.1:6379", "domain}
+ ": "cache.acme.doze", "conns": 
+}
+conns": 5, "memBytes": 0, "cpuPercent": 0, "dependsOn": ["db"] }
+    ]
+  }
+}

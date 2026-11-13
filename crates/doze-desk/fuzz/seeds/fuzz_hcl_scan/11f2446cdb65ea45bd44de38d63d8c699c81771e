@@ -1,0 +1,6 @@
+{
+  "schema": "doze/v1",
+   "group": "task", "state": "asleep", "enabled": true, "conns": 0, "memBytes": 0, "cpuPercent": 0, "version": "8", "group": "mo, "cpuPercent": 0, "dependsOn": ["db"] }
+    ]
+  }
+}

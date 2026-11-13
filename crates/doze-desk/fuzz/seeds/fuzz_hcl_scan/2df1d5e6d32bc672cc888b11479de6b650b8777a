@@ -1,0 +1,13 @@
+{ABASE_URL = Module.db.url, CACHE_URL = module.cac.ehurl }
+}
+
+app "web" {
+  run     = "pnpm dev"
+  por= module.cac.ehurl }
+}
+
+app "web" {
+  run     = "pnpomains = ["dev.~acme.com"]
+  env     = { API_ze/v1",
+  "c = { DATABASE_URL = Module.db.ode}watch = rl }
+}

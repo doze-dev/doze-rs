@@ -1,0 +1,1287 @@
+{
+  "key": "$WORK/.doze/projects/larder-1",
+  "stack": "larder",
+  "dir": "$WORK/code/larder",
+  "running": true,
+  "banner": {
+    "ok": true
+  },
+  "vitals": {
+    "mem": {
+      "total": "536 MB",
+      "shares": [
+        {
+          "name": "storefront",
+          "part": 0.114,
+          "label": "61"
+        },
+        {
+          "name": "recommendations",
+          "part": 0.108,
+          "label": "58"
+        },
+        {
+          "name": "fulfilment",
+          "part": 0.097,
+          "label": "52"
+        },
+        {
+          "name": "catalog",
+          "part": 0.088,
+          "label": "47"
+        },
+        {
+          "name": "orders",
+          "part": 0.088,
+          "label": "47"
+        },
+        {
+          "name": "payments",
+          "part": 0.088,
+          "label": "47"
+        },
+        {
+          "name": "gateway",
+          "part": 0.086,
+          "label": "46"
+        },
+        {
+          "name": "notifications",
+          "part": 0.084,
+          "label": "45"
+        },
+        {
+          "name": "identity",
+          "part": 0.078,
+          "label": "42"
+        },
+        {
+          "name": "aws",
+          "part": 0.047,
+          "label": "25"
+        },
+        {
+          "name": "kafka",
+          "part": 0.045,
+          "label": "24"
+        },
+        {
+          "name": "mailpit",
+          "part": 0.045,
+          "label": "24"
+        },
+        {
+          "name": "postgres",
+          "part": 0.024,
+          "label": "13"
+        },
+        {
+          "name": "redis",
+          "part": 0.009,
+          "label": "5"
+        }
+      ],
+      "key": "storefront 61 · recommendations 58 · fulfilment 52 · +11 more"
+    },
+    "cpu": {
+      "total": "0.05 cores",
+      "shares": [
+        {
+          "name": "notifications",
+          "part": 0.271,
+          "label": "1.3%"
+        },
+        {
+          "name": "postgres",
+          "part": 0.112,
+          "label": "0.5%"
+        },
+        {
+          "name": "kafka",
+          "part": 0.108,
+          "label": "0.5%"
+        },
+        {
+          "name": "gateway",
+          "part": 0.104,
+          "label": "0.5%"
+        },
+        {
+          "name": "payments",
+          "part": 0.087,
+          "label": "0.4%"
+        },
+        {
+          "name": "catalog",
+          "part": 0.084,
+          "label": "0.4%"
+        },
+        {
+          "name": "aws",
+          "part": 0.05,
+          "label": "0.2%"
+        },
+        {
+          "name": "orders",
+          "part": 0.045,
+          "label": "0.2%"
+        },
+        {
+          "name": "recommendations",
+          "part": 0.031,
+          "label": "0.1%"
+        },
+        {
+          "name": "identity",
+          "part": 0.029,
+          "label": "0.1%"
+        },
+        {
+          "name": "fulfilment",
+          "part": 0.029,
+          "label": "0.1%"
+        },
+        {
+          "name": "mailpit",
+          "part": 0.026,
+          "label": "0.1%"
+        },
+        {
+          "name": "storefront",
+          "part": 0.012,
+          "label": "0.1%"
+        },
+        {
+          "name": "redis",
+          "part": 0.012,
+          "label": "0.1%"
+        }
+      ],
+      "key": "notifications 1.3% · postgres 0.5% · the rest quiet"
+    },
+    "state": {
+      "awake": 13,
+      "dozing": 1,
+      "waking": 0,
+      "asleep": 0,
+      "off": 0,
+      "paused": 0,
+      "crashing": 0,
+      "sleeps": "sleeps after 2:00 with nothing holding it"
+    },
+    "conns": {
+      "open": 21,
+      "tasks": "tasks ✓ 9 done · ▸ 1 not run"
+    }
+  },
+  "groups": [
+    {
+      "title": "APPS",
+      "what": "your code",
+      "count": 9,
+      "rows": [
+        {
+          "name": "catalog",
+          "kind": "app",
+          "look": {
+            "word": "awake",
+            "glyph": "●",
+            "tone": "good"
+          },
+          "engine": "process",
+          "mem": "47 MB",
+          "cpu": "0.4",
+          "conns": "0",
+          "up": "18m",
+          "because": "gateway needs it · orders needs it · recommendations needs it",
+          "becauseTone": "dim",
+          "addr": "http://catalog.larder.doze:8002",
+          "awake": true,
+          "trouble": false,
+          "depth": 2,
+          "address": "http://catalog.larder.doze:8002",
+          "url": "http://catalog.larder.doze:8002",
+          "on": true,
+          "pinned": false
+        },
+        {
+          "name": "fulfilment",
+          "kind": "app",
+          "look": {
+            "word": "awake",
+            "glyph": "●",
+            "tone": "good"
+          },
+          "engine": "process",
+          "mem": "52 MB",
+          "cpu": "0.1",
+          "conns": "0",
+          "up": "18m",
+          "because": "gateway needs it",
+          "becauseTone": "dim",
+          "addr": "http://fulfilment.larder.doze:8005",
+          "awake": true,
+          "trouble": false,
+          "depth": 2,
+          "address": "http://fulfilment.larder.doze:8005",
+          "url": "http://fulfilment.larder.doze:8005",
+          "on": true,
+          "pinned": false
+        },
+        {
+          "name": "gateway",
+          "kind": "app",
+          "look": {
+            "word": "awake",
+            "glyph": "●",
+            "tone": "good"
+          },
+          "engine": "process",
+          "mem": "46 MB",
+          "cpu": "0.5",
+          "conns": "0",
+          "up": "18m",
+          "because": "storefront needs it",
+          "becauseTone": "dim",
+          "addr": "http://gateway.larder.doze:8000",
+          "awake": true,
+          "trouble": false,
+          "depth": 1,
+          "address": "http://gateway.larder.doze:8000",
+          "url": "http://gateway.larder.doze:8000",
+          "on": true,
+          "pinned": false
+        },
+        {
+          "name": "identity",
+          "kind": "app",
+          "look": {
+            "word": "awake",
+            "glyph": "●",
+            "tone": "good"
+          },
+          "engine": "process",
+          "mem": "42 MB",
+          "cpu": "0.1",
+          "conns": "0",
+          "up": "18m",
+          "because": "gateway needs it",
+          "becauseTone": "dim",
+          "addr": "http://identity.larder.doze:8001",
+          "awake": true,
+          "trouble": false,
+          "depth": 2,
+          "address": "http://identity.larder.doze:8001",
+          "url": "http://identity.larder.doze:8001",
+          "on": true,
+          "pinned": false
+        },
+        {
+          "name": "notifications",
+          "kind": "app",
+          "look": {
+            "word": "awake",
+            "glyph": "●",
+            "tone": "good"
+          },
+          "engine": "process",
+          "mem": "45 MB",
+          "cpu": "1.3",
+          "conns": "0",
+          "up": "18m",
+          "because": "runs until stopped",
+          "becauseTone": "dim",
+          "addr": "http://notifications.larder.doze",
+          "awake": true,
+          "trouble": false,
+          "depth": 0,
+          "address": "http://notifications.larder.doze",
+          "url": "http://notifications.larder.doze",
+          "on": true,
+          "pinned": false
+        },
+        {
+          "name": "orders",
+          "kind": "app",
+          "look": {
+            "word": "awake",
+            "glyph": "●",
+            "tone": "good"
+          },
+          "engine": "process",
+          "mem": "47 MB",
+          "cpu": "0.2",
+          "conns": "0",
+          "up": "18m",
+          "because": "gateway needs it · fulfilment needs it",
+          "becauseTone": "dim",
+          "addr": "http://orders.larder.doze:8003",
+          "awake": true,
+          "trouble": false,
+          "depth": 2,
+          "address": "http://orders.larder.doze:8003",
+          "url": "http://orders.larder.doze:8003",
+          "on": true,
+          "pinned": false
+        },
+        {
+          "name": "payments",
+          "kind": "app",
+          "look": {
+            "word": "awake",
+            "glyph": "●",
+            "tone": "good"
+          },
+          "engine": "process",
+          "mem": "47 MB",
+          "cpu": "0.4",
+          "conns": "0",
+          "up": "18m",
+          "because": "runs until stopped",
+          "becauseTone": "dim",
+          "addr": "http://payments.larder.doze:8004",
+          "awake": true,
+          "trouble": false,
+          "depth": 0,
+          "address": "http://payments.larder.doze:8004",
+          "url": "http://payments.larder.doze:8004",
+          "on": true,
+          "pinned": false
+        },
+        {
+          "name": "recommendations",
+          "kind": "app",
+          "look": {
+            "word": "awake",
+            "glyph": "●",
+            "tone": "good"
+          },
+          "engine": "process",
+          "mem": "58 MB",
+          "cpu": "0.1",
+          "conns": "0",
+          "up": "18m",
+          "because": "gateway needs it",
+          "becauseTone": "dim",
+          "addr": "http://recommendations.larder.doze:8006",
+          "awake": true,
+          "trouble": false,
+          "depth": 2,
+          "address": "http://recommendations.larder.doze:8006",
+          "url": "http://recommendations.larder.doze:8006",
+          "on": true,
+          "pinned": false
+        },
+        {
+          "name": "storefront",
+          "kind": "app",
+          "look": {
+            "word": "dozing",
+            "glyph": "◐",
+            "tone": "warn"
+          },
+          "engine": "process",
+          "mem": "61 MB",
+          "cpu": "0.1",
+          "conns": "0",
+          "up": "18m",
+          "because": "quiet; sleeps soon",
+          "becauseTone": "warn",
+          "addr": "http://storefront.larder.doze:5173",
+          "awake": true,
+          "trouble": false,
+          "depth": 0,
+          "address": "http://storefront.larder.doze:5173",
+          "url": "http://storefront.larder.doze:5173",
+          "on": true,
+          "pinned": false
+        }
+      ]
+    },
+    {
+      "title": "MODULES",
+      "what": "from the doze registry",
+      "count": 4,
+      "rows": [
+        {
+          "name": "aws",
+          "kind": "module",
+          "look": {
+            "word": "awake",
+            "glyph": "●",
+            "tone": "good"
+          },
+          "engine": "aws",
+          "mem": "25 MB",
+          "cpu": "0.2",
+          "conns": "1",
+          "up": "18m",
+          "because": "1 connection · catalog needs it · fulfilment needs it",
+          "becauseTone": "dim",
+          "addr": "http://aws.larder.doze:4566",
+          "awake": true,
+          "trouble": false,
+          "depth": 3,
+          "address": "http://aws.larder.doze:4566",
+          "url": "http://aws.larder.doze:4566",
+          "on": true,
+          "pinned": false
+        },
+        {
+          "name": "kafka",
+          "kind": "module",
+          "look": {
+            "word": "awake",
+            "glyph": "●",
+            "tone": "good"
+          },
+          "engine": "kafka 4",
+          "mem": "24 MB",
+          "cpu": "0.5",
+          "conns": "7",
+          "up": "18m",
+          "because": "7 connections · fulfilment needs it · identity needs it · notifications needs it · orders needs it · payments needs it · recommendations needs it",
+          "becauseTone": "dim",
+          "addr": "kafka.larder.doze:9092",
+          "awake": true,
+          "trouble": false,
+          "depth": 1,
+          "address": "kafka.larder.doze:9092",
+          "on": true,
+          "pinned": false
+        },
+        {
+          "name": "postgres",
+          "kind": "module",
+          "look": {
+            "word": "awake",
+            "glyph": "●",
+            "tone": "good"
+          },
+          "engine": "postgres 18",
+          "mem": "13 MB",
+          "cpu": "0.5",
+          "conns": "9",
+          "up": "18m",
+          "because": "identity needs it · catalog needs it · orders needs it · payments needs it · recommendations needs it · 9 connections",
+          "becauseTone": "dim",
+          "addr": "postgres://postgres@postgres.larder.doze:5432/postgres?sslmode=disable",
+          "awake": true,
+          "trouble": false,
+          "depth": 2,
+          "address": "postgres://postgres@postgres.larder.doze:5432/postgres?sslmode=disable",
+          "on": true,
+          "pinned": false
+        },
+        {
+          "name": "redis",
+          "kind": "module",
+          "look": {
+            "word": "awake",
+            "glyph": "●",
+            "tone": "good"
+          },
+          "engine": "valkey 9",
+          "mem": "5 MB",
+          "cpu": "0.1",
+          "conns": "3",
+          "up": "18m",
+          "because": "3 connections · gateway needs it · payments needs it · recommendations needs it",
+          "becauseTone": "dim",
+          "addr": "redis://redis.larder.doze:6379/0",
+          "awake": true,
+          "trouble": false,
+          "depth": 1,
+          "address": "redis://redis.larder.doze:6379/0",
+          "on": true,
+          "pinned": false
+        }
+      ]
+    },
+    {
+      "title": "OUTSIDE",
+      "what": "brought in by you",
+      "count": 1,
+      "rows": [
+        {
+          "name": "mailpit",
+          "kind": "service",
+          "look": {
+            "word": "awake",
+            "glyph": "●",
+            "tone": "good"
+          },
+          "engine": "process",
+          "mem": "24 MB",
+          "cpu": "0.1",
+          "conns": "1",
+          "up": "18m",
+          "because": "1 connection · notifications needs it",
+          "becauseTone": "dim",
+          "addr": "127.0.0.1:2525",
+          "awake": true,
+          "trouble": false,
+          "depth": 1,
+          "address": "127.0.0.1:2525",
+          "on": true,
+          "pinned": false
+        }
+      ]
+    },
+    {
+      "title": "TASKS",
+      "what": "run once, then out of the way",
+      "count": 10,
+      "rows": [
+        {
+          "name": "install-fulfilment",
+          "kind": "task",
+          "look": {
+            "word": "done",
+            "glyph": "✓",
+            "tone": "good"
+          },
+          "engine": "task",
+          "because": "ran 18m ago in 900ms",
+          "becauseTone": "dim",
+          "awake": false,
+          "trouble": false,
+          "depth": 3,
+          "on": false,
+          "pinned": false
+        },
+        {
+          "name": "install-notifications",
+          "kind": "task",
+          "look": {
+            "word": "done",
+            "glyph": "✓",
+            "tone": "good"
+          },
+          "engine": "task",
+          "because": "ran 18m ago in 900ms",
+          "becauseTone": "dim",
+          "awake": false,
+          "trouble": false,
+          "depth": 1,
+          "on": false,
+          "pinned": false
+        },
+        {
+          "name": "install-recommendations",
+          "kind": "task",
+          "look": {
+            "word": "done",
+            "glyph": "✓",
+            "tone": "good"
+          },
+          "engine": "task",
+          "because": "ran 18m ago in 900ms",
+          "becauseTone": "dim",
+          "awake": false,
+          "trouble": false,
+          "depth": 3,
+          "on": false,
+          "pinned": false
+        },
+        {
+          "name": "install-storefront",
+          "kind": "task",
+          "look": {
+            "word": "done",
+            "glyph": "✓",
+            "tone": "good"
+          },
+          "engine": "task",
+          "because": "ran 18m ago in 900ms",
+          "becauseTone": "dim",
+          "awake": false,
+          "trouble": false,
+          "depth": 1,
+          "on": false,
+          "pinned": false
+        },
+        {
+          "name": "migrate-catalog",
+          "kind": "task",
+          "look": {
+            "word": "done",
+            "glyph": "✓",
+            "tone": "good"
+          },
+          "engine": "task",
+          "because": "ran 17m ago in 900ms",
+          "becauseTone": "dim",
+          "awake": false,
+          "trouble": false,
+          "depth": 3,
+          "on": false,
+          "pinned": false
+        },
+        {
+          "name": "migrate-identity",
+          "kind": "task",
+          "look": {
+            "word": "done",
+            "glyph": "✓",
+            "tone": "good"
+          },
+          "engine": "task",
+          "because": "ran 17m ago in 900ms",
+          "becauseTone": "dim",
+          "awake": false,
+          "trouble": false,
+          "depth": 3,
+          "on": false,
+          "pinned": false
+        },
+        {
+          "name": "migrate-orders",
+          "kind": "task",
+          "look": {
+            "word": "done",
+            "glyph": "✓",
+            "tone": "good"
+          },
+          "engine": "task",
+          "because": "ran 16m ago in 900ms",
+          "becauseTone": "dim",
+          "awake": false,
+          "trouble": false,
+          "depth": 3,
+          "on": false,
+          "pinned": false
+        },
+        {
+          "name": "migrate-payments",
+          "kind": "task",
+          "look": {
+            "word": "done",
+            "glyph": "✓",
+            "tone": "good"
+          },
+          "engine": "task",
+          "because": "ran 16m ago in 900ms",
+          "becauseTone": "dim",
+          "awake": false,
+          "trouble": false,
+          "depth": 1,
+          "on": false,
+          "pinned": false
+        },
+        {
+          "name": "migrate-recommendations",
+          "kind": "task",
+          "look": {
+            "word": "done",
+            "glyph": "✓",
+            "tone": "good"
+          },
+          "engine": "task",
+          "because": "ran 16m ago in 900ms",
+          "becauseTone": "dim",
+          "awake": false,
+          "trouble": false,
+          "depth": 3,
+          "on": false,
+          "pinned": false
+        },
+        {
+          "name": "seed-catalog",
+          "kind": "task",
+          "look": {
+            "word": "not run",
+            "glyph": "▸",
+            "tone": "dim"
+          },
+          "engine": "task",
+          "because": "needs migrate-catalog, postgres · runs when you say",
+          "becauseTone": "dim",
+          "awake": false,
+          "trouble": false,
+          "depth": 0,
+          "on": false,
+          "pinned": false
+        }
+      ]
+    }
+  ],
+  "awake": 14,
+  "total": 14,
+  "view": "tiles",
+  "grid": {
+    "heads": [
+      {
+        "text": "Other services",
+        "span": 6
+      },
+      {
+        "text": "Shared",
+        "span": 5
+      },
+      {
+        "text": "Before it",
+        "span": 1
+      }
+    ],
+    "cols": [
+      {
+        "name": "gateway",
+        "kind": "app"
+      },
+      {
+        "name": "identity",
+        "kind": "app"
+      },
+      {
+        "name": "fulfilment",
+        "kind": "app"
+      },
+      {
+        "name": "recommendations",
+        "kind": "app"
+      },
+      {
+        "name": "orders",
+        "kind": "app"
+      },
+      {
+        "name": "catalog",
+        "kind": "app"
+      },
+      {
+        "name": "kafka",
+        "kind": "shared",
+        "sep": true
+      },
+      {
+        "name": "postgres",
+        "kind": "shared"
+      },
+      {
+        "name": "redis",
+        "kind": "shared"
+      },
+      {
+        "name": "aws",
+        "kind": "shared"
+      },
+      {
+        "name": "mailpit",
+        "kind": "shared"
+      },
+      {
+        "name": "tasks",
+        "kind": "tasks",
+        "sep": true,
+        "sub": "9 ✓"
+      }
+    ],
+    "rows": [
+      {
+        "name": "storefront",
+        "lang": "ts",
+        "cells": [
+          {
+            "dot": true,
+            "tip": {
+              "head": "storefront needs gateway",
+              "why": "keeps it awake",
+              "ref": "GATEWAY_URL = app.gateway.url",
+              "keys": "⏎ opens gateway · o opens storefront",
+              "open": "gateway"
+            }
+          },
+          {},
+          {},
+          {},
+          {},
+          {},
+          {},
+          {},
+          {},
+          {},
+          {},
+          {
+            "text": "install-storefront ✓",
+            "tone": "ok",
+            "tip": {
+              "head": "install-storefront run before storefront",
+              "why": "install-storefront ✓ 18m ago",
+              "ref": "after = [task.install-storefront]",
+              "keys": "⏎ opens install-storefront · o opens storefront",
+              "open": "install-storefront"
+            }
+          }
+        ]
+      },
+      {
+        "name": "gateway",
+        "lang": "go",
+        "cells": [
+          {
+            "self": true
+          },
+          {
+            "dot": true,
+            "tip": {
+              "head": "gateway needs identity",
+              "why": "keeps it awake",
+              "ref": "IDENTITY_URL = app.identity.url",
+              "keys": "⏎ opens identity · o opens gateway",
+              "open": "identity"
+            }
+          },
+          {
+            "dot": true,
+            "tip": {
+              "head": "gateway needs fulfilment",
+              "why": "keeps it awake",
+              "ref": "FULFILMENT_URL = app.fulfilment.url",
+              "keys": "⏎ opens fulfilment · o opens gateway",
+              "open": "fulfilment"
+            }
+          },
+          {
+            "dot": true,
+            "tip": {
+              "head": "gateway needs recommendations",
+              "why": "keeps it awake",
+              "ref": "RECOMMENDATIONS_URL = app.recommendations.url",
+              "keys": "⏎ opens recommendations · o opens gateway",
+              "open": "recommendations"
+            }
+          },
+          {
+            "dot": true,
+            "tip": {
+              "head": "gateway needs orders",
+              "why": "keeps it awake",
+              "ref": "ORDERS_URL = app.orders.url",
+              "keys": "⏎ opens orders · o opens gateway",
+              "open": "orders"
+            }
+          },
+          {
+            "dot": true,
+            "tip": {
+              "head": "gateway needs catalog",
+              "why": "keeps it awake",
+              "ref": "CATALOG_URL = app.catalog.url",
+              "keys": "⏎ opens catalog · o opens gateway",
+              "open": "catalog"
+            }
+          },
+          {},
+          {},
+          {
+            "dot": true,
+            "tip": {
+              "head": "gateway uses redis",
+              "why": "keeps it awake",
+              "ref": "REDIS_ADDR = module.redis.address",
+              "keys": "⏎ opens redis · o opens gateway",
+              "open": "redis"
+            }
+          },
+          {},
+          {},
+          {}
+        ]
+      },
+      {
+        "name": "identity",
+        "lang": "go",
+        "cells": [
+          {},
+          {
+            "self": true
+          },
+          {},
+          {},
+          {},
+          {},
+          {
+            "dot": true,
+            "tip": {
+              "head": "identity uses kafka",
+              "why": "keeps it awake",
+              "ref": "KAFKA_BROKERS = module.kafka.address",
+              "keys": "⏎ opens kafka · o opens identity",
+              "open": "kafka"
+            }
+          },
+          {
+            "dot": true,
+            "tip": {
+              "head": "identity uses postgres",
+              "why": "keeps it awake",
+              "ref": "DATABASE_URL = \"…${module.postgres.address}…\"",
+              "keys": "⏎ opens postgres · o opens identity",
+              "open": "postgres"
+            }
+          },
+          {},
+          {},
+          {},
+          {
+            "text": "migrate-identity ✓",
+            "tone": "ok",
+            "tip": {
+              "head": "migrate-identity run before identity",
+              "why": "migrate-identity ✓ 17m ago",
+              "ref": "after = [task.migrate-identity]",
+              "keys": "⏎ opens migrate-identity · o opens identity",
+              "open": "migrate-identity"
+            }
+          }
+        ]
+      },
+      {
+        "name": "fulfilment",
+        "lang": "py",
+        "cells": [
+          {},
+          {},
+          {
+            "self": true
+          },
+          {},
+          {
+            "dot": true,
+            "tip": {
+              "head": "fulfilment needs orders",
+              "why": "keeps it awake",
+              "ref": "ORDERS_URL = app.orders.url",
+              "keys": "⏎ opens orders · o opens fulfilment",
+              "open": "orders"
+            }
+          },
+          {},
+          {
+            "dot": true,
+            "tip": {
+              "head": "fulfilment uses kafka",
+              "why": "keeps it awake",
+              "ref": "KAFKA_BROKERS = module.kafka.address",
+              "keys": "⏎ opens kafka · o opens fulfilment",
+              "open": "kafka"
+            }
+          },
+          {},
+          {},
+          {
+            "dot": true,
+            "tip": {
+              "head": "fulfilment uses aws",
+              "why": "keeps it awake",
+              "ref": "AWS_ENDPOINT_URL = module.aws.url",
+              "keys": "⏎ opens aws · o opens fulfilment",
+              "open": "aws"
+            }
+          },
+          {},
+          {
+            "text": "install-fulfilment ✓",
+            "tone": "ok",
+            "tip": {
+              "head": "install-fulfilment run before fulfilment",
+              "why": "install-fulfilment ✓ 18m ago",
+              "ref": "after = [task.install-fulfilment]",
+              "keys": "⏎ opens install-fulfilment · o opens fulfilment",
+              "open": "install-fulfilment"
+            }
+          }
+        ]
+      },
+      {
+        "name": "recommendations",
+        "lang": "py",
+        "cells": [
+          {},
+          {},
+          {},
+          {
+            "self": true
+          },
+          {},
+          {
+            "dot": true,
+            "tip": {
+              "head": "recommendations needs catalog",
+              "why": "keeps it awake",
+              "ref": "CATALOG_URL = app.catalog.url",
+              "keys": "⏎ opens catalog · o opens recommendations",
+              "open": "catalog"
+            }
+          },
+          {
+            "dot": true,
+            "tip": {
+              "head": "recommendations uses kafka",
+              "why": "keeps it awake",
+              "ref": "KAFKA_BROKERS = module.kafka.address",
+              "keys": "⏎ opens kafka · o opens recommendations",
+              "open": "kafka"
+            }
+          },
+          {
+            "dot": true,
+            "tip": {
+              "head": "recommendations uses postgres",
+              "why": "keeps it awake",
+              "ref": "DATABASE_URL = \"…${module.postgres.address}…\"",
+              "keys": "⏎ opens postgres · o opens recommendations",
+              "open": "postgres"
+            }
+          },
+          {
+            "dot": true,
+            "tip": {
+              "head": "recommendations uses redis",
+              "why": "keeps it awake",
+              "ref": "REDIS_ADDR = module.redis.address",
+              "keys": "⏎ opens redis · o opens recommendations",
+              "open": "redis"
+            }
+          },
+          {},
+          {},
+          {
+            "text": "2 tasks ✓",
+            "tone": "ok",
+            "tip": {
+              "head": "migrate-recommendations and install-recommendations run before recommendations",
+              "why": "migrate-recommendations ✓ 16m ago · install-recommendations ✓ 18m ago",
+              "ref": "after = [task.migrate-recommendations, task.install-recommendations]",
+              "keys": "⏎ opens migrate-recommendations · o opens recommendations",
+              "open": "migrate-recommendations"
+            }
+          }
+        ]
+      },
+      {
+        "name": "orders",
+        "lang": "go",
+        "cells": [
+          {},
+          {},
+          {},
+          {},
+          {
+            "self": true
+          },
+          {
+            "dot": true,
+            "tip": {
+              "head": "orders needs catalog",
+              "why": "keeps it awake",
+              "ref": "CATALOG_URL = app.catalog.url",
+              "keys": "⏎ opens catalog · o opens orders",
+              "open": "catalog"
+            }
+          },
+          {
+            "dot": true,
+            "tip": {
+              "head": "orders uses kafka",
+              "why": "keeps it awake",
+              "ref": "KAFKA_BROKERS = module.kafka.address",
+              "keys": "⏎ opens kafka · o opens orders",
+              "open": "kafka"
+            }
+          },
+          {
+            "dot": true,
+            "tip": {
+              "head": "orders uses postgres",
+              "why": "keeps it awake",
+              "ref": "DATABASE_URL = \"…${module.postgres.address}…\"",
+              "keys": "⏎ opens postgres · o opens orders",
+              "open": "postgres"
+            }
+          },
+          {},
+          {},
+          {},
+          {
+            "text": "migrate-orders ✓",
+            "tone": "ok",
+            "tip": {
+              "head": "migrate-orders run before orders",
+              "why": "migrate-orders ✓ 16m ago",
+              "ref": "after = [task.migrate-orders]",
+              "keys": "⏎ opens migrate-orders · o opens orders",
+              "open": "migrate-orders"
+            }
+          }
+        ]
+      },
+      {
+        "name": "catalog",
+        "lang": "go",
+        "cells": [
+          {},
+          {},
+          {},
+          {},
+          {},
+          {
+            "self": true
+          },
+          {},
+          {
+            "dot": true,
+            "tip": {
+              "head": "catalog uses postgres",
+              "why": "keeps it awake",
+              "ref": "DATABASE_URL = \"…${module.postgres.address}…\"",
+              "keys": "⏎ opens postgres · o opens catalog",
+              "open": "postgres"
+            }
+          },
+          {},
+          {
+            "dot": true,
+            "tip": {
+              "head": "catalog uses aws",
+              "why": "keeps it awake",
+              "ref": "AWS_ENDPOINT_URL = module.aws.url",
+              "keys": "⏎ opens aws · o opens catalog",
+              "open": "aws"
+            }
+          },
+          {},
+          {
+            "text": "migrate-catalog ✓",
+            "tone": "ok",
+            "tip": {
+              "head": "migrate-catalog run before catalog",
+              "why": "migrate-catalog ✓ 17m ago",
+              "ref": "after = [task.migrate-catalog]",
+              "keys": "⏎ opens migrate-catalog · o opens catalog",
+              "open": "migrate-catalog"
+            }
+          }
+        ]
+      },
+      {
+        "name": "payments",
+        "lang": "go",
+        "cells": [
+          {},
+          {},
+          {},
+          {},
+          {},
+          {},
+          {
+            "dot": true,
+            "tip": {
+              "head": "payments uses kafka",
+              "why": "keeps it awake",
+              "ref": "KAFKA_BROKERS = module.kafka.address",
+              "keys": "⏎ opens kafka · o opens payments",
+              "open": "kafka"
+            }
+          },
+          {
+            "dot": true,
+            "tip": {
+              "head": "payments uses postgres",
+              "why": "keeps it awake",
+              "ref": "DATABASE_URL = \"…${module.postgres.address}…\"",
+              "keys": "⏎ opens postgres · o opens payments",
+              "open": "postgres"
+            }
+          },
+          {
+            "dot": true,
+            "tip": {
+              "head": "payments uses redis",
+              "why": "keeps it awake",
+              "ref": "REDIS_ADDR = module.redis.address",
+              "keys": "⏎ opens redis · o opens payments",
+              "open": "redis"
+            }
+          },
+          {},
+          {},
+          {
+            "text": "migrate-payments ✓",
+            "tone": "ok",
+            "tip": {
+              "head": "migrate-payments run before payments",
+              "why": "migrate-payments ✓ 16m ago",
+              "ref": "after = [task.migrate-payments]",
+              "keys": "⏎ opens migrate-payments · o opens payments",
+              "open": "migrate-payments"
+            }
+          }
+        ]
+      },
+      {
+        "name": "notifications",
+        "lang": "ts",
+        "cells": [
+          {},
+          {},
+          {},
+          {},
+          {},
+          {},
+          {
+            "dot": true,
+            "tip": {
+              "head": "notifications uses kafka",
+              "why": "keeps it awake",
+              "ref": "KAFKA_BROKERS = module.kafka.address",
+              "keys": "⏎ opens kafka · o opens notifications",
+              "open": "kafka"
+            }
+          },
+          {},
+          {},
+          {},
+          {
+            "dot": true,
+            "tip": {
+              "head": "notifications uses mailpit",
+              "why": "keeps it awake",
+              "ref": "SMTP_ADDR = service.mailpit.address",
+              "keys": "⏎ opens mailpit · o opens notifications",
+              "open": "mailpit"
+            }
+          },
+          {
+            "text": "install-notifications ✓",
+            "tone": "ok",
+            "tip": {
+              "head": "install-notifications run before notifications",
+              "why": "install-notifications ✓ 18m ago",
+              "ref": "after = [task.install-notifications]",
+              "keys": "⏎ opens install-notifications · o opens notifications",
+              "open": "install-notifications"
+            }
+          }
+        ]
+      }
+    ],
+    "foot": [
+      "1",
+      "1",
+      "1",
+      "1",
+      "2",
+      "3",
+      "6",
+      "5",
+      "3",
+      "2",
+      "1",
+      ""
+    ],
+    "later": "Not drawn yet: which kafka topics each service writes and reads. doze sees that a service connects to kafka, not what it publishes; that needs the module to tell doze which connection is which service."
+  },
+  "up": "18m"
+}

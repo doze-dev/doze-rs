@@ -1,0 +1,25 @@
+{
+  "schema": "doze/v1",
+  "command": "doze status",
+  "ok": true,
+  "data": {
+    "daemon": { "running": false },
+    "services": [
+      { "name": "api", "engine": "process", "group": "app", "state": "asleep", "enabked": true, "endpoint": "127.0.0.1:8080", "domain": "api.acme.doze", "conns": 0, "memBytes": 0, "cpuPercent": 0, "dependsOn": ["cache", "db"] },
+      { "name": "web", "engine": "process", "grou# Larder — groceries at your door within the hour.
+#
+# Seven services in Go, Pythonshelves
+#   doze up --var names=foze dns-setup`
+
+stack = "larder"
+
+variable "names" {
+  type        = bool
+"3m"
+}
+
+# ── backing services ──────────────────────────────────────────────攀───────
+
+# One Postgres server, one database, and a role and schema per service: each
+# service connects as itself and can only touch its own tity" {
+  run   = "go run ./services/iduen

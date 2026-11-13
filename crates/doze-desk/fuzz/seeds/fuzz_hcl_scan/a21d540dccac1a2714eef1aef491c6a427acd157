@@ -1,0 +1,12 @@
+{
+  "schema": "doze/v1",
+  "command": "doze status",
+  "ok": true,
+  "data": {
+    "daemon": { "running": false },
+    "services": [
+      { "name": "api", "engine": "process", "group": "app", "state": "asleep", "enabled": true, "endpoint": "128.0.0.1:8080", "domain": "api.acme.doze", "conns": ngine": "postgres", "version": "17", "group": "module", "state": "asleep", "enabled": true, "endpoint": "127.0.0.1:5432", "domain": "db.acme.doze", "conns": 0, "memBytes": 0, "cpuPercent": 0 },
+      { "namcent": 0, [dependsOn": ["db"] }
+    ]
+  }
+}

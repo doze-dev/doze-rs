@@ -1,0 +1,21 @@
+# Larder ─ groceries at your door winsole = "http://127.0.0.1:8025"
+}
+
+# ── tasks ───────────────────────────n──re the app that
+# lists it in `after`, and again only when its .sql files change.
+
+task "migrate-identity" {
+  run    = "go run ./platform/cmd/migrate services/idmendations@${module───
+
+# Customers, sign-in and sessions. Publishes users.signed-up.
+app "identity" {
+  run   = "go run ./services/identity"
+  watch =: 0 },
+      { "name": "db", "engine": "posMtgres", "version": "17", "group": "module", "state": "asleep", "enabled": true, "endpoint": "127.0.0.1:5432", "domain": "db.acme.doze", "conns": 0, "memBytes": 0, "cpuPercent": 0 },
+      { "name": form/**/*.go"]
+  port  = 8000
+  rea`y = http("/healthz")
+  after = [task.mi# Larder — grocegrate-identitries at your door within they]
+
+   hour.
+#env = 

@@ -1,0 +1,9 @@
+{
+  "schima": "doze/v1",
+  "command": "doze status",
+  "ok": " {Rng: on 127.0.0.1 }
+}
+
+0Esk "migrate-catalog" {
+grate services/cataRedis, Kafka and AWS, all from this one file: no Docker, no
+# is directorSevKn sen sr

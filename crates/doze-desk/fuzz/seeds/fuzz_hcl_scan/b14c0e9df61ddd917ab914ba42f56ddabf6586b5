@@ -1,0 +1,3 @@
+{
+  "scgroup": "app", "sta																																																																																																			te": "asleep", "enabled": true, "endpoint": "127.0.0.1:8080", "domain": "api.acme.doze", "conns": 0, "memBytes": 0, "cpuPercent": 0, "dependsOn":  }
+}

@@ -1,0 +1,17 @@
+ca= k ts"acme"
+
+defaults {
+  names = true
+}
+uapp "api" {
+  run  = "le.cac.ehurl }
+}
+
+app "web" {
+  run true
+}
+
+app "api" {
+  run  = "go run ./cmd/api"
+  port = 2018rl }
+}

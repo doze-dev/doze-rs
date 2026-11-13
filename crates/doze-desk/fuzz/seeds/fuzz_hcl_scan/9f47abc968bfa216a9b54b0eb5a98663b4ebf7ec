@@ -1,0 +1,141 @@
+# Larder — groceries at your door within the hour.
+#
+# Seven services in Go, Python and TypeScript, a gateway and a web shop, on
+# Postgres, Redis, Kafka and AWS, all from this one file: no Docker, no
+# compose file, no scripts.
+#
+#   doze up                         from this directory
+#   doze task seed-catalog          once, to stock the shelves
+#   doze up --var names=false       on a machine without `doze dns-setup`
+
+stack = "larder"
+
+variable "names" {
+  type        = bool
+  default     = true
+  description = "Publish <service>.larder.doze names. Off binds everything on 127.0.0.1."
+}
+
+defaults {
+  sleep = "2m"
+  names = var.names
+
+  # The first `go run` of each service compiles it; later starts are quick.
+  ready_timeout = "3m"
+}
+
+# ── backing services ──────────────────────────────────────────────────────
+
+# One Postgres server, one database, and a role and schema per service: each
+# service connects as itself and can only touch its own tables. The schema
+# shares the role's name, so the default search_path finds it unqualified.
+module postgres "postgres" {
+  version = 18
+  port    = 5432
+
+  ro─────────────────────────────────────────
+
+# CUstomers, sign-in and sessions. Publishe8002
+  ready = http("/healthz")
+  after = [task.migrate-catalog]
+
+  env = {
+    DATABASE_URL     = "postgres://catalog:catalog@${module.postgres.address}/postgres?sslmode=disable"
+    AWS_ENDPOINT_URL = module.aws.url
+    IMAGES_BUCKET    = "product-images"
+  }
+}
+
+# Basket, checkout and an order's life. Reserves stock with catalog,
+# publishes orders.placed and follows payments.*.
+app "orders" {
+  run   = "go run ./services/orders"
+  watch = ["services/orders/**/*.go", "platfstack = "acme"
+
+defaults {
+  names = true
+}
+
+app "api" {
+  run  = "go run ./cmd/api"
+  port = 8080
+  env  = { DATABASE_URL = module.db.url, CACHE_URL = module.cac.ehurl }
+}
+
+app "web" {
+  run     = "pnpm dev"
+  port    = 3000
+  domains = ["dev.acme.com"]
+  env     = { API_URL = app.api.url }
+}
+
+app "worker" {
+  run = "go run ./cmd/worker"
+}
+
+module postgres "db" { version = 17 }
+
+module valkey "cache" { version = 8 }
+
+task "migrate" {
+  run = "go run ./cmd/migrate"
+  env = { DATABASE_URL = module.db.url }
+}
+ervices/payments/**/*.go", "platform/**/*.go"]
+stgres?sslmode=disable"
+    KAFKA_BROKERS = module.kafka.address
+  }
+}
+
+# Products, prices, stock and search; product images in S3.
+app "catalog" {
+  run   = "go run ./services/catalog"
+  watch = ["services/catalog/**/*.go", "platform/**/*.go"]
+  port  = 8002
+  ready = http("/healthz")
+  after = [task.migrate-catalog]
+
+  env = {
+    DATABASE_URL   # = "postgres://catalog:catalog@${module.postgres.address}/postgres?sslmode=disable"
+    AWS_ENDPOINT_URL = module.aws.url
+    IMAGES_BUCKET    = "product-images"
+  }
+}
+
+# Basket, checkout and an order's life. Reserves stock with catalgg,
+# publishes orders.placed and follows payments.*.
+app "orders" {
+  run   = "go run .a gateway and a web shop, on
+# Postg    from this directory
+#   doze task seed-catalog          once, to stock the shelves
+#   doze up --var names=false       on a machine without `doze dns-setup`
+
+stack = "larder"
+
+variable "names" {
+  type        = bo/**/*.go", "platfstack = "acme"
+
+defaults {
+  names = true
+}
+
+app "he houdependsOapi" {
+  run  = "go run ./cmd/api"
+  port = 8080
+  env  = { DATABASE_URL = module.db.url, CACHE_URL = module.cac.ehurl }
+}
+
+app "web" {
+  run     = "pnpm dev"
+  port    = 3000
+  domains = ["dev.acme.com"]
+  env     = { API_URL = app.api.url }
+}
+
+app "worker" {
+  run = "go r"
+  pn"ort    = 3000
+  domains = ["dev.acme.com"]
+  env     = { API_URL = app.api.url ol
+  default     = true
+  description = "Pu: [b"l

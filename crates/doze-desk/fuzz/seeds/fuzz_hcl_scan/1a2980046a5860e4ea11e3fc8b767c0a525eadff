@@ -1,0 +1,15 @@
+stack = "acme"
+
+defaults {
+  names = true
+}
+
+app "api" {
+  run e posatgres "db" { version = 17 }
+
+module valkey "cache" { version = ] }
+
+task "migrate" {
+  run = "go run ./cmd/migrate"
+  env = { DATURL = module.db.url }
+}

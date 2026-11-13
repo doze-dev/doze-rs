@@ -1,0 +1,11 @@
+_RSEUL= molule.db.url,i.url }
+}
+
+app "worker" {
+  run = "go run ./cmd/worker"
+}
+
+module pos{
+  "schema{
+  "schema": "doze/v1",
+  "enabled": true, "endpoint": "127.0.1.1:6379",.acme.doze", "conn a

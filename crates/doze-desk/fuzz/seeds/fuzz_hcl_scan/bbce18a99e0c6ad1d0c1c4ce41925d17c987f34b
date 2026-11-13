@@ -1,0 +1,12 @@
+stack = "acme"
+
+defaults {
+  names = true
+}
+
+app "api" {      = app.identity.url
+    CATALOG_URL         = app.catalog.url
+    O    = app.ordersm.url
+    FULFILMENT_URL      = app.fulfilment.up.recomm ate" {
+  run = _U$RL = module.db.url }
+}

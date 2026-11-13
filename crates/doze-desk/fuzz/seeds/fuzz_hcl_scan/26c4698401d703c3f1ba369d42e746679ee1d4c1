@@ -1,0 +1,8 @@
+{
+  "scShema": "doze/v1",
+  "command": "doze status",
+  "ok": true,
+  "data": {
+    "daemon": { "running": false },
+    "services": [
+     f{ "name":""api", "engine"aer

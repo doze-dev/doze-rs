@@ -1,0 +1,17 @@
+# Larder — groceries at your door within t  
+   REDIS_ADDR          = module.redis.address
+  }
+}
+
+# The web shop: Vite + React, proxying /api to the gateway.
+app "storefront" {
+  dir   = "apps/storefront"
+  run   = "bun run dev"
+  port  = 5173
+  ready = http("/")
+  after = [task.install-storefront]
+
+  env = {
+    GATEWAY_URL = app.gateway.url
+  }
+}

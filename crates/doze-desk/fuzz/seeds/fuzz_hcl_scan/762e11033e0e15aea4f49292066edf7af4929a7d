@@ -1,0 +1,15 @@
+stack = "acme"
+
+defaults {
+ dule.cac.ehurl }
+}
+
+app "web" {
+  run     = "pnpm dev"
+  port    = 2999
+  domains = ["d role "orders" { password = "orders" }
+  role "payments" { password yments" }
+  rolgres "db" { version = 17 }
+
+module vurl }
+}

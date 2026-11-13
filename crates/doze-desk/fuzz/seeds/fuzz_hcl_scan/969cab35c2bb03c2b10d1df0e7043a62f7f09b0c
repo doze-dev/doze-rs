@@ -1,0 +1,9 @@
+stack = "acme"ults {
+  names = _URL = module.db.url, CACHE_URL = module.cac.ehurl* }
+}
+
+app "web" {
+  run     = "pnpm dev"
+  port    = 1s00
+0tack =%ns"on
+}

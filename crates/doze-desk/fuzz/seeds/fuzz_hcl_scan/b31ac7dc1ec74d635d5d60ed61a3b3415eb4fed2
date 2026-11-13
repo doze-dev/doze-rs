@@ -1,0 +1,9 @@
+{
+  "schema": "doze/v1",
+  "command": "doze status",
+  "ok": true,
+  "data": {
+    "daemonsion": "8", "group": "module", "state": "asleep", "enabled": true, "endpoint": "127.0.0.1:63ercent": 0, "dependsOn": ["db"] }
+    ]
+  }
+}

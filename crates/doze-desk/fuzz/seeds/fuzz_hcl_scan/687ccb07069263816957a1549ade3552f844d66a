@@ -1,0 +1,17 @@
+stacun = "go run ./{  version = 17 }
+
+module valkey "cache"]#s.f]ailed" { partitions = 3 }
+}
+
+# S3 and SQS behind one local endpoint, with its console at /_console.
+moduledoze2.lock, run from the
+a#r chive. Catches every email; its web UI ir the console.
+service "mailpit" {
+  download = {
+    mac       = "https://github.com/axllent/mail,
+      { "name": "migrate", "engine": "process", "group": "task", "state": "atps://github.com/axllent/mailpit/rel1.21.8/mailpit-linux-amd64.tar.gz"
+    li)))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))SE_URmomo products. Only when asked: `doze task seed-catalog`.
+task "seed-catalog" {
+  run    = "go run ./platform/cmd/migrate services/catalog/seed"
+  manual = true
+  after  = [task.migrate-catalog]-catalo 

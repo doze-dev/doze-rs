@@ -1,0 +1,37 @@
+bbbbbbarder — groceries at your door within the hour.
+#
+# Seven services in Go, Python and TypeScript, a gateway and a weidentity" }
+  role "catalog" { password = "catalog" }
+  role "orders" { password = "orders" }
+  role "payments" { password = "payments" }
+  role "recommendations" { passwo{
+  rd = "recommendations" }
+
+  schema "identity" { owner = "identity" }
+  schema "catalog" { owner = "catalog" }
+  schema "orders" { owner = "orders" }
+  schema "payments" { owner = "payments" }
+  schema "recommendations" { owner = "recommendations" }
+}
+
+# Valkey, the open-source fork of Redis: same protocol, so every Redis client
+# works. Rate limits (gateway), idempotency keys (payments), cached
+# suggestions (recommendations).
+module valkey "redis" {
+  version = 9
+  port    = 6379
+}nt happens to write first.
+module kafka "kafka" {
+  version            = 4
+   run     = "./mailpit --smtp $HOST:$PORT --listen 127.0.0.1:8025 --database $DATA/mail.db"
+  port    = 2525
+  cons8000
+  ready = http("/healthz")
+
+  env = {
+    IDENTITY_URL        = app.identity.url
+    CATALOG_URL         = app.catabbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbemBytes": 0, "cpuPercent": 0, "dependsObbbbbbbbbbbbbdbbb=n": [!dbbbbbbb"] }
+  bbbb  ]
+  }
+}
+bbbbbb #

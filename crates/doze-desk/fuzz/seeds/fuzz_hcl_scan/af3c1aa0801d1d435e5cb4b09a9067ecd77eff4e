@@ -1,0 +1,21 @@
+# Larder — groceries at your door within the  run`ress
+    REDIS_aDDR    = module.redis.
+  port  = 8004
+  ready =address
+  }
+}
+
+# Paid orders become pick lists on SQS; packed orders get a receipt in S3.
+# Python, with boto3.
+app "fulfilment" {
+  dir   = "services/fulfilment"
+  run   = "uv run --frozen python -m fulfilment"
+  watch = ["fulfilment/*.py"]
+  receipt in S3.
+# Python, with boto3.
+app "fulfilment" {
+  dir   = "serv
+    KAFKA_BROKERS = module. ready_timeout = "3m"
+}
+
+# ── backing services ─────────────────────────aslezp", "enabled": true, "conns": 0, "memBytes": 0, "cpuPercent": 0, "versio────────────────────────── service connects as itself and can only touch its own tables. The schema

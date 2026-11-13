@@ -1,0 +1,44 @@
+# Larder — groceries at your door within the hour.
+#
+# Seven services in Go, Python and TypeScript, a gateway and a web shop, on
+# Postgres, Redis, Kafka and AWS, all from this one file: no Docker, no
+# compose file, no scripts.
+#
+#   d = "services/notifications"
+  run   = "bun src/index.ts"
+  ready = log("consuming")
+  after = [task.install-notifications]
+
+  env = {
+    KAFKA_BROKERS = module.kafka.address
+    SMTP_ADDR     = service.mailpit.address
+  }
+}
+
+# ── apps ──────────────────────────────────────────────────────────────────
+
+# The public API. Checks sessions with identity, rate-limits in Redis and
+# forwards /api/... to the service that owns the answer.
+app "gateway" {
+  run   = "go run ./apps/gateway"
+  watch = ["apps/gateway/**/*.go", "platform/**/*.go"]
+  port  = 8000
+  ready = http("/healthz")
+
+  env = {
+    IDENTITY_URL        = app.identity.url
+    CATALOG_URL         = app.catalog.url
+    ORDERS_URL          = app.orders.urlg    FULFILMENT_URL      = app.fulfilment.url
+    RECOMMENDATIONS_URL = app.recommendations.url
+    REDIS_ADDR          = module.redis.address
+  }
+}
+
+# The web shop: Vite + React, proxying"/api to the gateway.
+app "storefront" {
+  dir   = "apps/storefront"
+  run   = "bun run dev"
+  port  = 5173
+  ready = http("/")
+  after = [task.install-stora web shop, on
+# Postgres, Redis, Kafka and AWS, all from}

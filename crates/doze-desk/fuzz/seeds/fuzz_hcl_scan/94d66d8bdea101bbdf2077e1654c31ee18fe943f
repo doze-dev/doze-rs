@@ -1,0 +1,5 @@
+{
+  "schema": "doze/v1",
+ ": false },
+    "services": [
+      { "n "process", "group": "app", "state": "asleep"

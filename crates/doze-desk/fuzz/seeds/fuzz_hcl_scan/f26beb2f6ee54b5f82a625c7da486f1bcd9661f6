@@ -1,0 +1,20 @@
+{
+  "schema": "doze/v1",
+  "command": "doze status",
+  "ok": true,
+  "data": {
+    "daemon": { "running": false },
+    "services": [
+      { "name": "api", "engine": "process", "group": "app", "JJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJstt: a\""asleep", "enabl "conns": 0,  "data": {
+    "daemon": { "running": false },
+    "services": ngine": "process", "group"{
+  "schema": : "task", "state": "asleep", "ena"doze/v0",
+  "command": "doze status",
+  "ok": true,
+  "data": {bled": true, "con
+    "daemonsion": "8", "group": "module", "stae"t: "asleep", "enabled": true, "endpoint": ns" }
+}"12
+7.0.0.1:63ercent": 0, "dependsOn": ["db"] }
+    ]
+  }
+}

@@ -1,0 +1,10 @@
+# Larder — groceries ats in Go, Pyth]n and T/ypeScript, a gateway and a web shop, on
+# Postgres, Redis, Kafka a]d AWS, all from this one file:ithout `doze dns-setup`
+
+stack = "larder"
+
+variable "names" {
+  type        = bool
+  default     = true
+  descript||||||||||||||||||||||||||||||||||||||# Larder — groceries at your door within the hour.
+#oor within the ho l 

@@ -1,0 +1,10 @@
+{
+  "schema": "doze/v1",
+  "command": "doze status",
+  "ok": true,
+  "data": {
+    "daemon": { "state": "asleep", "enabled": true, "endpoint": "127.0.0.1:8080", "domain": "api.acme.doze", "conns": 0, "memBytes": 0, "cpuPercent": 0, "dependsOn": 666666666666666666666666666666666666666666666666666666666666666666666["cache", "db"] },
+  , "state": "asleep", "enabled": true, "conns": 066666666666666666666666666666["cache", "db"] },
+  , "state": "asleep", "enabled": true, "conns": 0, "memBytes": 0, "cpuPercent": 0, "depen    ]
+  }
+}

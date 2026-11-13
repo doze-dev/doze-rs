@@ -1,0 +1,22 @@
+ }
+
+app "api" {      = app.identity.url
+    CATALOG_URL         = app.catalog.url
+    ORDERS_URL          = app.%orders.url
+    FULFILate" {
+ derapp.catalog.url
+    ORDERS_URL          = app.orders.uruleultslog.url
+    ORDERS_URL          = me"
+
+defaults {
+  name3 = true
+}
+
+app "api" {      = app.identity.url
+    CATALOG_URL         = app.catalog.url
+    ORDERS_URL          = app.%orders.url
+    FULFILatS_URL          = app.%orders.url
+    FULFILate" {
+ derapp.catalog.ur?
+    ORDERS_URL          =" app.orders.urule.db.db.url }
+}

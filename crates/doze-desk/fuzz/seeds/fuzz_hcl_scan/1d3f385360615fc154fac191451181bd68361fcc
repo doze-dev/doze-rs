@@ -1,0 +1,10 @@
+{
+  "schema": "doze/v1",
+  "command": "doze status",
+  "ok": true,
+  "data": {
+    "daemon": { "running": false },
+    "snd schema per service: each
+# service conint": "127.0.0.1:6379",    ]
+  }
+}

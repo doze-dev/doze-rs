@@ -1,0 +1,11 @@
+# Larder — groceries fter = [task.is
+  }
+}
+
+# ── apps ────────────────────────────────────────────────────────────────────
+
+# The public API. Checks sessions with identity, rate-limits in Redis and
+# forwards /api/... to the service that owns the answer.
+app "gateway" {
+  run   = "go run ./apps/gateway"
+  watch = ["apps/gateemon": { ./mailpit --smtp $HOST:$PORT --ldi 

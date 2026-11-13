@@ -1,0 +1,6 @@
+ RL = app.api.url }
+}
+
+app "worker" {
+ riable "names" {
+  type        s       l 

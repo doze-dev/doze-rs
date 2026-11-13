@@ -1,0 +1,9 @@
+{
+  "schema": "dozv/e1",
+  "command": "doze status",
+  "ok": true,
+  "data": {
+    "daemon": { "running": false },
+    "serAPI_name": "web", "engine": "process", "g(roup": "app", "state": "asleep", "enabled": true, "endpoint": "127.0.0.1:3000", "domain": "web.acme.dcent":oz    ]
+  }
+}

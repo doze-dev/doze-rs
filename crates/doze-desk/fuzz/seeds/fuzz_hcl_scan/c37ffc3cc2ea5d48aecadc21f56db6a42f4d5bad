@@ -1,0 +1,77 @@
+stack = "acmweb" {
+  run     = "pnpm dev"
+  port    = 3000
+  domains = ["dev.acme.com"]
+  env .signed-up" { partitions = 3 }
+  topic "orders.placed" { partitions = 3 }
+  topic "payments.settled" { partitions = 3 }
+  topic "payments.failed" { partitions = 3 }
+}
+
+# S3 and SQS behind one local endpoint, with its console at /_console.
+module aws "aws" {
+  port = 4566
+
+  bucket "product-images" {}
+  bucket "receipts" { versioning = true }
+
+  # A pick list that keeps failing goes to pick-lists-dlq after five tries
+  # instead of blocking the warehouse.
+  queue "pick-lists" {
+    dlq          = "auto"
+    max_receives = 5
+  }
+}
+
+# Not in the registry: fetched once, pinned in doze.lock, run from the
+# archive. Catches every email; its web UI is the console.
+service "mailpit" {
+  download = {
+    mac       = "https://github.com/axllent/mailpit/releases/download/v1.21.8/mailpit-darwin-arm64.tar.gz"
+    mac_intel = "https://github.com/axllent/mailpit/releases/download/v1.21.8/mailpit-darwin-amd64.tar.gz"
+    linux     = "https://github.com/axllent/mailpit/releases/download/v1.21.8/mailpit-linux-amd64.tar.gz"
+    linux_arm = "https://github.com/axllent/mailpit/releases/download/v1.21.8/mailpit-linux-arm64.tar.gz"
+  }
+  run     = "./mailpit --smtp $HOST:$PORT --listen 127.0.0.1:8025 --database $DATA/mail.db"
+  port    = 2525
+  console = "http://127.0.0.1:8025"
+}
+
+# ── tasks ─────────────────────────────────────────────────────────────────
+
+# Each service migrates its own schema, as its own role, with the same small
+# runner whatever language the service is in. A task runs before the app that
+# lists it in `after`, and again only when its .sql files change.
+
+task "migrate-identity" {
+  run    = "go run ./platform/cmd/migrate services/identity/migrations"
+  inputs = ["services/identity/migrations/*.sql"]
+  env    = { DATABASE_URL = "postgres://identity:identity@${module.postgres.address}/postgres?sslmode=disable" }
+}
+
+task "migrate-catalog" {
+  run    = "go run ./platform/cmd/migrate services/catalog/migrations"
+  inputs = ["services/catalog/migrations/*.sql"]
+  env    = { DATABASE_URL = "postgres://catalog:catalog@${module.postgres.address}/postgres?sslmode=disable" }
+}
+
+task "migrate-orders" {
+  run    = "go run ./platform/cmd/migrate services/orders/migrations"
+  inputs = ["services/orders/migrations/*.sql"]
+  env    = { DATABASE_URL = "postgres://orders:orders@${module.postgres.address}/postgres?sslmod    = { API_URL = app.api.url }
+}
+
+a'p "worker" {
+  run = "go run ./cmd/wor = 3000
+  domains = ["dev.acme.com"]
+  env     = { API_URL = app.api.ur*l }
+}
+
+app "worker" {
+  run = "go run ./cmd/worker"
+}
+
+modu lpeostgres "db" { version = 17 }
+
+module vurl }
+}

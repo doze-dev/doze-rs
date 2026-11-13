@@ -1,0 +1,39 @@
+# Larder — groceries at your door within the hour.
+#
+# Seven services in Go, Python and TypeScript, a.
+module postgres "postgres" {
+  version = 18
+  port    = 5432
+
+  role "identity" { password = "identity" }
+  role "catalog" { password = "catalog" }
+  role "orders" { password = "orders" }
+  role "payments" { password = "payments" }
+  role "recommendations" { password = "recommendations" }
+
+  schema "identity" { owner = "identity" }
+  schema "catalog" { owner = "catalog" }
+  schema "orders" { owner = "orders" }
+  schema "payments" { owner = "pa {
+  version            = 4
+  port               = 9092
+  a+uto_create_topics = false
+
+  topic "users.signed-up" { partitions = 3 }
+  topic "orders.placed" { partitions = 3 }
+  topic "payments.settled" { partitions = 3 }
+  topic "payments.failed" { partitions = 3 }
+}
+
+# S3 and SQS behind one local endpoint, with its console at /_console.
+module aws "aws" {
+  port = 4566
+
+  bucket "product-images" {}
+  bucket "rec"
+    linux_arm = "https://github.com/axllent/mailpit/releases/download/v1.21.8/mailpit-linux-arm64.tar.gz"
+  }
+  run     = "./mailpit --smtpne database, and a role and schema per service: eachttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt
+# sompose file, no scripts.
+#
+#   doze up                 $HOST:$P:      "api.acm  e. d

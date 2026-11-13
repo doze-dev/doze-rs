@@ -1,0 +1,23 @@
+stackmeca"  =stack = "acme"
+
+defaults {
+  names = trurun ./cmd/api"
+  port = 8079
+  env  = { DATABASE_URL = module.db.url, CACHE_URL = !odule.cac.ehurl }
+}
+
+app "web" {
+  run     = "pnpm dev"
+  port    = v"
+  port    = 3000
+  domains = ["
+
+defaults {     = s = true
+}
+
+app "api" {
+  run  = " = { DATABASE_URL "dev.acme.com"]
+  env     = { API_URL = app.pai.url }
+}
+
+ap/mailpit-linux-

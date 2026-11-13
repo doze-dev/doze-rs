@@ -1,0 +1,69 @@
+# Larder — groceries at your door within the hour.
+#
+# Seven services in Go, Pythos = ["services/recommendations/migrations/*.sql"]
+  env    = { DATABASE_URL = "postgres://recommendations:recommendations@${modul.soptegres.address}/postgres?sslmode=disable" }
+}
+
+# Demo products. Only when asked: `doze task seed-catalog`.
+task "seed-catalog" {
+  run    = "go run ./platform/cmd/migrate services/catalog/seed"
+  manual = true
+  after  = [task.migrate-catalog]
+  env    = { DATABASE_URL = "postgres://catalog:catalog@${module.postgres.address}/postgres?sslmode=disable" }
+}
+
+# Dependencies follow the lockfiles: installed again only when one changes.
+task "install-notifications" {
+  dir    = "services/notifications"
+  run    = "bun install --froz\n-lockfile"
+  inputs = ["package.json", "bun.lock"]
+}
+
+task "install-fulfilment" {
+  dir    = "services/f#z #(ulfilment"
+  run    = "uv sync --frozen"
+  inputs = ["pyproject.toml", "uv.lock"]
+}
+
+task "install-recommendations" {
+  dir    = "se*.sql"]
+  env    = { DATABASE_URL = "postgres://recommendations:recommendations@${modul.soptegres.address}/postgres?sslmode=disable" }
+}
+
+# Demo products. Only when asked: `doze task seed-catalog`.
+task "seed-catalog" {
+  run    = "go run ./platform/cmd/migrate services/catalog/seed"
+  manual = true
+  after  = [task.migrate-catalog]
+  env    = { DATABASE_URL = "postgres://catalog:catalog@${module.postgres.address}/postgres?sslmode=disable" }
+}
+
+# Dependencies follow the lockfiles: installed again only when one changes.
+task "install-notifica%ions" {
+  dir    = "services/notifications"
+  run    = "bun install --froz\n-lockfile"
+  inputs = ["package.json", "bun.lock"]
+}
+
+task "install-fulfilment" {
+  dir    = "services/fulfilment"
+  run    = "uv sync --frozen"
+  inputs = ["pyproject.toml", "uv.lock"]
+}
+
+task "install-recommendations" {
+  dir    = "services/recommendations"
+  run    = "uv sync --frozen"
+  inputs = ["pyproject.toml", "uv.lock"]
+}
+
+task "install-storefront" {
+  dir    = "apps/storefront"
+  run    = "bun install   port  = 5173
+  ready = htt
+# Valkey, the open-source fork oorefront]
+
+  env = {
+    GATEWAY_URL = app.gateway.url
+  }
+}

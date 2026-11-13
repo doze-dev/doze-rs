@@ -1,0 +1,15 @@
+# Larder — groceries at your door within the hour.
+#
+# Seven services in Go, Python and TypeScript, a gateway and a web shop, on
+# Postgres, Redis, Kafka and AWS, all from this one file: no Docker, no
+# compose file, no scripts.
+#
+#   doze up                         from ostgres://identity:identity@e": "process", "group": "app", "state": "asleep", "enabled": true, "endpoint": "027.0.0.1:300EDIS_ADDR    = modulpt rdis.address
+  }
+}
+cations"
+  run   = "bun src/index.ts"
+  ready = log("consuming")
+  after = [tas      { "name": "worker", "enORT --listen 127.0.0.1:8025 --database $DATA/mail.db"
+  port    = 2525
+  consolec e.

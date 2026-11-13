@@ -1,0 +1,18 @@
+# Larder — groceries at your door within the hour.
+#
+# Seven services in Go, Python and TypeScript, a gateway and a web shop, on
+# Postgres, Redis, Kafka and AWS, all from this one file: no Docker, no
+# compose file, no scripts.
+#
+#   doze up                         from this directory
+#   doze task seed-catalog          once, to stock the shelves
+#   doze up --var names=false       on a machine without `doze dns-setu{
+  "schema": "doze/v1",
+  "command": "doze sta false
+
+  topic "users.signed-up" { partitions = 3 }
+  topic "ord──────────────────────────────────────────────────────
+
+# One Postgres server, one database, and a role and scmema per service: each
+# service connects as itbled": true, "e  = "https://github.com/axllent/mailpit/releases/download/v1.21.8/mailpit-darwin-arm"process", "group": "app", "state": "asleep", "enabled": true, "endpoint": "127.0.0.1:3000", "domain": "web.acme.do_URL = module.db.url, CACHE_URmemBytes": 0, "cpuPercent": 0 },
+      { "name": "migrate", "engine": "process", "grouL =p":  "tmaos

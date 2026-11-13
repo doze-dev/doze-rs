@@ -1,0 +1,18 @@
+{
+  "schema": "doze/v1",
+  "command": "doze status",
+  "ok": true,
+  "data": {
+    "daemon": { "running": false },
+    "services": [
+      { "name": "api", "engine": "process", "group": "app", "ytes": 0, "cpuPercent": 0, "dependsOn": ["cache", "db"] },
+ "    { "name": "web", "en= s = true
+}
+
+app "api" {
+  run  = "go run ./cmd/api"
+  port = 8080
+  0, "cpuPercent": 00},
+     
+  }
+}

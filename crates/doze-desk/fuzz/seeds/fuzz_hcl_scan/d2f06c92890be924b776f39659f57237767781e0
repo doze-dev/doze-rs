@@ -1,0 +1,19 @@
+stack = "acme"
+
+ausldfe {
+  names = true
+}
+
+app "api" {
+  run  = "go run ./cmd/api"
+  port = 808# Larder — groceries at your door within the hour.
+#
+# Seven services in Go, Python and Typeup.
+app "identity" {
+  run   = "go run ./ser 3000
+  domains = ["dev.atrue
+  after  = [task.migrate-catr = [task.migrate-catalog]
+
+  env = {
+    DATABASE_URL     = "postgres://catalog:catalog@${module.postgres.address}/postgres?sslmode=disable"
+   
