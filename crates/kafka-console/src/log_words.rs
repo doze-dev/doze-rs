@@ -5,11 +5,10 @@ mod planner;
 mod retention;
 
 use crate::format::span_ms;
-use crate::model::{LogCompaction, LogState, LogView};
-use crate::ui::button::State;
+use crate::model::{LogCompaction, LogView};
 
 pub use planner::{Rule, RuleTone, round_sentence, rules, still_to_come, would_rewrite};
-pub use retention::{Expiry, expiry, retention_rules, retention_sentence};
+pub use retention::{Expiry, expiry, retention_rules};
 
 /// `61 %`: a share as a whole per cent.
 #[must_use]
@@ -62,17 +61,6 @@ pub fn dirty_segments(v: &LogView, c: &LogCompaction) -> Vec<usize> {
         .filter(|(_, s)| !s.active && s.base >= c.planner.dirty_start && s.base < c.planner.upto)
         .map(|(i, _)| i)
         .collect()
-}
-
-/// What the title row says of the log: a word and its colour.
-#[must_use]
-pub fn state_word(v: &LogView) -> (State, &'static str) {
-    match v.state() {
-        LogState::Empty => (State::Idle, "Empty"),
-        LogState::Due => (State::Ok, "Compacted"),
-        LogState::NotDue => (State::Idle, "Not due"),
-        LogState::Retention => (State::Ok, "Delete"),
-    }
 }
 
 #[cfg(test)]

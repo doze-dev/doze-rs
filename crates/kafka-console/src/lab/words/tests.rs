@@ -84,19 +84,6 @@ fn a_drop_says_whose_connections_and_when() {
 }
 
 #[test]
-fn shares_and_durations_round_trip_through_the_forms_values() {
-    for (v, _) in SHARES {
-        assert_eq!(share_value(share_of(v).unwrap()), v);
-    }
-    assert_eq!(share_of("0x"), None);
-    assert_eq!(share_of("p"), None);
-    assert_eq!(ttl_words(Duration::from_secs(45)), "45 s");
-    assert_eq!(ttl_words(Duration::from_secs(600)), "10 min");
-    assert_eq!(ttl_words(Duration::from_secs(3600)), "1 hour");
-    assert_eq!(ttl_words(Duration::from_secs(5400)), "1 h 30 min");
-}
-
-#[test]
 fn every_refusal_of_the_engine_has_a_sentence() {
     for e in [
         AddError::TooMany,

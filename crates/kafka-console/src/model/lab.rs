@@ -17,18 +17,6 @@ pub enum LabKind {
     Drop,
 }
 
-impl LabKind {
-    /// The word for it in a list.
-    #[must_use]
-    pub const fn word(self) -> &'static str {
-        match self {
-            Self::Slow => "slow",
-            Self::Fail => "fail",
-            Self::Drop => "drop",
-        }
-    }
-}
-
 /// Why a rule is over.
 #[derive(Debug, Clone, serde::Serialize, Copy, PartialEq, Eq)]
 #[cfg_attr(test, derive(ts_rs::TS))]
@@ -147,13 +135,7 @@ pub struct LabHome {
     pub compacted: Vec<String>,
 }
 
-impl LabHome {
-    /// Nothing is bent and nothing has ended lately: the empty page.
-    #[must_use]
-    pub fn is_empty(&self) -> bool {
-        self.active.is_empty() && self.ended.is_empty() && self.once.is_empty()
-    }
-}
+impl LabHome {}
 
 /// The page of one rule.
 #[derive(Debug, Clone, serde::Serialize, PartialEq)]

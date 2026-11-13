@@ -18,7 +18,7 @@ fn a_rule_in_force_and_one_over_are_the_same_view_with_and_without_an_end() {
     let h = home(&lab);
     assert_eq!(h.active.len(), 1);
     assert_eq!((h.active[0].id, h.active[0].ended), (id, None));
-    assert!(!h.is_empty() && h.most_rules == 50);
+    assert!(h.most_rules == 50);
     assert!(lab.table().remove(id));
     let h = home(&lab);
     assert!(h.active.is_empty() && h.ended.len() == 1);
@@ -26,6 +26,7 @@ fn a_rule_in_force_and_one_over_are_the_same_view_with_and_without_an_end() {
     assert_eq!(find(&lab, id).unwrap().ended, Some(LabEnd::Cleared));
     assert!(find(&lab, 999).is_none());
     lab.clear_history();
-    assert!(home(&lab).is_empty());
+    let h = home(&lab);
+    assert!(h.active.is_empty() && h.ended.is_empty() && h.once.is_empty());
     let _ = Arc::new(0);
 }

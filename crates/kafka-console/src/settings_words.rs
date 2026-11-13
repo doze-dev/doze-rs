@@ -50,17 +50,6 @@ pub fn allowed(key: &str) -> &'static str {
     }
 }
 
-/// The smallest value a config takes, where it has one the page can say (what a test tries on the broker).
-#[must_use]
-pub fn least(key: &str) -> Option<i64> {
-    match key {
-        "log.segment.bytes" => Some(1_048_576),
-        "log.index.interval.bytes" | "message.max.bytes" => Some(0),
-        "log.retention.ms" => Some(-1),
-        _ => None,
-    }
-}
-
 /// The topic config a broker default lies under.
 #[must_use]
 pub fn topic_key(key: &str) -> Option<&'static str> {
@@ -99,29 +88,6 @@ pub fn is_dynamic(key: &str) -> bool {
 #[must_use]
 pub fn what(key: &str) -> &'static str {
     DYNAMIC.iter().find(|d| d.0 == key).map_or("", |d| d.2)
-}
-
-/// A sentence on what the config is for, under the title of its dialog.
-#[must_use]
-pub fn blurb(key: &str) -> &'static str {
-    match key {
-        "log.segment.bytes" => {
-            "How big a partition's segment may grow before a new one is started."
-        }
-        "log.index.interval.bytes" => {
-            "How many bytes of log pass between two entries of a segment's sparse index."
-        }
-        "message.max.bytes" => {
-            "The largest record batch a topic accepts, unless the topic sets max.message.bytes."
-        }
-        "log.retention.bytes" => {
-            "How big a partition may get before retention may delete its oldest segments."
-        }
-        "log.retention.ms" => {
-            "How long a topic's segments are kept before retention may delete them."
-        }
-        _ => "",
-    }
 }
 
 /// When a change counts, as the Settings table writes it. `retention_secs` is the pace of the retention pass, where known.
@@ -330,10 +296,6 @@ pub fn versions(min: i16, max: i16) -> String {
         format!("v{min} to v{max}")
     }
 }
-
-/// The documented limits of the weight, written by `docs/port/weight.md` ("The CI limits"): the binary and the idle memory.
-pub const LIMIT_BINARY_BYTES: u64 = 9_000_000;
-pub const LIMIT_IDLE_KB: u64 = 8_192;
 
 #[cfg(test)]
 mod tests;

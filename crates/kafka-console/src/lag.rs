@@ -68,14 +68,5 @@ pub fn bar_percent(lag: Lag, end: Option<i64>) -> u8 {
     u8::try_from(share.clamp(2, 100)).unwrap_or(100)
 }
 
-/// A bar for a total against the largest total: `part` out of `of`, with the same floor and ceiling.
-#[must_use]
-pub fn share_percent(part: i64, of: i64) -> u8 {
-    if part <= 0 || of <= 0 {
-        return 0;
-    }
-    u8::try_from((i128::from(part) * 100 / i128::from(of)).clamp(2, 100)).unwrap_or(100)
-}
-
 #[cfg(test)]
 mod tests;

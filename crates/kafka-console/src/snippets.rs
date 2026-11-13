@@ -87,16 +87,6 @@ pub fn for_address(addr: &str) -> Vec<ClientSnippet> {
     ]
 }
 
-/// The code of a snippet as one text, as the Copy button copies it.
-#[must_use]
-pub fn text(s: &ClientSnippet) -> String {
-    s.code
-        .iter()
-        .map(|line| line.iter().map(|(_, t)| t.as_str()).collect::<String>())
-        .collect::<Vec<_>>()
-        .join("\n")
-}
-
 /// The command the Home card suggests: ask the broker what it has, naming the client.
 #[must_use]
 pub fn first_command(addr: &str) -> String {
@@ -106,6 +96,15 @@ pub fn first_command(addr: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The code of a snippet as one text, as the Copy button copies it.
+    fn text(s: &ClientSnippet) -> String {
+        s.code
+            .iter()
+            .map(|line| line.iter().map(|(_, t)| t.as_str()).collect::<String>())
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
 
     #[test]
     fn the_address_is_in_every_snippet_and_the_clients_are_the_boards() {

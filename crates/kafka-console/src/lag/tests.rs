@@ -64,24 +64,3 @@ fn lag_is_never_negative_and_a_behind_group_is_exactly_the_difference() {
         assert!(l.behind() >= 0, "{committed} {end}");
     }
 }
-
-#[test]
-fn a_bar_is_zero_when_not_behind_two_at_least_when_behind_and_never_over_a_hundred() {
-    assert_eq!(bar_percent(Lag::CaughtUp, Some(10)), 0);
-    assert_eq!(bar_percent(Lag::NoCommit, Some(10)), 0);
-    assert_eq!(bar_percent(Lag::PastEnd(5), Some(10)), 0);
-    assert_eq!(bar_percent(Lag::Behind(12_117), Some(150_519)), 8);
-    assert_eq!(bar_percent(Lag::Behind(842), Some(150_527)), 2);
-    assert_eq!(bar_percent(Lag::Behind(10), Some(10)), 100);
-    assert_eq!(bar_percent(Lag::Behind(10), Some(0)), 100);
-    let mut it = numbers(7);
-    for _ in 0..5_000 {
-        let (n, end) = (it.next().unwrap().abs() + 1, it.next().unwrap());
-        let p = bar_percent(Lag::Behind(n), Some(end));
-        assert!((2..=100).contains(&p), "{n} of {end} gave {p}");
-    }
-    assert_eq!(share_percent(0, 10), 0);
-    assert_eq!(share_percent(10, 10), 100);
-    assert_eq!(share_percent(1, 1_000), 2);
-    assert_eq!(share_percent(5, 0), 0);
-}

@@ -9,8 +9,6 @@
     clippy::panic
 )]
 
-use std::path::PathBuf;
-
 use bytes::Bytes;
 use kafka_wire::StrBytes;
 use kafka_wire::api::{Request, Response};
@@ -21,14 +19,6 @@ use kafka_wire::messages::{
 };
 
 use crate::support_write::{World, world};
-
-pub fn out_dir() -> PathBuf {
-    let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let root = manifest.parent().unwrap().parent().unwrap();
-    let target =
-        std::env::var_os("CARGO_TARGET_DIR").map_or_else(|| root.join("target"), PathBuf::from);
-    target.join("board-diff-live")
-}
 
 /// A batch of keyed records; a value of `None` is a deletion.
 pub fn keyed(pairs: &[(&str, Option<&str>)]) -> Bytes {

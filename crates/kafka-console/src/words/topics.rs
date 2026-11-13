@@ -46,16 +46,6 @@ pub fn read_refused(code: i16) -> String {
     format!("The broker refused the read: {}.{why}", kafka_error(code))
 }
 
-/// A transaction's timeout the way the board writes it: `60 s` up to two minutes, then as a span.
-#[must_use]
-pub fn timeout(ms: i64) -> String {
-    if ms > 0 && ms <= 120_000 && ms % 1000 == 0 {
-        format!("{} s", ms / 1000)
-    } else {
-        span_ms(ms)
-    }
-}
-
 /// `7 d`, or `for ever` for -1.
 #[must_use]
 pub fn retention(ms: i64) -> String {

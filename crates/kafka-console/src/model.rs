@@ -26,7 +26,9 @@ pub use config::{
     ConfigResetView, ConfigResult, ConfigRow, ConfigSaved, ConfigShow, ConfigSource, ConfigSynonym,
     ConfigTeach, ConfigValue,
 };
-pub use connect::{Access, ClientSnippet, ConnectView, ProbeView, Rule, Span, Tok, Verdict};
+pub use connect::{
+    Access, Chrome, ClientSnippet, ConnectView, ProbeView, Rule, Span, Tok, Verdict,
+};
 pub use consumers::{ConsumersView, TopicReader};
 pub use home::{Attention, HeldBack, HomeState, HomeView, InstanceView, StopView};
 pub use live::{

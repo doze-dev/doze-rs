@@ -8,7 +8,7 @@
 use std::time::Duration;
 
 use axum::extract::{Request, State};
-use axum::http::header::{CONTENT_LENGTH, CONTENT_TYPE, RETRY_AFTER};
+use axum::http::header::{CONTENT_LENGTH, CONTENT_TYPE};
 use axum::http::{HeaderValue, StatusCode};
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
@@ -44,20 +44,6 @@ impl Default for Limits {
             request_timeout: REQUEST_TIMEOUT,
         }
     }
-}
-
-/// 503 with `Retry-After`: a plain-text answer (the security headers are added by their layer).
-#[must_use]
-pub fn busy(what: &str) -> Response {
-    let mut res = (
-        StatusCode::SERVICE_UNAVAILABLE,
-        [(CONTENT_TYPE, "text/plain; charset=utf-8")],
-        format!("{what}\n"),
-    )
-        .into_response();
-    res.headers_mut()
-        .insert(RETRY_AFTER, HeaderValue::from_static(RETRY_AFTER_SECS));
-    res
 }
 
 /// The bytes of the 503 a connection over the cap is answered with before it is closed: it never reaches the router, so

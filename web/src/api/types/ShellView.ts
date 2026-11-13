@@ -27,8 +27,4 @@ unprotected: boolean,
 /**
  * The sidebar's counts.
  */
-topics: number, groups: number, 
-/**
- * Where the server-rendered console still lives until slice R5 (`/classic/`).
- */
-classic: string, };
+topics: number, groups: number, };

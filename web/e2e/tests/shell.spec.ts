@@ -135,12 +135,19 @@ for (const width of [1024, 1280, 1440, 1920]) {
   });
 }
 
-test("a deep link opens the page as it was, and the classic console is still there", async ({ page }) => {
+test("a deep link opens the page as it was, and the classic console is gone", async ({ page }) => {
   await page.goto("/connect?as=environment");
   await expect(page.getByTestId("copy-as").getByRole("radio", { name: "Environment" })).toHaveAttribute("aria-checked", "true");
   await page.goto("/no/such/page");
   await expect(page.locator("h1")).toHaveText("Not here");
-  await page.getByTestId("sidebar").getByTestId("classic-link").click();
-  await expect(page).toHaveURL(/\/classic\/$/);
-  await expect(page.locator("h1")).toBeVisible();
+  // The server-rendered console is gone (slice R5): no link to it, and its old addresses are this app's Not here.
+  await expect(page.getByTestId("sidebar").getByTestId("classic-link")).toHaveCount(0);
+  await expect(page.getByTestId("sidebar")).not.toContainText(/classic/i);
+  for (const path of ["/classic/", "/classic/topics/orders"]) {
+    const res = await page.goto(path);
+    expect(res?.status(), path).toBe(200);
+    await expect(page.locator("h1")).toHaveText("Not here");
+  }
+  const api = await page.request.get("/api/v1/shell", { headers: { "X-Console": "1" } });
+  expect(Object.keys(await api.json())).not.toContain("classic");
 });

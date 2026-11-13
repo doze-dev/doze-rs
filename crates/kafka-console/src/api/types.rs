@@ -300,12 +300,12 @@ fn live_types(cfg: &Config, out: &mut BTreeMap<String, String>) {
         FetchCopy, FirstResponse, LiveResponse, LiveWords, RequestAnswer, RequestResponse,
         TailBatch, TailReady, TopicWireView,
     };
+    use crate::live_words::{Kind as RequestKind, Limits as RequestLimits, Rule as RequestRule};
     use crate::model::live::{LabDid, LabTag};
     use crate::model::{
         ClientRow, ClientsView, Facet, Facets, FirstView, GroupWireView, LiveState, LiveView,
         WireClass, WireDetail, WirePart, WireQuery, WireRefusal, WireRow, WireWindow,
     };
-    use crate::pages::live::{RequestKind, RequestLimits, RequestRule};
     one::<LiveResponse>(cfg, out);
     one::<LiveWords>(cfg, out);
     one::<LiveView>(cfg, out);

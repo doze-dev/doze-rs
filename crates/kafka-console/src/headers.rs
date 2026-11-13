@@ -12,13 +12,13 @@ use axum::response::Response;
 /// The policy, as a literal that `concat!` can join.
 macro_rules! csp {
     () => {
-        "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
+        "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
     };
 }
 
 /// What a page may load and do. Scripts are the console's own files (no inline script, no eval); styles may be inline
-/// because positions on the ruler and the lag bars are custom properties (`style="--p:68%"`); nothing may frame it, and
-/// forms may only post to it.
+/// because Radix positions its popovers with inline styles; nothing may frame it, and no form may submit anywhere (the React
+/// app sends every write with fetch, so a form that navigated would be a mistake).
 pub const CSP: &str = csp!();
 
 /// The four headers that do not depend on the answer, as the lines of a hand-written HTTP head (for the 503 that a

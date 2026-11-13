@@ -3,7 +3,7 @@
 use kafka_wire::api::Response;
 
 use crate::backend::{Backend, requests};
-use crate::pages::live::RequestLimits;
+use crate::live_words::Limits as RequestLimits;
 
 /// The config source of a value set on the topic itself.
 const DYNAMIC_TOPIC: i8 = 1;

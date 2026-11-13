@@ -147,17 +147,6 @@ pub fn unended_parts(v: &TxnView) -> (Vec<Span>, Vec<Span>) {
     (out, after)
 }
 
-/// What happens if the transaction is not ended, as one sentence.
-#[must_use]
-pub fn unended_sentence(v: &TxnView) -> Vec<Span> {
-    let (mut before, after) = unended_parts(v);
-    if !after.is_empty() {
-        before.push(t("refused with INVALID_PRODUCER_EPOCH (47)"));
-        before.extend(after);
-    }
-    before
-}
-
 /// The sentence under the name of the page that says who is held.
 #[must_use]
 pub fn holding_sentence(v: &TxnView) -> Vec<Span> {

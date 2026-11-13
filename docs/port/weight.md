@@ -339,3 +339,17 @@ package; `ts-rs` is a dev-dependency only. Under the 7,800,000 B limit; no limit
 What R5 takes back: the classic assets (about 105 KB gzipped plus the 91 KB of fonts a second time) and the maud page layer (an estimated
 1 MB of code). Levers not pulled: zod in the main chunk was avoided (search params are parsed by hand, `src/lib/search.ts`); brotli
 would save about 15% of the JS but browsers ask for it only over https.
+
+## The React console, slice R5: the classic console removed (2026-11-13, branch `react-r5`)
+
+The server-rendered console (maud pages, the route table, htmx, idiomorph, Alpine, the kit's stylesheet, its own copy of the fonts) is gone
+from the crate; the React bundle is the only page layer. `maud` and `maud_macros` (and `proc-macro2-diagnostics` under them) left the tree,
+and `tower` is no longer a direct dependency of the console (it stays in the tree through axum).
+
+| darwin arm64, fat LTO | main before R5 | R5 |
+|---|---|---|
+| doze-kafka binary | 6,593,728 B | **5,945,008 B** (-648,720 B) |
+| packages (`cargo xtask weight`) | 160 (R4's measurement) | **155** |
+| idle | | 6,800 KB |
+
+No limit moved (7,800,000 B, 161 packages): a person lowers them, with the first CI measurement.

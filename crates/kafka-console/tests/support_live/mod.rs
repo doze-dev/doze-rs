@@ -142,7 +142,7 @@ pub fn router(w: &World, recorder: &Arc<Recorder>) -> Router {
         vec![],
         CancellationToken::new(),
     );
-    kafka_console::app::router(state)
+    kafka_console::app::console(state)
 }
 
 /// A world whose server has the recorder installed.

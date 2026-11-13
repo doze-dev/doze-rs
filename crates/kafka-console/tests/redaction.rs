@@ -1,8 +1,8 @@
 //! The planted-secret gate (Phase 8) extended to the recorder (slice 9e): a real broker with SASL on, real clients that log in
 //! with a planted password, fail a login with another, produce a record whose key, value and header are planted, change a secret
 //! config and a SCRAM credential, and then every place the recorder's knowledge can surface is searched for the plants: the
-//! recorder's own Debug, every row and every detail, every page of Live, the drawers, the docks, the clients and the first
-//! request; and every JSON answer of the React console's API (slice R0).
+//! recorder's own Debug, every row and every detail, and every JSON answer of the console's API (every request in full, the
+//! Live tape, the docks, the clients and the first request among them).
 #![allow(
     clippy::too_many_lines,
     clippy::unwrap_used,
@@ -33,7 +33,6 @@ use kafka_wire::messages::incremental_alter_configs_request::{
 use kafka_wire::messages::produce_request::{PartitionProduceData, TopicProduceData};
 use kafka_wire::messages::*;
 use kafka_wire::testing::{framed, request_payload};
-use support::get;
 use support_write::{page, world};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
@@ -156,7 +155,7 @@ async fn no_planted_secret_reaches_the_recorder_the_stream_or_a_page() {
         vec![],
         CancellationToken::new(),
     );
-    let app = kafka_console::app::router(state);
+    let app = kafka_console::app::console(state);
     let now = kafka_console::source::now_ms();
     let tape = recorder.tape(
         &WireQuery {
@@ -186,34 +185,14 @@ async fn no_planted_secret_reaches_the_recorder_the_stream_or_a_page() {
     ];
     for row in &tape.rows {
         corpus.push(format!("{:?}", recorder.get(row.id)));
-        let (_, html) = page(&app, get(&format!("/live/{}", row.id))).await;
+        let (_, html) = page(
+            &app,
+            support::api_get(&format!("/api/v1/live/request/{}", row.id)),
+        )
+        .await;
         corpus.push(html);
     }
-    let mut paths = vec![
-        "/live?idle=0".to_owned(),
-        "/live".to_owned(),
-        "/live/clients".to_owned(),
-        "/connect/first-request".to_owned(),
-        "/topics/orders/wire".to_owned(),
-        "/groups/g/wire".to_owned(),
-        "/".to_owned(),
-    ];
-    for id in ["live-wire", "topic-wire", "group-wire", "home-live"] {
-        paths.push(format!("/fragments/{id}?topic=orders&group=g"));
-    }
-    for path in &paths {
-        let (_, html) = page(&app, get(path)).await;
-        corpus.push(html);
-    }
-    // The React console's JSON API (slice R0): every GET endpoint, over the same broker and recorder.
-    let live = Live::new(w.backend.clone(), w.facts.clone()).with_recorder(Arc::clone(&recorder));
-    let web = kafka_console::app::console(State::console(
-        Source::Live(Box::new(live)),
-        &Base::root(),
-        vec![],
-        CancellationToken::new(),
-        &kafka_console::Limits::default(),
-    ));
+    // Every GET endpoint of the API, over the same broker and recorder.
     for path in kafka_console::api::GET_PATHS {
         let req = axum::http::Request::builder()
             .uri(*path)
@@ -221,11 +200,10 @@ async fn no_planted_secret_reaches_the_recorder_the_stream_or_a_page() {
             .header("x-console", "1")
             .body(axum::body::Body::empty())
             .unwrap();
-        let (status, json) = page(&web, req).await;
+        let (status, json) = page(&app, req).await;
         assert_eq!(status, axum::http::StatusCode::OK, "{path}: {json}");
         corpus.push(json);
     }
-    // The stream carries fragment ids and nothing else (its own test); the pages above are what it makes the browser fetch.
     for plant in [PASSWORD, WRONG, VALUE, KEY, HEADER, CONFIG, SALTED] {
         for (i, text) in corpus.iter().enumerate() {
             assert!(

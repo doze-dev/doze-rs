@@ -76,7 +76,7 @@ pub async fn world(name: &str, tweak: impl FnOnce(&mut BrokerConfig, &mut Server
 impl World {
     pub fn router(&self) -> Router {
         let live = Live::new(self.backend.clone(), self.facts.clone());
-        kafka_console::app::router(State::new(
+        kafka_console::app::console(State::new(
             Source::Live(Box::new(live)),
             Base::root(),
             vec![],

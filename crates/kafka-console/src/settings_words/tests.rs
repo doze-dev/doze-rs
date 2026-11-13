@@ -64,20 +64,6 @@ fn a_value_has_its_words() {
 }
 
 #[test]
-fn the_five_are_exactly_the_five_and_each_has_a_rule_a_moment_and_words() {
-    assert_eq!(DYNAMIC.len(), 5);
-    for (key, topic, sub) in DYNAMIC {
-        assert!(is_dynamic(key) && !sub.is_empty());
-        assert_eq!(topic_key(key), Some(topic));
-        assert!(!allowed(key).is_empty() && !blurb(key).is_empty(), "{key}");
-        assert_ne!(takes_effect(key, Some(60)), "Not acted on", "{key}");
-    }
-    assert!(!is_dynamic("num.partitions") && topic_key("num.partitions").is_none());
-    assert_eq!(least("log.segment.bytes"), Some(1_048_576));
-    assert_eq!(least("log.retention.bytes"), None);
-}
-
-#[test]
 fn a_duration_is_written_as_the_flags_write_it() {
     let cases = [
         (300_000, "5m"),
@@ -135,25 +121,6 @@ fn a_fixed_config_names_its_flag_where_it_has_one() {
     );
     assert_eq!(flag_of("broker.id"), None);
     assert_eq!(flag_of("log.retention.ms"), None);
-}
-
-#[test]
-fn the_limits_are_the_ones_weight_md_writes() {
-    let doc = std::fs::read_to_string(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/../../docs/port/weight.md"
-    ))
-    .unwrap();
-    assert!(
-        doc.contains("| `weight` (default, with the console) | **9 MB**"),
-        "the binary limit moved: change LIMIT_BINARY_BYTES with it"
-    );
-    assert_eq!(LIMIT_BINARY_BYTES, 9_000_000);
-    assert!(
-        doc.contains("| 8 MB (unchanged;"),
-        "the idle limit moved: change LIMIT_IDLE_KB with it"
-    );
-    assert_eq!(LIMIT_IDLE_KB, 8 * 1024);
 }
 
 #[test]

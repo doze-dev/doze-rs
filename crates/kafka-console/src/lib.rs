@@ -1,31 +1,17 @@
-//! The web console: a server-rendered view of the broker, in the same process, reading and acting on it through the
-//! same handlers and the same authorization as a Kafka client (as the principal `User:__console`).
+//! The web console: a view of the broker, in the same process, reading and acting on it through the same handlers and the
+//! same authorization as a Kafka client (as the principal `User:__console`).
 //!
-//! Pages are maud functions of view-models ([`model`]); view-models are made from broker answers ([`gather`]) or, for
-//! tests and the design boards, from fixtures; the route table ([`routes`]) is the one list the router is built from.
-//! The pure parts (formatting, the same-origin rule, the words of the pages) are plain functions with tables of cases.
-//! The client layer (one small script of our own, no library) is behind [`ui::client`] alone, and every page is complete without it.
+//! The page layer is the React app in `web/` (`docs/port/console/react-plan.md`), built into `web-dist/`, embedded and served
+//! by [`web`]; it talks to the JSON API in [`api`]. What the API answers is view-models ([`model`]), made from broker answers
+//! ([`gather`]) or, for tests, from fixtures. The pure parts (formatting, the same-origin rule, the words Rust decides) are plain
+//! functions with tables of cases.
 
 pub mod access_words;
 pub mod acl_words;
-pub mod actions;
 pub mod api;
 pub mod app;
-pub mod assets;
 pub mod backend;
 pub mod base;
-#[cfg(any(test, feature = "examples"))]
-pub mod boards;
-#[cfg(any(test, feature = "examples"))]
-pub mod boards_access;
-#[cfg(any(test, feature = "examples"))]
-pub mod boards_config;
-#[cfg(any(test, feature = "examples"))]
-pub mod boards_log;
-#[cfg(any(test, feature = "examples"))]
-pub mod boards_settings;
-#[cfg(any(test, feature = "examples"))]
-pub mod boards_write;
 pub mod calls;
 pub mod calls_groups;
 pub mod config_calls;
@@ -36,6 +22,7 @@ pub mod config_teach;
 pub mod config_words;
 pub mod facts;
 pub mod facts_start;
+pub mod files;
 #[cfg(any(test, feature = "examples"))]
 pub mod fixtures;
 #[cfg(any(test, feature = "examples"))]
@@ -61,26 +48,22 @@ pub mod format;
 pub mod gather;
 pub mod groups_words;
 pub mod guard;
-pub mod handlers;
 pub mod headers;
 pub mod lab;
 pub mod lag;
 pub mod limits;
+pub mod live_words;
 pub mod log_ruler;
 pub mod log_source;
 pub mod log_words;
 pub mod model;
 pub mod origin;
-pub mod pages;
 pub mod partitioner;
 pub mod phrases;
 pub mod probe;
 pub mod producers_words;
 pub mod recorder;
 pub mod refusal;
-pub mod region;
-pub mod regions;
-pub mod routes;
 pub mod serve;
 pub mod settings_words;
 pub mod snippets;
@@ -89,8 +72,6 @@ pub mod state;
 pub mod story;
 pub mod stream;
 pub mod teach;
-pub mod trail;
-pub mod ui;
 pub mod validate;
 pub mod web;
 pub mod words;

@@ -51,42 +51,6 @@ fn a_member_id_loses_the_unique_tail_the_broker_adds_and_nothing_else() {
 }
 
 #[test]
-fn partitions_are_said_as_the_boards_say_them() {
-    let one = |t: &str, ps: &[i32]| (t.to_owned(), ps.to_vec());
-    for (held, said) in [
-        (
-            vec![one("payments.settled", &[0, 1]), one("pick-lists", &[0])],
-            "payments.settled-0, -1 and pick-lists-0",
-        ),
-        (
-            vec![
-                one("clickstream", &[0, 1, 2, 3, 4, 5]),
-                one("inventory.levels", &[0]),
-            ],
-            "clickstream-0 to 5 and inventory.levels-0",
-        ),
-        (vec![one("t", &[3, 1, 2])], "t-1 to 3"),
-        (vec![one("a", &[0, 2])], "a-0 and -2"),
-        (vec![one("a", &[0, 0, 1])], "a-0 and -1"),
-        (vec![one("a", &[5])], "a-5"),
-        (vec![], ""),
-    ] {
-        assert_eq!(parts_phrase(&held), said);
-    }
-    assert_eq!(
-        holds_phrase("fulfilment-py-1", &[], false, true),
-        "fulfilment-py-1 held nothing"
-    );
-    assert_eq!(
-        holds_phrase("fulfilment-py-1", &[], true, false),
-        "fulfilment-py-1 holds nothing"
-    );
-    let one = vec![("t".to_owned(), vec![0])];
-    assert_eq!(holds_phrase("a", &one, true, true), "It holds t-0");
-    assert_eq!(holds_phrase("a", &one, false, true), "a held t-0");
-}
-
-#[test]
 fn how_long_a_generation_ran_is_said_in_the_boards_units() {
     for (ms, said) in [
         (0, "0 s"),

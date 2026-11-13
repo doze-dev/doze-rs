@@ -136,3 +136,34 @@ fn the_built_index_points_at_files_the_bundle_has() {
     }
     assert!(seen >= 2, "a script and a stylesheet: {html}");
 }
+
+/// SEC-246: the page layer writes every value as text. No source of ours hands React HTML to inject (`dangerouslySetInnerHTML`)
+/// or writes markup into the DOM itself (`innerHTML`, `outerHTML`, `insertAdjacentHTML`, `document.write`).
+#[test]
+fn no_source_of_the_page_layer_injects_html() {
+    fn walk(dir: &Path, out: &mut Vec<PathBuf>) {
+        for entry in std::fs::read_dir(dir).expect("read web/src").flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                walk(&path, out);
+            } else if path.extension().is_some_and(|e| e == "ts" || e == "tsx") {
+                out.push(path);
+            }
+        }
+    }
+    let mut files = Vec::new();
+    walk(&web_dir().join("src"), &mut files);
+    assert!(files.len() > 50, "{}", files.len());
+    for path in files {
+        let text = std::fs::read_to_string(&path).expect("read a source");
+        for word in [
+            "dangerouslySetInnerHTML",
+            "innerHTML",
+            "outerHTML",
+            "insertAdjacentHTML",
+            "document.write",
+        ] {
+            assert!(!text.contains(word), "{}: {word}", path.display());
+        }
+    }
+}
