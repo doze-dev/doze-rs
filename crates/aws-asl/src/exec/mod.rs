@@ -11,6 +11,7 @@ mod fan;
 mod inspect;
 mod io;
 mod items;
+mod plan;
 mod redrive;
 mod run;
 mod task;

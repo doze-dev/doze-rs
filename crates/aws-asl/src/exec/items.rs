@@ -8,6 +8,7 @@ use serde_json::{Value, json};
 use super::io::text;
 use super::{Cx, Dispatch, Exec, Frame, Outcome, Status, Step};
 use crate::def::{Kind, State};
+use crate::env::Env;
 
 /// The resource of the call that starts a distributed Map's item as an execution.
 pub const MAP_ITEM: &str = "doze:mapItem";
@@ -72,5 +73,56 @@ impl Exec {
             Outcome::Submitted(_) => return,
         }
         self.frame_ended(cx, f.id, step);
+    }
+
+    /// `UpdateMapRun`: a distributed Map's concurrency and tolerance change while it runs.
+    pub fn update_map(
+        &mut self,
+        def: &crate::def::Definition,
+        frame: u32,
+        limit: Option<u32>,
+        tolerated: (Option<f64>, Option<f64>),
+        env: &Env,
+    ) -> Step {
+        let mut step = Step::default();
+        if let Some(f) = self.frame_mut(frame) {
+            if let Some(l) = limit {
+                f.limit = l;
+            }
+            let (count, pct) = f.tolerated.unwrap_or((0.0, 0.0));
+            f.tolerated = Some((tolerated.0.unwrap_or(count), tolerated.1.unwrap_or(pct)));
+        }
+        let cx = Cx { def, env };
+        self.joined(cx, frame, 0, &mut step);
+        self.pump(cx, &mut step);
+        step
+    }
+
+    /// The items of a Map frame's current fan-out by status: `(pending, running, succeeded, failed, aborted, total)`.
+    #[must_use]
+    pub fn map_counts(&self, frame: u32) -> [u64; 6] {
+        let Some(f) = self.frame(frame) else {
+            return [0; 6];
+        };
+        let mut c = [0u64; 6];
+        for k in self
+            .frames
+            .iter()
+            .filter(|k| k.parent == frame && k.generation == f.fanouts)
+        {
+            let slot = match k.status {
+                Status::Pending => 0,
+                Status::Done => 2,
+                Status::Failed => 3,
+                Status::Aborted => 4,
+                _ => 1,
+            };
+            for i in [slot, 5] {
+                if let Some(x) = c.get_mut(i) {
+                    *x += 1;
+                }
+            }
+        }
+        c
     }
 }
