@@ -91,18 +91,21 @@ pub(crate) fn overview(l: &Layout) -> Overview {
         }
     }
     let frames: Vec<Rect> = l.regions.iter().map(|r| r.rect).collect();
-    let grid = if frames.is_empty() {
+    let mut grid = if frames.is_empty() {
         None
     } else {
         crate::gaps::Grid::new(&frames)
     };
-    let mut bundles: Vec<Bundle> = weights
+    // Heaviest first, the same order every time: the heaviest take the shortest ways through the gaps.
+    let mut pairs: Vec<((usize, usize), u32)> = weights.into_iter().collect();
+    pairs.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+    let mut bundles: Vec<Bundle> = pairs
         .into_iter()
         .filter_map(|((from, to), count)| {
             let (ra, rb) = (&regions.get(from)?.rect, &regions.get(to)?.rect);
             // Between named frames, through the gaps (over no other region's cards); grid cells, a plain curve.
             let path = grid
-                .as_ref()
+                .as_mut()
                 .and_then(|g| crate::gaps::route(g, &frames, from, to))
                 .unwrap_or_else(|| bundle_path(ra, rb));
             Some(Bundle {

@@ -29,6 +29,7 @@ mod paint;
 mod regions;
 #[cfg(feature = "capture")]
 mod stage;
+mod state;
 #[cfg(all(test, feature = "capture"))]
 mod tests;
 mod tile;
@@ -335,7 +336,16 @@ impl MapView {
     /// Flies to show a region's frame whole.
     pub(crate) fn open_region(&mut self, k: usize, cx: &mut Context<Self>) {
         if let Some(r) = self.layout.regions.get(k) {
-            let to = self.cam.framing(r.rect);
+            // With a card selected its detail card takes the top right: the region fits in what is left.
+            let aside = if self.lit.is_some() {
+                detail::WIDTH + 24.0
+            } else {
+                0.0
+            };
+            let mut room = self.cam;
+            room.size.0 = (room.size.0 - aside).max(200.0);
+            let (z, x, y) = room.framing(r.rect);
+            let to = (z, x + f64::from(aside / 2.0 / z), y);
             let dur = crate::theme::Motion::of(cx).slow;
             self.cam.fly(to, self.layout.bounds, dur);
             cx.notify();

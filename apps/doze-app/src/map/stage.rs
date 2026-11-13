@@ -13,6 +13,17 @@ impl MapView {
             let (what, arg) = part.split_once(':').unwrap_or((part, ""));
             match what {
                 "lines" => self.all_lines = true,
+                // The camera centred on a card, at the zoom it has (a hover shot with the card in view).
+                "centre" => {
+                    if let Some(c) = self
+                        .layout
+                        .card_named(arg)
+                        .and_then(|c| self.layout.card(c))
+                    {
+                        let ctr = c.rect.center();
+                        self.cam.centre_on(ctr.x, ctr.y, self.layout.bounds);
+                    }
+                }
                 "tile" => self.open_list(window, cx),
                 "trouble" => self.on_trouble(cx),
                 "hood" => {

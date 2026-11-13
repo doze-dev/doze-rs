@@ -2,7 +2,7 @@
 //! length together) and placed in the viewport; only the cards in view are built. The captions, and between far and
 //! close, the cards' names.
 
-use doze_display::{Kind as WordKind, Look};
+use doze_display::Kind as WordKind;
 use doze_map::{Card, CardId, Kind, Role};
 use gpui::{AnyElement, BoxShadow, IntoElement, SharedString, Styled, div, point, prelude::*, px};
 
@@ -21,31 +21,9 @@ impl Z {
     }
 }
 
-/// The state dot: filled awake (good) or dozing (warn), a ring while waking, red in trouble, dim asleep.
+/// The state mark every screen draws for a look ([`super::state::mark`]).
 pub(crate) fn state_dot(t: &Tokens, size: gpui::Pixels, r: Option<&Row>) -> AnyElement {
-    let d = div().size(size).flex_none().rounded_full();
-    let Some(r) = r else {
-        return d.bg(t.dim).into_any_element();
-    };
-    if r.trouble {
-        return d.bg(t.bad).into_any_element();
-    }
-    match r.look {
-        Look::Awake => d.bg(t.good),
-        Look::Dozing => d.bg(t.warn),
-        Look::Waking => d.border(size / 4.).border_color(t.cool),
-        _ => d.bg(t.dim),
-    }
-    .into_any_element()
-}
-
-fn task_glyph(t: &Tokens, z: Z, r: &Row) -> AnyElement {
-    div()
-        .w(z.p(8.))
-        .text_size(z.p(12.))
-        .text_color(t.tone(r.look.tone()))
-        .child(r.look.glyph())
-        .into_any_element()
+    super::state::mark(t, r.map(|r| r.look), r.is_some_and(|r| r.trouble), size)
 }
 
 fn badge(t: &Tokens, z: Z, text: String) -> gpui::Div {
@@ -74,10 +52,7 @@ fn top_row(t: &Tokens, z: Z, c: &Card, r: Option<&Row>) -> impl IntoElement {
         .text_color(t.bright)
         .whitespace_nowrap()
         .child(SharedString::from(c.name.clone()));
-    let dot = match r {
-        Some(r) if r.kind == WordKind::Task => task_glyph(t, z, r),
-        _ => state_dot(t, z.p(8.), r),
-    };
+    let dot = state_dot(t, z.p(8.), r);
     let mut row = div()
         .flex()
         .items_center()
@@ -91,17 +66,16 @@ fn top_row(t: &Tokens, z: Z, c: &Card, r: Option<&Row>) -> impl IntoElement {
     if c.members > 1 {
         row = row.child(badge(t, z, format!("×{}", c.members)));
     }
-    if let Some(mem) = r
-        .map(|r| r.mem.clone())
-        .filter(|m| !m.is_empty() && m != "0")
-    {
+    // An awake one's memory, else its state's word (a task says its word on its second line).
+    let said = r.filter(|r| r.kind != WordKind::Task);
+    if let Some((text, color)) = super::state::word(t, said) {
         row = row.child(
             div()
                 .ml_auto()
                 .flex_none()
                 .text_size(z.p(12.))
-                .text_color(t.dim)
-                .child(SharedString::from(mem)),
+                .text_color(color)
+                .child(SharedString::from(text)),
         );
     }
     row
@@ -233,18 +207,13 @@ fn node_card(t: &Tokens, z: Z, m: &MapView, c: &Card, at: (f32, f32), mark: Mark
         .gap(z.p(7.))
         .px(z.p(13.))
         .py(z.p(11.));
-    if task {
+    let st = super::state::frame(t, r, task);
+    f = f.border_color(st.border).bg(st.fill);
+    if st.dashed {
         f = f.border_dashed();
     }
-    if r.is_some_and(|r| r.trouble) {
-        f = f.border_color(mix(t.bad, t.line, 55.));
-    }
     if mark.hot > 0.0 {
-        let was = if r.is_some_and(|r| r.trouble) {
-            mix(t.bad, t.line, 55.)
-        } else {
-            t.line
-        };
+        let was = st.border;
         f = f.border_color(mix(t.accent, was, mark.hot * 100.0));
         // The ring fades with the border: an opaque outline blended from the well to the accent.
         f = f.shadow(ring(t, z, mark.sel, mark.hot));
@@ -261,15 +230,13 @@ fn shared_card(t: &Tokens, z: Z, m: &MapView, c: &Card, at: (f32, f32), mark: Ma
         .gap(z.p(3.))
         .px(z.p(13.))
         .py(z.p(10.));
-    if r.is_some_and(|r| r.trouble) {
-        f = f.border_color(mix(t.bad, t.line, 55.));
+    let st = super::state::frame(t, r, false);
+    f = f.border_color(st.border).bg(st.fill);
+    if st.dashed {
+        f = f.border_dashed();
     }
     if mark.hot > 0.0 {
-        let was = if r.is_some_and(|r| r.trouble) {
-            mix(t.bad, t.line, 55.)
-        } else {
-            t.line
-        };
+        let was = st.border;
         f = f.border_color(mix(t.accent, was, mark.hot * 100.0));
         f = f.shadow(ring(t, z, false, mark.hot));
     }

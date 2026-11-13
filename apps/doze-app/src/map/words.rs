@@ -94,6 +94,7 @@ pub(crate) fn labels(
                     .top(px(y + 3.0))
                     .w(px(c.rect.w as f32 * z * 0.9 - 6.0))
                     .overflow_hidden()
+                    .text_ellipsis()
                     .whitespace_nowrap()
                     .text_size(px(size))
                     .line_height(px(size + 2.0))

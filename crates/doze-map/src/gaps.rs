@@ -16,6 +16,8 @@ const MAX_CELLS: usize = 160_000;
 const MARGIN: f64 = 10.0;
 /// The height of a frame's name above its top edge.
 const PILL: f64 = 12.0;
+/// What sharing a cell with a bundle routed before costs, in steps, for each (up to three).
+const SHARE: u32 = 3;
 /// What a turn costs, in steps.
 const TURN: u32 = 6;
 
@@ -27,6 +29,9 @@ pub(crate) struct Grid {
     cols: usize,
     rows: usize,
     blocked: Vec<bool>,
+    /// How many routed bundles pass each cell: the next one pays to share it, so bundles spread over the gaps
+    /// rather than merging into one trunk where there is room.
+    used: Vec<u8>,
 }
 
 impl Grid {
@@ -51,6 +56,7 @@ impl Grid {
             cols,
             rows,
             blocked: vec![false; cols * rows],
+            used: vec![0; cols * rows],
         };
         for f in frames {
             // The frame's name sits on its top edge, half above it: the margin there is wider.
@@ -135,7 +141,8 @@ impl Grid {
                 if nc >= self.cols || nr >= self.rows || !(self.free(nc, nr) || (nc, nr) == to) {
                     continue;
                 }
-                let ng = g + 1 + if nd == d { 0 } else { TURN };
+                let shared = u32::from(self.used.get(nr * self.cols + nc).copied().unwrap_or(0));
+                let ng = g + 1 + SHARE * shared.min(3) + if nd == d { 0 } else { TURN };
                 let j = idx(nc, nr, nd);
                 if best.get(j).is_some_and(|&b| ng < b) {
                     if let Some(b) = best.get_mut(j) {
@@ -204,7 +211,7 @@ fn side(a: &Rect, b: &Rect) -> (Pt, Pt) {
 
 /// The bundle from frame `a` to frame `b` (indexes into `frames`) through the gaps, or `None` when the grid is too
 /// large or no way through is found.
-pub(crate) fn route(g: &Grid, frames: &[Rect], a: usize, b: usize) -> Option<Path> {
+pub(crate) fn route(g: &mut Grid, frames: &[Rect], a: usize, b: usize) -> Option<Path> {
     let (ra, rb) = (frames.get(a)?, frames.get(b)?);
     let (na, sa) = side(ra, rb);
     let (nb, sb) = side(rb, ra);
@@ -212,6 +219,11 @@ pub(crate) fn route(g: &Grid, frames: &[Rect], a: usize, b: usize) -> Option<Pat
     let from = g.at(Pt::new(sa.x + na.x * out, sa.y + na.y * out));
     let to = g.at(Pt::new(sb.x + nb.x * out, sb.y + nb.y * out));
     let cells = g.path(from, to)?;
+    for &(c, r) in &cells {
+        if let Some(u) = g.used.get_mut(r * g.cols + c) {
+            *u = u.saturating_add(1);
+        }
+    }
     let mut pts: Vec<Pt> = cells.iter().map(|&(c, r)| g.centre(c, r)).collect();
     // Leave and land square: the end points slide along their sides to the path's first and last cells.
     let first = *pts.first()?;
@@ -291,8 +303,8 @@ mod tests {
             Rect::new(1000.0, 0.0, 400.0, 300.0),
             Rect::new(0.0, 360.0, 1400.0, 300.0),
         ];
-        let g = super::Grid::new(&frames).unwrap();
-        let p = route(&g, &frames, 0, 2).expect("a way round");
+        let mut g = super::Grid::new(&frames).unwrap();
+        let p = route(&mut g, &frames, 0, 2).expect("a way round");
         for q in along(&p) {
             for (i, f) in frames.iter().enumerate() {
                 if i == 1 || i == 3 {

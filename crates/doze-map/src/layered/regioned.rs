@@ -19,7 +19,9 @@ use crate::output::Role;
 /// Inside a frame, around its cards.
 pub(crate) const PAD: f64 = 22.0;
 /// A frame's head: room for its name on the frame's top edge.
-pub(crate) const HEAD: f64 = 30.0;
+/// Room for the name on the frame's edge: the pill is a fixed size on screen, so at a quarter scale its lower half
+/// takes about 44 map pixels.
+pub(crate) const HEAD: f64 = 48.0;
 
 /// One region laid out from 0,0.
 struct Block {
