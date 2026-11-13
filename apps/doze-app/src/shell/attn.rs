@@ -124,7 +124,11 @@ pub(crate) struct Machine {
     pub(crate) broken: HashMap<String, String>,
     /// The folders whose doze.hcl was saved a moment ago and is being read again.
     pub(crate) checking: HashSet<String>,
-    pub(crate) left: doze_desk::leftovers::Counts,
+    /// What stacks left behind, counted as Settings › Machine lists them: what Clean up clears, and the data
+    /// folders (deleted one at a time, after asking).
+    pub(crate) left: (usize, usize),
+    /// This app can ask for the administrator's password, so a part not in place offers Set up (Repair).
+    pub(crate) repairable: bool,
 }
 
 pub(crate) fn items_now(
@@ -160,12 +164,13 @@ pub(crate) fn items_now(
         };
         out.extend(attention::stack_items(st, &f, now));
     }
-    // Repair takes the administrator's password, which this app does not ask for: a part offers its command to copy.
+    // Repair asks for the administrator's password through the system's prompt where it can (Settings › Machine's
+    // Repair); elsewhere a part offers its command to copy.
     out.extend(attention::machine_items(
         &m.parts,
-        false,
-        m.left.safe,
-        m.left.data,
+        m.repairable,
+        m.left.0,
+        m.left.1,
     ));
     out
 }
@@ -201,7 +206,9 @@ impl Root {
             (
                 f.doctor(&stacks, cx),
                 (broken, checking),
-                f.leftovers(&home, &stacks, cx),
+                f.leftovers(&home, &stacks, cx)
+                    .map(|l| doze_desk::settings::leftovers::counts(&l))
+                    .unwrap_or_default(),
             )
         });
         let (broken, checking) = broken;
@@ -227,6 +234,7 @@ impl Root {
             broken,
             checking,
             left,
+            repairable: doze_os::privilege::admin_supported(),
         };
         let job = cx.background_executor().spawn(async move {
             let items = items_now(&stacks, &failed, &machine, now);

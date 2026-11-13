@@ -36,6 +36,11 @@ impl History {
         }
         self.ahead.clear();
     }
+
+    /// The place before this one, if any.
+    pub(super) fn before(&self) -> Option<Screen> {
+        self.back.last().cloned()
+    }
 }
 
 impl Root {
@@ -47,22 +52,32 @@ impl Root {
         }
         // Where the window opens next time (Go `doze.last`).
         let dir = |k: &doze_desk::StackKey| k.dir().to_string_lossy().into_owned();
+        let last = |k: &doze_desk::StackKey, page: &str, n: &str| {
+            crate::prefs::recall::save_last(Some((&dir(k), page, n)));
+        };
         match to {
-            Screen::Stack(k) => crate::prefs::recall::save_last(Some((&dir(k), "home", ""))),
-            Screen::Instance(k, n) => {
-                crate::prefs::recall::save_last(Some((&dir(k), "instance", n)))
-            }
-            Screen::Logs(k) => crate::prefs::recall::save_last(Some((&dir(k), "logs", ""))),
+            Screen::Stack(k) => last(k, "home", ""),
+            Screen::Instance(k, n) => last(k, "instance", n),
+            Screen::Logs(k) => last(k, "logs", ""),
+            Screen::Activity(k) => last(k, "activity", ""),
+            Screen::Settings => crate::prefs::recall::save_last(Some(("", "settings", ""))),
             Screen::Library => crate::prefs::recall::save_last(None),
             Screen::Empty(_) => {}
         }
     }
 
-    /// The page the window last showed, while its stack is still known (Go: reopen where I was); else the Library.
+    /// The page the window last showed, while its stack is still known and Settings › General's "Reopen the page I
+    /// had" is on (Go: reopen where I was); else the Library.
     pub(crate) fn reopened(&self) -> Screen {
+        if !crate::prefs::page::reopen() {
+            return Screen::Library;
+        }
         let Some((key, page, instance)) = crate::prefs::recall::last() else {
             return Screen::Library;
         };
+        if page == "settings" {
+            return Screen::Settings;
+        }
         let key = doze_desk::StackKey::new(&key);
         if self.hub.stack(&key).is_none() {
             return Screen::Library;
@@ -70,6 +85,7 @@ impl Root {
         match page.as_str() {
             "instance" if !instance.is_empty() => Screen::Instance(key, instance),
             "logs" => Screen::Logs(key),
+            "activity" => Screen::Activity(key),
             _ => Screen::Stack(key),
         }
     }

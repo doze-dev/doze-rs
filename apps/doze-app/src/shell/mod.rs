@@ -11,6 +11,9 @@ mod inside;
 mod nav;
 mod needs;
 mod ops;
+mod pages;
+#[cfg(all(test, feature = "capture"))]
+mod pages_tests;
 mod pick;
 mod tasks;
 #[cfg(all(test, feature = "capture"))]
@@ -70,6 +73,8 @@ pub(crate) struct Root {
     clock: clock::Clock,
     /// Each task's last record, to say how a run went (see `tasks`).
     tasks: tasks::Tasks,
+    /// Activity and Settings (M3).
+    pub(crate) pages: pages::Pages,
 }
 
 impl Root {
@@ -82,6 +87,7 @@ impl Root {
         cx: &mut Context<Self>,
     ) -> Self {
         let acts = crate::act::ensure(&hub, &mode, cx);
+        let fixture = matches!(mode, facts::Mode::Fixture);
         let toasts = cx.new(|cx| crate::overlays::toasts::ToastsView::new(acts.clone(), cx));
         let facts = cx.new(|_| Facts::new(mode));
         let library = cx.new(|cx| LibraryView::new(hub.clone(), facts.clone(), cx));
@@ -138,10 +144,12 @@ impl Root {
             hist: history::History::default(),
             clock: clock::Clock::default(),
             tasks: tasks::Tasks::default(),
+            pages: pages::Pages::new(facts.clone(), fixture),
         };
         root.rebuild_attention(cx);
         root.hear(&acts, window, cx);
-        // A fixture or a link names the stack; else the page the window last showed (Go: reopen where I was).
+        // A fixture or a link names the stack; else the page the window last showed, when Settings › General's
+        // "Reopen the page I had" is on (Go: reopen where I was).
         let screen = match first {
             Some(k) => Screen::Stack(k),
             None => root.reopened(),
@@ -162,6 +170,7 @@ impl Root {
                 }
             }
             Screen::Empty(_) => {}
+            Screen::Activity(_) | Screen::Settings => self.apply_pages(batch, cx),
             Screen::Stack(k) => {
                 if !batch.parts(k).is_empty() || !batch.hub.is_empty() {
                     self.overview.update(cx, |o, cx| o.refresh(cx));
@@ -183,6 +192,7 @@ impl Root {
         match &self.screen {
             Screen::Library => self.library.update(cx, |l, cx| l.refresh(cx)),
             Screen::Empty(_) => cx.notify(),
+            Screen::Activity(_) | Screen::Settings => cx.notify(),
             Screen::Stack(_) => self.overview.update(cx, |o, cx| o.refresh(cx)),
             Screen::Instance(..) | Screen::Logs(_) => cx.notify(),
         }
@@ -298,6 +308,9 @@ impl Render for Root {
             Screen::Instance(..) | Screen::Logs(_) => self
                 .inside_el(&t, cx)
                 .unwrap_or_else(|| div().into_any_element()),
+            Screen::Activity(_) | Screen::Settings => {
+                self.pages_el().unwrap_or_else(|| div().into_any_element())
+            }
         };
         let page = div()
             .key_context("Page")
@@ -334,6 +347,7 @@ impl Render for Root {
             .on_action(cx.listener(|_, _: &CloseWindow, window, _| window.remove_window()))
             .on_action(cx.listener(|_, _: &Quit, _, cx| cx.quit()))
             .map(|d| self.on_acting(d, cx))
+            .map(|d| self.on_pages(d, cx))
             .on_action(cx.listener(|this, _: &MoveDown, _, cx| this.palette_step(1, cx)))
             .on_action(cx.listener(|this, _: &MoveUp, _, cx| this.palette_step(-1, cx)))
             .on_action(cx.listener(|this, _: &Confirm, window, cx| this.palette_choose(window, cx)))

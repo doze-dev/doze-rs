@@ -31,8 +31,9 @@ pub(super) fn run(cx: &mut App, cmd: Cmd) {
             crate::app::open(cx);
         }
         Cmd::Palette => cx.dispatch_action(&OpenPalette),
-        // Settings and its About (where Check for Updates lives) are one page, at its link.
-        Cmd::Settings | Cmd::Updates => crate::app::follow_args(cx, &["doze://settings".into()]),
+        // Settings, at its link; Check for Updates is its About, asking GitHub now.
+        Cmd::Settings => crate::app::follow_args(cx, &["doze://settings".into()]),
+        Cmd::Updates => crate::app::follow_args(cx, &["doze://settings/updates".into()]),
         Cmd::Quit => cx.quit(),
         Cmd::OpenStack(k) => notes::show_instance(cx, &key_str(&k), ""),
         Cmd::OpenUrl(u) => crate::outward::open_url(cx, &u),

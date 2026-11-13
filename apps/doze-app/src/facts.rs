@@ -54,9 +54,10 @@ pub(crate) struct Facts {
     front: Option<(Instant, Option<String>)>,
     /// The registry's URL for each host asked about, and when.
     urls: HashMap<String, (Instant, Option<String>)>,
-    /// What stacks left behind, as last counted, and whether a count is under way.
-    left: Option<(Instant, doze_desk::leftovers::Counts)>,
+    /// What stacks left behind, as last found (`left`), whether a look is under way, and whether one was asked for.
+    left: Option<(Instant, Vec<doze_desk::settings::Leftover>)>,
     left_asked: bool,
+    left_wanted: bool,
 }
 
 /// The `doze` a terminal would run. The app started from Finder has launchd's short PATH, so the places a terminal's
@@ -107,6 +108,7 @@ impl Facts {
             urls: HashMap::new(),
             left: None,
             left_asked: false,
+            left_wanted: false,
         }
     }
 
@@ -174,6 +176,15 @@ impl Facts {
             });
         })
         .detach();
+    }
+
+    /// Makes the machine's last answer old, so the next look asks doctor again (after a repair); what it said stays
+    /// on screen until the new answer comes.
+    pub(crate) fn forget_doctor(&mut self, cx: &mut Context<Self>) {
+        if let Some((at, _)) = &mut self.doctor {
+            *at = at.checked_sub(DOCTOR_AGE).unwrap_or(*at);
+        }
+        cx.notify();
     }
 
     /// The machine's checks; asks again when the last answer is old. `None` while the first answer is coming.

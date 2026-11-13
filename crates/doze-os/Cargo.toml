@@ -71,6 +71,7 @@ windows-sys = { version = "0.61", features = [
 
 [dev-dependencies]
 tokio = { version = "1.54", features = ["net", "process", "io-util", "time", "rt", "macros"] }
+tempfile = "3"
 
 [[bin]]
 # Test helper only: the tests start it as a module, an engine, or a process to stop.

@@ -59,7 +59,7 @@ pub(crate) const TABLE: &[Spec] = &[
         ["cmd-0"],
         Global,
         Some(Go),
-        true,
+        false,
         true
     ),
     spec!(
@@ -69,7 +69,7 @@ pub(crate) const TABLE: &[Spec] = &[
         ["cmd-o"],
         Global,
         Some(File),
-        true,
+        false,
         true
     ),
     spec!(
@@ -89,8 +89,8 @@ pub(crate) const TABLE: &[Spec] = &[
         ["shift-a"],
         Global,
         Some(Go),
-        true,
-        false
+        false,
+        true
     ),
     spec!(
         "Settings…",
@@ -99,8 +99,8 @@ pub(crate) const TABLE: &[Spec] = &[
         ["cmd-,"],
         Global,
         Some(Doze),
-        true,
-        false
+        false,
+        true
     ),
     spec!(
         "Back",

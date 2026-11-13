@@ -1,5 +1,6 @@
 //! `doze://` links (Go `internal/desk/link`): `doze://shop` (a stack), `doze://shop/db` (a service in it),
-//! `doze://open?dir=/abs/folder&show=db`, `doze://library`, `doze://settings`. The scheme and the host are matched
+//! `doze://open?dir=/abs/folder&show=db`, `doze://library`, `doze://settings` (and a part of it: `doze://settings/machine`;
+//! `doze://settings/updates` is About, asking GitHub now). The scheme and the host are matched
 //! without regard to case.
 
 use std::path::PathBuf;
@@ -18,7 +19,8 @@ pub(crate) enum Link {
         show: Option<String>,
     },
     Library,
-    Settings,
+    /// Settings, at a part when the link names one (`general`, `machine`, `about`, `updates`).
+    Settings(Option<String>),
 }
 
 /// Whether `s` is a doze link.
@@ -38,7 +40,12 @@ pub(crate) fn parse(s: &str) -> Result<Link, String> {
     let path = path.trim_matches('/');
     match host.to_ascii_lowercase().as_str() {
         "library" => Ok(Link::Library),
-        "settings" => Ok(Link::Settings),
+        "settings" => Ok(Link::Settings(
+            path.split('/')
+                .next()
+                .filter(|s| !s.is_empty())
+                .map(str::to_ascii_lowercase),
+        )),
         "open" => {
             let dir = param(query, "dir").ok_or("doze://open needs dir=, an absolute folder")?;
             let dir = PathBuf::from(dir);
@@ -117,7 +124,11 @@ mod tests {
             }
         );
         assert_eq!(parse("doze://Library").unwrap(), Link::Library);
-        assert_eq!(parse("doze://settings").unwrap(), Link::Settings);
+        assert_eq!(parse("doze://settings").unwrap(), Link::Settings(None));
+        assert_eq!(
+            parse("doze://settings/Updates").unwrap(),
+            Link::Settings(Some("updates".into()))
+        );
         assert_eq!(
             parse("doze://open?dir=%2Fcode%2Fmy%20shop&show=api").unwrap(),
             Link::Open {

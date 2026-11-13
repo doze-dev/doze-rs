@@ -476,3 +476,29 @@ item, not this step's.
 that home, `release-app`): M3 20 MB at 10 s and 25 s (two runs); M2's binary 21 MB the same way. So with one live stack
 the menu-bar-only app sits 2 MB over PLAN §6's 18 MB (18 MB on an empty home), as M2 did; under the M3 brief's 35 MB.
 The menu bar's own Needs you list, notification rules and service submenus cost nothing measurable here.
+
+### M3 Activity and Settings (steps 3.3, 3.4), measured 2026-11-13
+
+Same machine and method (`release-app`; `doze-app bench --fixture larder --idle 30`, footprint of that pid at 12 s and
+27 s, two runs).
+
+| | Budget | Measured |
+|---|---|---|
+| Binary, `release-app`, no capture | ≤ 16 MB | 13,131,648 B (+298 KB over M2 combined: Activity, Settings, the leftovers look, the admin prompt, the login item) |
+| Binary with `fixtures` | | 13,363,952 B |
+| Packages (`cargo tree -p doze-app --edges normal`, unique lines) | limit 560 | 540 (no new outside crate: `doze-journal` and `doze-os` were in the tree) |
+| Menu bar ready | ≤ 100 ms | 71 / 90 ms |
+| First frame after the tray click | ≤ 100 ms | 44 / 48 ms |
+| Window open and idle (larder's page) | ≤ 85 MB | 60 / 56 MB and 60 / 56 MB |
+
+**The update check's HTTPS client (PLAN.md Q6).** Measured on a small program that fetches GitHub's latest release and
+reads its JSON (opt "s", fat LTO, stripped, darwin/arm64): 337,296 B with the system's `curl` as a subprocess;
+933,856 B with `minreq` 2 and rustls (+0.58 MB, +13 crates); 1,284,080 B with `ureq` 3, rustls and the platform
+verifier (+0.93 MB, +32 crates). rustls is in the workspace's lock for other crates but not in the app's tree. The app
+uses `curl` (`doze_desk::settings::update::fetch`): no bytes, no crates, and the check runs only when About opens or is
+asked (never in the background), so a subprocess per check costs nothing at rest. With no `curl`, About says it could not
+reach GitHub. When the Rust CLI has `doze version --check`, the app asks it instead.
+
+Activity at rest: it reads the journal again every ten seconds while shown (as Go's page did), off the UI thread, and
+redraws only when a figure changed; the strips are painted, so a 2,000-service stack builds only the rows in view
+(`doze-desk` lays out 2,000 services over 10,000 events in a few milliseconds, `tests/activity.rs`).

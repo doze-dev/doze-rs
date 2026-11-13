@@ -37,8 +37,8 @@ pub(super) fn head(
         }));
     }
     row.child(views(t, v, cx))
-        .child(soon(t, "Activity", SOON_ACTIVITY, cx))
-        .child(soon(t, "All logs", SOON_LOGS, cx))
+        .child(go(t, "Activity", &crate::actions::Activity))
+        .child(go(t, "All logs", &crate::actions::AllLogs))
         .child(up(
             t,
             (h.running, v.busy(cx).0),
@@ -46,14 +46,6 @@ pub(super) fn head(
             h.stopped.as_ref().is_some_and(|s| !s.problem.is_empty()),
             cx,
         ))
-}
-
-const SOON_ACTIVITY: &str =
-    "Activity comes with M3: how long each service slept, what woke it, what crashed.";
-const SOON_LOGS: &str = "All logs come with the logs page (M1 step 1.6).";
-
-fn say(cx: &mut Context<OverviewView>, words: &'static str) -> crate::kit::Click {
-    Box::new(cx.listener(move |this, _, _, cx| this.say(words, cx)))
 }
 
 /// The segmented switch: Tiles · List · Map · Grid (new).
@@ -181,20 +173,17 @@ fn title_row(t: &Tokens, stack: &str, path: &str) -> gpui::Div {
         .child(div().flex_1())
 }
 
-/// A quiet button for a page that comes later; it says when.
-fn soon(
-    t: &Tokens,
-    label: &'static str,
-    words: &'static str,
-    cx: &mut Context<OverviewView>,
-) -> impl IntoElement {
+/// A quiet button that does what the action table's row does (Activity ⇧A, All logs ⇧L).
+fn go(t: &Tokens, label: &'static str, a: &dyn gpui::Action) -> impl IntoElement {
+    let a = a.boxed_clone();
     btn(
         t,
         label,
         label,
         &chip_of(label),
         Btn::Quiet,
-        Some(say(cx, words)),
+        Some(Box::new(move |_, window, cx| {
+            window.dispatch_action(a.boxed_clone(), cx)
+        })),
     )
-    .opacity(0.6)
 }

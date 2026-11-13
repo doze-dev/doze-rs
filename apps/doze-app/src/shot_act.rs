@@ -88,6 +88,9 @@ fn lib_act(root: &mut Root, name: &str, action: StackAction, cx: &mut Context<Ro
 
 /// Does `act`; says how long to wait before the shot.
 fn start(root: &mut Root, act: &str, window: &mut Window, cx: &mut Context<Root>) -> u64 {
+    if let Some(wait) = crate::shot_m3::start(root, act, window, cx) {
+        return wait;
+    }
     let acts = root.acts.clone();
     let (here, acme) = (shown(root), key(root, "acme"));
     let verb = |cx: &mut Context<Root>, name: &str, v: Verb| {

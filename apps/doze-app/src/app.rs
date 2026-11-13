@@ -169,7 +169,11 @@ pub(crate) fn follow_args(cx: &mut App, args: &[String]) {
             root.open_dir(&dir, s.or(show).as_deref(), window, cx)
         }
         Some(Ok(Link::Library)) => root.go(crate::shell::Screen::Library, window, cx),
-        Some(Ok(Link::Settings)) => root.say("Settings come with M3.", cx),
+        Some(Ok(Link::Settings(part))) => {
+            let part = part.unwrap_or_default();
+            let at = crate::settings::Section::parse(&part);
+            root.open_settings(at, part == "updates", window, cx);
+        }
         Some(Err(e)) => root.say(e, cx),
         None => {
             if let Some(s) = show {
