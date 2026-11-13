@@ -346,7 +346,7 @@ export function LivePage() {
         <FilterIcon className="size-5 text-link" aria-hidden />
         <b className="text-[15px] font-semibold text-bright">No request matches these filters</b>
         <p className="max-w-lg">
-          Among the {number(r.live.window.rows)} rows kept, none has all of: {r.words.phrases.join("; ")}.
+          None of the rows kept has all of: {r.words.phrases.join("; ")}.
         </p>
         <Button variant="outline" size="sm" className="bg-card" onClick={() => set({ q: undefined, client: undefined, api: undefined, topic: undefined, refused: undefined, before: undefined }, false)}>
           <XIcon /> Clear filters

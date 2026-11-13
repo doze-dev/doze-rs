@@ -395,7 +395,7 @@ function Deletions({ v }: { v: LogView }) {
         </table>
       )}
       <p className="mt-3 text-[12.5px] text-muted-foreground">
-        {n === 0 ? "No deletion is waiting to go." : `${n === 1 ? "1 tombstone is" : `${number(n)} tombstones are`} waiting to go.`} Tombstones still in the dirty part have no horizon yet, so they are not listed.
+        {n === 0 ? "No deletion is waiting to go." : "The tombstones above are waiting to go."} Tombstones still in the dirty part have no horizon yet, so they are not listed.
       </p>
       {n > 0 && (
         <div className="mt-3 flex flex-wrap items-center gap-3">
@@ -466,7 +466,7 @@ function Segments({ v }: { v: LogView }) {
     <section className="mt-10" data-testid="segments">
       <h2 className="text-[17px] font-semibold text-bright">Segments</h2>
       <p className="mt-1 text-[13.5px] text-muted-foreground">
-        {v.segments.length} {v.segments.length === 1 ? "segment" : "segments"} of <code className="font-mono">segment.bytes</code> {number(v.segment_bytes)} ({bytes(v.segment_bytes)}).{" "}
+        Each segment rolls at <code className="font-mono">segment.bytes</code> {number(v.segment_bytes)} ({bytes(v.segment_bytes)}).{" "}
         {v.compaction && "Sealed segments are cleaned at most once per round; the active one never. "}Open a row for its files and index.
         {v.partial && " The log is large: some segments were read in part, and what is missing is not guessed."}
         {skip > 0 && ` The newest ${MOST_ROWS} are listed.`}

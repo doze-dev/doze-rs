@@ -50,7 +50,8 @@ test("isolation: the ToggleGroup is in the address, says what read_committed hol
   const iso = page.getByTestId("isolation");
   await iso.getByRole("radio", { name: "read_committed" }).click();
   await expect(page).toHaveURL(/isolation=read_committed/);
-  await expect(page.getByTestId("isolation-note")).toContainText("Reading as read_committed.");
+  await expect(page.getByTestId("isolation-note")).toContainText("Reading as read_committed:");
+  await expect(page.getByTestId("isolation-held")).toHaveText(/^\d[\d,]*$/);
   await expect(page.getByTestId("explainers").getByRole("button", { name: "How this read works" })).toHaveAttribute("aria-expanded", "true");
   await iso.getByRole("radio", { name: "read_uncommitted" }).click();
   await expect(page).not.toHaveURL(/isolation=/);

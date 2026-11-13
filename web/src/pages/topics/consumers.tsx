@@ -59,8 +59,12 @@ function Group({ g, topic, now }: { g: Reader; topic: string; now: number }) {
         </div>
         <div className="flex items-center gap-4 text-[13px] text-muted-foreground">
           {g.last_commit_ms !== null && <span title={dateTime(g.last_commit_ms)}>last commit {stamp(g.last_commit_ms, now)}</span>}
-          <span className="font-mono text-[14px] font-medium text-bright tabular-nums" data-testid="behind">
-            {number(g.behind)} behind
+          {/* A figure with its label, in a slot of reserved width: a lag that grows moves nothing beside it. */}
+          <span className="inline-flex items-baseline gap-1.5">
+            <span className="text-[11.5px] font-medium tracking-[0.06em] uppercase">Behind</span>
+            <span className="inline-block min-w-[6ch] text-right font-mono text-[14px] font-medium text-bright tabular-nums" data-testid="behind">
+              {number(g.behind)}
+            </span>
           </span>
         </div>
       </header>

@@ -351,14 +351,16 @@ function Toolbar({ frame, search, set }: { frame: TopicFrame; search: MessagesSe
 
 function IsolationNote({ r, frame }: { r: MessagesResponse; frame: TopicFrame }) {
   if (r.view.query.reading !== "committed") return null;
-  const n = frame.held;
+  // A static sentence, and the count as a labelled figure beside it (it changes on refresh; CON-805).
   return (
-    <p className="mb-3 text-[13px] text-muted-foreground" role="status" data-testid="isolation-note">
-      {n === 0
-        ? "Reading as read_committed. Nothing is held back, so this is every record the table shows."
-        : n === 1
-          ? "Reading as read_committed. One record is held back (it is above the last stable offset) and is not listed; read_uncommitted shows it, marked Above LSO."
-          : `Reading as read_committed. ${number(n)} records are held back (they are above the last stable offset) and are not listed; read_uncommitted shows them, each marked Above LSO.`}
+    <p className="mb-3 flex flex-wrap items-baseline gap-x-4 gap-y-1 text-[13px] text-muted-foreground" role="status" data-testid="isolation-note">
+      <span>Reading as read_committed: records above the last stable offset are held back and not listed; read_uncommitted shows them, marked Above LSO.</span>
+      <span className="inline-flex items-baseline gap-1.5 whitespace-nowrap">
+        <span className="text-[11.5px] font-medium tracking-[0.06em] uppercase">Held back</span>
+        <span className="inline-block min-w-[5ch] font-mono font-medium text-bright tabular-nums" data-testid="isolation-held">
+          {number(frame.held)}
+        </span>
+      </span>
     </p>
   );
 }
