@@ -361,11 +361,12 @@ export function CreateTopicPage() {
                               data-testid="template"
                             >
                               {TEMPLATES.map((t) => (
-                                <Label key={t.id} htmlFor={`tpl-${t.id}`} className={cn("flex cursor-pointer items-start gap-3 rounded-xl border p-4 font-normal transition-colors hover:bg-well/60", field.value === t.id && "border-primary bg-primary/5")}>
+                                <Label key={t.id} htmlFor={`tpl-${t.id}`} className={cn("flex cursor-pointer items-start gap-3 rounded-xl border px-4 py-3.5 font-normal transition-colors hover:bg-well/60", field.value === t.id && "border-primary bg-primary/5")}>
                                   <RadioGroupItem id={`tpl-${t.id}`} value={t.id} className="mt-0.5" />
-                                  <span className="flex flex-col gap-1">
-                                    <span className="text-[14px] font-medium text-bright">{t.name}</span>
-                                    <span className="text-[12.5px] text-muted-foreground">{t.sub}</span>
+                                  {/* The Label's own leading is none: the card's lines get theirs back, so a sub that wraps reads. */}
+                                  <span className="flex min-w-0 flex-col gap-1.5">
+                                    <span className="text-[14px] leading-5 font-medium text-bright">{t.name}</span>
+                                    <span className="text-[12.5px] leading-[18px] text-muted-foreground">{t.sub}</span>
                                   </span>
                                 </Label>
                               ))}
@@ -396,9 +397,9 @@ export function CreateTopicPage() {
                               {POLICIES.map((p) => (
                                 <Label key={p.id} htmlFor={`cl-${p.id}`} className={cn("flex cursor-pointer items-start gap-3 rounded-lg border px-4 py-3 font-normal hover:bg-well/60", field.value === p.id && "border-primary bg-primary/5")}>
                                   <RadioGroupItem id={`cl-${p.id}`} value={p.id} className="mt-0.5" />
-                                  <span className="flex flex-col gap-0.5">
-                                    <span className="font-mono text-[13.5px] text-bright">{p.id}</span>
-                                    <span className="text-[12.5px] text-muted-foreground">{p.sub}</span>
+                                  <span className="flex min-w-0 flex-col gap-1">
+                                    <span className="font-mono text-[13.5px] leading-5 text-bright">{p.id}</span>
+                                    <span className="text-[12.5px] leading-[18px] text-muted-foreground">{p.sub}</span>
                                   </span>
                                 </Label>
                               ))}

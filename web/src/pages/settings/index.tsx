@@ -111,7 +111,7 @@ function ConfigsSection({ r, onEdit }: { r: SettingsResponse; onEdit: (key: stri
       {
         accessorKey: "value",
         header: "Value",
-        size: 230,
+        size: 196,
         cell: (c) => (
           <span title={c.row.original.gloss ? `${c.row.original.value} (${c.row.original.gloss})` : c.row.original.value}>
             <span className="font-mono tabular-nums">{c.row.original.value}</span>
@@ -122,7 +122,7 @@ function ConfigsSection({ r, onEdit }: { r: SettingsResponse; onEdit: (key: stri
       {
         accessorKey: "source",
         header: "Source",
-        size: 170,
+        size: 156,
         cell: (c) => (
           <span title={`${c.row.original.source}: ${c.row.original.source_note}`}>
             <StatusDot tone={sourceTone(c.row.original.source)} className="font-medium">
