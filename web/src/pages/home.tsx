@@ -3,7 +3,7 @@ import { ActivityIcon, ArrowRightIcon, CircleCheckIcon, CodeIcon, InfoIcon, Plus
 import { useHome } from "@/api/queries";
 import type { HomeResponse } from "@/api/types/HomeResponse";
 import { CodeValue } from "@/components/app/code-value";
-import { PageHeader } from "@/components/app/page-header";
+import { Logo, Wordmark } from "@/components/app/brand";
 import { RefreshControl } from "@/components/app/refresh-control";
 import { Spans } from "@/components/app/spans";
 import { type Stat, StatStrip } from "@/components/app/stat";
@@ -261,19 +261,42 @@ function HomeSkeleton() {
   );
 }
 
+/** Home's head: the brand, shown off. The big bat on its tile, the wordmark as the page's one h1, the family's line for this
+ * product (doze-dev.com), Home's own static sentence, and the way in. A soft yellow glow behind the bat; nothing moves but the
+ * bat's swing on hover. */
+function HomeHero({ sub, action }: { sub: React.ReactNode; action?: React.ReactNode }) {
+  return (
+    <section data-testid="home-hero" className="group/brand relative mt-5 mb-8 overflow-hidden rounded-2xl border bg-card">
+      <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(520px_circle_at_96px_50%,color-mix(in_oklab,var(--primary)_22%,transparent),transparent_70%)] dark:bg-[radial-gradient(520px_circle_at_96px_50%,color-mix(in_oklab,var(--primary)_12%,transparent),transparent_70%)]" />
+      <div className="relative flex flex-wrap items-center gap-x-8 gap-y-5 px-8 py-8">
+        <Logo size={104} swing className="rounded-[24px] shadow-[0_14px_34px_-14px_rgba(22,21,15,0.5)]" />
+        <div className="min-w-0 flex-1 basis-[26rem]">
+          <h1>
+            <Wordmark className="text-[46px] leading-[50px]" />
+          </h1>
+          <p className="mt-2 font-display text-[18px] leading-[26px] font-medium tracking-[-0.01em] text-foreground">Wakes a Kafka broker. No JVM to put to bed.</p>
+          <p className="mt-1.5 max-w-[46rem] text-[14px] leading-[21px] text-muted-foreground">{sub}</p>
+        </div>
+        {action && <div className="flex flex-none items-center">{action}</div>}
+      </div>
+    </section>
+  );
+}
+
 export function HomePage() {
   const q = useHome();
   const r = q.data;
   const quiet = r?.home.state.kind === "quiet";
   return (
     <>
-      <PageHeader
-        title={r?.words.title ?? "Home"}
+      <div className="flex min-h-9 items-center justify-end">
+        <RefreshControl updatedAt={q.dataUpdatedAt} fetching={q.isFetching} onRefresh={() => void q.refetch()} />
+      </div>
+      <HomeHero
         sub={r ? <Spans spans={r.words.sub} /> : " "}
-        refresh={<RefreshControl updatedAt={q.dataUpdatedAt} fetching={q.isFetching} onRefresh={() => void q.refetch()} />}
-        actions={
+        action={
           r && !quiet ? (
-            <Button asChild>
+            <Button asChild size="lg">
               <Link to="/connect">
                 <CodeIcon /> Connect an app <ArrowRightIcon className="opacity-70" />
               </Link>

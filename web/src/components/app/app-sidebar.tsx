@@ -1,9 +1,9 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { ExternalLinkIcon } from "lucide-react";
 import { useShell } from "@/api/queries";
-import logo from "@/assets/doze-kafka.svg";
 import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarHeader, SidebarMenu, SidebarMenuBadge, SidebarMenuButton, SidebarMenuItem, SidebarRail } from "@/components/ui/sidebar";
 import { number } from "@/lib/format";
+import { Logo, Wordmark } from "./brand";
 import { isActive, NAV } from "./nav";
 
 export function AppSidebar() {
@@ -12,9 +12,9 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon" data-testid="sidebar">
       <SidebarHeader className="h-[52px] justify-center border-b border-sidebar-border px-4 group-data-[collapsible=icon]:px-2">
-        <Link to="/" className="flex items-center gap-2.5 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring/50" aria-label="doze-kafka, Home">
-          <img src={logo} alt="" width={28} height={28} className="size-7 shrink-0" draggable={false} />
-          <span className="text-[16px] font-semibold tracking-[-0.01em] text-bright group-data-[collapsible=icon]:hidden">doze-kafka</span>
+        <Link to="/" className="group/brand flex items-center gap-2.5 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring/50" aria-label="doze Kafka, Home">
+          <Logo size={32} swing />
+          <Wordmark className="text-[20px] leading-none group-data-[collapsible=icon]:hidden" />
         </Link>
       </SidebarHeader>
       <SidebarContent className="pt-3">
