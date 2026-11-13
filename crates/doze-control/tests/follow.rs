@@ -137,6 +137,10 @@ fn it_comes_back_after_the_daemon_restarts_and_resumes_the_journal() {
 /// on another thread.
 const JITTER: Duration = Duration::from_millis(10);
 
+/// How late an attempt may come: never early, but a busy shared CI runner adds to the wait (macOS runners were 118 ms
+/// and 115 ms late).
+const LATE: Duration = Duration::from_millis(400);
+
 /// The gaps between attempts, from the moment each `Down` arrived to the next `Connecting`.
 fn gaps(w: &Watch, n: usize) -> Vec<(Duration, Duration)> {
     let mut out = Vec::new();
@@ -168,8 +172,7 @@ fn it_backs_off_between_attempts() {
     assert_eq!(waits, [40, 80, 160, 200, 200]);
     for (wait, gap) in got {
         assert!(
-            // Never early; late by at most what a busy shared CI runner adds (a macOS runner was 118 ms late once).
-            gap + JITTER >= wait && gap < wait + Duration::from_millis(400),
+            gap + JITTER >= wait && gap < wait + LATE,
             "gap {gap:?} for a wait of {wait:?}"
         );
     }
@@ -182,7 +185,7 @@ fn it_backs_off_between_attempts() {
     );
     for (wait, gap) in got {
         assert!(
-            gap + JITTER >= wait && gap < wait + Duration::from_millis(100),
+            gap + JITTER >= wait && gap < wait + LATE,
             "gap {gap:?} for a wait of {wait:?}"
         );
     }
