@@ -27,11 +27,11 @@ function took(us: number): string {
 }
 
 const COLUMNS: DataColumn<GroupWireRow>[] = [
-  { id: "time", header: "Time", size: 132, accessorFn: (r) => clockMs(r.at_ms), meta: { mono: true } },
+  { id: "time", header: "Time", size: 120, accessorFn: (r) => clockMs(r.at_ms), meta: { mono: true } },
   {
     id: "client",
     header: "Client",
-    size: 190,
+    size: 160,
     accessorFn: (r) => r.client,
     cell: ({ row: { original: r } }) => (
       <span className="flex min-w-0 items-center gap-1.5">
@@ -47,7 +47,7 @@ const COLUMNS: DataColumn<GroupWireRow>[] = [
   {
     id: "request",
     header: "Request",
-    size: 190,
+    size: 176,
     accessorFn: (r) => `${r.api} v${r.version}`,
     cell: ({ row: { original: r } }) => (
       <span className="flex min-w-0 items-center gap-1.5">
@@ -71,7 +71,7 @@ const COLUMNS: DataColumn<GroupWireRow>[] = [
   {
     id: "result",
     header: "Result",
-    size: 230,
+    size: 200,
     accessorFn: (r) => `${r.word} ${r.code ? `${r.code_name} (${r.code})` : r.detail}`,
     cell: ({ row: { original: r } }) => (
       <span className="flex min-w-0 items-center gap-1.5" data-testid="wire-result">
@@ -83,7 +83,7 @@ const COLUMNS: DataColumn<GroupWireRow>[] = [
       </span>
     ),
   },
-  { id: "took", header: "Took", size: 84, accessorFn: (r) => took(r.took_us), meta: { numeric: true, mono: true } },
+  { id: "took", header: "Took", size: 76, accessorFn: (r) => took(r.took_us), meta: { numeric: true, mono: true } },
 ];
 
 export function WireTable({ rows, empty, maxHeight }: { rows: GroupWireRow[]; empty: string; maxHeight?: number }) {
@@ -164,7 +164,7 @@ export function GroupWirePage() {
       {d ? <WireTable rows={d.rows} empty={`No request that touched ${id} matches.`} maxHeight={640} /> : <Skeleton className="h-80 rounded-xl" />}
       <div className="mt-3 flex flex-wrap gap-x-4 text-[13px] text-muted-foreground tabular-nums">
         <span>
-          Among the last <span className="inline-block min-w-[5ch] text-right font-mono">{d ? number(d.kept) : "–"}</span> rows the broker kept, back to <span className="inline-block min-w-[5ch] font-mono">{d?.oldest_ms ? hhmmUtc(d.oldest_ms) : "none"}</span> UTC.
+          Among the last <span className="inline-block min-w-[5ch] font-mono">{d ? number(d.kept) : "–"}</span> rows the broker kept, back to <span className="inline-block min-w-[5ch] font-mono">{d?.oldest_ms ? hhmmUtc(d.oldest_ms) : "none"}</span> UTC.
         </span>
         <span>Kept in memory and emptied at every restart.</span>
       </div>

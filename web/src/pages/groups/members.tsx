@@ -29,24 +29,26 @@ function share(part: number, of: number): number {
   return part <= 0 || of <= 0 ? 0 : Math.min(100, Math.max(2, Math.floor((part * 100) / of)));
 }
 
-function MemberLink({ m, onOpen }: { m: GroupMemberRow; onOpen: (id: string) => void }) {
+type Open = (id: string, from: HTMLElement) => void;
+
+function MemberLink({ m, onOpen }: { m: GroupMemberRow; onOpen: Open }) {
   return (
-    <button type="button" onClick={() => onOpen(m.id)} className="max-w-full truncate rounded-sm text-left font-mono text-primary hover:underline focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none" title={m.id} data-testid="member-link">
+    <button type="button" onClick={(e) => onOpen(m.id, e.currentTarget)} className="max-w-full truncate rounded-sm text-left font-mono text-primary hover:underline focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none" title={m.id} data-testid="member-link">
       {memberLabel(m.id)}
     </button>
   );
 }
 
-function MembersTable({ h, onOpen }: { h: GroupHead; onOpen: (id: string) => void }) {
+function MembersTable({ h, onOpen }: { h: GroupHead; onOpen: Open }) {
   const cols = useMemo<DataColumn<GroupMemberRow>[]>(
     () => [
       { id: "member", header: "Member id", accessorFn: (m) => m.id, cell: ({ row: { original: m } }) => <MemberLink m={m} onOpen={onOpen} /> },
-      { id: "client", header: "Client id", size: 170, accessorFn: (m) => m.client_id, meta: { mono: true } },
-      { id: "host", header: "Host", size: 130, accessorFn: (m) => m.host, meta: { mono: true } },
-      { id: "role", header: "Role", size: 100, accessorFn: (m) => role(h, m) },
-      { id: "generation", header: h.protocol === "consumer" ? "Epoch" : "Generation", size: 112, accessorFn: (m) => m.epoch, meta: { numeric: true, mono: true } },
-      { id: "session", header: "Session", size: 92, accessorFn: (m) => (m.session_ms > 0 ? seconds(m.session_ms) : "—"), meta: { mono: true } },
-      { id: "heard", header: "Last heartbeat", size: 136, accessorFn: (m) => heard(h.now_ms, m), meta: { mono: true } },
+      { id: "client", header: "Client id", size: 160, accessorFn: (m) => m.client_id, meta: { mono: true } },
+      { id: "host", header: "Host", size: 110, accessorFn: (m) => m.host, meta: { mono: true } },
+      { id: "role", header: "Role", size: 92, accessorFn: (m) => role(h, m) },
+      { id: "generation", header: h.protocol === "consumer" ? "Epoch" : "Generation", size: 108, accessorFn: (m) => m.epoch, meta: { numeric: true, mono: true } },
+      { id: "session", header: "Session", size: 84, accessorFn: (m) => (m.session_ms > 0 ? seconds(m.session_ms) : "—"), meta: { mono: true } },
+      { id: "heard", header: "Last heartbeat", size: 128, accessorFn: (m) => heard(h.now_ms, m), meta: { mono: true } },
     ],
     [h, onOpen],
   );
@@ -71,9 +73,9 @@ function ReadsTable({ topics }: { topics: LagTopic[] }) {
         </Link>
       ),
     },
-    { id: "partitions", header: "Partitions", size: 110, accessorFn: (t) => t.partitions, meta: { numeric: true, mono: true } },
-    { id: "committed", header: "Committed to", size: 150, accessorFn: committedTo },
-    { id: "lag", header: "Lag", size: 240, accessorFn: (t) => t.behind, cell: ({ row: { original: t } }) => <LagBar pct={share(t.behind, most)} n={t.behind} /> },
+    { id: "partitions", header: "Partitions", size: 104, accessorFn: (t) => t.partitions, meta: { numeric: true, mono: true } },
+    { id: "committed", header: "Committed to", size: 140, accessorFn: committedTo },
+    { id: "lag", header: "Lag", size: 220, accessorFn: (t) => t.behind, cell: ({ row: { original: t } }) => <LagBar pct={share(t.behind, most)} n={t.behind} /> },
   ];
   return <DataTable data={topics} columns={cols} rowId={(t) => t.name} aria-label="Reads" empty="The group has committed on no topic yet." maxHeight={360} />;
 }
@@ -124,7 +126,7 @@ function WhoHolds({ v }: { v: GroupLagView }) {
                   {p}
                 </span>
               ))}
-              <span className="min-w-0 truncate text-[12.5px] text-muted-foreground">{allOne ? `all ${numberWord(parts.length)}: ${memberLabel(owners[0]!)}` : parts.map((p) => `${p}: ${holderOf(t.name, p) ? memberLabel(holderOf(t.name, p)!.id) : "nobody"}`).join(", ")}</span>
+              <span className="min-w-0 basis-full text-[12.5px] break-all text-muted-foreground">{allOne ? `all ${numberWord(parts.length)}: ${memberLabel(owners[0]!)}` : parts.map((p) => `${p}: ${holderOf(t.name, p) ? memberLabel(holderOf(t.name, p)!.id) : "nobody"}`).join(", ")}</span>
             </div>
           );
         })}
@@ -142,23 +144,25 @@ function WhoHolds({ v }: { v: GroupLagView }) {
   );
 }
 
-function Classic({ v, onOpen }: { v: GroupLagView; onOpen: (id: string) => void }) {
+function Classic({ v, onOpen }: { v: GroupLagView; onOpen: Open }) {
   const h = v.head;
   return (
-    <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
-      <div className="flex min-w-0 flex-col gap-8">
-        <section>
-          <h2 className="mb-3 text-[17px] font-semibold text-bright">Members</h2>
-          <MembersTable h={h} onOpen={onOpen} />
-        </section>
-        <section>
-          <h2 className="mb-3 text-[17px] font-semibold text-bright">Reads</h2>
-          <ReadsTable topics={v.topics} />
-        </section>
-        <WhoHolds v={v} />
-      </div>
-      <div className="min-w-0">
-        <TheGroup h={h} />
+    <div className="flex flex-col gap-8">
+      <section>
+        <h2 className="mb-3 text-[17px] font-semibold text-bright">Members</h2>
+        <MembersTable h={h} onOpen={onOpen} />
+      </section>
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_24rem]">
+        <div className="flex min-w-0 flex-col gap-8">
+          <section>
+            <h2 className="mb-3 text-[17px] font-semibold text-bright">Reads</h2>
+            <ReadsTable topics={v.topics} />
+          </section>
+          <WhoHolds v={v} />
+        </div>
+        <div className="min-w-0">
+          <TheGroup h={h} />
+        </div>
       </div>
     </div>
   );
@@ -169,7 +173,7 @@ function inStep(m: GroupMemberRow, target: number): boolean {
   return same(m.holds, m.target) && m.epoch === target;
 }
 
-function Consumer({ v, onOpen }: { v: GroupLagView; onOpen: (id: string) => void }) {
+function Consumer({ v, onOpen }: { v: GroupLagView; onOpen: Open }) {
   const h = v.head;
   const target = h.target_epoch ?? h.generation;
   const big = (label: string, value: React.ReactNode, help: React.ReactNode) => (
@@ -240,7 +244,7 @@ export function Countdown({ deadline, className }: { deadline: number; className
   );
 }
 
-function Rebalancing({ v, fetchedAt, onOpen }: { v: GroupLagView; fetchedAt: number; onOpen: (id: string) => void }) {
+function Rebalancing({ v, fetchedAt, onOpen }: { v: GroupLagView; fetchedAt: number; onOpen: Open }) {
   const h = v.head;
   const r = h.rebalance;
   const waiting = r?.waiting_for[0];
@@ -298,12 +302,12 @@ function Rebalancing({ v, fetchedAt, onOpen }: { v: GroupLagView; fetchedAt: num
   );
 }
 
-function MemberSheet({ h, member, onClose }: { h: GroupHead; member?: string; onClose: () => void }) {
+function MemberSheet({ h, member, onClose, returnFocus }: { h: GroupHead; member?: string; onClose: () => void; returnFocus: (e: Event) => void }) {
   const m = member ? h.members.find((x) => x.id === member) : undefined;
   const firstTopic = m?.holds[0]?.topic;
   return (
     <Sheet open={!!member} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent className="w-full sm:max-w-xl" data-testid="member-sheet">
+      <SheetContent onCloseAutoFocus={returnFocus} className="w-full sm:max-w-xl" data-testid="member-sheet">
         <SheetHeader>
           <SheetTitle className="font-mono break-all">{m ? memberLabel(m.id) : member}</SheetTitle>
           <SheetDescription>
@@ -382,12 +386,12 @@ export function GroupMembersPage() {
   const v = res.data;
   if (!v) return null;
   const h = v.head;
-  const open = (m: string) => overlay.open(m);
+  const open: Open = (m, from) => overlay.open(m, from);
   return (
     <>
       {h.protocol === "consumer" ? <Consumer v={v} onOpen={open} /> : h.phase === "rebalancing" ? <Rebalancing v={v} fetchedAt={res.dataUpdatedAt} onOpen={open} /> : <Classic v={v} onOpen={open} />}
       <WireDock id={id} />
-      <MemberSheet h={h} member={search.member} onClose={overlay.close} />
+      <MemberSheet h={h} member={search.member} onClose={overlay.close} returnFocus={overlay.returnFocus} />
     </>
   );
 }

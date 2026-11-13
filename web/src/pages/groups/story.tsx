@@ -151,19 +151,19 @@ function Then({ g, newest }: { g: StoryGen; newest: boolean }) {
 
 const DOT: Record<StoryTone, string> = { warn: "border-warn", bad: "border-bad", idle: "border-muted-foreground", plain: "border-primary" };
 
-function Generation({ g, head, newest, onOpen, fetchedAt }: { g: StoryGen; head: GroupHead; newest: boolean; onOpen?: (n: number) => void; fetchedAt: number }) {
+function Generation({ g, head, newest, onOpen, fetchedAt }: { g: StoryGen; head: GroupHead; newest: boolean; onOpen?: (n: number, from: HTMLElement) => void; fetchedAt: number }) {
   const members = g.forming && g.members.length === 0 ? head.members.map((m) => m.id) : g.members;
   const total = g.forming && g.members.length === 0 ? members.length : g.members_total;
   const gone = g.forming && g.cause === "member_left" ? g.who?.member : undefined;
   const r = head.rebalance;
   return (
-    <li className="relative grid grid-cols-[5.5rem_1.25rem_minmax(0,1fr)] gap-x-3 pb-7 last:pb-0" data-testid="generation" data-generation={g.generation}>
+    <li className="group/gen relative grid grid-cols-[5.5rem_1.25rem_minmax(0,1fr)] gap-x-3 pb-7 last:pb-0" data-testid="generation" data-generation={g.generation}>
       <time className="pt-0.5 font-mono text-[12.5px] text-muted-foreground" dateTime={new Date(g.at_ms).toISOString()}>
         {clockUtc(g.at_ms)}
       </time>
       <span className="relative flex justify-center">
         <span className={cn("relative z-10 mt-1 size-3 rounded-full border-2 bg-background", DOT[g.tone])} aria-hidden />
-        <span className="absolute top-5 bottom-[-0.25rem] w-px bg-border group-last/story:hidden" aria-hidden />
+        <span className="absolute top-5 bottom-[-0.25rem] w-px bg-border group-last/gen:hidden" aria-hidden />
       </span>
       <div className="min-w-0 text-[13.5px]">
         <div className="flex flex-wrap items-center gap-2">
@@ -217,7 +217,7 @@ function Generation({ g, head, newest, onOpen, fetchedAt }: { g: StoryGen; head:
           </div>
         )}
         {onOpen && (
-          <button type="button" onClick={() => onOpen(g.generation)} className="mt-2.5 rounded-sm text-[13px] font-medium text-primary hover:underline focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none" data-testid="open-rebalance">
+          <button type="button" onClick={(e) => onOpen(g.generation, e.currentTarget)} className="mt-2.5 rounded-sm text-[13px] font-medium text-primary hover:underline focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none" data-testid="open-rebalance">
             Open this rebalance
           </button>
         )}
@@ -371,7 +371,7 @@ function api(g: StoryGen): string {
   return g.cause === "member_left" ? "LeaveGroup" : g.cause === "session_expired" ? "Heartbeat" : "JoinGroup";
 }
 
-function RebalanceSheet({ v, generation, onClose, fetchedAt }: { v: StoryView; generation?: number; onClose: () => void; fetchedAt: number }) {
+function RebalanceSheet({ v, generation, onClose, fetchedAt, returnFocus }: { v: StoryView; generation?: number; onClose: () => void; fetchedAt: number; returnFocus: (e: Event) => void }) {
   const g = generation !== undefined ? v.generations.find((x) => x.generation === generation) : undefined;
   const newest = !!g && v.generations[0] === g;
   const word = v.head.protocol === "classic" ? "Generation" : "Epoch";
@@ -447,7 +447,7 @@ function RebalanceSheet({ v, generation, onClose, fetchedAt }: { v: StoryView; g
   const status = g ? (g.forming && newest ? (v.now.remaining_ms !== null && v.now.timeout_ms !== null ? <span className="text-[13px] font-semibold text-warn">Waiting, <Countdown deadline={fetchedAt + v.now.remaining_ms} className="min-w-0" /> of {spanPrecise(v.now.timeout_ms)} left</span> : <span className="text-[13px] font-semibold text-warn">Forming</span>) : <span className="text-[13px] font-semibold text-good">{(g.settled_ms ?? g.formed_ms) !== null ? `Settled in ${spanPrecise((g.settled_ms ?? g.formed_ms)!)}` : "Began"}</span>) : null;
   return (
     <Sheet open={generation !== undefined} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent className="w-full sm:max-w-xl" data-testid="rebalance-sheet">
+      <SheetContent onCloseAutoFocus={returnFocus} className="w-full sm:max-w-xl" data-testid="rebalance-sheet">
         <SheetHeader>
           <SheetTitle>{g ? `${word} ${g.generation}` : `${word} ${generation}`}</SheetTitle>
           <SheetDescription asChild>
@@ -485,7 +485,7 @@ function RebalanceSheet({ v, generation, onClose, fetchedAt }: { v: StoryView; g
   );
 }
 
-function RuleSheet({ v, open, onClose }: { v: StoryView; open: boolean; onClose: () => void }) {
+function RuleSheet({ v, open, onClose, returnFocus }: { v: StoryView; open: boolean; onClose: () => void; returnFocus: (e: Event) => void }) {
   const f = v.flap;
   const ev = (tone: StoryTone, at: string, cause: string, head: string, line: string) => (
     <li className="grid grid-cols-[3.5rem_1.25rem_minmax(0,1fr)] gap-x-3 pb-5 last:pb-0">
@@ -504,7 +504,7 @@ function RuleSheet({ v, open, onClose }: { v: StoryView; open: boolean; onClose:
   );
   return (
     <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent className="w-full sm:max-w-xl" data-testid="rule-sheet">
+      <SheetContent onCloseAutoFocus={returnFocus} className="w-full sm:max-w-xl" data-testid="rule-sheet">
         <SheetHeader>
           <SheetTitle>The rule, against {v.head.id}</SheetTitle>
           <SheetDescription>Three or more expired-then-joined cycles in 10 minutes.</SheetDescription>
@@ -571,7 +571,7 @@ export function GroupStoryPage() {
           ) : (
             <ol className="group/story" data-testid="story-timeline">
               {v.generations.map((g, i) => (
-                <Generation key={`${g.generation}-${g.at_ms}`} g={g} head={v.head} newest={i === 0} onOpen={(n) => gen.open(n)} fetchedAt={res.dataUpdatedAt} />
+                <Generation key={`${g.generation}-${g.at_ms}`} g={g} head={v.head} newest={i === 0} onOpen={(n, from) => gen.open(n, from)} fetchedAt={res.dataUpdatedAt} />
               ))}
             </ol>
           )}
@@ -605,7 +605,7 @@ export function GroupStoryPage() {
                 <p className="text-[13px] text-muted-foreground" data-testid="flap-verdict">
                   {verdict(v)}
                 </p>
-                <Button variant="outline" className="mt-4 bg-card" onClick={() => rule.open(1)} data-testid="check-rule">
+                <Button variant="outline" className="mt-4 bg-card" onClick={(e) => rule.open(1, e.currentTarget)} data-testid="check-rule">
                   <SearchIcon /> Check the rule
                 </Button>
               </Panel>
@@ -614,8 +614,8 @@ export function GroupStoryPage() {
           )}
         </div>
       </div>
-      <RebalanceSheet v={v} generation={search.generation} onClose={gen.close} fetchedAt={res.dataUpdatedAt} />
-      <RuleSheet v={v} open={search.rule === 1} onClose={rule.close} />
+      <RebalanceSheet v={v} generation={search.generation} onClose={gen.close} fetchedAt={res.dataUpdatedAt} returnFocus={gen.returnFocus} />
+      <RuleSheet v={v} open={search.rule === 1} onClose={rule.close} returnFocus={rule.returnFocus} />
     </div>
   );
 }

@@ -338,15 +338,10 @@ pub const GET_PATHS: &[&str] = &[
     "/api/v1/shell",
     "/api/v1/jump",
     "/api/v1/jump?q=or",
-    // Groups (R2).
+    // Groups (R2): the addresses that answer whatever groups the broker has (those of one group are
+    // `groups::GROUP_GET_PATHS`, over the fixtures' groups).
     "/api/v1/groups",
     "/api/v1/groups?q=pay&state=stable&state=empty",
-    "/api/v1/groups/search-indexer",
-    "/api/v1/groups/analytics?expiring=1",
-    "/api/v1/groups/fulfilment/story",
-    "/api/v1/groups/fulfilment/wire",
-    "/api/v1/groups/fulfilment/wire?kind=join&refused=1&q=py",
-    "/api/v1/groups/analytics/reset?topic=orders&to=earliest",
-    "/api/v1/groups/search-indexer/delete",
-    "/api/v1/groups/analytics/offsets/delete",
+    "/api/v1/groups/g/wire",
+    "/api/v1/groups/g/wire?kind=join&refused=1&q=py",
 ];

@@ -390,6 +390,13 @@ async fn offsets_delete(
         Ok(r) => r,
         Err(e) => return e,
     };
+    // No topic named is nothing to send (the form would tick every topic, which is not what was asked).
+    if req.topics.is_empty() {
+        return match s.source.offset_delete_form(&id, &[]).await {
+            Some(v) => invalid("Choose a topic whose offsets go.", None, Some(v)),
+            None => no_group(&id),
+        };
+    }
     match s.source.offset_delete(&id, &req.topics).await {
         OffsetDeleteResult::Done(n) => json(StatusCode::OK, &GroupWriteDone { done: n }),
         OffsetDeleteResult::Refused(v, r) => refused(&r, None, Some(*v)),
@@ -421,3 +428,14 @@ pub fn routes(web: &crate::base::Base) -> axum::Router<Shared> {
         )
 }
 
+
+/// The GET addresses of one group, over the fixtures' world (`analytics`, `fulfilment`, `search-indexer`); the tests read
+/// them all.
+pub const GROUP_GET_PATHS: &[&str] = &[
+    "/api/v1/groups/search-indexer",
+    "/api/v1/groups/analytics?expiring=1",
+    "/api/v1/groups/fulfilment/story",
+    "/api/v1/groups/analytics/reset?topic=orders&to=earliest",
+    "/api/v1/groups/search-indexer/delete",
+    "/api/v1/groups/analytics/offsets/delete",
+];

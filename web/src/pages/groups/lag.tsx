@@ -34,11 +34,11 @@ function LagCell({ r }: { r: LagRow }) {
 
 function lagColumns(now: number): DataColumn<LagRow>[] {
   return [
-    { id: "partition", header: "Partition", accessorFn: (r) => `${r.topic}-${r.partition}`, meta: { mono: true } },
-    { id: "end", header: "Log end", size: 120, accessorFn: (r) => (r.end === null ? "—" : number(r.end)), meta: { numeric: true, mono: true } },
-    { id: "committed", header: "Committed", size: 120, accessorFn: (r) => (r.committed === null ? "none" : number(r.committed)), meta: { numeric: true, mono: true } },
-    { id: "lag", header: "Lag", size: 300, accessorFn: (r) => (r.lag.kind === "behind" ? r.lag.n : 0), cell: ({ row: { original: r } }) => <LagCell r={r} /> },
-    { id: "last", header: "Last commit", size: 140, accessorFn: (r) => (r.last_commit_ms === null ? "never" : stamp(r.last_commit_ms, now)), meta: { mono: true } },
+    { id: "partition", header: "Partition", size: 190, accessorFn: (r) => `${r.topic}-${r.partition}`, meta: { mono: true } },
+    { id: "end", header: "Log end", size: 110, accessorFn: (r) => (r.end === null ? "—" : number(r.end)), meta: { numeric: true, mono: true } },
+    { id: "committed", header: "Committed", size: 116, accessorFn: (r) => (r.committed === null ? "none" : number(r.committed)), meta: { numeric: true, mono: true } },
+    { id: "lag", header: "Lag", accessorFn: (r) => (r.lag.kind === "behind" ? r.lag.n : 0), cell: ({ row: { original: r } }) => <LagCell r={r} /> },
+    { id: "last", header: "Last commit", size: 124, accessorFn: (r) => (r.last_commit_ms === null ? "never" : stamp(r.last_commit_ms, now)), meta: { mono: true } },
   ];
 }
 
@@ -46,7 +46,7 @@ const EXPIRING: DataColumn<LagRow>[] = [
   { id: "partition", header: "Partition", accessorFn: (r) => `${r.topic}-${r.partition}`, meta: { mono: true } },
   { id: "end", header: "Log end", size: 120, accessorFn: (r) => (r.end === null ? "—" : number(r.end)), meta: { numeric: true, mono: true } },
   { id: "committed", header: "Committed", size: 120, accessorFn: (r) => number(r.committed ?? 0), meta: { numeric: true, mono: true } },
-  { id: "forgotten", header: "Forgotten at", size: 280, accessorFn: (r) => (r.expires_ms === null ? "not while things stay as they are" : dateTime(r.expires_ms)), meta: { mono: true } },
+  { id: "forgotten", header: "Forgotten at", size: 240, accessorFn: (r) => (r.expires_ms === null ? "not while things stay as they are" : dateTime(r.expires_ms)), meta: { mono: true } },
   { id: "last", header: "Last commit", size: 140, accessorFn: (r) => (r.last_commit_ms === null ? "never" : dateTime(r.last_commit_ms)), meta: { mono: true } },
 ];
 

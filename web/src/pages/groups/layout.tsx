@@ -143,7 +143,7 @@ export function GroupLayout() {
   const qc = useQueryClient();
   const fetching = useIsFetching({ queryKey: groupKeys.group(id) }) > 0;
   const tab = useTab();
-  const openDialog = (dialog: "reset" | "delete" | "delete-offsets") => overlay.open(dialog);
+  const openDialog = (dialog: "reset" | "delete" | "delete-offsets", from: HTMLElement) => overlay.open(dialog, from);
   if (res.isError && !res.data) {
     if (res.error instanceof ApiFailure && res.error.status === 404) return <NoGroup id={id} message={res.error.message} />;
     return <PageError error={res.error} onRetry={() => void res.refetch()} />;
@@ -173,13 +173,13 @@ export function GroupLayout() {
         }
         actions={
           <>
-            <Button variant="outline" className="bg-card" onClick={() => openDialog("reset")} data-testid="open-reset">
+            <Button variant="outline" className="bg-card" onClick={(e) => openDialog("reset", e.currentTarget)} data-testid="open-reset">
               <RotateCcwIcon /> Reset offsets
             </Button>
-            <Button variant="outline" className="bg-card" onClick={() => openDialog("delete-offsets")} data-testid="open-delete-offsets">
+            <Button variant="outline" className="bg-card" onClick={(e) => openDialog("delete-offsets", e.currentTarget)} data-testid="open-delete-offsets">
               <Trash2Icon /> Delete offsets
             </Button>
-            <Button variant="outline" className="border-bad/40 bg-card text-bad hover:bg-bad/5 hover:text-bad" onClick={() => openDialog("delete")} data-testid="open-delete">
+            <Button variant="outline" className="border-bad/40 bg-card text-bad hover:bg-bad/5 hover:text-bad" onClick={(e) => openDialog("delete", e.currentTarget)} data-testid="open-delete">
               <Trash2Icon /> Delete group
             </Button>
           </>
@@ -191,7 +191,7 @@ export function GroupLayout() {
           <Switch h={h} tail={tab.tail} />
           <Tabs h={h} />
           <Outlet />
-          <GroupDialogs id={id} head={h} dialog={search.dialog} onClose={overlay.close} />
+          <GroupDialogs id={id} head={h} dialog={search.dialog} onClose={overlay.close} returnFocus={overlay.returnFocus} />
         </>
       ) : (
         <div className="flex flex-col gap-4" aria-busy>
