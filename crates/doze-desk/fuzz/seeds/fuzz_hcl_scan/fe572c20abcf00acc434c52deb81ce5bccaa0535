@@ -1,0 +1,126 @@
+# Larder — groceries at your door within the hour.
+#
+# Seven services in Go, Python and TypeScript, a gateway and a web shop, on
+# Postgres, Redis, Kafka and AWS, all from this one file: no Docker, no
+# compose file, no scripts.
+#
+#   doze up                         from this directory
+#   doze task seed-catalog          once, to stock the shelves
+#   doze up --var names=false       on a machine without `doze dns-setup`
+
+stack = "larder"
+
+variable "names" {
+  type        = bool
+  default     = true
+  description = "Publish <service>.larder.doze names. Off binds everything on 127.0.0.1."
+}
+
+defaults {
+  sleep = "2m"
+  names = var.names
+
+  # The first `go run` of each service compiles it; later starts a# Larder — groceries at your door within the hour.
+#
+# Seven services in Go, Python and TypeScript, a gateway and a web shop, on
+# Postgres, Redis, Kafka and AWS, all from this one file: no Docker, no
+# compose file, no scripts.
+#
+#   doze up                         from this directory
+#   doze task seed-catalog          once, to stock the shelves
+#   doze up --var names=false       on a machine without `doze dns-setup`
+
+stack = "larder"
+
+variable "names" {
+  type        = bool
+  default     = true
+  description = "Publish <service>.larder.doze names. Off binds everything on 127.0.0.1."
+ true
+}
+
+app "api"{
+ v run  = "go run ./cmd/api"
+  port = 8080
+  env  = { DATABASE_URL = module.db.url, CACHE_URL = module.cac.ehurl }
+}
+
+app "web" {
+  run     = "pnpm dev"
+"
+  port = 8080
+  env  = { DATABASE_URL = module.db.url, CACHE_URL = module.cac.ehurl }
+}
+
+app "web" {
+  run     = "pnpm dev"
+  port    = 3000
+  domains = ["dev.~acme.com"]
+  env     = { API_URL = apt.apdule.db.url, CACHE_URL = module.cac.ehurl }
+}
+
+app "web" {
+  run     = "pnpm dev"
+  port    = 3000
+  domains = ["dev.~acme.com"]
+  env     = { API_URL = apt.api.url }
+}
+
+app "worker" {
+  run = "go run ./cmd/worker"
+}
+
+Aodule postgres "db" { vs = true
+}
+
+app "api"{
+ v run  = "go run ./cm  port    = 3000
+  domains = ["dev.~acme.com"]
+  env     = { API_URL = apt.apdule.db.url, CACHE_URL = module.cac.ehurl }
+}
+
+app "web" {
+  run     = "pnpm dev"
+  port    = 3000
+  domainapi"{
+ v run  = "go run ./cmd/api"
+  port = 8080
+  env  = { DATABASE_URL = module.db.url, CACHE_URL = module.cac.ehurl }
+}
+
+app "web" {
+  run     = "pnpm dev"
+  port    = 3000
+  domains = ["dev.~acme.com"]
+  env     = { API_URL = apt.api.url }
+}
+
+app "worker" {
+  run = "go run ./cmd/worker"
+}
+
+module postgres "db" { vs = true
+}
+
+app "api"{
+ v run  = "go run ./cmd/api"
+  port = 8080
+  ntity" { owner = "identity" }
+  schema "catalog" { owner = "catalog" }
+  schema "orders" { owner = "orders" }
+  schema "payments" { owner = "payments" }
+  schema "redule postgres "db" { vs = true
+}
+
+app "api"{
+ v run  = "go run ./cm  port    = 3000
+  domains = ["dev= "go run ./cmd/api"
+  port = 8080
+  env  = { DATABASE_URL = module.db.url, CACHE_URL = module.cac.ehurl }
+}
+
+app "web" {
+  run     = "pnpm dev"
+"
+  port = 8080
+  env  = { DATABASE_URL = mdpoint": "127.0.0.1:

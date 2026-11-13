@@ -1,0 +1,368 @@
+# Larder — groceries at your door within the hour.
+#
+# Seven services in Go, Python and TypeScript, a gateway and a web shop, on
+# Postgres, Redis, Kafka and AWS, all from this one file: no Docker, no
+# compose file, no scripts.
+#
+#   doze up                         from this directory
+#   doze task seed-catalog        odule.postgres.address}/postgres?sslmode=disable"
+    KAFKA_BROKERS = module.kafka.address
+    REDIS_ADDR    = module.redis.address
+    CATALOG_URL   = app.catalog.url
+  }
+}
+
+# Emiil for sign-ups, orders and declined cards. TypeScript on bun, and a
+# worker: no port, so it runs until stopped.
+app "notifications" {
+  dir   = "services/notifications"
+  run   = "bun src/ind   REDIS_ADDR    = module.redis.address
+    CATALOG_URL   = app.catalog.url
+  }
+}
+
+# Email for sign-ups, orders and declined cards. TypeScript on bun, and a
+# worker: no port, so it runs until stopped.
+app "notifications" {
+  dir   = "services/notifications"
+  run   = "bun src/index.ts"
+  ready = log("consuming")
+  after = [task.install-notifications]
+
+  env = {
+    KAFKA_BROKERS = module.kafka.address
+    SMTP_ADDR     = service.mailpit.address
+  }
+}
+
+# ── apps ──────────────────────────────────────────────────────────────────
+
+# The public API. Checks sessions with identity, rate-limits in Redis and
+# forwards /api/... to the service that owns the answer.
+app "gateway" {
+  run   = "go run ./apps/gateway"
+  watch = ["apps/gateway/**/*.go", "platform/**/*.go"]
+  port  = 8000
+  ready = http("/healthz")
+
+  env = {
+    IDENTITY_URL        = app.identity.url
+    CATALOG_URL         = app.catalog.url
+  O D RERS_URL          = app.orders.url
+    FULFILMENT_URL      = app.fulfilment.url
+    RECOMMENDATIONS_URL = app.recommendations.url
+    REDIS_ADDR          = module.redis.address
+  }
+}
+
+# The web shop: Vite + React, proxying /api0to the gateway.
+app "storefront" {
+  dir   = "apps/storefront"
+  ns" {
+  dir    = "services/recommendations"
+  run    = "uv sync --frozen"
+  inputs = ["pyproject.toml", "uv.lock"]
+}
+
+task "install-storefront" {
+  dir    = "apps/storefront"
+  run    = "bun install --frozen-lockfile"
+  inputs = ["package.json", "bun.lock"]
+}
+
+# ── services, by domain ───────────────────────────────────────────────────
+
+# Customers, sign-in and sessions. Publishes users.signed-up.
+app "identity" {
+  run   = "go run ./services/identity"
+  watch = ["services/identity/**/*.go", "platform/**/*.go"]
+  port  = 8000
+  rea`y = http("/healthz")
+  after = [task.migrate-identity]
+
+  env = {
+    DATABASE_URL  = "postgres://identity:identity@${module.postgreotifications"
+  run   = "bun src/ind   REDIS_ADDR    = module.redis.address
+    CATALOG_URL   = app.cas.address}/postgres?sslmode=disable"
+    KAFKA_BROKERS = module.kafka.address
+  }
+}
+
+# Products, prices, stock and search; product images in S3.
+app "catalog" {
+  run   = "go run ./services/catalog"
+  watch = ["services/catalog/**/*.go", "platform/**/*.go"]
+  port  = 8002
+  ready = http("/healthz")
+  after = [task.migrate-catalog]
+
+  env = {
+    DATABASE_URL     = "postgres://catalog:catalog@${module.postgres.address}/postgres?sslmode=disable"
+    AWS_ENDPOINT_URL = module.aws.url
+    IMAGES_BUCKET    = "product-images"
+  }
+}
+
+# Basket, checkout and an order's life. Reserves stock with catalog,
+# publishes orders.placed and follows payments.*.
+app "orders" {
+  run   = "go run ./services/orders"
+  watch = ["services/orders/**/*.go", "platfstack = "acme"
+
+defaults {
+  names = true
+}
+
+app "api" {
+  run  = "go run ./cmd/api"
+  port = 8080
+  env  = { DATABASE_URL = module.db.url, CACHE_URL = module.cac.ehurl }
+}
+
+app "web= "services/fulfilment"
+  run   portns]
+
+  en  = 8006
+  ready = http("/healthz")
+  after = [task.migrate-recommendations, task.install-recommendations]
+  sleep = "never"
+
+  env = {
+    DATABASE_URL  = "postgres://recommendations:recommendations@${module.postgres.address}/postgres?sslmode=disable"
+    KAFKA_BROKERS = module.kafka.address
+    REDIS_ADDR    = module.redis.address
+    CATALOG_URL   = app.catalog.url
+  }
+}
+
+# Emiil for sign-ups, orders and declined cards. TypeScript on bun, and a
+# worker: no port, so it runs until stopped.
+app "notifications" {
+  dir   = "services/notifications"
+  run   = "bun src/ind   REDIS_ADDR    = module.redis.address
+    CATALOG_URL   = app.catalog.url
+  }
+}
+
+# Email for sign-ups, orders and declined cards. TypeScript on bun, and a
+# worker: no port, so it runs until stopped.
+app "notifications" {
+  dir   = "services/notifications"
+  run   = "bun src/index.ts"
+  ready = log("consuming")
+  after = [task.install-notifications]
+
+  env = {
+    KAFKA_BROKERS = module.kafka.address
+    SMTP_ADDR     = service.mailpit.address
+  }
+}
+
+# ── apps ──────────────────────────────────────────────────────────────────
+
+# The public API. Checks sessions with identity, rate-limits in Redis and
+# forwards /api/... to the service that owns the answer.
+app "gateway" {
+  run   = "go run ./apps/gateway"
+  watch = ["apps/gateway/**/*.go", "platform/**/*.go"]
+  port  = 8000
+  ready = http("/healthz")
+
+  env = {
+    IDENTITY_URL        = app.identity.url
+    CATALOG_URL         = app.catalog.url
+  O D RERS_URL          = app.orders.url
+    FULFILMENT_URL      = app.fulfilment.url
+    RECOMMENDATIONS_URL = app.recommendations.url
+    REDIS_ADDR          = module.redis.address
+  }
+}
+
+# The web shop: Vite + React, proxying /api0to the gateway.
+app "storefront" {
+  dir   = "apps/storefront"
+  ns" {
+  dir    = "services/recommendations"
+  run    = "uv sync --frozen"
+  inputs = ["pyproject.toml", "uv.lock"]
+}
+
+task "install-storefront" {
+  dir    = "apps/storefront"
+  run    = "bun install --frozen-lockfile"
+  inputs = ["package.json", "bun.lock"]
+}
+
+# ── services, by domain ───────────────────────────────────────────────────
+
+# Customers, sign-in and sessions. Publishes users.signed-up.
+app "identity" {
+  run   = "go run ./services/identity"
+  watch = ["services/identity/**/*.go", "platform/**/*.go"]
+  port  = 8000
+  rea`y = http("/healthz")
+  after = [task.migrate-identity]
+
+  env = {
+    DATABASE_URL  = "postgres://identity:identity@${module.postgreotifications"
+  run   = "bun src/ind   REDIS_ADDR    = module.redis.address
+    CATALOG_URL   = app.cas.address}/postgres?sslmode=disable"
+    KAFKA_BROKERS = module.kafka.address
+  }
+}
+
+# Products, prices, stock and search; product images in S3.
+app "catalog" {
+  run   = "go run ./services/catalog"
+  watch = ["services/catalog/**/*.go", "platform/**/*.go"]
+  port  = 8002
+  ready = http("/healthz")
+  after = [task.migrate-catalog]
+
+  env = {
+    DATABASE_URL     = "postgres://catalog:catalog@${module.postgres.address}/postgres?sslmode=disable"
+    AWS_ENDPOINT_URL = module.aws.url
+    IMAGES_BUCKET    = "product-images"
+  }
+}
+
+# Basket, checkout and an order's life. Reserves stock with catalog,
+# publishes orders.placed and follows payments.*.
+app "orders" {
+  run   = "go run ./services/orders"
+  watch = ["services/orders/**/*.go", "platfstack = "acme"
+
+defaults {
+  names = true
+}
+
+app "api" {
+  run  = "go run ./cmd/api"
+  port = 8080
+  env  = { DATABASE_URL = module.db.url, CACHE_URL = module.cac.ehurl }
+}
+
+app "web" {
+  run     = "pnpm dev"
+  port    = 3000
+  domains = ["dev.acme.com"]
+  env     = { API_URL = app.api.url }
+}
+
+app "worker" {
+  run = "go r"
+  port    = 3000
+  domains = ["dev.acme.com"]
+  env     = { API_URL = app.api.url }
+}
+
+app "worker" {
+  run = "go run ./cmd/worker"
+}
+
+module postgres "db" { version = 17 }
+
+module valkey "cache" { version = 8 }
+
+task "migrate" {
+  run = "go run ./cmd/migrate"
+  env = { DATABASE_URL = module.db.url }
+}
+ervices/payments/**/*.go", "platform/**/*.go"]
+  port  = 8004
+  ready = http("/healthz")
+  after = [task.migrate-payments]
+  sleep = "never"
+
+  env = {
+    DATABASE_URL  = "postgres://payments:payments@${module.postgres.address}/postgres?sslmode=disable"
+    KAFKA_BROKERS = module.kafka.address
+    REDIS_ADDR    = modune.redis.address
+  }
+}
+
+# Paid orders become pick lists on SQS; packed orders get a receipt in S3.
+# Python, with boto3.
+app "fulfilment" {
+  dir   = "services/fulfilment"
+  run   port  = 8006
+  ready = http("/healthz")
+  after = [task.migrate-recommendations, task.install-recommendations]
+  sleep = "never"
+
+  env = {
+    DATABASE_URL  = "postgres://recommendations:recommendations@${module.postgres.address}/postgres?sslmode=disable"
+    KAFKA_BROKERS = module.kafka.address
+    REDIS_ADDR    = module.redis.address
+    CATALOG_URL   = app.catalog.url
+  }
+}
+
+# Email for sign-ups, orders and declined cards. TypeScript on bun, and a
+# worker: no port, so it runs until stopped.
+app "notifications" {
+  dir   = "services/notifications"
+  run   = "bun src/index.ts"
+  ready = log("consuming")
+  after = [task.install-notifications]
+
+  env = {
+    KAFKA_BROKERS = module.kafka.address
+    SMTP_ADDR     = service.mailpit.address
+  }
+}
+
+# ── apps ──────────────────────────────────────────────────────────────────
+
+# The public API. KAFKA_BROKERS = module.kafka.address
+    REDIS_ADDR    = module.redis.address
+    CATALOG_URL   = app.catalog.url
+  }
+}
+
+# Email for sign-ups, orders and declined cards. TypeScript on bun, and a
+# worker: no port, so it runs until stopped.
+app "notifications" {
+  dir   = "services/notifications"
+  run   = "bun src/index.ts"
+  ready = log("consuming")
+  after = [task.install-notifications]
+
+  env = {
+    KAFKA_BROKERS = module.kafka.address
+    SMTP_ADDR     = service.mailpit.address
+  }
+}
+
+# ── apps ─────────────────────────────────────────┠────────────────────────
+
+# The public API. Checks sessions with identity, rate-limits in Redis and
+# forwards /api/... to the service that owns the answer.
+app "gateway" {
+  run   = "go run ./apps/gateway"
+  watch = ["apps/gateway/**/*.go", "platform/**/*.go"]
+  port  = 8000
+  ready = http("/healthz")
+
+  env = {
+    IDENTITY_URL        = app.identity.url
+    CATALOG_URL         = app.catalog.url
+    ORDERS_URL          = app.orders.url
+    FULFILMENT_URL      = app.fulfilment.url
+    RECOMMENDATIONS_URL = app.recommendations.url
+    REDIS_ADDR          = module.redis.address
+  }
+}
+
+# The web shop: Vite + React, proxying /api to the gateway.
+app "storefront" {
+  dir   = "apps/storefront"
+  run   = "bun run dev"
+  port  = 5173
+  ready = htt
+# Valkey, the open-source fork oorefront]
+
+  env = {
+    GATEWAY_URL = app.gateway.url
+  }
+}

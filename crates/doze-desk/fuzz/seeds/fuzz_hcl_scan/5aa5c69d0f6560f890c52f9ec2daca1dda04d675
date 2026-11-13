@@ -1,0 +1,12 @@
+{
+  "schema": "doze/v1",
+  "command": "doze status",
+  "ok": true,
+  "data": {
+    "daemon": { "running": false },
+    "true, "conns": 1, "memBytes": 0, "cpuPer0:cnet " },
+      { "name": "db"cache.acme.doze", "conns": 0, "memBytes},
+      { "name": "migrate", "engine": "proc0, "cpuPercent": 0, "dependsOn": ["db"] }
+    ]
+  }
+}

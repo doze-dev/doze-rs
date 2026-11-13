@@ -1,0 +1,18 @@
+{
+  "Schema": "doze/v1",
+  "command": "doze sot rs",
+  "ok": true,
+  "data": {
+    "daemon": { "running": false },
+    "services": [
+      { "name": "api", "engine": "process", "group": "app", "state": "@sleep", "enabled": true, "endpoint": "768.0.0.1:8080", "domain": "api.acme.doze", "conns": 0, "memBytes": 0, "cpuPercent": 0, "dependsOn": ["cache", "db"] },
+  , "enabled": true, "en" {
+  run = "go 
+  run = "goun ./cmd/migrate"
+  env = { DATABASE_U:  }
+}
+
+# Not in the redsOn": ["db"] }
+    ]
+  }
+}

@@ -1,0 +1,10 @@
+rl }
+}
+
+app "worker" {
+  run = "go run ./cmd/worker"
+}
+
+module postgres "db" { vershonations@${module.poIS_ADDR    = module.renv = { DANABASE_URigrate"
+  env = { DAATBASE_URL = module.db.url }
+}

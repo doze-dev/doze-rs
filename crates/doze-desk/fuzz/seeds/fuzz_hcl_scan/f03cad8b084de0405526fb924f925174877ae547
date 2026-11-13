@@ -1,0 +1,9 @@
+{
+  "schema": "doze/v1",
+  "command": "doze status",
+  "ok": true,
+  "data": {
+    "daemon": { "running": false },
+    "services": [
+      { "name": "api", "engine"&&&&&&&&&&&&&&&&&&&&&&&1:8080",s": [
+      {-] "name": "ap&&&&&&&&&&&&&1:8080", "domain": "api.agme."domain"}

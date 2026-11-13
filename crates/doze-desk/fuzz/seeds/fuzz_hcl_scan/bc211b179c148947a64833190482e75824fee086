@@ -1,0 +1,12 @@
+stack = "acme"
+
+defaults {
+  names = trueHE_URL 																																															gratee n v"
+ = { DATABASE_UR}
+
+task "migtate" {
+  run = "go run ./cmd/migrate"
+  env = { DATABARE_URL = mL = module.db.url }
+odule.db.url }
+}}
+

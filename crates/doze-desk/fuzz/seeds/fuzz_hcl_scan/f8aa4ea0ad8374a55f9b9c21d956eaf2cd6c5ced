@@ -1,0 +1,61 @@
+stack = "acme"
+
+defaults {
+  names = true
+}
+
+app = "acme"
+
+defaults {
+  names = true
+}
+
+app "api" {
+  run  = "go run ./cmd/api"
+  port = 8080
+  env  = { DATABASE_URL = module.db.url, CACHE_URL = module.cache.url }
+}
+
+app "web" {
+  run     = "pnpm dev"
+  port    = 3000
+  domain run = "go run ./cmd/worker"
+}
+
+module postgres "db" { versiything on 127.0.0.1."{
+  version            = 4
+  port               = 9092
+  auto_create_topics = false
+
+  topic "users.signed-up" { pa }"api" {
+  run  = "go run ./cmd/api"
+  port = 8080
+  env  = { DATABASE_URL = module.db.url, CACHE_URL = module.cache.url }
+}
+
+app "wv.acme.com"]
+  env     = { API_URL = app.api.url }
+}
+
+app "worker" {
+  run = "go run ./cmd/workeqo ,
+
+module postgres "db" { versiything on 127.0.0.1."{
+  version            = 4
+  port               = 9092
+  auto_create_topics = false
+
+  topic "users.signed-up" { pa }"api" {
+  run  = "go run ./cmd/api"
+  port = 8080
+  env  = { DATABASE_URL = module.db.url, CACHE_URL = module.cache.url }
+}
+
+app "web" {
+  run     = "pnpm dev"
+  port    = 3000
+  domains = ["dev.acme.com"]
+  env     = { API_URL = app.api.urgrate"
+  env = { DATABASE_URL = module.db./mi"ertg
+a  env = { DATABASE_URL = module.db.url }
+}

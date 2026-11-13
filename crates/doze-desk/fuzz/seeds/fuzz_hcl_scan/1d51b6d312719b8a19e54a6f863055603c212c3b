@@ -1,0 +1,29 @@
+ {
+  run  = .db.url }
+@"stack = "acme"
+
+defaults {
+  names = true
+}
+
+app "api" {
+  run  = "go run ./cmd/api"
+  port = 8
+  run = "go run ./cmd/ "go run ./cmd/wo ./cm= "go run ./cmd/api"
+  port = 8
+  run = "go run ./cmd/wo ./true
+}
+
+app "api" {
+  run  = "go run ./cmd/api"
+  port = 8
+  run = "go run ./cmd/wo ./cmd/migratewo ./cm= "go run ./cmd/api"
+  port = 8
+  run = "go run ./cmd/wo ./true
+}
+
+app "api" {
+  run  = "go run ./cmd/api"
+  port = 8
+  run = "go run ./cmd/wo ./cmd/migrate@"
+  env =

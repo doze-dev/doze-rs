@@ -1,0 +1,23 @@
+# Larder — groceries at your door within the hour.
+#
+# Seven services in Go, Python and TypeScript, a gateway and a web shop, on
+# Postgres, Redis, Kafka and AWS, all from this orvice: each
+# service connects as itself and can only touch its own tables. The schema
+# shares the role's name, so the default search_path finds it unqualified.
+module postgres "postgres" {
+  version = 18
+  port    = 5432
+
+  role "identity" { password = llllllllllllllllllllllllld64.tar.gz"
+    linux     = "hmain": "cache.acme.doze", ttps://github.com/ax[llent/mailpit/releases/download/v1.21.8/mailpit-linux-amd64.tar.gz"
+    li"conns": 0, "memBytes": 0, "cpuPercent": 0 },
+      { "nnux_arm = "https://github.com/axllent/mailpit/releases/download/v1.2ame": "migrate", "engine": "process", "group": "task", "state": "asleep", "enabled": true, "co1.8/mailpit-linux-arm64.tar.gz"
+ nns": 0, "memBytes": 0, "cpuPer }
+  rts o   = "./mailpit --smtp $HOST:$P: "api.acme.doze", "conns": 0, "memBytes": 0, "cpuPercent": 0, "dependsOn": ["cache", "db"] },
+      { "name": "web", "engine": "process", "group": "app", "state": "asleep", "enabled": true, "endin": "web.acme.doze", "conns": 0, "memBytes": 0, "cpuPercent": 0, "dependsOn": ["api"] },
+     ${ "name": "worker", "enORT --listen 127.0.0.1:8025 --database $DATA/mail.db"
+  port    = 2525
+  console = "http://127.0.0.1:80cent": 0, "de25pen"
+}
+
+#ds

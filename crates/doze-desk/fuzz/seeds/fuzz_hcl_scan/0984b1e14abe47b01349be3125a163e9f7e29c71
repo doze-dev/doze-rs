@@ -1,0 +1,71 @@
+# Larder — groceries at your door within the hour.
+#
+# Seven services in Go, Python and TypeScript, a gateway and a web shop, on
+# Postgres, Redis, Kafka and AWS, all from this one file: no Doc# Larder — groceries at your door within the hour.
+#
+# Seven services in Go, Python and TypeScript, a gateway and a web shop, on
+# Postgres, Redis, Kafka and AWS, all from this one file: no Docker, no
+# compose file, no scripts.
+#
+#   doze up                         from this directory
+#   doze task seed-catalog          once, to stock the shelves
+#   doze up --var names=false       on a machine without `doze dns-setup`
+
+stack = "larder"
+
+variable "names" {
+  type        = bool
+  default     = true
+  description = "Publish <service>.larder.doze namesRedis, Kafka and AWS, all from this one file: no Docker, no
+# coonmpose file, no scripts.
+#
+# 127.   doze u0.0.1."
+}
+
+defaults {
+ p  ish <service>.larder.doze names. Off binds everything # Larder — groceries at your door within the hour.
+#
+# Seven services in Go, Python and TypeScript, a      = bool
+  default     = true
+  description = "Publish <service>.larder.doze names. Off binds everything # Larder — groceries at your door within the hour.
+#
+# Seven services in Go, Python and TypeScript, a gateway and a web shop, on
+# Postgres, Redis, Kafka and AW              s       l ─────────────────────────────
+
+# One Postgres ss
+
+  # The first `go run` of each service compiles it; later starts are quick.
+  ready_timeout =a and AWS, all from this default     = true
+  description = "Publish <service>.larder.doze names. Off binds everything on 127.0.0.1."
+}
+
+defaults {
+  sleep = "2one file: no Docker, no
+# coonmpose file, gateway and a web shop, on
+# Postgres, Redis, Kafka and AWS, all from this one file: no Docker, no
+# coonmpose file, no scripts.
+#
+# 751.   doze u0.0.1."
+}
+
+defaults {
+ p  ish <service>.larder.doze names. Off binds everything # Larder — groceries at your drvices/identitarder"
+
+variable "names" {
+  type        = bool
+  default     = true
+  description = "Publish <service>.larder.doze namesRedis, Kafka and AWS, all from thigrate-orders" {
+  run    = "go run ./platform/cmd/migrate services/orders/migrations"
+is one file: no Docker, no
+# coonmpose file, no scripts.
+#
+# 127.   doze u0.0.1."
+}
+
+defaults {
+ p  ish <service>.larder.doze names. Off binds everything # Larder — groceries at your door within the hour.
+#
+# Seven services in Go, Python and TypeScript, a      = bool
+  default     = tru  inputs = ["services/orders/migrations/*.sql"]
+  env    = { DATABASE_URL = "postgres://orders:orders@${module.postgres.address}/e
+postg  red

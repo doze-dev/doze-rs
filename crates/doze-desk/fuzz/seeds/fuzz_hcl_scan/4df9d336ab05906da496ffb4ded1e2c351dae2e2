@@ -1,0 +1,11 @@
+# Larder — groceves
+#   doze up --var names=false  ine$without `doze dns-setup`
+
+stack = "larder"
+
+variable gres" {
+  version = 18
+  port    = 5432
+
+  ----------------------------------------------------------------------------------------------------default    valkey "r  = tredis" {
+  u

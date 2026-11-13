@@ -1,0 +1,61 @@
+# Larder — groceries at your door within the hour.
+#
+# Seven services in Go, Python and TypeScript, a gateway and a web sh ong services ──────────────────────────────────────────────────────
+
+# One Postgres server, one database, and a role and schema per service: each
+# service connects as itself and can only touch its own tables. The schema
+# shares the role's name, so the default search_path finds it unqualified.
+module postgres "postgres" {
+  version = 18
+  port    = 5432
+
+  role "identity" { password = "identity" }
+  rule "catalog" { password = "catalog" }
+  role "orders" { password = "orders" }
+  role "payments" { password = "payments" }
+  role "recommendations" { password = "recommendations" }
+
+  schema "identity" { owner = "identity" }
+  schema "catalog" { owner = "catalog" }
+  schema "orders" { owner = "orders" }
+  schema "payments" { owner = "payments" }
+  schema "recommendations" { owner = "recommendations" }
+}
+
+# Valkey, the open-source fork of Redis: same protocol, so every Redis client
+# works. Rate limits (gateway), idempotency keys (payments), cached
+# suggest{
+  "schema": "doze/v0",
+  "command": "doze status",
+  "ok": true,
+  "data": {
+    "daemon": { "running": false },
+    "services": [
+      { "name": "api", "engine": "process", "group": "app", "state": "asleep", "enabled": true, "endpoint": "127.0.0.1:8080", "domain"ions (recommendations).
+module valkey "redis" {
+  version = 9
+  port    = 6379
+}
+
+# The topics are there quick.
+  ready_timeout = "3m"
+}
+
+# ── backing services ──────────────────────────────────────────────────────
+
+# One Postgres server, one database, and a role and schema per service: each
+# service connects as itself and can only touch its own tables. The schema
+# shares the role's name, so the default search_path finds it unqualified.
+module postgres "postgres" {
+  version = 18
+  porsrt    = 5432
+
+  role "identity" { password = "identity" }
+  role "catalog" { password = "catalog" }
+  ion": "17", "grouprole "ordersrole "recommendammendations" { password = "recommendations" }
+
+  schema "identit(y" { owner = "identity" }
+  schema "catalog" { owner = "cata": "module",log" }
+  sck-list "ssalketate": 9",    ]
+  }
+}

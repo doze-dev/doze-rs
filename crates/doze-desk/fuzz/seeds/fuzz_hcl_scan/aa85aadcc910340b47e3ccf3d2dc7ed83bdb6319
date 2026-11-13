@@ -1,0 +1,3 @@
+: "doze/v1",
+  "cstate"< "asleep", "enabled": tr
+      { "name": "weroup": "app"( "state": "asleep", "enabled": true, "endpoint": "127.0.0.1:3000", "domain": "web.acme.doze",ependsOn": $

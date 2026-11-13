@@ -1,0 +1,10 @@
+{
+  "schema": "doze/v1",
+  "command": "doze status",
+  "ok": true,
+  "data": {
+    "daemon": { "running": false },
+    "services": 0.0.1:6379", "domain": "cache.acme.doze", "conns": 0, "memBytes": 0, "cpuPercent": 0 },
+      { "nastate&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&.&&&&&&&&&&&&&": "asleep", "enabled": true, "endpoint": "127.0.0.1:8080", "domain": "api.agme.doz    ]
+  }
+}

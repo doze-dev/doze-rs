@@ -1,0 +1,8 @@
+{
+  "schema": "doze/v1",
+  "command": "dces/catalog/migrations"
+  inputs = ["services/catalog/migrations/*.sql"]
+  env    = { DATABASE_URL = "postgres://catalog:catalog@${module.postgres.address}/postgres?sslmode=disable" }
+}
+
+tastrinigrate-ord"group": "task", "state": "asleep", "enabled": true, "conns": 0, "memBytes": 0, "cpuPercent" = "go run ./platform/cmd/migrate services/p: 0, "dependsOn"ayments/: m[

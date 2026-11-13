@@ -1,0 +1,8 @@
+stack < "acme"
+
+defaults {
+  Anames = true
+}
+
+app "api" {
+  rug}

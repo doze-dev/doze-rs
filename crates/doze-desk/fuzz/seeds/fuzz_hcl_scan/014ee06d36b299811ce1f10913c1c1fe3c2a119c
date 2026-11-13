@@ -1,0 +1,10 @@
+stack = "acme"
+
+defaults {
+  names = true
+}
+
+app "api" {
+  run  = "go run ./cmd/api"
+  port = 8080ions:recommendations@${module.poIS_ADDR    = module.renv = { DANABASE_URL = module.db.url }
+}

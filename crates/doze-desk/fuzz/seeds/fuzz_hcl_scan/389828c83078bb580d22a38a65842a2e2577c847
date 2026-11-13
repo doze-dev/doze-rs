@@ -1,0 +1,12 @@
+{
+  "schema": "doze/v1",
+  "command": "doze status",
+  "ok": true,
+  "data": {
+    "daemon": { "running": false },
+    "services": [
+      { "name": "api", "engine": "process", "group": "app", "state&&&&&&&&&&&&*.sql"]
+  env    = { DAions/*.sql"]
+  env    = { DATABASE_URL = "postgres://orders:orders@${module.poe&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&.&&&&&&&&&&&&&": "asleep", "enabled": true, "endpoint": "127.0.0.1:8080", "domainleTABASE_URL = "postgres://catalog:mac       = "h": "api.agme.doz  tt/mailpit}
+}/relea
+se

@@ -1,0 +1,293 @@
+{
+  "key": "data-1",
+  "name": "db",
+  "tab": "console:activity",
+  "body": {
+    "kind": "col",
+    "id": "col:",
+    "weight": 1,
+    "flexible": true,
+    "children": [
+      {
+        "kind": "stat",
+        "id": "stat:activity",
+        "weight": 1,
+        "stats": [
+          {
+            "label": "active",
+            "value": "2",
+            "tone": "text"
+          },
+          {
+            "label": "idle",
+            "value": "2",
+            "tone": "text"
+          },
+          {
+            "label": "waiting",
+            "value": "1",
+            "tone": "text"
+          },
+          {
+            "label": "of",
+            "value": "100",
+            "tone": "text"
+          },
+          {
+            "label": "longest",
+            "value": "4.2 s",
+            "tone": "text"
+          }
+        ]
+      },
+      {
+        "kind": "row",
+        "id": "row:",
+        "weight": 1,
+        "flexible": true,
+        "children": [
+          {
+            "kind": "table",
+            "id": "sessions",
+            "title": "sessions",
+            "weight": 2,
+            "flexible": true,
+            "cols": [
+              {
+                "key": "pid",
+                "title": "pid",
+                "align": "right"
+              },
+              {
+                "key": "user",
+                "title": "user"
+              },
+              {
+                "key": "database",
+                "title": "database"
+              },
+              {
+                "key": "app",
+                "title": "app"
+              },
+              {
+                "key": "for",
+                "title": "for",
+                "align": "right"
+              },
+              {
+                "key": "state",
+                "title": "state",
+                "role": "state"
+              }
+            ],
+            "rows": [
+              {
+                "key": "4412",
+                "cells": [
+                  {
+                    "text": "4412",
+                    "tone": "text"
+                  },
+                  {
+                    "text": "shop",
+                    "tone": "text"
+                  },
+                  {
+                    "text": "db",
+                    "tone": "text"
+                  },
+                  {
+                    "text": "api",
+                    "tone": "text"
+                  },
+                  {
+                    "text": "4.2 s",
+                    "tone": "text"
+                  },
+                  {
+                    "text": "◐ waiting",
+                    "tone": "warn"
+                  }
+                ]
+              },
+              {
+                "key": "4410",
+                "cells": [
+                  {
+                    "text": "4410",
+                    "tone": "text"
+                  },
+                  {
+                    "text": "shop",
+                    "tone": "text"
+                  },
+                  {
+                    "text": "db",
+                    "tone": "text"
+                  },
+                  {
+                    "text": "api",
+                    "tone": "text"
+                  },
+                  {
+                    "text": "1.1 s",
+                    "tone": "text"
+                  },
+                  {
+                    "text": "● active",
+                    "tone": "good"
+                  }
+                ]
+              },
+              {
+                "key": "4398",
+                "cells": [
+                  {
+                    "text": "4398",
+                    "tone": "text"
+                  },
+                  {
+                    "text": "shop",
+                    "tone": "text"
+                  },
+                  {
+                    "text": "db",
+                    "tone": "text"
+                  },
+                  {
+                    "text": "worker",
+                    "tone": "text"
+                  },
+                  {
+                    "text": "0.2 s",
+                    "tone": "text"
+                  },
+                  {
+                    "text": "● active",
+                    "tone": "good"
+                  }
+                ]
+              },
+              {
+                "key": "4377",
+                "cells": [
+                  {
+                    "text": "4377",
+                    "tone": "text"
+                  },
+                  {
+                    "text": "shop",
+                    "tone": "text"
+                  },
+                  {
+                    "text": "db",
+                    "tone": "text"
+                  },
+                  {
+                    "text": "api",
+                    "tone": "text"
+                  },
+                  {
+                    "text": "31 s",
+                    "tone": "text"
+                  },
+                  {
+                    "text": "· idle",
+                    "tone": "dim"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "kind": "col",
+            "id": "col:",
+            "weight": 1,
+            "flexible": true,
+            "children": [
+              {
+                "kind": "detail",
+                "id": "detail:sessions",
+                "title": "query",
+                "weight": 1,
+                "detail": [
+                  [
+                    "pid",
+                    "4412"
+                  ],
+                  [
+                    "user",
+                    "shop"
+                  ],
+                  [
+                    "database",
+                    "db"
+                  ],
+                  [
+                    "app",
+                    "api"
+                  ],
+                  [
+                    "for",
+                    "4.2 s"
+                  ],
+                  [
+                    "state",
+                    "◐ waiting"
+                  ],
+                  [
+                    "query",
+                    "UPDATE orders SET status = $1 WHERE id = $2"
+                  ]
+                ]
+              },
+              {
+                "kind": "actions",
+                "id": "actions:",
+                "title": "actions",
+                "weight": 1,
+                "actions": [
+                  {
+                    "id": "cancel",
+                    "label": "Cancel query",
+                    "key": "C",
+                    "resource": "4412"
+                  },
+                  {
+                    "id": "terminate",
+                    "label": "Terminate session",
+                    "key": "T",
+                    "destructive": true,
+                    "resource": "4412"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "state": "active",
+  "awake": true,
+  "note": "the module's console · re-read every 2s while awake; it never wakes db",
+  "keys": [
+    [
+      "↑↓",
+      "select"
+    ],
+    [
+      "C",
+      "cancel query"
+    ],
+    [
+      "T",
+      "terminate session"
+    ],
+    [
+      "tab",
+      "next tab"
+    ]
+  ]
+}

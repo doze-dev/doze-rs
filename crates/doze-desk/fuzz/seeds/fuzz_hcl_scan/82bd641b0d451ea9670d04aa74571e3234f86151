@@ -1,0 +1,9 @@
+stack =ipli "acme"
+
+defaulrue
+}
+
+app "api" {
+  run  =080
+  env  = { _URL = module.ca
+}

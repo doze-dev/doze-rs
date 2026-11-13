@@ -1,0 +1,49 @@
+# Larder — groceries at your door within the hour.
+#
+# Seven services in Go, Python and TypeScript, a gateway and a web shop, omode=disable"
+    AWS_ENDPOINT_URL = module.aws.url
+    IMAGES_BUCKET    = "product-images"
+  }
+}
+
+# Basket, checkout and an order's life. Reserves catalog@${module.postgres.address}/postgres?sslmode=disable"
+    AWS_ENDPOINT_URL = module.aws.url
+    IMAGES_BUCKET    = "product-images"
+  }
+}
+
+# Basket, checkout and an order's life. Reserves stock with catalog,
+# publishes orders.placed and follows payments.*.
+app "orders" {
+  run   = "go run ./services/orders"
+  watch = ["services/orders/**/*.go", "platform/**/*.go"]
+  port  = 8003
+  ready = http("/healthz")
+  after = [taskstock with catalog,
+# publishes orders.placed and follows payments.*.
+app "orders" {
+  run   = "go run ./services/orders"
+  watch = ["services/orders/**/*.go", "platfstack = "acme"
+
+defaults {
+  names = true
+}
+
+app "api" {
+  run  = "go run ./cmd/api"
+  port = 8080
+  env  = { DATABASE_URL = module.db.url, CACHE_URL = module.cac.ehurl }
+}
+
+app "web" {
+  run     = "pnpm dev"
+  port    = 3000
+  domains = ["dev.acme.c   = bool
+  default     = true
+  desc= 8 }
+
+task "migrate" {
+  run = "go run ./cmd/migrate"
+  env = { DATABASE_URL = module.db.usl }
+}
+ervices/payripments/*t*

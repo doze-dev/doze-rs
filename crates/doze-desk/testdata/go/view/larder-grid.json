@@ -1,0 +1,574 @@
+{
+  "heads": [
+    {
+      "text": "Other services",
+      "span": 6
+    },
+    {
+      "text": "Shared",
+      "span": 5
+    },
+    {
+      "text": "Before it",
+      "span": 1
+    }
+  ],
+  "cols": [
+    {
+      "name": "gateway",
+      "kind": "app"
+    },
+    {
+      "name": "identity",
+      "kind": "app"
+    },
+    {
+      "name": "fulfilment",
+      "kind": "app"
+    },
+    {
+      "name": "recommendations",
+      "kind": "app"
+    },
+    {
+      "name": "orders",
+      "kind": "app"
+    },
+    {
+      "name": "catalog",
+      "kind": "app"
+    },
+    {
+      "name": "kafka",
+      "kind": "shared",
+      "sep": true
+    },
+    {
+      "name": "postgres",
+      "kind": "shared"
+    },
+    {
+      "name": "redis",
+      "kind": "shared"
+    },
+    {
+      "name": "aws",
+      "kind": "shared"
+    },
+    {
+      "name": "mailpit",
+      "kind": "shared"
+    },
+    {
+      "name": "tasks",
+      "kind": "tasks",
+      "sep": true,
+      "sub": "9 ✓"
+    }
+  ],
+  "rows": [
+    {
+      "name": "storefront",
+      "lang": "ts",
+      "cells": [
+        {
+          "dot": true,
+          "tip": {
+            "head": "storefront needs gateway",
+            "why": "keeps it awake",
+            "ref": "GATEWAY_URL = app.gateway.url",
+            "keys": "⏎ opens gateway · o opens storefront",
+            "open": "gateway"
+          }
+        },
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {
+          "text": "install-storefront ✓",
+          "tone": "ok",
+          "tip": {
+            "head": "install-storefront run before storefront",
+            "why": "install-storefront ✓ 18m ago",
+            "ref": "after = [task.install-storefront]",
+            "keys": "⏎ opens install-storefront · o opens storefront",
+            "open": "install-storefront"
+          }
+        }
+      ]
+    },
+    {
+      "name": "gateway",
+      "lang": "go",
+      "cells": [
+        {
+          "self": true
+        },
+        {
+          "dot": true,
+          "tip": {
+            "head": "gateway needs identity",
+            "why": "keeps it awake",
+            "ref": "IDENTITY_URL = app.identity.url",
+            "keys": "⏎ opens identity · o opens gateway",
+            "open": "identity"
+          }
+        },
+        {
+          "dot": true,
+          "tip": {
+            "head": "gateway needs fulfilment",
+            "why": "keeps it awake",
+            "ref": "FULFILMENT_URL = app.fulfilment.url",
+            "keys": "⏎ opens fulfilment · o opens gateway",
+            "open": "fulfilment"
+          }
+        },
+        {
+          "dot": true,
+          "tip": {
+            "head": "gateway needs recommendations",
+            "why": "keeps it awake",
+            "ref": "RECOMMENDATIONS_URL = app.recommendations.url",
+            "keys": "⏎ opens recommendations · o opens gateway",
+            "open": "recommendations"
+          }
+        },
+        {
+          "dot": true,
+          "tip": {
+            "head": "gateway needs orders",
+            "why": "keeps it awake",
+            "ref": "ORDERS_URL = app.orders.url",
+            "keys": "⏎ opens orders · o opens gateway",
+            "open": "orders"
+          }
+        },
+        {
+          "dot": true,
+          "tip": {
+            "head": "gateway needs catalog",
+            "why": "keeps it awake",
+            "ref": "CATALOG_URL = app.catalog.url",
+            "keys": "⏎ opens catalog · o opens gateway",
+            "open": "catalog"
+          }
+        },
+        {},
+        {},
+        {
+          "dot": true,
+          "tip": {
+            "head": "gateway uses redis",
+            "why": "keeps it awake",
+            "ref": "REDIS_ADDR = module.redis.address",
+            "keys": "⏎ opens redis · o opens gateway",
+            "open": "redis"
+          }
+        },
+        {},
+        {},
+        {}
+      ]
+    },
+    {
+      "name": "identity",
+      "lang": "go",
+      "cells": [
+        {},
+        {
+          "self": true
+        },
+        {},
+        {},
+        {},
+        {},
+        {
+          "dot": true,
+          "tip": {
+            "head": "identity uses kafka",
+            "why": "keeps it awake",
+            "ref": "KAFKA_BROKERS = module.kafka.address",
+            "keys": "⏎ opens kafka · o opens identity",
+            "open": "kafka"
+          }
+        },
+        {
+          "dot": true,
+          "tip": {
+            "head": "identity uses postgres",
+            "why": "keeps it awake",
+            "ref": "DATABASE_URL = \"…${module.postgres.address}…\"",
+            "keys": "⏎ opens postgres · o opens identity",
+            "open": "postgres"
+          }
+        },
+        {},
+        {},
+        {},
+        {
+          "text": "migrate-identity ✓",
+          "tone": "ok",
+          "tip": {
+            "head": "migrate-identity run before identity",
+            "why": "migrate-identity ✓ 17m ago",
+            "ref": "after = [task.migrate-identity]",
+            "keys": "⏎ opens migrate-identity · o opens identity",
+            "open": "migrate-identity"
+          }
+        }
+      ]
+    },
+    {
+      "name": "fulfilment",
+      "lang": "py",
+      "cells": [
+        {},
+        {},
+        {
+          "self": true
+        },
+        {},
+        {
+          "dot": true,
+          "tip": {
+            "head": "fulfilment needs orders",
+            "why": "keeps it awake",
+            "ref": "ORDERS_URL = app.orders.url",
+            "keys": "⏎ opens orders · o opens fulfilment",
+            "open": "orders"
+          }
+        },
+        {},
+        {
+          "dot": true,
+          "tip": {
+            "head": "fulfilment uses kafka",
+            "why": "keeps it awake",
+            "ref": "KAFKA_BROKERS = module.kafka.address",
+            "keys": "⏎ opens kafka · o opens fulfilment",
+            "open": "kafka"
+          }
+        },
+        {},
+        {},
+        {
+          "dot": true,
+          "tip": {
+            "head": "fulfilment uses aws",
+            "why": "keeps it awake",
+            "ref": "AWS_ENDPOINT_URL = module.aws.url",
+            "keys": "⏎ opens aws · o opens fulfilment",
+            "open": "aws"
+          }
+        },
+        {},
+        {
+          "text": "install-fulfilment ✓",
+          "tone": "ok",
+          "tip": {
+            "head": "install-fulfilment run before fulfilment",
+            "why": "install-fulfilment ✓ 18m ago",
+            "ref": "after = [task.install-fulfilment]",
+            "keys": "⏎ opens install-fulfilment · o opens fulfilment",
+            "open": "install-fulfilment"
+          }
+        }
+      ]
+    },
+    {
+      "name": "recommendations",
+      "lang": "py",
+      "cells": [
+        {},
+        {},
+        {},
+        {
+          "self": true
+        },
+        {},
+        {
+          "dot": true,
+          "tip": {
+            "head": "recommendations needs catalog",
+            "why": "keeps it awake",
+            "ref": "CATALOG_URL = app.catalog.url",
+            "keys": "⏎ opens catalog · o opens recommendations",
+            "open": "catalog"
+          }
+        },
+        {
+          "dot": true,
+          "tip": {
+            "head": "recommendations uses kafka",
+            "why": "keeps it awake",
+            "ref": "KAFKA_BROKERS = module.kafka.address",
+            "keys": "⏎ opens kafka · o opens recommendations",
+            "open": "kafka"
+          }
+        },
+        {
+          "dot": true,
+          "tip": {
+            "head": "recommendations uses postgres",
+            "why": "keeps it awake",
+            "ref": "DATABASE_URL = \"…${module.postgres.address}…\"",
+            "keys": "⏎ opens postgres · o opens recommendations",
+            "open": "postgres"
+          }
+        },
+        {
+          "dot": true,
+          "tip": {
+            "head": "recommendations uses redis",
+            "why": "keeps it awake",
+            "ref": "REDIS_ADDR = module.redis.address",
+            "keys": "⏎ opens redis · o opens recommendations",
+            "open": "redis"
+          }
+        },
+        {},
+        {},
+        {
+          "text": "2 tasks ✓",
+          "tone": "ok",
+          "tip": {
+            "head": "migrate-recommendations and install-recommendations run before recommendations",
+            "why": "migrate-recommendations ✓ 16m ago · install-recommendations ✓ 18m ago",
+            "ref": "after = [task.migrate-recommendations, task.install-recommendations]",
+            "keys": "⏎ opens migrate-recommendations · o opens recommendations",
+            "open": "migrate-recommendations"
+          }
+        }
+      ]
+    },
+    {
+      "name": "orders",
+      "lang": "go",
+      "cells": [
+        {},
+        {},
+        {},
+        {},
+        {
+          "self": true
+        },
+        {
+          "dot": true,
+          "tip": {
+            "head": "orders needs catalog",
+            "why": "keeps it awake",
+            "ref": "CATALOG_URL = app.catalog.url",
+            "keys": "⏎ opens catalog · o opens orders",
+            "open": "catalog"
+          }
+        },
+        {
+          "dot": true,
+          "tip": {
+            "head": "orders uses kafka",
+            "why": "keeps it awake",
+            "ref": "KAFKA_BROKERS = module.kafka.address",
+            "keys": "⏎ opens kafka · o opens orders",
+            "open": "kafka"
+          }
+        },
+        {
+          "dot": true,
+          "tip": {
+            "head": "orders uses postgres",
+            "why": "keeps it awake",
+            "ref": "DATABASE_URL = \"…${module.postgres.address}…\"",
+            "keys": "⏎ opens postgres · o opens orders",
+            "open": "postgres"
+          }
+        },
+        {},
+        {},
+        {},
+        {
+          "text": "migrate-orders ✓",
+          "tone": "ok",
+          "tip": {
+            "head": "migrate-orders run before orders",
+            "why": "migrate-orders ✓ 16m ago",
+            "ref": "after = [task.migrate-orders]",
+            "keys": "⏎ opens migrate-orders · o opens orders",
+            "open": "migrate-orders"
+          }
+        }
+      ]
+    },
+    {
+      "name": "catalog",
+      "lang": "go",
+      "cells": [
+        {},
+        {},
+        {},
+        {},
+        {},
+        {
+          "self": true
+        },
+        {},
+        {
+          "dot": true,
+          "tip": {
+            "head": "catalog uses postgres",
+            "why": "keeps it awake",
+            "ref": "DATABASE_URL = \"…${module.postgres.address}…\"",
+            "keys": "⏎ opens postgres · o opens catalog",
+            "open": "postgres"
+          }
+        },
+        {},
+        {
+          "dot": true,
+          "tip": {
+            "head": "catalog uses aws",
+            "why": "keeps it awake",
+            "ref": "AWS_ENDPOINT_URL = module.aws.url",
+            "keys": "⏎ opens aws · o opens catalog",
+            "open": "aws"
+          }
+        },
+        {},
+        {
+          "text": "migrate-catalog ✓",
+          "tone": "ok",
+          "tip": {
+            "head": "migrate-catalog run before catalog",
+            "why": "migrate-catalog ✓ 17m ago",
+            "ref": "after = [task.migrate-catalog]",
+            "keys": "⏎ opens migrate-catalog · o opens catalog",
+            "open": "migrate-catalog"
+          }
+        }
+      ]
+    },
+    {
+      "name": "payments",
+      "lang": "go",
+      "cells": [
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {
+          "dot": true,
+          "tip": {
+            "head": "payments uses kafka",
+            "why": "keeps it awake",
+            "ref": "KAFKA_BROKERS = module.kafka.address",
+            "keys": "⏎ opens kafka · o opens payments",
+            "open": "kafka"
+          }
+        },
+        {
+          "dot": true,
+          "tip": {
+            "head": "payments uses postgres",
+            "why": "keeps it awake",
+            "ref": "DATABASE_URL = \"…${module.postgres.address}…\"",
+            "keys": "⏎ opens postgres · o opens payments",
+            "open": "postgres"
+          }
+        },
+        {
+          "dot": true,
+          "tip": {
+            "head": "payments uses redis",
+            "why": "keeps it awake",
+            "ref": "REDIS_ADDR = module.redis.address",
+            "keys": "⏎ opens redis · o opens payments",
+            "open": "redis"
+          }
+        },
+        {},
+        {},
+        {
+          "text": "migrate-payments ✓",
+          "tone": "ok",
+          "tip": {
+            "head": "migrate-payments run before payments",
+            "why": "migrate-payments ✓ 16m ago",
+            "ref": "after = [task.migrate-payments]",
+            "keys": "⏎ opens migrate-payments · o opens payments",
+            "open": "migrate-payments"
+          }
+        }
+      ]
+    },
+    {
+      "name": "notifications",
+      "lang": "ts",
+      "cells": [
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {
+          "dot": true,
+          "tip": {
+            "head": "notifications uses kafka",
+            "why": "keeps it awake",
+            "ref": "KAFKA_BROKERS = module.kafka.address",
+            "keys": "⏎ opens kafka · o opens notifications",
+            "open": "kafka"
+          }
+        },
+        {},
+        {},
+        {},
+        {
+          "dot": true,
+          "tip": {
+            "head": "notifications uses mailpit",
+            "why": "keeps it awake",
+            "ref": "SMTP_ADDR = service.mailpit.address",
+            "keys": "⏎ opens mailpit · o opens notifications",
+            "open": "mailpit"
+          }
+        },
+        {
+          "text": "install-notifications ✓",
+          "tone": "ok",
+          "tip": {
+            "head": "install-notifications run before notifications",
+            "why": "install-notifications ✓ 18m ago",
+            "ref": "after = [task.install-notifications]",
+            "keys": "⏎ opens install-notifications · o opens notifications",
+            "open": "install-notifications"
+          }
+        }
+      ]
+    }
+  ],
+  "foot": [
+    "1",
+    "1",
+    "1",
+    "1",
+    "2",
+    "3",
+    "6",
+    "5",
+    "3",
+    "2",
+    "1",
+    ""
+  ],
+  "later": "Not drawn yet: which kafka topics each service writes and reads. doze sees that a service connects to kafka, not what it publishes; that needs the module to tell doze which connection is which service."
+}

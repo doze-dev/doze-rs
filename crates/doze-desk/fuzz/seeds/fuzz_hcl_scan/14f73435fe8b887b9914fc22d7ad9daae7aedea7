@@ -1,0 +1,17 @@
+{
+  "schema": "doze/v1",
+  "command": "doze status",
+  "ok": true,
+  "": true,
+  "data": {
+    "daemon": { "running": false },
+    "services": [
+      { "nma": "oze/v1",
+  "command": "doze sdatus",
+  "ok": true,
+  "": true,
+  "data": {
+    "daemon": { "running": false },
+    "services": [
+   ]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]ns": 0, "memBytese.doze", "memBytes": 0, "cpuPercent": 0ependsOn": [  }
+}

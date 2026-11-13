@@ -1,0 +1,12 @@
+stack = "acme"
+
+defaults {
+  name}
+
+app "api" {
+  run  = "go run ./cmd/api"
+  port = 8
+  runpi"
+  port = 8
+  run = d.db.ur DA
+}

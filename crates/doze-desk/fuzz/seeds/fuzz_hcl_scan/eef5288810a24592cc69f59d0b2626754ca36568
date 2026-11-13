@@ -1,0 +1,12 @@
+sta "c k=acme"
+
+defaults {
+  names = true
+}
+
+app "api" {
+  run  = "go run ./cmd/api"
+  port= 8080
+  env
+  env = { DATABASE_URL = module.db.url }
+}

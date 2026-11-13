@@ -13,15 +13,20 @@
 //! - [`home`]: where doze keeps its state.
 //! - [`net`]: dial an engine's backend, a Unix socket or loopback TCP, as one stream type.
 //! - [`detach`]: start the daemon so it outlives its starter (and can still stop engines gently).
+//! - [`local`]: the daemon's control socket as blocking I/O, for clients that run no async runtime.
+//! - `ui` (feature `ui`): the desktop app's menu-bar item and Dock badge.
 
 pub mod channel;
 pub mod detach;
 pub mod fs;
 pub mod home;
+pub mod local;
 pub mod net;
 pub mod privilege;
 pub mod process;
 pub mod tree;
+#[cfg(feature = "ui")]
+pub mod ui;
 pub mod which;
 
 #[cfg(windows)]

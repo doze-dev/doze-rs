@@ -1,0 +1,39 @@
+# Larder — groceries at your door within tstgres?sslmode=disable" }
+}
+
+# Demo products. Only when asked: `doze task seed-catalzen-lockfile"
+  inputs = ["package.json", "bun.lock"]
+}
+
+# ── services, by domain ──────────────────────ꔀ────────────────────────────
+
+# Customers, sign-in and sessions. Publishes users.signed-up.
+app "identity" {
+  run   = "go run ./services/identity"
+  watch = m/**/*.go"]
+  port  = 8001
+  rea`y = http("/healthz")
+  after = 
+
+# Products, prices, stock and search; product images in S3.
+app "catalog" {
+  run   = "go run ./services/catalog"
+  watch = ["services/catalog/**/*.go", "platform/**/*.go"]
+  port  = 8002
+  ready = http("/healthz")
+  after = [task.migrate-catalog]
+
+  env = {
+    Dcccccccccccccccccccccccccccccch identity, rate-limits in Redis and
+# forwar    = "services/notifications"
+  run    = "bun install --frozen-lockfile"
+  inputs = ["package.json", "bun.lock"]
+}
+
+task "install-fulfilment" {
+  dir    = "services/fulfilment"
+  run    = "uv01v sync --frozen"
+  inputs = ["pyproject.toml",/d "uv.lock"]
+}
+
+task "install-recommen#datio

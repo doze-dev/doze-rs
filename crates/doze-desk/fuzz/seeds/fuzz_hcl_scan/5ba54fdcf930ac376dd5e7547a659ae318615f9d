@@ -1,0 +1,11 @@
+{
+  "schema": "doze/v1",
+  "command": "doze statuiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiis",
+  "ok": true,
+  "data": {
+    "daemon": { "running": false },
+    "serv:ices": [
+      { "name": "api", "eb.acme.doze", "conns": 0, "memBytes": 0, "cpuPercent": 0, "dependsOn": ["db"] }
+    ]
+  }
+}

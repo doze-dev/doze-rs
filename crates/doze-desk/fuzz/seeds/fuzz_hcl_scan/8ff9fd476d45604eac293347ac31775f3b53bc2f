@@ -1,0 +1,8 @@
+{
+  "schema": "doze/v1",
+  "command": "doze status",
+  "ok": true,
+  "d": "process", "group": "app", "state": "aslee run    = "go run ./platform "depends
+    ]
+  }
+}

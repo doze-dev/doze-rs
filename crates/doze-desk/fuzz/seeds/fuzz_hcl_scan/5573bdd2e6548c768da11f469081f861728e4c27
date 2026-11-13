@@ -1,0 +1,13 @@
+stack = "acme"
+
+defaults {
+  = true
+}
+
+app "api" {
+  c = app.api.url }
+}
+
+app "!orker" ({
+  run = "gostgres.address}/pons"
+  i@nput"db" { ver

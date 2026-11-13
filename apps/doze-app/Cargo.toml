@@ -1,0 +1,45 @@
+[package]
+name = "doze-app"
+version = "0.0.0"
+description = "The doze desktop app: a native GPUI window over the doze daemon, with the menu-bar item"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "doze-app"
+path = "src/main.rs"
+
+[features]
+# Offscreen PNG capture (`doze-app shot`): GPUI's `render_to_image` lives behind its test support. Off in the
+# shipped build; the CI app job and `cargo xtask`-style shot runs turn it on.
+capture = ["gpui/test-support", "gpui_platform/test-support", "fixtures"]
+# `--fixture NAME` and `--synth N`: the screens fed by doze-control's fixture daemon (the Go fixture hubs' scripts) on a real
+# socket, through the same hub and protocol path as a real daemon. For development, shots and CI.
+fixtures = ["doze-control/test-support"]
+
+# Pinned exactly: gpui-pre is a pre-release fork-rename of Zed's gpui, and gpui-component pins it with `=`. An
+# upgrade is a planned event (docs/port/app/PLAN.md §8). crates.io's `gpui` (0.2.2) is stale.
+[dependencies]
+gpui = { package = "gpui-pre", version = "=0.3.12", default-features = false, features = ["font-kit"] }
+gpui_platform = { package = "gpui-pre-platform", version = "=0.3.12", features = ["font-kit"] }
+gpui-component = { version = "=0.9.1", default-features = false }
+# gpui's own path API takes lyon's stroke options (line caps and joins); same major as gpui's.
+lyon = "1"
+anyhow = "1"
+# The person's time zone for clock times (already in the tree through gpui).
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+async-channel = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+doze-control = { path = "../../crates/doze-control" }
+doze-desk = { path = "../../crates/doze-desk" }
+doze-display = { path = "../../crates/doze-display" }
+doze-map = { path = "../../crates/doze-map" }
+doze-projects = { path = "../../crates/doze-projects" }
+doze-os = { path = "../../crates/doze-os", features = ["ui"] }

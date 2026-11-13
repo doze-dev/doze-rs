@@ -1,0 +1,16 @@
+{
+  "schema": "doze/v1",
+  "command": "doze status",
+  "ok": true,
+  "data": {
+    "daemon": { "running": false },
+    "services": [
+      { "name": "api", "engine": "process", "group": "app", "state": "asleep", "enablze status",
+  "ok": true,
+  "data": {
+    ""] },
+      { "name": "worker", "engine": "process" "enabled": true, "conns": 0, "memBytes": 0, "cpuPercent": 0 },
+      { "name": "dbed": true, "endpoint": "127.0.0.1:8080",    { "name": "migrate", "enginPercent": 0, "dependsOn": ["db"] }
+    ]
+  }
+}

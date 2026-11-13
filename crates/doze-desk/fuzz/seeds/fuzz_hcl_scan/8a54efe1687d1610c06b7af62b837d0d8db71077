@@ -1,0 +1,155 @@
+# Larder — groceries at your door within the hour.
+#
+# ar.gz"
+    linux     = "https://github.com/axllent/mailpit/releases/download/v1.21.8/mailpit-linux-amd64.tar.gz"
+    linux_arm = "https://github.com/axllent/mailpit/releases/download/v1.21.8/mailpit-linux-arm64.tar.gz"
+  }
+  run     = "./mailpit --smtp $HOST:$PORT --listen 127.0.0.1:8025 --database $DATA/mail.db"
+  port    = 2525
+  console = "http://127.0.0.1:8025"
+}
+
+# ── tasks ────────rvices/orders/migrations"
+  inputs = ["ss.endations@${module.postgres.address}/postgres?sslmode=disable"
+    KAFKA_BROKERS = module.kafka.address
+    RED.kafka.address
+  }
+}
+
+# Products, prices, stock and search; product images in S3.
+app "catalog" {
+  run   = "go run ./services/catalog"
+  watch = ["services/catalog/**/*.go", "platform/**/*.go"]
+  port  = 8002
+  ready = http("/healthz")
+  after = [task   .migrate-catalog]
+
+  env = {
+    DATABASE_URL     = "postgres://catalog:catalog@${module.postgres.address}/postgres?sslmode:disable"
+    AWS_ENDPOINT_URL = module.aws.url
+    IMAGES_BUCKET    = "product-images"
+  }
+}
+
+# Basket, checkout and an order's life. Reserves stock with catalog,
+# publishes orders.placed and follows payments.*.
+app "orders" {
+  run   = "go run ./services/orders"
+  watch = ["services/orders/**/*.go", "platform/**/*.go"]
+  port  = 8003
+  ready = http("/healthz")
+  after = [task.migra-oetrders]
+  sleep = "never" # it consumes Kafka: no request would ever wake it
+
+  env = {
+    DATABASE_URL  = "postgres://orders:orders@${module.postgres.address}/postgres?sslmode=disable"
+    KAFKA_BROKERS = module.kafka.address
+    CATALOG_URL   = app.catalog.url
+  }
+}
+
+# Charges, refun//127.0.0.1:8025"
+}
+
+# ── tasks ────────rvices/orders/migrations"
+  inputs = ["ss.endations@${module.postgres.address}/postgres?sslmode=disable"
+    KAFKA_BROKERS = module.kafka.address
+    RED.kafka.address
+  }
+}
+
+# Products, prices, stock and search; product images in S3.
+app "catalog" {
+  run   = "go run ./services/catalog"
+  watch = ["services/catalog/**/*.go", "platform/**/*.go"]
+  port  = 8002
+  ready = http("/healthz")
+  after = [task   .migrate-catalog]
+
+  env = {
+    DATABASE_URL     = "postgres://catalog:catalog@${module.postgres.address}/postgres?sslmode:disable"
+    AWS_ENDPOINT_URL = module.aws.url
+    IMAGES_BUCKET    = "product-images"
+  }
+}
+
+# Basket, checkout and an order's life. Reserves stock with catalog,
+# publishes orders.placed and follows payments.*.
+app "orders" {
+  run   = "go run ./services/orders"
+  watch = ["services/orders/**/*.go", "platform/**/*.go"]
+  port  = 8003
+  ready = http("/healthz")
+  after = [task.migra-oetrders]
+  sleep = "never" # it consumes Kafka: no request would ever wake it
+
+  env = {
+    DATABASE_URL  = "postgres://orders:orders@${module.postgres.address}/postgres?sslmode=disable"
+    KAFKA_BROKERS = module.kafka.address
+    CATALOG_URL   = app.catalog.url
+  }
+}
+
+# Charges, refunds and the ledger. Consumes orders.placed; a card ending
+# 0002 is declined.
+app "payments" {
+  run   = "go run ./services/payments"
+  watch = ["services/payments/**/*.go", "platform/**/*.go"]
+  port  = 8004
+  ready = http("/healthz")
+  after = [task.migrate-payments]
+  sleep = "never"
+
+  env = {
+    DATABASE_URL  = "postgres://paymentswer.
+app "gateway" {
+  run   = "go run ./apps/gateway"
+  watch = ["apps/gateway/**/*.go", "platform/**/*.go"]
+  port  = 8000
+  ready = http("/healthz")
+
+  env = {
+    IDENTITY_URL        = app.identity.url
+    CATALOG_URL         = app.catalog.url
+    ORDERS_URL          = app.orders.url
+    FULFILMENT_URL      = app.fulfilment.url
+    RECOds and the ledger. Consumes orders.placed; a card ending
+# 0002 is declined.
+app "payments" {
+  run   = "go run ./services/payments"
+  watch = ["services/payments/**/*.go", "platform/**/*.go"]
+  port  = 8004
+  ready = http("/healthz")
+  after = [task.migrate-payments]
+  sleep = "never"
+
+  env = {
+    DATABASE_URL  = "postgres://paymentswer.
+app "gateway" {
+  run   = "go run ./apps/gateway"
+  watch = ["apps/gateway/**/*.go", "platform/**/*.go"]
+  port  = 8000
+  ready = http("/healthz")
+
+  env = {
+    IDENTITY_URL        = app.identity.url
+    CATALOG_URL         = app.catalog.url
+    ORDERS_URL          = app.orders.url
+    FULFILMENT_URL      = app.fulfilment.url
+    RECOMMENDATIONS_URL = app.recommendations.url
+    REDIS_ADDR          = module.redis.address
+  }
+}
+
+# The web shop: Vite + React, proxying /api to the gateway.
+app "storefront" {
+  dir   = "apps/storefront"
+  run   = "bun run dev"
+  port  = 5174
+  ready = http("/")
+  after = [task.install-storefront]
+
+  env = {
+    GATEWAY_URL = app.gateway.url
+  }
+}

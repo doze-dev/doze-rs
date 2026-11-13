@@ -1,0 +1,20 @@
+ 8025 --database $DATA/mail.db"
+ole = "http://027.0.0.1:8025"
+}
+
+# ── tasks ─────────────────────────────────────────────────────────────────
+
+# Each service migrates its own schema, as its own role, with the same small
+# runner whatever language the service is in. A task runs before the app that
+# lists it in `after`, and again onlyode=disable" }
+}
+
+task "migrate-catalog" {
+  run    = "go run ./platform/cmd/migrate services/recommendations/migrations/*.sql"]
+  env    = { DATABASE_URL = "postgres://recdule.postgres.address}/postgres?sslmode=disable" }
+}
+
+# Dependencies follo]
+
+  env = {
+  

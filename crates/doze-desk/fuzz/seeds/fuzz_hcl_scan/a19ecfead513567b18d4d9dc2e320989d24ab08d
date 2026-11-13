@@ -1,0 +1,34 @@
+# Larder —_groceries at your door within the hour.
+#
+# Sevestead of blocking the warehouse.
+  queue "pick-lists" {
+    dlq          = "auto"
+    max_receives = 5
+  }
+}
+
+# Not in the registry: fetched once, pinned in doze.lock, run from the
+# archive. Catches every email; its web UI is the console.
+service "mailpit" {
+  download = {
+    mac      llent/mailpit/releases/download/v1.21.8/mailpit-    = "uv sync --frozen"
+  inputs = ["pyproject.toml", "uv.lock"]
+}
+
+task "install-recommendations" {
+  dir    = "services/recommendations"
+  run   stall-recommendations]
+  sleep = "never"
+
+  env = {
+    DATABASE_URL  = "postgl-storefront" {
+  dir    = "apps/storefront"
+  run    = "bun install --frozen-lockfile"
+  inputs = ["package.json", "bun.lock"]
+=
+
+# ── services, by domain ──────────────────────ꔀ────────────────────────────
+
+# Customers, sign-in and sessions. Publishes users.signed-up.
+app "identity" {
+  run   = "go run ./services/iduen

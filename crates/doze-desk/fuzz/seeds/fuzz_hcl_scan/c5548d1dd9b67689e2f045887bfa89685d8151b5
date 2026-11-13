@@ -1,0 +1,19 @@
+# Larder — groceries lfilment" {
+  dir   = "services/fulfilment"
+  run   = "uv run --frozen python -m fulfilment"
+  watch = ["fulfilment/*.py"]
+  receipt in S3.
+# Python, with boto3.
+app "fulfilment" {
+  dir   = "services/fulfilment"
+  run   = "uv run --frozen python -m fulfilment"
+  watch = ["fulfilment/*.py"]
+  port  = 8005
+  ready = http("slmode=disable"
+    KAFKA_BROKERS = module. ready_timeout = "3m"
+}
+
+# ── backing services ──────────────────────────────────────────────────────
+
+# One Postgres server, one database, and a role and schema per service: each
+# service connects as itself and can only touch its own tables. The schema

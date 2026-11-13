@@ -1,0 +1,31 @@
+stack = "acme"
+
+defaults {
+  names = true
+}
+
+app "api" {
+  run  = "go run ./cmd/api"
+  port = 8080
+  env  = { DATABASE_URL = module.db.url, CACHE_URL = module.cache.url }
+}
+
+app "web" {
+  run     = "pnpm dev"
+  port    = 3000
+  domains = ["dev.acme.com"]
+  env     = { API_URL = app.api.url }
+}
+
+app "worker" {
+  run = "go run ./cmd/worker"
+}
+
+module postgres "db" { version = 17 }
+
+module valkey "cache" { version = 8 }
+
+task "migrate" {
+  run = "go run ./cmd/migrate"
+  env = { DATABASE_URL = module.db.url }
+}

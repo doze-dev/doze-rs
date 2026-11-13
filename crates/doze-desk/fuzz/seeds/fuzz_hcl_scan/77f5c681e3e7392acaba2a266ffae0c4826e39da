@@ -1,0 +1,197 @@
+{
+  "schema": "doze/v1",
+  "command": "doze status",
+  "ok"                  from this directory
+#   doze task seed-catalog          once, to stock the shelves
+#   doze up --var names=false       on a machine without `doze dns-setup`
+
+stack = "larder"
+
+variable "names" {
+  type        = bool
+  default     = true
+  description = "Publish <service>.larder.doze names. Off binds everything on 127.0.0.1."
+}
+
+defaults {
+  sleep = "2m"
+  names = var.names
+
+  # The first `go run` of each service compiles it; later starts are quick.
+  ready_timeout = "3m"
+}
+
+# ── backing services ──────────────────────────────────────────────────────
+
+# One Postgres server, one database, and a role and schema per service: each
+# service connects as itself",
+  "ok": true,
+  "data": {
+    "daemon": { "running": false },
+    "services": [
+      { "name": "api", "engine": "process", "group": "app", "state": "asleep", "enabled": true, "endpoint": "127.0.0.1:8080", "domain"ions (recommendations).
+module valkey "redis" {
+  version = 9
+  port    = 6379
+}
+
+# The topics are the contracts between services, so they are declared here
+# rather than created by whichever client happens to write first.
+module kafka "kafka" {
+  version            = 4
+  port               = 9092
+  auto_create_topics = false
+
+  topic "users.signed-up" { = 4566
+
+  bucket "product-images" {}
+  bucket "receipts" { versioning = true }
+
+  # A pick list that kee: true,
+  "data": {
+    "daemon": { "running": false },
+    "services": [
+      { "name": "api", "engine": "process", "group": "app", "state": "asleep", "enabled": true, "endpoint": "127.0.0.1:8080", "domain": "api.acme.dozen," oc"ns": 0, "memBytes": 0, "cpuPercent": 0, "dependsOn": ["cache", "db"", "enabled": true, "endpoint": "127.0.0.1:3000", "domain": "web.acme.doze", "conns": 0, "memBytes": 0, "cpuPercent": 0, "dependsOn": ["api"] },
+      { "name": "worker", "enORT --listen 127.0.0.1:8025 --database $DATA/mail.db"
+  port    = 2525
+  console = "http://127.0.0.1:8025"
+}
+
+# ── tasks ─────────────────────────────────────────────────────────────────
+
+# Each service migrates its own schema, as its own role, with the same small
+# runner whatever language the service is in. A task runs before the app that
+# lists it in `after] },
+      { "name": "web", "engine": "process", "group": "app", "state": "asleep", "enabled": true, "endpoint": "127.0.0.1:3000", "domain": "web.acme.doze", "conns": 0, "memBytes": 0, "cpuPercent": 0, "dependsOn": ["api"] },
+      { "name": "worker", "engine": "process", "group": "app", "state": "asleep", "enabled": true, "conns": 0, "memBytes": 0, "cpuPercent": 0 },
+      { "name": "db", "engine": "postgres", "version": "17", "group": "module", "state": "asleep", "enabled": true, "endpoint": "127.0.0.1:5432", "domain": "db.acme.doze", "conns": 0, "memBytes": 0, "cpuPercent": 0 },
+  ": "app", "state": "asleep", "enabled": true, "endpoint": "127.0.0.1:3000", "domain": "web.acme.doze", "conns": 0, "memBytes": 0, "cpuPercent": 0, "dependsOn": ["api"] },
+      { "name": "worker", "engine": "process", "group": "app", "state": "asleep", "enabled": true, "conns": 0, "memBytes": 0, "cpuPercent": 0 },
+      { "name": "db", "engine": "postgres", "version": "17", "group": "module", "state": "asleep", "enabled": true, "endpoint": "127.0.0.1:5432", "domai432", "domain": "db.acme.doze", "conns": 0, "memBytes": 0, "cpuPercent": 0 },
+  ": "app", "state": "asleep", "enabled": true, "endpoint": "127.0.0.1:3000", "domain": "web.acme.doze", "conns": 0, "memBytes": 0, "cpuPercent": 0, "dependsOn": ["api"] },
+      { "name": "worker", "engine": "process", "group": "app", "state": "asleep", "enabled": true, "conns": 0, "memBytes": 0, "cpuPercent": 0 },
+      { "name": "db", "engine": "postgres", "version": "17", "group": "module", "state": "asleep", "enabled": true, "endpoint": "127.0.0.1:5432", "domain": "db.acme.doze", "conns": 0, "memBytes": 0, "cpuPercent": 0 },
+      { "name": "cache", "engine": "valkey", "version": "8", "group": "module", "state": "asleep", "enabled": true, "endpoint": "127.0.0.1:6379", "domain": "cache.a+cme.doze", "conns": 0, "memBytes": 0, "cpuPercent": 0 },
+      { "name": "migrate", "engine": "process", "group": "task", "state": "asleep", "enabled": true, "conns": 0, "memBytes": 0, "cpuPercent": 0,────────────────────────
+
+# One Postgres server, one database, and a role and schema per service: each
+# service connects as itself and can only touch its own tables. The schema
+# shares the role's name, so the default search_path finds it unqualified.
+module postgres "postgres" {
+  version = 18
+  port    = 5432
+
+  role "identity" { password = "identity" }
+  role "catalog" { password = "catalog" }
+  role "orders" { password = "orders" }
+  role "payments" { password = "payments" }
+  role "recommendations" { password = "recommendations" }
+
+  schema "identity" { owner = "identity" }
+  schema "catalog" { owner = "catalog" }
+  schema "orders" { owner = "orders" }
+  schema "payments" { owner = "payments" }
+  schema "recommendations" { owner = "recommendations" }
+}
+
+# Valkey, the open-source fork of Redis: same protocol, so every Redis client
+# works. Rate limits (gateway), idempotency keys (payments), cached
+# suggest{
+  "schema": "doze/v1",
+  "command": "doze status",
+  "ok": true,
+  "data": {
+    "daemon": { "running": false },
+    "services": [
+      { "name": "api", "engine": "process", "group": "app", "state": "asleep", "enabled": true, "endpoint": "127.0.0.1:8080", "domain"ions (recommendations).
+module valkey "redis" {
+  version = 9
+  port    = 6379
+}
+
+# The topics are the contracts between services, so they are declared here
+# rather than created by whichever client happens to write first.
+module kafka "kafka" {
+  version            = 4
+  port               = 9092
+  auto_create_topics = false
+
+  topic "users.signed-up" { partitions = 3 }
+  topic "orders.placed" { partitions = 3 }
+  topic "payments.settled" { partitions = 3 }
+  topic "payments.n": "db.acme.doze", "conns": 0, "memBytes": 0, "cpuPercent": 0 },
+      { "name": "cache", "engine": "valkey", "version": "8", "group": "module", "state": "asleep", "enabled": true, "endpoint": "127.0.0.1:6379", "domain": "cache.a+cme.doze", "conns": 0, "memBytes": 0, "cpuPercent": 0 },
+      { "name": "migrate", "engine": "process", "group": "task", "state": "asleep", "enabled": true, "conns": 0, "memBytes": 0, "cpuPercent": 0,────────────────────────
+
+# One Postgres server, one database, and a role and schema per service: each
+# service connects as itself and can only touch its own tables. The schema
+# shares the role's name, so the default search_path finds it unqualified.
+module postgres "postgres" {
+  version = 18
+  port    = 5432
+
+  role "identity" { password = "identity" }
+  role "catalog" { password = "catalog" }
+  role "orders" { password = "orders" }
+  role "payments" { password = "payments" }
+  role "recommendations" { password = "recommendations" }
+
+  schema "identity" { owner = "identity" }
+  schema "catalog" { owner = "catalog" }
+  schema "orders" { owner = "orders" }
+  schema "payments" { owner = "payments" }
+  schema "recommendations" { owner = "recommendations" }
+}
+
+# Valkey, the open-source fork of Redis: same protocol, so every Redis client
+# works. Rate limits (gateway), idempotency keys (payments), cached
+# suggest{
+  "schema": "doze/v1",
+  "command": "doze status",
+  "ok": true,
+  "data": {
+    "daemon": { "running": false },
+    "services": [
+      { "name": "api", "engine": "process", "group": "app", "state": "asleep", "enabled": true, "endpoint": "127.0.0.1:8080", "domain"ions (recommendations).
+module valkey "redis" {
+  version = 9
+  port    = 6379
+}
+
+# The topics are the contracts between services, so they are declared here
+# rather than created by whichever client happens to write first.
+module kafka "kafka" {
+  version            = 4
+  port               = 9092
+  auto_create_topics = false
+
+  topic "users.signed-up" { partitions = 3 }
+  topic "orders.placed" { partitions = 3 }
+  topic "payments.settled" { partitions = 3 }
+  topic "payments.failed" { partitions = 3 }
+}
+
+# S3 and SQS behind one local endpoint, with its console at /_console.
+module aws "aws" {
+  port = 4566
+
+  bucket "product-images" {}
+  bucket "receipts" { versioning = true }
+
+  # A pick list that kee: true,
+  "data": {
+    "daemon": { "running": false },
+    "services": [
+      { "name": "api", "engine": "process", "group": "app", "state": "asleep", "enabled": true, "endpoint": "127.0.0.1:8080", "domain": "api.acme.dozen," oc"ns": 0, "memBytes": 0, "cpuPercent": 0, "dependsOn": ["cache", "db"] },
+      { "name": "web", "engine": "process", "group": "app", "state": "asleep", "enabled": true, "endpoint": "127.0.0.1:3000", "domain": "web.acme.doze", "conns": 0, "memBytes": 0, "cpuPercent": 0, "dependsOn": ["api"] },
+      { "name": "worker", "engine": "process", "group": "app", "state": "asleep", "enabled": true, "conns": 0, "memBytes": 0, "cpuPercent": 0 },
+      { "name": "db", "engine": "postgres", "version": "17", "group": "module", "state": "asleep", "enabled": true, "endpoint": "127.0.0.1:5432", "domain": "db.acme.doze", "conns": 0, "memBytes": 0, "cpuPercent": 0 },
+  ": "app", "state": "asleep", "enabled": true, "endpoint": "127.0.0.1:3000", "domain": "web.acme.doze", "conns": 0, "memBytes": 0, "cpuPercent": 0, "dependsOn": ["api"] },
+      { "name": "worker", "engine": "process", "group": "app", "state": "asleep", "enabled": true, "conns": 0, "memBytes": 0, "cpuPercent": 0 },
+      { "name": "db", "engine": "postgres", "version": "17", "group": "module", "state": "asleep", "enabled": true, "endpoint": "127.0.0.1:5432", "domain": "db.acme.doze", "conns": 0, "memBytes": 0, "cpuPercent": 0 },
+      { "name": "cache", "engine": "valkey", "version": "8", "group": "module", "state": "asleep", "enabled": true, "endpoint": "127.0.0.1:6379", "domain": "cache.a+cme.doze", "conns": 0, "memBytes": 0, "cpuPercent": 0 },
+      { "name": "migrate", "engine": "process", "group": "task", "state": "asleep", "enabled": true, "conns": 0, "memBytes": 0, "cpuPercent": 0, "dependsOn": ["db"] }
+": 0, "cpuPercent": 0 },
+      { "name": "cache", "engine": "valkey", "version": "8", "group": "module", "state": "asleep", "enabled": true, "endpoint": "127.0.0.1:   {6379",    ]
+  }
+}
