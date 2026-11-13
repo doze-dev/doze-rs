@@ -140,13 +140,14 @@ fn name(t: &Tokens, st: &LibStack, tight: bool) -> impl IntoElement {
             .flex()
             .min_w_0()
             .child(
-                // The folder's end shows, where the stack's own name is: the box is right-aligned and clips on the left.
+                // The folder's end shows, where the stack's own name is: cut at its start with "…" where the column
+                // ends (Go's `.lrow .dir .p`, drawn right to left), home already written as ~.
                 div()
-                    .flex()
-                    .justify_end()
                     .min_w_0()
                     .overflow_hidden()
-                    .child(div().flex_none().child(s(&tail(&st.dir, 36)))),
+                    .whitespace_nowrap()
+                    .text_ellipsis_start()
+                    .child(s(&st.dir)),
             )
             .child(
                 div()
@@ -275,16 +276,6 @@ fn act(
                     cx.notify();
                 })),
         )
-}
-
-/// A long folder kept to its end, where the stack's own name is (`…/code/acme`): `.lrow .dir .p` drew it right to left.
-fn tail(dir: &str, most: usize) -> String {
-    let n = dir.chars().count();
-    if n <= most {
-        return dir.to_owned();
-    }
-    let kept: String = dir.chars().skip(n - (most - 1)).collect();
-    format!("…{kept}")
 }
 
 /// Toned runs as one text, so the line is cut with an ellipsis where the column ends.

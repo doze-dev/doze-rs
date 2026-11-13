@@ -90,6 +90,8 @@ pub(crate) struct OverviewView {
     pub(crate) density: Density,
     /// The Grid's cell under the pointer or the keys: row, column.
     pub(crate) cur: Option<(usize, usize)>,
+    /// Where the Grid is scrolled to.
+    pub(crate) grid: grid::Scroll,
     refs: HashMap<String, Refs>,
     watch: Option<Watch>,
     /// The window's width at the last render (the Tiles go four, three or two across).
@@ -142,6 +144,7 @@ impl OverviewView {
             query: String::new(),
             density: Density::parse(&crate::prefs::density()).unwrap_or_default(),
             cur: None,
+            grid: grid::Scroll::default(),
             refs: HashMap::new(),
             watch: None,
             width: 1280.,
@@ -168,6 +171,7 @@ impl OverviewView {
         self.stack = None;
         self.selected = None;
         self.cur = None;
+        (self.grid.x, self.grid.y) = (0., 0.);
         self.refresh(cx);
     }
 
@@ -390,7 +394,7 @@ impl Render for OverviewView {
                 .mb(px(14.))
                 .child(self.map.clone())
                 .into_any_element(),
-            View::Grid => grid::view(&t, self, cx).into_any_element(),
+            View::Grid => grid::view(&t, self, window, cx).into_any_element(),
         };
         let lit = self.map.read(cx).lit.is_some();
         div()

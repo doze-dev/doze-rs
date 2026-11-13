@@ -185,7 +185,7 @@ impl Hub {
         out.sort_by(|a, b| {
             b.running
                 .cmp(&a.running)
-                .then_with(|| a.name.cmp(&b.name))
+                .then_with(|| doze_display::natural_cmp(&a.name, &b.name))
                 .then_with(|| a.key.cmp(&b.key))
         });
         out

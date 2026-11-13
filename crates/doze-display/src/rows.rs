@@ -69,7 +69,8 @@ pub struct Row<'a> {
     pub group: Group,
 }
 
-/// The stack listed: by group, then by name. (Go: `Rows`.)
+/// The stack listed: by group, then by name as a person reads it (`api-2` before `api-10`). (Go: `Rows`, which
+/// compared bytes.)
 #[must_use]
 pub fn rows(snap: &Snapshot) -> Vec<Row<'_>> {
     let mut out: Vec<Row<'_>> = snap
@@ -77,7 +78,11 @@ pub fn rows(snap: &Snapshot) -> Vec<Row<'_>> {
         .iter()
         .filter_map(|v| Group::of(v.kind).map(|group| Row { v, group }))
         .collect();
-    out.sort_by(|a, b| a.group.cmp(&b.group).then_with(|| a.v.name.cmp(&b.v.name)));
+    out.sort_by(|a, b| {
+        a.group
+            .cmp(&b.group)
+            .then_with(|| crate::natural_cmp(&a.v.name, &b.v.name))
+    });
     out
 }
 

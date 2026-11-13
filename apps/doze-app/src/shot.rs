@@ -197,6 +197,10 @@ fn stage(root: &mut Root, window: &mut gpui::Window, cx: &mut gpui::Context<Root
                 if let (View::Grid, Some(cell)) = (v, &s.hover) {
                     o.cur = grid_cell(o, cell);
                 }
+                // `--at X,Y` scrolls the Grid there (the sticky head and service column stay).
+                if let (View::Grid, Some((x, y))) = (v, s.at) {
+                    (o.grid.x, o.grid.y) = (x as f32, y as f32);
+                }
             });
         }
         _ => {}

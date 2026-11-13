@@ -25,6 +25,7 @@ mod journal;
 mod level;
 mod look;
 mod model;
+mod natural;
 mod note;
 mod reach;
 mod rows;
@@ -52,6 +53,7 @@ pub use journal::{Cause, Event, EventKind, cause_words, sentence};
 pub use level::{LogLevel, level, rank};
 pub use look::{Look, Tone, awake_now, in_use, look, state_rank, switch_on, troubled};
 pub use model::{Holder, Instance, Kind, Outcome, Snapshot, State, TaskRecord};
+pub use natural::natural_cmp;
 pub use note::{Said, first_line, note};
 pub use reach::{
     Known, Need, Reach, address, address_of, connections, first_unmet, holder_named, mem, needs,

@@ -123,20 +123,28 @@ fn ago(back: usize) -> String {
     }
 }
 
+/// Go's chart's drawing width: its SVG's viewBox is 400 wide, fitted (`meet`) and centred in the card, so a card wider
+/// than that has the chart inset from both sides, and a narrower one scales it down.
+const VIEW_W: f32 = 400.;
+
 /// The area as Go's chart drew it: a 2px line over a fill of the same colour, a little in from the top and bottom.
 /// (gpui-component's area chart strokes 1px, too faint in the light themes; it is laid over this for its hover.)
 fn area(points: std::rc::Rc<Vec<f64>>, lo: f64, hi: f64, color: Hsla) -> AnyElement {
     gpui::canvas(
         |_, _, _| (),
         move |b, _, window, _| {
-            let (w, h) = (f32::from(b.size.width), f32::from(b.size.height));
+            let (bw, bh) = (f32::from(b.size.width), f32::from(b.size.height));
+            let scale = (bw / VIEW_W).min(1.);
+            let (w, h) = (VIEW_W * scale, bh * scale);
+            let (ox, oy) = ((bw - w) / 2., (bh - h) / 2.);
             let span = (hi - lo).max(f64::EPSILON);
             let last = points.len().saturating_sub(1).max(1) as f32;
             let at = |i: usize, v: f64| {
-                let x = i as f32 / last * w;
-                let y = h - ((v - lo) / span) as f32 * (h - 6.) - 3.;
+                let x = ox + i as f32 / last * w;
+                let y = oy + h - ((v - lo) / span) as f32 * (h - 6. * scale) - 3. * scale;
                 gpui::point(b.origin.x + px(x), b.origin.y + px(y))
             };
+            let floor = b.origin.y + px(oy + h);
             let line: Vec<gpui::Point<gpui::Pixels>> =
                 points.iter().enumerate().map(|(i, v)| at(i, *v)).collect();
             let (Some(first), Some(end)) = (line.first().copied(), line.last().copied()) else {
@@ -144,13 +152,13 @@ fn area(points: std::rc::Rc<Vec<f64>>, lo: f64, hi: f64, color: Hsla) -> AnyElem
             };
             let mut fill = gpui::PathBuilder::fill();
             let mut poly = line.clone();
-            poly.push(gpui::point(end.x, b.origin.y + b.size.height));
-            poly.push(gpui::point(first.x, b.origin.y + b.size.height));
+            poly.push(gpui::point(end.x, floor));
+            poly.push(gpui::point(first.x, floor));
             fill.add_polygon(&poly, true);
             if let Ok(p) = fill.build() {
                 window.paint_path(p, alpha(color, 0.12));
             }
-            let mut stroke = gpui::PathBuilder::stroke(px(2.));
+            let mut stroke = gpui::PathBuilder::stroke(px(2. * scale));
             stroke.add_polygon(&line, false);
             if let Ok(p) = stroke.build() {
                 window.paint_path(p, color);

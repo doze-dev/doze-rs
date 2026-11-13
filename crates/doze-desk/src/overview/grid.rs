@@ -170,7 +170,9 @@ impl<'a> Flow<'a> {
 
 /// The apps in the Map's order: down each column of calls, then the lane.
 fn map_order(ins: &[Pair<'_>]) -> Vec<String> {
-    let input: Vec<doze_map::Instance> = ins.iter().map(|(v, _)| map_instance(v)).collect();
+    // Names as a person reads them (`api-2`, `api-7`, `api-26`), as the List and the sidebar order them.
+    let mut input: Vec<doze_map::Instance> = ins.iter().map(|(v, _)| map_instance(v)).collect();
+    input.sort_by(|a, b| words::natural_cmp(&a.name, &b.name));
     let layout = doze_map::layout(&input, &doze_map::Options::default());
     layout
         .cards
@@ -223,7 +225,7 @@ pub fn grid(ins: &[Pair<'_>], now: SystemTime) -> GridView {
         get(&f.users, b)
             .len()
             .cmp(&get(&f.users, a).len())
-            .then_with(|| a.cmp(b))
+            .then_with(|| words::natural_cmp(a, b))
     });
     columns(&mut g, &f, &apps, &shared, &order);
     let mut count = vec![0usize; g.cols.len()];

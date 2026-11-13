@@ -172,6 +172,8 @@ jobs:
           $app shot --fixture crash --screen list --select api --out shots/list-crash-api.png
           $app shot --fixture shop --screen list --density compact --out shots/list-shop-compact.png
           $app shot --synth 2000 --screen list --out shots/list-2k.png
+          $app shot --synth 2000 --screen grid --out shots/grid-2k.png
+          $app shot --synth 2000 --screen grid --at 3000,20000 --out shots/grid-2k-scrolled.png
           ls -la shots
       - name: Screens inside a stack (instance, logs, consoles)
         run: |

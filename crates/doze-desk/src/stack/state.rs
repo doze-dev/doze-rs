@@ -19,6 +19,8 @@ pub(crate) struct StackState {
     pub(crate) view: StackView,
     pub(crate) ring: LogRing,
     rates: HashMap<String, Rates>,
+    /// The tables a console's new subscription will replay, by instance (see [`ConsoleView::apply`]).
+    replays: HashMap<String, Vec<String>>,
     /// When the hub first saw the daemon.
     first_seen: SystemTime,
 }
@@ -32,6 +34,7 @@ impl StackState {
             view,
             ring: LogRing::new(),
             rates: HashMap::new(),
+            replays: HashMap::new(),
             first_seen: now,
         }
     }
@@ -168,6 +171,7 @@ impl StackState {
         } else {
             consoles.remove(inst);
             self.rates.remove(inst);
+            self.replays.remove(inst);
         }
         Parts::CONSOLE
     }
@@ -177,10 +181,16 @@ impl StackState {
         if !self.view.consoles.contains_key(inst) {
             return Parts::NONE;
         }
+        let replay = !f.rows.is_empty()
+            && self.replays.get_mut(inst).is_some_and(|p| {
+                let had = p.contains(&f.panel);
+                p.retain(|x| x != &f.panel);
+                had
+            });
         let rates = self.rates.entry(inst.to_owned()).or_default();
         let changed = Arc::make_mut(&mut self.view.consoles)
             .get_mut(inst)
-            .is_some_and(|c| c.apply(rates, f, now));
+            .is_some_and(|c| c.apply(rates, f, now, replay));
         if changed { Parts::CONSOLE } else { Parts::NONE }
     }
 
@@ -195,8 +205,13 @@ impl StackState {
         if changed { Parts::CONSOLE } else { Parts::NONE }
     }
 
-    /// The console follows another stream: that panel's rows start again.
+    /// The console follows another stream: that panel's rows start again, and the new subscription replays the
+    /// tables held.
     pub(crate) fn refollow(&mut self, inst: &str, panel: &str) -> Parts {
+        if let Some(c) = self.view.consoles.get(inst) {
+            self.replays
+                .insert(inst.to_owned(), c.tables.keys().cloned().collect());
+        }
         let held = self
             .view
             .consoles
