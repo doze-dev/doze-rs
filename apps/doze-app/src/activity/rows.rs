@@ -66,12 +66,12 @@ impl ActivityView {
                         v.list.splice(1..2, 1);
                         cx.notify();
                     }));
-                head::trouble(t, m, self.all_trouble, more)
+                head::trouble(t, &narrowed(m, &self.find), self.all_trouble, more)
             }
             2 => strip::card_head(t, m),
             i if i < FIRST_ROW + n => self.row(t, i - FIRST_ROW, cx),
             i if i == FIRST_ROW + n => strip::legend(t, n == 0 && !self.find.is_empty()),
-            _ => strip::events(t, m),
+            _ => strip::events(t, &narrowed(m, &self.find)),
         }
     }
 
@@ -208,7 +208,7 @@ fn look_color(t: &Tokens, word: &str) -> Hsla {
         "dozing" => t.warn,
         "waking" => t.cool,
         "crashing" | "failed" => t.bad,
-        _ => t.line2,
+        _ => t.dim,
     }
 }
 
@@ -250,36 +250,66 @@ fn asleep(t: &Tokens, r: &doze_desk::activity::Row) -> impl IntoElement {
         })
 }
 
-/// What woke it, and how often it crashed.
+/// How often it crashed (first, so it is never cut), then what woke it, cut with an ellipsis; the whole list on hover.
 fn woken(t: &Tokens, r: &doze_desk::activity::Row) -> impl IntoElement {
     let by = if r.woken_by.is_empty() {
         "—".to_owned()
     } else {
         r.woken_by.clone()
     };
+    let tip = by.clone();
     div()
+        .id(gpui::SharedString::from(format!("act-woken-{}", r.name)))
         .flex()
+        .gap(px(6.))
         .flex_1()
         .max_w(px(COLS[3]))
         .min_w_0()
         .whitespace_nowrap()
-        .overflow_hidden()
-        .text_ellipsis()
         .text_color(t.dim)
-        .child(
-            div()
-                .min_w_0()
-                .overflow_hidden()
-                .text_ellipsis()
-                .whitespace_nowrap()
-                .child(text(&by)),
-        )
         .when(r.crashes > 0, |d| {
             d.child(
                 div()
                     .flex_none()
                     .text_color(t.bad)
-                    .child(text(&format!(" · {} crashed", r.crashes))),
+                    .child(text(&format!("{} crashed ·", r.crashes))),
             )
         })
+        .child(
+            div()
+                .min_w_0()
+                .overflow_hidden()
+                .text_ellipsis()
+                .child(text(&by)),
+        )
+        .tooltip(move |window, cx| {
+            gpui_component::tooltip::Tooltip::new(tip.clone()).build(window, cx)
+        })
+}
+
+/// The lists (Trouble, What happened) as the find box narrows the rows: only the lines of services it keeps.
+fn narrowed(m: &doze_desk::activity::Activity, find: &str) -> doze_desk::activity::Activity {
+    // Only the two lists, never the rows: a 2,000-service model is not copied each frame.
+    if find.is_empty() {
+        return doze_desk::activity::Activity {
+            trouble: m.trouble.clone(),
+            events: m.events.clone(),
+            empty: m.empty,
+            ..Default::default()
+        };
+    }
+    let find = find.to_lowercase();
+    let keep = |l: &doze_desk::activity::Line| {
+        l.text
+            .split(' ')
+            .next()
+            .is_some_and(|n| n.to_lowercase().contains(&find))
+    };
+    let events: Vec<_> = m.events.iter().filter(|l| keep(l)).cloned().collect();
+    doze_desk::activity::Activity {
+        trouble: m.trouble.iter().filter(|l| keep(l)).cloned().collect(),
+        empty: events.is_empty(),
+        events,
+        ..Default::default()
+    }
 }

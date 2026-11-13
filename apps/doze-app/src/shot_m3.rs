@@ -109,6 +109,13 @@ fn unset(admin: bool) -> Staged {
             on_path: None,
             elsewhere: Some("/Users/you/go/bin/doze".into()),
         }),
+        machine: Some(Machine {
+            home: "/Users/you/.doze".into(),
+            routes: vec!["old-shop.test".into()],
+            admin,
+            user_home: Some("/Users/you".into()),
+            ..Machine::default()
+        }),
         admin,
         ..Staged::default()
     }
@@ -209,13 +216,16 @@ fn journal(root: &mut Root, hover: bool, cx: &mut Context<Root>) -> u64 {
                         .timer(Duration::from_millis(1800))
                         .await;
                     let _ = this.update(cx, |a, cx| {
-                        a.hover = Some(crate::activity::Hover {
-                            row: 0,
-                            at: 0,
-                            mark: false,
-                            pos: gpui::point(gpui::px(360.), gpui::px(500.)),
-                        });
-                        cx.notify();
+                        // The pointer on the middle of the first stretch, as a person would put it there.
+                        let b = a.tracks.borrow().get(&0).copied();
+                        let from = a
+                            .row_at(0)
+                            .and_then(|r| r.spans.first())
+                            .map(|s| (s.from + s.to) / 2.0);
+                        if let (Some(b), Some(f)) = (b, from) {
+                            let x = b.origin.x + b.size.width * (f as f32);
+                            a.point(0, gpui::point(x, b.origin.y + b.size.height / 2.), cx);
+                        }
                     });
                 })
                 .detach();
@@ -244,7 +254,7 @@ fn lines(names: &[String], now: SystemTime) -> String {
     };
     let causes = [
         r#","cause":{"kind":"connection"}"#,
-        r#","cause":{"kind":"dependency","by":"api"}"#,
+        r#","cause":{"kind":"dependency","by":"web"}"#,
         r#","cause":{"kind":"command"}"#,
     ];
     for (i, n) in names.iter().enumerate() {

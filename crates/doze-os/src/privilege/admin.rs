@@ -182,6 +182,7 @@ mod tests {
 
     /// The script reaches the shell byte for byte, whatever quotes and heredocs it holds, and the sentence is its own
     /// argument (Go `TestTheScriptIsPassedAsAnArgumentAndQuotedOnce`). Only `/bin/sh -c printf` runs: no prompt.
+    #[cfg(unix)] // WHY: it asks /bin/sh what it saw
     #[test]
     fn the_script_is_an_argument_quoted_once() {
         let script = "set -e\nprintf 'a\\nb'\ncat <<'PLIST'\n<x a=\"1\">it's</x>\nPLIST\necho \"$HOME\" `x` $(y)";

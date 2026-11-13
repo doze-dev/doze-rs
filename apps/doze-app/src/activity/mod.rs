@@ -379,7 +379,7 @@ impl Render for ActivityView {
             .child(crate::kit::keys_bar(
                 &t,
                 &[
-                    (crate::kit::chip_of("Shorter span"), "span"),
+                    ("[ ]".to_owned(), "span"),
                     (crate::kit::chip_of("Find a service"), "find"),
                     (crate::kit::chip_of("That service alone"), "alone"),
                     ("esc".into(), "back to the stack"),

@@ -215,7 +215,9 @@ pub(super) fn legend(t: &Tokens, none_found: bool) -> AnyElement {
             .rounded(px(4.))
             .bg(c)
             .overflow_hidden()
-            .when(wake, |d| d.child(div().size_full().bg(t.cool)))
+            .when(wake, |d| {
+                d.child(div().size_full().rounded(px(4.)).bg(t.cool))
+            })
     };
     let item = |e: AnyElement, s: &str| {
         div()
@@ -278,7 +280,7 @@ pub(super) fn events(t: &Tokens, m: &doze_desk::activity::Activity) -> AnyElemen
         .pb(px(18.))
         .child(
             card(t)
-                .child(heading(t, "WHAT HAPPENED", Some("· newest first")))
+                .child(heading(t, "WHAT HAPPENED", Some("· NEWEST FIRST")))
                 .child(body),
         )
         .into_any_element()

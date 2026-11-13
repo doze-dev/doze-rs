@@ -128,7 +128,7 @@ pub(super) fn page(
         .child(set_row(
             t,
             "Startup",
-            "the menu-bar item is light; the window is not kept",
+            "the bat is light; the window is not kept",
             div()
                 .flex()
                 .flex_col()
@@ -235,7 +235,7 @@ fn swatches(
                 .rounded(px(9.))
                 .border_1()
                 .border_color(if on { t.accent } else { t.line2 })
-                .when(on, |d| d.shadow(vec![ring(t.accent)]))
+                .when(on, |d| d.border_2())
                 .bg(t.panel)
                 .overflow_hidden()
                 .cursor_pointer()
@@ -266,16 +266,6 @@ fn swatches(
                         .child(capital(p.name())),
                 )
         }))
-}
-
-fn ring(c: gpui::Hsla) -> gpui::BoxShadow {
-    gpui::BoxShadow {
-        color: c,
-        offset: gpui::point(px(0.), px(0.)),
-        blur_radius: px(0.),
-        spread_radius: px(1.),
-        inset: false,
-    }
 }
 
 /// `.radio` with a switch: the switch, then what it does.

@@ -87,13 +87,8 @@ pub(super) fn summary(t: &Tokens, a: &Activity) -> AnyElement {
         .gap(px(12.))
         .child(stat(t, &s.asleep, "asleep while the stack was up", false))
         .child(
-            div()
+            stat(t, &freed, "memory left free by sleeping ⓘ", false)
                 .id("act-freed")
-                .flex()
-                .flex_1()
-                .flex_basis(px(0.))
-                .min_w_0()
-                .child(stat(t, &freed, "memory left free by sleeping", false))
                 .when(!s.freed_note.is_empty(), |d| {
                     let note = s.freed_note.clone();
                     d.tooltip(move |window, cx| {
@@ -127,7 +122,7 @@ pub(super) fn summary(t: &Tokens, a: &Activity) -> AnyElement {
         .into_any_element()
 }
 
-fn stat(t: &Tokens, v: &str, s: &str, bad: bool) -> impl IntoElement {
+fn stat(t: &Tokens, v: &str, s: &str, bad: bool) -> gpui::Div {
     div()
         .flex()
         .flex_col()
@@ -186,7 +181,7 @@ pub(super) fn trouble(t: &Tokens, a: &Activity, all: bool, more: crate::kit::Cli
                         div()
                             .id("act-trouble-more")
                             .text_size(px(12.))
-                            .text_color(t.cool)
+                            .text_color(t.accent)
                             .cursor_pointer()
                             .child(text(&format!("and {rest} more · show all")))
                             .on_click(more),

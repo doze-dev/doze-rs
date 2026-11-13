@@ -103,7 +103,7 @@ fn kind_table(
                 .border_t_1()
                 .border_color(t.line)
                 .text_size(px(11.))
-                .text_color(t.cool)
+                .text_color(t.accent)
                 .cursor_pointer()
                 .child(text(&format!(
                     "and {} more like these · show all",
