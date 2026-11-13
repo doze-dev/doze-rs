@@ -100,7 +100,9 @@ pub(crate) struct OverviewView {
     /// The window's width at the last render (the Tiles go four, three or two across).
     pub(crate) width: f32,
     /// The services with a verb in flight.
-    pub(crate) doing: std::collections::HashSet<String>,
+    pub(crate) doing: std::collections::HashMap<String, doze_control::Verb>,
+    /// The failure banner's "What doze printed" is open.
+    pub(crate) printed: bool,
     /// The List's lines, and its virtual list.
     items: std::rc::Rc<Vec<list::Item>>,
     list: gpui::ListState,
@@ -154,7 +156,8 @@ impl OverviewView {
             refs: HashMap::new(),
             watch: None,
             width: 1280.,
-            doing: std::collections::HashSet::new(),
+            doing: std::collections::HashMap::new(),
+            printed: false,
             items: std::rc::Rc::default(),
             list: gpui::ListState::new(0, gpui::ListAlignment::Top, px(200.)),
             focus: cx.focus_handle(),
@@ -232,6 +235,7 @@ impl OverviewView {
             _ => None,
         };
         self.stack = Some(st);
+        let (h, p) = act::mark_doing(h, p, &self.doing);
         if h != self.home || p != self.pane {
             self.home = h;
             self.pane = p;

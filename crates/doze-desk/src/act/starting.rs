@@ -155,16 +155,20 @@ impl StartSheet {
     pub fn brought(&self) -> Vec<String> {
         let chosen = self.chosen();
         let mut out: Vec<String> = Vec::new();
-        let mut todo: Vec<String> = chosen.iter().rev().cloned().collect();
-        while let Some(n) = todo.pop() {
-            for d in self.needs.get(&n).into_iter().flatten().rev() {
-                if !out.contains(d) && !chosen.contains(d) {
-                    out.push(d.clone());
-                    todo.push(d.clone());
-                }
-            }
+        for n in &chosen {
+            self.walk(n, &chosen, &mut out);
         }
         out
+    }
+
+    /// Go's `walk`: each need in the order written, then what it needs, before the next.
+    fn walk(&self, n: &str, chosen: &[String], out: &mut Vec<String>) {
+        for d in self.needs.get(n).into_iter().flatten() {
+            if !out.contains(d) && !chosen.contains(d) {
+                out.push(d.clone());
+                self.walk(d, chosen, out);
+            }
+        }
     }
 
     /// Ticks or unticks line `i` (space on the line, or a click).

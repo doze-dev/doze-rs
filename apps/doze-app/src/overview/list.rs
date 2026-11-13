@@ -83,7 +83,7 @@ fn row(
     let (name, weak) = (r.name.clone(), this.clone());
     let switch = this
         .update(cx, |this, cx| {
-            row_switch(t, r, this.doing.contains(&r.name), cx)
+            row_switch(t, r, this.doing.contains_key(&r.name), cx)
         })
         .unwrap_or_else(|_| div().into_any_element());
     let title = div()

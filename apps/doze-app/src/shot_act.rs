@@ -46,19 +46,17 @@ fn folder(found: bool) -> PathBuf {
     dir
 }
 
-/// Has another program hold `port` for a few seconds, as a stray dev server would (`nc`); the shot names it in the checks
-/// before Up. Stopped by its own handle, never by name.
+/// Has another program hold `port` for a few seconds, as a stray dev server would (`nc`); the checks before Up name it.
+/// Stopped by its own pid, never by name.
 fn hold_port(port: u16) {
-    let child = std::process::Command::new("nc")
-        .args(["-l", "127.0.0.1", &port.to_string()])
-        .spawn();
-    if let Ok(mut c) = child {
+    // The shell stops its own `nc` (by the pid it started) after a few seconds, even when the shot has exited first.
+    let script = format!("nc -l 127.0.0.1 {port} & p=$!; sleep 6; kill $p");
+    if std::process::Command::new("sh")
+        .args(["-c", &script])
+        .spawn()
+        .is_ok()
+    {
         std::thread::sleep(Duration::from_millis(200));
-        std::thread::spawn(move || {
-            std::thread::sleep(Duration::from_secs(8));
-            let _ = c.kill();
-            let _ = c.wait();
-        });
     }
 }
 
@@ -70,6 +68,21 @@ fn produce() -> Action {
         destructive: false,
         hint: "message value".into(),
         resource: "orders".into(),
+    }
+}
+
+/// A stack action from its Library row, as its switch, its menu or ⌫ asks (the row is selected).
+fn lib_act(root: &mut Root, name: &str, action: StackAction, cx: &mut Context<Root>) {
+    let row = root
+        .library
+        .read(cx)
+        .lib
+        .stacks
+        .iter()
+        .find(|s| s.name == name)
+        .map(|s| s.key.clone());
+    if let Some(k) = row {
+        root.library.update(cx, |l, cx| l.act(&k, action, cx));
     }
 }
 
@@ -95,8 +108,12 @@ fn start(root: &mut Root, act: &str, window: &mut Window, cx: &mut Context<Root>
             verb(cx, "cache", Verb::Sleep);
             return 150;
         }
-        "stop" => stack(cx, &key(root, "shop"), StackAction::Down),
-        "remove" => stack(cx, &acme, StackAction::Remove),
+        "stop" => lib_act(root, "shop", StackAction::Down, cx),
+        "remove" => lib_act(root, "acme", StackAction::Remove, cx),
+        "library-busy" => {
+            lib_act(root, "acme", StackAction::UpLast, cx);
+            return 500;
+        }
         "action" | "action-typed" => {
             if let Some(k) = &here {
                 acts.update(cx, |a, cx| a.action(k, "events", &produce(), cx));
@@ -112,7 +129,7 @@ fn start(root: &mut Root, act: &str, window: &mut Window, cx: &mut Context<Root>
             stack(cx, &acme, StackAction::UpLast);
             return 1200;
         }
-        "busy" | "library-busy" => {
+        "busy" => {
             stack(cx, &acme, StackAction::UpLast);
             return 500;
         }

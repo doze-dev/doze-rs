@@ -56,6 +56,8 @@ pub(super) fn word_tone(t: &Tokens, r: &Row) -> gpui::Hsla {
         "awake" | "done" => t.good,
         "dozing" => t.warn,
         "waking" => t.cool,
+        // A verb in flight (`act::mark_doing`).
+        w if w.ends_with('…') => t.cool,
         "ready" => t.accent,
         "failed" => t.bad,
         // Any other word takes the line's own colour, as `wordTone` gave it no class.
@@ -345,7 +347,7 @@ pub(super) fn view(
                     r,
                     (
                         v.selected.as_deref() == Some(r.name.as_str()),
-                        v.doing.contains(&r.name),
+                        v.doing.contains_key(&r.name),
                     ),
                     cx,
                 ));

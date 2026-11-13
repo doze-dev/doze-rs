@@ -270,12 +270,12 @@ and a 15 MB binary, and none of it reaches doze-kafka or doze-aws (the app is no
 
 | | Budget (PLAN.md §6) | Measured |
 |---|---|---|
-| Binary, release, stripped, fonts included, no capture | ≤ 16 MB | 15,575,872 B with the instance, logs and console pages (M1 steps 1.5–1.7; 14,871,584 B before them) |
-| Packages (`cargo tree -p doze-app --edges normal`, unique lines) | limit 560 | 534 |
+| Binary, release, stripped, fonts included, no capture | ≤ 16 MB | **12,484,800 B with M2 (verbs, dialogs, toasts, preflight, empty folder), `release-app` profile**; 15,575,872 B with the instance, logs and console pages (M1 steps 1.5–1.7; 14,871,584 B before them) |
+| Packages (`cargo tree -p doze-app --edges normal`, unique lines) | limit 560 | 535 with M2 (534 before) |
 | Menu bar ready after launch | ≤ 100 ms | 71–84 ms |
 | Menu bar only, footprint | ≤ 18 MB | 18 MB on an empty doze home; 22 MB with the fixture daemon running in the process |
-| First frame of the stack page after a tray click | ≤ 100 ms | 35–66 ms |
-| Window open and idle, footprint | ≤ 85 MB | 82 MB at 10 s, 74 MB at 25 s (larder) |
+| First frame of the stack page after a tray click | ≤ 100 ms | 38–47 ms with M2 (`release-app`, shop and larder); 35–66 ms |
+| Window open and idle, footprint | ≤ 85 MB | 55 MB at 14 s and 26 s with M2 (larder, `release-app`); 82 MB at 10 s, 74 MB at 25 s (larder) |
 | After the window closes, footprint | ≤ 35 MB | 35 MB at 8 s (larder), 28 MB on an empty home |
 | CPU, window open and static; menu bar only | ≤ 0.3 %; ≤ 0.05 % | 0.0 % (ps, sampled) |
 | Frames over 16 ms while scrolling 100k log lines | 0 | 0 of 300: a full offscreen draw per worst-case scroll step (about a thousand rows a jump, the whole list) is median 4.4 ms, p99 8.8 ms, max 13.7 ms, including the GPU readback a screen frame does not do |

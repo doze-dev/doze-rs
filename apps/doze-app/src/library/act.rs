@@ -23,6 +23,8 @@ impl LibraryView {
 
     /// Acts on the stack keyed `key`.
     pub(crate) fn act(&mut self, key: &str, action: StackAction, cx: &mut Context<Self>) {
+        // The row acted on is the one selected, so the dialog and the selection agree.
+        self.selected = Some(key.to_owned());
         self.menu = None;
         cx.notify();
         let (Some(k), Some(acts)) = (self.stack_key(key), crate::act::acts(cx)) else {

@@ -75,6 +75,8 @@ impl PreflightView {
         )
         .h(px(26.))
         .px(px(9.))
+        // The way ⏎ takes wears the focus ring, as Go's focused button did.
+        .when(f.primary, |b| b.shadow(vec![super::scrim::ring(t.accent)]))
         .into_any_element()
     }
 

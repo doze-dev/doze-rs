@@ -255,7 +255,12 @@ fn printed(t: &Tokens, f: &Failure) -> gpui::Div {
 }
 
 /// What was tried, what went wrong (or where doze.hcl is wrong), what doze printed.
-fn failure_words(t: &Tokens, f: &Failure, name: &str) -> gpui::Div {
+/// "What doze printed" is a disclosure, closed at first (Go's `<details>`), so the banner stays short.
+fn failure_words(
+    t: &Tokens,
+    (f, name, open): (&Failure, &str, bool),
+    cx: &mut Context<OverviewView>,
+) -> gpui::Div {
     let line = match &f.config {
         Some(c) if c.line > 0 => format!(
             "{name} has a mistake on line {}. Fix it in your editor, then try again; nothing was started.",
@@ -282,12 +287,23 @@ fn failure_words(t: &Tokens, f: &Failure, name: &str) -> gpui::Div {
         .child(div().text_size(px(12.)).text_color(tone).child(line))
         .child(
             div()
+                .id("fail-printed")
                 .mt(px(4.))
-                .text_size(px(11.))
+                .text_size(px(11.5))
                 .text_color(t.dim)
-                .child("What doze printed"),
+                .cursor_pointer()
+                .hover(|d| d.text_color(t.text))
+                .child(if open {
+                    "▾ What doze printed"
+                } else {
+                    "▸ What doze printed"
+                })
+                .on_click(cx.listener(|this, _, _, cx| {
+                    this.printed = !this.printed;
+                    cx.notify();
+                })),
         )
-        .child(printed(t, f))
+        .when(open, |d| d.child(printed(t, f)))
 }
 
 /// Edit doze.hcl (a mistake in it), Try again (a stopped stack), Copy, Dismiss.
@@ -344,7 +360,7 @@ fn failed_banner(
     cx: &mut Context<OverviewView>,
 ) -> AnyElement {
     let (file, name) = failure_file(v, f);
-    let words = failure_words(t, f, &name);
+    let words = failure_words(t, (f, &name, v.printed), cx);
     let acts = failure_acts(t, (v, f), (file, name), cx);
     let dot = div()
         .mt(px(6.))
@@ -369,10 +385,55 @@ pub(super) fn observe_acts(cx: &mut Context<OverviewView>) {
             .read(cx)
             .doing
             .iter()
-            .filter(|(k, _)| this.key.as_ref() == Some(k))
-            .map(|(_, n)| n.clone())
+            .filter(|((k, _), _)| this.key.as_ref() == Some(k))
+            .map(|((_, n), v)| (n.clone(), *v))
             .collect();
+        this.refresh(cx);
         cx.notify();
     })
     .detach();
+}
+
+/// What a row says while a verb on it is in flight: "sleeping…", in the waking blue, the reason cleared; so the words
+/// never contradict the switch, which already shows where it is going.
+fn busy_word(v: Verb) -> &'static str {
+    match v {
+        Verb::Sleep => "sleeping…",
+        Verb::Wake | Verb::On | Verb::Up => "waking…",
+        Verb::Restart => "restarting…",
+        Verb::Off => "turning off…",
+        Verb::Pin => "pinning…",
+        Verb::Task => "running…",
+        Verb::Reset => "resetting…",
+        Verb::Sync => "applying…",
+    }
+}
+
+/// The rows and the pane with the verbs in flight marked.
+pub(super) fn mark_doing(
+    mut h: doze_desk::overview::Home,
+    mut p: Option<doze_desk::overview::Pane>,
+    doing: &std::collections::HashMap<String, Verb>,
+) -> (doze_desk::overview::Home, Option<doze_desk::overview::Pane>) {
+    if doing.is_empty() {
+        return (h, p);
+    }
+    let look = |v: Verb| doze_desk::overview::Look {
+        word: busy_word(v),
+        glyph: "◌",
+        tone: "cool",
+    };
+    for r in h.groups.iter_mut().flat_map(|g| g.rows.iter_mut()) {
+        if let Some(v) = doing.get(&r.name) {
+            r.look = look(*v);
+            r.because.clear();
+        }
+    }
+    if let Some(p) = p.as_mut()
+        && let Some(v) = doing.get(&p.name)
+    {
+        p.look = look(*v);
+        p.because.clear();
+    }
+    (h, p)
 }

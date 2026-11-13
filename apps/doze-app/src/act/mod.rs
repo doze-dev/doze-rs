@@ -10,7 +10,7 @@
 mod check;
 mod run;
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::{Instant, SystemTime};
 
@@ -63,7 +63,7 @@ pub(crate) struct Acts {
     /// The last stack action that did not work, by stack, until dismissed.
     pub(crate) failed: HashMap<StackKey, Failure>,
     /// Services with a verb in flight.
-    pub(crate) doing: HashSet<(StackKey, String)>,
+    pub(crate) doing: HashMap<(StackKey, String), doze_control::Verb>,
     /// The Recent popover is open.
     pub(crate) recent: bool,
     /// A folder being set up, and the way (`init`, `add`, `empty`).
@@ -103,7 +103,7 @@ pub(crate) fn ensure(hub: &Hub, mode: &crate::facts::Mode, cx: &mut App) -> Enti
         notices: Notices::default(),
         busy: HashMap::new(),
         failed: HashMap::new(),
-        doing: HashSet::new(),
+        doing: HashMap::new(),
         recent: false,
         writing: None,
         expiry: None,

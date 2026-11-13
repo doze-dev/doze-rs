@@ -324,7 +324,7 @@ impl DialogView {
                     t.accent
                 })])
             })
-            .when(!on, |d| d.opacity(0.45))
+            .when(!on, |d| d.opacity(0.6))
             .when(on, |d| d.cursor_pointer())
             .child(s(&b.label))
             .when(!key.is_empty(), |d| {

@@ -58,7 +58,7 @@ impl Acts {
     ) {
         let busy: Vec<(StackKey, String)> =
             targets.iter().map(|t| (key.clone(), t.clone())).collect();
-        self.doing.extend(busy.iter().cloned());
+        self.doing.extend(busy.iter().map(|b| (b.clone(), verb)));
         if verb == Verb::Task
             && let Some(t) = targets.first()
         {
