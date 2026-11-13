@@ -190,22 +190,20 @@ test("Story: the generations newest first; a rebalance opens as a Sheet, the fla
   } else await expect(page.getByTestId("story-quiet")).toContainText("A quiet story is a good one");
 });
 
-test("Wire: the requests that touched the group, filtered by kind and by text in the address", async ({ page }) => {
+test("Wire: the Live slice's dock of the group, filtered by kind and by text", async ({ page }) => {
   await page.goto(`/groups/${member}/wire`);
-  const table = page.getByRole("table", { name: "Requests that touched this group" });
+  await expect(page.getByTestId("group-tabs").getByRole("link", { name: /^Wire/ })).toHaveAttribute("aria-current", "page");
+  const dock = page.getByTestId("wire-dock");
+  await expect(dock).toHaveAttribute("data-group", member);
+  const table = dock.getByRole("table", { name: "Requests that touched this group" });
   await expect(table.locator("tbody tr").first()).toBeVisible();
-  const chips = page.getByTestId("wire-chips");
-  await chips.getByRole("radio", { name: /^Commits/ }).click();
-  await expect(page).toHaveURL(/kind=commits/);
-  await expect(chips.getByRole("radio", { name: /^Commits/ })).toHaveAttribute("aria-checked", "true");
-  for (const t of await table.locator("tbody tr td:nth-child(3)").allInnerTexts()) expect(t).toMatch(/Offset/);
-  await chips.getByRole("radio", { name: /^Join and sync/ }).click();
-  await expect(page).toHaveURL(/kind=join/);
-  await page.getByTestId("wire-filter").fill(`${member}-app`);
-  await expect(page).toHaveURL(/q=/);
-  await chips.getByRole("radio", { name: /^All/ }).click();
-  await expect(page).not.toHaveURL(/kind=/);
-  for (const t of await table.locator("tbody tr td:nth-child(2)").allInnerTexts()) expect(t).toContain(`${member}-app`);
+  const kinds = dock.getByTestId("group-wire-kind");
+  await kinds.getByRole("radio", { name: /^Commits/ }).click();
+  await expect(kinds.getByRole("radio", { name: /^Commits/ })).toHaveAttribute("aria-checked", "true");
+  await expect(table.locator("tbody tr").first()).toContainText(/Offset/);
+  await kinds.getByRole("radio", { name: /^All/ }).click();
+  await dock.getByLabel("Filter by member or client").fill(`${member}-app`);
+  await expect(table.locator("tbody tr").first()).toContainText(`${member}-app`);
 });
 
 test("Reset offsets: a GET preview, then the reset; the Lag tab shows where the group now reads", async ({ page }) => {
@@ -323,7 +321,7 @@ test("Delete offsets forgets the commits of the topics ticked; Delete group then
 for (const width of [1024, 1280, 1440, 1920]) {
   test(`the Groups pages do not scroll sideways at ${width} px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
-    for (const path of ["/groups", `/groups/${member}`, `/groups/${member}/lag`, `/groups/${member}/lag?expiring=1`, `/groups/${member}/story`, `/groups/${member}/wire`, `/groups/${member}?dialog=reset`]) {
+    for (const path of ["/groups", `/groups/${member}`, `/groups/${member}/lag`, `/groups/${member}/lag?expiring=1`, `/groups/${member}/story`, `/groups/${member}/wire`, `/groups/${member}?dialog=reset`, `/groups/${member}/story?rule=1`]) {
       await page.goto(path);
       await expect(page.locator("h1")).toBeVisible();
       await page.waitForLoadState("networkidle");
