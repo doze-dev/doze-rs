@@ -25,6 +25,7 @@ import { number } from "@/lib/format";
 import { bytes, dateTime, retention, stamp } from "@/lib/kafka";
 import type { TopicsSearch } from "@/lib/topic-search";
 import { PageError } from "../page-error";
+import { useMinWidth } from "../r4/bits";
 import { TopicsOverlays } from "./overlays";
 import { policyWord } from "./words";
 
@@ -39,7 +40,7 @@ export function subLine(r: TopicRow): string | null {
   return parts.length ? parts.join(" · ") : null;
 }
 
-function columns(now: number): DataColumn<TopicRow>[] {
+function columns(now: number, wide: boolean): DataColumn<TopicRow>[] {
   return [
     {
       id: "name",
@@ -58,12 +59,13 @@ function columns(now: number): DataColumn<TopicRow>[] {
                   </Badge>
                 </>
               ) : (
-                <Link to="/topics/$topic/messages" params={{ topic: r.name }} className="truncate font-mono text-[13.5px] text-link hover:underline focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none" data-testid="topic-link">
+                <Link to="/topics/$topic/messages" params={{ topic: r.name }} className="max-w-full shrink-0 truncate font-mono text-[13.5px] text-link hover:underline focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none" data-testid="topic-link">
                   {r.name}
                 </Link>
               )}
-              {r.offline > 0 && <StatusDot tone="bad">Offline</StatusDot>}
-              {r.txn_open && <StatusDot tone="warn">Transaction open</StatusDot>}
+              {/* The name comes first: a state beside it gives way (an ellipsis, the whole word on hover). */}
+              {r.offline > 0 && <StatusDot tone="bad" className="min-w-0 overflow-hidden" title="Offline">Offline</StatusDot>}
+              {r.txn_open && <StatusDot tone="warn" className="min-w-0 overflow-hidden" title="Transaction open"><span className="truncate">Transaction open</span></StatusDot>}
             </div>
             {sub && (
               <span className="truncate text-[12.5px] text-muted-foreground" title={sub}>
@@ -78,8 +80,8 @@ function columns(now: number): DataColumn<TopicRow>[] {
     {
       id: "cleanup",
       accessorFn: (r) => policyWord(r.cleanup),
-      header: "Cleanup policy",
-      size: 164,
+      header: wide ? "Cleanup policy" : "Cleanup",
+      size: wide ? 164 : 112,
       cell: (c) => (
         <Badge variant="outline" className="font-mono text-[11.5px]">
           {c.getValue<string>()}
@@ -89,8 +91,8 @@ function columns(now: number): DataColumn<TopicRow>[] {
     {
       id: "bytes",
       accessorFn: (r) => r.bytes ?? -1,
-      header: "Size on disk",
-      size: 136,
+      header: wide ? "Size on disk" : "Size",
+      size: wide ? 136 : 104,
       meta: { numeric: true, mono: true },
       cell: ({ row: { original: r } }) => (r.internal ? <span className="text-muted-foreground">not a log</span> : r.bytes === null ? "unknown" : bytes(r.bytes)),
     },
@@ -98,7 +100,7 @@ function columns(now: number): DataColumn<TopicRow>[] {
       id: "last",
       accessorFn: (r) => r.last_write_ms ?? -1,
       header: "Last write",
-      size: 128,
+      size: wide ? 128 : 116,
       meta: { numeric: true, mono: true },
       cell: ({ row: { original: r } }) => (r.internal ? <span className="text-muted-foreground">none</span> : r.last_write_ms !== null && !r.empty ? <span title={dateTime(r.last_write_ms)}>{stamp(r.last_write_ms, now)}</span> : "never"),
     },
@@ -205,7 +207,8 @@ export function TopicsPage() {
   const setQ = useCallback((v: string) => setSearch({ q: v.trim() ? v : undefined }), [setSearch]);
   const [text, setText] = useDebouncedFilter(q, setQ);
   const now = r.data?.view.now_ms ?? 0;
-  const cols = useMemo(() => columns(now), [now]);
+  const wide = useMinWidth(1280);
+  const cols = useMemo(() => columns(now, wide), [now, wide]);
   const refresh = useCallback(() => void qc.invalidateQueries({ queryKey: topicKeys.all }), [qc]);
   const d = r.data;
   const shownRows = d ? d.view.rows.filter((x) => !x.internal).length : 0;

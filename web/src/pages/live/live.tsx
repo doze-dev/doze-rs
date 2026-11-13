@@ -114,7 +114,7 @@ function SearchBox({ value, onChange }: { value: string; onChange: (v: string) =
     return () => clearTimeout(t);
   }, [text, value, onChange]);
   return (
-    <div className="relative w-full max-w-[16rem] min-w-[12rem] flex-1">
+    <div className="relative w-full max-w-[18rem] min-w-[14rem] flex-1">
       <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
       <Input value={text} onChange={(e) => setText(e.target.value)} placeholder="Filter by client, API or topic" aria-label="Filter the wire" className="bg-card pl-9" maxLength={128} data-testid="live-search" />
     </div>

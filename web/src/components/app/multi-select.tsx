@@ -24,14 +24,14 @@ export function MultiSelect({ options, value, onChange, noun = "items", classNam
   const ordered = [...options.filter((o) => value.includes(o.value)), ...options.filter((o) => !value.includes(o.value))];
   return (
     <div className={cn("flex flex-col gap-2", className)} data-slot="multi-select">
-      <div className="flex min-w-0 items-center gap-1">
+      <div className="relative flex min-w-0 items-center">
         <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger asChild>
             <Button variant="outline" role="combobox" aria-expanded={open} aria-label={ariaLabel} className={cn("min-w-0 shrink justify-between bg-card font-normal", triggerClassName)}>
               <span className="truncate" data-testid="multi-summary">
                 {summary(value, options, noun)}
               </span>
-              <ChevronsUpDownIcon className="opacity-50" />
+              <ChevronsUpDownIcon className={cn("opacity-50", value.length > 0 && "invisible")} />
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-[max(var(--radix-popover-trigger-width),16rem)] max-w-[26rem] p-0" align="start">
@@ -64,11 +64,14 @@ export function MultiSelect({ options, value, onChange, noun = "items", classNam
             </Command>
           </PopoverContent>
         </Popover>
-        {/* Always there (hidden while nothing is chosen), so the trigger keeps its width: the popup is as wide as the trigger,
-            and a trigger that shrank under an open popup made WebKit report a ResizeObserver loop. */}
-        <Button variant="ghost" size="icon-sm" aria-label={`Clear ${noun}`} onClick={() => onChange([])} className={cn(value.length === 0 && "invisible")} disabled={value.length === 0} aria-hidden={value.length === 0 || undefined} tabIndex={value.length === 0 ? -1 : undefined}>
-          <XIcon />
-        </Button>
+        {/* The Clear button sits inside the trigger, over its chevron, so it takes no room beside it (no gap in a toolbar) and
+            the trigger never changes width: the popup is as wide as the trigger, and a trigger that shrank under an open popup
+            made WebKit report a ResizeObserver loop. */}
+        {value.length > 0 && (
+          <Button variant="ghost" size="icon-sm" aria-label={`Clear ${noun}`} onClick={() => onChange([])} className="absolute top-1/2 right-1 size-7 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+            <XIcon />
+          </Button>
+        )}
       </div>
       {chips && value.length > 0 && (
         <div className="flex flex-wrap gap-1.5" data-testid="multi-chips">

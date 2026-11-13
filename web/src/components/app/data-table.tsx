@@ -8,6 +8,8 @@ import { cn } from "@/lib/utils";
 export const VIRTUAL_FROM = 500;
 const ROW = 40;
 const NO_SIZE = { size: undefined };
+/** The least the column without a size keeps (px). */
+const FILL_MIN = 120;
 
 /** The width a header needs on one line (CON-808: a header never truncates): its uppercase words at about 9 px a letter (12 px,
  * medium, tracked), the cell padding, and the sort arrow's slot. A column the page sized narrower is widened to it, so a page
@@ -41,12 +43,19 @@ export function DataTable<T>({ data, columns, rowId, empty, maxHeight = 560, cla
   const padTop = virtual && items.length ? items[0]!.start : 0;
   const padBottom = virtual && items.length ? v.getTotalSize() - items[items.length - 1]!.end : 0;
   const cols = table.getVisibleLeafColumns();
+  const widths = cols.map((c) => {
+    const size = (c.columnDef as DataColumn<T>).size;
+    return size ? Math.max(size, headerWidth(c.columnDef.header, c.getCanSort())) : undefined;
+  });
+  // The column that takes the rest never collapses below its header (or FILL_MIN): past that the table scrolls in its box.
+  const fill = cols.findIndex((_, i) => widths[i] === undefined);
+  const minWidth = fill >= 0 ? widths.reduce<number>((a, w) => a + (w ?? 0), 0) + Math.max(FILL_MIN, headerWidth(cols[fill]!.columnDef.header, cols[fill]!.getCanSort())) : undefined;
   return (
     <div ref={scroller} className={cn("relative overflow-auto rounded-xl border bg-card", className)} style={{ maxHeight }} data-slot="data-table" data-virtual={virtual || undefined}>
-      <table className="w-full table-fixed border-separate border-spacing-0 text-[13.5px]" aria-label={ariaLabel} aria-rowcount={virtual ? rows.length + 1 : undefined}>
+      <table className="w-full table-fixed border-separate border-spacing-0 text-[13.5px]" style={{ minWidth }} aria-label={ariaLabel} aria-rowcount={virtual ? rows.length + 1 : undefined}>
         <colgroup>
-          {cols.map((c) => (
-            <col key={c.id} style={{ width: (c.columnDef as DataColumn<T>).size ? `${Math.max((c.columnDef as DataColumn<T>).size!, headerWidth(c.columnDef.header, c.getCanSort()))}px` : undefined }} />
+          {cols.map((c, i) => (
+            <col key={c.id} style={{ width: widths[i] !== undefined ? `${widths[i]}px` : undefined }} />
           ))}
         </colgroup>
         <thead className="sticky top-0 z-10 bg-well">

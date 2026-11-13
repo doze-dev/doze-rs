@@ -89,8 +89,8 @@ function ReadsTable({ topics }: { topics: LagTopic[] }) {
       ),
     },
     { id: "partitions", header: "Partitions", size: 116, accessorFn: (t) => t.partitions, meta: { numeric: true, mono: true } },
-    { id: "committed", header: "Committed to", size: 156, accessorFn: committedTo },
-    { id: "lag", header: "Lag", size: 220, accessorFn: (t) => t.behind, cell: ({ row: { original: t } }) => <LagBar pct={share(t.behind, most)} n={t.behind} /> },
+    { id: "committed", header: "Committed to", size: 144, accessorFn: committedTo },
+    { id: "lag", header: "Lag", size: 180, accessorFn: (t) => t.behind, cell: ({ row: { original: t } }) => <LagBar pct={share(t.behind, most)} n={t.behind} /> },
   ];
   return <DataTable data={topics} columns={cols} rowId={(t) => t.name} aria-label="Reads" empty="The group has committed on no topic yet." maxHeight={360} />;
 }
@@ -167,7 +167,7 @@ function Classic({ v, onOpen }: { v: GroupLagView; onOpen: Open }) {
         <h2 className="mb-3 text-[17px] font-semibold text-bright">Members</h2>
         <MembersTable h={h} onOpen={onOpen} />
       </section>
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_24rem]">
+      <div className="grid gap-6 min-[1400px]:grid-cols-[minmax(0,1fr)_24rem]">
         <div className="flex min-w-0 flex-col gap-8">
           <section>
             <h2 className="mb-3 text-[17px] font-semibold text-bright">Reads</h2>
@@ -231,7 +231,7 @@ function Consumer({ v, onOpen }: { v: GroupLagView; onOpen: Open }) {
         <p className="mt-1 mb-3 max-w-[52rem] text-[13.5px] text-muted-foreground">Target is what the broker wants this member to hold at the group epoch. Assigned is what it holds now. When they differ the group is Reconciling.</p>
         <DataTable data={h.members} columns={cols} rowId={(m) => m.id} aria-label="Members" empty="Nobody is in this group." maxHeight={420} />
       </section>
-      <div className="grid gap-6 xl:grid-cols-2">
+      <div className="grid gap-6 min-[1400px]:grid-cols-2">
         <Panel title="Where a group can be">
           <Rules rows={where.map(([p, w, sub]) => ({ ok: h.phase === p, here: h.phase === p, title: w, sub: h.phase === p ? `${sub} This group, now.` : sub, value: h.phase === p ? "now" : "" }))} />
         </Panel>

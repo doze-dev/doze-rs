@@ -94,8 +94,8 @@ function columns(open: (r: RecordRow) => void, wide: boolean): DataColumn<Record
         </button>
       ),
     },
-    { id: "ts", accessorKey: "timestamp_ms", header: "Timestamp", size: wide ? 132 : 118, meta: { mono: true }, cell: (c) => <span className="text-muted-foreground">{clockMs(c.getValue<number>())}</span> },
-    { id: "key", accessorFn: (r) => r.key.preview, header: "Key", size: wide ? 170 : 124, meta: { mono: true }, cell: ({ row: { original: r } }) => cellOf(r.key, "key") },
+    { id: "ts", accessorKey: "timestamp_ms", header: "Timestamp", size: wide ? 132 : 112, meta: { mono: true }, cell: (c) => <span className="text-muted-foreground">{clockMs(c.getValue<number>())}</span> },
+    { id: "key", accessorFn: (r) => r.key.preview, header: "Key", size: wide ? 170 : 104, meta: { mono: true }, cell: ({ row: { original: r } }) => cellOf(r.key, "key") },
     {
       id: "value",
       accessorFn: (r) => r.value.preview,
@@ -107,8 +107,9 @@ function columns(open: (r: RecordRow) => void, wide: boolean): DataColumn<Record
     {
       id: "standing",
       accessorFn: (r) => r.standing,
-      header: wide ? "For read_committed" : "read_committed",
-      size: wide ? 168 : 132,
+      // The narrow header is one short word: a header is never cut (the tooltip of each cell says what it means).
+      header: wide ? "For read_committed" : "Status",
+      size: wide ? 168 : 124,
       cell: ({ row: { original: r } }) => <StatusDot tone={STANDING[r.standing].tone}>{STANDING[r.standing].word}</StatusDot>,
     },
   ];
@@ -295,7 +296,7 @@ function FilterLine({ search, set, tailable, conn, refresh }: { search: Messages
           </>
         )}
       </div>
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center justify-end gap-3">
         <Tooltip>
           <TooltipTrigger asChild>
             <span tabIndex={tailable ? -1 : 0}>

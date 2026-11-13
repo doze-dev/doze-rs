@@ -22,9 +22,9 @@ const TONE: Record<string, string> = { ok: "text-good", warn: "text-warn", bad: 
  * narrower (1024 px). The target takes the rest; a client, an API or a result is cut only in the narrowest. */
 export type Fit = "wide" | "mid" | "narrow";
 const WIDTHS: Record<Fit, { time: number; client: number; api: number; result: number; took: number }> = {
-  wide: { time: 128, client: 168, api: 196, result: 300, took: 84 },
-  mid: { time: 120, client: 150, api: 184, result: 196, took: 80 },
-  narrow: { time: 118, client: 112, api: 140, result: 124, took: 72 },
+  wide: { time: 128, client: 168, api: 196, result: 292, took: 96 },
+  mid: { time: 120, client: 150, api: 184, result: 186, took: 92 },
+  narrow: { time: 118, client: 108, api: 132, result: 118, took: 84 },
 };
 
 function FilterButton({ onClick, title, className, children }: { onClick?: () => void; title: string; className?: string; children: React.ReactNode }) {
@@ -92,7 +92,9 @@ export function ResultCell({ r }: { r: WireRow }) {
 /** The columns of a layout at a width. */
 export function tapeColumns(layout: Layout, fit: Fit, filter?: FilterBy): DataColumn<TapeRow>[] {
   const w = WIDTHS[fit];
-  const target = layout === "topic" ? "Topic and partition" : layout === "group" ? "What it touched" : "Target";
+  // In the narrowest fit the target header is one word, so it is never cut.
+  const narrow = fit === "narrow";
+  const target = layout === "topic" ? (narrow ? "Partition" : "Topic and partition") : layout === "group" ? (narrow ? "Touched" : "What it touched") : "Target";
   const api = layout === "group" ? "Request" : "API";
   const f = layout === "live" ? filter : undefined;
   const cols: DataColumn<TapeRow>[] = [
