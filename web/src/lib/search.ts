@@ -46,3 +46,31 @@ export type ConfigSearch = { q?: string; show?: "changed" | "compaction" | "segm
 export function configSearch(s: Record<string, unknown>): ConfigSearch {
   return { q: shortText(s.q, 120), show: oneOf(["changed", "compaction", "segments"] as const, s.show), edit: shortText(s.edit, 120), reset: shortText(s.reset, 120) };
 }
+
+// Slice R4: Settings, Access, Lab. Each overlay is a search param (Back closes it; a deep link opens it).
+export const DYNAMIC_KEYS = ["log.segment.bytes", "log.index.interval.bytes", "message.max.bytes", "log.retention.bytes", "log.retention.ms"] as const;
+export type SettingsSearch = { edit?: (typeof DYNAMIC_KEYS)[number]; scope?: "this" };
+export function settingsSearch(s: Record<string, unknown>): SettingsSearch {
+  return { edit: oneOf(DYNAMIC_KEYS, s.edit), scope: oneOf(["this"] as const, s.scope) };
+}
+
+export type AccessSearch = { acl?: "new"; delete?: string; q?: string; kind?: string; perm?: "allow" | "deny"; state?: "secured" };
+export function accessSearch(s: Record<string, unknown>): AccessSearch {
+  return {
+    acl: oneOf(["new"] as const, s.acl),
+    delete: shortText(s.delete, 1200),
+    q: shortText(s.q, 249),
+    kind: oneOf(["topic", "group", "cluster", "transactional-id", "delegation-token", "user"] as const, s.kind),
+    perm: oneOf(["allow", "deny"] as const, s.perm),
+    state: oneOf(["secured"] as const, s.state),
+  };
+}
+
+export const LAB_TABS = ["slow", "fail", "drop", "expire", "rebalance", "compact"] as const;
+export type LabTab = (typeof LAB_TABS)[number];
+// Rule numbers are numbers in the address (`?rule=12`): a string that looks like a number would be written as JSON (`"12"`).
+export type LabSearch = { new?: LabTab; rule?: number; remove?: number };
+export function labSearch(s: Record<string, unknown>): LabSearch {
+  const id = (raw: unknown) => ((typeof raw === "string" || typeof raw === "number") && /^\d{1,9}$/.test(String(raw)) ? Number(raw) : undefined);
+  return { new: oneOf(LAB_TABS, s.new), rule: id(s.rule), remove: id(s.remove) };
+}

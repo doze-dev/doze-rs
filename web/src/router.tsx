@@ -6,11 +6,11 @@ import { CommandPalette } from "@/components/app/command-palette";
 import { TopBar } from "@/components/app/top-bar";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { ConnectPage } from "@/pages/connect";
-import { configSearch, connectSearch, createSearch, gallerySearch } from "@/lib/search";
+import { accessSearch, configSearch, connectSearch, createSearch, gallerySearch, labSearch, settingsSearch } from "@/lib/search";
 import { messagesSearch, partitionSearch, topicSearch, topicsSearch } from "@/lib/topic-search";
 import { HomePage } from "@/pages/home";
 import { liveSearch } from "@/pages/live/search";
-import { NotFoundPage, PlannedPage } from "@/pages/planned";
+import { NotFoundPage } from "@/pages/planned";
 import { groupSearch, groupsSearch, lagSearch, membersSearch, storySearch } from "@/pages/groups/search";
 
 function Shell() {
@@ -54,9 +54,6 @@ const gallery = createRoute({ getParentRoute: () => root, path: "/gallery", vali
 const live = createRoute({ getParentRoute: () => root, path: "/live", validateSearch: liveSearch, component: lazyRouteComponent(() => import("@/pages/live/live"), "LivePage") });
 const firstRequest = createRoute({ getParentRoute: () => root, path: "/connect/first-request", component: lazyRouteComponent(() => import("@/pages/live/first-request"), "FirstRequestPage") });
 
-const planned = <const P extends string>(path: P, title: string, slice: string) =>
-  createRoute({ getParentRoute: () => root, path, component: () => <PlannedPage title={title} slice={slice} classicPath={path} /> });
-
 // R1a: the Topics pages, one lazily loaded chunk (pages/topics/pages.ts). The frame is a layout route; each tab is a child.
 const topicsPage = (name: keyof typeof import("@/pages/topics/pages")) => lazyRouteComponent(() => import("@/pages/topics/pages"), name);
 const topics = createRoute({ getParentRoute: () => root, path: "/topics", validateSearch: topicsSearch, component: topicsPage("TopicsPage") });
@@ -83,6 +80,11 @@ const groupTabs = [
   createRoute({ getParentRoute: () => group, path: "wire", component: lazyRouteComponent(() => import("@/pages/groups/wire"), "GroupWirePage") }),
 ] as const;
 
+// Slice R4: Settings, Access, the Lab: each its own chunk, fetched when first opened.
+const settings = createRoute({ getParentRoute: () => root, path: "/settings", validateSearch: settingsSearch, component: lazyRouteComponent(() => import("@/pages/settings"), "SettingsPage") });
+const access = createRoute({ getParentRoute: () => root, path: "/access", validateSearch: accessSearch, component: lazyRouteComponent(() => import("@/pages/access"), "AccessPage") });
+const lab = createRoute({ getParentRoute: () => root, path: "/lab", validateSearch: labSearch, component: lazyRouteComponent(() => import("@/pages/lab"), "LabPage") });
+
 const tree = root.addChildren([
   home,
   connect,
@@ -94,9 +96,9 @@ const tree = root.addChildren([
   topicTree,
   groups,
   group.addChildren(groupTabs),
-  planned("/access", "Access", "R4"),
-  planned("/lab", "Lab", "R4"),
-  planned("/settings", "Settings", "R4"),
+  access,
+  lab,
+  settings,
 ]);
 
 export const router = createRouter({

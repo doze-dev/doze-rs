@@ -6,14 +6,18 @@
 use super::{Lines, Refusal, Span};
 
 /// How an ACL's resource is named: the codes of Kafka's `ResourcePattern`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, serde::Serialize, Copy, PartialEq, Eq)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "snake_case")]
 pub enum AclPattern {
     Literal,
     Prefixed,
 }
 
 /// Whether an ACL allows or denies.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, serde::Serialize, Copy, PartialEq, Eq)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "snake_case")]
 pub enum AclPermission {
     Allow,
     Deny,
@@ -21,7 +25,8 @@ pub enum AclPermission {
 
 /// One ACL as DescribeAcls says it: the wire numbers for the type and the operation, which are listed by
 /// `acl_words`, and the rest as text.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, serde::Serialize, PartialEq, Eq)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct AclEntry {
     /// Kafka's resource type number (2 topic, 3 group, 4 cluster, 5 transactional id, 6 delegation token, 7 user).
     pub kind: i8,
@@ -37,7 +42,9 @@ pub struct AclEntry {
 }
 
 /// Where a user came from.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, serde::Serialize, Copy, PartialEq, Eq)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "snake_case")]
 pub enum AccessFrom {
     /// The flags, a users file or the environment: re-applied at every start and not changeable over the API.
     Flags,
@@ -46,7 +53,8 @@ pub enum AccessFrom {
 }
 
 /// One user, by name.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, serde::Serialize, PartialEq, Eq)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct AccessUser {
     pub name: String,
     pub from: AccessFrom,
@@ -60,7 +68,8 @@ pub struct AccessUser {
 }
 
 /// What each switch of Authentication says.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, serde::Serialize, PartialEq, Eq)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct AccessAuth {
     pub on: bool,
     pub mechanisms: Vec<String>,
@@ -73,7 +82,8 @@ pub struct AccessAuth {
 }
 
 /// What the authorizer holds.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, serde::Serialize, PartialEq, Eq)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct AccessAuthz {
     pub default_allow: bool,
     pub acls: usize,
@@ -83,7 +93,8 @@ pub struct AccessAuthz {
 }
 
 /// Encryption of the Kafka listener.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, serde::Serialize, PartialEq, Eq)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct AccessTls {
     pub on: bool,
     /// The certificate's file, where the flags are known. The key's file and contents are never said.
@@ -93,7 +104,8 @@ pub struct AccessTls {
 }
 
 /// What the console is, and what protects it.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, serde::Serialize, PartialEq, Eq)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct AccessConsole {
     pub principal: String,
     pub listens: String,
@@ -103,7 +115,8 @@ pub struct AccessConsole {
 }
 
 /// One of the three start-up warnings and whether its condition holds now.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, serde::Serialize, PartialEq, Eq)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct AccessWarning {
     pub title: Vec<Span>,
     pub because: Vec<Span>,
@@ -111,17 +124,21 @@ pub struct AccessWarning {
 }
 
 /// The ACL table, or why it is not there.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, serde::Serialize, PartialEq, Eq)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct AccessAcls {
     pub rows: Vec<AclEntry>,
     /// ACLs the broker has beyond what the table lists.
     pub more: usize,
     /// DescribeAcls was refused (a caller that is not the console, on a broker with ACLs).
+    #[serde(serialize_with = "crate::api::settings::refusal_opt")]
+    #[cfg_attr(test, ts(as = "Option<crate::api::settings::KafkaRefusal>"))]
     pub refused: Option<Refusal>,
 }
 
 /// The page.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, serde::Serialize, PartialEq, Eq)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct AccessView {
     /// `127.0.0.1:9092`.
     pub listen: String,
@@ -135,7 +152,8 @@ pub struct AccessView {
 }
 
 /// What the Create ACL form carries, as words (anything else reads as the first of its kind).
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, serde::Serialize, PartialEq, Eq)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct AclInput {
     pub kind: String,
     pub name: String,
@@ -147,11 +165,14 @@ pub struct AclInput {
 }
 
 /// The Create ACL dialog, with what was typed, and what Kafka said if it said no.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, serde::Serialize, PartialEq, Eq)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct AclCreateView {
     pub input: AclInput,
     /// A field that is missing, by name and in words.
     pub error: Option<(String, String)>,
+    #[serde(serialize_with = "crate::api::settings::refusal_opt")]
+    #[cfg_attr(test, ts(as = "Option<crate::api::settings::KafkaRefusal>"))]
     pub refused: Option<Refusal>,
     pub call: Lines,
     /// The words of the kind, for the teaching line (`topic`).
@@ -159,7 +180,8 @@ pub struct AclCreateView {
 }
 
 /// The Delete ACL dialog.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, serde::Serialize, PartialEq, Eq)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct AclDeleteView {
     pub entry: AclEntry,
     /// What the broker would decide for this principal afterwards, by Kafka's own rules.
@@ -167,6 +189,8 @@ pub struct AclDeleteView {
     pub call: Lines,
     /// The ACL is no longer there (a second tab, a tool): nothing to delete.
     pub gone: bool,
+    #[serde(serialize_with = "crate::api::settings::refusal_opt")]
+    #[cfg_attr(test, ts(as = "Option<crate::api::settings::KafkaRefusal>"))]
     pub refused: Option<Refusal>,
 }
 

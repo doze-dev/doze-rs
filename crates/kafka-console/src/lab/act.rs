@@ -17,6 +17,21 @@ use crate::model::lab::{
 pub struct Choices {
     pub topics: Vec<LabChoice>,
     pub clients: Vec<String>,
+    pub groups: Vec<String>,
+}
+
+/// The APIs a rule of `kind` may name: every one the Lab can fail for a Fail rule (the engine's own list), the same list for the
+/// others (a delay or a drop needs no made-up answer, but these are the requests an app's behaviour hangs on).
+#[must_use]
+pub fn api_choices() -> Vec<LabChoice> {
+    kafka_server::fault::FAILABLE
+        .iter()
+        .map(|k| LabChoice {
+            value: crate::recorder::names::api(*k).to_owned(),
+            label: crate::recorder::names::api(*k).to_owned(),
+            desc: None,
+        })
+        .collect()
 }
 
 /// The form of a rule for `fields`; with `check`, or when the fields make a rule, the preview of what it would do.
@@ -40,6 +55,32 @@ pub fn form_view(kind: LabKind, fields: LabFields, choices: Choices, check: bool
         errors,
         topics: choices.topics,
         clients: choices.clients,
+        groups: choices.groups,
+        apis: api_choices(),
+        codes: super::words::CODES
+            .iter()
+            .map(|(c, d)| LabChoice {
+                value: c.to_string(),
+                label: crate::recorder::errors::name(*c),
+                desc: Some((*d).to_owned()),
+            })
+            .collect(),
+        shares: super::words::SHARES
+            .iter()
+            .map(|(v, l)| LabChoice {
+                value: (*v).to_owned(),
+                label: (*l).to_owned(),
+                desc: None,
+            })
+            .collect(),
+        ends: super::words::ENDS
+            .iter()
+            .map(|(m, l)| LabChoice {
+                value: m.to_string(),
+                label: (*l).to_owned(),
+                desc: None,
+            })
+            .collect(),
         topic_note,
         preview,
         refused: None,

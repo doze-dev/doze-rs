@@ -16,6 +16,99 @@ use crate::model::{
     ProbeView, Rule, Span, SpokeView, StopView, Tok, Verdict,
 };
 
+/// The types of slice R4 (Settings, Access, Lab).
+fn r4(cfg: &Config, out: &mut BTreeMap<String, String>) {
+    use super::settings::{KafkaRefusal, SettingsOutcome, SettingsResponse};
+    use crate::model::{
+        SettingsApi, SettingsChecked, SettingsConfigRow, SettingsConfigs, SettingsData,
+        SettingsEditView, SettingsFlag, SettingsHead, SettingsInterval, SettingsIntervals,
+        SettingsLine, SettingsProfile, SettingsRefused, SettingsRound, SettingsSaved,
+        SettingsScope, SettingsSpeaks, SettingsTeach, SettingsView, SettingsWeight,
+    };
+    one::<KafkaRefusal>(cfg, out);
+    one::<SettingsResponse>(cfg, out);
+    one::<SettingsOutcome>(cfg, out);
+    one::<SettingsView>(cfg, out);
+    one::<SettingsHead>(cfg, out);
+    one::<SettingsConfigs>(cfg, out);
+    one::<SettingsConfigRow>(cfg, out);
+    one::<SettingsProfile>(cfg, out);
+    one::<SettingsApi>(cfg, out);
+    one::<SettingsSpeaks>(cfg, out);
+    one::<SettingsIntervals>(cfg, out);
+    one::<SettingsInterval>(cfg, out);
+    one::<SettingsRound>(cfg, out);
+    one::<SettingsWeight>(cfg, out);
+    one::<SettingsData>(cfg, out);
+    one::<SettingsFlag>(cfg, out);
+    one::<SettingsEditView>(cfg, out);
+    one::<SettingsScope>(cfg, out);
+    one::<SettingsTeach>(cfg, out);
+    one::<SettingsLine>(cfg, out);
+    one::<SettingsChecked>(cfg, out);
+    one::<SettingsSaved>(cfg, out);
+    one::<SettingsRefused>(cfg, out);
+    r4_access(cfg, out);
+    r4_lab(cfg, out);
+}
+
+fn r4_access(cfg: &Config, out: &mut BTreeMap<String, String>) {
+    use super::access::{AccessResponse, AclChoice, AclCreateOutcome, AclDeleteOutcome};
+    use crate::model::{
+        AccessAcls, AccessAuth, AccessAuthz, AccessConsole, AccessFrom, AccessTls, AccessUser,
+        AccessView, AccessWarning, AclCreateView, AclDeleteView, AclEntry, AclInput, AclPattern,
+        AclPermission,
+    };
+    one::<AccessResponse>(cfg, out);
+    one::<AclChoice>(cfg, out);
+    one::<AccessView>(cfg, out);
+    one::<AccessAuth>(cfg, out);
+    one::<AccessAuthz>(cfg, out);
+    one::<AccessTls>(cfg, out);
+    one::<AccessUser>(cfg, out);
+    one::<AccessFrom>(cfg, out);
+    one::<AccessAcls>(cfg, out);
+    one::<AccessConsole>(cfg, out);
+    one::<AccessWarning>(cfg, out);
+    one::<AclEntry>(cfg, out);
+    one::<AclPattern>(cfg, out);
+    one::<AclPermission>(cfg, out);
+    one::<AclInput>(cfg, out);
+    one::<AclCreateView>(cfg, out);
+    one::<AclDeleteView>(cfg, out);
+    one::<AclCreateOutcome>(cfg, out);
+    one::<AclDeleteOutcome>(cfg, out);
+}
+
+fn r4_lab(cfg: &Config, out: &mut BTreeMap<String, String>) {
+    use super::lab::{
+        LabCompactOutcome, LabHit, LabMadeOutcome, LabOnceOutcome, LabResponse, LabRuleResponse,
+    };
+    use crate::model::lab::{
+        LabChoice, LabCompact, LabEnd, LabFields, LabFirst, LabForm, LabHome, LabKind, LabOnce,
+        LabOnceForm, LabOnceKind, LabPreview, LabRule,
+    };
+    one::<LabResponse>(cfg, out);
+    one::<LabHome>(cfg, out);
+    one::<LabRule>(cfg, out);
+    one::<LabKind>(cfg, out);
+    one::<LabEnd>(cfg, out);
+    one::<LabFirst>(cfg, out);
+    one::<LabOnce>(cfg, out);
+    one::<LabOnceKind>(cfg, out);
+    one::<LabRuleResponse>(cfg, out);
+    one::<LabHit>(cfg, out);
+    one::<LabForm>(cfg, out);
+    one::<LabFields>(cfg, out);
+    one::<LabChoice>(cfg, out);
+    one::<LabPreview>(cfg, out);
+    one::<LabMadeOutcome>(cfg, out);
+    one::<LabOnceForm>(cfg, out);
+    one::<LabOnceOutcome>(cfg, out);
+    one::<LabCompact>(cfg, out);
+    one::<LabCompactOutcome>(cfg, out);
+}
+
 fn dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../web/src/api/types")
 }
@@ -61,6 +154,7 @@ fn all() -> BTreeMap<String, String> {
     groups(&cfg, &mut out);
     live_types(&cfg, &mut out);
     super::topics::types::all(&cfg, &mut out);
+    r4(&cfg, &mut out);
     out
 }
 

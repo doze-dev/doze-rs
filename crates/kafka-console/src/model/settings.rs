@@ -5,7 +5,8 @@
 use super::{ConfigSource, Lines, Refusal, Span, StopView};
 
 /// The page's title block: how many of the five are set and how long the broker has run.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, serde::Serialize, PartialEq, Eq)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct SettingsHead {
     /// How many of the five dynamic configs are set at run time.
     pub set: usize,
@@ -18,7 +19,8 @@ pub struct SettingsHead {
 }
 
 /// One of the five dynamic broker configs as DescribeConfigs says it for this broker.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, serde::Serialize, PartialEq, Eq)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct SettingsConfigRow {
     pub name: String,
     /// What it is for, in a few words.
@@ -27,6 +29,8 @@ pub struct SettingsConfigRow {
     pub value: String,
     /// The value in words (`128 MiB`, `no limit`), where there is one.
     pub gloss: Option<String>,
+    #[serde(serialize_with = "crate::api::settings::source_word")]
+    #[cfg_attr(test, ts(type = "string"))]
     pub source: ConfigSource,
     /// Where the source comes from: the flag, Kafka's default, or the scope a dynamic value was set for.
     pub source_note: String,
@@ -35,7 +39,8 @@ pub struct SettingsConfigRow {
 }
 
 /// The dynamic configs, and the id of the broker they are read for.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, serde::Serialize, PartialEq, Eq)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct SettingsConfigs {
     pub rows: Vec<SettingsConfigRow>,
     /// The only broker's id: a value set for "this broker" goes under it.
@@ -43,7 +48,8 @@ pub struct SettingsConfigs {
 }
 
 /// An API the broker offers: its name, its versions and the family it is listed under.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, serde::Serialize, PartialEq, Eq)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct SettingsApi {
     pub name: String,
     /// `v3 to v9`, `v0 only`.
@@ -52,7 +58,8 @@ pub struct SettingsApi {
 }
 
 /// What ApiVersions answers: the Kafka the broker stands for and the APIs a client is offered.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, serde::Serialize, PartialEq, Eq)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct SettingsProfile {
     pub major: u8,
     /// Every API offered now, by family and key.
@@ -68,7 +75,8 @@ pub struct SettingsProfile {
 }
 
 /// A client the tape heard use an API, and the version of its newest request of that API.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, serde::Serialize, PartialEq, Eq)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct SettingsHeard {
     pub client: String,
     pub api: &'static str,
@@ -76,7 +84,8 @@ pub struct SettingsHeard {
 }
 
 /// A client the recorder heard use an API, with the version it used.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, serde::Serialize, PartialEq, Eq)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct SettingsSpeaks {
     pub client: String,
     pub api: &'static str,
@@ -86,7 +95,8 @@ pub struct SettingsSpeaks {
 }
 
 /// The cleaner's last round, as the Intervals line says it.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, serde::Serialize, PartialEq, Eq)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct SettingsRound {
     pub topic: String,
     pub partition: i32,
@@ -97,7 +107,8 @@ pub struct SettingsRound {
 }
 
 /// One interval: what it is, its value, its flag and default.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, serde::Serialize, PartialEq, Eq)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct SettingsInterval {
     pub name: &'static str,
     pub what: &'static str,
@@ -108,7 +119,8 @@ pub struct SettingsInterval {
 }
 
 /// How often the broker looks at things on its own.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, serde::Serialize, PartialEq, Eq)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct SettingsIntervals {
     pub rows: Vec<SettingsInterval>,
     /// How often open transactions are looked at (no flag sets it).
@@ -121,7 +133,8 @@ pub struct SettingsIntervals {
 }
 
 /// What this instance costs the machine, as the process can read it.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, serde::Serialize, PartialEq, Eq)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct SettingsWeight {
     pub open_partitions: usize,
     /// The most partitions kept open at once (the flag, lowered to what the file-descriptor limit leaves).
@@ -131,7 +144,11 @@ pub struct SettingsWeight {
     /// Descriptors open in the process (partitions, segments, indexes and sockets).
     pub open_files: Option<usize>,
     /// Resident memory in bytes (Linux only).
+    #[serde(skip)]
+    #[cfg_attr(test, ts(skip))]
     pub resident: Option<u64>,
+    #[serde(skip)]
+    #[cfg_attr(test, ts(skip))]
     pub threads: Option<u32>,
     /// The size of the running program, in bytes.
     pub binary: Option<u64>,
@@ -140,7 +157,8 @@ pub struct SettingsWeight {
 }
 
 /// The data directory.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, serde::Serialize, PartialEq, Eq)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct SettingsData {
     pub dir: String,
     /// Bytes of every file in it; `cut` is true when the walk stopped early and the size is at least this.
@@ -154,7 +172,8 @@ pub struct SettingsData {
 }
 
 /// One flag: its value, its default, whether the operator gave it, and what it does.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, serde::Serialize, PartialEq, Eq)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct SettingsFlag {
     /// `--segment-bytes`.
     pub name: String,
@@ -180,7 +199,8 @@ impl SettingsFlag {
 }
 
 /// The page.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, serde::Serialize, PartialEq, Eq)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct SettingsView {
     pub head: SettingsHead,
     pub configs: SettingsConfigs,
@@ -192,7 +212,9 @@ pub struct SettingsView {
 }
 
 /// Which brokers a dynamic value is set for.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, serde::Serialize, Copy, PartialEq, Eq, Default)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "snake_case")]
 pub enum SettingsScope {
     #[default]
     All,
@@ -221,14 +243,16 @@ impl SettingsScope {
 }
 
 /// One line of teaching: what it says, and the dim sentence after it.
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, serde::Serialize, PartialEq, Eq, Default)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct SettingsLine {
     pub text: Vec<Span>,
     pub dim: String,
 }
 
 /// The teaching under the new-value field, line by line.
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, serde::Serialize, PartialEq, Eq, Default)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct SettingsTeach {
     pub now: SettingsLine,
     pub allowed: SettingsLine,
@@ -237,14 +261,16 @@ pub struct SettingsTeach {
 }
 
 /// What a dry run (`validate_only`) said.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, serde::Serialize, PartialEq, Eq)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct SettingsChecked {
     pub before: String,
     pub after: String,
 }
 
 /// The edit dialog: one of the five, what was typed, and what is known about it.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, serde::Serialize, PartialEq, Eq)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct SettingsEditView {
     pub key: String,
     pub what: String,
@@ -262,7 +288,8 @@ pub struct SettingsEditView {
 }
 
 /// A saved change, and the page around it.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, serde::Serialize, PartialEq, Eq)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct SettingsSaved {
     pub key: String,
     pub scope: SettingsScope,
@@ -277,9 +304,12 @@ pub struct SettingsSaved {
 }
 
 /// A refused change: Kafka's words, and what would pass.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, serde::Serialize, PartialEq, Eq)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct SettingsRefused {
     pub key: String,
+    #[serde(serialize_with = "crate::api::settings::refusal")]
+    #[cfg_attr(test, ts(as = "crate::api::settings::KafkaRefusal"))]
     pub refusal: Refusal,
     /// The rule that was broken, in the console's words.
     pub rule: Vec<Span>,

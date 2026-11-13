@@ -267,3 +267,35 @@ report of the slice. Rust: `tests/live_api_writes.rs`, `live_api_config.rs` over
 the Produced state is in the dialog, not the board's page with the topic's table (the Messages page under the dialog refetches);
 the created state replaces the form on `/topics/new` rather than a page of its own address; the board's cleaner verdict ("61 % of
 the log is dirty") the broker cannot supply (debt J121, as the classic page).
+## R4 done (2026-11-13, branch `react-r4`): Settings, Access, the Lab
+
+**API** (`crates/kafka-console/src/api/{settings,access,lab}.rs`, CON-1300 to CON-1331): the view-models of `model/{settings,access,lab}.rs`
+serialised (memory and thread counts never; `Refusal` and `ConfigSource`, shared with other pages, through `serialize_with`, so their files
+are untouched); every write through the classic console's own path, answering a tagged outcome (`saved | refused | checked | invalid |
+switched`, `created | invalid | refused`, `made | invalid | checked`, ...) in Kafka's or the engine's words. The Lab's rule form now takes
+several APIs (the engine's failable list), topics, partitions and a group, and sends its codes, shares and lifetimes (`lab/form.rs`,
+`lab/act.rs`). Contract tests: `crates/kafka-console/tests/console_r4.rs` (fixtures, and a real broker with the fault table for the Lab).
+
+**Pages** (`web/src/pages/{settings,access,lab}`, each its own lazily loaded chunk): Settings with its Edit dialog (`?edit=&scope=`);
+Access with Create ACL (`?acl=new`) and Delete ACL (`?delete=`) and ACL filters in the address; the Lab with its states by data, the New
+rehearsal dialog (`?new=slow|fail|drop|expire|rebalance|compact`), the rule's sheet (`?rule=`) and Remove (`?remove=`). For the other
+slices: `LabRuleBadge` (`pages/lab/badge.tsx`, R3's Live drawer) and `CompactNowDialog` (`pages/lab/compact-now.tsx`, R1a's Log tab).
+
+**What the browser gate and the screenshots found**: the router wrote a numeric string id as JSON (`?rule=%221%22`), so rule numbers are
+numbers; the focus could not go back to the opener while the page was still `inert`, and a table that re-made its columns on each render
+drew its buttons again (the opener was gone): columns are made once with stable callbacks and the focus is restored after the overlay's
+clean-up; a centred dialog moved as its content grew (now anchored at the top); WebKit reported a ResizeObserver loop when the shared
+MultiSelect's trigger shrank under its open popup as the Clear button appeared (the button is now always there, hidden while empty: a
+one-line change to `components/app/multi-select.tsx`); at 1024 the three switch cards of Access squeezed the listener address into a
+column of characters (they stack below 1280) and the Lab's rule table ran past its box (Share folded into Applies to).
+
+**The gate, last run** (Playwright 1.65.0, `workers: 1`, release binary): 43 scenarios per browser (R0's 29 and R4's 14), **129/129**
+against the seeded world and **129/129** with `E2E_URL` against a broker with the demo workload (Firefox, WebKit, Chromium each 43/43);
+after a last text-only change the Settings spec again 15/15 in the three browsers. Rust: `cargo test -p kafka-console -p doze-kafka`
+893 passed; fmt, clippy `-D warnings` (default and `--no-default-features`), lint-size (0 over hard), the console catalogue green.
+Weight (darwin): 6,311,072 B, 160 packages (limit 161), 7.2 MB idle: ok. Screenshots: scratchpad `r4shots/` (Settings, the Edit dialog,
+Access, Create ACL, the Lab, a rule's sheet, New rehearsal on Slow and Expire; Firefox and WebKit at 1440 and 1024).
+
+**Left for later.** The weight's package count is a build-time figure the binary cannot read, so Settings shows the binary's size and
+the open partitions but not the packages. The client and group fields of a rule choose from the apps and groups there are; a glob
+(`orders-*`) is taken by the engine but the form has no free-text entry for it yet.

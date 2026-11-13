@@ -95,6 +95,7 @@ pub fn home(lab: &Lab) -> LabHome {
         once: lab.once().into_iter().filter(|o| recent(o.at_ms)).collect(),
         most_rules: MOST_RULES,
         compact_target: None,
+        compacted: Vec::new(),
     }
 }
 
